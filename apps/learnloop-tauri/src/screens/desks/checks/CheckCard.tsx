@@ -18,18 +18,18 @@ export function CheckMarker({ checks, desk, onCheckNow }: { checks: DueCheck[]; 
   if (desk.deferred(check.commitmentId)) {
     return (
       <div className="ck-later" data-check-marker={check.commitmentId} data-check-folded="">
-        <span className="g">◇</span> a check is due before this page{" "}
-        <button type="button" className="lnk" disabled={held} title={held ? "another check is open" : undefined} onClick={() => onCheckNow(check.commitmentId)}>check now</button>
+        <span className="g">◇</span> a cold check is due before this page{" "}
+        <button type="button" className="lnk" disabled={held} title={held ? "another cold check is open" : undefined} onClick={() => onCheckNow(check.commitmentId)}>check now</button>
       </div>
     );
   }
   return (
     <div className="callout gq ck-closed" data-check-marker={check.commitmentId}>
-      <span className="lab">◇ a check is due before this page · on your own</span>
+      <span className="lab">◇ a cold check is due before this page · on your own</span>
       <div className="gqr">
         <span className="faint">whatever states the answer is veiled in place while you answer, then comes back</span>
         <button type="button" className="act" onClick={() => desk.defer(check.commitmentId)}>later</button>
-        <button type="button" className="act pri" disabled={held} title={held ? "another check is open" : undefined} onClick={() => onCheckNow(check.commitmentId)}>check now</button>
+        <button type="button" className="act pri" disabled={held} title={held ? "another cold check is open" : undefined} onClick={() => onCheckNow(check.commitmentId)}>check now</button>
       </div>
       {held && desk.open()?.card.commitmentId !== check.commitmentId ? <div className="ck-note">another check is open · answer it or say not now first</div> : null}
     </div>
@@ -76,7 +76,7 @@ export function CheckCardInline({ desk }: { desk: CheckDesk }) {
     const cold = Boolean(open.reply?.cold);
     return (
       <div className="callout gq done" data-check-card="inline" data-check-phase="answered">
-        <span className="lab">◇ a check on your own</span>
+        <span className="lab">◇ a cold check</span>
         <div className="gqq"><FitMath><MarkdownMath value={question(open)} /></FitMath></div>
         <div className="gqy"><span className="who">{answeredHead(cold)}</span>{open.answer}</div>
         <ReasonLine open={open} />
@@ -88,7 +88,7 @@ export function CheckCardInline({ desk }: { desk: CheckDesk }) {
   }
   return (
     <div className="callout gq open" data-check-card="inline" data-check-phase={open.phase}>
-      <span className="lab">◇ a check on your own · now</span>
+      <span className="lab">◇ a cold check · now</span>
       <div className="gqq"><FitMath><MarkdownMath value={question(open)} /></FitMath></div>
       <textarea className="gqa" aria-label="your answer" spellCheck={false} value={open.answer} disabled={open.phase !== "open"}
         onChange={(event) => desk.setAnswer(event.target.value)} onKeyDown={answerKeys(desk)} autoFocus />
@@ -112,8 +112,8 @@ export function CheckCardOverlay({ desk }: { desk: CheckDesk }) {
   const veiled = open.veiled;
   const looked = lookedLine(open.looked, open.coldNow);
   return (
-    <div className="ovl coldcheck" role="dialog" aria-label="a check on your own" data-check-card="overlay" data-check-phase={open.phase}>
-      <div className="cch"><span>◇ LearnLoop</span><span className="grow" /><span>{open.phase === "answered" ? "a check on your own · answered" : "a check on your own"}</span></div>
+    <div className="ovl coldcheck" role="dialog" aria-label="a cold check" data-check-card="overlay" data-check-phase={open.phase}>
+      <div className="cch"><span>◇ LearnLoop</span><span className="grow" /><span>{open.phase === "answered" ? "a cold check · answered" : "a cold check"}</span></div>
       <div className="ccq"><FitMath><MarkdownMath value={question(open)} /></FitMath></div>
       <div className="cca">
         {open.phase === "answered" ? (

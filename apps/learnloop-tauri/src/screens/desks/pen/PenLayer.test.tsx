@@ -255,7 +255,7 @@ describe("the pen layer", () => {
     expect(document.getSelection()?.toString()).toContain("brown");
     expect(api.readerCapture).not.toHaveBeenCalled();
     expect(host.saveInk).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByText("ask the tutor · c"));
+    fireEvent.click(screen.getByText("ask in the companion · c"));
     expect(host.askCompanion).toHaveBeenCalled();
   });
 

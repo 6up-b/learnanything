@@ -11,7 +11,7 @@ import { LiveMarkdownEditor } from "../../../render/LiveMarkdownEditor";
 import { FitMath } from "../fitMath";
 import { useHubListener, useScopeClaim, useWindowPaused } from "../lifecycle";
 import { dayHeading, usePadsHost, type PadStackHandle, type PadsHost } from "./host";
-import { EDITABLE_KINDS, firstLine, isLearnersWords, keyAfter, type PadState, plainLine } from "./model";
+import { EDITABLE_KINDS, firstLine, isLearnersWords, keyAfter, padName, type PadState, plainLine } from "./model";
 import { PadMenu, ArrangeOverlay, SubmitSheet, type MenuRequest } from "./PadOverlays";
 import { SketchCanvas } from "./SketchCanvas";
 import { InkBlock, InkJot } from "../pen/InkLine";
@@ -453,7 +453,7 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
       const padId = host.mintId("pad");
       // In pen mode a new pad is a handwritten one (spec §10.10, "Freewrite pads").
       const byHand = Boolean(pen?.on);
-      const name = byHand ? "Scratchpad · ✎ by hand" : `Scratchpad · ${title ? `“${title.slice(0, 40)}”` : "new notes"}`;
+      const name = byHand ? "Pad · ✎ by hand" : `Pad · ${title ? `“${title.slice(0, 40)}”` : "new notes"}`;
       if (!write(padId, [{ op: "create_pad", kind: byHand ? "ink" : "named", title: name, homeDeskId: host.deskId }])) return;
       host.addToStack(windowId, padId);
       setTimeout(() => scrollToPad(padIds.length), 50);
@@ -609,7 +609,7 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
         break;
       case "lifted": {
         const to = String((block.payload as Record<string, unknown>).lifted_to_pad_id ?? "");
-        const title = store.pads[to]?.pad.title || "its own pad";
+        const title = store.pads[to] ? padName(store.pads[to]?.pad) : "its own pad";
         body = <div className="lifted">→ Moved to <b>{title}</b> · new pad in this stack</div>;
         gutter = <span className="mark" title={`Moved to ${title}`}>→</span>;
         break;
@@ -677,7 +677,7 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
           {body}
           {(block.payload as { conflict?: { label?: string } }).conflict ? <span className="conflict" data-conflict="">⇄ {(block.payload as { conflict: { label?: string } }).conflict.label || "written over an older version"}</span> : null}
           {submission ? <span className="submitted">{submission.current ? `submitted · ${submission.as === "teach_back" ? "teach-back" : `attempt, ${shortDate(submission.createdAt)}`}` : "submitted (an earlier version)"}</span> : null}
-          {question && !isEditing ? <button type="button" className="carry" onClick={() => host.carry(block.bodyMd.trim(), { kind: "block", ref: block.blockId })}>? carry</button> : null}
+          {question && !isEditing ? <button type="button" className="carry" onClick={() => host.carry(block.bodyMd.trim(), { kind: "block", ref: block.blockId })}>? save for later</button> : null}
         </div>
         {state.pad.kind === "running" && block.kind !== "lifted" && !isEditing ? (
           <button type="button" className="lift" onClick={(event) => {
@@ -835,7 +835,7 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
         </button>
       );
     }
-    const title = state?.pad.title || (state?.pad.kind === "running" ? "running" : "a pad");
+    const title = padName(state?.pad);
     const first = state ? plainLine(state.blocks.find((block) => block.bodyMd)?.bodyMd ?? "") : "";
     return (
       <button
@@ -869,7 +869,7 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
       {infoProp === undefined ? <div className="pbar"><button type="button" className="pinfo" aria-label="where your words go" aria-expanded={info} onClick={() => setInfo((now) => !now)}><span className="ic">ⓘ</span>yours</button></div> : null}
       {info ? (
         <div className="pinfo-pop" role="dialog" aria-label="where your words go">
-          <b>where your words go.</b> LearnLoop can use text you type or text converted from your handwriting in scratchpads to suggest help. Quotes can help LearnLoop identify your own words. Your writing counts as an attempt or a teach-back when you submit it, as shown by <span className="submitted">submitted</span>.
+          <b>where your words go.</b> LearnLoop can use text you type or text converted from your handwriting in pads to suggest help. Quotes can help LearnLoop identify your own words. Your writing counts as an attempt or a teach-back when you submit it, as shown by <span className="submitted">submitted</span>.
           {learnerWords ? null : <div className="none">These pads have no writing that counts as your own words yet.</div>}
         </div>
       ) : null}
@@ -879,7 +879,7 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
             const state = store.pads[padId] ?? null;
             return (
               <div key={padId} className={`pane${i === paneFocus ? " focus" : ""}`} style={{ flex: `${split.ratios[i]} 1 0` }} onMouseDown={() => setPaneFocus(i)}>
-                <div className="ptitle">{state?.pad.title || "a pad"}</div>
+                <div className="ptitle">{padName(state?.pad)}</div>
                 <div className="pscroll">{renderPaper(state, padId, padIds.indexOf(padId), 0)}</div>
                 {i < split.pads.length - 1 ? <Divider onDrag={(dy) => host.setView(windowId, { ...view, split: { pads: split.pads, ratios: moveDivider(split.ratios, i, dy) } })} /> : null}
               </div>
@@ -918,7 +918,7 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
             <>
               <div className="head">a figure LearnLoop made for this line · help, not a check</div>
               <FitMath><MarkdownMath value={cardBlock.bodyMd} /></FitMath>
-              <button type="button" onClick={() => host.askAbout(firstLine(cardBlock.bodyMd), padContext(card.padId, cardBlock, store.pads[card.padId]?.anchors))}>open it in the tutor</button>
+              <button type="button" onClick={() => host.askAbout(firstLine(cardBlock.bodyMd), padContext(card.padId, cardBlock, store.pads[card.padId]?.anchors))}>open it in the companion</button>
             </>
           ) : cardProposal ? (
             <>
@@ -961,7 +961,7 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
       ) : null}
       {arranging ? (
         <ArrangeOverlay
-          pads={padIds.filter((padId) => !isLessonItem(padId)).map((padId) => ({ padId, title: store.pads[padId]?.pad.title || "a pad", line: plainLine(store.pads[padId]?.blocks.find((block) => block.bodyMd)?.bodyMd ?? "") }))}
+          pads={padIds.filter((padId) => !isLessonItem(padId)).map((padId) => ({ padId, title: padName(store.pads[padId]?.pad), line: plainLine(store.pads[padId]?.blocks.find((block) => block.bodyMd)?.bodyMd ?? "") }))}
           split={split}
           onCancel={() => setArranging(false)}
           onConfirm={(shown) => {

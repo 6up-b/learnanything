@@ -82,7 +82,77 @@ Paths in the tables are relative to the checkout. `desks/` and `LessonView.tsx` 
 | 6.11 Keys and sequences | `desks/search/SearchPanel.tsx`, `desks/pads/{PadOverlays,DrainPanel}.tsx`, `desks/notebook/{PadCell.tsx,padNotebooks.ts}`, `desks/DeskShell.tsx`, `desks/video/model.ts` | ↵ ⇧↵ ↑↓ = − 0 / . and letters; sequences such as 1k | Keep the keys and name Enter, Shift+Enter, Up/Down arrows, Equals, Minus, Zero, Period and Path in copy or titles. Pad review titles say “Press <number>, then K/L/C”. Follow and search retain their adjacent wording. |
 | 6.12 Search, empty location and decorative marks | `desks/search/SearchPanel.tsx`, `desks/goal/{GoalBand,PathView}.tsx`, `desks/pads/PadStackWindow.tsx`, `LessonView.tsx`, `desks/menu/model.ts` | Search icon and placeholder; “—” for no location; decorative marks | Search input has a persistent accessible name and the icon has a Search title. “No passage in view” in the empty-location title. Marks with adjacent words retain them. Menu glyphs left for the menu worker. |
 
-Section 3 and the proposed glossary were outside this pass.
+Section 3 and the proposed glossary were outside this pass; section 3 is below, done with the owner's nouns.
+
+## 3. Names (the owner's nouns, 2026-11-23)
+
+The owner decided: fix only real inconsistencies and keep each noun, "companion, pad, saved question, cold check".
+The audit's proposed glossary (Ask LearnLoop, Desk pad, Question on your own, Save question for later…) was not
+applied. Learner-facing strings only: no identifier, file, class, RPC, table, test id or data attribute changed, and
+the mockup's glyphs stay.
+
+### Glossary
+
+| Word | What it names |
+|---|---|
+| **pad** / **pads** | A writable page, and the stack window that holds pads ("Pads ⓘ yours"). A desk's own pad is the **running pad**: the audit found two names for it ("running" as its title, "running pad" elsewhere), so it is "running pad" everywhere it is named (`pads/model.ts` `padName`). |
+| **saved question** | A question set aside for later. The act is **save for later**, the shortest natural form, used everywhere: the menu's verb (key `c`), the pad menu, a pad line's chip, the drain, the toast. |
+| **companion** | The ask surface. **The tutor** remains only where it names who answers. |
+| **cold check** | A check on your own. |
+| **quick check** | The Guide's optional question on a section while reading (a different thing, kept). |
+| **quick question** | A lesson's question on the lesson screen (a different thing, kept). |
+
+### What changed
+
+| Noun | File | Old | New |
+|---|---|---|---|
+| pad | `desks/DeskShell.tsx` | stack window title “Scratchpads”; new pads “Scratchpad · new notes”, “Scratchpad” | “Pads”; “Pad · new notes”, “Pad” |
+| pad | `desks/pads/PadStackWindow.tsx` | “Scratchpad · ✎ by hand”, “Scratchpad · “<title>””; “…in scratchpads to suggest help” | “Pad · ✎ by hand”, “Pad · “<title>””; “…in pads…” |
+| pad | `desks/companion/companionFigures.tsx` | “move to scratchpad” | “move to pad” |
+| pad | `desks/goal/GoalLayer.tsx` | “your scratchpads” | “your pads” |
+| running pad | `desks/pads/{DrainPanel,PadStackWindow}.tsx`, `desks/DeskShell.tsx` (append targets, toasts, reply copies) | “running” as the running pad's name | “running pad” (`padName`) |
+| saved question | `desks/Shelf.tsx` | “Carried”; “all carried questions ›”; “◌ carried questions · …”; “nothing carried”; “Carried questions unavailable.”, “Loading carried questions…”, “Reopen carried questions to try again.”; dialog “carried questions” | “Saved questions”; “all saved questions ›”; “◌ saved questions · …”; “no saved questions”; “Saved questions unavailable.”, “Loading saved questions…”, “Reopen saved questions to try again.”; dialog “saved questions” |
+| saved question | `desks/menu/model.ts`, `desks/pads/PadOverlays.tsx` | verb “Carry” | “Save for later” |
+| saved question | `desks/pads/PadStackWindow.tsx` | chip “? carry” | “? save for later” |
+| saved question | `desks/pads/DrainPanel.tsx` | “Nc carry “…””; done “carried” | “Nc save for later “…””; done “saved for later” |
+| saved question | `desks/pads/PassageMarks.tsx` | “Open carried question”; “you carried: …” | “Open saved question”; “you saved: …” |
+| saved question | `desks/DeskShell.tsx` | “Carried question saved. …”; “couldn't carry it · …” | “Question saved for later. …”; “couldn't save it for later · …” |
+| saved question | `pads/carried.py`, `handlers/pads.py` (learner messages) | “…before carrying it.”, “…before carrying this question.”, “Couldn’t carry this question…”, “…carried question…” (four), “A carried selection…”, “A carried pad line needs its block.” | “…before saving it for later.”, “…before saving this question for later.”, “Couldn’t save this question for later…”, “…saved question…”, “A question saved from a selection…”, “A question saved from a pad line needs its line.” |
+| companion | `desks/companion/Companion.tsx` | tab “◇ tutor”; hidden tab “◇ tutor · <thread> c” | “◇ this desk” (the desk's thread, beside “history”); “◇ companion · <thread> c” |
+| companion | `desks/DeskShell.tsx` | “the tutor waits · <reason>” | “the companion waits · <reason>” |
+| companion | `desks/menu/KnowsPanel.tsx` | “your questions to the tutor” | “your questions in the companion” |
+| companion | `desks/pads/PadStackWindow.tsx` | “open it in the tutor” | “open it in the companion” |
+| companion | `desks/pen/PenLayer.tsx` | “ask the tutor · c” | “ask in the companion · c” |
+| companion | `desks/menu/verbs.ts` | Show me's toast “…it opens in the tutor…” | “…it will open in the companion…” (merged with batch 5's wording) |
+| cold check | `desks/checks/CheckCard.tsx` | “a check is due before this page”; “◇ a check on your own”, “· now”, “· answered”; dialog “a check on your own”; “another check is open” | “a cold check is due before this page”; “◇ a cold check”, “· now”, “· answered”; dialog “a cold check”; “another cold check is open” |
+| cold check | `desks/menu/KnowsPanel.tsx` | group “checks”; “a check is due before this passage…” | “cold checks”; “a cold check is due before this passage…” |
+| cold check | `reader/{recapCopy,cues,deliverableSlice,exerciseCandidates,voices}.ts(x)`, `reader/NotesRail.tsx` (shown in source windows) | “Coming up · checks on your own”; “a short question on your own…”; “a check on your own is waiting…”, “add a check on your own…”, “Readiness is only checks on your own…”; “…not a check on your own”; “…a check on your own is pending”; “…one later check on your own.” | “Coming up · cold checks”; “a short cold check…”; “a cold check is waiting…”, “add a cold check…”, “Readiness is only cold checks…”; “…not a cold check”; “…a cold check is pending”; “…one cold check for later.” |
+
+Kept as they are: “on your own” where it says how an answer was given (“answered on your own”, “on your own · this
+settles the check”); “the tutor” where it names who answers; the Guide's “quick check” and the lesson's “quick
+question”. The audit's other §3 rows (keep and leave, strip and shelf, append and insert, thread and exchange) are not
+among the owner's four nouns and are unchanged.
+
+Outside the workbench and the lesson view, and so not changed here: the palette's “Ask the tutor about this” (it
+asks on every screen), and “a check on your own” on Practice, Feedback, Repair and Today's next-practice lines.
+
+### Kept from coming back
+
+- `apps/learnloop-tauri/src/screens/desks/workbenchNouns.test.ts` scans the learner-facing strings of
+  `screens/desks` and `screens/LessonView.tsx` (string literals that read as words, outside class names and imports,
+  and JSX text) for the retired words; it found 37 on the tree before this pass.
+- `tests/test_workbench_nouns.py` scans the messages the desks' handlers raise (`pads/`, the inline checks, and the
+  handlers for pads, the companion, desks, lessons, search, figures and ink).
+
+### Expectations changed with the words
+
+`desks/DeskShell.menu.test.tsx` (the verb list, the stack title), `desks/DeskShell.test.tsx` (new pad title, the
+drain's line, the shelf's link and list, the passage mark), `desks/checks/{checks,deskChecks}.test.tsx` (the marker,
+the overlay's name, the companion's wait), `desks/menu/KnowsPanel.test.tsx`, `desks/pads/passageMarks.test.tsx`,
+`desks/pen/{inkPad,PenLayer}.test.tsx`, `reader/{ComingUp,cues,libraryExercises,voices}.test.*`,
+`workbench/Workbench.test.tsx` (three), the snapshot `ReaderScreen.cuesSwitchOff.test.tsx.snap` (check me's hint), and
+the desk harness (`run.py`: the companion's tab, Show me's “move to pad”, the cold check marker and the companion's
+wait, two check names).
 
 ## Verification
 

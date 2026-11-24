@@ -275,7 +275,7 @@ export function NotesRail(props: NotesRailProps) {
             <div data-testid="reader-teach-me" style={{ display: "flex", flexDirection: "column", gap: 4 }}>
               <PrimaryButton onClick={() => onTeachMe()} disabled={busy}>teach me this ▸</PrimaryButton>
               <MeaningLabel>
-                a lesson on this section&apos;s topics, starting from what LearnLoop knows about you; it ends by setting one later check on your own.
+                a lesson on this section&apos;s topics, starting from what LearnLoop knows about you; it ends by setting one cold check for later.
               </MeaningLabel>
             </div>
           ) : null}

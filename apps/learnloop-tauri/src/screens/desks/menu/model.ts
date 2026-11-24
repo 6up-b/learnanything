@@ -99,7 +99,7 @@ export const VERBS: VerbSpec[] = [
   { id: "ask", glyph: "?", label: "Ask", key: "a", kinds: ["passage", "cue", "highlight", "note", "pad_line"] },
   { id: "note", glyph: "›", label: "Note in margin", key: "n", kinds: ["passage", "cue", "pad_line"] },
   { id: "append", glyph: "⤓", label: "Append to", key: "w", kinds: ["passage", "cue", "highlight"] },
-  { id: "carry", glyph: "◌", label: "Carry", key: "c", kinds: ["passage", "cue", "highlight", "note", "pad_line"] },
+  { id: "carry", glyph: "◌", label: "Save for later", key: "c", kinds: ["passage", "cue", "highlight", "note", "pad_line"] },
   { id: "open_beside", glyph: "▸", label: "Open beside", key: "b", kinds: ["passage", "cue", "highlight"] },
   { id: "find", glyph: "⌕", label: "Find in my sources", key: "/", kinds: ["passage", "cue", "highlight", "note", "pad_line"] },
   { id: "compare", glyph: "⇄", label: "Compare", key: "=", kinds: ["passage", "cue", "highlight"] },

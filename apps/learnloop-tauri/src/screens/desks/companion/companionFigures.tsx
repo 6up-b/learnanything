@@ -15,7 +15,7 @@ export const COMPANION_FIGURE_COPY = {
   lead: "◇ Show me",
   viewSource: "view source",
   hideSource: "hide source",
-  move: "move to scratchpad",
+  move: "move to pad",
   notUseful: "not useful",
   footer: "◇ LearnLoop's figure, made ahead from this passage · display tier, no kernel · it is help, not a check",
   noSource: "this figure has no source to show",

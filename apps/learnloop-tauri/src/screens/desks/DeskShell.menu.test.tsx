@@ -173,7 +173,7 @@ describe("the desks' context menu", () => {
     expect(asked[0]).toEqual({ objectKind: "passage", extractionId: FIXTURE_SOURCES.book.extractionId, spanId: "fx_w_book_s1", windowId: "fx_w_book", deskId: "fx_desk_softmax",
       requestId: expect.stringMatching(/^prom_/) });
     const verbs = [...menus()[0].querySelectorAll(":scope > .mi .t")].map((each) => each.firstChild?.textContent);
-    expect(verbs).toEqual(["Ask", "Note in margin", expect.stringMatching(/^Append to “/), "Carry", "Open beside", "Find in my sources", "Compare", "Show me", "Make it practice", "Teach me this", "What this knows"]);
+    expect(verbs).toEqual(["Ask", "Note in margin", expect.stringMatching(/^Append to “/), "Save for later", "Open beside", "Find in my sources", "Compare", "Show me", "Make it practice", "Teach me this", "What this knows"]);
   });
 
   it("the menu asks its rows once and keeps its judged job while the desks re-render around it", async () => {
@@ -290,7 +290,7 @@ describe("the shelf's running pad and the pad stack's title bar, as the mockup h
     expect(document.querySelector(".desk-window.focus [data-desk-window]")?.getAttribute("data-desk-window")).toBe("fx_w_pads");
   });
 
-  it("a pad stack's title bar reads Scratchpads ⓘ yours, its ⓘ opening where your words go", async () => {
+  it("a pad stack's title bar reads Pads ⓘ yours, its ⓘ opening where your words go", async () => {
     mount();
     await screen.findByTestId("pane-fx_w_book");
     const head = await waitFor(() => {
@@ -298,7 +298,7 @@ describe("the shelf's running pad and the pad stack's title bar, as the mockup h
       expect(found).toBeTruthy();
       return found as HTMLElement;
     });
-    expect(head.querySelector(".t")?.textContent).toBe("Scratchpads");
+    expect(head.querySelector(".t")?.textContent).toBe("Pads");
     const info = within(head).getByRole("button", { name: "where your words go" });
     expect(info.textContent).toBe("ⓘ");
     expect(head.querySelector(".loc")?.textContent).toBe("yours");

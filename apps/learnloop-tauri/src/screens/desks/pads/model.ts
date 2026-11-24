@@ -28,6 +28,13 @@ export class PadOpConflict extends Error {
   }
 }
 
+/** A pad's name as the learner reads it: its title, and a desk's running pad (stored with the title "running") always
+ *  as "running pad", the one name the workbench gives it; an untitled pad is "a pad". */
+export function padName(pad: { title?: string | null; kind?: string | null } | null | undefined): string {
+  if (pad?.kind === "running" && (!pad.title || pad.title === "running")) return "running pad";
+  return pad?.title || "a pad";
+}
+
 export function fromPadView(view: PadViewDto): PadState {
   return { pad: { ...view.pad }, blocks: sortBlocks(view.blocks.map((block) => ({ ...block, submissions: [...(block.submissions ?? [])] }))), anchors: [...view.anchors] };
 }

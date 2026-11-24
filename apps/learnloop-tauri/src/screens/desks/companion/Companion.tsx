@@ -341,7 +341,7 @@ export const Companion = forwardRef<CompanionHandle, CompanionProps>(function Co
   const anchorOrigin = state.mode === "anchored" && state.anchored ? `${Math.round(state.anchored.w / 2)}px 0px` : "50% 100%";
 
   const tabRect = dockRect(dock, stage);
-  const tabLabel = `◇ tutor · ${props.threadTitle} c`;
+  const tabLabel = `◇ companion · ${props.threadTitle} c`;
 
   return (
     <>
@@ -368,7 +368,7 @@ export const Companion = forwardRef<CompanionHandle, CompanionProps>(function Co
             if (panelRef.current) panelRef.current.style.transform = "";
           }} aria-hidden="true" />
           <div className="ctabs" role="tablist">
-            <button type="button" role="tab" aria-selected={tab === "tutor"} className={tab === "tutor" ? "on" : ""} onClick={() => setTab("tutor")}>◇ tutor</button>
+            <button type="button" role="tab" aria-selected={tab === "tutor"} className={tab === "tutor" ? "on" : ""} onClick={() => setTab("tutor")}>◇ this desk</button>
             <button type="button" role="tab" aria-selected={tab === "history"} className={tab === "history" ? "on" : ""} onClick={() => setTab("history")}>history</button>
             <span className="grow" />
             <button type="button" onClick={props.onHide}>c hide</button>

@@ -113,7 +113,7 @@ import { captureNodes, hasPassage, headerLine, objectAt, objectInput, passageIds
 import { promotedRef, runVerb, sourceMenuRows, type MenuApi, type MenuContext } from "./menu/verbs";
 import { DrainPanel } from "./pads/DrainPanel";
 import { PassageMarks, visibleSpanRange, type PadLink } from "./pads/PassageMarks";
-import { keyAfter } from "./pads/model";
+import { keyAfter, padName } from "./pads/model";
 import { PenHostContext, type PenApi, type PenHost } from "./pen/host";
 import { LIVE_PEN_API } from "./pen/live";
 import { InkCache } from "./pen/inkCache";
@@ -930,7 +930,7 @@ export function DeskShell({
     if (known) return known;
     const content = window.content;
     // A stack of pads is the learner's scratchpads (the title bar adds ⓘ and "yours").
-    if (window.kind === "pad_stack") return "Scratchpads";
+    if (window.kind === "pad_stack") return "Pads";
     if (!content) return "notes";
     if (content.kind === "source" || content.kind === "video") return library?.find((card) => card.sourceId === content.sourceId)?.title ?? "source";
     if (content.kind === "panel") return PANEL_TITLES[content.panel];
@@ -2498,9 +2498,9 @@ export function DeskShell({
   const carryQuestion = useCallback((text: string, origin: { blockIds?: string[]; kind: CarriedQuestionDto["originKind"]; ref?: string | null; anchor?: { extractionId: string; spanId: string } | null }): Promise<void> => {
     const carried = Promise.resolve().then(() => padsTransport.carriedCarry({ carriedId: mintId("carried"), text, originKind: origin.kind, ...(origin.blockIds ? { blockIds: origin.blockIds } : {}), originRef: origin.ref ?? null, anchor: origin.anchor ?? null, deskId: deskIdRef.current }));
     void carried.then(() => {
-      toastNow("Carried question saved. It may appear beside a related passage.");
+      toastNow("Question saved for later. It may appear beside a related passage.");
       refreshCarried();
-    }, (error: unknown) => toastNow(`couldn't carry it · ${errorText(error)}`));
+    }, (error: unknown) => toastNow(`couldn't save it for later · ${errorText(error)}`));
     return carried.then(() => undefined);
   }, [padsTransport, mintId, toastNow, refreshCarried]);
 
@@ -2739,7 +2739,7 @@ export function DeskShell({
     const id = deskIdRef.current;
     if (!id) return;
     const padId = mintId("pad");
-    const title = "Scratchpad · new notes";
+    const title = "Pad · new notes";
     const refused = store.commitPad(padId, [{ op: "create_pad", kind: "named", title, homeDeskId: id }]);
     if (refused) {
       toastNow("Couldn’t make a pad. Reopen this desk and try again.");
@@ -2771,7 +2771,7 @@ export function DeskShell({
     const lines = answer.answerMd.split("\n").map((line) => line.trim()).filter(Boolean).slice(0, 6);
     return [{
       id: `${exchange.requestId}:running`,
-      target: (known ? store.pads[known]?.pad.title : "") || "running pad",
+      target: known ? padName(store.pads[known]?.pad) : "running pad",
       label: "Copy the full reply",
       lines,
       onAccept: async () => {
@@ -3094,7 +3094,7 @@ export function DeskShell({
     const ids = (desk?.slots.flat() ?? []).flatMap((windowId) => (wsRef.current.windows[windowId]?.stack ?? []).flatMap((entry) => (entry.kind === "pad" ? [entry.padId] : [])));
     return [...new Set(ids)].map((padId) => {
       const state = store.pads[padId];
-      return { padId, title: state?.pad.title || (state?.pad.kind === "running" ? `running · ${localDay()}` : "a pad") };
+      return { padId, title: state?.pad.kind === "running" && (!state.pad.title || state.pad.title === "running") ? `running pad · ${localDay()}` : padName(state?.pad) };
     });
   }, [store]);
   const appendTargetOf = useCallback((id: string | null): string | null => {
@@ -3113,7 +3113,7 @@ export function DeskShell({
     let target = choice === null ? appendTargetOf(id) : choice;
     if (target === "+") {
       const padId = mintId("pad");
-      const title = "Scratchpad";
+      const title = "Pad";
       const refused = store.commitPad(padId, [{ op: "create_pad", kind: "named", title, homeDeskId: id }]);
       if (refused) {
         toastNow(`couldn't make a pad · ${refused.message}`);
@@ -3164,7 +3164,7 @@ export function DeskShell({
       ...captureNodes(object).map((node) => ({ op: "link_anchor" as const, blockId, extractionId: object.extractionId as string, spanId: node.spanId, eventId: mintId("lnk"), expectedAnchorHead: null, annotationId })),
     ]);
     if (refused) toastNow(`couldn’t add it · ${refused.message}`);
-    else toastNow(`adding to “${pad.pad.title || "running"}”…`);
+    else toastNow(`adding to “${padName(pad.pad)}”…`);
   }, [appendTargetOf, commit, menuTransport, mintId, rememberAppendTarget, store, titleOf, toastNow]);
 
   // The rows the open source menu shows (Open beside takes its correspondent from them): told by that menu only
@@ -4285,7 +4285,7 @@ export function DeskShell({
             thread={thread}
             proposals={answerProposals}
             chip={chip ? { quote: chip.quote } : null}
-            cannotAsk={checkDesk.heldReason() ? `the tutor waits · ${checkDesk.heldReason()}` : grounding.reason}
+            cannotAsk={checkDesk.heldReason() ? `the companion waits · ${checkDesk.heldReason()}` : grounding.reason}
             avoid={avoid}
             loadHistory={loadHistory}
             deskTitle={deskTitle}

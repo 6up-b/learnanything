@@ -32,7 +32,7 @@ export function knowsGroups(place: PassageUnionSpanDto, actions: KnowsActions, a
   // What lives on the passage itself (a highlight, a figure, a written question) opens the passage, where it shows.
   const openHere = at ? () => actions.openPassage(at.extractionId, at.spanId) : undefined;
   const groups: Array<{ title: string; rows: Array<{ text: string; open?: () => void }> }> = [
-    { title: "your questions to the tutor", rows: place.exchanges.map((each) => ({ text: `? ${each.questionMd} · ${each.quality.replace(/_/g, " ")}${quality(each.alias)}${day(each.createdAt)}`, open: () => actions.openThread(each.questionEventId) })) },
+    { title: "your questions in the companion", rows: place.exchanges.map((each) => ({ text: `? ${each.questionMd} · ${each.quality.replace(/_/g, " ")}${quality(each.alias)}${day(each.createdAt)}`, open: () => actions.openThread(each.questionEventId) })) },
     { title: "questions that changed what LearnLoop inferred", rows: place.adjustments.map((each) => ({ text: "? a question of yours here changed how LearnLoop read your words", open: () => actions.openThread(each.questionEventId) })) },
     { title: "your pads", rows: place.padBlocks.map((each) => ({ text: `› a ${each.kind.replace(/_/g, " ")} line${quality(each.alias)}${day(each.createdAt)}`, open: () => actions.openPadBlock(each.padId, each.liftedFromBlockId ? each.blockId : each.blockId) })) },
     { title: "your highlights and notes", rows: place.annotations.map((each) => ({ text: `› ${each.type}${each.learnerText ? ` · ${each.learnerText}` : ""}${day(each.createdAt)}`, open: openHere })) },
@@ -42,7 +42,7 @@ export function knowsGroups(place: PassageUnionSpanDto, actions: KnowsActions, a
     { title: "linked passages", rows: place.passageLinks.map((each) => ({ text: `§ ${each.relation.replace(/_/g, " ")}${each.quote ? ` · “${each.quote.slice(0, 80)}”` : ""}${quality(each.alias)}` })) },
     { title: "figures", rows: place.figures.map((each) => ({ text: `◇ a figure · ${each.verification.replace(/_/g, " ")}${day(each.createdAt)}`, open: openHere })) },
     { title: "questions written for this passage", rows: place.authoredQuestions.map((each) => ({ text: `? ${each.questionMd} · ${each.status}`, open: openHere })) },
-    { title: "checks", rows: place.checksDue.length ? [{ text: "a check is due before this passage (nothing of it shows until it opens)" }] : [] },
+    { title: "cold checks", rows: place.checksDue.length ? [{ text: "a cold check is due before this passage (nothing of it shows until it opens)" }] : [] },
   ];
   return groups.filter((group) => group.rows.length);
 }

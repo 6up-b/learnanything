@@ -167,7 +167,7 @@ export function useGoalDesk({ transport, deskGoalId, offKey, onSetGoal, readings
   const focusedIndex: LensIndex | null = focused?.extractionId ? indexFor(focused.extractionId) : null;
   const here: HereView | null = focused
     ? (focused.extractionId ? hereLine(focusedIndex, topSpan ?? focused.readingSpan, topSpan ? null : focused.where, band)
-      : { where: focused.where ?? "your scratchpads", lo: null, tag: null, loId: null })
+      : { where: focused.where ?? "your pads", lo: null, tag: null, loId: null })
     : null;
 
   const togglePath = useCallback(() => {

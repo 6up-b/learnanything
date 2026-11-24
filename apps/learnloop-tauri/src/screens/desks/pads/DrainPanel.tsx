@@ -4,6 +4,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { PadDrainDto } from "../../../api/dto";
 import { screenLeavesKey } from "../../../app/keymap";
+import { padName } from "./model";
 
 /** Each settles once the server has it, and rejects (with why) when it does not. */
 export interface DrainActions {
@@ -56,7 +57,7 @@ export function DrainPanel({ deskTitle, load, actions, onClose, wrapUpHost }: {
       if (!pad) return;
       if (event.key === "k") act(pad.padId, "kept", () => actions.keep(pad.padId, pad.version));
       else if (event.key === "l") act(pad.padId, "left in the library", () => actions.leave(pad.padId, pad.version));
-      else if (event.key === "c" && pad.carryCandidate) act(pad.padId, "carried", () => actions.carry(pad.carryCandidate as string, pad.padId));
+      else if (event.key === "c" && pad.carryCandidate) act(pad.padId, "saved for later", () => actions.carry(pad.carryCandidate as string, pad.padId));
       else return;
       pending.current = null;
       event.preventDefault();
@@ -90,14 +91,14 @@ export function DrainPanel({ deskTitle, load, actions, onClose, wrapUpHost }: {
       {drain && drain.pads.length === 0 ? <div className="note">nothing written on this desk today</div> : null}
       {drain?.pads.map((pad, index) => (
         <div key={pad.padId} className="pad" data-drain-pad={pad.padId}>
-          <div className="title" title={pad.kept ? "Pinned" : undefined}>{pad.kept ? "⚲ " : ""}{pad.title || (pad.kind === "running" ? "running" : "a pad")}</div>
+          <div className="title" title={pad.kept ? "Pinned" : undefined}>{pad.kept ? "⚲ " : ""}{padName(pad)}</div>
           <div className="lines"><span>{pad.firstLine}</span>{pad.lastLine && pad.lastLine !== pad.firstLine ? <span> … {pad.lastLine}</span> : null}</div>
           {failed[pad.padId] ? <div className="note err">{failed[pad.padId]} Check the pad before trying again.</div> : null}
           {done[pad.padId] ? <div className="done">{done[pad.padId]}</div> : pendingPad[pad.padId] ? <div className="note">◐ Saving your choice…</div> : (
             <div className="acts">
               <button type="button" onClick={() => act(pad.padId, "kept", () => actions.keep(pad.padId, pad.version))}><kbd title={`Press ${index + 1}, then K`}>{index + 1}k</kbd> keep</button>
               <button type="button" onClick={() => act(pad.padId, "left in the library", () => actions.leave(pad.padId, pad.version))}><kbd title={`Press ${index + 1}, then L`}>{index + 1}l</kbd> leave</button>
-              {pad.carryCandidate ? <button type="button" onClick={() => act(pad.padId, "carried", () => actions.carry(pad.carryCandidate as string, pad.padId))}><kbd title={`Press ${index + 1}, then C`}>{index + 1}c</kbd> carry “{pad.carryCandidate.slice(0, 60)}”</button> : null}
+              {pad.carryCandidate ? <button type="button" onClick={() => act(pad.padId, "saved for later", () => actions.carry(pad.carryCandidate as string, pad.padId))}><kbd title={`Press ${index + 1}, then C`}>{index + 1}c</kbd> save for later “{pad.carryCandidate.slice(0, 60)}”</button> : null}
             </div>
           )}
         </div>

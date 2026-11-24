@@ -1649,7 +1649,7 @@ describe("RD4b: pads in the desks", () => {
     alt("KeyN", "n");
     await flush();
     const created = server.padBatches.flatMap((batch) => batch.ops).find((op) => op.op === "create_pad");
-    expect(created).toMatchObject({ op: "create_pad", kind: "named", title: "Scratchpad · new notes", homeDeskId: "fx_desk_softmax" });
+    expect(created).toMatchObject({ op: "create_pad", kind: "named", title: "Pad · new notes", homeDeskId: "fx_desk_softmax" });
     const desk = server.state().desks.find((each) => each.deskId === "fx_desk_softmax");
     const slots = desk?.slots ?? [];
     const stackWindow = slots.flatMap((slot) => slot.windows).find((window) => window.windowId === desk?.focusWindowId);
@@ -1660,7 +1660,7 @@ describe("RD4b: pads in the desks", () => {
     expect(slotOf(stackWindow?.windowId ?? "")).toBe(slotOf("fx_w_book") + 1);
   });
 
-  it("alt+shift+q opens the drain: one key keeps a pad, another carries its last question; while open the desk's keys wait", async () => {
+  it("alt+shift+q opens the drain: one key keeps a pad, another saves its last question for later; while open the desk's keys wait", async () => {
     const server = new FixtureDeskServer();
     const fakes = padsTransport(server);
     mount(server, { transport: fakes.deskTransport, padsTransport: fakes.transport });
@@ -1668,7 +1668,7 @@ describe("RD4b: pads in the desks", () => {
     alt("KeyQ", "Q", { shiftKey: true });
     const drain = await screen.findByRole("dialog", { name: "closing softmax and cross-entropy" });
     expect(drain.textContent).toContain("Closing “softmax and cross-entropy”");
-    expect(drain.textContent).toContain("carry “is it the same move?”");
+    expect(drain.textContent).toContain("save for later “is it the same move?”");
     // The drain owns the keys: alt+l does not move the focus while it is open.
     alt("KeyL", "l");
     await flush();
@@ -1682,7 +1682,7 @@ describe("RD4b: pads in the desks", () => {
     expect(screen.queryByRole("dialog", { name: "closing softmax and cross-entropy" })).toBeNull();
   });
 
-  it("the shelf's CARRIED shows at most the attention limit, each since its date, and says how many more", async () => {
+  it("the shelf's SAVED QUESTIONS shows at most the attention limit, each since its date, and says how many more", async () => {
     const server = new FixtureDeskServer();
     const fakes = padsTransport(server);
     const question = (n: number) => ({ carriedId: `c${n}`, text: `question ${n}?`, originKind: "typed", originRef: null, anchor: null, deskId: null, since: "2026-11-20T10:00:00Z", state: "carried", carried: true, version: 1, updatedAt: "2026-11-20T10:00:00Z" });
@@ -1697,10 +1697,10 @@ describe("RD4b: pads in the desks", () => {
     expect(shelf.querySelectorAll(".q")).toHaveLength(3);
     expect(shelf.textContent).toContain("since 20 Nov");
     // The rest is a working link to every carried question (not a mention of the library).
-    expect(within(shelf).getByRole("button", { name: /all carried questions \(1 more\)/ })).toBeTruthy();
+    expect(within(shelf).getByRole("button", { name: /all saved questions \(1 more\)/ })).toBeTruthy();
   });
 
-  it("the shelf's link opens every carried question, page by page, each with fruitful, not now and let it go", async () => {
+  it("the shelf's link opens every saved question, page by page, each with fruitful, not now and let it go", async () => {
     const server = new FixtureDeskServer();
     const fakes = padsTransport(server);
     const question = (n: number) => ({ carriedId: `c${n}`, text: `question ${n}?`, originKind: "typed", originRef: null, anchor: null, deskId: null, since: "2026-11-20T10:00:00Z", state: "carried", carried: true, version: n, updatedAt: "2026-11-20T10:00:00Z" });
@@ -1719,8 +1719,8 @@ describe("RD4b: pads in the desks", () => {
     await flush();
     const shelf = document.querySelector("[data-shelf-carried]") as HTMLElement;
     expect(shelf.querySelectorAll(".q")).toHaveLength(3);
-    fireEvent.click(screen.getByRole("button", { name: /all carried questions/ }));
-    const list = await screen.findByRole("dialog", { name: "carried questions" });
+    fireEvent.click(screen.getByRole("button", { name: /all saved questions/ }));
+    const list = await screen.findByRole("dialog", { name: "saved questions" });
     expect(list.querySelectorAll("[data-carried-row]")).toHaveLength(4);
     fireEvent.click(screen.getByRole("button", { name: /older/ }));
     await flush();
@@ -1746,8 +1746,8 @@ describe("RD4b: pads in the desks", () => {
     mount(server, { transport: fakes.deskTransport, padsTransport: fakes.transport });
     await screen.findByTestId("pane-fx_w_book");
     await flush();
-    fireEvent.click(screen.getByRole("button", { name: /all carried questions/ }));
-    const list = await screen.findByRole("dialog", { name: "carried questions" });
+    fireEvent.click(screen.getByRole("button", { name: /all saved questions/ }));
+    const list = await screen.findByRole("dialog", { name: "saved questions" });
     fireEvent.click(within(list.querySelector('[data-carried-row="c2"]') as HTMLElement).getByRole("button", { name: "let it go" }));
     await flush();
     const shelf = document.querySelector("[data-shelf-carried]") as HTMLElement;
@@ -1777,7 +1777,7 @@ describe("RD4b: pads in the desks", () => {
     expect(marks.find((mark) => mark.classList.contains("reanchor"))?.getAttribute("title")).toBe("From an earlier version of this source. The link may open nearby.");
   });
 
-  it("a carried question comes back as a quiet ◌ beside its passage: shown once is logged as surfaced, and it can be let go", async () => {
+  it("a saved question comes back as a quiet ◌ beside its passage: shown once is logged as surfaced, and it can be let go", async () => {
     const server = new FixtureDeskServer();
     const fakes = padsTransport(server);
     const marks: unknown[] = [];
@@ -1788,12 +1788,12 @@ describe("RD4b: pads in the desks", () => {
     };
     mount(server, { transport: fakes.deskTransport, padsTransport: fakes.transport, renderPane: (input) => <PassagePane input={input} /> });
     await screen.findByTestId("pane-fx_w_book");
-    const mark = await screen.findByRole("button", { name: "Open carried question" });
+    const mark = await screen.findByRole("button", { name: "Open saved question" });
     await flush();
     await flush();
     expect(marks.filter((each) => (each as { event: string }).event === "surfaced")).toHaveLength(1);
     fireEvent.click(mark);
-    expect(screen.getByText(/you carried: does it work for any base\? · since 21 Nov/)).toBeTruthy();
+    expect(screen.getByText(/you saved: does it work for any base\? · since 21 Nov/)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "let it go" }));
     await flush();
     expect(marks[marks.length - 1]).toMatchObject({ carriedId: "c1", event: "let_go", expectedVersion: 3 });

@@ -280,7 +280,7 @@ describe("an ink pad", () => {
     await act(async () => {
       await touched.store.settled();
     });
-    expect(sentOps(touched.server).find((op) => op.op === "create_pad")).toMatchObject({ kind: "ink", title: "Scratchpad · ✎ by hand" });
+    expect(sentOps(touched.server).find((op) => op.op === "create_pad")).toMatchObject({ kind: "ink", title: "Pad · ✎ by hand" });
     cleanup();
     const paused = mount();
     await settle();

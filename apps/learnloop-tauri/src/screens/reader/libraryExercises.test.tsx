@@ -150,7 +150,7 @@ it("shows the proposal's exercises the server let through, beside the items, eac
   expect(cards[0].textContent).toContain("from your book · verbatim · answer completed by LearnLoop's model · checked when you use it");
   expect(cards[0].textContent).not.toContain("not a check on your own");
   // The seen one says why, and that it is practice, never a check on your own.
-  expect(cards[1].textContent).toContain("you've recently seen this page or its solution · practice beside the book, not a check on your own");
+  expect(cards[1].textContent).toContain("you've recently seen this page or its solution · practice beside the book, not a cold check");
   fireEvent.click(within(cards[1]).getByRole("button", { name: /use this one/ }));
   expect(onUse).toHaveBeenCalledWith(expect.objectContaining({ key: EX_B.key, origin: "proposal", proposalId: "pp_1", exposure: seen }));
   fireEvent.click(within(cards[0]).getByRole("button", { name: /open in the book/ }));

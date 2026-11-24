@@ -130,10 +130,10 @@ export function PassageMarks({ stage, windows, links, carried, onOpenLink, onSur
           aria-label="Open pad line" onClick={() => mark.link && onOpenLink(mark.link)}>✎</button>
       ) : (
         <div key={mark.key} className="desk-pmark carried" style={{ top: mark.top, left: mark.left }}>
-          <button type="button" aria-label="Open carried question" title="Open carried question" onClick={() => setOpen((now) => (now === mark.key ? null : mark.key))}>◌</button>
+          <button type="button" aria-label="Open saved question" title="Open saved question" onClick={() => setOpen((now) => (now === mark.key ? null : mark.key))}>◌</button>
           {open === mark.key && mark.carried ? (
             <div className="pop">
-              <div>you carried: {mark.carried.text} · since {new Date(mark.carried.since).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</div>
+              <div>you saved: {mark.carried.text} · since {new Date(mark.carried.since).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</div>
               <div className="acts">
                 <button type="button" onClick={() => { onMarkCarried(mark.carried as CarriedQuestionDto, "fruitful"); setOpen(null); }}>fruitful</button>
                 <button type="button" onClick={() => { onMarkCarried(mark.carried as CarriedQuestionDto, "not_now"); setOpen(null); }}>not now</button>

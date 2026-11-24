@@ -393,11 +393,11 @@ def carried_carry_handler(ctx: SidecarContext, params: CarryInput) -> dict[str, 
         if not params.anchor.span_ids:
             anchor.pop("span_ids")  # Existing single-passage receipts compare the full anchor on retry.
     if params.origin_kind in {"selection", "note"} and not params.anchor:
-        raise SidecarError("validation_error", "A carried selection needs its passage.")
+        raise SidecarError("validation_error", "A question saved from a selection needs its passage.")
     block_ids = list(params.block_ids)
     if params.origin_kind == "block":
         if not params.origin_ref:
-            raise SidecarError("validation_error", "A carried pad line needs its block.")
+            raise SidecarError("validation_error", "A question saved from a pad line needs its line.")
         block_ids.append(params.origin_ref)
     try:
         with repository.atomic():

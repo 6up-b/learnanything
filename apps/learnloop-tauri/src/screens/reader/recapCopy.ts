@@ -75,7 +75,7 @@ export function stepsLabel(count: number): string {
 // RW6b's "Coming up" (spec §9.3; UX §4.8-4.9, S15, D36): a dated timeline,
 // never a count; retirements read as good news; never "overdue" or "due".
 export const COMING_UP_COPY = {
-  title: "Coming up · checks on your own",
+  title: "Coming up · cold checks",
   why: "why",
   undo: "undo",
   undoAll: "undo all",

@@ -21,7 +21,7 @@ describe("What this knows", () => {
     render(<KnowsPanel object={{ objectKind: "passage", extractionId: "e", spanId: "s1" }} load={async () => read} actions={{ openThread, openPadBlock: vi.fn(), openPassage: vi.fn() }} onClose={() => undefined} />);
     const question = await screen.findByText(/why is it positive/);
     expect(question.textContent).toContain("from an earlier version of this source; the link may open nearby");
-    expect(screen.getByText("your questions to the tutor")).toBeTruthy();
+    expect(screen.getByText("your questions in the companion")).toBeTruthy();
     expect(screen.getByText(/does it hold for n = 0/)).toBeTruthy();
     expect(screen.getByText(/shown 2 times/)).toBeTruthy();
     fireEvent.click(question);
@@ -31,7 +31,7 @@ describe("What this knows", () => {
   it("says a check is due and shows nothing of it", async () => {
     const read = { objectKey: "k", sourceIds: [], places: [{ extractionId: "e", spanId: "s1", role: null, knows: span({ checksDue: [{ commitmentId: "secret_c" }] }) }] } as unknown as PassageKnowsDto;
     render(<KnowsPanel object={{ objectKind: "passage", extractionId: "e", spanId: "s1" }} load={async () => read} actions={{ openThread: vi.fn(), openPadBlock: vi.fn(), openPassage: vi.fn() }} onClose={() => undefined} />);
-    await screen.findByText(/a check is due before this passage/);
+    await screen.findByText(/a cold check is due before this passage/);
     expect(document.body.textContent).not.toContain("secret_c");
   });
 

@@ -33,7 +33,7 @@ head, a pad stack's goal line, and one whole-reading goal.lens per reading in vi
 
 The pads' run (RD4) adds the RD4 deep links' equivalents (the running pad, the sticky tabs' merge and
 fillets, the § row's hover fade, the submitted tag, ⓘ, the editor writing through pad.apply, the pad menu,
-lift out, a sketch block's tools, arrange and split, a passage's ✎ link, the carried ◌, the drain) and display
+lift out, a sketch block's tools, arrange and split, a passage's ✎ link, the saved question's ◌, the drain) and display
 math in the companion's answer. The display-math run (`?latex=1`, spec §13.4 rule 5) renders tall and wide
 equations in every pad block kind at three widths and in a hover card, and measures each equation's ink
 against its nearest clipping ancestor below the window's scroller, before and after a resize.
@@ -748,7 +748,7 @@ async def run_companion(page: Page, base: str, results: Results, shots: Path | N
 
     # #spot=softmax: / opens search; groups, open on this desk first; the meaning pass merges in with its tag.
     # A second question is asked first and held open, so the hover below is timed while an answer generates.
-    await page.locator(".desk-companion .ctabs button", has_text="tutor").click()
+    await page.locator(".desk-companion .ctabs button", has_text="this desk").click()
     await page.evaluate("() => { window.__deskHarness.companion.held = true; }")
     await page.locator(".desk-companion .input").fill("and what does a temperature change?")
     await page.locator(".desk-companion .input").press("Enter")
@@ -1027,7 +1027,7 @@ async def run_pads(page: Page, base: str, results: Results, shots: Path | None) 
 
     # The carried question's quiet ◌ beside its passage, logged as surfaced once.
     surfaced = [call for call in await calls(page, "carried_mark") if call["input"].get("event") == "surfaced"]
-    results.check("a carried question shows as a quiet ◌ beside its passage and is logged as surfaced once", await page.locator(".desk-pmark.carried").count() >= 1 and len(surfaced) == 1, len(surfaced))
+    results.check("a saved question shows as a quiet ◌ beside its passage and is logged as surfaced once", await page.locator(".desk-pmark.carried").count() >= 1 and len(surfaced) == 1, len(surfaced))
 
     # The drain: alt+shift+q.
     await page.keyboard.press("Alt+Shift+Q")
@@ -1706,7 +1706,7 @@ async def run_video(page: Page, base: str, results: Results, shots: Path | None)
 
     # A carried question comes back beside a related passage: its book section's judged correspondent in the video.
     corr = [call["input"] for call in await calls(page, "reader_correspondents")]
-    results.check("a carried question's related passages are read from judged correspondents (no search)",
+    results.check("a saved question's related passages are read from judged correspondents (no search)",
                   any(c.get("extractionId") == "fx_ext_softmax" and c.get("sectionId") == "s1" and c.get("searchFallback") is False for c in corr), corr)
 
 
@@ -1753,7 +1753,7 @@ async def run_problem(page: Page, base: str, results: Results, shots: Path | Non
 
 async def run_showme(page: Page, base: str, results: Results, shots: Path | None) -> None:
     """Show me in the companion (spec §13.1, §21.1 "Figures and Show me"): the menu's Show me on a passage puts the
-    figure in the companion, live, with view source, move to scratchpad and not useful, and nothing in a pad until
+    figure in the companion, live, with view source, move to pad and not useful, and nothing in a pad until
     it is moved there."""
     await page.goto(f"{base}/desk-harness.html")
     await page.wait_for_selector('[data-desk-window="fx_w_book"] [data-span-id]')
@@ -1776,7 +1776,7 @@ async def run_showme(page: Page, base: str, results: Results, shots: Path | None
     results.check("Show me's figure appears in the companion, live (sliders and a plot), named for its source and page",
                   look["inCompanion"] and look["head"].startswith("◇ Show me · a figure for") and look["sliders"] > 0 and look["svg"] > 0, look)
     results.check("its three buttons and the footer that says it is help, not a check",
-                  look["buttons"] == ["view source", "move to scratchpad", "not useful"] and "it is help, not a check" in look["foot"], look["buttons"])
+                  look["buttons"] == ["view source", "move to pad", "not useful"] and "it is help, not a check" in look["foot"], look["buttons"])
     results.check("the companion's text is JetBrains Mono, the widget in its own frame as in a book window, nothing clipped sideways",
                   "JetBrains Mono" in look["headFont"] and not look["clipped"], look)
     results.check("nothing lands in a pad by itself", await page.locator('.desk-pads .mark.fig').count() == figs_before)
@@ -1784,11 +1784,11 @@ async def run_showme(page: Page, base: str, results: Results, shots: Path | None
     await page.locator("[data-companion-figure] .cfig-actions button", has_text="view source").click()
     source = await page.locator("[data-companion-figure] [data-figure-source] pre").inner_text()
     results.check("view source shows the figure's own source (display tier)", "parameters" in source, source[:80])
-    await page.locator("[data-companion-figure] .cfig-actions button", has_text="move to scratchpad").click()
+    await page.locator("[data-companion-figure] .cfig-actions button", has_text="move to pad").click()
     await settle(page, 1200)
     moved = await page.locator('.desk-pads .mark.fig').count()
     gone = await page.locator("[data-companion-figure]").count()
-    results.check("move to scratchpad writes the figure block in the running pad and the figure leaves the companion",
+    results.check("move to pad writes the figure block in the running pad and the figure leaves the companion",
                   moved == figs_before + 1 and gone == 0, [figs_before, moved, gone])
 
 
@@ -1812,7 +1812,7 @@ async def run_checks(page: Page, base: str, results: Results, shots: Path | None
     marker = await page.evaluate(f"""() => {{ const m = document.querySelector("{BOOK} [data-check-marker]"); const next = m.parentElement?.querySelector("[data-span-id]");
       return {{ text: m.textContent, buttons: [...m.querySelectorAll('button')].map((b) => b.textContent), before: next ? next.dataset.spanId : null }}; }}""")
     results.check("a due check's closed marker sits before its host passage: no question, no LO, no provenance; later and check now",
-                  "a check is due before this page · on your own" in marker["text"] and "gradient" not in marker["text"].lower()
+                  "a cold check is due before this page · on your own" in marker["text"] and "gradient" not in marker["text"].lower()
                   and "ready" not in marker["text"].lower() and marker["buttons"] == ["later", "check now"], marker)
     pads_before = await page.evaluate(RECT_JS, f"{PADS} [data-desk-pane-body]")
     head_before = await page.evaluate(RECT_JS, f"{BOOK} [data-span-id='fx_ext_softmax_s4_1']")
@@ -1859,7 +1859,7 @@ async def run_checks(page: Page, base: str, results: Results, shots: Path | None
     comp = await page.evaluate("() => ({ cannot: document.querySelector('[data-companion-dock] .cannot')?.textContent ?? null, disabled: document.querySelector('[data-companion-dock] input.input')?.disabled ?? null, veiled: document.querySelector('[data-companion-dock] [data-companion-body]')?.classList.contains('veiled') ?? null })")
     more = [call["input"] for call in await calls(page, "check_protect_more")]
     results.check("the companion's ask waits with the reason, and opening it veils its body through check.protect_more",
-                  comp["cannot"] == "the tutor waits · after your check · it is open on this desk" and comp["disabled"] is True and comp["veiled"] is True
+                  comp["cannot"] == "the companion waits · after your check · it is open on this desk" and comp["disabled"] is True and comp["veiled"] is True
                   and any(m["visible"].get("companionOpen") for m in more), [comp, len(more)])
     await shot(page, shots, "checks-companion")
     # A veil out of sight (the pad stack is on this desk but not in view) has no pill; the companion's has one above it.

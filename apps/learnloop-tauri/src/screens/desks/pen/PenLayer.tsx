@@ -776,7 +776,7 @@ function PenLayerOn({ host, surface }: { host: PenHost; surface: PenSurface }) {
           {mark.chip ? (
             <Chip body={body} kind={mark.kind} x={mark.chip.x} y={mark.chip.y} below={mark.chip.below}>
               <span>{mark.chip.text}</span>
-              {mark.kind === "lasso" ? <button type="button" className="askc" onClick={() => hostRef.current.askCompanion()}>ask the tutor · c</button> : null}
+              {mark.kind === "lasso" ? <button type="button" className="askc" onClick={() => hostRef.current.askCompanion()}>ask in the companion · c</button> : null}
               <button type="button" data-undo="" onClick={() => undo(mark)}>undo</button>
               <button type="button" data-x="" aria-label="Hide pen message" title="Hide pen message" onClick={() => update(mark.id, (current) => ({ ...current, chip: null }))}>✕</button>
             </Chip>
