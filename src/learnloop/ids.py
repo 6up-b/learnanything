@@ -124,6 +124,19 @@ def new_ulid_after(floor: str | None) -> str:
     return new_ulid()
 
 
+def keyed_ulid(time_of: str, key: str) -> str:
+    """A ULID that is a function of its inputs: ``time_of``'s time (a ULID) and randomness from ``key``'s digest.
+    For a row that exists once per keyed event, whose id must neither shift :func:`new_ulid`'s stream nor differ
+    between two runs of the same history."""
+
+    import hashlib
+
+    parsed = _decode_ulid(time_of)
+    timestamp_ms = parsed[0] if parsed is not None else 0
+    randomness = int.from_bytes(hashlib.sha256(key.encode("utf-8")).digest()[:10], "big")
+    return _encode_crockford(timestamp_ms, 10) + _encode_crockford(randomness, 16)
+
+
 def kebab_case(value: str) -> str:
     chars: list[str] = []
     previous_dash = False

@@ -24,7 +24,7 @@ from learnloop.adaptive_difficulty.logs import warn_failure
 from learnloop.adaptive_difficulty.material_view import material_view
 from learnloop.adaptive_difficulty.operation import entry
 from learnloop.adaptive_difficulty.successor import successor_active
-from learnloop.ids import UlidStream
+from learnloop.ids import keyed_ulid
 from learnloop.scheduling.forecast_receipts import ITEM_UNASSISTED_SUCCESS_AT_GRADE, ForecastReceipt
 
 LOG = logging.getLogger(__name__)
@@ -34,14 +34,12 @@ GRADE_FORECAST_VERSION = "ad-threshold-grade-v1"
 #: The attempt the forecast is about (``forecast_receipts.source_attempt_id``).
 GRADED_ATTEMPT = "graded_attempt"
 
-_RECEIPT_IDS = UlidStream()
+def receipt_id(attempt_id: str) -> str:
+    """A grade-time receipt's id, a function of its attempt (:func:`learnloop.ids.keyed_ulid`): drawn from
+    ``ids.new_ulid`` it would shift every id the grade mints after it, and drawn from a stream of its own it would
+    differ between two runs of the same history."""
 
-
-def new_receipt_id() -> str:
-    """A grade-time receipt's id, from this module's own stream: drawn from ``ids.new_ulid``, it would shift every
-    id the grade mints after it."""
-
-    return _RECEIPT_IDS()
+    return keyed_ulid(attempt_id, receipt_key(attempt_id))
 
 
 def receipt_key(attempt_id: str) -> str:
@@ -115,5 +113,5 @@ def safe_grade_receipt(vault: Any, repository: Any, **kwargs: Any) -> ForecastRe
         return None
 
 
-__all__ = ["GRADED_ATTEMPT", "GRADE_FORECASTER", "GRADE_FORECAST_VERSION", "grade_receipt", "new_receipt_id",
-           "receipt_key", "safe_grade_receipt"]
+__all__ = ["GRADED_ATTEMPT", "GRADE_FORECASTER", "GRADE_FORECAST_VERSION", "grade_receipt",
+           "receipt_id", "receipt_key", "safe_grade_receipt"]

@@ -718,10 +718,9 @@ def observation_kl(view: View, record: M.UpdateRecord) -> dict[str, float]:
     """The KL of the view's posterior after one answer's observation from its posterior before it (from the
     label's retirement on: a measure recorded beside surprise, deciding nothing). The bank is a mixture over its
     grid points, each a Gaussian the observation updates along one projection, so the joint KL is exact by the
-    chain rule: the KL of the posterior
-    grid weights from the prior ones (``w_k ∝ w'_k / z_k``), plus the posterior-weighted KL of each point's Gaussian,
-    which for a rank-one update equals the one-dimensional KL along the projection (the record's ``information``).
-    Nats."""
+    chain rule: the KL of the posterior grid weights from the prior ones (``w_k ∝ w'_k / z_k``), plus the
+    posterior-weighted KL of each point's Gaussian, which for a rank-one update equals the one-dimensional KL along
+    the projection (the record's ``information``). Nats."""
 
     posterior = view.bank.weights()[0]
     z = np.exp(np.asarray(record.log_z, dtype=np.float64))

@@ -23,7 +23,7 @@ from __future__ import annotations
 from dataclasses import dataclass, replace
 from typing import Any
 
-from learnloop.adaptive_difficulty.grade_forecast import new_receipt_id, safe_grade_receipt
+from learnloop.adaptive_difficulty.grade_forecast import receipt_id, safe_grade_receipt
 from learnloop.algorithm_versions import label_retired
 from learnloop.clock import utc_now_iso
 from learnloop.db.stores import forecast_receipts as receipts
@@ -73,11 +73,12 @@ def with_grade_forecast(vault: Any, repository: Any, attempt: Any, *, clock: Any
 
 def record_grade_forecast(repository: Any, receipt: Any) -> None:
     """Append the live forecast with its attempt, in the grade's transaction (a savepoint: a failed receipt rolls back
-    alone). Its id comes from the forecast module's own stream, so the grade's ids are unchanged."""
+    alone). Its id is a function of its attempt, so the grade's other ids are unchanged."""
 
     if receipt is None:
         return
-    record_receipts(repository, [receipt], created_at=receipt.inputs_as_of, new_id=new_receipt_id)
+    attempt_id = str(receipt.columns["source_attempt_id"])
+    record_receipts(repository, [receipt], created_at=receipt.inputs_as_of, new_id=lambda: receipt_id(attempt_id))
 
 
 def read_surprise_forecast(vault: Any, repository: Any, draft: Any, *, attempt_id: str, live_receipt: Any = None,

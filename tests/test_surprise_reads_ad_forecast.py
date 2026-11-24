@@ -180,3 +180,50 @@ def test_the_grade_does_not_wait_on_a_second_clock(served):
         as_of, created = connection.execute("SELECT inputs_as_of, created_at FROM forecast_receipts WHERE receipt_key = ?",
                                             (receipt["key"],)).fetchone()
     assert as_of == created == when.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def test_a_writer_committing_between_the_read_and_the_write_leaves_the_recorded_forecast_standing(
+        served, tmp_path, monkeypatch):
+    """The forecast is read before the grade's write transaction, so another writer (a background job, the phone) can
+    commit in between. The receipt then records the events it read, which are not AD's events just before the write;
+    the grade scores against the recorded forecast, and a rebuild reproduces it exactly, never recomputing it."""
+
+    import learnloop.attempts.attempts as attempts_module
+    from learnloop.adaptive_difficulty.grade_forecast import grade_receipt
+    from learnloop.db.copies import copy_tree_with_databases
+
+    paths, _vault, _repository = served
+    root = tmp_path / "race"
+    copy_tree_with_databases(paths.root, root)
+    vault = load_vault(root)
+    repository = Repository(vault.root / paths.sqlite_path.relative_to(paths.root))
+    when = NOW + timedelta(days=90)
+    real = attempts_module.with_grade_forecast
+    seen: dict[str, str] = {}
+
+    def racing(vault_, repository_, attempt, *, clock=None):
+        attempt = real(vault_, repository_, attempt, clock=clock)
+        if seen:
+            return attempt
+        seen["read"] = attempt.grade_forecast.inputs["events_fingerprint"]
+        # Another answer commits after this grade's read and before its write.
+        complete_self_graded_attempt(vault_, repository_, AttemptDraft(
+            practice_item_id="pi_diag_mid", learner_answer_md="Meanwhile.", attempt_type="independent_attempt"),
+            SelfGradeInput(criterion_points={"correctness": 4}, confidence=3), clock=FrozenClock(when))
+        seen["before_write"] = grade_receipt(vault_, repository_, practice_item_id="pi_eig_mid",
+                                             attempt_id="probe", at=attempt.grade_forecast.inputs_as_of
+                                             ).inputs["events_fingerprint"]
+        return attempt
+
+    monkeypatch.setattr(attempts_module, "with_grade_forecast", racing)
+    result = complete_self_graded_attempt(vault, repository, AttemptDraft(
+        practice_item_id="pi_eig_mid", learner_answer_md="Again.", attempt_type="independent_attempt"),
+        SelfGradeInput(criterion_points={"correctness": 3}, confidence=3), clock=FrozenClock(when))
+    monkeypatch.undo()
+    receipt = _grade_receipts(repository)[result.attempt_id]
+    assert receipt["inputs"]["events_fingerprint"] == seen["read"] != seen["before_write"]
+    row = _surprise(repository)[result.attempt_id]
+    assert (row["dist"]["prediction_source"], row["dist"]["p_ad"]) == ("grade_receipt", pytest.approx(receipt["p"]))
+    live, receipts = _surprise(repository), _grade_receipts(repository)
+    rebuild_all_derived_state(vault, repository)
+    assert _surprise(repository) == live and _grade_receipts(repository) == receipts
