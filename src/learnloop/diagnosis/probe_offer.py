@@ -21,7 +21,7 @@ from learnloop.diagnosis.causal_probe_coherence import (
     candidate_has_current_blind_input_contract,
     order_probe_candidates,
 )
-from learnloop.diagnosis.causal_reads import CAUSAL_ORCHESTRATOR_FORMULA_VERSION
+from learnloop.diagnosis.causal_reads import CAUSAL_ORCHESTRATOR_FORMULA_VERSION, CausalRepairError
 from learnloop.diagnosis.probe_hard_stops import (
     EPISODE_CONFLICT_REASON,
     _causal_origin,
@@ -123,10 +123,14 @@ def router_disposition(repository: Repository, factor_id: str) -> dict[str, Any]
     """The router's decision on the factor's learner-lane probe as the offer reads it: ``router_state`` (``pending``
     with no decision, ``selected`` or ``not_selected``) and ``router_decision_id``."""
 
-    from learnloop.router.plan_log import PROBE_REF, learner_probe_decision
+    from learnloop.router.plan_log import PROBE_REF, automatic_probe_decision, learner_probe_decision
 
     with repository.connection() as connection:
         decided = learner_probe_decision(connection, factor_id)
+        automatic = automatic_probe_decision(connection, factor_id) if decided is None else None
+    if automatic is not None:
+        # The automatic lane's decision on the factor is its one decision (G2 review R11): nothing to accept here.
+        return {"router_state": "not_selected", "router_decision_id": str(automatic["id"])}
     if decided is None:
         return {"router_state": "pending", "router_decision_id": None}
     selected = str(decided.get("chosen_ref")) == PROBE_REF
@@ -155,8 +159,12 @@ def accept_routed_probe_offer(
     disposition = router_disposition(repository, factor_id)
     if disposition["router_state"] != "selected":
         return ProbeOffer(accepted=False, reason=ROUTER_DECISION_REQUIRED, factor_id=factor_id), disposition
-    status = causal_repair_status(vault, repository, misconception_id=str(disposition.get("misconception_id") or ""),
-                                  session_id=session_id, start_repair=False, clock=clock)
+    try:
+        status = causal_repair_status(vault, repository, misconception_id=str(disposition.get("misconception_id") or ""),
+                                      session_id=session_id, start_repair=False, clock=clock, factor_id=factor_id)
+    except CausalRepairError:
+        # The factor is no longer an open factor of its cause (resolved since the selection).
+        return ProbeOffer(accepted=False, reason="factor_not_open", factor_id=factor_id), disposition
     disposition = {**disposition, "router_state": status.router_state,
                    "hard_stop_reasons": list(status.hard_stop_reasons)}
     if status.router_state != "selected" or status.factor_id != factor_id:
@@ -461,11 +469,13 @@ def request_teaching_now(
         detail={"misconception_id": misconception_id},
         clock=clock,
     )
+    # The status of the factor the consent was recorded on, never another factor of the same cause (G2 review R12).
     return causal_repair_status(
         vault,
         repository,
         misconception_id=misconception_id,
         session_id=session_id,
         clock=clock,
+        factor_id=factor_id,
     )
 

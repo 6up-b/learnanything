@@ -31,6 +31,11 @@ from learnloop_sidecar.registry import method
 
 class MisconceptionInput(ParamsModel):
     misconception_id: str
+    #: The factor the repair surface was opened for, and its session (G2 review R12, R6): a cause can sit in two
+    #: open factors, and a session's "Not now" applies at the repair entry too. Both optional: the other surfaces
+    #: that open a repair name only the cause.
+    factor_id: str | None = None
+    session_id: str | None = None
 
 
 class EpisodeInput(ParamsModel):
@@ -111,7 +116,8 @@ def _episode_case_payload(repository, episode: dict[str, Any]) -> dict[str, Any]
     )
 
 
-def _route_first(vault: Any, repository: Any, misconception_id: str, session_id: str | None = None) -> None:
+def _route_first(vault: Any, repository: Any, misconception_id: str, session_id: str | None = None,
+                 factor_id: str | None = None) -> None:
     """The probe router's tag: the router decides the factor's probe before the repair entry reads its status, so
     the entry holds the repair only on the router's selection. A durable misconception has no probe to decide and a
     case that is not one is the entry's own error to report; neither is read here."""
@@ -126,7 +132,8 @@ def _route_first(vault: Any, repository: Any, misconception_id: str, session_id:
     from learnloop.daily_plan import learner_probe
 
     try:
-        learner_probe.decide(vault, repository, misconception_id=misconception_id, session_id=session_id)
+        learner_probe.decide(vault, repository, misconception_id=misconception_id, session_id=session_id,
+                             factor_id=factor_id)
     except CausalRepairError:
         return
 
@@ -134,10 +141,11 @@ def _route_first(vault: Any, repository: Any, misconception_id: str, session_id:
 @method("start_remediation", MisconceptionInput)
 def start_remediation_handler(ctx: SidecarContext, params: MisconceptionInput) -> dict[str, Any]:
     vault, repository = ctx.require_vault()
-    _route_first(vault, repository, params.misconception_id)
+    _route_first(vault, repository, params.misconception_id, params.session_id, params.factor_id)
     try:
         episode = start_remediation_episode(
-            repository, params.misconception_id, vault=vault
+            repository, params.misconception_id, vault=vault, session_id=params.session_id,
+            factor_id=params.factor_id,
         )
     except RemediationBlocked as exc:
         # A causal hold is a STATE, not an error. Returning it as a normal
@@ -166,6 +174,10 @@ def start_remediation_handler(ctx: SidecarContext, params: MisconceptionInput) -
 class RepairStatusInput(ParamsModel):
     misconception_id: str
     session_id: str | None = None
+    #: The factor the feedback screen shows, once a status has named it, else the attempt it shows (G2 review R12):
+    #: the status read, the router's decision and the actions are that factor's (``causal_repair_status``).
+    factor_id: str | None = None
+    attempt_id: str | None = None
 
 
 class ProbeOfferInput(ParamsModel):
@@ -200,7 +212,8 @@ def causal_repair_status_handler(
             from learnloop.daily_plan import learner_probe
 
             status = learner_probe.decide(vault, repository, misconception_id=params.misconception_id,
-                                          session_id=params.session_id)
+                                          session_id=params.session_id, factor_id=params.factor_id,
+                                          attempt_id=params.attempt_id)
         else:
             status = causal_repair_status(
                 vault,
@@ -210,6 +223,8 @@ def causal_repair_status_handler(
                 # A status read must not mint a remediation episode; the decision
                 # receipt is still recorded.
                 start_repair=False,
+                factor_id=params.factor_id,
+                attempt_id=params.attempt_id,
             )
     except CausalRepairError as exc:
         raise SidecarError("invalid_request", str(exc)) from exc

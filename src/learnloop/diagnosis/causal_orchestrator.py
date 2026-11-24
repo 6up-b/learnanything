@@ -479,6 +479,8 @@ def causal_repair_status(
     start_repair: bool = True,
     clock: Clock | None = None,
     record_receipt: bool = True,
+    factor_id: str | None = None,
+    attempt_id: str | None = None,
 ) -> RepairStatus:
     """Resolve — and where safe, START — the repair for one cause.
 
@@ -499,6 +501,9 @@ def causal_repair_status(
     factor, its hypotheses, and the diagnosis receipt.  The learning-object-wide
     obligation sweep, which does need the vault, runs on the live attempt path
     (``followups.evaluate_attempt_intervention_followup``).
+
+    ``factor_id`` and ``attempt_id`` name the factor the caller shows (``_requested_factor``): a cause can sit in
+    two open factors, and the status, the router's decision and "Teach me now" are each the shown factor's.
     """
 
     misconception = repository.misconception(misconception_id)
@@ -629,7 +634,7 @@ def causal_repair_status(
             ),
         )
 
-    factor = factors[0]
+    factor = _requested_factor(factors, factor_id=factor_id, attempt_id=attempt_id)
     return _status_for_factor(
         repository,
         misconception_id=misconception_id,
@@ -641,6 +646,29 @@ def causal_repair_status(
         clock=clock,
         record_receipt=record_receipt,
     )
+
+
+def _requested_factor(
+    factors: Sequence[Mapping[str, Any]], *, factor_id: str | None, attempt_id: str | None
+) -> Mapping[str, Any]:
+    """The open factor the caller shows (G2 review R12). A cause can sit in two open factors (two misses with the
+    same rival causes): without a name the oldest was read, so the second factor's feedback decided the first
+    factor's probe and left its own pending, and "Teach me now" recorded consent on one factor and read another.
+
+    A named factor must be one of the cause's open factors (and on ``attempt_id`` when that is given too), or the
+    request is refused. With only the attempt, the open factor on it is read. With neither, or no factor on that
+    attempt (a cause matched from an earlier miss), the oldest, as before."""
+
+    if factor_id:
+        named = next((factor for factor in factors if str(factor["id"]) == factor_id), None)
+        if named is None or (attempt_id and str(named.get("attempt_id") or "") != attempt_id):
+            raise CausalRepairError("the named factor is not an open factor of this cause on this attempt")
+        return named
+    if attempt_id:
+        on_attempt = [factor for factor in factors if str(factor.get("attempt_id") or "") == attempt_id]
+        if on_attempt:
+            return on_attempt[0]
+    return factors[0]
 
 
 def gather_probe_reads(
@@ -1289,7 +1317,7 @@ def _routed(
 
     from learnloop.diagnosis.learner_probe_proposal import Proposal
     from learnloop.diagnosis.probe_facts import REFUSING_PREFERENCES, settled_by_repair_classes
-    from learnloop.router.plan_log import PROBE_REF, learner_probe_decision
+    from learnloop.router.plan_log import INSERT_REF, PROBE_REF, automatic_probe_decision, learner_probe_decision
 
     facts = reads.facts(session_budget_minutes=session_budget_minutes)
     chosen = reads.chosen
@@ -1361,7 +1389,16 @@ def _routed(
     factor_id = str(proposal["factor_id"])
     with repository.connection() as connection:
         decided = learner_probe_decision(connection, factor_id)
+        automatic = automatic_probe_decision(connection, factor_id) if decided is None else None
     why = "whether the quick check is asked is the router's decision"
+    if automatic is not None:
+        # One decision per factor across the lanes (G2 review R11): the automatic lane already decided this factor's
+        # probe after the miss (asked it, or drew another arm), so the learner lane offers no second draw.
+        asked = str(automatic.get("chosen_ref")) == INSERT_REF
+        return finish(status="started", reason="router_asked_on_automatic_lane" if asked
+                      else "router_did_not_select_probe_on_automatic_lane", message=STARTED_MESSAGE,
+                      decision=ROUTER_DECIDES, decision_reason=why, candidate=chosen, start_episode=True,
+                      router_state="not_selected", router_decision_id=str(automatic["id"]), **common)
     if decided is None:
         unservable = candidate_unservable(vault, repository, chosen)
         if unservable is not None:

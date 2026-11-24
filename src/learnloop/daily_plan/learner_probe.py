@@ -50,9 +50,10 @@ LLM_NOT_ASKED = "not_asked_on_this_lane"
 
 
 def decide(vault: Any, repository: Any, *, misconception_id: str, session_id: str | None = None,
-           clock: Clock | None = None) -> Any:
+           clock: Clock | None = None, factor_id: str | None = None, attempt_id: str | None = None) -> Any:
     """The repair status after the router has decided the factor's probe (where it had to): read, decide once if
-    ``pending``, read again. Below the tag, or with nothing for the router to decide, the status as read."""
+    ``pending``, read again. Below the tag, or with nothing for the router to decide, the status as read. The factor
+    is the one the caller shows (``factor_id``, else the one on ``attempt_id``; ``causal_repair_status``)."""
 
     from learnloop.diagnosis.causal_orchestrator import causal_repair_status
 
@@ -60,14 +61,16 @@ def decide(vault: Any, repository: Any, *, misconception_id: str, session_id: st
 
     if not probe_router_on(vault.config):
         return causal_repair_status(vault, repository, misconception_id=misconception_id, session_id=session_id,
-                                    start_repair=False, clock=clock)
+                                    start_repair=False, clock=clock, factor_id=factor_id, attempt_id=attempt_id)
     # The router's own read records no receipt: the status it serves after deciding records its facts once.
     status = causal_repair_status(vault, repository, misconception_id=misconception_id, session_id=session_id,
-                                  start_repair=False, clock=clock, record_receipt=False)
+                                  start_repair=False, clock=clock, record_receipt=False, factor_id=factor_id,
+                                  attempt_id=attempt_id)
     if status.router_state == "pending" and status.proposal is not None:
         decide_proposal(vault, repository, status.proposal, clock=clock)
     return causal_repair_status(vault, repository, misconception_id=misconception_id, session_id=session_id,
-                                start_repair=False, clock=clock)
+                                start_repair=False, clock=clock, factor_id=status.factor_id or factor_id,
+                                attempt_id=attempt_id)
 
 
 def _cause_class(repository: Any, hypothesis_id: str) -> str:
@@ -233,6 +236,14 @@ def decide_proposal(vault: Any, repository: Any, proposal: Any, *, clock: Clock 
     from learnloop.router_objective import probe_coin as PC
     from learnloop.router_objective_switches import failure_share_to_other_policy_on
 
+    from learnloop.router.plan_log import automatic_probe_decision
+
+    with repository.connection() as connection:
+        automatic = automatic_probe_decision(connection, proposal.factor_id)
+    if automatic is not None:
+        # The automatic lane decided this factor's probe since the status was read (G2 review R11): its decision is
+        # the factor's one decision, and no second draw is made.
+        return str(automatic["id"])
     config = vault.config
     now_iso = utc_now_iso(clock)
     decision_id = new_ulid()

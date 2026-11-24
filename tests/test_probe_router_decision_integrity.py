@@ -337,3 +337,118 @@ def test_r20_a_tiny_share_is_still_an_exact_propensity():
     row = build_learner_probe_decision({"factor_id": "f", "chosen_ref": NO_PROBE_REF, "propensity": 1 - 5e-13,
                                         "served_pi": {PROBE_REF: 5e-13, NO_PROBE_REF: 1 - 5e-13}, "detail": {}})
     assert row["propensity_kind"] == "exact" and row["propensity"] < 1.0
+
+
+# -- one decision per factor, across lanes, for the factor the screen shows -----------------------------------------
+
+
+def _automatic_decision_on(case, chosen_ref: str) -> str:
+    """The automatic lane (FG1) decided this factor's probe after its miss: a probe-lane workflow on the factor that
+    names its committed decision."""
+
+    from learnloop.db.stores import followup_serve as store
+    from learnloop.router.plan_log import log_followup_decision
+
+    from tests.causal_orchestrator_helpers import LO_ID, NOW_ISO
+
+    with case.repository.atomic(), case.repository.connection() as connection:
+        connection.execute(
+            "INSERT INTO practice_attempts(id, practice_item_id, learning_object_id, practice_mode, attempt_type, "
+            "hints_used, correctness, latency_seconds, manual_review, created_at, session_id, primed, evidence_origin)"
+            " VALUES ('att_orchestrator', 'pi_svd_define_001', ?, 'short_answer', 'independent_attempt', 0, 0.0, 60, "
+            "0, ?, NULL, 0, 'human')", (LO_ID, NOW_ISO))
+        store.insert_workflow(connection, {"id": "wf_automatic", "source_attempt_id": "att_orchestrator",
+                                           "revision_key": "r1", "learning_object_id": LO_ID, "session_id": None,
+                                           "surface": "desktop", "origin": "practice", "lane": "probe",
+                                           "feedback_held": 0, "created_at": NOW_ISO})
+        decision_id = log_followup_decision(connection, {
+            "workflow": {"id": "wf_automatic", "learning_object_id": LO_ID, "source_attempt_id": "att_orchestrator",
+                         "factor_id": case.factor},
+            "chosen_ref": chosen_ref, "propensity": 0.8, "router_record": {}, "config": case.vault.config,
+            "decided_at": NOW_ISO})
+        store.update_workflow(connection, "wf_automatic", at=NOW_ISO, factor_id=case.factor, decision_id=decision_id,
+                              chosen_ref=chosen_ref)
+    return str(decision_id)
+
+
+def _learner_decisions(case) -> int:
+    with case.repository.connection() as connection:
+        return connection.execute("SELECT COUNT(*) FROM router_decisions WHERE surface = 'causal_repair'").fetchone()[0]
+
+
+def test_r11_the_learner_lane_reads_the_automatic_lanes_decision_and_flips_no_coin(tmp_path, monkeypatch):
+    from learnloop.router.plan_log import NO_INTERVENTION_REF
+    from learnloop.router_objective import probe_coin as PC
+
+    case = _learner(tmp_path, monkeypatch)  # a fresh coin here would offer the probe
+    flipped: list[str] = []
+    real = PC.flip
+    monkeypatch.setattr(PC, "flip", lambda *a, **k: flipped.append("flip") or real(*a, **k))
+    decided = _automatic_decision_on(case, NO_INTERVENTION_REF)
+    status = _read(case)
+    assert (status["routerState"], status["routerDecisionId"], status["probeOffered"]) == ("not_selected", decided,
+                                                                                            False)
+    assert status["reason"] == "router_did_not_select_probe_on_automatic_lane"
+    assert not flipped and _learner_decisions(case) == 0
+    refused = _offer(case)
+    assert (refused["accepted"], refused["reason"]) == (False, "router_decision_required")
+
+
+def test_r11_a_probe_the_automatic_lane_asked_is_the_factors_one_probe(tmp_path, monkeypatch):
+    from learnloop.router.plan_log import INSERT_REF
+
+    case = _learner(tmp_path, monkeypatch)
+    decided = _automatic_decision_on(case, INSERT_REF)
+    status = _read(case)
+    assert (status["routerState"], status["routerDecisionId"], status["reason"]) == (
+        "not_selected", decided, "router_asked_on_automatic_lane")
+    assert _learner_decisions(case) == 0
+
+
+def _second_factor(case) -> str:
+    """A newer open factor on the same cause: another miss (with causes of its own on the learning object) whose factor
+    names the same rival causes."""
+
+    from tests.causal_orchestrator_helpers import _seed_factor
+
+    _seed_factor(case.repository, attempt_id="att_second")
+    causes = case.repository.unresolved_cause_factor(case.factor)["candidate_causes"]
+    return case.repository.insert_unresolved_cause_factor(attempt_id="att_second", candidate_causes=causes,
+                                                          algorithm_version="causal_attribution_p2", clock=CLOCK)
+
+
+def test_r12_the_status_and_its_decision_are_the_shown_factors_never_the_oldest(tmp_path, monkeypatch):
+    from learnloop.router.plan_log import learner_probe_decision
+
+    from tests.probe_router_authority_helpers import call
+
+    case = _learner(tmp_path, monkeypatch)
+    second = _second_factor(case)
+    named = call(case.ctx, "causal_repair_status", {"misconceptionId": case.first, "factorId": second})["repairStatus"]
+    by_attempt = call(case.ctx, "causal_repair_status",
+                      {"misconceptionId": case.first, "attemptId": "att_second"})["repairStatus"]
+    assert named["factorId"] == by_attempt["factorId"] == second
+    with case.repository.connection() as connection:
+        # The oldest factor's probe was never decided by the second factor's feedback.
+        assert learner_probe_decision(connection, case.factor) is None
+
+
+def test_r12_teach_me_now_reads_the_factor_it_recorded_consent_on(tmp_path, monkeypatch):
+    from tests.probe_router_authority_helpers import call
+
+    case = _learner(tmp_path, monkeypatch)
+    second = _second_factor(case)
+    taught = call(case.ctx, "causal_teach_me_now", {"factorId": second, "misconceptionId": case.first})["repairStatus"]
+    assert (taught["factorId"], taught["reason"]) == (second, "learner_requested_teaching_without_probe")
+
+
+def test_r12_a_factor_that_is_not_the_causes_is_refused(tmp_path, monkeypatch):
+    import pytest
+
+    from learnloop_sidecar.errors import SidecarError
+
+    from tests.probe_router_authority_helpers import call
+
+    case = _learner(tmp_path, monkeypatch)
+    with pytest.raises(SidecarError):
+        call(case.ctx, "causal_repair_status", {"misconceptionId": case.first, "factorId": "not_a_factor_of_it"})

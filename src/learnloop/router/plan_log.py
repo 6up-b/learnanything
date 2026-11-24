@@ -951,6 +951,22 @@ def learner_probe_decision(connection: Any, factor_id: str) -> dict[str, Any] | 
     return out
 
 
+def automatic_probe_decision(connection: Any, factor_id: str) -> dict[str, Any] | None:
+    """The automatic lane's (FG1's) committed decision on this factor's probe, or None: ``id``, ``chosen_ref``,
+    ``propensity``. One factor gets one probe decision across the two lanes (G2 review R11): the learner lane reads
+    this one back instead of flipping a coin of its own. A hard refusal (``decline``) is no draw, so it is not one."""
+
+    from learnloop.db.stores import followup_serve as workflows
+
+    if not _ledger_present(connection) or not workflows.present(connection):
+        return None
+    row = connection.execute(
+        "SELECT d.id, d.chosen_ref, d.propensity FROM followup_workflows w JOIN router_decisions d ON d.id = w.decision_id "
+        "WHERE w.factor_id = ? AND w.lane = 'probe' AND d.chosen_ref != ? ORDER BY d.created_at, d.id LIMIT 1",
+        (factor_id, DECLINE_REF)).fetchone()
+    return dict(row) if row is not None else None
+
+
 def log_learner_probe_decision(connection: Any, decision: Mapping[str, Any]) -> str | None:
     """Write the learner lane's row on the caller's transaction. Returns the factor's decision on record: this one, or
     the one a concurrent read wrote first (the receipt key is the factor's, so the later row is a no-op)."""
@@ -970,6 +986,7 @@ __all__ = [
     "LEARNER_PROBE_SURFACE",
     "NO_PROBE_REF",
     "PROBE_REF",
+    "automatic_probe_decision",
     "build_learner_probe_decision",
     "learner_probe_decision",
     "learner_probe_receipt_key",
