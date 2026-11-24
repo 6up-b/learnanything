@@ -4,7 +4,7 @@
 // reason in plain words. Every word about what an answer counts as comes from the server's reply.
 import { useSyncExternalStore, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { MarkdownMath } from "../../../render/MarkdownMath";
-import type { ReaderLens } from "../../ReaderScreen";
+import type { ReaderLens } from "../source/types";
 import { FitMath } from "../fitMath";
 import type { CheckDesk, DueCheck, OpenCheck } from "./controller";
 import { PRIMED_BY_NOTE_WORDS, REASON_WORDS, answeredHead, groupsLine, lookedLine, type CheckReason } from "./model";

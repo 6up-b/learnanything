@@ -3,7 +3,7 @@
 // skippable and later text dimmed (never hidden), and a short dark callout at a section start on the path.
 import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import type { GoalBandDto } from "../../../api/dto";
-import type { ReaderLens } from "../../ReaderScreen";
+import type { ReaderLens } from "../source/types";
 import type { WatchLens } from "../../reader/YouTubeWatchPanel";
 import type { WhyState } from "./controller";
 import { calloutFor, goalShort, isDimmed, markKind, mostNeededSpan, noneNeeded, whyLevelLine, type LensIndex } from "./model";

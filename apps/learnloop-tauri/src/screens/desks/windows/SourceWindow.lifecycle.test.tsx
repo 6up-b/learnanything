@@ -8,7 +8,7 @@ import type { ReaderActivityEvent, SourceLibraryCard } from "../../../api/dto";
 import { flushReaderActivity, resetReaderActivityForTests } from "../../reader/activity";
 import { DIRECT_HUB, WindowScope, type WindowState } from "../lifecycle";
 import { SourceWindow } from "./SourceWindow";
-import type { ReaderWindowing } from "../../ReaderScreen";
+import type { ReaderWindowing } from "../source/types";
 import type { ListenerHub } from "../lifecycle";
 
 const api = vi.hoisted(() => ({

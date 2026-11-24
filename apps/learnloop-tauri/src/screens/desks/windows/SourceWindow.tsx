@@ -5,12 +5,13 @@
 // logs reading activity only while it is active or visible (desks/lifecycle.tsx).
 import { useCallback, useMemo, useState, type ComponentProps } from "react";
 import type { ContentRefDto, SourceLibraryCard } from "../../../api/dto";
-import { ReaderScreen, type PenSurface, type ReaderLens, type ReaderWindowing, type WindowInquiry } from "../../ReaderScreen";
+import { ScopedSource } from "../source/ScopedSource";
+import type { PenSurface, ReaderLens, ReaderWindowing, WindowInquiry } from "../source/types";
 import type { WindowAsk } from "../../reader/useReaderInquiry";
 import { PenLayer } from "../pen/PenLayer";
 import type { VideoExtras } from "../../reader/YouTubeWatchPanel";
 
-export type ReaderPassThrough = Pick<ComponentProps<typeof ReaderScreen>, "onCheckMe" | "onUseExercise" | "onTeachMe" | "workbench">;
+export type ReaderPassThrough = Pick<ComponentProps<typeof ScopedSource>, "onCheckMe" | "onUseExercise" | "onTeachMe" | "workbench">;
 
 export interface SourceStatus {
   title?: string;
@@ -108,7 +109,7 @@ export function SourceWindow({
   }
   return (
     <>
-      <ReaderScreen
+      <ScopedSource
         key={card.sourceId}
         onError={onError}
         initialSource={initialSource}

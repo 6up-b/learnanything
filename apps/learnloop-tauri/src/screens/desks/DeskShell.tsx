@@ -102,7 +102,7 @@ import { SourceWindow, type ReaderPassThrough, type SourceStatus } from "./windo
 import { DeskPairs, keptPairsFor } from "./sideBySide/pairs";
 import type { PaneTarget } from "../reader/sideBySide";
 import { logReaderAction } from "../reader/activity";
-import type { WindowInquiry } from "../ReaderScreen";
+import type { WindowInquiry } from "./source/types";
 import type { WindowAsk, WindowExchange } from "../reader/useReaderInquiry";
 import { ThreadWindow } from "./windows/ThreadWindow";
 import { PadStackWindow } from "./pads/PadStackWindow";

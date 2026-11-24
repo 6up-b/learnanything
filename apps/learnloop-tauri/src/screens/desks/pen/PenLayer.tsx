@@ -16,7 +16,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import type { InkTranscribeJobDto, ReaderRawSelectionNode } from "../../../api/dto";
-import type { PenSurface } from "../../ReaderScreen";
+import type { PenSurface } from "../source/types";
 import { useWindowLifecycle, useWindowPaused } from "../lifecycle";
 import { usePenHost, type PenHost } from "./host";
 import { inkRefusal } from "./inkCache";
