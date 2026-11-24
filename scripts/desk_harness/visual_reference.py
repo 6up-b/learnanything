@@ -507,6 +507,17 @@ async def d_desk1(page: Page) -> None:
     await wait(page, 1500)
 
 
+async def d_pair(page: Page) -> None:
+    """Side by side as a pair (`?pairs=1`): the backprop desk's book, then Ctrl+\\ pairs its first correspondent."""
+    await page.get_by_role("button", name="backprop", exact=True).click()
+    await page.wait_for_selector("[data-desk-window='fx_w_book_range'] [data-span-id]")
+    await wait(page, 1200)
+    await page.click("[data-desk-window='fx_w_book_range'] .desk-pane-head .t")
+    await page.keyboard.press("Control+Backslash")
+    await page.wait_for_selector("[data-desk-window] [data-span-id^='fx_ext_attention_p1']")
+    await wait(page, 1500)
+
+
 async def d_focus3(page: Page) -> None:
     await keys(page, "Alt+l", "Alt+l", "Alt+l")
     await wait(page, 700)
@@ -981,6 +992,11 @@ GOAL_PATH = ("goal_path", "goal_path_left", "goal_path_h3", "goal_path_scope", "
 STATES: list[State] = [
     State("plain", "rd1", d_plain, SHELL + WINDOWS + ("comp_panel", "comp_closed_tab")),
     State("desk=1", "rd1", d_desk1, SHELL + WINDOWS),
+    # Side by side as paired windows (spec §21.1, §5.2). The reference has no state with two windows in one slot (its
+    # "stack" is tabs); `desk=1` is its state with two reading windows in view, compared for the windows' colours,
+    # tokens and type, never their geometry (a pair stacks top and bottom by §5.2).
+    State("pair", "pairs", d_pair, tuple(name for name in WINDOWS if not name.startswith("video_")), query="?pairs=1", geometry=False, reference="desk=1",
+          note="the mockup's two windows in view against the desks' pair: colour, tokens and type only"),
     State("focus=3", "rd1", d_focus3, SHELL + WINDOWS),
     State("move", "rd1", d_move, SHELL + WINDOWS),
     State("zoom=after", "rd1", d_zoom_after, ("window_focus", "window_focus_head", "focus_badge", "book_paper", "book_prose", "topbar")),
@@ -1311,7 +1327,7 @@ def summarise(results: list[dict[str, Any]]) -> str:
 async def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--ref", type=Path, required=True, help="the private reference directory")
-    parser.add_argument("--stage", default="all", choices=["rd1", "rd2", "rd3", "rd4", "rd5", "rd6", "rd8", "rd9", "rd10", "notebook", "all"])
+    parser.add_argument("--stage", default="all", choices=["rd1", "rd2", "rd3", "rd4", "rd5", "rd6", "rd8", "rd9", "rd10", "pairs", "notebook", "all"])
     parser.add_argument("--state", default=None)
     parser.add_argument("--viewport", default="both", choices=["design", "laptop", "both"])
     parser.add_argument("--out", type=Path, default=None, help="where the comparison goes (default: <ref>/compare)")

@@ -63,6 +63,7 @@ AREA_RESPONSIBILITIES = {
     "TypeScript/screens/desks/carried": "Carried questions resurfacing beside related passages: a question's section by the union read, its judged correspondents in the other open readings, and every page of the carried list.",
     "TypeScript/screens/desks/lesson": "Teacher lessons as windows and stack tabs: the lesson's paper with its modes (review, your additions), LessonView in its window frame, the additions pad, openings in flight, and the path view's Teacher lesson row, read from lesson.view and lesson.list.",
     "TypeScript/screens/desks/goal": "The goal lens on the desks: the goal band under the top bar, criticality marks with their why card, dimming, section callouts, a pad stack's goal line and the path view, all read from goal.band and goal.lens.",
+    "TypeScript/screens/desks/sideBySide": "Side by side on the desks as paired windows: the pair a book opens in, which window leads, follow along between the two, and the way back.",
     "TypeScript/screens/desks/search": "Search in context: the groups of search.everything with the client's open-on-this-desk group, the meaning job, insert mode and the panel.",
     "TypeScript/screens/reader": "Reader request-state coordination extracted from the main reader screen.",
     "TypeScript/screens/reader/figures": "Reader \"show me\" figures: the figure grammar and spec, inline figures, panels, predictions, and their state.",

@@ -102,6 +102,25 @@ function viewFor(id: string) {
   return FIXTURE_VIEWS[id] ?? Object.values(FIXTURE_VIEWS).find((view) => view.extractionId === id) ?? null;
 }
 
+const PAIRS = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("pairs") === "1";
+
+/** Side by side's fixture (`?pairs=1`): the book's section n (n = 1…6) is treated by the paper's section ((n-1) % 3 + 1),
+ *  a judged correspondent opening at that section's first passage. */
+function pairCorrespondents(input: { extractionId: string; sectionId: string }) {
+  const { book, paper } = FIXTURE_SOURCES;
+  const n = input.extractionId === book.extractionId ? Number(/_s(\d+)$/.exec(input.sectionId)?.[1] ?? NaN) : NaN;
+  if (!Number.isFinite(n)) return { extractionId: input.extractionId, sectionId: input.sectionId, status: "none", learningObjects: [], search: null, checkableLearningObjectIds: [] };
+  const section = `${paper.extractionId}_p${((n - 1) % 3) + 1}`;
+  const view = FIXTURE_VIEWS[paper.sourceId];
+  const first = view?.blocks.find((block) => block.spanId?.startsWith(`${section}_`))?.spanId ?? null;
+  return {
+    extractionId: input.extractionId, sectionId: input.sectionId, status: "judged", search: null, checkableLearningObjectIds: [],
+    learningObjects: [{ learningObjectId: `lo_pair_${n}`, title: "a shared idea", sources: [{ sourceId: paper.sourceId, sourceTitle: "Attention as averaging (a note)", sections: [{
+      extractionId: paper.extractionId, sectionId: section, title: `§${((n - 1) % 3) + 1}`, sourceId: paper.sourceId, sourceTitle: "Attention as averaging (a note)",
+      read: false, jump: { extractionId: paper.extractionId, sectionId: section, spanId: first }, treatment: "develops", by: "judge" }] }] }],
+  };
+}
+
 const CONTRACT = {
   version: "fixture", context: "reader", readerEnabled: true, notSocraticByDefault: true, defaultAnswerMode: "answer_directly",
   answerModes: ["answer_directly"], mayReveal: [], manifestIncludes: [], manifestNeverIncludes: [], citations: "spans",
@@ -115,6 +134,8 @@ const CONTRACT = {
       notesPalette: [], speculative: false, speculateAfterMs: 0, timeoutSeconds: 30,
     } }
     : {}),
+  // `?pairs=1`: side by side is on (the book's sections each have a judged correspondent in the paper, below).
+  ...(PAIRS ? { sideBySide: { enabled: true } } : {}),
 };
 
 // The context menu's promoted rows: a cheap row per passage (the learner's own question there, so rows differ by
@@ -364,7 +385,7 @@ function answer(command: string, input: Record<string, unknown>): unknown {
     case "chapters_decide":
       return videoFixture.decide(input as never);
     case "reader_correspondents":
-      return videoFixture.correspondents(input as never);
+      return PAIRS ? pairCorrespondents(input as never) : videoFixture.correspondents(input as never);
     // `?recap=1`: the book's last session, its recap card and its Wrap up (project-authored).
     case "reader_recap":
     case "reader_recap_event":
