@@ -629,8 +629,90 @@ def protect_lens(reply: Mapping[str, Any], protection: Protection) -> dict[str, 
     return out
 
 
+def _overlaps(t0: Any, t1: Any, start: float, end: float | None) -> bool:
+    return (end is None or float(t0) < end) and float(t1) > start
+
+
+def chapter_held(chapter: Mapping[str, Any], protection: Protection,
+                 sections: Sequence[tuple[str, float, float | None]] = ()) -> bool:
+    """Whether a video chapter says something of a held LO: it is tagged with one, its title names one, or it spans a
+    transcript section that treats one (``sections``: the video's (section id, t0, t1))."""
+
+    extraction_id = chapter.get("extraction_id")
+    return (any(protection.lo_masked(lo_id) for lo_id in chapter.get("learning_object_ids") or ())
+            or protection.names_held(chapter.get("title"))
+            or any(protection.protects(extraction_id, section_id) and _overlaps(chapter.get("t0", 0), chapter.get("t1", 0), t0, t1)
+                   for section_id, t0, t1 in sections))
+
+
+def protect_chapters(chapters: Sequence[Mapping[str, Any]], protection: Protection,
+                     sections: Sequence[tuple[str, float, float | None]] = ()) -> list[dict[str, Any]]:
+    """A video's chapters (``chapters.list``, ``chapters.decide``, a suggestion's result): a chapter about a held LO
+    keeps its times and ids, its title neutral; a held LO's tag names nothing."""
+
+    out = []
+    for chapter in chapters:
+        row = dict(chapter)
+        if protection.active:
+            if chapter_held(row, protection, sections):
+                row["title"], row["held"] = NEUTRAL_SECTION, True
+            if "learning_objects" in row:
+                row["learning_objects"] = [{**tag, "title": NEUTRAL_LO, "held": True}
+                                           if protection.lo_masked(tag.get("learning_object_id")) else dict(tag)
+                                           for tag in row.get("learning_objects") or ()]
+        out.append(row)
+    return out
+
+
+def protect_lessons(lessons: Sequence[Mapping[str, Any]], protection: Protection) -> list[dict[str, Any]]:
+    """Lesson summaries (``lesson.list``: the lesson windows' tabs, the path view's lesson row): a lesson on a held LO,
+    or whose title or goal names one, keeps its ids and dates, its title neutral and its goal withheld."""
+
+    out = []
+    for lesson in lessons:
+        row = dict(lesson)
+        if protection.active and (any(protection.lo_masked(lo_id) for lo_id in row.get("learning_object_ids") or ())
+                                  or protection.names_held(row.get("title")) or protection.names_held(row.get("goal"))):
+            row["title"], row["goal"], row["held"] = NEUTRAL_LO, None, True
+        out.append(row)
+    return out
+
+
+def protect_follow(reply: Mapping[str, Any], protection: Protection,
+                   sections: Sequence[tuple[str, float, float | None]] = ()) -> dict[str, Any]:
+    """``reader.follow_along``: the chapter and transcript section a chip names, and the book's correspondent
+    passages per LO, name nothing held (the chip shows them whether the book follows or is unlinked)."""
+
+    out = dict(reply)
+    if not protection.active:
+        return out
+    video, book = reply.get("video_extraction_id"), reply.get("book_extraction_id")
+    chapter = reply.get("chapter")
+    if chapter is not None:
+        held = chapter_held({**chapter, "extraction_id": video}, protection, sections)
+        out["chapter"] = {**chapter, "title": NEUTRAL_SECTION, "held": True} if held else dict(chapter)
+    section = reply.get("section")
+    if section is not None:
+        held = protection.protects(video, section.get("section_id")) or protection.names_held(section.get("title"))
+        out["section"] = {**section, "title": NEUTRAL_SECTION, "held": True} if held else dict(section)
+    groups = []
+    for group in reply.get("learning_objects") or ():
+        lo_held = protection.lo_masked(group.get("learning_object_id"))
+        found = []
+        for candidate in group.get("sections") or ():
+            row = dict(candidate)
+            if lo_held or protection.protects(book, row.get("section_id")) or protection.names_held(row.get("title")):
+                row["title"], row["held"] = NEUTRAL_SECTION, True
+            found.append(row)
+        groups.append({**group, "title": NEUTRAL_LO if lo_held else group.get("title"), "held": lo_held,
+                       "sections": found})
+    out["learning_objects"] = groups
+    return out
+
+
 __all__ = [
     "BandLo", "Coverage", "GoalLo", "GoalReads", "LoLevel", "NEUTRAL_EXERCISE", "NEUTRAL_LO", "NEUTRAL_SECTION",
     "NextLine", "PathPlace", "Protection", "SectionLevel", "SectionReads", "band_counts", "band_learning_objects",
-    "level_view", "lo_level", "next_for_goal", "protect_band", "protect_lens", "protect_path", "section_level",
+    "chapter_held", "level_view", "lo_level", "next_for_goal", "protect_band", "protect_chapters", "protect_follow",
+    "protect_lens", "protect_lessons", "protect_path", "section_level",
 ]

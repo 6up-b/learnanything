@@ -71,7 +71,8 @@ export function placeMarks(stage: HTMLElement, windows: Array<{ windowId: string
       const anchor = question.anchor as { extraction_id?: string; span_id?: string } | null;
       if (!question.carried || anchor?.extraction_id !== extractionId || !anchor.span_id) continue;
       const place = at(anchor.span_id);
-      if (place) out.push({ key: `carried:${windowId}:${question.carriedId}:${question.version}`, kind: "carried", top: place.top + 18, left: place.left, carried: question });
+      // One question may sit beside several passages of one window (its own and related ones): each its own mark.
+      if (place) out.push({ key: `carried:${windowId}:${question.carriedId}:${question.version}:${anchor.extraction_id}:${anchor.span_id}`, kind: "carried", top: place.top + 18, left: place.left, carried: question });
     }
   }
   return out;

@@ -36,6 +36,9 @@ export class LessonDesk {
   private aliases = new Map<string, Opening>();
   private reveals = new Map<string, string>();
   private additions = new Map<string, string>();
+  /** Each opening's turn, owned here and not by the view that sent it: a window closed and brought back (undo)
+   * joins the same turn, so a lesson is opened once and its identity settled once, even while no view shows it. */
+  private openingTurns = new Map<string, Promise<LessonViewDto>>();
   private all: LessonSummaryDto[] | null = null;
   private allAsked = false;
   private listeners = new Set<() => void>();
@@ -94,9 +97,23 @@ export class LessonDesk {
   private learn(lessons: LessonSummaryDto[]): void {
     for (const lesson of lessons) {
       this.summaries.set(lesson.lessonId, lesson);
-      if (lesson.additionsPadId && !this.additions.has(lesson.lessonId)) this.additions.set(lesson.lessonId, lesson.additionsPadId);
+      // The stored pad is the lesson's, over one made here that the sidecar refused (another window made it first).
+      if (lesson.additionsPadId) this.additions.set(lesson.lessonId, lesson.additionsPadId);
     }
     this.emit();
+  }
+
+  /** Whether the lesson's summary has landed, so a missing additions pad is known to be missing (not still being
+   * read, or a read that failed): only then may a note under it create one. */
+  additionsKnown(lessonId: string): boolean {
+    return this.summaries.has(lessonId) || this.additions.has(lessonId);
+  }
+
+  /** Older additions pads naming the lesson besides its own (made before one pad per lesson was enforced): their
+   * notes are shown too, never dropped. */
+  olderAdditions(lessonId: string): string[] {
+    const own = this.additions.get(lessonId);
+    return (this.summaries.get(lessonId)?.additionsPadIds ?? []).filter((padId) => padId !== own);
   }
 
   /** Every lesson (the path view's Teacher lesson rows), read once per path opening; null until it lands. */
@@ -161,6 +178,22 @@ export class LessonDesk {
     if (this.reveals.get(opening.windowId) === key) this.reveals.set(opening.windowId, lessonKey(lessonId));
     this.onOpened(opening, lessonId);
     this.emit();
+  }
+
+  /** The opening's turn: sent once (``send``), then shared by every view of the opening; its answer settles the
+   * opening's lesson whether or not a view is mounted then. A failed send can be sent again. */
+  shareOpening(key: string, send: () => Promise<LessonViewDto>): Promise<LessonViewDto> {
+    const known = this.openingTurns.get(key);
+    if (known) return known;
+    const turn = send().then((view) => {
+      this.opened(key, view.lessonId);
+      return view;
+    }, (error: unknown) => {
+      this.openingTurns.delete(key);
+      throw error;
+    });
+    this.openingTurns.set(key, turn);
+    return turn;
   }
 
   /** An opening the learner gave up on (its window closed, or the opening failed before saving anything). */
@@ -230,6 +263,8 @@ export interface LessonsHost {
   onLookInLibrary?: (phrase: string) => void;
   /** Open a lesson in a window on the current desk (a fresh lesson after a protection change, the path view's row). */
   openLesson: (entry: LessonEntry) => void;
+  /** A lesson's quick question, asked on the full lesson screen; settled when that screen closes. */
+  openProbeScreen?: (lessonId: string) => Promise<void>;
   /** RD9b's notebook frame for a lesson whose medium is a notebook; absent until it is built. */
   notebookFrame?: (lessonId: string, view: LessonViewDto) => ReactNode;
 }

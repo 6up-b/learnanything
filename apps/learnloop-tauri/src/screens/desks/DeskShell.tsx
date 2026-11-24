@@ -511,7 +511,12 @@ export interface DeskShellProps {
   /** Teacher lessons as windows (spec §11.1), when lessons are on: what a lesson window hands back to the app, and
    *  a lesson the app asks to open while the desks are its current place (`seq` makes each ask one open). */
   lessons?: {
-    request?: { seq: number; entry: LessonEntry } | null;
+    /** A lesson the app asks for, in the vault it was asked in (another vault's is dropped, never opened here). */
+    request?: { seq: number; entry: LessonEntry; vault?: string } | null;
+    /** The request was taken (opened or dropped): the app forgets it, so a remount or a vault switch replays nothing. */
+    onConsumed?: (seq: number) => void;
+    /** A lesson's quick question on the full lesson screen (never in a desk window); settled when it closes. */
+    onProbe?: (lessonId: string) => Promise<void>;
     onQuickCheck?: (learningObjectIds: string[]) => void;
     onLookInLibrary?: (phrase: string) => void;
     /** RD9b's notebook frame for a notebook lesson. */
@@ -1883,8 +1888,10 @@ export function DeskShell({
   useEffect(() => {
     if (!lessonRequest || !ws || !deskId || lessonRequest.seq === lessonRequestSeq.current) return;
     lessonRequestSeq.current = lessonRequest.seq;
-    openLesson(lessonRequest.entry);
-  }, [lessonRequest, ws, deskId, openLesson]);
+    if (lessonRequest.vault === undefined || lessonRequest.vault === vaultKey) openLesson(lessonRequest.entry);
+    lessons?.onConsumed?.(lessonRequest.seq);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lessonRequest, ws, deskId, openLesson, vaultKey]);
 
   // The Reader's "Teach me this" (a source window's selection, a pad line) opens the lesson here, not as a screen.
   const reader = useMemo<ReaderPassThrough | undefined>(() => (readerProp?.onTeachMe
@@ -1897,9 +1904,10 @@ export function DeskShell({
     openLesson,
     ...(lessons?.onQuickCheck ? { onQuickCheck: lessons.onQuickCheck } : {}),
     ...(lessons?.onLookInLibrary ? { onLookInLibrary: lessons.onLookInLibrary } : {}),
+    ...(lessons?.onProbe ? { openProbeScreen: lessons.onProbe } : {}),
     // A notebook lesson's frame (spec §11.2); a caller may stand in its own.
     notebookFrame: lessons?.notebookFrame ?? lessonNotebookFrame,
-  }), [lessonDesk, onError, openLesson, lessons?.onQuickCheck, lessons?.onLookInLibrary, lessons?.notebookFrame]);
+  }), [lessonDesk, onError, openLesson, lessons?.onQuickCheck, lessons?.onLookInLibrary, lessons?.notebookFrame, lessons?.onProbe]);
 
   const openContent = useCallback((content: ContentRefDto, options: { spanId?: string | null; view?: Record<string, unknown> } = {}) => {
     const current = wsRef.current;
@@ -2293,10 +2301,14 @@ export function DeskShell({
     if (ops.length) commit({ ws: next, ops });
   }, [ws, commit]);
 
+  // The questions a successful mark closed this session (fruitful, let it go): taken out of both lists at once, and
+  // never restored by a refresh read before the mark or one that failed part-way.
+  const closedCarried = useRef(new Set<string>());
+  const openOnly = useCallback((list: CarriedQuestionDto[]) => list.filter((question) => !closedCarried.current.has(question.carriedId)), []);
   const refreshCarried = useCallback(() => {
     // Through a promise, so a call that throws (a sidecar without carried questions) is a quiet failure too.
-    void Promise.resolve().then(() => padsTransport.carriedList({ which: "open" })).then((out) => setCarried({ list: out.carried, limit: out.shelfLimit, more: Boolean(out.cursor) }), () => undefined);
-  }, [padsTransport]);
+    void Promise.resolve().then(() => padsTransport.carriedList({ which: "open" })).then((out) => setCarried({ list: openOnly(out.carried), limit: out.shelfLimit, more: Boolean(out.cursor) }), () => undefined);
+  }, [padsTransport, openOnly]);
   useEffect(() => {
     if (ws) refreshCarried();
     // Read once when the desks open; carrying refreshes it.
@@ -2308,9 +2320,17 @@ export function DeskShell({
   useEffect(() => {
     let live = true;
     void allCarried((cursor) => Promise.resolve().then(() => padsTransport.carriedList({ which: "open", ...(cursor ? { cursor } : {}) })))
-      .then((all) => { if (live) setCarriedAll(all); }, () => undefined);
+      .then((all) => { if (live) setCarriedAll(openOnly(all)); }, () => undefined);
     return () => { live = false; };
-  }, [carried, padsTransport]);
+  }, [carried, padsTransport, openOnly]);
+  const markedCarried = useCallback((carriedId: string, event: string) => {
+    if (event === "fruitful" || event === "let_go") {
+      closedCarried.current.add(carriedId);
+      setCarried((now) => ({ ...now, list: openOnly(now.list) }));
+      setCarriedAll((now) => (now ? openOnly(now) : now));
+    }
+    refreshCarried();
+  }, [openOnly, refreshCarried]);
   // And beside the related passages of the other open readings (spec §10.12).
   const carriedRelated = useMemo(() => new CarriedRelated({
     passageUnionRange: (input) => padsTransport.passageUnionRange(input),
@@ -3765,7 +3785,7 @@ export function DeskShell({
               }}
               onSurfaced={onCarriedSurfaced}
               onMarkCarried={(question, event) => {
-                void padsTransport.carriedMark({ eventId: mintId("cev"), carriedId: question.carriedId, event, expectedVersion: question.version }).then(refreshCarried, () => undefined);
+                void padsTransport.carriedMark({ eventId: mintId("cev"), carriedId: question.carriedId, event, expectedVersion: question.version }).then(() => markedCarried(question.carriedId, event), () => undefined);
               }}
             />
           ) : null}
@@ -3955,7 +3975,7 @@ export function DeskShell({
         <CarriedList
           load={(cursor) => padsTransport.carriedList({ which: "open", ...(cursor ? { cursor } : {}) })}
           mark={(question, event) => padsTransport.carriedMark({ eventId: mintId("cev"), carriedId: question.carriedId, event, expectedVersion: question.version }).then((out) => {
-            refreshCarried();
+            markedCarried(question.carriedId, event);
             return out;
           })}
           onClose={() => setCarriedOpen(false)}

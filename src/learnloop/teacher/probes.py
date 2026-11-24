@@ -27,7 +27,9 @@ lesson probe never resolves a cause factor. Ids, enums and numbers only in every
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -51,6 +53,26 @@ ENTRY_SURFACE = "lesson"
 EVIDENCE_ORIGIN = "lesson_probe"
 #: What the learner reads (code-owned words, no jargon).
 PREPARING = "Preparing a question on this…"
+#: A ready question shown to a desk window (spec §11.1; the owner's interim until RD7's administration guard): it is
+#: administered on the full lesson screen, never in a window, so a window's read leaves it unserved.
+WAITING = "A quick question is waiting · it is asked on the lesson screen"
+
+_HELD = ContextVar("lesson_probe_serving_held", default=False)
+
+
+@contextmanager
+def held_serving(held: bool) -> Iterator[None]:
+    """Reads made for a desk window (``held``): a ready probe is not served (no first-serve claim, no question)."""
+
+    token = _HELD.set(bool(held))
+    try:
+        yield
+    finally:
+        _HELD.reset(token)
+
+
+def serving_held() -> bool:
+    return _HELD.get()
 NOT_PREPARED = "couldn't prepare that question"
 
 

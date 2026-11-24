@@ -132,6 +132,7 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
       const lessonId = lessonOfKey(padId);
       const additions = lessonId ? lessons?.desk.additionsFor(lessonId) : null;
       if (additions) void store.loadPad(additions);
+      for (const older of lessonId ? lessons?.desk.olderAdditions(lessonId) ?? [] : []) void store.loadPad(older);
     }
   }, [padIds, paused, store, lessons, lessonsVersion]);
   const pads = padIds.map((padId) => store.pads[padId] ?? null);
@@ -696,9 +697,18 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
     if (!lessons) return;
     let padId = lessons.desk.additionsFor(lessonId);
     if (padId && !store.pads[padId]) return; // still being read
+    if (!padId && !lessons.desk.additionsKnown(lessonId)) {
+      // Whether the lesson has notes already is not known yet (its summary still on its way, or its read failed):
+      // read it, and create nothing that could split its notes in two.
+      lessons.desk.refresh(lessonId);
+      host.toast("reading your notes under this lesson · write again in a moment");
+      return;
+    }
     if (!padId) {
       padId = host.mintId("pad");
-      const topic = lessons.desk.summary(lessonId)?.title;
+      // A lesson held for a due check names no topic: the pad's title is stored, and outlives the check.
+      const summary = lessons.desk.summary(lessonId);
+      const topic = summary?.held ? null : summary?.title;
       if (!write(padId, [{ op: "create_pad", kind: "lesson_additions", title: `your additions${topic ? ` · ${topic}` : ""}`, lessonId }])) return;
       lessons.desk.noteAdditions(lessonId, padId);
     }
@@ -723,6 +733,8 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
             additions={(
               <>
                 {additions ? additions.blocks.map((block) => renderBlock(additions, block)) : null}
+                {(lessonId ? lessons?.desk.olderAdditions(lessonId) ?? [] : []).map((older) => store.pads[older])
+                  .map((pad) => (pad ? pad.blocks.map((block) => renderBlock(pad, block)) : null))}
                 {lessonId ? (
                   <div className="pb jot" onClick={() => writeUnderLesson(lessonId)}>
                     <div className="gut" />

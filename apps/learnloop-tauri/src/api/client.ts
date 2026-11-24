@@ -1700,7 +1700,7 @@ export const api = {
   // Teacher TE1: a lesson (desktop only). lesson.turn is every model-calling step (one origin action, T1
   // redesign D: a granted OpenRouter offer covers the whole lesson); lesson.view resumes one with no call.
   lessonTurn: (input: LessonTurnInput) => call<LessonViewDto>("lesson_turn", { input }),
-  lessonView: (input: { lessonId: string }) => call<LessonViewDto>("lesson_view", { input }),
+  lessonView: (input: { lessonId: string; frame?: "screen" | "window" }) => call<LessonViewDto>("lesson_view", { input }),
   // Teacher TE2-log: the lesson screen's activity intervals (logging only; no model call).
   lessonActivity: (input: { lessonId: string; intervals: LessonActivityIntervalDto[]; occurredAt?: string }) =>
     call<{ recorded: number; enabled: boolean }>("lesson_activity", { input }),

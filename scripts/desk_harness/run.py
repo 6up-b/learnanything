@@ -1363,7 +1363,7 @@ async def run_lesson(page: Page, base: str, results: Results, shots: Path | None
     await shot(page, shots, "lesson-review")
     seen = await lesson_calls(page)
     results.check("the finished lesson is read once with lesson.view and replayed with no turn (review makes no model call)",
-                  [c["input"] for c in seen["lesson_view"]] == [{"lessonId": "fx_lesson_softmax"}] and seen["lesson_turn"] == [], {k: len(v) for k, v in seen.items()})
+                  [c["input"] for c in seen["lesson_view"]] == [{"lessonId": "fx_lesson_softmax", "frame": "window"}] and seen["lesson_turn"] == [], {k: len(v) for k, v in seen.items()})
     tab = await page.evaluate("""() => { const t = document.querySelector('[data-pad-tab="lesson:fx_lesson_softmax"]'); return t ? {
         title: t.querySelector('.tt').textContent, meta: t.querySelector('.tm').textContent, open: t.classList.contains('open') } : null; }""")
     results.check("the lesson's tab reads “Teacher lesson · <topic>” and “made <date> from your <what>”",

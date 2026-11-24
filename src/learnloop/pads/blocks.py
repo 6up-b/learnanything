@@ -400,6 +400,12 @@ def _apply_pad_op(connection: Any, pad_id: str, client_id: str, op: Any, now: st
     if isinstance(op, CreatePad):
         if pad is not None:
             raise OpConflict({"pad_id": pad_id, "version": int(pad["version"])})
+        if op.kind == "lesson_additions" and op.lesson_id:
+            # One additions pad per lesson, checked in the batch's transaction: a second window (or device) that did
+            # not know the first's pad is refused and writes into it instead.
+            existing = reads.lesson_additions_pads(connection, [op.lesson_id]).get(op.lesson_id)
+            if existing:
+                raise OpRefused("lesson_additions_exists", f"This lesson's additions are in pad {existing[0]!r}.")
         store.insert_pad(connection, pad_id=pad_id, kind=op.kind, title=op.title, home_desk_id=op.home_desk_id,
                          workbench_session_id=op.workbench_session_id, lesson_id=op.lesson_id, now=now)
         versions[pad_id] = 1

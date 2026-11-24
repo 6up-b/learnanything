@@ -15,6 +15,8 @@ import { DeskStore } from "../store";
 import { PadsHostContext, PendingFigures, type PadsApi, type PadsHost } from "../pads/host";
 import { PadStackWindow } from "../pads/PadStackWindow";
 import { LessonDesk, type LessonsHost, type Opening } from "./host";
+import { LessonPaper } from "./LessonPaper";
+import { LessonView, PROBE_POLL_MS } from "../../LessonView";
 import { PathLessonRow } from "./PathLessonRow";
 
 const api = vi.hoisted(() => ({
@@ -57,7 +59,8 @@ function quietPadsApi(): PadsApi {
 
 let minted = 0;
 
-function mount(options: { stack: PadStackEntryDto[]; state?: WindowState; summaries?: LessonSummaryDto[]; withAdditions?: boolean; host?: Partial<LessonsHost> }) {
+function mount(options: { stack: PadStackEntryDto[]; state?: WindowState; summaries?: LessonSummaryDto[]; withAdditions?: boolean; host?: Partial<LessonsHost>;
+  list?: (input: { lessonIds?: string[] }) => Promise<{ lessons: LessonSummaryDto[] }> }) {
   const server = new FixtureDeskServer(undefined, [...fixturePads(), ...(options.withAdditions ? [fixtureAdditionsPad()] : [])]);
   const timers = new ManualTimers();
   const store = new DeskStore("me", {
@@ -70,10 +73,10 @@ function mount(options: { stack: PadStackEntryDto[]; state?: WindowState; summar
   const summaries = options.summaries ?? [FIXTURE_LESSON_SUMMARY];
   const opened: Array<{ opening: Opening; lessonId: string }> = [];
   const desk = new LessonDesk({
-    list: async (input) => {
+    list: options.list ?? (async (input) => {
       listed.push(input);
       return { lessons: summaries.filter((each) => !input.lessonIds || input.lessonIds.includes(each.lessonId)) };
-    },
+    }),
   }, (opening, lessonId) => opened.push({ opening, lessonId }));
   const lessons: LessonsHost = { desk, onError: vi.fn(), openLesson: vi.fn(), ...options.host };
   const host: PadsHost = {
@@ -124,7 +127,7 @@ describe("a Teacher lesson as a stack tab", () => {
     expect(within(lesson).getByTestId("lesson-learner").textContent).toContain("the log-sum-exp goes up by 3");
     expect(within(lesson).getByTestId("lesson-check-result").textContent).toContain("correct");
     expect(within(lesson).getByTestId("lesson-close").textContent).toContain("Lesson done.");
-    expect(api.lessonView).toHaveBeenCalledWith({ lessonId: FIXTURE_LESSON_ID });
+    expect(api.lessonView).toHaveBeenCalledWith({ lessonId: FIXTURE_LESSON_ID, frame: "window" });
     expect(api.lessonTurn).not.toHaveBeenCalled();
     // Nothing to answer, reply to or stop.
     expect(within(lesson).queryByRole("textbox")).toBeNull();
@@ -158,7 +161,7 @@ describe("a Teacher lesson as a stack tab", () => {
     api.lessonTurn.mockImplementation(() => new Promise(() => undefined));
     rerender("visible");
     await waitFor(() => expect(lessonCalls()).toEqual({ turns: 1, views: 1 }));
-    expect(api.lessonView).toHaveBeenCalledWith({ lessonId: FIXTURE_LESSON_ID });
+    expect(api.lessonView).toHaveBeenCalledWith({ lessonId: FIXTURE_LESSON_ID, frame: "window" });
   });
 
   it("a question being prepared is checked back on only while the window is live", async () => {
@@ -252,12 +255,160 @@ describe("your additions under a lesson", () => {
     expect(store.pads[padId].blocks.map((block) => block.bodyMd)).toContain("my note on the shift");
   });
 
+  it("a lesson held for a due check gives its additions pad no topic in the stored title", async () => {
+    const summaries = [{ ...FIXTURE_LESSON_SUMMARY, additionsPadId: null, title: "a topic with a cold check due", goal: null, held: true }];
+    const { server, flush } = mount({ stack: WITH_LESSON, summaries });
+    await screen.findByText("If every score goes up by 3, what happens to the loss?");
+    fireEvent.click(within(screen.getByRole("group", { name: "lesson modes" })).getByText("your additions"));
+    fireEvent.click(screen.getByText("write under this lesson"));
+    const editor = await waitFor(() => document.querySelector<HTMLTextAreaElement>("[data-pad-editor] textarea") as HTMLTextAreaElement);
+    fireEvent.change(editor, { target: { value: "a note" } });
+    fireEvent.keyDown(editor, { key: "Enter" });
+    await flush();
+    expect(sentPadOps(server)[0]).toMatchObject({ op: "create_pad", kind: "lesson_additions", title: "your additions" });
+  });
+
+  it("a note written before the lesson's summary lands creates no pad (its notes may exist already)", async () => {
+    const { server, flush } = mount({ stack: WITH_LESSON, list: () => new Promise(() => undefined) });
+    await screen.findByText("If every score goes up by 3, what happens to the loss?");
+    fireEvent.click(within(screen.getByRole("group", { name: "lesson modes" })).getByText("your additions"));
+    fireEvent.click(screen.getByText("write under this lesson"));
+    await flush();
+    expect(sentPadOps(server).some((op) => op.op === "create_pad")).toBe(false);
+  });
+
+  it("older additions pads naming the lesson are shown too, never dropped", async () => {
+    const summaries = [{ ...FIXTURE_LESSON_SUMMARY, additionsPadId: "fx_pad_deriving", additionsPadIds: ["fx_pad_deriving", FIXTURE_ADDITIONS_PAD_ID] }];
+    mount({ stack: [{ kind: "lesson", lessonId: FIXTURE_LESSON_ID }], summaries, withAdditions: true });
+    await screen.findByText("why does the gradient not depend on which wrong class got the mass?");
+  });
+
   it("notes already under a lesson show beneath its review", async () => {
     mount({ stack: WITH_LESSON, withAdditions: true });
     await screen.findByText("why does the gradient not depend on which wrong class got the mass?");
     expect(screen.getByText("your additions under this lesson")).toBeTruthy();
     expect(document.querySelector(`[data-block="fx_b_add1"]`)?.getAttribute("data-emits")).toBe("yes");
     void FIXTURE_ADDITIONS_PAD_ID;
+  });
+});
+
+describe("an opening closed and brought back", () => {
+  it("joins the turn already sent: the lesson is opened once, and its identity settled while no view shows it", async () => {
+    let answer: (view: LessonViewDto) => void = () => undefined;
+    api.lessonTurn.mockImplementation(() => new Promise<LessonViewDto>((resolve) => { answer = resolve; }));
+    const opened: string[] = [];
+    const desk = new LessonDesk({ list: async () => ({ lessons: [] }) }, (_opening, lessonId) => opened.push(lessonId));
+    const key = desk.open("w", { kind: "open", entry: "learning_object", learningObjectIds: ["lo_fx_softmax"] });
+    const host = { desk, onError: vi.fn(), openLesson: vi.fn() } as LessonsHost;
+    const paper = () => (
+      <WindowScope lifecycle={{ windowId: "w", state: "active" }} hub={DIRECT_HUB}>
+        <LessonPaper host={host} itemKey={key} lessonId={null} entry={desk.entryFor(key)!} additions={null} hasAdditions={false} />
+      </WindowScope>
+    );
+    const first = render(paper());
+    await waitFor(() => expect(api.lessonTurn).toHaveBeenCalledTimes(1));
+    first.unmount(); // the window closed
+    await act(async () => { answer({ ...FIXTURE_LESSON_VIEW, lessonId: "les_once", closed: false, closeReason: null, feed: FIXTURE_LESSON_VIEW.feed.slice(0, 1) }); });
+    expect(opened).toEqual(["les_once"]);
+    render(paper()); // undo brings it back
+    await act(async () => { await Promise.resolve(); });
+    expect(api.lessonTurn).toHaveBeenCalledTimes(1);
+    expect(opened).toEqual(["les_once"]);
+  });
+});
+
+describe("reads a lesson window makes only while it is live", () => {
+  it("a failed step's recovery read waits for the window to be live, and is never made once it closed", async () => {
+    let fail: (error: unknown) => void = () => undefined;
+    api.lessonTurn.mockImplementation(() => new Promise((_resolve, reject) => { fail = reject; }));
+    const ui = (state: WindowState) => (
+      <WindowScope lifecycle={{ windowId: "w", state }} hub={DIRECT_HUB}>
+        <LessonView entry={{ kind: "open", entry: "learning_object", learningObjectIds: ["lo_fx_softmax"] }} frame="window" onError={vi.fn()} />
+      </WindowScope>
+    );
+    const view = render(ui("active"));
+    await waitFor(() => expect(api.lessonTurn).toHaveBeenCalledTimes(1));
+    view.rerender(ui("hidden"));
+    await act(async () => { fail({ code: "lesson_exists", message: "exists", details: { lesson_id: FIXTURE_LESSON_ID } }); });
+    expect(api.lessonView).not.toHaveBeenCalled();
+    view.rerender(ui("active"));
+    await waitFor(() => expect(api.lessonView).toHaveBeenCalledWith({ lessonId: FIXTURE_LESSON_ID, frame: "window" }));
+    cleanup();
+    api.lessonView.mockClear();
+    const closed = render(ui("active"));
+    await waitFor(() => expect(api.lessonTurn).toHaveBeenCalledTimes(2));
+    closed.unmount();
+    await act(async () => { fail({ code: "lesson_exists", message: "exists", details: { lesson_id: FIXTURE_LESSON_ID } }); });
+    expect(api.lessonView).not.toHaveBeenCalled();
+  });
+
+  it("a question being prepared is not checked on while its paper is folded under your additions", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const preparing = { ...FIXTURE_LESSON_VIEW, closed: false, closeReason: null, feed: FIXTURE_LESSON_VIEW.feed.slice(0, 1),
+      probe: { probeRef: "p1", status: "preparing" as const, label: "a quick question", teachAnyway: false } };
+    api.lessonView.mockImplementation(async () => preparing);
+    mount({ stack: [{ kind: "lesson", lessonId: FIXTURE_LESSON_ID }] });
+    await waitFor(() => expect(api.lessonView).toHaveBeenCalledTimes(1));
+    fireEvent.click(within(screen.getByRole("group", { name: "lesson modes" })).getByText("your additions"));
+    await act(async () => { vi.advanceTimersByTime(PROBE_POLL_MS * 3); await Promise.resolve(); });
+    expect(api.lessonView).toHaveBeenCalledTimes(1);
+    fireEvent.click(within(screen.getByRole("group", { name: "lesson modes" })).getByText("lesson"));
+    await act(async () => { vi.advanceTimersByTime(PROBE_POLL_MS + 10); await Promise.resolve(); });
+    expect(api.lessonView.mock.calls.length).toBeGreaterThan(1);
+  });
+});
+
+describe("a finished lesson's quick question", () => {
+  it("is shown in its review where it was asked, with the answer and result after it", async () => {
+    api.lessonView.mockImplementation(async () => ({ ...FIXTURE_LESSON_VIEW, feed: [
+      { kind: "probe_question", probeRef: "p1", question: "Which vector does A stretch by three?" },
+      { kind: "learner", text: "(1, 0)", checkRef: null },
+      { kind: "probe_result", probeRef: "p1", result: "right" },
+      ...FIXTURE_LESSON_VIEW.feed,
+    ] }));
+    mount({ stack: [{ kind: "lesson", lessonId: FIXTURE_LESSON_ID }] });
+    const question = await screen.findByTestId("lesson-probe-question");
+    expect(question.textContent).toContain("Which vector does A stretch by three?");
+    expect(question.compareDocumentPosition(screen.getByTestId("lesson-probe-result")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+});
+
+describe("a finished lesson's review records no activity", () => {
+  it("starts no activity tracker, so nothing is sent however it is used or closed", async () => {
+    api.lessonView.mockImplementation(async () => ({ ...FIXTURE_LESSON_VIEW, activityLog: true }));
+    api.lessonActivity.mockClear();
+    const { rerender } = mount({ stack: [{ kind: "lesson", lessonId: FIXTURE_LESSON_ID }] });
+    await screen.findByText("If every score goes up by 3, what happens to the loss?");
+    fireEvent.keyDown(window, { key: "a" });
+    fireEvent.pointerDown(document.body);
+    rerender("hidden");
+    cleanup();
+    await act(async () => { await Promise.resolve(); });
+    expect(api.lessonActivity).not.toHaveBeenCalled();
+  });
+});
+
+describe("a lesson's quick question in a desk window", () => {
+  it("is never answerable there: it waits, opens the lesson screen, and the tab reads the lesson again on return", async () => {
+    const asked = { ...FIXTURE_LESSON_VIEW, closed: false, closeReason: null, feed: FIXTURE_LESSON_VIEW.feed.slice(0, 1),
+      probe: { probeRef: "p1", status: "open" as const, label: "A quick question first", question: "Which vector does A stretch by three?", teachAnyway: false } };
+    api.lessonView.mockImplementation(async () => asked);
+    let back: () => void = () => undefined;
+    const openProbeScreen = vi.fn(() => new Promise<void>((resolve) => { back = resolve; }));
+    mount({ stack: [{ kind: "lesson", lessonId: FIXTURE_LESSON_ID }], host: { openProbeScreen } });
+    await screen.findByTestId("lesson-probe-waiting");
+    // Not the question, no answer box, no reply box: nothing to answer in the window.
+    expect(screen.queryByText("Which vector does A stretch by three?")).toBeNull();
+    expect(screen.queryByLabelText("Your answer to the question")).toBeNull();
+    expect(screen.queryByLabelText("Reply to the teacher")).toBeNull();
+    expect(api.lessonView).toHaveBeenCalledWith({ lessonId: FIXTURE_LESSON_ID, frame: "window" });
+    fireEvent.click(screen.getByTestId("lesson-probe-screen"));
+    expect(openProbeScreen).toHaveBeenCalledWith(FIXTURE_LESSON_ID);
+    const reads = api.lessonView.mock.calls.length;
+    api.lessonView.mockImplementation(async () => ({ ...asked, probe: null }));
+    await act(async () => { back(); });
+    await waitFor(() => expect(api.lessonView.mock.calls.length).toBe(reads + 1));
+    await waitFor(() => expect(screen.queryByTestId("lesson-probe-waiting")).toBeNull());
   });
 });
 
