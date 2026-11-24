@@ -195,9 +195,9 @@ export function useGoalLens({ transport, deskGoalId, off = false, readings, time
       transport.path({ goalId, judge: true }).catch(() => undefined);
     }
     asked.current.clear();
-    transport.band({ goalId }).then((next) => { if (live) setBand(next); }, (error: { code?: string; message?: string }) => {
+    transport.band({ goalId }).then((next) => { if (live) setBand(next); }, (error: { code?: string }) => {
       // The curriculum switched off: no band and no lens, as the Reader without it.
-      if (live && error?.code !== "curriculum_disabled") report(error?.message ?? "Couldn't read your goal.");
+      if (live && error?.code !== "curriculum_disabled") report("Couldn’t open your goal. Choose it again to retry.");
     });
     return () => { live = false; };
   }, [goalId, transport, generation, report]);
@@ -269,37 +269,37 @@ export function useGoalLens({ transport, deskGoalId, off = false, readings, time
 
   const setDepth = useCallback((depth: ReadingPathDepth) => {
     if (!goalId) return;
-    transport.setDepth({ goalId, depth }).then(refresh, (error: { message?: string }) => report(error?.message ?? "Couldn't set the depth."));
+    transport.setDepth({ goalId, depth }).then(refresh, () => report("Couldn’t change the depth. Open Path and try again."));
   }, [goalId, transport, refresh, report]);
 
   const readAnyway = useCallback((extractionId: string, sectionId: string, on: boolean) => {
     if (!goalId) return;
     transport.sectionChoice({ goalId, extractionId, sectionId, choice: on ? "read_anyway" : "none", operationId: mintId("glc") })
-      .then(refresh, (error: { message?: string }) => report(error?.message ?? "Couldn't keep that choice."));
+      .then(refresh, () => report("Couldn’t save this choice. Reopen Path and try again."));
   }, [goalId, transport, mintId, refresh, report]);
 
   const override = useCallback((learningObjectId: string, choice: DeliverablePathChoice, sectionRef?: string) => {
     if (!goalId) return;
     transport.override({ goalId, learningObjectId, choice, ...(sectionRef ? { sectionRef } : {}) })
-      .then(refresh, (error: { message?: string }) => report(error?.message ?? "Couldn't keep that choice."));
+      .then(refresh, () => report("Couldn’t save this choice. Reopen Path and try again."));
   }, [goalId, transport, refresh, report]);
 
   const mapIt = useCallback(() => {
     if (!goalId || !band) return;
     transport.setScope({ goalId, kind: "text", text: band.goal.sentence })
-      .then(refresh, (error: { message?: string }) => report(error?.message ?? "Couldn't map this goal."));
+      .then(refresh, () => report("Couldn’t find reading for this goal. Try again or change the topics in Goals."));
   }, [goalId, band, transport, refresh, report]);
 
   const addPhrase = useCallback((phrase: string) => {
     if (!goalId) return;
     transport.scopeDecide({ goalId, phrase, decision: "create" })
-      .then(refresh, (error: { message?: string }) => report(error?.message ?? "Couldn't add it."));
+      .then(refresh, () => report("Couldn’t add this topic. Reopen Path and try again."));
   }, [goalId, transport, refresh, report]);
 
   const correctScope = useCallback((text: string) => {
     if (!goalId) return;
     transport.setScope({ goalId, kind: "correction", text })
-      .then(refresh, (error: { message?: string }) => report(error?.message ?? "Couldn't change the goal's scope."));
+      .then(refresh, () => report("Couldn’t change the goal’s topics. Reopen Path and try again."));
   }, [goalId, transport, refresh, report]);
 
   return { goalId, goals, band, indexFor, dimOn, toggleDim, pathOpen, setPathOpen, why: whyNow, showWhy, setDepth, readAnyway, override, mapIt, addPhrase, correctScope, refresh };

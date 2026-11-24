@@ -761,7 +761,7 @@ async def run_companion(page: Page, base: str, results: Results, shots: Path | N
         await page.keyboard.press("ArrowDown")
     await page.keyboard.press("Tab")
     await page.wait_for_timeout(200)
-    tagged = await page.locator(".desk-search .r .w", has_text="by meaning").count()
+    tagged = await page.locator(".desk-search .r .w", has_text="Similar match").count()
     results.check("/ opens search: groups in order with open on this desk first; the meaning pass merges in tagged (#spot=softmax)",
                   bool(groups) and groups[0] == "open" and "passages" in groups and tagged >= 1, [groups, tagged])
     sel_top = await page.evaluate("() => document.querySelector('.desk-search-sel')?.style.top")
@@ -938,7 +938,7 @@ async def run_pads(page: Page, base: str, results: Results, shots: Path | None) 
     # #s12=info: the ⓘ popover says where the words go.
     await page.locator(".desk-pane-head .pinfo").click()
     info = await page.locator(".desk-pads .pinfo-pop").inner_text()
-    results.check("ⓘ says where your words go and that only submitted blocks count (#s12=info)", "where your words go" in info and "Only blocks you submit" in info, info[:80])
+    results.check("ⓘ says where your words go and that only submitted blocks count (#s12=info)", "where your words go" in info and "when you submit it" in info, info[:80])
     await shot(page, shots, "pads-info")
     await page.locator(".desk-pane-head .pinfo").click()
 
@@ -958,7 +958,7 @@ async def run_pads(page: Page, base: str, results: Results, shots: Path | None) 
     # #s11=menu: right-click a line of yours.
     await page.locator('.desk-pads [data-block="fx_b_r1"]').click(button="right")
     menu = await page.locator(".desk-menu").inner_text()
-    results.check("the pad menu: the verbs, then INSERT BELOW THIS LINE with the marimo cell row live (#s11=menu)", "Ask about this" in menu and "Submit this block as…" in menu and "INSERT BELOW THIS LINE" in menu and "marimo cell" in menu and "arrives with notebooks" not in menu, menu[:160])
+    results.check("the pad menu: the verbs, then INSERT BELOW THIS LINE with the Python cell row live (#s11=menu)", "Ask about this" in menu and "Submit this block as…" in menu and "INSERT BELOW THIS LINE" in menu and "Python cell" in menu and "arrives with notebooks" not in menu, menu[:160])
     await shot(page, shots, "pads-menu")
     await page.keyboard.press("Escape")
 
@@ -985,7 +985,7 @@ async def run_pads(page: Page, base: str, results: Results, shots: Path | None) 
     await settle(page, 600)
     stub = await page.locator('.desk-pads [data-block="fx_b_r7"] .lifted').inner_text()
     tabs = await page.locator(".desk-pads .ptab").count()
-    results.check("lift out leaves '→ lifted to …' and a third pad in the stack (#s11=lift)", stub.startswith("→ lifted to") and tabs == 3, [stub[:60], tabs])
+    results.check("lift out leaves '→ Moved to …' and a third pad in the stack (#s11=lift)", stub.startswith("→ Moved to") and tabs == 3, [stub[:60], tabs])
     await shot(page, shots, "pads-lift")
 
     # #s11=sketchqk: alt+d adds a sketch block with every tool.
@@ -1220,7 +1220,7 @@ async def run_goal(page: Page, base: str, results: Results, shots: Path | None) 
     results.check("#goal=frame: skippable text is dimmed (never hidden)", bool(dimmed) and set(dimmed) == {"rgb(142, 137, 127)"}, dimmed[:3])
     callout = await page.evaluate(f"() => {{ const c = document.querySelector(\"{GOAL_BOOK} .callout.gcall\"); return c ? {{ lab: c.querySelector('.lab').textContent, bg: getComputedStyle(c).backgroundColor }} : null; }}")
     results.check("#goal=frame: a core section opens with a dark callout in LearnLoop's voice",
-                  bool(callout) and callout["lab"] == "◎ for your goal · core" and callout["bg"] == "rgb(29, 29, 32)", callout)
+                  bool(callout) and callout["lab"] == "◎ for your goal · Main reading" and callout["bg"] == "rgb(29, 29, 32)", callout)
     lens_calls = await calls(page, "goal_lens")
     asked = sorted(call["input"]["extractionId"] for call in lens_calls)
     results.check("one whole-reading goal.lens per reading in view, none for a paused window",
@@ -1236,7 +1236,7 @@ async def run_goal(page: Page, base: str, results: Results, shots: Path | None) 
       const mark = row.querySelector('.gm.sh'); return { cls: row.className, bg: mark ? getComputedStyle(mark).backgroundColor : null,
         line: row.querySelector('.gwl')?.textContent ?? null, ranges: row.querySelectorAll('.bar .gr').length }; }""")
     results.check("#goal=frame: the book's shelf row carries the bar at its right edge, what it is for, and the path's ranges",
-                  bool(shelf) and shelf["bg"] == "rgb(169, 159, 208)" and shelf["line"] == "◎ primary for 2 of your LOs" and shelf["ranges"] >= 1, shelf)
+                  bool(shelf) and shelf["bg"] == "rgb(169, 159, 208)" and shelf["line"] == "◎ Main reading for 2 of your topics" and shelf["ranges"] >= 1, shelf)
     video = await page.evaluate("""() => { const w = document.querySelector("[data-desk-window='fx_w_video']"); if (!w) return null;
       const group = w.querySelector('.tp.g-sup'); const mark = group?.querySelector('.tx > .gm.gl-tx'); const tx = group?.querySelector('.tx');
       const dim = w.querySelector('.tp.gl-dim [data-transcript-span]');
@@ -1258,7 +1258,7 @@ async def run_goal(page: Page, base: str, results: Results, shots: Path | None) 
     why = await why_after_hover(page, f"{GOAL_BOOK} .gm.gl-core")
     await shot(page, shots, "goal-why")
     results.check("#goal=why: the why on a core passage: the level, For <goal>: the reason, the coverage line",
-                  bool(why) and why["head"] == "core for your goal" and why["body"].startswith("For softmax for attention:")
+                  bool(why) and why["head"] == "core for your goal" and why["body"].startswith("For your goal:")
                   and (why["coverage"] or "").startswith("coverage: introduces") and why["width"] <= 330, why)
     await page.mouse.move(5, 600)
     await settle(page, 400)
@@ -1284,7 +1284,7 @@ async def run_goal(page: Page, base: str, results: Results, shots: Path | None) 
     why = await why_after_hover(page, f"{GOAL_BOOK} .gm.gl-later")
     await shot(page, shots, "goal-basics")
     results.check("#goal=basics: a prerequisite's passage is later, kept at the deeper depth",
-                  bool(why) and why["head"] == "later · kept at learn to use it" and why["edge"] == "dotted", why)
+                  bool(why) and why["head"] == "Included at learn to use it" and why["edge"] == "dotted", why)
     await page.mouse.move(5, 600)
     await page.click("[data-gdepth='learn_to_use_it']")
     await settle(page, 1200)
@@ -1314,7 +1314,7 @@ async def run_goal(page: Page, base: str, results: Results, shots: Path | None) 
     paper = await mark_facts(page, f"{GOAL_PAPER} .gm.gl-core")
     head = await page.evaluate(f"() => document.querySelector(\"{GOAL_PAPER} .gpcall\")?.textContent ?? null")
     results.check("#goal=paper: the paper's marks keep 11 px from the text and its head says what it is for",
-                  bool(paper) and paper["gap"] == 11 and bool(head) and "for your goal · core:" in head, {"mark": paper, "head": head})
+                  bool(paper) and paper["gap"] == 11 and bool(head) and "for your goal · Main reading:" in head, {"mark": paper, "head": head})
 
     await page.click(".desk-shelf >> text=notes")
     await settle(page, 1800)

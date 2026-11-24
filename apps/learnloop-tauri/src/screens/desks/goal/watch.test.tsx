@@ -75,7 +75,7 @@ describe("the goal lens on a transcript", () => {
     panel(lens);
     // Its three ranges touch: one span of the video, 0:18 to 2:30.
     expect(document.querySelector("[data-goal-head]")!.textContent).toContain("on your path · 0:18–2:30");
-    expect(document.querySelector("[data-goal-head]")!.textContent).toContain("The rest is not needed for your goal.");
+    expect(document.querySelector("[data-goal-head]")!.textContent).toContain("Other sections may be optional at this depth.");
     cleanup();
     const goal = new FixtureGoal().lens(VIDEO.extractionId);
     const apart = { ...goal, levels: goal.levels.map((level) => (level.sectionId === `${VIDEO.extractionId}_v2` ? { ...level, level: "skippable" as const, mapping: "mapped" as const, dim: true }

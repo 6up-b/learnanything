@@ -222,7 +222,7 @@ export function groundingFor(ws: Workspace, chip: AskChip | null, focus: DeskWin
       // Asked from the pad (its window owns the question's poll), about the book where the learner reads.
       return { reason: null, extractionId: content.extractionId, spanId: span, windowId: chip.windowId, spanWindowId: id, padBlockId };
     }
-    return { reason: "this line is linked to no passage, and no book or video is open on this desk to ask beside" };
+    return { reason: "Open a book or video on this desk before asking about this line." };
   }
   if (chip && chip.spanIds.length) {
     const content = ws.windows[chip.windowId]?.content;
@@ -238,7 +238,7 @@ export function groundingFor(ws: Workspace, chip: AskChip | null, focus: DeskWin
     const span = status[focus.windowId]?.readingSpan ?? (typeof focus.view?.spanId === "string" ? (focus.view.spanId as string) : undefined);
     return { reason: null, extractionId: content.extractionId, spanId: span ?? undefined, windowId: focus.windowId };
   }
-  return { reason: "ask from a passage: focus a book or a video, or select a passage, then press c" };
+  return { reason: "Open a book or video, or select a passage, then press C to ask." };
 }
 
 /** A Compare window's passage anchor, kept in its view by the menu's Compare (null when it was opened bare). */
@@ -696,13 +696,13 @@ export function DeskShell({
 
   // What the store could not save, said in one line.
   useEffect(() => store.onNotice((notice) => {
-    if (notice.kind === "rejected") toastNow("that change couldn't be saved, and was undone");
+    if (notice.kind === "rejected") toastNow("That change couldn’t be saved. Check the desk before trying again.");
     else if (notice.kind === "conflict") {
       const total = notice.dropped + notice.lost;
-      if (total > 0) toastNow(`the desk changed elsewhere · ${total} change${total === 1 ? "" : "s"} couldn't be kept`);
+      if (total > 0) toastNow(`the desk changed elsewhere · ${total} change${total === 1 ? "" : "s"} couldn’t be saved. Check the desk before trying again.`);
     } else if (notice.kind === "kept-both") {
-      toastNow(`your words met newer ones written elsewhere · both are kept, yours as ${notice.count === 1 ? "its own block" : "their own blocks"} marked “written over an older version”`);
-    } else if (notice.kind === "offline") toastNow("couldn't save the desk just now · it is kept here until it can be");
+      toastNow(`Your edit overlaps with a newer one. Look for your edit in ${notice.count === 1 ? "a separate line" : "separate lines"} marked “written over an older version”.`);
+    } else if (notice.kind === "offline") toastNow("Still waiting to save your desk changes. Keep LearnLoop open.");
     else onError(notice.message);
   }), [store, toastNow, onError]);
 
@@ -730,8 +730,8 @@ export function DeskShell({
         setLibrary(cards);
         if (state && store.ws.desks.length === 0) store.commit(await firstRun(store.ws, cards));
         if (live) setStoreReady(true);
-      } catch (error) {
-        if (live) onError(error instanceof Error ? error.message : typeof error === "object" && error && "message" in error ? String((error as { message: unknown }).message) : String(error));
+      } catch {
+        if (live) onError("Couldn’t open your desks. Switch away from Reader, then open it again.");
       }
     })();
     // A load that lands after this shell unmounted changes nothing here.
@@ -1628,7 +1628,7 @@ export function DeskShell({
         const max = Math.max(0, slotRects(each.slots.length, st).reduce((end, rect) => Math.max(end, rect.x + rect.w), 0) + DESK_SIZES.side - st.width);
         setCamX((cams) => ({ ...cams, [id]: Math.max(0, Math.min(max, (cams[id] ?? 0) + travel)) }));
         g.panned = true;
-        setHud("alt + swipe · moving along the strip · lift to snap");
+        setHud("Alt + swipe to move between windows. Lift your fingers to stop.");
         timers.clear(g.timer);
         g.timer = timers.set(endGesture, OVERVIEW.panSnapMs);
         return;
@@ -1652,7 +1652,7 @@ export function DeskShell({
       }
       if (stepped.kind === "target" || stepped.kind === "begin-and-target") {
         const how = g.source === "pinch" ? "pinch" : modifiers.read(event).alt ? "alt + scroll" : "ctrl + scroll";
-        setHud(`${how} · zooming ${dy > 0 ? "out" : "in"} · lift to settle`);
+        setHud(`${how} · zooming ${dy > 0 ? "out" : "in"} · lift your fingers to stop`);
       } else {
         setHud("");
       }
@@ -1702,7 +1702,7 @@ export function DeskShell({
       }
       d.moved = true;
       controller.setTarget(dragProgress(d.base, dy));
-      setHud("ctrl + drag · zooming · let go to settle");
+      setHud("Ctrl + drag to zoom. Let go to stop.");
       return;
     }
     if (d.kind === "pan") {
@@ -2235,7 +2235,7 @@ export function DeskShell({
     }
     const ref = row.ref;
     if (!ref) {
-      toastNow("this result has nothing to open yet");
+      toastNow("Can’t open this result here. Search for its source by title.");
       return;
     }
     // A note opens by its identity: a Reader note or highlight in its book at its passage (the window's view
@@ -2245,7 +2245,7 @@ export function DeskShell({
     if (note.noteKind === "note") {
       const target = row.target ?? {};
       if (note.noteRefKind === "capture" || ref.kind === "panel") {
-        toastNow(`“${(note.title || note.snippet || "this note").slice(0, 60)}” is an inbox note · it opens from Today's inbox`);
+        toastNow(`“${(note.title || note.snippet || "this note").slice(0, 60)}” is an inbox note. Open Today, then Inbox.`);
         return;
       }
       openContent(ref, { spanId: target.spanId ?? null, view: { ...(target.noteKey ? { noteKey: target.noteKey } : {}), ...(target.annotationId ? { annotationId: target.annotationId } : {}) } });
@@ -2364,7 +2364,7 @@ export function DeskShell({
   const carryQuestion = useCallback((text: string, origin: { blockIds?: string[]; kind: CarriedQuestionDto["originKind"]; ref?: string | null; anchor?: { extractionId: string; spanId: string } | null }): Promise<void> => {
     const carried = Promise.resolve().then(() => padsTransport.carriedCarry({ carriedId: mintId("carried"), text, originKind: origin.kind, ...(origin.blockIds ? { blockIds: origin.blockIds } : {}), originRef: origin.ref ?? null, anchor: origin.anchor ?? null, deskId: deskIdRef.current }));
     void carried.then(() => {
-      toastNow("carried · it comes back beside a related passage");
+      toastNow("Carried question saved. It may appear beside a related passage.");
       refreshCarried();
     }, (error: unknown) => toastNow(`couldn't carry it · ${errorText(error)}`));
     return carried.then(() => undefined);
@@ -2529,12 +2529,11 @@ export function DeskShell({
   const newPadBeside = useCallback(() => {
     const id = deskIdRef.current;
     if (!id) return;
-    const selected = focusIdRef.current ? readWindowSelection(focusIdRef.current, stageRef.current) : null;
     const padId = mintId("pad");
-    const title = selected ? `Scratchpad · “${selected.quote.slice(0, 40)}”` : "Scratchpad · new notes";
+    const title = "Scratchpad · new notes";
     const refused = store.commitPad(padId, [{ op: "create_pad", kind: "named", title, homeDeskId: id }]);
     if (refused) {
-      toastNow(`couldn't make a pad · ${refused.message}`);
+      toastNow("Couldn’t make a pad. Reopen this desk and try again.");
       return;
     }
     commit(openStackBeside(wsRef.current, id, [padId], () => mintId("win")));
@@ -2563,8 +2562,8 @@ export function DeskShell({
     const lines = answer.answerMd.split("\n").map((line) => line.trim()).filter(Boolean).slice(0, 6);
     return [{
       id: `${exchange.requestId}:running`,
-      target: (known ? store.pads[known]?.pad.title : "") || "running",
-      label: "Add this to your pad",
+      target: (known ? store.pads[known]?.pad.title : "") || "running pad",
+      label: "Copy the full reply",
       lines,
       onAccept: async () => {
         if (!runningPadOf(exchange.deskId)) await Promise.all(deskPadIds(exchange.deskId).map((padId) => store.loadPad(padId)));
@@ -2738,7 +2737,7 @@ export function DeskShell({
       }
       const books = (deskById(wsRef.current, deskIdRef.current)?.slots.flat() ?? []).filter((id) => videoDesk.chipFor(id));
       if (!books.length) {
-        toastNow("no video on this desk to follow");
+        toastNow("Open a video on this desk to follow it.");
         return true;
       }
       for (const id of books) videoDesk.toggle(id);
@@ -2760,7 +2759,7 @@ export function DeskShell({
       }
       const clock = videoDesk.clockOf(windowId);
       if (!clock?.spanId) {
-        toastNow("the video hasn't reached a caption yet · play it, then alt+;");
+        toastNow("Play the video until a caption appears, then press Alt+; again.");
         return true;
       }
       const title = titleOf(wsRef.current.windows[windowId]);
@@ -2780,7 +2779,7 @@ export function DeskShell({
         }
         const pad = padId ? store.pads[padId] : null;
         if (!padId || !pad) {
-          toastNow("couldn't find this desk's running pad");
+          toastNow("Couldn’t find this desk’s running pad. Open it and try again.");
           return;
         }
         const blockId = mintId("blk");
@@ -2789,7 +2788,7 @@ export function DeskShell({
             day: localDay(), bodyMd: line, payload: { source_title: title, t: Math.floor(clock.t), extraction_id: content.extractionId, span_id: clock.spanId } },
           { op: "link_anchor", blockId, extractionId: content.extractionId, spanId: clock.spanId as string, eventId: mintId("lnk"), expectedAnchorHead: null },
         ]);
-        toastNow(refused ? `couldn't stamp the time · ${refused.message}` : `${line} · in the running pad`);
+        toastNow(refused ? "Couldn’t add the video time. Open the running pad and try again." : `${line} · adding to the running pad…`);
       })();
       return true;
     },
@@ -3307,7 +3306,7 @@ export function DeskShell({
       <div className="desk-shell" data-desk-shell="">
         <header className="desk-top"><span className="desk-brand">◇ LearnLoop</span></header>
         <main className="desk-main"><aside className="desk-shelf" /><section className="desk-stage" ref={stageRef} /></main>
-        <footer className="desk-keys"><span className="note">◐ opening your desks…</span></footer>
+        <footer className="desk-keys"><span className="note">◐ Opening your desks…</span></footer>
       </div>
     );
   }
@@ -3321,7 +3320,7 @@ export function DeskShell({
       const stack = window.stack ?? (content?.kind === "pad" ? [{ kind: "pad" as const, padId: content.padId }] : content?.kind === "lesson" ? lessonStack(content) : []);
       return <PadStackWindow windowId={window.windowId} stack={stack} view={window.view ?? {}} info={emissionOpen === window.windowId} onInfo={(open) => setEmissionOpen(open ? window.windowId : null)} />;
     }
-    if (!content) return <div className="desk-panel desk-quiet">This window opens here once its kind is built.</div>;
+    if (!content) return <div className="desk-panel desk-quiet">This window can’t open here. Close it and reopen the source from your library.</div>;
     switch (content.kind) {
       case "source":
       case "video": {
@@ -3392,7 +3391,7 @@ export function DeskShell({
           />
         );
       default:
-        return <div className="desk-panel desk-quiet">This window opens here once its kind is built.</div>;
+        return <div className="desk-panel desk-quiet">This window can’t open here. Close it and reopen the source from your library.</div>;
     }
   };
 
@@ -3476,7 +3475,7 @@ export function DeskShell({
     ? [["h j k l", "select"], ["↵ / click", "open"], ["alt+↵", "open in focus"], ["alt+[ ]", "move"], ["alt+shift+j/k", "to a desk"], ["drag", "move a card"], ["b", "relations"], ["g", "hold: gather"], ["o / esc", "back"]]
     : focusMode
     ? [["alt+↵ / esc", "leave focus"], ["= − 0", "zoom"], ["alt+h/l", "next window"]]
-    : [["alt+h/l", "window"], ["alt+j/k", "pane · desk"], ["alt+[ ]", "move"], ["alt+, .", "share · own slot"], ["alt+↵", "focus"], ["alt+w", "close"], ["c", "tutor here"], ["shift+c", "at its dock"], ["/", "find"]];
+    : [["alt+h/l", "window"], ["alt+j/k", "window above or below, then desk"], ["alt+[ ]", "move"], ["alt+, .", "stack or separate windows"], ["alt+↵", "focus"], ["alt+w", "close"], ["c", "companion here"], ["shift+c", "dock the companion"], ["/", "find"]];
 
   return (
     <PadsHostContext.Provider value={padsHost}>
@@ -3653,7 +3652,7 @@ export function DeskShell({
                         className={`desk-pane${paired && window.active ? " active-pane" : ""}`}
                       >
                         <div className="desk-pane-head">
-                          <span className="g">{KIND_GLYPH[window.kind] ?? "§"}</span>
+                          <span className="g" title={window.kind === "pad_stack" || window.kind === "pad" ? "Pad" : KIND_WORD[window.kind] ?? "Window"}>{KIND_GLYPH[window.kind] ?? "§"}</span>
                           <span className="t">{titleOf(window)}</span>
                           {window.kind === "pad_stack" ? (
                             <button type="button" className="emi pinfo" aria-label="where your words go" title="where your words go" aria-expanded={emissionOpen === id}
@@ -3661,7 +3660,7 @@ export function DeskShell({
                           ) : null}
                           {window.kind === "pad_stack" ? <span className="loc">yours</span> : status[id]?.where ? <span className="loc">{status[id]?.where}</span> : null}
                           {window.content?.kind === "source" ? <FollowChip desk={videoDesk} windowId={id} /> : null}
-                          {paired ? <span className="hint">{window.active ? "alt+. gives it its own slot" : "click or alt+j/k"}</span> : null}
+                          {paired ? <span className="hint">{window.active ? "Alt+. gives this window its own space" : "click or alt+j/k"}</span> : null}
                           <button
                             type="button"
                             className="x"
@@ -3873,16 +3872,16 @@ export function DeskShell({
       </main>
       {goalDesk.overlays}
       <footer className="desk-keys">
-        {goalDesk.hasBand && !overview ? <span className="gk"><kbd>p</kbd> your path</span> : null}
+        {goalDesk.hasBand && !overview ? <span className="gk"><kbd title="Press P to open Path">p</kbd> your path</span> : null}
         {penOn && !overview ? (
           <>
             <span className="penk"><kbd>✎</kbd> pen: underline · bracket · circle · scribble · strike</span>
-            <span><kbd>barrel</kbd> = eraser · menu stays on <kbd>.</kbd> · touch only scrolls</span>
+            <span><kbd>Pen side button</kbd> = eraser · menu stays on <kbd title="Press Period for passage options">.</kbd> · touch only scrolls</span>
           </>
         ) : null}
-        {hints.map(([keys, label]) => <span key={keys}><kbd>{keys}</kbd> {label}</span>)}
+        {hints.map(([keys, label]) => <span key={keys}><kbd title={keys.replace(/↵/g, "Enter").replace("= − 0", "Equals, Minus, Zero")}>{keys}</kbd> {label}</span>)}
         {ungather && ungather.deskId === deskId && !overview ? (
-          <button type="button" style={{ color: "var(--desk-cyan)" }} onClick={() => gather(false)}>↺ ungather</button>
+          <button type="button" style={{ color: "var(--desk-cyan)" }} onClick={() => gather(false)}>↺ Undo grouping</button>
         ) : null}
         {undoShown && viewportWidth < DESK_SIZES.shelfFoldBelow ? (
           // With the shelf folded to its rail, its undo line moves here.
@@ -3896,13 +3895,14 @@ export function DeskShell({
               key={id}
               type="button"
               aria-label={titleOf(ws.windows[id])}
+              title={titleOf(ws.windows[id])}
               className={id === focusId ? "f" : visibility[index]?.inView ? "in" : ""}
               style={focusMode ? (id === focusId ? { width: 46, height: 5 } : { opacity: 0.45 }) : undefined}
               onClick={() => commit(setFocus(wsRef.current, desk.deskId, id))}
             />
           )))}
         </span>
-        <span className="note">hold <kbd>alt</kbd> for navi hints</span>
+        <span className="note">hold <kbd>alt</kbd> for keyboard shortcuts</span>
       </footer>
       {opener ? (
         <OpenBeside
@@ -3913,7 +3913,7 @@ export function DeskShell({
           onOpenCard={(card) => {
             void transport.resolveExtraction(card.sourceId)
               .then((extractionId) => openContent(contentForCard(card, extractionId)))
-              .catch(() => toastNow("that source didn't open"));
+              .catch(() => toastNow("Couldn’t open this source. Find it in your library and try again."));
           }}
           onClose={() => setOpener(false)}
         />
@@ -4039,9 +4039,9 @@ export function contentForCard(card: SourceLibraryCard, extractionId: string): C
 
 function Sliver({ side, title, kind, onClick, register }: { side: "l" | "r"; title: string; kind: string; onClick: () => void; register?: (node: HTMLButtonElement | null) => void }) {
   return (
-    <button type="button" ref={register} className={`desk-sliver ${side}`} aria-label={`${side === "l" ? "previous" : "next"} window: ${title}`} onClick={onClick}>
+    <button type="button" ref={register} className={`desk-sliver ${side}`} aria-label={`${side === "l" ? "previous" : "next"} window: ${title}`} title={`${side === "l" ? "Previous" : "Next"} window: ${title}`} onClick={onClick}>
       <span className="sg">{side === "l" ? "‹" : "›"}</span>
-      <span className="sgl">{KIND_GLYPH[kind] ?? "§"}</span>
+      <span className="sgl" title={kind === "pad_stack" || kind === "pad" ? "Pad" : KIND_WORD[kind] ?? "Window"}>{KIND_GLYPH[kind] ?? "§"}</span>
       <span className="st">{title}</span>
     </button>
   );
@@ -4140,7 +4140,7 @@ function OpenBeside({
         {library === null ? <div className="desk-quiet">◐ reading the library…</div> : null}
         {sources.map((card) => (
           <div key={card.sourceId} className="wkr">
-            <span>{isVideoCard(card) ? "▶" : "§"}</span>
+            <span title={isVideoCard(card) ? "Video" : "Book"}>{isVideoCard(card) ? "▶" : "§"}</span>
             <button type="button" style={{ textAlign: "left" }} onClick={() => onOpenCard(card)}>{card.title}</button>
           </div>
         ))}

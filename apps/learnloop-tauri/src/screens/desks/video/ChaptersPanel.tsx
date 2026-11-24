@@ -7,7 +7,7 @@ import type { ChaptersJobDto, VideoChapterDto } from "../../../api/dto";
 import type { Poller } from "../../../api/poller";
 import { useWhenLive, useWindowLifecycle } from "../lifecycle";
 import type { VideoTransport } from "./desk";
-import { clockWords } from "./model";
+import { chapterLabel, clockWords } from "./model";
 
 export interface ChaptersState {
   chapters: VideoChapterDto[];
@@ -65,10 +65,15 @@ export function useVideoChapters({ extractionId, transport, poller, onChapters, 
     if (out.status === "done" && out.result) {
       if (out.result.status === "ready") {
         show(out.result.chapters.filter((chapter) => chapter.state !== "dismissed"));
-        setLine(out.result.chapters.some((chapter) => chapter.state === "suggested") ? null : "no new chapters to suggest");
-      } else setLine(out.result.message ?? "couldn't suggest chapters just now");
-    } else if (out.status === "cancelled") setLine("cancelled · nothing was kept");
-    else setLine(out.error?.message ?? "couldn't suggest chapters just now");
+        setLine(out.result.chapters.some((chapter) => chapter.state === "suggested") ? null : "No new chapters were suggested.");
+      } else {
+        const { status, reason, message } = out.result;
+        setLine(status === "capped" ? "Chapter suggestions reached their limit. You can still use existing chapters."
+          : status === "no_sections" || (status === "unavailable" && reason === "curriculum_disabled") ? message
+          : "Couldn’t suggest chapters. Try again or continue watching.");
+      }
+    } else if (out.status === "cancelled") setLine("Chapter suggestion stopped.");
+    else setLine(out.error?.message ?? "Couldn’t suggest chapters. Try again or continue watching.");
     return true;
   }, [show]);
 
@@ -79,7 +84,7 @@ export function useVideoChapters({ extractionId, transport, poller, onChapters, 
       key: `chapters:${job.jobId}`,
       request: () => transport.chaptersJob({ jobId: job.jobId }),
       onResult: (out) => (settle(out) ? { done: true } : undefined),
-      onError: () => { setJob(null); setLine("couldn't read the suggestion · try again"); },
+      onError: () => { setJob(null); setLine("Couldn’t load the suggestion. Select Suggest from the transcript to try again."); },
       owner: windowId,
     });
   }, [job, poller, transport, settle, windowId]);
@@ -88,7 +93,7 @@ export function useVideoChapters({ extractionId, transport, poller, onChapters, 
     setLine(null);
     void transport.chaptersSuggest({ extractionId }).then(
       (out) => { if (!settle(out) && out.jobId) setJob({ jobId: out.jobId }); },
-      (error: unknown) => setLine((error as { message?: string })?.message ?? "couldn't suggest chapters just now"),
+      (error: unknown) => setLine((error as { message?: string })?.message ?? "Couldn’t suggest chapters. Try again or continue watching."),
     );
   }, [extractionId, transport, settle]);
 
@@ -104,7 +109,7 @@ export function useVideoChapters({ extractionId, transport, poller, onChapters, 
         onDecidedRef.current?.();
       },
       (error: unknown) => {
-        setLine((error as { message?: string })?.message ?? "couldn't keep that just now");
+        setLine((error as { message?: string })?.message ?? "Couldn’t update this chapter. Reopen the video and try again.");
         // Decided otherwise elsewhere (another window, another device): read what is stored.
         setReadAgain((value) => value + 1);
       },
@@ -117,11 +122,12 @@ export function useVideoChapters({ extractionId, transport, poller, onChapters, 
     <div className="vside desk-chapters" data-chapters="">
       <div className="hd">◇ suggested chapters</div>
       {list.map((chapter) => {
-        const lo = chapter.learningObjects?.[0]?.title ?? null;
+        const topic = chapter.learningObjects?.[0];
+        const lo = topic ? chapter.held || topic.held ? "Topic details hidden" : topic.title : null;
         return (
           <div key={chapter.chapterId} className={`chap${chapter.state === "accepted" ? " accepted" : ""}`} data-chapter={chapter.chapterId}>
             <span className="tr">{clockWords(chapter.t0)}–{clockWords(chapter.t1)}</span>
-            <span><span className="ti">{chapter.title}</span>{lo ? <span className="lo"> ◇ {lo}</span> : null}</span>
+            <span><span className="ti">{chapterLabel(chapter)}</span>{lo ? <span className="lo"> ◇ {lo}</span> : null}</span>
             <span className="acts">
               {chapter.state === "suggested" ? (
                 <>
@@ -134,9 +140,9 @@ export function useVideoChapters({ extractionId, transport, poller, onChapters, 
         );
       })}
       {job ? (
-        <div className="cline" role="status">◐ judging the transcript against your topics… <button type="button" className="lnk" onClick={cancel}>cancel</button></div>
+        <div className="cline" role="status">◐ Looking for chapters in the transcript… <button type="button" className="lnk" onClick={cancel}>cancel</button></div>
       ) : chapters !== null && !list.some((chapter) => chapter.state === "suggested") ? (
-        <div className="cline">{list.length ? "every chapter decided · " : "no chapters yet · "}<button type="button" className="lnk" onClick={suggest}>suggest from the transcript</button></div>
+        <div className="cline">{list.length ? "every chapter decided · " : "No chapters to show. Reopen the video if chapters are missing · "}<button type="button" className="lnk" onClick={suggest}>suggest from the transcript</button></div>
       ) : null}
       {line ? <div className="cline quiet">{line}</div> : null}
     </div>

@@ -358,7 +358,7 @@ export const Companion = forwardRef<CompanionHandle, CompanionProps>(function Co
             <button type="button" onClick={props.onHide}>c hide</button>
           </div>
           <div className="ctx">
-            <span>{props.context.following ? `following ${props.context.following.glyph} ${props.context.following.title}` : "following nothing yet"}</span>
+            <span>{props.context.following ? `Open now · ${props.context.following.glyph} ${props.context.following.title}` : "following nothing yet"}</span>
             {/* The desk's context is recorded with a question, not sent to the tutor: the badge says the goal is in view. */}
             {props.context.goalInContext ? <span className="goal gctx" title="your goal's lens is on this desk; the tutor's answers don't take it into account yet">◎ goal in view</span> : null}
             <span className="grow" />
@@ -399,7 +399,7 @@ export const Companion = forwardRef<CompanionHandle, CompanionProps>(function Co
           {props.chip ? (
             <div className="chip">
               <span className="g">§</span> <span className="lab">asking about</span> <span className="q">“{props.chip.quote.length > 120 ? `${props.chip.quote.slice(0, 119)}…` : props.chip.quote}”</span>
-              <button type="button" aria-label="stop asking about the selection" onClick={props.onClearChip}>✕</button>
+              <button type="button" aria-label="stop asking about the selection" title="Clear selection" onClick={props.onClearChip}>✕</button>
             </div>
           ) : null}
           <div className="cin">
@@ -476,8 +476,8 @@ function ExchangeView({ exchange, proposals, onCancel, onRetry, onOpenClaim, onO
     case "waiting":
       answer = (
         <div className="bub ai asking" data-exchange-status="waiting">
-          <span className="who">◇ LearnLoop · saving your desk first</span>
-          <p className="thinking">◐ it is asked about the desk as you left it, once that is saved</p>
+          <span className="who">◇ LearnLoop · waiting for desk changes</span>
+          <p className="thinking">◐ Waiting to ask your question…</p>
         </div>
       );
       break;
@@ -489,8 +489,8 @@ function ExchangeView({ exchange, proposals, onCancel, onRetry, onOpenClaim, onO
         </div>
       ) : (
         <div className="bub ai asking" data-exchange-status="asking">
-          <span className="who">◇ LearnLoop · {exchange.jobStatus === "queued" || exchange.jobStatus === null ? "asked" : "answering"}{exchange.streamedPieces > 0 ? ` · ${exchange.streamedPieces} pieces so far` : ""}</span>
-          <p className="thinking">◐ writing the answer…</p>
+          <span className="who">◇ LearnLoop · {exchange.jobStatus === "queued" || exchange.jobStatus === null ? "waiting to send" : "answering"}</span>
+          <p className="thinking">◐ {exchange.jobStatus === "queued" || exchange.jobStatus === null ? "Waiting for LearnLoop…" : "Working on an answer…"}</p>
           <button type="button" className="act" onClick={() => onCancel(exchange.requestId)}>stop</button>
         </div>
       );
@@ -498,19 +498,19 @@ function ExchangeView({ exchange, proposals, onCancel, onRetry, onOpenClaim, onO
     case "answered":
       answer = (
         <div className="bub ai" data-exchange-status="answered">
-          <span className="who">◇ LearnLoop{exchange.answer?.citations.length ? " · claims link to the passage" : ""}</span>
+          <span className="who">◇ LearnLoop{exchange.answer?.citations.length ? " · source links" : ""}</span>
           <FitMath className="md"><MarkdownMath value={exchange.answer?.answerMd ?? ""} /></FitMath>
           {exchange.answer?.citations.length ? (
             <div className="claims">
               {exchange.answer.citations.map((citation, index) => (
-                <button key={`${citation.extractionId}:${citation.spanId}:${index}`} type="button" className="claim" onClick={() => onOpenClaim(citation)}>
+                <button key={`${citation.extractionId}:${citation.spanId}:${index}`} type="button" className="claim" title="Open passage" onClick={() => onOpenClaim(citation)}>
                   § {citation.label ?? "the passage"} ↗
                 </button>
               ))}
             </div>
           ) : null}
           {proposals.map((proposal) => <DiffProposal key={proposal.id} proposal={proposal} />)}
-          <button type="button" className="act" onClick={() => onOpenThread(exchange)}>open the thread as a window ↗</button>
+          <button type="button" className="act" onClick={() => onOpenThread(exchange)}>Open conversation in a window ↗</button>
         </div>
       );
       break;
@@ -518,7 +518,7 @@ function ExchangeView({ exchange, proposals, onCancel, onRetry, onOpenClaim, onO
       answer = (
         <div className="bub ai failed" data-exchange-status="failed">
           <span className="who">◇ couldn't answer</span>
-          <p>{exchange.error?.message ?? "Something went wrong."}</p>
+          <p>{exchange.error?.retryable ? exchange.error.message || "Select Try again to send your question again." : exchange.error?.code === "waiting_for_ok" ? "Give LearnLoop permission to use AI, then ask again." : "Choose another passage and ask again."}</p>
           {exchange.error?.retryable ? <button type="button" className="act" onClick={() => onRetry(exchange.requestId)}>try again</button> : null}
         </div>
       );
@@ -528,7 +528,7 @@ function ExchangeView({ exchange, proposals, onCancel, onRetry, onOpenClaim, onO
         <div className="bub ai stopped" data-exchange-status="cancelled">
           <span className="who">◇ stopped</span>
           <p>{exchange.kept
-            ? "The question was already sent; its answer is kept in your history, not shown here."
+            ? "Answer saved in History."
             : exchange.sent
               ? "The question was sent before it stopped; no answer is shown."
               : "Stopped before it was sent."}</p>
@@ -539,7 +539,7 @@ function ExchangeView({ exchange, proposals, onCancel, onRetry, onOpenClaim, onO
       answer = (
         <div className="bub ai interrupted" data-exchange-status="interrupted">
           <span className="who">◇ interrupted</span>
-          <p>{exchange.error?.message ?? "This was interrupted."}</p>
+          <p>{exchange.error?.message ?? "The reply was interrupted. Select Ask again to retry."}</p>
           <button type="button" className="act" onClick={() => onRetry(exchange.requestId)}>ask again</button>
         </div>
       );
@@ -594,10 +594,10 @@ function HistoryView({ history, olderLoading, onOlder, failed, query, onQuery, d
 }) {
   return (
     <div className="history" data-companion-history="">
-      <div className="hnote">every exchange stays here, by day and by desk, with the passage it was about · also in / search</div>
+      <div className="hnote">Browse saved questions and replies by day and desk.</div>
       <input className="hsearch" value={query} placeholder="search your exchanges" aria-label="search your exchanges" onChange={(event) => onQuery(event.target.value)} />
-      {failed ? <div className="hitem dim">couldn't read your history just now · {failed}</div> : null}
-      {history && history.days.length === 0 ? <div className="hitem dim">{query ? `nothing matches “${query}”` : "nothing asked yet"}</div> : null}
+      {failed ? <div className="hitem dim">Couldn’t load History. Reopen it to try again.</div> : null}
+      {history && history.days.length === 0 ? <div className="hitem dim">{query ? `nothing matches “${query}”` : "No saved questions to show."}</div> : null}
       {history?.days.map((day) => (
         <div key={day.date} className="hdayblock">
           <div className="hday">{dayLabel(day.date)}</div>
@@ -611,7 +611,7 @@ function HistoryView({ history, olderLoading, onOlder, failed, query, onQuery, d
                   <div className="hm">
                     <span className="dim">{exchange.where}</span>
                     {exchange.anchor ? (
-                      <button type="button" className="anchor" onClick={() => onOpenAnchor(exchange.anchor!)}>§ the passage ↗</button>
+                      <button type="button" className="anchor" title="Open passage" onClick={() => onOpenAnchor(exchange.anchor!)}>§ the passage ↗</button>
                     ) : null}
                   </div>
                 </div>
@@ -621,7 +621,7 @@ function HistoryView({ history, olderLoading, onOlder, failed, query, onQuery, d
         </div>
       ))}
       {history?.cursor ? (
-        <button type="button" className="older" disabled={olderLoading} onClick={onOlder}>{olderLoading ? "◐ reading older exchanges…" : "older exchanges ›"}</button>
+        <button type="button" className="older" title="Show older replies" disabled={olderLoading} onClick={onOlder}>{olderLoading ? "◐ reading older exchanges…" : "older exchanges ›"}</button>
       ) : null}
     </div>
   );

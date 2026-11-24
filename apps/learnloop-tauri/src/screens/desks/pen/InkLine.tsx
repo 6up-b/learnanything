@@ -182,18 +182,18 @@ function InkBlockOn({ host, padId, block, windowId, paused, showTranscription, w
 
   let status: ReactNode = null;
   if (reading?.status === "reading") {
-    status = <span className="ocrs">reading your handwriting… <button type="button" onClick={() => cache.cancel(padId, block.blockId)}>cancel</button></span>;
+    status = <span className="ocrs">Converting your handwriting… <button type="button" onClick={() => cache.cancel(padId, block.blockId)}>cancel</button></span>;
   } else if (reading?.status === "cannot") {
     status = <span className="ocrs" data-ink-refused="">{reading.message} · your ink is kept · <button type="button" onClick={() => setFixing(words)}>type what you wrote</button></span>;
   } else if (reading?.status === "failed") {
-    status = <span className="ocrs">not read ({reading.message}) · your ink is kept · <button type="button" onClick={() => void cache.read(padId, block.blockId, windowId)}>read it again</button></span>;
+    status = <span className="ocrs">{reading.message} <button type="button" onClick={() => void cache.read(padId, block.blockId, windowId)}>read it again</button></span>;
   } else if (reading?.status === "kept_yours" && reading.result) {
     const offered = reading.result.latexMd;
     status = (
       <span className="ocrs" data-ink-kept-yours="">your words stand · LearnLoop now reads: <span className="ocrtex"><MarkdownMath value={offered} /></span> (may be wrong) · <button type="button" onClick={() => keep(offered)}>use it</button></span>
     );
   } else if (reading?.status === "nothing") {
-    status = <span className="ocrs">nothing read · <button type="button" onClick={() => setFixing("")}>write it here</button></span>;
+    status = <span className="ocrs">Couldn’t make out this handwriting. <button type="button" onClick={() => setFixing("")}>write it here</button></span>;
   } else if (line?.unread && strokes.length) {
     status = <span className="ocrs"><button type="button" onClick={() => void cache.read(padId, block.blockId, windowId)}>read it</button></span>;
   }

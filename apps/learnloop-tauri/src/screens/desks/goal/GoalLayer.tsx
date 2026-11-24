@@ -218,9 +218,9 @@ export function useGoalDesk({ transport, deskGoalId, offKey, onSetGoal, readings
     const { section } = best;
     const lo = section.learningObjects.find((entry) => entry.learningObjectId === section.determiningLoId);
     const kind = markKind(section.level);
-    const text = section.held ? "a cold check is due on what these pads link to"
-      : section.level === "skippable" ? `not needed for your goal · ${section.reasonMd}`
-      : lo?.title ? `${lo.kind === "prerequisite" ? "a prerequisite" : lo.kind === "later" ? "later" : "a goal LO"}: “${lo.title}” · ${section.reasonMd}`
+    const text = section.held ? "Details are hidden while a question is due."
+      : section.level === "skippable" ? `Optional at this depth · ${section.reasonMd}`
+      : lo?.title ? `${lo.kind === "prerequisite" ? "Background" : lo.kind === "later" ? "Deeper study" : "Goal topic"}: “${lo.title}” · ${section.reasonMd}`
       : section.reasonMd;
     return (
       <div className={`gfor g-${kind ?? "none"}`} data-goal-padline="">
@@ -281,7 +281,7 @@ export function useGoalDesk({ transport, deskGoalId, offKey, onSetGoal, readings
     if (!best) return null;
     const lo = best.learningObjects.find((entry) => entry.learningObjectId === best!.determiningLoId);
     const mark = markKind(best.level);
-    return { mark: mark === "core" ? "sup" : mark, line: best.held ? "your pads, for your goal" : lo?.title ? `your pads on \u201c${lo.title}\u201d` : "your pads, not tied to your goal", ranges: [] };
+    return { mark: mark === "core" ? "sup" : mark, line: best.held ? "your pads, for your goal" : lo?.title ? `your pads on \u201c${lo.title}\u201d` : "No link from these pads to your goal", ranges: [] };
   }, [band, indexFor, padAnchors]);
 
   const primaryFor = useCallback((learningObjectId: string) => {

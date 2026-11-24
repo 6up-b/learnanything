@@ -187,12 +187,12 @@ export function SearchPanel({ api, poller, timers, deskId, open, deskTitle, init
     }}>
       <div className={`desk-search${closing ? " closing" : ""}${motion}`} role="dialog" aria-label="search in context" onKeyDown={onKeyDown}>
         <div className="desk-search-in">
-          <span className="g">⌕</span>
+          <span className="g" title="Search">⌕</span>
           <input
             ref={inputRef}
             value={query}
-            placeholder="search every source, note, pad, thread and past exchange"
-            aria-label="search every source, note, pad, thread and past exchange"
+            placeholder="Search your library, pads, and replies (at least two characters)"
+            aria-label="Search your library, pads, and replies"
             onChange={(event) => setQuery(event.target.value)}
           />
         </div>
@@ -200,7 +200,7 @@ export function SearchPanel({ api, poller, timers, deskId, open, deskTitle, init
           {block ? <div className="desk-search-sel" style={{ top: block.top, height: block.height }} /> : null}
           {groups.map((group) => (
             <div key={group.id} className="desk-search-group" data-search-group={group.id}>
-              <div className="grp">{group.label}{group.pending ? <span className="pending"> · by meaning…</span> : null}</div>
+              <div className="grp">{group.label}{group.pending ? <span className="pending"> · Looking for similar passages…</span> : null}</div>
               {group.off ? <div className="off">{group.off}</div> : null}
               {group.rows.map((row) => (
                 <div
@@ -218,18 +218,18 @@ export function SearchPanel({ api, poller, timers, deskId, open, deskTitle, init
                   onClick={() => choose(row)}
                 >
                   <span className="t">{row.text}</span>
-                  <span className="w">{row.kind === "result" && row.byMeaning ? "· by meaning " : ""}{row.where}</span>
+                  <span className="w">{row.kind === "result" && row.byMeaning ? "· Similar match " : ""}{row.where}</span>
                 </div>
               ))}
               {group.hidden > 0 ? <div className="more">tab · {group.hidden} more</div> : null}
             </div>
           ))}
-          {failure ? <div className="off">couldn't search just now · {failure}</div> : null}
-          {meaningFailure ? <div className="off" data-meaning-failure="">by meaning: couldn't finish · {meaningFailure}</div> : null}
-          {query.trim().length >= 2 && words && groups.length === 0 ? <div className="off">nothing found for “{query.trim()}”</div> : null}
+          {failure ? <div className="off">Couldn’t search. Edit your query to try again.</div> : null}
+          {meaningFailure ? <div className="off" data-meaning-failure="">Couldn’t finish looking for similar passages. Edit your query to try again.</div> : null}
+          {query.trim().length >= 2 && words && groups.length === 0 ? <div className="off">No results for “{query.trim()}”. Try different words.</div> : null}
         </div>
         <div className="desk-search-foot">
-          <span>↑↓ choose · ↵ {insert ? "insert it here" : "open beside the focus, or scroll to it if open"} · tab more · esc close · words now, meaning later</span>
+          <span>↑↓ (Up/Down arrows) to choose · ↵ (Enter) to {insert ? "insert here" : "open or scroll to the result"} · Tab for more · Esc to close</span>
           {note ? <span className="why">{note}</span> : null}
         </div>
       </div>

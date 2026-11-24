@@ -321,7 +321,7 @@ describe("the shelf's running pad and the pad stack's title bar, as the mockup h
     const menu = await screen.findByRole("menu", { name: "the pad menu" });
     expect(within(menu).getByText("your pad")).toBeTruthy();
     expect(menu.textContent).not.toContain("x = 1");
-    expect(within(menu).getByText("marimo cell")).toBeTruthy();
+    expect(within(menu).getByText("Python cell")).toBeTruthy();
   });
 });
 

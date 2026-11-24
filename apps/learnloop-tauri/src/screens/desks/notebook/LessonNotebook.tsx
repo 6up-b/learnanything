@@ -63,7 +63,7 @@ export function LessonNotebook({ lessonId, view, calls = api }: LessonNotebookPr
   const review = view.closed;
   return (
     <div className="ll-lesson-nb" data-lesson-notebook={lessonId} data-review={review ? "on" : "off"}>
-      {review ? <div className="ll-lesson-nb-line">review · the notebook as the teacher made it · nothing new is revealed or recorded</div> : null}
+      {review ? <div className="ll-lesson-nb-line">Review the notebook from this lesson.</div> : null}
       {problem ? <div className="ll-lesson-nb-line" role="status">{problem}</div> : null}
       <NotebookFrame
         owner={`lesson:${lessonId}`}

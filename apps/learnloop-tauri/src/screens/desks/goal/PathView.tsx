@@ -5,7 +5,7 @@
 // anyway", stored). Clicks open beside on the goal's desk. Everything shown is goal.band's and goal.lens's.
 import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
 import type { DeliverableSectionDto, GoalBandDto, GoalBandLoDto, GoalLensSectionDto, ReadingPathDepth } from "../../../api/dto";
-import { formatDay, goalLabel } from "./model";
+import { formatDay, goalLabel, readOrNot } from "./model";
 
 export interface NotNeeded {
   extractionId: string;
@@ -86,12 +86,12 @@ export function PathView({ band, here, notNeeded, onClose, onDepth, onOpen, onUs
   return (
     <div ref={ref} className="ovl gpath desk-gpath" role="dialog" aria-label="your path" tabIndex={-1} onKeyDown={onKeyDown} data-goal-path="">
       <div className="gp-l">
-        <div className="gb-lab">{goalLabel(band)} <span className="gb-prov">your words, {formatDay(band.goal.setAt)}</span></div>
-        <h3>“{band.goal.sentence}”</h3>
-        <div className="gp-scope">resolved to <b>{needed} learning object{needed === 1 ? "" : "s"}</b>, plus {prerequisites} prerequisite{prerequisites === 1 ? "" : "s"} you haven't shown yet<ScopeCorrection onCorrect={onCorrect} /></div>
+        <div className="gb-lab">{goalLabel(band)} <span className="gb-prov">set {formatDay(band.goal.setAt)}</span></div>
+        <h3>Your goal</h3>
+        <div className="gp-scope"><b>{needed} topic{needed === 1 ? "" : "s"} for your goal</b> and {prerequisites} background topic{prerequisites === 1 ? "" : "s"}<ScopeCorrection onCorrect={onCorrect} /></div>
         {(band.unmatched ?? []).map((phrase) => (
           <div key={phrase.phrase} className="gp-unm">
-            “<i>{phrase.phrase}</i>” isn't in your library yet{phrase.proposedTitle ? <> → {phrase.proposedTitle}</> : null}
+            <i>A topic still needs a match</i>{phrase.proposedTitle ? " → Review in Goals" : null}
             <button type="button" className="act" onClick={() => onAddPhrase(phrase.phrase)}>add it</button>
           </div>
         ))}
@@ -107,19 +107,19 @@ export function PathView({ band, here, notNeeded, onClose, onDepth, onOpen, onUs
         </div>
         <div className="gp-ready">
           <div className="gb-lab">am I ready?</div>
-          Only delayed cold checks answer that. Reading raises LearnLoop's prediction, never a certification.
+          Cold checks give you a chance to answer on your own. Readiness reflects your answers and LearnLoop’s estimates.
           <span className="faint">{paceLine(band)}</span>
         </div>
         <div className="gp-key">
-          <div className="gb-lab">in the margins · from section coverage</div>
-          <div><i className="b core" />core · the primary section of a goal LO</div>
-          <div><i className="b sup" />supporting · a prerequisite, another way, or an example</div>
-          <div><i className="b skip" />skippable · no LO your goal needs; dimmed, still readable</div>
-          <div className="faint">later · needed only deeper · already shown · its LO is demonstrated</div>
+          <div className="gb-lab">What the margin marks mean</div>
+          <div><i className="b core" />Main reading for a goal topic</div>
+          <div><i className="b sup" />Background, another explanation, or an example</div>
+          <div><i className="b skip" />Optional at this depth</div>
+          <div className="faint">Some sections are included at a deeper level. Others cover topics treated as familiar.</div>
         </div>
       </div>
       <div className="gp-r-wrap">
-        <div className="gp-gh">your path · prerequisites before what assumes them · {depthLabel}</div>
+        <div className="gp-gh">your path · background topics first · {depthLabel}</div>
         {dots.map((dot, index) => {
           const line = lines.get(dot.learningObjectId);
           const later = dot.kind === "later";
@@ -128,9 +128,9 @@ export function PathView({ band, here, notNeeded, onClose, onDepth, onOpen, onUs
               <div className="gp-h">
                 <span className={`gp-n rd-${dot.readiness}${dot.kind === "prerequisite" ? " pre" : ""}`} />
                 <span className="gp-ord">{index + 1}</span>
-                <span className="gp-ti">{dot.title ?? "a topic with a cold check due"}</span>
-                <span className={`gp-tag ${later ? "later" : dot.kind === "needed" ? "core" : "prerequisite"}`}>{later ? "later" : dot.kind === "needed" ? "core" : "prerequisite"}</span>
-                {here === dot.learningObjectId ? <span className="gp-tag here">you are reading here</span> : null}
+                <span className="gp-ti">{dot.title ?? "Topic details hidden"}</span>
+                <span className={`gp-tag ${later ? "later" : dot.kind === "needed" ? "core" : "prerequisite"}`}>{later ? "Deeper study" : dot.kind === "needed" ? "Goal topic" : "Background"}</span>
+                {here === dot.learningObjectId ? <span className="gp-tag here">In view</span> : null}
                 <span className="grow" />
                 <span className={`gp-rd rd-${dot.readiness}`}>{readiness(dot)}</span>
               </div>
@@ -140,14 +140,14 @@ export function PathView({ band, here, notNeeded, onClose, onDepth, onOpen, onUs
                   <span className="gp-src">{line.section.book}</span>
                   <span className="gp-at">{line.section.title}</span>
                   <span className="gp-why">{line.section.treatmentWords}{line.reason ? ` · ${line.reason}` : ""}</span>
-                  <span className="gp-st">{line.section.read ? "read" : "not read"}{line.override ? ` · you chose ${line.override.replace("_", " ")}` : ""}</span>
+                  <span className="gp-st">{readOrNot(line.section.read)}{line.override ? ` · ${{ use_instead: "You chose this section", read_anyway: "You chose to read it anyway", skip: "You chose to skip it", check_later: "You asked for a cold check later" }[line.override]}` : ""}</span>
                 </button>
               ) : dot.primary ? (
                 <button type="button" className="gp-prim" onClick={() => onOpen({ extractionId: dot.primary!.extractionId, startSpanId: dot.primary!.startSpanId })}>
                   <span className="g">§</span>
                   <span className="gp-src">{dot.primary.book}</span>
                   <span className="gp-at">{dot.primary.title}</span>
-                  <span className="gp-why">{later ? "needed only at a deeper depth" : "not on the path yet"}</span>
+                  <span className="gp-why">{later ? "Included at a deeper level" : "Suggested reading"}</span>
                   <span className="gp-st" />
                 </button>
               ) : null}
@@ -155,7 +155,7 @@ export function PathView({ band, here, notNeeded, onClose, onDepth, onOpen, onUs
                 <div key={`${alternate.extractionId}/${alternate.sectionId}`} className="gp-alt" role="group">
                   <button type="button" className="gp-alt-open" onClick={() => onOpen({ extractionId: alternate.extractionId, sourceId: alternate.sourceId, startSpanId: alternate.startSpanId })}>
                     <span className="g">§</span>
-                    <span className="gp-src">another way · {alternate.book}</span>
+                    <span className="gp-src">Another explanation · {alternate.book}</span>
                     <span className="gp-at">{alternate.title}</span>
                     <span className="gp-why">{alternate.difference || alternate.treatmentWords}</span>
                   </button>
@@ -168,8 +168,8 @@ export function PathView({ band, here, notNeeded, onClose, onDepth, onOpen, onUs
                 <div className={`gp-chk${dot.check === "answered" ? " done" : ""}`}>
                   <span className="g">◇</span>
                   <span className="gp-src">cold check</span>
-                  <span className="gp-at">{dot.check === "due" ? "due today" : "answered today"}</span>
-                  <span className="gp-why">{dot.check === "due" ? "answer it in Today, on your own" : "answered on your own"}</span>
+                  <span className="gp-at">{dot.check === "due" ? "Due" : "Answered today"}</span>
+                  <span className="gp-why">{dot.check === "due" ? "Open Today to answer on your own" : "answered on your own"}</span>
                   <span className="gp-st" />
                 </div>
               ) : null}
@@ -178,7 +178,7 @@ export function PathView({ band, here, notNeeded, onClose, onDepth, onOpen, onUs
                   <span className="g">§</span>
                   <span className="gp-src">exercise worth trying</span>
                   <span className="gp-at">{line.exercise.label}</span>
-                  <span className="gp-why">picked from the primary section's book</span>
+                  <span className="gp-why">From the main reading</span>
                   <span className="gp-st" />
                 </button>
               ) : null}
@@ -187,7 +187,7 @@ export function PathView({ band, here, notNeeded, onClose, onDepth, onOpen, onUs
           );
         })}
         <div className="gp-grp skipg">
-          <div className="gp-gh">┊ not needed for your goal · read it anyway</div>
+          <div className="gp-gh">┊ Optional at this depth · read it anyway</div>
           {notNeeded.length === 0 ? <div className="gp-s"><span className="g" /><span className="gp-why">nothing in the readings on your desk</span></div> : null}
           {notNeeded.map((entry) => (
             <div key={`${entry.extractionId}/${entry.section.sectionId}`} className="gp-s" data-gp-skip={entry.section.sectionId}>
@@ -195,7 +195,7 @@ export function PathView({ band, here, notNeeded, onClose, onDepth, onOpen, onUs
               <span className="gp-src">{entry.book}</span>
               <span className="gp-at">{entry.section.title}</span>
               <span className="gp-why">
-                {entry.section.reasonMd}
+                {entry.section.level === "later" ? "Included at a deeper level. " : ""}{entry.section.reasonMd}
                 <button type="button" className="gp-anyway" onClick={() => onReadAnyway(entry.extractionId, entry.section.sectionId, entry.section.choice !== "read_anyway")}>
                   {entry.section.choice === "read_anyway" ? "dim it again" : "read it anyway"}
                 </button>

@@ -256,7 +256,7 @@ def section_level(section: SectionReads, goal: GoalReads) -> SectionLevel:
 # Words (no model: the path's own reason where it has one, else assembled from the labels)
 # ---------------------------------------------------------------------------
 
-HELD_REASON = "A cold check is due on a topic here. Why it matters comes back once you've answered it."
+HELD_REASON = "Details are hidden while a question is due."
 
 
 def _quoted(title: str) -> str:
@@ -283,24 +283,24 @@ def reason_text(level: SectionLevel, section: SectionReads, goal: GoalReads) -> 
         return f"Another way to {title}; your path reads it elsewhere."
     words = {
         "prerequisite": f"Background for your goal: {title}.",
-        "primary": f"Where your path reads {title}.",
+        "primary": f"This is the main reading for {title}.",
         "another_treatment": (f"It {TREATMENT_VERBS.get(entry.treatment if entry else '', 'treats')} {title}, "
                               "a topic of your goal; your path reads it elsewhere."),
         "applies": f"It uses {title}, a topic of your goal.",
         "mentions": f"It mentions {title}, a topic of your goal.",
-        "learner_about": f"You said it's also about {title}, a topic of your goal.",
-        "deeper_depth": f"Needed for {title} only deeper than {goal.depth_label}.",
-        "demonstrated": f"You've shown {title} on your own.",
-        "assumed": f"{title} is assumed known (not tested).",
-        "check_pending": f"You said you know {title}; a cold check will tell.",
+        "learner_about": f"You linked this section to {title}.",
+        "deeper_depth": f"Included for {title} at a deeper level than {goal.depth_label}.",
+        "demonstrated": f"You’ve shown {title} in practice on your own.",
+        "assumed": f"LearnLoop treats {title} as familiar.",
+        "check_pending": f"You said you know {title}. A cold check is pending.",
         "you_skipped": f"You chose to skip {title}.",
-        "out_of_scope": "Not about any topic of your goal, as far as coverage says.",
-        "not_about": "Coverage judged it not about the topics of your goal.",
-        "unmapped": "Not mapped for this goal yet.",
-        "withheld": "Protected material: LearnLoop doesn't map it.",
-        "left_out": "Not in the library LearnLoop maps (protected, or not teaching material).",
-        "partial_unsettled": "Not every topic of your goal has been checked against your books yet.",
-        "partial_unplaced": "Your path places a topic here that coverage no longer finds here.",
+        "out_of_scope": "LearnLoop hasn’t found a link to your goal here.",
+        "not_about": "LearnLoop hasn’t found a link to your goal here.",
+        "unmapped": "LearnLoop hasn’t found a link to your goal here.",
+        "withheld": "No suggestions for this section. Try another section.",
+        "left_out": "No suggestions for this section. Try another section.",
+        "partial_unsettled": "LearnLoop is still looking for reading on some of your goal topics.",
+        "partial_unplaced": "LearnLoop used to suggest this section and hasn’t found a current match.",
     }
     return words.get(key, "")
 
@@ -318,7 +318,7 @@ def learner_line(level: SectionLevel, section: SectionReads, goal: GoalReads) ->
     if place is not None and place.override == "skip":
         return "You chose to skip it."
     if place is not None and place.override == "check_later":
-        return "You asked to be checked on it later."
+        return "You asked for a cold check later."
     if place is not None and place.override == "read_anyway":
         return "You chose to read it anyway."
     if any(goal.los[entry.learning_object_id].answered_today for entry in level.learning_objects):
@@ -333,17 +333,18 @@ def coverage_line(level: SectionLevel, section: SectionReads, goal: GoalReads) -
         return None
     entry = next(e for e in level.learning_objects if e.learning_object_id == level.determining)
     lo = goal.los[level.determining]
-    role = {"needed": "a goal LO", "prerequisite": "a prerequisite", "later": "needed at a deeper depth"}[lo.kind]
+    role = {"needed": "goal topic", "prerequisite": "background", "later": "for a deeper level"}[lo.kind]
     place = goal.path.get(lo.learning_object_id)
     if place is not None and place.primary == section.ref:
-        where = "its primary section"
+        where = "main reading"
     elif place is not None and place.alternate(section.ref) is not None:
-        where = "another way"
+        where = "another explanation"
     else:
-        where = "not on your path here"
-    verb = "is about (your words)" if entry.treatment == LEARNER_ABOUT else TREATMENT_VERBS.get(entry.treatment,
-                                                                                                 entry.treatment)
-    return f"coverage: {verb} {_quoted(lo.title)} · {role} · {where} · {level.level.replace('_', ' ')}"
+        where = "outside your current path"
+    if entry.treatment == LEARNER_ABOUT:
+        return f"You linked this section to {_quoted(lo.title)} · {role} · {where}"
+    verb = TREATMENT_VERBS.get(entry.treatment, "covers")
+    return f"This section {verb} {_quoted(lo.title)} · {role} · {where}"
 
 
 def level_view(level: SectionLevel, section: SectionReads, goal: GoalReads) -> dict[str, Any]:
@@ -463,11 +464,11 @@ def next_for_goal(checks_due: int, first_check: Mapping[str, Any] | None,
 # build a :class:`Protection` are in ``source_retrieval.goal_lens_reads``.
 
 #: An LO's name while its check is due (the band's own words for such a dot).
-NEUTRAL_LO = "a topic with a cold check due"
+NEUTRAL_LO = "Topic details hidden"
 #: A section's title while it treats an LO whose check is due.
-NEUTRAL_SECTION = "a section held until its cold check"
+NEUTRAL_SECTION = "Section details hidden"
 #: An exercise picked from such a section.
-NEUTRAL_EXERCISE = "an exercise held until its cold check"
+NEUTRAL_EXERCISE = "Exercise details hidden"
 
 
 @dataclass(frozen=True)

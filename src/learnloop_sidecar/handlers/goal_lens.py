@@ -116,11 +116,11 @@ def _not_a_deliverable(vault: Any, goal_id: str) -> dict[str, Any] | None:
 
     goal = next((goal for goal in vault.goals if goal.id == goal_id), None)
     if goal is None:
-        raise SidecarError("not_found", f"No goal {goal_id!r}.")
+        raise SidecarError("not_found", "Couldn’t find this goal. Choose one in Goals and try again.")
     if goal.creation_source == "learner":
         return None
     return {"goal_id": goal_id, "goal": reads.goal_view(goal), "status": "not_a_deliverable",
-            "message": "LearnLoop maps only goals you set yourself to your sources."}
+            "message": "Choose a goal you set, or create one in Goals."}
 
 
 def _pace(vault: Any, repository: Any, goal: Any) -> dict[str, Any] | None:
@@ -175,8 +175,7 @@ class GoalLensInput(ParamsModel):
         times = (self.t0 is None) == (self.t1 is None)
         both = self.from_span_id is not None and self.t0 is not None
         if not spans or not times or both:
-            raise ValueError("a range is two passages (from_span_id, to_span_id), two times (t0, t1) or none "
-                             "(the whole reading)")
+            raise ValueError("Select the passage or caption again.")
         return self
 
 
@@ -190,10 +189,10 @@ def goal_lens(ctx: SidecarContext, params: GoalLensInput) -> dict[str, Any]:
 
     vault, repository = curriculum._require_read(ctx)
     if not RD.reader_enabled(vault):
-        raise SidecarError("reader_disabled", "The reader dialogue is disabled (tutor_qa.reader_enabled=False).")
+        raise SidecarError("reader_disabled", "Reading help is off for this library. You can keep reading or open Practice.")
     resolved = resolve_extraction_id(repository, params.extraction_id)
     if resolved is None:
-        raise SidecarError("extraction_not_found", f"No extraction resolves for {params.extraction_id!r}.")
+        raise SidecarError("extraction_not_found", "Couldn’t find this source. Reopen it from your library.")
     source_id = _source_id_for_extraction(repository, resolved)
     if source_id is not None:
         _require_source_reader(repository, source_id)
@@ -234,7 +233,7 @@ def goal_section_choice(ctx: SidecarContext, params: SectionChoiceInput) -> dict
         raise curriculum._error(exc) from exc
     resolved = resolve_extraction_id(repository, params.extraction_id)
     if resolved is None:
-        raise SidecarError("extraction_not_found", f"No extraction resolves for {params.extraction_id!r}.")
+        raise SidecarError("extraction_not_found", "Couldn’t find this source. Reopen it from your library.")
     try:
         return versioned({"choice": choices.choose(repository, params.goal_id, resolved, params.section_id,
                                                    params.choice, operation_id=params.operation_id)})

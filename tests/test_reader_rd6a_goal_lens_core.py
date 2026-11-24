@@ -169,12 +169,12 @@ def test_reason_text_is_the_paths_own_line_on_the_path_and_assembled_off_it():
     level = GL.section_level(primary, goal)
     assert GL.reason_text(level, primary, goal) == "Strang's chapter is the clearest for you."
     assert GL.coverage_line(level, primary, goal) == (
-        "coverage: develops “Eigenvalues” · a goal LO · its primary section · core")
+        "This section develops “Eigenvalues” · goal topic · main reading")
     alternate = GL.SectionReads(HERE, "Here", cov(("lo_b", "develops")), ("lo_b",))
     assert GL.reason_text(GL.section_level(alternate, goal), alternate, goal) == "shorter, with pictures"
     deep = GL.SectionReads(HERE, "Here", cov(("lo_deep", "applies")))
     assert GL.reason_text(GL.section_level(deep, goal), deep, goal) == (
-        "Needed for “Fields” only deeper than get the idea.")
+        "Included for “Fields” at a deeper level than get the idea.")
 
 
 def test_the_learner_line_names_their_choice_or_todays_answer():

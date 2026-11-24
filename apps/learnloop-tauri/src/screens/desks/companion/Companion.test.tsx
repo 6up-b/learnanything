@@ -61,22 +61,22 @@ function props(over: Partial<CompanionProps> = {}): CompanionProps {
 describe("the thread's states", () => {
   it("asking can be stopped; a failure says why and offers a retry only when it may help; interrupted can be asked again", () => {
     const p = props({ thread: [
-      exchange({ requestId: "a", status: "asking", streamedPieces: 4 }),
+      exchange({ requestId: "a", status: "asking", jobStatus: "running", streamedPieces: 4 }),
       exchange({ requestId: "b", status: "failed", error: { code: "provider_unavailable", message: "The tutor isn't reachable right now.", retryable: true } }),
       exchange({ requestId: "c", status: "failed", error: { code: "waiting_for_ok", message: "LearnLoop needs your OK to use AI.", retryable: false } }),
       exchange({ requestId: "d", status: "interrupted", error: { code: "job_not_found", message: "LearnLoop restarted since it was asked.", retryable: false } }),
       exchange({ requestId: "e", status: "cancelled", kept: true }),
     ] });
     render(<Companion {...p} />);
-    expect(screen.getByText(/4 pieces so far/)).toBeTruthy();
+    expect(screen.getByText(/Working on an answer/)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "stop" }));
     expect(p.onCancel).toHaveBeenCalledWith("a");
     expect(screen.getByText("The tutor isn't reachable right now.")).toBeTruthy();
     expect(screen.getAllByRole("button", { name: "try again" })).toHaveLength(1);
-    expect(screen.getByText("LearnLoop needs your OK to use AI.")).toBeTruthy();
+    expect(screen.getByText("Give LearnLoop permission to use AI, then ask again.")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "ask again" }));
     expect(p.onRetry).toHaveBeenCalledWith("d");
-    expect(screen.getByText(/kept in your history/)).toBeTruthy();
+    expect(screen.getByText("Answer saved in History.")).toBeTruthy();
   });
 
   it("with no passage to ask about, the input says so and asks nothing", () => {
@@ -89,7 +89,7 @@ describe("the thread's states", () => {
 
   it("the context line follows the focused window and says the goal is in view, never that the tutor answers with it", () => {
     render(<Companion {...props()} />);
-    expect(screen.getByText("following § A book")).toBeTruthy();
+    expect(screen.getByText("Open now · § A book")).toBeTruthy();
     // The tutor's prompt does not receive the goal (the desk context is recorded, not sent): the badge claims no more.
     const badge = screen.getByText("◎ goal in view");
     expect(badge.getAttribute("title")).toBe("your goal's lens is on this desk; the tutor's answers don't take it into account yet");
@@ -119,7 +119,7 @@ describe("a proposed diff (pads arrive next)", () => {
     render(<DiffProposal proposal={{ id: "p1", target: "running", label: "Put a check in your scratchpad", lines: ["check: grad = p - onehot"] }} />);
     expect(screen.getByText("+ check: grad = p - onehot")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "accept" })).toBeNull();
-    expect(screen.getByText(/pads arrive next/)).toBeTruthy();
+    expect(screen.getByText(/Copying to this pad is unavailable/)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "not this" }));
     expect(screen.getByText(/nothing was written/)).toBeTruthy();
   });
@@ -132,7 +132,7 @@ describe("a proposed diff (pads arrive next)", () => {
       await Promise.resolve();
     });
     expect(onAccept).toHaveBeenCalled();
-    expect(screen.getByText(/accepted · written to/)).toBeTruthy();
+    expect(screen.getByText(/Reply queued for/)).toBeTruthy();
   });
 });
 
@@ -166,14 +166,14 @@ describe("the fix round (RD3 review)", () => {
     ] })} />);
     expect(screen.getByText(/was sent before it stopped/)).toBeTruthy();
     expect(screen.getByText(/Stopped before it was sent/)).toBeTruthy();
-    expect(screen.getByText(/kept in your history/)).toBeTruthy();
+    expect(screen.getByText("Answer saved in History.")).toBeTruthy();
     expect(screen.queryByText("Nothing was sent.")).toBeNull();
   });
 
   it("a question waiting for the desk's writes shows as waiting", () => {
     render(<Companion {...props({ thread: [exchange({ requestId: "a", status: "waiting" })] })} />);
     const waiting = document.querySelector('[data-exchange-status="waiting"]');
-    expect(waiting?.textContent).toMatch(/saving your desk first/);
+    expect(waiting?.textContent).toMatch(/waiting for desk changes/);
   });
 
   it("history pages through the cursor: older exchanges append, keeping days and desks", async () => {

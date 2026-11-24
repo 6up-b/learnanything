@@ -110,13 +110,13 @@ export function PadMenu({ request, host, windowId, state, muted, onClose, onInse
     ...(request.blockId ? [{ key: "n", glyph: "›", label: "Note in margin", note: "a note attached under this line", run: close(onNote) }] : []),
     { key: "/", glyph: "⌕", label: "Find in my sources", run: close(() => host.openSearch(text, undefined, blockIds)) },
     // A line with no passage has no Show me (the figure is built for a passage).
-    ...(host.showMe && anchors.length ? [{ key: "v", glyph: "◇", label: "Show me", note: "a figure lands below this line", run: close(() => {
-      host.toast("◇ making a figure for this line · it lands below it when it's ready");
+    ...(host.showMe && anchors.length ? [{ key: "v", glyph: "◇", label: "Show me", note: "make a figure for this line", run: close(() => {
+      host.toast("◇ Making a figure for this line…");
       // The finished figure goes to the window's waiting figures: written only while the pad is live.
       void host.showMe?.(text, anchors[0] ?? null, windowId, blockIds).then((figure) => {
-        if (!figure) host.toast("no figure for this line · nothing was shown");
+        if (!figure) host.toast("No figure was made. Try another line.");
         else host.figures.push(windowId, { padId: request.padId, afterBlockId: request.blockId, blockIds, figureId: figure.figureId, line: figure.line });
-      }, () => host.toast("couldn't make a figure for this line"));
+      }, () => host.toast("Couldn’t make a figure for this line. Try another line."));
     }) }] : []),
     ...(anchors.length ? [{ key: "p", glyph: "✎", label: "Make it practice", note: "drafts an item from this line for your queue", run: () => setPracticing(true) }] : []),
     { key: "c", glyph: "◌", label: "Carry", run: close(() => host.carry(text, { kind: "block", ref: request.blockId, blockIds, anchor: anchors[0] ?? null })) },
@@ -212,8 +212,8 @@ function PracticeSheet({ host, blockIds, text, anchors, onClose }: { host: PadsH
       <div className="head">✎ make it practice · it joins your queue once you save it</div>
       <label>the question<textarea value={prompt} onChange={(event) => setPrompt(event.target.value)} /></label>
       <label>what a right answer says<textarea value={answer} onChange={(event) => setAnswer(event.target.value)} /></label>
-      {los === null ? <div className="note">◐ finding what this passage teaches…</div> : los.length === 0 ? <div className="note">this passage is tied to nothing to practise yet</div> : (
-        <div className="note">for {los.length === 1 ? "the idea this passage teaches" : <select value={lo ?? ""} onChange={(event) => setLo(event.target.value)}>{los.map((id) => <option key={id} value={id}>{id}</option>)}</select>}</div>
+      {los === null ? <div className="note">◐ finding what this passage teaches…</div> : los.length === 0 ? <div className="note">No topic to show. Try again or choose another passage.</div> : (
+        <div className="note">for {los.length === 1 ? "the idea this passage teaches" : <select aria-label="Choose a topic" value={lo ?? ""} onChange={(event) => setLo(event.target.value)}>{los.map((id, index) => <option key={id} value={id}>Topic {index + 1}</option>)}</select>}</div>
       )}
       {failure ? <div className="note err">{failure}</div> : null}
       <div className="acts">
@@ -322,11 +322,11 @@ export function ArrangeOverlay({ pads, split, onCancel, onConfirm }: {
             return next;
           });
         }}>
-          <span className="dot">{shown.has(padId) ? "●" : "○"}</span>
+          <span className="dot" title={shown.has(padId) ? "Pad shown" : "Pad hidden"}>{shown.has(padId) ? "●" : "○"}</span>
           <span className="txt"><span className="t">{titles.get(padId)}</span>{lines.get(padId) ? <span className="ln">{lines.get(padId)}</span> : null}</span>
         </button>
       ))}
-      <div className="foot">↑↓ choose · k above · j below · space show · = equal · ↵ confirm · esc cancel</div>
+      <div className="foot">↑↓ (Up/Down arrows) to choose · K above · J below · Space to show · = (Equals) for equal heights · ↵ (Enter) to confirm · Esc to cancel</div>
     </div>
   );
 }
@@ -421,7 +421,7 @@ export function SubmitSheet({ host, state, blockId, onClose }: { host: PadsHost;
   const submit = async (as: "attempt" | "teach_back", key: string, item: () => Promise<string>) => {
     const sessionId = host.practiceSessionId;
     if (!sessionId) {
-      setFailure("start a practice session first: a submission is recorded in it, as any attempt is");
+      setFailure("Open Practice to start a session, then return to this pad.");
       return;
     }
     setBusy(true);
@@ -495,11 +495,11 @@ export function SubmitSheet({ host, state, blockId, onClose }: { host: PadsHost;
         <div className="head">◎ teach-back · the tutor asks, as a student would</div>
         <div className="note q">{turn.questionMd}</div>
         <label>your answer<textarea aria-label="your answer" value={reply} onChange={(event) => setReply(event.target.value)} /></label>
-        {failure ? <div className="note err">{failure} · your answer is kept; send it again</div> : null}
+        {failure ? <div className="note err">{failure} Your draft is still here. Select Answer to try again.</div> : null}
         <div className="acts">
           <button type="button" disabled={busy || !reply.trim()} onClick={() => void answerTurn(false)}>answer</button>
           <button type="button" disabled={busy} onClick={() => void answerTurn(true)}>finish now</button>
-          <button type="button" onClick={onClose}>later · it waits in your session</button>
+          <button type="button" onClick={onClose}>later</button>
         </div>
       </div>
     );
@@ -508,10 +508,10 @@ export function SubmitSheet({ host, state, blockId, onClose }: { host: PadsHost;
     <div className="desk-sheet" role="dialog" aria-label="submit this block">
       <div className="head">✓ submit this block as… · only your own words count</div>
       {answerItem ? <button type="button" className="row" disabled={busy} onClick={() => void submit("attempt", answerItem, async () => answerItem)}>my answer to {state.pad.kind === "problem" ? "this problem" : "this check"}</button> : null}
-      {los.map((lo) => (
-        <button key={lo} type="button" className="row" disabled={busy} onClick={() => void submit("teach_back", lo, async () => (await host.api.requestTeachBack({ learningObjectId: lo })).practiceItemId)}>a teach-back of the idea this passage teaches{los.length > 1 ? ` (${lo})` : ""}</button>
+      {los.map((lo, index) => (
+        <button key={lo} type="button" className="row" disabled={busy} onClick={() => void submit("teach_back", lo, async () => (await host.api.requestTeachBack({ learningObjectId: lo })).practiceItemId)}>a teach-back of the idea this passage teaches{los.length > 1 ? ` · Topic ${index + 1}` : ""}</button>
       ))}
-      {!answerItem && los.length === 0 ? <div className="note">nothing to submit this to yet: link the block to a passage (append it from a source), or write it in a problem pad</div> : null}
+      {!answerItem && los.length === 0 ? <div className="note">Copy a passage into this pad, or open the pad for the question you’re answering.</div> : null}
       {failure ? <div className="note err">{failure}</div> : null}
       <div className="acts"><button type="button" onClick={onClose}>not now</button></div>
     </div>

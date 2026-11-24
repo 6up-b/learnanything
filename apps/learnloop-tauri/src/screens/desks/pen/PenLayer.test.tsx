@@ -281,7 +281,7 @@ describe("the pen layer", () => {
     const { api, host } = setup();
     draw([[150, 105], [250, 160], [300, 110], [420, 170]]);
     await settle();
-    expect(screen.getByText("ink · not recognised · kept on the page")).toBeTruthy();
+    expect(screen.getByText("Ink on the page. Draw over or beside text to make a mark.")).toBeTruthy();
     expect(api.readerCapture).not.toHaveBeenCalled();
     expect(host.saveInk).toHaveBeenCalledTimes(1);
     expect(vi.mocked(host.saveInk).mock.calls[0][0].owner).toEqual({ extractionId: "ext" });
