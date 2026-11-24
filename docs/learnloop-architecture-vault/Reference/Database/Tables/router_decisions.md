@@ -136,6 +136,7 @@ None found by exact static reference scan.
 - `src/learnloop/db/stores/provenance.py`
 - `src/learnloop/db/stores/router.py`
 - `src/learnloop/db/stores/router_suggestions.py`
+- `src/learnloop/diagnosis/probe_authority.py`
 - `src/learnloop/evsi_calibration/live_report.py`
 - `src/learnloop/followup_run/decision_view.py`
 - `src/learnloop/ops/capture_report.py`

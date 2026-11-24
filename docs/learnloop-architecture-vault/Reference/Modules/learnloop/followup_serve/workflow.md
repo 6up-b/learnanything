@@ -433,6 +433,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f_with_no_plan_an_existing_presentation_is_served_with_no_new_value_admission`
   - `test_f_with_no_plan_the_probe_is_asked_now_with_no_draw_and_no_router_row`
   - `test_j_a_generated_followups_block_ends_at_its_one_question_and_value_ends_any_other`
+- [tests/test_probe_router_decision_integrity.py](../../../../../../tests/test_probe_router_decision_integrity.py) — direct import
 - [tests/test_refusal_records.py](../../../../../../tests/test_refusal_records.py) — direct import
   - `test_a_hard_refusal_and_no_plan_each_leave_the_gates_record`
 - [tests/test_te3b_codex_review.py](../../../../../../tests/test_te3b_codex_review.py) — direct import

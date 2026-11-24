@@ -119,8 +119,8 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_pfc_unassessed_readers.py](../../../../../../tests/test_pfc_unassessed_readers.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]]
 - [tests/test_probe_proposal_reads.py](../../../../../../tests/test_probe_proposal_reads.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]]
 - [tests/test_probe_router_authority.py](../../../../../../tests/test_probe_router_authority.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]]
+- [tests/test_probe_router_decision_integrity.py](../../../../../../tests/test_probe_router_decision_integrity.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]]
 - [tests/test_probe_router_replay.py](../../../../../../tests/test_probe_router_replay.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]]
-- [tests/test_probe_router_worth_gates.py](../../../../../../tests/test_probe_router_worth_gates.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]]
 
 ## Modification guidance
 

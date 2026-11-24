@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router/plan_log.py](../../../../../../src/learnloop/router/plan_log.py) |
-| Source lines | 981 |
+| Source lines | 988 |
 | Owning package | [[Reference/Modules/learnloop/router/_package|learnloop.router]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -61,12 +61,12 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `build_plan_interrupt_decision(decision: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router/plan_log.py), line 573) — The ``router_decisions`` row of one ``plan_interrupt`` decision (pure).
 - `log_plan_interrupt_decision(connection: Any, decision: Mapping[str, Any]) -> str | None` ([source](../../../../../../src/learnloop/router/plan_log.py), line 688) — Write one ``plan_interrupt`` row on the caller's transaction; returns its id.
 - `build_followup_decision(decision: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router/plan_log.py), line 717) — FG1's ``plan_interrupt`` row: it names the workflow, since no item exists yet.
-- `existing_followup_decision(connection: Any, *, block_id: Any, workflow_id: str, redraw_of: Any=None) -> Mapping[str, Any] | None` ([source](../../../../../../src/learnloop/router/plan_log.py), line 829) — The decision this workflow already logged on this block, or None: its immutable receipt.
-- `log_followup_decision(connection: Any, decision: Mapping[str, Any]) -> str | None` ([source](../../../../../../src/learnloop/router/plan_log.py), line 842) — Write one FG1 row on the caller's transaction, its card and payloads beside it.
-- `learner_probe_receipt_key(factor_id: str) -> str` ([source](../../../../../../src/learnloop/router/plan_log.py), line 868) — One decision per factor: a remounted panel, a second status read and the repair entry all read it back.
-- `build_learner_probe_decision(decision: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router/plan_log.py), line 874) — The learner lane's ``plan_interrupt`` row (pure): the factor's probe offered or not, each option's logged probability its served one (``served_pi``), and the facts and valuation it was drawn on in ``detail``.
-- `learner_probe_decision(connection: Any, factor_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/router/plan_log.py), line 931) — The learner lane's decision on this factor's probe, or None: ``id``, ``chosen_ref``, ``propensity``, ``chosen_practice_item_id`` and the ``detail`` it was drawn on.
-- `log_learner_probe_decision(connection: Any, decision: Mapping[str, Any]) -> str | None` ([source](../../../../../../src/learnloop/router/plan_log.py), line 947) — Write the learner lane's row on the caller's transaction.
+- `existing_followup_decision(connection: Any, *, block_id: Any, workflow_id: str, redraw_of: Any=None) -> Mapping[str, Any] | None` ([source](../../../../../../src/learnloop/router/plan_log.py), line 832) — The decision this workflow already logged on this block, or None: its immutable receipt.
+- `log_followup_decision(connection: Any, decision: Mapping[str, Any]) -> str | None` ([source](../../../../../../src/learnloop/router/plan_log.py), line 845) — Write one FG1 row on the caller's transaction, its card and payloads beside it.
+- `learner_probe_receipt_key(factor_id: str) -> str` ([source](../../../../../../src/learnloop/router/plan_log.py), line 871) — One decision per factor: a remounted panel, a second status read and the repair entry all read it back.
+- `build_learner_probe_decision(decision: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router/plan_log.py), line 877) — The learner lane's ``plan_interrupt`` row (pure): the factor's probe offered or not, each option's logged probability its served one (``served_pi``), and the facts and valuation it was drawn on in ``detail``.
+- `learner_probe_decision(connection: Any, factor_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/router/plan_log.py), line 938) — The learner lane's decision on this factor's probe, or None: ``id``, ``chosen_ref``, ``propensity``, ``chosen_practice_item_id`` and the ``detail`` it was drawn on.
+- `log_learner_probe_decision(connection: Any, decision: Mapping[str, Any]) -> str | None` ([source](../../../../../../src/learnloop/router/plan_log.py), line 954) — Write the learner lane's row on the caller's transaction.
 
 ### Module constants
 
@@ -84,9 +84,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `DECLINE_REF` ([src/learnloop/router/plan_log.py](../../../../../../src/learnloop/router/plan_log.py), line 519)
 - `OFFER_PREFIX` ([src/learnloop/router/plan_log.py](../../../../../../src/learnloop/router/plan_log.py), line 522)
 - `NO_INTERVENTION_REF` ([src/learnloop/router/plan_log.py](../../../../../../src/learnloop/router/plan_log.py), line 714)
-- `LEARNER_PROBE_SURFACE` ([src/learnloop/router/plan_log.py](../../../../../../src/learnloop/router/plan_log.py), line 862)
-- `PROBE_REF` ([src/learnloop/router/plan_log.py](../../../../../../src/learnloop/router/plan_log.py), line 864)
-- `NO_PROBE_REF` ([src/learnloop/router/plan_log.py](../../../../../../src/learnloop/router/plan_log.py), line 865)
+- `LEARNER_PROBE_SURFACE` ([src/learnloop/router/plan_log.py](../../../../../../src/learnloop/router/plan_log.py), line 865)
+- `PROBE_REF` ([src/learnloop/router/plan_log.py](../../../../../../src/learnloop/router/plan_log.py), line 867)
+- `NO_PROBE_REF` ([src/learnloop/router/plan_log.py](../../../../../../src/learnloop/router/plan_log.py), line 868)
 
 ### Explicit exports
 
@@ -130,7 +130,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_store_card(connection: Any, decision: Any, row: Mapping[str, Any]) -> None` ([source](../../../../../../src/learnloop/router/plan_log.py), line 451) — R2a: the learner-state card the chooser built, beside its decision.
 - `_offer_arm(mixture: Mapping[str, Any], candidate_propensity: Any, record: Mapping[str, Any]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/router/plan_log.py), line 525) — The offer's row among the decision's candidates, when its support holds one (none: the predecessor's rows).
 - `_offer_detail(decision: Mapping[str, Any], record: Mapping[str, Any], chosen_ref: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router/plan_log.py), line 535) — IH2: what an offer among the arms adds to a ``plan_interrupt`` row: the offer's record (or why there was none), and on a drawn offer its card and its own block (what the acceptance model and the card read back).
-- `_followup_receipt_key(block_id: Any, workflow_id: Any, redraw_of: Any=None) -> str` ([source](../../../../../../src/learnloop/router/plan_log.py), line 823) — ``redraw_of`` (IH2): the lesson's decision this follow-up lost to; a later decision is a new receipt.
+- `_followup_receipt_key(block_id: Any, workflow_id: Any, redraw_of: Any=None) -> str` ([source](../../../../../../src/learnloop/router/plan_log.py), line 826) — ``redraw_of`` (IH2): the lesson's decision this follow-up lost to; a later decision is a new receipt.
 
 ## Who imports or calls it
 
@@ -179,6 +179,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_restraint_keeps_the_floor_on_not_ready_too`
 - [tests/test_plan_refs.py](../../../../../../tests/test_plan_refs.py) — direct import
   - `test_the_strings_keep_their_bytes_and_every_layer_reads_the_leafs`
+- [tests/test_probe_router_decision_integrity.py](../../../../../../tests/test_probe_router_decision_integrity.py) — direct import
+  - `test_r20_a_tiny_share_is_still_an_exact_propensity`
+  - `test_r4_a_failed_write_never_turns_a_drawn_lesson_into_the_probe`
 - [tests/test_probe_router_learner_lane.py](../../../../../../tests/test_probe_router_learner_lane.py) — direct import
   - `test_a_learned_probe_is_an_option_of_the_mix_and_no_coin_is_flipped`
   - `test_a_status_read_decides_once_and_a_reread_draws_nothing_and_writes_no_receipt`

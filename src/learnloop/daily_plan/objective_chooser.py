@@ -1626,6 +1626,16 @@ class ObjectiveFollowupGate(ObjectiveRestraintGate, FollowupGate):
             base["mixture"]["served"] = coin.served
             base["mixture"]["mix_pi"] = dict(mu)
             base["mixture"]["pi"] = dict(served_pi)
+        trace = base.get("objective_trace")
+        if isinstance(trace, dict) and isinstance(trace.get("mixing"), dict):
+            # The trace is the same decision's: what was served and its exact probability under the coin and the mix
+            # together, written after the coin, with the mix's own draw and μ beside it. Frozen before the
+            # coin it said a lesson at μ where the ledger said the probe at r.
+            trace["mixing"].update(drawn_chosen=drawn, chosen=coin.served, propensity=coin.served_propensity,
+                                   served_pi=dict(served_pi))
+            trace["probe_coin"] = coin.as_dict()
+            if coin.arm == PC.ASK and isinstance(trace.get("evaluation"), dict):
+                trace["evaluation"]["score"] = "none: probe_coin_forced (the probe coin chose what was served)"
         base["ro5_assignments"] = [*(base.get("ro5_assignments") or []),
                                    PC.pending_assignment(coin, seed=seed, support=served_support)]
         why = outcome.why if coin.served == drawn else ""

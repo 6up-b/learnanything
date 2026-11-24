@@ -2085,7 +2085,9 @@ export interface CausalRepairStatusDto {
 }
 
 /** The router's disposition of a factor's quick check (the probe router's tag). */
-export type CausalProbeRouterState = "pending" | "selected" | "not_selected" | "unavailable";
+/** `void`: the router selected the check, but its candidate can no longer be administered; the repair goes on
+ *  and no other check is offered in its place. */
+export type CausalProbeRouterState = "pending" | "selected" | "not_selected" | "unavailable" | "void";
 
 export interface CausalProbeRouterDispositionDto {
   routerState: CausalProbeRouterState;
