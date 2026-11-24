@@ -888,8 +888,7 @@ def _certified_at_cutoff(
     # rather than re-written: a second FK walk would drift from the first, and
     # the first is the one `goal_report_series` has been exercising.
     from learnloop.goals.goal_certification import lo_certification
-    from learnloop.goals.goal_series import prune_rows
-    from learnloop.goals.goal_series_store import drop_scratch_delete_guards
+    from learnloop.goals.goal_series import drop_scratch_delete_guards, prune_rows
     from learnloop.substrate.replay import rebuild_derived_state
 
     scratch_path = scratch_dir / f"prefix_{index}.sqlite"
