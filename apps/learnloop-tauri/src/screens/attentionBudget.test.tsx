@@ -7,7 +7,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { ReaderScreen } from "./ReaderScreen";
+import { ScopedSource } from "./desks/source/ScopedSource";
 import { readerRenderViewFixture as view } from "../fixtures/readerRenderView";
 import type { SourceLibraryCard } from "../api/dto";
 import { resetReaderActivityForTests } from "./reader/activity";
@@ -57,7 +57,7 @@ function focusOutside(): HTMLButtonElement {
 }
 
 it("selecting text leaves focus where it was", async () => {
-  render(<ReaderScreen initialSource={initialSource} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={initialSource} onError={vi.fn()} />);
   const block = await screen.findByText(view.blocks[1].markdown);
   const elsewhere = focusOutside();
   const range = document.createRange();
@@ -71,7 +71,7 @@ it("selecting text leaves focus where it was", async () => {
 });
 
 it("an answer landing leaves focus where it was", async () => {
-  render(<ReaderScreen initialSource={initialSource} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={initialSource} onError={vi.fn()} />);
   fireEvent.click(await screen.findByRole("button", { name: "ask" }));
   fireEvent.change(await screen.findByPlaceholderText("ask about this passage…"), { target: { value: "Why?" } });
   const elsewhere = focusOutside();
@@ -88,7 +88,7 @@ it("skim mode shows no section offer (with inquiry on, skim is the mute button)"
     spanIds: view.blocks.map((b) => b.spanId), question: null,
     suggestedPassages: [{ spanId: view.blocks[1].spanId, quote: "q", reason: "r", learningObjectId: "lo", learningObjectTitle: "LO", learnerSignal: "new_material" }],
   }] };
-  render(<ReaderScreen initialSource={initialSource} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={initialSource} onError={vi.fn()} />);
   expect(await screen.findByText("section break")).toBeTruthy();
   const [modeSelect] = screen.getAllByRole("combobox");
   fireEvent.keyDown(modeSelect, { key: "Enter" });

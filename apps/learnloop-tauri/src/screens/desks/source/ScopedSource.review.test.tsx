@@ -1,10 +1,20 @@
 // Ported from screens/ReaderScreen.review.test.tsx (the Reader's retirement, phase 2 step 1): the same cases,
 // mounting the scoped source a source window mounts, without the standalone screen's own branches.
-// Left out (kept in the original until step 2 ports them to a source window's own controls):
-//   - "with the switch off, a search into another passage of a source left earlier lands and is saved there": its way out is the header's "← Library".
-//   - "opening a search hit sends the result's receipt only when the search carried one": its way out is the header's "← Library".
-//   - "opening another book from its library card after leaving one leaves a way back": its way out is the header's "← Library".
-//   - "choosing skim after the reconnect line appeared hides it in both places": it sets the header's "I want to" choice.
+// Left out of the step 1 copy (kept in the original); where each went in step 2 (the original is deleted with the
+// standalone screen):
+//   - "with the switch off, a search into another passage of a source left earlier lands and is saved there": PORTED
+//     here under the same name (closeAndOpenHit: each book left by closing its window, each hit an open request with its
+//     reading).
+//   - "opening a search hit sends the result's receipt only when the search carried one": NOT PORTED, needs a production
+//     change: only the old list's search box sends reader_retrieval_open for a hit (screens/ReaderScreen.tsx); the
+//     desks' search (search_everything) sends no receipt when a row opens, so there is no window control to port it to.
+//   - "opening another book from its library card after leaving one leaves a way back": RETIRED: the library card and
+//     its in-source return stack were the standalone frame's list; on the desks another book opens beside and the first
+//     window stays (desks/windows/SourceWindow.exercises.test.tsx, "open in the book opens another book's exercise
+//     beside"; desks/DeskShell.test.tsx, "a window opened beside the focus keeps that window as its origin, on the server, and
+//     draws the relation").
+//   - "choosing skim after the reconnect line appeared hides it in both places": PORTED here under the same name ("I
+//     want to" is the source bar's).
 // RW1a Codex review, on the real screen: the queued quick check through
 // failure, disconnection, recovery and cancel (F4) and its funnel events (F8);
 // the kill switch leaves no hidden return stack across sources (F5); Guide
@@ -176,10 +186,13 @@ function loggedEvents() {
   return api.readerLogActivity.mock.calls.flatMap((call) => call[0].events as Array<{ kind: string; event?: string; payload: Record<string, unknown> }>);
 }
 
-async function searchAndOpen(query: string, hit: { sourceId: string; sourceTitle: string; extractionId: string; spanId: string; snippet: string }) {
-  api.readerSearchSources.mockResolvedValueOnce({ query, hits: [{ ...hit, section: null, page: null }], searchedSources: 2 });
-  fireEvent.change(await screen.findByPlaceholderText("search all sources…"), { target: { value: query } });
-  fireEvent.click(await screen.findByText(hit.snippet, {}, { timeout: 3000 }));
+/** A search hit opened on the desks: the book's window opens at the hit, its reading named (an open request with a
+ *  reading, as SourceWindow mounts the source). The book open before is left by closing its window (the source
+ *  unmounts). The old way, the standalone header's "← Library" and its list's search box, went with the standalone
+ *  frame. */
+async function closeAndOpenHit(card: SourceLibraryCard, hit: { extractionId: string; spanId: string }) {
+  cleanup();
+  render(<ScopedSource initialSource={{ card, spanId: hit.spanId, reading: hit.extractionId }} onError={vi.fn()} />);
 }
 
 // -- F4 + F8: the queued quick check ------------------------------------------
@@ -423,4 +436,35 @@ it("an Ask about an edited capture keeps the book's wording apart from the learn
   for (const element of Array.from(source)) expect(element.textContent).not.toContain("My corrected wording");
   const learner = Array.from(document.querySelectorAll('[data-voice="learner"]')).map((e) => e.textContent ?? "");
   expect(learner.some((text) => text.includes("edited capture") && text.includes("My corrected wording"))).toBe(true);
+});
+
+// Ported in phase 2 step 2 from the original's case of the same name: skim is chosen on the source bar's "I want to".
+it("choosing skim after the reconnect line appeared hides it in both places", async () => {
+  render(<ScopedSource initialSource={{ card: cardA, spanId: "span_spectral_worked" }} onError={vi.fn()} />);
+  await askFollowUp();
+  altArrow("ArrowLeft");
+  altArrow("ArrowLeft");
+  expect((await screen.findAllByRole("group", { name: "Does this make sense now?" })).length).toBe(2);
+  const modeSelect = screen.getByRole("combobox", { name: "how I read this book" });
+  fireEvent.keyDown(modeSelect, { key: "Enter" });
+  fireEvent.mouseDown(await screen.findByRole("option", { name: "skim quickly" }));
+  await waitFor(() => expect(screen.queryAllByRole("group", { name: "Does this make sense now?" })).toHaveLength(0));
+});
+
+// Ported in phase 2 step 2 from the original's case of the same name: the way out was the old header's "← Library"
+// and the hits came from its list's search box (both the standalone frame's); here each book is left by closing its
+// window and each hit opens through an open request with its reading (closeAndOpenHit).
+it("with the switch off, a search into another passage of a source left earlier lands and is saved there", async () => {
+  flags.inquiry = false;
+  stableGeometry();
+  render(<ScopedSource initialSource={{ card: cardA, spanId: "span_symmetric_prose" }} onError={vi.fn()} />);
+  await screen.findAllByText(view.blocks[1].markdown);
+  await waitFor(() => expect(store.get(`learnloop.reader.position.${view.sourceId}`)).toBe(encodeReadingPlace(view.extractionId, "span_symmetric_prose")));
+  await closeAndOpenHit(cardB, { extractionId: "ext_b", spanId: "b1" });
+  await screen.findAllByText("Book B explains eigenvalues another way.");
+  await closeAndOpenHit(cardA, { extractionId: view.extractionId, spanId: "span_spectral_worked" });
+  await screen.findAllByText(view.blocks[2].markdown);
+  await waitFor(() => expect(store.get(`learnloop.reader.position.${view.sourceId}`)).toBe(encodeReadingPlace(view.extractionId, "span_spectral_worked")));
+  expect(screen.queryByRole("navigation", { name: "Detour" })).toBeNull();
+  expect(api.readerLogActivity).not.toHaveBeenCalled();
 });

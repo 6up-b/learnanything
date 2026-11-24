@@ -15,7 +15,7 @@
 //   (no libraryAsk.compareScope), every door is today's.
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { ReaderScreen } from "../ReaderScreen";
+import { ScopedSource } from "../desks/source/ScopedSource";
 import { readerRenderViewFixture as view } from "../../fixtures/readerRenderView";
 import { readerIntentContractFixture as baseIntent } from "../../fixtures/readerIntentContract";
 import type { CompareScopeReadingDto, CompareTableDto, LibraryAskDto, ReaderIntentContractDto, SourceLibraryCard, SourceToolRequestDto } from "../../api/dto";
@@ -142,7 +142,7 @@ function select(block: HTMLElement): void {
 }
 
 async function openAskBox(words: string) {
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   await screen.findByText(view.blocks[1].markdown);
   fireEvent.keyDown(window, { key: "F", ctrlKey: true, shiftKey: true });
   const box = await screen.findByRole("textbox", { name: "ask your library" });
@@ -157,7 +157,7 @@ it("the selection verb compares the selection with the other books, no pins (X1)
     rows: [{ ...table().rows[0], sourceId: view.sourceId, sourceTitle: "Matrices", isOpenSource: true }, table().rows[1]],
     scope: { door: "selection", question: "q", sourceIds: [], anchorKeys: ["x"] },
   })));
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   const block = await screen.findByText(view.blocks[1].markdown);
   select(block);
   await screen.findByRole("textbox", { name: BOX });
@@ -265,7 +265,7 @@ it("a library question gets today's answer, and a failed reading offers comparin
 });
 
 it("a library answer compares its books with no pins", async () => {
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   const block = await screen.findByText(view.blocks[1].markdown);
   select(block);
   await screen.findByRole("textbox", { name: BOX });
@@ -307,7 +307,7 @@ it("switched off, the ask box and the palette are today's", async () => {
 
 it("switched off, the selection's palette has no comparison verb", async () => {
   on({ libraryAsk: { expandGraph: true, personalizedDefault: true, compare: true }, intent: intentOff });
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   select(await screen.findByText(view.blocks[1].markdown));
   await screen.findByRole("textbox", { name: BOX });
   fireEvent.keyDown(window, { key: "Tab" });

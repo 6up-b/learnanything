@@ -1,14 +1,30 @@
 // Ported from screens/ReaderScreen.followsLearner.test.tsx (the Reader's retirement, phase 2 step 1): the same cases,
 // mounting the scoped source a source window mounts, without the standalone screen's own branches.
-// Left out (kept in the original until step 2 ports them to a source window's own controls):
-//   - "← Library goes to the Library, and the demo chapter is not on the main path": its way out is the header's "← Library".
-//   - "the Reader's own book list offers no demo chapter while LearnLoop is running": it opens a book from the list of books.
-//   - "opening a book shows that book opening, not a second list of books": it reads the standalone opening view.
-//   - "with no book open, the Reader shows the Library's own shelf, not a second list (spec K5)": it reads the Library shelf shown with no book open.
-//   - "a lesson's 'Look in my library' opens the library search on the leftover's words (TE2 landing ruling R2)": it searches with the book list's search box.
-//   - "F3: leaving a book inside the Reader saves what was just read, before the gathering moment ends": its way out is the header's "← Library".
-//   - "F7: a retry still waiting when the learner leaves the book saves the newest count, not the one that failed first": its way out is the header's "← Library".
-//   - "F7: the newest count of a book left behind is still sent when the Reader closes": its way out is the header's "← Library".
+// Left out of the step 1 copy (kept in the original); where each went in step 2 (the original is deleted with the
+// standalone screen):
+//   - "← Library goes to the Library, and the demo chapter is not on the main path": RETIRED: it tested only the old
+//     header's "← Library" link (the standalone frame's); leaving a book on the desks is closing its window,
+//     desks/DeskShell.test.tsx "alt+w closes the focused window; the shelf's undo puts it back in its slot".
+//   - "the Reader's own book list offers no demo chapter while LearnLoop is running": RETIRED: it tested only the old
+//     list of books (the standalone frame's); the desks have no demo chapter (they need a vault) and no list of their
+//     own.
+//   - "opening a book shows that book opening, not a second list of books": MOVED to
+//     desks/windows/SourceWindow.retired.test.tsx, "a book window still opening says which book, in one line, never a
+//     list of books, and then shows its reading".
+//   - "with no book open, the Reader shows the Library's own shelf, not a second list (spec K5)": RETIRED: it tested
+//     only the standalone frame's no-book view (the shelf in it and its search box); the desks keep their own shelf, and
+//     searching every book is the desks' search (desks/search/SearchPanel.test.tsx).
+//   - "a lesson's 'Look in my library' opens the library search on the leftover's words (TE2 landing ruling R2)":
+//     RETIRED: the list's search box was the standalone frame's; covered on the desks by
+//     desks/windows/SourceWindow.entry.test.tsx, "a lesson's Look in my library opens the desks' search with its words".
+//   - "F3: leaving a book inside the Reader saves what was just read, before the gathering moment ends": PORTED here as
+//     "F3: leaving a book (closing its window) saves what was just read, before the gathering moment ends".
+//   - "F7: a retry still waiting when the learner leaves the book saves the newest count, not the one that failed
+//     first": PORTED here under the same name (leaving is closing the window).
+//   - "F7: the newest count of a book left behind is still sent when the Reader closes": RETIRED: on the desks leaving a
+//     book and closing the Reader are one step (closing the window), so its two steps collapse into the ported F7 retry
+//     case above (the newest count is sent after the window closed) and "F3: a progress save that failed is sent again
+//     when the learner leaves the Reader".
 // UX Phase 1, usability round 1 (docs/reviews/ux-phase1.md): the original PDF
 // follows the learner. Two personas read a textbook whose text came from the
 // text-only extractor (one passage per page, no boxes): clicking a section in
@@ -879,4 +895,43 @@ it("#4: a new Ask answer is brought into view, not left below the fold", async (
   expect(brought).toContain("ev_new");
   const call = scrolled.mock.calls[brought.indexOf("ev_new")][1] ?? {};
   expect(call.block).toBe("start");
+});
+
+// Ported in phase 2 step 2 from "F3: leaving a book inside the Reader saves what was just read, before the gathering
+// moment ends": the way out was the old header's "← Library" (the standalone frame's); on the desks leaving a book is
+// closing its window, which unmounts the source.
+it("F3: leaving a book (closing its window) saves what was just read, before the gathering moment ends", async () => {
+  // Closing the book's window (alt+w, or its ✕) unmounts the source: the gathered counts must not be dropped unsent.
+  await openReader();
+  await scrollTo(1500);
+  await scrollTo(2900);
+
+  cleanup();
+  await settle();
+
+  expect(marksFor("u3").length).toBeGreaterThan(0);
+});
+
+// Ported in phase 2 step 2 from the original's case of the same name: the way out was the old header's "← Library"
+// (the standalone frame's); on the desks leaving a book is closing its window, which unmounts the source.
+it("F7: a retry still waiting when the learner leaves the book saves the newest count, not the one that failed first", async () => {
+  // Re-review F7: the save of 1 fails and a retry is set; the learner reads on
+  // to 2 and leaves (closes the book's window), whose save fails too. The
+  // retry used to resend the first failure's 1 and nothing ever sent the 2.
+  backend.failMarks = true;
+  await openReader();
+  await scrollTo(1500);
+  await scrollTo(2900); // u3: one of its two passages read
+  await settle(1_600); // the gathered save of 1 fails; a retry waits
+  expect(marksFor("u3")).toEqual([]);
+  await scrollTo(3200); // u3: read through its last page (2 of 2)
+
+  cleanup(); // closing the window: this save of 2 fails as well
+  await settle();
+  backend.failMarks = false;
+  await settle(30_000);
+
+  const saved = marksFor("u3").map((mark) => Number(mark.spansSeen));
+  expect(saved.length).toBeGreaterThan(0);
+  expect(Math.max(...saved)).toBe(2);
 });

@@ -1,10 +1,15 @@
 // Ported from screens/ReaderScreen.guide.test.tsx (the Reader's retirement, phase 2 step 1): the same cases,
 // mounting the scoped source a source window mounts, without the standalone screen's own branches.
-// Left out (kept in the original until step 2 ports them to a source window's own controls):
-//   - "a place saved on the reading before a re-read is translated, and an approximate one says so": it reads the old header's re-read note.
-//   - "F8: a search hit found on a reading the book was read again since is translated, not opened as is": it searches with the book list's search box.
-//   - "F8: a search hit on the reading the book opens on lands there with no translation": it searches with the book list's search box.
-//   - "F10: a translation that lands on a reading other than the open one is never applied to it": it searches with the book list's search box.
+// Left out of the step 1 copy (kept in the original); where each went in step 2 (the original is deleted with the
+// standalone screen):
+//   - "a place saved on the reading before a re-read is translated, and an approximate one says so": PORTED here under
+//     the same name (the re-read note is the source bar's).
+//   - "F8: a search hit found on a reading the book was read again since is translated, not opened as is": PORTED here
+//     under the same name (the hit opens through an open request with its reading).
+//   - "F8: a search hit on the reading the book opens on lands there with no translation": PORTED here under the same
+//     name (the hit opens through an open request with its reading).
+//   - "F10: a translation that lands on a reading other than the open one is never applied to it": PORTED here under the
+//     same name (the hit opens through an open request with its reading).
 // The Reader Guide keeps up with the diagnoser (guide-overlay Codex review F1).
 //
 // Under the Slice 1 split a blind-graded error's misconception statement comes
@@ -13,7 +18,7 @@
 // in a mounted Guide and when a cached source is reopened. These tests drive
 // the real ReaderScreen, the real api client (so its mutation wrappers really
 // invalidate) and the real query cache over a fake sidecar.
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { forwardRef } from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { api } from "../../../api/client";
@@ -336,12 +341,11 @@ it("F5: a bare place on a book never read again is used as it is", async () => {
   expect(invoke.mock.calls.some(([command]) => command === "reader_saved_place")).toBe(false);
 });
 
-async function searchAndOpenHit() {
-  render(<ScopedSource onError={() => undefined} />);
-  await settle();
-  fireEvent.change(screen.getByPlaceholderText("search all sources…"), { target: { value: "eigen" } });
-  await settle(400);
-  fireEvent.click(screen.getByText("the eigenbasis hit"));
+// A search hit is an open request with the reading it was found on (the desks' search opens the book's window at
+// the hit, its reading named: SourceWindow's initialSource), not the old list's search box (the standalone frame's).
+async function openFoundHit() {
+  const hit = backend.searchHit!;
+  render(<ScopedSource onError={() => undefined} initialSource={{ card: CARD, spanId: hit.spanId, reading: hit.extractionId }} />);
   await settle();
 }
 
@@ -355,4 +359,59 @@ it("F10 (same class): the original's page geometry is asked for the reading the 
   const asked = invoke.mock.calls.filter(([command]) => command === "reader_pdf_view");
   expect(asked.length).toBeGreaterThan(0);
   for (const call of asked) expect(call[1]).toEqual({ input: { extractionId: EXTRACTION_ID } });
+});
+
+// Ported in phase 2 step 2 from the original's case of the same name: the re-read note is the source bar's now.
+it("a place saved on the reading before a re-read is translated, and an approximate one says so", async () => {
+  backend.aliasedFrom = ["ext_before"];
+  backend.savedPlace = { spanId: SPAN_IDS[2], status: "needs_reanchor" };
+  window.localStorage.setItem(`learnloop.reader.position.${SOURCE_ID}`, JSON.stringify({ extractionId: "ext_before", spanId: "s_before" }));
+  openReader();
+  await settle();
+  const asked = invoke.mock.calls.filter(([command]) => command === "reader_saved_place");
+  expect(asked).toHaveLength(1);
+  expect(asked[0][1]).toEqual({ input: { sourceId: SOURCE_ID, spanId: "s_before", extractionId: "ext_before", toExtractionId: EXTRACTION_ID } });
+  // In the source bar (where the old header had it).
+  const bar = document.querySelector<HTMLElement>("[data-window-source-bar]")!;
+  expect(within(bar).getByText("This book was read again: you're near where you left off.")).toBeTruthy();
+});
+
+// Ported in phase 2 step 2 from the original's case of the same name: the hit opens through an open request with its
+// reading (openFoundHit), and the re-read note is the source bar's.
+it("F8: a search hit found on a reading the book was read again since is translated, not opened as is", async () => {
+  backend.otherReadings = ["ext_before"];
+  backend.searchHit = { extractionId: "ext_before", spanId: "s_before" };
+  backend.savedPlace = { spanId: SPAN_IDS[2], status: "needs_reanchor" };
+  await openFoundHit();
+  const asked = invoke.mock.calls.filter(([command]) => command === "reader_saved_place");
+  expect(asked).toHaveLength(1);
+  expect(asked[0][1]).toEqual({ input: { sourceId: SOURCE_ID, spanId: "s_before", extractionId: "ext_before", toExtractionId: EXTRACTION_ID } });
+  const bar = document.querySelector<HTMLElement>("[data-window-source-bar]")!;
+  expect(within(bar).getByText("This book was read again: you're near the passage you found.")).toBeTruthy();
+});
+
+// Ported in phase 2 step 2 from the original's case of the same name: the hit opens through an open request with its
+// reading (openFoundHit).
+it("F8: a search hit on the reading the book opens on lands there with no translation", async () => {
+  backend.otherReadings = ["ext_before"];
+  backend.searchHit = { extractionId: EXTRACTION_ID, spanId: SPAN_IDS[2] as string };
+  await openFoundHit();
+  expect(invoke.mock.calls.some(([command]) => command === "reader_saved_place")).toBe(false);
+});
+
+// Ported in phase 2 step 2 from the original's case of the same name: the hit opens through an open request with its
+// reading (openFoundHit).
+it("F10: a translation that lands on a reading other than the open one is never applied to it", async () => {
+  // The Reader opened this reading; another reading completed before the
+  // sidecar was asked, and an answer on that reading's span ids came back.
+  backend.otherReadings = ["ext_before", "ext_newer"];
+  backend.searchHit = { extractionId: "ext_before", spanId: "s_before" };
+  backend.savedPlace = { spanId: SPAN_IDS[2] as string, status: "needs_reanchor", extractionId: "ext_newer" };
+  await openFoundHit();
+  expect(screen.queryByText("This book was read again: you're near the passage you found.")).toBeNull();
+  const asked = invoke.mock.calls.filter(([command]) => command === "reader_saved_place");
+  expect(asked).toHaveLength(1);
+  expect(asked[0][1]).toEqual({
+    input: { sourceId: SOURCE_ID, spanId: "s_before", extractionId: "ext_before", toExtractionId: EXTRACTION_ID }
+  });
 });

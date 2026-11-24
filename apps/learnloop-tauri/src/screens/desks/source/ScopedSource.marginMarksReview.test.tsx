@@ -1,9 +1,14 @@
 // Ported from screens/ReaderScreen.marginMarksReview.test.tsx (the Reader's retirement, phase 2 step 1): the same cases,
 // mounting the scoped source a source window mounts, without the standalone screen's own branches.
-// Left out (kept in the original until step 2 ports them to a source window's own controls):
-//   - "F3: a check me answered after the learner opened another book is dropped -- no practice, the book stays": its way out is the header's "← Library".
-//   - "F3: a plan re-read for the book the learner left never replaces the open book's plan": its way out is the header's "← Library".
-//   - "F4: not relevant keeps its undo through the density and another mark set aside, until the learner leaves the book": its way out is the header's "← Library".
+// Left out of the step 1 copy (kept in the original); where each went in step 2 (the original is deleted with the
+// standalone screen):
+//   - "F3: a check me answered after the learner opened another book is dropped -- no practice, the book stays": PORTED
+//     here as "F3: a check me answered after the learner closed the book's window and opened another book is dropped --
+//     no practice, the book stays".
+//   - "F3: a plan re-read for the book the learner left never replaces the open book's plan": PORTED here under the same
+//     name (openBookB closes the window and opens B in its own).
+//   - "F4: not relevant keeps its undo through the density and another mark set aside, until the learner leaves the
+//     book": PORTED here under the same name (leaving is closing the window).
 // RW3a Codex review (reader-hook-rw3a), on the real screen with the real Guide
 // plan module (its diagnosis refresh included):
 //   F1  Alt+↓ to a mark that is already drawn is a placement, not reading:
@@ -202,10 +207,12 @@ function openReader(props: { onCheckMe?: (request: unknown) => void } = {}) {
 const markFor = (spanId: string) => document.querySelector<HTMLButtonElement>(`[data-cue-span="${spanId}"]`);
 const popover = () => screen.getByRole("group", { name: "this margin note" });
 
-async function openBookB() {
-  fireEvent.click(screen.getByText("← Library"));
-  await settle(100);
-  fireEvent.click(screen.getByText("Book B"));
+/** The learner leaves book A and opens book B. On the desks a window opens one book for its life: leaving A is
+ *  closing its window (the source unmounts), and B opens in a window of its own (a new source). The old way, the
+ *  standalone header's "← Library" and its list of books, went with the standalone frame. */
+async function openBookB(props: { onCheckMe?: (request: unknown) => void } = {}) {
+  cleanup();
+  render(<ScopedSource initialSource={{ card: cardB, spanId: null }} onError={vi.fn()} onCheckMe={props.onCheckMe} />);
   await settle(100);
   expect(screen.getAllByText("Book B explains densities another way.").length).toBeGreaterThan(0);
 }
@@ -269,4 +276,91 @@ it("F2: a diagnosis that lands while the book is open reaches the mark's popover
   });
   await settle(100);
   expect(popover().querySelector("[data-voice='model']")?.textContent).toContain(STATEMENT);
+});
+
+// Ported in phase 2 step 2 from "F3: a check me answered after the learner opened another book is dropped -- no
+// practice, the book stays": the way out was the old header's "← Library"; openBookB now closes A's window and opens B
+// in its own.
+it("F3: a check me answered after the learner closed the book's window and opened another book is dropped -- no practice, the book stays", async () => {
+  let release: (value: ReaderCueActionDto) => void = () => undefined;
+  api.readerCueAction.mockImplementation((input: { cueId: string; action: string }) => (
+    input.action === "check_me"
+      ? new Promise<ReaderCueActionDto>((resolve) => {
+        release = resolve;
+      })
+      : Promise.resolve(tapResult(input))
+  ));
+  const onCheckMe = vi.fn();
+  openReader({ onCheckMe });
+  await settle(100);
+  fireEvent.click(markFor("b1") as HTMLButtonElement);
+  fireEvent.click(within(popover()).getByRole("button", { name: /^check me ·/ }));
+  await openBookB({ onCheckMe });
+  await act(async () => {
+    release({
+      ...tapResult({ cueId: "cue_b1", action: "check_me" }),
+      check: { status: "found", practiceItemId: "pi_density_2", proposalId: "pp_1" },
+    });
+  });
+  await settle(100);
+  expect(onCheckMe).not.toHaveBeenCalled();
+  expect(screen.getAllByText("Book B explains densities another way.").length).toBeGreaterThan(0);
+});
+
+// Ported in phase 2 step 2 from the original's case of the same name: the way out was the old header's "← Library";
+// openBookB now closes A's window and opens B in its own.
+it("F3: a plan re-read for the book the learner left never replaces the open book's plan", async () => {
+  openReader();
+  await settle(100);
+  expect(screen.getAllByText("Mixture densities").length).toBeGreaterThan(0);
+  // Not relevant on book A: the tap lands, and its plan re-read is held back.
+  let releasePlan: () => void = () => undefined;
+  api.readerGuidePlan.mockImplementation((input: { extractionId: string }) => (
+    input.extractionId === view.extractionId
+      ? new Promise<ReaderGuidePlanDto>((resolve) => {
+        releasePlan = () => resolve(planA());
+      })
+      : Promise.resolve(planB())
+  ));
+  await setAside("b1");
+  await openBookB();
+  expect(screen.getAllByText("Book B basics").length).toBeGreaterThan(0);
+  await act(async () => {
+    releasePlan();
+  });
+  await settle(100);
+  expect(screen.getAllByText("Book B basics").length).toBeGreaterThan(0);
+  expect(screen.queryAllByText("Mixture densities")).toEqual([]);
+  // Book A's receipt never follows the learner into book B.
+  expect(screen.queryByText("Marked not relevant.")).toBeNull();
+});
+
+// Ported in phase 2 step 2 from the original's case of the same name: the way out was the old header's "← Library";
+// leaving the book is closing its window (openBookB).
+it("F4: not relevant keeps its undo through the density and another mark set aside, until the learner leaves the book", async () => {
+  openReader();
+  await settle(100);
+  await setAside("b1");
+  expect(markFor("b1")).toBeNull();
+  expect(screen.getAllByText("Marked not relevant.")).toHaveLength(1);
+  // An unrelated change: the density, from the Guide's footer.
+  fireEvent.click(within(screen.getByRole("group", { name: "margin marks" })).getByRole("button", { name: "more" }));
+  await settle(100);
+  expect(api.readerSetCuePreferences).toHaveBeenLastCalledWith(expect.objectContaining({ density: "more", via: "footer" }));
+  expect(screen.getAllByText("Marked not relevant.")).toHaveLength(1);
+  // Another mark set aside: each keeps its own undo.
+  await setAside("b4");
+  expect(screen.getAllByText("Marked not relevant.")).toHaveLength(2);
+  const undos = screen.getAllByRole("button", { name: "undo" });
+  expect(undos).toHaveLength(2);
+  fireEvent.click(undos[0]);
+  await settle(100);
+  expect(api.readerCueAction).toHaveBeenLastCalledWith({
+    extractionId: view.extractionId, cueId: "cue_b1", action: "not_relevant_undone", text: null,
+  });
+  expect(markFor("b1")).not.toBeNull();
+  expect(screen.getAllByText("Marked not relevant.")).toHaveLength(1);
+  // Leaving the book (closing its window) ends the undo window.
+  await openBookB();
+  expect(screen.queryByText("Marked not relevant.")).toBeNull();
 });

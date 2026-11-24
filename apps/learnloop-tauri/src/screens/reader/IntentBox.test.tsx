@@ -7,7 +7,7 @@
 // with no model call; a routed action makes exactly the palette's call.
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { ReaderScreen } from "../ReaderScreen";
+import { ScopedSource } from "../desks/source/ScopedSource";
 import { setAlgoConfig } from "../../app/algoConfig";
 import { readerRenderViewFixture as view } from "../../fixtures/readerRenderView";
 import { readerIntentContractFixture as intent } from "../../fixtures/readerIntentContract";
@@ -56,7 +56,7 @@ function select(block: HTMLElement): void {
 }
 
 async function openBox() {
-  const result = render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  const result = render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   const block = await screen.findByText(view.blocks[1].markdown);
   select(block);
   const box = await screen.findByRole("textbox", { name: BOX });
@@ -86,7 +86,7 @@ afterEach(() => { cleanup(); vi.useRealTimers(); vi.unstubAllGlobals(); setAlgoC
 it("a selection shows the box unfocused, and the rail does not switch tabs", async () => {
   const elsewhere = document.createElement("button");
   document.body.appendChild(elsewhere);
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   const block = await screen.findByText(view.blocks[1].markdown);
   elsewhere.focus();
   select(block);
@@ -219,7 +219,7 @@ it("change opens the palette with the text kept and records the learner's pick",
 });
 
 it("a palette pick makes exactly the Notes palette's call (G3)", async () => {
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   const block = await screen.findByText(view.blocks[1].markdown);
   // Today's Notes palette, opened by the learner.
   select(block);
@@ -242,7 +242,7 @@ it("a palette pick makes exactly the Notes palette's call (G3)", async () => {
 });
 
 it("the box never appears for a selection inside the rail", async () => {
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   await screen.findByText(view.blocks[1].markdown);
   fireEvent.click(screen.getByRole("button", { name: "ask" }));
   const composer = await screen.findByPlaceholderText("ask about this passage…");
@@ -264,7 +264,7 @@ it("a key on a rail button keeps its own meaning while the box shows", async () 
 });
 
 it("in skim mode the box opens only on ? or Tab after a selection", async () => {
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   const block = await screen.findByText(view.blocks[1].markdown);
   const [modeSelect] = screen.getAllByRole("combobox");
   fireEvent.keyDown(modeSelect, { key: "Enter" });

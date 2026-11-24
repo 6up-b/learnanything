@@ -19,7 +19,7 @@
 // * Main-pane parity while side by side is open, and the switch off.
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { ReaderScreen } from "../ReaderScreen";
+import { ScopedSource } from "../desks/source/ScopedSource";
 import { setAlgoConfig } from "../../app/algoConfig";
 import { readerRenderViewFixture as view } from "../../fixtures/readerRenderView";
 import { readerIntentContractFixture as intent } from "../../fixtures/readerIntentContract";
@@ -28,7 +28,6 @@ import { resetReaderActivityForTests } from "./activity";
 import { CUE_COPY } from "./cues";
 import { SIDE_PANE_COPY } from "./SideBySidePane";
 import { SIDE_BY_SIDE_COPY } from "./useSideBySide";
-import { encodeReadingPlace, readingPositionKey } from "./useReadingProgress";
 import { SPAN_MISMATCH_COPY } from "../../errors";
 
 const SPAN_IDS = view.blocks.map((block) => block.spanId!).filter(Boolean);
@@ -198,7 +197,7 @@ function select(node: HTMLElement): void {
 }
 
 async function openSideBySide(props: { onCheckMe?: (request: unknown) => void } = {}) {
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} {...(props.onCheckMe ? { onCheckMe: props.onCheckMe } : {})} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} {...(props.onCheckMe ? { onCheckMe: props.onCheckMe } : {})} />);
   await screen.findAllByText("6.1 Symmetric matrices");
   await act(async () => { fireEvent.keyDown(document.body, { key: "\\", ctrlKey: true }); });
   await waitFor(() => expect(within(pane()!).getByText(SIDE_TEXT)).toBeTruthy());
@@ -485,7 +484,7 @@ it("with the intent box off (no reader_intent), the second pane keeps CA6's one-
 it("switched off (reader.side_by_side.enabled off): no second pane, no second box, and the main pane's box is as before", async () => {
   const { sideBySide: _off, ...withoutSideBySide } = ON;
   state.contract = withoutSideBySide;
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   await screen.findAllByText("6.1 Symmetric matrices");
   await act(async () => { fireEvent.keyDown(document.body, { key: "\\", ctrlKey: true }); });
   expect(pane()).toBeNull();
@@ -828,7 +827,7 @@ it("F8: the Reader opened again with that way back (after the shell's practice o
   const { card, spanId, besideTrail } = onCheckMe.mock.calls[0][0] as { card: SourceLibraryCard; spanId: string; besideTrail: unknown };
   // The shell unmounts the Reader for the check, then opens it again at the passage with the trail.
   cleanup();
-  render(<ReaderScreen initialSource={{ card, spanId, besideTrail } as never} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={{ card, spanId, besideTrail } as never} onError={vi.fn()} />);
   await screen.findByText(SIDE_TEXT);
   expect(pane()).toBeNull();
   expect(within(strip()).getByText(/side by side with Axler/)).toBeTruthy();
@@ -868,30 +867,39 @@ it("F9: with marks only in the second pane, Alt+down there moves to them", async
 // ── Codex re-review (F10, F11) ─────────────────────────────────────────────
 
 it("F10: a failed second-pane Ask is forgotten when another book opens: the same words then ask about the open book", async () => {
-  const stored = new Map<string, string>();
-  vi.stubGlobal("localStorage", {
-    getItem: (key: string) => stored.get(key) ?? null, setItem: (key: string, value: string) => void stored.set(key, value),
-    removeItem: (key: string) => void stored.delete(key),
-  });
+  // Ported from the standalone frame: the learner left by its "← Library" and opened a book from its list (both the
+  // frame's, deleted with it). Another book opening in this source is now a source detour: check me on a
+  // second-pane mark (F8's way) takes that book to the main pane, a source reset like the old reopen.
+  axlerOpens();
+  plans.side = { ...plans.side, cues: cues([cue("ax7a_2", 0, { cueId: "cue_side" })]) };
+  api.readerCueAction.mockImplementation(async (input: { cueId: string; action: string }) => ({
+    cueId: input.cueId, action: input.action, eventId: "e", verdict: null, ledgerId: null,
+    check: input.action === "check_me" ? { status: "found", practiceItemId: "pi_side", proposalId: null } : null,
+  }));
   api.readerAsk.mockRejectedValueOnce(new Error("boom"));
-  await openSideBySide();
+  const onCheckMe = vi.fn();
+  await openSideBySide({ onCheckMe });
   await route("ask_help_me_reason");
   await waitFor(() => expect(api.readerAsk).toHaveBeenCalledTimes(1));
   await screen.findByRole("button", { name: /try again/ });
-  // The learner leaves for the library and opens a book there (a source reset),
-  // which resumes at its saved place (no selection, no reply parent).
-  window.localStorage.setItem(readingPositionKey(view.sourceId), encodeReadingPlace(view.extractionId, SPAN_IDS[1]));
-  fireEvent.click(screen.getByRole("button", { name: "← Library" }));
-  fireEvent.click(await screen.findByText("Strang"));
-  await screen.findAllByText("6.1 Symmetric matrices");
+  const mark = await waitFor(() => {
+    const node = pane()!.querySelector<HTMLElement>("[data-cue-mark='cue_side']");
+    expect(node).toBeTruthy();
+    return node!;
+  });
+  fireEvent.click(mark);
+  fireEvent.click(await within(pane()!).findByRole("button", { name: new RegExp(`^${CUE_COPY.checkMe} ·`) }));
+  await waitFor(() => expect(onCheckMe).toHaveBeenCalledTimes(1));
+  await waitFor(() => expect(api.readerRenderView).toHaveBeenCalledWith({ extractionId: "src_axler" }));
+  await waitFor(() => expect(pane()).toBeNull());
   // The Ask tab, on the reading position (no selection: nothing else forgets the failed request).
-  fireEvent.click(screen.getByRole("button", { name: /^ask/ }));
+  fireEvent.click(await screen.findByRole("button", { name: /^ask/ }));
   const composer = await screen.findByPlaceholderText("ask about this passage…");
   fireEvent.change(composer, { target: { value: "why is this true?" } });
   fireEvent.keyDown(composer, { key: "Enter", ctrlKey: true });
   await waitFor(() => expect(api.readerAsk).toHaveBeenCalledTimes(2));
   const second = api.readerAsk.mock.calls[1][0] as Record<string, unknown>;
-  expect(second).toMatchObject({ extractionId: view.extractionId, question: "why is this true?" });
+  expect(second).toMatchObject({ extractionId: "ext_axler", question: "why is this true?" });
   expect(second.answerMode).not.toBe("help_me_reason");
   expect(second.selectionSpanIds).not.toEqual(["ax7a_1"]);
 });
@@ -1001,7 +1009,7 @@ it("F8 round 3: check me after the second pane moved to 7.B keeps 7.B as the way
   await waitFor(() => expect(within(pane()!).getByText(SIDE_TEXT_B)).toBeTruthy());
   // And in the Reader the shell opens again after its practice screen: Alt+← reopens 7.B too.
   cleanup();
-  render(<ReaderScreen initialSource={{ card, spanId, besideTrail: trail } as never} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={{ card, spanId, besideTrail: trail } as never} onError={vi.fn()} />);
   await screen.findAllByText("Proof: by induction on the dimension.");
   expect(pane()).toBeNull();
   await act(async () => { fireEvent.keyDown(window, { key: "ArrowLeft", altKey: true }); });
@@ -1133,8 +1141,12 @@ it("finding 1: an exercise imported from the second pane is worked through in th
   await openSideBySide();
   await route("import_exercise", "import this");
   await waitFor(() => expect(api.readerImportExercise).toHaveBeenCalledWith(expect.objectContaining({ extractionId: "ext_axler", sourceId: "src_axler" })));
-  // The completed import in Notes: "work through this".
-  fireEvent.click(screen.getByRole("button", { name: "expand the rail (\\)" }));
+  // The completed import in Notes: "work through this". The standalone frame's "expand the rail (\)" handle went
+  // with it; the source's own key does the same: Esc closes the second pane's box (which owns the keys while
+  // open), then `\` opens the folded rail as an overlay.
+  fireEvent.keyDown(document.body, { key: "Escape" });
+  await waitFor(() => expect(document.querySelector("[data-intent-box]")).toBeNull());
+  fireEvent.keyDown(document.body, { key: "\\" });
   fireEvent.click(await screen.findByRole("button", { name: "notes" }));
   const work = await screen.findByRole("button", { name: "work through this ▸" }, { timeout: 5000 });
   fireEvent.click(work);
@@ -1385,7 +1397,7 @@ it("finding 2: a check whose book opens on another reading than the mark's is re
   }));
   const onCheckMe = vi.fn();
   const onError = vi.fn();
-  render(<ReaderScreen initialSource={source} onError={onError} onCheckMe={onCheckMe} />);
+  render(<ScopedSource initialSource={source} onError={onError} onCheckMe={onCheckMe} />);
   await screen.findAllByText("6.1 Symmetric matrices");
   await act(async () => { fireEvent.keyDown(document.body, { key: "\\", ctrlKey: true }); });
   await waitFor(() => expect(within(pane()!).getByText(SIDE_TEXT)).toBeTruthy());
@@ -1452,7 +1464,7 @@ it("finding 3: an unfinished answer in the second pane's active reading survives
 it("(c) a write the sidecar refuses as another reading's is said honestly (no silent failure)", async () => {
   api.readerCapture.mockRejectedValueOnce({ code: "span_extraction_mismatch", message: "The passage(s) ax7a_1 are not in the reading.", retryable: false });
   const onError = vi.fn();
-  render(<ReaderScreen initialSource={source} onError={onError} />);
+  render(<ScopedSource initialSource={source} onError={onError} />);
   await screen.findAllByText("6.1 Symmetric matrices");
   await act(async () => { fireEvent.keyDown(document.body, { key: "\\", ctrlKey: true }); });
   await waitFor(() => expect(within(pane()!).getByText(SIDE_TEXT)).toBeTruthy());

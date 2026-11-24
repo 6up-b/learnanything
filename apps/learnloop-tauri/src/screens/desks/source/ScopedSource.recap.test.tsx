@@ -1,7 +1,10 @@
 // Ported from screens/ReaderScreen.recap.test.tsx (the Reader's retirement, phase 2 step 1): the same cases,
 // mounting the scoped source a source window mounts, without the standalone screen's own branches.
-// Left out (kept in the original until step 2 ports them to a source window's own controls):
-//   - "the rail footer offers Wrap up after activity and opens the three lists in the rail": it reads the key bar's "w wrap up".
+// Left out of the step 1 copy (kept in the original); where each went in step 2 (the original is deleted with the
+// standalone screen):
+//   - "the rail footer offers Wrap up after activity and opens the three lists in the rail": PORTED here under the same
+//     name, less the old key bar's "w wrap up" (w itself: desks/windows/SourceWindow.wrapup.test.tsx, "w opens the
+//     session's Wrap up in the window").
 // RW6a in the Reader (spec §9.1; UX §3.1 "returning", W1, W12): the card at
 // the head of the Guide on opening a source read before, recap_shown once,
 // nothing focused; "continue" folds it to "last time ▸"; dismiss removes it;
@@ -100,4 +103,23 @@ it("no card, no last time and no Wrap up on a first visit", async () => {
   expect(screen.queryByRole("button", { name: /last time ▸/ })).toBeNull();
   expect(screen.queryByRole("button", { name: "Wrap up (under a minute)" })).toBeNull();
   expect(api.readerRecapEvent).not.toHaveBeenCalled();
+});
+
+// Ported in phase 2 step 2 from the original's case of the same name, less its check that the old key bar named w
+// (the key bar was the standalone frame's; w itself is SourceWindow.wrapup.test.tsx's "w opens the session's Wrap up in
+// the window").
+it("the rail footer offers Wrap up after activity and opens the three lists in the rail", async () => {
+  api.readerWrapUp.mockResolvedValue({
+    version: 1, wrapUpVersion: "rw6a-wrap-up-v1", available: true, extractionId: view.extractionId,
+    session: RECAP.session, resolved: [], worthReinforcing: [],
+    stillOpen: [{ rootExchangeId: "r1", questionMd: "why are eigenvectors orthogonal?", spanIds: ["span_symmetric_prose"], actions: [{ action: "keep_open" }] }],
+  });
+  render(<ScopedSource initialSource={source} onError={vi.fn()} />);
+  const offer = await screen.findByRole("button", { name: "Wrap up (under a minute)" });
+  fireEvent.click(offer);
+  const panel = await screen.findByRole("region", { name: "Wrap up" });
+  expect(screen.getByRole("complementary", { name: "Reading guide" }).contains(panel)).toBe(true);
+  expect(screen.queryByRole("dialog")).toBeNull();
+  fireEvent.keyDown(window, { key: "Escape" });
+  await waitFor(() => expect(screen.queryByRole("region", { name: "Wrap up" })).toBeNull());
 });

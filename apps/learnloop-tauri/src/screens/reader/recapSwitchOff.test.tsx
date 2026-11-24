@@ -6,9 +6,11 @@
 // the base commit (e182f3ec8), before any RW6a frontend code existed; a recap
 // call would throw here, because the api mocks name only the calls the base
 // code made.
+// The Reader's retirement (phase 2 step 2): the snapshots now carry the scoped source's source bar in place of the
+// old screen's header and key bar; nothing else in them moved (scripts/rd_retire/snapshot_frames.mjs, entry by entry).
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { ReaderScreen } from "../ReaderScreen";
+import { ScopedSource } from "../desks/source/ScopedSource";
 import { setAlgoConfig } from "../../app/algoConfig";
 import { readerRenderViewFixture as view } from "../../fixtures/readerRenderView";
 import type { SourceLibraryCard } from "../../api/dto";
@@ -58,7 +60,7 @@ const OFF_CONFIGS: Array<[string, unknown]> = [
 
 it.each(OFF_CONFIGS)("the Reader, its Guide and its rail are byte-identical with %s", async (_label, config) => {
   setAlgoConfig(config);
-  const view = render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  const view = render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   await screen.findAllByText(/symmetric/i);
   expect(markup(view.container)).toMatchSnapshot("reader guide, recap switched off");
   fireEvent.keyDown(window, { key: "w" });

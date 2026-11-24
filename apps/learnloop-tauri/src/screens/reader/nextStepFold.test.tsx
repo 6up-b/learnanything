@@ -5,7 +5,7 @@
 // fold opens, and they self-check (matches · partly · no). Never an attempt.
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { ReaderScreen } from "../ReaderScreen";
+import { ScopedSource } from "../desks/source/ScopedSource";
 import { setAlgoConfig } from "../../app/algoConfig";
 import { readerRenderViewFixture as view } from "../../fixtures/readerRenderView";
 import { readerIntentContractFixture as intent } from "../../fixtures/readerIntentContract";
@@ -64,7 +64,7 @@ async function untilWritten() {
 }
 
 async function tryNextStep() {
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   const block = await screen.findByText(SELECTED.markdown);
   select(block);
   await screen.findByRole("textbox", { name: "What do you want to do with this?" });
@@ -144,7 +144,7 @@ it("with active reading switched off its actions are absent from the palette", a
     ...intent,
     palette: intent.palette.map((g) => ({ ...g, actions: g.actions.filter((a) => a.effect.kind !== "active_reading" && a.effect.kind !== "another_way") })),
   } };
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   select(await screen.findByText(SELECTED.markdown));
   await screen.findByRole("textbox", { name: "What do you want to do with this?" });
   fireEvent.keyDown(window, { key: "Tab" });

@@ -12,7 +12,7 @@
 // what is checked here.
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { ReaderScreen } from "../ReaderScreen";
+import { ScopedSource } from "../desks/source/ScopedSource";
 import { readerRenderViewFixture as view } from "../../fixtures/readerRenderView";
 import type { SourceLibraryCard } from "../../api/dto";
 import { resetReaderActivityForTests } from "./activity";
@@ -102,7 +102,7 @@ function renderInShell() {
   // `.terminal-frame` and `#root` are.
   return render(
     <div data-testid="shell" style={{ overflow: "hidden", height: "100%" }}>
-      <ReaderScreen initialSource={initialSource} onError={vi.fn()} />
+      <ScopedSource initialSource={initialSource} onError={vi.fn()} />
     </div>,
   );
 }

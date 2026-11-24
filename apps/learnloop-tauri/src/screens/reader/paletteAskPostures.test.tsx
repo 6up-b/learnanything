@@ -11,7 +11,7 @@
 // Nothing is ever sent.
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ReaderScreen } from "../ReaderScreen";
+import { ScopedSource } from "../desks/source/ScopedSource";
 import { setAlgoConfig } from "../../app/algoConfig";
 import { readerRenderViewFixture as view } from "../../fixtures/readerRenderView";
 import type { SourceLibraryCard, WorkbenchSessionDto } from "../../api/dto";
@@ -113,11 +113,11 @@ function askShown(): boolean {
 
 describe("the palette's ask, from each Reader posture", () => {
   it("reading: opens Ask", async () => {
-    const { rerender } = render(<ReaderScreen initialSource={source} onError={vi.fn()} askRequest={0} />);
+    const { rerender } = render(<ScopedSource initialSource={source} onError={vi.fn()} askRequest={0} />);
     await screen.findByText(PROSE);
     expect(askShown()).toBe(false);
     await act(async () => {
-      rerender(<ReaderScreen initialSource={source} onError={vi.fn()} askRequest={1} />);
+      rerender(<ScopedSource initialSource={source} onError={vi.fn()} askRequest={1} />);
     });
     expect(askShown()).toBe(true);
     expect(api.readerAsk).not.toHaveBeenCalled();
@@ -125,7 +125,7 @@ describe("the palette's ask, from each Reader posture", () => {
 
   it("comparing: leaves the comparison and opens Ask", async () => {
     contract.value = { readerEnabled: true, inquiryEnabled: true, libraryAsk: { expandGraph: true, personalizedDefault: true, compare: true } };
-    const { rerender } = render(<ReaderScreen initialSource={source} onError={vi.fn()} askRequest={0} />);
+    const { rerender } = render(<ScopedSource initialSource={source} onError={vi.fn()} askRequest={0} />);
     await screen.findByText(PROSE);
     await act(async () => {
       fireEvent.keyDown(window, { key: "F", ctrlKey: true, shiftKey: true });
@@ -133,7 +133,7 @@ describe("the palette's ask, from each Reader posture", () => {
     expect(await screen.findByRole("textbox", { name: "ask your library" })).toBeTruthy();
     expect(rail()?.style.display).toBe("none");
     await act(async () => {
-      rerender(<ReaderScreen initialSource={source} onError={vi.fn()} askRequest={1} />);
+      rerender(<ScopedSource initialSource={source} onError={vi.fn()} askRequest={1} />);
     });
     expect(screen.queryByRole("textbox", { name: "ask your library" })).toBeNull();
     expect(askShown()).toBe(true);
@@ -143,7 +143,7 @@ describe("the palette's ask, from each Reader posture", () => {
 
   it("working: keeps the problem open, says how to reach Ask, and opens Ask once the learner leaves", async () => {
     setAlgoConfig({ workbench: { enabled: true, openSessionDays: 30 } });
-    const { rerender } = render(<ReaderScreen initialSource={source} onError={vi.fn()} askRequest={0} />);
+    const { rerender } = render(<ScopedSource initialSource={source} onError={vi.fn()} askRequest={0} />);
     const block = await screen.findByText(PROSE);
     const range = document.createRange();
     range.selectNodeContents(block);
@@ -156,7 +156,7 @@ describe("the palette's ask, from each Reader posture", () => {
     await screen.findByRole("region", { name: "workbench" });
 
     await act(async () => {
-      rerender(<ReaderScreen initialSource={source} onError={vi.fn()} askRequest={1} />);
+      rerender(<ScopedSource initialSource={source} onError={vi.fn()} askRequest={1} />);
     });
     // Nothing left or discarded: the problem is still open, with a visible line.
     expect(screen.getByRole("region", { name: "workbench" })).toBeTruthy();
@@ -177,7 +177,7 @@ describe("the palette's ask, from each Reader posture", () => {
     api.workbenchOpen.mockResolvedValue({ session: bound, resumed: false });
     api.workbenchRefreshImport.mockResolvedValue({ session: bound });
     api.getTutorTranscript.mockResolvedValue({ events: [], remaining: null, earlier: [], earlierCountsAsHint: true, cold: false });
-    const { rerender } = render(<ReaderScreen initialSource={source} onError={vi.fn()} askRequest={0} />);
+    const { rerender } = render(<ScopedSource initialSource={source} onError={vi.fn()} askRequest={0} />);
     const block = await screen.findByText(PROSE);
     const range = document.createRange();
     range.selectNodeContents(block);
@@ -189,7 +189,7 @@ describe("the palette's ask, from each Reader posture", () => {
     fireEvent.click(await screen.findByRole("button", { name: /work through this/ }));
     await screen.findByRole("region", { name: "workbench" });
     await act(async () => {
-      rerender(<ReaderScreen initialSource={source} onError={vi.fn()} askRequest={1} />);
+      rerender(<ScopedSource initialSource={source} onError={vi.fn()} askRequest={1} />);
     });
     expect(screen.queryByTestId("workbench-ask-waiting")).toBeNull();
     expect(await screen.findByTestId("ask-panel-inline")).toBeTruthy();

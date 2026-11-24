@@ -1,8 +1,11 @@
 // Ported from screens/ReaderScreen.marginMarks.test.tsx (the Reader's retirement, phase 2 step 1): the same cases,
 // mounting the scoped source a source window mounts, without the standalone screen's own branches.
-// Left out (kept in the original until step 2 ports them to a source window's own controls):
-//   - "G14: skim mutes every mark; reading closely brings them back": it reads or sets the header's "I want to" choice.
-//   - "discovery off: a sighting the webview buffered before the mark unmounted still counts, as in RW3a (F23)": it reads or sets the header's "I want to" choice.
+// Left out of the step 1 copy (kept in the original); where each went in step 2 (the original is deleted with the
+// standalone screen):
+//   - "G14: skim mutes every mark; reading closely brings them back": PORTED here under the same name ("I want to" is
+//     the source bar's).
+//   - "discovery off: a sighting the webview buffered before the mark unmounted still counts, as in RW3a (F23)": PORTED
+//     here under the same name ("I want to" is the source bar's).
 // RW3a on the real screen (spec §6.1-6.2; UX §3.4, §4.4, §7): the Guide's own
 // misunderstanding passages as quiet margin marks. The mark's note and its
 // "because" line (G16), the margin agreeing with the rail (G30), at most one
@@ -458,4 +461,65 @@ it("a video transcript passage carries its mark like any source", async () => {
   render(<ScopedSource initialSource={{ card: videoCard, spanId: null }} onError={vi.fn()} />);
   const mark = await findMark("s2");
   expect(mark.closest("[data-transcript-scroller]")).not.toBeNull();
+});
+
+// Ported in phase 2 step 2 from the original's case of the same name: "I want to" is the source bar's now (the old
+// header's choice, per window).
+it("G14: skim mutes every mark; reading closely brings them back", async () => {
+  TOPS.b4 = 900;
+  openReader();
+  await findMark("b1");
+  const modeSelect = screen.getByRole("combobox", { name: "how I read this book" });
+  fireEvent.keyDown(modeSelect, { key: "Enter" });
+  fireEvent.mouseDown(await screen.findByRole("option", { name: "skim quickly" }));
+  await waitFor(() => expect(markFor("b1")).toBeNull());
+  expect(markFor("b4")).toBeNull();
+});
+
+// Ported in phase 2 step 2 from the original's case of the same name: skim is chosen on the source bar's "I want to".
+it("discovery off: a sighting the webview buffered before the mark unmounted still counts, as in RW3a (F23)", async () => {
+  // Codex verify F23: with discovery off the mark's observer is RW3a's, so a
+  // visible entry delivered after skim unmounted the mark still records
+  // cue_shown, exactly as before RW3b.
+  const observers: Array<{ callback: IntersectionObserverCallback; nodes: Element[] }> = [];
+  vi.stubGlobal("IntersectionObserver", class {
+    private entry: { callback: IntersectionObserverCallback; nodes: Element[] };
+    constructor(callback: IntersectionObserverCallback) {
+      this.entry = { callback, nodes: [] };
+      observers.push(this.entry);
+    }
+    // The nodes stay recorded after a disconnect: the browser's buffer.
+    observe(node: Element) { this.entry.nodes.push(node); }
+    unobserve() {}
+    disconnect() {}
+  });
+  try {
+    TOPS.b4 = 900;
+    const { unmount } = openReader();
+    await findMark("b1");
+    const node = markFor("b1")!;
+    const buffered = observers.filter((observer) => observer.nodes.includes(node));
+    expect(buffered.length).toBeGreaterThan(0);
+    // Skim unmounts the marks before the buffered entry is delivered.
+    const modeSelect = screen.getByRole("combobox", { name: "how I read this book" });
+    fireEvent.keyDown(modeSelect, { key: "Enter" });
+    fireEvent.mouseDown(await screen.findByRole("option", { name: "skim quickly" }));
+    await waitFor(() => expect(markFor("b1")).toBeNull());
+    act(() => {
+      for (const observer of buffered) {
+        observer.callback(
+          [{ isIntersecting: true, intersectionRatio: 1, target: node } as unknown as IntersectionObserverEntry],
+          {} as IntersectionObserver,
+        );
+      }
+    });
+    unmount();
+    flushReaderActivity();
+    const shown = api.readerLogActivity.mock.calls
+      .flatMap((call) => call[0].events as Array<{ event?: string; payload: Record<string, unknown> }>)
+      .filter((event) => event.event === "cue_shown");
+    expect(shown.map((event) => event.payload.cue_id)).toEqual(["cue_b1"]);
+  } finally {
+    vi.unstubAllGlobals();
+  }
 });

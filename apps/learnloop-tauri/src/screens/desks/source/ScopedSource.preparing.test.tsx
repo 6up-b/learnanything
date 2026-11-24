@@ -1,8 +1,15 @@
 // Ported from screens/ReaderScreen.preparing.test.tsx (the Reader's retirement, phase 2 step 1): the same cases,
 // mounting the scoped source a source window mounts, without the standalone screen's own branches.
-// Left out (kept in the original until step 2 ports them to a source window's own controls):
-//   - "lists a book that is not ready yet on the picker, openable": it opens a book from the list of books.
-//   - "still says so when the reader really is off": it reads the list view's reader-off notice.
+// Left out of the step 1 copy (kept in the original); where each went in step 2 (the original is deleted with the
+// standalone screen):
+//   - "lists a book that is not ready yet on the picker, openable": RETIRED: the picker was the standalone frame's list
+//     of books; opening a book still being prepared is covered by desks/windows/PreparingWindow.desk.test.tsx, "a book
+//     still being prepared opens in a window of its own, with its original and its progress, and becomes the book's
+//     window when ready", and here by "opens a book that is still being prepared on its original, without the full
+//     Reader's reads".
+//   - "still says so when the reader really is off": RETIRED: the notice was the standalone list view's; covered on the
+//     desks by app/App.desks.test.tsx, "says once, with the setting, when reading is off in the library (the old
+//     Reader's reader-off notice)".
 // The Reader's shell-facing part in UX Phase 1 (docs/specs/ux_learnloop_v1.md
 // §6.3, §7.3, §10 items 1.4 and 1.10): a book still being prepared opens on its
 // original at once; the picker no longer hides books that are not ready; the

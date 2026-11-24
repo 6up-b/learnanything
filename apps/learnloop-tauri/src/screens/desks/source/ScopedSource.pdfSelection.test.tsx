@@ -1,8 +1,11 @@
 // Ported from screens/ReaderScreen.pdfSelection.test.tsx (the Reader's retirement, phase 2 step 1): the same cases,
 // mounting the scoped source a source window mounts, without the standalone screen's own branches.
-// Left out (kept in the original until step 2 ports them to a source window's own controls):
-//   - "Ctrl+Z in another book opened within the undo's time does nothing there": its way out is the header's "← Library".
-//   - "a delete that answers after another book opened leaves that book's list and offers no undo": its way out is the header's "← Library".
+// Left out of the step 1 copy (kept in the original); where each went in step 2 (the original is deleted with the
+// standalone screen):
+//   - "Ctrl+Z in another book opened within the undo's time does nothing there": PORTED here as "Ctrl+Z in another book
+//     opened (the first book's window closed) within the undo's time does nothing there".
+//   - "a delete that answers after another book opened leaves that book's list and offers no undo": PORTED here under
+//     the same name (openOtherBook closes the window and opens the other book in its own).
 // The Reader with the original PDF's selection model (reader-pdf-selection):
 // what a selection on the page becomes. The pane is a stand-in that keeps the
 // props the Reader gives it, so a test can select as the pane would (its
@@ -258,11 +261,12 @@ async function openBook(spanId: string | null = null) {
   expect(pane.props).not.toBeNull();
 }
 
-/** Back to the library and into the other book. */
+/** Out of this book and into the other one. On the desks a window opens one book for its life: leaving this book is
+ *  closing its window (the source unmounts), and the other book opens in a window of its own (a new source). The old
+ *  way, the standalone header's "← Library" and its list of books, went with the standalone frame. */
 async function openOtherBook() {
-  fireEvent.click(screen.getByRole("button", { name: "← Library" }));
-  await settle();
-  fireEvent.click(screen.getByText("Other Notes"));
+  cleanup();
+  render(<ScopedSource onError={() => undefined} initialSource={{ card: CARD_B, spanId: null }} />);
   await settle(2_000);
 }
 
@@ -407,6 +411,45 @@ describe("a removal's undo belongs to its book and its delete (Codex review F3, 
     fireEvent.click(screen.getByRole("button", { name: "undo" }));
     await settle();
     expect(calls("reader_restore_annotation")).toEqual([{ annotationId: "ann_here", deleteEventId: "ev_del" }]);
+    expect(pane.props!.highlights).toEqual([]);
+  });
+
+  // Ported in phase 2 step 2 from "Ctrl+Z in another book opened within the undo's time does nothing there": the way
+  // out was the old header's "← Library"; openOtherBook now closes this book's window and opens the other in its own.
+  it("Ctrl+Z in another book opened (the first book's window closed) within the undo's time does nothing there", async () => {
+    backend.annotations = [HERE];
+    await openBook();
+    backend.annotations = [];
+    act(() => pane.props!.onHighlightRemove!("ann_here"));
+    await settle();
+    expect(screen.getByRole("status").textContent).toContain("Highlight removed.");
+    await openOtherBook();
+    expect(screen.queryByRole("status")).toBeNull();
+    fireEvent.keyDown(window, { key: "z", ctrlKey: true });
+    await settle();
+    expect(calls("reader_restore_annotation")).toEqual([]);
+    // Book B's own (none): never book A's highlight on B's s1.
+    expect(pane.props!.highlights).toEqual([]);
+  });
+
+  // Ported in phase 2 step 2 from the original's case of the same name: the way out was the old header's "← Library";
+  // openOtherBook now closes this book's window and opens the other in its own.
+  it("a delete that answers after another book opened leaves that book's list and offers no undo", async () => {
+    backend.annotations = [HERE];
+    await openBook();
+    let release: () => void = () => undefined;
+    backend.deleteGate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    backend.annotations = [];
+    act(() => pane.props!.onHighlightRemove!("ann_here"));
+    await settle();
+    await openOtherBook();
+    await act(async () => {
+      release();
+    });
+    await settle();
+    expect(screen.queryByRole("status")).toBeNull();
     expect(pane.props!.highlights).toEqual([]);
   });
 });

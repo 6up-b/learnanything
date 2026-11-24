@@ -10,7 +10,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { ReaderScreen } from "../ReaderScreen";
+import { ScopedSource } from "../desks/source/ScopedSource";
 import { setAlgoConfig } from "../../app/algoConfig";
 import { readerRenderViewFixture as view } from "../../fixtures/readerRenderView";
 import { readerIntentContractFixture as intent } from "../../fixtures/readerIntentContract";
@@ -249,7 +249,7 @@ const ASK: LibraryAskDto = {
 };
 
 async function openAnswer() {
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} onCheckMe={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} onCheckMe={vi.fn()} />);
   const block = await screen.findByText(view.blocks[1].markdown);
   select(block);
   await screen.findByRole("textbox", { name: BOX });
@@ -294,7 +294,7 @@ it("⇄ marks a passage with a kept comparison (the learner's own mark) and reop
   api.readerKeptComparisons.mockResolvedValue({ extractionId: view.extractionId, label: "a comparison you kept",
     marks: [{ spanId: span, askIds: ["la_0"], keptAt: "2026-10-03T09:00:00Z", otherSources: ["Other Book"] }] });
   api.readerLibraryCompareReopen.mockResolvedValue({ ...TABLE, askId: "la_0", kept: kept({ askId: "la_0" }) });
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} onCheckMe={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} onCheckMe={vi.fn()} />);
   await screen.findByText(view.blocks[1].markdown);
   await waitFor(() => expect(api.readerKeptComparisons).toHaveBeenCalledWith({ extractionId: view.extractionId }));
   const mark = await screen.findByRole("button", { name: /a comparison you kept with Other Book on 3 Oct: reopen it/ });
@@ -341,29 +341,9 @@ it("a kept comparison that retained one source keeps its takes and its remove (F
   expect(container.innerHTML).toBe("");
 });
 
-it("keep and reopen work on the library page with no book open (F3)", async () => {
-  api.readerSearchSources.mockResolvedValue({ query: "x", deep: false, searchedSources: 1, basis: "keyword", rewritten: null, hits: [] });
-  api.readerLibraryAsk.mockResolvedValue(done({ ...ASK, extractionId: null, anchorSpanIds: [] }));
-  api.readerLibraryCompare.mockResolvedValue(done(TABLE, "compare"));
-  api.readerLibraryCompareReopen.mockResolvedValue({ ...TABLE, askId: "la_0", kept: kept({ askId: "la_0" }), query: "symmetric vs transpose" });
-  render(<ReaderScreen onError={vi.fn()} />);
-  const search = await screen.findByPlaceholderText("search all sources…");
-  fireEvent.change(search, { target: { value: "symmetric matrices" } });
-  fireEvent.keyDown(search, { key: "Enter", shiftKey: true });
-  const pane = await screen.findByRole("region", { name: "ask your library" });
-  // "you compared these on …" reopens a table that can be removed.
-  const line = await within(pane).findByText(/you compared these on 3 Oct/);
-  fireEvent.click(within(line).getByRole("button", { name: KEEP_COPY.reopen }));
-  await within(pane).findByText("“symmetric vs transpose”");
-  expect(within(pane).getByRole("button", { name: KEEP_COPY.remove })).toBeTruthy();
-  // A new comparison here can be kept.
-  const pins = await within(pane).findAllByRole("button", { name: "pin" });
-  fireEvent.click(pins[0]);
-  fireEvent.click(pins[1]);
-  fireEvent.click(within(pane).getByRole("button", { name: /compare pinned \(2\)/ }));
-  await waitFor(() => expect(within(pane).getAllByRole("table", { name: "how your sources treat this" }).length).toBeGreaterThan(1));
-  expect(within(pane).getByRole("button", { name: KEEP_COPY.keep })).toBeTruthy();
-});
+// Moved: "keep and reopen work on the library page with no book open (F3)" is a Compare window opened bare on a desk now
+// (the library page was the standalone frame's): desks/windows/CompareWindow.bare.test.tsx, "keep and reopen work in a
+// Compare window with no book open (F3)".
 
 it("a passage in two kept comparisons lists both and opens the one picked (F9)", async () => {
   const span = view.blocks[1].spanId!;
@@ -374,7 +354,7 @@ it("a passage in two kept comparisons lists both and opens the one picked (F9)",
         { askId: "la_old", keptAt: "2026-10-03T09:00:00Z", query: "the older question", otherSources: ["Third Book"] },
       ] }] });
   api.readerLibraryCompareReopen.mockResolvedValue({ ...TABLE, askId: "la_old", kept: kept({ askId: "la_old" }) });
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} onCheckMe={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} onCheckMe={vi.fn()} />);
   await screen.findByText(view.blocks[1].markdown);
   const mark = await screen.findByRole("button", { name: /2 comparisons you kept on this passage: choose one/ });
   await act(async () => { fireEvent.click(mark); });
@@ -394,7 +374,7 @@ it("⇄ marks the original PDF too, beside the cue marks and outside their count
   api.readerKeptComparisons.mockResolvedValue({ extractionId: view.extractionId, label: "a comparison you kept",
     marks: [{ spanId: span, askIds: ["la_0"], keptAt: "2026-10-03T09:00:00Z", otherSources: ["Other Book"] }] });
   api.readerLibraryCompareReopen.mockResolvedValue({ ...TABLE, askId: "la_0", kept: kept({ askId: "la_0" }) });
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} onCheckMe={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} onCheckMe={vi.fn()} />);
   await screen.findByTestId("pdf-pane");
   const mark = await screen.findByRole("button", { name: /a comparison you kept with Other Book on 3 Oct: reopen it/ });
   expect(mark.closest("[data-cue-gutter]")?.getAttribute("data-cue-gutter")).toBe(span);
@@ -444,7 +424,7 @@ it("C2: › marks a passage with a linked note (the learner's own mark) and the 
     note: { title: "Pocket page", heading: "Eigen page", capturedOn: "2026-10-03", dateLabel: "3 Oct", origin: "pocket_notes",
             originLabel: NOTES.pocketNotesLabel, text: "Worked the 2x2 case by hand.", truncated: false } }] }] });
   api.notesSearch.mockResolvedValue({ query: "Spectral theorem", hits: [] });
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} onCheckMe={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} onCheckMe={vi.fn()} />);
   await screen.findByText(view.blocks[1].markdown);
   await waitFor(() => expect(api.notesMarks).toHaveBeenCalledWith({ extractionId: view.extractionId }));
   const mark = await screen.findByRole("button", { name: /your note from 3 Oct: open it/ });
@@ -460,35 +440,12 @@ it("C2: › marks a passage with a linked note (the learner's own mark) and the 
   await waitFor(() => expect(api.notesSearch).toHaveBeenCalledWith({ extractionId: view.extractionId, spanId: span }));
 });
 
-it("C2: the library page's comparison with no book open offers the notes' your-take band (F10)", async () => {
-  contract.value = { ...contract.value, notes: NOTES };
-  api.readerSearchSources.mockResolvedValue({ query: "x", deep: false, searchedSources: 1, basis: "keyword", rewritten: null, hits: [] });
-  api.readerLibraryAsk.mockResolvedValue(done({ ...ASK, extractionId: null, anchorSpanIds: [] }));
-  api.readerLibraryCompare.mockResolvedValue(done(TABLE, "compare"));
-  api.notesPassages.mockResolvedValue({ notes: [{
-    linkId: "nl_1", noteKey: "/n/a.org#Eigen", targetKind: "passage", learningObjectId: "lo", extractionId: "ext_symmetric",
-    sectionId: "sec", spanId: "span_spectral_worked", goalId: "g", authorship: "ai", byLabel: "linked by LearnLoop's model",
-    how: "restates", howWords: null, howLine: null, line: "your note from 3 Oct",
-    note: { title: "Linear algebra", heading: "Spectral", capturedOn: "2026-10-03", dateLabel: "3 Oct", origin: "vault",
-            originLabel: null, text: "Symmetric means real eigenvalues.", truncated: false },
-    takeText: "From your note “Linear algebra › Spectral”, 3 Oct: “Symmetric means real eigenvalues.”" }] });
-  render(<ReaderScreen onError={vi.fn()} />);
-  const search = await screen.findByPlaceholderText("search all sources…");
-  fireEvent.change(search, { target: { value: "symmetric matrices" } });
-  fireEvent.keyDown(search, { key: "Enter", shiftKey: true });
-  const pane = await screen.findByRole("region", { name: "ask your library" });
-  const pins = await within(pane).findAllByRole("button", { name: "pin" });
-  fireEvent.click(pins[0]);
-  fireEvent.click(pins[1]);
-  fireEvent.click(within(pane).getByRole("button", { name: /compare pinned \(2\)/ }));
-  await waitFor(() => expect(api.notesPassages).toHaveBeenCalled());
-  expect(await within(pane).findByText("Symmetric means real eigenvalues.", { exact: false })).toBeTruthy();
-  expect(within(pane).getAllByRole("button", { name: "use as my take" }).length).toBeGreaterThan(0);
-  expect(api.notesMarks).not.toHaveBeenCalled(); // no book open: no reading's marks are read
-});
+// Moved: "C2: the library page's comparison with no book open offers the notes' your-take band (F10)" is a Compare
+// window opened bare on a desk now (the library page was the standalone frame's): desks/windows/CompareWindow.bare.test.tsx,
+// "C2: a Compare window's comparison with no book open offers the notes' your-take band, reading no book's marks (F10)".
 
 it("C2: without notes in the contract no › mark is read or drawn and the menu is today's", async () => {
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} onCheckMe={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} onCheckMe={vi.fn()} />);
   const text = await screen.findByText(view.blocks[1].markdown);
   await waitFor(() => expect(api.readerKeptComparisons).toHaveBeenCalled());
   expect(api.notesMarks).not.toHaveBeenCalled();

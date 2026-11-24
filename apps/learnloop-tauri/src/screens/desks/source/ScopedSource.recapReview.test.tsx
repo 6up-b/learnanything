@@ -1,7 +1,9 @@
 // Ported from screens/ReaderScreen.recapReview.test.tsx (the Reader's retirement, phase 2 step 1): the same cases,
 // mounting the scoped source a source window mounts, without the standalone screen's own branches.
-// Left out (kept in the original until step 2 ports them to a source window's own controls):
-//   - "F9: skim mutes the card and the rail's offer; w still opens Wrap up on request": it reads or sets the header's "I want to" choice.
+// Left out of the step 1 copy (kept in the original); where each went in step 2 (the original is deleted with the
+// standalone screen):
+//   - "F9: skim mutes the card and the rail's offer; w still opens Wrap up on request": PORTED here under the same name
+//     ("I want to" is the source bar's; the old key bar's "wrap up" went with the frame).
 // RW6a Codex review fixes in the Reader (docs/reviews/reader-rw6a-codex-review.md):
 // F2 one commitment whichever surface asks "revisit once" (card, Wrap up, Ask
 // chip), with the key reused on a retry; F5 "open" opens that inquiry on Ask
@@ -152,4 +154,22 @@ it("F6: w from the Ask tab, or with the rail collapsed, opens Wrap up where it c
   expect(screen.getByRole("complementary", { name: "Reading guide" }).contains(panel)).toBe(true);
   expect(screen.getByRole("button", { name: "guide" }).getAttribute("aria-pressed")).toBe("true");
   await waitFor(() => expect(api.readerRecapEvent).toHaveBeenCalledWith(expect.objectContaining({ event: "wrap_up_opened" })));
+});
+
+// Ported in phase 2 step 2 from the original's case of the same name: skim is chosen on the source bar's "I want to";
+// the old key bar's "w wrap up" (read as gone while skimming) went with the standalone frame.
+it("F9: skim mutes the card and the rail's offer; w still opens Wrap up on request", async () => {
+  const onSkimmingChange = vi.fn();
+  render(<ScopedSource initialSource={source} onError={vi.fn()} onSkimmingChange={onSkimmingChange} />);
+  await card();
+  await screen.findByRole("button", { name: "Wrap up (under a minute)" });
+  const modeSelect = screen.getByRole("combobox", { name: "how I read this book" });
+  fireEvent.keyDown(modeSelect, { key: "Enter" });
+  fireEvent.mouseDown(await screen.findByRole("option", { name: "skim quickly" }));
+  await waitFor(() => expect(screen.queryByRole("region", { name: "Last time here" })).toBeNull());
+  expect(screen.queryByRole("button", { name: /last time ▸/ })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Wrap up (under a minute)" })).toBeNull();
+  await waitFor(() => expect(onSkimmingChange).toHaveBeenLastCalledWith(true));
+  fireEvent.keyDown(document.body, { key: "w" });
+  expect(await screen.findByRole("region", { name: "Wrap up" })).toBeTruthy();
 });

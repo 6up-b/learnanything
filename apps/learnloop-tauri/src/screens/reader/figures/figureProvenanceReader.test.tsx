@@ -2,7 +2,7 @@
 // equation can cite another book or an earlier reading of this one; its page must open from there.
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { ReaderScreen } from "../../ReaderScreen";
+import { ScopedSource } from "../../desks/source/ScopedSource";
 import { setAlgoConfig } from "../../../app/algoConfig";
 import { readerRenderViewFixture as view } from "../../../fixtures/readerRenderView";
 import { readerIntentContractFixture as intent } from "../../../fixtures/readerIntentContract";
@@ -74,7 +74,7 @@ function figure(extractionId: string, spanId: string): FigureViewDto {
 }
 
 async function pressOpenThePage(onError = vi.fn()) {
-  render(<ReaderScreen initialSource={{ card: STRANG, spanId: anchor }} onError={onError} />);
+  render(<ScopedSource initialSource={{ card: STRANG, spanId: anchor }} onError={onError} />);
   const line = await screen.findByRole("button", { name: /interactive version/ });
   fireEvent.click(line);
   fireEvent.click(await screen.findByRole("button", { name: /how this was checked/ }));
@@ -243,7 +243,7 @@ it("the page drops furniture from the shared policy and shows every type the che
     { ...view.blocks[0], spanId: `typed${index}`, displayNodeId: `node-typed${index}`, blockType, markdown: `block of type ${blockType}` }));
   api.readerRenderView.mockImplementation(async () => ({ ...view, blocks: typed }));
   api.readerFigures.mockResolvedValue({ extractionId: view.extractionId, figures: [] });
-  const { container } = render(<ReaderScreen initialSource={{ card: STRANG, spanId: `typed${policy.furniture.length}` }} onError={vi.fn()} />);
+  const { container } = render(<ScopedSource initialSource={{ card: STRANG, spanId: `typed${policy.furniture.length}` }} onError={vi.fn()} />);
   await waitFor(() => expect(container.querySelector(`[data-span-id="typed${policy.furniture.length}"]`)).not.toBeNull());
   // The page has always shown a type it has never met; the check reads only the markdown list (test_rw5c_block_policy).
   types.forEach((blockType, index) => {

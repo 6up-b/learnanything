@@ -1,7 +1,9 @@
 // Ported from screens/ReaderScreen.branches.test.tsx (the Reader's retirement, phase 2 step 1): the same cases,
 // mounting the scoped source a source window mounts, without the standalone screen's own branches.
-// Left out (kept in the original until step 2 ports them to a source window's own controls):
-//   - "does not attach an in-flight answer after leaving and reopening a source": its way out is the header's "← Library".
+// Left out of the step 1 copy (kept in the original); where each went in step 2 (the original is deleted with the
+// standalone screen):
+//   - "does not attach an in-flight answer after leaving and reopening a source": PORTED here as "does not attach an
+//     in-flight answer after closing the source's window and opening it again" (leaving a book is closing its window).
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { ScopedSource } from "./ScopedSource";
@@ -90,4 +92,22 @@ it("retains the question and parent on failure so a follow-up can be retried", a
   fireEvent.click(screen.getByRole("button", { name: "ask follow-up · ctrl+↵" }));
   expect(await screen.findByText("Follow-up answer")).toBeTruthy();
   expect(api.readerAsk.mock.calls[1][0].parentExchangeId).toBe("root");
+});
+
+// Ported in phase 2 step 2 from "does not attach an in-flight answer after leaving and reopening a source": the way
+// out was the old header's "← Library" and the way back its list of books (the standalone frame's); on the desks the
+// book is left by closing its window (the source unmounts) and opened again in a new one (a new source).
+it("does not attach an in-flight answer after closing the source's window and opening it again", async () => {
+  let finish!: (answer: unknown) => void;
+  api.readerAsk.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
+  render(<ScopedSource initialSource={initialSource} onError={vi.fn()} />);
+  await openFollowUp();
+  fireEvent.change(screen.getByPlaceholderText("ask about this passage…"), { target: { value: "Still running" } });
+  fireEvent.click(screen.getByRole("button", { name: "ask follow-up · ctrl+↵" }));
+  cleanup();
+  render(<ScopedSource initialSource={initialSource} onError={vi.fn()} />);
+  await openFollowUp();
+  await act(async () => finish({ readerAnswerEventId: "late", parentExchangeId: "root", answerMd: "Stale response", answerMode: "answer_directly", citations: [] }));
+  expect(screen.queryByText("Stale response")).toBeNull();
+  expect((screen.getByPlaceholderText("ask about this passage…") as HTMLTextAreaElement).value).toBe("");
 });

@@ -6,7 +6,7 @@
 // off) the Guide is exactly as before and nothing is read.
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { ReaderScreen } from "../ReaderScreen";
+import { ScopedSource } from "../desks/source/ScopedSource";
 import { setAlgoConfig } from "../../app/algoConfig";
 import { readerRenderViewFixture as view } from "../../fixtures/readerRenderView";
 import type { CorrespondentsDto, SourceLibraryCard } from "../../api/dto";
@@ -90,7 +90,7 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); setAlgoConfig(undefined); });
 
 it("the Guide's footer offers the action for the section in view, read quietly first", async () => {
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   expect(await screen.findByRole("button", { name: FIND_COPY.action })).toBeTruthy();
   expect(api.readerCorrespondents).toHaveBeenCalledWith({ extractionId: view.extractionId, sectionId: "u1", searchFallback: false });
   expect(api.readerCorrespondents).not.toHaveBeenCalledWith(expect.objectContaining({ searchFallback: true }));
@@ -99,7 +99,7 @@ it("the Guide's footer offers the action for the section in view, read quietly f
 
 it("switched off, nothing is offered and nothing is read", async () => {
   state.contract = OFF;
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   await screen.findAllByText("6.1 Symmetric matrices");
   await act(async () => { await new Promise((resolve) => setTimeout(resolve, 50)); });
   expect(screen.queryByRole("button", { name: FIND_COPY.action })).toBeNull();
@@ -108,7 +108,7 @@ it("switched off, nothing is offered and nothing is read", async () => {
 
 it("hidden when the section has judged coverage", async () => {
   api.readerCorrespondents.mockResolvedValue({ ...QUIET, status: "judged" });
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   await waitFor(() => expect(api.readerCorrespondents).toHaveBeenCalled());
   await act(async () => { await Promise.resolve(); });
   expect(screen.queryByRole("button", { name: FIND_COPY.action })).toBeNull();
@@ -125,7 +125,7 @@ it("compare runs the library compare path on this section's passage and the hit'
     // A whole table (follow-ups Oct 31: with no hits it is now drawn, so it must be a real one).
     result: { askId: "la_1", status: "ok", header: "", rows: [], alsoDiscussedIn: [], unverifiedSources: [], droppedPins: [],
       droppedLineCount: 0, exposureEventIds: [] } });
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   fireEvent.click(await screen.findByRole("button", { name: FIND_COPY.action }));
   fireEvent.click(await screen.findByRole("button", { name: "compare with Axler 5.A Invariant subspaces" }));
   await waitFor(() => expect(api.readerLibraryCompare).toHaveBeenCalled());
@@ -163,7 +163,7 @@ const TWO_SECTIONS = {
 };
 
 async function compareFromFindSection() {
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   fireEvent.click(await screen.findByRole("button", { name: FIND_COPY.action }));
   fireEvent.click(await screen.findByRole("button", { name: "compare with Axler 5.A Invariant subspaces" }));
   await waitFor(() => expect(api.readerLibraryCompare).toHaveBeenCalled());
@@ -258,7 +258,7 @@ it("with CA3 off and no hits, a cancelled comparison keeps the tutor over its pi
 });
 
 it("go there opens the other book as a detour", async () => {
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   fireEvent.click(await screen.findByRole("button", { name: FIND_COPY.action }));
   const before = api.readerRenderView.mock.calls.length;
   fireEvent.click(await screen.findByRole("button", { name: "go there: Axler 5.A Invariant subspaces" }));
@@ -275,7 +275,7 @@ it("with CA3 on, compare is CA3's selection door anchored on this section, narro
   api.readerLibraryCompare.mockResolvedValue({ jobId: "j_cmp", kind: "compare", askId: "la_c", state: "done",
     result: { askId: "la_c", status: "ok", comparisonId: null, rows: [], alsoDiscussedIn: [], unverifiedSources: [], droppedPins: [],
       droppedLineCount: 0, header: "", verification: { status: null, stopped: null, verifiedSources: null }, exposureEventIds: [], library: [] } });
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   fireEvent.click(await screen.findByRole("button", { name: FIND_COPY.action }));
   fireEvent.click(await screen.findByRole("button", { name: "compare with Axler 5.A Invariant subspaces" }));
   await waitFor(() => expect(api.readerLibraryCompare).toHaveBeenCalled());

@@ -4,7 +4,7 @@
 // nothing is sent (the same harness as tutorReader.test.tsx).
 import { act, cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { ReaderScreen } from "../ReaderScreen";
+import { ScopedSource } from "../desks/source/ScopedSource";
 import { setAlgoConfig } from "../../app/algoConfig";
 import { readerRenderViewFixture as view } from "../../fixtures/readerRenderView";
 import type { SourceLibraryCard } from "../../api/dto";
@@ -50,13 +50,13 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); setAlgoConfig(undefined); });
 
 it("opens the Ask tab on a new palette request, and only then", async () => {
-  const { rerender } = render(<ReaderScreen initialSource={source} onError={vi.fn()} askRequest={3} />);
+  const { rerender } = render(<ScopedSource initialSource={source} onError={vi.fn()} askRequest={3} />);
   await screen.findByText(view.blocks[1].markdown);
   // Mounting with an earlier request opens nothing: the rail stays on the Guide.
   expect(screen.getByRole("button", { name: "guide" }).getAttribute("aria-pressed")).toBe("true");
   expect(screen.getByRole("button", { name: "ask" }).getAttribute("aria-pressed")).toBe("false");
   await act(async () => {
-    rerender(<ReaderScreen initialSource={source} onError={vi.fn()} askRequest={4} />);
+    rerender(<ScopedSource initialSource={source} onError={vi.fn()} askRequest={4} />);
   });
   expect(screen.getByRole("button", { name: "ask" }).getAttribute("aria-pressed")).toBe("true");
   expect(api.readerAsk).not.toHaveBeenCalled();
