@@ -6,7 +6,7 @@ import type { GoalBandDto } from "../../../api/dto";
 import type { ReaderLens } from "../../ReaderScreen";
 import type { WatchLens } from "../../reader/YouTubeWatchPanel";
 import type { WhyState } from "./controller";
-import { calloutFor, goalShort, isDimmed, markKind, mostNeededSpan, noneNeeded, whyLevelLine, type LensIndex } from "./model";
+import { calloutFor, isDimmed, markKind, mostNeededSpan, noneNeeded, whyLevelLine, type LensIndex } from "./model";
 
 /** The why card opens after a 120 ms hover (spec §12.3) and hides 160 ms after leaving (the mockup's). */
 export const WHY_OPEN_MS = 120;
@@ -44,7 +44,7 @@ export function readerLens({ index, dimOn, windowId, handlers, paper = false, op
         <i
           className={`gm gl-${kind}${paper ? " gl-paper" : ""}${extra}${openSpan === spanId ? " on" : ""}`}
           data-gm={`${index.extractionId}:${spanId}`}
-          aria-label={section.level.replace("_", " ")}
+          aria-label="Why this is suggested" title="Why this is suggested"
           role="button"
           tabIndex={-1}
           onMouseEnter={(event) => handlers.hover(why(event))}
@@ -122,13 +122,13 @@ function watchLens(index: LensIndex, classFor: (spanId: string, keep: boolean) =
         }
         const times = ranges.map((range) => `${clock(range.start)}–${clock(range.end)}`).join(", ");
         const lo = first.learningObjects.find((entry) => entry.learningObjectId === first.determiningLoId);
-        const role = first.reasonKey === "primary" ? "primary for" : first.reasonKey === "alternate" ? "another way for"
+        const role = first.reasonKey === "primary" ? "main reading for" : first.reasonKey === "alternate" ? "another explanation of"
           : first.reasonKey === "prerequisite" ? "background for" : "supporting";
         return (
           <div className="gtcall" data-goal-head="">
             <span className="gg">◎</span> <b>on your path{times ? ` · ${times}` : ""}</b>
             {first.held ? ` · ${first.reasonMd}` : ` · ${role}${lo?.title ? ` \u201c${lo.title}\u201d` : ""}: ${first.reasonMd.replace(/\.?\s*$/, "")}.`}
-            {rest && index.sections.some((section) => section.level === "skippable") ? " The rest is not needed for your goal." : ""}
+            {rest && index.sections.some((section) => section.level === "skippable") ? " Other sections may be optional at this depth." : ""}
           </div>
         );
       }
@@ -136,7 +136,7 @@ function watchLens(index: LensIndex, classFor: (spanId: string, keep: boolean) =
       if (!skippable || !rest) return null;
       return (
         <div className="gtcall off" data-goal-head="">
-          <span className="gg">◎</span> <b>not needed for your goal</b> · {skippable.reasonMd.replace(/\.?\s*$/, "")}. Read it anyway, if you like.
+          <span className="gg">◎</span> <b>Optional at this depth</b> · {skippable.reasonMd.replace(/\.?\s*$/, "")}. Read it anyway, if you like.
         </div>
       );
     },
@@ -177,11 +177,11 @@ export function WhyCard({ why, band }: { why: WhyState; band: GoalBandDto | null
       style={place ? { left: place.left, top: place.top } : { left: -9999, top: 0 }}
     >
       <div className="gwh"><i className={`b ${legend ?? ""}`} />{whyLevelLine(section, band)}<span className="grow" /></div>
-      <div className="gwr"><b>For {goalShort(band)}:</b> {reason}{section.learnerLine ? ` ${section.learnerLine}` : ""}</div>
+      <div className="gwr"><b>For your goal:</b> {reason}{section.learnerLine ? ` ${section.learnerLine}` : ""}</div>
       {section.coverageLine || section.judgedPer ? (
         <div className="gwc">
           {section.coverageLine ?? ""}
-          {section.coverageLine ? " · " : ""}judged per section
+          {section.coverageLine ? " · " : ""}Based on this section
         </div>
       ) : null}
     </div>

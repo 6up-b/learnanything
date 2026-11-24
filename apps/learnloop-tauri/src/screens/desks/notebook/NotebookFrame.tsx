@@ -74,7 +74,7 @@ export function frameView(session: NotebookSessionDto | null, error: NotebookErr
     case "stopped":
       return { kind: "stopped", reason: session.stopReason };
     case "failed":
-      return { kind: "failed", message: session.error ?? "The notebook server stopped." };
+      return { kind: "failed", message: "The notebook couldn’t keep running. Select Try again." };
   }
 }
 
@@ -83,7 +83,7 @@ const STOPPED_WORDS: Record<string, string> = {
   make_room: "paused to make room for another notebook",
   closed: "closed",
   replaced: "replaced by a newer version",
-  vault_switch: "closed when the vault changed",
+  vault_switch: "closed when you switched libraries",
 };
 
 /** The one line a view says (interface text, JetBrains Mono). */
@@ -92,17 +92,17 @@ export function statusLine(view: FrameView): string {
     case "opening":
       return "opening the notebook…";
     case "starting":
-      return "starting the notebook (sandboxed, on this machine)…";
+      return "Starting the notebook on this device…";
     case "ready":
       return "";
     case "restarting":
-      return `the notebook stopped; starting it again (${view.restarts} of 3)…`;
+      return "Restarting the notebook…";
     case "retrying":
-      return `the notebook isn't answering; trying again (${view.retry} of ${RETRY.times})…`;
+      return "Waiting for the notebook. Trying again…";
     case "stopped":
-      return `notebook ${view.reason ? STOPPED_WORDS[view.reason] ?? "stopped" : "stopped"}`;
+      return `Notebook ${view.reason ? STOPPED_WORDS[view.reason] ?? "paused" : "paused"}. Select Resume.`;
     case "failed":
-      return `the notebook couldn't run: ${view.message}`;
+      return view.message;
     case "unavailable":
       return view.message;
   }

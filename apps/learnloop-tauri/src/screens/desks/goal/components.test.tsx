@@ -68,11 +68,11 @@ describe("a pad's anchors", () => {
 });
 
 describe("the band", () => {
-  it("says the goal in the learner's words, its LOs as dots in path order, the depth and what is next", () => {
+  it("shows the goal date, topic dots in path order, the depth and what is next", () => {
     const props = bandProps();
     render(<GoalBand {...props} />);
-    expect(screen.getByText(/◎ your goal · quest · no deadline/)).toBeTruthy();
-    expect(screen.getByText(/your words, 2 Nov/)).toBeTruthy();
+    expect(screen.getByText(/◎ your goal · no deadline/)).toBeTruthy();
+    expect(screen.getByText(/set 2 Nov/)).toBeTruthy();
     const dots = [...document.querySelectorAll("[data-gstop]")];
     expect(dots.map((dot) => dot.getAttribute("data-gstop"))).toEqual(["lo_fx_xent", "lo_fx_softmax", "lo_fx_temp", "lo_fx_grad", "lo_fx_attend"]);
     expect(dots[0].className).toBe("gs rd-untested pre");
@@ -102,19 +102,19 @@ describe("the band", () => {
     const value = band();
     const dots = value.learningObjects!.map((dot, i) => (i === 1 ? { ...dot, check: "due" as const, held: true, title: null } : i === 3 ? { ...dot, check: "answered" as const } : dot));
     render(<GoalBand {...bandProps({ band: { ...value, learningObjects: dots } })} />);
-    expect(document.querySelector(".gs.chk.due")!.getAttribute("title")).toBeNull();
+    expect(document.querySelector(".gs.chk.due")!.getAttribute("title")).toBe("Cold check due");
     expect(document.querySelector(".gs.chk.done")).toBeTruthy();
-    expect(document.querySelector("[data-gstop='lo_fx_softmax']")!.getAttribute("title")).toBe("a cold check is due on this topic");
+    expect(document.querySelector("[data-gstop='lo_fx_softmax']")!.getAttribute("title")).toBe("Topic details hidden");
   });
 
   it("an unmapped goal offers map it; a goal the learner did not set says so", () => {
     const props = bandProps({ band: { ...band(), status: "no_scope", learningObjects: [], counts: undefined } });
     const view = render(<GoalBand {...props} />);
-    fireEvent.click(screen.getByRole("button", { name: "map it" }));
+    fireEvent.click(screen.getByRole("button", { name: "Find reading" }));
     expect(props.onMapIt).toHaveBeenCalled();
     view.unmount();
-    render(<GoalBand {...bandProps({ band: { ...band(), status: "not_a_deliverable", message: "LearnLoop maps only goals you set yourself to your sources." } })} />);
-    expect(screen.getByText("LearnLoop maps only goals you set yourself to your sources.")).toBeTruthy();
+    render(<GoalBand {...bandProps({ band: { ...band(), status: "not_a_deliverable", message: "Choose a goal you set, or create one in Goals." } })} />);
+    expect(screen.getByText("Choose a goal you set, or create one in Goals.")).toBeTruthy();
   });
 });
 
@@ -150,7 +150,7 @@ describe("marks, dimming and callouts on a reading", () => {
       [`${ext}_c4`, `${ext}_c11`], [`${ext}_c12`, `${ext}_c15`], [`${ext}_c16`, `${ext}_c25`]]);
     render(<div>{watch.head!((spans) => (spans[0] === `${ext}_c4` ? { start: 18, end: 66 } : null))}{watch.mark!([`${ext}_c5`])}</div>);
     expect(document.querySelector("[data-goal-head]")!.textContent).toBe(
-      "◎ on your path · 0:18–1:06 · another way for “Turn scores into softmax weights”: the same recipe spoken: exponentiate, then divide by the sum. The rest is not needed for your goal.");
+      "◎ on your path · 0:18–1:06 · another explanation of “Turn scores into softmax weights”: the same recipe spoken: exponentiate, then divide by the sum. Other sections may be optional at this depth.");
     expect(document.querySelector(".gm")!.className).toBe("gm gl-sup gl-tx");
   });
 
@@ -162,7 +162,7 @@ describe("marks, dimming and callouts on a reading", () => {
     render(<div>{watch.head!(() => null)}</div>);
     const head = document.querySelector("[data-goal-head]")!;
     expect(head.className).toBe("gtcall off");
-    expect(head.textContent).toBe("◎ not needed for your goal · the setup, before any score: no LO your goal needs. Read it anyway, if you like.");
+    expect(head.textContent).toBe("◎ Optional at this depth · the setup, before any score: no LO your goal needs. Read it anyway, if you like.");
   });
 
   it("puts a mark in each passage's gutter that opens its why, and a callout at a section on the path", () => {
@@ -175,14 +175,14 @@ describe("marks, dimming and callouts on a reading", () => {
     fireEvent.click(mark);
     expect(handlers.tap).toHaveBeenCalled();
     expect(document.querySelectorAll(".callout.gcall")).toHaveLength(1);
-    expect(document.querySelector(".callout.gcall .lab")!.textContent).toBe("◎ for your goal · core");
+    expect(document.querySelector(".callout.gcall .lab")!.textContent).toBe("◎ for your goal · Main reading");
   });
 
   it("a paper's section heads take the light one-line form", () => {
     const paper = indexLens(goal.lens(FIXTURE_SOURCES.paper.extractionId));
     const lens = readerLens({ index: paper, dimOn: true, windowId: "w", handlers, paper: true })!;
     render(<div>{lens.before!(`${FIXTURE_SOURCES.paper.extractionId}_p1_h`)}{lens.mark!(`${FIXTURE_SOURCES.paper.extractionId}_p1_1`)}</div>);
-    expect(document.querySelector(".gpcall")!.textContent).toContain("for your goal · core:");
+    expect(document.querySelector(".gpcall")!.textContent).toContain("for your goal · Main reading:");
     expect(document.querySelector(".gm")!.className).toBe("gm gl-core gl-paper");
   });
 
@@ -191,12 +191,12 @@ describe("marks, dimming and callouts on a reading", () => {
     render(<WhyCard why={{ section, extractionId: BOOK, windowId: "w", rect: { left: 10, top: 200, right: 13, bottom: 260 } }} band={band()} />);
     const card = document.querySelector(".gwhy")!;
     expect(card.querySelector(".gwh")!.textContent).toBe("core for your goal");
-    expect(card.querySelector(".gwr")!.textContent).toBe("For softmax for attention: The formula you'll write: exponentiate each score and divide by the sum.");
-    expect(card.querySelector(".gwc")!.textContent).toBe("coverage: introduces “Turn scores into softmax weights” · a goal LO · its primary section · core · judged per section");
+    expect(card.querySelector(".gwr")!.textContent).toBe("For your goal: The formula you'll write: exponentiate each score and divide by the sum.");
+    expect(card.querySelector(".gwc")!.textContent).toBe("coverage: introduces “Turn scores into softmax weights” · a goal LO · its primary section · core · Based on this section");
   });
 
   it("the why card of a held section says only the neutral line", () => {
-    const section = { ...index!.bySpan.get(`${BOOK}_s1_2`)!, held: true, reasonMd: "A cold check is due on a topic here. Why it matters comes back once you've answered it.", coverageLine: null, learnerLine: null };
+    const section = { ...index!.bySpan.get(`${BOOK}_s1_2`)!, held: true, reasonMd: "Details are hidden while a question is due.", coverageLine: null, learnerLine: null };
     render(<WhyCard why={{ section, extractionId: BOOK, windowId: "w", rect: { left: 10, top: 200, right: 13, bottom: 260 } }} band={band()} />);
     expect(document.querySelector(".gwhy")!.textContent).not.toContain("Turn scores");
   });
@@ -286,7 +286,7 @@ describe("the path view", () => {
     cleanup();
     render(<PathView {...props({ onCorrect: undefined })} />);
     expect(document.querySelector("[data-gp-change]")).toBeNull();
-    expect(screen.getByText(/resolved to/).textContent).not.toContain("change:");
+    expect(document.querySelector(".gp-scope")!.textContent).not.toContain("change:");
   });
 
   it("lists each LO with its primary, another way and the depth sizes; marks where you are reading", () => {
@@ -295,8 +295,8 @@ describe("the path view", () => {
     const rows = [...document.querySelectorAll("[data-gp-lo]")].map((row) => row.getAttribute("data-gp-lo"));
     expect(rows).toEqual(["lo_fx_xent", "lo_fx_softmax", "lo_fx_temp", "lo_fx_grad", "lo_fx_attend"]);
     expect(document.querySelector("[data-gp-lo='lo_fx_softmax']")!.className).toBe("gp-lo here");
-    expect(screen.getByText("you are reading here")).toBeTruthy();
-    expect(screen.getByText(/resolved to/).textContent).toBe("resolved to 3 learning objects, plus 2 prerequisites you haven't shown yet · change: type what's missing or not needed");
+    expect(screen.getByText("In view")).toBeTruthy();
+    expect(document.querySelector(".gp-scope")!.textContent).toBe("3 topics for your goal and 2 background topics · change: type what's missing or not needed");
     expect(screen.getAllByText(/· 5 sections · 10 min/)).toHaveLength(2);
     expect(screen.getByText(/No deadline, so no pace target; you've averaged 4.2 attempts a day over 14 days./)).toBeTruthy();
     fireEvent.click(screen.getByText("use this one instead"));
@@ -325,6 +325,6 @@ describe("the path view", () => {
     const row = document.querySelector("[data-gp-lo='lo_fx_softmax']")!;
     expect(row.textContent).not.toContain("Turn scores");
     expect(row.textContent).not.toContain("The formula you'll write");
-    expect(row.textContent).toContain("due today");
+    expect(row.querySelector(".gp-chk .gp-at")?.textContent).toBe("Due");
   });
 });

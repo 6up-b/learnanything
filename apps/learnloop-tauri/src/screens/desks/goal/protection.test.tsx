@@ -2,7 +2,7 @@
 // of the band, the lens and the path (curriculum.goal_lens, its protection). This checks the client adds nothing back: the
 // band, the "you are reading" line (whose place words come from the window, the book's own heading), the path view and
 // the why card render no text, title or attribute naming the masked LO or its section.
-import { cleanup, render } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { GoalBandDto, GoalLensDto } from "../../../api/dto";
 import { FixtureGoal } from "../../../fixtures/desks/goal";
@@ -14,9 +14,9 @@ import { PathView } from "./PathView";
 
 const BOOK = FIXTURE_SOURCES.book.extractionId;
 const MASKED = "lo_fx_softmax";
-const NEUTRAL_LO = "a topic with a cold check due";
-const NEUTRAL_SECTION = "a section held until its cold check";
-const HELD_REASON = "A cold check is due on a topic here. Why it matters comes back once you've answered it.";
+const NEUTRAL_LO = "Topic details hidden";
+const NEUTRAL_SECTION = "Section details hidden";
+const HELD_REASON = "Details are hidden while a question is due.";
 afterEach(cleanup);
 
 /** The band and lens as the server sends them while MASKED's check is due (the goal lens protection rules). */
@@ -28,13 +28,15 @@ function masked(): { band: GoalBandDto; lens: GoalLensDto; names: string[] } {
   const line = band.path!.lines.find((each) => each.learningObjectId === MASKED)!;
   // What may not appear anywhere: the LO's title and the titles of the sections that treat it.
   const names = [dot.title!, line.section.title, ...line.alternates.map((alternate) => alternate.title)];
+  band.goal = { ...band.goal, sentence: `Learn ${names[0]}`, title: names[0] };
+  band.unmatched = [{ ...band.unmatched![0], phrase: names[0], proposedTitle: names[1] }];
   const heldSections = new Set([line.section.sectionId, ...line.alternates.map((alternate) => alternate.sectionId)]);
   const neutral = <T extends { title: string }>(section: T): T => ({ ...section, title: NEUTRAL_SECTION, treatmentWords: "", treatment: null, difference: "" });
   band.learningObjects = band.learningObjects!.map((each) => (each.learningObjectId === MASKED
     ? { ...each, title: null, readinessLine: null, held: true, primary: each.primary ? { ...each.primary, title: NEUTRAL_SECTION } : null } : each));
   band.path = { ...band.path!, lines: band.path!.lines.map((each) => (each.learningObjectId === MASKED
     ? { ...each, title: NEUTRAL_LO, phrase: "", reason: null, held: true, section: neutral(each.section), alternates: each.alternates.map(neutral),
-        exercise: each.exercise ? { ...each.exercise, label: "an exercise held until its cold check" } : null }
+        exercise: each.exercise ? { ...each.exercise, label: "Exercise details hidden" } : null }
     : { ...each, section: heldSections.has(each.section.sectionId) ? neutral(each.section) : each.section })) };
   if (band.next?.kind === "section" && band.next.learningObjectId === MASKED) band.next = { ...band.next, section: { ...band.next.section, title: NEUTRAL_SECTION } };
   lens.levels = lens.levels.map((level) => (level.loIds.includes(MASKED) || heldSections.has(level.sectionId)
@@ -60,15 +62,17 @@ function leaks(names: string[]): string[] {
 }
 
 describe("a masked LO, rendered", () => {
-  it("is named nowhere in the band, its you-are-reading line, the path view or the why card", () => {
+  it("is named nowhere in the band, its current location, the path view or the why card", () => {
     const { band, lens, names } = masked();
     const index = indexLens(lens)!;
     const held = lens.levels.find((level) => level.loIds.includes(MASKED))!;
     // The window's own place words are the book's heading of the held section: they must not reach the band.
-    const here = hereLine(index, held.startSpanId, held.title === NEUTRAL_SECTION ? names[1] : "", band);
+    const here = hereLine(index, held.startSpanId, names[1], band);
+    const optional = indexLens({ ...lens, levels: lens.levels.map((level) => level === held ? { ...level, level: "skippable" } : level) })!;
+    expect(hereLine(optional, held.startSpanId, names[1], band)?.where).toBe(NEUTRAL_SECTION);
     render(
       <div>
-        <GoalBand band={band} goals={new FixtureGoal().goals().goals} here={here} dimOn onToggleDim={vi.fn()} onPath={vi.fn()} onDepth={vi.fn()}
+        <GoalBand band={band} goals={new FixtureGoal().goals().goals.map((goal) => ({ ...goal, title: names[0], intentSentence: names[0] }))} here={here} dimOn onToggleDim={vi.fn()} onPath={vi.fn()} onDepth={vi.fn()}
           onOpenLo={vi.fn()} onNext={vi.fn()} onChooseGoal={vi.fn()} onMapIt={vi.fn()} />
         <PathView band={band} here={MASKED} notNeeded={[]} onClose={vi.fn()} onDepth={vi.fn()} onOpen={vi.fn()} onUseInstead={vi.fn()}
           onReadAnyway={vi.fn()} onAddPhrase={vi.fn()} />
@@ -76,6 +80,7 @@ describe("a masked LO, rendered", () => {
       </div>,
     );
     expect(here?.where).toBe(NEUTRAL_SECTION);
+    fireEvent.click(screen.getByRole("button", { name: "Switch goal" }));
     expect(leaks(names)).toEqual([]);
     // It is still there, held: the dot, the path row and the card say a check is due.
     expect(document.querySelector(`[data-gstop='${MASKED}']`)).toBeTruthy();

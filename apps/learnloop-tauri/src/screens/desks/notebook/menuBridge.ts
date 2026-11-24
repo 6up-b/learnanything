@@ -9,7 +9,7 @@ import type { BridgeMessage } from "./bridge";
 // reactive"): an empty `cell` block, the learner's, run in the sandbox like every cell. The menu's row calls the
 // menu's own insert with this; docs/reviews/notebook-cells-b6.md has the two lines that enable it.
 export const MARIMO_CELL_INSERT = { kind: "cell", provenance: "learner", bodyMd: "", payload: {} } as const;
-export const MARIMO_CELL_ROW = { key: "m", glyph: "◆", label: "marimo cell", note: "Python that runs beside your notes, reactive" } as const;
+export const MARIMO_CELL_ROW = { key: "m", glyph: "◆", label: "Python cell", note: "Run code beside your notes" } as const;
 
 export interface NotebookMenuRequest {
   owner: NotebookOwner;

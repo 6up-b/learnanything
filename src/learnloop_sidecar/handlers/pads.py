@@ -67,7 +67,7 @@ def pad_get_handler(ctx: SidecarContext, params: PadGetInput) -> dict[str, Any]:
     try:
         view = pad_view(repository, params.pad_id)
     except PadNotFound as exc:
-        raise SidecarError("pad_not_found", f"No pad {params.pad_id!r}.") from exc
+        raise SidecarError("pad_not_found", "Couldn’t find this pad. Open it again from the window list.") from exc
     # A block's payload and an anchor's JSON are the client's, returned with their keys as stored.
     for block in view["blocks"]:
         block["payload"] = Verbatim(block["payload"])
@@ -160,7 +160,7 @@ def _hand_to_attempt(ctx: SidecarContext, vault: Any, prepared: submission_core.
 
     item = vault.practice_items.get(prepared.practice_item_id)
     if item is None:
-        raise SidecarError("not_found", f"Practice Item {prepared.practice_item_id} was not found.")
+        raise SidecarError("not_found", "Couldn’t find that question. Reopen it from Practice.")
     submission = SubmitAttemptInput(
         session_id=prepared.session_id,
         practice_item_id=prepared.practice_item_id,
@@ -202,7 +202,7 @@ def _teach_back_status(repository: Any, prepared: submission_core.Prepared,
             if conversation_id is not None and state.conversation_id == conversation_id:
                 return "ongoing", state.to_dict(), None
             raise SidecarError("teach_back_in_progress",
-                               "A teach-back of this item is already under way in this session; finish it first.")
+                               "Return to Practice to finish the explanation you started.")
     return "not_started", None, None
 
 
@@ -270,7 +270,7 @@ def pad_submit_block_handler(ctx: SidecarContext, params: PadSubmitBlockInput) -
     entry: dict[str, Any] | None = _hand_to_attempt(ctx, vault, prepared, params.target)
     attempt_id = (entry or {}).get("attemptId")
     if not attempt_id:
-        raise SidecarError("internal", "The attempt entry point recorded no attempt.")
+        raise SidecarError("internal", "Couldn’t record this answer. Open the question in Practice and try again.")
     row = submission_core.record(repository, prepared, attempt_id=attempt_id, teach_back_id=None)
     return _submission_reply(row, duplicate=False, entry=entry)
 

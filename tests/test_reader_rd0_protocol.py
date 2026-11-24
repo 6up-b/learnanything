@@ -110,7 +110,7 @@ def test_a_refused_op_leaves_no_partial_write_and_the_batch_still_lands(reposito
     reply = batches.desk({"op": "pair", "desk_id": "d1", "window_id": "w1", "expected_version": 2},
                          {"op": "rename_desk", "desk_id": "d1", "title": "after", "expected_version": 2})
     assert reply["results"][0] == {"status": "refused", "code": "nothing_to_the_right",
-                                   "message": "Nothing to the right to share this slot with."}
+                                   "message": "Open a window on the right to stack these windows."}
     assert reply["results"][1] == {"status": "ok"} and reply["applied_seq"] == 3
     assert _slots(repository) == [["w1"]]
 

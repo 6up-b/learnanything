@@ -223,7 +223,7 @@ describe("the pen layer", () => {
     expect(vi.mocked(api.readerCapture).mock.calls[0][0]).toMatchObject({ action: "interpretation", rawSelection: { nodes: [{ spanId: "s1", start: 0, end: 1_000_000 }] } });
     const inkId = vi.mocked(host.saveInk).mock.calls[0][0].inkId;
     expect(api.inkTranscribe).toHaveBeenCalledWith({ inkId });
-    expect(screen.getByText("handwriting can't be read yet · your ink is kept")).toBeTruthy();
+    expect(screen.getByText("Couldn’t convert the handwriting. You can type your note here.")).toBeTruthy();
     const field = screen.getByLabelText("your note's words");
     fireEvent.change(field, { target: { value: "does the log cancel the exp?" } });
     fireEvent.keyDown(field, { key: "Enter" });
@@ -281,7 +281,7 @@ describe("the pen layer", () => {
     const { api, host } = setup();
     draw([[150, 105], [250, 160], [300, 110], [420, 170]]);
     await settle();
-    expect(screen.getByText("ink · not recognised · kept on the page")).toBeTruthy();
+    expect(screen.getByText("Ink on the page. Draw over or beside text to make a mark.")).toBeTruthy();
     expect(api.readerCapture).not.toHaveBeenCalled();
     expect(host.saveInk).toHaveBeenCalledTimes(1);
     expect(vi.mocked(host.saveInk).mock.calls[0][0].owner).toEqual({ extractionId: "ext" });

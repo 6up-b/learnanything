@@ -38,8 +38,7 @@ from learnloop_sidecar.registry import method
 VIDEO_RPCS: tuple[str, ...] = ("reader.follow_along", "chapters.list", "chapters.suggest", "chapters.job",
                                "chapters.cancel", "chapters.decide")
 KIND = "chapters.suggest"
-NOT_FOUND_MESSAGE = ("This suggestion isn't running any more (LearnLoop restarted or the vault changed since it was "
-                     "asked). Ask again: a video already judged is not judged twice.")
+NOT_FOUND_MESSAGE = "This suggestion expired. Select Suggest from the transcript again."
 _REGISTRY = "video_chapter_jobs"
 _JOBS_LOCK = threading.Lock()
 

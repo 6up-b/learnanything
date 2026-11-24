@@ -15,7 +15,7 @@ export interface CardFaceProps {
   progress: number | null;
   /** A pad stack's bands, or a pair's second pane. */
   extra?: ReactNode;
-  /** Where the live miniature goes; null for a window not opened yet (its desk was never visited). */
+  /** Where the live miniature goes; null for a window Preview unavailable (its desk was never visited). */
   miniatureHost: ((node: HTMLDivElement | null) => void) | null;
   paper: boolean;
 }
@@ -25,7 +25,7 @@ export function CardFace({ glyph, kind, title, where, progress, extra, miniature
     <div className="desk-card-face">
       {/* The picture first, as the mockup's cards: then the name, the minimap bar and where. */}
       <div className={`desk-card-thumb${paper ? " paper" : ""}`}>
-        {miniatureHost ? <div className="desk-card-mini" ref={miniatureHost} /> : <div className="desk-card-unopened">not opened yet</div>}
+        {miniatureHost ? <div className="desk-card-mini" ref={miniatureHost} /> : <div className="desk-card-unopened">Preview unavailable</div>}
       </div>
       <div className="desk-card-n"><span className="desk-card-g">{glyph}</span> {title}</div>
       <div className="desk-card-k">{kind}</div>

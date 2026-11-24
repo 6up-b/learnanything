@@ -16,8 +16,8 @@ vi.mock("../../../render/MarkdownMath", () => ({ MarkdownMath: ({ value }: { val
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 
 const NAME = "Eigenvalues";
-const NEUTRAL_LO = "a topic with a cold check due";
-const NEUTRAL_SECTION = "a section held until its cold check";
+const NEUTRAL_LO = "Topic details hidden";
+const NEUTRAL_SECTION = "Section details hidden";
 const LAYOUT = { videos: [{ windowId: "w_vid", extractionId: "ext_vid", title: "Matrices, a video" }], books: [{ windowId: "w_book", extractionId: "ext_book", paused: false }] };
 const flush = () => act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
 
@@ -65,7 +65,7 @@ describe("a masked LO on the video desks", () => {
     await flush();
     render(<div><FollowChip desk={desk} windowId="w_book" /><WindowScope lifecycle={{ windowId: "w_vid", state: "active" }} hub={DIRECT_HUB}><Chapters transport={transport} /></WindowScope></div>);
     await flush();
-    expect(document.querySelector("[data-follow='following']")!.textContent).toContain(NEUTRAL_SECTION);
+    expect(document.querySelector("[data-follow='following']")!.textContent).toContain("Chapter at 0:20");
     expect(leaks(NAME)).toEqual([]);
     act(() => desk.toggle("w_book"));
     expect(document.querySelector("[data-follow='unlinked']")).toBeTruthy();
@@ -95,6 +95,6 @@ describe("a masked LO on the video desks", () => {
     desk.clock("w_vid", "ext_vid", { t: 26, playing: true, spanId: "c3", duration: 60 });
     await flush();
     expect(calls).toBe(2);
-    expect(desk.chipFor("w_book")).toMatchObject({ chapter: NEUTRAL_SECTION });
+    expect(desk.chipFor("w_book")).toMatchObject({ chapter: "Chapter at 0:20" });
   });
 });

@@ -283,9 +283,9 @@ class _Layout:
 def _desk(connection: Any, desk_id: str, expected: int | None) -> dict[str, Any]:
     desk = store.desk(connection, desk_id)
     if desk is None:
-        raise OpRefused("desk_not_found", f"No desk {desk_id!r}.")
+        raise OpRefused("desk_not_found", "Couldn’t find this desk. Open a desk and try again.")
     if desk["archived_at"] is not None:
-        raise OpRefused("desk_archived", "That desk is archived.")
+        raise OpRefused("desk_archived", "This desk is archived. Open another desk.")
     if expected is None or int(expected) != int(desk["version"]):
         raise OpConflict({"desk_id": desk_id, "version": int(desk["version"])})
     return desk
@@ -300,12 +300,12 @@ def _window_desk(connection: Any, desk_id: str, window_id: str, expected: int | 
     desk = _desk(connection, desk_id, expected)
     window = store.window(connection, window_id)
     if window is None:
-        raise OpRefused("window_not_found", f"No window {window_id!r}.")
+        raise OpRefused("window_not_found", "Couldn’t find this window. Open it again.")
     if window["desk_id"] != desk_id:
         raise OpConflict({"desk_id": desk_id, "version": int(desk["version"]), "window_id": window_id,
                           "window_desk_id": window["desk_id"]})
     if open_only and window["closed_at"] is not None:
-        raise OpRefused("window_closed", "That window is closed.")
+        raise OpRefused("window_closed", "This window is closed. Open it again.")
     return window, desk
 
 
@@ -318,7 +318,7 @@ def _apply_desk_op(connection: Any, op: Any, now: str, versions: dict[str, int])
         if existing is not None:
             raise OpConflict({"desk_id": op.desk_id, "version": int(existing["version"])})
         if op.expected_version not in (None, 0):
-            raise OpRefused("validation_error", "A new desk expects no version.")
+            raise OpRefused("validation_error", "Couldn’t create this desk. Reopen Reader and try again.")
         store.insert_desk(connection, desk_id=op.desk_id, title=op.title, position=op.position, goal_id=op.goal_id,
                           companion_dock=op.companion_dock, now=now)
         versions[op.desk_id] = 1
@@ -343,13 +343,13 @@ def _apply_desk_op(connection: Any, op: Any, now: str, versions: dict[str, int])
         if op.window_id is not None:
             window = store.window(connection, op.window_id)
             if window is None or window["closed_at"] is not None or window["desk_id"] != op.desk_id:
-                raise OpRefused("window_not_open", "Only an open window of this desk can take the focus.")
+                raise OpRefused("window_not_open", "Open this window on the desk before selecting it.")
         bump(op.desk_id, focus_window_id=op.window_id)
         return None
     if isinstance(op, OpenWindow):
         _desk(connection, op.desk_id, op.expected_version)
         if store.window(connection, op.window_id) is not None:
-            raise OpRefused("window_exists", f"A window {op.window_id!r} already exists.")
+            raise OpRefused("window_exists", "This window already exists. Find it in the window list.")
         layout = _Layout(connection, op.desk_id)
         at = layout.index_of(op.after_window_id) + 1 if op.after_window_id else len(layout.slots)
         if op.stack is not None:
@@ -419,11 +419,11 @@ def _apply_desk_op(connection: Any, op: Any, now: str, versions: dict[str, int])
         layout = _Layout(connection, desk["desk_id"])
         index = layout.index_of(op.window_id)
         if len(layout.slots[index]) >= PAIR_SIZE:
-            raise OpRefused("slot_full", "A slot holds at most two windows.")
+            raise OpRefused("slot_full", "Choose a window next to an unstacked window and try again.")
         if index + 1 >= len(layout.slots):
-            raise OpRefused("nothing_to_the_right", "Nothing to the right to share this slot with.")
+            raise OpRefused("nothing_to_the_right", "Open a window on the right to stack these windows.")
         if len(layout.slots[index + 1]) >= PAIR_SIZE:
-            raise OpRefused("slot_full", "A slot holds at most two windows.")
+            raise OpRefused("slot_full", "Choose a window next to an unstacked window and try again.")
         neighbour = layout.slots.pop(index + 1)
         layout.slots[index].extend(neighbour)
         layout.active -= set(layout.slots[index])
@@ -436,7 +436,7 @@ def _apply_desk_op(connection: Any, op: Any, now: str, versions: dict[str, int])
         layout = _Layout(connection, desk["desk_id"])
         index = layout.index_of(op.window_id)
         if len(layout.slots[index]) < PAIR_SIZE:
-            raise OpRefused("not_paired", "That window already has its own slot.")
+            raise OpRefused("not_paired", "This window already has its own space.")
         layout.slots[index].remove(op.window_id)
         layout.slots.insert(index + 1, [op.window_id])
         layout.write()
@@ -447,7 +447,7 @@ def _apply_desk_op(connection: Any, op: Any, now: str, versions: dict[str, int])
         layout = _Layout(connection, desk["desk_id"])
         index = layout.index_of(op.window_id)
         if len(layout.slots[index]) < PAIR_SIZE:
-            raise OpRefused("not_paired", "Only a pane of a pair is made active.")
+            raise OpRefused("not_paired", "Choose a window in the stack.")
         layout.active -= set(layout.slots[index])
         layout.active.add(op.window_id)
         layout.write()
@@ -468,9 +468,9 @@ def _apply_desk_op(connection: Any, op: Any, now: str, versions: dict[str, int])
 def _open_desk(connection: Any, desk_id: str) -> dict[str, Any]:
     desk = store.desk(connection, desk_id)
     if desk is None:
-        raise OpRefused("desk_not_found", f"No desk {desk_id!r}.")
+        raise OpRefused("desk_not_found", "Couldn’t find this desk. Open a desk and try again.")
     if desk["archived_at"] is not None:
-        raise OpRefused("desk_archived", "That desk is archived.")
+        raise OpRefused("desk_archived", "This desk is archived. Open another desk.")
     return desk
 
 
@@ -495,12 +495,12 @@ def _stack_membership(connection: Any, op: AddToStack | RemoveFromStack, now: st
     _open_desk(connection, op.desk_id)
     window = store.window(connection, op.window_id)
     if window is None or window["desk_id"] != op.desk_id:
-        raise OpRefused("window_not_found", f"No window {op.window_id!r} on that desk.")
+        raise OpRefused("window_not_found", "Couldn’t find this window on the desk. Open it again.")
     if window["kind"] != "pad_stack":
-        raise OpRefused("not_a_stack", "That window is not a pad stack.")
+        raise OpRefused("not_a_stack", "Choose a stack of pads and try again.")
     entry = op.entry.wire()
     if entry.get("kind") == "pad" and pad_reads.pad(connection, str(entry["pad_id"])) is None:
-        raise OpRefused("pad_not_found", f"No pad {entry['pad_id']!r}.")
+        raise OpRefused("pad_not_found", "Couldn’t find this pad. Open it again.")
     stack = _stack_of(window)
     present = any(_same_entry(existing, entry) for existing in stack)
     changed = False
@@ -510,7 +510,7 @@ def _stack_membership(connection: Any, op: AddToStack | RemoveFromStack, now: st
     elif isinstance(op, RemoveFromStack) and present:
         remaining = [existing for existing in stack if not _same_entry(existing, entry)]
         if not remaining:
-            raise OpRefused("last_in_stack", "A stack holds at least one pad: close the window instead.")
+            raise OpRefused("last_in_stack", "This is the last pad in the stack. Close the window to close it.")
         stack, changed = remaining, True
     if changed:
         _write_stack(connection, op.window_id, stack)
@@ -526,7 +526,7 @@ def _ensure_running_pad(connection: Any, op: EnsureRunningPad, now: str, bump: A
     created_pad = not running
     if created_pad:
         if pad_reads.pad(connection, op.pad_id) is not None:
-            raise OpRefused("id_collision", f"A pad {op.pad_id!r} already exists.")
+            raise OpRefused("id_collision", "This pad already exists. Find it in the window list.")
         pad_store.insert_pad(connection, pad_id=op.pad_id, kind="running", title=op.title, home_desk_id=op.desk_id,
                              workbench_session_id=None, lesson_id=None, now=now)
         running = [op.pad_id]
@@ -543,7 +543,7 @@ def _ensure_running_pad(connection: Any, op: EnsureRunningPad, now: str, bump: A
         added = True
     else:
         if store.window(connection, op.window_id) is not None:
-            raise OpRefused("window_exists", f"A window {op.window_id!r} already exists.")
+            raise OpRefused("window_exists", "This window already exists. Find it in the window list.")
         layout = _Layout(connection, op.desk_id)
         store.insert_window(connection, window_id=op.window_id, desk_id=op.desk_id, slot=len(layout.slots) + 1,
                             kind="pad_stack", spec={"stack": [entry]}, view={}, now=now)

@@ -105,26 +105,26 @@ def prepare(repository: Any, *, submission_id: str, block_id: str, version_id: s
                             existing=existing)
         version = reads.version(connection, version_id)
         if version is None or version["block_id"] != block_id:
-            raise SubmissionRefused("version_not_found", "No such version of that block.")
+            raise SubmissionRefused("version_not_found", "Reopen the pad and submit the current text.")
         head = reads.head(connection, block_id)
         if head is None or head["tombstone"]:
-            raise SubmissionRefused("block_removed", "That block was removed.")
+            raise SubmissionRefused("block_removed", "This line was removed. Choose another line.")
         words = words_version(lineage(connection, block_id)) if head["kind"] != "check_cell" else None
         current = {str(words["version_id"]), str(head["version_id"])} if words is not None else {str(head["version_id"])}
         same_words = head["kind"] == version["kind"] and head["body_md"] == version["body_md"]
         if version_id not in current and not same_words:
-            raise SubmissionRefused("stale_version", "The block was edited since; submit its current words.",
+            raise SubmissionRefused("stale_version", "This line has changed. Check the latest text and submit again.",
                                     {"block_id": block_id, "head_version_id": str(head["version_id"])})
         allowed = SUBMITTABLE.get(str(version["kind"]), frozenset())
         if allowed is not None and version["provenance"] not in allowed:
-            raise SubmissionRefused("not_learners_words", "Only your own words can be submitted.")
+            raise SubmissionRefused("not_learners_words", "Write your answer in your own words, then submit it.")
         text = str(version["body_md"] or "").strip()
         if not text:
-            raise SubmissionRefused("empty_block", "That block has no words to submit.")
+            raise SubmissionRefused("empty_block", "Write your answer, then submit it.")
         pad = reads.pad(connection, str(version["pad_id"])) or {}
         if submitted_as == ATTEMPT and _answered_item(connection, pad, version) != practice_item_id:
             raise SubmissionRefused(
-                "not_an_answer", "A block is submitted as an answer only from its problem pad or its check cell.",
+                "not_an_answer", "Open the pad for the question you’re answering, then submit your answer there.",
                 {"practice_item_id": practice_item_id})
         quotes = quotes_of(connection, repository, head)
     if includes_quote(text, quotes):

@@ -319,8 +319,8 @@ describe("the shelf's running pad and the pad stack's title bar, as the mockup h
     // The stack that shows the pad took the focus (a press inside a frame never reaches the desks).
     expect(document.querySelector(".desk-window.focus [data-desk-window]")?.getAttribute("data-desk-window")).toBe("fx_w_pads");
     const menu = await screen.findByRole("menu", { name: "the pad menu" });
-    expect(within(menu).getByText("your pad · “x = 1”")).toBeTruthy();
-    expect(within(menu).getByText("marimo cell")).toBeTruthy();
+    expect(within(menu).getByText("Pad options")).toBeTruthy();
+    expect(within(menu).getByText("Python cell")).toBeTruthy();
   });
 });
 

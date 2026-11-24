@@ -75,7 +75,7 @@ function errorOf(error: unknown): { code: string; message: string; retryable: bo
 
 const UNSAVED = {
   code: "desk_not_saved",
-  message: "Your desk's latest changes couldn't be saved, so this question was not sent (it is asked about the desk as it is saved).",
+  message: "Your question hasn’t been sent. Try again when your desk changes finish saving.",
   retryable: true,
 };
 
@@ -291,7 +291,7 @@ export class CompanionAsks {
           return { ...base, status: "cancelled", stopping: false };
         case "expired":
           // Finished and dropped from the sidecar's memory: the exchange is in the history.
-          return { ...base, status: "interrupted", error: { code: "expired", message: "This finished while the panel was away; it is in your history.", retryable: false } };
+          return { ...base, status: "interrupted", error: { code: "expired", message: "This reply is no longer available here. Check History or ask again.", retryable: false } };
         default:
           return { ...base, status: "asking" };
       }

@@ -80,7 +80,7 @@ describe("the ink cache's readings", () => {
     const { cache } = setup({}, async () => "unsaved");
     cache.addStrokes("p", "b1", "ink_1", [stroke("s1")]);
     await cache.read("p", "b1", null);
-    expect(cache.pad("p").readings.b1.message).toBe("your ink isn't sent yet · it is kept while LearnLoop stays open");
+    expect(cache.pad("p").readings.b1.message).toBe("Waiting for your handwriting to save. Keep LearnLoop open, then try again.");
   });
 });
 

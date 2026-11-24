@@ -1,4 +1,4 @@
-// A marimo cell in a pad (spec §10.4 `cell`, §11.5): its header ("marimo · reactive · runs when you press ⇧↵")
+// A marimo cell in a pad (spec §10.4 `cell`, §11.5): its header ("Python cell · ⇧↵ (Shift+Enter) runs code")
 // with the cell's state, its code (the learner's, or the tutor's with its provenance shown), and, under the pad's
 // last cell, the one live framed group that shows every cell's output (widgets live), served by the pad's
 // sandboxed session. The pad renders this for its `cell` blocks; everything else about cells lives here.
@@ -113,10 +113,10 @@ export function PadCell({ padId, block, blocks, editable, onCommit }: PadCellPro
   return (
     <div className="ll-cell" data-cell-block={block.blockId}>
       <div className="ll-cell-head">
-        <span className="what">marimo · reactive · runs when you press ⇧↵{tutor ? " · the tutor's" : ""}</span>
+        <span className="what">Python cell · ⇧↵ (Shift+Enter) runs code{tutor ? " · the tutor's" : ""}</span>
         <span className="state" data-cell-state="">{cellStateLine(state, block.blockId)}</span>
         {editable ? (
-          <button type="button" className="run" aria-label="run this cell" onClick={() => void run(draft ?? block.bodyMd)}>▶</button>
+          <button type="button" className="run" aria-label="Run code" title="Run code" onClick={() => void run(draft ?? block.bodyMd)}>▶</button>
         ) : null}
       </div>
       {draft !== null && editable ? (
@@ -134,7 +134,7 @@ export function PadCell({ padId, block, blocks, editable, onCommit }: PadCellPro
               setDraft(null);
             }}
           />
-          <div className="hintline">python · ⇧↵ runs · tab indents · esc puts it back</div>
+          <div className="hintline">Python · ⇧↵ (Shift+Enter) runs code · Tab indents · Esc cancels editing</div>
         </div>
       ) : (
         <pre className="ll-cell-code" onClick={() => editable && setDraft(block.bodyMd)}>{block.bodyMd || "# Python, run beside your notes"}</pre>
@@ -144,7 +144,7 @@ export function PadCell({ padId, block, blocks, editable, onCommit }: PadCellPro
           <NotebookFrame
             key={state.generation}
             owner={`pad:${padId}`}
-            title="your marimo cells"
+            title="Your Python cells"
             style={{ height: GROUP_HEIGHT_PX }}
             onSession={(session) => notePadSession(key, session)}
           />

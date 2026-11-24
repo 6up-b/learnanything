@@ -169,7 +169,7 @@ describe("an ink pad", () => {
     expect(api.inkTranscribe).toHaveBeenCalledTimes(1);
     const inkId = vi.mocked(api.inkTranscribe).mock.calls[0][0].inkId;
     expect(inkId).toMatch(/^ink_/);
-    expect(within(line("fx_b_h3")).getByText(/handwriting can't be read yet · your ink is kept/)).toBeTruthy();
+    expect(within(line("fx_b_h3")).getByText(/Couldn’t convert this handwriting. You can/)).toBeTruthy();
     expect(line("fx_b_h3").querySelectorAll("path[data-ink-stroke]")).toHaveLength(4);
     fireEvent.click(within(line("fx_b_h3")).getByText("type what you wrote"));
     const field = within(line("fx_b_h3")).getByLabelText("what this line says");

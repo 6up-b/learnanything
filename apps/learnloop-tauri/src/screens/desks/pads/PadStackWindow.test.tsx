@@ -161,7 +161,7 @@ describe("a pad stack window", () => {
     expect(block("fx_b_r1").getAttribute("data-emits")).toBe("yes");
     for (const id of ["fx_b_r2", "fx_b_r3", "fx_b_r5"]) {
       expect(block(id).getAttribute("data-emits"), id).toBe("no");
-      expect(block(id).getAttribute("title"), id).toBe("quoted, not read as your words");
+      expect(block(id).getAttribute("title"), id).toBe(id === "fx_b_r2" ? "From a source" : "From LearnLoop");
     }
     expect(within(block("fx_b_r4")).getByText("submitted · teach-back")).toBeTruthy();
     expect(within(block("fx_b_r2")).getByRole("button", { name: /Softmax, a short book p\.1 ↩/ })).toBeTruthy();
@@ -175,7 +175,7 @@ describe("a pad stack window", () => {
     await screen.findAllByText(/quotes/);
     for (const element of document.querySelectorAll("[data-block]")) expect(element.getAttribute("data-emits")).toBe("no");
     fireEvent.click(screen.getByRole("button", { name: "where your words go" }));
-    expect(screen.getByText(/nothing on these pads is read as your words yet/)).toBeTruthy();
+    expect(screen.getByText(/These pads have no writing that counts as your own words yet/)).toBeTruthy();
   });
 
   it("the jot line opens a new block in the editor; ↵ keeps it and opens the next; esc takes back a line never written", async () => {
@@ -264,7 +264,7 @@ describe("a pad stack window", () => {
     fireEvent.contextMenu(block("fx_b_r2"));
     let menu = screen.getByRole("menu", { name: "the pad menu" });
     expect(within(menu).queryByText("Submit this block as…")).toBeNull();
-    expect((within(menu).getByText("marimo cell").closest("button") as HTMLButtonElement).disabled).toBe(false);
+    expect((within(menu).getByText("Python cell").closest("button") as HTMLButtonElement).disabled).toBe(false);
     expect(within(menu).queryByText(/arrives with notebooks/)).toBeNull();
     fireEvent.keyDown(window, { key: "Escape" });
     expect(screen.queryByRole("menu")).toBeNull();
@@ -277,7 +277,7 @@ describe("a pad stack window", () => {
     const { store, flush } = mount();
     await waitFor(() => expect(block("fx_b_r1")).toBeTruthy());
     fireEvent.contextMenu(block("fx_b_r1"));
-    fireEvent.click(screen.getByText("marimo cell"));
+    fireEvent.click(screen.getByText("Python cell"));
     await flush();
     const blocks = store.pads.fx_pad_running.blocks;
     const at = blocks.findIndex((each) => each.blockId === "fx_b_r1");
@@ -307,11 +307,11 @@ describe("a pad stack window", () => {
         label: "your pad", insertLabel: "insert at the end of this pad" });
     });
     const menu = screen.getByRole("menu", { name: "the pad menu" });
-    expect(within(menu).getByText("your pad · “<b>bold</b> words”")).toBeTruthy();
+    expect(within(menu).getByText("Pad options")).toBeTruthy();
     expect(menu.querySelector("b")).toBeNull();
     expect(within(menu).getByText("insert at the end of this pad")).toBeTruthy();
     // A pad's inserts from the frame land at the pad's end.
-    fireEvent.click(within(menu).getByText("marimo cell"));
+    fireEvent.click(within(menu).getByText("Python cell"));
     await flush();
     expect(store.pads.fx_pad_running.blocks.slice(-1)[0]).toMatchObject({ kind: "cell", provenance: "learner" });
     act(() => {
@@ -319,7 +319,7 @@ describe("a pad stack window", () => {
         label: "the lesson", insertLabel: "add under this lesson (the notebook stays as the teacher made it)" });
     });
     const lesson = screen.getByRole("menu", { name: "the pad menu" });
-    expect(within(lesson).getByText("the lesson · “a cell's words”")).toBeTruthy();
+    expect(within(lesson).getByText("Pad options")).toBeTruthy();
     expect(within(lesson).getByText("add under this lesson (the notebook stays as the teacher made it)")).toBeTruthy();
     // Nothing of a pad's own (muting its suggestions) on a lesson's menu.
     expect(within(lesson).queryByText(/suggestions on this pad/)).toBeNull();
@@ -373,7 +373,7 @@ describe("a pad stack window", () => {
     fireEvent.contextMenu(block("fx_b_p1"));
     fireEvent.click(screen.getByText("Submit this block as…"));
     fireEvent.click(await screen.findByRole("button", { name: "my answer to this problem" }));
-    expect(await screen.findByText(/start a practice session first/)).toBeTruthy();
+    expect(await screen.findByText(/Open Practice to start a session/)).toBeTruthy();
     expect(api.calls.some(([name]) => name === "padSubmitBlock")).toBe(false);
   });
 
@@ -381,7 +381,7 @@ describe("a pad stack window", () => {
     const { api } = mount();
     await waitFor(() => expect(block("fx_b_r1")).toBeTruthy());
     const mark = await waitFor(() => {
-      const found = within(block("fx_b_r1")).getByRole("button", { name: "proposal mark" });
+      const found = within(block("fx_b_r1")).getByRole("button", { name: "Show suggestion" });
       return found;
     });
     vi.useFakeTimers();
@@ -403,7 +403,7 @@ describe("a pad stack window", () => {
     fireEvent.click(mark);
     fireEvent.click(screen.getByRole("button", { name: "not this" }));
     expect(api.calls.filter(([name]) => name === "proposalLabel").map(([, input]) => (input as { label: string }).label)).toEqual(["ignored", "not_this"]);
-    expect(within(block("fx_b_r1")).queryByRole("button", { name: "proposal mark" })).toBeNull();
+    expect(within(block("fx_b_r1")).queryByRole("button", { name: "Show suggestion" })).toBeNull();
   });
 });
 
@@ -595,7 +595,7 @@ describe("the fix round (RD4 review)", () => {
     mount({ view: { split: { pads: ["fx_pad_running", "fx_pad_deriving"], ratios: [1, 1] } } });
     await waitFor(() => expect(block("fx_b_r2")).toBeTruthy());
     expect(document.querySelector(".desk-pads .split")).not.toBeNull();
-    const mark = within(block("fx_b_r2")).getByRole("button", { name: "source mark" });
+    const mark = within(block("fx_b_r2")).getByRole("button", { name: "Show source details" });
     vi.useFakeTimers();
     fireEvent.mouseEnter(mark);
     act(() => {

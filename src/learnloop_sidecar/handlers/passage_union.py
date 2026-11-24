@@ -45,7 +45,7 @@ class UnionRangeInput(ParamsModel):
         times = self.t0 is not None and self.t1 is not None
         partial = (self.from_span_id is None) != (self.to_span_id is None) or (self.t0 is None) != (self.t1 is None)
         if spans == times or partial:
-            raise ValueError("a range is two passages (from_span_id, to_span_id) or two times (t0, t1)")
+            raise ValueError("Select the passage or caption again.")
         return self
 
 
@@ -103,12 +103,11 @@ class MenuObjectInput(ParamsModel):
     def _names_its_object(self) -> MenuObjectInput:
         if self.object_kind == "pad_line":
             if not self.block_id:
-                raise ValueError("a pad line names its block_id")
+                raise ValueError("Select the pad line again.")
         elif not self.extraction_id or (self.span_id is None and not (self.object_kind == "cue" and self.t is not None)):
-            raise ValueError("a passage, cue, highlight, note or window names its extraction_id and span_id (a cue "
-                             "may give its time t instead)")
+            raise ValueError("Select the passage or caption again.")
         if self.object_kind in ("highlight", "note") and not self.annotation_id:
-            raise ValueError("a highlight or a margin note names its annotation_id")
+            raise ValueError("Reopen the menu on the highlight or margin note.")
         return self
 
 
@@ -137,7 +136,7 @@ def _menu_places(vault: Any, repository: Any, params: MenuObjectInput) -> tuple[
         with repository.connection() as connection:
             head = pad_reads.head(connection, str(params.block_id))
             if head is None or head["tombstone"]:
-                raise SidecarError("block_not_found", "That pad line is gone.")
+                raise SidecarError("block_not_found", "This pad line is gone. Choose another line.")
             places = [(str(e), str(s)) for e, s in passages_of(connection, head)]
         text = str(head["body_md"] or "")
         key = P.object_key("pad_line", block_id=params.block_id)
@@ -145,7 +144,7 @@ def _menu_places(vault: Any, repository: Any, params: MenuObjectInput) -> tuple[
         extraction_id = str(params.extraction_id)
         ir = repository.load_document_ir(extraction_id)
         if ir is None:
-            raise SidecarError("extraction_not_found", f"No reading {extraction_id!r}.")
+            raise SidecarError("extraction_not_found", "Couldn’t find this source. Reopen it from your library.")
         span_id = params.span_id
         if span_id is None:
             try:
@@ -153,11 +152,11 @@ def _menu_places(vault: Any, repository: Any, params: MenuObjectInput) -> tuple[
             except UnionError as exc:
                 raise SidecarError(exc.code, str(exc)) from exc
             if not spans:
-                raise SidecarError("span_not_found", "No cue at that time.")
+                raise SidecarError("span_not_found", "Play the video until a caption appears, then try again.")
             span_id = spans[0]
         block = next((b for b in ir.blocks if b.span_id == span_id), None)
         if block is None:
-            raise SidecarError("span_not_found", "That passage is not in this reading.")
+            raise SidecarError("span_not_found", "Select the passage again.")
         places, text = [(extraction_id, str(span_id))], str(block.text or "")
         key = P.object_key(params.object_kind, extraction_id=extraction_id, span_id=str(span_id),
                            annotation_id=params.annotation_id, window_id=params.window_id)
@@ -250,7 +249,7 @@ def passage_promoted_handler(ctx: SidecarContext, params: PromotedInput) -> dict
     request_key = params.model_dump(mode="json")
     known = jobs.known(PJ.vault_key(ctx), params.request_id) if params.request_id else None
     if known is not None and known.request_key != request_key:
-        raise SidecarError("request_reused", "That request id was already used for another menu.",
+        raise SidecarError("request_reused", "Reopen the passage menu to see suggestions.",
                            details={"request_id": params.request_id})
     job_id = known.job_id if known is not None else jobs.start(
         ctx, kind=PROMOTED_KIND, job_id=params.request_id or f"prom_{new_ulid()}", work=work,
@@ -273,7 +272,7 @@ def _promoted_job_payload(ctx: SidecarContext, job_id: str) -> dict[str, Any]:
     job = jobs.get(vault, job_id)
     if job is None:
         if jobs.receipt(vault, job_id) is None:
-            raise SidecarError("job_not_found", "That menu is no longer kept; open it again.",
+            raise SidecarError("job_not_found", "Suggestions expired. Reopen the passage menu to try again.",
                                details={"job_id": job_id})
         return versioned({"job_id": job_id, "status": PJ.EXPIRED, "done": True, "rows": [], "error": None})
     state = job.state()

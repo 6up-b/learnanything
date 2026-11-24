@@ -207,7 +207,7 @@ export class InkCache {
       if (stale()) return;
       // The outbox lives in memory (the durable store is the RD-spike's open choice): unsent ink is kept only while the app
       // stays open, and saying "on this device" would promise more.
-      this.setReading(padId, blockId, { status: "failed", jobId: null, result: null, message: "your ink isn't sent yet · it is kept while LearnLoop stays open" });
+      this.setReading(padId, blockId, { status: "failed", jobId: null, result: null, message: "Waiting for your handwriting to save. Keep LearnLoop open, then try again." });
       return;
     }
     if (stale()) return;
@@ -241,7 +241,7 @@ export class InkCache {
         if (codeOf(error) !== "job_not_found") return;
         this.polls.get(blockId)?.();
         this.polls.delete(blockId);
-        this.setReading(padId, blockId, { status: "failed", jobId, result: null, message: "the reading stopped (LearnLoop restarted) · read it again" });
+        this.setReading(padId, blockId, { status: "failed", jobId, result: null, message: "Handwriting conversion stopped. Try again." });
       },
     });
     this.polls.set(blockId, remove);
@@ -288,7 +288,7 @@ export class InkCache {
     } else if (code === "cannot_read_images") {
       this.setReading(padId, blockId, { status: "cannot", jobId: job.jobId, result: null, message: job.error?.message ?? null });
     } else {
-      this.setReading(padId, blockId, { status: "failed", jobId: job.jobId, result: null, message: job.error?.message ?? code });
+      this.setReading(padId, blockId, { status: "failed", jobId: job.jobId, result: null, message: job.error?.message ?? "Couldn’t convert the handwriting. Try again." });
     }
     return true;
   }

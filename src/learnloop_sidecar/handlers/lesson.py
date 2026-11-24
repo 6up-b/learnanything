@@ -164,8 +164,8 @@ def route_unavailable_message(label: str, *, saved: bool) -> str:
     before its lesson was saved said "your lesson is saved")."""
 
     if saved:
-        return f"{label} is unavailable for lessons; your lesson is saved and resumes when it's back."
-    return f"{label} is unavailable for lessons, so the lesson didn't start and nothing was saved; try again when it's back."
+        return f"{label} is unavailable. Your lesson is saved. Select Try again to continue."
+    return f"{label} is unavailable. The lesson couldn’t start. Select Try again to start it."
 
 
 class LessonSuggestionInput(ParamsModel):
@@ -217,7 +217,7 @@ def _clients(ctx: SidecarContext, vault: Any) -> S.Clients:
 
     def grading() -> Any:
         if ctx.grading_provider_override == MANUAL_PROVIDER:
-            raise SidecarError("provider_unavailable", "Lesson checks need a grader (grading is set to manual).")
+            raise SidecarError("provider_unavailable", "Lesson questions need automatic grading. Turn it on in Settings, then try again.")
         provider_name, runtime, client = ready_grading_provider(vault, override=ctx.grading_provider_override)
         if not runtime.ready or client is None:
             raise SidecarError("provider_unavailable", f"{provider_label(provider_name)} is unavailable for grading.",
@@ -242,7 +242,7 @@ def lesson_turn(ctx: SidecarContext, params: LessonTurnInput) -> dict[str, Any]:
             clients.figures = _figure_builder(ctx, vault, repository)
         if params.action == "open":
             if params.entry is None:
-                raise SidecarError("validation_error", "A lesson needs an entry (a topic or a passage).")
+                raise SidecarError("validation_error", "Choose a topic or passage to start a lesson.")
             suggested = params.origin == "router_suggestion"
             with PR.held_serving(params.frame == "window"):
                 result = S.open_lesson(
@@ -257,9 +257,9 @@ def lesson_turn(ctx: SidecarContext, params: LessonTurnInput) -> dict[str, Any]:
                     probe_episode_id=None if suggested else params.probe_episode_id)
         else:
             if not params.lesson_id:
-                raise SidecarError("validation_error", "lesson_id is required.")
+                raise SidecarError("validation_error", "Reopen the lesson and answer the question it shows.")
             if params.frame == "window" and params.action == "answer_probe":
-                raise SidecarError("probe_on_lesson_screen", "A lesson's quick question is answered on the lesson screen.")
+                raise SidecarError("probe_on_lesson_screen", "Open the lesson to answer its quick question.")
             payload = {"text": params.text, "answer": params.answer, "check_ref": params.check_ref,
                        "tap": params.tap, "thinking": params.thinking, "probe_ref": params.probe_ref}
             with PR.held_serving(params.frame == "window"):

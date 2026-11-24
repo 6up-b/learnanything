@@ -293,18 +293,18 @@ def decide(vault: Any, repository: Repository, chapter_id_: str, decision: str, 
 
     state = DECISIONS.get(decision)
     if state is None:
-        raise ChaptersError("validation_error", f"Unknown decision {decision!r}.")
+        raise ChaptersError("validation_error", "Couldn’t update this chapter. Reopen the video and try again.")
     with repository.atomic():
         connection = repository.connection()
         rows = _rows(connection, "SELECT * FROM video_chapters WHERE chapter_id = ?", [chapter_id_])
         if not rows:
-            raise ChaptersError("chapter_not_found", f"No chapter {chapter_id_!r}.")
+            raise ChaptersError("chapter_not_found", "Couldn’t find this chapter. Reopen the video and try again.")
         row = rows[0]
         if row["state"] == "suggested":
             connection.execute("UPDATE video_chapters SET state = ?, decided_at = ? WHERE chapter_id = ?",
                                (state, utc_now_iso(clock), chapter_id_))
         elif row["state"] != state:
-            raise ChaptersError("already_decided", "This chapter was decided already.")
+            raise ChaptersError("already_decided", "This chapter was already updated. Reopen the video to see it.")
     found = list_chapters(vault, repository, str(row["extraction_id"]), states=STATES)
     return next(view for view in found if view["chapter_id"] == chapter_id_)
 
@@ -318,17 +318,17 @@ def suggest(vault: Any, repository: Repository, extraction_id: str, *, client: A
 
     if not SC.enabled(vault):
         return SuggestResult("unavailable", reason="curriculum_disabled",
-                             message="The deliverable curriculum is off (curriculum.enabled = false).")
+                             message="Chapter suggestions are off. You can still watch this video.")
     library = SC.Library(vault, repository)
     if extraction_id in library.left_out:
-        raise ChaptersError("withheld", "This video is protected or isn't a teaching source: no chapters are suggested.")
+        raise ChaptersError("withheld", "Chapter suggestions are unavailable for this video. You can still watch it.")
     reading = library.reading(extraction_id)
     if reading is None:
-        raise ChaptersError("extraction_not_found", f"No readable extraction {extraction_id!r}.")
+        raise ChaptersError("extraction_not_found", "Couldn’t open the transcript. Reopen the video and try again.")
     sections = [section for section in transcript_sections(repository, extraction_id)
                 if section.section_id in reading.sections and section.section_id not in reading.withheld]
     if not sections:
-        return SuggestResult("no_sections", message="This video has no transcript sections to divide.")
+        return SuggestResult("no_sections", message="Chapter suggestions need an available transcript. You can still watch this video.")
     problem = SC.admission_problem(vault, repository, client=client, clock=clock)
     # Today's budget spent refuses a paid request, not a replay: a video judged before is answered from the ledger
     # (the daily envelope below refuses the request itself when one is needed).
@@ -363,7 +363,7 @@ def suggest(vault: Any, repository: Repository, extraction_id: str, *, client: A
                 context={"extraction_id": extraction_id})
     except SC.GateClosed:
         return SuggestResult("unavailable", reason="curriculum_disabled",
-                             message="The deliverable curriculum is off (curriculum.enabled = false).")
+                             message="Chapter suggestions are off. You can still watch this video.")
     except SC.ProtectionChanged:
         return SuggestResult("stale", reason="protection_changed", message=SC.STALE_MESSAGE)
     if not outcome.judged:
@@ -383,7 +383,7 @@ def suggest(vault: Any, repository: Repository, extraction_id: str, *, client: A
         store_suggestions(repository, extraction_id, reading.source_id, chapters, clock=clock, guard=guard, wanted=wanted)
     except SC.GateClosed:
         return SuggestResult("unavailable", reason="curriculum_disabled",
-                             message="The deliverable curriculum is off (curriculum.enabled = false).")
+                             message="Chapter suggestions are off. You can still watch this video.")
     except SC.ProtectionChanged:
         return SuggestResult("stale", reason="protection_changed", message=SC.STALE_MESSAGE)
     except NotWanted as exc:

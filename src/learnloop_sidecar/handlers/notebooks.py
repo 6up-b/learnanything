@@ -73,12 +73,12 @@ def _source(vault_root: Path, relative: str) -> bytes:
     root = vault_root.resolve()
     candidate = Path(relative)
     if candidate.is_absolute() or candidate.suffix != ".py":
-        raise SidecarError("notebook_path_invalid", "A notebook is a .py file named relative to the vault.")
+        raise SidecarError("notebook_path_invalid", "Open the notebook from its lesson.")
     path = (root / candidate).resolve()
     if not path.is_relative_to(root) or not path.is_file():
-        raise SidecarError("notebook_path_invalid", f"No notebook {relative!r} in this vault.")
+        raise SidecarError("notebook_path_invalid", "Couldn’t find this notebook. Reopen it from its lesson.")
     if path.stat().st_size > settings.NOTEBOOK_MAX_BYTES:
-        raise SidecarError("notebook_path_invalid", "The notebook is larger than LearnLoop opens.")
+        raise SidecarError("notebook_path_invalid", "This notebook is too large to open. Choose a smaller notebook.")
     return path.read_bytes()
 
 
@@ -101,21 +101,21 @@ def pad_notebook(vault_root: Path, repository: Any, pad_id: str) -> tuple[bytes,
 
     cells = pad_cells(repository, pad_id)
     if cells is None:
-        raise SidecarError("pad_not_found", f"No pad {pad_id!r}.")
+        raise SidecarError("pad_not_found", "Couldn’t find this pad. Reopen the pad and try again.")
     if not cells:
-        raise SidecarError("notebook_no_cells", "This pad has no marimo cells yet.")
+        raise SidecarError("notebook_no_cells", "Add a Python cell to this pad first.")
     named = [(adapter.cell_name(cell["block_id"]), cell["code"]) for cell in cells]
     if len({name for name, _code in named}) != len(named):
-        raise SidecarError("notebook_path_invalid", "Two of the pad's cells would share a name.")
+        raise SidecarError("notebook_path_invalid", "Two cells would have the same name. Open a pad with distinct cells.")
     source = adapter.notebook_from_cells(named).encode("utf-8")
     if len(source) > settings.NOTEBOOK_MAX_BYTES:
-        raise SidecarError("notebook_path_invalid", "The pad's cells make a notebook larger than LearnLoop opens.")
+        raise SidecarError("notebook_path_invalid", "This notebook is too large. Try a pad with less code.")
     revision = hashlib.sha256("\n".join(name for name, _code in named).encode()).hexdigest()
     try:
         # Never through a link: the vault may hold one anywhere below its root.
         hostfiles.write_beneath(vault_root, PAD_NOTEBOOKS.parts, f"{adapter.cell_name(pad_id)[2:]}.py", source)
     except hostfiles.UnsafePath as exc:
-        raise SidecarError("notebook_path_invalid", f"The pad's notebook was not written: {exc}.") from exc
+        raise SidecarError("notebook_path_invalid", "Couldn’t prepare this notebook. Reopen the pad and try again.") from exc
     return source, revision, {cell["block_id"]: name for cell, (name, _code) in zip(cells, named, strict=True)}, named
 
 
@@ -132,12 +132,12 @@ def lesson_notebook(vault_root: Path, repository: Any, lesson_id: str,
     if row is not None:
         own = lesson_notebook_path(vault_root, lesson_id)
         if own is None:
-            raise SidecarError("notebook_path_invalid", "This lesson is not a notebook lesson.")
+            raise SidecarError("notebook_path_invalid", "Choose a lesson with a notebook.")
         if path is not None and Path(path).as_posix() != own:
-            raise SidecarError("notebook_path_invalid", "A lesson opens its own notebook only.")
+            raise SidecarError("notebook_path_invalid", "Open this notebook from its lesson.")
         path = own
     elif path is None:
-        raise SidecarError("notebook_path_invalid", "A lesson's notebook is named by its lesson.")
+        raise SidecarError("notebook_path_invalid", "Open the notebook from its lesson.")
     source = _source(vault_root, path)
     return source, lesson_contract(source), row is not None and row["closed_at"] is not None
 
@@ -146,19 +146,19 @@ def _errors(exc: Exception) -> SidecarError:
     if isinstance(exc, RuntimeUnavailable):
         return SidecarError("notebook_runtime_unavailable", f"Notebooks can't run here: {exc}.")
     if isinstance(exc, R.SessionNotFound):
-        return SidecarError("notebook_session_not_found", "That notebook session isn't open in this vault.")
+        return SidecarError("notebook_session_not_found", "Reopen the notebook, then select Run code.")
     if isinstance(exc, R.SessionsFull):
         return SidecarError("notebook_sessions_full",
-                            f"As many notebooks are running as LearnLoop allows ({exc}). Close one and try again.",
+                            "Too many notebooks are open. Close one and try again.",
                             retryable=True)
     if isinstance(exc, R.NotConnected):
-        return SidecarError("notebook_not_connected", f"The notebook isn't ready: {exc}.", retryable=True)
+        return SidecarError("notebook_not_connected", "The notebook is still starting. Try again in a moment.", retryable=True)
     if isinstance(exc, R.CellUnknown):
-        return SidecarError("notebook_cell_unknown", f"The notebook has no cell named {exc.args[0]}.")
+        return SidecarError("notebook_cell_unknown", "Couldn’t find this cell. Reopen the notebook and try again.")
     if isinstance(exc, R.ReleaseRefused):
-        return SidecarError("notebook_release_refused", f"Nothing was released: {exc}.")
+        return SidecarError("notebook_release_refused", "This part of the notebook is unavailable. Return to the lesson.")
     if isinstance(exc, R.KernelRefused):
-        return SidecarError("notebook_kernel_refused", f"{exc}.", retryable=True)
+        return SidecarError("notebook_kernel_refused", "Couldn’t run the code. Reopen the notebook and try again.", retryable=True)
     if isinstance(exc, TimeoutError):
         return SidecarError("notebook_runtime_busy", "The notebook runtime didn't answer in time. Try again.",
                             retryable=True)
