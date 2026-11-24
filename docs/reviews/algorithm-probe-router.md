@@ -491,6 +491,10 @@ and a zero-EIG instrument there is not served.
    status keeps the panel's pending copy and Teach me now.
 6. **R6's retired pin** ends `abandoned` (no new end reason, so no migration), and the item it pinned is ordinary
    practice if opened, as with an answer shown on a routine display.
+7. **R19, the read's one write.** The status read writes no decision, valuation, assignment or objective. It still
+   records its facts receipt, once per fingerprint, as every status read has since the tag (round 1). That receipt is
+   also the job's durable request, which is why no queue table (and no migration) was needed. A read that wrote nothing
+   at all would need a request row elsewhere.
 
 ### Proof (round 2)
 
