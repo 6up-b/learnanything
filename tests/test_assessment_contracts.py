@@ -14,12 +14,13 @@ from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import read_yaml, write_yaml
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from tests.helpers import NOW, create_basic_vault, set_algorithm_version
 
 
 def test_snapshot_authoritative_after_live_rubric_change(tmp_path):
     paths = create_basic_vault(tmp_path / "vault")
-    set_algorithm_version(paths, "mvp-0.7")
+    set_algorithm_version(paths, LATEST_ALGORITHM_VERSION)
     vault = load_vault(paths.root)
     repository = Repository(paths.sqlite_path)
     item = vault.practice_items["pi_svd_define_001"]
@@ -45,7 +46,7 @@ def test_snapshot_authoritative_after_live_rubric_change(tmp_path):
 
 def test_identical_item_versions_reuse_one_snapshot(tmp_path):
     paths = create_basic_vault(tmp_path / "vault")
-    set_algorithm_version(paths, "mvp-0.7")
+    set_algorithm_version(paths, LATEST_ALGORITHM_VERSION)
     vault = load_vault(paths.root)
     repository = Repository(paths.sqlite_path)
     item = vault.practice_items["pi_svd_define_001"]
@@ -57,7 +58,7 @@ def test_identical_item_versions_reuse_one_snapshot(tmp_path):
 
 def test_contract_hash_changes_when_targets_change(tmp_path):
     paths = create_basic_vault(tmp_path / "vault")
-    set_algorithm_version(paths, "mvp-0.7")
+    set_algorithm_version(paths, LATEST_ALGORITHM_VERSION)
     vault = load_vault(paths.root)
     item = vault.practice_items["pi_svd_define_001"]
     baseline = contract_hash(compile_assessment_contract(vault, item))

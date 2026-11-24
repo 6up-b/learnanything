@@ -20,6 +20,7 @@ from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_s
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from tests.helpers import NOW, create_basic_vault, set_algorithm_version
 
 ITEM = "pi_svd_define_001"
@@ -78,7 +79,7 @@ def test_ineligible_observation_leaves_mvp08_scheduling_untouched(tmp_path, monk
 def test_first_ever_ineligible_observation_creates_no_memory_state(tmp_path, monkeypatch):
     # else-branch bug 1: a first-ever ineligible observation must NOT synthesize memory
     # via apply_review(None, ...); it leaves scheduling null on a live vault.
-    live_vault, live_repo = _vault(tmp_path, version="mvp-0.8")
+    live_vault, live_repo = _vault(tmp_path, version=LATEST_ALGORITHM_VERSION)
     monkeypatch.setattr(
         ACT, "evidence_eligibility_for", lambda *, purpose, feedback_condition: ("ineligible", "forced")
     )

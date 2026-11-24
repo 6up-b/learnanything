@@ -6,6 +6,7 @@ No LLM: all grader payloads are canned; deterministic.
 
 from __future__ import annotations
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from tests.structured_ai import JointGraderAlsoBlind, StructuredClientFake
 
 
@@ -376,7 +377,7 @@ def test_promotion_on_independent_surface(tmp_path):
 
     paths = create_basic_vault(tmp_path / "vault")
     add_followup_item(tmp_path / "vault", item_id="pi_svd_define_002")
-    set_algorithm_version(paths, "mvp-0.7")
+    set_algorithm_version(paths, LATEST_ALGORITHM_VERSION)
     vault = load_vault(tmp_path / "vault")
     repository = Repository(paths.sqlite_path)
     statement = "believes SVD equals eigendecomposition"

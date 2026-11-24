@@ -27,6 +27,7 @@ from learnloop.substrate.data_quality import data_quality_report
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from tests import probe_block_end_helpers as block_setup
 from tests.helpers import append_config_toml, create_basic_vault, set_algorithm_version
 from tests.joint_grading_helpers import write_joint_graded_attempt
@@ -77,7 +78,7 @@ def _self_graded(vault, repository, *, submission_id: str | None = None, **draft
 
 @pytest.mark.parametrize("with_repairs", [True, False])
 def test_pipeline_keeps_one_hypothesis_version_with_grader_provenance(tmp_path, with_repairs):
-    _paths, vault, repository = _vault(tmp_path, "mvp-0.7")
+    _paths, vault, repository = _vault(tmp_path, LATEST_ALGORITHM_VERSION)
 
     def proposal(context):
         graded = _proposal(context.attempt_id)
