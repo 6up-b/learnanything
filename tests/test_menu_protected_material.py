@@ -460,3 +460,28 @@ def test_a_shared_destination_keeps_its_own_set_on_exam_material_not_held_out(pr
         call(protected.ctx, rpc, params)
     except SidecarError as error:  # a later refusal (no AI provider in tests) is not the destination check's
         assert error.code != "exam_material", (rpc, error.code, error.message)
+
+
+def test_a_paths_own_refusals_come_before_the_protection_check(protected):
+    """pad.submit_block and carried.carry refuse with their own codes first (words that are not the learner's, an
+    empty question): the protection check runs after them, so a protected origin never hides why."""
+    from learnloop_sidecar.errors import SidecarError
+
+    ctx = protected.ctx
+    call(ctx, "pad.apply", {"clientId": "c", "seq": 2, "padId": "pad_1", "ops": [
+        {"op": "insert_block", "blockId": "hq", "versionId": "vhq", "kind": "source_quote", "provenance": "source",
+         "positionKey": "a2", "bodyMd": "The far passage.", "payload": {"extraction_id": BOOK, "span_id": "s3"}},
+        {"op": "link_anchor", "blockId": "hq", "extractionId": BOOK, "spanId": "s3", "expectedAnchorHead": None}]})
+    _hold_out(protected.repository)
+    with pytest.raises(SidecarError) as refused:
+        call(ctx, "pad.submit_block", {"submissionId": "sub_hq", "blockId": "hq", "versionId": "vhq", "as": "attempt",
+                                       "target": {"sessionId": "ses", "practiceItemId": "item"}})
+    assert refused.value.code == "not_learners_words"
+    with pytest.raises(SidecarError) as refused:
+        call(ctx, "carried.carry", {"carriedId": "empty", "originKind": "selection", "text": "  ",
+                                    "anchor": {"extractionId": BOOK, "spanId": "s_held"}})
+    assert refused.value.code == "empty_question"
+    with pytest.raises(SidecarError) as refused:
+        call(ctx, "carried.carry", {"carriedId": "held", "originKind": "selection", "text": "why?",
+                                    "anchor": {"extractionId": BOOK, "spanId": "s_held"}})
+    assert refused.value.code == "exam_material"
