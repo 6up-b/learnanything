@@ -52,9 +52,9 @@ SENSOR_FIELDS = {"key", "group", "delivery", "minutes", "rollout_policy", "strea
 def test_the_tag():
     # A section's end (mvp-0.63), an untaken repair episode's end (mvp-0.64), the application order (mvp-0.65) and
     # the lifecycle inputs (mvp-0.66) landed after it and keep it.
-    assert NEW_TAG == "mvp-0.62" == SUCCESSOR_CHAIN[-9] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.70"
-    assert SUCCESSOR_CHAIN[-10] == OLD_TAG
-    assert COMMITTED_CHECK_DELIVERY_VERSIONS == frozenset({NEW_TAG, "mvp-0.63", "mvp-0.64", "mvp-0.65", "mvp-0.66", "mvp-0.67", "mvp-0.68", "mvp-0.69", "mvp-0.70"})
+    assert NEW_TAG == "mvp-0.62" == SUCCESSOR_CHAIN[-10] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.72"
+    assert SUCCESSOR_CHAIN[-11] == OLD_TAG
+    assert COMMITTED_CHECK_DELIVERY_VERSIONS == frozenset({NEW_TAG, "mvp-0.63", "mvp-0.64", "mvp-0.65", "mvp-0.66", "mvp-0.67", "mvp-0.68", "mvp-0.69", "mvp-0.70", "mvp-0.72"})
     for version, on in ((OLD_TAG, False), (NEW_TAG, True)):
         config = SimpleNamespace(algorithms=SimpleNamespace(algorithm_version=version))
         assert committed_check_delivery_on(config) is on

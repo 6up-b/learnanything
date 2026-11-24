@@ -17,7 +17,7 @@ from __future__ import annotations
 import pytest
 
 from learnloop.algorithm_versions import REPLAY_LEDGER_ALGORITHM_VERSION
-from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION, PROBE_ROUTER_ALGORITHM_VERSION
 from learnloop.clock import FrozenClock
 from learnloop.content.authoring.item_authoring import retire_item
 from learnloop.db.connection import connect
@@ -212,7 +212,7 @@ def test_the_successor_is_one_constant_after_its_predecessor():
 
     # Reader CA2's mvp-0.35 follows it, then the kept replaced claims' mvp-0.36, mobile PR-4's mvp-0.37, the
     # cold-retry reschedule's mvp-0.38, Reader RW6b's mvp-0.39 and curriculum C1's mvp-0.40 as the latest (all keep it).
-    assert REPLAY_LEDGER_ALGORITHM_VERSION == "mvp-0.34" == SUCCESSOR_CHAIN[-37] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.70"
+    assert REPLAY_LEDGER_ALGORITHM_VERSION == "mvp-0.34" == SUCCESSOR_CHAIN[-38] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.72"
     assert PREDECESSOR == SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(REPLAY_LEDGER_ALGORITHM_VERSION) - 1]
 
 
@@ -220,7 +220,8 @@ def test_a_live_write_is_the_same_below_and_at_the_tag(tmp_path):
     from tests.rebuild_equivalence_helpers import _mastery
 
     _paths, _vault, below = _two_attempt_history(tmp_path, "below", version=PREDECESSOR)
-    _paths, _vault, at = _two_attempt_history(tmp_path, "at", version=TAG)
+    # At the newest tag before the difficulty label's retirement, which moves mastery on its own.
+    _paths, _vault, at = _two_attempt_history(tmp_path, "at", version=PROBE_ROUTER_ALGORITHM_VERSION)
     assert _mastery(below) == _mastery(at)
 
 

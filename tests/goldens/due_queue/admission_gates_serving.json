@@ -38,7 +38,7 @@
       "<json>": {
        "bad_item_suspicion": 0.0,
        "content_hash": "45a66c0609ac37c22fd4a156dd53c5bc88967ae2dcd072944c29856e6846ae5c",
-       "difficulty_b": 0.25,
+       "difficulty_b": 0.0,
        "discrimination_a": 1.0,
        "evidence_weights": {
         "recall": 1.0
@@ -146,7 +146,7 @@
       "<json>": {
        "bad_item_suspicion": 0.0,
        "content_hash": "37205e7a95afc4e1e7b18c2a7d0dea1dd140e3033658598428204c15ea4e02e0",
-       "difficulty_b": 0.25,
+       "difficulty_b": 0.0,
        "discrimination_a": 1.0,
        "evidence_weights": {
         "definition": 1.0,
@@ -204,7 +204,7 @@
       "<json>": {
        "bad_item_suspicion": 0.0,
        "content_hash": "f995ce6ea98454350694df948fb3c504613ddf65f7239b6f22443bbc7bcbbb05",
-       "difficulty_b": 0.25,
+       "difficulty_b": 0.0,
        "discrimination_a": 1.0,
        "evidence_weights": {
         "recall": 1.0
@@ -362,7 +362,7 @@
       "<json>": {
        "bad_item_suspicion": 0.0,
        "content_hash": "e436b28679e461e8a81626b1cd9f164be1634a0773a4ce5fdbe7c044696429bc",
-       "difficulty_b": 0.25,
+       "difficulty_b": 0.0,
        "discrimination_a": 1.0,
        "evidence_weights": {
         "recall": 1.0
@@ -1145,16 +1145,16 @@
        "conjunctive_fit": 0.0,
        "conjunctive_strength": 0.0,
        "duplicate_probe_penalty": 0.0,
-       "expected_skill_gain": 0.05792706,
+       "expected_skill_gain": 0.05544,
        "facet_weakness": 0.5,
        "forgetting_risk": 0.0,
        "goal_frontier": 0.8,
        "goal_frontier_exposure_discount": 1.0,
-       "gradient_fit": 1.0,
+       "gradient_fit": 0.965,
        "legacy_priority": 0.2704638715,
        "overload_penalty": 0.0,
-       "practice_information": 0.246,
-       "predicted_correctness": 0.5518234991,
+       "practice_information": 0.25,
+       "predicted_correctness": 0.614,
        "predictive_eig": 0.2152953804,
        "predictive_information_rate": 0.0039144615,
        "probe_eig": 0.2818554848,
@@ -1201,7 +1201,7 @@
          "applied_to_belief_counts": false,
          "applied_to_facet_recall": false,
          "applied_to_mastery": false,
-         "expected_skill_gain": 0.05792706,
+         "expected_skill_gain": 0.05544,
          "reason": "feedback_after_gap",
          "target_facets": [
           "recall"
@@ -1223,9 +1223,9 @@
          "conjunctive_fit": 0.0,
          "conjunctive_strength": 0.0,
          "duplicate_probe_penalty": 0.0,
-         "expected_skill_gain": 0.05792706,
+         "expected_skill_gain": 0.05544,
          "facet_weakness": 0.5,
-         "gradient_fit": 1.0,
+         "gradient_fit": 0.965,
          "overload_penalty": 0.0,
          "probe_eig_facet_recall": 0.3465735903,
          "probe_eig_hypothesis": 0.2818554848,
@@ -1238,7 +1238,7 @@
         "intent": "probe",
         "item_demand_vector": {
          "bad_item_suspicion": 0.0,
-         "difficulty_b": 0.25,
+         "difficulty_b": 0.0,
          "discrimination_a": 1.0,
          "evidence_weights": {
           "recall": 1.0
@@ -1255,7 +1255,7 @@
          "surface_family": null,
          "transfer_distance": 0.0
         },
-        "predicted_correctness": 0.5518234991,
+        "predicted_correctness": 0.614,
         "probe_eig": {
          "facet_recall": {
           "expected_posterior_entropy": -1.0397207708,
@@ -1430,7 +1430,7 @@
        "conjunctive_fit": 0.0,
        "conjunctive_strength": 0.0,
        "duplicate_probe_penalty": 0.0,
-       "expected_skill_gain": 0.06275706,
+       "expected_skill_gain": 0.06027,
        "facet_weakness": 0.5,
        "forgetting_risk": 0.0,
        "goal_frontier": 0.8,
@@ -1438,8 +1438,8 @@
        "gradient_fit": 1.0,
        "legacy_priority": 0.2000000003,
        "overload_penalty": 0.0,
-       "practice_information": 0.246,
-       "predicted_correctness": 0.4310734991,
+       "practice_information": 0.25,
+       "predicted_correctness": 0.49325,
        "probe_eig": 0.0,
        "probe_eig_facet_recall": 1.0397207708,
        "probe_eig_hypothesis": 0.0,
@@ -1478,7 +1478,7 @@
          "applied_to_belief_counts": false,
          "applied_to_facet_recall": false,
          "applied_to_mastery": false,
-         "expected_skill_gain": 0.06275706,
+         "expected_skill_gain": 0.06027,
          "reason": "feedback_after_gap",
          "target_facets": [
           "definition",
@@ -1502,7 +1502,7 @@
          "conjunctive_fit": 0.0,
          "conjunctive_strength": 0.0,
          "duplicate_probe_penalty": 0.0,
-         "expected_skill_gain": 0.06275706,
+         "expected_skill_gain": 0.06027,
          "facet_weakness": 0.5,
          "gradient_fit": 1.0,
          "overload_penalty": 0.0,
@@ -1517,7 +1517,7 @@
         "intent": "probe",
         "item_demand_vector": {
          "bad_item_suspicion": 0.0,
-         "difficulty_b": 0.25,
+         "difficulty_b": 0.0,
          "discrimination_a": 1.0,
          "evidence_weights": {
           "definition": 1.0,
@@ -1536,7 +1536,7 @@
          "surface_family": null,
          "transfer_distance": 0.0
         },
-        "predicted_correctness": 0.4310734991,
+        "predicted_correctness": 0.49325,
         "probe_eig": {
          "facet_recall": {
           "expected_posterior_entropy": -3.1191623125,
@@ -1582,8 +1582,8 @@
        "gradient_fit": 1.0,
        "legacy_priority": 0.2704638715,
        "overload_penalty": 0.0,
-       "practice_information": 0.246,
-       "predicted_correctness": 0.4321984991,
+       "practice_information": 0.25,
+       "predicted_correctness": 0.494375,
        "predictive_eig": 0.2152953804,
        "predictive_information_rate": 0.0039144615,
        "probe_eig": 0.2818554848,
@@ -1667,7 +1667,7 @@
         "intent": "probe",
         "item_demand_vector": {
          "bad_item_suspicion": 0.0,
-         "difficulty_b": 0.25,
+         "difficulty_b": 0.0,
          "discrimination_a": 1.0,
          "evidence_weights": {
           "recall": 1.0
@@ -1682,7 +1682,7 @@
          "surface_family": null,
          "transfer_distance": 0.0
         },
-        "predicted_correctness": 0.4321984991,
+        "predicted_correctness": 0.494375,
         "probe_eig": {
          "facet_recall": {
           "expected_posterior_entropy": -1.0397207708,
@@ -1989,7 +1989,7 @@
        "forgetting_risk": 0.0,
        "goal_frontier": 0.8,
        "goal_frontier_exposure_discount": 1.0,
-       "practice_information": 0.246,
+       "practice_information": 0.25,
        "probe_eig": 0.0,
        "recent_error": 6e-10,
        "selected": 0.0
@@ -2068,16 +2068,16 @@
        "conjunctive_fit": 0.0,
        "conjunctive_strength": 0.0,
        "duplicate_probe_penalty": 0.0,
-       "expected_skill_gain": 0.05792706,
+       "expected_skill_gain": 0.05544,
        "facet_weakness": 0.5,
        "forgetting_risk": 0.0,
        "goal_frontier": 0.8,
        "goal_frontier_exposure_discount": 1.0,
-       "gradient_fit": 1.0,
+       "gradient_fit": 0.965,
        "legacy_priority": 0.2704638715,
        "overload_penalty": 0.0,
-       "practice_information": 0.246,
-       "predicted_correctness": 0.5518234991,
+       "practice_information": 0.25,
+       "predicted_correctness": 0.614,
        "predictive_eig": 0.2152953804,
        "predictive_information_rate": 0.0039144615,
        "probe_eig": 0.2818554848,
@@ -2115,7 +2115,7 @@
       }
      },
      "practice_item_id": "pi_svd_define_001",
-     "predicted_correctness": 0.5518234991,
+     "predicted_correctness": 0.614,
      "priority": 0.2704638715,
      "propensity_kind": "unavailable_composed_offer",
      "rank": 1,
@@ -2127,7 +2127,7 @@
         "applied_to_belief_counts": false,
         "applied_to_facet_recall": false,
         "applied_to_mastery": false,
-        "expected_skill_gain": 0.05792706,
+        "expected_skill_gain": 0.05544,
         "reason": "feedback_after_gap",
         "target_facets": [
          "recall"
@@ -2149,9 +2149,9 @@
         "conjunctive_fit": 0.0,
         "conjunctive_strength": 0.0,
         "duplicate_probe_penalty": 0.0,
-        "expected_skill_gain": 0.05792706,
+        "expected_skill_gain": 0.05544,
         "facet_weakness": 0.5,
-        "gradient_fit": 1.0,
+        "gradient_fit": 0.965,
         "overload_penalty": 0.0,
         "probe_eig_facet_recall": 0.3465735903,
         "probe_eig_hypothesis": 0.2818554848,
@@ -2164,7 +2164,7 @@
        "intent": "probe",
        "item_demand_vector": {
         "bad_item_suspicion": 0.0,
-        "difficulty_b": 0.25,
+        "difficulty_b": 0.0,
         "discrimination_a": 1.0,
         "evidence_weights": {
          "recall": 1.0
@@ -2181,7 +2181,7 @@
         "surface_family": null,
         "transfer_distance": 0.0
        },
-       "predicted_correctness": 0.5518234991,
+       "predicted_correctness": 0.614,
        "probe_eig": {
         "facet_recall": {
          "expected_posterior_entropy": -1.0397207708,
@@ -2219,7 +2219,7 @@
          "applied_to_belief_counts": false,
          "applied_to_facet_recall": false,
          "applied_to_mastery": false,
-         "expected_skill_gain": 0.05792706,
+         "expected_skill_gain": 0.05544,
          "reason": "feedback_after_gap",
          "target_facets": [
           "recall"
@@ -2241,9 +2241,9 @@
          "conjunctive_fit": 0.0,
          "conjunctive_strength": 0.0,
          "duplicate_probe_penalty": 0.0,
-         "expected_skill_gain": 0.05792706,
+         "expected_skill_gain": 0.05544,
          "facet_weakness": 0.5,
-         "gradient_fit": 1.0,
+         "gradient_fit": 0.965,
          "overload_penalty": 0.0,
          "probe_eig_facet_recall": 0.3465735903,
          "probe_eig_hypothesis": 0.2818554848,
@@ -2256,7 +2256,7 @@
         "intent": "probe",
         "item_demand_vector": {
          "bad_item_suspicion": 0.0,
-         "difficulty_b": 0.25,
+         "difficulty_b": 0.0,
          "discrimination_a": 1.0,
          "evidence_weights": {
           "recall": 1.0
@@ -2273,7 +2273,7 @@
          "surface_family": null,
          "transfer_distance": 0.0
         },
-        "predicted_correctness": 0.5518234991,
+        "predicted_correctness": 0.614,
         "probe_eig": {
          "facet_recall": {
           "expected_posterior_entropy": -1.0397207708,
@@ -2545,7 +2545,7 @@
        "conjunctive_fit": 0.0,
        "conjunctive_strength": 0.0,
        "duplicate_probe_penalty": 0.0,
-       "expected_skill_gain": 0.06275706,
+       "expected_skill_gain": 0.06027,
        "facet_weakness": 0.5,
        "forgetting_risk": 0.0,
        "goal_frontier": 0.8,
@@ -2553,8 +2553,8 @@
        "gradient_fit": 1.0,
        "legacy_priority": 0.2000000003,
        "overload_penalty": 0.0,
-       "practice_information": 0.246,
-       "predicted_correctness": 0.4310734991,
+       "practice_information": 0.25,
+       "predicted_correctness": 0.49325,
        "probe_eig": 0.0,
        "probe_eig_facet_recall": 1.0397207708,
        "probe_eig_hypothesis": 0.0,
@@ -2584,7 +2584,7 @@
       }
      },
      "practice_item_id": "pi_svd_teach_due",
-     "predicted_correctness": 0.4310734991,
+     "predicted_correctness": 0.49325,
      "priority": 0.2000000003,
      "propensity_kind": "unavailable_composed_offer",
      "rank": 3,
@@ -2596,7 +2596,7 @@
         "applied_to_belief_counts": false,
         "applied_to_facet_recall": false,
         "applied_to_mastery": false,
-        "expected_skill_gain": 0.06275706,
+        "expected_skill_gain": 0.06027,
         "reason": "feedback_after_gap",
         "target_facets": [
          "definition",
@@ -2620,7 +2620,7 @@
         "conjunctive_fit": 0.0,
         "conjunctive_strength": 0.0,
         "duplicate_probe_penalty": 0.0,
-        "expected_skill_gain": 0.06275706,
+        "expected_skill_gain": 0.06027,
         "facet_weakness": 0.5,
         "gradient_fit": 1.0,
         "overload_penalty": 0.0,
@@ -2635,7 +2635,7 @@
        "intent": "probe",
        "item_demand_vector": {
         "bad_item_suspicion": 0.0,
-        "difficulty_b": 0.25,
+        "difficulty_b": 0.0,
         "discrimination_a": 1.0,
         "evidence_weights": {
          "definition": 1.0,
@@ -2654,7 +2654,7 @@
         "surface_family": null,
         "transfer_distance": 0.0
        },
-       "predicted_correctness": 0.4310734991,
+       "predicted_correctness": 0.49325,
        "probe_eig": {
         "facet_recall": {
          "expected_posterior_entropy": -3.1191623125,
@@ -2692,7 +2692,7 @@
          "applied_to_belief_counts": false,
          "applied_to_facet_recall": false,
          "applied_to_mastery": false,
-         "expected_skill_gain": 0.06275706,
+         "expected_skill_gain": 0.06027,
          "reason": "feedback_after_gap",
          "target_facets": [
           "definition",
@@ -2716,7 +2716,7 @@
          "conjunctive_fit": 0.0,
          "conjunctive_strength": 0.0,
          "duplicate_probe_penalty": 0.0,
-         "expected_skill_gain": 0.06275706,
+         "expected_skill_gain": 0.06027,
          "facet_weakness": 0.5,
          "gradient_fit": 1.0,
          "overload_penalty": 0.0,
@@ -2731,7 +2731,7 @@
         "intent": "probe",
         "item_demand_vector": {
          "bad_item_suspicion": 0.0,
-         "difficulty_b": 0.25,
+         "difficulty_b": 0.0,
          "discrimination_a": 1.0,
          "evidence_weights": {
           "definition": 1.0,
@@ -2750,7 +2750,7 @@
          "surface_family": null,
          "transfer_distance": 0.0
         },
-        "predicted_correctness": 0.4310734991,
+        "predicted_correctness": 0.49325,
         "probe_eig": {
          "facet_recall": {
           "expected_posterior_entropy": -3.1191623125,
@@ -2799,8 +2799,8 @@
        "gradient_fit": 1.0,
        "legacy_priority": 0.2704638715,
        "overload_penalty": 0.0,
-       "practice_information": 0.246,
-       "predicted_correctness": 0.4321984991,
+       "practice_information": 0.25,
+       "predicted_correctness": 0.494375,
        "predictive_eig": 0.2152953804,
        "predictive_information_rate": 0.0039144615,
        "probe_eig": 0.2818554848,
@@ -2838,7 +2838,7 @@
       }
      },
      "practice_item_id": "pi_svd_define_002",
-     "predicted_correctness": 0.4321984991,
+     "predicted_correctness": 0.494375,
      "priority": 0.2704638715,
      "propensity_kind": "unavailable_composed_offer",
      "rank": 4,
@@ -2887,7 +2887,7 @@
        "intent": "probe",
        "item_demand_vector": {
         "bad_item_suspicion": 0.0,
-        "difficulty_b": 0.25,
+        "difficulty_b": 0.0,
         "discrimination_a": 1.0,
         "evidence_weights": {
          "recall": 1.0
@@ -2902,7 +2902,7 @@
         "surface_family": null,
         "transfer_distance": 0.0
        },
-       "predicted_correctness": 0.4321984991,
+       "predicted_correctness": 0.494375,
        "probe_eig": {
         "facet_recall": {
          "expected_posterior_entropy": -1.0397207708,
@@ -2977,7 +2977,7 @@
         "intent": "probe",
         "item_demand_vector": {
          "bad_item_suspicion": 0.0,
-         "difficulty_b": 0.25,
+         "difficulty_b": 0.0,
          "discrimination_a": 1.0,
          "evidence_weights": {
           "recall": 1.0
@@ -2992,7 +2992,7 @@
          "surface_family": null,
          "transfer_distance": 0.0
         },
-        "predicted_correctness": 0.4321984991,
+        "predicted_correctness": 0.494375,
         "probe_eig": {
          "facet_recall": {
           "expected_posterior_entropy": -1.0397207708,
@@ -3490,7 +3490,7 @@
        "forgetting_risk": 0.0,
        "goal_frontier": 0.8,
        "goal_frontier_exposure_discount": 1.0,
-       "practice_information": 0.246,
+       "practice_information": 0.25,
        "probe_eig": 0.0,
        "recent_error": 6e-10,
        "selected": 0.0
@@ -3678,8 +3678,8 @@
        "method": "eig_value",
        "p_action_change": null,
        "predicted_outcomes": {
-        "correct": 0.4310735,
-        "incorrect": 0.5689265
+        "correct": 0.49325,
+        "incorrect": 0.50675
        },
        "reason": "eig_value_clears_minutes_cost",
        "recommended_ref": "pi_svd_teach_due",
@@ -3700,8 +3700,8 @@
           "hypothesis_conditioning": "none",
           "learning_object_id": "lo_svd_definition",
           "predicted_outcomes": {
-           "correct": 0.4310735,
-           "incorrect": 0.5689265
+           "correct": 0.49325,
+           "incorrect": 0.50675
           },
           "unconditioned_eig_nats": 7.94747605
          },
@@ -3715,8 +3715,8 @@
           "eig_nats": 7.94747605,
           "p_action_change": null,
           "predicted_outcomes": {
-           "correct": 0.4310735,
-           "incorrect": 0.5689265
+           "correct": 0.49325,
+           "incorrect": 0.50675
           }
          },
          "member_eig_nats": 0.0,
@@ -3835,8 +3835,8 @@
           "hypothesis_conditioning": "none",
           "learning_object_id": "lo_svd_definition",
           "predicted_outcomes": {
-           "correct": 0.4310735,
-           "incorrect": 0.5689265
+           "correct": 0.49325,
+           "incorrect": 0.50675
           },
           "unconditioned_eig_nats": 7.94747605
          },
@@ -3850,8 +3850,8 @@
           "eig_nats": 7.94747605,
           "p_action_change": null,
           "predicted_outcomes": {
-           "correct": 0.4310735,
-           "incorrect": 0.5689265
+           "correct": 0.49325,
+           "incorrect": 0.50675
           }
          },
          "member_eig_nats": 0.0,
@@ -3947,8 +3947,8 @@
         "distribution": {
          "administered": false,
          "outcomes": {
-          "correct": 0.4310735,
-          "incorrect": 0.5689265
+          "correct": 0.49325,
+          "incorrect": 0.50675
          },
          "reason": null,
          "source": "forecast.predicted_outcomes",
@@ -4017,16 +4017,16 @@
     "conjunctive_fit": 0.0,
     "conjunctive_strength": 0.0,
     "duplicate_probe_penalty": 0.0,
-    "expected_skill_gain": 0.05792706,
+    "expected_skill_gain": 0.05544,
     "facet_weakness": 0.5,
     "forgetting_risk": 0.0,
     "goal_frontier": 0.8,
     "goal_frontier_exposure_discount": 1.0,
-    "gradient_fit": 1.0,
+    "gradient_fit": 0.965,
     "legacy_priority": 0.2704638715,
     "overload_penalty": 0.0,
-    "practice_information": 0.246,
-    "predicted_correctness": 0.5518234991,
+    "practice_information": 0.25,
+    "predicted_correctness": 0.614,
     "predictive_eig": 0.2152953804,
     "predictive_information_rate": 0.0039144615,
     "probe_committed": 1.0,
@@ -4062,7 +4062,7 @@
      "applied_to_belief_counts": false,
      "applied_to_facet_recall": false,
      "applied_to_mastery": false,
-     "expected_skill_gain": 0.05792706,
+     "expected_skill_gain": 0.05544,
      "reason": "feedback_after_gap",
      "target_facets": [
       "recall"
@@ -4084,9 +4084,9 @@
      "conjunctive_fit": 0.0,
      "conjunctive_strength": 0.0,
      "duplicate_probe_penalty": 0.0,
-     "expected_skill_gain": 0.05792706,
+     "expected_skill_gain": 0.05544,
      "facet_weakness": 0.5,
-     "gradient_fit": 1.0,
+     "gradient_fit": 0.965,
      "overload_penalty": 0.0,
      "probe_eig_facet_recall": 0.3465735903,
      "probe_eig_hypothesis": 0.2818554848,
@@ -4099,7 +4099,7 @@
     "intent": "probe",
     "item_demand_vector": {
      "bad_item_suspicion": 0.0,
-     "difficulty_b": 0.25,
+     "difficulty_b": 0.0,
      "discrimination_a": 1.0,
      "evidence_weights": {
       "recall": 1.0
@@ -4116,7 +4116,7 @@
      "surface_family": null,
      "transfer_distance": 0.0
     },
-    "predicted_correctness": 0.5518234991,
+    "predicted_correctness": 0.614,
     "probe_eig": {
      "facet_recall": {
       "expected_posterior_entropy": -1.0397207708,
@@ -4274,7 +4274,7 @@
     "conjunctive_fit": 0.0,
     "conjunctive_strength": 0.0,
     "duplicate_probe_penalty": 0.0,
-    "expected_skill_gain": 0.06275706,
+    "expected_skill_gain": 0.06027,
     "facet_weakness": 0.5,
     "forgetting_risk": 0.0,
     "goal_frontier": 0.8,
@@ -4282,8 +4282,8 @@
     "gradient_fit": 1.0,
     "legacy_priority": 0.2000000003,
     "overload_penalty": 0.0,
-    "practice_information": 0.246,
-    "predicted_correctness": 0.4310734991,
+    "practice_information": 0.25,
+    "predicted_correctness": 0.49325,
     "probe_committed": 0.0,
     "probe_eig": 0.0,
     "probe_eig_facet_recall": 1.0397207708,
@@ -4311,7 +4311,7 @@
      "applied_to_belief_counts": false,
      "applied_to_facet_recall": false,
      "applied_to_mastery": false,
-     "expected_skill_gain": 0.06275706,
+     "expected_skill_gain": 0.06027,
      "reason": "feedback_after_gap",
      "target_facets": [
       "definition",
@@ -4335,7 +4335,7 @@
      "conjunctive_fit": 0.0,
      "conjunctive_strength": 0.0,
      "duplicate_probe_penalty": 0.0,
-     "expected_skill_gain": 0.06275706,
+     "expected_skill_gain": 0.06027,
      "facet_weakness": 0.5,
      "gradient_fit": 1.0,
      "overload_penalty": 0.0,
@@ -4350,7 +4350,7 @@
     "intent": "probe",
     "item_demand_vector": {
      "bad_item_suspicion": 0.0,
-     "difficulty_b": 0.25,
+     "difficulty_b": 0.0,
      "discrimination_a": 1.0,
      "evidence_weights": {
       "definition": 1.0,
@@ -4369,7 +4369,7 @@
      "surface_family": null,
      "transfer_distance": 0.0
     },
-    "predicted_correctness": 0.4310734991,
+    "predicted_correctness": 0.49325,
     "probe_eig": {
      "facet_recall": {
       "expected_posterior_entropy": -3.1191623125,
@@ -4412,8 +4412,8 @@
     "gradient_fit": 1.0,
     "legacy_priority": 0.2704638715,
     "overload_penalty": 0.0,
-    "practice_information": 0.246,
-    "predicted_correctness": 0.4321984991,
+    "practice_information": 0.25,
+    "predicted_correctness": 0.494375,
     "predictive_eig": 0.2152953804,
     "predictive_information_rate": 0.0039144615,
     "probe_committed": 0.0,
@@ -4486,7 +4486,7 @@
     "intent": "probe",
     "item_demand_vector": {
      "bad_item_suspicion": 0.0,
-     "difficulty_b": 0.25,
+     "difficulty_b": 0.0,
      "discrimination_a": 1.0,
      "evidence_weights": {
       "recall": 1.0
@@ -4501,7 +4501,7 @@
      "surface_family": null,
      "transfer_distance": 0.0
     },
-    "predicted_correctness": 0.4321984991,
+    "predicted_correctness": 0.494375,
     "probe_eig": {
      "facet_recall": {
       "expected_posterior_entropy": -1.0397207708,
@@ -5289,8 +5289,8 @@
       "hypothesis_conditioning": "none",
       "learning_object_id": "lo_svd_definition",
       "predicted_outcomes": {
-       "correct": 0.4310735,
-       "incorrect": 0.5689265
+       "correct": 0.49325,
+       "incorrect": 0.50675
       },
       "unconditioned_eig_nats": 7.94747605
      },
@@ -5304,8 +5304,8 @@
       "eig_nats": 7.94747605,
       "p_action_change": null,
       "predicted_outcomes": {
-       "correct": 0.4310735,
-       "incorrect": 0.5689265
+       "correct": 0.49325,
+       "incorrect": 0.50675
       }
      },
      "member_eig_nats": 0.0,
@@ -5424,8 +5424,8 @@
       "hypothesis_conditioning": "none",
       "learning_object_id": "lo_svd_definition",
       "predicted_outcomes": {
-       "correct": 0.4310735,
-       "incorrect": 0.5689265
+       "correct": 0.49325,
+       "incorrect": 0.50675
       },
       "unconditioned_eig_nats": 7.94747605
      },
@@ -5439,8 +5439,8 @@
       "eig_nats": 7.94747605,
       "p_action_change": null,
       "predicted_outcomes": {
-       "correct": 0.4310735,
-       "incorrect": 0.5689265
+       "correct": 0.49325,
+       "incorrect": 0.50675
       }
      },
      "member_eig_nats": 0.0,

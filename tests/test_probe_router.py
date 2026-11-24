@@ -84,8 +84,8 @@ def _router_rows(repository) -> list[dict]:
 # -- the tag and the one function that prices the share -------------------------------------------------------------
 
 
-def test_the_tag_is_the_head_and_its_predicate_reads_the_vault_tag_alone():
-    assert SUCCESSOR_CHAIN[-1] == PROBE_ROUTER_ALGORITHM_VERSION == LATEST_ALGORITHM_VERSION
+def test_the_tag_and_its_predicate_reads_the_vault_tag_alone():
+    assert SUCCESSOR_CHAIN[-2] == PROBE_ROUTER_ALGORITHM_VERSION and LATEST_ALGORITHM_VERSION == SUCCESSOR_CHAIN[-1]
     assert probe_router_on(SimpleNamespace(algorithms=SimpleNamespace(algorithm_version=PROBE_ROUTER_ALGORITHM_VERSION)))
     assert not probe_router_on(SimpleNamespace(algorithms=SimpleNamespace(algorithm_version=BEFORE)))
 
