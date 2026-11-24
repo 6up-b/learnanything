@@ -534,7 +534,25 @@ export interface DeskShellProps {
   /** The app's "Ask the tutor about this" while the desks are the Reader: each new count summons the companion on
    *  what is in view (it never dismisses it). */
   askRequest?: number;
+  /** The app's way into the Reader while the desks are the Reader (the shelf, Today's threads and citations, a return
+   *  from feedback, a lesson's "Look in my library"): a book (and passage) to open or focus on the desk in view, or
+   *  words to search for. Each request is done once, by its sequence number, however often the desks mount again. */
+  openRequest?: DeskOpenRequest | null;
 }
+
+export interface DeskOpenRequest {
+  seq: number;
+  sourceId: string | null;
+  spanId: string | null;
+  /** The reading `spanId` was found on (absent or null: the book's current one). */
+  reading?: string | null;
+  /** Search the desks for these words (with no book). */
+  phrase?: string;
+}
+
+/** The app's open requests already done, per vault: the desks unmount with the Reader place and mount again. */
+const doneOpenRequests = new Map<string, number>();
+
 
 export function DeskShell({
   vaultKey,
@@ -560,6 +578,7 @@ export function DeskShell({
   lessonsTransport = LIVE_LESSONS_TRANSPORT,
   videoTransport = LIVE_VIDEO_TRANSPORT,
   askRequest = 0,
+  openRequest = null,
 }: DeskShellProps) {
   // The vault's one desk store (store.ts): it outlives this shell, so leaving and coming back never makes a
   // second outbox for the same client.
@@ -1963,6 +1982,32 @@ export function DeskShell({
     }
     setOpener(false);
   }, [commit, mintId, timers, placeLesson]);
+
+  // The app's open request: done once the desks, the library and the desk in view are there.
+  useEffect(() => {
+    if (!openRequest || !storeReady || !deskId || library === null) return;
+    if ((doneOpenRequests.get(vaultKey) ?? -1) >= openRequest.seq) return;
+    doneOpenRequests.set(vaultKey, openRequest.seq);
+    if (!openRequest.sourceId) {
+      if (openRequest.phrase !== undefined) setSearch({ query: openRequest.phrase });
+      return;
+    }
+    const card = library.find((entry) => entry.sourceId === openRequest.sourceId);
+    if (!card) {
+      toastNow("that book isn't in your library any more");
+      return;
+    }
+    if (card.readiness !== "ready") {
+      toastNow(`“${shortName(card.title)}” is still being prepared · open it from the Library to read the original meanwhile`);
+      return;
+    }
+    void transport.resolveExtraction(card.sourceId).then((extractionId) => {
+      // A passage found on an earlier reading of the book is not a passage of the reading it has now: the book opens.
+      const sameReading = !openRequest.reading || openRequest.reading === extractionId;
+      openContent(contentForCard(card, extractionId), { spanId: sameReading ? openRequest.spanId : null });
+      if (!sameReading && openRequest.spanId) toastNow("that passage was on an earlier reading of this book · it opened at your place in it");
+    }, () => toastNow("couldn't open that book just now"));
+  }, [openRequest, storeReady, deskId, library, vaultKey, transport, openContent, toastNow]);
 
   const openHit = useCallback((hit: { sourceId: string | null; extractionId: string; spanId: string }) => {
     if (!hit.sourceId) return;

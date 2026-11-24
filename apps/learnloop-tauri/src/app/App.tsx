@@ -2473,6 +2473,13 @@ export function App() {
             onLeave={() => chooseReaderSurface("reader")}
             firstSourceId={readerSource?.card.sourceId ?? null}
             {...(simple ? { askRequest: readerAskRequest } : {})}
+            // Every way into the Reader (the shelf, Today's threads and citations, a return from feedback, a lesson's
+            // "Look in my library") opens its book or search on the desk in view, once per open.
+            openRequest={readerSource || readerLibrarySearch?.seq === readerOpenSeq ? {
+              seq: readerOpenSeq, sourceId: readerSource?.card.sourceId ?? null, spanId: readerSource?.spanId ?? null,
+              reading: readerSource?.reading ?? null,
+              ...(readerLibrarySearch?.seq === readerOpenSeq ? { phrase: readerLibrarySearch.phrase } : {}),
+            } : null}
             reader={{ onCheckMe: checkMeFromReader, onUseExercise: exerciseFromReader, ...(algoConfig().lessons ? { onTeachMe: teachMeFromReader } : {}), ...(readerWorkbench ? { workbench: readerWorkbench } : {}) }}
             {...(algoConfig().lessons ? { lessons: { request: deskLessonRequest, onProbe: openProbeScreen, onConsumed: (seq: number) => setDeskLessonRequest((now) => (now?.seq === seq ? null : now)), onQuickCheck: (ids: string[]) => void startQuickCheck(ids), onLookInLibrary: lookInLibrary } } : {})}
           />

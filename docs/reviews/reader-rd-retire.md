@@ -56,14 +56,35 @@ branch before any work on it.
 
 ## 4. Entry points that still open the old Reader
 
-Routed to the workbench on this branch:
+The desks gained the targeted open the audit found missing: `DeskShell`'s `openRequest` (the app's `readerOpenSeq`
+with its book, passage, reading and search words) opens or focuses the book at the passage on the desk in view, or
+opens the desks' search, once per request however often the desks mount again (`windows/SourceWindow.entry.test.tsx`:
+a book opens beside and focused, and is not opened again on a remount; a book already open is focused at the
+passage; "Look in my library" opens search with its words). A passage found on an earlier reading of the book opens
+the book at the learner's place and says so, never as a passage of the reading it has now; a book still being
+prepared says so and stays in the Library.
 
-- **The palette's "Ask the tutor about this" while reading** (`app/App.tsx`): on the desks it now summons their
-  companion (`DeskShell` `askRequest`), with or without a book in a window; on the old screen it is unchanged.
+Routed to the workbench on this branch, while the desks are the Reader:
 
-Still listed (each waits on its row or on phase 2's targeted open):
+| Entry | Now |
+|---|---|
+| The palette's "Ask the tutor about this" while reading | Summons the desks' companion (`askRequest`) |
+| Library shelf, Today's book choices, Add a file, Continue | The book opens or is focused on the desk in view (`openRequest`) |
+| Today's threads and citations (with the reading translation) | The book at the cited passage on the desk in view; an earlier reading's passage opens the book and says so |
+| Feedback's "Back to where you studied this", printed-page restoration | The book at the restored passage on the desk in view |
+| A lesson's "Look in my library" | The desks' search, prefilled once |
+| Restore on startup | The workspace as it was, the remembered book focused |
 
-(filled as rows close)
+Still listed, each waiting on its row, another worker's row or phase 2:
+
+| Entry | Why it stays |
+|---|---|
+| The Reader place's default surface, the two surface-switch buttons, the desks' "old Reader" | Phase 2's cutover (the default and the toggles go with the old screen) |
+| Today's plan reading (`planReading` mounts the old screen whatever the surface) | Plan progress, the plan banner and the return to Today's queue have no desk home yet (the audit's §5 risk); not one of this branch's rows |
+| Check me, an exercise pick, a deferred session start, workbench submit, feedback and back, unfinished problems | The RW2 problem pad (row "Workbench", another worker): their hand-offs open the book on the desk already, but the problem posture is that row's |
+| Saved panel windows (Guide, Notes, Path, Library) | Phase 2: their identities are translated to their replacements before the adapters go |
+| A book still being prepared (reading the original before extraction ends) | The audit's §5 risk: the desks show it in the Library and say so; the old screen's preparing view has no window yet |
+| Phone Read tab and `#/read/...` | Kept: the phone keeps its own Reader (§13.3) |
 
 ## 5. Product decisions asked
 
