@@ -418,7 +418,7 @@ No migration. The one fix that needs one is R8 and R9's stop arm, and it is not 
 | 3 (its test) | Added. Candidate B, made to rank ahead of A after the decision, is never offered or pinned: the status keeps A, and acceptance pins A's item. |
 | 6 (the display door) | Fixed. `probe_presentations.serve_presentation` is the one path to `served`. It retires an unshown learner-lane pin (`learner_refused_pin`: it names a router decision and no workflow) when the learner's current preference on its factor refuses ("Not now", "Teach me now", no more diagnostics; the status's scope). The pin ends `abandoned`, and the sidecar answers `learner_refused_probe`. Acceptance found no refusal, so one found here came after the pin. The repair entry now carries the session too. |
 | 7 (the reservation) | Fixed. `eligible_instruments` reserves an episode for any standing router pin, not only a workflow's. No routine selection, dialogue or scheduler commit can supersede an accepted learner pin before it is answered, refused at its door, or ended. |
-| 8, 9 | **Open, not built.** The plan is below. Its stop arm needs a migration or an owner call. |
+| 8, 9 | Planned here, then built with migration 273 once the orchestrator assigned it ("The continuation decision", below). |
 | 11 | Fixed. `plan_log.automatic_probe_decision` reads the automatic lane's committed decision on the factor (its probe-lane workflow's decision; a hard refusal is no draw). The learner lane reuses it and flips no coin. Its status is `not_selected`, with `router_asked_on_automatic_lane` or `router_did_not_select_probe_on_automatic_lane`, and the automatic decision's id. The offer refuses a click, and the decision job checks again before it draws. |
 | 12 | Fixed. `causal_repair_status` takes `factor_id` (validated: one of the cause's open factors, and on `attempt_id` when that is given too; otherwise refused) or `attempt_id` (the open factor on that attempt). With neither, or no factor on that attempt, it reads the oldest, as before. The status read, the router's decision, the offer's reread, Teach me now and the repair entry each pass the factor. Frontend: the feedback screen's first read names its attempt, and later reads and the actions name the status's factor. Teach me now's hand-off opens the repair for that factor (`openRepair`, `RepairScreen`, and the `start_remediation` command with optional `factor_id` and `session_id`). |
 | 14 | Fixed. `probe_episodes.known_exposure` reads the answer admission's reveal window (`production_admissibility` over the item and its learning object, at the decision's instant; none below `mvp-0.61`, as the admission). The payload carries `exposed`, and the valuation record freezes `exposure` (its reason, scope and instant). An exposed probe earns no information (`channel_use: exposed`). |
@@ -426,7 +426,7 @@ No migration. The one fix that needs one is R8 and R9's stop arm, and it is not 
 | 17 (the common target) | Fixed. The decision freezes one objective for both arms, the factor's learning object (`measurement.freeze_followup`, support the arms with mass), in its own transaction, as the automatic lane's decision does. The outcome adapter measures a learner-lane decision on that objective for both arms, intention to treat (`router.outcomes`: by the row's surface). An answer to the offered item outside the offer is never the decision's action. |
 | 19 | Fixed. The sidecar's status read decides nothing. A factor with no decision reads `pending` (offer withheld, Teach me now left), and the worker is asked to run its new `probe_router` slot (`learner_probe.run_pending`). That slot reads the status again (so a refusal made meanwhile is honoured), values, decides and records, off the request loop. The queue needs no table: `learner_probe.requested` lists each open factor whose latest receipt is the router's pending read and that has no decision of either lane. The receipt carries the read's session, and the next start resumes the queue (`resume_post_attempt_jobs`). The slot runs only when a read or a start asks, never on idle polls, so a decision that failed to record is tried at the next read. The repair entry holds while pending. Frontend: `useRouterDecisionPoll` reads a pending status again (feedback) or asks the entry again (repair), backing off from 500 ms over six tries, and stops once decided. |
 
-### R8 and R9: the plan (not built)
+### R8 and R9: the plan (as it stood before the build)
 
 The fix is one router decision per next observation of a router-owned episode, with stop among its options. Block
 release, the scheduler and item-open consume it, and it is pinned on the next presentation. It is larger than the rest
@@ -467,8 +467,7 @@ of this round together, and its stop arm cannot be recorded without a migration.
    - A stop ends the episode.
    - A pending decision serves nothing at either door.
 
-Until it is built, a router-owned episode continues within its count by the scheduler's EIG ranking (judgment call 7),
-and a zero-EIG instrument there is not served.
+The orchestrator chose the migration (273); the build is the next section.
 
 ### Judgment calls (round 2)
 
@@ -537,6 +536,120 @@ What they now record:
 - `cargo check`: the `start_remediation` Tauri command gained two optional arguments and was not compiled.
 - The decision job's latency, or the app driven end to end.
 - The owner-copy run. Nothing here changes an upgrade: no row is rewritten and no decision is made by one.
+
+## The continuation decision (R8, R9): migration 273
+
+After round 2 was accepted (at `0a1f8247b8`) the orchestrator assigned migration 273 and asked for the build. The
+branch first merged `origin/main` (`c6bef417bd`: the inline checks' fix round, 271, and the Reader's retirement, 272),
+so 273 sits on 272.
+
+| Commit | What |
+|---|---|
+| `45110c257f` | Merge `origin/main` |
+| `cff2bd743e` | Migration 273 (`probe_episodes.completion_reason` gains `router_stop`), the migration-head fixture upgraded in place, its test |
+| `f49a3f43dc` | The continuation decision, its doors and tests |
+
+**The decision** (`daily_plan.probe_continuation`). An episode is router-owned when a probe the router selected at its
+tag was administered in it (`probe_authority`). Such an episode can be left in progress with no presentation standing
+after an answer: its block is the one question, and its completion reads only evidence and the count. Then the router
+decides its next observation.
+
+- **Options:** `probe`, the episode's top eligible instrument, and `stop`.
+  - Eligibility comes from `eligible_instruments`; EIG only ranks.
+  - So a flat, zero-EIG instrument can be asked.
+- **Pricing:** the learner lane's valuation (`learner_probe.value`) on:
+  - the episode's posterior (the payload's `prior`);
+  - the instrument's channel;
+  - the factor's repair classes (`causal_orchestrator.repair_classes_for_factor`);
+  - the probe's minutes (`causal_reads.probe_burden_minutes`) and its known exposure.
+- **The draw** is the learner lane's, now one function (`learner_probe.draw`): the mix when learned, the probe coin
+  when not. Its seed is the boundary's (`mix.seed_for` / `probe_coin.seed_for` of the boundary key, unit
+  `probe_continuation`).
+- **The row:** `plan_log.log_probe_continuation_decision`.
+  - Surface `probe_episode`, options `probe` and `stop`.
+  - The logged propensities are exactly `served_pi`; the coin's assignment row and the objective commit with it (the
+    episode's learning object; arm `insert` or `stop`).
+  - The replay payload is frozen, and `learner_probe.revalue` reproduces its values from the row alone.
+  - The receipt key is `plan_interrupt:probe_continuation:<episode>:<observations>:<redraw>`, one decision per next
+    observation. `redraw` counts the earlier decisions at that count whose pin ended unanswered (expired, invalidated):
+    each such end opens a new boundary.
+- **In the same transaction:**
+  - a `probe` commits the next presentation, pinned with the decision (`causal_probe.router_decision_id`,
+    `continuation_of_episode`);
+  - a `stop` completes the episode with `router_stop` and names the decision in `completion_detail_json`
+    (`probe_blocks.stop_on_router_decision`, which also writes a diagnosed gap's typed transition and tutoring segment,
+    as a completing block end does).
+  - Anything that fails rolls the whole decision back, and the episode stays waiting.
+- **The job:** the worker's `probe_router` slot, after the learner lane's. Its queue is derived
+  (`probe_continuation.requested`), so a restart's `resume_post_attempt_jobs` finds a waiting episode. Every
+  submission already calls that resume, so an answer that leaves an episode waiting asks the job.
+
+**The doors consume the pin.** Eligibility is carried apart from EIG:
+
+- **The scheduler (H, R8).** A router-owned episode's one candidate is the item its standing pin names
+  (`probe_episodes.router_pinned_item`; the automatic lane's workflow pin keeps its own serving path).
+  - The probe gate admits that item whatever its EIG (`router_pinned_items`), and the queue puts it first, as a
+    session's presentation.
+  - No other instrument of a router-owned episode is a probe candidate, and nothing is precommitted for it.
+- **Item-open (I, R9).** A router-owned episode serves only its standing pin (the existing committed-presentation path).
+  With none standing, the door answers `router_decision_pending` and asks the job.
+  - `commit_item_presentation` itself refuses a router-owned episode, so the TUI's door is closed too.
+- **Block release (J).** The pin makes the continuation's answer router-owned, so its block is the one question and
+  `_next_observation_does_not_pay` is never asked. The sentinel journey proves it through the second answer.
+- **Completion (K).** Unchanged: evidence and the count. The router's stop is the decision's, written by the job.
+
+**Persisted meaning and the tag.** The fix rides on `mvp-0.70`, now with a migration:
+
+- **The migration is schema, not meaning.** It widens one CHECK and rewrites no row. Every vault applies it on its next
+  open, whatever its tag, and a vault below the tag never writes `router_stop`.
+- **Where the new behaviour lives.** It is only in decisions made at `mvp-0.70`: a continuation needs a router-owned
+  episode, which needs a router decision stamped with the tag (`decision_owns`). No vault holds one yet; the owner's
+  vaults are at migration 255, far below.
+- **Replay** derives nothing from these decisions. `probe_episodes` is a workflow table, read as stored.
+  `tests/test_probe_router_continuation.py` rebuilds a vault after a router stop twice: the derived rows and the
+  episode are equal, and the only ledger row added is the rebuild's own receipt.
+- **Below the tag** no episode is router-owned, so `requested` is empty, no door changes and the scheduler reads
+  nothing new.
+
+**Judgment calls:**
+
+1. **While the router decides,** a router-owned episode's instruments are not probes. One that is not a diagnostic
+   surface is ordinary practice if opened, as any item outside a probe. A diagnostic surface stays reserved. The job is
+   asked at the submission that leaves the episode waiting, so the window is the job's run.
+2. **The learner's refusal at the display door** (round 2's R6) does not retire a continuation pin. The offer's "Not
+   now" is about the offer. Retiring the pin would open a new boundary each time, and the episode would loop.
+3. **The next instrument is the top eligible one.** The router decides whether, not which. The valuation prices that
+   one instrument.
+
+**Proof (this part):**
+
+- `tests/test_probe_router_continuation.py` (11 tests):
+  - the decision's exact served distribution, assignment, objective, receipt key and pin, decided once;
+  - a flat instrument (EIG 0) the router asks, admitted and served first by the scheduler, then served at the door;
+  - the continuation's answer closing its block with every legacy worth function raising;
+  - a stop completing the episode with `router_stop`;
+  - no door committing anything while the router decides;
+  - a pin that ended unanswered opening a new boundary;
+  - a restart resuming the queue;
+  - below the tag nothing waiting;
+  - the rebuild after a stop;
+  - a revaluation from the stored row for both arms.
+- `tests/test_probe_router_stop_migration.py` (2): the head fixture holds 273 in rollback mode; a downgraded copy
+  upgrades with every row and index kept and nothing else changed.
+- The worth-gates sentinel journey now asks its second instrument through the decision. It was shown failing on the
+  base: the door committed the instrument with no decision. The continuation file failed on import.
+- `tests/test_migrations.py`, `test_tracked_fixture_databases.py` and `test_public_tip_guards.py` pass, and so do the
+  `tests/test_probe_router*.py` files.
+- `test_architecture.py` passes (the burden read is a public name now). `test_structure_ratchets.py` passes with
+  `scheduler.py` raised from 4442 to 4468 lines (reason in `tests/goldens/structure.toml`). `ruff` and `lint-imports`
+  (55 kept) pass.
+- `cargo check` of `apps/learnloop-tauri/src-tauri` passes, covering round 2's `start_remediation` command.
+- Assertions changed: `test_probe_router_worth_gates.py`'s journey. Its door is first asked for the second instrument
+  and refuses (`router_decision_pending`); the job runs; then the door serves the router's pin, and the test checks
+  that pin is router-owned. It asserted that the door committed the instrument directly. The four tests' shared setup
+  moved to `tests/probe_router_owned_helpers.py`, unchanged.
+- The database reference notes were regenerated after the commit (`db_generate_reference.py`, then
+  `db_validate_reference.py`).
 
 ## Owner copies (run by the orchestrator)
 
