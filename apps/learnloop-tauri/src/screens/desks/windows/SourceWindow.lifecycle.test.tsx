@@ -91,6 +91,25 @@ it("shows the source pane alone: no Reader header, no key bar, no rail without a
   expect(screen.queryByRole("complementary")).toBeNull();
 });
 
+it("a rail hosted on the Notes tab never shows the Guide's name, not even for a render while the book opens", async () => {
+  const host = document.createElement("div");
+  document.body.appendChild(host);
+  const seen = new Set<string>();
+  const record = () => {
+    const label = host.querySelector('[role="complementary"]')?.getAttribute("aria-label");
+    if (label) seen.add(label);
+  };
+  const observer = new MutationObserver(record);
+  observer.observe(host, { subtree: true, childList: true, attributes: true, attributeFilter: ["aria-label"] });
+  render(<Window state="active" railHost={{ node: host, tab: "notes", lifecycle: { windowId: "p1", state: "visible" }, hub: DIRECT_HUB }} />);
+  await screen.findByText(view.blocks[1].markdown);
+  await waitFor(() => expect(seen.has("Notes")).toBe(true));
+  observer.disconnect();
+  record();
+  expect([...seen]).toEqual(["Notes"]);
+  host.remove();
+});
+
 it("renders its rail into the panel window it is given, on that window's tab", async () => {
   const host = document.createElement("div");
   document.body.appendChild(host);

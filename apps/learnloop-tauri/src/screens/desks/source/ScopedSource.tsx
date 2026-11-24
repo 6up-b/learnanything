@@ -315,7 +315,11 @@ export function ScopedSource({
   // before acting on it; edited nodes are flagged so the backend prefers the
   // fixed text as the exercise surface.
   const [editingCapture, setEditingCapture] = useState(false);
-  const [railTab, setRailTab] = useState<ReaderRailTab>("guide");
+  // A rail hosted in a panel window opens on that window's tab, and a source opening in it resets to that tab, not
+  // to the Guide: a reset to the Guide showed the Guide's name in a Notes window for a render.
+  const hostedRailTab = useRef<"guide" | "notes" | null>(windowed?.railHost?.tab ?? null);
+  hostedRailTab.current = windowed?.railHost?.tab ?? null;
+  const [railTab, setRailTab] = useState<ReaderRailTab>(() => hostedRailTab.current ?? "guide");
   // RW7a: bumped by Orient's "what matters here?" (the path card scrolls into view).
   const [pathFocus, setPathFocus] = useState(0);
   const [annotations, setAnnotations] = useState<MarginAnnotation[]>([]);
@@ -953,7 +957,7 @@ export function ScopedSource({
     setActiveSpan(null);
     setSelection(null);
     setSelectionActions([]);
-    setRailTab("guide");
+    setRailTab(hostedRailTab.current ?? "guide");
     setAnnotations([]);
     setNote("");
     setDisposition(null);

@@ -943,3 +943,11 @@ Tests use synthetic vaults and fake transports.
 | TE5-2 | Consolidation import gate | The initial schema selector imported the visual service into the contract module. Check minting and delayed checks then depended transitively on figure storage. | `lint-imports --no-cache` reported the figure/certification contract broken. | Select the provider schema in the teacher service. Shared contracts only import data models. | Fixed |
 | TE5-3 | Interrupted C0b topic write | A retry finding the YAML already published returned before SQLite synchronization. A learner could have a topic on disk and no matching mastery row. | `test_resume_after_yaml_publication_finishes_consent_once` interrupts before sync, then resumes twice. | Journal the decision before creation. The existing creation service now synchronizes both new and already-published objects, then the lesson records one completion and episode. | Fixed |
 | TE5-4 | Topic-offer provider identity | Caching the dynamic schema by the calling convention allocated two Python classes for the same capabilities when one caller passed a flag by keyword. | Episode and visual provider-model identity assertions in the TE5 run. | Cache the extension by the selected V1 model itself. | Fixed |
+
+## Reader retirement, phase 2 (the scoped source's extraction)
+
+Found while extracting the scoped source (record: `docs/reviews/reader-rd-retire.md`, "Phase 2, step 1").
+
+| Id | Found in | Bug | Fail-first test | Fix | Status |
+|---|---|---|---|---|---|
+| RDX-1 | `screens/desks/source/ScopedSource.tsx` (moved from `screens/ReaderScreen.tsx`) | A source rail hosted in a Notes panel window rendered as the Guide ("Reading guide") first: the rail's tab started on the Guide, and opening the source reset it to the Guide, before an effect applied the panel's tab. Under load a reader of the window (and the hosted-rail test) could see the Guide's name in a Notes window. | `windows/SourceWindow.lifecycle.test.tsx`: "a rail hosted on the Notes tab never shows the Guide's name, not even for a render while the book opens" (saw `["Notes", "Reading guide"]`). | The rail's tab starts on the hosting window's tab, and the reset when a source opens goes to that tab (the Guide only without a host, as before). | Fixed |
