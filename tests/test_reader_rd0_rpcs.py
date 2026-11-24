@@ -39,7 +39,9 @@ def test_the_rpcs_are_registered_and_desktop_only():
     from learnloop_sidecar.handlers.passage_union import PASSAGE_UNION_RPCS
     from learnloop_sidecar.registry import METHOD_REGISTRY
 
-    assert DESK_RPCS + PAD_RPCS + PASSAGE_UNION_RPCS + COMPANION_RPCS + INLINE_CHECK_RPCS == RD0_RPCS
+    # RD0's own inline check RPC is ``checks.due_for``; RD7 added the administration protocol's beside it.
+    assert DESK_RPCS + PAD_RPCS + PASSAGE_UNION_RPCS + COMPANION_RPCS + INLINE_CHECK_RPCS[:1] == RD0_RPCS
+    assert INLINE_CHECK_RPCS[0] == "checks.due_for"
     assert all(name in METHOD_REGISTRY and name not in ALLOWLIST for name in RD0_RPCS)
 
 
