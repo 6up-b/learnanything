@@ -629,12 +629,13 @@ it (`learnloop_sidecar/handlers/practice.py:1120`, `_plan_presentation`).
   `app/readerWorkbench.ts:87`).
 
 **Never bind:**
-- practice opened anywhere else (the knowledge map, an item list, the Reader's "practice this", search, a follow-up
-  opened from feedback);
+- practice opened anywhere else than a plan step (the knowledge map, an item list, search; a follow-up binds only when
+  the plan serves it, origin `followup`);
 - exam attempts (the practice-exam session);
 - self reports;
 - teach-back;
-- diagnostic and placement probes (they bind probe presentations, which AD's serve hook does not cover);
+- diagnostic and placement probes (they bind probe presentations; AD's serve hook is called only from the plan,
+  `daily_plan/engine.py:6012`);
 - lesson checks and delayed checks;
 - Reader checks and workbench submissions not started from the plan.
 
