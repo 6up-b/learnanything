@@ -17,6 +17,7 @@ import { SketchCanvas } from "./SketchCanvas";
 import { InkBlock, InkJot } from "../pen/InkLine";
 import { usePenHost } from "../pen/host";
 import { PadCell } from "../notebook/PadCell";
+import { ProblemPad } from "../problem/ProblemPad";
 import { activePad, fractionalOpen, mergeAmount, paperMinHeight, scrollTargetFor, tabMargin, type PadGeometry, type TabGrade } from "./stickyTabs";
 import { isLessonItem, lessonOfKey, lessonTabMeta, lessonTabTitle, stackItemKeys } from "../lesson/model";
 import { LessonPaper } from "../lesson/LessonPaper";
@@ -778,6 +779,10 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
             <button type="button" aria-pressed={Boolean(look.dotted)} onClick={() => setInkView((now) => ({ ...now, [padId]: { ...look, dotted: !look.dotted } }))}>{look.dotted ? "lined" : "dotted"}</button>
             <button type="button" aria-pressed={!look.hidden} onClick={() => setInkView((now) => ({ ...now, [padId]: { ...look, hidden: !look.hidden } }))}>{look.hidden ? "show" : "hide"} transcription</button>
           </div>
+        ) : null}
+        {state.pad.kind === "problem" && state.pad.workbenchSessionId && host.problems ? (
+          // An RW2 problem's workbench, hosted here (spec §15.2); the pad's own blocks follow it.
+          <ProblemPad sessionId={state.pad.workbenchSessionId} host={host.problems} />
         ) : null}
         {days.map((group, groupIndex) => (
           <div key={`${group.day ?? "all"}:${groupIndex}`}>

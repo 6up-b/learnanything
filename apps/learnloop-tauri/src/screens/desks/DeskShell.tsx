@@ -120,6 +120,9 @@ import { NotebookBridgeContext, type NotebookBridgeHost } from "./notebook/Noteb
 import type { BridgeMessage } from "./notebook/bridge";
 import { notebookMenuRequest, openNotebookMenu, setNotebookMenuOpener } from "./notebook/menuBridge";
 import { lessonNotebookFrame } from "./notebook/LessonNotebook";
+import { handOver, type ProblemHandoff } from "./problem/problemPads";
+import type { ProblemHost } from "./problem/ProblemPad";
+import { problemTitle } from "../workbench/stepModel";
 import type { NotebookOwner } from "../../api/dto";
 import { CompanionAsks, companionAsksFor, forgetCompanionAsks, type CompanionApi, type CompanionExchange } from "./companion/asks";
 import { HIDDEN, avoidOffset, companionStep, type CompanionEvent, type CompanionState } from "./companion/model";
@@ -2474,6 +2477,43 @@ export function DeskShell({
   const onPromotedRef = useRef<(row: import("../../api/dto").PromotedRowDto, origin: import("../../api/dto").MenuObjectInput | null) => boolean>(() => false);
   const openMenuByKeyRef = useRef<() => boolean>(() => false);
   const hoveredKeyRef = useRef<(what: "note" | "promoted") => boolean>(() => false);
+  // RW2 on a desk (spec §15.2): a problem a source window opens is worked on a problem pad in the desk's stack (the
+  // pad of its workbench session when one is loaded, else a new one), brought into view; the window keeps reading.
+  const workOnPad = useCallback((handoff: ProblemHandoff) => {
+    handOver(handoff);
+    const id = deskIdRef.current;
+    if (!id) return;
+    const sessionId = handoff.session.sessionId;
+    let padId = Object.values(store.pads).find((pad) => pad.pad.workbenchSessionId === sessionId)?.pad.padId ?? null;
+    if (!padId) {
+      padId = mintId("pad");
+      const title = problemTitle(handoff.session.stemMd);
+      const refused = store.commitPad(padId, [{ op: "create_pad", kind: "problem", title: title === "this problem" ? "a problem" : title, homeDeskId: id, workbenchSessionId: sessionId }]);
+      if (refused) {
+        toastNow(`couldn't make the problem's pad · ${refused.message}`);
+        return;
+      }
+    }
+    const stackWindow = Object.values(wsRef.current.windows).find((window) => window.deskId === id && window.kind === "pad_stack");
+    if (!stackWindow) {
+      commit(openStackBeside(wsRef.current, id, [padId], () => mintId("win")));
+      return;
+    }
+    if (!(stackWindow.stack ?? []).some((entry) => entry.kind === "pad" && entry.padId === padId)) commit(addToStack(wsRef.current, id, stackWindow.windowId, padId));
+    commit(setFocus(wsRef.current, id, stackWindow.windowId));
+    const shown = padId;
+    requestAnimationFrame(() => padHandles.current.get(stackWindow.windowId)?.showPad(shown));
+  }, [store, mintId, toastNow, commit]);
+  const problemHost = useMemo<ProblemHost>(() => ({
+    practiceSessionId: reader?.workbench?.practiceSessionId ?? null,
+    ...(reader?.workbench?.onSubmitted ? { onSubmitted: reader.workbench.onSubmitted } : {}),
+    showInBook: (session) => {
+      if (session.extractionId) openPassage(session.extractionId, session.spanIds[0] ?? null, undefined, session.sourceId ?? null);
+    },
+    cardFor: (sourceId) => (sourceId ? library?.find((card) => card.sourceId === sourceId) ?? null : null),
+    onError,
+  }), [reader, openPassage, library, onError]);
+
   const padsHost = useMemo<PadsHost>(() => ({
     store,
     deskId,
@@ -2543,7 +2583,8 @@ export function DeskShell({
     },
     carry: carryQuestion,
     lessons: lessonsHost,
-  }), [store, deskId, mintId, padsTransport, reader, openPassage, toastNow, commit, sourcePieces, carryQuestion, stepCompanion, poller, pendingFigures, menuPromoted, lessonsHost, openLesson]);
+    problems: problemHost,
+  }), [store, deskId, mintId, padsTransport, reader, openPassage, toastNow, commit, sourcePieces, carryQuestion, stepCompanion, poller, pendingFigures, menuPromoted, lessonsHost, openLesson, problemHost]);
   // Pen and ink (RD8a): what a source window's pen layer and a pad's ink lines reach through.
   const inkCache = useMemo(() => new InkCache({ api: penApi, poller, settled: () => store.settled(), refreshPad: (padId) => store.refreshPad(padId) }), [penApi, poller, store]);
   const penHost = useMemo<PenHost>(() => ({
@@ -3465,6 +3506,7 @@ export function DeskShell({
           onInquiryReady: onInquiryReadyFor(window.windowId),
           onAsk: onAskFor(window.windowId),
           onOpenPath: onOpenPathFor(window.windowId),
+          onWorkOnPad: workOnPad,
           onError,
           ...(reader ? { reader } : {}),
           // A book following a video marks its passage over the goal lens (RD10).

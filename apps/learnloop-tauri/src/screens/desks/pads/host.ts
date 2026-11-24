@@ -1,6 +1,7 @@
 // What a pad window needs from the desks (spec §10): the vault's store, ids, today's date, ways to open a
 // passage, search, the companion and a lesson, and the pad RPCs. DeskShell provides it; tests provide fakes.
 import { createContext, useContext } from "react";
+import type { ProblemHost } from "../problem/ProblemPad";
 import type {
   CarryInput,
   CarriedQuestionDto,
@@ -90,6 +91,8 @@ export interface PadsHost {
   register: (windowId: string, handle: PadStackHandle | null) => void;
   /** Teacher lessons as tabs of a stack (spec §11.1); absent where the desks give none (a stack then shows pads only). */
   lessons?: LessonsHost;
+  /** RW2 problems hosted on their problem pads (spec §15.2); absent where the desks give none. */
+  problems?: ProblemHost;
   /** Carry a question (shared with the shelf). */
   carry: (text: string, origin: { kind: CarryInput["originKind"]; ref?: string | null; anchor?: CarryInput["anchor"] }) => Promise<void> | void;
 }
