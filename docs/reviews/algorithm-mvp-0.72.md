@@ -297,6 +297,12 @@ The seam guards are in `tests/test_difficulty_kinds_apart.py` and `tests/test_it
     every golden this tag moved, the seam guards and the migrations test: 1220 passed. The diagnosis journey golden
     and two ratchets were then regenerated or raised with reasons, and pass;
   - the two gates collect every test once (34716: landing 34650 and arc close 66).
+- **After H-5's fix, H-4 and merging origin/main `88c0a42823` (`e66c055d84`):**
+  - the affected set by import over the branch's source and tests (1111 files), plus every test file that reaches the
+    daily plan, the objective, measurement, the teacher or the pinned draws: 1196 files in eight chunks, 29,290 passed
+    and 0 failed;
+  - pins, ratchets, architecture, layout, pinned draws and migrations: 438 passed;
+  - the two gates collect every test once (34733: landing 34667 and arc close 66).
 - **Lint:** ruff clean; lint-imports 55 kept, 0 broken.
 - **Not run here:** the whole landing gate and the arc-close gate in one piece, and the durability lane.
 
