@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/lesson/LessonPaper.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/lesson/LessonPaper.tsx) |
-| Source lines | 84 |
+| Source lines | 101 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/lesson/_area|TypeScript/screens/desks/lesson]] |
 | Refactor status | `ACTIVE` |
@@ -54,16 +54,20 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export interface LessonPaperProps` — interface, line 15
-- `export function LessonPaper(` — function, line 27
+- `export interface LessonPaperProps` — interface, line 16
+- `export function LessonPaper(` — function, line 28
 
 ## Internal implementation anchors
 
-- `const onBusy = useCallback((busy: boolean)` — const, line 32
-- `const onView = useCallback((next: LessonViewDto)` — const, line 34
-- `const closed = Boolean(view?.closed ?? (lessonId ? desk.summary(lessonId)?.closed : false))` — const, line 39
-- `const shownId = lessonId ?? view?.lessonId ?? null` — const, line 40
-- `const notebook = view && shownId && lessonMedium(view) === "notebook" && host.notebookFrame ? host.notebookFrame(shownId, view) : null` — const, line 41
+- `const paper = useRef<HTMLDivElement | null>(null)` — const, line 31
+- `const node = paper.current` — const, line 34
+- `const observer = new IntersectionObserver((entries)` — const, line 36
+- `const onBusy = useCallback((busy: boolean)` — const, line 43
+- `const onView = useCallback((next: LessonViewDto)` — const, line 45
+- `const shareOpening = useCallback((send: ()` — const, line 50
+- `const closed = Boolean(view?.closed ?? (lessonId ? desk.summary(lessonId)?.closed : false))` — const, line 51
+- `const shownId = lessonId ?? view?.lessonId ?? null` — const, line 52
+- `const notebook = view && shownId && lessonMedium(view) === "notebook" && host.notebookFrame ? host.notebookFrame(shownId, view) : null` — const, line 53
 
 ## Who imports or calls it
 
@@ -80,6 +84,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/screens/LessonView|src/screens/LessonView.tsx]] — import-or-re-export; imports `LessonEntry`, `LessonView`
 - [[Reference/Desktop/TypeScript/screens/desks/lesson/host|src/screens/desks/lesson/host.ts]] — import-or-re-export; imports `LessonsHost`
 - [[Reference/Desktop/TypeScript/screens/desks/lesson/model|src/screens/desks/lesson/model.ts]] — import-or-re-export; imports `LessonMode`, `lessonMedium`, `modeButtons`, `modeLine`
+- [[Reference/Desktop/TypeScript/screens/desks/lifecycle|src/screens/desks/lifecycle.tsx]] — import-or-re-export; imports `PausedPart`
 
 ### Assets, platform, and third-party dependencies
 
@@ -93,7 +98,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 ## Tests that define behavior
 
-- No repository test directly names this source path or a uniquely owned export. `npm run typecheck`, `npm test` and `npm run frontend:build` are the executable frontend gates; add a focused test when changing behavior.
+- [apps/learnloop-tauri/src/screens/desks/lesson/lessonWindows.test.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/lesson/lessonWindows.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 
 ## Modification guidance
 

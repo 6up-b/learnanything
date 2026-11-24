@@ -28,10 +28,9 @@ import signal
 import subprocess
 import time
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Any, Protocol
 
-from learnloop.notebook_runtime import adapter, settings
+from learnloop.notebook_runtime import adapter, hostfiles, settings
 from learnloop.notebook_runtime.sandbox import Layout, Limits, launch_command
 
 LOG = logging.getLogger(__name__)
@@ -98,11 +97,16 @@ class Session:
     cell_ids: dict[str, str] = field(default_factory=dict)
     cell_codes: dict[str, str] = field(default_factory=dict)
     ui_values: dict[str, Any] = field(default_factory=dict)
+    #: The JSON size of each kept value, and their sum (bounded by ``settings.UI_VALUES_MAX_BYTES``).
+    ui_sizes: dict[str, int] = field(default_factory=dict, repr=False)
+    ui_bytes: int = 0
     #: Per cell name, what its last run said: ``{"status", "ms", "error"}`` (read from marimo's cell messages).
     cell_runs: dict[str, dict[str, Any]] = field(default_factory=dict)
     _run_started: dict[str, float] = field(default_factory=dict, repr=False)
     #: A lesson notebook's commit points and held cells (``lessons.lesson_contract``); None for any other notebook.
     contract: dict[str, Any] | None = None
+    #: A pad's cells, ``[(name, code)]``, as the snapshot holds them (None for any other notebook).
+    snapshot_cells: list[tuple[str, str]] | None = None
     #: A closed lesson's notebook: shown as it is, nothing committed, nothing released.
     review: bool = False
     #: The commit points the learner answered, and the held cells released in this server process.
@@ -161,6 +165,30 @@ def note_cell_progress(session: Session, cell_id: str, status: str | None, stamp
         run["error"] = True
 
 
+def record_ui_values(session: Session, values: dict[str, Any]) -> None:
+    """Keep the controls' values the server accepted, for replay after a restart: only controls of the notebook's
+    own cells (marimo names one ``<cell id>-<n>``), and never more than ``UI_VALUES_MAX_BYTES`` in all (a value that
+    would pass it is not kept; the page keeps its own)."""
+
+    import json
+
+    known = set(session.cell_ids.values())
+    for object_id, value in values.items():
+        cell, _, index = object_id.rpartition("-")
+        if cell not in known or not index.isdigit():
+            continue
+        try:
+            size = len(json.dumps(value))
+        except (TypeError, ValueError):
+            continue
+        total = session.ui_bytes - session.ui_sizes.get(object_id, 0) + size
+        if total > settings.UI_VALUES_MAX_BYTES:
+            continue
+        session.ui_values[object_id] = value
+        session.ui_sizes[object_id] = size
+        session.ui_bytes = total
+
+
 def note_commits(session: Session, values: dict[str, Any]) -> None:
     """Controls set by the frame (object id to value): a non-empty value on a commit point's own control commits it.
     marimo names a control ``<cell id>-<n>``. A review commits nothing."""
@@ -196,6 +224,8 @@ class Supervisor:
         self.ready_timeout = ready_timeout
         self.stop_timeout = stop_timeout
         self._watch: asyncio.Task | None = None
+        #: The start in flight (a spawn or a readiness wait); a stop waits for it, so no server outlives a stop.
+        self._start_task: asyncio.Task | None = None
         self._stopping = False
         self.ready_event = asyncio.Event()
 
@@ -204,11 +234,15 @@ class Supervisor:
 
         session = self.session
         self._stopping = False
+        self._start_task = asyncio.current_task()
         session.state = STARTING
         session.stop_reason = None
         session.last_error = None
-        if await self._launch():
-            self._watch = asyncio.create_task(self._supervise())
+        try:
+            if await self._launch():
+                self._watch = asyncio.create_task(self._supervise())
+        finally:
+            self._start_task = None
 
     async def _launch(self) -> bool:
         session = self.session
@@ -223,8 +257,13 @@ class Supervisor:
             session.state = FAILED
             session.last_error = f"the notebook server could not start ({type(exc).__name__}: {exc})"
             return False
+        if self._stopping:
+            # A stop landed while the server was being spawned: it never serves.
+            await self._kill()
+            return False
         if not await self._wait_ready():
             if self._stopping:
+                await self._kill()
                 return False
             session.state = FAILED
             session.last_error = "the notebook server did not answer on its socket"
@@ -286,6 +325,10 @@ class Supervisor:
             return
         self._stopping = True
         session.state = STOPPING
+        starting = self._start_task
+        if starting is not None and starting is not asyncio.current_task() and not starting.done():
+            # Let the start see the stop (it kills a server it spawned meanwhile), then stop what is left.
+            await asyncio.wait({starting}, timeout=self.stop_timeout * 3)
         process = session.process
         if process is not None and process.returncode is None:
             if graceful:
@@ -339,29 +382,34 @@ class SandboxBackend:
     def _client(self, session: Session, timeout: float = 5.0) -> Any:
         import httpx
 
+        # Only ever the socket trusted code made (a link or anything else in its place is refused).
+        hostfiles.check_socket(session.layout.socket)
         return httpx.AsyncClient(transport=httpx.AsyncHTTPTransport(uds=str(session.layout.socket)),
                                  base_url="http://127.0.0.1", timeout=timeout,
                                  headers={"Authorization": f"Bearer {session.token}"})
 
     async def spawn(self, session: Session) -> Process:
+        """Start the server: the token written afresh and the socket created and listening, both by this trusted
+        side in the session's private run directory (the sandbox never sees it); the server inherits the socket as
+        a descriptor and reads the token through a read-only mount."""
+
         layout = session.layout
-        layout.run_dir.mkdir(parents=True, exist_ok=True)
-        os.chmod(layout.run_dir, 0o700)
-        if layout.socket.exists():
-            layout.socket.unlink()
-        layout.token_file.write_text(session.token, encoding="utf-8")
-        os.chmod(layout.token_file, 0o600)
-        argv, env = launch_command(layout, session.limits, base_url=session.base_url, unit=session.unit,
-                                   scoped=self.scoped, python=self.python)
-        process = await asyncio.create_subprocess_exec(*argv, env=env, stdin=subprocess.DEVNULL,
-                                                       stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                                       start_new_session=True)
+        hostfiles.private_dir(layout.run_dir)
+        hostfiles.write_private(layout.run_dir, layout.token_file.name, session.token.encode("utf-8"))
+        listener = hostfiles.listening_socket(layout.run_dir, layout.socket.name)
+        try:
+            argv, env = launch_command(layout, session.limits, base_url=session.base_url, unit=session.unit,
+                                       scoped=self.scoped, socket_fd=listener.fileno(), python=self.python)
+            process = await asyncio.create_subprocess_exec(*argv, env=env, stdin=subprocess.DEVNULL,
+                                                           stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                                           start_new_session=True, pass_fds=(listener.fileno(),))
+        finally:
+            # The server holds its own copy; this side only ever connects by the path.
+            listener.close()
         asyncio.get_running_loop().create_task(_drain(process, session))
         return process
 
     async def ready(self, session: Session) -> bool:
-        if not session.layout.socket.exists():
-            return False
         async with self._client(session, timeout=2.0) as client:
             response = await client.get(f"{session.base_url}/{adapter.HEALTH}")
             return response.status_code == 200
@@ -392,10 +440,7 @@ class SandboxBackend:
         """A stale socket goes; a scope systemd keeps listed as failed (a server killed by a signal) is reset by
         its own name, so nothing of a stopped session stays registered."""
 
-        try:
-            session.layout.socket.unlink()
-        except FileNotFoundError:
-            pass
+        hostfiles.remove_private(session.layout.run_dir, session.layout.socket.name)
         if self.scoped and session.unit:
             process = await asyncio.create_subprocess_exec(
                 "systemctl", "--user", "reset-failed", f"{session.unit}.scope", stdin=subprocess.DEVNULL,
@@ -417,14 +462,3 @@ async def _drain(process: Any, session: Session) -> None:
         tail += chunk
         if len(tail) > OUTPUT_TAIL_BYTES:
             del tail[:len(tail) - OUTPUT_TAIL_BYTES]
-
-
-def run_dir_bytes(run_dir: Path) -> int:
-    total = 0
-    for root, _dirs, files in os.walk(run_dir):
-        for name in files:
-            try:
-                total += os.lstat(os.path.join(root, name)).st_size
-            except OSError:
-                pass
-    return total

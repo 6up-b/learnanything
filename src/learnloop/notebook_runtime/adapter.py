@@ -92,12 +92,17 @@ enabled = false
 """
 
 
-def marimo_edit_args(notebook: str, token_file: str, base_url: str) -> list[str]:
-    """``marimo edit``'s arguments: headless, token from a file, served under ``base_url``, no update check and no
-    marimo-managed sandbox (bubblewrap is the sandbox)."""
+def marimo_edit_args(notebook: str, token_file: str) -> list[str]:
+    """``marimo edit``'s arguments: headless, token from a file, no update check and no marimo-managed sandbox
+    (bubblewrap is the sandbox). The base URL (the session's secret path) is added by the launcher from its
+    environment, so it never appears in a command line."""
 
-    return ["edit", notebook, "--headless", "--skip-update-check", "--no-sandbox",
-            "--token-password-file", token_file, "--base-url", base_url]
+    return ["edit", notebook, "--headless", "--skip-update-check", "--no-sandbox", "--token-password-file", token_file]
+
+
+#: The launcher's environment variable carrying the base URL (``sandbox.BASE_URL_ENV``; named here too because the
+#: launcher runs alone inside the sandbox).
+BASE_URL_ENV = "LEARNLOOP_NOTEBOOK_BASE_URL"
 
 
 def server_token(index_html: str) -> str | None:
@@ -204,8 +209,9 @@ def cell_name(block_id: str) -> str:
     import hashlib
 
     safe = re.sub(r"[^0-9A-Za-z_]", "_", block_id).lower()
-    if safe != block_id.lower():
-        # Two ids that differ only in characters an identifier cannot hold must not share a name.
+    if safe != block_id:
+        # Two ids that differ only in case, or in characters an identifier cannot hold, must not share a name: the
+        # exact id's hash keeps them apart.
         safe = f"{safe}_{hashlib.sha256(block_id.encode()).hexdigest()[:8]}"
     return f"c_{safe}"
 
@@ -311,8 +317,8 @@ def interface_problems() -> list[str]:
             problems.append(f"`marimo edit` has no --{option.replace('_', '-')} option")
     if "uvicorn.Config(" not in inspect.getsource(start.start):
         problems.append("marimo's start() no longer builds uvicorn.Config, which the socket launcher patches")
-    if "uds" not in inspect.signature(uvicorn.Config.__init__).parameters:
-        problems.append("uvicorn.Config has no `uds` parameter")
+    if "fd" not in inspect.signature(uvicorn.Config.__init__).parameters:
+        problems.append("uvicorn.Config has no `fd` parameter")
     paths = set(_route_paths(router.build_routes(base_url="")))
     for endpoint in (HEALTH, INSTANTIATE, SET_UI_ELEMENT_VALUE, SET_MODEL_VALUE, FUNCTION_CALL, SET_CELL_CONFIG,
                      RUN, SHUTDOWN, RESTART_SESSION, WEBSOCKET):
@@ -386,27 +392,27 @@ def _route_paths(routes: Any, prefix: str = "") -> Any:
 # -- the launcher (runs inside the sandbox) -------------------------------------------------------------------------
 
 def launch(argv: list[str]) -> None:
-    """``argv``: ``[this file, SOCKET, "--", *marimo-args]``. Serves marimo on the Unix socket."""
+    """``argv``: ``[this file, FD, "--", *marimo-args]``. Serves marimo on the listening Unix socket ``FD``, which
+    trusted code outside the sandbox created and passed down; the server never creates or names a socket path."""
 
     import uvicorn
 
-    socket_path = argv[1]
-    if len(argv) < 3 or argv[2] != "--":
-        raise SystemExit("usage: launcher SOCKET -- marimo-args")
+    if len(argv) < 3 or argv[2] != "--" or not argv[1].isdigit():
+        raise SystemExit("usage: launcher FD -- marimo-args")
+    socket_fd = int(argv[1])
     original = uvicorn.Config.__init__
 
     def on_the_socket(self: Any, app: Any, *args: Any, **kwargs: Any) -> None:
-        kwargs["uds"] = socket_path
+        kwargs["fd"] = socket_fd
         original(self, app, *args, **kwargs)
 
     uvicorn.Config.__init__ = on_the_socket  # type: ignore[method-assign]
-    try:
-        os.unlink(socket_path)
-    except FileNotFoundError:
-        pass
     from marimo._cli.cli import main as marimo_main
 
-    sys.argv = ["marimo", *argv[3:]]
+    # The secret path stays out of every command line: marimo reads it from this process's own argv in memory,
+    # and the variable is taken out so no child (the kernel) inherits it.
+    base_url = os.environ.pop(BASE_URL_ENV, "")
+    sys.argv = ["marimo", *argv[3:], *(["--base-url", base_url] if base_url else [])]
     marimo_main()
 
 

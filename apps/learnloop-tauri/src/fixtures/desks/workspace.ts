@@ -2,10 +2,10 @@
 // a video, a paper, its guide and path panels and a pad stack; a second desk on attention; a third
 // with a ranged window on the same book. And a small in-memory server that applies `desk.apply` as
 // the sidecar does (versions checked per op, conflicts with the current head), for the harness.
-import type { DeskApplyDto, DeskApplyInput, DeskOpDto, DeskStateDto, PadApplyDto, PadApplyInput, PadViewDto, WriteOpResultDto } from "../../api/dto";
+import type { DeskApplyDto, DeskApplyInput, DeskOpDto, DeskStateDto, InkOwnerViewDto, InkStrokeDto, PadApplyDto, PadApplyInput, PadViewDto, WriteOpResultDto } from "../../api/dto";
 import { OpRefusal, applyDeskOp, deskById, fromDeskState, type Workspace } from "../../screens/desks/model/workspace";
 import { PadOpConflict, PadOpRefusal, applyPadOp, fromPadView, type Pads } from "../../screens/desks/pads/model";
-import { fixturePads } from "./pads";
+import { FIXTURE_INK_PAD, fixtureInkOwners, fixturePads } from "./pads";
 import { FIXTURE_SOURCES } from "./sources";
 
 const { book, paper, video, video2 } = FIXTURE_SOURCES;
@@ -76,6 +76,27 @@ export class FixtureDeskServer {
   private seqs = new Map<string, number>();
   readonly batches: DeskApplyInput[] = [];
   readonly padBatches: PadApplyInput[] = [];
+  /** Ink saved on pad blocks, and strokes erased (ink.list answers from them, as the server's ledger does). */
+  readonly inkSaves: Array<{ blockId: string; inkId: string; strokes: InkStrokeDto[] }> = [];
+  readonly erasedStrokes = new Set<string>();
+
+  /** `ink.list` for a pad: the handwritten fixture's lines, then the ink saved here, without the erased strokes. */
+  inkFor(padId: string): InkOwnerViewDto[] {
+    const blocks = new Set((this.pads[padId]?.blocks ?? []).map((block) => block.blockId));
+    const owners = new Map<string, InkOwnerViewDto>((padId === FIXTURE_INK_PAD ? fixtureInkOwners() : []).map((owner) => [owner.ownerId, owner]));
+    for (const save of this.inkSaves) {
+      if (!blocks.has(save.blockId)) continue;
+      const owner = owners.get(save.blockId) ?? { ownerKind: "block" as const, ownerId: save.blockId, contentHash: "", devicePixelRatio: 1, strokes: [], transcription: null };
+      owners.set(save.blockId, { ...owner, contentHash: `${owner.contentHash}+${save.inkId}`, strokes: [...owner.strokes, ...save.strokes.map((stroke) => ({ ...stroke, inkId: save.inkId }))],
+        transcription: owner.transcription ? { ...owner.transcription, current: false } : null });
+    }
+    return [...owners.values()].flatMap((owner) => {
+      const strokes = owner.strokes.filter((stroke) => !this.erasedStrokes.has(stroke.strokeId));
+      if (!strokes.length) return [];
+      if (strokes.length === owner.strokes.length) return [owner];
+      return [{ ...owner, strokes, contentHash: `${owner.contentHash}-${strokes.length}`, transcription: owner.transcription ? { ...owner.transcription, current: false } : null }];
+    });
+  }
   pads: Pads;
 
   constructor(state: DeskStateDto = fixtureDeskState(), pads: PadViewDto[] = fixturePads()) {
@@ -111,6 +132,7 @@ export class FixtureDeskServer {
           const kept = this.pads[input.padId].blocks.find((block) => block.blockId === op.keepBoth?.blockId);
           results.push({ status: "ok", keptBoth: { blockId: op.keepBoth.blockId, headVersionId: kept?.headVersionId ?? "" } });
         } else results.push({ status: "ok" });
+        if (op.op === "erase_ink") for (const strokeId of op.strokeIds) this.erasedStrokes.add(strokeId);
       } catch (error) {
         if (error instanceof PadOpConflict) results.push({ status: "conflict", current: error.current });
         else if (error instanceof PadOpRefusal) results.push({ status: "refused", code: error.code, message: error.message });
@@ -126,11 +148,12 @@ export class FixtureDeskServer {
   }
 
   /** One ink save (RD8a): it takes the client's next number, as desk and pad batches do. */
-  applyInk(input: { clientId: string; seq: number; inkId: string }): { version: number; appliedSeq: number; inkId: string; results: Array<{ status: "ok"; duplicate: boolean }> } {
+  applyInk(input: { clientId: string; seq: number; inkId: string; owner?: { blockId?: string }; strokes?: InkStrokeDto[] }): { version: number; appliedSeq: number; inkId: string; results: Array<{ status: "ok"; duplicate: boolean }> } {
     const last = this.seqs.get(input.clientId) ?? 0;
     if (input.seq <= last) return { version: 1, appliedSeq: input.seq, inkId: input.inkId, results: [{ status: "ok", duplicate: true }] };
     if (input.seq !== last + 1) throw { code: "seq_gap", message: `expected ${last + 1}`, retryable: false };
     this.seqs.set(input.clientId, input.seq);
+    if (input.owner?.blockId && input.strokes) this.inkSaves.push({ blockId: input.owner.blockId, inkId: input.inkId, strokes: input.strokes });
     return { version: 1, appliedSeq: input.seq, inkId: input.inkId, results: [{ status: "ok", duplicate: false }] };
   }
 

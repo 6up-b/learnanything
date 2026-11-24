@@ -46,7 +46,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/notebook_runtime/settings.py](../../../../../../src/learnloop/notebook_runtime/settings.py) |
-| Source lines | 38 |
+| Source lines | 39 |
 | Owning package | [[Reference/Modules/learnloop/notebook_runtime/_package|learnloop.notebook_runtime]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -69,7 +69,8 @@ No public top-level function or class definition is declared in this file.
 - `RESTART_BACKOFF_SECONDS` ([src/learnloop/notebook_runtime/settings.py](../../../../../../src/learnloop/notebook_runtime/settings.py), line 31)
 - `SWEEP_SECONDS` ([src/learnloop/notebook_runtime/settings.py](../../../../../../src/learnloop/notebook_runtime/settings.py), line 33)
 - `NOTEBOOK_MAX_BYTES` ([src/learnloop/notebook_runtime/settings.py](../../../../../../src/learnloop/notebook_runtime/settings.py), line 35)
-- `RUN_DIR_MAX_BYTES` ([src/learnloop/notebook_runtime/settings.py](../../../../../../src/learnloop/notebook_runtime/settings.py), line 38)
+- `REQUEST_MAX_BYTES` ([src/learnloop/notebook_runtime/settings.py](../../../../../../src/learnloop/notebook_runtime/settings.py), line 38)
+- `UI_VALUES_MAX_BYTES` ([src/learnloop/notebook_runtime/settings.py](../../../../../../src/learnloop/notebook_runtime/settings.py), line 39)
 
 ## Internal implementation anchors
 
@@ -109,8 +110,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_notebook_pad_cells.py](../../../../../../tests/test_notebook_pad_cells.py) — direct import
+  - `test_a_generated_notebook_larger_than_a_notebook_may_be_is_refused`
 - [tests/test_notebook_runtime.py](../../../../../../tests/test_notebook_runtime.py) — direct import
-  - `test_a_run_directory_past_its_bound_stops_the_session`
+  - `test_an_oversized_request_is_refused_and_nothing_is_recorded_before_the_server_accepts_it`
+  - `test_recorded_values_are_only_known_controls_within_a_bound`
   - `test_the_app_frames_notebooks_from_any_loopback_port`
   - `test_the_bridge_and_the_paper_theme_are_injected_and_the_bridge_names_only_the_workbench_origins`
   - `test_the_frame_csp_contains_the_page`

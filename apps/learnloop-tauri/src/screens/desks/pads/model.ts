@@ -206,6 +206,13 @@ export function applyPadOp(pads: Pads, padId: string, op: PadOpDto, now: string)
       const block = state.blocks.find((each) => each.blockId === op.blockId);
       if (!block) throw new PadOpRefusal("block_not_found", "That block is not in this pad.");
       if (block.kind !== "ink") throw new PadOpRefusal("not_an_ink_block", "Ink goes in an ink block.");
+      if (op.versionId && block.provenance === "ink_transcription") {
+        // Every stroke erased: LearnLoop's reading of them goes with them, as on the server (a blank version).
+        const { ink_transcription: _gone, ...payload } = block.payload;
+        const next: PadBlockDto = { ...block, headVersionId: op.versionId, bodyMd: "", payload, updatedAt: now,
+          submissions: block.submissions.map((submission) => ({ ...submission, current: false })) };
+        return replace(pads, padId, { ...withBlock(state, next), pad: { ...state.pad, updatedAt: now } });
+      }
       return replace(pads, padId, { ...state, pad: { ...state.pad, updatedAt: now } });
     }
   }

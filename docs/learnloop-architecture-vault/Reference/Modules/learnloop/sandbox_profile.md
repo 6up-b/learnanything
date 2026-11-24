@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/sandbox_profile.py](../../../../../src/learnloop/sandbox_profile.py) |
-| Source lines | 100 |
+| Source lines | 102 |
 | Owning package | [[Reference/Modules/learnloop/_package|learnloop]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -56,7 +56,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - `bwrap_path() -> str | None` ([source](../../../../../src/learnloop/sandbox_profile.py), line 26) — The bubblewrap binary to sandbox with, or None off Linux.
 - `executable_mount_roots(executable: str) -> set[str]` ([source](../../../../../src/learnloop/sandbox_profile.py), line 34) — Install roots (``<root>/bin/exe`` → ``<root>``) for an executable and every hop of its symlink chain, so a venv python that links into e.g.
-- `sandboxed_command(command: list[str], workdir: Path, bwrap: str, *, hardened: bool=True, unset_env: tuple[str, ...]=(), extra_args: Sequence[str]=()) -> list[str]` ([source](../../../../../src/learnloop/sandbox_profile.py), line 51) — Wrap ``command`` in bubblewrap: every namespace unshared (so no network), system and interpreter mounts read-only, ``workdir`` as the only writable bind, and the sandbox dying with its parent.
+- `sandboxed_command(command: list[str], workdir: Path | None, bwrap: str, *, hardened: bool=True, unset_env: tuple[str, ...]=(), extra_args: Sequence[str]=()) -> list[str]` ([source](../../../../../src/learnloop/sandbox_profile.py), line 51) — Wrap ``command`` in bubblewrap: every namespace unshared (so no network), system and interpreter mounts read-only, ``workdir`` as the only writable bind (None: no writable host path at all; the caller's ``extra_args`` then give the command its tmpfs and working directory), and t…
 
 ### Module constants
 
@@ -119,8 +119,8 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_sidecar_animation.py](../../../../../tests/test_sidecar_animation.py) — imports consumer [[Reference/Modules/learnloop/content/authoring/concept_animation|learnloop.content.authoring.concept_animation]]
 - [tests/test_structured_transport_parity.py](../../../../../tests/test_structured_transport_parity.py) — imports consumer [[Reference/Modules/learnloop/content/authoring/concept_animation|learnloop.content.authoring.concept_animation]]
 - [tests/notebook_runtime_helpers.py](../../../../../tests/notebook_runtime_helpers.py) — imports consumer [[Reference/Modules/learnloop/notebook_runtime/sandbox|learnloop.notebook_runtime.sandbox]]
+- [tests/test_notebook_host_boundary.py](../../../../../tests/test_notebook_host_boundary.py) — imports consumer [[Reference/Modules/learnloop/notebook_runtime/sandbox|learnloop.notebook_runtime.sandbox]]
 - [tests/test_notebook_rpcs.py](../../../../../tests/test_notebook_rpcs.py) — imports consumer [[Reference/Modules/learnloop/notebook_runtime/sandbox|learnloop.notebook_runtime.sandbox]]
-- [tests/test_notebook_runtime.py](../../../../../tests/test_notebook_runtime.py) — imports consumer [[Reference/Modules/learnloop/notebook_runtime/sandbox|learnloop.notebook_runtime.sandbox]]
 
 ## Modification guidance
 

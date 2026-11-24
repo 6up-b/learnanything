@@ -12,7 +12,7 @@ import pytest
 from learnloop.db.migrate import UPGRADE_TEST_HELPER, applied_versions, apply_migrations, discover_migrations, upgrade_allowance
 from learnloop.db.table_roles import TABLE_ROLES
 from tests.helpers import MIGRATION_HEAD_FIXTURE
-from tests.reader_rd8a_migration_helpers import APPEND_ONLY, RD8A_ADDED_OBJECTS, TABLES, undo_267
+from tests.reader_rd8a_migration_helpers import APPEND_ONLY, RD8A_ADDED_OBJECTS, TABLES, undo_267, undo_269
 
 HEAD = MIGRATION_HEAD_FIXTURE / "state.sqlite"
 MIGRATION = next(m for m in discover_migrations() if m.name == "reader_workbench_ink")
@@ -64,7 +64,12 @@ def test_it_adds_its_objects_and_changes_nothing_else(tmp_path):
     assert set(after) - set(before) == RD8A_ADDED_OBJECTS
     assert set(before) - set(after) == set()
     assert {name for name in before if before[name] != after[name]} == set()
-    with closing(sqlite3.connect(f"file:{HEAD}?mode=ro", uri=True)) as head:
+    # The head as 267 left it: 269 later widened one of its triggers.
+    as_267 = tmp_path / "as_267.sqlite"
+    with closing(sqlite3.connect(HEAD)) as source, closing(sqlite3.connect(as_267)) as target:
+        source.backup(target)
+    with closing(sqlite3.connect(as_267)) as head:
+        undo_269(head)
         expected = {row[0]: row[1] for row in head.execute("SELECT name, sql FROM sqlite_master")}
     assert after == expected
 
@@ -94,6 +99,6 @@ def test_the_constraints_hold(tmp_path):
         with pytest.raises(sqlite3.IntegrityError, match="CHECK"):
             connection.execute(readings.replace("'block'", "'source'"))
         connection.execute(readings)
-        with pytest.raises(sqlite3.IntegrityError, match="UNIQUE"):
-            # One reading per owner and strokes.
+        with pytest.raises(sqlite3.IntegrityError, match="append-only"):
+            # One reading per owner and strokes (269's guard refuses it before the UNIQUE key does).
             connection.execute(readings.replace("'it_1'", "'it_2'"))

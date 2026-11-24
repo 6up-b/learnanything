@@ -62,7 +62,8 @@ What this step builds is the hosting path, end to end, against a stated location
   state dashed, the verdict line) are what the lesson notebook's commit and reveal cells render.
 - NA's commit-gate widget, which would render them from `ll.commit`, is not built. The fixture's notebook writes the classes itself.
 - **Not built:** the host-owned commit of NA §6.3 (authenticated, frozen and logged before the reveal, with a state machine).
-- A commit here is not evidence: nothing about it is written anywhere. Any control value on the commit point's cell counts (the frame's own code could set one too), so this is display gating, not integrity.
+- A commit here is not evidence: nothing about it is written anywhere. Any control value on the commit point's cell counts (the frame's own code could set one too), so this is display gating, not integrity. The notebook's own code can also enable or run its held cells
+  directly (it runs in the kernel beside the server, NBF-16), so a reveal is never protected from the notebook.
 
 ## Lifecycle
 
@@ -152,3 +153,9 @@ and, sampled inside the frame on both screenshots, the page colour and the noteb
 - A lesson notebook produced by a real teacher turn (none can be).
 - The menu opening from the frame's right-click (waits on the menus branch).
 - A desk move driven by keys: the harness reloads the page instead, and the session is kept the same way by owner key and revision.
+
+## Fix round (adversarial review of the notebook work on main, 2026-11-23)
+
+| Finding | Ledger | What changed | Proof |
+|---|---|---|---|
+| A lesson closed elsewhere kept accepting commits and releases | NBF-13 | `notebook.status` and `notebook.release` re-read `lessons.closed_at` for a lesson's session and call `runtime.mark_review` when it is closed; `LessonNotebook` releases only while the session is not a review, so it stops at the next reading | Closing the lesson between two releases: the status reads `review: true` and the second release is refused (`notebook_release_refused`) |

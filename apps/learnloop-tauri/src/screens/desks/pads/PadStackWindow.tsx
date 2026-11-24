@@ -132,6 +132,7 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
       const lessonId = lessonOfKey(padId);
       const additions = lessonId ? lessons?.desk.additionsFor(lessonId) : null;
       if (additions) void store.loadPad(additions);
+      for (const older of lessonId ? lessons?.desk.olderAdditions(lessonId) ?? [] : []) void store.loadPad(older);
     }
   }, [padIds, paused, store, lessons, lessonsVersion]);
   const pads = padIds.map((padId) => store.pads[padId] ?? null);
@@ -142,7 +143,8 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
   const inkPads = pads.filter((state) => state && (state.pad.kind === "ink" || state.blocks.some((block) => block.kind === "ink"))).map((state) => state!.pad.padId).join("|");
   useEffect(() => {
     if (paused || !pen) return;
-    for (const padId of inkPads.split("|").filter(Boolean)) void pen.ink.load(padId);
+    // Read again each time the pads are shown: a pad reopened shows the ink as the server holds it now.
+    for (const padId of inkPads.split("|").filter(Boolean)) void pen.ink.load(padId, true);
   }, [inkPads, paused, pen]);
   const padKey = padIds.join("|");
   useEffect(() => () => pen?.ink.cancelAll(padKey.split("|").filter(Boolean)), [pen, padKey]);
@@ -676,8 +678,10 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
           <button type="button" className="lift" onClick={(event) => {
             event.stopPropagation();
             const newPadId = host.mintId("pad");
+            const newBlockId = host.mintId("blk");
             const title = firstLine(block.bodyMd).slice(0, 48) || "lifted";
-            if (write(padId, [{ op: "lift_out", blockId: block.blockId, expectedHead: block.headVersionId, newPadId, newBlockId: host.mintId("blk"), title, newVersionId: host.mintId("ver"), stubVersionId: host.mintId("ver"), positionKey: "m" }])) {
+            if (write(padId, [{ op: "lift_out", blockId: block.blockId, expectedHead: block.headVersionId, newPadId, newBlockId, title, newVersionId: host.mintId("ver"), stubVersionId: host.mintId("ver"), positionKey: "m" }])) {
+              if (block.kind === "ink") pen?.ink.lifted(padId, block.blockId, newPadId, newBlockId);
               host.addToStack(windowId, newPadId);
             }
           }}>lift out</button>
@@ -693,9 +697,18 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
     if (!lessons) return;
     let padId = lessons.desk.additionsFor(lessonId);
     if (padId && !store.pads[padId]) return; // still being read
+    if (!padId && !lessons.desk.additionsKnown(lessonId)) {
+      // Whether the lesson has notes already is not known yet (its summary still on its way, or its read failed):
+      // read it, and create nothing that could split its notes in two.
+      lessons.desk.refresh(lessonId);
+      host.toast("reading your notes under this lesson · write again in a moment");
+      return;
+    }
     if (!padId) {
       padId = host.mintId("pad");
-      const topic = lessons.desk.summary(lessonId)?.title;
+      // A lesson held for a due check names no topic: the pad's title is stored, and outlives the check.
+      const summary = lessons.desk.summary(lessonId);
+      const topic = summary?.held ? null : summary?.title;
       if (!write(padId, [{ op: "create_pad", kind: "lesson_additions", title: `your additions${topic ? ` · ${topic}` : ""}`, lessonId }])) return;
       lessons.desk.noteAdditions(lessonId, padId);
     }
@@ -720,6 +733,8 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
             additions={(
               <>
                 {additions ? additions.blocks.map((block) => renderBlock(additions, block)) : null}
+                {(lessonId ? lessons?.desk.olderAdditions(lessonId) ?? [] : []).map((older) => store.pads[older])
+                  .map((pad) => (pad ? pad.blocks.map((block) => renderBlock(pad, block)) : null))}
                 {lessonId ? (
                   <div className="pb jot" onClick={() => writeUnderLesson(lessonId)}>
                     <div className="gut" />

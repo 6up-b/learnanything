@@ -50,7 +50,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/notebooks.py](../../../../../../src/learnloop_sidecar/handlers/notebooks.py) |
-| Source lines | 243 |
+| Source lines | 272 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
@@ -62,13 +62,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `class NotebookReleaseInput(NotebookSessionInput)` ([source](../../../../../../src/learnloop_sidecar/handlers/notebooks.py), line 47)
 - `class NotebookCell(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/notebooks.py), line 51)
 - `class NotebookRunCellsInput(NotebookSessionInput)` ([source](../../../../../../src/learnloop_sidecar/handlers/notebooks.py), line 56)
-- `pad_notebook(vault_root: Path, repository: Any, pad_id: str) -> tuple[bytes, str, dict[str, str]]` ([source](../../../../../../src/learnloop_sidecar/handlers/notebooks.py), line 91) — The pad's notebook (generated from its standing cells, in pad order) and its revision: the cells' names in order, so an edit to a cell's code keeps the session (it reaches the kernel through ``notebook.run_cells``) while an inserted, removed or moved cell makes a new one.
-- `lesson_notebook(vault_root: Path, repository: Any, lesson_id: str, path: str | None) -> tuple[bytes, dict[str, Any], bool]` ([source](../../../../../../src/learnloop_sidecar/handlers/notebooks.py), line 119) — A lesson's notebook (spec §11.2): its bytes, its commit points and held cells, and whether the lesson is closed (a review: nothing is released).
-- `notebook_open_handler(ctx: SidecarContext, params: NotebookOpenInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/notebooks.py), line 183) — Open (or return) the owner's session on the notebook at ``path``, or on a pad's cells (``pad:<id>`` with no path): ``{sessionId, state, frameUrl, cellRuns, ...}``.
-- `notebook_status_handler(ctx: SidecarContext, params: NotebookSessionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/notebooks.py), line 213) — A session's state, frame URL, restarts, attached frames and memory.
-- `notebook_close_handler(ctx: SidecarContext, params: NotebookSessionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/notebooks.py), line 221) — Stop a session's server (graceful, then forced) and forget the session.
-- `notebook_release_handler(ctx: SidecarContext, params: NotebookReleaseInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/notebooks.py), line 229) — Release held cells (shipped ``disabled=True``): marimo runs them at once.
-- `notebook_run_cells_handler(ctx: SidecarContext, params: NotebookRunCellsInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/notebooks.py), line 238) — Run named cells with the given code (a pad cell's ⇧↵, later the teacher's edits).
+- `pad_notebook(vault_root: Path, repository: Any, pad_id: str) -> tuple[bytes, str, dict[str, str], list[tuple[str, str]]]` ([source](../../../../../../src/learnloop_sidecar/handlers/notebooks.py), line 91) — The pad's notebook (generated from its standing cells, in pad order) and its revision: the cells' names in order, so an edit to a cell's code keeps the session (it reaches the kernel through ``notebook.run_cells``) while an inserted, removed or moved cell makes a new one.
+- `lesson_notebook(vault_root: Path, repository: Any, lesson_id: str, path: str | None) -> tuple[bytes, dict[str, Any], bool]` ([source](../../../../../../src/learnloop_sidecar/handlers/notebooks.py), line 122) — A lesson's notebook (spec §11.2): its bytes, its commit points and held cells, and whether the lesson is closed (a review: nothing is released).
+- `notebook_open_handler(ctx: SidecarContext, params: NotebookOpenInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/notebooks.py), line 186) — Open (or return) the owner's session on the notebook at ``path``, or on a pad's cells (``pad:<id>`` with no path): ``{sessionId, state, frameUrl, cellRuns, ...}``.
+- `notebook_status_handler(ctx: SidecarContext, params: NotebookSessionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/notebooks.py), line 237) — A session's state, frame URL, restarts, attached frames and memory.
+- `notebook_close_handler(ctx: SidecarContext, params: NotebookSessionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/notebooks.py), line 245) — Stop a session's server (graceful, then forced) and forget the session.
+- `notebook_release_handler(ctx: SidecarContext, params: NotebookReleaseInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/notebooks.py), line 253) — Release held cells (shipped ``disabled=True``): marimo runs them at once.
+- `notebook_run_cells_handler(ctx: SidecarContext, params: NotebookRunCellsInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/notebooks.py), line 267) — Run named cells with the given code (a pad cell's ⇧↵, later the teacher's edits).
 
 ### Module constants
 
@@ -76,15 +76,17 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `OWNER_PATTERN` ([src/learnloop_sidecar/handlers/notebooks.py](../../../../../../src/learnloop_sidecar/handlers/notebooks.py), line 30)
 - `CELL_NAME_PATTERN` ([src/learnloop_sidecar/handlers/notebooks.py](../../../../../../src/learnloop_sidecar/handlers/notebooks.py), line 31)
 - `PAD_NOTEBOOKS` ([src/learnloop_sidecar/handlers/notebooks.py](../../../../../../src/learnloop_sidecar/handlers/notebooks.py), line 88)
-- `_VERBATIM_KEYS` ([src/learnloop_sidecar/handlers/notebooks.py](../../../../../../src/learnloop_sidecar/handlers/notebooks.py), line 166)
+- `_VERBATIM_KEYS` ([src/learnloop_sidecar/handlers/notebooks.py](../../../../../../src/learnloop_sidecar/handlers/notebooks.py), line 169)
 
 ## Internal implementation anchors
 
 - `_runtime(ctx: SidecarContext) -> R.NotebookRuntime` ([source](../../../../../../src/learnloop_sidecar/handlers/notebooks.py), line 60)
 - `_vault_key(ctx: SidecarContext) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/notebooks.py), line 66) — The vault a session belongs to: the context's open vault, resolved.
 - `_source(vault_root: Path, relative: str) -> bytes` ([source](../../../../../../src/learnloop_sidecar/handlers/notebooks.py), line 72)
-- `_errors(exc: Exception) -> SidecarError` ([source](../../../../../../src/learnloop_sidecar/handlers/notebooks.py), line 142)
-- `_call(work: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/notebooks.py), line 169)
+- `_errors(exc: Exception) -> SidecarError` ([source](../../../../../../src/learnloop_sidecar/handlers/notebooks.py), line 145)
+- `_call(work: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/notebooks.py), line 172)
+- `_lesson_closed(repository: Any, owner: str) -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/notebooks.py), line 216)
+- `_with_lesson_state(ctx: SidecarContext, repository: Any, session_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/notebooks.py), line 224) — The session as it is, a lesson's read again from the lesson's own record: closed anywhere (another window, the phone, a chat), its notebook is a review from then on and releases nothing more.
 
 ## Who imports or calls it
 
@@ -98,6 +100,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/notebook_runtime/adapter|learnloop.notebook_runtime.adapter]] — imports `module`; calls `cell_name`, `notebook_from_cells`
+- [[Reference/Modules/learnloop/notebook_runtime/hostfiles|learnloop.notebook_runtime.hostfiles]] — imports `module`; calls `write_beneath`
 - [[Reference/Modules/learnloop/notebook_runtime/lessons|learnloop.notebook_runtime.lessons]] — imports `lesson_contract`, `lesson_notebook_path`; calls `lesson_contract`, `lesson_notebook_path`
 - [[Reference/Modules/learnloop/notebook_runtime/runtime|learnloop.notebook_runtime.runtime]] — imports `module`; calls `NotebookRuntime`
 - [[Reference/Modules/learnloop/notebook_runtime/sandbox|learnloop.notebook_runtime.sandbox]] — imports `Limits`, `RuntimeUnavailable`
@@ -110,7 +113,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `hashlib`, `os`, `pathlib`, `typing`
+- Standard library: `__future__`, `hashlib`, `pathlib`, `typing`
 - Third party: `pydantic`
 
 ## Larger workflow participation
@@ -132,6 +135,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_mobile_allowlist.py](../../../../../../tests/test_mobile_allowlist.py) — direct import
   - `test_the_pinned_notebook_runtime_rpcs_are_all_of_them`
 - [tests/test_notebook_lessons.py](../../../../../../tests/test_notebook_lessons.py) — direct import
+  - `test_a_lesson_closed_elsewhere_releases_nothing_more`
   - `test_a_refused_release_is_said_and_the_inputs_refuse_extra_fields`
 - [tests/test_notebook_rpcs.py](../../../../../../tests/test_notebook_rpcs.py) — direct import
   - `test_the_rpcs_are_registered_and_desktop_only`

@@ -118,7 +118,7 @@ export function fixtureInkPad(): PadViewDto {
 export function fixtureInkOwners(): import("../../api/dto").InkOwnerViewDto[] {
   const owner = (blockId: string, hash: string, words: number, transcription: { id: string; latexMd: string } | null) => ({
     ownerKind: "block" as const, ownerId: blockId, contentHash: hash, devicePixelRatio: 1, strokes: inkStrokes(blockId, words),
-    transcription: transcription ? { transcriptionId: transcription.id, latexMd: transcription.latexMd, confidenceLabel: "may_be_wrong" as const, contentHash: hash, current: true, createdAt: T2 } : null,
+    transcription: transcription ? { transcriptionId: transcription.id, latexMd: transcription.latexMd, confidenceLabel: "may_be_wrong" as const, contentHash: hash, current: true, createdAt: T2, applied: true, reason: null } : null,
   });
   return [
     owner("fx_b_h1", "fx_h1", 4, { id: "fx_it_1", latexMd: "$L = -\\ln p_y$" }),

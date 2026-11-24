@@ -48,10 +48,11 @@ def executable_mount_roots(executable: str) -> set[str]:
     return roots
 
 
-def sandboxed_command(command: list[str], workdir: Path, bwrap: str, *, hardened: bool = True,
+def sandboxed_command(command: list[str], workdir: Path | None, bwrap: str, *, hardened: bool = True,
                       unset_env: tuple[str, ...] = (), extra_args: Sequence[str] = ()) -> list[str]:
     """Wrap ``command`` in bubblewrap: every namespace unshared (so no network), system and interpreter mounts
-    read-only, ``workdir`` as the only writable bind, and the sandbox dying with its parent.
+    read-only, ``workdir`` as the only writable bind (None: no writable host path at all; the caller's
+    ``extra_args`` then give the command its tmpfs and working directory), and the sandbox dying with its parent.
 
     ``hardened``: also :data:`HARDENED_BWRAP_FLAGS` (a mandatory user namespace with no further ones, every
     capability dropped).
@@ -90,7 +91,8 @@ def sandboxed_command(command: list[str], workdir: Path, bwrap: str, *, hardened
     for prefix in sorted(prefixes):
         if prefix and prefix != "/usr" and not prefix.startswith("/usr/"):
             args += ["--ro-bind-try", prefix, prefix]
-    args += ["--bind", str(workdir), str(workdir), "--chdir", str(workdir)]
+    if workdir is not None:
+        args += ["--bind", str(workdir), str(workdir), "--chdir", str(workdir)]
     for name in unset_env:
         args += ["--unsetenv", name]
     args += list(extra_args)

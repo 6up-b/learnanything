@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import logging
 import threading
+from collections.abc import Callable
 from typing import Any
 
 from pydantic import Field, field_validator, model_validator
@@ -137,6 +138,9 @@ def ink_list(ctx: SidecarContext, params: InkListInput) -> dict[str, Any]:
 
 
 _REGISTRY = "ink_transcribe_jobs"
+#: How often a reading waiting on a cancelled one's request checks that it was not itself stopped (a poll
+#: interval, not a bound: the wait lasts as long as that request does).
+_WAIT_STEP_SECONDS = 0.05
 _READING_LOCK = threading.Lock()
 
 
@@ -175,15 +179,18 @@ def _receipt_payload(receipt: PJ.Receipt) -> dict[str, Any]:
     return _payload(receipt.job_id, status, finished=True, result=None, error=None)
 
 
-def _after_reading(ctx: SidecarContext, vault: Any, repository: Any, result: dict[str, Any]) -> None:
+def _after_reading(ctx: SidecarContext, vault: Any, repository: Any, result: dict[str, Any],
+                   live: Callable[[], bool]) -> None:
     """A reading written into its block is committed learner text: emitted and given its proposals, as a pad batch's
-    blocks are. Never fails the reading (the reconcile on the next open settles what this could not)."""
+    blocks are. Never fails the reading (the reconcile on the next open settles what this could not). The facts stay
+    in the reading's own vault; the context's worker is woken only while the job's epoch is open (``live``): after a
+    vault switch or a shutdown, a wake would restart a stopped worker or start the next vault's."""
 
     if not result.get("applied") or result.get("owner_kind") != ink_core.BLOCK:
         return
     block_ids = [str(result["owner_id"])]
     try:
-        if emission.settle_blocks(vault, repository, block_ids).queued:
+        if emission.settle_blocks(vault, repository, block_ids).queued and live():
             ctx.post_attempt_worker.notify()
     except Exception:  # noqa: BLE001 - the reading already committed
         LOG.warning("could not emit the transcribed ink", exc_info=True)
@@ -230,12 +237,20 @@ def ink_transcribe(ctx: SidecarContext, params: InkTranscribeInput) -> dict[str,
     vault_key = PJ.vault_key(ctx)
     client = getattr(ctx, "ink_transcription_client", None)
 
-    def work(job: PJ.PolledJob) -> dict[str, Any]:
+    def work(job: PJ.PolledJob, before: PJ.PolledJob | None) -> dict[str, Any]:
+        if before is not None:
+            # A cancelled reading of the same strokes whose request may still be out: its answer is kept when it
+            # comes, and this one returns it rather than paying for the same strokes again.
+            while not before.done.wait(_WAIT_STEP_SECONDS):
+                if job.cancelled or not job.live():
+                    from learnloop.ai.errors import AIInterrupted
+
+                    raise AIInterrupted("the reading was stopped")
         try:
             result = reading.transcribe(vault, repository, prepared, client=client)
         except Exception as exc:  # noqa: BLE001 - mapped to what the poll says; anything else is the job's ``internal``
             raise _as_sidecar_error(exc) from exc
-        _after_reading(ctx, vault, repository, result)
+        _after_reading(ctx, vault, repository, result, job.live)
         return result
 
     with _READING_LOCK:
@@ -244,10 +259,13 @@ def ink_transcribe(ctx: SidecarContext, params: InkTranscribeInput) -> dict[str,
         reading_now = {key: job_id for key, job_id in reading_now.items()
                        if (found := jobs.get(key[0], job_id)) is not None and not found.done.is_set()}
         ctx.ink_reading_now = reading_now
+        # A cancelled job stays here until its thread ends: the strokes stay reserved while its request may be out.
         running = jobs.get(vault_key, reading_now.get((vault_key, prepared.key), ""))
         if running is not None and not running.done.is_set() and not running.cancelled:
             return _job_payload(running)
-        job = jobs.start(ctx, kind=KIND, job_id="ink_" + new_ulid(), work=work, request_key=prepared.key)
+        before = running if running is not None and not running.done.is_set() else None
+        job = jobs.start(ctx, kind=KIND, job_id="ink_" + new_ulid(), work=lambda job: work(job, before),
+                         request_key=prepared.key)
         reading_now[(vault_key, prepared.key)] = job.job_id
     return _job_payload(job)
 

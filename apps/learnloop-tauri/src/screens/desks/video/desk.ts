@@ -12,7 +12,7 @@ import { chapterRanges, chapterWords, choosePassage, type FollowChipState, type 
 
 export interface VideoTransport {
   followAlong(input: { extractionId: string; t: number; bookExtractionId: string }): Promise<FollowAlongDto>;
-  chaptersList(input: { extractionId: string }): Promise<{ extractionId: string; chapters: VideoChapterDto[] }>;
+  chaptersList(input: { extractionId: string }): Promise<{ extractionId: string; chapters: VideoChapterDto[]; nextCheckDue?: string | null }>;
   chaptersSuggest(input: { extractionId: string }): Promise<ChaptersJobDto>;
   chaptersJob(input: { jobId: string }): Promise<ChaptersJobDto>;
   chaptersCancel(input: { jobId: string }): Promise<ChaptersJobDto>;
@@ -54,9 +54,18 @@ interface Followed {
 
 const NO_PRIMARY = () => null;
 
+/** An answer read before a check fell due may name what that check covers: it is not shown, and is asked again. */
+export function pastCheck(result: { nextCheckDue?: string | null } | null | undefined, now = Date.now()): boolean {
+  const due = result?.nextCheckDue ? Date.parse(result.nextCheckDue) : NaN;
+  return !Number.isNaN(due) && now >= due;
+}
+
 export class VideoDesk {
   private clocks = new Map<string, VideoClock & { extractionId: string }>();
-  private lastPlaying: string | null = null;
+  // When each video window last played (a sequence, not a time): the driver is the current desk's latest, so another
+  // desk's video playing meanwhile never moves this desk's.
+  private played = new Map<string, number>();
+  private playSeq = 0;
   private followed = new Map<string, Followed>();
   private asking = new Set<string>();
   private unlinked = new Set<string>();
@@ -65,6 +74,7 @@ export class VideoDesk {
   private layout: DeskVideos = { videos: [], books: [] };
   private primaryFor: (learningObjectId: string) => { extractionId: string; sectionId: string } | null = NO_PRIMARY;
   private listeners = new Set<() => void>();
+  private decisions = new Map<string, number>();
   private version = 0;
 
   constructor(private readonly transport: VideoTransport, private readonly onFollow: (bookWindowId: string, spanId: string) => void) {}
@@ -99,7 +109,7 @@ export class VideoDesk {
   clock(windowId: string, extractionId: string, clock: VideoClock): void {
     const before = this.clocks.get(windowId);
     this.clocks.set(windowId, { ...clock, extractionId });
-    if (clock.playing) this.lastPlaying = windowId;
+    if (clock.playing) this.played.set(windowId, ++this.playSeq);
     if (clock.duration > 0 && this.durations.get(extractionId) !== clock.duration) {
       this.durations.set(extractionId, clock.duration);
       this.emit();
@@ -114,7 +124,13 @@ export class VideoDesk {
 
   /** The video follow-along reads: the one that played last on this desk, else its first. */
   driver(): { windowId: string; extractionId: string; title: string } | null {
-    return this.layout.videos.find((video) => video.windowId === this.lastPlaying) ?? this.layout.videos[0] ?? null;
+    let best: { windowId: string; extractionId: string; title: string } | null = null;
+    let at = 0;
+    for (const video of this.layout.videos) {
+      const seq = this.played.get(video.windowId) ?? 0;
+      if (seq > at) { best = video; at = seq; }
+    }
+    return best ?? this.layout.videos[0] ?? null;
   }
 
   private refresh(): void {
@@ -127,7 +143,8 @@ export class VideoDesk {
       const known = this.followed.get(book.windowId);
       const section = known?.result.section;
       const inside = section ? clock.t >= section.t0 && (section.t1 === null || clock.t < section.t1) : known?.result.t !== -1;
-      const fresh = known && known.videoExtractionId === driver.extractionId && (inside || Math.floor(known.askedT) === Math.floor(clock.t));
+      const fresh = known && known.videoExtractionId === driver.extractionId && !pastCheck(known.result)
+        && (inside || Math.floor(known.askedT) === Math.floor(clock.t));
       if (fresh) continue;
       this.ask(book.windowId, book.extractionId, driver.extractionId, clock.t);
     }
@@ -138,6 +155,13 @@ export class VideoDesk {
     void Promise.resolve().then(() => this.transport.followAlong({ extractionId: videoExtractionId, t, bookExtractionId })).then(
       (result) => {
         this.asking.delete(bookWindowId);
+        // Asked for a book and a video as they were: a book gone, paused or showing another reading, or another video
+        // driving now, drops the answer (the refresh asks again where that is still wanted).
+        const book = this.layout.books.find((each) => each.windowId === bookWindowId);
+        if (!book || book.paused || book.extractionId !== bookExtractionId || this.driver()?.extractionId !== videoExtractionId) {
+          this.refresh();
+          return;
+        }
         const before = this.followed.get(bookWindowId)?.passage ?? null;
         const passage = choosePassage(result, bookExtractionId, this.primaryFor);
         this.followed.set(bookWindowId, { videoExtractionId, askedT: t, result, passage });
@@ -171,7 +195,9 @@ export class VideoDesk {
     const driver = this.driver();
     if (!driver || !this.layout.books.some((book) => book.windowId === bookWindowId)) return null;
     const known = this.followed.get(bookWindowId);
-    const result = known && known.videoExtractionId === driver.extractionId ? known.result : null;
+    const answered = known && known.videoExtractionId === driver.extractionId ? known.result : null;
+    // An answer from before a check fell due shows nothing of itself, linked or not, until it is asked again.
+    const result = answered && !pastCheck(answered) ? answered : null;
     const chapter = chapterWords(result);
     if (this.unlinked.has(bookWindowId)) return { kind: "unlinked", chapter };
     if (!result) return { kind: "waiting", t: this.clocks.get(driver.windowId)?.t ?? 0 };
@@ -198,6 +224,16 @@ export class VideoDesk {
     }
     this.refresh();
     this.emit();
+  }
+
+  /** A chapter decision stored on a video: every window showing it reads its chapters again. */
+  decided(extractionId: string): void {
+    this.decisions.set(extractionId, (this.decisions.get(extractionId) ?? 0) + 1);
+    this.emit();
+  }
+
+  decisionsOn(extractionId: string): number {
+    return this.decisions.get(extractionId) ?? 0;
   }
 
   /** A video's accepted chapters as ranges of its length (the shelf row's minimap). */

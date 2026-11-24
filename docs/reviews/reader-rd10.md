@@ -95,3 +95,69 @@ Migration 268 was applied to backup-API copies of the owner's three vaults (the 
 `learnloop upgrade`), in a gitignored directory, deleted afterwards. On every copy: the upgrade exited 0,
 `integrity_check` is ok, `foreign_key_check` is empty, the migration head is 268, and `video_chapters` holds no rows.
 No live vault was opened.
+
+## Fix round: the RD10 adversarial review (Codex Astra, 2026-11-23)
+
+Branch `reader/rd9-rd10-fix`, cut from RD6's fix round (its goal lens protection) with main merged in. The review had
+1 blocker, 4 majors and 5 minors. Each was checked against the code here and held. Nine are fixed, each with a
+fail-first test (shown failing before the fix) and a ledger row, RD10-1 upward. One is stopped: it needs a schema
+change. No migration, algorithm tag, prompt or config key.
+
+| Finding | Ledger | What changed | Fail-first test |
+|---|---|---|---|
+| Blocker: follow-along and the chip named a topic whose check is due (chapter title, section label, passage) | RD10-1 | The goal lens's one protection (`curriculum.goal_lens`: `protect_follow`, `protect_chapters`; the due-LO set through `handlers.goal_lens.protection_now`, shared with the goal lens) masks `reader.follow_along`, `chapters.list`, `chapters.decide` and a suggestion's result at every poll, with the same neutral words. A chapter is held when it is tagged with a held LO, its title names one, or it spans a transcript section that treats one. The replies carry `next_check_due`; the desk shows nothing of an answer past it (linked or unlinked) and asks again, and the chapters panel reads again then | `test_reader_rd10_fix_protection.py` (field tables over both functions; every string of the four replies walked end to end), `video/protection.test.tsx` (DOM text, titles and attributes; a stale answer) |
+| Major: a suggestion cancelled after its request was sent still stored its chapters | RD10-2 | `store_suggestions(wanted=...)`: inside the write transaction, the job must be neither cancelled nor out of its epoch | `…::test_a_suggestion_cancelled_while_its_request_is_out_stores_nothing` |
+| Major: the curriculum switched off while a suggestion ran did not stop it | RD10-3 | The judgment's guard takes `gate=SC.enabled`, read at every request and at the write | `…::test_the_curriculum_switched_off_while_a_suggestion_runs_stores_nothing` |
+| Major: one last-playing video for every desk | RD10-4 | Each window's last play is a sequence number; the driver is the latest among the current desk's videos | `video/video.test.tsx` ("the driver per desk…") |
+| Major: chapter decisions merged into a stale list; conflicts never reconciled | RD10-5 | Replies merge into what is shown now; a refused decision reads the stored chapters again; a stored decision makes every window on the video read them again (`VideoDesk.decided`) | `video/video.test.tsx` ("chapter decisions", 2) |
+| Minor: a late follow answer applied whatever had changed | RD10-6 | Dropped unless its book is still on the desk, not paused, on that reading, and its video still drives | `video/video.test.tsx` ("a follow answer that comes back late…") |
+| Minor: a question let go resurfaced after a failed refresh | RD10-7 | A successful closing mark removes the question from both lists, and no refresh this session brings it back (DeskShell) | `DeskShell.test.tsx` ("a question let go leaves the shelf at once…") |
+| Minor: two placements of one carried question shared a key | RD10-8 | The key includes the passage (PassageMarks) | `pads/passageMarks.test.tsx` |
+| Minor: a judged video could not replay from the ledger once the budget was spent | RD10-9 | A spent budget no longer refuses at admission; the daily envelope refuses the paid request itself | `…::test_a_judged_video_replays_from_the_ledger_with_the_budget_spent_and_an_unjudged_one_is_capped` |
+| Minor: migration 268's replacement hole | RD10-10 | Guarded by test (the owner's option c): no code in `src/` or `migrations/` writes to `video_chapters` with `INSERT OR REPLACE`, `REPLACE INTO` or a replacing `ON CONFLICT`. The schema guard joins the next migration (SQL below) | `tests/test_video_chapters_no_replace.py` (shown failing with the writer switched to `OR REPLACE`) |
+
+**The D15 sweep.** I checked where else a held LO's name can reach the workbench outside RD6's and this round's fixes.
+Promoted rows and proposals are left to the menus round.
+
+- **Lesson tabs and the path view's lesson row:** a finding, fixed here (RD10-11). `lesson.list` masks through `GL.protect_lessons`, and a held lesson's additions pad is not given its topic in its stored title.
+- **Lesson bodies:** a finding for RD7's veils (RD10-12, owner). An open lesson's turns teach the LO.
+- **Companion history and search's `threads` and `exchanges` groups:** a finding for the owner (RD10-13). They show past tutor answers.
+- **Source titles:** a finding for the owner (RD10-14). They are masked nowhere: window heads, shelf rows, the path view's `book`, and the timestamp block. The timestamp block's label is the video's own title (`DeskShell`'s `titleOf(window)` → `timestampLine`), never follow-along or chapter text, so no follow or chapters reply reaches it.
+- **Today's "Continue your lesson on X":** outside the workbench (RD10-15).
+- **Carried questions' text:** checked safe. It is the learner's own words (`pads/carried.py` `carry(text=…)`, stored as typed). The related-passages view places marks only and renders no correspondent's title (`carried/related.ts` `beside()` copies the question with a new anchor).
+- **Search's passage rows:** checked safe. They are the reading's own text, which the Reader shows anyway (veiling it is RD7's).
+
+Assertions changed: none in the RD10 tests (the masking is inactive without a due check, so their replies are unchanged).
+
+Shared files touched (small, additive):
+- `DeskShell.tsx`: the closed carried set.
+- `PassageMarks.tsx`: the key.
+- `PadStackWindow.tsx`: the held lesson's pad title.
+- `api/dto.ts`: `held` flags, `nextCheckDue`, chapter `learningObjectIds`.
+- `handlers/goal_lens.py`: `protection_now`.
+- `handlers/lesson.py`: masking `lesson.list`.
+
+Checked:
+- rd10 visual comparison: unchanged (no findings before or after).
+- Desk harness, every run: 152 passed.
+- The whole vitest suite passes.
+
+**For the next migration's author (RD10-10).** Paste this trigger. It turns any insert that reuses a decided chapter's id
+into a no-op, so `INSERT OR REPLACE` can no longer delete a decision. A legitimate `INSERT OR IGNORE` duplicate ends the
+same way, and a suggested row is still replaced as before. I checked this against SQLite in memory: without the trigger
+the replacement overwrote an accepted row; with it the accepted row stayed, and a suggested row was still replaced. Add
+the trigger to the migration's added-objects set for the upgrade diffs, as 268's were.
+
+```sql
+-- A decided chapter is never replaced: an insert reusing its id is skipped (recursive triggers are off, so a
+-- REPLACE's implicit delete would not fire video_chapters_keep_decided).
+CREATE TRIGGER video_chapters_no_replace_decided
+BEFORE INSERT ON video_chapters
+WHEN EXISTS (SELECT 1 FROM video_chapters WHERE chapter_id = NEW.chapter_id AND state != 'suggested')
+BEGIN
+  SELECT RAISE(IGNORE);
+END;
+```
+
+Once it lands, `tests/test_video_chapters_no_replace.py` can give way to a migration test that replaces a decided row
+and finds it unchanged.

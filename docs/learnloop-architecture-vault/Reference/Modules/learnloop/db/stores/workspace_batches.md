@@ -126,6 +126,8 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_reader_rd4_emission.py](../../../../../../../tests/test_reader_rd4_emission.py) — imports consumer [[Reference/Modules/learnloop/pads/blocks|learnloop.pads.blocks]]
 - [tests/identity_pins_helpers.py](../../../../../../../tests/identity_pins_helpers.py) — imports consumer [[Reference/Modules/learnloop/pads/ink|learnloop.pads.ink]]
 - [tests/ink_helpers.py](../../../../../../../tests/ink_helpers.py) — imports consumer [[Reference/Modules/learnloop/pads/ink|learnloop.pads.ink]]
+- [tests/test_reader_rd8a_fix.py](../../../../../../../tests/test_reader_rd8a_fix.py) — imports consumer [[Reference/Modules/learnloop/pads/ink|learnloop.pads.ink]]
+- [tests/test_reader_rd8a_fix_rpcs.py](../../../../../../../tests/test_reader_rd8a_fix_rpcs.py) — imports consumer [[Reference/Modules/learnloop/pads/ink|learnloop.pads.ink]]
 - [tests/test_reader_rd8a_render.py](../../../../../../../tests/test_reader_rd8a_render.py) — imports consumer [[Reference/Modules/learnloop/pads/ink|learnloop.pads.ink]]
 - [tests/test_reader_rd8a_transcribe.py](../../../../../../../tests/test_reader_rd8a_transcribe.py) — imports consumer [[Reference/Modules/learnloop/pads/ink|learnloop.pads.ink]]
 

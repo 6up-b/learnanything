@@ -51,6 +51,7 @@ from typing import Any, Literal
 
 from pydantic import Field
 
+from learnloop.teacher import probes as PR
 from learnloop.teacher import service as S
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import ParamsModel, versioned
@@ -94,6 +95,8 @@ class LessonTurnInput(ParamsModel):
     add_topics: list[str] = Field(default_factory=list, max_length=12)
     subject_id: str | None = None
     probe_ref: str | None = None
+    #: Where the lesson is shown (``lesson.view``'s): a window's step serves no quick question, and answers none.
+    frame: Literal["screen", "window"] = "screen"
     # TE1b: a router suggestion's Start (the decision; ``lesson_id`` is the id its response recorded)
     origin: Literal["learner_pick", "router_suggestion"] = "learner_pick"
     suggestion_decision_id: str | None = None
@@ -111,6 +114,8 @@ class LessonTurnInput(ParamsModel):
 
 class LessonViewInput(ParamsModel):
     lesson_id: str
+    #: Where it is shown: a desk window never serves a lesson's quick question (it is asked on the lesson screen).
+    frame: Literal["screen", "window"] = "screen"
 
 
 class LessonGoalInput(ParamsModel):
@@ -239,23 +244,27 @@ def lesson_turn(ctx: SidecarContext, params: LessonTurnInput) -> dict[str, Any]:
             if params.entry is None:
                 raise SidecarError("validation_error", "A lesson needs an entry (a topic or a passage).")
             suggested = params.origin == "router_suggestion"
-            result = S.open_lesson(
-                vault, repository, entry=params.entry, learning_object_ids=params.learning_object_ids,
-                selection=params.selection.model_dump() if params.selection is not None else None,
-                goal_text=params.goal_text, clients=clients,
-                origin="router" if suggested else "learner_pick",
-                origin_ref=params.suggestion_decision_id if suggested else None,
-                lesson_id=params.lesson_id if suggested else None,
-                add_topics=params.add_topics, subject_id=params.subject_id,
-                preference_id=None if suggested else params.preference_id,
-                probe_episode_id=None if suggested else params.probe_episode_id)
+            with PR.held_serving(params.frame == "window"):
+                result = S.open_lesson(
+                    vault, repository, entry=params.entry, learning_object_ids=params.learning_object_ids,
+                    selection=params.selection.model_dump() if params.selection is not None else None,
+                    goal_text=params.goal_text, clients=clients,
+                    origin="router" if suggested else "learner_pick",
+                    origin_ref=params.suggestion_decision_id if suggested else None,
+                    lesson_id=params.lesson_id if suggested else None,
+                    add_topics=params.add_topics, subject_id=params.subject_id,
+                    preference_id=None if suggested else params.preference_id,
+                    probe_episode_id=None if suggested else params.probe_episode_id)
         else:
             if not params.lesson_id:
                 raise SidecarError("validation_error", "lesson_id is required.")
+            if params.frame == "window" and params.action == "answer_probe":
+                raise SidecarError("probe_on_lesson_screen", "A lesson's quick question is answered on the lesson screen.")
             payload = {"text": params.text, "answer": params.answer, "check_ref": params.check_ref,
                        "tap": params.tap, "thinking": params.thinking, "probe_ref": params.probe_ref}
-            result = S.take_turn(vault, repository, lesson_id=params.lesson_id, action=params.action, payload=payload,
-                            clients=clients)
+            with PR.held_serving(params.frame == "window"):
+                result = S.take_turn(vault, repository, lesson_id=params.lesson_id, action=params.action,
+                                     payload=payload, clients=clients)
     except S.LessonError as exc:
         raise _error(exc) from exc
     except _RouteUnavailable as exc:
@@ -292,7 +301,8 @@ def lesson_view(ctx: SidecarContext, params: LessonViewInput) -> dict[str, Any]:
     vault, repository = ctx.require_vault()
     try:
         S.require_active(vault)
-        view = S.view_lesson(vault, repository, params.lesson_id)
+        with PR.held_serving(params.frame == "window"):
+            view = S.view_lesson(vault, repository, params.lesson_id)
     except S.LessonError as exc:
         raise _error(exc) from exc
     # Reader workbench RD9b (spec §11.2): a lesson whose notebook is in the vault is shown as that notebook.
@@ -344,8 +354,15 @@ def lesson_list(ctx: SidecarContext, params: LessonListInput) -> dict[str, Any]:
     with repository.connection() as connection:
         pads = pad_reads.lesson_additions_pads(connection, [lesson["lesson_id"] for lesson in lessons])
     for lesson in lessons:
-        lesson["additions_pad_id"] = pads.get(lesson["lesson_id"])
-    return versioned({"lessons": lessons})
+        found = pads.get(lesson["lesson_id"]) or []
+        lesson["additions_pad_id"] = found[0] if found else None
+        lesson["additions_pad_ids"] = found
+    # A tab names nothing a due check covers (the goal lens's protection, D15).
+    from learnloop.curriculum import goal_lens as GL
+    from learnloop_sidecar.handlers.goal_lens import protection_now
+
+    protection, _next_due = protection_now(vault, repository)
+    return versioned({"lessons": GL.protect_lessons(lessons, protection)})
 
 
 @method("lesson.activity", LessonActivityInput)

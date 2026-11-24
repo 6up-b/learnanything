@@ -115,6 +115,7 @@ None found by exact static reference scan.
 - `tests/test_followups_batch5_recap_protection.py`
 - `tests/test_ih7_lesson_sources_follow_diagnosis.py`
 - `tests/test_live_dialogue_contract_baseline.py`
+- `tests/test_reader_rd9a_fix.py`
 - `tests/test_reader_rw5d_p4b_teacher_visuals.py`
 - `tests/test_salience_firewall.py`
 - `tests/test_te3a_lesson_opportunity.py`

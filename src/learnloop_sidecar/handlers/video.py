@@ -21,6 +21,7 @@ from typing import Any, Literal
 
 from pydantic import Field
 
+from learnloop.curriculum import goal_lens as GL
 from learnloop.ids import new_ulid
 from learnloop.source_retrieval import follow_along as FA
 from learnloop.source_retrieval import section_coverage as SC
@@ -30,6 +31,7 @@ from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.handlers.correspondents import _library_cache, _require
+from learnloop_sidecar.handlers.goal_lens import protection_now
 from learnloop_sidecar.registry import method
 
 #: Every RPC this module registers (pinned desktop-only).
@@ -63,6 +65,19 @@ class ChaptersDecideInput(ParamsModel):
     decision: Literal["accept", "dismiss"]
 
 
+def _sections(repository: Any, extraction_id: str) -> list[tuple[str, float, float | None]]:
+    return [(section.section_id, section.t0, section.t1) for section in VC.transcript_sections(repository, extraction_id)]
+
+
+def _protected_chapters(vault: Any, repository: Any, extraction_id: str,
+                        chapters: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], str | None]:
+    """Chapters as a reply may carry them while checks are due (masked at every read, a poll included, so a check
+    falling due since the judgment still hides what it covers), and when the next check falls due."""
+
+    protection, next_due = protection_now(vault, repository)
+    return GL.protect_chapters(chapters, protection, _sections(repository, extraction_id)), next_due
+
+
 def _chapters_error(exc: VC.ChaptersError | SC.CoverageError) -> SidecarError:
     return SidecarError(exc.code, getattr(exc, "message", None) or str(exc))
 
@@ -74,9 +89,11 @@ def reader_follow_along(ctx: SidecarContext, params: FollowAlongInput) -> dict[s
     vault, repository, video = _require(ctx, params.extraction_id)
     _vault, _repository, book = _require(ctx, params.book_extraction_id)
     try:
-        return versioned(FA.follow(vault, repository, video, params.t, book, cache=_library_cache(ctx)))
+        reply = FA.follow(vault, repository, video, params.t, book, cache=_library_cache(ctx))
     except SC.CoverageError as exc:
         raise _chapters_error(exc) from exc
+    protection, next_due = protection_now(vault, repository)
+    return versioned({**GL.protect_follow(reply, protection, _sections(repository, video)), "next_check_due": next_due})
 
 
 @method("chapters.list", ChaptersInput)
@@ -84,7 +101,8 @@ def chapters_list(ctx: SidecarContext, params: ChaptersInput) -> dict[str, Any]:
     """A video reading's chapters, suggested and accepted, by time."""
 
     vault, repository, resolved = _require(ctx, params.extraction_id)
-    return versioned({"extraction_id": resolved, "chapters": VC.list_chapters(vault, repository, resolved)})
+    chapters, next_due = _protected_chapters(vault, repository, resolved, VC.list_chapters(vault, repository, resolved))
+    return versioned({"extraction_id": resolved, "chapters": chapters, "next_check_due": next_due})
 
 
 def _jobs(ctx: SidecarContext) -> PJ.PolledJobs:
@@ -102,15 +120,19 @@ def _payload(job_id: str | None, status: str, *, finished: bool, result: dict[st
     return versioned({"job_id": job_id, "status": status, "done": finished, "result": result, "error": _error(error)})
 
 
-def _job_payload(job: PJ.PolledJob) -> dict[str, Any]:
+def _job_payload(ctx: SidecarContext, job: PJ.PolledJob) -> dict[str, Any]:
     from learnloop.ai import plan_fallback
 
     state = job.state()
     if state["finished"]:
         plan_fallback.relay_job_offer(job)
     status = state["status"]
-    return _payload(job.job_id, status, finished=bool(state["finished"]),
-                    result=state["result"] if status == PJ.DONE else None,
+    result = state["result"] if status == PJ.DONE else None
+    if result and result.get("chapters") and result.get("extraction_id"):
+        vault, repository = ctx.require_vault()
+        chapters, _next_due = _protected_chapters(vault, repository, result["extraction_id"], result["chapters"])
+        result = {**result, "chapters": chapters}
+    return _payload(job.job_id, status, finished=bool(state["finished"]), result=result,
                     error=state["error"] if status == PJ.FAILED else None)
 
 
@@ -127,10 +149,12 @@ def chapters_suggest(ctx: SidecarContext, params: ChaptersInput) -> dict[str, An
 
     def work(job: PJ.PolledJob) -> dict[str, Any]:
         try:
-            result = VC.suggest(vault, repository, resolved, client=client, live_vault=live_vault)
+            result = VC.suggest(vault, repository, resolved, client=client, live_vault=live_vault,
+                                wanted=lambda: not job.cancelled and job.live())
         except (VC.ChaptersError, SC.CoverageError) as exc:
             raise _chapters_error(exc) from exc
-        return {"status": result.status, "reason": result.reason, "message": result.message, "chapters": result.chapters}
+        return {"status": result.status, "reason": result.reason, "message": result.message, "chapters": result.chapters,
+                "extraction_id": resolved}
 
     with _JOBS_LOCK:
         # Which job is judging which reading now: (vault, reading) -> job id, the finished ones let go.
@@ -140,10 +164,10 @@ def chapters_suggest(ctx: SidecarContext, params: ChaptersInput) -> dict[str, An
         ctx.video_chapters_judging = judging  # type: ignore[attr-defined]
         running = jobs.get(vault_key, judging.get((vault_key, resolved), ""))
         if running is not None and not running.done.is_set() and not running.cancelled:
-            return _job_payload(running)
+            return _job_payload(ctx, running)
         job = jobs.start(ctx, kind=KIND, job_id="vch_" + new_ulid(), work=work, request_key=resolved)
         judging[(vault_key, resolved)] = job.job_id
-    return _job_payload(job)
+    return _job_payload(ctx, job)
 
 
 def _find(ctx: SidecarContext, job_id: str, *, cancel: bool = False) -> dict[str, Any]:
@@ -152,7 +176,7 @@ def _find(ctx: SidecarContext, job_id: str, *, cancel: bool = False) -> dict[str
     vault_key = PJ.vault_key(ctx)
     job = jobs.cancel(vault_key, job_id) if cancel else jobs.get(vault_key, job_id)
     if job is not None:
-        return _job_payload(job)
+        return _job_payload(ctx, job)
     receipt = jobs.receipt(vault_key, job_id)
     if receipt is not None:
         status = PJ.CANCELLED if receipt.status == PJ.CANCELLED else PJ.EXPIRED
@@ -180,9 +204,11 @@ def chapters_decide(ctx: SidecarContext, params: ChaptersDecideInput) -> dict[st
 
     vault, repository = ctx.require_vault()
     try:
-        return versioned({"chapter": VC.decide(vault, repository, params.chapter_id, params.decision)})
+        chapter = VC.decide(vault, repository, params.chapter_id, params.decision)
     except VC.ChaptersError as exc:
         raise _chapters_error(exc) from exc
+    chapters, _next_due = _protected_chapters(vault, repository, chapter["extraction_id"], [chapter])
+    return versioned({"chapter": chapters[0]})
 
 
 __all__ = ["VIDEO_RPCS"]

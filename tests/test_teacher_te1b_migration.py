@@ -18,7 +18,7 @@ import pytest
 from learnloop.adaptive_difficulty import protected_tables as PT
 from learnloop.db.migrate import UPGRADE_TEST_HELPER, apply_migrations, discover_migrations, upgrade_allowance
 from learnloop.db.table_roles import TableRole, role_for_table
-from tests.helpers import MIGRATION_HEAD_FIXTURE, migration_head
+from tests.helpers import MIGRATION_HEAD_FIXTURE, migrations_from
 from tests.teacher_te1b_migration_helpers import TE1B_ADDED_OBJECTS
 
 HEAD = MIGRATION_HEAD_FIXTURE / "state.sqlite"
@@ -125,7 +125,7 @@ def test_236_keeps_every_router_decision_row(tmp_path):
         connection.commit()
     with upgrade_allowance(UPGRADE_TEST_HELPER):
         applied = apply_migrations(database)
-    assert [migration.version for migration in applied] == list(range(236, migration_head() + 1))
+    assert [migration.version for migration in applied] == migrations_from(236)
     with closing(sqlite3.connect(database)) as connection:
         assert connection.execute("SELECT id, decision_kind, chosen_ref FROM router_decisions").fetchall() == [
             ("d_keep", "plan_block", "pi_1")]

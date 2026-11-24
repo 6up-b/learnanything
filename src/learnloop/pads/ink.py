@@ -237,7 +237,29 @@ def erase_in_batch(connection: Any, *, pad_id: str, block_id: str, erase_id: str
         "strokes_blob": encode(value), "content_hash": content_hash(value), "stroke_count": len(value),
         "pointer_meta": {}, "client_id": client_id, "created_at": now,
     })
-    return {"erase_id": erase_id}
+    return {"erase_id": erase_id, "standing": len(present - set(value))}
+
+
+def copy_to_lifted(connection: Any, *, from_block_id: str, to_block_id: str, client_id: str, now: str) -> None:
+    """A lifted ink line's handwriting (``lift_out``, inside the pad batch): the standing strokes of the block it was
+    lifted from, saved again for the lifted block (the same stroke ids and points, so the same hash), and the
+    reading of exactly those strokes kept for it too, so nothing is read or paid for again."""
+
+    strokes, ratio = standing(store.owner_saves(connection, BLOCK, from_block_id))
+    if not strokes:
+        return
+    value = [{"stroke_id": stroke["stroke_id"], "points": stroke["points"]} for stroke in strokes]
+    store.insert_save(connection, {
+        "ink_id": f"{to_block_id}:lifted", "owner_kind": BLOCK, "owner_id": to_block_id, "kind": STROKES,
+        "encoding": ENCODING, "strokes_blob": encode(value), "content_hash": content_hash(value),
+        "stroke_count": len(value), "pointer_meta": {"device_pixel_ratio": ratio}, "client_id": client_id,
+        "created_at": now,
+    })
+    digest = strokes_hash(strokes)
+    kept = store.reading_for(connection, BLOCK, from_block_id, digest)
+    if kept is not None:
+        store.insert_reading(connection, {**kept, "transcription_id": f"{kept['transcription_id']}>{to_block_id}",
+                                          "owner_id": to_block_id, "created_at": now})
 
 
 def _insert_erase(connection: Any, owner: InkOwner, erase_id: str, stroke_ids: list[str], client_id: str, now: str) -> None:
@@ -291,19 +313,45 @@ def owner_of(connection: Any, ink_id: str) -> InkOwner:
     return InkOwner.of(row["owner_kind"], row["owner_id"])
 
 
+def reading_decision(connection: Any, row: dict[str, Any]) -> tuple[str, str | None]:
+    """What a block's reading does to its block, now: ``applied`` (it is the head's words), ``write`` (it becomes
+    them), or ``refused`` with why (the block removed, the learner's words standing, or strokes that changed since
+    they were read: a reading finishing after a newer one never replaces it)."""
+
+    head = pad_reads.head(connection, row["owner_id"])
+    if head is None or head["tombstone"]:
+        return "refused", "block_removed"
+    reading = (head.get("payload") or {}).get("ink_transcription") or {}
+    if head["provenance"] == "ink_transcription" and reading.get("content_hash") == row["content_hash"]:
+        # The head's words are the reading of these strokes (a lifted line's copy of the reading included).
+        return "applied", None
+    if head["provenance"] == "learner_correction":
+        # The learner's words stand; the new reading is kept and returned for the client to offer.
+        return "refused", "kept_your_correction"
+    strokes, _ratio = standing(store.owner_saves(connection, BLOCK, row["owner_id"]))
+    if strokes_hash(strokes) != row["content_hash"]:
+        return "refused", "strokes_changed"
+    return "write", None
+
+
 def owner_view(connection: Any, owner_kind: str, owner_id: str) -> dict[str, Any]:
     """One owner's standing strokes, their hash and its reading (``current`` when it read exactly these strokes)."""
 
     strokes, ratio = standing(store.owner_saves(connection, owner_kind, owner_id))
     digest = strokes_hash(strokes)
     reading = store.latest_reading(connection, owner_kind, owner_id)
+    decision, reason = (reading_decision(connection, reading) if reading is not None and owner_kind == BLOCK
+                        else (None, None))
     return {
         "owner_kind": owner_kind, "owner_id": owner_id, "content_hash": digest, "device_pixel_ratio": ratio,
         "strokes": [{"stroke_id": s["stroke_id"], "ink_id": s["ink_id"], "points": s["points"]} for s in strokes],
         "transcription": None if reading is None else {
             "transcription_id": reading["transcription_id"], "latex_md": reading["latex_md"],
             "confidence_label": reading["confidence_label"], "content_hash": reading["content_hash"],
-            "current": reading["content_hash"] == digest, "created_at": reading["created_at"]},
+            "current": reading["content_hash"] == digest, "created_at": reading["created_at"],
+            # Why a block's reading is not its words (the learner's correction standing, ...), so an offer of it
+            # survives a reload; None when it is, or for a margin note's reading.
+            "applied": decision == "applied", "reason": reason},
     }
 
 
@@ -337,5 +385,5 @@ def ink_for_source(repository: Any, source_id: str) -> list[dict[str, Any]]:
 __all__ = [
     "ANNOTATION", "BLOCK", "ENCODING", "ERASE", "SOURCE", "erase_ink", "InkError", "InkOwner", "InkStroke", "PointerMeta", "STROKES",
     "canonical", "content_hash", "decode", "encode", "erase_in_batch", "ink_for_pad", "ink_for_source", "owner_of",
-    "owner_view", "save_ink", "standing", "strokes_hash",
+    "copy_to_lifted", "owner_view", "reading_decision", "save_ink", "standing", "strokes_hash",
 ]

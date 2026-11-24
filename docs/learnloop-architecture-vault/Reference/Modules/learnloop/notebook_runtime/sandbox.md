@@ -47,37 +47,39 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/notebook_runtime/sandbox.py](../../../../../../src/learnloop/notebook_runtime/sandbox.py) |
-| Source lines | 189 |
+| Source lines | 204 |
 | Owning package | [[Reference/Modules/learnloop/notebook_runtime/_package|learnloop.notebook_runtime]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class RuntimeUnavailable(RuntimeError)` ([source](../../../../../../src/learnloop/notebook_runtime/sandbox.py), line 38) — The notebook runtime cannot run here (no bubblewrap, no notebook extra); it refuses, never runs unsandboxed.
-- `class Limits` ([source](../../../../../../src/learnloop/notebook_runtime/sandbox.py), line 43)
-  - `from_config(cls, config: object) -> Limits` (line 48; public)
-- `class Layout` ([source](../../../../../../src/learnloop/notebook_runtime/sandbox.py), line 53) — A session's host paths.
-  - `socket(self) -> Path` (line 62; public)
-  - `token_file(self) -> Path` (line 66; public)
-- `missing_requirements() -> list[str]` ([source](../../../../../../src/learnloop/notebook_runtime/sandbox.py), line 70) — Why the runtime cannot run here, in words; empty when it can.
-- `runtime_base_dir() -> Path` ([source](../../../../../../src/learnloop/notebook_runtime/sandbox.py), line 93) — Where sessions' run directories go: the user's runtime directory (short, private, gone at logout), else the temporary directory.
-- `write_shared_files(base: Path) -> tuple[Path, Path]` ([source](../../../../../../src/learnloop/notebook_runtime/sandbox.py), line 110) — marimo's config directory and the hosts file, written once under ``base`` (both mounted read-only).
-- `scope_available() -> bool` ([source](../../../../../../src/learnloop/notebook_runtime/sandbox.py), line 126) — Whether ``systemd-run --user --scope`` can start a scope here (probed once per process).
-- `scope_prefix(unit: str, limits: Limits, *, scoped: bool) -> list[str]` ([source](../../../../../../src/learnloop/notebook_runtime/sandbox.py), line 144)
-- `launch_command(layout: Layout, limits: Limits, *, base_url: str, unit: str, scoped: bool, python: str | None=None, bwrap: str | None=None) -> tuple[list[str], dict[str, str]]` ([source](../../../../../../src/learnloop/notebook_runtime/sandbox.py), line 154) — The argv and environment that start one marimo server on ``layout.socket``.
+- `class RuntimeUnavailable(RuntimeError)` ([source](../../../../../../src/learnloop/notebook_runtime/sandbox.py), line 46) — The notebook runtime cannot run here (no bubblewrap, no notebook extra); it refuses, never runs unsandboxed.
+- `class Limits` ([source](../../../../../../src/learnloop/notebook_runtime/sandbox.py), line 51)
+  - `from_config(cls, config: object) -> Limits` (line 56; public)
+- `class Layout` ([source](../../../../../../src/learnloop/notebook_runtime/sandbox.py), line 61) — A session's host paths, all in private directories the sandbox never sees (``run_dir`` holds the socket trusted code listens on and the token mounted read-only into the sandbox).
+  - `socket(self) -> Path` (line 71; public)
+  - `token_file(self) -> Path` (line 75; public)
+- `missing_requirements() -> list[str]` ([source](../../../../../../src/learnloop/notebook_runtime/sandbox.py), line 79) — Why the runtime cannot run here, in words; empty when it can.
+- `runtime_base_dir() -> Path` ([source](../../../../../../src/learnloop/notebook_runtime/sandbox.py), line 105) — Where sessions' run directories go: the user's runtime directory (short, private, gone at logout), else the temporary directory.
+- `write_shared_files(base: Path) -> tuple[Path, Path]` ([source](../../../../../../src/learnloop/notebook_runtime/sandbox.py), line 122) — marimo's config directory and the hosts file, written once under ``base`` (both mounted read-only).
+- `scope_available() -> bool` ([source](../../../../../../src/learnloop/notebook_runtime/sandbox.py), line 137) — Whether ``systemd-run --user --scope`` can start a scope here (probed once per process).
+- `scope_prefix(unit: str, limits: Limits, *, scoped: bool) -> list[str]` ([source](../../../../../../src/learnloop/notebook_runtime/sandbox.py), line 155)
+- `launch_command(layout: Layout, limits: Limits, *, base_url: str, unit: str, scoped: bool, socket_fd: int, python: str | None=None, bwrap: str | None=None) -> tuple[list[str], dict[str, str]]` ([source](../../../../../../src/learnloop/notebook_runtime/sandbox.py), line 165) — The argv and environment that start one marimo server on the listening socket ``socket_fd`` (inherited).
 
 ### Module constants
 
-- `SESSION_BUS_VARS` ([src/learnloop/notebook_runtime/sandbox.py](../../../../../../src/learnloop/notebook_runtime/sandbox.py), line 26)
-- `HOSTS_FILE_TEXT` ([src/learnloop/notebook_runtime/sandbox.py](../../../../../../src/learnloop/notebook_runtime/sandbox.py), line 30)
-- `SANDBOX_NOTEBOOK` ([src/learnloop/notebook_runtime/sandbox.py](../../../../../../src/learnloop/notebook_runtime/sandbox.py), line 32)
-- `SANDBOX_LAUNCHER` ([src/learnloop/notebook_runtime/sandbox.py](../../../../../../src/learnloop/notebook_runtime/sandbox.py), line 33)
-- `SANDBOX_CONFIG` ([src/learnloop/notebook_runtime/sandbox.py](../../../../../../src/learnloop/notebook_runtime/sandbox.py), line 34)
-- `SANDBOX_SCRATCH` ([src/learnloop/notebook_runtime/sandbox.py](../../../../../../src/learnloop/notebook_runtime/sandbox.py), line 35)
-- `SOCKET_SUFFIX_BYTES` ([src/learnloop/notebook_runtime/sandbox.py](../../../../../../src/learnloop/notebook_runtime/sandbox.py), line 88)
-- `SOCKET_PATH_MAX_BYTES` ([src/learnloop/notebook_runtime/sandbox.py](../../../../../../src/learnloop/notebook_runtime/sandbox.py), line 90)
-- `_SCOPE_PROBE` ([src/learnloop/notebook_runtime/sandbox.py](../../../../../../src/learnloop/notebook_runtime/sandbox.py), line 123)
+- `SESSION_BUS_VARS` ([src/learnloop/notebook_runtime/sandbox.py](../../../../../../src/learnloop/notebook_runtime/sandbox.py), line 30)
+- `HOSTS_FILE_TEXT` ([src/learnloop/notebook_runtime/sandbox.py](../../../../../../src/learnloop/notebook_runtime/sandbox.py), line 34)
+- `SANDBOX_NOTEBOOK` ([src/learnloop/notebook_runtime/sandbox.py](../../../../../../src/learnloop/notebook_runtime/sandbox.py), line 36)
+- `SANDBOX_LAUNCHER` ([src/learnloop/notebook_runtime/sandbox.py](../../../../../../src/learnloop/notebook_runtime/sandbox.py), line 37)
+- `SANDBOX_CONFIG` ([src/learnloop/notebook_runtime/sandbox.py](../../../../../../src/learnloop/notebook_runtime/sandbox.py), line 38)
+- `SANDBOX_SCRATCH` ([src/learnloop/notebook_runtime/sandbox.py](../../../../../../src/learnloop/notebook_runtime/sandbox.py), line 39)
+- `SANDBOX_TOKEN` ([src/learnloop/notebook_runtime/sandbox.py](../../../../../../src/learnloop/notebook_runtime/sandbox.py), line 40)
+- `BASE_URL_ENV` ([src/learnloop/notebook_runtime/sandbox.py](../../../../../../src/learnloop/notebook_runtime/sandbox.py), line 43)
+- `SOCKET_SUFFIX_BYTES` ([src/learnloop/notebook_runtime/sandbox.py](../../../../../../src/learnloop/notebook_runtime/sandbox.py), line 100)
+- `SOCKET_PATH_MAX_BYTES` ([src/learnloop/notebook_runtime/sandbox.py](../../../../../../src/learnloop/notebook_runtime/sandbox.py), line 102)
+- `_SCOPE_PROBE` ([src/learnloop/notebook_runtime/sandbox.py](../../../../../../src/learnloop/notebook_runtime/sandbox.py), line 134)
 
 ## Internal implementation anchors
 
@@ -101,6 +103,7 @@ No private top-level function or class definition is declared in this file.
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/notebook_runtime/adapter|learnloop.notebook_runtime.adapter]] — imports `module`; calls `marimo_edit_args`
+- [[Reference/Modules/learnloop/notebook_runtime/hostfiles|learnloop.notebook_runtime.hostfiles]] — imports `module`; calls `private_dir`, `write_private`
 - [[Reference/Modules/learnloop/notebook_runtime/settings|learnloop.notebook_runtime.settings]] — imports `module`
 - [[Reference/Modules/learnloop/sandbox_profile|learnloop.sandbox_profile]] — imports `bwrap_path`, `sandboxed_command`; calls `bwrap_path`, `sandboxed_command`
 
@@ -123,6 +126,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/notebook_runtime_helpers.py](../../../../../../tests/notebook_runtime_helpers.py) — direct import
+- [tests/test_notebook_host_boundary.py](../../../../../../tests/test_notebook_host_boundary.py) — direct import
+  - `test_the_sandbox_has_no_writable_host_path`
+  - `test_the_sandboxes_tmp_is_size_capped_like_its_scratch`
+  - `test_the_secret_path_is_not_in_any_process_arguments`
 - [tests/test_notebook_rpcs.py](../../../../../../tests/test_notebook_rpcs.py) — direct import
   - `test_open_reads_the_notebook_snapshot_and_the_vaults_settings`
   - `test_runtime_refusals_are_stable_errors`
@@ -132,6 +139,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_runtime_directory_too_deep_for_a_socket_is_refused`
   - `test_the_launch_uses_the_shared_hardened_profile_and_the_servers_mounts`
   - `test_the_scope_keeps_the_session_when_a_child_runs_out_of_memory`
+  - `test_without_a_user_manager_notebooks_are_refused_not_run_under_a_per_process_limit`
 - [tests/test_notebook_runtime_sandbox.py](../../../../../../tests/test_notebook_runtime_sandbox.py) — direct import
 
 ## Modification guidance

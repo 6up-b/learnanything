@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/notebook/NotebookFrame.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/notebook/NotebookFrame.tsx) |
-| Source lines | 261 |
+| Source lines | 293 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/notebook/_area|TypeScript/screens/desks/notebook]] |
 | Refactor status | `ACTIVE` |
@@ -58,43 +58,48 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export const NotebookBridgeContext = createContext<NotebookBridgeHost | null>(null)` — const, line 27
 - `export interface NotebookApi` — interface, line 30
 - `export const POLL_MS =` — const, line 37
-- `export interface NotebookError` — interface, line 39
-- `export type FrameView = |` — type, line 45
-- `export function frameView(session: NotebookSessionDto | null, error: NotebookError | null): FrameView` — function, line 55
-- `export function statusLine(view: FrameView): string` — function, line 85
-- `export interface NotebookFrameProps` — interface, line 112
-- `export function NotebookFrame(` — function, line 129
+- `export const RETRY =` — const, line 41
+- `export interface NotebookError` — interface, line 43
+- `export type FrameView = |` — type, line 49
+- `export function frameView(session: NotebookSessionDto | null, error: NotebookError | null, retry = 0): FrameView` — function, line 60
+- `export function statusLine(view: FrameView): string` — function, line 90
+- `export interface NotebookFrameProps` — interface, line 119
+- `export function NotebookFrame(` — function, line 136
 
 ## Internal implementation anchors
 
-- `const STOPPED_WORDS: Record<string, string> =` — const, line 75
-- `function errorOf(error: unknown): NotebookError` — function, line 104
-- `const record = error as` — const, line 106
-- `const lifecycle = useWindowLifecycle()` — const, line 130
-- `const paused = isPaused(lifecycle.state)` — const, line 131
-- `const whenLive = useWhenLive()` — const, line 132
-- `const hub = useListenerHub()` — const, line 133
-- `const host = useContext(NotebookBridgeContext)` — const, line 134
-- `const frameRef = useRef<HTMLIFrameElement | null>(null)` — const, line 138
-- `const preview = lifecycle.state === "preview"` — const, line 139
-- `const onSessionRef = useRef(onSession)` — const, line 140
-- `const readyPollRef = useRef(readyPoll)` — const, line 142
-- `let cancelled = false` — let, line 151
-- `let timer: ReturnType<typeof setTimeout> | null = null` — let, line 152
-- `const follow = async (sessionId: string)` — const, line 153
-- `const next = await calls.notebookStatus(` — const, line 157
-- `const opened = await calls.notebookOpen(path === undefined ?` — const, line 171
-- `const current = frameView(session, error)` — const, line 186
-- `const frameUrl = current.kind === "ready" ? current.frameUrl : session?.state === "restarting" ? session.frameUrl : null` — const, line 187
-- `const origin = frameUrl ? frameOrigin(frameUrl) : null` — const, line 188
-- `const frame = frameRef.current` — const, line 194
-- `const message = parseBridgeMessage(event.data)` — const, line 196
-- `const box = frame.getBoundingClientRect()` — const, line 198
-- `const placed = toPage(message,` — const, line 199
-- `const frame = frameRef.current` — const, line 211
-- `const retry = useCallback(()` — const, line 217
-- `const line = statusLine(current)` — const, line 230
-- `const action = current.kind === "stopped" ? "resume" : current.kind === "failed" || current.kind === "unavailable" ? "try again" : null` — const, line 231
+- `const STOPPED_WORDS: Record<string, string> =` — const, line 81
+- `function errorOf(error: unknown): NotebookError` — function, line 111
+- `const record = error as` — const, line 113
+- `const lifecycle = useWindowLifecycle()` — const, line 137
+- `const paused = isPaused(lifecycle.state)` — const, line 138
+- `const whenLive = useWhenLive()` — const, line 139
+- `const hub = useListenerHub()` — const, line 140
+- `const host = useContext(NotebookBridgeContext)` — const, line 141
+- `const retries = useRef(0)` — const, line 147
+- `const frameRef = useRef<HTMLIFrameElement | null>(null)` — const, line 148
+- `const preview = lifecycle.state === "preview"` — const, line 149
+- `const onSessionRef = useRef(onSession)` — const, line 150
+- `const readyPollRef = useRef(readyPoll)` — const, line 152
+- `let cancelled = false` — let, line 161
+- `let timer: ReturnType<typeof setTimeout> | null = null` — let, line 162
+- `const failed = (reason: unknown)` — const, line 163
+- `const problem = errorOf(reason)` — const, line 165
+- `const answered = ()` — const, line 176
+- `const follow = async (sessionId: string)` — const, line 181
+- `const next = await calls.notebookStatus(` — const, line 185
+- `const opened = await calls.notebookOpen(path === undefined ?` — const, line 199
+- `const current = frameView(session, error, retrying)` — const, line 214
+- `const frameUrl = current.kind === "ready" ? current.frameUrl : session?.state === "restarting" || (current.kind === "retrying" && session?.state === "ready") ? session.frameUrl : null` — const, line 216
+- `const origin = frameUrl ? frameOrigin(frameUrl) : null` — const, line 218
+- `const frame = frameRef.current` — const, line 224
+- `const message = parseBridgeMessage(event.data)` — const, line 226
+- `const box = frame.getBoundingClientRect()` — const, line 228
+- `const placed = toPage(message,` — const, line 229
+- `const frame = frameRef.current` — const, line 241
+- `const retry = useCallback(()` — const, line 247
+- `const line = statusLine(current)` — const, line 262
+- `const action = current.kind === "stopped" ? "resume" : current.kind === "failed" || current.kind === "unavailable" ? "try again" : null` — const, line 263
 
 ## Who imports or calls it
 

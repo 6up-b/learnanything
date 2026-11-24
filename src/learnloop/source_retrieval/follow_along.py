@@ -27,7 +27,7 @@ def follow(vault: Any, repository: Repository, video_extraction_id: str, t: floa
                            "t": float(t), "section": None, "chapter": None, "learning_objects": []}
     if chapter is not None:
         out["chapter"] = {"chapter_id": chapter["chapter_id"], "title": chapter["title"], "t0": chapter["t0"],
-                          "t1": chapter["t1"]}
+                          "t1": chapter["t1"], "learning_object_ids": chapter["learning_object_ids"]}
     if section is None:
         out["status"] = "no_section"
         return out

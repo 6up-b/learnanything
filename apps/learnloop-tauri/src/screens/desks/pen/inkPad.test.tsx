@@ -49,7 +49,7 @@ function mount({ state = "active" as WindowState, on = true, transcribe = async 
   const api: PenApi = {
     readerCapture: vi.fn(), readerDeleteIntentAnnotation: vi.fn(), readerEditAnnotation: vi.fn(),
     readerSourceAnnotations: vi.fn(async () => ({ annotations: [] })),
-    inkList: vi.fn(async () => ({ version: 1, padId: FIXTURE_INK_PAD, sourceId: null, owners: fixtureInkOwners() })),
+    inkList: vi.fn(async (input: { padId: string } | { sourceId: string }) => ({ version: 1, padId: "padId" in input ? input.padId : null, sourceId: null, owners: "padId" in input ? server.inkFor(input.padId) : [] })),
     inkTranscribe: vi.fn(transcribe),
     inkTranscribeJob: vi.fn(async ({ jobId }: { jobId: string }) => ({ version: 1, jobId, status: "running" as const, done: false, result: null, error: null })),
     inkTranscribeCancel: vi.fn(async ({ jobId }: { jobId: string }) => ({ version: 1, jobId, status: "cancelled" as const, done: false, result: null, error: null })),
@@ -228,6 +228,47 @@ describe("an ink pad", () => {
     });
     expect(sentOps(server).find((op) => op.op === "erase_ink")).toMatchObject({ blockId: "fx_b_h1", strokeIds: ["fx_b_h1_s0"] });
     expect(line("fx_b_h1").querySelectorAll("path[data-ink-stroke]")).toHaveLength(3);
+  });
+
+  it("erasing every stroke of a line takes LearnLoop's reading of them too, as the server does", async () => {
+    const { server, store } = mount();
+    await settle();
+    const owners = fixtureInkOwners()[0].strokes;
+    for (const each of owners) {
+      stroke(surfaceOf("fx_b_h1"), [[each.points[3][0], each.points[3][1]], [each.points[4][0], each.points[4][1]], [each.points[5][0], each.points[5][1]]], { button: 2 });
+      await settle();
+    }
+    await act(async () => {
+      await store.settled();
+    });
+    const erases = sentOps(server).filter((op) => op.op === "erase_ink") as Array<Extract<PadOpDto, { op: "erase_ink" }>>;
+    expect(erases).toHaveLength(owners.length);
+    expect(erases.slice(0, -1).every((op) => op.versionId === undefined)).toBe(true);
+    const last = erases[erases.length - 1];
+    expect(last.versionId).toEqual(expect.any(String));
+    const head = store.pads[FIXTURE_INK_PAD].blocks.find((b) => b.blockId === "fx_b_h1")!;
+    expect([head.headVersionId, head.bodyMd, "ink_transcription" in head.payload]).toEqual([last.versionId, "", false]);
+  });
+
+  it("a pause between the pen's down and up drops the stroke under way", async () => {
+    const view = mount();
+    await settle();
+    const target = surfaceOf("fx_b_h1");
+    act(() => {
+      target.dispatchEvent(pointer("pointerdown", ...squiggle[0]));
+      for (const [x, y] of squiggle.slice(1)) target.dispatchEvent(pointer("pointermove", x, y));
+    });
+    expect(line("fx_b_h1").querySelector('path[data-ink-stroke="live"]')).not.toBeNull();
+    view.rerender("offscreen");
+    view.rerender("active");
+    act(() => {
+      surfaceOf("fx_b_h1").dispatchEvent(pointer("pointerup", ...squiggle[squiggle.length - 1]));
+    });
+    await act(async () => {
+      await view.store.settled();
+    });
+    expect(view.calls.filter((call) => call.startsWith("ink:"))).toHaveLength(0);
+    expect(line("fx_b_h1").querySelector('path[data-ink-stroke="live"]')).toBeNull();
   });
 
   it("touch never draws, a paused window draws nothing, and a new pad in pen mode is a handwritten one", async () => {

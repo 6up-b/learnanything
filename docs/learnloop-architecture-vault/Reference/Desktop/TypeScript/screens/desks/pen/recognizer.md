@@ -91,7 +91,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 > [!note] Static-evidence boundary
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
-- [[Reference/Desktop/TypeScript/screens/desks/pen/PenLayer|src/screens/desks/pen/PenLayer.tsx]] — import-or-re-export: `Box`, `Point`, `RECOGNIZED_AS`, `StrokeKind`, `boxOf`, `recognize`; references `Box`, `Point`, `RECOGNIZED_AS`, `StrokeKind`, `boxOf`, `recognize`
+- [[Reference/Desktop/TypeScript/screens/desks/pen/PenLayer|src/screens/desks/pen/PenLayer.tsx]] — import-or-re-export: `Box`, `Point`, `RECOGNIZED_AS`, `RECOGNIZER`, `StrokeKind`, `boxOf`, `recognize`; references `Box`, `Point`, `RECOGNIZED_AS`, `RECOGNIZER`, `StrokeKind`, `boxOf`, `recognize`
 - [[Reference/Desktop/TypeScript/screens/desks/pen/geometry|src/screens/desks/pen/geometry.ts]] — import-or-re-export: `Box`, `LineBox`, `Point`, `RECOGNIZER`, `RecognizerPage`; references `Box`, `LineBox`, `Point`, `RECOGNIZER`, `RecognizerPage`
 
 ## Dependencies

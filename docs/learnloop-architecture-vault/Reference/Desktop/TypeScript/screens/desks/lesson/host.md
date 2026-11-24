@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/lesson/host.ts](../../../../../../../../apps/learnloop-tauri/src/screens/desks/lesson/host.ts) |
-| Source lines | 235 |
+| Source lines | 270 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/lesson/_area|TypeScript/screens/desks/lesson]] |
 | Refactor status | `ACTIVE` |
@@ -58,22 +58,25 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export const LIVE_LESSONS_TRANSPORT: LessonsTransport =` — const, line 14
 - `export interface Opening` — interface, line 19
 - `export class LessonDesk` — class, line 28
-- `export interface LessonsHost` — interface, line 224
+- `export interface LessonsHost` — interface, line 257
 
 ## Internal implementation anchors
 
-- `const known = this.summaries.get(lessonId)` — const, line 60
-- `const fresh = lessonIds.filter((id)` — const, line 75
-- `const wanted = [...this.queued]` — const, line 83
-- `const known = this.summaries.get(lessonId)` — const, line 125
-- `const key = `$` — const, line 134
-- `const before = this.openings.length` — const, line 149
-- `const opening = this.openings.find((each)` — const, line 157
-- `const before = this.openings.length` — const, line 168
-- `const lessonId = lessonOfKey(key)` — const, line 177
-- `const lessonId = lessonOfKey(key)` — const, line 184
-- `const entry = this.openings.find((opening)` — const, line 190
-- `const key = this.reveals.get(windowId)` — const, line 205
+- `const known = this.summaries.get(lessonId)` — const, line 63
+- `const fresh = lessonIds.filter((id)` — const, line 78
+- `const wanted = [...this.queued]` — const, line 86
+- `const own = this.additions.get(lessonId)` — const, line 115
+- `const known = this.summaries.get(lessonId)` — const, line 142
+- `const key = `$` — const, line 151
+- `const before = this.openings.length` — const, line 166
+- `const opening = this.openings.find((each)` — const, line 174
+- `const known = this.openingTurns.get(key)` — const, line 186
+- `const turn = send().then((view)` — const, line 188
+- `const before = this.openings.length` — const, line 201
+- `const lessonId = lessonOfKey(key)` — const, line 210
+- `const lessonId = lessonOfKey(key)` — const, line 217
+- `const entry = this.openings.find((opening)` — const, line 223
+- `const key = this.reveals.get(windowId)` — const, line 238
 
 ## Who imports or calls it
 

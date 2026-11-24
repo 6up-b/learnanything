@@ -6,6 +6,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import json
+import re
 import shutil
 import tempfile
 import time
@@ -205,11 +206,14 @@ def wait_state(runtime: Any, vault_key: str, session_id: str, state: str, timeou
 
 async def frame_round_trip(frame_url: str, *, marimo_session: str, wanted: list[str],
                            set_value: tuple[str, Any] | None = None, then_wanted: tuple[str, ...] = (),
-                           during: Any = None, after_during: tuple[str, ...] = ()) -> dict[str, Any]:
+                           during: Any = None, after_during: tuple[str, ...] = (),
+                           pattern: str | None = None, linger: float = 0.0) -> dict[str, Any]:
     """Load the page, open the WebSocket, instantiate, wait for ``wanted`` in the cells' output; then optionally set
     a UI element's value (object id from a cell name) or call ``during()`` in a thread, and wait for
     ``then_wanted`` (with both, ``during()`` runs after the value is set, and ``after_during`` is waited for).
-    What a browser frame would do, through the proxy."""
+    ``pattern``: a regular expression whose matches in any message are kept in ``out["matches"]``. ``linger``: keep
+    the WebSocket open (and read) this many seconds more, so reports that follow an output (a cell's idle) reach
+    the proxy. What a browser frame would do, through the proxy."""
 
     import httpx
     import websockets
@@ -240,6 +244,8 @@ async def frame_round_trip(frame_url: str, *, marimo_session: str, wanted: list[
                         data = json.loads(message)["data"]
                         out["cells"] = dict(zip(data["names"], data["cell_ids"], strict=True))
                     seen.update(needle for needle in needles if needle in message)
+                    if pattern is not None:
+                        out.setdefault("matches", []).extend(re.findall(pattern, message))
 
             await wait_for(wanted)
             if set_value is not None:
@@ -254,6 +260,12 @@ async def frame_round_trip(frame_url: str, *, marimo_session: str, wanted: list[
             if during is not None:
                 out["during"] = await asyncio.get_running_loop().run_in_executor(None, during)
                 await wait_for(after_during if set_value is not None else then_wanted)
+            end = time.monotonic() + linger
+            while time.monotonic() < end:
+                try:
+                    await asyncio.wait_for(ws.recv(), max(0.05, end - time.monotonic()))
+                except asyncio.TimeoutError:
+                    break
     out["seen"] = sorted(seen)
     return out
 
@@ -264,11 +276,27 @@ class RecordingRuntime:
     def __init__(self, refuse_release: Exception | None = None) -> None:
         self.opens: list[dict[str, Any]] = []
         self.refuse_release = refuse_release
+        self.reviews: list[str] = []
+        self.releases: list[list[str]] = []
 
     def release(self, **kwargs: Any) -> dict[str, Any]:
         if self.refuse_release is not None:
             raise self.refuse_release
+        if kwargs["session_id"] in self.reviews:
+            from learnloop.notebook_runtime.runtime import ReleaseRefused
+
+            raise ReleaseRefused("a review releases nothing")
+        self.releases.append(list(kwargs["names"]))
         return {"session_id": kwargs["session_id"], "released": list(kwargs["names"])}
+
+    def status(self, **kwargs: Any) -> dict[str, Any]:
+        owner = self.opens[-1]["owner"] if self.opens else "pad:none"
+        return {"session_id": kwargs["session_id"], "owner": owner, "state": "ready",
+                **({"lesson": {"review": kwargs["session_id"] in self.reviews}} if owner.startswith("lesson:") else {})}
+
+    def mark_review(self, **kwargs: Any) -> dict[str, Any]:
+        self.reviews.append(kwargs["session_id"])
+        return self.status(session_id=kwargs["session_id"])
 
     def open(self, **kwargs: Any) -> dict[str, Any]:
         self.opens.append(kwargs)

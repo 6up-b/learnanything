@@ -114,7 +114,10 @@ export class DeskStore {
     const read = this.transport.padGet({ padId }).then(
       (view) => {
         // Ops queued before the read landed (on a pad created here) stay applied on top.
-        if (!this.pads[padId]) this.pads = { ...this.pads, [padId]: fromPadView(view) };
+        if (!this.pads[padId]) {
+          this.pads = { ...this.pads, [padId]: fromPadView(view) };
+          this.changed([padId]);
+        }
         delete this.padFailures[padId];
         this.emitPads();
       },
@@ -133,6 +136,7 @@ export class DeskStore {
   noteCreatedPad(padId: string, kind: "running" | "named", title: string, homeDeskId: string | null, now: string = new Date().toISOString()): void {
     if (this.pads[padId]) return;
     this.pads = applyPadOp(this.pads, padId, { op: "create_pad", kind, title, homeDeskId }, now);
+    this.changed([padId]);
     this.emitPads();
   }
 
@@ -142,6 +146,7 @@ export class DeskStore {
     if (!state) return;
     const blocks = state.blocks.map((block) => (block.blockId === blockId ? { ...block, submissions: [...block.submissions.map((each) => ({ ...each, current: false })), submission] } : block));
     this.pads = { ...this.pads, [padId]: { ...state, blocks } };
+    this.changed([padId]);
     this.emitPads();
   }
 
@@ -161,6 +166,7 @@ export class DeskStore {
       throw error;
     }
     this.pads = pads;
+    this.changed([padId]);
     this.emitPads();
     this.outbox.enqueuePad(padId, ops);
     this.scheduleFlush();
@@ -172,9 +178,12 @@ export class DeskStore {
   async refreshPad(padId: string): Promise<void> {
     await this.settled();
     if (!this.transport.padGet || this.outbox.queued().some((batch) => batch.pad?.padId === padId)) return;
+    // A change made here while the read was out (even one acknowledged before it answered) is newer than what
+    // the read saw: the read is then dropped, not laid over it.
+    const before = this.padChanges.get(padId) ?? 0;
     try {
       const view = await this.transport.padGet({ padId });
-      if (this.outbox.queued().some((batch) => batch.pad?.padId === padId)) return;
+      if (this.outbox.queued().some((batch) => batch.pad?.padId === padId) || (this.padChanges.get(padId) ?? 0) !== before) return;
       this.pads = { ...this.pads, [padId]: fromPadView(view) };
       this.emitPads();
     } catch {
@@ -193,6 +202,13 @@ export class DeskStore {
   commitInkErase(inkErase: InkEraseBody): void {
     this.outbox.enqueueInkErase(inkErase);
     this.scheduleFlush();
+  }
+
+  /** Each pad's local changes, counted (a pad read that started before one is older than it). */
+  private padChanges = new Map<string, number>();
+
+  private changed(padIds: Iterable<string>): void {
+    for (const padId of padIds) this.padChanges.set(padId, (this.padChanges.get(padId) ?? 0) + 1);
   }
 
   private keptCount = 0;
@@ -407,6 +423,7 @@ export class DeskStore {
       // A pad that could not be read again keeps what the client had.
       for (const padId of padIds) if (!pads[padId] && this.pads[padId]) pads[padId] = this.pads[padId];
       this.pads = pads;
+      this.changed(padIds);
       this.padVersion += 1;
       this.emit();
       report(lost);

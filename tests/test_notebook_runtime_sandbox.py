@@ -8,6 +8,7 @@ from __future__ import annotations
 import asyncio
 import os
 import signal
+import time
 from pathlib import Path
 
 import pytest
@@ -172,10 +173,15 @@ def test_moving_a_pad_keeps_its_kernel_and_an_edited_cell_runs_in_it(runtime):
         return runtime.run_cells(vault_key="/v1", session_id=moved["session_id"], cells=[edited[2]])
 
     result = asyncio.run(frame_round_trip(moved["frame_url"], marimo_session="s_after", wanted=["square=25"],
-                                          during=edit_runs_in_the_live_kernel, then_wanted=("cube=125",)))
+                                          during=edit_runs_in_the_live_kernel, then_wanted=("cube=125",), linger=1.5))
     assert result["during"]["ran"] == ["c_sq"] and "cube=125" in result["seen"]
-    status = runtime.status(vault_key="/v1", session_id=moved["session_id"])
-    assert status["cell_runs"]["c_sq"]["status"] == "idle" and status["cell_runs"]["c_sq"]["ms"] is not None
+    # The cell's idle report follows its output on the socket (the frame stays to receive it): wait for it rather
+    # than race it.
+    deadline = time.monotonic() + 10
+    while (status := runtime.status(vault_key="/v1", session_id=moved["session_id"]))["cell_runs"]["c_sq"]["status"] != "idle":
+        assert time.monotonic() < deadline, status["cell_runs"]
+        time.sleep(0.05)
+    assert status["cell_runs"]["c_sq"]["ms"] is not None
     # A new cell is a new shape: a new session, every cell run again from the pad's code.
     grown = _open_pad(runtime, "pad:a", edited + [("c_more", "z = x.value + 1")], "shape-2")
     assert grown["session_id"] != first["session_id"] and not _group_alive(pid)

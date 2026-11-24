@@ -87,6 +87,21 @@ def test_repository_carries_a_fixture_at_the_current_migration_head():
     assert max(applied_versions(fixture)) == migration_head()
 
 
+#: Numbers skipped by merges landed long before this check existed (git has no file at any of them);
+#: no file ever held them on main, so no vault was upgraded past one. Never add to this set.
+SKIPPED_BEFORE_THIS_CHECK = frozenset({38, 39, 42, 43, 46, 60, 67, 127, 128, 129, 135, 136, 137})
+
+
+def test_the_migration_files_are_contiguous_from_the_oldest_to_the_head():
+    # Upgrade tests read the files present (tests/helpers.py migrations_from), so a number skipped on disk would
+    # pass them all; a skipped number is never meant to land, and this is where it fails loudly. (A vault upgraded
+    # past a gap could not later take a migration filed into it.)
+    versions = [migration.version for migration in discover_migrations()]
+    missing = sorted(set(range(versions[0], versions[-1] + 1)) - set(versions) - SKIPPED_BEFORE_THIS_CHECK)
+    assert missing == [], f"migration numbers missing between {versions[0]} and the head: {missing}"
+    assert len(versions) == len(set(versions)), "two migration files share a number"
+
+
 def test_the_head_fixture_stays_in_rollback_mode_with_no_companions():
     # A WAL header would carry into every byte copy a test makes of it, and git
     # tracks the main file only, so a committed page could live in a -wal.

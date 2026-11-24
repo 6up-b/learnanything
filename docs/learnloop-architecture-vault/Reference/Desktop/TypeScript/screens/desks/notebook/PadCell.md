@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/notebook/PadCell.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/notebook/PadCell.tsx) |
-| Source lines | 151 |
+| Source lines | 155 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/notebook/_area|TypeScript/screens/desks/notebook]] |
 | Refactor status | `ACTIVE` |
@@ -54,28 +54,29 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export const RUN_POLL =` — const, line 23
-- `export const GROUP_HEIGHT_PX = 380` — const, line 25
-- `export interface PadCellProps` — interface, line 27
-- `export function PadCell(` — function, line 44
+- `export const RUN_POLL =` — const, line 24
+- `export const GROUP_HEIGHT_PX = 380` — const, line 26
+- `export interface PadCellProps` — interface, line 28
+- `export function PadCell(` — function, line 45
 
 ## Internal implementation anchors
 
-- `function message(error: unknown): string` — function, line 38
-- `const host = usePadsHost()` — const, line 45
-- `const state = useSyncExternalStore(subscribePadNotebooks, ()` — const, line 46
-- `const area = useRef<HTMLTextAreaElement | null>(null)` — const, line 48
-- `const shape = cellShape(blocks)` — const, line 49
-- `const last = shape[shape.length - 1] === block.blockId` — const, line 50
-- `const run = useCallback(async (code: string)` — const, line 56
-- `const now = padNotebook(padId)` — const, line 58
-- `const name = now.names[block.blockId]` — const, line 66
-- `const sessionId = now.session.sessionId` — const, line 74
-- `const until = Date.now() + RUN_POLL.forMs` — const, line 75
-- `const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>)` — const, line 86
-- `const target = event.currentTarget` — const, line 100
-- `const next = `$` — const, line 102
-- `const tutor = block.provenance === "tutor"` — const, line 108
+- `function message(error: unknown): string` — function, line 39
+- `const host = usePadsHost()` — const, line 46
+- `const key = padNotebookKey(host?.store.clientId ?? "", padId)` — const, line 49
+- `const state = useSyncExternalStore(subscribePadNotebooks, ()` — const, line 50
+- `const area = useRef<HTMLTextAreaElement | null>(null)` — const, line 52
+- `const shape = cellShape(blocks)` — const, line 53
+- `const last = shape[shape.length - 1] === block.blockId` — const, line 54
+- `const run = useCallback(async (code: string)` — const, line 60
+- `const now = padNotebook(key)` — const, line 62
+- `const name = now.names[block.blockId]` — const, line 70
+- `const sessionId = now.session.sessionId` — const, line 78
+- `const until = Date.now() + RUN_POLL.forMs` — const, line 79
+- `const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>)` — const, line 90
+- `const target = event.currentTarget` — const, line 104
+- `const next = `$` — const, line 106
+- `const tutor = block.provenance === "tutor"` — const, line 112
 
 ## Who imports or calls it
 
@@ -91,7 +92,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/api/client|src/api/client.ts]] — import-or-re-export; imports `api`
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `PadBlockDto`
 - [[Reference/Desktop/TypeScript/screens/desks/notebook/NotebookFrame|src/screens/desks/notebook/NotebookFrame.tsx]] — import-or-re-export; imports `NotebookFrame`
-- [[Reference/Desktop/TypeScript/screens/desks/notebook/padNotebooks|src/screens/desks/notebook/padNotebooks.ts]] — import-or-re-export; imports `cellShape`, `cellStateLine`, `needsOpen`, `notePadSession`, `noteRunPending`, `padNotebook`, `startPadNotebook`, `subscribePadNotebooks`
+- [[Reference/Desktop/TypeScript/screens/desks/notebook/padNotebooks|src/screens/desks/notebook/padNotebooks.ts]] — import-or-re-export; imports `cellShape`, `cellStateLine`, `needsOpen`, `notePadSession`, `noteRunPending`, `padNotebook`, `padNotebookKey`, `startPadNotebook`, `subscribePadNotebooks`
 - [[Reference/Desktop/TypeScript/screens/desks/pads/host|src/screens/desks/pads/host.ts]] — import-or-re-export; imports `usePadsHost`
 
 ### Assets, platform, and third-party dependencies

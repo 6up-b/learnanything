@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/notebook_runtime/proxy.py](../../../../../../src/learnloop/notebook_runtime/proxy.py) |
-| Source lines | 408 |
+| Source lines | 418 |
 | Owning package | [[Reference/Modules/learnloop/notebook_runtime/_package|learnloop.notebook_runtime]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -67,11 +67,11 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
   - `async start(self) -> int` (line 186; public)
   - `async stop(self) -> None` (line 203; public)
   - `_upstream(self) -> Any` (line 220; internal)
-  - `async __call__(self, scope: dict[str, Any], receive: Any, send: Any) -> None` (line 236; internal)
-  - `async _plain(self, send: Any, status: int, text: str) -> None` (line 242; internal)
-  - `_own_file(self, rel: str) -> tuple[bytes | None, bytes] | None` (line 249; internal) — The proxy's own files: the bridge, the paper theme and its fonts (None: not the proxy's).
-  - `async _http(self, scope: dict[str, Any], receive: Any, send: Any) -> None` (line 261; internal)
-  - `async _websocket(self, scope: dict[str, Any], receive: Any, send: Any) -> None` (line 332; internal)
+  - `async __call__(self, scope: dict[str, Any], receive: Any, send: Any) -> None` (line 238; internal)
+  - `async _plain(self, send: Any, status: int, text: str) -> None` (line 244; internal)
+  - `_own_file(self, rel: str) -> tuple[bytes | None, bytes] | None` (line 251; internal) — The proxy's own files: the bridge, the paper theme and its fonts (None: not the proxy's).
+  - `async _http(self, scope: dict[str, Any], receive: Any, send: Any) -> None` (line 263; internal)
+  - `async _websocket(self, scope: dict[str, Any], receive: Any, send: Any) -> None` (line 341; internal)
 
 ### Module constants
 
@@ -100,8 +100,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/notebook_runtime/adapter|learnloop.notebook_runtime.adapter]] — imports `module`; calls `cell_progress`, `instantiate_with_values`, `is_reconnected_notice`, `kernel_ready_cells`, `ui_values`
+- [[Reference/Modules/learnloop/notebook_runtime/hostfiles|learnloop.notebook_runtime.hostfiles]] — imports `module`; calls `check_socket`
 - [[Reference/Modules/learnloop/notebook_runtime/settings|learnloop.notebook_runtime.settings]] — imports `module`
-- [[Reference/Modules/learnloop/notebook_runtime/supervisor|learnloop.notebook_runtime.supervisor]] — imports `READY`, `Session`, `note_cell_progress`, `note_commits`; calls `note_cell_progress`, `note_commits`
+- [[Reference/Modules/learnloop/notebook_runtime/supervisor|learnloop.notebook_runtime.supervisor]] — imports `READY`, `Session`, `note_cell_progress`, `note_commits`, `record_ui_values`; calls `note_cell_progress`, `note_commits`, `record_ui_values`
 - [[Reference/Modules/learnloop/notebook_runtime/theme|learnloop.notebook_runtime.theme]] — imports `module`; calls `font_file`, `theme_css`
 
 ### Platform and third-party dependencies
@@ -123,6 +124,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/test_notebook_runtime.py](../../../../../../tests/test_notebook_runtime.py) — direct import
+  - `test_an_oversized_request_is_refused_and_nothing_is_recorded_before_the_server_accepts_it`
   - `test_downstream_drops_cookies_and_framing_headers_and_sets_the_csp`
   - `test_the_bridge_and_the_paper_theme_are_injected_and_the_bridge_names_only_the_workbench_origins`
   - `test_the_frame_csp_contains_the_page`

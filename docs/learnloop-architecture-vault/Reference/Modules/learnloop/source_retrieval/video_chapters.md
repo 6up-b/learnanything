@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/source_retrieval/video_chapters.py](../../../../../../src/learnloop/source_retrieval/video_chapters.py) |
-| Source lines | 376 |
+| Source lines | 400 |
 | Owning package | [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -69,9 +69,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `assemble(extraction_id: str, sections: Sequence[TranscriptSection], prompt: Prompt, rows: dict[str, dict[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/source_retrieval/video_chapters.py), line 198) — The chapters the judged sections describe: each run from a start to the next start (the first section always starts one), its sections' times, the start's title and its LO tags (listed refs only).
 - `list_chapters(vault: Any, repository: Repository, extraction_id: str, *, states: Sequence[str]=('suggested', 'accepted')) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/source_retrieval/video_chapters.py), line 235) — A reading's chapters in the given states, by time; each with its LOs' titles (an LO gone from the vault is left out of its tags).
 - `accepted_at(repository: Repository, extraction_id: str, t: float) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/source_retrieval/video_chapters.py), line 253) — The accepted chapter a time falls in, if any.
-- `store_suggestions(repository: Repository, extraction_id: str, source_id: str | None, chapters: Sequence[dict[str, Any]], *, clock: Clock | None=None, guard: SC.CoverageGuard | None=None) -> None` ([source](../../../../../../src/learnloop/source_retrieval/video_chapters.py), line 262) — Replace the reading's chapters still suggested by these; a decided chapter (and the same chapter suggested again) keeps its row.
-- `decide(vault: Any, repository: Repository, chapter_id_: str, decision: str, *, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/video_chapters.py), line 282) — Accept a suggested chapter or dismiss it ("not this"), once.
-- `suggest(vault: Any, repository: Repository, extraction_id: str, *, client: Any | None=None, clock: Clock | None=None, budget: SpendBudget | None=None, live_vault: Any | None=None) -> SuggestResult` ([source](../../../../../../src/learnloop/source_retrieval/video_chapters.py), line 305) — Judge a video's chapters and store them suggested (no call when the same request is in the ledger).
+- `class NotWanted(Exception)` ([source](../../../../../../src/learnloop/source_retrieval/video_chapters.py), line 262) — The judgment's job was cancelled, or its context closed or switched vaults, before its chapters were stored.
+- `store_suggestions(repository: Repository, extraction_id: str, source_id: str | None, chapters: Sequence[dict[str, Any]], *, clock: Clock | None=None, guard: SC.CoverageGuard | None=None, wanted: Callable[[], bool] | None=None) -> None` ([source](../../../../../../src/learnloop/source_retrieval/video_chapters.py), line 266) — Replace the reading's chapters still suggested by these; a decided chapter (and the same chapter suggested again) keeps its row.
+- `decide(vault: Any, repository: Repository, chapter_id_: str, decision: str, *, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/video_chapters.py), line 289) — Accept a suggested chapter or dismiss it ("not this"), once.
+- `suggest(vault: Any, repository: Repository, extraction_id: str, *, client: Any | None=None, clock: Clock | None=None, budget: SpendBudget | None=None, live_vault: Any | None=None, wanted: Callable[[], bool] | None=None) -> SuggestResult` ([source](../../../../../../src/learnloop/source_retrieval/video_chapters.py), line 312) — Judge a video's chapters and store them suggested (no call when the same request is in the ledger).
 
 ### Module constants
 
@@ -91,6 +92,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - `CHAPTERS_TASK`
 - `ChaptersError`
+- `NotWanted`
 - `SuggestResult`
 - `TranscriptSection`
 - `VideoChaptersOutputV1`
@@ -116,7 +118,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/source_retrieval/follow_along|learnloop.source_retrieval.follow_along]] — imports `module`; statically calls `accepted_at`, `section_at`, `transcript_sections`
-- [[Reference/Modules/learnloop_sidecar/handlers/video|learnloop_sidecar.handlers.video]] — imports `module`; statically calls `decide`, `list_chapters`, `suggest`
+- [[Reference/Modules/learnloop_sidecar/handlers/video|learnloop_sidecar.handlers.video]] — imports `module`; statically calls `decide`, `list_chapters`, `suggest`, `transcript_sections`
 
 ## Dependencies
 
@@ -153,6 +155,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/identity_pins_helpers.py](../../../../../../tests/identity_pins_helpers.py) — direct import
+- [tests/test_reader_rd10_fix_protection.py](../../../../../../tests/test_reader_rd10_fix_protection.py) — direct import
+  - `test_a_judged_video_replays_from_the_ledger_with_the_budget_spent_and_an_unjudged_one_is_capped`
+  - `test_the_curriculum_switched_off_while_a_suggestion_runs_stores_nothing`
 - [tests/test_reader_rd10_video.py](../../../../../../tests/test_reader_rd10_video.py) — direct import
   - `test_chapters_are_judged_once_stored_suggested_and_accepting_stores`
   - `test_chapters_are_off_with_the_curriculum`

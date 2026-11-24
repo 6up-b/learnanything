@@ -50,35 +50,36 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/ink.py](../../../../../../src/learnloop_sidecar/handlers/ink.py) |
-| Source lines | 282 |
+| Source lines | 300 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class InkSaveInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ink.py), line 51)
-  - `_distinct_ids(cls, strokes: list[ink_core.InkStroke]) -> list[ink_core.InkStroke]` (line 61; internal)
-- `class InkEraseInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ink.py), line 68)
-- `class InkListInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ink.py), line 76)
-  - `_exactly_one(self) -> 'InkListInput'` (line 81; internal)
-- `class InkTranscribeInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ink.py), line 87)
-- `class InkJobInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ink.py), line 91)
-- `ink_save(ctx: SidecarContext, params: InkSaveInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ink.py), line 96) — One save of strokes to one owner: ``{applied_seq, ink_id, results: [ok{duplicate} | refused{code}]}``.
-- `ink_erase(ctx: SidecarContext, params: InkEraseInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ink.py), line 109) — The barrel over an annotation's or a reading's ink: ``{applied_seq, erase_id, results: [ok{duplicate} | refused{code}]}`` (a block's ink is erased in its pad batch).
-- `ink_list(ctx: SidecarContext, params: InkListInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ink.py), line 123) — The ink of a pad's standing ink blocks, or of a source's listed annotations: per owner its standing strokes, their hash and its latest reading (``current`` when it read exactly these strokes).
-- `ink_transcribe(ctx: SidecarContext, params: InkTranscribeInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ink.py), line 218) — Read the strokes ``ink_id``'s owner holds now: ``{job_id, status, done, result, error}`` at once.
-- `ink_transcribe_job(ctx: SidecarContext, params: InkJobInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ink.py), line 269) — The reading's state, at once (never a wait on the request path).
-- `ink_transcribe_cancel(ctx: SidecarContext, params: InkJobInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ink.py), line 276) — Cancel the reading: its next model request is refused; a finished reading keeps its outcome.
+- `class InkSaveInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ink.py), line 52)
+  - `_distinct_ids(cls, strokes: list[ink_core.InkStroke]) -> list[ink_core.InkStroke]` (line 62; internal)
+- `class InkEraseInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ink.py), line 69)
+- `class InkListInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ink.py), line 77)
+  - `_exactly_one(self) -> 'InkListInput'` (line 82; internal)
+- `class InkTranscribeInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ink.py), line 88)
+- `class InkJobInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/ink.py), line 92)
+- `ink_save(ctx: SidecarContext, params: InkSaveInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ink.py), line 97) — One save of strokes to one owner: ``{applied_seq, ink_id, results: [ok{duplicate} | refused{code}]}``.
+- `ink_erase(ctx: SidecarContext, params: InkEraseInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ink.py), line 110) — The barrel over an annotation's or a reading's ink: ``{applied_seq, erase_id, results: [ok{duplicate} | refused{code}]}`` (a block's ink is erased in its pad batch).
+- `ink_list(ctx: SidecarContext, params: InkListInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ink.py), line 124) — The ink of a pad's standing ink blocks, or of a source's listed annotations: per owner its standing strokes, their hash and its latest reading (``current`` when it read exactly these strokes).
+- `ink_transcribe(ctx: SidecarContext, params: InkTranscribeInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ink.py), line 225) — Read the strokes ``ink_id``'s owner holds now: ``{job_id, status, done, result, error}`` at once.
+- `ink_transcribe_job(ctx: SidecarContext, params: InkJobInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ink.py), line 287) — The reading's state, at once (never a wait on the request path).
+- `ink_transcribe_cancel(ctx: SidecarContext, params: InkJobInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ink.py), line 294) — Cancel the reading: its next model request is refused; a finished reading keeps its outcome.
 
 ### Module constants
 
-- `LOG` ([src/learnloop_sidecar/handlers/ink.py](../../../../../../src/learnloop_sidecar/handlers/ink.py), line 42)
-- `INK_RPCS` ([src/learnloop_sidecar/handlers/ink.py](../../../../../../src/learnloop_sidecar/handlers/ink.py), line 45)
-- `KIND` ([src/learnloop_sidecar/handlers/ink.py](../../../../../../src/learnloop_sidecar/handlers/ink.py), line 46)
-- `NOT_FOUND_MESSAGE` ([src/learnloop_sidecar/handlers/ink.py](../../../../../../src/learnloop_sidecar/handlers/ink.py), line 47)
-- `_REGISTRY` ([src/learnloop_sidecar/handlers/ink.py](../../../../../../src/learnloop_sidecar/handlers/ink.py), line 139)
-- `_READING_LOCK` ([src/learnloop_sidecar/handlers/ink.py](../../../../../../src/learnloop_sidecar/handlers/ink.py), line 140)
+- `LOG` ([src/learnloop_sidecar/handlers/ink.py](../../../../../../src/learnloop_sidecar/handlers/ink.py), line 43)
+- `INK_RPCS` ([src/learnloop_sidecar/handlers/ink.py](../../../../../../src/learnloop_sidecar/handlers/ink.py), line 46)
+- `KIND` ([src/learnloop_sidecar/handlers/ink.py](../../../../../../src/learnloop_sidecar/handlers/ink.py), line 47)
+- `NOT_FOUND_MESSAGE` ([src/learnloop_sidecar/handlers/ink.py](../../../../../../src/learnloop_sidecar/handlers/ink.py), line 48)
+- `_REGISTRY` ([src/learnloop_sidecar/handlers/ink.py](../../../../../../src/learnloop_sidecar/handlers/ink.py), line 140)
+- `_WAIT_STEP_SECONDS` ([src/learnloop_sidecar/handlers/ink.py](../../../../../../src/learnloop_sidecar/handlers/ink.py), line 143)
+- `_READING_LOCK` ([src/learnloop_sidecar/handlers/ink.py](../../../../../../src/learnloop_sidecar/handlers/ink.py), line 144)
 
 ### Explicit exports
 
@@ -89,14 +90,14 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_jobs(ctx: SidecarContext) -> PJ.PolledJobs` ([source](../../../../../../src/learnloop_sidecar/handlers/ink.py), line 143) — The context's reading jobs (by vault and id; a vault switch interrupts that vault's).
-- `_error(error: SidecarError | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/ink.py), line 149)
-- `_payload(job_id: str | None, status: str, *, finished: bool, result: dict[str, Any] | None, error: SidecarError | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ink.py), line 155)
-- `_job_payload(job: PJ.PolledJob) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ink.py), line 161)
-- `_receipt_payload(receipt: PJ.Receipt) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ink.py), line 173)
-- `_after_reading(ctx: SidecarContext, vault: Any, repository: Any, result: dict[str, Any]) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/ink.py), line 178) — A reading written into its block is committed learner text: emitted and given its proposals, as a pad batch's blocks are.
-- `_as_sidecar_error(exc: Exception) -> SidecarError` ([source](../../../../../../src/learnloop_sidecar/handlers/ink.py), line 196)
-- `_find(ctx: SidecarContext, job_id: str, *, cancel: bool=False) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ink.py), line 255)
+- `_jobs(ctx: SidecarContext) -> PJ.PolledJobs` ([source](../../../../../../src/learnloop_sidecar/handlers/ink.py), line 147) — The context's reading jobs (by vault and id; a vault switch interrupts that vault's).
+- `_error(error: SidecarError | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/ink.py), line 153)
+- `_payload(job_id: str | None, status: str, *, finished: bool, result: dict[str, Any] | None, error: SidecarError | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ink.py), line 159)
+- `_job_payload(job: PJ.PolledJob) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ink.py), line 165)
+- `_receipt_payload(receipt: PJ.Receipt) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ink.py), line 177)
+- `_after_reading(ctx: SidecarContext, vault: Any, repository: Any, result: dict[str, Any], live: Callable[[], bool]) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/ink.py), line 182) — A reading written into its block is committed learner text: emitted and given its proposals, as a pad batch's blocks are.
+- `_as_sidecar_error(exc: Exception) -> SidecarError` ([source](../../../../../../src/learnloop_sidecar/handlers/ink.py), line 203)
+- `_find(ctx: SidecarContext, job_id: str, *, cancel: bool=False) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ink.py), line 273)
 
 ## Who imports or calls it
 
@@ -109,7 +110,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/ai/errors|learnloop.ai.errors]] — imports `AIInterrupted`, `AIProviderUnavailable`
+- [[Reference/Modules/learnloop/ai/errors|learnloop.ai.errors]] — imports `AIInterrupted`, `AIProviderUnavailable`; calls `AIInterrupted`
 - [[Reference/Modules/learnloop/ai/plan_fallback|learnloop.ai.plan_fallback]] — imports `module`; calls `relay_job_offer`
 - [[Reference/Modules/learnloop/ai/spend|learnloop.ai.spend]] — imports `SpendLimitExceeded`
 - [[Reference/Modules/learnloop/desks/protocol|learnloop.desks.protocol]] — imports `ProtocolError`
@@ -128,7 +129,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `logging`, `threading`, `typing`
+- Standard library: `__future__`, `collections`, `logging`, `threading`, `typing`
 - Third party: `pydantic`
 
 ## Larger workflow participation
@@ -149,6 +150,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_mobile_allowlist.py](../../../../../../tests/test_mobile_allowlist.py) — direct import
   - `test_the_pinned_rd8a_rpcs_are_all_of_them`
+- [tests/test_reader_rd8a_fix_rpcs.py](../../../../../../tests/test_reader_rd8a_fix_rpcs.py) — direct import
+  - `test_a_reading_finishing_after_its_context_moved_on_keeps_its_facts_but_wakes_no_worker`
 - [tests/test_reader_rd8a_rpcs.py](../../../../../../tests/test_reader_rd8a_rpcs.py) — direct import
   - `test_the_rpcs_are_registered_and_desktop_only`
 

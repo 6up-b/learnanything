@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/fixtures/desks/workspace.ts](../../../../../../../apps/learnloop-tauri/src/fixtures/desks/workspace.ts) |
-| Source lines | 186 |
+| Source lines | 209 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/fixtures/desks/_area|TypeScript/fixtures/desks]] |
 | Refactor status | `ACTIVE` |
@@ -61,24 +61,28 @@ The system-level behavior stays authoritative in the linked architecture, concep
 ## Internal implementation anchors
 
 - `const window = ws.windows[id]` — const, line 62
-- `const state = this.pads[padId]` — const, line 87
-- `const last = this.seqs.get(input.clientId) ?? 0` — const, line 94
-- `const results: WriteOpResultDto[] = []` — const, line 97
-- `const heads:` — const, line 98
-- `const now = new Date().toISOString()` — const, line 99
-- `const before = op.op === "edit_block" && op.keepBoth ? this.pads[input.padId]?.blocks.find((block)` — const, line 103
-- `const keeps = op.op === "edit_block" && op.keepBoth !== undefined && (!before || before.headVersionId !== op.expectedHead)` — const, line 104
-- `const head = Object.values(this.pads).flatMap((pad)` — const, line 107
-- `const kept = this.pads[input.padId].blocks.find((block)` — const, line 111
-- `const last = this.seqs.get(input.clientId) ?? 0` — const, line 130
-- `const last = this.seqs.get(input.clientId) ?? 0` — const, line 138
-- `const results: WriteOpResultDto[] = []` — const, line 141
-- `const touched = new Set<string>()` — const, line 142
-- `const conflict = this.stale(op)` — const, line 144
-- `const runningBefore = new Set(this.ws.runningPadIds ?? [])` — const, line 150
-- `const now = new Date().toISOString()` — const, line 154
-- `const desk = deskById(this.ws, op.deskId)` — const, line 177
-- `const to = deskById(this.ws, op.toDeskId)` — const, line 181
+- `const blocks = new Set((this.pads[padId]?.blocks ?? []).map((block)` — const, line 85
+- `const owners = new Map<string, InkOwnerViewDto>((padId === FIXTURE_INK_PAD ? fixtureInkOwners() : []).map((owner)` — const, line 86
+- `const owner = owners.get(save.blockId) ??` — const, line 89
+- `const strokes = owner.strokes.filter((stroke)` — const, line 94
+- `const state = this.pads[padId]` — const, line 108
+- `const last = this.seqs.get(input.clientId) ?? 0` — const, line 115
+- `const results: WriteOpResultDto[] = []` — const, line 118
+- `const heads:` — const, line 119
+- `const now = new Date().toISOString()` — const, line 120
+- `const before = op.op === "edit_block" && op.keepBoth ? this.pads[input.padId]?.blocks.find((block)` — const, line 124
+- `const keeps = op.op === "edit_block" && op.keepBoth !== undefined && (!before || before.headVersionId !== op.expectedHead)` — const, line 125
+- `const head = Object.values(this.pads).flatMap((pad)` — const, line 128
+- `const kept = this.pads[input.padId].blocks.find((block)` — const, line 132
+- `const last = this.seqs.get(input.clientId) ?? 0` — const, line 152
+- `const last = this.seqs.get(input.clientId) ?? 0` — const, line 161
+- `const results: WriteOpResultDto[] = []` — const, line 164
+- `const touched = new Set<string>()` — const, line 165
+- `const conflict = this.stale(op)` — const, line 167
+- `const runningBefore = new Set(this.ws.runningPadIds ?? [])` — const, line 173
+- `const now = new Date().toISOString()` — const, line 177
+- `const desk = deskById(this.ws, op.deskId)` — const, line 200
+- `const to = deskById(this.ws, op.toDeskId)` — const, line 204
 
 ## Who imports or calls it
 
@@ -92,8 +96,8 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ### Desktop source modules
 
-- [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `DeskApplyDto`, `DeskApplyInput`, `DeskOpDto`, `DeskStateDto`, `PadApplyDto`, `PadApplyInput`, `PadViewDto`, `WriteOpResultDto`
-- [[Reference/Desktop/TypeScript/fixtures/desks/pads|src/fixtures/desks/pads.ts]] — import-or-re-export; imports `fixturePads`
+- [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `DeskApplyDto`, `DeskApplyInput`, `DeskOpDto`, `DeskStateDto`, `InkOwnerViewDto`, `InkStrokeDto`, `PadApplyDto`, `PadApplyInput`, `PadViewDto`, `WriteOpResultDto`
+- [[Reference/Desktop/TypeScript/fixtures/desks/pads|src/fixtures/desks/pads.ts]] — import-or-re-export; imports `FIXTURE_INK_PAD`, `fixtureInkOwners`, `fixturePads`
 - [[Reference/Desktop/TypeScript/fixtures/desks/sources|src/fixtures/desks/sources.ts]] — import-or-re-export; imports `FIXTURE_SOURCES`
 - [[Reference/Desktop/TypeScript/screens/desks/model/workspace|src/screens/desks/model/workspace.ts]] — import-or-re-export; imports `OpRefusal`, `Workspace`, `applyDeskOp`, `deskById`, `fromDeskState`
 - [[Reference/Desktop/TypeScript/screens/desks/pads/model|src/screens/desks/pads/model.ts]] — import-or-re-export; imports `PadOpConflict`, `PadOpRefusal`, `Pads`, `applyPadOp`, `fromPadView`

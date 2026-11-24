@@ -2,7 +2,7 @@
 // is answered from the synthetic workspace, and recorded, so the harness can read what each window
 // asked for (reading activity above all). Nothing leaves the page.
 import type { DeskApplyInput, DeskStateDto, LessonViewDto, PadViewDto } from "../../api/dto";
-import { FIXTURE_INK_PAD, fixtureInkOwners, fixtureInkPad, fixturePads } from "./pads";
+import { FIXTURE_INK_PAD, fixtureInkPad, fixturePads } from "./pads";
 import { FIXTURE_GUIDES, FIXTURE_LIBRARY, FIXTURE_SOURCES, FIXTURE_VIEWS, FIXTURE_WATCH } from "./sources";
 import { FixtureDeskServer, fixtureDeskState } from "./workspace";
 import { FixtureCompanion } from "./companion";
@@ -187,7 +187,7 @@ function answer(command: string, input: Record<string, unknown>): unknown {
       return { version: 1, appliedSeq: applied.appliedSeq, eraseId: String(input.eraseId), results: applied.results };
     }
     case "ink_list":
-      return { version: 1, padId: input.padId ?? null, sourceId: input.sourceId ?? null, owners: input.padId === FIXTURE_INK_PAD ? fixtureInkOwners() : [] };
+      return { version: 1, padId: input.padId ?? null, sourceId: input.sourceId ?? null, owners: input.padId ? server.inkFor(String(input.padId)) : [] };
     case "ink_transcribe":
       return { version: 1, jobId: null, status: "failed", done: true, result: null,
         error: { code: "cannot_read_images", message: "The model routed to read handwriting cannot read images, so nothing was sent.", retryable: false, details: null } };

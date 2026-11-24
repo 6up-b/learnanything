@@ -369,6 +369,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_gc1_exam_sentinels_never_reach_the_gap_model_via_a_notes_context`
 - [tests/test_provenance.py](../../../../../../tests/test_provenance.py) — direct import
   - `test_a_rebuild_never_calls_the_record_and_keeps_its_rows`
+- [tests/test_reader_rd10_fix_protection.py](../../../../../../tests/test_reader_rd10_fix_protection.py) — direct import
+- [tests/test_reader_rd10_fix_sweep.py](../../../../../../tests/test_reader_rd10_fix_sweep.py) — direct import
+  - `test_a_lesson_on_a_topic_whose_check_is_due_names_nothing_in_its_tab`
 - [tests/test_reader_rd6_fix_freshness.py](../../../../../../tests/test_reader_rd6_fix_freshness.py) — direct import
   - `test_an_lo_tried_and_found_nowhere_is_settled_only_against_that_library`
 - [tests/test_reader_rd6_fix_protection.py](../../../../../../tests/test_reader_rd6_fix_protection.py) — direct import

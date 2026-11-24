@@ -38,6 +38,13 @@ def migration_head() -> int:
     return max(migration.version for migration in discover_migrations())
 
 
+def migrations_from(version: int) -> list[int]:
+    """Every migration in ``migrations/`` from ``version`` on, in order: what an upgrade from just before
+    ``version`` applies. Numbers can be held for a stage still in flight, so the list is read, never a range."""
+
+    return [migration.version for migration in discover_migrations() if migration.version >= version]
+
+
 async def begin_session(app, pilot):
     """Advance from the warm-up Start screen to the Today screen.
 

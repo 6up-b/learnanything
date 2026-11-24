@@ -2629,6 +2629,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_practice_question_is_projected_as_the_tutor_records_it`
   - `test_opening_a_vault_already_at_the_latest_tag_projects_its_history_once`
   - `test_the_umbrella_rebuild_runs_both_replayers`
+- [tests/test_reader_rd10_fix_protection.py](../../../../../../tests/test_reader_rd10_fix_protection.py) — direct import
+  - `test_a_judged_video_replays_from_the_ledger_with_the_budget_spent_and_an_unjudged_one_is_capped`
+  - `test_the_curriculum_switched_off_while_a_suggestion_runs_stores_nothing`
+- [tests/test_reader_rd10_fix_sweep.py](../../../../../../tests/test_reader_rd10_fix_sweep.py) — direct import
+  - `test_a_lesson_on_a_topic_whose_check_is_due_names_nothing_in_its_tab`
 - [tests/test_reader_rd10_video.py](../../../../../../tests/test_reader_rd10_video.py) — direct import
   - `test_chapters_are_judged_once_stored_suggested_and_accepting_stores`
   - `test_chapters_are_off_with_the_curriculum`
@@ -2641,6 +2646,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_empty_and_thin_states`
   - `test_the_lens_levels_follow_the_real_path_and_coverage`
   - `test_the_replies_are_equal_after_a_rebuild_of_derived_state`
+- [tests/test_reader_rd9a_fix.py](../../../../../../tests/test_reader_rd9a_fix.py) — direct import
 - [tests/test_reader_rd9a_lesson_windows.py](../../../../../../tests/test_reader_rd9a_lesson_windows.py) — direct import
   - `test_lesson_list_names_each_lesson_with_its_additions_pad`
 - [tests/test_reader_recap.py](../../../../../../tests/test_reader_recap.py) — direct import

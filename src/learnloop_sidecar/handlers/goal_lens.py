@@ -23,6 +23,7 @@ from typing import Any
 from pydantic import Field, model_validator
 
 from learnloop.clock import parse_utc, utc_now_iso
+from learnloop.curriculum import goal_lens as GL
 from learnloop.intent.inline_checks import answered_checks, due_checks, next_check_due, serving_view
 from learnloop.section_map import RangeError
 from learnloop.source_retrieval import deliverable_path as DP
@@ -88,6 +89,16 @@ def _checks(vault: Any, repository: Any, goal_id: str) -> tuple[list[dict[str, A
     due = due_checks(vault, repository, goal_id=goal_id, view=view)
     answered = answered_checks(vault, repository, since=_day_start())
     return due, answered, next_check_due(view)
+
+
+def protection_now(vault: Any, repository: Any) -> tuple[GL.Protection, str | None]:
+    """What no workbench reply may say now (every due check, whatever the goal; spec §12.6.1, D15) and when the next
+    check falls due (a reply cached by the client is read again then). The goal lens, follow-along and the video
+    chapters all mask through it."""
+
+    view = serving_view(vault, repository)
+    due = due_checks(vault, repository, view=view)
+    return reads.protection(vault, repository, due), next_check_due(view)
 
 
 def _model(ctx: SidecarContext, vault: Any, repository: Any, goal_id: str,

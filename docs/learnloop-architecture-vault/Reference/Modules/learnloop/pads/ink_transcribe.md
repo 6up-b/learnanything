@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/pads/ink_transcribe.py](../../../../../../src/learnloop/pads/ink_transcribe.py) |
-| Source lines | 276 |
+| Source lines | 269 |
 | Owning package | [[Reference/Modules/learnloop/pads/_package|learnloop.pads]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -69,7 +69,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
   - `problem(self) -> InkUnavailable | None` (line 153; public)
   - `ask(self, prompt: str, image: bytes) -> InkTranscriptionV1` (line 166; public)
   - `model(self) -> str | None` (line 191; public)
-- `transcribe(vault: Any, repository: Repository, prepared: Prepared, *, client: Any | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/pads/ink_transcribe.py), line 241) — Read the strokes (or return their reading, spending nothing) and keep it.
+- `transcribe(vault: Any, repository: Repository, prepared: Prepared, *, client: Any | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/pads/ink_transcribe.py), line 234) — Read the strokes (or return their reading, spending nothing) and keep it.
 
 ### Module constants
 
@@ -125,7 +125,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/db/stores/pad_reads|learnloop.db.stores.pad_reads]] — imports `module`; calls `head`
 - [[Reference/Modules/learnloop/db/stores/pads|learnloop.db.stores.pads]] — imports `module`; calls `insert_version`, `touch_pad`
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
-- [[Reference/Modules/learnloop/pads/ink|learnloop.pads.ink]] — imports `module`; calls `InkError`, `owner_of`, `standing`, `strokes_hash`
+- [[Reference/Modules/learnloop/pads/ink|learnloop.pads.ink]] — imports `module`; calls `InkError`, `owner_of`, `reading_decision`, `standing`, `strokes_hash`
 - [[Reference/Modules/learnloop/pads/ink_render|learnloop.pads.ink_render]] — imports `module`; calls `render_png`
 - [[Reference/Modules/learnloop/practice_index/paid|learnloop.practice_index.paid]] — imports `PaidCalls`, `PaidRoute`, `plan_route`, `resolve_client`; calls `PaidCalls`, `plan_route`, `resolve_client`
 - [[Reference/Modules/learnloop/workbench/check|learnloop.workbench.check]] — imports `module`; calls `daily_envelope`, `models_off`
@@ -150,6 +150,16 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/identity_pins_helpers.py](../../../../../../tests/identity_pins_helpers.py) — direct import
 - [tests/ink_helpers.py](../../../../../../tests/ink_helpers.py) — direct import
+- [tests/test_reader_rd8a_fix.py](../../../../../../tests/test_reader_rd8a_fix.py) — direct import
+  - `test_a_cached_reading_beside_the_learners_correction_keeps_its_reason`
+  - `test_a_partial_erase_leaves_the_words_until_the_line_is_read_again`
+  - `test_a_reading_of_strokes_that_changed_meanwhile_is_kept_but_never_replaces_the_newer_one`
+  - `test_erasing_handwriting_keeps_the_learners_own_words`
+  - `test_erasing_handwriting_takes_its_automatic_transcription_and_what_was_read_from_it`
+  - `test_lifting_an_ink_line_out_keeps_its_handwriting_and_its_reading`
+- [tests/test_reader_rd8a_fix_rpcs.py](../../../../../../tests/test_reader_rd8a_fix_rpcs.py) — direct import
+  - `test_a_reading_finishing_after_its_context_moved_on_keeps_its_facts_but_wakes_no_worker`
+  - `test_the_listed_reading_beside_the_learners_correction_says_why_it_is_not_the_words`
 - [tests/test_reader_rd8a_transcribe.py](../../../../../../tests/test_reader_rd8a_transcribe.py) — direct import
   - `test_a_model_that_cannot_read_images_is_refused_before_anything_is_sent`
   - `test_a_removed_blocks_ink_is_not_read`

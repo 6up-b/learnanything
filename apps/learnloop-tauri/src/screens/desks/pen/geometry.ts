@@ -71,7 +71,54 @@ export function rangeBetween(host: HTMLElement, a: Point, b: Point): Range | nul
   } catch {
     return null;
   }
-  return range.collapsed ? null : range;
+  if (range.collapsed) return null;
+  // Whole words (spec §10.10, "snapped to the words"): a stroke ending midway through a word takes all of it,
+  // so the highlight never keeps half a word.
+  const isWord = (ch: string | undefined) => ch !== undefined && !/\s/.test(ch);
+  if (range.startContainer.nodeType === Node.TEXT_NODE) {
+    const text = range.startContainer.textContent ?? "";
+    let at = range.startOffset;
+    while (at > 0 && isWord(text[at - 1]) && isWord(text[at])) at -= 1;
+    range.setStart(range.startContainer, at);
+  }
+  if (range.endContainer.nodeType === Node.TEXT_NODE) {
+    const text = range.endContainer.textContent ?? "";
+    let at = range.endOffset;
+    while (at < text.length && isWord(text[at - 1]) && isWord(text[at])) at += 1;
+    range.setEnd(range.endContainer, at);
+  }
+  return range;
+}
+
+/** Where an annotation's quote stands in its passage's text now (white space compared loosely, as the capture
+ * trimmed it), or null when the passage no longer holds it: a saved mark is drawn from what it marks, never from
+ * the pixels it was drawn at. */
+export function rangeOfQuote(host: HTMLElement, spanId: string, quote: string): Range | null {
+  const element = passages(host).find((each) => each.dataset.spanId === spanId);
+  const wanted = quote.replace(/\s+/g, " ").trim();
+  if (!element || !wanted) return null;
+  const doc = host.ownerDocument;
+  const walker = doc.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+  // The passage's text with white space runs folded to one space, and where each folded character came from.
+  let folded = "";
+  const from: Array<{ node: Text; offset: number }> = [];
+  for (let node = walker.nextNode() as Text | null; node; node = walker.nextNode() as Text | null) {
+    const text = node.data;
+    for (let i = 0; i < text.length; i += 1) {
+      const space = /\s/.test(text[i]);
+      if (space && (folded.endsWith(" ") || folded === "")) continue;
+      folded += space ? " " : text[i];
+      from.push({ node, offset: i });
+    }
+  }
+  const at = folded.indexOf(wanted);
+  if (at < 0) return null;
+  const first = from[at];
+  const last = from[at + wanted.length - 1];
+  const range = doc.createRange();
+  range.setStart(first.node, first.offset);
+  range.setEnd(last.node, last.offset + 1);
+  return range;
 }
 
 export function inPolygon(x: number, y: number, polygon: readonly Point[]): boolean {

@@ -46,7 +46,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/curriculum/goal_lens.py](../../../../../../src/learnloop/curriculum/goal_lens.py) |
-| Source lines | 636 |
+| Source lines | 718 |
 | Owning package | [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -81,6 +81,10 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `protect_path(view: Mapping[str, Any] | None, protection: Protection) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/curriculum/goal_lens.py), line 534) — The band's path view: a held LO's line names nothing; any line's section, alternates, exercise and reason are masked by what they treat, depend on or say.
 - `protect_band(reply: Mapping[str, Any], protection: Protection) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/goal_lens.py), line 568) — ``goal.band``: its dots, its next step and its path.
 - `protect_lens(reply: Mapping[str, Any], protection: Protection) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/goal_lens.py), line 595) — ``goal.lens``: a section treating a held LO (in any goal) is held: its title, reason, coverage line and every LO's name withheld; any other section's words are withheld where they name a held LO.
+- `chapter_held(chapter: Mapping[str, Any], protection: Protection, sections: Sequence[tuple[str, float, float | None]]=()) -> bool` ([source](../../../../../../src/learnloop/curriculum/goal_lens.py), line 636) — Whether a video chapter says something of a held LO: it is tagged with one, its title names one, or it spans a transcript section that treats one (``sections``: the video's (section id, t0, t1)).
+- `protect_chapters(chapters: Sequence[Mapping[str, Any]], protection: Protection, sections: Sequence[tuple[str, float, float | None]]=()) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/curriculum/goal_lens.py), line 648) — A video's chapters (``chapters.list``, ``chapters.decide``, a suggestion's result): a chapter about a held LO keeps its times and ids, its title neutral; a held LO's tag names nothing.
+- `protect_lessons(lessons: Sequence[Mapping[str, Any]], protection: Protection) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/curriculum/goal_lens.py), line 667) — Lesson summaries (``lesson.list``: the lesson windows' tabs, the path view's lesson row): a lesson on a held LO, or whose title or goal names one, keeps its ids and dates, its title neutral and its goal withheld.
+- `protect_follow(reply: Mapping[str, Any], protection: Protection, sections: Sequence[tuple[str, float, float | None]]=()) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/goal_lens.py), line 681) — ``reader.follow_along``: the chapter and transcript section a chip names, and the book's correspondent passages per LO, name nothing held (the chip shows them whether the book follows or is unlinked).
 
 ### Module constants
 
@@ -121,11 +125,15 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `SectionReads`
 - `band_counts`
 - `band_learning_objects`
+- `chapter_held`
 - `level_view`
 - `lo_level`
 - `next_for_goal`
 - `protect_band`
+- `protect_chapters`
+- `protect_follow`
 - `protect_lens`
+- `protect_lessons`
 - `protect_path`
 - `section_level`
 
@@ -135,6 +143,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `_quoted(title: str) -> str` ([source](../../../../../../src/learnloop/curriculum/goal_lens.py), line 262)
 - `_neutral(section: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/goal_lens.py), line 510) — A section reference with nothing of what it treats: neutral title, no treatment, no difference.
 - `_section(section: Mapping[str, Any] | None, protection: Protection) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/curriculum/goal_lens.py), line 520) — A section reference (a path line's, an alternate, a band dot's primary, ``next``): neutral words when it treats a held LO or its title names one.
+- `_overlaps(t0: Any, t1: Any, start: float, end: float | None) -> bool` ([source](../../../../../../src/learnloop/curriculum/goal_lens.py), line 632)
 
 ## Who imports or calls it
 
@@ -142,6 +151,9 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/source_retrieval/goal_lens_reads|learnloop.source_retrieval.goal_lens_reads]] — imports `module`; statically calls `BandLo`, `Coverage`, `GoalLo`, `GoalReads`, `NextLine`, `PathPlace`, `Protection`, `SectionReads`, `band_counts`, `band_learning_objects`, `level_view`, `next_for_goal`, `protect_band`, `protect_lens`, `section_level`
+- [[Reference/Modules/learnloop_sidecar/handlers/goal_lens|learnloop_sidecar.handlers.goal_lens]] — imports `module`
+- [[Reference/Modules/learnloop_sidecar/handlers/lesson|learnloop_sidecar.handlers.lesson]] — imports `module`; statically calls `protect_lessons`
+- [[Reference/Modules/learnloop_sidecar/handlers/video|learnloop_sidecar.handlers.video]] — imports `module`; statically calls `protect_chapters`, `protect_follow`
 
 ## Dependencies
 
@@ -160,12 +172,19 @@ Use this module in context through:
 
 - [[Goals Exams and Certification Workflow]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/source_retrieval/goal_lens_reads|learnloop.source_retrieval.goal_lens_reads]].
+Static participation evidence comes from [[Reference/Modules/learnloop/source_retrieval/goal_lens_reads|learnloop.source_retrieval.goal_lens_reads]], [[Reference/Modules/learnloop_sidecar/handlers/goal_lens|learnloop_sidecar.handlers.goal_lens]], [[Reference/Modules/learnloop_sidecar/handlers/lesson|learnloop_sidecar.handlers.lesson]], [[Reference/Modules/learnloop_sidecar/handlers/video|learnloop_sidecar.handlers.video]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
+- [tests/test_reader_rd10_fix_protection.py](../../../../../../tests/test_reader_rd10_fix_protection.py) — direct import
+  - `test_every_text_bearing_chapter_field_is_masked`
+  - `test_every_text_bearing_follow_along_field_is_masked`
+  - `test_follow_along_and_the_chapters_name_nothing_of_a_topic_whose_check_is_due`
+  - `test_nothing_left_names_the_held_lo_and_nothing_changes_without_a_due_check`
+- [tests/test_reader_rd10_fix_sweep.py](../../../../../../tests/test_reader_rd10_fix_sweep.py) — direct import
+  - `test_a_lesson_on_a_topic_whose_check_is_due_names_nothing_in_its_tab`
 - [tests/test_reader_rd6_fix_protection.py](../../../../../../tests/test_reader_rd6_fix_protection.py) — direct import
   - `test_a_held_los_own_path_row_names_nothing`
   - `test_a_title_is_matched_as_whole_words`

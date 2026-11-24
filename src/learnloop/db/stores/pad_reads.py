@@ -64,9 +64,9 @@ def list_pads(connection: sqlite3.Connection, *, desk_id: str | None, kept: bool
     return _rows(connection, sql, [*params, page_size])
 
 
-def lesson_additions_pads(connection: sqlite3.Connection, lesson_ids: Iterable[str]) -> dict[str, str]:
-    """Each lesson's additions pad (spec §11.1, "your additions"): the newest unarchived ``lesson_additions`` pad
-    naming it. Two windows that each created one before either saw the other's keep both pads; this names one."""
+def lesson_additions_pads(connection: sqlite3.Connection, lesson_ids: Iterable[str]) -> dict[str, list[str]]:
+    """Each lesson's additions pads (spec §11.1, "your additions"), oldest first: the first is where new notes go
+    (a second is refused since); pads two windows made before that rule are all kept and all named."""
 
     wanted = list(dict.fromkeys(lesson_ids))
     if not wanted:
@@ -74,7 +74,10 @@ def lesson_additions_pads(connection: sqlite3.Connection, lesson_ids: Iterable[s
     marks = ",".join("?" * len(wanted))
     rows = _rows(connection, f"SELECT pad_id, lesson_id FROM pads WHERE kind = 'lesson_additions' AND archived_at IS NULL "
                              f"AND lesson_id IN ({marks}) ORDER BY created_at, pad_id", wanted)
-    return {str(row["lesson_id"]): str(row["pad_id"]) for row in rows}
+    out: dict[str, list[str]] = {}
+    for row in rows:
+        out.setdefault(str(row["lesson_id"]), []).append(str(row["pad_id"]))
+    return out
 
 
 def head(connection: sqlite3.Connection, block_id: str) -> dict[str, Any] | None:

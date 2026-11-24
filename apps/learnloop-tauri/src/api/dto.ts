@@ -10404,6 +10404,8 @@ export interface WorkbenchRequestHelpInput {
 
 /** lesson.turn's input: open a lesson ("Teach me this") or take one step in it. */
 export interface LessonTurnInput {
+  /** Where the lesson is shown: a desk window's step serves no quick question and answers none. */
+  frame?: "screen" | "window";
   /** `resume`: run the teacher's turn an outage interrupted (nothing new from the learner). Teacher TE2:
    *  `answer_probe` (the open question), `teach_anyway` (one still being prepared), `close` (Today's "Close it"). */
   action: "open" | "reply" | "answer_prediction" | "answer_check" | "stop" | "resume" | "answer_probe"
@@ -10481,6 +10483,8 @@ export type LessonFeedEntryDto =
   | { kind: "learner"; text: string; checkRef?: string | null }
   | { kind: "check_result"; checkRef: string; result: string; graderFeedback?: string | null; unanchored?: boolean;
       answerLabel?: string | null }
+  /** Teacher TE2: a quick question as it was served, where it was (shown once answered, or in a review). */
+  | { kind: "probe_question"; probeRef: string; question: string }
   /** Teacher TE2: a quick question's grade. */
   | { kind: "probe_result"; probeRef: string; result: string; graderFeedback?: string | null }
   | { kind: "notice"; text: string }
@@ -10525,7 +10529,8 @@ export interface LessonViewDto {
 /** Teacher TE2 (spec_teacher_v1 §11.3, §19): a lesson's quick question. Never its answer. */
 export interface LessonProbeDto {
   probeRef: string;
-  status: "preparing" | "open";
+  /** `waiting`: ready, and asked on the full lesson screen (a desk window's read neither serves nor shows it). */
+  status: "preparing" | "open" | "waiting";
   label: string;
   question?: string;
   teachAnyway: boolean;
@@ -10564,6 +10569,10 @@ export interface LessonSummaryDto {
   madeFrom: "selection" | "check" | "question" | "suggestion" | "topic";
   /** The lesson's `lesson_additions` pad, once the learner wrote under it. */
   additionsPadId: string | null;
+  /** Every additions pad naming the lesson, oldest first (the first is where notes go; older duplicates are kept). */
+  additionsPadIds?: string[];
+  /** A check is due on what it teaches: its title is neutral and its goal withheld. */
+  held?: boolean;
 }
 
 /** Reader workbench RD10 (spec §7.5): what a book window follows at a video's time (reader.follow_along). */
@@ -10575,12 +10584,14 @@ export interface FollowAlongDto {
   status: "following" | "no_passage" | "no_section" | "withheld";
   /** The playing cue's transcript section, with the bounds its answer holds for (from its start, or the video's for
    *  the first, to the next section's start; null for the last): asked again once the time leaves them. */
-  section: { sectionId: string; title: string; t0: number; t1: number | null } | null;
-  /** The accepted chapter the time falls in. */
-  chapter: { chapterId: string; title: string; t0: number; t1: number } | null;
+  section: { sectionId: string; title: string; t0: number; t1: number | null; held?: boolean } | null;
+  /** The accepted chapter the time falls in (its title neutral, `held`, while a check is due on what it covers). */
+  chapter: { chapterId: string; title: string; t0: number; t1: number; learningObjectIds?: string[]; held?: boolean } | null;
   /** Per LO of the section, the book's correspondent sections from judged coverage. */
-  learningObjects: Array<{ learningObjectId: string; title: string | null;
-    sections: Array<{ sectionId: string; title: string | null; jumpSpanId: string | null }> }>;
+  learningObjects: Array<{ learningObjectId: string; title: string | null; held?: boolean;
+    sections: Array<{ sectionId: string; title: string | null; jumpSpanId: string | null; held?: boolean }> }>;
+  /** When the next check not due yet falls due (UTC): the answer is asked again then. */
+  nextCheckDue?: string | null;
 }
 
 /** Reader workbench RD10 (spec §7.9): a video chapter, suggested or decided. */
@@ -10591,7 +10602,9 @@ export interface VideoChapterDto {
   t1: number;
   title: string;
   learningObjectIds: string[];
-  learningObjects?: Array<{ learningObjectId: string; title: string }>;
+  learningObjects?: Array<{ learningObjectId: string; title: string; held?: boolean }>;
+  /** Its title is neutral while a check is due on what it covers. */
+  held?: boolean;
   state: "suggested" | "accepted" | "dismissed";
   suggestedAt: string;
   decidedAt: string | null;
@@ -10871,7 +10884,9 @@ export type PadOpDto =
   | { op: "unlink_anchor"; blockId: string; extractionId: string; spanId: string; eventId?: string;
       expectedAnchorHead: string | null }
   // The pen's barrel button: a tombstone over standing strokes of one ink block of this pad (RD8a).
-  | { op: "erase_ink"; blockId: string; strokeIds: string[]; eraseId?: string };
+  | { op: "erase_ink"; blockId: string; strokeIds: string[]; eraseId?: string;
+      /** The version taking LearnLoop's reading off the line when every stroke is erased (client-minted). */
+      versionId?: string };
 
 export interface PadApplyInput { clientId: string; seq: number; padId: string; ops: PadOpDto[] }
 export interface PadApplyDto {
@@ -11318,7 +11333,7 @@ export interface NotebookSessionDto {
   sessionId: string;
   owner: NotebookOwner;
   state: NotebookSessionState;
-  /** Why a stopped session stopped: closed, idle, make_room, replaced, run_dir_full or vault_switch. */
+  /** Why a stopped session stopped: closed, idle, make_room, replaced or vault_switch. */
   stopReason: string | null;
   error: string | null;
   restarts: number;
@@ -11620,6 +11635,10 @@ export interface InkOwnerViewDto {
     contentHash: string;
     current: boolean;
     createdAt: string;
+    /** A block's reading: true when it is the block's words. */
+    applied: boolean;
+    /** Why a block's reading is not its words (`kept_your_correction`, `strokes_changed`, `block_removed`). */
+    reason: string | null;
   } | null;
 }
 

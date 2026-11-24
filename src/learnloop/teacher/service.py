@@ -2531,12 +2531,27 @@ def view(vault: Any, repository: Any, lesson_id: str, *, outcome: _Outcome | Non
     stay in the inspector (``inspector``)."""
 
     state = load_state(repository, lesson_id)
+    te2 = T2.lesson_te2(state)
+    if te2 and not state.closed and T2.on(vault) and PR.finish_recorded(vault, repository, state.lesson, state.turns,
+                                                                       clock=clock):
+        # Codex review F3: a recorded answer whose result an interrupted write never appended is delivered now.
+        state = load_state(repository, lesson_id)
+    # A quick question is shown in the feed where it was served once it was answered (or the lesson closed); an
+    # unanswered one is the probe card's.
+    answered = {str((entry.get("payload") or {}).get("probe_ref")) for entry in state.turns
+                if entry["action"] in (PR.ANSWER, PR.RESULT)}
     feed: list[dict[str, Any]] = []
     visuals_shown = V.active(vault)
     for entry in state.turns:
         data = entry.get("payload") or {}
         action = entry["action"]
-        if action == "teacher_turn" and entry["validation"] == "ok":
+        if te2 and action in _TE2_FEED:
+            # One feed in recorded order: a probe's question, answer and result where they happened, never after the
+            # rest of the lesson (its close card included).
+            shown = _te2_feed_entry(vault, action, data, answered=answered, closed=state.closed)
+            if shown is not None:
+                feed.append(shown)
+        elif action == "teacher_turn" and entry["validation"] == "ok":
             turn_data = data.get("turn") or {}
             if turn_data.get("message"):
                 feed.append({"kind": "message", "text": turn_data["message"], "choices": turn_data.get("choices") or []})
@@ -2604,28 +2619,36 @@ def view(vault: Any, repository: Any, lesson_id: str, *, outcome: _Outcome | Non
     return out
 
 
+_TE2_FEED = frozenset({PR.SERVED, PR.ANSWER, PR.RESULT, PR.REFUSED, "goal_lo"})
+
+
+def _te2_feed_entry(vault: Any, action: str, data: Mapping[str, Any], *, answered: set[str],
+                    closed: bool) -> dict[str, Any] | None:
+    """A TE2 turn as the feed shows it, in place (the question as the item states it: nothing is generated again)."""
+
+    if action == PR.SERVED:
+        ref = str(data.get("probe_ref"))
+        item = (getattr(vault, "practice_items", {}) or {}).get(str(data.get("item_id") or ""))
+        if item is None or not (closed or ref in answered):
+            return None
+        return {"kind": "probe_question", "probe_ref": ref, "question": item.prompt}
+    if action == PR.ANSWER:
+        return {"kind": "learner", "text": data.get("answer"), "check_ref": None}
+    if action == PR.RESULT:
+        return {"kind": "probe_result", "probe_ref": data.get("probe_ref"), "result": data.get("result"),
+                "grader_feedback": data.get("grader_feedback")}
+    if action == PR.REFUSED:
+        return {"kind": "notice", "text": "I couldn't prepare that question, so the lesson goes on without it."}
+    return {"kind": "notice", "text": f"Added a new topic: {data.get('title')} (from LearnLoop's model)."}
+
+
 def _view_te2(vault: Any, repository: Any, state: LessonState, out: dict[str, Any], *, clock: Clock | None) -> None:
     """A TE2 lesson's view additions: the probe card (*Preparing a question on this…* with *Teach it anyway*, or the
     open question, served now through FG1's first-serve claim: the question only, never its key), its results in
     the feed, and the topics the lesson added. Nothing here once TE2 is switched off: an unanswered probe then waits,
     and the lesson's close retires it."""
 
-    if not state.closed and T2.on(vault) and PR.finish_recorded(vault, repository, state.lesson, state.turns,
-                                                                 clock=clock):
-        # Codex review F3: a recorded answer whose result an interrupted write never appended is delivered now.
-        state = load_state(repository, state.lesson_id)
-    feed = out["feed"]
-    for entry in state.turns:
-        data = entry.get("payload") or {}
-        if entry["action"] == PR.ANSWER:
-            feed.append({"kind": "learner", "text": data.get("answer"), "check_ref": None})
-        elif entry["action"] == PR.RESULT:
-            feed.append({"kind": "probe_result", "probe_ref": data.get("probe_ref"), "result": data.get("result"),
-                         "grader_feedback": data.get("grader_feedback")})
-        elif entry["action"] == PR.REFUSED:
-            feed.append({"kind": "notice", "text": "I couldn't prepare that question, so the lesson goes on without it."})
-        elif entry["action"] == "goal_lo":
-            feed.append({"kind": "notice", "text": f"Added a new topic: {data.get('title')} (from LearnLoop's model)."})
+    # The feed's TE2 entries are placed in recorded order by ``view`` (its loop); here only the probe card.
     out["te2"] = True
     out["probe"] = None
     if state.closed or not T2.on(vault):
@@ -2635,6 +2658,10 @@ def _view_te2(vault: Any, repository: Any, state: LessonState, out: dict[str, An
         return
     if probe.status == "preparing":
         out["probe"] = {"probe_ref": probe.ref, "status": "preparing", "label": PR.PREPARING, "teach_anyway": True}
+        return
+    if PR.serving_held():
+        # A desk window: the question is asked on the lesson screen, so this read neither serves nor shows it.
+        out["probe"] = {"probe_ref": probe.ref, "status": "waiting", "label": PR.WAITING, "teach_anyway": False}
         return
     served = PR.serve(vault, repository, state.lesson, state.turns, clock=clock)
     if served is not None:

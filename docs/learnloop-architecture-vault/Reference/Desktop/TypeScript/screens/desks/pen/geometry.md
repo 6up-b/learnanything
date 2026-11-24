@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/pen/geometry.ts](../../../../../../../../apps/learnloop-tauri/src/screens/desks/pen/geometry.ts) |
-| Source lines | 181 |
+| Source lines | 228 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/pen/_area|TypeScript/screens/desks/pen]] |
 | Refactor status | `ACTIVE` |
@@ -60,14 +60,15 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export function passages(host: HTMLElement): HTMLElement[]` — function, line 45
 - `export function pageOf(host: HTMLElement): RecognizerPage` — function, line 49
 - `export function rangeBetween(host: HTMLElement, a: Point, b: Point): Range | null` — function, line 63
-- `export function inPolygon(x: number, y: number, polygon: readonly Point[]): boolean` — function, line 77
-- `export function wordsInLoop(host: HTMLElement, loop: readonly Point[]): Range | null` — function, line 88
-- `export function passagesSpanned(host: HTMLElement, box: Box): HTMLElement[]` — function, line 117
-- `export function passageBeside(host: HTMLElement, box: Box): HTMLElement | null` — function, line 125
-- `export function toLocal(host: HTMLElement, x: number, y: number): Point` — function, line 147
-- `export function toClient(host: HTMLElement, x: number, y: number): Point` — function, line 152
-- `export function localRects(host: HTMLElement, rects: Iterable<DOMRect>): LocalRect[]` — function, line 157
-- `export function distanceToPolyline(p: Point, line: readonly Point[]): number` — function, line 168
+- `export function rangeOfQuote(host: HTMLElement, spanId: string, quote: string): Range | null` — function, line 96
+- `export function inPolygon(x: number, y: number, polygon: readonly Point[]): boolean` — function, line 124
+- `export function wordsInLoop(host: HTMLElement, loop: readonly Point[]): Range | null` — function, line 135
+- `export function passagesSpanned(host: HTMLElement, box: Box): HTMLElement[]` — function, line 164
+- `export function passageBeside(host: HTMLElement, box: Box): HTMLElement | null` — function, line 172
+- `export function toLocal(host: HTMLElement, x: number, y: number): Point` — function, line 194
+- `export function toClient(host: HTMLElement, x: number, y: number): Point` — function, line 199
+- `export function localRects(host: HTMLElement, rects: Iterable<DOMRect>): LocalRect[]` — function, line 204
+- `export function distanceToPolyline(p: Point, line: readonly Point[]): number` — function, line 215
 
 ## Internal implementation anchors
 
@@ -83,38 +84,55 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const start = caretAt(host, a.x, a.y)` — const, line 64
 - `const end = caretAt(host, b.x, b.y)` — const, line 65
 - `const range = host.ownerDocument.createRange()` — const, line 67
-- `let inside = false` — let, line 78
-- `const a = polygon[i]` — const, line 80
-- `const b = polygon[j]` — const, line 81
-- `let first: [Node, number] | null = null` — let, line 89
-- `let last: [Node, number] | null = null` — let, line 90
-- `const doc = host.ownerDocument` — const, line 91
-- `const walker = doc.createTreeWalker(passage, NodeFilter.SHOW_TEXT)` — const, line 93
-- `const text = (node as Text).data` — const, line 95
-- `const at = match.index ?? 0` — const, line 97
-- `const word = doc.createRange()` — const, line 98
-- `const rect = word.getBoundingClientRect()` — const, line 101
-- `const range = doc.createRange()` — const, line 110
-- `const rect = element.getBoundingClientRect()` — const, line 119
-- `const all = passages(host).filter((element)` — const, line 126
-- `const overlapping = all.find((element)` — const, line 127
-- `const rect = element.getBoundingClientRect()` — const, line 128
-- `const middle = (box.y0 + box.y1) / 2` — const, line 132
-- `let best: HTMLElement | null = null` — let, line 133
-- `let distance = Infinity` — let, line 134
-- `const rect = element.getBoundingClientRect()` — const, line 136
-- `const d = middle < rect.top ? rect.top - middle : middle > rect.bottom ? middle - rect.bottom : 0` — const, line 137
-- `const rect = host.getBoundingClientRect()` — const, line 148
-- `const rect = host.getBoundingClientRect()` — const, line 153
-- `const out: LocalRect[] = []` — const, line 158
-- `const at = toLocal(host, rect.left, rect.top)` — const, line 161
-- `let best = Infinity` — let, line 170
-- `const a = line[i - 1]` — const, line 172
-- `const b = line[i]` — const, line 173
-- `const dx = b.x - a.x` — const, line 174
-- `const dy = b.y - a.y` — const, line 175
-- `const length = dx * dx + dy * dy` — const, line 176
-- `const t = length ? Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / length)) : 0` — const, line 177
+- `const isWord = (ch: string | undefined)` — const, line 77
+- `const text = range.startContainer.textContent ?? ""` — const, line 79
+- `let at = range.startOffset` — let, line 80
+- `const text = range.endContainer.textContent ?? ""` — const, line 85
+- `let at = range.endOffset` — let, line 86
+- `const element = passages(host).find((each)` — const, line 97
+- `const wanted = quote.replace(/\s+/g, " ").trim()` — const, line 98
+- `const doc = host.ownerDocument` — const, line 100
+- `const walker = doc.createTreeWalker(element, NodeFilter.SHOW_TEXT)` — const, line 101
+- `let folded = ""` — let, line 103
+- `const from: Array<` — const, line 104
+- `const text = node.data` — const, line 106
+- `const space = /\s/.test(text[i])` — const, line 108
+- `const at = folded.indexOf(wanted)` — const, line 114
+- `const first = from[at]` — const, line 116
+- `const last = from[at + wanted.length - 1]` — const, line 117
+- `const range = doc.createRange()` — const, line 118
+- `let inside = false` — let, line 125
+- `const a = polygon[i]` — const, line 127
+- `const b = polygon[j]` — const, line 128
+- `let first: [Node, number] | null = null` — let, line 136
+- `let last: [Node, number] | null = null` — let, line 137
+- `const doc = host.ownerDocument` — const, line 138
+- `const walker = doc.createTreeWalker(passage, NodeFilter.SHOW_TEXT)` — const, line 140
+- `const text = (node as Text).data` — const, line 142
+- `const at = match.index ?? 0` — const, line 144
+- `const word = doc.createRange()` — const, line 145
+- `const rect = word.getBoundingClientRect()` — const, line 148
+- `const range = doc.createRange()` — const, line 157
+- `const rect = element.getBoundingClientRect()` — const, line 166
+- `const all = passages(host).filter((element)` — const, line 173
+- `const overlapping = all.find((element)` — const, line 174
+- `const rect = element.getBoundingClientRect()` — const, line 175
+- `const middle = (box.y0 + box.y1) / 2` — const, line 179
+- `let best: HTMLElement | null = null` — let, line 180
+- `let distance = Infinity` — let, line 181
+- `const rect = element.getBoundingClientRect()` — const, line 183
+- `const d = middle < rect.top ? rect.top - middle : middle > rect.bottom ? middle - rect.bottom : 0` — const, line 184
+- `const rect = host.getBoundingClientRect()` — const, line 195
+- `const rect = host.getBoundingClientRect()` — const, line 200
+- `const out: LocalRect[] = []` — const, line 205
+- `const at = toLocal(host, rect.left, rect.top)` — const, line 208
+- `let best = Infinity` — let, line 217
+- `const a = line[i - 1]` — const, line 219
+- `const b = line[i]` — const, line 220
+- `const dx = b.x - a.x` — const, line 221
+- `const dy = b.y - a.y` — const, line 222
+- `const length = dx * dx + dy * dy` — const, line 223
+- `const t = length ? Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / length)) : 0` — const, line 224
 
 ## Who imports or calls it
 
@@ -122,7 +140,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
 - [[Reference/Desktop/TypeScript/screens/desks/pen/InkLine|src/screens/desks/pen/InkLine.tsx]] — import-or-re-export: `distanceToPolyline`; references `distanceToPolyline`
-- [[Reference/Desktop/TypeScript/screens/desks/pen/PenLayer|src/screens/desks/pen/PenLayer.tsx]] — import-or-re-export: `LocalRect`, `distanceToPolyline`, `localRects`, `pageOf`, `passageBeside`, `passagesSpanned`, `rangeBetween`, `toClient`, `toLocal`, `wordsInLoop`; references `LocalRect`, `distanceToPolyline`, `localRects`, `pageOf`, `passageBeside`, `passagesSpanned`, `rangeBetween`, `toClient`, `toLocal`, `wordsInLoop`
+- [[Reference/Desktop/TypeScript/screens/desks/pen/PenLayer|src/screens/desks/pen/PenLayer.tsx]] — import-or-re-export: `LocalRect`, `distanceToPolyline`, `localRects`, `pageOf`, `passageBeside`, `passages`, `passagesSpanned`, `rangeBetween`, `rangeOfQuote`, `toClient`, `toLocal`, `wordsInLoop`; references `LocalRect`, `distanceToPolyline`, `localRects`, `pageOf`, `passageBeside`, `passages`, `passagesSpanned`, `rangeBetween`, `rangeOfQuote`, `toClient`, `toLocal`, `wordsInLoop`
 
 ## Dependencies
 

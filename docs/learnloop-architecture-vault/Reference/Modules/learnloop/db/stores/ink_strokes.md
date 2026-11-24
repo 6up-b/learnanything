@@ -95,7 +95,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/pads/ink|learnloop.pads.ink]] — imports `module`; statically calls `annotation_exists`, `extraction_exists`, `insert_save`, `latest_reading`, `owner_saves`, `owners_with_ink`, `save`, `source_extraction_ids`
+- [[Reference/Modules/learnloop/pads/ink|learnloop.pads.ink]] — imports `module`; statically calls `annotation_exists`, `extraction_exists`, `insert_reading`, `insert_save`, `latest_reading`, `owner_saves`, `owners_with_ink`, `reading_for`, `save`, `source_extraction_ids`
 - [[Reference/Modules/learnloop/pads/ink_transcribe|learnloop.pads.ink_transcribe]] — imports `module`; statically calls `annotation_exists`, `insert_reading`, `owner_saves`, `reading_for`
 
 ## Dependencies
@@ -126,6 +126,8 @@ No test imports this module directly. These tests exercise a direct production c
 
 - [tests/identity_pins_helpers.py](../../../../../../../tests/identity_pins_helpers.py) — imports consumer [[Reference/Modules/learnloop/pads/ink|learnloop.pads.ink]]
 - [tests/ink_helpers.py](../../../../../../../tests/ink_helpers.py) — imports consumer [[Reference/Modules/learnloop/pads/ink|learnloop.pads.ink]]
+- [tests/test_reader_rd8a_fix.py](../../../../../../../tests/test_reader_rd8a_fix.py) — imports consumer [[Reference/Modules/learnloop/pads/ink|learnloop.pads.ink]]
+- [tests/test_reader_rd8a_fix_rpcs.py](../../../../../../../tests/test_reader_rd8a_fix_rpcs.py) — imports consumer [[Reference/Modules/learnloop/pads/ink|learnloop.pads.ink]]
 - [tests/test_reader_rd8a_ink.py](../../../../../../../tests/test_reader_rd8a_ink.py) — imports consumer [[Reference/Modules/learnloop/pads/ink|learnloop.pads.ink]]
 - [tests/test_reader_rd8a_render.py](../../../../../../../tests/test_reader_rd8a_render.py) — imports consumer [[Reference/Modules/learnloop/pads/ink|learnloop.pads.ink]]
 - [tests/test_reader_rd8a_transcribe.py](../../../../../../../tests/test_reader_rd8a_transcribe.py) — imports consumer [[Reference/Modules/learnloop/pads/ink|learnloop.pads.ink]]

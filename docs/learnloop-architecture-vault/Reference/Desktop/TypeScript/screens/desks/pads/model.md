@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/pads/model.ts](../../../../../../../../apps/learnloop-tauri/src/screens/desks/pads/model.ts) |
-| Source lines | 279 |
+| Source lines | 286 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/pads/_area|TypeScript/screens/desks/pads]] |
 | Refactor status | `ACTIVE` |
@@ -63,12 +63,12 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export function keyBetween(a: string | null, b: string | null): string` — function, line 46
 - `export function keyAfter(blocks: PadBlockDto[], after: string | null): string` — function, line 70
 - `export function applyPadOp(pads: Pads, padId: string, op: PadOpDto, now: string): Pads` — function, line 123
-- `export function anchorHead(state: PadState, blockId: string, extractionId: string, spanId: string): string | null` — function, line 215
-- `export type KeptBothRedirects = Map<string,` — type, line 225
-- `export function restampPadOp(pads: Pads, padId: string, op: PadOpDto, now: string, redirects?: KeptBothRedirects):` — function, line 230
-- `export function isLearnersWords(block: PadBlockDto): boolean` — function, line 264
-- `export function firstLine(text: string): string` — function, line 271
-- `export function plainLine(text: string): string` — function, line 277
+- `export function anchorHead(state: PadState, blockId: string, extractionId: string, spanId: string): string | null` — function, line 222
+- `export type KeptBothRedirects = Map<string,` — type, line 232
+- `export function restampPadOp(pads: Pads, padId: string, op: PadOpDto, now: string, redirects?: KeptBothRedirects):` — function, line 237
+- `export function isLearnersWords(block: PadBlockDto): boolean` — function, line 271
+- `export function firstLine(text: string): string` — function, line 278
+- `export function plainLine(text: string): string` — function, line 284
 
 ## Internal implementation anchors
 
@@ -106,13 +106,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const others = state.anchors.filter((anchor)` — const, line 196
 - `const anchor: PadAnchorDto =` — const, line 201
 - `const block = state.blocks.find((each)` — const, line 206
-- `const found = state.anchors.filter((anchor)` — const, line 216
-- `const state = pads[padId]` — const, line 231
-- `let stamped: PadOpDto = op` — let, line 232
-- `const moved = redirects?.get(op.expectedHead)` — const, line 236
-- `const target = stamped as Extract<PadOpDto,` — const, line 239
-- `const head = state.blocks.find((block)` — const, line 240
-- `const head = state.blocks.find((block)` — const, line 249
+- `const next: PadBlockDto =` — const, line 212
+- `const found = state.anchors.filter((anchor)` — const, line 223
+- `const state = pads[padId]` — const, line 238
+- `let stamped: PadOpDto = op` — let, line 239
+- `const moved = redirects?.get(op.expectedHead)` — const, line 243
+- `const target = stamped as Extract<PadOpDto,` — const, line 246
+- `const head = state.blocks.find((block)` — const, line 247
+- `const head = state.blocks.find((block)` — const, line 256
 
 ## Who imports or calls it
 

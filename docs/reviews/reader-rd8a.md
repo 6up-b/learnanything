@@ -400,6 +400,87 @@ read or emitted.
 
 **What waits.** The help ladder and its ◇ marker (`#pen=ladder`, `#pen=rung2`), `#pen=veil`; the real tablet.
 
+## 12. Fix round, both halves (the adversarial review, 2026-11-23)
+
+Branch `reader/rd8fix`, cut from the second workbench batch (migration head 268). The
+review found no blocker, fourteen major and three minor findings. Each was checked against this branch's code first;
+every one held. They were taken in the order of harm the orchestrator set. Ledger rows RD8a-2 to RD8a-19
+(`docs/reviews/refactor-bug-ledger.md`); RD8a-18 is a bug this round found while writing a test.
+
+| # | Verdict | What changed |
+|---|---|---|
+| 2 | **fixed** (RD8a-2) | A reading becomes the block's words only while its hash is the standing strokes' hash, checked inside its transaction (`pads.ink.reading_decision`, the one rule for the apply, a cached answer and `ink.list`); a stale one is kept (never paid for again) and answered `applied: false, reason: "strokes_changed"`. Client: each line counts its local changes; a reading that started at another count, or that the server set aside, leaves the line unread |
+| 3 | **fixed** (RD8a-3) | `erase_ink` that leaves no standing stroke, on a block whose head is an automatic transcription, writes a blank successor without the reading's payload key (client-minted `versionId`, mirrored by the client's pad model), so emission supersedes what was read from it. A learner correction is never touched. Judgment call: a partial erase leaves the words until the line is read again (its reading names the strokes it read, and `ink.list` says it is no longer current) |
+| 4 | **fixed** (RD8a-4) | A mark taken back while its annotation is being made is remembered; once made, the annotation is deleted and its ink never saved. A failed delete puts the mark back saying so; undo retries |
+| 10 | **fixed** (RD8a-5) | Saved marks are drawn from the annotation's anchor (placement on the open reading, else its segments; nothing painted where it is flagged, elsewhere or needs re-anchoring), the words found by their quote in the passage's text (`geometry.rangeOfQuote`). The kind is the annotation's; a bracket is told from an underline by its ink's shape, which no layout changes. The ink stays where it was written while that still marks the same words or passage, else it is moved beside them (the recognizer's own offsets: a strike through the middle, an underline `underlineAbove` below the line, a bracket and a note to their passage's top) |
+| 5 | **fixed** (RD8a-6) | The note's editor is dirty once typed into; a reading arriving then is offered beside the draft ("LearnLoop reads: … (may be wrong) · use it") |
+| 8 | **fixed** (RD8a-7) | A cancelled job keeps its strokes reserved until its thread ends; a retry's job waits for it, then answers from the kept reading |
+| 12 | **fixed** (RD8a-8) | Ink lines: an attempt number per line, checked after every await; a late start of a stale attempt is cancelled and never polled. Margin notes: the job id is kept; undo and the window's close stop the poll and cancel the job; a late start after either is cancelled |
+| 9 | **fixed** (RD8a-9) | `_after_reading` gets the job's `live`: facts still go to the reading's vault; the worker is woken only while the job's epoch is open |
+| 11 | **fixed, by the orchestrator's default** (RD8a-19) | First stopped with options (neither the spec nor the mockup gives a grouping rule); the orchestrator chose option (a), grouping by place, which the owner may change (below) |
+| 6 | **fixed** (RD8a-10) | `lift_out` of an ink block saves its standing strokes again for the lifted block (same ids and points, so the same hash, ink id `<new block>:lifted`) and copies the reading of exactly those strokes; the client moves the line at once and reads the new pad once the lift is answered |
+| 13 | **fixed** (RD8a-11) | The store counts each pad's local changes; a pad read whose pad changed since it started is dropped |
+| 14 | **fixed** (RD8a-12) | After an erase is answered, and each time a pad is shown, the ink cache reads the pad's ink again, keeping strokes written here and not yet acknowledged on top |
+| 7 | **wording corrected** (RD8a-13) | "your ink isn't sent yet · it is kept while LearnLoop stays open". A durable outbox is the RD-spike's storage choice (RD1 §5 of its record), so it is an owner question, not built here |
+| 1 | **fixed** (RD8a-14) | Migration 269 (its own commit; first numbered 270, renumbered so no gap lands, inline checks taking 270): the replacing-INSERT guard refuses an insert meeting either key. 267 is on main and was not amended |
+| 15 | **fixed** (RD8a-15) | Underlines and strikes take whole words |
+| 16 | **fixed** (RD8a-16) | Cached answers and `ink.list` carry `applied` and `reason`; the offer is rebuilt on load |
+| 17 | **fixed** (RD8a-17) | `InkSurface` drops the stroke under way when it pauses |
+
+**Grouping margin strokes into one note (finding 11): option (a), the orchestrator's default; the owner may change
+it.** Neither the spec (§10.10's table: "other margin strokes → handwritten note") nor the mockup's recognizer
+(`st_16.js`, one note box per stroke, its demo one synthetic scribble) gives a rule, so this round first stopped with
+three options; the orchestrator chose (a):
+- (a) **By place (built):** a pen stroke in the margin beside the same passage as the open note joins it when it
+  overlaps that note's strokes' box grown by one rendered text line. The line is read from the page (the passage's
+  computed line height, else the height of its first line box as laid out), never a number. A stroke elsewhere (beside
+  another passage, or beyond that reach), any stroke that is not a margin note, ↵ outside a text field, words typed
+  into the note, leaving pen mode, pausing or closing the window ends the note. It is then kept as one annotation
+  holding all its strokes and read once; nothing is saved or read per stroke. While open, undo takes the last stroke
+  back and the whole note with its only one (nothing was saved); the barrel takes the strokes it passes over. Once a
+  note has ended, undo takes the whole note back, as before. Tests (`pen/PenLayer.test.tsx`, "a handwritten margin
+  note"): the two-stroke "x", ending by a far or a non-margin stroke, and undo while open fail on the stroke-per-note
+  code; "two notes beside different passages stay two" and "leaving pen mode ends the open note" pass on it too (they
+  guard against grouping too much and against an open note being lost). The note tests written before now end their
+  note with ↵ before they look for its annotation and reading. The rd8 visual stage went from 4 findings to 3
+  (`pen=note` lost its geometry finding: the open note's box shows its short label until the note ends); no state got
+  worse.
+- (b) **By an explicit end:** margin strokes beside one passage gather until ↵, "done", or a stroke that is not a
+  margin stroke. Not built.
+- (c) **By a pause:** a time gap the owner picks (or a learned per-writer pause distribution later). Not built.
+
+**Persisted meaning.** No tag, no new table or column. Existing rows keep their meaning. What changes is future
+writes: a stale reading no longer becomes a block version (2); an erase that leaves no stroke appends a blank version
+of an automatic transcription (3), which emission settles as any edit; a lift of an ink block appends strokes and a
+reading receipt for the lifted block (6). The replay of existing `ink_strokes` and `ink_transcriptions` rows is
+unchanged; pad versions are a raw ledger, not replayed from ops.
+
+**Migration 269** (`269_ink_transcriptions_guard.sql`): drops and recreates one trigger; nothing else changes. The
+fixture was upgraded in place from the tracked 268 (README section). The upgrade tests that compared the applied list
+with `range(N, head + 1)` read the migrations from N on instead (`tests/helpers.py migrations_from`), the files present
+rather than a range (they broke while this round numbered its migration 270 past a held 269). This changes test
+infrastructure, not an assertion about behaviour: each test still checks that exactly the files from N on are applied,
+in order. A gap now fails loudly in one place instead: `tests/test_migrations.py::
+test_the_migration_files_are_contiguous_from_the_oldest_to_the_head` (fail-first: it fails with the file at 270). Git
+holds no file at 13 old numbers (38, 39, 42, 43, 46, 60, 67, 127-129, 135-137), skipped by merges landed long before;
+the test lists them as `SKIPPED_BEFORE_THIS_CHECK` (a judgment call: "contiguous from the oldest" is otherwise false
+today) and nothing may be added to that set.
+
+**Contract changes** (`src/api/dto.ts`): `erase_ink` gains `versionId?`; `InkOwnerViewDto.transcription` gains
+`applied` and `reason`; `InkReadingDto.reason` may be `strokes_changed`. The server's `EraseInk` op gains
+`version_id`. No new RPC.
+
+**Assertions changed.** `PenLayer.test.tsx`'s underline test pinned the half-word substring (`TEXTS[0].slice(5, 24)`,
+finding 15's bug); it now expects "quick brown fox jumps". The saved-ink test's fake listing gained the anchors a
+real listing has. `test_reader_rd8a_migration.py` compares the 267 upgrade with the head as 267 left it (269's trigger
+undone on a copy), and its UNIQUE probe now meets 269's guard first (`append-only`). The fake desk server answers
+`ink.list` from the ink it was sent, without erased strokes, as the server does (`FixtureDeskServer.inkFor`).
+
+**Not verified here.** The anchored restore on a real layout (jsdom has none: its tests stub the geometry); the
+moved-ink offsets are the recognizer's own, checked by the stubbed test. When the client and the server disagree on
+whether an erase left no stroke (another device's strokes), the server writes its own version and the client's head
+stays stale until the next pad read; the next edit then lands as a kept-both block.
+
 ## Owner copies (the orchestrator, 2026-11-23)
 
 Migration 267 was applied to backup-API copies of the owner's three vaults (the floor set, upgraded to mvp-0.68 by

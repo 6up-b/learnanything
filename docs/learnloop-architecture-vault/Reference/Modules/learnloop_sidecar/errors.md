@@ -415,11 +415,14 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_section_range_is_its_blocks_in_the_same_shape`
   - `test_the_phones_ask_and_save_refuse_protected_passages_before_any_model`
 - [tests/test_notebook_lessons.py](../../../../../tests/test_notebook_lessons.py) — direct import
+  - `test_a_lesson_closed_elsewhere_releases_nothing_more`
   - `test_a_lesson_opens_on_its_own_notebook_with_its_commit_points`
   - `test_a_lesson_without_a_notebook_and_an_unknown_lesson_without_a_path_are_refused`
   - `test_a_refused_release_is_said_and_the_inputs_refuse_extra_fields`
 - [tests/test_notebook_pad_cells.py](../../../../../tests/test_notebook_pad_cells.py) — direct import
+  - `test_a_generated_notebook_larger_than_a_notebook_may_be_is_refused`
   - `test_a_pad_without_cells_or_without_a_pad_or_a_lesson_without_a_path_is_refused`
+  - `test_the_derived_notebook_never_follows_a_link_out_of_the_vault`
 - [tests/test_notebook_rpcs.py](../../../../../tests/test_notebook_rpcs.py) — direct import
   - `test_a_notebook_outside_the_vault_or_not_a_python_file_is_refused`
   - `test_runtime_refusals_are_stable_errors`
@@ -552,6 +555,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_failed_reading_says_why`
   - `test_a_reading_belongs_to_its_vault`
   - `test_save_and_list_replies_are_versioned_and_camel_cased`
+- [tests/test_reader_rd9a_fix.py](../../../../../tests/test_reader_rd9a_fix.py) — direct import
+  - `test_a_quick_question_is_never_served_or_answered_in_a_desk_window`
 - [tests/test_reader_recap.py](../../../../../tests/test_reader_recap.py) — direct import
   - `test_switched_off_opening_writes_nothing_and_the_recap_rpcs_refuse`
   - `test_unknown_recap_events_are_refused_before_any_write`
