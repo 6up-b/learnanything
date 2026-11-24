@@ -30,6 +30,7 @@ from learnloop.scheduling.scheduler import SchedulerSession, serve_due_queue
 from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
 from learnloop.vault.loader import load_vault
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from tests.helpers import NOW
 from tests.router_probe_ties_helpers import _probe_vault
 
@@ -130,9 +131,9 @@ def _answer(vault, repository, presentation, *, session_id: str, candidate_id: s
 
 
 def _offered_probe(tmp_path):
-    """A mvp-0.15 vault whose first Today offer commits a probe presentation."""
+    """A vault whose first Today offer commits a probe presentation."""
 
-    paths, _vault, repository = _probe_vault(tmp_path, "mvp-0.15")
+    paths, _vault, repository = _probe_vault(tmp_path, LATEST_ALGORITHM_VERSION)
     ctx = _context(paths.root)
     session_id = repository.create_session(
         energy=None, sleep_quality=None, available_minutes=30, notes_md_path=None
@@ -205,7 +206,7 @@ def test_a_stale_router_cache_never_hides_the_presentations_answer(tmp_path, tic
 
 
 def test_an_explored_probes_forecast_says_the_scheduler_drew_it(tmp_path, ticking_clock, monkeypatch):
-    paths, vault, repository = _probe_vault(tmp_path, "mvp-0.15")
+    paths, vault, repository = _probe_vault(tmp_path, LATEST_ALGORITHM_VERSION)
     session_id = repository.create_session(
         energy=None, sleep_quality=None, available_minutes=30, notes_md_path=None
     )
@@ -223,7 +224,7 @@ def test_an_explored_probes_forecast_says_the_scheduler_drew_it(tmp_path, tickin
 
 
 def test_a_probe_the_eig_chose_records_no_draw(tmp_path, ticking_clock, monkeypatch):
-    paths, vault, repository = _probe_vault(tmp_path, "mvp-0.15")
+    paths, vault, repository = _probe_vault(tmp_path, LATEST_ALGORITHM_VERSION)
     session_id = repository.create_session(
         energy=None, sleep_quality=None, available_minutes=30, notes_md_path=None
     )

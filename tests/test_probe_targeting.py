@@ -32,6 +32,7 @@ from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.yaml_io import write_yaml
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from tests.helpers import NOW, NOW_ISO, create_basic_vault, set_algorithm_version, write_facets
 from tests.certain_grade_helpers import make_grade_certain
 from tests.km2_write_path_helpers import SELECT, SHARED, _attempt, _item, _rubric, build_shared_facet_vault
@@ -350,7 +351,7 @@ def _integration_vault(root: Path) -> Path:
             fingerprint={"source_family": "chapter3"},
         ),
     )
-    set_algorithm_version(paths, "mvp-0.7")
+    set_algorithm_version(paths, LATEST_ALGORITHM_VERSION)
     return paths
 
 

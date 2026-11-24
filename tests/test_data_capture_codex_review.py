@@ -31,6 +31,7 @@ from learnloop.router.first_delayed_success import trajectories
 from learnloop.scheduling.scheduler import OfferTrace
 from learnloop.vault.loader import load_vault
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from tests.helpers import create_basic_vault
 from tests.data_capture_a2_measurement_helpers import _answer, _arranged_wait, _due_measurement, _events
 from tests.data_capture_a3_time_metric_helpers import _attempt as _timed_attempt
@@ -286,7 +287,7 @@ def test_f3_every_evaluated_probe_keeps_its_forecast_in_the_receipt_only(tmp_pat
 
     from tests.voi_stopping_helpers import _build, _minutes, _probe_vault
 
-    _paths, vault, repository = _probe_vault(tmp_path, "mvp-0.21")
+    _paths, vault, repository = _probe_vault(tmp_path, LATEST_ALGORITHM_VERSION)
     _minutes(monkeypatch, 10_000.0)  # nothing pays: every candidate is rejected
     trace = OfferTrace()
     queue = _build(vault, repository, trace=trace)

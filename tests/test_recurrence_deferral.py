@@ -25,6 +25,7 @@ from learnloop.db.repositories import Repository
 from learnloop.diagnosis.causal_factor_deferral import ESCALATION_RECURRENCE_K
 from learnloop.vault.loader import load_vault
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from tests.helpers import NOW, append_config_toml, create_basic_vault, set_algorithm_version
 from tests.recurrence_fakes import record_verdict
 from tests.causal_factor_deferral_helpers import DIAG_REF, ITEM_A, ITEM_B, LO_ID, _write_diag_item
@@ -97,7 +98,7 @@ def _episode(repository, attempt_id):
 
 @pytest.mark.parametrize("merged", [True, False])
 def test_reworded_recurrences_escalate_only_once_judged_the_same_cause(tmp_path, merged):
-    vault, repository = _vault(tmp_path, "mvp-0.12")
+    vault, repository = _vault(tmp_path, LATEST_ALGORITHM_VERSION)
     _failed(vault, repository, attempt_id="att_k1", item_id=ITEM_A, statement=FIRST, clock=_clock())
     first_factor = repository.unresolved_cause_factors_for_attempt("att_k1")[0]
     for index in range(1, ESCALATION_RECURRENCE_K):

@@ -28,6 +28,7 @@ from learnloop.scheduling.selection_rewards import SchedulerIntent
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from tests.helpers import (
     NOW,
     append_config_toml,
@@ -106,7 +107,7 @@ def _probe_candidates(row) -> list[dict]:
 
 
 def test_a_probe_near_tie_carries_a_true_propensity(tmp_path):
-    after_paths, _vault, after_repo = _probe_vault(tmp_path, "mvp-0.15")
+    after_paths, _vault, after_repo = _probe_vault(tmp_path, LATEST_ALGORITHM_VERSION)
     after = _offer_row(after_paths, after_repo)
 
     assert len(_probe_candidates(after)) == 2
@@ -125,7 +126,7 @@ def test_a_probe_near_tie_carries_a_true_propensity(tmp_path):
 
 
 def test_an_explored_probe_presentation_is_marked_as_drawn_not_as_the_eig_choice(tmp_path, monkeypatch):
-    paths, vault, repository = _probe_vault(tmp_path, "mvp-0.15")
+    paths, vault, repository = _probe_vault(tmp_path, LATEST_ALGORITHM_VERSION)
     session_id = repository.create_session(energy=None, sleep_quality=None, available_minutes=30, notes_md_path=None)
     monkeypatch.setattr(scheduler_module, "_exploration_draws", lambda *_a, **_k: (1.0, 0.0))
     greedy = read_due_queue(vault, repository, clock=FrozenClock(NOW),
@@ -148,7 +149,7 @@ def test_an_explored_probe_presentation_is_marked_as_drawn_not_as_the_eig_choice
 
 
 def test_a_greedy_probe_presentation_carries_no_exploration_mark(tmp_path, monkeypatch):
-    paths, vault, repository = _probe_vault(tmp_path, "mvp-0.15")
+    paths, vault, repository = _probe_vault(tmp_path, LATEST_ALGORITHM_VERSION)
     session_id = repository.create_session(energy=None, sleep_quality=None, available_minutes=30, notes_md_path=None)
     # A roll above the rate: the build stays greedy and the probe heads it as the EIG choice.
     monkeypatch.setattr(scheduler_module, "_exploration_draws", lambda *_a, **_k: (1.0, 0.0))

@@ -7,6 +7,7 @@ from learnloop.instructional.valuation import (
     CandidateInput, PendingDecision, ValuationProblem, refuse_mixed_decision, value_candidates, value_problem,
 )
 from learnloop.scheduling import action_loss as AL
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 
 SLOTS = ("mastered", "misconception:m1", "misconception:m2", "unfamiliar")
 
@@ -163,7 +164,7 @@ def test_an_instrument_only_request_matches_robust_selection(tmp_path, items):
 
     root = tmp_path / "vault"
     paths = create_basic_vault(root)
-    set_algorithm_version(paths, "mvp-0.8")  # the robust probe cutover
+    set_algorithm_version(paths, LATEST_ALGORITHM_VERSION)  # past the robust probe cutover
     _add_item(root, "pi_svd_define_002", "surface_two")
     vault = load_vault(root)
     repository = Repository(paths.sqlite_path)

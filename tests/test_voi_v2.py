@@ -37,6 +37,7 @@ from learnloop.diagnosis import voi_stopping as voi
 from learnloop.diagnosis.probe_episodes import qualifying_observation_count
 from learnloop.vault.yaml_io import write_yaml
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from tests.daily_plan_fakes import make_env, scheduled
 from tests.helpers import create_daily_plan_vault
 from tests.voi_stopping_helpers import _classify, _ctx, _probe
@@ -132,7 +133,7 @@ def test_the_predictive_information_matches_the_probe_episodes_own_objective(tmp
     from learnloop.diagnosis.probe_episodes import eligible_instruments, episode_posterior
     from tests.voi_stopping_helpers import LO, _build, _long_probe_vault
 
-    vault, repository = _long_probe_vault(tmp_path, "mvp-0.21")
+    vault, repository = _long_probe_vault(tmp_path, LATEST_ALGORITHM_VERSION)
     episode = repository.open_probe_episode(LO)
     posterior = episode_posterior(vault, repository, episode).posterior
     eligible = eligible_instruments(vault, repository, episode, posterior=posterior)
@@ -451,7 +452,7 @@ def _gate_abstains(monkeypatch):
     return calls
 
 
-def _gate_vault(tmp_path, version="mvp-0.21", toml=""):
+def _gate_vault(tmp_path, version=LATEST_ALGORITHM_VERSION, toml=""):
     from tests.voi_stopping_helpers import _long_probe_vault
 
     vault, repository = _long_probe_vault(tmp_path, version, toml)
@@ -633,7 +634,7 @@ def test_the_batch_value_equals_the_product_tables_evsi_on_the_real_credible_set
     from tests.voi_restore_scenarios import seed_ids
 
     seed_ids(monkeypatch)
-    vault, repository = _long_probe_vault(tmp_path, "mvp-0.21")
+    vault, repository = _long_probe_vault(tmp_path, LATEST_ALGORITHM_VERSION)
     episode = repository.open_probe_episode(LO)
     labels = list(episode_posterior(vault, repository, episode).posterior)
     posterior = {label: 0.85 if label == "unfamiliar" else 0.05 for label in labels}
@@ -751,7 +752,7 @@ def test_the_lookahead_on_a_predictive_objective_episode_serves_the_incumbents_p
     from tests.voi_restore_scenarios import seed_ids
 
     seed_ids(monkeypatch)  # the credible sets are seeded by ids
-    vault, repository = _long_probe_vault(tmp_path, "mvp-0.21")
+    vault, repository = _long_probe_vault(tmp_path, LATEST_ALGORITHM_VERSION)
     episode = repository.open_probe_episode(LO)
     labels = list(episode_posterior(vault, repository, episode).posterior)
     _minutes_patch(monkeypatch, 0.02)
@@ -869,7 +870,7 @@ def test_no_count_cap_reappears(tmp_path, monkeypatch):
 
     from tests.voi_stopping_helpers import _answer_probe, _long_probe_vault, _minutes, _qualifying
 
-    vault, repository = _long_probe_vault(tmp_path, "mvp-0.21")
+    vault, repository = _long_probe_vault(tmp_path, LATEST_ALGORITHM_VERSION)
     _minutes(monkeypatch, 0.0001)
     episode_id = repository.open_probe_episode(LO_ID).id
     for index in range(6):
@@ -929,7 +930,7 @@ def _paying_lookahead_episode(tmp_path, monkeypatch, groups=None):
     from tests.voi_restore_scenarios import seed_ids
 
     seed_ids(monkeypatch)
-    vault, repository = _long_probe_vault(tmp_path, "mvp-0.21")
+    vault, repository = _long_probe_vault(tmp_path, LATEST_ALGORITHM_VERSION)
     if groups:
         vault = _share_stimuli(vault, repository, groups)
     episode = repository.open_probe_episode(LO_ID)
@@ -1102,7 +1103,7 @@ def test_a_probe_outside_the_plans_universe_does_not_suppress_one_inside(tmp_pat
     paths = create_daily_plan_vault(
         tmp_path / "universe",
         learning_objects={"lo_repo": [("pi_x", 9.5), ("pi_b", 4.5), ("pi_c", 4.5)]},
-        version="mvp-0.21",
+        version=LATEST_ALGORITHM_VERSION,
     )
 
     def provider(_vault, _repository, item_ids):
