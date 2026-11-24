@@ -714,9 +714,9 @@ function Prose({ value, windowed }: { value: string; windowed: boolean }) {
 
 /** Reader RW5d P4b: what a lesson figure that isn't drawn says (code-owned words). */
 export const LESSON_FIGURE_COPY: Readonly<Record<Exclude<LessonFigureStatus, "shown">, string>> = Object.freeze({
-  failed: "Figure unavailable for this step. You can continue the lesson.",
-  withheld: "Figure unavailable for this step. You can continue the lesson.",
-  unavailable: "Figure unavailable for this step. You can continue the lesson.",
+  failed: "Couldn’t make a figure for this step. You can continue the lesson.",
+  withheld: "No figure for this step: it would give an answer away, or its passage is held out now.",
+  unavailable: "The figure model isn’t available right now, so this step has no figure.",
 });
 
 /** The lesson's figure contract: no predictions (the teacher poses them), no region, no "not right?". */
@@ -839,11 +839,13 @@ function FeedEntry({ item, openCheckRef, checkOpen, onOpenCheck, windowed }: {
             <ul>
               {item.delayedChecks.map((check, index) => (
                 <li key={index}>
-                  Follow-up question scheduled {dueWords(check.due)}. Answer it on your own{check.purpose === "transfer" ? " in a new situation" : ""}.
+                  A cold check comes {dueWords(check.due)}. Answer it on your own{check.purpose === "transfer" ? ", in a new situation" : ""}.
                 </li>
               ))}
             </ul>
-          ) : null}
+          ) : (
+            <Faint>No later cold check could be set this time.</Faint>
+          )}
         </div>
       );
   }

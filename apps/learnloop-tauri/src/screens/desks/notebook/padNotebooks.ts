@@ -105,8 +105,9 @@ export function cellStateLine(state: PadNotebook, blockId: string): string {
   if (session.state === "failed") return "Python couldn’t start. Open the notebook again or select Run code.";
   const run = cellRun(state, blockId);
   if (state.pending[blockId] || run?.status === "running" || run?.status === "queued") return "running…";
-  if (run?.error) return "Code didn’t finish. Check your code and run it again.";
-  return run ? "Finished" : "Ready to run";
+  const took = run?.ms !== null && run?.ms !== undefined ? ` in ${Math.round(run.ms)} ms` : "";
+  if (run?.error) return `Raised an error${took}. Check your code and run it again.`;
+  return run ? `Finished${took}` : "Ready to run";
 }
 
 /** Tests only: forget every pad. */

@@ -124,7 +124,7 @@ it("the close card promises only the checks that were set, and a plan outage kee
   }));
   const card = screen.getByTestId("lesson-close");
   expect(card.textContent).toContain("Lesson finished.");
-  expect(card.textContent).toContain("Follow-up question scheduled");
+  expect(card.textContent).toContain("A cold check comes in about");
   expect(card.textContent).toContain("Answer it on your own");
   expect(card.textContent).not.toContain("Eigenvalues");
   expect(screen.queryByText("Send")).toBeNull();

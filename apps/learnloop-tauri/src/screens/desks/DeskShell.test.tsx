@@ -1675,7 +1675,7 @@ describe("RD4b: pads in the desks", () => {
     expect(server.state().desks[0].focusWindowId).toBe("fx_w_book");
     press("1", "Digit1");
     press("k", "KeyK");
-    await waitFor(() => expect(drain.textContent).toContain("Keep selected"));
+    await waitFor(() => expect(drain.textContent).toContain("kept"));
     await flush();
     expect(server.padBatches.flatMap((batch) => batch.ops)).toEqual([{ op: "keep", expectedVersion: 1 }]);
     press("Escape", "Escape");

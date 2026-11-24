@@ -116,7 +116,7 @@ export function PathView({ band, here, notNeeded, onClose, onDepth, onOpen, onUs
           <div><i className="b core" />Main reading for a goal topic</div>
           <div><i className="b sup" />Background, another explanation, or an example</div>
           <div><i className="b skip" />Optional at this depth</div>
-          <div className="faint">Some sections are included at a deeper level. Others cover topics treated as familiar.</div>
+          <div className="faint">Some sections are needed only at a deeper level. Others cover topics treated as familiar.</div>
         </div>
       </div>
       <div className="gp-r-wrap">

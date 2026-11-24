@@ -52,8 +52,8 @@ export function DrainPanel({ deskTitle, load, actions, onClose }: {
       const index = pending.current;
       const pad = index !== null ? drain?.pads[index] : drain?.pads.length === 1 ? drain.pads[0] : undefined;
       if (!pad) return;
-      if (event.key === "k") act(pad.padId, "Keep selected", () => actions.keep(pad.padId, pad.version));
-      else if (event.key === "l") act(pad.padId, "Leave selected", () => actions.leave(pad.padId, pad.version));
+      if (event.key === "k") act(pad.padId, "kept", () => actions.keep(pad.padId, pad.version));
+      else if (event.key === "l") act(pad.padId, "left in the library", () => actions.leave(pad.padId, pad.version));
       else if (event.key === "c" && pad.carryCandidate) act(pad.padId, "carried", () => actions.carry(pad.carryCandidate as string, pad.padId));
       else return;
       pending.current = null;
@@ -83,7 +83,7 @@ export function DrainPanel({ deskTitle, load, actions, onClose }: {
   return (
     <div className="desk-drain" role="dialog" aria-label={`closing ${deskTitle}`}>
       <div className="head">Closing “{deskTitle}”</div>
-      <div className="sub">Choose what to do with today’s pads. Leave removes the pin.</div>
+      <div className="sub">One key each · skipping costs nothing · leave keeps a pad in the desk’s history.</div>
       {failure ? <div className="note">Couldn’t load today’s pads. Close this panel and reopen it to try again.</div> : null}
       {drain && drain.pads.length === 0 ? <div className="note">nothing written on this desk today</div> : null}
       {drain?.pads.map((pad, index) => (
@@ -93,8 +93,8 @@ export function DrainPanel({ deskTitle, load, actions, onClose }: {
           {failed[pad.padId] ? <div className="note err">{failed[pad.padId]} Check the pad before trying again.</div> : null}
           {done[pad.padId] ? <div className="done">{done[pad.padId]}</div> : pendingPad[pad.padId] ? <div className="note">◐ Saving your choice…</div> : (
             <div className="acts">
-              <button type="button" onClick={() => act(pad.padId, "Keep selected", () => actions.keep(pad.padId, pad.version))}><kbd title={`Press ${index + 1}, then K`}>{index + 1}k</kbd> keep</button>
-              <button type="button" onClick={() => act(pad.padId, "Leave selected", () => actions.leave(pad.padId, pad.version))}><kbd title={`Press ${index + 1}, then L`}>{index + 1}l</kbd> leave</button>
+              <button type="button" onClick={() => act(pad.padId, "kept", () => actions.keep(pad.padId, pad.version))}><kbd title={`Press ${index + 1}, then K`}>{index + 1}k</kbd> keep</button>
+              <button type="button" onClick={() => act(pad.padId, "left in the library", () => actions.leave(pad.padId, pad.version))}><kbd title={`Press ${index + 1}, then L`}>{index + 1}l</kbd> leave</button>
               {pad.carryCandidate ? <button type="button" onClick={() => act(pad.padId, "carried", () => actions.carry(pad.carryCandidate as string, pad.padId))}><kbd title={`Press ${index + 1}, then C`}>{index + 1}c</kbd> carry “{pad.carryCandidate.slice(0, 60)}”</button> : null}
             </div>
           )}

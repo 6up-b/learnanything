@@ -33,7 +33,7 @@ describe("a pad's notebook", () => {
     noteRunPending("p1", "a");
     expect(cellStateLine(padNotebook("p1"), "a")).toBe("Starting Python…");
     notePadSession("p1", session("ready", { padCells: { a: "c_a" }, cellRuns: { c_a: { status: "idle", ms: 41.6, error: false } } }));
-    expect(cellStateLine(padNotebook("p1"), "a")).toBe("Finished");
+    expect(cellStateLine(padNotebook("p1"), "a")).toBe("Finished in 42 ms");
     expect(padNotebook("p1").pending).toEqual({});
   });
 
@@ -62,7 +62,7 @@ describe("a pad's notebook", () => {
   it("says when a cell raised and when a run could not be sent", () => {
     startPadNotebook("p1", ["a"]);
     notePadSession("p1", session("ready", { padCells: { a: "c_a" }, cellRuns: { c_a: { status: "idle", ms: 3, error: true } } }));
-    expect(cellStateLine(padNotebook("p1"), "a")).toBe("Code didn’t finish. Check your code and run it again.");
+    expect(cellStateLine(padNotebook("p1"), "a")).toBe("Raised an error in 3 ms. Check your code and run it again.");
     noteRunPending("p1", "a", "couldn't run: no window shows the notebook");
     expect(cellStateLine(padNotebook("p1"), "a")).toBe("couldn't run: no window shows the notebook");
   });

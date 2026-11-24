@@ -96,9 +96,9 @@ export function statusLine(view: FrameView): string {
     case "ready":
       return "";
     case "restarting":
-      return "Restarting the notebook…";
+      return `Restarting the notebook (${view.restarts} of 3)…`;
     case "retrying":
-      return "Waiting for the notebook. Trying again…";
+      return `Waiting for the notebook. Trying again (${view.retry} of ${RETRY.times})…`;
     case "stopped":
       return `Notebook ${view.reason ? STOPPED_WORDS[view.reason] ?? "paused" : "paused"}. Select Resume.`;
     case "failed":

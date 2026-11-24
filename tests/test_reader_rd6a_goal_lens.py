@@ -23,7 +23,7 @@ from tests.goal_lens_helpers import build_lens_vault, lens_context, levels, scop
 from tests.reading_path_fixtures import call
 from tests.section_coverage_fixtures import CoverageJudgeFake, table_counts
 
-RPCS = ("goal.band", "goal.lens", "goal.section_choice")
+RPCS = ("goal.band", "goal.lens", "goal.section_choice", "goal.choices")
 
 
 def _lens(ctx, goal_id, extraction_id, **params):
@@ -55,7 +55,8 @@ def test_switched_off_every_rpc_refuses_and_nothing_is_called_or_written(tmp_pat
     before = table_counts(repository)
     params = {"goal.band": {"goal_id": "g"}, "goal.lens": {"goal_id": "g", "extraction_id": "ext_book"},
               "goal.section_choice": {"goal_id": "g", "extraction_id": "ext_book", "section_id": "ch_det",
-                                      "choice": "read_anyway", "operation_id": "op_12345678"}}
+                                      "choice": "read_anyway", "operation_id": "op_12345678"},
+              "goal.choices": {}}
     for name in RPCS:
         with pytest.raises(SidecarError) as caught:
             call(ctx, name, params[name])
@@ -118,7 +119,7 @@ def test_a_section_about_a_deeper_lo_is_later_and_a_depth_change_re_renders_it(t
     ctx = lens_context(paths)
     orth = levels(ctx, goal_id, "ext_book")["ch_orth"]
     assert summary(orth) == ("later", "mapped", "deeper_depth", ["lo_rows"]) and orth["dim"]
-    assert orth["reasonMd"] == "Included for “Rows and row swaps” at a deeper level than get the idea."
+    assert orth["reasonMd"] == "Needed for “Rows and row swaps” only at a deeper level than get the idea."
     DL.add_input(load_vault(paths.root), repository, goal_id, "depth", text="learn_to_use_it")
     DP.judge(load_vault(paths.root), repository, goal_id, client=DeliverableFake())
     orth = levels(ctx, goal_id, "ext_book")["ch_orth"]

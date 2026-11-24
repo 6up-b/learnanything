@@ -68,7 +68,7 @@ export function GoalBand({ band, goals, labels = null, here, dimOn, onToggleDim,
         </div>
       ) : (
         <div className="gb-path">
-          <div className="gb-lab">{band.status === "ask_depth" ? "how deep for this?" : countsLine(band)} <span className="gb-prov">Based on your answers and LearnLoop’s estimates</span></div>
+          <div className="gb-lab">{band.status === "ask_depth" ? "how deep for this?" : countsLine(band)} <span className="gb-prov">readiness from cold checks</span></div>
           <div className="gb-row">
             <div className="gb-stops">
               {dots.map((dot) => (

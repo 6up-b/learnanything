@@ -67,7 +67,7 @@ it("keeps the frame while a crashed server restarts, and says so", async () => {
   const api = calls(async () => session("restarting", { restarts: 2 }));
   render(<Frame api={api} />);
   await settle();
-  expect(screen.getByRole("status").textContent).toBe("Restarting the notebook…");
+  expect(screen.getByRole("status").textContent).toBe("Restarting the notebook (2 of 3)…");
   expect(document.querySelector("iframe")?.getAttribute("src")).toBe(URL_);
 });
 
@@ -170,11 +170,11 @@ it("retries a failed open three times, 1.5 s apart, before saying it failed (spe
   });
   render(<Frame api={flaky} />);
   await settle();
-  expect(screen.getByRole("status").textContent).toContain("Waiting for the notebook. Trying again…");
+  expect(screen.getByRole("status").textContent).toContain("Trying again (1 of 3)");
   expect(flaky.opens).toBe(1);
   await act(async () => vi.advanceTimersByTime(RETRY.everyMs));
   await settle();
-  expect(screen.getByRole("status").textContent).toContain("Waiting for the notebook. Trying again…");
+  expect(screen.getByRole("status").textContent).toContain("Trying again (2 of 3)");
   expect(flaky.opens).toBe(2);
   await act(async () => vi.advanceTimersByTime(RETRY.everyMs));
   await settle();
