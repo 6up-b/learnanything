@@ -35,11 +35,11 @@ No nested ownership area.
 | Module | Status | Purpose | Imports | Imported by |
 |---|---|---|---:|---:|
 | [[Reference/Desktop/TypeScript/api/capture|capture.ts]] | `ACTIVE` | Provides `CaptureDto`, `InboxSummary`, `CaptureMediaDto` within the desktop's TypeScript/api ownership area. | 0 | 3 |
-| [[Reference/Desktop/TypeScript/api/client|client.ts]] | `ACTIVE` | Defines the typed renderer-side RPC facade that converts UI actions into named Tauri commands. | 7 | 131 |
-| [[Reference/Desktop/TypeScript/api/dto|dto.ts]] | `ACTIVE` | Owns the renderer's TypeScript representation of sidecar request, response, and view contracts. | 1 | 244 |
-| [[Reference/Desktop/TypeScript/api/poller|poller.ts]] | `ACTIVE` | Provides `PollResult`, `PollRegistration`, `PollerOptions`, `Poller` and related exports within the desktop's TypeScript/api ownership area. | 0 | 3 |
-| [[Reference/Desktop/TypeScript/api/queryCache|queryCache.ts]] | `ACTIVE` | Provides `QueryKey`, `QueryTag`, `QueryState`, `FetchOptions` and related exports within the desktop's TypeScript/api ownership area. | 2 | 14 |
-| [[Reference/Desktop/TypeScript/api/queryTags|queryTags.ts]] | `ACTIVE` | Provides `TAG`, `KnownTag`, `READER_PREFIX`, `readerTag` within the desktop's TypeScript/api ownership area. | 0 | 25 |
+| [[Reference/Desktop/TypeScript/api/client|client.ts]] | `ACTIVE` | Defines the typed renderer-side RPC facade that converts UI actions into named Tauri commands. | 7 | 138 |
+| [[Reference/Desktop/TypeScript/api/dto|dto.ts]] | `ACTIVE` | Owns the renderer's TypeScript representation of sidecar request, response, and view contracts. | 1 | 276 |
+| [[Reference/Desktop/TypeScript/api/poller|poller.ts]] | `ACTIVE` | Provides `PollResult`, `PollRegistration`, `PollerOptions`, `Poller` and related exports within the desktop's TypeScript/api ownership area. | 0 | 10 |
+| [[Reference/Desktop/TypeScript/api/queryCache|queryCache.ts]] | `ACTIVE` | Provides `QueryKey`, `QueryTag`, `QueryState`, `FetchOptions` and related exports within the desktop's TypeScript/api ownership area. | 2 | 15 |
+| [[Reference/Desktop/TypeScript/api/queryTags|queryTags.ts]] | `ACTIVE` | Provides `TAG`, `KnownTag`, `READER_PREFIX`, `readerTag` within the desktop's TypeScript/api ownership area. | 0 | 26 |
 | [[Reference/Desktop/TypeScript/api/sourceKinds|sourceKinds.ts]] | `ACTIVE` | Provides `SOURCE_KINDS`, `SourceCategory`, `SourceKindRow`, `SOURCE_FILE_EXTENSIONS` and related exports within the desktop's TypeScript/api ownership area. | 0 | 4 |
 | [[Reference/Desktop/TypeScript/api/useCachedQuery|useCachedQuery.ts]] | `ACTIVE` | Provides `CachedQuery`, `CachedQueryOptions`, `useCachedQuery`, `useReportQueryError` within the desktop's TypeScript/api ownership area. | 3 | 21 |
 

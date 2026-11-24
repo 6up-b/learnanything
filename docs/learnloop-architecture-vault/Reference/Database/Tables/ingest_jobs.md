@@ -24,8 +24,8 @@ source_paths:
   - "src/learnloop/db/stores/ad_serving.py"
   - "src/learnloop/db/stores/ingest_queue.py"
   - "src/learnloop/cli/ingest_batches.py"
-  - "src/learnloop/content/pipeline/reread.py"
-  - "src/learnloop/content/pipeline/runner.py"
+  - "src/learnloop/content/authoring/jobs.py"
+  - "src/learnloop/content/pipeline/import_jobs.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -134,18 +134,22 @@ Indexes and uniqueness:
 ### Upstream callers of the repository access surface
 
 - `src/learnloop/cli/ingest_batches.py`
+- `src/learnloop/content/authoring/jobs.py`
 - `src/learnloop/content/pipeline/add_source.py`
+- `src/learnloop/content/pipeline/import_jobs.py`
 - `src/learnloop/content/pipeline/jobs.py`
 - `src/learnloop/content/pipeline/reread.py`
 - `src/learnloop/content/pipeline/runner.py`
 - `src/learnloop/content/pipeline/wait_detail.py`
 - `src/learnloop/content/sources/source_deletion.py`
+- `src/learnloop/content/synthesis/jobs.py`
 - `src/learnloop/daily_plan/next_practice.py`
 - `src/learnloop/db/stores/ingest_queue.py`
 - `src/learnloop/figures/build.py`
 - `src/learnloop/figures/rich.py`
 - `src/learnloop/reader/section_generation.py`
 - `src/learnloop/scheduling/serving_exclusions.py`
+- `src/learnloop/source_retrieval/jobs.py`
 - `src/learnloop/source_retrieval/source_vectors.py`
 - `src/learnloop_sidecar/handlers/figures.py`
 - `src/learnloop_sidecar/handlers/reader.py`
@@ -174,7 +178,7 @@ Indexes and uniqueness:
 - `tests/test_empty_first_build.py`
 - `tests/test_exam_protection_review.py`
 - `tests/test_figure_build_golden.py`
-- `tests/test_figure_rich_failed_correction_durable.py`
+- `tests/test_figure_request_records.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

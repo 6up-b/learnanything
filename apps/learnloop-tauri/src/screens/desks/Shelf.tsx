@@ -1,7 +1,8 @@
 // The shelf (spec §5.6): the strip's minimap, one row per window, with what is in view, how far the
 // learner has read, and where. A click focuses the row's window; dragging a row more than 5 px
 // reorders the strip. Below 1400 px it folds to a 44 px rail whose ☰ overlays it.
-import { useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import type { CarriedQuestionDto } from "../../api/dto";
 
 export interface ShelfRow {
   windowId: string;
@@ -13,6 +14,11 @@ export interface ShelfRow {
   /** 0..1 through the source, when known. */
   progress: number | null;
   where: string | null;
+  /** The goal lens on this row (RD6): its mark at the right edge, a line on what it is for, and the path's ranges
+   *  on its minimap (fractions of the source). */
+  goal?: { mark: "core" | "sup" | "skip" | "later" | "shown" | "partial" | null; line: string; ranges: Array<[number, number]> } | null;
+  /** A video's accepted chapters (RD10) as ranges on its minimap (fractions of its length). */
+  chapters?: Array<{ start: number; end: number }>;
 }
 
 /** Drag farther than this before a press becomes a reorder (spec §5.2). */
@@ -27,50 +33,70 @@ export function Shelf({
   onSearch,
   carried = [],
   carriedMore = 0,
+  onCarriedList,
+  today = null,
+  open = false,
+  onOpenChange,
 }: {
+  /** TODAY · RUNNING PAD: the running pad's last lines of today (at most three), each marked by where it came
+   * from, and "open" to bring the pad into view. */
+  today?: { lines: Array<{ blockId: string; mark: string; text: string }>; onOpen: () => void } | null;
   rows: ShelfRow[];
   folded: boolean;
+  /** Folded, whether the strip is open over the rail (the shell owns it, so esc can close it through its key
+   * router). */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
   /** CARRIED (spec §10.12): at most the attention limit, each "since <date>"; the rest are in the library. */
   carried?: Array<{ carriedId: string; text: string; since: string }>;
+  /** More carried than the shelf shows (or more pages): the list behind "all carried questions". */
   carriedMore?: number;
+  /** Opens every carried question (paged, each with its labels). */
+  onCarriedList?: () => void;
   undo: { title: string; onUndo: () => void } | null;
   onFocus: (windowId: string) => void;
   onReorder: (windowId: string, toSlot: number) => void;
   /** "/ switch": search in context (spec §9.3). */
   onSearch?: () => void;
 }) {
-  const [open, setOpen] = useState(false);
+  const setOpen = (next: boolean) => onOpenChange?.(next);
   if (folded && !open) {
     return (
       <aside className="desk-shelf-rail" aria-label="this desk's windows">
-        <button type="button" aria-label="show the strip" title="the strip" onClick={() => setOpen(true)}>☰</button>
+        <button type="button" className="railbtn" aria-label="show the strip" title="the strip · tap to open" onClick={() => setOpen(true)}>☰<span className="rl">strip</span></button>
       </aside>
     );
   }
   const body = (
     <>
-      <ShelfBody rows={rows} undo={undo} onFocus={(id) => { onFocus(id); if (folded) setOpen(false); }} onReorder={onReorder} onSearch={onSearch ? () => { onSearch(); if (folded) setOpen(false); } : undefined} />
+      <ShelfBody rows={rows} undo={undo} today={today} onFocus={(id) => { onFocus(id); if (folded) setOpen(false); }} onReorder={onReorder} onSearch={onSearch ? () => { onSearch(); if (folded) setOpen(false); } : undefined} />
       {carried.length ? (
         <div className="desk-carried" data-shelf-carried="">
           <h4><span>Carried</span></h4>
           {carried.map((question) => (
-            <div key={question.carriedId} className="q" title={question.text}>
+            <button key={question.carriedId} type="button" className="q" title={question.text} onClick={onCarriedList}>
               <span className="t">? {question.text}</span>
               <span className="s">since {new Date(question.since).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</span>
-            </div>
+            </button>
           ))}
-          {carriedMore > 0 ? <div className="more">three shown (an attention limit) · {carriedMore} more in the library</div> : null}
+          {onCarriedList ? (
+            <button type="button" className="more" onClick={onCarriedList}>
+              {carriedMore > 0 ? `three shown (an attention limit) · all carried questions (${carriedMore} more) ›` : "all carried questions ›"}
+            </button>
+          ) : null}
         </div>
       ) : null}
     </>
   );
   if (folded) {
+    // Open, the strip covers the rail (the mockup's), its own ☰ on top to hide it; the rail keeps its column.
     return (
       <>
-        <aside className="desk-shelf-rail" aria-label="this desk's windows">
-          <button type="button" aria-label="hide the strip" onClick={() => setOpen(false)}>☰</button>
-        </aside>
-        <div className="desk-shelf desk-shelf-overlay">{body}</div>
+        <aside className="desk-shelf-rail" aria-label="this desk's windows" />
+        <div className="desk-shelf desk-shelf-overlay" role="dialog" aria-label="the strip">
+          <button type="button" className="railbtn open" aria-label="hide the strip" title="the strip · tap to close" onClick={() => setOpen(false)}>☰<span className="rl">strip</span></button>
+          {body}
+        </div>
       </>
     );
   }
@@ -80,12 +106,14 @@ export function Shelf({
 function ShelfBody({
   rows,
   undo,
+  today,
   onFocus,
   onReorder,
   onSearch,
 }: {
   rows: ShelfRow[];
   undo: { title: string; onUndo: () => void } | null;
+  today: { lines: Array<{ blockId: string; mark: string; text: string }>; onOpen: () => void } | null;
   onFocus: (windowId: string) => void;
   onReorder: (windowId: string, toSlot: number) => void;
   onSearch?: () => void;
@@ -140,7 +168,7 @@ function ShelfBody({
             type="button"
             data-shelf-slot={row.slot}
             data-shelf-window={row.windowId}
-            className={`desk-src${row.state ? " open" : ""}${row.state === "focus" ? " prim" : ""}${dragging === row.windowId ? " dragging" : ""}`}
+            className={`desk-src${row.state ? " open" : ""}${row.state === "focus" ? " prim" : ""}${dragging === row.windowId ? " dragging" : ""}${row.goal?.mark ? ` g-${row.goal.mark}` : ""}`}
             onPointerDown={onPointerDown(row)}
             onPointerMove={onPointerMove}
             onPointerUp={onPointerUp(row)}
@@ -151,18 +179,26 @@ function ShelfBody({
               }
             }}
           >
+            {row.goal?.mark ? <i className="gm sh" aria-hidden="true" /> : null}
             <div className="k">
               <span>{row.glyph} {row.kind}</span>
               {row.state ? <span>· {row.state}</span> : null}
             </div>
             <div className="n">{row.title}</div>
-            {row.progress !== null ? (
-              <div className="bar" aria-label={`${Math.round(row.progress * 100)}% through`}>
+            {row.progress !== null || row.goal?.ranges.length || row.chapters?.length ? (
+              <div className="bar" aria-label={row.progress !== null ? `${Math.round(row.progress * 100)}% through` : "on your path"}>
                 <span className="ln" />
-                <span className="rd" style={{ width: `${Math.max(0, Math.min(1, row.progress)) * 100}%` }} />
+                {(row.goal?.ranges ?? []).map(([from, to]) => (
+                  <span key={`${from}-${to}`} className="gr" style={{ left: `${(from * 100).toFixed(1)}%`, width: `${((to - from) * 100).toFixed(1)}%` }} />
+                ))}
+                {(row.chapters ?? []).map((range) => (
+                  <span key={`ch-${range.start}`} className="chr" data-chapter-range="" style={{ left: `${(range.start * 100).toFixed(1)}%`, width: `${((range.end - range.start) * 100).toFixed(1)}%` }} />
+                ))}
+                {row.progress !== null ? <span className="rd" style={{ width: `${Math.max(0, Math.min(1, row.progress)) * 100}%` }} /> : null}
               </div>
             ) : null}
             {row.where ? <div className="w">{row.where}</div> : null}
+            {row.goal?.line ? <div className="gwl">◎ {row.goal.line}</div> : null}
           </button>
         ))}
       </div>
@@ -170,7 +206,76 @@ function ShelfBody({
         {undo ? (
           <button type="button" className="undo" onClick={undo.onUndo}>↺ undo close {undo.title}</button>
         ) : null}
+        {today ? (
+          <div className="desk-today" data-shelf-today="">
+            <h4><span>today · running pad</span><span className="grow" /><button type="button" className="switch" onClick={today.onOpen}>open</button></h4>
+            {today.lines.map((line) => (
+              <button key={line.blockId} type="button" className="runmini" title={line.text} onClick={today.onOpen}>
+                <span className="rm">{line.mark}</span> {line.text}
+              </button>
+            ))}
+          </div>
+        ) : null}
       </div>
     </>
+  );
+}
+
+/** Every carried question (spec §10.12), page by page by the server's cursor, each with its labels: fruitful,
+ * not now (it stays carried) and let it go. The shelf shows three of them (an attention limit); this is the rest. */
+export function CarriedList({ load, mark, onClose }: {
+  load: (cursor?: string) => Promise<{ carried: CarriedQuestionDto[]; cursor?: string | null }>;
+  mark: (question: CarriedQuestionDto, event: "fruitful" | "not_now" | "let_go") => Promise<unknown>;
+  onClose: () => void;
+}) {
+  const [rows, setRows] = useState<CarriedQuestionDto[] | null>(null);
+  const [cursor, setCursor] = useState<string | null>(null);
+  const [failure, setFailure] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const read = (at?: string) => {
+    setBusy(true);
+    load(at).then((page) => {
+      setRows((now) => {
+        const base = at ? now ?? [] : [];
+        return [...base, ...page.carried.filter((each) => !base.some((seen) => seen.carriedId === each.carriedId))];
+      });
+      setCursor(page.cursor ?? null);
+      setFailure(null);
+    }, (error: unknown) => setFailure(error && typeof error === "object" && "message" in error ? String((error as { message: unknown }).message) : String(error))).finally(() => setBusy(false));
+  };
+  useEffect(() => {
+    read();
+    // Read once when it opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const label = (question: CarriedQuestionDto, event: "fruitful" | "not_now" | "let_go") => {
+    void mark(question, event).then(() => {
+      // Not now keeps it carried; fruitful and let it go put it down.
+      if (event !== "not_now") setRows((now) => (now ?? []).filter((each) => each.carriedId !== question.carriedId));
+    }, (error: unknown) => setFailure(error && typeof error === "object" && "message" in error ? String((error as { message: unknown }).message) : String(error)));
+  };
+  return (
+    <div className="desk-sheet desk-carried-list" role="dialog" aria-label="carried questions" onKeyDown={(event) => {
+      if (event.key === "Escape") onClose();
+    }}>
+      <div className="head">◌ carried questions · they come back beside a related passage</div>
+      {rows === null ? <div className="note">◐ reading them…</div> : rows.length === 0 ? <div className="note">nothing carried</div> : null}
+      {rows?.map((question) => (
+        <div key={question.carriedId} className="row" data-carried-row={question.carriedId}>
+          <span className="t">? {question.text}</span>
+          <span className="s">since {new Date(question.since).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</span>
+          <span className="acts">
+            <button type="button" onClick={() => label(question, "fruitful")}>fruitful</button>
+            <button type="button" onClick={() => label(question, "not_now")}>not now</button>
+            <button type="button" onClick={() => label(question, "let_go")}>let it go</button>
+          </span>
+        </div>
+      ))}
+      {failure ? <div className="note err">{failure}</div> : null}
+      <div className="acts">
+        {cursor ? <button type="button" disabled={busy} onClick={() => read(cursor)}>older ›</button> : null}
+        <button type="button" onClick={onClose}>close</button>
+      </div>
+    </div>
   );
 }

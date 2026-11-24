@@ -1,9 +1,10 @@
 """Submitting a pad block (spec §10.9): an explicit act, the only way a pad's words become evidence, handed to the
 existing attempt and teach-back entry points (no new grading path) and recorded in ``pad_block_submissions``.
 
-The attempt path runs end to end through ``submit_attempt_on`` with manual grading (no model). The teach-back path's
-entry point (``submit_teach_back_turn``) needs a naive-student provider, so it is replaced by a recorder that checks
-what it was handed; the conversation guard reads a real session checkpoint.
+The attempt path runs end to end through ``submit_attempt_on`` with a grader fake. The teach-back path's entry point
+(``submit_teach_back_turn_on``) needs a naive-student provider, so it is replaced by a recorder that checks what it
+was handed and leaves what the real one leaves (a checkpointed state, or an attempt whose evidence carries the
+conversation's id); the conversation guard reads the real session checkpoint and attempts.
 """
 
 from __future__ import annotations
@@ -14,7 +15,6 @@ import sqlite3
 
 import pytest
 
-from learnloop.db.repositories import Repository
 from learnloop.pads import submission
 from learnloop.tutor.teach_back import TeachBackState, TeachBackTurn
 from learnloop_sidecar.context import SidecarContext
@@ -156,56 +156,148 @@ def test_an_answer_only_from_its_problem_pad_or_check_cell(tmp_path):
         ("1/4",)]
 
 
+class _TeachBackEntry:
+    """The teach-back entry point as a recorder: it opens the conversation it is asked to (the session's checkpoint
+    holds its state, as the real one leaves it), or grades it at once (an attempt whose evidence carries the
+    conversation's id), and may crash after either, before the pad's reply is written."""
+
+    def __init__(self, paths, *, done: bool = False, crash: bool = False) -> None:
+        self.paths, self.done, self.crash = paths, done, crash
+        self.calls: list[tuple[str, str, str, str | None]] = []
+
+    def __call__(self, ctx, params, *, conversation_id=None):
+        self.calls.append((params.session_id, params.practice_item_id, params.answer_md, conversation_id))
+        if self.done:
+            with closing(sqlite3.connect(self.paths.sqlite_path)) as connection:
+                connection.execute(
+                    "INSERT INTO practice_attempts(id, practice_item_id, learning_object_id, practice_mode, "
+                    "attempt_type, created_at) VALUES (?, ?, 'lo', 'teach_back', 'teach_back', "
+                    "'2026-11-23T10:00:00Z')", (f"att_{conversation_id}", params.practice_item_id))
+                connection.execute(
+                    "INSERT INTO grading_evidence(id, attempt_id, criterion_id, points_awarded, agent_run_id, "
+                    "grader_tier, created_at) VALUES (?, ?, 'c1', 1, ?, 1, '2026-11-23T10:00:00Z')",
+                    (f"ge_{conversation_id}", f"att_{conversation_id}", conversation_id))
+                connection.commit()
+            reply = {"version": 1, "done": True, "attemptId": f"att_{conversation_id}", "agentRunId": conversation_id}
+        else:
+            state = TeachBackState(practice_item_id=params.practice_item_id,
+                                   turns=[TeachBackTurn(role="learner", content_md=params.answer_md)],
+                                   conversation_id=conversation_id)
+            call(ctx, "update_session_checkpoint", {
+                "sessionId": params.session_id, "currentPracticeItemId": params.practice_item_id,
+                "currentAnswer": json.dumps({"mode": "teach_back", "state": state.to_dict()})})
+            reply = {"version": 1, "done": False, "questionMd": "Why at or below?",
+                     "state": {"conversationId": conversation_id}}
+        if self.crash:
+            raise RuntimeError("the process died before the pad's reply was written")
+        return reply
+
+
+WORDS = "The CDF at x is the chance of landing at or below x."
+
+
+def _patch_entry(monkeypatch, entry):
+    import learnloop_sidecar.handlers.teach_back as teach_back_handlers
+
+    monkeypatch.setattr(teach_back_handlers, "submit_teach_back_turn_on", entry, raising=False)
+    # The RPC face too, for the code before conversation ids were reserved (the fail-first runs).
+    monkeypatch.setattr(teach_back_handlers, "submit_teach_back_turn", lambda ctx, params: entry(ctx, params))
+
+
+def _teach_back_pad(ctx, monkeypatch, entry, *blocks):
+    _patch_entry(monkeypatch, entry)
+    call(ctx, "pad.apply", {"clientId": "c", "seq": 1, "padId": "pad_r", "ops": [
+        {"op": "create_pad", "kind": "running"}, *(blocks or [_block("b1", WORDS, version_id="v1")])]})
+
+
 def test_a_teach_back_hands_the_block_to_the_teach_back_entry_and_opens_its_conversation(tmp_path, monkeypatch):
     paths, ctx, session = _sidecar(tmp_path)
-    call(ctx, "pad.apply", {"clientId": "c", "seq": 1, "padId": "pad_r", "ops": [
-        {"op": "create_pad", "kind": "running"},
-        _block("b1", "The CDF at x is the chance of landing at or below x.", version_id="v1")]})
-    handed = []
-
-    def entry(ctx_, params):
-        handed.append((params.session_id, params.practice_item_id, params.answer_md))
-        return {"version": 1, "done": False, "questionMd": "Why at or below?", "state": {"conversationId": "conv_1"}}
-
-    import learnloop_sidecar.handlers.teach_back as teach_back_handlers
-
-    monkeypatch.setattr(teach_back_handlers, "submit_teach_back_turn", entry)
+    entry = _TeachBackEntry(paths)
+    _teach_back_pad(ctx, monkeypatch, entry)
     reply = _submit(ctx, session, as_="teach_back", item="pi_teach")
-    assert handed == [(session, "pi_teach", "The CDF at x is the chance of landing at or below x.")]
-    assert (reply["teachBackId"], reply["attemptId"], reply["entry"]["questionMd"]) == ("conv_1", None,
-                                                                                         "Why at or below?")
+    [(handed_session, handed_item, handed_words, conversation_id)] = entry.calls
+    assert (handed_session, handed_item, handed_words) == (session, "pi_teach", WORDS)
+    # The conversation takes the id the submission reserved before handing its words over.
+    assert conversation_id and reply["teachBackId"] == conversation_id
+    assert (reply["attemptId"], reply["entry"]["questionMd"], reply["teachBack"]["status"]) == (
+        None, "Why at or below?", "ongoing")
     assert _rows(paths, "SELECT submitted_as, teach_back_id, attempt_id FROM pad_block_submissions") == [
-        ("teach_back", "conv_1", None)]
+        ("teach_back", conversation_id, None)]
 
 
-def test_a_teach_back_already_opened_by_this_submission_is_found_and_another_under_way_is_refused(tmp_path,
-                                                                                                  monkeypatch):
+def test_a_crash_after_the_hand_off_is_recovered_by_the_reserved_conversation_id(tmp_path, monkeypatch):
+    """The conversation opened, then the process died before the pad's reply: the retry finds the conversation by
+    the id reserved before the hand-off and hands nothing over again."""
+
     paths, ctx, session = _sidecar(tmp_path)
-    words = "The CDF at x is the chance of landing at or below x."
-    call(ctx, "pad.apply", {"clientId": "c", "seq": 1, "padId": "pad_r", "ops": [
-        {"op": "create_pad", "kind": "running"}, _block("b1", words, version_id="v1")]})
+    entry = _TeachBackEntry(paths, crash=True)
+    _teach_back_pad(ctx, monkeypatch, entry)
+    with pytest.raises(RuntimeError):
+        _submit(ctx, session, as_="teach_back", item="pi_teach")
+    reserved = _rows(paths, "SELECT teach_back_id FROM pad_block_submissions")[0][0]
+    entry.crash = False
+    again = _submit(ctx, session, as_="teach_back", item="pi_teach")
+    assert len(entry.calls) == 1 and entry.calls[0][3] == reserved
+    assert (again["duplicate"], again["teachBackId"], again["teachBack"]["status"]) == (True, reserved, "ongoing")
+    assert again["teachBack"]["state"]["conversation_id"] == reserved
 
-    def entry(ctx_, params):
-        raise AssertionError("handed over twice")
 
-    import learnloop_sidecar.handlers.teach_back as teach_back_handlers
+def test_a_teach_back_graded_at_once_then_a_crash_is_found_completed_never_started_again(tmp_path, monkeypatch):
+    """The student could not ask, the transcript was graded at once (its attempt recorded, the checkpoint cleared),
+    then the process died before the pad's reply: the retry finds the attempt by the conversation's id."""
 
-    monkeypatch.setattr(teach_back_handlers, "submit_teach_back_turn", entry)
-    repository = Repository.attach(paths.sqlite_path)
+    paths, ctx, session = _sidecar(tmp_path)
+    entry = _TeachBackEntry(paths, done=True, crash=True)
+    _teach_back_pad(ctx, monkeypatch, entry)
+    with pytest.raises(RuntimeError):
+        _submit(ctx, session, as_="teach_back", item="pi_teach")
+    entry.crash = False
+    again = _submit(ctx, session, as_="teach_back", item="pi_teach")
+    reserved = again["teachBackId"]
+    assert len(entry.calls) == 1
+    assert (again["teachBack"]["status"], again["attemptId"]) == ("completed", f"att_{reserved}")
+    assert _rows(paths, "SELECT COUNT(*) FROM practice_attempts") == [(1,)]
+    # The tag reads the attempt the conversation became.
+    block = call(ctx, "pad.get", {"padId": "pad_r"})["blocks"][0]
+    assert block["submissions"][0]["attemptId"] == f"att_{reserved}"
 
-    def checkpoint(opening: str) -> None:
-        state = TeachBackState(practice_item_id="pi_teach", turns=[TeachBackTurn(role="learner", content_md=opening)],
-                               conversation_id="conv_9")
-        call(ctx, "update_session_checkpoint", {"sessionId": session, "currentPracticeItemId": "pi_teach",
-                                              "currentAnswer": json.dumps({"mode": "teach_back",
-                                                                           "state": state.to_dict()})})
 
-    # The reply was lost after the conversation opened: the retry finds it and hands nothing over.
-    checkpoint(words)
-    assert _submit(ctx, session, as_="teach_back", item="pi_teach")["teachBackId"] == "conv_9"
-    # Another conversation on the item is under way: the block would be taken as its next answer.
-    checkpoint("something else entirely")
+def test_a_crash_before_the_hand_off_hands_the_frozen_words_over_under_the_same_id(tmp_path, monkeypatch):
+    """The entry point refused, or the process died before it opened anything: the retry hands the submission's
+    frozen words over again, under the id it reserved, even after the block was edited."""
+
+    paths, ctx, session = _sidecar(tmp_path)
+
+    class Refusing(_TeachBackEntry):
+        def __call__(self, ctx_, params, *, conversation_id=None):
+            self.calls.append((params.session_id, params.practice_item_id, params.answer_md, conversation_id))
+            raise SidecarError("provider_unavailable", "The student is unavailable.", retryable=True)
+
+    refusing = Refusing(paths)
+    _teach_back_pad(ctx, monkeypatch, refusing)
+    with pytest.raises(SidecarError):
+        _submit(ctx, session, as_="teach_back", item="pi_teach")
+    call(ctx, "pad.apply", {"clientId": "c", "seq": 2, "padId": "pad_r", "ops": [
+        {"op": "edit_block", "blockId": "b1", "expectedHead": "v1", "bodyMd": "reworded", "versionId": "v2"}]})
+    entry = _TeachBackEntry(paths)
+    _patch_entry(monkeypatch, entry)
+    again = _submit(ctx, session, as_="teach_back", item="pi_teach")
+    assert entry.calls[0][2:] == (WORDS, refusing.calls[0][3]) and again["teachBack"]["status"] == "ongoing"
+
+
+def test_two_submissions_with_the_same_words_are_never_taken_for_one_conversation(tmp_path, monkeypatch):
+    """Recovery is by the conversation's id, not its words: a second submission of identical words, while the first's
+    conversation is under way, is refused (its words would be taken as the first conversation's next answer),
+    not reported as the first conversation."""
+
+    paths, ctx, session = _sidecar(tmp_path)
+    entry = _TeachBackEntry(paths)
+    _teach_back_pad(ctx, monkeypatch, entry, _block("b1", WORDS, version_id="v1"),
+                    _block("b2", WORDS, version_id="v2", position="a1"))
+    first = _submit(ctx, session, as_="teach_back", item="pi_teach")
     with pytest.raises(SidecarError) as refused:
-        _submit(ctx, session, submission_id="sub_2", as_="teach_back", item="pi_teach")
+        _submit(ctx, session, submission_id="sub_2", block_id="b2", version_id="v2", as_="teach_back",
+                item="pi_teach")
     assert refused.value.code == "teach_back_in_progress"
-    assert repository.fetch_session_checkpoint(session) is not None
+    assert len(entry.calls) == 1 and first["teachBack"]["status"] == "ongoing"
+    assert _rows(paths, "SELECT submission_id FROM pad_block_submissions") == [("sub_1",)]

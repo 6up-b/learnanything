@@ -244,6 +244,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ingest_job_progress_migration.py](../../../../../../tests/test_ingest_job_progress_migration.py) — direct import
   - `test_it_adds_the_table_and_changes_nothing_else`
   - `test_the_head_fixture_holds_it_empty_in_rollback_mode`
+- [tests/test_ink_transcriptions_guard_migration.py](../../../../../../tests/test_ink_transcriptions_guard_migration.py) — direct import
+  - `test_it_changes_the_guard_alone_and_keeps_every_row`
 - [tests/test_judge_routes.py](../../../../../../tests/test_judge_routes.py) — direct import
   - `test_judgment_ledger_accepts_the_decider_with_provenance`
   - `test_migration_175_preserves_every_judgment_and_its_references`
@@ -328,6 +330,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_source_layer_schema_is_available`
   - `test_source_unit_selections_migration_applies_on_pre_040_db`
   - `test_source_unit_selections_schema_is_available`
+  - `test_the_migration_files_are_contiguous_from_the_oldest_to_the_head`
   - `test_variable_rubric_scale_migration_allows_scores_above_four`
 - [tests/test_mobile_jobs_migration.py](../../../../../../tests/test_mobile_jobs_migration.py) — direct import
   - `test_239_is_named_and_the_table_is_classified`
@@ -361,8 +364,14 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reader_rd0_migration.py](../../../../../../tests/test_reader_rd0_migration.py) — direct import
   - `test_it_adds_the_tables_and_changes_nothing_else`
   - `test_the_head_fixture_holds_them_empty_in_rollback_mode`
+- [tests/test_reader_rd10_migration.py](../../../../../../tests/test_reader_rd10_migration.py) — direct import
+  - `test_it_adds_its_objects_and_changes_nothing_else`
+  - `test_the_head_fixture_holds_it_empty_in_rollback_mode`
 - [tests/test_reader_rd4_migration.py](../../../../../../tests/test_reader_rd4_migration.py) — direct import
   - `test_it_adds_its_objects_rebuilds_three_tables_and_keeps_every_row`
+  - `test_the_head_fixture_holds_it_empty_in_rollback_mode`
+- [tests/test_reader_rd8a_migration.py](../../../../../../tests/test_reader_rd8a_migration.py) — direct import
+  - `test_it_adds_its_objects_and_changes_nothing_else`
   - `test_the_head_fixture_holds_it_empty_in_rollback_mode`
 - [tests/test_reader_rw3b_migration.py](../../../../../../tests/test_reader_rw3b_migration.py) — direct import
 - [tests/test_reader_rw7a_migration.py](../../../../../../tests/test_reader_rw7a_migration.py) — direct import

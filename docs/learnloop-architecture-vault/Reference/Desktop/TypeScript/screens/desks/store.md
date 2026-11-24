@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/store.ts](../../../../../../../apps/learnloop-tauri/src/screens/desks/store.ts) |
-| Source lines | 310 |
+| Source lines | 453 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/_area|TypeScript/screens/desks]] |
 | Refactor status | `ACTIVE` |
@@ -56,41 +56,57 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - `export interface DeskStoreTransport extends OutboxTransport` — interface, line 19
 - `export type DeskNotice = |` — type, line 25
-- `export const FLUSH_IDLE_MS = 250` — const, line 32
-- `export class DeskStore` — class, line 40
-- `export function deskStoreFor(vaultKey: string, transport: DeskStoreTransport, timers: Timers, clientId: ()` — function, line 298
+- `export const FLUSH_IDLE_MS = 250` — const, line 34
+- `export class DeskStore` — class, line 61
+- `export function deskStoreFor(vaultKey: string, transport: DeskStoreTransport, timers: Timers, clientId: ()` — function, line 441
 
 ## Internal implementation anchors
 
-- `function errorText(error: unknown): string` — function, line 34
-- `const known = this.padReads.get(padId)` — const, line 90
-- `const read = this.transport.padGet(` — const, line 93
-- `const state = this.pads[padId]` — const, line 112
-- `const blocks = state.blocks.map((block)` — const, line 114
-- `let pads = this.pads` — let, line 121
-- `const run = this.flushChain.then(()` — const, line 190
-- `const outcome = await this.outbox.flush()` — const, line 197
-- `const pad = outcome.batch.pad` — const, line 201
-- `const carried = pad ? pad.ops.filter((_op, index)` — const, line 202
-- `const dropped = outcome.reply.results.filter((result)` — const, line 203
-- `let state: DeskStateDto` — let, line 222
-- `const queued: BatchBody[] = [...(first ? [first] : []), ...this.outbox.queued()]` — const, line 230
-- `const head = state.serverSeq.find((entry)` — const, line 231
-- `let ws: Workspace =` — let, line 232
-- `const still = entries.filter((entry)` — const, line 234
-- `let pads: Pads =` — let, line 238
-- `const padIds = [...new Set([...Object.keys(this.pads), ...queued.flatMap((batch)` — const, line 239
-- `const reads = await Promise.all(padIds.map((padId)` — const, line 241
-- `const now = new Date().toISOString()` — const, line 246
-- `let lost = 0` — let, line 247
-- `const rebased: BatchBody[] = []` — const, line 248
-- `const padOps: PadOpDto[] = []` — const, line 251
-- `const next = restampPadOp(pads, batch.pad.padId, op, now)` — const, line 254
-- `const ops: DeskOpDto[] = []` — const, line 265
-- `const next = restampOp(ws, op)` — const, line 268
-- `const STORES = new WeakMap<object, Map<string, DeskStore>>()` — const, line 295
-- `let byVault = STORES.get(transport)` — let, line 299
-- `let store = byVault.get(vaultKey)` — let, line 304
+- `function keptBothRedirects(batch:` — function, line 37
+- `const redirects: KeptBothRedirects = new Map()` — const, line 38
+- `const result = results[index]` — const, line 40
+- `function keptLabel(now: string): string` — function, line 49
+- `const at = new Date(now)` — const, line 50
+- `const time = Number.isNaN(at.getTime()) ? "" : ` · $` — const, line 51
+- `function errorText(error: unknown): string` — function, line 55
+- `const known = this.padReads.get(padId)` — const, line 111
+- `const read = this.transport.padGet(` — const, line 114
+- `const state = this.pads[padId]` — const, line 145
+- `const blocks = state.blocks.map((block)` — const, line 147
+- `let pads = this.pads` — let, line 160
+- `const before = this.padChanges.get(padId) ?? 0` — const, line 183
+- `const view = await this.transport.padGet(` — const, line 185
+- `const run = this.flushChain.then(()` — const, line 280
+- `const kind = await this.flushReporting()` — const, line 296
+- `const outcome = await this.outbox.flush()` — const, line 305
+- `const redirects = keptBothRedirects(outcome.batch, outcome.reply.results)` — const, line 310
+- `const kept = redirects.size` — const, line 311
+- `const dropped = outcome.reply.results.filter((result)` — const, line 312
+- `const redirects = keptBothRedirects(outcome.batch, outcome.reply.results)` — const, line 317
+- `const kept = redirects.size` — const, line 319
+- `let state: DeskStateDto` — let, line 340
+- `const snapshot = this.outbox.queued()` — const, line 348
+- `const taken = new Set(snapshot.map((batch)` — const, line 349
+- `const queued: BatchBody[] = [...(first ? [first] : []), ...snapshot]` — const, line 350
+- `const head = state.serverSeq.find((entry)` — const, line 351
+- `let ws: Workspace =` — let, line 352
+- `const still = entries.filter((entry)` — const, line 354
+- `let pads: Pads =` — let, line 358
+- `const padIds = [...new Set([...Object.keys(this.pads), ...queued.flatMap((batch)` — const, line 359
+- `const read = async (ids: string[])` — const, line 360
+- `const reads = await Promise.all(ids.map((padId)` — const, line 361
+- `const tail = this.outbox.queued().filter((batch)` — const, line 370
+- `const unread = [...new Set(tail.flatMap((batch)` — const, line 374
+- `const now = new Date().toISOString()` — const, line 379
+- `let lost = 0` — let, line 380
+- `const rebased: BatchBody[] = []` — const, line 381
+- `const padOps: PadOpDto[] = []` — const, line 393
+- `const next = restampPadOp(pads, batch.pad.padId, op, now, redirects)` — const, line 396
+- `const ops: DeskOpDto[] = []` — const, line 407
+- `const next = restampOp(ws, op)` — const, line 410
+- `const STORES = new WeakMap<object, Map<string, DeskStore>>()` — const, line 438
+- `let byVault = STORES.get(transport)` — let, line 442
+- `let store = byVault.get(vaultKey)` — let, line 447
 
 ## Who imports or calls it
 
@@ -105,11 +121,11 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ### Desktop source modules
 
-- [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `DeskOpDto`, `DeskStateDto`, `PadBlockSubmissionDto`, `PadOpDto`, `PadViewDto`
+- [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `DeskOpDto`, `DeskStateDto`, `PadBlockSubmissionDto`, `PadOpDto`, `PadViewDto`, `WriteOpResultDto`
 - [[Reference/Desktop/TypeScript/screens/desks/keys/router|src/screens/desks/keys/router.ts]] — import-or-re-export; imports `Timers`
 - [[Reference/Desktop/TypeScript/screens/desks/model/workspace|src/screens/desks/model/workspace.ts]] — import-or-re-export; imports `EMPTY_WORKSPACE`, `OpRefusal`, `Step`, `Workspace`, `fromDeskState`, `restampOp`
-- [[Reference/Desktop/TypeScript/screens/desks/outbox|src/screens/desks/outbox.ts]] — import-or-re-export; imports `BatchBody`, `DeskOutbox`, `MemoryOutboxStore`, `OutboxTransport`
-- [[Reference/Desktop/TypeScript/screens/desks/pads/model|src/screens/desks/pads/model.ts]] — import-or-re-export; imports `PadOpRefusal`, `Pads`, `applyPadOp`, `fromPadView`, `restampPadOp`
+- [[Reference/Desktop/TypeScript/screens/desks/outbox|src/screens/desks/outbox.ts]] — import-or-re-export; imports `BatchBody`, `DeskOutbox`, `FlushOutcome`, `InkEraseBody`, `InkSaveBody`, `MemoryOutboxStore`, `OutboxTransport`
+- [[Reference/Desktop/TypeScript/screens/desks/pads/model|src/screens/desks/pads/model.ts]] — import-or-re-export; imports `KeptBothRedirects`, `PadOpRefusal`, `Pads`, `applyPadOp`, `fromPadView`, `restampPadOp`
 
 ### Assets, platform, and third-party dependencies
 
@@ -124,7 +140,10 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 ## Tests that define behavior
 
 - [apps/learnloop-tauri/src/screens/desks/store.test.ts](../../../../../../../apps/learnloop-tauri/src/screens/desks/store.test.ts) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/desks/pen/inkPad.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/desks/pen/inkPad.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/desks/pen/inkOutbox.test.ts](../../../../../../../apps/learnloop-tauri/src/screens/desks/pen/inkOutbox.test.ts) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/desks/pads/PadStackWindow.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/desks/pads/PadStackWindow.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/desks/lesson/lessonWindows.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/desks/lesson/lessonWindows.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 
 ## Modification guidance
 

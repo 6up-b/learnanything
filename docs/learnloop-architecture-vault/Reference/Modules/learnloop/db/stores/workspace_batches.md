@@ -90,6 +90,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/desks/protocol|learnloop.desks.protocol]] — imports `module`; statically calls `client_heads`, `find_receipt`, `insert_receipt`, `last_seq`
 - [[Reference/Modules/learnloop/desks/workspace|learnloop.desks.workspace]] — imports `DESK`
 - [[Reference/Modules/learnloop/pads/blocks|learnloop.pads.blocks]] — imports `PAD`
+- [[Reference/Modules/learnloop/pads/ink|learnloop.pads.ink]] — imports `PAD`
 
 ## Dependencies
 
@@ -109,7 +110,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/desks/protocol|learnloop.desks.protocol]], [[Reference/Modules/learnloop/desks/workspace|learnloop.desks.workspace]], [[Reference/Modules/learnloop/pads/blocks|learnloop.pads.blocks]].
+Static participation evidence comes from [[Reference/Modules/learnloop/desks/protocol|learnloop.desks.protocol]], [[Reference/Modules/learnloop/desks/workspace|learnloop.desks.workspace]], [[Reference/Modules/learnloop/pads/blocks|learnloop.pads.blocks]], [[Reference/Modules/learnloop/pads/ink|learnloop.pads.ink]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -118,8 +119,17 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 No test imports this module directly. These tests exercise a direct production consumer:
 
 - [tests/test_reader_rd0_protocol.py](../../../../../../../tests/test_reader_rd0_protocol.py) — imports consumer [[Reference/Modules/learnloop/desks/protocol|learnloop.desks.protocol]]
+- [tests/test_reader_rd8a_ink.py](../../../../../../../tests/test_reader_rd8a_ink.py) — imports consumer [[Reference/Modules/learnloop/desks/protocol|learnloop.desks.protocol]]
 - [tests/desk_helpers.py](../../../../../../../tests/desk_helpers.py) — imports consumer [[Reference/Modules/learnloop/desks/workspace|learnloop.desks.workspace]]
+- [tests/test_pad_stale_edits_stacks_and_passage_reads.py](../../../../../../../tests/test_pad_stale_edits_stacks_and_passage_reads.py) — imports consumer [[Reference/Modules/learnloop/desks/workspace|learnloop.desks.workspace]]
 - [tests/test_reader_rd1_model_parity.py](../../../../../../../tests/test_reader_rd1_model_parity.py) — imports consumer [[Reference/Modules/learnloop/desks/workspace|learnloop.desks.workspace]]
+- [tests/test_reader_rd4_emission.py](../../../../../../../tests/test_reader_rd4_emission.py) — imports consumer [[Reference/Modules/learnloop/pads/blocks|learnloop.pads.blocks]]
+- [tests/identity_pins_helpers.py](../../../../../../../tests/identity_pins_helpers.py) — imports consumer [[Reference/Modules/learnloop/pads/ink|learnloop.pads.ink]]
+- [tests/ink_helpers.py](../../../../../../../tests/ink_helpers.py) — imports consumer [[Reference/Modules/learnloop/pads/ink|learnloop.pads.ink]]
+- [tests/test_reader_rd8a_fix.py](../../../../../../../tests/test_reader_rd8a_fix.py) — imports consumer [[Reference/Modules/learnloop/pads/ink|learnloop.pads.ink]]
+- [tests/test_reader_rd8a_fix_rpcs.py](../../../../../../../tests/test_reader_rd8a_fix_rpcs.py) — imports consumer [[Reference/Modules/learnloop/pads/ink|learnloop.pads.ink]]
+- [tests/test_reader_rd8a_render.py](../../../../../../../tests/test_reader_rd8a_render.py) — imports consumer [[Reference/Modules/learnloop/pads/ink|learnloop.pads.ink]]
+- [tests/test_reader_rd8a_transcribe.py](../../../../../../../tests/test_reader_rd8a_transcribe.py) — imports consumer [[Reference/Modules/learnloop/pads/ink|learnloop.pads.ink]]
 
 ## Modification guidance
 

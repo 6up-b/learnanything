@@ -8,7 +8,8 @@ import { FixtureDeskServer } from "../../../fixtures/desks/workspace";
 import { isTypingTarget, type Timers } from "../keys/router";
 import { DIRECT_HUB, WindowScope, type WindowState } from "../lifecycle";
 import { DeskStore } from "../store";
-import { PadsHostContext, type PadsApi, type PadsHost } from "./host";
+import { objectAt } from "../menu/model";
+import { PadsHostContext, PendingFigures, type PadsApi, type PadsHost, type PadStackHandle } from "./host";
 import { PadStackWindow } from "./PadStackWindow";
 
 class ManualTimers implements Timers {
@@ -61,12 +62,25 @@ function fakeApi(): PadsApi & { calls: Array<[string, unknown]> } {
     passageUnionRange: log("passageUnionRange", { sections: [] } as never),
     authorPracticeItem: log("authorPracticeItem", { practiceItemId: "new_item" }),
     workbenchOpenProblems: log("workbenchOpenProblems", { problems: [{ sessionId: "wb1", practiceItemId: "item_problem" }] }),
+    submitTeachBackTurn: log("submitTeachBackTurn", { done: true } as never),
+    getSession: log("getSession", { checkpoint: null } as never),
+    passageContent: async (input) => {
+      calls.push(["passageContent", input]);
+      const span = (input as { fromSpanId: string }).fromSpanId;
+      return { version: 1, extractionId: input.extractionId, sourceId: "src_other", title: "Another book", withheld: false,
+        spans: [{ spanId: span, text: "The whole passage, as the source has it, unclipped and with $x^2$ intact.", page: 12, t0: null, t1: null, sectionId: "sec3", sectionLabel: "3 Temperature", withheld: false }] } as never;
+    },
   };
 }
 
 let minted = 0;
+const TOASTS = new WeakMap<object, string[]>();
+const toastsOf = (host: PadsHost) => TOASTS.get(host) ?? [];
 
-function mount(options: { state?: WindowState; server?: FixtureDeskServer; padIds?: string[]; practiceSessionId?: string | null } = {}) {
+/** The mounted stack's handle (the desks reach a stack through it). */
+let stackHandleOf: () => PadStackHandle | null = () => null;
+
+function mount(options: { state?: WindowState; server?: FixtureDeskServer; padIds?: string[]; practiceSessionId?: string | null; view?: Record<string, unknown> } = {}) {
   const server = options.server ?? new FixtureDeskServer();
   const timers = new ManualTimers();
   const store = new DeskStore("me", {
@@ -91,14 +105,29 @@ function mount(options: { state?: WindowState; server?: FixtureDeskServer; padId
     toast: (text) => toasts.push(text),
     setView: (_windowId, view) => views.push(view),
     sourcePieces: () => [],
-    register: () => undefined,
+    register: (_windowId, handle) => {
+      stackHandle = handle;
+    },
     carry: vi.fn(),
+    figures: new PendingFigures(),
+    addToStack: vi.fn(),
   };
   const padIds = options.padIds ?? ["fx_pad_running", "fx_pad_deriving"];
+  let stackHandle: PadStackHandle | null = null;
+  stackHandleOf = () => stackHandle;
+  // The desks' one right-click listener, as the shell has it: a pad line's menu opens in its window.
+  const onContextMenuCapture = (event: React.MouseEvent) => {
+    const object = objectAt(event.target as Element, () => "pad_stack", () => null, { x: event.clientX, y: event.clientY });
+    if (object?.kind !== "pad_line" || !object.padId || !stackHandle) return;
+    event.preventDefault();
+    stackHandle.openMenu(object.padId, object.blockId ?? null, object.at, object.selection);
+  };
   const ui = (state: WindowState) => (
     <WindowScope lifecycle={{ windowId: "w1", state }} hub={DIRECT_HUB}>
       <PadsHostContext.Provider value={host}>
-        <PadStackWindow windowId="w1" stack={padIds.map((padId) => ({ kind: "pad" as const, padId }))} view={{}} />
+        <div data-desk-window="w1" onContextMenuCapture={onContextMenuCapture}>
+          <PadStackWindow windowId="w1" stack={padIds.map((padId) => ({ kind: "pad" as const, padId }))} view={options.view ?? {}} />
+        </div>
       </PadsHostContext.Provider>
     </WindowScope>
   );
@@ -111,6 +140,7 @@ function mount(options: { state?: WindowState; server?: FixtureDeskServer; padId
       });
     }
   };
+  TOASTS.set(host, toasts);
   return { server, store, api, host, views, toasts, view, flush, rerender: (state: WindowState) => view.rerender(ui(state)) };
 }
 
@@ -214,30 +244,85 @@ describe("a pad stack window", () => {
   });
 
   it("lift out makes the block its own pad in this stack, leaving a stub", async () => {
-    const { store, views, server, flush } = mount();
+    const { store, views, server, flush, host } = mount();
     await waitFor(() => expect(block("fx_b_r1")).toBeTruthy());
     fireEvent.click(within(block("fx_b_r1")).getByRole("button", { name: "lift out" }));
     const stub = store.pads.fx_pad_running.blocks.find((each) => each.blockId === "fx_b_r1");
     expect(stub?.kind).toBe("lifted");
     const newPadId = String(stub?.payload.lifted_to_pad_id);
-    expect(views[views.length - 1]).toEqual({ addedPads: [newPadId] });
+    // Membership by its own op (add_to_stack), never a whole-view write.
+    expect(host.addToStack).toHaveBeenCalledWith("w1", newPadId);
+    expect(views).toEqual([]);
     expect(store.pads[newPadId]?.blocks[0].bodyMd).toMatch(/^softmax keeps the winner/);
     await flush();
     expect(sentOps(server).map((op) => op.op)).toEqual(["lift_out"]);
   });
 
-  it("the pad menu offers submit only on the learner's words, and marimo cells say they arrive with notebooks", async () => {
+  it("the pad menu offers submit only on the learner's words, and its marimo row is live (notebooks are in)", async () => {
     mount();
     await waitFor(() => expect(block("fx_b_r1")).toBeTruthy());
     fireEvent.contextMenu(block("fx_b_r2"));
     let menu = screen.getByRole("menu", { name: "the pad menu" });
     expect(within(menu).queryByText("Submit this block as…")).toBeNull();
-    expect((within(menu).getByText("marimo cell · arrives with notebooks").closest("button") as HTMLButtonElement).disabled).toBe(true);
+    expect((within(menu).getByText("marimo cell").closest("button") as HTMLButtonElement).disabled).toBe(false);
+    expect(within(menu).queryByText(/arrives with notebooks/)).toBeNull();
     fireEvent.keyDown(window, { key: "Escape" });
     expect(screen.queryByRole("menu")).toBeNull();
     fireEvent.contextMenu(block("fx_b_r1"));
     menu = screen.getByRole("menu", { name: "the pad menu" });
     expect(within(menu).getByText("Submit this block as…")).toBeTruthy();
+  });
+
+  it("the marimo row inserts an empty cell of the learner's below the line", async () => {
+    const { store, flush } = mount();
+    await waitFor(() => expect(block("fx_b_r1")).toBeTruthy());
+    fireEvent.contextMenu(block("fx_b_r1"));
+    fireEvent.click(screen.getByText("marimo cell"));
+    await flush();
+    const blocks = store.pads.fx_pad_running.blocks;
+    const at = blocks.findIndex((each) => each.blockId === "fx_b_r1");
+    expect(blocks[at + 1]).toMatchObject({ kind: "cell", provenance: "learner", bodyMd: "" });
+  });
+
+  it("Teach me on a line linked to two readings teaches the first reading's passages only (never its spans under another reading)", async () => {
+    const { store, host, flush } = mount();
+    const teachMe = vi.fn();
+    host.teachMe = teachMe;
+    await waitFor(() => expect(block("fx_b_r2")).toBeTruthy());
+    store.commitPad("fx_pad_running", [
+      { op: "link_anchor", blockId: "fx_b_r2", extractionId: "fx_ext_attention", spanId: "fx_ext_attention_s1_1", eventId: "lnk_other", expectedAnchorHead: null, annotationId: null },
+      { op: "link_anchor", blockId: "fx_b_r2", extractionId: "fx_ext_softmax", spanId: "fx_ext_softmax_s1_4", eventId: "lnk_same", expectedAnchorHead: null, annotationId: null },
+    ]);
+    await flush();
+    fireEvent.contextMenu(block("fx_b_r2"));
+    fireEvent.click(screen.getByText("Teach me this"));
+    expect(teachMe).toHaveBeenCalledWith("fx_ext_softmax", ["fx_ext_softmax_s1_3", "fx_ext_softmax_s1_4"]);
+  });
+
+  it("a notebook frame's right-click opens the pad menu labelled for its owner, the frame's text only ever quoted", async () => {
+    const { store, flush } = mount();
+    await waitFor(() => expect(block("fx_b_r1")).toBeTruthy());
+    act(() => {
+      stackHandleOf()?.openFrameMenu({ owner: "pad:fx_pad_running", padId: "fx_pad_running", lessonId: null, text: "<b>bold</b> words", x: 40, y: 40,
+        label: "your pad", insertLabel: "insert at the end of this pad" });
+    });
+    const menu = screen.getByRole("menu", { name: "the pad menu" });
+    expect(within(menu).getByText("your pad · “<b>bold</b> words”")).toBeTruthy();
+    expect(menu.querySelector("b")).toBeNull();
+    expect(within(menu).getByText("insert at the end of this pad")).toBeTruthy();
+    // A pad's inserts from the frame land at the pad's end.
+    fireEvent.click(within(menu).getByText("marimo cell"));
+    await flush();
+    expect(store.pads.fx_pad_running.blocks.slice(-1)[0]).toMatchObject({ kind: "cell", provenance: "learner" });
+    act(() => {
+      stackHandleOf()?.openFrameMenu({ owner: "lesson:les9", padId: null, lessonId: "les9", text: "a cell's words", x: 40, y: 40,
+        label: "the lesson", insertLabel: "add under this lesson (the notebook stays as the teacher made it)" });
+    });
+    const lesson = screen.getByRole("menu", { name: "the pad menu" });
+    expect(within(lesson).getByText("the lesson · “a cell's words”")).toBeTruthy();
+    expect(within(lesson).getByText("add under this lesson (the notebook stays as the teacher made it)")).toBeTruthy();
+    // Nothing of a pad's own (muting its suggestions) on a lesson's menu.
+    expect(within(lesson).queryByText(/suggestions on this pad/)).toBeNull();
   });
 
   it("a piece of a source inserted from the menu lands below the line, linked to its passage in the same write", async () => {
@@ -246,8 +331,10 @@ describe("a pad stack window", () => {
     await waitFor(() => expect(block("fx_b_r1")).toBeTruthy());
     fireEvent.contextMenu(block("fx_b_r1"));
     fireEvent.click(screen.getByText("the passage in view · a book"));
+    // The piece's words are the passage's own, read whole (not the page's rendered text).
+    await waitFor(() => expect(store.pads.fx_pad_running.blocks[1]?.kind).toBe("source_piece"));
     const blocks = store.pads.fx_pad_running.blocks;
-    expect(blocks[1]).toMatchObject({ kind: "source_piece", provenance: "source", bodyMd: "a passage's words" });
+    expect(blocks[1]).toMatchObject({ kind: "source_piece", provenance: "source", bodyMd: "The whole passage, as the source has it, unclipped and with $x^2$ intact." });
     expect(store.pads.fx_pad_running.anchors.some((anchor) => anchor.blockId === blocks[1].blockId && anchor.spanId === "fx_ext_x_s4")).toBe(true);
     await flush();
     expect(server.padBatches.map((batch) => (batch.ops as PadOpDto[]).map((op) => op.op))).toEqual([["insert_block", "link_anchor"]]);
@@ -317,5 +404,255 @@ describe("a pad stack window", () => {
     fireEvent.click(screen.getByRole("button", { name: "not this" }));
     expect(api.calls.filter(([name]) => name === "proposalLabel").map(([, input]) => (input as { label: string }).label)).toEqual(["ignored", "not_this"]);
     expect(within(block("fx_b_r1")).queryByRole("button", { name: "proposal mark" })).toBeNull();
+  });
+});
+
+describe("the fix round (RD4 review)", () => {
+  it("a click inside the editor (moving the caret) keeps the draft; blur writes it", async () => {
+    const { store, server, flush } = mount();
+    await waitFor(() => expect(block("fx_b_r1")).toBeTruthy());
+    fireEvent.click(block("fx_b_r1"));
+    await waitFor(() => expect(textarea()).toBeTruthy());
+    fireEvent.change(textarea() as HTMLTextAreaElement, { target: { value: "my new words" } });
+    // The learner clicks inside the box to move the caret: the click bubbles to the block.
+    fireEvent.mouseDown(textarea() as HTMLTextAreaElement);
+    fireEvent.click(textarea() as HTMLTextAreaElement);
+    expect(textarea()?.value).toBe("my new words");
+    fireEvent.blur(textarea() as HTMLTextAreaElement);
+    await waitFor(() => expect(textarea()).toBeNull());
+    expect(store.pads.fx_pad_running.blocks[0].bodyMd).toBe("my new words");
+    await flush();
+    const edits = sentOps(server).filter((op) => op.op === "edit_block");
+    expect(edits.map((op) => (op as { bodyMd?: string }).bodyMd)).toEqual(["my new words"]);
+  });
+
+  function anchoredRunning() {
+    const server = new FixtureDeskServer();
+    const running = server.pads.fx_pad_running as PadViewDto;
+    running.anchors = [...running.anchors, { eventId: "fx_an_r1", blockId: "fx_b_r1", extractionId: "fx_ext_softmax", spanId: "fx_ext_softmax_s1_1", anchor: {}, annotationId: null, createdAt: "2026-11-22T09:00:00Z" }];
+    return server;
+  }
+  async function openTeachBack(api: PadsApi) {
+    api.passageUnionRange = (async () => ({ sections: [{ learningObjects: [{ learningObjectId: "lo1" }] }] })) as never;
+    await waitFor(() => expect(block("fx_b_r1")).toBeTruthy());
+    fireEvent.contextMenu(block("fx_b_r1"));
+    fireEvent.click(screen.getByText("Submit this block as…"));
+    return screen.findByRole("button", { name: /a teach-back of the idea/ });
+  }
+
+  it("Make it practice saves once: a second press while the first save is on its way authors nothing more", async () => {
+    const { api } = mount({ server: anchoredRunning() });
+    api.passageUnionRange = (async () => ({ sections: [{ learningObjects: [{ learningObjectId: "lo1" }] }] })) as never;
+    let finish: () => void = () => undefined;
+    const authored: unknown[] = [];
+    api.authorPracticeItem = ((input: unknown) => {
+      authored.push(input);
+      return new Promise((resolve) => { finish = () => resolve({ practiceItemId: "pi1" }); });
+    }) as never;
+    await waitFor(() => expect(block("fx_b_r1")).toBeTruthy());
+    fireEvent.contextMenu(block("fx_b_r1"));
+    fireEvent.click(screen.getByText("Make it practice"));
+    const sheet = await screen.findByRole("dialog", { name: "make it practice" });
+    fireEvent.change(within(sheet).getAllByRole("textbox")[1], { target: { value: "the largest score wins" } });
+    await waitFor(() => expect((within(sheet).getByText("save to my queue") as HTMLButtonElement).disabled).toBe(false));
+    const save = within(sheet).getByText("save to my queue");
+    fireEvent.click(save);
+    fireEvent.click(within(sheet).getByRole("button", { name: "saving…" }));
+    expect(authored).toHaveLength(1);
+    await act(async () => {
+      finish();
+      await Promise.resolve();
+    });
+  });
+
+  it("Make it practice sends one key per sheet with every save of it (a retry after a lost reply reuses it)", async () => {
+    const { api } = mount({ server: anchoredRunning() });
+    api.passageUnionRange = (async () => ({ sections: [{ learningObjects: [{ learningObjectId: "lo1" }] }] })) as never;
+    const authored: Array<{ clientIdempotencyKey?: string }> = [];
+    let lost = true;
+    api.authorPracticeItem = (async (input: { clientIdempotencyKey?: string }) => {
+      authored.push(input);
+      if (lost) {
+        lost = false;
+        throw { code: "sidecar_unavailable", message: "the reply was lost" };
+      }
+      return { practiceItemId: "pi1" };
+    }) as never;
+    await waitFor(() => expect(block("fx_b_r1")).toBeTruthy());
+    fireEvent.contextMenu(block("fx_b_r1"));
+    fireEvent.click(screen.getByText("Make it practice"));
+    const sheet = await screen.findByRole("dialog", { name: "make it practice" });
+    fireEvent.change(within(sheet).getAllByRole("textbox")[1], { target: { value: "the largest score wins" } });
+    await waitFor(() => expect((within(sheet).getByText("save to my queue") as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(within(sheet).getByText("save to my queue"));
+    await waitFor(() => expect((within(sheet).getByText("save to my queue") as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(within(sheet).getByText("save to my queue"));
+    await waitFor(() => expect(authored).toHaveLength(2));
+    expect(authored[0].clientIdempotencyKey).toBeTruthy();
+    expect(authored[1].clientIdempotencyKey).toBe(authored[0].clientIdempotencyKey);
+  });
+
+  it("the Make it practice sheet takes the focus, and escape lets it go", async () => {
+    const { api } = mount({ server: anchoredRunning() });
+    api.passageUnionRange = (async () => ({ sections: [{ learningObjects: [{ learningObjectId: "lo1" }] }] })) as never;
+    await waitFor(() => expect(block("fx_b_r1")).toBeTruthy());
+    fireEvent.contextMenu(block("fx_b_r1"));
+    fireEvent.click(screen.getByText("Make it practice"));
+    const sheet = await screen.findByRole("dialog", { name: "make it practice" });
+    expect(sheet.contains(document.activeElement)).toBe(true);
+    fireEvent.keyDown(document.body, { key: "Escape" });
+    expect(screen.queryByRole("dialog", { name: "make it practice" })).toBeNull();
+  });
+
+  it("a submission retried after a lost reply resends the same frozen request: one submission id, one teach-back target", async () => {
+    const { api } = mount({ server: anchoredRunning() });
+    const sent: unknown[] = [];
+    let first = true;
+    api.padSubmitBlock = async (input) => {
+      sent.push(input);
+      if (first) {
+        first = false;
+        throw { code: "sidecar_unavailable", message: "the reply was lost" };
+      }
+      return { version: 1, submissionId: input.submissionId, blockId: input.blockId, versionId: input.versionId, as: input.as, practiceItemId: input.target.practiceItemId, attemptId: null, teachBackId: "tb1", duplicate: true, entry: null } as never;
+    };
+    const row = await openTeachBack(api);
+    fireEvent.click(row);
+    expect(await screen.findByText(/the reply was lost/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /a teach-back of the idea/ }));
+    await waitFor(() => expect(sent).toHaveLength(2));
+    const [a, b] = sent as Array<{ submissionId: string; versionId: string; target: { practiceItemId: string } }>;
+    expect(b.submissionId).toBe(a.submissionId);
+    expect(b.versionId).toBe(a.versionId);
+    expect(b.target).toEqual(a.target);
+    expect(api.calls.filter(([name]) => name === "requestTeachBack")).toHaveLength(1);
+  });
+
+  it("a teach-back that asks a follow-up shows the question and continues the conversation", async () => {
+    const { api } = mount({ server: anchoredRunning() });
+    api.padSubmitBlock = (async (input: { submissionId: string; blockId: string; versionId: string; as: string; target: { practiceItemId: string } }) => ({
+      version: 1, submissionId: input.submissionId, blockId: input.blockId, versionId: input.versionId, as: input.as, practiceItemId: input.target.practiceItemId,
+      attemptId: null, teachBackId: "tb1", duplicate: false,
+      entry: { done: false, questionMd: "why do the weights stay positive?", questionNumber: 1, remaining: 1, asked: 1, budget: 2 },
+    })) as never;
+    const turns: unknown[] = [];
+    api.submitTeachBackTurn = (async (input: unknown) => {
+      turns.push(input);
+      return { done: true };
+    }) as never;
+    fireEvent.click(await openTeachBack(api));
+    expect(await screen.findByText("why do the weights stay positive?")).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("your answer"), { target: { value: "the exponential is positive" } });
+    fireEvent.click(screen.getByRole("button", { name: "answer" }));
+    await waitFor(() => expect(turns).toHaveLength(1));
+    expect(turns[0]).toMatchObject({ sessionId: "session1", practiceItemId: "tb_item", answerMd: "the exponential is positive" });
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "submit this block" })).toBeNull());
+  });
+
+  it("a duplicate reply resumes the conversation the submission reserved (its stored state's open question)", async () => {
+    const { api } = mount({ server: anchoredRunning() });
+    api.padSubmitBlock = (async (input: { submissionId: string; blockId: string; versionId: string; as: string; target: { practiceItemId: string } }) => ({
+      version: 1, submissionId: input.submissionId, blockId: input.blockId, versionId: input.versionId, as: input.as, practiceItemId: input.target.practiceItemId,
+      attemptId: null, teachBackId: "tb1", duplicate: true, entry: null,
+      teachBack: { status: "ongoing", conversationId: "conv1", state: { practice_item_id: "tb_item", turns: [{ role: "learner", content_md: "mine" }, { role: "ai", content_md: "what if all scores are equal?" }] } },
+    })) as never;
+    fireEvent.click(await openTeachBack(api));
+    expect(await screen.findByText("what if all scores are equal?")).toBeTruthy();
+    expect(api.calls.some(([name]) => name === "getSession")).toBe(false);
+  });
+
+  it("a duplicate reply from an older sidecar (no conversation in it) resumes from the session's checkpoint", async () => {
+    const { api } = mount({ server: anchoredRunning() });
+    api.padSubmitBlock = (async (input: { submissionId: string; blockId: string; versionId: string; as: string; target: { practiceItemId: string } }) => ({
+      version: 1, submissionId: input.submissionId, blockId: input.blockId, versionId: input.versionId, as: input.as, practiceItemId: input.target.practiceItemId,
+      attemptId: null, teachBackId: "tb1", duplicate: true, entry: null,
+    })) as never;
+    api.getSession = (async () => ({ checkpoint: { currentPracticeItemId: "tb_item", hintsUsed: 0, submissionId: null,
+      currentAnswer: JSON.stringify({ mode: "teach_back", state: { practice_item_id: "tb_item", turns: [{ role: "learner", content_md: "mine" }, { role: "ai", content_md: "and for a negative score?" }] } }) } })) as never;
+    fireEvent.click(await openTeachBack(api));
+    expect(await screen.findByText("and for a negative score?")).toBeTruthy();
+  });
+
+  it("a figure Show me asked for, finished while the pad is paused, writes nothing until the pad is back, then lands", async () => {
+    const { host, store, rerender } = mount({ server: anchoredRunning() });
+    let finish: (figure: { figureId: string; line: string }) => void = () => undefined;
+    host.showMe = (() => new Promise((resolve) => { finish = resolve; })) as never;
+    await waitFor(() => expect(block("fx_b_r1")).toBeTruthy());
+    fireEvent.contextMenu(block("fx_b_r1"));
+    fireEvent.click(screen.getByText("Show me"));
+    const before = store.pads.fx_pad_running.blocks.length;
+    rerender("hidden");
+    await act(async () => {
+      finish({ figureId: "fig9", line: "softmax at two temperatures" });
+      await Promise.resolve();
+    });
+    expect(store.pads.fx_pad_running.blocks.length).toBe(before);
+    rerender("active");
+    await waitFor(() => expect(store.pads.fx_pad_running.blocks.some((each) => each.kind === "figure" && each.payload.figure_id === "fig9")).toBe(true));
+  });
+
+  it("in split view a gutter mark still opens its card", async () => {
+    mount({ view: { split: { pads: ["fx_pad_running", "fx_pad_deriving"], ratios: [1, 1] } } });
+    await waitFor(() => expect(block("fx_b_r2")).toBeTruthy());
+    expect(document.querySelector(".desk-pads .split")).not.toBeNull();
+    const mark = within(block("fx_b_r2")).getByRole("button", { name: "source mark" });
+    vi.useFakeTimers();
+    fireEvent.mouseEnter(mark);
+    act(() => {
+      vi.advanceTimersByTime(200);
+    });
+    expect(document.querySelector('[data-pad-card="source"]')).not.toBeNull();
+    fireEvent.mouseLeave(mark);
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
+    fireEvent.click(mark);
+    expect(document.querySelector('[data-pad-card="source"]')).not.toBeNull();
+  });
+
+  it("a piece of another source is the passage's own words (fetched whole), with its title and page apart; a whole source is not a piece", async () => {
+    const { host, store } = mount();
+    let insert: ((row: never) => void) | undefined;
+    host.openSearch = ((_query: string, callback?: (row: never) => void) => { insert = callback; }) as never;
+    await waitFor(() => expect(block("fx_b_r1")).toBeTruthy());
+    fireEvent.contextMenu(block("fx_b_r1"));
+    fireEvent.click(screen.getByText("a piece of another source…"));
+    expect(insert).toBeDefined();
+    // A source row (no passage) inserts nothing and says why.
+    await act(async () => {
+      insert!({ kind: "result", key: "s", group: "sources", text: "Another book", where: "source", byMeaning: false, ref: { kind: "source", sourceId: "src_other", extractionId: "ext_other" }, target: null, raw: {} } as never);
+    });
+    expect(store.pads.fx_pad_running.blocks.some((each) => each.kind === "source_piece")).toBe(false);
+    expect(toastsOf(host).some((text) => /choose a passage/.test(text))).toBe(true);
+    // A passage row inserts the passage's canonical words, never the row's clipped label.
+    await act(async () => {
+      insert!({ kind: "result", key: "p", group: "passages", text: "Another book p.12 · The whole passage, as the…", where: "passage", byMeaning: false, ref: { kind: "source", sourceId: "src_other", extractionId: "ext_other" }, target: { spanId: "ext_other_s9" }, raw: {} } as never);
+      await Promise.resolve();
+    });
+    const piece = await waitFor(() => {
+      const found = store.pads.fx_pad_running.blocks.find((each) => each.kind === "source_piece");
+      expect(found).toBeTruthy();
+      return found!;
+    });
+    expect(piece.bodyMd).toBe("The whole passage, as the source has it, unclipped and with $x^2$ intact.");
+    expect(piece.payload).toMatchObject({ source_title: "Another book", page: 12, extraction_id: "ext_other", span_id: "ext_other_s9", source_id: "src_other", section_label: "3 Temperature" });
+  });
+
+  it("a held-out passage is not copied into a pad, and says so", async () => {
+    const { host, store, api } = mount();
+    api.passageContent = (async (input: { extractionId: string; fromSpanId: string }) => ({ version: 1, extractionId: input.extractionId, sourceId: "src_other", title: "An exam", withheld: true,
+      spans: [{ spanId: input.fromSpanId, text: null, page: 1, t0: null, t1: null, sectionId: null, sectionLabel: null, withheld: true }] })) as never;
+    let insert: ((row: never) => void) | undefined;
+    host.openSearch = ((_query: string, callback?: (row: never) => void) => { insert = callback; }) as never;
+    await waitFor(() => expect(block("fx_b_r1")).toBeTruthy());
+    fireEvent.contextMenu(block("fx_b_r1"));
+    fireEvent.click(screen.getByText("a piece of another source…"));
+    await act(async () => {
+      insert!({ kind: "result", key: "p", group: "passages", text: "An exam · question 1", where: "passage", byMeaning: false, ref: { kind: "source", sourceId: "src_other", extractionId: "ext_exam" }, target: { spanId: "ext_exam_s1" }, raw: {} } as never);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(store.pads.fx_pad_running.blocks.some((each) => each.kind === "source_piece")).toBe(false);
+    expect(toastsOf(host).some((text) => /held out/.test(text))).toBe(true);
   });
 });

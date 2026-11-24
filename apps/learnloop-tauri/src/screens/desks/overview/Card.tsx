@@ -48,9 +48,10 @@ export function LinkLayer({ links, rects }: { links: CurvedLink[]; rects: Map<st
     <svg className="desk-links" aria-hidden="true" style={{ overflow: "visible", position: "absolute", left: 0, top: 0, width: 1, height: 1 }}>
       {links.map((link) => (
         <g key={link.to} data-link-to={link.to} data-link-weight={link.weight}>
-          <path d={link.d} fill="none" stroke="var(--desk-cyan)" strokeWidth={2 * CARD_K * (link.weight === 3 ? 1 : 0.6)} strokeDasharray={link.weight === 2 ? `${6 * CARD_K} ${5 * CARD_K}` : undefined} opacity={0.9} />
+          {/* The mockup's: 1.6 screen px at 85 % for every kind; an explicit link solid, the others dashed 8 / 6. */}
+          <path d={link.d} fill="none" stroke="var(--desk-cyan)" strokeOpacity={0.85} strokeWidth={1.6 * CARD_K} strokeDasharray={link.weight === 3 ? undefined : `${8 * CARD_K} ${6 * CARD_K}`} />
           {rects.has(link.to) ? (
-            <text x={link.labelAt.x} y={link.labelAt.y - 6 * CARD_K} fill="var(--desk-cyan)" fontSize={11 * CARD_K} fontFamily="var(--desk-mono)" textAnchor="middle">{link.label}</text>
+            <text x={link.labelAt.x} y={link.labelAt.y - 6 * CARD_K} fill="#bfeef5" stroke="#0a0a0b" strokeWidth={6} paintOrder="stroke" fontSize={11 * CARD_K} fontFamily="var(--desk-mono)" textAnchor="middle">{link.label}</text>
           ) : null}
         </g>
       ))}

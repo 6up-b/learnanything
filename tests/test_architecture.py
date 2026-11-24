@@ -92,6 +92,9 @@ REGISTERED_SQL_OWNERS = frozenset(
         # Local retrieval P2: the query student's teacher-replay queue, a derived per-vault file
         # outside state.sqlite (<vault>/.learnloop/student-replay.sqlite: learner text stays local).
         "src/learnloop/source_retrieval/student_encoder.py",
+        # A video's chapters (spec §7.9): the judged suggestions replaced per reading and the learner's accept or
+        # "not this", written where the chapters are judged and decided (table `video_chapters`, a workflow table).
+        "src/learnloop/source_retrieval/video_chapters.py",
         "src/learnloop/db/stores/judgments.py",
         # Exam protection by extraction identity (Codex review F3): exam-qualified
         # copies appended to the held-out signal ledger, never an update.
@@ -207,6 +210,8 @@ REGISTERED_SQL_OWNERS = frozenset(
         "src/learnloop/db/stores/pads.py",
         # Migration 266: the pads' submissions, carried questions, proposals and labels.
         "src/learnloop/db/stores/pad_ledgers.py",
+        # Migration 267: the learner's ink saves and erases, and each reading of them (both append-only).
+        "src/learnloop/db/stores/ink_strokes.py",
         "src/learnloop/db/stores/workspace_batches.py",
         "src/learnloop/db/stores/span_projections.py",
         "src/learnloop/substrate/replay.py",

@@ -75,6 +75,9 @@ export class FixtureCompanion {
       citations: job.status === "done" ? [{ extractionId: job.input.extractionId, spanId: job.input.spanId, label: "the passage asked about" }] : [],
       streamedPieces: job.status === "running" ? Math.floor((this.now() - job.startedAt) / 200) : 0,
       questionEventId: job.questionEventId,
+      // The fake tutor's request goes out as soon as it runs; where it was asked is recorded with the question.
+      sent: job.status !== "queued",
+      contextRecorded: job.questionEventId ? true : null,
       kept: false,
       answer: job.status === "done"
         ? ({
@@ -176,6 +179,7 @@ export class FixtureCompanion {
     return {
       version: 1, jobId, status: done ? "done" : "running", done, error: null,
       groups: done ? [{ group: "passages", label: "passages and moments", basis: "meaning", status: "ok", rows, more: false }] : [],
+      unavailable: [{ group: "pads", reason: "no meaning index of pad text" }, { group: "threads", reason: "no meaning index of exchanges" }],
     };
   }
 

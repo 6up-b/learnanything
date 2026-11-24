@@ -29,7 +29,7 @@ from tests.learner_notes_vault_origin_migration_helpers import C2B_ALTERED_TABLE
 # TE1's 234 and TE1b's 236 follow on the way to head (composed in tests/test_teacher_te1b_migration.py).
 from tests.teacher_te1b_migration_helpers import TE1_AND_TE1B_ADDED_OBJECTS as TE1_ADDED_OBJECTS
 from tests.teacher_te1b_migration_helpers import TE1_AND_TE1B_ALTERED_TABLES as TE1_ALTERED_TABLES
-from tests.helpers import MIGRATION_HEAD_FIXTURE, migration_head
+from tests.helpers import MIGRATION_HEAD_FIXTURE, migrations_from
 from tests.help_assist_work_md_migration_helpers import DR2_ALTERED_TABLES
 from tests.drop_dead_tables_migration_helpers import J2_DROPPED_OBJECTS
 
@@ -62,13 +62,15 @@ def _later():
     from tests.reader_rd0_guards_migration_helpers import RD0_GUARDS_ADDED_OBJECTS
     from tests.mastery_seed_inputs_migration_helpers import MASTERY_SEED_ADDED_OBJECTS
     from tests.reader_rd4_migration_helpers import RD4_ADDED_OBJECTS
+    from tests.reader_rd8a_migration_helpers import RD8A_ADDED_OBJECTS
+    from tests.reader_rd10_migration_helpers import RD10_ADDED_OBJECTS
     from tests.apply_intents_conflicted_migration_helpers import K35_ALTERED_TABLES
     from tests.reader_section_completion_migration_helpers import SECTION_END_ALTERED_TABLES
     from tests.mobile_jobs_migration_helpers import M2A_ADDED_OBJECTS
     from tests.rw5c_migration_helpers import RW5C_ADDED_OBJECTS
 
     # _schema reads objects with SQL only: TE1's (and RW5d P5's 237's) autoindexes are not among them.
-    te1_added = {name for name in TE1_ADDED_OBJECTS | P5_ADDED_OBJECTS | RW5C_ADDED_OBJECTS | M2A_ADDED_OBJECTS | DATA_CAPTURE_ADDED_OBJECTS | FOLLOWUP_ADDED_OBJECTS | MARKS_ADDED_OBJECTS | RO0_ADDED_OBJECTS | RO2_ADDED_OBJECTS | RO4_ADDED_OBJECTS | TE2LOG_ADDED_OBJECTS | IH3_ADDED_OBJECTS | B1_ADDED_OBJECTS | SEEN_SPANS_ADDED_OBJECTS | TOPIC_WORK_ADDED_OBJECTS | JOB_PROGRESS_ADDED_OBJECTS | APPLICATION_ORDER_ADDED_OBJECTS | LIFECYCLE_INPUTS_ADDED_OBJECTS | RD0_ADDED_OBJECTS | RD0_GUARDS_ADDED_OBJECTS | MASTERY_SEED_ADDED_OBJECTS | RD4_ADDED_OBJECTS if not name.startswith("sqlite_autoindex")}
+    te1_added = {name for name in TE1_ADDED_OBJECTS | P5_ADDED_OBJECTS | RW5C_ADDED_OBJECTS | M2A_ADDED_OBJECTS | DATA_CAPTURE_ADDED_OBJECTS | FOLLOWUP_ADDED_OBJECTS | MARKS_ADDED_OBJECTS | RO0_ADDED_OBJECTS | RO2_ADDED_OBJECTS | RO4_ADDED_OBJECTS | TE2LOG_ADDED_OBJECTS | IH3_ADDED_OBJECTS | B1_ADDED_OBJECTS | SEEN_SPANS_ADDED_OBJECTS | TOPIC_WORK_ADDED_OBJECTS | JOB_PROGRESS_ADDED_OBJECTS | APPLICATION_ORDER_ADDED_OBJECTS | LIFECYCLE_INPUTS_ADDED_OBJECTS | RD0_ADDED_OBJECTS | RD0_GUARDS_ADDED_OBJECTS | MASTERY_SEED_ADDED_OBJECTS | RD4_ADDED_OBJECTS | RD8A_ADDED_OBJECTS | RD10_ADDED_OBJECTS if not name.startswith("sqlite_autoindex")}
     return P3_ADDED_OBJECTS | te1_added, P3_ALTERED_TABLES | TE1_ALTERED_TABLES | (B1_ALTERED_TABLES | (K35_ALTERED_TABLES | SECTION_END_ALTERED_TABLES)) | TE3A_ALTERED_TABLES
 
 
@@ -117,7 +119,7 @@ def test_230_adds_only_the_nullable_column_and_keeps_every_row(tmp_path):
         # Curriculum C5's 231 (the two gap tables' source kinds), RW5d P3's 232, curriculum C2b's
         # 233 (learner_notes' vault origin) and teacher TE1's 234 follow on the way to head.
         # Follow-ups Nov 2's 235 (learner_text_gap_reversals) and teacher TE1b's 236 (router tables), not read here, follow too.
-        assert [migration.version for migration in apply_migrations(database)] == list(range(230, migration_head() + 1))
+        assert [migration.version for migration in apply_migrations(database)] == migrations_from(230)
     after = _schema(database)
     later_added, later_altered = _later()
     assert set(after) - set(before) == set(DR2_ADDED_OBJECTS) | set(later_added)
@@ -153,7 +155,7 @@ def test_230_on_the_durability_lane(tmp_path):
 
     database = _at_229(tmp_path)
     with upgrade_allowance(UPGRADE_TEST_HELPER):
-        assert [migration.version for migration in apply_migrations(database)] == list(range(230, migration_head() + 1))
+        assert [migration.version for migration in apply_migrations(database)] == migrations_from(230)
     with closing(sqlite3.connect(database)) as connection:
         assert connection.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
         store.insert_assist(connection, {"id": "ha_d", "surface": "practice", "assist_kind": "hint",

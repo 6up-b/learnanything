@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/lifecycle.tsx](../../../../../../../apps/learnloop-tauri/src/screens/desks/lifecycle.tsx) |
-| Source lines | 175 |
+| Source lines | 183 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/_area|TypeScript/screens/desks]] |
 | Refactor status | `ACTIVE` |
@@ -76,7 +76,8 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export interface ScopeClaims` — interface, line 147
 - `export const ScopeClaimsContext = createContext<ScopeClaims>(NO_CLAIMS)` — const, line 153
 - `export function useScopeClaim(scope: ClaimedScope, open: boolean): void` — function, line 158
-- `export function WindowScope(` — function, line 167
+- `export function PausedPart(` — function, line 169
+- `export function WindowScope(` — function, line 175
 
 ## Internal implementation anchors
 
@@ -98,6 +99,8 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const NO_CLAIMS: ScopeClaims =` — const, line 151
 - `const claims = useContext(ScopeClaimsContext)` — const, line 159
 - `const owner = useId()` — const, line 160
+- `const parent = useWindowLifecycle()` — const, line 170
+- `const lifecycle = paused && !isPaused(parent.state) ?` — const, line 171
 
 ## Who imports or calls it
 
@@ -106,11 +109,17 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - [[Reference/Desktop/TypeScript/components/PdfReaderPane|src/components/PdfReaderPane.tsx]] — import-or-re-export: `useListenerHub`; references `useListenerHub`
 - [[Reference/Desktop/TypeScript/fixtures/desks/harness|src/fixtures/desks/harness.tsx]] — import-or-re-export: `DIRECT_HUB`, `WindowScope`, `WindowState`; references `DIRECT_HUB`, `WindowScope`, `WindowState`
+- [[Reference/Desktop/TypeScript/screens/LessonView|src/screens/LessonView.tsx]] — import-or-re-export: `useListenerHub`, `useWhenLive`, `useWindowPaused`; references `useListenerHub`, `useWhenLive`, `useWindowPaused`
 - [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] — import-or-re-export: `ListenerHub`, `ScopeClaims`, `WindowLifecycle`, `WindowScope`, `isPaused`, `useListenerHub`, `useScopeClaim`, `useWindowLifecycle`, `useWindowPaused`; references `ListenerHub`, `ScopeClaims`, `WindowLifecycle`, `WindowScope`, `isPaused`, `useListenerHub`, `useScopeClaim`, `useWindowLifecycle`, `useWindowPaused`
 - [[Reference/Desktop/TypeScript/screens/desks/DeskShell|src/screens/desks/DeskShell.tsx]] — import-or-re-export: `ClaimedScope`, `ListenerHub`, `ScopeClaims`, `WindowLifecycle`, `WindowScope`, `isPaused`, `windowState`; references `ClaimedScope`, `ListenerHub`, `ScopeClaims`, `WindowLifecycle`, `WindowScope`, `isPaused`, `windowState`
+- [[Reference/Desktop/TypeScript/screens/desks/goal/GoalLayer|src/screens/desks/goal/GoalLayer.tsx]] — import-or-re-export: `ListenerHub`; references `ListenerHub`
 - [[Reference/Desktop/TypeScript/screens/desks/keys/listeners|src/screens/desks/keys/listeners.ts]] — import-or-re-export: `ListenTarget`, `ListenerHub`; references `ListenTarget`, `ListenerHub`
+- [[Reference/Desktop/TypeScript/screens/desks/lesson/LessonPaper|src/screens/desks/lesson/LessonPaper.tsx]] — import-or-re-export: `PausedPart`; references `PausedPart`
+- [[Reference/Desktop/TypeScript/screens/desks/notebook/NotebookFrame|src/screens/desks/notebook/NotebookFrame.tsx]] — import-or-re-export: `isPaused`, `useListenerHub`, `useWhenLive`, `useWindowLifecycle`; references `isPaused`, `useListenerHub`, `useWhenLive`, `useWindowLifecycle`
 - [[Reference/Desktop/TypeScript/screens/desks/pads/PadOverlays|src/screens/desks/pads/PadOverlays.tsx]] — import-or-re-export: `useListenerHub`, `useWindowLifecycle`; references `useListenerHub`, `useWindowLifecycle`
 - [[Reference/Desktop/TypeScript/screens/desks/pads/PadStackWindow|src/screens/desks/pads/PadStackWindow.tsx]] — import-or-re-export: `useHubListener`, `useScopeClaim`, `useWindowPaused`; references `useHubListener`, `useScopeClaim`, `useWindowPaused`
+- [[Reference/Desktop/TypeScript/screens/desks/pen/PenLayer|src/screens/desks/pen/PenLayer.tsx]] — import-or-re-export: `useWindowLifecycle`, `useWindowPaused`; references `useWindowLifecycle`, `useWindowPaused`
+- [[Reference/Desktop/TypeScript/screens/desks/video/ChaptersPanel|src/screens/desks/video/ChaptersPanel.tsx]] — import-or-re-export: `useWhenLive`, `useWindowLifecycle`; references `useWhenLive`, `useWindowLifecycle`
 - [[Reference/Desktop/TypeScript/screens/desks/windows/ThreadWindow|src/screens/desks/windows/ThreadWindow.tsx]] — import-or-re-export: `useWindowPaused`; references `useWindowPaused`
 - [[Reference/Desktop/TypeScript/screens/reader/ComparePointTable|src/screens/reader/ComparePointTable.tsx]] — import-or-re-export: `useListenerHub`; references `useListenerHub`
 - [[Reference/Desktop/TypeScript/screens/reader/DeliverableSliceCard|src/screens/reader/DeliverableSliceCard.tsx]] — import-or-re-export: `useWhenLive`; references `useWhenLive`
@@ -168,8 +177,8 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 - [apps/learnloop-tauri/src/screens/reader/ReadingPathCard.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/ReadingPathCard.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/desks/windows/SourceWindow.recap.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/desks/windows/SourceWindow.recap.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/desks/windows/SourceWindow.lifecycle.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/desks/windows/SourceWindow.lifecycle.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
-- [apps/learnloop-tauri/src/screens/desks/pads/PadStackWindow.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/desks/pads/PadStackWindow.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
-- [apps/learnloop-tauri/src/screens/desks/DeskShell.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/desks/DeskShell.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/desks/video/video.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/desks/video/video.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/desks/video/protection.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/desks/video/protection.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 
 ## Modification guidance
 

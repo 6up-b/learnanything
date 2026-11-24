@@ -199,3 +199,68 @@ No ledger row: no defect was found in existing code.
 - Practice and Today mounts (judgment call 1); pad hover cards and diff writes (RD4).
 - Pointer gestures on a real touchpad; the companion's drag was driven by Playwright's mouse.
 - The landing gate.
+
+## Fix round (frontend)
+
+The frontend half of the fix round for RD3's adversarial review (20 findings; the backend half, #1, #2, #8, #9, #10,
+#16, #18, #19 and the backend sides of #7 and #13, is `reader/rd3-fix-backend`, merged into this branch so the UI
+sides of #7 and #13 use its contract). Branch `reader/rd3-fix-frontend`, from main. No backend change of its own,
+no migration, tag, prompt or config change. Every finding got a fail-first test (shown failing against the code
+before the fix) and a ledger row, RD3-20 upward.
+
+| Finding | Ledger | What changed | Fail-first test |
+|---|---|---|---|
+| #3 the intent box took `c`, `shift+c`, `/` | RD3-20 | The router tells a typing scope a window claims with the focus on the page (the Reader's intent box over a selection) from typing in a field: through a claim, the selection's shortcuts (`SELECTION_SHORTCUTS`) pass; every other bare key stays the claim's; a focused field keeps all of them | `keys/router.test.ts`; the harness's intent run over a real Reader selection made by a mouse drag (`?intent=1` turns the fixture's intent box on): 3 checks fail with the old router |
+| #4 an ask overtook its desk writes | RD3-21 | `DeskStore.settled()` sends what is queued at once and resolves once acknowledged; the question waits on it, shown as "saving your desk first", and an unsaved desk fails it with a retry | `store.test.ts` (2), `asks.test.ts` (2), `DeskShell.test.tsx` (1) |
+| #5 poll owners never removed | RD3-22 | A closed window's owner pauses, and every owner the shell knew when it detaches; the store suspends its polls while no shell shows it, resumes them on the next mount, holds a late first reply, and another vault's store is disposed and forgotten | `asks.test.ts` (2), `DeskShell.test.tsx` (2) |
+| #6 stale search replies | RD3-27 | One generation advanced on every query change and on cleanup; a reply checks it before showing anything or registering a poll | `search/SearchPanel.test.tsx` (2, a new file) |
+| #7 note results opened nothing | RD3-29 | With the backend's note identity, a Reader note or highlight opens its book at its passage, the window's view naming the note; an inbox note, which no desk window shows yet, is said where it lives instead of opening an unbound Notes panel | `DeskShell.test.tsx` (1) |
+| #11 retry changed the question | RD3-23 | The exchange keeps its request whole; retry resends it with a new request id | `asks.test.ts` (1) |
+| #12 anchors for books on no desk | RD3-30 | The passage's reading names its source through the existing render read (`reader_render_view` by extraction id, `sourceOfExtraction` on the desk transport) | `DeskShell.test.tsx` (1) |
+| #13 a failed meaning search read as nothing found | RD3-28 | A terminal job error is said; a meaning group `unavailable` or `failed` says why under its name; the start's and the job's unavailable lists are said whether or not a job runs | `search/SearchPanel.test.tsx` (3) |
+| #14 the hidden companion stayed focusable | RD3-24 | In the overview the panel and its tab are `inert` and `aria-hidden`; focus inside moves to the pill and returns afterwards | `Companion.test.tsx` (1); the harness checks that Tab never lands in it |
+| #15 "Nothing was sent" too early | RD3-25 | "stopping…" until the job is done; whether it was sent comes from the job's `sent` (an older sidecar: a worker ran it, or an answer was kept), never from `kept`; three honest endings | `asks.test.ts` (2), `Companion.test.tsx` (2) |
+| #17 the history stopped at 50 | RD3-26 | "older exchanges ›" reads the next page by the cursor and appends it, joining a day or desk split across pages | `Companion.test.tsx` (1) |
+| #20 formula selections lost their TeX | RD3-31 | The desks' quote is the Reader's `selectionQuote`; `clipQuote` cuts before a formula, never inside one | `selection.test.ts` (3) |
+
+**Judgment calls.**
+
+1. **Through the intent box's claim, `c` summons the companion rather than starting to type into the box.** The box
+   took the first printable key; with the focus on the page, `c`, `shift+c` and `/` are now the desk's (as §5.4's
+   reading bindings say), and typing into the box starts with any other key or by focusing it.
+2. **A question waits on every queued desk write**, not only the ones it reads: the store has no per-op dependency,
+   and the wait is one round trip. An offline desk fails the question ("not sent", with a retry) instead of sending it
+   against a stale desk.
+3. **A window that closes pauses its question's poll** (as the review asks). The exchange stays "asking" in the
+   thread until the window returns (undo close); its answer is in the history either way.
+4. **An inbox note is not opened on the desks**: no desk window shows one yet, and the backend points it at the notes
+   panel, which on the desks hosts a book's rail. It is said where it lives ("it opens from Today's inbox"). An
+   inbox-note window is a later step.
+5. **`contextRecorded`** (the backend's new field) is carried by the fixtures but not shown: a context write being
+   retried is the backend's to finish.
+
+**The mockup, compared in words** (headless Chromium, the mockup served on 127.0.0.1 and stopped; screenshots in
+scratch only, deleted). The fix round changes states more than looks. `#hist`: the mockup's history ends at its
+oldest day with no way further; ours keeps its layout and adds "older exchanges ›" in the panel's amber link style
+at the end of the list, which reads the next page. `#cur=sel`: unchanged, and with the intent box on the same `c`
+now summons it (the mockup has no intent box). `#ov`: unchanged on screen (the pill); the faded panel behind it is
+now inert, which shows nowhere. The thread's new states ("saving your desk first", "stopping…", and the three
+endings of a stopped question) have no mockup frame; they use the asking bubble's style.
+
+**Commands** (each in its own memory-capped scope through the scratch wrapper, one test command at a time):
+
+| Command | Result |
+|---|---|
+| `npm run typecheck` | exit 0 |
+| `npx vitest run --maxWorkers=4` (the whole suite) | 362 files, 4026 tests passed |
+| `cargo check --offline --manifest-path src-tauri/Cargo.toml` | Finished `dev` profile |
+| the harness (all runs, the new intent run included) | 96 passed, 0 failed |
+| `test_identity_pins`, `test_structure_ratchets`, `test_effective_defaults_golden`, `test_cli_help_snapshot`, `test_kill_switches`, `test_sqlite_file_copies`, `test_reader_rd1_model_parity`, `test_public_tip_guards` | 413 passed (no pin, ratchet or golden moved) |
+| the merged backend half's own tests (`test_reader_rd3_fix_backend.py`, `test_reader_rd3a_companion_ask.py`) | 29 passed |
+| `scripts/affected_tests.py --files <this branch's frontend files>` | no test file is affected |
+| `tests/test_test_layout.py` alone / `tests/test_architecture.py` alone | 3 passed / 18 passed |
+| `ruff check` / `lint-imports --no-cache` / `check_gate_partition.py` | All checks passed! / 52 kept, 0 broken / collected 33452: landing 33386 + arc_close 66 |
+| `desktop_validate.py` | no count drift (no new non-test source file) |
+
+**Not verified:** the packaged app on WebKitGTK (the harness runs Chromium); a real provider or a real meaning pass;
+the backend half's full affected set (its own worker's and the gate's).

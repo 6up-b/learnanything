@@ -18,7 +18,6 @@ Goal-independent: the goal level is ``goal.lens``'s, a separate read. Read only:
 from __future__ import annotations
 
 import json
-import re
 from contextlib import closing
 from collections.abc import Iterable, Mapping
 from typing import Any
@@ -30,9 +29,8 @@ from learnloop.db.stores import pad_reads
 from learnloop.db.stores import span_projection_reads as spans_store
 from learnloop.intent.inline_checks import due_checks
 from learnloop.reader.annotations import annotation_placements
-from learnloop.section_map import extraction_sections
+from learnloop.section_map import RangeError, extraction_sections, range_span_ids
 
-_CUE_TIME = re.compile(r"^t=([0-9.]+)-([0-9.]+)$")
 EXACT = "exact"
 
 
@@ -61,24 +59,12 @@ def _in(values: Iterable[str]) -> tuple[str, list[str]]:
     return ",".join("?" for _ in wanted) or "NULL", wanted
 
 
-def _range(ir: Any, *, from_span_id: str | None, to_span_id: str | None, t0: float | None,
+def span_range(ir: Any, *, from_span_id: str | None, to_span_id: str | None, t0: float | None,
            t1: float | None) -> list[str]:
-    blocks = sorted(ir.blocks, key=lambda block: block.ordinal)
-    if from_span_id is not None and to_span_id is not None:
-        index = {block.span_id: position for position, block in enumerate(blocks)}
-        if from_span_id not in index or to_span_id not in index:
-            raise UnionError("span_not_found", "The range names a passage this reading does not have.")
-        start, end = sorted((index[from_span_id], index[to_span_id]))
-        return [block.span_id for block in blocks[start:end + 1]]
-    if t0 is None or t1 is None:
-        raise UnionError("validation_error", "A range is two passages or two times.")
-    low, high = sorted((float(t0), float(t1)))
-    spans = []
-    for block in blocks:
-        match = _CUE_TIME.match(str(getattr(block, "extractor_block_id", "") or ""))
-        if match and float(match.group(1)) <= high and float(match.group(2)) >= low:
-            spans.append(block.span_id)
-    return spans
+    try:
+        return range_span_ids(ir, from_span_id=from_span_id, to_span_id=to_span_id, t0=t0, t1=t1)
+    except RangeError as exc:
+        raise UnionError(exc.code, str(exc)) from exc
 
 
 class _Placer:
@@ -113,7 +99,7 @@ def union_range(vault: Any, repository: Any, *, extraction_id: str, from_span_id
     ir = repository.load_document_ir(extraction_id)
     if ir is None:
         raise UnionError("extraction_not_found", f"No reading {extraction_id!r}.")
-    span_ids = _range(ir, from_span_id=from_span_id, to_span_id=to_span_id, t0=t0, t1=t1)
+    span_ids = span_range(ir, from_span_id=from_span_id, to_span_id=to_span_id, t0=t0, t1=t1)
     sections, _blocks, span_to_section = extraction_sections(ir)
     out = {span: _empty(span, span_to_section.get(span)) for span in span_ids}
     if not out:
@@ -131,7 +117,8 @@ def union_range(vault: Any, repository: Any, *, extraction_id: str, from_span_id
             version = (head or {}).get("version") or {}
             entry = {"annotation_id": (head or {}).get("annotation", {}).get("id"),
                      "type": version.get("annotation_type"), "learner_text": version.get("learner_text") or "",
-                     "placement": placement["state"]}
+                     "placement": placement["state"],
+                     "created_at": version.get("created_at") or (head or {}).get("annotation", {}).get("created_at")}
             spans = [segment["span_id"] for segment in placement["segments"]] or (
                 [placement["flag_span_id"]] if placement.get("flag_span_id") else [])
             for span in dict.fromkeys(spans):
@@ -145,11 +132,20 @@ def union_range(vault: Any, repository: Any, *, extraction_id: str, from_span_id
         for anchor in pad_reads.standing_anchors_for_spans(connection, readings):
             placed = placer.place(anchor["extraction_id"], anchor["span_id"])
             head = pad_reads.head(connection, anchor["block_id"]) if placed else None
+            lifted_from = None
+            # A link left on a lift-out stub (a lift made before links moved with the words) marks the block that
+            # carries the words now.
+            for _step in range(64):
+                if head is None or head["kind"] != "lifted":
+                    break
+                lifted_from = lifted_from or anchor["block_id"]
+                head = pad_reads.head(connection, str((head.get("payload") or {}).get("lifted_block_id") or ""))
             if placed and head is not None and not head["tombstone"]:
                 out[placed[0]]["pad_blocks"].append({
-                    "block_id": anchor["block_id"], "pad_id": head["pad_id"], "kind": head["kind"],
+                    "block_id": head["block_id"], "pad_id": head["pad_id"], "kind": head["kind"],
                     "provenance": head["provenance"], "event_id": anchor["event_id"],
-                    "annotation_id": anchor["annotation_id"], "alias": placed[1]})
+                    "annotation_id": anchor["annotation_id"], "alias": placed[1], "lifted_from_block_id": lifted_from,
+                    "created_at": anchor["created_at"]})
 
         # Questions the learner carries, beside the passage they were carried from (still carried only: a quiet
         # margin mark, never a nudge; spec §10.12).
@@ -279,4 +275,4 @@ def union_range(vault: Any, repository: Any, *, extraction_id: str, from_span_id
     return {"extraction_id": extraction_id, "spans": [out[span] for span in span_ids], "sections": section_out}
 
 
-__all__ = ["UnionError", "union_range"]
+__all__ = ["UnionError", "span_range", "union_range"]

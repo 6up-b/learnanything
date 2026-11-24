@@ -27,7 +27,7 @@ from learnloop.db.migrate import (
     upgrade_allowance,
 )
 from learnloop.db.table_roles import TableRole, role_for_table
-from tests.helpers import MIGRATION_HEAD_FIXTURE, migration_head
+from tests.helpers import MIGRATION_HEAD_FIXTURE, migrations_from
 
 NOW = "2026-11-01T10:00:00Z"
 HEAD = MIGRATION_HEAD_FIXTURE / "state.sqlite"
@@ -85,7 +85,7 @@ def _upgrade(tmp_path: Path) -> Path:
         applied = apply_migrations(database)
     # Teacher TE1's 234 (its own tables and source_tool_calls, none read here), follow-ups Nov 2's 235
     # (learner_text_gap_reversals) and teacher TE1b's 236 (router tables), none read here, follow on the way to head.
-    assert [migration.version for migration in applied] == list(range(233, migration_head() + 1))
+    assert [migration.version for migration in applied] == migrations_from(233)
     # Every row survives (two new columns, NULL for the C2-era rows).
     assert [row[:13] for row in _rows(database, "learner_notes")] == notes
     assert all(row[13:] == (None, None) for row in _rows(database, "learner_notes"))

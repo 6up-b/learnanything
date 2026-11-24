@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/windows/PanelWindow.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/windows/PanelWindow.tsx) |
-| Source lines | 99 |
+| Source lines | 110 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/windows/_area|TypeScript/screens/desks/windows]] |
 | Refactor status | `ACTIVE` |
@@ -57,14 +57,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export const PANEL_TITLES: Record<PanelContent["panel"], string> =` — const, line 18
 - `export function RailHostPanel(` — function, line 26
 - `export function PathPanel(` — function, line 54
-- `export function LibraryPanel(` — function, line 65
+- `export function LibraryPanel(` — function, line 66
 
 ## Internal implementation anchors
 
 - `type PanelContent = Extract<ContentRefDto,` — type, line 16
-- `const contractQuery = useCachedQuery(["reader_prompt_contract"], ()` — const, line 76
-- `const ctl = useLibraryAsk(` — const, line 77
-- `const ask = useCallback((text: string)` — const, line 79
+- `const contractQuery = useCachedQuery(["reader_prompt_contract"], ()` — const, line 79
+- `const ctl = useLibraryAsk(` — const, line 80
+- `const ask = useCallback((text: string)` — const, line 82
 
 ## Who imports or calls it
 
@@ -96,7 +96,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 ## Tests that define behavior
 
-- No repository test directly names this source path or a uniquely owned export. `npm run typecheck`, `npm test` and `npm run frontend:build` are the executable frontend gates; add a focused test when changing behavior.
+- [apps/learnloop-tauri/src/screens/desks/windows/LibraryPanel.compare.test.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/windows/LibraryPanel.compare.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 
 ## Modification guidance
 

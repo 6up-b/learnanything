@@ -19,6 +19,7 @@ source_paths:
   - "src/learnloop/db/stores/pad_ledgers.py"
   - "src/learnloop/db/stores/pad_reads.py"
   - "src/learnloop/pads/proposals.py"
+  - "src/learnloop/passage_union/promoted.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"

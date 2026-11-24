@@ -17,7 +17,7 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/117_question_promotion_jobs_and_queue_revision.sql"
   - "src/learnloop/db/stores/questions.py"
-  - "src/learnloop/content/pipeline/jobs.py"
+  - "src/learnloop/content/authoring/jobs.py"
   - "src/learnloop/content/pipeline/runner.py"
   - "src/learnloop/tutor/promotions.py"
   - "src/learnloop/tutor/question_queue.py"
@@ -104,7 +104,7 @@ Indexes and uniqueness:
 
 ### Upstream callers of the repository access surface
 
-- `src/learnloop/content/pipeline/jobs.py`
+- `src/learnloop/content/authoring/jobs.py`
 - `src/learnloop/content/pipeline/runner.py`
 - `src/learnloop/tutor/promotions.py`
 - `src/learnloop/tutor/question_queue.py`

@@ -1,0 +1,230 @@
+/* Reader workbench v2 RD6: the goal lens on the desks (docs/specs/spec_reader_workbench_v2.md §12, §4.2, §4.3).
+ *
+ * The band, the criticality marks, the why card, the callouts, the pads' goal line and the path view. The values
+ * are the design reference's, copied exactly (spec §4.1-§4.3); the shared tokens are desk.css's. Everything is
+ * scoped under .desk-shell so no other screen changes. */
+
+.desk-shell {
+  --gl-elev: #181818;
+  --gl-bd2: #3a3a3a;
+  --gl-purple-line: #7d6fb8;
+  --gl-amber-hi: #f0c890;
+}
+/* The band takes a row of its own under the top bar. */
+.desk-shell.has-goal { grid-template-rows: 38px 50px minmax(0, 1fr) 26px; }
+.desk-shell.has-goal.focus-mode { grid-template-rows: 38px 50px minmax(0, 1fr) 26px; }
+:where(.desk-shell .goalband, .desk-shell .gpath, .desk-goalchip) button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; text-align: inherit; }
+
+/* ── the band ── */
+.desk-shell .goalband { box-sizing: border-box; display: flex; align-items: stretch; gap: 0; min-width: 0; height: 50px; background: var(--desk-gband); border-bottom: 1px solid var(--desk-line); font: 11px var(--desk-mono); color: var(--desk-t2); position: relative; z-index: 5; }
+.desk-shell .goalband > div { display: flex; flex-direction: column; justify-content: center; gap: 4px; padding: 0 13px; min-width: 0; border-right: 1px solid #1d1c22; }
+.desk-shell .goalband > div:last-child { border-right: 0; }
+.desk-shell .gb-lab { font: 9.5px var(--desk-mono); letter-spacing: .1em; text-transform: uppercase; color: #8f86b3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.desk-shell .gb-prov { text-transform: none; letter-spacing: 0; color: var(--desk-t3); margin-left: 6px; }
+.desk-shell .gb-goal { flex: 0 0 auto; max-width: 410px; position: relative; }
+.desk-shell .gb-t { display: block; width: 100%; font: 500 13.5px var(--desk-book) !important; color: #f1eff7 !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: .005em; text-align: left; }
+.desk-shell .gb-path { flex: 0 0 auto; }
+.desk-shell .gb-path .gb-prov { display: none; }
+.desk-shell .gb-row { display: flex; align-items: center; gap: 14px; }
+.desk-shell .gb-stops { display: flex; align-items: center; }
+.desk-shell .gs { box-sizing: border-box; position: relative; width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid #8f86b3 !important; background: transparent; margin-left: 9px; flex: 0 0 auto; padding: 0; }
+.desk-shell .gs:first-child { margin-left: 0; }
+.desk-shell .gs + .gs::before { content: ""; position: absolute; right: 100%; top: 50%; width: 9px; height: 1px; background: #3a3647; margin-right: 1.5px; }
+.desk-shell .gs.rd-demonstrated { background: #a99fd0; border-color: #a99fd0 !important; }
+.desk-shell .gs.rd-likely { background: linear-gradient(90deg, #a99fd0 50%, transparent 50%); }
+.desk-shell .gs.pre { width: 7px; height: 7px; }
+.desk-shell .gs.later { opacity: .35; }
+.desk-shell .gs.here { box-shadow: 0 0 0 3px var(--desk-gband), 0 0 0 4.5px #e8e4f6; }
+.desk-shell .gs:hover { border-color: #e8e4f6 !important; }
+.desk-shell .gs.chk { width: 7px; height: 7px; margin-left: 4px; border-color: #c9c0ee !important; border-radius: 1px; transform: rotate(45deg) scale(.86); }
+.desk-shell .gs.chk::before { display: none; }
+.desk-shell .gs.chk + .gs::before { transform: none; }
+.desk-shell .gs.chk.due { background: transparent; box-shadow: 0 0 0 2px rgba(201, 192, 238, .18); }
+.desk-shell .gs.chk.done { background: #c9c0ee; }
+.desk-shell .gs.unm { border-style: dashed !important; border-color: #6e6790 !important; }
+.desk-shell .gb-depth { display: flex; gap: 2px; }
+.desk-shell .gb-depth button { font-size: 10px; color: var(--desk-t3); padding: 1px 6px; border-radius: 3px; border: 1px solid transparent; white-space: nowrap; }
+.desk-shell .gb-depth button:hover { color: var(--desk-t); }
+.desk-shell .gb-depth button.on { color: var(--desk-t); border-color: #4a4466; background: #17151f; }
+.desk-shell .gb-here { flex: 1 1 160px; min-width: 200px; }
+.desk-shell .gb-here .gring { display: inline-block; width: 7px; height: 7px; border-radius: 50%; box-shadow: 0 0 0 1.5px #e8e4f6; margin: 0 4px 0 1px; vertical-align: 0; }
+.desk-shell .gb-ht { color: var(--desk-t2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 11px; }
+.desk-shell .gb-ht b { color: var(--desk-t); font-weight: 500; }
+.desk-shell .gb-ht .off { color: var(--desk-t3); }
+.desk-shell .gb-map { color: #c9c0ee; text-decoration: underline; text-underline-offset: 2px; }
+.desk-shell .gb-next { flex: 0 0 auto; }
+.desk-shell .gb-nb { text-align: left; color: #e9e5fa !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 11px; padding: 2px 7px !important; margin-left: -7px; border-radius: 3px; border: 1px solid #3c3656 !important; background: #17151f !important; max-width: 100%; }
+.desk-shell .gb-nb:hover { background: #221e31 !important; }
+.desk-shell .gb-tools { flex: 0 0 auto; flex-direction: row !important; align-items: center; gap: 6px !important; }
+.desk-shell .gb-dim, .desk-shell .gb-pth { color: var(--desk-t2); font-size: 10.5px; padding: 3px 7px !important; border-radius: 3px; border: 1px solid #26252c !important; white-space: nowrap; display: flex; align-items: center; gap: 6px; }
+.desk-shell .gb-dim:hover, .desk-shell .gb-pth:hover { color: var(--desk-t); background: #1a1a1f; }
+.desk-shell .gb-pth kbd { font: 500 10px var(--desk-mono); color: #c9c0ee; }
+.desk-shell .gb-dim .lg { display: inline-flex; gap: 3px; height: 12px; }
+.desk-shell i.b { display: inline-block; width: 3px; height: 12px; vertical-align: -2px; margin-right: 7px; }
+.desk-shell .gb-dim .lg i.b { margin: 0; }
+.desk-shell i.b.core { background: #a99fd0; }
+.desk-shell i.b.sup { background: rgba(169, 159, 208, .38); }
+.desk-shell i.b.skip { width: 0; border-left: 1px dotted #8f86b3; }
+.desk-shell i.b.partial { height: 5px; background: #b9b2cc; vertical-align: 1px; }
+.desk-shell .gb-choose { position: absolute; z-index: 30; top: 100%; left: 8px; min-width: 260px; display: flex; flex-direction: column; background: #1b1a20; border: 1px solid #34314a; border-radius: 3px; padding: 4px; box-shadow: 0 10px 30px rgba(0, 0, 0, .5); font: 11.5px var(--desk-mono); }
+.desk-shell .gb-choose button { text-align: left; padding: 5px 8px; border-radius: 2px; color: var(--desk-t); }
+.desk-shell .gb-choose button:hover, .desk-shell .gb-choose button[aria-current="true"] { background: #221e31; }
+.desk-shell .gb-choose .none { padding: 5px 8px; color: var(--desk-t3); }
+.desk-goalchip { position: relative; margin-left: 10px; }
+.desk-goalchip > .tb { color: var(--desk-t3); }
+@media (max-width: 1600px) { .desk-shell .gb-goal .gb-prov { display: none; } }
+@media (max-width: 1400px) { .desk-shell .gb-here { display: none !important; } .desk-shell .gb-goal { max-width: 330px; } .desk-shell .goalband > div { padding: 0 12px; } }
+@media (max-width: 1180px) { .desk-shell .gb-dim { font-size: 0; gap: 0; } }
+.desk-shell .desk-keys .gk kbd { color: #c9c0ee; }
+
+/* ── the marks: a 3 px bar 11 px left of the passage's text (the Reader's passages start their text 15 px in:
+   a 3 px border and 12 px of padding, so the bar sits at 1 px) ── */
+.desk-shell .gm { position: absolute; left: 1px; top: 5px; bottom: 5px; width: 3px; border-radius: 1px; cursor: help; font-style: normal; z-index: 1; }
+.desk-shell .gm::before { content: ""; position: absolute; left: -5px; right: -5px; top: -4px; bottom: -4px; }
+.desk-shell .gm.gl-core { background: var(--desk-gl); }
+.desk-shell .gm.gl-sup { background: var(--desk-gl-sup); }
+.desk-shell .gm.gl-skip, .desk-shell .gm.gl-later { width: 0; border-left: 1px dotted var(--desk-gl-skip); left: 2px; }
+.desk-shell .gm.gl-shown { width: 0; border-left: 1px dotted var(--desk-gl); left: 2px; }
+/* partial: a short grey tick (coverage hasn't settled every topic of the goal here) */
+.desk-shell .gm.gl-partial { bottom: auto; height: 5px; background: #b9b2cc; }
+/* a paper's passages keep 11 px between the mark and the text */
+.desk-shell .gm.gl-paper { left: -2px; }
+.desk-shell .gm:hover, .desk-shell .gm.on { box-shadow: 0 0 0 2px rgba(91, 74, 154, .16); }
+.desk-shell .gm.gl-skip:hover, .desk-shell .gm.gl-later:hover, .desk-shell .gm.gl-skip.on { border-left-color: var(--desk-gl); }
+/* dimmed, never hidden: skippable and later text, its math too; a passage read anyway stays lit */
+.desk-shell [data-span-id].gl-dim { color: var(--desk-gdim) !important; }
+.desk-shell [data-span-id].gl-dim .katex { color: var(--desk-gdim); }
+
+/* ── the why ── */
+.desk-shell .gwhy { position: fixed; z-index: 120; max-width: 330px; box-sizing: border-box; background: #1b1a20; border: 1px solid #34314a; border-left: 2px solid #8f86b3; border-radius: 3px; padding: 8px 11px 9px; font: 12px/1.55 var(--desk-mono); color: var(--desk-t); box-shadow: 0 10px 30px rgba(0, 0, 0, .5); opacity: 0; transform: translateY(2px); transition: opacity .14s, transform .14s; pointer-events: none; }
+.desk-shell .gwhy.on { opacity: 1; transform: none; }
+.desk-shell .gwh { display: flex; align-items: center; font: 9.5px var(--desk-mono); letter-spacing: .1em; text-transform: uppercase; color: #b9b0e0; margin-bottom: 4px; }
+.desk-shell .gwh .grow { flex: 1; }
+.desk-shell .gwh i.b { height: 10px; margin-right: 7px; }
+.desk-shell .gwr b { color: #e3ddf8; font-weight: 500; }
+.desk-shell .gwhy.lv-skip, .desk-shell .gwhy.lv-later, .desk-shell .gwhy.lv-shown { border-left-style: dotted; }
+.desk-shell .gwc { margin-top: 5px; padding-top: 5px; border-top: 1px dotted #3a3647; font-size: 10.5px; color: var(--desk-t3); line-height: 1.5; }
+
+/* ── callouts at section starts (dark, in LearnLoop's voice) ── */
+.desk-shell .callout.gcall { box-sizing: border-box; max-width: 520px; margin: 4px 0 18px; background: #1d1d20; color: #f1f1f4; border-radius: 3px; padding: 10px 13px; font: 12.5px/1.55 var(--desk-mono); border-left: 1px dotted var(--gl-purple-line); box-shadow: none; }
+.desk-shell .callout.gcall .lab { display: block; font: 9.5px var(--desk-mono); letter-spacing: .08em; color: #b9b0e0; text-transform: uppercase; margin-bottom: 3px; }
+
+/* a paper's section head takes the light form (the reference's paper and transcript heads) */
+.desk-shell .gpcall { box-sizing: border-box; font: 11.5px/1.55 var(--desk-mono); color: #3f3566; background: #f1eef9; border-left: 2px solid var(--desk-gl); padding: 7px 10px; margin: 0 0 14px; border-radius: 0 2px 2px 0; }
+.desk-shell .gpcall b { font-weight: 600; color: #3a2f68; }
+.desk-shell .gpcall .gg { color: var(--desk-gl); }
+
+/* ── a pad stack says what it is for ── */
+.desk-shell .gfor { flex: none; font: 10.5px/1.5 var(--desk-mono); color: #5b4f8a; padding: 6px 14px; border-bottom: 1px dotted #d9d3e8; background: #f6f4fb; }
+.desk-shell .gfor .gg { color: var(--desk-gl); }
+.desk-shell .gfor.g-skip { color: #6d6880; background: #f1f0f3; }
+
+/* ── the path view ── */
+.desk-shell .ovl.gpath { position: fixed; z-index: 60; left: 300px; right: 60px; top: 70px; bottom: 120px; display: grid; grid-template-columns: 310px minmax(0, 1fr); gap: 0; padding: 0; overflow: hidden; background: var(--gl-elev); border: 1px solid var(--gl-bd2); border-radius: 4px; box-shadow: 0 24px 70px rgba(0, 0, 0, .6); color: #eee; font-family: var(--desk-mono); outline: none; }
+.desk-shell .ovl.gpath .gp-l { padding: 22px 22px; border-right: 1px solid #262626; overflow: auto; }
+.desk-shell .ovl.gpath h3 { font: 500 19px/1.35 var(--desk-book); color: #f1eff7; margin: 6px 0 6px; }
+.desk-shell .gp-scope, .desk-shell .gp-unm, .desk-shell .gp-ready { font: 11px/1.55 var(--desk-mono); color: var(--desk-t2); margin-bottom: 12px; }
+.desk-shell .gp-scope b { color: var(--desk-t); font-weight: 500; }
+.desk-shell .gp-scope .faint, .desk-shell .gp-ready .faint { color: var(--desk-t3); display: block; margin-top: 3px; }
+.desk-shell .gp-scope .gp-change { background: none; border: 0; padding: 0; font: inherit; text-align: left; cursor: text; }
+.desk-shell .gp-scope .gp-change:hover { color: var(--desk-t2); }
+.desk-shell .gp-scope .gp-change-in { display: block; width: 100%; margin-top: 3px; font: inherit; color: var(--desk-t); background: transparent;
+  border: 0; border-bottom: 1px solid var(--desk-line, var(--desk-t3)); padding: 1px 0; outline: none; }
+.desk-shell .gp-unm { border-left: 1px dashed #6e6790; padding-left: 9px; }
+.desk-shell .gp-unm i { color: var(--gl-amber-hi); }
+.desk-shell .act { font: 11.5px var(--desk-mono); color: var(--desk-t); border: 1px solid #4a4466 !important; padding: 4px 10px !important; border-radius: 3px; background: #24212f !important; white-space: nowrap; }
+.desk-shell .gp-unm .act { margin-left: 6px; padding: 1px 7px !important; font-size: 10.5px; }
+.desk-shell .gp-depth { display: flex; flex-direction: column; gap: 4px; margin-bottom: 16px; }
+.desk-shell .gp-depth .gb-lab { margin-bottom: 4px; }
+.desk-shell .gp-d { text-align: left; padding: 7px 9px !important; border-radius: 3px; border: 1px solid transparent !important; font: 11.5px/1.45 var(--desk-mono); color: var(--desk-t2); }
+.desk-shell .gp-d:hover { background: #1b1a21; }
+.desk-shell .gp-d.on { border-color: #4a4466 !important; background: #17151f; color: var(--desk-t); }
+.desk-shell .gp-d b { font-weight: 500; color: var(--desk-t); display: inline; }
+.desk-shell .gp-d .len { color: var(--desk-t3); font-size: 10.5px; }
+.desk-shell .gp-d .t { display: block; color: var(--desk-t3); font-size: 10.5px; margin-top: 2px; }
+.desk-shell .gp-ready .gb-lab { margin-bottom: 3px; }
+.desk-shell .gp-key { font: 11px/1.9 var(--desk-mono); color: var(--desk-t2); margin-bottom: 14px; }
+.desk-shell .gp-key .faint { color: var(--desk-t3); }
+.desk-shell .gp-r-wrap { padding: 16px 22px 22px; overflow: auto; }
+.desk-shell .gp-r-wrap > .gp-gh { margin-bottom: 10px; }
+.desk-shell .gp-gh { font: 600 10.5px var(--desk-mono); letter-spacing: .1em; text-transform: uppercase; color: #b8b8c4; margin: 4px 0 4px; }
+.desk-shell .gp-lo { border-left: 1px solid #2c2a36; margin: 0 0 12px 4px; padding: 0 0 2px 0; }
+.desk-shell .gp-lo.here { border-left-color: #6c5fb0; }
+.desk-shell .gp-lo.later { opacity: .5; }
+.desk-shell .gp-h { display: flex; align-items: center; gap: 8px; margin: 0 0 3px -5px; font: 12px var(--desk-mono); }
+.desk-shell .gp-h .grow { flex: 1; }
+.desk-shell .gp-n { box-sizing: border-box; width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid #6e6790; position: relative; flex: 0 0 auto; background: var(--desk-shell2); }
+.desk-shell .gp-n.rd-demonstrated { background: #a99fd0; border-color: #a99fd0; }
+.desk-shell .gp-n.rd-likely { background: linear-gradient(90deg, #a99fd0 50%, #131315 50%); }
+.desk-shell .gp-n.pre { width: 7px; height: 7px; }
+.desk-shell .gp-ord { color: var(--desk-t3); font-size: 10.5px; }
+.desk-shell .gp-h .gp-ti { color: #f1eff7; font-weight: 500; }
+.desk-shell .gp-tag { margin-left: 8px; font-size: 9.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--desk-t3); border: 1px solid #333; border-radius: 2px; padding: 0 4px; white-space: nowrap; }
+.desk-shell .gp-tag.core { color: #e3ddf8; border-color: #6c5fb0; }
+.desk-shell .gp-tag.prerequisite { color: var(--desk-t2); border-color: #3a3647; }
+.desk-shell .gp-tag.here { color: #e8e4f6; border-color: #6c5fb0; }
+.desk-shell .gp-rd { font-size: 10.5px; color: var(--desk-t2); white-space: nowrap; }
+.desk-shell .gp-rd.rd-demonstrated { color: #c9c0ee; }
+.desk-shell .gp-prim, .desk-shell .gp-alt, .desk-shell .gp-chk, .desk-shell .gp-s { box-sizing: border-box; display: grid; grid-template-columns: 16px 150px 130px minmax(0, 1fr) 150px; gap: 0 10px; align-items: baseline; width: calc(100% - 14px); margin-left: 14px; text-align: left; padding: 3px 6px !important; border-radius: 3px; font: 11.5px/1.45 var(--desk-mono); color: var(--desk-t2); }
+.desk-shell .gp-alt > .gp-alt-open { display: contents; text-align: left; }
+.desk-shell .gp-prim:hover, .desk-shell .gp-alt:hover, .desk-shell .gp-chk:hover { background: #1b1a21; }
+.desk-shell .gp-src { color: var(--desk-t); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.desk-shell .gp-src .g, .desk-shell .gp-prim .g, .desk-shell .gp-alt .g { color: var(--desk-t3); }
+.desk-shell .gp-at { color: var(--desk-amber); white-space: normal; }
+.desk-shell .gp-alt { color: var(--desk-t3); }
+.desk-shell .gp-alt .gp-src, .desk-shell .gp-alt .gp-why { color: var(--desk-t3); }
+.desk-shell .gp-alt .gp-at { color: #a98a62; }
+.desk-shell .gp-chk .g, .desk-shell .gp-chk .gp-src, .desk-shell .gp-chk .gp-at { color: #c9c0ee; }
+.desk-shell .gp-chk.done .gp-st { color: #c9c0ee; }
+.desk-shell .gp-why { color: var(--desk-t2); }
+.desk-shell .gp-st { color: var(--desk-t3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: right; }
+.desk-shell .gp-use:hover { color: var(--desk-t); }
+.desk-shell .gp-s { grid-template-columns: 16px 150px 170px minmax(0, 1fr); color: var(--desk-t3); }
+.desk-shell .gp-s .gp-why, .desk-shell .gp-s .gp-src { color: var(--desk-t3); }
+.desk-shell .gp-s .gp-at { color: #8a7458; }
+.desk-shell .gp-anyway { margin-left: 8px; color: #a99fd0 !important; text-decoration: underline; text-underline-offset: 2px; }
+.desk-shell .skipg { border-top: 1px dotted #333; padding-top: 10px; margin-top: 14px; }
+.desk-shell .gp-close { position: absolute; top: 8px; right: 10px; color: var(--desk-t3); font-size: 10px; }
+@media (max-width: 1240px) {
+  .desk-shell .ovl.gpath { grid-template-columns: 270px minmax(0, 1fr); }
+  .desk-shell .gp-prim, .desk-shell .gp-alt, .desk-shell .gp-chk { grid-template-columns: 16px 120px 110px minmax(0, 1fr) 120px; }
+  .desk-shell .gp-s { grid-template-columns: 16px 120px 140px minmax(0, 1fr); }
+  .desk-shell .gb-depth button { padding: 1px 4px; }
+}
+@media (prefers-reduced-motion: reduce) { .desk-shell .gwhy { transition: opacity .1s; transform: none; } }
+
+/* ── transcripts: the bar sits in the text column, 8 px left of the words (10 px for the dotted line) ── */
+.desk-shell .gm.gl-tx { left: -8px; top: 4px; bottom: 4px; }
+.desk-shell .gm.gl-tx.gl-skip, .desk-shell .gm.gl-tx.gl-later, .desk-shell .gm.gl-tx.gl-shown { left: -10px; }
+.desk-shell .tp.gl-dim .tx [data-transcript-span] { color: var(--desk-gdim) !important; }
+/* the learner's own highlight keeps full colour inside a dimmed passage */
+.desk-shell .tp.gl-dim .tx [data-transcript-span].gl-keep { color: var(--desk-ink) !important; }
+.desk-shell .gtcall { font: 11.5px/1.55 var(--desk-mono); color: #3f3566; background: #f1eef9; border-left: 2px solid var(--desk-gl); padding: 7px 10px; margin: 0 0 14px 10px; border-radius: 0 2px 2px 0; }
+.desk-shell .gtcall b { font-weight: 600; color: #3a2f68; }
+.desk-shell .gtcall .gg { color: var(--desk-gl); }
+.desk-shell .gtcall.off { color: #6d6880; background: #f1f0f3; border-left: 1px dotted var(--desk-gl-skip); }
+.desk-shell .gtcall.off b { color: #5a5670; }
+/* the video's track: the path's ranges as segments, the play head in cyan */
+.desk-shell .vtrack { position: relative; height: 12px; margin-top: 6px; }
+.desk-shell .vtrack .ln { position: absolute; left: 0; right: 0; top: 5px; height: 2px; background: #3a3a40; }
+.desk-shell .vtrack .pl { position: absolute; top: 2px; width: 2px; height: 8px; background: var(--desk-cyan); }
+.desk-shell .vtrack .gseg { position: absolute; top: 3px; height: 6px; background: rgba(169, 159, 208, .45); border-radius: 1px; }
+
+/* ── the shelf: the same bar at each row's right edge (its left edge is the focus bar), a line on what it is for,
+   and the path's ranges on the minimap ── */
+.desk-shell .desk-src { position: relative; }
+.desk-shell .desk-src > .gm.sh { left: auto; right: 2px; top: 8px; bottom: 8px; cursor: default; }
+.desk-shell .desk-src.g-core > .gm.sh { background: #a99fd0; }
+.desk-shell .desk-src.g-sup > .gm.sh { background: rgba(169, 159, 208, .38); }
+.desk-shell .desk-src.g-skip > .gm.sh, .desk-shell .desk-src.g-later > .gm.sh, .desk-shell .desk-src.g-shown > .gm.sh { width: 0; border-left: 1px dotted #6e6790; }
+.desk-shell .desk-src.g-partial > .gm.sh { bottom: auto; height: 5px; background: #6e6790; }
+.desk-shell .desk-src.g-skip .n, .desk-shell .desk-src.g-later .n { color: var(--desk-t3); }
+.desk-shell .desk-src .gwl { font: 10px var(--desk-mono); color: #9d94c6; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.desk-shell .desk-src.g-skip > .gwl, .desk-shell .desk-src.g-later > .gwl { color: var(--desk-t3); }
+.desk-shell .desk-src .bar .gr { position: absolute; top: 50%; height: 5px; transform: translateY(-50%); background: rgba(169, 159, 208, .32); border-radius: 1px; }
+
+/* ── the companion keeps the goal in view ── */
+.desk-companion .ctx .goal.gctx { color: #a99fd0; margin-left: 10px; font-size: 10.5px; white-space: nowrap; }
+/* with the goal line, the context stays one line (the reference's): what it follows gives way first */
+.desk-companion .ctx:has(> .gctx) { white-space: nowrap; overflow: hidden; }
+.desk-companion .ctx:has(> .gctx) > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; }

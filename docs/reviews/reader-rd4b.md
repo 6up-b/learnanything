@@ -153,3 +153,62 @@ deleted). The mockup's book text was not copied anywhere.
 - The desktop app was not launched; the sidecar's pad calls were exercised through the fixture core only.
 - Show me end to end (the figure build is the Reader's; the fixture answers with no figure).
 - Pen pressure on a real pen.
+
+## Fix round (frontend)
+
+The frontend half of the fix round for RD4's adversarial review (3 blockers, 12 major, 2 minor). Branch
+`reader/rd4-fix-frontend`, on the RD3 fix tip; the backend half (`reader/rd4-fix-backend`, its contract in
+`docs/reviews/reader-rd4a.md`'s fix-round section) is merged in, so the client uses its ops and reads. No backend
+change of its own, no migration, tag or prompt change, no kill switch. Each finding was checked against the code
+first (all twelve held), got a fail-first test (failing against the code before the fix) and a ledger row, RD4-20
+upward. #5 and #6 are the backend half's; the backend side of #3, #7, #8, #12, #13, #14 and #15 too.
+
+| Finding | Ledger | What changed | Fail-first test |
+|---|---|---|---|
+| #1 a click inside the editor reverted the draft | RD4-20 | Clicks inside the editor are the editor's; the block being edited is never reopened | `pads/PadStackWindow.test.tsx` (1) |
+| #2 reconciling dropped edits queued during its reads | RD4-21 | Batches queued while the pads were read join the rebase (pads they name are read too) until none is new | `store.test.ts` (1) |
+| #3 conflict recovery overwrote the other device's words | RD4-28 | Every edit carries `keepBoth`: on a stale head the newer words stay and these land as their own block marked "written over an older version"; the client mirrors that and moves edits typed on top into the kept block; stale removes, moves and lifts are dropped and said, never restamped | `pads/model.test.ts` (5), `store.test.ts` (2) |
+| #4 a retried submission recorded twice | RD4-22 | The request (id, version, target) is frozen at the first try and resent as is; a new one only after it is recorded or the words change | `pads/PadStackWindow.test.tsx` (1) |
+| #7 a new or lifted pad could vanish from its stack | RD4-29 | Membership by `add_to_stack` (a union, no expected version); the client model applies the membership ops as the server does (the shared op script gains a membership batch, run by the sidecar too); pads an earlier build kept in a view join the stack by `add_to_stack` once | `pads/PadStackWindow.test.tsx` (now asserts `addToStack`), `store.test.ts` (1), `DeskShell.test.tsx` (1), `opParity.json` |
+| #8 no running pad outside the fixtures | RD4-30 | The first time the desks show a desk with windows whose stacks hold no running pad, `ensure_running_pad` (idempotent); the pad is known locally at once | `DeskShell.test.tsx` (2) |
+| #9 a teach-back's follow-up question was dropped | RD4-23 | The sheet shows the question and goes on through `submit_teach_back_turn` (answer, finish now, later); a duplicate reply resumes from the reserved conversation (`teachBack`), or, from an older sidecar, the session's checkpoint | `pads/PadStackWindow.test.tsx` (3) |
+| #10 Ask about this refused on a pad line | RD4-24 | A pad line is asked with its block (`padBlockIds`) and its words with the question (learner text): a linked line about its passage, an unlinked one beside the desk's book where the learner reads | `DeskShell.test.tsx` (3); the harness asks from a pad line |
+| #11 Show me wrote after its pad paused | RD4-25 | The figure job is polled through the one poller under the pad window that asked; a finished figure waits until the window is live to be written | `pads/PadStackWindow.test.tsx` (1) |
+| #12 a piece of another source was a search label | RD4-31 | A piece needs a passage; its words come whole from `passage.content`, title, page, section and time apart; held-out text is not copied, and says so | `pads/PadStackWindow.test.tsx` (2) |
+| #13 back-links could not reopen a closed source | RD4-32 | Back-links go through the claims' path: the stored source id (or the reading) reopens the source at the passage, a video at its time | `DeskShell.test.tsx` (2) |
+| #14 carried questions past three were unreachable | RD4-33 | The shelf keeps three and links to every carried question, paged by cursor, each with fruitful, not now and let it go | `DeskShell.test.tsx` (1) |
+| #15 passage marks only from loaded pads | RD4-34 | Marks come from `passage.union_range` over each live window's visible passages (aliases resolved, `needs_reanchor` marked) | `DeskShell.test.tsx` (1) |
+| #16 no gutter cards in split view | RD4-26 | Cards are placed in the pad window's own box (both layouts); a tap reads its mark before the state update | `pads/PadStackWindow.test.tsx` (1) |
+| #17 the drain said done before the save | RD4-27 | The drain's actions settle on acknowledgement; "saving…", then done, or why with the controls kept | `DeskShell.test.tsx` (1) |
+
+**Judgment calls.**
+
+1. **Every edit sends `keepBoth`**, so an edit never conflicts: on a stale head its words become their own block. The
+   label the learner reads is "your words, written over an older version · <time>". After a reply that kept both,
+   the store reads the pad again and moves edits queued on top into the kept block (a redirect by version), so one
+   burst of typing makes one kept block, not one per keystroke batch.
+2. **The running pad is ensured on a desk's first visit** (outside zooms), not for every desk at once: a desk from
+   before running pads gets its stack window appended when it is first shown; an empty desk keeps its empty state
+   and gets its running pad with its first window. Every stack's pads are read once when the desks open (no polling)
+   so a desk's pads show as it arrives. The harness workspace now gives every desk its running pad, as the desks
+   ensure it.
+3. **Legacy `view.addedPads`** (written by RD4b) is still shown, and each such pad joins its stack by `add_to_stack`
+   once when the desks open; nothing writes it any more.
+4. **An unlinked pad line is asked beside the desk's book** (its reading place), the line's words going with the
+   question as the learner's text and the block recorded with the exchange; with no book or video on the desk the
+   companion says why. A linked line is asked about its passage.
+5. **The teach-back continues in the submit sheet** (question, answer, finish now, "later · it waits in your
+   session") rather than navigating to the Practice screen, which owns the session-wide teach-back flow.
+6. **A held-out passage is never copied into a pad**: the menu says so and inserts nothing (no snippet stands in).
+7. **The VR-n colour differences** from the private reference set have not arrived yet; they are not in this round.
+
+**The mockup, compared in words** (headless Chromium against the mockup's pads deep links, served on 127.0.0.1 and
+stopped; screenshots in scratch only, deleted). `#s11=run` and `#s12=submitted`: unchanged from the RD4b comparison
+(dated amber headings, Literata on the paper, the § and ◇ gutter marks, the amber back-link chip, the green submitted
+tag, the jot line). Two differences stay as recorded in RD4b: the mockup's window title reads "Scratchpads ⓘ yours"
+where ours keeps the shell's title with ⓘ on the pad's own row, and the mockup's shelf has a "TODAY · RUNNING PAD"
+list above CARRIED that this build does not have. `#markback`: the ✎ chip at the passage's right edge is the same;
+it now comes from the passage union, and a link from another reading shows dimmed with a "may need re-anchoring"
+title (the mockup has no such case). The new states (the conflict block's dashed amber "⇄ your words, written over
+an older version" tag, the drain's "saving…" and its error line, the carried list, the teach-back question in the
+submit sheet) have no mockup frame; they reuse the paper's amber-ink tag style and the sheets' dark style.

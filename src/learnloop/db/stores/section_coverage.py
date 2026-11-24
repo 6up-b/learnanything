@@ -80,6 +80,25 @@ def learning_objects_named(connection: sqlite3.Connection, extraction_id: str, s
         "GROUP BY learning_object_id ORDER BY MIN(created_at), learning_object_id", (extraction_id, section_id))]
 
 
+
+def section_hashes_in_reading(connection: sqlite3.Connection, extraction_id: str) -> dict[tuple[str, str], set[str]]:
+    """Per (section, LO), every section hash any row for it was written against (a judge's or the learner's)."""
+
+    out: dict[tuple[str, str], set[str]] = {}
+    for section_id, lo_id, section_hash in connection.execute(
+            "SELECT DISTINCT section_id, learning_object_id, section_hash FROM section_coverage WHERE extraction_id = ?",
+            (extraction_id,)):
+        out.setdefault((str(section_id), str(lo_id)), set()).add(str(section_hash))
+    return out
+
+
+def learning_objects_in_reading(connection: sqlite3.Connection, extraction_id: str) -> list[str]:
+    """Every LO any row (judge or learner) names for a section of this reading."""
+
+    return [str(row[0]) for row in connection.execute(
+        "SELECT DISTINCT learning_object_id FROM section_coverage WHERE extraction_id = ? ORDER BY learning_object_id",
+        (extraction_id,))]
+
 def corrections(connection: sqlite3.Connection, *, learning_object_ids: Iterable[str] | None = None,
                 sections: Iterable[tuple[str, str]] | None = None) -> dict[tuple[str, str, str], dict[str, Any]]:
     """The newest learner row per (reading, section, LO) (``none`` is a cleared one),

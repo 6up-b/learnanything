@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/pads/PassageMarks.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/pads/PassageMarks.tsx) |
-| Source lines | 125 |
+| Source lines | 148 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/pads/_area|TypeScript/screens/desks/pads]] |
 | Refactor status | `ACTIVE` |
@@ -55,37 +55,47 @@ The system-level behavior stays authoritative in the linked architecture, concep
 ## Public API
 
 - `export interface PadLink` — interface, line 9
-- `export function placeMarks(stage: HTMLElement, windows: Array<` — function, line 31
-- `export function PassageMarks(` — function, line 64
+- `export function visibleSpanRange(stage: HTMLElement, windowId: string):` — function, line 20
+- `export function placeMarks(stage: HTMLElement, windows: Array<` — function, line 51
+- `export function PassageMarks(` — function, line 85
 
 ## Internal implementation anchors
 
-- `interface Placed` — interface, line 16
-- `function quoted(value: string): string` — function, line 26
-- `const origin = stage.getBoundingClientRect()` — const, line 32
-- `const out: Placed[] = []` — const, line 33
-- `const host = stage.querySelector(`[$` — const, line 35
-- `const frame = host.getBoundingClientRect()` — const, line 37
-- `const at = (spanId: string)` — const, line 38
-- `const element = host.querySelector(`[data-span-id="$` — const, line 39
-- `const box = element.getBoundingClientRect()` — const, line 41
-- `const place = at(link.spanId)` — const, line 47
-- `const anchor = question.anchor as` — const, line 51
-- `const place = at(anchor.span_id)` — const, line 53
-- `function sameMarks(a: Placed[], b: Placed[]): boolean` — function, line 60
-- `const windowsKey = windows.map((each)` — const, line 75
-- `let frame = 0` — let, line 78
-- `const update = ()` — const, line 79
-- `const next = placeMarks(stage, windows, links, carried)` — const, line 81
-- `const schedule = ()` — const, line 85
-- `const timer = setInterval(schedule, 1000)` — const, line 91
+- `const host = stage.querySelector(`[$` — const, line 21
+- `const frame = host.getBoundingClientRect()` — const, line 23
+- `const spans = [...host.querySelectorAll<HTMLElement>("[data-span-id], [data-transcript-span]")]` — const, line 24
+- `const inView = spans.filter((element)` — const, line 25
+- `const box = element.getBoundingClientRect()` — const, line 26
+- `const shown = inView.length ? inView : spans` — const, line 29
+- `const id = (element: HTMLElement | undefined)` — const, line 30
+- `const from = id(shown[0])` — const, line 31
+- `const to = id(shown[shown.length - 1])` — const, line 32
+- `interface Placed` — interface, line 36
+- `function quoted(value: string): string` — function, line 46
+- `const origin = stage.getBoundingClientRect()` — const, line 52
+- `const out: Placed[] = []` — const, line 53
+- `const host = stage.querySelector(`[$` — const, line 55
+- `const frame = host.getBoundingClientRect()` — const, line 57
+- `const at = (spanId: string)` — const, line 58
+- `const element = host.querySelector(`[data-span-id="$` — const, line 59
+- `const box = element.getBoundingClientRect()` — const, line 61
+- `const place = at(link.spanId)` — const, line 67
+- `const anchor = question.anchor as` — const, line 71
+- `const place = at(anchor.span_id)` — const, line 73
+- `function sameMarks(a: Placed[], b: Placed[]): boolean` — function, line 81
+- `const windowsKey = windows.map((each)` — const, line 96
+- `let frame = 0` — let, line 99
+- `const update = ()` — const, line 100
+- `const next = placeMarks(stage, windows, links, carried)` — const, line 102
+- `const schedule = ()` — const, line 106
+- `const timer = setInterval(schedule, 1000)` — const, line 112
 
 ## Who imports or calls it
 
 > [!note] Static-evidence boundary
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
-- [[Reference/Desktop/TypeScript/screens/desks/DeskShell|src/screens/desks/DeskShell.tsx]] — import-or-re-export: `PadLink`, `PassageMarks`; references `PadLink`, `PassageMarks`
+- [[Reference/Desktop/TypeScript/screens/desks/DeskShell|src/screens/desks/DeskShell.tsx]] — import-or-re-export: `PadLink`, `PassageMarks`, `visibleSpanRange`; references `PadLink`, `PassageMarks`, `visibleSpanRange`
 
 ## Dependencies
 
@@ -106,7 +116,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 ## Tests that define behavior
 
-- No repository test directly names this source path or a uniquely owned export. `npm run typecheck`, `npm test` and `npm run frontend:build` are the executable frontend gates; add a focused test when changing behavior.
+- [apps/learnloop-tauri/src/screens/desks/pads/passageMarks.test.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/pads/passageMarks.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 
 ## Modification guidance
 

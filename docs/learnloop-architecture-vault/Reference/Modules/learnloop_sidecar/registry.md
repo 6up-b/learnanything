@@ -100,11 +100,13 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop_sidecar/handlers/figures|learnloop_sidecar.handlers.figures]] — imports `method`; statically calls `method`
 - [[Reference/Modules/learnloop_sidecar/handlers/first_run|learnloop_sidecar.handlers.first_run]] — imports `method`; statically calls `method`
 - [[Reference/Modules/learnloop_sidecar/handlers/followup|learnloop_sidecar.handlers.followup]] — imports `method`; statically calls `method`
+- [[Reference/Modules/learnloop_sidecar/handlers/goal_lens|learnloop_sidecar.handlers.goal_lens]] — imports `method`; statically calls `method`
 - [[Reference/Modules/learnloop_sidecar/handlers/goals|learnloop_sidecar.handlers.goals]] — imports `method`; statically calls `method`
 - [[Reference/Modules/learnloop_sidecar/handlers/graph|learnloop_sidecar.handlers.graph]] — imports `method`; statically calls `method`
 - [[Reference/Modules/learnloop_sidecar/handlers/graph_edit|learnloop_sidecar.handlers.graph_edit]] — imports `method`; statically calls `method`
 - [[Reference/Modules/learnloop_sidecar/handlers/hints|learnloop_sidecar.handlers.hints]] — imports `method`; statically calls `method`
 - [[Reference/Modules/learnloop_sidecar/handlers/ingest|learnloop_sidecar.handlers.ingest]] — imports `method`; statically calls `method`
+- [[Reference/Modules/learnloop_sidecar/handlers/ink|learnloop_sidecar.handlers.ink]] — imports `method`; statically calls `method`
 - [[Reference/Modules/learnloop_sidecar/handlers/inline_checks|learnloop_sidecar.handlers.inline_checks]] — imports `method`; statically calls `method`
 - [[Reference/Modules/learnloop_sidecar/handlers/inspector|learnloop_sidecar.handlers.inspector]] — imports `method`; statically calls `method`
 - [[Reference/Modules/learnloop_sidecar/handlers/intent|learnloop_sidecar.handlers.intent]] — imports `method`; statically calls `method`
@@ -118,6 +120,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop_sidecar/handlers/library_ask|learnloop_sidecar.handlers.library_ask]] — imports `method`; statically calls `method`
 - [[Reference/Modules/learnloop_sidecar/handlers/library_exercises|learnloop_sidecar.handlers.library_exercises]] — imports `method`; statically calls `method`
 - [[Reference/Modules/learnloop_sidecar/handlers/measurement|learnloop_sidecar.handlers.measurement]] — imports `method`; statically calls `method`
+- [[Reference/Modules/learnloop_sidecar/handlers/notebooks|learnloop_sidecar.handlers.notebooks]] — imports `method`; statically calls `method`
 - [[Reference/Modules/learnloop_sidecar/handlers/notes|learnloop_sidecar.handlers.notes]] — imports `method`; statically calls `method`
 - [[Reference/Modules/learnloop_sidecar/handlers/pads|learnloop_sidecar.handlers.pads]] — imports `method`; statically calls `method`
 - [[Reference/Modules/learnloop_sidecar/handlers/passage_union|learnloop_sidecar.handlers.passage_union]] — imports `method`; statically calls `method`
@@ -146,6 +149,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop_sidecar/handlers/teach_back|learnloop_sidecar.handlers.teach_back]] — imports `method`; statically calls `method`
 - [[Reference/Modules/learnloop_sidecar/handlers/tutor_qa|learnloop_sidecar.handlers.tutor_qa]] — imports `method`; statically calls `method`
 - [[Reference/Modules/learnloop_sidecar/handlers/vault|learnloop_sidecar.handlers.vault]] — imports `method`; statically calls `method`
+- [[Reference/Modules/learnloop_sidecar/handlers/video|learnloop_sidecar.handlers.video]] — imports `method`; statically calls `method`
 - [[Reference/Modules/learnloop_sidecar/handlers/why|learnloop_sidecar.handlers.why]] — imports `method`; statically calls `method`
 - [[Reference/Modules/learnloop_sidecar/handlers/workbench|learnloop_sidecar.handlers.workbench]] — imports `method`; statically calls `method`
 - [[Reference/Modules/learnloop_sidecar/handlers/workbench_help|learnloop_sidecar.handlers.workbench_help]] — imports `method`; statically calls `method`
@@ -173,7 +177,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Inspect Persistent State]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop_sidecar/handlers/adaptive_difficulty|learnloop_sidecar.handlers.adaptive_difficulty]], [[Reference/Modules/learnloop_sidecar/handlers/adjudication|learnloop_sidecar.handlers.adjudication]], [[Reference/Modules/learnloop_sidecar/handlers/ai_providers|learnloop_sidecar.handlers.ai_providers]], [[Reference/Modules/learnloop_sidecar/handlers/animation|learnloop_sidecar.handlers.animation]], [[Reference/Modules/learnloop_sidecar/handlers/app|learnloop_sidecar.handlers.app]] and 73 more.
+Static participation evidence comes from [[Reference/Modules/learnloop_sidecar/handlers/adaptive_difficulty|learnloop_sidecar.handlers.adaptive_difficulty]], [[Reference/Modules/learnloop_sidecar/handlers/adjudication|learnloop_sidecar.handlers.adjudication]], [[Reference/Modules/learnloop_sidecar/handlers/ai_providers|learnloop_sidecar.handlers.ai_providers]], [[Reference/Modules/learnloop_sidecar/handlers/animation|learnloop_sidecar.handlers.animation]], [[Reference/Modules/learnloop_sidecar/handlers/app|learnloop_sidecar.handlers.app]] and 77 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -293,6 +297,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_library_exercises.py](../../../../../tests/test_library_exercises.py) — direct import
   - `test_r2_contract_no_workbench_or_reader_exercise_rpc_returns_a_held_out_statement`
 - [tests/test_lp_claim_fixes_review.py](../../../../../tests/test_lp_claim_fixes_review.py) — direct import
+- [tests/test_menu_promoted_rows.py](../../../../../tests/test_menu_promoted_rows.py) — direct import
+  - `test_an_object_names_what_it_needs`
+  - `test_the_menu_rpcs_refuse_an_extra_field_and_are_desktop_only`
 - [tests/test_mobile_allowlist.py](../../../../../tests/test_mobile_allowlist.py) — direct import
   - `test_desktop_and_main_rpcs_are_registered_but_never_phone_allowed`
   - `test_every_other_registered_method_is_denied`
@@ -321,6 +328,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_mobile_v3_carried.py](../../../../../tests/test_mobile_v3_carried.py) — direct import
   - `test_an_items_own_hint_revealed_on_the_phone_records_the_phones_surface_and_the_desktops_stays_practice`
 - [tests/test_mobile_v4_plan.py](../../../../../tests/test_mobile_v4_plan.py) — direct import
+- [tests/test_notebook_rpcs.py](../../../../../tests/test_notebook_rpcs.py) — direct import
+  - `test_an_owner_is_a_pad_or_a_lesson`
+  - `test_params_refuse_an_extra_field`
+  - `test_the_rpcs_are_registered_and_desktop_only`
 - [tests/test_notes_linked.py](../../../../../tests/test_notes_linked.py) — direct import
   - `test_the_rpcs_are_registered_and_desktop_only`
 - [tests/test_one_ai_ok.py](../../../../../tests/test_one_ai_ok.py) — direct import
@@ -350,6 +361,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_pad_get_of_an_unknown_pad_and_a_union_range_of_two_kinds_are_refused`
   - `test_params_refuse_an_extra_field`
   - `test_the_rpcs_are_registered_and_desktop_only`
+- [tests/test_reader_rd10_video.py](../../../../../tests/test_reader_rd10_video.py) — direct import
+  - `test_the_rpcs_are_registered_desktop_only_and_refuse_extra_fields`
 - [tests/test_reader_rd3a_companion_ask.py](../../../../../tests/test_reader_rd3a_companion_ask.py) — direct import
   - `test_the_rpcs_are_registered_desktop_only_and_refuse_extra_fields`
 - [tests/test_reader_rd3a_search.py](../../../../../tests/test_reader_rd3a_search.py) — direct import
@@ -357,7 +370,16 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reader_rd4_rpcs.py](../../../../../tests/test_reader_rd4_rpcs.py) — direct import
   - `test_a_submission_target_refuses_an_extra_field_and_names_a_kind`
   - `test_params_refuse_an_extra_field`
+  - `test_the_fix_rounds_read_is_desktop_only_refuses_an_extra_field_and_is_versioned`
   - `test_the_rpcs_are_registered_and_desktop_only`
+- [tests/test_reader_rd6a_goal_lens.py](../../../../../tests/test_reader_rd6a_goal_lens.py) — direct import
+  - `test_the_rpcs_are_registered_desktop_only_and_refuse_extra_fields`
+- [tests/test_reader_rd8a_rpcs.py](../../../../../tests/test_reader_rd8a_rpcs.py) — direct import
+  - `test_nested_models_refuse_extra_fields_and_repeated_stroke_ids`
+  - `test_params_refuse_an_extra_field`
+  - `test_the_rpcs_are_registered_and_desktop_only`
+- [tests/test_reader_rd9a_lesson_windows.py](../../../../../tests/test_reader_rd9a_lesson_windows.py) — direct import
+  - `test_the_rpc_is_registered_desktop_only_and_refuses_extra_fields`
 - [tests/test_reader_wrap_up.py](../../../../../tests/test_reader_wrap_up.py) — direct import
   - `test_wrap_up_is_a_pure_read_and_its_actions_are_the_chips_rpcs`
 - [tests/test_regrade_contract_replay.py](../../../../../tests/test_regrade_contract_replay.py) — direct import

@@ -103,10 +103,12 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop_sidecar/handlers/figures|learnloop_sidecar.handlers.figures]] — imports `SidecarError`; statically calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/handlers/first_run|learnloop_sidecar.handlers.first_run]] — imports `SidecarError`; statically calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/handlers/followup|learnloop_sidecar.handlers.followup]] — imports `SidecarError`; statically calls `SidecarError`
+- [[Reference/Modules/learnloop_sidecar/handlers/goal_lens|learnloop_sidecar.handlers.goal_lens]] — imports `SidecarError`; statically calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/handlers/goals|learnloop_sidecar.handlers.goals]] — imports `SidecarError`; statically calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/handlers/graph_edit|learnloop_sidecar.handlers.graph_edit]] — imports `SidecarError`; statically calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/handlers/hints|learnloop_sidecar.handlers.hints]] — imports `SidecarError`; statically calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/handlers/ingest|learnloop_sidecar.handlers.ingest]] — imports `SidecarError`, `require_ai_ok`; statically calls `SidecarError`, `require_ai_ok`
+- [[Reference/Modules/learnloop_sidecar/handlers/ink|learnloop_sidecar.handlers.ink]] — imports `SidecarError`; statically calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/handlers/intent|learnloop_sidecar.handlers.intent]] — imports `SidecarError`; statically calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/handlers/item_authoring|learnloop_sidecar.handlers.item_authoring]] — imports `SidecarError`; statically calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/handlers/kept_comparisons|learnloop_sidecar.handlers.kept_comparisons]] — imports `SidecarError`; statically calls `SidecarError`
@@ -118,6 +120,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop_sidecar/handlers/library_ask|learnloop_sidecar.handlers.library_ask]] — imports `SidecarError`; statically calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/handlers/library_exercises|learnloop_sidecar.handlers.library_exercises]] — imports `SidecarError`; statically calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/handlers/measurement|learnloop_sidecar.handlers.measurement]] — imports `SidecarError`; statically calls `SidecarError`
+- [[Reference/Modules/learnloop_sidecar/handlers/notebooks|learnloop_sidecar.handlers.notebooks]] — imports `SidecarError`; statically calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/handlers/notes|learnloop_sidecar.handlers.notes]] — imports `SidecarError`; statically calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/handlers/pads|learnloop_sidecar.handlers.pads]] — imports `SidecarError`; statically calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/handlers/passage_union|learnloop_sidecar.handlers.passage_union]] — imports `SidecarError`; statically calls `SidecarError`
@@ -147,6 +150,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop_sidecar/handlers/teach_back|learnloop_sidecar.handlers.teach_back]] — imports `SidecarError`; statically calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/handlers/tutor_qa|learnloop_sidecar.handlers.tutor_qa]] — imports `SidecarError`; statically calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/handlers/vault|learnloop_sidecar.handlers.vault]] — imports `SidecarError`; statically calls `SidecarError`
+- [[Reference/Modules/learnloop_sidecar/handlers/video|learnloop_sidecar.handlers.video]] — imports `SidecarError`; statically calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/handlers/why|learnloop_sidecar.handlers.why]] — imports `SidecarError`; statically calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/handlers/workbench|learnloop_sidecar.handlers.workbench]] — imports `SidecarError`; statically calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/handlers/workbench_help|learnloop_sidecar.handlers.workbench_help]] — imports `SidecarError`; statically calls `SidecarError`
@@ -179,7 +183,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Inspect Persistent State]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]], [[Reference/Modules/learnloop_sidecar/handlers/adaptive_difficulty|learnloop_sidecar.handlers.adaptive_difficulty]], [[Reference/Modules/learnloop_sidecar/handlers/adjudication|learnloop_sidecar.handlers.adjudication]], [[Reference/Modules/learnloop_sidecar/handlers/ai_providers|learnloop_sidecar.handlers.ai_providers]], [[Reference/Modules/learnloop_sidecar/handlers/animation|learnloop_sidecar.handlers.animation]] and 75 more.
+Static participation evidence comes from [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]], [[Reference/Modules/learnloop_sidecar/handlers/adaptive_difficulty|learnloop_sidecar.handlers.adaptive_difficulty]], [[Reference/Modules/learnloop_sidecar/handlers/adjudication|learnloop_sidecar.handlers.adjudication]], [[Reference/Modules/learnloop_sidecar/handlers/ai_providers|learnloop_sidecar.handlers.ai_providers]], [[Reference/Modules/learnloop_sidecar/handlers/animation|learnloop_sidecar.handlers.animation]] and 79 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -264,6 +268,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_figure_region.py](../../../../../tests/test_figure_region.py) — direct import
   - `test_a_region_outside_the_figure_crops_nothing_and_calls_nothing`
   - `test_a_route_without_image_input_is_refused_before_any_call`
+- [tests/test_figure_request_records.py](../../../../../tests/test_figure_request_records.py) — direct import
+  - `test_a_request_refused_on_the_request_path_records_its_code`
+  - `test_a_request_with_figures_off_records_the_switch`
+  - `test_a_revision_refused_on_the_request_path_records_its_code`
 - [tests/test_figure_revisions.py](../../../../../tests/test_figure_revisions.py) — direct import
   - `test_revising_an_unknown_figure_is_refused`
 - [tests/test_figure_rich_rpc.py](../../../../../tests/test_figure_rich_rpc.py) — direct import
@@ -389,6 +397,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_fallback_is_learner_initiated_and_switched_off_by_default`
   - `test_the_learner_pick_is_owed_durably_across_a_restart_and_acknowledged_only_after_delivery`
   - `test_with_the_sources_service_absent_the_view_is_absent`
+- [tests/test_menu_promoted_rows.py](../../../../../tests/test_menu_promoted_rows.py) — direct import
+  - `test_a_retried_menu_request_answers_with_its_job_and_runs_once`
 - [tests/test_mobile_handoff.py](../../../../../tests/test_mobile_handoff.py) — direct import
   - `test_a_desktop_start_over_a_phone_session_asks_and_replace_is_its_answer`
   - `test_writes_from_the_device_that_lost_it_are_session_moved`
@@ -404,6 +414,18 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_mobile_v4_reader.py](../../../../../tests/test_mobile_v4_reader.py) — direct import
   - `test_a_section_range_is_its_blocks_in_the_same_shape`
   - `test_the_phones_ask_and_save_refuse_protected_passages_before_any_model`
+- [tests/test_notebook_lessons.py](../../../../../tests/test_notebook_lessons.py) — direct import
+  - `test_a_lesson_closed_elsewhere_releases_nothing_more`
+  - `test_a_lesson_opens_on_its_own_notebook_with_its_commit_points`
+  - `test_a_lesson_without_a_notebook_and_an_unknown_lesson_without_a_path_are_refused`
+  - `test_a_refused_release_is_said_and_the_inputs_refuse_extra_fields`
+- [tests/test_notebook_pad_cells.py](../../../../../tests/test_notebook_pad_cells.py) — direct import
+  - `test_a_generated_notebook_larger_than_a_notebook_may_be_is_refused`
+  - `test_a_pad_without_cells_or_without_a_pad_or_a_lesson_without_a_path_is_refused`
+  - `test_the_derived_notebook_never_follows_a_link_out_of_the_vault`
+- [tests/test_notebook_rpcs.py](../../../../../tests/test_notebook_rpcs.py) — direct import
+  - `test_a_notebook_outside_the_vault_or_not_a_python_file_is_refused`
+  - `test_runtime_refusals_are_stable_errors`
 - [tests/test_notes_linked.py](../../../../../tests/test_notes_linked.py) — direct import
   - `test_a_learner_links_a_note_by_hand_from_the_reader`
   - `test_meaning_search_is_refused_while_embeddings_are_off`
@@ -499,6 +521,14 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reader_rd0_rpcs.py](../../../../../tests/test_reader_rd0_rpcs.py) — direct import
   - `test_desk_apply_speaks_camel_case_and_maps_the_protocols_refusals`
   - `test_pad_get_of_an_unknown_pad_and_a_union_range_of_two_kinds_are_refused`
+- [tests/test_reader_rd10_video.py](../../../../../tests/test_reader_rd10_video.py) — direct import
+  - `test_a_cancelled_suggestion_sends_nothing_more_and_a_failure_keeps_nothing`
+  - `test_chapters_are_judged_once_stored_suggested_and_accepting_stores`
+- [tests/test_reader_rd3_fix_backend.py](../../../../../tests/test_reader_rd3_fix_backend.py) — direct import
+  - `test_a_full_record_of_ids_refuses_a_new_id_rather_than_forget_one`
+  - `test_a_job_is_found_only_in_the_vault_it_was_started_in`
+  - `test_a_request_id_is_remembered_after_its_result_is_dropped`
+  - `test_running_asks_are_bounded`
 - [tests/test_reader_rd3a_companion_ask.py](../../../../../tests/test_reader_rd3a_companion_ask.py) — direct import
   - `test_a_failed_generation_is_reported_and_an_unknown_job_is_said_to_be_gone`
   - `test_a_repeated_request_id_answers_the_same_job_and_asks_once`
@@ -510,11 +540,23 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_labels_are_logged_once_and_dismiss_or_not_this_hides_the_marker`
   - `test_three_labels_each_logged_and_a_stale_label_is_a_conflict`
 - [tests/test_reader_rd4_submission.py](../../../../../tests/test_reader_rd4_submission.py) — direct import
+  - `test_a_crash_before_the_hand_off_hands_the_frozen_words_over_under_the_same_id`
   - `test_a_retry_hands_nothing_over_again_and_a_reused_id_is_refused`
-  - `test_a_teach_back_already_opened_by_this_submission_is_found_and_another_under_way_is_refused`
   - `test_an_answer_only_from_its_problem_pad_or_check_cell`
   - `test_an_edit_after_submitting_keeps_the_submitted_version_and_its_tag_says_so`
+  - `test_two_submissions_with_the_same_words_are_never_taken_for_one_conversation`
   - `test_what_is_refused`
+- [tests/test_reader_rd6a_goal_lens.py](../../../../../tests/test_reader_rd6a_goal_lens.py) — direct import
+  - `test_a_range_reads_only_the_sections_it_touches`
+  - `test_read_it_anyway_on_a_dimmed_section_is_stored_idempotent_and_clearable`
+  - `test_switched_off_every_rpc_refuses_and_nothing_is_called_or_written`
+  - `test_the_empty_and_thin_states`
+- [tests/test_reader_rd8a_rpcs.py](../../../../../tests/test_reader_rd8a_rpcs.py) — direct import
+  - `test_a_failed_reading_says_why`
+  - `test_a_reading_belongs_to_its_vault`
+  - `test_save_and_list_replies_are_versioned_and_camel_cased`
+- [tests/test_reader_rd9a_fix.py](../../../../../tests/test_reader_rd9a_fix.py) — direct import
+  - `test_a_quick_question_is_never_served_or_answered_in_a_desk_window`
 - [tests/test_reader_recap.py](../../../../../tests/test_reader_recap.py) — direct import
   - `test_switched_off_opening_writes_nothing_and_the_recap_rpcs_refuse`
   - `test_unknown_recap_events_are_refused_before_any_write`
@@ -655,6 +697,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f1_rereview_a_direct_tutor_reuse_persists_its_question_for_later_readers`
   - `test_f1_the_reuses_dropped_pin_is_persisted_for_later_reads`
   - `test_nov1_open_item_3_a_fresh_comparisons_pin_naming_no_passage_is_not_persisted`
+- [tests/test_why_cases.py](../../../../../tests/test_why_cases.py) — direct import
+  - `test_why_didnt_show_me_work_names_the_refusal_and_the_menu`
 - [tests/test_why_reader.py](../../../../../tests/test_why_reader.py) — direct import
   - `test_why_get_returns_ids_numbers_and_codes_and_never_a_payload`
 - [tests/test_workbench_check.py](../../../../../tests/test_workbench_check.py) — direct import

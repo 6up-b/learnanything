@@ -61,7 +61,7 @@ For system intent, use [[Architecture Overview]].
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/instructional/__init__|learnloop.instructional]] | [[Reference/Modules/learnloop/instructional/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
 | [[Reference/Modules/learnloop/instructional/discriminating|learnloop.instructional.discriminating]] | [[Reference/Modules/learnloop/instructional/discriminating#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
-| [[Reference/Modules/learnloop/instructional/exercises|learnloop.instructional.exercises]] | [[Reference/Modules/learnloop/instructional/exercises#^module-purpose|purpose]] | `ACTIVE` | 3 | 6 |
+| [[Reference/Modules/learnloop/instructional/exercises|learnloop.instructional.exercises]] | [[Reference/Modules/learnloop/instructional/exercises#^module-purpose|purpose]] | `ACTIVE` | 3 | 7 |
 | [[Reference/Modules/learnloop/instructional/exposure|learnloop.instructional.exposure]] | [[Reference/Modules/learnloop/instructional/exposure#^module-purpose|purpose]] | `ACTIVE` | 4 | 7 |
 | [[Reference/Modules/learnloop/instructional/harvest|learnloop.instructional.harvest]] | [[Reference/Modules/learnloop/instructional/harvest#^module-purpose|purpose]] | `ACTIVE` | 1 | 4 |
 | [[Reference/Modules/learnloop/instructional/interventions|learnloop.instructional.interventions]] | [[Reference/Modules/learnloop/instructional/interventions#^module-purpose|purpose]] | `ACTIVE` | 10 | 6 |

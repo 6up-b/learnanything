@@ -47,41 +47,41 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/workbench/check.py](../../../../../../src/learnloop/workbench/check.py) |
-| Source lines | 851 |
+| Source lines | 855 |
 | Owning package | [[Reference/Modules/learnloop/workbench/_package|learnloop.workbench]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `models_off() -> bool` ([source](../../../../../../src/learnloop/workbench/check.py), line 95)
-- `class Transformation(WireModel)` ([source](../../../../../../src/learnloop/workbench/check.py), line 103)
-- `class MapClaim(WireModel)` ([source](../../../../../../src/learnloop/workbench/check.py), line 120)
-- `class StepCheck(WireModel)` ([source](../../../../../../src/learnloop/workbench/check.py), line 125)
-- `class ErrorReading(WireModel)` ([source](../../../../../../src/learnloop/workbench/check.py), line 138)
-- `class WorkbenchCheckOutputV1(WireModel)` ([source](../../../../../../src/learnloop/workbench/check.py), line 143)
-- `build_prompt(item: Any, rubric: Any, steps: Sequence[hint_workbench.WorkbenchStep], map_record: Mapping[str, Any] | None, *, request_id: str) -> str` ([source](../../../../../../src/learnloop/workbench/check.py), line 178)
-- `class CheckUnavailable(Exception)` ([source](../../../../../../src/learnloop/workbench/check.py), line 198) — The check cannot run (``reason``: ``unrouted`` | ``unpriced`` | ``capped`` | ``session_capped`` | ``unavailable`` | ``models_off``); ``message`` is the learner's line.
-  - `__init__(self, reason: str, message: str) -> None` (line 203; internal)
-- `daily_envelope(vault: Any, repository: Repository, *, clock: Clock | None=None) -> SharedDailyEnvelope` ([source](../../../../../../src/learnloop/workbench/check.py), line 209)
-- `session_calls_on(connection: Any, workbench_session_id: str) -> int` ([source](../../../../../../src/learnloop/workbench/check.py), line 216) — The workbench's own calls for this problem so far, read on ``connection``: its checks' (and RW2c's comparisons') receipts and its bridge and worked-example searches (one row per search, written before it runs, found or not: fix round 1, F9).
-- `session_calls(repository: Repository, workbench_session_id: str) -> int` ([source](../../../../../../src/learnloop/workbench/check.py), line 233) — The workbench's own calls for this problem so far (:func:`session_calls_on`).
-- `class CheckRoute` ([source](../../../../../../src/learnloop/workbench/check.py), line 240) — The check's pinned route for one request.
-  - `__init__(self, vault: Any, repository: Repository, *, client: Any | None, envelope: Any, workbench_session_id: str) -> None` (line 243; internal)
-  - `subscription(self) -> bool` (line 255; public)
-  - `problem(self) -> CheckUnavailable | None` (line 258; public)
-  - `ask(self, prompt: str, *, assist_id: str, result_model: type[WireModel] | None=None, prompt_version: str=PROMPT_VERSION) -> Any` (line 277; public) — One call on the route.
-  - `model(self) -> str | None` (line 304; public)
-- `class CheckedSteps` ([source](../../../../../../src/learnloop/workbench/check.py), line 319) — A validated check: the verdicts by chain id, the first questionable step, the error-kind guess and its readings, what was dropped and why.
-- `validate(output: WorkbenchCheckOutputV1, steps: Sequence[hint_workbench.WorkbenchStep], item: Any, *, map_record: Mapping[str, Any] | None, error_kind_enabled: bool, outcomes: Mapping[int, symbolic.SymbolicOutcome] | None=None, unbound: frozenset[int] | set[int]=frozenset()) -> CheckedSteps` ([source](../../../../../../src/learnloop/workbench/check.py), line 338) — The check as shown: every claim checked in code (module docstring).
-- `claims_from(output: WorkbenchCheckOutputV1, steps: Sequence[hint_workbench.WorkbenchStep], *, problem_text: str='') -> list[symbolic.SymbolicClaim]` ([source](../../../../../../src/learnloop/workbench/check.py), line 479) — The declared transformations, indexed by step number, each carrying the step's own text to be parsed and checked (:func:`_claim`).
-- `hint_claim_verifier(vault: Any, item: Any, *, sandbox_run: Callable[..., Any] | None=None, symbolic_now: Callable[[], bool] | None=None) -> Callable[[Sequence[Any], Any], list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/workbench/check.py), line 509) — The check path for a hint's own claims (Reader §5.3 "hints are verified separately"; fix round 1, F14), handed to the hint service.
-- `ledger_rows(output: WorkbenchCheckOutputV1, steps: Sequence[hint_workbench.WorkbenchStep], checked: CheckedSteps, claims: Sequence[symbolic.SymbolicClaim], outcomes: Mapping[int, symbolic.SymbolicOutcome], *, sandbox_ran: bool) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/workbench/check.py), line 575) — What the check appends to ``judgment_ledger`` (pure): one ``llm`` verdict per step the model judged, with what validation did to it and the verdict shown; one ``verifier`` verdict per declared transformation the sandbox ran (whether it was bound to the learner's step, F3).
-- `steps_hash(steps: Sequence[hint_workbench.WorkbenchStep]) -> str` ([source](../../../../../../src/learnloop/workbench/check.py), line 634)
-- `class CheckResult` ([source](../../../../../../src/learnloop/workbench/check.py), line 639)
-- `last_check(repository: Repository, workbench_session_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/workbench/check.py), line 647) — The problem's last SHOWN check row, or None.
-- `run_check(vault: Any, repository: Repository, *, workbench_session_id: str, submission_id: str, item: Any, steps: Sequence[hint_workbench.WorkbenchStep], client: Any | None=None, sandbox_run: Callable[..., Any] | None=None, clock: Clock | None=None, cancelled: Callable[[], bool] | None=None, symbolic_now: Callable[[], bool] | None=None) -> CheckResult` ([source](../../../../../../src/learnloop/workbench/check.py), line 656) — Check the steps; the row is written prepared (``shown = 0``) and shown when the workbench receives it.
-- `check_view(row: Mapping[str, Any], steps: Sequence[hint_workbench.WorkbenchStep], *, symbolic_enabled: bool=False) -> dict[str, Any]` ([source](../../../../../../src/learnloop/workbench/check.py), line 766) — What the workbench shows of a check (no map node or route: the map contains the solution and reaches the learner only through hints).
+- `models_off() -> bool` ([source](../../../../../../src/learnloop/workbench/check.py), line 99)
+- `class Transformation(WireModel)` ([source](../../../../../../src/learnloop/workbench/check.py), line 107)
+- `class MapClaim(WireModel)` ([source](../../../../../../src/learnloop/workbench/check.py), line 124)
+- `class StepCheck(WireModel)` ([source](../../../../../../src/learnloop/workbench/check.py), line 129)
+- `class ErrorReading(WireModel)` ([source](../../../../../../src/learnloop/workbench/check.py), line 142)
+- `class WorkbenchCheckOutputV1(WireModel)` ([source](../../../../../../src/learnloop/workbench/check.py), line 147)
+- `build_prompt(item: Any, rubric: Any, steps: Sequence[hint_workbench.WorkbenchStep], map_record: Mapping[str, Any] | None, *, request_id: str) -> str` ([source](../../../../../../src/learnloop/workbench/check.py), line 182)
+- `class CheckUnavailable(Exception)` ([source](../../../../../../src/learnloop/workbench/check.py), line 202) — The check cannot run (``reason``: ``unrouted`` | ``unpriced`` | ``capped`` | ``session_capped`` | ``unavailable`` | ``models_off``); ``message`` is the learner's line.
+  - `__init__(self, reason: str, message: str) -> None` (line 207; internal)
+- `daily_envelope(vault: Any, repository: Repository, *, clock: Clock | None=None) -> SharedDailyEnvelope` ([source](../../../../../../src/learnloop/workbench/check.py), line 213)
+- `session_calls_on(connection: Any, workbench_session_id: str) -> int` ([source](../../../../../../src/learnloop/workbench/check.py), line 220) — The workbench's own calls for this problem so far, read on ``connection``: its checks' (and RW2c's comparisons') receipts and its bridge and worked-example searches (one row per search, written before it runs, found or not: fix round 1, F9).
+- `session_calls(repository: Repository, workbench_session_id: str) -> int` ([source](../../../../../../src/learnloop/workbench/check.py), line 237) — The workbench's own calls for this problem so far (:func:`session_calls_on`).
+- `class CheckRoute` ([source](../../../../../../src/learnloop/workbench/check.py), line 244) — The check's pinned route for one request.
+  - `__init__(self, vault: Any, repository: Repository, *, client: Any | None, envelope: Any, workbench_session_id: str) -> None` (line 247; internal)
+  - `subscription(self) -> bool` (line 259; public)
+  - `problem(self) -> CheckUnavailable | None` (line 262; public)
+  - `ask(self, prompt: str, *, assist_id: str, result_model: type[WireModel] | None=None, prompt_version: str=PROMPT_VERSION) -> Any` (line 281; public) — One call on the route.
+  - `model(self) -> str | None` (line 308; public)
+- `class CheckedSteps` ([source](../../../../../../src/learnloop/workbench/check.py), line 323) — A validated check: the verdicts by chain id, the first questionable step, the error-kind guess and its readings, what was dropped and why.
+- `validate(output: WorkbenchCheckOutputV1, steps: Sequence[hint_workbench.WorkbenchStep], item: Any, *, map_record: Mapping[str, Any] | None, error_kind_enabled: bool, outcomes: Mapping[int, symbolic.SymbolicOutcome] | None=None, unbound: frozenset[int] | set[int]=frozenset()) -> CheckedSteps` ([source](../../../../../../src/learnloop/workbench/check.py), line 342) — The check as shown: every claim checked in code (module docstring).
+- `claims_from(output: WorkbenchCheckOutputV1, steps: Sequence[hint_workbench.WorkbenchStep], *, problem_text: str='') -> list[symbolic.SymbolicClaim]` ([source](../../../../../../src/learnloop/workbench/check.py), line 483) — The declared transformations, indexed by step number, each carrying the step's own text to be parsed and checked (:func:`_claim`).
+- `hint_claim_verifier(vault: Any, item: Any, *, sandbox_run: Callable[..., Any] | None=None, symbolic_now: Callable[[], bool] | None=None) -> Callable[[Sequence[Any], Any], list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/workbench/check.py), line 513) — The check path for a hint's own claims (Reader §5.3 "hints are verified separately"; fix round 1, F14), handed to the hint service.
+- `ledger_rows(output: WorkbenchCheckOutputV1, steps: Sequence[hint_workbench.WorkbenchStep], checked: CheckedSteps, claims: Sequence[symbolic.SymbolicClaim], outcomes: Mapping[int, symbolic.SymbolicOutcome], *, sandbox_ran: bool) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/workbench/check.py), line 579) — What the check appends to ``judgment_ledger`` (pure): one ``llm`` verdict per step the model judged, with what validation did to it and the verdict shown; one ``verifier`` verdict per declared transformation the sandbox ran (whether it was bound to the learner's step, F3).
+- `steps_hash(steps: Sequence[hint_workbench.WorkbenchStep]) -> str` ([source](../../../../../../src/learnloop/workbench/check.py), line 638)
+- `class CheckResult` ([source](../../../../../../src/learnloop/workbench/check.py), line 643)
+- `last_check(repository: Repository, workbench_session_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/workbench/check.py), line 651) — The problem's last SHOWN check row, or None.
+- `run_check(vault: Any, repository: Repository, *, workbench_session_id: str, submission_id: str, item: Any, steps: Sequence[hint_workbench.WorkbenchStep], client: Any | None=None, sandbox_run: Callable[..., Any] | None=None, clock: Clock | None=None, cancelled: Callable[[], bool] | None=None, symbolic_now: Callable[[], bool] | None=None) -> CheckResult` ([source](../../../../../../src/learnloop/workbench/check.py), line 660) — Check the steps; the row is written prepared (``shown = 0``) and shown when the workbench receives it.
+- `check_view(row: Mapping[str, Any], steps: Sequence[hint_workbench.WorkbenchStep], *, symbolic_enabled: bool=False) -> dict[str, Any]` ([source](../../../../../../src/learnloop/workbench/check.py), line 770) — What the workbench shows of a check (no map node or route: the map contains the solution and reaches the learner only through hints).
 
 ### Module constants
 
@@ -89,17 +89,18 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `OWNER_KIND` ([src/learnloop/workbench/check.py](../../../../../../src/learnloop/workbench/check.py), line 71)
 - `PROMPT_VERSION` ([src/learnloop/workbench/check.py](../../../../../../src/learnloop/workbench/check.py), line 72)
 - `ENVELOPE` ([src/learnloop/workbench/check.py](../../../../../../src/learnloop/workbench/check.py), line 73)
-- `ENVELOPE_OWNER_KINDS` ([src/learnloop/workbench/check.py](../../../../../../src/learnloop/workbench/check.py), line 75)
-- `MODELS_ENV` ([src/learnloop/workbench/check.py](../../../../../../src/learnloop/workbench/check.py), line 78)
-- `VERDICTS` ([src/learnloop/workbench/check.py](../../../../../../src/learnloop/workbench/check.py), line 79)
-- `_CAPS` ([src/learnloop/workbench/check.py](../../../../../../src/learnloop/workbench/check.py), line 81)
-- `STEP_CHARS` ([src/learnloop/workbench/check.py](../../../../../../src/learnloop/workbench/check.py), line 82)
-- `MARKS` ([src/learnloop/workbench/check.py](../../../../../../src/learnloop/workbench/check.py), line 87)
-- `METHOD_LABELS` ([src/learnloop/workbench/check.py](../../../../../../src/learnloop/workbench/check.py), line 90)
-- `NEUTRAL_REASON` ([src/learnloop/workbench/check.py](../../../../../../src/learnloop/workbench/check.py), line 92)
-- `_INSTRUCTIONS` ([src/learnloop/workbench/check.py](../../../../../../src/learnloop/workbench/check.py), line 155)
-- `LEDGER_TASK` ([src/learnloop/workbench/check.py](../../../../../../src/learnloop/workbench/check.py), line 564)
-- `LEDGER_TASK_SYMBOLIC` ([src/learnloop/workbench/check.py](../../../../../../src/learnloop/workbench/check.py), line 565)
+- `ENVELOPE_OWNER_KINDS` ([src/learnloop/workbench/check.py](../../../../../../src/learnloop/workbench/check.py), line 77)
+- `MODELS_ENV` ([src/learnloop/workbench/check.py](../../../../../../src/learnloop/workbench/check.py), line 80)
+- `VERDICTS` ([src/learnloop/workbench/check.py](../../../../../../src/learnloop/workbench/check.py), line 81)
+- `_CAPS` ([src/learnloop/workbench/check.py](../../../../../../src/learnloop/workbench/check.py), line 83)
+- `CALL_CAPS` ([src/learnloop/workbench/check.py](../../../../../../src/learnloop/workbench/check.py), line 85)
+- `STEP_CHARS` ([src/learnloop/workbench/check.py](../../../../../../src/learnloop/workbench/check.py), line 86)
+- `MARKS` ([src/learnloop/workbench/check.py](../../../../../../src/learnloop/workbench/check.py), line 91)
+- `METHOD_LABELS` ([src/learnloop/workbench/check.py](../../../../../../src/learnloop/workbench/check.py), line 94)
+- `NEUTRAL_REASON` ([src/learnloop/workbench/check.py](../../../../../../src/learnloop/workbench/check.py), line 96)
+- `_INSTRUCTIONS` ([src/learnloop/workbench/check.py](../../../../../../src/learnloop/workbench/check.py), line 159)
+- `LEDGER_TASK` ([src/learnloop/workbench/check.py](../../../../../../src/learnloop/workbench/check.py), line 568)
+- `LEDGER_TASK_SYMBOLIC` ([src/learnloop/workbench/check.py](../../../../../../src/learnloop/workbench/check.py), line 569)
 
 ### Explicit exports
 
@@ -134,18 +135,19 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_squash(text: str) -> str` ([source](../../../../../../src/learnloop/workbench/check.py), line 314)
-- `_leaks(text: str, item: Any) -> bool` ([source](../../../../../../src/learnloop/workbench/check.py), line 334)
-- `_claim(index: int, transformation: Any, text: str, earlier: Sequence[hint_workbench.WorkbenchStep], problem_text: str, names_context: Sequence[str]=()) -> symbolic.SymbolicClaim` ([source](../../../../../../src/learnloop/workbench/check.py), line 459) — Fix round 3 (the orchestrator's ruling on F3): what is checked is ``text``, the learner's own writing, parsed from its LaTeX in the sandbox (:mod:`learnloop.workbench.symbolic`).
-- `_switch_now(vault: Any, symbolic_now: Callable[[], bool] | None) -> bool` ([source](../../../../../../src/learnloop/workbench/check.py), line 496) — Fix round 13: ``workbench.symbolic_checks_enabled`` NOW: the caller's live reader (the sidecar's current vault, after any reload), else this vault's; an unreadable switch is off.
-- `_step_of(entry: str) -> str | None` ([source](../../../../../../src/learnloop/workbench/check.py), line 568) — The step number a ``dropped`` entry names (``kind:3``, ``kind:3->1``).
-- `_append_ledger(connection: Any, assist_id: str, rows: Sequence[Mapping[str, Any]], *, model: str | None, input_hash: str, created_at: str) -> None` ([source](../../../../../../src/learnloop/workbench/check.py), line 618)
+- `_squash(text: str) -> str` ([source](../../../../../../src/learnloop/workbench/check.py), line 318)
+- `_leaks(text: str, item: Any) -> bool` ([source](../../../../../../src/learnloop/workbench/check.py), line 338)
+- `_claim(index: int, transformation: Any, text: str, earlier: Sequence[hint_workbench.WorkbenchStep], problem_text: str, names_context: Sequence[str]=()) -> symbolic.SymbolicClaim` ([source](../../../../../../src/learnloop/workbench/check.py), line 463) — Fix round 3 (the orchestrator's ruling on F3): what is checked is ``text``, the learner's own writing, parsed from its LaTeX in the sandbox (:mod:`learnloop.workbench.symbolic`).
+- `_switch_now(vault: Any, symbolic_now: Callable[[], bool] | None) -> bool` ([source](../../../../../../src/learnloop/workbench/check.py), line 500) — Fix round 13: ``workbench.symbolic_checks_enabled`` NOW: the caller's live reader (the sidecar's current vault, after any reload), else this vault's; an unreadable switch is off.
+- `_step_of(entry: str) -> str | None` ([source](../../../../../../src/learnloop/workbench/check.py), line 572) — The step number a ``dropped`` entry names (``kind:3``, ``kind:3->1``).
+- `_append_ledger(connection: Any, assist_id: str, rows: Sequence[Mapping[str, Any]], *, model: str | None, input_hash: str, created_at: str) -> None` ([source](../../../../../../src/learnloop/workbench/check.py), line 622)
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/pads/ink_transcribe|learnloop.pads.ink_transcribe]] — imports `module`; statically calls `daily_envelope`, `models_off`
 - [[Reference/Modules/learnloop/workbench/bridge|learnloop.workbench.bridge]] — imports `session_calls_on`; statically calls `session_calls_on`
 - [[Reference/Modules/learnloop/workbench/compare_methods|learnloop.workbench.compare_methods]] — imports `CheckRoute`, `CheckUnavailable`, `daily_envelope`; statically calls `CheckRoute`, `daily_envelope`
 - [[Reference/Modules/learnloop/workbench/route_example|learnloop.workbench.route_example]] — imports `session_calls_on`; statically calls `session_calls_on`
@@ -186,12 +188,14 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/workbench/bridge|learnloop.workbench.bridge]], [[Reference/Modules/learnloop/workbench/compare_methods|learnloop.workbench.compare_methods]], [[Reference/Modules/learnloop/workbench/route_example|learnloop.workbench.route_example]], [[Reference/Modules/learnloop_sidecar/handlers/workbench_help|learnloop_sidecar.handlers.workbench_help]], [[Reference/Modules/learnloop_sidecar/handlers/workbench_rw2c|learnloop_sidecar.handlers.workbench_rw2c]].
+Static participation evidence comes from [[Reference/Modules/learnloop/pads/ink_transcribe|learnloop.pads.ink_transcribe]], [[Reference/Modules/learnloop/workbench/bridge|learnloop.workbench.bridge]], [[Reference/Modules/learnloop/workbench/compare_methods|learnloop.workbench.compare_methods]], [[Reference/Modules/learnloop/workbench/route_example|learnloop.workbench.route_example]], [[Reference/Modules/learnloop_sidecar/handlers/workbench_help|learnloop_sidecar.handlers.workbench_help]] and 1 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
+- [tests/test_reader_rd8a_transcribe.py](../../../../../../tests/test_reader_rd8a_transcribe.py) — direct import
+  - `test_with_models_off_and_no_client_nothing_is_reached`
 - [tests/test_reader_rw2b_fix5.py](../../../../../../tests/test_reader_rw2b_fix5.py) — direct import
   - `test_item3_the_snapshot_and_the_check_view_carry_a_full_text_fingerprint`
 - [tests/test_reader_rw2b_review.py](../../../../../../tests/test_reader_rw2b_review.py) — direct import

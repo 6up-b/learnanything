@@ -137,12 +137,14 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 - [[Reference/Modules/learnloop/content/authoring/concept_animation|learnloop.content.authoring.concept_animation]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/content/authoring/exercise_authoring|learnloop.content.authoring.exercise_authoring]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/content/authoring/item_authoring|learnloop.content.authoring.item_authoring]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/content/authoring/jobs|learnloop.content.authoring.jobs]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/content/authoring/rung_variants|learnloop.content.authoring.rung_variants]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/content/authoring/source_exercise_import|learnloop.content.authoring.source_exercise_import]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/content/facet_identity/actions|learnloop.content.facet_identity.actions]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/content/facet_identity/dedupe|learnloop.content.facet_identity.dedupe]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] — imports `add_subject`, `load_vault`; statically calls `add_subject`, `load_vault`
+- [[Reference/Modules/learnloop/content/pipeline/import_jobs|learnloop.content.pipeline.import_jobs]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/content/pipeline/revision_refresh|learnloop.content.pipeline.revision_refresh]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/content/pipeline/source_ingestion|learnloop.content.pipeline.source_ingestion]] — imports `add_subject`, `load_vault`; statically calls `add_subject`, `load_vault`
@@ -150,6 +152,7 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 - [[Reference/Modules/learnloop/content/proposals/create_ids|learnloop.content.proposals.create_ids]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/content/proposals/patches|learnloop.content.proposals.patches]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/content/proposals/proposals|learnloop.content.proposals.proposals]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/content/synthesis/jobs|learnloop.content.synthesis.jobs]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/content/synthesis/source_append|learnloop.content.synthesis.source_append]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/curriculum/concepts|learnloop.curriculum.concepts]] — imports `load_vault`; statically calls `load_vault`
@@ -168,6 +171,7 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/records|learnloop.experiments.contextual_embeddings.records]] — imports `init_vault`, `load_vault`; statically calls `init_vault`, `load_vault`
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/system_arms|learnloop.experiments.contextual_embeddings.system_arms]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/figure_admission|learnloop.figure_admission]] — imports `load_vault`; statically calls `load_vault`
+- [[Reference/Modules/learnloop/figures/jobs|learnloop.figures.jobs]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/goals/goal_lo|learnloop.goals.goal_lo]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/instructional/harvest|learnloop.instructional.harvest]] — imports `load_vault`; statically calls `load_vault`
@@ -184,6 +188,7 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 - [[Reference/Modules/learnloop/sim/diagnostic_validation|learnloop.sim.diagnostic_validation]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/sim/runner|learnloop.sim.runner]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/source_retrieval/deliverables|learnloop.source_retrieval.deliverables]] — imports `add_subject`, `load_vault`; statically calls `add_subject`, `load_vault`
+- [[Reference/Modules/learnloop/source_retrieval/jobs|learnloop.source_retrieval.jobs]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/source_retrieval/note_links|learnloop.source_retrieval.note_links]] — imports `load_vault`; statically calls `load_vault`
 - [[Reference/Modules/learnloop/source_retrieval/section_coverage|learnloop.source_retrieval.section_coverage]] — imports `settled_load_vault`; statically calls `settled_load_vault`
 - [[Reference/Modules/learnloop/source_retrieval/vault_notes|learnloop.source_retrieval.vault_notes]] — imports `load_vault`; statically calls `load_vault`
@@ -233,7 +238,7 @@ Use this module in context through:
 
 - [[Initialize a Vault]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/generation|learnloop.adaptive_difficulty.generation]], [[Reference/Modules/learnloop/adaptive_difficulty/operation|learnloop.adaptive_difficulty.operation]], [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]], [[Reference/Modules/learnloop/bootstrap|learnloop.bootstrap]], [[Reference/Modules/learnloop/cli/ad|learnloop.cli.ad]] and 94 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/generation|learnloop.adaptive_difficulty.generation]], [[Reference/Modules/learnloop/adaptive_difficulty/operation|learnloop.adaptive_difficulty.operation]], [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]], [[Reference/Modules/learnloop/bootstrap|learnloop.bootstrap]], [[Reference/Modules/learnloop/cli/ad|learnloop.cli.ad]] and 99 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -289,6 +294,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/followups_helpers.py](../../../../../../tests/followups_helpers.py) — direct import
 - [tests/followups_nov2_help_fold_helpers.py](../../../../../../tests/followups_nov2_help_fold_helpers.py) — direct import
 - [tests/forecast_receipts_helpers.py](../../../../../../tests/forecast_receipts_helpers.py) — direct import
+- [tests/goal_lens_helpers.py](../../../../../../tests/goal_lens_helpers.py) — direct import
 - [tests/grading_hardcases_helpers.py](../../../../../../tests/grading_hardcases_helpers.py) — direct import
 - [tests/graph_editor_reads_helpers.py](../../../../../../tests/graph_editor_reads_helpers.py) — direct import
 - [tests/graph_nomination_ingest_helpers.py](../../../../../../tests/graph_nomination_ingest_helpers.py) — direct import
@@ -331,6 +337,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/reader_followups_helpers.py](../../../../../../tests/reader_followups_helpers.py) — direct import
 - [tests/reader_followups_round4_helpers.py](../../../../../../tests/reader_followups_round4_helpers.py) — direct import
 - [tests/reader_guidance_helpers.py](../../../../../../tests/reader_guidance_helpers.py) — direct import
+- [tests/reader_rd10_helpers.py](../../../../../../tests/reader_rd10_helpers.py) — direct import
 - [tests/reader_rd4_helpers.py](../../../../../../tests/reader_rd4_helpers.py) — direct import
 - [tests/reader_recap_review_r2_helpers.py](../../../../../../tests/reader_recap_review_r2_helpers.py) — direct import
 - [tests/reader_rw3a_landing_helpers.py](../../../../../../tests/reader_rw3a_landing_helpers.py) — direct import
@@ -607,6 +614,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_answer_signal_arms.py](../../../../../../tests/test_answer_signal_arms.py) — direct import
   - `test_the_loader_reads_the_tap_and_the_graders_tone_reading`
 - [tests/test_anti_double_count.py](../../../../../../tests/test_anti_double_count.py) — direct import
+- [tests/test_append_split_passes.py](../../../../../../tests/test_append_split_passes.py) — direct import
+  - `test_each_pass_is_its_own_paid_request_under_the_appends_limits`
 - [tests/test_apply_recovery.py](../../../../../../tests/test_apply_recovery.py) — direct import
   - `test_a_crash_between_two_renames_is_completed_at_the_next_sidecar_bind`
   - `test_doctor_and_the_feed_surface_a_conflicted_intent`
@@ -1495,6 +1504,13 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_figure_predictions.py](../../../../../../tests/test_figure_predictions.py) — direct import
   - `test_the_backlog_sweep_queues_missed_predictions`
   - `test_what_changed_is_kept_once_and_read_with_the_missed_prediction`
+- [tests/test_figure_request_records.py](../../../../../../tests/test_figure_request_records.py) — direct import
+  - `test_a_hold_with_no_code_is_recorded_unclassified`
+  - `test_a_listed_chain_whose_pick_is_withheld_is_recorded_once_per_figure`
+  - `test_a_listed_figure_whose_spec_no_longer_parses_is_recorded_once`
+  - `test_a_route_that_cannot_be_called_refuses_the_request_with_its_code`
+  - `test_a_switch_turned_off_mid_build_refuses_with_the_gates_rule`
+  - `test_the_gate_record_names_the_request_and_why_a_press_cancelled_mid_build`
 - [tests/test_figure_rich_contract.py](../../../../../../tests/test_figure_rich_contract.py) — direct import
 - [tests/test_figure_rich_rpc.py](../../../../../../tests/test_figure_rich_rpc.py) — direct import
   - `test_allowing_where_manim_cannot_run_is_refused`
@@ -1943,6 +1959,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_generic_rotation_claims_never_take_pf_generation_jobs`
   - `test_rebuild_recomputes_fingerprints_without_any_model_or_generator`
 - [tests/test_item_parameters.py](../../../../../../tests/test_item_parameters.py) — direct import
+- [tests/test_job_types.py](../../../../../../tests/test_job_types.py) — direct import
+  - `test_a_rows_routes_are_the_routes_its_default_clients_resolve`
+  - `test_the_legacy_lane_resolves_its_rows_route`
 - [tests/test_judge_routes.py](../../../../../../tests/test_judge_routes.py) — direct import
 - [tests/test_k1_mcp_find_sources.py](../../../../../../tests/test_k1_mcp_find_sources.py) — direct import
   - `test_a_reserved_probe_passage_never_reaches_the_verification_model`
@@ -2127,6 +2146,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_rank_on_the_real_linear_algebra_fixture`
   - `test_registry_view_rank_counts_items_and_criteria`
 - [tests/test_measurement_state_labels.py](../../../../../../tests/test_measurement_state_labels.py) — direct import
+- [tests/test_menu_promoted_rows.py](../../../../../../tests/test_menu_promoted_rows.py) — direct import
+- [tests/test_menu_protected_material.py](../../../../../../tests/test_menu_protected_material.py) — direct import
+  - `test_search_elsewhere_never_finds_or_judges_protected_material`
 - [tests/test_method_explicit_landing.py](../../../../../../tests/test_method_explicit_landing.py) — direct import
   - `test_a_plan_rows_preview_keeps_the_sentence_whole`
   - `test_check_me_keeps_the_sentence_whole_when_it_clips`
@@ -2184,6 +2206,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_next_practice.py](../../../../../../tests/test_next_practice.py) — direct import
   - `test_a_writable_read_of_the_due_queue_would_have_changed_it`
   - `test_it_reads_nothing_through_the_callers_repository`
+- [tests/test_notebook_lessons.py](../../../../../../tests/test_notebook_lessons.py) — direct import
 - [tests/test_notes_as_learner_text.py](../../../../../../tests/test_notes_as_learner_text.py) — direct import
   - `test_a_changed_note_is_read_with_its_current_snapshot_and_the_old_one_is_not`
   - `test_a_hidden_link_is_never_read_and_undo_queues_it_again`
@@ -2528,6 +2551,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_sidecar_queue_roundtrip`
   - `test_sidecar_reader_question_transcript_can_be_resumed`
 - [tests/test_question_signal.py](../../../../../../tests/test_question_signal.py) — direct import
+- [tests/test_queue_revision_after_applying_jobs.py](../../../../../../tests/test_queue_revision_after_applying_jobs.py) — direct import
+  - `test_a_legacy_ingest_that_applies_practice_moves_the_revision`
+  - `test_a_picked_source_exercise_written_as_practice_moves_the_revision`
 - [tests/test_quick_add.py](../../../../../../tests/test_quick_add.py) — direct import
   - `test_exam_prep_quick_add_ends_with_an_applied_map_and_its_goal`
   - `test_narrow_adjunct_preset_uses_reference_role_and_small_upfront_brief`
@@ -2603,6 +2629,26 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_practice_question_is_projected_as_the_tutor_records_it`
   - `test_opening_a_vault_already_at_the_latest_tag_projects_its_history_once`
   - `test_the_umbrella_rebuild_runs_both_replayers`
+- [tests/test_reader_rd10_fix_protection.py](../../../../../../tests/test_reader_rd10_fix_protection.py) — direct import
+  - `test_a_judged_video_replays_from_the_ledger_with_the_budget_spent_and_an_unjudged_one_is_capped`
+  - `test_the_curriculum_switched_off_while_a_suggestion_runs_stores_nothing`
+- [tests/test_reader_rd10_fix_sweep.py](../../../../../../tests/test_reader_rd10_fix_sweep.py) — direct import
+  - `test_a_lesson_on_a_topic_whose_check_is_due_names_nothing_in_its_tab`
+- [tests/test_reader_rd10_video.py](../../../../../../tests/test_reader_rd10_video.py) — direct import
+  - `test_chapters_are_judged_once_stored_suggested_and_accepting_stores`
+  - `test_chapters_are_off_with_the_curriculum`
+  - `test_follow_along_maps_the_playing_cue_to_the_books_correspondent_passage`
+- [tests/test_reader_rd6_fix_freshness.py](../../../../../../tests/test_reader_rd6_fix_freshness.py) — direct import
+  - `test_an_lo_tried_and_found_nowhere_is_settled_only_against_that_library`
+- [tests/test_reader_rd6_fix_protection.py](../../../../../../tests/test_reader_rd6_fix_protection.py) — direct import
+- [tests/test_reader_rd6a_goal_lens.py](../../../../../../tests/test_reader_rd6a_goal_lens.py) — direct import
+  - `test_a_section_about_a_deeper_lo_is_later_and_a_depth_change_re_renders_it`
+  - `test_the_empty_and_thin_states`
+  - `test_the_lens_levels_follow_the_real_path_and_coverage`
+  - `test_the_replies_are_equal_after_a_rebuild_of_derived_state`
+- [tests/test_reader_rd9a_fix.py](../../../../../../tests/test_reader_rd9a_fix.py) — direct import
+- [tests/test_reader_rd9a_lesson_windows.py](../../../../../../tests/test_reader_rd9a_lesson_windows.py) — direct import
+  - `test_lesson_list_names_each_lesson_with_its_additions_pad`
 - [tests/test_reader_recap.py](../../../../../../tests/test_reader_recap.py) — direct import
   - `test_switched_off_opening_writes_nothing_and_the_recap_rpcs_refuse`
   - `test_the_typed_summary_is_deterministic_from_the_ledgers`
@@ -3148,6 +3194,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_sidecar_inspect_note_source_ref_with_timestamp_suffix`
   - `test_sidecar_loads_linear_algebra_fixture_vault`
 - [tests/test_sidecar_item_authoring.py](../../../../../../tests/test_sidecar_item_authoring.py) — direct import
+  - `test_a_retried_authoring_request_saves_one_item`
   - `test_edit_retire_author_flow`
   - `test_split_flow`
 - [tests/test_sidecar_knowledge_model.py](../../../../../../tests/test_sidecar_knowledge_model.py) — direct import

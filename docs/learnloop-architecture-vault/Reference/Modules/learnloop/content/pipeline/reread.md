@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/content/pipeline/reread.py](../../../../../../../src/learnloop/content/pipeline/reread.py) |
-| Source lines | 778 |
+| Source lines | 793 |
 | Owning package | [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -76,9 +76,9 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - `study_state(repository: Any, source_id: str, extraction_id: str | None) -> dict[str, int]` ([source](../../../../../../../src/learnloop/content/pipeline/reread.py), line 538) — What the learner has on this book that a re-read must carry.
 - `reread_reading(repository: Any, source_id: str) -> str | None` ([source](../../../../../../../src/learnloop/content/pipeline/reread.py), line 575) — The completed top-level reading the Reader opens for a book (the one a re-read replaces): never a page repair's child run, whose one page would become the whole next reading (Codex review F4).
 - `reread_plan(vault: Any, repository: Any, source_id: str, *, backend: str | None, upload_ok: bool, title: str | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/reread.py), line 622) — What reading this book again will read, cost and carry, in plain words.
-- `web_reread_line(count: int) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/reread.py), line 702)
-- `missing_equations(vault_root: Path, repository: Any, source_id: str) -> int` ([source](../../../../../../../src/learnloop/content/pipeline/reread.py), line 706) — How many display equations a web page's saved original has that its reading left out: the page read with the old web-page extraction, counted by reading the original with the current one (no model).
-- `web_reread_plan(vault: Any, repository: Any, source_id: str, *, title: str | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/reread.py), line 752) — What reading a web page again from its saved copy reads, costs and carries, in plain words.
+- `web_reread_line(count: int) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/reread.py), line 700)
+- `missing_equations(vault_root: Path, repository: Any, source_id: str) -> int` ([source](../../../../../../../src/learnloop/content/pipeline/reread.py), line 704) — How many display equations a web page's saved original has that its reading left out: the page read with the old web-page extraction, counted by reading the original with the current one (no model).
+- `web_reread_plan(vault: Any, repository: Any, source_id: str, *, title: str | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/pipeline/reread.py), line 750) — What reading a web page again from its saved copy reads, costs and carries, in plain words.
 
 ### Module constants
 
@@ -90,11 +90,11 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - `CARRY_INCOMPLETE_ACTION` ([src/learnloop/content/pipeline/reread.py](../../../../../../../src/learnloop/content/pipeline/reread.py), line 457)
 - `CARRY_INCOMPLETE_DETAILS` ([src/learnloop/content/pipeline/reread.py](../../../../../../../src/learnloop/content/pipeline/reread.py), line 458)
 - `HELD_BACK_PLAN_LINE` ([src/learnloop/content/pipeline/reread.py](../../../../../../../src/learnloop/content/pipeline/reread.py), line 510)
-- `WEB_REREAD_ACTION` ([src/learnloop/content/pipeline/reread.py](../../../../../../../src/learnloop/content/pipeline/reread.py), line 685)
-- `WEB_REREAD_LABEL` ([src/learnloop/content/pipeline/reread.py](../../../../../../../src/learnloop/content/pipeline/reread.py), line 686)
-- `WEB_REREAD_DETAILS` ([src/learnloop/content/pipeline/reread.py](../../../../../../../src/learnloop/content/pipeline/reread.py), line 687)
-- `WEB_REREAD_COST_LINE` ([src/learnloop/content/pipeline/reread.py](../../../../../../../src/learnloop/content/pipeline/reread.py), line 691)
-- `_MISSING_CACHE_SIZE` ([src/learnloop/content/pipeline/reread.py](../../../../../../../src/learnloop/content/pipeline/reread.py), line 697)
+- `WEB_REREAD_ACTION` ([src/learnloop/content/pipeline/reread.py](../../../../../../../src/learnloop/content/pipeline/reread.py), line 683)
+- `WEB_REREAD_LABEL` ([src/learnloop/content/pipeline/reread.py](../../../../../../../src/learnloop/content/pipeline/reread.py), line 684)
+- `WEB_REREAD_DETAILS` ([src/learnloop/content/pipeline/reread.py](../../../../../../../src/learnloop/content/pipeline/reread.py), line 685)
+- `WEB_REREAD_COST_LINE` ([src/learnloop/content/pipeline/reread.py](../../../../../../../src/learnloop/content/pipeline/reread.py), line 689)
+- `_MISSING_CACHE_SIZE` ([src/learnloop/content/pipeline/reread.py](../../../../../../../src/learnloop/content/pipeline/reread.py), line 695)
 
 ## Internal implementation anchors
 
@@ -104,7 +104,8 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - `_plural(count: int, noun: str, plural: str | None=None) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/reread.py), line 571)
 - `_engine_line(backend: str | None, settings: Mapping[str, Any], usd: float | None) -> tuple[str, str]` ([source](../../../../../../../src/learnloop/content/pipeline/reread.py), line 587) — ``(engine, who reads it)`` for the confirmation: hosted GLM-OCR (z.ai), the owner's own GLM-OCR server (on this computer or another), or text recognition on this computer (Codex review F9).
 - `_carry_line(state: Mapping[str, int]) -> str | None` ([source](../../../../../../../src/learnloop/content/pipeline/reread.py), line 603) — What of the learner's moves to a new reading, in one sentence; None when nothing does.
-- `_count_missing(vault_root: Path, repository: Any, extraction_id: str, digest: str) -> int` ([source](../../../../../../../src/learnloop/content/pipeline/reread.py), line 732)
+- `_count_missing(vault_root: Path, repository: Any, extraction_id: str, digest: str) -> int` ([source](../../../../../../../src/learnloop/content/pipeline/reread.py), line 730)
+- `_pdf_page_count(raw_bytes: bytes) -> int | None` ([source](../../../../../../../src/learnloop/content/pipeline/reread.py), line 779)
 
 ## Who imports or calls it
 
@@ -113,7 +114,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 
 - [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] — imports `cost_phrase`, `module`, `unread_current_revision`; statically calls `carry_owed`, `cost_phrase`, `missing_equations`, `unread_current_revision`, `web_reread_line`
 - [[Reference/Modules/learnloop/content/pipeline/exam_marking|learnloop.content.pipeline.exam_marking]] — imports `module`; statically calls `carry_owed`, `finish_carry_over`, `reread_reading`, `unit_map`
-- [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `CARRY_DONE_KEY`, `CARRY_OWED_KEY`, `adopt_revision`, `carry_over`, `mark_carried`, `original_bytes`, `owes_carry`, `revision_bytes`; statically calls `adopt_revision`, `carry_over`, `mark_carried`, `original_bytes`, `owes_carry`, `revision_bytes`
+- [[Reference/Modules/learnloop/content/pipeline/import_jobs|learnloop.content.pipeline.import_jobs]] — imports `CARRY_DONE_KEY`, `CARRY_OWED_KEY`, `_pdf_page_count`, `adopt_revision`, `carry_over`, `mark_carried`, `original_bytes`, `owes_carry`, `revision_bytes`; statically calls `_pdf_page_count`, `adopt_revision`, `carry_over`, `mark_carried`, `original_bytes`, `owes_carry`, `revision_bytes`
 - [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]] — imports `carry_owed`, `finish_carry_over`, `restore_readable_revision`, `unread_current_revisions`; statically calls `carry_owed`, `finish_carry_over`, `restore_readable_revision`, `unread_current_revisions`
 - [[Reference/Modules/learnloop_sidecar/handlers/first_run|learnloop_sidecar.handlers.first_run]] — imports `module`, `restore_readable_revision`; statically calls `carry_owed`, `finish_carry_over`, `original_bytes`, `reread_plan`, `reread_reading`, `restore_readable_revision`, `web_reread_plan`
 
@@ -122,7 +123,6 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `utc_now_iso`; calls `utc_now_iso`
-- [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `_pdf_page_count`; calls `_pdf_page_count`
 - [[Reference/Modules/learnloop/content/pipeline/runner|learnloop.content.pipeline.runner]] — imports `FetchedBytes`, `IngestRunnerError`; calls `FetchedBytes`, `IngestRunnerError`
 - [[Reference/Modules/learnloop/content/sources/exam_material|learnloop.content.sources.exam_material]] — imports `MARKS_MADE_ON_KEY`, `PROTECTION_MARK_KEY`, `source_marks`; calls `source_marks`
 - [[Reference/Modules/learnloop/content/sources/span_aliases|learnloop.content.sources.span_aliases]] — imports `module`; calls `alias_map`, `completed_readings`, `current_reading`, `previous_readings`, `reading_source`, `record_aliases`, `source_readings`
@@ -137,8 +137,8 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `collections`, `contextlib`, `logging`, `pathlib`, `re`, `threading`, `typing`
-- Third party: none imported directly
+- Standard library: `__future__`, `collections`, `contextlib`, `io`, `logging`, `pathlib`, `re`, `threading`, `typing`
+- Third party: `pypdf`
 
 ## Larger workflow participation
 
@@ -147,7 +147,7 @@ Use this module in context through:
 - [[Import Canonical Sources]]
 - [[Build a Study Map]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]], [[Reference/Modules/learnloop/content/pipeline/exam_marking|learnloop.content.pipeline.exam_marking]], [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]], [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]], [[Reference/Modules/learnloop_sidecar/handlers/first_run|learnloop_sidecar.handlers.first_run]].
+Static participation evidence comes from [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]], [[Reference/Modules/learnloop/content/pipeline/exam_marking|learnloop.content.pipeline.exam_marking]], [[Reference/Modules/learnloop/content/pipeline/import_jobs|learnloop.content.pipeline.import_jobs]], [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]], [[Reference/Modules/learnloop_sidecar/handlers/first_run|learnloop_sidecar.handlers.first_run]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

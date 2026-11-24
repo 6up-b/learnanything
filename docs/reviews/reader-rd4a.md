@@ -189,3 +189,69 @@ change; `desktop_validate.py`'s counts stand (no new TypeScript file).
   recorder; the conversation guard reads a real checkpoint).
 - Anything on owner copies (the orchestrator's lane, in the tag's record), the packaged app, the landing gate, the
   full suite, the durability lane, `npm test` beyond `src/api`, `npm run frontend:build`.
+
+## 9. Fix round, backend half (the Codex review of RD4, 2026-11-23)
+
+Branch `reader/rd4-fix-backend`, from main `ba7884c102` (RD4a and RD4b landed; migration head 266; tag mvp-0.68).
+The review ranked seventeen findings against both halves; the backend half takes 5 and 6 whole, and the server side
+of 3, 7, 8, 12, 13, 14 and 15 (4 checked). Each finding was verified against the code first. Ledger rows RD4-1 to
+RD4-7 (`docs/reviews/refactor-bug-ledger.md`); the frontend half's rows start at RD4-20.
+
+| # | Verdict | What changed (or the proof) |
+|---|---|---|
+| 5 | **fixed** (RD4-1) | A teach-back submission's row is reserved before the hand-off, naming a conversation id minted by the pad handler; the conversation opens under it (`handlers/teach_back.submit_teach_back_turn_on`, `tutor.teach_back.begin_teach_back(conversation_id=)`). A retry asks where that conversation stands by its id alone: **completed** (the attempt whose grading evidence carries the id as its agent run), **ongoing** (the session's checkpointed state, returned to resume), or **not started** (a crash before the hand-off, or the entry point refused: the submission's frozen words are handed over again under the same id, whatever the block says now). No recovery by opening words: a second submission of identical words while the first's conversation is under way is refused (`teach_back_in_progress`). `pad.get`'s tag reads a teach-back's attempt once it exists. |
+| 6 | **fixed** (RD4-2) | The lift-out moves the block's standing links to the lifted block (a link event on it and an unlink on the stub, in the lift's op). `pads.emission.context_blocks` (the block, its lift lineage, the blocks they are notes under, the pads they sit in) is the one definition behind the emission snapshot's passages and quote check, the submission's quote check and the proposals. For lifts made before links moved: `pad.get` shows a stub's links on the lifted block (`inherited_from_block_id`, read only) and the union read marks the lifted block (`lifted_from_block_id`). |
+| 3 | **fixed, server side** (RD4-3) | The spec (§3.5) wants a conflicting edit to keep both: the server head stays, the client's text lands as a new block right after it, labelled. The server had no op for it. `edit_block` gains `keep_both {block_id, version_id?, label}`: on a stale head the server writes the client's words as their own block right after the current head (placed with the client's fractional key scheme, ported as `pads.blocks.key_between`), `payload.conflict = {of_block_id, expected_head, server_head_version_id, label, at}`; result `{status: ok, head_version_id: <server head>, kept_both: {block_id, head_version_id}}`. If the block was removed or lifted meanwhile, the words still land (kind and provenance from the version the client saw). Stale `remove_block`, `move_block` and `lift_out` were already `conflict` results naming `current: {block_id, head_version_id}` and writing nothing (now pinned); never retrying them onto newer text is the client's half. |
+| 7 | **fixed, server side** (RD4-4) | `desk.apply` gains `add_to_stack` / `remove_from_stack {desk_id, window_id, entry}`. Membership lives in the window's spec (`stack`), never in its view, so a whole-view write cannot drop a tab; one entry is added (a union, no duplicate) or removed, and no expected version is checked because the op commutes with any other desk change (each applied op still adds one to the desk's version). The last entry is refused (`last_in_stack`), an unknown pad refused (`pad_not_found`). Result `{changed, stack}`. The client moves off `view.addedPads` (existing desks: one `add_to_stack` per pad it holds). |
+| 8 | **fixed, server side** (RD4-5) | `ensure_running_pad {desk_id, pad_id, window_id, title}`: the desk's running pad, created when it has none, and a stack window of the desk holding it (an existing stack takes it; else one is opened at the end); idempotent, the client ids used only when something is created, no expected version checked. Result `{pad_id, window_id, created_pad, created_window, added_to_stack}`. One place for new and existing desks. |
+| 12 | **fixed, server side** (RD4-6) | No read gave it: `reader.render_view`'s range gives the text and a cue's `extractor_block_id`, but neither a desktop page nor the title, and nothing withheld protected text from a copy. `passage.content` (params as `passage.union_range`): `{extraction_id, source_id, title, withheld, spans: [{span_id, text, page, t0, t1, section_id, section_label, withheld}]}`, the text unclipped, exam or held-out material without text. |
+| 13 | **fixed, server side** (RD4-7) | Opening a source needs a `ContentRef` (`source_id`, `extraction_id`, and for a video `t`); `desk.apply`'s `open_window` already opens any of them. What was missing was the source id behind a link: `pad.get`'s anchors gain `source_id` and `t` (a cue's start). Proposals' targets already carried a full ref. |
+| 14 | **already fine** | `carried.list {which: open\|closed\|all, deskId?, cursor?}` pages by `cursor` (50 a page) with `shelfLimit`, and `carried.mark {eventId, carriedId, event, expectedVersion, ref?}` labels each. Pinned by `test_the_carried_list_pages_past_the_first_fifty_…`, which passes on the landed code. |
+| 15 | **already fine** | `passage.union_range` returns per span `padBlocks: [{blockId, padId, kind, provenance, eventId, annotationId, alias, liftedFromBlockId}]` and `carried`, placed through the book's span aliases (`alias: exact` or `needs_reanchor`) with no pad loaded by the client. Pinned by `test_a_pads_link_on_an_older_reading_marks_the_newer_one_…`, which passes on the landed code. |
+| 4 | **server side holds** | The same `submissionId` retried returns the recorded submission and hands nothing over (`test_a_retry_hands_nothing_over_again_and_a_reused_id_is_refused`; for teach-backs the five tests of 5); the attempt path's own key is `pad:<submissionId>`. A new id per click is the client's defect. |
+
+**Persisted meaning.** No tag. Nothing here changes what an existing `pad_text` row says: the rows and their frozen
+snapshots stay as written. What changes is future emissions: a lifted block's later wordings now carry the passages
+and quote context its words had (6), which is what mvp-0.68's contract already promised ("the passages the block is
+linked to", "a whole sentence of one of the pad's quote blocks or of a linked passage"); a block kept by `keep_both` is
+a new learner block, emitted as any. The teach-back reservation (5) changes no emission. Since the orchestrator may
+judge 6 a change of what a tag means, it is named here: blocks lifted before this landing get the fuller context on
+their next wording, never retroactively.
+
+**No migration.** The reservation is the existing `pad_block_submissions` row (its `teach_back_id`, already required
+for a teach-back); stack membership is the window's existing `spec_json`; nothing else stores anything new.
+
+**Contract changes for the frontend** (`src/api/dto.ts`, `src/api/client.ts`, one Rust passthrough):
+- `PadSubmitBlockDto.teachBack: {status: "completed" | "ongoing", conversationId, state} | null`; `attemptId` set for
+  a completed teach-back.
+- `PadOpDto` `edit_block` gains `keepBoth?: {blockId, versionId?, label?}`; `WriteOpResultDto`'s ok result gains
+  `keptBoth`, `changed`, `stack`, `padId`, `windowId`, `createdPad`, `createdWindow`, `addedToStack`.
+- `DeskMembershipOpDto` (`add_to_stack`, `remove_from_stack`, `ensure_running_pad`), kept apart from `DeskOpDto` and
+  `DeskApplyInput.ops` until the client model applies them optimistically (then widen both, and add them to
+  `fixtures/desks/opParity.json`, which the sidecar runs too).
+- `PadAnchorDto` gains `inheritedFromBlockId`, `sourceId`, `t` (optional in the type for links the client makes
+  before the server answers; always sent by `pad.get`).
+- `PassageUnionSpanDto.padBlocks[].liftedFromBlockId`.
+- `PassageContentDto` and `client.passageContent(input: PassageUnionInput)` (Rust `passage_content`).
+
+**Tests.** New in `tests/test_reader_rd4_submission.py` (five teach-back tests replace the two that recovered by
+words), `tests/test_reader_rd4_emission.py` (two lift tests), `tests/test_pad_stale_edits_stacks_and_passage_reads.py`
+(new, 17), `tests/test_reader_rd4_rpcs.py` (`passage.content` desktop-only, extra field refused, versioned) and
+`tests/test_mobile_allowlist.py` (`READER_RD4FIX_RPCS`). Fail-first, each on the landed code (`ba7884c102`'s `src`
+checked out over the tests): the five teach-back tests 5 failed (no reservation: "opened no conversation", no row, a
+second grading, a stale-version refusal of the frozen words); the two lift tests 2 failed (no link on the lifted
+block; no inherited link); keep-both 2 failed (`keep_both` an extra field); stacks and the running pad 2 failed
+(unknown ops); `passage.content` and the anchors' source 2 failed (no module; no `source_id`). The two "already fine"
+tests passed there.
+
+**Commands and results** (pytest `-n 1` in 3G scopes through the scratch wrapper):
+
+| Command | Result |
+|---|---|
+| The RD4 files, RD0 files, RD1 parity, mobile allowlist, desktop RPC contract, architecture | 564 passed |
+| The 71 files that import pads, desks, the union read or the teach-back, or use their builders, plus identity pins, structure ratchets, the four row-recording goldens, CLI snapshot, effective defaults, public tip guards, RD0 fences, sqlite copies, kill switches (`affected_tests.py` asked for the full suite: the handler change reaches the sidecar), two chunks, `-m "not arc_close"` | 1977 passed, 1 xfailed; 1 failed, 505 passed (the stage-name ratchet: the new test file renamed for what it tests, then 20 passed) |
+| `ruff check` / `lint-imports --no-cache` | All checks passed! / Contracts: 52 kept, 0 broken. |
+| `npm run typecheck` / `cargo check --offline` | exit 0 / Finished |
+| `generate_all.py`, then the four vault validators | `uncommitted_inputs` 0; `validate_vault` passed (2429 notes, every link resolved); `module_validate` PASS (1419/1419); `desktop_validate` passed (378/378 TypeScript/TSX + 6/6 Rust, reproducible); `db_validate_reference` `errors` []. The regenerated notes are their own commit |
+
+No identity pin, golden or structure number moved.

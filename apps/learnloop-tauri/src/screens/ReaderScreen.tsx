@@ -71,7 +71,7 @@ import { useReaderRequests } from "./reader/useReaderRequests";
 import { useReaderVisit } from "./reader/useReaderVisit";
 import { useReadingProgress } from "./reader/useReadingProgress";
 import { useReaderInquiry } from "./reader/useReaderInquiry";
-import { YouTubeWatchPanel, type WatchPanelHandle } from "./reader/YouTubeWatchPanel";
+import { YouTubeWatchPanel, type VideoExtras, type WatchLens, type WatchPanelHandle } from "./reader/YouTubeWatchPanel";
 import { useReaderCues, type CueCheckMeRequest, type CueRequestOrigin } from "./reader/useReaderCues";
 import { CUE_COPY, type PdfPageLayout } from "./reader/cues";
 import { CueFooter, MarginMark } from "./reader/MarginMark";
@@ -285,6 +285,36 @@ export interface ReaderWindowing {
   onStatus?: (status: { readingSpan: string | null; progress: number; where: string | null }) => void;
   /** A video source's play/pause, for the desk's `space` (null when this source has no player). */
   onMediaReady?: (toggle: (() => void) | null) => void;
+  /** The goal lens over this reading (the desks' RD6): what to draw before a passage, in its gutter, and
+   *  the classes it takes. Absent, passages render as they always have. */
+  lens?: ReaderLens | null;
+  /** The desks' video window (RD10): chapter ticks, the suggested chapters under the player, the player's clock. */
+  video?: VideoExtras | null;
+  /** Pen mode's way onto this source (RD8a): the text surface, the open reading's identity and the selection
+   * model for a range the pen marked (null while no text reading is shown). */
+  onPenSurface?: (surface: PenSurface | null) => void;
+}
+
+/** The desks' goal lens, laid over a reading's passages by span id (the text itself is never changed). */
+export interface ReaderLens {
+  /** A callout before the passage (a section start on the goal's path). */
+  before?: (spanId: string) => ReactNode;
+  /** A mark in the passage's left gutter; the passage becomes its offset parent. */
+  mark?: (spanId: string) => ReactNode;
+  /** Classes for the passage (dimmed for the goal); `state` says what the Reader marks on it (the learner's
+   *  annotation, the active passage, the passage scrolled to and being read), which stays at full colour. */
+  className?: (spanId: string, state: { annotated: boolean; active: boolean; reading?: boolean }) => string | undefined;
+  /** The same lens over a video's transcript. */
+  watch?: WatchLens | null;
+}
+
+/** What the desk's pen layer needs of a source window's text (spec §10.10). */
+export interface PenSurface {
+  /** The scrolling text surface: the ink layer lives inside it, so ink scrolls with the text. */
+  body: HTMLElement;
+  identity: { sourceId: string; revisionId: string; extractionId: string; renderViewId: string | null };
+  /** A range's passages, one node per covered block, as a selection's (the same anchoring as a highlight). */
+  nodesFor: (range: Range) => Array<{ spanId: string; quote: string; start?: number; end?: number }>;
 }
 
 /** RW3a "check me" on a margin cue: the item to open as an ordinary attempt on
@@ -1262,6 +1292,18 @@ export function ReaderScreen({
     () => new Set(annotations.filter((a) => removed?.annotation !== a).flatMap((a) => placedSpanIds(a))),
     [annotations, removed],
   );
+  // The desks' context menu reads a marked passage as the learner's highlight (or note): its first saved annotation.
+  const annotationBySpan = useMemo(() => {
+    const map = new Map<string, MarginAnnotation>();
+    for (const annotation of annotations) {
+      if (!annotation.annotationId || removed?.annotation === annotation) continue;
+      for (const spanId of placedSpanIds(annotation)) {
+        const before = map.get(spanId);
+        if (!before || (before.kind !== "highlight" && annotation.kind === "highlight")) map.set(spanId, annotation);
+      }
+    }
+    return map;
+  }, [annotations, removed]);
   const boundaryBlock = useMemo(() => blocks.find((b) => (b.blockType ?? "") !== "Section") ?? null, [blocks]);
 
   const revealedPassages = useMemo(() => {
@@ -1443,11 +1485,10 @@ export function ReaderScreen({
   // block, in document order. Anchoring works per block, so a quote must never
   // cross a block boundary — the old single-anchor capture silently failed on
   // any multi-block selection (every transcript selection, in practice).
-  const collectSelectionNodes = useCallback((): Array<{ spanId: string; quote: string; start?: number; end?: number }> => {
-    const sel = window.getSelection();
+  // One range's per-block nodes: the selection's, and a pen mark's (RD8a).
+  const nodesForRange = useCallback((range: Range): Array<{ spanId: string; quote: string; start?: number; end?: number }> => {
     const container = bodyRef.current;
-    if (!sel || sel.isCollapsed || sel.rangeCount === 0 || !container) return [];
-    const range = sel.getRangeAt(0);
+    if (!container) return [];
     const nodes: Array<{ spanId: string; quote: string; start?: number; end?: number }> = [];
     const seen = new Set<string>();
     for (const el of Array.from(container.querySelectorAll<HTMLElement>("[data-span-id]"))) {
@@ -1479,6 +1520,11 @@ export function ReaderScreen({
     }
     return nodes;
   }, [renderBlocksBySpan]);
+  const collectSelectionNodes = useCallback((): Array<{ spanId: string; quote: string; start?: number; end?: number }> => {
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed || sel.rangeCount === 0) return [];
+    return nodesForRange(sel.getRangeAt(0));
+  }, [nodesForRange]);
 
   // RW1b: the intent box on a learner's selection, and active reading. Its
   // actions run through the palette's own handlers (runIntentRef, set below
@@ -2222,6 +2268,22 @@ export function ReaderScreen({
     onWindowJumpReady(render ? (spanId: string) => jumpToSpan(spanId, "start") : null);
     return () => onWindowJumpReady(null);
   }, [onWindowJumpReady, render, jumpToSpan]);
+  const onWindowPenSurface = windowed?.onPenSurface;
+  const penTextShown = Boolean(render) && !(pdfView && surface === "pdf");
+  useEffect(() => {
+    const body = bodyRef.current;
+    if (!onWindowPenSurface) return;
+    if (!render || !body || !penTextShown) {
+      onWindowPenSurface(null);
+      return;
+    }
+    onWindowPenSurface({
+      body,
+      identity: { sourceId: render.sourceId, revisionId: render.revisionId, extractionId: render.extractionId, renderViewId: render.renderViewId ?? null },
+      nodesFor: nodesForRange,
+    });
+    return () => onWindowPenSurface(null);
+  }, [onWindowPenSurface, render, penTextShown, nodesForRange]);
 
   // Rail card click → jump to the annotation on the current surface: the PDF
   // pane scrolls to its page/block; the text surface scrolls to its block.
@@ -3937,6 +3999,8 @@ export function ReaderScreen({
               onTagMenu={openDomTagMenu}
               inlineNote={inlineReconnect && reconnect ? { spanId: reconnect.spanId, node: inlineReconnect } : null}
               marks={cueMarksFor("watch")}
+              lens={windowed?.lens?.watch ?? null}
+              video={windowed?.video ?? null}
               {...(activeCtl.folded.size ? { fold: { spans: activeCtl.folded, line: <NextStepFoldLine ctl={activeCtl} /> } } : {})}
             />
           ) : watchLoading ? (
@@ -4037,6 +4101,7 @@ export function ReaderScreen({
               && ((endQuestionAvailable && endSection.question !== null) || endSection.suggestedPassages.length > 0);
             return (
               <Fragment key={block.displayNodeId ?? `p${i}`}>
+              {block.spanId && windowed?.lens?.before ? windowed.lens.before(block.spanId) : null}
               {firstFolded ? (
                 <div data-next-step-fold="">
                   <NextStepFoldLine ctl={activeCtl} />
@@ -4044,8 +4109,13 @@ export function ReaderScreen({
               ) : null}
               <div
                 data-span-id={block.spanId ?? undefined}
+                {...(block.spanId && annotationBySpan.get(block.spanId) ? {
+                  "data-annotation-id": annotationBySpan.get(block.spanId)?.annotationId ?? undefined,
+                  "data-annotation-kind": annotationBySpan.get(block.spanId)?.kind === "highlight" ? "highlight" : "note",
+                } : {})}
                 {...(folded ? { "data-folded": "" } : {})}
                 data-extraction-id={render?.extractionId}
+                className={block.spanId ? windowed?.lens?.className?.(block.spanId, { annotated: annotatedSpans.has(block.spanId), active, reading: readingSpan === block.spanId }) : undefined}
                 onContextMenu={(e) => {
                   if (!block.spanId) return;
                   e.preventDefault();
@@ -4062,10 +4132,11 @@ export function ReaderScreen({
                   background: block.spanId && annotatedSpans.has(block.spanId) ? "rgba(245, 166, 35, 0.04)" : guidePassage ? COLOR.washPurple : undefined,
                   paddingLeft: 12,
                   // RW3a: a margin mark sits in the column's gutter, beside its passage.
-                  position: cueMark || (block.spanId && (wbResumeBySpan.has(block.spanId) || keptCtl.marks.has(block.spanId) || notesCtl.marks.has(block.spanId)) && !working) ? "relative" : undefined,
+                  position: cueMark || (block.spanId && (wbResumeBySpan.has(block.spanId) || keptCtl.marks.has(block.spanId) || notesCtl.marks.has(block.spanId)) && !working) || windowed?.lens?.mark ? "relative" : undefined,
                 }}
               >
                 {folded ? null : (<>
+                {block.spanId && windowed?.lens?.mark ? windowed.lens.mark(block.spanId) : null}
                 {cueMark ? renderMark(cueMark, "text") : null}
                 {resumeMark(block.spanId)}
                 {block.spanId && !working && keptCtl.marks.get(block.spanId) ? <KeptMark mark={keptCtl.marks.get(block.spanId)!} /> : null}

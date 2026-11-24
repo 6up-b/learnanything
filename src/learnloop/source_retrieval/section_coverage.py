@@ -159,6 +159,9 @@ SECTIONS_PER_SOURCE = 3
 HITS_PER_SOURCE = 20
 #: One passage's verbatim text at most (compare_sources' bound).
 PASSAGE_CHARS = 2400
+#: One listwise judgment's token ceiling (its request and its one retry): a guardrail on a call's size, shared by
+#: the coverage judge and the video chapters judge on its route, never a model parameter.
+COVERAGE_MAX_TOTAL_TOKENS = 400_000
 STATEMENT_CHARS = 600
 NOTE_CHARS = 160
 #: The learner's "also about…" text (a display bound).
@@ -1283,7 +1286,7 @@ def _judge(vault: Any, repository: Repository, learning_object: Any, *, library:
             outcome = judge_listwise(
                 vault, repository, COVERAGE_TASK, prompt=prompt.text, refs=prompt.refs, left_id=learning_object_id,
                 right_id=lambda key_: f"{key_[0]}/{key_[1]}", id_parts=lambda key_: [f"{key_[0]}/{key_[1]}"],
-                pick_at_most=0, caps=listwise_caps(len(prompt.refs), max_total_tokens=400_000,
+                pick_at_most=0, caps=listwise_caps(len(prompt.refs), max_total_tokens=COVERAGE_MAX_TOTAL_TOKENS,
                                                    max_estimated_usd=None),
                 price=price, owner_id=owner_id, client=client, route=route, validate=capture, clock=clock,
                 budget=budget, admit=lambda _estimate: guard.check("attempt"),
@@ -1567,7 +1570,7 @@ def cover_source(vault: Any, repository: Repository, extraction_id: str, *, dry_
     # bound; money is the run's envelope and the daily one).
     count = max(1, len(learning_object_ids))
     budget = SpendBudget(SpendCaps(max_candidates=10_000 * count, max_pairs=10_000 * count, max_retries=count,
-                                   max_calls=2 * count, max_total_tokens=400_000 * count,
+                                   max_calls=2 * count, max_total_tokens=COVERAGE_MAX_TOTAL_TOKENS * count,
                                    max_estimated_usd=None if subscription else cap),
                          subscription=subscription)
     command = SpendEnvelope(COVER_CAP_SETTING, cap)

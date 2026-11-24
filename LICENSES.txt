@@ -54,14 +54,12 @@ wheel or future runtime bundle; those require a separate packaging inventory.
 Fonts bundled with the desktop app (Reader workbench v2, the desks)
 ==================================================================
 
-The desks' five fonts are npm dependencies of apps/learnloop-tauri, pinned exactly in
+The desks' four fonts are npm dependencies of apps/learnloop-tauri, pinned exactly in
 package.json and resolved in package-lock.json. No font file is committed: Vite copies the
 packages' WOFF2 files into the built app, so the app fetches no font from a font service.
 Each is licensed under the SIL Open Font License, Version 1.1 (OFL-1.1); the full licence
 text ships in each package's LICENSE file and is preserved when the app is distributed.
 
-@fontsource-variable/inter 5.3.0 — Inter. Copyright 2016 The Inter Project Authors
-  (https://github.com/rsms/inter).
 @fontsource-variable/literata 5.3.0 — Literata. Copyright 2017 The Literata Project Authors
   (https://github.com/googlefonts/literata).
 @fontsource-variable/source-serif-4 5.3.1 — Source Serif 4. The package's LICENSE names

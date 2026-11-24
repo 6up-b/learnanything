@@ -28,7 +28,7 @@ Area: [[Reference/Desktop/TypeScript/screens/desks/_area|TypeScript/screens/desk
 
 ## Why this module exists
 
-Provides `WindowSelection`, `quoteOf`, `readWindowSelection` within the desktop's TypeScript/screens/desks ownership area.
+Provides `WindowSelection`, `quoteOf`, `clipQuote`, `readWindowSelection` within the desktop's TypeScript/screens/desks ownership area.
 
 The system-level behavior stays authoritative in the linked architecture, concept, and workflow notes; this note owns only source-level lookup facts.
 
@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/selection.ts](../../../../../../../apps/learnloop-tauri/src/screens/desks/selection.ts) |
-| Source lines | 64 |
+| Source lines | 76 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/_area|TypeScript/screens/desks]] |
 | Refactor status | `ACTIVE` |
@@ -54,41 +54,44 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export interface WindowSelection` — interface, line 7
-- `export function quoteOf(range: Range, doc: Document = document): string` — function, line 25
-- `export function readWindowSelection(windowId: string, stage: Element | null, doc: Document = document): WindowSelection | null` — function, line 36
+- `export interface WindowSelection` — interface, line 8
+- `export function quoteOf(range: Range): string` — function, line 27
+- `export function clipQuote(quote: string, max: number): string` — function, line 32
+- `export function readWindowSelection(windowId: string, stage: Element | null, doc: Document = document): WindowSelection | null` — function, line 48
 
 ## Internal implementation anchors
 
-- `const SPAN_SELECTOR = "[data-span-id], [data-transcript-span]"` — const, line 17
-- `function spanOf(element: Element): string | null` — function, line 19
-- `const box = doc.createElement("div")` — const, line 26
-- `const tex = math.querySelector('annotation[encoding="application/x-tex"]')?.textContent` — const, line 29
-- `const selection = doc.getSelection?.()` — const, line 37
-- `const range = selection.getRangeAt(0)` — const, line 39
-- `const host = doc.querySelector(`[$` — const, line 40
-- `const quote = quoteOf(range, doc)` — const, line 42
-- `const spanIds: string[] = []` — const, line 44
-- `const start = range.startContainer instanceof Element ? range.startContainer : range.startContainer.parentElement` — const, line 45
-- `const first = start?.closest(SPAN_SELECTOR)` — const, line 46
-- `const id = spanOf(first)` — const, line 48
-- `const id = spanOf(element)` — const, line 52
-- `const origin = stage?.getBoundingClientRect() ??` — const, line 55
-- `const rects = [...(range.getClientRects?.() ?? [])] .filter((rect)` — const, line 56
-- `const box = range.getBoundingClientRect?.()` — const, line 59
-- `const bounds = box && box.width + box.height > 0 ?` — const, line 60
+- `const SPAN_SELECTOR = "[data-span-id], [data-transcript-span]"` — const, line 18
+- `function spanOf(element: Element): string | null` — function, line 20
+- `let cut = max` — let, line 34
+- `const start = match.index ?? 0` — const, line 37
+- `const end = start + match[0].length` — const, line 38
+- `const selection = doc.getSelection?.()` — const, line 49
+- `const range = selection.getRangeAt(0)` — const, line 51
+- `const host = doc.querySelector(`[$` — const, line 52
+- `const quote = quoteOf(range)` — const, line 54
+- `const spanIds: string[] = []` — const, line 56
+- `const start = range.startContainer instanceof Element ? range.startContainer : range.startContainer.parentElement` — const, line 57
+- `const first = start?.closest(SPAN_SELECTOR)` — const, line 58
+- `const id = spanOf(first)` — const, line 60
+- `const id = spanOf(element)` — const, line 64
+- `const origin = stage?.getBoundingClientRect() ??` — const, line 67
+- `const rects = [...(range.getClientRects?.() ?? [])] .filter((rect)` — const, line 68
+- `const box = range.getBoundingClientRect?.()` — const, line 71
+- `const bounds = box && box.width + box.height > 0 ?` — const, line 72
 
 ## Who imports or calls it
 
 > [!note] Static-evidence boundary
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
-- [[Reference/Desktop/TypeScript/screens/desks/DeskShell|src/screens/desks/DeskShell.tsx]] — import-or-re-export: `WindowSelection`, `readWindowSelection`; references `WindowSelection`, `readWindowSelection`
+- [[Reference/Desktop/TypeScript/screens/desks/DeskShell|src/screens/desks/DeskShell.tsx]] — import-or-re-export: `WindowSelection`, `clipQuote`, `readWindowSelection`; references `WindowSelection`, `clipQuote`, `readWindowSelection`
 
 ## Dependencies
 
 ### Desktop source modules
 
+- [[Reference/Desktop/TypeScript/render/mathSnippet|src/render/mathSnippet.ts]] — import-or-re-export; imports `selectionQuote`
 - [[Reference/Desktop/TypeScript/screens/desks/geometry|src/screens/desks/geometry.ts]] — import-or-re-export; imports `Rect`
 - [[Reference/Desktop/TypeScript/screens/desks/keys/listeners|src/screens/desks/keys/listeners.ts]] — import-or-re-export; imports `WINDOW_ATTRIBUTE`
 

@@ -35,11 +35,11 @@ No nested ownership area.
 | Module | Status | Purpose | Imports | Imported by |
 |---|---|---|---:|---:|
 | [[Reference/Desktop/TypeScript/screens/desks/pads/DrainPanel|DrainPanel.tsx]] | `ACTIVE` | Implements the `DrainPanel` routed desktop screen and coordinates its learner-facing workflow state. | 2 | 1 |
-| [[Reference/Desktop/TypeScript/screens/desks/pads/PadOverlays|PadOverlays.tsx]] | `ACTIVE` | Implements the `PadOverlays` routed desktop screen and coordinates its learner-facing workflow state. | 5 | 1 |
-| [[Reference/Desktop/TypeScript/screens/desks/pads/PadStackWindow|PadStackWindow.tsx]] | `ACTIVE` | Implements the `PadStackWindow` routed desktop screen and coordinates its learner-facing workflow state. | 10 | 2 |
+| [[Reference/Desktop/TypeScript/screens/desks/pads/PadOverlays|PadOverlays.tsx]] | `ACTIVE` | Implements the `PadOverlays` routed desktop screen and coordinates its learner-facing workflow state. | 8 | 1 |
+| [[Reference/Desktop/TypeScript/screens/desks/pads/PadStackWindow|PadStackWindow.tsx]] | `ACTIVE` | Implements the `PadStackWindow` routed desktop screen and coordinates its learner-facing workflow state. | 15 | 2 |
 | [[Reference/Desktop/TypeScript/screens/desks/pads/PassageMarks|PassageMarks.tsx]] | `ACTIVE` | Implements the `PassageMarks` routed desktop screen and coordinates its learner-facing workflow state. | 2 | 1 |
 | [[Reference/Desktop/TypeScript/screens/desks/pads/SketchCanvas|SketchCanvas.tsx]] | `ACTIVE` | Implements the `SketchCanvas` routed desktop screen and coordinates its learner-facing workflow state. | 0 | 1 |
-| [[Reference/Desktop/TypeScript/screens/desks/pads/host|host.ts]] | `ACTIVE` | Provides `PadsApi`, `SourcePiece`, `PadsHost`, `PadStackHandle` and related exports within the desktop's TypeScript/screens/desks/pads ownership area. | 3 | 4 |
+| [[Reference/Desktop/TypeScript/screens/desks/pads/host|host.ts]] | `ACTIVE` | Provides `PadsApi`, `SourcePiece`, `PadsHost`, `PadStackHandle` and related exports within the desktop's TypeScript/screens/desks/pads ownership area. | 7 | 5 |
 | [[Reference/Desktop/TypeScript/screens/desks/pads/model|model.ts]] | `ACTIVE` | Provides `EDITABLE_KINDS`, `PadState`, `Pads`, `PadOpRefusal` and related exports within the desktop's TypeScript/screens/desks/pads ownership area. | 1 | 5 |
 | [[Reference/Desktop/TypeScript/screens/desks/pads/stickyTabs|stickyTabs.ts]] | `ACTIVE` | Provides `TAB_SIZES`, `TabGrade`, `PadGeometry`, `stuckTop` and related exports within the desktop's TypeScript/screens/desks/pads ownership area. | 0 | 1 |
 

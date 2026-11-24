@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/companion/model.ts](../../../../../../../../apps/learnloop-tauri/src/screens/desks/companion/model.ts) |
-| Source lines | 150 |
+| Source lines | 157 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/companion/_area|TypeScript/screens/desks/companion]] |
 | Refactor status | `ACTIVE` |
@@ -55,42 +55,41 @@ The system-level behavior stays authoritative in the linked architecture, concep
 ## Public API
 
 - `export const COMPANION_SIZES =` — const, line 8
-- `export const DOCKS: readonly CompanionDock[] = ["br", "bl", "right", "cb"]` — const, line 33
-- `export function dockRect(dock: CompanionDock, stage: Stage): Rect` — function, line 35
-- `export function anchoredRect(anchor: Rect, stage: Stage): Rect` — function, line 50
-- `export function nearestDock(point:` — function, line 61
-- `export function pillRect(stage: Stage): Rect` — function, line 75
-- `export function intersects(a: Rect, b: Rect): boolean` — function, line 84
-- `export function avoidOffset(panel: Rect, obstacles: Rect[], stage: Stage): number` — function, line 91
-- `export type CompanionMode = "docked" | "hidden" | "anchored"` — type, line 105
-- `export interface CompanionState` — interface, line 107
-- `export const HIDDEN: CompanionState =` — const, line 119
-- `export type CompanionEvent = /** `c` (or `alt+c` while typing), with where it would anchor. */ |` — type, line 121
-- `export function companionStep(state: CompanionState, event: CompanionEvent): CompanionState` — function, line 130
+- `export const DOCKS: readonly CompanionDock[] = ["br", "bl", "right", "cb"]` — const, line 38
+- `export function dockRect(dock: CompanionDock, stage: Stage): Rect` — function, line 40
+- `export function anchoredRect(anchor: Rect, stage: Stage): Rect` — function, line 57
+- `export function nearestDock(point:` — function, line 68
+- `export function pillRect(stage: Stage): Rect` — function, line 82
+- `export function intersects(a: Rect, b: Rect): boolean` — function, line 91
+- `export function avoidOffset(panel: Rect, obstacles: Rect[], stage: Stage): number` — function, line 98
+- `export type CompanionMode = "docked" | "hidden" | "anchored"` — type, line 112
+- `export interface CompanionState` — interface, line 114
+- `export const HIDDEN: CompanionState =` — const, line 126
+- `export type CompanionEvent = /** `c` (or `alt+c` while typing), with where it would anchor. */ |` — type, line 128
+- `export function companionStep(state: CompanionState, event: CompanionEvent): CompanionState` — function, line 137
 
 ## Internal implementation anchors
 
-- `const w = Math.min(COMPANION_SIZES.rightWidth, stage.width * COMPANION_SIZES.rightShare)` — const, line 38
-- `const w = Math.min(COMPANION_SIZES.width, Math.max(0, stage.width - 2 * inset))` — const, line 41
-- `const h = Math.round(stage.height * COMPANION_SIZES.dockShare)` — const, line 42
-- `const y = stage.height - h - inset` — const, line 43
-- `const w = Math.min(stage.width < COMPANION_SIZES.narrowBelow ? COMPANION_SIZES.narrowWidth : COMPANION_SIZES.width, stage.width - 16)` — const, line 51
-- `const h = Math.min(COMPANION_SIZES.anchoredHeight, Math.round(stage.height * COMPANION_SIZES.anchoredShare))` — const, line 52
-- `const below = anchor.y + anchor.h + COMPANION_SIZES.anchorGap` — const, line 53
-- `const above = anchor.y - COMPANION_SIZES.anchorGap - h` — const, line 54
-- `const y = below + h <= stage.height - 8 ? below : above >= 8 ? above : stage.height - h - 8` — const, line 55
-- `const x = Math.max(8, Math.min(anchor.x, stage.width - w - 8))` — const, line 56
-- `let best: CompanionDock = "br"` — let, line 62
-- `let distance = Infinity` — let, line 63
-- `const r = dockRect(dock, stage)` — const, line 65
-- `const d = Math.hypot(r.x + r.w / 2 - point.x, r.y + r.h / 2 - point.y)` — const, line 66
-- `const covered = obstacles.filter((rect)` — const, line 92
-- `const left = Math.min(...covered.map((rect)` — const, line 94
-- `const right = Math.max(...covered.map((rect)` — const, line 95
-- `const toLeft = left - COMPANION_SIZES.avoidMargin - (panel.x + panel.w)` — const, line 96
-- `const toRight = right + COMPANION_SIZES.avoidMargin - panel.x` — const, line 97
-- `const fits = (dx: number)` — const, line 98
-- `const options = [toLeft, toRight].filter(fits).sort((a, b)` — const, line 99
+- `const laptop = stage.viewport !== undefined && stage.viewport < COMPANION_SIZES.laptopBelow` — const, line 42
+- `const fit = (w: number, h: number)` — const, line 43
+- `const y = stage.height - h - inset` — const, line 50
+- `const w = Math.min((stage.viewport ?? stage.width) < COMPANION_SIZES.narrowBelow ? COMPANION_SIZES.narrowWidth : COMPANION_SIZES.width, stage.width - 16)` — const, line 58
+- `const h = Math.min(COMPANION_SIZES.anchoredHeight, Math.round(stage.height * COMPANION_SIZES.anchoredShare))` — const, line 59
+- `const below = anchor.y + anchor.h + COMPANION_SIZES.anchorGap` — const, line 60
+- `const above = anchor.y - COMPANION_SIZES.anchorGap - h` — const, line 61
+- `const y = below + h <= stage.height - 8 ? below : above >= 8 ? above : stage.height - h - 8` — const, line 62
+- `const x = Math.max(8, Math.min(anchor.x, stage.width - w - 8))` — const, line 63
+- `let best: CompanionDock = "br"` — let, line 69
+- `let distance = Infinity` — let, line 70
+- `const r = dockRect(dock, stage)` — const, line 72
+- `const d = Math.hypot(r.x + r.w / 2 - point.x, r.y + r.h / 2 - point.y)` — const, line 73
+- `const covered = obstacles.filter((rect)` — const, line 99
+- `const left = Math.min(...covered.map((rect)` — const, line 101
+- `const right = Math.max(...covered.map((rect)` — const, line 102
+- `const toLeft = left - COMPANION_SIZES.avoidMargin - (panel.x + panel.w)` — const, line 103
+- `const toRight = right + COMPANION_SIZES.avoidMargin - panel.x` — const, line 104
+- `const fits = (dx: number)` — const, line 105
+- `const options = [toLeft, toRight].filter(fits).sort((a, b)` — const, line 106
 
 ## Who imports or calls it
 

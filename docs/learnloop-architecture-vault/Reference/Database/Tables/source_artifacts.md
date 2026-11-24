@@ -26,7 +26,7 @@ source_paths:
   - "src/learnloop/cli/app.py"
   - "src/learnloop/companion/search.py"
   - "src/learnloop/content/pipeline/acquisition_preview.py"
-  - "src/learnloop/content/pipeline/jobs.py"
+  - "src/learnloop/content/pipeline/import_jobs.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -115,7 +115,7 @@ Indexes and uniqueness:
 - `src/learnloop/companion/search.py`
 - `src/learnloop/content/pipeline/acquisition_preview.py`
 - `src/learnloop/content/pipeline/add_source.py`
-- `src/learnloop/content/pipeline/jobs.py`
+- `src/learnloop/content/pipeline/import_jobs.py`
 - `src/learnloop/content/pipeline/quick_add.py`
 - `src/learnloop/content/pipeline/reread.py`
 - `src/learnloop/content/pipeline/source_ingestion.py`
@@ -126,11 +126,11 @@ Indexes and uniqueness:
 - `src/learnloop/figures/source_check.py`
 - `src/learnloop/intent/control.py`
 - `src/learnloop/ops/doctor.py`
+- `src/learnloop/passage_union/content.py`
 - `src/learnloop/reader/part_read.py`
 - `src/learnloop/reader/phone_media.py`
 - `src/learnloop/reader/reader_guidance.py`
 - `src/learnloop/reader/reader_progression.py`
-- `src/learnloop/reader/source_search.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -149,6 +149,7 @@ Indexes and uniqueness:
 - `tests/quick_add_helpers.py`
 - `tests/reader_ca1_as_printed_helpers.py`
 - `tests/reader_fixtures.py`
+- `tests/reader_rd10_helpers.py`
 - `tests/rw5c_fixtures.py`
 - `tests/source_inventory_helpers.py`
 - `tests/source_retrieval_fakes.py`
@@ -156,7 +157,6 @@ Indexes and uniqueness:
 - `tests/test_decider_landing.py`
 - `tests/test_followups_batch6_prefetch_next_section.py`
 - `tests/test_followups_batch7_note_titles.py`
-- `tests/test_glm_ocr.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

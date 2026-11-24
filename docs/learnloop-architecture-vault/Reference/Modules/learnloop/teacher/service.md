@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/teacher/service.py](../../../../../../src/learnloop/teacher/service.py) |
-| Source lines | 2681 |
+| Source lines | 2708 |
 | Owning package | [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -74,7 +74,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `located(field: str, indices: Sequence[int]) -> str` ([source](../../../../../../src/learnloop/teacher/service.py), line 1640) — ``check.anchors[0], check.anchors[2]``: a refusal's fields by location (landing ruling R1 (b)).
 - `displayed_texts(state: LessonState, *, extra: Sequence[str]=()) -> list[str]` ([source](../../../../../../src/learnloop/teacher/service.py), line 2339) — Everything the lesson displayed to the learner so far (accepted turns' fields), and ``extra``.
 - `view(vault: Any, repository: Any, lesson_id: str, *, outcome: _Outcome | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/service.py), line 2527) — The lesson as the screen shows it: what was shown, in order, the plan map, the open check (never its solution), the open prediction, and the close card.
-- `open_lessons(vault: Any, repository: Any) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/teacher/service.py), line 2645) — Teacher TE2 (§11.8): Today's *Continue your lesson on X*, newest first: every open lesson with its topic in plain words.
+- `open_lessons(vault: Any, repository: Any) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/teacher/service.py), line 2672) — Teacher TE2 (§11.8): Today's *Continue your lesson on X*, newest first: every open lesson with its topic in plain words.
 
 ### Module constants
 
@@ -90,6 +90,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `TEACHER_MESSAGE_CONTRACT` ([src/learnloop/teacher/service.py](../../../../../../src/learnloop/teacher/service.py), line 1456)
 - `EXPOSURE_KEY` ([src/learnloop/teacher/service.py](../../../../../../src/learnloop/teacher/service.py), line 1706)
 - `_FIGURE_WITHHELD` ([src/learnloop/teacher/service.py](../../../../../../src/learnloop/teacher/service.py), line 2026)
+- `_TE2_FEED` ([src/learnloop/teacher/service.py](../../../../../../src/learnloop/teacher/service.py), line 2622)
 
 ### Explicit exports
 
@@ -186,7 +187,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_receipt_identities(vault: Any, state: LessonState, item_ids: Sequence[Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/service.py), line 2447) — ``{"identities": ...}`` for the receipt's exposure (landing ruling R1): the union of the identities frozen on each displayed record when it was shown (:data:`EXPOSURE_KEY`: an accepted turn, a shown figure, a served probe's question) and the close's own (the recap; every item th…
 - `_receipt_episode_fields(vault: Any, repository: Any, state: LessonState, *, closed_at: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/service.py), line 2472) — §8.3's ``episodes`` (the lesson's episode ids by kind) and ``minutes`` (active and elapsed, and their source; never blended), and the ``lesson_node_held`` receipt keys; ``{}`` while ``teacher.episode_log`` is off.
 - `_stability_inputs(repository: Any, landed: Sequence[Mapping[str, Any]], rows: Sequence[Mapping[str, Any]], state: LessonState) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/teacher/service.py), line 2493) — Per landed node, the liquid-stability inputs ``u`` (§8.3; logged before the family activates).
-- `_view_te2(vault: Any, repository: Any, state: LessonState, out: dict[str, Any], *, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/teacher/service.py), line 2607) — A TE2 lesson's view additions: the probe card (*Preparing a question on this…* with *Teach it anyway*, or the open question, served now through FG1's first-serve claim: the question only, never its key), its results in the feed, and the topics the lesson added.
+- `_te2_feed_entry(vault: Any, action: str, data: Mapping[str, Any], *, answered: set[str], closed: bool) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/teacher/service.py), line 2625) — A TE2 turn as the feed shows it, in place (the question as the item states it: nothing is generated again).
+- `_view_te2(vault: Any, repository: Any, state: LessonState, out: dict[str, Any], *, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/teacher/service.py), line 2645) — A TE2 lesson's view additions: the probe card (*Preparing a question on this…* with *Teach it anyway*, or the open question, served now through FG1's first-serve claim: the question only, never its key), its results in the feed, and the topics the lesson added.
 
 ## Who imports or calls it
 
@@ -195,7 +197,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] — imports `load_state`; statically calls `load_state`
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `lessons_active`; statically calls `lessons_active`
-- [[Reference/Modules/learnloop_sidecar/handlers/lesson|learnloop_sidecar.handlers.lesson]] — imports `module`; statically calls `Clients`, `open_lesson`, `open_lessons`, `require_active`, `take_turn`, `view_lesson`
+- [[Reference/Modules/learnloop_sidecar/handlers/lesson|learnloop_sidecar.handlers.lesson]] — imports `module`; statically calls `Clients`, `lessons_active`, `open_lesson`, `open_lessons`, `require_active`, `take_turn`, `view_lesson`
 
 ## Dependencies
 
@@ -231,7 +233,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/teacher/from_check|learnloop.teacher.from_check]] — imports `from_check`; calls `from_check`
 - [[Reference/Modules/learnloop/teacher/guards|learnloop.teacher.guards]] — imports `module`; calls `GuardVerdict`, `check_all`, `cited_aliases`, `key_guard`, `key_sets`, `lesson_keys`, `open_check_guard`, `reserved_book`, `reserved_guard`, `shown_feedback`, `solution_overlap`
 - [[Reference/Modules/learnloop/teacher/notes|learnloop.teacher.notes]] — imports `notes_still_deliverable`, `your_notes`
-- [[Reference/Modules/learnloop/teacher/probes|learnloop.teacher.probes]] — imports `module`; calls `contract_problem`, `finish_recorded`, `logged_fields`, `open_probe`, `probes`, `record_answer`, `request`, `retire`, `serve`, `transcript_entry`, `unanswered`
+- [[Reference/Modules/learnloop/teacher/probes|learnloop.teacher.probes]] — imports `module`; calls `contract_problem`, `finish_recorded`, `logged_fields`, `open_probe`, `probes`, `record_answer`, `request`, `retire`, `serve`, `serving_held`, `transcript_entry`, `unanswered`
 - [[Reference/Modules/learnloop/teacher/te2|learnloop.teacher.te2]] — imports `module`; calls `doctrine_family`, `instructions`, `learner_ref`, `lesson_te2`, `on`, `prompt_version`, `stored_turn`, `turn_model`
 - [[Reference/Modules/learnloop/teacher/topics|learnloop.teacher.topics]] — imports `module`; calls `plan_open`
 - [[Reference/Modules/learnloop/teacher/visuals|learnloop.teacher.visuals]] — imports `module`; calls `active`, `build`, `contract_problem`, `displayed`, `figure_row`, `figure_text`, `instructions`, `lesson_view`, `not_built_for_protection`, `on`, `prompt_version`, `resolve`, `summary`, `turn_model`
@@ -304,6 +306,14 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_only_a_miss_since_the_last_lesson_counts`
 - [tests/test_live_dialogue_contract_baseline.py](../../../../../../tests/test_live_dialogue_contract_baseline.py) — direct import
   - `test_initial_deadline_and_cancellation`
+- [tests/test_notebook_lessons.py](../../../../../../tests/test_notebook_lessons.py) — direct import
+- [tests/test_reader_rd10_fix_sweep.py](../../../../../../tests/test_reader_rd10_fix_sweep.py) — direct import
+  - `test_a_lesson_on_a_topic_whose_check_is_due_names_nothing_in_its_tab`
+- [tests/test_reader_rd9a_fix.py](../../../../../../tests/test_reader_rd9a_fix.py) — direct import
+  - `test_a_quick_question_is_never_served_or_answered_in_a_desk_window`
+- [tests/test_reader_rd9a_lesson_windows.py](../../../../../../tests/test_reader_rd9a_lesson_windows.py) — direct import
+  - `test_lesson_list_names_each_lesson_with_its_additions_pad`
+  - `test_review_replays_a_finished_lesson_with_no_model_call_and_no_write`
 - [tests/test_reader_rw5d_p4b_teacher_visuals.py](../../../../../../tests/test_reader_rw5d_p4b_teacher_visuals.py) — direct import
   - `test_a_lesson_figure_never_spawns_a_rich_job`
   - `test_a_planned_visual_is_the_identical_request_and_hits_the_same_figure`

@@ -1,11 +1,50 @@
 # Migration-head fixture
 
-**Holds migration 266 (`266_reader_workbench_pads.sql`), the head.** The directory's name carries no number (since
+**Holds migration 269 (`269_ink_transcriptions_guard.sql`), the head.** The directory's name carries no number (since
 refactor A2): a new migration upgrades `state.sqlite` here in place, in rollback mode, and adds a section below naming
 the new head; no test or script changes for the number (`CLAUDE.md`, "Adding a migration"). Tests reach it
 through `MIGRATION_HEAD_FIXTURE` in `tests/helpers.py`; `tests/test_migrations.py` checks that it holds the newest
 file in `migrations/` and stays in rollback mode. Older sections below name the numbered directories it was renamed
 from, as they were then.
+
+## Pen and ink fix round (migration 269), `reader/rd8fix`, 2026-11-23
+
+Upgraded in place (no rename; base: the second workbench batch, head 268) by the B1 procedure below:
+`269_ink_transcriptions_guard.sql` (the replacing-INSERT guard of `ink_transcriptions` recreated to refuse an insert
+meeting either of its keys) applied through `learnloop.db.migrate.apply_migrations` on a backup-API copy of the
+tracked 268 file, outside the checkout, under `upgrade_allowance(UPGRADE_SCRATCH_COPY)`, which applied `[269]` only;
+`wal_checkpoint(TRUNCATE)` (0, 0, 0), `journal_mode=DELETE` (header bytes 1/1), `integrity_check` ok and
+`foreign_key_check` empty; the tracked file removed and the copy written into its place with `backup_database`, no
+companion files. Compared with the 268 file: no object added or removed, one definition changed (the trigger
+`ink_transcriptions_no_replace`), and the only table whose rows changed is `schema_migrations` (gains 269). The file
+stays 7,860,224 bytes. (This fix round first numbered it 270; it was renumbered before landing so no gap reaches
+main, and redone from the tracked 268 file.)
+
+## Reader workbench v2 suggested video chapters (migration 268), `reader/rd10-video-carried`, 2026-11-23
+
+Upgraded in place (no rename; base: the tracked 267 file of `reader/rd8a-pen-ui` at `ca1ad9d240`) by the B1 procedure
+below: `268_reader_workbench_video_chapters.sql` (one new table, `video_chapters` WORKFLOW, a chapter decided once and a
+decided chapter kept by trigger, empty here) applied through `learnloop.db.migrate.apply_migrations` on a backup-API
+copy outside the checkout under `upgrade_allowance(UPGRADE_SCRATCH_COPY)`, which applied `[268]` only;
+`wal_checkpoint(TRUNCATE)` (0, 0, 0), `journal_mode=DELETE` (header bytes 1/1), `integrity_check` ok and
+`foreign_key_check` empty; the tracked file removed and the copy written into its place with `backup_database`, no
+companion files. Compared with the 267 file: 5 objects added (the table, its autoindex, one index and two triggers), no
+existing definition changed, and the only existing table whose rows changed is `schema_migrations` (gains 268). The
+file grows from 7,847,936 to 7,860,224 bytes.
+
+## Reader workbench v2 pen and ink (migration 267), `reader/rd8a-ink-backend`, 2026-11-23
+
+Upgraded in place (no rename; base: main at `ba7884c102`, head 266) by the B1 procedure below:
+`267_reader_workbench_ink.sql` (two new tables, `ink_strokes` RAW_LEDGER, owned by an ink block, an annotation or a
+source's reading (`owner_kind` `'block'`, `'annotation'`, `'source'`), and `ink_transcriptions` RECEIPT (a block's or an
+annotation's only), each refusing UPDATE, DELETE and a replacing INSERT by trigger, both empty here; rebuilt the same
+day from the tracked 266 copy after the migration, not yet landed, gained the `'source'` owner) applied through
+`learnloop.db.migrate.apply_migrations` on a backup-API copy outside the checkout under
+`upgrade_allowance(UPGRADE_SCRATCH_COPY)`, which applied `[267]` only; `wal_checkpoint(TRUNCATE)` (0, 0, 0),
+`journal_mode=DELETE` (header bytes 1/1), `integrity_check` ok and `foreign_key_check` empty; the tracked file removed
+and the copy written into its place with `backup_database`, no companion files. Compared with the 266 file: 12 objects
+added (the two tables, three autoindexes, one index and six triggers), no existing definition changed, and the only
+table whose rows changed is `schema_migrations` (gains 267). The file grows from 7,831,552 to 7,847,936 bytes.
 
 ## Reader workbench v2 scratchpads (migration 266), `reader/rd4a-pads-backend`, 2026-11-23
 

@@ -25,11 +25,28 @@ import type {
   CarriedQuestionDto,
   CarriedListDto,
   CarriedMarkInput,
+  InkEraseDto,
+  InkEraseInput,
+  InkListDto,
+  InkSaveDto,
+  InkSaveInput,
+  InkTranscribeJobDto,
   PassageUnionDto,
+  PassageContentDto,
+  MenuObjectInput,
+  PassagePromotedInput,
+  PassagePromotedDto,
+  PromotedJobDto,
+  PassageKnowsDto,
   PassageUnionInput,
   SearchEverythingDto,
   SearchEverythingInput,
   SearchJobDto,
+  NotebookOpenInput,
+  NotebookSessionDto,
+  NotebookReleaseDto,
+  NotebookCellInput,
+  NotebookRunCellsDto,
   NoteSearchDto,
   NoteLinkDto,
   HiddenNoteDto,
@@ -371,8 +388,20 @@ import type {
   LessonTurnInput,
   LessonViewDto,
   OpenLessonDto,
+  LessonSummaryDto,
+  FollowAlongDto,
+  VideoChapterDto,
+  ChaptersJobDto,
   LessonSuggestionDto,
   LessonSuggestionResponseDto
+} from "./dto";
+import type {
+  DeliverablePathViewDto,
+  GoalBandDto,
+  GoalLensDto,
+  GoalLensInput,
+  GoalSectionChoiceDto,
+  GoalSectionChoiceInput,
 } from "./dto";
 
 // Development aid for verifying the query cache: with
@@ -1177,7 +1206,8 @@ export const api = {
     })),
   listQuestionQueue: (input?: { resolution?: string | null; limit?: number | null }) =>
     call<QuestionQueueSnapshot>("list_question_queue", { input: input ?? {} }),
-  authorPracticeItem: (input: { captureId?: string; learningObjectId: string; prompt: string; expectedAnswer: string; practiceMode?: string; hints?: string[] }) =>
+  // clientIdempotencyKey: one per sheet, reused on a retry (the same key returns the same item and makes no second).
+  authorPracticeItem: (input: { captureId?: string; learningObjectId: string; prompt: string; expectedAnswer: string; practiceMode?: string; hints?: string[]; clientIdempotencyKey?: string }) =>
     mutating([TAG.queue], call<{ practiceItemId: string }>("author_practice_item", { input })),
   // Learner-initiated re-runging: request an easier/harder sibling variant of
   // an item. Records the evidence package synchronously, authors async.
@@ -1619,7 +1649,24 @@ export const api = {
   carriedMark: (input: CarriedMarkInput) =>
     call<{ version: number; carried: CarriedQuestionDto; applied: boolean; conflict: boolean }>("carried_mark",
       { input }),
+  // Reader workbench v2 RD8a (spec §10.10; desktop only, no component calls them yet): ink saves follow the write
+  // protocol in the client's one sequence; erasing is padApply's erase_ink. A reading answers at once with a polled
+  // job (strokes already read answer done with no job); polls answer at once and never wait.
+  inkSave: (input: InkSaveInput) => call<InkSaveDto>("ink_save", { input }),
+  inkErase: (input: InkEraseInput) => call<InkEraseDto>("ink_erase", { input }),
+  inkList: (input: { padId: string } | { sourceId: string }) => call<InkListDto>("ink_list", { input }),
+  inkTranscribe: (input: { inkId: string }) => call<InkTranscribeJobDto>("ink_transcribe", { input }),
+  inkTranscribeJob: (input: { jobId: string }) => call<InkTranscribeJobDto>("ink_transcribe_job", { input }),
+  inkTranscribeCancel: (input: { jobId: string }) => call<InkTranscribeJobDto>("ink_transcribe_cancel", { input }),
   passageUnionRange: (input: PassageUnionInput) => call<PassageUnionDto>("passage_union_range", { input }),
+  // RD4 fix round: a range of a reading as the source has it, for "a piece of another source" (desktop only).
+  passageContent: (input: PassageUnionInput) => call<PassageContentDto>("passage_content", { input }),
+  // RD5 (desktop only): the split menu's promoted rows at once and their judged job (polled through the one poller;
+  // cancel when the menu closes), and What this knows as one read.
+  passagePromoted: (input: PassagePromotedInput) => call<PassagePromotedDto>("passage_promoted", { input }),
+  passagePromotedJob: (input: { jobId: string }) => call<PromotedJobDto>("passage_promoted_job", { input }),
+  passagePromotedCancel: (input: { jobId: string }) => call<PromotedJobDto>("passage_promoted_cancel", { input }),
+  passageKnows: (input: MenuObjectInput) => call<PassageKnowsDto>("passage_knows", { input }),
   companionHistory: (input: { from?: string; to?: string; deskId?: string; query?: string; cursor?: string } = {}) =>
     call<CompanionHistoryDto>("companion_history", { input }),
   checksDueFor: (input: { goalId?: string; learningObjectIds?: string[]; extractionId?: string; spanId?: string } = {}) =>
@@ -1632,16 +1679,47 @@ export const api = {
   companionAskCancel: (input: { requestId: string }) => call<CompanionAskJobDto>("companion_ask_cancel", { input }),
   searchEverything: (input: SearchEverythingInput) => call<SearchEverythingDto>("search_everything", { input }),
   searchJob: (input: { jobId: string }) => call<SearchJobDto>("search_job", { input }),
+  // Reader workbench v2 RD6 (spec §12; desktop only, no component calls them yet): the goal band (with the path
+  // view's rows), each section's level for a goal across a reading or a visible range, and read it anyway on a
+  // dimmed section. A path line's own choices stay curriculumPathOverride's. None calls a model or starts work;
+  // curriculumPath with judge: true starts the coverage and the path judgment a goal owes (in the background).
+  goalBand: (input: { goalId: string }) => call<GoalBandDto>("goal_band", { input }),
+  goalLens: (input: GoalLensInput) => call<GoalLensDto>("goal_lens", { input }),
+  goalSectionChoice: (input: GoalSectionChoiceInput) => call<GoalSectionChoiceDto>("goal_section_choice", { input }),
+  curriculumPath: (input: { goalId: string; judge?: boolean; retry?: boolean }) =>
+    call<DeliverablePathViewDto>("curriculum_path", { input }),
+  // Notebook runtime (desktop only, no component calls them yet): open answers at once with the session starting and
+  // its frame URL; the window loads the frame once status reads ready. Release and run need a frame attached.
+  notebookOpen: (input: NotebookOpenInput) => call<NotebookSessionDto>("notebook_open", { input }),
+  notebookStatus: (input: { sessionId: string }) => call<NotebookSessionDto>("notebook_status", { input }),
+  notebookClose: (input: { sessionId: string }) => call<NotebookSessionDto>("notebook_close", { input }),
+  notebookRelease: (input: { sessionId: string; cells: string[] }) =>
+    call<NotebookReleaseDto>("notebook_release", { input }),
+  notebookRunCells: (input: { sessionId: string; cells: NotebookCellInput[] }) =>
+    call<NotebookRunCellsDto>("notebook_run_cells", { input }),
   // Teacher TE1: a lesson (desktop only). lesson.turn is every model-calling step (one origin action, T1
   // redesign D: a granted OpenRouter offer covers the whole lesson); lesson.view resumes one with no call.
   lessonTurn: (input: LessonTurnInput) => call<LessonViewDto>("lesson_turn", { input }),
-  lessonView: (input: { lessonId: string }) => call<LessonViewDto>("lesson_view", { input }),
+  lessonView: (input: { lessonId: string; frame?: "screen" | "window" }) => call<LessonViewDto>("lesson_view", { input }),
   // Teacher TE2-log: the lesson screen's activity intervals (logging only; no model call).
   lessonActivity: (input: { lessonId: string; intervals: LessonActivityIntervalDto[]; occurredAt?: string }) =>
     call<{ recorded: number; enabled: boolean }>("lesson_activity", { input }),
   // Teacher TE2: a typed goal resolved (one plan call; none for words resolved before) and Today's open lessons.
   lessonGoal: (input: { text: string }) => call<LessonGoalDto>("lesson_goal", { input }),
   lessonOpenLessons: () => call<{ lessons: OpenLessonDto[] }>("lesson_open_lessons", { input: {} }),
+  // Reader workbench RD9a: the lessons a lesson window's tab and the path view name (no model call).
+  lessonList: (input: { lessonIds?: string[]; learningObjectIds?: string[] }) =>
+    call<{ lessons: LessonSummaryDto[] }>("lesson_list", { input }),
+  // Reader workbench RD10: follow-along (no model call) and suggested video chapters (a polled judged job).
+  readerFollowAlong: (input: { extractionId: string; t: number; bookExtractionId: string }) =>
+    call<FollowAlongDto>("reader_follow_along", { input }),
+  chaptersList: (input: { extractionId: string }) =>
+    call<{ extractionId: string; chapters: VideoChapterDto[] }>("chapters_list", { input }),
+  chaptersSuggest: (input: { extractionId: string }) => call<ChaptersJobDto>("chapters_suggest", { input }),
+  chaptersJob: (input: { jobId: string }) => call<ChaptersJobDto>("chapters_job", { input }),
+  chaptersCancel: (input: { jobId: string }) => call<ChaptersJobDto>("chapters_cancel", { input }),
+  chaptersDecide: (input: { chapterId: string; decision: "accept" | "dismiss" }) =>
+    call<{ chapter: VideoChapterDto }>("chapters_decide", { input }),
   // Teacher TE1b: Today's suggestion card (no model call; null when there is none) and the learner's one response.
   lessonSuggestion: (input: { sessionId?: string | null } = {}) =>
     call<{ suggestion: LessonSuggestionDto | null }>("lesson_suggestion", { input }),

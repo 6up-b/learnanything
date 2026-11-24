@@ -155,6 +155,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/instructional/needs|learnloop.instructional.needs]] — imports `teaching_scope`; statically calls `teaching_scope`
 - [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]] — imports `teaching_scope`; statically calls `teaching_scope`
 - [[Reference/Modules/learnloop/instructional/tools|learnloop.instructional.tools]] — imports `MODEL_WITHHELD_ROLES`, `model_reader_withheld`; statically calls `model_reader_withheld`
+- [[Reference/Modules/learnloop/passage_union/elsewhere|learnloop.passage_union.elsewhere]] — imports `Scope`, `exam_exclusions`, `library_scope`; statically calls `Scope`, `exam_exclusions`, `library_scope`
 - [[Reference/Modules/learnloop/remote/sources|learnloop.remote.sources]] — imports `MODEL_WITHHELD_ROLES`, `item_exclusions`, `model_reader_withheld`; statically calls `item_exclusions`, `model_reader_withheld`
 - [[Reference/Modules/learnloop/source_retrieval/b4|learnloop.source_retrieval.b4]] — imports `current_extractions`; statically calls `current_extractions`
 - [[Reference/Modules/learnloop/source_retrieval/compare|learnloop.source_retrieval.compare]] — imports `Scope`, `exam_withheld`, `has_item_bound_lead`, `item_exclusions`; statically calls `Scope`, `exam_withheld`, `has_item_bound_lead`, `item_exclusions`
@@ -183,6 +184,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop_sidecar/handlers/as_printed|learnloop_sidecar.handlers.as_printed]] — imports `block_roles`
 - [[Reference/Modules/learnloop_sidecar/handlers/correspondents|learnloop_sidecar.handlers.correspondents]] — imports `library_scope`; statically calls `library_scope`
 - [[Reference/Modules/learnloop_sidecar/handlers/figures|learnloop_sidecar.handlers.figures]] — imports `item_exclusions`; statically calls `item_exclusions`
+- [[Reference/Modules/learnloop_sidecar/handlers/passage_union|learnloop_sidecar.handlers.passage_union]] — imports `block_roles`; statically calls `block_roles`
 - [[Reference/Modules/learnloop_sidecar/handlers/search|learnloop_sidecar.handlers.search]] — imports `library_scope`; statically calls `library_scope`
 
 ## Dependencies
@@ -213,7 +215,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]], [[Reference/Modules/learnloop/cli/embeddings|learnloop.cli.embeddings]], [[Reference/Modules/learnloop/content/authoring/source_exercise_import|learnloop.content.authoring.source_exercise_import]], [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]], [[Reference/Modules/learnloop/content/sources/exercise_statements|learnloop.content.sources.exercise_statements]] and 39 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]], [[Reference/Modules/learnloop/cli/embeddings|learnloop.cli.embeddings]], [[Reference/Modules/learnloop/content/authoring/source_exercise_import|learnloop.content.authoring.source_exercise_import]], [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]], [[Reference/Modules/learnloop/content/sources/exercise_statements|learnloop.content.sources.exercise_statements]] and 41 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

@@ -404,7 +404,7 @@ Each stage's acceptance names deep links (`index.html#…`) that put the mockup 
 - pen stroke: `#2b4fa8`, 2.2 px.
 
 **Fonts:**
-- UI: Inter;
+- UI: JetBrains Mono, as the mockup sets its whole interface (corrected 2026-11-23 from Inter: where the spec's text and the mockup disagree on looks, the mockup wins; Inter no longer ships);
 - book and pad prose: **Literata**;
 - paper: Source Serif 4;
 - code: JetBrains Mono;
@@ -429,7 +429,7 @@ The `mock` tag is mockup-only and is never built.
 |---|---|
 | Default easing | `cubic-bezier(.22,.7,.18,1)` |
 | Camera move | `.55s` on the world, `.45s` on window left/top |
-| Slot geometry | side margin 34 px, gap 10 px, top bar 38 px, footer 26 px, shelf 236 px (a 44 px rail below 1400 px) |
+| Slot geometry | side margin 34 px, gap 10 px, top bar 38 px (34 px on a window under 820 px high), footer 26 px, shelf 236 px (a 44 px rail below 1400 px) |
 | Slivers | 30 px wide, at the stage edge |
 | Soft crop | a window partly off screen fades to 55 % over its last 36 px |
 | Overview scale | 0.34; minimum card width 760 world px; desk row gap 330; link gutter 170 |
@@ -444,9 +444,9 @@ The `mock` tag is mockup-only and is never built.
 | Overview keyboard camera | `.2s cubic-bezier(.2,.8,.2,1)`; the selection stays 48 px inside the edges |
 | Which-key | appears after Alt is held 400 ms |
 | Companion transitions | transform and opacity `.28s cubic-bezier(.2,.8,.2,1)`; filter `.28s cubic-bezier(.4,0,.2,1)` |
-| Companion open at cursor | from `scale(.9)`, opacity 0, blur 8 px, origin at the anchor; 400×min(440, 55 % of stage), 360 wide below 1240 px |
+| Companion open at cursor | from `scale(.9)`, opacity 0, blur 8 px, origin at the anchor; 400×min(440, 55 % of stage), 360 wide in a window below 1240 px (the window's width, not the stage's) |
 | Companion dissolve | `.26s cubic-bezier(.4,0,.2,1)` to opacity 0, blur 10 px, scale 1.025 |
-| Companion docks | `br` (default), `bl`, `right` (w = min(420, 34 %), h = stage − 28), `cb`; others 400 wide × 52 % high |
+| Companion docks | `br` (default), `bl`, `right` (w = min(420, 34 %), h = stage − 28), `cb`; others 400 wide × 52 % high; in a window below 1400 px (the laptop) every dock is at most 330 px wide and half the stage high, as the mockup draws them (corrected 2026-11-23: the mockup wins on looks) |
 | Sticky tabs | 30 px each; tab margin transition `.25s`; merge over 56 px; order grade 9 px per index; distance margins 14 px + 9 px per unit of distance, capped at 4 |
 | Pad paper minimum height | column height − n·30 px |
 | Mark hover cards | open after 160 ms, hide 220 ms after leaving; 330 px wide; opacity + translateY(4 px) over .16 s |
@@ -764,6 +764,8 @@ The mockup's two self-tests become component tests (§18.2):
 The top four are drawn with a cyan ring. They are an attention limit, labelled.
 
 **The curve.** Each link is a cubic Bézier from the focused card's bottom centre to the target's bottom centre, each link offset by 26 world px from its neighbours. On the same row it dips; to another row it is a vertical S. Its label sits at u = .82.
+
+**The stroke** (the mockup's; added 2026-11-23): every link is cyan at 85 % opacity and 1.6 px on screen, whatever its weight; an explicit link (3) is solid, the others (2 and 1) are dashed 8 px / 6 px. The label is 11 px, `#bfeef5` over a `#0a0a0b` halo.
 
 **Toggles.** `b` in the overview toggles relations. There is no right-angle option in the product; the mockup's `links:` chip was a comparison aid.
 

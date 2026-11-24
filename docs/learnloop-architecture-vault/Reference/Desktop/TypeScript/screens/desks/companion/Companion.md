@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/companion/Companion.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/companion/Companion.tsx) |
-| Source lines | 524 |
+| Source lines | 628 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/companion/_area|TypeScript/screens/desks/companion]] |
 | Refactor status | `ACTIVE` |
@@ -59,64 +59,78 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export interface CompanionChip` — interface, line 30
 - `export interface CompanionHandle` — interface, line 34
 - `export interface CompanionProps` — interface, line 41
-- `export const Companion = forwardRef<CompanionHandle, CompanionProps>(function Companion(props, ref)` — const, line 89
+- `export const Companion = forwardRef<CompanionHandle, CompanionProps>(function Companion(props, ref)` — const, line 90
+- `export function appendHistory(now: CompanionHistoryDto, page: CompanionHistoryDto): CompanionHistoryDto` — function, line 560
 
 ## Internal implementation anchors
 
-- `function timeOf(ms: number): string` — function, line 74
-- `function dayLabel(date: string): string` — function, line 78
-- `const day = new Date(`$` — const, line 79
-- `const today = new Date()` — const, line 80
-- `function rectStyle(rect: Rect): CSSProperties` — function, line 85
-- `const panelRef = useRef<HTMLDivElement | null>(null)` — const, line 96
-- `const pillRef = useRef<HTMLButtonElement | null>(null)` — const, line 97
-- `const tabRef = useRef<HTMLButtonElement | null>(null)` — const, line 98
-- `const bodyRef = useRef<HTMLDivElement | null>(null)` — const, line 99
-- `const showing = state.mode !== "hidden"` — const, line 102
-- `const restRect = state.mode === "anchored" && state.anchored ? state.anchored : dockRect(dock, stage)` — const, line 105
-- `const lastShown = useRef<Rect | null>(null)` — const, line 107
-- `const kind = state.last === "dissolve" ? "dissolve" : "hide"` — const, line 118
-- `const handle = timers.set(()` — const, line 120
-- `const panel = panelRef.current` — const, line 131
-- `const previous = lastShown.current` — const, line 132
-- `const dx = previous.x - shownRect.x` — const, line 137
-- `const dy = previous.y - shownRect.y` — const, line 138
-- `const sx = previous.w / Math.max(1, shownRect.w)` — const, line 139
-- `const sy = previous.h / Math.max(1, shownRect.h)` — const, line 140
-- `const panel = panelRef.current` — const, line 151
-- `const pill = pillRef.current` — const, line 152
-- `const tabEl = tabRef.current` — const, line 153
-- `const target = pillRect(stage)` — const, line 174
-- `const from = shownRect` — const, line 175
-- `const k = q` — const, line 176
-- `const tx = (target.x + target.w - (from.x + from.w)) * k` — const, line 179
-- `const ty = (target.y + target.h - (from.y + from.h)) * k` — const, line 180
-- `const s = 1 - (1 - target.w / Math.max(1, from.w)) * k` — const, line 181
-- `let live = true` — let, line 198
-- `const handle = timers.set(()` — const, line 199
-- `const lastStatus = props.thread.length ? `$` — const, line 220
-- `const body = bodyRef.current` — const, line 222
-- `let live = true` — let, line 230
-- `const drag = useRef<` — const, line 241
-- `const onGrabDown = (event: React.PointerEvent<HTMLDivElement>)` — const, line 242
-- `const onGrabMove = (event: React.PointerEvent<HTMLDivElement>)` — const, line 247
-- `const d = drag.current` — const, line 248
-- `const panel = panelRef.current` — const, line 249
-- `const onGrabUp = (event: React.PointerEvent<HTMLDivElement>)` — const, line 254
-- `const d = drag.current` — const, line 255
-- `const panel = panelRef.current` — const, line 257
-- `const dx = event.clientX - d.x` — const, line 259
-- `const dy = event.clientY - d.y` — const, line 260
-- `const dropped =` — const, line 261
-- `const motionClass = reducedMotion ? " still" : ""` — const, line 270
-- `const enter = state.last === "summon" ? " summon" : state.last === "show" ? " show" : ""` — const, line 271
-- `const anchorOrigin = state.mode === "anchored" && state.anchored ? `$` — const, line 272
-- `const tabRect = dockRect(dock, stage)` — const, line 274
-- `const tabLabel = `◇ tutor · $` — const, line 275
-- `const question = draft.trim()` — const, line 364
-- `function ExchangeView(` — function, line 410
-- `let answer: ReactNode` — let, line 418
-- `function HistoryView(` — function, line 486
+- `function timeOf(ms: number): string` — function, line 75
+- `function dayLabel(date: string): string` — function, line 79
+- `const day = new Date(`$` — const, line 80
+- `const today = new Date()` — const, line 81
+- `function rectStyle(rect: Rect): CSSProperties` — function, line 86
+- `const panelRef = useRef<HTMLDivElement | null>(null)` — const, line 97
+- `const pillRef = useRef<HTMLButtonElement | null>(null)` — const, line 98
+- `const tabRef = useRef<HTMLButtonElement | null>(null)` — const, line 99
+- `const bodyRef = useRef<HTMLDivElement | null>(null)` — const, line 100
+- `const showing = state.mode !== "hidden"` — const, line 103
+- `const restRect = state.mode === "anchored" && state.anchored ? state.anchored : dockRect(dock, stage)` — const, line 106
+- `const lastShown = useRef<Rect | null>(null)` — const, line 108
+- `const kind = state.last === "dissolve" ? "dissolve" : "hide"` — const, line 119
+- `const handle = timers.set(()` — const, line 121
+- `const panel = panelRef.current` — const, line 132
+- `const previous = lastShown.current` — const, line 133
+- `const dx = previous.x - shownRect.x` — const, line 138
+- `const dy = previous.y - shownRect.y` — const, line 139
+- `const sx = previous.w / Math.max(1, shownRect.w)` — const, line 140
+- `const sy = previous.h / Math.max(1, shownRect.h)` — const, line 141
+- `const panel = panelRef.current` — const, line 152
+- `const pill = pillRef.current` — const, line 153
+- `const tabEl = tabRef.current` — const, line 154
+- `const target = pillRect(stage)` — const, line 175
+- `const from = shownRect` — const, line 176
+- `const k = q` — const, line 177
+- `const tx = (target.x + target.w - (from.x + from.w)) * k` — const, line 180
+- `const ty = (target.y + target.h - (from.y + from.h)) * k` — const, line 181
+- `const s = 1 - (1 - target.w / Math.max(1, from.w)) * k` — const, line 182
+- `const historyGeneration = useRef(0)` — const, line 198
+- `const loadOlder = ()` — const, line 200
+- `const cursor = history?.cursor` — const, line 201
+- `const generation = historyGeneration.current` — const, line 203
+- `let live = true` — let, line 220
+- `const generation = ++historyGeneration.current` — const, line 221
+- `const handle = timers.set(()` — const, line 223
+- `const lastStatus = props.thread.length ? `$` — const, line 244
+- `const body = bodyRef.current` — const, line 246
+- `let live = true` — let, line 254
+- `const drag = useRef<` — const, line 265
+- `const onGrabDown = (event: React.PointerEvent<HTMLDivElement>)` — const, line 266
+- `const onGrabMove = (event: React.PointerEvent<HTMLDivElement>)` — const, line 271
+- `const d = drag.current` — const, line 272
+- `const panel = panelRef.current` — const, line 273
+- `const onGrabUp = (event: React.PointerEvent<HTMLDivElement>)` — const, line 278
+- `const d = drag.current` — const, line 279
+- `const panel = panelRef.current` — const, line 281
+- `const dx = event.clientX - d.x` — const, line 283
+- `const dy = event.clientY - d.y` — const, line 284
+- `const dropped =` — const, line 285
+- `const returnFocus = useRef<HTMLElement | null>(null)` — const, line 296
+- `const panel = panelRef.current` — const, line 298
+- `const active = document.activeElement` — const, line 310
+- `const back = returnFocus.current` — const, line 317
+- `const motionClass = reducedMotion ? " still" : ""` — const, line 323
+- `const enter = state.last === "summon" ? " summon" : state.last === "show" ? " show" : ""` — const, line 324
+- `const anchorOrigin = state.mode === "anchored" && state.anchored ? `$` — const, line 325
+- `const tabRect = dockRect(dock, stage)` — const, line 327
+- `const tabLabel = `◇ tutor · $` — const, line 328
+- `const question = draft.trim()` — const, line 420
+- `function ExchangeView(` — function, line 466
+- `let answer: ReactNode` — let, line 474
+- `const days = now.days.map((day)` — const, line 561
+- `const seen = new Set(days.flatMap((day)` — const, line 562
+- `let into = days.find((each)` — let, line 564
+- `let deskInto = into.desks.find((each)` — let, line 570
+- `function HistoryView(` — function, line 585
 
 ## Who imports or calls it
 

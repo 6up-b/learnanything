@@ -11,6 +11,26 @@ export interface PadLink {
   blockId: string;
   extractionId: string;
   spanId: string;
+  /** From the passage union: `needs_reanchor` when the link was made on another reading and its place here is a
+   * guess to confirm. */
+  alias?: "exact" | "needs_reanchor";
+}
+
+/** The passages showing in a window: its first and last spans in view (what the union read covers). */
+export function visibleSpanRange(stage: HTMLElement, windowId: string): { from: string; to: string } | null {
+  const host = stage.querySelector(`[${WINDOW_ATTRIBUTE}="${windowId}"]`);
+  if (!host) return null;
+  const frame = host.getBoundingClientRect();
+  const spans = [...host.querySelectorAll<HTMLElement>("[data-span-id], [data-transcript-span]")];
+  const inView = spans.filter((element) => {
+    const box = element.getBoundingClientRect();
+    return box.bottom >= frame.top && box.top <= frame.bottom;
+  });
+  const shown = inView.length ? inView : spans;
+  const id = (element: HTMLElement | undefined) => element?.getAttribute("data-span-id") ?? element?.getAttribute("data-transcript-span") ?? null;
+  const from = id(shown[0]);
+  const to = id(shown[shown.length - 1]);
+  return from && to ? { from, to } : null;
 }
 
 interface Placed {
@@ -45,13 +65,14 @@ export function placeMarks(stage: HTMLElement, windows: Array<{ windowId: string
     for (const link of links) {
       if (link.extractionId !== extractionId) continue;
       const place = at(link.spanId);
-      if (place) out.push({ key: `pad:${windowId}:${link.blockId}`, kind: "pad", ...place, link });
+      if (place) out.push({ key: `pad:${windowId}:${link.blockId}:${link.alias ?? ""}`, kind: "pad", ...place, link });
     }
     for (const question of carried) {
       const anchor = question.anchor as { extraction_id?: string; span_id?: string } | null;
       if (!question.carried || anchor?.extraction_id !== extractionId || !anchor.span_id) continue;
       const place = at(anchor.span_id);
-      if (place) out.push({ key: `carried:${windowId}:${question.carriedId}:${question.version}`, kind: "carried", top: place.top + 18, left: place.left, carried: question });
+      // One question may sit beside several passages of one window (its own and related ones): each its own mark.
+      if (place) out.push({ key: `carried:${windowId}:${question.carriedId}:${question.version}:${anchor.extraction_id}:${anchor.span_id}`, kind: "carried", top: place.top + 18, left: place.left, carried: question });
     }
   }
   return out;
@@ -104,7 +125,9 @@ export function PassageMarks({ stage, windows, links, carried, onOpenLink, onSur
   return (
     <>
       {placed.map((mark) => mark.kind === "pad" ? (
-        <button key={mark.key} type="button" className="desk-pmark pad" style={{ top: mark.top, left: mark.left }} title="your pad links here" aria-label="go to your pad's block" onClick={() => mark.link && onOpenLink(mark.link)}>✎</button>
+        <button key={mark.key} type="button" className={`desk-pmark pad${mark.link?.alias === "needs_reanchor" ? " reanchor" : ""}`} style={{ top: mark.top, left: mark.left }}
+          title={mark.link?.alias === "needs_reanchor" ? "your pad links here, from another reading of this book: its place may need re-anchoring" : "your pad links here"}
+          aria-label="go to your pad's block" onClick={() => mark.link && onOpenLink(mark.link)}>✎</button>
       ) : (
         <div key={mark.key} className="desk-pmark carried" style={{ top: mark.top, left: mark.left }}>
           <button type="button" aria-label="a question you carried" onClick={() => setOpen((now) => (now === mark.key ? null : mark.key))}>◌</button>

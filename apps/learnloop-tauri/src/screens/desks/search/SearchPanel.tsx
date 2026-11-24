@@ -40,6 +40,9 @@ export function SearchPanel({ api, poller, timers, deskId, open, deskTitle, init
   const [words, setWords] = useState<SearchEverythingDto | null>(null);
   const [meaning, setMeaning] = useState<SearchGroupDto[]>([]);
   const [meaningPending, setMeaningPending] = useState(false);
+  // The meaning job's own account: the groups it had no search for, and how it failed when it did.
+  const [meaningUnavailable, setMeaningUnavailable] = useState<Array<{ group: string; reason: string }>>([]);
+  const [meaningFailure, setMeaningFailure] = useState<string | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState(0);
@@ -52,19 +55,24 @@ export function SearchPanel({ api, poller, timers, deskId, open, deskTitle, init
     inputRef.current?.focus({ preventScroll: true });
   }, []);
 
-  // The words, once typing pauses; a newer search makes any older answer (and its meaning job) stale.
+  // The words, once typing pauses. One live generation: every query change (a cleared one too) and the
+  // panel's closing make any older answer stale, and a stale answer neither shows nor starts a poll.
   useEffect(() => {
     const trimmed = query.trim();
+    const seq = ++searchSeq.current;
     stopMeaning.current?.();
     stopMeaning.current = null;
     setMeaning([]);
     setMeaningPending(false);
+    setMeaningUnavailable([]);
+    setMeaningFailure(null);
     if (trimmed.replace(/\s+/g, " ").length < 2) {
       setWords(null);
       setFailure(null);
-      return;
+      return () => {
+        searchSeq.current += 1;
+      };
     }
-    const seq = ++searchSeq.current;
     const handle = timers.set(() => {
       void api.searchEverything({ query: trimmed.slice(0, 200), deskId }).then(
         (found) => {
@@ -82,12 +90,16 @@ export function SearchPanel({ api, poller, timers, deskId, open, deskTitle, init
                 if (seq !== searchSeq.current) return { done: true };
                 if (job.done) {
                   setMeaningPending(false);
-                  if (job.status === "done") setMeaning(job.groups);
+                  setMeaning(job.groups);
+                  setMeaningUnavailable(job.unavailable ?? []);
+                  if (job.status !== "done") setMeaningFailure(job.error?.message ?? (job.status === "expired" ? "it finished while the panel was away" : "it stopped"));
                 }
                 return { done: job.done };
               },
-              onError: () => {
-                if (seq === searchSeq.current) setMeaningPending(false);
+              onError: (error: unknown) => {
+                if (seq !== searchSeq.current) return;
+                setMeaningPending(false);
+                setMeaningFailure(error && typeof error === "object" && "message" in error ? String((error as { message: unknown }).message) : String(error));
               },
             });
           }
@@ -99,7 +111,10 @@ export function SearchPanel({ api, poller, timers, deskId, open, deskTitle, init
         },
       );
     }, SEARCH_DEBOUNCE_MS);
-    return () => timers.clear(handle);
+    return () => {
+      timers.clear(handle);
+      searchSeq.current += 1;
+    };
   }, [query, deskId, api, poller, timers]);
   useEffect(() => () => stopMeaning.current?.(), []);
 
@@ -162,7 +177,7 @@ export function SearchPanel({ api, poller, timers, deskId, open, deskTitle, init
     }
   };
 
-  const note = meaningNote(words);
+  const note = meaningNote(words, meaningUnavailable);
   const motion = reducedMotion ? " still" : "";
   return (
     <div className={`desk-search-backdrop${closing ? " closing" : ""}${motion}`} data-desk-search="" onMouseDown={(event) => {
@@ -208,6 +223,7 @@ export function SearchPanel({ api, poller, timers, deskId, open, deskTitle, init
             </div>
           ))}
           {failure ? <div className="off">couldn't search just now · {failure}</div> : null}
+          {meaningFailure ? <div className="off" data-meaning-failure="">by meaning: couldn't finish · {meaningFailure}</div> : null}
           {query.trim().length >= 2 && words && groups.length === 0 ? <div className="off">nothing found for “{query.trim()}”</div> : null}
         </div>
         <div className="desk-search-foot">

@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/source_retrieval/deliverable_path.py](../../../../../../src/learnloop/source_retrieval/deliverable_path.py) |
-| Source lines | 2044 |
+| Source lines | 2064 |
 | Owning package | [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -92,30 +92,32 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `override(vault: Any, repository: Repository, goal_id: str, learning_object_id: str, choice: str, *, section_ref: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1007) — *use this one instead* (``section_ref`` names the alternate), *read it anyway*, *skip it*, *check me later* or ``none``: one ``learner_card`` verdict and one row.
 - `class EffectiveLine` ([source](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1097)
 - `effective_lines(vault: Any, repository: Repository, inputs: PathInputs, rows: Sequence[Mapping[str, Any]]) -> list[EffectiveLine]` ([source](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1114) — The path's lines as the learner sees them now: the judge's rows for the LOs still on the path whose sections are still readable, the honest label at today's statuses, the learner's newest choice per LO on top (one rule the Guide shows and C1 will read).
-- `path_view(vault: Any, repository: Repository, goal_id: str, *, judging: Mapping[str, Any] | None=None, covering: bool=False, coverage_failure: Mapping[str, Any] | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1270) — What the deliverable's path shows.
-- `coverage_owed(vault: Any, repository: Repository, goal_id: str) -> list[str]` ([source](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1322) — The deliverable's LOs (needed, and prerequisites not demonstrated or assumed) with no coverage judgment of their current statement: the background coverage judges them.
-- `coverage_key(vault: Any, learning_object_id: str) -> str | None` ([source](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1347) — What C0a's judge read of the LO (its ``lo_hash``): the key an attempt is remembered by, so a statement changed since is tried again (Codex review F5).
-- `guide_goal(vault: Any, repository: Repository, extraction_id: str) -> Any | None` ([source](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1359) — The deliverable the Guide shows for this reading: the goal RW7a's ``goal_for_source`` picks over the reading's linked LOs (so RW7a's goal line and the slice never disagree), when it is a deliverable; else, the highest ``(priority, id)`` deliverable whose path names a section of…
-- `guide_slice(vault: Any, repository: Repository, extraction_id: str, *, judging: Mapping[str, Any] | None=None, covering: bool=False, coverage_failure: Mapping[str, Any] | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1380) — What the Guide's path card shows for this reading when a deliverable's path names it: its lines here (core, prerequisite, alternate), its other-book lines ("on your path in Strang §6.1"), and this book's sections of no needed LO ("not needed for <deliverable>").
-- `readiness(vault: Any, repository: Repository, goal_id: str, *, likely: LikelyReader | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1447) — The answer to "am I ready?" (§8.5): per needed LO, demonstrated, likely (AD's labelled prediction, through ``likely``) or untested, and the dated checks still to come.
-- `ready_checks(vault: Any, repository: Repository, goal_id: str, *, likely: LikelyReader | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1484) — The pressed "Am I ready?": one Check once per needed LO not demonstrated and without a pending check (``provenance = {via: "deliverable_ready", goal_id}``).
-- `report(vault: Any, repository: Repository) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1503) — ``learnloop curriculum report``: aggregates only.
-- `time_row(vault: Any, repository: Repository, goal: Any) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1543) — §11's time row for one deliverable (Codex review F14): the minutes the learner read (recorded) against DL1's estimate for book order.
-- `class PlanStep` ([source](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1631) — One line of a fresh deliverable path as the plan read it, with the rows it came from (RW7b's F3 rule): the judge's row and the learner's newest override row.
-  - `planned(self) -> bool` (line 1647; public)
-  - `receipt(self) -> dict[str, Any]` (line 1650; public)
-- `class DeliverablePlanPath` ([source](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1658) — What C1's plan reads of one deliverable's path (RW7b's :class:`RP.PlanPath`'s sibling).
-  - `follows(self) -> bool` (line 1680; public)
-  - `in_play(self) -> bool` (line 1684; public)
-  - `steps(self) -> tuple[PlanStep, ...]` (line 1688; public) — The lines the reading block may open, in the path's order (none when withheld).
-  - `receipt(self) -> dict[str, Any]` (line 1693; public) — The receipt's entry: the inputs' key and the consumed judgment's key apart, and every judge and override row the labels came from, so neither a later judgment nor a later override changes what the receipt says was read.
-- `deliverable_plan_path(vault: Any, repository: Repository, goal: Any, *, clock: Clock | None=None) -> DeliverablePlanPath` ([source](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1711) — The deliverable path C1's plan follows for one goal, read now and never judged here (the plan calls no model).
-- `nearest_deliverables(vault: Any, repository: Repository) -> list[Any]` ([source](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1776) — The active deliverables (:func:`DL.deliverable_goals`), nearest first (§7.6, Q11).
-- `plan_deliverable(vault: Any, repository: Repository, *, clock: Clock | None=None) -> tuple[DeliverablePlanPath | None, list[DeliverablePlanPath]]` ([source](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1782) — Which deliverable the plan follows (§7.6): the nearest active goal among goals with a fresh deliverable path (or a withheld one, which is followed and plans nothing).
-- `plan_refresh_reason(vault: Any) -> str | None` ([source](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1817) — Why C1's daily re-judgment does not run (None: it does).
-- `plan_refresh_route_problem(vault: Any, client: Any | None=None) -> str | None` ([source](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1827) — Why C1's automatic refresh may not send its judgment on the route the path judge resolves to (None: it may).
-- `refresh_record(result: Mapping[str, Any] | None, *, error: BaseException | None=None) -> Any` ([source](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1850) — The daily re-judgment's outcome as a decision record (pure): ids and codes only; a reason that is prose (the switch's sentence) is left out, the status says it.
-- `refresh_for_plan(vault: Any, repository: Repository, *, client: Any | None=None, clock: Clock | None=None, live_vault: Callable[[], Any] | None=None, in_flight: Callable[[str, str, str], AbstractContextManager[bool]] | None=None, still_wanted: Callable[[Any], bool] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1888) — C1's daily re-judgment (:func:`_refresh_for_plan`), with its outcome kept as a ``curriculum_path_refresh`` record when it decided something (never ``none`` or ``fresh``).
+- `path_view(vault: Any, repository: Repository, goal_id: str, *, judging: Mapping[str, Any] | None=None, covering: bool=False, coverage_failure: Mapping[str, Any] | None=None, clock: Clock | None=None, inputs: PathInputs | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1270) — What the deliverable's path shows.
+- `coverage_owed(vault: Any, repository: Repository, goal_id: str) -> list[str]` ([source](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1325) — The deliverable's LOs (needed, and prerequisites not demonstrated or assumed) with no coverage judgment of their current statement: the background coverage judges them.
+- `owed_among(vault: Any, repository: Repository, ids: Sequence[str]) -> list[str]` ([source](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1341) — Those of these LOs with no coverage judgment of their current statement.
+- `attempt_keys(vault: Any, repository: Repository, ids: Sequence[str]) -> dict[str, str | None]` ([source](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1357) — What a coverage attempt is remembered by, per LO: its statement (``coverage_key``) and the library it was tried against (``SC.scope_signature``).
+- `coverage_key(vault: Any, learning_object_id: str) -> str | None` ([source](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1367) — What C0a's judge read of the LO (its ``lo_hash``): the key an attempt is remembered by, so a statement changed since is tried again (Codex review F5).
+- `guide_goal(vault: Any, repository: Repository, extraction_id: str) -> Any | None` ([source](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1379) — The deliverable the Guide shows for this reading: the goal RW7a's ``goal_for_source`` picks over the reading's linked LOs (so RW7a's goal line and the slice never disagree), when it is a deliverable; else, the highest ``(priority, id)`` deliverable whose path names a section of…
+- `guide_slice(vault: Any, repository: Repository, extraction_id: str, *, judging: Mapping[str, Any] | None=None, covering: bool=False, coverage_failure: Mapping[str, Any] | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1400) — What the Guide's path card shows for this reading when a deliverable's path names it: its lines here (core, prerequisite, alternate), its other-book lines ("on your path in Strang §6.1"), and this book's sections of no needed LO ("not needed for <deliverable>").
+- `readiness(vault: Any, repository: Repository, goal_id: str, *, likely: LikelyReader | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1467) — The answer to "am I ready?" (§8.5): per needed LO, demonstrated, likely (AD's labelled prediction, through ``likely``) or untested, and the dated checks still to come.
+- `ready_checks(vault: Any, repository: Repository, goal_id: str, *, likely: LikelyReader | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1504) — The pressed "Am I ready?": one Check once per needed LO not demonstrated and without a pending check (``provenance = {via: "deliverable_ready", goal_id}``).
+- `report(vault: Any, repository: Repository) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1523) — ``learnloop curriculum report``: aggregates only.
+- `time_row(vault: Any, repository: Repository, goal: Any) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1563) — §11's time row for one deliverable (Codex review F14): the minutes the learner read (recorded) against DL1's estimate for book order.
+- `class PlanStep` ([source](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1651) — One line of a fresh deliverable path as the plan read it, with the rows it came from (RW7b's F3 rule): the judge's row and the learner's newest override row.
+  - `planned(self) -> bool` (line 1667; public)
+  - `receipt(self) -> dict[str, Any]` (line 1670; public)
+- `class DeliverablePlanPath` ([source](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1678) — What C1's plan reads of one deliverable's path (RW7b's :class:`RP.PlanPath`'s sibling).
+  - `follows(self) -> bool` (line 1700; public)
+  - `in_play(self) -> bool` (line 1704; public)
+  - `steps(self) -> tuple[PlanStep, ...]` (line 1708; public) — The lines the reading block may open, in the path's order (none when withheld).
+  - `receipt(self) -> dict[str, Any]` (line 1713; public) — The receipt's entry: the inputs' key and the consumed judgment's key apart, and every judge and override row the labels came from, so neither a later judgment nor a later override changes what the receipt says was read.
+- `deliverable_plan_path(vault: Any, repository: Repository, goal: Any, *, clock: Clock | None=None) -> DeliverablePlanPath` ([source](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1731) — The deliverable path C1's plan follows for one goal, read now and never judged here (the plan calls no model).
+- `nearest_deliverables(vault: Any, repository: Repository) -> list[Any]` ([source](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1796) — The active deliverables (:func:`DL.deliverable_goals`), nearest first (§7.6, Q11).
+- `plan_deliverable(vault: Any, repository: Repository, *, clock: Clock | None=None) -> tuple[DeliverablePlanPath | None, list[DeliverablePlanPath]]` ([source](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1802) — Which deliverable the plan follows (§7.6): the nearest active goal among goals with a fresh deliverable path (or a withheld one, which is followed and plans nothing).
+- `plan_refresh_reason(vault: Any) -> str | None` ([source](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1837) — Why C1's daily re-judgment does not run (None: it does).
+- `plan_refresh_route_problem(vault: Any, client: Any | None=None) -> str | None` ([source](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1847) — Why C1's automatic refresh may not send its judgment on the route the path judge resolves to (None: it may).
+- `refresh_record(result: Mapping[str, Any] | None, *, error: BaseException | None=None) -> Any` ([source](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1870) — The daily re-judgment's outcome as a decision record (pure): ids and codes only; a reason that is prose (the switch's sentence) is left out, the status says it.
+- `refresh_for_plan(vault: Any, repository: Repository, *, client: Any | None=None, clock: Clock | None=None, live_vault: Callable[[], Any] | None=None, in_flight: Callable[[str, str, str], AbstractContextManager[bool]] | None=None, still_wanted: Callable[[Any], bool] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1908) — C1's daily re-judgment (:func:`_refresh_for_plan`), with its outcome kept as a ``curriculum_path_refresh`` record when it decided something (never ``none`` or ``fresh``).
 
 ### Module constants
 
@@ -143,14 +145,14 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `PROMPT_LEVELS` ([src/learnloop/source_retrieval/deliverable_path.py](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 513)
 - `TOO_LARGE_MESSAGE` ([src/learnloop/source_retrieval/deliverable_path.py](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 727)
 - `PATH_STATUSES` ([src/learnloop/source_retrieval/deliverable_path.py](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1266)
-- `TIME_LABEL` ([src/learnloop/source_retrieval/deliverable_path.py](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1537)
-- `PLANNED_LABELS` ([src/learnloop/source_retrieval/deliverable_path.py](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1614)
-- `PLAN_PATH_STATUSES` ([src/learnloop/source_retrieval/deliverable_path.py](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1623)
-- `IN_PLAY_STATUSES` ([src/learnloop/source_retrieval/deliverable_path.py](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1627)
-- `REFRESH_STATUSES` ([src/learnloop/source_retrieval/deliverable_path.py](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1813)
-- `REFRESH_RECORD` ([src/learnloop/source_retrieval/deliverable_path.py](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1842)
-- `_UNRECORDED_REFRESH` ([src/learnloop/source_retrieval/deliverable_path.py](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1844)
-- `_REFRESH_RECORD_STATUS` ([src/learnloop/source_retrieval/deliverable_path.py](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1845)
+- `TIME_LABEL` ([src/learnloop/source_retrieval/deliverable_path.py](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1557)
+- `PLANNED_LABELS` ([src/learnloop/source_retrieval/deliverable_path.py](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1634)
+- `PLAN_PATH_STATUSES` ([src/learnloop/source_retrieval/deliverable_path.py](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1643)
+- `IN_PLAY_STATUSES` ([src/learnloop/source_retrieval/deliverable_path.py](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1647)
+- `REFRESH_STATUSES` ([src/learnloop/source_retrieval/deliverable_path.py](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1833)
+- `REFRESH_RECORD` ([src/learnloop/source_retrieval/deliverable_path.py](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1862)
+- `_UNRECORDED_REFRESH` ([src/learnloop/source_retrieval/deliverable_path.py](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1864)
+- `_REFRESH_RECORD_STATUS` ([src/learnloop/source_retrieval/deliverable_path.py](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1865)
 
 ### Explicit exports
 
@@ -221,9 +223,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_read(repository: Repository) -> Any` ([source](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1081)
 - `_unjudged_lines(repository: Repository, inputs: PathInputs, chosen: Mapping[str, Mapping[str, Any]], *, placed: set[str], start: int) -> list[EffectiveLine]` ([source](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1207) — The scope's LOs that have an eligible section but no line in the judgment shown (a topic added since: Codex review F9), each on code's first eligible section with code's line, until the next judgment places it.
 - `_line_view(vault: Any, repository: Repository, line: EffectiveLine, inputs: PathInputs, done: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1249)
-- `_nearest_key(goal: Any) -> tuple[Any, ...]` ([source](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1765) — The existing nearest-goal rule (``learnloop_sidecar.handlers.goals._nearest_active_goal``): the nearest due date first (no date last), ties to the higher priority; the id last, so the order is total.
-- `_write_refresh_record(write: Callable[[Any, Any], Any], repository: Any, result: Mapping[str, Any] | None, error: BaseException | None) -> None` ([source](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1909)
-- `_refresh_for_plan(vault: Any, repository: Repository, *, client: Any | None=None, clock: Clock | None=None, live_vault: Callable[[], Any] | None=None, in_flight: Callable[[str, str, str], AbstractContextManager[bool]] | None=None, still_wanted: Callable[[Any], bool] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1925) — C1's daily job (§7.6): the deliverable path's key includes learner state (the days left among it), so a path the plan would follow goes stale; once a day, before the plan is built, the nearest deliverable whose path is in play is judged again, **quietly** (``plan_fallback.quiet`…
+- `_nearest_key(goal: Any) -> tuple[Any, ...]` ([source](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1785) — The existing nearest-goal rule (``learnloop_sidecar.handlers.goals._nearest_active_goal``): the nearest due date first (no date last), ties to the higher priority; the id last, so the order is total.
+- `_write_refresh_record(write: Callable[[Any, Any], Any], repository: Any, result: Mapping[str, Any] | None, error: BaseException | None) -> None` ([source](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1929)
+- `_refresh_for_plan(vault: Any, repository: Repository, *, client: Any | None=None, clock: Clock | None=None, live_vault: Callable[[], Any] | None=None, in_flight: Callable[[str, str, str], AbstractContextManager[bool]] | None=None, still_wanted: Callable[[Any], bool] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/deliverable_path.py), line 1945) — C1's daily job (§7.6): the deliverable path's key includes learner state (the days left among it), so a path the plan would follow goes stale; once a day, before the plan is built, the nearest deliverable whose path is in play is judged again, **quietly** (``plan_fallback.quiet`…
 
 ## Who imports or calls it
 
@@ -232,9 +234,11 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop/cli/curriculum|learnloop.cli.curriculum]] — imports `report`; statically calls `report`
 - [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `module`; statically calls `plan_deliverable`
+- [[Reference/Modules/learnloop/source_retrieval/goal_lens_reads|learnloop.source_retrieval.goal_lens_reads]] — imports `module`; statically calls `_current_rows`, `_read`, `_treatments`, `effective_lines`, `owed_among`, `path_inputs`, `path_view`, `prerequisite_closure`
 - [[Reference/Modules/learnloop/source_retrieval/note_links|learnloop.source_retrieval.note_links]] — imports `module`; statically calls `path_view`
 - [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]] — imports `module`; statically calls `nearest_deliverables`, `path_view`
-- [[Reference/Modules/learnloop_sidecar/handlers/deliverables|learnloop_sidecar.handlers.deliverables]] — imports `module`; statically calls `coverage_key`, `coverage_owed`, `guide_goal`, `guide_slice`, `judge`, `override`, `path_inputs`, `path_view`, `plan_refresh_reason`, `readiness`, `ready_checks`, `refresh_for_plan`
+- [[Reference/Modules/learnloop_sidecar/handlers/deliverables|learnloop_sidecar.handlers.deliverables]] — imports `module`; statically calls `attempt_keys`, `coverage_owed`, `guide_goal`, `guide_slice`, `judge`, `override`, `path_inputs`, `path_view`, `plan_refresh_reason`, `readiness`, `ready_checks`, `refresh_for_plan`
+- [[Reference/Modules/learnloop_sidecar/handlers/goal_lens|learnloop_sidecar.handlers.goal_lens]] — imports `module`; statically calls `attempt_keys`
 
 ## Dependencies
 
@@ -267,7 +271,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/source_retrieval/kept_comparisons|learnloop.source_retrieval.kept_comparisons]] — imports `kept_comparisons_for_card`; calls `kept_comparisons_for_card`
 - [[Reference/Modules/learnloop/source_retrieval/reader_tutor|learnloop.source_retrieval.reader_tutor]] — imports `shown_span_keys`; calls `shown_span_keys`
 - [[Reference/Modules/learnloop/source_retrieval/reading_paths|learnloop.source_retrieval.reading_paths]] — imports `module`; calls `_done`, `exercise_label`, `goal_for_source`, `lo_statuses`
-- [[Reference/Modules/learnloop/source_retrieval/section_coverage|learnloop.source_retrieval.section_coverage]] — imports `module`; calls `CoverageGuard`, `Library`, `_active`, `lo_hash`, `standing`
+- [[Reference/Modules/learnloop/source_retrieval/section_coverage|learnloop.source_retrieval.section_coverage]] — imports `module`; calls `CoverageGuard`, `Library`, `_active`, `library_scope`, `lo_hash`, `scope_signature`, `standing`
 
 ### Platform and third-party dependencies
 
@@ -281,13 +285,14 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/curriculum|learnloop.cli.curriculum]], [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/source_retrieval/note_links|learnloop.source_retrieval.note_links]], [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]], [[Reference/Modules/learnloop_sidecar/handlers/deliverables|learnloop_sidecar.handlers.deliverables]].
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/curriculum|learnloop.cli.curriculum]], [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/source_retrieval/goal_lens_reads|learnloop.source_retrieval.goal_lens_reads]], [[Reference/Modules/learnloop/source_retrieval/note_links|learnloop.source_retrieval.note_links]], [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]] and 2 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
 - [tests/curriculum_c1_plan_follows_path_helpers.py](../../../../../../tests/curriculum_c1_plan_follows_path_helpers.py) — direct import
+- [tests/goal_lens_helpers.py](../../../../../../tests/goal_lens_helpers.py) — direct import
 - [tests/test_curriculum_c0b_landing.py](../../../../../../tests/test_curriculum_c0b_landing.py) — direct import
   - `test_i_a_dismissal_and_an_also_about_on_one_section_coexist_through_path_rejudgments`
 - [tests/test_curriculum_c1_codex_review_fixes.py](../../../../../../tests/test_curriculum_c1_codex_review_fixes.py) — direct import
@@ -364,6 +369,16 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_gc1_exam_sentinels_never_reach_the_gap_model_via_a_notes_context`
 - [tests/test_provenance.py](../../../../../../tests/test_provenance.py) — direct import
   - `test_a_rebuild_never_calls_the_record_and_keeps_its_rows`
+- [tests/test_reader_rd10_fix_protection.py](../../../../../../tests/test_reader_rd10_fix_protection.py) — direct import
+- [tests/test_reader_rd10_fix_sweep.py](../../../../../../tests/test_reader_rd10_fix_sweep.py) — direct import
+  - `test_a_lesson_on_a_topic_whose_check_is_due_names_nothing_in_its_tab`
+- [tests/test_reader_rd6_fix_freshness.py](../../../../../../tests/test_reader_rd6_fix_freshness.py) — direct import
+  - `test_an_lo_tried_and_found_nowhere_is_settled_only_against_that_library`
+- [tests/test_reader_rd6_fix_protection.py](../../../../../../tests/test_reader_rd6_fix_protection.py) — direct import
+- [tests/test_reader_rd6_fix_reads.py](../../../../../../tests/test_reader_rd6_fix_reads.py) — direct import
+- [tests/test_reader_rd6a_goal_lens.py](../../../../../../tests/test_reader_rd6a_goal_lens.py) — direct import
+  - `test_a_section_about_a_deeper_lo_is_later_and_a_depth_change_re_renders_it`
+  - `test_the_lens_levels_follow_the_real_path_and_coverage`
 - [tests/test_reader_rw6b_landing.py](../../../../../../tests/test_reader_rw6b_landing.py) — direct import
   - `test_i_a_check_once_on_the_follow_ups_own_item_replaces_the_automatic_check`
   - `test_i_check_once_commitments_and_follow_ups_coexist_and_the_gate_touches_only_follow_ups`

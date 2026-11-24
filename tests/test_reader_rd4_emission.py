@@ -16,6 +16,7 @@ from learnloop.diagnosis.text_gaps.contract import NON_SERVING_SOURCE_KINDS, REA
 from learnloop.diagnosis.text_gaps.judges import READER_NOTE_PROMPT_VERSION, reader_version
 from learnloop.diagnosis.text_gaps.sources import learner_text
 from learnloop.pads import emission
+from learnloop.pads.blocks import pad_view
 from learnloop.pads.quoting import includes_quote
 from learnloop.substrate.passage_spans import rebuild_learner_text_gap_spans
 from learnloop.tutor.ai_contracts import LearnerGap
@@ -268,6 +269,72 @@ def test_the_passages_a_block_is_linked_to_place_its_gap_and_live_equals_rebuild
     rebuild_learner_text_gap_spans(vault(paths), repository)
     assert rows(repository, "SELECT gap_id, extraction_id, span_id, role, quality FROM learner_text_gap_spans "
                             "ORDER BY 1, 2, 3") == live
+
+
+def _snapshot(repository, version_id):
+    with repository.connection() as connection:
+        return gap_store.job_for_source(connection, "pad_text", version_id)["payload"][gap_store.PAD_TEXT_SNAPSHOT]
+
+
+QUOTE = "A linear map is injective exactly when its kernel is trivial."
+
+
+def _linked_block_lifted(paths, repository, batches):
+    """A pad with a quote and a learner's block linked to passage s1, the block lifted into a pad of its own."""
+
+    seed_reading(repository, source_id="src_book", revision_id="rev_book", extraction_id="ext_book",
+                 spans=["s1", "s2"], texts={"s1": "The kernel is the null space of the map.", "s2": "Images."})
+    create_pad(batches)
+    reply = apply_and_settle(paths, repository, batches, PAD,
+                             insert("q1", QUOTE, kind="source_quote", provenance="source"),
+                             insert("b1", "so the kernel decides injectivity", version_id="v1", position="a1"),
+                             {"op": "link_anchor", "block_id": "b1", "extraction_id": "ext_book", "span_id": "s1",
+                              "expected_anchor_head": None})
+    return apply_and_settle(paths, repository, batches, PAD, {
+        "op": "lift_out", "block_id": "b1", "expected_head": head_of(reply, "b1"), "new_pad_id": "pad_2",
+        "new_block_id": "b2", "new_version_id": "v2"})
+
+
+def test_a_lift_out_takes_the_blocks_links_and_its_quotes_with_its_words(tmp_path):
+    """The lifted block's later wording is emitted with the passage its words were linked to, and a quote of the pad
+    its words came from is still a quote (review finding 6)."""
+
+    paths, repository, batches = pad_vault(tmp_path)
+    lifted = _linked_block_lifted(paths, repository, batches)
+    view = pad_view(repository, "pad_2")
+    assert [(a["block_id"], a["span_id"], a["inherited_from_block_id"]) for a in view["anchors"]] == [
+        ("b2", "s1", None)]
+    assert pad_view(repository, PAD)["anchors"] == []  # the stub gave the link up
+    apply_and_settle(paths, repository, batches, "pad_2", edit("b2", head_of(lifted, "b2"),
+                                                               "so the kernel decides injectivity, I think", "v3"))
+    assert _snapshot(repository, "v3")["passages"] == [["ext_book", "s1"]]
+    apply_and_settle(paths, repository, batches, "pad_2", edit("b2", "v3", "copying: " + QUOTE, "v4"))
+    assert _snapshot(repository, "v4")["quoted_by_learner"] is True
+
+
+def test_a_lift_made_before_links_moved_still_carries_them(tmp_path):
+    """A lift made before this fix left the block's links on the stub: the pad's read shows them on the lifted
+    block (read only), the passage's union marks the lifted block, and the lifted block's emission carries them."""
+
+    paths, repository, batches = pad_vault(tmp_path)
+    lifted = _linked_block_lifted(paths, repository, batches)
+    # Put the link back on the stub, as the earlier lift left it.
+    batches.pad(PAD, {"op": "link_anchor", "block_id": "b1", "extraction_id": "ext_book", "span_id": "s1",
+                      "expected_anchor_head": rows(repository, "SELECT event_id FROM pad_block_anchors WHERE block_id "
+                                                               "= 'b1' ORDER BY rowid DESC LIMIT 1")[0][0]})
+    batches.pad("pad_2", {"op": "unlink_anchor", "block_id": "b2", "extraction_id": "ext_book", "span_id": "s1",
+                          "expected_anchor_head": rows(repository, "SELECT event_id FROM pad_block_anchors WHERE "
+                                                                   "block_id = 'b2'")[0][0]})
+    view = pad_view(repository, "pad_2")
+    assert [(a["block_id"], a["span_id"], a["inherited_from_block_id"]) for a in view["anchors"]] == [
+        ("b2", "s1", "b1")]
+    from learnloop.passage_union.union import union_range
+
+    union = union_range(vault(paths), repository, extraction_id="ext_book", from_span_id="s1", to_span_id="s1")
+    assert [(row["block_id"], row["pad_id"], row["lifted_from_block_id"]) for row in union["spans"][0]["pad_blocks"]
+            ] == [("b2", "pad_2", "b1")]
+    apply_and_settle(paths, repository, batches, "pad_2", edit("b2", head_of(lifted, "b2"), "reworded words", "v3"))
+    assert _snapshot(repository, "v3")["passages"] == [["ext_book", "s1"]]
 
 
 @pytest.mark.parametrize(("block", "quotes", "expected"), [

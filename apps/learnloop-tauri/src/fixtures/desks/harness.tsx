@@ -2,18 +2,21 @@
 // workspace, in a browser page with no sidecar. desk-harness.html mounts it; vite.desks.config.mjs
 // builds that page (its @tauri-apps/api/core answered by fakeCore.ts) and scripts/desk_harness/run.py
 // drives it in headless Chromium.
-import React from "react";
+import React, { useEffect, useState } from "react";
+import type { LessonEntry } from "../../screens/LessonView";
 import ReactDOM from "react-dom/client";
 import { DeskShell, type DeskDebugHandle } from "../../screens/desks/DeskShell";
 import { DIRECT_HUB, WindowScope, type WindowState } from "../../screens/desks/lifecycle";
 import { SourceWindow } from "../../screens/desks/windows/SourceWindow";
 import { PadStackWindow } from "../../screens/desks/pads/PadStackWindow";
-import { PadsHostContext, type PadsHost } from "../../screens/desks/pads/host";
+import { PadsHostContext, PendingFigures, type PadsHost } from "../../screens/desks/pads/host";
 import { DeskStore } from "../../screens/desks/store";
 import { REAL_TIMERS } from "../../screens/desks/keys/router";
-import { fixtureMathPad } from "./pads";
+import { fixtureCellsPad, fixtureMathPad } from "./pads";
 import { FIXTURE_LIBRARY, FIXTURE_SOURCES } from "./sources";
 import { FixtureDeskServer } from "./workspace";
+import { NotebookBridgeContext, NotebookFrame, type NotebookBridgeHost } from "../../screens/desks/notebook/NotebookFrame";
+import type { BridgeMessage } from "../../screens/desks/notebook/bridge";
 import "../../styles/app.css";
 import "../../styles/palettes.css";
 
@@ -22,6 +25,8 @@ declare global {
   interface Window {
     __deskHarnessErrors?: string[];
     __deskDebug?: DeskDebugHandle;
+    /** `?lesson=1`: ask the desks for a lesson as the app does while they are its place (RD9a). */
+    __deskLessonAsk?: (entry: LessonEntry) => void;
   }
 }
 window.__deskHarnessErrors = errors;
@@ -70,8 +75,10 @@ function LatexFixture() {
     return {
       store, deskId: "fx_desk_softmax", mintId: (prefix) => `${prefix}_${Math.random().toString(36).slice(2)}`, today: () => "2026-11-23",
       api: { padProposals: async ({ padId }) => ({ version: 1, padId, proposals: [] }) as never, proposalLabel: nothing, padSubmitBlock: nothing, carriedCarry: nothing,
-        requestTeachBack: nothing, passageUnionRange: nothing, authorPracticeItem: nothing, workbenchOpenProblems: async () => ({ problems: [] }) },
+        requestTeachBack: nothing, passageUnionRange: nothing, authorPracticeItem: nothing, workbenchOpenProblems: async () => ({ problems: [] }),
+        submitTeachBackTurn: nothing, getSession: nothing, passageContent: nothing },
       practiceSessionId: null, openPassage: noop, openSearch: noop, askAbout: noop, toast: noop, setView: noop, sourcePieces: () => [], register: noop, carry: noop,
+      figures: new PendingFigures(), addToStack: noop,
     };
   }, []);
   return (
@@ -89,15 +96,114 @@ function LatexFixture() {
   );
 }
 
+/** The pad cells fixture (`?padcells=1`, spec §11.5): a pad window holding the harness script's cells, run in a
+ * real sandboxed session through the script's bridge (`window.__nbRpc`); `window.__padCellsMove()` moves the pad's
+ * window to the other side of the page (it remounts, as a desk switch does). */
+function PadCellsFixture() {
+  const [side, setSide] = React.useState<"left" | "right">("left");
+  React.useEffect(() => {
+    window.__padCellsMove = () => setSide((now) => (now === "left" ? "right" : "left"));
+  }, []);
+  const host = React.useMemo<PadsHost>(() => {
+    const server = new FixtureDeskServer();
+    server.pads.fx_pad_cells = fixtureCellsPad(window.__notebookHarness?.padCells ?? []);
+    const store = new DeskStore("padcells", {
+      state: async () => server.state(),
+      apply: async (input) => server.apply(input),
+      applyPad: async (input) => server.applyPad(input),
+      padGet: async ({ padId }) => server.padGet(padId),
+    }, REAL_TIMERS);
+    const nothing = async () => ({}) as never;
+    window.__padCellsServer = server;
+    return {
+      store, deskId: "fx_desk_softmax", mintId: (prefix) => `${prefix}_${Math.random().toString(36).slice(2)}`, today: () => "2026-11-23",
+      api: { padProposals: async ({ padId }) => ({ version: 1, padId, proposals: [] }) as never, proposalLabel: nothing, padSubmitBlock: nothing, carriedCarry: nothing,
+        requestTeachBack: nothing, passageUnionRange: nothing, authorPracticeItem: nothing, workbenchOpenProblems: async () => ({ problems: [] }),
+        submitTeachBackTurn: nothing, getSession: nothing, passageContent: nothing },
+      practiceSessionId: null, openPassage: noop, openSearch: noop, askAbout: noop, toast: noop, setView: noop, sourcePieces: () => [], register: noop, carry: noop,
+      figures: new PendingFigures(), addToStack: noop,
+    };
+  }, []);
+  return (
+    <PadsHostContext.Provider value={host}>
+      <div className="desk-shell" data-padcells-fixture="" style={{ position: "fixed", inset: 0, display: "flex", gap: 16, padding: 16, background: "#0e0e10",
+        justifyContent: side === "left" ? "flex-start" : "flex-end" }}>
+        <div key={side} data-padcells-side={side} style={{ width: 560, display: "flex", flexDirection: "column", minHeight: 0 }}>
+          <WindowScope lifecycle={{ windowId: `padcells-${side}`, state: "active" }} hub={DIRECT_HUB}>
+            <PadStackWindow windowId={`padcells-${side}`} stack={[{ kind: "pad", padId: "fx_pad_cells" }]} view={{}} />
+          </WindowScope>
+        </div>
+      </div>
+    </PadsHostContext.Provider>
+  );
+}
+
+declare global {
+  interface Window {
+    __padCellsMove?: () => void;
+    __padCellsServer?: FixtureDeskServer;
+    __notebookMessages?: BridgeMessage[];
+    __notebookPause?: (paused: boolean) => void;
+  }
+}
+
+/** The notebook fixture (`?notebook=1`, spec §11.2): a lesson's notebook frame where the mockup's Teacher lesson
+ * state (`#tabs=distance,pad=3`, 1440 × 900) draws it, a pad window's paper round it, and a bridge host that
+ * records every message it is handed (the frame has already refused the rest). `?nbstate=` forces a state;
+ * `?nbpreview=1` shows the window as an overview card; `window.__notebookPause(true)` moves it offscreen. */
+function NotebookFixture({ search }: { search: string }) {
+  const params = new URLSearchParams(search);
+  const [paused, setPaused] = React.useState(false);
+  React.useEffect(() => {
+    window.__notebookPause = setPaused;
+  }, []);
+  const state: WindowState = params.get("nbpreview") === "1" ? "preview" : paused ? "offscreen" : "active";
+  const host = React.useMemo<NotebookBridgeHost>(() => {
+    const messages: BridgeMessage[] = [];
+    window.__notebookMessages = messages;
+    return { onMessage: (message) => messages.push(message) };
+  }, []);
+  return (
+    <div className="desk-shell" data-notebook-fixture="" style={{ position: "fixed", inset: 0, background: "#0a0a0b" }}>
+      <div data-desk-window="" style={{ position: "absolute", left: 838, top: 46, width: 558, height: 820, background: "#1a1a1c", border: "1px solid #6b5534", boxSizing: "border-box" }}>
+        <div className="desk-pane-head" style={{ height: 32, boxSizing: "border-box" }}>
+          <span>›</span><span>Scratchpads</span>
+        </div>
+        <div data-notebook-paper="" style={{ position: "absolute", left: 7, top: 125, width: 542, height: 647, background: "#fdfdfc", border: "1px solid #2a2825", boxSizing: "border-box" }}>
+          <NotebookBridgeContext.Provider value={host}>
+            <WindowScope lifecycle={{ windowId: "fx_w_lesson", state }} hub={DIRECT_HUB}>
+              <NotebookFrame owner="lesson:fx_lesson" path="notebooks/lesson.py" title="A slope you can see" style={{ position: "absolute", left: 0, top: 105, right: 0, bottom: 0, height: "auto" }} />
+            </WindowScope>
+          </NotebookBridgeContext.Provider>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function Harness({ search = window.location.search }: { search?: string }) {
   const params = new URLSearchParams(search);
   const preview = params.get("preview");
   if (preview === "preview" || preview === "active") return <PreviewCard state={preview} />;
   if (params.get("latex") === "1") return <LatexFixture />;
+  if (params.get("notebook") === "1") return <NotebookFixture search={search} />;
+  if (params.get("padcells") === "1") return <PadCellsFixture />;
+  return <HarnessShell lessonsOn={params.get("lesson") === "1"} />;
+}
+
+function HarnessShell({ lessonsOn }: { lessonsOn: boolean }) {
+  // The app's way in while the desks are its place: each ask once, by its seq.
+  const [request, setRequest] = useState<{ seq: number; entry: LessonEntry } | null>(null);
+  useEffect(() => {
+    if (!lessonsOn) return;
+    window.__deskLessonAsk = (entry) => setRequest((now) => ({ seq: (now?.seq ?? 0) + 1, entry }));
+  }, [lessonsOn]);
   return (
     <div style={{ position: "fixed", inset: 0, display: "flex" }}>
       <DeskShell
         vaultKey="desk-fixture"
+        // `?lesson=1`: lessons are on (the Reader's Teach me opens a lesson window; RD9a).
+        {...(lessonsOn ? { reader: { onTeachMe: () => undefined }, lessons: { request } } : {})}
         onError={(message) => errors.push(message)}
         onLeave={() => errors.push("left for the old Reader")}
         onDebugHandle={(handle) => {

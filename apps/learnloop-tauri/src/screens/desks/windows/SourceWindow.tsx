@@ -3,9 +3,11 @@
 // its transcript) run unchanged inside it; what makes it one window among many is around it: its
 // listeners go through the desk's router, its timers and media pause when it leaves the view, and it
 // logs reading activity only while it is active or visible (desks/lifecycle.tsx).
-import { useCallback, useMemo, type ComponentProps } from "react";
+import { useCallback, useMemo, useState, type ComponentProps } from "react";
 import type { ContentRefDto, SourceLibraryCard } from "../../../api/dto";
-import { ReaderScreen, type ReaderWindowing } from "../../ReaderScreen";
+import { ReaderScreen, type PenSurface, type ReaderLens, type ReaderWindowing } from "../../ReaderScreen";
+import { PenLayer } from "../pen/PenLayer";
+import type { VideoExtras } from "../../reader/YouTubeWatchPanel";
 
 export type ReaderPassThrough = Pick<ComponentProps<typeof ReaderScreen>, "onCheckMe" | "onUseExercise" | "onTeachMe" | "workbench">;
 
@@ -27,6 +29,8 @@ export function SourceWindow({
   onMediaReady,
   onError,
   reader,
+  lens = null,
+  video = null,
 }: {
   content: Extract<ContentRefDto, { kind: "source" | "video" }>;
   card: SourceLibraryCard | null;
@@ -39,15 +43,21 @@ export function SourceWindow({
   onMediaReady: (toggle: (() => void) | null) => void;
   onError: (message: string) => void;
   reader?: ReaderPassThrough;
+  /** The goal lens over this reading (marks, callouts, dimming), or none. */
+  lens?: ReaderLens | null;
+  /** A video window's extras (RD10: chapters, ticks, the player's clock), or none. */
+  video?: VideoExtras | null;
 }) {
   const onTitle = useCallback((title: string) => onStatus({ title }), [onStatus]);
   const onReaderStatus = useCallback(
     (status: { readingSpan: string | null; progress: number; where: string | null }) => onStatus(status),
     [onStatus],
   );
+  // Pen mode's way onto the text (RD8a): the pen layer mounts on the surface the Reader hands over.
+  const [penSurface, setPenSurface] = useState<PenSurface | null>(null);
   const windowing = useMemo<ReaderWindowing>(
-    () => ({ railHost, onTitle, onJumpReady, onMediaReady, onStatus: onReaderStatus }),
-    [railHost, onTitle, onJumpReady, onMediaReady, onReaderStatus],
+    () => ({ railHost, onTitle, onJumpReady, onMediaReady, onStatus: onReaderStatus, lens, video, onPenSurface: setPenSurface }),
+    [railHost, onTitle, onJumpReady, onMediaReady, onReaderStatus, lens, video],
   );
   // The Reader opens its first source once, on mount: a window opens one book for its life.
   const initialSource = useMemo(
@@ -63,12 +73,15 @@ export function SourceWindow({
     );
   }
   return (
-    <ReaderScreen
-      key={card.sourceId}
-      onError={onError}
-      initialSource={initialSource}
-      windowed={windowing}
-      {...(reader ?? {})}
-    />
+    <>
+      <ReaderScreen
+        key={card.sourceId}
+        onError={onError}
+        initialSource={initialSource}
+        windowed={windowing}
+        {...(reader ?? {})}
+      />
+      <PenLayer surface={penSurface} />
+    </>
   );
 }

@@ -276,6 +276,13 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reader_rd0_reads.py](../../../../../../tests/test_reader_rd0_reads.py) — direct import
   - `test_due_checks_name_their_host_and_nothing_of_the_item`
   - `test_the_union_returns_every_kind_for_a_passage_across_readings`
+- [tests/test_reader_rd10_fix_protection.py](../../../../../../tests/test_reader_rd10_fix_protection.py) — direct import
+- [tests/test_reader_rd10_fix_sweep.py](../../../../../../tests/test_reader_rd10_fix_sweep.py) — direct import
+  - `test_a_lesson_on_a_topic_whose_check_is_due_names_nothing_in_its_tab`
+- [tests/test_reader_rd6_fix_protection.py](../../../../../../tests/test_reader_rd6_fix_protection.py) — direct import
+- [tests/test_reader_rd6_fix_reads.py](../../../../../../tests/test_reader_rd6_fix_reads.py) — direct import
+- [tests/test_reader_rd6a_goal_lens.py](../../../../../../tests/test_reader_rd6a_goal_lens.py) — direct import
+  - `test_a_due_check_hides_its_los_purpose_text_and_comes_first_next`
 - [tests/test_reader_reconstruct.py](../../../../../../tests/test_reader_reconstruct.py) — direct import
   - `test_reconstruct_makes_one_item_and_one_test_me_later_commitment`
   - `test_undo_retires_the_commitment_and_the_item`

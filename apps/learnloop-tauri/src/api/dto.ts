@@ -10404,6 +10404,8 @@ export interface WorkbenchRequestHelpInput {
 
 /** lesson.turn's input: open a lesson ("Teach me this") or take one step in it. */
 export interface LessonTurnInput {
+  /** Where the lesson is shown: a desk window's step serves no quick question and answers none. */
+  frame?: "screen" | "window";
   /** `resume`: run the teacher's turn an outage interrupted (nothing new from the learner). Teacher TE2:
    *  `answer_probe` (the open question), `teach_anyway` (one still being prepared), `close` (Today's "Close it"). */
   action: "open" | "reply" | "answer_prediction" | "answer_check" | "stop" | "resume" | "answer_probe"
@@ -10481,6 +10483,8 @@ export type LessonFeedEntryDto =
   | { kind: "learner"; text: string; checkRef?: string | null }
   | { kind: "check_result"; checkRef: string; result: string; graderFeedback?: string | null; unanchored?: boolean;
       answerLabel?: string | null }
+  /** Teacher TE2: a quick question as it was served, where it was (shown once answered, or in a review). */
+  | { kind: "probe_question"; probeRef: string; question: string }
   /** Teacher TE2: a quick question's grade. */
   | { kind: "probe_result"; probeRef: string; result: string; graderFeedback?: string | null }
   | { kind: "notice"; text: string }
@@ -10514,12 +10518,19 @@ export interface LessonViewDto {
   te2?: boolean;
   /** Teacher TE2: the quick question, being prepared (with "Teach it anyway") or open (answer it on your own). */
   probe?: LessonProbeDto | null;
+  /** Reader workbench RD9b (spec §11.2): "notebook" when the lesson's medium is a marimo notebook, sent when the
+   *  vault holds the lesson's notebook (`notebooks/lessons/<lesson id>.py`); nothing writes one yet (NA4's teacher
+   *  half). A lesson window shows the lesson itself whenever it is absent. */
+  medium?: "notebook";
+  /** The lesson's notebook, relative to the vault, with `medium`. */
+  notebookPath?: string;
 }
 
 /** Teacher TE2 (spec_teacher_v1 §11.3, §19): a lesson's quick question. Never its answer. */
 export interface LessonProbeDto {
   probeRef: string;
-  status: "preparing" | "open";
+  /** `waiting`: ready, and asked on the full lesson screen (a desk window's read neither serves nor shows it). */
+  status: "preparing" | "open" | "waiting";
   label: string;
   question?: string;
   teachAnyway: boolean;
@@ -10543,6 +10554,71 @@ export interface OpenLessonDto {
   goal: string | null;
   openedAt: string | null;
   learningObjectIds: string[];
+}
+
+/** Reader workbench RD9a (spec §11.1, §12.5): a lesson as its window's tab and the path view's row name it. */
+export interface LessonSummaryDto {
+  lessonId: string;
+  title: string;
+  goal: string | null;
+  openedAt: string | null;
+  closed: boolean;
+  closeReason: string | null;
+  learningObjectIds: string[];
+  /** What the tab's "made <date> from your <what>" names. */
+  madeFrom: "selection" | "check" | "question" | "suggestion" | "topic";
+  /** The lesson's `lesson_additions` pad, once the learner wrote under it. */
+  additionsPadId: string | null;
+  /** Every additions pad naming the lesson, oldest first (the first is where notes go; older duplicates are kept). */
+  additionsPadIds?: string[];
+  /** A check is due on what it teaches: its title is neutral and its goal withheld. */
+  held?: boolean;
+}
+
+/** Reader workbench RD10 (spec §7.5): what a book window follows at a video's time (reader.follow_along). */
+export interface FollowAlongDto {
+  version?: number;
+  videoExtractionId: string;
+  bookExtractionId: string;
+  t: number;
+  status: "following" | "no_passage" | "no_section" | "withheld";
+  /** The playing cue's transcript section, with the bounds its answer holds for (from its start, or the video's for
+   *  the first, to the next section's start; null for the last): asked again once the time leaves them. */
+  section: { sectionId: string; title: string; t0: number; t1: number | null; held?: boolean } | null;
+  /** The accepted chapter the time falls in (its title neutral, `held`, while a check is due on what it covers). */
+  chapter: { chapterId: string; title: string; t0: number; t1: number; learningObjectIds?: string[]; held?: boolean } | null;
+  /** Per LO of the section, the book's correspondent sections from judged coverage. */
+  learningObjects: Array<{ learningObjectId: string; title: string | null; held?: boolean;
+    sections: Array<{ sectionId: string; title: string | null; jumpSpanId: string | null; held?: boolean }> }>;
+  /** When the next check not due yet falls due (UTC): the answer is asked again then. */
+  nextCheckDue?: string | null;
+}
+
+/** Reader workbench RD10 (spec §7.9): a video chapter, suggested or decided. */
+export interface VideoChapterDto {
+  chapterId: string;
+  extractionId: string;
+  t0: number;
+  t1: number;
+  title: string;
+  learningObjectIds: string[];
+  learningObjects?: Array<{ learningObjectId: string; title: string; held?: boolean }>;
+  /** Its title is neutral while a check is due on what it covers. */
+  held?: boolean;
+  state: "suggested" | "accepted" | "dismissed";
+  suggestedAt: string;
+  decidedAt: string | null;
+}
+
+/** chapters.suggest / chapters.job: the chapters judge as a polled job. */
+export interface ChaptersJobDto {
+  version?: number;
+  jobId: string | null;
+  status: "queued" | "running" | "done" | "failed" | "cancelled" | "expired";
+  done: boolean;
+  result: { status: "ready" | "unavailable" | "capped" | "failed" | "stale" | "no_sections"; reason: string | null;
+    message: string | null; chapters: VideoChapterDto[] } | null;
+  error: { code: string; message: string; retryable: boolean; details: Record<string, unknown> | null } | null;
 }
 
 /** Teacher TE2-log (spec_teacher_v1 §11.6): one interval of the lesson screen, on the client's clock. */
@@ -10664,7 +10740,9 @@ export interface DeskStateDto {
 }
 
 type DeskOpBase = { expectedVersion?: number | null };
-export type DeskOpDto = DeskOpBase & (
+/** Every desk.apply op: the core ops and the stack-membership ops (the client model applies both). */
+export type DeskOpDto = DeskCoreOpDto | DeskMembershipOpDto;
+export type DeskCoreOpDto = DeskOpBase & (
   | { op: "create_desk"; deskId: string; title: string; position: string; goalId?: string | null; companionDock?: CompanionDock }
   | { op: "rename_desk"; deskId: string; title: string }
   | { op: "archive_desk"; deskId: string }
@@ -10687,9 +10765,27 @@ export type DeskOpDto = DeskOpBase & (
   | { op: "set_companion_shown"; deskId: string; shown: boolean }
   | { op: "set_goal"; deskId: string; goalId: string | null });
 
+/** RD4 fix round: a stack's membership by one entry (a union / a removal; no expected version is checked, so it
+ * commutes with every other desk change; it lives in the window's spec, never its view), and the desk's running pad
+ * with its stack, ensured idempotently (the ids are used only when something is created). Sent in desk.apply like
+ * any desk op (each applied one adds one to the desk's version); kept apart from DeskOpDto (and DeskApplyInput's
+ * ops) until the client model applies them optimistically. */
+export type DeskMembershipOpDto = DeskOpBase & (
+  | { op: "add_to_stack"; deskId: string; windowId: string; entry: PadStackEntryDto }
+  | { op: "remove_from_stack"; deskId: string; windowId: string; entry: PadStackEntryDto }
+  | { op: "ensure_running_pad"; deskId: string; padId: string; windowId: string; title?: string });
+
 /** One op's result: applied, not applied for a stale head (with the current head), or refused. */
 export type WriteOpResultDto =
-  | { status: "ok"; headVersionId?: string; eventId?: string }
+  | { status: "ok"; headVersionId?: string; eventId?: string;
+      /** edit_block with keepBoth on a stale head: the client's words, as the block they landed in. */
+      keptBoth?: { blockId: string; headVersionId: string };
+      /** add_to_stack / remove_from_stack: whether the stack changed, and the stack now. */
+      changed?: boolean; stack?: PadStackEntryDto[];
+      /** ensure_running_pad. */
+      padId?: string; windowId?: string; createdPad?: boolean; createdWindow?: boolean; addedToStack?: boolean;
+      /** erase_ink (RD8a). */
+      eraseId?: string }
   | { status: "conflict"; current: Record<string, unknown> }
   | { status: "refused"; code: string; message: string };
 
@@ -10753,6 +10849,12 @@ export interface PadAnchorDto {
   anchor: Record<string, unknown>;
   annotationId: string | null;
   createdAt: string;
+  /** A link a lift made before links moved left on the stub: shown here, read only (unlink it on that block). */
+  inheritedFromBlockId?: string | null;
+  /** Enough to open the link with no window of its source open: the ContentRef's sourceId, and a cue's start.
+   * Always sent by pad.get; optional here only for links the client makes before the server's answer. */
+  sourceId?: string | null;
+  t?: number | null;
 }
 
 export interface PadViewDto { version: number; pad: PadDto; blocks: PadBlockDto[]; anchors: PadAnchorDto[] }
@@ -10767,7 +10869,11 @@ export type PadOpDto =
   | { op: "insert_block"; blockId: string; versionId?: string; kind: PadBlockKind; provenance: PadProvenance;
       positionKey: string; day?: string | null; bodyMd?: string; payload?: Record<string, unknown> }
   | { op: "edit_block"; blockId: string; expectedHead: string; versionId?: string; bodyMd?: string;
-      payload?: Record<string, unknown> }
+      payload?: Record<string, unknown>;
+      /** On a stale head: keep the server's head and land these words as a new block right after it
+       * (payload.conflict names the block, the expected head, the server head and this label). Absent: a
+       * conflict, as before. Stale remove/move/lift are always conflicts: never retry them onto newer text. */
+      keepBoth?: { blockId: string; versionId?: string; label?: string } }
   | { op: "remove_block"; blockId: string; expectedHead: string; versionId?: string }
   | { op: "move_block"; blockId: string; expectedHead: string; positionKey: string; versionId?: string }
   | { op: "lift_out"; blockId: string; expectedHead: string; newPadId: string; newBlockId: string; title?: string;
@@ -10776,7 +10882,11 @@ export type PadOpDto =
   | { op: "link_anchor"; blockId: string; extractionId: string; spanId: string; anchor?: Record<string, unknown>;
       annotationId?: string | null; eventId?: string; expectedAnchorHead: string | null }
   | { op: "unlink_anchor"; blockId: string; extractionId: string; spanId: string; eventId?: string;
-      expectedAnchorHead: string | null };
+      expectedAnchorHead: string | null }
+  // The pen's barrel button: a tombstone over standing strokes of one ink block of this pad (RD8a).
+  | { op: "erase_ink"; blockId: string; strokeIds: string[]; eraseId?: string;
+      /** The version taking LearnLoop's reading off the line when every stroke is erased (client-minted). */
+      versionId?: string };
 
 export interface PadApplyInput { clientId: string; seq: number; padId: string; ops: PadOpDto[] }
 export interface PadApplyDto {
@@ -10819,6 +10929,96 @@ export interface PadSubmitBlockDto {
   duplicate: boolean;
   /** The entry point's own reply (submit_attempt's, or submit_teach_back_turn's) on the call that handed it over. */
   entry: Record<string, unknown> | null;
+  /** A teach-back's conversation, found by the id reserved before the hand-off: completed (attemptId set),
+   * ongoing (its checkpointed state, keys as stored, to resume in the teach-back screen; on the opening call the
+   * entry's reply carries the student's question). Null for an attempt. */
+  teachBack: { status: "completed" | "ongoing"; conversationId: string; state: Record<string, unknown> | null } | null;
+}
+
+/** RD5: the object a menu was opened on (§9.1): a passage, a cue (its span or a time), a highlight or margin note (its
+ * annotation and the passage it sits on), a window header (the passage in view), or a pad line (its block). */
+export interface MenuObjectInput {
+  objectKind: "passage" | "cue" | "highlight" | "note" | "window" | "pad_line";
+  extractionId?: string;
+  spanId?: string;
+  t?: number;
+  annotationId?: string;
+  blockId?: string;
+  windowId?: string;
+  deskId?: string;
+}
+
+/** passage.promoted's input: the object, and one id per menu opening (reused on a retry: the same job and its work
+ * once; the same id with another object is refused, `request_reused`). passage.knows takes the object alone. */
+export interface PassagePromotedInput extends MenuObjectInput {
+  requestId?: string;
+}
+
+/** One promoted row. `rowId` is stable for its object, kind and target: label it with proposal.label
+ * (proposalKind "promoted_row"); a row dismissed or marked "not this" is left out on that object from then on. */
+export interface PromotedRowDto {
+  rowId: string;
+  kind: "question" | "adjustment" | "gap" | "your_words" | "carried" | "note" | "figure" | "next_step"
+    | "correspondent" | "elsewhere";
+  glyph: string;
+  label: string;
+  reason: string;
+  /** verb: "open" (ref: a ContentRef, target?), "knows" (gapId), "carried" (carriedId), "annotation"
+   * (annotationId), "figure" (figureId). Keys as below, camelCase. */
+  action: { verb: "open" | "knows" | "carried" | "annotation" | "figure"; ref?: Record<string, unknown>;
+    target?: { spanId?: string; blockId?: string; t?: number }; gapId?: string; carriedId?: string;
+    annotationId?: string; figureId?: string };
+  /** When the learner's own act behind the row happened; null for a judge's finding. */
+  learnerAt: string | null;
+  /** Checked by a judge; false means "found by search, not checked"; null for the learner's own rows. */
+  checked: boolean | null;
+  judgeRank: number;
+  basis: "union" | "judged";
+  extra: Record<string, unknown>;
+}
+
+export interface PassagePromotedDto {
+  version: number;
+  objectKey: string;
+  /** The cheap rows, ranked, at most `cap`; the job's rows replace them when it is done. */
+  rows: PromotedRowDto[];
+  cap: number;
+  pendingJob: { jobId: string } | null;
+  /** Whether the job may search by meaning and verify (the learner's OK to use AI, retrieval on). */
+  paid: { searchedByMeaning: boolean; verified: boolean; reason: string | null };
+  /** A passage of the object (for a pad line, one its words are linked to) is exam or held-out material: nothing is
+   * searched or judged for it, and no row leads from or to a protected passage (the learner's own rows stay). */
+  withheld?: boolean;
+}
+
+export interface PromotedJobDto {
+  version: number;
+  jobId: string;
+  status: "queued" | "running" | "done" | "failed" | "cancelled" | "expired";
+  done: boolean;
+  /** When done: every row ranked again, cheap and judged, at most four; [] when cancelled or superseded. */
+  rows: PromotedRowDto[];
+  error: { code: string; message: string; retryable: boolean } | null;
+}
+
+/** passage.knows: What this knows (§9.1 `i`) as one read: each of the object's passages with its union entry. */
+export interface PassageKnowsDto {
+  version: number;
+  objectKey: string;
+  sourceIds: string[];
+  places: { extractionId: string; spanId: string; role: string | null; knows: PassageUnionSpanDto }[];
+}
+
+/** passage.content: one range of a reading as the source has it (a source_piece's words, location and time). */
+export interface PassageContentDto {
+  version: number;
+  extractionId: string;
+  sourceId: string | null;
+  title: string | null;
+  /** Any passage is exam or held-out material: its text is null, and it is not to be copied into a pad. */
+  withheld: boolean;
+  spans: { spanId: string; text: string | null; page: number | null; t0: number | null; t1: number | null;
+    sectionId: string | null; sectionLabel: string | null; withheld: boolean }[];
 }
 
 export type ProposalLabel = "opened" | "not_this" | "dismiss" | "ignored";
@@ -10908,9 +11108,11 @@ export type SpanAlias = "exact" | "needs_reanchor";
 export interface PassageUnionSpanDto {
   spanId: string;
   sectionId: string | null;
-  annotations: { annotationId: string; type: string; learnerText: string; placement: string }[];
+  annotations: { annotationId: string; type: string; learnerText: string; placement: string; createdAt?: string | null }[];
   padBlocks: { blockId: string; padId: string; kind: PadBlockKind; provenance: PadProvenance; eventId: string;
-    annotationId: string | null; alias: SpanAlias }[];
+    annotationId: string | null; alias: SpanAlias;
+    /** The link sits on a lift-out stub (a lift made before links moved): blockId is the lifted block. */
+    liftedFromBlockId?: string | null; createdAt?: string }[];
   exchanges: { questionEventId: string; role: "selection" | "cited" | "context"; quality: AnchorQuality;
     alias: SpanAlias; context: string; questionMd: string; createdAt: string }[];
   adjustments: { questionEventId: string; gapId: string }[];
@@ -11009,9 +11211,15 @@ export interface CompanionAskJobDto {
   citations: TutorCitationDto[];
   /** Output pieces the request in flight has streamed (0 where the transport does not stream). */
   streamedPieces: number;
-  /** The exchange, once recorded (also on a cancelled job whose answer was already being written). */
+  /** The question, as soon as it is recorded (before its answer is asked for; also on a failed or cancelled job). */
   questionEventId: string | null;
-  /** Cancelled after its request was sent: the answer is kept in the history, not delivered. */
+  /** A model request of this job was sent: a cancel after that cannot unsend it ("stopping", not "nothing sent"). */
+  sent?: boolean;
+  /** Where the question was asked is recorded: null while no question exists yet; false while a failed write is
+   *  being retried (each poll retries it). The sidecar always sends `sent` and this since the RD3 fix round; they
+   *  are optional here only until the frontend's fixtures carry them. */
+  contextRecorded?: boolean | null;
+  /** Cancelled, and its answer was recorded anyway (it is in the history, not delivered). */
   kept: boolean;
   /** reader.ask's reply, when done. */
   answer: ReaderAnswerDto | null;
@@ -11030,7 +11238,8 @@ export interface SearchEverythingInput {
 /** What a result opens: a ContentRef plus where in it (a span, a time or a pad block). */
 export interface SearchRowBase {
   ref: ContentRefDto | null;
-  target: { spanId?: string; t?: number; blockId?: string } | null;
+  target: { spanId?: string; t?: number; blockId?: string; noteKey?: string; annotationId?: string;
+    captureId?: string } | null;
 }
 
 export interface SearchSourceRowDto extends SearchRowBase {
@@ -11043,7 +11252,10 @@ export interface SearchPassageRowDto extends SearchRowBase {
 }
 export type SearchNoteRowDto = SearchRowBase & (
   | { noteKind: "note"; noteKey: string; title: string; heading: string | null; snippet: string;
-      capturedOn: string | null; byMeaning: boolean }
+      capturedOn: string | null; byMeaning: boolean;
+      /** `annotation`: a Reader note or highlight (ref: its source, target: the passage and note); `capture`: an
+       *  inbox note (ref: the notes panel, target: the note). */
+      noteRefKind: "annotation" | "capture" | null }
   | { noteKind: "gap_reading"; gapId: string; sourceKind: string; kind: string; snippet: string; createdAt: string });
 export interface SearchPadRowDto extends SearchRowBase {
   padId: string; blockId: string; padTitle: string; kind: PadBlockKind; provenance: PadProvenance;
@@ -11063,14 +11275,15 @@ export interface SearchGroupDto {
   group: SearchScope;
   label: string;
   basis: "words" | "meaning";
-  /** `off`: the group could not be searched (`reason` says why), never "nothing found". */
-  status: "ok" | "off";
+  /** `off` (words) or `unavailable` (meaning): the group could not be searched; `failed`: its search by meaning
+   *  failed. `reason` says why; none of them is "nothing found". */
+  status: "ok" | "off" | "unavailable" | "failed";
   reason?: string;
   rows: (SearchSourceRowDto | SearchPassageRowDto | SearchNoteRowDto | SearchPadRowDto | SearchThreadRowDto
     | SearchExchangeRowDto)[];
   /** More rows exist than the group returns. */
   more: boolean;
-  /** A meaning group over the library: the retrieval's basis, and its coverage when partial. */
+  /** A meaning group: the library retrieval's basis, and its coverage (passages or notes) when partial. */
   retrievalBasis?: string;
   coverage?: string;
 }
@@ -11093,7 +11306,376 @@ export interface SearchJobDto {
   jobId: string;
   status: "queued" | "running" | "done" | "failed" | "cancelled" | "expired";
   done: boolean;
-  /** The groups found by meaning (results the words found are left out); empty unless done. */
+  /** The groups found by meaning (results the words found are left out), each with its status; empty unless done. */
   groups: SearchGroupDto[];
+  /** The groups that had no search by meaning, with why (carried on the poll as on the start's reply; always sent,
+   *  optional here only until the frontend's fixtures carry it). */
+  unavailable?: { group: SearchScope; reason: string }[];
   error: PolledJobErrorDto | null;
+}
+
+// Notebook runtime: one sandboxed marimo server per owner (a pad's cells or a lesson notebook), shown in a frame
+// whose URL the session carries. A session is process state, never evidence.
+export type NotebookOwner = `pad:${string}` | `lesson:${string}`;
+
+export interface NotebookOpenInput {
+  owner: NotebookOwner;
+  /** The notebook file, relative to the vault root; the session runs a snapshot of its bytes. Left out for a pad
+   * (`pad:<id>`): its notebook is generated from the pad's marimo cells. */
+  path?: string;
+  view?: "app" | "edit";
+}
+
+export type NotebookSessionState = "starting" | "ready" | "restarting" | "stopping" | "stopped" | "failed";
+
+export interface NotebookSessionDto {
+  version: number;
+  sessionId: string;
+  owner: NotebookOwner;
+  state: NotebookSessionState;
+  /** Why a stopped session stopped: closed, idle, make_room, replaced or vault_switch. */
+  stopReason: string | null;
+  error: string | null;
+  restarts: number;
+  framesAttached: number;
+  /** The cell names marimo reported once a frame connected. */
+  cells: string[];
+  /** Seconds each recent start took to answer on the socket. */
+  startSeconds: number[];
+  /** Load only once state is "ready": `http://127.0.0.1:<port>/s/<secret>/?...`. */
+  frameUrl: string;
+  /** The session's scope memory, when it runs in a scope of its own. */
+  memoryBytes: number | null;
+  /** Per cell name, its last run as marimo reported it. */
+  cellRuns?: Record<string, NotebookCellRunDto>;
+  /** A pad's session (from notebook.open only): each cell block's marimo name. */
+  padCells?: Record<string, string>;
+  /** A lesson's session: its commit points, what was committed and released, and whether it is a review. */
+  lesson?: NotebookLessonDto;
+}
+
+/** A lesson notebook's commit points (spec §11.2). A review (a finished lesson) commits and releases nothing. */
+export interface NotebookLessonDto {
+  review: boolean;
+  released: string[];
+  commitPoints: Array<{ name: string; held: string[]; committed: boolean }>;
+}
+
+export interface NotebookCellRunDto {
+  status: "queued" | "running" | "idle" | "stale" | "disabled-transitively" | null;
+  ms: number | null;
+  error: boolean;
+}
+
+export interface NotebookCellInput {
+  name: string;
+  code: string;
+}
+
+export interface NotebookReleaseDto {
+  version: number;
+  sessionId: string;
+  released: string[];
+}
+
+export interface NotebookRunCellsDto {
+  version: number;
+  sessionId: string;
+  ran: string[];
+}
+
+// -- Reader workbench v2 RD6 (spec §12.2-§12.5, §12.8): the goal band, the goal lens and read it anyway on a
+// section. The typed calls only; no component calls them yet. Display of the real model: nothing here is
+// evidence, and while a cold check is due on an LO its name and purpose text are withheld (`held`, §12.6.1).
+
+/** curriculum.path: the deliverable's path view (the band carries the same view as `path`). */
+export interface DeliverablePathViewDto {
+  version?: number;
+  goalId: string;
+  title: string;
+  sentence: string | null;
+  kind: "exam" | "quest";
+  dueAt: string | null;
+  depth: ReadingPathDepth | null;
+  depthLabel: string | null;
+  depths: Array<{ id: ReadingPathDepth; label: string; means: string }>;
+  status: "no_scope" | "ask_depth" | "no_sections" | "pending" | "judging" | "failed" | "stale" | "ready" | "withheld";
+  /** Rows of an LO with a due check carry `held: true`, `reason: null` and empty alternate differences. */
+  lines: Array<Omit<DeliverableLineDto, "reason"> & { held?: boolean; reason: string | null }>;
+  uncovered: Array<{ learningObjectId: string; title: string; phrase: string }>;
+  stateKey: string | null;
+  message: string | null;
+  reason: string | null;
+  covering: boolean;
+  /** Minutes of the unread core and prerequisite sections, at DL1's reading pace. */
+  minutes: number;
+}
+
+/** Where a goal stands: the path's status, or a goal the learner did not set (nothing to map). */
+export type GoalLensStatus = DeliverablePathViewDto["status"] | "not_a_deliverable";
+
+export interface GoalLensGoalDto {
+  id: string;
+  title: string;
+  /** The learner's sentence (the title when they gave none). */
+  sentence: string;
+  /** Shown, never stored: "project" stays display-only until projects become a goal subset. */
+  kind: "exam" | "quest";
+  dueAt: string | null;
+  /** When the learner set it: "(your words, <date set>)". */
+  setAt: string;
+}
+
+export type GoalLensDepth = ReadingPathDepth;
+
+/** A section to open: a click on an LO's dot opens its primary section. */
+export interface GoalSectionRefDto {
+  extractionId: string;
+  sectionId: string;
+  startSpanId: string;
+  title: string;
+  book: string;
+}
+
+/** One dot of the band, in path order. */
+export interface GoalBandLoDto {
+  learningObjectId: string;
+  /** Null while a cold check is due on it (no name beside the ◇). */
+  title: string | null;
+  /** later: needed only at a deeper depth than the one chosen (a dimmed dot). */
+  kind: "needed" | "prerequisite" | "later";
+  ordinal: number;
+  /** demonstrated (lo_certification) | likely (AD's labelled prediction) | untested. */
+  readiness: "demonstrated" | "likely" | "untested";
+  readinessLine: string | null;
+  beyondDepth: boolean;
+  primary: GoalSectionRefDto | null;
+  /** The ◇ after the dot: a due check (hollow), or one answered on the learner's own today (filled). */
+  check: "due" | "answered" | null;
+  held: boolean;
+}
+
+export interface GoalBandDto {
+  version: number;
+  goalId: string;
+  goal: GoalLensGoalDto;
+  status: GoalLensStatus;
+  message: string | null;
+  reason?: string | null;
+  depth?: GoalLensDepth | null;
+  depthLabel?: string | null;
+  /** Each depth with the size of its path: its LOs, and the distinct primary sections they read with their
+   *  minutes at DL1's reading pace (null before the path's inputs exist). */
+  depths?: Array<{ id: GoalLensDepth; label: string; means: string; learningObjects: number | null;
+    sections: number | null; minutes: number | null }>;
+  learningObjects?: GoalBandLoDto[];
+  /** "N LEARNING OBJECTS · a LIKELY · b UNTESTED": the LOs within the chosen depth. */
+  counts?: { learningObjects: number; demonstrated: number; likely: number; untested: number };
+  /** The phrases of the goal sentence not in the library yet (curriculum.scope_decide's add it / no). */
+  unmatched?: Array<{ phrase: string; proposedTitle?: string; proposedStatement?: string } & Record<string, unknown>>;
+  /** No LO is named beside a due check. */
+  checks?: { dueToday: number; answeredToday: number;
+    first: { commitmentId: string; host: { extractionId: string; sectionId: string | null; spanId: string | null } | null } | null };
+  next?: { kind: "checks"; count: number; check: { commitmentId: string; host: unknown } | null }
+    | { kind: "section"; learningObjectId: string; section: GoalSectionRefDto }
+    | { kind: "path_read" } | { kind: "none" };
+  /** goals.goal_pace (the real rate); null when unreadable. */
+  pace?: { attemptsPerDay: number; attemptsLast14d: number; daysLeft: number | null; attemptsRemaining: number | null;
+    neededPerDay: number | null; onPace: boolean | null; attemptsLogged: number; paceKind: string } | null;
+  /** The goal's topics whose coverage is not judged yet (their sections read partial), and the background
+   *  coverage's state (curriculumPath with judge: true starts it). */
+  coverage?: { unjudged: string[]; covering: boolean; failure: { reason: string | null; message: string | null } | null };
+  /** The path view's rows (curriculum.path's own view). */
+  path?: DeliverablePathViewDto | null;
+  /** When the next check not due yet falls due (UTC): the band is read again then, to hide what it covers. */
+  nextCheckDue?: string | null;
+}
+
+export type GoalLensInput =
+  | { goalId: string; extractionId: string }
+  | { goalId: string; extractionId: string; fromSpanId: string; toSpanId: string }
+  | { goalId: string; extractionId: string; t0: number; t1: number };
+
+export type GoalLensLevel = "core" | "supporting" | "later" | "already_shown" | "skippable" | "partial" | "unmapped";
+
+export type GoalLensReasonKey =
+  | "primary" | "prerequisite" | "alternate" | "another_treatment" | "applies" | "mentions" | "learner_about"
+  | "deeper_depth" | "demonstrated" | "assumed" | "check_pending" | "you_skipped" | "out_of_scope" | "not_about"
+  | "unmapped" | "withheld" | "left_out" | "partial_unsettled" | "partial_unplaced";
+
+/** One section's level for the goal; its passages inherit it (decision D1: judged per section). */
+export interface GoalLensSectionDto {
+  sectionId: string;
+  title: string;
+  startSpanId: string;
+  /** The passages of the requested range in this section (all of them without a range). */
+  spanIds: string[];
+  level: GoalLensLevel;
+  mapping: "mapped" | "partial" | "unmapped";
+  reasonKey: GoalLensReasonKey;
+  /** The why card's "For <goal>: <why>": the path's own reason where it places the section. */
+  reasonMd: string;
+  /** Partial only: the highest-need level known so far. */
+  knownLevel: Exclude<GoalLensLevel, "skippable" | "partial" | "unmapped"> | null;
+  loIds: string[];
+  learningObjects: Array<{ learningObjectId: string; title: string | null; kind: "needed" | "prerequisite" | "later";
+    level: "core" | "supporting" | "later" | "already_shown" | "out"; reasonKey: GoalLensReasonKey; treatment: string;
+    pathLabel: DeliverablePathLabel | null; override: Exclude<DeliverablePathChoice, "none"> | null; held: boolean;
+    answeredToday: boolean }>;
+  determiningLoId: string | null;
+  /** "You chose “…”", "You answered its cold check on your own today." */
+  learnerLine: string | null;
+  /** "coverage: introduces “<LO>” · a goal LO · its primary section · core" */
+  coverageLine: string | null;
+  held: boolean;
+  /** Skippable or later, and not read anyway: dimmed while dimming is on (never hidden). */
+  dim: boolean;
+  choice: "read_anyway" | null;
+  judgedPer: "section";
+}
+
+export interface GoalLensDto {
+  version: number;
+  goalId: string;
+  extractionId: string;
+  status: GoalLensStatus;
+  message: string | null;
+  depth?: GoalLensDepth | null;
+  depthLabel?: string | null;
+  /** unmapped: no section of this reading is mapped for the goal ("not mapped for this goal yet"). */
+  mapping: "mapped" | "unmapped";
+  levels: GoalLensSectionDto[];
+  goal?: GoalLensGoalDto;
+}
+
+export interface GoalSectionChoiceInput {
+  goalId: string;
+  extractionId: string;
+  sectionId: string;
+  choice: "read_anyway" | "none";
+  /** Client-minted (8-80 letters, digits, - or _): a retry returns the stored choice. */
+  operationId: string;
+}
+
+export interface GoalSectionChoiceDto {
+  version: number;
+  choice: { operationId: string; goalId: string; extractionId: string; sectionId: string;
+    choice: "read_anyway" | "none"; replayed: boolean; createdAt: string };
+}
+
+// Reader workbench v2 RD8a (spec §3.4, §10.10): the learner's ink and LearnLoop's reading of it. Desktop only.
+
+/** One stroke: client-minted id; points `[x, y, t, pressure, tiltX, tiltY]` in CSS pixels of the surface drawn on,
+ * milliseconds, pressure 0..1 and tilt -90..90 degrees (the Pointer Events ranges). Stored losslessly. */
+export interface InkStrokeDto {
+  strokeId: string;
+  points: Array<[number, number, number, number, number, number]>;
+}
+
+/** Ink belongs to one ink block of a pad, one source annotation (a handwritten margin note), or one reading of a
+ * source (ink on the page that became no mark: the learner's marks, never read or emitted). */
+export type InkOwnerDto =
+  | { blockId: string; annotationId?: never; extractionId?: never }
+  | { annotationId: string; blockId?: never; extractionId?: never }
+  | { extractionId: string; blockId?: never; annotationId?: never };
+
+/** The barrel over an annotation's or a reading's ink (a block's ink: padApply's erase_ink). */
+export interface InkEraseInput {
+  clientId: string;
+  seq: number;
+  owner: InkOwnerDto;
+  /** Client-minted: a retried erase of the same strokes is a no-op. */
+  eraseId: string;
+  strokeIds: string[];
+}
+
+export interface InkEraseDto {
+  version: number;
+  appliedSeq: number;
+  eraseId: string;
+  results: Array<WriteOpResultDto & { duplicate?: boolean }>;
+}
+
+export interface InkSaveInput {
+  clientId: string;
+  /** The client's one batch sequence, shared with deskApply and padApply (one outbox, spec §3.5). */
+  seq: number;
+  owner: InkOwnerDto;
+  /** Client-minted: a retried save of the same strokes is a no-op (`duplicate`). */
+  inkId: string;
+  strokes: InkStrokeDto[];
+  /** Touch never draws. The device pixel ratio is the resolution the reading's image is rendered at (default 1). */
+  pointerMeta: { pointerType: "pen" | "mouse"; devicePixelRatio?: number };
+}
+
+export interface InkSaveDto {
+  version: number;
+  appliedSeq: number;
+  inkId: string;
+  /** One result: ok (`duplicate` true for a resent ink id) or refused with a code (`block_not_found`,
+   * `not_an_ink_block`, `block_removed`, `pad_archived`, `annotation_not_found`, `ink_id_reused`, `stroke_exists`). */
+  results: Array<WriteOpResultDto & { duplicate?: boolean }>;
+}
+
+export type InkConfidenceLabel = "may_be_wrong" | "nothing_read";
+
+export interface InkOwnerViewDto {
+  ownerKind: "block" | "annotation" | "source";
+  ownerId: string;
+  /** The standing strokes' hash: a reading names the strokes it read by it. */
+  contentHash: string;
+  devicePixelRatio: number;
+  /** The strokes as they stand (erased ones left out), in drawing order, each with the save that holds it. */
+  strokes: Array<InkStrokeDto & { inkId: string }>;
+  /** The owner's latest reading; `current` when it read exactly these strokes. */
+  transcription: {
+    transcriptionId: string;
+    latexMd: string;
+    confidenceLabel: InkConfidenceLabel;
+    contentHash: string;
+    current: boolean;
+    createdAt: string;
+    /** A block's reading: true when it is the block's words. */
+    applied: boolean;
+    /** Why a block's reading is not its words (`kept_your_correction`, `strokes_changed`, `block_removed`). */
+    reason: string | null;
+  } | null;
+}
+
+export interface InkListDto {
+  version: number;
+  padId: string | null;
+  sourceId: string | null;
+  owners: InkOwnerViewDto[];
+}
+
+export interface InkReadingDto {
+  transcriptionId: string;
+  ownerKind: "block" | "annotation";
+  ownerId: string;
+  contentHash: string;
+  /** Markdown with LaTeX, as read; label it "transcription may be wrong · fix it". */
+  latexMd: string;
+  confidenceLabel: InkConfidenceLabel;
+  model: string | null;
+  createdAt: string;
+  /** True when the block's head is this reading (provenance ink_transcription). A margin note's reading is never
+   * written into the note: the client writes it through the annotation's edit. */
+  applied: boolean;
+  /** Why it was not applied: `kept_your_correction` (the learner's words stand) or `block_removed`. */
+  reason: string | null;
+  /** The block's head after the reading (the client's next edit names it). */
+  headVersionId: string | null;
+}
+
+export interface InkTranscribeJobDto {
+  version: number;
+  /** null when the strokes were already read (answered at once, nothing sent). */
+  jobId: string | null;
+  status: "queued" | "running" | "done" | "failed" | "cancelled" | "expired";
+  done: boolean;
+  result: InkReadingDto | null;
+  /** e.g. `cannot_read_images`, `models_off`, `unrouted`, `unpriced`, `capped`, `unavailable`,
+   * `provider_unavailable`, `ink_too_large`, `waiting_for_ok`, `cancelled`, `interrupted`. */
+  error: { code: string; message: string; retryable: boolean; details: Record<string, unknown> | null } | null;
 }

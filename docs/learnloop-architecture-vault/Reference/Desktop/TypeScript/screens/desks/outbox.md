@@ -28,7 +28,7 @@ Area: [[Reference/Desktop/TypeScript/screens/desks/_area|TypeScript/screens/desk
 
 ## Why this module exists
 
-Provides `Batch`, `BatchBody`, `OutboxStore`, `MemoryOutboxStore` and related exports within the desktop's TypeScript/screens/desks ownership area.
+Provides `InkSaveBody`, `InkEraseBody`, `Batch`, `BatchBody` and related exports within the desktop's TypeScript/screens/desks ownership area.
 
 The system-level behavior stays authoritative in the linked architecture, concept, and workflow notes; this note owns only source-level lookup facts.
 
@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/outbox.ts](../../../../../../../apps/learnloop-tauri/src/screens/desks/outbox.ts) |
-| Source lines | 226 |
+| Source lines | 268 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/_area|TypeScript/screens/desks]] |
 | Refactor status | `ACTIVE` |
@@ -54,36 +54,40 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export interface Batch` — interface, line 13
-- `export type BatchBody =` — type, line 20
-- `export interface OutboxStore` — interface, line 27
-- `export class MemoryOutboxStore implements OutboxStore` — class, line 34
-- `export interface OutboxTransport` — interface, line 51
-- `export type FlushOutcome = |` — type, line 57
-- `export function isPermanentRefusal(code: string): boolean` — function, line 75
-- `export function clientIdFor(vaultKey: string, storage: Pick<Storage, "getItem" | "setItem"> | null, mint: ()` — function, line 91
-- `export class DeskOutbox` — class, line 104
+- `export type InkSaveBody = Omit<InkSaveInput, "clientId" | "seq">` — type, line 13
+- `export type InkEraseBody = Omit<InkEraseInput, "clientId" | "seq">` — type, line 15
+- `export interface Batch` — interface, line 18
+- `export type BatchBody =` — type, line 27
+- `export interface OutboxStore` — interface, line 35
+- `export class MemoryOutboxStore implements OutboxStore` — class, line 42
+- `export interface OutboxTransport` — interface, line 59
+- `export type FlushOutcome = |` — type, line 69
+- `export function isPermanentRefusal(code: string): boolean` — function, line 91
+- `export function clientIdFor(vaultKey: string, storage: Pick<Storage, "getItem" | "setItem"> | null, mint: ()` — function, line 107
+- `export class DeskOutbox` — class, line 120
 
 ## Internal implementation anchors
 
-- `function emptyBody(body: BatchBody): boolean` — function, line 22
-- `const PERMANENT_REFUSALS = new Set(["validation_error", "stale_sidecar_schema"])` — const, line 73
-- `function errorText(error: unknown): string` — function, line 79
-- `const key = `learnloop.desks.client.$` — const, line 92
-- `const stored = storage?.getItem(key)` — const, line 94
-- `const minted = mint()` — const, line 96
-- `const head = state.serverSeq.find((entry)` — const, line 116
-- `const pending = this.store.load()` — const, line 117
-- `const maxPending = pending.length ? pending[pending.length - 1].seq : 0` — const, line 118
-- `let seq = fromSeq` — let, line 136
-- `const body: BatchBody = Array.isArray(each) ?` — const, line 138
-- `const seq = this.nextSeq` — const, line 162
-- `const seq = this.nextSeq` — const, line 171
-- `let last: FlushOutcome =` — let, line 188
-- `let reply: DeskApplyDto | PadApplyDto` — let, line 192
-- `const message = errorText(error)` — const, line 201
-- `const code = error && typeof error === "object" && "code" in error ? String((error as` — const, line 202
-- `const rest = this.store.load().map((each): BatchBody` — const, line 211
+- `function emptyBody(body: BatchBody): boolean` — function, line 29
+- `const PERMANENT_REFUSALS = new Set(["validation_error", "stale_sidecar_schema"])` — const, line 89
+- `function errorText(error: unknown): string` — function, line 95
+- `const key = `learnloop.desks.client.$` — const, line 108
+- `const stored = storage?.getItem(key)` — const, line 110
+- `const minted = mint()` — const, line 112
+- `const head = state.serverSeq.find((entry)` — const, line 132
+- `const pending = this.store.load()` — const, line 133
+- `const maxPending = pending.length ? pending[pending.length - 1].seq : 0` — const, line 134
+- `let seq = fromSeq` — let, line 152
+- `const body: BatchBody = Array.isArray(each) ?` — const, line 154
+- `const seq = this.nextSeq` — const, line 178
+- `const seq = this.nextSeq` — const, line 186
+- `const seq = this.nextSeq` — const, line 194
+- `const seq = this.nextSeq` — const, line 203
+- `let last: FlushOutcome =` — let, line 220
+- `let reply: DeskApplyDto | PadApplyDto | InkSaveDto | InkEraseDto` — let, line 224
+- `const message = errorText(error)` — const, line 239
+- `const code = error && typeof error === "object" && "code" in error ? String((error as` — const, line 240
+- `const rest = this.store.load().map((each): BatchBody` — const, line 249
 
 ## Who imports or calls it
 
@@ -91,13 +95,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
 - [[Reference/Desktop/TypeScript/screens/desks/DeskShell|src/screens/desks/DeskShell.tsx]] — import-or-re-export: `OutboxTransport`, `clientIdFor`; references `OutboxTransport`, `clientIdFor`
-- [[Reference/Desktop/TypeScript/screens/desks/store|src/screens/desks/store.ts]] — import-or-re-export: `BatchBody`, `DeskOutbox`, `MemoryOutboxStore`, `OutboxTransport`; references `BatchBody`, `DeskOutbox`, `MemoryOutboxStore`, `OutboxTransport`
+- [[Reference/Desktop/TypeScript/screens/desks/pen/host|src/screens/desks/pen/host.ts]] — import-or-re-export: `InkEraseBody`, `InkSaveBody`; references `InkEraseBody`, `InkSaveBody`
+- [[Reference/Desktop/TypeScript/screens/desks/store|src/screens/desks/store.ts]] — import-or-re-export: `BatchBody`, `DeskOutbox`, `FlushOutcome`, `InkEraseBody`, `InkSaveBody`, `MemoryOutboxStore`, `OutboxTransport`; references `BatchBody`, `DeskOutbox`, `FlushOutcome`, `InkEraseBody`, `InkSaveBody`, `MemoryOutboxStore`, `OutboxTransport`
 
 ## Dependencies
 
 ### Desktop source modules
 
-- [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `DeskApplyDto`, `DeskApplyInput`, `DeskOpDto`, `DeskStateDto`, `PadApplyDto`, `PadApplyInput`, `PadOpDto`
+- [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `DeskApplyDto`, `DeskApplyInput`, `DeskOpDto`, `DeskStateDto`, `InkEraseDto`, `InkEraseInput`, `InkSaveDto`, `InkSaveInput`, `PadApplyDto`, `PadApplyInput`, `PadOpDto`
 
 ### Assets, platform, and third-party dependencies
 
@@ -111,6 +116,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 ## Tests that define behavior
 
+- [apps/learnloop-tauri/src/screens/desks/pen/inkOutbox.test.ts](../../../../../../../apps/learnloop-tauri/src/screens/desks/pen/inkOutbox.test.ts) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/desks/outbox.test.ts](../../../../../../../apps/learnloop-tauri/src/screens/desks/outbox.test.ts) — vitest test: imports and executes this module under jsdom (`npm test`).
 
 ## Modification guidance

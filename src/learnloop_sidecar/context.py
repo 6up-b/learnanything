@@ -128,6 +128,9 @@ class SidecarContext:
     # own (Reader cue discovery, library asks, reading-path judgments, intent
     # routings, hints, coverage). ``close`` cancels and joins them (bounded).
     background_jobs: BackgroundJobs = field(default_factory=BackgroundJobs, repr=False)
+    # The notebook runtime (sandboxed marimo servers and their frame proxies), made on the first notebook.open.
+    # A vault switch stops the previous vault's sessions and ``close`` stops them all (bounded).
+    notebook_runtime: Any = field(default=None, repr=False)
     # Adaptive difficulty AD1 (fix round 5, V1): bumped every time the loaded
     # vault object is replaced (a load, a reload, a re-read after recovery or
     # adoption). A background job's protection check reads it before and
@@ -207,8 +210,17 @@ class SidecarContext:
         self.secondary = False
         self.content_fingerprint = None
         if self.vault_root is not None and target != self.vault_root:
-            # A switch: the previous vault's map builds stop before anything of the new one opens.
+            # A switch interrupts the previous vault's polled jobs first (the companion's asks, searches by
+            # meaning): each sends no further request, ends interrupted, and its completion never touches the
+            # new vault's context. Other background jobs keep their own vault guards: a hint whose writer call
+            # is in flight still records it in its own vault.
+            from learnloop_sidecar.polled_jobs import interrupt_vault
+
+            interrupt_vault(self, self.vault_root)
+            # The previous vault's map builds stop before anything of the new one opens.
             self.map_builds.close()
+            # Its notebook servers too: nothing of one vault answers in another.
+            self._stop_notebooks(str(target))
             # followups-nov1c B: the previous vault's fold memo and its watcher go too.
             forget_fold_memo()
             # Plan-first transport T1 (review F4): "Use OpenRouter instead" was
@@ -555,10 +567,23 @@ class SidecarContext:
         self.post_attempt_worker.shutdown()
         self.close_background_builds()
         self._stop_carried_valuations()
+        self._stop_notebooks(None, closing=True)
         self.background_jobs.close()
         _forget_reading_choice()
         # followups-nov1c B: the canonical fold's memo and its database watcher.
         forget_fold_memo()
+
+    def _stop_notebooks(self, vault_key: str | None, *, closing: bool = False) -> None:
+        """Stop the notebook sessions of every vault but ``vault_key`` (all of them, and the runtime's thread, when
+        the context closes). Never raises: a switch or a close never fails on them."""
+
+        runtime = self.notebook_runtime
+        if runtime is None:
+            return
+        try:
+            runtime.close() if closing else runtime.switch_vault(vault_key)
+        except Exception:  # noqa: BLE001 - the sessions' own bounds stop them; said, never raised
+            _LOGGER.warning("notebook sessions did not stop cleanly", exc_info=True)
 
     def _stop_carried_valuations(self) -> None:
         """The router's deferred carried valuations of this vault (``objective_job.stop_carries``): stopped, taken off

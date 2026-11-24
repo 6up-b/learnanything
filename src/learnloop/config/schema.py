@@ -1469,6 +1469,16 @@ class AIRoutingConfig(BaseModel):
     # recommended for latency, reported, not enforced). A metered profile is held to workbench.max_daily_cost_usd at
     # workbench.price_per_million (unset: refused before sending).
     workbench_check: str | None = None
+    # Reader workbench v2: reading the learner's handwriting, one structured
+    # call with an image of an ink line's (or a handwritten margin note's)
+    # standing strokes and nothing else, when the learner asks for it. Empty =
+    # ai.active_provider (the ChatGPT plan); a route whose model cannot read
+    # images is refused before anything is sent; OpenRouter only on the
+    # learner's "Use OpenRouter instead". A metered route is held to
+    # workbench.max_daily_cost_usd at workbench.price_per_million (unset:
+    # refused before sending). Left out of a dump at its default, so
+    # whole-config hashes keep the bytes they had before the field existed.
+    ink_transcription: str | None = Field(default=None, exclude_if=lambda value: value is None)
     # Reader workbench: the cue judge, one listwise call per cue target (a verdict, a quote and the
     # instructional roles per passage), in the background when a source opens
     # (never on a request path). Empty = ai.active_provider (Codex by default,
@@ -4642,6 +4652,34 @@ class AdaptiveDifficultyConfig(KeepsRetiredFields):
         return [name for name in AD_OUTSIDE_FORECASTERS if name in chosen]
 
 
+class NotebooksConfig(BaseModel):
+    """The notebook runtime: one sandboxed marimo server per notebook session (a pad's cells or a lesson notebook).
+
+    Design values, changeable, each from the measurements in ``docs/reviews/notebook-na0.2.md``. No kill switch:
+    nothing starts a server until a notebook is opened.
+
+    ``memory_max_mib``: one session's memory cap (its scope's ``MemoryMax``). An idle session of the synthetic
+    notebook held 125-137 MB with peaks of 138-153 MB; 2048 MiB is about thirteen times that peak, room for the
+    computation a teaching notebook does, and half a figure render's 4 GiB cap because several sessions run at once.
+    A cell's child that passes it is killed while the session keeps serving.
+
+    ``idle_minutes``: a session with no frame attached for this long is stopped. Resuming costs about a second
+    (server start 0.37-0.42 s, warm frame reload 0.5-0.6 s, UI values replayed), so a short wait costs little.
+
+    ``max_sessions``: sessions running at once; opening another first stops the least recently used one with no
+    frame attached, else it is refused until one closes. Six idle sessions hold about 0.8 GB.
+
+    ``scratch_mib``: the size-capped tmpfs that is a session's home and working directory (charged to its memory).
+    A session wrote kilobytes there (marimo's config, locks and state); a 64 MiB write was not stopped before the
+    cap existed.
+    """
+
+    memory_max_mib: int = Field(default=2048, ge=256)
+    idle_minutes: int = Field(default=10, ge=1)
+    max_sessions: int = Field(default=6, ge=1)
+    scratch_mib: int = Field(default=256, ge=16)
+
+
 class LearnLoopConfig(KeepsRetiredFields):
     model_config = ConfigDict(extra="allow")
 
@@ -4722,6 +4760,11 @@ class LearnLoopConfig(KeepsRetiredFields):
     ui: UiConfig = Field(default_factory=UiConfig)
     teacher: TeacherConfig = Field(default_factory=TeacherConfig)
     ask: AskConfig = Field(default_factory=AskConfig)
+    # Left out of a dump at its default: whole-config hashes compared later (identity_dump, a decision state's or a
+    # report's config hash) keep the bytes they had before the section existed; a vault that sets a value is dumped
+    # with the whole section, so those hashes then name the setting.
+    notebooks: NotebooksConfig = Field(default_factory=NotebooksConfig,
+                                       exclude_if=lambda value: value == NotebooksConfig())
 
     @model_validator(mode="before")
     @classmethod

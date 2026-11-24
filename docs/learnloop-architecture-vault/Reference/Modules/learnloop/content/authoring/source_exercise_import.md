@@ -168,7 +168,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `PRICE_SETTING`, `module`; statically calls `import_source_exercise`, `record_reader_import`, `verify_item_key`
+- [[Reference/Modules/learnloop/content/authoring/jobs|learnloop.content.authoring.jobs]] — imports `PRICE_SETTING`, `module`; statically calls `import_source_exercise`, `record_reader_import`, `verify_item_key`
 - [[Reference/Modules/learnloop/instructional/harvest|learnloop.instructional.harvest]] — imports `import_source_exercise`, `plan_import_cost`, `verify_item_key`; statically calls `import_source_exercise`, `plan_import_cost`, `verify_item_key`
 - [[Reference/Modules/learnloop/instructional/needs|learnloop.instructional.needs]] — imports `import_source_exercise`; statically calls `import_source_exercise`
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `CHECK_LEASE_SECONDS`, `pending_import_checks`, `recover_import_checks`; statically calls `pending_import_checks`, `recover_import_checks`
@@ -228,7 +228,7 @@ Use this module in context through:
 - [[Import Canonical Sources]]
 - [[Build a Study Map]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]], [[Reference/Modules/learnloop/instructional/harvest|learnloop.instructional.harvest]], [[Reference/Modules/learnloop/instructional/needs|learnloop.instructional.needs]], [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]], [[Reference/Modules/learnloop_sidecar/handlers/item_authoring|learnloop_sidecar.handlers.item_authoring]] and 2 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/content/authoring/jobs|learnloop.content.authoring.jobs]], [[Reference/Modules/learnloop/instructional/harvest|learnloop.instructional.harvest]], [[Reference/Modules/learnloop/instructional/needs|learnloop.instructional.needs]], [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]], [[Reference/Modules/learnloop_sidecar/handlers/item_authoring|learnloop_sidecar.handlers.item_authoring]] and 2 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

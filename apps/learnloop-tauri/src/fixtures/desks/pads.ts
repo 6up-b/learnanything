@@ -85,3 +85,55 @@ export function fixtureMathPad(): PadViewDto {
   ];
   return { version: 1, pad: { padId: "fx_pad_math", kind: "running", title: "math", kept: false, homeDeskId: "fx_desk_softmax", workbenchSessionId: null, lessonId: null, version: 1, createdAt: T2, updatedAt: T2 }, blocks, anchors: [] };
 }
+
+// ── a handwritten pad (pen and ink, RD8a): three ink lines with synthetic strokes (project-made curves, no one's
+// handwriting); the first read by LearnLoop, the second corrected by the learner, the third not read yet.
+export const FIXTURE_INK_PAD = "fx_pad_hand";
+
+/** A synthetic line of "writing": short wavy strokes along a 52 px rule, `words` of them. */
+function inkStrokes(line: string, words: number): Array<{ strokeId: string; inkId: string; points: Array<[number, number, number, number, number, number]> }> {
+  return Array.from({ length: words }, (_unused, w) => {
+    const points: Array<[number, number, number, number, number, number]> = [];
+    for (let i = 0; i <= 14; i += 1) {
+      const x = 12 + w * 64 + i * 3.6;
+      const y = 30 + Math.sin(i * 0.9 + w) * 9 + (i % 5 === 0 ? -4 : 0);
+      points.push([Math.round(x * 10) / 10, Math.round(y * 10) / 10, i * 8, 0.5, 0, 0]);
+    }
+    return { strokeId: `${line}_s${w}`, inkId: `${line}_ink`, points };
+  });
+}
+
+export function fixtureInkPad(): PadViewDto {
+  const at = (n: number) => String.fromCharCode(97 + n);
+  const reading = (id: string, hash: string) => ({ ink_transcription: { transcription_id: id, content_hash: hash, confidence_label: "may_be_wrong" } });
+  const blocks: PadBlockDto[] = [
+    block({ blockId: "fx_b_h1", kind: "ink", provenance: "ink_transcription", positionKey: at(0), bodyMd: "$L = -\\ln p_y$", payload: reading("fx_it_1", "fx_h1"), createdAt: T2, updatedAt: T2 }),
+    block({ blockId: "fx_b_h2", kind: "ink", provenance: "learner_correction", positionKey: at(1), bodyMd: "$\\partial L / \\partial z_k = p_k - [k = y]$", payload: reading("fx_it_2", "fx_h2"), createdAt: T2, updatedAt: T2 }),
+    block({ blockId: "fx_b_h3", kind: "ink", provenance: "ink_transcription", positionKey: at(2), bodyMd: "", createdAt: T2, updatedAt: T2 }),
+  ];
+  return { version: 1, pad: { padId: FIXTURE_INK_PAD, kind: "ink", title: "Scratchpad · ✎ by hand", kept: false, homeDeskId: "fx_desk_softmax", workbenchSessionId: null, lessonId: null, version: 1, createdAt: T2, updatedAt: T2 }, blocks, anchors: [] };
+}
+
+/** `ink.list` for the handwritten pad: each line's strokes, its hash and its reading. */
+export function fixtureInkOwners(): import("../../api/dto").InkOwnerViewDto[] {
+  const owner = (blockId: string, hash: string, words: number, transcription: { id: string; latexMd: string } | null) => ({
+    ownerKind: "block" as const, ownerId: blockId, contentHash: hash, devicePixelRatio: 1, strokes: inkStrokes(blockId, words),
+    transcription: transcription ? { transcriptionId: transcription.id, latexMd: transcription.latexMd, confidenceLabel: "may_be_wrong" as const, contentHash: hash, current: true, createdAt: T2, applied: true, reason: null } : null,
+  });
+  return [
+    owner("fx_b_h1", "fx_h1", 4, { id: "fx_it_1", latexMd: "$L = -\\ln p_y$" }),
+    owner("fx_b_h2", "fx_h2", 6, { id: "fx_it_2", latexMd: "$\\partial L / \\partial z_k = p_k + [k = y]$" }),
+    owner("fx_b_h3", "fx_h3", 3, null),
+  ];
+}
+
+/** The notebook harness's pad (`?padcells=1`): a line of the learner's, then the cells the harness script names
+ * (it runs the same cells in a real sandboxed session), in order. */
+export function fixtureCellsPad(cells: Array<{ blockId: string; code: string; provenance?: PadBlockDto["provenance"] }>): PadViewDto {
+  const at = (n: number) => String.fromCharCode(98 + n);
+  const blocks: PadBlockDto[] = [
+    block({ blockId: "fx_c_text", kind: "text", provenance: "learner", positionKey: "a", day: "2026-11-23", bodyMd: "softmax at a temperature, as cells I can run" }),
+    ...cells.map((cell, index) => block({ blockId: cell.blockId, kind: "cell", provenance: cell.provenance ?? "learner", positionKey: at(index), day: "2026-11-23", bodyMd: cell.code })),
+  ];
+  return { version: 1, pad: { padId: "fx_pad_cells", kind: "named", title: "marimo cells", kept: false, homeDeskId: "fx_desk_softmax", workbenchSessionId: null, lessonId: null, version: 1, createdAt: T2, updatedAt: T2 }, blocks, anchors: [] };
+}

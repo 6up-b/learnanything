@@ -20,7 +20,7 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/db/stores/content.py"
   - "src/learnloop/content/authoring/item_authoring.py"
-  - "src/learnloop/content/pipeline/jobs.py"
+  - "src/learnloop/content/authoring/jobs.py"
   - "src/learnloop/content/pipeline/runner.py"
   - "src/learnloop/content/proposals/proposals.py"
   - "src/learnloop/diagnosis/probe_remint.py"
@@ -89,7 +89,7 @@ Indexes and uniqueness:
 ### Upstream callers of the repository access surface
 
 - `src/learnloop/content/authoring/item_authoring.py`
-- `src/learnloop/content/pipeline/jobs.py`
+- `src/learnloop/content/authoring/jobs.py`
 - `src/learnloop/content/pipeline/runner.py`
 - `src/learnloop/content/proposals/proposals.py`
 - `src/learnloop/diagnosis/probe_remint.py`
@@ -129,6 +129,7 @@ Indexes and uniqueness:
 - `tests/test_mobile_two_process.py`
 - `tests/test_mobile_v2_plan.py`
 - `tests/test_question_promotion_jobs.py`
+- `tests/test_queue_revision_after_applying_jobs.py`
 - `tests/test_vault_watcher_refresh.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

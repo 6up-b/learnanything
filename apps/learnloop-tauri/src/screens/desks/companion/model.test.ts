@@ -38,6 +38,23 @@ describe("anchored summon", () => {
   it("is 360 wide on a stage under 1240 px", () => {
     expect(anchoredRect({ x: 10, y: 10, w: 10, h: 10 }, { width: 1100, height: 700 }).w).toBe(360);
   });
+
+  it("goes by the window's width when it is known: 400 wide in a 1440 px window, whose stage is 1204 px", () => {
+    expect(anchoredRect({ x: 10, y: 10, w: 10, h: 10 }, { width: 1204, height: 836, viewport: 1440 }).w).toBe(400);
+    expect(anchoredRect({ x: 10, y: 10, w: 10, h: 10 }, { width: 1192, height: 700, viewport: 1236 }).w).toBe(360);
+  });
+});
+
+describe("docks on the laptop (below a 1400 px window)", () => {
+  it("are at most 330 wide and half the stage high, as the mockup's", () => {
+    const laptop = { width: 1236, height: 736, viewport: 1280 };
+    expect(dockRect("br", laptop)).toEqual({ x: 1236 - 330 - 14, y: 736 - 368 - 14, w: 330, h: 368 });
+    expect(dockRect("right", laptop)).toEqual({ x: 1236 - 330 - 14, y: 14, w: 330, h: 368 });
+  });
+
+  it("are unchanged in a wider window", () => {
+    expect(dockRect("br", { width: 1204, height: 836, viewport: 1440 })).toEqual(dockRect("br", { width: 1204, height: 836 }));
+  });
 });
 
 describe("avoid", () => {

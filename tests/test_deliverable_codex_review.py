@@ -255,7 +255,7 @@ def test_f6_a_lifted_coverage_admission_refusal_starts_the_coverage_again(tmp_pa
     work = handler._work(ctx)
     with work.lock:  # as a capped coverage run leaves it (the cap since lifted)
         work.covering[goal_id] = {"state": "failed", "reason": "capped", "message": "capped"}
-        work.attempted[goal_id] = {("lo_eigen", DP.coverage_key(load_vault(paths.root), "lo_eigen"))}
+        work.attempted[goal_id] = {("lo_eigen", DP.attempt_keys(load_vault(paths.root), repository, ["lo_eigen"])["lo_eigen"])}
     view = call(ctx, "curriculum.set_depth", {"goal_id": goal_id, "depth": "learn_to_use_it"})
     assert view["status"] == "ready" and view["lines"]
 

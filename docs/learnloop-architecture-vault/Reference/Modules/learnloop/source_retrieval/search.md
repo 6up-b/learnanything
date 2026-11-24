@@ -103,6 +103,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/content/authoring/source_exercise_import|learnloop.content.authoring.source_exercise_import]] — imports `POOL_HYBRID_RRF`, `search_spans`; statically calls `search_spans`
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/system_arms|learnloop.experiments.contextual_embeddings.system_arms]] — imports `search_spans`; statically calls `search_spans`
 - [[Reference/Modules/learnloop/instructional/exercises|learnloop.instructional.exercises]] — imports `POOL_HYBRID_RRF`, `SpanSearch`, `search_spans`; statically calls `search_spans`
+- [[Reference/Modules/learnloop/passage_union/elsewhere|learnloop.passage_union.elsewhere]] — imports `search_spans`; statically calls `search_spans`
 - [[Reference/Modules/learnloop/source_retrieval/compare|learnloop.source_retrieval.compare]] — imports `SpanHit`, `search_spans`; statically calls `SpanHit`, `search_spans`
 - [[Reference/Modules/learnloop/source_retrieval/evaluation|learnloop.source_retrieval.evaluation]] — imports `POOL_DENSE_PLUS_BM25`, `POOL_HYBRID_RRF`, `SpanHit`, `search_spans`; statically calls `search_spans`
 - [[Reference/Modules/learnloop/source_retrieval/find_sources|learnloop.source_retrieval.find_sources]] — imports `POOL_HYBRID_RRF`, `SpanHit`, `SpanKey`, `role_filter`, `search_spans`; statically calls `role_filter`, `search_spans`
@@ -143,7 +144,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/content/authoring/source_exercise_import|learnloop.content.authoring.source_exercise_import]], [[Reference/Modules/learnloop/experiments/contextual_embeddings/system_arms|learnloop.experiments.contextual_embeddings.system_arms]], [[Reference/Modules/learnloop/instructional/exercises|learnloop.instructional.exercises]], [[Reference/Modules/learnloop/source_retrieval/compare|learnloop.source_retrieval.compare]], [[Reference/Modules/learnloop/source_retrieval/evaluation|learnloop.source_retrieval.evaluation]] and 6 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/content/authoring/source_exercise_import|learnloop.content.authoring.source_exercise_import]], [[Reference/Modules/learnloop/experiments/contextual_embeddings/system_arms|learnloop.experiments.contextual_embeddings.system_arms]], [[Reference/Modules/learnloop/instructional/exercises|learnloop.instructional.exercises]], [[Reference/Modules/learnloop/passage_union/elsewhere|learnloop.passage_union.elsewhere]], [[Reference/Modules/learnloop/source_retrieval/compare|learnloop.source_retrieval.compare]] and 7 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -151,6 +152,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_exercise_arm.py](../../../../../../tests/test_exercise_arm.py) — direct import
   - `test_the_positive_role_filter_keeps_only_effective_exercise_blocks`
+- [tests/test_menu_elsewhere_and_proposals.py](../../../../../../tests/test_menu_elsewhere_and_proposals.py) — direct import
+  - `test_search_findings_are_the_judges_picks_checked_or_every_hit_unchecked_without_a_judgment`
+- [tests/test_menu_protected_material.py](../../../../../../tests/test_menu_protected_material.py) — direct import
 - [tests/test_query_student.py](../../../../../../tests/test_query_student.py) — direct import
 - [tests/test_reader_ca4_table_by_point.py](../../../../../../tests/test_reader_ca4_table_by_point.py) — direct import
 - [tests/test_reader_rw1c_review.py](../../../../../../tests/test_reader_rw1c_review.py) — direct import

@@ -40,9 +40,15 @@ function stateFor(scope: DeskScope): ScopeState {
 
 describe("the resolved scope and precedence matrix", () => {
   it("lists the scopes highest first, with the reading view always open beneath", () => {
-    expect(SCOPE_ORDER).toEqual(["notebook", "check", "menu", "typing", "arrange", "pen", "overview", "focus", "reading"]);
+    expect(SCOPE_ORDER).toEqual(["notebook", "check", "menu", "typing", "arrange", "strip", "pen", "overview", "focus", "reading"]);
     expect(openScopes({})).toEqual(["reading"]);
     expect(openScopes({ typing: true, focus: true })).toEqual(["typing", "focus", "reading"]);
+  });
+
+  it("the laptop's open strip takes esc to hide itself and passes every other key on", () => {
+    expect(resolveKey(key({ key: "Escape", code: "Escape" }), { strip: true }, { alt: false, ctrl: false })?.binding.id).toBe("strip.close");
+    expect(resolveKey(key({ code: "KeyL", altKey: true }), { strip: true }, { alt: true, ctrl: false })?.binding.id).toBe("move.right");
+    expect(resolveKey(key({ key: "Escape", code: "Escape" }), {}, { alt: false, ctrl: false })).toBeNull();
   });
 
   it("gives every chord one binding per scope: no two bindings of a scope share a chord", () => {
@@ -138,9 +144,10 @@ describe("the resolved scope and precedence matrix", () => {
     expect(later.filter((entry) => entry.endsWith(":RD3"))).toEqual([]);
     // RD4 built the pads: new pad, arrange, sketch, the pad tabs, the drain and the menu on a pad line.
     expect(later.filter((entry) => entry.endsWith(":RD4"))).toEqual([]);
-    expect(later).toContain("alt+;:RD10");
+    // RD10 built follow-along's u and the timestamp's alt+;.
+    expect(later.filter((entry) => entry.endsWith(":RD10"))).toEqual([]);
     const built = DESK_BINDINGS.filter((binding) => !binding.later).map((binding) => binding.keys);
-    expect(built).toEqual(expect.arrayContaining(["alt+h", "alt+l", "alt+j", "alt+k", "alt+[", "alt+]", "alt+↵", "alt+w", "alt+,", "alt+.", "space", "x", "=", "-", "0", "esc", "alt+o", "o", "alt+g", "alt+shift+g", "alt+shift+j", "alt+shift+k", "b", "g (hold)", "↵", "c", "shift+c", "alt+c", "/", "alt+n", "alt+a", "alt+d", "alt+shift+q", "."]));
+    expect(built).toEqual(expect.arrayContaining(["alt+h", "alt+l", "alt+j", "alt+k", "alt+[", "alt+]", "alt+↵", "alt+w", "alt+,", "alt+.", "space", "x", "=", "-", "0", "esc", "alt+o", "o", "alt+g", "alt+shift+g", "alt+shift+j", "alt+shift+k", "b", "g (hold)", "↵", "c", "shift+c", "alt+c", "/", "alt+n", "alt+a", "alt+d", "alt+shift+q", ".", "u", "alt+;"]));
   });
 
   it("the overview owns its navigation keys and passes the reading view's keys nowhere", () => {
@@ -279,6 +286,21 @@ describe("the companion's and search's keys (RD3)", () => {
     expect(resolveKey(key("c", "KeyC"), { focus: true }, mods)?.binding.action).toEqual({ kind: "companion", atDock: false });
     expect(resolveKey(key("/", "Slash"), { focus: true }, mods)?.binding.action).toEqual({ kind: "search" });
     expect(resolveKey(key("c", "KeyC"), { overview: true }, mods)).toBeNull();
+  });
+
+  it("a typing scope a window claims with the focus still on the page (the Reader's intent box over a selection) lets c, shift+c and / through; real typing keeps them", () => {
+    const claimed: ScopeState = { typingClaim: true };
+    expect(resolveKey(key("c", "KeyC"), claimed, mods)?.binding.action).toEqual({ kind: "companion", atDock: false });
+    expect(resolveKey(key("C", "KeyC", { shiftKey: true }), claimed, mods)?.binding.action).toEqual({ kind: "companion", atDock: true });
+    expect(resolveKey(key("/", "Slash"), claimed, mods)?.binding.action).toEqual({ kind: "search" });
+    // Every other bare key stays the claim's (x would swap, o would zoom out).
+    expect(resolveKey(key("x", "KeyX"), claimed, mods)).toBeNull();
+    expect(resolveKey(key("o", "KeyO"), claimed, mods)).toBeNull();
+    // The DOM focus in an editor: typing, whatever is claimed.
+    expect(resolveKey(key("c", "KeyC"), { typing: true, typingClaim: true }, mods)).toBeNull();
+    expect(resolveKey(key("/", "Slash"), { typing: true, typingClaim: true }, mods)).toBeNull();
+    // An open menu still takes them.
+    expect(resolveKey(key("c", "KeyC"), { typingClaim: true, menu: true }, mods)).toBeNull();
   });
 
   it("alt+c is no shell chord, and c is no shell letter (no collision with keymap.ts)", () => {

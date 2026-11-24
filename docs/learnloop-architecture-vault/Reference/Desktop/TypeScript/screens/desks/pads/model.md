@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/pads/model.ts](../../../../../../../../apps/learnloop-tauri/src/screens/desks/pads/model.ts) |
-| Source lines | 227 |
+| Source lines | 286 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/pads/_area|TypeScript/screens/desks/pads]] |
 | Refactor status | `ACTIVE` |
@@ -62,12 +62,13 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export function fromPadView(view: PadViewDto): PadState` — function, line 31
 - `export function keyBetween(a: string | null, b: string | null): string` — function, line 46
 - `export function keyAfter(blocks: PadBlockDto[], after: string | null): string` — function, line 70
-- `export function applyPadOp(pads: Pads, padId: string, op: PadOpDto, now: string): Pads` — function, line 102
-- `export function anchorHead(state: PadState, blockId: string, extractionId: string, spanId: string): string | null` — function, line 183
-- `export function restampPadOp(pads: Pads, padId: string, op: PadOpDto, now: string):` — function, line 191
-- `export function isLearnersWords(block: PadBlockDto): boolean` — function, line 212
-- `export function firstLine(text: string): string` — function, line 219
-- `export function plainLine(text: string): string` — function, line 225
+- `export function applyPadOp(pads: Pads, padId: string, op: PadOpDto, now: string): Pads` — function, line 123
+- `export function anchorHead(state: PadState, blockId: string, extractionId: string, spanId: string): string | null` — function, line 222
+- `export type KeptBothRedirects = Map<string,` — type, line 232
+- `export function restampPadOp(pads: Pads, padId: string, op: PadOpDto, now: string, redirects?: KeptBothRedirects):` — function, line 237
+- `export function isLearnersWords(block: PadBlockDto): boolean` — function, line 271
+- `export function firstLine(text: string): string` — function, line 278
+- `export function plainLine(text: string): string` — function, line 284
 
 ## Internal implementation anchors
 
@@ -86,23 +87,33 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `function requireHead(state: PadState, blockId: string, expected: string): PadBlockDto` — function, line 90
 - `const block = state.blocks.find((each)` — const, line 91
 - `function withBlock(state: PadState, block: PadBlockDto): PadState` — function, line 97
-- `const state = requirePad(pads, padId)` — const, line 111
-- `const pad =` — const, line 117
-- `const block: PadBlockDto =` — const, line 124
-- `const head = requireHead(state, op.blockId, op.expectedHead)` — const, line 131
-- `const next: PadBlockDto =` — const, line 133
-- `const head = requireHead(state, op.blockId, op.expectedHead)` — const, line 148
-- `const head = requireHead(state, op.blockId, op.expectedHead)` — const, line 152
-- `const lifted: PadBlockDto =` — const, line 154
-- `const stub: PadBlockDto =` — const, line 155
-- `const created: PadState =` — const, line 159
-- `const current = anchorHead(state, op.blockId, op.extractionId, op.spanId)` — const, line 169
-- `const others = state.anchors.filter((anchor)` — const, line 171
-- `const anchor: PadAnchorDto =` — const, line 176
-- `const found = state.anchors.filter((anchor)` — const, line 184
-- `const state = pads[padId]` — const, line 192
-- `let stamped: PadOpDto = op` — let, line 193
-- `const head = state.blocks.find((block)` — const, line 197
+- `function keepBoth(pads: Pads, padId: string, state: PadState, op: Extract<PadOpDto,` — function, line 101
+- `const keep = op.keepBoth as NonNullable<typeof op.keepBoth>` — const, line 102
+- `const kind = head?.kind ?? "text"` — const, line 104
+- `const kept: PadBlockDto =` — const, line 106
+- `const state = requirePad(pads, padId)` — const, line 132
+- `const pad =` — const, line 138
+- `const block: PadBlockDto =` — const, line 145
+- `const current = state.blocks.find((block)` — const, line 152
+- `const head = requireHead(state, op.blockId, op.expectedHead)` — const, line 156
+- `const next: PadBlockDto =` — const, line 158
+- `const head = requireHead(state, op.blockId, op.expectedHead)` — const, line 173
+- `const head = requireHead(state, op.blockId, op.expectedHead)` — const, line 177
+- `const lifted: PadBlockDto =` — const, line 179
+- `const stub: PadBlockDto =` — const, line 180
+- `const created: PadState =` — const, line 184
+- `const current = anchorHead(state, op.blockId, op.extractionId, op.spanId)` — const, line 194
+- `const others = state.anchors.filter((anchor)` — const, line 196
+- `const anchor: PadAnchorDto =` — const, line 201
+- `const block = state.blocks.find((each)` — const, line 206
+- `const next: PadBlockDto =` — const, line 212
+- `const found = state.anchors.filter((anchor)` — const, line 223
+- `const state = pads[padId]` — const, line 238
+- `let stamped: PadOpDto = op` — let, line 239
+- `const moved = redirects?.get(op.expectedHead)` — const, line 243
+- `const target = stamped as Extract<PadOpDto,` — const, line 246
+- `const head = state.blocks.find((block)` — const, line 247
+- `const head = state.blocks.find((block)` — const, line 256
 
 ## Who imports or calls it
 
@@ -113,7 +124,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/screens/desks/DeskShell|src/screens/desks/DeskShell.tsx]] — import-or-re-export: `keyAfter`; references `keyAfter`
 - [[Reference/Desktop/TypeScript/screens/desks/pads/PadOverlays|src/screens/desks/pads/PadOverlays.tsx]] — import-or-re-export: `PadState`, `isLearnersWords`; references `PadState`, `isLearnersWords`
 - [[Reference/Desktop/TypeScript/screens/desks/pads/PadStackWindow|src/screens/desks/pads/PadStackWindow.tsx]] — import-or-re-export: `EDITABLE_KINDS`, `PadState`, `firstLine`, `isLearnersWords`, `keyAfter`, `plainLine`; references `EDITABLE_KINDS`, `PadState`, `firstLine`, `isLearnersWords`, `keyAfter`, `plainLine`
-- [[Reference/Desktop/TypeScript/screens/desks/store|src/screens/desks/store.ts]] — import-or-re-export: `PadOpRefusal`, `Pads`, `applyPadOp`, `fromPadView`, `restampPadOp`; references `PadOpRefusal`, `Pads`, `applyPadOp`, `fromPadView`, `restampPadOp`
+- [[Reference/Desktop/TypeScript/screens/desks/store|src/screens/desks/store.ts]] — import-or-re-export: `KeptBothRedirects`, `PadOpRefusal`, `Pads`, `applyPadOp`, `fromPadView`, `restampPadOp`; references `KeptBothRedirects`, `PadOpRefusal`, `Pads`, `applyPadOp`, `fromPadView`, `restampPadOp`
 
 ## Dependencies
 

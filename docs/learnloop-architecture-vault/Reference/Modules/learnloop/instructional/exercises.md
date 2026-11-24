@@ -152,6 +152,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_r2_contract_no_workbench_or_reader_exercise_rpc_returns_a_held_out_statement`
   - `test_r2_the_shared_reader_lives_where_s1_and_the_reader_import_it`
   - `test_r4_verify_f7_an_exercise_held_out_after_its_card_was_shown_is_never_read_or_opened`
+- [tests/test_queue_revision_after_applying_jobs.py](../../../../../../tests/test_queue_revision_after_applying_jobs.py) — direct import
+  - `test_a_picked_source_exercise_written_as_practice_moves_the_revision`
 - [tests/test_retrieval_interventions_write_points.py](../../../../../../tests/test_retrieval_interventions_write_points.py) — direct import
   - `test_an_exercise_pick_and_a_need_served_are_source_exercise_rows`
 - [tests/test_source_exercise_rpcs.py](../../../../../../tests/test_source_exercise_rpcs.py) — direct import

@@ -23,7 +23,8 @@ const HISTORY: CompanionHistoryDto = {
 };
 
 function exchange(over: Partial<CompanionExchange>): CompanionExchange {
-  return { requestId: "r1", deskId: "d1", windowId: "w1", question: "why?", quote: null, extractionId: "ext", spanId: "s1", status: "asking", jobStatus: "running", streamedPieces: 0, answer: null, error: null, kept: false, askedAt: 0, ...over };
+  return { requestId: "r1", deskId: "d1", windowId: "w1", question: "why?", quote: null, extractionId: "ext", spanId: "s1", status: "asking", jobStatus: "running", streamedPieces: 0, answer: null, error: null, kept: false, stopping: false, sent: false, askedAt: 0,
+    request: { surface: "desk", deskId: "d1", extractionId: "ext", spanId: "s1", question: "why?", parentExchangeId: null }, ...over };
 }
 
 function props(over: Partial<CompanionProps> = {}): CompanionProps {
@@ -86,10 +87,13 @@ describe("the thread's states", () => {
     expect(screen.getByText(/ask from a passage/)).toBeTruthy();
   });
 
-  it("the context line follows the focused window and says when the goal is in context", () => {
+  it("the context line follows the focused window and says the goal is in view, never that the tutor answers with it", () => {
     render(<Companion {...props()} />);
     expect(screen.getByText("following § A book")).toBeTruthy();
-    expect(screen.getByText("◎ goal in context")).toBeTruthy();
+    // The tutor's prompt does not receive the goal (the desk context is recorded, not sent): the badge claims no more.
+    const badge = screen.getByText("◎ goal in view");
+    expect(badge.getAttribute("title")).toBe("your goal's lens is on this desk; the tutor's answers don't take it into account yet");
+    expect(document.body.textContent).not.toContain("goal in context");
   });
 });
 
@@ -143,5 +147,71 @@ describe("a thread window's exchanges", () => {
     ];
     expect(threadExchanges(all, "b").map((exchange) => exchange.eventId)).toEqual(["a", "b", "d"]);
     expect(threadExchanges(all, "c").map((exchange) => exchange.eventId)).toEqual(["c"]);
+  });
+});
+
+describe("the fix round (RD3 review)", () => {
+  it("a stop not yet resolved says stopping, with no stop button and no claim about what was sent", () => {
+    render(<Companion {...props({ thread: [exchange({ requestId: "a", status: "asking", stopping: true, sent: true })] })} />);
+    expect(screen.getByText(/stopping/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "stop" })).toBeNull();
+    expect(screen.queryByText(/Nothing was sent/)).toBeNull();
+  });
+
+  it("a stopped question says whether it was sent from whether it reached the tutor, never from kept", () => {
+    render(<Companion {...props({ thread: [
+      exchange({ requestId: "a", status: "cancelled", kept: false, sent: true }),
+      exchange({ requestId: "b", status: "cancelled", kept: false, sent: false }),
+      exchange({ requestId: "c", status: "cancelled", kept: true, sent: true }),
+    ] })} />);
+    expect(screen.getByText(/was sent before it stopped/)).toBeTruthy();
+    expect(screen.getByText(/Stopped before it was sent/)).toBeTruthy();
+    expect(screen.getByText(/kept in your history/)).toBeTruthy();
+    expect(screen.queryByText("Nothing was sent.")).toBeNull();
+  });
+
+  it("a question waiting for the desk's writes shows as waiting", () => {
+    render(<Companion {...props({ thread: [exchange({ requestId: "a", status: "waiting" })] })} />);
+    const waiting = document.querySelector('[data-exchange-status="waiting"]');
+    expect(waiting?.textContent).toMatch(/saving your desk first/);
+  });
+
+  it("history pages through the cursor: older exchanges append, keeping days and desks", async () => {
+    const pages: Array<string | undefined> = [];
+    const loadHistory = vi.fn(async (_query: string, cursor?: string) => {
+      pages.push(cursor);
+      if (!cursor) return { ...HISTORY, days: [HISTORY.days[0]], cursor: "c1" };
+      return { ...HISTORY, days: [HISTORY.days[1]], cursor: null };
+    });
+    render(<Companion {...props({ loadHistory })} />);
+    fireEvent.click(screen.getByRole("tab", { name: "history" }));
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    });
+    expect(screen.queryByText("› an old question")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /older exchanges/ }));
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    });
+    expect(screen.getByText("› why the exponential?")).toBeTruthy();
+    expect(screen.getByText("› an old question")).toBeTruthy();
+    expect(pages.filter((page) => page === "c1")).toHaveLength(1);
+    expect(screen.queryByRole("button", { name: /older exchanges/ })).toBeNull();
+  });
+
+  it("in the overview the panel is inert and the focus leaves it; back from the overview the focus returns", () => {
+    const p = props({ state: { mode: "docked", origin: "drawer", anchored: null, last: "none" } });
+    const { rerender } = render(<Companion {...p} />);
+    const input = screen.getByLabelText("ask about this") as HTMLInputElement;
+    input.focus();
+    expect(document.activeElement).toBe(input);
+    rerender(<Companion {...p} overview />);
+    const panel = document.querySelector("[data-desk-companion]") as HTMLElement;
+    expect(panel.hasAttribute("inert")).toBe(true);
+    expect(panel.getAttribute("aria-hidden")).toBe("true");
+    expect(panel.contains(document.activeElement)).toBe(false);
+    rerender(<Companion {...p} overview={false} />);
+    expect(panel.hasAttribute("inert")).toBe(false);
+    expect(document.activeElement).toBe(input);
   });
 });

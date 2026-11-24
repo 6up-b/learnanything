@@ -1,9 +1,13 @@
-// The pad's overlays: the pad menu (spec §9.2, all rows but marimo's, which says it arrives with notebooks),
+// The pad's overlays: the pad menu (spec §9.2, its marimo row inserting a cell run in the pad's notebook),
 // the arrange overlay (§10.2), and the sheets for submitting a block (§10.9) and making a line into practice.
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { PadBlockDto, PadBlockKind, PadProvenance } from "../../../api/dto";
+import type { MenuObjectInput } from "../../../api/dto";
 import { screenLeavesKey } from "../../../app/keymap";
 import { useListenerHub, useWindowLifecycle } from "../lifecycle";
+import { ContextMenu, useSheetFocus } from "../menu/ContextMenu";
+import { MARIMO_CELL_INSERT, MARIMO_CELL_ROW } from "../notebook/menuBridge";
+import type { MenuRow } from "../menu/model";
 import type { PadsHost } from "./host";
 import { isLearnersWords, type PadState } from "./model";
 
@@ -13,6 +17,12 @@ export interface MenuRequest {
   text: string;
   x: number;
   y: number;
+  /** Opened from a notebook frame (spec §11.3): the header's label ("the lesson", "your pad") and the insert row's
+   * words; the text is the frame's selection, untrusted notebook text (only ever shown quoted, as text). */
+  label?: string;
+  insertLabel?: string;
+  /** A notebook lesson's menu: its inserts go to the lesson's additions pad, never into the notebook. */
+  lessonId?: string | null;
 }
 
 type InsertBlock = { kind: PadBlockKind; provenance: PadProvenance; bodyMd?: string; payload?: Record<string, unknown> };
@@ -24,6 +34,28 @@ interface Row {
   note?: string;
   disabled?: boolean;
   run?: () => void;
+}
+
+/** A source piece: the passage's own words as the source has them (whole, not a search label or the page's
+ * rendered text), its title, page, section and time apart. A held-out passage is not copied, and says so. */
+async function insertPiece(host: PadsHost, onInsert: (block: InsertBlock) => void, extractionId: string, spanId: string): Promise<void> {
+  try {
+    const content = await host.api.passageContent({ extractionId, fromSpanId: spanId, toSpanId: spanId });
+    const span = content.spans.find((each) => each.spanId === spanId) ?? content.spans[0];
+    if (content.withheld || !span || span.withheld || span.text === null) {
+      host.toast("this passage is held out (exam material): it is not copied into a pad");
+      return;
+    }
+    onInsert({
+      kind: "source_piece", provenance: "source", bodyMd: span.text,
+      payload: {
+        source_id: content.sourceId, source_title: content.title ?? "the source", extraction_id: extractionId, span_id: span.spanId,
+        page: span.page, section_label: span.sectionLabel, ...(span.t0 !== null ? { t: span.t0, t_end: span.t1 } : {}),
+      },
+    });
+  } catch (error) {
+    host.toast(`couldn't read that passage · ${messageOf(error)}`);
+  }
 }
 
 /** A block's anchored passages (its links), for Teach me and the LO of a teach-back. */
@@ -38,13 +70,18 @@ function anchorsOf(state: PadState | null, blockId: string | null): Array<{ extr
   return fromLinks;
 }
 
-export function PadMenu({ request, host, state, muted, onClose, onInsert, onSubmit, onMute }: {
+/** The pad menu (spec §9.2) in the one context menu: the rows on the line's words, then the inserts, then muting
+ * suggestions; its promoted rows come from passage.promoted for the line (its passages are its own links). */
+export function PadMenu({ request, host, windowId, state, muted, onClose, onInsert, onNote, onSubmit, onMute }: {
   request: MenuRequest;
+  windowId: string;
   host: PadsHost;
   state: PadState | null;
   muted: boolean;
   onClose: () => void;
   onInsert: (block: InsertBlock) => void;
+  /** Note in margin on a pad line: a note block attached under it (opened in the editor). */
+  onNote: () => void;
   onSubmit: () => void;
   onMute: () => void;
 }) {
@@ -52,108 +89,93 @@ export function PadMenu({ request, host, state, muted, onClose, onInsert, onSubm
   const anchors = anchorsOf(state, request.blockId);
   const pieces = useMemo(() => host.sourcePieces(), [host]);
   const [practicing, setPracticing] = useState(false);
+  // A line whose words are about exam or held-out material (its first answer says): nothing sends them on.
+  const [withheld, setWithheld] = useState(false);
+  const hub = useListenerHub();
   const text = request.text.trim();
   const close = (then?: () => void) => () => {
     onClose();
     then?.();
   };
-  const textRows: Row[] = text ? [
-    { key: "a", glyph: "?", label: "Ask about this", run: close(() => host.askAbout(text)) },
-    { key: "/", glyph: "⌕", label: "Find in my sources", run: close(() => host.openSearch(text)) },
-    ...(host.showMe ? [{ key: "v", glyph: "◇", label: "Show me", note: "a figure lands below this line", run: close(() => {
-      host.toast("◇ making a figure for this line · it lands below it when it's ready");
-      void host.showMe?.(text, anchors[0] ?? null).then((figure) => {
-        if (!figure) host.toast("no figure for this line · nothing was shown");
-        else onInsert({ kind: "figure", provenance: "learnloop", bodyMd: figure.line, payload: { figure_id: figure.figureId } });
-      }, () => host.toast("couldn't make a figure for this line"));
-    }) }] : []),
-    ...(anchors.length ? [{ key: "p", glyph: "✎", label: "Make it practice", note: "drafts an item from this line for your queue", run: () => setPracticing(true) }] : []),
-    { key: "c", glyph: "◌", label: "Carry", run: close(() => host.carry(text, { kind: "block", ref: request.blockId, anchor: anchors[0] ?? null })) },
-    ...(anchors.length && host.teachMe ? [{ key: "t", glyph: "◎", label: "Teach me this", run: close(() => host.teachMe?.(anchors[0].extractionId, anchors.map((each) => each.spanId))) }] : []),
-    ...(block && isLearnersWords(block) ? [{ key: "s", glyph: "✓", label: "Submit this block as…", run: close(onSubmit) }] : []),
-  ] : [];
-  const insertRows: Row[] = [
-    // §9.2 gives this row the letter k, but an open menu's j/k move the selection (§5.4's matrix): moving
-    // wins, so the row is chosen with ↑↓ ↵ (or alt+d from the pad) and shows no letter.
-    { key: "sketch", glyph: "✎", label: "Sketch cell", note: "pen, line, arrow, box, text · yours", run: close(() => onInsert({ kind: "sketch", provenance: "learner", payload: { width: 480, height: 160, items: [] } })) },
-    { key: "m", glyph: "◆", label: "marimo cell · arrives with notebooks", disabled: true },
-    ...pieces.map((piece, index): Row => ({
-      key: index === 0 ? "i" : `piece-${index}`,
-      glyph: piece.t !== undefined ? "▶" : "§",
-      label: piece.label,
-      run: close(() => onInsert({ kind: "source_piece", provenance: "source", bodyMd: piece.text, payload: { source_title: piece.sourceTitle, extraction_id: piece.extractionId, span_id: piece.spanId, ...(piece.t !== undefined ? { t: piece.t } : {}) } })),
-    })),
-    { key: "o", glyph: "⌕", label: "a piece of another source…", run: close(() => host.openSearch("", (row) => {
-      if (row.kind !== "result" || !row.ref || (row.ref.kind !== "source" && row.ref.kind !== "video")) return;
-      onInsert({ kind: "source_piece", provenance: "source", bodyMd: row.text, payload: { source_title: row.text.split(" · ")[0], extraction_id: row.ref.extractionId, span_id: row.target?.spanId ?? null } });
-    })) },
-  ];
-  const rows = [...textRows, ...insertRows, { key: "u", glyph: "◇", label: muted ? "show LearnLoop's suggestions on this pad" : "mute LearnLoop's suggestions on this pad", run: close(onMute) }];
-  const runnable = rows.filter((row) => !row.disabled);
-  const [index, setIndex] = useState(0);
-  const hub = useListenerHub();
   // A press in another window makes it the active one: the menu goes with the focus.
   const lifecycle = useWindowLifecycle();
   useEffect(() => {
     if (lifecycle.state !== "active") onClose();
   }, [lifecycle.state, onClose]);
-
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      // A modal menu: it owns the keyboard while it is open, but never a chord.
-      if (practicing || screenLeavesKey(event, { modal: true }) || event.altKey || event.ctrlKey || event.metaKey) return;
-      if (event.key === "Escape") {
-        event.preventDefault();
-        onClose();
-      } else if (event.key === "ArrowDown" || event.key === "j") {
-        event.preventDefault();
-        setIndex((now) => Math.min(runnable.length - 1, now + 1));
-      } else if (event.key === "ArrowUp" || event.key === "k") {
-        event.preventDefault();
-        setIndex((now) => Math.max(0, now - 1));
-      } else if (event.key === "Enter") {
-        event.preventDefault();
-        runnable[index]?.run?.();
-      } else {
-        const row = runnable.find((each) => each.key === event.key);
-        if (row) {
-          event.preventDefault();
-          row.run?.();
-        }
+  const object: MenuObjectInput | null = request.blockId ? { objectKind: "pad_line", blockId: request.blockId, windowId, ...(host.deskId ? { deskId: host.deskId } : {}) } : null;
+  const quoting = new Set(["a", "/", "v", "p", "c", "t"]);
+  const allTextRows: Row[] = text ? [
+    { key: "a", glyph: "?", label: "Ask about this", run: close(() => host.askAbout(text, { padId: request.padId, blockId: request.blockId, anchor: anchors[0] ?? null })) },
+    ...(request.blockId ? [{ key: "n", glyph: "›", label: "Note in margin", note: "a note attached under this line", run: close(onNote) }] : []),
+    { key: "/", glyph: "⌕", label: "Find in my sources", run: close(() => host.openSearch(text)) },
+    // A line with no passage has no Show me (the figure is built for a passage).
+    ...(host.showMe && anchors.length ? [{ key: "v", glyph: "◇", label: "Show me", note: "a figure lands below this line", run: close(() => {
+      host.toast("◇ making a figure for this line · it lands below it when it's ready");
+      // The finished figure goes to the window's waiting figures: written only while the pad is live.
+      void host.showMe?.(text, anchors[0] ?? null, windowId).then((figure) => {
+        if (!figure) host.toast("no figure for this line · nothing was shown");
+        else host.figures.push(windowId, { padId: request.padId, afterBlockId: request.blockId, figureId: figure.figureId, line: figure.line });
+      }, () => host.toast("couldn't make a figure for this line"));
+    }) }] : []),
+    ...(anchors.length ? [{ key: "p", glyph: "✎", label: "Make it practice", note: "drafts an item from this line for your queue", run: () => setPracticing(true) }] : []),
+    { key: "c", glyph: "◌", label: "Carry", run: close(() => host.carry(text, { kind: "block", ref: request.blockId, anchor: anchors[0] ?? null })) },
+    // A lesson is on one reading: the line's passages in its first linked reading (span ids repeat across books).
+    ...(anchors.length && host.teachMe ? [{ key: "t", glyph: "◎", label: "Teach me this", run: close(() => host.teachMe?.(anchors[0].extractionId,
+      anchors.filter((each) => each.extractionId === anchors[0].extractionId).map((each) => each.spanId))) }] : []),
+    ...(block && isLearnersWords(block) ? [{ key: "s", glyph: "✓", label: "Submit this block as…", run: close(onSubmit) }] : []),
+  ] : [];
+  // On exam or held-out material the rows that would send the line's words on (the tutor, a search, a figure,
+  // practice, a carried question, a lesson) are left out, as a protected passage is never copied into a pad.
+  const textRows = withheld ? allTextRows.filter((row) => !quoting.has(row.key)) : allTextRows;
+  const insertRows: Row[] = [
+    // §9.2 gives this row the letter k, but an open menu's j/k move the selection (§5.4's matrix): moving
+    // wins, so the row is chosen with ↑↓ ↵ (or alt+d from the pad) and shows no letter.
+    { key: "sketch", glyph: "✎", label: "Sketch cell", note: "pen, line, arrow, box, text · yours", run: close(() => onInsert({ kind: "sketch", provenance: "learner", payload: { width: 480, height: 160, items: [] } })) },
+    { ...MARIMO_CELL_ROW, run: close(() => onInsert(MARIMO_CELL_INSERT)) },
+    ...pieces.map((piece, index): Row => ({
+      key: index === 0 ? "i" : `piece-${index}`,
+      glyph: piece.t !== undefined ? "▶" : "§",
+      label: piece.label,
+      run: close(() => void insertPiece(host, onInsert, piece.extractionId, piece.spanId)),
+    })),
+    { key: "o", glyph: "⌕", label: "a piece of another source…", run: close(() => host.openSearch("", (row) => {
+      // A piece is a passage: a whole source (or a pad, a thread) is not one.
+      const spanId = row.kind === "result" ? row.target?.spanId : undefined;
+      if (row.kind !== "result" || !row.ref || (row.ref.kind !== "source" && row.ref.kind !== "video") || !spanId) {
+        host.toast("choose a passage (or a moment of a video) to put a piece of it here");
+        return;
       }
-    };
-    const onDown = (event: MouseEvent) => {
-      if (!(event.target as Element).closest?.(".desk-padmenu, .desk-sheet")) onClose();
-    };
-    const offs = [hub.listen("window", "keydown", onKey), hub.listen("window", "mousedown", onDown, true)];
-    return () => offs.forEach((off) => off());
-  }, [hub, index, onClose, practicing, runnable]);
-
-  if (practicing && state && block) {
-    return <PracticeSheet host={host} text={text} anchors={anchors} onClose={onClose} />;
-  }
-  const rowView = (row: Row) => {
-    const selected = runnable[index] === row;
-    return (
-      <button key={row.key} type="button" className={`row${selected ? " sel" : ""}`} disabled={row.disabled} onClick={row.run} onMouseEnter={() => {
-        const at = runnable.indexOf(row);
-        if (at >= 0) setIndex(at);
-      }}>
-        <span className="g">{row.glyph}</span>
-        <span className="l">{row.label}{row.note ? <span className="n"> · {row.note}</span> : null}</span>
-        <span className="k">{row.key.length === 1 ? row.key : ""}</span>
-      </button>
-    );
-  };
+      void insertPiece(host, onInsert, row.ref.extractionId, spanId);
+    })) },
+  ];
+  const tailRows: Row[] = [
+    ...(request.blockId && host.menu ? [{ key: "knows", glyph: "i", label: "What this knows", run: close(() => host.menu?.knows({ objectKind: "pad_line", blockId: request.blockId as string, windowId })) }] : []),
+    ...(request.lessonId ? [] : [{ key: "u", glyph: "◇", label: muted ? "show LearnLoop's suggestions on this pad" : "mute LearnLoop's suggestions on this pad", run: close(onMute) }]),
+  ];
+  const toRow = (section: MenuRow["section"]) => (row: Row): MenuRow => ({
+    id: row.key, glyph: row.glyph, label: row.label, note: row.note, disabled: row.disabled, run: row.run, section,
+    ...(row.key.length === 1 ? { key: row.key } : {}),
+    ...(row.key === "knows" ? { aid: true } : {}),
+  });
+  const rows: MenuRow[] = [...textRows.map(toRow("verb")), ...insertRows.map(toRow("insert")), ...tailRows.map(toRow("tail"))];
   return (
-    <div className="desk-padmenu" role="menu" aria-label="the pad menu" style={{ left: Math.min(request.x, window.innerWidth - 340), top: Math.min(request.y, window.innerHeight - 420) }}>
-      <div className="head">your pad · “{(text || "this line").slice(0, 46)}”</div>
-      {textRows.map(rowView)}
-      <div className="sep">{request.blockId ? "INSERT BELOW THIS LINE" : "INSERT AT THE END OF THIS PAD"}</div>
-      {insertRows.map(rowView)}
-      <div className="sep" />
-      {rowView(rows[rows.length - 1])}
-    </div>
+    <ContextMenu
+      label="the pad menu"
+      header={withheld ? `${request.label ?? "your pad"} · about exam or held-out material` : `${request.label ?? "your pad"} · “${(text || "this line").replace(/\s+/g, " ").slice(0, 46)}${text.length > 46 ? "…" : ""}”`}
+      rows={rows}
+      at={{ x: request.x, y: request.y }}
+      object={object}
+      promoted={host.menu?.promoted ?? null}
+      onPromoted={host.menu?.onPromoted}
+      onWithheld={setWithheld}
+      poller={host.menu?.poller}
+      owner={windowId}
+      insertHeading={request.insertLabel ?? (request.blockId ? "insert below this line" : "insert at the end of this pad")}
+      onClose={onClose}
+      listen={(target, type, handler, capture) => hub.listen(target, type, handler, capture)}
+    >
+      {practicing && state && block ? <PracticeSheet host={host} text={text} anchors={anchors} onClose={onClose} /> : undefined}
+    </ContextMenu>
   );
 }
 
@@ -163,6 +185,12 @@ function PracticeSheet({ host, text, anchors, onClose }: { host: PadsHost; text:
   const [los, setLos] = useState<string[] | null>(null);
   const [lo, setLo] = useState<string | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
+  // One save at a time: a second press while the first is on its way would author a second item.
+  const [saving, setSaving] = useState(false);
+  // One key per sheet, sent with every save of it: a retry after a lost reply returns the same item.
+  const [authoringKey] = useState(() => host.mintId("pi"));
+  const node = useRef<HTMLDivElement | null>(null);
+  useSheetFocus(node, onClose);
   useEffect(() => {
     let live = true;
     const first = anchors[0];
@@ -178,7 +206,7 @@ function PracticeSheet({ host, text, anchors, onClose }: { host: PadsHost; text:
     };
   }, [anchors, host]);
   return (
-    <div className="desk-sheet" role="dialog" aria-label="make it practice">
+    <div ref={node} tabIndex={-1} className="desk-sheet" role="dialog" aria-label="make it practice">
       <div className="head">✎ make it practice · it joins your queue once you save it</div>
       <label>the question<textarea value={prompt} onChange={(event) => setPrompt(event.target.value)} /></label>
       <label>what a right answer says<textarea value={answer} onChange={(event) => setAnswer(event.target.value)} /></label>
@@ -187,13 +215,18 @@ function PracticeSheet({ host, text, anchors, onClose }: { host: PadsHost; text:
       )}
       {failure ? <div className="note err">{failure}</div> : null}
       <div className="acts">
-        <button type="button" disabled={!lo || !prompt.trim() || !answer.trim()} onClick={() => {
-          if (!lo) return;
-          void host.api.authorPracticeItem({ learningObjectId: lo, prompt: prompt.trim(), expectedAnswer: answer.trim() }).then(() => {
+        <button type="button" disabled={saving || !lo || !prompt.trim() || !answer.trim()} onClick={() => {
+          if (!lo || saving) return;
+          setSaving(true);
+          setFailure(null);
+          void host.api.authorPracticeItem({ learningObjectId: lo, prompt: prompt.trim(), expectedAnswer: answer.trim(), clientIdempotencyKey: authoringKey }).then(() => {
             host.toast("added to your queue");
             onClose();
-          }, (error: unknown) => setFailure(messageOf(error)));
-        }}>save to my queue</button>
+          }, (error: unknown) => {
+            setSaving(false);
+            setFailure(messageOf(error));
+          });
+        }}>{saving ? "saving…" : "save to my queue"}</button>
         <button type="button" onClick={onClose}>not now</button>
       </div>
     </div>
@@ -296,14 +329,66 @@ export function ArrangeOverlay({ pads, split, onCancel, onConfirm }: {
   );
 }
 
+/** A submission in flight, frozen at its first try: a retry (its reply was lost, the sidecar was away) resends the
+ * very same request (id, version, target), so the server's idempotency holds and nothing is recorded twice. A new
+ * request is made only for a new submission: after this one is recorded, or once the block's words have changed. */
+interface FrozenSubmission {
+  submissionId: string;
+  versionId: string;
+  as: "attempt" | "teach_back";
+  practiceItemId: string;
+}
+
+const FROZEN = new WeakMap<object, Map<string, FrozenSubmission>>();
+
+function frozenFor(store: object): Map<string, FrozenSubmission> {
+  let map = FROZEN.get(store);
+  if (!map) {
+    map = new Map();
+    FROZEN.set(store, map);
+  }
+  return map;
+}
+
+/** A teach-back's open question, from the entry point's reply or from the session's checkpoint. */
+interface TeachBackTurn {
+  practiceItemId: string;
+  questionMd: string;
+}
+
+type StoredTeachBackState = { practice_item_id?: string; practiceItemId?: string; turns?: Array<{ role?: string; content_md?: string; contentMd?: string }> };
+
+/** The pending follow-up question of a teach-back's stored state (keys as stored), if its last turn is the tutor's. */
+export function stateQuestion(state: StoredTeachBackState | null | undefined, practiceItemId: string): string | null {
+  if (!state) return null;
+  const item = state.practice_item_id ?? state.practiceItemId;
+  if (item !== undefined && item !== practiceItemId) return null;
+  const last = state.turns?.[state.turns.length - 1];
+  return last && last.role === "ai" ? last.content_md ?? last.contentMd ?? null : null;
+}
+
+/** The same, from a session checkpoint's current answer (an older sidecar's only record of it). */
+export function pendingTeachBackQuestion(currentAnswer: string | null | undefined, practiceItemId: string): string | null {
+  if (!currentAnswer) return null;
+  try {
+    const envelope = JSON.parse(currentAnswer) as { mode?: string; state?: StoredTeachBackState };
+    return envelope.mode === "teach_back" ? stateQuestion(envelope.state, practiceItemId) : null;
+  } catch {
+    return null;
+  }
+}
+
 /** "Submit this block as…" (spec §10.9): my answer to the problem pad's item or the check cell's, or a teach-back
- * of the idea of a passage the block is linked to. Only the learner's own words; the server refuses quoted text. */
+ * of the idea of a passage the block is linked to. Only the learner's own words; the server refuses quoted text.
+ * A teach-back that asks a follow-up goes on here, turn by turn, until it is graded. */
 export function SubmitSheet({ host, state, blockId, onClose }: { host: PadsHost; state: PadState | null; blockId: string; onClose: () => void }) {
   const block = state?.blocks.find((each) => each.blockId === blockId) ?? null;
   const [answerItem, setAnswerItem] = useState<string | null>(null);
   const [los, setLos] = useState<string[]>([]);
   const [failure, setFailure] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [turn, setTurn] = useState<TeachBackTurn | null>(null);
+  const [reply, setReply] = useState("");
   const anchors = anchorsOf(state, blockId);
   useEffect(() => {
     let live = true;
@@ -329,20 +414,48 @@ export function SubmitSheet({ host, state, blockId, onClose }: { host: PadsHost;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [blockId]);
   if (!state || !block) return null;
-  const submit = async (as: "attempt" | "teach_back", item: () => Promise<string>) => {
+  const padId = state.pad.padId;
+
+  const submit = async (as: "attempt" | "teach_back", key: string, item: () => Promise<string>) => {
     const sessionId = host.practiceSessionId;
     if (!sessionId) {
       setFailure("start a practice session first: a submission is recorded in it, as any attempt is");
       return;
     }
     setBusy(true);
+    setFailure(null);
+    const frozen = frozenFor(host.store);
+    const slot = `${padId}|${blockId}|${as}|${key}`;
     try {
       // The block's words must be saved before they are submitted (the server freezes that version).
       await host.store.flush();
-      const current = host.store.pads[state.pad.padId]?.blocks.find((each) => each.blockId === blockId) ?? block;
-      const practiceItemId = await item();
-      const reply = await host.api.padSubmitBlock({ submissionId: host.mintId("sub"), blockId, versionId: current.headVersionId, as, target: { sessionId, practiceItemId } });
-      host.store.noteSubmission(state.pad.padId, blockId, { submissionId: reply.submissionId, versionId: reply.versionId, as: reply.as, practiceItemId: reply.practiceItemId, attemptId: reply.attemptId, teachBackId: reply.teachBackId, createdAt: new Date().toISOString(), current: true });
+      const current = host.store.pads[padId]?.blocks.find((each) => each.blockId === blockId) ?? block;
+      let request = frozen.get(slot);
+      if (!request || request.versionId !== current.headVersionId) {
+        // A new submission (first try, or new words): its target is asked for once and kept with it.
+        request = { submissionId: host.mintId("sub"), versionId: current.headVersionId, as, practiceItemId: await item() };
+        frozen.set(slot, request);
+      }
+      const answered = await host.api.padSubmitBlock({
+        submissionId: request.submissionId, blockId, versionId: request.versionId, as, target: { sessionId, practiceItemId: request.practiceItemId },
+      });
+      frozen.delete(slot);
+      host.store.noteSubmission(padId, blockId, { submissionId: answered.submissionId, versionId: answered.versionId, as: answered.as, practiceItemId: answered.practiceItemId, attemptId: answered.attemptId, teachBackId: answered.teachBackId, createdAt: new Date().toISOString(), current: true });
+      if (as === "teach_back") {
+        const entry = answered.entry as { done?: boolean; questionMd?: string } | null;
+        let question: string | null = entry && entry.done === false ? entry.questionMd ?? null : null;
+        // Recorded before (its reply was lost): the conversation the submission reserved says whether it goes on.
+        if (!question && answered.teachBack?.status === "ongoing") question = stateQuestion(answered.teachBack.state as StoredTeachBackState | null, answered.practiceItemId);
+        // An older sidecar without it: the session's checkpoint.
+        if (!question && !entry && answered.duplicate && answered.teachBack === undefined) {
+          const session = await host.api.getSession(sessionId).catch(() => null);
+          question = pendingTeachBackQuestion(session?.checkpoint?.currentAnswer, answered.practiceItemId);
+        }
+        if (question) {
+          setTurn({ practiceItemId: answered.practiceItemId, questionMd: question });
+          return;
+        }
+      }
       host.toast(as === "attempt" ? "submitted as your answer" : "submitted as a teach-back");
       onClose();
     } catch (error) {
@@ -351,12 +464,50 @@ export function SubmitSheet({ host, state, blockId, onClose }: { host: PadsHost;
       setBusy(false);
     }
   };
+
+  const answerTurn = async (finish: boolean) => {
+    const sessionId = host.practiceSessionId;
+    if (!turn || !sessionId) return;
+    setBusy(true);
+    setFailure(null);
+    try {
+      const next = await host.api.submitTeachBackTurn({ sessionId, practiceItemId: turn.practiceItemId, answerMd: reply.trim(), ...(finish ? { finish: true } : {}) });
+      setReply("");
+      if (next.done === false) {
+        setTurn({ practiceItemId: turn.practiceItemId, questionMd: next.questionMd });
+        return;
+      }
+      host.toast("teach-back finished · it is graded as any teach-back");
+      onClose();
+    } catch (error) {
+      // The conversation stays in the session; the answer typed stays here to send again.
+      setFailure(messageOf(error));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (turn) {
+    return (
+      <div className="desk-sheet" role="dialog" aria-label="submit this block">
+        <div className="head">◎ teach-back · the tutor asks, as a student would</div>
+        <div className="note q">{turn.questionMd}</div>
+        <label>your answer<textarea aria-label="your answer" value={reply} onChange={(event) => setReply(event.target.value)} /></label>
+        {failure ? <div className="note err">{failure} · your answer is kept; send it again</div> : null}
+        <div className="acts">
+          <button type="button" disabled={busy || !reply.trim()} onClick={() => void answerTurn(false)}>answer</button>
+          <button type="button" disabled={busy} onClick={() => void answerTurn(true)}>finish now</button>
+          <button type="button" onClick={onClose}>later · it waits in your session</button>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="desk-sheet" role="dialog" aria-label="submit this block">
       <div className="head">✓ submit this block as… · only your own words count</div>
-      {answerItem ? <button type="button" className="row" disabled={busy} onClick={() => void submit("attempt", async () => answerItem)}>my answer to {state.pad.kind === "problem" ? "this problem" : "this check"}</button> : null}
+      {answerItem ? <button type="button" className="row" disabled={busy} onClick={() => void submit("attempt", answerItem, async () => answerItem)}>my answer to {state.pad.kind === "problem" ? "this problem" : "this check"}</button> : null}
       {los.map((lo) => (
-        <button key={lo} type="button" className="row" disabled={busy} onClick={() => void submit("teach_back", async () => (await host.api.requestTeachBack({ learningObjectId: lo })).practiceItemId)}>a teach-back of the idea this passage teaches{los.length > 1 ? ` (${lo})` : ""}</button>
+        <button key={lo} type="button" className="row" disabled={busy} onClick={() => void submit("teach_back", lo, async () => (await host.api.requestTeachBack({ learningObjectId: lo })).practiceItemId)}>a teach-back of the idea this passage teaches{los.length > 1 ? ` (${lo})` : ""}</button>
       ))}
       {!answerItem && los.length === 0 ? <div className="note">nothing to submit this to yet: link the block to a passage (append it from a source), or write it in a problem pad</div> : null}
       {failure ? <div className="note err">{failure}</div> : null}

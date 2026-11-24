@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/Shelf.tsx](../../../../../../../apps/learnloop-tauri/src/screens/desks/Shelf.tsx) |
-| Source lines | 176 |
+| Source lines | 281 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/_area|TypeScript/screens/desks]] |
 | Refactor status | `ACTIVE` |
@@ -54,40 +54,45 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export interface ShelfRow` — interface, line 6
-- `export function Shelf(` — function, line 21
+- `export interface ShelfRow` — interface, line 7
+- `export function Shelf(` — function, line 27
+- `export function CarriedList(` — function, line 226
 
 ## Internal implementation anchors
 
-- `const DRAG_THRESHOLD_PX = 5` — const, line 19
-- `const body = ( <> <ShelfBody rows=` — const, line 50
-- `function ShelfBody(` — function, line 80
-- `const press = useRef<` — const, line 93
-- `const listRef = useRef<HTMLDivElement | null>(null)` — const, line 94
-- `const slotAt = (clientY: number): number` — const, line 97
-- `const list = listRef.current` — const, line 98
-- `const items = [...list.querySelectorAll<HTMLElement>("[data-shelf-slot]")]` — const, line 100
-- `let target = 0` — let, line 101
-- `const box = item.getBoundingClientRect()` — const, line 103
-- `const onPointerDown = (row: ShelfRow)` — const, line 109
-- `const onPointerMove = (event: ReactPointerEvent<HTMLButtonElement>)` — const, line 112
-- `const current = press.current` — const, line 113
-- `const onPointerUp = (row: ShelfRow)` — const, line 121
-- `const current = press.current` — const, line 122
-- `const to = slotAt(event.clientY)` — const, line 126
+- `const DRAG_THRESHOLD_PX = 5` — const, line 25
+- `const setOpen = (next: boolean)` — const, line 62
+- `const body = ( <> <ShelfBody rows=` — const, line 70
+- `function ShelfBody(` — function, line 106
+- `const press = useRef<` — const, line 121
+- `const listRef = useRef<HTMLDivElement | null>(null)` — const, line 122
+- `const slotAt = (clientY: number): number` — const, line 125
+- `const list = listRef.current` — const, line 126
+- `const items = [...list.querySelectorAll<HTMLElement>("[data-shelf-slot]")]` — const, line 128
+- `let target = 0` — let, line 129
+- `const box = item.getBoundingClientRect()` — const, line 131
+- `const onPointerDown = (row: ShelfRow)` — const, line 137
+- `const onPointerMove = (event: ReactPointerEvent<HTMLButtonElement>)` — const, line 140
+- `const current = press.current` — const, line 141
+- `const onPointerUp = (row: ShelfRow)` — const, line 149
+- `const current = press.current` — const, line 150
+- `const to = slotAt(event.clientY)` — const, line 154
+- `const read = (at?: string)` — const, line 235
+- `const base = at ? now ?? [] : []` — const, line 239
+- `const label = (question: CarriedQuestionDto, event: "fruitful" | "not_now" | "let_go")` — const, line 251
 
 ## Who imports or calls it
 
 > [!note] Static-evidence boundary
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
-- [[Reference/Desktop/TypeScript/screens/desks/DeskShell|src/screens/desks/DeskShell.tsx]] — import-or-re-export: `Shelf`, `ShelfRow`; references `Shelf`, `ShelfRow`
+- [[Reference/Desktop/TypeScript/screens/desks/DeskShell|src/screens/desks/DeskShell.tsx]] — import-or-re-export: `CarriedList`, `Shelf`, `ShelfRow`; references `CarriedList`, `Shelf`, `ShelfRow`
 
 ## Dependencies
 
 ### Desktop source modules
 
-No local TypeScript/TSX or Rust module dependency was detected.
+- [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `CarriedQuestionDto`
 
 ### Assets, platform, and third-party dependencies
 
@@ -101,7 +106,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 ## Tests that define behavior
 
-- No repository test directly names this source path or a uniquely owned export. `npm run typecheck`, `npm test` and `npm run frontend:build` are the executable frontend gates; add a focused test when changing behavior.
+- [apps/learnloop-tauri/src/screens/desks/goal/shelf.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/desks/goal/shelf.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 
 ## Modification guidance
 

@@ -100,9 +100,11 @@ The authoritative system-level explanation remains in [[Configuration]], [[Archi
 - [[Reference/Modules/learnloop/cli/probability_arms|learnloop.cli.probability_arms]] — imports `global_settings_path`, `load_dotenv`; statically calls `global_settings_path`, `load_dotenv`
 - [[Reference/Modules/learnloop/config/__init__|learnloop.config]] — imports `module`
 - [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] — imports `load_config`; statically calls `load_config`
+- [[Reference/Modules/learnloop/content/pipeline/import_jobs|learnloop.content.pipeline.import_jobs]] — imports `load_config`; statically calls `load_config`
 - [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `load_config`; statically calls `load_config`
 - [[Reference/Modules/learnloop/content/pipeline/source_ingestion|learnloop.content.pipeline.source_ingestion]] — imports `load_config`; statically calls `load_config`
 - [[Reference/Modules/learnloop/remote/runtime|learnloop.remote.runtime]] — imports `load_config`; statically calls `load_config`
+- [[Reference/Modules/learnloop/source_retrieval/jobs|learnloop.source_retrieval.jobs]] — imports `load_config`; statically calls `load_config`
 - [[Reference/Modules/learnloop/symbolic_view|learnloop.symbolic_view]] — imports `load_config`; statically calls `load_config`
 - [[Reference/Modules/learnloop/tui/minutes_memory|learnloop.tui.minutes_memory]] — imports `global_settings_path`; statically calls `global_settings_path`
 - [[Reference/Modules/learnloop_sidecar/handlers/capture|learnloop_sidecar.handlers.capture]] — imports `global_settings_path`; statically calls `global_settings_path`
@@ -130,7 +132,7 @@ Use this module in context through:
 
 - [[Initialize a Vault]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/ai/chatgpt_plan/store|learnloop.ai.chatgpt_plan.store]], [[Reference/Modules/learnloop/ai/model_use|learnloop.ai.model_use]], [[Reference/Modules/learnloop/ai/providers/openrouter_catalog|learnloop.ai.providers.openrouter_catalog]], [[Reference/Modules/learnloop/cli/ai_compare|learnloop.cli.ai_compare]], [[Reference/Modules/learnloop/cli/probability_arms|learnloop.cli.probability_arms]] and 8 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/ai/chatgpt_plan/store|learnloop.ai.chatgpt_plan.store]], [[Reference/Modules/learnloop/ai/model_use|learnloop.ai.model_use]], [[Reference/Modules/learnloop/ai/providers/openrouter_catalog|learnloop.ai.providers.openrouter_catalog]], [[Reference/Modules/learnloop/cli/ai_compare|learnloop.cli.ai_compare]], [[Reference/Modules/learnloop/cli/probability_arms|learnloop.cli.probability_arms]] and 10 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

@@ -47,94 +47,94 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/source_retrieval/section_coverage.py](../../../../../../src/learnloop/source_retrieval/section_coverage.py) |
-| Source lines | 2318 |
+| Source lines | 2321 |
 | Owning package | [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class CoverageError(ValueError)` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 172) — A request coverage cannot answer (``code`` names it for the sidecar).
-  - `__init__(self, code: str, message: str) -> None` (line 175; internal)
-- `enabled(vault: Any) -> bool` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 180)
-- `models_off() -> bool` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 185)
-- `lo_hash(learning_object: Any) -> str` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 189) — What the judge read of the LO: its title and statement.
-- `class Section` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 205)
-  - `key(self) -> tuple[str, str]` (line 220; public)
-- `class Reading` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 225)
-- `class Protection` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 239) — What no model may read, as the vault says now: the one exam predicate (held-out units included), the teaching exclusions and the readings held back until protection is marked on them (rule 4).
-  - `key(self) -> str` (line 253; public) — A digest of everything withheld: equal keys withhold exactly the same.
-  - `reading_out(self, extraction_id: str) -> bool` (line 265; public)
-  - `span_out(self, extraction_id: str, span_id: str) -> bool` (line 269; public)
-- `read_protection(vault: Any, repository: Repository, *, readable_roles: frozenset[str]=frozenset()) -> Protection` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 273) — The predicate read afresh; unreadable, ``CoverageError("withheld")`` (fail closed).
-- `class Library` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 307) — Every current, reader-enabled reading with teaching authority, read lazily, with exam and held-out material taken out before anything is returned.
-  - `__init__(self, vault: Any, repository: Repository, *, protection: Protection | None=None, scope: Scope | None=None) -> None` (line 314; internal)
-  - `refreshed(self, vault: Any | None=None, *, protection: Protection | None=None) -> Library` (line 333; public) — This library if protection (and the vault object) are unchanged, else a new one read under today's protection (nothing cached is reused).
-  - `sendable_under(self, protection: Protection, keys: Iterable[tuple[str, str]]) -> bool` (line 346; public) — Whether every one of these sections may still be read under ``protection``: its reading is not withheld whole and none of its spans is withheld.
-  - `reading(self, extraction_id: str) -> Reading | None` (line 363; public)
-  - `_load(self, extraction_id: str) -> Reading | None` (line 370; internal)
-  - `section(self, extraction_id: str, section_id: str) -> Section | None` (line 413; public)
-  - `section_of(self, extraction_id: str, span_id: str) -> str | None` (line 417; public) — The sendable section a passage belongs to (None: withheld, dropped or unknown).
-  - `by_source(self) -> dict[str, list[str]]` (line 423; public)
-  - `search_scope(self, extraction_ids: Sequence[str]) -> Scope` (line 429; public) — One source's search scope: its readings, every withheld or excluded span out.
-  - `_provenance_index(self) -> dict[str, list[tuple[str, str]]]` (line 440; internal)
-  - `provenance(self, learning_object_id: str) -> list[tuple[str, str]]` (line 458; public) — The sections the LO's (and its facets') provenance cites, in library order.
-  - `section_learning_objects(self, extraction_id: str, section_id: str) -> tuple[str, ...]` (line 463; public) — The active LOs whose provenance cites this section (one reading's map, loaded once).
-- `scope_signature(scope: Scope) -> str` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 478) — A digest of the readings a library is read from (ids, books, titles, reader switch): an import, a re-extraction or a book switched off changes it.
-- `class LibraryCache` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 486) — Reader CA5's per-vault library for the Guide's reads (CA5a open item 7).
-  - `__init__(self) -> None` (line 501; internal)
-  - `get(self, vault: Any, repository: Repository) -> Library` (line 506; public)
-  - `clear(self) -> None` (line 520; public)
-- `class Candidate` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 535)
-  - `key(self) -> tuple[str, str]` (line 544; public)
-- `lo_query(learning_object: Any) -> str` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 548)
-- `search_sections(vault: Any, repository: Repository, library: Library, query: str, *, sources: Iterable[str] | None=None, deep: bool=True, embedder: Any | None=None, owner_id: str='', consumer: str=SEARCH_CONSUMER, read_only: bool=False) -> dict[str, list[tuple[str, str, list[str]]]]` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 566) — One ``search_spans`` per source (a shared query vector), hits grouped to sendable sections, at most :data:`SECTIONS_PER_SOURCE` each: ``source_id -> [(extraction_id, section_id, hit spans)]`` in rank order.
-- `candidates_for(vault: Any, repository: Repository, library: Library, learning_object_id: str, *, deep: bool=True, embedder: Any | None=None, owner_id: str='') -> list[Candidate]` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 624) — The LO's candidate sections across the library (§6.2 step 1), each once, provenance first, then the learner's, then retrieval's, each in rank order.
-- `state_key(learning_object: Any, library: Library, candidates: Sequence[Candidate]) -> str` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 663) — The judgment's cache key: the prompt version, the LO's statement and every candidate with its block hashes (§6.1).
-- `class PassageRoles(RS.TolerantRoles)` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 678)
-- `class CoverageJudgment(WireModel)` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 683)
-  - `_tolerate(cls, data: Any) -> Any` (line 699; internal)
-- `class SectionCoverageOutputV1(WireModel)` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 714)
-- `class Prompt` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 749)
-- `related_topics(vault: Any, library: Library, learning_object: Any, candidates: Sequence[Candidate]) -> list[str]` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 759) — The LOs a section may be said to assume: the LO's prerequisites and the candidates' provenance-linked LOs (active, the LO itself left out).
-- `build_prompt(vault: Any, library: Library, learning_object: Any, candidates: Sequence[Candidate]) -> Prompt` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 769) — The LO and per candidate its title, roles and lead passages (then its hits), verbatim, each section held to an equal share of ``curriculum.max_prompt_tokens``.
-- `class JudgeResult` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 829)
-  - `as_dict(self) -> dict[str, Any]` (line 841; public)
-  - `usage_tokens(self) -> int` (line 846; public) — The tokens its requests reported (or were estimated at), summed.
-- `daily_envelope(vault: Any, repository: Repository, *, clock: Clock | None=None) -> SharedDailyEnvelope` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 858)
-- `capped_message(vault: Any) -> str` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 873)
-- `admission_problem(vault: Any, repository: Repository, *, client: Any | None=None, clock: Clock | None=None) -> tuple[str, str] | None` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 878) — Why a judgment would be refused now, before any call: ``(reason, message)`` or None.
-- `class ProtectionChanged(BaseException)` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 899) — A coverage request or record refused: a section it reads is protected now, the predicate cannot be read, or another vault is open.
-- `class GateClosed(ProtectionChanged)` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 911) — The caller's gate (``CoverageGuard(gate=...)``) is closed on the snapshot being admitted: nothing more is sent or recorded (curriculum C1's automatic refresh, its switches turned off; Reader follow-ups Nov 1).
-- `vault_on_disk(root: Path | str) -> Any` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 928) — The vault as its files say now, for a caller with no loaded-vault provider (the CLI: the desktop may change a source's role meanwhile; re-review F1).
-- `published_snapshot(live_vault: Callable[[], Any] | None, root: Path | str) -> tuple[Any | None, Any]` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 947) — ``(the vault now, its reload generation or None)``, read as one snapshot: the provider's ``snapshot()`` when it has one (the sidecar's), else the provider and its ``generation()``; with no provider, the files loaded again (:func:`vault_on_disk`).
-- `still_published(live_vault: Callable[[], Any] | None, generation: Any) -> bool` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 962) — Whether the snapshot of ``generation`` is still the published one (compared under the provider's publication lock when it has ``admit``).
-- `protection_on_disk(vault: Any, repository: Repository) -> Protection` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 974) — :func:`read_protection` of the vault's files now (:func:`vault_on_disk`).
-- `class CoverageGuard` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 980) — One judgment's protection check, before every physical request it makes (the context's request gate, so a retry or a provider's own follow-up is checked again) and before each record it writes.
-  - `__init__(self, library: Library, keys: Iterable[tuple[str, str]], *, live_vault: Callable[[], Any] | None=None, gate: Callable[[Any], bool] | None=None, also: Callable[[Any], str | None] | None=None, also_refusal: type[BaseException]=ProtectionChanged) -> None` (line 1016; internal)
-  - `_snapshot(self) -> tuple[Any | None, Any]` (line 1036; internal) — ``(the vault now, its reload generation or None)``, read as one snapshot.
-  - `_still_published(self, generation: Any) -> bool` (line 1041; internal)
-  - `_refusal(self) -> tuple[str, type[BaseException]] | None` (line 1044; internal) — Why the judgment may send or record nothing more now, and what that raises (None: it may).
-  - `check(self, purpose: str='request') -> None` (line 1088; public) — Raise :class:`ProtectionChanged` (:class:`GateClosed` when the gate is closed, or ``also_refusal``) when the judgment may send or record nothing more.
-  - `admit(self, client: Any, *, purpose: str, prompt: Any, budget: int | None) -> Any` (line 1100; public)
-  - `settle(self, admission: Any, usage: dict[str, Any]) -> None` (line 1113; public)
-- `judge(vault: Any, repository: Repository, learning_object_id: str, *, library: Library | None=None, client: Any | None=None, embedder: Any | None=None, clock: Clock | None=None, budget: SpendBudget | None=None, candidates: Sequence[Candidate] | None=None, before_call: Callable[[int], str | None] | None=None, live_vault: Callable[[], Any] | None=None) -> JudgeResult` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 1197) — Judge one LO's coverage across the library: no call when its current state is stored; otherwise one listwise call, then its RW4e proposals and its rows in one transaction (they mark the state done; a run that stopped before the commit is answered from the ledger next time, under…
-- `cover(vault: Any, repository: Repository, learning_object_ids: Sequence[str], *, client: Any | None=None, embedder: Any | None=None, clock: Clock | None=None, cancelled: Callable[[], bool]=lambda: False) -> list[JudgeResult]` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 1323) — Judge each LO in turn; protection is read again before each (a library that is unchanged is reused).
-- `on_extract_reason(config: Any) -> str | None` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 1354) — Why a completed extraction queues no coverage job (None: it does).
-- `covered_learning_objects(repository: Repository) -> list[str]` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 1365) — Every LO some judgment has covered (the on-extract job's work list).
-- `rejudge_on_extract(vault: Any, repository: Repository, extraction_id: str, *, client: Any | None=None, embedder: Any | None=None, clock: Clock | None=None, cancelled: Callable[[], bool]=lambda: False) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 1376) — The on-extract job: judge every covered LO again, so the new (or re-read) reading's candidate sections join its next judgment (§6.3).
-- `source_learning_objects(vault: Any, repository: Repository, library: Library, extraction_id: str) -> list[str]` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 1436) — The LOs a book's sections are judged against: the ones its sections' provenance cites, the ones coverage already names on it, then every active LO of the subjects it belongs to (a source set naming the book, or the subjects of the LOs it is cited for); with no subject known, eve…
-- `query_embedding_plan(vault: Any, repository: Repository, query: str, *, embedder: Any | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 1464) — What a real run's Qwen query embedding for this LO would cost (a dry run's estimate; no call, no write).
-- `cover_source(vault: Any, repository: Repository, extraction_id: str, *, dry_run: bool=False, client: Any | None=None, embedder: Any | None=None, clock: Clock | None=None, cancelled: Callable[[], bool]=lambda: False) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 1515) — Judge a book's sections against the LOs their candidates suggest (§6.2, owner-run; never on a hot path).
-- `class Standing` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 1667)
-  - `about(self) -> bool` (line 1683; public)
-- `standing(vault: Any, repository: Repository, library: Library, learning_object_ids: Iterable[str]) -> dict[str, dict[tuple[str, str], Standing]]` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 1687) — Per LO, its standing row per section: the rows of its current judgment that still describe the section and the LO as they are now (a changed section or statement drops them), with the newest learner correction per section standing over them.
-- `section_learning_objects(vault: Any, repository: Repository, library: Library, extraction_id: str, section_id: str) -> list[str]` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 1762) — The LOs a pressed check judges for a section: its provenance-linked LOs and every LO a coverage row (judge or learner) names for it.
-- `correct(vault: Any, repository: Repository, extraction_id: str, section_id: str, learning_object_id: str, choice: str, *, text: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 1778) — *Not about this* / *also about…* (or ``none``, clearing one): one ``learner_card`` ledger verdict and one ``learner`` row, nothing else.
-- `dismiss(vault: Any, repository: Repository, origin: tuple[str, str], target: tuple[str, str], *, operation_id: str, undo_of: str | None=None, learning_object_ids: Sequence[str] | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 1878) — *Not about this* on an unchecked hit (``undo_of``: undo that operation), in one transaction.
-- `peek(vault: Any, repository: Repository, extraction_id: str, section_id: str, *, cache: LibraryCache | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 1985) — A section's first blocks, from its jump locator, for CA5a's peek.
-- `section_text(vault: Any, repository: Repository, extraction_id: str, section_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 2023) — A whole section's blocks, from its jump locator, for side by side's second pane.
-- `correspondents(vault: Any, repository: Repository, extraction_id: str, section_id: str, *, search_fallback: bool=True, embedder: Any | None=None, cache: LibraryCache | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 2148) — From one section, the other books' sections that treat the same LOs (judged coverage), or, with none and ``search_fallback``, the live search hits per book labelled *found by search, not checked*.
+- `class CoverageError(ValueError)` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 175) — A request coverage cannot answer (``code`` names it for the sidecar).
+  - `__init__(self, code: str, message: str) -> None` (line 178; internal)
+- `enabled(vault: Any) -> bool` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 183)
+- `models_off() -> bool` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 188)
+- `lo_hash(learning_object: Any) -> str` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 192) — What the judge read of the LO: its title and statement.
+- `class Section` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 208)
+  - `key(self) -> tuple[str, str]` (line 223; public)
+- `class Reading` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 228)
+- `class Protection` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 242) — What no model may read, as the vault says now: the one exam predicate (held-out units included), the teaching exclusions and the readings held back until protection is marked on them (rule 4).
+  - `key(self) -> str` (line 256; public) — A digest of everything withheld: equal keys withhold exactly the same.
+  - `reading_out(self, extraction_id: str) -> bool` (line 268; public)
+  - `span_out(self, extraction_id: str, span_id: str) -> bool` (line 272; public)
+- `read_protection(vault: Any, repository: Repository, *, readable_roles: frozenset[str]=frozenset()) -> Protection` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 276) — The predicate read afresh; unreadable, ``CoverageError("withheld")`` (fail closed).
+- `class Library` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 310) — Every current, reader-enabled reading with teaching authority, read lazily, with exam and held-out material taken out before anything is returned.
+  - `__init__(self, vault: Any, repository: Repository, *, protection: Protection | None=None, scope: Scope | None=None) -> None` (line 317; internal)
+  - `refreshed(self, vault: Any | None=None, *, protection: Protection | None=None) -> Library` (line 336; public) — This library if protection (and the vault object) are unchanged, else a new one read under today's protection (nothing cached is reused).
+  - `sendable_under(self, protection: Protection, keys: Iterable[tuple[str, str]]) -> bool` (line 349; public) — Whether every one of these sections may still be read under ``protection``: its reading is not withheld whole and none of its spans is withheld.
+  - `reading(self, extraction_id: str) -> Reading | None` (line 366; public)
+  - `_load(self, extraction_id: str) -> Reading | None` (line 373; internal)
+  - `section(self, extraction_id: str, section_id: str) -> Section | None` (line 416; public)
+  - `section_of(self, extraction_id: str, span_id: str) -> str | None` (line 420; public) — The sendable section a passage belongs to (None: withheld, dropped or unknown).
+  - `by_source(self) -> dict[str, list[str]]` (line 426; public)
+  - `search_scope(self, extraction_ids: Sequence[str]) -> Scope` (line 432; public) — One source's search scope: its readings, every withheld or excluded span out.
+  - `_provenance_index(self) -> dict[str, list[tuple[str, str]]]` (line 443; internal)
+  - `provenance(self, learning_object_id: str) -> list[tuple[str, str]]` (line 461; public) — The sections the LO's (and its facets') provenance cites, in library order.
+  - `section_learning_objects(self, extraction_id: str, section_id: str) -> tuple[str, ...]` (line 466; public) — The active LOs whose provenance cites this section (one reading's map, loaded once).
+- `scope_signature(scope: Scope) -> str` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 481) — A digest of the readings a library is read from (ids, books, titles, reader switch): an import, a re-extraction or a book switched off changes it.
+- `class LibraryCache` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 489) — Reader CA5's per-vault library for the Guide's reads (CA5a open item 7).
+  - `__init__(self) -> None` (line 504; internal)
+  - `get(self, vault: Any, repository: Repository) -> Library` (line 509; public)
+  - `clear(self) -> None` (line 523; public)
+- `class Candidate` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 538)
+  - `key(self) -> tuple[str, str]` (line 547; public)
+- `lo_query(learning_object: Any) -> str` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 551)
+- `search_sections(vault: Any, repository: Repository, library: Library, query: str, *, sources: Iterable[str] | None=None, deep: bool=True, embedder: Any | None=None, owner_id: str='', consumer: str=SEARCH_CONSUMER, read_only: bool=False) -> dict[str, list[tuple[str, str, list[str]]]]` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 569) — One ``search_spans`` per source (a shared query vector), hits grouped to sendable sections, at most :data:`SECTIONS_PER_SOURCE` each: ``source_id -> [(extraction_id, section_id, hit spans)]`` in rank order.
+- `candidates_for(vault: Any, repository: Repository, library: Library, learning_object_id: str, *, deep: bool=True, embedder: Any | None=None, owner_id: str='') -> list[Candidate]` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 627) — The LO's candidate sections across the library (§6.2 step 1), each once, provenance first, then the learner's, then retrieval's, each in rank order.
+- `state_key(learning_object: Any, library: Library, candidates: Sequence[Candidate]) -> str` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 666) — The judgment's cache key: the prompt version, the LO's statement and every candidate with its block hashes (§6.1).
+- `class PassageRoles(RS.TolerantRoles)` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 681)
+- `class CoverageJudgment(WireModel)` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 686)
+  - `_tolerate(cls, data: Any) -> Any` (line 702; internal)
+- `class SectionCoverageOutputV1(WireModel)` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 717)
+- `class Prompt` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 752)
+- `related_topics(vault: Any, library: Library, learning_object: Any, candidates: Sequence[Candidate]) -> list[str]` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 762) — The LOs a section may be said to assume: the LO's prerequisites and the candidates' provenance-linked LOs (active, the LO itself left out).
+- `build_prompt(vault: Any, library: Library, learning_object: Any, candidates: Sequence[Candidate]) -> Prompt` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 772) — The LO and per candidate its title, roles and lead passages (then its hits), verbatim, each section held to an equal share of ``curriculum.max_prompt_tokens``.
+- `class JudgeResult` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 832)
+  - `as_dict(self) -> dict[str, Any]` (line 844; public)
+  - `usage_tokens(self) -> int` (line 849; public) — The tokens its requests reported (or were estimated at), summed.
+- `daily_envelope(vault: Any, repository: Repository, *, clock: Clock | None=None) -> SharedDailyEnvelope` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 861)
+- `capped_message(vault: Any) -> str` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 876)
+- `admission_problem(vault: Any, repository: Repository, *, client: Any | None=None, clock: Clock | None=None) -> tuple[str, str] | None` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 881) — Why a judgment would be refused now, before any call: ``(reason, message)`` or None.
+- `class ProtectionChanged(BaseException)` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 902) — A coverage request or record refused: a section it reads is protected now, the predicate cannot be read, or another vault is open.
+- `class GateClosed(ProtectionChanged)` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 914) — The caller's gate (``CoverageGuard(gate=...)``) is closed on the snapshot being admitted: nothing more is sent or recorded (curriculum C1's automatic refresh, its switches turned off; Reader follow-ups Nov 1).
+- `vault_on_disk(root: Path | str) -> Any` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 931) — The vault as its files say now, for a caller with no loaded-vault provider (the CLI: the desktop may change a source's role meanwhile; re-review F1).
+- `published_snapshot(live_vault: Callable[[], Any] | None, root: Path | str) -> tuple[Any | None, Any]` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 950) — ``(the vault now, its reload generation or None)``, read as one snapshot: the provider's ``snapshot()`` when it has one (the sidecar's), else the provider and its ``generation()``; with no provider, the files loaded again (:func:`vault_on_disk`).
+- `still_published(live_vault: Callable[[], Any] | None, generation: Any) -> bool` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 965) — Whether the snapshot of ``generation`` is still the published one (compared under the provider's publication lock when it has ``admit``).
+- `protection_on_disk(vault: Any, repository: Repository) -> Protection` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 977) — :func:`read_protection` of the vault's files now (:func:`vault_on_disk`).
+- `class CoverageGuard` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 983) — One judgment's protection check, before every physical request it makes (the context's request gate, so a retry or a provider's own follow-up is checked again) and before each record it writes.
+  - `__init__(self, library: Library, keys: Iterable[tuple[str, str]], *, live_vault: Callable[[], Any] | None=None, gate: Callable[[Any], bool] | None=None, also: Callable[[Any], str | None] | None=None, also_refusal: type[BaseException]=ProtectionChanged) -> None` (line 1019; internal)
+  - `_snapshot(self) -> tuple[Any | None, Any]` (line 1039; internal) — ``(the vault now, its reload generation or None)``, read as one snapshot.
+  - `_still_published(self, generation: Any) -> bool` (line 1044; internal)
+  - `_refusal(self) -> tuple[str, type[BaseException]] | None` (line 1047; internal) — Why the judgment may send or record nothing more now, and what that raises (None: it may).
+  - `check(self, purpose: str='request') -> None` (line 1091; public) — Raise :class:`ProtectionChanged` (:class:`GateClosed` when the gate is closed, or ``also_refusal``) when the judgment may send or record nothing more.
+  - `admit(self, client: Any, *, purpose: str, prompt: Any, budget: int | None) -> Any` (line 1103; public)
+  - `settle(self, admission: Any, usage: dict[str, Any]) -> None` (line 1116; public)
+- `judge(vault: Any, repository: Repository, learning_object_id: str, *, library: Library | None=None, client: Any | None=None, embedder: Any | None=None, clock: Clock | None=None, budget: SpendBudget | None=None, candidates: Sequence[Candidate] | None=None, before_call: Callable[[int], str | None] | None=None, live_vault: Callable[[], Any] | None=None) -> JudgeResult` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 1200) — Judge one LO's coverage across the library: no call when its current state is stored; otherwise one listwise call, then its RW4e proposals and its rows in one transaction (they mark the state done; a run that stopped before the commit is answered from the ledger next time, under…
+- `cover(vault: Any, repository: Repository, learning_object_ids: Sequence[str], *, client: Any | None=None, embedder: Any | None=None, clock: Clock | None=None, cancelled: Callable[[], bool]=lambda: False) -> list[JudgeResult]` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 1326) — Judge each LO in turn; protection is read again before each (a library that is unchanged is reused).
+- `on_extract_reason(config: Any) -> str | None` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 1357) — Why a completed extraction queues no coverage job (None: it does).
+- `covered_learning_objects(repository: Repository) -> list[str]` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 1368) — Every LO some judgment has covered (the on-extract job's work list).
+- `rejudge_on_extract(vault: Any, repository: Repository, extraction_id: str, *, client: Any | None=None, embedder: Any | None=None, clock: Clock | None=None, cancelled: Callable[[], bool]=lambda: False) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 1379) — The on-extract job: judge every covered LO again, so the new (or re-read) reading's candidate sections join its next judgment (§6.3).
+- `source_learning_objects(vault: Any, repository: Repository, library: Library, extraction_id: str) -> list[str]` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 1439) — The LOs a book's sections are judged against: the ones its sections' provenance cites, the ones coverage already names on it, then every active LO of the subjects it belongs to (a source set naming the book, or the subjects of the LOs it is cited for); with no subject known, eve…
+- `query_embedding_plan(vault: Any, repository: Repository, query: str, *, embedder: Any | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 1467) — What a real run's Qwen query embedding for this LO would cost (a dry run's estimate; no call, no write).
+- `cover_source(vault: Any, repository: Repository, extraction_id: str, *, dry_run: bool=False, client: Any | None=None, embedder: Any | None=None, clock: Clock | None=None, cancelled: Callable[[], bool]=lambda: False) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 1518) — Judge a book's sections against the LOs their candidates suggest (§6.2, owner-run; never on a hot path).
+- `class Standing` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 1670)
+  - `about(self) -> bool` (line 1686; public)
+- `standing(vault: Any, repository: Repository, library: Library, learning_object_ids: Iterable[str]) -> dict[str, dict[tuple[str, str], Standing]]` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 1690) — Per LO, its standing row per section: the rows of its current judgment that still describe the section and the LO as they are now (a changed section or statement drops them), with the newest learner correction per section standing over them.
+- `section_learning_objects(vault: Any, repository: Repository, library: Library, extraction_id: str, section_id: str) -> list[str]` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 1765) — The LOs a pressed check judges for a section: its provenance-linked LOs and every LO a coverage row (judge or learner) names for it.
+- `correct(vault: Any, repository: Repository, extraction_id: str, section_id: str, learning_object_id: str, choice: str, *, text: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 1781) — *Not about this* / *also about…* (or ``none``, clearing one): one ``learner_card`` ledger verdict and one ``learner`` row, nothing else.
+- `dismiss(vault: Any, repository: Repository, origin: tuple[str, str], target: tuple[str, str], *, operation_id: str, undo_of: str | None=None, learning_object_ids: Sequence[str] | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 1881) — *Not about this* on an unchecked hit (``undo_of``: undo that operation), in one transaction.
+- `peek(vault: Any, repository: Repository, extraction_id: str, section_id: str, *, cache: LibraryCache | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 1988) — A section's first blocks, from its jump locator, for CA5a's peek.
+- `section_text(vault: Any, repository: Repository, extraction_id: str, section_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 2026) — A whole section's blocks, from its jump locator, for side by side's second pane.
+- `correspondents(vault: Any, repository: Repository, extraction_id: str, section_id: str, *, search_fallback: bool=True, embedder: Any | None=None, cache: LibraryCache | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 2151) — From one section, the other books' sections that treat the same LOs (judged coverage), or, with none and ``search_fallback``, the live search hits per book labelled *found by search, not checked*.
 
 ### Module constants
 
@@ -160,23 +160,24 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `SECTIONS_PER_SOURCE` ([src/learnloop/source_retrieval/section_coverage.py](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 156)
 - `HITS_PER_SOURCE` ([src/learnloop/source_retrieval/section_coverage.py](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 159)
 - `PASSAGE_CHARS` ([src/learnloop/source_retrieval/section_coverage.py](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 161)
-- `STATEMENT_CHARS` ([src/learnloop/source_retrieval/section_coverage.py](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 162)
-- `NOTE_CHARS` ([src/learnloop/source_retrieval/section_coverage.py](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 163)
-- `MAX_TEXT_CHARS` ([src/learnloop/source_retrieval/section_coverage.py](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 165)
-- `_CHARS_PER_TOKEN` ([src/learnloop/source_retrieval/section_coverage.py](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 167)
-- `_OVERHEAD_CHARS` ([src/learnloop/source_retrieval/section_coverage.py](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 169)
-- `COVERAGE_TASK` ([src/learnloop/source_retrieval/section_coverage.py](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 720)
-- `_INSTRUCTIONS` ([src/learnloop/source_retrieval/section_coverage.py](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 733)
-- `STOPPING` ([src/learnloop/source_retrieval/section_coverage.py](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 853)
-- `STALE_MESSAGE` ([src/learnloop/source_retrieval/section_coverage.py](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 854)
-- `GATE_CLOSED` ([src/learnloop/source_retrieval/section_coverage.py](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 918)
-- `RELOAD_RETRIES` ([src/learnloop/source_retrieval/section_coverage.py](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 925)
-- `ON_EXTRACT_JOB` ([src/learnloop/source_retrieval/section_coverage.py](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 1351)
-- `PAIR_TASK` ([src/learnloop/source_retrieval/section_coverage.py](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 1844)
-- `PAIR_KIND` ([src/learnloop/source_retrieval/section_coverage.py](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 1845)
-- `PAIR_VERSION` ([src/learnloop/source_retrieval/section_coverage.py](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 1846)
-- `_OPERATION_ID` ([src/learnloop/source_retrieval/section_coverage.py](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 1847)
-- `PEEK_BLOCKS` ([src/learnloop/source_retrieval/section_coverage.py](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 1982)
+- `COVERAGE_MAX_TOTAL_TOKENS` ([src/learnloop/source_retrieval/section_coverage.py](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 164)
+- `STATEMENT_CHARS` ([src/learnloop/source_retrieval/section_coverage.py](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 165)
+- `NOTE_CHARS` ([src/learnloop/source_retrieval/section_coverage.py](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 166)
+- `MAX_TEXT_CHARS` ([src/learnloop/source_retrieval/section_coverage.py](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 168)
+- `_CHARS_PER_TOKEN` ([src/learnloop/source_retrieval/section_coverage.py](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 170)
+- `_OVERHEAD_CHARS` ([src/learnloop/source_retrieval/section_coverage.py](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 172)
+- `COVERAGE_TASK` ([src/learnloop/source_retrieval/section_coverage.py](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 723)
+- `_INSTRUCTIONS` ([src/learnloop/source_retrieval/section_coverage.py](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 736)
+- `STOPPING` ([src/learnloop/source_retrieval/section_coverage.py](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 856)
+- `STALE_MESSAGE` ([src/learnloop/source_retrieval/section_coverage.py](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 857)
+- `GATE_CLOSED` ([src/learnloop/source_retrieval/section_coverage.py](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 921)
+- `RELOAD_RETRIES` ([src/learnloop/source_retrieval/section_coverage.py](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 928)
+- `ON_EXTRACT_JOB` ([src/learnloop/source_retrieval/section_coverage.py](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 1354)
+- `PAIR_TASK` ([src/learnloop/source_retrieval/section_coverage.py](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 1847)
+- `PAIR_KIND` ([src/learnloop/source_retrieval/section_coverage.py](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 1848)
+- `PAIR_VERSION` ([src/learnloop/source_retrieval/section_coverage.py](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 1849)
+- `_OPERATION_ID` ([src/learnloop/source_retrieval/section_coverage.py](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 1850)
+- `PEEK_BLOCKS` ([src/learnloop/source_retrieval/section_coverage.py](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 1985)
 
 ### Explicit exports
 
@@ -241,29 +242,29 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_one_line(text: Any, limit: int=NOTE_CHARS) -> str` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 195)
-- `_active(vault: Any, lo_id: str) -> bool` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 525)
-- `_query_vectors(vault: Any, repository: Repository, query: str, *, deep: bool, embedder: Any | None, owner_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 552) — The LO's Qwen query vector, embedded once for every source's search.
-- `_kept_keys(vault: Any, repository: Repository, learning_object_ids: Sequence[str]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 611) — RW4d's kept comparisons on these LOs (held-out ones left out, fail closed), while keep is on.
-- `_clean_roles(values: Any) -> list[str]` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 820)
-- `_daily_if_inactive(vault: Any, repository: Repository, clock: Clock | None) -> SharedDailyEnvelope | None` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 865) — The daily envelope, unless a caller (the owner-run batch) has it active already.
-- `_write_rows(repository: Repository, library: Library, learning_object: Any, candidates: Sequence[Candidate], prompt: Prompt, key: str, rows: Mapping[tuple[str, str], Mapping[str, Any]], model: str, clock: Clock | None, guard: CoverageGuard | None=None, *, vault: Any | None=None, claims: Sequence[Mapping[str, Any]]=()) -> None` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 1122) — The judgment's RW4e role proposals (``claims``) and its rows, in one transaction (re-review F10): a proposal changes the sections' roles, so the rebuilt prompt, and with it the ledger lookup a stopped run is resumed by.
-- `_proposal_claims(prompt: Prompt, rows: Mapping[tuple[str, str], Mapping[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 1171) — The RW4e role claims the ledger records for this prompt's passages (each section's ``passages``), so a judgment answered from the ledger (a run that stopped before applying them) yields the same claims as the paid answer did (Codex review F5).
-- `_judge(vault: Any, repository: Repository, learning_object: Any, *, library: Library, client: Any | None, embedder: Any | None, clock: Clock | None, budget: SpendBudget | None, candidates: Sequence[Candidate] | None, before_call: Callable[[int], str | None] | None, live_vault: Callable[[], Any] | None) -> JudgeResult` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 1232)
-- `_run_usage(results: Sequence[JudgeResult], budget: SpendBudget, command: SpendEnvelope, route: Any, *, subscription: bool, price: float | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 1494) — The run's usage (Codex review F9, as ``role_labeller._usage``): the judge's tokens and dollars estimated from each call's reported usage (``estimated_only`` on a subscription; unknown with no price), and apart, the metered dollars the run's envelope was charged (a metered judge'…
-- `_order(entry: Standing) -> tuple[int, int, str, str]` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 1757)
-- `_write_correction(connection: sqlite3.Connection, vault: Any, section: Section, learning_object_id: str, choice: str, words: str | None, now: str, *, operation_id: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 1802) — One learner correction in the caller's transaction: its ``learner_card`` verdict and its ``learner`` row (CA5a's dismissal names its operation).
-- `_pair_id(operation_id: str) -> str` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 1850)
-- `_section_ref(extraction_id: str, section_id: str) -> str` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 1854)
-- `_readable_section(library: Library, extraction_id: str, section_id: str) -> Section` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 1858)
-- `_operation_view(row: Mapping[str, Any], *, replayed: bool) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 1868)
-- `_pair_dismissed(repository: Repository, origin: Section) -> set[str]` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 1965) — The hits the learner said are not about this section (the newest pair verdict per hit).
-- `_done(progress: Mapping[str, Mapping[str, Any]], section_id: str) -> bool` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 2074)
-- `class _Progress` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 2084)
-- `_section_view(section: Section, *, read: bool) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 2099)
-- `_kept_between(vault: Any, repository: Repository, library: Library, origin: Section, learning_object_ids: Sequence[str]) -> dict[tuple[str, str], list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 2106) — Per other section, what the learner kept comparing it with the origin (RW4d; held-out keeps left out): when, and the fine labels of the kept relations whose two ends are the origin and that section (Codex review F6: a comparison of three sections never lends one pair's relation…
-- `_withheld_view(extraction_id: str, section_id: str, message: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 2143)
-- `_fallback(vault: Any, repository: Repository, library: Library, origin: Section, learning_object_ids: Sequence[str], rows: Mapping[str, Mapping[tuple[str, str], Standing]], progress: _Progress, *, embedder: Any | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 2222) — The live search hits per other book for a section with no judged correspondent: its title, its LOs' titles and its lead passage as the query, by keyword only: no model call, no query embedding, no write (Codex review F7).
+- `_one_line(text: Any, limit: int=NOTE_CHARS) -> str` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 198)
+- `_active(vault: Any, lo_id: str) -> bool` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 528)
+- `_query_vectors(vault: Any, repository: Repository, query: str, *, deep: bool, embedder: Any | None, owner_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 555) — The LO's Qwen query vector, embedded once for every source's search.
+- `_kept_keys(vault: Any, repository: Repository, learning_object_ids: Sequence[str]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 614) — RW4d's kept comparisons on these LOs (held-out ones left out, fail closed), while keep is on.
+- `_clean_roles(values: Any) -> list[str]` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 823)
+- `_daily_if_inactive(vault: Any, repository: Repository, clock: Clock | None) -> SharedDailyEnvelope | None` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 868) — The daily envelope, unless a caller (the owner-run batch) has it active already.
+- `_write_rows(repository: Repository, library: Library, learning_object: Any, candidates: Sequence[Candidate], prompt: Prompt, key: str, rows: Mapping[tuple[str, str], Mapping[str, Any]], model: str, clock: Clock | None, guard: CoverageGuard | None=None, *, vault: Any | None=None, claims: Sequence[Mapping[str, Any]]=()) -> None` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 1125) — The judgment's RW4e role proposals (``claims``) and its rows, in one transaction (re-review F10): a proposal changes the sections' roles, so the rebuilt prompt, and with it the ledger lookup a stopped run is resumed by.
+- `_proposal_claims(prompt: Prompt, rows: Mapping[tuple[str, str], Mapping[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 1174) — The RW4e role claims the ledger records for this prompt's passages (each section's ``passages``), so a judgment answered from the ledger (a run that stopped before applying them) yields the same claims as the paid answer did (Codex review F5).
+- `_judge(vault: Any, repository: Repository, learning_object: Any, *, library: Library, client: Any | None, embedder: Any | None, clock: Clock | None, budget: SpendBudget | None, candidates: Sequence[Candidate] | None, before_call: Callable[[int], str | None] | None, live_vault: Callable[[], Any] | None) -> JudgeResult` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 1235)
+- `_run_usage(results: Sequence[JudgeResult], budget: SpendBudget, command: SpendEnvelope, route: Any, *, subscription: bool, price: float | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 1497) — The run's usage (Codex review F9, as ``role_labeller._usage``): the judge's tokens and dollars estimated from each call's reported usage (``estimated_only`` on a subscription; unknown with no price), and apart, the metered dollars the run's envelope was charged (a metered judge'…
+- `_order(entry: Standing) -> tuple[int, int, str, str]` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 1760)
+- `_write_correction(connection: sqlite3.Connection, vault: Any, section: Section, learning_object_id: str, choice: str, words: str | None, now: str, *, operation_id: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 1805) — One learner correction in the caller's transaction: its ``learner_card`` verdict and its ``learner`` row (CA5a's dismissal names its operation).
+- `_pair_id(operation_id: str) -> str` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 1853)
+- `_section_ref(extraction_id: str, section_id: str) -> str` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 1857)
+- `_readable_section(library: Library, extraction_id: str, section_id: str) -> Section` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 1861)
+- `_operation_view(row: Mapping[str, Any], *, replayed: bool) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 1871)
+- `_pair_dismissed(repository: Repository, origin: Section) -> set[str]` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 1968) — The hits the learner said are not about this section (the newest pair verdict per hit).
+- `_done(progress: Mapping[str, Mapping[str, Any]], section_id: str) -> bool` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 2077)
+- `class _Progress` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 2087)
+- `_section_view(section: Section, *, read: bool) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 2102)
+- `_kept_between(vault: Any, repository: Repository, library: Library, origin: Section, learning_object_ids: Sequence[str]) -> dict[tuple[str, str], list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 2109) — Per other section, what the learner kept comparing it with the origin (RW4d; held-out keeps left out): when, and the fine labels of the kept relations whose two ends are the origin and that section (Codex review F6: a comparison of three sections never lends one pair's relation…
+- `_withheld_view(extraction_id: str, section_id: str, message: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 2146)
+- `_fallback(vault: Any, repository: Repository, library: Library, origin: Section, learning_object_ids: Sequence[str], rows: Mapping[str, Mapping[tuple[str, str], Standing]], progress: _Progress, *, embedder: Any | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/section_coverage.py), line 2225) — The live search hits per other book for a section with no judged correspondent: its title, its LOs' titles and its lead passage as the query, by keyword only: no model call, no query embedding, no write (Codex review F7).
 
 ## Who imports or calls it
 
@@ -271,13 +272,17 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/cli/curriculum|learnloop.cli.curriculum]] — imports `CoverageError`, `cover_source`, `enabled`; statically calls `cover_source`, `enabled`
-- [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `ON_EXTRACT_JOB`, `covered_learning_objects`, `module`, `on_extract_reason`; statically calls `covered_learning_objects`, `on_extract_reason`, `rejudge_on_extract`
 - [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]] — imports `CoverageError`, `read_protection`; statically calls `read_protection`
-- [[Reference/Modules/learnloop/source_retrieval/deliverable_path|learnloop.source_retrieval.deliverable_path]] — imports `module`; statically calls `CoverageGuard`, `Library`, `_active`, `lo_hash`, `standing`
+- [[Reference/Modules/learnloop/passage_union/elsewhere|learnloop.passage_union.elsewhere]] — imports `module`; statically calls `correspondents`
+- [[Reference/Modules/learnloop/source_retrieval/deliverable_path|learnloop.source_retrieval.deliverable_path]] — imports `module`; statically calls `CoverageGuard`, `Library`, `_active`, `library_scope`, `lo_hash`, `scope_signature`, `standing`
 - [[Reference/Modules/learnloop/source_retrieval/deliverables|learnloop.source_retrieval.deliverables]] — imports `module`; statically calls `CoverageGuard`, `Library`, `correct`, `enabled`, `read_protection`
+- [[Reference/Modules/learnloop/source_retrieval/follow_along|learnloop.source_retrieval.follow_along]] — imports `module`; statically calls `correspondents`
+- [[Reference/Modules/learnloop/source_retrieval/goal_lens_reads|learnloop.source_retrieval.goal_lens_reads]] — imports `module`; statically calls `Library`, `_active`, `standing`
+- [[Reference/Modules/learnloop/source_retrieval/jobs|learnloop.source_retrieval.jobs]] — imports `ON_EXTRACT_JOB`, `covered_learning_objects`, `module`, `on_extract_reason`; statically calls `covered_learning_objects`, `on_extract_reason`, `rejudge_on_extract`
 - [[Reference/Modules/learnloop/source_retrieval/note_gaps|learnloop.source_retrieval.note_gaps]] — imports `module`; statically calls `Library`, `peek`
 - [[Reference/Modules/learnloop/source_retrieval/note_links|learnloop.source_retrieval.note_links]] — imports `module`; statically calls `CoverageGuard`, `Library`, `peek`, `published_snapshot`, `still_published`
 - [[Reference/Modules/learnloop/source_retrieval/vault_notes|learnloop.source_retrieval.vault_notes]] — imports `module`; statically calls `read_protection`
+- [[Reference/Modules/learnloop/source_retrieval/video_chapters|learnloop.source_retrieval.video_chapters]] — imports `module`; statically calls `CoverageGuard`, `Library`, `_daily_if_inactive`, `admission_problem`, `enabled`, `source_learning_objects`
 - [[Reference/Modules/learnloop/teacher/actions|learnloop.teacher.actions]] — imports `Library`; statically calls `Library`
 - [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]] — imports `CoverageError`, `Library`, `read_protection`; statically calls `Library`, `read_protection`
 - [[Reference/Modules/learnloop/teacher/diagnosed_sources|learnloop.teacher.diagnosed_sources]] — imports `module`; statically calls `search_sections`
@@ -285,6 +290,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop_sidecar/handlers/correspondents|learnloop_sidecar.handlers.correspondents]] — imports `module`; statically calls `LibraryCache`, `correct`, `correspondents`, `dismiss`, `enabled`, `peek`
 - [[Reference/Modules/learnloop_sidecar/handlers/deliverables|learnloop_sidecar.handlers.deliverables]] — imports `module`; statically calls `Library`, `admission_problem`, `judge`
 - [[Reference/Modules/learnloop_sidecar/handlers/side_by_side|learnloop_sidecar.handlers.side_by_side]] — imports `module`; statically calls `enabled`, `section_text`
+- [[Reference/Modules/learnloop_sidecar/handlers/video|learnloop_sidecar.handlers.video]] — imports `module`
 
 ## Dependencies
 
@@ -330,7 +336,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/curriculum|learnloop.cli.curriculum]], [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]], [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]], [[Reference/Modules/learnloop/source_retrieval/deliverable_path|learnloop.source_retrieval.deliverable_path]], [[Reference/Modules/learnloop/source_retrieval/deliverables|learnloop.source_retrieval.deliverables]] and 10 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/curriculum|learnloop.cli.curriculum]], [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]], [[Reference/Modules/learnloop/passage_union/elsewhere|learnloop.passage_union.elsewhere]], [[Reference/Modules/learnloop/source_retrieval/deliverable_path|learnloop.source_retrieval.deliverable_path]], [[Reference/Modules/learnloop/source_retrieval/deliverables|learnloop.source_retrieval.deliverables]] and 15 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -386,6 +392,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_hits_are_grouped_by_book_unchecked_and_write_nothing`
 - [tests/test_reader_ca6_side_by_side.py](../../../../../../tests/test_reader_ca6_side_by_side.py) — direct import
   - `test_a_side_by_side_read_holds_a_follow_up_on_a_shown_span_and_only_there`
+- [tests/test_reader_rd6_fix_protection.py](../../../../../../tests/test_reader_rd6_fix_protection.py) — direct import
+- [tests/test_reader_rd6a_goal_lens.py](../../../../../../tests/test_reader_rd6a_goal_lens.py) — direct import
+  - `test_a_section_about_a_deeper_lo_is_later_and_a_depth_change_re_renders_it`
+- [tests/test_reader_rd6a_goal_lens_core.py](../../../../../../tests/test_reader_rd6a_goal_lens_core.py) — direct import
+  - `test_the_cores_vocabulary_is_coverages`
 - [tests/test_section_coverage.py](../../../../../../tests/test_section_coverage.py) — direct import
   - `test_a_big_book_never_crowds_out_a_small_one`
   - `test_a_changed_section_drops_its_row`

@@ -69,7 +69,7 @@ No non-exported declaration anchor was detected by the static extractor.
 - [[Reference/Desktop/TypeScript/components/AskOverlay|src/components/AskOverlay.tsx]] — import-or-re-export: `WAITING_COPY`; references `WAITING_COPY`
 - [[Reference/Desktop/TypeScript/components/GoalBanner|src/components/GoalBanner.tsx]] — import-or-re-export: `WAITING_COPY`; references `WAITING_COPY`
 - [[Reference/Desktop/TypeScript/screens/FeedbackScreen|src/screens/FeedbackScreen.tsx]] — import-or-re-export: `WAITING_COPY`; references `WAITING_COPY`
-- [[Reference/Desktop/TypeScript/screens/LessonScreen|src/screens/LessonScreen.tsx]] — import-or-re-export: `WAITING_COPY`; references `WAITING_COPY`
+- [[Reference/Desktop/TypeScript/screens/LessonView|src/screens/LessonView.tsx]] — import-or-re-export: `WAITING_COPY`; references `WAITING_COPY`
 - [[Reference/Desktop/TypeScript/screens/PracticeScreen|src/screens/PracticeScreen.tsx]] — import-or-re-export: `WAITING_COPY`; references `WAITING_COPY`
 - [[Reference/Desktop/TypeScript/screens/feedback/FeedbackSurface|src/screens/feedback/FeedbackSurface.tsx]] — import-or-re-export: `WAITING_COPY`; references `WAITING_COPY`
 - [[Reference/Desktop/TypeScript/screens/practice/HintPanel|src/screens/practice/HintPanel.tsx]] — import-or-re-export: `WAITING_COPY`; references `WAITING_COPY`

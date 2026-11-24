@@ -364,6 +364,11 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     # the job row beside it: operational, never evidence, never rebuilt.
     ("ingest_job_progress", TableRole.WORKFLOW),
     ("ingest_jobs", TableRole.WORKFLOW),
+    # Reader workbench v2 pen and ink (migration 267; spec §10.10, §15.1): every ink save and erase
+    # (the learner's own strokes, append-only by trigger, never cleared) and each reading of an
+    # owner's standing strokes (a paid output kept so the same strokes are never read twice).
+    ("ink_strokes", TableRole.RAW_LEDGER),
+    ("ink_transcriptions", TableRole.RECEIPT),
     # Canonical sources S0: rendered proposals (append-only facts of what
     # reached the screen; never the activity_exposure_events burn boundary).
     ("instructional_impressions", TableRole.RAW_LEDGER),
@@ -751,6 +756,10 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("trace_exercised_facets", TableRole.RAW_LEDGER),
     ("unresolved_cause_factors", TableRole.WORKFLOW),
     ("vault_epigraphs", TableRole.RAW_LEDGER),
+    # Reader workbench v2 suggested video chapters (migration 268; spec §7.9, §15.1): a video's chapters as
+    # the chapters judge suggested them and as the learner decided (accepted or "not this", once). Workflow:
+    # a proposal, never evidence, never rebuilt.
+    ("video_chapters", TableRole.WORKFLOW),
     # EVSI calibration Part B: the forecast a live value-of-information
     # decision ran on, recorded beside it. A historical decision artifact,
     # never recomputed (the inputs it froze are gone by rebuild time).

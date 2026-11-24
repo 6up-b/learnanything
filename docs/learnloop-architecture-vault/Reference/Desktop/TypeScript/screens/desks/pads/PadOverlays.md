@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/pads/PadOverlays.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/pads/PadOverlays.tsx) |
-| Source lines | 366 |
+| Source lines | 517 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/pads/_area|TypeScript/screens/desks/pads]] |
 | Refactor status | `ACTIVE` |
@@ -54,62 +54,84 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export interface MenuRequest` — interface, line 10
-- `export function PadMenu(` — function, line 41
-- `export function ArrangeOverlay(` — function, line 208
-- `export function SubmitSheet(` — function, line 301
+- `export interface MenuRequest` — interface, line 14
+- `export function PadMenu(` — function, line 75
+- `export function ArrangeOverlay(` — function, line 241
+- `export function stateQuestion(state: StoredTeachBackState | null | undefined, practiceItemId: string): string | null` — function, line 362
+- `export function pendingTeachBackQuestion(currentAnswer: string | null | undefined, practiceItemId: string): string | null` — function, line 371
+- `export function SubmitSheet(` — function, line 384
 
 ## Internal implementation anchors
 
-- `type InsertBlock =` — type, line 18
-- `interface Row` — interface, line 20
-- `function anchorsOf(state: PadState | null, blockId: string | null): Array<` — function, line 30
-- `const block = state.blocks.find((each)` — const, line 32
-- `const fromLinks = state.anchors.filter((anchor)` — const, line 33
-- `const p = (block?.payload ??` — const, line 34
-- `const block: PadBlockDto | null = state?.blocks.find((each)` — const, line 51
-- `const anchors = anchorsOf(state, request.blockId)` — const, line 52
-- `const pieces = useMemo(()` — const, line 53
-- `const text = request.text.trim()` — const, line 55
-- `const close = (then?: ()` — const, line 56
-- `const textRows: Row[] = text ? [` — const, line 60
-- `const insertRows: Row[] = [ // §9.2 gives this row the letter k, but an open menu's j/k move the selection (§5.4's matrix): moving // wins, so the row is chosen with ↑↓ ↵ (or alt+d from the pad) and shows no letter.` — const, line 75
-- `const rows = [...textRows, ...insertRows,` — const, line 91
-- `const runnable = rows.filter((row)` — const, line 92
+- `type InsertBlock =` — type, line 28
+- `interface Row` — interface, line 30
+- `async function insertPiece(host: PadsHost, onInsert: (block: InsertBlock)` — function, line 41
+- `const content = await host.api.passageContent(` — const, line 43
+- `const span = content.spans.find((each)` — const, line 44
+- `function anchorsOf(state: PadState | null, blockId: string | null): Array<` — function, line 62
+- `const block = state.blocks.find((each)` — const, line 64
+- `const fromLinks = state.anchors.filter((anchor)` — const, line 65
+- `const p = (block?.payload ??` — const, line 66
+- `const block: PadBlockDto | null = state?.blocks.find((each)` — const, line 88
+- `const anchors = anchorsOf(state, request.blockId)` — const, line 89
+- `const pieces = useMemo(()` — const, line 90
 - `const hub = useListenerHub()` — const, line 94
-- `const lifecycle = useWindowLifecycle()` — const, line 96
-- `const onKey = (event: KeyboardEvent)` — const, line 102
-- `const row = runnable.find((each)` — const, line 118
-- `const onDown = (event: MouseEvent)` — const, line 125
-- `const offs = [hub.listen("window", "keydown", onKey), hub.listen("window", "mousedown", onDown, true)]` — const, line 128
-- `const rowView = (row: Row)` — const, line 135
-- `const selected = runnable[index] === row` — const, line 136
-- `const at = runnable.indexOf(row)` — const, line 139
-- `function PracticeSheet(` — function, line 160
-- `let live = true` — let, line 167
-- `const first = anchors[0]` — const, line 168
-- `const ids = [...new Set(union.sections.flatMap((section)` — const, line 172
-- `function messageOf(error: unknown): string` — function, line 203
-- `const hub = useListenerHub()` — const, line 218
-- `const onKey = (event: KeyboardEvent)` — const, line 220
-- `const id = order[index]` — const, line 233
-- `const next = [...now]` — const, line 238
-- `const next = [...now]` — const, line 245
-- `const next = new Set(now)` — const, line 252
-- `const titles = new Map(pads.map((pad)` — const, line 266
-- `const lines = new Map(pads.map((pad)` — const, line 267
-- `const next = new Set(now)` — const, line 284
-- `const block = state?.blocks.find((each)` — const, line 302
-- `const anchors = anchorsOf(state, blockId)` — const, line 307
-- `let live = true` — let, line 309
-- `const p = block.payload as Record<string, unknown>` — const, line 311
-- `const found = out.problems.find((problem)` — const, line 315
-- `const first = anchors[0]` — const, line 319
-- `const submit = async (as: "attempt" | "teach_back", item: ()` — const, line 332
-- `const sessionId = host.practiceSessionId` — const, line 333
-- `const current = host.store.pads[state.pad.padId]?.blocks.find((each)` — const, line 342
-- `const practiceItemId = await item()` — const, line 343
-- `const reply = await host.api.padSubmitBlock(` — const, line 344
+- `const text = request.text.trim()` — const, line 95
+- `const close = (then?: ()` — const, line 96
+- `const lifecycle = useWindowLifecycle()` — const, line 101
+- `const object: MenuObjectInput | null = request.blockId ?` — const, line 105
+- `const quoting = new Set(["a", "/", "v", "p", "c", "t"])` — const, line 106
+- `const allTextRows: Row[] = text ? [` — const, line 107
+- `const textRows = withheld ? allTextRows.filter((row)` — const, line 129
+- `const insertRows: Row[] = [ // §9.2 gives this row the letter k, but an open menu's j/k move the selection (§5.4's matrix): moving // wins, so the row is chosen with ↑↓ ↵ (or alt+d from the pad) and shows no letter.` — const, line 130
+- `const spanId = row.kind === "result" ? row.target?.spanId : undefined` — const, line 143
+- `const tailRows: Row[] = [ ...(request.blockId && host.menu ? [` — const, line 151
+- `const toRow = (section: MenuRow["section"])` — const, line 155
+- `const rows: MenuRow[] = [...textRows.map(toRow("verb")), ...insertRows.map(toRow("insert")), ...tailRows.map(toRow("tail"))]` — const, line 160
+- `function PracticeSheet(` — function, line 182
+- `const node = useRef<HTMLDivElement | null>(null)` — const, line 192
+- `let live = true` — let, line 195
+- `const first = anchors[0]` — const, line 196
+- `const ids = [...new Set(union.sections.flatMap((section)` — const, line 200
+- `function messageOf(error: unknown): string` — function, line 236
+- `const hub = useListenerHub()` — const, line 251
+- `const onKey = (event: KeyboardEvent)` — const, line 253
+- `const id = order[index]` — const, line 266
+- `const next = [...now]` — const, line 271
+- `const next = [...now]` — const, line 278
+- `const next = new Set(now)` — const, line 285
+- `const titles = new Map(pads.map((pad)` — const, line 299
+- `const lines = new Map(pads.map((pad)` — const, line 300
+- `const next = new Set(now)` — const, line 317
+- `interface FrozenSubmission` — interface, line 335
+- `const FROZEN = new WeakMap<object, Map<string, FrozenSubmission>>()` — const, line 342
+- `function frozenFor(store: object): Map<string, FrozenSubmission>` — function, line 344
+- `let map = FROZEN.get(store)` — let, line 345
+- `interface TeachBackTurn` — interface, line 354
+- `type StoredTeachBackState =` — type, line 359
+- `const item = state.practice_item_id ?? state.practiceItemId` — const, line 364
+- `const last = state.turns?.[state.turns.length - 1]` — const, line 366
+- `const envelope = JSON.parse(currentAnswer) as` — const, line 374
+- `const block = state?.blocks.find((each)` — const, line 385
+- `const anchors = anchorsOf(state, blockId)` — const, line 392
+- `let live = true` — let, line 394
+- `const p = block.payload as Record<string, unknown>` — const, line 396
+- `const found = out.problems.find((problem)` — const, line 400
+- `const first = anchors[0]` — const, line 404
+- `const padId = state.pad.padId` — const, line 417
+- `const submit = async (as: "attempt" | "teach_back", key: string, item: ()` — const, line 419
+- `const sessionId = host.practiceSessionId` — const, line 420
+- `const frozen = frozenFor(host.store)` — const, line 427
+- `const slot = `$` — const, line 428
+- `const current = host.store.pads[padId]?.blocks.find((each)` — const, line 432
+- `let request = frozen.get(slot)` — let, line 433
+- `const answered = await host.api.padSubmitBlock(` — const, line 439
+- `const entry = answered.entry as` — const, line 445
+- `let question: string | null = entry && entry.done === false ? entry.questionMd ?? null : null` — let, line 446
+- `const session = await host.api.getSession(sessionId).catch(()` — const, line 451
+- `const answerTurn = async (finish: boolean)` — const, line 468
+- `const sessionId = host.practiceSessionId` — const, line 469
+- `const next = await host.api.submitTeachBackTurn(` — const, line 474
 
 ## Who imports or calls it
 
@@ -122,9 +144,12 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ### Desktop source modules
 
-- [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `PadBlockDto`, `PadBlockKind`, `PadProvenance`
+- [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `MenuObjectInput`, `PadBlockDto`, `PadBlockKind`, `PadProvenance`
 - [[Reference/Desktop/TypeScript/app/keymap|src/app/keymap.ts]] — import-or-re-export; imports `screenLeavesKey`
 - [[Reference/Desktop/TypeScript/screens/desks/lifecycle|src/screens/desks/lifecycle.tsx]] — import-or-re-export; imports `useListenerHub`, `useWindowLifecycle`
+- [[Reference/Desktop/TypeScript/screens/desks/menu/ContextMenu|src/screens/desks/menu/ContextMenu.tsx]] — import-or-re-export; imports `ContextMenu`, `useSheetFocus`
+- [[Reference/Desktop/TypeScript/screens/desks/menu/model|src/screens/desks/menu/model.ts]] — import-or-re-export; imports `MenuRow`
+- [[Reference/Desktop/TypeScript/screens/desks/notebook/menuBridge|src/screens/desks/notebook/menuBridge.ts]] — import-or-re-export; imports `MARIMO_CELL_INSERT`, `MARIMO_CELL_ROW`
 - [[Reference/Desktop/TypeScript/screens/desks/pads/host|src/screens/desks/pads/host.ts]] — import-or-re-export; imports `PadsHost`
 - [[Reference/Desktop/TypeScript/screens/desks/pads/model|src/screens/desks/pads/model.ts]] — import-or-re-export; imports `PadState`, `isLearnersWords`
 

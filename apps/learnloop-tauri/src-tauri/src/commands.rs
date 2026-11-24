@@ -1369,6 +1369,13 @@ sidecar_passthrough!(pad_get, "pad.get");
 sidecar_passthrough!(pad_list, "pad.list");
 sidecar_passthrough!(pad_apply, "pad.apply");
 sidecar_passthrough!(passage_union_range, "passage.union_range");
+// RD4 fix round: a range of a reading as the source has it (desktop only).
+sidecar_passthrough!(passage_content, "passage.content");
+// RD5: the split menu's promoted rows, their job, and What this knows (desktop only).
+sidecar_passthrough!(passage_promoted, "passage.promoted");
+sidecar_passthrough!(passage_promoted_job, "passage.promoted_job");
+sidecar_passthrough!(passage_promoted_cancel, "passage.promoted_cancel");
+sidecar_passthrough!(passage_knows, "passage.knows");
 sidecar_passthrough!(companion_history, "companion.history");
 sidecar_passthrough!(checks_due_for, "checks.due_for");
 // Reader workbench v2: the companion's ask as a polled job, and search in context (desktop only; no component
@@ -1378,6 +1385,13 @@ sidecar_passthrough!(companion_ask_job, "companion.ask_job");
 sidecar_passthrough!(companion_ask_cancel, "companion.ask_cancel");
 sidecar_passthrough!(search_everything, "search.everything");
 sidecar_passthrough!(search_job, "search.job");
+// Notebook runtime: sandboxed marimo sessions behind their frame proxies (desktop only; no component calls them
+// yet).
+sidecar_passthrough!(notebook_open, "notebook.open");
+sidecar_passthrough!(notebook_status, "notebook.status");
+sidecar_passthrough!(notebook_close, "notebook.close");
+sidecar_passthrough!(notebook_release, "notebook.release");
+sidecar_passthrough!(notebook_run_cells, "notebook.run_cells");
 // Reader workbench v2 RD4: submitting a block, proposals and their labels, the desk drain and carried questions
 // (desktop only; no component calls them yet).
 sidecar_passthrough!(pad_submit_block, "pad.submit_block");
@@ -1387,6 +1401,20 @@ sidecar_passthrough!(pad_drain, "pad.drain");
 sidecar_passthrough!(carried_carry, "carried.carry");
 sidecar_passthrough!(carried_list, "carried.list");
 sidecar_passthrough!(carried_mark, "carried.mark");
+// Reader workbench v2 RD6: the goal band, the goal lens and read it anyway on a section, plus the deliverable's
+// path view (curriculum.path; judge: true starts the coverage and judgment it owes): desktop only.
+sidecar_passthrough!(goal_band, "goal.band");
+sidecar_passthrough!(goal_lens, "goal.lens");
+sidecar_passthrough!(goal_section_choice, "goal.section_choice");
+sidecar_passthrough!(curriculum_path, "curriculum.path");
+// Reader workbench v2 RD8a: the learner's ink and reading it as a polled job (desktop only; no component calls
+// them yet).
+sidecar_passthrough!(ink_save, "ink.save");
+sidecar_passthrough!(ink_erase, "ink.erase");
+sidecar_passthrough!(ink_list, "ink.list");
+sidecar_passthrough!(ink_transcribe, "ink.transcribe");
+sidecar_passthrough!(ink_transcribe_job, "ink.transcribe_job");
+sidecar_passthrough!(ink_transcribe_cancel, "ink.transcribe_cancel");
 // Teacher TE1: a lesson (lesson.turn is every model-calling step; lesson.view resumes): desktop only.
 sidecar_passthrough!(lesson_turn, "lesson.turn");
 sidecar_passthrough!(lesson_view, "lesson.view");
@@ -1395,6 +1423,16 @@ sidecar_passthrough!(lesson_activity, "lesson.activity");
 // Teacher TE2: a typed goal's resolution and Today's open lessons (no lesson written; desktop only).
 sidecar_passthrough!(lesson_goal, "lesson.goal");
 sidecar_passthrough!(lesson_open_lessons, "lesson.open_lessons");
+// Reader workbench RD9a: the lessons a lesson window's tab and the path view name (no model call; desktop only).
+sidecar_passthrough!(lesson_list, "lesson.list");
+// Reader workbench v2 RD10: follow-along and suggested video chapters (the chapters judge as a polled job; desktop
+// only).
+sidecar_passthrough!(reader_follow_along, "reader.follow_along");
+sidecar_passthrough!(chapters_list, "chapters.list");
+sidecar_passthrough!(chapters_suggest, "chapters.suggest");
+sidecar_passthrough!(chapters_job, "chapters.job");
+sidecar_passthrough!(chapters_cancel, "chapters.cancel");
+sidecar_passthrough!(chapters_decide, "chapters.decide");
 // Teacher TE1b: Today's lesson suggestion card and the learner's one response to it: desktop only.
 sidecar_passthrough!(lesson_suggestion, "lesson.suggestion");
 sidecar_passthrough!(lesson_suggestion_respond, "lesson.suggestion_respond");

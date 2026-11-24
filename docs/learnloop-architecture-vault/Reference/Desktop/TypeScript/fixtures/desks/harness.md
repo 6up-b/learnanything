@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/fixtures/desks/harness.tsx](../../../../../../../apps/learnloop-tauri/src/fixtures/desks/harness.tsx) |
-| Source lines | 117 |
+| Source lines | 223 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/fixtures/desks/_area|TypeScript/fixtures/desks]] |
 | Refactor status | `ACTIVE` |
@@ -54,23 +54,35 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export const LATEX_WIDTHS = [640, 430, 300] as const` — const, line 57
-- `export function Harness(` — function, line 92
-- `export function mountHarness(root: HTMLElement): void` — function, line 111
+- `export const LATEX_WIDTHS = [640, 430, 300] as const` — const, line 62
+- `export function Harness(` — function, line 184
+- `export function mountHarness(root: HTMLElement): void` — function, line 217
 
 ## Internal implementation anchors
 
-- `const errors: string[] = []` — const, line 20
-- `interface Window` — interface, line 22
-- `const noop = ()` — const, line 29
-- `function PreviewCard(` — function, line 33
-- `function LatexFixture()` — function, line 59
-- `const host = React.useMemo<PadsHost>(()` — const, line 60
-- `const server = new FixtureDeskServer()` — const, line 61
-- `const store = new DeskStore("latex",` — const, line 63
-- `const nothing = async ()` — const, line 69
-- `const params = new URLSearchParams(search)` — const, line 93
-- `const preview = params.get("preview")` — const, line 94
+- `const errors: string[] = []` — const, line 23
+- `interface Window` — interface, line 25
+- `const noop = ()` — const, line 34
+- `function PreviewCard(` — function, line 38
+- `function LatexFixture()` — function, line 64
+- `const host = React.useMemo<PadsHost>(()` — const, line 65
+- `const server = new FixtureDeskServer()` — const, line 66
+- `const store = new DeskStore("latex",` — const, line 68
+- `const nothing = async ()` — const, line 74
+- `function PadCellsFixture()` — function, line 102
+- `const host = React.useMemo<PadsHost>(()` — const, line 107
+- `const server = new FixtureDeskServer()` — const, line 108
+- `const store = new DeskStore("padcells",` — const, line 110
+- `const nothing = async ()` — const, line 116
+- `interface Window` — interface, line 142
+- `function NotebookFixture(` — function, line 154
+- `const params = new URLSearchParams(search)` — const, line 155
+- `const state: WindowState = params.get("nbpreview") === "1" ? "preview" : paused ? "offscreen" : "active"` — const, line 160
+- `const host = React.useMemo<NotebookBridgeHost>(()` — const, line 161
+- `const messages: BridgeMessage[] = []` — const, line 162
+- `const params = new URLSearchParams(search)` — const, line 185
+- `const preview = params.get("preview")` — const, line 186
+- `function HarnessShell(` — function, line 194
 
 ## Who imports or calls it
 
@@ -83,14 +95,17 @@ No live desktop source file directly imports this module. Do not infer dormancy:
 
 ### Desktop source modules
 
-- [[Reference/Desktop/TypeScript/fixtures/desks/pads|src/fixtures/desks/pads.ts]] — import-or-re-export; imports `fixtureMathPad`
+- [[Reference/Desktop/TypeScript/fixtures/desks/pads|src/fixtures/desks/pads.ts]] — import-or-re-export; imports `fixtureCellsPad`, `fixtureMathPad`
 - [[Reference/Desktop/TypeScript/fixtures/desks/sources|src/fixtures/desks/sources.ts]] — import-or-re-export; imports `FIXTURE_LIBRARY`, `FIXTURE_SOURCES`
 - [[Reference/Desktop/TypeScript/fixtures/desks/workspace|src/fixtures/desks/workspace.ts]] — import-or-re-export; imports `FixtureDeskServer`
+- [[Reference/Desktop/TypeScript/screens/LessonView|src/screens/LessonView.tsx]] — import-or-re-export; imports `LessonEntry`
 - [[Reference/Desktop/TypeScript/screens/desks/DeskShell|src/screens/desks/DeskShell.tsx]] — import-or-re-export; imports `DeskDebugHandle`, `DeskShell`
 - [[Reference/Desktop/TypeScript/screens/desks/keys/router|src/screens/desks/keys/router.ts]] — import-or-re-export; imports `REAL_TIMERS`
 - [[Reference/Desktop/TypeScript/screens/desks/lifecycle|src/screens/desks/lifecycle.tsx]] — import-or-re-export; imports `DIRECT_HUB`, `WindowScope`, `WindowState`
+- [[Reference/Desktop/TypeScript/screens/desks/notebook/NotebookFrame|src/screens/desks/notebook/NotebookFrame.tsx]] — import-or-re-export; imports `NotebookBridgeContext`, `NotebookBridgeHost`, `NotebookFrame`
+- [[Reference/Desktop/TypeScript/screens/desks/notebook/bridge|src/screens/desks/notebook/bridge.ts]] — import-or-re-export; imports `BridgeMessage`
 - [[Reference/Desktop/TypeScript/screens/desks/pads/PadStackWindow|src/screens/desks/pads/PadStackWindow.tsx]] — import-or-re-export; imports `PadStackWindow`
-- [[Reference/Desktop/TypeScript/screens/desks/pads/host|src/screens/desks/pads/host.ts]] — import-or-re-export; imports `PadsHost`, `PadsHostContext`
+- [[Reference/Desktop/TypeScript/screens/desks/pads/host|src/screens/desks/pads/host.ts]] — import-or-re-export; imports `PadsHost`, `PadsHostContext`, `PendingFigures`
 - [[Reference/Desktop/TypeScript/screens/desks/store|src/screens/desks/store.ts]] — import-or-re-export; imports `DeskStore`
 - [[Reference/Desktop/TypeScript/screens/desks/windows/SourceWindow|src/screens/desks/windows/SourceWindow.tsx]] — import-or-re-export; imports `SourceWindow`
 

@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/figure_admission.py](../../../../../src/learnloop/figure_admission.py) |
-| Source lines | 439 |
+| Source lines | 472 |
 | Owning package | [[Reference/Modules/learnloop/_package|learnloop]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -72,12 +72,15 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `manim_opt_in(vault: Any) -> str | None` ([source](../../../../../src/learnloop/figure_admission.py), line 278) — Reader RW5d P2b: the learner's standing opt-in for Manim figures (``"standing"``), their "not now" (``"declined"``), or None (not asked).
 - `text_key(vault: Any) -> Hashable` ([source](../../../../../src/learnloop/figure_admission.py), line 287) — What a figure prediction's learner-text reading depends on: the vault and the switch (its money cap is ``learner_text_gaps``'s, as on main).
 - `class FiguresChanged(BaseException)` ([source](../../../../../src/learnloop/figure_admission.py), line 294) — A figure-derived request refused before it was sent: the configuration its unit of work started under has changed (the switch turned off, the route, cap or price changed, or another vault is open).
-- `class FiguresGate` ([source](../../../../../src/learnloop/figure_admission.py), line 314) — Admit a figure-derived unit of work's requests only while its key holds.
-  - `__init__(self, vault: Any, key: Callable[[Any], Hashable], *, live_vault: Callable[[], Any] | None=None, hold: Callable[[Any], str | None] | None=None, wait: Callable[[], Any] | None=None, repository: Any=None) -> None` (line 338; internal)
-  - `_current(self) -> Any | None` (line 359; internal)
-  - `check(self, purpose: str='request') -> None` (line 369; public) — Raise :class:`FiguresChanged` when the unit may do nothing more.
-  - `admit(self, client: Any, *, purpose: str, prompt: Any, budget: int | None) -> Any` (line 396; public)
-  - `settle(self, admission: Any, usage: dict[str, Any]) -> None` (line 409; public)
+- `class HoldReason(str)` ([source](../../../../../src/learnloop/figure_admission.py), line 319) — A hold's reason: the prose the unit's error carries, as before, with the code the gate's record keeps (a record holds codes, never prose).
+  - `__new__(cls, text: str, code: str) -> HoldReason` (line 325; internal)
+- `hold_reason(text: str | None, code: str) -> str | None` ([source](../../../../../src/learnloop/figure_admission.py), line 331) — ``text`` with its hold ``code`` (None and the empty string pass through: no hold).
+- `class FiguresGate` ([source](../../../../../src/learnloop/figure_admission.py), line 337) — Admit a figure-derived unit of work's requests only while its key holds.
+  - `__init__(self, vault: Any, key: Callable[[Any], Hashable], *, live_vault: Callable[[], Any] | None=None, hold: Callable[[Any], str | None] | None=None, wait: Callable[[], Any] | None=None, repository: Any=None) -> None` (line 361; internal)
+  - `_current(self) -> Any | None` (line 387; internal)
+  - `check(self, purpose: str='request') -> None` (line 397; public) — Raise :class:`FiguresChanged` when the unit may do nothing more.
+  - `admit(self, client: Any, *, purpose: str, prompt: Any, budget: int | None) -> Any` (line 426; public)
+  - `settle(self, admission: Any, usage: dict[str, Any]) -> None` (line 439; public)
 
 ### Module constants
 
@@ -88,6 +91,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `TUTOR_FIGURE_GOAL_TASK` ([src/learnloop/figure_admission.py](../../../../../src/learnloop/figure_admission.py), line 194)
 - `FIGURE_GOAL_OFFERED` ([src/learnloop/figure_admission.py](../../../../../src/learnloop/figure_admission.py), line 196)
 - `GATE_RULES` ([src/learnloop/figure_admission.py](../../../../../src/learnloop/figure_admission.py), line 311)
+- `HOLD_CODES` ([src/learnloop/figure_admission.py](../../../../../src/learnloop/figure_admission.py), line 315)
 
 ### Explicit exports
 
@@ -96,12 +100,15 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `EXPLORABLE`
 - `FiguresChanged`
 - `FiguresGate`
+- `HOLD_CODES`
+- `HoldReason`
 - `OFFER_BLOCK_TYPES`
 - `FIGURE_GOAL_OFFERED`
 - `TUTOR_EXPLORABLE_TASK`
 - `TUTOR_FIGURE_GOAL_TASK`
 - `author_learner_state_enabled`
 - `help_kind_enabled`
+- `hold_reason`
 - `explorable_yes`
 - `figure_goal_digest`
 - `figure_home_keys`
@@ -130,16 +137,17 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/diagnosis/split/figure_trace|learnloop.diagnosis.split.figure_trace]] — imports `help_kind_enabled`; statically calls `help_kind_enabled`
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/jobs|learnloop.diagnosis.text_gaps.jobs]] — imports `FiguresChanged`, `FiguresGate`, `text_key`; statically calls `FiguresGate`
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/sources|learnloop.diagnosis.text_gaps.sources]] — imports `figure_home_keys`, `figures_enabled`; statically calls `figure_home_keys`, `figures_enabled`
-- [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]] — imports `FiguresChanged`, `FiguresGate`, `figures_enabled`, `rich_tiers_enabled`; statically calls `FiguresGate`, `figures_enabled`, `rich_tiers_enabled`
+- [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]] — imports `FiguresChanged`, `FiguresGate`, `figures_enabled`, `hold_reason`, `rich_tiers_enabled`; statically calls `FiguresGate`, `figures_enabled`, `hold_reason`, `rich_tiers_enabled`
 - [[Reference/Modules/learnloop/figures/grounding|learnloop.figures.grounding]] — imports `FiguresChanged`, `GROUNDING_PASSAGES`
 - [[Reference/Modules/learnloop/figures/help|learnloop.figures.help]] — imports `figure_home_keys`, `help_kind_enabled`; statically calls `figure_home_keys`, `help_kind_enabled`
 - [[Reference/Modules/learnloop/figures/learner_state|learnloop.figures.learner_state]] — imports `author_learner_state_enabled`; statically calls `author_learner_state_enabled`
 - [[Reference/Modules/learnloop/figures/listing|learnloop.figures.listing]] — imports `figures_enabled`, `rich_tiers_enabled`; statically calls `figures_enabled`, `rich_tiers_enabled`
+- [[Reference/Modules/learnloop/figures/power|learnloop.figures.power]] — imports `hold_reason`; statically calls `hold_reason`
 - [[Reference/Modules/learnloop/figures/predictions|learnloop.figures.predictions]] — imports `figures_enabled`; statically calls `figures_enabled`
 - [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] — imports `FiguresChanged`, `FiguresGate`, `figures_enabled`; statically calls `FiguresGate`, `figures_enabled`
 - [[Reference/Modules/learnloop/figures/protection|learnloop.figures.protection]] — imports `figure_home_keys`, `figures_enabled`; statically calls `figure_home_keys`, `figures_enabled`
 - [[Reference/Modules/learnloop/figures/request|learnloop.figures.request]] — imports `author_learner_state_enabled`, `figures_enabled`, `help_kind_enabled`, `rich_tiers_enabled`, `teacher_visuals_enabled`; statically calls `author_learner_state_enabled`, `figures_enabled`, `help_kind_enabled`, `rich_tiers_enabled`, `teacher_visuals_enabled`
-- [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]] — imports `FiguresChanged`, `FiguresGate`, `author_learner_state_enabled`, `figures_enabled`, `manim_opt_in`, `rich_tiers_enabled`; statically calls `FiguresGate`, `author_learner_state_enabled`, `figures_enabled`, `manim_opt_in`, `rich_tiers_enabled`
+- [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]] — imports `FiguresChanged`, `FiguresGate`, `author_learner_state_enabled`, `figures_enabled`, `hold_reason`, `manim_opt_in`, `rich_tiers_enabled`; statically calls `FiguresGate`, `author_learner_state_enabled`, `figures_enabled`, `hold_reason`, `manim_opt_in`, `rich_tiers_enabled`
 - [[Reference/Modules/learnloop/figures/sketch|learnloop.figures.sketch]] — imports `figures_enabled`; statically calls `figures_enabled`
 - [[Reference/Modules/learnloop/figures/source_check|learnloop.figures.source_check]] — imports `FiguresChanged`, `FiguresGate`, `figures_enabled`; statically calls `FiguresGate`, `figures_enabled`
 - [[Reference/Modules/learnloop/figures/view|learnloop.figures.view]] — imports `rich_tiers_enabled`; statically calls `rich_tiers_enabled`
@@ -179,7 +187,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/diagnosis/split/figure_trace|learnloop.diagnosis.split.figure_trace]], [[Reference/Modules/learnloop/diagnosis/text_gaps/jobs|learnloop.diagnosis.text_gaps.jobs]], [[Reference/Modules/learnloop/diagnosis/text_gaps/sources|learnloop.diagnosis.text_gaps.sources]], [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]], [[Reference/Modules/learnloop/figures/grounding|learnloop.figures.grounding]] and 23 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/diagnosis/split/figure_trace|learnloop.diagnosis.split.figure_trace]], [[Reference/Modules/learnloop/diagnosis/text_gaps/jobs|learnloop.diagnosis.text_gaps.jobs]], [[Reference/Modules/learnloop/diagnosis/text_gaps/sources|learnloop.diagnosis.text_gaps.sources]], [[Reference/Modules/learnloop/figures/build|learnloop.figures.build]], [[Reference/Modules/learnloop/figures/grounding|learnloop.figures.grounding]] and 24 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -188,6 +196,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_figure_offers.py](../../../../../tests/test_figure_offers.py) — direct import
   - `test_an_offered_build_is_admitted_under_the_builds_key_and_stops_when_figures_go_off`
   - `test_code_decides_the_block_and_only_yes_is_a_yes`
+- [tests/test_figure_request_records.py](../../../../../tests/test_figure_request_records.py) — direct import
+  - `test_a_hold_with_no_code_is_recorded_unclassified`
+  - `test_a_rich_prebuild_whose_item_became_protected_holds_for_it`
+  - `test_every_code_is_staged`
 - [tests/test_figure_switch_predicates.py](../../../../../tests/test_figure_switch_predicates.py) — direct import
   - `test_the_teachers_visuals_switch_is_the_teachers_alone_and_a_lesson_asks_both`
 - [tests/test_figures_prefetch_review_fixes.py](../../../../../tests/test_figures_prefetch_review_fixes.py) — direct import

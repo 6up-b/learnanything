@@ -28,7 +28,7 @@ Area: [[Reference/Desktop/TypeScript/screens/desks/companion/_area|TypeScript/sc
 
 ## Why this module exists
 
-Provides `CompanionApi`, `ExchangeStatus`, `CompanionExchange`, `AskRequest` and related exports within the desktop's TypeScript/screens/desks/companion ownership area.
+Provides `CompanionApi`, `ExchangeStatus`, `CompanionExchange`, `DeskWritesSettled` and related exports within the desktop's TypeScript/screens/desks/companion ownership area.
 
 The system-level behavior stays authoritative in the linked architecture, concept, and workflow notes; this note owns only source-level lookup facts.
 
@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/companion/asks.ts](../../../../../../../../apps/learnloop-tauri/src/screens/desks/companion/asks.ts) |
-| Source lines | 259 |
+| Source lines | 353 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/companion/_area|TypeScript/screens/desks/companion]] |
 | Refactor status | `ACTIVE` |
@@ -54,42 +54,49 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export interface CompanionApi` — interface, line 11
-- `export type ExchangeStatus = "asking" | "answered" | "failed" | "cancelled" | "interrupted"` — type, line 17
-- `export interface CompanionExchange` — interface, line 19
-- `export interface AskRequest` — interface, line 39
-- `export function threadKey(deskId: string | null): string` — function, line 62
-- `export class CompanionAsks` — class, line 66
-- `export function companionAsksFor(vaultKey: string, owner: object, make: ()` — function, line 247
+- `export interface CompanionApi` — interface, line 14
+- `export type ExchangeStatus = "waiting" | "asking" | "answered" | "failed" | "cancelled" | "interrupted"` — type, line 20
+- `export interface CompanionExchange` — interface, line 22
+- `export type DeskWritesSettled = "saved" | "unsaved"` — type, line 49
+- `export interface AskRequest` — interface, line 51
+- `export function threadKey(deskId: string | null): string` — function, line 82
+- `export class CompanionAsks` — class, line 86
+- `export function forgetCompanionAsks(vaultKey: string, owner: object): void` — function, line 334
+- `export function companionAsksFor(vaultKey: string, owner: object, make: ()` — function, line 341
 
 ## Internal implementation anchors
 
-- `function errorOf(error: unknown):` — function, line 50
-- `const record = error as` — const, line 52
-- `const index = list.findIndex((exchange)` — const, line 98
-- `const next = [...list]` — const, line 100
-- `const list = this.thread(request.deskId)` — const, line 110
-- `const exchange = list[index]` — const, line 112
-- `const requestId = this.mintRequestId()` — const, line 121
-- `const exchange: CompanionExchange =` — const, line 122
-- `const parent = this.parentFor(request)` — const, line 138
-- `const key = threadKey(request.deskId)` — const, line 139
-- `const input: CompanionAskInput =` — const, line 142
-- `const exchange = [...this.threads.values()].flat().find((each)` — const, line 166
-- `const remove = this.poller.register<CompanionAskJobDto>(` — const, line 191
-- `const reason = errorOf(error)` — const, line 201
-- `const remove = this.polls.get(requestId)` — const, line 213
-- `const base =` — const, line 220
-- `const STORES = new WeakMap<object, Map<string, CompanionAsks>>()` — const, line 244
-- `let byVault = STORES.get(owner)` — let, line 248
-- `let store = byVault.get(vaultKey)` — let, line 253
+- `function errorOf(error: unknown):` — function, line 64
+- `const record = error as` — const, line 66
+- `const UNSAVED =` — const, line 76
+- `const index = list.findIndex((exchange)` — const, line 123
+- `const next = [...list]` — const, line 125
+- `const list = this.thread(request.deskId)` — const, line 135
+- `const exchange = list[index]` — const, line 137
+- `const parent = this.parentFor(request)` — const, line 147
+- `const input: Omit<CompanionAskInput, "requestId"> =` — const, line 148
+- `const requestId = this.mintRequestId()` — const, line 163
+- `const exchange: CompanionExchange =` — const, line 164
+- `const key = threadKey(exchange.deskId)` — const, line 183
+- `const go = ()` — const, line 186
+- `const exchange = [...this.threads.values()].flat().find((each)` — const, line 215
+- `const remove = this.poller.register<CompanionAskJobDto>(` — const, line 244
+- `const reason = errorOf(error)` — const, line 257
+- `const remove = this.polls.get(requestId)` — const, line 270
+- `const sent = current.sent || (job.sent ?? (job.status === "running" || job.status === "done" || job.kept))` — const, line 281
+- `const base =` — const, line 282
+- `const held = [...this.held]` — const, line 316
+- `const STORES = new WeakMap<object, Map<string, CompanionAsks>>()` — const, line 331
+- `const byVault = STORES.get(owner)` — const, line 335
+- `let byVault = STORES.get(owner)` — let, line 342
+- `let store = byVault.get(vaultKey)` — let, line 347
 
 ## Who imports or calls it
 
 > [!note] Static-evidence boundary
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
-- [[Reference/Desktop/TypeScript/screens/desks/DeskShell|src/screens/desks/DeskShell.tsx]] — import-or-re-export: `CompanionApi`, `CompanionAsks`, `CompanionExchange`, `companionAsksFor`; references `CompanionApi`, `CompanionAsks`, `CompanionExchange`, `companionAsksFor`
+- [[Reference/Desktop/TypeScript/screens/desks/DeskShell|src/screens/desks/DeskShell.tsx]] — import-or-re-export: `CompanionApi`, `CompanionAsks`, `CompanionExchange`, `companionAsksFor`, `forgetCompanionAsks`; references `CompanionApi`, `CompanionAsks`, `CompanionExchange`, `companionAsksFor`, `forgetCompanionAsks`
 - [[Reference/Desktop/TypeScript/screens/desks/companion/Companion|src/screens/desks/companion/Companion.tsx]] — import-or-re-export: `CompanionExchange`; references `CompanionExchange`
 
 ## Dependencies

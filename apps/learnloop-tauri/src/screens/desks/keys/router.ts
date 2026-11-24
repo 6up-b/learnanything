@@ -6,10 +6,10 @@
 // top to bottom; a key no scope takes goes on to the active window (its own listeners, registered
 // through the shell's listener hub), and from there to the shell's chords (`app/keymap.ts`).
 
-export type DeskScope = "notebook" | "check" | "menu" | "typing" | "arrange" | "pen" | "overview" | "focus" | "reading";
+export type DeskScope = "notebook" | "check" | "menu" | "typing" | "arrange" | "strip" | "pen" | "overview" | "focus" | "reading";
 
 /** Highest first (spec §5.4's matrix). */
-export const SCOPE_ORDER: readonly DeskScope[] = ["notebook", "check", "menu", "typing", "arrange", "pen", "overview", "focus", "reading"];
+export const SCOPE_ORDER: readonly DeskScope[] = ["notebook", "check", "menu", "typing", "arrange", "strip", "pen", "overview", "focus", "reading"];
 
 export type DeskAction =
   | { kind: "focusAlong"; direction: -1 | 1 }
@@ -44,7 +44,8 @@ export type DeskAction =
   | { kind: "swap" }
   | { kind: "docZoom"; direction: -1 | 0 | 1 }
   | { kind: "leaveFocusMode" }
-  | { kind: "drain" };
+  | { kind: "drain" }
+  | { kind: "closeStrip" };
 
 export interface Chord {
   /** `KeyboardEvent.code` for Alt chords (Alt+H types other characters on some layouts and on a Mac);
@@ -104,8 +105,8 @@ export const DESK_BINDINGS: readonly DeskBinding[] = [
   alt("pads.arrange", "alt+a", "arrange pads", "KeyA", { kind: "arrangePads" }, READING, { group: "pads" }),
   alt("pads.sketch", "alt+d", "sketch block", "KeyD", { kind: "sketchBlock" }, READING, { group: "pads" }),
   { id: "pads.drain", keys: "alt+shift+q", label: "close the desk's day (the drain)", chord: { code: "KeyQ", alt: true, shift: true }, action: { kind: "drain" }, scopes: READING, group: "pads" },
-  alt("pads.timestamp", "alt+;", "insert ▶ timestamp", "Semicolon", { kind: "timestamp" }, READING, { later: "RD10", group: "pads" }),
-  alt("pen.toggle", "alt+p", "pen mode", "KeyP", { kind: "pen" }, ["pen", "reading"], { later: "RD8a" }),
+  alt("pads.timestamp", "alt+;", "insert ▶ timestamp", "Semicolon", { kind: "timestamp" }, READING, { group: "pads" }),
+  alt("pen.toggle", "alt+p", "pen mode", "KeyP", { kind: "pen" }, ["pen", "reading"]),
   alt("companion.typing", "alt+c", "the companion, while typing", "KeyC", { kind: "companion", atDock: false }, ["typing"]),
   bare("media.play", "space", "play or pause", " ", { kind: "playPause" }, READING, { group: "media" }),
   bare("reading.companion", "c", "companion here", "c", { kind: "companion", atDock: false }, READING),
@@ -117,10 +118,10 @@ export const DESK_BINDINGS: readonly DeskBinding[] = [
   bare("reading.menu-key", "menu key", "the menu on the hovered object", "ContextMenu", { kind: "menu" }, READING),
   { id: "reading.next-pad", keys: "ctrl+tab", label: "next pad", chord: { key: "Tab", ctrl: true, shift: false }, action: { kind: "nextPad", direction: 1 }, scopes: READING },
   { id: "reading.prev-pad", keys: "ctrl+shift+tab", label: "previous pad", chord: { key: "Tab", ctrl: true, shift: true }, action: { kind: "nextPad", direction: -1 }, scopes: READING },
-  bare("reading.path", "p", "your path", "p", { kind: "path" }, READING, { later: "RD6" }),
-  bare("reading.note", "n", "a margin note on the hovered passage", "n", { kind: "marginNote" }, READING, { later: "RD5" }),
-  bare("reading.promoted", "b", "the first promoted action", "b", { kind: "promoted" }, READING, { later: "RD5" }),
-  bare("reading.follow", "u", "follow along", "u", { kind: "follow" }, READING, { later: "RD10" }),
+  bare("reading.path", "p", "your path", "p", { kind: "path" }, READING),
+  bare("reading.note", "n", "a margin note on the hovered passage", "n", { kind: "marginNote" }, READING),
+  bare("reading.promoted", "b", "the first promoted action", "b", { kind: "promoted" }, READING),
+  bare("reading.follow", "u", "follow along", "u", { kind: "follow" }, READING),
   bare("reading.overview", "o", "overview", "o", { kind: "overview" }, ["overview", "reading"]),
   bare("reading.swap", "x", "swap the two windows in view", "x", { kind: "swap" }, READING),
   // The overview (spec §6.2): h/j/k/l, the arrows or alt+h/j/k/l move the selection; ↵ opens it, alt+↵ in
@@ -145,6 +146,8 @@ export const DESK_BINDINGS: readonly DeskBinding[] = [
   bare("focus.zoom-out", "-", "document zoom out", "-", { kind: "docZoom", direction: -1 }, ["focus"]),
   bare("focus.zoom-reset", "0", "document zoom 100 %", "0", { kind: "docZoom", direction: 0 }, ["focus"]),
   bare("focus.leave", "esc", "leave focus mode", "Escape", { kind: "leaveFocusMode" }, ["focus"]),
+  // The laptop's strip, opened over the rail (spec §5.6): esc hides it; every other key passes on.
+  bare("strip.close", "esc", "hide the strip", "Escape", { kind: "closeStrip" }, ["strip"]),
 ];
 
 /** What is open, as the router reads it. Each flag turns one scope of the matrix on. */
@@ -152,8 +155,14 @@ export interface ScopeState {
   notebook?: boolean;
   check?: boolean;
   menu?: boolean;
+  /** The DOM focus is in a field (input, textarea, an editor, a part marked as typing). */
   typing?: boolean;
+  /** A window's content claims typed keys while the DOM focus stays on the page (the Reader's intent box over a
+   * selection): typing for every key but the selection's own shortcuts (`SELECTION_SHORTCUTS`). */
+  typingClaim?: boolean;
   arrange?: boolean;
+  /** The laptop's strip is open over the rail. */
+  strip?: boolean;
   pen?: boolean;
   overview?: boolean;
   focus?: boolean;
@@ -199,8 +208,9 @@ function passesThrough(scope: DeskScope, binding: DeskBinding): boolean {
     // Typing passes only the Alt chords marked for it.
     case "typing":
       return false;
-    // Pen mode passes every key; the overview passes the shell's chords (none of these); focus mode passes
-    // the reading-view keys.
+    // Pen mode and the open strip pass every key; the overview passes the shell's chords (none of these); focus
+    // mode passes the reading-view keys.
+    case "strip":
     case "pen":
     case "focus":
       return true;
@@ -219,7 +229,18 @@ export interface Resolution {
 /** The binding this key event reaches, and the scope that owns it; null when no workbench scope takes
  * it (the key goes on to the window and the shell). The first open scope that owns a matching chord
  * wins; a scope that owns nothing for it either stops the key there or passes it down. */
+/** What a selection is for on the desks (c asks about it, shift+c at the dock, / searches it): they reach the
+ * reading view through a claimed typing scope as long as the focus stays on the reading surface. A box that
+ * claims typed keys over a selection would otherwise take the very keys the selection invites. */
+export const SELECTION_SHORTCUTS: ReadonlySet<string> = new Set(["reading.companion", "reading.companion-dock", "reading.search"]);
+
 export function resolveKey(event: KeyLike, state: ScopeState, mods: { alt: boolean; ctrl: boolean }): Resolution | null {
+  if (state.typingClaim && !state.typing) {
+    const { typingClaim: _claim, ...rest } = state;
+    const unclaimed = resolveKey(event, rest, mods);
+    if (unclaimed && unclaimed.scope === "reading" && SELECTION_SHORTCUTS.has(unclaimed.binding.id)) return unclaimed;
+    return resolveKey(event, { ...rest, typing: true }, mods);
+  }
   const matching = DESK_BINDINGS.filter((binding) => chordMatches(binding.chord, event, mods));
   if (matching.length === 0) return null;
   for (const scope of openScopes(state)) {

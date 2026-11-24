@@ -24,7 +24,7 @@ from learnloop.db.connection import connect
 from learnloop.db.migrate import UPGRADE_TEST_HELPER, applied_versions, apply_migrations, discover_migrations, \
     upgrade_allowance
 from learnloop.db.table_roles import TableRole, role_for_table
-from tests.helpers import MIGRATION_HEAD_FIXTURE, migration_head
+from tests.helpers import MIGRATION_HEAD_FIXTURE, migrations_from
 from tests.ad23_migration_helpers import AD23_ADDED_OBJECTS, NEW_TABLES
 
 HEAD = MIGRATION_HEAD_FIXTURE / "state.sqlite"
@@ -191,7 +191,7 @@ def test_a_vault_at_218_without_214_gets_it(tmp_path) -> None:
     before = _schema(database)
     with upgrade_allowance(UPGRADE_TEST_HELPER):
         applied = apply_migrations(database)
-    assert [migration.version for migration in applied] == [214, *range(249, migration_head() + 1)]
+    assert [migration.version for migration in applied] == [214, *migrations_from(249)]
     after = _schema(database)
     # Instruct hand-off IH3's 251 (its own table) follows on the way to head.
     from tests.ih3_migration_helpers import IH3_ADDED_OBJECTS
@@ -205,8 +205,10 @@ def test_a_vault_at_218_without_214_gets_it(tmp_path) -> None:
     from tests.reader_rd0_guards_migration_helpers import RD0_GUARDS_ADDED_OBJECTS
     from tests.mastery_seed_inputs_migration_helpers import MASTERY_SEED_ADDED_OBJECTS
     from tests.reader_rd4_migration_helpers import RD4_ADDED_OBJECTS
+    from tests.reader_rd8a_migration_helpers import RD8A_ADDED_OBJECTS
+    from tests.reader_rd10_migration_helpers import RD10_ADDED_OBJECTS
 
-    assert set(after) - set(before) - IH3_ADDED_OBJECTS - B1_ADDED_OBJECTS - SEEN_SPANS_ADDED_OBJECTS - TOPIC_WORK_ADDED_OBJECTS - JOB_PROGRESS_ADDED_OBJECTS - APPLICATION_ORDER_ADDED_OBJECTS - LIFECYCLE_INPUTS_ADDED_OBJECTS - RD0_ADDED_OBJECTS - RD0_GUARDS_ADDED_OBJECTS - MASTERY_SEED_ADDED_OBJECTS - RD4_ADDED_OBJECTS == AD23_ADDED_OBJECTS
+    assert set(after) - set(before) - IH3_ADDED_OBJECTS - B1_ADDED_OBJECTS - SEEN_SPANS_ADDED_OBJECTS - TOPIC_WORK_ADDED_OBJECTS - JOB_PROGRESS_ADDED_OBJECTS - APPLICATION_ORDER_ADDED_OBJECTS - LIFECYCLE_INPUTS_ADDED_OBJECTS - RD0_ADDED_OBJECTS - RD0_GUARDS_ADDED_OBJECTS - MASTERY_SEED_ADDED_OBJECTS - RD4_ADDED_OBJECTS - RD8A_ADDED_OBJECTS - RD10_ADDED_OBJECTS == AD23_ADDED_OBJECTS
     # Phone V3's 250 (help_assists' surface CHECK) runs after them too.
     from tests.mobile_v3_migration_helpers import V3_ALTERED_TABLES
     # RE0's 252 (practice_attempts.active_seconds) and refactor B1's 253 (model_call_receipts.trace_id) last.

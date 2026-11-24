@@ -25,6 +25,7 @@ source_paths:
   - "src/learnloop/curriculum/concepts.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/cli/app.py"
+  - "src/learnloop/content/authoring/jobs.py"
   - "src/learnloop/content/authoring/practice_generation.py"
   - "src/learnloop/content/authoring/rung_variants.py"
 tags:
@@ -135,6 +136,7 @@ Indexes and uniqueness:
 ### Upstream callers of the repository access surface
 
 - `src/learnloop/cli/app.py`
+- `src/learnloop/content/authoring/jobs.py`
 - `src/learnloop/content/authoring/persona_gate.py`
 - `src/learnloop/content/authoring/practice_generation.py`
 - `src/learnloop/content/authoring/rung_variants.py`
@@ -153,7 +155,6 @@ Indexes and uniqueness:
 - `src/learnloop/content/synthesis/source_set_synthesis.py`
 - `src/learnloop/content/synthesis/study_map_diff.py`
 - `src/learnloop/curriculum/graph_edit_proposals.py`
-- `src/learnloop/db/stores/content.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
