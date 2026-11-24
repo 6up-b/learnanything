@@ -250,7 +250,7 @@ def companion_ask(ctx: SidecarContext, params: CompanionAskInput) -> dict[str, A
     except CompanionAskError as exc:
         raise SidecarError(exc.code, str(exc)) from exc
     call = prepare_reader_ask(ctx, _reader_params(params))
-    goal, goal_state = (None, None) if params.goal_id is None else goal_in_view(_vault, repository, params.goal_id)
+    goal, goal_state = (None, None) if params.goal_id is None else goal_in_view(origin_vault, repository, params.goal_id)
     if params.goal_id is not None:
         # The exchange records the goal it was asked under (the lens's, which may be the vault's primary goal).
         where = replace(where, goal_id=params.goal_id)
