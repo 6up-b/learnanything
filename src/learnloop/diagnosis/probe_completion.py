@@ -600,6 +600,26 @@ def _complete(
     return reason
 
 
+#: The probe router's stop (migration 273): a router-owned episode whose next observation the router decided not to
+#: ask (``daily_plan.probe_continuation``). Its decision is named in the completion detail.
+ROUTER_STOP = "router_stop"
+
+
+def complete_on_router_stop(
+    repository: Repository,
+    episode: ProbeEpisodeRecord,
+    *,
+    router_decision_id: str,
+    posterior: EpisodePosterior | None,
+    clock: Clock | None = None,
+) -> str:
+    """Complete a router-owned episode on the router's stop: what every completion records (the posterior, the
+    detail naming its decision), with no worth rule passed or failed, since the router's decision is the stop."""
+
+    return _complete(repository, episode, ROUTER_STOP, posterior=posterior,
+                     detail={"router_decision_id": router_decision_id}, clock=clock)
+
+
 def _complete_on_value_stop(
     vault: LoadedVault,
     repository: Repository,
