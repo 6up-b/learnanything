@@ -929,7 +929,7 @@ def build_brief(vault: Any, repository: Any, *, learning_object_ids: Sequence[st
     # lesson's brief is byte for byte what it was.
     from learnloop.teacher import carried as CQ
 
-    carried = CQ.for_brief(repository, library)
+    carried = CQ.for_brief(repository, library, passage_teachable)
     if carried is not None:
         brief["carried_questions"] = carried
     return brief, book

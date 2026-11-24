@@ -16,6 +16,7 @@ were.
 """
 from __future__ import annotations
 
+from collections.abc import Callable
 from contextlib import closing
 from typing import Any
 
@@ -42,10 +43,9 @@ PARAGRAPH = (
 )
 
 
-def for_brief(repository: Any, library: Any) -> dict[str, Any] | None:
-    """The brief's ``carried_questions`` entry, or None when no question is open."""
-
-    from learnloop.teacher.brief import passage_teachable
+def for_brief(repository: Any, library: Any, teachable: Callable[[Any, str, str], bool]) -> dict[str, Any] | None:
+    """The brief's ``carried_questions`` entry, or None when no question is open. ``teachable`` is the brief's own
+    passage test (``brief.passage_teachable``), handed in so this module never imports the brief back."""
 
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         tables = connection.execute(
@@ -59,7 +59,7 @@ def for_brief(repository: Any, library: Any) -> dict[str, Any] | None:
         beside = None
         if anchor and anchor.get("extraction_id") and anchor.get("span_id"):
             extraction_id, span_id = str(anchor["extraction_id"]), str(anchor["span_id"])
-            if not passage_teachable(library, extraction_id, span_id):
+            if not teachable(library, extraction_id, span_id):
                 left_out += 1
                 continue
             reading = library.reading(extraction_id)
