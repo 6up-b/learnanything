@@ -258,3 +258,10 @@ def test_r4_the_learner_lanes_decision_and_assignment_commit_together(tmp_path, 
     assert status["routerState"] == "pending" and status["probeOffered"] is False
     with case.repository.connection() as connection:
         assert connection.execute("SELECT COUNT(*) FROM router_decisions").fetchone()[0] == 0
+
+
+def test_r5_with_the_objective_off_the_old_gate_never_draws_the_unwritten_probe(tmp_path, monkeypatch, draw):
+    from learnloop.daily_plan.router_chooser import INSERT_NOW, NO_INTERVENTION
+
+    after, decisions = _automatic(tmp_path, monkeypatch, draw, u=0.9, toml="enabled = false\n", prefer=(INSERT_NOW,))
+    assert after["chosen_ref"] == NO_INTERVENTION and decisions == 1

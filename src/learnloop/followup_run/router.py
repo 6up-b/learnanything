@@ -187,6 +187,10 @@ def _plan_context(vault: Any, repository: Repository, row: Mapping[str, Any], *,
         # §5: the restraint off means the plan never waits, as DL1's rules.
         return env, record, None
     from learnloop.daily_plan.router_chooser import FollowupGate
+    if probe_router_on(vault.config) and not objective_active(vault):
+        # The probe router's tag with the objective off: FG1's old gate would draw the unwritten probe as an option;
+        # the router's logged fallback (the probe coin alone) decides instead (G2-R5).
+        return env, record, None
     gate_class: Any = FollowupGate
     if objective_active(vault):
         # Router objective RO5 (spec §8.3): with the objective serving, the follow-up's decision is the two-policy
