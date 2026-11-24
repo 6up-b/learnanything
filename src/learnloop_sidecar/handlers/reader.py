@@ -1218,18 +1218,11 @@ def reader_capture(ctx: SidecarContext, params: ReaderCaptureInput) -> dict[str,
         with repository.atomic():
             check_selection(_vault, repository, params.extraction_id, params.raw_selection or {}, params.render_view_id)
             receipt = RC.capture(
-                repository,
-                source_id=params.source_id,
-                revision_id=params.revision_id,
-                extraction_id=params.extraction_id,
-                action=params.action,
-                client_idempotency_key=params.client_idempotency_key,
-                raw_selection=params.raw_selection,
-                render_view_id=params.render_view_id,
-                learner_text=params.learner_text,
-                what_i_think_is_going_on=params.what_i_think_is_going_on,
-                session_id=params.session_id,
-            )
+                repository, source_id=params.source_id, revision_id=params.revision_id,
+                extraction_id=params.extraction_id, action=params.action,
+                client_idempotency_key=params.client_idempotency_key, raw_selection=params.raw_selection,
+                render_view_id=params.render_view_id, learner_text=params.learner_text,
+                what_i_think_is_going_on=params.what_i_think_is_going_on, session_id=params.session_id)
     except (RC.CaptureError, ANN.AnnotationError) as exc:
         raise SidecarError("validation_error", str(exc)) from exc
     return versioned(receipt)
@@ -2093,9 +2086,7 @@ def reader_author_section_question(
             retryable=True,
         )
     batch_id = ctx.ingest_jobs.enqueue_reader_quick_check(
-        extraction_id=resolved, section_id=params.section_id,
-        **({"selection_span_ids": params.span_ids} if params.span_ids else {}),
-    )
+        extraction_id=resolved, section_id=params.section_id, **({"selection_span_ids": params.span_ids} if params.span_ids else {}))
     return versioned({"status": "queued", "batch_id": batch_id, "question": None})
 
 
