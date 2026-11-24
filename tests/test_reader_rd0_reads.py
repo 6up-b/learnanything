@@ -206,7 +206,7 @@ def test_due_checks_name_their_host_and_nothing_of_the_item(seeded):
     checks = due_checks(vault, repository, goal_id="goal_linear_algebra_ml", clock=after)
     assert checks == [{"commitment_id": commitment.id, "lo_id": LO, "due": "2026-05-20T09:00:00Z",
                        "host": {"extraction_id": BOOK, "section_id": SECTION, "span_id": "s1"},
-                       "provenance": {"origin": "reader"}}]
+                       "provenance": {"origin": "reader"}, "being_answered": False}]
     assert due_checks(vault, repository, goal_id="goal_linear_algebra_ml", extraction_id=BOOK, span_id="s4",
                       clock=after) == checks
     assert due_checks(vault, repository, learning_object_ids=["lo_other"], clock=after) == []

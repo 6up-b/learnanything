@@ -225,6 +225,9 @@ class IntentServing:
     #: ``(item_id, check) -> refusal | None``: a Reader follow-up's serve-time
     #: gate (RW6b Codex review F1, F11).
     _followup_gate: Any = None
+    #: The commitments an open inline administration holds (mvp-0.69, spec §12.6.5): the lock Today honours. While it
+    #: is held Today does not serve the check's item as the check; it reads "being answered in the Reader".
+    locked: frozenset[str] = frozenset()
 
     # -- the checks, split among admitted candidates (R1) ----------------------
 
@@ -456,6 +459,10 @@ class IntentServing:
                 (item_id for item_id in check.servable if item_id in positions),
                 key=lambda item_id: positions[item_id],
             )
+            if check.commitment_id in self.locked:
+                # Being answered in the Reader: none of its items is served as the check in this build.
+                drop.update(ranked)
+                continue
             if not ranked:
                 continue
             chosen[check.commitment_id] = ranked[0]
@@ -655,6 +662,18 @@ def split_check(check: CheckState, *, eligibility: Any = None, feasibility: Any 
     )
 
 
+def _inline_locks(vault: Any, repository: Any) -> frozenset[str]:
+    """The commitments an open inline administration holds (mvp-0.69); below the tag, none (Today ignores the lock)."""
+
+    from learnloop.algorithm_versions import inline_checks_on
+    from learnloop.db.stores.check_administrations import open_commitments
+
+    if not inline_checks_on(vault.config):
+        return frozenset()
+    with repository.connection() as connection:
+        return open_commitments(connection)
+
+
 def intent_serving(
     vault: Any,
     repository: Any,
@@ -759,6 +778,7 @@ def intent_serving(
         _admission_factory=default_admission,
         _gate_factory=gate_factory,
         _followup_gate=followup_gate,
+        locked=_inline_locks(vault, repository),
     )
 
 
