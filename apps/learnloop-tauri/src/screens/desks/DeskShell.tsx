@@ -3131,8 +3131,14 @@ export function DeskShell({
       if (session) reader?.workbench?.onPracticeSession?.(session);
       // The marker was at no passage: the begun card, inline at its host when that reading is here, is brought into
       // view (else the card centred near the top stands in, as ever).
+      // The answer box takes the focus there: the desks were held while the begin was on its way, so the card may have
+      // mounted inside a subtree the hold had not released yet (autofocus is lost then).
       if (opened && typeof requestAnimationFrame !== "undefined") {
-        requestAnimationFrame(() => document.querySelector('[data-check-card="inline"]')?.scrollIntoView?.({ block: "center" }));
+        requestAnimationFrame(() => {
+          const card = document.querySelector<HTMLElement>('[data-check-card="inline"], [data-check-card="overlay"]');
+          if (card?.dataset.checkCard === "inline") card.scrollIntoView?.({ block: "center" });
+          card?.querySelector<HTMLTextAreaElement>("textarea")?.focus();
+        });
       }
     });
   }, [checkDesk, reader, visibleForCheck, toastSafe]);

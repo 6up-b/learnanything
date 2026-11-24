@@ -721,5 +721,9 @@ presentation's time is already `plan_presentations.served_at`.
   release is the submit's, not abandon's.
 - **`checks.test.tsx`:** unchanged assertions, two new tests.
 
+- **DeskShell:** after a begin, the answer box takes the focus itself. The desks held everything while the begin was on
+  its way, so the card can mount inside a subtree the hold has not released yet, and autofocus is lost then. The
+  harness's `checks` run caught it: "the answer box has the focus".
+
 **Commands.** Fail-first: 14 server tests failed 14 of 14 against the branch tip's sources, and the two new client
 tests failed against its controller.
