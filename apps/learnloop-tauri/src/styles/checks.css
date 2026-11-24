@@ -65,3 +65,7 @@
 .desk-shell .ccv { border-left: 1px dotted var(--gl-purple-line); padding: 4px 0 4px 10px; margin: 8px 0; color: var(--desk-t2); line-height: 1.6; }
 .desk-shell .ccv b { color: var(--desk-t); font-weight: 500; }
 .desk-shell .ccv .faint { color: var(--desk-t3); }
+
+/* The answer box's focus is its purple border (the reference's), not the app's focus ring. */
+.desk-shell .gqa:focus-visible, .desk-shell .cca textarea:focus-visible { outline: none; }
+.desk-shell .cca textarea:focus { border-color: #6c5fb0; }

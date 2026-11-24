@@ -20,20 +20,22 @@ interface Pill {
   top: number;
 }
 
-/** What can cover a veiled element from above (the companion, the card centred near the top, search). */
-const OCCLUDERS = "[data-companion-dock], [data-check-card='overlay'], [data-desk-search]";
+/** What can cover a veiled element from above (the companion, the card centred near the top, search, the goal band). */
+const OCCLUDERS = "[data-companion-dock], [data-check-card='overlay'], [data-desk-search], .goalband";
 
 /** Where a veil's pill goes: the middle of the part of the element that shows (inside its window and the viewport, at
  *  most 120 px down), or nowhere when none of it shows (a hidden desk, scrolled away, under the companion). */
 function placeOf(element: Element, root: ParentNode): { left: number; top: number } | null {
   const box = element.getBoundingClientRect();
   if (!box.width || !box.height) return null;
-  const frame = element.closest("[data-desk-window]")?.getBoundingClientRect() ?? null;
-  const view = typeof window === "undefined" ? null : { left: 0, top: 0, right: window.innerWidth, bottom: window.innerHeight };
-  const left = Math.max(box.left, frame?.left ?? -Infinity, view?.left ?? -Infinity);
-  const right = Math.min(box.right, frame?.right ?? Infinity, view?.right ?? Infinity);
-  const top = Math.max(box.top, frame?.top ?? -Infinity, view?.top ?? -Infinity);
-  const bottom = Math.min(box.bottom, frame?.bottom ?? Infinity, view?.bottom ?? Infinity);
+  // Clipped by the window's scroller (a passage scrolled away shows nothing), the window and the viewport.
+  const frames = [element.parentElement?.closest("[data-desk-pane-body]"), element.closest("[data-desk-window]")]
+    .filter((each): each is Element => Boolean(each)).map((each) => each.getBoundingClientRect());
+  if (typeof window !== "undefined") frames.push(new DOMRect(0, 0, window.innerWidth, window.innerHeight));
+  const left = Math.max(box.left, ...frames.map((f) => f.left));
+  const right = Math.min(box.right, ...frames.map((f) => f.right));
+  const top = Math.max(box.top, ...frames.map((f) => f.top));
+  const bottom = Math.min(box.bottom, ...frames.map((f) => f.bottom));
   if (right - left < 1 || bottom - top < 1) return null;
   const at = { left: (left + right) / 2, top: top + Math.min((bottom - top) / 2, 120) };
   for (const cover of root.querySelectorAll(OCCLUDERS)) {
