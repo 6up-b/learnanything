@@ -11208,7 +11208,8 @@ export interface CheckPromptDto {
   /** The learner-facing blocks, rendered with Today's presentation component. */
   presentation?: ItemPresentationDto | null;
   practiceMode?: string | null;
-  answerFormat?: string | null;
+  attemptTypesAllowed?: string[];
+  activeFollowupKind?: string | null;
   intentCheck?: IntentCheckDto | null;
 }
 
@@ -11221,8 +11222,9 @@ export interface CheckCardDto {
   /** Whether the item could be answered cold when it was served (else practice from the start). */
   cold: boolean;
   state: "open" | "submitted" | "abandoned" | "superseded";
+  /** `veiled`: everything veiled (opened ones included); `standing`: veiled and not opened. */
   protection: { veilSetId: string | null; method: string | null; veiled: CheckVeilRefDto[]; opened: CheckVeilRefDto[];
-    groups: string[] };
+    standing?: CheckVeilRefDto[]; groups: string[] };
   prompt: CheckPromptDto;
   /** The practice session the answer is recorded on (opened when the app had none), for the app to adopt. */
   practiceSession?: SessionSnapshot | null;

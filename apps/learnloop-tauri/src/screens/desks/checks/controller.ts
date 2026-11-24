@@ -284,8 +284,16 @@ export class CheckDesk {
 
   private adopt(card: CheckCardDto, host: DueCheck["host"], judgedFrom: CheckVisibleDto | null = null): void {
     const draft = this.drafts.get(card.administrationToken) ?? "";
+    const seen = new Set<string>();
+    // Every ref veiled so far, once (the server's `veiled` includes the opened ones; an older card's did not).
+    const veiled = [...card.protection.veiled, ...card.protection.opened].filter((ref) => {
+      const key = refKey(ref);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
     this.current = {
-      card, phase: "open", veiled: [...card.protection.veiled, ...card.protection.opened], opened: card.protection.opened.map(refKey), looked: [],
+      card, phase: "open", veiled, opened: card.protection.opened.map(refKey), looked: [],
       coldNow: null, answer: draft, submissionId: card.submissionId ?? this.mintId("csub"), reply: null, host, error: null,
     };
     this.revision = card.revision ?? 0;

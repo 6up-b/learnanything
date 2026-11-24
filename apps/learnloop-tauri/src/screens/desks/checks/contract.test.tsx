@@ -5,7 +5,7 @@
 // off while the answer is on its way, and the card is worded from the serve-time eligibility.
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { CheckCardDto, CheckVeilRefDto } from "../../../api/dto";
+import type { CheckCardDto, CheckSubmitDto, CheckVeilRefDto } from "../../../api/dto";
 import { CheckDesk, type CheckTransport, type DraftStore } from "./controller";
 import { CheckCardInline } from "./CheckCard";
 import { SHOW_UNMEASURED_COST, costOf } from "./model";
@@ -154,7 +154,7 @@ describe("the server's contract, from the desks", () => {
 
   it("not now is off while the answer is on its way", async () => {
     let release!: () => void;
-    const { desk, transport } = fake({ submit: vi.fn(() => new Promise((resolve) => { release = () => resolve({ administrationToken: "cad_1", attemptId: "at_1", cold: true, reason: "on_your_own" }); })) });
+    const { desk, transport } = fake({ submit: vi.fn(() => new Promise<CheckSubmitDto>((resolve) => { release = () => resolve({ administrationToken: "cad_1", attemptId: "at_1", cold: true, reason: "on_your_own" }); })) });
     await desk.begin("cm_1", null, { windows: [] });
     render(<CheckCardInline desk={desk} />);
     fireEvent.change(screen.getByLabelText("your answer"), { target: { value: "x" } });

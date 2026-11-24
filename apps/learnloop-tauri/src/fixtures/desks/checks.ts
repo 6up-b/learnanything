@@ -112,7 +112,7 @@ export class FixtureChecks {
   private card(open: Open, replayed = false): CheckCardDto {
     return {
       version: 1, administrationToken: open.token, commitmentId: open.commitmentId, itemRef: `fx_pi_${open.commitmentId}`, contractHash: "fx_contract", cold: true, state: "open",
-      protection: { veilSetId: `fx_cvs_${this.count}`, method: "structural+notes_by_default", veiled: this.standing(open), opened: open.opened,
+      protection: { veilSetId: `fx_cvs_${this.count}`, method: "structural+notes_by_default", veiled: open.veiled, opened: open.opened, standing: this.standing(open),
         groups: [...new Set(open.veiled.map((ref) => ref.group))] },
       prompt: { practiceItemId: `fx_pi_${open.commitmentId}`, prompt: PROMPTS[open.commitmentId] ?? "",
         presentation: { practiceItemId: `fx_pi_${open.commitmentId}`, blocks: [{ kind: "prompt", markdown: PROMPTS[open.commitmentId] ?? "", label: null }] } },
