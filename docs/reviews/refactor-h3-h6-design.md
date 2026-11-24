@@ -18,7 +18,7 @@ quantity. It is not touched here, and H1's guard keeps the two apart.
 
 | Step | What changes | Tag | Migration |
 |---|---|---|---|
-| H3 | The IRT seam stops reading the label at the tag, so mastery's `b` loses its item term. Surprise scores the answer against AD's serve-time forecast, recorded in `forecast_receipts`, and falls back to mastery's own prediction where there is none. Bayesian surprise still describes the mastery update. The EB path is never run at or above the tag. | one, the next after mvp-0.70 (mvp-0.71 if landing order holds) | none (§3.6) |
+| H3 | The IRT seam stops reading the label at the tag, so mastery's `b` loses its item term. Surprise scores the answer against AD's serve-time forecast where the answer's presentation has one, else against a grade-time AD forecast recorded for every graded answer, and falls back to mastery's own prediction where there is neither. Bayesian surprise still describes the mastery update. The EB path is never run at or above the tag. AD's replayer records the KL of its own posterior per trained answer, as a measure. | built as mvp-0.72, provisionally ([algorithm-mvp-0.72.md](algorithm-mvp-0.72.md)) | none (§3.6) |
 | H4 | AD stops reading `z_llm` (the label as a signal), from both frozen serve inputs and historical items. | one, its own | none |
 | H5 | Exam pools stop stratifying by the label. Index filters go. Authoring prompts stop asking for a label and bump their versions. Copies of the label stop. | one, for the exam pools (they decide which items are held-out measurements) | none |
 | H6 | Writers and DTOs stop. The content hash keeps hashing the stored value as written. Config keys and the EB code leave when the version floor passes H3's tag. | none | none; `pf_candidates.difficulty` and `item_parameter_state` join arc J's drop list if the owner approves |
@@ -79,6 +79,14 @@ not about the item, and H2 kept it in every arm. Whether that 2.0 is itself a ma
 note it for the owner and do not change it.
 
 ### 2.2 Surprise's prediction (Q2)
+
+**Decided on 2026-11-24 (Q18, §10.3): (a + b).** The serve-time receipt where the answer's presentation has one, else
+a grade-time receipt recorded for every graded answer, else mastery's own prediction, the row saying which. The
+grade-time read runs read-only before the grade's write transaction, and the receipt and surprise row are written in
+the grade's own transaction (the orchestrator's option (A) after the timing). The receipt records the AD events it
+read. Built with the AD-native KL as a measure. No AD replay over history: answers before the tag fall back to
+mastery, marked. The build and its timings are in [algorithm-mvp-0.72.md](algorithm-mvp-0.72.md). The table and
+recommendation below are the design as it stood before that decision.
 
 The owner leans to arm (c): the prediction comes from AD's forecast, the formulas stay, and Bayesian surprise keeps
 describing the mastery update. The question is where AD's forecast is read from, at grade and in replay.
@@ -538,6 +546,11 @@ the grade of a receipt AD already writes.
 
 ## 9. L4-2's capture after H3
 
+As built, H3 and L4-2 share one capture point: the grade's persist step, right after `record_attempt_outcome`. H3
+writes the grade-time receipt there and L4-2 its curve. The conflict lines either landing order meets, and the one
+semantic call in them (whether recorded pre-tag curves or the seam rule replay at the tag), are in
+[algorithm-mvp-0.72.md](algorithm-mvp-0.72.md).
+
 L4-2 (`docs/reviews/algorithm-mvp-0.70.md`, mvp-0.70, being built) captures, per newly applied grade epoch, "the
 effective discrimination and difficulty actually passed to mastery after empirical-difficulty and priming
 adjustments".
@@ -654,7 +667,12 @@ falls back to mastery's own prediction, which is arm (b).
 | **(a + b) A grade-time forecast for unbound answers** | At grade, AD's subject-view prediction for the item, as AD stood before the answer. Computed read-only before the grade's write, and written as a forecast receipt bound to the attempt: a new kind value in code, no migration (to confirm no CHECK constrains it). Surprise reads it where no serve receipt applies. | **Time:** `adaptive_difficulty.replay.snapshot` is cached by AD's events fingerprint, and every answer or reading event changes it. So the first grade after any change runs AD's whole replay (all history, every grid point). The serve pays this already for plan steps, but an unbound answer would pay it at grade, and it grows with history (ADM0 measures replay and Next latency; refactor F2 notes the router's speed target is unmet). **Reach:** AD reads only its eligible types (independent, open text, diagnostic probe, exam attempt, hinted, don't-know; `adaptive_difficulty/outcomes.py:40`). Self reports (D8), teach-back and lesson checks stay on the fallback. A protected item (held-out material, an exam reservation: A8) gets no prediction. **History:** none, unless the upgrade also writes one per historical attempt by H2's prefix replay (O(n) AD replays at the upgrade; vault 2's 70 took seconds in H2's run). |
 | **(c) Drop AD from surprise in H3** | H3 is arm (b) only; the firewall amendment of §8 is not needed. AD's surprise source returns as its own later step, when plan-bound answering is common or ADM2a writes forecasts at every presentation. | None. The owner's lean to (c) waits. |
 
-**Recommendation: decide with the owner before H3 is built.** If the owner wants AD in surprise now, (a + b),
+**Decided on 2026-11-24: (a + b), without the historical prefix forecasts** (no AD replay over old answers: they fall
+back to mastery, marked), and with the AD-native KL recorded as a measure. The grade-time read cost 20 to 70 ms on
+synthetic histories of 20 to 158 answers (about 0.4 ms per answer, dominated by loading AD's events). The orchestrator
+chose to read before the grade's write and write in it ([algorithm-mvp-0.72.md](algorithm-mvp-0.72.md)).
+
+**The recommendation as it stood: decide with the owner before H3 is built.** If the owner wants AD in surprise now, (a + b),
 with the upgrade's historical prefix forecasts, is the version that reads AD on most answers AD can read at all.
 Measure its grade-time cost on a copy first: time a cold `replay.snapshot` on vault 2's copy. If the owner is content
 for AD to enter surprise as plan-bound answering grows, (a) as designed. (c) is the smallest H3.
@@ -663,7 +681,7 @@ for AD to enter surprise as plan-bound answering grows, (a) as designed. (c) is 
 
 1. Record the original database hash. On the mvp-0.70 copy, run the inspections above and `learnloop rebuild
    --shadow --json`.
-2. `learnloop upgrade --vault "$COPY" --to mvp-0.71`, then `learnloop doctor`, then the successor's shadow rebuild.
+2. `learnloop upgrade --vault "$COPY" --to mvp-0.72` (the build's provisional tag), then `learnloop doctor`, then the successor's shadow rebuild.
    Report mastery, surprise (and the stored follow-up actions, §3.3), facet and capability, lesson weight, due dates
    and queue deltas, plus the receipt/fallback tiers.
 3. Rebuild again. The semantic digests must agree with step 2. Check the original database hash. Report before any
@@ -692,7 +710,7 @@ H4 repeats steps 1 to 3 with AD's scoring report. H5's pools add the pools-with-
 | Q15 | H5's pool change: its own tag, or on H3's | own (three tags); or on H3's (two) | Own |
 | Q16 | The gate's records, cleared by every rebuild (§3.9, ledger H-1) | (A) carry them across replay; (B) a receipt table; (C) leave | (A) before H3, (B) later if wanted |
 | Q17 | History's surprise beside a recorded decision after H3 | (D1) both as they are; (D2) the decision's recorded inputs where one exists; (D3) pre-tag surprise rows kept as recorded | (D2), accepted by the orchestrator |
-| Q18 | Receipt coverage is zero on the copies (§10.1): where AD reaches surprise | (a) receipts only; (a + b) plus a grade-time forecast for unbound answers, with historical prefix forecasts at the upgrade; (c) drop AD from surprise in H3 | The owner decides before H3 is built (§10.3) |
+| Q18 | Receipt coverage is zero on the copies (§10.1): where AD reaches surprise | (a) receipts only; (a + b) plus a grade-time forecast for unbound answers, with historical prefix forecasts at the upgrade; (c) drop AD from surprise in H3 | **Decided 2026-11-24: (a + b), a grade-time receipt for every graded answer, no prefix forecasts for history, with the AD-native KL as a measure** (§2.2, §10.3) |
 
 ## 12. Checked, and not checked
 
