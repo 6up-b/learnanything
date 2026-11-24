@@ -16,7 +16,7 @@ import pytest
 from learnloop.daily_plan import probe_continuation as PCN
 from learnloop.diagnosis.probe_authority import router_selected_presentation
 from learnloop.diagnosis.probe_completion import ROUTER_STOP
-from learnloop.router.plan_log import PROBE_CONTINUATION_SURFACE, PROBE_REF, STOP_REF
+from learnloop.router.plan_log import PROBE_CONTINUATION_SURFACE, PROBE_REF, CONTINUATION_STOP_REF
 from learnloop.router_objective import probe_coin as PC
 
 from tests.probe_block_end_helpers import _submit
@@ -56,8 +56,8 @@ def test_the_router_decides_the_next_observation_once_with_its_exact_served_dist
     _job(case)
     (decision,) = _continuations(case)
     assert (decision["chosen_ref"], decision["propensity"], decision["propensity_kind"]) == (PROBE_REF, 0.2, "exact")
-    assert decision["detail"]["served_pi"] == {PROBE_REF: 0.2, STOP_REF: 0.8}
-    assert {c["ref"]: c["propensity"] for c in decision["candidates"]} == {PROBE_REF: 0.2, STOP_REF: 0.8}
+    assert decision["detail"]["served_pi"] == {PROBE_REF: 0.2, CONTINUATION_STOP_REF: 0.8}
+    assert {c["ref"]: c["propensity"] for c in decision["candidates"]} == {PROBE_REF: 0.2, CONTINUATION_STOP_REF: 0.8}
     assert decision["receipt_key"] == f"plan_interrupt:probe_continuation:{case.episode_id}:1:0"
     assert decision["detail"]["next_item"] == SECOND and decision["detail"]["probe_coin"]
     with case.repository.connection() as connection:
@@ -118,7 +118,7 @@ def test_a_router_stop_completes_the_episode_with_its_own_reason(tmp_path, monke
     case = _answered(tmp_path, monkeypatch, u=0.9)
     _job(case)
     (decision,) = _continuations(case)
-    assert (decision["chosen_ref"], decision["propensity"]) == (STOP_REF, 0.8)
+    assert (decision["chosen_ref"], decision["propensity"]) == (CONTINUATION_STOP_REF, 0.8)
     episode = case.repository.probe_episode(case.episode_id)
     assert (episode.status, episode.completion_reason) == ("complete", ROUTER_STOP)
     with case.repository.connection() as connection:

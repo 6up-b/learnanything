@@ -170,7 +170,7 @@ def decide(vault: Any, repository: Any, request: Mapping[str, Any], *, clock: Cl
     from learnloop.daily_plan import measurement as objectives
     from learnloop.diagnosis.probe_blocks import stop_on_router_decision
     from learnloop.diagnosis.probe_presentations import commit_presentation
-    from learnloop.router.plan_log import PROBE_REF, STOP_REF, log_probe_continuation_decision, \
+    from learnloop.router.plan_log import PROBE_REF, CONTINUATION_STOP_REF, log_probe_continuation_decision, \
         probe_continuation_receipt_key
 
     episode = repository.probe_episode(str(request["episode_id"]))
@@ -197,13 +197,13 @@ def decide(vault: Any, repository: Any, request: Mapping[str, Any], *, clock: Cl
     gained = LP.information(valuation)
     served, propensity, served_pi, drawn, pending = LP.draw(
         vault, repository, key=key, unit=UNIT, valuation=valuation, now_iso=now_iso, probe_ref=PROBE_REF,
-        other_ref=STOP_REF)
+        other_ref=CONTINUATION_STOP_REF)
     decision_id = new_ulid()
     detail: dict[str, Any] = {
         "probe_episode_id": str(episode.id), "factor_id": built.factor_id, "observations": at[0], "redraw": at[1],
         "candidate_id": built.chosen["id"], "next_item": built.practice_item_id,
         "learning_object_id": built.learning_object_id, "policy": POLICY, "learned": gained > 0.0,
-        "information": gained, "valuation": value_record, "facts": built.facts(), "support": [STOP_REF, PROBE_REF],
+        "information": gained, "valuation": value_record, "facts": built.facts(), "support": [CONTINUATION_STOP_REF, PROBE_REF],
         "eligibility": {"next_item_eig": float(instrument.expected_information_gain), "ranked_by": "eig",
                         "eligible_by": "eligible_instruments"},
         **drawn, "served_pi": served_pi,
@@ -230,7 +230,7 @@ def decide(vault: Any, repository: Any, request: Mapping[str, Any], *, clock: Cl
                 written = ro5_assignments.record_pending(connection, pending, unit_id=decision_id, at=now_iso)
                 if len(written) != len(pending):
                     raise RuntimeError("the probe coin's assignment was not written")
-            support = [ref for ref in (STOP_REF, PROBE_REF) if float(served_pi.get(ref, 0.0)) > 0.0]
+            support = [ref for ref in (CONTINUATION_STOP_REF, PROBE_REF) if float(served_pi.get(ref, 0.0)) > 0.0]
             objectives.record(vault, repository, connection, decision_id=decision_id, decision_kind="plan_interrupt",
                               frozen=objectives.freeze_followup(built.learning_object_id, support=support),
                               arm=objectives.ARM_INSERT if served == PROBE_REF else objectives.ARM_STOP,

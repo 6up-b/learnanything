@@ -973,7 +973,7 @@ def automatic_probe_decision(connection: Any, factor_id: str) -> dict[str, Any] 
 #: The probe router's continuation decisions: whether a router-owned episode's next observation is asked.
 PROBE_CONTINUATION_SURFACE = "probe_episode"
 #: The continuation's other option: the episode stops (completes with ``router_stop``).
-STOP_REF = "stop"
+CONTINUATION_STOP_REF = "stop"
 
 
 def probe_continuation_receipt_key(episode_id: str, observations: int, redraw: int = 0) -> str:
@@ -1001,7 +1001,8 @@ def log_probe_continuation_decision(connection: Any, decision: Mapping[str, Any]
 
     if not _ledger_present(connection):
         return None
-    row = build_learner_probe_decision({**decision, "surface": PROBE_CONTINUATION_SURFACE, "other_ref": STOP_REF})
+    row = build_learner_probe_decision({**decision, "surface": PROBE_CONTINUATION_SURFACE,
+                                        "other_ref": CONTINUATION_STOP_REF})
     append_router_decision(connection, row)
     found = connection.execute("SELECT id FROM router_decisions WHERE receipt_key = ?", (row["receipt_key"],)).fetchone()
     return str(found[0]) if found is not None else None
@@ -1026,8 +1027,8 @@ __all__ = [
     "LEARNER_PROBE_SURFACE",
     "NO_PROBE_REF",
     "PROBE_REF",
+    "CONTINUATION_STOP_REF",
     "PROBE_CONTINUATION_SURFACE",
-    "STOP_REF",
     "automatic_probe_decision",
     "build_learner_probe_decision",
     "log_probe_continuation_decision",
