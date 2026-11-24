@@ -1201,8 +1201,10 @@ export function App() {
       onError("The source for this reading block is no longer in the library.");
       return;
     }
-    setNextReaderVisitInitiator("plan");
+    setNextReaderVisitInitiator("plan", reading.extractionId);
     setReaderSource(target);
+    // A new open: the desks open (or focus) the plan's book at its section, once.
+    setReaderOpenSeq((seq) => seq + 1);
     setPlanReading({ reading, estMinutes });
     setTab("reader");
   }
@@ -1419,7 +1421,7 @@ export function App() {
   // Reader workbench RD9a (spec §11.1): with the desks as the current place, a lesson opens in a window on the current
   // desk instead of switching screens; anywhere else it is the lesson screen, as before.
   function openLessonEntry(entry: LessonEntry) {
-    if (tab === "reader" && !planReading && readerSurface === "desks" && vaultRoot) {
+    if (tab === "reader" && readerSurface === "desks" && vaultRoot) {
       const vault = vaultRoot;
       setDeskLessonRequest((now) => ({ seq: (now?.seq ?? 0) + 1, entry, vault }));
       return;
@@ -2020,7 +2022,7 @@ export function App() {
           // With a book open, the Reader's own Ask opens, its box focused
           // (Codex review F5: a notice held while reading did nothing there).
           // On the desks it summons their companion, a book open in a window or not.
-          if (tab === "reader" && (readerSource || (readerSurface === "desks" && vaultRoot && !planReading))) {
+          if (tab === "reader" && (readerSource || (readerSurface === "desks" && vaultRoot))) {
             setReaderAskRequest((count) => count + 1);
             return;
           }
@@ -2443,6 +2445,31 @@ export function App() {
     }
   }
 
+  /** The Reader place on the desks (the surface the learner chose). */
+  function renderDesks(root: string) {
+    return (
+      <DeskShell
+        key={root}
+        vaultKey={root}
+        onError={onError}
+        onLeave={() => chooseReaderSurface("reader")}
+        firstSourceId={readerSource?.card.sourceId ?? null}
+        // Skim is the mute button on the desks too: leaving them while the book being read is skimmed offers nothing.
+        onSkimmingChange={noteReaderSkimming}
+        {...(simple ? { askRequest: readerAskRequest } : {})}
+        // Every way into the Reader (the shelf, Today's threads and citations, a return from feedback, a lesson's
+        // "Look in my library") opens its book or search on the desk in view, once per open.
+        openRequest={readerSource || readerLibrarySearch?.seq === readerOpenSeq ? {
+          seq: readerOpenSeq, sourceId: readerSource?.card.sourceId ?? null, spanId: readerSource?.spanId ?? null,
+          reading: readerSource?.reading ?? null,
+          ...(readerLibrarySearch?.seq === readerOpenSeq ? { phrase: readerLibrarySearch.phrase } : {}),
+        } : null}
+        reader={{ onCheckMe: checkMeFromReader, onUseExercise: exerciseFromReader, ...(algoConfig().lessons ? { onTeachMe: teachMeFromReader } : {}), ...(readerWorkbench ? { workbench: readerWorkbench } : {}) }}
+        {...(algoConfig().lessons ? { lessons: { request: deskLessonRequest, onProbe: openProbeScreen, onConsumed: (seq: number) => setDeskLessonRequest((now) => (now?.seq === seq ? null : now)), onQuickCheck: (ids: string[]) => void startQuickCheck(ids), onLookInLibrary: lookInLibrary } } : {})}
+      />
+    );
+  }
+
   function renderRemainingTabs() {
     if (!snapshot) return null;
     if (tab === "reader") {
@@ -2460,31 +2487,14 @@ export function App() {
               }}
               onError={onError}
             />
-            <ReaderScreen key={readerOpenSeq} onError={onError} {...(simple ? { askRequest: readerAskRequest } : {})} initialSource={readerSource} onSourceChange={setReaderSource} onOpenLibrary={openLibraryShelf} onOpenToday={() => gotoPlace("today")} shelf={libraryPlace(true)} onCheckMe={checkMeFromReader} onUseExercise={exerciseFromReader} {...(algoConfig().lessons ? { onTeachMe: teachMeFromReader } : {})} onSkimmingChange={noteReaderSkimming} {...(readerWorkbench ? { workbench: readerWorkbench } : {})} {...(readerLibrarySearch?.seq === readerOpenSeq ? { initialLibrarySearch: readerLibrarySearch.phrase } : {})} />
+            {/* The plan's reading on the desks when they are the Reader: its book opened (or focused) at the section. */}
+            {readerSurface === "desks" && vaultRoot ? renderDesks(vaultRoot) : (
+              <ReaderScreen key={readerOpenSeq} onError={onError} {...(simple ? { askRequest: readerAskRequest } : {})} initialSource={readerSource} onSourceChange={setReaderSource} onOpenLibrary={openLibraryShelf} onOpenToday={() => gotoPlace("today")} shelf={libraryPlace(true)} onCheckMe={checkMeFromReader} onUseExercise={exerciseFromReader} {...(algoConfig().lessons ? { onTeachMe: teachMeFromReader } : {})} onSkimmingChange={noteReaderSkimming} {...(readerWorkbench ? { workbench: readerWorkbench } : {})} {...(readerLibrarySearch?.seq === readerOpenSeq ? { initialLibrarySearch: readerLibrarySearch.phrase } : {})} />
+            )}
           </div>
         );
       }
-      if (readerSurface === "desks" && vaultRoot) {
-        return (
-          <DeskShell
-            key={vaultRoot}
-            vaultKey={vaultRoot}
-            onError={onError}
-            onLeave={() => chooseReaderSurface("reader")}
-            firstSourceId={readerSource?.card.sourceId ?? null}
-            {...(simple ? { askRequest: readerAskRequest } : {})}
-            // Every way into the Reader (the shelf, Today's threads and citations, a return from feedback, a lesson's
-            // "Look in my library") opens its book or search on the desk in view, once per open.
-            openRequest={readerSource || readerLibrarySearch?.seq === readerOpenSeq ? {
-              seq: readerOpenSeq, sourceId: readerSource?.card.sourceId ?? null, spanId: readerSource?.spanId ?? null,
-              reading: readerSource?.reading ?? null,
-              ...(readerLibrarySearch?.seq === readerOpenSeq ? { phrase: readerLibrarySearch.phrase } : {}),
-            } : null}
-            reader={{ onCheckMe: checkMeFromReader, onUseExercise: exerciseFromReader, ...(algoConfig().lessons ? { onTeachMe: teachMeFromReader } : {}), ...(readerWorkbench ? { workbench: readerWorkbench } : {}) }}
-            {...(algoConfig().lessons ? { lessons: { request: deskLessonRequest, onProbe: openProbeScreen, onConsumed: (seq: number) => setDeskLessonRequest((now) => (now?.seq === seq ? null : now)), onQuickCheck: (ids: string[]) => void startQuickCheck(ids), onLookInLibrary: lookInLibrary } } : {})}
-          />
-        );
-      }
+      if (readerSurface === "desks" && vaultRoot) return renderDesks(vaultRoot);
       return <ReaderScreen key={readerOpenSeq} onError={onError} {...(simple ? { askRequest: readerAskRequest } : {})} initialSource={readerSource} onSourceChange={setReaderSource} onOpenLibrary={openLibraryShelf} onOpenToday={() => gotoPlace("today")} shelf={libraryPlace(true)} onCheckMe={checkMeFromReader} onUseExercise={exerciseFromReader} {...(algoConfig().lessons ? { onTeachMe: teachMeFromReader } : {})} onSkimmingChange={noteReaderSkimming} {...(readerWorkbench ? { workbench: readerWorkbench } : {})} {...(readerLibrarySearch?.seq === readerOpenSeq ? { initialLibrarySearch: readerLibrarySearch.phrase } : {})} {...(vaultRoot ? { onOpenDesks: () => chooseReaderSurface("desks") } : {})} />;
     }
     if (tab === "maintain") {

@@ -36,7 +36,7 @@ branch before any work on it.
 | Exercises from my sources | See below | See below | **Built and demonstrated on `reader/rd-retire-parity-c`; its row, tests and notes are in that branch's section below (merged here).** |
 | Figures and Show me | See below | See below | **Built and demonstrated on `reader/rd-retire-parity-b`; its row, tests and notes are in that branch's section below (merged here).** |
 | Last time here, wrap up, digest | With no Guide on screen, the recap card shows in the source window on return, held at the window's top while open (wherever the window opened in the book) and at the top of the reading once folded, recorded as shown once and only there; `w` opens the session's Wrap up in the window; closing the desk's day (the drain, `alt+shift+q`) shows today's pads first, then each reading's Wrap up (with its digest and follow-ups) named by its book (`DrainPanel` gains a slot after the pads; each window puts its own Wrap up there, with its chips, undo and restore). The leave-the-Reader offer outside the desks is unchanged | `windows/SourceWindow.wrapup.test.tsx` (real desk): the card above the reading, recorded once; `w` opens Wrap up in the window (`wrap_up_opened`); the drain shows the pads first, then the Wrap up, its "resolve" calling `reader.set_inquiry_status`. `windows/SourceWindow.recap.test.tsx` changed with the behaviour: no panel, or a hidden one, shows the card in the window, recorded once; a visible panel shows it in the panel, still once; a preview records nothing. Harness `intent` run (`?recap=1`): the card at the top of the book's window, recorded once; the drain's Wrap up after the pads, named by its book | **Built and demonstrated.** Before: recap and Wrap up lived only in the Guide's header, so a desk with no Guide panel showed neither, and the drain had no Wrap up. Fail-first: the three desk cases failed before the build. Skimming still mutes the card, but a desk has no way to choose skimming (§5) |
-| Cold follow-ups | See below | See below | **Built and demonstrated on `reader/rd7b-inline-checks-ui` (RD7); its row and proof are in that branch's section below (merged here).** |
+| Cold follow-ups | Inline checks (RD7) | `tests/test_reader_rd7b_cold_followup_parity.py`; `screens/desks/checks/deskChecks.test.tsx`; the harness's `checks` run | proven on `reader/rd7b-inline-checks-ui` (section below) |
 | Reading paths | With a goal band, the goal's path view (§12.5, RD6; unchanged). With none, the book's own path (RW7a) in its window: `p` opens it in the focused book window (it used to do nothing without a goal) and "what matters here?" opens it in the window asked from, held at the window's top with the recap card (one sticky block), closed with esc or "close". It is the Guide's own path card and deliverable slot (`GuidePathSlot` with `ReadingPathCard`): the depth asked once and changed there (stored, `reader.reading_path_set_depth`), "read it anyway" / "skip it" stored (`reader.reading_path_override`), and the exercise worth trying opened as a problem on its verbatim words. Each opening reads the path again | `windows/SourceWindow.path.test.tsx` (real desk, no goal): `p` opens it, the depth asked and stored, the path shown, esc closes; "read it anyway" stored and "Try it" opening the problem (`workbench.open` on the exercise's words). `windows/SourceWindow.intent.test.tsx`: "what matters here?" opens it in the window. Goal desks: `goal/GoalDesk.test.tsx`, `goal/components.test.tsx` (unchanged). Harness `intent` run: `p` opens it in view at the window's top, and esc closes it | **Built and demonstrated.** Before: a desk with no goal had no path but the Path panel adapter, which the Path panel row removes in phase 2 and which passed no exercise action; `p` did nothing. Fail-first: both cases failed before the build. The Path panel window still opens when reading paths are off and a panel is asked for; it goes in phase 2 |
 | Side by side | See below | See below | **Built and demonstrated on `reader/rd-retire-parity-c`; its row, tests and notes are in that branch's section below (merged here).** |
 | Watch panel | Video windows (§7.4) wrap `SourceWindow`; the Reader's synchronized watch panel inside | `tests/test_sidecar_reader.py::test_watch_plan_returns_video_id_for_youtube_source`; `reader/YouTubeWatchPanel.instance.test.tsx` (each frame takes only its own time messages); harness `desks` run (two players' frames checked) | **Demonstrated** (by the audit; unchanged here) |
@@ -74,16 +74,16 @@ Routed to the workbench on this branch, while the desks are the Reader:
 | Feedback's "Back to where you studied this", printed-page restoration | The book at the restored passage on the desk in view |
 | A lesson's "Look in my library" | The desks' search, prefilled once |
 | Restore on startup | The workspace as it was, the remembered book focused |
+| Today's plan reading (`reader/rd-retire-loose-ends`) | The plan's book opened (or focused) at its section on the desk in view, under the plan's banner; back to the plan ends the block as before |
+| Check me, an exercise pick, a deferred session start, workbench submit, feedback and back, unfinished problems (`reader/rd-retire-loose-ends`) | Proven from the app: the return into side by side and Today's resume onto its pad, end to end (that branch's section) |
 
 Still listed, each waiting on its row, another worker's row or phase 2:
 
 | Entry | Why it stays |
 |---|---|
-| The Reader place's default surface, the two surface-switch buttons, the desks' "old Reader" | Phase 2's cutover (the default and the toggles go with the old screen) |
-| Today's plan reading (`planReading` mounts the old screen whatever the surface) | Plan progress, the plan banner and the return to Today's queue have no desk home yet (the audit's §5 risk); not one of this branch's rows |
-| Check me, an exercise pick, a deferred session start, workbench submit, feedback and back, unfinished problems | The problem pad has landed (parity-b's section): a problem a book window opens, back from feedback included, is worked on the desk's problem pad, and the app's hand-offs open their book on the desk by the targeted open. Not proven from the app end to end: the return trail into side by side (`besideTrail`, which a pair does not take back) and Today's resume of an unfinished problem onto its pad (the desk side is tested; the app's wiring is not) |
-| Saved panel windows (Guide, Notes, Path, Library) | Phase 2: their identities are translated to their replacements before the adapters go |
-| A book still being prepared (reading the original before extraction ends) | The audit's §5 risk: the desks show it in the Library and say so; the old screen's preparing view has no window yet |
+| The Reader place's default surface, the two surface-switch buttons, the desks' "old Reader" | Phase 2's cutover. The default stays the old screen and the switches stay until the old screen is deleted: they are the way back while phase 2 extracts the shared source out of it, and flipping the default first would leave the desks with no way out to a screen phase 2 still edits (re-checked on `reader/rd-retire-loose-ends`) |
+| Saved panel windows (Guide, Notes, Path, Library) | They open no old screen: a saved panel is a desk window (`panel` content) whose Guide and Notes are the book window's own Reader rail, shown through the window's rail host, and whose Path and Library are the desks' own panels. What phase 2 owes them is the identity translation when the rail adapters leave `ReaderScreen` with the shared source (re-checked on `reader/rd-retire-loose-ends`) |
+| A book still being prepared (reading the original before extraction ends) | Cannot be routed yet: a desk window's source content names its reading (`SourceRef.extraction_id`, required in `desks/content_ref.py`), and a book being prepared has none; the original file's view is the old screen's preparing view (its PDF pane over the original). A window for it needs a content kind for an original, a server validator change, so the desks keep it in the Library with the line that says so (re-checked on `reader/rd-retire-loose-ends`) |
 | Phone Read tab and `#/read/...` | Kept: the phone keeps its own Reader (§13.3) |
 
 ## 5. Product decisions asked
@@ -96,8 +96,8 @@ Both are built as the orchestrator's defaults; the owner may change either, and 
   · skim quickly / read closely / mark for later), per window, stored where the old screen stored it
   (`reader.set_mode`, by reading), with the same effects inside that window. Alternatives kept: (b) one choice per
   desk, in the desk's top bar; (c) drop skimming on the desks (the desk's own geometry is the learner's "skim").
-  Not wired: the app's leave-time offer still reads the old screen's skimming only (a desk window does not report it).
-  Test: `windows/SourceWindow.mode.test.tsx`.
+  Wired on `reader/rd-retire-loose-ends`: the app's leave-time offer hears the book being read on the desks being
+  skimmed (that branch's section). Tests: `windows/SourceWindow.mode.test.tsx`, `app/App.desks.test.tsx`.
 - **The learner's own question on a desk** (row "Quick checks, authored questions"). The old screen's Notes rail
   offers "write my own question" from a selection (`reader.author_qa`, with the wording coach). **Default built: (a)**,
   Make it practice's sheet offers "write it myself" beside the model's draft, opening the Reader's own question card
@@ -164,3 +164,36 @@ Notes on these two rows (reader/rd-retire-parity-b):
 | Old Reader surface | On the desks | Proof |
 |---|---|---|
 | Cold follow-ups (RW6b) (§21.1, "Unchanged (commitments), and hosted inline (§12.6)") | Unchanged: a follow-up is a `test_me_later` commitment, served by Today as before (the RW6b tests still pass). Hosted inline: a due follow-up shows its closed marker before its host passage and opens on the desks through `check.begin_inline`, on the item Today would serve, cold; RW6b's serve-time gate holds it on both surfaces, because the inline opening serves only what the serving view's `servable` allows. | `tests/test_reader_rd7b_cold_followup_parity.py`: a due cold follow-up opens inline, cold, on Today's item; under the gate (an exposure since its valuation) Today holds it and the inline opening refuses with `nothing_to_serve`. The desks' side (marker, check now, card, veils) is in `screens/desks/checks/deskChecks.test.tsx` and the harness's `checks` run. |
+
+## reader/rd-retire-loose-ends
+
+The phase-1 record's paths not proven or not wired from the app, closed before the old Reader can go. The proofs mount
+the whole `App` with the real desks: `fixtures/desks/realApp.tsx` (the app's helper beside `realDesk.tsx`) gives a
+fake sidecar for one app: its vault, an empty Today, its desks and pads on a fixture server of its own. Every book,
+reading and Reader read goes through the app's api client to the desks' fixture. Each app's desk writes reach only its
+own server: an earlier app's desk store, kept per vault while the module lives as the app keeps it, may still be
+sending its outbox. Only the practice and feedback screens are stand-ins (their back and "back to the book" are the
+app's own ways back), and the leave-time offer shows only whether the app mounted it. Tests: `app/App.desks.test.tsx`
+(9).
+
+| Path | Before | Now | Proof |
+|---|---|---|---|
+| Back from a check begun in the paired (second) book of a side-by-side pair | The desks came back focused at the passage in the paired window, but no longer a pair. The desks' pairs (following, F6, the way back) were the mount's, and the Reader place unmounts for the check. In the webview the paper also came back where following had left it, not at the passage: its Reader, placing itself once it opened (a saved place, its reading history), undid the jump the desks made | The pairs are the vault's while the app runs (`keptPairsFor`; a move an earlier mount still waited for is dropped). The window the app's open request focuses opens at the passage | App: check from the paper's margin mark, practice, back: the paper focused at the passage, in the book's slot, F6 to the book and back (failed before: F6 stayed). Harness `pairs` run: leave the desks and come back with the way back to the paper's passage: the pair as it was, the paper focused, its passage in view, F6 (failed before: the passage out of view) |
+| Back from a problem begun in the paired book (workbench on) | Not proven | Unchanged code (the pair fix above) | App: the check is worked on the desk's problem pad, Submit to feedback, then "back to the book": the paper focused at the passage, the pad showing it submitted, still a pair; and feedback's back (the problem): the same, the problem read-only on its pad, never a posture over the paper |
+| Today's resume of an unfinished problem | The desk side tested, the app's wiring not | Unchanged code: proven | App: Today's "resume ▸" opens the desks, the book's window takes the resume, and the problem is open on its pad (one pad, bound to its session); with the pad living on another desk, that desk becomes the one in view and the pad is never shown, nor stacked, on the learner's desk |
+| An exercise used from a book window with no session yet | Not proven | Unchanged code: proven | App: "use this one" starts one session (the simple shell's implicit start) and the exercise is worked on the desk's problem pad |
+| The leave-time offer while skimming on a desk | Heard the old screen only | Each book window reports its reading's skimming to the desks (`SourceWindow.onSkimming`, the Reader's own `onSkimmingChange`). The desks report the book being read (the focused book window, else the book window focused last) to the app (`DeskShell.onSkimmingChange`) | App: skimming the focused book, then leaving for Today: no offer; read closely: the offer (failed before: offered while skimming); another window skimmed while the book read is read closely: the offer |
+| Today's plan reading | Mounted the old screen whatever the surface | On the desks: the plan's book opened (or focused) at its section on the desk in view, under the plan's banner. Lessons and the palette's ask go to the desks while the plan's reading is shown. The plan's visit initiator (RO0 row 4) is named for its reading (`setNextReaderVisitInitiator("plan", extractionId)`), so on the desks only the plan's book's visit takes it, not the first window to start one | App: Today's ↵ on a plan whose step is a reading: the banner, the paper opened beside the book and focused at the section, back to the plan sends `plan_reading_ended` (`left_reader`) and the banner goes (failed before: the old screen). `screens/reader/activity.initiator.test.ts` (failed before: any visit took it) |
+
+**Judgment calls**
+- **The book being read** is the focused book window, else the one focused last. The old screen had one book, and the
+  offer followed it; on a desk another window's skimming does not hold the offer.
+- **Pairs kept for the app's run, not stored.** The desks' state has no pair; a slot of two windows is not always a
+  pair (the learner can share a slot), so a pair is not derived from the layout. After an app restart the two windows
+  are still in their slot, without following.
+- **A problem's way back.** Feedback's back (the problem) and "back to the book" both focus the book's window at the
+  passage: the problem is on its pad in view, read-only after a submit. The old screen showed the problem over the
+  book; on the desks the pad is where it lives.
+
+**Phase 2's**: the surface default and switches, and the saved panels' identities (rows above). The preparing view
+needs a content kind for an original first. The phone keeps its own Reader.

@@ -320,7 +320,7 @@ and never in a desk window. Under this guard, a probe could return to a window w
 - **The probe's existing first-serve claim** (`PR.serve`) is made only when the veils are recorded, not when a window
   reads the lesson. RD9a-3's `frame: "window"` hold already keeps a window's read from serving it.
 
-## 6a. Opened notes: unmeasured, and the answer counts as practice (orchestrator interim)
+## 6a. Opened notes: unmeasured, and the answer counts as practice (confirmed by the owner)
 
 A note's words are never read (curriculum C2's fence: a note is never evidence). The veil set names the notes the
 client showed by id only, and opening a note's veil (a margin note or any `learner_notes`-backed surface) writes no
@@ -331,9 +331,9 @@ flag a rebuild reads is the attempt row's own `practice_attempts.primed` (raw), 
 tested (`test_an_answer_after_a_notes_veil_was_opened_is_practice_and_says_why`). Measured surfaces (pads, companion
 exchanges, source passages) keep the overlap rule exactly as built.
 
-**An owner decision still to confirm.** This is an orchestrator interim that errs toward practice, the side the owner
-leaned to ("I would err on veiling notes by default"). The alternative: an unmeasured opening costs nothing (the
-answer stays cold unless something measured primes it).
+**Confirmed by the owner (2026-11-23):** opening one of your own notes during a cold check counts as practice. The
+alternative it was weighed against, kept as history: an unmeasured opening costs nothing (the answer stays cold unless
+something measured primes it).
 
 ## 7. Not verified
 

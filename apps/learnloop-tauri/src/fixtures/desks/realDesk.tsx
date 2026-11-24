@@ -26,12 +26,21 @@ export const sent: Array<{ command: string; input: Record<string, unknown> }> = 
 /** A test's own answers, by command (cleared by `resetSidecar`). */
 export const answers = new Map<string, Answer>();
 
+/** The whole app mounted over the desks' fixture (realApp.tsx): a command neither the test nor the fixture answers
+ *  stays pending, as a slow sidecar's would, instead of failing every screen the app shows around the desks. */
+export const unknownCommands = { pending: false };
+
 async function invoke<T>(command: string, args: { input?: Record<string, unknown> } = {}): Promise<T> {
   const input = args.input ?? {};
   sent.push({ command, input });
   const own = answers.get(command);
   if (own) return (await own(input)) as T;
-  return fixtureInvoke<T>(command, args as Record<string, unknown>);
+  try {
+    return await fixtureInvoke<T>(command, args as Record<string, unknown>);
+  } catch (error) {
+    if (unknownCommands.pending && (error as { code?: string } | null)?.code === "not_in_fixture") return new Promise<T>(() => undefined);
+    throw error;
+  }
 }
 
 /** What `@tauri-apps/api/core` resolves to in a test file that mounts the real desks. */
@@ -40,6 +49,7 @@ export const core = { invoke, convertFileSrc: fixtureFileSrc };
 export function resetSidecar(): void {
   sent.length = 0;
   answers.clear();
+  unknownCommands.pending = false;
   // The app's cached reads (contracts, guide plans, readings) outlive a render: each test starts with none.
   clearQueryCache();
 }

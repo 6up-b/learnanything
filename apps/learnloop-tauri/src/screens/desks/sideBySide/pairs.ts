@@ -15,7 +15,7 @@
 import type { CorrespondentsDto } from "../../../api/dto";
 import { firstJudgedIn, targetOf } from "../../reader/sideBySide";
 
-interface Pair {
+export interface Pair {
   windows: [string, string];
   follow: boolean;
   /** The ticket of the move asked for: a later crossing (of either window), a toggle, or the learner touching the
@@ -39,6 +39,21 @@ export interface PairDeps {
   jump: (windowId: string, spanId: string) => void;
   notice: (text: string) => void;
   record: (event: "follow_along_moved", payload: Record<string, string>) => void;
+  /** Whether the desks are read yet: before, a window not found is not yet known, and its pair is kept. */
+  loaded?: () => boolean;
+}
+
+/** The pairs of each vault's desks, kept while the app runs: the desks unmount with the Reader place (a check, its
+ *  feedback) and mount again, and a pair the learner made must still be one when they come back. */
+const keptPairs = new Map<string, Map<string, Pair>>();
+
+export function keptPairsFor(vaultKey: string): Map<string, Pair> {
+  let kept = keptPairs.get(vaultKey);
+  if (!kept) {
+    kept = new Map();
+    keptPairs.set(vaultKey, kept);
+  }
+  return kept;
 }
 
 export const PAIR_COPY = {
@@ -48,12 +63,21 @@ export const PAIR_COPY = {
 } as const;
 
 export class DeskPairs {
-  private byWindow = new Map<string, Pair>();
+  private byWindow: Map<string, Pair>;
   /** Each book window's section in view, as last reported: a report is a crossing only when it differs (a window's
    *  first report, as it opens, is where it is, not a move of the learner's). */
   private sections = new Map<string, string>();
 
-  constructor(private readonly deps: PairDeps) {}
+  /** ``kept``: the vault's pairs from an earlier mount of the desks (``keptPairsFor``), carried on. A move an earlier
+   *  mount still waits for is dropped (its windows' jumps were that mount's). */
+  constructor(private readonly deps: PairDeps, kept?: Map<string, Pair>) {
+    this.byWindow = kept ?? new Map();
+    for (const pair of new Set(this.byWindow.values())) {
+      pair.seq += 1;
+      pair.pending = null;
+      pair.moved.clear();
+    }
+  }
 
   /** Two windows side by side: the second opened beside the first. */
   pair(first: string, second: string): void {
@@ -141,6 +165,7 @@ export class DeskPairs {
   private live(windowId: string): Pair | null {
     const pair = this.byWindow.get(windowId);
     if (!pair) return null;
+    if (this.deps.loaded && !this.deps.loaded()) return null;
     if (!pair.windows.every((id) => this.deps.windowOf(id))) {
       this.drop(windowId);
       return null;
