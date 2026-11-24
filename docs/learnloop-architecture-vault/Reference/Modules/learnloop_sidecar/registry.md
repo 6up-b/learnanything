@@ -374,6 +374,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_rpcs_are_registered_and_desktop_only`
 - [tests/test_reader_rd6a_goal_lens.py](../../../../../tests/test_reader_rd6a_goal_lens.py) — direct import
   - `test_the_rpcs_are_registered_desktop_only_and_refuse_extra_fields`
+- [tests/test_reader_rd7a_inline_checks.py](../../../../../tests/test_reader_rd7a_inline_checks.py) — direct import
+  - `test_the_rpcs_are_registered_desktop_only_and_refuse_extra_fields`
 - [tests/test_reader_rd8a_rpcs.py](../../../../../tests/test_reader_rd8a_rpcs.py) — direct import
   - `test_nested_models_refuse_extra_fields_and_repeated_stroke_ids`
   - `test_params_refuse_an_extra_field`

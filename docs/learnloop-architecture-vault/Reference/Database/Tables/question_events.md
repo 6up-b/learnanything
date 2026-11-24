@@ -137,6 +137,7 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/text_gaps/provenance.py`
 - `src/learnloop/field/probability_states.py`
 - `src/learnloop/hints/report.py`
+- `src/learnloop/intent/inline_administration.py`
 - `src/learnloop/learner_protection.py`
 - `src/learnloop/passage_union/union.py`
 - `src/learnloop/reader/reader_report.py`

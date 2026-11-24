@@ -157,6 +157,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - [[Reference/Modules/learnloop/hints/maps|learnloop.hints.maps]] — imports `span_leaks_expected`; statically calls `span_leaks_expected`
 - [[Reference/Modules/learnloop/hints/service|learnloop.hints.service]] — imports `span_answer_overlap`; statically calls `span_answer_overlap`
 - [[Reference/Modules/learnloop/instructional/tools|learnloop.instructional.tools]] — imports `answer_leaks_expected`, `span_leaks_expected`; statically calls `answer_leaks_expected`, `span_leaks_expected`
+- [[Reference/Modules/learnloop/intent/inline_administration|learnloop.intent.inline_administration]] — imports `span_answer_overlap`; statically calls `span_answer_overlap`
 - [[Reference/Modules/learnloop/learner_context|learnloop.learner_context]] — imports `span_leaks_expected`; statically calls `span_leaks_expected`
 - [[Reference/Modules/learnloop/ops/contamination/detectors|learnloop.ops.contamination.detectors]] — imports `answer_leak_overlap`; statically calls `answer_leak_overlap`
 - [[Reference/Modules/learnloop/reader/reader_dialogue|learnloop.reader.reader_dialogue]] — imports `module`; statically calls `HeldOutMaterialRefused`, `_reader_source_spans`, `ask_question`, `delivered_answer_md`, `reader_span_key`, `sendable_reader_answer_md`
@@ -226,7 +227,7 @@ Use this module in context through:
 
 - [[Tutor and Teach-Back Workflow]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/companion/history|learnloop.companion.history]], [[Reference/Modules/learnloop/figures/help|learnloop.figures.help]], [[Reference/Modules/learnloop/hints/contracts|learnloop.hints.contracts]], [[Reference/Modules/learnloop/hints/maps|learnloop.hints.maps]], [[Reference/Modules/learnloop/hints/service|learnloop.hints.service]] and 22 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/companion/history|learnloop.companion.history]], [[Reference/Modules/learnloop/figures/help|learnloop.figures.help]], [[Reference/Modules/learnloop/hints/contracts|learnloop.hints.contracts]], [[Reference/Modules/learnloop/hints/maps|learnloop.hints.maps]], [[Reference/Modules/learnloop/hints/service|learnloop.hints.service]] and 23 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

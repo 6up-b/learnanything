@@ -18,6 +18,7 @@ source_paths:
   - "migrations/001_initial.sql"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/practice_state.py"
+  - "src/learnloop/intent/inline_administration.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/content/authoring/item_authoring.py"
   - "src/learnloop/daily_plan/reentry.py"
@@ -89,6 +90,7 @@ Indexes and uniqueness:
 
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/practice_state.py`
+- `src/learnloop/intent/inline_administration.py`
 
 ### Direct SQL writers
 

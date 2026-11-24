@@ -579,6 +579,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reader_quick_check_failed.py](../../../../../tests/test_reader_quick_check_failed.py) — direct import
 - [tests/test_reader_rd4_carried_and_proposals.py](../../../../../tests/test_reader_rd4_carried_and_proposals.py) — direct import
 - [tests/test_reader_rd4_submission.py](../../../../../tests/test_reader_rd4_submission.py) — direct import
+- [tests/test_reader_rd7a_inline_checks.py](../../../../../tests/test_reader_rd7a_inline_checks.py) — direct import
+  - `test_a_crash_after_the_attempt_and_before_the_close_is_recovered_with_that_attempt`
+  - `test_a_restart_reopens_the_open_card_with_its_veils`
 - [tests/test_reader_recap.py](../../../../../tests/test_reader_recap.py) — direct import
   - `test_switched_off_opening_writes_nothing_and_the_recap_rpcs_refuse`
   - `test_the_kill_switches_default_on_and_the_config_dto_names_them`
