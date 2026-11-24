@@ -84,10 +84,10 @@ For system intent, use [[Learning System]], [[State and Persistence]].
 | [[Reference/Modules/learnloop/substrate/p0_projection|learnloop.substrate.p0_projection]] | [[Reference/Modules/learnloop/substrate/p0_projection#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
 | [[Reference/Modules/learnloop/substrate/passage_spans|learnloop.substrate.passage_spans]] | [[Reference/Modules/learnloop/substrate/passage_spans#^module-purpose|purpose]] | `ACTIVE` | 7 | 7 |
 | [[Reference/Modules/learnloop/substrate/projection_switches|learnloop.substrate.projection_switches]] | [[Reference/Modules/learnloop/substrate/projection_switches#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |
-| [[Reference/Modules/learnloop/substrate/rebuild_orchestrator|learnloop.substrate.rebuild_orchestrator]] | [[Reference/Modules/learnloop/substrate/rebuild_orchestrator#^module-purpose|purpose]] | `ACTIVE` | 3 | 93 |
+| [[Reference/Modules/learnloop/substrate/rebuild_orchestrator|learnloop.substrate.rebuild_orchestrator]] | [[Reference/Modules/learnloop/substrate/rebuild_orchestrator#^module-purpose|purpose]] | `ACTIVE` | 3 | 96 |
 | [[Reference/Modules/learnloop/substrate/recurrence_groups|learnloop.substrate.recurrence_groups]] | [[Reference/Modules/learnloop/substrate/recurrence_groups#^module-purpose|purpose]] | `ACTIVE` | 11 | 8 |
-| [[Reference/Modules/learnloop/substrate/replay|learnloop.substrate.replay]] | [[Reference/Modules/learnloop/substrate/replay#^module-purpose|purpose]] | `ACTIVE` | 9 | 44 |
-| [[Reference/Modules/learnloop/substrate/shadow_rebuild|learnloop.substrate.shadow_rebuild]] | [[Reference/Modules/learnloop/substrate/shadow_rebuild#^module-purpose|purpose]] | `ACTIVE` | 1 | 25 |
+| [[Reference/Modules/learnloop/substrate/replay|learnloop.substrate.replay]] | [[Reference/Modules/learnloop/substrate/replay#^module-purpose|purpose]] | `ACTIVE` | 9 | 47 |
+| [[Reference/Modules/learnloop/substrate/shadow_rebuild|learnloop.substrate.shadow_rebuild]] | [[Reference/Modules/learnloop/substrate/shadow_rebuild#^module-purpose|purpose]] | `ACTIVE` | 1 | 27 |
 | [[Reference/Modules/learnloop/substrate/state_sync|learnloop.substrate.state_sync]] | [[Reference/Modules/learnloop/substrate/state_sync#^module-purpose|purpose]] | `ACTIVE` | 17 | 169 |
 | [[Reference/Modules/learnloop/substrate/surface_mint|learnloop.substrate.surface_mint]] | [[Reference/Modules/learnloop/substrate/surface_mint#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
 
@@ -100,7 +100,7 @@ For system intent, use [[Learning System]], [[State and Persistence]].
 ### This package imports
 
 - [[Reference/Modules/learnloop/_package|learnloop]] — 34 static module edges
-- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 28 static module edges
+- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 29 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 19 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 18 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 8 static module edges
@@ -177,7 +177,7 @@ flowchart LR
     n_learnloop_ops["learnloop.ops"]
     n_learnloop_cli["learnloop.cli"]
     center -->|34| n_learnloop
-    center -->|28| n_learnloop_db
+    center -->|29| n_learnloop_db
     n_learnloop_diagnosis -->|23| center
     center -->|5| n_learnloop_diagnosis
     n_learnloop_learner -->|5| center
