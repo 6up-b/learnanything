@@ -343,3 +343,83 @@ something measured primes it).
   or harness run beyond the existing suite.
 - The module catalog notes for the two new modules (`intent/inline_administration.py`,
   `db/stores/check_administrations.py`) are not generated here (references are regenerated at integration).
+
+## 8. Fix round (the RD7 adversarial review, 2026-11-24): the backend half
+
+Branch `reader/rd7-fix-backend`. The review's theme: an answer could still be recorded cold after help, and an opening
+could be charged although nothing was shown. Ledger ids RD7-3 upward (the frontend half uses RD7-40 upward).
+
+### 8.1 The server contract the frontend codes against
+
+Written before the code was finished, so the frontend worker can start. Every key below is camelCase on the wire.
+Everything not named here is unchanged.
+
+**The card** (`check.begin_inline`, `check.open_inline`):
+- **`prompt`** is an allowlisted cold presentation, never the practice item's detail. It holds
+  `{practiceItemId, prompt, presentation, practiceMode, answerFormat, intentCheck}`: the question, its learner-facing
+  blocks (render them with Today's presentation component), and the check's banner and hidden locators. There is no
+  expected answer, hint, rubric, prior attempt or source locator in it. It is frozen at begin and returned unchanged on
+  recovery; the item is never served again.
+- **`submissionId`**: the submission reserved on this administration, or null. After a restart, reuse it for the
+  retry. The draft is the client's to keep (by token); the server stores no draft.
+- **`eligibility`**: the serve-time reason when the item opens not cold (`seen_before`, `primed`, `hold`, …), else
+  null. Word the card from it: an item that opens not cold must not say "a check on your own".
+- **`revision`**: the veil sets' sequence number, as in `check.protect_more`.
+- **A second begin for the same commitment**, with a new request id while its administration is open (a lost begin
+  reply, another click), returns that administration's card (`replayed: true`). It is not refused. Another
+  commitment's open administration is still refused, `administration_open`, with `{administrationToken, commitmentId}`
+  in the details.
+- **A begin request id whose administration is closed** is refused, `administration_closed`, with
+  `{state, outcome}` in the details. No prompt is returned.
+
+**Veil refs.** Each ref now carries **`measured`**: true when the server measures what opening it shows against the
+answer keys, false when it cannot. False covers:
+- a note;
+- a figure;
+- a lesson;
+- a thread or history with no exchange ids;
+- a pad block whose kind is not text (ink, sketch, a notebook cell);
+- a whole window with nothing listed;
+- anything the inventory does not describe.
+
+Opening an unmeasured ref always makes the answer practice, so the "show it anyway?" prompt must say that before
+opening.
+
+**`check.protect_more`**: the reply is `{veilAdditions, standing, revision}`:
+- `standing` is every ref veiled now and not opened (the authoritative set);
+- `revision` is the veil sets' sequence number.
+
+Replace the local set with `standing`, and lift a temporary whole-window cover only when the reply's `revision` covers
+the request that window was in. A retried request whose first reply was lost gets the same `standing`.
+
+**`check.expose`**:
+- **Input** adds **`exposureId`** (client-minted, stable for one opening). A retry with the same id returns the first
+  result and charges nothing again.
+- **`kind`** also takes **`"left"`**, with `ref: {kind: "surface", surface: "<where>"}`. The learner reached a surface
+  the veils do not cover while the check was open: the old Reader, Today, the desks unmounted, a route change. It is
+  recorded as an unmeasured opening, so the answer counts as practice. Call it before leaving, or at once on return,
+  if the administration is still open.
+- **Reply**: `{protectionStatus: {exposure, coldNow, measured, eligibility}}`. `measured` says whether this opening was
+  measured. The reveals and the receipt commit together: a refusal or failure means nothing was recorded, and the veil
+  must stay.
+
+**`check.submit_inline`**:
+- **Input** adds:
+  - **`veilsRevision`** (required): the last `revision` the client applied. A lower revision than the server's is
+    refused, `veils_stale`: apply `standing`, then retry with the same submission id.
+  - **`selfGrade`** (optional): the same shape as `submit_attempt`'s, for when grading is unavailable. The reply then
+    says so as `submit_attempt`'s does.
+- **Reply keys** are all camelCase: `cold`, `reason`, `primedBy`, `eligibility`, `administrationToken` (the attempt's
+  own keys as before).
+- **The outcome is saved with the close.** A retry of the same submission id returns the saved outcome, never a newly
+  computed one. While a submission is in flight, `check.abandon_inline` and `check.expose` are refused,
+  `submission_in_flight`: disable "not now".
+
+**Job acceptance while an administration is open.** The server refuses with **`check_open`** (details
+`{administrationToken}`), so a retry or a deferred job cannot get through:
+- a companion ask, and its retry;
+- an ink transcription;
+- a figure request (Show me);
+- a lesson opening.
+
+A pad edit's learner-text-gap emission is deferred until the administration closes.
