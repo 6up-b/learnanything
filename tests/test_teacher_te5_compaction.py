@@ -207,7 +207,8 @@ def test_growth_spread_and_cold_start_are_lesson_local(tmp_path):
     take((vault, repo, lesson), fake)
 
     def forecast(lesson_id):
-        return C.forecast(repo, lesson_id, fake, prefix=0, estimated_input=420, output_budget=250)
+        return C.forecast(repo, lesson_id, fake, prefix=0, estimated_input=420, output_budget=250,
+                          estimate=lambda text: 420)
 
     learned = forecast(lesson)
     assert (learned["growth_samples"], learned["mean_need"], learned["uncertainty_tokens"],
@@ -269,5 +270,26 @@ def test_compacted_correction_records_one_boundary(tmp_path, nested):
     assert "context_summary" not in correction
     if not nested:
         assert RECOVERY_NOTE in correction
-    stats = C.forecast(repo, lesson, fake, prefix=1, estimated_input=0, output_budget=0)
+    stats = C.forecast(repo, lesson, fake, prefix=1, estimated_input=0, output_budget=0, estimate=lambda text: 0)
     assert (stats["growth_samples"], stats["input_baseline"]) == (2, 920)
+
+
+def test_a_long_current_reply_after_short_measured_sends_is_forecast(tmp_path):
+    """L42-R12: the current prompt is already rendered. A pasted reply that lifts it past the learned growth is
+    counted before the output's allowance: the last send's measured input plus the estimated growth of its prompt
+    since, so the forecast is never the previous send's input plus a short margin."""
+
+    fake = CountedTeacher([opening, {"message": "More."}, {"message": "Again."}], [(1000, 30), (1100, 50)])
+    vault, repo, lesson = open_case(tmp_path, 20_000, fake)
+    take((vault, repo, lesson), fake)
+
+    def estimate(text):
+        return 600  # the last send's prompt, as the request gate would estimate it
+
+    short = C.forecast(repo, lesson, fake, prefix=0, estimated_input=620, output_budget=250, estimate=estimate)
+    assert (short["growth_samples"], short["predicted_tokens"]) == (1, 1100 + 150)
+    long = C.forecast(repo, lesson, fake, prefix=0, estimated_input=5000, output_budget=250, estimate=estimate)
+    # 1100 measured, 4400 estimated since, then the most this lesson's answers have needed (50 tokens).
+    assert long["predicted_tokens"] == 1100 + 4400 + 50
+    assert (long["current_input"], long["current_input_basis"], long["output_need"]) == (
+        5500, "measured_plus_estimated_growth", 50)

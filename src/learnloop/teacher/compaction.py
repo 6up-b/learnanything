@@ -1,7 +1,7 @@
 """Lesson-local context forecasts and the durable prompt projection (teacher v2 §4.3)."""
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
 import json
 from statistics import mean
@@ -34,30 +34,34 @@ def context_limit(config: Any, client: Any) -> int | None:
 
 
 def forecast(repository: Any, lesson_id: str, client: Any, *, prefix: int, estimated_input: int,
-             output_budget: int) -> dict[str, Any]:
-    """Take one sample per physical send. A missing count or change of projection breaks a growth pair."""
+             output_budget: int, estimate: Callable[[str], int]) -> dict[str, Any]:
+    """Take one sample per physical send. A missing count or change of projection breaks a growth pair.
+    ``estimate``: the request gate's input estimate of a prompt's text (``estimated_input`` is the current prompt's)."""
     provider, model = client.provider_name, getattr(client, "model", None)
     with repository.connection() as connection:
         rows = connection.execute("""
-            WITH RECURSIVE sends(id, prefix) AS (
-                SELECT id, json_extract(budget_json, '$.transcript_prefix') FROM model_call_receipts
+            WITH RECURSIVE sends(id, prefix, root) AS (
+                SELECT id, json_extract(budget_json, '$.transcript_prefix'), id FROM model_call_receipts
                 WHERE purpose='teacher_turn' AND json_extract(budget_json, '$.teacher_lesson_id')=?
                 UNION ALL
-                SELECT c.id, s.prefix FROM sends s JOIN model_call_receipts c ON c.parent_call_id=s.id
+                SELECT c.id, s.prefix, s.root FROM sends s JOIN model_call_receipts c ON c.parent_call_id=s.id
             )
-            SELECT r.provider, r.model, s.prefix, r.input_tokens, r.output_tokens, r.id
+            SELECT r.provider, r.model, s.prefix, r.input_tokens, r.output_tokens, r.id,
+                   (SELECT t.input_text FROM model_call_receipts t WHERE t.id=s.root)
             FROM sends s JOIN model_call_receipts r ON r.id=s.id
             WHERE NOT EXISTS (SELECT 1 FROM model_call_receipts c WHERE c.parent_call_id=r.id)
             ORDER BY r.rowid
         """, (lesson_id,)).fetchall()
 
     samples: list[int] = []
+    answers: list[int] = []
     previous = None
     for row in rows:
-        route, name, cut, inputs, outputs, _ = row
+        route, name, cut, inputs, outputs, _, _text = row
         if (route, name) != (provider, model) or inputs is None or outputs is None:
             previous = None
             continue
+        answers.append(outputs)
         if previous is not None and previous[2] == cut:
             samples.append(max(0, inputs - previous[3] + outputs))
         previous = row
@@ -75,10 +79,22 @@ def forecast(repository: Any, lesson_id: str, client: Any, *, prefix: int, estim
         centre = growth + (last[4] if last else output_budget)
         margin = growth + max(growth, output_budget)
         basis = "output_allowance"
+    # The current prompt is already rendered (review L42-R12): its input is known before any allowance. Measured, the
+    # last send's count plus the estimated growth of its prompt since (the estimator only measures the difference);
+    # without the last prompt's text (withheld), the count alone. The answer needs at most what this lesson's answers
+    # have needed (the output allowance before the first measured one).
+    if last is None:
+        known, known_basis = estimated_input, "estimated"
+    elif last[6] is None:
+        known, known_basis = last[3], "measured_last_send"
+    else:
+        known, known_basis = last[3] + estimated_input - estimate(last[6]), "measured_plus_estimated_growth"
+    output_need = max(answers) if answers else output_budget
     return {"basis": basis, "provider": provenance.ref(provider), "model": provenance.ref(model),
             "last_request": last[5] if last else None, "input_baseline": baseline,
             "growth_samples": len(samples), "mean_need": centre, "uncertainty_tokens": margin - centre,
-            "margin": margin, "predicted_tokens": baseline + margin}
+            "margin": margin, "current_input": known, "current_input_basis": known_basis,
+            "output_need": output_need, "predicted_tokens": max(baseline + margin, known + output_need)}
 
 
 def latest(repository: Any, lesson_id: str) -> Projection:

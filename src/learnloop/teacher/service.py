@@ -433,8 +433,11 @@ def _limited_prompt(vault: Any, repository: Any, state: LessonState, client: Any
     if cut <= previous.prefix:
         return prompt, previous
     output = generation_ceiling() or output_budget(vault.config, "teacher", provider=client.provider_name)
-    facts = C.forecast(repository, state.lesson_id, client, prefix=previous.prefix,
-                       estimated_input=state.gate.estimate_tokens(client, prompt=prompt, budget=0), output_budget=output)
+    def estimate(text: str) -> int:
+        return state.gate.estimate_tokens(client, prompt=text, budget=0)
+
+    facts = C.forecast(repository, state.lesson_id, client, prefix=previous.prefix, estimated_input=estimate(prompt),
+                       output_budget=output, estimate=estimate)
     if facts["predicted_tokens"] < limit:
         return prompt, previous
     summary = C.summarize(repository, state)
