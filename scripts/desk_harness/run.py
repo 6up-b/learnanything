@@ -50,6 +50,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import datetime
 import functools
 import http.server
 import json
@@ -62,6 +63,8 @@ from playwright.async_api import Page, Route, async_playwright
 ROOT = Path(__file__).resolve().parents[2]
 DIST = ROOT / "apps" / "learnloop-tauri" / "dist-desk-harness"
 VIEWPORT = {"width": 1600, "height": 960}
+#: The synthetic workspace's "now" (its pads' newest day): every harness page starts its clock here.
+FIXTURE_NOW = datetime.datetime(2026, 11, 23, 12, 0, tzinfo=datetime.UTC)
 
 # A stand-in for the YouTube widget: after the page's "listening" handshake it reports a time of its
 # own (from the URL's `t` parameter) as the real widget does, and records every command it is sent.
@@ -1955,6 +1958,9 @@ async def main() -> int:
             chosen = [name for name in args.only.split(",") if name] or list(runners)
             for runner in (name for name in runners if name in chosen):
                 context = await (with_bars if runner in ("pads", "latex", "lesson") else browser).new_context(viewport=VIEWPORT)
+                # The fixture's pads are dated 2026-11-23 (their "today"): the page's clock starts on that day and runs
+                # on from there, so a run on any other day reads the same dated headings.
+                await context.clock.install(time=FIXTURE_NOW)
                 await context.route(lambda url: not url.startswith(base), route_outside)
                 page = await context.new_page()
                 try:

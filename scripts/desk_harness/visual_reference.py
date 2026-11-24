@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import datetime
 import json
 import re
 import sys
@@ -1323,9 +1324,15 @@ def pixel_share(mock_png: Path, app_png: Path, side_by_side: Path) -> float:
 
 # ── the run ──
 
+#: The synthetic workspace's "now": the same day the desk harness's run starts its pages on.
+FIXTURE_NOW = datetime.datetime(2026, 11, 23, 12, 0, tzinfo=datetime.UTC)
+
 
 async def open_harness(browser: Any, base: str, viewport: dict[str, int], state: State) -> Page:
     page = await browser.new_page(viewport=viewport)
+    # The fixture's "now" (its pads' newest day), as the desk harness's run sets it, so a pass on another day compares
+    # the same dated headings.
+    await page.clock.install(time=FIXTURE_NOW)
     await page.route("**/*", lambda route: route.continue_() if route.request.url.startswith(base) else route_outside(route))
     if state.init_storage:
         script = ";".join(f"localStorage.setItem({json.dumps(k)}, {json.dumps(v)})" for k, v in state.init_storage)
