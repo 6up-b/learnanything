@@ -401,6 +401,18 @@
 .desk-companion .bub .again { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .desk-companion .bub .unclear { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
 .desk-companion .bub .unclear textarea { min-height: 46px; background: var(--desk-shell2); border: 1px solid var(--desk-line2); color: var(--desk-t); font: 12px var(--desk-ui); padding: 5px 7px; resize: vertical; }
+/* Show me in the companion (spec §13.1): the figure in LearnLoop's voice, the live widget in its own dark frame (the
+   Reader's figure, as it is drawn in a book window), its three buttons as claims, and the footer saying it is help,
+   not a check. */
+.desk-companion .cfig { margin: 8px 0; padding: 8px 11px; border-left: 1px dotted #7d6fb8; font-size: 11.5px; }
+.desk-companion .cfig-head { color: var(--desk-t2); font-size: 10.5px; }
+.desk-companion .cfig-lead { color: var(--desk-ll); }
+.desk-companion .cfig-widget { margin: 6px 0; overflow-x: auto; }
+.desk-companion .cfig-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.desk-companion .cfig-actions button { color: #f0b878; background: none; border: 1px solid #5a4630; border-radius: 2px; padding: 1px 6px; font: 11px var(--desk-mono); cursor: pointer; }
+.desk-companion .cfig-source { margin-top: 6px; color: var(--desk-t2); font-size: 10.5px; }
+.desk-companion .cfig-source pre { margin: 4px 0 0; max-height: 220px; overflow: auto; background: #080808; color: var(--desk-t); padding: 6px 8px; font: 10.5px/1.5 var(--desk-mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+.desk-companion .cfig-foot { margin-top: 6px; color: var(--desk-t3); font-size: 10px; }
 .desk-companion .cin .personal { margin: 0 0 6px; color: var(--desk-t2); font-size: 10.5px; }
 .desk-companion .cin .personal[aria-pressed="true"] { color: var(--desk-ll); }
 .desk-companion .chip { flex: none; margin: 0 12px 6px; padding: 3px 0 3px 8px; border-left: 1px solid #3a3a3a; color: var(--desk-t); font-size: 10.5px; display: flex; gap: 7px; align-items: baseline; }
@@ -721,3 +733,8 @@
 .desk-exercise .item { margin: 6px 8px; padding: 6px 0; border-top: 1px solid #2a2a2a; }
 .desk-exercise .item .t { color: var(--desk-t); }
 .desk-exercise .item .p { color: var(--desk-t2); font-size: 11px; margin: 2px 0 4px; }
+
+/* An RW2 problem on its pad (spec §15.2): the workbench keeps the app's own theme (its colours are the app's tokens,
+   drawn for the practice screen), set as a card on the pad's paper so its text never reads light on light. */
+.desk-pads .problem-pad { margin: 6px 0 10px; padding: 10px 12px; background: var(--bg); color: var(--text); border-radius: 4px; }
+.desk-pads .problem-away .bx button { margin-left: 6px; }

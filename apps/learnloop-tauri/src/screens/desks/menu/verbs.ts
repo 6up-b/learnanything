@@ -3,6 +3,7 @@
 import type {
   ContentRefDto,
   CorrespondentsDto,
+  FigureViewDto,
   MenuObjectInput,
   PassageKnowsDto,
   PromotedRowDto,
@@ -49,7 +50,10 @@ export interface MenuContext {
   /** The Reader's own question card on the passage, in its window: the learner writes the question and its answer. */
   writeOwnQuestion: (object: MenuObject, anchor: { extractionId: string; spanId: string }) => void;
   /** Show me: the figure built for the passage (null when none is shown), polled under the window asked from. */
-  showMe: (text: string, anchor: { extractionId: string; spanId: string }, ownerWindowId: string | null) => Promise<{ figureId: string; line: string } | null>;
+  showMe: (text: string, anchor: { extractionId: string; spanId: string }, ownerWindowId: string | null) => Promise<{ figureId: string; line: string; figure?: FigureViewDto } | null>;
+  /** Show me's figure in the companion (spec §13.1), live, with view source, move to scratchpad and not useful;
+   *  absent where the desks give no companion (the figure then lands in the running pad). */
+  showFigure?: (object: MenuObject, figure: FigureViewDto, destination: string | null) => void;
   /** Where a figure asked for now will land: the running pad of the desk asked on (null: it has none). */
   figureDestination: () => string | null;
   /** The figure, landed in the pad named when it was asked for. */
@@ -171,11 +175,17 @@ export async function runVerb(id: VerbId, object: MenuObject, ctx: MenuContext):
         if (!anchor) return;
         // Where it lands is decided now: the running pad of this desk, even if another desk is shown when it is ready.
         const destination = ctx.figureDestination();
-        ctx.toast("◇ making a figure for this passage · it lands in your running pad when it's ready");
+        ctx.toast(ctx.showFigure ? "◇ making a figure for this passage · it opens in the tutor when it's ready"
+          : "◇ making a figure for this passage · it lands in your running pad when it's ready");
         // The Reader's figure build, polled under the window asked from (a paused window's poll waits).
         const figure = await ctx.showMe(words.slice(0, 300), anchor, object.windowId);
         if (!figure) {
           ctx.toast("no figure for this passage · nothing was shown");
+          return;
+        }
+        if (ctx.showFigure && figure.figure) {
+          // Spec §13.1: in the companion, live; "move to scratchpad" writes the pad's figure block from there.
+          ctx.showFigure(object, figure.figure, destination);
           return;
         }
         await ctx.landFigure(object, figure, destination);

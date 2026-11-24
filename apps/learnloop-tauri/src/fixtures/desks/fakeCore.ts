@@ -9,6 +9,8 @@ import { FixtureCompanion } from "./companion";
 import { FixtureGoal } from "./goal";
 import { FIXTURE_LESSON_ID, FixtureLessons, fixtureAdditionsPad } from "./lessons";
 import { FixtureVideo } from "./video";
+import { fixtureFigure } from "./figures";
+import { FixtureWorkbench } from "./workbench";
 
 export type InvokeArgs = Record<string, unknown>;
 
@@ -126,11 +128,14 @@ const CONTRACT = {
   answerModes: ["answer_directly"], mayReveal: [], manifestIncludes: [], manifestNeverIncludes: [], citations: "spans",
   exposureOnCommit: "none", inquiryEnabled: true, readingPaths: { enabled: true, depths: [] },
   // `?intent=1`: the Reader's intent box over a selection is on (its key claim against the desks' shortcuts).
-  ...(typeof window !== "undefined" && new URLSearchParams(window.location.search).get("intent") === "1"
+  // `?problem=1` (RW2 on a problem pad, spec §15.2): the box also offers "work through this".
+  ...(typeof window !== "undefined" && ["intent", "problem"].some((key) => new URLSearchParams(window.location.search).get(key) === "1")
     ? { intent: {
       palette: [{ group: "understand", label: "understand", intention: "understand", actions: [
         { id: "ask", group: "understand", intention: "understand", label: "Ask", effect: { kind: "ask", answerMode: "answer_directly" }, model: true },
-      ] }],
+      ] }, ...(new URLSearchParams(window.location.search).get("problem") === "1" ? [{ group: "apply", label: "Apply", intention: "apply", actions: [
+        { id: "work_through", group: "apply", intention: "apply", label: "work through this", effect: { kind: "work_through" }, model: true },
+      ] }] : [])],
       notesPalette: [], speculative: false, speculateAfterMs: 0, timeoutSeconds: 30,
     } }
     : {}),
@@ -140,6 +145,10 @@ const CONTRACT = {
 
 // The context menu's promoted rows: a cheap row per passage (the learner's own question there, so rows differ by
 // passage) and a judged job that adds a correspondent found by search, unchecked, on its second read.
+/** RW2's workbench, faked for the problem pad's harness run. */
+const workbench = new FixtureWorkbench();
+if (typeof window !== "undefined") (window as unknown as { __fixtureWorkbench?: FixtureWorkbench }).__fixtureWorkbench = workbench;
+
 const promotedJobs = new Map<string, { rows: Array<Record<string, unknown>>; reads: number; cancelled: boolean }>();
 let promotedJobCount = 0;
 
@@ -158,6 +167,8 @@ function emptyUnion(spanId: string): Record<string, unknown> {
 const pen: { annotations: Array<{ sourceId: string; annotation: { id: string }; version: { annotationType: string; learnerText: string }; [placed: string]: unknown }>; inks: Record<string, unknown>[] } = { annotations: [], inks: [] };
 
 function answer(command: string, input: Record<string, unknown>): unknown {
+  const fromWorkbench = workbench.answer(command, input);
+  if (fromWorkbench !== undefined) return fromWorkbench;
   switch (command) {
     case "desk_state":
       return server.state();
@@ -234,6 +245,11 @@ function answer(command: string, input: Record<string, unknown>): unknown {
       return { exchanges: [] };
     case "reader_drain_outbox":
       return { drained: [], failed: [] };
+    // Show me (spec §13.1): a figure build answered at its first read, with the fixture figure.
+    case "figure_request":
+      return { jobId: "fx_figure_job", kind: "figure_build", askId: null, state: "pending", result: null, anchor: input.anchor ?? null };
+    case "reader_figure_job":
+      return { jobId: String(input.jobId), kind: "figure_build", askId: null, state: "done", result: { figure: fixtureFigure(`${FIXTURE_SOURCES.book.extractionId}_s1_1`), reused: false } };
     case "reader_log_activity":
       return { recorded: Array.isArray(input.events) ? input.events.length : 0 };
     case "reader_note_reading_progress":

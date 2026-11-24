@@ -125,6 +125,7 @@ import { useReaderWorkbench, type ReaderWorkbenchProps } from "./reader/useReade
 import { exerciseOpenRequest, type ExerciseCandidate, type ReaderWorkbenchExercise } from "./reader/exerciseCandidates";
 import type { ExplorableOutcome, LibraryExercisesProps } from "./reader/LibraryAnswer";
 import { ReaderWorkingPosture } from "./reader/ReaderWorkingPosture";
+import type { ProblemHandoff } from "./desks/problem/problemPads";
 import { FindSection } from "./reader/FindSection";
 import { SideBySidePane } from "./reader/SideBySidePane";
 import { SIDE_BY_SIDE_COPY, SIDE_BY_SIDE_SCROLL_KEYS, useSideBySide, type SideBySideVia } from "./reader/useSideBySide";
@@ -316,6 +317,9 @@ export interface ReaderWindowing {
   onPairKey?: (key: "follow" | "other") => void;
   /** The learner's hand on this window (a scroll, a click, a touch), for the pair it is in. */
   onTouched?: () => void;
+  /** RW2 on a desk (spec §15.2): a problem this window opens (work through this, an exercise, a check, a resume) is
+   *  worked on the desk's problem pad instead of a working posture over the book. */
+  onWorkOnPad?: (handoff: ProblemHandoff) => void;
 }
 
 /** What a desk does in a source window's inquiry. */
@@ -856,7 +860,20 @@ export function ReaderScreen({
     props: wbProps,
     onError,
   });
-  const working = wbCtl.active !== null;
+  // On a desk the problem goes to its pad (spec §15.2): handed over with what the opening knew, and this window
+  // returns to reading at once. The workbench's own opening logic (imports, admission, the serve) ran as before.
+  const workOnPad = windowed?.onWorkOnPad ?? null;
+  useEffect(() => {
+    const active = wbCtl.active;
+    if (!workOnPad || !active) return;
+    workOnPad({
+      session: active.session, readOnly: active.readOnly, autoFocus: active.autoFocus,
+      schedulerCandidateId: active.schedulerCandidateId ?? null, planPresentationId: active.planPresentationId ?? null,
+      card: active.card, spanId: active.session.spanIds[0] ?? null,
+    });
+    wbCtl.close(active.session, { generation: active.generation });
+  }, [workOnPad, wbCtl.active]); // eslint-disable-line react-hooks/exhaustive-deps
+  const working = wbCtl.active !== null && !workOnPad;
   // Reader CA5: "also in your books" (the contract names it only while
   // reader.correspondence.enabled and curriculum.enabled are on). Shown in skim
   // mode (a table of contents), never in the working posture or offline.

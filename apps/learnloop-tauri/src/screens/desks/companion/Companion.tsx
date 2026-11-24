@@ -74,6 +74,8 @@ export interface CompanionProps {
   /** The tutor that looks things up (RW1c), while the contract offers it: the personalized chip sent with every
    *  ask, and under an answer that looked things up "another way" and "that didn't help…". Absent while off. */
   tutor?: CompanionTutor | null;
+  /** Show me's live figures (spec §13.1), shown above the thread; absent (or null) when there are none. */
+  figures?: ReactNode;
 }
 
 export interface CompanionTutor {
@@ -381,8 +383,10 @@ export const Companion = forwardRef<CompanionHandle, CompanionProps>(function Co
             ) : null}
           </div>
           <div className="body" ref={bodyRef}>
+            {/* Show me's figures (spec §13.1), live, above the thread. */}
+            {tab === "tutor" ? props.figures ?? null : null}
             {tab === "tutor" ? (
-              props.thread.length === 0 ? (
+              props.thread.length === 0 && !props.figures ? (
                 <div className="empty">◇ nothing asked on this desk yet · select a passage and press c</div>
               ) : (
                 props.thread.map((exchange) => (

@@ -1705,6 +1705,88 @@ async def run_video(page: Page, base: str, results: Results, shots: Path | None)
                   any(c.get("extractionId") == "fx_ext_softmax" and c.get("sectionId") == "s1" and c.get("searchFallback") is False for c in corr), corr)
 
 
+async def run_problem(page: Page, base: str, results: Results, shots: Path | None) -> None:
+    """RW2 on a problem pad (spec §15.2, §21.1 "Workbench (RW2a–d)"): "work through this" on a selection in the book
+    opens the problem on a problem pad in the desk's stack, hosting the workbench; a step saves, the help ladder
+    opens, and Submit hands the attempt to feedback (`?problem=1`, the fake sidecar's minimal workbench)."""
+    await page.goto(f"{base}/desk-harness.html?problem=1")
+    await page.wait_for_selector("[data-desk-window]")
+    await settle(page, 1500)
+    await page.locator('[data-desk-window="fx_w_book"]').click(position={"x": 30, "y": 30})
+    await drag_select(page, "largest score")
+    await page.wait_for_selector("[data-intent-box] input", timeout=4000)
+    await page.locator("[data-intent-box] input").click()
+    await page.keyboard.press("Tab")
+    await page.locator('[data-desk-window="fx_w_book"] [role=group][aria-label="what do you want to do?"] button', has_text="work through this").click()
+    await page.wait_for_selector('.desk-pads [data-problem-pad="fx_wb_1"][data-problem-state="open"]', timeout=8000)
+    await settle(page, 800)
+    where = await page.evaluate("""() => ({ inStack: !!document.querySelector('.desk-pads [data-problem-pad] [aria-label="workbench"]'),
+        overBook: !!document.querySelector('[data-desk-window="fx_w_book"] [data-workbench-pane], [data-desk-window="fx_w_book"] [aria-label="workbench"]') })""")
+    results.check("work through this opens the problem on a problem pad in the desk's stack, hosting the workbench, and nothing over the book",
+                  where["inStack"] and not where["overBook"], where)
+    await shot(page, shots, "problem-pad")
+    step = page.locator('.desk-pads [data-problem-pad] textarea').first
+    await step.click()
+    await page.keyboard.type("Each weight is positive.")
+    await settle(page, 1500)
+    calls = await page.evaluate("() => window.__fixtureWorkbench.calls.map((c) => [c.command, c.input.bodyMd ?? null])")
+    results.check("a step typed on the pad is saved through the workbench", any(c[0] == "workbench_save_step" and "Each weight is positive." in str(c[1]) for c in calls), [c[0] for c in calls][-6:])
+    await page.locator('.desk-pads [data-problem-pad] [role=group][aria-label="workbench actions"] button', has_text="help ·").first.click()
+    await settle(page, 800)
+    ladder = await page.locator('.desk-pads [data-problem-pad] [role=listbox][aria-label="help ladder"]').count()
+    calls = await page.evaluate("() => window.__fixtureWorkbench.calls.map((c) => c.command)")
+    results.check("the help ladder opens on the pad (the workbench's suggestion asked)", ladder == 1 and "workbench_suggest_help" in calls, [ladder, calls[-4:]])
+    await page.keyboard.press("Escape")
+    await settle(page, 300)
+    await page.locator('.desk-pads [data-problem-pad] [role=group][aria-label="workbench actions"] button', has_text="Submit").first.click()
+    await settle(page, 1500)
+    handed = await page.evaluate("() => window.__problemSubmitted ?? null")
+    state = await page.locator('.desk-pads [data-problem-pad="fx_wb_1"]').get_attribute("data-problem-state")
+    results.check("Submit records through the workbench and hands the attempt to feedback; the pad shows it submitted",
+                  handed == "fx_attempt_wb" and state == "submitted", [handed, state])
+
+
+async def run_showme(page: Page, base: str, results: Results, shots: Path | None) -> None:
+    """Show me in the companion (spec §13.1, §21.1 "Figures and Show me"): the menu's Show me on a passage puts the
+    figure in the companion, live, with view source, move to scratchpad and not useful, and nothing in a pad until
+    it is moved there."""
+    await page.goto(f"{base}/desk-harness.html")
+    await page.wait_for_selector('[data-desk-window="fx_w_book"] [data-span-id]')
+    await settle(page, 1500)
+    figs_before = await page.locator('.desk-pads .mark.fig').count()
+    passage = page.locator('[data-desk-window="fx_w_book"] [data-span-id]').filter(has_text="weight").first
+    await passage.click(button="right", position={"x": 40, "y": 8})
+    await page.wait_for_selector(".desk-menu:not(.submenu)")
+    await page.keyboard.press("v")
+    await page.wait_for_selector("[data-companion-figure]", timeout=10000)
+    await page.evaluate("document.fonts.ready")
+    await settle(page, 600)
+    look = await page.evaluate("""() => { const f = document.querySelector('[data-companion-figure]'); const w = f.querySelector('.cfig-widget');
+        return { head: f.querySelector('.cfig-head').textContent, foot: f.querySelector('.cfig-foot').textContent,
+          buttons: [...f.querySelectorAll('.cfig-actions button')].map((b) => b.textContent),
+          sliders: f.querySelectorAll('input[type=range]').length, svg: f.querySelectorAll('svg').length,
+          headFont: getComputedStyle(f.querySelector('.cfig-head')).fontFamily.split(',')[0],
+          frame: getComputedStyle(w.querySelector('[data-figure]') ?? w).backgroundColor, clipped: w.scrollWidth > w.clientWidth + 1,
+          inCompanion: !!f.closest('[aria-label="the companion"]') }; }""")
+    results.check("Show me's figure appears in the companion, live (sliders and a plot), named for its source and page",
+                  look["inCompanion"] and look["head"].startswith("◇ Show me · a figure for") and look["sliders"] > 0 and look["svg"] > 0, look)
+    results.check("its three buttons and the footer that says it is help, not a check",
+                  look["buttons"] == ["view source", "move to scratchpad", "not useful"] and "it is help, not a check" in look["foot"], look["buttons"])
+    results.check("the companion's text is JetBrains Mono, the widget in its own frame as in a book window, nothing clipped sideways",
+                  "JetBrains Mono" in look["headFont"] and not look["clipped"], look)
+    results.check("nothing lands in a pad by itself", await page.locator('.desk-pads .mark.fig').count() == figs_before)
+    await shot(page, shots, "showme-companion")
+    await page.locator("[data-companion-figure] .cfig-actions button", has_text="view source").click()
+    source = await page.locator("[data-companion-figure] [data-figure-source] pre").inner_text()
+    results.check("view source shows the figure's own source (display tier)", "parameters" in source, source[:80])
+    await page.locator("[data-companion-figure] .cfig-actions button", has_text="move to scratchpad").click()
+    await settle(page, 1200)
+    moved = await page.locator('.desk-pads .mark.fig').count()
+    gone = await page.locator("[data-companion-figure]").count()
+    results.check("move to scratchpad writes the figure block in the running pad and the figure leaves the companion",
+                  moved == figs_before + 1 and gone == 0, [figs_before, moved, gone])
+
+
 async def run_preview(page: Page, base: str, results: Results) -> None:
     """A preview (a card or miniature) logs no reading activity; the same window active does (control)."""
     for state, expect_activity in (("preview", False), ("active", True)):
@@ -1742,7 +1824,7 @@ async def main() -> int:
             # Playwright hides scrollbars in headless Chromium; the display-math checks need them drawn, as the
             # app's webview draws them (a wide equation's scroller must show its bar).
             with_bars = await playwright.chromium.launch(headless=True, ignore_default_args=["--hide-scrollbars"])
-            runners = ("desks", "overview", "companion", "intent", "pads", "menus", "latex", "goal", "lesson", "video", "pairs", "preview")
+            runners = ("desks", "overview", "companion", "intent", "pads", "menus", "latex", "goal", "lesson", "video", "pairs", "showme", "problem", "preview")
             chosen = [name for name in args.only.split(",") if name] or list(runners)
             for runner in (name for name in runners if name in chosen):
                 context = await (with_bars if runner in ("pads", "latex", "lesson") else browser).new_context(viewport=VIEWPORT)
@@ -1771,6 +1853,10 @@ async def main() -> int:
                         await run_video(page, base, results, args.shots)
                     elif runner == "pairs":
                         await run_pairs(page, base, results, args.shots)
+                    elif runner == "showme":
+                        await run_showme(page, base, results, args.shots)
+                    elif runner == "problem":
+                        await run_problem(page, base, results, args.shots)
                     else:
                         await run_preview(page, base, results)
                 except Exception as error:  # noqa: BLE001 - a broken step is a failed check, and the report still prints
