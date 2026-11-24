@@ -64,8 +64,9 @@ source_text_assertions = 23
 # adds to a learner-lane decision: its frozen exposure and lossless replay payload, the session on its facts receipt,
 # and the outcome target it freezes (the decision objective and the "Check once" measurement it arranges); 398 lines.
 # 302693: L4-2 (mvp-0.71): the journeys that grade (held_release, mid_check, recurrence_judge, regrade) record
-# their attempt_grade_curves rows; 101 lines.
-golden_json_lines = 302693
+# their attempt_grade_curves rows; 101 lines. 302888: every applied grade records its curve whatever tag the process
+# loaded (the review fix round's first finding), so the journeys graded below the tag record theirs too; 195 lines.
+golden_json_lines = 302888
 
 [members]
 import_component = [
