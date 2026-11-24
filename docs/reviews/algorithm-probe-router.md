@@ -499,8 +499,9 @@ and a zero-EIG instrument there is not served.
 ### Proof (round 2)
 
 - `tests/test_probe_router*.py` and the decision-integrity file pass (round 2 adds 19 tests there).
-- The import-based affected set (`scripts/affected_tests.py --base 41ab8e5977`: 1,114 files) passes, run in chunks of 40
-  with `-n 1 -m "not arc_close"`.
+- The import-based affected set (`scripts/affected_tests.py --base 41ab8e5977`: 1,114 files) passes, run in 28 chunks of
+  40 with `-n 1 -m "not arc_close"` (three chunks at a time, each in its own 3 GB scope). One chunk failed on the idle
+  thread inventory, which now counts the new slot (below), and that file was rerun and passes.
 - `tests/test_identity_pins.py` passes, with no pin moved: the replay payload's digest is a record of the row, not a
   compared identity.
 - `test_structure_ratchets.py` passes with `golden_json_lines` raised by 398 (below). `test_architecture.py`,
@@ -514,6 +515,8 @@ Assertions changed:
   now finds two receipts: the pending read's, then the decided status's (it found one). A remount still adds none.
 - `test_probe_router_learner_lane.py::test_the_repair_entry_holds_only_on_the_routers_selection`: the entry first holds
   on `pending`. The job is run, then the entry holds on the selection or starts the repair, as before.
+- `test_sidecar_idle_threads.py` (two tests) counts six background threads, not five: the new
+  `learnloop-post-attempt-probe_router` slot. Its idle-CPU check passes unchanged.
 - The learner-lane tests' status helpers (`read_status` in `tests/probe_router_authority_helpers.py`) wait for the
   decision job when a read is pending. No other assertion changed.
 
