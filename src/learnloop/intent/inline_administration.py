@@ -399,14 +399,6 @@ def _text_of(repository: Any, ref: Mapping[str, Any]) -> list[str]:
             row = connection.execute("SELECT text_md FROM learner_notes WHERE id = ?", (note_id,)).fetchone()
             if row:
                 texts.append(str(row[0] or ""))
-                continue
-            # A margin note on an open source is a source annotation (the desks name it by its annotation id): its
-            # current words are what opening its veil shows.
-            row = connection.execute(
-                "SELECT learner_text, what_i_think_is_going_on FROM source_annotation_versions WHERE annotation_id = ? "
-                "ORDER BY version_ordinal DESC LIMIT 1", (note_id,)).fetchone()
-            if row:
-                texts.append(f"{row[0] or ''}\n{row[1] or ''}")
     return texts
 
 
