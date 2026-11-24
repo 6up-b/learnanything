@@ -453,17 +453,24 @@ the Guide, Notes, Ask, checks and recap out of the portal. `scripts/rd_retire/ch
 
 ### Proof
 
-- `npm run typecheck`; the whole vitest suite after A and B: 448 files, 4,694 tests passed; after C: see the status
-  row; `cargo check` clean.
+- `npm run typecheck` clean; the whole vitest suite after A and B: 448 files, 4,694 tests passed; after C: 422 files,
+  4,500 tests passed (the 23 originals, the two palette-ask files and the two retired modules' tests gone; the parity
+  copy added); `cargo check` clean.
 - Desk harness (`vite build --config vite.desks.config.mjs`, then `uv run --no-project --with playwright==1.65.2
-  --with pillow==11.3.0 python scripts/desk_harness/run.py`): 207 passed, 0 failed (after A; rerun after C below).
+  --with pillow==11.3.0 python scripts/desk_harness/run.py`): 207 passed, 0 failed after A and again after C, on a
+  quiet machine. **A flake, not this branch's:** three runs while the vault generators ran beside them stopped the
+  `checks` run at "show it anyway" (`Page.click` timed out: the cost dialog, placed from the companion's pill in
+  `checks/VeilLayer.tsx`, lay below the 960 px viewport); the same run with the pre-deletion source failed the same
+  way, and every quiet run passes (22 of 22). For the checks worker: the dialog is not kept inside the viewport.
 - Python: `tests/test_reader_rd_retire_migration.py`, `test_migrations.py`, the RD0 and RD4 migration tests,
   `test_reader_rd1_model_parity.py`, `test_reader_rd0_protocol.py`, `test_identity_pins.py`,
   `test_effective_defaults_golden.py`, `test_tracked_fixture_databases.py`, `test_public_tip_guards.py`, the guards
   that read frontend paths (`test_rw5c_block_policy.py`, `test_reading_hardening_2_fixes.py`), `test_table_roles.py`:
   green; ruff clean; lint-imports 55 kept, 0 broken.
-- Generated references regenerated after the last code commit (`_scripts/generate_all.py`); `desktop_validate`
-  counts recomputed with its generator.
+- Generated references regenerated after the last code commit (`_scripts/generate_all.py`, no uncommitted input);
+  `desktop_validate` counts recomputed: 433 TypeScript files, ACTIVE 439 (406 entry-reachable, 23 vitest-support:
+  `fixtures/deskShellStub.tsx` and `fixtures/readerRenderView.ts`, which only tests read now); the four validators
+  pass.
 - **Not run here:** the visual-reference comparison (`visual_reference.py`) needs the private reference directory;
   the orchestrator runs it.
 
