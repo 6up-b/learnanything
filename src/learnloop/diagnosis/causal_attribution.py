@@ -2370,8 +2370,17 @@ def materialize_causal_episode(
     model: str | None = None,
     mechanism_taxonomy_version_id: str | None = None,
     clock: Clock | None = None,
+    replay: bool = False,
 ) -> dict[str, Any]:
-    """Materialize all P1 causal records and return the immutable receipt."""
+    """Materialize all P1 causal records and return the immutable receipt.
+
+    ``replay``: the attempt is being replayed. Each hypothesis is then the
+    version live materialization produced (the one the attempt's recorded
+    receipt cites, else an identical earlier version), never a new copy
+    reverting a later live version, so the receipt rebuilt from them has the
+    recorded content and so its recorded id, and the factor refs stay as live
+    set them. A changed input (a regrade's new grade) still appends.
+    """
 
     attempt = repository.fetch_practice_attempt(attempt_id)
     if attempt is None:
@@ -2427,6 +2436,14 @@ def materialize_causal_episode(
         repair_classes=repair_classes,
         selected_repair_class_id=selected_repair_class_id,
     )
+    recorded_attribution = (repository.attempt_debug_payload(attempt_id) or {}).get("causal_attribution")
+    recorded_receipt = (
+        recorded_attribution.get("diagnosis_receipt") if isinstance(recorded_attribution, dict) else None
+    )
+    cited_ids = [
+        str(ref["id"]) for ref in (recorded_receipt or {}).get("hypotheses") or []
+        if isinstance(ref, dict) and ref.get("id")
+    ] if replay else None
     by_episode: dict[str, dict[str, Any]] = {}
     for spec in specs:
         hypothesis = repository.append_causal_hypothesis(
@@ -2438,9 +2455,22 @@ def materialize_causal_episode(
             provenance=lambda refs=spec.get("provenance_refs"): _statement_provenance(repository, attempt_id, refs),  # noqa: B008  binds the value now on purpose, so the closure doesn't read a later one
             provenance_writer="causal_materialization",
             clock=clock,
+            replayed_from=cited_ids,
         )
         by_episode[str(spec["episode_key"])] = hypothesis
     hypotheses = repository.causal_hypotheses_for_attempt(attempt_id)
+    if replay:
+        # The versions live materialization read: the ones just reused, else the recorded receipt's, else the head.
+        cited = {
+            str(value["episode_key"]): value
+            for value in (repository.causal_hypothesis(hypothesis_id) for hypothesis_id in cited_ids or ())
+            if value is not None
+        }
+        hypotheses = sorted(
+            (by_episode.get(str(value["episode_key"])) or cited.get(str(value["episode_key"])) or value
+             for value in hypotheses),
+            key=lambda value: (str(value["created_at"]), str(value["id"])),
+        )
     by_episode = {
         str(hypothesis["episode_key"]): hypothesis
         for hypothesis in hypotheses

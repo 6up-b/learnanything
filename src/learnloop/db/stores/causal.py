@@ -166,8 +166,18 @@ class CausalStoreMixin:
         provenance: Any = None,
         provenance_writer: str = "causal_hypothesis",
         clock: Clock | None = None,
+        replayed_from: Sequence[str] | None = None,
     ) -> dict[str, Any]:
         """Append a changed hypothesis version, or return the identical head.
+
+        ``replayed_from`` (replay's materialization of an attempt already
+        materialized live): a version of this episode with identical semantic
+        content is returned instead of appending, whatever came after it, so a
+        later live version (a promotion, a withdrawal, a learner's
+        confirmation) is never reverted by a reverting copy with a fresh id.
+        The ids given (the versions the attempt's recorded receipt cites) are
+        preferred, else the newest identical version; with none identical, a
+        new version is appended as live.
 
         ``repair_class_basis`` / ``repair_class_unresolved_reason`` are part of
         the semantic identity: a hypothesis that stops being unmapped (because a
@@ -222,6 +232,14 @@ class CausalStoreMixin:
             latest.get(key) == value for key, value in semantic.items()
         ):
             return latest
+        if replayed_from is not None:
+            identical = [
+                version for version in self.causal_hypothesis_versions(episode_key)
+                if all(version.get(key) == value for key, value in semantic.items())
+            ]
+            preferred = [version for version in identical if str(version["id"]) in {str(i) for i in replayed_from}]
+            if preferred or identical:
+                return (preferred or identical)[-1]
         if callable(provenance):
             provenance = provenance()
         version = int(latest.get("version") or 0) + 1 if latest is not None else 1
@@ -286,6 +304,16 @@ class CausalStoreMixin:
         created = self.causal_hypothesis(hypothesis_id)
         assert created is not None
         return created
+
+    def causal_hypothesis_versions(self, episode_key: str) -> list[dict[str, Any]]:
+        """Every version of one episode, oldest first."""
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM causal_hypotheses WHERE episode_key = ? ORDER BY version",
+                (episode_key,),
+            ).fetchall()
+        return [_decode_causal_hypothesis(row) for row in rows]
 
     def causal_hypothesis(self, hypothesis_id: str) -> dict[str, Any] | None:
         with self.connection() as connection:

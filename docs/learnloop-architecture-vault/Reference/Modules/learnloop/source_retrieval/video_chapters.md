@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/source_retrieval/video_chapters.py](../../../../../../src/learnloop/source_retrieval/video_chapters.py) |
-| Source lines | 400 |
+| Source lines | 416 |
 | Owning package | [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -72,7 +72,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `class NotWanted(Exception)` ([source](../../../../../../src/learnloop/source_retrieval/video_chapters.py), line 262) — The judgment's job was cancelled, or its context closed or switched vaults, before its chapters were stored.
 - `store_suggestions(repository: Repository, extraction_id: str, source_id: str | None, chapters: Sequence[dict[str, Any]], *, clock: Clock | None=None, guard: SC.CoverageGuard | None=None, wanted: Callable[[], bool] | None=None) -> None` ([source](../../../../../../src/learnloop/source_retrieval/video_chapters.py), line 266) — Replace the reading's chapters still suggested by these; a decided chapter (and the same chapter suggested again) keeps its row.
 - `decide(vault: Any, repository: Repository, chapter_id_: str, decision: str, *, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/video_chapters.py), line 289) — Accept a suggested chapter or dismiss it ("not this"), once.
-- `suggest(vault: Any, repository: Repository, extraction_id: str, *, client: Any | None=None, clock: Clock | None=None, budget: SpendBudget | None=None, live_vault: Any | None=None, wanted: Callable[[], bool] | None=None) -> SuggestResult` ([source](../../../../../../src/learnloop/source_retrieval/video_chapters.py), line 312) — Judge a video's chapters and store them suggested (no call when the same request is in the ledger).
+- `suggest(vault: Any, repository: Repository, extraction_id: str, *, client: Any | None=None, clock: Clock | None=None, budget: SpendBudget | None=None, live_vault: Any | None=None, wanted: Callable[[], bool] | None=None) -> SuggestResult` ([source](../../../../../../src/learnloop/source_retrieval/video_chapters.py), line 328) — Judge a video's chapters and store them suggested (no call when the same request is in the ledger).
 
 ### Module constants
 
@@ -134,7 +134,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/practice_index/listwise|learnloop.practice_index.listwise]] — imports `ListwiseTask`, `judge_listwise`, `listwise_caps`; calls `ListwiseTask`, `judge_listwise`, `listwise_caps`
 - [[Reference/Modules/learnloop/practice_index/paid|learnloop.practice_index.paid]] — imports `plan_route`; calls `plan_route`
 - [[Reference/Modules/learnloop/reader/reader_guidance|learnloop.reader.reader_guidance]] — imports `extraction_sections`; calls `extraction_sections`
-- [[Reference/Modules/learnloop/source_retrieval/section_coverage|learnloop.source_retrieval.section_coverage]] — imports `module`; calls `CoverageGuard`, `Library`, `_daily_if_inactive`, `admission_problem`, `enabled`, `source_learning_objects`
+- [[Reference/Modules/learnloop/source_retrieval/section_coverage|learnloop.source_retrieval.section_coverage]] — imports `module`; calls `CoverageGuard`, `Library`, `_daily_if_inactive`, `admission_problem`, `chapter_accepted`, `enabled`, `source_learning_objects`
 
 ### Platform and third-party dependencies
 
@@ -155,6 +155,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/identity_pins_helpers.py](../../../../../../tests/identity_pins_helpers.py) — direct import
+- [tests/test_chapters_feed_coverage.py](../../../../../../tests/test_chapters_feed_coverage.py) — direct import
+  - `test_a_chapters_row_no_longer_stands_once_the_transcript_changed`
+  - `test_only_sections_wholly_inside_the_range_are_covered`
+  - `test_the_learners_own_correction_stands_and_corrects_a_wrong_acceptance`
+  - `test_with_the_curriculum_off_accepting_writes_no_coverage`
 - [tests/test_reader_rd10_fix_protection.py](../../../../../../tests/test_reader_rd10_fix_protection.py) — direct import
   - `test_a_judged_video_replays_from_the_ledger_with_the_budget_spent_and_an_unjudged_one_is_capped`
   - `test_the_curriculum_switched_off_while_a_suggestion_runs_stores_nothing`

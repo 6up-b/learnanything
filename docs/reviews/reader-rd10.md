@@ -161,3 +161,107 @@ END;
 
 Once it lands, `tests/test_video_chapters_no_replace.py` can give way to a migration test that replaces a decided row
 and finds it unchanged.
+
+## Accepted chapters feed section coverage (branch `reader/chapters-feed-coverage`)
+
+The owner decided on 2026-11-23: "yes, accepted video chapters feed section coverage". This closes judgment call 8 and
+the open line in §5.
+
+**What it does.** Accepting a judged chapter (`chapters.decide`, accept) writes coverage in the same transaction as
+the decision (`section_coverage.chapter_accepted`, called from `video_chapters.decide`). Each tagged LO gets one row
+per transcript section that lies wholly inside the chapter's time range and is readable and not withheld. Each row is
+C0a's correction row, as `curriculum.coverage_correct` writes it:
+- a `learner` row with `is_about`;
+- a `learner_card` verdict in the judgment ledger.
+
+Its provenance says where it came from:
+- `origin` is `learner`, because it was the learner's act;
+- `prompt_version` is `section_coverage_chapter_accepted.v1` and `state_key` is `chapter:<chapter id>`;
+- the verdict's rationale names the source (`accepted_chapter`), the chapter, the chapter judge's ledger row and the
+  range.
+
+`origin`'s CHECK (`provenance`, `retrieval`, `learner`) holds this with no migration: the act is the learner's, and the
+chapter is named by the version, the key and the verdict.
+
+**The rules.**
+- **Once per chapter.** A chapter is decided once. A second accept answers the stored decision, and any row already
+  carrying the chapter's key stops the write.
+- **"Not this" feeds nothing.**
+- **The learner's own correction stands.** A section whose newest learner row for the LO is a correction (not about,
+  also about) is left alone.
+- **Decisions are final.** Un-acceptance does not exist. A wrong acceptance is corrected by the existing coverage
+  correction: "not about this" on that section's line in the Guide's *also in your books*, which reaches the video's
+  sections. That correction is newer, so it stands over the chapter's row (tested). The panel says this before the
+  learner accepts (below).
+- **A chapter's row describes the transcript as it was.** Once a section changes (its `section_hash` moves), the row
+  stops standing (`standing()` skips it). A learner's own correction, by contrast, stands across changes, as before.
+  The goal lens then reads the section as stale for that LO, so it is partial, never skippable.
+- **Only whole sections.** A section the range covers in part is not covered (tested with a range starting halfway
+  through the introduction).
+- **The curriculum's switch applies.** With `curriculum.enabled` off, accepting writes no coverage, since coverage
+  belongs to the curriculum. No new switch, no model call, no prompt change.
+
+**The goal lens.** A standing row from a chapter with no judge treatment reads as `chapter` (`goal_lens.CHAPTER_ABOUT`,
+beside the learner's `learner`):
+- per LO it is *supporting* (`chapter_about`): "A chapter you accepted here is about “<LO>”, a topic of your goal.";
+- the coverage line reads "coverage: is about (a chapter you accepted) “<LO>” · …".
+
+It is never core, even where the path places the LO, because core needs a judged `introduces` or `develops`. Over a
+judge's row the learner's acceptance keeps the judge's treatment when that treatment is about the LO, and stands over
+a judge's "not about", as "also about" does. That raises the section's need and never lowers it.
+
+**The costly error (review F6).** An accepted chapter must never make a needed section read as skippable. A section
+becomes skippable only by the lens's existing rules over all of its coverage. The table test
+(`test_reader_rd6a_goal_lens_core.py`) has eight rows with chapter-sourced coverage, covering these cases:
+- mapped;
+- never core where the path places it;
+- partial while a goal topic is unchecked;
+- beside a judge's "not about";
+- an off-goal chapter beside a goal LO's primary, where core stays;
+- an off-goal chapter while a goal topic is unchecked (partial);
+- an off-goal chapter with every goal topic settled, which is skippable by the existing rule, exactly as an off-goal
+  judge row is;
+- the learner's own skip.
+
+Further tests:
+- **Stale:** after the transcript changed, the section is partial.
+- **Held topic:** the lens's protection still masks a held LO from a chapter, with the held reason, no title and no
+  coverage line.
+- **Never-lowers property:** for every rule row and every LO a chapter could be tagged with, adding the chapter's row
+  never lowers a needed level and never makes a mapped, non-skippable section skippable.
+- **Integration:** over the video, accepting a chapter over the introduction (which the judge read as not about the
+  goal) makes it supporting (`chapter_about`) and leaves every other section's level unchanged. Re-recording the
+  introduction's words makes it partial.
+
+**Persisted meaning: no tag.** Under `docs/algorithm-change-playbook.md`, a tag is needed "when scoring, scheduling,
+projection, or admissibility semantics change". Section coverage steers the deliverable path and the goal lens, which
+are display and retrieval context. It is "never evidence, never a prerequisite edge, never provenance": nothing in
+scoring, scheduling, projection, grading or serving reads it (`section_coverage`'s module contract). AD's guard refuses
+the table. `section_coverage` is WORKFLOW, never rebuilt by replay. No identity pin moved.
+
+**The panel.** While any chapter is undecided, the chapters panel says, before the learner accepts and on the accept
+button's title: "accepting counts this stretch as teaching its topic for your goal · it stays; if part of it isn't, mark
+that part not about this".
+
+**Tests.**
+- `tests/test_chapters_feed_coverage.py`, seven tests:
+  - accept writes once, with its provenance;
+  - not this writes nothing;
+  - whole sections only;
+  - the learner's correction stands and corrects a wrong acceptance;
+  - stale after a transcript change;
+  - the curriculum switched off;
+  - the lens over the video.
+- The table rows and the property, as above.
+- `video/video.test.tsx`: the panel's line, and its going once nothing is undecided.
+- The harness's `video` run checks the line.
+- Fail-first: each new test failed against `origin/main`'s sources.
+- Green: the RD6, RD10, coverage, CA5, deliverable-path, identity-pin, notes-fence and architecture tests (712 passed);
+  vitest on the video and goal folders; the harness's `video` and `goal` runs (38 passed); typecheck, ruff and the
+  import contracts.
+
+**Not done here.**
+- The visual reference's `rd10` stage, design viewport: the one finding is the chapters panel's height (`chap_panel`,
+  157 px against the reference's 127 px), which is the new line. The reference has no such line, because the mockup
+  never fed coverage.
+- No owner vault was opened.

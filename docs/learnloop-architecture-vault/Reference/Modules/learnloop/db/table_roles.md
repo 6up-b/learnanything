@@ -102,6 +102,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/ops/debug_time_store|learnloop.ops.debug_time_store]] — imports `role_for_table`, `user_table_names`; statically calls `role_for_table`, `user_table_names`
 - [[Reference/Modules/learnloop/substrate/dataset|learnloop.substrate.dataset]] — imports `CAPTURE_EXCLUDED_TABLES`, `TABLE_ROLES`, `TableRole`
 - [[Reference/Modules/learnloop/substrate/rebuild_orchestrator|learnloop.substrate.rebuild_orchestrator]] — imports `TableRole`, `tables_for_role`; statically calls `tables_for_role`
+- [[Reference/Modules/learnloop/substrate/shadow_rebuild|learnloop.substrate.shadow_rebuild]] — imports `TABLE_ROLES`, `TableRole`
 
 ## Dependencies
 
@@ -121,7 +122,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]], [[Reference/Modules/learnloop/db/stores/collection|learnloop.db.stores.collection]], [[Reference/Modules/learnloop/goals/goal_series_store|learnloop.goals.goal_series_store]], [[Reference/Modules/learnloop/ops/debug_time_store|learnloop.ops.debug_time_store]], [[Reference/Modules/learnloop/substrate/dataset|learnloop.substrate.dataset]] and 1 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]], [[Reference/Modules/learnloop/db/stores/collection|learnloop.db.stores.collection]], [[Reference/Modules/learnloop/goals/goal_series_store|learnloop.goals.goal_series_store]], [[Reference/Modules/learnloop/ops/debug_time_store|learnloop.ops.debug_time_store]], [[Reference/Modules/learnloop/substrate/dataset|learnloop.substrate.dataset]] and 2 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -266,6 +267,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_rebuild_makes_no_model_call_and_is_a_fixed_point`
 - [tests/test_recurrence_live.py](../../../../../../tests/test_recurrence_live.py) — direct import
   - `test_a_verdict_after_a_promotion_moves_only_the_group_projection_and_rebuild_matches_live`
+- [tests/test_replay_writes_no_ledger.py](../../../../../../tests/test_replay_writes_no_ledger.py) — direct import
 - [tests/test_retrieval_spaces_migration.py](../../../../../../tests/test_retrieval_spaces_migration.py) — direct import
   - `test_table_roles_and_the_one_replayer`
 - [tests/test_ro1_availability.py](../../../../../../tests/test_ro1_availability.py) — direct import

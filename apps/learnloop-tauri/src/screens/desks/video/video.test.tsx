@@ -11,7 +11,7 @@ import { Poller } from "../../../api/poller";
 import { YouTubeWatchPanel } from "../../reader/YouTubeWatchPanel";
 import { DIRECT_HUB, WindowScope, type WindowState } from "../lifecycle";
 import { CarriedRelated, allCarried } from "../carried/related";
-import { useVideoChapters } from "./ChaptersPanel";
+import { ACCEPT_LINE, useVideoChapters } from "./ChaptersPanel";
 import { VideoDesk, type VideoTransport } from "./desk";
 import { chapterRanges, chapterTicks, chipText, choosePassage, clockWords, timestampLine } from "./model";
 
@@ -190,6 +190,20 @@ describe("the suggested chapters", () => {
     expect(seen[seen.length - 1].find((each) => each.chapterId === "c2")?.state).toBe("accepted");
     fireEvent.click(within(document.querySelector('[data-chapter="c1"]') as HTMLElement).getByText("not this"));
     await waitFor(() => expect(document.querySelector('[data-chapter="c1"]')).toBeNull());
+  });
+
+  it("say what accepting does before the learner accepts, and only while one is undecided", async () => {
+    const { transport } = chaptersTransport([chapter("c1", "suggested", 0, 20, "intro")]);
+    mountChapters("active", transport);
+    const line = await waitFor(() => {
+      const found = document.querySelector("[data-chapters-accept-line]");
+      expect(found).toBeTruthy();
+      return found as HTMLElement;
+    });
+    expect(line.textContent).toBe(ACCEPT_LINE);
+    expect(within(document.querySelector('[data-chapter="c1"]') as HTMLElement).getByText("accept").getAttribute("title")).toBe(ACCEPT_LINE);
+    fireEvent.click(within(document.querySelector('[data-chapter="c1"]') as HTMLElement).getByText("accept"));
+    await waitFor(() => expect(document.querySelector("[data-chapters-accept-line]")).toBeNull());
   });
 
   it("a running suggestion can be cancelled, and nothing is kept", async () => {

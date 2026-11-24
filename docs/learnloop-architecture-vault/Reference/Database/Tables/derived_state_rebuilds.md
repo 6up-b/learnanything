@@ -129,6 +129,7 @@ Indexes and uniqueness:
 - `tests/test_p0_projection_cutover.py`
 - `tests/test_probe_router_replay.py`
 - `tests/test_rebuild_orchestrator.py`
+- `tests/test_replay_writes_no_ledger.py`
 - `tests/test_shadow_rebuild.py`
 - `tests/test_table_roles.py`
 - `tests/test_upgrades.py`

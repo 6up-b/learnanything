@@ -156,6 +156,7 @@ Indexes and uniqueness:
 - `tests/test_rebuild_equivalence.py`
 - `tests/test_rebuild_equivalence_review.py`
 - `tests/test_recurrence_live.py`
+- `tests/test_replay_keeps_diagnosis_ids.py`
 - `tests/test_sg_slip_vs_gap.py`
 - `tests/test_stuck_prompt.py`
 - `tests/test_stuck_prompt_replay.py`
