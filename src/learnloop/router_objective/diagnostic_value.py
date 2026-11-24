@@ -1,6 +1,7 @@
 """The successor's value of a post-miss probe (G2 design §2b): ask the probe, then act on its result, priced against
-acting now without it, over the locked hypotheses, in the router objective's own terms. Unserved: nothing under
-``src`` calls :func:`evaluate_probe`; the comparison report and the tests do, until the behaviour step wires it.
+acting now without it, over the locked hypotheses, in the router objective's own terms. Served from the probe
+router's tag by one caller, the learner lane's decision (``daily_plan.learner_probe``); the comparison report and the
+tests call it too (``tests/test_diagnostic_probe_value.py`` keeps every other served module off it).
 
 **What is computed.** For the effective prior ``p(h)`` and the channel ``L(r | h)`` (:mod:`diagnostic_payload`)::
 

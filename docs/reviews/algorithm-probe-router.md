@@ -231,6 +231,14 @@ records for them. So a tag: `mvp-0.70`, the immediate successor of `mvp-0.69`, w
   (`_next_observation_does_not_pay`). The count binds and value decides nothing for a router-selected episode, another
   origin keeps its gates, and below the tag a pinned router decision dispatches nothing.
 - `tests/test_probe_router_replay.py` (3) and `tests/test_probe_router_copy_counts.py` (2).
+- **A guard this step changes, as the design says:** `tests/test_diagnostic_probe_value.py`'s
+  `test_no_served_module_imports_the_evaluator` kept the successor evaluator unserved through steps 4 and 5 ("until the
+  behaviour step wires it"; design §4, step 4 unserved, step 6 wires "the new evaluator"). It is now
+  `test_only_the_routers_learner_lane_imports_the_evaluator`: exactly one served module, `daily_plan/learner_probe.py`,
+  imports it, and every other module under `src` stays off it. The automatic lane needs no import (its unwritten probe
+  is never valued). `diagnostic_value`'s docstring says so.
+- **The attempt-facts census:** K9.13 (merged before the landing gate) moved the hinted-evidence weight's read of
+  `hints_used` from `probe_episodes.episode_posterior` into `_gather_episode_evidence`; the census row names it.
 - **Fixtures moved to the predecessor** (their subject is the causal gate's verdict, which the router replaces at the
   tag), with no assertion changed:
   - `tests/causal_orchestrator_helpers._vault` (a `version` parameter, the predecessor by default; it serves
