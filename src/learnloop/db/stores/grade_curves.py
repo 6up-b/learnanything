@@ -56,7 +56,14 @@ def _insert(connection: sqlite3.Connection, attempt_id: str, key: str, revision:
 
 def capture_grade_curve(connection: sqlite3.Connection, attempt_id: str,
                         prediction: Mapping[str, float], version: str) -> None:
+    """The curve the current epoch's grade was applied with. An epoch keeps the curve it was first applied with: a
+    later application of the same epoch (a held grade released without a new revision, a code path below the grading
+    revisions' tag) records nothing new."""
+
     key, revision = _key(current_epoch(_epochs(connection, attempt_id)))
+    if connection.execute("SELECT 1 FROM attempt_grade_curves WHERE attempt_id = ? AND epoch_key = ?",
+                          (attempt_id, key)).fetchone() is not None:
+        return
     _insert(connection, attempt_id, key, revision, prediction["a"], prediction["b"], version, "graded")
 
 
