@@ -16,13 +16,13 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/124_causal_probe_decisions.sql"
+  - "src/learnloop/daily_plan/learner_probe.py"
   - "src/learnloop/db/stores/causal.py"
   - "src/learnloop/diagnosis/causal_health.py"
   - "src/learnloop/diagnosis/causal_orchestrator.py"
   - "src/learnloop/diagnosis/followups.py"
   - "src/learnloop/diagnosis/probe_offer.py"
   - "src/learnloop/diagnosis/scoreboard.py"
-  - "src/learnloop/instructional/needs.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"
@@ -100,6 +100,7 @@ Database triggers:
 
 ### Direct SQL readers
 
+- `src/learnloop/daily_plan/learner_probe.py`
 - `src/learnloop/db/stores/causal.py`
 - `src/learnloop/router_objective/picks.py`
 

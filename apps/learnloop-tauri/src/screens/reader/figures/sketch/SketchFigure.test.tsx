@@ -160,7 +160,11 @@ it("plays the clock forward only when pressed", async () => {
 // seconds, so the waits get room and the test its own limit.
 it("draws a new sample with another seed", async () => {
   await open(sketchView(WALK));
-  await waitFor(() => expect(document.querySelector("[data-sketch-play]")).not.toBeNull());
+  // The first run's step 0 drawn before playing (the play button is there before the run is), so playing starts from
+  // a drawn run rather than racing it (review fix round, RDX-21's class: wait for the work read, not for the clock).
+  await waitFor(() => expect(document.querySelector<HTMLButtonElement>("[data-sketch-play]")?.disabled).toBe(false));
+  await waitFor(() => expect(document.querySelector("[data-sketch-time]")?.textContent).toContain("t = 0 / 100"));
+  await waitFor(() => expect(document.querySelector('[data-sketch-element="walkers"]')?.innerHTML ?? "").not.toBe(""));
   fireEvent.click(document.querySelector("[data-sketch-play]")!);
   await waitFor(() => expect(document.querySelector("[data-sketch-time]")?.textContent).not.toContain("t = 0 /"), { timeout: 12000 });
   fireEvent.click(document.querySelector("[data-sketch-play]")!);

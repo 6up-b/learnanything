@@ -50,7 +50,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/remediation.py](../../../../../../src/learnloop_sidecar/handlers/remediation.py) |
-| Source lines | 353 |
+| Source lines | 383 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
@@ -58,24 +58,25 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ## Public API
 
 - `class MisconceptionInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/remediation.py), line 32)
-- `class EpisodeInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/remediation.py), line 36)
-- `start_remediation_handler(ctx: SidecarContext, params: MisconceptionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/remediation.py), line 135)
-- `class RepairStatusInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/remediation.py), line 166)
-- `class ProbeOfferInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/remediation.py), line 171)
-- `causal_repair_status_handler(ctx: SidecarContext, params: RepairStatusInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/remediation.py), line 181) — The single P2 repair-orchestration read (spec §6).
-- `causal_probe_offer_action_handler(ctx: SidecarContext, params: ProbeOfferInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/remediation.py), line 220) — "Take the quick check" — enter the factor-aware episode and pin the probe.
-- `causal_probe_defer_handler(ctx: SidecarContext, params: ProbeOfferInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/remediation.py), line 251) — "Not now" — persist the decline so the next attempt does not re-offer.
-- `causal_teach_me_now_handler(ctx: SidecarContext, params: ProbeOfferInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/remediation.py), line 264) — "Teach me now" — explicit authorisation to repair under ambiguity.
-- `prescribe_remediation_handler(ctx: SidecarContext, params: EpisodeInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/remediation.py), line 288) — Prescribe the comparison passages AND record their delivery.
-- `start_remediation_treatment_handler(ctx: SidecarContext, params: EpisodeInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/remediation.py), line 329)
-- `get_remediation_handler(ctx: SidecarContext, params: EpisodeInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/remediation.py), line 348)
+- `class EpisodeInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/remediation.py), line 41)
+- `start_remediation_handler(ctx: SidecarContext, params: MisconceptionInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/remediation.py), line 155)
+- `class RepairStatusInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/remediation.py), line 190)
+- `class ProbeOfferInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/remediation.py), line 199)
+- `causal_repair_status_handler(ctx: SidecarContext, params: RepairStatusInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/remediation.py), line 209) — The single P2 repair-orchestration read (spec §6).
+- `causal_probe_offer_action_handler(ctx: SidecarContext, params: ProbeOfferInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/remediation.py), line 250) — "Take the quick check" — enter the factor-aware episode and pin the probe.
+- `causal_probe_defer_handler(ctx: SidecarContext, params: ProbeOfferInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/remediation.py), line 281) — "Not now" — persist the decline so the next attempt does not re-offer.
+- `causal_teach_me_now_handler(ctx: SidecarContext, params: ProbeOfferInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/remediation.py), line 294) — "Teach me now" — explicit authorisation to repair under ambiguity.
+- `prescribe_remediation_handler(ctx: SidecarContext, params: EpisodeInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/remediation.py), line 318) — Prescribe the comparison passages AND record their delivery.
+- `start_remediation_treatment_handler(ctx: SidecarContext, params: EpisodeInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/remediation.py), line 359)
+- `get_remediation_handler(ctx: SidecarContext, params: EpisodeInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/remediation.py), line 378)
 
 ## Internal implementation anchors
 
-- `_optional_case_payload(repository, misconception_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/remediation.py), line 40) — The case payload for either kind, or None when the id resolves to neither.
-- `_case_dto(repository, case: Any, *, durable: bool) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/remediation.py), line 60) — The one case shape every remediation RPC returns.
-- `_episode_case_payload(repository, episode: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/remediation.py), line 95) — The case a remediation episode repairs, of EITHER kind.
-- `_route_first(vault: Any, repository: Any, misconception_id: str, session_id: str | None=None) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/remediation.py), line 114) — The probe router's tag: the router decides the factor's probe before the repair entry reads its status, so the entry holds the repair only on the router's selection.
+- `_optional_case_payload(repository, misconception_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/remediation.py), line 45) — The case payload for either kind, or None when the id resolves to neither.
+- `_case_dto(repository, case: Any, *, durable: bool) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/remediation.py), line 65) — The one case shape every remediation RPC returns.
+- `_episode_case_payload(repository, episode: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/remediation.py), line 100) — The case a remediation episode repairs, of EITHER kind.
+- `_routed_read(ctx: SidecarContext, vault: Any, repository: Any, *, misconception_id: str, session_id: str | None=None, factor_id: str | None=None, attempt_id: str | None=None) -> Any` ([source](../../../../../../src/learnloop_sidecar/handlers/remediation.py), line 119) — The probe router's tag: the status as read, the router's decision included once it is made.
+- `_pending_hold(ctx: SidecarContext, vault: Any, repository: Any, params: Any) -> Any` ([source](../../../../../../src/learnloop_sidecar/handlers/remediation.py), line 133) — The probe router's tag: the repair entry's status while the router has not decided the factor's probe, or None.
 
 ## Who imports or calls it
 
@@ -89,7 +90,6 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `probe_router_on`; calls `probe_router_on`
-- [[Reference/Modules/learnloop/daily_plan/learner_probe|learnloop.daily_plan.learner_probe]] — imports `module`; calls `decide`
 - [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] — imports `causal_repair_status`; calls `causal_repair_status`
 - [[Reference/Modules/learnloop/diagnosis/causal_reads|learnloop.diagnosis.causal_reads]] — imports `CausalRepairError`
 - [[Reference/Modules/learnloop/diagnosis/probe_offer|learnloop.diagnosis.probe_offer]] — imports `accept_probe_offer`, `accept_routed_probe_offer`, `defer_probe_offer`, `request_teaching_now`; calls `accept_probe_offer`, `accept_routed_probe_offer`, `defer_probe_offer`, `request_teaching_now`

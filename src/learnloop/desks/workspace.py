@@ -201,14 +201,27 @@ DESK_OPS: tuple[str, ...] = (
 # -- reads ----------------------------------------------------------------------------------------
 
 
+def _json_object(text: str | None) -> dict[str, Any]:
+    """A stored JSON object, or an empty one when the text is not one (malformed, a list, null): one damaged row is
+    read as a window with nothing in it, which the client keeps inert and names, never a failed read of every desk."""
+
+    try:
+        value = json.loads(text or "{}")
+    except (TypeError, ValueError):
+        return {}
+    return value if isinstance(value, dict) else {}
+
+
 def _window_out(row: dict[str, Any]) -> dict[str, Any]:
-    spec = json.loads(row["spec_json"] or "{}")
+    spec = _json_object(row["spec_json"])
     out: dict[str, Any] = {"window_id": row["window_id"], "pane": int(row["pane"]), "kind": row["kind"],
-                           "active": bool(row["active"]), "view": json.loads(row["view_json"] or "{}")}
+                           "active": bool(row["active"]), "view": _json_object(row["view_json"])}
     if row["kind"] == "pad_stack":
-        out["stack"] = spec.get("stack") or []
+        stack = spec.get("stack")
+        out["stack"] = [entry for entry in stack if isinstance(entry, dict)] if isinstance(stack, list) else []
     else:
-        out["content"] = spec.get("content")
+        content = spec.get("content")
+        out["content"] = content if isinstance(content, dict) else None
     return out
 
 
@@ -481,7 +494,8 @@ def _same_entry(a: dict[str, Any], b: dict[str, Any]) -> bool:
 
 
 def _stack_of(window: dict[str, Any]) -> list[dict[str, Any]]:
-    return list((json.loads(window["spec_json"] or "{}") or {}).get("stack") or [])
+    stack = _json_object(window["spec_json"]).get("stack")
+    return list(stack) if isinstance(stack, list) else []
 
 
 def _write_stack(connection: Any, window_id: str, stack: list[dict[str, Any]]) -> None:

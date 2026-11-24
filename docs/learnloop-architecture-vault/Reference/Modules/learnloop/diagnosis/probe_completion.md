@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/probe_completion.py](../../../../../../src/learnloop/diagnosis/probe_completion.py) |
-| Source lines | 725 |
+| Source lines | 745 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -62,8 +62,13 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `episode_maximum_binds(vault: LoadedVault, repository: Repository, qualifying: Sequence[Mapping[str, Any]], *, episode: Any=None) -> bool` ([source](../../../../../../src/learnloop/diagnosis/probe_completion.py), line 322) — Does ``probe.episode.maximum_observations`` (stamped on the episode at entry) end the episode by count?
 - `robust_gate_counterfactual(vault: LoadedVault, repository: Repository, episode: ProbeEpisodeRecord, posterior: Mapping[str, float]) -> tuple[bool, str | None]` ([source](../../../../../../src/learnloop/diagnosis/probe_completion.py), line 381) — The robust completion gate's verdict for a value CONTINUE receipt (the multi-family EVSI study's rank 1): ``(applies, verdict)``.
 - `robust_gate_completion(decision: Any, *, stop_only: bool) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/probe_completion.py), line 495) — The completion the robust gate's decision asks for: ``couldnt_reliably_distinguish`` or None.
-- `close_diagnostic_segment(repository: Repository, episode_id: str, *, reason: str='converted_to_tutoring', clock: Clock | None=None) -> ProbeEpisodeRecord | None` ([source](../../../../../../src/learnloop/diagnosis/probe_completion.py), line 676) — Close a still-open diagnostic episode when instruction/repair begins (P0 invariant 7 / §12.2 "starting instruction closes the measurement segment").
-- `set_target_decision(repository: Repository, episode_id: str, decision: Mapping[str, Any], *, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/diagnosis/probe_completion.py), line 714)
+- `complete_on_router_stop(repository: Repository, episode: ProbeEpisodeRecord, *, router_decision_id: str, posterior: EpisodePosterior | None, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/diagnosis/probe_completion.py), line 608) — Complete a router-owned episode on the router's stop: what every completion records (the posterior, the detail naming its decision), with no worth rule passed or failed, since the router's decision is the stop.
+- `close_diagnostic_segment(repository: Repository, episode_id: str, *, reason: str='converted_to_tutoring', clock: Clock | None=None) -> ProbeEpisodeRecord | None` ([source](../../../../../../src/learnloop/diagnosis/probe_completion.py), line 696) — Close a still-open diagnostic episode when instruction/repair begins (P0 invariant 7 / §12.2 "starting instruction closes the measurement segment").
+- `set_target_decision(repository: Repository, episode_id: str, decision: Mapping[str, Any], *, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/diagnosis/probe_completion.py), line 734)
+
+### Module constants
+
+- `ROUTER_STOP` ([src/learnloop/diagnosis/probe_completion.py](../../../../../../src/learnloop/diagnosis/probe_completion.py), line 605)
 
 ## Internal implementation anchors
 
@@ -74,8 +79,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `_record_robust_selection_forecast(vault: LoadedVault, repository: Repository, episode: ProbeEpisodeRecord, channel: Any, decision: Any, robust_candidates: Sequence[Any], posterior: Mapping[str, float], observations: int) -> None` ([source](../../../../../../src/learnloop/diagnosis/probe_completion.py), line 512) — EVSI calibration Part B: log the robust gate's forecast (logging only).
 - `_surface_key(vault: LoadedVault, practice_item_id: str) -> str` ([source](../../../../../../src/learnloop/diagnosis/probe_completion.py), line 553) — The independent-group key for a probe observation (augmentation §8).
 - `_complete(repository: Repository, episode: ProbeEpisodeRecord, reason: str, *, posterior: EpisodePosterior | None=None, detail: Mapping[str, Any] | None=None, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/diagnosis/probe_completion.py), line 575)
-- `_complete_on_value_stop(vault: LoadedVault, repository: Repository, episode: ProbeEpisodeRecord, posterior: EpisodePosterior, value_stop: Mapping[str, Any], *, rules_passed: Sequence[str] | None=None, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/diagnosis/probe_completion.py), line 603) — Complete the episode on its value stop (the decision kept in ``completion_detail_json``) and log that stop as a forecast (``probe_episode_value_decision``, once per episode; EVSI calibration's ``voi_forecasts`` behind ``evsi.forecast_logging``, logging only).
-- `_value_of_information_stop(vault: LoadedVault, repository: Repository, episode: ProbeEpisodeRecord, posterior: EpisodePosterior, qualifying: list[dict[str, Any]], candidates: list[EligibleInstrument], *, gate_counterfactual: Any=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/probe_completion.py), line 636) — mvp-0.21 (voi_stopping, site ``probe_episode``): the logged stop decision when the episode's next observation no longer pays for its minutes, or None (keep asking, or the site is off).
+- `_complete_on_value_stop(vault: LoadedVault, repository: Repository, episode: ProbeEpisodeRecord, posterior: EpisodePosterior, value_stop: Mapping[str, Any], *, rules_passed: Sequence[str] | None=None, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/diagnosis/probe_completion.py), line 623) — Complete the episode on its value stop (the decision kept in ``completion_detail_json``) and log that stop as a forecast (``probe_episode_value_decision``, once per episode; EVSI calibration's ``voi_forecasts`` behind ``evsi.forecast_logging``, logging only).
+- `_value_of_information_stop(vault: LoadedVault, repository: Repository, episode: ProbeEpisodeRecord, posterior: EpisodePosterior, qualifying: list[dict[str, Any]], candidates: list[EligibleInstrument], *, gate_counterfactual: Any=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/probe_completion.py), line 656) — mvp-0.21 (voi_stopping, site ``probe_episode``): the logged stop decision when the episode's next observation no longer pays for its minutes, or None (keep asking, or the site is off).
 
 ## Who imports or calls it
 
@@ -83,7 +88,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/curriculum/golden_path_run|learnloop.curriculum.golden_path_run]] — imports `module`; statically calls `close_diagnostic_segment`
-- [[Reference/Modules/learnloop/diagnosis/probe_blocks|learnloop.diagnosis.probe_blocks]] — imports `episode_maximum_binds`, `evaluate_completion`, `persist_episode_beliefs`, `set_target_decision`; statically calls `episode_maximum_binds`, `evaluate_completion`, `persist_episode_beliefs`, `set_target_decision`
+- [[Reference/Modules/learnloop/diagnosis/probe_blocks|learnloop.diagnosis.probe_blocks]] — imports `complete_on_router_stop`, `episode_maximum_binds`, `evaluate_completion`, `persist_episode_beliefs`, `set_target_decision`; statically calls `complete_on_router_stop`, `episode_maximum_binds`, `evaluate_completion`, `persist_episode_beliefs`, `set_target_decision`
 - [[Reference/Modules/learnloop/diagnosis/probe_controls|learnloop.diagnosis.probe_controls]] — imports `set_target_decision`, `voi_probe_site_active`; statically calls `set_target_decision`, `voi_probe_site_active`
 - [[Reference/Modules/learnloop/diagnosis/probe_evidence|learnloop.diagnosis.probe_evidence]] — imports `close_diagnostic_segment`, `persist_episode_beliefs`; statically calls `close_diagnostic_segment`, `persist_episode_beliefs`
 - [[Reference/Modules/learnloop/diagnosis/probe_presentations|learnloop.diagnosis.probe_presentations]] — imports `robust_gate_counterfactual`; statically calls `robust_gate_counterfactual`
@@ -126,6 +131,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/diagnosis_journey_helpers.py](../../../../../../tests/diagnosis_journey_helpers.py) — direct import
+- [tests/probe_router_owned_helpers.py](../../../../../../tests/probe_router_owned_helpers.py) — direct import
 - [tests/test_independent_group_counting.py](../../../../../../tests/test_independent_group_counting.py) — direct import
   - `test_an_unknown_probe_item_stays_distinct_rather_than_collapsing`
   - `test_probe_completion_keys_on_the_group_not_the_authored_string`
@@ -133,9 +139,15 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_an_adopted_episode_that_completes_without_a_gap_opens_no_tutor`
 - [tests/test_probe_robust_cutover.py](../../../../../../tests/test_probe_robust_cutover.py) — direct import
   - `test_evaluate_completion_abstains_on_planted_indistinguishable_case`
+- [tests/test_probe_router_continuation.py](../../../../../../tests/test_probe_router_continuation.py) — direct import
+  - `test_a_rebuild_after_a_router_stop_reproduces_the_live_rows_and_writes_no_ledger`
+  - `test_a_router_stop_completes_the_episode_with_its_own_reason`
 - [tests/test_probe_router_decision_integrity.py](../../../../../../tests/test_probe_router_decision_integrity.py) — direct import
   - `test_r1_a_pin_drawn_at_the_tag_is_the_routers`
   - `test_r1_a_pin_drawn_below_the_tag_keeps_its_predecessor_gates_after_the_upgrade`
+- [tests/test_probe_router_stop_migration.py](../../../../../../tests/test_probe_router_stop_migration.py) — direct import
+  - `test_it_rebuilds_probe_episodes_alone_and_keeps_every_row`
+  - `test_the_head_fixture_holds_it_in_rollback_mode`
 - [tests/test_probe_router_worth_gates.py](../../../../../../tests/test_probe_router_worth_gates.py) — direct import
   - `test_a_probe_of_another_origin_keeps_its_gates`
   - `test_below_the_tag_a_pinned_router_decision_is_no_dispatch`

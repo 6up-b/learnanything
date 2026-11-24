@@ -123,6 +123,7 @@ No test imports this module directly. These tests exercise a direct production c
 
 - [tests/test_reader_rd3a_companion_ask.py](../../../../../../../tests/test_reader_rd3a_companion_ask.py) — imports consumer [[Reference/Modules/learnloop/companion/asks|learnloop.companion.asks]]
 - [tests/desk_helpers.py](../../../../../../../tests/desk_helpers.py) — imports consumer [[Reference/Modules/learnloop/desks/workspace|learnloop.desks.workspace]]
+- [tests/test_desk_state_damaged_rows.py](../../../../../../../tests/test_desk_state_damaged_rows.py) — imports consumer [[Reference/Modules/learnloop/desks/workspace|learnloop.desks.workspace]]
 - [tests/test_pad_stale_edits_stacks_and_passage_reads.py](../../../../../../../tests/test_pad_stale_edits_stacks_and_passage_reads.py) — imports consumer [[Reference/Modules/learnloop/desks/workspace|learnloop.desks.workspace]]
 - [tests/test_reader_rd0_protocol.py](../../../../../../../tests/test_reader_rd0_protocol.py) — imports consumer [[Reference/Modules/learnloop/desks/workspace|learnloop.desks.workspace]]
 - [tests/test_reader_rd1_model_parity.py](../../../../../../../tests/test_reader_rd1_model_parity.py) — imports consumer [[Reference/Modules/learnloop/desks/workspace|learnloop.desks.workspace]]

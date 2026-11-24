@@ -51,11 +51,11 @@ The Reader workbench's desks: the shell, the window lifecycle contract, the shel
 
 | Module | Status | Purpose | Imports | Imported by |
 |---|---|---|---:|---:|
-| [[Reference/Desktop/TypeScript/screens/desks/DeskShell|DeskShell.tsx]] | `ACTIVE` | Implements the `DeskShell` routed desktop screen and coordinates its learner-facing workflow state. | 78 | 4 |
+| [[Reference/Desktop/TypeScript/screens/desks/DeskShell|DeskShell.tsx]] | `ACTIVE` | Implements the `DeskShell` routed desktop screen and coordinates its learner-facing workflow state. | 79 | 4 |
 | [[Reference/Desktop/TypeScript/screens/desks/Shelf|Shelf.tsx]] | `ACTIVE` | Implements the `Shelf` routed desktop screen and coordinates its learner-facing workflow state. | 1 | 1 |
 | [[Reference/Desktop/TypeScript/screens/desks/fitMath|fitMath.tsx]] | `ACTIVE` | Implements the `fitMath` routed desktop screen and coordinates its learner-facing workflow state. | 0 | 6 |
 | [[Reference/Desktop/TypeScript/screens/desks/geometry|geometry.ts]] | `ACTIVE` | Provides `DESK_SIZES`, `Rect`, `Stage`, `slotWidth` and related exports within the desktop's TypeScript/screens/desks ownership area. | 0 | 8 |
-| [[Reference/Desktop/TypeScript/screens/desks/lifecycle|lifecycle.tsx]] | `ACTIVE` | Implements the `lifecycle` routed desktop screen and coordinates its learner-facing workflow state. | 0 | 46 |
+| [[Reference/Desktop/TypeScript/screens/desks/lifecycle|lifecycle.tsx]] | `ACTIVE` | Implements the `lifecycle` routed desktop screen and coordinates its learner-facing workflow state. | 0 | 47 |
 | [[Reference/Desktop/TypeScript/screens/desks/outbox|outbox.ts]] | `ACTIVE` | Provides `InkSaveBody`, `InkEraseBody`, `Batch`, `BatchBody` and related exports within the desktop's TypeScript/screens/desks ownership area. | 1 | 3 |
 | [[Reference/Desktop/TypeScript/screens/desks/selection|selection.ts]] | `ACTIVE` | Provides `WindowSelection`, `quoteOf`, `clipQuote`, `readWindowSelection` within the desktop's TypeScript/screens/desks ownership area. | 3 | 1 |
 | [[Reference/Desktop/TypeScript/screens/desks/store|store.ts]] | `ACTIVE` | Provides `DeskStoreTransport`, `DeskNotice`, `FLUSH_IDLE_MS`, `DeskStore` and related exports within the desktop's TypeScript/screens/desks ownership area. | 5 | 3 |

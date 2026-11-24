@@ -48,7 +48,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/desks/__init__|learnloop.desks]] | [[Reference/Modules/learnloop/desks/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
 | [[Reference/Modules/learnloop/desks/content_ref|learnloop.desks.content_ref]] | [[Reference/Modules/learnloop/desks/content_ref#^module-purpose|purpose]] | `ACTIVE` | 3 | 1 |
 | [[Reference/Modules/learnloop/desks/protocol|learnloop.desks.protocol]] | [[Reference/Modules/learnloop/desks/protocol#^module-purpose|purpose]] | `ACTIVE` | 6 | 2 |
-| [[Reference/Modules/learnloop/desks/workspace|learnloop.desks.workspace]] | [[Reference/Modules/learnloop/desks/workspace#^module-purpose|purpose]] | `ACTIVE` | 1 | 5 |
+| [[Reference/Modules/learnloop/desks/workspace|learnloop.desks.workspace]] | [[Reference/Modules/learnloop/desks/workspace#^module-purpose|purpose]] | `ACTIVE` | 1 | 6 |
 
 ## Cross-package dependencies
 

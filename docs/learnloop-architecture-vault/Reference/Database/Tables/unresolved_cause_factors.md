@@ -18,12 +18,13 @@ source_paths:
   - "migrations/034_assessment_contract_snapshots.sql"
   - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
+  - "src/learnloop/daily_plan/learner_probe.py"
   - "src/learnloop/daily_plan/router_card.py"
   - "src/learnloop/db/evidence_cutoff.py"
   - "src/learnloop/db/stores/causal.py"
   - "src/learnloop/db/stores/daily_plans.py"
-  - "src/learnloop/diagnosis/causal_factor_deferral.py"
   - "src/learnloop/attempts/attempts.py"
+  - "src/learnloop/daily_plan/probe_continuation.py"
   - "src/learnloop/diagnosis/causal_attribution.py"
   - "src/learnloop/diagnosis/causal_discrimination.py"
 tags:
@@ -100,6 +101,7 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
+- `src/learnloop/daily_plan/learner_probe.py`
 - `src/learnloop/daily_plan/router_card.py`
 - `src/learnloop/db/stores/causal.py`
 - `src/learnloop/db/stores/daily_plans.py`
@@ -117,11 +119,13 @@ Indexes and uniqueness:
 ### Upstream callers of the repository access surface
 
 - `src/learnloop/attempts/attempts.py`
+- `src/learnloop/daily_plan/probe_continuation.py`
 - `src/learnloop/db/stores/causal.py`
 - `src/learnloop/diagnosis/causal_attribution.py`
 - `src/learnloop/diagnosis/causal_discrimination.py`
 - `src/learnloop/diagnosis/causal_factor_deferral.py`
 - `src/learnloop/diagnosis/causal_health.py`
+- `src/learnloop/diagnosis/causal_orchestrator.py`
 - `src/learnloop/diagnosis/causal_probe_coherence.py`
 - `src/learnloop/diagnosis/causal_probe_commissioning.py`
 - `src/learnloop/diagnosis/causal_reads.py`
@@ -134,8 +138,6 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/split/card.py`
 - `src/learnloop/followup_run/admission.py`
 - `src/learnloop/followup_run/jobs.py`
-- `src/learnloop/followup_run/lanes.py`
-- `src/learnloop/followup_run/marks.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

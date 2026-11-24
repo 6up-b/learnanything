@@ -375,7 +375,7 @@ when ready" (asked again, the same window is focused; ready, the stored window i
 
 | Standalone offer | On the workbench |
 |---|---|
-| The list of books and its search | The desks' opener (`+ open beside`) lists every book; the desks' search (`[data-desk-search]`) searches them; ask across the library and Compare are the Compare window (`CompareWindow.desk.test.tsx`, `CompareWindow.bare.test.tsx`: the old library page with no book open is a Compare window with none, keep and reopen, the take band, a practice pick, both exercise actions) |
+| The list of books and its search | The desks' opener (`+ open beside`) lists every book the Reader may open (one opted out of the reader loop at ingest is not offered; corrected in the review fix round); the desks' search (`[data-desk-search]`) searches them; ask across the library and Compare are the Compare window (`CompareWindow.desk.test.tsx`, `CompareWindow.bare.test.tsx`: the old library page with no book open is a Compare window with none, keep and reopen, the take band, a practice pick, both exercise actions) |
 | The shelf with no book open | The Library place's shelf, one key away; the desks' shelf lists the desk's windows |
 | "← Library" | Closing the window (`alt+w`, ✕); the Library place (Alt+2) |
 | "desks ▸" | Gone by design (no second surface) |
@@ -384,7 +384,7 @@ when ready" (asked again, the same window is focused; ready, the stored window i
 | The header's quick-checks toggle | **Built**: the source bar's "quick checks on/off" (the same per-device preference). It had no workbench home: a learner who turned checks off in the old Reader could not turn them back on |
 | The header's progress bar and section name | The window's title bar names the section in view; the percent through is **dropped**: display only, the scroll position shows it |
 | The header's line "Select a passage to ask about it…" | **Dropped**: instructional copy; the desks' footer hints and the intent box carry the same |
-| The key bar | The desks' footer hints and which-key; wrap up is the window's `w` (`SourceWindow.wrapup.test.tsx`); `x` still opens "also in your books" |
+| The key bar | The desks' footer hints and which-key; wrap up is the window's `w` (`SourceWindow.wrapup.test.tsx`); "also in your books" is the passage menu's suggestions (`b`) and the Guide's (`x` is the desks' swap; corrected in the review fix round) |
 | The collapsed rail's handle and `\` | **Dropped**: a window's rail lives in its panel window and is never collapsed (`railCollapsed` pinned at `false`) |
 | The offline demo chapter | **Dropped**: it showed only while the sidecar was down, and its captures were never kept; the desks need a library, and the app says when the sidecar is unreachable |
 | The reader-off view | **Built**: the desks say once, with the setting, when `tutor_qa.reader_enabled` is off (`[data-desk-reader-off]`; `App.desks.test.tsx`) |
@@ -525,3 +525,67 @@ code commit (desktop_validate's counts: 436 TypeScript files, ACTIVE 442, 409 en
 On backup-API copies of the three floor-set vaults (never a live vault), `learnloop upgrade` to the head: every copy
 upgraded, `integrity_check` ok, `foreign_key_check` empty, head 272, and `desk_windows`, `check_administrations` and
 `check_veil_sets` hold no rows (no copy has used the desks or an inline check). The copies were deleted afterwards.
+
+## Review fix round (`reader/rd-retire-fix`)
+
+The adversarial review of the retirement found 2 blockers, 17 majors and 6 minors. Every finding was checked against
+this branch's code first (base `fa898bfb36`); each fix has a test shown failing on the source before it (the fix's
+own files put back to the commit before, the test run, the fix restored). Ledger rows RDX-4 to RDX-20.
+
+| # | Finding | Outcome | Test |
+|---|---|---|---|
+| B1 | A restored book window exposes a cold check's answer (saved on E1, renders E2, the check sends E1 with E2's spans) | **Fixed** (RDX-6): a window names the reading it shows. Restore puts a stale reference onto the current reading (its place translated through `reader.saved_place`), every book open names the current reading, and a window whose Reader reports another reading is put right in place (`replaceWindow`, the pair kept). A check names each window by the reading its page renders (`data-rendered-extraction`, read with the passages), the hold by the reading the window reported, so no mismatched pair is ever sent. | `windows/SourceWindow.reread.test.tsx` (restore, backstop, check identity) |
+| B2 | Reading evidence written to the wrong vault (cleanups and retries after the selection) | **Fixed** (RDX-4): `app/vaultTransition.ts` names the vault writes go to (`vaultKey()`); the reading reports (`screens/reader/readingReports.ts`), the activity queue and the cue impressions carry the vault they were gathered in, are flushed to it before the selection, and are never sent while another vault is selected; a failed reading report is kept for its vault and sent when it is selected again. The visit's close logged by a window's cleanup after the selection is dropped (activity is best-effort), never sent to the next vault. | `ScopedSource.followsLearner.test.tsx` "RDX-4: …" (two cases) |
+| M5 | A closed book's unacknowledged report lost once its retries ran out | **Fixed** (RDX-5): the queue outlives the window; leaving the Reader (the desks' unmount) sends it again. | followsLearner "RDX-5: …" |
+| M6 | The adaptive offer never mounts on a book-only desk; delivery recorded off screen | **Fixed** (RDX-17): in the book when the rail has no host; the draw waits for the window to be on screen. | `ScopedSource.doseOffer.test.tsx` "RDX-17: …" |
+| M7 | A return to an earlier reading's passage loses it | **Fixed** (RDX-7): translated for a new and an open window; the feedback and plan targets carry their reading (two assertions changed, below). | reread "an open request for a passage of an earlier reading …" (two cases) |
+| M8 | Add while the desks are open: the desks call the book gone; a failed library read waits for ever | **Fixed** (RDX-10): the library is read again once for an unknown book. The app's desk stand-in was left as it is: the real desks now cover the route. "A rejected lookup consumed its sequence": refuted as harmful: every learner action is a new request (the app moves the sequence). | `windows/OpenRequest.desk.test.tsx` (two cases) |
+| M9 | A slow open takes the focus back; opens on the desk switched to | **Fixed** (RDX-11). | OpenRequest.desk "a slow open …" |
+| M10 | One app hand-off opened by every mounted copy of its book | **Fixed** (RDX-12). | OpenRequest.desk "a check chosen in the app opens once …"; workbench "RDX-12: …" |
+| M11 | A vault switch replays A's library search in B; the plan banner | **Fixed** (RDX-13) for the search. The banner half is refuted: the vault reset lands on Start and the app clears the plan reading whenever the place is not the Reader (`App.tsx`, the `tab !== "reader"` effect); it is now also cleared in the reset itself. | `App.today.test.tsx` "a library search asked in one vault is not replayed …" |
+| M12 | The book reported to the app is the one focused last anywhere | **Fixed** (RDX-14). | `readingReport.test.tsx` "is the book on the desk in view …" |
+| M13 | An inquiry's quick check unanswerable on a book-only desk | **Fixed** (RDX-18): under the passage when no rail is on screen. | `SourceWindow.inquiry.test.tsx` "RDX-18: …" |
+| M14 | PDF page-only passages get no card; transcript cards placed in the text-only loop | **PDF: fixed, not tested**: a passage with no box gets its card at the top of its page (`PdfReaderPane`); jsdom lays out no PDF page, so this is typecheck only. **Transcript: accepted for now**: a video's transcript cards keep the text loop's placement; the video's own surface is RD10's, and the transcript passage cards are named here for the next Reader-surface step. | — |
+| M15 | One damaged `desk_windows` row fails every desk | **Fixed** (RDX-8). | `tests/test_desk_state_damaged_rows.py` |
+| M16 | A restored path request dropped while the guide loads; a replaced pane leaves its pair; a request keyed to a replaced window | **Fixed** (RDX-19): kept until the path shows; follows a replaced window (`retarget`); the replacement takes the old pane. | `PreparingWindow.desk.test.tsx` "… while the guide is still loading …"; `model/workspace.test.ts` "replacing a window in its place" |
+| M17 | A failed hand-over from a preparing window stays on "Opening…" | **Fixed** (RDX-20): opening the ready book again re-runs the hand-over. A passage asked for while the book was still being prepared is **accepted**: a book being prepared has no reading for it to name. | `PreparingWindow.desk.test.tsx` "a ready book whose hand-over failed …" |
+| M18 | A searched note in an open window does not open | **Fixed** (RDX-15). | `DeskShell.test.tsx` "a note result for a book already open …" |
+| M19 | The bare Compare window bypasses named-book routing; no reword, no explorable | **Fixed** (RDX-16) for routing and reword. "Make it explorable" from this window is **accepted**: it waits for the hit's book in its own window (`makeExplorable`), a cross-window hand-off not built here; the hit opens in its book, where Show me is. | `CompareWindow.bare.test.tsx` "typed words with named-book routing on …" |
+| M20 | A stored comparison by id or a figure notebook shown wrongly; an unknown panel as a live Library | **Fixed** (RDX-9): inert and named; Library only for `panel: library`. | `model/restore.test.ts`; `PreparingWindow.desk.test.tsx` "a stored unknown panel …" |
+| M21 | Two ranged windows of one reading both mount a rail in one panel | **Accepted**: it needs two ranged windows of one reading and a Guide or Notes panel on one desk (no ordinary path makes that); the rail leaves the portal in the step that moves the Guide and Notes out (A1's call), which removes the shared host. | — |
+| m22 | An impression recorded off screen, deduplicated per book | **Fixed, not tested**: recorded only with an open visit (none opens off screen), deduplicated per visit (`useReaderVisit.noteProactive`). | — |
+| m23 | Quick checks toggled in one book, another keeps its mount-time value | **Accepted**: the preference takes effect in a book when it is next opened; low harm (an offer the learner can dismiss). | — |
+| m24 | A ranged window with no saved place opens at the saved reading position | **Fixed, not tested**: it opens at its range's start. | — |
+| m25 | `x` swallowed by the desks' swap | **Accepted, record corrected**: with a second window in view (nearly always: the running pad) `x` is the desks' swap, as the workbench's keys say; with nothing to swap it now passes to the window. "Also in your books" is reached from the passage menu's suggestions (`b`) and the Guide. A4's line "`x` still opens also in your books" was wrong. | — |
+| m26 | Vault-wide drains and inbox reads per mounted book | **Accepted**: performance, revisited once the workbench works (owner, 2026-11-23). | — |
+| m27 | A book with the Reader off for it is missing from the opener | **Accepted, record corrected**: A4's "lists every book" means every book the Reader may open; a book opted out of the reader loop at ingest is not offered on the desks. | — |
+
+**Added at the coordinator's request (RDX-21).** "closing a book forgets it, so the next start opens the shelf" failed
+about half the runs of `App.fixRound5.test.tsx` alone. The product had the race: the app forgot the remembered book only
+after the desks had reported it this session, and the desks' report is held under a check, so a close could come out
+first. The reopened book now counts as remembered from the moment the app reopens it; a deterministic case proves it
+(fails on the base), and the file ran 30 times in a row with no failure. The sketch test's play now waits for the first
+drawn run; 30 runs beside a whole-suite run, no failure.
+
+**Assertions changed.** `app/intentCheck.test.ts` (two) and `app/dailyPlan.test.tsx` (one): the targets carry their
+reading. `model/restore.test.ts`: a saved comparison by id and a figure notebook restore inert, not kept.
+`windows/LibraryPanel.compare.test.tsx` "opened bare asks across the library through the ask box" (was `ask`, now
+`askBox`). 26 snapshot entries of the switch-off tests (`intentSwitchOff`, `libraryAskSwitchOff`,
+`readingPathsSwitchOff`, `recapSwitchOff`, `tutorSwitchOff`, `workbench/switchOff`) gain only the source root's `data-rendered-extraction` attribute (checked: each entry equal to the
+old one once the attribute is taken out). Seven `DeskShell(.menu).test.tsx` cases gained a second `flush()`: a book
+open reads the book's current reading first; their doubles' `resolveExtraction` answers `fx_src_x` as `fx_ext_x`, as
+the sidecar does, instead of echoing the source id.
+
+**What this relies on from the checks worker** (screens/desks/checks/ and `intent/inline_*.py`, not edited here): the
+server returns a verdict per span with an unknown span held, and the hold's `passageJudged(window, extraction, span)`
+honours exactly the triple sent. This branch guarantees the pair it sends is the rendered one.
+
+**Proof on the tip** (merged with `origin/main` at `88c0a42823`: the inline-check server's per-span verdicts, an
+unplaced passage held, and the desks' hold from "check now"): typecheck clean; the whole vitest suite 429 files,
+4,564 tests passed; `cargo check` clean; every desk-harness run on a fresh `vite build`: 239 passed, 0 failed; Python:
+the import-affected set against main (34 files) plus `test_desk_state_damaged_rows.py`, identity pins, structure
+ratchets, architecture, test layout, desktop RPC contract, mobile allowlist, workbench nouns: 1,446 passed; ruff clean;
+lint-imports 55 kept, 0 broken. References regenerated after the last code commit; the four validators pass
+(`desktop_validate`'s counts raised by `readingReports.ts`: 437 TypeScript files, entry-reachable 410, ACTIVE 443).
+**Not verified here:** the visual-reference comparison (the private reference set; the orchestrator's), a PDF page's
+card for a page-only passage in a real webview (M14), and the fixes without a test (m22, m24).

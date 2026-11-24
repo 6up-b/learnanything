@@ -36,7 +36,7 @@ Up: [[Reference/Modules/learnloop/_package|learnloop]] · Root: [[Module Catalog
 
 ## Why this module exists
 
-This module keeps ids behavior inside its owning package, [[Reference/Modules/learnloop/_package|learnloop]]. Its public surface centers on `new_ulid`, `UlidStream`, `new_ulid_after`, `keyed_ulid`, `kebab_case`, `snake_case`.
+This module keeps ids behavior inside its owning package, [[Reference/Modules/learnloop/_package|learnloop]]. Its public surface centers on `new_ulid`, `UlidStream`, `new_ulid_after`, `kebab_case`, `snake_case`.
 
 The authoritative system-level explanation remains in [[Architecture Overview]]; this note records where this source module participates rather than restating those concepts.
 
@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/ids.py](../../../../../src/learnloop/ids.py) |
-| Source lines | 154 |
+| Source lines | 141 |
 | Owning package | [[Reference/Modules/learnloop/_package|learnloop]] |
 | Architecture layer | `primitive` |
 | Refactor status | `ACTIVE` |
@@ -59,9 +59,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
   - `__init__(self) -> None` (line 76; internal)
   - `__call__(self) -> str` (line 82; internal)
 - `new_ulid_after(floor: str | None) -> str` ([source](../../../../../src/learnloop/ids.py), line 110) — A ULID that sorts after every ULID this process generated before it and after ``floor``, a ULID read from storage (Codex review F2 of followups-nov1c): process-local monotonicity cannot order an id against one a process with a clock running ahead persisted before a restart, so a…
-- `keyed_ulid(time_of: str, key: str) -> str` ([source](../../../../../src/learnloop/ids.py), line 127) — A ULID that is a function of its inputs: ``time_of``'s time (a ULID) and randomness from ``key``'s digest.
-- `kebab_case(value: str) -> str` ([source](../../../../../src/learnloop/ids.py), line 140)
-- `snake_case(value: str) -> str` ([source](../../../../../src/learnloop/ids.py), line 153)
+- `kebab_case(value: str) -> str` ([source](../../../../../src/learnloop/ids.py), line 127)
+- `snake_case(value: str) -> str` ([source](../../../../../src/learnloop/ids.py), line 140)
 
 ### Module constants
 
@@ -83,7 +82,6 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/adaptive_difficulty/grade_forecast|learnloop.adaptive_difficulty.grade_forecast]] — imports `keyed_ulid`; statically calls `keyed_ulid`
 - [[Reference/Modules/learnloop/adaptive_difficulty/repeat_receipts|learnloop.adaptive_difficulty.repeat_receipts]] — imports `UlidStream`; statically calls `UlidStream`
 - [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/attempts/calibration_streams|learnloop.attempts.calibration_streams]] — imports `new_ulid`; statically calls `new_ulid`
@@ -139,6 +137,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]] — imports `new_ulid`; statically calls `new_ulid`
+- [[Reference/Modules/learnloop/daily_plan/probe_continuation|learnloop.daily_plan.probe_continuation]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/daily_plan/router_chooser|learnloop.daily_plan.router_chooser]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/data_capture/prefilter|learnloop.data_capture.prefilter]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `new_ulid`; statically calls `new_ulid`
@@ -295,7 +294,7 @@ No internal Python dependency was found by static analysis.
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `collections`, `hashlib`, `random`, `secrets`, `threading`, `time`
+- Standard library: `__future__`, `collections`, `random`, `secrets`, `threading`, `time`
 - Third party: none imported directly
 
 ## Larger workflow participation
@@ -305,7 +304,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/grade_forecast|learnloop.adaptive_difficulty.grade_forecast]], [[Reference/Modules/learnloop/adaptive_difficulty/repeat_receipts|learnloop.adaptive_difficulty.repeat_receipts]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/calibration_streams|learnloop.attempts.calibration_streams]], [[Reference/Modules/learnloop/attempts/clarification|learnloop.attempts.clarification]] and 198 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/repeat_receipts|learnloop.adaptive_difficulty.repeat_receipts]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/calibration_streams|learnloop.attempts.calibration_streams]], [[Reference/Modules/learnloop/attempts/clarification|learnloop.attempts.clarification]], [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]] and 198 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

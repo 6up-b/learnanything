@@ -28,6 +28,7 @@ from learnloop.diagnosis.probe_episodes import (
     episode_hypothesis_set,
     episode_posterior,
     qualifying_observation_count,
+    router_pinned_item,
     router_selected_episode,
     session_qualifying_total,
 )
@@ -827,6 +828,10 @@ def rank_due(vault: LoadedVault, admission: "_BuildAdmission", inputs: RankInput
         return composed
 
     queue = compose(queue, record=True)
+    # The probe router's standing pin is a durable assignment as a session's presentation is: first.
+    pinned = [item for item in queue if item.components.get("router_pinned_probe")]
+    if pinned:
+        queue = pinned + [item for item in queue if item not in pinned]
     active_session_presentation = inputs.active_session_presentation
     # The session's committed presentation this build ends ("invalidated"), by the persist step.
     invalidated_presentation_id: str | None = None
@@ -2954,9 +2959,14 @@ def _load_episode_eligible(
 
     if episode.id not in cache:
         hypothesis_set, posterior, _entropy_before = context
+        # The probe router's tag: a router-owned episode's next instrument is the router's decision, so its only
+        # candidate is the item its standing pin names (none while it decides), eligible whatever its EIG.
+        pinned = router_pinned_item(repository, episode)
         entries = eligible_instruments(
-            vault, repository, episode, hypothesis_set=hypothesis_set, posterior=posterior
+            vault, repository, episode, hypothesis_set=hypothesis_set, posterior=posterior, reserved_for=pinned
         )
+        if pinned is not None or router_selected_episode(vault, repository, episode):
+            entries = [entry for entry in entries if entry.item.id == pinned]
         cache[episode.id] = {entry.item.id: entry for entry in entries}
     return cache[episode.id]
 
@@ -3327,6 +3337,9 @@ class AdmissionReads:
     #: The probing episodes whose probe the router selected (``probe_authority``): at the probe router's tag no value
     #: decision admits or withholds their instruments; EIG still ranks them.
     router_owned_episodes: frozenset[str] = frozenset()
+    #: The items the router's standing pins name in those episodes: admitted by the router's decision whatever their
+    #: EIG, and served first.
+    router_pinned_items: frozenset[str] = frozenset()
 
 
 def _probing_episodes(open_episodes: Mapping[str, Any], probe_block_reason: str | None) -> list[Any]:
@@ -3426,6 +3439,8 @@ def _episode_probe_reads(
     voi_loaded = False
     router_owned = frozenset(str(episode.id) for episode in episodes
                              if router_selected_episode(vault, repository, episode))
+    pinned_items = frozenset(item for episode in episodes if str(episode.id) in router_owned
+                             if (item := router_pinned_item(repository, episode)) is not None)
     for episode in episodes:
         context = _attempted_read(_load_episode_context, vault, repository, episode, contexts)
         contexts[episode.id] = context
@@ -3470,6 +3485,7 @@ def _episode_probe_reads(
         "session_qualifying_observations": session_qualifying,
         "pinned_channels": channels,
         "router_owned_episodes": router_owned,
+        "router_pinned_items": pinned_items,
     }
 
 
@@ -3644,6 +3660,7 @@ def _after_check_split(
         session_qualifying_observations=session_qualifying,
         pinned_channels={**reads.pinned_channels, **more["pinned_channels"]},
         router_owned_episodes=reads.router_owned_episodes | more["router_owned_episodes"],
+        router_pinned_items=reads.router_pinned_items | more["router_pinned_items"],
         voi_context=_decision_context(voi_context) if loaded else None,
     )
 
@@ -3798,6 +3815,10 @@ class _LazyAdmissionReads:
     @property
     def router_owned_episodes(self) -> Any:
         return self._episode_reads["router_owned_episodes"]
+
+    @property
+    def router_pinned_items(self) -> Any:
+        return self._episode_reads["router_pinned_items"]
 
     @property
     def probe_familiarity(self) -> Any:
@@ -3998,6 +4019,9 @@ class _BuildAdmission:
         return None
 
     def probe_gate(self, item: PracticeItem, state: Any) -> str | None:
+        if item.id in self.reads.router_pinned_items:
+            # The router decided this observation: eligibility is its decision's, never a positive EIG.
+            return None
         score = self.probe_score(item, state)
         if score.components.get("probe_eig", 0.0) <= 0.0:
             # Already-seen surface group, no eligible instrument binding, a
@@ -4105,6 +4129,8 @@ class _BuildAdmission:
                     # probe candidate (a diagnostic surface stays reserved).
                     components["voi_stop"] = 1.0
                     voi_withheld = True
+            if eligible_entry is not None and item.id in self.reads.router_pinned_items:
+                components["router_pinned_probe"] = 1.0
             if context is not None and eligible_entry is not None and not voi_withheld:
                 hypothesis_set, posterior, entropy_before = context
                 prospective_familiarity = _gathered(self.reads.probe_familiarity[(episode.id, item.id)])

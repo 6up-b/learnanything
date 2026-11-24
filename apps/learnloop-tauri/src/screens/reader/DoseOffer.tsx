@@ -17,6 +17,7 @@
 // (`showingQuestionId`, never in the draw's support), and on "yes" this shows
 // the chosen question itself, answered like any quick check, so the answer is
 // the extra the offer delivered (its reading opportunity names the offer).
+import { useWindowPaused } from "../desks/lifecycle";
 import { useEffect, useRef, useState } from "react";
 import { api } from "../../api/client";
 import type { ReaderDoseOfferDto, ReaderGuideSectionDto, ReaderSectionQuestionDto } from "../../api/dto";
@@ -68,9 +69,11 @@ export function DoseOffer(props: DoseOfferProps) {
   const [why, setWhy] = useState(false);
   const [extra, setExtra] = useState<OfferedQuestion | null>(null);
   const decided = useRef(new Set<string>());
+  // On a desk the draw (and its delivery) waits until its window is on screen (review fix round, major 6).
+  const paused = useWindowPaused();
 
   useEffect(() => {
-    if (!sectionId || decided.current.has(sectionId)) return;
+    if (!sectionId || paused || decided.current.has(sectionId)) return;
     const visit = visitId();
     if (!visit) return;
     decided.current.add(sectionId);
@@ -93,7 +96,7 @@ export function DoseOffer(props: DoseOfferProps) {
     return () => {
       alive = false;
     };
-  }, [sectionId, extractionId, visitId, boundaryChecksAvailable, cueDensityOff, skim, restoredSpanId, sections,
+  }, [sectionId, paused, extractionId, visitId, boundaryChecksAvailable, cueDensityOff, skim, restoredSpanId, sections,
     showingQuestionId]);
 
   if (extra) {

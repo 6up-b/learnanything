@@ -166,6 +166,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_r6_the_cached_mapping_follows_coverage_and_content`
   - `test_r6_the_foreground_read_does_not_list_the_whole_history`
   - `test_r6_with_receipts_on_record_the_window_leaves_old_unmapped_sections_alone_in_a_new_process`
+- [tests/test_probe_router_decision_integrity.py](../../../../../../tests/test_probe_router_decision_integrity.py) — direct import
+  - `test_r17_a_declined_offer_and_no_offer_are_measured_on_the_same_target`
 
 ## Modification guidance
 

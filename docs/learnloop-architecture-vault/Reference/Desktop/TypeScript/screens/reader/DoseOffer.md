@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/DoseOffer.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/DoseOffer.tsx) |
-| Source lines | 160 |
+| Source lines | 163 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
@@ -54,23 +54,24 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export interface DoseOfferProps` — interface, line 44
-- `export function DoseOffer(props: DoseOfferProps)` — function, line 64
+- `export interface DoseOfferProps` — interface, line 45
+- `export function DoseOffer(props: DoseOfferProps)` — function, line 65
 
 ## Internal implementation anchors
 
-- `type Offer = NonNullable<ReaderDoseOfferDto["offer"]>` — type, line 26
-- `type OfferedQuestion = NonNullable<Offer["question"]>` — type, line 27
-- `function extraSection(question: OfferedQuestion, sectionId: string | null): ReaderGuideSectionDto` — function, line 30
-- `const asked: ReaderSectionQuestionDto =` — const, line 31
-- `const spans = question.spanIds` — const, line 39
-- `const decided = useRef(new Set<string>())` — const, line 70
-- `const visit = visitId()` — const, line 74
-- `const section = sections.find((candidate)` — const, line 77
-- `const restoredSection = !!restoredSpanId && !!section?.spanIds.includes(restoredSpanId)` — const, line 78
-- `let alive = true` — let, line 79
-- `const close = (event: "taken" | "dismissed")` — const, line 114
-- `const take = ()` — const, line 119
+- `type Offer = NonNullable<ReaderDoseOfferDto["offer"]>` — type, line 27
+- `type OfferedQuestion = NonNullable<Offer["question"]>` — type, line 28
+- `function extraSection(question: OfferedQuestion, sectionId: string | null): ReaderGuideSectionDto` — function, line 31
+- `const asked: ReaderSectionQuestionDto =` — const, line 32
+- `const spans = question.spanIds` — const, line 40
+- `const decided = useRef(new Set<string>())` — const, line 71
+- `const paused = useWindowPaused()` — const, line 73
+- `const visit = visitId()` — const, line 77
+- `const section = sections.find((candidate)` — const, line 80
+- `const restoredSection = !!restoredSpanId && !!section?.spanIds.includes(restoredSpanId)` — const, line 81
+- `let alive = true` — let, line 82
+- `const close = (event: "taken" | "dismissed")` — const, line 117
+- `const take = ()` — const, line 122
 
 ## Who imports or calls it
 
@@ -86,6 +87,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/api/client|src/api/client.ts]] — import-or-re-export; imports `api`
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `ReaderDoseOfferDto`, `ReaderGuideSectionDto`, `ReaderSectionQuestionDto`
 - [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `COLOR`, `FONT_MONO`
+- [[Reference/Desktop/TypeScript/screens/desks/lifecycle|src/screens/desks/lifecycle.tsx]] — import-or-re-export; imports `useWindowPaused`
 - [[Reference/Desktop/TypeScript/screens/reader/GuideRail|src/screens/reader/GuideRail.tsx]] — import-or-re-export; imports `AuthoredQuestionCard`
 
 ### Assets, platform, and third-party dependencies

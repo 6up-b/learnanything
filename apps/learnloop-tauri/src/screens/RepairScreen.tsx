@@ -28,6 +28,7 @@ import type { CausalRepairStatusDto, StartRemediationDto, SpanViewDto } from "..
 import {
   CausalRepairStatusPanel,
   useCausalRepairActions,
+  useRouterDecisionPoll,
 } from "../components/CausalAttribution";
 import { OpenInSource } from "../components/OpenInSource";
 import { COLOR, Divider, Faint, FONT_MONO, Pill } from "../components/term";
@@ -113,6 +114,7 @@ function PassageCard({
 
 export function RepairScreen({
   misconceptionId,
+  factorId = null,
   sessionId,
   onClose,
   onPractice,
@@ -120,6 +122,9 @@ export function RepairScreen({
   onError
 }: {
   misconceptionId: string;
+  /** The cause factor the repair was opened for, when the opener knows it: a
+   *  cause can sit in two open factors. */
+  factorId?: string | null;
   /** Active session, when known — scopes the causal probe preference. */
   sessionId?: string | null;
   onClose: () => void;
@@ -173,7 +178,7 @@ export function RepairScreen({
     setPrescribed(false);
     setTreated(false);
     api
-      .startRemediation(misconceptionId)
+      .startRemediation(misconceptionId, { factorId, sessionId })
       .then((r) => {
         if (!alive) return;
         setRemediation(r);
@@ -183,7 +188,20 @@ export function RepairScreen({
     return () => {
       alive = false;
     };
-  }, [misconceptionId, report]);
+  }, [misconceptionId, factorId, sessionId, report]);
+
+  // The probe router's tag: the entry holds while the router
+  // decides the factor's quick check in its job; ask the entry again until it
+  // has (then it holds on the selection, or starts the repair).
+  const reenter = useCallback(
+    () =>
+      api.startRemediation(misconceptionId, { factorId: repairStatus?.factorId ?? factorId, sessionId }).then((r) => {
+        setRemediation(r);
+        setRepairStatus(r.episode ? null : r.repairStatus ?? null);
+      }),
+    [misconceptionId, factorId, sessionId, repairStatus],
+  );
+  useRouterDecisionPoll(repairStatus, reenter);
 
   const {
     pendingActionId: repairPendingActionId,

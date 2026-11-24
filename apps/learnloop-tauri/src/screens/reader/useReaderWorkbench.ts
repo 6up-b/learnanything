@@ -174,6 +174,19 @@ interface Ticket {
   sourceId: string | null;
 }
 
+// One idempotency key per hand-off the learner chose (a check, an exercise: the app's object): minted when it is first
+// sent and the same for any later send of it (a window that mounts again), so one choice is one open (review fix round,
+// major 10).
+const handoffKeys = new WeakMap<object, string>();
+function keyOf(handoff: object): string {
+  let key = handoffKeys.get(handoff);
+  if (!key) {
+    key = newKey();
+    handoffKeys.set(handoff, key);
+  }
+  return key;
+}
+
 function newKey(): string {
   return typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `k${Date.now()}${Math.random()}`;
 }
@@ -406,7 +419,7 @@ export function useReaderWorkbench(input: {
     const sent = ticket(true);
     void api.workbenchOpen({
       origin: "reader", entry: checkMe.entry ?? "check_me", practiceItemId: checkMe.practiceItemId, stemMd: checkMe.stemMd,
-      extractionId: sent.extractionId, spanIds: [checkMe.spanId], clientIdempotencyKey: newKey(),
+      extractionId: sent.extractionId, spanIds: [checkMe.spanId], clientIdempotencyKey: keyOf(checkMe),
       // The check's passage keyed by the check's own reading (its SourceIdentity), not the open one.
       spanKeys: passageKeys(checkMe.reading.extractionId, [checkMe.spanId]),
       // The pick's serve goes on the problem itself, so leaving and resuming
@@ -442,7 +455,7 @@ export function useReaderWorkbench(input: {
     const sent = ticket(true);
     void api.workbenchOpen({
       origin: "reader", entry: exercise.entry, stemMd: exercise.stemMd, extractionId: exercise.extractionId,
-      spanIds: exercise.spanIds, clientIdempotencyKey: newKey(),
+      spanIds: exercise.spanIds, clientIdempotencyKey: keyOf(exercise),
       ...(exercise.extractionId ? { spanKeys: passageKeys(exercise.extractionId, exercise.spanIds ?? []) } : {}),
       ...(exercise.sourceExercise
         ? { sourceExercise: { ...exercise.sourceExercise,

@@ -39,6 +39,8 @@ import type { ReaderGuidePlanDto, ReaderRenderViewDto, ReaderSectionQuestionDto,
 import { clear } from "../../../api/queryCache";
 import { ScopedSource } from "./ScopedSource";
 import { scrollIntoViewWithin } from "../../../components/scrollWithin";
+import { noteActiveVault, selectWithDraftFlush } from "../../../app/vaultTransition";
+import { flushReadingReports } from "../../reader/readingReports";
 
 const { invoke, pane } = vi.hoisted(() => ({
   invoke: vi.fn(),
@@ -252,6 +254,8 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  // A test that changed vaults leaves the next one in the vault every other test reads in.
+  noteActiveVault(null);
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
   vi.useRealTimers();
@@ -934,4 +938,66 @@ it("F7: a retry still waiting when the learner leaves the book saves the newest 
   const saved = marksFor("u3").map((mark) => Number(mark.spansSeen));
   expect(saved.length).toBeGreaterThan(0);
   expect(Math.max(...saved)).toBe(2);
+});
+
+// The Reader's retirement, review fix round (blocker 2): reading evidence is the vault's it was read in. The app sends
+// the selection of another vault before the desks (and their book windows) unmount; the windows' cleanups and their
+// retries used to send what was read in A to the vault selected by then.
+it("RDX-4: what was read just before a vault change is saved in that vault, and nothing of it reaches the next", async () => {
+  await openReader();
+  await scrollTo(1500);
+  await scrollTo(2900); // u3 read in vault A; its gathered report has not gone yet
+  const before = marksFor("u3").length;
+  let marksAtSelection = -1;
+  await act(async () => {
+    await selectWithDraftFlush(async () => {
+      marksAtSelection = backend.marks.length;
+    });
+  });
+  // The app unmounts the old vault's screens after the selection; then retries would have had their time.
+  cleanup();
+  await settle(30_000);
+
+  expect(marksAtSelection).toBeGreaterThan(before); // flushed to A before the selection was sent
+  expect(backend.marks.length).toBe(marksAtSelection); // nothing after it
+});
+
+it("RDX-4: a report that failed in vault A is kept for A: never sent while B is selected, sent once A is again", async () => {
+  noteActiveVault("/vaults/a");
+  backend.failMarks = true;
+  await openReader();
+  await scrollTo(1500);
+  await scrollTo(2900);
+  await act(async () => {
+    await selectWithDraftFlush(async () => undefined); // the flush to A fails as well
+  });
+  cleanup();
+  backend.failMarks = false;
+  noteActiveVault("/vaults/b");
+  await settle(30_000);
+  expect(marksFor("u3")).toEqual([]);
+
+  noteActiveVault("/vaults/a");
+  await settle();
+  expect(marksFor("u3").length).toBeGreaterThan(0);
+});
+
+// Review fix round (major 5): the step the retired "F7: the newest count of a book left behind is still sent when the
+// Reader closes" covered. A book closed during an outage owned the only copy of its counts; once its retries ran out,
+// leaving the Reader (the desks unmounting: `flushReadingReports`, DeskShell's unmount) is the second chance.
+it("RDX-5: a closed book's report that ran out of retries is sent when the learner leaves the Reader", async () => {
+  backend.failMarks = true;
+  await openReader();
+  await scrollTo(1500);
+  await scrollTo(2900);
+  cleanup(); // the book's window closes during the outage
+  await settle(60_000); // every retry fails
+  expect(marksFor("u3")).toEqual([]);
+
+  backend.failMarks = false; // the sidecar is back
+  await act(async () => {
+    await flushReadingReports(); // the desks unmount: the learner leaves the Reader
+  });
+  await settle();
+  expect(marksFor("u3").length).toBeGreaterThan(0);
 });

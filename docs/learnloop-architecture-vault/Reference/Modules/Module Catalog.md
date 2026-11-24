@@ -19,13 +19,13 @@ tags:
 # Module Catalog
 
 > [!abstract] Lookup contract
-> This catalog maps all **1405 Python source modules** under `src/learnloop` and `src/learnloop_sidecar` to one generated reference note apiece—including explicit active, compatibility, dormant, and evaluation statuses—and links the **869 TypeScript/TSX/Rust modules** in [[Desktop Module Catalog]]. It also provides **75 Python package maps**. Concepts belong in [[Architecture Overview]], [[Learning System]], [[AI Architecture]], [[State and Persistence]], and [[Configuration]]; workflows belong in their dedicated notes.
+> This catalog maps all **1404 Python source modules** under `src/learnloop` and `src/learnloop_sidecar` to one generated reference note apiece—including explicit active, compatibility, dormant, and evaluation statuses—and links the **872 TypeScript/TSX/Rust modules** in [[Desktop Module Catalog]]. It also provides **75 Python package maps**. Concepts belong in [[Architecture Overview]], [[Learning System]], [[AI Architecture]], [[State and Persistence]], and [[Configuration]]; workflows belong in their dedicated notes.
 
 ## Coverage and status
 
 | Refactor status | Modules | Meaning |
 |---|---:|---|
-| `ACTIVE` | 1384 | Live ownership after the refactor. |
+| `ACTIVE` | 1383 | Live ownership after the refactor. |
 | `COMPAT` | 2 | Live but frozen old-vault compatibility machinery. |
 | `DORMANT` | 1 | Explicitly disabled/descoped modules with no live workflow authority. |
 | `EVALUATION` | 18 | Shadow, audit, or offline evaluation code whose outputs are decision-inert. |
@@ -40,7 +40,7 @@ tags:
 | Package | Layer | Status | Direct modules | Responsibility |
 |---|---|---|---:|---|
 | [[Reference/Modules/learnloop/_package|learnloop]] | `coordination` | `ACTIVE` | 39 | Application-level coordinators and dependency-neutral authorities shared across LearnLoop. |
-| [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] | `domain` | `ACTIVE` | 51 | Adaptive difficulty: logged reading opportunities and outside forecasters, the readiness model, guarded selection near the target band, and its receipts. |
+| [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] | `domain` | `ACTIVE` | 49 | Adaptive difficulty: logged reading opportunities and outside forecasters, the readiness model, guarded selection near the target band, and its receipts. |
 | [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] | `infrastructure` | `ACTIVE` | 26 | Provider-neutral structured transport, routing, provider composition, capability checks, and usage accounting. |
 | [[Reference/Modules/learnloop/ai/chatgpt_plan/_package|learnloop.ai.chatgpt_plan]] | `infrastructure` | `ACTIVE` | 7 | Sign in with ChatGPT for the chatgpt_plan provider: the machine-local sign-in store, the PKCE flow, access tokens and plan-usage state, and its requests. |
 | [[Reference/Modules/learnloop/ai/providers/_package|learnloop.ai.providers]] | `infrastructure` | `ACTIVE` | 10 | Concrete AI transport adapters behind the provider-neutral contract. |
@@ -57,7 +57,7 @@ tags:
 | [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] | `domain` | `ACTIVE` | 16 | Canonical source-library identity, manifests, and source-set behavior. |
 | [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] | `domain` | `ACTIVE` | 24 | Synthesis of source material into learning structures and AI-owned contracts. |
 | [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] | `domain` | `ACTIVE` | 22 | Commitments, blueprints, depth structures, concept relationships, and golden paths. |
-| [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] | `domain` | `ACTIVE` | 43 | The finite daily plan: remembered minutes split across repair, maintain, new and push, chosen block by block, and the router card. |
+| [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] | `domain` | `ACTIVE` | 44 | The finite daily plan: remembered minutes split across repair, maintain, new and push, chosen block by block, and the router card. |
 | [[Reference/Modules/learnloop/data_capture/_package|learnloop.data_capture]] | `domain` | `ACTIVE` | 4 | What later evaluation needs, recorded now: its switches, prefilter receipts, and the one read of Reader exposures with the sweep that freezes them. |
 | [[Reference/Modules/learnloop/db/_package|learnloop.db]] | `infrastructure` | `ACTIVE` | 17 | SQLite connections, migrations, repository compatibility, table roles, rebuilds, and persistence infrastructure. |
 | [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] | `infrastructure` | `ACTIVE` | 82 | Table-family persistence owners extracted from the repository facade. |
@@ -117,7 +117,7 @@ tags:
 
 ## Desktop client modules
 
-The Tauri desktop application has **869 source modules** with one-to-one reference notes in [[Desktop Module Catalog]]. Read [[Desktop Architecture]] first for the React-to-Rust-to-sidecar boundary, then use that catalog for per-file callers, dependencies, tests, and modification guidance.
+The Tauri desktop application has **872 source modules** with one-to-one reference notes in [[Desktop Module Catalog]]. Read [[Desktop Architecture]] first for the React-to-Rust-to-sidecar boundary, then use that catalog for per-file callers, dependencies, tests, and modification guidance.
 
 > [!tip] Choose the catalog by source tree
 > Use this catalog for Python under `src/`; use [[Desktop Module Catalog]] for TypeScript, TSX, and Rust under `apps/learnloop-tauri/`. Both link back to the same concepts and end-to-end workflows.
@@ -169,6 +169,6 @@ SORT file.name ASC
 .venv/bin/python docs/learnloop-architecture-vault/_scripts/module_validate.py
 ```
 
-The current generation discovered 2105 Python test files. Each module note lists direct importing tests or, when absent, one-hop consumer tests.
+The current generation discovered 2104 Python test files. Each module note lists direct importing tests or, when absent, one-hop consumer tests.
 
 Notes carry no commit of their own: the commit they were generated from is `module_generate.py`'s row in [[Reference/_generated|Generated Reference Provenance]], so a regeneration rewrites only the notes whose facts changed.

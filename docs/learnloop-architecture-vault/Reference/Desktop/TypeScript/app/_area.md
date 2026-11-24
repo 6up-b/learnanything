@@ -65,7 +65,7 @@ No nested ownership area.
 | [[Reference/Desktop/TypeScript/app/useCloseWithFlush|useCloseWithFlush.ts]] | `ACTIVE` | Provides `CLOSE_HELD_NOTE`, `useCloseWithFlush` within the desktop's TypeScript/app ownership area. | 1 | 2 |
 | [[Reference/Desktop/TypeScript/app/useGlobalAdd|useGlobalAdd.ts]] | `ACTIVE` | Provides `looksLikeSource`, `useGlobalAdd` within the desktop's TypeScript/app ownership area. | 3 | 1 |
 | [[Reference/Desktop/TypeScript/app/useQueueRevisionPoll|useQueueRevisionPoll.ts]] | `ACTIVE` | Provides `REVISION_POLL_MS`, `RevisionPollView`, `revisionPollHeld`, `QueueRevisionPollOptions` and related exports within the desktop's TypeScript/app ownership area. | 4 | 1 |
-| [[Reference/Desktop/TypeScript/app/vaultTransition|vaultTransition.ts]] | `ACTIVE` | Provides `registerVaultDraft`, `selectWithDraftFlush` within the desktop's TypeScript/app ownership area. | 0 | 3 |
+| [[Reference/Desktop/TypeScript/app/vaultTransition|vaultTransition.ts]] | `ACTIVE` | Provides `vaultKey`, `noteActiveVault`, `onVaultActive`, `registerVaultDraft` and related exports within the desktop's TypeScript/app ownership area. | 0 | 6 |
 | [[Reference/Desktop/TypeScript/app/waitDetail|waitDetail.ts]] | `ACTIVE` | Provides `WaitDetail`, `waitDetailOf`, `WaitDetailWords`, `WaitClock` and related exports within the desktop's TypeScript/app ownership area. | 2 | 1 |
 | [[Reference/Desktop/TypeScript/app/wrapUpOffer|wrapUpOffer.ts]] | `ACTIVE` | Provides `WrapUpLanding`, `wrapUpOfferArmed` within the desktop's TypeScript/app ownership area. | 0 | 1 |
 

@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/useReaderVisit.ts](../../../../../../../apps/learnloop-tauri/src/screens/reader/useReaderVisit.ts) |
-| Source lines | 138 |
+| Source lines | 143 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
@@ -74,7 +74,9 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const noteUsableResult = useCallback((jobId: string, actionKind: string)` — const, line 117
 - `const noteSelection = useCallback((spanCount: number, surface: string)` — const, line 120
 - `const noteProactive = useCallback((key: string, element: string)` — const, line 126
-- `const resetVisitState = useCallback(()` — const, line 132
+- `const visit = visitRef.current` — const, line 129
+- `const seen = `$` — const, line 131
+- `const resetVisitState = useCallback(()` — const, line 137
 
 ## Who imports or calls it
 

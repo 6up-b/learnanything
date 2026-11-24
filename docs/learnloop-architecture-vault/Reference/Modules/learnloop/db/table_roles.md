@@ -224,6 +224,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_plan_follows_path.py](../../../../../../tests/test_plan_follows_path.py) — direct import
   - `test_g47_a_rebuild_shows_zero_projection_deltas_and_never_reads_a_path`
 - [tests/test_probe_proposal_reads.py](../../../../../../tests/test_probe_proposal_reads.py) — direct import
+- [tests/test_probe_router_continuation.py](../../../../../../tests/test_probe_router_continuation.py) — direct import
+  - `test_a_rebuild_after_a_router_stop_reproduces_the_live_rows_and_writes_no_ledger`
 - [tests/test_probe_router_replay.py](../../../../../../tests/test_probe_router_replay.py) — direct import
   - `test_the_same_history_rebuilds_to_the_same_rows_at_the_predecessor_and_at_the_tag`
 - [tests/test_provenance.py](../../../../../../tests/test_provenance.py) — direct import

@@ -44,7 +44,7 @@ export interface ReaderWindowing {
   onJumpReady?: (jump: ((spanId: string) => void) | null) => void;
   /** Where the learner is, for the shelf's row: the passage under the marker, how far through the book,
    *  and the section's words. */
-  onStatus?: (status: { readingSpan: string | null; progress: number; where: string | null }) => void;
+  onStatus?: (status: { readingSpan: string | null; progress: number; where: string | null; reading?: string | null }) => void;
   /** A video source's play/pause, for the desk's `space` (null when this source has no player). */
   onMediaReady?: (toggle: (() => void) | null) => void;
   /** The goal lens over this reading (the desks' RD6): what to draw before a passage, in its gutter, and
@@ -64,6 +64,8 @@ export interface ReaderWindowing {
   onOpenPath?: () => void;
   /** A note the window was opened for (a search result names it): its card opens, being edited, once it is listed. */
   openNote?: string | null;
+  /** Asked again (a search result opening the same note in the window already open): the note opens once more. */
+  openNoteRequest?: number;
   /** While the desk's day closes (the drain): where this reading's Wrap up is shown. */
   drainHost?: HTMLElement | null;
   /** Another book's passage (a library hit, a textbook exercise in another book) opens in a window beside this one,

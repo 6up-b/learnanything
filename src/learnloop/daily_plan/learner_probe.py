@@ -21,6 +21,13 @@ logged exactly.
 
 The router's valuation reads the vault's frozen objective inputs (``objective_inputs.build``) with no plan needed:
 the decision is the learner's, made where the learner reads the feedback.
+
+**The job.** The sidecar's status read makes no decision: it reads the facts (recording their receipt
+once, as every status read does) and answers ``pending``; the valuation and the decision run in the sidecar's worker
+(:func:`run_pending`), off the serial request loop, and a later read shows the decision. The queue is durable with no
+table of its own: a factor is waiting (:func:`requested`) while its latest receipt is the router's pending read and no
+decision exists on it, so a process that ends before its job ran finds it again at the next start. The job reads the
+status again before it decides, so a refusal made meanwhile is honoured, and its own read records the status it found.
 """
 
 from __future__ import annotations
@@ -50,9 +57,10 @@ LLM_NOT_ASKED = "not_asked_on_this_lane"
 
 
 def decide(vault: Any, repository: Any, *, misconception_id: str, session_id: str | None = None,
-           clock: Clock | None = None) -> Any:
+           clock: Clock | None = None, factor_id: str | None = None, attempt_id: str | None = None) -> Any:
     """The repair status after the router has decided the factor's probe (where it had to): read, decide once if
-    ``pending``, read again. Below the tag, or with nothing for the router to decide, the status as read."""
+    ``pending``, read again. Below the tag, or with nothing for the router to decide, the status as read. The factor
+    is the one the caller shows (``factor_id``, else the one on ``attempt_id``; ``causal_repair_status``)."""
 
     from learnloop.diagnosis.causal_orchestrator import causal_repair_status
 
@@ -60,14 +68,67 @@ def decide(vault: Any, repository: Any, *, misconception_id: str, session_id: st
 
     if not probe_router_on(vault.config):
         return causal_repair_status(vault, repository, misconception_id=misconception_id, session_id=session_id,
-                                    start_repair=False, clock=clock)
+                                    start_repair=False, clock=clock, factor_id=factor_id, attempt_id=attempt_id)
     # The router's own read records no receipt: the status it serves after deciding records its facts once.
     status = causal_repair_status(vault, repository, misconception_id=misconception_id, session_id=session_id,
-                                  start_repair=False, clock=clock, record_receipt=False)
+                                  start_repair=False, clock=clock, record_receipt=False, factor_id=factor_id,
+                                  attempt_id=attempt_id)
     if status.router_state == "pending" and status.proposal is not None:
         decide_proposal(vault, repository, status.proposal, clock=clock)
     return causal_repair_status(vault, repository, misconception_id=misconception_id, session_id=session_id,
-                                start_repair=False, clock=clock)
+                                start_repair=False, clock=clock, factor_id=status.factor_id or factor_id,
+                                attempt_id=attempt_id)
+
+
+def requested(repository: Any) -> list[dict[str, Any]]:
+    """The factors waiting on the router's decision, oldest first: an open factor whose latest receipt is the
+    router's pending read (``router_decides``, ``needs_disambiguation``) and that has no decision of either lane. Each
+    is ``factor_id``, ``misconception_id`` and the ``session_id`` the read was made in."""
+
+    import json
+
+    from learnloop.diagnosis.causal_orchestrator import ROUTER_DECIDES
+    from learnloop.router.plan_log import automatic_probe_decision, learner_probe_decision
+
+    latest: dict[str, dict[str, Any]] = {}
+    with repository.connection() as connection:
+        rows = connection.execute(
+            "SELECT r.factor_id, r.misconception_id, r.decision, r.repair_status, r.inputs_json, r.created_at "
+            "FROM causal_probe_decision_receipts r JOIN unresolved_cause_factors f ON f.id = r.factor_id "
+            "WHERE f.status = 'open' ORDER BY r.created_at, r.rowid").fetchall()
+        for row in rows:
+            latest[str(row["factor_id"])] = dict(row)
+        waiting = []
+        for factor_id, row in latest.items():
+            if row["decision"] != ROUTER_DECIDES or row["repair_status"] != "needs_disambiguation":
+                continue
+            if learner_probe_decision(connection, factor_id) or automatic_probe_decision(connection, factor_id):
+                continue
+            inputs = json.loads(row["inputs_json"] or "{}")
+            waiting.append({"factor_id": factor_id, "misconception_id": str(row["misconception_id"] or ""),
+                            "session_id": inputs.get("session_id"), "at": str(row["created_at"])})
+    return sorted(waiting, key=lambda value: (value["at"], value["factor_id"]))
+
+
+def run_pending(vault: Any, repository: Any, *, clock: Clock | None = None, max_jobs: int = 100) -> list[str]:
+    """The decision job: decide each waiting factor (:func:`requested`) once, reading its status again first.
+    Returns the factors it ran. One factor's failure is logged and leaves the rest to run; a factor whose decision
+    could not be recorded stays waiting for the next run."""
+
+    from learnloop.diagnosis.causal_reads import CausalRepairError
+
+    ran: list[str] = []
+    for request in requested(repository)[:max_jobs]:
+        try:
+            decide(vault, repository, misconception_id=request["misconception_id"], session_id=request["session_id"],
+                   factor_id=request["factor_id"], clock=clock)
+        except CausalRepairError:
+            continue  # no longer an open factor of its cause: nothing to decide
+        except Exception:  # noqa: BLE001 - a job never dies on one factor
+            LOG.warning("probe router: the decision job failed for factor %s", request["factor_id"], exc_info=True)
+            continue
+        ran.append(request["factor_id"])
+    return ran
 
 
 def _cause_class(repository: Any, hypothesis_id: str) -> str:
@@ -124,7 +185,10 @@ def diagnostic_payload(vault: Any, repository: Any, proposal: Any) -> DP.Diagnos
     if item is None:
         return "probe_item_missing_from_vault"
     labels = [str(h.label) for h in hypothesis_set.hypotheses]
-    prior = {str(key): float(value) for key, value in hypothesis_set.prior.items()}
+    # The locked set's prior; a continuation's proposal carries the episode's posterior instead (``prior``).
+    override = getattr(proposal, "prior", None)
+    prior = {str(key): float(value) for key, value in (override if override is not None
+                                                       else hypothesis_set.prior).items()}
     hypotheses = tuple(DP.Hypothesis(label, max(prior.get(label, 0.0), 0.0), _cause_class(repository, label))
                        for label in labels)
     if sum(h.prior for h in hypotheses) <= 0.0:
@@ -171,10 +235,19 @@ def value(vault: Any, repository: Any, proposal: Any, *, now_iso: str, seed_iden
     from learnloop.diagnosis.learner_probe_proposal import PROBE_ACTION_REF
     from learnloop.router_objective.diagnostic_value import evaluate_probe
 
+    from learnloop.diagnosis.probe_episodes import known_exposure
+
     payload = diagnostic_payload(vault, repository, proposal)
     if isinstance(payload, str):
         return None, {"status": "no_payload", "reason": payload}
     lo = payload.topic
+    # Known exposure at the decision, with the answer admission's own scope (the item and its learning object): an
+    # answer that admission will refuse separates no cause, so the probe earns no information.
+    exposed_by = known_exposure(vault, repository, practice_item_id=str(proposal.practice_item_id),
+                                learning_object_id=lo, at=now_iso)
+    payload = replace(payload, exposed=exposed_by is not None)
+    exposure = {"exposed": exposed_by is not None, "reason": exposed_by, "scope": "item_and_learning_object",
+                "at": now_iso}
     # The repair block the valuation's topics and duration spread are read for; the plan is not needed (no plan id:
     # the remembered minutes are "missing", as on any decision outside a plan).
     repair = BlockCandidate(candidate_id="repair", lane="repair", action="practice", subtype="completion_or_repair",
@@ -202,15 +275,36 @@ def value(vault: Any, repository: Any, proposal: Any, *, now_iso: str, seed_iden
     valuation = evaluate_probe(inputs, probe, decisions=OWNER_DECISIONS, draws=draws, seed=seed, wait_feasible=True,
                                **options)
     # Frozen for replay: the whole unrounded inputs and the probe action as valued, the seed, the draw count and the
-    # options.
+    # options; ``replay`` is the lossless payload :func:`revalue` values again from the stored row alone, the rest
+    # its readable view.
     from dataclasses import asdict
 
-    return valuation, {"status": "valued", "price": {"kappa0": priced.kappa0, "how": priced.how},
+    from learnloop.router_objective import check_replay
+
+    replay = check_replay.record(inputs, (probe,), seed=seed, draws=draws, first_draws=draws, max_draws=draws,
+                                 as_of=now_iso, options=options,
+                                 versions={"policy": valuation.record.get("version"), "lane": POLICY},
+                                 sensors={})
+    return valuation, {"status": "valued", "exposure": exposure, "price": {"kappa0": priced.kappa0, "how": priced.how},
                        "topics": len(inputs.topics), "topic_sources": sources.get("topics", {}).get(lo),
                        "frozen": {"inputs": asdict(inputs), "probe_minutes": probe.minutes,
                                   "probe_minutes_log_sd": probe.minutes_log_sd, "payload": payload.summary(),
                                   "seed": seed, "draws": draws, "rollout_options": dict(options),
-                                  "policy_version": valuation.record.get("version")}}
+                                  "policy_version": valuation.record.get("version"), "replay": replay}}
+
+
+def revalue(replay: Mapping[str, Any]) -> Any:
+    """The decision's probe valued again from its stored replay payload alone (``frozen.replay``): the same inputs,
+    probe, seed, draws and options, at the owner's decisions the lane values with. No vault, repository or config is
+    read, so a decision's numbers can be checked after any later recalibration."""
+
+    from learnloop.router_objective import check_replay
+    from learnloop.router_objective.diagnostic_value import evaluate_probe
+
+    body = check_replay.read(replay)
+    (probe,) = body["proposed_actions"]
+    return evaluate_probe(body["inputs"], probe, decisions=OWNER_DECISIONS, draws=int(body["draws"]),
+                          seed=str(body["seed"]), wait_feasible=True, **dict(body["options"]))
 
 
 def information(valuation: Any) -> float:
@@ -222,9 +316,34 @@ def information(valuation: Any) -> float:
     return float((valuation.record.get("values") or {}).get("information") or 0.0)
 
 
-def decide_proposal(vault: Any, repository: Any, proposal: Any, *, clock: Clock | None = None) -> str | None:
-    """Decide the proposal's probe once and record it; returns the factor's decision id (an earlier one when a
-    concurrent read recorded it first)."""
+def instrument_items(vault: Any, repository: Any, learning_object_id: str | None,
+                     factor_id: str | None = None) -> set[str]:
+    """The items on the learning object a probe may administer (bound to an instrument card, a diagnostic surface, or a
+    probe candidate of the factor): the measurement a router decision arranges never takes one of them as its check,
+    which would hold the probe's own instrument back as an ordinary question."""
+
+    items: set[str] = set()
+    if factor_id:
+        items |= {str(row.get("practice_item_id")) for row in repository.causal_probe_candidates_for_factor(factor_id)
+                  if row.get("practice_item_id")}
+    for item in getattr(vault, "practice_items", {}).values():
+        if learning_object_id is None or getattr(item, "learning_object_id", None) != learning_object_id:
+            continue
+        if getattr(item, "practice_mode", None) == "diagnostic_probe" or repository.probe_item_family_links(item.id):
+            items.add(str(item.id))
+    return items
+
+
+def draw(vault: Any, repository: Any, *, key: str, unit: str, valuation: Any, now_iso: str, probe_ref: str,
+         other_ref: str) -> tuple[str, float, dict[str, float], dict[str, Any], list[dict[str, Any]]]:
+    """The router's draw between asking a probe (``probe_ref``) and not (``other_ref``) at the boundary ``key``:
+    ``(served, its propensity, the served distribution, the record's draw fields, pending assignments)``.
+
+    **Learned** (information above zero at the learned slopes): the probe is an option of the mix, which draws between
+    the two with the numeric policy's choice (the LLM policy not asked; its share goes where a failed policy's goes)
+    and the exploration floor. **Unlearned**: the mix has one option (``other_ref``) and the probe coin asks the probe
+    on its share, with its own assignment row. Seeded by the boundary (``key``, ``unit``), never by a decision's id,
+    so a retry after a crash or a concurrent run draws the same. The logged distribution is the one drawn from."""
 
     from learnloop.daily_plan import objective_chooser as OC
     from learnloop.diagnosis.learner_probe_proposal import PROBE_ACTION_REF
@@ -233,6 +352,56 @@ def decide_proposal(vault: Any, repository: Any, proposal: Any, *, clock: Clock 
     from learnloop.router_objective import probe_coin as PC
     from learnloop.router_objective_switches import failure_share_to_other_policy_on
 
+    config = vault.config
+    gained = information(valuation)
+    fields: dict[str, Any] = {}
+    pending: list[dict[str, Any]] = []
+    if gained > 0.0:
+        numeric = probe_ref if valuation.choice == PROBE_ACTION_REF else other_ref
+        w, weight_record = OC.current_weight(repository, config, at=now_iso)
+        to_other = failure_share_to_other_policy_on(config)
+        seed = mix.seed_for(key, unit)
+        epsilon = float(config.router.epsilon_min)
+        choice = C.post_miss_choice(C.PostMissInputs(
+            support=(other_ref, probe_ref), staged_ref=other_ref, wait_ref=other_ref, per_option=True,
+            llm_status=LLM_NOT_ASKED, llm_options=None, llm_option_rationale=None, llm_p_yes=None, llm_rationale=None,
+            numeric_status=C.ANSWERED, numeric_choice=numeric, w=w, to_other_policy=to_other, epsilon=epsilon,
+            seed=seed))
+        served, propensity, served_pi = choice.drawn.chosen, choice.propensity, dict(choice.drawn.pi)
+        fields["mixture"] = {"design": mix.DESIGN, "policy": mix.POLICY, "seed": seed, "boundary_key": key,
+                             "support": [other_ref, probe_ref], "staged_ref": other_ref, "epsilon": epsilon,
+                             "w": w, "weight": weight_record, "effective_weights": dict(choice.effective),
+                             "failed": list(choice.failed), "fallback": mix.fallback_label(choice.failed),
+                             "fallback_reasons": {name: LLM_NOT_ASKED for name in choice.failed},
+                             "failure_rule": mix.failure_rule_name(to_other), "numeric_choice": choice.numeric_choice,
+                             "drawn_component": choice.drawn.component, "u1": choice.drawn.u1, "u2": choice.drawn.u2,
+                             "pi": served_pi}
+    else:
+        mu = {other_ref: 1.0}
+        rate = PC.share(config)
+        served, propensity, served_pi = other_ref, 1.0, dict(mu)
+        if PC.applies(rate):
+            coin_seed = PC.seed_for(key, unit)
+            coin = PC.flip(coin_seed, rate, probe_ref=probe_ref, mu=mu, drawn=other_ref, boundary_key=key)
+            served, propensity = coin.served, coin.served_propensity
+            served_pi = PC.served_distribution(mu, rate, probe_ref=probe_ref)
+            fields["probe_coin"] = coin.as_dict()
+            pending.append(PC.pending_assignment(coin, seed=coin_seed, support=[probe_ref, other_ref]))
+    return served, propensity, served_pi, fields, pending
+
+
+def decide_proposal(vault: Any, repository: Any, proposal: Any, *, clock: Clock | None = None) -> str | None:
+    """Decide the proposal's probe once and record it; returns the factor's decision id (an earlier one when a
+    concurrent read recorded it first)."""
+
+    from learnloop.router.plan_log import automatic_probe_decision
+
+    with repository.connection() as connection:
+        automatic = automatic_probe_decision(connection, proposal.factor_id)
+    if automatic is not None:
+        # The automatic lane decided this factor's probe since the status was read: its decision is
+        # the factor's one decision, and no second draw is made.
+        return str(automatic["id"])
     config = vault.config
     now_iso = utc_now_iso(clock)
     decision_id = new_ulid()
@@ -258,43 +427,10 @@ def decide_proposal(vault: Any, repository: Any, proposal: Any, *, clock: Clock 
                                 ("version", "decisions", "given", "values", "choice", "results", "prior_choice",
                                  "policy_changes_with_result", "channel_use", "excluded", "cost")}
         detail["evaluation"]["numeric_choice"] = valuation.choice
-    pending: list[dict[str, Any]] = []
-    if learned:
-        # A learned probe is an option of the mix like any learned action.
-        numeric = PROBE_REF if valuation.choice == PROBE_ACTION_REF else NO_PROBE_REF
-        w, weight_record = OC.current_weight(repository, config, at=now_iso)
-        to_other = failure_share_to_other_policy_on(config)
-        # Seeded by the factor, not the decision's id: a retry after a crash, or a concurrent read, draws the same
-        #.
-        seed = mix.seed_for(key, "learner_probe")
-        epsilon = float(config.router.epsilon_min)
-        choice = C.post_miss_choice(C.PostMissInputs(
-            support=(NO_PROBE_REF, PROBE_REF), staged_ref=NO_PROBE_REF, wait_ref=NO_PROBE_REF, per_option=True,
-            llm_status=LLM_NOT_ASKED, llm_options=None, llm_option_rationale=None, llm_p_yes=None, llm_rationale=None,
-            numeric_status=C.ANSWERED, numeric_choice=numeric, w=w, to_other_policy=to_other, epsilon=epsilon,
-            seed=seed))
-        served, propensity, served_pi = choice.drawn.chosen, choice.propensity, dict(choice.drawn.pi)
-        detail["mixture"] = {"design": mix.DESIGN, "policy": mix.POLICY, "seed": seed, "boundary_key": key,
-                             "support": [NO_PROBE_REF, PROBE_REF], "staged_ref": NO_PROBE_REF, "epsilon": epsilon,
-                             "w": w, "weight": weight_record, "effective_weights": dict(choice.effective),
-                             "failed": list(choice.failed), "fallback": mix.fallback_label(choice.failed),
-                             "fallback_reasons": {name: LLM_NOT_ASKED for name in choice.failed},
-                             "failure_rule": mix.failure_rule_name(to_other), "numeric_choice": choice.numeric_choice,
-                             "drawn_component": choice.drawn.component, "u1": choice.drawn.u1, "u2": choice.drawn.u2,
-                             "pi": served_pi}
-    else:
-        # An unlearned probe is no option of the mix: the mix has one option (no probe), and the probe coin offers
-        # the probe on its share.
-        mu = {NO_PROBE_REF: 1.0}
-        rate = PC.share(config)
-        served, propensity, served_pi = NO_PROBE_REF, 1.0, dict(mu)
-        if PC.applies(rate):
-            coin_seed = PC.seed_for(key, "learner_probe")
-            coin = PC.flip(coin_seed, rate, probe_ref=PROBE_REF, mu=mu, drawn=NO_PROBE_REF, boundary_key=key)
-            served, propensity = coin.served, coin.served_propensity
-            served_pi = PC.served_distribution(mu, rate, probe_ref=PROBE_REF)
-            detail["probe_coin"] = coin.as_dict()
-            pending.append(PC.pending_assignment(coin, seed=coin_seed, support=[PROBE_REF, NO_PROBE_REF]))
+    served, propensity, served_pi, drawn, pending = draw(
+        vault, repository, key=key, unit="learner_probe", valuation=valuation, now_iso=now_iso,
+        probe_ref=PROBE_REF, other_ref=NO_PROBE_REF)
+    detail.update(drawn)
     detail["served_pi"] = served_pi
     try:
         with repository.atomic(), repository.connection() as connection:
@@ -313,6 +449,19 @@ def decide_proposal(vault: Any, repository: Any, proposal: Any, *, clock: Clock 
                 if len(written) != len(pending):
                     # The decision and its coin's assignment commit together or not at all.
                     raise RuntimeError("the probe coin's assignment was not written")
+            if recorded == decision_id and proposal.learning_object_id:
+                # One outcome target for both arms, frozen before either is executed: the factor's
+                # learning object, whichever was drawn, as the automatic lane's decision freezes its own. The probe
+                # arm's own answer is still bound only by an acceptance's pin.
+                from learnloop.daily_plan import measurement as objectives
+
+                support = [ref for ref in (NO_PROBE_REF, PROBE_REF) if float(served_pi.get(ref, 0.0)) > 0.0]
+                objectives.record(vault, repository, connection, decision_id=decision_id, decision_kind="plan_interrupt",
+                                  frozen=objectives.freeze_followup(str(proposal.learning_object_id), support=support),
+                                  arm=objectives.ARM_INSERT if served == PROBE_REF else objectives.ARM_NO_INTERVENTION,
+                                  clock=clock, exclude=instrument_items(vault, repository,
+                                                                        proposal.learning_object_id,
+                                                                        proposal.factor_id))
     except Exception:  # noqa: BLE001 - an unrecorded decision offers nothing: the status stays pending
         LOG.warning("probe router: the learner lane's decision was not recorded for factor %s", proposal.factor_id,
                     exc_info=True)
@@ -320,5 +469,6 @@ def decide_proposal(vault: Any, repository: Any, proposal: Any, *, clock: Clock 
     return recorded
 
 
-__all__ = ["LLM_NOT_ASKED", "OWNER_DECISIONS", "POLICY", "decide", "decide_proposal", "diagnostic_payload", "information",
-           "value"]
+__all__ = ["LLM_NOT_ASKED", "OWNER_DECISIONS", "POLICY", "decide", "decide_proposal", "diagnostic_payload", "draw",
+           "information", "instrument_items",
+           "requested", "revalue", "run_pending", "value"]

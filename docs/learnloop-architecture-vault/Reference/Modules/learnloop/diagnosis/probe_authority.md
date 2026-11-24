@@ -116,6 +116,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_probe_router_continuation.py](../../../../../../tests/test_probe_router_continuation.py) — direct import
+  - `test_the_router_decides_the_next_observation_once_with_its_exact_served_distribution`
 - [tests/test_probe_router_worth_gates.py](../../../../../../tests/test_probe_router_worth_gates.py) — direct import
   - `test_a_probe_of_another_origin_keeps_its_gates`
   - `test_a_router_selected_probe_is_served_answered_and_ended_with_every_legacy_worth_gate_raising`

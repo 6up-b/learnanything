@@ -3,6 +3,7 @@
 // Reader read through the app's api client to the fake sidecar.
 import { cleanup, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { invoke as fixtureInvoke } from "../../../fixtures/desks/fakeCore";
 import { answers, inputsOf, memoryStorage, mountRealDesk, oneDesk, resetSidecar, settleDesk } from "../../../fixtures/desks/realDesk";
 import { FIXTURE_LIBRARY, FIXTURE_SOURCES } from "../../../fixtures/desks/sources";
 import type { SourceLibraryCard } from "../../../api/dto";
@@ -120,4 +121,65 @@ it("a window of a kind this version does not know is kept: the book's window whe
   expect(document.querySelector('[data-desk-window="w_future"]')?.textContent).toContain("a whiteboard window");
   expect(document.querySelector(".desk-toast")?.textContent).toContain("Kept but not shown: a whiteboard window");
   expect(desk.errors).toEqual([]);
+});
+
+// Review fix round (major 20, ledger RDX-9): what each stored kind actually shows. A panel of a kind this version does
+// not know is inert (never a live Library panel); a comparison named only by its id and a figure's notebook, which no
+// body here opens by id, are inert and named, not an empty composer or a silent fallback.
+it("a stored unknown panel, a kept comparison by id and a figure's notebook show inert and are named", async () => {
+  const outline = { windowId: "w_outline", pane: 0, kind: "panel", active: true, view: {}, content: { kind: "panel", panel: "outline" } };
+  const kept = { windowId: "w_kept", pane: 0, kind: "compare", active: true, view: {}, content: { kind: "compare", comparisonId: "cmp_1" } };
+  const figure = { windowId: "w_fig", pane: 0, kind: "figure_notebook", active: true, view: {}, content: { kind: "figure_notebook", figureId: "fig_1" } };
+  library = FIXTURE_LIBRARY;
+  mountRealDesk({ state: oneDesk([[BOOK_WINDOW as never], [outline as never], [kept as never], [figure as never]]) });
+  await settleDesk(0, 30);
+  await waitFor(() => expect(document.querySelector(".desk-toast")?.textContent).toContain("Kept but not shown"));
+  const toast = document.querySelector(".desk-toast")?.textContent ?? "";
+  for (const name of ["an outline window", "a kept comparison", "a figure's notebook"]) expect(toast).toContain(name);
+  expect(document.querySelector('[data-desk-window="w_outline"]')?.textContent).toContain("an outline window");
+  expect(document.querySelector('[data-desk-window="w_outline"] input')).toBeNull();
+  expect(document.querySelector('[data-desk-window="w_kept"]')?.textContent).toContain("a kept comparison");
+  expect(document.querySelector('[data-desk-window="w_kept"] input')).toBeNull();
+  expect(document.querySelector('[data-desk-window="w_fig"]')?.textContent).toContain("a figure's notebook");
+});
+
+// Review fix round (major 16, ledger RDX-19): a path panel restored while the book's guide and settings are still being
+// read keeps its request until the path shows; it used to be dropped on the first, refused, try.
+it("a stored reading-path panel restored while the guide is still loading opens the path once it is there", async () => {
+  let release: () => void = () => undefined;
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  for (const command of ["reader_prompt_contract", "reader_guide_plan"]) {
+    answers.set(command, async (input) => {
+      await gate;
+      return fixtureInvoke(command, { input });
+    });
+  }
+  const pathPanel = { windowId: "w_path", pane: 0, kind: "panel", active: true, view: {}, content: { kind: "panel", panel: "path", extractionId: book.extractionId } };
+  mountRealDesk({ state: oneDesk([[BOOK_WINDOW as never], [pathPanel as never]]) });
+  await settleDesk(0, 30);
+  release();
+  await settleDesk(0, 30);
+  await waitFor(() => expect(document.querySelector('[data-desk-window="w_book"]')?.textContent).toContain("How deep"));
+});
+
+// Review fix round (major 17, ledger RDX-20): a book whose hand-over from its preparing window failed (its reading could
+// not be read just then) opens when the learner opens it again from the library, instead of focusing the stuck window.
+it("a ready book whose hand-over failed opens when asked for again from the library", async () => {
+  library = FIXTURE_LIBRARY;
+  let failures = 1;
+  answers.set("reader_render_view", (input) => {
+    if (input.extractionId === paper.sourceId && failures > 0) {
+      failures -= 1;
+      throw { code: "sidecar_unavailable", message: "restarting", retryable: true };
+    }
+    return fixtureInvoke("reader_render_view", { input });
+  });
+  const prep = { windowId: "w_prep", pane: 0, kind: "preparing", active: true, view: {}, content: { kind: "preparing", sourceId: paper.sourceId } };
+  const desk = mountRealDesk({ state: oneDesk([[BOOK_WINDOW as never], [prep as never]]) });
+  await settleDesk(0, 30);
+  desk.rerender({ openRequest: { seq: 7, sourceId: paper.sourceId, spanId: null, reading: null } });
+  await settleDesk(0, 30);
+  await waitFor(() => expect(storedWindows(desk.server).flat().map((each) => each.content)).toContainEqual(
+    { kind: "source", sourceId: paper.sourceId, extractionId: paper.extractionId, view: "render" }), { timeout: 4000 });
+  expect(storedWindows(desk.server).flat().some((each) => each.kind === "preparing")).toBe(false);
 });

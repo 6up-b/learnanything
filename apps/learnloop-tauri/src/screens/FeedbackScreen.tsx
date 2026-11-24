@@ -50,6 +50,7 @@ import { MarkdownMath } from "../render/MarkdownMath";
 import {
   CausalFeedbackPanel,
   formatCausalTarget,
+  useRouterDecisionPoll,
   formatDivergenceAnchor,
   useCausalRepairActions,
 } from "../components/CausalAttribution";
@@ -1539,8 +1540,9 @@ export function FeedbackScreen({
   /** Open a practice item cold (teach-back opt-in navigation). */
   onOpenPractice?: (practiceItemId: string) => void;
   /** Launch the §4.10 Repair flow for a matched misconception (the statement
-   *  card's "repair this" action). Orchestrator wires App.tsx. */
-  onOpenRepair?: (misconceptionId: string) => void;
+   *  card's "repair this" action). Orchestrator wires App.tsx. `factorId`: the
+   *  cause factor the repair was started for, when the causal panel knows it. */
+  onOpenRepair?: (misconceptionId: string, factorId?: string | null) => void;
   /** Open a vault file in the Library (source panel "view in Library"). */
   onOpenLibraryFile?: (path: string) => void;
   /** Open a local source in the Reader, at the block the question cites. */
@@ -1993,7 +1995,7 @@ export function FeedbackScreen({
       // The hold has lifted (typically via "Teach me now") and an episode
       // exists — hand off to the repair flow the app already owns.
       if (next.status === "started" && next.episode && onOpenRepair) {
-        onOpenRepair(next.misconceptionId);
+        onOpenRepair(next.misconceptionId, next.factorId);
       }
     },
     [onOpenRepair],
@@ -2015,12 +2017,16 @@ export function FeedbackScreen({
     );
   }, [feedback]);
 
+  // The attempt this feedback is for: the status read names the factor on it,
+  // never another open factor of the same cause.
+  const repairAttemptId = feedback?.attemptId ?? null;
+
   useEffect(() => {
     setRepairStatus(null);
     if (!repairCaseId) return;
     let cancelled = false;
     api
-      .causalRepairStatus(repairCaseId, sessionId)
+      .causalRepairStatus(repairCaseId, sessionId, { attemptId: repairAttemptId })
       .then((result) => {
         // A pure read reports "started" for anything the causal state does not
         // hold. There is nothing to explain then, and the orchestrator's
@@ -2033,7 +2039,20 @@ export function FeedbackScreen({
       // there is nothing to say. Never a toast — this read is speculative.
       .catch(() => {});
     return () => { cancelled = true; };
-  }, [repairCaseId, sessionId]);
+  }, [repairCaseId, sessionId, repairAttemptId]);
+
+  // The probe router's tag: a status the router has not decided
+  // yet is read again until its decision job has run. A decided "started" (the
+  // check not offered) leaves nothing held to explain.
+  const rereadRepairStatus = useCallback(() => {
+    if (!repairStatus) return;
+    return api
+      .causalRepairStatus(repairStatus.misconceptionId, sessionId, { factorId: repairStatus.factorId })
+      .then((result) => {
+        setRepairStatus(result.repairStatus.status === "started" ? null : result.repairStatus);
+      });
+  }, [repairStatus, sessionId]);
+  useRouterDecisionPoll(repairStatus, rereadRepairStatus);
 
   const { pendingActionId: repairPendingActionId, note: repairNote, runAction: runRepairAction } =
     useCausalRepairActions({

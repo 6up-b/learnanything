@@ -72,8 +72,10 @@ def test_an_idle_sidecars_background_threads_sleep_and_stop_on_close(tmp_path):
     ctx.post_attempt_worker.notify()  # its slots start and find nothing queued
     threads = _background(ctx)
     names = sorted(thread.name for thread in threads)
+    # The probe router's decision slot is the fifth post-attempt slot: it sleeps until a status read asks for it.
     assert names == ["learnloop-post-attempt-diagnose", "learnloop-post-attempt-embed",
-                     "learnloop-post-attempt-followup", "learnloop-post-attempt-gaps", "learnloop-reading-sweep"]
+                     "learnloop-post-attempt-followup", "learnloop-post-attempt-gaps",
+                     "learnloop-post-attempt-probe_router", "learnloop-reading-sweep"]
 
     used = _goes_quiet(threads)
     assert used[-1] < IDLE_CPU_SECONDS, f"idle background threads kept using CPU: {used}"
@@ -89,7 +91,7 @@ def test_the_shutdown_rpc_stops_the_idle_background_owners(tmp_path):
     ctx = context(paths.root)
     ctx.post_attempt_worker.notify()
     threads = _background(ctx)
-    assert len(threads) == 5
+    assert len(threads) == 6
 
     assert call(ctx, "shutdown", {}) == {"ok": True}
 

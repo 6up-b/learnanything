@@ -83,7 +83,7 @@ import { adoptMovedSession, startSessionOrAsk } from "./sessionHandoff";
 import { setSessionMoved, useSessionMoved, type SessionMoved } from "./sessionMoved";
 import { clear as clearQueryCache, invalidateAll as invalidateAllQueries } from "../api/queryCache";
 import { clearPdfDocuments } from "../components/pdfDocumentCache";
-import { selectWithDraftFlush } from "./vaultTransition";
+import { noteActiveVault, selectWithDraftFlush } from "./vaultTransition";
 import { todayQueueInput } from "./autoAdvance";
 import { planStepAction, readerTargetForReading, servedForExplicitStep, useDailyPlan } from "./dailyPlan";
 import { readerTargetForRestoration } from "./intentCheck";
@@ -322,6 +322,8 @@ export function App() {
   // tab. openRepair is the App-level entry point — wire it to Feedback's "repair
   // this" and Today cards as well (pass onRepair={openRepair}).
   const [repairMisconceptionId, setRepairMisconceptionId] = useState<string | null>(null);
+  // The cause factor the repair was opened for, when the opener knew it.
+  const [repairFactorId, setRepairFactorId] = useState<string | null>(null);
   // A primed item handed off from the repair overlay while NO session was open.
   // Practice needs a session, but discarding the id here stranded the repair
   // episode in `treatment` forever (it is never reused). Stash it, route the
@@ -547,6 +549,10 @@ export function App() {
         if (!readerSourceRef.current) {
           setReaderSource({ card, spanId: null });
           setReaderOpenSeq((seq) => seq + 1);
+          // The book the app reopened is this library's remembered book now: the desks saying no book is open (the
+          // learner closed it, even before the desks first reported it, as under a check's hold) forgets it, so the
+          // next start opens the shelf. Ordered by the reports, not by when the first one arrives.
+          rememberedBookRef.current = root ?? null;
         }
       }
     } catch {
@@ -559,6 +565,8 @@ export function App() {
     setStartupError(null);
     try {
       const appSnapshot = await api.loadVault();
+      // Writes gathered from here on are this vault's (vaultTransition.ts); what was kept for it goes now.
+      noteActiveVault(appSnapshot.vault?.root);
       setAlgoConfig(appSnapshot.config);
       setSnapshot(appSnapshot);
       refreshAiConnection();
@@ -1655,7 +1663,8 @@ export function App() {
 
   // Launch the F6 Repair flow (§4.10) for a misconception. Shared entry point
   // for Review's working hypotheses and (once wired) Feedback / Today.
-  function openRepair(misconceptionId: string) {
+  function openRepair(misconceptionId: string, factorId?: string | null) {
+    setRepairFactorId(factorId ?? null);
     setRepairMisconceptionId(misconceptionId);
   }
 
@@ -1851,7 +1860,11 @@ export function App() {
     setPendingRedo(null);
     setIngestJobId(null);
     setProposalFocusPatchId(null);
+    // The Reader's requests are the vault's being left (review fix round, major 11): its library search words, its
+    // book and the plan reading's banner never reach the next vault's desks.
     setReaderSource(null);
+    setReaderLibrarySearch(null);
+    setPlanReading(null);
     setDeskBook(undefined);
     setAddOpen(false);
     setConnectOpen(false);
@@ -1904,6 +1917,7 @@ export function App() {
         clearPdfDocuments();
         resetShellForVault();
         const next = await api.loadVault();
+        noteActiveVault(next.vault?.root);
         setAlgoConfig(next.config);
         setSnapshot(next);
         setStartupError(null);
@@ -2674,6 +2688,7 @@ export function App() {
       {repairMisconceptionId ? (
         <RepairScreen
           misconceptionId={repairMisconceptionId}
+          factorId={repairFactorId}
           sessionId={session?.sessionId ?? null}
           onClose={() => setRepairMisconceptionId(null)}
           onPractice={(practiceItemId) => {

@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/model/restore.ts](../../../../../../../../apps/learnloop-tauri/src/screens/desks/model/restore.ts) |
-| Source lines | 67 |
+| Source lines | 71 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/model/_area|TypeScript/screens/desks/model]] |
 | Refactor status | `ACTIVE` |
@@ -56,7 +56,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - `export type Restored = /** Shown as stored. */ |` — type, line 15
 - `export function restoreContent(stored: unknown): Restored` — function, line 39
-- `export function bookContent(sourceId: string, extractionId: string | null, video: boolean): ContentRefDto` — function, line 64
+- `export function bookContent(sourceId: string, extractionId: string | null, video: boolean): ContentRefDto` — function, line 68
 
 ## Internal implementation anchors
 

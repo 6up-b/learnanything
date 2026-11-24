@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/RepairScreen.tsx](../../../../../../apps/learnloop-tauri/src/screens/RepairScreen.tsx) |
-| Source lines | 676 |
+| Source lines | 694 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/_area|TypeScript/screens]] |
 | Refactor status | `ACTIVE` |
@@ -54,46 +54,47 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export function RepairScreen(` — function, line 114
+- `export function RepairScreen(` — function, line 115
 
 ## Internal implementation anchors
 
-- `const shortFacet = (facetId: string): string` — const, line 38
-- `function fmtDate(iso: string | null): string` — function, line 40
-- `const d = new Date(iso)` — const, line 42
-- `const btn: CSSProperties =` — const, line 47
-- `const btnDim: CSSProperties =` — const, line 58
-- `const stageBox: CSSProperties =` — const, line 64
-- `function PassageCard(` — function, line 72
-- `const sv = passage.spanView` — const, line 79
-- `const heading = sv.sectionPath.length > 0 ? sv.sectionPath.join(" › ") : sv.blockType` — const, line 80
-- `const simple = simplePracticeFeedback()` — const, line 146
-- `const report = useCallback( (e: unknown)` — const, line 150
-- `const handler = (e: KeyboardEvent)` — const, line 158
-- `let alive = true` — let, line 170
-- `const episodeId = remediation?.episode?.id ?? null` — const, line 212
-- `const prescribe = async ()` — const, line 214
-- `const r = await api.prescribeRemediation(episodeId)` — const, line 218
-- `const treat = async (): Promise<StartRemediationDto | null>` — const, line 228
-- `const r = await api.startRemediationTreatment(episodeId)` — const, line 232
-- `const tryOne = async ()` — const, line 246
-- `const r = await treat()` — const, line 247
-- `const itemId = r.primedItemId ?? r.episode?.primedItemId ?? null` — const, line 249
-- `const kase = remediation?.case ?? null` — const, line 254
-- `const passages = remediation?.episode?.passagesShown ?? []` — const, line 255
-- `const primedItemId = remediation?.primedItemId ?? remediation?.episode?.primedItemId ?? null` — const, line 256
-- `const coldItemId = remediation?.coldItemId ?? remediation?.episode?.coldItemId ?? null` — const, line 257
-- `const coldUnmeasurableReason = remediation?.coldUnmeasurableReason ?? null` — const, line 258
-- `const returned = kase?.history.some((h)` — const, line 259
-- `const primary = !episodeId || nothingToTry ? null : !prescribed ?` — const, line 263
-- `function plainSectionPath(sectionPath: string[]): string` — function, line 515
-- `const titles = sectionPath.filter((part)` — const, line 516
-- `function SimpleRepairStep(` — function, line 521
-- `const handler = (event: KeyboardEvent)` — const, line 557
-- `const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase()` — const, line 560
-- `const backdrop: CSSProperties =` — const, line 645
-- `const panel: CSSProperties =` — const, line 657
-- `const header: CSSProperties =` — const, line 669
+- `const shortFacet = (facetId: string): string` — const, line 39
+- `function fmtDate(iso: string | null): string` — function, line 41
+- `const d = new Date(iso)` — const, line 43
+- `const btn: CSSProperties =` — const, line 48
+- `const btnDim: CSSProperties =` — const, line 59
+- `const stageBox: CSSProperties =` — const, line 65
+- `function PassageCard(` — function, line 73
+- `const sv = passage.spanView` — const, line 80
+- `const heading = sv.sectionPath.length > 0 ? sv.sectionPath.join(" › ") : sv.blockType` — const, line 81
+- `const simple = simplePracticeFeedback()` — const, line 151
+- `const report = useCallback( (e: unknown)` — const, line 155
+- `const handler = (e: KeyboardEvent)` — const, line 163
+- `let alive = true` — let, line 175
+- `const reenter = useCallback( ()` — const, line 196
+- `const episodeId = remediation?.episode?.id ?? null` — const, line 230
+- `const prescribe = async ()` — const, line 232
+- `const r = await api.prescribeRemediation(episodeId)` — const, line 236
+- `const treat = async (): Promise<StartRemediationDto | null>` — const, line 246
+- `const r = await api.startRemediationTreatment(episodeId)` — const, line 250
+- `const tryOne = async ()` — const, line 264
+- `const r = await treat()` — const, line 265
+- `const itemId = r.primedItemId ?? r.episode?.primedItemId ?? null` — const, line 267
+- `const kase = remediation?.case ?? null` — const, line 272
+- `const passages = remediation?.episode?.passagesShown ?? []` — const, line 273
+- `const primedItemId = remediation?.primedItemId ?? remediation?.episode?.primedItemId ?? null` — const, line 274
+- `const coldItemId = remediation?.coldItemId ?? remediation?.episode?.coldItemId ?? null` — const, line 275
+- `const coldUnmeasurableReason = remediation?.coldUnmeasurableReason ?? null` — const, line 276
+- `const returned = kase?.history.some((h)` — const, line 277
+- `const primary = !episodeId || nothingToTry ? null : !prescribed ?` — const, line 281
+- `function plainSectionPath(sectionPath: string[]): string` — function, line 533
+- `const titles = sectionPath.filter((part)` — const, line 534
+- `function SimpleRepairStep(` — function, line 539
+- `const handler = (event: KeyboardEvent)` — const, line 575
+- `const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase()` — const, line 578
+- `const backdrop: CSSProperties =` — const, line 663
+- `const panel: CSSProperties =` — const, line 675
+- `const header: CSSProperties =` — const, line 687
 
 ## Who imports or calls it
 
@@ -110,7 +111,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `CausalRepairStatusDto`, `SpanViewDto`, `StartRemediationDto`
 - [[Reference/Desktop/TypeScript/app/keymap|src/app/keymap.ts]] — import-or-re-export; imports `screenLeavesKey`
 - [[Reference/Desktop/TypeScript/app/practiceFeedback|src/app/practiceFeedback.ts]] — import-or-re-export; imports `FIX_MIX_UP_LABEL`, `simplePracticeFeedback`
-- [[Reference/Desktop/TypeScript/components/CausalAttribution|src/components/CausalAttribution.tsx]] — import-or-re-export; imports `CausalRepairStatusPanel`, `useCausalRepairActions`
+- [[Reference/Desktop/TypeScript/components/CausalAttribution|src/components/CausalAttribution.tsx]] — import-or-re-export; imports `CausalRepairStatusPanel`, `useCausalRepairActions`, `useRouterDecisionPoll`
 - [[Reference/Desktop/TypeScript/components/OpenInSource|src/components/OpenInSource.tsx]] — import-or-re-export; imports `OpenInSource`
 - [[Reference/Desktop/TypeScript/components/PlainParts|src/components/PlainParts.tsx]] — import-or-re-export; imports `DetailsToggle`, `PrimaryAction`, `quietLine`
 - [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `COLOR`, `Divider`, `FONT_MONO`, `Faint`, `Pill`

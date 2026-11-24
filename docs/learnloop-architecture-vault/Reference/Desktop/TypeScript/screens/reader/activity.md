@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/activity.ts](../../../../../../../apps/learnloop-tauri/src/screens/reader/activity.ts) |
-| Source lines | 112 |
+| Source lines | 120 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
@@ -54,32 +54,33 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export function setReaderActivityEnabled(on: boolean): void` — function, line 23
-- `export function readerActivityEnabled(): boolean` — function, line 32
-- `export function newActivityId(): string` — function, line 36
-- `export function flushReaderActivity(): void` — function, line 44
-- `export function logReaderActivity(event: ReaderActivityEvent): void` — function, line 59
-- `export function setNextReaderVisitInitiator(initiator: string, extractionId: string | null = null): void` — function, line 70
-- `export function takeReaderVisitInitiator(extractionId: string | null = null): string` — function, line 74
-- `export function logReaderAction( event: NonNullable<ReaderActivityEvent["event"]>, payload: ReaderActivityEvent["payload"], ): void` — function, line 82
-- `export function noteLearnerActivity(kind: keyof typeof counters): void` — function, line 89
-- `export function learnerActivitySnapshot(): Readonly<typeof counters>` — function, line 93
-- `export function activitySince(before: Readonly<typeof counters>): Record<string, boolean>` — function, line 98
-- `export function resetReaderActivityForTests(): void` — function, line 107
+- `export function setReaderActivityEnabled(on: boolean): void` — function, line 26
+- `export function readerActivityEnabled(): boolean` — function, line 35
+- `export function newActivityId(): string` — function, line 39
+- `export function flushReaderActivity(): void` — function, line 47
+- `export function logReaderActivity(event: ReaderActivityEvent): void` — function, line 64
+- `export function setNextReaderVisitInitiator(initiator: string, extractionId: string | null = null): void` — function, line 78
+- `export function takeReaderVisitInitiator(extractionId: string | null = null): string` — function, line 82
+- `export function logReaderAction( event: NonNullable<ReaderActivityEvent["event"]>, payload: ReaderActivityEvent["payload"], ): void` — function, line 90
+- `export function noteLearnerActivity(kind: keyof typeof counters): void` — function, line 97
+- `export function learnerActivitySnapshot(): Readonly<typeof counters>` — function, line 101
+- `export function activitySince(before: Readonly<typeof counters>): Record<string, boolean>` — function, line 106
+- `export function resetReaderActivityForTests(): void` — function, line 115
 
 ## Internal implementation anchors
 
-- `const FLUSH_MS = 1500` — const, line 12
-- `const MAX_BATCH = 200` — const, line 13
-- `let enabled = false` — let, line 15
-- `let queue: ReaderActivityEvent[] = []` — let, line 16
-- `let timer: ReturnType<typeof setTimeout> | null = null` — let, line 17
-- `const counters =` — const, line 21
-- `const batch = queue.splice(0, MAX_BATCH)` — const, line 48
-- `const send = (api as` — const, line 50
-- `let nextVisitInitiator:` — let, line 68
-- `const pending = nextVisitInitiator` — const, line 75
-- `const out: Record<string, boolean> =` — const, line 99
+- `const FLUSH_MS = 1500` — const, line 13
+- `const MAX_BATCH = 200` — const, line 14
+- `let enabled = false` — let, line 16
+- `let queue: Array<` — let, line 19
+- `let timer: ReturnType<typeof setTimeout> | null = null` — let, line 20
+- `const counters =` — const, line 24
+- `const key = vaultKey()` — const, line 50
+- `const batch = queue.splice(0, MAX_BATCH).map((entry)` — const, line 53
+- `const send = (api as` — const, line 55
+- `let nextVisitInitiator:` — let, line 76
+- `const pending = nextVisitInitiator` — const, line 83
+- `const out: Record<string, boolean> =` — const, line 107
 
 ## Who imports or calls it
 
@@ -108,6 +109,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - [[Reference/Desktop/TypeScript/api/client|src/api/client.ts]] — import-or-re-export; imports `api`
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `ReaderActivityEvent`
+- [[Reference/Desktop/TypeScript/app/vaultTransition|src/app/vaultTransition.ts]] — import-or-re-export; imports `registerVaultDraft`, `vaultKey`
 
 ### Assets, platform, and third-party dependencies
 

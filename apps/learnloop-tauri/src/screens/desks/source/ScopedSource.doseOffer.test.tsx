@@ -180,3 +180,15 @@ it("offers the section's other question and shows exactly that one when taken", 
     { questionId: "raq_extra", action: "answered", response: "my answer" }
   ]);
 });
+
+// The Reader's retirement, review fix round (major 6, ledger RDX-17): on the desks a book alone on its desk has no rail
+// host (its rail lives in a Guide or Notes panel window); the offer used to live only in the rail, so it never mounted:
+// no draw and no delivery. It shows in the book now, and draws only while its window is on screen.
+const WINDOWED = { railHost: null, onTitle: () => undefined, onJumpReady: () => undefined, onMediaReady: () => undefined } as never;
+it("RDX-17: a book alone on a desk (no rail host) still draws the offer at a section's end and shows it in the book", async () => {
+  render(<ScopedSource onError={() => undefined} initialSource={{ card: CARD, spanId: null }} windowed={WINDOWED} />);
+  await settle(2_000);
+  expect(calls("reader_dose_offer")).toHaveLength(1);
+  expect(screen.getByTestId("dose-offer").closest("[data-window-dose]")).not.toBeNull();
+  expect(calls("reader_dose_offer_event")).toEqual([{ drawId: "d1", event: "delivered" }]);
+});

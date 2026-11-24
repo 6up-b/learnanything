@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/probe_offer.py](../../../../../../src/learnloop/diagnosis/probe_offer.py) |
-| Source lines | 471 |
+| Source lines | 481 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -58,9 +58,9 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
   - `as_dict(self) -> dict[str, Any]` (line 48; public)
 - `accept_probe_offer(vault: LoadedVault, repository: Repository, *, factor_id: str, decision_receipt_id: str | None=None, session_id: str | None=None, clock: Clock | None=None, ai_client: object | None=None, candidate_id: str | None=None, followup_workflow_id: str | None=None, router_decision_id: str | None=None) -> ProbeOffer` ([source](../../../../../../src/learnloop/diagnosis/probe_offer.py), line 86) — "Take the quick check" (:func:`_accept_probe_offer`), and its ``probe_offer`` decision record (refactor B7).
 - `router_disposition(repository: Repository, factor_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/probe_offer.py), line 122) — The router's decision on the factor's learner-lane probe as the offer reads it: ``router_state`` (``pending`` with no decision, ``selected`` or ``not_selected``) and ``router_decision_id``.
-- `accept_routed_probe_offer(vault: LoadedVault, repository: Repository, *, factor_id: str, decision_receipt_id: str | None=None, session_id: str | None=None, clock: Clock | None=None) -> tuple[ProbeOffer, dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/probe_offer.py), line 139) — "Take the quick check" at the probe router's tag: only the router's selection of this factor's probe is accepted, and only its own candidate.
-- `defer_probe_offer(repository: Repository, *, factor_id: str, learning_object_id: str | None=None, session_id: str | None=None, preference: str='decline', clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/probe_offer.py), line 421) — "Not now": persist the decline so the next attempt does not re-offer.
-- `request_teaching_now(vault: LoadedVault, repository: Repository, *, misconception_id: str, factor_id: str, session_id: str | None=None, clock: Clock | None=None) -> RepairStatus` ([source](../../../../../../src/learnloop/diagnosis/probe_offer.py), line 444) — "Teach me now": an explicit learner authorisation to skip the check.
+- `accept_routed_probe_offer(vault: LoadedVault, repository: Repository, *, factor_id: str, decision_receipt_id: str | None=None, session_id: str | None=None, clock: Clock | None=None) -> tuple[ProbeOffer, dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/probe_offer.py), line 143) — "Take the quick check" at the probe router's tag: only the router's selection of this factor's probe is accepted, and only its own candidate.
+- `defer_probe_offer(repository: Repository, *, factor_id: str, learning_object_id: str | None=None, session_id: str | None=None, preference: str='decline', clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/probe_offer.py), line 429) — "Not now": persist the decline so the next attempt does not re-offer.
+- `request_teaching_now(vault: LoadedVault, repository: Repository, *, misconception_id: str, factor_id: str, session_id: str | None=None, clock: Clock | None=None) -> RepairStatus` ([source](../../../../../../src/learnloop/diagnosis/probe_offer.py), line 452) — "Teach me now": an explicit learner authorisation to skip the check.
 
 ### Module constants
 
@@ -70,7 +70,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 - `_answer_shown(repository: Repository, practice_item_id: str, *, clock: Clock | None=None) -> bool` ([source](../../../../../../src/learnloop/diagnosis/probe_offer.py), line 62) — Was the item's answer shown, so no probe of it may be offered (UX Phase 4 round 7; the one eligibility decision's question)?
 - `class _OfferRefusedAtCommit(Exception)` ([source](../../../../../../src/learnloop/diagnosis/probe_offer.py), line 77) — The commit refused the probe after the episode was retargeted: rolls the retarget back with it (UX Phase 4 round 7).
-- `_accept_probe_offer(vault: LoadedVault, repository: Repository, *, factor_id: str, decision_receipt_id: str | None=None, session_id: str | None=None, clock: Clock | None=None, ai_client: object | None=None, candidate_id: str | None=None, followup_workflow_id: str | None=None, router_decision_id: str | None=None) -> ProbeOffer` ([source](../../../../../../src/learnloop/diagnosis/probe_offer.py), line 172) — "Take the quick check": enter a factor-aware episode and pin the probe.
+- `_accept_probe_offer(vault: LoadedVault, repository: Repository, *, factor_id: str, decision_receipt_id: str | None=None, session_id: str | None=None, clock: Clock | None=None, ai_client: object | None=None, candidate_id: str | None=None, followup_workflow_id: str | None=None, router_decision_id: str | None=None) -> ProbeOffer` ([source](../../../../../../src/learnloop/diagnosis/probe_offer.py), line 180) — "Take the quick check": enter a factor-aware episode and pin the probe.
 
 ## Who imports or calls it
 
@@ -90,12 +90,12 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/diagnosis/causal_discrimination|learnloop.diagnosis.causal_discrimination]] — imports `pinned_causal_probe`; calls `pinned_causal_probe`
 - [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] — imports `RepairStatus`, `causal_repair_status`; calls `causal_repair_status`
 - [[Reference/Modules/learnloop/diagnosis/causal_probe_coherence|learnloop.diagnosis.causal_probe_coherence]] — imports `candidate_has_current_blind_input_contract`, `order_probe_candidates`; calls `candidate_has_current_blind_input_contract`, `order_probe_candidates`
-- [[Reference/Modules/learnloop/diagnosis/causal_reads|learnloop.diagnosis.causal_reads]] — imports `CAUSAL_ORCHESTRATOR_FORMULA_VERSION`
+- [[Reference/Modules/learnloop/diagnosis/causal_reads|learnloop.diagnosis.causal_reads]] — imports `CAUSAL_ORCHESTRATOR_FORMULA_VERSION`, `CausalRepairError`
 - [[Reference/Modules/learnloop/diagnosis/chain_records|learnloop.diagnosis.chain_records]] — imports `record_probe_offer`; calls `record_probe_offer`
 - [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `eligible_instruments`, `enter_episode`, `retarget_episode_to_causal_factor`; calls `eligible_instruments`, `enter_episode`, `retarget_episode_to_causal_factor`
 - [[Reference/Modules/learnloop/diagnosis/probe_hard_stops|learnloop.diagnosis.probe_hard_stops]] — imports `EPISODE_CONFLICT_REASON`, `_causal_origin`, `episode_conflict_reason`, `record_learner_preference`; calls `_causal_origin`, `episode_conflict_reason`, `record_learner_preference`
 - [[Reference/Modules/learnloop/diagnosis/probe_presentations|learnloop.diagnosis.probe_presentations]] — imports `RoutineDisplayCovered`, `commit_presentation`, `routine_display_covers_item`; calls `commit_presentation`, `routine_display_covers_item`
-- [[Reference/Modules/learnloop/router/plan_log|learnloop.router.plan_log]] — imports `PROBE_REF`, `learner_probe_decision`; calls `learner_probe_decision`
+- [[Reference/Modules/learnloop/router/plan_log|learnloop.router.plan_log]] — imports `PROBE_REF`, `automatic_probe_decision`, `learner_probe_decision`; calls `automatic_probe_decision`, `learner_probe_decision`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LoadedVault`
 
 ### Platform and third-party dependencies

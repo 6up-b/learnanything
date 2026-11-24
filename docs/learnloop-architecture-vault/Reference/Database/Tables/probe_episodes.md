@@ -27,7 +27,7 @@ source_paths:
   - "src/learnloop/attempts/post_attempt.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/curriculum/depth_rungs.py"
-  - "src/learnloop/daily_plan/router_reader.py"
+  - "src/learnloop/daily_plan/probe_continuation.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -54,7 +54,7 @@ It belongs to the **diagnosis** navigation family. The family context lives in [
 - **Role:** `workflow` — Mutable queue, session, lease, or other in-flight workflow state. It is preserved across rebuilds.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/028_probe_episodes.sql`.
-- **Schema touched by:** `028_probe_episodes.sql`, `059_probe_episode_origin.sql`, `068_goal_terminal_contracts.sql`, `070_p0_measurement_hardening.sql`, `071_probe_robust_cutover.sql`, `083_diagnostic_pack_and_triage.sql`, `110_probe_action_equivalence.sql`, `113_probe_completion_posterior.sql`, `122_causal_activity_events.sql`, `200_probe_value_of_information_stop.sql`.
+- **Schema touched by:** `028_probe_episodes.sql`, `059_probe_episode_origin.sql`, `068_goal_terminal_contracts.sql`, `070_p0_measurement_hardening.sql`, `071_probe_robust_cutover.sql`, `083_diagnostic_pack_and_triage.sql`, `110_probe_action_equivalence.sql`, `113_probe_completion_posterior.sql`, `122_causal_activity_events.sql`, `200_probe_value_of_information_stop.sql`, `273_probe_episode_router_stop.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -136,6 +136,7 @@ Indexes and uniqueness:
 - `src/learnloop/cli/app.py`
 - `src/learnloop/curriculum/confusable_concepts.py`
 - `src/learnloop/curriculum/depth_rungs.py`
+- `src/learnloop/daily_plan/probe_continuation.py`
 - `src/learnloop/daily_plan/router_reader.py`
 - `src/learnloop/daily_plan/staged_frame.py`
 - `src/learnloop/diagnosis/calibration_sessions.py`
@@ -151,7 +152,6 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/probe_hard_stops.py`
 - `src/learnloop/diagnosis/probe_instance_generation.py`
 - `src/learnloop/diagnosis/probe_offer.py`
-- `src/learnloop/diagnosis/probe_presentations.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -165,6 +165,7 @@ Indexes and uniqueness:
 - `tests/probe_episodes_helpers.py`
 - `tests/probe_records_helpers.py`
 - `tests/probe_robust_cutover_helpers.py`
+- `tests/probe_router_stop_migration_helpers.py`
 - `tests/router_probe_ties_helpers.py`
 - `tests/sim_probe_validation_helpers.py`
 - `tests/test_ad_guard_reachable_reads.py`
@@ -177,7 +178,6 @@ Indexes and uniqueness:
 - `tests/test_characterization_probe_replay.py`
 - `tests/test_characterization_probe_submission.py`
 - `tests/test_daily_loop_lo_lifecycle_serving.py`
-- `tests/test_device_eligibility.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
@@ -224,7 +224,8 @@ CREATE TABLE "probe_episodes" (
       'superseded_by_redesign',
       'couldnt_reliably_distinguish',
       'action_equivalent',
-      'value_of_information_stop'
+      'value_of_information_stop',
+      'router_stop'
     )
   ),
   algorithm_version TEXT NOT NULL,

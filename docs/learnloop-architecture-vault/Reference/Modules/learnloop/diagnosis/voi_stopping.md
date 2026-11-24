@@ -319,6 +319,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/probe_router_owned_helpers.py](../../../../../../tests/probe_router_owned_helpers.py) — direct import
 - [tests/test_data_capture_a1_prefilter.py](../../../../../../tests/test_data_capture_a1_prefilter.py) — direct import
   - `test_a_plan_built_with_no_session_links_the_schedulers_gates_into_its_decision`
   - `test_a_voi_receipt_no_longer_truncates_candidates_to_six`

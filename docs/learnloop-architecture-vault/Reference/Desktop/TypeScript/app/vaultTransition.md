@@ -28,7 +28,7 @@ Area: [[Reference/Desktop/TypeScript/app/_area|TypeScript/app]] · Jump to [[#Pu
 
 ## Why this module exists
 
-Provides `registerVaultDraft`, `selectWithDraftFlush` within the desktop's TypeScript/app ownership area.
+Provides `vaultKey`, `noteActiveVault`, `onVaultActive`, `registerVaultDraft` and related exports within the desktop's TypeScript/app ownership area.
 
 The system-level behavior stays authoritative in the linked architecture, concept, and workflow notes; this note owns only source-level lookup facts.
 
@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/app/vaultTransition.ts](../../../../../../apps/learnloop-tauri/src/app/vaultTransition.ts) |
-| Source lines | 33 |
+| Source lines | 64 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/app/_area|TypeScript/app]] |
 | Refactor status | `ACTIVE` |
@@ -54,25 +54,34 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export function registerVaultDraft(owner: DraftOwner): ()` — function, line 10
-- `export async function selectWithDraftFlush<T>(select: ()` — function, line 16
+- `export function vaultKey(): string | null` — function, line 21
+- `export function noteActiveVault(root: string | null | undefined): void` — function, line 26
+- `export function onVaultActive(listener: (key: string)` — function, line 33
+- `export function registerVaultDraft(owner: DraftOwner): ()` — function, line 38
+- `export async function selectWithDraftFlush<T>(select: ()` — function, line 44
 
 ## Internal implementation anchors
 
 - `type DraftOwner =` — type, line 1
 - `const drafts = new Set<DraftOwner>()` — const, line 7
 - `let selecting = false` — let, line 8
-- `const owners = [...drafts]` — const, line 19
-- `const results = await Promise.allSettled(owners.map((owner)` — const, line 22
-- `const failed = results.find((result)` — const, line 23
+- `let noted = ""` — let, line 16
+- `let between = false` — let, line 17
+- `const activeListeners = new Set<(key: string)` — const, line 18
+- `const owners = [...drafts]` — const, line 47
+- `const results = await Promise.allSettled(owners.map((owner)` — const, line 50
+- `const failed = results.find((result)` — const, line 51
 
 ## Who imports or calls it
 
 > [!note] Static-evidence boundary
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
-- [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] — import-or-re-export: `selectWithDraftFlush`; references `selectWithDraftFlush`
+- [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] — import-or-re-export: `noteActiveVault`, `selectWithDraftFlush`; references `noteActiveVault`, `selectWithDraftFlush`
 - [[Reference/Desktop/TypeScript/screens/PracticeScreen|src/screens/PracticeScreen.tsx]] — import-or-re-export: `registerVaultDraft`; references `registerVaultDraft`
+- [[Reference/Desktop/TypeScript/screens/reader/activity|src/screens/reader/activity.ts]] — import-or-re-export: `registerVaultDraft`, `vaultKey`; references `registerVaultDraft`, `vaultKey`
+- [[Reference/Desktop/TypeScript/screens/reader/readingReports|src/screens/reader/readingReports.ts]] — import-or-re-export: `onVaultActive`, `registerVaultDraft`, `vaultKey`; references `onVaultActive`, `registerVaultDraft`, `vaultKey`
+- [[Reference/Desktop/TypeScript/screens/reader/useCueImpressions|src/screens/reader/useCueImpressions.ts]] — import-or-re-export: `registerVaultDraft`, `vaultKey`; references `registerVaultDraft`, `vaultKey`
 - [[Reference/Desktop/TypeScript/screens/workbench/useWorkbenchSession|src/screens/workbench/useWorkbenchSession.ts]] — import-or-re-export: `registerVaultDraft`; references `registerVaultDraft`
 
 ## Dependencies
@@ -93,6 +102,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 ## Tests that define behavior
 
+- [apps/learnloop-tauri/src/screens/desks/source/ScopedSource.followsLearner.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/desks/source/ScopedSource.followsLearner.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/PracticeScreen.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/PracticeScreen.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 
 ## Modification guidance

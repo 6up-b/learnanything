@@ -1349,7 +1349,10 @@ const PdfPage = memo(function PdfPage({
       ) : null}
       {drawn && inlineNote
         ? blocks
-            .filter((b) => b.spanId === inlineNote.spanId && b.bbox.length === 4)
+            // A passage the original knows only by its page (the text-only extractor's) has no box: its card sits at the
+            // top of its page (review fix round, major 14), so a check or note asked there can still be answered.
+            .filter((b) => b.spanId === inlineNote.spanId)
+            .sort((a, b) => b.bbox.length - a.bbox.length)
             .slice(0, 1)
             .map((b) => (
               <div
@@ -1358,9 +1361,9 @@ const PdfPage = memo(function PdfPage({
                 data-pdf-ui=""
                 style={{
                   position: "absolute",
-                  left: b.bbox[0] * scale,
-                  top: b.bbox[3] * scale + 2,
-                  width: Math.max(220, (b.bbox[2] - b.bbox[0]) * scale),
+                  left: b.bbox.length === 4 ? b.bbox[0] * scale : 0,
+                  top: b.bbox.length === 4 ? b.bbox[3] * scale + 2 : 0,
+                  width: b.bbox.length === 4 ? Math.max(220, (b.bbox[2] - b.bbox[0]) * scale) : "100%",
                   zIndex: 3,
                   background: COLOR.bg,
                   border: `1px solid ${COLOR.border}`,
@@ -1374,7 +1377,8 @@ const PdfPage = memo(function PdfPage({
         : null}
       {drawn && inlineNotes
         ? inlineNotes.flatMap((note) => blocks
-            .filter((b) => b.spanId === note.spanId && b.bbox.length === 4)
+            .filter((b) => b.spanId === note.spanId)
+            .sort((a, b) => b.bbox.length - a.bbox.length)
             .slice(0, 1)
             .map((b) => (
               <div
@@ -1383,9 +1387,9 @@ const PdfPage = memo(function PdfPage({
                 data-pdf-ui=""
                 style={{
                   position: "absolute",
-                  left: b.bbox[0] * scale,
-                  top: b.bbox[3] * scale + 2,
-                  width: Math.max(320, (b.bbox[2] - b.bbox[0]) * scale),
+                  left: b.bbox.length === 4 ? b.bbox[0] * scale : 0,
+                  top: b.bbox.length === 4 ? b.bbox[3] * scale + 2 : 0,
+                  width: b.bbox.length === 4 ? Math.max(320, (b.bbox[2] - b.bbox[0]) * scale) : "100%",
                   zIndex: 4,
                   background: COLOR.bg,
                   cursor: "default",

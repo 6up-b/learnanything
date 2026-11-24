@@ -1282,6 +1282,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_deliverable_scope.py](../../../../../../tests/test_deliverable_scope.py) — direct import
   - `test_ux7_add_it_in_a_library_with_no_subject_yet_files_the_topic_under_a_first_subject`
 - [tests/test_depth_transition.py](../../../../../../tests/test_depth_transition.py) — direct import
+- [tests/test_desk_state_damaged_rows.py](../../../../../../tests/test_desk_state_damaged_rows.py) — direct import
 - [tests/test_device_eligibility.py](../../../../../../tests/test_device_eligibility.py) — direct import
   - `test_a_follow_up_naming_an_ineligible_item_cannot_come_back_at_the_top`
 - [tests/test_diagnose_review.py](../../../../../../tests/test_diagnose_review.py) — direct import
@@ -1921,6 +1922,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_hypothesis_fallback_when_target_set_inadequate`
   - `test_predictive_objective_is_default_and_persisted`
 - [tests/test_probe_remint.py](../../../../../../tests/test_probe_remint.py) — direct import
+- [tests/test_probe_router_decision_integrity.py](../../../../../../tests/test_probe_router_decision_integrity.py) — direct import
+  - `test_r3_a_candidate_ranking_ahead_at_acceptance_is_never_served_under_the_decision`
 - [tests/test_probe_router_replay.py](../../../../../../tests/test_probe_router_replay.py) — direct import
 - [tests/test_probe_surface_mint.py](../../../../../../tests/test_probe_surface_mint.py) — direct import
 - [tests/test_probe_targeting.py](../../../../../../tests/test_probe_targeting.py) — direct import

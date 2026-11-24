@@ -1,9 +1,12 @@
 """The sidecar's post-attempt worker (Slice 1 §11).
 
-Four daemon slots - ``diagnose`` (concurrency 1, strict attempt order),
+Five daemon slots - ``diagnose`` (concurrency 1, strict attempt order),
 ``embed`` (concurrency 1, unordered), ``gaps`` (learner-text gaps,
-concurrency 1, oldest first: ``learner_text_gap_jobs``) and ``followup``
-(FG1's generation, concurrency 1: ``followup_generation_jobs``) - drain their queues
+concurrency 1, oldest first: ``learner_text_gap_jobs``), ``followup``
+(FG1's generation, concurrency 1: ``followup_generation_jobs``) and ``probe_router``
+(the probe router's decisions, concurrency 1: the factors a status read left waiting,
+``learner_probe.requested``, and the router-owned episodes waiting on their next observation,
+``probe_continuation.requested``; it runs when asked, never on an idle poll) - drain their queues
 on their own SQLite connection, in short transactions. The queue is durable and lease-fenced,
 so a process exit loses at most the in-flight model call; the next start (or the
 next notify) reclaims expired leases. Built on the ``ExamGradingManager``
@@ -36,7 +39,7 @@ IDLE_POLL_SECONDS = 30.0
 #: retries them itself with a bounded backoff (§11).
 BUSY_RETRIES = 5
 BUSY_BACKOFF_SECONDS = 0.5
-KINDS = ("diagnose", "embed", "gaps", "followup")
+KINDS = ("diagnose", "embed", "gaps", "followup", "probe_router")
 
 VaultSupplier = Callable[[], tuple[Any, Any] | None]
 
@@ -70,6 +73,10 @@ class PostAttemptWorker:
         #: so its pass never retries a plan wait (Codex verify V2). Never fails the drain.
         self.after_gaps: Callable[[], None] | None = None
         self.last_errors: list[str] = []
+        #: The probe router's decision slot runs when a status read or a start asked for it
+        #: (:meth:`request_probe_router`), not on every idle poll: a decision that could not be
+        #: recorded is tried again on the next read, never every 30 seconds.
+        self._probe_router_due = False
         #: session id -> seconds the last next-item wait took, until the
         #: serve that follows it records it (E7).
         self._waits: dict[str, float] = {}
@@ -110,6 +117,19 @@ class PostAttemptWorker:
                     self._threads[kind] = thread
                     thread.start()
                 self._wake[kind].set()
+
+    def request_probe_router(self) -> None:
+        """A status read left a factor waiting on the router's decision (or a start found one): run the
+        decision slot once."""
+
+        with self._lock:
+            self._probe_router_due = True
+        self.notify()
+
+    def _take_probe_router_due(self) -> bool:
+        with self._lock:
+            due, self._probe_router_due = self._probe_router_due, False
+        return due
 
     @property
     def running(self) -> bool:
@@ -153,6 +173,8 @@ class PostAttemptWorker:
             return self._run_gaps(vault, repository, max_jobs=max_jobs, clock=clock)
         if kind == "followup":
             return self._run_followup(vault, repository, max_jobs=max_jobs, clock=clock)
+        if kind == "probe_router":
+            return self._run_probe_router(vault, repository, max_jobs=max_jobs, clock=clock)
         outcomes: list[Any] = []
         while len(outcomes) < max_jobs:
             result = self._with_busy_retry(
@@ -238,6 +260,21 @@ class PostAttemptWorker:
                 self._changed.notify_all()
         return outcomes
 
+    def _run_probe_router(self, vault: Any, repository: Any, *, max_jobs: int, clock: Any) -> list[Any]:
+        """The probe router's decisions, off the request loop: the learner lane's a status read left waiting, then
+        the continuations router-owned episodes wait on. Pure computation and local writes: no model is asked."""
+
+        from learnloop.daily_plan.learner_probe import run_pending as run_probe_router
+        from learnloop.daily_plan.probe_continuation import run_pending as run_continuations
+
+        ran = self._with_busy_retry(lambda: run_probe_router(vault, repository, clock=clock, max_jobs=max_jobs))
+        ran = [*(ran or []), *(self._with_busy_retry(
+            lambda: run_continuations(vault, repository, clock=clock, max_jobs=max_jobs)) or [])]
+        if ran:
+            with self._changed:
+                self._changed.notify_all()
+        return list(ran or [])
+
     def _with_busy_retry(self, work: Callable[[], Any]) -> Any:
         # One scope per job (ADR-017): the slots are long-lived threads started in a copy of the RPC that first
         # woke them, so without this every job would carry that one request's trace. Once the job's processor has
@@ -257,7 +294,8 @@ class PostAttemptWorker:
         wake = self._wake[kind]
         while not self._stop.is_set():
             try:
-                self.run_pending(kind)
+                if kind != "probe_router" or self._take_probe_router_due():
+                    self.run_pending(kind)
             except Exception as exc:  # noqa: BLE001 - a worker never dies on one job
                 LOG.exception("post-attempt %s worker iteration failed", kind)
                 with self._lock:

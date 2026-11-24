@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/DeskShell.tsx](../../../../../../../apps/learnloop-tauri/src/screens/desks/DeskShell.tsx) |
-| Source lines | 4950 |
+| Source lines | 5141 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/_area|TypeScript/screens/desks]] |
 | Refactor status | `ACTIVE` |
@@ -54,972 +54,1015 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export interface DeskTransport extends OutboxTransport` — interface, line 175
-- `export const LIVE_DESK_TRANSPORT: DeskTransport =` — const, line 185
-- `export interface PadAskContext` — interface, line 225
-- `export interface AskChip` — interface, line 233
-- `export function groundingFor(ws: Workspace, chip: AskChip | null, focus: DeskWindow | undefined, status: Record<string, SourceStatus>): Grounding` — function, line 241
-- `export interface PadsTransport extends PadsApi` — interface, line 340
-- `export const LIVE_PADS_TRANSPORT: PadsTransport =` — const, line 348
-- `export interface MenuTransport extends MenuApi` — interface, line 369
-- `export const LIVE_MENU_TRANSPORT: MenuTransport =` — const, line 377
-- `export interface CompanionTransport extends CompanionApi, SearchApi` — interface, line 396
-- `export const LIVE_COMPANION_TRANSPORT: CompanionTransport =` — const, line 400
-- `export interface PaneRenderInput` — interface, line 410
-- `export interface DeskDebugHandle` — interface, line 426
-- `export const KIND_GLYPH: Record<string, string> =` — const, line 461
-- `export interface DeskShellProps` — interface, line 514
-- `export interface DeskOpenRequest` — interface, line 584
-- `export function DeskShell(` — function, line 598
-- `export function isVideoCard(card: SourceLibraryCard): boolean` — function, line 4790
-- `export function contentForCard(card: SourceLibraryCard, extractionId: string): ContentRefDto` — function, line 4794
+- `export interface DeskTransport extends OutboxTransport` — interface, line 176
+- `export const LIVE_DESK_TRANSPORT: DeskTransport =` — const, line 189
+- `export interface PadAskContext` — interface, line 233
+- `export interface AskChip` — interface, line 241
+- `export function groundingFor(ws: Workspace, chip: AskChip | null, focus: DeskWindow | undefined, status: Record<string, SourceStatus>): Grounding` — function, line 249
+- `export function renderedContent(windowId: string, content:` — function, line 287
+- `export interface PadsTransport extends PadsApi` — interface, line 363
+- `export const LIVE_PADS_TRANSPORT: PadsTransport =` — const, line 371
+- `export interface MenuTransport extends MenuApi` — interface, line 392
+- `export const LIVE_MENU_TRANSPORT: MenuTransport =` — const, line 400
+- `export interface CompanionTransport extends CompanionApi, SearchApi` — interface, line 419
+- `export const LIVE_COMPANION_TRANSPORT: CompanionTransport =` — const, line 423
+- `export interface PaneRenderInput` — interface, line 433
+- `export interface DeskDebugHandle` — interface, line 449
+- `export const KIND_GLYPH: Record<string, string> =` — const, line 484
+- `export interface DeskShellProps` — interface, line 537
+- `export interface DeskOpenRequest` — interface, line 607
+- `export function DeskShell(` — function, line 621
+- `export function isVideoCard(card: SourceLibraryCard): boolean` — function, line 4981
+- `export function contentForCard(card: SourceLibraryCard, extractionId: string): ContentRefDto` — function, line 4985
 
 ## Internal implementation anchors
 
-- `type Step, moveWindowTo, openBeside, openPaired, pairFocused, renameDesk, reorderSlots, replaceWindow, setFocus, setCompanionDock, setCompanionShown, setGoal, setView, slotIndexOf, swapInView, undoClose, unpairFocused, type DeskWindow, type Workspace, } from…` — type, line 31
-- `type DeskWindow, type Workspace, } from "./model/workspace"` — type, line 48
-- `type Workspace, } from "./model/workspace"` — type, line 49
-- `type Rect, type Stage, } from "./geometry"` — type, line 63
-- `type Stage, } from "./geometry"` — type, line 64
-- `type Camera, type ZoomGesture, type ZoomSource, } from "./overview/engine"` — type, line 79
-- `type ZoomGesture, type ZoomSource, } from "./overview/engine"` — type, line 80
-- `type ZoomSource, } from "./overview/engine"` — type, line 81
-- `type DeskAction, type Timers, } from "./keys/router"` — type, line 94
-- `type Timers, } from "./keys/router"` — type, line 95
-- `const COMPANION_SIZES_HANDOFF_MS = 250` — const, line 201
-- `interface SearchState` — interface, line 205
-- `interface Grounding` — interface, line 213
-- `const padBlockId = chip.pad.blockId ?? undefined` — const, line 243
-- `const deskId = ws.windows[chip.windowId]?.deskId ?? focus?.deskId` — const, line 247
-- `const desk = deskId ? ws.desks.find((each)` — const, line 248
-- `const window = ws.windows[id]` — const, line 250
-- `const content = window?.content` — const, line 251
-- `const span = status[id]?.readingSpan ?? (typeof window.view?.spanId === "string" ? (window.view.spanId as string) : undefined)` — const, line 253
-- `const content = ws.windows[chip.windowId]?.content` — const, line 260
-- `const content = focus?.content` — const, line 266
-- `const span = status[focus.windowId]?.readingSpan ?? (typeof focus.view?.spanId === "string" ? (focus.view.spanId as string) : undefined)` — const, line 270
-- `function compareAnchorOf(view: Record<string, unknown> | undefined):` — function, line 277
-- `const anchor = view?.compareAnchor as Record<string, unknown> | undefined` — const, line 278
-- `function firstVisibleSpan(windowId: string | null): string | null` — function, line 285
-- `const host = document.querySelector(`[$` — const, line 287
-- `const top = host.getBoundingClientRect().top` — const, line 289
-- `const spans = [...host.querySelectorAll<HTMLElement>("[data-span-id], [data-transcript-span]")]` — const, line 290
-- `const visible = spans.find((element)` — const, line 291
-- `const PENDING_FIGURES = new WeakMap<object, PendingFigures>()` — const, line 295
-- `function pendingFiguresFor(store: object): PendingFigures` — function, line 297
-- `let figures = PENDING_FIGURES.get(store)` — let, line 298
-- `function errorText(error: unknown): string` — function, line 306
-- `function MenuSheet(` — function, line 311
-- `const node = useRef<HTMLDivElement | null>(null)` — const, line 313
-- `function keyAfterLast(blocks: Array<` — function, line 329
-- `function threadTitle(thread: CompanionExchange[]): string` — function, line 333
-- `const last = thread[thread.length - 1]` — const, line 334
-- `const view = await cachedSourceRead(extractionId, ["reader_render_view", extractionId], ()` — const, line 386
-- `const UNDO_CLOSE_MS = 9_000` — const, line 417
-- `const TOAST_MS = 2_200` — const, line 419
-- `const VIEW_SAVE_IDLE_MS = 2_000` — const, line 421
-- `const MOVED_NOTICE_MS = 6_000` — const, line 423
-- `function displayedCamera(world: HTMLElement): Camera | null` — function, line 436
-- `const shown = typeof getComputedStyle === "function" ? getComputedStyle(world).transform : ""` — const, line 437
-- `const match = /^matrix\(([^)]+)\)$/.exec(shown ?? "")` — const, line 438
-- `function prefersReducedMotion(): boolean` — function, line 444
-- `function slotKey(deskId: string, slot: string[]): string` — function, line 453
-- `function intersects(rect: Rect, stage: Stage): boolean` — function, line 457
-- `const KIND_WORD: Record<string, string> =` — const, line 473
-- `function defaultMintId(prefix: string): string` — function, line 485
-- `function shortName(title: string): string` — function, line 493
-- `const words = title.split(/\s+/).filter(Boolean)` — const, line 494
-- `function readStored(key: string): string | null` — function, line 498
-- `function writeStored(key: string, value: string): void` — function, line 506
-- `const doneOpenRequests = new Map<string, number>()` — const, line 595
-- `const store = useMemo( ()` — const, line 629
-- `const storeWs = useSyncExternalStore(store.subscribe, store.getSnapshot)` — const, line 633
-- `const lessonOpened = useRef<(opening: Opening, lessonId: string)` — const, line 636
-- `const lessonDesk = useMemo(()` — const, line 637
-- `const videoFollowed = useRef<(bookWindowId: string, spanId: string)` — const, line 642
-- `const videoDesk = useMemo(()` — const, line 643
-- `const followLenses = useMemo(()` — const, line 645
-- `const checkMint = useRef(mintId)` — const, line 649
-- `const checkDesk = useMemo(()` — const, line 651
-- `const checkLenses = useMemo(()` — const, line 653
-- `const videoKeys = useRef<` — const, line 655
-- `const ws: Workspace | null = storeReady ? storeWs : null` — const, line 659
-- `const wsRef = useMemo(()` — const, line 660
-- `const deskKey = `learnloop.desks.current.$` — const, line 662
-- `const stageRef = useRef<HTMLElement | null>(null)` — const, line 677
-- `const viewport = initialViewport ??` — const, line 679
-- `const shelf = viewport.width < DESK_SIZES.shelfFoldBelow ? DESK_SIZES.shelfRail : DESK_SIZES.shelf` — const, line 680
-- `const companionStage = useMemo(()` — const, line 685
-- `const padHandles = useRef(new Map<string, PadStackHandle>())` — const, line 708
-- `const menuOpenRef = useRef(false)` — const, line 722
-- `const penOnRef = useRef(penOn)` — const, line 727
-- `const drainingRef = useRef(false)` — const, line 729
-- `const companionRef = useRef<CompanionHandle | null>(null)` — const, line 731
-- `const preOverview = useRef<` — const, line 734
-- `const worldRef = useRef<HTMLDivElement | null>(null)` — const, line 735
-- `const boxEls = useRef(new Map<string, HTMLElement>())` — const, line 738
-- `const innerEls = useRef(new Map<string, HTMLElement>())` — const, line 739
-- `const cardEls = useRef(new Map<string, HTMLElement>())` — const, line 740
-- `const ringEls = useRef(new Map<string, HTMLElement>())` — const, line 741
-- `const slotElements = useCallback((): Map<string, SlotElements>` — const, line 742
-- `const out = new Map<string, SlotElements>()` — const, line 743
-- `const lateEls = useRef(new Map<string, HTMLElement>())` — const, line 747
-- `const sliverEls = useRef(new Map<string, HTMLElement>())` — const, line 748
-- `const miniatures = useMemo(()` — const, line 749
-- `const miniHosts = useRef(new Map<string, HTMLDivElement>())` — const, line 750
-- `const onEndRef = useRef<(goal: 0 | 1, base: 0 | 1)` — const, line 751
-- `const controller = useMemo(()` — const, line 752
-- `const jumps = useRef(new Map<string, (spanId: string)` — const, line 753
-- `const inquiries = useRef(new Map<string, WindowInquiry>())` — const, line 756
-- `const media = useRef(new Map<string, ()` — const, line 757
-- `const pendingJump = useRef(new Map<string, string>())` — const, line 758
-- `const toastNow = useCallback((text: string)` — const, line 760
-- `const toastSafe = useCallback((text: string)` — const, line 762
-- `const setSearch = useCallback((next: SearchState | null)` — const, line 764
-- `const held = next ? checkDesk.heldReason() : null` — const, line 765
-- `const handle = timers.set(()` — const, line 774
-- `const setCurrentDeskId = useCallback((deskId: string | null)` — const, line 780
-- `const commit = useCallback((step: Step)` — const, line 785
-- `const total = notice.dropped + notice.lost` — const, line 794
-- `const chain = useCallback((first: Step, next: (ws: Workspace)` — const, line 802
-- `const second = next(first.ws)` — const, line 803
-- `const firstRun = useCallback(async (base: Workspace, cards: SourceLibraryCard[] | null): Promise<Step>` — const, line 807
-- `const card = firstSourceId ? cards?.find((entry)` — const, line 808
-- `const deskId = mintId("desk")` — const, line 809
-- `const created = createDesk(base, deskId, card ? `new desk · $` — const, line 810
-- `const extractionId = await transport.resolveExtraction(card.sourceId).catch(()` — const, line 813
-- `const pendingPaths = useRef(new Set<string>())` — const, line 819
-- `const pendingHandoffs = useRef(new Map<string, ReadingPosition>())` — const, line 821
-- `const bookWindowFor = useCallback(async ( deskOfWindow: string, windowId: string, sourceId: string, cards: SourceLibraryCard[] | null, handoff: ReadingPosition | null = null, ): Promise<string | null>` — const, line 824
-- `const card = cards?.find((entry)` — const, line 827
-- `const ready = !card || card.readiness === "ready"` — const, line 828
-- `const extractionId = ready ? await transport.resolveExtraction(sourceId).catch(()` — const, line 829
-- `const step = replaceWindow(store.ws, deskOfWindow, windowId, bookContent(sourceId, extractionId, card ? isVideoCard(card) : false), ()` — const, line 832
-- `const handingOver = useRef(new Set<string>())` — const, line 842
-- `const readyCards = useRef(new Map<string, SourceLibraryCard>())` — const, line 844
-- `const bookReady = useCallback(async (deskOfWindow: string, windowId: string, card: SourceLibraryCard, position: ReadingPosition | null)` — const, line 845
-- `const opened = await bookWindowFor(deskOfWindow, windowId, card.sourceId, [card], position)` — const, line 850
-- `const restoreSaved = useCallback(async (cards: SourceLibraryCard[] | null)` — const, line 859
-- `const unshown: string[] = []` — const, line 860
-- `const restored = restoreContent(window.content)` — const, line 863
-- `const sourceId = restored.sourceId ?? (restored.extractionId && transport.sourceOfExtraction ? await transport.sourceOfExtraction(restored.extractionId).catch(()` — const, line 869
-- `const opened = sourceId ? await bookWindowFor(window.deskId, window.windowId, sourceId, cards) : null` — const, line 871
-- `const inquiry = inquiries.current.get(opened)` — const, line 874
-- `let live = true` — let, line 882
-- `const desk = ws ? deskById(ws, currentDeskId) ?? ws.desks[0] ?? null : null` — const, line 905
-- `const deskId = desk?.deskId ?? null` — const, line 906
-- `const focusId = ws && desk ? focusedWindowId(ws, desk) : null` — const, line 907
-- `const focusSlotIndex = ws && desk ? focusedSlot(ws, desk) : -1` — const, line 908
-- `const slotCount = desk?.slots.length ?? 0` — const, line 916
-- `const keepPrevious = useRef(false)` — const, line 917
-- `const next = ensureVisible(cams[deskId] ?? 0, focusSlotIndex, slotCount, stage, keepPrevious.current)` — const, line 921
-- `const node = stageRef.current` — const, line 929
-- `const measure = ()` — const, line 930
-- `const next =` — const, line 932
-- `const now = stageNow.current` — const, line 933
-- `const shell = node?.closest(".desk-shell") as HTMLElement | null` — const, line 940
-- `const observer = typeof ResizeObserver === "undefined" || !node ? null : new ResizeObserver(measure)` — const, line 944
-- `const cam = deskId ? camX[deskId] ?? 0 : 0` — const, line 953
-- `const visibility = useMemo(()` — const, line 954
-- `const deskIndex = ws && desk ? ws.desks.indexOf(desk) : 0` — const, line 955
-- `const lifecycles = useMemo(()` — const, line 959
-- `const out: Record<string, WindowLifecycle> =` — const, line 960
-- `const onCurrent = each.deskId === deskId` — const, line 963
-- `const activeWindowId = Object.values(lifecycles).find((each)` — const, line 979
-- `const held = document.activeElement` — const, line 981
-- `const owner = held && held !== document.body ? windowOfTarget(held) : null` — const, line 982
-- `const target = activeWindowId ? document.querySelector<HTMLElement>(`[$` — const, line 984
-- `const lifecyclesRef = useRef(lifecycles)` — const, line 990
-- `const focusIdRef = useRef(focusId)` — const, line 992
-- `const skimming = useRef(new Map<string, boolean>())` — const, line 996
-- `const lastBookFocus = useRef<string | null>(null)` — const, line 997
-- `const skimmingReported = useRef<boolean | null>(null)` — const, line 998
-- `const onSkimmingRef = useRef(onSkimmingChange)` — const, line 999
-- `const reportSkimming = useCallback(()` — const, line 1001
-- `const focused = focusIdRef.current` — const, line 1002
-- `const content = focused ? wsRef.current.windows[focused]?.content : undefined` — const, line 1003
-- `const muted = Boolean(lastBookFocus.current && skimming.current.get(lastBookFocus.current))` — const, line 1005
-- `const skimmingHandlers = useMemo(()` — const, line 1010
-- `const skimmingFor = useCallback((windowId: string)` — const, line 1011
-- `let handler = skimmingHandlers.get(windowId)` — let, line 1012
-- `const readingReported = useRef<string | undefined>(undefined)` — const, line 1026
-- `const onReadingRef = useRef(onReadingChange)` — const, line 1027
-- `const holdingReading = checkDesk.holding()` — const, line 1029
-- `const isBook = (id: string | null | undefined)` — const, line 1032
-- `const content = id ? ws.windows[id]?.content : null` — const, line 1033
-- `const desk = deskById(ws, deskId)` — const, line 1037
-- `const shown = isBook(lastBookFocus.current) ?? isBook(desk?.slots.flat().find((id)` — const, line 1038
-- `const book = shown ?` — const, line 1039
-- `const key = book ? `$` — const, line 1040
-- `const knownOwners = useRef(new Set<string>())` — const, line 1047
-- `const focusModeRef = useRef(focusMode)` — const, line 1059
-- `const switchDesk = useCallback((direction: -1 | 1): boolean` — const, line 1062
-- `const current = wsRef.current` — const, line 1063
-- `const index = current.desks.findIndex((each)` — const, line 1064
-- `const next = current.desks[index + direction]` — const, line 1065
-- `const deskIdRef = useRef(deskId)` — const, line 1070
-- `const titleOf = useCallback((window: DeskWindow | undefined): string` — const, line 1073
-- `const known = status[window.windowId]?.title` — const, line 1075
-- `const content = window.content` — const, line 1077
-- `const heldTitleOf = useCallback((window: DeskWindow | undefined): string` — const, line 1089
-- `const content = window.content` — const, line 1091
-- `const ovLayout = useMemo(()` — const, line 1099
-- `const ovLayoutRef = useRef(ovLayout)` — const, line 1100
-- `const stageNow = useRef(stage)` — const, line 1102
-- `const camXRef = useRef(camX)` — const, line 1104
-- `const overviewRef = useRef(overview)` — const, line 1106
-- `const ovCamRef = useRef(ovCam)` — const, line 1108
-- `const selectionRef = useRef(selection)` — const, line 1110
-- `const visitedRef = useRef(visited)` — const, line 1112
-- `const showRelationsRef = useRef(showRelations)` — const, line 1114
-- `const reduced = reducedMotion ?? prefersReducedMotion()` — const, line 1116
-- `const transitionGen = useRef(0)` — const, line 1119
-- `const panEaseRef = useRef(panEase)` — const, line 1120
-- `const pendingLeave = useRef<` — const, line 1122
-- `const cardOf = useCallback((windowId: string | null | undefined): Rect | null` — const, line 1125
-- `const layout = ovLayoutRef.current` — const, line 1126
-- `const current = wsRef.current` — const, line 1127
-- `const index = slotIndexOf(each, windowId)` — const, line 1130
-- `const readingRectOf = useCallback((current: Workspace, row: number, index: number, readingRow: number, cams: Record<string, number>, st: Stage): Rect` — const, line 1138
-- `const each = current.desks[row]` — const, line 1139
-- `const rect = slotRects(each.slots.length, st)[index]` — const, line 1140
-- `const relatedTo = useCallback((windowId: string | null | undefined): Relation[]` — const, line 1144
-- `const recedes = useCallback((slot: string[], selected: string | null, related: Relation[], relationsOn: boolean): boolean` — const, line 1147
-- `const planZoom = useCallback((base: 0 | 1, readingDeskId: string, cams: Record<string, number>, selected: string | null, B: Camera, fullWindowId: string | null = null): ZoomPlan | null` — const, line 1152
-- `const current = wsRef.current` — const, line 1153
-- `const layout = ovLayoutRef.current` — const, line 1154
-- `const st = stageNow.current` — const, line 1155
-- `const readingRow = Math.max(0, current.desks.findIndex((each)` — const, line 1157
-- `const related = relatedTo(selected)` — const, line 1158
-- `const items: ZoomPlan["items"] = []` — const, line 1159
-- `const rings: ZoomPlan["rings"] = []` — const, line 1160
-- `const a = readingRectOf(current, row, index, readingRow, cams, st)` — const, line 1162
-- `const b = layout.cards[row][index]` — const, line 1163
-- `const readingPanes = paneRects(a, slot.length)` — const, line 1164
-- `const cardPanes = paneRects(b, slot.length)` — const, line 1165
-- `const live = visitedRef.current.has(each.deskId) && each.deskId === readingDeskId && intersects(a, st)` — const, line 1166
-- `const recede = recedes(slot, selected, related, showRelationsRef.current)` — const, line 1167
-- `const focus = selected !== null && slot.includes(selected)` — const, line 1168
-- `const isRelated = showRelationsRef.current && slot.some((id)` — const, line 1169
-- `const pa = id === fullWindowId && each.deskId === readingDeskId ?` — const, line 1172
-- `const pb = cardPanes[pane]` — const, line 1173
-- `const zoomTargets = useCallback(()` — const, line 1181
-- `const crossfade = useCallback((enter: boolean, to:` — const, line 1193
-- `const world = worldRef.current` — const, line 1195
-- `const id = deskIdRef.current` — const, line 1201
-- `const target = to ?? (preOverview.current ?` — const, line 1210
-- `const beginEnter = useCallback((): boolean` — const, line 1221
-- `const id = deskIdRef.current` — const, line 1223
-- `const selected = focusIdRef.current` — const, line 1231
-- `const B = enteringCamera(cardOf(selected), stageNow.current)` — const, line 1233
-- `const plan = planZoom(0, id, camXRef.current, selected, B)` — const, line 1238
-- `const beginLeave = useCallback((to:` — const, line 1246
-- `const shown = displayedCamera(worldRef.current) ?? ovCamRef.current` — const, line 1256
-- `const target = to ?? preOverview.current ?? (selectionRef.current ?` — const, line 1262
-- `const deskIdTo = target.deskId` — const, line 1264
-- `const windowTo = "windowId" in target ? target.windowId : target.focusId` — const, line 1265
-- `const current = wsRef.current` — const, line 1266
-- `const each = deskById(current, deskIdTo)` — const, line 1267
-- `const fullWindowId = focusAfter && windowTo ? windowTo : null` — const, line 1269
-- `const node = stageRef.current` — const, line 1278
-- `const cams =` — const, line 1282
-- `const index = windowTo ? slotIndexOf(each, windowTo) : -1` — const, line 1283
-- `const plan = planZoom(1, deskIdTo, cams, windowTo, ovCamRef.current, fullWindowId)` — const, line 1285
-- `const plan = controller.plan` — const, line 1301
-- `const leave = pendingLeave.current` — const, line 1319
-- `const generation = transitionGen.current` — const, line 1333
-- `const toggleOverview = useCallback((to:` — const, line 1342
-- `const focusWindow = focusId ? ws.windows[focusId] : null` — const, line 1359
-- `const first = ws.desks.find((each)` — const, line 1364
-- `const windowId = first ? first.slots[0].find((id)` — const, line 1365
-- `const followMoved = useRef(false)` — const, line 1369
-- `const rect = cardOf(selection.windowId)` — const, line 1373
-- `const moveOverviewSelection = useCallback((direction: "left" | "right" | "up" | "down")` — const, line 1380
-- `const layout = ovLayoutRef.current` — const, line 1381
-- `const current = wsRef.current` — const, line 1382
-- `const sel = selectionRef.current` — const, line 1383
-- `let row = sel ? current.desks.findIndex((each)` — let, line 1385
-- `let slot = sel ? slotIndexOf(current.desks[row] ?? current.desks[0], sel.windowId) : 0` — let, line 1386
-- `const next = moveSelection(layout,` — const, line 1391
-- `const each = current.desks[next.row]` — const, line 1392
-- `const windowId = each?.slots[next.slot]?.find((id)` — const, line 1393
-- `const gather = useCallback((toNewDesk: boolean)` — const, line 1401
-- `const current = wsRef.current` — const, line 1402
-- `const id = deskIdRef.current` — const, line 1403
-- `const focus = focusIdRef.current` — const, line 1404
-- `const each = id ? deskById(current, id) : null` — const, line 1405
-- `const related = relationsOf(current, focus).filter((relation)` — const, line 1412
-- `const moving = [focus, ...related.slice(0, DRAWN_RELATIONS).map((relation)` — const, line 1425
-- `const newDeskId = mintId("desk")` — const, line 1426
-- `const title = `gathered · $` — const, line 1427
-- `let step = createDesk(current, newDeskId, title)` — let, line 1428
-- `let after: string | null = null` — let, line 1429
-- `const next = moveToDesk(step.ws, id, windowId, newDeskId, after)` — const, line 1431
-- `const focused = setFocus(step.ws, newDeskId, focus)` — const, line 1435
-- `const newDeskFrom = useCallback((windowId: string)` — const, line 1445
-- `const current = wsRef.current` — const, line 1446
-- `const id = deskIdRef.current` — const, line 1447
-- `const threads = relationsOf(current, windowId) .filter((relation)` — const, line 1449
-- `const newDeskId = mintId("desk")` — const, line 1452
-- `const window = current.windows[windowId]` — const, line 1453
-- `const title = `new desk · $` — const, line 1455
-- `let step = createDesk(current, newDeskId, title)` — let, line 1456
-- `let after: string | null = null` — let, line 1457
-- `const next = moveToDesk(step.ws, id, moving, newDeskId, after)` — const, line 1459
-- `const focused = setFocus(step.ws, newDeskId, windowId)` — const, line 1463
-- `const run = useCallback((action: DeskAction): boolean` — const, line 1469
+- `type Step, moveWindowTo, openBeside, openPaired, pairFocused, renameDesk, reorderSlots, replaceWindow, setFocus, setCompanionDock, setCompanionShown, setGoal, setView, slotIndexOf, swapInView, undoClose, unpairFocused, type DeskWindow, type Workspace, } from…` — type, line 32
+- `type DeskWindow, type Workspace, } from "./model/workspace"` — type, line 49
+- `type Workspace, } from "./model/workspace"` — type, line 50
+- `type Rect, type Stage, } from "./geometry"` — type, line 64
+- `type Stage, } from "./geometry"` — type, line 65
+- `type Camera, type ZoomGesture, type ZoomSource, } from "./overview/engine"` — type, line 80
+- `type ZoomGesture, type ZoomSource, } from "./overview/engine"` — type, line 81
+- `type ZoomSource, } from "./overview/engine"` — type, line 82
+- `type DeskAction, type Timers, } from "./keys/router"` — type, line 95
+- `type Timers, } from "./keys/router"` — type, line 96
+- `const landed = await api.readerSavedPlace(` — const, line 203
+- `const COMPANION_SIZES_HANDOFF_MS = 250` — const, line 209
+- `interface SearchState` — interface, line 213
+- `interface Grounding` — interface, line 221
+- `const padBlockId = chip.pad.blockId ?? undefined` — const, line 251
+- `const deskId = ws.windows[chip.windowId]?.deskId ?? focus?.deskId` — const, line 255
+- `const desk = deskId ? ws.desks.find((each)` — const, line 256
+- `const window = ws.windows[id]` — const, line 258
+- `const content = window?.content` — const, line 259
+- `const span = status[id]?.readingSpan ?? (typeof window.view?.spanId === "string" ? (window.view.spanId as string) : undefined)` — const, line 261
+- `const content = ws.windows[chip.windowId]?.content` — const, line 268
+- `const content = focus?.content` — const, line 274
+- `const span = status[focus.windowId]?.readingSpan ?? (typeof focus.view?.spanId === "string" ? (focus.view.spanId as string) : undefined)` — const, line 278
+- `const host = document.querySelector(`[data-desk-window="$` — const, line 289
+- `const rendered = host?.getAttribute("data-rendered-extraction")` — const, line 290
+- `function shownReading(list: string, windowId: string): string | null` — function, line 295
+- `function compareAnchorOf(view: Record<string, unknown> | undefined):` — function, line 300
+- `const anchor = view?.compareAnchor as Record<string, unknown> | undefined` — const, line 301
+- `function firstVisibleSpan(windowId: string | null): string | null` — function, line 308
+- `const host = document.querySelector(`[$` — const, line 310
+- `const top = host.getBoundingClientRect().top` — const, line 312
+- `const spans = [...host.querySelectorAll<HTMLElement>("[data-span-id], [data-transcript-span]")]` — const, line 313
+- `const visible = spans.find((element)` — const, line 314
+- `const PENDING_FIGURES = new WeakMap<object, PendingFigures>()` — const, line 318
+- `function pendingFiguresFor(store: object): PendingFigures` — function, line 320
+- `let figures = PENDING_FIGURES.get(store)` — let, line 321
+- `function errorText(error: unknown): string` — function, line 329
+- `function MenuSheet(` — function, line 334
+- `const node = useRef<HTMLDivElement | null>(null)` — const, line 336
+- `function keyAfterLast(blocks: Array<` — function, line 352
+- `function threadTitle(thread: CompanionExchange[]): string` — function, line 356
+- `const last = thread[thread.length - 1]` — const, line 357
+- `const view = await cachedSourceRead(extractionId, ["reader_render_view", extractionId], ()` — const, line 409
+- `const UNDO_CLOSE_MS = 9_000` — const, line 440
+- `const TOAST_MS = 2_200` — const, line 442
+- `const VIEW_SAVE_IDLE_MS = 2_000` — const, line 444
+- `const MOVED_NOTICE_MS = 6_000` — const, line 446
+- `function displayedCamera(world: HTMLElement): Camera | null` — function, line 459
+- `const shown = typeof getComputedStyle === "function" ? getComputedStyle(world).transform : ""` — const, line 460
+- `const match = /^matrix\(([^)]+)\)$/.exec(shown ?? "")` — const, line 461
+- `function prefersReducedMotion(): boolean` — function, line 467
+- `function slotKey(deskId: string, slot: string[]): string` — function, line 476
+- `function intersects(rect: Rect, stage: Stage): boolean` — function, line 480
+- `const KIND_WORD: Record<string, string> =` — const, line 496
+- `function defaultMintId(prefix: string): string` — function, line 508
+- `function shortName(title: string): string` — function, line 516
+- `const words = title.split(/\s+/).filter(Boolean)` — const, line 517
+- `function readStored(key: string): string | null` — function, line 521
+- `function writeStored(key: string, value: string): void` — function, line 529
+- `const doneOpenRequests = new Map<string, number>()` — const, line 618
+- `const store = useMemo( ()` — const, line 652
+- `const storeWs = useSyncExternalStore(store.subscribe, store.getSnapshot)` — const, line 656
+- `const lessonOpened = useRef<(opening: Opening, lessonId: string)` — const, line 659
+- `const lessonDesk = useMemo(()` — const, line 660
+- `const videoFollowed = useRef<(bookWindowId: string, spanId: string)` — const, line 665
+- `const videoDesk = useMemo(()` — const, line 666
+- `const followLenses = useMemo(()` — const, line 668
+- `const checkMint = useRef(mintId)` — const, line 672
+- `const checkDesk = useMemo(()` — const, line 674
+- `const checkLenses = useMemo(()` — const, line 676
+- `const videoKeys = useRef<` — const, line 678
+- `const ws: Workspace | null = storeReady ? storeWs : null` — const, line 682
+- `const wsRef = useMemo(()` — const, line 683
+- `const deskKey = `learnloop.desks.current.$` — const, line 685
+- `const stageRef = useRef<HTMLElement | null>(null)` — const, line 700
+- `const viewport = initialViewport ??` — const, line 702
+- `const shelf = viewport.width < DESK_SIZES.shelfFoldBelow ? DESK_SIZES.shelfRail : DESK_SIZES.shelf` — const, line 703
+- `const companionStage = useMemo(()` — const, line 708
+- `const padHandles = useRef(new Map<string, PadStackHandle>())` — const, line 731
+- `const menuOpenRef = useRef(false)` — const, line 745
+- `const penOnRef = useRef(penOn)` — const, line 750
+- `const drainingRef = useRef(false)` — const, line 752
+- `const companionRef = useRef<CompanionHandle | null>(null)` — const, line 754
+- `const preOverview = useRef<` — const, line 757
+- `const worldRef = useRef<HTMLDivElement | null>(null)` — const, line 758
+- `const boxEls = useRef(new Map<string, HTMLElement>())` — const, line 761
+- `const innerEls = useRef(new Map<string, HTMLElement>())` — const, line 762
+- `const cardEls = useRef(new Map<string, HTMLElement>())` — const, line 763
+- `const ringEls = useRef(new Map<string, HTMLElement>())` — const, line 764
+- `const slotElements = useCallback((): Map<string, SlotElements>` — const, line 765
+- `const out = new Map<string, SlotElements>()` — const, line 766
+- `const lateEls = useRef(new Map<string, HTMLElement>())` — const, line 770
+- `const sliverEls = useRef(new Map<string, HTMLElement>())` — const, line 771
+- `const miniatures = useMemo(()` — const, line 772
+- `const miniHosts = useRef(new Map<string, HTMLDivElement>())` — const, line 773
+- `const onEndRef = useRef<(goal: 0 | 1, base: 0 | 1)` — const, line 774
+- `const controller = useMemo(()` — const, line 775
+- `const jumps = useRef(new Map<string, (spanId: string)` — const, line 776
+- `const inquiries = useRef(new Map<string, WindowInquiry>())` — const, line 779
+- `const media = useRef(new Map<string, ()` — const, line 780
+- `const pendingJump = useRef(new Map<string, string>())` — const, line 781
+- `const toastNow = useCallback((text: string)` — const, line 783
+- `const toastSafe = useCallback((text: string)` — const, line 785
+- `const setSearch = useCallback((next: SearchState | null)` — const, line 787
+- `const held = next ? checkDesk.heldReason() : null` — const, line 788
+- `const handle = timers.set(()` — const, line 797
+- `const setCurrentDeskId = useCallback((deskId: string | null)` — const, line 803
+- `const commit = useCallback((step: Step)` — const, line 808
+- `const total = notice.dropped + notice.lost` — const, line 817
+- `const chain = useCallback((first: Step, next: (ws: Workspace)` — const, line 825
+- `const second = next(first.ws)` — const, line 826
+- `const firstRun = useCallback(async (base: Workspace, cards: SourceLibraryCard[] | null): Promise<Step>` — const, line 830
+- `const card = firstSourceId ? cards?.find((entry)` — const, line 831
+- `const deskId = mintId("desk")` — const, line 832
+- `const created = createDesk(base, deskId, card ? `new desk · $` — const, line 833
+- `const extractionId = await transport.resolveExtraction(card.sourceId).catch(()` — const, line 836
+- `const pendingPaths = useRef(new Set<string>())` — const, line 842
+- `const pendingHandoffs = useRef(new Map<string, ReadingPosition>())` — const, line 844
+- `const retarget = useCallback((deskOfWindow: string, windowId: string, content: ContentRefDto, view: Record<string, unknown> =` — const, line 848
+- `const step = replaceWindow(store.ws, deskOfWindow, windowId, content, ()` — const, line 849
+- `const handoff = pendingHandoffs.current.get(windowId)` — const, line 851
+- `const jump = pendingJump.current.get(windowId)` — const, line 854
+- `const placeOn = useCallback(async (sourceId: string, spanId: string, from: string | null | undefined, to: string): Promise<string | null>` — const, line 864
+- `const retargeting = useRef(new Set<string>())` — const, line 875
+- `const retargetReading = useCallback(async (windowId: string, reading: string, renderedSpan: string | null = null): Promise<string | null>` — const, line 876
+- `const window = store.ws.windows[windowId]` — const, line 877
+- `const content = window?.content` — const, line 878
+- `const saved = typeof window.view?.spanId === "string" ? (window.view.spanId as string) : null` — const, line 883
+- `const spanId = renderedSpan ?? (saved ? await placeOn(content.sourceId, saved, content.extractionId, reading) : null)` — const, line 884
+- `const now = store.ws.windows[windowId]` — const, line 885
+- `const nowContent = now?.content` — const, line 886
+- `const bookWindowFor = useCallback(async ( deskOfWindow: string, windowId: string, sourceId: string, cards: SourceLibraryCard[] | null, handoff: ReadingPosition | null = null, ): Promise<string | null>` — const, line 896
+- `const card = cards?.find((entry)` — const, line 899
+- `const ready = !card || card.readiness === "ready"` — const, line 900
+- `const extractionId = ready ? await transport.resolveExtraction(sourceId).catch(()` — const, line 901
+- `const handingOver = useRef(new Set<string>())` — const, line 911
+- `const readyCards = useRef(new Map<string, SourceLibraryCard>())` — const, line 913
+- `const bookReady = useCallback(async (deskOfWindow: string, windowId: string, card: SourceLibraryCard, position: ReadingPosition | null)` — const, line 914
+- `const opened = await bookWindowFor(deskOfWindow, windowId, card.sourceId, [card], position)` — const, line 919
+- `const restoreSaved = useCallback(async (cards: SourceLibraryCard[] | null)` — const, line 928
+- `const unshown: string[] = []` — const, line 929
+- `const content = window.content` — const, line 934
+- `const restored = restoreContent(window.content)` — const, line 942
+- `const sourceId = restored.sourceId ?? (restored.extractionId && transport.sourceOfExtraction ? await transport.sourceOfExtraction(restored.extractionId).catch(()` — const, line 948
+- `const opened = sourceId ? await bookWindowFor(window.deskId, window.windowId, sourceId, cards) : null` — const, line 950
+- `const inquiry = inquiries.current.get(opened)` — const, line 953
+- `let live = true` — let, line 961
+- `const desk = ws ? deskById(ws, currentDeskId) ?? ws.desks[0] ?? null : null` — const, line 984
+- `const deskId = desk?.deskId ?? null` — const, line 985
+- `const focusId = ws && desk ? focusedWindowId(ws, desk) : null` — const, line 986
+- `const focusSlotIndex = ws && desk ? focusedSlot(ws, desk) : -1` — const, line 987
+- `const slotCount = desk?.slots.length ?? 0` — const, line 995
+- `const keepPrevious = useRef(false)` — const, line 996
+- `const next = ensureVisible(cams[deskId] ?? 0, focusSlotIndex, slotCount, stage, keepPrevious.current)` — const, line 1000
+- `const node = stageRef.current` — const, line 1008
+- `const measure = ()` — const, line 1009
+- `const next =` — const, line 1011
+- `const now = stageNow.current` — const, line 1012
+- `const shell = node?.closest(".desk-shell") as HTMLElement | null` — const, line 1019
+- `const observer = typeof ResizeObserver === "undefined" || !node ? null : new ResizeObserver(measure)` — const, line 1023
+- `const cam = deskId ? camX[deskId] ?? 0 : 0` — const, line 1032
+- `const visibility = useMemo(()` — const, line 1033
+- `const deskIndex = ws && desk ? ws.desks.indexOf(desk) : 0` — const, line 1034
+- `const lifecycles = useMemo(()` — const, line 1038
+- `const out: Record<string, WindowLifecycle> =` — const, line 1039
+- `const onCurrent = each.deskId === deskId` — const, line 1042
+- `const activeWindowId = Object.values(lifecycles).find((each)` — const, line 1058
+- `const held = document.activeElement` — const, line 1060
+- `const owner = held && held !== document.body ? windowOfTarget(held) : null` — const, line 1061
+- `const target = activeWindowId ? document.querySelector<HTMLElement>(`[$` — const, line 1063
+- `const lifecyclesRef = useRef(lifecycles)` — const, line 1069
+- `const focusIdRef = useRef(focusId)` — const, line 1071
+- `const skimming = useRef(new Map<string, boolean>())` — const, line 1075
+- `const lastBookOn = useRef(new Map<string, string>())` — const, line 1079
+- `const bookInView = useCallback((current: Workspace, onDeskId: string | null, focused: string | null): string | null` — const, line 1080
+- `const desk = deskById(current, onDeskId)` — const, line 1081
+- `const here = desk.slots.flat()` — const, line 1083
+- `const isBook = (id: string | null | undefined): id is string` — const, line 1084
+- `const content = id && here.includes(id) ? current.windows[id]?.content : null` — const, line 1085
+- `const last = lastBookOn.current.get(desk.deskId)` — const, line 1089
+- `const skimmingReported = useRef<boolean | null>(null)` — const, line 1092
+- `const onSkimmingRef = useRef(onSkimmingChange)` — const, line 1093
+- `const reportSkimming = useCallback(()` — const, line 1095
+- `const book = bookInView(wsRef.current, deskIdRef.current, focusIdRef.current)` — const, line 1096
+- `const muted = Boolean(book && skimming.current.get(book))` — const, line 1097
+- `const skimmingHandlers = useMemo(()` — const, line 1102
+- `const skimmingFor = useCallback((windowId: string)` — const, line 1103
+- `let handler = skimmingHandlers.get(windowId)` — let, line 1104
+- `const readingReported = useRef<string | undefined>(undefined)` — const, line 1118
+- `const onReadingRef = useRef(onReadingChange)` — const, line 1119
+- `const holdingReading = checkDesk.holding()` — const, line 1121
+- `const selected = bookInView(ws, deskId, focusId)` — const, line 1124
+- `const content = selected ? ws.windows[selected]?.content : null` — const, line 1125
+- `const shown = content && (content.kind === "source" || content.kind === "video" || content.kind === "preparing") ? content : null` — const, line 1126
+- `const book = shown ?` — const, line 1127
+- `const key = book ? `$` — const, line 1128
+- `const knownOwners = useRef(new Set<string>())` — const, line 1135
+- `const focusModeRef = useRef(focusMode)` — const, line 1147
+- `const switchDesk = useCallback((direction: -1 | 1): boolean` — const, line 1150
+- `const current = wsRef.current` — const, line 1151
+- `const index = current.desks.findIndex((each)` — const, line 1152
+- `const next = current.desks[index + direction]` — const, line 1153
+- `const deskIdRef = useRef(deskId)` — const, line 1158
+- `const titleOf = useCallback((window: DeskWindow | undefined): string` — const, line 1161
+- `const known = status[window.windowId]?.title` — const, line 1163
+- `const content = window.content` — const, line 1165
+- `const heldTitleOf = useCallback((window: DeskWindow | undefined): string` — const, line 1177
+- `const content = window.content` — const, line 1179
+- `const ovLayout = useMemo(()` — const, line 1187
+- `const ovLayoutRef = useRef(ovLayout)` — const, line 1188
+- `const stageNow = useRef(stage)` — const, line 1190
+- `const camXRef = useRef(camX)` — const, line 1192
+- `const overviewRef = useRef(overview)` — const, line 1194
+- `const ovCamRef = useRef(ovCam)` — const, line 1196
+- `const selectionRef = useRef(selection)` — const, line 1198
+- `const visitedRef = useRef(visited)` — const, line 1200
+- `const showRelationsRef = useRef(showRelations)` — const, line 1202
+- `const reduced = reducedMotion ?? prefersReducedMotion()` — const, line 1204
+- `const transitionGen = useRef(0)` — const, line 1207
+- `const panEaseRef = useRef(panEase)` — const, line 1208
+- `const pendingLeave = useRef<` — const, line 1210
+- `const cardOf = useCallback((windowId: string | null | undefined): Rect | null` — const, line 1213
+- `const layout = ovLayoutRef.current` — const, line 1214
+- `const current = wsRef.current` — const, line 1215
+- `const index = slotIndexOf(each, windowId)` — const, line 1218
+- `const readingRectOf = useCallback((current: Workspace, row: number, index: number, readingRow: number, cams: Record<string, number>, st: Stage): Rect` — const, line 1226
+- `const each = current.desks[row]` — const, line 1227
+- `const rect = slotRects(each.slots.length, st)[index]` — const, line 1228
+- `const relatedTo = useCallback((windowId: string | null | undefined): Relation[]` — const, line 1232
+- `const recedes = useCallback((slot: string[], selected: string | null, related: Relation[], relationsOn: boolean): boolean` — const, line 1235
+- `const planZoom = useCallback((base: 0 | 1, readingDeskId: string, cams: Record<string, number>, selected: string | null, B: Camera, fullWindowId: string | null = null): ZoomPlan | null` — const, line 1240
+- `const current = wsRef.current` — const, line 1241
+- `const layout = ovLayoutRef.current` — const, line 1242
+- `const st = stageNow.current` — const, line 1243
+- `const readingRow = Math.max(0, current.desks.findIndex((each)` — const, line 1245
+- `const related = relatedTo(selected)` — const, line 1246
+- `const items: ZoomPlan["items"] = []` — const, line 1247
+- `const rings: ZoomPlan["rings"] = []` — const, line 1248
+- `const a = readingRectOf(current, row, index, readingRow, cams, st)` — const, line 1250
+- `const b = layout.cards[row][index]` — const, line 1251
+- `const readingPanes = paneRects(a, slot.length)` — const, line 1252
+- `const cardPanes = paneRects(b, slot.length)` — const, line 1253
+- `const live = visitedRef.current.has(each.deskId) && each.deskId === readingDeskId && intersects(a, st)` — const, line 1254
+- `const recede = recedes(slot, selected, related, showRelationsRef.current)` — const, line 1255
+- `const focus = selected !== null && slot.includes(selected)` — const, line 1256
+- `const isRelated = showRelationsRef.current && slot.some((id)` — const, line 1257
+- `const pa = id === fullWindowId && each.deskId === readingDeskId ?` — const, line 1260
+- `const pb = cardPanes[pane]` — const, line 1261
+- `const zoomTargets = useCallback(()` — const, line 1269
+- `const crossfade = useCallback((enter: boolean, to:` — const, line 1281
+- `const world = worldRef.current` — const, line 1283
+- `const id = deskIdRef.current` — const, line 1289
+- `const target = to ?? (preOverview.current ?` — const, line 1298
+- `const beginEnter = useCallback((): boolean` — const, line 1309
+- `const id = deskIdRef.current` — const, line 1311
+- `const selected = focusIdRef.current` — const, line 1319
+- `const B = enteringCamera(cardOf(selected), stageNow.current)` — const, line 1321
+- `const plan = planZoom(0, id, camXRef.current, selected, B)` — const, line 1326
+- `const beginLeave = useCallback((to:` — const, line 1334
+- `const shown = displayedCamera(worldRef.current) ?? ovCamRef.current` — const, line 1344
+- `const target = to ?? preOverview.current ?? (selectionRef.current ?` — const, line 1350
+- `const deskIdTo = target.deskId` — const, line 1352
+- `const windowTo = "windowId" in target ? target.windowId : target.focusId` — const, line 1353
+- `const current = wsRef.current` — const, line 1354
+- `const each = deskById(current, deskIdTo)` — const, line 1355
+- `const fullWindowId = focusAfter && windowTo ? windowTo : null` — const, line 1357
+- `const node = stageRef.current` — const, line 1366
+- `const cams =` — const, line 1370
+- `const index = windowTo ? slotIndexOf(each, windowTo) : -1` — const, line 1371
+- `const plan = planZoom(1, deskIdTo, cams, windowTo, ovCamRef.current, fullWindowId)` — const, line 1373
+- `const plan = controller.plan` — const, line 1389
+- `const leave = pendingLeave.current` — const, line 1407
+- `const generation = transitionGen.current` — const, line 1421
+- `const toggleOverview = useCallback((to:` — const, line 1430
+- `const focusWindow = focusId ? ws.windows[focusId] : null` — const, line 1447
+- `const first = ws.desks.find((each)` — const, line 1452
+- `const windowId = first ? first.slots[0].find((id)` — const, line 1453
+- `const followMoved = useRef(false)` — const, line 1457
+- `const rect = cardOf(selection.windowId)` — const, line 1461
+- `const moveOverviewSelection = useCallback((direction: "left" | "right" | "up" | "down")` — const, line 1468
+- `const layout = ovLayoutRef.current` — const, line 1469
 - `const current = wsRef.current` — const, line 1470
-- `const id = deskIdRef.current` — const, line 1471
-- `const focus = focusIdRef.current` — const, line 1473
-- `const stack = focusedStackRef.current()` — const, line 1480
-- `const step = focusPane(current, id, action.direction)` — const, line 1482
-- `const sel = overviewRef.current ? selectionRef.current : null` — const, line 1488
-- `const each = deskById(current, sel.deskId)` — const, line 1490
-- `const index = each ? slotIndexOf(each, sel.windowId) : -1` — const, line 1491
-- `const sel = selectionRef.current` — const, line 1502
-- `const row = current.desks.findIndex((each)` — const, line 1504
-- `const to = current.desks[row + action.direction]` — const, line 1505
-- `const from = current.desks[row]` — const, line 1506
-- `const index = slotIndexOf(from, sel.windowId)` — const, line 1508
-- `const sel = selectionRef.current` — const, line 1521
-- `const title = titleOf(current.windows[focus])` — const, line 1548
-- `const window = current.windows[focus]` — const, line 1563
-- `const zoom = typeof window?.view?.zoom === "number" ? (window.view.zoom as number) : 1` — const, line 1564
-- `const next = stepZoom(zoom, action.direction)` — const, line 1565
-- `const desk = deskById(current, id)` — const, line 1571
-- `const index = slotIndexOf(desk, focus)` — const, line 1573
-- `const shown = visibilityRef.current.filter((slot)` — const, line 1574
-- `const other = shown.find((slot)` — const, line 1575
-- `const toggle = focus ? media.current.get(focus) : undefined` — const, line 1580
-- `const stack = focusedStackRef.current()` — const, line 1586
-- `const stack = focusedStackRef.current()` — const, line 1592
-- `const stack = focusedStackRef.current()` — const, line 1598
-- `const stack = focusedStackRef.current()` — const, line 1604
-- `const stack = focusedStackRef.current()` — const, line 1613
-- `const visibilityRef = useRef(visibility)` — const, line 1645
-- `const runRef = useRef(run)` — const, line 1647
-- `const modifiers = useMemo(()` — const, line 1652
-- `const altTracker = useMemo( ()` — const, line 1653
-- `const router = useMemo(()` — const, line 1657
-- `const current = wsRef.current` — const, line 1662
-- `const id = deskIdRef.current` — const, line 1663
-- `const owner = current.windows[windowId]` — const, line 1665
-- `const outcome = altTracker.release(event)` — const, line 1693
-- `const open = claimed.current.get(focusIdRef.current ?? "")` — const, line 1702
-- `const has = (scope: ClaimedScope)` — const, line 1703
-- `const resolution = resolveKey(event,` — const, line 1704
-- `const claimed = useRef(new Map<string, Map<ClaimedScope, Set<string>>>())` — const, line 1732
-- `const claimsByWindow = useRef(new Map<string, ScopeClaims>())` — const, line 1733
-- `const claimsFor = useCallback((windowId: string): ScopeClaims` — const, line 1734
-- `let claims = claimsByWindow.current.get(windowId)` — let, line 1735
-- `const byScope = claimed.current.get(windowId) ?? new Map<ClaimedScope, Set<string>>()` — const, line 1739
-- `const owners = byScope.get(scope) ?? new Set<string>()` — const, line 1740
-- `const hubs = useRef(new Map<string, ListenerHub>())` — const, line 1751
-- `const hubFor = useCallback((windowId: string): ListenerHub` — const, line 1752
-- `let hub = hubs.current.get(windowId)` — let, line 1753
-- `const world = worldRef.current` — const, line 1765
-- `const mainRef = useRef<HTMLElement | null>(null)` — const, line 1770
-- `const gesture = useRef<` — const, line 1771
-- `const endGesture = useCallback(()` — const, line 1772
-- `const g = gesture.current` — const, line 1773
-- `const current = wsRef.current` — const, line 1783
-- `const id = deskIdRef.current` — const, line 1784
-- `const each = id ? deskById(current, id) : null` — const, line 1785
-- `const st = stageNow.current` — const, line 1787
-- `const rects = slotRects(each.slots.length, st)` — const, line 1788
-- `const cam = camXRef.current[id] ?? 0` — const, line 1789
-- `let best = 0` — let, line 1790
-- `const snapped = ensureVisible(rects[best].x - DESK_SIZES.side, best, each.slots.length, st)` — const, line 1794
-- `const target = each.slots[best].find((windowId)` — const, line 1796
-- `const main = mainRef.current` — const, line 1802
-- `const onWheel = (event: WheelEvent)` — const, line 1804
-- `const target = event.target as Element | null` — const, line 1805
-- `const st = stageNow.current` — const, line 1810
-- `const now = performance.now()` — const, line 1811
-- `let g = gesture.current` — let, line 1812
-- `const kind = classifyWheel(event, modifiers.read(), st.height)` — const, line 1816
-- `const ovPlain = overviewRef.current && kind.kind !== "zoom"` — const, line 1818
-- `const id = deskIdRef.current` — const, line 1844
-- `const each = id ? deskById(wsRef.current, id) : null` — const, line 1845
-- `const travel = Math.abs(dx) > Math.abs(dy) ? dx : dy` — const, line 1847
-- `const max = Math.max(0, slotRects(each.slots.length, st).reduce((end, rect)` — const, line 1848
-- `const result = zoomWheel(g.zoom, dy, now,` — const, line 1858
-- `const stepped = result.step` — const, line 1860
-- `const began = overviewRef.current ? beginLeave(selectionRef.current ?` — const, line 1862
-- `const began = stepped.goal === 1 ? beginEnter() : beginLeave(selectionRef.current ?` — const, line 1868
-- `const how = g.source === "pinch" ? "pinch" : modifiers.read(event).alt ? "alt + scroll" : "ctrl + scroll"` — const, line 1874
-- `const drag = useRef<` — const, line 1888
-- `const onStagePointerDown = useCallback((event: React.PointerEvent<HTMLElement>)` — const, line 1889
-- `const target = event.target as Element` — const, line 1890
-- `const onCard = target.closest("[data-desk-slot]")` — const, line 1891
-- `const onSliver = target.closest(".desk-sliver") !== null` — const, line 1893
-- `const inContent = !onSliver && target.closest(".desk-slot-inner, button, input, textarea") !== null` — const, line 1894
-- `const key = onCard.getAttribute("data-desk-slot-key") ?? undefined` — const, line 1897
-- `const windowId = onCard.getAttribute("data-desk-slot-window") ?? undefined` — const, line 1898
-- `const deskOf = onCard.getAttribute("data-desk-slot-desk") ?? undefined` — const, line 1899
-- `const onStagePointerMove = useCallback((event: React.PointerEvent<HTMLElement>)` — const, line 1913
-- `const d = drag.current` — const, line 1914
-- `const dx = event.clientX - d.x` — const, line 1916
-- `const dy = event.clientY - d.y` — const, line 1917
-- `const element = d.windowId ? boxEls.current.get(d.windowId) : null` — const, line 1936
-- `const cancelDrag = useCallback(()` — const, line 1944
-- `const d = drag.current` — const, line 1945
-- `const element = d.windowId ? boxEls.current.get(d.windowId) : null` — const, line 1953
-- `const cancelDragRef = useRef(cancelDrag)` — const, line 1959
-- `const scrubbedClick = useRef(false)` — const, line 1962
-- `const onStagePointerUp = useCallback((event: React.PointerEvent<HTMLElement>)` — const, line 1963
-- `const d = drag.current` — const, line 1964
-- `const element = d.windowId ? boxEls.current.get(d.windowId) : null` — const, line 1974
-- `const layout = ovLayoutRef.current` — const, line 1985
-- `const stageBox = (event.currentTarget as HTMLElement).getBoundingClientRect()` — const, line 1986
-- `const point =` — const, line 1988
-- `const drop = dropTarget(layout, point)` — const, line 1989
-- `const current = wsRef.current` — const, line 1990
-- `const to = drop ? current.desks[drop.row] : null` — const, line 1991
-- `const from = slotIndexOf(to, d.windowId)` — const, line 1994
-- `const world = worldRef.current` — const, line 2005
-- `const observer = new MutationObserver((records)` — const, line 2007
-- `const node = record.target instanceof Element ? record.target : record.target.parentElement` — const, line 2009
-- `const windowId = windowOfTarget(node)` — const, line 2010
-- `const handle = timers.set(()` — const, line 2023
-- `const body = [...document.querySelectorAll<HTMLElement>("[data-desk-window]")].find((pane)` — const, line 2026
-- `const node = miniatures.get(windowId)` — const, line 2036
-- `const node = host.firstElementChild as HTMLElement | null` — const, line 2039
-- `const stackForLessons = useCallback((id: string): string | null` — const, line 2062
-- `const existing = stackWindowOf(wsRef.current, id)` — const, line 2063
-- `const before = new Set(wsRef.current.runningPadIds ?? [])` — const, line 2065
-- `const step = ensureRunningPad(wsRef.current, id, ()` — const, line 2066
-- `const placeLesson = useCallback((lessonId: string)` — const, line 2074
-- `const id = deskIdRef.current` — const, line 2075
-- `const found = findLesson(wsRef.current, id, lessonId)` — const, line 2077
-- `const stackId = stackForLessons(id)` — const, line 2083
-- `const openLesson = useCallback((entry: LessonEntry)` — const, line 2091
-- `const held = entry.kind === "resume" ? null : checkDesk.heldReason()` — const, line 2093
-- `const id = deskIdRef.current` — const, line 2102
-- `const stackId = stackForLessons(id)` — const, line 2104
-- `const window = wsRef.current.windows[opening.windowId]` — const, line 2112
-- `const lessonRequestSeq = useRef<number | null>(null)` — const, line 2117
-- `const lessonRequest = lessons?.request ?? null` — const, line 2118
-- `const reader = useMemo<ReaderPassThrough | undefined>(()` — const, line 2128
-- `const lessonsHost = useMemo<LessonsHost>(()` — const, line 2132
-- `const openContent = useCallback((content: ContentRefDto, options:` — const, line 2143
-- `const current = wsRef.current` — const, line 2144
-- `const id = deskIdRef.current` — const, line 2145
-- `const step = openBeside(current, id, content, ()` — const, line 2153
-- `const shown = wsRef.current.windows[step.windowId]` — const, line 2160
-- `const inquiry = options.peek ? inquiries.current.get(step.windowId) : undefined` — const, line 2165
-- `const jump = jumps.current.get(step.windowId)` — const, line 2166
-- `const handle = timers.set(()` — const, line 2173
-- `const next = new Set(now)` — const, line 2176
-- `const openingAt = (windowId: string, windowDeskId: string, content:` — const, line 2188
-- `const desk = deskById(ws, deskId)` — const, line 2193
-- `const first = desk.slots.flat().find((id)` — const, line 2195
-- `const other = ws.windows[id]?.content` — const, line 2196
-- `const card = library.find((entry)` — const, line 2211
-- `const sameReading = !openRequest.reading || openRequest.reading === extractionId` — const, line 2223
-- `const openHit = useCallback((hit:` — const, line 2229
-- `const card = library?.find((entry)` — const, line 2231
-- `const kind = card && isVideoCard(card) ? "video" : "source"` — const, line 2232
-- `const asks = useMemo( ()` — const, line 2239
-- `const shownVault = useRef<` — const, line 2249
-- `const before = shownVault.current` — const, line 2251
-- `const statusRef = useRef(status)` — const, line 2255
-- `const companionStateRef = useRef(companionState)` — const, line 2257
-- `const chipRef = useRef(chip)` — const, line 2259
-- `const searchOpenRef = useRef(false)` — const, line 2261
-- `const stripOpenRef = useRef(false)` — const, line 2265
-- `const goalPathRef = useRef<` — const, line 2268
-- `const goalIdRef = useRef<string | null>(null)` — const, line 2270
-- `const anchoredAt = useRef(0)` — const, line 2271
-- `const groundingRef = useRef<Grounding>(` — const, line 2272
-- `const stepCompanion = useCallback((event: CompanionEvent)` — const, line 2275
-- `const before = companionStateRef.current` — const, line 2276
-- `const next = companionStep(before, event)` — const, line 2277
-- `const id = deskIdRef.current` — const, line 2282
-- `const lastPointer = useRef<` — const, line 2287
-- `const stageNode = stageRef.current` — const, line 2289
-- `const onMove = (event: PointerEvent)` — const, line 2291
-- `const box = stageNode.getBoundingClientRect()` — const, line 2292
-- `const companionKey = (atDock: boolean)` — const, line 2301
-- `const id = focusIdRef.current` — const, line 2302
-- `const selected: WindowSelection | null = id ? readWindowSelection(id, stageRef.current) : null` — const, line 2305
-- `let anchor: Rect | null = null` — let, line 2310
-- `const selected: WindowSelection | null = id ? readWindowSelection(id, stageRef.current) : null` — const, line 2312
-- `const viewport = (stageRef.current?.closest(".desk-shell") as HTMLElement | null)?.clientWidth` — const, line 2321
-- `const companionKeyRef = useRef(companionKey)` — const, line 2324
-- `const askRequestSeen = useRef(askRequest)` — const, line 2327
-- `const notebookMessage = (message: BridgeMessage, owner: NotebookOwner)` — const, line 2338
-- `const request = notebookMenuRequest(message, owner)` — const, line 2341
-- `const box = stageRef.current?.getBoundingClientRect()` — const, line 2354
-- `const anchor = message.rect && box ?` — const, line 2355
-- `const notebookMessageRef = useRef(notebookMessage)` — const, line 2361
-- `const notebookBridge = useMemo<NotebookBridgeHost>(()` — const, line 2363
-- `const companionInit = useRef(false)` — const, line 2367
-- `const opening = deskById(ws, deskId)` — const, line 2370
-- `const shown: CompanionState =` — const, line 2375
-- `const snapCompanion = useCallback((dock: CompanionDock)` — const, line 2381
-- `const id = deskIdRef.current` — const, line 2383
-- `const before = companionStateRef.current` — const, line 2385
-- `const next: CompanionState =` — const, line 2386
-- `const viewKey = `$` — const, line 2394
-- `const lastViewKey = useRef(viewKey)` — const, line 2395
-- `const stageNode = stageRef.current` — const, line 2404
-- `const onScroll = (event: Event)` — const, line 2406
-- `const target = event.target instanceof Element ? event.target : null` — const, line 2409
-- `const onSelection = ()` — const, line 2419
-- `const id = focusIdRef.current` — const, line 2420
-- `const panel = companionRef.current?.rect() ?? null` — const, line 2421
-- `const selected = readWindowSelection(id, stageRef.current)` — const, line 2426
-- `const promptContract = useCachedQuery(["reader_prompt_contract"], ()` — const, line 2436
-- `const readerTutor = promptContract.data?.readerTutor ?? null` — const, line 2440
-- `const personalizedOn = personalizedChoice ?? readerTutor?.personalizedDefault ?? true` — const, line 2442
-- `const personalizedRef = useRef<boolean | null>(null)` — const, line 2443
-- `const personalizedInput = ()` — const, line 2445
-- `const askCompanion = useCallback((question: string)` — const, line 2447
-- `const grounding = groundingRef.current` — const, line 2448
-- `const spanId = grounding.spanId ?? firstVisibleSpan(grounding.spanWindowId ?? grounding.windowId ?? null)` — const, line 2450
-- `const lifecycle = lifecyclesRef.current[grounding.windowId ?? ""]` — const, line 2456
-- `const selected = chipRef.current` — const, line 2458
-- `const padLine = selected?.pad ? selected.quote : null` — const, line 2461
-- `const askAgain = (exchange: CompanionExchange, question: string, retrievalIntent: "alternative" | "remediate")` — const, line 2481
-- `const parent = exchange.answer ? exchange.answer.readerAnswerEventId || exchange.answer.eventId : null` — const, line 2482
-- `const held = checkDesk.heldReason()` — const, line 2485
-- `const loadHistory = useCallback((query: string, cursor?: string)` — const, line 2498
-- `const deskTitle = useCallback((id: string | null)` — const, line 2500
-- `const openClaim = useCallback((citation: Pick<TutorCitationDto, "extractionId" | "spanId"> &` — const, line 2506
-- `let sourceId = citation.sourceId ?? null` — let, line 2507
-- `let kind: "source" | "video" = "source"` — let, line 2508
-- `const content = window.content` — const, line 2510
-- `const open = (found: string, known: "source" | "video")` — const, line 2517
-- `const card = library?.find((entry)` — const, line 2518
-- `const shown = card && isVideoCard(card) ? "video" : known` — const, line 2519
-- `const ref =` — const, line 2520
-- `const openThread = useCallback((exchange: CompanionExchange)` — const, line 2538
-- `const root = exchange.answer?.readerAnswerEventId || exchange.answer?.eventId` — const, line 2539
-- `const openSearchRow = useCallback((row: SearchRow)` — const, line 2546
-- `const id = deskIdRef.current` — const, line 2547
-- `const ref = row.ref` — const, line 2552
-- `const note = row.raw as` — const, line 2560
-- `const target = row.target ??` — const, line 2562
-- `const passage = (row.raw as` — const, line 2571
-- `const extractionId = passage && (passage.kind === "source" || passage.kind === "video") ? passage.extractionId : null` — const, line 2572
-- `const ensuredDesks = useRef(new Set<string>())` — const, line 2584
-- `const desk = ws && deskId ? deskById(ws, deskId) : undefined` — const, line 2586
-- `const before = new Set(ws.runningPadIds ?? [])` — const, line 2590
-- `const step = ensureRunningPad(ws, deskId, ()` — const, line 2591
-- `const prefetched = useRef(new Set<string>())` — const, line 2598
-- `const migratedStacks = useRef(new Set<string>())` — const, line 2611
-- `let next = ws` — let, line 2614
-- `const ops: Step["ops"] = []` — const, line 2615
-- `const legacy = Array.isArray(window.view?.addedPads) ? (window.view.addedPads as unknown[]).filter((id): id is string` — const, line 2619
-- `const step = addToStack(next, window.deskId, window.windowId, padId)` — const, line 2621
-- `const closedCarried = useRef(new Set<string>())` — const, line 2631
-- `const openOnly = useCallback((list: CarriedQuestionDto[])` — const, line 2632
-- `const refreshCarried = useCallback(()` — const, line 2633
-- `let live = true` — let, line 2646
-- `const markedCarried = useCallback((carriedId: string, event: string)` — const, line 2651
-- `const carriedRelated = useMemo(()` — const, line 2660
-- `const relatedVersion = carriedRelated.getVersion()` — const, line 2667
-- `const openReadings = (desk?.slots.flat() ?? []).flatMap((id)` — const, line 2668
-- `const content = ws?.windows[id]?.content` — const, line 2669
-- `const marksCarried = useMemo(()` — const, line 2672
-- `const all = carriedAll ?? carried.list` — const, line 2673
-- `const carryQuestion = useCallback((text: string, origin:` — const, line 2680
-- `const carried = Promise.resolve().then(()` — const, line 2681
-- `const openPassage = useCallback((extractionId: string, spanId: string | null, t?: number, sourceId?: string | null)` — const, line 2690
-- `const sourcePieces = useCallback((): SourcePiece[]` — const, line 2697
-- `const current = wsRef.current` — const, line 2698
-- `const id = deskIdRef.current` — const, line 2699
-- `const each = id ? deskById(current, id) : null` — const, line 2700
-- `const out: SourcePiece[] = []` — const, line 2702
-- `const window = current.windows[windowId]` — const, line 2704
-- `const content = window?.content` — const, line 2705
-- `const spanId = statusRef.current[windowId]?.readingSpan ?? firstVisibleSpan(windowId)` — const, line 2707
-- `const element = document.querySelector(`[$` — const, line 2709
-- `const text = (element?.textContent ?? "").replace(/\s+/g, " ").trim().slice(0, 600)` — const, line 2710
-- `const title = titleOf(window)` — const, line 2712
-- `const pendingFigures = useMemo(()` — const, line 2719
-- `const menuPromoted = useMemo<PromotedApi>(()` — const, line 2721
-- `const input =` — const, line 2728
-- `const refused = (error: unknown)` — const, line 2729
-- `const giveUp = ()` — const, line 2730
-- `const stop = poller.register<unknown>(` — const, line 2736
-- `const onPromotedRef = useRef<(row: import("../../api/dto").PromotedRowDto, origin: import("../../api/dto").MenuObjectInput | null)` — const, line 2750
-- `const openMenuByKeyRef = useRef<()` — const, line 2751
-- `const closeOverlays = useRef<()` — const, line 2753
-- `const hoveredKeyRef = useRef<(what: "note" | "promoted")` — const, line 2754
-- `const landFigureBlock = useCallback(async (anchor:` — const, line 2757
-- `const pad = padId ? store.pads[padId] : null` — const, line 2759
-- `const companionFigureHost = useMemo<CompanionFigureHost>(()` — const, line 2768
-- `const shownFigures = useCompanionFigures(vaultKey)` — const, line 2772
-- `const workOnPad = useCallback(async (handoff: ProblemHandoff)` — const, line 2776
-- `const id = deskIdRef.current` — const, line 2778
-- `const sessionId = handoff.session.sessionId` — const, line 2780
-- `const padId = problemPadId(sessionId)` — const, line 2784
-- `const title = problemTitle(handoff.session.stemMd)` — const, line 2787
-- `const refused = store.commitPad(padId, [` — const, line 2788
-- `const holding = Object.values(wsRef.current.windows).find((window)` — const, line 2796
-- `const desk = wsRef.current.desks.find((each)` — const, line 2799
-- `const deskOf = holding?.deskId ?? id` — const, line 2802
-- `const stackWindow = holding ?? Object.values(wsRef.current.windows).find((window)` — const, line 2803
-- `const problemHost = useMemo<ProblemHost>(()` — const, line 2812
-- `const padsHost = useMemo<PadsHost>(()` — const, line 2822
-- `const held = checkDesk.heldReason()` — const, line 2837
-- `let first: Awaited<ReturnType<typeof padsTransport.figureRequest>>` — let, line 2844
-- `const waits = checkOpenRefusal(error)` — const, line 2849
-- `const job = first.state !== "pending" ? first : await new Promise<typeof first>((resolve, reject)` — const, line 2856
-- `let stop: ()` — let, line 2859
-- `const gone =` — const, line 2860
-- `const code = error && typeof error === "object" ? (error as` — const, line 2871
-- `const figure = job.result?.figure` — const, line 2879
-- `const window = wsRef.current.windows[windowId]` — const, line 2894
-- `const window = wsRef.current.windows[windowId]` — const, line 2899
-- `const inkCache = useMemo(()` — const, line 2911
-- `const penHost = useMemo<PenHost>(()` — const, line 2913
-- `const focusedStack = (): PadStackHandle | null` — const, line 2928
-- `const focusedStackRef = useRef(focusedStack)` — const, line 2929
-- `const newPadBeside = useCallback(()` — const, line 2933
-- `const id = deskIdRef.current` — const, line 2934
-- `const padId = mintId("pad")` — const, line 2936
-- `const title = "Pad · new notes"` — const, line 2937
-- `const refused = store.commitPad(padId, [` — const, line 2938
-- `const newPadBesideRef = useRef(newPadBeside)` — const, line 2945
-- `const deskPadIds = useCallback((id: string | null): string[]` — const, line 2949
-- `const runningPadOf = useCallback((id: string | null): string | null` — const, line 2955
-- `const answerProposals = useCallback((exchange: CompanionExchange): ProposedDiff[]` — const, line 2962
-- `const answer = exchange.answer` — const, line 2963
-- `const known = runningPadOf(exchange.deskId)` — const, line 2964
-- `const lines = answer.answerMd.split("\n").map((line)` — const, line 2966
-- `const padId = runningPadOf(exchange.deskId)` — const, line 2976
-- `const now = padId ? store.pads[padId] : null` — const, line 2977
-- `const refused = store.commitPad(padId, [` — const, line 2979
-- `const drainWrite = useCallback(async (padId: string, op: "keep" | "unkeep", version: number): Promise<void>` — const, line 2990
-- `const refused = store.commitPad(padId, [` — const, line 2993
-- `const unionKey = useRef<Record<string, string>>(` — const, line 3002
-- `const padVersionNow = store.getPadVersion()` — const, line 3003
-- `const stage = stageRef.current` — const, line 3005
-- `let live = true` — let, line 3007
-- `const read = ()` — const, line 3008
-- `const desk = deskById(wsRef.current, deskId)` — const, line 3009
-- `const content = wsRef.current.windows[id]?.content` — const, line 3011
-- `const lifecycle = lifecyclesRef.current[id]` — const, line 3012
-- `const range = visibleSpanRange(stage, id)` — const, line 3014
-- `const key = `$` — const, line 3016
-- `const extractionId = content.extractionId` — const, line 3019
-- `const links = union.spans.flatMap((span)` — const, line 3022
-- `let frame: ReturnType<typeof setTimeout> | null = null` — let, line 3028
-- `const onScroll = ()` — const, line 3029
-- `const settle = setTimeout(read, 800)` — const, line 3035
-- `const padLinks = useMemo<PadLink[]>(()` — const, line 3045
-- `const seen = new Set<string>()` — const, line 3046
-- `const out: PadLink[] = []` — const, line 3047
-- `const key = `$` — const, line 3050
-- `const goalPadAnchors = useMemo(()` — const, line 3061
-- `const live = new Set<string>()` — const, line 3062
-- `const goalReadings = useMemo<GoalReading[]>(()` — const, line 3074
-- `const out: GoalReading[] = []` — const, line 3076
-- `const content = window.content` — const, line 3078
-- `const card = library?.find((each)` — const, line 3080
-- `const goalFocused = useMemo(()` — const, line 3086
-- `const window = focusId && ws ? ws.windows[focusId] : null` — const, line 3087
-- `const content = window.content` — const, line 3089
-- `const extractionId = content && (content.kind === "source" || content.kind === "video") ? content.extractionId : null` — const, line 3090
-- `const openGoalSection = useCallback((section:` — const, line 3094
-- `const onDesk = Object.values(wsRef.current.windows).some((window)` — const, line 3095
-- `const visibleForCheck = useCallback(()` — const, line 3107
-- `const windows = Object.values(wsRef.current.windows).map((window)` — const, line 3108
-- `const companionTab = typeof document === "undefined" ? null : document.querySelector("[data-companion-body]")?.getAttribute("data-check-content") ?? null` — const, line 3112
-- `const exchanges = companionTab?.startsWith("history:") ? [] : asks.thread(deskIdRef.current).flatMap((exchange)` — const, line 3113
-- `const checkNow = useCallback(()` — const, line 3122
-- `const session = opened ? checkDesk.open()?.card.practiceSession : null` — const, line 3130
-- `const card = document.querySelector<HTMLElement>('[data-check-card="inline"], [data-check-card="overlay"]')` — const, line 3138
-- `const protectCheckView = useCallback(()` — const, line 3151
-- `const checkHolding = checkDesk.holding()` — const, line 3154
-- `const handle = requestAnimationFrame(()` — const, line 3157
-- `const openCheck = checkDesk.open()` — const, line 3160
-- `const checkInlineHere = Boolean(openCheck?.host && (desk?.slots.flat() ?? []).some((id)` — const, line 3161
-- `const content = ws?.windows[id]?.content` — const, line 3162
-- `const missing = Boolean(openCheck && checkInlineHere && typeof document !== "undefined" && !document.querySelector('[data-check-card="inline"]'))` — const, line 3169
-- `const checkInline = checkInlineHere && !inlineMissing` — const, line 3172
-- `const holdWindows = useMemo(()` — const, line 3174
-- `const goalDesk = useGoalDesk(` — const, line 3179
-- `const ids = desk?.slots.flat() ?? []` — const, line 3207
-- `const videos: Array<` — const, line 3208
-- `const books: Array<` — const, line 3209
-- `const content = ws?.windows[id]?.content` — const, line 3211
-- `const focus = focusIdRef.current` — const, line 3220
-- `const books = (deskById(wsRef.current, deskIdRef.current)?.slots.flat() ?? []).filter((id)` — const, line 3225
-- `const id = deskIdRef.current` — const, line 3236
-- `const focus = focusIdRef.current` — const, line 3238
-- `const focused = focus ? wsRef.current.windows[focus] : null` — const, line 3239
-- `const driver = videoDesk.driver()` — const, line 3240
-- `const windowId = focused?.content?.kind === "video" ? focused.windowId : driver?.windowId ?? null` — const, line 3241
-- `const content = windowId ? wsRef.current.windows[windowId]?.content : null` — const, line 3242
-- `const clock = videoDesk.clockOf(windowId)` — const, line 3247
-- `const title = titleOf(wsRef.current.windows[windowId])` — const, line 3252
-- `const line = timestampLine(title, clock.t)` — const, line 3253
-- `let padId = runningPadOf(id)` — let, line 3255
-- `const before = new Set(wsRef.current.runningPadIds ?? [])` — const, line 3261
-- `const step = ensureRunningPad(wsRef.current, id, ()` — const, line 3262
-- `const pad = padId ? store.pads[padId] : null` — const, line 3267
-- `const blockId = mintId("blk")` — const, line 3272
-- `const refused = store.commitPad(padId, [` — const, line 3273
-- `const surfacedCarried = useRef(new Set<string>())` — const, line 3288
-- `const onCarriedSurfaced = useCallback((question: CarriedQuestionDto)` — const, line 3289
-- `const rememberAppendTarget = useCallback((id: string, padId: string)` — const, line 3305
-- `const next =` — const, line 3307
-- `const deskPads = useCallback((id: string | null): Array<` — const, line 3317
-- `const desk = deskById(wsRef.current, id)` — const, line 3319
-- `const ids = (desk?.slots.flat() ?? []).flatMap((windowId)` — const, line 3320
-- `const state = store.pads[padId]` — const, line 3322
-- `const appendTargetOf = useCallback((id: string | null): string | null` — const, line 3326
-- `const pads = deskPads(id)` — const, line 3328
-- `const remembered = appendTargets[id]` — const, line 3329
-- `const appendTo = useCallback(async (object: MenuObject, choice: string | "+" | null)` — const, line 3336
-- `const id = deskIdRef.current` — const, line 3337
-- `let target = choice === null ? appendTargetOf(id) : choice` — let, line 3339
-- `const padId = mintId("pad")` — const, line 3341
-- `const title = "Pad"` — const, line 3342
-- `const refused = store.commitPad(padId, [` — const, line 3343
-- `const stackWindow = Object.values(wsRef.current.windows).find((window)` — const, line 3348
-- `const pad = store.pads[target]` — const, line 3358
-- `let annotationId = object.annotationId ?? null` — let, line 3364
-- `const who = await menuTransport.readingIdentity(object.extractionId)` — const, line 3367
-- `const receipt = await menuTransport.readerCapture(` — const, line 3368
-- `const words = (object.selection || object.text).replace(/\s+/g, " ").trim()` — const, line 3381
-- `const body = words.length > 600 ? `$` — const, line 3382
-- `const window = object.windowId ? wsRef.current.windows[object.windowId] : undefined` — const, line 3383
-- `const blockId = mintId("blk")` — const, line 3384
-- `const refused = store.commitPad(target, [` — const, line 3385
-- `const menuPromotedRows = useRef<import("../../api/dto").PromotedRowDto[]>([])` — const, line 3398
-- `const liveMenu = useRef<MenuObject | null>(null)` — const, line 3399
-- `const closeSourceMenu = ()` — const, line 3406
-- `const menuOpening = useRef(0)` — const, line 3412
-- `const menuWithheldAnswer = useRef<` — const, line 3413
-- `const menuContext = useMemo<MenuContext>(()` — const, line 3414
-- `const receipt = await menuTransport.readerCapture(input)` — const, line 3419
-- `const content = wsRef.current.windows[windowId]?.content` — const, line 3421
-- `const quote = clipQuote(object.selection || object.text, 400)` — const, line 3431
-- `const box = stageRef.current?.getBoundingClientRect()` — const, line 3433
-- `const anchor = box ?` — const, line 3434
-- `const windowId = object.windowId && inquiries.current.has(object.windowId) ? object.windowId : null` — const, line 3446
-- `const inquiry = windowId ? inquiries.current.get(windowId) : undefined` — const, line 3447
-- `const id = deskIdRef.current` — const, line 3463
-- `const id = deskIdRef.current` — const, line 3487
-- `const shows = (window: DeskWindow)` — const, line 3488
-- `const lessonId = request.lessonId` — const, line 3490
-- `const target = Object.values(wsRef.current.windows).find((window)` — const, line 3498
-- `const openPadBlock = (padId: string, blockId: string | null)` — const, line 3510
-- `const id = deskIdRef.current` — const, line 3511
-- `const stackWindow = Object.values(wsRef.current.windows).find((window)` — const, line 3513
-- `const place = promotedRef(row)` — const, line 3527
-- `const named = row.action as` — const, line 3544
-- `const extractionId = named.extractionId ?? origin?.extractionId` — const, line 3545
-- `const spanId = named.target?.spanId ?? origin?.spanId` — const, line 3546
-- `const onStageContextMenu = (event: React.MouseEvent)` — const, line 3561
-- `const target = event.target as Element` — const, line 3563
-- `const object = objectAt(target, (windowId)` — const, line 3564
-- `const content = wsRef.current.windows[windowId]?.content` — const, line 3565
-- `const openMenuOn = (object: MenuObject)` — const, line 3573
-- `const held = checkDesk.heldReason()` — const, line 3576
-- `const handle = object.windowId ? padHandles.current.get(object.windowId) : undefined` — const, line 3583
-- `let resolve: (verdict: MenuVerdict | null)` — let, line 3593
-- `const openMenuContext: MenuContext =` — const, line 3599
-- `const hoverTarget = useRef<Element | null>(null)` — const, line 3606
-- `const hovered = hoverTarget.current` — const, line 3612
-- `const object = objectAt(hovered, (windowId)` — const, line 3614
-- `const content = wsRef.current.windows[windowId]?.content` — const, line 3615
-- `const box = hovered.getBoundingClientRect()` — const, line 3618
-- `const input = objectInput(object, deskIdRef.current)` — const, line 3623
-- `const first = found.rows[0]` — const, line 3630
-- `const stage = stageRef.current` — const, line 3640
-- `const focusWindow = focusIdRef.current` — const, line 3641
-- `const kindOf = (windowId: string)` — const, line 3642
-- `const sourceOf = (windowId: string)` — const, line 3643
-- `const content = wsRef.current.windows[windowId]?.content` — const, line 3644
-- `const atOf = (element: Element)` — const, line 3647
-- `const box = element.getBoundingClientRect()` — const, line 3648
-- `const hovered = hoverTarget.current` — const, line 3651
-- `const object = objectAt(hovered, kindOf, sourceOf, atOf(hovered), firstVisibleSpan)` — const, line 3653
-- `const spanId = firstVisibleSpan(focusWindow)` — const, line 3660
-- `const host = stage.querySelector(`[$` — const, line 3661
-- `const first = spanId ? host?.querySelector(`[data-span-id="$` — const, line 3662
-- `const object = objectAt(first, kindOf, sourceOf, atOf(first), firstVisibleSpan)` — const, line 3664
-- `const shelfToday = (()` — const, line 3671
-- `const padId = runningPadOf(deskId)` — const, line 3672
-- `const pad = padId ? store.pads[padId] : null` — const, line 3673
-- `const today = localDay()` — const, line 3675
-- `const lines = pad.blocks.filter((block)` — const, line 3676
-- `const words = block.bodyMd.replace(/\s+/g, " ").trim()` — const, line 3677
-- `const id = deskIdRef.current` — const, line 3687
-- `const stackWindow = Object.values(wsRef.current.windows).find((window)` — const, line 3688
-- `const viewTimers = useRef(new Map<string,` — const, line 3698
-- `const shellTimers = useRef(new Set<unknown>())` — const, line 3699
-- `const statusFor = useMemo(()` — const, line 3711
-- `const onStatusFor = useCallback((windowId: string)` — const, line 3712
-- `let handler = statusFor.get(windowId)` — let, line 3713
-- `const previous = viewTimers.current.get(windowId)` — const, line 3722
-- `const save = ()` — const, line 3724
-- `const current = store.ws` — const, line 3725
-- `const window = current.windows[windowId]` — const, line 3726
-- `const jumpReadyFor = useMemo(()` — const, line 3744
-- `const onJumpReadyFor = useCallback((windowId: string)` — const, line 3745
-- `let handler = jumpReadyFor.get(windowId)` — let, line 3746
-- `const pending = pendingJump.current.get(windowId)` — const, line 3754
-- `const inquiryReadyFor = useMemo(()` — const, line 3765
-- `const onInquiryReadyFor = useCallback((windowId: string)` — const, line 3766
-- `let handler = inquiryReadyFor.get(windowId)` — let, line 3767
-- `const windowAsk = (windowId: string, ask: WindowAsk)` — const, line 3783
+- `const sel = selectionRef.current` — const, line 1471
+- `let row = sel ? current.desks.findIndex((each)` — let, line 1473
+- `let slot = sel ? slotIndexOf(current.desks[row] ?? current.desks[0], sel.windowId) : 0` — let, line 1474
+- `const next = moveSelection(layout,` — const, line 1479
+- `const each = current.desks[next.row]` — const, line 1480
+- `const windowId = each?.slots[next.slot]?.find((id)` — const, line 1481
+- `const gather = useCallback((toNewDesk: boolean)` — const, line 1489
+- `const current = wsRef.current` — const, line 1490
+- `const id = deskIdRef.current` — const, line 1491
+- `const focus = focusIdRef.current` — const, line 1492
+- `const each = id ? deskById(current, id) : null` — const, line 1493
+- `const related = relationsOf(current, focus).filter((relation)` — const, line 1500
+- `const moving = [focus, ...related.slice(0, DRAWN_RELATIONS).map((relation)` — const, line 1513
+- `const newDeskId = mintId("desk")` — const, line 1514
+- `const title = `gathered · $` — const, line 1515
+- `let step = createDesk(current, newDeskId, title)` — let, line 1516
+- `let after: string | null = null` — let, line 1517
+- `const next = moveToDesk(step.ws, id, windowId, newDeskId, after)` — const, line 1519
+- `const focused = setFocus(step.ws, newDeskId, focus)` — const, line 1523
+- `const newDeskFrom = useCallback((windowId: string)` — const, line 1533
+- `const current = wsRef.current` — const, line 1534
+- `const id = deskIdRef.current` — const, line 1535
+- `const threads = relationsOf(current, windowId) .filter((relation)` — const, line 1537
+- `const newDeskId = mintId("desk")` — const, line 1540
+- `const window = current.windows[windowId]` — const, line 1541
+- `const title = `new desk · $` — const, line 1543
+- `let step = createDesk(current, newDeskId, title)` — let, line 1544
+- `let after: string | null = null` — let, line 1545
+- `const next = moveToDesk(step.ws, id, moving, newDeskId, after)` — const, line 1547
+- `const focused = setFocus(step.ws, newDeskId, windowId)` — const, line 1551
+- `const run = useCallback((action: DeskAction): boolean` — const, line 1557
+- `const current = wsRef.current` — const, line 1558
+- `const id = deskIdRef.current` — const, line 1559
+- `const focus = focusIdRef.current` — const, line 1561
+- `const stack = focusedStackRef.current()` — const, line 1568
+- `const step = focusPane(current, id, action.direction)` — const, line 1570
+- `const sel = overviewRef.current ? selectionRef.current : null` — const, line 1576
+- `const each = deskById(current, sel.deskId)` — const, line 1578
+- `const index = each ? slotIndexOf(each, sel.windowId) : -1` — const, line 1579
+- `const sel = selectionRef.current` — const, line 1590
+- `const row = current.desks.findIndex((each)` — const, line 1592
+- `const to = current.desks[row + action.direction]` — const, line 1593
+- `const from = current.desks[row]` — const, line 1594
+- `const index = slotIndexOf(from, sel.windowId)` — const, line 1596
+- `const sel = selectionRef.current` — const, line 1609
+- `const title = titleOf(current.windows[focus])` — const, line 1636
+- `const window = current.windows[focus]` — const, line 1651
+- `const zoom = typeof window?.view?.zoom === "number" ? (window.view.zoom as number) : 1` — const, line 1652
+- `const next = stepZoom(zoom, action.direction)` — const, line 1653
+- `const desk = deskById(current, id)` — const, line 1659
+- `const index = slotIndexOf(desk, focus)` — const, line 1661
+- `const shown = visibilityRef.current.filter((slot)` — const, line 1662
+- `const other = shown.find((slot)` — const, line 1663
+- `const toggle = focus ? media.current.get(focus) : undefined` — const, line 1670
+- `const stack = focusedStackRef.current()` — const, line 1676
+- `const stack = focusedStackRef.current()` — const, line 1682
+- `const stack = focusedStackRef.current()` — const, line 1688
+- `const stack = focusedStackRef.current()` — const, line 1694
+- `const stack = focusedStackRef.current()` — const, line 1703
+- `const visibilityRef = useRef(visibility)` — const, line 1735
+- `const runRef = useRef(run)` — const, line 1737
+- `const modifiers = useMemo(()` — const, line 1742
+- `const altTracker = useMemo( ()` — const, line 1743
+- `const router = useMemo(()` — const, line 1747
+- `const current = wsRef.current` — const, line 1752
+- `const id = deskIdRef.current` — const, line 1753
+- `const owner = current.windows[windowId]` — const, line 1755
+- `const outcome = altTracker.release(event)` — const, line 1783
+- `const open = claimed.current.get(focusIdRef.current ?? "")` — const, line 1792
+- `const has = (scope: ClaimedScope)` — const, line 1793
+- `const resolution = resolveKey(event,` — const, line 1794
+- `const claimed = useRef(new Map<string, Map<ClaimedScope, Set<string>>>())` — const, line 1822
+- `const claimsByWindow = useRef(new Map<string, ScopeClaims>())` — const, line 1823
+- `const claimsFor = useCallback((windowId: string): ScopeClaims` — const, line 1824
+- `let claims = claimsByWindow.current.get(windowId)` — let, line 1825
+- `const byScope = claimed.current.get(windowId) ?? new Map<ClaimedScope, Set<string>>()` — const, line 1829
+- `const owners = byScope.get(scope) ?? new Set<string>()` — const, line 1830
+- `const hubs = useRef(new Map<string, ListenerHub>())` — const, line 1841
+- `const hubFor = useCallback((windowId: string): ListenerHub` — const, line 1842
+- `let hub = hubs.current.get(windowId)` — let, line 1843
+- `const world = worldRef.current` — const, line 1855
+- `const mainRef = useRef<HTMLElement | null>(null)` — const, line 1860
+- `const gesture = useRef<` — const, line 1861
+- `const endGesture = useCallback(()` — const, line 1862
+- `const g = gesture.current` — const, line 1863
+- `const current = wsRef.current` — const, line 1873
+- `const id = deskIdRef.current` — const, line 1874
+- `const each = id ? deskById(current, id) : null` — const, line 1875
+- `const st = stageNow.current` — const, line 1877
+- `const rects = slotRects(each.slots.length, st)` — const, line 1878
+- `const cam = camXRef.current[id] ?? 0` — const, line 1879
+- `let best = 0` — let, line 1880
+- `const snapped = ensureVisible(rects[best].x - DESK_SIZES.side, best, each.slots.length, st)` — const, line 1884
+- `const target = each.slots[best].find((windowId)` — const, line 1886
+- `const main = mainRef.current` — const, line 1892
+- `const onWheel = (event: WheelEvent)` — const, line 1894
+- `const target = event.target as Element | null` — const, line 1895
+- `const st = stageNow.current` — const, line 1900
+- `const now = performance.now()` — const, line 1901
+- `let g = gesture.current` — let, line 1902
+- `const kind = classifyWheel(event, modifiers.read(), st.height)` — const, line 1906
+- `const ovPlain = overviewRef.current && kind.kind !== "zoom"` — const, line 1908
+- `const id = deskIdRef.current` — const, line 1934
+- `const each = id ? deskById(wsRef.current, id) : null` — const, line 1935
+- `const travel = Math.abs(dx) > Math.abs(dy) ? dx : dy` — const, line 1937
+- `const max = Math.max(0, slotRects(each.slots.length, st).reduce((end, rect)` — const, line 1938
+- `const result = zoomWheel(g.zoom, dy, now,` — const, line 1948
+- `const stepped = result.step` — const, line 1950
+- `const began = overviewRef.current ? beginLeave(selectionRef.current ?` — const, line 1952
+- `const began = stepped.goal === 1 ? beginEnter() : beginLeave(selectionRef.current ?` — const, line 1958
+- `const how = g.source === "pinch" ? "pinch" : modifiers.read(event).alt ? "alt + scroll" : "ctrl + scroll"` — const, line 1964
+- `const drag = useRef<` — const, line 1978
+- `const onStagePointerDown = useCallback((event: React.PointerEvent<HTMLElement>)` — const, line 1979
+- `const target = event.target as Element` — const, line 1980
+- `const onCard = target.closest("[data-desk-slot]")` — const, line 1981
+- `const onSliver = target.closest(".desk-sliver") !== null` — const, line 1983
+- `const inContent = !onSliver && target.closest(".desk-slot-inner, button, input, textarea") !== null` — const, line 1984
+- `const key = onCard.getAttribute("data-desk-slot-key") ?? undefined` — const, line 1987
+- `const windowId = onCard.getAttribute("data-desk-slot-window") ?? undefined` — const, line 1988
+- `const deskOf = onCard.getAttribute("data-desk-slot-desk") ?? undefined` — const, line 1989
+- `const onStagePointerMove = useCallback((event: React.PointerEvent<HTMLElement>)` — const, line 2003
+- `const d = drag.current` — const, line 2004
+- `const dx = event.clientX - d.x` — const, line 2006
+- `const dy = event.clientY - d.y` — const, line 2007
+- `const element = d.windowId ? boxEls.current.get(d.windowId) : null` — const, line 2026
+- `const cancelDrag = useCallback(()` — const, line 2034
+- `const d = drag.current` — const, line 2035
+- `const element = d.windowId ? boxEls.current.get(d.windowId) : null` — const, line 2043
+- `const cancelDragRef = useRef(cancelDrag)` — const, line 2049
+- `const scrubbedClick = useRef(false)` — const, line 2052
+- `const onStagePointerUp = useCallback((event: React.PointerEvent<HTMLElement>)` — const, line 2053
+- `const d = drag.current` — const, line 2054
+- `const element = d.windowId ? boxEls.current.get(d.windowId) : null` — const, line 2064
+- `const layout = ovLayoutRef.current` — const, line 2075
+- `const stageBox = (event.currentTarget as HTMLElement).getBoundingClientRect()` — const, line 2076
+- `const point =` — const, line 2078
+- `const drop = dropTarget(layout, point)` — const, line 2079
+- `const current = wsRef.current` — const, line 2080
+- `const to = drop ? current.desks[drop.row] : null` — const, line 2081
+- `const from = slotIndexOf(to, d.windowId)` — const, line 2084
+- `const world = worldRef.current` — const, line 2095
+- `const observer = new MutationObserver((records)` — const, line 2097
+- `const node = record.target instanceof Element ? record.target : record.target.parentElement` — const, line 2099
+- `const windowId = windowOfTarget(node)` — const, line 2100
+- `const handle = timers.set(()` — const, line 2113
+- `const body = [...document.querySelectorAll<HTMLElement>("[data-desk-window]")].find((pane)` — const, line 2116
+- `const node = miniatures.get(windowId)` — const, line 2126
+- `const node = host.firstElementChild as HTMLElement | null` — const, line 2129
+- `const stackForLessons = useCallback((id: string): string | null` — const, line 2152
+- `const existing = stackWindowOf(wsRef.current, id)` — const, line 2153
+- `const before = new Set(wsRef.current.runningPadIds ?? [])` — const, line 2155
+- `const step = ensureRunningPad(wsRef.current, id, ()` — const, line 2156
+- `const placeLesson = useCallback((lessonId: string)` — const, line 2164
+- `const id = deskIdRef.current` — const, line 2165
+- `const found = findLesson(wsRef.current, id, lessonId)` — const, line 2167
+- `const stackId = stackForLessons(id)` — const, line 2173
+- `const openLesson = useCallback((entry: LessonEntry)` — const, line 2181
+- `const held = entry.kind === "resume" ? null : checkDesk.heldReason()` — const, line 2183
+- `const id = deskIdRef.current` — const, line 2192
+- `const stackId = stackForLessons(id)` — const, line 2194
+- `const window = wsRef.current.windows[opening.windowId]` — const, line 2202
+- `const lessonRequestSeq = useRef<number | null>(null)` — const, line 2207
+- `const lessonRequest = lessons?.request ?? null` — const, line 2208
+- `const reader = useMemo<ReaderPassThrough | undefined>(()` — const, line 2218
+- `const lessonsHost = useMemo<LessonsHost>(()` — const, line 2222
+- `const placeContent = useCallback((content: ContentRefDto, options:` — const, line 2233
+- `const current = wsRef.current` — const, line 2234
+- `const id = options.deskId && deskById(current, options.deskId) ? options.deskId : deskIdRef.current` — const, line 2236
+- `const step = openBeside(current, id, content, ()` — const, line 2244
+- `const shown = wsRef.current.windows[step.windowId]` — const, line 2251
+- `const shown = wsRef.current.windows[step.windowId]` — const, line 2257
+- `const request = (typeof shown.view?.annotationRequest === "number" ? (shown.view.annotationRequest as number) : 0) + 1` — const, line 2258
+- `const inquiry = options.peek ? inquiries.current.get(step.windowId) : undefined` — const, line 2264
+- `const jump = jumps.current.get(step.windowId)` — const, line 2265
+- `const handle = timers.set(()` — const, line 2272
+- `const next = new Set(now)` — const, line 2275
+- `const openSeq = useRef(0)` — const, line 2291
+- `const openContent = useCallback((content: ContentRefDto, options:` — const, line 2292
+- `const seq = ++openSeq.current` — const, line 2294
+- `const askedOn = rest.deskId ?? deskIdRef.current ?? undefined` — const, line 2299
+- `const current = await transport.resolveExtraction(content.sourceId).catch(()` — const, line 2301
+- `const named = spanReading ?? content.extractionId` — const, line 2302
+- `const spanId = rest.spanId ? await placeOn(content.sourceId, rest.spanId, named, current) : null` — const, line 2303
+- `const openingAt = (windowId: string, windowDeskId: string, content:` — const, line 2312
+- `const desk = deskById(ws, deskId)` — const, line 2317
+- `const first = desk.slots.flat().find((id)` — const, line 2319
+- `const other = ws.windows[id]?.content` — const, line 2320
+- `const libraryReadFor = useRef<number | null>(null)` — const, line 2329
+- `const card = library?.find((entry)` — const, line 2338
+- `const waiting = card.readiness === "ready" ? Object.values(wsRef.current.windows).find((window)` — const, line 2356
+- `const accepted =` — const, line 2368
+- `const openHit = useCallback((hit:` — const, line 2376
+- `const card = library?.find((entry)` — const, line 2378
+- `const kind = card && isVideoCard(card) ? "video" : "source"` — const, line 2379
+- `const asks = useMemo( ()` — const, line 2386
+- `const shownVault = useRef<` — const, line 2396
+- `const before = shownVault.current` — const, line 2398
+- `const statusRef = useRef(status)` — const, line 2402
+- `const companionStateRef = useRef(companionState)` — const, line 2404
+- `const chipRef = useRef(chip)` — const, line 2406
+- `const searchOpenRef = useRef(false)` — const, line 2408
+- `const stripOpenRef = useRef(false)` — const, line 2412
+- `const goalPathRef = useRef<` — const, line 2415
+- `const goalIdRef = useRef<string | null>(null)` — const, line 2417
+- `const anchoredAt = useRef(0)` — const, line 2418
+- `const groundingRef = useRef<Grounding>(` — const, line 2419
+- `const stepCompanion = useCallback((event: CompanionEvent)` — const, line 2422
+- `const before = companionStateRef.current` — const, line 2423
+- `const next = companionStep(before, event)` — const, line 2424
+- `const id = deskIdRef.current` — const, line 2429
+- `const lastPointer = useRef<` — const, line 2434
+- `const stageNode = stageRef.current` — const, line 2436
+- `const onMove = (event: PointerEvent)` — const, line 2438
+- `const box = stageNode.getBoundingClientRect()` — const, line 2439
+- `const companionKey = (atDock: boolean)` — const, line 2448
+- `const id = focusIdRef.current` — const, line 2449
+- `const selected: WindowSelection | null = id ? readWindowSelection(id, stageRef.current) : null` — const, line 2452
+- `let anchor: Rect | null = null` — let, line 2457
+- `const selected: WindowSelection | null = id ? readWindowSelection(id, stageRef.current) : null` — const, line 2459
+- `const viewport = (stageRef.current?.closest(".desk-shell") as HTMLElement | null)?.clientWidth` — const, line 2468
+- `const companionKeyRef = useRef(companionKey)` — const, line 2471
+- `const askRequestSeen = useRef(askRequest)` — const, line 2474
+- `const notebookMessage = (message: BridgeMessage, owner: NotebookOwner)` — const, line 2485
+- `const request = notebookMenuRequest(message, owner)` — const, line 2488
+- `const box = stageRef.current?.getBoundingClientRect()` — const, line 2501
+- `const anchor = message.rect && box ?` — const, line 2502
+- `const notebookMessageRef = useRef(notebookMessage)` — const, line 2508
+- `const notebookBridge = useMemo<NotebookBridgeHost>(()` — const, line 2510
+- `const companionInit = useRef(false)` — const, line 2514
+- `const opening = deskById(ws, deskId)` — const, line 2517
+- `const shown: CompanionState =` — const, line 2522
+- `const snapCompanion = useCallback((dock: CompanionDock)` — const, line 2528
+- `const id = deskIdRef.current` — const, line 2530
+- `const before = companionStateRef.current` — const, line 2532
+- `const next: CompanionState =` — const, line 2533
+- `const viewKey = `$` — const, line 2541
+- `const lastViewKey = useRef(viewKey)` — const, line 2542
+- `const stageNode = stageRef.current` — const, line 2551
+- `const onScroll = (event: Event)` — const, line 2553
+- `const target = event.target instanceof Element ? event.target : null` — const, line 2556
+- `const onSelection = ()` — const, line 2566
+- `const id = focusIdRef.current` — const, line 2567
+- `const panel = companionRef.current?.rect() ?? null` — const, line 2568
+- `const selected = readWindowSelection(id, stageRef.current)` — const, line 2573
+- `const promptContract = useCachedQuery(["reader_prompt_contract"], ()` — const, line 2583
+- `const readerTutor = promptContract.data?.readerTutor ?? null` — const, line 2587
+- `const personalizedOn = personalizedChoice ?? readerTutor?.personalizedDefault ?? true` — const, line 2589
+- `const personalizedRef = useRef<boolean | null>(null)` — const, line 2590
+- `const personalizedInput = ()` — const, line 2592
+- `const askCompanion = useCallback((question: string)` — const, line 2594
+- `const grounding = groundingRef.current` — const, line 2595
+- `const spanId = grounding.spanId ?? firstVisibleSpan(grounding.spanWindowId ?? grounding.windowId ?? null)` — const, line 2597
+- `const lifecycle = lifecyclesRef.current[grounding.windowId ?? ""]` — const, line 2603
+- `const selected = chipRef.current` — const, line 2605
+- `const padLine = selected?.pad ? selected.quote : null` — const, line 2608
+- `const askAgain = (exchange: CompanionExchange, question: string, retrievalIntent: "alternative" | "remediate")` — const, line 2628
+- `const parent = exchange.answer ? exchange.answer.readerAnswerEventId || exchange.answer.eventId : null` — const, line 2629
+- `const held = checkDesk.heldReason()` — const, line 2632
+- `const loadHistory = useCallback((query: string, cursor?: string)` — const, line 2645
+- `const deskTitle = useCallback((id: string | null)` — const, line 2647
+- `const openClaim = useCallback((citation: Pick<TutorCitationDto, "extractionId" | "spanId"> &` — const, line 2653
+- `let sourceId = citation.sourceId ?? null` — let, line 2654
+- `let kind: "source" | "video" = "source"` — let, line 2655
+- `const content = window.content` — const, line 2657
+- `const open = (found: string, known: "source" | "video")` — const, line 2664
+- `const card = library?.find((entry)` — const, line 2665
+- `const shown = card && isVideoCard(card) ? "video" : known` — const, line 2666
+- `const ref =` — const, line 2667
+- `const openThread = useCallback((exchange: CompanionExchange)` — const, line 2685
+- `const root = exchange.answer?.readerAnswerEventId || exchange.answer?.eventId` — const, line 2686
+- `const openSearchRow = useCallback((row: SearchRow)` — const, line 2693
+- `const id = deskIdRef.current` — const, line 2694
+- `const ref = row.ref` — const, line 2699
+- `const note = row.raw as` — const, line 2707
+- `const target = row.target ??` — const, line 2709
+- `const passage = (row.raw as` — const, line 2718
+- `const extractionId = passage && (passage.kind === "source" || passage.kind === "video") ? passage.extractionId : null` — const, line 2719
+- `const ensuredDesks = useRef(new Set<string>())` — const, line 2731
+- `const desk = ws && deskId ? deskById(ws, deskId) : undefined` — const, line 2733
+- `const before = new Set(ws.runningPadIds ?? [])` — const, line 2737
+- `const step = ensureRunningPad(ws, deskId, ()` — const, line 2738
+- `const prefetched = useRef(new Set<string>())` — const, line 2745
+- `const migratedStacks = useRef(new Set<string>())` — const, line 2758
+- `let next = ws` — let, line 2761
+- `const ops: Step["ops"] = []` — const, line 2762
+- `const legacy = Array.isArray(window.view?.addedPads) ? (window.view.addedPads as unknown[]).filter((id): id is string` — const, line 2766
+- `const step = addToStack(next, window.deskId, window.windowId, padId)` — const, line 2768
+- `const closedCarried = useRef(new Set<string>())` — const, line 2778
+- `const openOnly = useCallback((list: CarriedQuestionDto[])` — const, line 2779
+- `const refreshCarried = useCallback(()` — const, line 2780
+- `let live = true` — let, line 2793
+- `const markedCarried = useCallback((carriedId: string, event: string)` — const, line 2798
+- `const carriedRelated = useMemo(()` — const, line 2807
+- `const relatedVersion = carriedRelated.getVersion()` — const, line 2814
+- `const openReadings = (desk?.slots.flat() ?? []).flatMap((id)` — const, line 2815
+- `const content = ws?.windows[id]?.content` — const, line 2816
+- `const marksCarried = useMemo(()` — const, line 2819
+- `const all = carriedAll ?? carried.list` — const, line 2820
+- `const carryQuestion = useCallback((text: string, origin:` — const, line 2827
+- `const carried = Promise.resolve().then(()` — const, line 2828
+- `const openPassage = useCallback((extractionId: string, spanId: string | null, t?: number, sourceId?: string | null)` — const, line 2837
+- `const sourcePieces = useCallback((): SourcePiece[]` — const, line 2844
+- `const current = wsRef.current` — const, line 2845
+- `const id = deskIdRef.current` — const, line 2846
+- `const each = id ? deskById(current, id) : null` — const, line 2847
+- `const out: SourcePiece[] = []` — const, line 2849
+- `const window = current.windows[windowId]` — const, line 2851
+- `const content = window?.content` — const, line 2852
+- `const spanId = statusRef.current[windowId]?.readingSpan ?? firstVisibleSpan(windowId)` — const, line 2854
+- `const element = document.querySelector(`[$` — const, line 2856
+- `const text = (element?.textContent ?? "").replace(/\s+/g, " ").trim().slice(0, 600)` — const, line 2857
+- `const title = titleOf(window)` — const, line 2859
+- `const pendingFigures = useMemo(()` — const, line 2866
+- `const menuPromoted = useMemo<PromotedApi>(()` — const, line 2868
+- `const input =` — const, line 2875
+- `const refused = (error: unknown)` — const, line 2876
+- `const giveUp = ()` — const, line 2877
+- `const stop = poller.register<unknown>(` — const, line 2883
+- `const onPromotedRef = useRef<(row: import("../../api/dto").PromotedRowDto, origin: import("../../api/dto").MenuObjectInput | null)` — const, line 2897
+- `const openMenuByKeyRef = useRef<()` — const, line 2898
+- `const closeOverlays = useRef<()` — const, line 2900
+- `const hoveredKeyRef = useRef<(what: "note" | "promoted")` — const, line 2901
+- `const landFigureBlock = useCallback(async (anchor:` — const, line 2904
+- `const pad = padId ? store.pads[padId] : null` — const, line 2906
+- `const companionFigureHost = useMemo<CompanionFigureHost>(()` — const, line 2915
+- `const shownFigures = useCompanionFigures(vaultKey)` — const, line 2919
+- `const workOnPad = useCallback(async (handoff: ProblemHandoff)` — const, line 2923
+- `const id = deskIdRef.current` — const, line 2925
+- `const sessionId = handoff.session.sessionId` — const, line 2927
+- `const padId = problemPadId(sessionId)` — const, line 2931
+- `const title = problemTitle(handoff.session.stemMd)` — const, line 2934
+- `const refused = store.commitPad(padId, [` — const, line 2935
+- `const holding = Object.values(wsRef.current.windows).find((window)` — const, line 2943
+- `const desk = wsRef.current.desks.find((each)` — const, line 2946
+- `const deskOf = holding?.deskId ?? id` — const, line 2949
+- `const stackWindow = holding ?? Object.values(wsRef.current.windows).find((window)` — const, line 2950
+- `const problemHost = useMemo<ProblemHost>(()` — const, line 2959
+- `const padsHost = useMemo<PadsHost>(()` — const, line 2969
+- `const held = checkDesk.heldReason()` — const, line 2984
+- `let first: Awaited<ReturnType<typeof padsTransport.figureRequest>>` — let, line 2991
+- `const waits = checkOpenRefusal(error)` — const, line 2996
+- `const job = first.state !== "pending" ? first : await new Promise<typeof first>((resolve, reject)` — const, line 3003
+- `let stop: ()` — let, line 3006
+- `const gone =` — const, line 3007
+- `const code = error && typeof error === "object" ? (error as` — const, line 3018
+- `const figure = job.result?.figure` — const, line 3026
+- `const window = wsRef.current.windows[windowId]` — const, line 3041
+- `const window = wsRef.current.windows[windowId]` — const, line 3046
+- `const inkCache = useMemo(()` — const, line 3058
+- `const penHost = useMemo<PenHost>(()` — const, line 3060
+- `const focusedStack = (): PadStackHandle | null` — const, line 3075
+- `const focusedStackRef = useRef(focusedStack)` — const, line 3076
+- `const newPadBeside = useCallback(()` — const, line 3080
+- `const id = deskIdRef.current` — const, line 3081
+- `const padId = mintId("pad")` — const, line 3083
+- `const title = "Pad · new notes"` — const, line 3084
+- `const refused = store.commitPad(padId, [` — const, line 3085
+- `const newPadBesideRef = useRef(newPadBeside)` — const, line 3092
+- `const deskPadIds = useCallback((id: string | null): string[]` — const, line 3096
+- `const runningPadOf = useCallback((id: string | null): string | null` — const, line 3102
+- `const answerProposals = useCallback((exchange: CompanionExchange): ProposedDiff[]` — const, line 3109
+- `const answer = exchange.answer` — const, line 3110
+- `const known = runningPadOf(exchange.deskId)` — const, line 3111
+- `const lines = answer.answerMd.split("\n").map((line)` — const, line 3113
+- `const padId = runningPadOf(exchange.deskId)` — const, line 3123
+- `const now = padId ? store.pads[padId] : null` — const, line 3124
+- `const refused = store.commitPad(padId, [` — const, line 3126
+- `const drainWrite = useCallback(async (padId: string, op: "keep" | "unkeep", version: number): Promise<void>` — const, line 3137
+- `const refused = store.commitPad(padId, [` — const, line 3140
+- `const unionKey = useRef<Record<string, string>>(` — const, line 3149
+- `const padVersionNow = store.getPadVersion()` — const, line 3150
+- `const stage = stageRef.current` — const, line 3152
+- `let live = true` — let, line 3154
+- `const read = ()` — const, line 3155
+- `const desk = deskById(wsRef.current, deskId)` — const, line 3156
+- `const content = wsRef.current.windows[id]?.content` — const, line 3158
+- `const lifecycle = lifecyclesRef.current[id]` — const, line 3159
+- `const range = visibleSpanRange(stage, id)` — const, line 3161
+- `const key = `$` — const, line 3163
+- `const extractionId = content.extractionId` — const, line 3166
+- `const links = union.spans.flatMap((span)` — const, line 3169
+- `let frame: ReturnType<typeof setTimeout> | null = null` — let, line 3175
+- `const onScroll = ()` — const, line 3176
+- `const settle = setTimeout(read, 800)` — const, line 3182
+- `const padLinks = useMemo<PadLink[]>(()` — const, line 3192
+- `const seen = new Set<string>()` — const, line 3193
+- `const out: PadLink[] = []` — const, line 3194
+- `const key = `$` — const, line 3197
+- `const goalPadAnchors = useMemo(()` — const, line 3208
+- `const live = new Set<string>()` — const, line 3209
+- `const goalReadings = useMemo<GoalReading[]>(()` — const, line 3221
+- `const out: GoalReading[] = []` — const, line 3223
+- `const content = window.content` — const, line 3225
+- `const card = library?.find((each)` — const, line 3227
+- `const goalFocused = useMemo(()` — const, line 3233
+- `const window = focusId && ws ? ws.windows[focusId] : null` — const, line 3234
+- `const content = window.content` — const, line 3236
+- `const extractionId = content && (content.kind === "source" || content.kind === "video") ? content.extractionId : null` — const, line 3237
+- `const openGoalSection = useCallback((section:` — const, line 3241
+- `const onDesk = Object.values(wsRef.current.windows).some((window)` — const, line 3242
+- `const visibleForCheck = useCallback(()` — const, line 3254
+- `const windows = Object.values(wsRef.current.windows).map((window)` — const, line 3257
+- `const companionTab = typeof document === "undefined" ? null : document.querySelector("[data-companion-body]")?.getAttribute("data-check-content") ?? null` — const, line 3261
+- `const exchanges = companionTab?.startsWith("history:") ? [] : asks.thread(deskIdRef.current).flatMap((exchange)` — const, line 3262
+- `const checkNow = useCallback(()` — const, line 3271
+- `const session = opened ? checkDesk.open()?.card.practiceSession : null` — const, line 3279
+- `const card = document.querySelector<HTMLElement>('[data-check-card="inline"], [data-check-card="overlay"]')` — const, line 3287
+- `const protectCheckView = useCallback(()` — const, line 3300
+- `const checkHolding = checkDesk.holding()` — const, line 3303
+- `const handle = requestAnimationFrame(()` — const, line 3306
+- `const openCheck = checkDesk.open()` — const, line 3309
+- `const checkInlineHere = Boolean(openCheck?.host && (desk?.slots.flat() ?? []).some((id)` — const, line 3310
+- `const content = ws?.windows[id]?.content` — const, line 3311
+- `const missing = Boolean(openCheck && checkInlineHere && typeof document !== "undefined" && !document.querySelector('[data-check-card="inline"]'))` — const, line 3318
+- `const checkInline = checkInlineHere && !inlineMissing` — const, line 3321
+- `const shownReadings = Object.entries(status).map(([id, each])` — const, line 3322
+- `const holdWindows = useMemo(()` — const, line 3324
+- `const handoffSource = reader?.workbench?.checkMe?.sourceId ?? reader?.workbench?.exercise?.sourceId ?? null` — const, line 3332
+- `const handoffWindow = useMemo(()` — const, line 3333
+- `const ofBook = (id: string)` — const, line 3335
+- `const content = ws.windows[id]?.content` — const, line 3336
+- `const here = (desk?.slots.flat() ?? []).find(ofBook)` — const, line 3340
+- `const readerElsewhere = useMemo<ReaderPassThrough | undefined>(()` — const, line 3343
+- `const readerFor = (windowId: string): ReaderPassThrough | undefined` — const, line 3346
+- `const goalDesk = useGoalDesk(` — const, line 3348
+- `const ids = desk?.slots.flat() ?? []` — const, line 3376
+- `const videos: Array<` — const, line 3377
+- `const books: Array<` — const, line 3378
+- `const content = ws?.windows[id]?.content` — const, line 3380
+- `const focus = focusIdRef.current` — const, line 3389
+- `const books = (deskById(wsRef.current, deskIdRef.current)?.slots.flat() ?? []).filter((id)` — const, line 3394
+- `const id = deskIdRef.current` — const, line 3405
+- `const focus = focusIdRef.current` — const, line 3407
+- `const focused = focus ? wsRef.current.windows[focus] : null` — const, line 3408
+- `const driver = videoDesk.driver()` — const, line 3409
+- `const windowId = focused?.content?.kind === "video" ? focused.windowId : driver?.windowId ?? null` — const, line 3410
+- `const content = windowId ? wsRef.current.windows[windowId]?.content : null` — const, line 3411
+- `const clock = videoDesk.clockOf(windowId)` — const, line 3416
+- `const title = titleOf(wsRef.current.windows[windowId])` — const, line 3421
+- `const line = timestampLine(title, clock.t)` — const, line 3422
+- `let padId = runningPadOf(id)` — let, line 3424
+- `const before = new Set(wsRef.current.runningPadIds ?? [])` — const, line 3430
+- `const step = ensureRunningPad(wsRef.current, id, ()` — const, line 3431
+- `const pad = padId ? store.pads[padId] : null` — const, line 3436
+- `const blockId = mintId("blk")` — const, line 3441
+- `const refused = store.commitPad(padId, [` — const, line 3442
+- `const surfacedCarried = useRef(new Set<string>())` — const, line 3457
+- `const onCarriedSurfaced = useCallback((question: CarriedQuestionDto)` — const, line 3458
+- `const rememberAppendTarget = useCallback((id: string, padId: string)` — const, line 3474
+- `const next =` — const, line 3476
+- `const deskPads = useCallback((id: string | null): Array<` — const, line 3486
+- `const desk = deskById(wsRef.current, id)` — const, line 3488
+- `const ids = (desk?.slots.flat() ?? []).flatMap((windowId)` — const, line 3489
+- `const state = store.pads[padId]` — const, line 3491
+- `const appendTargetOf = useCallback((id: string | null): string | null` — const, line 3495
+- `const pads = deskPads(id)` — const, line 3497
+- `const remembered = appendTargets[id]` — const, line 3498
+- `const appendTo = useCallback(async (object: MenuObject, choice: string | "+" | null)` — const, line 3505
+- `const id = deskIdRef.current` — const, line 3506
+- `let target = choice === null ? appendTargetOf(id) : choice` — let, line 3508
+- `const padId = mintId("pad")` — const, line 3510
+- `const title = "Pad"` — const, line 3511
+- `const refused = store.commitPad(padId, [` — const, line 3512
+- `const stackWindow = Object.values(wsRef.current.windows).find((window)` — const, line 3517
+- `const pad = store.pads[target]` — const, line 3527
+- `let annotationId = object.annotationId ?? null` — let, line 3533
+- `const who = await menuTransport.readingIdentity(object.extractionId)` — const, line 3536
+- `const receipt = await menuTransport.readerCapture(` — const, line 3537
+- `const words = (object.selection || object.text).replace(/\s+/g, " ").trim()` — const, line 3550
+- `const body = words.length > 600 ? `$` — const, line 3551
+- `const window = object.windowId ? wsRef.current.windows[object.windowId] : undefined` — const, line 3552
+- `const blockId = mintId("blk")` — const, line 3553
+- `const refused = store.commitPad(target, [` — const, line 3554
+- `const menuPromotedRows = useRef<import("../../api/dto").PromotedRowDto[]>([])` — const, line 3567
+- `const liveMenu = useRef<MenuObject | null>(null)` — const, line 3568
+- `const closeSourceMenu = ()` — const, line 3575
+- `const menuOpening = useRef(0)` — const, line 3581
+- `const menuWithheldAnswer = useRef<` — const, line 3582
+- `const menuContext = useMemo<MenuContext>(()` — const, line 3583
+- `const receipt = await menuTransport.readerCapture(input)` — const, line 3588
+- `const content = wsRef.current.windows[windowId]?.content` — const, line 3590
+- `const quote = clipQuote(object.selection || object.text, 400)` — const, line 3600
+- `const box = stageRef.current?.getBoundingClientRect()` — const, line 3602
+- `const anchor = box ?` — const, line 3603
+- `const windowId = object.windowId && inquiries.current.has(object.windowId) ? object.windowId : null` — const, line 3615
+- `const inquiry = windowId ? inquiries.current.get(windowId) : undefined` — const, line 3616
+- `const id = deskIdRef.current` — const, line 3632
+- `const id = deskIdRef.current` — const, line 3656
+- `const shows = (window: DeskWindow)` — const, line 3657
+- `const lessonId = request.lessonId` — const, line 3659
+- `const target = Object.values(wsRef.current.windows).find((window)` — const, line 3667
+- `const openPadBlock = (padId: string, blockId: string | null)` — const, line 3679
+- `const id = deskIdRef.current` — const, line 3680
+- `const stackWindow = Object.values(wsRef.current.windows).find((window)` — const, line 3682
+- `const place = promotedRef(row)` — const, line 3696
+- `const named = row.action as` — const, line 3713
+- `const extractionId = named.extractionId ?? origin?.extractionId` — const, line 3714
+- `const spanId = named.target?.spanId ?? origin?.spanId` — const, line 3715
+- `const onStageContextMenu = (event: React.MouseEvent)` — const, line 3730
+- `const target = event.target as Element` — const, line 3732
+- `const object = objectAt(target, (windowId)` — const, line 3733
+- `const content = wsRef.current.windows[windowId]?.content` — const, line 3734
+- `const openMenuOn = (object: MenuObject)` — const, line 3742
+- `const held = checkDesk.heldReason()` — const, line 3745
+- `const handle = object.windowId ? padHandles.current.get(object.windowId) : undefined` — const, line 3752
+- `let resolve: (verdict: MenuVerdict | null)` — let, line 3762
+- `const openMenuContext: MenuContext =` — const, line 3768
+- `const hoverTarget = useRef<Element | null>(null)` — const, line 3775
+- `const hovered = hoverTarget.current` — const, line 3781
+- `const object = objectAt(hovered, (windowId)` — const, line 3783
 - `const content = wsRef.current.windows[windowId]?.content` — const, line 3784
-- `const windowAskRef = useRef(windowAsk)` — const, line 3799
-- `const askFor = useMemo(()` — const, line 3801
-- `const onAskFor = useCallback((windowId: string)` — const, line 3802
-- `let handler = askFor.get(windowId)` — let, line 3803
-- `const windowOpenPath = (windowId: string)` — const, line 3813
-- `const content = wsRef.current.windows[windowId]?.content` — const, line 3814
-- `const windowOpenPathRef = useRef(windowOpenPath)` — const, line 3822
-- `const openPathFor = useMemo(()` — const, line 3824
-- `const onOpenPathFor = useCallback((windowId: string)` — const, line 3825
-- `let handler = openPathFor.get(windowId)` — let, line 3826
-- `const pairs = useMemo(()` — const, line 3836
-- `const content = wsRef.current.windows[id]?.content` — const, line 3839
-- `const jump = jumps.current.get(id)` — const, line 3844
-- `const windowOpenPair = (windowId: string, target: PaneTarget)` — const, line 3852
-- `const id = deskIdRef.current` — const, line 3853
-- `const current = wsRef.current` — const, line 3854
-- `const card = library?.find((entry)` — const, line 3856
-- `const kind = card && isVideoCard(card) ? "video" : "source"` — const, line 3857
-- `const step = openPaired(current, id, windowId,` — const, line 3858
-- `const jump = jumps.current.get(step.windowId)` — const, line 3863
-- `const windowOpenPairRef = useRef(windowOpenPair)` — const, line 3868
-- `const pairHandlers = useMemo(()` — const, line 3870
-- `const pairHandlersFor = useCallback((windowId: string)` — const, line 3871
-- `let handlers = pairHandlers.get(windowId)` — let, line 3872
-- `const partner = pairs.partnerOf(windowId)` — const, line 3883
-- `const id = deskIdRef.current` — const, line 3884
-- `const toldAnswers = useRef<Set<string> | null>(null)` — const, line 3897
-- `const companionVersion = asks.getVersion()` — const, line 3898
-- `const answerId = (exchange: CompanionExchange)` — const, line 3900
-- `const thread = asks.thread(deskId)` — const, line 3901
-- `const told = toldAnswers.current` — const, line 3906
-- `const asExchange = (exchange: CompanionExchange, id: string): WindowExchange` — const, line 3907
-- `const id = answerId(exchange)` — const, line 3912
-- `const current = wsRef.current` — const, line 3915
-- `const shows = (windowId: string | null)` — const, line 3916
-- `const content = windowId ? current.windows[windowId]?.content : null` — const, line 3917
-- `const desk = deskId ? deskById(current, deskId) : null` — const, line 3920
-- `const windowId = shows(exchange.windowId) ? exchange.windowId : (desk?.slots.flat().find((each)` — const, line 3921
-- `const inquiry = windowId ? inquiries.current.get(windowId) : undefined` — const, line 3922
-- `const me = asExchange(exchange, id)` — const, line 3924
-- `const parent = me.parentExchangeId ? thread.find((each)` — const, line 3925
-- `const mediaReadyFor = useMemo(()` — const, line 3930
-- `const onMediaReadyFor = useCallback((windowId: string)` — const, line 3931
-- `let handler = mediaReadyFor.get(windowId)` — let, line 3932
-- `const railNodeFor = useMemo(()` — const, line 3943
-- `const onRailNode = useCallback((windowId: string)` — const, line 3944
-- `let handler = railNodeFor.get(windowId)` — let, line 3945
-- `const railPanelOf = useCallback((deskOf: string, extractionId: string): string | null` — const, line 3954
-- `const desk = deskById(ws, deskOf)` — const, line 3956
-- `const panels = desk.slots.flat().filter((id)` — const, line 3958
-- `const content = ws.windows[id]?.content` — const, line 3959
-- `const claimed = railClaims[`$` — const, line 3962
-- `const sourceWindowOf = useCallback((deskOf: string, extractionId: string): string | null` — const, line 3966
-- `const desk = deskById(ws, deskOf)` — const, line 3968
-- `const content = ws.windows[id]?.content` — const, line 3971
-- `const undoShown = undo && undo.deskId === deskId && undo.until > timers.now() && (ws?.closed[undo.deskId] ?? []).some((entry)` — const, line 3979
-- `const handle = timers.set(()` — const, line 3983
-- `const recovery = checkDesk.recovery()` — const, line 3989
-- `const paneBody = (window: DeskWindow, lifecycle: WindowLifecycle): ReactNode` — const, line 4004
-- `const content = window.content` — const, line 4005
-- `const listed = content && (content.kind === "source" || content.kind === "video") ? library?.find((entry)` — const, line 4006
-- `const card = listed && listed.readiness !== "ready" ? readyCards.current.get(listed.sourceId) ?? listed : listed` — const, line 4007
-- `const stack = window.stack ?? (content?.kind === "pad" ? [` — const, line 4011
-- `const railPanel = railPanelOf(window.deskId, content.extractionId)` — const, line 4018
-- `const railNode = railPanel ? railHosts[railPanel] ?? null : null` — const, line 4019
-- `const railContent = railPanel ? ws.windows[railPanel]?.content : null` — const, line 4020
-- `const railTab = railContent?.kind === "panel" && railContent.panel === "notes" ? "notes" : "guide"` — const, line 4021
-- `const props: ComponentProps<typeof SourceWindow> =` — const, line 4022
-- `const extractionId = content.extractionId ?? ""` — const, line 4064
-- `const owner = railPanelOf(window.deskId, extractionId)` — const, line 4065
-- `const preparing = library?.find((entry)` — const, line 4084
-- `const restored = restoreContent(content)` — const, line 4105
-- `const linkedFrom = overview || zooming ? selection?.windowId ?? focusId : null` — const, line 4112
-- `const selectedRelations = relatedTo(linkedFrom)` — const, line 4113
-- `const linkRects = new Map<string, Rect>()` — const, line 4114
-- `const rect = ovLayout?.cards[row]?.[index]` — const, line 4116
-- `const fromCard = linkedFrom ? linkRects.get(linkedFrom) ?? null : null` — const, line 4119
-- `const links = fromCard ? curvedLinks(fromCard, selectedRelations.filter((relation)` — const, line 4120
-- `const ghosts: Array<` — const, line 4123
-- `const row = ws.desks.findIndex((each)` — const, line 4125
-- `const each = ws.desks[row]` — const, line 4126
-- `const sameDesk = selectedRelations.filter((relation)` — const, line 4128
-- `const linked = slot.some((id)` — const, line 4132
-- `const movedShown = movedNotice && movedNotice.deskId === deskId && movedNotice.until > timers.now() ? movedNotice : null` — const, line 4137
-- `const focusWindow = focusId ? ws.windows[focusId] : undefined` — const, line 4138
-- `const thread = asks.thread(deskId)` — const, line 4140
-- `const grounding: Grounding = groundingFor(ws, chip, focusWindow, status)` — const, line 4141
-- `const focusZoom = typeof focusWindow?.view?.zoom === "number" ? (focusWindow.view.zoom as number) : 1` — const, line 4143
-- `const windowPlaces = ws.desks.flatMap((each, rowIndex)` — const, line 4146
-- `const eachCam = camX[each.deskId] ?? 0` — const, line 4147
-- `const rects = slotRects(each.slots.length, stage)` — const, line 4148
-- `const top = rowTop(rowIndex, stage) - rowTop(deskIndex, stage)` — const, line 4149
-- `const slotReading =` — const, line 4151
-- `const slotCard = ovLayout?.cards[rowIndex]?.[index] ?? slotReading` — const, line 4152
-- `const readingPanes = paneRects(slotReading, slot.length)` — const, line 4153
-- `const cardPanes = paneRects(slotCard, slot.length)` — const, line 4154
-- `const window = ws.windows[id]` — const, line 4156
-- `const sliverDesk = leaveTarget ? deskById(ws, leaveTarget.deskId) : desk` — const, line 4163
-- `const sliverCam = leaveTarget && sliverDesk ? leaveTarget.cams[sliverDesk.deskId] ?? 0 : cam` — const, line 4164
-- `const slivers = sliverDesk && !focusMode ? sliverSlots(sliverCam, sliverDesk.slots.length, stage) :` — const, line 4165
-- `const shelfRows: ShelfRow[] = desk ? desk.slots.flatMap((slot, index)` — const, line 4166
-- `const window = ws.windows[id]` — const, line 4168
-- `const kind = window?.kind ?? "source"` — const, line 4169
-- `const hints = overview ? [["h j k l", "select"], ["↵ / click", "open"], ["alt+↵", "open in focus"], ["alt+[ ]", "move"], ["alt+shift+j/k", "to a desk"], ["drag", "move a card"], ["b", "relations"], ["g", "hold: gather"], ["o / esc", "back"]] : focusMode ? [["…` — const, line 4187
-- `const title = (event.target as HTMLInputElement).value.trim()` — const, line 4213
-- `const id = mintId("desk")` — const, line 4239
-- `const id = window.windowId` — const, line 4319
-- `const onCurrent = each.deskId === deskId` — const, line 4320
-- `const opened = visited.has(each.deskId) || onCurrent` — const, line 4321
-- `const full = (!overview && onCurrent && focusMode && id === focusId) || (leaveTarget?.focusWindowId === id && leaveTarget.deskId === each.deskId)` — const, line 4322
-- `const hiddenInFocus = !overview && onCurrent && focusMode && !full` — const, line 4323
-- `const reading = full ?` — const, line 4324
-- `const card = place.card` — const, line 4325
-- `const box = overview ? card : reading` — const, line 4326
-- `const leavingTo = leaveTarget?.deskId === each.deskId` — const, line 4327
-- `const slotCut = leavingTo ? slotVisibility(leaveTarget.cams[each.deskId] ?? 0, each.slots.length, stage)[index] : onCurrent ? visibility[index] : null` — const, line 4328
-- `const mask = full || focusMode || !slotCut ? null : leavingTo || (!overview && !zooming && onCurrent) ? softCropMask(slotCut, reading.w) : null` — const, line 4331
-- `const lifecycle = lifecycles[id] ??` — const, line 4332
-- `const paused = isPaused(lifecycle.state)` — const, line 4333
-- `const paired = slot.length > 1` — const, line 4334
-- `const selected = overview && selection !== null && slot.includes(selection.windowId)` — const, line 4335
-- `const receding = overview && recedes(slot, selection?.windowId ?? null, selectedRelations, showRelations)` — const, line 4336
-- `const measure = FOCUS_MEASURE[window.kind] ?? FOCUS_MEASURE.source` — const, line 4337
-- `const title = titleOf(window)` — const, line 4400
-- `const ringId = linkedFrom` — const, line 4484
-- `const isSel = ringId !== null && slot.includes(ringId)` — const, line 4485
-- `const isRel = !isSel && showRelations && slot.some((id)` — const, line 4486
-- `const rect = ovLayout?.cards[rowIndex]?.[index]` — const, line 4487
-- `const key = slotKey(each.deskId, slot)` — const, line 4489
-- `const content = ws.windows[id]?.content` — const, line 4531
-- `const stackWindow = Object.values(wsRef.current.windows).find((window)` — const, line 4537
-- `const held = checkDesk.heldReason()` — const, line 4575
-- `const target = appendTargetOf(deskId)` — const, line 4691
-- `const shown: MenuVerdict =` — const, line 4703
-- `const verdict = failed ? null : shown` — const, line 4704
-- `const stackWindow = Object.values(wsRef.current.windows).find((window)` — const, line 4726
-- `const ids = captureNodes(exerciseSheet.object).map((node)` — const, line 4737
-- `const who = await menuTransport.readingIdentity(anchor.extractionId)` — const, line 4742
-- `const PreparingView = lazy(()` — const, line 4801
-- `function PreparingWindow(` — function, line 4806
-- `const ready = card?.readiness === "ready"` — const, line 4817
-- `function Sliver(` — function, line 4833
-- `function WhichKey()` — function, line 4843
-- `const groups: Array<` — const, line 4844
-- `const rows = DESK_BINDINGS.filter((binding)` — const, line 4855
-- `function OpenBeside(` — function, line 4873
-- `const words = filter.trim().toLowerCase()` — const, line 4891
-- `const sources = (library ?? []).filter((card)` — const, line 4892
-- `const book = focus?.content && (focus.content.kind === "source" || focus.content.kind === "video") ? focus.content : null` — const, line 4893
+- `const box = hovered.getBoundingClientRect()` — const, line 3787
+- `const input = objectInput(object, deskIdRef.current)` — const, line 3792
+- `const first = found.rows[0]` — const, line 3799
+- `const stage = stageRef.current` — const, line 3809
+- `const focusWindow = focusIdRef.current` — const, line 3810
+- `const kindOf = (windowId: string)` — const, line 3811
+- `const sourceOf = (windowId: string)` — const, line 3812
+- `const content = wsRef.current.windows[windowId]?.content` — const, line 3813
+- `const atOf = (element: Element)` — const, line 3816
+- `const box = element.getBoundingClientRect()` — const, line 3817
+- `const hovered = hoverTarget.current` — const, line 3820
+- `const object = objectAt(hovered, kindOf, sourceOf, atOf(hovered), firstVisibleSpan)` — const, line 3822
+- `const spanId = firstVisibleSpan(focusWindow)` — const, line 3829
+- `const host = stage.querySelector(`[$` — const, line 3830
+- `const first = spanId ? host?.querySelector(`[data-span-id="$` — const, line 3831
+- `const object = objectAt(first, kindOf, sourceOf, atOf(first), firstVisibleSpan)` — const, line 3833
+- `const shelfToday = (()` — const, line 3840
+- `const padId = runningPadOf(deskId)` — const, line 3841
+- `const pad = padId ? store.pads[padId] : null` — const, line 3842
+- `const today = localDay()` — const, line 3844
+- `const lines = pad.blocks.filter((block)` — const, line 3845
+- `const words = block.bodyMd.replace(/\s+/g, " ").trim()` — const, line 3846
+- `const id = deskIdRef.current` — const, line 3856
+- `const stackWindow = Object.values(wsRef.current.windows).find((window)` — const, line 3857
+- `const viewTimers = useRef(new Map<string,` — const, line 3867
+- `const shellTimers = useRef(new Set<unknown>())` — const, line 3868
+- `const statusFor = useMemo(()` — const, line 3883
+- `const onStatusFor = useCallback((windowId: string)` — const, line 3884
+- `let handler = statusFor.get(windowId)` — let, line 3885
+- `const shown = store.ws.windows[windowId]?.content` — const, line 3892
+- `const previous = viewTimers.current.get(windowId)` — const, line 3902
+- `const save = ()` — const, line 3904
+- `const current = store.ws` — const, line 3905
+- `const window = current.windows[windowId]` — const, line 3906
+- `const jumpReadyFor = useMemo(()` — const, line 3924
+- `const onJumpReadyFor = useCallback((windowId: string)` — const, line 3925
+- `let handler = jumpReadyFor.get(windowId)` — let, line 3926
+- `const pending = pendingJump.current.get(windowId)` — const, line 3934
+- `const inquiryReadyFor = useMemo(()` — const, line 3945
+- `const onInquiryReadyFor = useCallback((windowId: string)` — const, line 3946
+- `let handler = inquiryReadyFor.get(windowId)` — let, line 3947
+- `const windowAsk = (windowId: string, ask: WindowAsk)` — const, line 3965
+- `const content = wsRef.current.windows[windowId]?.content` — const, line 3966
+- `const windowAskRef = useRef(windowAsk)` — const, line 3981
+- `const askFor = useMemo(()` — const, line 3983
+- `const onAskFor = useCallback((windowId: string)` — const, line 3984
+- `let handler = askFor.get(windowId)` — let, line 3985
+- `const windowOpenPath = (windowId: string)` — const, line 3995
+- `const content = wsRef.current.windows[windowId]?.content` — const, line 3996
+- `const windowOpenPathRef = useRef(windowOpenPath)` — const, line 4004
+- `const openPathFor = useMemo(()` — const, line 4006
+- `const onOpenPathFor = useCallback((windowId: string)` — const, line 4007
+- `let handler = openPathFor.get(windowId)` — let, line 4008
+- `const pairs = useMemo(()` — const, line 4018
+- `const content = wsRef.current.windows[id]?.content` — const, line 4021
+- `const jump = jumps.current.get(id)` — const, line 4026
+- `const windowOpenPair = (windowId: string, target: PaneTarget)` — const, line 4034
+- `const id = deskIdRef.current` — const, line 4035
+- `const current = wsRef.current` — const, line 4036
+- `const card = library?.find((entry)` — const, line 4038
+- `const kind = card && isVideoCard(card) ? "video" : "source"` — const, line 4039
+- `const step = openPaired(current, id, windowId,` — const, line 4040
+- `const jump = jumps.current.get(step.windowId)` — const, line 4045
+- `const windowOpenPairRef = useRef(windowOpenPair)` — const, line 4050
+- `const pairHandlers = useMemo(()` — const, line 4052
+- `const pairHandlersFor = useCallback((windowId: string)` — const, line 4053
+- `let handlers = pairHandlers.get(windowId)` — let, line 4054
+- `const partner = pairs.partnerOf(windowId)` — const, line 4065
+- `const id = deskIdRef.current` — const, line 4066
+- `const toldAnswers = useRef<Set<string> | null>(null)` — const, line 4079
+- `const companionVersion = asks.getVersion()` — const, line 4080
+- `const answerId = (exchange: CompanionExchange)` — const, line 4082
+- `const thread = asks.thread(deskId)` — const, line 4083
+- `const told = toldAnswers.current` — const, line 4088
+- `const asExchange = (exchange: CompanionExchange, id: string): WindowExchange` — const, line 4089
+- `const id = answerId(exchange)` — const, line 4094
+- `const current = wsRef.current` — const, line 4097
+- `const shows = (windowId: string | null)` — const, line 4098
+- `const content = windowId ? current.windows[windowId]?.content : null` — const, line 4099
+- `const desk = deskId ? deskById(current, deskId) : null` — const, line 4102
+- `const windowId = shows(exchange.windowId) ? exchange.windowId : (desk?.slots.flat().find((each)` — const, line 4103
+- `const inquiry = windowId ? inquiries.current.get(windowId) : undefined` — const, line 4104
+- `const me = asExchange(exchange, id)` — const, line 4106
+- `const parent = me.parentExchangeId ? thread.find((each)` — const, line 4107
+- `const mediaReadyFor = useMemo(()` — const, line 4112
+- `const onMediaReadyFor = useCallback((windowId: string)` — const, line 4113
+- `let handler = mediaReadyFor.get(windowId)` — let, line 4114
+- `const railNodeFor = useMemo(()` — const, line 4125
+- `const onRailNode = useCallback((windowId: string)` — const, line 4126
+- `let handler = railNodeFor.get(windowId)` — let, line 4127
+- `const railPanelOf = useCallback((deskOf: string, extractionId: string): string | null` — const, line 4136
+- `const desk = deskById(ws, deskOf)` — const, line 4138
+- `const panels = desk.slots.flat().filter((id)` — const, line 4140
+- `const content = ws.windows[id]?.content` — const, line 4141
+- `const claimed = railClaims[`$` — const, line 4144
+- `const sourceWindowOf = useCallback((deskOf: string, extractionId: string): string | null` — const, line 4148
+- `const desk = deskById(ws, deskOf)` — const, line 4150
+- `const content = ws.windows[id]?.content` — const, line 4153
+- `const undoShown = undo && undo.deskId === deskId && undo.until > timers.now() && (ws?.closed[undo.deskId] ?? []).some((entry)` — const, line 4161
+- `const handle = timers.set(()` — const, line 4165
+- `const recovery = checkDesk.recovery()` — const, line 4171
+- `const paneBody = (window: DeskWindow, lifecycle: WindowLifecycle): ReactNode` — const, line 4186
+- `const content = window.content` — const, line 4187
+- `const listed = content && (content.kind === "source" || content.kind === "video") ? library?.find((entry)` — const, line 4188
+- `const card = listed && listed.readiness !== "ready" ? readyCards.current.get(listed.sourceId) ?? listed : listed` — const, line 4189
+- `const stack = window.stack ?? (content?.kind === "pad" ? [` — const, line 4193
+- `const railPanel = railPanelOf(window.deskId, content.extractionId)` — const, line 4200
+- `const railNode = railPanel ? railHosts[railPanel] ?? null : null` — const, line 4201
+- `const railContent = railPanel ? ws.windows[railPanel]?.content : null` — const, line 4202
+- `const railTab = railContent?.kind === "panel" && railContent.panel === "notes" ? "notes" : "guide"` — const, line 4203
+- `const props: ComponentProps<typeof SourceWindow> =` — const, line 4204
+- `const extractionId = content.extractionId ?? ""` — const, line 4249
+- `const owner = railPanelOf(window.deskId, extractionId)` — const, line 4250
+- `const unknownPanel = restoreContent(content)` — const, line 4270
+- `const preparing = library?.find((entry)` — const, line 4274
+- `const restored = restoreContent(content)` — const, line 4296
+- `const linkedFrom = overview || zooming ? selection?.windowId ?? focusId : null` — const, line 4303
+- `const selectedRelations = relatedTo(linkedFrom)` — const, line 4304
+- `const linkRects = new Map<string, Rect>()` — const, line 4305
+- `const rect = ovLayout?.cards[row]?.[index]` — const, line 4307
+- `const fromCard = linkedFrom ? linkRects.get(linkedFrom) ?? null : null` — const, line 4310
+- `const links = fromCard ? curvedLinks(fromCard, selectedRelations.filter((relation)` — const, line 4311
+- `const ghosts: Array<` — const, line 4314
+- `const row = ws.desks.findIndex((each)` — const, line 4316
+- `const each = ws.desks[row]` — const, line 4317
+- `const sameDesk = selectedRelations.filter((relation)` — const, line 4319
+- `const linked = slot.some((id)` — const, line 4323
+- `const movedShown = movedNotice && movedNotice.deskId === deskId && movedNotice.until > timers.now() ? movedNotice : null` — const, line 4328
+- `const focusWindow = focusId ? ws.windows[focusId] : undefined` — const, line 4329
+- `const thread = asks.thread(deskId)` — const, line 4331
+- `const grounding: Grounding = groundingFor(ws, chip, focusWindow, status)` — const, line 4332
+- `const focusZoom = typeof focusWindow?.view?.zoom === "number" ? (focusWindow.view.zoom as number) : 1` — const, line 4334
+- `const windowPlaces = ws.desks.flatMap((each, rowIndex)` — const, line 4337
+- `const eachCam = camX[each.deskId] ?? 0` — const, line 4338
+- `const rects = slotRects(each.slots.length, stage)` — const, line 4339
+- `const top = rowTop(rowIndex, stage) - rowTop(deskIndex, stage)` — const, line 4340
+- `const slotReading =` — const, line 4342
+- `const slotCard = ovLayout?.cards[rowIndex]?.[index] ?? slotReading` — const, line 4343
+- `const readingPanes = paneRects(slotReading, slot.length)` — const, line 4344
+- `const cardPanes = paneRects(slotCard, slot.length)` — const, line 4345
+- `const window = ws.windows[id]` — const, line 4347
+- `const sliverDesk = leaveTarget ? deskById(ws, leaveTarget.deskId) : desk` — const, line 4354
+- `const sliverCam = leaveTarget && sliverDesk ? leaveTarget.cams[sliverDesk.deskId] ?? 0 : cam` — const, line 4355
+- `const slivers = sliverDesk && !focusMode ? sliverSlots(sliverCam, sliverDesk.slots.length, stage) :` — const, line 4356
+- `const shelfRows: ShelfRow[] = desk ? desk.slots.flatMap((slot, index)` — const, line 4357
+- `const window = ws.windows[id]` — const, line 4359
+- `const kind = window?.kind ?? "source"` — const, line 4360
+- `const hints = overview ? [["h j k l", "select"], ["↵ / click", "open"], ["alt+↵", "open in focus"], ["alt+[ ]", "move"], ["alt+shift+j/k", "to a desk"], ["drag", "move a card"], ["b", "relations"], ["g", "hold: gather"], ["o / esc", "back"]] : focusMode ? [["…` — const, line 4378
+- `const title = (event.target as HTMLInputElement).value.trim()` — const, line 4404
+- `const id = mintId("desk")` — const, line 4430
+- `const id = window.windowId` — const, line 4510
+- `const onCurrent = each.deskId === deskId` — const, line 4511
+- `const opened = visited.has(each.deskId) || onCurrent` — const, line 4512
+- `const full = (!overview && onCurrent && focusMode && id === focusId) || (leaveTarget?.focusWindowId === id && leaveTarget.deskId === each.deskId)` — const, line 4513
+- `const hiddenInFocus = !overview && onCurrent && focusMode && !full` — const, line 4514
+- `const reading = full ?` — const, line 4515
+- `const card = place.card` — const, line 4516
+- `const box = overview ? card : reading` — const, line 4517
+- `const leavingTo = leaveTarget?.deskId === each.deskId` — const, line 4518
+- `const slotCut = leavingTo ? slotVisibility(leaveTarget.cams[each.deskId] ?? 0, each.slots.length, stage)[index] : onCurrent ? visibility[index] : null` — const, line 4519
+- `const mask = full || focusMode || !slotCut ? null : leavingTo || (!overview && !zooming && onCurrent) ? softCropMask(slotCut, reading.w) : null` — const, line 4522
+- `const lifecycle = lifecycles[id] ??` — const, line 4523
+- `const paused = isPaused(lifecycle.state)` — const, line 4524
+- `const paired = slot.length > 1` — const, line 4525
+- `const selected = overview && selection !== null && slot.includes(selection.windowId)` — const, line 4526
+- `const receding = overview && recedes(slot, selection?.windowId ?? null, selectedRelations, showRelations)` — const, line 4527
+- `const measure = FOCUS_MEASURE[window.kind] ?? FOCUS_MEASURE.source` — const, line 4528
+- `const title = titleOf(window)` — const, line 4591
+- `const ringId = linkedFrom` — const, line 4675
+- `const isSel = ringId !== null && slot.includes(ringId)` — const, line 4676
+- `const isRel = !isSel && showRelations && slot.some((id)` — const, line 4677
+- `const rect = ovLayout?.cards[rowIndex]?.[index]` — const, line 4678
+- `const key = slotKey(each.deskId, slot)` — const, line 4680
+- `const content = ws.windows[id]?.content` — const, line 4722
+- `const stackWindow = Object.values(wsRef.current.windows).find((window)` — const, line 4728
+- `const held = checkDesk.heldReason()` — const, line 4766
+- `const target = appendTargetOf(deskId)` — const, line 4882
+- `const shown: MenuVerdict =` — const, line 4894
+- `const verdict = failed ? null : shown` — const, line 4895
+- `const stackWindow = Object.values(wsRef.current.windows).find((window)` — const, line 4917
+- `const ids = captureNodes(exerciseSheet.object).map((node)` — const, line 4928
+- `const who = await menuTransport.readingIdentity(anchor.extractionId)` — const, line 4933
+- `const PreparingView = lazy(()` — const, line 4992
+- `function PreparingWindow(` — function, line 4997
+- `const ready = card?.readiness === "ready"` — const, line 5008
+- `function Sliver(` — function, line 5024
+- `function WhichKey()` — function, line 5034
+- `const groups: Array<` — const, line 5035
+- `const rows = DESK_BINDINGS.filter((binding)` — const, line 5046
+- `function OpenBeside(` — function, line 5064
+- `const words = filter.trim().toLowerCase()` — const, line 5082
+- `const sources = (library ?? []).filter((card)` — const, line 5083
+- `const book = focus?.content && (focus.content.kind === "source" || focus.content.kind === "video") ? focus.content : null` — const, line 5084
 
 ## Who imports or calls it
 
@@ -1110,6 +1153,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/screens/reader/activity|src/screens/reader/activity.ts]] — import-or-re-export; imports `logReaderAction`
 - [[Reference/Desktop/TypeScript/screens/reader/readerCache|src/screens/reader/readerCache.ts]] — import-or-re-export; imports `cachedSourceRead`
 - [[Reference/Desktop/TypeScript/screens/reader/readingPosition|src/screens/reader/readingPosition.ts]] — import-or-re-export; imports `ReadingPosition`
+- [[Reference/Desktop/TypeScript/screens/reader/readingReports|src/screens/reader/readingReports.ts]] — import-or-re-export; imports `flushReadingReports`
 - [[Reference/Desktop/TypeScript/screens/reader/sideBySide|src/screens/reader/sideBySide.ts]] — import-or-re-export; imports `PaneTarget`
 - [[Reference/Desktop/TypeScript/screens/reader/useReaderInquiry|src/screens/reader/useReaderInquiry.ts]] — import-or-re-export; imports `WindowAsk`, `WindowExchange`
 - [[Reference/Desktop/TypeScript/screens/workbench/stepModel|src/screens/workbench/stepModel.ts]] — import-or-re-export; imports `problemTitle`
@@ -1131,6 +1175,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 ## Tests that define behavior
 
+- [apps/learnloop-tauri/src/screens/desks/windows/SourceWindow.reread.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/desks/windows/SourceWindow.reread.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/desks/video/deskVideo.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/desks/video/deskVideo.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/desks/readingReport.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/desks/readingReport.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/desks/pen/penMode.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/desks/pen/penMode.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
@@ -1138,7 +1183,6 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 - [apps/learnloop-tauri/src/screens/desks/goal/GoalDesk.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/desks/goal/GoalDesk.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/desks/checks/holdSurfaces.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/desks/checks/holdSurfaces.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/desks/checks/deskChecks.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/desks/checks/deskChecks.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
-- [apps/learnloop-tauri/src/screens/desks/DeskShell.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/desks/DeskShell.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 
 ## Modification guidance
 
