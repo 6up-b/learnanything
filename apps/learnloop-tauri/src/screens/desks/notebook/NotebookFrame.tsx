@@ -36,6 +36,10 @@ export interface NotebookApi {
  * crash or an idle stop shows within this). keep: display polling, not a parameter. */
 export const POLL_MS = { changing: 500, ready: 5000 } as const;
 
+/** A failed open or reading is retried this many times, this far apart, before the failure is said (spec §11.2:
+ * "It retries three times, 1.5 s apart"). keep: the spec's values. */
+export const RETRY = { times: 3, everyMs: 1500 } as const;
+
 export interface NotebookError {
   code: string;
   message: string;
@@ -47,12 +51,14 @@ export type FrameView =
   | { kind: "starting"; restarts: number }
   | { kind: "ready"; frameUrl: string }
   | { kind: "restarting"; restarts: number }
+  | { kind: "retrying"; retry: number }
   | { kind: "stopped"; reason: string | null }
   | { kind: "failed"; message: string }
   | { kind: "unavailable"; message: string };
 
 /** The view a session (or the error that stood in for one) shows. */
-export function frameView(session: NotebookSessionDto | null, error: NotebookError | null): FrameView {
+export function frameView(session: NotebookSessionDto | null, error: NotebookError | null, retry = 0): FrameView {
+  if (retry > 0) return { kind: "retrying", retry };
   if (error) {
     return error.code === "notebook_runtime_unavailable" ? { kind: "unavailable", message: error.message } : { kind: "failed", message: error.message };
   }
@@ -91,6 +97,8 @@ export function statusLine(view: FrameView): string {
       return "";
     case "restarting":
       return `the notebook stopped; starting it again (${view.restarts} of 3)…`;
+    case "retrying":
+      return `the notebook isn't answering; trying again (${view.retry} of ${RETRY.times})…`;
     case "stopped":
       return `notebook ${view.reason ? STOPPED_WORDS[view.reason] ?? "stopped" : "stopped"}`;
     case "failed":
@@ -134,6 +142,9 @@ export function NotebookFrame({ owner, path, view = "app", title = "notebook", c
   const [session, setSession] = useState<NotebookSessionDto | null>(null);
   const [error, setError] = useState<NotebookError | null>(null);
   const [attempt, setAttempt] = useState(0);
+  // Automatic retries of a failed open or reading (0: none pending); a success ends them.
+  const [retrying, setRetrying] = useState(0);
+  const retries = useRef(0);
   const frameRef = useRef<HTMLIFrameElement | null>(null);
   const preview = lifecycle.state === "preview";
   const onSessionRef = useRef(onSession);
@@ -149,6 +160,24 @@ export function NotebookFrame({ owner, path, view = "app", title = "notebook", c
     if (preview) return;
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
+    const failed = (reason: unknown) => {
+      if (cancelled) return;
+      const problem = errorOf(reason);
+      if (problem.code !== "notebook_runtime_unavailable" && retries.current < RETRY.times) {
+        retries.current += 1;
+        setRetrying(retries.current);
+        timer = setTimeout(() => setAttempt((value) => value + 1), RETRY.everyMs);
+        return;
+      }
+      retries.current = 0;
+      setRetrying(0);
+      setError(problem);
+    };
+    const answered = () => {
+      retries.current = 0;
+      setRetrying(0);
+      setError(null);
+    };
     const follow = async (sessionId: string) => {
       await whenLive();
       if (cancelled) return;
@@ -156,11 +185,11 @@ export function NotebookFrame({ owner, path, view = "app", title = "notebook", c
         const next = await calls.notebookStatus({ sessionId });
         if (cancelled) return;
         setSession(next);
-        setError(null);
+        answered();
         if (next.state === "stopped" || next.state === "failed") return;
         timer = setTimeout(() => void follow(sessionId), next.state === "ready" ? readyPollRef.current?.(next) ?? POLL_MS.ready : POLL_MS.changing);
       } catch (reason) {
-        if (!cancelled) setError(errorOf(reason));
+        failed(reason);
       }
     };
     void (async () => {
@@ -170,10 +199,10 @@ export function NotebookFrame({ owner, path, view = "app", title = "notebook", c
         const opened = await calls.notebookOpen(path === undefined ? { owner, view } : { owner, path, view });
         if (cancelled) return;
         setSession(opened);
-        setError(null);
+        answered();
         timer = setTimeout(() => void follow(opened.sessionId), opened.state === "ready" ? readyPollRef.current?.(opened) ?? POLL_MS.ready : POLL_MS.changing);
       } catch (reason) {
-        if (!cancelled) setError(errorOf(reason));
+        failed(reason);
       }
     })();
     return () => {
@@ -182,8 +211,10 @@ export function NotebookFrame({ owner, path, view = "app", title = "notebook", c
     };
   }, [owner, path, view, attempt, preview, calls, whenLive]);
 
-  const current = frameView(session, error);
-  const frameUrl = current.kind === "ready" ? current.frameUrl : session?.state === "restarting" ? session.frameUrl : null;
+  const current = frameView(session, error, retrying);
+  // A frame already showing stays while its session restarts or a reading is retried (it reconnects by itself).
+  const frameUrl = current.kind === "ready" ? current.frameUrl
+    : session?.state === "restarting" || (current.kind === "retrying" && session?.state === "ready") ? session.frameUrl : null;
   const origin = frameUrl ? frameOrigin(frameUrl) : null;
 
   // The bridge: only this frame's own messages, of exactly the four shapes.
@@ -214,6 +245,8 @@ export function NotebookFrame({ owner, path, view = "app", title = "notebook", c
   }, [paused, frameUrl]);
 
   const retry = useCallback(() => {
+    retries.current = 0;
+    setRetrying(0);
     setSession(null);
     setError(null);
     setAttempt((value) => value + 1);
