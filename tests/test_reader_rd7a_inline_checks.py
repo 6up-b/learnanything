@@ -71,8 +71,10 @@ def _begin(ctx, session, commitment, *, request_id="req_1", visible=None):
 
 
 def _submit(ctx, token, *, submission_id="sub_1", answer=ANSWER):
+    # The client sends the last veil revision it applied (here, the server's own: every veil is applied).
+    revision = IA.veils(ctx.require_vault()[1], token)["revision"]
     return call(ctx, "check.submit_inline", {"administrationToken": token, "submissionId": submission_id,
-                                            "answerMd": answer})
+                                            "answerMd": answer, "veilsRevision": revision})
 
 
 # -- the RPCs ---------------------------------------------------------------------------------------------------------
@@ -116,11 +118,14 @@ def test_begin_serves_todays_item_with_its_frozen_contract_and_records_the_veils
     commitment = _due_check(repository)
     card = _begin(ctx, session, commitment)
     assert card["itemRef"] == ITEM and card["cold"] is True and card["contractHash"]
-    assert card["prompt"]["assessmentContractVersionId"] == card["contractHash"]
+    # The prompt is the allowlisted cold presentation: the question and its blocks, never the key, hints or rubric.
+    assert card["prompt"]["practiceItemId"] == ITEM and card["prompt"]["prompt"]
+    assert not {"expectedAnswer", "hints", "rubric", "attempts", "sourceRefs"} & set(card["prompt"])
     # Every note-bearing surface is veiled by default: the pad and thread windows whole, the companion, the preview.
     kinds = sorted((ref["kind"], ref.get("window_id")) for ref in card["protection"]["veiled"])
     assert kinds == [("companion", None), ("preview", "w_pad"), ("window", "w_pad"), ("window", "w_thread")]
-    assert card["protection"]["method"] == IA.METHOD
+    # The hint vault's LO has no coverage judgment, so the sources that would teach it are veiled whole (fail closed).
+    assert card["protection"]["method"] == IA.METHOD_WHOLE_SOURCES
     assert _rows(paths, "SELECT state, surface, cold, practice_item_id FROM check_administrations") == [
         ("open", IA.SURFACE, 1, ITEM)]
     assert _rows(paths, "SELECT seq, kind FROM check_veil_sets") == [(1, "begin")]
@@ -174,7 +179,7 @@ def test_the_protection_set_veils_covered_passages_and_every_note_bearing_surfac
                         {"kind": "span", "extraction_id": "ext_book", "span_id": "s2"}, {"kind": "pad", "ref_id": "b9"}],
     }
     method, veiled = IA.protection(load_vault(paths.root), repository, opened, visible,
-                                   lambda los: {("ext_book", "sec_cdf")})
+                                   lambda los: {LO: {("ext_book", "sec_cdf")}})
     assert method == IA.METHOD
     found = sorted((ref["group"], ref["kind"], ref.get("span_id") or ref.get("figure_id") or ref.get("note_id")
                     or ref.get("window_id") or ref.get("ref_id")) for ref in veiled)
@@ -213,9 +218,13 @@ def test_one_administration_at_a_time_and_today_honours_it(tmp_path):
     view = served_check(vault, repository, ITEM, now=SystemClock().now())
     assert view is not None and view["cold"] is True and "being_answered_in" not in view
     token = _begin(ctx, session, commitment)["administrationToken"]
-    # Two administrations never overlap.
+    # Two administrations never overlap: another begin of this check (a lost reply, a second click) adopts the open
+    # one; another check's begin is refused, naming the open one.
+    again = _begin(ctx, session, commitment, request_id="req_2")
+    assert (again["administrationToken"], again["replayed"]) == (token, True)
+    assert _rows(paths, "SELECT COUNT(*) FROM check_administrations") == [(1,)]
     with pytest.raises(SidecarError) as second:
-        _begin(ctx, session, commitment, request_id="req_2")
+        _begin(ctx, session, "cm_another_check", request_id="req_3")
     assert second.value.code == "administration_open"
     assert second.value.details["administration_token"] == token
     # Today: the check is "being answered in the Reader", its item is not the check in a build, and the band knows.
@@ -299,11 +308,14 @@ def test_opening_a_notes_veil_reads_no_note_and_says_so_in_the_receipt(tmp_path)
     token = _begin(ctx, session, commitment)["administrationToken"]
     ref = {"group": "notes", "kind": "note", "window_id": "w_book", "note_id": "note_1"}
     status = call(ctx, "check.expose", {"administrationToken": token, "ref": ref, "kind": "opened_veil"})["protectionStatus"]
-    assert _rows(paths, "SELECT COUNT(*) FROM reveal_events") == [(0,)]
-    # Not cold any more: the answer will be submitted primed (an unmeasured note errs toward practice).
-    assert status["coldNow"] is False
+    # Unmeasured: charged at the priming threshold on every candidate, so it outlives this administration.
+    from learnloop.serve_eligibility import AUTO_PRIME_REVEAL_THRESHOLD
+
+    assert _rows(paths, "SELECT practice_item_id, amount, basis FROM reveal_events") == [
+        (ITEM, AUTO_PRIME_REVEAL_THRESHOLD, IA.UNMEASURED_BASIS)]
+    assert status["coldNow"] is False and status["measured"] is False
     [event] = [event for event in status["exposure"] if event["kind"] == "opened_veil"]
-    assert event["unmeasured_notes"] == ["note_1"] and set(event["amounts"].values()) <= {0.0}
+    assert event["unmeasured_notes"] == ["note_1"] and event["amounts"] == {ITEM: AUTO_PRIME_REVEAL_THRESHOLD}
 
 
 def test_an_answer_after_a_notes_veil_was_opened_is_practice_and_says_why(tmp_path):
@@ -319,9 +331,9 @@ def test_an_answer_after_a_notes_veil_was_opened_is_practice_and_says_why(tmp_pa
     call(ctx, "check.expose", {"administrationToken": token, "kind": "opened_veil",
                                "ref": {"group": "notes", "kind": "note", "window_id": "w_book", "note_id": "note_1"}})
     reply = _submit(ctx, token)
-    assert (reply["cold"], reply["reason"], reply["primed_by"]) == (False, "primed", "unmeasured_note")
+    assert (reply["cold"], reply["reason"], reply["primedBy"]) == (False, "primed", "unmeasured_note")
     assert _rows(paths, "SELECT primed FROM practice_attempts WHERE id = ?", (reply["attemptId"],)) == [(1,)]
-    assert _rows(paths, "SELECT COUNT(*) FROM reveal_events") == [(0,)]
+    assert _rows(paths, "SELECT COUNT(*) FROM reveal_events") == [(1,)]
     assert C.resolve_disposition(repository, commitment) == "one_check_pending"
 
     def projection() -> dict[str, Any]:
@@ -355,21 +367,29 @@ def test_submit_records_one_attempt_on_the_reader_surface_settles_and_is_idempot
     assert other.value.code == "already_submitted"
 
 
-def test_a_later_answer_after_today_settled_the_check_is_practice_and_ordinary_evidence(tmp_path):
+def test_an_answer_on_another_surface_while_the_reader_holds_the_check_answers_nothing(tmp_path):
+    # Today serves the item as practice while the Reader holds the check ("being answered in the Reader"); an answer
+    # there (a deep link) is ordinary evidence and settles nothing; the Reader's answer settles the check. After that,
+    # a later answer on the other surface answers nothing either (the owner's Q3).
     paths, ctx, session, repository = _sidecar(tmp_path)
     commitment = _due_check(repository)
     token = _begin(ctx, session, commitment)["administrationToken"]
-    # Today answered first (a deep link; the lock is a courtesy, the first settling attempt wins).
     today = call(ctx, "submit_attempt", {"sessionId": session, "practiceItemId": ITEM, "answerMd": ANSWER,
                                          "attemptType": "independent_attempt", "submissionId": "today_1"})
     from learnloop.intent.checks import settle_answered_checks
     from learnloop.vault.loader import load_vault
 
-    assert settle_answered_checks(load_vault(paths.root), repository) == [commitment]
+    assert settle_answered_checks(load_vault(paths.root), repository) == []
+    assert C.resolve_disposition(repository, commitment) == "one_check_pending"
     reply = _submit(ctx, token)
-    assert (reply["cold"], reply["reason"]) == (False, "already_answered")
+    assert (reply["cold"], reply["reason"]) == (True, "on_your_own")
     assert reply["attemptId"] != today["attemptId"]
-    assert _rows(paths, "SELECT primed FROM practice_attempts WHERE id = ?", (reply["attemptId"],)) == [(0,)]
+    later = call(ctx, "submit_attempt", {"sessionId": session, "practiceItemId": ITEM, "answerMd": ANSWER,
+                                         "attemptType": "independent_attempt", "submissionId": "today_2"})
+    assert settle_answered_checks(load_vault(paths.root), repository) == []
+    assert _rows(paths, "SELECT json_extract(detail_json, '$.administration_id') FROM commitment_events "
+                        "WHERE commitment_id = ? AND kind = 'disposition_changed'", (commitment,)) == [(reply["attemptId"],)]
+    assert later["attemptId"] not in (today["attemptId"], reply["attemptId"])
 
 
 def test_parity_with_check_once_in_today(tmp_path):
@@ -482,6 +502,15 @@ def test_a_check_settled_elsewhere_while_open_is_closed_superseded_on_the_next_r
 
 # -- replay -----------------------------------------------------------------------------------------------------------
 
+def _serving_checks(paths, repository):
+    from learnloop.clock import SystemClock
+    from learnloop.scheduling.intent.serving import intent_serving
+    from learnloop.vault.loader import load_vault
+
+    serving = intent_serving(load_vault(paths.root), repository, now=SystemClock().now(), force=True)
+    return list(serving.checks.values()) if serving is not None else []
+
+
 def test_the_projection_after_an_inline_answer_equals_a_whole_vault_rebuild(tmp_path):
     from learnloop.substrate.replay import rebuild_derived_state
     from learnloop.vault.loader import load_vault
@@ -499,10 +528,336 @@ def test_the_projection_after_an_inline_answer_equals_a_whole_vault_rebuild(tmp_
         facets = sorted((cell.facet_id, cell.capability, round(cell.direct_positive_mass, 9),
                          round(cell.direct_negative_mass, 9), round(cell.certification_credit, 9))
                         for cell in repository.facet_capability_evidence_all())
+        # The whole semantic projection the answer moves: the item's schedule state and due date, the check's
+        # disposition and its date, and the reveal ledger, beside mastery and facets.
         return {"mastery": mastery, "facets": facets,
-                "administrations": _rows(paths, "SELECT administration_token, state FROM check_administrations"),
+                "schedule": _rows(paths, "SELECT * FROM practice_item_state ORDER BY practice_item_id"),
+                "dispositions": _rows(paths, "SELECT commitment_id, kind, detail_json FROM commitment_events ORDER BY rowid"),
+                "check": [(check.commitment_id, check.date.isoformat(), check.due, check.answered_by)
+                          for check in sorted(_serving_checks(paths, repository), key=lambda check: check.commitment_id)],
+                "reveals": _rows(paths, "SELECT id, practice_item_id, amount, basis FROM reveal_events ORDER BY id"),
+                "administrations": _rows(paths, "SELECT administration_token, state, outcome_json FROM check_administrations"),
                 "veil_sets": _rows(paths, "SELECT veil_set_id FROM check_veil_sets ORDER BY seq")}
 
     live = projection()
     rebuild_derived_state(load_vault(paths.root), repository)
     assert projection() == live
+
+
+# -- the fix round (the adversarial review of 2026-11-24) -------------------------------------------------------------
+
+from learnloop.serve_eligibility import AUTO_PRIME_REVEAL_THRESHOLD  # noqa: E402
+
+NOTE_REF = {"group": "notes", "kind": "note", "window_id": "w_book", "note_id": "note_1"}
+
+
+def _today_attempt(ctx, session, submission_id="today_x", item=ITEM):
+    return call(ctx, "submit_attempt", {"sessionId": session, "practiceItemId": item, "answerMd": ANSWER,
+                                        "attemptType": "independent_attempt", "submissionId": submission_id})
+
+
+def test_rd7_3_an_opened_note_outlives_not_now_the_next_attempt_anywhere_is_not_cold(tmp_path):
+    from learnloop.intent.checks import settle_answered_checks
+    from learnloop.vault.loader import load_vault
+
+    paths, ctx, session, repository = _sidecar(tmp_path)
+    commitment = _due_check(repository)
+    token = _begin(ctx, session, commitment)["administrationToken"]
+    call(ctx, "check.expose", {"administrationToken": token, "ref": NOTE_REF, "kind": "opened_veil"})
+    call(ctx, "check.abandon_inline", {"administrationToken": token})
+    # A new Reader administration opens not cold, and says why.
+    card = _begin(ctx, session, commitment, request_id="req_after")
+    assert card["cold"] is False and card["eligibility"] == "answer_shown"
+    call(ctx, "check.abandon_inline", {"administrationToken": card["administrationToken"]})
+    # Today: an answer now settles nothing (the reveal is the ledger's, not the closed administration's).
+    _today_attempt(ctx, session)
+    assert settle_answered_checks(load_vault(paths.root), repository) == []
+    assert C.resolve_disposition(repository, commitment) == "one_check_pending"
+
+
+def test_rd7_3_leaving_for_an_unveiled_surface_is_an_unmeasured_opening(tmp_path):
+    paths, ctx, session, repository = _sidecar(tmp_path)
+    token = _begin(ctx, session, _due_check(repository))["administrationToken"]
+    status = call(ctx, "check.expose", {"administrationToken": token, "kind": "left",
+                                        "ref": {"kind": "surface", "surface": "old_reader"}})["protectionStatus"]
+    assert status["coldNow"] is False and status["measured"] is False
+    assert _rows(paths, "SELECT practice_item_id, amount, basis FROM reveal_events") == [
+        (ITEM, AUTO_PRIME_REVEAL_THRESHOLD, IA.UNMEASURED_BASIS)]
+
+
+def test_rd7_4_every_candidate_of_an_lo_check_is_charged_from_the_set_begin_froze(tmp_path):
+    from learnloop.vault.writer import upsert_practice_item
+    from tests.helpers import NOW_ISO
+
+    paths = hint_vault(tmp_path)
+    other_key = "The median of X is one over the square root of two."
+    upsert_practice_item(paths.root, {
+        "id": "pi_cdf_b", "learning_object_id": LO, "subjects": None, "practice_mode": "short_answer",
+        "attempt_types_allowed": ["independent_attempt"], "evidence_facets": ["recall"], "evidence_weights": {"recall": 1.0},
+        "prompt": "What is the median of X?", "expected_answer": other_key,
+        "grading_rubric": {"max_points": 4, "criteria": [{"id": "c", "points": 4, "description": "Correct."}], "fatal_errors": []},
+        "created_at": NOW_ISO, "updated_at": NOW_ISO})
+    ctx = SidecarContext()
+    ctx.load(paths.root)
+    ctx.post_attempt_worker.autostart = False
+    session = call(ctx, "start_session", {"energy": "medium"})["sessionId"]
+    repository = Repository.attach(paths.sqlite_path)
+    yesterday = (datetime.now(UTC) - timedelta(days=1)).date().isoformat()
+    commitment = C.create_commitment(
+        repository, action="test_me_later", intent_text="check the CDF later",
+        targets=[{"target_kind": "learning_object", "target_ref": LO, "role": "required"}],
+        depth_preset="keep_in_touch", client_idempotency_key="rd7_4", due_hint=yesterday).id
+    ref = _seed_block(ctx, other_key)
+    card = _begin(ctx, session, commitment)
+    token = card["administrationToken"]
+    frozen = {row["practice_item_id"] for row in IA.find(repository, token)["candidates"]}
+    assert frozen >= {ITEM, "pi_cdf_b"}  # every item of the LO, as build_checks expands it
+    call(ctx, "check.expose", {"administrationToken": token, "ref": ref, "kind": "opened_veil"})
+    charged = dict(_rows(paths, "SELECT practice_item_id, amount FROM reveal_events"))
+    # The pad states the other candidate's answer: that candidate is charged, whichever item was served.
+    assert charged.get("pi_cdf_b", 0) > 0
+
+
+def test_rd7_5_an_opening_and_its_reveals_commit_together_and_a_retry_charges_nothing_again(tmp_path, monkeypatch):
+    paths, ctx, session, repository = _sidecar(tmp_path)
+    ref = _seed_block(ctx, EXPECTED)
+    token = _begin(ctx, session, _due_check(repository))["administrationToken"]
+    real = Repository.insert_reveal_event
+
+    def failing(self, event, *, clock=None):
+        raise sqlite3.OperationalError("disk I/O error")
+
+    monkeypatch.setattr(Repository, "insert_reveal_event", failing)
+    with pytest.raises(Exception):
+        call(ctx, "check.expose", {"administrationToken": token, "ref": ref, "kind": "opened_veil", "exposureId": "op_1"})
+    # Nothing recorded: no reveal, no exposure, no opened veil (the veil must stay).
+    assert _rows(paths, "SELECT COUNT(*) FROM reveal_events") == [(0,)]
+    assert IA.find(repository, token)["exposure"] == []
+    assert IA.veils(repository, token)["opened"] == []
+    monkeypatch.setattr(Repository, "insert_reveal_event", real)
+    first = call(ctx, "check.expose", {"administrationToken": token, "ref": ref, "kind": "opened_veil", "exposureId": "op_1"})
+    again = call(ctx, "check.expose", {"administrationToken": token, "ref": ref, "kind": "opened_veil", "exposureId": "op_1"})
+    assert _rows(paths, "SELECT COUNT(*) FROM reveal_events") == [(1,)]
+    assert len(first["protectionStatus"]["exposure"]) == len(again["protectionStatus"]["exposure"]) == 1
+
+
+def test_rd7_6_protect_more_returns_the_standing_set_so_a_lost_reply_loses_no_veil(tmp_path):
+    paths, ctx, session, repository = _sidecar(tmp_path)
+    token = _begin(ctx, session, _due_check(repository))["administrationToken"]
+    visible = {"windows": [*VISIBLE["windows"], {"windowId": "w_new", "kind": "pad_stack"}]}
+    first = call(ctx, "check.protect_more", {"administrationToken": token, "visible": visible})
+    # The first reply was lost: the same request again adds nothing, but the standing set still holds the new veil.
+    again = call(ctx, "check.protect_more", {"administrationToken": token, "visible": visible})
+    assert again["veilAdditions"] == [] and again["revision"] == first["revision"] == 2
+    assert ("window", "w_new") in {(ref["kind"], ref.get("window_id")) for ref in again["standing"]}
+
+
+def test_rd7_7_an_opening_nothing_can_measure_is_charged_and_says_so_before(tmp_path):
+    paths, ctx, session, repository = _sidecar(tmp_path)
+    card = _begin(ctx, session, _due_check(repository), visible={"windows": [
+        {"windowId": "w_lesson", "kind": "lesson"}, {"windowId": "w_thread", "kind": "thread"}]})
+    measured = {ref["window_id"]: ref["measured"] for ref in card["protection"]["veiled"] if ref["kind"] == "window"}
+    assert measured == {"w_lesson": False, "w_thread": False}
+    figure = {"group": "figures", "kind": "figure", "window_id": "w_book", "figure_id": "f1"}
+    status = call(ctx, "check.expose", {"administrationToken": card["administrationToken"], "ref": figure,
+                                        "kind": "opened_veil"})["protectionStatus"]
+    assert status["measured"] is False and status["coldNow"] is False
+    assert _rows(paths, "SELECT amount, basis FROM reveal_events") == [(AUTO_PRIME_REVEAL_THRESHOLD, IA.UNMEASURED_BASIS)]
+
+
+def test_rd7_8_the_host_passage_is_protected_and_missing_coverage_fails_closed_for_its_source(tmp_path, monkeypatch):
+    from learnloop.vault.loader import load_vault
+
+    paths, _ctx, _session, repository = _sidecar(tmp_path)
+
+    class Sections:
+        def __init__(self, _repository):
+            pass
+
+        def section_of(self, extraction_id, span_id):
+            return {"h1": "sec_host", "c1": "sec_cov", "o1": "sec_other"}.get(span_id)
+
+    import learnloop.intent.inline_checks as inline_checks
+
+    monkeypatch.setattr(inline_checks, "_Sections", Sections)
+    monkeypatch.setattr(IA, "_host_places", lambda _repository, los: ({("ext_book", "sec_host")}, {"ext_book"}))
+    opened = IA.Opened(commitment_id="cm", practice_item_id=ITEM, cold=True, candidates=(ITEM,),
+                       learning_object_ids=(LO,), provenance={})
+    visible = {"windows": [{"window_id": "w_book", "kind": "source", "extraction_id": "ext_book", "span_ids": ["h1", "c1", "o1"]},
+                           {"window_id": "w_far", "kind": "source", "extraction_id": "ext_far", "span_ids": ["f1"]}]}
+    spans = lambda veiled: {(ref["window_id"], ref["span_id"]) for ref in veiled if ref["kind"] == "span"}  # noqa: E731
+    # Judged coverage: the covered section and the host's (a host with no coverage judged about it is still the host).
+    _method, veiled = IA.protection(load_vault(paths.root), repository, opened, visible, lambda los: {LO: {("ext_book", "sec_cov")}})
+    assert spans(veiled) == {("w_book", "h1"), ("w_book", "c1")}
+    # No current coverage judgment for the LO: its host's reading whole, another reading not.
+    method, veiled = IA.protection(load_vault(paths.root), repository, opened, visible, lambda los: {})
+    assert method == IA.METHOD_WHOLE_SOURCES and spans(veiled) == {("w_book", "h1"), ("w_book", "c1"), ("w_book", "o1")}
+
+
+def test_rd7_9_recovery_shows_the_frozen_card_without_serving_again_and_names_the_reserved_submission(tmp_path, monkeypatch):
+    import learnloop_sidecar.handlers.practice as practice
+
+    paths, ctx, session, repository = _sidecar(tmp_path)
+    card = _begin(ctx, session, _due_check(repository))
+    token = card["administrationToken"]
+    IA.prepare_submit(ctx.require_vault()[0], repository, token=token, submission_id="sub_crash")
+    served = []
+    real = practice.get_practice_item
+    monkeypatch.setattr(practice, "get_practice_item", lambda *args, **kwargs: served.append(1) or real(*args, **kwargs))
+    again = call(ctx, "check.open_inline", {})["administration"]
+    assert served == []
+    assert again["prompt"] == card["prompt"] and again["submissionId"] == "sub_crash"
+
+
+def test_rd7_10_a_closed_request_is_refused_with_its_state_not_served_again(tmp_path):
+    paths, ctx, session, repository = _sidecar(tmp_path)
+    commitment = _due_check(repository)
+    token = _begin(ctx, session, commitment)["administrationToken"]
+    call(ctx, "check.abandon_inline", {"administrationToken": token})
+    with pytest.raises(SidecarError) as closed:
+        _begin(ctx, session, commitment)  # the same request id
+    assert closed.value.code == "administration_closed" and closed.value.details["state"] == "abandoned"
+
+
+def test_rd7_11_while_a_submission_is_reserved_not_now_and_openings_are_refused(tmp_path):
+    paths, ctx, session, repository = _sidecar(tmp_path)
+    token = _begin(ctx, session, _due_check(repository))["administrationToken"]
+    IA.prepare_submit(ctx.require_vault()[0], repository, token=token, submission_id="sub_1")
+    for name, extra in (("check.abandon_inline", {}),
+                        ("check.expose", {"ref": NOTE_REF, "kind": "opened_veil"})):
+        with pytest.raises(SidecarError) as refused:
+            call(ctx, name, {"administrationToken": token, **extra})
+        assert refused.value.code == "submission_in_flight"
+    # A second submission cannot reserve it either.
+    with pytest.raises(IA.InlineCheckError):
+        IA.prepare_submit(ctx.require_vault()[0], repository, token=token, submission_id="sub_2")
+
+
+def test_rd7_12_the_outcome_is_saved_with_the_close_and_every_retry_returns_it(tmp_path, monkeypatch):
+    paths, ctx, session, repository = _sidecar(tmp_path)
+    token = _begin(ctx, session, _due_check(repository))["administrationToken"]
+    first = _submit(ctx, token)
+    assert IA.find(repository, token)["outcome"] == {"cold": True, "reason": "on_your_own", "eligibility": None}
+    monkeypatch.setattr(IA, "outcome", lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("computed again")))
+    again = _submit(ctx, token)
+    assert (again["cold"], again["reason"], again["administrationToken"]) == (first["cold"], first["reason"], token)
+    assert "administration_token" not in again and "eligibility" in again
+
+
+def test_rd7_13_a_client_behind_the_veil_revision_cannot_submit(tmp_path):
+    paths, ctx, session, repository = _sidecar(tmp_path)
+    token = _begin(ctx, session, _due_check(repository))["administrationToken"]
+    call(ctx, "check.protect_more", {"administrationToken": token, "visible": {
+        "windows": [*VISIBLE["windows"], {"windowId": "w_new", "kind": "pad_stack"}]}})
+    with pytest.raises(SidecarError) as stale:
+        call(ctx, "check.submit_inline", {"administrationToken": token, "submissionId": "sub_1", "answerMd": ANSWER,
+                                          "veilsRevision": 1})
+    assert stale.value.code == "veils_stale"
+    assert _rows(paths, "SELECT submission_id FROM check_administrations") == [(None,)]
+
+
+def test_rd7_14_today_claims_its_current_presentation_not_an_old_session_nobody_ended(tmp_path):
+    paths, ctx, session, repository = _sidecar(tmp_path)
+    commitment = _due_check(repository)
+    # The current session shows the item, nothing typed yet: the check is being answered in Today.
+    call(ctx, "update_session_checkpoint", {"sessionId": session, "currentPracticeItemId": ITEM, "currentAnswer": ""})
+    with pytest.raises(SidecarError) as today:
+        _begin(ctx, session, commitment)
+    assert today.value.code == "being_answered_in_today"
+    # A newer session is the current one: the old one's checkpoint (an answer typed, the session never ended) does not
+    # hold the check.
+    call(ctx, "update_session_checkpoint", {"sessionId": session, "currentPracticeItemId": ITEM, "currentAnswer": "F(x)"})
+    with closing(sqlite3.connect(paths.sqlite_path)) as connection:
+        connection.execute("UPDATE sessions SET started_at = '2020-01-01T00:00:00Z' WHERE id = ?", (session,))
+        connection.execute("INSERT INTO sessions (id, started_at) VALUES ('ps_newer', '2099-01-01T00:00:00Z')")
+        connection.commit()
+    card = _begin(ctx, "ps_newer", commitment, request_id="req_newer")
+    assert card["administrationToken"]
+
+
+def test_rd7_15_a_card_moved_by_an_answer_elsewhere_is_superseded_on_recovery(tmp_path):
+    paths, ctx, session, repository = _sidecar(tmp_path)
+    token = _begin(ctx, session, _due_check(repository))["administrationToken"]
+    _today_attempt(ctx, session)
+    assert call(ctx, "check.open_inline", {})["administration"] is None
+    assert IA.find(repository, token)["state"] == "superseded"
+
+
+def test_rd7_16_the_daily_plan_does_not_label_a_held_check(tmp_path):
+    from learnloop.clock import SystemClock
+    from learnloop.scheduling.intent.serving import intent_serving
+    from learnloop.vault.loader import load_vault
+
+    paths, ctx, session, repository = _sidecar(tmp_path)
+    commitment = _due_check(repository)
+    vault = load_vault(paths.root)
+    assert list(intent_serving(vault, repository, now=SystemClock().now(), force=True).check_item_ids([ITEM])) == [ITEM]
+    _begin(ctx, session, commitment)
+    assert intent_serving(vault, repository, now=SystemClock().now(), force=True).check_item_ids([ITEM]) == {}
+
+
+def test_rd7_17_work_that_would_reveal_the_check_waits_while_it_is_open(tmp_path, monkeypatch):
+    from learnloop.pads import emission
+
+    paths, ctx, session, repository = _sidecar(tmp_path)
+    token = _begin(ctx, session, _due_check(repository))["administrationToken"]
+    for name, params in (
+            ("companion.ask", {"requestId": "q1", "deskId": "d1", "surface": "desk", "question": "why?", "extractionId": "e",
+                               "spanId": "s"}),
+            ("ink.transcribe", {"inkId": "ink_1"}),
+            ("lesson.turn", {"action": "open", "entry": "learning_object", "learningObjectIds": [LO]})):
+        with pytest.raises(SidecarError) as held:
+            call(ctx, name, params)
+        assert held.value.code == "check_open", name
+    settled = []
+    monkeypatch.setattr(emission, "settle_blocks", lambda *args, **kwargs: settled.append(1))
+    _seed_block(ctx, "a pad line written during the check")
+    assert settled == []
+    reconciled = []
+    monkeypatch.setattr(emission, "reconcile", lambda *args, **kwargs: reconciled.append(1) or emission.Settled())
+    call(ctx, "check.abandon_inline", {"administrationToken": token})
+    assert reconciled == [1]
+
+
+def test_rd7_18_a_session_another_device_holds_is_refused_before_the_question_shows(tmp_path):
+    paths, ctx, session, repository = _sidecar(tmp_path)
+    with closing(sqlite3.connect(paths.sqlite_path)) as connection:
+        connection.execute("UPDATE sessions SET owner_device_id = 'phone_1' WHERE id = ?", (session,))
+        connection.commit()
+    with pytest.raises(SidecarError) as moved:
+        _begin(ctx, session, _due_check(repository))
+    assert moved.value.code == "session_moved"
+    assert _rows(paths, "SELECT COUNT(*) FROM check_administrations") == [(0,)]
+
+
+def test_rd7_19_the_self_grade_reaches_the_attempt_service():
+    from learnloop_sidecar.handlers import inline_checks as H
+
+    parsed = H.SubmitInlineInput.model_validate({"administrationToken": "t", "submissionId": "s", "answerMd": "a",
+                                                 "veilsRevision": 1, "selfGrade": {"criterionPoints": {"c": 3}, "confidence": 3}})
+    assert parsed.self_grade is not None
+
+
+def test_rd7_20_a_subthreshold_opening_holds_the_check_and_the_reply_says_so(tmp_path):
+    # A small overlap does not prime the item, but it holds the check for a while (the Check once rule): the answer is
+    # not cold, and the reply's reason is that hold, not "primed" and not "on your own".
+    from learnloop.clock import FrozenClock
+
+    paths, ctx, session, repository = _sidecar(tmp_path)
+    # The check was chosen an hour ago (a reveal holds it only when it came after the choice).
+    yesterday = (datetime.now(UTC) - timedelta(days=1)).date().isoformat()
+    commitment = C.create_commitment(
+        repository, action="test_me_later", intent_text="check the CDF later",
+        targets=[{"target_kind": "legacy_practice_item", "target_ref": ITEM, "role": "required"}],
+        depth_preset="keep_in_touch", client_idempotency_key="rd7_20", due_hint=yesterday,
+        clock=FrozenClock(datetime.now(UTC) - timedelta(hours=1))).id
+    ref = _seed_block(ctx, "Integrate")
+    token = _begin(ctx, session, commitment)["administrationToken"]
+    status = call(ctx, "check.expose", {"administrationToken": token, "ref": ref, "kind": "opened_veil"})["protectionStatus"]
+    [amount] = [row[0] for row in _rows(paths, "SELECT amount FROM reveal_events")]
+    assert 0 < amount < AUTO_PRIME_REVEAL_THRESHOLD
+    assert status["eligibility"] == "hold" and status["coldNow"] is False
+    reply = _submit(ctx, token)
+    assert (reply["cold"], reply["reason"], reply["eligibility"]) == (False, "hold", "hold")
+    assert _rows(paths, "SELECT primed FROM practice_attempts WHERE id = ?", (reply["attemptId"],)) == [(0,)]
+    assert C.resolve_disposition(repository, commitment) == "one_check_pending"
