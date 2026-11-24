@@ -38,7 +38,7 @@ export class FixtureWorkbench {
     return { assistId: "fx_check_1", checkedAt: "2026-11-23T09:01:00Z", firstQuestionableStepId: last, errorKind: null, assumptions: [],
       symbolicEnabled: false, symbolicAvailable: false, stale: false, changedSteps: [],
       verdicts: chains.map((chainId, index) => ({ chainId, number: index + 1, verdict: chainId === last ? "questionable" : "valid", method: "model",
-        mark: chainId === last ? "?" : "✓", label: "model's reading, not checked", reason: chainId === last ? "the sign of the second term" : "",
+        mark: chainId === last ? "?" : "≈", label: "model's reading, not checked", reason: chainId === last ? "the sign of the second term" : "",
         dependsOn: [], assumption: "", first: chainId === last, editedSinceCheck: false, deletedSinceCheck: false })) };
   }
 

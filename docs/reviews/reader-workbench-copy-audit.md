@@ -142,7 +142,8 @@ asks on every screen), and “a check on your own” on Practice, Feedback, Repa
   `screens/desks` and `screens/LessonView.tsx` (string literals that read as words, outside class names and imports,
   and JSX text) for the retired words; it found 37 on the tree before this pass.
 - `tests/test_workbench_nouns.py` scans the messages the desks' handlers raise (`pads/`, the inline checks, and the
-  handlers for pads, the companion, desks, lessons, search, figures and ink).
+  handlers for pads, the companion and its asks, desks, the inline checks, lessons, the passage union, search and
+  ink). The figures handler is left out: its refusals name the check on your own as Practice and Today still do.
 
 ### Expectations changed with the words
 
@@ -153,6 +154,15 @@ the overlay's name, the companion's wait), `desks/menu/KnowsPanel.test.tsx`, `de
 `workbench/Workbench.test.tsx` (three), the snapshot `ReaderScreen.cuesSwitchOff.test.tsx.snap` (check me's hint), and
 the desk harness (`run.py`: the companion's tab, Show me's “move to pad”, the cold check marker and the companion's
 wait, two check names).
+
+### Branches merged under the pass
+
+The pass is done once on the union: phase 1 of the Reader's retirement, batch 5 (protection, GLM-OCR, the copy
+fixes), the inline checks (through main), the retirement's loose ends, the ink help ladder and the goal sent to the
+tutor. The strings those branches add use no retired word (both scans pass on the merged tree); the ink branch's
+Show me check in the harness kept “move to pad”. Three merge interactions were fixed (the ledger's naming-pass rows):
+the harness now starts every page's clock on the fixture's day; the companion's goal lookup reads the vault the
+protection check opened; and the ink ladder's fake check marks a model's reading as the sidecar does.
 
 ## Verification
 
