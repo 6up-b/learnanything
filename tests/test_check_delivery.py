@@ -294,3 +294,19 @@ def test_resolved_checks_move_the_seed():
     record = available.as_dict()
     assert record["successes"] == 0 and record["failures"] == 19 and record["delivery_regime"] == CD.LEGACY_REGIME
     assert record["policy_version"] == CD.DELIVERY_POLICY_VERSION and record["eligible_now"] is True
+
+
+def test_an_answer_held_by_an_inline_check_answers_nothing_in_the_delivery_read(vault):
+    # The same qualifying-attempt rule as settlement: an answer on another surface while the Reader held the check
+    # (Today served it as practice then) is not the check's cold answer here either.
+    from tests.inline_hold_helpers import hold_open
+
+    commitment = vault.commit("pi_held_in_reader", node="n_held", lesson="les_held")
+    vault.close("les_held")
+    answered = DUE + timedelta(hours=2)
+    vault.attempt("pi_held_in_reader", answered)
+    vault.blind(f"att{vault._attempts:03d}", answered)
+    hold_open(vault.repository, commitment, item="pi_held_in_reader", opened_at=_iso(answered - timedelta(minutes=5)),
+              closed_at=_iso(answered + timedelta(minutes=5)))
+    trial = vault.classify(LATE)[_key("n_held", lesson="les_held")]
+    assert (trial.outcome, trial.reason) != (CD.SUCCESS, CD.ANSWERED_COLD)

@@ -176,6 +176,7 @@ def execute_structured_operation(
     isolated: bool = False,
     images: tuple[tuple[str, bytes], ...] = (),
     check: Callable[[WireResult], WireResult] | None = None,
+    receipt_checkpoint: tuple[str, int] | None = None,
 ) -> WireResult:
     """Execute one feature-owned structured operation.
 
@@ -245,6 +246,9 @@ def execute_structured_operation(
             metadata["output_text"] = result.model_dump_json()
         if check is not None:
             result = check(result)
+        if receipt_checkpoint is not None:
+            metadata["receipt_checkpoint"] = receipt_checkpoint
+            metadata["output_text"] = result.model_dump_json()
         return result
 
 

@@ -225,6 +225,9 @@ class IntentServing:
     #: ``(item_id, check) -> refusal | None``: a Reader follow-up's serve-time
     #: gate (RW6b Codex review F1, F11).
     _followup_gate: Any = None
+    #: The commitments an open inline administration holds (mvp-0.69, spec §12.6.5): the lock Today honours. While it
+    #: is held Today does not serve the check's item as the check; it reads "being answered in the Reader".
+    locked: frozenset[str] = frozenset()
 
     # -- the checks, split among admitted candidates (R1) ----------------------
 
@@ -456,6 +459,10 @@ class IntentServing:
                 (item_id for item_id in check.servable if item_id in positions),
                 key=lambda item_id: positions[item_id],
             )
+            if check.commitment_id in self.locked:
+                # Being answered in the Reader: none of its items is served as the check in this build.
+                drop.update(ranked)
+                continue
             if not ranked:
                 continue
             chosen[check.commitment_id] = ranked[0]
@@ -474,7 +481,8 @@ class IntentServing:
             check = self.check_for(item_id)
             if check is None or item_id not in check.servable:
                 continue
-            if check.commitment_id in claimed:
+            # Held in the Reader (mvp-0.69): its item is not this check here, wherever the pool was gathered.
+            if check.commitment_id in self.locked or check.commitment_id in claimed:
                 continue
             claimed.add(check.commitment_id)
             found[item_id] = check
@@ -504,6 +512,7 @@ def build_checks(
     default_days: int,
     attempts_since: Any,
     cold_at: Any = None,
+    held_at: Any = None,
 ) -> tuple[dict[str, CheckState], Resolution]:
     """Every pending "Check once" with its date and the items it decides;
     answered ones are folded to ``satisfied`` in the returned resolution.
@@ -549,6 +558,11 @@ def build_checks(
                 continue
             if at > now:
                 break
+            if held_at is not None and held_at(snapshot.id, row):
+                # mvp-0.69 (RD7's fix round): answered on another surface while an inline administration held this
+                # check: it was served as practice ("being answered in the Reader"), so it answers nothing and leaves
+                # the date as it was (the held answer decides).
+                continue
             if on_your_own(row) and (cold_at is None or cold_at(row, snapshot.created_at) == _SERVE):
                 answer = row
                 break
@@ -655,6 +669,51 @@ def split_check(check: CheckState, *, eligibility: Any = None, feasibility: Any 
     )
 
 
+def _held_at(vault: Any, repository: Any) -> Any:
+    """mvp-0.69 (RD7's fix round): ``held_at(commitment_id, attempt_row)``: the attempt was made on another surface
+    while an inline administration held this commitment (from its opening to its close). Below the tag, None."""
+
+    from learnloop.algorithm_versions import inline_checks_on
+    from learnloop.db.stores import check_administrations as admin_store
+
+    if not inline_checks_on(vault.config):
+        return None
+    with repository.connection() as connection:
+        windows = admin_store.held_windows(connection)
+    if not windows:
+        return None
+
+    def held_at(commitment_id: str, row: Mapping[str, Any]) -> bool:
+        return held_by_inline(windows.get(commitment_id, ()), row)
+
+    return held_at
+
+
+def held_by_inline(windows: Iterable[tuple[str, str | None]], row: Mapping[str, Any]) -> bool:
+    """Whether an attempt on another surface was held by an inline administration (one of its ``[opened_at,
+    closed_at)`` windows; an open one runs on): its presentation was served during a window (Today served it as
+    practice then, whenever it was answered), or, with no presentation recorded, it was made during one. The window is
+    half-open: an answer in the second the hold closed, after it, is not held."""
+
+    if str(row.get("entry_surface") or "") == "reader_inline":
+        return False
+    stamps = [str(row[key]) for key in ("presented_at", "created_at") if row.get(key)]
+    return any(opened <= at and (closed is None or at < closed)
+               for opened, closed in windows for at in stamps)
+
+
+def _inline_locks(vault: Any, repository: Any) -> frozenset[str]:
+    """The commitments an open inline administration holds (mvp-0.69); below the tag, none (Today ignores the lock)."""
+
+    from learnloop.algorithm_versions import inline_checks_on
+    from learnloop.db.stores.check_administrations import open_commitments
+
+    if not inline_checks_on(vault.config):
+        return frozenset()
+    with repository.connection() as connection:
+        return open_commitments(connection)
+
+
 def intent_serving(
     vault: Any,
     repository: Any,
@@ -734,6 +793,7 @@ def intent_serving(
         default_days=int(config.capture.test_me_later_days),
         attempts_since=attempts_since,
         cold_at=cold_at,
+        held_at=_held_at(vault, repository),
     )
 
     def anchors() -> dict[str, tuple[str, str]]:
@@ -759,6 +819,7 @@ def intent_serving(
         _admission_factory=default_admission,
         _gate_factory=gate_factory,
         _followup_gate=followup_gate,
+        locked=_inline_locks(vault, repository),
     )
 
 

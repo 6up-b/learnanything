@@ -31,6 +31,8 @@ const AXLER = { sourceId: "src_axler", title: "Linear Algebra Done Right" };
 
 vi.mock("../api/client", () => {
   const base: Record<string, unknown> = {
+    // No inline check is open on the desks (the app reads it before showing any place).
+    checkOpenInline: vi.fn(async () => ({ administration: null })),
     loadVault: vi.fn(async () => ({
       vault: { root: "/vault", subjects: [], subjectTitles: [], counts: { learningObjects: 1, practiceItems: 3 }, algorithmVersion: "mvp-0.29" },
       health: { ai: { ready: false, settingsReady: false, manualGrading: false, activeProvider: null }, codex: { ready: false } },
@@ -53,23 +55,8 @@ function stub(name: string) {
   return () => <div data-testid={name}>{name}</div>;
 }
 
-vi.mock("../screens/ReaderScreen", () => ({
-  ReaderScreen: ({
-    initialSource,
-    onSourceChange
-  }: {
-    initialSource?: { card: { sourceId: string; title: string } } | null;
-    onSourceChange?: (source: null) => void;
-  }) => (
-    <div data-testid="reader-stub" data-source={initialSource?.card.sourceId ?? "shelf"} data-title={initialSource?.card.title ?? ""}>
-      reader
-      {/* The Reader's "← Library": back to the shelf, the book closed. */}
-      <button type="button" onClick={() => onSourceChange?.(null)}>
-        close book
-      </button>
-    </div>
-  )
-}));
+// The desks' stand-in: its "close book" closes the last book window (the desks report no book being read).
+vi.mock("../screens/desks/DeskShell", async () => ({ DeskShell: (await import("../fixtures/deskShellStub")).DeskShellStub }));
 vi.mock("../screens/LibraryPlace", () => ({ LibraryPlace: stub("library-stub") }));
 vi.mock("../screens/PracticeScreen", () => ({ PracticeScreen: stub("practice-stub") }));
 vi.mock("../screens/GraphScreen", () => ({ GraphScreen: stub("graph-stub") }));
@@ -79,6 +66,7 @@ vi.mock("../screens/MaintenanceScreen", () => ({ MaintenanceScreen: stub("mainta
 vi.mock("../screens/ReviewScreen", () => ({ ReviewScreen: stub("review-stub") }));
 vi.mock("../screens/SettingsScreen", () => ({ SettingsOverlay: stub("settings-stub") }));
 
+import { resetDeskStub } from "../fixtures/deskShellStub";
 import { App } from "./App";
 
 let store: Map<string, string>;
@@ -92,6 +80,7 @@ beforeAll(async () => {
 }, 120_000);
 
 beforeEach(() => {
+  resetDeskStub();
   stubs.config = {};
   stubs.session = null;
   stubs.api = {};

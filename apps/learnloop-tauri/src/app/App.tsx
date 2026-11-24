@@ -1,5 +1,7 @@
 import { listen } from "@tauri-apps/api/event";
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { CheckDesk, LIVE_CHECK_TRANSPORT } from "../screens/desks/checks/controller";
+import { CheckOpenGate, checkGateOf } from "./checkGate";
 import { flushSync } from "react-dom";
 import { api } from "../api/client";
 import { NO_ASK_NOT_YET, NO_ASK_TEACH_BACK, quickCheckNothingToAsk } from "../copy/refusals";
@@ -25,6 +27,7 @@ import { CalibrationTool, DataTool, InspectorTool, MistakesTool, SpendTool } fro
 import { InspectorOverlay } from "../components/InspectorOverlay";
 import { SessionFinishHud } from "../components/SessionFinishHud";
 import { EmptyPlaceholder, TerminalFrame, type NavBadgeCounts, type TopTab } from "../components/ui";
+import { COLOR, FONT_MONO } from "../components/term";
 import { CalibrationScreen } from "../screens/CalibrationScreen";
 import { DiagnosticReviewScreen } from "../screens/DiagnosticReviewScreen";
 import { FeedbackScreen } from "../screens/FeedbackScreen";
@@ -43,18 +46,15 @@ import {
   placeOfTab,
   rememberBook,
   rememberPlace,
-  rememberReaderSurface,
   rememberTool,
   rememberedBook,
   rememberedPlace,
-  rememberedReaderSurface,
   rememberedTool,
   tabForPlace,
   uthTool,
   uthToolOfTab,
   visibleUthTools,
   type Place,
-  type ReaderSurface,
   type ShellMode,
   type UthToolId
 } from "./shell";
@@ -67,7 +67,7 @@ import { implicitSessionMinutes } from "./todayPlan";
 import { OpenInSource } from "../components/OpenInSource";
 import { QuickAddDialog } from "../components/QuickAddDialog";
 import { NewVaultWizard } from "../components/NewVaultWizard";
-import type { ReaderCheckMeRequest, ReaderExerciseRequest, ReaderOpenSource } from "../screens/ReaderScreen";
+import type { ReaderCheckMeRequest, ReaderExerciseRequest, ReaderOpenSource } from "../screens/desks/source/types";
 import { keepReaderReturn, readerCheckOffer, returnsToReader, type ReaderReturn } from "./readerCheck";
 import { consumeShown, readerTargetBack, readerWorkbenchCheck, sessionAfterWorkbenchSubmit, workbenchReturn } from "./readerWorkbench";
 import { algoConfig, setRenderedShell } from "./algoConfig";
@@ -115,7 +115,6 @@ type OpenSourceTarget = {
   entityId?: string | null;
 };
 
-const ReaderScreen = lazy(() => import("../screens/ReaderScreen").then((module) => ({ default: module.ReaderScreen })));
 const DeskShell = lazy(() => import("../screens/desks/DeskShell").then((module) => ({ default: module.DeskShell })));
 const LessonScreen = lazy(() => import("../screens/LessonScreen").then((module) => ({ default: module.LessonScreen })));
 const GraphScreen = lazy(() => import("../screens/GraphScreen").then((module) => ({ default: module.GraphScreen })));
@@ -171,17 +170,15 @@ export function App() {
   // The Reader unmounts on every tab switch; the open source is kept here so
   // returning to the tab resumes it (its reads come from the query cache).
   const [readerSource, setReaderSource] = useState<ReaderOpenSource | null>(null);
-  // Reader workbench v2: the desks or the old Reader, remembered on this machine. The old Reader stays the
-  // default until the desks carry everything it does (spec §21.1's parity matrix).
-  const [readerSurface, setReaderSurface] = useState<ReaderSurface>(rememberedReaderSurface);
-  const chooseReaderSurface = useCallback((surface: ReaderSurface) => {
-    rememberReaderSurface(surface);
-    setReaderSurface(surface);
-  }, []);
   // The book open now, for the startup restore (it must not replace a book
   // the learner opened while the library list was loading).
   const readerSourceRef = useRef<ReaderOpenSource | null>(null);
   readerSourceRef.current = readerSource;
+  // The book being read on the desks (their report: the focused book window, else the one focused last), or null with
+  // none open; undefined until the desks first report in this library. Kept while the desks are not shown.
+  const [deskBook, setDeskBook] = useState<{ sourceId: string; title: string } | null | undefined>(undefined);
+  // Before the desks report, the book the app restored at startup (the remembered one) stands for it (RDX-3).
+  const readingBook = deskBook !== undefined ? deskBook : readerSource ? { sourceId: readerSource.card.sourceId, title: readerSource.card.title } : null;
   // Bumped when the shell opens a book on purpose (Add, the shelf's Continue),
   // so a Reader already showing another book remounts on the new one.
   const [readerOpenSeq, setReaderOpenSeq] = useState(0);
@@ -660,6 +657,18 @@ export function App() {
   // is a handful of indexed COUNTs, which is what makes hanging it off tab
   // changes affordable.
   const vaultRoot = snapshot?.vault?.root ?? null;
+  // The vault's inline checks (RD7, spec §12.6) belong to the app, not to the desks: a check open on the desks holds
+  // every other place too. Nothing that shows study material renders before the read says whether one is open.
+  const deskChecks = useMemo(() => (vaultRoot ? new CheckDesk(LIVE_CHECK_TRANSPORT, mintCheckId) : null), [vaultRoot]);
+  useSyncExternalStore(deskChecks?.subscribe ?? noSubscription, deskChecks?.getVersion ?? noVersion);
+  useEffect(() => {
+    deskChecks?.recover();
+  }, [deskChecks]);
+  const onDesks = tab === "reader" && vaultRoot !== null;
+  /** "back to the check": the Reader place on the desks, where the check's card is. */
+  const backToCheck = useCallback(() => {
+    setTab("reader");
+  }, []);
   // A desk lesson request belongs to the vault it was asked in: another vault never replays it.
   useEffect(() => { setDeskLessonRequest(null); }, [vaultRoot]);
   // Mobile PR-7 (§3.3): the queue-revision poll lives here so a change is seen and the
@@ -726,20 +735,21 @@ export function App() {
       rememberTool(tool);
     }
   }, [simple, hasSnapshot, tab, uthToolState]);
-  // The book open in the Reader, per library. Closing it (back to the shelf)
+  // The book being read, per library. Closing its last window on the desks
   // forgets it, so the next start does not reopen a book the learner put
   // down (fix round 5); a library switch does not count as closing.
   const rememberedBookRef = useRef<string | null>(null);
   useEffect(() => {
     if (!simple || !vaultRoot) return;
-    if (readerSource) {
-      rememberBook(vaultRoot, readerSource.card.sourceId);
+    if (deskBook === undefined) return;
+    if (deskBook) {
+      rememberBook(vaultRoot, deskBook.sourceId);
       rememberedBookRef.current = vaultRoot;
     } else if (rememberedBookRef.current === vaultRoot) {
       rememberBook(vaultRoot, null);
       rememberedBookRef.current = null;
     }
-  }, [simple, vaultRoot, readerSource]);
+  }, [simple, vaultRoot, deskBook]);
 
   // Record every activated vault (startup load, chip switches, NewVaultWizard —
   // all update snapshot.vault.root) into the nav chip's recents dropdown. Uses
@@ -1070,7 +1080,7 @@ export function App() {
         // Fix round 4 (verify finding 2): the Reader opened again here keeps
         // the way back to side by side (besideTrail), as the practice
         // screen's back does: Alt+← reopens side by side after the session starts.
-        if (options.fromStart || (readerSource !== null && readerSource.card.sourceId !== request.card.sourceId)) {
+        if (options.fromStart || (readingBook !== null && readingBook.sourceId !== request.card.sourceId)) {
           // Fix round 5 (verify finding 2): and the check's own reading, so the
           // Reader opens it (or refuses the check honestly when that reading
           // is no longer the book's), never another reading with its passage.
@@ -1201,8 +1211,10 @@ export function App() {
       onError("The source for this reading block is no longer in the library.");
       return;
     }
-    setNextReaderVisitInitiator("plan");
+    setNextReaderVisitInitiator("plan", reading.extractionId);
     setReaderSource(target);
+    // A new open: the desks open (or focus) the plan's book at its section, once.
+    setReaderOpenSeq((seq) => seq + 1);
     setPlanReading({ reading, estMinutes });
     setTab("reader");
   }
@@ -1263,6 +1275,9 @@ export function App() {
       return;
     }
     setReaderSource(target);
+    // A new open request: the desks take each request once, so one sent before (a startup restore, a return) must not
+    // stand for this one (RDX-2).
+    setReaderOpenSeq((seq) => seq + 1);
     setTab("reader");
   }
   async function openStudied(restoration: IntentRestorationDto) {
@@ -1419,7 +1434,7 @@ export function App() {
   // Reader workbench RD9a (spec §11.1): with the desks as the current place, a lesson opens in a window on the current
   // desk instead of switching screens; anywhere else it is the lesson screen, as before.
   function openLessonEntry(entry: LessonEntry) {
-    if (tab === "reader" && !planReading && readerSurface === "desks" && vaultRoot) {
+    if (tab === "reader" && vaultRoot) {
       const vault = vaultRoot;
       setDeskLessonRequest((now) => ({ seq: (now?.seq ?? 0) + 1, entry, vault }));
       return;
@@ -1464,14 +1479,6 @@ export function App() {
   function openBlockReview(blockEnd: ProbeBlockEndDto, learningObjectId: string, learningObjectTitle: string) {
     setBlockReview({ blockEnd, learningObjectId, learningObjectTitle });
     setTodayStage("blockReview");
-  }
-
-  // The Reader's "← Library": the one shelf, Library → Books (spec K5; usability
-  // round 1: the Reader's own list read as a second Library). The open book
-  // stays remembered, so the Reader tab returns to it.
-  function openLibraryShelf() {
-    setLibraryView("books");
-    gotoTab("library");
   }
 
   // TE2 landing ruling R2 (spec_teacher_v1 rev 5 §11.5): a typed goal's leftover, "Look in my library": the lesson
@@ -1845,6 +1852,7 @@ export function App() {
     setIngestJobId(null);
     setProposalFocusPatchId(null);
     setReaderSource(null);
+    setDeskBook(undefined);
     setAddOpen(false);
     setConnectOpen(false);
     answerAiOk(false); // a request refused in the library being left is not sent into the next one
@@ -1974,7 +1982,7 @@ export function App() {
 
   // UX Phase 2 (§7.9): while the Reader has a book open, notices wait (errors show).
   const readerHolding =
-    simple && tab === "reader" && readerSource !== null && !examGoalId && !calibrationSessionId;
+    simple && tab === "reader" && readingBook !== null && !examGoalId && !calibrationSessionId;
 
   // UX Phase 2 (§5.1, §10 2.4): the palette's plain commands, first.
   function paletteCommands(): PaletteCommand[] {
@@ -1984,10 +1992,10 @@ export function App() {
       {
         id: "continue",
         label: "Continue reading",
-        hint: readerSource ? readerSource.card.title : "choose a book on the Library shelf",
+        hint: readingBook ? readingBook.title : "choose a book on the Library shelf",
         keywords: ["reader", "book", "read"],
         run: () => {
-          if (readerSource) {
+          if (readingBook) {
             gotoPlace("reader");
           } else {
             setLibraryView("books");
@@ -2017,9 +2025,9 @@ export function App() {
           const practicing = tab === "today" && todayStage === "practice";
           // On a question the shell already says why it can't (teach-back, checks).
           if (askCurrentContext() || practicing) return;
-          // With a book open, the Reader's own Ask opens, its box focused
-          // (Codex review F5: a notice held while reading did nothing there).
-          if (tab === "reader" && readerSource) {
+          // In the Reader (the desks) it summons their companion, a book open in a window or not (Codex review F5:
+          // a notice held while reading did nothing there).
+          if (tab === "reader" && vaultRoot) {
             setReaderAskRequest((count) => count + 1);
             return;
           }
@@ -2063,6 +2071,12 @@ export function App() {
         );
       }
       return <EmptyPlaceholder title="Loading LearnLoop vault" />;
+    }
+    // While a check is open on the desks (or before the app knows whether one is), no other place shows: the learner
+    // goes back to the check or sets it aside, plainly.
+    const gate = checkGateOf(deskChecks, onDesks);
+    if (gate && deskChecks) {
+      return <CheckOpenGate state={gate} checks={deskChecks} onBack={backToCheck} />;
     }
     // The exam overlay pre-empts the tab body — it's entered only from the goal
     // banner and returns to the today tab on exit.
@@ -2442,6 +2456,40 @@ export function App() {
     }
   }
 
+  /** The Reader place: the desks (spec §21.1; the old standalone Reader is retired). */
+  function renderDesks(root: string) {
+    return (
+      <DeskShell
+        key={root}
+        vaultKey={root}
+        {...(deskChecks ? { checks: deskChecks } : {})}
+        onError={onError}
+        firstSourceId={readerSource?.card.sourceId ?? null}
+        // Skim is the mute button on the desks too: leaving them while the book being read is skimmed offers nothing.
+        onSkimmingChange={noteReaderSkimming}
+        onReadingChange={setDeskBook}
+        {...(simple ? { askRequest: readerAskRequest } : {})}
+        // Every way into the Reader (the shelf, Today's threads and citations, a return from feedback, a lesson's
+        // "Look in my library") opens its book or search on the desk in view, once per open.
+        openRequest={readerSource || readerLibrarySearch?.seq === readerOpenSeq ? {
+          seq: readerOpenSeq, sourceId: readerSource?.card.sourceId ?? null, spanId: readerSource?.spanId ?? null,
+          reading: readerSource?.reading ?? null,
+          ...(readerLibrarySearch?.seq === readerOpenSeq ? { phrase: readerLibrarySearch.phrase } : {}),
+        } : null}
+        reader={{ onCheckMe: checkMeFromReader, onUseExercise: exerciseFromReader, ...(algoConfig().lessons ? { onTeachMe: teachMeFromReader } : {}), ...(readerWorkbench ? { workbench: readerWorkbench } : {}) }}
+        {...(algoConfig().lessons ? { lessons: { request: deskLessonRequest, onProbe: openProbeScreen, onConsumed: (seq: number) => setDeskLessonRequest((now) => (now?.seq === seq ? null : now)), onQuickCheck: (ids: string[]) => void startQuickCheck(ids), onLookInLibrary: lookInLibrary } } : {})}
+      />
+    );
+  }
+
+  // The desks are a library's: with none open there is nothing to read (the old Reader's offline demo chapter went with
+  // it; captures there were never kept).
+  const readerWithoutLibrary = (
+    <div style={{ padding: "22px 32px", fontFamily: FONT_MONO, fontSize: 12, color: COLOR.textDim }}>
+      Open a library to read in it.
+    </div>
+  );
+
   function renderRemainingTabs() {
     if (!snapshot) return null;
     if (tab === "reader") {
@@ -2459,24 +2507,12 @@ export function App() {
               }}
               onError={onError}
             />
-            <ReaderScreen key={readerOpenSeq} onError={onError} {...(simple ? { askRequest: readerAskRequest } : {})} initialSource={readerSource} onSourceChange={setReaderSource} onOpenLibrary={openLibraryShelf} onOpenToday={() => gotoPlace("today")} shelf={libraryPlace(true)} onCheckMe={checkMeFromReader} onUseExercise={exerciseFromReader} {...(algoConfig().lessons ? { onTeachMe: teachMeFromReader } : {})} onSkimmingChange={noteReaderSkimming} {...(readerWorkbench ? { workbench: readerWorkbench } : {})} {...(readerLibrarySearch?.seq === readerOpenSeq ? { initialLibrarySearch: readerLibrarySearch.phrase } : {})} />
+            {/* The plan's reading on the desks: its book opened (or focused) at the section. */}
+            {vaultRoot ? renderDesks(vaultRoot) : readerWithoutLibrary}
           </div>
         );
       }
-      if (readerSurface === "desks" && vaultRoot) {
-        return (
-          <DeskShell
-            key={vaultRoot}
-            vaultKey={vaultRoot}
-            onError={onError}
-            onLeave={() => chooseReaderSurface("reader")}
-            firstSourceId={readerSource?.card.sourceId ?? null}
-            reader={{ onCheckMe: checkMeFromReader, onUseExercise: exerciseFromReader, ...(algoConfig().lessons ? { onTeachMe: teachMeFromReader } : {}), ...(readerWorkbench ? { workbench: readerWorkbench } : {}) }}
-            {...(algoConfig().lessons ? { lessons: { request: deskLessonRequest, onProbe: openProbeScreen, onConsumed: (seq: number) => setDeskLessonRequest((now) => (now?.seq === seq ? null : now)), onQuickCheck: (ids: string[]) => void startQuickCheck(ids), onLookInLibrary: lookInLibrary } } : {})}
-          />
-        );
-      }
-      return <ReaderScreen key={readerOpenSeq} onError={onError} {...(simple ? { askRequest: readerAskRequest } : {})} initialSource={readerSource} onSourceChange={setReaderSource} onOpenLibrary={openLibraryShelf} onOpenToday={() => gotoPlace("today")} shelf={libraryPlace(true)} onCheckMe={checkMeFromReader} onUseExercise={exerciseFromReader} {...(algoConfig().lessons ? { onTeachMe: teachMeFromReader } : {})} onSkimmingChange={noteReaderSkimming} {...(readerWorkbench ? { workbench: readerWorkbench } : {})} {...(readerLibrarySearch?.seq === readerOpenSeq ? { initialLibrarySearch: readerLibrarySearch.phrase } : {})} {...(vaultRoot ? { onOpenDesks: () => chooseReaderSurface("desks") } : {})} />;
+      return vaultRoot ? renderDesks(vaultRoot) : readerWithoutLibrary;
     }
     if (tab === "maintain") {
       return renderMaintain();
@@ -2484,6 +2520,9 @@ export function App() {
     return <EmptyPlaceholder title={tab} />;
   }
 
+  // While a check is open the app's overlays that show study material (review, the inspector, a lesson, Ask, open in
+  // source, the palette's search) stay closed: anything they showed would sit outside the veils.
+  const checkHeld = Boolean(deskChecks?.holding());
   const shellTree = (
     <>
       <TerminalFrame
@@ -2534,7 +2573,7 @@ export function App() {
           onDismissNotification={dismissSettingsNotice}
         />
       ) : null}
-      {reviewOpen ? (
+      {reviewOpen && !checkHeld ? (
         <ReviewScreen
           onClose={() => setReviewOpen(false)}
           onError={onError}
@@ -2547,7 +2586,7 @@ export function App() {
         />
       ) : null}
       <InspectorOverlay
-        entityId={inspectorId}
+        entityId={checkHeld ? null : inspectorId}
         // UX Phase 4.1: the question being answered keeps its answer to itself.
         answeringItemId={tab === "today" && todayStage === "practice" ? practiceItemId : null}
         onClose={() => setInspectorId(null)}
@@ -2559,7 +2598,7 @@ export function App() {
           openLessonEntry({ kind: "open", entry: "learning_object", learningObjectIds: [learningObjectId], title });
         } } : {})}
       />
-      {lessonEntry ? (
+      {lessonEntry && !checkHeld ? (
         <Suspense fallback={<div role="status">Loading…</div>}>
           <LessonScreen
             entry={lessonEntry}
@@ -2579,13 +2618,13 @@ export function App() {
       ) : null}
       <AskOverlay
         // Reader CA2: a feedback Ask docks beside feedback instead (above).
-        target={algoConfig().ask !== null && askTarget?.context === "feedback" && tab === "today" && todayStage === "feedback"
+        target={checkHeld || (algoConfig().ask !== null && askTarget?.context === "feedback" && tab === "today" && todayStage === "feedback")
           ? null : askTarget}
         onClose={() => setAskTarget(null)}
         onToast={notify}
         onOpenPractice={(practiceItemId, origin) => openPractice(practiceItemId, null, origin ?? null)}
       />
-      {openSource ? (
+      {openSource && !checkHeld ? (
         <OpenInSource
           extractionId={openSource.extractionId}
           spanId={openSource.spanId}
@@ -2714,7 +2753,7 @@ export function App() {
       {keysHelpOpen ? <KeyboardHelp shell={shell} onClose={() => setKeysHelpOpen(false)} /> : null}
       <SessionFinishHud summary={finishSummary} onDismiss={() => setFinishSummary(null)} />
       <CommandPalette
-        open={paletteOpen}
+        open={paletteOpen && !checkHeld}
         session={session}
         entityIds={unique([practiceItemId, attemptId, ...paletteEntityIds])}
         practiceItemIds={unique([practiceItemId, ...palettePracticeItemIds])}
@@ -2734,6 +2773,19 @@ export function App() {
   );
   // Simple shell: its chrome is a key-isolated region (fix round 4).
   return simple ? <ShellChromeRoot>{shellTree}</ShellChromeRoot> : shellTree;
+}
+
+function noSubscription(): () => void {
+  return () => undefined;
+}
+
+function noVersion(): number {
+  return 0;
+}
+
+/** Ids for the inline checks' requests (a begin, a submission, an exposure): unique on this machine. */
+function mintCheckId(prefix: string): string {
+  return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
 function unique(values: Array<string | null>): string[] {

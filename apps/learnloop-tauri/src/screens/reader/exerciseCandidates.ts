@@ -27,7 +27,7 @@ export const EXERCISE_COPY = {
   beforeUse: "checked when you use it",
   use: "use this one",
   openInBook: "open in the book",
-  practiceNotCheck: "practice beside the book, not a check on your own",
+  practiceNotCheck: "practice beside the book, not a cold check",
   nothing: "Nothing in practice fits yet.",
   find: "find an exercise in my sources",
   finding: "looking for exercises in your books",

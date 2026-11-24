@@ -1,4 +1,4 @@
-"""Migration 271 adds only immutable inputs. Historical backfill belongs to algorithm activation."""
+"""Migration 274 adds only immutable inputs. Historical backfill belongs to algorithm activation."""
 
 import sqlite3
 from contextlib import closing
@@ -19,7 +19,7 @@ def test_migration_adds_the_empty_immutable_ledger_and_keeps_predecessor_rows(tm
         with closing(sqlite3.connect(database)) as target:
             source.backup(target)
     migration = next(m for m in discover_migrations() if m.name == "attempt_grade_curves")
-    assert migration.version == 271
+    assert migration.version == 274
     with closing(sqlite3.connect(database)) as conn:
         conn.execute("DROP TABLE IF EXISTS attempt_grade_curves")
         conn.execute("DELETE FROM schema_migrations WHERE version = ?", (migration.version,))
@@ -30,7 +30,7 @@ def test_migration_adds_the_empty_immutable_ledger_and_keeps_predecessor_rows(tm
         attempts = conn.execute("SELECT * FROM practice_attempts ORDER BY id").fetchall()
 
     with upgrade_allowance(UPGRADE_TEST_HELPER):
-        assert [m.version for m in apply_migrations(database)] == [271]
+        assert [m.version for m in apply_migrations(database)] == [274]
     with closing(sqlite3.connect(database)) as conn:
         conn.execute("PRAGMA foreign_keys = ON")
         after = dict(conn.execute("SELECT name, sql FROM sqlite_master"))

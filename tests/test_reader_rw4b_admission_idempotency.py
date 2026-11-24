@@ -20,6 +20,7 @@ from learnloop.daily_plan.engine import build_plan, learner_pick, stop_today
 from learnloop.db.connection import connect
 from learnloop.reader import workbench as WB
 from learnloop_sidecar.handlers import workbench as handler
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from tests.daily_plan_fakes import MovableClock, iso, make_env, scheduled, seed_due
 from tests.helpers import create_daily_plan_vault
 
@@ -31,10 +32,10 @@ def _items():
     return [scheduled(item, "lo_m1", forgetting_risk=0.6) for item in ("pi_m1a", "pi_m1b", "pi_m1c")]
 
 
-def _env(tmp_path):
+def _env(tmp_path, *, version=LATEST_ALGORITHM_VERSION):
     from datetime import UTC, datetime
 
-    paths = create_daily_plan_vault(tmp_path / "vault", learning_objects=LOS, version="mvp-0.22")
+    paths = create_daily_plan_vault(tmp_path / "vault", learning_objects=LOS, version=version)
     clock = MovableClock()
     env = make_env(paths.root, _items(), clock=clock, session_id="s1")
     for item in ("pi_m1a", "pi_m1b", "pi_m1c"):
@@ -68,7 +69,7 @@ def _presentations(repository, item: str = ITEM) -> int:
 
 @pytest.mark.parametrize("closed", [False, True], ids=["plan_open", "plan_closed"])
 def test_a_pick_made_under_a_key_is_made_once(tmp_path, closed):
-    _paths, env = _env(tmp_path)
+    _paths, env = _env(tmp_path, version="mvp-0.22")
     build_plan(env, kind="normal", budget=4.0, remembered=4, minutes_source="chip")
     if closed:
         stop_today(env)

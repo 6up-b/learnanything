@@ -143,17 +143,8 @@ function write(key: string, value: string): void {
   }
 }
 
-/** Reader workbench v2: which Reader the Reader place shows, per machine. */
-export type ReaderSurface = "reader" | "desks";
-const READER_SURFACE_KEY = "learnloop.reader.surface";
-
-export function rememberedReaderSurface(): ReaderSurface {
-  return read(READER_SURFACE_KEY) === "desks" ? "desks" : "reader";
-}
-
-export function rememberReaderSurface(surface: ReaderSurface): void {
-  write(READER_SURFACE_KEY, surface);
-}
+// The Reader place is the desks (spec §21.1): the per-machine choice between them and the old Reader
+// ("learnloop.reader.surface") is retired with the old Reader, and a value an older version stored is never read.
 
 export function rememberPlace(place: Place | "underhood"): void {
   write(PLACE_KEY, place);

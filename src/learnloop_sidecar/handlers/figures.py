@@ -87,6 +87,7 @@ from learnloop_sidecar.source_identity import require_identity
 from learnloop_sidecar.dto import ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.registry import method
+from learnloop_sidecar.workbench_protection import block_places, refuse_protected
 
 #: Every RPC this module registers (pinned desktop-only).
 FIGURE_RPCS: tuple[str, ...] = (
@@ -269,7 +270,8 @@ def _rich_spawner(ctx: SidecarContext, vault: Any, *, granted: bool = True) -> A
     return spawn
 
 
-def _start(ctx: SidecarContext, request: FQ.FigureRequest, *, attempt: dict[str, Any] | None = None
+def _start(ctx: SidecarContext, request: FQ.FigureRequest, *, attempt: dict[str, Any] | None = None,
+           block_ids: list[str] | None = None
            ) -> dict[str, Any]:
     from learnloop_sidecar.handlers.library_ask import _job_payload
 
@@ -297,6 +299,8 @@ def _start(ctx: SidecarContext, request: FQ.FigureRequest, *, attempt: dict[str,
             # Every request is admitted against the vault loaded NOW (the
             # build's FiguresGate), not the one captured here. RW5d P5: a
             # pressed build is foreground work (background prebuilds yield).
+            if block_ids:
+                refuse_protected(vault, worker_repo, block_places(vault, worker_repo, block_ids))
             with foreground("figure"):
                 outcome = FB.build_figure(vault, worker_repo, request, author_client=author,
                                           live_vault=ctx.loaded_vault, find=find, spawn_rich=spawn,
@@ -453,8 +457,12 @@ def _host_caller(vault: Any, repository: Any, *, origin: str, host_ref: dict[str
 
 def _request_figure(ctx: SidecarContext, *, origin: str, extraction_id: str | None, span_ids: list[str],
                     region: dict[str, Any] | None, **kwargs: Any) -> dict[str, Any]:
-    """One figure request, from either RPC (:func:`_admitted_request`), with its refusal recorded."""
+    """One figure request, from either RPC (:func:`_admitted_request`), with its refusal recorded. While an inline check
+    is open it waits: a figure would explain what the veils hold."""
 
+    from learnloop_sidecar.check_hold import refuse_while_check_open
+
+    refuse_while_check_open(ctx.require_vault()[1])
     with _refusals_recorded(ctx, SimpleNamespace(origin=origin, span_ids=span_ids, region=region)):
         return _admitted_request(ctx, origin=origin, extraction_id=extraction_id, span_ids=span_ids,
                                  region=region, **kwargs)
@@ -463,7 +471,8 @@ def _request_figure(ctx: SidecarContext, *, origin: str, extraction_id: str | No
 def _admitted_request(ctx: SidecarContext, *, origin: str, extraction_id: str | None, span_ids: list[str],
                       region: dict[str, Any] | None, goal_text: str | None, reading_at: dict[str, Any] | None,
                       offer_ref: str | None, host_ref: dict[str, Any], cold_active: bool,
-                      span_keys: list[str] | None = None, take_step: str | None = None) -> dict[str, Any]:
+                      span_keys: list[str] | None = None, take_step: str | None = None,
+                      block_ids: list[str] | None = None) -> dict[str, Any]:
     """One figure request: validated, its caller derived and its held-out
     material refused here, on the request path, before any job or model call;
     then a build job."""
@@ -552,7 +561,7 @@ def _admitted_request(ctx: SidecarContext, *, origin: str, extraction_id: str | 
         _event(repository, "figure_region_selected", {"extraction_id": request.extraction_id,
                                                       "span_id": request.region["span_id"]},
                extraction_id=request.extraction_id)
-    return _start(ctx, request)
+    return _start(ctx, request, block_ids=block_ids)
 
 
 @method("reader.figure_request", FigureRequestInput)
@@ -602,6 +611,7 @@ class FigureRequestV1Input(ParamsModel):
     """``FigureRequestV1`` (spec §7.1). ``goal_author``, the policy and the
     tiers are derived on the server, never sent."""
 
+    block_ids: list[str] = Field(default_factory=list)
     goal_text: str | None = Field(default=None, max_length=2000)
     anchor: AnchorInput | None = None
     origin: Literal["selection", "library", "tutor", "show_me", "ask", "teacher", "prefetch"] = "show_me"
@@ -619,6 +629,9 @@ def figure_request(ctx: SidecarContext, params: FigureRequestV1Input) -> dict[st
     """RW5d P1 "show me": one request for every host (module docstring); a build job."""
 
     anchor = params.anchor
+    if params.block_ids:
+        vault, repository = ctx.require_vault()
+        refuse_protected(vault, repository, block_places(vault, repository, params.block_ids))
     region = ({"span_id": anchor.region.span_id, "bbox": list(anchor.region.bbox)}
               if anchor is not None and anchor.region else None)
     reading_at = ({"extraction_id": params.reading_at.extraction_id, "span_id": params.reading_at.span_id}
@@ -628,7 +641,7 @@ def figure_request(ctx: SidecarContext, params: FigureRequestV1Input) -> dict[st
     return _request_figure(ctx, origin=params.origin, extraction_id=anchor.extraction_id if anchor else None,
                            span_ids=list(anchor.span_ids) if anchor else [], region=region,
                            goal_text=params.goal_text, reading_at=reading_at, offer_ref=params.offer_ref,
-                           host_ref=host_ref, cold_active=params.cold_active,
+                           host_ref=host_ref, cold_active=params.cold_active, block_ids=params.block_ids,
                            span_keys=anchor.span_keys if anchor else None, take_step=params.take_step_token)
 
 
@@ -876,6 +889,10 @@ def figure_rich_retry(ctx: SidecarContext, params: RichRetryInput) -> dict[str, 
     straight to the rich job, whose id is answered)."""
 
     from learnloop.figures import rich as RICH
+    from learnloop_sidecar.check_hold import refuse_while_check_open
+
+    # While an inline check is open a retried build waits, as a new one does.
+    refuse_while_check_open(ctx.require_vault()[1])
 
     vault, repository = _require(ctx)
     job = repository.get_ingest_job(params.rich_job_id)

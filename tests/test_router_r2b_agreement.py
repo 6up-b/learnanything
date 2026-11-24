@@ -20,12 +20,12 @@ from learnloop.db.connection import connect
 from learnloop.router.agreement import router_agreement_rows, router_decision_rows_for_agreement
 from learnloop.router.outcomes import rebuild_router_outcomes
 
-from tests.router_mixture_helpers import mixture_env, rows, run
+from tests.router_mixture_helpers import B, mixture_env, rows, run
 from tests.router_model_fakes import FakeDecider, FakeLLM, fake_runtime, first_option
 
 
 def test_the_router_decisions_feed_the_agreement_report(tmp_path):
-    env = mixture_env(tmp_path, fake_runtime(decider=FakeDecider(choice=first_option), llm=FakeLLM()))
+    env = mixture_env(tmp_path, fake_runtime(decider=FakeDecider(choice=first_option), llm=FakeLLM()), version=B)
     run(env)
     with connect(env.repository.sqlite_path, read_only=True) as connection:
         decisions = router_decision_rows_for_agreement(connection)
@@ -45,7 +45,7 @@ def test_the_router_decisions_feed_the_agreement_report(tmp_path):
 
 
 def test_a_failed_decider_is_a_fallback_in_the_report(tmp_path):
-    env = mixture_env(tmp_path, fake_runtime(decider=FakeDecider(error=RuntimeError("down")), llm=FakeLLM()))
+    env = mixture_env(tmp_path, fake_runtime(decider=FakeDecider(error=RuntimeError("down")), llm=FakeLLM()), version=B)
     run(env)
     with connect(env.repository.sqlite_path, read_only=True) as connection:
         report = agreement_report(router_agreement_rows(router_decision_rows_for_agreement(connection)))
@@ -57,7 +57,7 @@ def test_a_failed_decider_is_a_fallback_in_the_report(tmp_path):
 def test_replay_never_asks_a_model_and_is_deterministic(tmp_path, monkeypatch):
     from learnloop.daily_plan import router_runtime
 
-    env = mixture_env(tmp_path, fake_runtime(decider=FakeDecider(), llm=FakeLLM()))
+    env = mixture_env(tmp_path, fake_runtime(decider=FakeDecider(), llm=FakeLLM()), version=B)
     run(env)
     assert any(row["policy"] == "router_mixture_v1" for row in rows(env))
 

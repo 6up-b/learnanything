@@ -139,6 +139,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_curriculum_c1_plan_follows_path.py](../../../../../../tests/test_curriculum_c1_plan_follows_path.py) — direct import
 - [tests/test_exam_protection.py](../../../../../../tests/test_exam_protection.py) — direct import
   - `test_a_reader_check_over_held_out_material_is_refused_before_any_model_call`
+- [tests/test_menu_protected_material.py](../../../../../../tests/test_menu_protected_material.py) — direct import
+  - `test_the_menus_verbs_agree_with_their_destinations_and_the_classic_reader`
 - [tests/test_mobile_v4_reader.py](../../../../../../tests/test_mobile_v4_reader.py) — direct import
   - `test_render_view_without_a_range_is_todays_reply_byte_for_byte`
 - [tests/test_one_ai_ok.py](../../../../../../tests/test_one_ai_ok.py) — direct import

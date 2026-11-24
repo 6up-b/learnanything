@@ -1001,6 +1001,26 @@ forbidden_modules = [
 allow_indirect_imports = false
 
 [[tool.importlinter.contracts]]
+id = "carried-questions-are-teacher-context-only"
+name = "The router never reads the learner's carried questions: they are the Teacher's context only (owner, 2026-11-23)"
+type = "forbidden"
+# A carried question is a learner pick the Teacher may take up in a lesson's brief (learnloop.teacher.carried). The
+# router, the plan, the objective and serving reach neither it nor the carried-question reads, through any chain.
+source_modules = [
+    "learnloop.router",
+    "learnloop.router_objective",
+    "learnloop.router_objective_switches",
+    "learnloop.daily_plan",
+    "learnloop.scheduling",
+]
+forbidden_modules = [
+    "learnloop.teacher.carried",
+    "learnloop.pads.carried",
+    "learnloop.db.stores.pad_reads",
+]
+allow_indirect_imports = false
+
+[[tool.importlinter.contracts]]
 id = "desks-stay-off-scheduling-and-evidence"
 name = "Desks import nothing from scheduling, evidence or the router (Reader workbench v2 fence 3, spec 3.3)"
 type = "forbidden"

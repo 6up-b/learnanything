@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/ai/transport.py](../../../../../../src/learnloop/ai/transport.py) |
-| Source lines | 343 |
+| Source lines | 347 |
 | Owning package | [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
@@ -70,9 +70,9 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - `class CapabilityTransport(Protocol)` ([source](../../../../../../src/learnloop/ai/transport.py), line 151) — The minimum runtime surface needed for optional capabilities.
   - `supports(self, capability: str) -> bool` (line 154; public)
 - `interrupt_callback(transport: object) -> Callable[[], Any] | None` ([source](../../../../../../src/learnloop/ai/transport.py), line 158) — Return the typed interrupt hook when the transport declares support.
-- `execute_structured_operation(transport: OperationClient, *, purpose: str, prompt: str, result_model: type[WireResult], timeout_seconds: float | None=None, legacy_capability: str | None=None, legacy_context: object | None=None, workspace: Path | None=None, isolated: bool=False, images: tuple[tuple[str, bytes], ...]=(), check: Callable[[WireResult], WireResult] | None=None) -> WireResult` ([source](../../../../../../src/learnloop/ai/transport.py), line 166) — Execute one feature-owned structured operation.
-- `prompt_safe(value: Any) -> Any` ([source](../../../../../../src/learnloop/ai/transport.py), line 282) — Convert an operation context value into bounded JSON prompt data.
-- `render_structured_prompt(title: str, prompt_version: str, payload: Mapping[str, Any], *, context_tail_fields: tuple[str, ...]=()) -> str` ([source](../../../../../../src/learnloop/ai/transport.py), line 298) — Render the byte-stable envelope shared by feature-owned operations.
+- `execute_structured_operation(transport: OperationClient, *, purpose: str, prompt: str, result_model: type[WireResult], timeout_seconds: float | None=None, legacy_capability: str | None=None, legacy_context: object | None=None, workspace: Path | None=None, isolated: bool=False, images: tuple[tuple[str, bytes], ...]=(), check: Callable[[WireResult], WireResult] | None=None, receipt_checkpoint: tuple[str, int] | None=None) -> WireResult` ([source](../../../../../../src/learnloop/ai/transport.py), line 166) — Execute one feature-owned structured operation.
+- `prompt_safe(value: Any) -> Any` ([source](../../../../../../src/learnloop/ai/transport.py), line 286) — Convert an operation context value into bounded JSON prompt data.
+- `render_structured_prompt(title: str, prompt_version: str, payload: Mapping[str, Any], *, context_tail_fields: tuple[str, ...]=()) -> str` ([source](../../../../../../src/learnloop/ai/transport.py), line 302) — Render the byte-stable envelope shared by feature-owned operations.
 
 ### Module constants
 
@@ -114,7 +114,7 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 
 ## Internal implementation anchors
 
-- `_execute_request(transport, request, legacy_context, legacy_capability)` ([source](../../../../../../src/learnloop/ai/transport.py), line 251)
+- `_execute_request(transport, request, legacy_context, legacy_capability)` ([source](../../../../../../src/learnloop/ai/transport.py), line 255)
 
 ## Who imports or calls it
 
@@ -204,7 +204,6 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - [[Reference/Modules/learnloop/ops/family_proposals|learnloop.ops.family_proposals]] — imports `BOUNDED_STRUCTURED_COMPLETION`, `execute_structured_operation`, `render_structured_prompt`; statically calls `execute_structured_operation`, `render_structured_prompt`
 - [[Reference/Modules/learnloop/ops/pf_calls|learnloop.ops.pf_calls]] — imports `BOUNDED_STRUCTURED_COMPLETION`, `ISOLATED_TURN`, `execute_structured_operation`; statically calls `execute_structured_operation`
 - [[Reference/Modules/learnloop/pads/ink_render|learnloop.pads.ink_render]] — imports `MAX_IMAGE_BYTES`
-- [[Reference/Modules/learnloop/pads/ink_transcribe|learnloop.pads.ink_transcribe]] — imports `IMAGE_INPUT`, `render_structured_prompt`; statically calls `render_structured_prompt`
 - [[Reference/Modules/learnloop/practice_index/dossiers|learnloop.practice_index.dossiers]] — imports `render_structured_prompt`; statically calls `render_structured_prompt`
 - [[Reference/Modules/learnloop/practice_index/evaluation|learnloop.practice_index.evaluation]] — imports `render_structured_prompt`; statically calls `render_structured_prompt`
 - [[Reference/Modules/learnloop/practice_index/paid|learnloop.practice_index.paid]] — imports `BOUNDED_STRUCTURED_COMPLETION`, `STRUCTURED_COMPLETION`, `execute_structured_operation`; statically calls `execute_structured_operation`
@@ -265,7 +264,7 @@ Use this module in context through:
 - [[Configure AI Providers]]
 - [[Process Model Output]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/adaptive_difficulty/relatedness|learnloop.adaptive_difficulty.relatedness]], [[Reference/Modules/learnloop/ai/client|learnloop.ai.client]] and 112 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/adaptive_difficulty/relatedness|learnloop.adaptive_difficulty.relatedness]], [[Reference/Modules/learnloop/ai/client|learnloop.ai.client]] and 111 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -282,7 +281,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/hint_fakes.py](../../../../../../tests/hint_fakes.py) — direct import
 - [tests/hint_outcome_helpers.py](../../../../../../tests/hint_outcome_helpers.py) — direct import
 - [tests/http_provider_double.py](../../../../../../tests/http_provider_double.py) — direct import
-- [tests/ink_helpers.py](../../../../../../tests/ink_helpers.py) — direct import
 - [tests/notes_fixtures.py](../../../../../../tests/notes_fixtures.py) — direct import
 - [tests/practice_index_fakes.py](../../../../../../tests/practice_index_fakes.py) — direct import
 - [tests/reader_active_reading_helpers.py](../../../../../../tests/reader_active_reading_helpers.py) — direct import
@@ -389,8 +387,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_chat_complete_and_declared_media_capabilities_share_one_contract`
 - [tests/test_reader_rd8a_render.py](../../../../../../tests/test_reader_rd8a_render.py) — direct import
   - `test_nothing_is_drawn_past_the_canvas_limit_or_sent_past_the_image_limit`
-- [tests/test_reader_rd8a_transcribe.py](../../../../../../tests/test_reader_rd8a_transcribe.py) — direct import
-  - `test_a_model_that_cannot_read_images_is_refused_before_anything_is_sent`
 - [tests/test_reader_rw5d_p4b_teacher_visuals.py](../../../../../../tests/test_reader_rw5d_p4b_teacher_visuals.py) — direct import
   - `test_switch_off_keeps_the_lessons_prompt_and_turn_schema_without_the_visuals_paragraph`
 - [tests/test_reading_hardening_review_fixes.py](../../../../../../tests/test_reading_hardening_review_fixes.py) — direct import

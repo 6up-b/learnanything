@@ -227,8 +227,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/source_retrieval/deliverable_path|learnloop.source_retrieval.deliverable_path]] — imports `module`; statically calls `ChatRoute`, `DeliverableError`, `_is_plan_type`, `daily_envelope`, `deliverable_goals`, `depth_of`, `goal_of`, `kind_of`, `latest_resolution`, `needed_learning_objects`
 - [[Reference/Modules/learnloop/source_retrieval/goal_lens_reads|learnloop.source_retrieval.goal_lens_reads]] — imports `module`; statically calls `depth_of`, `goal_of`, `kind_of`, `latest_resolution`
 - [[Reference/Modules/learnloop/source_retrieval/note_links|learnloop.source_retrieval.note_links]] — imports `module`; statically calls `ChatRoute`, `daily_envelope`
+- [[Reference/Modules/learnloop/teacher/actions|learnloop.teacher.actions]] — imports `typed_goal_subject`; statically calls `typed_goal_subject`
 - [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]] — imports `module`; statically calls `enabled`, `latest_resolution`
 - [[Reference/Modules/learnloop/teacher/topics|learnloop.teacher.topics]] — imports `module`; statically calls `create_lesson_topic`, `resolve_typed_goal`, `typed_goal_key`, `typed_goal_subject`
+- [[Reference/Modules/learnloop_sidecar/handlers/companion_ask|learnloop_sidecar.handlers.companion_ask]] — imports `module`; statically calls `depth_of`
 - [[Reference/Modules/learnloop_sidecar/handlers/deliverables|learnloop_sidecar.handlers.deliverables]] — imports `module`; statically calls `add_input`, `admission_problem`, `also_about`, `create_deliverable`, `decide_unmatched`, `deliverable_goals`, `depth_of`, `enabled`, `recover_publications`, `resolve`, `scope_view`
 - [[Reference/Modules/learnloop_sidecar/handlers/goal_lens|learnloop_sidecar.handlers.goal_lens]] — imports `module`; statically calls `goal_of`
 - [[Reference/Modules/learnloop_sidecar/handlers/notes|learnloop_sidecar.handlers.notes]] — imports `module`; statically calls `enabled`
@@ -274,7 +276,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/source_retrieval/deliverable_path|learnloop.source_retrieval.deliverable_path]], [[Reference/Modules/learnloop/source_retrieval/goal_lens_reads|learnloop.source_retrieval.goal_lens_reads]], [[Reference/Modules/learnloop/source_retrieval/note_links|learnloop.source_retrieval.note_links]], [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]], [[Reference/Modules/learnloop/teacher/topics|learnloop.teacher.topics]] and 3 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/source_retrieval/deliverable_path|learnloop.source_retrieval.deliverable_path]], [[Reference/Modules/learnloop/source_retrieval/goal_lens_reads|learnloop.source_retrieval.goal_lens_reads]], [[Reference/Modules/learnloop/source_retrieval/note_links|learnloop.source_retrieval.note_links]], [[Reference/Modules/learnloop/teacher/actions|learnloop.teacher.actions]], [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]] and 5 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -373,6 +375,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_empty_and_thin_states`
 - [tests/test_teacher_te2_sidecar.py](../../../../../../tests/test_teacher_te2_sidecar.py) — direct import
   - `test_lesson_goal_and_open_lessons_through_the_handlers`
+- [tests/test_teacher_te5_goal_topics.py](../../../../../../tests/test_teacher_te5_goal_topics.py) — direct import
+  - `test_consent_rechecks_a_changed_catalog`
 
 ## Modification guidance
 

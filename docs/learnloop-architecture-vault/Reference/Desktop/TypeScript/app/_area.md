@@ -34,12 +34,13 @@ No nested ownership area.
 
 | Module | Status | Purpose | Imports | Imported by |
 |---|---|---|---:|---:|
-| [[Reference/Desktop/TypeScript/app/App|App.tsx]] | `ACTIVE` | Owns desktop navigation and cross-screen state, connecting startup, sessions, overlays, vault refresh, and route handoffs. | 82 | 1 |
+| [[Reference/Desktop/TypeScript/app/App|App.tsx]] | `ACTIVE` | Owns desktop navigation and cross-screen state, connecting startup, sessions, overlays, vault refresh, and route handoffs. | 85 | 1 |
 | [[Reference/Desktop/TypeScript/app/ScreenErrorBoundary|ScreenErrorBoundary.tsx]] | `ACTIVE` | Provides `ScreenErrorBoundary` within the desktop's TypeScript/app ownership area. | 1 | 2 |
 | [[Reference/Desktop/TypeScript/app/ShellChromeRoot|ShellChromeRoot.tsx]] | `ACTIVE` | Provides `SHELL_CHROME_ATTRIBUTE`, `inShellChrome`, `ShellChromeRoot` within the desktop's TypeScript/app ownership area. | 1 | 1 |
 | [[Reference/Desktop/TypeScript/app/aiOk|aiOk.ts]] | `ACTIVE` | Provides `waitForAiOk`, `askForAiOk`, `answerAiOk`, `useAiOkAsked` and related exports within the desktop's TypeScript/app ownership area. | 0 | 4 |
-| [[Reference/Desktop/TypeScript/app/algoConfig|algoConfig.ts]] | `ACTIVE` | Normalizes and exposes algorithm configuration values needed by presentation code. | 0 | 28 |
+| [[Reference/Desktop/TypeScript/app/algoConfig|algoConfig.ts]] | `ACTIVE` | Normalizes and exposes algorithm configuration values needed by presentation code. | 0 | 30 |
 | [[Reference/Desktop/TypeScript/app/autoAdvance|autoAdvance.ts]] | `ACTIVE` | Provides `todayQueueInput`, `todayQueueKey`, `queueHead`, `NextQueueItem` and related exports within the desktop's TypeScript/app ownership area. | 6 | 4 |
+| [[Reference/Desktop/TypeScript/app/checkGate|checkGate.tsx]] | `ACTIVE` | Provides `CheckGateState`, `checkGateOf`, `CheckOpenGate` within the desktop's TypeScript/app ownership area. | 1 | 1 |
 | [[Reference/Desktop/TypeScript/app/checkHandoff|checkHandoff.ts]] | `ACTIVE` | Provides `CheckHandoff`, `STOP_AND_TEACH_LABEL`, `TEACH_AFTER_CHECK_LABEL`, `TUTOR_AFTER_CHECK_LABEL` and related exports within the desktop's TypeScript/app ownership area. | 2 | 6 |
 | [[Reference/Desktop/TypeScript/app/dailyPlan|dailyPlan.ts]] | `ACTIVE` | Provides `aboutMinutes`, `minutesPerDay`, `wholeMinutes`, `dailyPlanKey` and related exports within the desktop's TypeScript/app ownership area. | 6 | 11 |
 | [[Reference/Desktop/TypeScript/app/intentCheck|intentCheck.ts]] | `ACTIVE` | Provides `readerTargetForRestoration` within the desktop's TypeScript/app ownership area. | 1 | 1 |

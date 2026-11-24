@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/ai/execution.py](../../../../../../src/learnloop/ai/execution.py) |
-| Source lines | 639 |
+| Source lines | 644 |
 | Owning package | [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
@@ -109,9 +109,9 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 
 ## Internal implementation anchors
 
-- `_observed_call(client: Any, *, purpose: str, prompt: Any, schema: Any, budget: int | None, collect_usage: bool=False)` ([source](../../../../../../src/learnloop/ai/execution.py), line 567)
-- `_failure_status(exc: BaseException) -> str` ([source](../../../../../../src/learnloop/ai/execution.py), line 620)
-- `_record_finish(observer: Callable[[str, dict[str, Any]], Any], call_id: str, metadata: dict[str, Any]) -> None` ([source](../../../../../../src/learnloop/ai/execution.py), line 628) — Best-effort: the durable start is the safety guarantee, the finish is telemetry.
+- `_observed_call(client: Any, *, purpose: str, prompt: Any, schema: Any, budget: int | None, collect_usage: bool=False, reservation_ref: str | None=None)` ([source](../../../../../../src/learnloop/ai/execution.py), line 568)
+- `_failure_status(exc: BaseException) -> str` ([source](../../../../../../src/learnloop/ai/execution.py), line 625)
+- `_record_finish(observer: Callable[[str, dict[str, Any]], Any], call_id: str, metadata: dict[str, Any]) -> None` ([source](../../../../../../src/learnloop/ai/execution.py), line 633) — Best-effort: the durable start is the safety guarantee, the finish is telemetry.
 
 ## Who imports or calls it
 
@@ -212,7 +212,6 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - [[Reference/Modules/learnloop/ops/pf_publish|learnloop.ops.pf_publish]] — imports `content_key`; statically calls `content_key`
 - [[Reference/Modules/learnloop/ops/pf_reports|learnloop.ops.pf_reports]] — imports `content_key`; statically calls `content_key`
 - [[Reference/Modules/learnloop/ops/pf_verify|learnloop.ops.pf_verify]] — imports `content_key`; statically calls `content_key`
-- [[Reference/Modules/learnloop/pads/ink_transcribe|learnloop.pads.ink_transcribe]] — imports `call_labels`; statically calls `call_labels`
 - [[Reference/Modules/learnloop/practice_index/dossiers|learnloop.practice_index.dossiers]] — imports `content_key`; statically calls `content_key`
 - [[Reference/Modules/learnloop/practice_index/evaluation|learnloop.practice_index.evaluation]] — imports `content_key`; statically calls `content_key`
 - [[Reference/Modules/learnloop/practice_index/listwise|learnloop.practice_index.listwise]] — imports `content_key`; statically calls `content_key`
@@ -279,7 +278,7 @@ Use this module in context through:
 - [[Configure AI Providers]]
 - [[Process Model Output]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_audit|learnloop.adaptive_difficulty.history_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/adaptive_difficulty/sending|learnloop.adaptive_difficulty.sending]] and 135 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_audit|learnloop.adaptive_difficulty.history_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/adaptive_difficulty/sending|learnloop.adaptive_difficulty.sending]] and 134 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -304,7 +303,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/hint_outcome_helpers.py](../../../../../../tests/hint_outcome_helpers.py) — direct import
 - [tests/http_provider_double.py](../../../../../../tests/http_provider_double.py) — direct import
 - [tests/identity_pins_helpers.py](../../../../../../tests/identity_pins_helpers.py) — direct import
-- [tests/ink_helpers.py](../../../../../../tests/ink_helpers.py) — direct import
 - [tests/library_ask_fixtures.py](../../../../../../tests/library_ask_fixtures.py) — direct import
 - [tests/live_dialogue_contract_helpers.py](../../../../../../tests/live_dialogue_contract_helpers.py) — direct import
 - [tests/local_embeddings_fakes.py](../../../../../../tests/local_embeddings_fakes.py) — direct import
@@ -337,7 +335,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_openai_single_request_disables_retry_and_repair_only_in_scope`
   - `test_single_request_is_nested_context_local_and_restored_after_failure`
 - [tests/test_append_split_passes.py](../../../../../../tests/test_append_split_passes.py) — direct import
+  - `test_completed_receipt_survives_crash_before_pass_checkpoint`
   - `test_each_pass_is_its_own_paid_request_under_the_appends_limits`
+  - `test_span_round_with_no_room_keeps_the_base_answer`
 - [tests/test_arcb_close_fixes.py](../../../../../../tests/test_arcb_close_fixes.py) — direct import
 - [tests/test_build_wait_detail.py](../../../../../../tests/test_build_wait_detail.py) — direct import
   - `test_a_transport_that_does_not_stream_reports_no_output`
@@ -397,6 +397,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_explicit_revision_invalidates_alias_cache_but_reports_resolved_model`
 - [tests/test_figure_cancel.py](../../../../../../tests/test_figure_cancel.py) — direct import
 - [tests/test_figure_offers.py](../../../../../../tests/test_figure_offers.py) — direct import
+- [tests/test_figure_rich_attempt_records.py](../../../../../../tests/test_figure_rich_attempt_records.py) — direct import
+  - `test_attempts_record_the_model_each_receipt_resolved`
 - [tests/test_figure_rich_job.py](../../../../../../tests/test_figure_rich_job.py) — direct import
   - `test_the_rich_job_continues_the_press_trace`
 - [tests/test_figure_rich_rereview_fixes.py](../../../../../../tests/test_figure_rich_rereview_fixes.py) — direct import
@@ -478,6 +480,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_project_cli.py](../../../../../../tests/test_project_cli.py) — direct import
 - [tests/test_provenance.py](../../../../../../tests/test_provenance.py) — direct import
   - `test_a_model_calls_receipt_carries_the_trace_it_started_under`
+- [tests/test_reader_ink_glm_ocr.py](../../../../../../tests/test_reader_ink_glm_ocr.py) — direct import
+  - `test_one_admission_and_receipt_at_ingests_price_and_a_retry_spends_nothing`
 - [tests/test_reader_passage_check.py](../../../../../../tests/test_reader_passage_check.py) — direct import
   - `test_a_metered_check_is_one_admitted_physical_request_held_to_its_output_allowance`
 - [tests/test_reader_rd3_fix_backend.py](../../../../../../tests/test_reader_rd3_fix_backend.py) — direct import
@@ -537,6 +541,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f2_rereview_a_transport_retry_is_refused_when_the_failed_attempt_used_the_room`
   - `test_f2_rereview_append_reconciliation_calls_are_admitted_one_by_one`
   - `test_f2_rereview_every_physical_attempt_is_admitted_retries_and_repairs_included`
+  - `test_request_gate_counts_another_operations_receipt_after_job_admission`
 - [tests/text_gap_fakes.py](../../../../../../tests/text_gap_fakes.py) — direct import
 - [tests/workbench_help_fakes.py](../../../../../../tests/workbench_help_fakes.py) — direct import
 

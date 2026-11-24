@@ -25,6 +25,7 @@ export interface AppendTargets {
 
 export interface ContextMenuProps {
   header: string;
+  neutralHeader?: string;
   /** The menu's name for assistive tech (the header line when absent). */
   label?: string;
   rows: MenuRow[];
@@ -39,7 +40,9 @@ export interface ContextMenuProps {
   onRows?: (rows: PromotedRowDto[]) => void;
   /** Whether the object is exam or held-out material, once its first answer says (the verbs that would quote or send
    * its words are left out then). */
-  onWithheld?: (withheld: boolean) => void;
+  /** The object's verdict: `withheld` (all exam material: the menu's own search) and, per verb, the verbs whose
+   *  destination withholds it (`withheldVerbs`; undefined from an older sidecar: `withheld` for every verb). */
+  onWithheld?: (withheld: boolean, failed?: boolean, withheldVerbs?: string[]) => void;
   poller?: Poller;
   /** The window the menu is about: the job's poll waits while it is paused. */
   owner?: string | null;
@@ -90,7 +93,9 @@ export function useSheetFocus(ref: { current: HTMLElement | null }, onEscape: ()
   }, [ref]);
 }
 
-export function ContextMenu({ header, label, rows, at, object = null, promoted = null, onPromoted, onRows, onWithheld, poller, owner = null, append = null, insertHeading, onClose, children, listen = PAGE_LISTEN }: ContextMenuProps) {
+export function ContextMenu({ header, neutralHeader, label, rows, at, object = null, promoted = null, onPromoted, onRows, onWithheld, poller, owner = null, append = null, insertHeading, onClose, children, listen = PAGE_LISTEN }: ContextMenuProps) {
+  const [readFailed, setReadFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   const [cheap, setCheap] = useState<PromotedRowDto[]>([]);
   const [judgedPending, setJudgedPending] = useState(false);
   // Exam or held-out material: nothing was searched for it (said plainly in the promoted block).
@@ -125,8 +130,10 @@ export function ContextMenu({ header, label, rows, at, object = null, promoted =
   onRowsNow.current = onRows;
   const onWithheldNow = useRef(onWithheld);
   onWithheldNow.current = onWithheld;
+  const request = useRef<{ objectKey: string; id: string } | null>(null);
   const hasPromoted = promoted !== null;
   useEffect(() => {
+    const report = onWithheldNow.current;
     const promoted = promotedNow.current;
     if (!object || !promoted) return;
     let live = true;
@@ -134,29 +141,43 @@ export function ContextMenu({ header, label, rows, at, object = null, promoted =
     let finished = false;
     let stop: (() => void) | null = null;
     // One request id per menu opening: a retry after a lost reply reuses it (the same job, its work done once).
-    let requestId = newRequestId();
-    const ask = (): Promise<PassagePromotedDto> => promoted.passagePromoted({ ...object, requestId }).catch((error: unknown) => {
+    if (!request.current || request.current.objectKey !== objectKey) request.current = { objectKey, id: newRequestId() };
+    const opening = request.current;
+    const ask = (): Promise<PassagePromotedDto> => promoted.passagePromoted({ ...object, requestId: opening.id }).catch((error: unknown) => {
       const code = error && typeof error === "object" ? (error as { code?: unknown; retryable?: unknown }) : null;
       if (code?.code === "request_reused") {
         // The id met another object (it never should): a new one, once.
-        requestId = newRequestId();
-        return promoted.passagePromoted({ ...object, requestId });
+        opening.id = newRequestId();
+        return promoted.passagePromoted({ ...object, requestId: opening.id });
       }
-      if (code?.retryable === true && live) return promoted.passagePromoted({ ...object, requestId });
+      if (code?.retryable === true && live) return promoted.passagePromoted({ ...object, requestId: opening.id });
       throw error;
     });
+    const failRead = () => {
+      if (!live) return;
+      setCheap([]);
+      onRowsNow.current?.([]);
+      setJudgedPending(false);
+      setWithheld(false);
+      setSubmenuOpen(false);
+      setReadFailed(true);
+      report?.(true, true);
+    };
     void ask().then((found) => {
       if (!live) {
-        // Closed before the first answer came: its judged job is cancelled now (nothing else knows its id). A verb
-        // run from the menu meanwhile still waits on the object's protection: it is told.
+        // Only this reply knows the job id when the menu closed before it arrived.
         if (found.pendingJob) void promoted.passagePromotedCancel({ jobId: found.pendingJob.jobId }).catch(() => undefined);
-        onWithheldNow.current?.(found.withheld === true);
         return;
       }
+      if (typeof found.withheld !== "boolean") {
+        if (found.pendingJob) void promoted.passagePromotedCancel({ jobId: found.pendingJob.jobId }).catch(() => undefined);
+        throw new Error("Missing protection verdict");
+      }
+      setJudgedStopped(false);
       setCheap(found.rows);
       onRowsNow.current?.(found.rows);
       setWithheld(found.withheld === true);
-      onWithheldNow.current?.(found.withheld === true);
+      report?.(found.withheld, false, found.withheldVerbs);
       if (found.pendingJob && poller) {
         jobId = found.pendingJob.jobId;
         setJudgedPending(true);
@@ -170,24 +191,40 @@ export function ContextMenu({ header, label, rows, at, object = null, promoted =
               finished = true;
               setJudgedPending(false);
               if (job.status === "done") {
+                if (typeof job.withheld !== "boolean") {
+                  failRead();
+                  return { done: true };
+                }
+                const blocked = found.withheld || job.withheld;
+                setReadFailed(false);
+                setWithheld(blocked);
+                if (blocked) setSubmenuOpen(false);
+                // A verb withheld at either answer stays withheld (a mark made since only adds).
+                const verbs = found.withheldVerbs && job.withheldVerbs ? [...new Set([...found.withheldVerbs, ...job.withheldVerbs])] : undefined;
+                report?.(blocked, false, verbs);
                 setCheap(job.rows);
                 onRowsNow.current?.(job.rows);
               } else {
                 // Interrupted (another vault opened) or failed: no rows of it show; the menu opened again asks anew.
+                // The first answer's verdict stands: a judged search that stopped (a model down, a budget spent) says
+                // nothing new about protection, so the verbs stay as they were.
+                request.current = null;
+                setCheap([]);
+                onRowsNow.current?.([]);
                 setJudgedStopped(true);
               }
             }
             return { done: job.done };
           },
           onError: () => {
-            if (live) setJudgedPending(false);
+            // The poll could not reach the job: as a stopped search, the first verdict stands.
+            if (!live) return;
+            setJudgedPending(false);
+            setJudgedStopped(true);
           },
         });
       }
-    }, () => {
-      // No answer: the protection is not known from here; the verbs' own calls keep theirs.
-      onWithheldNow.current?.(false);
-    });
+    }).catch(failRead);
     return () => {
       live = false;
       stop?.();
@@ -195,7 +232,7 @@ export function ContextMenu({ header, label, rows, at, object = null, promoted =
     };
     // objectKey stands for the object.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [objectKey, hasPromoted, poller, owner]);
+  }, [objectKey, hasPromoted, poller, owner, attempt]);
 
   const promotedRows: MenuRow[] = shownPromoted(cheap, dismissed).map((row) => ({
     id: `promoted:${row.rowId}`, glyph: row.glyph, label: row.label, note: promotedReason(row), section: "promoted", promoted: row,
@@ -301,26 +338,34 @@ export function ContextMenu({ header, label, rows, at, object = null, promoted =
         {row.promoted ? (
           <span className="k pl">
             <span role="button" tabIndex={-1} className="lb" title="wrong: don't suggest this here" onClick={(event) => { event.stopPropagation(); dismiss(row.promoted as PromotedRowDto, "not_this"); }}>not this</span>
-            <span role="button" tabIndex={-1} className="lb" title="not now" aria-label="dismiss" onClick={(event) => { event.stopPropagation(); dismiss(row.promoted as PromotedRowDto, "dismiss"); }}>×</span>
+            <span role="button" tabIndex={-1} className="lb" title="hide this suggestion" aria-label="hide this suggestion" onClick={(event) => { event.stopPropagation(); dismiss(row.promoted as PromotedRowDto, "dismiss"); }}>×</span>
           </span>
         ) : <span className="k">{row.key ?? ""}</span>}
       </button>
     );
   };
 
+  const shownHeader = readFailed ? neutralHeader ?? "Material" : header;
   const verbs = rows.filter((row) => row.section === "verb");
   const inserts = rows.filter((row) => row.section === "insert");
   const tail = rows.filter((row) => row.section === "tail");
   return (
     <>
-      <div ref={menuRef} className="desk-menu" role="menu" aria-label={label ?? header} style={{ left: place.left, top: place.top }}>
-        <div className="mh">{header}</div>
+      <div ref={menuRef} className="desk-menu" role="menu" aria-label={label ?? shownHeader} style={{ left: place.left, top: place.top }}>
+        <div className="mh">{shownHeader}</div>
+        {readFailed ? <div role="status">Couldn't check this material. <button type="button" onKeyDown={(event) => event.stopPropagation()} onClick={() => {
+          setReadFailed(false);
+          setAttempt((value) => value + 1);
+        }}>Retry</button></div> : null}
         {promotedRows.length || judgedPending || withheld || judgedStopped ? (
           <div className="pro" data-menu-promoted="">
             {promotedRows.map(rowView)}
             {judgedPending ? <div className="pending">◐ looking for more · the four most useful show</div> : null}
             {withheld ? <div className="pending" data-menu-withheld="">exam or held-out material: nothing is searched for it</div> : null}
-            {judgedStopped ? <div className="pending">the search for more stopped · open the menu again to look again</div> : null}
+            {judgedStopped ? <div className="pending">the search for more stopped · <button type="button" onKeyDown={(event) => event.stopPropagation()} onClick={() => {
+              setJudgedStopped(false);
+              setAttempt((value) => value + 1);
+            }}>Retry</button></div> : null}
           </div>
         ) : null}
         {verbs.filter((row) => !row.aid).map(rowView)}
@@ -335,7 +380,7 @@ export function ContextMenu({ header, label, rows, at, object = null, promoted =
           <div className="mh">append to</div>
           {append.pads.map((pad, padIndex) => (
             <button key={pad.padId} type="button" role="menuitem" className={`mi${padIndex === subIndex ? " sel" : ""}`} onMouseEnter={() => setSubIndex(padIndex)} onClick={() => append.onPick(pad.padId)}>
-              <span className="g">{pad.padId === append.current ? "✓" : ""}</span>
+              <span className="g" title={pad.padId === append.current ? "current pad" : undefined}>{pad.padId === append.current ? "✓" : ""}</span>
               <span className="t">{pad.title}</span>
               <span className="k" />
             </button>

@@ -75,7 +75,6 @@ METERED_PRICE_SETTINGS: dict[str, str] = {
     "hint_outcome": "hints.price_per_million",
     "approach_map": "hints.price_per_million",
     "workbench_check": "workbench.price_per_million",
-    "ink_transcription": "workbench.price_per_million",
     "figure_author": "figures.price_per_million",
     "figure_rich_author": "figures.price_per_million",
     "reader_digest": "digest.price_per_million",

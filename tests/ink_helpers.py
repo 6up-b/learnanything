@@ -1,42 +1,87 @@
-"""Shared doubles and builders for the pen-and-ink tests (``tests/test_reader_rd8a_*.py``) and the paid-call image
-identity test: a model that reads images (a structured transport double that records each request) and the
-synthetic strokes the renderer and the transcription are tested on."""
+"""Shared doubles and builders for the pen-and-ink tests (``tests/test_reader_rd8a_*.py``,
+``tests/test_reader_ink_glm_ocr.py``): GLM-OCR faked at the extractor's own transport seam (``glm_ocr._open``, as
+``tests/test_glm_ocr.py`` fakes it), the vault set up for its hosted or local backend, and the synthetic strokes
+the renderer and the reading are tested on. No request leaves the machine."""
 
 from __future__ import annotations
 
-from collections.abc import Callable
+import io
+import json
+import threading
+from types import SimpleNamespace
 from typing import Any
 
-from learnloop.ai.transport import IMAGE_INPUT, ISOLATED_TURN, STRUCTURED_COMPLETION
+from tests.glm_ocr_helpers import region
+
+#: A z.ai key for the hosted backend's tests (never a real one).
+GLM_KEY = "fake-zai-key-123456"
 
 
-class ImageReader:
-    """A ChatGPT-plan-typed structured client that reads images (``reads_images=False``: one that cannot), records
-    every request it is sent and answers with ``answer(request)``."""
+class FakeGlmOcr:
+    """GLM-OCR's transport (``glm_ocr._open``, reached inside the extractor's admission and receipt): records each
+    request it is sent and answers one page whose regions hold ``text`` (``regions``: those regions instead).
+    ``hold``: it waits inside the request until ``release`` (a request already sent)."""
 
-    provider_type = "chatgpt_plan"
-
-    def __init__(self, answer: Callable[[Any], Any], *, reads_images: bool = True, provider_name: str = "plan",
-                 model: str = "pin-vision") -> None:
-        self.answer = answer
-        self.reads_images = reads_images
-        self.provider_name = provider_name
-        self.model = model
+    def __init__(self, text: str = "", *, regions: list[dict] | None = None, hold: bool = False) -> None:
+        self.text = text
+        self.regions = regions
+        self.hold = hold
         self.requests: list[Any] = []
+        self.reached = 0
+        self.inside = threading.Event()
+        self.release = threading.Event()
 
-    def supports(self, capability: str) -> bool:
-        if capability == IMAGE_INPUT:
-            return self.reads_images
-        return capability in {STRUCTURED_COMPLETION, ISOLATED_TURN, "complete", "structured"}
+    def install(self, monkeypatch: Any) -> FakeGlmOcr:
+        from learnloop.ingest.extractors import glm_ocr
 
-    def complete(self, request: Any) -> Any:
-        from learnloop.ai.execution import model_call
+        monkeypatch.setattr(glm_ocr, "_open", self)
+        return self
 
-        # One physical request, as a provider makes it: admitted through the request gate first (a cancelled or
-        # closed job's request is refused there, before anything is sent).
-        with model_call(self, purpose=f"{request.purpose}:fake_turn", prompt=request.prompt):
-            self.requests.append(request)
-            return self.answer(request)
+    def __call__(self, request: Any, timeout: float) -> Any:
+        self.reached += 1
+        body = json.loads(request.data)
+        if self.hold:
+            self.inside.set()
+            if not self.release.wait(WAIT):
+                raise RuntimeError("the test never released the held reading")
+        self.requests.append(SimpleNamespace(url=request.full_url, headers=dict(request.header_items()), body=body))
+        regions = self.regions if self.regions is not None else [region(0, "text", self.text, [10, 10, 400, 60])]
+        answer = {"id": "task_ink", "model": "glm-ocr", "layout_details": [regions],
+                  "data_info": {"num_pages": 1, "pages": [{"width": 1224, "height": 1584}]},
+                  "usage": {"prompt_tokens": 900, "completion_tokens": 40, "total_tokens": 940}}
+        return io.BytesIO(json.dumps(answer).encode())
+
+
+def glm_local(monkeypatch: Any, vault_root: Any, text: str = "", **fake: Any) -> FakeGlmOcr:
+    """The vault reads with the self-hosted GLM-OCR server (``backend = "local"``), which answers."""
+
+    from learnloop.ingest.extractors import glm_ocr
+    from learnloop.ops.settings_store import apply_config_updates
+
+    apply_config_updates(vault_root / "learnloop.toml", {("ingest", "pdf", "glm_ocr", "backend"): "local"})
+    monkeypatch.setattr(glm_ocr, "local_available", lambda config=None: True)
+    return FakeGlmOcr(text, **fake).install(monkeypatch)
+
+
+def glm_hosted(monkeypatch: Any, vault_root: Any, text: str = "", *, upload_ok: bool = True,
+               model_use_ok: bool = True, **fake: Any) -> FakeGlmOcr:
+    """The vault reads with z.ai's hosted GLM-OCR (a key set), with the learner's OKs as given."""
+
+    from learnloop.ai.model_use import MODEL_USE_FLOW, MODEL_USE_KEY
+    from learnloop.content.pipeline.add_source import FILE_UPLOAD_DATA_FLOW, GLM_OCR_UPLOAD_CONSENT
+    from learnloop.ops.settings_store import apply_config_updates
+
+    monkeypatch.setenv("ZAI_API_KEY", GLM_KEY)
+    updates: dict[tuple[str, ...], Any] = {}
+    if model_use_ok:
+        updates[("ai", "consent", MODEL_USE_KEY, "granted_at")] = "2026-11-23T09:00:00Z"
+        updates[("ai", "consent", MODEL_USE_KEY, "data_flow")] = MODEL_USE_FLOW
+    if upload_ok:
+        updates[("ai", "consent", GLM_OCR_UPLOAD_CONSENT, "granted_at")] = "2026-11-23T09:00:00Z"
+        updates[("ai", "consent", GLM_OCR_UPLOAD_CONSENT, "data_flow")] = FILE_UPLOAD_DATA_FLOW
+    if updates:
+        apply_config_updates(vault_root / "learnloop.toml", updates)
+    return FakeGlmOcr(text, **fake).install(monkeypatch)
 
 
 def stroke(stroke_id: str, *points: tuple[float, float], pressure: float = 0.5) -> dict[str, Any]:
@@ -83,38 +128,8 @@ def ink_pad(tmp_path: Any, *, kind: str = "ink") -> tuple[Any, Any, Any, InkClie
     return paths, repository, batches, InkClient(batches)
 
 
-def reads_as(text: str) -> Callable[[Any], Any]:
-    """An answer for :class:`ImageReader`: the reading ``text``, whatever the image."""
-
-    from learnloop.pads.ink_transcribe import InkTranscriptionV1
-
-    return lambda request: InkTranscriptionV1(latex_md=text)
-
-
 #: How long a test waits on a job or a held fake before it fails (never reached when the code is right).
 WAIT = 20.0
-
-
-class HeldReader(ImageReader):
-    """An :class:`ImageReader` that holds inside its one model request until ``release`` (admitted through the
-    context's request gate first, as a provider's request is: a cancelled job's request is refused there)."""
-
-    def __init__(self, answer: Callable[[Any], Any], **kwargs: Any) -> None:
-        import threading
-
-        super().__init__(answer, **kwargs)
-        self.inside = threading.Event()
-        self.release = threading.Event()
-
-    def complete(self, request: Any) -> Any:
-        from learnloop.ai.execution import model_call
-
-        with model_call(self, purpose=f"{request.purpose}:fake_turn:held", prompt=request.prompt):
-            self.inside.set()
-            if not self.release.wait(WAIT):
-                raise TimeoutError("the test never released the held reading")
-        self.requests.append(request)
-        return self.answer(request)
 
 
 def ink_jobs(ctx: Any) -> list[Any]:

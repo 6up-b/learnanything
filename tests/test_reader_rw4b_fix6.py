@@ -33,6 +33,7 @@ from learnloop.reader import workbench as WB
 from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.handlers import daily_plan as plan_handler
 from learnloop_sidecar.handlers import workbench as handler
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from tests.daily_plan_fakes import NOW, iso, make_env, scheduled, seed_due
 from tests.helpers import create_daily_plan_vault
 from tests.hint_h2b_review_helpers import grader  # noqa: F401 - the blind grader fixture
@@ -358,7 +359,7 @@ def test_r7_a_failed_presentation_write_rolls_the_whole_keyed_pick_back(ctx, mon
 def test_r7_an_open_list_keyed_pick_also_rolls_back_and_an_unkeyed_one_still_serves(tmp_path, monkeypatch):
     from tests.daily_plan_fakes import MovableClock
 
-    paths = create_daily_plan_vault(tmp_path / "vault", learning_objects=LOS, version="mvp-0.22")
+    paths = create_daily_plan_vault(tmp_path / "vault", learning_objects=LOS, version=LATEST_ALGORITHM_VERSION)
     clock = MovableClock()
     env = make_env(paths.root, _items(), clock=clock, session_id="s1")
     _seed(env, clock.now())

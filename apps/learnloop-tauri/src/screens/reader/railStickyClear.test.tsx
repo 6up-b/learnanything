@@ -6,7 +6,7 @@
 // `position: sticky; top: -18px`) read from the real Reader.
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { ReaderScreen } from "../ReaderScreen";
+import { ScopedSource } from "../desks/source/ScopedSource";
 import { readerRenderViewFixture as view } from "../../fixtures/readerRenderView";
 import type { SourceLibraryCard } from "../../api/dto";
 import { resetReaderActivityForTests } from "./activity";
@@ -102,7 +102,7 @@ async function frames() {
 }
 
 it("ask follow-up brings the follow-up box below the rail's tab bar, where a click reaches it (student-3 #73, expert-2 #34)", async () => {
-  render(<ReaderScreen initialSource={initialSource} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={initialSource} onError={vi.fn()} />);
   fireEvent.click(await screen.findByRole("button", { name: "ask" }));
   fireEvent.click(await screen.findByRole("button", { name: /▸ Why weighted by p\?/ }));
   await frames();

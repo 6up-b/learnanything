@@ -278,7 +278,7 @@ Open specs, claims, back-links, search results, promoted rows and path rows all 
 | `pad.apply` | `{client_id, seq, pad_id, ops:[{op, block_id?, expected_head?, …}]}` | `{applied_seq, results, heads}` | The ops are `create_pad` (carries the client-minted `pad_id`, so retries are safe), `insert_block` (a client-minted `block_id`), `edit_block` (`expected_head` required), `remove_block` (a tombstone version), `move_block` (a new `position_key`), `lift_out` (an insert plus a stub in one op), `set_title`, `keep`, `unkeep`, `link_anchor`, `unlink_anchor`, `erase_ink` (a tombstone over stroke ids) |
 | `pad.submit_block` | `{submission_id (client-minted), block_id, version_id, as: "attempt"\|"teach_back", target}` | `{attempt_id?\|teach_back_id?}` | Idempotent by `submission_id`; hands off to existing entry points (§10.9) |
 | `ink.save` | `{client_id, seq, owner:{block_id\|annotation_id}, ink_id (client-minted), strokes}` | `{ink_id}` | |
-| `ink.transcribe` / `ink.transcribe_job` | `{ink_id}` | job → `{latex_md, confidence_label}` | A paid route through the plan transport (§10.10) |
+| `ink.transcribe` / `ink.transcribe_job` | `{ink_id}` | job → `{latex_md, confidence_label}` | GLM-OCR, as ingest reads a page image (hosted on z.ai with its OK, or the local server); its text is the reading (§10.10) |
 | `passage.union_range` | `{extraction_id, from_span_id, to_span_id}` or `{extraction_id, t0, t1}` | `{extraction_id, spans:[{span_id, …union}], sections}` | Goal-independent (§7.6). **Batched per visible range,** never per span on hover |
 | `passage.promoted` | `{extraction_id, span_id\|t, object_kind, desk_id}` | `{rows, pending_job?}` | Cheap rows inline; judged rows through a job (§9.1) |
 | `companion.history` | `{from?, to?, desk_id?, query?, cursor?}` | `{days:[{date, desks:[{desk_id, exchanges:[…]}]}], cursor}` | §8.5 |
@@ -286,8 +286,8 @@ Open specs, claims, back-links, search results, promoted rows and path rows all 
 | `search.everything` / `search.job` | `{query, desk_id, scopes?}` | groups (§9.3) | Lexical groups at once; meaning groups through the job |
 | `goal.band` | `{goal_id}` | §12.2 | Composes `curriculum.ready`, `curriculum.path`, due checks and pace |
 | `goal.lens` | `{goal_id, extraction_id, from_span_id?, to_span_id?}` or `{goal_id, extraction_id, t0, t1}` | `{levels:[{span_id\|range, level, reason_key, reason_md, lo_ids, mapping: mapped\|partial\|unmapped}]}` | Goal-conditioned, separate from the union read (§12.3) |
-| `checks.due_for` | `{goal_id?, learning_object_ids?, extraction_id?, span_id?}` | `{checks:[{commitment_id, lo_id, due, host?, provenance}]}` | Read only; shows nothing of the item (§12.6) |
-| `check.begin_inline` | `{request_id, commitment_id, visible}` | `{administration_token, item_ref, contract_hash, protection:{veil_set_id, method}, prompt}` | Atomic: it picks the item through `scheduling/intent/serving.py`'s eligibility, freezes the assessment contract, opens an administration and computes the structural protection, **before the prompt is returned** (§12.6) |
+| `checks.due_for` | `{}` (no filter) | `{checks:[{handle, being_answered}]}` | Read only; every due check in the vault as an opaque handle, and nothing of any (no LO, host, provenance, due date or commitment; §12.6.1) |
+| `check.begin_inline` | `{request_id, handle, visible}` (`check_unknown` for a spent, stale or guessed handle) | `{administration_token, item_ref, contract_hash, protection:{veil_set_id, method}, prompt}` | Atomic: it picks the item through `scheduling/intent/serving.py`'s eligibility, freezes the assessment contract, opens an administration and computes the structural protection, **before the prompt is returned** (§12.6) |
 | `check.expose` | `{administration_token, ref, kind: opened_veil\|navigated\|help}` | `{protection_status}` | Persisted at once through the exposure machinery, not deferred to submit |
 | `check.protect_more` | `{administration_token, visible}` | `{veil_additions}` | Called when new content becomes visible during the administration (navigation, new window, search) |
 | `check.submit_inline` | `{administration_token, submission_id, answer_md}` | the existing attempt reply plus `{cold: bool, reason}` | Records the attempt through the existing attempt service for that item; settlement then runs as for any qualifying attempt (`intent/checks.py:settle_answered_checks`). Idempotent by `submission_id` |
@@ -864,7 +864,6 @@ Where no correspondent exists, the chip says "no passage here" and nothing scrol
 - learner-text gaps anchored to it (`learner_text_gap_spans`), with their anchor quality;
 - `passage_links` with reasons;
 - figures made for it;
-- "a check is due before this" (`checks.due_for` hosts), with no item content (§12.6);
 - linked notes (`learner_note_links`);
 - the LOs and coverage of its section;
 - reader-authored questions;
@@ -1291,9 +1290,9 @@ The thresholds are recognizer geometry, from the mockup, tuned in RD8a's review 
 - The bar reads "✎ by hand · dotted · hide/show transcription".
 - Each ink line is an `ink` block holding its strokes and its transcription ("read as $LaTeX$", toggleable).
 
-**Transcription.** `ink.transcribe` renders the strokes to an image and sends it through the plan transport's vision-capable route; OpenRouter is used only after the learner's one-time OK. It returns Markdown with LaTeX. The learner edits the transcription freely, and each edit is a new version labelled "you corrected the transcription".
+**Transcription.** `ink.transcribe` renders the strokes to an image and sends it to GLM-OCR, the text recognition ingest uses for page images (owner decision, 2026-11-23: "this should get passed to glm-ocr then passed as text directly"). GLM-OCR runs where ingest would run it, with the same admission and price: z.ai's hosted pipeline when a key is set in Settings, under Ingestion, after the learner's OK for sending a file to z.ai; or the self-hosted server (`[ingest.pdf.glm_ocr] backend = "local"`), where nothing is asked. The Markdown with LaTeX it recognises is the transcription as it is: no model rewrites or interprets it. GLM-OCR gives no calibrated confidence, so every transcription reads "transcription may be wrong · fix it". Without GLM-OCR set up, nothing is sent and the line says how to turn it on, keeps the ink and lets the learner type what they wrote. The learner edits the transcription freely, and each edit is a new version labelled "you corrected the transcription".
 
-The Pocket Notes OCR pipeline is a candidate route if it beats the plan route on the owner's handwriting (decision D8).
+The Pocket Notes OCR pipeline stays a candidate (decision D8) if it reads the owner's handwriting better than GLM-OCR.
 
 **The tutor reads ink unobtrusively (review F12).** The ladder needs a target. Today's hint service is item-bound (`HintRequestV1` requires `practice_item_id`, `session_id` and `submission_id`; `hints/service.py:136`), so RD8 ships it in two steps.
 
@@ -1591,17 +1590,34 @@ At the end comes "┊ not needed for your goal · read it anyway", the dimmed li
 - RW6b's cold follow-ups;
 - TE6's generated delayed checks once built.
 
-#### 12.6.1 What is shown before the check opens (no cues)
-The host passage is the LO's primary path section. When a window approaches it, a **closed** marker sits before the passage:
-- "◇ a check is due before this page · on your own · about N min";
-- "check now" and "later".
+#### 12.6.1 What is shown before the check opens (no cues; the owner's decision on RD7-56, option b)
+Before "check now" nothing names **or places** what a check is about. Each desk shows **one unlocated marker**, at the
+desk's top, in no window and at no passage, on every desk alike while any check is due:
+- "◇ a cold check is due on this desk · on your own" ("N cold checks are due on this desk" for several);
+- "check now" and "later" ("later" folds it to one quiet line for the session).
 
-The closed marker shows **no question, no LO title, no provenance and no purpose text**. Check once hides locators until feedback (`intent/checks.py:155`), and P3 invariant 10 withholds source text, purpose and "why" from cold administration.
+One marker per desk, not per window or per reading: a marker in the window that holds the host, or only on desks that
+hold it, would say where the check is. The marker shows **no question, no LO title, no provenance, no purpose text and
+no place**. Check once hides locators until feedback (`intent/checks.py:155`), and P3 invariant 10 withholds source
+text, purpose and "why" from cold administration.
 
-**What else changes while any check is due for an LO:**
-- The goal band shows only "◇ N checks due today", with no LO names on the ◇ squares, which take no hover.
-- Callouts, criticality "why" cards and path rows for that LO hide their purpose text.
-- Overview thumbnails and miniatures of windows holding that LO's protected content are not rendered (a placeholder card).
+**The reads.** `checks.due_for` takes no filter (asking "is a check due on this reading, goal or passage?" would be
+answered with where it is) and answers one opaque **handle** per due check, every due check in the vault, in the
+handles' own order, with nothing else. A handle is a keyed hash of (commitment, administrations so far): stable across
+reads, spent by a begin, meaningless without the sidecar's key. The key lives in the sidecar's process, so a handle
+dies with a restart: the desks read the due checks again after any refusal, and a spent, stale or guessed handle is
+refused plainly (`check_unknown`); the desks then read again and open the check due now (the marker never said which
+it was). `check.begin_inline` resolves the handle, and with it the host and candidates; only the begun card names the
+host (its open card sits there when that reading is on the desk, else centred near the top). No passage carries a due
+check (`passage.union_range` has no `checks_due`).
+
+**What else, while a check is due and not begun.** Nothing marks the due LO anywhere: the goal band, the lens, the
+path rows, follow-along and the video chapters show their ordinary content, the same as with no check due, and the
+band's "N cold checks due" counts every due check in the vault (a count of this goal's would say which goal). Masking a
+due LO's dot, sections or chapters with neutral words would point at it by elimination, and the book and the companion
+are unveiled before begin anyway. The masking (D15) applies to the **begun** check's LO only, from begin to the close
+(`handlers.goal_lens.masked_checks`, the one place that decides it); while a check is open the desks hold the band and
+the overview's miniatures as well (§12.6.4). Today's own listing of the check is unchanged.
 
 #### 12.6.2 Opening: protection before the prompt
 "check now" calls `check.begin_inline`, which atomically:
@@ -1621,11 +1637,11 @@ The veils are applied, and only then is the prompt returned and shown.
 - the open companion thread;
 - figures for those spans.
 
-**Unanchored learner content cannot be placed by structure.** That is pad blocks with no anchors, and threads with no citations. While a check is open, **every pad and thread window on screen is veiled whole** unless the Decider judgment (below) clears it.
+**Notes are veiled by default** (owner decision 2026-11-23: "I would err on veiling notes by default"). While a check is open, **every note-bearing surface on every desk is veiled**, not only what structure ties to the answer: all pads (running, named, handwritten, lesson additions) and lessons, threads and the companion's history, margin notes on open sources, and every window whose content structure cannot place (any window but a source's text) whole. The learner can open any veil ("show it anyway"); opening one is exposure (§12.6.4).
 
-**Decider judgment** (once reveal adjudication ships): the shared reveal judgment narrows the whole-window veils to the blocks that actually state the answer, and adds any answer-bearing passage that structure missed, with the quote.
+**Decider judgment** (once reveal adjudication ships): the shared reveal judgment may **un-veil** what it judges states nothing of the answer, with the quote. It narrows the veiled set only; it never widens an evidence rule.
 
-**Cold credit is not granted by veiling.** Masking is a courtesy that keeps the page usable. Cold eligibility is decided by the exposure record. If the protection is uncertain (the Decider judgment is unavailable and something unanchored was visible before the veil applied), the answer is accepted, graded and labelled "answered with your pads open · counts as practice". The cold duty stays pending, and Today serves it again.
+**Cold credit is not granted by veiling.** Masking is a courtesy that keeps the page usable. Cold eligibility is decided by the exposure record alone (the reveal ledger, as for Check once). There is no separate rule for notes that were on screen before the veils dropped: the veils drop before the prompt, and what the learner opens afterwards is recorded as it is opened.
 
 **What a veil looks like:**
 - text turns transparent behind an 11 px blur;
@@ -1638,7 +1654,7 @@ The veils are applied, and only then is the prompt returned and shown.
 #### 12.6.4 During the administration
 **New content.** Navigating, opening a window, switching desks or searching calls `check.protect_more` before the new content renders. New content is veiled on arrival if it is protected.
 
-**Exposure.** Opening a veil ("show it anyway" on the pill) or taking help calls `check.expose` at once, persisted through the canonical exposure machinery (`source_exposure_events` and the administration's exposure state), not held for submission. From then on the answer is assisted, and the card says so: "you looked at <group> first · this answer counts as practice".
+**Exposure.** Opening a veil ("show it anyway" on the pill) or taking help calls `check.expose` at once, persisted through the canonical exposure machinery, not held for submission (owner decision 2026-11-23, the existing overlap rule): opening a veil writes a `source_review` reveal on each of the check's candidates, sized by the opened text's overlap with that candidate's answer key (`span_answer_overlap`, as the Reader tutor debits a passage it shows), and the administration's exposure state records it. The answer counts as practice only if that reveal primes the item (the Check once decision over the reveal ledger); opened text that says nothing of the answer leaves it cold. The card says which: "you looked at <group> first · this answer counts as practice" when the item is primed, and the outcome is stated at submit. Taking help goes through the hint path, which already makes an attempt assisted.
 
 **The card:**
 - the question;
@@ -1654,7 +1670,7 @@ Only one administration is open at a time. Without a host in view, the same card
 
 **Settling.** It then runs as for any qualifying attempt: `intent/checks.py:settle_answered_checks` recognizes it and changes the commitment's disposition. This path never grades by itself.
 
-**Competing surfaces.** Today and the Reader share the administration lock: a commitment with an open administration on one surface shows "being answered in the Reader" on the other. The first *settling* submission wins. A later one on the other surface is recorded as practice.
+**Competing surfaces.** Today and the Reader share the administration lock: a commitment with an open administration on one surface shows "being answered in the Reader" on the other. The first *settling* submission wins. A later one on the other surface is labelled practice: it answers nothing and stays ordinary evidence (owner decision 2026-11-23, the existing rule).
 
 **"Not now"** (`check.abandon_inline`) closes the administration with no attempt. The duty stays pending, and anything the learner saw is in the exposure record.
 
@@ -1905,7 +1921,7 @@ For each new RPC:
 **Emission:** a committed block produces a `pad_text` gap row, and a sketch produces none. **Submission:** a submitted block produces an attempt or teach-back through the existing entry. The grader's inputs contain no pad, desk, ink or veil data (an import-contract test and a payload test).
 
 **Inline checks:**
-- `checks.due_for` finds hosts;
+- `checks.due_for` answers handles only, and `check.begin_inline` resolves the host from one;
 - `check.begin_inline` → `check.submit_inline` produces the same attempt, grade and settlement as Check once for the same item, contract and answer (a parity test);
 - duplicate submissions, a crash and restart mid-administration, the same commitment open in Today and the Reader, held candidates, and an exposed (assisted) answer that leaves the cold duty pending;
 - the closed marker, band and callouts reveal no item, LO or purpose text while a check is due;
@@ -2014,7 +2030,7 @@ Astra also resolved an open question in the first draft: `deliverable_path_secti
 | D12 | When the old Reader goes | In a dedicated RD-retire landing after RD4, RD5, RD6 and RD9a, once every parity row passes (§21.1); panel adapters bridge the gap | Two Readers would drift; deletion must follow demonstrable parity (review F7) |
 | D13 | Blur effects on WebKitGTK | Kept if within the frame budget, else opacity and scale only (measured in RD2) | §3.6 |
 | D14 | Alt + vertical scroll: overview zoom (the later request, O6) or pads and desks (the Nov 21 touch decision)? | Zoom. Pads and desks move with `alt+j/k` and by plain scrolling in stacks | The owner's later, more specific request; please confirm |
-| D15 | While a check is due, hide that LO's purpose text and names (band, callouts, why cards, thumbnails)? | Yes, until the check is answered or abandoned for the day | Cold presentation (review F1); it costs a little goal context for an honest check |
+| D15 | While a check is due, hide that LO's purpose text and names (band, callouts, why cards, thumbnails)? | Only once the check is begun, until it closes (the owner's decision on RD7-56, option b, which reverses the pre-begin half): while it is merely due nothing marks it, since a masked dot, section or chapter would point at it | Cold presentation (review F1). Masking from the due date is restored in one place, `handlers.goal_lens.masked_checks` |
 | D16 | Uncertain protection (an unanchored pad was visible before veiling, no Decider yet): what happens to the answer? | Graded and kept as practice; the cold duty stays pending and returns in Today | Honest labels; never a cold credit from masking |
 
 ---

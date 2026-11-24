@@ -7,7 +7,7 @@
 // (tests/test_reader_rw1c_review.py::test_the_desktops_offers_only_bound_ask_refuses_tools_when_cold).
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { ReaderScreen } from "../ReaderScreen";
+import { ScopedSource } from "../desks/source/ScopedSource";
 import { setAlgoConfig } from "../../app/algoConfig";
 import { readerRenderViewFixture as view } from "../../fixtures/readerRenderView";
 import boundAsk from "../../fixtures/readerBoundOffersOnlyAsk.json";
@@ -89,7 +89,7 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); setAlgoConfig(undefined); window.getSelection()?.removeAllRanges(); });
 
 async function askFromTheWorkbench(): Promise<Record<string, unknown>> {
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   const block = await screen.findByText(PROSE);
   const range = document.createRange();
   range.selectNodeContents(block);

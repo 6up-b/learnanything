@@ -23,7 +23,7 @@ source_paths:
   - "src/learnloop/daily_plan/boundary_records.py"
   - "src/learnloop/daily_plan/engine.py"
   - "src/learnloop/daily_plan/learner_action.py"
-  - "src/learnloop/daily_plan/measurement.py"
+  - "src/learnloop/daily_plan/learner_probe.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -136,6 +136,7 @@ None found by exact static reference scan.
 - `src/learnloop/db/stores/provenance.py`
 - `src/learnloop/db/stores/router.py`
 - `src/learnloop/db/stores/router_suggestions.py`
+- `src/learnloop/diagnosis/probe_authority.py`
 - `src/learnloop/evsi_calibration/live_report.py`
 - `src/learnloop/followup_run/decision_view.py`
 - `src/learnloop/ops/capture_report.py`

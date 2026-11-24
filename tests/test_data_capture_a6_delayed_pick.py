@@ -13,7 +13,7 @@ import json
 
 import pytest
 
-from learnloop.algorithm_versions import DATA_CAPTURE_ALGORITHM_VERSION
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION, DATA_CAPTURE_ALGORITHM_VERSION
 from learnloop import delayed_checks as DC
 from learnloop.clock import FrozenClock, parse_utc
 from learnloop.teacher import brief as B
@@ -33,7 +33,7 @@ def _with_difficulties(paths, **difficulties):
         write_yaml(paths.practice_item_path("linear-algebra", item_id), payload)
 
 
-def _vault(tmp_path, *, version=TAG, config="", **difficulties):
+def _vault(tmp_path, *, version=LATEST_ALGORITHM_VERSION, config="", **difficulties):
     paths, repository = build_teacher_vault(tmp_path / "vault", reserved=False, version=version, config=config)
     _with_difficulties(paths, **difficulties)
     return paths, repository, load_vault(paths.root)

@@ -30,6 +30,7 @@ from learnloop.scheduling.scheduler import SchedulerSession, serve_due_queue
 
 from learnloop.daily_plan.lanes import register_scheduled_check_provider, unregister_scheduled_check_provider
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from tests.daily_plan_fakes import make_env
 from tests.helpers import create_basic_vault
 from tests.voi_stopping_helpers import (
@@ -350,7 +351,7 @@ def test_a_committed_probe_logs_its_value_decision_once_beside_the_selection_for
 def test_an_explored_probe_value_forecast_carries_router_r1s_marker(tmp_path, monkeypatch):
     from learnloop.scheduling import scheduler as S
 
-    _paths, vault, repository = _probe_vault(tmp_path, "mvp-0.21")
+    _paths, vault, repository = _probe_vault(tmp_path, LATEST_ALGORITHM_VERSION)
     session_id = repository.create_session(energy=None, sleep_quality=None, available_minutes=30, notes_md_path=None)
     probes = {"pi_svd_define_001", "pi_svd_define_002"}
 
@@ -376,7 +377,7 @@ def test_an_explored_probe_value_forecast_carries_router_r1s_marker(tmp_path, mo
 
 
 def test_a_value_stop_is_logged_once_at_the_completion(tmp_path, monkeypatch):
-    _paths, vault, repository = _probe_vault(tmp_path, "mvp-0.21")
+    _paths, vault, repository = _probe_vault(tmp_path, LATEST_ALGORITHM_VERSION)
     _minutes(monkeypatch, 10_000.0)
     episode = _answer_probe(vault, repository)
     assert episode.completion_reason == "value_of_information_stop"
@@ -564,7 +565,7 @@ def _answer_presentation(vault, repository, presentation, session_id, *, score=4
 def test_the_report_scores_a_probe_continue_through_its_committed_presentation(tmp_path):
     from learnloop.vault.loader import load_vault
 
-    paths, vault, repository = _probe_vault(tmp_path, "mvp-0.21")
+    paths, vault, repository = _probe_vault(tmp_path, LATEST_ALGORITHM_VERSION)
     session_id = _sidecar_offer(paths, repository)
     presentation = repository.active_probe_presentation_for_session(session_id)
     (before,) = _joined(vault, repository, "probe_episode_value_decision")
@@ -581,7 +582,7 @@ def test_the_report_scores_a_probe_continue_through_its_committed_presentation(t
 
 
 def test_a_value_stop_is_never_joined_to_a_later_answer(tmp_path, monkeypatch):
-    _paths, vault, repository = _probe_vault(tmp_path, "mvp-0.21")
+    _paths, vault, repository = _probe_vault(tmp_path, LATEST_ALGORITHM_VERSION)
     _minutes(monkeypatch, 10_000.0)
     _answer_probe(vault, repository)  # the answer that let value stop the episode
     _answer_probe_after_stop = [result for row, result in _joined(vault, repository, "probe_episode_value_decision")

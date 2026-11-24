@@ -950,7 +950,9 @@ def test_the_pinned_rd0_rpcs_are_all_of_them():
     from learnloop_sidecar.handlers.pads import PAD_RPCS
     from learnloop_sidecar.handlers.passage_union import PASSAGE_UNION_RPCS
 
-    assert set(READER_RD0_RPCS) == set(DESK_RPCS + PAD_RPCS + PASSAGE_UNION_RPCS + COMPANION_RPCS + INLINE_CHECK_RPCS)
+    # RD7's administration RPCs are pinned with RD7 below; ``checks.due_for`` is RD0's.
+    assert set(READER_RD0_RPCS) == set(DESK_RPCS + PAD_RPCS + PASSAGE_UNION_RPCS + COMPANION_RPCS) | (
+        set(INLINE_CHECK_RPCS) - set(READER_RD7_RPCS))
 
 
 # Reader workbench v2 RD3 (spec §3.4): the companion's ask as a polled job and search in context. Desktop only.
@@ -1025,6 +1027,7 @@ READER_RD6A_RPCS = (
     "goal.band",
     "goal.lens",
     "goal.section_choice",
+    "goal.choices",
 )
 
 
@@ -1060,6 +1063,18 @@ def test_the_pinned_rd9a_rpcs_are_all_of_them():
     assert set(READER_RD9A_RPCS) == set(LESSON_WINDOW_RPCS)
 
 
+# Reader workbench v2 RD7 (spec §3.4, §12.6): due checks and the inline administration protocol. Desktop only.
+READER_RD7_RPCS = ("check.begin_inline", "check.protect_more", "check.expose", "check.submit_inline",
+                   "check.abandon_inline", "check.open_inline")
+
+
+def test_the_pinned_rd7_rpcs_are_all_of_them():
+    from learnloop_sidecar.handlers.inline_checks import INLINE_CHECK_RPCS
+
+    # ``checks.due_for`` is pinned with RD0's reads above.
+    assert set(READER_RD7_RPCS) | {"checks.due_for"} == set(INLINE_CHECK_RPCS)
+
+
 # Reader workbench v2 RD10 (spec §7.5, §7.9): follow-along and suggested video chapters. Desktop only.
 READER_RD10_RPCS = ("reader.follow_along", "chapters.list", "chapters.suggest", "chapters.job", "chapters.cancel",
                     "chapters.decide")
@@ -1084,7 +1099,7 @@ def test_the_pinned_rd10_rpcs_are_all_of_them():
     + INTENT_RPCS + INTENT_EXTENDED_RPCS + READER_RW5A_RPCS + READER_RW2C_RPCS + READER_RW2C_EXTENDED_RPCS + AD23_RPCS
     + UX_PHASE3_RPCS + CURRICULUM_C0A_RPCS + CURRICULUM_C0B_RPCS + CURRICULUM_C2_RPCS + READER_CA5A_RPCS + READER_CA5_RPCS + READER_CA6_RPCS + READER_CA1_RPCS + READER_CA3_RPCS + READER_RW5D_RPCS + TEACHER_TE1_RPCS + WHY_B9_RPCS
     + READER_RD0_RPCS + READER_RD3A_RPCS + READER_RD4A_RPCS + READER_RD4FIX_RPCS + READER_RD5A_RPCS + READER_RD6A_RPCS
-    + NOTEBOOK_RUNTIME_RPCS + READER_RD8A_RPCS + READER_RD9A_RPCS + READER_RD10_RPCS,
+    + NOTEBOOK_RUNTIME_RPCS + READER_RD8A_RPCS + READER_RD9A_RPCS + READER_RD10_RPCS + READER_RD7_RPCS,
 )
 def test_desktop_and_main_rpcs_are_registered_but_never_phone_allowed(method):
     from learnloop_sidecar import handlers  # noqa: F401 — populates the registry

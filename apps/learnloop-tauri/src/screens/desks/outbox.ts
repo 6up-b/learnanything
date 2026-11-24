@@ -86,7 +86,7 @@ export type FlushOutcome =
 
 /** Errors that mean the request itself is wrong: sending it again can never succeed. Anything else
  * (an unreachable or restarting sidecar, a busy database) is a transport failure and is retried. */
-const PERMANENT_REFUSALS = new Set(["validation_error", "stale_sidecar_schema"]);
+const PERMANENT_REFUSALS = new Set(["exam_material", "validation_error", "stale_sidecar_schema"]);
 
 export function isPermanentRefusal(code: string): boolean {
   return PERMANENT_REFUSALS.has(code);

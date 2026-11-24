@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from tests.structured_ai import JointGraderAlsoBlind, StructuredClientFake
 
 import shutil
@@ -1220,7 +1221,7 @@ def test_a_teach_back_regraded_blind_keeps_the_blind_identity_through_rebuilds(t
 
     from learnloop.attempts.regrade import regrade_attempt
 
-    _paths, vault, repository = _teach_back_vault_at(tmp_path, "mvp-0.10")
+    _paths, vault, repository = _teach_back_vault_at(tmp_path, LATEST_ALGORITHM_VERSION)
     clock = FrozenClock(NOW)
     client = BlindTeachBackClient()
     item = vault.practice_items[TEACH_ITEM_ID]

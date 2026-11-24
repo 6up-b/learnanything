@@ -32,6 +32,7 @@ import json
 import pytest
 
 from learnloop.algorithm_versions import (
+    LATEST_ALGORITHM_VERSION,
     APPLICATION_ORDER_ALGORITHM_VERSION,
     LIFECYCLE_INPUTS_ALGORITHM_VERSION,
     LIFECYCLE_INPUTS_VERSIONS,
@@ -56,7 +57,7 @@ APPLY_ITEM = "pi_svd_apply_001"
 BOTH, RECALL_ONLY = ["application", "recall"], ["recall"]
 
 
-def _with_an_application_item(tmp_path, *, version=AT):
+def _with_an_application_item(tmp_path, *, version=LATEST_ALGORITHM_VERSION):
     """The placement vault plus a second facet on lo_svd_definition, measured only by one item (and its file)."""
 
     paths, _vault_before, repository = _vault(tmp_path, version=version)
@@ -310,7 +311,7 @@ def test_a_rolled_back_application_leaves_neither_its_attempt_nor_its_capture(tm
 def test_an_attempt_applied_at_the_tag_without_its_capture_refuses_to_replay(tmp_path):
     from learnloop.attempts.lifecycle_inputs import LifecycleInputsMissing
 
-    paths, vault, repository, _item_path = _with_an_application_item(tmp_path)
+    paths, vault, repository, _item_path = _with_an_application_item(tmp_path, version=AT)
     attempt_id = _answer(vault, repository, DEFINE_ITEM, minutes=1).attempt_id
     with repository.connection() as connection:
         connection.execute("DELETE FROM attempt_lifecycle_inputs WHERE attempt_id = ?", (attempt_id,))

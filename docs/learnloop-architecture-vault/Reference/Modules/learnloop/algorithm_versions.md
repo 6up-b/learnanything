@@ -47,22 +47,24 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py) |
-| Source lines | 1262 |
+| Source lines | 1314 |
 | Owning package | [[Reference/Modules/learnloop/_package|learnloop]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `successors_from(version: str) -> frozenset[str]` ([source](../../../../../src/learnloop/algorithm_versions.py), line 1102) — ``version`` and every later tag in :data:`SUCCESSOR_CHAIN`.
-- `evidence_reading_fixes_on(config: object) -> bool` ([source](../../../../../src/learnloop/algorithm_versions.py), line 1155) — The evidence reading fixes (mvp-0.61), gated by the vault's tag alone (no kill switch): below it every one of their readings is mvp-0.60's exactly.
-- `committed_check_delivery_on(config: object) -> bool` ([source](../../../../../src/learnloop/algorithm_versions.py), line 1169) — The committed-check credit (mvp-0.62), gated by the vault's tag alone (no kill switch): below it a lesson offer's record, its numeric action and every rollout are mvp-0.61's exactly.
-- `section_end_on(config: object) -> bool` ([source](../../../../../src/learnloop/algorithm_versions.py), line 1182) — A section's end finishes it (mvp-0.63), gated by the vault's tag alone (no kill switch): below it a section is finished exactly as at mvp-0.62 (any completion the Reader sends, its check's close included; an end finishes nothing).
-- `untaken_episode_end_on(config: object) -> bool` ([source](../../../../../src/learnloop/algorithm_versions.py), line 1196) — An untaken repair episode ends (mvp-0.64), gated by the vault's tag alone (no kill switch): below it such an episode stays open and the routine queue withholds its cold item only while a cold retry is open, exactly as at mvp-0.63.
-- `application_order_on(config: object) -> bool` ([source](../../../../../src/learnloop/algorithm_versions.py), line 1210) — Same-second grades fold in the order they were applied (mvp-0.65), gated by the vault's tag alone (no kill switch): below it no sequence is reserved and every reader orders the ledger by ``(created_at, id)``, exactly as at mvp-0.64.
-- `lifecycle_inputs_on(config: object) -> bool` ([source](../../../../../src/learnloop/algorithm_versions.py), line 1224) — A grade application's required facet set is the one captured with its attempt (mvp-0.66), gated by the vault's tag alone (no kill switch): below it nothing is captured and every application reads today's item lifecycle, exactly as at mvp-0.65.
-- `mastery_seed_on(config: object) -> bool` ([source](../../../../../src/learnloop/algorithm_versions.py), line 1238) — The mastery seed a learning object started from is recorded and replayed (mvp-0.67), gated by the vault's tag alone (no kill switch): below it nothing is recorded and replay seeds a practised learning object from the claims made before its first attempt and an attempt-free one f…
-- `pad_text_on(config: object) -> bool` ([source](../../../../../src/learnloop/algorithm_versions.py), line 1252) — A scratchpad's committed words are learner text (mvp-0.68), gated by the vault's tag alone (no kill switch): below it a pad emits nothing, exactly as at mvp-0.67.
+- `successors_from(version: str) -> frozenset[str]` ([source](../../../../../src/learnloop/algorithm_versions.py), line 1127) — ``version`` and every later tag in :data:`SUCCESSOR_CHAIN`.
+- `evidence_reading_fixes_on(config: object) -> bool` ([source](../../../../../src/learnloop/algorithm_versions.py), line 1180) — The evidence reading fixes (mvp-0.61), gated by the vault's tag alone (no kill switch): below it every one of their readings is mvp-0.60's exactly.
+- `committed_check_delivery_on(config: object) -> bool` ([source](../../../../../src/learnloop/algorithm_versions.py), line 1194) — The committed-check credit (mvp-0.62), gated by the vault's tag alone (no kill switch): below it a lesson offer's record, its numeric action and every rollout are mvp-0.61's exactly.
+- `section_end_on(config: object) -> bool` ([source](../../../../../src/learnloop/algorithm_versions.py), line 1207) — A section's end finishes it (mvp-0.63), gated by the vault's tag alone (no kill switch): below it a section is finished exactly as at mvp-0.62 (any completion the Reader sends, its check's close included; an end finishes nothing).
+- `untaken_episode_end_on(config: object) -> bool` ([source](../../../../../src/learnloop/algorithm_versions.py), line 1221) — An untaken repair episode ends (mvp-0.64), gated by the vault's tag alone (no kill switch): below it such an episode stays open and the routine queue withholds its cold item only while a cold retry is open, exactly as at mvp-0.63.
+- `application_order_on(config: object) -> bool` ([source](../../../../../src/learnloop/algorithm_versions.py), line 1235) — Same-second grades fold in the order they were applied (mvp-0.65), gated by the vault's tag alone (no kill switch): below it no sequence is reserved and every reader orders the ledger by ``(created_at, id)``, exactly as at mvp-0.64.
+- `lifecycle_inputs_on(config: object) -> bool` ([source](../../../../../src/learnloop/algorithm_versions.py), line 1249) — A grade application's required facet set is the one captured with its attempt (mvp-0.66), gated by the vault's tag alone (no kill switch): below it nothing is captured and every application reads today's item lifecycle, exactly as at mvp-0.65.
+- `mastery_seed_on(config: object) -> bool` ([source](../../../../../src/learnloop/algorithm_versions.py), line 1263) — The mastery seed a learning object started from is recorded and replayed (mvp-0.67), gated by the vault's tag alone (no kill switch): below it nothing is recorded and replay seeds a practised learning object from the claims made before its first attempt and an attempt-free one f…
+- `inline_checks_on(config: object) -> bool` ([source](../../../../../src/learnloop/algorithm_versions.py), line 1282) — Inline checks (mvp-0.69), gated by the vault's tag alone (no kill switch): below it every ``check.*`` RPC refuses and Today ignores the lock, exactly as at mvp-0.68.
+- `pad_text_on(config: object) -> bool` ([source](../../../../../src/learnloop/algorithm_versions.py), line 1290) — A scratchpad's committed words are learner text (mvp-0.68), gated by the vault's tag alone (no kill switch): below it a pad emits nothing, exactly as at mvp-0.67.
+- `probe_router_on(config: object) -> bool` ([source](../../../../../src/learnloop/algorithm_versions.py), line 1303) — The router decides the automatic lane's probe and an unwritten probe is asked only by the probe coin (the probe router's tag), gated by the vault's tag alone (no kill switch): below it the predecessor's follow-up decision exactly.
 
 ### Module constants
 
@@ -128,24 +130,28 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `LIFECYCLE_INPUTS_ALGORITHM_VERSION` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1005)
 - `MASTERY_SEED_ALGORITHM_VERSION` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1019)
 - `PAD_TEXT_ALGORITHM_VERSION` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1031)
-- `SUCCESSOR_CHAIN` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1039)
-- `OLDEST_SUPPORTED` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1110)
-- `PLACEMENT_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1116)
-- `DECIDER_TIER1_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1120)
-- `FAILURE_SHARE_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1126)
-- `FIGURE_WAIT_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1131)
-- `FACET_BELIEF_FIX_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1136)
-- `ROBUST_GATE_FIX_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1143)
-- `GRADE_CHANNEL_FIX_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1148)
-- `EVIDENCE_READING_FIX_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1152)
-- `COMMITTED_CHECK_DELIVERY_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1166)
-- `SECTION_END_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1179)
-- `UNTAKEN_EPISODE_END_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1193)
-- `APPLICATION_ORDER_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1207)
-- `LIFECYCLE_INPUTS_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1221)
-- `MASTERY_SEED_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1235)
-- `PAD_TEXT_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1249)
-- `LATEST_ALGORITHM_VERSION` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1262)
+- `INLINE_CHECK_ALGORITHM_VERSION` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1041)
+- `PROBE_ROUTER_ALGORITHM_VERSION` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1054)
+- `SUCCESSOR_CHAIN` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1062)
+- `OLDEST_SUPPORTED` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1135)
+- `PLACEMENT_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1141)
+- `DECIDER_TIER1_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1145)
+- `FAILURE_SHARE_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1151)
+- `FIGURE_WAIT_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1156)
+- `FACET_BELIEF_FIX_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1161)
+- `ROBUST_GATE_FIX_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1168)
+- `GRADE_CHANNEL_FIX_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1173)
+- `EVIDENCE_READING_FIX_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1177)
+- `COMMITTED_CHECK_DELIVERY_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1191)
+- `SECTION_END_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1204)
+- `UNTAKEN_EPISODE_END_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1218)
+- `APPLICATION_ORDER_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1232)
+- `LIFECYCLE_INPUTS_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1246)
+- `MASTERY_SEED_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1260)
+- `PAD_TEXT_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1274)
+- `INLINE_CHECK_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1279)
+- `PROBE_ROUTER_VERSIONS` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1300)
+- `LATEST_ALGORITHM_VERSION` ([src/learnloop/algorithm_versions.py](../../../../../src/learnloop/algorithm_versions.py), line 1314)
 
 ## Internal implementation anchors
 
@@ -163,10 +169,13 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `LATEST_ALGORITHM_VERSION`
 - [[Reference/Modules/learnloop/cli/grading|learnloop.cli.grading]] — imports `GRADE_CHANNEL_FIX_ALGORITHM_VERSION`
 - [[Reference/Modules/learnloop/config/template|learnloop.config.template]] — imports `LATEST_ALGORITHM_VERSION`
+- [[Reference/Modules/learnloop/daily_plan/learner_probe|learnloop.daily_plan.learner_probe]] — imports `probe_router_on`; statically calls `probe_router_on`
 - [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]] — imports `FAILURE_SHARE_VERSIONS`, `committed_check_delivery_on`; statically calls `committed_check_delivery_on`
-- [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]] — imports `committed_check_delivery_on`; statically calls `committed_check_delivery_on`
+- [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]] — imports `committed_check_delivery_on`, `probe_router_on`; statically calls `committed_check_delivery_on`, `probe_router_on`
 - [[Reference/Modules/learnloop/db/attempt_order|learnloop.db.attempt_order]] — imports `APPLICATION_ORDER_VERSIONS`, `application_order_on`; statically calls `application_order_on`
 - [[Reference/Modules/learnloop/diagnosis/causal_attribution|learnloop.diagnosis.causal_attribution]] — imports `evidence_reading_fixes_on`; statically calls `evidence_reading_fixes_on`
+- [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] — imports `probe_router_on`; statically calls `probe_router_on`
+- [[Reference/Modules/learnloop/diagnosis/probe_authority|learnloop.diagnosis.probe_authority]] — imports `PROBE_ROUTER_VERSIONS`
 - [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `evidence_reading_fixes_on`; statically calls `evidence_reading_fixes_on`
 - [[Reference/Modules/learnloop/diagnosis/probe_evidence|learnloop.diagnosis.probe_evidence]] — imports `evidence_reading_fixes_on`; statically calls `evidence_reading_fixes_on`
 - [[Reference/Modules/learnloop/diagnosis/probe_robust|learnloop.diagnosis.probe_robust]] — imports `ROBUST_GATE_FIX_VERSIONS`
@@ -174,16 +183,19 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/diagnosis/recurrence/report|learnloop.diagnosis.recurrence.report]] — imports `RECURRENCE_GROUP_ALGORITHM_VERSION`
 - [[Reference/Modules/learnloop/diagnosis/remediation|learnloop.diagnosis.remediation]] — imports `untaken_episode_end_on`; statically calls `untaken_episode_end_on`
 - [[Reference/Modules/learnloop/figures/prefetch_ledger|learnloop.figures.prefetch_ledger]] — imports `FIGURE_WAIT_VERSIONS`
+- [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]] — imports `probe_router_on`; statically calls `probe_router_on`
 - [[Reference/Modules/learnloop/goals/certification_cold_probe|learnloop.goals.certification_cold_probe]] — imports `evidence_reading_fixes_on`; statically calls `evidence_reading_fixes_on`
+- [[Reference/Modules/learnloop/intent/inline_administration|learnloop.intent.inline_administration]] — imports `inline_checks_on`; statically calls `inline_checks_on`
 - [[Reference/Modules/learnloop/learner/assessment_contracts|learnloop.learner.assessment_contracts]] — imports `KM_ALGORITHM_VERSION`, `P0_ALGORITHM_VERSION`, `REVEAL_LEDGER_ALGORITHM_VERSION`
 - [[Reference/Modules/learnloop/learner/facet_state_reader|learnloop.learner.facet_state_reader]] — imports `FACET_BELIEF_FIX_VERSIONS`
 - [[Reference/Modules/learnloop/learner/mastery|learnloop.learner.mastery]] — imports `mastery_seed_on`; statically calls `mastery_seed_on`
 - [[Reference/Modules/learnloop/learner/mastery_seed|learnloop.learner.mastery_seed]] — imports `mastery_seed_on`; statically calls `mastery_seed_on`
 - [[Reference/Modules/learnloop/learner/recall_calibration|learnloop.learner.recall_calibration]] — imports `LEGACY_ALGORITHM_VERSION`
-- [[Reference/Modules/learnloop/ops/upgrades|learnloop.ops.upgrades]] — imports `APPLICATION_ORDER_ALGORITHM_VERSION`, `COMMITTED_CHECK_DELIVERY_ALGORITHM_VERSION`, `EVIDENCE_READING_FIX_ALGORITHM_VERSION`, `FACET_BELIEF_FIX_ALGORITHM_VERSION`, `GRADE_CHANNEL_FIX_ALGORITHM_VERSION`, `LATEST_ALGORITHM_VERSION`, `LIFECYCLE_INPUTS_ALGORITHM_VERSION`, `MASTERY_SEED_ALGORITHM_VERSION`, `PAD_TEXT_ALGORITHM_VERSION`, `SECTION_END_ALGORITHM_VERSION`, `SUCCESSOR_CHAIN`, `UNTAKEN_EPISODE_END_ALGORITHM_VERSION`
+- [[Reference/Modules/learnloop/ops/upgrades|learnloop.ops.upgrades]] — imports `APPLICATION_ORDER_ALGORITHM_VERSION`, `COMMITTED_CHECK_DELIVERY_ALGORITHM_VERSION`, `EVIDENCE_READING_FIX_ALGORITHM_VERSION`, `FACET_BELIEF_FIX_ALGORITHM_VERSION`, `GRADE_CHANNEL_FIX_ALGORITHM_VERSION`, `INLINE_CHECK_ALGORITHM_VERSION`, `LATEST_ALGORITHM_VERSION`, `LIFECYCLE_INPUTS_ALGORITHM_VERSION`, `MASTERY_SEED_ALGORITHM_VERSION`, `PAD_TEXT_ALGORITHM_VERSION`, `PROBE_ROUTER_ALGORITHM_VERSION`, `SECTION_END_ALGORITHM_VERSION`, `SUCCESSOR_CHAIN`, `UNTAKEN_EPISODE_END_ALGORITHM_VERSION`
 - [[Reference/Modules/learnloop/pads/emission|learnloop.pads.emission]] — imports `pad_text_on`; statically calls `pad_text_on`
 - [[Reference/Modules/learnloop/placement/report|learnloop.placement.report]] — imports `PLACEMENT_VERSIONS`
 - [[Reference/Modules/learnloop/reader/section_end|learnloop.reader.section_end]] — imports `section_end_on`; statically calls `section_end_on`
+- [[Reference/Modules/learnloop/scheduling/intent/serving|learnloop.scheduling.intent.serving]] — imports `inline_checks_on`; statically calls `inline_checks_on`
 - [[Reference/Modules/learnloop/scheduling/serving_exclusions|learnloop.scheduling.serving_exclusions]] — imports `untaken_episode_end_on`; statically calls `untaken_episode_end_on`
 - [[Reference/Modules/learnloop/substrate/projection_switches|learnloop.substrate.projection_switches]] — imports `FACET_BELIEF_FIX_VERSIONS`
 - [[Reference/Modules/learnloop/substrate/rebuild_orchestrator|learnloop.substrate.rebuild_orchestrator]] — imports `mastery_seed_on`; statically calls `mastery_seed_on`
@@ -191,9 +203,11 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/substrate/shadow_rebuild|learnloop.substrate.shadow_rebuild]] — imports `OLDEST_SUPPORTED`
 - [[Reference/Modules/learnloop/substrate/state_sync|learnloop.substrate.state_sync]] — imports `mastery_seed_on`; statically calls `mastery_seed_on`
 - [[Reference/Modules/learnloop/version_floor|learnloop.version_floor]] — imports `LATEST_ALGORITHM_VERSION`, `OLDEST_SUPPORTED`, `RECURRENCE_GROUP_ALGORITHM_VERSION`, `SUCCESSOR_CHAIN`
+- [[Reference/Modules/learnloop_sidecar/handlers/remediation|learnloop_sidecar.handlers.remediation]] — imports `probe_router_on`; statically calls `probe_router_on`
 
 ### Repository tooling consumers
 
+- [scripts/probe_router_copy_counts.py](../../../../../scripts/probe_router_copy_counts.py)
 - [scripts/refactor_measures.py](../../../../../scripts/refactor_measures.py)
 
 ## Dependencies
@@ -214,7 +228,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/successor|learnloop.adaptive_difficulty.successor]], [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]], [[Reference/Modules/learnloop/attempts/lifecycle_inputs|learnloop.attempts.lifecycle_inputs]], [[Reference/Modules/learnloop/attempts/replay_reading|learnloop.attempts.replay_reading]], [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] and 30 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/successor|learnloop.adaptive_difficulty.successor]], [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]], [[Reference/Modules/learnloop/attempts/lifecycle_inputs|learnloop.attempts.lifecycle_inputs]], [[Reference/Modules/learnloop/attempts/replay_reading|learnloop.attempts.replay_reading]], [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] and 37 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -229,6 +243,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/cold_retry_reschedule_helpers.py](../../../../../tests/cold_retry_reschedule_helpers.py) — direct import
 - [tests/curriculum_c1_plan_follows_path_helpers.py](../../../../../tests/curriculum_c1_plan_follows_path_helpers.py) — direct import
 - [tests/data_capture_a2_measurement_helpers.py](../../../../../tests/data_capture_a2_measurement_helpers.py) — direct import
+- [tests/diagnosis_journey_helpers.py](../../../../../tests/diagnosis_journey_helpers.py) — direct import
 - [tests/followup_fg1d_probe_shadow_helpers.py](../../../../../tests/followup_fg1d_probe_shadow_helpers.py) — direct import
 - [tests/followup_journey_helpers.py](../../../../../tests/followup_journey_helpers.py) — direct import
 - [tests/followup_serve_helpers.py](../../../../../tests/followup_serve_helpers.py) — direct import
@@ -248,15 +263,15 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/learner_text_gaps_helpers.py](../../../../../tests/learner_text_gaps_helpers.py) — direct import
 - [tests/learner_text_gaps_review_helpers.py](../../../../../tests/learner_text_gaps_review_helpers.py) — direct import
 - [tests/lp_claim_fixes_review_helpers.py](../../../../../tests/lp_claim_fixes_review_helpers.py) — direct import
-- [tests/mobile_v3_probes_helpers.py](../../../../../tests/mobile_v3_probes_helpers.py) — direct import
 - [tests/pfc_unverified_unassessed_helpers.py](../../../../../tests/pfc_unverified_unassessed_helpers.py) — direct import
 - [tests/plan_follows_path_helpers.py](../../../../../tests/plan_follows_path_helpers.py) — direct import
 - [tests/probe_robust_cutover_helpers.py](../../../../../tests/probe_robust_cutover_helpers.py) — direct import
-- [tests/probe_router_authority_helpers.py](../../../../../tests/probe_router_authority_helpers.py) — direct import
+- [tests/probe_router_helpers.py](../../../../../tests/probe_router_helpers.py) — direct import
 - [tests/protection_matrix_helpers.py](../../../../../tests/protection_matrix_helpers.py) — direct import
 - [tests/reader_ca2_codex_rereview_helpers.py](../../../../../tests/reader_ca2_codex_rereview_helpers.py) — direct import
 - [tests/reader_ca2_codex_review_helpers.py](../../../../../tests/reader_ca2_codex_review_helpers.py) — direct import
 - [tests/reader_followups_helpers.py](../../../../../tests/reader_followups_helpers.py) — direct import
+- [tests/reader_guidance_helpers.py](../../../../../tests/reader_guidance_helpers.py) — direct import
 - [tests/reader_rw3a_landing_helpers.py](../../../../../tests/reader_rw3a_landing_helpers.py) — direct import
 - [tests/reader_workbench_rw2a_helpers.py](../../../../../tests/reader_workbench_rw2a_helpers.py) — direct import
 - [tests/reading_path_fixtures.py](../../../../../tests/reading_path_fixtures.py) — direct import
@@ -291,8 +306,16 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_in_memory_defaults_match_persisted_algorithm_and_codex_profile`
 - [tests/test_architecture.py](../../../../../tests/test_architecture.py) — direct import
   - `test_assessment_service_reexports_neutral_algorithm_versions`
+- [tests/test_assessment_contracts.py](../../../../../tests/test_assessment_contracts.py) — direct import
+  - `test_contract_hash_changes_when_targets_change`
+  - `test_identical_item_versions_reuse_one_snapshot`
+  - `test_snapshot_authoritative_after_live_rubric_change`
 - [tests/test_assumed_known.py](../../../../../tests/test_assumed_known.py) — direct import
   - `test_new_vaults_start_with_placement_on`
+- [tests/test_attempt_chain_records.py](../../../../../tests/test_attempt_chain_records.py) — direct import
+  - `test_the_sidecar_records_a_rejected_probe_value`
+- [tests/test_attempt_completion.py](../../../../../tests/test_attempt_completion.py) — direct import
+  - `test_pipeline_keeps_one_hypothesis_version_with_grader_provenance`
 - [tests/test_attempt_content_state_race.py](../../../../../tests/test_attempt_content_state_race.py) — direct import
 - [tests/test_attempt_content_state_successor.py](../../../../../tests/test_attempt_content_state_successor.py) — direct import
   - `test_mvp037_is_one_constant_after_mvp036`
@@ -334,10 +357,14 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_data_capture_a2_measurement.py](../../../../../tests/test_data_capture_a2_measurement.py) — direct import
 - [tests/test_data_capture_a5_not_ready_floor.py](../../../../../tests/test_data_capture_a5_not_ready_floor.py) — direct import
 - [tests/test_data_capture_a6_delayed_pick.py](../../../../../tests/test_data_capture_a6_delayed_pick.py) — direct import
+- [tests/test_data_capture_codex_review.py](../../../../../tests/test_data_capture_codex_review.py) — direct import
+  - `test_f3_every_evaluated_probe_keeps_its_forecast_in_the_receipt_only`
 - [tests/test_data_capture_successor.py](../../../../../tests/test_data_capture_successor.py) — direct import
   - `test_the_successor_is_one_constant_after_te1b_and_the_latest`
 - [tests/test_decider_landing.py](../../../../../tests/test_decider_landing.py) — direct import
   - `test_the_tier1_disclosure_and_the_one_ok_use_one_recipient_for_a_direct_perplexity_route`
+- [tests/test_diagnosis_async_router.py](../../../../../tests/test_diagnosis_async_router.py) — direct import
+  - `test_the_open_factor_takes_the_diagnosis_causes_when_it_lands`
 - [tests/test_diagnosis_input_provenance.py](../../../../../tests/test_diagnosis_input_provenance.py) — direct import
   - `test_f5_every_tag_defaults_the_switch_off`
 - [tests/test_due_queue_golden.py](../../../../../tests/test_due_queue_golden.py) — direct import
@@ -346,9 +373,15 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_golden_file_reads_back_as_the_effective_config`
 - [tests/test_evidence_reading_successor.py](../../../../../tests/test_evidence_reading_successor.py) — direct import
   - `test_the_successor_is_one_constant_after_the_grade_channel_fixes`
+- [tests/test_evsi_router_composition.py](../../../../../tests/test_evsi_router_composition.py) — direct import
+  - `test_a_probe_the_eig_chose_records_no_draw`
+  - `test_an_explored_probes_forecast_says_the_scheduler_drew_it`
 - [tests/test_evsi_staged_binding.py](../../../../../tests/test_evsi_staged_binding.py) — direct import
 - [tests/test_exam_protection_review.py](../../../../../tests/test_exam_protection_review.py) — direct import
   - `test_replay_never_reads_the_switch`
+- [tests/test_exam_session.py](../../../../../tests/test_exam_session.py) — direct import
+  - `test_an_exam_answer_is_stamped_with_its_graders_calibration_identity`
+  - `test_exam_answers_certify_facet_evidence_on_canonical_vault`
 - [tests/test_facet_belief_successor.py](../../../../../tests/test_facet_belief_successor.py) — direct import
   - `test_the_successor_is_one_constant_after_the_figure_wait_estimate`
 - [tests/test_facet_belief_successor_derivation.py](../../../../../tests/test_facet_belief_successor_derivation.py) — direct import
@@ -363,7 +396,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_figure_wait_successor.py](../../../../../tests/test_figure_wait_successor.py) — direct import
   - `test_the_successor_is_one_constant_after_slip_or_gap_and_the_latest`
 - [tests/test_followup_codex_review.py](../../../../../tests/test_followup_codex_review.py) — direct import
-  - `test_f6_a_crash_after_the_diagnosis_ended_is_recovered_by_next`
   - `test_f6_startup_recovery_needs_no_click`
 - [tests/test_followup_generate_e2e.py](../../../../../tests/test_followup_generate_e2e.py) — direct import
   - `test_a_mint_under_fg1_is_model_written_single_use_and_needs_no_review`
@@ -378,12 +410,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_declined_suggestion_keeps_its_not_now_line`
   - `test_a_reservation_the_app_set_aside_is_not_a_learner_answer`
   - `test_not_now_on_a_pending_card_is_its_own_line_after_the_start`
-- [tests/test_forecast_receipts.py](../../../../../tests/test_forecast_receipts.py) — direct import
-  - `test_a_regrade_re_resolves_the_forecast`
-  - `test_f2_a_grade_that_cites_no_contract_is_never_read_against_todays_rubric`
-  - `test_f2_editing_todays_rubric_never_rewrites_a_regraded_self_grade`
 - [tests/test_forecast_receipts_landing.py](../../../../../tests/test_forecast_receipts_landing.py) — direct import
   - `test_the_resolver_reads_the_regraded_events_the_lineage_names_never_a_retired_one`
+- [tests/test_generated_item_gate.py](../../../../../tests/test_generated_item_gate.py) — direct import
+  - `test_registered_facet_accepted`
+  - `test_unregistered_facet_rejected`
 - [tests/test_grade_application_core.py](../../../../../tests/test_grade_application_core.py) — direct import
 - [tests/test_grading_cli.py](../../../../../tests/test_grading_cli.py) — direct import
   - `test_a_confirmation_of_an_adjudicated_grade_stays_the_head`
@@ -395,6 +426,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_placement_and_the_field_read_a_held_attempt_as_unassessed`
 - [tests/test_help_fold_attach_successor.py](../../../../../tests/test_help_fold_attach_successor.py) — direct import
   - `test_mvp042_is_one_constant_after_mvp041_and_the_latest`
+- [tests/test_hot_path_eligibility_cutover.py](../../../../../tests/test_hot_path_eligibility_cutover.py) — direct import
+  - `test_first_ever_ineligible_observation_creates_no_memory_state`
 - [tests/test_hypothesis_marks.py](../../../../../tests/test_hypothesis_marks.py) — direct import
   - `test_with_no_causes_on_the_attempt_the_bundle_has_no_key`
 - [tests/test_ih3_learner_preferences.py](../../../../../tests/test_ih3_learner_preferences.py) — direct import
@@ -406,11 +439,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ih_lesson_candidate_after_cold_miss.py](../../../../../tests/test_ih_lesson_candidate_after_cold_miss.py) — direct import
 - [tests/test_instruct_handoff_ih1.py](../../../../../tests/test_instruct_handoff_ih1.py) — direct import
   - `test_no_new_draw_joins_an_open_item`
+- [tests/test_instrument_servability_journeys.py](../../../../../tests/test_instrument_servability_journeys.py) — direct import
+  - `test_the_certification_cold_probe_selects_an_instrument_as_its_held_out_item`
 - [tests/test_intent_codex_rereview.py](../../../../../tests/test_intent_codex_rereview.py) — direct import
   - `test_f2_the_chain_ends_at_the_intent_successor`
 - [tests/test_intent_codex_review.py](../../../../../tests/test_intent_codex_review.py) — direct import
 - [tests/test_intent_fix_round4.py](../../../../../tests/test_intent_fix_round4.py) — direct import
-  - `test_f15_the_probe_contract_carries_the_diagnostic_variant`
 - [tests/test_intent_fix_round5.py](../../../../../tests/test_intent_fix_round5.py) — direct import
 - [tests/test_intent_fix_round6.py](../../../../../tests/test_intent_fix_round6.py) — direct import
   - `test_f19_dl1_pair_plans_are_otherwise_unchanged`
@@ -420,6 +454,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_below_mvp_0_64_the_routine_due_queue_withholds_a_cold_item_only_while_its_check_is_pending`
 - [tests/test_kill_switches.py](../../../../../tests/test_kill_switches.py) — direct import
   - `test_each_path_is_in_the_table_once_and_each_tag_is_a_real_one`
+- [tests/test_km4_taxonomy.py](../../../../../tests/test_km4_taxonomy.py) — direct import
+  - `test_promotion_on_independent_surface`
 - [tests/test_learner_protection_predicates.py](../../../../../tests/test_learner_protection_predicates.py) — direct import
 - [tests/test_learner_report_superseded.py](../../../../../tests/test_learner_report_superseded.py) — direct import
   - `test_a_global_claim_made_after_materialization_rebuilds_to_live`
@@ -437,8 +473,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f1_a_failed_pair_on_the_true_match_never_creates_and_the_retry_matches`
 - [tests/test_lp_claim_fixes.py](../../../../../tests/test_lp_claim_fixes.py) — direct import
   - `test_the_successor_is_one_constant_after_its_predecessor`
-- [tests/test_lp_claim_fixes_rereview.py](../../../../../tests/test_lp_claim_fixes_rereview.py) — direct import
-  - `test_f9_a_miss_the_diagnosis_timeout_decides_carries_its_line_reopened_after_the_deadline`
 - [tests/test_lp_claim_fixes_review.py](../../../../../tests/test_lp_claim_fixes_review.py) — direct import
   - `test_f4_off_the_predecessor_seed_variance_is_kept`
   - `test_f6_off_no_claim_line`
@@ -478,6 +512,22 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_successor_is_one_constant_after_rw2d`
 - [tests/test_pr4_superseded_claims_landing.py](../../../../../tests/test_pr4_superseded_claims_landing.py) — direct import
   - `test_landing_i_a_too_easy_retirement_during_a_session`
+- [tests/test_probe_episodes.py](../../../../../tests/test_probe_episodes.py) — direct import
+  - `test_presentation_activity_disqualification_precedes_live_projection`
+- [tests/test_probe_router.py](../../../../../tests/test_probe_router.py) — direct import
+  - `test_at_the_tag_a_lesson_is_drawn_against_no_intervention_and_the_probe_only_by_the_coin`
+  - `test_at_the_tag_a_zero_share_never_asks_and_writes_no_assignment`
+  - `test_at_the_tag_an_unwritten_probe_is_not_an_option_of_either_policy`
+  - `test_at_the_tag_no_room_to_wait_no_longer_forces_the_probe`
+  - `test_at_the_tag_the_coin_asks_the_probe_now_with_its_exact_propensity`
+  - `test_at_the_tag_the_lane_logs_the_coin_with_its_decision`
+  - `test_the_tag_is_the_head_and_its_predicate_reads_the_vault_tag_alone`
+- [tests/test_probe_router_decision_integrity.py](../../../../../tests/test_probe_router_decision_integrity.py) — direct import
+- [tests/test_probe_router_learner_lane.py](../../../../../tests/test_probe_router_learner_lane.py) — direct import
+  - `test_the_tag_is_the_head`
+- [tests/test_probe_router_replay.py](../../../../../tests/test_probe_router_replay.py) — direct import
+- [tests/test_probe_router_worth_gates.py](../../../../../tests/test_probe_router_worth_gates.py) — direct import
+- [tests/test_probe_targeting.py](../../../../../tests/test_probe_targeting.py) — direct import
 - [tests/test_projection_evidence_polarity.py](../../../../../tests/test_projection_evidence_polarity.py) — direct import
 - [tests/test_projection_timeline_agreement.py](../../../../../tests/test_projection_timeline_agreement.py) — direct import
   - `test_a_regrade_under_a_retargeted_item_takes_the_old_facets_credit_off_the_curve`
@@ -494,6 +544,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reader_rd4_emission.py](../../../../../tests/test_reader_rd4_emission.py) — direct import
   - `test_below_the_tag_a_pad_emits_nothing_and_the_upgrade_queues_its_standing_words`
   - `test_the_tag_and_the_kind`
+- [tests/test_reader_rd7a_inline_checks.py](../../../../../tests/test_reader_rd7a_inline_checks.py) — direct import
+  - `test_below_the_tag_every_check_rpc_refuses_and_today_ignores_the_lock`
 - [tests/test_reader_recap_review_r2.py](../../../../../tests/test_reader_recap_review_r2.py) — direct import
   - `test_f1_r2_the_as_of_curve_ignores_gradings_recorded_after_the_cutoff`
 - [tests/test_reader_recap_review_r3.py](../../../../../tests/test_reader_recap_review_r3.py) — direct import
@@ -501,6 +553,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f2_r3_embedded_credit_whose_direct_credit_was_regraded_away_leaves_the_claim_open`
 - [tests/test_reader_rw3a_landing.py](../../../../../tests/test_reader_rw3a_landing.py) — direct import
   - `test_check_me_goes_through_the_plan_path_and_is_logged_once`
+- [tests/test_reader_rw4b_admission_idempotency.py](../../../../../tests/test_reader_rw4b_admission_idempotency.py) — direct import
+- [tests/test_reader_rw4b_fix6.py](../../../../../tests/test_reader_rw4b_fix6.py) — direct import
+  - `test_r7_an_open_list_keyed_pick_also_rolls_back_and_an_unkeyed_one_still_serves`
 - [tests/test_reading_paths.py](../../../../../tests/test_reading_paths.py) — direct import
 - [tests/test_reading_step_switch.py](../../../../../tests/test_reading_step_switch.py) — direct import
   - `test_every_tag_defaults_the_switch_on`
@@ -524,6 +579,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_b3_replays_the_vaults_labelled_pairs`
 - [tests/test_recurrence_commands.py](../../../../../tests/test_recurrence_commands.py) — direct import
   - `test_successor_vocabulary`
+- [tests/test_recurrence_deferral.py](../../../../../tests/test_recurrence_deferral.py) — direct import
+  - `test_reworded_recurrences_escalate_only_once_judged_the_same_cause`
 - [tests/test_recurrence_merge_composition.py](../../../../../tests/test_recurrence_merge_composition.py) — direct import
 - [tests/test_reference_gate_imports.py](../../../../../tests/test_reference_gate_imports.py) — direct import
   - `test_a_regrade_after_the_tag_binds_an_attempt_recorded_before_it`
@@ -558,6 +615,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_successor_is_one_constant_after_fg1_and_the_latest`
 - [tests/test_ro1_upgrade_report.py](../../../../../tests/test_ro1_upgrade_report.py) — direct import
 - [tests/test_ro2_ad_raw_document_reads.py](../../../../../tests/test_ro2_ad_raw_document_reads.py) — direct import
+  - `test_at_run_time_ad_loads_a_reading_only_through_its_chokepoint`
   - `test_ro4s_reading_action_maps_its_section_through_the_chokepoint`
 - [tests/test_ro4_codex_review.py](../../../../../tests/test_ro4_codex_review.py) — direct import
   - `test_f1_a_slow_llm_leaves_the_numeric_share_in_place`
@@ -602,6 +660,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ro6_tail_data.py](../../../../../tests/test_ro6_tail_data.py) — direct import
 - [tests/test_robust_completion_gate.py](../../../../../tests/test_robust_completion_gate.py) — direct import
   - `test_the_fixes_ride_on_mvp_0_59_behind_their_own_switch`
+  - `test_the_gate_does_not_end_a_planted_episode_whose_next_probe_pays`
 - [tests/test_rofu_ad_latent.py](../../../../../tests/test_rofu_ad_latent.py) — direct import
   - `test_ads_entry_point_hands_the_latent_moments_only_when_asked`
 - [tests/test_rofu_ad_link.py](../../../../../tests/test_rofu_ad_link.py) — direct import
@@ -648,6 +707,13 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_follow_up_joins_the_current_block_today_and_waits_with_a_decider_near_zero`
 - [tests/test_router_offer_log.py](../../../../../tests/test_router_offer_log.py) — direct import
   - `test_placement_components_and_exclusions_are_in_the_candidate_set`
+- [tests/test_router_probe_ties.py](../../../../../tests/test_router_probe_ties.py) — direct import
+  - `test_a_greedy_probe_presentation_carries_no_exploration_mark`
+  - `test_a_probe_near_tie_carries_a_true_propensity`
+  - `test_an_explored_probe_presentation_is_marked_as_drawn_not_as_the_eig_choice`
+- [tests/test_router_r1_composition.py](../../../../../tests/test_router_r1_composition.py) — direct import
+  - `test_the_full_list_seam_reads_the_plan`
+  - `test_under_the_plan_the_full_list_serves_no_head_and_a_pick_from_it_is_logged`
 - [tests/test_router_r2a_landing.py](../../../../../tests/test_router_r2a_landing.py) — direct import
   - `test_a_cause_diagnosed_from_exam_work_shows_no_statement`
   - `test_a_cause_diagnosed_from_ordinary_practice_keeps_its_statement`
@@ -670,7 +736,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_withdrawn_path_reading_leaves_the_predecessors_reading_in_the_projection`
   - `test_an_auto_completed_plan_whose_path_left_no_reading_is_reopened_to_the_predecessors_reading`
 - [tests/test_same_second_order.py](../../../../../tests/test_same_second_order.py) — direct import
+  - `test_a_replay_and_a_regrade_keep_the_attempts_sequence`
   - `test_the_tag`
+  - `test_two_connections_with_reversed_allocation_and_completion_rebuild_to_live`
 - [tests/test_section_end.py](../../../../../tests/test_section_end.py) — direct import
   - `test_the_tag`
 - [tests/test_serve_eligibility_review.py](../../../../../tests/test_serve_eligibility_review.py) — direct import
@@ -716,6 +784,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_te3b_successor.py](../../../../../tests/test_te3b_successor.py) — direct import
   - `test_the_successor_is_one_constant_after_te3a_and_the_latest`
 - [tests/test_te3b_value.py](../../../../../tests/test_te3b_value.py) — direct import
+- [tests/test_teach_back.py](../../../../../tests/test_teach_back.py) — direct import
+  - `test_a_teach_back_regraded_blind_keeps_the_blind_identity_through_rebuilds`
 - [tests/test_teacher_exam_question_guard.py](../../../../../tests/test_teacher_exam_question_guard.py) — direct import
   - `test_a_lesson_with_no_reserved_text_is_byte_identical_with_the_guard_off`
   - `test_a_logged_field_quoting_a_reserved_stem_is_withheld_by_location`
@@ -785,7 +855,14 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_today_headline.py](../../../../../tests/test_today_headline.py) — direct import
 - [tests/test_unresolved_cause_gate.py](../../../../../tests/test_unresolved_cause_gate.py) — direct import
 - [tests/test_untaken_repair_episode.py](../../../../../tests/test_untaken_repair_episode.py) — direct import
+  - `test_a_diagnosis_case_ends_at_its_hypothesis_attempts_item`
+  - `test_a_primed_answer_on_the_item_is_no_ordinary_review`
+  - `test_an_episode_in_any_other_state_is_untouched`
   - `test_an_episode_open_at_the_upgrade_is_ended_by_the_first_sweep_after_it`
+  - `test_an_episode_whose_item_cannot_be_resolved_stays_open`
+  - `test_an_episode_whose_primed_attempt_was_taken_is_untouched`
+  - `test_an_ordinary_review_taken_the_moment_it_fell_due_ends_the_episode`
+  - `test_the_sweeps_due_read_is_the_plans`
   - `test_the_tag`
 - [tests/test_upgrades.py](../../../../../tests/test_upgrades.py) — direct import
   - `test_a_jump_is_refused_and_nothing_changes`
@@ -796,9 +873,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_table_is_the_chain_from_the_floor_one_row_per_tag`
 - [tests/test_ux_phase1_round2_rereview.py](../../../../../tests/test_ux_phase1_round2_rereview.py) — direct import
   - `test_f2_every_plan_version_serves_the_reading_step_behind_its_kill_switch`
-- [tests/test_ux_phase4_landing.py](../../../../../tests/test_ux_phase4_landing.py) — direct import
-  - `test_a_contest_regrade_records_provenance_and_re_resolves_the_forecast`
-  - `test_a_contest_the_regrade_does_not_uphold_is_flagged_never_held`
+- [tests/test_value_candidates.py](../../../../../tests/test_value_candidates.py) — direct import
+  - `test_an_instrument_only_request_matches_robust_selection`
 - [tests/test_version_floor.py](../../../../../tests/test_version_floor.py) — direct import
   - `test_a_journal_from_the_floor_is_still_completed_by_an_opener`
   - `test_a_journal_naming_a_link_below_the_floor_is_refused`
@@ -808,6 +884,25 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_vault_whose_config_names_no_tag_is_refused`
   - `test_the_floor_is_a_tag_of_the_chain_and_the_chain_counts_up`
   - `test_the_upgrade_command_refuses_a_journal_from_below_the_floor_with_the_route`
+- [tests/test_voi_merge_composition.py](../../../../../tests/test_voi_merge_composition.py) — direct import
+  - `test_a_value_stop_is_logged_once_at_the_completion`
+  - `test_a_value_stop_is_never_joined_to_a_later_answer`
+  - `test_an_explored_probe_value_forecast_carries_router_r1s_marker`
+  - `test_the_report_scores_a_probe_continue_through_its_committed_presentation`
+- [tests/test_voi_stopping.py](../../../../../tests/test_voi_stopping.py) — direct import
+  - `test_a_calibration_session_keeps_the_episode_maximum`
+  - `test_a_served_probe_records_its_probability_over_the_composed_queue`
+  - `test_an_explored_probe_carries_its_own_forecast`
+  - `test_the_continue_decision_rides_on_the_committed_presentation_and_the_offer`
+  - `test_the_scheduler_hands_an_in_episode_probe_its_likelihood_rows`
+  - `test_value_carries_one_episode_past_its_former_maximum`
+  - `test_while_the_next_observation_pays_the_episode_keeps_asking`
+- [tests/test_voi_v2.py](../../../../../tests/test_voi_v2.py) — direct import
+  - `test_a_probe_outside_the_plans_universe_does_not_suppress_one_inside`
+  - `test_no_count_cap_reappears`
+  - `test_the_batch_value_equals_the_product_tables_evsi_on_the_real_credible_sets`
+  - `test_the_lookahead_on_a_predictive_objective_episode_serves_the_incumbents_pick`
+  - `test_the_predictive_information_matches_the_probe_episodes_own_objective`
 - [tests/why_cases_helpers.py](../../../../../tests/why_cases_helpers.py) — direct import
 
 ## Modification guidance

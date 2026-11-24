@@ -6,10 +6,10 @@ aliases:
   - Debug a Decision Workflow
 status: active
 doc_version: 1.0.0
-implementation_version: mvp-0.59
-last_reviewed: 2026-11-17
-source_commit: a8b3ab6f6827d33a45b286c6005c248e9de4eb6a
-source_commit_timestamp: "2026-11-10T12:48:49-05:00"
+implementation_version: mvp-0.68
+last_reviewed: 2026-11-23
+source_commit: 86f29b0d390ed2ecdbb0347d98ccb1175ac52728
+source_commit_timestamp: "2026-11-23T23:12:28-05:00"
 source_paths:
   - src/learnloop/why/reader.py
   - src/learnloop/why/reconstructed.py
@@ -28,85 +28,54 @@ tags:
 
 # Debug a decision
 
-When LearnLoop chose something you didn't expect (an item, a block, a withdrawn offer, a failed figure, a pre-build), `learnloop why` answers "why x and not y" from what was stored when it decided. It is a pure read: a read-only connection, no state sync, no maintenance. The record design is [[ADR-017 One decision record, one trace id, one entry point]]; what each record kind holds is in [[Inspect Persistent State#Ask why a decision went the way it did]].
+Start with `learnloop why` when a queue item, plan block, probe, build or figure needs an explanation. It opens SQLite read-only and runs no maintenance or state sync. The CLI and the desktop's `why.get` use the same [[Reference/Modules/learnloop/why/reader|reader]]. [[ADR-017 One decision record, one trace id, one entry point]] defines the record. [[Inspect Persistent State#Ask why a decision went the way it did|Inspect Persistent State]] shows how to follow its detail pointers.
 
 ## Pick a target
 
+Use the vault path and a real ID from the relevant view or receipt. With no target, `why` starts from the latest decision. A record ID finds its trace. The same trace can span the original request and the background work it started.
+
 ```bash
-VAULT="$HOME/LearnLoop/linear-algebra"
-uv run learnloop why --json --vault "$VAULT"                         # latest: the newest decision's trace
-uv run learnloop why 01J9TRACE0000000000000000 --json --vault "$VAULT"  # a trace id (one learner action)
-uv run learnloop why 01J9RECORD000000000000000 --json --vault "$VAULT"  # a record id: that record's trace
-uv run learnloop why attempt:att_example --json --vault "$VAULT"      # an attempt's grade, diagnosis, follow-up, evidence
-uv run learnloop why block:01J9BLOCK0000000000000000 --json --vault "$VAULT"   # a plan block's decision
-uv run learnloop why offer:01J9DECISION000000000000 --json --vault "$VAULT"    # a lesson offer, and its withdrawal
-uv run learnloop why figure:fig_example --json --vault "$VAULT"       # a figure's author attempts, request and withholding
-uv run learnloop why --kind figure_request --json --vault "$VAULT"   # the latest figure request: why Show me did (not) work
-uv run learnloop why job:job_example --json --vault "$VAULT"          # a video job's attempts and why it stopped
-uv run learnloop why item:pi_example --json --vault "$VAULT"          # an item: scheduler explanation, slates, exclusion
-uv run learnloop why --kind figure_prebuild --first-build --json --vault "$VAULT"
+learnloop why --json --vault "$VAULT"
+learnloop why "$TRACE_ID" --json --vault "$VAULT"
+learnloop why "attempt:$ATTEMPT_ID" --json --vault "$VAULT"
+learnloop why "block:$BLOCK_ID" --json --vault "$VAULT"
+learnloop why "offer:$OFFER_ID" --json --vault "$VAULT"
+learnloop why "item:$ITEM_ID" --json --vault "$VAULT"
+learnloop why "figure:$FIGURE_ID" --json --vault "$VAULT"
+learnloop why "job:$JOB_ID" --json --vault "$VAULT"
 ```
 
-`--kind K` keeps one record kind. Without `--json` the same answer prints as lines.
+A bare practice item ID also gives its scheduler explanation. `--kind` narrows the answer to a particular record kind. Use the latest `figure_request` when a press produced no figure ID. Use the planner's job ID as the trace target for a Study Map build.
 
 ## Read the answer
 
-Each decision appears under `decisions` with the same fields:
+Open `decisions` for what won, the rule code, the alternatives and why they lost, and the inputs and versions recorded at the time. Use the record's detail pointer for richer domain rows. A router choice can include the objective trace and an outcome derived at read time. `next` follows child records. For the selection and serving boundaries see [[Scheduling and Selection]].
 
-| Field | What it answers |
+A plan decision can point back to the prefetch trace. `model_calls` shows the receipt IDs, purposes, statuses and times. `discarded` includes calls whose result did not reach the decision in time. `unclaimed` identifies router calls whose boundary was never served. The configured timeout and the time between prefetch start and decision are separate inputs.
+
+Records survive payload pruning. A pruned record keeps its identity and carries the `payload_pruned` flag, with no retained alternatives. See [[Reference/Database/Tables/decision_records|decision records]] for the row contract.
+
+## Follow the boundary that made the choice
+
+| Question | Where to look |
 |---|---|
-| `chosen`, `rule`, `status` | What won, and why, as a code (`forced_items`, `chooser_error`, `no_measured_latency`) |
-| `alternatives` | What lost: each `ref` with its `p` or `score` and `lost_by` (the rule it lost by). For a routing decision (`plan_block`) each also has `p_basis`: `record`, the decision row's mix (`stored_pi`, `stored_mix_pi`, `recomputed_from_components`), `outside_support` (`p = 0`), or why `p` is null (`fallback_drew_no_mix`, `not_stored`) |
-| `inputs` | The facts as of then: numbers, ids and codes (`timeout_s`, `prefetch_to_decision_ms`, `wait_min`, `waits_n`). `timeout_s` is the configured wait; `prefetch_to_decision_ms` (stored as `waited_ms`) is the time from the prefetch's start to the decision, not how long any model was waited for |
-| `decided_by`, `versions`, `seed` | Who decided (`mixture`, `router_llm`, `lane_quota`), with versions and the seed. A `model_answer` whose model failed or timed out names its model from the route the decision logged where it kept one: `inputs.model_basis` (`answer`, `route_at_decision`, `not_stored`) and `inputs.provider_basis` |
-| `next`, `outcome` | What came next: records naming this one as their parent; for a router decision, its outcome as of now (`outcome.basis = "derived_at_read"`: derived from the ledgers as `learnloop router decisions` does, not read from the `router_outcomes` rebuild cache) |
-| `objective_trace` | For a router decision, the router objective trace `learnloop router trace <decision>` prints |
-
-What was discarded is in one place, the answer's top-level `discarded`: calls that answered after their decision took its answers (`late_ms`, with `late_ms_precision_ms`: `1000` when a time was stored to the second) or never answered. Each entry names its decision (`record_id`, or `decision_id` for a reconstructed one) and its `label`. Top-level `model_calls` lists the trace's calls (ids, purposes, statuses, times; never the prompt or the output), and `unclaimed` the router calls whose decision was never made (a key that changed before the serve, an evicted prefetch).
-
-A record older than `router.payload_retention_days` keeps its row but not its payload columns: `facts` reads `{"payload_pruned": true}` and `alternatives` is empty (migration 254; startup maintenance prunes).
+| Why did Today choose a different block? | The `plan_block` record gives the rule and mixture support. Its `model_answer` children show failures and timeouts. For a withdrawn offer, follow `offer_withdrawn` to the forcing items and the next block. |
+| Why did this item disappear from the queue? | `item:<id>` can show its scheduler explanation, slate history and current exclusion. A malformed stored row can make the explanation unavailable. The response identifies the failing table, row and column when available. |
+| What did a Study Map build include or apply? | The planner trace carries `ingest_build_scope`, `ingest_inventory_choice` and `ingest_auto_apply` at the boundaries the job reached. Their inputs name the scope, selected inventory rows or applied and waiting proposal items. See [[Build a Study Map]]. |
+| Why did Show me do nothing? | `figure_request` gives the refusal code, reuse match, or rich job reference when recorded. A reused figure has status `chosen` and rule `reused`. Check `figure_admission` for a gate hold and `figure_withheld` for a figure refused at delivery or listing. |
+| Why did a video stop? | On the job trace, read `figure_rich_author` for attempt verdicts and `figure_rich_stop` when an execution stopped without producing a row. A requeue keeps the earlier stop records. See [[Concepts/Figures|Figures]]. |
+| When did figure prebuilds start? | `learnloop why --kind figure_prebuild --first-build --json --vault "$VAULT"` compares the first build with the preceding skips and the first measured latency. |
 
 ## Probe answers and failed hooks
 
-“Why wasn't this probe answer read?” Use `why attempt:<id> --json`: a declined pinned causal probe leaves an `excluded` `probe_classification` record whose `rule` is one of `pinned_bundles_empty`, `candidate_not_current`, `already_observed`, `no_deterministic_rubric`, `no_assessed_criterion`, `pinned_bundle_missing`, `declared_features_not_covered`. Its subject is the attempt; its inputs name the presentation and candidate when known, and counts of declared and supplied keys where checked. It shares the action's trace and uses the current cause as parent, even when block settlement runs before the grade record is written. Unpinned diagnostic answers belong to the episode posterior and write none here. A successful classification is explained by its observation row; repeating the classifier for that same attempt is silent. An observation belonging to another attempt gives `already_observed`.
+Use `why attempt:<id>` for the grade, diagnosis and follow-up trail. A pinned causal answer the classifier declines leaves an excluded `probe_classification` record with a rule code. A successful classification leaves a discriminating observation. Repeating the classifier for the same attempt is silent. An existing observation belonging to another or an unknown attempt gives `already_observed`. Ordinary unpinned diagnostic answers go through the episode posterior.
 
-“Which hook failed?” The attempt's `diagnosis_step` records use `machine_check_sweep`, `cold_verification_wiring`, `probe_classification_hook`, `common_repair_consultation`, `escalation_receipt`, `learner_text_enqueue`. The four grade-keyed hooks include `inputs.phase = grade_keyed`; their failure leaves the attempt complete. The exception type and location are stored; its message stays in the log.
+A failed `diagnosis_step` records the exception class and location. Grade-keyed hooks carry `phase=grade_keyed`, and their failure leaves the attempt complete. An evaluator stop records its earlier passing rules in the episode row's `completion_detail_json.rules_passed`; direct controls omit the rules they did not evaluate. See [[Diagnosis and Remediation#What why can answer]].
 
-An episode stop's existing `completion_detail_json.rules_passed` lists earlier evaluated rules in order. A gate that was off contributes no code; continuation writes no list. Completion paths outside the evaluator omit the key when they do not know which rules passed.
+## Old decisions
 
-## Old decisions: "reconstructed"
+The reader reconstructs supported router, offer, figure and prebuild cases from the rows they left. Each reconstructed answer is labelled `reconstructed`. Its `inferred` field identifies conclusions pieced together from timing and neighboring rows. The current router timeout can appear separately as `timeout_s_now` when the decision-time value is unknown. The reader never backfills a decision record, and an older target can have no answer.
 
-A decision made before its records existed (migration 253, or a boundary arc B had not reached yet) has no record and gets none backfilled. `why` answers it from the rows it left, under `reconstructed`, every answer labelled `"label": "reconstructed"`:
+## Payloads and the desktop view
 
-- a router decision id (or `block:`, `offer:`, `decision:`): the `router_decisions` row, each model's status (a failed model's name from the row's `model_ids` where kept, with `model_basis`), the mix's alternatives with their chances (`p_basis`), and its calls joined through the boundary key, each with its output `present` or the reason it's `absent`;
-- an offer taken back: the `expired` response, the forced items (from the next decision), the workflows and generation jobs of that window. `inputs.workflows` and `inputs.source_attempts` are the forced items' own, else those opened or generated while the offer waited, with `workflows_basis` and `source_attempts_basis` saying which (all inferred);
-- `figure:`: the `interactive_figures` row, its verification reduced to typed codes (`prediction_invalid`), its author calls: `author_attempts_n` (logical author calls) apart from `author_receipts_n` (their receipt rows);
-- `--first-build`: the pre-build ledger, the skips before the first build, per trigger kind counted up to that kind's own first non-skip (`by_trigger_kind_window`), and the first measured latency. The answer's `source` matches `first_build.label`.
-
-A field found only by ordering rows in time is listed in that answer's `inferred`. The configured router wait was never stored on old rows: `timeout_s_basis = "not_stored"`, with the vault's setting now in `timeout_s_now`.
-
-## Examples (synthetic ids)
-
-**A router LLM answer that came too late.** `why 01J9TRACE0000000000000000 --json` shows a `plan_block` with `inputs.timeout_s = 8` and `inputs.prefetch_to_decision_ms = 8012`, and a child `model_answer` with `decided_by = router_llm`, `status = timeout`. Under the top-level `discarded`: `{"record_id": "01J9RECORD000000000000000", "call_id": "call_example", "late_ms": 2310, "late_ms_precision_ms": 1}`; the text output says "answered 2.3 s late, discarded". Add `--payload` to see that call's prompt and answer from its receipt.
-
-**An offer withdrawn for a probe.** `why offer:01J9DECISION000000000000 --json` shows `offer_withdrawn` with `rule = forced_items`, `parent_id` the offer's `plan_block`, the forced probe under `alternatives` with its `workflow` and `source_attempt`, and under `next` the `plan_block` that served it.
-
-**Why pre-builds started.** `why --kind figure_prebuild --first-build --json` gives `first_build.last_skip` (`no_measured_latency`), `first_build.first_build` (`sampled_eu_positive`), `changed` (`waits_n: [0, 1]`, `wait_basis: ["none", "author_call"]`), `first_measurement` and `measurement_between: true`.
-
-**What a pre-build's wait was made of.** From mvp-0.58 (the figure wait estimate, `prefetch_decision_v2`) a `figure_prebuild` record's inputs carry `wait_estimate_by_tier`: per quick tier, the pressed builds' author calls (`pressed_n`, `pressed_min`), the prior from the other measured calls, the pre-builder's own (`prior_n`, `prior_min`, `prior_strength`: one measurement), and `posterior_min`, the W the draw read (`wait_min`). `blocked_basis` says what the pause cost counted: `refused` foreground failures inside a pause window, the pre-builder's own failures left out (`background_left_out`), the foreground calls behind the latency (`latency_calls`) and the `pauses`. A record under `prefetch_decision_v1` (the switch `figures.prefetch.pressed_waits` off, or a vault below the tag) has neither: its W read every author call alike.
-
-**Why Show me didn't work.** `why --kind figure_request --json` gives the latest request's `figure_request` record: `status = refused` with its `rule` (`exam_material`, `cold_check`, `unpriced`, ...), or `reused` with `inputs.matched`, and `inputs.tiers_allowed` with `inputs.tiers_absent` (`{"manim": "no_opt_in", "sketch": "no_engine"}`: why no video was on the menu). A request stopped by the figure gate names `gate_rule` and, for a hold, `held` (`cancelled`, `power`, `plan`, `learner_state`, ...); the gate's own `figure_admission` record has the same subject. A figure that disappeared from the list has a `figure_withheld` record (`pick_withheld`, `spec_unparsable`, `withheld_at_delivery`).
-
-**Why a video failed.** `why job:job_example --json` lists one `figure_rich_author` record per attempt (`claim_failed`, then `render_failed`, then `render_repaired`) and, when the job stored nothing, its `figure_rich_stop` (`capped`, `unpriced`, `waiting_for_plan` as `deferred`). The stop record survives a requeue, which rewrites the job's error.
-
-**A practice item's stored row is malformed.** `why item:pi_example --json` still answers: `source = "unavailable"` with `explanation_error` naming the exception class, where it was raised and the bad rows (`{"table": "followup_tasks", "id": "...", "column": "context_json"}`), never their content.
-
-## Payloads, and the desktop's glass-box view
-
-`--payload` adds each named call's prompt and output from `model_call_receipts`, under the receipts' own retention. It exists only on the desktop CLI. The sidecar's read-only `why.get` RPC (for the UX stage's glass-box view) returns the same answer with every string that is not an id, a number or a code removed, and every string and key under a free-text field (`unsupported_kind`, `reasons`, `explanation` and the other names in `why.reader.TEXT_FIELDS`) removed however it is spelled, each path listed in `withheld`; it never returns a payload, and it is not on the phone's allowlist.
-
-## Related notes
-
-- [[Inspect Persistent State]]
-- [[ADR-017 One decision record, one trace id, one entry point]]
-- [[Scheduling and Selection]]
+The CLI's `--payload` adds stored prompts and outputs for named call receipts under their own retention. The desktop RPC returns the sanitized view with withheld paths listed, and offers no payload flag. `why.get` is outside the phone allowlist. Use [[Reference/Modules/learnloop_sidecar/handlers/why|the sidecar handler reference]] for the RPC boundary.

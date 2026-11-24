@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/db/table_roles.py](../../../../../../src/learnloop/db/table_roles.py) |
-| Source lines | 893 |
+| Source lines | 899 |
 | Owning package | [[Reference/Modules/learnloop/db/_package|learnloop.db]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
@@ -56,21 +56,21 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 ## Public API
 
 - `class TableRole(str, Enum)` ([source](../../../../../../src/learnloop/db/table_roles.py), line 29) — The rebuild policy for one persistent user table.
-- `class TableRoleMismatch` ([source](../../../../../../src/learnloop/db/table_roles.py), line 795) — The two directions in which a schema and registry can disagree.
-  - `is_complete(self) -> bool` (line 802; public)
-- `role_for_table(table_name: str) -> TableRole` ([source](../../../../../../src/learnloop/db/table_roles.py), line 806) — Return ``table_name``'s declared role, raising ``KeyError`` if absent.
-- `tables_for_role(role: TableRole) -> frozenset[str]` ([source](../../../../../../src/learnloop/db/table_roles.py), line 812) — Return every table assigned to ``role``.
-- `fts5_shadow_table_names(connection: sqlite3.Connection) -> frozenset[str]` ([source](../../../../../../src/learnloop/db/table_roles.py), line 822) — FTS5 shadow tables: implementation storage of a registered virtual table.
-- `user_table_names(connection: sqlite3.Connection) -> frozenset[str]` ([source](../../../../../../src/learnloop/db/table_roles.py), line 840) — Read the non-SQLite table names from an open database connection.
-- `registry_mismatch(table_names: Iterable[str]) -> TableRoleMismatch` ([source](../../../../../../src/learnloop/db/table_roles.py), line 857) — Compare an observed schema to the declarative registry.
-- `assert_complete_registry(table_names: Iterable[str]) -> None` ([source](../../../../../../src/learnloop/db/table_roles.py), line 868) — Raise ``ValueError`` unless observed and registered tables match exactly.
+- `class TableRoleMismatch` ([source](../../../../../../src/learnloop/db/table_roles.py), line 801) — The two directions in which a schema and registry can disagree.
+  - `is_complete(self) -> bool` (line 808; public)
+- `role_for_table(table_name: str) -> TableRole` ([source](../../../../../../src/learnloop/db/table_roles.py), line 812) — Return ``table_name``'s declared role, raising ``KeyError`` if absent.
+- `tables_for_role(role: TableRole) -> frozenset[str]` ([source](../../../../../../src/learnloop/db/table_roles.py), line 818) — Return every table assigned to ``role``.
+- `fts5_shadow_table_names(connection: sqlite3.Connection) -> frozenset[str]` ([source](../../../../../../src/learnloop/db/table_roles.py), line 828) — FTS5 shadow tables: implementation storage of a registered virtual table.
+- `user_table_names(connection: sqlite3.Connection) -> frozenset[str]` ([source](../../../../../../src/learnloop/db/table_roles.py), line 846) — Read the non-SQLite table names from an open database connection.
+- `registry_mismatch(table_names: Iterable[str]) -> TableRoleMismatch` ([source](../../../../../../src/learnloop/db/table_roles.py), line 863) — Compare an observed schema to the declarative registry.
+- `assert_complete_registry(table_names: Iterable[str]) -> None` ([source](../../../../../../src/learnloop/db/table_roles.py), line 874) — Raise ``ValueError`` unless observed and registered tables match exactly.
 
 ### Module constants
 
 - `CAPTURE_EXCLUDED_TABLES` ([src/learnloop/db/table_roles.py](../../../../../../src/learnloop/db/table_roles.py), line 41)
 - `_TABLE_ROLE_ITEMS` ([src/learnloop/db/table_roles.py](../../../../../../src/learnloop/db/table_roles.py), line 47)
-- `TABLE_ROLES` ([src/learnloop/db/table_roles.py](../../../../../../src/learnloop/db/table_roles.py), line 791)
-- `FTS5_SHADOW_SUFFIXES` ([src/learnloop/db/table_roles.py](../../../../../../src/learnloop/db/table_roles.py), line 819)
+- `TABLE_ROLES` ([src/learnloop/db/table_roles.py](../../../../../../src/learnloop/db/table_roles.py), line 797)
+- `FTS5_SHADOW_SUFFIXES` ([src/learnloop/db/table_roles.py](../../../../../../src/learnloop/db/table_roles.py), line 825)
 
 ### Explicit exports
 
@@ -89,7 +89,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 
 ## Internal implementation anchors
 
-- `_build_registry(items: tuple[tuple[str, TableRole], ...]) -> dict[str, TableRole]` ([source](../../../../../../src/learnloop/db/table_roles.py), line 777)
+- `_build_registry(items: tuple[tuple[str, TableRole], ...]) -> dict[str, TableRole]` ([source](../../../../../../src/learnloop/db/table_roles.py), line 783)
 
 ## Who imports or calls it
 
@@ -102,6 +102,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/ops/debug_time_store|learnloop.ops.debug_time_store]] — imports `role_for_table`, `user_table_names`; statically calls `role_for_table`, `user_table_names`
 - [[Reference/Modules/learnloop/substrate/dataset|learnloop.substrate.dataset]] — imports `CAPTURE_EXCLUDED_TABLES`, `TABLE_ROLES`, `TableRole`
 - [[Reference/Modules/learnloop/substrate/rebuild_orchestrator|learnloop.substrate.rebuild_orchestrator]] — imports `TableRole`, `tables_for_role`; statically calls `tables_for_role`
+- [[Reference/Modules/learnloop/substrate/shadow_rebuild|learnloop.substrate.shadow_rebuild]] — imports `TABLE_ROLES`, `TableRole`
 
 ## Dependencies
 
@@ -121,7 +122,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]], [[Reference/Modules/learnloop/db/stores/collection|learnloop.db.stores.collection]], [[Reference/Modules/learnloop/goals/goal_series_store|learnloop.goals.goal_series_store]], [[Reference/Modules/learnloop/ops/debug_time_store|learnloop.ops.debug_time_store]], [[Reference/Modules/learnloop/substrate/dataset|learnloop.substrate.dataset]] and 1 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]], [[Reference/Modules/learnloop/db/stores/collection|learnloop.db.stores.collection]], [[Reference/Modules/learnloop/goals/goal_series_store|learnloop.goals.goal_series_store]], [[Reference/Modules/learnloop/ops/debug_time_store|learnloop.ops.debug_time_store]], [[Reference/Modules/learnloop/substrate/dataset|learnloop.substrate.dataset]] and 2 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -223,6 +224,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_plan_follows_path.py](../../../../../../tests/test_plan_follows_path.py) — direct import
   - `test_g47_a_rebuild_shows_zero_projection_deltas_and_never_reads_a_path`
 - [tests/test_probe_proposal_reads.py](../../../../../../tests/test_probe_proposal_reads.py) — direct import
+- [tests/test_probe_router_replay.py](../../../../../../tests/test_probe_router_replay.py) — direct import
+  - `test_the_same_history_rebuilds_to_the_same_rows_at_the_predecessor_and_at_the_tag`
 - [tests/test_provenance.py](../../../../../../tests/test_provenance.py) — direct import
   - `test_the_table_is_a_receipt_and_denied_to_ad`
 - [tests/test_re0_capture.py](../../../../../../tests/test_re0_capture.py) — direct import
@@ -235,6 +238,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_table_has_its_role`
 - [tests/test_reader_rd4_migration.py](../../../../../../tests/test_reader_rd4_migration.py) — direct import
   - `test_the_tables_have_the_specs_roles`
+- [tests/test_reader_rd7a_migration.py](../../../../../../tests/test_reader_rd7a_migration.py) — direct import
+  - `test_the_tables_have_their_roles`
 - [tests/test_reader_rd8a_migration.py](../../../../../../tests/test_reader_rd8a_migration.py) — direct import
   - `test_the_tables_have_their_roles`
 - [tests/test_reader_rw3b_migration.py](../../../../../../tests/test_reader_rw3b_migration.py) — direct import
@@ -262,6 +267,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_rebuild_makes_no_model_call_and_is_a_fixed_point`
 - [tests/test_recurrence_live.py](../../../../../../tests/test_recurrence_live.py) — direct import
   - `test_a_verdict_after_a_promotion_moves_only_the_group_projection_and_rebuild_matches_live`
+- [tests/test_replay_writes_no_ledger.py](../../../../../../tests/test_replay_writes_no_ledger.py) — direct import
 - [tests/test_retrieval_spaces_migration.py](../../../../../../tests/test_retrieval_spaces_migration.py) — direct import
   - `test_table_roles_and_the_one_replayer`
 - [tests/test_ro1_availability.py](../../../../../../tests/test_ro1_availability.py) — direct import

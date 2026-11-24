@@ -31,8 +31,6 @@ from datetime import timedelta
 import pytest
 from typer.testing import CliRunner
 
-from learnloop.algorithm_versions import DIAGNOSIS_SPLIT_ALGORITHM_VERSION
-from learnloop.algorithm_versions import METHOD_EXPLICIT_ALGORITHM_VERSION as METHOD_VERSION
 from learnloop.attempts.attempts import AttemptDraft
 from learnloop.attempts.regrade import regrade_attempt
 from learnloop.cli import app
@@ -282,7 +280,7 @@ def _cited_by_the_current_grade(repository, attempt_id: str) -> set:
 
 
 def test_a_held_grade_resolves_nothing_until_a_regrade_releases_it(tmp_path):
-    _paths, vault, repository, diagnosed = _diagnosed(tmp_path, version=ROUTE_RULES_VERSION)
+    _paths, vault, repository, diagnosed = _diagnosed(tmp_path)
     presentation = _present(repository, ITEM, block="blk_held", when=at(29))
     held = _answer(vault, repository, DivergentUnlocatedGrader(), answer=ALTERNATIVE, when=at(30),
                    presentation_id=presentation)
@@ -318,7 +316,7 @@ def test_a_held_grade_resolves_nothing_until_a_regrade_releases_it(tmp_path):
 def test_a_regrade_re_resolves_the_forecast(tmp_path):
     # A method-explicit item: its regrade cites the contract it read; any
     # other regrade cites none and censors (test_f2_...).
-    _paths, vault, repository, diagnosed = _diagnosed(tmp_path, version=METHOD_VERSION, method=True)
+    _paths, vault, repository, diagnosed = _diagnosed(tmp_path, method=True)
     presentation = _present(repository, ITEM, block="blk_regrade", when=at(29))
     nxt = _answer(vault, repository, ReviewFakeClient(), answer=WRONG + " again", when=at(30),
                   presentation_id=presentation)
@@ -629,7 +627,7 @@ def _edit_result_points(paths, points: int) -> None:
 
 
 def test_f2_a_grade_that_cites_no_contract_is_never_read_against_todays_rubric(tmp_path):
-    paths, vault, repository, diagnosed = _diagnosed(tmp_path, version=DIAGNOSIS_SPLIT_ALGORITHM_VERSION)
+    paths, vault, repository, diagnosed = _diagnosed(tmp_path)
     nxt = _answer(vault, repository, ReviewFakeClient(), answer=RIGHT, when=at(30),
                   presentation_id=_present(repository, ITEM, block="blk_contract", when=at(29)))
     assert _diagnosis_resolution(vault, diagnosed.attempt_id)["emission"] == "pass"
@@ -668,7 +666,7 @@ def test_f2_editing_todays_rubric_never_rewrites_a_regraded_self_grade(tmp_path)
 
     from learnloop.attempts.attempts import SelfGradeInput, complete_self_graded_attempt
 
-    paths, vault, repository, diagnosed = _diagnosed(tmp_path, version=DIAGNOSIS_SPLIT_ALGORITHM_VERSION)
+    paths, vault, repository, diagnosed = _diagnosed(tmp_path)
     nxt = complete_self_graded_attempt(
         vault, repository,
         AttemptDraft(practice_item_id=ITEM, learner_answer_md=RIGHT, attempt_type="independent_attempt",

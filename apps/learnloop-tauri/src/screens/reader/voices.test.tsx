@@ -10,7 +10,7 @@ afterEach(cleanup);
 
 // The Reader's component sources, read raw for the two lints below.
 const READER_SOURCES: Record<string, string> = import.meta.glob(
-  ["../ReaderScreen.tsx", "./*.tsx", "!./*.test.tsx"],
+  ["../desks/source/ScopedSource.tsx", "./*.tsx", "!./*.test.tsx"],
   { query: "?raw", import: "default", eager: true },
 );
 
@@ -51,7 +51,7 @@ it("the evidence markers are the well's discrete glyphs, never a percentage", ()
   expect(container.textContent).toContain("◌");
   expect(container.textContent).toContain("●");
   expect(container.textContent).not.toMatch(/%/);
-  expect(screen.getByLabelText("worked with help · a check on your own is pending")).toBeTruthy();
+  expect(screen.getByLabelText("worked with help · a cold check is pending")).toBeTruthy();
 });
 
 it("check markers say what checked them, and a model's reading is never 'checked'", () => {

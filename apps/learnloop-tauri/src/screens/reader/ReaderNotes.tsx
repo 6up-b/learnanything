@@ -27,7 +27,7 @@ import { api } from "../../api/client";
 import type { NoteHitDto, NoteLinkDto, NoteMarksDto, NotesContractDto } from "../../api/dto";
 import { COLOR, FONT_MONO } from "../../components/term";
 import { errorMessage } from "../../errors";
-import { useNotes, type HiddenNote, type NotesContextValue } from "./notesContext";
+import { announceNotesChange, onNotesChange, useNotes, type HiddenNote, type NotesContextValue } from "./notesContext";
 import { LearnerVoice, MeaningLabel } from "./voices";
 
 export const NOTES_COPY = {
@@ -275,7 +275,10 @@ export function useNoteMarks({ settings, extractionId, offline }: {
       .catch(() => { if (!cancelled) setMarks(NO_MARKS); });
     return () => { cancelled = true; };
   }, [enabled, extractionId, offline, revision]);
-  const onChanged = useCallback(() => setRevision((value) => value + 1), []);
+  const reread = useCallback(() => setRevision((value) => value + 1), []);
+  // A change made in another window (a Compare window's take, a book beside) reads these notes again too.
+  useEffect(() => onNotesChange(reread), [reread]);
+  const onChanged = announceNotesChange;
   const remember = useCallback((link: NoteLinkDto, hiddenId: string) => {
     setHidden((current) => new Map(current).set(link.linkId, { link, hiddenId }));
   }, []);

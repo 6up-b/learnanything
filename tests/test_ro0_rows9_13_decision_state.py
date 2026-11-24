@@ -11,14 +11,16 @@ from learnloop.daily_plan.engine import advance, build_plan, learner_pick
 from learnloop.db.stores import router_objective as store
 from learnloop.router_objective import decision_state as DS
 from learnloop.scheduling.fsrs import retrievability
-from tests.router_mixture_helpers import mixture_env, rows, run
+from tests.router_mixture_helpers import B, mixture_env, rows, run
 from tests.router_model_fakes import fake_runtime
 
 OFF = "[router_objective]\nreceipts = false\n"
 
 
-def _plan(tmp_path, *, toml=None, budget=25.0):
-    env = mixture_env(tmp_path, fake_runtime(), toml=toml)
+def _plan(tmp_path, *, toml=None, budget=25.0, **version):
+    """A built plan at the head, or at ``version`` (the mixture successor, for the tests that fail at the head)."""
+
+    env = mixture_env(tmp_path, fake_runtime(), toml=toml, **version)
     build_plan(env, kind="normal", budget=budget, remembered=int(budget), minutes_source="chip")
     return env
 
@@ -30,7 +32,7 @@ def _states(env):
 
 
 def test_every_plan_decision_has_its_state_with_the_decisions_transaction(tmp_path):
-    env = _plan(tmp_path)
+    env = _plan(tmp_path, version=B)
     run(env)
     decisions = rows(env)
     assert decisions
@@ -42,7 +44,7 @@ def test_every_plan_decision_has_its_state_with_the_decisions_transaction(tmp_pa
 
 
 def test_the_state_has_each_candidate_items_belief_and_minutes(tmp_path):
-    env = _plan(tmp_path)
+    env = _plan(tmp_path, version=B)
     advance(env, serve=True)
     decision = rows(env)[0]
     state = _states(env)[0]["state"]
@@ -56,7 +58,7 @@ def test_the_state_has_each_candidate_items_belief_and_minutes(tmp_path):
 
 
 def test_the_state_has_each_candidate_los_belief(tmp_path):
-    env = _plan(tmp_path)
+    env = _plan(tmp_path, version=B)
     advance(env, serve=True)
     state = _states(env)[0]["state"]
     assert state["los"]
@@ -124,7 +126,7 @@ def test_a_refused_state_rolls_back_alone_and_the_decision_stands(tmp_path, monk
         raise sqlite3.OperationalError("refused")
 
     monkeypatch.setattr(store, "_append", refused)
-    env = _plan(tmp_path)
+    env = _plan(tmp_path, version=B)
     advance(env, serve=True)
     monkeypatch.undo()
     assert rows(env) and _states(env) == []
@@ -175,7 +177,7 @@ def test_the_candidate_shapes_of_the_ledger():
 
 @pytest.mark.parametrize("column", ["decision_kind"])
 def test_the_receipt_is_immutable(tmp_path, column):
-    env = _plan(tmp_path)
+    env = _plan(tmp_path, version=B)
     advance(env, serve=True)
     with env.repository.connection() as connection:
         with pytest.raises(sqlite3.IntegrityError):

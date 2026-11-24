@@ -37,6 +37,8 @@ from learnloop.algorithm_versions import (
     MASTERY_SEED_ALGORITHM_VERSION,
     OLDEST_SUPPORTED,
     PAD_TEXT_ALGORITHM_VERSION,
+    INLINE_CHECK_ALGORITHM_VERSION,
+    PROBE_ROUTER_ALGORITHM_VERSION,
     SECTION_END_ALGORITHM_VERSION,
     SUCCESSOR_CHAIN,
     UNTAKEN_EPISODE_END_ALGORITHM_VERSION,
@@ -79,6 +81,8 @@ EXPECTED_ACTIVATIONS = {
     LIFECYCLE_INPUTS_ALGORITHM_VERSION: legacy_lifecycle_inputs_then_rebuild,
     MASTERY_SEED_ALGORITHM_VERSION: legacy_mastery_seeds_then_rebuild,
     PAD_TEXT_ALGORITHM_VERSION: idempotent_projection,
+    INLINE_CHECK_ALGORITHM_VERSION: idempotent_projection,
+    PROBE_ROUTER_ALGORITHM_VERSION: idempotent_projection,
     LESSON_WEIGHT_CURVES_ALGORITHM_VERSION: frozen_grade_curves_then_rebuild,
 }
 

@@ -1273,6 +1273,41 @@ class AttemptStoreMixin:
             ).fetchall()
         return [dict(row) for row in rows]
 
+    def attempt_surprise_gate_records(self, attempt_ids: Iterable[str] | None = None) -> dict[str, tuple[Any, Any, Any]]:
+        """The follow-up gate's records on these attempts' surprise rows (every row with ``None``), as stored
+        (``triggered_actions_json``, ``suppressed_actions_json``, ``gate_diagnostics_json``): what replay carries,
+        since it never runs the gate."""
+
+        columns = "attempt_id, triggered_actions_json, suppressed_actions_json, gate_diagnostics_json"
+        out: dict[str, tuple[Any, Any, Any]] = {}
+        if attempt_ids is None:
+            with self.connection() as connection:
+                for row in connection.execute(f"SELECT {columns} FROM attempt_surprise"):
+                    out[str(row[0])] = (row[1], row[2], row[3])
+            return out
+        wanted = sorted({str(attempt_id) for attempt_id in attempt_ids})
+        with self.connection() as connection:
+            for start in range(0, len(wanted), 500):
+                chunk = wanted[start:start + 500]
+                marks = ",".join("?" for _ in chunk)
+                for row in connection.execute(
+                        f"SELECT {columns} FROM attempt_surprise WHERE attempt_id IN ({marks})", chunk):
+                    out[str(row[0])] = (row[1], row[2], row[3])
+        return out
+
+    def restore_attempt_surprise_gate_record(self, attempt_id: str, record: Sequence[Any]) -> bool:
+        """Put a carried gate record back on the replayed surprise row, byte for byte."""
+
+        triggered, suppressed, diagnostics = record
+        with self.connection() as connection:
+            cursor = connection.execute(
+                "UPDATE attempt_surprise SET triggered_actions_json = ?, suppressed_actions_json = ?, "
+                "gate_diagnostics_json = ? WHERE attempt_id = ?",
+                (triggered, suppressed, diagnostics, attempt_id),
+            )
+            connection.commit()
+            return cursor.rowcount > 0
+
     def update_attempt_surprise_actions(
         self,
         attempt_id: str,

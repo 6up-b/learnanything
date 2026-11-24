@@ -5,6 +5,7 @@ import pytest
 from learnloop.content.proposals.patches import PatchApplicationError, compile_proposal_item
 from learnloop.vault.loader import load_vault
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from tests.helpers import create_basic_vault, set_algorithm_version, write_facets
 
 
@@ -29,7 +30,7 @@ def _practice_item_proposal(facet: str) -> dict:
 
 def test_unregistered_facet_rejected(tmp_path):
     paths = create_basic_vault(tmp_path / "vault")
-    set_algorithm_version(paths, "mvp-0.7")
+    set_algorithm_version(paths, LATEST_ALGORITHM_VERSION)
     write_facets(
         paths,
         [{"id": "recall", "kind": "definition", "claim": "SVD factorization definition."}],
@@ -42,7 +43,7 @@ def test_unregistered_facet_rejected(tmp_path):
 
 def test_registered_facet_accepted(tmp_path):
     paths = create_basic_vault(tmp_path / "vault")
-    set_algorithm_version(paths, "mvp-0.7")
+    set_algorithm_version(paths, LATEST_ALGORITHM_VERSION)
     write_facets(
         paths,
         [{"id": "recall", "kind": "definition", "claim": "SVD factorization definition."}],

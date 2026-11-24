@@ -50,7 +50,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 > [!success] ACTIVE
 > A static TypeScript import path reaches this file from the Vite entry src/main.tsx.
 >
-> Build/entry chain: [[Reference/Desktop/TypeScript/main|src/main.tsx]] → [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] → [[Reference/Desktop/TypeScript/components/AddSource|src/components/AddSource.tsx]] → [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]]
+> Build/entry chain: [[Reference/Desktop/TypeScript/main|src/main.tsx]] → [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] → [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]]
 
 ## Public API
 
@@ -123,6 +123,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 > [!note] Static-evidence boundary
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
+- [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] — import-or-re-export: `COLOR`, `FONT_MONO`; references `COLOR`, `FONT_MONO`
 - [[Reference/Desktop/TypeScript/components/AddSource|src/components/AddSource.tsx]] — import-or-re-export: `COLOR`, `FONT_MONO`; references `COLOR`, `FONT_MONO`
 - [[Reference/Desktop/TypeScript/components/AddToCollection|src/components/AddToCollection.tsx]] — import-or-re-export: `COLOR`, `FONT_MONO`, `Faint`, `TermSelect`; references `COLOR`, `FONT_MONO`, `Faint`, `TermSelect`
 - [[Reference/Desktop/TypeScript/components/AdjudicationOverlay|src/components/AdjudicationOverlay.tsx]] — import-or-re-export: `COLOR`, `Card`, `Dim`, `Divider`, `FONT_MONO`, `Faint`, `Pill`, `SectionHeader`; references `COLOR`, `Card`, `Dim`, `Divider`, `FONT_MONO`, `Faint`, `Pill`, `SectionHeader`
@@ -211,7 +212,6 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/screens/MaintenanceScreen|src/screens/MaintenanceScreen.tsx]] — import-or-re-export: `COLOR`, `Dim`, `Divider`, `FONT_MONO`, `Faint`, `Pill`, `PillColor`, `SectionHeader`, `TermSelect`; references `COLOR`, `Dim`, `Divider`, `FONT_MONO`, `Faint`, `Pill`, `PillColor`, `SectionHeader`, `TermSelect`
 - [[Reference/Desktop/TypeScript/screens/PracticeScreen|src/screens/PracticeScreen.tsx]] — import-or-re-export: `BlockBar`, `COLOR`, `FONT_MONO`, `Faint`, `TermSelect`, `modePillColor`; references `BlockBar`, `COLOR`, `FONT_MONO`, `Faint`, `TermSelect`, `modePillColor`
 - [[Reference/Desktop/TypeScript/screens/ProposalsScreen|src/screens/ProposalsScreen.tsx]] — import-or-re-export: `COLOR`, `Dim`, `FONT_MONO`, `Faint`, `KeyBar`, `Meta`, `Pill`, `PillColor`, `SectionHeader`; references `COLOR`, `Dim`, `FONT_MONO`, `Faint`, `KeyBar`, `Meta`, `Pill`, `PillColor`, `SectionHeader`
-- [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] — import-or-re-export: `COLOR`, `Card`, `Dim`, `FONT_MONO`, `Faint`, `KeyBar`, `Meta`, `Pill`, `TermSelect`; references `COLOR`, `Card`, `Dim`, `FONT_MONO`, `Faint`, `KeyBar`, `Meta`, `Pill`, `TermSelect`
 - [[Reference/Desktop/TypeScript/screens/RegistryReviewScreen|src/screens/RegistryReviewScreen.tsx]] — import-or-re-export: `COLOR`, `FONT_MONO`, `Faint`, `Pill`, `SectionHeader`, `TermSelect`; references `COLOR`, `FONT_MONO`, `Faint`, `Pill`, `SectionHeader`, `TermSelect`
 - [[Reference/Desktop/TypeScript/screens/RepairScreen|src/screens/RepairScreen.tsx]] — import-or-re-export: `COLOR`, `Divider`, `FONT_MONO`, `Faint`, `Pill`; references `COLOR`, `Divider`, `FONT_MONO`, `Faint`, `Pill`
 - [[Reference/Desktop/TypeScript/screens/ReviewScreen|src/screens/ReviewScreen.tsx]] — import-or-re-export: `COLOR`, `Dim`, `FONT_MONO`, `Faint`, `Pill`; references `COLOR`, `Dim`, `FONT_MONO`, `Faint`, `Pill`
@@ -219,6 +219,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/screens/SqliteBrowser|src/screens/SqliteBrowser.tsx]] — import-or-re-export: `COLOR`, `FONT_MONO`, `Faint`, `Pill`; references `COLOR`, `FONT_MONO`, `Faint`, `Pill`
 - [[Reference/Desktop/TypeScript/screens/StartScreen|src/screens/StartScreen.tsx]] — import-or-re-export: `COLOR`, `FONT_MONO`; references `COLOR`, `FONT_MONO`
 - [[Reference/Desktop/TypeScript/screens/TodayScreen|src/screens/TodayScreen.tsx]] — import-or-re-export: `BlockBar`, `COLOR`, `Dim`, `FONT_MONO`, `Faint`, `KeyBar`, `Meta`, `Pill`, `SectionHeader`, `modePillColor`; references `BlockBar`, `COLOR`, `Dim`, `FONT_MONO`, `Faint`, `KeyBar`, `Meta`, `Pill`, `SectionHeader`, `modePillColor`
+- [[Reference/Desktop/TypeScript/screens/desks/source/ScopedSource|src/screens/desks/source/ScopedSource.tsx]] — import-or-re-export: `COLOR`, `Card`, `FONT_MONO`, `Faint`, `Pill`, `TermSelect`; references `COLOR`, `Card`, `FONT_MONO`, `Faint`, `Pill`, `TermSelect`
 - [[Reference/Desktop/TypeScript/screens/feedback/FeedbackSurface|src/screens/feedback/FeedbackSurface.tsx]] — import-or-re-export: `COLOR`; references `COLOR`
 - [[Reference/Desktop/TypeScript/screens/feedback/FollowupPanel|src/screens/feedback/FollowupPanel.tsx]] — import-or-re-export: `COLOR`; references `COLOR`
 - [[Reference/Desktop/TypeScript/screens/feedback/HypothesisMarks|src/screens/feedback/HypothesisMarks.tsx]] — import-or-re-export: `COLOR`; references `COLOR`

@@ -19,6 +19,8 @@ vi.mock("../components/InboxStrip", () => ({ InboxStrip: () => null }));
 
 vi.mock("../api/client", () => {
   const base: Record<string, unknown> = {
+    // No inline check is open on the desks (the app reads it before showing any place).
+    checkOpenInline: vi.fn(async () => ({ administration: null })),
     loadVault: vi.fn(async () => ({
       vault: { root: "/vault", subjects: [], subjectTitles: [], counts: { learningObjects: 4, practiceItems: 6 }, algorithmVersion: "mvp-0.43" },
       health: { ai: { ready: true, settingsReady: true, manualGrading: false, activeProvider: "chatgpt_plan" }, codex: { ready: false } },
@@ -47,7 +49,7 @@ vi.mock("../screens/LessonScreen", () => ({
     return <div data-testid="lesson-stub" data-entry={JSON.stringify(props.entry)}>lesson</div>;
   }
 }));
-vi.mock("../screens/ReaderScreen", () => ({ ReaderScreen: stub("reader-stub") }));
+vi.mock("../screens/desks/DeskShell", async () => ({ DeskShell: (await import("../fixtures/deskShellStub")).DeskShellStub }));
 vi.mock("../screens/LibraryPlace", () => ({ LibraryPlace: stub("library-stub") }));
 vi.mock("../screens/StartScreen", () => ({ StartScreen: stub("start-stub") }));
 vi.mock("../screens/TodayScreen", () => ({ TodayScreen: stub("today-stub") }));

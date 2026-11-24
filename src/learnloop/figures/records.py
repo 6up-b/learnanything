@@ -38,6 +38,7 @@ import math
 import re
 import threading
 from collections.abc import Iterable, Mapping, Sequence
+from contextlib import nullcontext
 from dataclasses import dataclass, field, replace
 from typing import Any
 
@@ -470,7 +471,7 @@ def _outcome(outcome: Any, error: BaseException | None) -> tuple[str | None, str
 # ---------------------------------------------------------------------------
 
 def request_record(request: Any, *, status: str, rule: str, request_id: str | None = None,
-                   figure_id: str | None = None, menu: Sequence[str] = (), absent: Mapping[str, str] | None = None,
+                   figure_id: str | None = None, job_id: str | None = None, menu: Sequence[str] = (), absent: Mapping[str, str] | None = None,
                    matched: str | None = None, gate: Any = None,
                    error: BaseException | None = None) -> provenance.DecisionRecord:
     """The ``figure_request`` record of one request: what it came to (``status``, ``rule``), the figure it took or
@@ -479,8 +480,8 @@ def request_record(request: Any, *, status: str, rule: str, request_id: str | No
 
     facts: dict[str, Any] = {
         "origin": code(getattr(request, "origin", None)), "goal_author": code(getattr(request, "goal_author", None)),
-        "anchored": bool(getattr(request, "span_ids", None) or getattr(request, "region", None)),
-        "request_id": code(request_id), "matched": code(matched),
+        "anchored": None if request is None else bool(getattr(request, "span_ids", None) or getattr(request, "region", None)),
+        "request_id": code(request_id), "job_id": code(job_id), "matched": code(matched),
         "prefetch_decision_id": code(getattr(request, "prefetch_decision_id", None)),
     }
     if menu:
@@ -515,6 +516,7 @@ def withheld_record(figure_id: str, rule: str, *, where: str) -> provenance.Deci
 
 _WITHHELD_GUARD = threading.Lock()
 _WITHHELD_SEEN: set[tuple[str, str, str]] = set()
+_WITHHELD_IDS: dict[tuple[str, str, str], str] = {}
 
 
 def write_withheld_once(repository: Any, figure_id: str, rule: str, *, where: str) -> None:
@@ -525,9 +527,21 @@ def write_withheld_once(repository: Any, figure_id: str, rule: str, *, where: st
     with _WITHHELD_GUARD:
         if key in _WITHHELD_SEEN:
             return
-        _WITHHELD_SEEN.add(key)
+        if key not in _WITHHELD_IDS:
+            _WITHHELD_IDS[key] = provenance.new_record_id()
+        record_id = _WITHHELD_IDS[key]
     try:
-        write_records(repository, [withheld_record(figure_id, rule, where=where)])
+        connection = repository.connection()
+        with connection if getattr(connection, "owns_connection", False) else nullcontext(connection) as conn:
+            borrowed_transaction = conn.in_transaction
+            exists = conn.execute("SELECT 1 FROM decision_records WHERE id=?", (record_id,)).fetchone()
+            if not exists:
+                record = replace(withheld_record(figure_id, rule, where=where), id=record_id)
+                if not provenance.write(conn, record):
+                    return
+        if not borrowed_transaction:
+            with _WITHHELD_GUARD:
+                _WITHHELD_SEEN.add(key)
     except Exception:  # noqa: BLE001 - a record never changes what is shown
         _LOG.warning("figure_withheld record not written (trace %s)", provenance.current_trace(), exc_info=True)
 

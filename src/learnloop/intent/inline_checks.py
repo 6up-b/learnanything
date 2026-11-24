@@ -1,5 +1,6 @@
-"""Reader workbench v2 inline checks, the read (spec §3.4, §12.6.1): ``checks.due_for``: the due delayed checks, by learning object, goal, reading or
-passage, each with its host passage. Read only, and it shows nothing of the item.
+"""Reader workbench v2 inline checks, the reads (spec §3.4, §12.6.1): the due delayed checks with their hosts
+(:func:`due_checks`, for the server's own use: the goal lens, the begun card), and the desks' opaque handles
+(:func:`due_handles`, ``checks.due_for``'s reply, and :func:`resolve_handle`). Read only; nothing of the item.
 
 A due check is a pending "Check once" (a ``test_me_later`` commitment), exactly as serving reads it
 (``scheduling.intent.serving``: due, unanswered and not replaced everywhere), whatever created it. Its
@@ -14,6 +15,9 @@ contract). The administration protocol (``check.begin_inline`` and the rest) is 
 """
 from __future__ import annotations
 
+import hashlib
+import hmac
+import secrets
 from collections.abc import Iterable, Mapping
 from datetime import UTC, datetime
 from typing import Any
@@ -157,6 +161,8 @@ def due_checks(vault: Any, repository: Any, *, goal_id: str | None = None,
                     "commitment_id": check.commitment_id, "lo_id": lo_id,
                     "due": check.date.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"), "host": host,
                     "provenance": _provenance(check.provenance),
+                    # mvp-0.69: an open inline administration holds it (Today shows "being answered in the Reader").
+                    "being_answered": check.commitment_id in view.locked,
                 })
     return out
 
@@ -190,4 +196,67 @@ def answered_checks(vault: Any, repository: Any, *, since: str, clock: Clock | N
     return out
 
 
-__all__ = ["answered_checks", "due_checks", "next_check_due", "serving_view"]
+# -- the desks' handles (the owner's decision on RD7-56: an unlocated marker) ----------------------------------------
+#
+# Before "check now" the desks know only that a check is due: ``checks.due_for`` answers an opaque handle per due check
+# and nothing else (no LO, host passage, provenance, due date or commitment id), and ``check.begin_inline`` resolves the
+# handle here. A handle is a keyed hash of (commitment, how many administrations it has had): the same across reads, spent
+# by a begin (the count moves), and meaningless to anyone without the key. The key lives in this process only, so a
+# handle dies with the sidecar: the desks read the due checks again after a reconnect, and a dead or guessed handle is
+# refused plainly (``check_unknown``), never resolved to a guess.
+
+_HANDLE_KEY = secrets.token_bytes(32)
+HANDLE_PREFIX = "chk_"
+
+
+def new_handle_key() -> None:
+    """Draw a new key, as a sidecar's start does: every handle minted before is dead (``check_unknown``)."""
+
+    global _HANDLE_KEY
+    _HANDLE_KEY = secrets.token_bytes(32)
+
+
+def handle_of(commitment_id: str, administrations: int) -> str:
+    digest = hmac.new(_HANDLE_KEY, f"{commitment_id}\x00{administrations}".encode(), hashlib.sha256).hexdigest()
+    return HANDLE_PREFIX + digest[:32]
+
+
+def due_handles(vault: Any, repository: Any, *, clock: Clock | None = None) -> list[dict[str, Any]]:
+    """``checks.due_for``'s rows: one opaque handle per due check, every due check in the vault (a filter by goal,
+    reading or passage would itself say where it is), in the handles' own order (the due order could be recalled)."""
+
+    from learnloop.db.stores import check_administrations as store
+
+    view = serving_view(vault, repository, clock=clock)
+    pending = view.due_checks() if view is not None else []
+    with repository.connection() as connection:
+        counts = store.administration_counts(connection)
+    rows = [{"handle": handle_of(check.commitment_id, counts.get(check.commitment_id, 0)),
+             "being_answered": check.commitment_id in view.locked} for check in pending]
+    return sorted(rows, key=lambda row: row["handle"])
+
+
+def resolve_handle(vault: Any, repository: Any, handle: str, *, clock: Clock | None = None) -> str | None:
+    """The due check a handle names now, or None (spent, stale, from another sidecar run, or guessed). A begin's lost
+    reply retried with the handle it spent finds the administration it opened (that one is open, the handle one
+    administration behind)."""
+
+    from learnloop.db.stores import check_administrations as store
+
+    view = serving_view(vault, repository, clock=clock)
+    pending = view.due_checks() if view is not None else []
+    with repository.connection() as connection:
+        counts = store.administration_counts(connection)
+        current = store.open_administration(connection) if store.table_present(connection) else None
+    for check in pending:
+        count = counts.get(check.commitment_id, 0)
+        if hmac.compare_digest(handle_of(check.commitment_id, count), handle):
+            return str(check.commitment_id)
+        if (current is not None and current["commitment_id"] == check.commitment_id and count
+                and hmac.compare_digest(handle_of(check.commitment_id, count - 1), handle)):
+            return str(check.commitment_id)
+    return None
+
+
+__all__ = ["answered_checks", "due_checks", "due_handles", "handle_of", "new_handle_key", "next_check_due",
+           "resolve_handle", "serving_view"]

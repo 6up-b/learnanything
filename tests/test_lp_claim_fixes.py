@@ -65,7 +65,7 @@ def _iso(minutes: float) -> str:
     return (NOW + timedelta(minutes=minutes)).isoformat().replace("+00:00", "Z")
 
 
-def _vault(tmp_path, name="vault", *, version=TAG, toml=None):
+def _vault(tmp_path, name="vault", *, version=LATEST_ALGORITHM_VERSION, toml=None):
     paths = create_placement_vault(tmp_path / name, version=version)
     if toml:
         append_config_toml(paths.root, toml)
@@ -179,7 +179,7 @@ def test_defect1_on_a_gap_on_a_practised_lo_moves_the_mean_down_and_keeps_the_va
 
 
 def test_defect1_off_a_gap_declaration_writes_the_claim_only(tmp_path):
-    paths, _vault_, repository = _vault(tmp_path, toml=OFF)
+    paths, _vault_, repository = _vault(tmp_path, toml=OFF, version=TAG)
     cold = _mastery(repository)
 
     result = _gap(paths.root, repository)
@@ -252,7 +252,7 @@ def test_defect2_on_a_claim_between_attempts_reanchors_between_them(tmp_path, mo
 
 
 def test_defect2_off_replay_seeds_from_the_claims_in_force_now(tmp_path):
-    paths, vault, repository = _vault(tmp_path, toml=OFF)
+    paths, vault, repository = _vault(tmp_path, toml=OFF, version=TAG)
     _answer(vault, repository, ITEM, 4.0, minutes=5)
     live = _mastery(repository)
     _claim(repository, minutes=20, level=0.05, pseudo_count=4.0)
@@ -288,7 +288,7 @@ def test_defect3_on_a_warm_reanchor_keeps_the_variance(tmp_path):
 
 
 def test_defect3_off_a_warm_reanchor_shrinks_the_variance(tmp_path):
-    _paths, vault, repository = _vault(tmp_path, toml=OFF)
+    _paths, vault, repository = _vault(tmp_path, toml=OFF, version=TAG)
     _answer(vault, repository, ITEM, 4.0, minutes=5)
     before = _mastery(repository)
 
@@ -322,7 +322,7 @@ def test_defect4_on_the_most_recent_claim_wins_then_pseudo_count_never_level(tmp
 
 
 def test_defect4_off_the_predecessor_prefers_pseudo_count_then_the_higher_level(tmp_path):
-    _paths, vault, repository = _vault(tmp_path, toml=OFF)
+    _paths, vault, repository = _vault(tmp_path, toml=OFF, version=TAG)
     _tied_claims(repository)
     assert covering_learner_claim(vault, repository, LO)["id"] == "claim_old"
     assert covering_learner_claim(vault, repository, "lo_diag")["id"] == "g_a"

@@ -70,7 +70,7 @@ def test_c_a_step_of_a_saved_lesson_whose_route_is_down_says_it_is_saved(tmp_pat
     with pytest.raises(SidecarError) as raised:
         H.lesson_turn(_Ctx(paths, repository), H.LessonTurnInput(action="reply", lesson_id=view["lesson_id"],
                                                                  text="go on"))
-    assert "your lesson is saved" in raised.value.message and "nothing was saved" not in raised.value.message
+    assert "Your lesson is saved" in raised.value.message and "nothing was saved" not in raised.value.message
     # The reply itself is saved, so resume runs it once the route is back.
     assert _rows(repository, "SELECT COUNT(*) FROM lesson_turns WHERE action = 'learner_reply'") == [(1,)]
 
@@ -89,7 +89,7 @@ def test_c_an_opening_whose_teacher_call_fails_after_the_save_says_it_is_saved_a
                       clients=clients(TeacherFake([down])))
     error = _error(raised.value)
     assert error.details["lesson_id"] == _rows(repository, "SELECT id FROM lessons")[0][0]
-    assert "your lesson is saved" in error.message
+    assert "Your lesson is saved" in error.message
     assert "is saved" in route_unavailable_message("The ChatGPT plan", saved=True)
     assert "nothing was saved" in route_unavailable_message("The ChatGPT plan", saved=False)
 

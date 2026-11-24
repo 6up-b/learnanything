@@ -9,7 +9,7 @@ from typing import Any
 
 import pytest
 
-from learnloop.algorithm_versions import ROUTER_MIXTURE_ALGORITHM_VERSION
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION, ROUTER_MIXTURE_ALGORITHM_VERSION
 from learnloop.daily_plan.engine import advance
 from learnloop.daily_plan.policy import policy_for
 
@@ -45,12 +45,13 @@ def _with_horizon(toml: str | None) -> str | None:
     return f"{toml.rstrip()}\n\n[router_objective]\n{line}" if toml else f"[router_objective]\n{line}"
 
 
-def mixture_env(tmp_path, runtime: Any, *, toml: str | None = None, serve: bool = True, version: str = B,
-                items: Any = None, session_id: str | None = "s1"):
-    """A routed plan env on the wide vault. Its objective rolls out ``HORIZON_DAYS`` (see there); a test that appends
-    its own ``[router_objective]`` table later uses ``served_horizon``, since the table already exists. A vault at an
-    older ``version`` is served as that tag was: every later successor's switch off (``successor_switches``, through
-    ``set_algorithm_version``) unless ``toml`` sets it."""
+def mixture_env(tmp_path, runtime: Any, *, toml: str | None = None, serve: bool = True,
+                version: str = LATEST_ALGORITHM_VERSION, items: Any = None, session_id: str | None = "s1"):
+    """A routed plan env on the wide vault, at the head unless ``version`` says otherwise. Its objective rolls out
+    ``HORIZON_DAYS`` (see there); a test that appends its own ``[router_objective]`` table later uses
+    ``served_horizon``, since the table already exists. A vault at an older ``version`` (``B``, the mixture successor,
+    for the tests whose claim is how that tag served) is served as that tag was: every later successor's switch off
+    (``successor_switches``, through ``set_algorithm_version``) unless ``toml`` sets it."""
 
     paths = _wide_vault(tmp_path, version=version)
     toml = _with_horizon(toml)

@@ -120,6 +120,7 @@ No test imports this module directly. These tests exercise a direct production c
 
 - [tests/test_mobile_allowlist.py](../../../../../../tests/test_mobile_allowlist.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/goal_lens|learnloop_sidecar.handlers.goal_lens]]
 - [tests/test_reader_rd6a_goal_lens.py](../../../../../../tests/test_reader_rd6a_goal_lens.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/goal_lens|learnloop_sidecar.handlers.goal_lens]]
+- [tests/test_reader_rd7_unlocated_marker.py](../../../../../../tests/test_reader_rd7_unlocated_marker.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/goal_lens|learnloop_sidecar.handlers.goal_lens]]
 
 ## Modification guidance
 

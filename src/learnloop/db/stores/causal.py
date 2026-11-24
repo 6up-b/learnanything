@@ -166,8 +166,18 @@ class CausalStoreMixin:
         provenance: Any = None,
         provenance_writer: str = "causal_hypothesis",
         clock: Clock | None = None,
+        replayed_from: Sequence[str] | None = None,
     ) -> dict[str, Any]:
         """Append a changed hypothesis version, or return the identical head.
+
+        ``replayed_from`` (replay's materialization of an attempt already
+        materialized live): a version of this episode with identical semantic
+        content is returned instead of appending, whatever came after it, so a
+        later live version (a promotion, a withdrawal, a learner's
+        confirmation) is never reverted by a reverting copy with a fresh id.
+        The ids given (the versions the attempt's recorded receipt cites) are
+        preferred, else the newest identical version; with none identical, a
+        new version is appended as live.
 
         ``repair_class_basis`` / ``repair_class_unresolved_reason`` are part of
         the semantic identity: a hypothesis that stops being unmapped (because a
@@ -222,6 +232,14 @@ class CausalStoreMixin:
             latest.get(key) == value for key, value in semantic.items()
         ):
             return latest
+        if replayed_from is not None:
+            identical = [
+                version for version in self.causal_hypothesis_versions(episode_key)
+                if all(version.get(key) == value for key, value in semantic.items())
+            ]
+            preferred = [version for version in identical if str(version["id"]) in {str(i) for i in replayed_from}]
+            if preferred or identical:
+                return (preferred or identical)[-1]
         if callable(provenance):
             provenance = provenance()
         version = int(latest.get("version") or 0) + 1 if latest is not None else 1
@@ -286,6 +304,16 @@ class CausalStoreMixin:
         created = self.causal_hypothesis(hypothesis_id)
         assert created is not None
         return created
+
+    def causal_hypothesis_versions(self, episode_key: str) -> list[dict[str, Any]]:
+        """Every version of one episode, oldest first."""
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                "SELECT * FROM causal_hypotheses WHERE episode_key = ? ORDER BY version",
+                (episode_key,),
+            ).fetchall()
+        return [_decode_causal_hypothesis(row) for row in rows]
 
     def causal_hypothesis(self, hypothesis_id: str) -> dict[str, Any] | None:
         with self.connection() as connection:
@@ -1998,6 +2026,7 @@ class CausalStoreMixin:
         misconception_id: str | None = None,
         candidate_id: str | None = None,
         clock: Clock | None = None,
+        once: bool = False,
     ) -> dict[str, Any]:
         """Append one probe decision.
 
@@ -2005,6 +2034,10 @@ class CausalStoreMixin:
         observation, and its frequency is exactly what the P4 training records
         need.  ``decision_fingerprint`` carries the content hash so a caller can
         still group identical decisions without losing the counts.
+
+        ``once`` (the probe router's facts read): a receipt of facts, not a
+        verdict, so rereading the same facts is no new observation; the factor's
+        latest receipt is returned when its fingerprint is this one's.
         """
 
         import hashlib
@@ -2021,6 +2054,20 @@ class CausalStoreMixin:
                 }
             ).encode("utf-8")
         ).hexdigest()[:32]
+        if once:
+            with self.connection() as connection:
+                latest = connection.execute(
+                    "SELECT id, decision_fingerprint, repair_status, candidate_id FROM causal_probe_decision_receipts "
+                    "WHERE factor_id = ? ORDER BY created_at DESC, id DESC LIMIT 1",
+                    (factor_id,),
+                ).fetchone()
+            # The same facts under the same status and candidate: a receipt never stands for a status it
+            # did not record.
+            if (latest is not None and latest["decision_fingerprint"] == fingerprint
+                    and latest["repair_status"] == repair_status and latest["candidate_id"] == candidate_id):
+                found = self.causal_probe_decision_receipt(str(latest["id"]))
+                assert found is not None
+                return found
         receipt_id = new_ulid()
         with self.connection() as connection:
             connection.execute(

@@ -15,6 +15,14 @@ export interface InkCacheApi {
   inkTranscribeCancel(input: { jobId: string }): Promise<InkTranscribeJobDto>;
 }
 
+/** What the line says when handwriting could not be sent to text recognition (GLM-OCR, as ingest reads page
+ * images), and how to change that; null for any other outcome. Nothing was sent, and the ink is kept. */
+export function inkRefusal(code: string): string | null {
+  if (code === "unavailable") return "handwriting can't be read yet: text recognition isn't set up · to add it, paste a z.ai API key in Settings, under Ingestion, or run a local GLM-OCR server";
+  if (code === "needs_upload_ok") return "reading handwriting sends a picture of it to z.ai, which needs your OK first: say OK on a book's card in the Library";
+  return null;
+}
+
 export type ReadingStatus = "reading" | "read" | "kept_yours" | "nothing" | "cannot" | "failed" | "cancelled";
 
 export interface LineReading {
@@ -53,6 +61,8 @@ export interface InkCacheDeps {
   settled: () => Promise<"saved" | "unsaved">;
   /** Read a pad again (a reading written into a block moves its head). */
   refreshPad: (padId: string) => Promise<void>;
+  /** Why a reading waits now (an inline check is open: a reading would show what its veils hold), or null. */
+  held?: () => string | null;
 }
 
 function codeOf(error: unknown): string {
@@ -198,6 +208,11 @@ export class InkCache {
     if (!line || !last) return;
     const current = this.pad(padId).readings[blockId];
     if (current?.status === "reading") return;
+    const held = this.deps.held?.() ?? null;
+    if (held) {
+      this.setReading(padId, blockId, { status: "failed", jobId: null, result: null, message: `read it ${held}` });
+      return;
+    }
     const attempt = (this.attempts.get(blockId) ?? 0) + 1;
     this.attempts.set(blockId, attempt);
     const stale = () => this.attempts.get(blockId) !== attempt;
@@ -207,16 +222,27 @@ export class InkCache {
       if (stale()) return;
       // The outbox lives in memory (the durable store is the RD-spike's open choice): unsent ink is kept only while the app
       // stays open, and saying "on this device" would promise more.
-      this.setReading(padId, blockId, { status: "failed", jobId: null, result: null, message: "your ink isn't sent yet · it is kept while LearnLoop stays open" });
+      this.setReading(padId, blockId, { status: "failed", jobId: null, result: null, message: "Waiting for your handwriting to save. Keep LearnLoop open, then try again." });
       return;
     }
     if (stale()) return;
+    // A check may have opened while the ink was saving: the reading waits for it then too.
+    const heldNow = this.deps.held?.() ?? null;
+    if (heldNow) {
+      this.setReading(padId, blockId, { status: "failed", jobId: null, result: null, message: `read it ${heldNow}` });
+      return;
+    }
     this.pendingInk.clear();
     let first: InkTranscribeJobDto;
     try {
       first = await this.deps.api.inkTranscribe({ inkId: last.inkId });
     } catch (error) {
       if (stale()) return;
+      if (codeOf(error) === "check_open") {
+        // The server holds model calls while a check is open (whatever this desk knew): a plain word, no error.
+        this.setReading(padId, blockId, { status: "failed", jobId: null, result: null, message: "read it after your check · finish or set aside the check first" });
+        return;
+      }
       this.settle(padId, blockId, { version: 1, jobId: null, status: "failed", done: true, result: null, error: { code: codeOf(error), message: messageOf(error), retryable: true, details: null } }, revision);
       return;
     }
@@ -241,7 +267,7 @@ export class InkCache {
         if (codeOf(error) !== "job_not_found") return;
         this.polls.get(blockId)?.();
         this.polls.delete(blockId);
-        this.setReading(padId, blockId, { status: "failed", jobId, result: null, message: "the reading stopped (LearnLoop restarted) · read it again" });
+        this.setReading(padId, blockId, { status: "failed", jobId, result: null, message: "Handwriting conversion stopped. Try again." });
       },
     });
     this.polls.set(blockId, remove);
@@ -285,10 +311,10 @@ export class InkCache {
     const code = job.error?.code ?? job.status;
     if (job.status === "cancelled" || code === "cancelled") {
       this.setReading(padId, blockId, { status: "cancelled", jobId: job.jobId, result: null, message: null });
-    } else if (code === "cannot_read_images") {
-      this.setReading(padId, blockId, { status: "cannot", jobId: job.jobId, result: null, message: job.error?.message ?? null });
+    } else if (inkRefusal(code)) {
+      this.setReading(padId, blockId, { status: "cannot", jobId: job.jobId, result: null, message: inkRefusal(code) });
     } else {
-      this.setReading(padId, blockId, { status: "failed", jobId: job.jobId, result: null, message: job.error?.message ?? code });
+      this.setReading(padId, blockId, { status: "failed", jobId: job.jobId, result: null, message: job.error?.message ?? "Couldn’t convert the handwriting. Try again." });
     }
     return true;
   }

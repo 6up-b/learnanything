@@ -96,6 +96,7 @@ Indexes and uniqueness:
 - `src/learnloop/db/stores/goals.py`
 - `src/learnloop/db/stores/intent_reads.py`
 - `src/learnloop/intent/checks.py`
+- `src/learnloop/intent/inline_administration.py`
 - `src/learnloop/reader/reader_authoring.py`
 - `src/learnloop/reader/recap.py`
 
@@ -122,6 +123,7 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/test_reader_followups.py`
+- `tests/test_reader_rd7a_inline_checks.py`
 - `tests/intent_fakes.py`
 - `tests/test_commitment_arcs.py`
 - `tests/test_commitments.py`

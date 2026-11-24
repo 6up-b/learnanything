@@ -6,7 +6,7 @@ from __future__ import annotations
 from learnloop.daily_plan.engine import advance, build_plan
 
 from tests.daily_plan_fakes import record_attempt, scheduled
-from tests.router_mixture_helpers import mixture_env
+from tests.router_mixture_helpers import B, mixture_env
 from tests.daily_plan_build_helpers import _wide_items
 
 
@@ -16,10 +16,12 @@ DECIDER_ONLY = "[router.weights]\nstaged = 0.0\ndecider = 1.0\nllm = 0.0\n"
 PAST_THE_FLOOR = 0.2
 
 
-def _followup_env(tmp_path, runtime, *, version=None, toml=None):
+def _followup_env(tmp_path, runtime, *, version=B, toml=None):
+    """A follow-up mid-block, at the mixture successor unless ``version`` says otherwise: the restraint's own tests
+    fail at the head, whose later successors change which follow-up is placed and how it is recorded."""
+
     live = list(_wide_items())
-    kwargs = {"version": version} if version else {}
-    env = mixture_env(tmp_path, runtime, toml=toml, items=lambda: live, **kwargs)
+    env = mixture_env(tmp_path, runtime, toml=toml, items=lambda: live, version=version)
     build_plan(env, kind="normal", budget=25.0, remembered=25, minutes_source="chip")
     record, step = advance(env, serve=True)
     assert step["kind"] == "item"

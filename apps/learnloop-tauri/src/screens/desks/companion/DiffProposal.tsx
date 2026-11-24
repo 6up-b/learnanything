@@ -21,12 +21,12 @@ export function DiffProposal({ proposal }: { proposal: ProposedDiff }) {
   if (state === "declined") return <div className="desk-diff declined" data-diff={proposal.id}>not this · nothing was written</div>;
   return (
     <div className={`desk-diff ${state}`} data-diff={proposal.id}>
-      <div className="head">◇ {proposal.label} · into “{proposal.target}”</div>
+      <div className="head">◇ {proposal.label} to “{proposal.target}” · preview of up to six nonblank lines</div>
       <div className="lines">
         {proposal.lines.map((line, index) => <div key={index} className="ins">+ {line}</div>)}
       </div>
-      {state === "accepted" ? <div className="done">accepted · written to “{proposal.target}”</div> : null}
-      {state === "failed" ? <div className="done">couldn't write it just now</div> : null}
+      {state === "accepted" ? <div className="done">Reply queued for “{proposal.target}”.</div> : null}
+      {state === "failed" ? <div className="done">Couldn’t add the reply. Open the running pad and try again.</div> : null}
       {state === "open" || state === "failed" ? (
         <div className="acts">
           {proposal.onAccept ? (
@@ -35,7 +35,7 @@ export function DiffProposal({ proposal }: { proposal: ProposedDiff }) {
               void Promise.resolve(proposal.onAccept?.()).then(() => setState("accepted"), () => setState("failed"));
             }}>accept</button>
           ) : (
-            <span className="later">pads arrive next: this will write to “{proposal.target}”</span>
+            <span className="later">Copying to this pad is unavailable. Open a pad to write your own note.</span>
           )}
           <button type="button" onClick={() => {
             proposal.onDecline?.();

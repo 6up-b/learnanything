@@ -237,6 +237,7 @@ def reading_sections(vault: Any, repository: Repository, model: GoalModel, extra
             entry = standing.get(lo_id, {}).get((extraction_id, section_id))
             if entry is not None:
                 coverage.append(GL.Coverage(lo_id, entry.treatment if entry.treatment is not None
+                                            else GL.CHAPTER_ABOUT if entry.chapter_id is not None
                                             else GL.LEARNER_ABOUT))
         placed = tuple(lo for lo in dict.fromkeys(model.placed.get(ref, ())) if model.reads and lo in model.reads.los)
         # A goal LO whose rows here were all written against an earlier version of the section (no standing row
@@ -331,12 +332,17 @@ def _section_ref(treatment: DP.Treatment | None) -> dict[str, Any] | None:
 
 def band_view(vault: Any, repository: Repository, model: GoalModel, *, due: Sequence[Mapping[str, Any]],
               answered: Sequence[Mapping[str, Any]], protection: GL.Protection, likely: LikelyReader | None = None,
-              pace: Mapping[str, Any] | None = None, progress: Mapping[str, Any] | None = None) -> dict[str, Any]:
+              pace: Mapping[str, Any] | None = None, progress: Mapping[str, Any] | None = None,
+              due_anywhere: int | None = None) -> dict[str, Any]:
     """``goal.band``: the goal, its LOs as dots, the depth with each depth's size, the next step, pace and
-    the path's view, masked by ``protection`` (required: no band leaves here unmasked; D15)."""
+    the path's view, masked by ``protection`` (required: no band leaves here unmasked; D15). ``due``: the checks the
+    band may place (the masked ones); ``due_anywhere``: how many checks are due in the whole vault, the band's count
+    (a count of this goal's would say which goal a check is about)."""
 
-    return GL.protect_band(_band_view(vault, repository, model, due=due, answered=answered, likely=likely, pace=pace,
-                                      progress=progress), protection)
+    band = _band_view(vault, repository, model, due=due, answered=answered, likely=likely, pace=pace, progress=progress)
+    if due_anywhere is not None:
+        band["checks"] = {**band["checks"], "due_today": due_anywhere}
+    return GL.protect_band(band, protection)
 
 
 def _band_view(vault: Any, repository: Repository, model: GoalModel, *, due: Sequence[Mapping[str, Any]],

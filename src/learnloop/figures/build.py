@@ -269,6 +269,7 @@ class BuildOutcome:
     #: RW5d P2b: a rich build with no quick figure (its pending line): the
     #: request, where it lands, the job and its phase.
     rich: dict[str, Any] | None = None
+    reuse_match: str | None = None
 
 
 #: ``(payload, origin) -> job id``: starts a rich job on the sidecar's durable
@@ -418,9 +419,11 @@ def _record_request(repository: Repository, request: FigureRequest, note: _Reque
             else:
                 status = "deferred"
                 rule = FR.REQUEST_RICH_PENDING if outcome is not None and outcome.reused else FR.REQUEST_RICH_STARTED
-        record = FR.request_record(request, status=status, rule=rule, request_id=note.request_id,
+        rich = (outcome.rich or {}) if rule == FR.REQUEST_RICH_PENDING else {}
+        record = FR.request_record(request, status=status, rule=rule, request_id=rich.get("request_id") or note.request_id,
+                                   job_id=rich.get("rich_job_id"),
                                    figure_id=figure_id, menu=note.menu, absent=note.absent,
-                                   matched=note.matched if status == "chosen" and rule == FR.REQUEST_REUSED else None,
+                                   matched=(outcome.reuse_match or note.matched) if rule == FR.REQUEST_REUSED else None,
                                    gate=gate if error is not None else None,
                                    error=error if status == "failed" else None)
         FR.write_records(repository, FR.in_one_trace([record]))
@@ -571,7 +574,7 @@ def _build(vault: Any, repository: Repository, request: FigureRequest, *, gate: 
             # again" asks the author, and then the rich author, afresh.
             generation = store.builds_for_input(connection, input_hash, ALL_SPEC_VERSIONS)
         if reused is not None:
-            note.matched = reused[1]
+            note.matched = reused[1] if seen and seen["id"] == reused[0]["id"] else "built_meanwhile"
             return _reused(vault, repository, reused[0], request=request, grounding=grounding, clock=clock,
                            gate=gate)
         if latest is not None and (seen is None or latest["id"] != seen["id"]):
@@ -723,7 +726,7 @@ STORAGE_BUSY = "storage_busy"
 
 def _reused(vault: Any, repository: Repository, row: Mapping[str, Any], *, request: FigureRequest | None = None,
             grounding: Grounding | None = None, clock: Clock | None = None,
-            gate: FiguresGate | None = None) -> BuildOutcome:
+            gate: FiguresGate | None = None, match: str | None = None) -> BuildOutcome:
     if gate is not None:
         # The live configuration, as for every other step (Codex review F1).
         gate.check("reuse")
@@ -744,7 +747,7 @@ def _reused(vault: Any, repository: Repository, row: Mapping[str, Any], *, reque
     # home, not at the first request's.
     home = request.reading_at if request is not None and not anchored(request) else None
     return BuildOutcome(figure_view(vault, repository, row, versions=_chain_length(repository, str(row["id"])),
-                                    home=home), reused=True)
+                                    home=home), reused=True, reuse_match=match)
 
 
 def _step_three(vault: Any, repository: Repository, compiled: S.CompiledFigure, context: SourceContext,
@@ -1048,10 +1051,11 @@ def _store_quick(vault: Any, repository: Repository, request: FigureRequest, con
         # Another process stored this input's figure first (the reuse index):
         # that one is the figure; this build's paid calls keep their receipts.
         with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-            first = store.reusable(connection, input_hash, S.SPEC_VERSION)
+            first = store.reusable(connection, input_hash, row["spec_version"])
         if first is None:
             raise
-        return _reused(vault, repository, first, request=request, grounding=grounding, clock=clock, gate=gate)
+        return _reused(vault, repository, first, request=request, grounding=grounding, clock=clock, gate=gate,
+                       match="built_meanwhile")
     if rich_spawn is not None and row["verification"] in store.SHOWN:
         rich_spawn.after_quick(asked["id"], figure_id, row)
     stored = dict(row)
@@ -1354,7 +1358,8 @@ def _store_sketch(vault: Any, repository: Repository, request: FigureRequest, co
             first = store.reusable(connection, input_hash, SPEC_VERSIONS)
         if first is None:
             raise
-        return _reused(vault, repository, first, request=request, grounding=grounding, clock=clock, gate=gate)
+        return _reused(vault, repository, first, request=request, grounding=grounding, clock=clock, gate=gate,
+                       match="built_meanwhile")
     if rich_spawn is not None and row["verification"] in store.SHOWN:
         rich_spawn.after_quick(asked["id"], figure_id, row)
     return BuildOutcome(figure_view(vault, repository, row, versions=versions), reused=False,

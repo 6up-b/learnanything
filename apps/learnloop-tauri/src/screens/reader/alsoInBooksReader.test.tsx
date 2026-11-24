@@ -7,7 +7,7 @@
 // key the Guide is exactly as before.
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { ReaderScreen } from "../ReaderScreen";
+import { ScopedSource } from "../desks/source/ScopedSource";
 import { setAlgoConfig } from "../../app/algoConfig";
 import { readerRenderViewFixture as view } from "../../fixtures/readerRenderView";
 import type { CorrespondentsDto, SourceLibraryCard } from "../../api/dto";
@@ -111,7 +111,7 @@ function line() {
 }
 
 it("the line sits under the section's progress, from one shared quiet read; CA5a's action hides", async () => {
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   await waitFor(() => expect(line()).toBeTruthy());
   expect(line()!.textContent).toBe("also in Axler §5.A ▸");
   // Directly under the section's progress bar, in the section's card.
@@ -122,23 +122,25 @@ it("the line sits under the section's progress, from one shared quiet read; CA5a
   expect(quiet).toHaveLength(1);
   expect(api.readerCorrespondents).not.toHaveBeenCalledWith(expect.objectContaining({ searchFallback: true }));
   expect(screen.queryByRole("button", { name: FIND_COPY.action })).toBeNull();
-  expect(screen.getByText("also in your books")).toBeTruthy();
+  // (The old key bar's "x also in your books" label was read here; the key bar was the standalone frame's and goes with it.)
 });
 
-it("x opens the list at its first line; the key bar offers it while the line is there", async () => {
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+it("x opens the list at its first line while the line is there", async () => {
+  render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   await waitFor(() => expect(line()).toBeTruthy());
   // Follow-ups batch 6 (B): the Reader learns the line is there one React task after it is drawn
-  // (an effect); press only once it offers `x`, or a loaded run drops the press.
-  await waitFor(() => expect(keyBarOffersX()).toBe(true));
-  fireEvent.keyDown(document.body, { key: "x" });
-  await waitFor(() => expect(document.querySelector("[data-also-expanded]")).toBeTruthy());
+  // (an effect). The old key bar's offer of `x` was the readiness signal; with the key bar gone (the standalone
+  // frame's), the press is retried until it acts.
+  await waitFor(() => {
+    fireEvent.keyDown(document.body, { key: "x" });
+    expect(document.querySelector("[data-also-expanded]")).toBeTruthy();
+  });
   await waitFor(() => expect(document.activeElement?.hasAttribute("data-also-title")).toBe(true));
   expect(screen.getByText("introduces it")).toBeTruthy();
 });
 
 it("x typed in a text field is the field's", async () => {
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   await waitFor(() => expect(line()).toBeTruthy());
   const field = document.createElement("input");
   document.body.appendChild(field);
@@ -150,7 +152,7 @@ it("x typed in a text field is the field's", async () => {
 });
 
 it("a peek puts its crumb in the detour strip, and the crumb closes it", async () => {
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   await waitFor(() => expect(line()).toBeTruthy());
   fireEvent.click(line()!);
   fireEvent.click(await screen.findByTitle("Axler · 5.A Invariant subspaces"));
@@ -164,7 +166,7 @@ it("a peek puts its crumb in the detour strip, and the crumb closes it", async (
 });
 
 it("go there opens the other book as a detour", async () => {
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   await waitFor(() => expect(line()).toBeTruthy());
   fireEvent.click(line()!);
   const before = api.readerRenderView.mock.calls.length;
@@ -174,7 +176,7 @@ it("go there opens the other book as a detour", async () => {
 });
 
 it("hide for this book is kept through the sidecar and leaves nothing behind", async () => {
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   await waitFor(() => expect(line()).toBeTruthy());
   fireEvent.click(screen.getByRole("button", { name: `${ALSO_COPY.title}: more` }));
   fireEvent.click(screen.getByRole("menuitem", { name: ALSO_COPY.hideBook }));
@@ -189,7 +191,7 @@ it("hide for this book is kept through the sidecar and leaves nothing behind", a
 it("hidden for this book or everywhere in the contract, nothing shows", async () => {
   for (const correspondence of [{ ...ON.correspondence, hiddenSources: [view.sourceId] }, { ...ON.correspondence, hiddenEverywhere: true }]) {
     state.contract = { ...ON, correspondence };
-    render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+    render(<ScopedSource initialSource={source} onError={vi.fn()} />);
     await screen.findAllByText("6.1 Symmetric matrices");
     await act(async () => { await new Promise((resolve) => setTimeout(resolve, 30)); });
     expect(line()).toBeNull();
@@ -199,7 +201,7 @@ it("hidden for this book or everywhere in the contract, nothing shows", async ()
 
 it("skim mode still shows it (a table of contents)", async () => {
   api.readerSetMode.mockResolvedValue({ mode: "skim" });
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   await waitFor(() => expect(line()).toBeTruthy());
   const [modeSelect] = screen.getAllByRole("combobox");
   fireEvent.keyDown(modeSelect, { key: "Enter" });
@@ -210,7 +212,7 @@ it("skim mode still shows it (a table of contents)", async () => {
 
 it("switched off (no alsoInBooks in the contract), the Guide is as before CA5", async () => {
   state.contract = { ...ON, correspondence: { enabled: true, findSection: true } };
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   await screen.findAllByText("6.1 Symmetric matrices");
   await act(async () => { await new Promise((resolve) => setTimeout(resolve, 50)); });
   expect(line()).toBeNull();
@@ -219,7 +221,7 @@ it("switched off (no alsoInBooks in the contract), the Guide is as before CA5", 
 
 it("switched off entirely (no correspondence key), nothing is read", async () => {
   state.contract = OFF;
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   await screen.findAllByText("6.1 Symmetric matrices");
   await act(async () => { await new Promise((resolve) => setTimeout(resolve, 50)); });
   expect(line()).toBeNull();
@@ -230,7 +232,7 @@ it("switched off entirely (no correspondence key), nothing is read", async () =>
 
 it("F4: a peek from CA5a's pressed list puts the same crumb in the detour strip, and the crumb closes it", async () => {
   api.readerCorrespondents.mockImplementation(async (input: { searchFallback?: boolean }) => (input.searchFallback ? PRESSED : QUIET));
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   fireEvent.click(await screen.findByRole("button", { name: FIND_COPY.action }));
   fireEvent.click(await screen.findByRole("button", { name: "peek at Axler 5.A Invariant subspaces" }));
   await screen.findByText("Invariant subspaces are…");
@@ -241,11 +243,7 @@ it("F4: a peek from CA5a's pressed list puts the same crumb in the detour strip,
   expect(screen.queryByRole("navigation", { name: "Detour" })).toBeNull();
 });
 
-function keyBarOffersX() {
-  return Array.from(document.querySelectorAll("span")).some((node) => node.textContent === "x" && node.nextElementSibling?.textContent === "also in your books");
-}
-
-it("F5: x is neither offered nor acts while the comparing posture hides the Guide", async () => {
+it("F5: x does not act while the comparing posture hides the Guide", async () => {
   const ask = {
     askId: "la_1", query: "6.1 Symmetric matrices", entry: "where_else_explained", status: "ok", policy: "reading",
     personalized: false, basis: "keyword", learningObjectIds: [], extractionId: view.extractionId, anchorSpanIds: [], hits: [],
@@ -256,18 +254,18 @@ it("F5: x is neither offered nor acts while the comparing posture hides the Guid
     // A whole table (follow-ups Oct 31: a section comparison with no hits is now drawn, so it must be a real one).
     result: { askId: "la_1", status: "ok", header: "", rows: [], alsoDiscussedIn: [], unverifiedSources: [], droppedPins: [],
       droppedLineCount: 0, exposureEventIds: [] } });
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   await waitFor(() => expect(line()).toBeTruthy());
-  expect(keyBarOffersX()).toBe(true);
+  // (The old key bar's offer of x was read here and below; the key bar was the standalone frame's. What is left is
+  // the shared behaviour: x does not open the hidden list.)
   fireEvent.click(line()!);
   const title = await screen.findByTitle("Axler · 5.A Invariant subspaces");
   act(() => { title.focus(); });
   fireEvent.keyDown(title, { key: "c" });
   await waitFor(() => expect(document.querySelector("[data-comparing-pane]")).toBeTruthy());
-  // Folded behind the comparison, x neither shows in the key bar nor opens the hidden list.
+  // Folded behind the comparison, x does not open the hidden list.
   fireEvent.click(screen.getByRole("button", { name: `${ALSO_COPY.title}: fold`, hidden: true }));
   await waitFor(() => expect(document.querySelector("[data-also-expanded]")).toBeNull());
-  expect(keyBarOffersX()).toBe(false);
   fireEvent.keyDown(document.body, { key: "x" });
   await act(async () => { await Promise.resolve(); });
   expect(document.querySelector("[data-also-expanded]")).toBeNull();
@@ -286,7 +284,7 @@ it("landing (i): the line or CA5a's action, never both; the last line corrected 
       learningObjectIds: ["lo_sym"], undoOf: input.undoOf ?? null, replayed: false } };
   });
   const both = () => Boolean(line()) && Boolean(screen.queryByRole("button", { name: FIND_COPY.action }));
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   await waitFor(() => expect(line()).toBeTruthy());
   expect(screen.queryByRole("button", { name: FIND_COPY.action })).toBeNull();
   fireEvent.click(line()!);
@@ -320,7 +318,7 @@ it("RW5d P4a: a kept figure of the line's section opens under the passage here, 
     verification: "illustrative", shown: true, labelCode: "illustrative", kind: "illustrative", label: "AI-built illustration",
     reason: null, unsupportedKind: null, supersedesId: null, revisionNote: null, versions: 1, createdAt: "2026-10-30T00:00:00Z", specJson: null,
     demonstrates: null, assumptions: [], predictions: [] }] }));
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   await waitFor(() => expect(line()).toBeTruthy());
   fireEvent.click(line()!);
   const offer = await waitFor(() => {
@@ -348,7 +346,7 @@ it("RW5d P4a: with figures off, the line offers no figure (and none is read)", a
   api.readerCorrespondents.mockImplementation(async (input: { searchFallback?: boolean }) => (input.searchFallback ? PRESSED : {
     ...JUDGED, learningObjects: [{ learningObjectId: "lo_sym", title: "symmetric matrices", sources: [
       { sourceId: "src_axler", sourceTitle: "Axler", sections: [{ ...JUDGED_LINE, figures: [ref] }] }] }] }));
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   await waitFor(() => expect(line()).toBeTruthy());
   fireEvent.click(line()!);
   await screen.findByRole("button", { name: "⋯ Axler 5.A Invariant subspaces" });

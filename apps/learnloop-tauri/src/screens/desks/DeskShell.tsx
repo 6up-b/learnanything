@@ -4,9 +4,12 @@
 // The workspace model (model/workspace.ts) is the truth on screen; every change the learner makes is
 // applied there at once and queued as `desk.apply` ops in the outbox (outbox.ts), which sends them in
 // order. A conflict takes the server's state: the shell reads `desk.state` again.
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ComponentProps, type CSSProperties, type ReactNode } from "react";
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ComponentProps, type CSSProperties, type ReactNode } from "react";
 import { flushSync } from "react-dom";
 import { api } from "../../api/client";
+import { useCachedQuery } from "../../api/useCachedQuery";
+import { TAG } from "../../api/queryTags";
+import { TUTOR_COPY } from "../reader/TutorAnswer";
 import { cachedSourceRead } from "../reader/readerCache";
 import { poller as appPoller, type Poller } from "../../api/poller";
 import type { CarriedQuestionDto, CompanionDock, CompanionHistoryDto, ContentRefDto, PadDrainDto, DeskApplyDto, DeskApplyInput, DeskStateDto, SourceLibraryCard, TutorCitationDto } from "../../api/dto";
@@ -28,9 +31,11 @@ import {
   type Step,
   moveWindowTo,
   openBeside,
+  openPaired,
   pairFocused,
   renameDesk,
   reorderSlots,
+  replaceWindow,
   setFocus,
   setCompanionDock,
   setCompanionShown,
@@ -95,16 +100,21 @@ import { clientIdFor, type OutboxTransport } from "./outbox";
 import { deskStoreFor } from "./store";
 import { CarriedList, Shelf, type ShelfRow } from "./Shelf";
 import { SourceWindow, type ReaderPassThrough, type SourceStatus } from "./windows/SourceWindow";
+import { DeskPairs, keptPairsFor } from "./sideBySide/pairs";
+import type { PaneTarget } from "../reader/sideBySide";
+import { logReaderAction } from "../reader/activity";
+import type { WindowInquiry } from "./source/types";
+import type { WindowAsk, WindowExchange } from "../reader/useReaderInquiry";
 import { ThreadWindow } from "./windows/ThreadWindow";
 import { PadStackWindow } from "./pads/PadStackWindow";
 import { ContextMenu, useSheetFocus, type PromotedApi } from "./menu/ContextMenu";
 import { KnowsPanel } from "./menu/KnowsPanel";
 import { ExerciseSheet } from "./menu/ExerciseSheet";
-import { captureNodes, hasPassage, headerLine, objectAt, objectInput, type MenuObject } from "./menu/model";
+import { captureNodes, hasPassage, headerLine, objectAt, objectInput, passageIds, verdictFor, type MenuObject, type MenuVerdict } from "./menu/model";
 import { promotedRef, runVerb, sourceMenuRows, type MenuApi, type MenuContext } from "./menu/verbs";
 import { DrainPanel } from "./pads/DrainPanel";
 import { PassageMarks, visibleSpanRange, type PadLink } from "./pads/PassageMarks";
-import { keyAfter } from "./pads/model";
+import { keyAfter, padName } from "./pads/model";
 import { PenHostContext, type PenApi, type PenHost } from "./pen/host";
 import { LIVE_PEN_API } from "./pen/live";
 import { InkCache } from "./pen/inkCache";
@@ -115,13 +125,19 @@ import { NotebookBridgeContext, type NotebookBridgeHost } from "./notebook/Noteb
 import type { BridgeMessage } from "./notebook/bridge";
 import { notebookMenuRequest, openNotebookMenu, setNotebookMenuOpener } from "./notebook/menuBridge";
 import { lessonNotebookFrame } from "./notebook/LessonNotebook";
+import { handOver, problemPadId, type ProblemHandoff } from "./problem/problemPads";
+import { CompanionFigures, showInCompanion, useCompanionFigures, type CompanionFigureHost } from "./companion/companionFigures";
+import type { ProblemHost } from "./problem/ProblemPad";
+import { problemTitle } from "../workbench/stepModel";
 import type { NotebookOwner } from "../../api/dto";
 import { CompanionAsks, companionAsksFor, forgetCompanionAsks, type CompanionApi, type CompanionExchange } from "./companion/asks";
 import { HIDDEN, avoidOffset, companionStep, type CompanionEvent, type CompanionState } from "./companion/model";
 import { SearchPanel, type SearchApi } from "./search/SearchPanel";
 import type { SearchRow } from "./search/model";
 import { clipQuote, readWindowSelection, type WindowSelection } from "./selection";
-import { LibraryPanel, PANEL_TITLES, PathPanel, RailHostPanel } from "./windows/PanelWindow";
+import { LibraryPanel, PANEL_TITLES, RailHostPanel } from "./windows/PanelWindow";
+import { bookContent, restoreContent } from "./model/restore";
+import type { ReadingPosition } from "../reader/readingPosition";
 import { ScreenErrorBoundary } from "../../app/ScreenErrorBoundary";
 import { useGoalDesk, type GoalReading } from "./goal/GoalLayer";
 import { LIVE_GOAL_TRANSPORT, type GoalTransport } from "./goal/controller";
@@ -139,6 +155,13 @@ import type { LessonViewDto } from "../../api/dto";
 import "../../styles/goal.css";
 import "../../styles/lesson.css";
 import "../../styles/video.css";
+import "../../styles/checks.css";
+import { CheckDesk, LIVE_CHECK_TRANSPORT, checkOpenRefusal, type CheckTransport } from "./checks/controller";
+import { CheckCardOverlay, CheckLenses, DeskCheckMarker } from "./checks/CheckCard";
+import { VeilLayer } from "./checks/VeilLayer";
+import { visibleNow, windowKind } from "./checks/model";
+import { SAFE_ATTR } from "./checks/hold";
+import { CheckHoldContext } from "./checks/holdContext";
 import "../../styles/desk.css";
 // The desks' five fonts ship with the app (SIL OFL 1.1, Fontsource packages pinned in package.json): Vite
 // bundles their files, so nothing is fetched from a font service.
@@ -177,6 +200,15 @@ export const LIVE_DESK_TRANSPORT: DeskTransport = {
 /** The companion's hand-off waits this long after an anchored summon before a scroll counts (spec §8.3). */
 const COMPANION_SIZES_HANDOFF_MS = 250;
 
+/** The desk's open search: its words, the passages or pad lines they came from (checked at the destination), and
+ *  where a chosen row is inserted. */
+interface SearchState {
+  query: string;
+  selection?: { extractionId: string; spanIds: string[] };
+  blockIds?: string[];
+  insert?: ((row: SearchRow) => void) | null;
+}
+
 /** What a companion question is grounded in, or why there is nothing to ground it in. */
 interface Grounding {
   reason: string | null;
@@ -191,6 +223,7 @@ interface Grounding {
 
 /** A pad line asked about ("Ask about this" in the pad menu or a card): its block and the passage it links to. */
 export interface PadAskContext {
+  blockIds?: string[];
   padId: string;
   blockId: string | null;
   anchor: { extractionId: string; spanId: string } | null;
@@ -198,6 +231,7 @@ export interface PadAskContext {
 
 /** What the chip asks about: a selection in a window, or a pad line. */
 export interface AskChip {
+  extractionId?: string;
   quote?: string;
   spanIds: string[];
   windowId: string;
@@ -220,13 +254,14 @@ export function groundingFor(ws: Workspace, chip: AskChip | null, focus: DeskWin
       // Asked from the pad (its window owns the question's poll), about the book where the learner reads.
       return { reason: null, extractionId: content.extractionId, spanId: span, windowId: chip.windowId, spanWindowId: id, padBlockId };
     }
-    return { reason: "this line is linked to no passage, and no book or video is open on this desk to ask beside" };
+    return { reason: "Open a book or video on this desk before asking about this line." };
   }
   if (chip && chip.spanIds.length) {
     const content = ws.windows[chip.windowId]?.content;
     if (content && (content.kind === "source" || content.kind === "video")) {
-      return { reason: null, extractionId: content.extractionId, spanId: chip.spanIds[0], windowId: chip.windowId };
+      return { reason: null, extractionId: chip.extractionId ?? content.extractionId, spanId: chip.spanIds[0], windowId: chip.windowId };
     }
+    return { reason: "reopen the selected passage to ask about it" };
   }
   const content = focus?.content;
   if (focus && content && (content.kind === "source" || content.kind === "video")) {
@@ -235,7 +270,7 @@ export function groundingFor(ws: Workspace, chip: AskChip | null, focus: DeskWin
     const span = status[focus.windowId]?.readingSpan ?? (typeof focus.view?.spanId === "string" ? (focus.view.spanId as string) : undefined);
     return { reason: null, extractionId: content.extractionId, spanId: span ?? undefined, windowId: focus.windowId };
   }
-  return { reason: "ask from a passage: focus a book or a video, or select a passage, then press c" };
+  return { reason: "Open a book or video, or select a passage, then press C to ask." };
 }
 
 /** A Compare window's passage anchor, kept in its view by the menu's Compare (null when it was opened bare). */
@@ -273,7 +308,7 @@ function errorText(error: unknown): string {
 }
 
 /** The menu's small sheets: a margin note's words, or a review before something joins the queue. */
-function MenuSheet({ sheet, onDone }: { sheet: { kind: "note" | "confirm"; title: string; detail: string }; onDone: (value: string | boolean | null) => void }) {
+function MenuSheet({ sheet, onDone }: { sheet: { kind: "note" | "confirm"; title: string; detail: string; mine?: boolean }; onDone: (value: string | boolean | null) => void }) {
   const [text, setText] = useState("");
   const node = useRef<HTMLDivElement | null>(null);
   useSheetFocus(node, () => onDone(sheet.kind === "note" ? null : false));
@@ -283,6 +318,7 @@ function MenuSheet({ sheet, onDone }: { sheet: { kind: "note" | "confirm"; title
       {sheet.kind === "note" ? <label>your note<textarea aria-label="your note" value={text} onChange={(event) => setText(event.target.value)} /></label> : null}
       <div className="acts">
         <button type="button" disabled={sheet.kind === "note" && !text.trim()} onClick={() => onDone(sheet.kind === "note" ? text.trim() : true)}>{sheet.kind === "note" ? "keep it" : "yes"}</button>
+        {sheet.kind === "confirm" && sheet.mine ? <button type="button" data-sheet-choice="mine" onClick={() => onDone("mine")}>write it myself</button> : null}
         <button type="button" onClick={() => onDone(sheet.kind === "note" ? null : false)}>not now</button>
       </div>
     </div>
@@ -478,8 +514,6 @@ function writeStored(key: string, value: string): void {
 export interface DeskShellProps {
   vaultKey: string;
   onError: (message: string) => void;
-  /** Back to the old Reader (it stays reachable until the parity matrix passes, spec §21.1). */
-  onLeave?: () => void;
   /** First run: the book the learner read last, for the first desk (spec §5.1). */
   firstSourceId?: string | null;
   transport?: DeskTransport;
@@ -526,12 +560,44 @@ export interface DeskShellProps {
   lessonsTransport?: LessonsTransport;
   /** Follow-along and the suggested chapters' calls (RD10); absent, the sidecar's. */
   videoTransport?: VideoTransport;
+  /** The app's "Ask the tutor about this" while the desks are the Reader: each new count summons the companion on
+   *  what is in view (it never dismisses it). */
+  askRequest?: number;
+  /** Whether the book being read is skimmed (the focused book window, else the book window focused last): the app
+   *  offers nothing where the learner lands after leaving the desks while skimming, as after the old Reader. */
+  onSkimmingChange?: (muted: boolean) => void;
+  /** The book being read (the focused book window, else the book window focused last, else the first on the desk in
+   *  view), or null when no book is open: the app remembers it for the next start, offers it as "Continue reading" and
+   *  holds its notices while one is open, as it did for the old Reader's open book. */
+  onReadingChange?: (book: { sourceId: string; title: string } | null) => void;
+  /** The app's way into the Reader while the desks are the Reader (the shelf, Today's threads and citations, a return
+   *  from feedback, a lesson's "Look in my library"): a book (and passage) to open or focus on the desk in view, or
+   *  words to search for. Each request is done once, by its sequence number, however often the desks mount again. */
+  openRequest?: DeskOpenRequest | null;
+  /** The inline checks' calls (RD7, spec §12.6); absent, the sidecar's. */
+  checkTransport?: CheckTransport;
+  /** The vault's inline checks, owned by the app (an open check outlives the desks' screen); absent, the desks make
+   *  their own from `checkTransport`. */
+  checks?: CheckDesk;
 }
+
+export interface DeskOpenRequest {
+  seq: number;
+  sourceId: string | null;
+  spanId: string | null;
+  /** The reading `spanId` was found on (absent or null: the book's current one). */
+  reading?: string | null;
+  /** Search the desks for these words (with no book). */
+  phrase?: string;
+}
+
+/** The app's open requests already done, per vault: the desks unmount with the Reader place and mount again. */
+const doneOpenRequests = new Map<string, number>();
+
 
 export function DeskShell({
   vaultKey,
   onError,
-  onLeave,
   firstSourceId = null,
   transport = LIVE_DESK_TRANSPORT,
   reader: readerProp,
@@ -551,6 +617,12 @@ export function DeskShell({
   lessons,
   lessonsTransport = LIVE_LESSONS_TRANSPORT,
   videoTransport = LIVE_VIDEO_TRANSPORT,
+  askRequest = 0,
+  onSkimmingChange,
+  onReadingChange,
+  openRequest = null,
+  checkTransport = LIVE_CHECK_TRANSPORT,
+  checks,
 }: DeskShellProps) {
   // The vault's one desk store (store.ts): it outlives this shell, so leaving and coming back never makes a
   // second outbox for the same client.
@@ -571,6 +643,14 @@ export function DeskShell({
   const videoDesk = useMemo(() => new VideoDesk(videoTransport, (windowId, spanId) => videoFollowed.current(windowId, spanId)), [videoTransport]);
   useSyncExternalStore(videoDesk.subscribe, videoDesk.getVersion);
   const followLenses = useMemo(() => new FollowLenses(), []);
+  // Inline cold checks (RD7, spec §12.6): the due checks' closed markers, the one open administration and its veils.
+  // Made once (a parent's new `mintId` each render must not make a new store: a new one would not know yet whether a
+  // check is open, and the desks would wait on it again).
+  const checkMint = useRef(mintId);
+  checkMint.current = mintId;
+  const checkDesk = useMemo(() => checks ?? new CheckDesk(checkTransport, (prefix) => checkMint.current(prefix)), [checks, checkTransport]);
+  useSyncExternalStore(checkDesk.subscribe, checkDesk.getVersion);
+  const checkLenses = useMemo(() => new CheckLenses(), []);
   // `u` and `alt+;` reach the latest render's handlers (set below).
   const videoKeys = useRef<{ follow: () => boolean; timestamp: () => boolean }>({ follow: () => false, timestamp: () => false });
   // Pad changes re-render the shell too (the passages' ✎ links, the companion's pad proposals).
@@ -585,7 +665,7 @@ export function DeskShell({
   const [visited, setVisited] = useState<Set<string>>(() => new Set());
   const [focusMode, setFocusMode] = useState(false);
   const [whichKey, setWhichKey] = useState(false);
-  const [toast, setToast] = useState<{ text: string; key: number } | null>(null);
+  const [toast, setToast] = useState<{ text: string; key: number; safe?: boolean } | null>(null);
   const [undo, setUndo] = useState<{ deskId: string; windowId: string; title: string; until: number } | null>(null);
   const [status, setStatus] = useState<Record<string, SourceStatus>>({});
   const [entering, setEntering] = useState<Set<string>>(() => new Set());
@@ -623,7 +703,7 @@ export function DeskShell({
   const [companionDock, setCompanionDockShown] = useState<CompanionDock>("br");
   const [chip, setChip] = useState<(AskChip & { quote: string }) | null>(null);
   const [avoid, setAvoid] = useState(0);
-  const [search, setSearch] = useState<{ query: string; insert?: ((row: SearchRow) => void) | null } | null>(null);
+  const [search, setSearchState] = useState<SearchState | null>(null);
   // Pads (spec §10): the stacks' key handles, the carried questions, and the desk drain while it is open.
   const padHandles = useRef(new Map<string, PadStackHandle>());
   const [carried, setCarried] = useState<{ list: CarriedQuestionDto[]; limit: number; more: boolean }>({ list: [], limit: 3, more: false });
@@ -631,10 +711,12 @@ export function DeskShell({
   // The pad stack whose "where your words go" is open (its ⓘ sits in the window's title bar).
   const [emissionOpen, setEmissionOpen] = useState<string | null>(null);
   const [draining, setDraining] = useState(false);
+  // While the desk's day closes, its readings show their Wrap up in the drain, under the pads (spec §21.1).
+  const [drainWrapHost, setDrainWrapHost] = useState<HTMLDivElement | null>(null);
   // The context menu (spec §9.1) on a source object, What this knows, and the small sheets its verbs ask with.
   const [menu, setMenu] = useState<MenuObject | null>(null);
   const [knows, setKnows] = useState<import("../../api/dto").MenuObjectInput | null>(null);
-  const [menuSheet, setMenuSheet] = useState<{ kind: "note" | "confirm"; title: string; detail: string; resolve: (value: string | boolean | null) => void } | null>(null);
+  const [menuSheet, setMenuSheet] = useState<{ kind: "note" | "confirm"; title: string; detail: string; mine?: boolean; resolve: (value: string | boolean | null) => void } | null>(null);
   // Make it practice on an exercise: the sheet that shows its words, imports it and lists what it made.
   const [exerciseSheet, setExerciseSheet] = useState<{ object: MenuObject; anchor: { extractionId: string; spanId: string }; key: string } | null>(null);
   const menuOpenRef = useRef(false);
@@ -669,10 +751,24 @@ export function DeskShell({
   const onEndRef = useRef<(goal: 0 | 1, base: 0 | 1) => void>(() => undefined);
   const controller = useMemo(() => new ZoomController(frameClock, (goal, base) => onEndRef.current(goal, base)), [frameClock]);
   const jumps = useRef(new Map<string, (spanId: string) => void>());
+  // Each source window's inquiry (its detours and reconnect): a claim of its reading peeks there, and a companion
+  // answer about it joins its detours (spec §21.1).
+  const inquiries = useRef(new Map<string, WindowInquiry>());
   const media = useRef(new Map<string, () => void>());
   const pendingJump = useRef(new Map<string, string>());
 
   const toastNow = useCallback((text: string) => setToast({ text, key: Date.now() }), []);
+  /** A toast that stays readable while a check holds the page: it says why something waits, nothing of the content. */
+  const toastSafe = useCallback((text: string) => setToast({ text, key: Date.now(), safe: true }), []);
+  // While an inline check is open, search waits: its results would show what the veils hold (spec §12.6.4).
+  const setSearch = useCallback((next: SearchState | null) => {
+    const held = next ? checkDesk.heldReason() : null;
+    if (held) {
+      toastSafe(`search waits · ${held}`);
+      return;
+    }
+    setSearchState(next);
+  }, [checkDesk, toastSafe]);
   useEffect(() => {
     if (!toast) return;
     const handle = timers.set(() => setToast(null), TOAST_MS);
@@ -693,13 +789,13 @@ export function DeskShell({
 
   // What the store could not save, said in one line.
   useEffect(() => store.onNotice((notice) => {
-    if (notice.kind === "rejected") toastNow("that change couldn't be saved, and was undone");
+    if (notice.kind === "rejected") toastNow("That change couldn’t be saved. Check the desk before trying again.");
     else if (notice.kind === "conflict") {
       const total = notice.dropped + notice.lost;
-      if (total > 0) toastNow(`the desk changed elsewhere · ${total} change${total === 1 ? "" : "s"} couldn't be kept`);
+      if (total > 0) toastNow(`the desk changed elsewhere · ${total} change${total === 1 ? "" : "s"} couldn’t be saved. Check the desk before trying again.`);
     } else if (notice.kind === "kept-both") {
-      toastNow(`your words met newer ones written elsewhere · both are kept, yours as ${notice.count === 1 ? "its own block" : "their own blocks"} marked “written over an older version”`);
-    } else if (notice.kind === "offline") toastNow("couldn't save the desk just now · it is kept here until it can be");
+      toastNow(`Your edit overlaps with a newer one. Look for your edit in ${notice.count === 1 ? "a separate line" : "separate lines"} marked “written over an older version”.`);
+    } else if (notice.kind === "offline") toastNow("Still waiting to save your desk changes. Keep LearnLoop open.");
     else onError(notice.message);
   }), [store, toastNow, onError]);
 
@@ -712,11 +808,75 @@ export function DeskShell({
     const card = firstSourceId ? cards?.find((entry) => entry.sourceId === firstSourceId) ?? null : null;
     const deskId = mintId("desk");
     const created = createDesk(base, deskId, card ? `new desk · ${shortName(card.title)}` : "new desk");
-    if (!card || card.readiness !== "ready") return created;
+    if (!card) return created;
+    if (card.readiness !== "ready") return chain(created, (next) => openBeside(next, deskId, { kind: "preparing", sourceId: card.sourceId }, () => mintId("win")));
     const extractionId = await transport.resolveExtraction(card.sourceId).catch(() => null);
     if (!extractionId) return created;
     return chain(created, (next) => openBeside(next, deskId, contentForCard(card, extractionId), () => mintId("win")));
   }, [chain, firstSourceId, mintId, transport]);
+
+  // Windows that open their reading's path once their Reader is there (a restored reading-path panel).
+  const pendingPaths = useRef(new Set<string>());
+  // Where the learner was in a book's original while it was prepared: its window's reading opens there.
+  const pendingHandoffs = useRef(new Map<string, ReadingPosition>());
+
+  // The book's window in another window's place: its current reading (or the book still being prepared).
+  const bookWindowFor = useCallback(async (
+    deskOfWindow: string, windowId: string, sourceId: string, cards: SourceLibraryCard[] | null, handoff: ReadingPosition | null = null,
+  ): Promise<string | null> => {
+    const card = cards?.find((entry) => entry.sourceId === sourceId) ?? null;
+    const ready = !card || card.readiness === "ready";
+    const extractionId = ready ? await transport.resolveExtraction(sourceId).catch(() => null) : null;
+    if (ready && !extractionId) return null;
+
+    const step = replaceWindow(store.ws, deskOfWindow, windowId, bookContent(sourceId, extractionId, card ? isVideoCard(card) : false), () => mintId("win"));
+
+    // Before the window mounts: its Reader opens where the learner was in the original.
+    if (handoff && extractionId) pendingHandoffs.current.set(step.windowId, handoff);
+    commit(step);
+    return step.windowId;
+  }, [store, transport, commit, mintId]);
+
+  // A book prepared in a window is ready: the book's window takes its place, at the place in the original the learner
+  // had reached; the library's copy of its card is the ready one from now on (a window opens a ready card).
+  const handingOver = useRef(new Set<string>());
+  // The ready card, for a window that mounts before the library's copy is updated (the store's commit renders first).
+  const readyCards = useRef(new Map<string, SourceLibraryCard>());
+  const bookReady = useCallback(async (deskOfWindow: string, windowId: string, card: SourceLibraryCard, position: ReadingPosition | null) => {
+    if (handingOver.current.has(windowId)) return;
+    handingOver.current.add(windowId);
+    readyCards.current.set(card.sourceId, card);
+    setLibrary((cards) => cards?.map((entry) => (entry.sourceId === card.sourceId ? card : entry)) ?? cards);
+    const opened = await bookWindowFor(deskOfWindow, windowId, card.sourceId, [card], position);
+    if (!opened) {
+      handingOver.current.delete(windowId);
+      toastNow(`“${shortName(card.title)}” is ready, but it didn’t open just now. Open it again from your library.`);
+    }
+  }, [bookWindowFor, toastNow]);
+
+  // Stored windows of a kind with a workbench home now, restored there; a window this version cannot show is kept and
+  // named (model/restore.ts).
+  const restoreSaved = useCallback(async (cards: SourceLibraryCard[] | null) => {
+    const unshown: string[] = [];
+    for (const window of Object.values(store.ws.windows)) {
+      if (window.kind === "pad_stack") continue;
+      const restored = restoreContent(window.content);
+      if (restored.kind === "keep") continue;
+      if (restored.kind === "inert") {
+        unshown.push(restored.name);
+        continue;
+      }
+      const sourceId = restored.sourceId
+        ?? (restored.extractionId && transport.sourceOfExtraction ? await transport.sourceOfExtraction(restored.extractionId).catch(() => null) : null);
+      const opened = sourceId ? await bookWindowFor(window.deskId, window.windowId, sourceId, cards) : null;
+      if (!opened) unshown.push(restored.showPath ? "a reading path whose book could not be found" : "a window whose book could not be found");
+      else if (restored.showPath) {
+        const inquiry = inquiries.current.get(opened);
+        if (!inquiry?.showPath("open")) pendingPaths.current.add(opened);
+      }
+    }
+    if (unshown.length) toastNow(`Kept but not shown: ${unshown.join(", ")}. Close ${unshown.length === 1 ? "it" : "them"} when you like.`);
+  }, [store, transport, bookWindowFor, toastNow]);
 
   useEffect(() => {
     let live = true;
@@ -726,9 +886,10 @@ export function DeskShell({
         if (!live) return;
         setLibrary(cards);
         if (state && store.ws.desks.length === 0) store.commit(await firstRun(store.ws, cards));
+        if (state && live) await restoreSaved(cards);
         if (live) setStoreReady(true);
-      } catch (error) {
-        if (live) onError(error instanceof Error ? error.message : typeof error === "object" && error && "message" in error ? String((error as { message: unknown }).message) : String(error));
+      } catch {
+        if (live) onError("Couldn’t open your desks. Switch away from Reader, then open it again.");
       }
     })();
     // A load that lands after this shell unmounted changes nothing here.
@@ -830,6 +991,57 @@ export function DeskShell({
   lifecyclesRef.current = lifecycles;
   const focusIdRef = useRef(focusId);
   focusIdRef.current = focusId;
+  // Skimming, per book window (each window's own way of reading): the app hears the book being read, the focused book
+  // window, else the book window focused last.
+  const skimming = useRef(new Map<string, boolean>());
+  const lastBookFocus = useRef<string | null>(null);
+  const skimmingReported = useRef<boolean | null>(null);
+  const onSkimmingRef = useRef(onSkimmingChange);
+  onSkimmingRef.current = onSkimmingChange;
+  const reportSkimming = useCallback(() => {
+    const focused = focusIdRef.current;
+    const content = focused ? wsRef.current.windows[focused]?.content : undefined;
+    if (focused && content && (content.kind === "source" || content.kind === "video")) lastBookFocus.current = focused;
+    const muted = Boolean(lastBookFocus.current && skimming.current.get(lastBookFocus.current));
+    if (skimmingReported.current === muted) return;
+    skimmingReported.current = muted;
+    onSkimmingRef.current?.(muted);
+  }, [wsRef]);
+  const skimmingHandlers = useMemo(() => new Map<string, (muted: boolean) => void>(), []);
+  const skimmingFor = useCallback((windowId: string) => {
+    let handler = skimmingHandlers.get(windowId);
+    if (!handler) {
+      handler = (muted: boolean) => {
+        skimming.current.set(windowId, muted);
+        reportSkimming();
+      };
+      skimmingHandlers.set(windowId, handler);
+    }
+    return handler;
+  }, [skimmingHandlers, reportSkimming]);
+  useEffect(() => reportSkimming(), [focusId, reportSkimming]);
+  // The book being read, for the app (said once per change). Never while a check holds the desks: the windows' heads
+  // show neutral titles then, and the app must not learn the check's book from this either; the change is said once
+  // the check is answered or set aside.
+  const readingReported = useRef<string | undefined>(undefined);
+  const onReadingRef = useRef(onReadingChange);
+  onReadingRef.current = onReadingChange;
+  const holdingReading = checkDesk.holding();
+  useEffect(() => {
+    if (!ws || !storeReady || holdingReading) return;
+    const isBook = (id: string | null | undefined) => {
+      const content = id ? ws.windows[id]?.content : null;
+      return content && (content.kind === "source" || content.kind === "video" || content.kind === "preparing") ? content : null;
+    };
+    if (isBook(focusId)) lastBookFocus.current = focusId;
+    const desk = deskById(ws, deskId);
+    const shown = isBook(lastBookFocus.current) ?? isBook(desk?.slots.flat().find((id) => isBook(id)) ?? null);
+    const book = shown ? { sourceId: shown.sourceId, title: library?.find((card) => card.sourceId === shown.sourceId)?.title ?? "" } : null;
+    const key = book ? `${book.sourceId}\u0000${book.title}` : "";
+    if (readingReported.current === key) return;
+    readingReported.current = key;
+    onReadingRef.current?.(book);
+  }, [ws, focusId, deskId, storeReady, library, holdingReading]);
   // Poll owners follow the windows: a paused window's polls wait; a window that closed (gone from the
   // lifecycles) pauses its polls too, and when the shell detaches every owner it knew pauses.
   const knownOwners = useRef(new Set<string>());
@@ -864,14 +1076,23 @@ export function DeskShell({
     if (known) return known;
     const content = window.content;
     // A stack of pads is the learner's scratchpads (the title bar adds ⓘ and "yours").
-    if (window.kind === "pad_stack") return "Scratchpads";
+    if (window.kind === "pad_stack") return "Pads";
     if (!content) return "notes";
-    if (content.kind === "source" || content.kind === "video") return library?.find((card) => card.sourceId === content.sourceId)?.title ?? "source";
+    if (content.kind === "source" || content.kind === "video" || content.kind === "preparing") return library?.find((card) => card.sourceId === content.sourceId)?.title ?? "source";
     if (content.kind === "panel") return PANEL_TITLES[content.panel];
     if (content.kind === "compare") return content.query ? `compare · ${content.query}` : "compare";
     if (content.kind === "lesson") return lessonTabTitle(lessonDesk.summary(content.lessonId)?.title);
     return KIND_WORD[content.kind] ?? content.kind;
   }, [status, library, lessonDesk]);
+  /** A window's name while a check holds the page: what it is, never what it holds (a book's or a video's name, else
+   *  its kind: a lesson's, a thread's or a pad's title can say what the check asks). */
+  const heldTitleOf = useCallback((window: DeskWindow | undefined): string => {
+    if (!window) return "";
+    const content = window.content;
+    if (content && (content.kind === "source" || content.kind === "video")) return library?.find((card) => card.sourceId === content.sourceId)?.title ?? KIND_WORD[content.kind] ?? "source";
+    if (window.kind === "pad_stack") return "Pads";
+    return KIND_WORD[content?.kind ?? window.kind] ?? "window";
+  }, [library]);
 
   // -- the overview: its layout, a zoom's plan and its commit (spec §6.2, §6.3) -----------------------
 
@@ -1229,7 +1450,9 @@ export function DeskShell({
       .filter((relation) => current.windows[relation.windowId]?.deskId === id && current.windows[relation.windowId]?.content?.kind === "thread")
       .map((relation) => relation.windowId);
     const newDeskId = mintId("desk");
-    const title = `new desk · ${shortName(titleOf(current.windows[windowId]))}`;
+    const window = current.windows[windowId];
+    // A comparison's window title can contain the passage used as its query.
+    const title = `new desk · ${window.content?.kind === "compare" ? "comparison" : shortName(titleOf(window))}`;
     let step = createDesk(current, newDeskId, title);
     let after: string | null = null;
     for (const moving of [windowId, ...threads]) {
@@ -1405,7 +1628,9 @@ export function DeskShell({
         setSearch({ query: "" });
         return true;
       case "path":
-        return goalPathRef.current.toggle();
+        // The goal's path view; with no goal, the focused book's own path in its window.
+        if (goalPathRef.current.toggle()) return true;
+        return focusIdRef.current ? inquiries.current.get(focusIdRef.current)?.showPath("toggle") ?? false : false;
       case "follow":
         return videoKeys.current.follow();
       case "timestamp":
@@ -1623,7 +1848,7 @@ export function DeskShell({
         const max = Math.max(0, slotRects(each.slots.length, st).reduce((end, rect) => Math.max(end, rect.x + rect.w), 0) + DESK_SIZES.side - st.width);
         setCamX((cams) => ({ ...cams, [id]: Math.max(0, Math.min(max, (cams[id] ?? 0) + travel)) }));
         g.panned = true;
-        setHud("alt + swipe · moving along the strip · lift to snap");
+        setHud("Alt + swipe to move between windows. Lift your fingers to stop.");
         timers.clear(g.timer);
         g.timer = timers.set(endGesture, OVERVIEW.panSnapMs);
         return;
@@ -1647,7 +1872,7 @@ export function DeskShell({
       }
       if (stepped.kind === "target" || stepped.kind === "begin-and-target") {
         const how = g.source === "pinch" ? "pinch" : modifiers.read(event).alt ? "alt + scroll" : "ctrl + scroll";
-        setHud(`${how} · zooming ${dy > 0 ? "out" : "in"} · lift to settle`);
+        setHud(`${how} · zooming ${dy > 0 ? "out" : "in"} · lift your fingers to stop`);
       } else {
         setHud("");
       }
@@ -1697,7 +1922,7 @@ export function DeskShell({
       }
       d.moved = true;
       controller.setTarget(dragProgress(d.base, dy));
-      setHud("ctrl + drag · zooming · let go to settle");
+      setHud("Ctrl + drag to zoom. Let go to stop.");
       return;
     }
     if (d.kind === "pan") {
@@ -1864,6 +2089,12 @@ export function DeskShell({
   /** Every lesson entry on the desks opens a window on the current desk instead of switching screens (spec §11.1):
    * a stored lesson by its id, a new one as an opening tab in the desk's stack, stored once its turn returns. */
   const openLesson = useCallback((entry: LessonEntry) => {
+    // While an inline check is open, a new lesson waits: it would teach what the veils hold (spec §12.6.4).
+    const held = entry.kind === "resume" ? null : checkDesk.heldReason();
+    if (held) {
+      toastSafe(`a lesson waits · ${held}`);
+      return;
+    }
     if (entry.kind === "resume") {
       placeLesson(entry.lessonId);
       return;
@@ -1874,7 +2105,7 @@ export function DeskShell({
     if (!stackId) return;
     commit(setFocus(wsRef.current, id, stackId));
     lessonDesk.open(stackId, entry);
-  }, [wsRef, commit, lessonDesk, placeLesson, stackForLessons]);
+  }, [wsRef, commit, lessonDesk, placeLesson, stackForLessons, checkDesk, toastNow, toastSafe]);
   // An opening's lesson joins the stack it was opened in (the focus is left where the learner has it now: the
   // opening turn can take a minute).
   lessonOpened.current = (opening, lessonId) => {
@@ -1909,7 +2140,7 @@ export function DeskShell({
     notebookFrame: lessons?.notebookFrame ?? lessonNotebookFrame,
   }), [lessonDesk, onError, openLesson, lessons?.onQuickCheck, lessons?.onLookInLibrary, lessons?.notebookFrame, lessons?.onProbe]);
 
-  const openContent = useCallback((content: ContentRefDto, options: { spanId?: string | null; view?: Record<string, unknown> } = {}) => {
+  const openContent = useCallback((content: ContentRefDto, options: { spanId?: string | null; view?: Record<string, unknown>; peek?: boolean } = {}) => {
     const current = wsRef.current;
     const id = deskIdRef.current;
     if (!id) return;
@@ -1925,9 +2156,16 @@ export function DeskShell({
     });
     keepPrevious.current = !step.existed;
     commit(step);
+    if (step.existed && options.view?.compareAnchor) {
+      const shown = wsRef.current.windows[step.windowId];
+      commit(setView(wsRef.current, id, step.windowId, { ...shown.view, compareAnchor: options.view.compareAnchor }));
+    }
     if (step.existed && options.spanId) {
+      // A claim in a window already open is a peek there (its strip shows the way back); else a jump.
+      const inquiry = options.peek ? inquiries.current.get(step.windowId) : undefined;
       const jump = jumps.current.get(step.windowId);
-      if (jump) jump(options.spanId);
+      if (inquiry) inquiry.peek(options.spanId);
+      else if (jump) jump(options.spanId);
       else pendingJump.current.set(step.windowId, options.spanId);
     }
     if (!step.existed) {
@@ -1944,6 +2182,49 @@ export function DeskShell({
     }
     setOpener(false);
   }, [commit, mintId, timers, placeLesson]);
+
+  /** The passage a window opens at for the app's open request still to be done: the book's window on the desk in view
+   *  that the request would focus (the one `openBeside` finds), on the request's reading. */
+  const openingAt = (windowId: string, windowDeskId: string, content: { kind: string; sourceId?: string; extractionId?: string }): string | null => {
+    if (!openRequest?.spanId || !openRequest.sourceId || !ws || !deskId || windowDeskId !== deskId) return null;
+    if ((doneOpenRequests.get(vaultKey) ?? -1) >= openRequest.seq) return null;
+    if (content.kind !== "source" || content.sourceId !== openRequest.sourceId) return null;
+    if (openRequest.reading && openRequest.reading !== content.extractionId) return null;
+    const desk = deskById(ws, deskId);
+    if (!desk) return null;
+    const first = desk.slots.flat().find((id) => {
+      const other = ws.windows[id]?.content;
+      return other?.kind === "source" && other.sourceId === openRequest.sourceId;
+    });
+    return first === windowId ? openRequest.spanId : null;
+  };
+
+  // The app's open request: done once the desks, the library and the desk in view are there.
+  useEffect(() => {
+    if (!openRequest || !storeReady || !deskId || library === null) return;
+    if ((doneOpenRequests.get(vaultKey) ?? -1) >= openRequest.seq) return;
+    doneOpenRequests.set(vaultKey, openRequest.seq);
+    if (!openRequest.sourceId) {
+      if (openRequest.phrase !== undefined) setSearch({ query: openRequest.phrase });
+      return;
+    }
+    const card = library.find((entry) => entry.sourceId === openRequest.sourceId);
+    if (!card) {
+      toastNow("that book isn't in your library any more");
+      return;
+    }
+    if (card.readiness !== "ready") {
+      // Its original, its progress, a failure's action and the retry, in a window of its own until the text is ready.
+      openContent({ kind: "preparing", sourceId: card.sourceId });
+      return;
+    }
+    void transport.resolveExtraction(card.sourceId).then((extractionId) => {
+      // A passage found on an earlier reading of the book is not a passage of the reading it has now: the book opens.
+      const sameReading = !openRequest.reading || openRequest.reading === extractionId;
+      openContent(contentForCard(card, extractionId), { spanId: sameReading ? openRequest.spanId : null });
+      if (!sameReading && openRequest.spanId) toastNow("that passage was on an earlier reading of this book · it opened at your place in it");
+    }, () => toastNow("couldn't open that book just now"));
+  }, [openRequest, storeReady, deskId, library, vaultKey, transport, openContent, toastNow]);
 
   const openHit = useCallback((hit: { sourceId: string | null; extractionId: string; spanId: string }) => {
     if (!hit.sourceId) return;
@@ -1985,6 +2266,8 @@ export function DeskShell({
   stripOpenRef.current = stripOpen && viewportWidth < DESK_SIZES.shelfFoldBelow;
   // The goal lens's path view: `p` toggles it, and while it is open its keys are its own (a menu scope).
   const goalPathRef = useRef<{ open: boolean; toggle: () => boolean }>({ open: false, toggle: () => false });
+  /** The lens's goal while its band shows (set where the goal desk is read, below; asked under by the companion). */
+  const goalIdRef = useRef<string | null>(null);
   const anchoredAt = useRef(0);
   const groundingRef = useRef<Grounding>({ reason: "" });
 
@@ -2040,6 +2323,13 @@ export function DeskShell({
   };
   const companionKeyRef = useRef(companionKey);
   companionKeyRef.current = companionKey;
+  // The palette's Ask: the companion on the focused window's reading (its selection as the chip), or left shown.
+  const askRequestSeen = useRef(askRequest);
+  useEffect(() => {
+    if (askRequest === askRequestSeen.current) return;
+    askRequestSeen.current = askRequest;
+    if (companionStateRef.current.mode === "hidden") companionKeyRef.current(false);
+  }, [askRequest]);
 
   /** A notebook frame's bridge (spec §11.3): `c` summons the companion at the frame's selection with its text as
    * the chip (untrusted notebook text, quoted), `shift` docks it, escape dissolves an anchored companion, and a
@@ -2140,6 +2430,20 @@ export function DeskShell({
     return () => document.removeEventListener("selectionchange", onSelection);
   }, []);
 
+  // The tutor that looks things up (RW1c), as the Reader's contract offers it: its personalized chip is sent with
+  // every ask while it is on (at the vault's default until the learner switches it), and an answer that looked
+  // things up can be asked again "another way" or as "that didn't help".
+  const promptContract = useCachedQuery(["reader_prompt_contract"], () => Promise.resolve().then(() => api.readerPromptContract()), {
+    tags: [TAG.reader, TAG.settings],
+    staleAfterMs: Infinity,
+  });
+  const readerTutor = promptContract.data?.readerTutor ?? null;
+  const [personalizedChoice, setPersonalizedChoice] = useState<boolean | null>(null);
+  const personalizedOn = personalizedChoice ?? readerTutor?.personalizedDefault ?? true;
+  const personalizedRef = useRef<boolean | null>(null);
+  personalizedRef.current = readerTutor?.retrieval ? personalizedOn : null;
+  const personalizedInput = () => (personalizedRef.current !== null ? { personalized: personalizedRef.current } : {});
+
   const askCompanion = useCallback((question: string) => {
     const grounding = groundingRef.current;
     if (grounding.reason !== null || !grounding.extractionId) return;
@@ -2164,11 +2468,32 @@ export function DeskShell({
       spanId,
       selectionSpanIds: padLine ? undefined : selected?.spanIds,
       quote: padLine ? null : selected?.quote ?? null,
-      ...(grounding.padBlockId ? { padBlockIds: [grounding.padBlockId] } : {}),
+      ...(grounding.padBlockId ? { padBlockIds: selected?.pad?.blockIds ?? [grounding.padBlockId] } : {}),
+      ...personalizedInput(),
+      // The goal in view (the lens's), so the tutor's answer can aim at it.
+      ...(goalIdRef.current ? { goalId: goalIdRef.current } : {}),
     // The sidecar records the desk's focus and windows with the question: the writes queued so far land first.
     }, store.settled());
     setChip(null);
   }, [asks, store, toastNow]);
+
+  /** "another way" or "that didn't help…" under an answer: a branch of it, on the same reading and passage. */
+  const askAgain = (exchange: CompanionExchange, question: string, retrievalIntent: "alternative" | "remediate") => {
+    const parent = exchange.answer ? exchange.answer.readerAnswerEventId || exchange.answer.eventId : null;
+    if (!parent) return;
+    // "another way" and "didn't help" ask the tutor again: they wait while a check is open, as the ask does.
+    const held = checkDesk.heldReason();
+    if (held) {
+      toastSafe(`the companion waits · ${held}`);
+      return;
+    }
+    asks.ask({
+      deskId: deskIdRef.current, windowId: exchange.windowId, surface: exchange.request.surface, question,
+      extractionId: exchange.extractionId, spanId: exchange.spanId,
+      ...(exchange.request.selectionSpanIds?.length ? { selectionSpanIds: exchange.request.selectionSpanIds } : {}),
+      quote: exchange.request.selectionQuote ?? null, parentExchangeId: parent, retrievalIntent, ...personalizedInput(),
+    }, store.settled());
+  };
 
   const loadHistory = useCallback((query: string, cursor?: string) => companionTransport.companionHistory({ ...(query ? { query } : {}), ...(cursor ? { cursor } : {}) }), [companionTransport]);
 
@@ -2193,7 +2518,7 @@ export function DeskShell({
       const card = library?.find((entry) => entry.sourceId === found);
       const shown = card && isVideoCard(card) ? "video" : known;
       const ref = { kind: shown, sourceId: found, extractionId: citation.extractionId, ...(shown === "video" && citation.t !== undefined ? { t: citation.t } : {}) } as ContentRefDto;
-      openContent(ref, { spanId: citation.spanId });
+      openContent(ref, { spanId: citation.spanId, peek: true });
     };
     if (sourceId) {
       open(sourceId, kind);
@@ -2226,7 +2551,7 @@ export function DeskShell({
     }
     const ref = row.ref;
     if (!ref) {
-      toastNow("this result has nothing to open yet");
+      toastNow("Can’t open this result here. Search for its source by title.");
       return;
     }
     // A note opens by its identity: a Reader note or highlight in its book at its passage (the window's view
@@ -2236,7 +2561,7 @@ export function DeskShell({
     if (note.noteKind === "note") {
       const target = row.target ?? {};
       if (note.noteRefKind === "capture" || ref.kind === "panel") {
-        toastNow(`“${(note.title || note.snippet || "this note").slice(0, 60)}” is an inbox note · it opens from Today's inbox`);
+        toastNow(`“${(note.title || note.snippet || "this note").slice(0, 60)}” is an inbox note. Open Today, then Inbox.`);
         return;
       }
       openContent(ref, { spanId: target.spanId ?? null, view: { ...(target.noteKey ? { noteKey: target.noteKey } : {}), ...(target.annotationId ? { annotationId: target.annotationId } : {}) } });
@@ -2352,12 +2677,12 @@ export function DeskShell({
 
 
   /** Carry a question; settles when the sidecar has it (rejecting, with its reason, when it does not). */
-  const carryQuestion = useCallback((text: string, origin: { kind: CarriedQuestionDto["originKind"]; ref?: string | null; anchor?: { extractionId: string; spanId: string } | null }): Promise<void> => {
-    const carried = Promise.resolve().then(() => padsTransport.carriedCarry({ carriedId: mintId("carried"), text, originKind: origin.kind, originRef: origin.ref ?? null, anchor: origin.anchor ?? null, deskId: deskIdRef.current }));
+  const carryQuestion = useCallback((text: string, origin: { blockIds?: string[]; kind: CarriedQuestionDto["originKind"]; ref?: string | null; anchor?: { extractionId: string; spanId: string } | null }): Promise<void> => {
+    const carried = Promise.resolve().then(() => padsTransport.carriedCarry({ carriedId: mintId("carried"), text, originKind: origin.kind, ...(origin.blockIds ? { blockIds: origin.blockIds } : {}), originRef: origin.ref ?? null, anchor: origin.anchor ?? null, deskId: deskIdRef.current }));
     void carried.then(() => {
-      toastNow("carried · it comes back beside a related passage");
+      toastNow("Question saved for later. It may appear beside a related passage.");
       refreshCarried();
-    }, (error: unknown) => toastNow(`couldn't carry it · ${errorText(error)}`));
+    }, (error: unknown) => toastNow(`couldn't save it for later · ${errorText(error)}`));
     return carried.then(() => undefined);
   }, [padsTransport, mintId, toastNow, refreshCarried]);
 
@@ -2385,7 +2710,7 @@ export function DeskShell({
       const text = (element?.textContent ?? "").replace(/\s+/g, " ").trim().slice(0, 600);
       if (!text) continue;
       const title = titleOf(window);
-      out.push({ label: `${content.kind === "video" ? "the cue playing now" : "the passage in view"} · ${shortName(title)}`, extractionId: content.extractionId, spanId, text, sourceTitle: title });
+      out.push({ label: `${content.kind === "video" ? "the current caption" : "the passage in view"} · ${shortName(title)}`, extractionId: content.extractionId, spanId, text, sourceTitle: title });
     }
     return out;
   }, [titleOf]);
@@ -2424,7 +2749,76 @@ export function DeskShell({
   }), [menuTransport, mintId, poller, toastNow]);
   const onPromotedRef = useRef<(row: import("../../api/dto").PromotedRowDto, origin: import("../../api/dto").MenuObjectInput | null) => boolean>(() => false);
   const openMenuByKeyRef = useRef<() => boolean>(() => false);
+  /** Closes the menu and its sheets (a check opening; set below, once they exist). */
+  const closeOverlays = useRef<() => void>(() => undefined);
   const hoveredKeyRef = useRef<(what: "note" | "promoted") => boolean>(() => false);
+  /** A figure as a `figure` block in the running pad of the desk Show me was asked on (captured when asked), not the
+   * desk shown when it is ready: Show me's interim landing, and the companion figure's "move to scratchpad". */
+  const landFigureBlock = useCallback(async (anchor: { extractionId: string | null; spanId: string | null; spanIds?: string[] }, figure: { figureId: string; line: string }, padId: string | null) => {
+    if (padId) await store.loadPad(padId);
+    const pad = padId ? store.pads[padId] : null;
+    if (!padId || !pad) {
+      toastNow("the figure is ready, but that desk has no running pad to put it in");
+      throw new Error("no running pad");
+    }
+    store.commitPad(padId, [{ op: "insert_block", blockId: mintId("blk"), versionId: mintId("ver"), kind: "figure", provenance: "learnloop", positionKey: keyAfterLast(pad.blocks), day: localDay(),
+      bodyMd: figure.line, payload: { figure_id: figure.figureId, extraction_id: anchor.extractionId, span_id: anchor.spanId, ...(anchor.spanIds ? { span_ids: anchor.spanIds } : {}) } }]);
+    toastNow("◇ the figure was added to your running pad");
+  }, [store, toastNow, mintId]);
+  const companionFigureHost = useMemo<CompanionFigureHost>(() => ({
+    moveToPad: (entry) => landFigureBlock(entry.anchor, { figureId: entry.figure.figureId, line: entry.figure.demonstrates || entry.figure.goalText || "a figure" }, entry.destination),
+    openSource: (extractionId, spanId) => openClaim({ extractionId, spanId }),
+  }), [landFigureBlock, openClaim]);
+  const shownFigures = useCompanionFigures(vaultKey);
+
+  // RW2 on a desk (spec §15.2): a problem a source window opens is worked on a problem pad in the desk's stack (the
+  // pad of its workbench session when one is loaded, else a new one), brought into view; the window keeps reading.
+  const workOnPad = useCallback(async (handoff: ProblemHandoff) => {
+    handOver(handoff);
+    const id = deskIdRef.current;
+    if (!id) return;
+    const sessionId = handoff.session.sessionId;
+    // One pad per problem: its id is the session's, so the pad of a session made earlier (in another view of the
+    // desks, not loaded now) is read from the server before any is made. The pads store has no read by session
+    // (pad.list neither filters nor indexes by it), so the id carries the binding.
+    const padId = problemPadId(sessionId);
+    if (!store.pads[padId]) await store.loadPad(padId);
+    if (!store.pads[padId]) {
+      const title = problemTitle(handoff.session.stemMd);
+      const refused = store.commitPad(padId, [{ op: "create_pad", kind: "problem", title: title === "this problem" ? "a problem" : title, homeDeskId: id, workbenchSessionId: sessionId }]);
+      if (refused) {
+        toastNow(`couldn't make the problem's pad · ${refused.message}`);
+        return;
+      }
+    }
+    // The pad lives where it is: a stack already holding it (on this desk or another) is where it is shown, that
+    // desk becoming the current one; else it joins this desk's stack.
+    const holding = Object.values(wsRef.current.windows).find((window) => window.kind === "pad_stack" && (window.stack ?? []).some((entry) => entry.kind === "pad" && entry.padId === padId));
+    if (holding && holding.deskId !== id) {
+      setCurrentDeskId(holding.deskId);
+      const desk = wsRef.current.desks.find((each) => each.deskId === holding.deskId);
+      toastNow(`✎ this problem is on the desk “${desk?.title ?? "another desk"}” · shown there`);
+    }
+    const deskOf = holding?.deskId ?? id;
+    const stackWindow = holding ?? Object.values(wsRef.current.windows).find((window) => window.deskId === id && window.kind === "pad_stack");
+    if (!stackWindow) {
+      commit(openStackBeside(wsRef.current, id, [padId], () => mintId("win")));
+      return;
+    }
+    if (!holding) commit(addToStack(wsRef.current, deskOf, stackWindow.windowId, padId));
+    commit(setFocus(wsRef.current, deskOf, stackWindow.windowId));
+    requestAnimationFrame(() => padHandles.current.get(stackWindow.windowId)?.showPad(padId));
+  }, [store, mintId, toastNow, commit, setCurrentDeskId]);
+  const problemHost = useMemo<ProblemHost>(() => ({
+    practiceSessionId: reader?.workbench?.practiceSessionId ?? null,
+    ...(reader?.workbench?.onSubmitted ? { onSubmitted: reader.workbench.onSubmitted } : {}),
+    showInBook: (session) => {
+      if (session.extractionId) openPassage(session.extractionId, session.spanIds[0] ?? null, undefined, session.sourceId ?? null);
+    },
+    cardFor: (sourceId) => (sourceId ? library?.find((card) => card.sourceId === sourceId) ?? null : null),
+    onError,
+  }), [reader, openPassage, library, onError]);
+
   const padsHost = useMemo<PadsHost>(() => ({
     store,
     deskId,
@@ -2433,15 +2827,32 @@ export function DeskShell({
     api: padsTransport,
     practiceSessionId: reader?.workbench?.practiceSessionId ?? null,
     openPassage,
-    openSearch: (query, insert) => setSearch({ query, insert: insert ?? null }),
+    openSearch: (query, insert, blockIds) => setSearch({ query, insert: insert ?? null, blockIds }),
     askAbout: (quote, context) => {
       setChip({ quote: clipQuote(quote, 400), spanIds: [], windowId: focusIdRef.current ?? "", ...(context ? { pad: context } : {}) });
       stepCompanion({ kind: "dock" });
     },
-    showMe: async (text: string, anchor: { extractionId: string; spanId: string } | null, ownerWindowId?: string) => {
+    showMe: async (text: string, anchor: { extractionId: string; spanId: string; spanIds?: string[] } | null, ownerWindowId?: string, blockIds?: string[]) => {
+      // While an inline check is open, Show me waits: a figure would explain what the veils hold (spec §12.6.4).
+      const held = checkDesk.heldReason();
+      if (held) {
+        toastSafe(`Show me waits · ${held}`);
+        return null;
+      }
       // The Reader's figure build (RW5d), read through the one poller under the pad window that asked: a paused
       // window's poll waits with it. A figure that is not shown lands nowhere.
-      const first = await padsTransport.figureRequest({ goalText: text, origin: "show_me", anchor: anchor ? { extractionId: anchor.extractionId, spanIds: [anchor.spanId] } : null });
+      let first: Awaited<ReturnType<typeof padsTransport.figureRequest>>;
+      try {
+        first = await padsTransport.figureRequest({ goalText: text, origin: "show_me", ...(blockIds ? { blockIds } : {}), anchor: anchor ? { extractionId: anchor.extractionId, spanIds: anchor.spanIds ?? [anchor.spanId] } : null });
+      } catch (error) {
+        // The server holds Show me while a check is open (whatever this desk knew): plain words, no error.
+        const waits = checkOpenRefusal(error);
+        if (waits) {
+          toastSafe(`Show me waits · ${waits}`);
+          return null;
+        }
+        throw error;
+      }
       const job = first.state !== "pending" ? first : await new Promise<typeof first>((resolve, reject) => {
         // The poll ends on every terminal path: a result, a job the sidecar no longer knows, or the window that asked
         // being closed (its paused polls would otherwise wait for ever).
@@ -2467,7 +2878,7 @@ export function DeskShell({
       });
       const figure = job.result?.figure;
       if (!figure || !figure.shown) return null;
-      return { figureId: figure.figureId, line: figure.demonstrates || figure.goalText || text };
+      return { figureId: figure.figureId, line: figure.demonstrates || figure.goalText || text, figure };
     },
     figures: pendingFigures,
     menu: {
@@ -2477,7 +2888,7 @@ export function DeskShell({
       knows: (object) => setKnows(object),
     },
     // A pad line's Teach me opens a lesson tab in the desk's stack, as the source menu's does (one path).
-    teachMe: (extractionId: string, spanIds: string[]) => openLesson({ kind: "open", entry: "reader_selection", selection: { extractionId, spanIds } }),
+    teachMe: (extractionId: string, spanIds: string[], blockIds?: string[]) => openLesson({ kind: "open", entry: "reader_selection", selection: { extractionId, spanIds, ...(blockIds ? { blockIds } : {}) } }),
     toast: toastNow,
     setView: (windowId, view) => {
       const window = wsRef.current.windows[windowId];
@@ -2494,9 +2905,11 @@ export function DeskShell({
     },
     carry: carryQuestion,
     lessons: lessonsHost,
-  }), [store, deskId, mintId, padsTransport, reader, openPassage, toastNow, commit, sourcePieces, carryQuestion, stepCompanion, poller, pendingFigures, menuPromoted, lessonsHost, openLesson]);
+    problems: problemHost,
+  }), [store, deskId, mintId, padsTransport, reader, openPassage, toastNow, toastSafe, commit, sourcePieces, carryQuestion, stepCompanion, poller, pendingFigures, menuPromoted, lessonsHost, openLesson, problemHost, checkDesk]);
   // Pen and ink (RD8a): what a source window's pen layer and a pad's ink lines reach through.
-  const inkCache = useMemo(() => new InkCache({ api: penApi, poller, settled: () => store.settled(), refreshPad: (padId) => store.refreshPad(padId) }), [penApi, poller, store]);
+  const inkCache = useMemo(() => new InkCache({ api: penApi, poller, settled: () => store.settled(), refreshPad: (padId) => store.refreshPad(padId),
+    held: () => checkDesk.heldReason() }), [penApi, poller, store, checkDesk]);
   const penHost = useMemo<PenHost>(() => ({
     on: penOn,
     simulate: simulatePen,
@@ -2520,12 +2933,11 @@ export function DeskShell({
   const newPadBeside = useCallback(() => {
     const id = deskIdRef.current;
     if (!id) return;
-    const selected = focusIdRef.current ? readWindowSelection(focusIdRef.current, stageRef.current) : null;
     const padId = mintId("pad");
-    const title = selected ? `Scratchpad · “${selected.quote.slice(0, 40)}”` : "Scratchpad · new notes";
+    const title = "Pad · new notes";
     const refused = store.commitPad(padId, [{ op: "create_pad", kind: "named", title, homeDeskId: id }]);
     if (refused) {
-      toastNow(`couldn't make a pad · ${refused.message}`);
+      toastNow("Couldn’t make a pad. Reopen this desk and try again.");
       return;
     }
     commit(openStackBeside(wsRef.current, id, [padId], () => mintId("win")));
@@ -2554,8 +2966,10 @@ export function DeskShell({
     const lines = answer.answerMd.split("\n").map((line) => line.trim()).filter(Boolean).slice(0, 6);
     return [{
       id: `${exchange.requestId}:running`,
-      target: (known ? store.pads[known]?.pad.title : "") || "running",
-      label: "Add this to your pad",
+      target: known ? padName(store.pads[known]?.pad) : "running pad",
+      // "the reply": the preview line says it shows only the first lines, and the header holds two lines at the
+      // companion's laptop width with the pad's whole name ("running pad").
+      label: "Copy the reply",
       lines,
       onAccept: async () => {
         if (!runningPadOf(exchange.deskId)) await Promise.all(deskPadIds(exchange.deskId).map((padId) => store.loadPad(padId)));
@@ -2682,6 +3096,86 @@ export function DeskShell({
     if (onDesk || !section.sourceId) openPassage(section.extractionId, section.startSpanId);
     else openContent({ kind: "source", sourceId: section.sourceId, extractionId: section.extractionId, view: "render" }, { spanId: section.startSpanId });
   }, [openPassage, openContent]);
+  // -- inline cold checks (RD7, spec §12.6) -------------------------------------------------------------------------
+  // After a restart the open administration comes back with its veils, and the due checks are read (as handles: the
+  // desk's one marker names and places nothing). Nothing of the desks shows before the first read says whether a check
+  // is open (the app usually has the answer already).
+  useEffect(() => {
+    checkDesk.restart();
+  }, [checkDesk]);
+  /** What is on screen, as the server classifies it: every desk's windows, the companion, the overview's cards. */
+  const visibleForCheck = useCallback(() => {
+    const windows = Object.values(wsRef.current.windows).map((window) => ({ windowId: window.windowId, kind: window.kind,
+      content: window.content as { kind: string; extractionId?: string } | null }));
+    // The companion's exchanges when its tutor tab shows them; on its history tab it names none (what the history
+    // shows is not this desk's thread, so its opening is unmeasured).
+    const companionTab = typeof document === "undefined" ? null : document.querySelector("[data-companion-body]")?.getAttribute("data-check-content") ?? null;
+    const exchanges = companionTab?.startsWith("history:") ? []
+      : asks.thread(deskIdRef.current).flatMap((exchange) => (exchange.answer?.eventId ? [exchange.answer.eventId] : []));
+    return visibleNow(typeof document === "undefined" ? null : document, windows, {
+      companionOpen: companionStateRef.current.mode !== "hidden", companionExchangeIds: exchanges,
+      previewWindowIds: overviewRef.current ? windows.map((window) => window.windowId) : [],
+    });
+  }, [asks, wsRef]);
+  /** "check now" on the desk's marker: the server resolves the handle, opens the administration and names the veils
+   *  before the prompt. */
+  const checkNow = useCallback(() => {
+    // Search, the menu and its sheets close first: they could show what the check asks, and stay closed until the
+    // answer.
+    setSearchState(null);
+    closeOverlays.current();
+    void checkDesk.begin(null, reader?.workbench?.practiceSessionId ?? null, visibleForCheck()).then((opened) => {
+      if (checkDesk.notice) toastSafe(checkDesk.notice);
+      // The app adopts the session the answer will be recorded on, as after a workbench submit.
+      const session = opened ? checkDesk.open()?.card.practiceSession : null;
+      if (session) reader?.workbench?.onPracticeSession?.(session);
+      // The marker was at no passage: the begun card, inline at its host when that reading is here, is brought into
+      // view (else the card centred near the top stands in, as ever).
+      // The answer box takes the focus there: the desks were held while the begin was on its way, so the card may have
+      // mounted inside a subtree the hold had not released yet (autofocus is lost then).
+      if (opened && typeof requestAnimationFrame !== "undefined") {
+        requestAnimationFrame(() => {
+          const card = document.querySelector<HTMLElement>('[data-check-card="inline"], [data-check-card="overlay"]');
+          if (card?.dataset.checkCard === "inline") card.scrollIntoView?.({ block: "center" });
+          card?.querySelector<HTMLTextAreaElement>("textarea")?.focus();
+        });
+      }
+    });
+  }, [checkDesk, reader, visibleForCheck, toastSafe]);
+  useEffect(() => {
+    checkDesk.setVisibleSource(visibleForCheck);
+    return () => checkDesk.setVisibleSource(null);
+  }, [checkDesk, visibleForCheck]);
+  // New windows or passages in view while a check is open: the server veils what it must (check.protect_more; a view
+  // unchanged since the last call sends nothing).
+  const protectCheckView = useCallback(() => {
+    if (checkDesk.holding()) void checkDesk.protectMore(visibleForCheck());
+  }, [checkDesk, visibleForCheck]);
+  const checkHolding = checkDesk.holding();
+  useEffect(() => {
+    if (!checkHolding) return;
+    const handle = requestAnimationFrame(() => void checkDesk.protectMore(visibleForCheck()));
+    return () => cancelAnimationFrame(handle);
+  }, [checkHolding, checkDesk, visibleForCheck, ws, currentDeskId, overview, companionState.mode, status, lifecycles]);
+  const openCheck = checkDesk.open();
+  const checkInlineHere = Boolean(openCheck?.host && (desk?.slots.flat() ?? []).some((id) => {
+    const content = ws?.windows[id]?.content;
+    return content?.kind === "source" && content.extractionId === openCheck.host?.extractionId && !isPaused(lifecycles[id]?.state ?? "hidden");
+  }));
+  // The card centred near the top stands in unless the inline card is actually on the page (a window showing the
+  // original PDF, or another place in the book, renders no inline card): the way to answer never disappears.
+  const [inlineMissing, setInlineMissing] = useState(false);
+  useLayoutEffect(() => {
+    const missing = Boolean(openCheck && checkInlineHere && typeof document !== "undefined" && !document.querySelector('[data-check-card="inline"]'));
+    if (missing !== inlineMissing) setInlineMissing(missing);
+  });
+  const checkInline = checkInlineHere && !inlineMissing;
+  /** The desks' windows as the hold reads them: only a source or video window's own text can show during a check. */
+  const holdWindows = useMemo(() => new Map(Object.values(ws?.windows ?? {}).map((window) => [window.windowId, {
+    kind: windowKind({ kind: window.kind, content: window.content as { kind: string } | null }),
+    extractionId: window.content && (window.content.kind === "source" || window.content.kind === "video") ? window.content.extractionId : null,
+  }])), [ws]);
+
   const goalDesk = useGoalDesk({
     transport: goalTransport,
     deskGoalId: desk?.goalId,
@@ -2701,6 +3195,7 @@ export function DeskShell({
     ),
   });
   goalPathRef.current = { open: goalDesk.pathOpen, toggle: goalDesk.togglePath };
+  goalIdRef.current = goalDesk.goalId;
 
   // -- videos (RD10): follow-along, the timestamp key ----------------------------------------------------
 
@@ -2729,7 +3224,7 @@ export function DeskShell({
       }
       const books = (deskById(wsRef.current, deskIdRef.current)?.slots.flat() ?? []).filter((id) => videoDesk.chipFor(id));
       if (!books.length) {
-        toastNow("no video on this desk to follow");
+        toastNow("Open a video on this desk to follow it.");
         return true;
       }
       for (const id of books) videoDesk.toggle(id);
@@ -2751,7 +3246,7 @@ export function DeskShell({
       }
       const clock = videoDesk.clockOf(windowId);
       if (!clock?.spanId) {
-        toastNow("the video hasn't reached a caption yet · play it, then alt+;");
+        toastNow("Play the video until a caption appears, then press Alt+; again.");
         return true;
       }
       const title = titleOf(wsRef.current.windows[windowId]);
@@ -2771,7 +3266,7 @@ export function DeskShell({
         }
         const pad = padId ? store.pads[padId] : null;
         if (!padId || !pad) {
-          toastNow("couldn't find this desk's running pad");
+          toastNow("Couldn’t find this desk’s running pad. Open it and try again.");
           return;
         }
         const blockId = mintId("blk");
@@ -2780,7 +3275,7 @@ export function DeskShell({
             day: localDay(), bodyMd: line, payload: { source_title: title, t: Math.floor(clock.t), extraction_id: content.extractionId, span_id: clock.spanId } },
           { op: "link_anchor", blockId, extractionId: content.extractionId, spanId: clock.spanId as string, eventId: mintId("lnk"), expectedAnchorHead: null },
         ]);
-        toastNow(refused ? `couldn't stamp the time · ${refused.message}` : `${line} · in the running pad`);
+        toastNow(refused ? "Couldn’t add the video time. Open the running pad and try again." : `${line} · adding to the running pad…`);
       })();
       return true;
     },
@@ -2825,7 +3320,7 @@ export function DeskShell({
     const ids = (desk?.slots.flat() ?? []).flatMap((windowId) => (wsRef.current.windows[windowId]?.stack ?? []).flatMap((entry) => (entry.kind === "pad" ? [entry.padId] : [])));
     return [...new Set(ids)].map((padId) => {
       const state = store.pads[padId];
-      return { padId, title: state?.pad.title || (state?.pad.kind === "running" ? `running · ${localDay()}` : "a pad") };
+      return { padId, title: state?.pad.kind === "running" && (!state.pad.title || state.pad.title === "running") ? `running pad · ${localDay()}` : padName(state?.pad) };
     });
   }, [store]);
   const appendTargetOf = useCallback((id: string | null): string | null => {
@@ -2844,7 +3339,7 @@ export function DeskShell({
     let target = choice === null ? appendTargetOf(id) : choice;
     if (target === "+") {
       const padId = mintId("pad");
-      const title = `Scratchpad · “${(object.selection || object.text).slice(0, 40)}”`;
+      const title = "Pad";
       const refused = store.commitPad(padId, [{ op: "create_pad", kind: "named", title, homeDeskId: id }]);
       if (refused) {
         toastNow(`couldn't make a pad · ${refused.message}`);
@@ -2873,13 +3368,14 @@ export function DeskShell({
         const receipt = await menuTransport.readerCapture({
           sourceId: who.sourceId, revisionId: who.revisionId, extractionId: object.extractionId, renderViewId: who.renderViewId,
           action: "highlight", clientIdempotencyKey: mintId("hl"),
-          rawSelection: { extractionId: object.extractionId, nodes: captureNodes(object) },
+          rawSelection: { extractionId: object.extractionId, spanId: object.spanId, spanIds: passageIds(object), nodes: captureNodes(object) },
         });
         // A highlight that could not be placed is not linked from the block (the block still links its passages).
-        if (receipt.anchorStatus === "needs_reanchor") toastNow("the highlight's place needs re-anchoring: the line links to the passages without it");
+        if (receipt.anchorStatus === "needs_reanchor") toastNow("couldn’t place the highlight · the pad line still links to the passage");
         else annotationId = receipt.annotationId;
-      } catch {
-        // The block still links to the passage; only the highlight is missing.
+      } catch (error) {
+        toastNow(`couldn't capture that passage · ${errorText(error)}`);
+        return;
       }
     }
     const words = (object.selection || object.text).replace(/\s+/g, " ").trim();
@@ -2889,51 +3385,80 @@ export function DeskShell({
     const refused = store.commitPad(target, [
       { op: "insert_block", blockId, versionId: mintId("ver"), kind: "source_quote", provenance: "source", positionKey: keyAfterLast(pad.blocks),
         day: pad.pad.kind === "running" ? localDay() : null, bodyMd: body,
-        payload: { source_id: object.sourceId ?? null, source_title: titleOf(window), extraction_id: object.extractionId, span_id: object.spanId, ...(object.t !== undefined ? { t: object.t } : {}) } },
+        payload: { source_id: object.sourceId ?? null, source_title: titleOf(window), extraction_id: object.extractionId, span_id: object.spanId, span_ids: passageIds(object), ...(object.t !== undefined ? { t: object.t } : {}) } },
       // Every passage the selection touches links back to the line (each with its own ✎ mark).
       ...captureNodes(object).map((node) => ({ op: "link_anchor" as const, blockId, extractionId: object.extractionId as string, spanId: node.spanId, eventId: mintId("lnk"), expectedAnchorHead: null, annotationId })),
     ]);
-    if (refused) toastNow(`couldn't append it · ${refused.message}`);
-    else toastNow(`appended to “${pad.pad.title || "running"}”`);
+    if (refused) toastNow(`couldn’t add it · ${refused.message}`);
+    else toastNow(`adding to “${padName(pad.pad)}”…`);
   }, [appendTargetOf, commit, menuTransport, mintId, rememberAppendTarget, store, titleOf, toastNow]);
 
   // The rows the open source menu shows (Open beside takes its correspondent from them): told by that menu only
   // while it is open on its object, so a closed menu's late answer never lands here.
   const menuPromotedRows = useRef<import("../../api/dto").PromotedRowDto[]>([]);
-  const [menuWithheld, setMenuWithheld] = useState(false);
-  const menuWithheldAnswer = useRef<{ promise: Promise<boolean>; resolve: (withheld: boolean) => void }>({ promise: Promise.resolve(false), resolve: () => undefined });
+  const liveMenu = useRef<MenuObject | null>(null);
+  closeOverlays.current = () => {
+    closeSourceMenu();
+    setKnows(null);
+    setExerciseSheet(null);
+    setCarriedOpen(false);
+  };
+  const closeSourceMenu = () => {
+    liveMenu.current = null;
+    menuWithheldAnswer.current.resolve(null);
+    setMenu(null);
+  };
+  const [menuWithheld, setMenuWithheld] = useState<MenuVerdict | null>(null);
+  const menuOpening = useRef(0);
+  const menuWithheldAnswer = useRef<{ promise: Promise<MenuVerdict | null>; resolve: (verdict: MenuVerdict | null) => void }>({ promise: Promise.resolve(null), resolve: () => undefined });
   const menuContext = useMemo<MenuContext>(() => ({
     deskId,
-    api: menuTransport,
+    // A capture from the menu (a margin note, an append's highlight) is read again by the windows showing its
+    // reading, so its mark shows there at once.
+    api: { ...menuTransport, readerCapture: async (input) => {
+      const receipt = await menuTransport.readerCapture(input);
+      for (const [windowId, inquiry] of inquiries.current) {
+        const content = wsRef.current.windows[windowId]?.content;
+        if (content && (content.kind === "source" || content.kind === "video") && content.extractionId === input.extractionId) inquiry.annotationsChanged();
+      }
+      return receipt;
+    } },
     mintId,
     toast: toastNow,
+    // While an inline check is open, the verbs that would reveal or send veiled material wait (spec §12.6.4).
+    heldReason: () => checkDesk.heldReason(),
     ask: (object) => {
       const quote = clipQuote(object.selection || object.text, 400);
-      if (object.windowId) setChip({ quote, spanIds: object.spanIds ?? (object.spanId ? [object.spanId] : []), windowId: object.windowId });
+      if (object.windowId) setChip({ quote, extractionId: object.extractionId, spanIds: passageIds(object), windowId: object.windowId });
       const box = stageRef.current?.getBoundingClientRect();
       const anchor = box ? { x: object.at.x - box.left, y: object.at.y - box.top, w: 1, h: 1 } : null;
       if (companionStateRef.current.mode === "hidden") stepCompanion({ kind: "c", anchor, stage: stageNow.current });
     },
-    openSearch: (query) => setSearch({ query }),
+    openSearch: (query, selection) => setSearch({ query, selection }),
     openContent: (ref, options) => openContent(ref, options ?? {}),
     carry: (text, origin) => carryQuestion(text, origin),
     append: (object, choice) => void appendTo(object, choice),
     askNote: () => new Promise<string | null>((resolve) => setMenuSheet({ kind: "note", title: "› note in margin", detail: "your words beside this passage", resolve: (value) => resolve(typeof value === "string" ? value : null) })),
-    confirm: (title, detail) => new Promise<boolean>((resolve) => setMenuSheet({ kind: "confirm", title, detail, resolve: (value) => resolve(value === true) })),
+    confirm: (title, detail, options) => new Promise<boolean | "mine">((resolve) => setMenuSheet({ kind: "confirm", title, detail, mine: options?.mine,
+      resolve: (value) => resolve(value === "mine" ? "mine" : value === true) })),
+    // The window showing the passage opens the Reader's own question card there (one opens beside if none shows it).
+    writeOwnQuestion: (object, anchor) => {
+      const windowId = object.windowId && inquiries.current.has(object.windowId) ? object.windowId : null;
+      const inquiry = windowId ? inquiries.current.get(windowId) : undefined;
+      if (inquiry) inquiry.writeOwnQuestion(anchor.spanId, (object.selection || object.text).trim());
+      else toastNow("open the passage's book on this desk to write your own question there");
+    },
     showMe: (text, anchor, owner) => padsHost.showMe ? padsHost.showMe(text, anchor, owner ?? undefined) : Promise.resolve(null),
     figureDestination: () => runningPadOf(deskIdRef.current),
-    landFigure: async (object, figure, padId) => {
-      // The running pad of the desk Show me was asked on (captured when asked), not the desk shown when it is ready.
-      if (padId) await store.loadPad(padId);
-      const pad = padId ? store.pads[padId] : null;
-      if (!padId || !pad) {
-        toastNow("the figure is ready, but that desk has no running pad to put it in");
-        return;
-      }
-      store.commitPad(padId, [{ op: "insert_block", blockId: mintId("blk"), versionId: mintId("ver"), kind: "figure", provenance: "learnloop", positionKey: keyAfterLast(pad.blocks), day: localDay(),
-        bodyMd: figure.line, payload: { figure_id: figure.figureId, extraction_id: object.extractionId ?? null, span_id: object.spanId ?? null } }]);
-      toastNow("◇ the figure is in your running pad");
+    showFigure: (object, figure, destination) => {
+      showInCompanion(vaultKey, {
+        key: mintId("cfig"), figure, destination, anchor: { extractionId: object.extractionId ?? null, spanId: object.spanId ?? null },
+        sourceTitle: object.windowId ? titleOf(wsRef.current.windows[object.windowId]) : null,
+      });
+      // The figure is in the companion's answer: it is summoned (docked) if it was hidden.
+      if (companionStateRef.current.mode === "hidden") stepCompanion({ kind: "dock" });
     },
+    landFigure: (object, figure, padId) => landFigureBlock({ extractionId: object.extractionId ?? null, spanId: object.spanId ?? null, spanIds: passageIds(object) }, figure, padId).catch(() => undefined),
     windowMove: (kind, windowId) => {
       const id = deskIdRef.current;
       if (!id) return;
@@ -2951,8 +3476,8 @@ export function DeskShell({
     // One import key per sheet: a resent import of the same exercise is the same import.
     reviewExercise: (object, anchor) => setExerciseSheet({ object, anchor, key: mintId("import") }),
     promotedRows: () => menuPromotedRows.current,
-    withheld: () => menuWithheldAnswer.current.promise,
-  }), [deskId, menuTransport, mintId, toastNow, stepCompanion, openContent, carryQuestion, appendTo, padsHost, runningPadOf, store, commit, openLesson, newDeskFrom]);
+    withheld: (verb) => menuWithheldAnswer.current.promise.then((verdict) => (verdict === null ? null : verdictFor(verdict, verb))),
+  }), [deskId, menuTransport, mintId, toastNow, stepCompanion, openContent, carryQuestion, appendTo, padsHost, runningPadOf, store, commit, openLesson, newDeskFrom, vaultKey, titleOf, landFigureBlock]);
 
   // A right-click inside a notebook frame (spec §11.3) opens the pad menu in the stack window that shows the
   // notebook's owner: a pad's cells ("your pad") or a lesson's notebook ("the lesson", inserting under the lesson).
@@ -3046,25 +3571,44 @@ export function DeskShell({
     openMenuOn(object);
   };
   const openMenuOn = (object: MenuObject) => {
-    if (object.kind === "pad_line") {
-      const handle = object.windowId ? padHandles.current.get(object.windowId) : undefined;
-      if (handle && object.padId) handle.openMenu(object.padId, object.blockId ?? null, object.at, object.selection);
+    // While a check is open the menu waits: its header quotes the object and its rows look things up (anything it
+    // showed would sit outside the veils).
+    const held = checkDesk.heldReason();
+    if (held) {
+      toastSafe(`the menu waits · ${held}`);
       return;
     }
+    if (object.kind === "pad_line") {
+      closeSourceMenu();
+      const handle = object.windowId ? padHandles.current.get(object.windowId) : undefined;
+      if (handle && object.padId) handle.openMenu(object.padId, object.blockId ?? null, object.at, object.selection, object.blockIds);
+      return;
+    }
+    liveMenu.current = object;
     menuPromotedRows.current = [];
     // The object's protection is known from its first answer; a verb that would send its words waits for it.
-    setMenuWithheld(false);
-    let resolve: (withheld: boolean) => void = () => undefined;
-    menuWithheldAnswer.current = { promise: new Promise<boolean>((done) => { resolve = done; }), resolve: (withheld) => resolve(withheld) };
-    if (!hasPassage(object)) menuWithheldAnswer.current.resolve(false);
+    menuOpening.current++;
+    menuWithheldAnswer.current.resolve(null);
+    setMenuWithheld(null);
+    let resolve: (verdict: MenuVerdict | null) => void = () => undefined;
+    menuWithheldAnswer.current = { promise: new Promise<MenuVerdict | null>((done) => { resolve = done; }), resolve: (verdict) => resolve(verdict) };
+    if (!hasPassage(object)) menuWithheldAnswer.current.resolve({ all: object.kind !== "window" });
     setMenu(object);
   };
+
+  const openMenuContext: MenuContext = { ...menuContext, begin: () => {
+    if (!menu || liveMenu.current !== menu) return false;
+    closeSourceMenu();
+    return true;
+  } };
 
   // The object under the pointer, for `.` and the ContextMenu key (else the focused window's first object).
   const hoverTarget = useRef<Element | null>(null);
   /** `n` (a margin note on the hovered passage) and `b` (the hovered object's first promoted action, labelled
    * opened once it ran); false when the pointer is over nothing they apply to. */
   hoveredKeyRef.current = (what) => {
+    // A promoted action or a margin note by key would read the passage under the pointer: not while a check is open.
+    if (checkDesk.holding()) return false;
     const hovered = hoverTarget.current;
     if (!hovered || !stageRef.current?.contains(hovered)) return false;
     const object = objectAt(hovered, (windowId) => wsRef.current.windows[windowId]?.content?.kind ?? null, (windowId) => {
@@ -3075,14 +3619,14 @@ export function DeskShell({
       return { x: box.left + 30, y: box.bottom + 2 };
     })(), firstVisibleSpan);
     if (!object || !hasPassage(object)) return false;
-    if (what === "note") {
-      if (object.kind !== "passage" && object.kind !== "cue") return false;
-      void runVerb("note", object, menuContext);
-      return true;
-    }
+    if (what === "note" && object.kind !== "passage" && object.kind !== "cue") return false;
     const input = objectInput(object, deskIdRef.current);
     void menuPromoted.passagePromoted(input).then((found) => {
       if (found.pendingJob) void menuPromoted.passagePromotedCancel({ jobId: found.pendingJob.jobId }).catch(() => undefined);
+      if (what === "note") {
+        void runVerb("note", object, { ...menuContext, withheld: async () => found.withheld !== false });
+        return;
+      }
       const first = found.rows[0];
       if (!first) {
         toastNow("nothing to open from here yet");
@@ -3218,6 +3762,171 @@ export function DeskShell({
     return handler;
   }, [jumpReadyFor]);
 
+  const inquiryReadyFor = useMemo(() => new Map<string, (inquiry: WindowInquiry | null) => void>(), []);
+  const onInquiryReadyFor = useCallback((windowId: string) => {
+    let handler = inquiryReadyFor.get(windowId);
+    if (!handler) {
+      handler = (inquiry) => {
+        if (inquiry) inquiries.current.set(windowId, inquiry);
+        else inquiries.current.delete(windowId);
+        // A restored reading-path panel: the book's window opens its path once its Reader is there.
+        if (inquiry && pendingPaths.current.delete(windowId)) inquiry.showPath("open");
+      };
+      inquiryReadyFor.set(windowId, handler);
+    }
+    return handler;
+  }, [inquiryReadyFor]);
+
+  // A source window's ask goes to the companion (its rail is not on the desk): with words it is asked now, on the
+  // window's reading and passage (a named parent makes it a branch of that question); without, the companion opens
+  // on the passage with its words as the chip, for the learner to ask.
+  const windowAsk = (windowId: string, ask: WindowAsk) => {
+    const content = wsRef.current.windows[windowId]?.content;
+    if (!content || (content.kind !== "source" && content.kind !== "video")) return;
+    if (ask.question.trim()) {
+      asks.ask({
+        deskId: deskIdRef.current, windowId, surface: "desk", question: ask.question.trim(), extractionId: content.extractionId,
+        spanId: ask.spanId, selectionSpanIds: ask.selectionSpanIds, quote: ask.quote,
+        ...(ask.parentExchangeId !== undefined ? { parentExchangeId: ask.parentExchangeId } : {}),
+        ...(ask.answerMode ? { answerMode: ask.answerMode } : {}),
+        ...personalizedInput(),
+      }, store.settled());
+    } else if (ask.quote) {
+      setChip({ quote: clipQuote(ask.quote, 400), spanIds: ask.selectionSpanIds, windowId });
+    }
+    if (companionStateRef.current.mode === "hidden") stepCompanion({ kind: "c", anchor: null, stage: stageNow.current });
+  };
+  const windowAskRef = useRef(windowAsk);
+  windowAskRef.current = windowAsk;
+  const askFor = useMemo(() => new Map<string, (ask: WindowAsk) => void>(), []);
+  const onAskFor = useCallback((windowId: string) => {
+    let handler = askFor.get(windowId);
+    if (!handler) {
+      handler = (ask) => windowAskRef.current(windowId, ask);
+      askFor.set(windowId, handler);
+    }
+    return handler;
+  }, [askFor]);
+
+  // "what matters here?" in a window: the goal's path view when the desk has a goal band, else the reading's own path
+  // in that window.
+  const windowOpenPath = (windowId: string) => {
+    const content = wsRef.current.windows[windowId]?.content;
+    if (!content || (content.kind !== "source" && content.kind !== "video")) return;
+    if (goalPathRef.current.open) return;
+    if (goalPathRef.current.toggle()) return;
+    if (inquiries.current.get(windowId)?.showPath("open")) return;
+    // Reading paths are off for this library (reader.reading_paths): there is no path to show.
+    toastNow("There’s no reading path for this book.");
+  };
+  const windowOpenPathRef = useRef(windowOpenPath);
+  windowOpenPathRef.current = windowOpenPath;
+  const openPathFor = useMemo(() => new Map<string, () => void>(), []);
+  const onOpenPathFor = useCallback((windowId: string) => {
+    let handler = openPathFor.get(windowId);
+    if (!handler) {
+      handler = () => windowOpenPathRef.current(windowId);
+      openPathFor.set(windowId, handler);
+    }
+    return handler;
+  }, [openPathFor]);
+
+  // Side by side (the v1 Reader's second pane as two windows, spec §21.1): Ctrl+\ or a list's "side by side" in a
+  // book window opens the other book in a window paired with it; following, F6 and the way back live in DeskPairs.
+  const pairs = useMemo(() => new DeskPairs({
+    loaded: () => store.loaded,
+    windowOf: (id) => {
+      const content = wsRef.current.windows[id]?.content;
+      return content && content.kind === "source" ? { sourceId: content.sourceId, extractionId: content.extractionId } : null;
+    },
+    correspondents: (input) => api.readerCorrespondents(input),
+    jump: (id, spanId) => {
+      const jump = jumps.current.get(id);
+      if (jump) jump(spanId);
+      else pendingJump.current.set(id, spanId);
+    },
+    notice: (text) => toastNow(text),
+    record: (event, payload) => logReaderAction(event, payload),
+    // The vault's pairs outlive this mount: back from a check or its feedback, a pair is still one.
+  }, keptPairsFor(vaultKey)), [toastNow, store, vaultKey]);
+  const windowOpenPair = (windowId: string, target: PaneTarget) => {
+    const id = deskIdRef.current;
+    const current = wsRef.current;
+    if (!id || !current.windows[windowId]) return;
+    const card = library?.find((entry) => entry.sourceId === target.sourceId);
+    const kind = card && isVideoCard(card) ? "video" : "source";
+    const step = openPaired(current, id, windowId, { kind, sourceId: target.sourceId, extractionId: target.extractionId } as ContentRefDto,
+      () => mintId("win"), { spanId: target.spanId, view: target.spanId ? { spanId: target.spanId } : {} });
+    commit(step);
+    if (step.windowId !== windowId) pairs.pair(windowId, step.windowId);
+    if (step.existed && target.spanId) {
+      const jump = jumps.current.get(step.windowId);
+      if (jump) jump(target.spanId);
+      else pendingJump.current.set(step.windowId, target.spanId);
+    }
+  };
+  const windowOpenPairRef = useRef(windowOpenPair);
+  windowOpenPairRef.current = windowOpenPair;
+  const pairHandlers = useMemo(() => new Map<string, { open: (target: PaneTarget) => void; section: (section: { extractionId: string; sectionId: string } | null) => void; key: (key: "follow" | "other") => void; touched: () => void }>(), []);
+  const pairHandlersFor = useCallback((windowId: string) => {
+    let handlers = pairHandlers.get(windowId);
+    if (!handlers) {
+      handlers = {
+        open: (target) => windowOpenPairRef.current(windowId, target),
+        section: (section) => void pairs.crossed(windowId, section),
+        touched: () => pairs.touched(windowId),
+        key: (key) => {
+          if (key === "follow") {
+            pairs.toggleFollow(windowId);
+            return;
+          }
+          const partner = pairs.partnerOf(windowId);
+          const id = deskIdRef.current;
+          if (partner && id) commit(setFocus(wsRef.current, id, partner));
+        },
+      };
+      pairHandlers.set(windowId, handlers);
+    }
+    return handlers;
+  }, [pairHandlers, pairs, commit]);
+
+  // A companion answer that lands while the desks are shown is told to the window it was asked from (else the first
+  // window on the desk showing its reading): a follow-up joins that window's detours with its parent, so walking back
+  // to where the learner was asks "does this make sense now?" there. Answers already in the thread when the desks
+  // open were told before, or belong to a visit that has ended.
+  const toldAnswers = useRef<Set<string> | null>(null);
+  const companionVersion = asks.getVersion();
+  useEffect(() => {
+    const answerId = (exchange: CompanionExchange) => (exchange.answer ? exchange.answer.readerAnswerEventId || exchange.answer.eventId : null);
+    const thread = asks.thread(deskId);
+    if (toldAnswers.current === null) {
+      toldAnswers.current = new Set(thread.map(answerId).filter((id): id is string => Boolean(id)));
+      return;
+    }
+    const told = toldAnswers.current;
+    const asExchange = (exchange: CompanionExchange, id: string): WindowExchange => ({
+      id, parentExchangeId: exchange.answer?.parentExchangeId ?? exchange.request.parentExchangeId ?? null,
+      extractionId: exchange.extractionId, spanId: exchange.spanId, question: exchange.question, answerMd: exchange.answer?.answerMd ?? "",
+    });
+    for (const exchange of thread) {
+      const id = answerId(exchange);
+      if (exchange.status !== "answered" || !id || told.has(id)) continue;
+      told.add(id);
+      const current = wsRef.current;
+      const shows = (windowId: string | null) => {
+        const content = windowId ? current.windows[windowId]?.content : null;
+        return Boolean(content && (content.kind === "source" || content.kind === "video") && content.extractionId === exchange.extractionId);
+      };
+      const desk = deskId ? deskById(current, deskId) : null;
+      const windowId = shows(exchange.windowId) ? exchange.windowId : (desk?.slots.flat().find((each) => shows(each)) ?? null);
+      const inquiry = windowId ? inquiries.current.get(windowId) : undefined;
+      if (!inquiry) continue;
+      const me = asExchange(exchange, id);
+      const parent = me.parentExchangeId ? thread.find((each) => answerId(each) === me.parentExchangeId) : undefined;
+      inquiry.noteAnswer(me, parent ? asExchange(parent, me.parentExchangeId as string) : null);
+    }
+  }, [asks, deskId, companionVersion]);
+
   const mediaReadyFor = useMemo(() => new Map<string, (toggle: (() => void) | null) => void>(), []);
   const onMediaReadyFor = useCallback((windowId: string) => {
     let handler = mediaReadyFor.get(windowId);
@@ -3275,26 +3984,34 @@ export function DeskShell({
     return () => timers.clear(handle);
   }, [undo, timers]);
 
-  if (!ws) {
+  // Nothing of the desks renders before the recovery read says whether a check is open (an open one's veils come
+  // first); a failed read says so and offers to read again, and shows nothing meanwhile (fail closed).
+  const recovery = checkDesk.recovery();
+  if (!ws || recovery !== "known") {
     return (
-      <div className="desk-shell" data-desk-shell="">
+      <div className="desk-shell" data-desk-shell="" data-check-recovery={recovery}>
         <header className="desk-top"><span className="desk-brand">◇ LearnLoop</span></header>
         <main className="desk-main"><aside className="desk-shelf" /><section className="desk-stage" ref={stageRef} /></main>
-        <footer className="desk-keys"><span className="note">◐ opening your desks…</span></footer>
+        <footer className="desk-keys">
+          {recovery === "failed" ? (
+            <span className="note" role="alert">couldn't tell whether a check is open on your desks · <button type="button" onClick={() => checkDesk.retryRecovery()}>try again</button></span>
+          ) : <span className="note">◐ Opening your desks…</span>}
+        </footer>
       </div>
     );
   }
 
   const paneBody = (window: DeskWindow, lifecycle: WindowLifecycle): ReactNode => {
     const content = window.content;
-    const card = content && (content.kind === "source" || content.kind === "video") ? library?.find((entry) => entry.sourceId === content.sourceId) ?? null : null;
+    const listed = content && (content.kind === "source" || content.kind === "video") ? library?.find((entry) => entry.sourceId === content.sourceId) ?? null : null;
+    const card = listed && listed.readiness !== "ready" ? readyCards.current.get(listed.sourceId) ?? listed : listed;
     if (renderPane) return renderPane({ window, lifecycle, card });
     if (window.kind === "pad_stack" || content?.kind === "pad" || content?.kind === "lesson") {
       // A pad or a lesson in a slot of its own is a stack of one.
       const stack = window.stack ?? (content?.kind === "pad" ? [{ kind: "pad" as const, padId: content.padId }] : content?.kind === "lesson" ? lessonStack(content) : []);
       return <PadStackWindow windowId={window.windowId} stack={stack} view={window.view ?? {}} info={emissionOpen === window.windowId} onInfo={(open) => setEmissionOpen(open ? window.windowId : null)} />;
     }
-    if (!content) return <div className="desk-panel desk-quiet">This window opens here once its kind is built.</div>;
+    if (!content) return <div className="desk-panel desk-quiet">This window can’t open here. Close it and reopen the source from your library.</div>;
     switch (content.kind) {
       case "source":
       case "video": {
@@ -3306,17 +4023,36 @@ export function DeskShell({
           content,
           card,
           libraryLoaded: library !== null,
-          startSpan: typeof window.view?.spanId === "string" ? (window.view.spanId as string) : null,
+          // The app's way back to this book (a check's or a problem's return, the plan's reading) not done yet: the window
+          // opens at that passage. Its Reader places itself once it opens, asynchronously (a saved place, its reading
+          // history), so a jump made before that would be undone; a window that opens at the passage is not.
+          startSpan: openingAt(window.windowId, window.deskId, content)
+            ?? (typeof window.view?.spanId === "string" ? (window.view.spanId as string) : null),
           railHost: railNode && railPanel ? { node: railNode, tab: railTab, lifecycle: lifecycles[railPanel] ?? { windowId: railPanel, state: "hidden" }, hub: hubFor(railPanel), claims: claimsFor(railPanel) } : null,
           onStatus: onStatusFor(window.windowId),
           onJumpReady: onJumpReadyFor(window.windowId),
           onMediaReady: onMediaReadyFor(window.windowId),
+          onInquiryReady: onInquiryReadyFor(window.windowId),
+          onAsk: onAskFor(window.windowId),
+          onOpenPath: onOpenPathFor(window.windowId),
+          // A note a search result opened the window for (its identity in the window's view).
+          openNote: typeof window.view?.annotationId === "string" ? (window.view.annotationId as string) : null,
+          drainHost: draining && window.deskId === deskId ? drainWrapHost : null,
+          onOpenBeside: openHit,
+          onOpenPair: pairHandlersFor(window.windowId).open,
+          onSection: pairHandlersFor(window.windowId).section,
+          onPairKey: pairHandlersFor(window.windowId).key,
+          onTouched: pairHandlersFor(window.windowId).touched,
+          onWorkOnPad: (handoff) => void workOnPad(handoff),
+          onSkimming: skimmingFor(window.windowId),
+          handoff: pendingHandoffs.current.get(window.windowId) ?? null,
           onError,
           ...(reader ? { reader } : {}),
-          // A book following a video marks its passage over the goal lens (RD10).
-          lens: content.kind === "source"
+          // A book following a video marks its passage over the goal lens (RD10); a begun check's open card sits before
+          // its host passage (RD7; a due check is placed at no passage).
+          lens: checkLenses.lensFor(window.windowId, content.extractionId, content.kind === "source"
             ? followLenses.lensFor(window.windowId, goalDesk.lensFor(window.windowId, content.extractionId), videoDesk.followedSpan(window.windowId))
-            : goalDesk.lensFor(window.windowId, content.extractionId),
+            : goalDesk.lensFor(window.windowId, content.extractionId), checkDesk),
         };
         if (content.kind === "video") {
           return <VideoWindow {...props} windowId={window.windowId} desk={videoDesk} transport={videoTransport} poller={poller} />;
@@ -3338,24 +4074,25 @@ export function DeskShell({
           );
         }
         if (content.panel === "path") {
-          return (
-            <PathPanel
-              extractionId={content.extractionId ?? null}
-              onError={onError}
-              onJump={(spanId) => {
-                const target = content.extractionId ? sourceWindowOf(window.deskId, content.extractionId) : null;
-                if (!target) return;
-                commit(setFocus(wsRef.current, window.deskId, target));
-                const jump = jumps.current.get(target);
-                if (jump) jump(spanId);
-              }}
-            />
-          );
+          // The reading's path is the book's window's own now (p, "what matters here?"); a path panel that arrived from
+          // another device is restored there when the desks next open.
+          return <div className="desk-panel desk-quiet">The reading path is in the book’s window now: press p there.</div>;
         }
-        return <LibraryPanel query={null} onOpenHit={openHit} onClose={() => run({ kind: "closeWindow" })} onError={onError} />;
+        return <LibraryPanel query={null} onOpenHit={openHit} onClose={() => run({ kind: "closeWindow" })} onError={onError} library={library ?? null} reader={reader ?? null} />;
+      }
+      case "preparing": {
+        const preparing = library?.find((entry) => entry.sourceId === content.sourceId) ?? null;
+        return (
+          <PreparingWindow
+            card={preparing}
+            libraryLoaded={library !== null}
+            onReady={(next, position) => void bookReady(window.deskId, window.windowId, next, position)}
+            onError={onError}
+          />
+        );
       }
       case "compare":
-        return <LibraryPanel query={content.query ?? null} anchor={compareAnchorOf(window.view)} onOpenHit={openHit} onClose={() => run({ kind: "closeWindow" })} onError={onError} />;
+        return <LibraryPanel query={content.query ?? null} anchor={compareAnchorOf(window.view)} onOpenHit={openHit} onClose={() => run({ kind: "closeWindow" })} onError={onError} library={library ?? null} reader={reader ?? null} />;
       case "thread":
         return (
           <ThreadWindow
@@ -3364,8 +4101,10 @@ export function DeskShell({
             onOpenClaim={openClaim}
           />
         );
-      default:
-        return <div className="desk-panel desk-quiet">This window opens here once its kind is built.</div>;
+      default: {
+        const restored = restoreContent(content);
+        return <div className="desk-panel desk-quiet">This window ({restored.kind === "inert" ? restored.name : "a window"}) can’t open here. Close it and reopen the source from your library.</div>;
+      }
     }
   };
 
@@ -3449,16 +4188,18 @@ export function DeskShell({
     ? [["h j k l", "select"], ["↵ / click", "open"], ["alt+↵", "open in focus"], ["alt+[ ]", "move"], ["alt+shift+j/k", "to a desk"], ["drag", "move a card"], ["b", "relations"], ["g", "hold: gather"], ["o / esc", "back"]]
     : focusMode
     ? [["alt+↵ / esc", "leave focus"], ["= − 0", "zoom"], ["alt+h/l", "next window"]]
-    : [["alt+h/l", "window"], ["alt+j/k", "pane · desk"], ["alt+[ ]", "move"], ["alt+, .", "share · own slot"], ["alt+↵", "focus"], ["alt+w", "close"], ["c", "tutor here"], ["shift+c", "at its dock"], ["/", "find"]];
+    : [["alt+h/l", "window"], ["alt+j/k", "window · desk"], ["alt+[ ]", "move"], ["alt+, .", "stack · unstack"], ["alt+↵", "focus"], ["alt+w", "close"], ["c", "companion here"], ["shift+c", "dock it"], ["/", "find"]];
 
   return (
+    <CheckHoldContext.Provider value={checkHolding}>
     <PadsHostContext.Provider value={padsHost}>
     <PenHostContext.Provider value={penHost}>
       <NotebookBridgeContext.Provider value={notebookBridge}>
     <div className={`desk-shell${penOn ? " pen-mode" : ""}${focusMode || leaveTarget?.focusWindowId ? " focus-mode" : ""}${overview ? " overview" : ""}${zooming ? " zooming" : ""}${goalDesk.hasBand ? " has-goal" : ""}`} data-desk-shell="" data-focus-mode={focusMode ? "on" : "off"} data-overview={overview ? "on" : "off"}>
       <header className="desk-top">
-        <span className="desk-brand">◇ LearnLoop</span>
-        <nav className="desk-tabs" aria-label="desks">
+        <span className="desk-brand" {...{ [SAFE_ATTR]: "" }}>◇ LearnLoop</span>
+        {/* The desks' names and the header's buttons are chrome (the learner's own names, fixed labels). */}
+        <nav className="desk-tabs" aria-label="desks" {...{ [SAFE_ATTR]: "" }}>
           {ws.desks.map((each) => (
             renaming === each.deskId ? (
               <input
@@ -3505,14 +4246,23 @@ export function DeskShell({
         </nav>
         {goalDesk.topChip}
         <span className="grow" />
+        <span className="desk-top-tools" style={{ display: "contents" }} {...{ [SAFE_ATTR]: "" }}>
         <button type="button" className="tb penchip" aria-pressed={penOn} title="alt+p · pen mode" onClick={() => setPenOn((on) => !on)}>✎ pen <span>{penOn ? "on" : "off"}</span></button>
         {viewportWidth >= DESK_SIZES.shelfFoldBelow ? (
           <button type="button" className="tb simpen" aria-pressed={simulatePen} title="draw with the mouse as if it were a pen" onClick={() => setSimulatePen((on) => { if (!on) setPenOn(true); return !on; })}>simulate pen: <span>{simulatePen ? "on" : "off"}</span></button>
         ) : null}
         <button type="button" className="tb" aria-pressed={overview} title="alt+o" onClick={() => toggleOverview()}>o overview</button>
         <button type="button" className="tb" aria-expanded={opener} onClick={() => setOpener((open) => !open)}>+ open beside</button>
-        {onLeave ? <button type="button" className="tb" onClick={onLeave}>old Reader</button> : null}
+        </span>
       </header>
+      {promptContract.data && promptContract.data.readerEnabled === false ? (
+        // The library's reading switch is off: every Reader read refuses, so the windows cannot open their books. Said
+        // once, with the setting (the old Reader's list of books said it the same way).
+        // Safe while a check is open: one fixed line about a setting, no study material.
+        <div className="desk-quiet" role="note" data-desk-reader-off="" {...{ [SAFE_ATTR]: "" }} style={{ padding: "6px 16px", borderBottom: "1px solid var(--desk-line)" }}>
+          Reading is off in this library: set <code>tutor_qa.reader_enabled = true</code> in learnloop.toml to read and annotate your sources here.
+        </div>
+      ) : null}
       {goalDesk.band}
       <main className={`desk-main${viewportWidth < DESK_SIZES.shelfFoldBelow ? " rail" : ""}`} ref={mainRef}>
         <Shelf
@@ -3625,20 +4375,24 @@ export function DeskShell({
                         data-window-kind={window.kind}
                         className={`desk-pane${paired && window.active ? " active-pane" : ""}`}
                       >
+                        {/* The head is the window's chrome: its glyph, name and buttons stay readable while a check
+                            holds the page (the name then says only what the window is: a book's name, else its kind);
+                            its place in the reading and its chips are held in place like anything else. */}
                         <div className="desk-pane-head">
-                          <span className="g">{KIND_GLYPH[window.kind] ?? "§"}</span>
-                          <span className="t">{titleOf(window)}</span>
+                          <span className="g" {...{ [SAFE_ATTR]: "" }} title={window.kind === "pad_stack" || window.kind === "pad" ? "Pad" : KIND_WORD[window.kind] ?? "Window"}>{KIND_GLYPH[window.kind] ?? "§"}</span>
+                          <span className="t" {...{ [SAFE_ATTR]: "" }}>{checkHolding ? heldTitleOf(window) : titleOf(window)}</span>
                           {window.kind === "pad_stack" ? (
-                            <button type="button" className="emi pinfo" aria-label="where your words go" title="where your words go" aria-expanded={emissionOpen === id}
+                            <button type="button" className="emi pinfo" {...{ [SAFE_ATTR]: "" }} aria-label="where your words go" title="where your words go" aria-expanded={emissionOpen === id}
                               onClick={() => setEmissionOpen((now) => (now === id ? null : id))}>ⓘ</button>
                           ) : null}
                           {window.kind === "pad_stack" ? <span className="loc">yours</span> : status[id]?.where ? <span className="loc">{status[id]?.where}</span> : null}
                           {window.content?.kind === "source" ? <FollowChip desk={videoDesk} windowId={id} /> : null}
-                          {paired ? <span className="hint">{window.active ? "alt+. gives it its own slot" : "click or alt+j/k"}</span> : null}
+                          {paired ? <span className="hint" {...{ [SAFE_ATTR]: "" }}>{window.active ? "Alt+. gives this window its own space" : "click or alt+j/k"}</span> : null}
                           <button
                             type="button"
                             className="x"
-                            aria-label={`close ${titleOf(window)}`}
+                            {...{ [SAFE_ATTR]: "" }}
+                            aria-label={`close ${checkHolding ? heldTitleOf(window) : titleOf(window)}`}
                             title="close (alt+w)"
                             style={paired ? undefined : { marginLeft: "auto" }}
                             onClick={(event) => {
@@ -3680,6 +4434,7 @@ export function DeskShell({
                       layout; the zoom scales the box). */}
                   <div
                     className="desk-card"
+                    data-desk-card={id}
                     ref={(node) => {
                       if (node) cardEls.current.set(id, node);
                       else cardEls.current.delete(id);
@@ -3790,6 +4545,9 @@ export function DeskShell({
             />
           ) : null}
           {hud ? <div className="desk-hud" role="status">{hud}</div> : null}
+          {openCheck && !checkInline ? <CheckCardOverlay desk={checkDesk} /> : null}
+          <DeskCheckMarker desk={checkDesk} onCheckNow={checkNow} />
+          <VeilLayer desk={checkDesk} root={typeof document === "undefined" ? null : document.body} windows={holdWindows} onChange={protectCheckView} />
           <Companion
             ref={companionRef}
             state={companionState}
@@ -3806,17 +4564,30 @@ export function DeskShell({
             thread={thread}
             proposals={answerProposals}
             chip={chip ? { quote: chip.quote } : null}
-            cannotAsk={grounding.reason}
+            cannotAsk={checkDesk.heldReason() ? `the companion waits · ${checkDesk.heldReason()}` : grounding.reason}
             avoid={avoid}
             loadHistory={loadHistory}
             deskTitle={deskTitle}
             onAsk={askCompanion}
             onCancel={(requestId) => asks.cancel(requestId)}
-            onRetry={(requestId) => asks.retry(requestId)}
+            onRetry={(requestId) => {
+              // A retry asks the tutor again: it waits while a check is open, as the ask does.
+              const held = checkDesk.heldReason();
+              if (held) toastSafe(`the companion waits · ${held}`);
+              else asks.retry(requestId);
+            }}
             onClearChip={() => setChip(null)}
             onOpenClaim={openClaim}
             onOpenAnchor={(anchor) => openClaim({ extractionId: anchor.extractionId, spanId: anchor.spanId })}
             onOpenThread={openThread}
+            figures={shownFigures.length ? <CompanionFigures scope={vaultKey} host={companionFigureHost} /> : null}
+            tutor={readerTutor?.retrieval ? {
+              personalized: { on: personalizedOn, onToggle: setPersonalizedChoice },
+              anotherWay: readerTutor.anotherWay,
+              onAnotherWay: (exchange) => askAgain(exchange, TUTOR_COPY.anotherWayQuestion, "alternative"),
+              onDidntHelp: (exchange, text) => askAgain(exchange, text || TUTOR_COPY.didntHelpDefault, "remediate"),
+              onOpenPassage: (passage) => openClaim(passage),
+            } : null}
             onHide={() => stepCompanion({ kind: "hide" })}
             onDock={() => stepCompanion({ kind: "dock" })}
             onSnap={snapCompanion}
@@ -3834,6 +4605,8 @@ export function DeskShell({
               open={(desk?.slots.flat() ?? []).map((id) => ({ windowId: id, title: titleOf(ws.windows[id]) }))}
               deskTitle={deskTitle}
               initialQuery={search.query}
+              selection={search.selection}
+              blockIds={search.blockIds}
               insert={search.insert ?? null}
               reducedMotion={reduced}
               onOpenRow={openSearchRow}
@@ -3843,17 +4616,18 @@ export function DeskShell({
         </section>
       </main>
       {goalDesk.overlays}
-      <footer className="desk-keys">
-        {goalDesk.hasBand && !overview ? <span className="gk"><kbd>p</kbd> your path</span> : null}
+      {/* The keys' footer is chrome: held quietly while a check is open (its undo line and dots name windows). */}
+      <footer className="desk-keys" data-check-region="the footer" data-check-region-quiet="">
+        {goalDesk.hasBand && !overview ? <span className="gk"><kbd title="Press P to open Path">p</kbd> your path</span> : null}
         {penOn && !overview ? (
           <>
             <span className="penk"><kbd>✎</kbd> pen: underline · bracket · circle · scribble · strike</span>
-            <span><kbd>barrel</kbd> = eraser · menu stays on <kbd>.</kbd> · touch only scrolls</span>
+            <span><kbd>Pen side button</kbd> = eraser · menu stays on <kbd title="Press Period for passage options">.</kbd> · touch only scrolls</span>
           </>
         ) : null}
-        {hints.map(([keys, label]) => <span key={keys}><kbd>{keys}</kbd> {label}</span>)}
+        {hints.map(([keys, label]) => <span key={keys}><kbd title={keys.replace(/↵/g, "Enter").replace("= − 0", "Equals, Minus, Zero")}>{keys}</kbd> {label}</span>)}
         {ungather && ungather.deskId === deskId && !overview ? (
-          <button type="button" style={{ color: "var(--desk-cyan)" }} onClick={() => gather(false)}>↺ ungather</button>
+          <button type="button" style={{ color: "var(--desk-cyan)" }} onClick={() => gather(false)}>↺ Undo grouping</button>
         ) : null}
         {undoShown && viewportWidth < DESK_SIZES.shelfFoldBelow ? (
           // With the shelf folded to its rail, its undo line moves here.
@@ -3867,13 +4641,14 @@ export function DeskShell({
               key={id}
               type="button"
               aria-label={titleOf(ws.windows[id])}
+              title={titleOf(ws.windows[id])}
               className={id === focusId ? "f" : visibility[index]?.inView ? "in" : ""}
               style={focusMode ? (id === focusId ? { width: 46, height: 5 } : { opacity: 0.45 }) : undefined}
               onClick={() => commit(setFocus(wsRef.current, desk.deskId, id))}
             />
           )))}
         </span>
-        <span className="note">hold <kbd>alt</kbd> for navi hints</span>
+        <span className="note">hold <kbd>alt</kbd> for shortcuts</span>
       </footer>
       {opener ? (
         <OpenBeside
@@ -3882,15 +4657,23 @@ export function DeskShell({
           focusTitle={titleOf(focusWindow)}
           onOpen={openContent}
           onOpenCard={(card) => {
+            if (card.readiness !== "ready") {
+              openContent({ kind: "preparing", sourceId: card.sourceId });
+              return;
+            }
             void transport.resolveExtraction(card.sourceId)
               .then((extractionId) => openContent(contentForCard(card, extractionId)))
-              .catch(() => toastNow("that source didn't open"));
+              .catch(() => toastNow("Couldn’t open this source. Find it in your library and try again."));
+          }}
+          onOpenPath={() => {
+            setOpener(false);
+            if (focusWindow) windowOpenPath(focusWindow.windowId);
           }}
           onClose={() => setOpener(false)}
         />
       ) : null}
       {whichKey ? <WhichKey /> : null}
-      {toast ? <div key={toast.key} className="desk-toast" role="status">{toast.text}</div> : null}
+      {toast ? <div key={toast.key} className="desk-toast" role="status" {...(toast.safe ? { [SAFE_ATTR]: "" } : {})}>{toast.text}</div> : null}
       {focusMode && badge !== null ? (
         <div key={badge} className="desk-zoom-badge fade" role="status">
           {Math.round(focusZoom * 100)}% · alt+↵ or esc to leave · = − to zoom
@@ -3898,14 +4681,16 @@ export function DeskShell({
       ) : null}
       {menu ? (
         <ContextMenu
-          header={headerLine(menu, menuWithheld)}
-          rows={sourceMenuRows(menu, menuContext, (() => {
+          key={menuOpening.current}
+          // The header quotes the passage when the Reader's own Ask may read it (its row, reader_ask: the held-out
+          // partition), so a practice exam that is not held out is quoted as the Reader's composer quotes it; held-out
+          // material is named, never quoted.
+          header={headerLine(menu, menuWithheld === null ? null : verdictFor(menuWithheld, "ask"))}
+          neutralHeader={headerLine(menu)}
+          rows={sourceMenuRows(menu, openMenuContext, (() => {
             const target = appendTargetOf(deskId);
             return deskPads(deskId).find((pad) => pad.padId === target)?.title ?? "a new pad";
-          })(), menuWithheld).map((row) => ({ ...row, run: () => {
-            setMenu(null);
-            row.run?.();
-          } }))}
+          })(), (id) => menuWithheld !== null && verdictFor(menuWithheld, id))}
           at={menu.at}
           object={hasPassage(menu) ? objectInput(menu, deskId) : null}
           promoted={menuPromoted}
@@ -3913,22 +4698,22 @@ export function DeskShell({
           onRows={(rows) => {
             menuPromotedRows.current = rows;
           }}
-          onWithheld={(withheld) => {
-            setMenuWithheld(withheld);
-            menuWithheldAnswer.current.resolve(withheld);
+          onWithheld={(withheld, failed, verbs) => {
+            if (liveMenu.current !== menu) return;
+            const shown: MenuVerdict = { all: withheld, ...(verbs && !failed ? { verbs: new Set(verbs) } : {}) };
+            const verdict = failed ? null : shown;
+            menuWithheldAnswer.current.resolve(verdict);
+            menuWithheldAnswer.current.promise = Promise.resolve(verdict);
+            setMenuWithheld(shown);
           }}
           poller={poller}
           owner={menu.windowId}
-          append={menu.kind === "passage" || menu.kind === "cue" || menu.kind === "highlight" ? {
+          append={!(menuWithheld && verdictFor(menuWithheld, "append")) && (menu.kind === "passage" || menu.kind === "cue" || menu.kind === "highlight") ? {
             pads: deskPads(deskId),
             current: appendTargetOf(deskId),
-            onPick: (padId) => {
-              const object = menu;
-              setMenu(null);
-              void appendTo(object, padId);
-            },
+            onPick: (padId) => void runVerb("append", menu, openMenuContext, padId),
           } : null}
-          onClose={() => setMenu(null)}
+          onClose={closeSourceMenu}
         />
       ) : null}
       {knows ? (
@@ -3950,14 +4735,14 @@ export function DeskShell({
         <ExerciseSheet
           readWords={() => {
             const ids = captureNodes(exerciseSheet.object).map((node) => node.spanId);
-            return padsTransport.passageContent({ extractionId: exerciseSheet.anchor.extractionId, fromSpanId: ids[0] ?? exerciseSheet.anchor.spanId, toSpanId: ids[ids.length - 1] ?? exerciseSheet.anchor.spanId });
+            return padsTransport.passageContent({ extractionId: exerciseSheet.anchor.extractionId, fromSpanId: ids[0] ?? exerciseSheet.anchor.spanId, toSpanId: ids[ids.length - 1] ?? exerciseSheet.anchor.spanId, forVerb: "make_practice" });
           }}
           startImport={async () => {
             const { object, anchor, key } = exerciseSheet;
             const who = await menuTransport.readingIdentity(anchor.extractionId);
             return menuTransport.readerImportExercise({
               sourceId: who.sourceId, revisionId: who.revisionId, extractionId: anchor.extractionId, renderViewId: who.renderViewId, clientIdempotencyKey: key,
-              rawSelection: { extractionId: anchor.extractionId, nodes: captureNodes(object) },
+              rawSelection: { extractionId: anchor.extractionId, spanId: anchor.spanId, spanIds: passageIds(object), nodes: captureNodes(object) },
             });
           }}
           readStatus={(batchId) => menuTransport.readerExerciseImportStatus({ batchId })}
@@ -3991,12 +4776,14 @@ export function DeskShell({
             carry: (text, padId) => carryQuestion(text, { kind: "drain", ref: padId }),
           }}
           onClose={() => setDraining(false)}
+          wrapUpHost={setDrainWrapHost}
         />
       ) : null}
     </div>
       </NotebookBridgeContext.Provider>
     </PenHostContext.Provider>
     </PadsHostContext.Provider>
+    </CheckHoldContext.Provider>
   );
 }
 
@@ -4010,11 +4797,44 @@ export function contentForCard(card: SourceLibraryCard, extractionId: string): C
     : { kind: "source", sourceId: card.sourceId, extractionId, view: "render" };
 }
 
+// The preparing view draws the original with pdf.js: loaded when a book being prepared is first shown.
+const PreparingView = lazy(() => import("../reader/PreparingView").then((module) => ({ default: module.PreparingView })));
+
+/** A book still being prepared, in its own window: the original's pages while the text is made, the progress, a stopped
+ * book's action and its retry (the Reader's preparing view). Ready, it hands over: the desk opens the book's window in
+ * its place (at the page the learner had reached). */
+function PreparingWindow({
+  card,
+  libraryLoaded,
+  onReady,
+  onError,
+}: {
+  card: SourceLibraryCard | null;
+  libraryLoaded: boolean;
+  onReady: (card: SourceLibraryCard, position: ReadingPosition | null) => void;
+  onError: (message: string) => void;
+}) {
+  const ready = card?.readiness === "ready";
+  useEffect(() => {
+    if (card && ready) onReady(card, null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [card?.sourceId, ready]);
+  if (!card) return <div className="desk-panel desk-quiet">{libraryLoaded ? "This source is not in your library any more." : "◐ Opening…"}</div>;
+  if (ready) return <div className="desk-panel desk-quiet">◐ Opening {card.title}…</div>;
+  return (
+    <div className="desk-preparing" style={{ flex: 1, minHeight: 0, height: "100%", display: "flex", flexDirection: "column" }}>
+      <Suspense fallback={<div className="desk-panel desk-quiet">◐ Opening {card.title}…</div>}>
+        <PreparingView key={card.sourceId} card={card} onReady={onReady} onError={onError} />
+      </Suspense>
+    </div>
+  );
+}
+
 function Sliver({ side, title, kind, onClick, register }: { side: "l" | "r"; title: string; kind: string; onClick: () => void; register?: (node: HTMLButtonElement | null) => void }) {
   return (
-    <button type="button" ref={register} className={`desk-sliver ${side}`} aria-label={`${side === "l" ? "previous" : "next"} window: ${title}`} onClick={onClick}>
+    <button type="button" ref={register} className={`desk-sliver ${side}`} aria-label={`${side === "l" ? "previous" : "next"} window: ${title}`} title={`${side === "l" ? "Previous" : "Next"} window: ${title}`} onClick={onClick}>
       <span className="sg">{side === "l" ? "‹" : "›"}</span>
-      <span className="sgl">{KIND_GLYPH[kind] ?? "§"}</span>
+      <span className="sgl" title={kind === "pad_stack" || kind === "pad" ? "Pad" : KIND_WORD[kind] ?? "Window"}>{KIND_GLYPH[kind] ?? "§"}</span>
       <span className="st">{title}</span>
     </button>
   );
@@ -4056,6 +4876,7 @@ function OpenBeside({
   focusTitle,
   onOpen,
   onOpenCard,
+  onOpenPath,
   onClose,
 }: {
   library: SourceLibraryCard[] | null;
@@ -4063,6 +4884,7 @@ function OpenBeside({
   focusTitle: string;
   onOpen: (content: ContentRefDto) => void;
   onOpenCard: (card: SourceLibraryCard) => void;
+  onOpenPath: () => void;
   onClose: () => void;
 }) {
   const [filter, setFilter] = useState("");
@@ -4096,7 +4918,7 @@ function OpenBeside({
         {book ? (
           <div style={{ marginBottom: 8 }}>
             <div className="wkt">for {focusTitle}</div>
-            {(["guide", "notes", "path"] as const).map((panel) => (
+            {(["guide", "notes"] as const).map((panel) => (
               <div key={panel} className="wkr">
                 <span />
                 <button type="button" style={{ textAlign: "left" }} onClick={() => onOpen({ kind: "panel", panel, extractionId: book.extractionId })}>
@@ -4104,6 +4926,11 @@ function OpenBeside({
                 </button>
               </div>
             ))}
+            {/* The reading's path opens in the book's own window (p), not a panel beside it. */}
+            <div className="wkr">
+              <span />
+              <button type="button" style={{ textAlign: "left" }} onClick={onOpenPath}>◇ {PANEL_TITLES.path}</button>
+            </div>
           </div>
         ) : null}
         <div className="wkt">the library</div>
@@ -4113,7 +4940,7 @@ function OpenBeside({
         {library === null ? <div className="desk-quiet">◐ reading the library…</div> : null}
         {sources.map((card) => (
           <div key={card.sourceId} className="wkr">
-            <span>{isVideoCard(card) ? "▶" : "§"}</span>
+            <span title={isVideoCard(card) ? "Video" : "Book"}>{isVideoCard(card) ? "▶" : "§"}</span>
             <button type="button" style={{ textAlign: "left" }} onClick={() => onOpenCard(card)}>{card.title}</button>
           </div>
         ))}

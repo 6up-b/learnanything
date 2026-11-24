@@ -38,6 +38,7 @@ from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.registry import method
+from learnloop_sidecar.workbench_protection import PassageSelection, block_places, reading_places, refuse_protected
 
 #: Every RPC this module registers (pinned desktop-only).
 SEARCH_RPCS: tuple[str, ...] = ("search.everything", "search.job")
@@ -47,14 +48,16 @@ SCOPES = ("sources", "passages", "notes", "pads", "threads", "exchanges")
 Scope = Literal["sources", "passages", "notes", "pads", "threads", "exchanges"]
 #: Groups with no meaning index: they are searched by words only, and the reply says so.
 NO_MEANING_INDEX = {
-    "pads": "searched by your words only: LearnLoop keeps no meaning index of pad text yet",
-    "threads": "searched by your words only: LearnLoop keeps no meaning index of exchanges yet",
-    "exchanges": "searched by your words only: LearnLoop keeps no meaning index of exchanges yet",
+    "pads": "Pads are searched by word matches.",
+    "threads": "Questions and replies are searched by word matches.",
+    "exchanges": "Questions and replies are searched by word matches.",
 }
 _MEANING_LISTS = frozenset({"meaning", "rewrite_meaning"})
 
 
 class SearchEverythingInput(ParamsModel):
+    selection: PassageSelection | None = None
+    block_ids: list[str] = Field(default_factory=list)
     query: str = Field(min_length=1, max_length=CS.MAX_QUERY_CHARS)
     desk_id: str | None = Field(default=None, min_length=1)
     #: The groups to search (all when omitted). "open on this desk" is the client's own group.
@@ -83,7 +86,7 @@ def _require_desk(repository: Any, desk_id: str) -> None:
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         desk = desk_store.desk(connection, desk_id)
     if desk is None or desk.get("archived_at"):
-        raise SidecarError("desk_not_found", f"No open desk {desk_id!r}.")
+        raise SidecarError("desk_not_found", "Couldn’t find the desk. Open a desk and search again.")
 
 
 def _passages_state(vault: Any) -> tuple[bool, str | None]:
@@ -103,12 +106,12 @@ def _passages_meaning(vault: Any, repository: Any) -> tuple[bool, str | None, st
     from learnloop.source_retrieval.library import meaning_search_state
 
     if not vault.config.source_retrieval.enabled:
-        return False, "library retrieval is switched off (source_retrieval.enabled = false)", None
+        return False, "Similar-passage search is off. Word search is available.", None
     state = meaning_search_state(vault, repository, library_scope(repository))
     if state["status"] not in ("ready", "partial"):
-        return False, str(state.get("reason") or state["status"]), None
+        return False, "Similar-passage search is unavailable. Word search is available.", None
     coverage = None if state["status"] == "ready" else (
-        f"by meaning over {state['sources_covered']} of {state['sources']} sources (the rest are not embedded yet)")
+        f"Similar-passage search covers {state['sources_covered']} of {state['sources']} sources.")
     return True, None, coverage
 
 
@@ -202,13 +205,11 @@ def _passages_by_meaning(vault: Any, repository: Any, words: str, seen: set[str]
     from learnloop.source_retrieval.library import search_library
 
     found = search_library(vault, repository, query=words, limit=CS.GROUP_ROWS + 1, deep=True)
-    retrieval = found.get("retrieval") or {}
     if "meaning" not in str(found.get("basis") or ""):
         # The deep pass ranked nothing by meaning: the query was not embedded, or the index could not be
-        # read. Said with the retrieval's own reason.
-        reason = ((retrieval.get("query_embedding") or {}).get("reason") or (retrieval.get("dense") or {}).get("reason")
-                  or (found.get("meaning_search") or {}).get("reason") or "the search by meaning did not run")
-        entry = _meaning_group("passages", [], more=False, status="unavailable", reason=str(reason))
+        # read.
+        entry = _meaning_group("passages", [], more=False, status="unavailable",
+                               reason="Couldn’t search for similar passages. Try word matches.")
     else:
         hits = [hit for hit in found["hits"] if _MEANING_LISTS & set(hit.get("matched_by") or ())
                 and f"{hit['extraction_id']}:{hit['span_id']}" not in seen]
@@ -227,9 +228,8 @@ def _notes_by_meaning(ctx: SidecarContext, vault: Any, repository: Any, words: s
     meaning = found.get("meaning") or {}
     status = str(meaning.get("status") or "")
     if status in ("unavailable", "empty"):
-        reason = meaning.get("reason") or ("none of your notes is embedded yet" if status == "empty"
-                                           else "the query could not be embedded")
-        return _meaning_group("notes", [], more=False, status="unavailable", reason=str(reason))
+        return _meaning_group("notes", [], more=False, status="unavailable",
+                              reason="Couldn’t search for similar notes. Try word matches.")
     source_ids = CS.SourceIds(repository)
     hits = [hit for hit in found["hits"] if str(hit.get("note_key")) not in seen]
     entry = _meaning_group("notes", [_note_row(hit, source_ids, basis="meaning") for hit in hits[:CS.GROUP_ROWS]],
@@ -248,6 +248,14 @@ def search_everything(ctx: SidecarContext, params: SearchEverythingInput) -> dic
     from learnloop_sidecar.handlers.notes import notes_search_state
 
     vault, repository = ctx.require_vault()
+
+    def check_origin() -> None:
+        places = set(block_places(vault, repository, params.block_ids))
+        if params.selection:
+            places.update(reading_places(params.selection.extraction_id, params.selection.span_ids))
+        refuse_protected(vault, repository, places)
+
+    check_origin()
     if params.desk_id is not None:
         _require_desk(repository, params.desk_id)
     jobs = _jobs(ctx)
@@ -278,7 +286,7 @@ def search_everything(ctx: SidecarContext, params: SearchEverythingInput) -> dic
         if state["meaning"]:
             meaning.append("notes")
         else:
-            unavailable.append({"group": "notes", "reason": state["reason"]})
+            unavailable.append({"group": "notes", "reason": "Similar-note search is unavailable. Try word matches."})
     unavailable.extend({"group": name, "reason": NO_MEANING_INDEX[name]} for name in scopes if name in NO_MEANING_INDEX)
     if meaning and model_use.waiting(vault.root):
         # Nothing is sent before the learner's OK to use AI; the words still answer.
@@ -291,14 +299,17 @@ def search_everything(ctx: SidecarContext, params: SearchEverythingInput) -> dic
     seen = _seen_keys(groups)
 
     def work(_job: PJ.PolledJob) -> dict[str, Any]:
+        check_origin()
         out: list[dict[str, Any]] = []
         for name in meaning:
             try:
                 out.append(_passages_by_meaning(vault, repository, words, seen["passages"], coverage)
                            if name == "passages" else _notes_by_meaning(ctx, vault, repository, words, seen["notes"]))
-            except Exception as exc:  # noqa: BLE001 - one group's failure is that group's, said with its reason
+            except Exception as exc:  # noqa: BLE001 - word matches and other groups can still be shown
                 error = PJ.as_job_error(exc, cancelled=_job.cancelled)
-                out.append(_meaning_group(name, [], more=False, status="failed", reason=error.message))
+                reason = ("Give LearnLoop permission to use AI, then search again." if error.code == "waiting_for_ok"
+                          else "Couldn’t finish this search. Edit your query to try again.")
+                out.append(_meaning_group(name, [], more=False, status="failed", reason=reason))
         return {"groups": out, "unavailable": unavailable}
 
     try:
@@ -306,7 +317,8 @@ def search_everything(ctx: SidecarContext, params: SearchEverythingInput) -> dic
     except SidecarError as busy:
         if busy.code != "jobs_busy":
             raise
-        unavailable.extend({"group": name, "reason": busy.message} for name in meaning)
+        unavailable.extend({"group": name, "reason": "Similar-passage search is busy. Try word matches or search again."}
+                           for name in meaning)
         return versioned({"query": words, "groups": groups,
                           "meaning": {"status": "unavailable", "job_id": None, "unavailable": unavailable}})
     return versioned({"query": words, "groups": groups, "meaning": {
@@ -346,7 +358,7 @@ def search_job(ctx: SidecarContext, params: SearchJobInput) -> dict[str, Any]:
     if job is None:
         receipt = jobs.receipt(vault, params.job_id)
         if receipt is None:
-            raise SidecarError("job_not_found", "That search is no longer kept; search again.",
+            raise SidecarError("job_not_found", "This search expired. Change your query to try again.",
                                details={"job_id": params.job_id})
         status = PJ.CANCELLED if receipt.status == PJ.CANCELLED else PJ.EXPIRED
         return versioned({"job_id": params.job_id, "status": status, "done": True, "groups": [],

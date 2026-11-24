@@ -223,3 +223,16 @@ it("a check under an active diagnostic: the contract's measured banner, and the 
   expect(onError).not.toHaveBeenCalled();
   expect(api.recordHintReveal).not.toHaveBeenCalled();
 });
+
+// RD7 (mvp-0.69): while the check is open in the Reader, Today serves the item as practice with the banner that says so,
+// marked so the screen (and a test) can tell which surface holds the check.
+it("a check being answered in the Reader: Today's banner says so and the item is practice", async () => {
+  const held = {
+    kind: "check_once", commitmentId: "c_1", dueSince: "2026-10-19T09:00:00Z", dateSource: "test_me_later_days", cold: false,
+    beingAnsweredIn: "reader", banner: "This check is being answered in the Reader, so this one is practice.", locatorsHidden: false, restoration: null,
+  };
+  await open("classic", { intentCheck: held });
+  const banner = screen.getByTestId("intent-check-banner");
+  expect(banner.textContent).toBe(held.banner);
+  expect(banner.getAttribute("data-being-answered")).toBe("reader");
+});

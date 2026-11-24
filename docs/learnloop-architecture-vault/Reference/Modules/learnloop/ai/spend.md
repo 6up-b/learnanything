@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/ai/spend.py](../../../../../../src/learnloop/ai/spend.py) |
-| Source lines | 683 |
+| Source lines | 700 |
 | Owning package | [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
@@ -91,14 +91,15 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - `spend_envelopes(*envelopes: SpendEnvelope | None) -> Iterator[tuple[SpendEnvelope, ...]]` ([source](../../../../../../src/learnloop/ai/spend.py), line 461) — Activate envelopes for this context (added to any already active).
 - `active_envelopes() -> tuple[SpendEnvelope, ...]` ([source](../../../../../../src/learnloop/ai/spend.py), line 476)
 - `class RequestAdmission` ([source](../../../../../../src/learnloop/ai/spend.py), line 519) — One admitted physical request: what it reserved, priced at its route.
-- `class MeteredRequestGate` ([source](../../../../../../src/learnloop/ai/spend.py), line 529) — Per-request admission for one unit of paid work (a job attempt).
-  - `__init__(self, *, limit_usd: float | None, price_per_token: Callable[[str | None], float | None], is_subscription: Callable[[Any], bool], default_output_tokens: int=0, spent_before_usd: float=0.0, cancelled: Callable[[], bool] | None=None) -> None` (line 558; internal)
-  - `spent_usd(self) -> float` (line 586; public)
-  - `limit_usd(self) -> float | None` (line 591; public)
-  - `estimate_tokens(self, client: Any, *, prompt: Any, budget: int | None) -> int` (line 594; public) — Input (from the request's text) plus the output ceiling.
-  - `estimate_usd(self, client: Any, *, prompt: Any, budget: int | None) -> float` (line 612; public)
-  - `admit(self, client: Any, *, purpose: str, prompt: Any, budget: int | None) -> RequestAdmission | None` (line 619; public)
-  - `settle(self, admission: RequestAdmission | None, usage: Mapping[str, Any]) -> None` (line 658; public)
+  - `reservation_ref(self) -> str | None` (line 531; public)
+- `class MeteredRequestGate` ([source](../../../../../../src/learnloop/ai/spend.py), line 535) — Per-request admission for one unit of paid work (a job attempt).
+  - `__init__(self, *, limit_usd: float | None, price_per_token: Callable[[str | None], float | None], is_subscription: Callable[[Any], bool], default_output_tokens: int=0, spent_before_usd: float=0.0, daily_envelope: Callable[[], SpendEnvelope] | None=None, cancelled: Callable[[], bool] | None=None) -> None` (line 564; internal)
+  - `spent_usd(self) -> float` (line 594; public)
+  - `limit_usd(self) -> float | None` (line 599; public)
+  - `estimate_tokens(self, client: Any, *, prompt: Any, budget: int | None) -> int` (line 602; public) — Input (from the request's text) plus the output ceiling.
+  - `estimate_usd(self, client: Any, *, prompt: Any, budget: int | None) -> float` (line 620; public)
+  - `admit(self, client: Any, *, purpose: str, prompt: Any, budget: int | None) -> RequestAdmission | None` (line 627; public)
+  - `settle(self, admission: RequestAdmission | None, usage: Mapping[str, Any]) -> None` (line 673; public)
 
 ### Module constants
 
@@ -117,7 +118,7 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - `_money(name: str, value: float) -> None` ([source](../../../../../../src/learnloop/ai/spend.py), line 101)
 - `class _NoReservation` ([source](../../../../../../src/learnloop/ai/spend.py), line 480) — A subscription request's place in an envelope: nothing reserved, so nothing to settle (its usage is tallied ``estimated_only``).
 - `_reserve_in(envelopes: tuple[SpendEnvelope, ...], estimate: SpendEstimate, *, subscription: bool) -> tuple[tuple[SpendEnvelope, object], ...]` ([source](../../../../../../src/learnloop/ai/spend.py), line 491) — Reserve a metered estimate in every envelope, all or none; returns each envelope with its reservation handle.
-- `_reported_usd(usage: Mapping[str, Any], price_per_token: float) -> Decimal | None` ([source](../../../../../../src/learnloop/ai/spend.py), line 667) — What a finished request cost: the provider's cost, else its tokens at the price; ``None`` when it reported nothing (the reservation stands).
+- `_reported_usd(usage: Mapping[str, Any], price_per_token: float) -> Decimal | None` ([source](../../../../../../src/learnloop/ai/spend.py), line 684) — What a finished request cost: the provider's cost, else its tokens at the price; ``None`` when it reported nothing (the reservation stands).
 
 ## Who imports or calls it
 
@@ -209,7 +210,6 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - [[Reference/Modules/learnloop/ops/pf_calls|learnloop.ops.pf_calls]] — imports `ESTIMATED_ONLY`, `SpendBudget`, `SpendCaps`, `SpendEstimate`, `SpendLimitExceeded`, `is_subscription_transport`, `subscription_usage_estimate`; statically calls `SpendBudget`, `SpendEstimate`, `SpendLimitExceeded`, `is_subscription_transport`, `subscription_usage_estimate`
 - [[Reference/Modules/learnloop/ops/pf_generation|learnloop.ops.pf_generation]] — imports `SpendCaps`, `SpendEstimate`, `SpendLimitExceeded`; statically calls `SpendEstimate`
 - [[Reference/Modules/learnloop/ops/pf_reports|learnloop.ops.pf_reports]] — imports `SpendCaps`, `SpendEstimate`, `SpendLimitExceeded`; statically calls `SpendCaps`, `SpendEstimate`
-- [[Reference/Modules/learnloop/pads/ink_transcribe|learnloop.pads.ink_transcribe]] — imports `SpendBudget`, `SpendCaps`, `spend_envelopes`; statically calls `SpendBudget`, `SpendCaps`, `spend_envelopes`
 - [[Reference/Modules/learnloop/practice_index/dossiers|learnloop.practice_index.dossiers]] — imports `SpendBudget`, `SpendCaps`, `SpendLimitExceeded`; statically calls `SpendBudget`
 - [[Reference/Modules/learnloop/practice_index/evaluation|learnloop.practice_index.evaluation]] — imports `SpendBudget`, `SpendCaps`, `SpendEstimate`, `SpendLimitExceeded`; statically calls `SpendBudget`, `SpendEstimate`
 - [[Reference/Modules/learnloop/practice_index/listwise|learnloop.practice_index.listwise]] — imports `SpendBudget`, `SpendCaps`, `SpendEstimate`, `SpendLimitExceeded`; statically calls `SpendBudget`, `SpendCaps`
@@ -270,7 +270,7 @@ Use this module in context through:
 - [[Configure AI Providers]]
 - [[Process Model Output]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/adaptive_difficulty/relatedness|learnloop.adaptive_difficulty.relatedness]] and 121 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/adaptive_difficulty/relatedness|learnloop.adaptive_difficulty.relatedness]] and 120 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -351,6 +351,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_figure_build_golden.py](../../../../../../tests/test_figure_build_golden.py) — direct import
 - [tests/test_figure_rich_attempt_records.py](../../../../../../tests/test_figure_rich_attempt_records.py) — direct import
   - `test_a_second_request_refused_by_the_budget_is_its_own_attempt`
+  - `test_rich_repair_refused_by_budget_records_the_refusal`
 - [tests/test_figure_rich_job_golden.py](../../../../../../tests/test_figure_rich_job_golden.py) — direct import
 - [tests/test_followups_batch5_lesson.py](../../../../../../tests/test_followups_batch5_lesson.py) — direct import
   - `test_e_the_figures_daily_budget_refusing_a_visual_leaves_the_lesson_open`

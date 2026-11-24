@@ -1,14 +1,14 @@
 // A source window is the Reader's source pane as one scoped instance (spec §3.6, §7.1): a preview logs
 // no reading activity, an active window opens a visit, a window that leaves the view closes it, and the
 // window shows the pane alone, its rail in the panel window it is given.
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { readerRenderViewFixture as view } from "../../../fixtures/readerRenderView";
 import type { ReaderActivityEvent, SourceLibraryCard } from "../../../api/dto";
 import { flushReaderActivity, resetReaderActivityForTests } from "../../reader/activity";
 import { DIRECT_HUB, WindowScope, type WindowState } from "../lifecycle";
 import { SourceWindow } from "./SourceWindow";
-import type { ReaderWindowing } from "../../ReaderScreen";
+import type { ReaderWindowing } from "../source/types";
 import type { ListenerHub } from "../lifecycle";
 
 const api = vi.hoisted(() => ({
@@ -91,14 +91,33 @@ it("shows the source pane alone: no Reader header, no key bar, no rail without a
   expect(screen.queryByRole("complementary")).toBeNull();
 });
 
+it("a rail hosted on the Notes tab never shows the Guide's name, not even for a render while the book opens", async () => {
+  const host = document.createElement("div");
+  document.body.appendChild(host);
+  const seen = new Set<string>();
+  const record = () => {
+    const label = host.querySelector('[role="complementary"]')?.getAttribute("aria-label");
+    if (label) seen.add(label);
+  };
+  const observer = new MutationObserver(record);
+  observer.observe(host, { subtree: true, childList: true, attributes: true, attributeFilter: ["aria-label"] });
+  render(<Window state="active" railHost={{ node: host, tab: "notes", lifecycle: { windowId: "p1", state: "visible" }, hub: DIRECT_HUB }} />);
+  await screen.findByText(view.blocks[1].markdown);
+  await waitFor(() => expect(seen.has("Notes")).toBe(true));
+  observer.disconnect();
+  record();
+  expect([...seen]).toEqual(["Notes"]);
+  host.remove();
+});
+
 it("renders its rail into the panel window it is given, on that window's tab", async () => {
   const host = document.createElement("div");
   document.body.appendChild(host);
   render(<Window state="active" railHost={{ node: host, tab: "notes", lifecycle: { windowId: "p1", state: "visible" }, hub: DIRECT_HUB }} />);
   await screen.findByText(view.blocks[1].markdown);
-  const rail = host.querySelector('[role="complementary"]');
-  expect(rail).not.toBeNull();
-  expect(rail?.getAttribute("aria-label")).toBe("Notes");
+  // Opening the source resets the rail to the Guide and the panel's tab is applied after, in an effect: under load
+  // the first look can land between the two, so the check waits for the panel's tab.
+  await waitFor(() => expect(host.querySelector('[role="complementary"]')?.getAttribute("aria-label")).toBe("Notes"));
   host.remove();
 });
 

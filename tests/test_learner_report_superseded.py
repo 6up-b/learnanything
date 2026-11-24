@@ -120,7 +120,7 @@ def test_a_new_starting_level_keeps_the_old_one_for_an_lo_first_practised_under_
     claim in force at its first attempt, the replaced one (below the tag that
     claim was deleted and the LO rebuilt from the cold start)."""
 
-    paths = create_placement_vault(tmp_path / "vault", version=TAG)
+    paths = create_placement_vault(tmp_path / "vault")
     add_followup_item(paths.root)
     repository = Repository(paths.sqlite_path)
     seed_global_learner_claim(repository, "comfortable", clock=_at(-10))

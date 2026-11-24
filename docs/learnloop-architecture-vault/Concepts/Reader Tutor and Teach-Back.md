@@ -4,10 +4,10 @@ aliases:
   - Interaction Learning Surfaces
 status: active
 doc_version: 1.0.0
-implementation_version: mvp-0.9
-last_reviewed: 2026-11-11
-source_commit: 62fd1f6404cc3a3007c6f214ba9429c45ef0114f
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
+implementation_version: mvp-0.68
+last_reviewed: 2026-11-23
+source_commit: 86f29b0d390ed2ecdbb0347d98ccb1175ac52728
+source_commit_timestamp: "2026-11-23T23:12:28-05:00"
 source_paths:
   - src/learnloop/reader
   - src/learnloop/tutor
@@ -24,6 +24,8 @@ Reader and tutor interactions help the learner understand source material withou
 
 ## Reader
 
+[[Concepts/Reader workbench|Reader workbench]] describes the desktop desks, the companion and the two ways pad writing reaches learner-text analysis or practice.
+
 Reader views are anchored to extracted source spans. Learner questions can request direct answers, guided reasoning, or an ask-first response. Answers are citation-validated and bounded to the manifest. Owner-placed reading checks are source-visible instructional administrations and always skippable.
 
 [[Concepts/Figures|Figures]] explains Show me from a passage, a question or both, including simulations and explanation videos, source protection and attempt-help accounting. Figures remain illustrations, never certification.
@@ -38,7 +40,7 @@ Tutor answers are source-grounded and preserve provenance/citations. A cited pas
 
 The learner gives an opening explanation; a provider plays a curious naïve student and asks planned questions one at a time. Planning is deterministic from diagnostic uncertainty and rubric criteria, with a transfer-tier question reserved when available. The entire transcript is graded as one `teach_back` attempt.
 
-Only criteria actually asked and answered produce evidence. Unasked criteria are not zero-score failures. A transfer-tier criterion's evidence weighs `teach_back.transfer_evidence_multiplier` of a core one's, success and failure alike; in the canonical facet belief that holds from `mvp-0.59` (the facet-belief fixes); below it the canonical belief does not apply it. The planner's "uncertain facet first" reads per-LO facet uncertainty, which canonical vaults write and read from `mvp-0.59` too ([[Learner State and Projections#Facet uncertainty (diagnostic layer)]]). If the provider fails mid-conversation, completed turns can still be graded; if no follow-up was answered, the opening explanation is graded against core criteria. Conversation IDs make finish retry-safe.
+Teach-back grades the dialogue's requested criteria. When no follow-up criterion was asked, it grades the opening explanation against the core criteria. Unasked criteria are not zero-score failures. A transfer-tier criterion's evidence weighs `teach_back.transfer_evidence_multiplier` of a core one's, success and failure alike; in the canonical facet belief that holds from `mvp-0.59` (the facet-belief fixes); below it the canonical belief does not apply it. The planner's "uncertain facet first" reads per-LO facet uncertainty, which canonical vaults write and read from `mvp-0.59` too ([[Learner State and Projections#Facet uncertainty (diagnostic layer)]]). If the provider fails mid-conversation, completed turns can still be graded; the core fallback applies when no follow-up criterion was asked. Conversation IDs make finish retry-safe.
 
 ## Safety boundaries
 

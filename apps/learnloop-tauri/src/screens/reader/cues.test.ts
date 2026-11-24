@@ -132,7 +132,7 @@ it("G16 lint: every fixed string on a cue surface says what connects, never what
   expect(strings.length).toBeGreaterThan(20);
   for (const text of strings) expect(text).not.toMatch(BANNED);
   expect(CUE_COPY.legendRevisit).toContain("from the Guide's citations");
-  expect(CUE_COPY.checkMeHint).toContain("on your own");
+  expect(CUE_COPY.checkMeHint).toContain("cold check");
 });
 
 it("G16 lint: the cue components carry no other learner-facing literal that judges", () => {

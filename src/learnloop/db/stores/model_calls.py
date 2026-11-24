@@ -31,10 +31,19 @@ def annotate_started_receipt(connection: Any, call_id: str, notes: dict[str, Any
 def finish_receipt(connection: Any, event: dict[str, Any], *, owner_kind: str, owner_id: str) -> None:
     """Finalize a started receipt on the caller's connection (the caller owns the transaction)."""
 
-    connection.execute(
-        f"UPDATE model_call_receipts SET {','.join(f'{field}=?' for field in _FINISH_FIELDS)} WHERE id=? AND status='started' AND owner_kind=? AND owner_id=?",
+    finished = connection.execute(
+        f"UPDATE model_call_receipts SET {','.join(f'{field}=?' for field in _FINISH_FIELDS)} WHERE id=? AND status='started' AND owner_kind=? AND owner_id=? RETURNING purpose",
         (*(event.get(field) for field in _FINISH_FIELDS), event["id"], owner_kind, owner_id),
-    )
+    ).fetchone()
+    if finished and event.get("receipt_checkpoint") and event.get("status") == "completed":
+        key, tokens = event["receipt_checkpoint"]
+        result = json.loads(event["output_text"])
+        # A crash after this receipt commits must leave the validated answer available to resume.
+        insert_checkpoint(connection, key, purpose=finished[0], result=result,
+                          usage={"input_tokens_estimate": tokens,
+                                 "output_tokens_estimate": max(1, len(json.dumps(result, ensure_ascii=False)) // 4)})
+        connection.execute("UPDATE model_call_receipts SET budget_json=json_set(COALESCE(budget_json,'{}'), "
+                           "'$.checkpoint_key', ?) WHERE id=?", (key, event["id"]))
 
 
 def insert_checkpoint(connection: Any, cache_key: str, *, purpose: str, result: dict[str, Any], usage: dict[str, Any] | None = None) -> None:
@@ -89,7 +98,7 @@ class ModelCallStoreMixin:
                 # a root receipt naming a reservation recovery released does
                 # not start, so its request is never sent. Checked after the
                 # insert, in its transaction, so the release cannot interleave.
-                if event.get("parent_call_id") is None and event.get("budget_json"):
+                if event.get("budget_json"):
                     released = released_reservations(connection, event.get("budget_json"))
                     if released:
                         raise ReservationReleased(

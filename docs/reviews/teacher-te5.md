@@ -1,6 +1,6 @@
 # Teacher v2 · TE5
 
-A and C landed in `60e21faadfe34f7fc62460ce0309a4a4b699da5b` on `teacher/te5-consolidation`, from `9038b096e7446d5f433f95d881de7e7c1bd0da15`. B landed at `6d5716b332`. D implements the owner's freeze-and-refit decision for mvp-0.70 in the working tree, with migration 271. The Reader's mvp-0.69 and migration 270 are the required integration base.
+A and C landed in `60e21faadfe34f7fc62460ce0309a4a4b699da5b` on `teacher/te5-consolidation`, from `9038b096e7446d5f433f95d881de7e7c1bd0da15`. B landed at `6d5716b332`. D implements the owner's freeze-and-refit decision for mvp-0.70 in the working tree, with migration 274. The Reader's mvp-0.69 and migration 270 are the required integration base.
 
 ## A · Schema and recovery
 
@@ -94,7 +94,7 @@ The first expanded run had 3 failed and 4 passed. Two new assertions compared SQ
 
 On 2026-11-23 the owner selected option 2. An immutable grade epoch now supplies the effective mastery curve for both trajectory and endpoint fits. Activation freezes the predecessor's best reconstruction or an explicit missing marker before clearing projections. Failed preparation leaves that first snapshot available to the retry. Held and superseding evidence follows the existing grade-epoch rules. Measured item difficulty stays off by default.
 
-The synthetic reproduction includes an intervening empirical update, a primed repeat and edits to two authored items. The upgrade tests exercise both numeric and missing history and compare the raw check rows, full weight/pool state and ordered semantic trace after two more rebuilds. The historical-input policy, fallback labels, versioned assertions and final owner-copy procedure are in [the algorithm record](algorithm-mvp-0.70.md).
+The synthetic reproduction includes an intervening empirical update, a primed repeat and edits to two authored items. The upgrade tests exercise both numeric and missing history and compare the raw check rows, full weight/pool state and ordered semantic trace after two more rebuilds. The historical-input policy, fallback labels, versioned assertions and final owner-copy procedure are in [the algorithm record](algorithm-mvp-0.71.md).
 
 The orchestrator must rebase after the Reader's mvp-0.69 and 270 reach main, upgrade the tracked migration-head fixture there, and run the merged chain and owner-copy comparisons. The worker exercised 271 on disposable databases. No owner vault was opened.
 
@@ -110,7 +110,7 @@ The patch also applied cleanly to copies of the affected HEAD files under the is
 | A | `src/learnloop/teacher/{contracts,episodes,legacy_turns,probes,service,visuals}.py`, `tests/{test_teacher_structured_contracts,test_teacher_te5_contracts}.py`, the A portions of `docs/reviews/{refactor-bug-ledger,teacher-te5}.md` |
 | C | `src/learnloop/goals/goal_lo.py`, `src/learnloop/teacher/{actions,contracts,service,te2,topics}.py`, `src/learnloop/teacher/doctrine/te2/goal_offer_v1.md`, `tests/identity_pins_helpers.py`, `tests/goldens/identities.toml`, `tests/{test_teacher_te5_goal_topics,test_teacher_te5_contracts,test_teacher_te2log_episodes,test_teacher_te2log_node_held,test_teacher_te2log_report,test_reader_rw5d_p4b_teacher_visuals}.py`, the C portions of `docs/reviews/{refactor-bug-ledger,teacher-te5}.md` |
 | B | `src/learnloop/ai/execution.py`, `src/learnloop/db/stores/model_calls.py`, `src/learnloop/teacher/{compaction,service}.py`, `tests/test_teacher_te5_compaction.py` and the B portions of the ledger and this record |
-| D | Migration 271, grade-curve capture and activation, lesson-weight replay, successor and migration tests, and `docs/reviews/algorithm-mvp-0.70.md` |
+| D | Migration 274, grade-curve capture and activation, lesson-weight replay, successor and migration tests, and `docs/reviews/algorithm-mvp-0.71.md` |
 
 The A patch documented the intermediate schema before the consolidated commit. The worker left the linked index to the orchestrator.
 
@@ -150,16 +150,16 @@ The final gate had 894 passing pytest cases across the listed invocations. Part 
 
 ## Part D assertion and file inventory
 
-- **Migration 271.** New `migrations/271_attempt_grade_curves.sql`, `src/learnloop/db/stores/grade_curves.py`, `tests/grade_curves_migration_helpers.py` and `tests/test_grade_curves_migration.py`. The table and column classifications are in `src/learnloop/db/table_roles.py` and `src/learnloop/adaptive_difficulty/{protected_tables,column_classes}.py`. The SQL-owner list in `tests/test_architecture.py` gains the store that writes this table.
+- **Migration 274.** New `migrations/274_attempt_grade_curves.sql`, `src/learnloop/db/stores/grade_curves.py`, `tests/grade_curves_migration_helpers.py` and `tests/test_grade_curves_migration.py`. The table and column classifications are in `src/learnloop/db/table_roles.py` and `src/learnloop/adaptive_difficulty/{protected_tables,column_classes}.py`. The SQL-owner list in `tests/test_architecture.py` gains the store that writes this table.
 - **Grading, activation and replay.** In `src/learnloop/`, the files are `algorithm_versions.py`, `attempts/{attempts,regrade}.py`, `cli/grading.py`, `db/stores/attempts.py`, `learner/lesson_weight.py`, `ops/upgrades.py` and `substrate/replay.py`. `tests/test_upgrades.py` adds the expected activation. `tests/test_grading_cli.py` adds exact regraded-curve and rollback assertions. `tests/test_teacher_te1_review_fixes.py` extends the F6 fixture with a third intervening answer. Its varied flags extend by one false and its intervening count becomes three. The original posterior tolerances stand. Its shared lesson and practice builders moved to `tests/teacher_te1_review_fixes_helpers.py`. `tests/test_teacher_te5_grade_curves.py` is new.
 - **Versioned goldens.** `tests/cli_surface.json`, `tests/goldens/effective_defaults.toml` and `tests/goldens/placement_stored_misses.json` update their version strings. The grade-application golden at `tests/goldens/grade_application/history.json` adds exactly twelve curve rows and changes no other recorded application or row. The diagnosis golden at `tests/fixtures/diagnosis_journey_golden.json` gains ten grade curves, the successor labels and two tag-dependent decision config/snapshot hashes. The reader lane may add its own content to these goldens on rebase.
-- **Decision records.** `docs/reviews/{algorithm-mvp-0.70,refactor-bug-ledger,teacher-te5}.md`. L4-2's original ledger row records the fix and pending integration.
+- **Decision records.** `docs/reviews/{algorithm-mvp-0.71,refactor-bug-ledger,teacher-te5}.md`. L4-2's original ledger row records the fix and pending integration.
 
 The following are filenames under `tests/`, written as the middle of `test_<name>.py`. In the first group, every historical tag, ordered tail and version-set member is preserved. Relative positions shift by two from this checkout to the merged head. Fresh-vault and latest-tag comparisons name mvp-0.70. Exact tail/set comparisons include both mvp-0.69 and mvp-0.70.
 
 `ad23_successor`, `attempt_content_state_successor`, `batch3_landing`, `check_credit_activation`, `cold_retry_reschedule`, `curriculum_c1_landing`, `curriculum_c1_plan_follows_path`, `evidence_reading_successor`, `facet_belief_successor`, `field_workbench_signals`, `figure_wait_successor`, `help_fold_attach_successor`, `ih5_successor`, `intent_codex_rereview`, `learner_report_superseded`, `lp_claim_fixes`, `mastery_seed_replay`, `mobile_v3_successor`, `placement_unevidenced_return`, `plan_follows_path`, `reader_ca2_one_ask`, `reader_followups_successor`, `reader_rd4_emission`, `reading_step_switch`, `rebuild_closed_row_answer`, `rebuild_equivalence_review`, `recurrence_commands`, `regrade_contract_successor`, `required_method_grading`, `ro1_successor`, `ro4_successor`, `ro5_successor`, `ro6_successor`, `rofu_successor`, `route_rules_in_grader`, `same_second_order`, `section_end`, `serve_eligibility_review`, `sg_successor`, `te3a_successor`, `te3b_successor`, `teacher_te1_successor`, `teacher_te1b_suggestions`, `teacher_te2_successor`.
 
-Earlier migrations that exercise an upgrade through the head admit exactly 271's table, composite primary key autoindex and three immutability triggers in their object diffs. Each earlier migration's own expected objects and all existing row checks are preserved. These are the affected `test_<name>.py` files.
+Earlier migrations that exercise an upgrade through the head admit exactly 274's table, composite primary key autoindex and three immutability triggers in their object diffs. Each earlier migration's own expected objects and all existing row checks are preserved. These are the affected `test_<name>.py` files.
 
 `ad1_migration`, `ad23_migration`, `approach_maps_schema`, `help_assist_figures_migration`, `help_assist_work_md_migration`, `help_assists_schema`, `learner_claim_application_migration`, `learner_claim_superseded_migration`, `library_asks_migration`, `reader_ca2_fix_orchestrator`, `reader_rw3b_migration`, `reader_rw7a_migration`, `retrieval_spaces_migration`, `rw2d_receipts_migration`, `section_coverage_migration`, `t1_batch_origin_migration`.
 

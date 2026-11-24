@@ -47,42 +47,42 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/desks/workspace.py](../../../../../../src/learnloop/desks/workspace.py) |
-| Source lines | 573 |
+| Source lines | 577 |
 | Owning package | [[Reference/Modules/learnloop/desks/_package|learnloop.desks]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class CreateDesk(_Op)` ([source](../../../../../../src/learnloop/desks/workspace.py), line 32)
-- `class RenameDesk(_Op)` ([source](../../../../../../src/learnloop/desks/workspace.py), line 41)
-- `class ArchiveDesk(_Op)` ([source](../../../../../../src/learnloop/desks/workspace.py), line 47)
-- `class MoveDesk(_Op)` ([source](../../../../../../src/learnloop/desks/workspace.py), line 52)
-- `class OpenWindow(_Op)` ([source](../../../../../../src/learnloop/desks/workspace.py), line 58)
-  - `_content_or_stack(self) -> OpenWindow` (line 68; internal)
-- `class CloseWindow(_Op)` ([source](../../../../../../src/learnloop/desks/workspace.py), line 76)
-- `class ReopenWindow(_Op)` ([source](../../../../../../src/learnloop/desks/workspace.py), line 82)
-- `class MoveWindow(_Op)` ([source](../../../../../../src/learnloop/desks/workspace.py), line 89)
-- `class MoveToDesk(_Op)` ([source](../../../../../../src/learnloop/desks/workspace.py), line 96)
-- `class Pair(_Op)` ([source](../../../../../../src/learnloop/desks/workspace.py), line 106)
-- `class Unpair(_Op)` ([source](../../../../../../src/learnloop/desks/workspace.py), line 112)
-- `class SetFocus(_Op)` ([source](../../../../../../src/learnloop/desks/workspace.py), line 118)
-- `class SetActivePane(_Op)` ([source](../../../../../../src/learnloop/desks/workspace.py), line 124)
-- `class SetView(_Op)` ([source](../../../../../../src/learnloop/desks/workspace.py), line 130)
-- `class SetDock(_Op)` ([source](../../../../../../src/learnloop/desks/workspace.py), line 137)
-- `class SetCompanionShown(_Op)` ([source](../../../../../../src/learnloop/desks/workspace.py), line 143)
-- `class SetGoal(_Op)` ([source](../../../../../../src/learnloop/desks/workspace.py), line 149)
-- `class AddToStack(_Op)` ([source](../../../../../../src/learnloop/desks/workspace.py), line 155) — Put a pad (or a lesson) in a stack window: a union, so it commutes with every other change to the desk and needs no expected version (one given is not checked).
-- `class RemoveFromStack(_Op)` ([source](../../../../../../src/learnloop/desks/workspace.py), line 165) — Take a pad (or a lesson) out of a stack window, by the same rule; not there: nothing changes.
-- `class EnsureRunningPad(_Op)` ([source](../../../../../../src/learnloop/desks/workspace.py), line 174) — The desk's running pad (spec §10.5), created when it has none, and in a stack window of the desk, opened when it has none: idempotent, so every desk, new or old, gets one in one place.
-- `desk_state(repository: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/desks/workspace.py), line 221) — Every open desk with its slots, the running pads, and each client's last applied batch.
-- `apply_desk_ops(repository: Any, *, client_id: str, seq: int, ops: list[Any], clock: Any=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/desks/workspace.py), line 558) — ``desk.apply``: one batch, applied once and in order (``learnloop.desks.protocol``).
+- `class CreateDesk(_Op)` ([source](../../../../../../src/learnloop/desks/workspace.py), line 33)
+- `class RenameDesk(_Op)` ([source](../../../../../../src/learnloop/desks/workspace.py), line 42)
+- `class ArchiveDesk(_Op)` ([source](../../../../../../src/learnloop/desks/workspace.py), line 48)
+- `class MoveDesk(_Op)` ([source](../../../../../../src/learnloop/desks/workspace.py), line 53)
+- `class OpenWindow(_Op)` ([source](../../../../../../src/learnloop/desks/workspace.py), line 59)
+  - `_content_or_stack(self) -> OpenWindow` (line 69; internal)
+- `class CloseWindow(_Op)` ([source](../../../../../../src/learnloop/desks/workspace.py), line 77)
+- `class ReopenWindow(_Op)` ([source](../../../../../../src/learnloop/desks/workspace.py), line 83)
+- `class MoveWindow(_Op)` ([source](../../../../../../src/learnloop/desks/workspace.py), line 90)
+- `class MoveToDesk(_Op)` ([source](../../../../../../src/learnloop/desks/workspace.py), line 97)
+- `class Pair(_Op)` ([source](../../../../../../src/learnloop/desks/workspace.py), line 107)
+- `class Unpair(_Op)` ([source](../../../../../../src/learnloop/desks/workspace.py), line 113)
+- `class SetFocus(_Op)` ([source](../../../../../../src/learnloop/desks/workspace.py), line 119)
+- `class SetActivePane(_Op)` ([source](../../../../../../src/learnloop/desks/workspace.py), line 125)
+- `class SetView(_Op)` ([source](../../../../../../src/learnloop/desks/workspace.py), line 131)
+- `class SetDock(_Op)` ([source](../../../../../../src/learnloop/desks/workspace.py), line 138)
+- `class SetCompanionShown(_Op)` ([source](../../../../../../src/learnloop/desks/workspace.py), line 144)
+- `class SetGoal(_Op)` ([source](../../../../../../src/learnloop/desks/workspace.py), line 150)
+- `class AddToStack(_Op)` ([source](../../../../../../src/learnloop/desks/workspace.py), line 156) — Put a pad (or a lesson) in a stack window: a union, so it commutes with every other change to the desk and needs no expected version (one given is not checked).
+- `class RemoveFromStack(_Op)` ([source](../../../../../../src/learnloop/desks/workspace.py), line 166) — Take a pad (or a lesson) out of a stack window, by the same rule; not there: nothing changes.
+- `class EnsureRunningPad(_Op)` ([source](../../../../../../src/learnloop/desks/workspace.py), line 175) — The desk's running pad (spec §10.5), created when it has none, and in a stack window of the desk, opened when it has none: idempotent, so every desk, new or old, gets one in one place.
+- `desk_state(repository: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/desks/workspace.py), line 222) — Every open desk with its slots, the running pads, and each client's last applied batch.
+- `apply_desk_ops(repository: Any, *, client_id: str, seq: int, ops: list[Any], clock: Any=None, check_material: Callable[[], None] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/desks/workspace.py), line 559) — ``desk.apply``: one batch, applied once and in order (``learnloop.desks.protocol``).
 
 ### Module constants
 
-- `PAIR_SIZE` ([src/learnloop/desks/workspace.py](../../../../../../src/learnloop/desks/workspace.py), line 24)
-- `DOCKS` ([src/learnloop/desks/workspace.py](../../../../../../src/learnloop/desks/workspace.py), line 25)
-- `DESK_OPS` ([src/learnloop/desks/workspace.py](../../../../../../src/learnloop/desks/workspace.py), line 193)
+- `PAIR_SIZE` ([src/learnloop/desks/workspace.py](../../../../../../src/learnloop/desks/workspace.py), line 25)
+- `DOCKS` ([src/learnloop/desks/workspace.py](../../../../../../src/learnloop/desks/workspace.py), line 26)
+- `DESK_OPS` ([src/learnloop/desks/workspace.py](../../../../../../src/learnloop/desks/workspace.py), line 194)
 
 ### Explicit exports
 
@@ -97,19 +97,19 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `class _Op(WireModel)` ([source](../../../../../../src/learnloop/desks/workspace.py), line 28)
-- `_window_out(row: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/desks/workspace.py), line 203)
-- `_slots(rows: list[dict[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/desks/workspace.py), line 214)
-- `class _Layout` ([source](../../../../../../src/learnloop/desks/workspace.py), line 243) — One desk's open windows as a list of slots (each a list of window ids, panes in order).
-- `_desk(connection: Any, desk_id: str, expected: int | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/desks/workspace.py), line 283)
-- `_window_desk(connection: Any, desk_id: str, window_id: str, expected: int | None, *, open_only: bool=True) -> tuple[dict, dict]` ([source](../../../../../../src/learnloop/desks/workspace.py), line 294) — The window and the desk the op names, its version checked.
-- `_apply_desk_op(connection: Any, op: Any, now: str, versions: dict[str, int]) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/desks/workspace.py), line 312)
-- `_open_desk(connection: Any, desk_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/desks/workspace.py), line 468)
-- `_same_entry(a: dict[str, Any], b: dict[str, Any]) -> bool` ([source](../../../../../../src/learnloop/desks/workspace.py), line 477)
-- `_stack_of(window: dict[str, Any]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/desks/workspace.py), line 482)
-- `_write_stack(connection: Any, window_id: str, stack: list[dict[str, Any]]) -> None` ([source](../../../../../../src/learnloop/desks/workspace.py), line 486)
-- `_stack_membership(connection: Any, op: AddToStack | RemoveFromStack, now: str, bump: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/desks/workspace.py), line 490) — A stack's membership changed by one entry, whatever else changed on the desk meanwhile: the stack lives in the window's spec, apart from its view, so a whole-view write never drops a tab, and a union or a removal of one entry is the same at any desk version.
-- `_ensure_running_pad(connection: Any, op: EnsureRunningPad, now: str, bump: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/desks/workspace.py), line 521) — The desk's running pad, and a stack window of the desk holding it: whichever is missing is created.
+- `class _Op(WireModel)` ([source](../../../../../../src/learnloop/desks/workspace.py), line 29)
+- `_window_out(row: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/desks/workspace.py), line 204)
+- `_slots(rows: list[dict[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/desks/workspace.py), line 215)
+- `class _Layout` ([source](../../../../../../src/learnloop/desks/workspace.py), line 244) — One desk's open windows as a list of slots (each a list of window ids, panes in order).
+- `_desk(connection: Any, desk_id: str, expected: int | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/desks/workspace.py), line 284)
+- `_window_desk(connection: Any, desk_id: str, window_id: str, expected: int | None, *, open_only: bool=True) -> tuple[dict, dict]` ([source](../../../../../../src/learnloop/desks/workspace.py), line 295) — The window and the desk the op names, its version checked.
+- `_apply_desk_op(connection: Any, op: Any, now: str, versions: dict[str, int]) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/desks/workspace.py), line 313)
+- `_open_desk(connection: Any, desk_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/desks/workspace.py), line 469)
+- `_same_entry(a: dict[str, Any], b: dict[str, Any]) -> bool` ([source](../../../../../../src/learnloop/desks/workspace.py), line 478)
+- `_stack_of(window: dict[str, Any]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/desks/workspace.py), line 483)
+- `_write_stack(connection: Any, window_id: str, stack: list[dict[str, Any]]) -> None` ([source](../../../../../../src/learnloop/desks/workspace.py), line 487)
+- `_stack_membership(connection: Any, op: AddToStack | RemoveFromStack, now: str, bump: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/desks/workspace.py), line 491) — A stack's membership changed by one entry, whatever else changed on the desk meanwhile: the stack lives in the window's spec, apart from its view, so a whole-view write never drops a tab, and a union or a removal of one entry is the same at any desk version.
+- `_ensure_running_pad(connection: Any, op: EnsureRunningPad, now: str, bump: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/desks/workspace.py), line 522) — The desk's running pad, and a stack window of the desk holding it: whichever is missing is created.
 
 ## Who imports or calls it
 
@@ -131,7 +131,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `json`, `typing`
+- Standard library: `__future__`, `collections`, `json`, `typing`
 - Third party: `pydantic`
 
 ## Larger workflow participation
@@ -163,6 +163,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_windows_open_beside_pair_at_most_two_and_unpair`
 - [tests/test_reader_rd1_model_parity.py](../../../../../../tests/test_reader_rd1_model_parity.py) — direct import
   - `test_the_sidecar_gives_the_scripts_results_and_final_state`
+- [tests/test_reader_rd_retire_migration.py](../../../../../../tests/test_reader_rd_retire_migration.py) — direct import
+  - `test_a_preparing_window_names_its_source_alone`
 
 ## Modification guidance
 

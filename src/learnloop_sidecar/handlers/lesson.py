@@ -52,6 +52,7 @@ from typing import Any, Literal
 from pydantic import Field
 
 from learnloop.teacher import probes as PR
+from learnloop.teacher.brief import PROTECTED_SELECTION
 from learnloop.teacher import service as S
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import ParamsModel, versioned
@@ -63,6 +64,7 @@ from learnloop_sidecar.handlers.ai_providers import (
     ready_grading_provider,
 )
 from learnloop_sidecar.registry import method
+from learnloop_sidecar.workbench_protection import block_places, reading_places, refuse_protected
 
 #: Every TE1/TE1b RPC this module registers (pinned desktop-only in tests/test_mobile_allowlist.py).
 LESSON_RPCS: tuple[str, ...] = ("lesson.turn", "lesson.view", "lesson.suggestion", "lesson.suggestion_respond")
@@ -78,6 +80,7 @@ LESSON_WINDOW_RPCS: tuple[str, ...] = ("lesson.list",)
 
 
 class LessonSelection(ParamsModel):
+    block_ids: list[str] = Field(default_factory=list)
     extraction_id: str
     span_ids: list[str]
 
@@ -164,8 +167,8 @@ def route_unavailable_message(label: str, *, saved: bool) -> str:
     before its lesson was saved said "your lesson is saved")."""
 
     if saved:
-        return f"{label} is unavailable for lessons; your lesson is saved and resumes when it's back."
-    return f"{label} is unavailable for lessons, so the lesson didn't start and nothing was saved; try again when it's back."
+        return f"{label} is unavailable. Your lesson is saved. Select Try again to continue."
+    return f"{label} is unavailable. The lesson didn’t start, and nothing was saved. Select Try again to start it."
 
 
 class LessonSuggestionInput(ParamsModel):
@@ -217,7 +220,7 @@ def _clients(ctx: SidecarContext, vault: Any) -> S.Clients:
 
     def grading() -> Any:
         if ctx.grading_provider_override == MANUAL_PROVIDER:
-            raise SidecarError("provider_unavailable", "Lesson checks need a grader (grading is set to manual).")
+            raise SidecarError("provider_unavailable", "Lesson questions need automatic grading. Turn it on in Settings, then try again.")
         provider_name, runtime, client = ready_grading_provider(vault, override=ctx.grading_provider_override)
         if not runtime.ready or client is None:
             raise SidecarError("provider_unavailable", f"{provider_label(provider_name)} is unavailable for grading.",
@@ -234,20 +237,32 @@ def lesson_turn(ctx: SidecarContext, params: LessonTurnInput) -> dict[str, Any]:
     """One step of a lesson; see the module docstring."""
 
     vault, repository = ctx.require_vault()
+    if params.action not in ("stop", "close"):
+        # While an inline check is open a lesson waits (a new one, or another turn of one already open): it would teach
+        # what the veils hold. Stopping or closing one still works.
+        from learnloop_sidecar.check_hold import refuse_while_check_open
+
+        refuse_while_check_open(repository)
     try:
         S.require_active(vault)
+        if params.action == "open" and params.selection:
+            selection = params.selection
+            places = reading_places(selection.extraction_id, selection.span_ids)
+            places.extend(block_places(vault, repository, selection.block_ids))
+            # The lesson's own refusal of protected material (``protected``, the brief's words) stays the contract.
+            refuse_protected(vault, repository, places, code="protected", message=PROTECTED_SELECTION)
         clients = _clients(ctx, vault)
         if clients.figures is None:
             # Reader RW5d P4b: the teacher's visuals are built here, inline.
             clients.figures = _figure_builder(ctx, vault, repository)
         if params.action == "open":
             if params.entry is None:
-                raise SidecarError("validation_error", "A lesson needs an entry (a topic or a passage).")
+                raise SidecarError("validation_error", "Choose a topic or passage to start a lesson.")
             suggested = params.origin == "router_suggestion"
             with PR.held_serving(params.frame == "window"):
                 result = S.open_lesson(
                     vault, repository, entry=params.entry, learning_object_ids=params.learning_object_ids,
-                    selection=params.selection.model_dump() if params.selection is not None else None,
+                    selection=params.selection.model_dump(exclude={"block_ids"}) if params.selection is not None else None,
                     goal_text=params.goal_text, clients=clients,
                     origin="router" if suggested else "learner_pick",
                     origin_ref=params.suggestion_decision_id if suggested else None,
@@ -257,9 +272,9 @@ def lesson_turn(ctx: SidecarContext, params: LessonTurnInput) -> dict[str, Any]:
                     probe_episode_id=None if suggested else params.probe_episode_id)
         else:
             if not params.lesson_id:
-                raise SidecarError("validation_error", "lesson_id is required.")
+                raise SidecarError("validation_error", "Reopen the lesson and answer the question it shows.")
             if params.frame == "window" and params.action == "answer_probe":
-                raise SidecarError("probe_on_lesson_screen", "A lesson's quick question is answered on the lesson screen.")
+                raise SidecarError("probe_on_lesson_screen", "Open the lesson to answer its quick question.")
             payload = {"text": params.text, "answer": params.answer, "check_ref": params.check_ref,
                        "tap": params.tap, "thinking": params.thinking, "probe_ref": params.probe_ref}
             with PR.held_serving(params.frame == "window"):
@@ -357,7 +372,7 @@ def lesson_list(ctx: SidecarContext, params: LessonListInput) -> dict[str, Any]:
         found = pads.get(lesson["lesson_id"]) or []
         lesson["additions_pad_id"] = found[0] if found else None
         lesson["additions_pad_ids"] = found
-    # A tab names nothing a due check covers (the goal lens's protection, D15).
+    # A tab names nothing a begun check covers (the goal lens's protection, D15).
     from learnloop.curriculum import goal_lens as GL
     from learnloop_sidecar.handlers.goal_lens import protection_now
 

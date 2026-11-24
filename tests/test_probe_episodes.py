@@ -42,6 +42,7 @@ from learnloop.diagnosis.probe_hypotheses import H_OTHER
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.scheduling.scheduler import SchedulerSession, serve_due_queue, read_due_queue
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from tests.helpers import (
     NOW,
     NOW_ISO,
@@ -315,7 +316,7 @@ def test_selected_diagnostic_probe_creates_exactly_one_observation(tmp_path):
 def test_presentation_activity_disqualification_precedes_live_projection(tmp_path):
     """A contaminated near-clone cannot certify for one process lifetime."""
 
-    _, loaded, repository = _setup(tmp_path, algorithm_version="mvp-0.7")
+    _, loaded, repository = _setup(tmp_path, algorithm_version=LATEST_ALGORITHM_VERSION)
     episode = enter_episode(loaded, repository, LO_ID, clock=CLOCK)
     hypothesis_set = episode_hypothesis_set(repository, episode)
     eligible = eligible_instruments(

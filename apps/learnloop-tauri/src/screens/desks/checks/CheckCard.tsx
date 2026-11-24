@@ -1,0 +1,202 @@
+// The inline cold check's markup on the desks (spec §12.6.1, §12.6.4-§12.6.6; RD7's frontend half): the desk's one
+// marker, placed at no passage (before "check now" nothing says what a check is about or where it sits: the owner's
+// decision on RD7-56), the open card (inline at the host passage the begun card names when its reading is on this desk,
+// else centred near the top), and the answered card with the reply's reason in plain words. Every word about what an answer counts as comes from the server's reply.
+import { useSyncExternalStore, type KeyboardEvent as ReactKeyboardEvent } from "react";
+import { ItemPresentation } from "../../../components/ItemPresentation";
+import { MarkdownMath } from "../../../render/MarkdownMath";
+import type { ReaderLens } from "../source/types";
+import { FitMath } from "../fitMath";
+import type { CheckDesk, OpenCheck } from "./controller";
+import { SAFE_ATTR } from "./hold";
+import { PRIMED_BY_NOTE_WORDS, PRIMED_UNMEASURED_WORDS, REASON_WORDS, answeredHead, eligibilityWords, groupsLine, lookedLine, type CheckReason } from "./model";
+
+/** The card and its markers stay readable while a check holds the page (they say nothing of the answer). */
+const SAFE = { [SAFE_ATTR]: "" };
+
+/** The words of the desk's marker: how many cold checks are due, and nothing of any of them. */
+export function markerWords(count: number): string {
+  return count === 1 ? "a cold check is due on this desk" : `${count} cold checks are due on this desk`;
+}
+
+/** The desk's one marker: "◇ a cold check is due on this desk · on your own" with "check now" and "later" (folded: a
+ *  quiet line). It sits at the desk's top, at no passage and in no window, on every desk alike (a marker per window, or
+ *  only on desks that hold the host, would say where the check is). It names nothing: no question, topic, reading,
+ *  provenance or id (the handle stays in the store, never in the page). */
+export function DeskCheckMarker({ desk, onCheckNow }: { desk: CheckDesk; onCheckNow: () => void }) {
+  useSyncExternalStore(desk.subscribe, desk.getVersion);
+  const count = desk.dueChecks().length;
+  if (!count || desk.open()) return null;
+  if (desk.deferred()) {
+    return (
+      <div className="ck-later ck-desk" data-check-marker="" data-check-folded="" role="status" {...SAFE}>
+        <span className="g">◇</span> {markerWords(count)}{" "}
+        <button type="button" className="lnk" disabled={desk.openingNow()} onClick={() => onCheckNow()}>check now</button>
+      </div>
+    );
+  }
+  return (
+    <div className="callout gq ck-closed ck-desk" data-check-marker="" role="status" {...SAFE}>
+      <span className="lab">◇ {markerWords(count)} · on your own</span>
+      <div className="gqr">
+        <span className="faint">nothing of it shows until you open it · whatever states the answer is veiled while you answer, then comes back</span>
+        <button type="button" className="act" onClick={() => desk.defer()}>later</button>
+        <button type="button" className="act pri" disabled={desk.openingNow()} onClick={() => onCheckNow()}>check now</button>
+      </div>
+    </div>
+  );
+}
+
+function question(open: OpenCheck): string {
+  const prompt = open.card.prompt as { prompt?: unknown };
+  return typeof prompt.prompt === "string" ? prompt.prompt : "";
+}
+
+/** The question as Today shows it: every learner-facing block (a laddered stem's stimulus, an error hunt's work), or
+ *  the prompt alone when the server sent no blocks. */
+function Question({ open }: { open: OpenCheck }) {
+  const presentation = open.card.prompt?.presentation;
+  if (presentation && Array.isArray(presentation.blocks) && presentation.blocks.length) {
+    return <FitMath><ItemPresentation presentation={presentation} /></FitMath>;
+  }
+  return <FitMath><MarkdownMath value={question(open)} /></FitMath>;
+}
+
+/** Whether this check opened able to settle (its serve-time eligibility): else it is practice from the start. */
+function opensCold(open: OpenCheck): boolean {
+  return open.card.cold !== false && !open.card.eligibility;
+}
+
+function feedback(open: OpenCheck): string {
+  const reply = open.reply as { feedbackMd?: unknown } | null;
+  return reply && typeof reply.feedbackMd === "string" ? reply.feedbackMd : "";
+}
+
+function answerKeys(desk: CheckDesk) {
+  return (event: ReactKeyboardEvent<HTMLTextAreaElement>) => {
+    // The answer's keys are the learner's: the desks' own keys never fire from here.
+    event.stopPropagation();
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      void desk.submit();
+    }
+  };
+}
+
+/** The card's reason line after the answer. */
+function ReasonLine({ open }: { open: OpenCheck }) {
+  const reason = (open.reply?.reason ?? null) as CheckReason | null;
+  if (!reason) return null;
+  const primedBy = typeof open.reply?.primedBy === "string" ? open.reply.primedBy : null;
+  const byNote = reason === "primed" && primedBy === "unmeasured_note";
+  const unmeasured = reason === "primed" && primedBy !== null && !byNote;
+  const eligibility = typeof open.reply?.eligibility === "string" ? open.reply.eligibility : null;
+  const words = byNote ? PRIMED_BY_NOTE_WORDS : unmeasured ? PRIMED_UNMEASURED_WORDS
+    : reason === "practice" && eligibility ? `counts as practice · ${eligibilityWords(eligibility)}` : REASON_WORDS[reason];
+  return <div className="ck-reason" data-check-reason={reason} {...(primedBy ? { "data-check-primed-by": primedBy } : {})}>{words}</div>;
+}
+
+/** The open (or answered) card at the host passage: the goal lens's own callout, opened. */
+export function CheckCardInline({ desk }: { desk: CheckDesk }) {
+  useSyncExternalStore(desk.subscribe, desk.getVersion);
+  const open = desk.open();
+  if (!open) return null;
+  const veiled = open.veiled;
+  const looked = lookedLine(open.looked, open.coldNow);
+  if (open.phase === "answered") {
+    const cold = Boolean(open.reply?.cold);
+    return (
+      <div className="callout gq done" data-check-card="inline" data-check-phase="answered" {...SAFE}>
+        <span className="lab">◇ a cold check</span>
+        <div className="gqq"><Question open={open} /></div>
+        <div className="gqy"><span className="who">{answeredHead(cold)}</span>{open.answer}</div>
+        <ReasonLine open={open} />
+        {feedback(open) ? <div className="gqf"><span className="who">◇ feedback</span><FitMath><MarkdownMath value={feedback(open)} /></FitMath></div> : null}
+        <div className="gqv"><b>{veiled.length} {veiled.length === 1 ? "thing was" : "things were"} veiled while you answered</b>{veiled.length ? <> · {groupsLine(veiled)}</> : null} · <span className="faint">back now</span></div>
+        <div className="gqr"><span className="faint" /><button type="button" className="act" onClick={() => desk.close()}>close</button></div>
+      </div>
+    );
+  }
+  return (
+    <div className="callout gq open" data-check-card="inline" data-check-phase={open.phase} {...SAFE}>
+      <span className="lab">{opensCold(open) ? "◇ a cold check · now" : "◇ a check · counts as practice"}</span>
+      <div className="gqq"><Question open={open} /></div>
+      <textarea className="gqa" aria-label="your answer" spellCheck={false} value={open.answer} disabled={open.phase !== "open"}
+        onChange={(event) => desk.setAnswer(event.target.value)} onKeyDown={answerKeys(desk)} autoFocus />
+      <div className="gqv"><b>veiled while you answer</b> · {groupsLine(desk.veils()) || "nothing on screen"}</div>
+      {looked ? <div className="ck-looked">{looked}</div> : null}
+      {open.error ? <div className="ck-note" role="alert">{open.error}</div> : null}
+      <div className="gqr">
+        <span className="faint">{opensCold(open) ? "nothing moves · only an on-your-own answer settles this check" : `nothing moves · ${eligibilityWords(open.card.eligibility ?? null)}`}</span>
+        <button type="button" className="act" disabled={open.phase !== "open"} onClick={() => void desk.abandon()}>not now</button>
+        <button type="button" className="act pri" disabled={open.phase !== "open" || !open.answer.trim()} onClick={() => void desk.submit()}>answer ↵</button>
+      </div>
+    </div>
+  );
+}
+
+/** The card centred near the top, when the host passage is not on this desk (or after a restart). */
+export function CheckCardOverlay({ desk }: { desk: CheckDesk }) {
+  useSyncExternalStore(desk.subscribe, desk.getVersion);
+  const open = desk.open();
+  if (!open) return null;
+  const veiled = open.veiled;
+  const looked = lookedLine(open.looked, open.coldNow);
+  return (
+    <div className="ovl coldcheck" role="dialog" aria-label="a cold check" data-check-card="overlay" data-check-phase={open.phase} {...SAFE}>
+      <div className="cch"><span>◇ LearnLoop</span><span className="grow" /><span>{open.phase === "answered" ? "a cold check · answered" : opensCold(open) ? "a cold check" : "a check · counts as practice"}</span></div>
+      <div className="ccq"><Question open={open} /></div>
+      <div className="cca">
+        {open.phase === "answered" ? (
+          <div className="ccf">
+            <div className="ccfh">◇ feedback · {open.reply?.cold ? "on your own" : "counts as practice"}</div>
+            <div className="gqy"><span className="who">{answeredHead(Boolean(open.reply?.cold))}</span>{open.answer}</div>
+            <ReasonLine open={open} />
+            {feedback(open) ? <FitMath><MarkdownMath value={feedback(open)} /></FitMath> : null}
+            <div className="ccv"><b>{veiled.length} {veiled.length === 1 ? "thing was" : "things were"} hidden while you answered</b>
+              {[...new Set(veiled.map((ref) => ref.group))].map((group) => <div key={group}>· {group}</div>)}
+              <div className="faint">they are back now</div></div>
+            <div className="ccb"><span className="faint" /><button type="button" className="act" onClick={() => desk.close()}>close</button></div>
+          </div>
+        ) : (
+          <>
+            <textarea aria-label="your answer" spellCheck={false} value={open.answer} disabled={open.phase !== "open"}
+              onChange={(event) => desk.setAnswer(event.target.value)} onKeyDown={answerKeys(desk)} autoFocus />
+            <div className="ccv ck-groups">veiled while you answer · {groupsLine(desk.veils()) || "nothing on screen"}</div>
+            {looked ? <div className="ck-looked">{looked}</div> : null}
+            {open.error ? <div className="ck-note" role="alert">{open.error}</div> : null}
+            <div className="ccb">
+              <span className="faint">{opensCold(open) ? "nothing moves · only an on-your-own answer settles this check" : `nothing moves · ${eligibilityWords(open.card.eligibility ?? null)}`}</span>
+              <button type="button" className="act" disabled={open.phase !== "open"} onClick={() => void desk.abandon()}>not now</button>
+              <button type="button" className="act pri" disabled={open.phase !== "open" || !open.answer.trim()} onClick={() => void desk.submit()}>answer ↵</button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** The check's part of a source window's lens: the open card before the begun check's host passage (no due check is
+ *  placed at a passage). One composed lens per window, made again only when its base or the checks change. */
+export class CheckLenses {
+  private made = new Map<string, { base: ReaderLens | null; extractionId: string; version: number; lens: ReaderLens | null }>();
+
+  lensFor(windowId: string, extractionId: string, base: ReaderLens | null, desk: CheckDesk): ReaderLens | null {
+    const version = desk.getVersion();
+    const known = this.made.get(windowId);
+    if (known && known.base === base && known.extractionId === extractionId && known.version === version) return known.lens;
+    const lens: ReaderLens = {
+      ...(base ?? {}),
+      before: (spanId: string) => {
+        const own = base?.before?.(spanId) ?? null;
+        const open = desk.open();
+        const here = Boolean(open && open.host?.extractionId === extractionId && open.host?.spanId === spanId);
+        if (!here) return own;
+        return <>{own}<CheckCardInline desk={desk} /></>;
+      },
+    };
+    this.made.set(windowId, { base, extractionId, version, lens });
+    return lens;
+  }
+}

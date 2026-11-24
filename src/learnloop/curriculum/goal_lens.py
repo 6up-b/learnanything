@@ -43,7 +43,10 @@ TREATMENT_VERBS: dict[str, str] = {"introduces": "introduces", "develops": "deve
 #: A learner's *also about…* where no judge row says how the section treats the LO (coverage's standing
 #: row then has no treatment).
 LEARNER_ABOUT = "learner"
-ABOUT: tuple[str, ...] = (*TREATMENTS[:4], LEARNER_ABOUT)
+#: A video chapter the learner accepted, where no judge row says how the section treats the LO (owner decision
+#: 2026-11-23: accepted chapters feed coverage). A place the topic is taught: never more than supporting.
+CHAPTER_ABOUT = "chapter"
+ABOUT: tuple[str, ...] = (*TREATMENTS[:4], LEARNER_ABOUT, CHAPTER_ABOUT)
 
 #: The per-LO levels in need order (highest first); ``out`` is an LO the learner took off the path.
 NEED_ORDER: tuple[str, ...] = ("core", "supporting", "later", "already_shown")
@@ -61,7 +64,7 @@ LO_KINDS: tuple[str, ...] = ("needed", "prerequisite", "later")
 #: Why an LO or a section has its level (the frontend's keys; :func:`reason_text` words them).
 REASON_KEYS: tuple[str, ...] = (
     "primary", "prerequisite", "alternate", "another_treatment", "applies", "mentions", "learner_about",
-    "deeper_depth",
+    "chapter_about", "deeper_depth",
     "demonstrated", "assumed", "check_pending", "you_skipped", "out_of_scope", "not_about", "unmapped",
     "withheld", "left_out", "partial_unsettled", "partial_unplaced",
 )
@@ -199,6 +202,8 @@ def lo_level(lo: GoalLo, place: PathPlace | None, row: Coverage, ref: str) -> Lo
         return made("supporting", "another_treatment")
     if row.treatment == LEARNER_ABOUT:
         return made("supporting", "learner_about")
+    if row.treatment == CHAPTER_ABOUT:
+        return made("supporting", "chapter_about")
     return made("supporting", "applies" if row.treatment == "applies" else "mentions")
 
 
@@ -256,7 +261,7 @@ def section_level(section: SectionReads, goal: GoalReads) -> SectionLevel:
 # Words (no model: the path's own reason where it has one, else assembled from the labels)
 # ---------------------------------------------------------------------------
 
-HELD_REASON = "A cold check is due on a topic here. Why it matters comes back once you've answered it."
+HELD_REASON = "Details are hidden while a cold check is due."
 
 
 def _quoted(title: str) -> str:
@@ -283,24 +288,25 @@ def reason_text(level: SectionLevel, section: SectionReads, goal: GoalReads) -> 
         return f"Another way to {title}; your path reads it elsewhere."
     words = {
         "prerequisite": f"Background for your goal: {title}.",
-        "primary": f"Where your path reads {title}.",
+        "primary": f"This is the main reading for {title}.",
         "another_treatment": (f"It {TREATMENT_VERBS.get(entry.treatment if entry else '', 'treats')} {title}, "
                               "a topic of your goal; your path reads it elsewhere."),
         "applies": f"It uses {title}, a topic of your goal.",
         "mentions": f"It mentions {title}, a topic of your goal.",
-        "learner_about": f"You said it's also about {title}, a topic of your goal.",
-        "deeper_depth": f"Needed for {title} only deeper than {goal.depth_label}.",
-        "demonstrated": f"You've shown {title} on your own.",
-        "assumed": f"{title} is assumed known (not tested).",
-        "check_pending": f"You said you know {title}; a cold check will tell.",
+        "learner_about": f"You linked this section to {title}.",
+        "chapter_about": f"A chapter you accepted here is about {title}, a topic of your goal.",
+        "deeper_depth": f"Needed for {title} only at a deeper level than {goal.depth_label}.",
+        "demonstrated": f"You’ve shown {title} on your own.",
+        "assumed": f"LearnLoop treats {title} as familiar (not tested).",
+        "check_pending": f"You said you know {title}. A cold check is pending.",
         "you_skipped": f"You chose to skip {title}.",
-        "out_of_scope": "Not about any topic of your goal, as far as coverage says.",
-        "not_about": "Coverage judged it not about the topics of your goal.",
-        "unmapped": "Not mapped for this goal yet.",
-        "withheld": "Protected material: LearnLoop doesn't map it.",
-        "left_out": "Not in the library LearnLoop maps (protected, or not teaching material).",
-        "partial_unsettled": "Not every topic of your goal has been checked against your books yet.",
-        "partial_unplaced": "Your path places a topic here that coverage no longer finds here.",
+        "out_of_scope": "LearnLoop hasn’t found a link to your goal here.",
+        "not_about": "LearnLoop judged this section not about the topics of your goal.",
+        "unmapped": "LearnLoop hasn’t checked this section against your goal yet.",
+        "withheld": "Exam or held-out material: LearnLoop doesn’t map it.",
+        "left_out": "LearnLoop doesn’t map this section (exam or held-out material, or not teaching material).",
+        "partial_unsettled": "LearnLoop is still looking for reading on some of your goal topics.",
+        "partial_unplaced": "LearnLoop used to suggest this section and hasn’t found a current match.",
     }
     return words.get(key, "")
 
@@ -318,7 +324,7 @@ def learner_line(level: SectionLevel, section: SectionReads, goal: GoalReads) ->
     if place is not None and place.override == "skip":
         return "You chose to skip it."
     if place is not None and place.override == "check_later":
-        return "You asked to be checked on it later."
+        return "You asked for a cold check later."
     if place is not None and place.override == "read_anyway":
         return "You chose to read it anyway."
     if any(goal.los[entry.learning_object_id].answered_today for entry in level.learning_objects):
@@ -333,17 +339,20 @@ def coverage_line(level: SectionLevel, section: SectionReads, goal: GoalReads) -
         return None
     entry = next(e for e in level.learning_objects if e.learning_object_id == level.determining)
     lo = goal.los[level.determining]
-    role = {"needed": "a goal LO", "prerequisite": "a prerequisite", "later": "needed at a deeper depth"}[lo.kind]
+    role = {"needed": "goal topic", "prerequisite": "background", "later": "for a deeper level"}[lo.kind]
     place = goal.path.get(lo.learning_object_id)
     if place is not None and place.primary == section.ref:
-        where = "its primary section"
+        where = "main reading"
     elif place is not None and place.alternate(section.ref) is not None:
-        where = "another way"
+        where = "another explanation"
     else:
-        where = "not on your path here"
-    verb = "is about (your words)" if entry.treatment == LEARNER_ABOUT else TREATMENT_VERBS.get(entry.treatment,
-                                                                                                 entry.treatment)
-    return f"coverage: {verb} {_quoted(lo.title)} · {role} · {where} · {level.level.replace('_', ' ')}"
+        where = "outside your current path"
+    if entry.treatment == LEARNER_ABOUT:
+        return f"You linked this section to {_quoted(lo.title)} · {role} · {where}"
+    if entry.treatment == CHAPTER_ABOUT:
+        return f"A chapter you accepted is about {_quoted(lo.title)} · {role} · {where}"
+    verb = TREATMENT_VERBS.get(entry.treatment, "covers")
+    return f"This section {verb} {_quoted(lo.title)} · {role} · {where}"
 
 
 def level_view(level: SectionLevel, section: SectionReads, goal: GoalReads) -> dict[str, Any]:
@@ -468,6 +477,9 @@ NEUTRAL_LO = "a topic with a cold check due"
 NEUTRAL_SECTION = "a section held until its cold check"
 #: An exercise picked from such a section.
 NEUTRAL_EXERCISE = "an exercise held until its cold check"
+#: In the learner's own words (a goal's sentence, an unmatched phrase): what stands for a held LO's name, so the rest
+#: of their words still shows.
+HIDDEN_TOPIC = "[topic hidden]"
 
 
 @dataclass(frozen=True)
@@ -499,6 +511,16 @@ class Protection:
             return False
         folded = text.casefold()
         return any(re.search(rf"(?<!\w){re.escape(title)}(?!\w)", folded) for title in self.titles)
+
+    def mask_names(self, text: Any) -> Any:
+        """The words with every held LO's name (as whole words, any case) replaced by :data:`HIDDEN_TOPIC`: the
+        learner's own sentence keeps everything else."""
+
+        if not isinstance(text, str) or not text or not self.titles:
+            return text
+        for title in sorted(self.titles, key=len, reverse=True):
+            text = re.sub(rf"(?<!\w){re.escape(title)}(?!\w)", HIDDEN_TOPIC, text, flags=re.IGNORECASE)
+        return text
 
     def protects(self, extraction_id: Any, section_id: Any) -> bool:
         return f"{extraction_id}/{section_id}" in self.sections
@@ -565,12 +587,46 @@ def protect_path(view: Mapping[str, Any] | None, protection: Protection) -> dict
     return out
 
 
+def protect_goal(goal: Mapping[str, Any] | None, protection: Protection) -> dict[str, Any] | None:
+    """A goal as the band and the chooser show it: the learner's words, with only a held LO's name masked."""
+
+    if goal is None:
+        return None
+    out = dict(goal)
+    for key in ("title", "sentence", "label"):
+        if key in out:
+            out[key] = protection.mask_names(out[key])
+    return out
+
+
+def protect_unmatched(rows: Sequence[Any], protection: Protection) -> list[Any]:
+    """The goal's unmatched phrases: a phrase or proposed title that names a held LO keeps its other words, the name
+    masked, and is marked ``held`` (so it is never offered to add as it reads)."""
+
+    out = []
+    for row in rows:
+        if not isinstance(row, Mapping):
+            out.append(row)
+            continue
+        item = dict(row)
+        named = any(protection.names_held(item.get(key)) for key in ("phrase", "proposed_title", "proposed_statement"))
+        for key in ("phrase", "proposed_title", "proposed_statement"):
+            if key in item:
+                item[key] = protection.mask_names(item[key])
+        if named:
+            item["held"] = True
+        out.append(item)
+    return out
+
+
 def protect_band(reply: Mapping[str, Any], protection: Protection) -> dict[str, Any]:
-    """``goal.band``: its dots, its next step and its path."""
+    """``goal.band``: its goal, unmatched phrases, dots, next step and path."""
 
     out = dict(reply)
     if not protection.active:
         return out
+    out["goal"] = protect_goal(reply.get("goal"), protection)
+    out["unmatched"] = protect_unmatched(reply.get("unmatched") or (), protection)
     dots = []
     for dot in reply.get("learning_objects") or ():
         row = dict(dot)
@@ -714,5 +770,6 @@ __all__ = [
     "BandLo", "Coverage", "GoalLo", "GoalReads", "LoLevel", "NEUTRAL_EXERCISE", "NEUTRAL_LO", "NEUTRAL_SECTION",
     "NextLine", "PathPlace", "Protection", "SectionLevel", "SectionReads", "band_counts", "band_learning_objects",
     "chapter_held", "level_view", "lo_level", "next_for_goal", "protect_band", "protect_chapters", "protect_follow",
+    "protect_goal", "protect_unmatched",
     "protect_lens", "protect_lessons", "protect_path", "section_level",
 ]

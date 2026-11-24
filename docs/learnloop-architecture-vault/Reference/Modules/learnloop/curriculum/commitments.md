@@ -124,6 +124,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/intent/checks|learnloop.intent.checks]] — imports `module`; statically calls `resolve_disposition`, `satisfy_single_check`
 - [[Reference/Modules/learnloop/intent/control|learnloop.intent.control]] — imports `module`; statically calls `append_commitment_version`, `change_disposition`, `create_commitment`, `resolve_head`
 - [[Reference/Modules/learnloop/intent/deadline|learnloop.intent.deadline]] — imports `module`; statically calls `append_commitment_version`
+- [[Reference/Modules/learnloop/intent/inline_administration|learnloop.intent.inline_administration]] — imports `module`; statically calls `resolve_disposition`
 - [[Reference/Modules/learnloop/reader/active_reading|learnloop.reader.active_reading]] — imports `module`; statically calls `create_commitment`, `resolve_disposition`, `retire`
 - [[Reference/Modules/learnloop/reader/reader_authoring|learnloop.reader.reader_authoring]] — imports `module`; statically calls `add_target`, `change_depth_envelope`, `change_depth_policy`, `create_commitment`, `resolve_head`, `retire`
 - [[Reference/Modules/learnloop/reader/reader_capture|learnloop.reader.reader_capture]] — imports `module`; statically calls `create_commitment`
@@ -156,7 +157,7 @@ Use this module in context through:
 
 - [[Build a Study Map]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/curriculum/commitment_arcs|learnloop.curriculum.commitment_arcs]], [[Reference/Modules/learnloop/curriculum/depth_edge_authoring|learnloop.curriculum.depth_edge_authoring]], [[Reference/Modules/learnloop/curriculum/depth_rungs|learnloop.curriculum.depth_rungs]], [[Reference/Modules/learnloop/curriculum/depth_transition|learnloop.curriculum.depth_transition]], [[Reference/Modules/learnloop/curriculum/golden_path_confirm|learnloop.curriculum.golden_path_confirm]] and 19 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/curriculum/commitment_arcs|learnloop.curriculum.commitment_arcs]], [[Reference/Modules/learnloop/curriculum/depth_edge_authoring|learnloop.curriculum.depth_edge_authoring]], [[Reference/Modules/learnloop/curriculum/depth_rungs|learnloop.curriculum.depth_rungs]], [[Reference/Modules/learnloop/curriculum/depth_transition|learnloop.curriculum.depth_transition]], [[Reference/Modules/learnloop/curriculum/golden_path_confirm|learnloop.curriculum.golden_path_confirm]] and 20 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -283,6 +284,23 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reader_rd6_fix_reads.py](../../../../../../tests/test_reader_rd6_fix_reads.py) — direct import
 - [tests/test_reader_rd6a_goal_lens.py](../../../../../../tests/test_reader_rd6a_goal_lens.py) — direct import
   - `test_a_due_check_hides_its_los_purpose_text_and_comes_first_next`
+- [tests/test_reader_rd7_unlocated_marker.py](../../../../../../tests/test_reader_rd7_unlocated_marker.py) — direct import
+- [tests/test_reader_rd7a_inline_checks.py](../../../../../../tests/test_reader_rd7a_inline_checks.py) — direct import
+  - `test_a_check_settled_elsewhere_while_open_is_closed_superseded_on_the_next_read`
+  - `test_a_crash_after_the_attempt_and_before_the_close_is_recovered_with_that_attempt`
+  - `test_an_answer_after_a_notes_veil_was_opened_is_practice_and_says_why`
+  - `test_an_answer_on_another_surface_while_the_reader_holds_the_check_answers_nothing`
+  - `test_not_now_closes_with_no_attempt_and_the_duty_stays`
+  - `test_opening_a_veil_that_says_nothing_of_the_answer_leaves_it_cold`
+  - `test_opening_a_veil_that_states_the_answer_primes_the_item_and_the_answer_is_practice`
+  - `test_parity_with_check_once_in_today`
+  - `test_rd7_20_a_subthreshold_opening_holds_the_check_and_the_reply_says_so`
+  - `test_rd7_3_an_opened_note_outlives_not_now_the_next_attempt_anywhere_is_not_cold`
+  - `test_rd7_4_every_candidate_of_an_lo_check_is_charged_from_the_set_begin_froze`
+  - `test_rd7_65_an_opening_is_charged_to_a_candidate_made_after_begin`
+  - `test_rd7_72_due_for_says_when_the_next_check_falls_due`
+  - `test_rd7_74_a_check_not_due_yet_is_refused_before_a_session_starts`
+- [tests/test_reader_rd7b_check_session.py](../../../../../../tests/test_reader_rd7b_check_session.py) — direct import
 - [tests/test_reader_reconstruct.py](../../../../../../tests/test_reader_reconstruct.py) — direct import
   - `test_reconstruct_makes_one_item_and_one_test_me_later_commitment`
   - `test_undo_retires_the_commitment_and_the_item`
@@ -293,6 +311,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reader_rw6b_landing.py](../../../../../../tests/test_reader_rw6b_landing.py) — direct import
   - `test_i_check_once_commitments_and_follow_ups_coexist_and_the_gate_touches_only_follow_ups`
 - [tests/test_staged_policy.py](../../../../../../tests/test_staged_policy.py) — direct import
+- [tests/test_tutor_goal_in_view.py](../../../../../../tests/test_tutor_goal_in_view.py) — direct import
 
 ## Modification guidance
 

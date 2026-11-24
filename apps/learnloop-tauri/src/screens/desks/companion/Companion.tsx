@@ -16,6 +16,7 @@ import type { Rect, Stage } from "../geometry";
 import type { Timers } from "../keys/router";
 import type { CompanionExchange } from "./asks";
 import { DiffProposal, type ProposedDiff } from "./DiffProposal";
+import { TUTOR_COPY } from "../../reader/TutorAnswer";
 import { dockRect, nearestDock, pillRect, type CompanionState } from "./model";
 
 /** Transition lengths (spec §4.3). */
@@ -70,6 +71,21 @@ export interface CompanionProps {
   onPill: () => void;
   /** Typing in its input, for the latency trace (a keystroke's render time). */
   onEdit?: () => void;
+  /** The tutor that looks things up (RW1c), while the contract offers it: the personalized chip sent with every
+   *  ask, and under an answer that looked things up "another way" and "that didn't help…". Absent while off. */
+  tutor?: CompanionTutor | null;
+  /** Show me's live figures (spec §13.1), shown above the thread; absent (or null) when there are none. */
+  figures?: ReactNode;
+}
+
+export interface CompanionTutor {
+  personalized: { on: boolean; onToggle: (on: boolean) => void } | null;
+  /** "another way" and "that didn't help…" (retrieval and branches on). */
+  anotherWay: boolean;
+  onAnotherWay: (exchange: CompanionExchange) => void;
+  onDidntHelp: (exchange: CompanionExchange, text: string) => void;
+  /** The excerpt's passage, where it is (this book peeks; another opens beside). */
+  onOpenPassage: (passage: { extractionId: string; spanId: string; sourceId: string | null }) => void;
 }
 
 function timeOf(ms: number): string {
@@ -325,7 +341,7 @@ export const Companion = forwardRef<CompanionHandle, CompanionProps>(function Co
   const anchorOrigin = state.mode === "anchored" && state.anchored ? `${Math.round(state.anchored.w / 2)}px 0px` : "50% 100%";
 
   const tabRect = dockRect(dock, stage);
-  const tabLabel = `◇ tutor · ${props.threadTitle} c`;
+  const tabLabel = `◇ companion · ${props.threadTitle} c`;
 
   return (
     <>
@@ -338,6 +354,7 @@ export const Companion = forwardRef<CompanionHandle, CompanionProps>(function Co
           data-desk-companion=""
           data-companion-mode={state.mode}
           data-companion-dock={dock}
+          data-check-region="the companion"
           role="complementary"
           aria-label="the companion"
           style={{
@@ -352,23 +369,26 @@ export const Companion = forwardRef<CompanionHandle, CompanionProps>(function Co
             if (panelRef.current) panelRef.current.style.transform = "";
           }} aria-hidden="true" />
           <div className="ctabs" role="tablist">
-            <button type="button" role="tab" aria-selected={tab === "tutor"} className={tab === "tutor" ? "on" : ""} onClick={() => setTab("tutor")}>◇ tutor</button>
+            <button type="button" role="tab" aria-selected={tab === "tutor"} className={tab === "tutor" ? "on" : ""} onClick={() => setTab("tutor")}>◇ this desk</button>
             <button type="button" role="tab" aria-selected={tab === "history"} className={tab === "history" ? "on" : ""} onClick={() => setTab("history")}>history</button>
             <span className="grow" />
             <button type="button" onClick={props.onHide}>c hide</button>
           </div>
           <div className="ctx">
-            <span>{props.context.following ? `following ${props.context.following.glyph} ${props.context.following.title}` : "following nothing yet"}</span>
-            {/* The desk's context is recorded with a question, not sent to the tutor: the badge says the goal is in view. */}
-            {props.context.goalInContext ? <span className="goal gctx" title="your goal's lens is on this desk; the tutor's answers don't take it into account yet">◎ goal in view</span> : null}
+            <span>{props.context.following ? `Open now · ${props.context.following.glyph} ${props.context.following.title}` : "following nothing yet"}</span>
+            {/* The goal in view goes with each question to the tutor (its sentence and depth). */}
+            {props.context.goalInContext ? <span className="goal gctx" title="your goal's lens is on this desk">◎ goal in view</span> : null}
             <span className="grow" />
             {earlier.length && tab === "tutor" ? (
               <button type="button" className="earlier" onClick={() => setTab("history")}>earlier · {earlier.map(dayLabel).join(" · ")} ›</button>
             ) : null}
           </div>
-          <div className="body" ref={bodyRef}>
+          {/* What the body shows (its tab and exchanges): an inline check's opening covers only this. */}
+          <div className="body" ref={bodyRef} data-companion-body="" data-check-content={tab === "tutor" ? `tutor:${props.thread.map((exchange) => exchange.requestId).join(",")}` : `history:${historyQuery}:${(history?.days ?? []).flatMap((day) => day.desks.flatMap((desk) => desk.exchanges.map((exchange) => exchange.questionEventId))).join(",")}`}>
+            {/* Show me's figures (spec §13.1), live, above the thread. */}
+            {tab === "tutor" ? props.figures ?? null : null}
             {tab === "tutor" ? (
-              props.thread.length === 0 ? (
+              props.thread.length === 0 && !props.figures ? (
                 <div className="empty">◇ nothing asked on this desk yet · select a passage and press c</div>
               ) : (
                 props.thread.map((exchange) => (
@@ -380,6 +400,7 @@ export const Companion = forwardRef<CompanionHandle, CompanionProps>(function Co
                     onRetry={props.onRetry}
                     onOpenClaim={props.onOpenClaim}
                     onOpenThread={props.onOpenThread}
+                    tutor={props.tutor ?? null}
                   />
                 ))
               )
@@ -399,11 +420,25 @@ export const Companion = forwardRef<CompanionHandle, CompanionProps>(function Co
           {props.chip ? (
             <div className="chip">
               <span className="g">§</span> <span className="lab">asking about</span> <span className="q">“{props.chip.quote.length > 120 ? `${props.chip.quote.slice(0, 119)}…` : props.chip.quote}”</span>
-              <button type="button" aria-label="stop asking about the selection" onClick={props.onClearChip}>✕</button>
+              <button type="button" aria-label="stop asking about the selection" title="Clear selection" onClick={props.onClearChip}>✕</button>
             </div>
           ) : null}
           <div className="cin">
-            {props.cannotAsk ? <div className="cannot">{props.cannotAsk}</div> : null}
+            {/* Why the ask waits says nothing of the content: it stays readable while a check holds the page. */}
+            {props.cannotAsk ? <div className="cannot" data-check-safe="">{props.cannotAsk}</div> : null}
+            {props.tutor?.personalized ? (
+              // What the tutor may read of the learner's own work when it looks things up (RW1c): sent with every ask.
+              <button
+                type="button"
+                className="personal"
+                data-companion-personalized=""
+                aria-pressed={props.tutor.personalized.on}
+                title="whether the tutor may use your own work and questions when it looks things up"
+                onClick={() => props.tutor?.personalized?.onToggle(!props.tutor.personalized.on)}
+              >
+                {props.tutor.personalized.on ? "personalized ●" : "personalized ○"}
+              </button>
+            ) : null}
             <input
               className="input"
               value={draft}
@@ -463,21 +498,85 @@ export const Companion = forwardRef<CompanionHandle, CompanionProps>(function Co
   );
 });
 
-function ExchangeView({ exchange, proposals, onCancel, onRetry, onOpenClaim, onOpenThread }: {
+/** An answer that looked in the learner's books (RW1c): the abstention line, the verbatim excerpt with its way to
+ *  the passage, the bridge to the learner's work, and "another way · that didn't help…". */
+function LookedUp({ exchange, tutor, part }: { exchange: CompanionExchange; tutor: CompanionTutor; part: "before" | "after" }) {
+  const view = exchange.answer?.tutor ?? null;
+  const [unclearOpen, setUnclearOpen] = useState(false);
+  const [unclear, setUnclear] = useState("");
+  if (!view) return null;
+  if (part === "before") {
+    return view.abstained && view.abstentionLine ? <p className="abstained" data-abstention="">{view.abstentionLine}</p> : null;
+  }
+  const excerpt = view.excerpt;
+  const send = () => {
+    tutor.onDidntHelp(exchange, unclear.trim());
+    setUnclearOpen(false);
+    setUnclear("");
+  };
+  return (
+    <>
+      {excerpt ? (
+        <div className="excerpt" data-excerpt="">
+          <span className="who">§ {TUTOR_COPY.fromYourBooks}{excerpt.label ? ` · ${excerpt.label}` : ""}</span>
+          <blockquote><FitMath className="md"><MarkdownMath value={excerpt.quote} /></FitMath></blockquote>
+          <button type="button" className="claim" onClick={() => tutor.onOpenPassage({ extractionId: excerpt.extractionId, spanId: excerpt.spanId, sourceId: excerpt.sourceId ?? null })}>
+            {TUTOR_COPY.openPassage} ▸
+          </button>
+        </div>
+      ) : null}
+      {view.bridgeMd ? (
+        <div className="bridge" data-bridge="">
+          <span className="who">◇ {TUTOR_COPY.bridge}</span>
+          <FitMath className="md"><MarkdownMath value={view.bridgeMd} /></FitMath>
+        </div>
+      ) : null}
+      {tutor.anotherWay ? (
+        <div className="again">
+          <button type="button" className="claim" onClick={() => tutor.onAnotherWay(exchange)}>{TUTOR_COPY.anotherWay}</button>
+          <button type="button" className="claim" aria-expanded={unclearOpen} onClick={() => setUnclearOpen((open) => !open)}>{TUTOR_COPY.didntHelp}</button>
+        </div>
+      ) : null}
+      {unclearOpen ? (
+        <div className="unclear" data-still-unclear="">
+          <span className="who">{TUTOR_COPY.unclearPrompt}</span>
+          <textarea
+            value={unclear}
+            placeholder={TUTOR_COPY.unclearPlaceholder}
+            onChange={(event) => setUnclear(event.target.value)}
+            onKeyDown={(event) => {
+              if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+                event.preventDefault();
+                send();
+              }
+            }}
+          />
+          <span>
+            <button type="button" className="claim" onClick={send}>{TUTOR_COPY.send} · ctrl+↵</button>{" "}
+            <button type="button" className="claim" onClick={() => { setUnclearOpen(false); setUnclear(""); }}>{TUTOR_COPY.cancel}</button>
+          </span>
+        </div>
+      ) : null}
+    </>
+  );
+}
+
+function ExchangeView({ exchange, proposals, onCancel, onRetry, onOpenClaim, onOpenThread, tutor = null }: {
   exchange: CompanionExchange;
   proposals: ProposedDiff[];
   onCancel: (requestId: string) => void;
   onRetry: (requestId: string) => void;
   onOpenClaim: (citation: TutorCitationDto) => void;
   onOpenThread: (exchange: CompanionExchange) => void;
+  tutor?: CompanionTutor | null;
 }) {
   let answer: ReactNode;
   switch (exchange.status) {
     case "waiting":
       answer = (
         <div className="bub ai asking" data-exchange-status="waiting">
-          <span className="who">◇ LearnLoop · saving your desk first</span>
-          <p className="thinking">◐ it is asked about the desk as you left it, once that is saved</p>
+          <span className="who">◇ LearnLoop · waiting for desk changes</span>
+          <p className="thinking">◐ Waiting to ask your question…</p>
         </div>
       );
       break;
@@ -489,8 +588,8 @@ function ExchangeView({ exchange, proposals, onCancel, onRetry, onOpenClaim, onO
         </div>
       ) : (
         <div className="bub ai asking" data-exchange-status="asking">
-          <span className="who">◇ LearnLoop · {exchange.jobStatus === "queued" || exchange.jobStatus === null ? "asked" : "answering"}{exchange.streamedPieces > 0 ? ` · ${exchange.streamedPieces} pieces so far` : ""}</span>
-          <p className="thinking">◐ writing the answer…</p>
+          <span className="who">◇ LearnLoop · {exchange.jobStatus === "queued" || exchange.jobStatus === null ? "waiting to send" : "answering"}</span>
+          <p className="thinking">◐ {exchange.jobStatus === "queued" || exchange.jobStatus === null ? "Waiting for LearnLoop…" : "Working on an answer…"}</p>
           <button type="button" className="act" onClick={() => onCancel(exchange.requestId)}>stop</button>
         </div>
       );
@@ -498,19 +597,21 @@ function ExchangeView({ exchange, proposals, onCancel, onRetry, onOpenClaim, onO
     case "answered":
       answer = (
         <div className="bub ai" data-exchange-status="answered">
-          <span className="who">◇ LearnLoop{exchange.answer?.citations.length ? " · claims link to the passage" : ""}</span>
+          <span className="who">◇ LearnLoop{exchange.answer?.citations.length ? " · source links" : ""}</span>
+          {tutor ? <LookedUp exchange={exchange} tutor={tutor} part="before" /> : null}
           <FitMath className="md"><MarkdownMath value={exchange.answer?.answerMd ?? ""} /></FitMath>
+          {tutor ? <LookedUp exchange={exchange} tutor={tutor} part="after" /> : null}
           {exchange.answer?.citations.length ? (
             <div className="claims">
               {exchange.answer.citations.map((citation, index) => (
-                <button key={`${citation.extractionId}:${citation.spanId}:${index}`} type="button" className="claim" onClick={() => onOpenClaim(citation)}>
+                <button key={`${citation.extractionId}:${citation.spanId}:${index}`} type="button" className="claim" title="Open passage" onClick={() => onOpenClaim(citation)}>
                   § {citation.label ?? "the passage"} ↗
                 </button>
               ))}
             </div>
           ) : null}
           {proposals.map((proposal) => <DiffProposal key={proposal.id} proposal={proposal} />)}
-          <button type="button" className="act" onClick={() => onOpenThread(exchange)}>open the thread as a window ↗</button>
+          <button type="button" className="act" onClick={() => onOpenThread(exchange)}>Open conversation in a window ↗</button>
         </div>
       );
       break;
@@ -518,7 +619,7 @@ function ExchangeView({ exchange, proposals, onCancel, onRetry, onOpenClaim, onO
       answer = (
         <div className="bub ai failed" data-exchange-status="failed">
           <span className="who">◇ couldn't answer</span>
-          <p>{exchange.error?.message ?? "Something went wrong."}</p>
+          <p>{exchange.error?.retryable ? exchange.error.message || "Select Try again to send your question again." : exchange.error?.code === "waiting_for_ok" ? "Give LearnLoop permission to use AI, then ask again." : "Choose another passage and ask again."}</p>
           {exchange.error?.retryable ? <button type="button" className="act" onClick={() => onRetry(exchange.requestId)}>try again</button> : null}
         </div>
       );
@@ -528,7 +629,7 @@ function ExchangeView({ exchange, proposals, onCancel, onRetry, onOpenClaim, onO
         <div className="bub ai stopped" data-exchange-status="cancelled">
           <span className="who">◇ stopped</span>
           <p>{exchange.kept
-            ? "The question was already sent; its answer is kept in your history, not shown here."
+            ? "Answer saved in History."
             : exchange.sent
               ? "The question was sent before it stopped; no answer is shown."
               : "Stopped before it was sent."}</p>
@@ -539,7 +640,7 @@ function ExchangeView({ exchange, proposals, onCancel, onRetry, onOpenClaim, onO
       answer = (
         <div className="bub ai interrupted" data-exchange-status="interrupted">
           <span className="who">◇ interrupted</span>
-          <p>{exchange.error?.message ?? "This was interrupted."}</p>
+          <p>{exchange.error?.message ?? "The reply was interrupted. Select Ask again to retry."}</p>
           <button type="button" className="act" onClick={() => onRetry(exchange.requestId)}>ask again</button>
         </div>
       );
@@ -594,10 +695,10 @@ function HistoryView({ history, olderLoading, onOlder, failed, query, onQuery, d
 }) {
   return (
     <div className="history" data-companion-history="">
-      <div className="hnote">every exchange stays here, by day and by desk, with the passage it was about · also in / search</div>
+      <div className="hnote">Browse saved questions and replies by day and desk.</div>
       <input className="hsearch" value={query} placeholder="search your exchanges" aria-label="search your exchanges" onChange={(event) => onQuery(event.target.value)} />
-      {failed ? <div className="hitem dim">couldn't read your history just now · {failed}</div> : null}
-      {history && history.days.length === 0 ? <div className="hitem dim">{query ? `nothing matches “${query}”` : "nothing asked yet"}</div> : null}
+      {failed ? <div className="hitem dim">Couldn’t load History. Reopen it to try again.</div> : null}
+      {history && history.days.length === 0 ? <div className="hitem dim">{query ? `nothing matches “${query}”` : "No saved questions to show."}</div> : null}
       {history?.days.map((day) => (
         <div key={day.date} className="hdayblock">
           <div className="hday">{dayLabel(day.date)}</div>
@@ -611,7 +712,7 @@ function HistoryView({ history, olderLoading, onOlder, failed, query, onQuery, d
                   <div className="hm">
                     <span className="dim">{exchange.where}</span>
                     {exchange.anchor ? (
-                      <button type="button" className="anchor" onClick={() => onOpenAnchor(exchange.anchor!)}>§ the passage ↗</button>
+                      <button type="button" className="anchor" title="Open passage" onClick={() => onOpenAnchor(exchange.anchor!)}>§ the passage ↗</button>
                     ) : null}
                   </div>
                 </div>
@@ -621,7 +722,7 @@ function HistoryView({ history, olderLoading, onOlder, failed, query, onQuery, d
         </div>
       ))}
       {history?.cursor ? (
-        <button type="button" className="older" disabled={olderLoading} onClick={onOlder}>{olderLoading ? "◐ reading older exchanges…" : "older exchanges ›"}</button>
+        <button type="button" className="older" title="Show older replies" disabled={olderLoading} onClick={onOlder}>{olderLoading ? "◐ reading older exchanges…" : "older exchanges ›"}</button>
       ) : null}
     </div>
   );

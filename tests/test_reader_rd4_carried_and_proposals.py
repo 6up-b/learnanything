@@ -27,6 +27,10 @@ def ctx(tmp_path):
     context.load(paths.root)
     context.post_attempt_worker.autostart = False
     context.paths = paths
+    call(context, "pad.apply", {"clientId": "origins", "seq": 1, "padId": "carry_pad", "ops": [
+        {"op": "create_pad", "kind": "named"},
+        {"op": "insert_block", "blockId": "carry_origin", "kind": "text", "provenance": "learner",
+         "positionKey": "a0", "bodyMd": "Why is the kernel a subspace?"}]})
     return context
 
 
@@ -37,7 +41,7 @@ def _counts(ctx):
 
 def _carry(ctx, carried_id="cq_1", text="Why is the kernel a subspace?", **extra):
     return call(ctx, "carried.carry", {"carriedId": carried_id, "text": text, "originKind": "block",
-                                       "originRef": "b1", **extra})
+                                       "originRef": "carry_origin", **extra})
 
 
 def test_carrying_is_idempotent_and_writes_one_event_and_no_evidence(ctx):

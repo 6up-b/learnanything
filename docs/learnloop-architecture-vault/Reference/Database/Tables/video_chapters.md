@@ -42,7 +42,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `workflow` — Mutable queue, session, lease, or other in-flight workflow state. It is preserved across rebuilds.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/268_reader_workbench_video_chapters.sql`.
-- **Schema touched by:** `268_reader_workbench_video_chapters.sql`.
+- **Schema touched by:** `268_reader_workbench_video_chapters.sql`, `270_reader_workbench_inline_checks.sql`, `271_reader_workbench_inline_checks_fix.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -76,6 +76,7 @@ Database triggers:
 
 - `video_chapters_decide_once` — schema-enforced lifecycle or immutability constraint.
 - `video_chapters_keep_decided` — schema-enforced lifecycle or immutability constraint.
+- `video_chapters_no_replace_decided` — schema-enforced lifecycle or immutability constraint.
 
 ## Who calls it
 
@@ -103,9 +104,12 @@ None found by exact static reference scan.
 - `tests/identity_pins_helpers.py`
 - `tests/reader_rd10_migration_helpers.py`
 - `tests/test_architecture.py`
+- `tests/test_chapters_feed_coverage.py`
 - `tests/test_reader_rd10_fix_protection.py`
 - `tests/test_reader_rd10_migration.py`
 - `tests/test_reader_rd10_video.py`
+- `tests/test_reader_rd7_fix_migration.py`
+- `tests/test_reader_rd7a_migration.py`
 - `tests/test_video_chapters_no_replace.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

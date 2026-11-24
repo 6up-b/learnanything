@@ -5,10 +5,10 @@ aliases:
   - Migration and Doctor Workflow
 status: active
 doc_version: 1.0.0
-implementation_version: mvp-0.9
-last_reviewed: 2026-09-23
-source_commit: e1153c01d0c6e29e6c4f97f1f4fa1e5214914f73
-source_commit_timestamp: "2026-09-23T18:50:00-04:00"
+implementation_version: mvp-0.68
+last_reviewed: 2026-11-23
+source_commit: 86f29b0d390ed2ecdbb0347d98ccb1175ac52728
+source_commit_timestamp: "2026-11-23T23:12:28-05:00"
 source_paths:
   - src/learnloop/ops/doctor.py
   - src/learnloop/db/storage.py
@@ -152,7 +152,7 @@ Do not edit `algorithm_version` in TOML to skip a projection. Freshly initialize
 - vault backup location and timestamp;
 - doctor JSON before and after;
 - command/version (`uv run learnloop --help`, Git commit);
-- `schema_migrations` head (currently 165);
+- the highest applied `schema_migrations` version and the expected head from the [[Database Catalog]];
 - related batch, attempt, agent-run, proposal, or rebuild-marker ids;
 - sidecar logs when the issue crossed the desktop bridge.
 

@@ -48,32 +48,32 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/ai/routing.py](../../../../../../src/learnloop/ai/routing.py) |
-| Source lines | 893 |
+| Source lines | 887 |
 | Owning package | [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class AIProviderSelection` ([source](../../../../../../src/learnloop/ai/routing.py), line 335)
-- `class ResolvedClient` ([source](../../../../../../src/learnloop/ai/routing.py), line 342) — Typed outcome of provider selection, readiness, fallback, and build.
-  - `ready(self) -> bool` (line 360; public)
-  - `__iter__(self) -> Iterator[Any]` (line 363; internal)
-- `provider_for_task(config: LearnLoopConfig, task: AITask, *, explicit_provider: str | None=None, allow_env: bool=True) -> AIProviderSelection` ([source](../../../../../../src/learnloop/ai/routing.py), line 369) — Select a configured name with explicit > environment > route precedence.
-- `route_names(value: Any) -> list[str]` ([source](../../../../../../src/learnloop/ai/routing.py), line 436) — The profile names one route value names: a single profile or a list route.
-- `provider_list_for_task(config: LearnLoopConfig, task: AITask, *, allow_env: bool=True) -> list[AIProviderSelection]` ([source](../../../../../../src/learnloop/ai/routing.py), line 442) — Every configured profile of a list route, in order, duplicates removed.
-- `provider_for_operation(config: LearnLoopConfig, operation: str, *, explicit_provider: str | None=None, allow_env: bool=True) -> AIProviderSelection` ([source](../../../../../../src/learnloop/ai/routing.py), line 465)
-- `fallback_provider_for(config: LearnLoopConfig, selection: AIProviderSelection) -> str | None` ([source](../../../../../../src/learnloop/ai/routing.py), line 484) — The configured readiness fallback for ``selection``, or ``None``.
-- `configured_fallback(config: LearnLoopConfig, primary: str | None) -> str | None` ([source](../../../../../../src/learnloop/ai/routing.py), line 498) — ``ai.fallback_provider`` as a fallback for ``primary``, or ``None`` when it may not be one.
-- `is_plan_profile(config: LearnLoopConfig, provider_name: str | None) -> bool` ([source](../../../../../../src/learnloop/ai/routing.py), line 525) — Whether ``provider_name`` is a ChatGPT-plan (``chatgpt_plan``) profile.
-- `route_profile_mismatch(config: LearnLoopConfig, provider_name: str, task: AITask | None) -> str | None` ([source](../../../../../../src/learnloop/ai/routing.py), line 532) — Why ``provider_name`` cannot serve ``task``, or ``None`` when it can.
-- `is_embedding_profile(config: LearnLoopConfig, provider_name: str) -> bool` ([source](../../../../../../src/learnloop/ai/routing.py), line 580)
-- `is_decider_profile(config: LearnLoopConfig, provider_name: str) -> bool` ([source](../../../../../../src/learnloop/ai/routing.py), line 585)
-- `serves_read_only_workspace(config: LearnLoopConfig, provider_name: str | None) -> bool` ([source](../../../../../../src/learnloop/ai/routing.py), line 590) — Whether the profile ``provider_name`` can serve a read-only workspace (by its type).
-- `is_generation_profile(config: LearnLoopConfig, provider_name: str) -> bool` ([source](../../../../../../src/learnloop/ai/routing.py), line 597) — Whether a configured name can serve a chat/generation route.
-- `runtime_for_provider(vault_root: Path, config: LearnLoopConfig, provider_name: str, *, task: AITask | None=None) -> AIRuntimeReport` ([source](../../../../../../src/learnloop/ai/routing.py), line 611) — Return one provider-neutral readiness report for any configured name.
-- `client_for_provider(vault_root: Path, config: LearnLoopConfig, provider_name: str, *, timeout_seconds: int | None=None, task: AITask | None=None) -> Any | None` ([source](../../../../../../src/learnloop/ai/routing.py), line 643) — Build a configured provider client, returning no client for manual mode.
-- `ready_client_for_task(vault_root: Path, config: LearnLoopConfig, task: AITask, *, explicit: str | None=None, allow_env: bool=True, timeout_seconds: int | None=None) -> ResolvedClient` ([source](../../../../../../src/learnloop/ai/routing.py), line 677) — Resolve selection, readiness, fallback, and construction exactly once.
+- `class AIProviderSelection` ([source](../../../../../../src/learnloop/ai/routing.py), line 329)
+- `class ResolvedClient` ([source](../../../../../../src/learnloop/ai/routing.py), line 336) — Typed outcome of provider selection, readiness, fallback, and build.
+  - `ready(self) -> bool` (line 354; public)
+  - `__iter__(self) -> Iterator[Any]` (line 357; internal)
+- `provider_for_task(config: LearnLoopConfig, task: AITask, *, explicit_provider: str | None=None, allow_env: bool=True) -> AIProviderSelection` ([source](../../../../../../src/learnloop/ai/routing.py), line 363) — Select a configured name with explicit > environment > route precedence.
+- `route_names(value: Any) -> list[str]` ([source](../../../../../../src/learnloop/ai/routing.py), line 430) — The profile names one route value names: a single profile or a list route.
+- `provider_list_for_task(config: LearnLoopConfig, task: AITask, *, allow_env: bool=True) -> list[AIProviderSelection]` ([source](../../../../../../src/learnloop/ai/routing.py), line 436) — Every configured profile of a list route, in order, duplicates removed.
+- `provider_for_operation(config: LearnLoopConfig, operation: str, *, explicit_provider: str | None=None, allow_env: bool=True) -> AIProviderSelection` ([source](../../../../../../src/learnloop/ai/routing.py), line 459)
+- `fallback_provider_for(config: LearnLoopConfig, selection: AIProviderSelection) -> str | None` ([source](../../../../../../src/learnloop/ai/routing.py), line 478) — The configured readiness fallback for ``selection``, or ``None``.
+- `configured_fallback(config: LearnLoopConfig, primary: str | None) -> str | None` ([source](../../../../../../src/learnloop/ai/routing.py), line 492) — ``ai.fallback_provider`` as a fallback for ``primary``, or ``None`` when it may not be one.
+- `is_plan_profile(config: LearnLoopConfig, provider_name: str | None) -> bool` ([source](../../../../../../src/learnloop/ai/routing.py), line 519) — Whether ``provider_name`` is a ChatGPT-plan (``chatgpt_plan``) profile.
+- `route_profile_mismatch(config: LearnLoopConfig, provider_name: str, task: AITask | None) -> str | None` ([source](../../../../../../src/learnloop/ai/routing.py), line 526) — Why ``provider_name`` cannot serve ``task``, or ``None`` when it can.
+- `is_embedding_profile(config: LearnLoopConfig, provider_name: str) -> bool` ([source](../../../../../../src/learnloop/ai/routing.py), line 574)
+- `is_decider_profile(config: LearnLoopConfig, provider_name: str) -> bool` ([source](../../../../../../src/learnloop/ai/routing.py), line 579)
+- `serves_read_only_workspace(config: LearnLoopConfig, provider_name: str | None) -> bool` ([source](../../../../../../src/learnloop/ai/routing.py), line 584) — Whether the profile ``provider_name`` can serve a read-only workspace (by its type).
+- `is_generation_profile(config: LearnLoopConfig, provider_name: str) -> bool` ([source](../../../../../../src/learnloop/ai/routing.py), line 591) — Whether a configured name can serve a chat/generation route.
+- `runtime_for_provider(vault_root: Path, config: LearnLoopConfig, provider_name: str, *, task: AITask | None=None) -> AIRuntimeReport` ([source](../../../../../../src/learnloop/ai/routing.py), line 605) — Return one provider-neutral readiness report for any configured name.
+- `client_for_provider(vault_root: Path, config: LearnLoopConfig, provider_name: str, *, timeout_seconds: int | None=None, task: AITask | None=None) -> Any | None` ([source](../../../../../../src/learnloop/ai/routing.py), line 637) — Build a configured provider client, returning no client for manual mode.
+- `ready_client_for_task(vault_root: Path, config: LearnLoopConfig, task: AITask, *, explicit: str | None=None, allow_env: bool=True, timeout_seconds: int | None=None) -> ResolvedClient` ([source](../../../../../../src/learnloop/ai/routing.py), line 671) — Resolve selection, readiness, fallback, and construction exactly once.
 
 ### Module constants
 
@@ -81,10 +81,10 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - `EMBEDDING_PROFILE_TYPE` ([src/learnloop/ai/routing.py](../../../../../../src/learnloop/ai/routing.py), line 23)
 - `WORKSPACE_PROFILE_TYPES` ([src/learnloop/ai/routing.py](../../../../../../src/learnloop/ai/routing.py), line 29)
 - `TURN_DEADLINE_PROFILE_TYPES` ([src/learnloop/ai/routing.py](../../../../../../src/learnloop/ai/routing.py), line 32)
-- `DECIDER_TASKS` ([src/learnloop/ai/routing.py](../../../../../../src/learnloop/ai/routing.py), line 167)
-- `DECIDER_ACCEPTING_TASKS` ([src/learnloop/ai/routing.py](../../../../../../src/learnloop/ai/routing.py), line 176)
-- `ROUTE_FOR_OPERATION` ([src/learnloop/ai/routing.py](../../../../../../src/learnloop/ai/routing.py), line 181)
-- `LIST_ROUTE_TASKS` ([src/learnloop/ai/routing.py](../../../../../../src/learnloop/ai/routing.py), line 425)
+- `DECIDER_TASKS` ([src/learnloop/ai/routing.py](../../../../../../src/learnloop/ai/routing.py), line 164)
+- `DECIDER_ACCEPTING_TASKS` ([src/learnloop/ai/routing.py](../../../../../../src/learnloop/ai/routing.py), line 173)
+- `ROUTE_FOR_OPERATION` ([src/learnloop/ai/routing.py](../../../../../../src/learnloop/ai/routing.py), line 178)
+- `LIST_ROUTE_TASKS` ([src/learnloop/ai/routing.py](../../../../../../src/learnloop/ai/routing.py), line 419)
 
 ### Explicit exports
 
@@ -119,10 +119,10 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 
 ## Internal implementation anchors
 
-- `_route_list(value: Any) -> list[str]` ([source](../../../../../../src/learnloop/ai/routing.py), line 428)
-- `_plan_unavailable(vault_root: Path, config: LearnLoopConfig, selection: AIProviderSelection, primary: ResolvedClient, *, task: AITask, timeout_seconds: int | None) -> ResolvedClient` ([source](../../../../../../src/learnloop/ai/routing.py), line 743) — The plan cannot serve ``task``: ask about OpenRouter, or use it when the learner chose so.
-- `_resolve_selected_provider(vault_root: Path, config: LearnLoopConfig, selection: AIProviderSelection, provider_name: str, *, task: AITask, timeout_seconds: int | None, fallback_from: str | None=None) -> ResolvedClient` ([source](../../../../../../src/learnloop/ai/routing.py), line 802)
-- `_manual_resolution(selection: AIProviderSelection, *, fallback_from: str | None=None, message: str='Manual mode selected; AI is disabled for this workflow.') -> ResolvedClient` ([source](../../../../../../src/learnloop/ai/routing.py), line 843)
+- `_route_list(value: Any) -> list[str]` ([source](../../../../../../src/learnloop/ai/routing.py), line 422)
+- `_plan_unavailable(vault_root: Path, config: LearnLoopConfig, selection: AIProviderSelection, primary: ResolvedClient, *, task: AITask, timeout_seconds: int | None) -> ResolvedClient` ([source](../../../../../../src/learnloop/ai/routing.py), line 737) — The plan cannot serve ``task``: ask about OpenRouter, or use it when the learner chose so.
+- `_resolve_selected_provider(vault_root: Path, config: LearnLoopConfig, selection: AIProviderSelection, provider_name: str, *, task: AITask, timeout_seconds: int | None, fallback_from: str | None=None) -> ResolvedClient` ([source](../../../../../../src/learnloop/ai/routing.py), line 796)
+- `_manual_resolution(selection: AIProviderSelection, *, fallback_from: str | None=None, message: str='Manual mode selected; AI is disabled for this workflow.') -> ResolvedClient` ([source](../../../../../../src/learnloop/ai/routing.py), line 837)
 
 ## Who imports or calls it
 

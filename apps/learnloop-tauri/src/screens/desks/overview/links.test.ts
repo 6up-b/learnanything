@@ -11,7 +11,7 @@ describe("relations", () => {
     const relations = relationsOf(ws, "fx_w_book");
     expect(relations).toEqual([
       { windowId: "fx_w_guide", weight: 3, label: "its panel" },
-      { windowId: "fx_w_path", weight: 3, label: "its panel" },
+      { windowId: "fx_w_notes", weight: 3, label: "its panel" },
       { windowId: "fx_w_book_range", weight: 2, label: "same book" },
     ]);
     expect(relationsOf(ws, "fx_w_guide")[0]).toEqual({ windowId: "fx_w_book", weight: 3, label: "its book" });

@@ -47,7 +47,6 @@ from __future__ import annotations
 
 import pytest
 
-from learnloop.algorithm_versions import METHOD_EXPLICIT_ALGORITHM_VERSION as METHOD_VERSION
 from learnloop.held_grades import held_attempt_ids
 from tests.diagnosis_fakes import ReviewFakeClient
 from tests.split_live_helpers import ReadyRuntime, at
@@ -55,7 +54,6 @@ from tests.diagnosis_input_provenance_helpers import _question, world  # noqa: F
 from tests.ux_phase4_feedback_helpers import ctx  # noqa: F401 - ctx is a fixture
 from tests.forecast_receipts_helpers import ITEM, WRONG, _answer, _diagnosed, _diagnosis_resolution, _present
 from tests.route_rules_in_grader_helpers import ALTERNATIVE, DivergentUnlocatedGrader, FullCreditGrader
-from tests.route_rules_in_grader_helpers import VERSION as ROUTE_RULES_VERSION
 
 REASON = "I did transpose V; the last line says so"
 
@@ -113,7 +111,7 @@ def _pending_reviews(repository) -> list[str]:
 def test_a_contest_regrade_records_provenance_and_re_resolves_the_forecast(tmp_path, monkeypatch):
     # A method-explicit item, so the regrade cites the contract it read and
     # the forecast resolves on it (test_forecast_receipts' F2 tests).
-    paths, vault, repository, diagnosed = _diagnosed(tmp_path, version=METHOD_VERSION, method=True)
+    paths, vault, repository, diagnosed = _diagnosed(tmp_path, method=True)
     presentation = _present(repository, ITEM, block="blk_contest", when=at(29))
     contested = _answer(vault, repository, ReviewFakeClient(), answer=WRONG + " again", when=at(30),
                         presentation_id=presentation)
@@ -142,7 +140,7 @@ def test_a_contest_regrade_records_provenance_and_re_resolves_the_forecast(tmp_p
 
 
 def test_a_contest_the_regrade_does_not_uphold_is_flagged_never_held(tmp_path, monkeypatch):
-    paths, vault, repository, diagnosed = _diagnosed(tmp_path, version=METHOD_VERSION, method=True)
+    paths, vault, repository, diagnosed = _diagnosed(tmp_path, method=True)
     presentation = _present(repository, ITEM, block="blk_flag", when=at(29))
     contested = _answer(vault, repository, ReviewFakeClient(), answer=WRONG + " again", when=at(30),
                         presentation_id=presentation)
@@ -169,7 +167,7 @@ def test_a_contest_the_regrade_does_not_uphold_is_flagged_never_held(tmp_path, m
 
 
 def test_a_held_grade_resolves_nothing_until_a_contest_regrade_releases_it(tmp_path, monkeypatch):
-    paths, vault, repository, diagnosed = _diagnosed(tmp_path, version=ROUTE_RULES_VERSION)
+    paths, vault, repository, diagnosed = _diagnosed(tmp_path)
     presentation = _present(repository, ITEM, block="blk_held_contest", when=at(29))
     held = _answer(vault, repository, DivergentUnlocatedGrader(), answer=ALTERNATIVE, when=at(30),
                    presentation_id=presentation)
@@ -303,14 +301,14 @@ def _r2b_env_with_a_lifting_hold(tmp_path, decider, *, items=None):
     from datetime import timedelta
 
     from learnloop.clock import FrozenClock
-    from tests.router_mixture_helpers import mixture_env
+    from tests.router_mixture_helpers import B, mixture_env
     from tests.router_model_fakes import fake_runtime, seed_with_first_uniform
     from tests.ux_phase4_feedback_helpers import _iso
 
     env = mixture_env(
         tmp_path, fake_runtime(decider=decider, seed=seed_with_first_uniform(at_least=0.5)), items=items,
         toml="[router.weights]\nstaged = 0.0\ndecider = 1.0\nllm = 0.0\n",
-    )
+     version=B)
     now = env.clock.now()
     env.repository.create_followup_task(
         kind="cold_retry", case_kind="misconception", case_ref="ep_r8",

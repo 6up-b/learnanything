@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/companion/asks.ts](../../../../../../../../apps/learnloop-tauri/src/screens/desks/companion/asks.ts) |
-| Source lines | 353 |
+| Source lines | 371 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/companion/_area|TypeScript/screens/desks/companion]] |
 | Refactor status | `ACTIVE` |
@@ -59,37 +59,37 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export interface CompanionExchange` — interface, line 22
 - `export type DeskWritesSettled = "saved" | "unsaved"` — type, line 49
 - `export interface AskRequest` — interface, line 51
-- `export function threadKey(deskId: string | null): string` — function, line 82
-- `export class CompanionAsks` — class, line 86
-- `export function forgetCompanionAsks(vaultKey: string, owner: object): void` — function, line 334
-- `export function companionAsksFor(vaultKey: string, owner: object, make: ()` — function, line 341
+- `export function threadKey(deskId: string | null): string` — function, line 96
+- `export class CompanionAsks` — class, line 100
+- `export function forgetCompanionAsks(vaultKey: string, owner: object): void` — function, line 352
+- `export function companionAsksFor(vaultKey: string, owner: object, make: ()` — function, line 359
 
 ## Internal implementation anchors
 
-- `function errorOf(error: unknown):` — function, line 64
-- `const record = error as` — const, line 66
-- `const UNSAVED =` — const, line 76
-- `const index = list.findIndex((exchange)` — const, line 123
-- `const next = [...list]` — const, line 125
-- `const list = this.thread(request.deskId)` — const, line 135
-- `const exchange = list[index]` — const, line 137
-- `const parent = this.parentFor(request)` — const, line 147
-- `const input: Omit<CompanionAskInput, "requestId"> =` — const, line 148
-- `const requestId = this.mintRequestId()` — const, line 163
-- `const exchange: CompanionExchange =` — const, line 164
-- `const key = threadKey(exchange.deskId)` — const, line 183
-- `const go = ()` — const, line 186
-- `const exchange = [...this.threads.values()].flat().find((each)` — const, line 215
-- `const remove = this.poller.register<CompanionAskJobDto>(` — const, line 244
-- `const reason = errorOf(error)` — const, line 257
-- `const remove = this.polls.get(requestId)` — const, line 270
-- `const sent = current.sent || (job.sent ?? (job.status === "running" || job.status === "done" || job.kept))` — const, line 281
-- `const base =` — const, line 282
-- `const held = [...this.held]` — const, line 316
-- `const STORES = new WeakMap<object, Map<string, CompanionAsks>>()` — const, line 331
-- `const byVault = STORES.get(owner)` — const, line 335
-- `let byVault = STORES.get(owner)` — let, line 342
-- `let store = byVault.get(vaultKey)` — let, line 347
+- `function errorOf(error: unknown):` — function, line 75
+- `const record = error as` — const, line 77
+- `const UNSAVED =` — const, line 90
+- `const index = list.findIndex((exchange)` — const, line 137
+- `const next = [...list]` — const, line 139
+- `const list = this.thread(request.deskId)` — const, line 149
+- `const exchange = list[index]` — const, line 151
+- `const parent = request.parentExchangeId !== undefined ? request.parentExchangeId : this.parentFor(request)` — const, line 161
+- `const input: Omit<CompanionAskInput, "requestId"> =` — const, line 162
+- `const requestId = this.mintRequestId()` — const, line 181
+- `const exchange: CompanionExchange =` — const, line 182
+- `const key = threadKey(exchange.deskId)` — const, line 201
+- `const go = ()` — const, line 204
+- `const exchange = [...this.threads.values()].flat().find((each)` — const, line 233
+- `const remove = this.poller.register<CompanionAskJobDto>(` — const, line 262
+- `const reason = errorOf(error)` — const, line 275
+- `const remove = this.polls.get(requestId)` — const, line 288
+- `const sent = current.sent || (job.sent ?? (job.status === "running" || job.status === "done" || job.kept))` — const, line 299
+- `const base =` — const, line 300
+- `const held = [...this.held]` — const, line 334
+- `const STORES = new WeakMap<object, Map<string, CompanionAsks>>()` — const, line 349
+- `const byVault = STORES.get(owner)` — const, line 353
+- `let byVault = STORES.get(owner)` — let, line 360
+- `let store = byVault.get(vaultKey)` — let, line 365
 
 ## Who imports or calls it
 

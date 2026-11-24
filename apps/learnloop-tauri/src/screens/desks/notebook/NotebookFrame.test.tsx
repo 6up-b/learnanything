@@ -50,7 +50,7 @@ it("starts, then mounts the frame at the session's URL once ready, sandboxed and
   const api = calls(async () => session(state));
   render(<Frame api={api} />);
   await settle();
-  expect(screen.getByRole("status").textContent).toContain("starting the notebook");
+  expect(screen.getByRole("status").textContent).toContain("Starting the notebook on this device");
   expect(document.querySelector("iframe")).toBeNull();
   state = "ready";
   await act(async () => vi.advanceTimersByTime(POLL_MS.changing));
@@ -67,7 +67,7 @@ it("keeps the frame while a crashed server restarts, and says so", async () => {
   const api = calls(async () => session("restarting", { restarts: 2 }));
   render(<Frame api={api} />);
   await settle();
-  expect(screen.getByRole("status").textContent).toBe("the notebook stopped; starting it again (2 of 3)…");
+  expect(screen.getByRole("status").textContent).toBe("Restarting the notebook (2 of 3)…");
   expect(document.querySelector("iframe")?.getAttribute("src")).toBe(URL_);
 });
 
@@ -99,7 +99,7 @@ it("a failed session says what failed, with try again", async () => {
   const api = calls(async () => session("failed", { error: "the notebook server stopped 4 times" }));
   render(<Frame api={api} />);
   await settle();
-  expect(screen.getByRole("status").querySelector("span")?.textContent).toBe("the notebook couldn't run: the notebook server stopped 4 times");
+  expect(screen.getByRole("status").querySelector("span")?.textContent).toBe("The notebook couldn’t keep running. Select Try again.");
   expect(screen.getByRole("button", { name: "try again" })).toBeTruthy();
 });
 
@@ -155,7 +155,7 @@ it("hands on only the frame's own, well-formed messages", async () => {
 
 it("names every state in one line", () => {
   expect(statusLine(frameView(null, null))).toBe("opening the notebook…");
-  expect(statusLine(frameView(session("stopped", { stopReason: "vault_switch" }), null))).toBe("notebook closed when the vault changed");
+  expect(statusLine(frameView(session("stopped", { stopReason: "vault_switch" }), null))).toBe("Notebook closed when you switched libraries. Select Resume.");
   expect(statusLine(frameView(session("ready"), null))).toBe("");
 });
 
@@ -170,10 +170,12 @@ it("retries a failed open three times, 1.5 s apart, before saying it failed (spe
   });
   render(<Frame api={flaky} />);
   await settle();
-  expect(screen.getByRole("status").textContent).toContain("trying again (1 of 3)");
+  expect(screen.getByRole("status").textContent).toContain("Trying again (1 of 3)");
+  expect(flaky.opens).toBe(1);
   await act(async () => vi.advanceTimersByTime(RETRY.everyMs));
   await settle();
-  expect(screen.getByRole("status").textContent).toContain("trying again (2 of 3)");
+  expect(screen.getByRole("status").textContent).toContain("Trying again (2 of 3)");
+  expect(flaky.opens).toBe(2);
   await act(async () => vi.advanceTimersByTime(RETRY.everyMs));
   await settle();
   expect(document.querySelector("iframe")).not.toBeNull();
@@ -191,6 +193,6 @@ it("after three retries the failure is said, with a try again", async () => {
   }
   await settle();
   expect(down.opens).toBe(4);
-  expect(screen.getByRole("status").textContent).toContain("couldn't run");
+  expect(screen.getByRole("status").textContent).toContain("didn't answer in time");
   expect(screen.getByRole("button", { name: "try again" })).toBeTruthy();
 });

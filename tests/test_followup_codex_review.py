@@ -524,7 +524,11 @@ def test_f6_a_crash_right_after_a_probe_answer_has_settled_its_workflow(journey,
 
 
 def test_f6_a_crash_after_the_diagnosis_ended_is_recovered_by_next(tmp_path, monkeypatch):
-    _paths, vault, repository = split_vault(tmp_path, version=LATEST_ALGORITHM_VERSION)
+    # At the probe router's predecessor, where the recovered decision asks the probe (FG1's tag; from the probe router
+    # on, an unwritten probe is asked only by the probe coin).
+    from tests.followup_serve_helpers import TAG as FG1_TAG
+
+    _paths, vault, repository = split_vault(tmp_path, version=FG1_TAG)
     client = fake_client()
     result = submit(vault, repository, client, pipeline=False)
     outcome = run_post_attempt_pipeline(vault, repository, result=result, followup_surface="desktop", clock=CLOCK)

@@ -6,9 +6,9 @@ implementation_version: mvp-0.9
 decision_date: 2026-08-17
 decision_status: superseded
 superseded_by: ADR-018 The Codex transport is retired
-last_reviewed: 2026-11-10
-source_commit: 62fd1f6404cc3a3007c6f214ba9429c45ef0114f
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
+last_reviewed: 2026-11-23
+source_commit: 86f29b0d390ed2ecdbb0347d98ccb1175ac52728
+source_commit_timestamp: "2026-11-23T23:12:28-05:00"
 source_paths:
   - src/learnloop/ai/agent_harness.py
   - src/learnloop/ai/transport.py
@@ -21,24 +21,4 @@ tags:
 
 # ADR-011 Retain legacy HTTP as a narrow capability
 
-> [!warning] Superseded
-> Superseded on 2026-11-10 by [[ADR-018 The Codex transport is retired]]. The HTTP adapter was refused at every entry from 2026-10-21 and left the product in refactor C4; its eight-operation parity row left with it. This note describes the adapter as it was retained until then.
-
-## Context
-
-The HTTP endpoint adapter cannot provide an arbitrary `complete()` operation; it has endpoint-specific support for a historical subset. Pretending otherwise would make the protocol false, while deletion would remove an explicitly retained integration.
-
-## Decision
-
-Keep HTTP as an optional `OperationClient` with generic `complete_legacy` and exact capability declarations. It supports exactly eight known operations; all others fail locally with `AIProviderUnavailable` and make no request.
-
-## Consequences
-
-- The shared structured protocol remains honest.
-- Features can retain compatible endpoint behavior during migration.
-- New operations are unsupported unless deliberately implemented and added to the exact capability oracle.
-
-## Enforcement
-
-The 23-operation parity ledger proves exact-eight support and zero-egress degradation for the rest. See [[AI Architecture#Transport contract]].
-
+Superseded by [[ADR-018 The Codex transport is retired]]. This decision kept an eight-operation HTTP adapter during the earlier migration. The adapter and its parity row were removed in C4. See [[AI Architecture#Transport contract]] for the supported structured transport.

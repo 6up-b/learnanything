@@ -4,10 +4,10 @@ aliases:
   - LearnLoop Documentation Home
 status: active
 doc_version: 1.0.0
-implementation_version: mvp-0.9
-last_reviewed: 2026-09-23
-source_commit: 0622ea164f76ad7e1d62a00afda51473dbcd992e
-source_commit_timestamp: "2026-09-23T13:06:55-04:00"
+implementation_version: mvp-0.68
+last_reviewed: 2026-11-23
+source_commit: 86f29b0d390ed2ecdbb0347d98ccb1175ac52728
+source_commit_timestamp: "2026-11-23T23:12:28-05:00"
 source_paths:
   - docs/specs/ARCHITECTURE.md
   - README.md
@@ -18,7 +18,7 @@ tags:
 
 # Home
 
-LearnLoop is a local-first adaptive learning system. Authored knowledge lives in a vault; immutable observations record what happened; projections estimate what the learner can do; a deterministic policy selects the next useful action; optional AI performs bounded, schema-validated authoring and grading work.
+LearnLoop is a local-first adaptive learning system. Authored knowledge lives in a vault; immutable observations record what happened; projections estimate what the learner can do; the scheduler ranks eligible items and Today's router can draw a block from a seeded policy mixture; optional AI performs bounded, schema-validated authoring and grading work.
 
 For a spatial overview, open the [LearnLoop System canvas](Maps/LearnLoop%20System.canvas) in Obsidian.
 
@@ -53,10 +53,18 @@ For a spatial overview, open the [LearnLoop System canvas](Maps/LearnLoop%20Syst
 - [[Collection and Dataset Contract]] — offer provenance, collection versions, outcome labels, splits, adjudications, and the dataset export.
 - [[Learner State and Projections]] — the measured, inferred, claimed, predictive, and memory views exposed from evidence.
 - [[Content Pipeline]] — source acquisition, immutable revisions, IR, inventory, synthesis.
-- [[Adapter Architecture]] — CLI, Textual TUI, and JSON-RPC sidecar.
+- [[Adapter Architecture]] — CLI, optional Textual TUI, and JSON-RPC sidecar.
 - [[Desktop Architecture]] — React/Tauri composition, RPC bridge, process lifecycle, watcher, and desktop module map.
 - [[Configuration]] — `learnloop.toml`, defaults, compatibility normalization.
 - [[Parameter Governance and Evaluation]] — decision knobs, sensitivity, simulation, and promotion evidence.
+
+## Reader workbench
+
+- [[Concepts/Reader workbench|Reader workbench]] — desks, pad writes, the companion, the goal lens, ink, lessons, notebooks and video.
+- [[Workbench protection]] — exam and held-out passage checks, due-check masking and its open gaps.
+- [[Add a window kind to the workbench]] and [[Add a menu verb]] — change the desktop and sidecar together.
+- [[Debug a workbench write]] — trace an edit from the outbox to its receipt and the saved heads.
+- [[ADR-020 Keep notebook session files on the host]], [[ADR-021 Keep both conflicting pad edits]] and [[ADR-022 Scope polled jobs to vault and epoch]] — the workbench's runtime and write decisions.
 
 ## Lookup and vault maintenance
 
@@ -71,4 +79,4 @@ For a spatial overview, open the [LearnLoop System canvas](Maps/LearnLoop%20Syst
 The generic `learnloop.services` and provider-specific `learnloop.codex` namespaces are gone. Behavior is owned by domain packages, adapters are independent, AI contracts live with features, and architecture is enforced by import and AST tests. See [[Refactor Status]] and [[ADR-001 Domain ownership replaces generic services]].
 
 > [!warning] Production-vault telemetry gate
-> Fixture telemetry for contested deprecated tables is zero, but no owner production vault was available during the refactor. Schema drops and owner-visible SQLite-admin FK changes remain deliberately deferred. See [[ADR-010 Production telemetry before retirement]].
+> Table retirement needs an explicit decision and a migration that protects existing data. The first approved group was removed behind an empty-table guard in migration 260. The [[Database Catalog]] describes the current schema. See [[ADR-010 Production telemetry before retirement]].

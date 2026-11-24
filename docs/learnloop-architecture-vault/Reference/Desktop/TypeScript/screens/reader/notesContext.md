@@ -28,7 +28,7 @@ Area: [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/rea
 
 ## Why this module exists
 
-Provides `HiddenNote`, `NotesContextValue`, `NotesContext`, `useNotes` within the desktop's TypeScript/screens/reader ownership area.
+Provides `HiddenNote`, `NotesContextValue`, `NotesContext`, `announceNotesChange` and related exports within the desktop's TypeScript/screens/reader ownership area.
 
 The system-level behavior stays authoritative in the linked architecture, concept, and workflow notes; this note owns only source-level lookup facts.
 
@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/notesContext.ts](../../../../../../../apps/learnloop-tauri/src/screens/reader/notesContext.ts) |
-| Source lines | 33 |
+| Source lines | 47 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
@@ -50,26 +50,29 @@ The system-level behavior stays authoritative in the linked architecture, concep
 > [!success] ACTIVE
 > A static TypeScript import path reaches this file from the Vite entry src/main.tsx.
 >
-> Build/entry chain: [[Reference/Desktop/TypeScript/main|src/main.tsx]] → [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] → [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] → [[Reference/Desktop/TypeScript/screens/reader/notesContext|src/screens/reader/notesContext.ts]]
+> Build/entry chain: [[Reference/Desktop/TypeScript/main|src/main.tsx]] → [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] → [[Reference/Desktop/TypeScript/screens/desks/DeskShell|src/screens/desks/DeskShell.tsx]] → [[Reference/Desktop/TypeScript/screens/desks/windows/PanelWindow|src/screens/desks/windows/PanelWindow.tsx]] → [[Reference/Desktop/TypeScript/screens/reader/notesContext|src/screens/reader/notesContext.ts]]
 
 ## Public API
 
 - `export interface HiddenNote` — interface, line 10
 - `export interface NotesContextValue` — interface, line 16
 - `export const NotesContext = createContext<NotesContextValue | null>(null)` — const, line 29
-- `export function useNotes(): NotesContextValue | null` — function, line 31
+- `export function announceNotesChange(): void` — function, line 36
+- `export function onNotesChange(listener: ()` — function, line 40
+- `export function useNotes(): NotesContextValue | null` — function, line 45
 
 ## Internal implementation anchors
 
-No non-exported declaration anchor was detected by the static extractor.
+- `const noteChanges = new EventTarget()` — const, line 33
 
 ## Who imports or calls it
 
 > [!note] Static-evidence boundary
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
-- [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] — import-or-re-export: `NotesContext`; references `NotesContext`
-- [[Reference/Desktop/TypeScript/screens/reader/ReaderNotes|src/screens/reader/ReaderNotes.tsx]] — import-or-re-export: `HiddenNote`, `NotesContextValue`, `useNotes`; references `HiddenNote`, `NotesContextValue`, `useNotes`
+- [[Reference/Desktop/TypeScript/screens/desks/source/ScopedSource|src/screens/desks/source/ScopedSource.tsx]] — import-or-re-export: `NotesContext`; references `NotesContext`
+- [[Reference/Desktop/TypeScript/screens/desks/windows/PanelWindow|src/screens/desks/windows/PanelWindow.tsx]] — import-or-re-export: `NotesContext`; references `NotesContext`
+- [[Reference/Desktop/TypeScript/screens/reader/ReaderNotes|src/screens/reader/ReaderNotes.tsx]] — import-or-re-export: `HiddenNote`, `NotesContextValue`, `announceNotesChange`, `onNotesChange`, `useNotes`; references `HiddenNote`, `NotesContextValue`, `announceNotesChange`, `onNotesChange`, `useNotes`
 
 ## Dependencies
 

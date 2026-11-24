@@ -2,10 +2,10 @@
 title: Learner State and Projections
 status: active
 doc_version: 1.0.0
-implementation_version: mvp-0.9
-last_reviewed: 2026-08-17
-source_commit: 62fd1f6404cc3a3007c6f214ba9429c45ef0114f
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
+implementation_version: mvp-0.68
+last_reviewed: 2026-11-23
+source_commit: 86f29b0d390ed2ecdbb0347d98ccb1175ac52728
+source_commit_timestamp: "2026-11-23T23:12:28-05:00"
 source_paths:
   - src/learnloop/learner
   - src/learnloop/substrate/canonical_projection.py
@@ -40,7 +40,7 @@ Item/card state estimates difficulty, stability, retrievability, due time, and l
 
 ## Claims and familiarity
 
-Learner claims seed priors and display context. Familiarity records exposure and discounts independence. Neither is direct ability evidence. The first cold observation structurally supersedes a routing prior based on reader interaction.
+Learner claims seed priors and supply display context. From `mvp-0.67`, replay starts from the claims captured at the first persistence of a topic's mastery row. Older rows use a labelled reconstruction. A starting-level change applies to topics created afterwards. See [[Reference/Database/Tables/mastery_seed_inputs|mastery seed inputs]]. Familiarity records exposure and discounts independence. Neither is direct ability evidence. The first cold observation structurally supersedes a routing prior based on reader interaction.
 
 ## Sync versus replay
 

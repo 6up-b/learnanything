@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/teacher/probes.py](../../../../../../src/learnloop/teacher/probes.py) |
-| Source lines | 528 |
+| Source lines | 521 |
 | Owning package | [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -67,11 +67,11 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `pending_request(repository: Any, lesson_id: str, node_id: str) -> tuple[dict[str, Any] | None, Probe | None]` ([source](../../../../../../src/learnloop/teacher/probes.py), line 248) — The lesson and its probe on ``node_id`` (the worker's read), or Nones.
 - `record_ready(vault: Any, repository: Any, *, lesson_id: str, node_id: str, item_id: str, receipt: Mapping[str, Any], clock: Clock | None=None) -> bool` ([source](../../../../../../src/learnloop/teacher/probes.py), line 255) — The generated question is admitted: its ``probe_ready`` entry with the admission receipt.
 - `record_refused(vault: Any, repository: Any, *, lesson_id: str, node_id: str, reason: str, clock: Clock | None=None) -> bool` ([source](../../../../../../src/learnloop/teacher/probes.py), line 276) — No question passed: the ``probe_refused`` entry and its episode closed ``refused`` with the reason.
-- `serve(vault: Any, repository: Any, lesson: Mapping[str, Any], turns: Sequence[Mapping[str, Any]], *, clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/teacher/probes.py), line 315) — The question the screen may show now: a served probe again (the same administration), or a ready one served now (FG1's atomic first-serve claim, surface ``lesson``, and its ``probe_served`` entry, before any text leaves).
-- `retire(vault: Any, repository: Any, lesson: Mapping[str, Any], turns: Sequence[Mapping[str, Any]], probe: Probe, *, reason: str, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/teacher/probes.py), line 355) — Retire an unanswered probe unused ("Teach it anyway", the lesson's close, an unservable item): its queued job is skipped, a generated item retired (FG1's ledger: no door opens it again), a ``probe_retired`` entry, and its episode closed ``retired``.
-- `record_answer(vault: Any, repository: Any, lesson: Mapping[str, Any], probe: Probe, *, answer: str | None, tap: int | None, grading_client: Any, grading_source: str, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/probes.py), line 394) — The learner's answer to the open probe: blind-graded (the answer only), one ``diagnostic_probe`` attempt at full evidence through the attempts path, its independence from the reveal ledger's topic-wide check (carried into the attempt's activity class), the item retired (never se…
-- `finish_recorded(vault: Any, repository: Any, lesson: Mapping[str, Any], turns: Sequence[Mapping[str, Any]], *, clock: Clock | None=None) -> bool` ([source](../../../../../../src/learnloop/teacher/probes.py), line 479) — The view's recovery (no model call): a served probe whose attempt is already recorded but whose result is not (an interrupted write before Codex review F3's one transaction) is finished from the stored attempt, so its result reaches the feed and the teacher (``probe_result`` is…
-- `transcript_entry(entry: Mapping[str, Any]) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/teacher/probes.py), line 496) — A probe step as the teacher reads it (TE2 lessons only), or None: never the question's key or rubric.
+- `serve(vault: Any, repository: Any, lesson: Mapping[str, Any], turns: Sequence[Mapping[str, Any]], *, clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/teacher/probes.py), line 312) — The question the screen may show now: a served probe again (the same administration), or a ready one served now (FG1's atomic first-serve claim, surface ``lesson``, and its ``probe_served`` entry, before any text leaves).
+- `retire(vault: Any, repository: Any, lesson: Mapping[str, Any], turns: Sequence[Mapping[str, Any]], probe: Probe, *, reason: str, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/teacher/probes.py), line 352) — Retire an unanswered probe unused ("Teach it anyway", the lesson's close, an unservable item): its queued job is skipped, a generated item retired (FG1's ledger: no door opens it again), a ``probe_retired`` entry, and its episode closed ``retired``.
+- `record_answer(vault: Any, repository: Any, lesson: Mapping[str, Any], probe: Probe, *, answer: str | None, tap: int | None, grading_client: Any, grading_source: str, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/probes.py), line 389) — The learner's answer to the open probe: blind-graded (the answer only), one ``diagnostic_probe`` attempt at full evidence through the attempts path, its independence from the reveal ledger's topic-wide check (carried into the attempt's activity class), the item retired (never se…
+- `finish_recorded(vault: Any, repository: Any, lesson: Mapping[str, Any], turns: Sequence[Mapping[str, Any]], *, clock: Clock | None=None) -> bool` ([source](../../../../../../src/learnloop/teacher/probes.py), line 472) — The view's recovery (no model call): a served probe whose attempt is already recorded but whose result is not (an interrupted write before Codex review F3's one transaction) is finished from the stored attempt, so its result reaches the feed and the teacher (``probe_result`` is…
+- `transcript_entry(entry: Mapping[str, Any]) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/teacher/probes.py), line 489) — A probe step as the teacher reads it (TE2 lessons only), or None: never the question's key or rubric.
 
 ### Module constants
 
@@ -125,9 +125,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ## Internal implementation anchors
 
 - `_probe_of(connection: Any, lesson_id: str, node_id: str) -> tuple[dict[str, Any] | None, Probe | None]` ([source](../../../../../../src/learnloop/teacher/probes.py), line 240)
-- `_close_episode(repository: Any, lesson_id: str, probe: Probe, *, closed_at: str, reason: str, outcome: Mapping[str, Any]) -> None` ([source](../../../../../../src/learnloop/teacher/probes.py), line 298) — Close the probe's own episode row (opened by its request), once.
-- `_current(connection: Any, lesson_id: str, ref: str) -> Probe | None` ([source](../../../../../../src/learnloop/teacher/probes.py), line 379)
-- `_stored_feedback(repository: Any, attempt_id: str) -> str | None` ([source](../../../../../../src/learnloop/teacher/probes.py), line 383) — The grader's feedback an already-recorded attempt was shown with (its saved completion), or None.
+- `_close_episode(repository: Any, lesson_id: str, probe: Probe, *, closed_at: str, reason: str, outcome: Mapping[str, Any]) -> None` ([source](../../../../../../src/learnloop/teacher/probes.py), line 295) — Close the probe's own episode row (opened by its request), once.
+- `_current(connection: Any, lesson_id: str, ref: str) -> Probe | None` ([source](../../../../../../src/learnloop/teacher/probes.py), line 374)
+- `_stored_feedback(repository: Any, attempt_id: str) -> str | None` ([source](../../../../../../src/learnloop/teacher/probes.py), line 378) — The grader's feedback an already-recorded attempt was shown with (its saved completion), or None.
 
 ## Who imports or calls it
 
@@ -152,7 +152,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
 - [[Reference/Modules/learnloop/scheduling/forecast_receipts|learnloop.scheduling.forecast_receipts]] — imports `ForecastReceipt`, `LESSON_PROBE_ATTEMPT`, `LESSON_PROBE_CORRECT`, `record_receipts`; calls `ForecastReceipt`, `record_receipts`
 - [[Reference/Modules/learnloop/teacher/checks|learnloop.teacher.checks]] — imports `module`; calls `grade_answer`
-- [[Reference/Modules/learnloop/teacher/episodes|learnloop.teacher.episodes]] — imports `module`; calls `close_one`, `node_known`, `node_lo`, `on`, `open_episode`
+- [[Reference/Modules/learnloop/teacher/episodes|learnloop.teacher.episodes]] — imports `module`; calls `close_one`, `node_known`, `node_lo`, `open_episode`
 - [[Reference/Modules/learnloop/teacher/exposure|learnloop.teacher.exposure]] — imports `EXPOSURE_KEY`, `exposed_identities`; calls `exposed_identities`
 - [[Reference/Modules/learnloop/teacher/guards|learnloop.teacher.guards]] — imports `module`; calls `reserved_book`, `shown_feedback`
 - [[Reference/Modules/learnloop/teacher/te2|learnloop.teacher.te2]] — imports `LESSON_SURFACE`

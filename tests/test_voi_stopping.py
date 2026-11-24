@@ -36,6 +36,7 @@ from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_practice_item
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from tests.daily_plan_fakes import scheduled
 from tests.helpers import (
     NOW,
@@ -299,7 +300,7 @@ def test_the_kill_switch_serves_mvp020s_probe_queue_exactly(tmp_path, monkeypatc
 
 
 def test_the_continue_decision_rides_on_the_committed_presentation_and_the_offer(tmp_path):
-    paths, vault, repository = _probe_vault(tmp_path, "mvp-0.21")
+    paths, vault, repository = _probe_vault(tmp_path, LATEST_ALGORITHM_VERSION)
     import learnloop_sidecar.handlers  # noqa: F401
     from learnloop_sidecar.context import SidecarContext
     from learnloop_sidecar.registry import METHOD_REGISTRY
@@ -468,9 +469,9 @@ def test_each_follow_up_decision_keeps_its_own_receipt_through_rebuilds(tmp_path
         result.attempt_id, 1, voi.CONTINUE,
     )
     _rebuild_and_replay(loaded, repository, result.learning_object_id)
-    # The derived copy is gone (attempt_surprise is rebuilt without it) ...
-    assert "voi_stopping" not in (repository.latest_attempt_surprise(result.attempt_id).get("gate_diagnostics") or {})
-    # ... the receipt is not.
+    # The gate's copy on the surprise row is carried across the rebuild and the LO replay ...
+    assert repository.latest_attempt_surprise(result.attempt_id)["gate_diagnostics"]["voi_stopping"] == first["decision"]
+    # ... and the receipt stands as it was.
     assert voi.followup_receipts(repository, result.attempt_id) == [first]
     # A later decision on the same attempt is a new receipt; the first stays.
     _minutes(monkeypatch, 10_000.0)
@@ -905,7 +906,7 @@ def test_the_scheduler_hands_an_in_episode_probe_its_likelihood_rows(tmp_path):
     the successor (never persisted); the decomposed terms still reproduce the
     reward's total. With the switches off nothing is attached."""
 
-    _paths, vault, repository = _probe_vault(tmp_path, "mvp-0.21")
+    _paths, vault, repository = _probe_vault(tmp_path, LATEST_ALGORITHM_VERSION)
     probes = [item for item in _build(vault, repository) if item.components.get("probe_eig", 0.0) > 0.0]
     assert probes
     episode = repository.open_probe_episode(LO)
@@ -1012,7 +1013,7 @@ def _lane_labels(vault, repository):
 
 
 def test_a_slip_the_diagnoser_ruled_out_leaves_the_lane(tmp_path):
-    _paths, vault, repository = split_vault(tmp_path, version="mvp-0.21", seed=False)
+    _paths, vault, repository = split_vault(tmp_path, seed=False)
     client = _StatementFake(causal_class="transient_execution")
     result = submit(vault, repository, client)
     raw = repository.raw_error_events_for_attempt(result.attempt_id)
@@ -1068,7 +1069,7 @@ def test_a_joint_attempts_lane_is_unchanged(tmp_path):
 
 
 def test_the_misconceptions_cli_lists_by_the_diagnosers_verdict_and_adds_fields(tmp_path):
-    paths, vault, repository = split_vault(tmp_path, version="mvp-0.20", seed=False)
+    paths, vault, repository = split_vault(tmp_path, seed=False)
     client = _StatementFake(causal_class="transient_execution")
     result = submit(vault, repository, client)
     runner = CliRunner()
@@ -1108,7 +1109,7 @@ def test_the_misconceptions_cli_on_a_joint_vault_only_gains_fields(tmp_path):
 
 
 def test_the_decision_features_receipt_reads_the_overlay_and_says_so(tmp_path):
-    _paths, vault, repository = split_vault(tmp_path, version="mvp-0.20", seed=False)
+    _paths, vault, repository = split_vault(tmp_path, seed=False)
     client = _StatementFake(causal_class="transient_execution")
     submit(vault, repository, client)
     drain_jobs(vault, repository, client)
@@ -1154,7 +1155,7 @@ def test_a_value_stop_ends_the_episode_only_with_the_switch_on(tmp_path, monkeyp
 
 
 def test_while_the_next_observation_pays_the_episode_keeps_asking(tmp_path, monkeypatch):
-    _paths, vault, repository = _probe_vault(tmp_path, "mvp-0.21")
+    _paths, vault, repository = _probe_vault(tmp_path, LATEST_ALGORITHM_VERSION)
     _minutes(monkeypatch, 0.0001)
     episode = _answer_probe(vault, repository)
     assert episode.completion_reason != "value_of_information_stop"
@@ -1166,7 +1167,7 @@ def test_value_carries_one_episode_past_its_former_maximum(tmp_path, monkeypatch
     same episode while its value pays; the receipt keeps the count's
     counterfactual."""
 
-    vault, repository = _long_probe_vault(tmp_path, "mvp-0.21")
+    vault, repository = _long_probe_vault(tmp_path, LATEST_ALGORITHM_VERSION)
     _minutes(monkeypatch, 0.0001)
     episode_id = repository.open_probe_episode(LO).id
     for index in range(5):
@@ -1197,7 +1198,7 @@ def test_the_episode_maximum_still_ends_an_episode_off_the_value_rule(tmp_path, 
 def test_a_calibration_session_keeps_the_episode_maximum(tmp_path, monkeypatch):
     from learnloop.diagnosis import calibration_sessions
 
-    vault, repository = _long_probe_vault(tmp_path, "mvp-0.21")
+    vault, repository = _long_probe_vault(tmp_path, LATEST_ALGORITHM_VERSION)
     _minutes(monkeypatch, 0.0001)
     monkeypatch.setattr(calibration_sessions, "calibration_cap_lifted", lambda _repository, _session_id: True)
     for _ in range(4):
@@ -1222,7 +1223,7 @@ def test_an_explored_probe_carries_its_own_forecast(tmp_path, monkeypatch):
 
     from learnloop.scheduling import scheduler as S
 
-    _paths, vault, repository = _probe_vault(tmp_path, "mvp-0.21")
+    _paths, vault, repository = _probe_vault(tmp_path, LATEST_ALGORITHM_VERSION)
     session_id = repository.create_session(energy=None, sleep_quality=None, available_minutes=30, notes_md_path=None)
     trace = OfferTrace()
     _build(vault, repository, session_id=session_id, trace=trace)
@@ -1267,7 +1268,7 @@ def test_a_served_probe_records_its_probability_over_the_composed_queue(tmp_path
     from tests.teach_back_helpers import _teach_item_payload
 
     paths, vault, repository = _probe_vault(
-        tmp_path, "mvp-0.21", toml="[scheduler]\nselection_exploration_rate = 0.0\n"
+        tmp_path, LATEST_ALGORITHM_VERSION, toml="[scheduler]\nselection_exploration_rate = 0.0\n"
     )
     upsert_practice_item(paths.root, _teach_item_payload("pi_svd_teach_001"), clock=CLOCK)
     vault = load_vault(paths.root)

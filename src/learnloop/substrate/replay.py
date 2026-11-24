@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 from learnloop.algorithm_versions import LESSON_WEIGHT_CURVE_VERSIONS
 from learnloop.db.stores.grade_curves import capture_grade_curve
@@ -291,6 +291,7 @@ def replay_learning_object(
     project_canonical_state: bool = True,
     applying_grade_to: str | None = None,
     clock: Clock | None = None,
+    gate_records: Mapping[str, Sequence[Any]] | None = None,
 ) -> ReplayResult:
     """Rebuild attempt-derived state for one learning object from persisted grades.
 
@@ -314,6 +315,12 @@ def replay_learning_object(
 
     ``clock`` stamps what the closing whole-ledger projection writes (each
     attempt's own writes carry the attempt's time).
+
+    The follow-up gate's records on each surprise row (what it queued, held
+    back and read) were written live after the grade; replay never runs the
+    gate, so it carries them across by attempt id. ``gate_records``: the
+    records read before the caller cleared the table (the whole-vault
+    rebuild); without them they are read here, before the reset.
     """
 
     with repository.atomic():
@@ -325,6 +332,7 @@ def replay_learning_object(
             grader_identity_overrides=grader_identity_overrides,
             project_canonical_state=project_canonical_state,
             clock=clock,
+            gate_records=gate_records,
         )
         if applying_grade_to is not None and vault.config.algorithms.algorithm_version in LESSON_WEIGHT_CURVE_VERSIONS:
             # Only the replacement grade was applied here. Its neighbours were replayed.
@@ -348,6 +356,7 @@ def _replay_learning_object(
     grader_identity_overrides: dict[str, tuple[str, str] | None] | None,
     project_canonical_state: bool,
     clock: Clock | None,
+    gate_records: Mapping[str, Sequence[Any]] | None = None,
 ) -> ReplayResult:
     # The order the attempts were applied in (mvp-0.65: a tie inside one second by its application sequence).
     attempts = repository.list_attempts_by_learning_object(learning_object_id, order=attempt_order_for(vault.config))
@@ -376,6 +385,9 @@ def _replay_learning_object(
     canonical_stamps = (
         repository.rebuild_stamp_snapshot(CANONICAL_STAMPED_TABLES) if project_canonical_state else None
     )
+    # The follow-up gate's records, read before the reset deletes the rows they sit on (the gate is never replayed).
+    carried = (gate_records if gate_records is not None
+               else repository.attempt_surprise_gate_records(str(attempt["id"]) for attempt in attempts))
     repository.reset_learning_object_derived_state(learning_object_id)
     # mvp-0.67: the seed recorded where the row was first persisted, before anything replays on it.
     recorded_seed = recorded_seed_for_replay(vault, repository, learning_object_id)
@@ -416,6 +428,10 @@ def _replay_learning_object(
             str(attempt["id"]),
             existing_debug_payloads.get(attempt["id"]),
         )
+        # Back where the live gate left them, before the next attempt replays (as live, where the gate ran between).
+        record = carried.get(str(attempt["id"]))
+        if record is not None:
+            repository.restore_attempt_surprise_gate_record(str(attempt["id"]), record)
         replayed.append(replayed_result)
     if claim_stream is not None:
         # A re-anchoring claim made after the last attempt merges too, as it
@@ -476,8 +492,10 @@ def rebuild_derived_state(
     clock: Clock | None = None,
     record_receipt: bool = True,
     project_canonical_state: bool = True,
+    gate_records: Mapping[str, Sequence[Any]] | None = None,
 ) -> RebuildResult:
-    """Replay all requested learning objects that have persisted attempts."""
+    """Replay all requested learning objects that have persisted attempts. ``gate_records``: the follow-up gate's
+    records read before the caller cleared ``attempt_surprise`` (:func:`replay_learning_object`)."""
 
     requested_ids = learning_object_ids or repository.learning_object_ids_with_attempts()
     rebuilt: list[str] = []
@@ -491,6 +509,7 @@ def rebuild_derived_state(
             learning_object_id,
             project_canonical_state=project_canonical_state,
             clock=clock,
+            gate_records=gate_records,
         )
         rebuilt.append(learning_object_id)
         replayed_attempts += result.replayed_attempts

@@ -6,6 +6,13 @@ import { noteSessionMovedError } from "../app/sessionMoved";
 import { isWaitingForOk, waitForAiOk } from "../app/aiOk";
 import type {
   ChecksDueDto,
+  CheckCardDto,
+  CheckExposureKind,
+  CheckSubmitDto,
+  CheckExposeReplyDto,
+  CheckProtectReplyDto,
+  CheckVeilRefDto,
+  CheckVisibleDto,
   CompanionAskInput,
   CompanionAskJobDto,
   CompanionHistoryDto,
@@ -398,6 +405,7 @@ import type {
 import type {
   DeliverablePathViewDto,
   GoalBandDto,
+  GoalChoicesDto,
   GoalLensDto,
   GoalLensInput,
   GoalSectionChoiceDto,
@@ -1207,7 +1215,7 @@ export const api = {
   listQuestionQueue: (input?: { resolution?: string | null; limit?: number | null }) =>
     call<QuestionQueueSnapshot>("list_question_queue", { input: input ?? {} }),
   // clientIdempotencyKey: one per sheet, reused on a retry (the same key returns the same item and makes no second).
-  authorPracticeItem: (input: { captureId?: string; learningObjectId: string; prompt: string; expectedAnswer: string; practiceMode?: string; hints?: string[]; clientIdempotencyKey?: string }) =>
+  authorPracticeItem: (input: { blockIds?: string[]; captureId?: string; learningObjectId: string; prompt: string; expectedAnswer: string; practiceMode?: string; hints?: string[]; clientIdempotencyKey?: string }) =>
     mutating([TAG.queue], call<{ practiceItemId: string }>("author_practice_item", { input })),
   // Learner-initiated re-runging: request an easier/harder sibling variant of
   // an item. Records the evidence package synchronously, authors async.
@@ -1436,7 +1444,7 @@ export const api = {
   readerPdfView: (input: { extractionId: string }) =>
     call<ReaderPdfViewDto>("reader_pdf_view", { input }),
   // reader quick-check producer: enqueue authoring for a section; act on the result.
-  readerAuthorSectionQuestion: (input: { extractionId: string; sectionId: string }) =>
+  readerAuthorSectionQuestion: (input: { extractionId: string; sectionId: string; spanIds?: string[] }) =>
     mutatingReader(call<ReaderAuthorSectionQuestionDto>("reader_author_section_question", { input })),
   readerAuthoredQuestionAction: (input: { questionId: string; action: "answered" | "dismissed"; response?: string | null }) =>
     mutatingReader(call<{ question: ReaderAuthoredQuestionDto }>("reader_authored_question_action", { input })),
@@ -1669,8 +1677,9 @@ export const api = {
   passageKnows: (input: MenuObjectInput) => call<PassageKnowsDto>("passage_knows", { input }),
   companionHistory: (input: { from?: string; to?: string; deskId?: string; query?: string; cursor?: string } = {}) =>
     call<CompanionHistoryDto>("companion_history", { input }),
-  checksDueFor: (input: { goalId?: string; learningObjectIds?: string[]; extractionId?: string; spanId?: string } = {}) =>
-    call<ChecksDueDto>("checks_due_for", { input }),
+  // Every due check as an opaque handle, and nothing else: the request names no reading, goal or passage (the reply
+  // would say where a check is), the reply no topic, place or id.
+  checksDueFor: () => call<ChecksDueDto>("checks_due_for", { input: {} }),
   // Reader workbench v2 RD3 (spec §3.4; desktop only, no component calls them yet): the companion's ask answers at
   // once with a polled job (the model call runs off the sidecar's serial loop); search answers its word groups at
   // once and searches by meaning through a polled job. Polls answer at once and never wait.
@@ -1684,6 +1693,8 @@ export const api = {
   // dimmed section. A path line's own choices stay curriculumPathOverride's. None calls a model or starts work;
   // curriculumPath with judge: true starts the coverage and the path judgment a goal owes (in the background).
   goalBand: (input: { goalId: string }) => call<GoalBandDto>("goal_band", { input }),
+  /** The desk's goal chooser: each active goal in the learner's words, a held topic's name masked (spec §12.6.1). */
+  goalChoices: () => call<GoalChoicesDto>("goal_choices", { input: {} }),
   goalLens: (input: GoalLensInput) => call<GoalLensDto>("goal_lens", { input }),
   goalSectionChoice: (input: GoalSectionChoiceInput) => call<GoalSectionChoiceDto>("goal_section_choice", { input }),
   curriculumPath: (input: { goalId: string; judge?: boolean; retry?: boolean }) =>
@@ -1720,6 +1731,18 @@ export const api = {
   chaptersCancel: (input: { jobId: string }) => call<ChaptersJobDto>("chapters_cancel", { input }),
   chaptersDecide: (input: { chapterId: string; decision: "accept" | "dismiss" }) =>
     call<{ chapter: VideoChapterDto }>("chapters_decide", { input }),
+  // Reader workbench RD7 (spec §12.6): the inline administration of a due check.
+  checkBeginInline: (input: { requestId: string; handle: string; sessionId?: string; visible: CheckVisibleDto }) =>
+    call<CheckCardDto>("check_begin_inline", { input }),
+  checkProtectMore: (input: { administrationToken: string; visible: CheckVisibleDto }) =>
+    call<CheckProtectReplyDto>("check_protect_more", { input }),
+  checkExpose: (input: { administrationToken: string; ref: CheckVeilRefDto; kind: CheckExposureKind; exposureId: string }) =>
+    call<CheckExposeReplyDto>("check_expose", { input }),
+  checkSubmitInline: (input: { administrationToken: string; submissionId: string; answerMd: string; veilsRevision: number;
+                               latencySeconds?: number; activeSeconds?: number }) =>
+    call<CheckSubmitDto>("check_submit_inline", { input }),
+  checkAbandonInline: (input: { administrationToken: string }) => call<Record<string, never>>("check_abandon_inline", { input }),
+  checkOpenInline: () => call<{ administration: CheckCardDto | null }>("check_open_inline", { input: {} }),
   // Teacher TE1b: Today's suggestion card (no model call; null when there is none) and the learner's one response.
   lessonSuggestion: (input: { sessionId?: string | null } = {}) =>
     call<{ suggestion: LessonSuggestionDto | null }>("lesson_suggestion", { input }),

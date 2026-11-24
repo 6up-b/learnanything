@@ -201,6 +201,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/identity_pins_helpers.py](../../../../../../../tests/identity_pins_helpers.py) — direct import
+- [tests/test_append_split_passes.py](../../../../../../../tests/test_append_split_passes.py) — direct import
+  - `test_singleton_lower_bound_checked_before_neighborhood_nomination`
 - [tests/test_facet_identity_composition.py](../../../../../../../tests/test_facet_identity_composition.py) — direct import
   - `test_the_ledger_records_merged_pairs_and_shortlisted_different_pairs_only`
 - [tests/test_graph_nomination.py](../../../../../../../tests/test_graph_nomination.py) — direct import

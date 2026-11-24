@@ -65,7 +65,7 @@ describe("a masked LO on the video desks", () => {
     await flush();
     render(<div><FollowChip desk={desk} windowId="w_book" /><WindowScope lifecycle={{ windowId: "w_vid", state: "active" }} hub={DIRECT_HUB}><Chapters transport={transport} /></WindowScope></div>);
     await flush();
-    expect(document.querySelector("[data-follow='following']")!.textContent).toContain(NEUTRAL_SECTION);
+    expect(document.querySelector("[data-follow='following']")!.textContent).toContain("Chapter at 0:20");
     expect(leaks(NAME)).toEqual([]);
     act(() => desk.toggle("w_book"));
     expect(document.querySelector("[data-follow='unlinked']")).toBeTruthy();
@@ -95,6 +95,6 @@ describe("a masked LO on the video desks", () => {
     desk.clock("w_vid", "ext_vid", { t: 26, playing: true, spanId: "c3", duration: 60 });
     await flush();
     expect(calls).toBe(2);
-    expect(desk.chipFor("w_book")).toMatchObject({ chapter: NEUTRAL_SECTION });
+    expect(desk.chipFor("w_book")).toMatchObject({ chapter: "Chapter at 0:20" });
   });
 });

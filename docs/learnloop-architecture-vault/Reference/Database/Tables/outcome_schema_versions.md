@@ -108,6 +108,7 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/test_grade_resolution_pipeline.py`
+- `tests/test_replay_writes_no_ledger.py`
 - `tests/teacher_te2_review_fixes_helpers.py`
 - `tests/test_observation_ledger_bulk.py`
 

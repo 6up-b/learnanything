@@ -3,7 +3,7 @@
 // skippable and later text dimmed (never hidden), and a short dark callout at a section start on the path.
 import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import type { GoalBandDto } from "../../../api/dto";
-import type { ReaderLens } from "../../ReaderScreen";
+import type { ReaderLens } from "../source/types";
 import type { WatchLens } from "../../reader/YouTubeWatchPanel";
 import type { WhyState } from "./controller";
 import { calloutFor, goalShort, isDimmed, markKind, mostNeededSpan, noneNeeded, whyLevelLine, type LensIndex } from "./model";
@@ -44,7 +44,7 @@ export function readerLens({ index, dimOn, windowId, handlers, paper = false, op
         <i
           className={`gm gl-${kind}${paper ? " gl-paper" : ""}${extra}${openSpan === spanId ? " on" : ""}`}
           data-gm={`${index.extractionId}:${spanId}`}
-          aria-label={section.level.replace("_", " ")}
+          aria-label="Why this is suggested" title="Why this is suggested"
           role="button"
           tabIndex={-1}
           onMouseEnter={(event) => handlers.hover(why(event))}
@@ -122,7 +122,7 @@ function watchLens(index: LensIndex, classFor: (spanId: string, keep: boolean) =
         }
         const times = ranges.map((range) => `${clock(range.start)}–${clock(range.end)}`).join(", ");
         const lo = first.learningObjects.find((entry) => entry.learningObjectId === first.determiningLoId);
-        const role = first.reasonKey === "primary" ? "primary for" : first.reasonKey === "alternate" ? "another way for"
+        const role = first.reasonKey === "primary" ? "main reading for" : first.reasonKey === "alternate" ? "another explanation of"
           : first.reasonKey === "prerequisite" ? "background for" : "supporting";
         return (
           <div className="gtcall" data-goal-head="">
@@ -136,7 +136,7 @@ function watchLens(index: LensIndex, classFor: (spanId: string, keep: boolean) =
       if (!skippable || !rest) return null;
       return (
         <div className="gtcall off" data-goal-head="">
-          <span className="gg">◎</span> <b>not needed for your goal</b> · {skippable.reasonMd.replace(/\.?\s*$/, "")}. Read it anyway, if you like.
+          <span className="gg">◎</span> <b>Not needed for your goal</b> · {skippable.reasonMd.replace(/\.?\s*$/, "")}. Read it anyway, if you like.
         </div>
       );
     },
@@ -181,7 +181,7 @@ export function WhyCard({ why, band }: { why: WhyState; band: GoalBandDto | null
       {section.coverageLine || section.judgedPer ? (
         <div className="gwc">
           {section.coverageLine ?? ""}
-          {section.coverageLine ? " · " : ""}judged per section
+          {section.coverageLine ? " · " : ""}Based on this section
         </div>
       ) : null}
     </div>

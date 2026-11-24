@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/pads/carried.py](../../../../../../src/learnloop/pads/carried.py) |
-| Source lines | 131 |
+| Source lines | 139 |
 | Owning package | [[Reference/Modules/learnloop/pads/_package|learnloop.pads]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -56,10 +56,11 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - `class CarriedRefused(Exception)` ([source](../../../../../../src/learnloop/pads/carried.py), line 37)
   - `__init__(self, code: str, message: str, details: dict[str, Any] | None=None) -> None` (line 38; internal)
-- `carry(repository: Any, *, carried_id: str, text: str, origin_kind: str, origin_ref: str | None, anchor: dict[str, Any] | None, desk_id: str | None, clock: Any=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/pads/carried.py), line 50) — Carry one question; returns it (``created`` false on a retry).
-- `mark(repository: Any, *, event_id: str, carried_id: str, event: str, expected_version: int | None, ref: str | None, clock: Any=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/pads/carried.py), line 77) — A label (``fruitful``, ``not_now``, ``let_go``: needs ``expected_version``) or a notice (``surfaced``, ``ignored``: changes nothing).
-- `listing(repository: Any, *, which: str, desk_id: str | None, cursor: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/pads/carried.py), line 107) — Carried questions, longest carried first, a page at a time: ``open`` (still carried), ``closed`` or ``all``.
-- `history(repository: Any, carried_id: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/pads/carried.py), line 122)
+- `check_question(text: str, anchor: dict[str, Any] | None) -> str` ([source](../../../../../../src/learnloop/pads/carried.py), line 50) — The question's words, or its own refusal (``empty_question``, ``bad_anchor``): checked before anything else about it (a caller's protection check comes after these, so they keep their codes).
+- `carry(repository: Any, *, carried_id: str, text: str, origin_kind: str, origin_ref: str | None, anchor: dict[str, Any] | None, desk_id: str | None, clock: Any=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/pads/carried.py), line 62) — Carry one question; returns it (``created`` false on a retry).
+- `mark(repository: Any, *, event_id: str, carried_id: str, event: str, expected_version: int | None, ref: str | None, clock: Any=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/pads/carried.py), line 85) — A label (``fruitful``, ``not_now``, ``let_go``: needs ``expected_version``) or a notice (``surfaced``, ``ignored``: changes nothing).
+- `listing(repository: Any, *, which: str, desk_id: str | None, cursor: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/pads/carried.py), line 115) — Carried questions, longest carried first, a page at a time: ``open`` (still carried), ``closed`` or ``all``.
+- `history(repository: Any, carried_id: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/pads/carried.py), line 130)
 
 ### Module constants
 
@@ -84,6 +85,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `PAGE_SIZE`
 - `SHELF_LIMIT`
 - `carry`
+- `check_question`
 - `history`
 - `listing`
 - `mark`
@@ -97,7 +99,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop_sidecar/handlers/pads|learnloop_sidecar.handlers.pads]] — imports `module`; statically calls `carry`, `listing`, `mark`
+- [[Reference/Modules/learnloop_sidecar/handlers/pads|learnloop_sidecar.handlers.pads]] — imports `module`; statically calls `carry`, `check_question`, `listing`, `mark`
 
 ## Dependencies
 
@@ -128,6 +130,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_pad_stale_edits_stacks_and_passage_reads.py](../../../../../../tests/test_pad_stale_edits_stacks_and_passage_reads.py) — direct import
   - `test_the_carried_list_pages_past_the_first_fifty_and_each_question_takes_its_labels`
+- [tests/test_teacher_carried_questions.py](../../../../../../tests/test_teacher_carried_questions.py) — direct import
+  - `test_a_lesson_carries_the_learners_open_questions_with_the_passages_they_sit_beside`
+  - `test_a_lesson_with_no_open_carried_question_is_unchanged`
 
 ## Modification guidance
 

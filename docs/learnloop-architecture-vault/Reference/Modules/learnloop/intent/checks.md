@@ -47,19 +47,19 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/intent/checks.py](../../../../../../src/learnloop/intent/checks.py) |
-| Source lines | 257 |
+| Source lines | 263 |
 | Owning package | [[Reference/Modules/learnloop/intent/_package|learnloop.intent]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `settle_answered_checks(vault: Any, repository: Any, *, clock: Clock | None=None) -> list[str]` ([source](../../../../../../src/learnloop/intent/checks.py), line 65) — Satisfy every pending check an attempt has answered.
-- `restoration_link(provenance: Mapping[str, Any]) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/intent/checks.py), line 87) — The way back to where it was studied, or None (rendered only when present).
-- `cold_followup_duty(repository: Any, practice_item_id: str, *, now: datetime) -> str | None` ([source](../../../../../../src/learnloop/intent/checks.py), line 122) — ``"cold_followup"`` when a due cold follow-up selects the item (the task submit answers and refuses help for), else None.
-- `served_check(vault: Any, repository: Any, practice_item_id: str, *, now: datetime, duty: str | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/intent/checks.py), line 161) — The practice view of ``practice_item_id`` when it is a due check now: cold only when the one eligibility decision says so at this serve (F3: an exposure after the check was planned is read here).
-- `cold_followup_view(vault: Any, repository: Any, practice_item_id: str, *, now: datetime) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/intent/checks.py), line 190) — Reader CA2 (§15 Q4): the practice view of a due cold follow-up served without a "Check once": the cold banner, the help ladder's header (choose, then take) and no locators until feedback, exactly as a check's cold view.
-- `answered_check(vault: Any, repository: Any, attempt_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/intent/checks.py), line 208) — The check an attempt answered (its feedback shows the restoration link), or None.
+- `settle_answered_checks(vault: Any, repository: Any, *, clock: Clock | None=None) -> list[str]` ([source](../../../../../../src/learnloop/intent/checks.py), line 67) — Satisfy every pending check an attempt has answered.
+- `restoration_link(provenance: Mapping[str, Any]) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/intent/checks.py), line 89) — The way back to where it was studied, or None (rendered only when present).
+- `cold_followup_duty(repository: Any, practice_item_id: str, *, now: datetime) -> str | None` ([source](../../../../../../src/learnloop/intent/checks.py), line 124) — ``"cold_followup"`` when a due cold follow-up selects the item (the task submit answers and refuses help for), else None.
+- `served_check(vault: Any, repository: Any, practice_item_id: str, *, now: datetime, duty: str | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/intent/checks.py), line 163) — The practice view of ``practice_item_id`` when it is a due check now: cold only when the one eligibility decision says so at this serve (F3: an exposure after the check was planned is read here).
+- `cold_followup_view(vault: Any, repository: Any, practice_item_id: str, *, now: datetime) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/intent/checks.py), line 195) — Reader CA2 (§15 Q4): the practice view of a due cold follow-up served without a "Check once": the cold banner, the help ladder's header (choose, then take) and no locators until feedback, exactly as a check's cold view.
+- `answered_check(vault: Any, repository: Any, attempt_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/intent/checks.py), line 213) — The check an attempt answered (its feedback shows the restoration link), or None.
 
 ### Module constants
 
@@ -68,14 +68,16 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `PLAN_LINE` ([src/learnloop/intent/checks.py](../../../../../../src/learnloop/intent/checks.py), line 47)
 - `PRACTICE_BANNER` ([src/learnloop/intent/checks.py](../../../../../../src/learnloop/intent/checks.py), line 50)
 - `MEASURED_BANNER` ([src/learnloop/intent/checks.py](../../../../../../src/learnloop/intent/checks.py), line 56)
-- `DUTY_COLD_FOLLOWUP` ([src/learnloop/intent/checks.py](../../../../../../src/learnloop/intent/checks.py), line 58)
-- `DUTY_DIAGNOSTIC` ([src/learnloop/intent/checks.py](../../../../../../src/learnloop/intent/checks.py), line 59)
-- `_COLD_FOLLOWUP_KINDS` ([src/learnloop/intent/checks.py](../../../../../../src/learnloop/intent/checks.py), line 62)
+- `BEING_ANSWERED_BANNER` ([src/learnloop/intent/checks.py](../../../../../../src/learnloop/intent/checks.py), line 58)
+- `DUTY_COLD_FOLLOWUP` ([src/learnloop/intent/checks.py](../../../../../../src/learnloop/intent/checks.py), line 60)
+- `DUTY_DIAGNOSTIC` ([src/learnloop/intent/checks.py](../../../../../../src/learnloop/intent/checks.py), line 61)
+- `_COLD_FOLLOWUP_KINDS` ([src/learnloop/intent/checks.py](../../../../../../src/learnloop/intent/checks.py), line 64)
 
 ### Explicit exports
 
 `__all__` declares:
 
+- `BEING_ANSWERED_BANNER`
 - `COLD_BANNER`
 - `DUTY_COLD_FOLLOWUP`
 - `DUTY_DIAGNOSTIC`
@@ -92,14 +94,15 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_measured_view(check: CheckState, *, duty: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/intent/checks.py), line 104) — F15 (R3): a cold check served under the item's stricter duty, whose safeguards refuse help; the view promises none and offers no ladder header.
-- `_view(check: CheckState, *, cold: bool) -> dict[str, Any]` ([source](../../../../../../src/learnloop/intent/checks.py), line 133)
+- `_measured_view(check: CheckState, *, duty: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/intent/checks.py), line 106) — F15 (R3): a cold check served under the item's stricter duty, whose safeguards refuse help; the view promises none and offers no ladder header.
+- `_view(check: CheckState, *, cold: bool) -> dict[str, Any]` ([source](../../../../../../src/learnloop/intent/checks.py), line 135)
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/intent/inline_administration|learnloop.intent.inline_administration]] — imports `settle_answered_checks`; statically calls `settle_answered_checks`
 - [[Reference/Modules/learnloop_sidecar/handlers/as_printed|learnloop_sidecar.handlers.as_printed]] — imports `cold_followup_duty`, `served_check`; statically calls `cold_followup_duty`, `served_check`
 - [[Reference/Modules/learnloop_sidecar/handlers/feedback|learnloop_sidecar.handlers.feedback]] — imports `answered_check`; statically calls `answered_check`
 - [[Reference/Modules/learnloop_sidecar/handlers/figures|learnloop_sidecar.handlers.figures]] — imports `cold_followup_view`, `served_check`; statically calls `cold_followup_view`, `served_check`
@@ -127,7 +130,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop_sidecar/handlers/as_printed|learnloop_sidecar.handlers.as_printed]], [[Reference/Modules/learnloop_sidecar/handlers/feedback|learnloop_sidecar.handlers.feedback]], [[Reference/Modules/learnloop_sidecar/handlers/figures|learnloop_sidecar.handlers.figures]], [[Reference/Modules/learnloop_sidecar/handlers/practice|learnloop_sidecar.handlers.practice]], [[Reference/Modules/learnloop_sidecar/handlers/queue|learnloop_sidecar.handlers.queue]] and 1 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/intent/inline_administration|learnloop.intent.inline_administration]], [[Reference/Modules/learnloop_sidecar/handlers/as_printed|learnloop_sidecar.handlers.as_printed]], [[Reference/Modules/learnloop_sidecar/handlers/feedback|learnloop_sidecar.handlers.feedback]], [[Reference/Modules/learnloop_sidecar/handlers/figures|learnloop_sidecar.handlers.figures]], [[Reference/Modules/learnloop_sidecar/handlers/practice|learnloop_sidecar.handlers.practice]] and 2 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -185,6 +188,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_provenance_carries_the_way_back_and_dl2_renders_it`
 - [tests/test_reader_followups_review.py](../../../../../../tests/test_reader_followups_review.py) — direct import
   - `test_f10_the_workbench_session_carries_the_way_back_without_an_inquiry`
+- [tests/test_reader_rd7a_inline_checks.py](../../../../../../tests/test_reader_rd7a_inline_checks.py) — direct import
+  - `test_an_answer_on_another_surface_while_the_reader_holds_the_check_answers_nothing`
+  - `test_one_administration_at_a_time_and_today_honours_it`
+  - `test_parity_with_check_once_in_today`
+  - `test_rd7_3_an_opened_note_outlives_not_now_the_next_attempt_anywhere_is_not_cold`
 
 ## Modification guidance
 

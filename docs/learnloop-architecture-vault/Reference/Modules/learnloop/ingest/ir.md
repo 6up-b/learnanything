@@ -170,6 +170,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_removed_block_never_silently_steals_annotation`
   - `test_review_volume_budget_parks_over_budget`
   - `test_whitespace_normalized_match_still_requires_uniqueness`
+- [tests/test_chapters_feed_coverage.py](../../../../../../tests/test_chapters_feed_coverage.py) — direct import
+  - `test_a_chapters_row_no_longer_stands_once_the_transcript_changed`
 - [tests/test_coldness_receipt.py](../../../../../../tests/test_coldness_receipt.py) — direct import
   - `test_prescribe_handler_records_the_delivery`
 - [tests/test_document_ir.py](../../../../../../tests/test_document_ir.py) — direct import

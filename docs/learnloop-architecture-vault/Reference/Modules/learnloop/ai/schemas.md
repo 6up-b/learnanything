@@ -131,7 +131,6 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/matching/judge|learnloop.matching.judge]] — imports `WireModel`
 - [[Reference/Modules/learnloop/ops/contamination/judge|learnloop.ops.contamination.judge]] — imports `WireModel`
 - [[Reference/Modules/learnloop/ops/family_proposals|learnloop.ops.family_proposals]] — imports `WireModel`
-- [[Reference/Modules/learnloop/pads/ink_transcribe|learnloop.pads.ink_transcribe]] — imports `WireModel`
 - [[Reference/Modules/learnloop/practice_index/contracts|learnloop.practice_index.contracts]] — imports `WireModel`
 - [[Reference/Modules/learnloop/projects/ai_contracts|learnloop.projects.ai_contracts]] — imports `WireModel`
 - [[Reference/Modules/learnloop/reader/ai_contracts|learnloop.reader.ai_contracts]] — imports `WireModel`
@@ -151,6 +150,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/source_retrieval/student_data|learnloop.source_retrieval.student_data]] — imports `WireModel`
 - [[Reference/Modules/learnloop/source_retrieval/video_chapters|learnloop.source_retrieval.video_chapters]] — imports `WireModel`
 - [[Reference/Modules/learnloop/teacher/contracts|learnloop.teacher.contracts]] — imports `WireModel`
+- [[Reference/Modules/learnloop/teacher/legacy_turns|learnloop.teacher.legacy_turns]] — imports `WireModel`
 - [[Reference/Modules/learnloop/tutor/ai_contracts|learnloop.tutor.ai_contracts]] — imports `CandidateCause`, `WireModel`
 - [[Reference/Modules/learnloop/workbench/check|learnloop.workbench.check]] — imports `WireModel`
 - [[Reference/Modules/learnloop/workbench/compare_methods|learnloop.workbench.compare_methods]] — imports `WireModel`

@@ -8,8 +8,8 @@ aliases:
   - "state.sqlite table index"
   - "Database table MOC"
   - "Table Catalog"
-schema_head: 269
-table_count: 418
+schema_head: 272
+table_count: 420
 generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
@@ -19,13 +19,13 @@ source_paths:
   - "tests/test_migrations.py"
 tags:
   - "learnloop/database/moc"
-  - "learnloop/database/schema-head-269"
+  - "learnloop/database/schema-head-272"
   - "learnloop/navigation"
 ---
 
 # Database Catalog
 
-This is the exhaustive map of the 418 user tables at migration head 269. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
+This is the exhaustive map of the 420 user tables at migration head 272. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
 
 > [!important] Role is not runtime status
 > `raw_ledger`, `derived`, `receipt`, `workflow`, and `compat` say what rebuild may do. `active`, `legacy-preserved`, `dormant-shadow`, and `dormant-owner-gated` say how the refactored runtime treats the table. See [[Table Roles#Role versus functionality status]].
@@ -38,15 +38,15 @@ This is the exhaustive map of the 418 user tables at migration head 269. Use [[T
 |---|---:|
 | [[Table Roles#Raw Ledger|`raw_ledger`]] | 175 |
 | [[Table Roles#Derived|`derived`]] | 29 |
-| [[Table Roles#Receipt|`receipt`]] | 99 |
-| [[Table Roles#Workflow|`workflow`]] | 109 |
+| [[Table Roles#Receipt|`receipt`]] | 100 |
+| [[Table Roles#Workflow|`workflow`]] | 110 |
 | [[Table Roles#Compat|`compat`]] | 6 |
 
 ### By functionality status
 
 | Status | Tables |
 |---|---:|
-| `active` | 409 |
+| `active` | 411 |
 | `active-historical-seam` | 1 |
 | `dormant-owner-gated` | 2 |
 | `dormant-shadow` | 2 |
@@ -442,6 +442,8 @@ Maintenance, generic observations, and optional generated media. This is a navig
 - [[Reference/Database/Tables/capture_routes|capture_routes]] — `workflow` · `active` · Gives capture route a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `capture_id`, `state`, `route`, making the operational relationship explicit.
 - [[Reference/Database/Tables/carried_question_events|carried_question_events]] — `raw_ledger` · `active` · Preserves an append-only chronology of carried question so maintenance and optional operational work remains inspectable without becoming learner-state authority. It supplies replay-stable input rather than a disposable cache. Rows bind `event_id`, `carried_id`, `event`, making the operational relationship explicit.
 - [[Reference/Database/Tables/carried_questions|carried_questions]] — `workflow` · `active` · Gives carried question a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `carried_id`, `desk_id`, `origin_kind`, making the operational relationship explicit.
+- [[Reference/Database/Tables/check_administrations|check_administrations]] — `workflow` · `active` · Gives check administration a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It lets interrupted or asynchronous work resume without pretending in-flight state is historical evidence. Rows bind `request_id`, `commitment_id`, `session_id`, making the operational relationship explicit.
+- [[Reference/Database/Tables/check_veil_sets|check_veil_sets]] — `receipt` · `active` · Gives check veil set a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `veil_set_id`, `commitment_id`, `administration_token`, making the operational relationship explicit.
 - [[Reference/Database/Tables/companion_exchange_context|companion_exchange_context]] — `raw_ledger` · `active` · Gives companion exchange context a stable database identity so maintenance and optional operational work remains inspectable without becoming learner-state authority. It supplies replay-stable input rather than a disposable cache. Rows bind `question_event_id`, `desk_id`, `goal_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/concept_animations|concept_animations]] — `raw_ledger` · `active` · Tracks requested and rendered concept-animation artifacts. It supplies replay-stable input rather than a disposable cache. Rows bind `concept_id`, `learning_object_id`, `batch_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/confidence_calibration_state|confidence_calibration_state]] — `derived` · `active` · Maintains the decision-facing current projection for confidence calibration so maintenance and optional operational work remains inspectable without becoming learner-state authority. Its current rows may be cleared and reconstructed by the registered projection owner. Rows bind `priors_version`, `family`, `updates`, making the operational relationship explicit.

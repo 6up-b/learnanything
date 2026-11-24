@@ -42,6 +42,8 @@ from learnloop.algorithm_versions import (
     LIFECYCLE_INPUTS_ALGORITHM_VERSION,
     MASTERY_SEED_ALGORITHM_VERSION,
     PAD_TEXT_ALGORITHM_VERSION,
+    INLINE_CHECK_ALGORITHM_VERSION,
+    PROBE_ROUTER_ALGORITHM_VERSION,
     SECTION_END_ALGORITHM_VERSION,
     SUCCESSOR_CHAIN,
     UNTAKEN_EPISODE_END_ALGORITHM_VERSION,
@@ -232,11 +234,10 @@ frozen_grade_curves_then_rebuild = Activation(
 class Link:
     tag: str
     activate: Activation
-    after: str | None = None
 
     @property
     def predecessor(self) -> str:
-        return self.after or SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(self.tag) - 1]
+        return SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(self.tag) - 1]
 
 
 #: The upgrade table, oldest first: one row per successor from the floor up. A successor adds its row.
@@ -273,7 +274,15 @@ UPGRADES: tuple[Link, ...] = (
     # A scratchpad's committed words are learner text: only blocks committed from the upgrade on are emitted (the
     # pads' own sweep then queues the words standing at the upgrade), and nothing already derived reads a pad.
     Link(PAD_TEXT_ALGORITHM_VERSION, idempotent_projection),
-    Link(LESSON_WEIGHT_CURVES_ALGORITHM_VERSION, frozen_grade_curves_then_rebuild, after="mvp-0.69"),
+    # Inline checks: only administrations from the upgrade on behave differently (none exists before migration 270),
+    # and every effect on evidence is an ordinary attempt or reveal row, which the projection already reads.
+    Link(INLINE_CHECK_ALGORITHM_VERSION, idempotent_projection),
+    # The router decides the automatic lane's probe: only decisions made after the upgrade behave differently (no
+    # recorded decision, probe, observation or episode is reinterpreted, and replay runs no decision policy).
+    Link(PROBE_ROUTER_ALGORITHM_VERSION, idempotent_projection),
+    # The lesson-weight fit reads the curve the grader used: the predecessor's curves and missing markers are frozen
+    # before any projection is cleared, then the whole vault is rebuilt (the fit refits on them).
+    Link(LESSON_WEIGHT_CURVES_ALGORITHM_VERSION, frozen_grade_curves_then_rebuild),
 )
 
 
@@ -356,10 +365,7 @@ def _walk(links: Sequence[Link], original: str, to: str) -> list[Link] | None:
     end = tags.index(to)
     if start is None or start > end:
         return None
-    walk = list(links[start:end + 1])
-    if any(left.tag != right.predecessor for left, right in zip(walk, walk[1:], strict=False)):
-        return None
-    return walk
+    return list(links[start:end + 1])
 
 
 def _unknown_journal(sqlite_path: Path) -> str:

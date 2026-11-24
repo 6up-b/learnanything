@@ -2,8 +2,21 @@
 from __future__ import annotations
 
 import ast
+from contextlib import contextmanager
 import importlib.util
 from pathlib import Path
+import tempfile
+
+import pytest
+
+
+@contextmanager
+def external_report_directory():
+    base = Path(tempfile.gettempdir()).resolve()
+    if base.is_relative_to(Path(__file__).resolve().parents[1]):
+        pytest.skip('report path tests require a temporary directory outside the checkout')
+    with tempfile.TemporaryDirectory(prefix='notebook-check-', dir=base) as name:
+        yield Path(name)
 
 
 def notebook(*cells: tuple[str, str]) -> str:

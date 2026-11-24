@@ -17,6 +17,7 @@ import pytest
 
 import learnloop.attempts.attempts as attempts_module
 from learnloop.algorithm_versions import (
+    LATEST_ALGORITHM_VERSION,
     APPLICATION_ORDER_ALGORITHM_VERSION,
     APPLICATION_ORDER_VERSIONS,
     SUCCESSOR_CHAIN,
@@ -122,7 +123,7 @@ def test_at_the_tag_each_live_attempt_reserves_the_next_sequence_in_application_
 def test_two_connections_with_reversed_allocation_and_completion_rebuild_to_live(tmp_path):
     # Each grade through its own connection to the one database, as two sidecars would: the sequence comes from the
     # database under the write lock, not from any process's state.
-    paths, vault, repository = _vault(tmp_path, AT)
+    paths, vault, repository = _vault(tmp_path, LATEST_ALGORITHM_VERSION)
     other = Repository(paths.sqlite_path)
     _reversed_pair(vault, repository, second_repository=other)
     assert [row[0] for row in _sequences(repository)] == [B_ID, A_ID]
@@ -160,7 +161,7 @@ def test_a_rolled_back_application_leaves_no_reservation_and_its_retry_takes_the
 def test_a_replay_and_a_regrade_keep_the_attempts_sequence(tmp_path):
     # A regrade is not a new observation: it supersedes the grade and replays the learning object, and the
     # attempt keeps the place it was applied at.
-    paths, vault, repository = _vault(tmp_path, AT)
+    paths, vault, repository = _vault(tmp_path, LATEST_ALGORITHM_VERSION)
     _reversed_pair(vault, repository)
     before = _sequences(repository)
 

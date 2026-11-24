@@ -80,7 +80,7 @@ export function useReaderVisit({ render, offline, inquiry, pdfView }: ReaderVisi
       payload: {
         visit_id: visit.id, extraction_id: render.extractionId, source_id: render.sourceId, surface: pdfView ? "pdf" : "text",
         // RO0 rows 3 and 4: Ask is on the page whenever the visit is online, and who sent the learner here.
-        ask_available: true, initiator: takeReaderVisitInitiator(),
+        ask_available: true, initiator: takeReaderVisitInitiator(render.extractionId),
       },
     });
     return () => {

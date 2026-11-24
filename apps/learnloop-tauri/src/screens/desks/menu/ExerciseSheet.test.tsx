@@ -35,7 +35,7 @@ describe("the exercise sheet", () => {
     await act(async () => {
       await poller.tick();
     });
-    await screen.findByText(/this is in your queue now · edit or retire any that is wrong/);
+    await screen.findByText(/this is in your queue now · edit or retire it if it is wrong/);
     expect(screen.getByText("weights sum to one")).toBeTruthy();
     expect(screen.getByText("retire")).toBeTruthy();
     expect(poller.size).toBe(0);

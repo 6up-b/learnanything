@@ -8,7 +8,7 @@
 // no exercises, and no RW4b call is made. The harness is tutorReader.test.tsx's.
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { ReaderScreen } from "../ReaderScreen";
+import { ScopedSource } from "../desks/source/ScopedSource";
 import { setAlgoConfig } from "../../app/algoConfig";
 import { readerRenderViewFixture as view } from "../../fixtures/readerRenderView";
 import type { SourceLibraryCard } from "../../api/dto";
@@ -111,7 +111,7 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals(); setAlgoConfig(undefined); wi
 
 /** Ask once, wait for the answer and its eager practice lookup, press "practice this". */
 async function askAndPress(toolRequests: unknown[] = []) {
-  const utils = render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  const utils = render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   const block = await screen.findByText(view.blocks[1].markdown);
   fireEvent.click(screen.getByRole("button", { name: "ask" }));
   select(block);
@@ -196,7 +196,7 @@ it("switched off, a tutor practice offer with exercises renders exactly as one w
 it("switched off, a proposal of exercises only is still RW1c's nothing-fits line", async () => {
   contract.value = OFF;
   api.findPractice.mockResolvedValue(practice([], [EX_A]));
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   const block = await screen.findByText(view.blocks[1].markdown);
   fireEvent.click(screen.getByRole("button", { name: "ask" }));
   select(block);

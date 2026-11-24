@@ -1162,6 +1162,8 @@ export interface IntentCheckDto {
    * measured banner and no help header: the duty's own safeguards apply.
    */
   duty?: "cold_followup" | "diagnostic";
+  /** mvp-0.69: an inline administration holds the check in the Reader; the banner says so and this is practice. */
+  beingAnsweredIn?: "reader";
   restoration: IntentRestorationDto | null;
 }
 
@@ -2073,6 +2075,24 @@ export interface CausalRepairStatusDto {
   revealBudget?: number | null;
   decisionPolicyVersion?: string | null;
   formulaVersion?: string | null;
+  /** The probe router's tag (absent below it): whether the quick check is offered is the router's decision, made
+   *  once per factor and read back by every status read. `probeOffered` is true only for `selected`. */
+  routerState?: CausalProbeRouterState;
+  routerDecisionId?: string | null;
+  /** Why the probe is `unavailable` (e.g. "learner_preference", "machine_checks_pending",
+   *  "no_executable_instrument", "common_repair_covers"). */
+  hardStopReasons?: string[];
+}
+
+/** The router's disposition of a factor's quick check (the probe router's tag). */
+/** `void`: the router selected the check, but its candidate can no longer be administered; the repair goes on
+ *  and no other check is offered in its place. */
+export type CausalProbeRouterState = "pending" | "selected" | "not_selected" | "unavailable" | "void";
+
+export interface CausalProbeRouterDispositionDto {
+  routerState: CausalProbeRouterState;
+  routerDecisionId: string | null;
+  learningObjectId?: string | null;
 }
 
 export interface CausalRepairStatusResultDto {
@@ -2097,6 +2117,9 @@ export interface CausalProbeOfferDto {
 export interface CausalProbeOfferResultDto {
   version: number;
   offer: CausalProbeOfferDto;
+  /** The probe router's tag: the router's disposition the request was checked against. A request without the
+   *  router's selection comes back `accepted: false`, `reason: "router_decision_required"`. */
+  router?: CausalProbeRouterDispositionDto;
 }
 
 export interface CausalProbePreferenceDto {
@@ -7206,6 +7229,7 @@ export interface ReaderActivityEvent {
     | "tutor_offer_pressed"
     | "figure_opened"
     | "figure_animated"
+    | "figure_not_useful"
     | "corresponding_section_peeked"
     | "corresponding_section_opened"
     /** RW5d P2: the watchdog paused a sketch; a sketch call failed (its kind, never the text). */
@@ -7756,6 +7780,8 @@ export interface ReaderRawSelectionNode {
   edited?: boolean;
 }
 export interface ReaderRawSelection {
+  spanId?: string;
+  spanIds?: string[];
   /** Reader CA6b fix round 6: the reading the nodes are passages of. Span ids
    *  repeat across books (an extractor numbers every book s1, s2, ...), so the
    *  selection names its reading; the sidecar refuses one that names another
@@ -9903,6 +9929,7 @@ export interface FigureHostRef {
 }
 
 export interface FigureRequestV1Input {
+  blockIds?: string[];
   goalText?: string | null;
   anchor?: { extractionId: string; spanIds: string[]; region?: { spanId: string; bbox: number[] } | null; spanKeys?: string[] } | null;
   /** RW5d P3: "ask" is the CA2 panel's show me on practice, feedback and the workbench. */
@@ -10414,7 +10441,7 @@ export interface LessonTurnInput {
   /** Teacher TE2: `typed_goal` opens on what the learner typed (`goalText`), with the leftovers they said yes to. */
   entry?: "learning_object" | "reader_selection" | "new_topic" | "typed_goal";
   learningObjectIds?: string[];
-  selection?: { extractionId: string; spanIds: string[] };
+  selection?: { extractionId: string; spanIds: string[]; blockIds?: string[] };
   goalText?: string;
   addTopics?: string[];
   subjectId?: string;
@@ -10697,7 +10724,10 @@ export type ContentRefDto =
   | { kind: "thread"; rootExchangeId: string }
   | { kind: "compare"; comparisonId?: string; query?: string }
   | { kind: "panel"; panel: "guide" | "path" | "library" | "notes"; extractionId?: string }
-  | { kind: "figure_notebook"; figureId: string };
+  | { kind: "figure_notebook"; figureId: string }
+  /** A book still being prepared: named by its source alone (it has no reading yet); the desk replaces the window with
+   *  the book's source window once it is ready. */
+  | { kind: "preparing"; sourceId: string };
 
 export type PadStackEntryDto = Extract<ContentRefDto, { kind: "pad" | "lesson" }>;
 export type CompanionDock = "br" | "bl" | "right" | "cb";
@@ -10938,6 +10968,8 @@ export interface PadSubmitBlockDto {
 /** RD5: the object a menu was opened on (§9.1): a passage, a cue (its span or a time), a highlight or margin note (its
  * annotation and the passage it sits on), a window header (the passage in view), or a pad line (its block). */
 export interface MenuObjectInput {
+  blockIds?: string[];
+  spanIds?: string[];
   objectKind: "passage" | "cue" | "highlight" | "note" | "window" | "pad_line";
   extractionId?: string;
   spanId?: string;
@@ -10946,6 +10978,8 @@ export interface MenuObjectInput {
   blockId?: string;
   windowId?: string;
   deskId?: string;
+  /** passage.knows only: the menu verb it is read for (Make it practice reads the section and role by its own set). */
+  forVerb?: "make_practice";
 }
 
 /** passage.promoted's input: the object, and one id per menu opening (reused on a retry: the same job and its work
@@ -10988,10 +11022,17 @@ export interface PassagePromotedDto {
   paid: { searchedByMeaning: boolean; verified: boolean; reason: string | null };
   /** A passage of the object (for a pad line, one its words are linked to) is exam or held-out material: nothing is
    * searched or judged for it, and no row leads from or to a protected passage (the learner's own rows stay). */
-  withheld?: boolean;
+  withheld: boolean;
+  /** The menu verbs whose destination withholds the object, each by its own row of the server's surface table (a
+   *  practice exam that is not held out keeps Ask and Make it practice, as in the classic Reader). Absent from an
+   *  older sidecar: `withheld` then stands for every verb. */
+  withheldVerbs?: string[];
 }
 
 export interface PromotedJobDto {
+  withheld?: boolean;
+  /** At a delivery: the per-verb verdict read again (see PassagePromotedDto.withheldVerbs). */
+  withheldVerbs?: string[];
   version: number;
   jobId: string;
   status: "queued" | "running" | "done" | "failed" | "cancelled" | "expired";
@@ -11076,11 +11117,12 @@ export interface CarriedQuestionDto {
 }
 
 export interface CarryInput {
+  blockIds?: string[];
   carriedId: string;
   text: string;
   originKind: CarriedQuestionDto["originKind"];
   originRef?: string | null;
-  anchor?: { extractionId: string; spanId: string; anchor?: Record<string, unknown> } | null;
+  anchor?: { extractionId: string; spanId: string; spanIds?: string[]; anchor?: Record<string, unknown> } | null;
   deskId?: string | null;
 }
 
@@ -11121,8 +11163,6 @@ export interface PassageUnionSpanDto {
   passageLinks: { linkId: string; targetKind: string; targetId: string; relation: string; quote: string;
     alias: SpanAlias }[];
   figures: { figureId: string; tier: string; verification: string; createdAt: string; alias: SpanAlias }[];
-  /** A check is due before this passage: no item, learning object or purpose (spec §12.6.1). */
-  checksDue: { commitmentId: string }[];
   notes: unknown[];
   authoredQuestions: { questionId: string; status: string; questionStyle: string; scopeKind: string;
     questionMd: string; alias: SpanAlias }[];
@@ -11139,9 +11179,14 @@ export interface PassageUnionDto {
     learningObjects: { learningObjectId: string; treatment: string | null; learnerOverride: string | null }[] }[];
 }
 
-export type PassageUnionInput =
+export type PassageUnionInput = (
   | { extractionId: string; fromSpanId: string; toSpanId: string }
-  | { extractionId: string; t0: number; t1: number };
+  | { extractionId: string; t0: number; t1: number }
+) & {
+  /** passage.content only: the menu verb the words are read for; its destination's set decides what is withheld
+   *  (Make it practice's exercise sheet reads with the import's). */
+  forVerb?: "make_practice";
+};
 
 export interface CompanionExchangeDto {
   questionEventId: string;
@@ -11165,12 +11210,95 @@ export interface CompanionHistoryDto {
   cursor: string | null;
 }
 
+/** checks.due_for: one opaque handle per due check, every due check in the vault, and nothing of any (no topic, host,
+ *  provenance, due date or commitment: the owner's decision on RD7-56). `check.begin_inline` takes the handle; a begin
+ *  spends it, and a spent or dead one (the sidecar restarted) is refused `check_unknown`: read again. */
 export interface ChecksDueDto {
   version: number;
-  checks: { commitmentId: string; loId: string; due: string;
-    host: { extractionId: string; sectionId: string | null; spanId: string | null } | null;
-    provenance: Record<string, string> }[];
+  checks: { handle: string;
+    /** mvp-0.69: an open inline administration holds it (Today shows "being answered in the Reader"). */
+    beingAnswered?: boolean }[];
+  /** When the next check not due yet falls due (a time, nothing of it), or null: the desks read again then. */
+  nextDue?: string | null;
 }
+
+// -- Reader workbench v2 RD7 (spec §3.4, §12.6; mvp-0.69): the inline administration of a due check. The typed calls
+// only; the desks' card arrives with RD7's frontend half.
+
+/** What is on screen, on every desk, when a check opens or new content arrives (the server classifies it). */
+export interface CheckVisibleDto {
+  windows: Array<{ windowId: string; kind: string; extractionId?: string; spanIds?: string[]; noteIds?: string[];
+    figures?: Array<{ figureId: string; spanId?: string | null }>; padBlockIds?: string[]; exchangeIds?: string[] }>;
+  companionOpen?: boolean;
+  companionExchangeIds?: string[];
+  previewWindowIds?: string[];
+  searchRows?: Array<{ kind: string; extractionId?: string; spanId?: string; refId?: string }>;
+}
+
+/** One veiled thing, as the server named it (its keys are the server's own, snake_case: a ref is sent back as is). */
+export type CheckVeilRefDto = Record<string, unknown> & { group: string; kind: string };
+
+/** The question as a cold check presents it (an allowlisted presentation: never the expected answer, a hint, the
+ *  rubric, an earlier attempt or a source locator). Frozen at begin and returned unchanged on recovery. */
+export interface CheckPromptDto {
+  practiceItemId?: string;
+  prompt?: string;
+  /** The learner-facing blocks, rendered with Today's presentation component. */
+  presentation?: ItemPresentationDto | null;
+  practiceMode?: string | null;
+  attemptTypesAllowed?: string[];
+  activeFollowupKind?: string | null;
+  intentCheck?: IntentCheckDto | null;
+}
+
+export interface CheckCardDto {
+  version?: number;
+  administrationToken: string;
+  commitmentId: string;
+  itemRef: string;
+  contractHash: string | null;
+  /** Whether the item could be answered cold when it was served (else practice from the start). */
+  cold: boolean;
+  state: "open" | "submitted" | "abandoned" | "superseded";
+  /** `veiled`: everything veiled (opened ones included); `standing`: veiled and not opened. */
+  protection: { veilSetId: string | null; method: string | null; veiled: CheckVeilRefDto[]; opened: CheckVeilRefDto[];
+    standing?: CheckVeilRefDto[]; groups: string[] };
+  prompt: CheckPromptDto;
+  /** The practice session the answer is recorded on (opened when the app had none), for the app to adopt. */
+  practiceSession?: SessionSnapshot | null;
+  /** The submission already reserved on this administration (reused by a retry after a restart), or null. */
+  submissionId?: string | null;
+  /** Why the item opens not cold (`seen_before`, `primed`, `hold`, …), else null: the card is worded from it. */
+  eligibility?: string | null;
+  /** The veil sets' sequence number (as `check.protect_more` returns it). */
+  revision?: number;
+  /** A second begin for a commitment whose administration is open returns that administration's card. */
+  replayed?: boolean;
+  /** Where the begun check sits (its host passage), named only once it is begun; null when it has none. */
+  host?: { extractionId: string; sectionId: string | null; spanId: string | null } | null;
+}
+
+/** check.protect_more: what this request added, every ref veiled now and not opened, and the veil sets' sequence. */
+export interface CheckProtectReplyDto {
+  veilAdditions: CheckVeilRefDto[];
+  standing?: CheckVeilRefDto[];
+  revision?: number;
+}
+
+/** check.expose: what was recorded; a refusal or failure records nothing. */
+export interface CheckExposeReplyDto {
+  protectionStatus: { exposure: Array<Record<string, unknown>>; coldNow: boolean; measured?: boolean; eligibility?: string | null };
+}
+
+export type CheckExposureKind = "opened_veil" | "navigated" | "help" | "left";
+
+/** check.submit_inline: the attempt's own reply, plus whether it answered the check. */
+export type CheckSubmitDto = Record<string, unknown> & { attemptId?: string; administrationToken: string; cold: boolean;
+  reason: "on_your_own" | "primed" | "with_help" | "seen_before" | "already_answered" | "practice";
+  /** Why it is primed when nothing measured it: one of the learner's notes was opened (a note's words are never read). */
+  primedBy?: string | null;
+  /** The serve-time reason when the item did not open cold. */
+  eligibility?: string | null };
 
 // -- Reader workbench v2 RD3 (spec §3.4, §8.6, §9.3): the companion's ask as a polled job, search in context.
 // The typed calls only; no component calls them yet.
@@ -11188,6 +11316,8 @@ export interface CompanionAskInput extends ReaderAskInput {
   padBlockIds?: string[];
   /** Required in a notebook. */
   notebookRef?: string | null;
+  /** The goal in view on the desk (the goal lens's goal): the tutor is given its sentence and depth. */
+  goalId?: string | null;
 }
 
 export type CompanionAskStatus = "queued" | "running" | "done" | "failed" | "cancelled" | "expired";
@@ -11221,6 +11351,9 @@ export interface CompanionAskJobDto {
   contextRecorded?: boolean | null;
   /** Cancelled, and its answer was recorded anyway (it is in the history, not delivered). */
   kept: boolean;
+  /** The goal in view: given to the tutor, withheld (its words name a topic whose cold check is due), or null when
+   *  no goal was in view. */
+  goalInView?: "given" | "withheld" | null;
   /** reader.ask's reply, when done. */
   answer: ReaderAnswerDto | null;
   error: PolledJobErrorDto | null;
@@ -11229,6 +11362,8 @@ export interface CompanionAskJobDto {
 export type SearchScope = "sources" | "passages" | "notes" | "pads" | "threads" | "exchanges";
 
 export interface SearchEverythingInput {
+  selection?: { extractionId: string; spanIds: string[] };
+  blockIds?: string[];
   query: string;
   deskId?: string | null;
   /** The groups to search (all when omitted); "open on this desk" is the client's own group. */
@@ -11455,6 +11590,13 @@ export interface GoalBandLoDto {
   held: boolean;
 }
 
+/** goal.choices: the desk's goal chooser (a held topic's name masked in each label, as the band masks it). */
+export interface GoalChoicesDto {
+  version: number;
+  goals: Array<{ goalId: string; label: string; setAt: string; learnerSet: boolean }>;
+  nextCheckDue: string | null;
+}
+
 export interface GoalBandDto {
   version: number;
   goalId: string;
@@ -11472,7 +11614,7 @@ export interface GoalBandDto {
   /** "N LEARNING OBJECTS · a LIKELY · b UNTESTED": the LOs within the chosen depth. */
   counts?: { learningObjects: number; demonstrated: number; likely: number; untested: number };
   /** The phrases of the goal sentence not in the library yet (curriculum.scope_decide's add it / no). */
-  unmatched?: Array<{ phrase: string; proposedTitle?: string; proposedStatement?: string } & Record<string, unknown>>;
+  unmatched?: Array<{ phrase: string; proposedTitle?: string; proposedStatement?: string; /** It named a topic whose check is due: masked by the server, not offered to add. */ held?: boolean } & Record<string, unknown>>;
   /** No LO is named beside a due check. */
   checks?: { dueToday: number; answeredToday: number;
     first: { commitmentId: string; host: { extractionId: string; sectionId: string | null; spanId: string | null } | null } | null };
@@ -11500,7 +11642,7 @@ export type GoalLensLevel = "core" | "supporting" | "later" | "already_shown" | 
 
 export type GoalLensReasonKey =
   | "primary" | "prerequisite" | "alternate" | "another_treatment" | "applies" | "mentions" | "learner_about"
-  | "deeper_depth" | "demonstrated" | "assumed" | "check_pending" | "you_skipped" | "out_of_scope" | "not_about"
+  | "chapter_about" | "deeper_depth" | "demonstrated" | "assumed" | "check_pending" | "you_skipped" | "out_of_scope" | "not_about"
   | "unmapped" | "withheld" | "left_out" | "partial_unsettled" | "partial_unplaced";
 
 /** One section's level for the goal; its passages inherit it (decision D1: judged per section). */
@@ -11675,7 +11817,7 @@ export interface InkTranscribeJobDto {
   status: "queued" | "running" | "done" | "failed" | "cancelled" | "expired";
   done: boolean;
   result: InkReadingDto | null;
-  /** e.g. `cannot_read_images`, `models_off`, `unrouted`, `unpriced`, `capped`, `unavailable`,
-   * `provider_unavailable`, `ink_too_large`, `waiting_for_ok`, `cancelled`, `interrupted`. */
+  /** e.g. `unavailable` (text recognition, GLM-OCR, isn't set up), `needs_upload_ok` (hosted GLM-OCR waits for the
+   * OK to send to z.ai), `ocr_failed`, `ink_too_large`, `waiting_for_ok`, `cancelled`, `interrupted`. */
   error: { code: string; message: string; retryable: boolean; details: Record<string, unknown> | null } | null;
 }

@@ -39,6 +39,7 @@ from __future__ import annotations
 
 import logging
 import threading
+from dataclasses import replace
 from typing import Any, Literal
 
 from pydantic import Field
@@ -56,6 +57,7 @@ from learnloop_sidecar.handlers.reader import (
     reader_ask_reply,
 )
 from learnloop_sidecar.registry import method
+from learnloop_sidecar.workbench_protection import block_places, reading_places, refuse_protected
 
 LOG = logging.getLogger(__name__)
 
@@ -76,6 +78,9 @@ class CompanionAskInput(ReaderAskInput):
     surface: Literal["desk", "reader", "lesson", "notebook"]
     pad_block_ids: list[str] = Field(default_factory=list, max_length=MAX_PAD_BLOCKS)
     notebook_ref: str | None = Field(default=None, min_length=1, max_length=512)
+    #: The goal in view on the desk (the goal lens's: the desk's goal, else the vault's primary one, unless the
+    #: learner turned the lens off), sent to the tutor as its sentence and depth (owner decision 2026-11-23).
+    goal_id: str | None = Field(default=None, min_length=1)
 
 
 class CompanionAskJobInput(ParamsModel):
@@ -123,6 +128,32 @@ class _ContextWriter:
             return True
 
 
+def goal_in_view(vault: Any, repository: Any, goal_id: str) -> tuple[dict[str, Any] | None, str]:
+    """The goal in view as the tutor sees it, and whether it is ``given`` or ``withheld``.
+
+    Only the goal's own sentence (its title when it has none) and the depth the learner chose, with what that
+    depth means: never its topics, sections or readiness. The goal lens's protection holds the topic of a check that
+    is begun (``handlers.goal_lens.protection_now``; a check merely due is masked nowhere, since masking it would point
+    at it); a goal whose words name a held topic is withheld whole, so the tutor can never repeat it back."""
+
+    from learnloop.source_retrieval import deliverables as DL
+    from learnloop.source_retrieval.reading_paths import DEPTH_LABELS, DEPTH_MEANS
+    from learnloop_sidecar.handlers.goal_lens import protection_now
+
+    found = next((goal for goal in vault.goals if goal.id == goal_id), None)
+    if found is None:
+        raise SidecarError("goal_not_found", f"No goal {goal_id!r}.")
+    sentence = " ".join(str(found.intent_sentence or found.title or "").split())
+    protection, _next_due = protection_now(vault, repository)
+    if not sentence or protection.names_held(sentence) or protection.names_held(found.title):
+        return None, "withheld"
+    depth = DL.depth_of(repository, goal_id)
+    view: dict[str, Any] = {"goal_id": goal_id, "sentence": sentence}
+    if depth in DEPTH_LABELS:
+        view.update(depth=DEPTH_LABELS[depth], depth_means=DEPTH_MEANS[depth])
+    return view, "given"
+
+
 def _jobs(ctx: SidecarContext) -> PJ.PolledJobs:
     return PJ.registry(ctx, _REGISTRY, running=MAX_RUNNING_ASKS, remember_ids=True)
 
@@ -157,6 +188,9 @@ def _payload(request_id: str, state: dict[str, Any]) -> dict[str, Any]:
         # None while no question is recorded yet; false names a write that failed and is being retried.
         "context_recorded": None if question_event_id is None else bool(notes.get("context_recorded")),
         "kept": status == PJ.CANCELLED and bool(notes.get("answered")),
+        # The goal in view: "given" to the tutor, "withheld" (its words name a topic whose cold check is due), or
+        # None when no goal was in view.
+        "goal_in_view": notes.get("goal"),
         "answer": result,
         "error": None if error is None else {"code": error.code, "message": error.message,
                                              "retryable": error.retryable, "details": error.details},
@@ -193,7 +227,19 @@ def _known_payload(known: PJ.PolledJob | PJ.Receipt) -> dict[str, Any]:
 def companion_ask(ctx: SidecarContext, params: CompanionAskInput) -> dict[str, Any]:
     """Ask the companion; answers at once with the job (see the module docstring)."""
 
-    _vault, repository = ctx.require_vault()
+    origin_vault, repository = ctx.require_vault()
+    # While an inline check is open the companion waits (a retry included): an answer could hold what the veils do.
+    from learnloop_sidecar.check_hold import refuse_while_check_open
+
+    refuse_while_check_open(repository)
+
+    def check_origin() -> None:
+        places = reading_places(params.extraction_id, [params.span_id, *params.selection_span_ids])
+        places.extend(block_places(origin_vault, repository, params.pad_block_ids))
+        # The companion asks as the Reader's Ask does: its row (the held-out partition) decides.
+        refuse_protected(origin_vault, repository, places, surface="reader_ask")
+
+    check_origin()
     jobs = _jobs(ctx)
     vault = PJ.vault_key(ctx)
     key = _request_key(params)
@@ -209,13 +255,18 @@ def companion_ask(ctx: SidecarContext, params: CompanionAskInput) -> dict[str, A
     except CompanionAskError as exc:
         raise SidecarError(exc.code, str(exc)) from exc
     call = prepare_reader_ask(ctx, _reader_params(params))
-
+    goal, goal_state = (None, None) if params.goal_id is None else goal_in_view(origin_vault, repository, params.goal_id)
+    if params.goal_id is not None:
+        # The exchange records the goal it was asked under (the lens's, which may be the vault's primary goal).
+        where = replace(where, goal_id=params.goal_id)
     writer = _ContextWriter(call.repository, where)
 
     def work(job: PJ.PolledJob) -> dict[str, Any]:
+        check_origin()
         writer.bind(job)
+        job.note(goal=goal_state)
         try:
-            result = generate_reader_answer(call, on_question_recorded=writer.question_recorded)
+            result = generate_reader_answer(call, on_question_recorded=writer.question_recorded, goal_in_view=goal)
         finally:
             # A question recorded before a failure keeps its context; a write that failed is tried again.
             writer.write()

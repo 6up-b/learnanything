@@ -44,7 +44,7 @@ from tests.split_live_helpers import ReadyRuntime, split_vault
 from tests.held_grade_evidence_helpers import T, _graded_apply, _held_apply
 from tests.regrade_contract_successor_helpers import as_graded_before_contracts, as_regraded_before_contracts
 from tests.route_rules_in_grader_helpers import ITEM as SPLIT_ITEM
-from tests.route_rules_in_grader_helpers import VERSION, FullCreditGrader
+from tests.route_rules_in_grader_helpers import FullCreditGrader
 from tests.ux_phase4_feedback_helpers import (
     ITEM,
     _administration_receipts,
@@ -108,7 +108,7 @@ def test_the_switch_accepts_only_its_two_presentations():
 
 
 def test_the_bundle_says_when_a_grade_is_held_for_review(tmp_path):
-    _paths, vault, repository = split_vault(tmp_path, version=VERSION)
+    _paths, vault, repository = split_vault(tmp_path)
     _graded_apply(vault, repository, SPLIT_ITEM, {"setup": 2.0, "result": 2.0}, attempt_id="att_ok", when=T)
     _held_apply(vault, repository, SPLIT_ITEM, {"setup": 0.0, "result": 0.0},
                 attempt_id="att_held", when=T + timedelta(minutes=5))
@@ -171,7 +171,7 @@ def test_a_regrade_shows_one_rubric_row_per_criterion(tmp_path):
     """Usability round 1, M-b: ``r`` regraded and the rubric showed every
     criterion twice (the original model rows beside the regrade's)."""
 
-    _paths, vault, repository = split_vault(tmp_path, version=VERSION)
+    _paths, vault, repository = split_vault(tmp_path)
     _graded_apply(vault, repository, SPLIT_ITEM, {"setup": 1.0, "result": 1.0}, attempt_id="att_g", when=T)
     regrade_attempt(
         vault, repository, repository.fetch_practice_attempt("att_g"),
@@ -251,7 +251,7 @@ def test_a_plain_regrade_records_no_contest(ctx):
 def test_released_short_check_feedback_marks_held_grades(tmp_path):
     from learnloop_sidecar.handlers.practice import mark_released_held
 
-    _paths, vault, repository = split_vault(tmp_path, version=VERSION)
+    _paths, vault, repository = split_vault(tmp_path)
     _graded_apply(vault, repository, SPLIT_ITEM, {"setup": 2.0, "result": 2.0}, attempt_id="att_ok", when=T)
     _held_apply(vault, repository, SPLIT_ITEM, {"setup": 0.0, "result": 0.0},
                 attempt_id="att_held", when=T + timedelta(minutes=5))
@@ -965,7 +965,7 @@ def test_f5_an_answer_with_no_contract_is_unrecorded(ctx):
 def test_f6_the_regrade_history_says_the_grade_it_replaced_was_held(tmp_path):
     from tests.held_grade_evidence_helpers import VALIDATING, _held_live
 
-    _paths, vault, repository = split_vault(tmp_path, version=VERSION)
+    _paths, vault, repository = split_vault(tmp_path)
     held = _held_live(vault, repository)
     regrade_attempt(
         vault, repository, repository.fetch_practice_attempt(held.attempt_id),
@@ -980,7 +980,7 @@ def test_f6_the_regrade_history_says_the_grade_it_replaced_was_held(tmp_path):
 
 
 def test_f6_an_ordinary_regrade_history_was_not_held(tmp_path):
-    _paths, vault, repository = split_vault(tmp_path, version=VERSION)
+    _paths, vault, repository = split_vault(tmp_path)
     _graded_apply(vault, repository, SPLIT_ITEM, {"setup": 1.0, "result": 1.0}, attempt_id="att_g", when=T)
     regrade_attempt(
         vault, repository, repository.fetch_practice_attempt("att_g"),
@@ -1660,7 +1660,7 @@ def test_f9f_a_blind_regrade_keeps_the_maximum_recorded_with_it_after_the_questi
     from learnloop.vault.writer import upsert_practice_item
     from tests.held_grade_evidence_helpers import _graded_apply
 
-    paths, vault, repository = split_vault(tmp_path, version=VERSION)
+    paths, vault, repository = split_vault(tmp_path)
     _graded_apply(vault, repository, SPLIT_ITEM, {"setup": 1.0, "result": 1.0}, attempt_id="att_g", when=T)
     regrade_attempt(
         vault, repository, repository.fetch_practice_attempt("att_g"),
@@ -2827,7 +2827,7 @@ def test_f1l_the_quick_check_never_presents_an_item_inside_routine_display_cover
     from tests.assumed_known_helpers import _answer, _setup as placement_setup
     from tests.quick_check_helpers import _best_item, _progress, _start
 
-    _paths, vault, repository = placement_setup(tmp_path, version="mvp-0.27")
+    _paths, vault, repository = placement_setup(tmp_path)
     best = _best_item(vault, repository, ["lo_diag"])
     lo = vault.practice_items[best].learning_object_id
     stamp = FrozenClock(NOW - timedelta(hours=24, minutes=30))

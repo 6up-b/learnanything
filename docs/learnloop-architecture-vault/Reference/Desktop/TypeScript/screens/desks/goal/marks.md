@@ -86,7 +86,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const last = ranges[ranges.length - 1]` — const, line 119
 - `const times = ranges.map((range)` — const, line 123
 - `const lo = first.learningObjects.find((entry)` — const, line 124
-- `const role = first.reasonKey === "primary" ? "primary for" : first.reasonKey === "alternate" ? "another way for" : first.reasonKey === "prerequisite" ? "background for" : "supporting"` — const, line 125
+- `const role = first.reasonKey === "primary" ? "main reading for" : first.reasonKey === "alternate" ? "another explanation of" : first.reasonKey === "prerequisite" ? "background for" : "supporting"` — const, line 125
 - `const skippable = index.sections.find((section)` — const, line 135
 - `const ref = useRef<HTMLDivElement | null>(null)` — const, line 149
 - `const card = ref.current` — const, line 154
@@ -111,9 +111,9 @@ The system-level behavior stays authoritative in the linked architecture, concep
 ### Desktop source modules
 
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `GoalBandDto`
-- [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] — import-or-re-export; imports `ReaderLens`
 - [[Reference/Desktop/TypeScript/screens/desks/goal/controller|src/screens/desks/goal/controller.ts]] — import-or-re-export; imports `WhyState`
 - [[Reference/Desktop/TypeScript/screens/desks/goal/model|src/screens/desks/goal/model.ts]] — import-or-re-export; imports `LensIndex`, `calloutFor`, `goalShort`, `isDimmed`, `markKind`, `mostNeededSpan`, `noneNeeded`, `whyLevelLine`
+- [[Reference/Desktop/TypeScript/screens/desks/source/types|src/screens/desks/source/types.ts]] — import-or-re-export; imports `ReaderLens`
 - [[Reference/Desktop/TypeScript/screens/reader/YouTubeWatchPanel|src/screens/reader/YouTubeWatchPanel.tsx]] — import-or-re-export; imports `WatchLens`
 
 ### Assets, platform, and third-party dependencies

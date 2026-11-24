@@ -3,6 +3,7 @@ imports another (``tests/test_test_layout.py``; refactor step T1)."""
 
 from __future__ import annotations
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.db.repositories import Repository
 from learnloop.ingest.ir import DocumentBlock, DocumentIR, DocumentUnit, ExtractionHealth
 from learnloop.curriculum import task_blueprints as TB
@@ -97,8 +98,8 @@ class _StatementFake(ReviewFakeClient):
         return result.model_copy(update={"event_diagnoses": events})
 
 
-def _graded_vault_with_extraction(tmp_path, *, version: str, config: str = ""):
-    """A graded diagnosis vault at ``version`` whose SVD-compute item cites ext1/s1."""
+def _graded_vault_with_extraction(tmp_path, *, version: str = LATEST_ALGORITHM_VERSION, config: str = ""):
+    """A graded diagnosis vault at ``version`` (the head unless given) whose SVD-compute item cites ext1/s1."""
 
     paths, vault, repository = split_vault(tmp_path, version=version, config=config, seed=False)
     _register_revision(repository, source_id="src1", revision_id="rev1")

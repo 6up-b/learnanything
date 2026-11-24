@@ -76,11 +76,45 @@ describe("the ink cache's readings", () => {
     expect(cache.pad("p").readings.b1.status).toBe("cancelled");
   });
 
+  it("handwriting text recognition cannot read says why and how to change it, for each refusal", async () => {
+    for (const [code, line] of [
+      ["unavailable", "handwriting can't be read yet: text recognition isn't set up · to add it, paste a z.ai API key in Settings, under Ingestion, or run a local GLM-OCR server"],
+      ["needs_upload_ok", "reading handwriting sends a picture of it to z.ai, which needs your OK first: say OK on a book's card in the Library"],
+    ] as const) {
+      const { cache } = setup({ inkTranscribe: vi.fn(async () => ({ version: 1, jobId: null, status: "failed" as const, done: true, result: null,
+        error: { code, message: "server words", retryable: true, details: null } })) });
+      cache.addStrokes("p", "b1", "ink_1", [stroke("s1")]);
+      await cache.read("p", "b1", null);
+      expect(cache.pad("p").readings.b1).toMatchObject({ status: "cannot", message: line });
+    }
+  });
+
+  it("a check that opens while the ink is saving holds the reading after the save; the server's check_open refusal is said plainly", async () => {
+    let heldNow: string | null = null;
+    const saved = deferred<"saved" | "unsaved">();
+    const api: Partial<InkCacheApi> = { inkTranscribe: vi.fn() };
+    const full = { inkList: vi.fn(async () => ({ owners: [] })), inkTranscribeJob: vi.fn(), inkTranscribeCancel: vi.fn(), ...api } as unknown as InkCacheApi;
+    const poller = new Poller({ setInterval: () => 1, clearInterval: () => undefined });
+    const cache = new InkCache({ api: full, poller, settled: () => saved.promise, refreshPad: vi.fn(async () => undefined), held: () => heldNow });
+    cache.addStrokes("p", "b1", "ink_1", [stroke("s1")]);
+    const read = cache.read("p", "b1", null);
+    heldNow = "after your check · it is open on this desk";
+    saved.resolve("saved");
+    await read;
+    expect(full.inkTranscribe).not.toHaveBeenCalled();
+    expect(cache.pad("p").readings.b1.message).toBe("read it after your check · it is open on this desk");
+    // The server refuses too, whatever this desk knew.
+    heldNow = null;
+    (full.inkTranscribe as ReturnType<typeof vi.fn>).mockImplementation(async () => { throw { code: "check_open", message: "x", details: {} }; });
+    await cache.read("p", "b1", null);
+    expect(cache.pad("p").readings.b1.message).toBe("read it after your check · finish or set aside the check first");
+  });
+
   it("unsent ink is said to be kept while the app stays open, not on this device", async () => {
     const { cache } = setup({}, async () => "unsaved");
     cache.addStrokes("p", "b1", "ink_1", [stroke("s1")]);
     await cache.read("p", "b1", null);
-    expect(cache.pad("p").readings.b1.message).toBe("your ink isn't sent yet · it is kept while LearnLoop stays open");
+    expect(cache.pad("p").readings.b1.message).toBe("Waiting for your handwriting to save. Keep LearnLoop open, then try again.");
   });
 });
 

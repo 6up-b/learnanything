@@ -34,15 +34,20 @@ No nested ownership area.
 
 | Module | Status | Purpose | Imports | Imported by |
 |---|---|---|---:|---:|
+| [[Reference/Desktop/TypeScript/fixtures/desks/checks|checks.ts]] | `ACTIVE` | Exposes deterministic `checks` fixture data for a reproducible desktop scenario. | 2 | 1 |
 | [[Reference/Desktop/TypeScript/fixtures/desks/companion|companion.ts]] | `ACTIVE` | Exposes deterministic `companion` fixture data for a reproducible desktop scenario. | 3 | 1 |
-| [[Reference/Desktop/TypeScript/fixtures/desks/fakeCore|fakeCore.ts]] | `ACTIVE` | Exposes deterministic `fakeCore` fixture data for a reproducible desktop scenario. | 8 | 0 |
+| [[Reference/Desktop/TypeScript/fixtures/desks/fakeCore|fakeCore.ts]] | `ACTIVE` | Exposes deterministic `fakeCore` fixture data for a reproducible desktop scenario. | 11 | 1 |
+| [[Reference/Desktop/TypeScript/fixtures/desks/figures|figures.ts]] | `ACTIVE` | Exposes deterministic `figures` fixture data for a reproducible desktop scenario. | 2 | 1 |
 | [[Reference/Desktop/TypeScript/fixtures/desks/goal|goal.ts]] | `ACTIVE` | Exposes deterministic `goal` fixture data for a reproducible desktop scenario. | 2 | 1 |
-| [[Reference/Desktop/TypeScript/fixtures/desks/harness|harness.tsx]] | `ACTIVE` | Exposes deterministic `harness` fixture data for a reproducible desktop scenario. | 13 | 0 |
+| [[Reference/Desktop/TypeScript/fixtures/desks/harness|harness.tsx]] | `ACTIVE` | Exposes deterministic `harness` fixture data for a reproducible desktop scenario. | 14 | 0 |
 | [[Reference/Desktop/TypeScript/fixtures/desks/lessons|lessons.ts]] | `ACTIVE` | Exposes deterministic `lessons` fixture data for a reproducible desktop scenario. | 1 | 1 |
-| [[Reference/Desktop/TypeScript/fixtures/desks/pads|pads.ts]] | `ACTIVE` | Exposes deterministic `pads` fixture data for a reproducible desktop scenario. | 2 | 4 |
-| [[Reference/Desktop/TypeScript/fixtures/desks/sources|sources.ts]] | `ACTIVE` | Exposes deterministic `sources` fixture data for a reproducible desktop scenario. | 1 | 7 |
+| [[Reference/Desktop/TypeScript/fixtures/desks/pads|pads.ts]] | `ACTIVE` | Exposes deterministic `pads` fixture data for a reproducible desktop scenario. | 2 | 6 |
+| [[Reference/Desktop/TypeScript/fixtures/desks/realApp|realApp.tsx]] | `ACTIVE` | Exposes deterministic `realApp` fixture data for a reproducible desktop scenario. | 4 | 0 |
+| [[Reference/Desktop/TypeScript/fixtures/desks/realDesk|realDesk.tsx]] | `ACTIVE` | Exposes deterministic `realDesk` fixture data for a reproducible desktop scenario. | 8 | 2 |
+| [[Reference/Desktop/TypeScript/fixtures/desks/sources|sources.ts]] | `ACTIVE` | Exposes deterministic `sources` fixture data for a reproducible desktop scenario. | 1 | 9 |
 | [[Reference/Desktop/TypeScript/fixtures/desks/video|video.ts]] | `ACTIVE` | Exposes deterministic `video` fixture data for a reproducible desktop scenario. | 2 | 1 |
-| [[Reference/Desktop/TypeScript/fixtures/desks/workspace|workspace.ts]] | `ACTIVE` | Exposes deterministic `workspace` fixture data for a reproducible desktop scenario. | 5 | 2 |
+| [[Reference/Desktop/TypeScript/fixtures/desks/workbench|workbench.ts]] | `ACTIVE` | Exposes deterministic `workbench` fixture data for a reproducible desktop scenario. | 1 | 1 |
+| [[Reference/Desktop/TypeScript/fixtures/desks/workspace|workspace.ts]] | `ACTIVE` | Exposes deterministic `workspace` fixture data for a reproducible desktop scenario. | 5 | 4 |
 
 ## Modification guidance
 

@@ -373,10 +373,10 @@ def test_why_shows_an_attempt_completed_after_the_last_rebuild(tmp_path: Path):
 
     from learnloop.daily_plan.engine import advance
     from tests.daily_plan_fakes import record_attempt
-    from tests.router_mixture_helpers import mixture_env
+    from tests.router_mixture_helpers import B, mixture_env
     from tests.router_model_fakes import FakeDecider, FakeLLM, fake_runtime
 
-    env = mixture_env(tmp_path, fake_runtime(decider=FakeDecider(), llm=FakeLLM()))
+    env = mixture_env(tmp_path, fake_runtime(decider=FakeDecider(), llm=FakeLLM()), version=B)
     with provenance.trace_scope("TRACE_NEXT"):
         _record, step = advance(env, serve=True)
     assert step is not None and step["kind"] == "item"

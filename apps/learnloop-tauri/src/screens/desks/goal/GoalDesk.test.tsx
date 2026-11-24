@@ -10,7 +10,8 @@ import { FixtureGoal } from "../../../fixtures/desks/goal";
 import { DeskShell, type CompanionTransport, type DeskTransport, type PaneRenderInput } from "../DeskShell";
 import type { GoalTransport } from "./controller";
 
-vi.mock("../../../api/client", () => ({ api: {} }));
+// No inline check is open (the desks read it before showing anything).
+vi.mock("../../../api/client", () => ({ api: { checkOpenInline: async () => ({ administration: null }) } }));
 vi.mock("../windows/SourceWindow", () => ({ SourceWindow: () => null }));
 vi.mock("../windows/PanelWindow", () => ({ PANEL_TITLES: { guide: "Guide", notes: "Notes", path: "Reading path", library: "Library" }, LibraryPanel: () => null, PathPanel: () => null, RailHostPanel: () => null }));
 
@@ -28,6 +29,7 @@ function goalTransport(goal = new FixtureGoal(), overrides: Partial<GoalTranspor
   const log = <T,>(name: string, answer: (input: never) => T) => async (input?: unknown) => { calls.push({ name, input }); return answer(input as never); };
   const transport: GoalTransport = {
     goals: log("goals", () => goal.goals()),
+    choices: log("choices", () => goal.goalChoices()),
     band: log("band", () => goal.band()),
     lens: log("lens", (input: { extractionId: string }) => goal.lens(input.extractionId)),
     sectionChoice: log("sectionChoice", (input: Parameters<FixtureGoal["sectionChoice"]>[0]) => goal.sectionChoice(input)) as never,
@@ -95,7 +97,7 @@ describe("the goal band on the desks", () => {
     mount(transport);
     await waitFor(() => expect(screen.getByRole("region", { name: "your goal" })).toBeTruthy());
     expect(screen.getByText("“Understand softmax well enough to implement attention”")).toBeTruthy();
-    expect(screen.getByText(/5 learning objects · 1 likely · 4 untested/)).toBeTruthy();
+    expect(screen.getByText(/5 topics · 1 likely · 4 untested/)).toBeTruthy();
     expect(screen.getByText("your path")).toBeTruthy();
     await settle();
     expect(calls.filter((call) => call.name === "path")).toEqual([{ name: "path", input: { goalId: "fx_goal_softmax", judge: true } }]);
@@ -138,7 +140,7 @@ describe("the goal band on the desks", () => {
     await settle();
     expect(calls.find((call) => call.name === "setDepth")?.input).toEqual({ goalId: "fx_goal_softmax", depth: "get_the_idea" });
     expect(calls.filter((call) => call.name === "band").length).toBeGreaterThan(bands);
-    await waitFor(() => expect(screen.getByText(/3 learning objects · 1 likely · 2 untested/)).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(/3 topics · 1 likely · 2 untested/)).toBeTruthy());
   });
 
   it("without any goal shows no band and a quiet chip in the top bar", async () => {

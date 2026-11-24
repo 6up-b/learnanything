@@ -73,7 +73,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ### Desktop source modules
 
-- [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] — import-or-re-export; imports `ReaderLens`
+- [[Reference/Desktop/TypeScript/screens/desks/source/types|src/screens/desks/source/types.ts]] — import-or-re-export; imports `ReaderLens`
 
 ### Assets, platform, and third-party dependencies
 

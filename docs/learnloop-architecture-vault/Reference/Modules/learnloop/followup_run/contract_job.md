@@ -120,7 +120,9 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_followup_authoring_retry.py](../../../../../../tests/test_followup_authoring_retry.py) — imports consumer [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]]
 - [tests/test_followup_contract_recovery.py](../../../../../../tests/test_followup_contract_recovery.py) — imports consumer [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]]
 - [tests/test_followup_next_matrix.py](../../../../../../tests/test_followup_next_matrix.py) — imports consumer [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]]
+- [tests/test_probe_router.py](../../../../../../tests/test_probe_router.py) — imports consumer [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]]
 - [tests/test_probe_router_authority.py](../../../../../../tests/test_probe_router_authority.py) — imports consumer [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]]
+- [tests/test_probe_router_decision_integrity.py](../../../../../../tests/test_probe_router_decision_integrity.py) — imports consumer [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]]
 
 ## Modification guidance
 

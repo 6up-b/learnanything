@@ -47,15 +47,23 @@ def _out(row: dict[str, Any]) -> dict[str, Any]:
             "updated_at": row["updated_at"]}
 
 
+def check_question(text: str, anchor: dict[str, Any] | None) -> str:
+    """The question's words, or its own refusal (``empty_question``, ``bad_anchor``): checked before anything else
+    about it (a caller's protection check comes after these, so they keep their codes)."""
+
+    words = " ".join(str(text or "").split())
+    if not words:
+        raise CarriedRefused("empty_question", "Write a question before saving it for later.")
+    if anchor is not None and not (anchor.get("extraction_id") and anchor.get("span_id")):
+        raise CarriedRefused("bad_anchor", "Select the passage again before saving this question for later.")
+    return words
+
+
 def carry(repository: Any, *, carried_id: str, text: str, origin_kind: str, origin_ref: str | None,
           anchor: dict[str, Any] | None, desk_id: str | None, clock: Any = None) -> dict[str, Any]:
     """Carry one question; returns it (``created`` false on a retry)."""
 
-    words = " ".join(str(text or "").split())
-    if not words:
-        raise CarriedRefused("empty_question", "A carried question needs words.")
-    if anchor is not None and not (anchor.get("extraction_id") and anchor.get("span_id")):
-        raise CarriedRefused("bad_anchor", "An anchor names its reading and passage.")
+    words = check_question(text, anchor)
     with repository.atomic():
         connection = repository.connection()
         existing = reads.carried(connection, carried_id)
@@ -63,7 +71,7 @@ def carry(repository: Any, *, carried_id: str, text: str, origin_kind: str, orig
             same = (existing["text"], existing["origin_kind"], existing["origin_ref"], existing["anchor"],
                     existing["desk_id"]) == (words, origin_kind, origin_ref, anchor, desk_id)
             if not same:
-                raise CarriedRefused("carried_id_reused", "That id carries another question.")
+                raise CarriedRefused("carried_id_reused", "Couldn’t save this question for later. Reopen the pad or passage and try again.")
             return {**_out(existing), "created": False}
         now = utc_now_iso(clock)
         store.insert_carried(connection, {"carried_id": carried_id, "text": words, "origin_kind": origin_kind,
@@ -84,19 +92,19 @@ def mark(repository: Any, *, event_id: str, carried_id: str, event: str, expecte
         connection = repository.connection()
         row = reads.carried(connection, carried_id)
         if row is None:
-            raise CarriedRefused("carried_not_found", "No such carried question.")
+            raise CarriedRefused("carried_not_found", "Couldn’t find this saved question. Reopen the list.")
         logged = reads.carried_event_exists(connection, event_id)
         if logged is not None:
             if (logged["carried_id"], logged["event"], logged["ref"]) != (carried_id, event, ref):
-                raise CarriedRefused("event_id_reused", "That event id names another event.")
+                raise CarriedRefused("event_id_reused", "Reopen saved questions and try that choice again.")
             return {**_out(row), "conflict": False, "applied": False}
         if event in LABELS:
             if expected_version is None:
-                raise CarriedRefused("expected_version_required", "A label names the version it expects.")
+                raise CarriedRefused("expected_version_required", "This saved question changed. Reopen the list and try again.")
             if int(expected_version) != int(row["version"]):
                 return {**_out(row), "conflict": True, "applied": False}
         elif event not in NOTICES:
-            raise CarriedRefused("unknown_event", f"Unknown event {event!r}.")
+            raise CarriedRefused("unknown_event", "Couldn’t update this saved question. Reopen the list and choose an action.")
         now = utc_now_iso(clock)
         store.insert_carried_event(connection, event_id=event_id, carried_id=carried_id, event=event, ref=ref, at=now)
         if event in LABELS:
@@ -127,5 +135,5 @@ def history(repository: Any, carried_id: str) -> list[dict[str, Any]]:
 
 __all__ = [
     "CLOSED_STATES", "CarriedRefused", "LABELS", "NOTICES", "OPEN_STATES", "ORIGINS", "PAGE_SIZE", "SHELF_LIMIT",
-    "carry", "history", "listing", "mark",
+    "carry", "check_question", "history", "listing", "mark",
 ]

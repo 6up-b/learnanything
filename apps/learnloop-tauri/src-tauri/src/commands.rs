@@ -1406,6 +1406,8 @@ sidecar_passthrough!(carried_mark, "carried.mark");
 sidecar_passthrough!(goal_band, "goal.band");
 sidecar_passthrough!(goal_lens, "goal.lens");
 sidecar_passthrough!(goal_section_choice, "goal.section_choice");
+// The desk's goal chooser: each active goal in the learner's words, a held topic's name masked.
+sidecar_passthrough!(goal_choices, "goal.choices");
 sidecar_passthrough!(curriculum_path, "curriculum.path");
 // Reader workbench v2 RD8a: the learner's ink and reading it as a polled job (desktop only; no component calls
 // them yet).
@@ -1433,6 +1435,13 @@ sidecar_passthrough!(chapters_suggest, "chapters.suggest");
 sidecar_passthrough!(chapters_job, "chapters.job");
 sidecar_passthrough!(chapters_cancel, "chapters.cancel");
 sidecar_passthrough!(chapters_decide, "chapters.decide");
+// Reader workbench RD7: the inline administration of a due check (spec §12.6): desktop only.
+sidecar_passthrough!(check_begin_inline, "check.begin_inline");
+sidecar_passthrough!(check_protect_more, "check.protect_more");
+sidecar_passthrough!(check_expose, "check.expose");
+sidecar_passthrough!(check_submit_inline, "check.submit_inline");
+sidecar_passthrough!(check_abandon_inline, "check.abandon_inline");
+sidecar_passthrough!(check_open_inline, "check.open_inline");
 // Teacher TE1b: Today's lesson suggestion card and the learner's one response to it: desktop only.
 sidecar_passthrough!(lesson_suggestion, "lesson.suggestion");
 sidecar_passthrough!(lesson_suggestion_respond, "lesson.suggestion_respond");

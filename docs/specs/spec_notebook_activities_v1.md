@@ -82,7 +82,7 @@ Two runtimes, one contract:
 - Each widget's full ES module dependency graph is bundled and pinned. The adapter implements the anywidget front-end model (AFM: `get`, `set`, `on`/`off`, `save_changes`, custom messages, lifecycle cleanup), not just four methods, and is tested per widget.
 - Every widget has a **typed alternative** (enter the numbers) and a **static fallback** (a rendered frame), for accessibility and for the phone.
 - ManimWeb is excluded from this tier (it executes scene JS verbatim and loads from a CDN). It enters later only as data-filled trusted templates with a vendored engine.
-- **Gaps found building the Nov 20 prototype** (first candidates for model-written widgets, §11.4): a discrete toggle (TangleLatex has none; a sign flip had to be a number stepping −1 to 1 by 2; check wigglystuff 0.6.0's TangleChoice and TangleSelect first, which the gallery doesn't show); FormulaAnimation fork markers and parallel tracks (it takes one flat step list); a 1-D shape glyph (shape_display needs 2–3 axes); a diff mode for TextCompare (§9.3).
+- **Gaps found building the Nov 20 prototype** (first candidates for model-written widgets, §11.4): a discrete toggle (TangleLatex has none; a sign flip had to be a number stepping −1 to 1 by 2; check wigglystuff 0.6.0's TangleChoice and TangleSelect first, which the gallery doesn't show); FormulaAnimation fork markers and parallel tracks (it takes one flat step list); a 1-D shape glyph (shape_display needs 2–3 axes); a diff mode for TextCompare (§9.3). The first three are short Dragology interactables (§20.1).
 
 ### 4.3 Where it renders
 - A new sealed frame modelled on `apps/learnloop-tauri/sketch-frame.html` (`sandbox="allow-scripts"`, opaque origin, its own CSP with `connect-src 'none'`), as a second Vite entry with a new exact `frame-src` entry in `tauri.conf.json`. KaTeX comes from the already-pinned copy (`KATEX_VERSION = "0.16.47"`).
@@ -500,7 +500,7 @@ The index (§11.3) covers everything installed. These are the ones the prototype
   - `mo.ui.file` and `mo.ui.microphone`;
   - the slides layout for phone lessons;
   - `mo.persistent_cache` for expensive cells (training, simulation), which also cuts re-run time in review.
-- **To grow:** gaps found so far (FormulaAnimation fork markers and tracks, a 1-D shape glyph, a TextCompare diff mode, an assumption-toggle panel) are the first candidates for model-written widgets, each starting as an affordance card plus a test (decision 2: they join automatically after checks).
+- **To grow:** gaps found so far (FormulaAnimation fork markers and tracks, a 1-D shape glyph, a TextCompare diff mode, an assumption-toggle panel) are the first candidates for model-written widgets, each starting as an affordance card plus a test (decision 2: they join automatically after checks). New direct-manipulation interactables are written on Dragology's building blocks (§20), which the author may use, combine and modify freely.
 
 ### 11.3b Extending the toolbox (H3)
 Decided (owner, 2026-11-20): the toolbox must be easy to extend. Owner's words (verbatim):
@@ -901,6 +901,7 @@ Decided (owner, 2026-11-20): measure the packaged desktop app in a supervised se
 4. **Authoring yield:** build the example index here, alongside H3, then run 20 activities from owner-supplied exports spanning three vaults through the harness; record pass rate per check, spend and minutes.
 5. **Non-computable activities:** two hand-authored activities each for a law and an arXiv-style vault against the draft SDK; record which contract parts are empty; finalise §6.4.
 6. **Power calculation** (§12.3) from aggregate output the owner supplies by running the exporter on backup copies.
+7. **Dragology in the packaged app** (§20.8): the anywidget host in the native runtime behind the proxy's CSP and the vendored runtime in the sealed display frame; bundle size, time to interactive and drag frame rate on WebKitGTK and the phone.
 
 ### NA1: display tier and live figures
 - `DisplaySpecV1`, the widget subset adapters with typed alternatives and static fallbacks, the sealed display frame, the `live` figure tier with parameterisation and fidelity checks, one optional prediction through `figures/predictions.py`, exposure rows.
@@ -945,6 +946,7 @@ Decided (owner, 2026-11-20): measure the packaged desktop app in a supervised se
 15. **Acceptance seed:** Decided (owner, 2026-11-20): set a seed cutoff, accept above it after mandatory checks, then learn from owner verdicts (§11.5); decided in principle; the value is owed by the owner.
 16. **Private-data spikes:** Decided (owner, 2026-11-20): owner-supplied exports outside the checkout, aggregate counts and rates only in tracked records, and the owner runs the power exporter on backup copies (§15, NA0); decided in principle; the value is owed by the owner: the exports and aggregate output.
 17. **App and phone measurements:** Decided (owner, 2026-11-20): supervised packaged-desktop measurements now; phone measurements and budgets in NA6 (§15).
+18. **Dragology:** Decided (owner, 2026-11-21): Dragology's library, demos and domain kernels are building blocks in the authoring toolbox, used and modified freely by the authoring model for its deliverable. They are maintained on demand by LearnLoop's own agentic model, not tracked upstream. Rules run in the browser or the kernel, whichever is more performant and lightweight (§20).
 
 ## 17. Lessons from the Nov 20 prototype
 Prototype marimo notebooks were built from private exports (kept outside the repo because they hold learner answers), checked headlessly with the held cells run, exported to WebAssembly and loaded in Chromium. What changed in this spec because of it: §4.2 widget gaps; §5.1 what the learner sees; §6.2 no format-style templates and the `approach` response kind; §7.3 and §12.2 the activity substrate; §11.1 cells not files, marimo's parser, context-assembly fallback, executed numbers; §11.2 every reveal state, runtime-only verification, the reveal audit, measured costs; §11.3 sources from the installed package and example slices; §12.4 one observation stream. After the owner's review of the six notebooks (Nov 20): §11.5 presentation and teaching review, §11.6 steering toward helpful visualizations and its root-cause list, §11.7 the author's read API, §9.9 topic notebooks, §5.2a the broad toolbox. Also: WebAssembly exports need the dependencies declared in a PEP 723 header, or Pyodide fails with `ModuleNotFoundError: wigglystuff`.
@@ -995,3 +997,272 @@ Not adopted: marimo islands. They run reactive code on Pyodide and are an early 
 - Router values learned from contract embeddings before `standalone_cold` volume exists.
 - Fine-tuning on mutant runs as anything but pretraining.
 - A general notebook editor; notebook completion or dialog length as a success metric.
+
+## 20. Direct-manipulation interactables: Dragology as building blocks (owner, Nov 21)
+
+[Dragology](https://github.com/declarative-dragging/dragology) (MIT, the library behind the *Declarative Dragging* research project; seeded from commit `765bb15`, 2026-11-19, npm 0.2.0) is adopted as a family of building blocks in the authoring toolbox. It is not a catalogue of widgets. The authoring model uses it to write **new** interactables for the deliverable its plan imagines, and it may change any part of it (domain kernels, drawing helpers, the library's own operators) when the deliverable needs that.
+
+### 20.1 Why it fits
+- A Dragology interface is a pure function from state to SVG. Each draggable element declares the **states it can be dragged into** (`d.between`, `d.closest`, `d.vary`, `d.fixed`, `d.dropTarget`, composed with `.withFloating()`, `.whenFar()`, `.withSnapRadius()`, `.onDrop()`, `.during()`); the library does pointer tracking, in-between previews, snapping and drop animation.
+- In teaching material, the generator of legal next states is the mathematics itself. In the demos the owner pointed to: in `tableaux.tsx` the legal jeu-de-taquin slides are exactly those that keep rows and columns ordered, "so a chained drag *is* the algorithm"; in `catalan-explorer.tsx` one drag is a tree rotation, a diagonal flip and a sliding pair of parentheses at once; in `graspable-math.tsx` each drop is one rewrite of the equation; in `permutation-lab.tsx` braid moves change the word but not the permutation; in `rotations-rebalancing/` rotations, splits and sift-ups fall out of interpolating between candidate states; `stock-and-flow/` composes free placement with snapping links over a live simulation; `tactile-tessellations.tsx` snaps polygons edge to edge.
+- So every drop is a **typed transition between states**, which is richer evidence than a slider value, and the interactable doubles as an instrument (§20.5).
+- Place in the stack: anywidget is the transport, wigglystuff a fixed set of widgets, Dragology a way to write new ones. It answers §11.3a's "To grow" list and closes three §4.2 gaps: a discrete toggle (`d.between` of two states is the library's minimal example), FormulaAnimation's missing fork markers and parallel tracks (`d.closest` over branches, animated `setState` for playback), and the 1-D shape glyph (a constrained `d.vary`).
+
+### 20.2 Spike (Nov 21; code in the private prototype folder, outside the repo, with run steps in its README)
+marimo 0.25.2, anywidget 0.11, dragology 0.2.0, React 19.2, esbuild 0.27.
+- **One host widget for any model-written interactable.** An anywidget with three synced traits: `params` (set from Python), `state` (the current state, written on each drop) and `events` (an append-only list of drops). The author writes one TSX module that default-exports `make(params) → { draggable, width, height }`; esbuild bundles it with the host (`alias: { AUTHOR: <module> }`, `jsx: "automatic"`). The host renders `DraggableRenderer` controlled (`state`, `onDropState`), and on each drop sets `state`, appends to `events` and calls `save_changes()`.
+- **A model-style interactable that is not a demo:** drag a vector v while A·v is drawn live; near an eigen-direction v snaps onto it, elsewhere it varies freely: `d.closest(snaps).withSnapRadius(14).whenFar(d.vary(state, [param("x"), param("y")]))`.
+- **Driven headlessly** (marimo `run --headless`, Playwright Chromium, real pointer drags): the cell reading `mo.ui.anywidget(w).value["state"]` reran on each drop (`drops=1 v=(1.098,1.098) cos(v,Av)=1.0000`, a snap onto the eigenvector); no console errors.
+- **Size:** one self-contained bundle (React, Dragology, immer, lodash) is 339 KB, 112 KB gzipped. With a shared vendored runtime and per-widget modules, a widget is a few KB.
+- **Two defects the spike produced, both lint rules now (§20.6):** an unconstrained `d.vary` carried the element off the canvas (v reached x = 16.8 when the test pointer missed); A·v was clipped at the frame edge.
+- **First notebook (Nov 21):** `09_affine_indices_dragology.py` in the private prototype folder, built for a topic taken from real practice history (indexed affine scores) and a lesson whose planned feature-plane visual had failed in production. Two `state` commits (a permissive drag board classified against four index rules, with the legality oracle as an `assisted` hint switch; a point placed before the regions are shown), a matrix-product wiring reveal and the rebuilt lesson visual. Verified in marimo's runtime: synthetic correct and mutant commits, a real-UI drag drive, guided mode and the commit log (`PLANS.md` §09, the folder's README).
+
+### 20.3 The toolbox: seeds, not limits
+The author is never restricted to the demos. What it gets, built the way §11.3 builds cards:
+1. **A library card** from the vendored source: the package's own `docs/AGENTS.md` (written for LLMs, shipped in the package), `lib.ts`'s exported types, and the gotchas: position only with `transform`; `id`, never React `key`, globally unique and without slashes; no Fragments (use `<g>`); `d.vary` only works on parameters that move the dragged element; `dragologyOnDrag` takes a function returning a spec; HTML only inside components in `foreignObject`, which Dragology treats as opaque; control updates use `setState(next, { transition: false })`; custom operators and modifiers (`Operator`, `Modifier`, `operator`, `modifier`) when no composition of the built-ins fits. Found building notebook 09 (§20.2): **every state must render the same element types in the same places** (a `<g>` in one state against a `<text>` in another throws "Cannot lerp between different element types" and unmounts the widget, and marimo shows no error); **an element with an `id` is a layer drawn above its parent's other children**, so highlight bands and region fills go without ids or they cover what they highlight; a constraint function returns an array of numbers (`[...inOrder(a), ...inOrder(b)]`), and `param` takes tuple indices as strings (`param("x", "0")`).
+2. **Example slices** from all 115 demo entries and the six study pages (switch, three-way switch, reorderable list, slider, rotary dial, timeline): one slice per draggable, embedded and found through `search_examples`, as in §11.3.
+3. **Domain kernels**, extracted from the demos into an importable toolbox package, because most of a demo's 1,300–1,800 lines are domain logic rather than drag code: expression trees and rewrite rules (graspable-math, animate-algebra with its peggy grammar), Catalan bijections, permutation words and braid moves, BST/AVL/red-black/2-3/heap/splay operations, Young tableaux, RSK and jeu de taquin, polygon edge snapping, the stock-and-flow model and simulator, NFA (regex-nfa), knots and braids, lambda terms, proof-by-dragging. With these, a deliverable widget is plausibly 150–400 lines.
+4. **Host primitives**: the anywidget host (§20.2), the commit adapter (§20.5), the generic keyboard alternative and static fallback (§20.7), LearnLoop's palette tokens as SVG fills (decision 13: variables only), and KaTeX labels as components inside `foreignObject`.
+- **The author modifies what it needs.** A kernel, helper or operator changed for a deliverable is a new revision in the toolbox, verified by §11.2 plus §20.6, and joins the library automatically once it passes (decision 2); the next author can find it as an exemplar (§11.3, "Exemplars from LearnLoop itself").
+- **Maintenance is on demand.** Dragology is research code, and its authors call their docs LLM-written. LearnLoop vendors the seed commit as editable source and does not track upstream as a dependency. Keeping it working, fixing it and extending it falls to LearnLoop's authoring model when a plan needs it. An upstream pull is one possible on-demand task, run like a pin bump (the eval set reruns, §11.10). Its licence notice goes into `LICENSES.txt`.
+
+### 20.4 Where the rules run: whatever is lightest by default (owner, Nov 21)
+Each interactable's candidate states (its legal moves) are computed in one of two places:
+- **In the browser:** the TSX computes candidates from the state. This is required when the candidates change *during* a drag (chained snaps: splay steps, jeu de taquin, adjacent transpositions).
+- **In the kernel:** Python computes the legal next states after each drop (for example with sympy for algebra, or networkx) and sends them in `params`; the TSX only draws them with `d.closest`/`d.between`. The author writes the mathematics once in Python, and the key and checker can share that domain model.
+- **Default:** the cheaper one, chosen by the author and confirmed by measurement in verification: candidate-generation time per state, payload size per drop, bundle size, and kernel round-trip latency on the native runtime (and over the tailnet for the phone, NA0.3). The choice and its measurements are recorded with the widget's revision. On a phone without a connection only browser rules work.
+- **Integrity does not move:** for a cold or masked commit, the reference legality and the answer live in `key.py` in the sidecar (§6.3a), whichever side generates the candidates the learner can drag to.
+
+### 20.5 Commits, reveal units, masks, mutants and logging
+- **Response kinds** (§6.2) gain `state` (a dragged configuration, checked by `key.check`) and `move_sequence` (the ordered transitions taken, checked step by step).
+- **The legality oracle is a reveal unit.** If only legal moves can be dragged ("guided"), the interactable teaches the algorithm, so it counts as help and writes help rows. A cold item uses a **permissive** move set and checks on commit; illegal moves are then evidence. The oracle accepts **every placement the commit matcher calls correct** (terms of a sum in any order, factors either way round), never one canonical answer, and it guides toward the nearest of them without stranding earlier moves: the toolbox's `kit/oracle.ts` does this for placement boards. Notebook 09 first shipped a single canonical wiring, so with help on, a correct x₅,₁·W₂,₁ snapped back (owner report, Nov 22).
+- **Mutants as buggy rules** (§8). A mutant is an alternative rule set, for example "move a term across the equals sign without flipping its sign" or "divide only one term". The learner's dropped state, or move sequence, is classified by which rule set produces it, which is §8.1's separability built into the instrument.
+- **Masks** (§7.1): a step mask is "drag the next state"; an inverse mask is "drag the input that gives this output"; a structural mask is "which elements move when …"; an assumption mask (§7.7) toggles a rule and asks what the learner can now reach.
+- **Logging** (§12.1): each drop records its start and end state, the winning branch (Dragology's `activePath`), the time, and whether the move was legal under the reference rules. Mid-drag previews (`onDragState`) can also record targets considered and rejected; this is local process data, recorded only with the learner's opt-in, like KeystrokeWidget.
+
+### 20.6 Verification
+Added to §11.2:
+- `tsc` type-checking against the vendored types (Dragology types its JSX props), and an AST lint for the card's gotchas.
+- **Fuzzing.** Dragology's headless fuzzer (`src/fuzz/fuzzDraggable.ts`, vendored; not exported by the npm package) explores reachable states breadth-first without a DOM and records every exception from rendering, layering, previews and interpolation. On top of it:
+  - an invariant check on every reachable state (a `key.py` or toolbox invariant, for example "rows and columns stay ordered");
+  - a reveal audit: no guided path reaches a cold answer state before the commit;
+  - frame checks: every dragged element's bounds stay inside the canvas, and no drawn element is clipped (the two spike defects);
+  - a sample of reachable states for the per-cell screenshot and teaching review (§11.5).
+- **A bare-page drive:** the bundle mounted in a plain page with a fake anywidget model, dragged headlessly with page errors captured. marimo hid the lerp crash notebook 09 hit; the bare page reported it on the first drop.
+- **Oracle-matcher agreement:** the hint's accepted set and the matcher's "correct" are the same set, and guidance reaches every correct answer. Now a harness contract (`placement_hint`, §20.10), no longer a hand-written assert.
+- **Rule agreement:** when rules run in the browser, the fuzzer's reachable transitions are replayed through the Python domain model; any disagreement blocks publication. Kernel rules are already one model. Rules computed in both languages (a score the kernel judges and the browser shows) are a `js_agreement` contract (§20.10).
+
+### 20.7 Display tier, presentations, accessibility and the phone
+- **Display tier.** §4.1 forbids model JavaScript at serve time. That still holds: an interactable is compiled and verified at authoring time, joins the vendored library (decision 2), and display specs reference it by id with data-only `params`. That makes possible live Show me figures (§4.4), inline Teacher lesson figures, manipulable book figures in the Reader (§18), and phone lessons, with no code generated at serve time.
+- **Presentations.** The same interactables serve slides (marimo's slides layout), lesson walkthroughs (animated `setState` through a recorded state sequence), and explanations that branch (`d.closest` over forks). They can replace the flat step list wherever FormulaAnimation was too linear.
+- **Typed alternative for free.** A drag is a set of candidate states, so the host gives every interactable a keyboard alternative: Tab to an element, arrow keys to step through its candidate states, Enter to drop. A `d.vary` gets number inputs bounded by its constraint.
+- **Static fallback:** the start state rendered once to SVG at authoring time.
+- **Phone:** SVG with pointer events suits touch. Browser rules work offline; kernel rules need the desktop.
+
+### 20.8 Placement
+- **NA0:** add spike 7, Dragology in the packaged app: the anywidget host in the native marimo runtime behind the proxy's CSP, and the vendored runtime in the sealed display frame. Measure bundle size, time to interactive and drag frame rate on WebKitGTK and on the phone. The Nov 21 scratch spike (§20.2) covered only marimo in desktop Chromium.
+- **Track H:** the library card, example slices, domain-kernel extraction, `tsc` and lint, the fuzzer checks, and the contract harness with its self-test and `kit/oracle.ts` (§20.3, §20.6, §20.10), so owner-side authoring (§11.4) can use them at once.
+- **NA1:** the host, the keyboard alternative and static fallback, and the first two or three vendored interactables, starting with the §4.2 gaps (a discrete toggle, a forked step player).
+- **NA3:** the `state` and `move_sequence` responses, permissive and guided move sets, and mutants as buggy rules.
+
+### 20.9 Risks
+- **Young research code** (0.2.0, docs LLM-written by the authors' own account): vendored and pinned; cards built from the vendored source; fixes made by the authoring model on demand (§20.3).
+- **React versions:** Dragology's peer dependency is React 18 or 19 and the app uses React 18. There is no conflict, because each interactable bundles its own React inside its frame or widget.
+- **Toolchain in the harness:** node, esbuild and tsc, pinned and sandboxed like the rest of `pf-activity-v1`.
+- **`d.vary` cost:** it runs a numerical optimiser on every frame; scenes with many varied elements need the frame-rate measurement from NA0.7.
+- **Authoring cost** sits in the domain kernels, not the drag code, so the extracted kernels (§20.3) are the main lever.
+
+### 20.10 Keeping an interactable's parts in agreement (owner, Nov 22)
+Notebook 09's first hint knew one canonical wiring, while its commit matcher accepted 48. With help on, a correct x₅,₁·W₂,₁ snapped back. The root cause was the same fact written twice (the hint's idea of "correct" and the matcher's) with nothing comparing them. Verification didn't catch it, because the author's own drive used the order the author had in mind. The remedies below constrain how an interactable's parts agree with each other, never what the authoring model builds. The model may write any interactable, any rule and any hint; the harness checks consistency mechanically.
+
+1. **One source of truth.** "Correct" is written once in `key.py`: a predicate or an accepted set. The commit matcher, the hint payload, synthetic commits and reveal text all read from it. A hint is derived (legal = the board can still be completed to some accepted answer) rather than hand-written, and the toolbox gives each common board shape a derivation. `kit/oracle.ts` serves placement boards: it guides toward the nearest accepted answer, and items placed before help was switched on can always go home. Other shapes fall back to search over the fuzzer's reachable states. Kit pieces are defaults, not requirements: a hand-written hint is allowed and gets the same checks.
+2. **Contracts the harness checks, extensibly.** Each commit point is declared (`COMMIT_POINTS`: its hint kind, whether its answer is continuous, and which rules also run in the browser). Contracts (`CONTRACTS`) name a registered check kind. The build fails on any failed contract and on any gap in coverage: a cell logs a commit that isn't declared, or a declared commit lacks a contract its declaration requires. The first kinds:
+   - `witnesses`: every outcome a discrete commit can log, including each mutant and "correct", has a witness state the matcher labels so;
+   - `reachable_outcomes`: for a continuous answer, every outcome occurs inside the widget's own drag bounds;
+   - `placement_hint`, required by hint kind `placement`:
+     - the hint payload as sent accepts exactly what the matcher calls correct. The correct set is searched without trusting the hint: all arrangements of an independently written reference answer, then their one-substitution and two-swap neighbours, then random boards;
+     - a headless drive of the kit's oracle reaches every accepted answer from an empty board, in random fill orders;
+     - from random messy boards, following guidance always ends on an accepted answer;
+   - `js_agreement`: a rule computed in both the browser and the kernel gives the same numbers on sampled inputs, required for each name listed in `browser_rules`.
+
+   **Extensible both ways:** a build may register new check kinds (`CUSTOM_CHECKS`) and new hint kinds with their required checks (`HINT_KINDS`) without editing the harness. A kind that proves useful in a second notebook moves into the harness. A requirement can be waived only by a written reason on the commit's declaration; the build prints it, and review sees it.
+3. **An independent verifier.** A verifier that hasn't read the author's plan (a separate agent, or the per-cell review of §11.5) gets the math and the page. It lists the ways a right answer can look different: order, commutativity, which way round a factor goes, sign, equivalent forms. It drives one of each with the hint on and off, and it also drives simulated learners, both those with a misconception and correct-but-unusual ones. This targets the class of bug where only the canonical path was tested, which contracts may still miss when the author's reference answer shares the same blind spot.
+4. **Every defect becomes a check or a kit piece.** The three Dragology defects so far each became something durable:
+   - the lerp crash became a card gotcha plus the bare-page drive (§20.6);
+   - id layering became a card gotcha;
+   - this hint bug became `kit/oracle.ts` plus `placement_hint`.
+
+   A new check kind also lands a deliberate break in the harness self-test, which proves the check can fail.
+5. **Production signals.** Log a hint refusal followed by a correct commit (the hint was wrong), a commit no rule classifies, and a "this looks wrong" button on each interactable. These go to the review queue and feed item 4.
+
+**Built (Nov 22) in the private prototype folder:**
+- `ll_checks.py`: the registry, the coverage rule, the four kinds and a TypeScript runner that bundles a probe against the widgets' sources and runs it under node.
+- Notebook 09's build declares two commit points and five contracts, which pass in about a second.
+- `ll_checks_selftest.py` holds eight deliberate breaks, and each one fails the build. They include the original single-wiring hint, a kit oracle regressed to one canonical answer, browser and kernel softmax disagreeing, a missing contract and an undeclared commit.
+
+In the product the harness lives in the notebook harness package (track H). Contracts become part of an activity's verification record (§11.2), and a failure blocks publication like any other check.
+
+### 20.11 More harness tools: liveness, linked views, ladders (owner, Nov 22)
+The owner accepted all nine tools from `docs/brainstorming/Live Programs and Explorable Explanations 2026-11-22.md` (Rusher, *Stop Writing Dead Programs*; Victor, *Learnable Programming*, *Ladder of Abstraction*, *Explorable Explanations*). Each is a building block the authoring model may use, change or ignore (§20.3). Each has a contract kind wherever it can drift (§20.10).
+
+1. **A ladder-of-abstraction kit.** The author writes one kernel, `run(params) -> trajectory` or `f(params) -> value`. The kit derives four rungs:
+   - **rung 0:** one concrete run with a time scrubber;
+   - **rung 1:** that run over time (trajectory, overlaid frames);
+   - **rung 2:** a family over one parameter (overlay, small multiples, or a metric against the parameter);
+   - **rung 3:** a heat map over two parameters.
+
+   Pointing at any rung steps down to that concrete run. The commit sits on the rung above what the learner has seen, e.g. "sketch p₂ as b₂ goes from −6 to 6" before rung 2 opens. The rungs agree by construction, since they come from one kernel. `js_agreement` applies when the kernel also runs in the browser.
+2. **Linked views: one abstraction, many views, one set of variables** (owner: marimo passes variables dynamically to multiple views of the same abstraction; linked views across textbooks, notebooks and scratchpads, sketch and LaTeX alike).
+   - **One variable set:** a harness *view group* holds one set of variables (parameters, the selection, the time step), kept in `mo.state` or one shared anywidget model. Every view of the abstraction binds to it: Dragology boards, TangleLatex and FormulaDAG, the ladder's rungs, StateViewer's step, plots.
+   - **Two-way:** dragging b₂ in the plane moves b₂ in the formula, the rung-2 curve's marker and the readout. Hovering z₅,₂ highlights W₂,· and b₂ wherever they are drawn. marimo's reactivity carries kernel-side variables; the shared model carries per-frame browser state without a kernel round trip (§20.4: whichever is lighter).
+   - **Ids:** every view declares the entity ids it draws, using Dragology's id scheme (`W-2-1`, `class-2`, `softmax.T`). Shared ids make later computation and mutation across representations an operation on ids. The same bus serves the workbench's book, pads and sketches (workbench spec §24.3).
+   - **Contract `link_ids`:** every id a view emits exists in its group's other views, or is declared view-local.
+3. **Drive handles.** Every LearnLoop widget marks draggable elements and targets with `data-ll-target`, and the host exposes `__ll.drive(widget, element, target)`, which performs a real pointer drag and returns the new state. Interaction scripts (§11.5), the independent verifier (§20.10.3) and the contract drives become short scripts; notebook 09's drives needed hand-computed coordinates.
+4. **Live numbers in prose.** A number in a markdown cell is interpolated from the key, or marked literal (`{lit}`). Where the reader should explore, it is a Tangle value bound to the key, which brings worked examples to life (the workbench's reactive passages use the same mechanism, §24.1). **Contract `prose_numbers`:** digits in prose that equal a key value but are not interpolated fail the build.
+5. **Moldable views.** A per-type viewer registry, `@view(type, when=...)`, defines how a type looks: a heap as a tree, a probability vector as bars, a matrix with labelled indices, a DataFrame that switches from table to plot past N rows. The registry is used by cell output, StateViewer steps, TraceView attributes and quoted values in the companion. Each view gets a visual QA fixture.
+6. **Values on the source.** For code notebooks, the traced function's source sits beside each line's values (shown on hover as a data timeline) and a flow timeline. The source is editable through LiveEdit, which reruns the same input. Correct and mutant sources are aligned, with the first divergent step marked. It is built from StateViewer's recorder.
+7. **"Why this value?"** A small provenance wrapper in the key records what each displayed number came from. Hovering a number shows its derivation down to the inputs. A click is a weak emission: which link the learner asked about.
+8. **Restarts in scratch cells.** A failing learner cell keeps its failing frame, shows the locals through the viewer registry, and offers "edit and retry from here".
+9. **Answer by performance.** The learner performs the prediction: drags the path gradient descent will take, traces p₂(b₂). The recorded gesture is the commit, and the reveal overlays the truth. The owner's condition: wrong gestures must be labelled and interpretable by the diagnoser, or they are useless emissions. The shape matcher therefore uses the same belief-region machinery as §20.12 (each belief predicts a family of gestures), compares shape features (monotone or not, turning points, end region, path length), and logs facts, process and weighed hypotheses.
+
+**Order:** 1–4 and 9 first, since they are generic and small, and 2 and 4 remove whole classes of drift. Then 5 and 6 for algorithms and own-code notebooks, and 7 and 8 when a notebook needs them.
+
+### 20.12 State and gesture answers: verification and emissions (owner, Nov 22)
+**Defect.** In notebook 09, a wrong committed point showed a green "✓ committed" (which meant "saved") and "matches none of the known rules", without ever saying the answer was wrong. The causes were in the harness, not the notebook:
+- **The commit card used green for "saved"** in every notebook.
+- **The verdict had no correctness line.** The "other" bucket's text never said "wrong".
+- **The beliefs were too narrow.** 09's two wrong-answer rules covered 14% of the plane, so 76% of all points (84% of the wrong ones) fell into "other", and no check measured that.
+
+**Fixed in the harness, for every widget and abstraction:**
+1. **The commit card** (`_harness.py`, shared; moved out of notebook 08's build):
+   - "answer kept" is neutral;
+   - correctness is stated in its own words and colour ("✓ correct" or "✗ not correct"), and green appears only for a correct answer;
+   - the verdict leads with the facts (what the answer does, with numbers), then the hypotheses;
+   - when several beliefs fit, it lists the likeliest with their weights and says one answer cannot tell them apart.
+2. **Beliefs as regions, weighed** (`ll_assess.py`, shared). Each wrong-answer belief is the set of answers a learner holding it would give. An answer is evidence for every belief whose set contains it: the likelihood is uniform over that set (small sets weigh more), "other" is uniform over everything, and priors are equal. Sets and priors are seeds, learned later (no made-up constants). Commits share one emission shape:
+   - `correct`;
+   - `facts`, e.g. p at the point, the winner, the distance to the correct region, the nearest correct answer;
+   - `process`: drops, moved at all, first drop. An unmoved commit is logged as `unmoved` (a slip or a skip), not as a belief;
+   - `hypotheses` and `match_set`, weighed.
+
+   Builders:
+   - `RegionBeliefs` for continuous answers;
+   - `slips` for placements one item away from a known answer, labelled `slip` with the near answer named.
+3. **A why-box after a wrong commit.** "Why there? (optional; read by the diagnoser, never graded)" is logged as a `learner_explanation` emission with `after_miss: true`, joining learner input after a miss (its spec, D1–D4). The why-box lives in its own cell, so a cell that stops early can't hold up the questions log.
+4. **Two more contract kinds, required for every commit** (`ll_checks.py`):
+   - **`verdict_honesty`:** right and wrong answers are rendered through the real committed view. A wrong one must read "✗ not correct" and never "✓ correct". The record's `correct` must equal the truth. A wrong answer must log facts, and a gesture answer must log `hypotheses`, `process` and its `move_sequence`. On its first run it found a real crash: a numpy boolean in the record would have broken the log view the first time a learner committed.
+   - **`outcome_coverage`:** reports the share of wrong answers no named belief explains, over a grid for continuous answers or over realistic near-miss samples for discrete ones. It is reported, never thresholded. When any share is unexplained, the commit must declare a `follow_up` (a why-box or a second probe).
+5. **Authoring rules learned:**
+   - **The frozen answer is built by one key function** (`g1_frozen`, `g2_frozen`) that the cells and the contracts both call.
+   - **A belief's "why" must hold everywhere in its region**, because the learner may be anywhere in it. Point-dependent numbers go in the facts line. 09's "a positive z₂ loses to a larger z₃" was wrong wherever class 1 won.
+
+**Next, not yet built:**
+- **A discriminating second probe.** When the top hypotheses are close, ask one more quick placement chosen to separate them (the largest expected information gain among a few candidate probes), instead of relying only on the why-box. An example: "now place x where class 2 wins at all", which separates "winning is enough" from the bias beliefs.
+- **The path as evidence.** Where the learner dragged first, and where they hesitated, are features for the learned likelihoods.
+- **Learned weights.** The region likelihoods and priors are fitted from logged commits with diagnoser-adjudicated labels (the AD-memory and evidence-packet track).
+- **The same contracts for notebooks 01–08**, which predate them.
+
+**Results in 09 (Nov 22):**
+- **Coverage:** the plane has seven named beliefs plus `unmoved`, and 58% of wrong points remain explained by no named belief, with the why-box declared as the follow-up. On realistic near-miss boards, 0% of the first board's wrong answers go unexplained, thanks to `slip`.
+- **Contracts and self-test:** 9 contracts pass, and the self-test's 12 deliberate breaks all fail.
+- **The real drive:** a drag to (0.5, 1.5) renders "✗ not correct" with p₂ = 0.35, class 1 winning, the nearest working point 0.5 away, three weighed beliefs and the why-box. The log holds hypotheses, process and the move sequence.
+
+### 20.13 One commit, and repeats count for less (owner, Nov 22)
+**Locked after commit.**
+- **What:** once an answer is kept, nothing at that commit point can be clicked or resubmitted. Buttons become a disabled "Answer kept · can't be changed", a help switch is frozen at its value ("help was on/off"), a form becomes a locked card holding the answer, and a Dragology board is set `locked` so it ignores drags.
+- **Where it lives:** in the harness (`_harness.py`):
+  - `commit_controls(done, *controls)` is drawn by its own cell, so a drop never re-renders the board;
+  - `kept_card(answer)` covers form commits, and `gate()` in the shared builders uses it, so notebooks 01–08's forms get it too.
+- **Check `commit_once`** (static, every commit point):
+  - each commit declares its `controls` and its `frozen` getter;
+  - a cell that shows a control must read the getter and pass the control through `commit_controls` or `kept_card`;
+  - the cell that creates a control never shows it.
+
+**Repeated surfaces are discounted** (`ll_emissions.py`).
+- **Surface id:** every emission (a commit, a why-box explanation, an ask-box question) carries a surface: a hash of what the learner was actually shown. That is the commit point plus its drawn numbers (a fresh draw is a fresh surface), or the cell plus the normalised question text.
+- **The ledger:** a local ledger counts the learner's exposures to that surface in earlier sessions. Within one session a surface counts once, so cells that re-run don't inflate the count.
+- **What the record carries:** `surface.{id, prior_exposures, prior_reveal, first_seen, weight, weight_rule}`.
+  - `prior_reveal`: every earlier commit on the surface was followed by its reveal, so a repeat is recall of a shown answer, not fresh evidence.
+  - `weight`: the seed 1/(1 + prior exposures), replaced by the learned discount (AD memory: family and item effects, a learned decay).
+- **What the learner sees:** "You answered this exact question in N earlier session(s), after seeing its answer, so this commit counts for less (weight w). A fresh draw counts in full."
+- **Storage:** the ledger holds hashes, kinds and times, never answer text. It is `LL_EMISSIONS_LEDGER`, `off` for builds and checks. In the product the host's commit log plays this role (§6.3).
+- **Checks:**
+  - `verdict_honesty` now requires the surface block in every record;
+  - the self-test proves three things: a repeat in a second session is discounted with `prior_reveal`, a re-run in the same session counts once, and a fresh draw counts in full.
+- **For every notebook, contracts or not:** the shared notebook writer (`ll_style.write_nb`) runs `lint_commit_controls`. A cell that shows a `*_form` or `*_btn` must show it through `commit_controls`, `kept_card` or `commit_card` with the frozen state in view.
+  - On its first run it found the original builder's own copy of `gate_cells`, which still showed its form raw. That builder kept private copies of the gate, its templates and helpers. They were deleted, and every build now imports the one copy in `_harness.py`.
+  - `GATE` now carries the paper card, the honest verdict and the lock helpers, so notebooks 01–07 get the same commit and verdict as 08–09.
+- **Next:**
+  - a commit point whose surface the learner has already seen offers a fresh draw (a new seed) instead of the repeat, where the key can draw one;
+  - near-duplicate questions (paraphrases) join a surface by embedding similarity rather than only by exact normalised text.
+- **Verified (Nov 22):** a two-session real drive of 09 under a scratch ledger:
+  - after each commit the live button disappears and the kept button is disabled;
+  - the help switch and kept board ignore input;
+  - session 2's commits read "1 earlier session(s), after seeing its answer … weight 0.5";
+  - the ledger holds 4 lines, one per commit per session.
+
+### 20.14 One style: the workbench's paper (owner, Nov 22)
+**Why:** the Reader workbench embeds notebooks as Teacher lesson pads (mockup round 14, `.lessonnb`), so every notebook wears the workbench's scratchpad paper. Before this, 01–07 used a dark theme with neon data colours, while 08–09 used the paper theme, and every build carried its own palette: the commit card's `_P`, chart themes, widget constants and 76 colour literals in cells.
+
+**One token source, generated everywhere** (`ll_style.py`):
+- **`C`:** the tokens, copied from the mockup's `st.css` and `learnloop_paper.css` §1.
+- **`SERIES`:** categorical data colours, the mockup's ink hues first, each at least 4:1 on both paper tones.
+- **`CHART_THEME`:** matplotlib and Altair themed from `C`, with `LL` kept as a legacy alias.
+- **`write_ts_tokens()`:** writes `widgets/src/kit/tokens.ts` for the TypeScript widgets.
+- **`write_nb()`:** the one notebook writer every build's `nb_file` goes through. It applies the paper stylesheet and light theme, and adds the shared chart cell when a notebook lacks one.
+
+**Checks, run by every build:**
+- `check_style()`: `learnloop_paper.css` §1 equals `C`, and the widget tokens are regenerated;
+- `check_cells()`: no colour literal (3- or 6-digit hex) in any cell.
+
+On their first run the checks stopped the build on seven literals in the original builder, which were then mapped to tokens. Dark colours were mapped by role: dark surfaces to paper, light text to ink, neon accents to their ink hues, dark highlight backgrounds to washes.
+
+**Scope:** all nine notebooks (01–09), the commit card, both chart libraries and the Dragology widgets. **The exemplar** (owner, Nov 22) is the notebook drawn inside the workbench mockup (`st.css`: `.nb`, `.ln2`, `.cell`, `.cellh`). Stylesheet §8 reproduces it: a paper sheet on the page with a 46px gutter; prose unboxed on the sheet; amber bullets and a quiet quote rule; figures in cell boxes with a mono header; LearnLoop's lines in purple. Typography follows the mockup: Literata for prose (the book and pads), JetBrains Mono for labels, chrome and charts, and LearnLoop's own voice in purple on its wash.
+
+**Not done:** the WebAssembly site export (`site/`, served by `serve.sh` for the mockup's lesson pad) still holds the previous builds. It needs a re-export, and 09 needs its widget bundle inlined first (it reads `widgets/affine.js` from disk).
+
+### 20.15 Common cells and the type hierarchy (owner, Nov 22)
+**Why:** every LearnLoop notebook repeats the same few cells around its own interactables: a header, sections, figures with a "Look at:" caption, ask boxes, commit points, held placeholders, the committed result, why-boxes after a miss, and the questions log. Written per notebook, they drifted: three copies of the ask cell, three of the questions log, a private copy of the whole gate in the original builder, ad hoc captions. Typography drifted with them.
+
+**The type hierarchy** (stylesheet §9; one role per line, documented for the authoring model in `ll_cells.py`):
+
+| Role | Type | Used for |
+|---|---|---|
+| title | Literata 600 26/1.25, ink | `# heading` |
+| section | Literata 600 20/1.3 | "Part n · …" |
+| lead | Literata 600 16/1.4 | h3 |
+| body | Literata 400 15/1.65, prose ink | all prose, verdict text |
+| caption | Literata italic 14/1.55, ink2 | "Look at:" notes under figures |
+| meta | JetBrains Mono 11, ink3 | title sub-line, timestamps, provenance |
+| chrome | JetBrains Mono 10.5 | card and cell headers: amber = commit, purple = "◇ LearnLoop", ink3 = neutral or kept |
+| affordance | Inter 500 13, ink2 | accordion and details titles ("Ask about this cell", "What LearnLoop logs for this commit"), the tour label |
+| control | Inter 13.5 | form labels, choices, inputs |
+| button | JetBrains Mono 11 | buttons |
+| data | JetBrains Mono 12/1.55 | code and number tables |
+
+**Fixes found by measuring all nine notebooks:**
+- Affordance titles were marimo's UI font at 16px 500, louder than the 15px prose.
+- marimo renders control labels and button text as markdown, so the prose rule set them in Literata; controls now get UI type.
+- marimo painted every cell in the page tone with a 10px radius, so prose looked boxed; cells are now transparent and prose sits on the sheet.
+- Figure boxes chosen by element type also boxed invisible widgets. Boxing is now opt-in through `fig(body, kind)`, so only what the author means as a figure is boxed. A live widget wrapped this way still syncs to Python: verified by a drag in 09's plane, read back.
+
+**Components** (`ll_cells.py` plus helpers in `GATE`). Each returns `(cell name, code)` for `ll_style.write_nb`:
+- `title(heading, meta, history_md)`: the header.
+- `section(name, heading, lead_md, ask=)`: a part.
+- `figure(name, lead_md, body_expr, look_at=, ask=, stop=, kind=)`: a reveal, with its figure boxed by `fig()`.
+- `asks(keys)` and `ask_for(key)`: the ask boxes.
+- `questions_log(nb, whys)`: questions and explanations, with surfaces (§20.13).
+- `gate_cells(...)`: a form commit point, from `_harness`.
+- In `GATE`: `fig`, `caption`, `commit_card`, `commit_controls`, `kept_card`, `committed`, `HELD`, `repeat_note`, `ll_exposure`.
+
+All copies now point here: the original builder's private gate, v2's ask cell and questions log, and 07–09's ask and log cells. Components are defaults, not limits: a model may write any cell, and the checks (no colour literals, controls that lock, the contracts) still apply.
+
+**Verified (Nov 22):**
+- A typography audit (computed font, size, weight and colour per role, across all nine notebooks) shows one value per role wherever the role appears.
+- Screenshots of the uncommitted and committed states of 08 and 09, compared with the exemplar.
+- `marimo check` is clean, the self-test still catches its 15 deliberate breaks, and all nine run without errors.
+
+**Next:**
+- Move 01–08's hand-written headers, sections and figures onto `title`, `section` and `figure`. They already share the gate, asks and log.
+- Add a card for the authoring model generated from `ll_cells.py`'s docstrings (the tool-card mechanism of §11.3).
+- Add a visual check that runs the typography audit in the build's QA pass and fails on a second value for a role.

@@ -156,11 +156,17 @@ def test_a_title_is_matched_as_whole_words():
 # -- the replies, end to end ----------------------------------------------------------------------------------------
 
 def _due_check(repository, lo_id):
+    """A due check on the LO, begun inline (the replies mask a check's LO only once it is begun)."""
+
+    from tests.inline_hold_helpers import hold_open
+
     due = (datetime.now(UTC) - timedelta(days=1)).strftime("%Y-%m-%d")
-    return C.create_commitment(
+    commitment_id = C.create_commitment(
         repository, action="test_me_later", intent_text=f"check {lo_id}", depth_preset=DP.READY_DEPTH_PRESET,
         targets=[{"target_kind": "learning_object", "target_ref": lo_id, "role": "required"}],
         client_idempotency_key=f"rd6fix:{lo_id}", due_hint=due, provenance={"via": "deliverable_ready"}).id
+    hold_open(repository, commitment_id)
+    return commitment_id
 
 
 def _shared_vault(tmp_path):
@@ -204,3 +210,31 @@ def test_a_held_los_own_path_row_names_nothing(tmp_path):
     assert _leaks(band, "eigen") == [] and _leaks(lens, "eigen") == []
     line = next(line for line in band["path"]["lines"] if line["learningObjectId"] == "lo_eigen")
     assert (line["title"], line["section"]["title"], line["reason"]) == (GL.NEUTRAL_LO, GL.NEUTRAL_SECTION, None)
+
+
+def test_a_goals_own_words_keep_everything_but_a_held_topics_name():
+    assert P.mask_names("Understand eigenvalues well enough to diagonalize") == (
+        f"Understand {GL.HIDDEN_TOPIC} well enough to diagonalize")
+    assert P.mask_names("eigenvaluesque words") == "eigenvaluesque words"
+    assert GL.Protection().mask_names("Understand eigenvalues") == "Understand eigenvalues"
+    rows = GL.protect_unmatched([{"phrase": "eigenvalues by hand", "proposed_title": "Eigenvalues by hand"},
+                                 {"phrase": "pivots", "proposed_title": "Pivots"}], P)
+    assert rows[0] == {"phrase": f"{GL.HIDDEN_TOPIC} by hand", "proposed_title": f"{GL.HIDDEN_TOPIC} by hand", "held": True}
+    assert rows[1] == {"phrase": "pivots", "proposed_title": "Pivots"}
+
+
+def test_the_band_and_the_chooser_show_the_goal_in_the_learners_words_masked_only_while_its_check_is_due(tmp_path):
+    paths, repository = build_lens_vault(tmp_path / "vault")
+    sentence = "understand eigenvalues well enough to diagonalize"
+    goal_id = scoped_goal(paths, repository, sentence=sentence)
+    ctx = lens_context(paths)
+    assert call(ctx, "goal.band", {"goal_id": goal_id})["goal"]["sentence"] == sentence
+    chosen = next(g for g in call(ctx, "goal.choices", {})["goals"] if g["goalId"] == goal_id)
+    assert chosen["label"] == sentence
+    _due_check(repository, "lo_eigen")
+    masked = f"understand {GL.HIDDEN_TOPIC} well enough to diagonalize"
+    band = call(ctx, "goal.band", {"goal_id": goal_id})
+    assert band["goal"]["sentence"] == masked and "eigen" not in band["goal"]["title"].casefold()
+    assert all("eigen" not in str(row).casefold() for row in band.get("unmatched") or [])
+    chosen = next(g for g in call(ctx, "goal.choices", {})["goals"] if g["goalId"] == goal_id)
+    assert chosen["label"] == masked

@@ -136,7 +136,7 @@ def test_split_guide_reason_names_the_diagnosers_statement(tmp_path, version):
 
 
 def test_split_guide_falls_back_to_the_error_type_while_the_diagnosis_is_pending(tmp_path):
-    _paths, vault, repository = _graded_vault_with_extraction(tmp_path, version="mvp-0.10")
+    _paths, vault, repository = _graded_vault_with_extraction(tmp_path)
     client = _StatementFake()
     result = submit(vault, repository, client)
 
@@ -151,7 +151,7 @@ def test_split_guide_falls_back_to_the_error_type_while_the_diagnosis_is_pending
 
 def test_split_guide_falls_back_to_the_error_type_when_the_diagnosis_failed(tmp_path):
     _paths, vault, repository = _graded_vault_with_extraction(
-        tmp_path, version="mvp-0.10", config="[diagnosis]\nmax_attempts = 1",
+        tmp_path, config="[diagnosis]\nmax_attempts = 1",
     )
     client = _StatementFake(fail_purposes=("diagnosis",))
     result = submit(vault, repository, client)
@@ -196,7 +196,7 @@ def test_joint_guide_plan_is_unchanged_by_the_overlay_read(tmp_path, monkeypatch
 def test_guide_plan_writes_nothing(tmp_path):
     """The Guide is display: building a plan on a split vault changes no row."""
 
-    _paths, vault, repository = _graded_vault_with_extraction(tmp_path, version="mvp-0.10")
+    _paths, vault, repository = _graded_vault_with_extraction(tmp_path)
     client = _StatementFake()
     submit(vault, repository, client)
     drain_jobs(vault, repository, client)
@@ -226,7 +226,7 @@ def test_guide_plan_writes_nothing(tmp_path):
 def test_split_guide_plan_names_the_pending_diagnosis_until_it_lands(tmp_path):
     """The Reader refreshes a Guide whose reason waits on a diagnosis: the plan says which."""
 
-    _paths, vault, repository = _graded_vault_with_extraction(tmp_path, version="mvp-0.10")
+    _paths, vault, repository = _graded_vault_with_extraction(tmp_path)
     client = _StatementFake()
     result = submit(vault, repository, client)
     _cite_extraction(vault)
@@ -247,7 +247,7 @@ def test_split_guide_plan_waits_on_nothing_once_the_diagnosis_failed(tmp_path):
     """A failed diagnosis is final: the Reader must not poll for it."""
 
     _paths, vault, repository = _graded_vault_with_extraction(
-        tmp_path, version="mvp-0.10", config="[diagnosis]\nmax_attempts = 1",
+        tmp_path, config="[diagnosis]\nmax_attempts = 1",
     )
     client = _StatementFake(fail_purposes=("diagnosis",))
     result = submit(vault, repository, client)
@@ -261,7 +261,7 @@ def test_split_guide_plan_waits_on_nothing_once_the_diagnosis_failed(tmp_path):
 def test_split_guide_plan_waits_only_on_diagnoses_behind_its_passages(tmp_path):
     """A pending diagnosis of an LO the source never cites changes nothing on this plan."""
 
-    _paths, vault, repository = _graded_vault_with_extraction(tmp_path, version="mvp-0.10")
+    _paths, vault, repository = _graded_vault_with_extraction(tmp_path)
     client = _StatementFake()
     result = submit(vault, repository, client)
     assert diagnosis_status(repository, result.attempt_id)["status"] == PENDING

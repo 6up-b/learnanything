@@ -105,6 +105,20 @@ export interface WorkbenchProps {
    *  F1: a worked example may be in another book). */
   onPeekPassage?: (spanId: string, target?: PassageTarget) => void;
   onError: (message: string) => void;
+  /** Handwritten work (pen and ink on a problem pad, owner decision 2026-11-23): each ink line's text is a step. */
+  handwritten?: HandwrittenWork;
+}
+
+/** A problem pad's ink lines as steps: the help ladder, the check and the assisted fold read them as typed steps. */
+export interface HandwrittenWork {
+  /** The ink lines in order, each with its text now: LearnLoop's reading or the learner's correction (which wins);
+   *  empty while it is unread or could not be read (never a step then: nothing of it is sent). */
+  lines: ReadonlyArray<{ lineId: string; text: string }>;
+  /** A line's step is shown as the line itself: its ink, with its text quiet beside it to audit and correct. */
+  renderLine: (lineId: string) => ReactNode;
+  /** Said above the help ladder (on a line's step: that line's id): lines it cannot see yet, or that help reads a
+   *  line's reading (once). */
+  ladderNote?: (lineId: string | null) => ReactNode;
 }
 
 const linkStyle: CSSProperties = {
@@ -133,6 +147,28 @@ export function Workbench(props: WorkbenchProps) {
   const { initial, layout, readOnly = false, practiceSessionId = null, onError } = props;
   const wb = useWorkbenchSession(initial, { readOnly, onSession: props.onSession, onError });
   const { session, steps, record } = wb;
+  // Handwritten work: each line with text is a step (its first text adds it, a later one edits it).
+  const handwritten = props.handwritten;
+  const linesKey = JSON.stringify(handwritten?.lines ?? []);
+  const bindLine = wb.bindLine;
+  useEffect(() => {
+    for (const line of handwritten?.lines ?? []) if (line.text.trim()) bindLine(line.lineId, line.text);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [linesKey, bindLine]);
+  // Which step shows which line: its binding, or (a submitted problem, nothing bound this visit) the line with its text.
+  const lineOfStep = new Map<string, string>();
+  for (const [lineId, key] of wb.boundLines) lineOfStep.set(key, lineId);
+  if (handwritten) {
+    const taken = new Set(lineOfStep.values());
+    for (const step of steps) {
+      if (lineOfStep.has(step.key)) continue;
+      const line = handwritten.lines.find((each) => !taken.has(each.lineId) && each.text.trim() && each.text === step.body);
+      if (line) {
+        lineOfStep.set(step.key, line.lineId);
+        taken.add(line.lineId);
+      }
+    }
+  }
   const serverSession = props.serverSession;
   const applyServer = wb.applyServer;
   useEffect(() => {
@@ -616,7 +652,10 @@ export function Workbench(props: WorkbenchProps) {
               </li>
             );
           }
-          const editor = readOnly ? (
+          const inkLine = handwritten ? lineOfStep.get(step.key) : undefined;
+          const editor = inkLine !== undefined ? (
+            <div data-ink-step={inkLine}>{handwritten!.renderLine(inkLine)}</div>
+          ) : readOnly ? (
             <div style={{ fontSize: 13, color: COLOR.text }}><MarkdownMath value={step.body} /></div>
           ) : (
             <LiveMarkdownEditor
@@ -646,6 +685,11 @@ export function Workbench(props: WorkbenchProps) {
               style={{ display: "flex", gap: 8, alignItems: "flex-start", ...(outlined ? { outline: `1px dotted ${COLOR.border}` } : {}) }}
               onFocusCapture={helpOn ? () => setFocusedKey(step.key) : undefined}>
               <span aria-hidden="true" style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.amber, paddingTop: 4, minWidth: 28 }}>{number} ›</span>
+              {inkLine !== undefined && helpOn && check && chain && check.firstQuestionableStepId === chain ? (
+                // The first line that doesn't hold, by the last check: ◇ opens the ladder on it (the mockup's gutter mark).
+                <button type="button" className="hmk" data-ink-help={inkLine} title="LearnLoop read this line" aria-label={`help on step ${number}`}
+                  aria-expanded={ladderHere} onClick={() => (ladderHere ? help.closeHelp() : help.openHelp(chain))}>◇</button>
+              ) : null}
               <div style={{ flex: 1, minWidth: 0, opacity: step.kind === "stuck" ? 0.8 : 1 }}>
                 {step.kind === "stuck" ? <LearnerVoice label="you · stuck">{editor}</LearnerVoice> : editor}
                 {helpOn && step.kind === "stuck" && !readOnly ? <WhereThisGoes box="stuck" /> : null}
@@ -670,6 +714,7 @@ export function Workbench(props: WorkbenchProps) {
                 {noticeHere && help.notice ? (
                   <div role="status" aria-live="polite"><MeaningLabel style={{ fontSize: 11 }}>{help.notice.message}</MeaningLabel></div>
                 ) : null}
+                {ladderHere && handwritten?.ladderNote ? handwritten.ladderNote(inkLine ?? null) : null}
                 {ladderHere ? (
                   <HelpLadder ladder={help.ladder} onChoose={help.choose}
                     onTake={(level) => {
@@ -705,7 +750,7 @@ export function Workbench(props: WorkbenchProps) {
                 ) : null}
               </div>
               {helpOn && check ? <VerdictCell verdict={verdict} symbolicEnabled={check.symbolicEnabled} /> : null}
-              {!readOnly ? (
+              {!readOnly && inkLine === undefined ? (
                 <button type="button" aria-label={`delete step ${number}`} aria-disabled={leaving} style={{ ...linkStyle, fontSize: 10, color: COLOR.textDim }} onClick={() => wb.deleteStep(step.key)}>
                   delete
                 </button>
@@ -736,6 +781,7 @@ export function Workbench(props: WorkbenchProps) {
           {noticeLoose && help.notice ? (
             <div role="status" aria-live="polite"><MeaningLabel style={{ fontSize: 11 }}>{help.notice.message}</MeaningLabel></div>
           ) : null}
+          {ladderLoose && handwritten?.ladderNote ? handwritten.ladderNote(null) : null}
           {ladderLoose ? (
             <HelpLadder ladder={help.ladder} onChoose={help.choose}
               onTake={(level) => void help.take(level)}

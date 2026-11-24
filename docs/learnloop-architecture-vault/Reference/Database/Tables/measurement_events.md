@@ -119,6 +119,7 @@ Indexes and uniqueness:
 - `tests/test_evidence_reading_successor.py`
 - `tests/test_p0_projection_cutover.py`
 - `tests/test_rebuild_history_appends.py`
+- `tests/test_replay_writes_no_ledger.py`
 - `tests/test_administration_adapters.py`
 - `tests/test_assessment_enforcement.py`
 - `tests/test_grade_resolution_pipeline.py`

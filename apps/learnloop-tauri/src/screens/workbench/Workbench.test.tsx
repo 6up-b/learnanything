@@ -749,7 +749,7 @@ it("RW4b: a picked exercise seen since it was offered says why, and that it is p
   const pick = { proposalId: "pp_1", exposure, exposureChecked: "admission" as const, admitted: true, due: false };
   render(<Workbench {...props({ initial: session({ exercisePick: pick }) })} />);
   expect(screen.getByTestId("workbench-exercise-exposure").textContent)
-    .toBe("you've recently seen this page or its solution · practice beside the book, not a check on your own");
+    .toBe("you've recently seen this page or its solution · practice beside the book, not a cold check");
   cleanup();
   render(<Workbench {...props({ initial: session({ exercisePick: { ...pick, exposure: { ...exposure, exposed: false, reasons: [], label: null, offeredAs: "check_on_your_own" as const } } }) })} />);
   expect(screen.queryByTestId("workbench-exercise-exposure")).toBeNull();
@@ -776,7 +776,7 @@ it("R6 (verify F3): the admission's exposure correction reaches the mounted work
   });
   view.rerender(<Workbench {...props({ initial: first, serverSession: corrected, onSession })} />);
   expect(screen.getByTestId("workbench-exercise-exposure").textContent)
-    .toBe("you've recently seen this page or its solution · practice beside the book, not a check on your own");
+    .toBe("you've recently seen this page or its solution · practice beside the book, not a cold check");
   expect(stepBox(1).value).toBe("3x = 15, so");
   await waitFor(() => expect(api.workbenchSaveStep).toHaveBeenCalledWith(expect.objectContaining({ bodyMd: "3x = 15, so" })));
 });
@@ -805,7 +805,7 @@ it("R4 (verify F3): under StrictMode the admission's exposure correction reaches
       offeredAs: "practice" as const, exposureRuleVersion: "reading_exposure_v1" } } });
   view.rerender(<StrictMode><Workbench {...props({ initial: first, serverSession: corrected })} /></StrictMode>);
   expect(screen.getByTestId("workbench-exercise-exposure").textContent)
-    .toBe("you've seen the answer to a question like this one · practice beside the book, not a check on your own");
+    .toBe("you've seen the answer to a question like this one · practice beside the book, not a cold check");
   expect(stepBox(1).value).toBe("3x = 15, so");
 });
 

@@ -2,6 +2,7 @@
 // goal.band, goal.lens and the learner's choices the way the sidecar does, from project-authored words only. The
 // levels follow the backend's rules (curriculum/goal_lens.py) for this small path; nothing here comes from a vault.
 import type {
+  GoalChoicesDto,
   GoalBandDto,
   GoalBandLoDto,
   GoalLensDto,
@@ -94,6 +95,12 @@ export class FixtureGoal {
     for (const [section, lo, , , place] of BOOK_SECTIONS) if (lo === loId && place === "primary") return [BOOK.extractionId, section];
     for (const [section, lo, , , place] of PAPER_SECTIONS) if (lo === loId && place === "primary") return [PAPER.extractionId, section];
     return null;
+  }
+
+  /** goal.choices: the chooser's labels (the server masks a held topic's name; the fixture has none held). */
+  goalChoices(): GoalChoicesDto {
+    return { version: 1, goals: this.goals().goals.filter((g) => g.status === "active").map((g) => ({
+      goalId: g.id, label: g.intentSentence || g.title, setAt: g.createdAt, learnerSet: true })), nextCheckDue: null };
   }
 
   band(): GoalBandDto {
