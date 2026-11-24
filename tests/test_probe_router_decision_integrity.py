@@ -613,3 +613,22 @@ def test_r6_with_no_refusal_the_pin_is_served(tmp_path, monkeypatch):
     case = _learner(tmp_path, monkeypatch)
     offer, contract = _pinned_then(case, monkeypatch, "")
     assert contract["active"] is True and contract["presentationId"] == offer["presentationId"]
+
+
+# -- an accepted learner pin holds its episode -------------------------------------------------------------------------
+
+
+def test_r7_an_accepted_learner_pin_holds_its_episode_against_a_routine_selection(tmp_path, monkeypatch):
+    from learnloop.diagnosis.probe_episodes import eligible_instruments
+
+    from tests.probe_router_authority_helpers import PROBE_ITEM
+
+    case = _learner(tmp_path, monkeypatch)
+    assert _read(case)["routerState"] == "selected"
+    offer = _offer(case)
+    episode = case.repository.probe_episode(offer["episodeId"])
+    # A scheduler refresh or another door selecting for this episode finds nothing to commit over the pin.
+    assert eligible_instruments(case.vault, case.repository, episode) == []
+    # The pin's own item stays eligible for the pin.
+    assert [entry.item.id for entry in eligible_instruments(case.vault, case.repository, episode,
+                                                            reserved_for=PROBE_ITEM)] == [PROBE_ITEM]
