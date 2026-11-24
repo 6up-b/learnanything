@@ -1448,6 +1448,9 @@ ignore_imports = [
     "learnloop.attempts.attempts -> learnloop.diagnosis.probe_presentations",
     "learnloop.attempts.attempts -> learnloop.diagnosis.remediation",
     "learnloop.attempts.attempts -> learnloop.scheduling.fsrs",
+    # The difficulty label's retirement: the grade reads adaptive difficulty's recorded forecast of the answer (and records the live one with
+    # the attempt); AD reads attempts only through salience_firewall (frozen above) and never the surprise row.
+    "learnloop.attempts.attempts -> learnloop.adaptive_difficulty.surprise_forecast",
     "learnloop.attempts.coldness_receipt -> learnloop.diagnosis.remediation",
     "learnloop.attempts.effective_observation -> learnloop.diagnosis.robust_composition",
     "learnloop.attempts.grader_calibration -> learnloop.diagnosis.probe_families",

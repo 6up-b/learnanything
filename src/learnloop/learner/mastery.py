@@ -24,7 +24,7 @@ from typing import TYPE_CHECKING, Any
 
 from learnloop.clock import parse_utc, utc_now_iso
 from learnloop.config import MasteryConfig
-from learnloop.algorithm_versions import mastery_seed_on
+from learnloop.algorithm_versions import label_retired, mastery_seed_on
 from learnloop.db.repositories import ItemParameterState, MasteryState
 from learnloop.db.mastery_seed_inputs import BASIS_CAPTURED, MasterySeedInputs
 from learnloop.numeric import clamp
@@ -807,16 +807,24 @@ def item_irt_params(
     item: "PracticeItem | None",
     learning_object: "LearningObject | None",
     config: MasteryConfig,
+    *,
+    algorithm_version: str | None,
 ) -> tuple[float, float]:
     """Resolve ``(a, b)`` from the **static** authored/LLM scalar (spec §4.3).
 
     ``b`` falls back ``PracticeItem.difficulty`` -> ``LearningObject.difficulty_prior``
     -> ``difficulty_default``. The FSRS ``practice_item_state.difficulty`` is never
     consulted — only the static vault field.
+
+    From the label's retirement (``algorithm_version``, the vault's tag) the label is not read: the 2PL keeps
+    its learner term and has no item term (``b = 0``, which is no value chosen for any item); the priming offset a
+    caller subtracts afterwards is a fact about the answer and stays.
     """
 
     irt = config.irt
     a = irt.discrimination_default
+    if label_retired(algorithm_version):
+        return a, 0.0
     if not irt.difficulty_from_prior:
         return a, irt.difficulty_default
     scalar_difficulty = getattr(item, "difficulty", None) if item is not None else None
@@ -833,17 +841,20 @@ def resolve_item_irt_params(
     learning_object: "LearningObject | None",
     config: MasteryConfig,
     item_state: "ItemParameterState | None" = None,
+    *,
+    algorithm_version: str | None,
 ) -> tuple[float, float]:
     """``(a, b)`` with the EB scalar/IRT posterior b when enabled, else authored.
 
     ``item_state`` is an ItemParameterState (b_mean), never FSRS memory state
     (difficulty). Without that posterior, the authored scalar fallback applies
     even when EB is enabled; replay must not substitute today's posterior.
+    From the label's retirement neither is read: :func:`item_irt_params`.
     """
 
-    a, authored_b = item_irt_params(item, learning_object, config)
+    a, authored_b = item_irt_params(item, learning_object, config, algorithm_version=algorithm_version)
     irt = config.irt
-    if not irt.eb_difficulty_enabled or item_state is None:
+    if label_retired(algorithm_version) or not irt.eb_difficulty_enabled or item_state is None:
         return a, authored_b
     return a, clamp(item_state.b_mean, -irt.b_abs_max, irt.b_abs_max)
 

@@ -303,7 +303,8 @@ def resolve_item_irt(vault: LoadedVault, item: PracticeItem) -> tuple[float, flo
     """
 
     learning_object = vault.learning_object_for_item(item)
-    item_a, item_b = resolve_item_irt_params(item, learning_object, vault.config.mastery)
+    item_a, item_b = resolve_item_irt_params(item, learning_object, vault.config.mastery,
+                                             algorithm_version=vault.config.algorithms.algorithm_version)
     return item_a, item_b, vault.config.probe.irt
 
 

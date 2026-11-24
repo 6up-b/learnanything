@@ -35,6 +35,11 @@ TRIVIAL_B = -2.0
 TARGET_B = 0.0
 BRUTAL_B = 2.0
 
+from learnloop.algorithm_versions import PROBE_ROUTER_ALGORITHM_VERSION
+
+#: The predecessor of the label's retirement (H3): what these tests pin.
+BEFORE = PROBE_ROUTER_ALGORITHM_VERSION
+
 
 def _prior(mean: float = 0.0, variance: float = 1.0) -> MasteryState:
     # last_evidence_at = None -> days_since = 0 -> P_pred = prior variance.
@@ -247,30 +252,30 @@ def _pi(difficulty=None) -> PracticeItem:
 
 
 def test_difficulty_resolves_practice_item_first():
-    a, b = item_irt_params(_pi(difficulty=0.8), _lo(difficulty_prior=0.2), MasteryConfig())
+    a, b = item_irt_params(_pi(difficulty=0.8), _lo(difficulty_prior=0.2), MasteryConfig(), algorithm_version=BEFORE)
     assert a == 1.0
     assert b == pytest.approx(2.5 * (0.8 - 0.5) * 2)  # 1.5, from the PI not the LO
 
 
 def test_difficulty_falls_back_to_learning_object_prior():
-    _a, b = item_irt_params(_pi(difficulty=None), _lo(difficulty_prior=0.2), MasteryConfig())
+    _a, b = item_irt_params(_pi(difficulty=None), _lo(difficulty_prior=0.2), MasteryConfig(), algorithm_version=BEFORE)
     assert b == pytest.approx(2.5 * (0.2 - 0.5) * 2)  # -1.5
 
 
 def test_difficulty_defaults_to_zero_when_unset():
-    _a, b = item_irt_params(_pi(difficulty=None), _lo(difficulty_prior=None), MasteryConfig())
+    _a, b = item_irt_params(_pi(difficulty=None), _lo(difficulty_prior=None), MasteryConfig(), algorithm_version=BEFORE)
     assert b == 0.0
 
 
 def test_difficulty_is_clamped_to_b_abs_max():
     cfg = MasteryConfig(irt=MasteryIRTConfig(difficulty_prior_scale=10.0, b_abs_max=4.0))
-    _a, b = item_irt_params(_pi(difficulty=1.0), _lo(), cfg)
+    _a, b = item_irt_params(_pi(difficulty=1.0), _lo(), cfg, algorithm_version=BEFORE)
     assert b == 4.0  # 10*(1-0.5)*2 = 10, clamped to 4
 
 
 def test_difficulty_from_prior_toggle_pins_b_to_default():
     cfg = MasteryConfig(irt=MasteryIRTConfig(difficulty_from_prior=False, difficulty_default=0.0))
-    _a, b = item_irt_params(_pi(difficulty=0.9), _lo(difficulty_prior=0.9), cfg)
+    _a, b = item_irt_params(_pi(difficulty=0.9), _lo(difficulty_prior=0.9), cfg, algorithm_version=BEFORE)
     assert b == 0.0
 
 

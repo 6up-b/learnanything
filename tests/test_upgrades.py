@@ -38,6 +38,7 @@ from learnloop.algorithm_versions import (
     PAD_TEXT_ALGORITHM_VERSION,
     INLINE_CHECK_ALGORITHM_VERSION,
     PROBE_ROUTER_ALGORITHM_VERSION,
+    LABEL_RETIRED_ALGORITHM_VERSION,
     SECTION_END_ALGORITHM_VERSION,
     SUCCESSOR_CHAIN,
     UNTAKEN_EPISODE_END_ALGORITHM_VERSION,
@@ -81,6 +82,7 @@ EXPECTED_ACTIVATIONS = {
     PAD_TEXT_ALGORITHM_VERSION: idempotent_projection,
     INLINE_CHECK_ALGORITHM_VERSION: idempotent_projection,
     PROBE_ROUTER_ALGORITHM_VERSION: idempotent_projection,
+    LABEL_RETIRED_ALGORITHM_VERSION: whole_vault_rebuild,
 }
 
 LINKS = pytest.mark.parametrize("link", UPGRADES, ids=lambda link: link.tag)

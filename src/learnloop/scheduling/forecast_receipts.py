@@ -92,10 +92,16 @@ LO_COLD_SUCCESS = "lo_cold_success"
 #: right, written when the probe is asked for (before it is served) and bound to the probe's own attempt (its id is
 #: minted with the request).
 LESSON_PROBE_CORRECT = "lesson_probe_correct"
+#: Adaptive difficulty's forecast of a graded answer, as AD stood before it, recorded by the grade for every answer
+#: (``adaptive_difficulty.grade_forecast``): bound to the attempt, read by its surprise where no serve-time forecast
+#: applies; never scored as a serve-time forecast.
+ITEM_UNASSISTED_SUCCESS_AT_GRADE = "item_unassisted_success_at_grade"
 FORECAST_KINDS = (DIAGNOSIS_NEXT_OBSERVATION, REPAIR_COLD_OUTCOME, ITEM_UNASSISTED_SUCCESS,
-                  LESSON_CHECK_CORRECT, LESSON_STEP_RETAINED, LO_COLD_SUCCESS, LESSON_NODE_HELD, LESSON_PROBE_CORRECT)
+                  LESSON_CHECK_CORRECT, LESSON_STEP_RETAINED, LO_COLD_SUCCESS, LESSON_NODE_HELD, LESSON_PROBE_CORRECT,
+                  ITEM_UNASSISTED_SUCCESS_AT_GRADE)
 
-SCOPES = ("next_observation", "followup_task", "presentation", "item", "lesson_check", "lesson_node", "lesson_probe")
+SCOPES = ("next_observation", "followup_task", "presentation", "item", "lesson_check", "lesson_node", "lesson_probe",
+          "attempt")
 
 #: The exact chains a resolver may follow; ``none`` is censored at birth.
 PRESENTED_ATTEMPT_ON_FACET = "presented_attempt_on_facet"
@@ -115,12 +121,12 @@ LESSON_PROBE_ATTEMPT = "lesson_probe_attempt"
 NO_BINDING = "none"
 BINDING_KINDS = (PRESENTED_ATTEMPT_ON_FACET, FOLLOWUP_TASK, "plan_presentation", "probe_presentation",
                  FIRST_PRESENTATION, LESSON_CHECK_ATTEMPT, LESSON_COLD_OUTCOME, LO_COLD_AFTER_BLOCK,
-                 LESSON_PROBE_ATTEMPT, NO_BINDING)
+                 LESSON_PROBE_ATTEMPT, NO_BINDING, "graded_attempt")
 
 #: ``serve`` (AD1): a presentation's forecasts, in-process in the serve
 #: transaction or from an outside forecaster after it; ``item_prepare`` (AD1):
 #: an item-only forecast made when the revision is prepared for the pool.
-DECISION_KINDS = ("diagnosis", "cold_retry_schedule", "serve", "item_prepare", "lesson")
+DECISION_KINDS = ("diagnosis", "cold_retry_schedule", "serve", "item_prepare", "lesson", "grade")
 
 
 @dataclass(frozen=True)
@@ -308,6 +314,7 @@ def record_receipts(
 
 __all__ = [
     "BINDING_KINDS",
+    "ITEM_UNASSISTED_SUCCESS_AT_GRADE",
     "CHECK_OUTCOME",
     "DECISION_KINDS",
     "DIAGNOSIS_NEXT_OBSERVATION",

@@ -39,9 +39,13 @@ source_text_assertions = 23
 # persistence keyword; the logic lives in learner/mastery_seed.py).
 # 5831: the grade's decision records come from the core with its result (L6a), and the attempt step's record builder
 # went with them.
-"src/learnloop/attempts/attempts.py" = 5831
+# 5853: the difficulty label's retirement threads adaptive difficulty's forecast of the answer through the grade (the
+# input, the reads, the evidence, the surprise call and the receipt write; the logic lives in
+# adaptive_difficulty/surprise_forecast.py and grade_forecast.py) and passes the vault's tag to the IRT seam.
+"src/learnloop/attempts/attempts.py" = 5853
 "src/learnloop/db/repositories.py" = 3025
-"src/learnloop/scheduling/scheduler.py" = 4442
+# 4443: the IRT seam takes the vault's tag (the difficulty label's retirement), one more line in one call.
+"src/learnloop/scheduling/scheduler.py" = 4443
 "src/learnloop_sidecar/handlers/reader.py" = 3026
 # 269250 + I2b's two intent goldens: the diagnosis journey and grade-application goldens record every persisted row, and from mvp-0.65 each
 # applied attempt also writes its row in attempt_application_order (115 lines; no existing value moved).

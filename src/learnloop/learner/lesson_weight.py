@@ -444,7 +444,8 @@ def recorded_trajectory(connection: Any, vault: Any, mastery_config: Any, check:
         mu1, var1 = float(delta["mu_after"]), float(delta["P_after"])
         applied = correctness is not None and str(attempt_id) not in held and (mu0 != mu1 or var0 != var1)
         item = vault.practice_items.get(str(item_id))
-        a, b = item_irt_params(item, vault.learning_objects.get(lo), mastery_config)
+        a, b = item_irt_params(item, vault.learning_objects.get(lo), mastery_config,
+                              algorithm_version=vault.config.algorithms.algorithm_version)
         weight = float(debug["observation_weight"])
         variance = (_interpretation_variance(mu0, var0, last, str(at), a=float(a), b=float(b), weight=weight,
                                              variance_after=var1, config=mastery_config) if applied else 0.0)
@@ -788,7 +789,8 @@ def _outcome_item_params(vault: Any, mastery_config: Any, outcome: Mapping[str, 
 
     item = vault.practice_items.get(str(outcome["practice_item_id"]))
     learning_object = vault.learning_objects.get(str(outcome["learning_object_id"]))
-    a, b = item_irt_params(item, learning_object, mastery_config)
+    a, b = item_irt_params(item, learning_object, mastery_config,
+                           algorithm_version=vault.config.algorithms.algorithm_version)
     return {"item_a": float(a), "item_b": float(b)}
 
 

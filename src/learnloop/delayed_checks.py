@@ -103,7 +103,8 @@ def predicted_item_success(vault: Any, repository: Any, item: Any) -> float | No
     from learnloop.learner.mastery import initial_mastery_state_for_learning_object, resolve_item_irt_params
 
     learning_object = vault.learning_objects.get(item.learning_object_id)
-    a, b = resolve_item_irt_params(item, learning_object, vault.config.mastery, repository.item_parameter_state(item.id))
+    a, b = resolve_item_irt_params(item, learning_object, vault.config.mastery, repository.item_parameter_state(item.id),
+                                   algorithm_version=vault.config.algorithms.algorithm_version)
     state = repository.mastery_state(item.learning_object_id)
     if state is None and learning_object is not None:
         state = initial_mastery_state_for_learning_object(vault, repository, item.learning_object_id, utc_now_iso())

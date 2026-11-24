@@ -1053,6 +1053,16 @@ INLINE_CHECK_ALGORITHM_VERSION = "mvp-0.69"
 # constant: renumbering the tag is this line (the chain, the sets and the predicate follow it).
 PROBE_ROUTER_ALGORITHM_VERSION = "mvp-0.70"
 
+# The difficulty label leaves mastery and surprise (docs/reviews/algorithm-mvp-0.72.md), on top of the probe router, mvp-0.70. The IRT seam stops reading an item's or a
+# learning object's authored or estimated difficulty label (and the dormant empirical-Bayes difficulty): mastery's
+# prediction has no item term, the priming offset kept. Surprise scores the answer against adaptive difficulty's
+# forecast made before it, from the serve-time receipt of the answer's plan presentation, else the grade-time receipt
+# every graded answer now records (``adaptive_difficulty.grade_forecast``), else mastery's own prediction; the row says
+# which. Bayesian surprise still describes the mastery update; FSRS never reads AD. History is re-derived by a
+# whole-vault rebuild: old answers have no grade-time receipt and fall back to mastery, marked. No kill switch (owner
+# rule 2026-11-16). ONE constant, provisional until the orchestrator numbers it at landing.
+LABEL_RETIRED_ALGORITHM_VERSION = "mvp-0.72"
+
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
 # first. Each successor means its predecessor's semantics PLUS its own, so
 # every gate below is "this tag or any later one". A successor appends its tag
@@ -1121,6 +1131,7 @@ SUCCESSOR_CHAIN: tuple[str, ...] = (
     PAD_TEXT_ALGORITHM_VERSION,
     INLINE_CHECK_ALGORITHM_VERSION,
     PROBE_ROUTER_ALGORITHM_VERSION,
+    LABEL_RETIRED_ALGORITHM_VERSION,
 )
 
 
@@ -1298,6 +1309,19 @@ def pad_text_on(config: object) -> bool:
 # Every later successor keeps it; gates must use this set, never equality, and read it through
 # :func:`probe_router_on`.
 PROBE_ROUTER_VERSIONS: frozenset[str] = successors_from(PROBE_ROUTER_ALGORITHM_VERSION)
+
+
+# Versions where the difficulty label is retired from mastery and surprise. Gates read it through
+# :func:`label_retired`.
+LABEL_RETIRED_VERSIONS: frozenset[str] = successors_from(LABEL_RETIRED_ALGORITHM_VERSION)
+
+
+def label_retired(algorithm_version: str | None) -> bool:
+    """Mastery's IRT seam reads no difficulty label and surprise reads adaptive difficulty's forecast (the retirement's tag);
+    below it, the predecessor's seam exactly. Takes the vault's tag (the seam's callers hold only the mastery
+    section of the config)."""
+
+    return algorithm_version in LABEL_RETIRED_VERSIONS
 
 
 def probe_router_on(config: object) -> bool:

@@ -399,7 +399,8 @@ def item_demand_vector(
     learning_object: LearningObject,
     quality_state: PracticeItemQualityState | None,
 ) -> ItemDemandVector:
-    item_a, item_b = resolve_item_irt_params(item, learning_object, vault.config.mastery)
+    item_a, item_b = resolve_item_irt_params(item, learning_object, vault.config.mastery,
+                                             algorithm_version=vault.config.algorithms.algorithm_version)
     rubric = vault.rubric_for_item(item)
     fatal_errors = [fatal.id for fatal in rubric.fatal_errors] if rubric is not None else []
     evidence_weights = item.evidence_weights or {facet: 1.0 for facet in item.evidence_facets}

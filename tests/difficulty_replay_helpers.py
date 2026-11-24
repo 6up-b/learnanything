@@ -12,6 +12,7 @@ import sys
 from datetime import timedelta
 from pathlib import Path
 
+from learnloop.algorithm_versions import PROBE_ROUTER_ALGORITHM_VERSION
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
@@ -23,6 +24,8 @@ from learnloop.vault.yaml_io import read_yaml, write_yaml
 from tests.helpers import NOW, create_placement_vault, write_facets
 
 SCRIPTS = Path(__file__).resolve().parents[1] / "scripts"
+#: The tag the replay's arms were built for: the last before the label's retirement (H3).
+BEFORE_RETIREMENT = PROBE_ROUTER_ALGORITHM_VERSION
 #: (item, points of 4, primed): repeats, a primed retry, misses on easy items and successes on hard ones, so the
 #: label's b and AD's prediction disagree somewhere.
 HISTORY = (
@@ -81,8 +84,11 @@ def _serve(vault, repository: Repository, item_id: str, index: int, served) -> s
     return presentation
 
 
-def build_vault(root: Path, *, served: bool = False) -> VaultPaths:
-    paths = create_placement_vault(root)
+def build_vault(root: Path, *, served: bool = False, version: str = BEFORE_RETIREMENT) -> VaultPaths:
+    """At ``version`` (by default the tag before the label's retirement, where the replay's arms mean what H2
+    measured: at the retirement the label is already off and surprise already reads AD)."""
+
+    paths = create_placement_vault(root, version=version)
     # A second facet, so the spectral items open a cell AD has not seen (its population-level prediction).
     write_facets(paths, [
         {"id": "recall", "kind": "definition", "claim": "Recall the SVD definition."},

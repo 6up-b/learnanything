@@ -20,9 +20,14 @@ from learnloop.learner.mastery import (
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 
-from tests.helpers import NOW, append_config_toml, create_basic_vault
+from tests.helpers import NOW, append_config_toml, create_basic_vault, set_algorithm_version
 
 CONFIG = LearnLoopConfig().mastery
+
+from learnloop.algorithm_versions import PROBE_ROUTER_ALGORITHM_VERSION
+
+#: The predecessor of the label's retirement (H3): what these tests pin.
+BEFORE = PROBE_ROUTER_ALGORITHM_VERSION
 
 
 def _observation(score: int) -> MasteryObservation:
@@ -90,19 +95,21 @@ def test_resolver_uses_posterior_only_when_enabled():
     config_off = LearnLoopConfig().mastery
     assert config_off.irt.eb_difficulty_enabled is False
     posterior = ItemParameterState("pi_x", -1.5, 0.05, 12, "test", "2026-01-01T00:00:00Z")
-    a_off, b_off = resolve_item_irt_params(None, None, config_off, posterior)
-    assert (a_off, b_off) == item_irt_params(None, None, config_off)
+    a_off, b_off = resolve_item_irt_params(None, None, config_off, posterior, algorithm_version=BEFORE)
+    assert (a_off, b_off) == item_irt_params(None, None, config_off, algorithm_version=BEFORE)
 
     config_on = LearnLoopConfig().mastery
     config_on.irt.eb_difficulty_enabled = True
-    a_on, b_on = resolve_item_irt_params(None, None, config_on, posterior)
+    a_on, b_on = resolve_item_irt_params(None, None, config_on, posterior, algorithm_version=BEFORE)
     assert b_on == pytest.approx(-1.5)
     assert a_on == a_off
 
 
-def _vault_with_flag(tmp_path, enabled: bool):
+def _vault_with_flag(tmp_path, enabled: bool, version: str = BEFORE):
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)
+    # The empirical-Bayes difficulty runs only below the label's retirement (H3): these tests pin the predecessor.
+    set_algorithm_version(paths, version)
     if enabled:
         append_config_toml(
             vault_root,
@@ -146,4 +153,12 @@ def test_flag_on_persists_and_reset_clears(tmp_path):
     assert abs(state.b_mean - authored_b) < 2 * CONFIG.irt.b_max_step + 1e-9
 
     repository.reset_learning_object_derived_state("lo_svd_definition")
+    assert repository.item_parameter_state("pi_svd_define_001") is None
+
+
+def test_from_the_label_retirement_the_flag_persists_nothing(tmp_path):
+    from learnloop.algorithm_versions import LABEL_RETIRED_ALGORITHM_VERSION
+
+    vault, repository = _vault_with_flag(tmp_path, enabled=True, version=LABEL_RETIRED_ALGORITHM_VERSION)
+    _attempt(vault, repository, at=NOW)
     assert repository.item_parameter_state("pi_svd_define_001") is None
