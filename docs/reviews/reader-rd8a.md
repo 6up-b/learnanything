@@ -481,6 +481,93 @@ moved-ink offsets are the recognizer's own, checked by the stubbed test. When th
 whether an erase left no stroke (another device's strokes), the server writes its own version and the client's head
 stays stale until the next pad read; the next edit then lands as a kept-both block.
 
+## 13. Handwriting read by GLM-OCR (the owner's decision, 2026-11-23)
+
+Branch `reader/ink-glm-ocr`, cut from the gated fix-round tip. The owner decided how handwriting is read: "this should
+get passed to glm-ocr then passed as text directly". Ledger row RD8a-20.
+
+**What moved.**
+- `learnloop.ingest.extractors.glm_ocr`: a pure refactor and one new entry. The hosted request body is built in one
+  place (`_api_payload`), used by the page windows as before. `GlmOcrDocumentExtractor.recognise_image(raw,
+  upload_allowed, interrupt)` reads one PNG or JPG through the same `_request` (admission, `model_call` receipt,
+  retries, errors, price), refusing a hosted read without the OK before sending. `recognised_text(regions)` joins
+  the regions' content in reading order, a blank line between them, leaving out image regions (crop references,
+  never text); nothing else is changed: HTML is not unwrapped, dollars are not escaped, `$$` stays. The extractor's
+  existing tests pass unchanged (`tests/test_glm_ocr.py`, `tests/test_pdf_extractor_selection.py`: 118).
+- `learnloop.pads.ink_transcribe`: `InkReader` replaces `InkRoute`. It selects the backend as ingest does for a page
+  image (`selected_backend` on `[ingest.pdf.glm_ocr]`; an image always goes the automatic way, so the PDF engine
+  choice does not matter, as `document_pdf_config` says). Admission is ingest's for a page image:
+  - hosted: the one OK to use AI (`model_use.require`), then the z.ai OK (`whole_files_zai`, the record a book's card
+    writes); without it nothing is sent (`needs_upload_ok`);
+  - local: nothing is asked (a page image read locally asks nothing either);
+  - neither: nothing is sent (`unavailable`), and the line says how to turn it on.
+  The recognised text is the reading as it is. The kept row's `provider` is `zai-glm-ocr` or `glm-ocr-local`, its
+  `model` `glm-ocr-0.9B`, and its `prompt_version` names the reader (`glm_ocr:glm-ocr-0.9B+PP-DocLayout-V3+<backend>`;
+  no prompt is sent). Everything after the reading is as the fix round left it: a reading becomes the block's words
+  only while its strokes stand, corrections are never overwritten, a retry spends nothing, cancel and vault and epoch
+  scoping, plain source ink never read.
+- `learnloop_sidecar.handlers.ink`: no injected client; GLM-OCR's consent refusal maps to `needs_upload_ok` and its
+  other errors to `ocr_failed` (GLM-OCR's own words, never the key or the image).
+- Removed, since nothing else used them: the vision-LLM path (`InkRoute`, `INSTRUCTIONS`, `build_prompt`,
+  `InkTranscriptionV1`, `PROMPT_VERSION`, `ROUTE_TASK`), the `ink_transcription` paid route task (`ai.routing`'s
+  task list and task map), its metered price setting (`plan_fallback.METERED_PRICE_SETTINGS`), its judge disclosure
+  (`ai.disclosures`), the workbench envelope's count of ink receipts and `workbench.check.CALL_CAPS` (both added for
+  ink only), and the config field `ai.routing.ink_transcription`.
+- Retired config: `ai.routing.ink_transcription` goes into `config/retired.py`'s `RETIRED_FIELDS`. The field was left
+  out of every dump while unset (`exclude_if`), so `RetiredField` gains `omit_at_default`: an identity dump puts it
+  back only when a vault set it, as the dump that hashed it did. `AIRoutingConfig` keeps retired fields
+  (`KeepsRetiredFields`). A vault that set the key still loads; the effective-defaults and whole-config pins do not
+  move.
+- Identity pins: `RD8a.prompt` and `RD8a.schema` are removed, deliberately, with the vision route: they keyed its
+  paid checkpoint and receipt, which no longer exist, and nothing compares them. `RD8a.strokes_hash` stays (it keys
+  `ink_transcriptions`' unique reading). Regenerated in the same commit; no other pin moved.
+- Spec: §10.10's transcription paragraph and §3.4's `ink.transcribe` row say GLM-OCR. As read after the decision,
+  §10.10 requires no fallback reader: without GLM-OCR the learner keeps the ink and types the words.
+
+**Persisted meaning.** The change does not alter persisted meaning, so no `algorithm_version` is added: no scoring,
+scheduling, projection or admissibility semantics change. Provenance stays `ink_transcription`; a kept reading row
+says which reader made it (`provider`, `model`, `prompt_version`); raw ledgers and receipts are untouched. No existing
+row's meaning changes (the owner lane showed no ink rows in the owner's vaults). The identity pins removed belong to
+the vision route only (above).
+
+**Frontend.** The refusal copy names what is missing and where to change it, and the ink is kept:
+- `unavailable`: "handwriting can't be read yet: text recognition isn't set up · to add it, paste a z.ai API key in
+  Settings, under Ingestion, or run a local GLM-OCR server";
+- `needs_upload_ok`: "reading handwriting sends a picture of it to z.ai, which needs your OK first: say OK on a book's
+  card in the Library".
+Both are in `inkCache.inkRefusal`, used by ink lines and margin notes. `cannot_read_images` no longer exists.
+
+**Judgment calls.**
+- The workbench's daily envelope no longer bounds ink readings: ingest applies no envelope to a page image (each
+  request has its own admission at `price_per_million_tokens`), and the decision asked for ingest's rules. Keeping
+  the envelope around the call is one line if wanted.
+- The z.ai OK is given where ingest asks for it (a book's card). The ink line points there and offers no OK button of
+  its own: a second place to grant that consent is a decision for the owner.
+- A local backend on another computer (a non-loopback `local_url`) is used without asking, as ingest uses it.
+
+**Tests** (GLM-OCR faked at `glm_ocr._open`, the extractor tests' seam): `tests/test_reader_ink_glm_ocr.py` (new, 10:
+the hosted route and what it sends, the reading as the recognised text unchanged, unavailable and its line, a local
+server that does not answer, no z.ai OK, no AI OK, the local backend asking nothing, one admission and receipt at
+ingest's price and a retry spending nothing, `recognise_image`'s refusal before sending, the retired field's bytes).
+Each fails on the code before this change. The RD8a tests read through the faked local backend
+(`tests/ink_helpers.py`: `FakeGlmOcr`, `glm_local`, `glm_hosted`); the tests of the vision route's own behaviour
+(images refused by a blind model, models off, the prompt's stability) are removed with it. Frontend:
+`inkCache.test.ts` (both refusals' lines), the ink pad's and the margin note's refusal tests (fail first on the old
+copy).
+
+**Assertions changed.** `tests/test_judge_routes.py` listed `ink_transcription` among the judgment routes Settings
+discloses and pinned its words; the route is gone, so the list loses it (GLM-OCR's disclosure is the z.ai OK, as for a
+page image). The RD8a tests' reading assertions now name GLM-OCR's provider, model and reader version; the requests
+they count are GLM-OCR's. The ink refusal copy in `PenLayer.test.tsx` and `inkPad.test.tsx` is the new line.
+
+**Checks.** The new and RD8a tests, the extractor's tests, and the name-filtered affected set (routing, plan-first
+transport and paid roles, judge disclosures, settings, ingest runner, registry audit, retired-config identities,
+effective defaults, identity pins, structure ratchets, architecture, layout, mobile allowlist, desktop RPC contract,
+CLI help): all pass, `-n 1`, memory-capped. ruff clean; lint-imports 54 kept. Frontend: typecheck clean; vitest on
+the desks (56 files, 636 tests); the desk harness, all runs including the LaTeX run (152 passed); the rd8 visual
+stage 3 findings, as at the fix-round tip. Not verified: a live GLM-OCR reading of real handwriting, hosted or
+local (no live call was made).
+
 ## Owner copies (the orchestrator, 2026-11-23)
 
 Migration 267 was applied to backup-API copies of the owner's three vaults (the floor set, upgraded to mvp-0.68 by
