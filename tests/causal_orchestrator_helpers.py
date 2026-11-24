@@ -15,7 +15,8 @@ from learnloop.diagnosis.causal_probe_coherence import (
 from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_practice_item
 
-from tests.helpers import NOW, NOW_ISO, create_basic_vault
+from tests.helpers import NOW, NOW_ISO, create_basic_vault, set_algorithm_version
+from tests.probe_router_helpers import BEFORE_PROBE_ROUTER
 
 
 LO_ID = "lo_svd_definition"
@@ -116,9 +117,13 @@ def _seed_factor(
     return factor_id, str(first["id"]), str(second["id"])
 
 
-def _vault(tmp_path, *, with_probe_item: bool = False):
+def _vault(tmp_path, *, with_probe_item: bool = False, version: str = BEFORE_PROBE_ROUTER):
+    """A basic vault at ``version``: the probe router's predecessor by default, where the repair status forms the causal
+    gate's verdict these helpers' tests are about (``tests/test_probe_router_learner_lane.py`` covers the tag)."""
+
     root = tmp_path / "vault"
     paths = create_basic_vault(root)
+    set_algorithm_version(paths, version)
     if with_probe_item:
         _add_probe_item(root)
     vault = load_vault(root)

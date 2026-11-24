@@ -231,6 +231,10 @@ def ink_transcribe(ctx: SidecarContext, params: InkTranscribeInput) -> dict[str,
     """Read the strokes ``ink_id``'s owner holds now: ``{job_id, status, done, result, error}`` at once."""
 
     vault, repository = ctx.require_vault()
+    # While an inline check is open a reading waits: it sends the ink to a model and shows what it says.
+    from learnloop_sidecar.check_hold import refuse_while_check_open
+
+    refuse_while_check_open(repository)
     try:
         prepared = reading.prepare(repository, params.ink_id)
     except ink_core.InkError as exc:

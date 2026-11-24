@@ -14,7 +14,8 @@ import { useListenerHub, useScopeClaim, type ClaimedScope } from "./lifecycle";
 import { usePadsHost } from "./pads/host";
 import { useBareAltClear } from "../reader/bareAlt";
 
-vi.mock("../../api/client", () => ({ api: {} }));
+// No inline check is open (the desks read it before showing anything).
+vi.mock("../../api/client", () => ({ api: { checkOpenInline: async () => ({ administration: null }) } }));
 const sourceWindows = vi.hoisted(() => new Map<string, { onStatus: (next: { readingSpan?: string | null }) => void }>());
 vi.mock("./windows/SourceWindow", () => ({
   SourceWindow: (props: { content: { extractionId: string }; onStatus: (next: { readingSpan?: string | null }) => void }) => {

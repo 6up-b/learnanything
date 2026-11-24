@@ -50,7 +50,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 > [!success] ACTIVE
 > A static TypeScript import path reaches this file from the Vite entry src/main.tsx.
 >
-> Build/entry chain: [[Reference/Desktop/TypeScript/main|src/main.tsx]] → [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] → [[Reference/Desktop/TypeScript/screens/desks/DeskShell|src/screens/desks/DeskShell.tsx]] → [[Reference/Desktop/TypeScript/screens/workbench/stepModel|src/screens/workbench/stepModel.ts]]
+> Build/entry chain: [[Reference/Desktop/TypeScript/main|src/main.tsx]] → [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] → [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] → [[Reference/Desktop/TypeScript/screens/workbench/stepModel|src/screens/workbench/stepModel.ts]]
 
 ## Public API
 
@@ -83,8 +83,8 @@ The system-level behavior stays authoritative in the linked architecture, concep
 > [!note] Static-evidence boundary
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
+- [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] — import-or-re-export: `WORKBENCH_COPY`, `problemTitle`; references `WORKBENCH_COPY`, `problemTitle`
 - [[Reference/Desktop/TypeScript/screens/desks/DeskShell|src/screens/desks/DeskShell.tsx]] — import-or-re-export: `problemTitle`; references `problemTitle`
-- [[Reference/Desktop/TypeScript/screens/desks/source/ScopedSource|src/screens/desks/source/ScopedSource.tsx]] — import-or-re-export: `WORKBENCH_COPY`, `problemTitle`; references `WORKBENCH_COPY`, `problemTitle`
 - [[Reference/Desktop/TypeScript/screens/reader/ReaderWorkingPosture|src/screens/reader/ReaderWorkingPosture.tsx]] — import-or-re-export: `WORKBENCH_COPY`; references `WORKBENCH_COPY`
 - [[Reference/Desktop/TypeScript/screens/workbench/Workbench|src/screens/workbench/Workbench.tsx]] — import-or-re-export: `WORKBENCH_COPY`, `liveSteps`, `problemTitle`, `savedLabel`, `stepChain`; references `WORKBENCH_COPY`, `liveSteps`, `problemTitle`, `savedLabel`, `stepChain`
 - [[Reference/Desktop/TypeScript/screens/workbench/useWorkbenchSession|src/screens/workbench/useWorkbenchSession.ts]] — import-or-re-export: `LocalStep`, `SaveStatus`, `deleteLocal`, `fromServer`, `insertAfter`, `restoreLocal`, `updateLocal`; references `LocalStep`, `SaveStatus`, `deleteLocal`, `fromServer`, `insertAfter`, `restoreLocal`, `updateLocal`

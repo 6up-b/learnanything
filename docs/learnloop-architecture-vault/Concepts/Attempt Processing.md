@@ -4,10 +4,10 @@ aliases:
   - Attempt Lifecycle
 status: active
 doc_version: 1.0.0
-implementation_version: mvp-0.9
-last_reviewed: 2026-09-23
-source_commit: 0622ea164f76ad7e1d62a00afda51473dbcd992e
-source_commit_timestamp: "2026-09-23T13:06:55-04:00"
+implementation_version: mvp-0.68
+last_reviewed: 2026-11-23
+source_commit: 86f29b0d390ed2ecdbb0347d98ccb1175ac52728
+source_commit_timestamp: "2026-11-23T23:12:28-05:00"
 source_paths:
   - src/learnloop/attempts/attempts.py
   - src/learnloop/attempts/grading.py
@@ -60,7 +60,7 @@ The important shape is convergence: every grading door resolves a grade before t
 - Ordinary model grading requires a criterion row for every criterion of a nonempty rubric. A grade that leaves one out is refused like an empty one (the required door fails, the optional door falls back, a regrade keeps the live rows). Teach-back grades the criteria the student asked about.
 - A grade taken over the assessed criteria never divides by zero points: when only criteria worth nothing would stay assessed, they are unassessed too, so the grade is held when nothing validated the answer.
 - Regrade publishes replacement evidence and newly observed exercised facets before replaying the learning object. Owner adjudication (`learnloop grading adjudicate`) replays in the same transaction as the ruling on a vault at `mvp-0.60` or later, and commits only with the ruling as the head of the observation the ledger reads; below that tag it does not replay and says so. A ruling that confirms an earlier ruling's revised grade writes it again as its own. Confirming a provisional class releases its hold.
-- Replay re-applies a stored grade from what was recorded (`attempts/replay_reading.py`). From `mvp-0.61` a grader confidence of 0.0 stays 0.0 (only a missing value reads 1.0; a 0.0 an earlier rebuild already wrote over stays 1.0); a model regrade of an answer whose first grade was not a model's replays under the regrade run's source (`ai`, or `codex` for a Codex provider), not the first grade's `self`; and the replay of an exam answer whose grade was replaced writes the replacement once on the exam channel (an assessment administration), where below the tag a regraded exam answer never reached a channel. Below the tag replay reads as `mvp-0.60`.
+- Replay re-applies a stored grade from what was recorded (`attempts/replay_reading.py`). From `mvp-0.61` a grader confidence of 0.0 stays 0.0 (only a missing value reads 1.0; a 0.0 an earlier rebuild already wrote over stays 1.0); replay takes a model regrade's source from its stored run, including the legacy `codex` label when present; and the replay of an exam answer whose grade was replaced writes the replacement once on the exam channel (an assessment administration), where below the tag a regraded exam answer never reached a channel. Below the tag replay reads as `mvp-0.60`.
 - A request for an easier or harder variant is recorded as a `self_report` attempt on its source item (`content/authoring/rung_variants.py`): its belief write is the request's evidence. From `mvp-0.61` it applies no FSRS review and leaves the item's forgetting clock (`last_attempt_at`), memory state and due date as they were, live and on replay; below the tag it was a review like any unprimed self-report. The grade core recognizes it by the `rung_variant_requests` row that names the attempt (written before the attempt is applied; `replay_reading.withholds_review_as_variant_request`), never by its text or entry surface.
 - Startup defers learner self-grades until an AI grader is ready. Exam seeding records which outcomes contain learner work and reports the rows that will receive an AI grade. A score-only import keeps its reported grade, and simulated grades and learner self-reports stay out of the queue. An import written before that record is score-only when its answer is whitespace (by Python's rule) or the placeholder, or when it has no import row at all.
 
@@ -74,9 +74,11 @@ Validation checks rubric totals, criterion IDs and maxima, quote anchors against
 
 The computation is a shell around a pure core (`attempts/attempts.py`). The shell, `_compute_resolved_grade_application`, resolves the attempt's target and reads the clock into a frozen `GradeInputs`, which also carries the loaded config, facet alias map and error taxonomy. `grade_scope` (pure) decides what the grade assessed, whether it is held, and the evidence's coverage. The shell then makes every read the arithmetic needs into `GradeReads`, in a fixed order: the learner's prior state for the facets that coverage names (the one read that waits on the arithmetic), the grade channel's interpretation variance, a lesson check's recorded mass, the learning object's coverage and breadth reads, the FSRS weights, the answer key's status, the error events' ids and, on replay, the stored evidence rows. `grade_application` (pure) turns the three into the application, in parts: the kept attributions and their severities, the evidence and its mastery observation, the belief update and surprise, the FSRS review, then the rows. Neither stage reads storage, the clock or the vault, so the arithmetic is tested with plain values (`tests/test_grade_application_core.py`), and one graded history pins every field and row, live and after a rebuild (`tests/test_grade_application_golden.py`). The map and the reasons for the order are in `docs/reviews/refactor-i1.md`.
 
+Live application records the attempt's order and the facet lifecycle inputs on their capture tags. The first persisted mastery row records its own seed inputs from the mastery-seed tag. Replay reads those records or their labelled predecessor bases. See [[Rebuild and Shadow Compare]] for the tag boundaries.
+
 ## Assistance and reveal
 
-Hints, source-visible work, priming, answer reveals, and tutor exposure are recorded separately and dampen or disqualify specific evidence uses. A revealed cold follow-up is deferred instead of burning a single-use measurement. See [[Evidence and Measurement#Assistance, familiarity, and independence]].
+Hints, source-visible work, priming, answer reveals, and tutor exposure are recorded separately and dampen or disqualify specific evidence uses. A time-bounded hold can defer a cold follow-up. The serving path withdraws a check that can no longer measure cold. See [[Evidence and Measurement#Assistance, familiarity, and independence]].
 
 ## Post-attempt composition
 

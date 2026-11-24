@@ -89,6 +89,27 @@ describe("the ink cache's readings", () => {
     }
   });
 
+  it("a check that opens while the ink is saving holds the reading after the save; the server's check_open refusal is said plainly", async () => {
+    let heldNow: string | null = null;
+    const saved = deferred<"saved" | "unsaved">();
+    const api: Partial<InkCacheApi> = { inkTranscribe: vi.fn() };
+    const full = { inkList: vi.fn(async () => ({ owners: [] })), inkTranscribeJob: vi.fn(), inkTranscribeCancel: vi.fn(), ...api } as unknown as InkCacheApi;
+    const poller = new Poller({ setInterval: () => 1, clearInterval: () => undefined });
+    const cache = new InkCache({ api: full, poller, settled: () => saved.promise, refreshPad: vi.fn(async () => undefined), held: () => heldNow });
+    cache.addStrokes("p", "b1", "ink_1", [stroke("s1")]);
+    const read = cache.read("p", "b1", null);
+    heldNow = "after your check · it is open on this desk";
+    saved.resolve("saved");
+    await read;
+    expect(full.inkTranscribe).not.toHaveBeenCalled();
+    expect(cache.pad("p").readings.b1.message).toBe("read it after your check · it is open on this desk");
+    // The server refuses too, whatever this desk knew.
+    heldNow = null;
+    (full.inkTranscribe as ReturnType<typeof vi.fn>).mockImplementation(async () => { throw { code: "check_open", message: "x", details: {} }; });
+    await cache.read("p", "b1", null);
+    expect(cache.pad("p").readings.b1.message).toBe("read it after your check · finish or set aside the check first");
+  });
+
   it("unsent ink is said to be kept while the app stays open, not on this device", async () => {
     const { cache } = setup({}, async () => "unsaved");
     cache.addStrokes("p", "b1", "ink_1", [stroke("s1")]);

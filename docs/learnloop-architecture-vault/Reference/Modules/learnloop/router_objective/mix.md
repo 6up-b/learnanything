@@ -112,6 +112,7 @@ No private top-level function or class definition is declared in this file.
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/daily_plan/learner_probe|learnloop.daily_plan.learner_probe]] — imports `module`; statically calls `failure_rule_name`, `fallback_label`, `seed_for`
 - [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]] — imports `module`; statically calls `fallback_label`
 - [[Reference/Modules/learnloop/daily_plan/objective_seeds|learnloop.daily_plan.objective_seeds]] — imports `module`; statically calls `seed_for`
 - [[Reference/Modules/learnloop/router_objective/choose|learnloop.router_objective.choose]] — imports `module`; statically calls `components`, `draw`, `effective_weights`, `fallback_label`
@@ -140,7 +141,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]], [[Reference/Modules/learnloop/daily_plan/objective_seeds|learnloop.daily_plan.objective_seeds]], [[Reference/Modules/learnloop/router_objective/choose|learnloop.router_objective.choose]], [[Reference/Modules/learnloop/router_objective/trace_assembly|learnloop.router_objective.trace_assembly]], [[Reference/Modules/learnloop/why/reconstructed|learnloop.why.reconstructed]].
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/learner_probe|learnloop.daily_plan.learner_probe]], [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]], [[Reference/Modules/learnloop/daily_plan/objective_seeds|learnloop.daily_plan.objective_seeds]], [[Reference/Modules/learnloop/router_objective/choose|learnloop.router_objective.choose]], [[Reference/Modules/learnloop/router_objective/trace_assembly|learnloop.router_objective.trace_assembly]] and 1 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

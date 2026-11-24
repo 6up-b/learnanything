@@ -132,7 +132,7 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 | [[Reference/Modules/learnloop/db/stores/approach_maps|learnloop.db.stores.approach_maps]] | [[Reference/Modules/learnloop/db/stores/approach_maps#^module-purpose|purpose]] | `ACTIVE` | 4 | 2 |
 | [[Reference/Modules/learnloop/db/stores/attempts|learnloop.db.stores.attempts]] | [[Reference/Modules/learnloop/db/stores/attempts#^module-purpose|purpose]] | `ACTIVE` | 5 | 4 |
 | [[Reference/Modules/learnloop/db/stores/causal|learnloop.db.stores.causal]] | [[Reference/Modules/learnloop/db/stores/causal#^module-purpose|purpose]] | `ACTIVE` | 2 | 0 |
-| [[Reference/Modules/learnloop/db/stores/check_administrations|learnloop.db.stores.check_administrations]] | [[Reference/Modules/learnloop/db/stores/check_administrations#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
+| [[Reference/Modules/learnloop/db/stores/check_administrations|learnloop.db.stores.check_administrations]] | [[Reference/Modules/learnloop/db/stores/check_administrations#^module-purpose|purpose]] | `ACTIVE` | 3 | 1 |
 | [[Reference/Modules/learnloop/db/stores/collection|learnloop.db.stores.collection]] | [[Reference/Modules/learnloop/db/stores/collection#^module-purpose|purpose]] | `ACTIVE` | 1 | 3 |
 | [[Reference/Modules/learnloop/db/stores/completion|learnloop.db.stores.completion]] | [[Reference/Modules/learnloop/db/stores/completion#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/db/stores/content|learnloop.db.stores.content]] | [[Reference/Modules/learnloop/db/stores/content#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
@@ -269,6 +269,7 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 - [[Reference/Modules/learnloop/passage_union/_package|learnloop.passage_union]] — 3 static module edges
 - [[Reference/Modules/learnloop/why/_package|learnloop.why]] — 3 static module edges
 - [[Reference/Modules/learnloop/intent/_package|learnloop.intent]] — 2 static module edges
+- [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] — 2 static module edges
 - [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] — 1 static module edge
 - [[Reference/Modules/learnloop/local_embeddings/_package|learnloop.local_embeddings]] — 1 static module edge
 - [[Reference/Modules/learnloop/recognition/_package|learnloop.recognition]] — 1 static module edge

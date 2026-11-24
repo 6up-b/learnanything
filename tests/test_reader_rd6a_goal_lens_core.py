@@ -254,9 +254,9 @@ def test_a_chapters_words():
     goal = GL.GoalReads("g", "fluency", "fluency", LOS, {})
     section = GL.SectionReads(HERE, "Here", cov(("lo_c", "chapter")))
     level = GL.section_level(section, goal)
-    assert GL.reason_text(level, section, goal) == "A chapter you accepted here is about “Bases”."
+    assert GL.reason_text(level, section, goal) == "A chapter you accepted here is about “Bases”, a topic of your goal."
     assert GL.coverage_line(level, section, goal) == (
-        "A chapter you accepted links this section to “Bases” · goal topic · outside your current path")
+        "A chapter you accepted is about “Bases” · goal topic · outside your current path")
 
 
 def test_the_band_counts_within_the_depth_and_hides_held_names():

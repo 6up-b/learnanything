@@ -13,6 +13,8 @@ import type { GoalTransport } from "../goal/controller";
 import type { LessonEntry } from "../../LessonView";
 
 const api = vi.hoisted(() => ({
+  // No inline check is open (the desks read it before showing anything).
+  checkOpenInline: async () => ({ administration: null }),
   lessonTurn: vi.fn(),
   lessonView: vi.fn(),
   lessonActivity: vi.fn(async () => ({ recorded: 0, enabled: false })),

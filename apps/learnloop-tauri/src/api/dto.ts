@@ -2075,6 +2075,22 @@ export interface CausalRepairStatusDto {
   revealBudget?: number | null;
   decisionPolicyVersion?: string | null;
   formulaVersion?: string | null;
+  /** The probe router's tag (absent below it): whether the quick check is offered is the router's decision, made
+   *  once per factor and read back by every status read. `probeOffered` is true only for `selected`. */
+  routerState?: CausalProbeRouterState;
+  routerDecisionId?: string | null;
+  /** Why the probe is `unavailable` (e.g. "learner_preference", "machine_checks_pending",
+   *  "no_executable_instrument", "common_repair_covers"). */
+  hardStopReasons?: string[];
+}
+
+/** The router's disposition of a factor's quick check (the probe router's tag). */
+export type CausalProbeRouterState = "pending" | "selected" | "not_selected" | "unavailable";
+
+export interface CausalProbeRouterDispositionDto {
+  routerState: CausalProbeRouterState;
+  routerDecisionId: string | null;
+  learningObjectId?: string | null;
 }
 
 export interface CausalRepairStatusResultDto {
@@ -2099,6 +2115,9 @@ export interface CausalProbeOfferDto {
 export interface CausalProbeOfferResultDto {
   version: number;
   offer: CausalProbeOfferDto;
+  /** The probe router's tag: the router's disposition the request was checked against. A request without the
+   *  router's selection comes back `accepted: false`, `reason: "router_decision_required"`. */
+  router?: CausalProbeRouterDispositionDto;
 }
 
 export interface CausalProbePreferenceDto {
@@ -10957,6 +10976,8 @@ export interface MenuObjectInput {
   blockId?: string;
   windowId?: string;
   deskId?: string;
+  /** passage.knows only: the menu verb it is read for (Make it practice reads the section and role by its own set). */
+  forVerb?: "make_practice";
 }
 
 /** passage.promoted's input: the object, and one id per menu opening (reused on a retry: the same job and its work
@@ -11000,10 +11021,16 @@ export interface PassagePromotedDto {
   /** A passage of the object (for a pad line, one its words are linked to) is exam or held-out material: nothing is
    * searched or judged for it, and no row leads from or to a protected passage (the learner's own rows stay). */
   withheld: boolean;
+  /** The menu verbs whose destination withholds the object, each by its own row of the server's surface table (a
+   *  practice exam that is not held out keeps Ask and Make it practice, as in the classic Reader). Absent from an
+   *  older sidecar: `withheld` then stands for every verb. */
+  withheldVerbs?: string[];
 }
 
 export interface PromotedJobDto {
   withheld?: boolean;
+  /** At a delivery: the per-verb verdict read again (see PassagePromotedDto.withheldVerbs). */
+  withheldVerbs?: string[];
   version: number;
   jobId: string;
   status: "queued" | "running" | "done" | "failed" | "cancelled" | "expired";
@@ -11152,9 +11179,14 @@ export interface PassageUnionDto {
     learningObjects: { learningObjectId: string; treatment: string | null; learnerOverride: string | null }[] }[];
 }
 
-export type PassageUnionInput =
+export type PassageUnionInput = (
   | { extractionId: string; fromSpanId: string; toSpanId: string }
-  | { extractionId: string; t0: number; t1: number };
+  | { extractionId: string; t0: number; t1: number }
+) & {
+  /** passage.content only: the menu verb the words are read for; its destination's set decides what is withheld
+   *  (Make it practice's exercise sheet reads with the import's). */
+  forVerb?: "make_practice";
+};
 
 export interface CompanionExchangeDto {
   questionEventId: string;
@@ -11203,6 +11235,19 @@ export interface CheckVisibleDto {
 /** One veiled thing, as the server named it (its keys are the server's own, snake_case: a ref is sent back as is). */
 export type CheckVeilRefDto = Record<string, unknown> & { group: string; kind: string };
 
+/** The question as a cold check presents it (an allowlisted presentation: never the expected answer, a hint, the
+ *  rubric, an earlier attempt or a source locator). Frozen at begin and returned unchanged on recovery. */
+export interface CheckPromptDto {
+  practiceItemId?: string;
+  prompt?: string;
+  /** The learner-facing blocks, rendered with Today's presentation component. */
+  presentation?: ItemPresentationDto | null;
+  practiceMode?: string | null;
+  attemptTypesAllowed?: string[];
+  activeFollowupKind?: string | null;
+  intentCheck?: IntentCheckDto | null;
+}
+
 export interface CheckCardDto {
   version?: number;
   administrationToken: string;
@@ -11212,21 +11257,43 @@ export interface CheckCardDto {
   /** Whether the item could be answered cold when it was served (else practice from the start). */
   cold: boolean;
   state: "open" | "submitted" | "abandoned" | "superseded";
+  /** `veiled`: everything veiled (opened ones included); `standing`: veiled and not opened. */
   protection: { veilSetId: string | null; method: string | null; veiled: CheckVeilRefDto[]; opened: CheckVeilRefDto[];
-    groups: string[] };
-  /** Today's own serve of the item (the practice item detail, its check view hiding locators). */
-  prompt: Record<string, unknown>;
+    standing?: CheckVeilRefDto[]; groups: string[] };
+  prompt: CheckPromptDto;
   /** The practice session the answer is recorded on (opened when the app had none), for the app to adopt. */
   practiceSession?: SessionSnapshot | null;
+  /** The submission already reserved on this administration (reused by a retry after a restart), or null. */
+  submissionId?: string | null;
+  /** Why the item opens not cold (`seen_before`, `primed`, `hold`, …), else null: the card is worded from it. */
+  eligibility?: string | null;
+  /** The veil sets' sequence number (as `check.protect_more` returns it). */
+  revision?: number;
+  /** A second begin for a commitment whose administration is open returns that administration's card. */
+  replayed?: boolean;
 }
 
-export type CheckExposureKind = "opened_veil" | "navigated" | "help";
+/** check.protect_more: what this request added, every ref veiled now and not opened, and the veil sets' sequence. */
+export interface CheckProtectReplyDto {
+  veilAdditions: CheckVeilRefDto[];
+  standing?: CheckVeilRefDto[];
+  revision?: number;
+}
+
+/** check.expose: what was recorded; a refusal or failure records nothing. */
+export interface CheckExposeReplyDto {
+  protectionStatus: { exposure: Array<Record<string, unknown>>; coldNow: boolean; measured?: boolean; eligibility?: string | null };
+}
+
+export type CheckExposureKind = "opened_veil" | "navigated" | "help" | "left";
 
 /** check.submit_inline: the attempt's own reply, plus whether it answered the check. */
 export type CheckSubmitDto = Record<string, unknown> & { attemptId?: string; administrationToken: string; cold: boolean;
   reason: "on_your_own" | "primed" | "with_help" | "seen_before" | "already_answered" | "practice";
   /** Why it is primed when nothing measured it: one of the learner's notes was opened (a note's words are never read). */
-  primedBy?: "unmeasured_note" };
+  primedBy?: string | null;
+  /** The serve-time reason when the item did not open cold. */
+  eligibility?: string | null };
 
 // -- Reader workbench v2 RD3 (spec §3.4, §8.6, §9.3): the companion's ask as a polled job, search in context.
 // The typed calls only; no component calls them yet.

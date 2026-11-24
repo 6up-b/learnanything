@@ -50,31 +50,34 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/workbench_protection.py](../../../../../src/learnloop_sidecar/workbench_protection.py) |
-| Source lines | 134 |
+| Source lines | 185 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class PassageSelection(ParamsModel)` ([source](../../../../../src/learnloop_sidecar/workbench_protection.py), line 20)
-- `reading_places(extraction_id: str | None, spans: Iterable[str | None]) -> list[tuple[str, str]]` ([source](../../../../../src/learnloop_sidecar/workbench_protection.py), line 25)
-- `payload_places(payload: Mapping[str, Any]) -> list[tuple[str, str]]` ([source](../../../../../src/learnloop_sidecar/workbench_protection.py), line 32)
-- `repeats_protected_text(vault: Any, repository: Any, text: str) -> bool` ([source](../../../../../src/learnloop_sidecar/workbench_protection.py), line 53) — Whether words with no recorded passage repeat exam or held-out material: a run of :data:`QUOTE_RUN_WORDS` words (or, for a shorter quote, all of it) found verbatim in a protected passage.
-- `check_placed_quote(vault: Any, repository: Any, origins: list[tuple[str, str]], text: str) -> None` ([source](../../../../../src/learnloop_sidecar/workbench_protection.py), line 77)
-- `block_places(vault: Any, repository: Any, block_ids: Iterable[str]) -> list[tuple[str, str]]` ([source](../../../../../src/learnloop_sidecar/workbench_protection.py), line 84)
-- `refuse_protected(vault: Any, repository: Any, places: Iterable[tuple[str, str]]) -> None` ([source](../../../../../src/learnloop_sidecar/workbench_protection.py), line 108)
-- `check_selection(vault: Any, repository: Any, extraction_id: str, raw: Mapping[str, Any], render_view_id: str | None) -> None` ([source](../../../../../src/learnloop_sidecar/workbench_protection.py), line 113)
+- `class PassageSelection(ParamsModel)` ([source](../../../../../src/learnloop_sidecar/workbench_protection.py), line 21)
+- `reading_places(extraction_id: str | None, spans: Iterable[str | None]) -> list[tuple[str, str]]` ([source](../../../../../src/learnloop_sidecar/workbench_protection.py), line 26)
+- `payload_places(payload: Mapping[str, Any]) -> list[tuple[str, str]]` ([source](../../../../../src/learnloop_sidecar/workbench_protection.py), line 33)
+- `repeats_protected_text(vault: Any, repository: Any, text: str) -> bool` ([source](../../../../../src/learnloop_sidecar/workbench_protection.py), line 54) — Whether words with no recorded passage repeat exam or held-out material: a run of :data:`QUOTE_RUN_WORDS` words (or, for a shorter quote, all of it) found verbatim in a protected passage.
+- `check_placed_quote(vault: Any, repository: Any, origins: list[tuple[str, str]], text: str) -> None` ([source](../../../../../src/learnloop_sidecar/workbench_protection.py), line 78)
+- `block_places(vault: Any, repository: Any, block_ids: Iterable[str]) -> list[tuple[str, str]]` ([source](../../../../../src/learnloop_sidecar/workbench_protection.py), line 85)
+- `withheld_at(vault: Any, repository: Any, places: Iterable[tuple[str, str]], surface: str | None=None) -> bool` ([source](../../../../../src/learnloop_sidecar/workbench_protection.py), line 109) — Whether any place is withheld: all exam material, or (``surface``) that surface's own row of ``exam_material.SURFACE_SETS`` (the Reader's ask, checks and import read the held-out partition only).
+- `withheld_verbs(vault: Any, repository: Any, places: Iterable[tuple[str, str]]) -> list[str]` ([source](../../../../../src/learnloop_sidecar/workbench_protection.py), line 138) — The menu verbs whose destination withholds any of ``places`` (each set is read once).
+- `refuse_protected(vault: Any, repository: Any, places: Iterable[tuple[str, str]], *, surface: str | None=None, code: str='exam_material', message: str=REFUSAL) -> None` ([source](../../../../../src/learnloop_sidecar/workbench_protection.py), line 153) — Refuse when any place is withheld.
+- `check_selection(vault: Any, repository: Any, extraction_id: str, raw: Mapping[str, Any], render_view_id: str | None, *, surface: str | None=None) -> None` ([source](../../../../../src/learnloop_sidecar/workbench_protection.py), line 163)
 
 ### Module constants
 
-- `REFUSAL` ([src/learnloop_sidecar/workbench_protection.py](../../../../../src/learnloop_sidecar/workbench_protection.py), line 17)
-- `QUOTE_RUN_WORDS` ([src/learnloop_sidecar/workbench_protection.py](../../../../../src/learnloop_sidecar/workbench_protection.py), line 45)
-- `_WORD` ([src/learnloop_sidecar/workbench_protection.py](../../../../../src/learnloop_sidecar/workbench_protection.py), line 46)
+- `REFUSAL` ([src/learnloop_sidecar/workbench_protection.py](../../../../../src/learnloop_sidecar/workbench_protection.py), line 18)
+- `QUOTE_RUN_WORDS` ([src/learnloop_sidecar/workbench_protection.py](../../../../../src/learnloop_sidecar/workbench_protection.py), line 46)
+- `_WORD` ([src/learnloop_sidecar/workbench_protection.py](../../../../../src/learnloop_sidecar/workbench_protection.py), line 47)
+- `VERB_SURFACES` ([src/learnloop_sidecar/workbench_protection.py](../../../../../src/learnloop_sidecar/workbench_protection.py), line 126)
 
 ## Internal implementation anchors
 
-- `_words(text: str) -> list[str]` ([source](../../../../../src/learnloop_sidecar/workbench_protection.py), line 49)
+- `_words(text: str) -> list[str]` ([source](../../../../../src/learnloop_sidecar/workbench_protection.py), line 50)
 
 ## Who imports or calls it
 
@@ -88,7 +91,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop_sidecar/handlers/lesson|learnloop_sidecar.handlers.lesson]] — imports `block_places`, `reading_places`, `refuse_protected`; statically calls `block_places`, `reading_places`, `refuse_protected`
 - [[Reference/Modules/learnloop_sidecar/handlers/library_ask|learnloop_sidecar.handlers.library_ask]] — imports `reading_places`, `refuse_protected`; statically calls `reading_places`, `refuse_protected`
 - [[Reference/Modules/learnloop_sidecar/handlers/pads|learnloop_sidecar.handlers.pads]] — imports `block_places`, `check_placed_quote`, `payload_places`, `reading_places`, `refuse_protected`; statically calls `block_places`, `check_placed_quote`, `payload_places`, `reading_places`, `refuse_protected`
-- [[Reference/Modules/learnloop_sidecar/handlers/passage_union|learnloop_sidecar.handlers.passage_union]] — imports `block_places`; statically calls `block_places`
+- [[Reference/Modules/learnloop_sidecar/handlers/passage_union|learnloop_sidecar.handlers.passage_union]] — imports `VERB_SURFACES`, `block_places`, `withheld_verbs`; statically calls `block_places`, `withheld_verbs`
 - [[Reference/Modules/learnloop_sidecar/handlers/reader|learnloop_sidecar.handlers.reader]] — imports `check_selection`, `reading_places`, `refuse_protected`; statically calls `check_selection`, `reading_places`, `refuse_protected`
 - [[Reference/Modules/learnloop_sidecar/handlers/search|learnloop_sidecar.handlers.search]] — imports `PassageSelection`, `block_places`, `reading_places`, `refuse_protected`; statically calls `block_places`, `reading_places`, `refuse_protected`
 
@@ -96,7 +99,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/content/sources/exam_material|learnloop.content.sources.exam_material]] — imports `exam_material`, `exam_withheld`; calls `exam_material`, `exam_withheld`
+- [[Reference/Modules/learnloop/content/sources/exam_material|learnloop.content.sources.exam_material]] — imports `SURFACE_SETS`, `exam_material`, `exam_withheld`, `surface_material`; calls `exam_material`, `exam_withheld`, `surface_material`
 - [[Reference/Modules/learnloop/db/stores/pad_reads|learnloop.db.stores.pad_reads]] — imports `module`; calls `head`, `standing_anchors_for_blocks`
 - [[Reference/Modules/learnloop/pads/emission|learnloop.pads.emission]] — imports `context_blocks`; calls `context_blocks`
 - [[Reference/Modules/learnloop/reader/source_identity|learnloop.reader.source_identity]] — imports `selection_span_ids`; calls `selection_span_ids`
@@ -105,7 +108,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `collections`, `re`, `typing`
+- Standard library: `__future__`, `collections`, `re`, `types`, `typing`
 - Third party: `pydantic`
 
 ## Larger workflow participation

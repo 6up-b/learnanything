@@ -294,7 +294,7 @@ def reason_text(level: SectionLevel, section: SectionReads, goal: GoalReads) -> 
         "applies": f"It uses {title}, a topic of your goal.",
         "mentions": f"It mentions {title}, a topic of your goal.",
         "learner_about": f"You linked this section to {title}.",
-        "chapter_about": f"A chapter you accepted here is about {title}.",
+        "chapter_about": f"A chapter you accepted here is about {title}, a topic of your goal.",
         "deeper_depth": f"Needed for {title} only at a deeper level than {goal.depth_label}.",
         "demonstrated": f"You’ve shown {title} on your own.",
         "assumed": f"LearnLoop treats {title} as familiar (not tested).",
@@ -350,7 +350,7 @@ def coverage_line(level: SectionLevel, section: SectionReads, goal: GoalReads) -
     if entry.treatment == LEARNER_ABOUT:
         return f"You linked this section to {_quoted(lo.title)} · {role} · {where}"
     if entry.treatment == CHAPTER_ABOUT:
-        return f"A chapter you accepted links this section to {_quoted(lo.title)} · {role} · {where}"
+        return f"A chapter you accepted is about {_quoted(lo.title)} · {role} · {where}"
     verb = TREATMENT_VERBS.get(entry.treatment, "covers")
     return f"This section {verb} {_quoted(lo.title)} · {role} · {where}"
 

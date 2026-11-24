@@ -101,6 +101,7 @@ from learnloop.router_objective import objective as OBJ
 from learnloop.router_objective import rollouts as ROL
 from learnloop.router_objective import types as OT
 from learnloop.router_objective import weight as W
+from learnloop.algorithm_versions import probe_router_on
 from learnloop.router_objective_switches import failure_share_to_other_policy_on, stop_coin_rate
 
 LOG = logging.getLogger(__name__)
@@ -1201,12 +1202,14 @@ class ObjectiveRestraintGate(RestraintGate):
                valued: Mapping[str, BlockCandidate] | None = None,
                support: Sequence[str] = (INSERT_NOW, CONTINUE_CURRENT),
                sequences: Mapping[str, Sequence[BlockCandidate]] | None = None, start: Any = None,
-               llm_schema: str = rq.LLM_POLICY_RESTRAINT_SCHEMA) -> RestraintOutcome:
+               llm_schema: str = rq.LLM_POLICY_RESTRAINT_SCHEMA, staged_ref: str = INSERT_NOW) -> RestraintOutcome:
         """The two-policy mix over ``support`` (§8.3; by default ``{insert_now, continue_current}``), drawn and
         traced. ``candidates`` are what the cards show; ``valued`` (default: the same) what ``π_Q`` values, as
         ``sequences`` where given (default: the two orders). ``llm_schema``: the restraint's ``intervene_now``
         (two options) or ``router_llm_choice_v3`` (a probability per option, FG1's three at RO5's tag, ruling R8).
-        ``seed``: the numeric policy's (:func:`numeric_seed` of the boundary's identity; router speed stage 2's R2)."""
+        ``seed``: the numeric policy's (:func:`numeric_seed` of the boundary's identity; router speed stage 2's R2).
+        ``staged_ref``: the staged rule's pick (the follow-up asked now; at the probe router's tag, where the probe is
+        no option of the mix, no intervention)."""
 
         base: dict[str, Any] = {"mode": MODE, "why_version": WHY_VERSION}
         config = self.vault.config
@@ -1250,7 +1253,7 @@ class ObjectiveRestraintGate(RestraintGate):
         decision_id = new_ulid()
         seed = mix_seed(self.runtime, entry.key, decision_id)
         choice = C.post_miss_choice(C.PostMissInputs(
-            support=tuple(support), staged_ref=INSERT_NOW, wait_ref=CONTINUE_CURRENT,
+            support=tuple(support), staged_ref=staged_ref, wait_ref=CONTINUE_CURRENT,
             per_option=llm_schema == rq.LLM_POLICY_SCHEMA, llm_status=llm.status,
             llm_options=parsed.distribution if parsed is not None else None,
             llm_option_rationale=parsed.rationale if parsed is not None else None,
@@ -1264,7 +1267,7 @@ class ObjectiveRestraintGate(RestraintGate):
         titles = {lo_id: lo.title for lo_id, lo in self.vault.learning_objects.items()}
         trace = T.decision_trace(support=support, by_id={**by_id, **(dict(valued) if valued is not None else {})},
                                  feasible=candidates, titles=titles, numeric=numeric, llm=None,
-                                 decider=None, staged_ref=INSERT_NOW, weight=(w, weight_record),
+                                 decider=None, staged_ref=staged_ref, weight=(w, weight_record),
                                  effective=effective, pi=drawn.pi, drawn=drawn, seed=seed, config=config,
                                  now_iso=now_iso, guard={}, stop_in_support=False, card_version=card.version)
         trace["policies"]["llm"] = {"status": llm.status, "distribution": llm_dist, "rationale": rationale,
@@ -1278,7 +1281,7 @@ class ObjectiveRestraintGate(RestraintGate):
             policy=mix.POLICY, decided_by=MODE if ready else "objective_no_models", decision_id=decision_id,
             design=mix.DESIGN, seed=seed, drawn_component=drawn.component, fallback=mix.fallback_label(failed),
             fallback_reasons={name: (llm.status if name == mix.LLM else numeric.status) for name in failed},
-            mixture={"boundary_key": entry.key, "support": support, "staged_ref": INSERT_NOW, "k": len(support),
+            mixture={"boundary_key": entry.key, "support": support, "staged_ref": staged_ref, "k": len(support),
                      "epsilon": settings["epsilon_min"], "effective_weights": effective, "w": w, "failed": failed,
                      **T.failure_rule_field(to_other), "llm_distribution": llm_dist, "numeric_choice": choice.numeric_choice,
                      "drawn_component": drawn.component, "u1": drawn.u1, "u2": drawn.u2, "pi": dict(drawn.pi),
@@ -1480,6 +1483,9 @@ class ObjectiveFollowupGate(ObjectiveRestraintGate, FollowupGate):
         draw, before anything is generated. None, or no candidate in it: the predecessor's decision exactly."""
 
         state, candidates = self._followup_state(record, current, workflow)
+        if probe_router_on(self.vault.config):
+            return self._decide_unwritten_probe(record, current, workflow, state, candidates,
+                                                wait_feasible=wait_feasible, facts=facts, offer=offer)
         support = [INSERT_NOW, CONTINUE_CURRENT, NO_INTERVENTION]
         lesson = getattr(offer, "candidate", None)
         offered = {"support": support if wait_feasible else [INSERT_NOW],
@@ -1543,6 +1549,88 @@ class ObjectiveFollowupGate(ObjectiveRestraintGate, FollowupGate):
         outcome = _with_offer_record(outcome, offer)
         outcome.record["objective_followup"] = offered
         return replace(outcome, wait_feasible=wait_feasible)
+
+    def _decide_unwritten_probe(self, record: Any, current: Any, workflow: Mapping[str, Any], state: PlanState,
+                                candidates: list[BlockCandidate], *, wait_feasible: bool, facts: Sequence[str],
+                                offer: Any) -> RestraintOutcome:
+        """The probe router's tag (``probe_router_on``): the probe is not written yet, so the router cannot value its
+        answer pattern and it earns no information credit (G2 design decision 1); it is no option of either policy,
+        now or after the block. The mix decides over no intervention and the lesson, when one is offered (with no
+        lesson, nothing is left to choose and no model is asked), and beside it the probe coin asks the probe now on
+        its share (``probe_coin``), with the served distribution exact. No room to wait changes nothing here: waiting
+        is never an option of the mix, and the probe is asked only by the coin."""
+
+        from learnloop.router_objective import probe_coin as PC
+
+        config = self.vault.config
+        lesson = getattr(offer, "candidate", None)
+        mix_support = [NO_INTERVENTION, *([lesson.candidate_id] if lesson is not None else [])]
+        served_support = [INSERT_NOW, *mix_support]
+        offered = {"support": served_support, "mix_support": mix_support, "workflow_id": workflow.get("id"),
+                   "version": PC.VERSION, "probe": "unwritten_no_information_credit"}
+        identity = {"v": KEY_VERSION, "kind": "probe_router_followup", "plan_id": record.id,
+                    "workflow": workflow.get("id"), "block": current.id if current is not None else None,
+                    "version": config.algorithms.algorithm_version, "settings": router_settings(config),
+                    "objective": objective_settings(config), "support": mix_support,
+                    **({"offer": lesson.log_row(), "as_of": _latest_attempt(self.repository)} if lesson is not None
+                       else {}),
+                    **_preference_mark(self.repository, config),
+                    **_miss_cause_mark(self.repository, config, [*candidates, *([lesson] if lesson is not None else [])],
+                                       utc_now_iso(self.clock))}
+        key = _hash(identity)
+        insert, cont = candidates
+        rest = replace(cont, candidate_id=NO_INTERVENTION, reason="the current block's remaining questions, no "
+                                                                  "follow-up question")
+        if lesson is not None:
+            readiness = self.runtime.readiness(self.vault)
+            ready = tuple(name for name in (DECIDER, LLM) if readiness.get(name) is None)
+            titles = {lo_id: lo.title for lo_id, lo in self.vault.learning_objects.items()}
+            lo = str(workflow["learning_object_id"])
+            topic = titles.get(lo, lo)
+            options = [rq.BlockOption(NO_INTERVENTION, rq.NO_INTERVENTION_DESCRIPTION), _offer_option(lesson, titles)]
+            extra = [f"A question on {topic} was just missed.", *facts]
+            outcome = self._mixed(state, candidates, key=key, seed=numeric_seed(identity), readiness=readiness,
+                                  ready=ready, topic=topic, options=options, extra=extra,
+                                  valued={NO_INTERVENTION: rest, lesson.candidate_id: lesson}, support=mix_support,
+                                  sequences={NO_INTERVENTION: (rest,), OI.OFFER_DECLINED_STEPS: (rest,)},
+                                  start=self._start_choice, llm_schema=rq.LLM_POLICY_SCHEMA,
+                                  staged_ref=NO_INTERVENTION)
+            outcome = _with_offer_record(outcome, offer)
+            mu = dict(outcome.record["mixture"]["pi"])
+            decision_id = str(outcome.record["decision_id"])
+            drawn = outcome.chosen_ref
+            base = outcome.record
+        else:
+            card = _build_card(self.card_builder, state, candidates)
+            decision_id = new_ulid()
+            base = {"mode": MODE, "why_version": WHY_VERSION, "policy": PC.VERSION, "decided_by": "probe_unlearned",
+                    "decision_id": decision_id, **_card_fields(card)}
+            mu, drawn = {NO_INTERVENTION: 1.0}, NO_INTERVENTION
+            outcome = _with_offer_record(RestraintOutcome(NO_INTERVENTION, 1.0, base, why=""), offer)
+            base = outcome.record
+        base["mix_support"] = list(mix_support)
+        base["objective_followup"] = offered
+        rate = PC.share(config)
+        if not PC.applies(rate):
+            base["served_pi"] = dict(mu)
+            return replace(outcome, wait_feasible=wait_feasible)
+        seed = PC.seed_for(key, decision_id)
+        coin = PC.flip(seed, rate, probe_ref=INSERT_NOW, mu=mu, drawn=drawn, boundary_key=key)
+        served_pi = PC.served_distribution(mu, rate, probe_ref=INSERT_NOW)
+        base["probe_coin"] = coin.as_dict()
+        base["served_pi"] = served_pi
+        if "mixture" in base:
+            # The router's ledger logs each option's probability of being served: under the coin, the served
+            # distribution (exact); the mix's own μ stays beside it.
+            base["mixture"]["probe_coin"] = coin.as_dict()
+            base["mixture"]["served"] = coin.served
+            base["mixture"]["mix_pi"] = dict(mu)
+            base["mixture"]["pi"] = dict(served_pi)
+        base["ro5_assignments"] = [*(base.get("ro5_assignments") or []),
+                                   PC.pending_assignment(coin, seed=seed, support=served_support)]
+        why = outcome.why if coin.served == drawn else ""
+        return replace(outcome, chosen_ref=coin.served, propensity=coin.served_propensity, record=base, why=why,
+                       wait_feasible=wait_feasible)
 
     def _followup_minutes(self, workflow: Mapping[str, Any], current: Any) -> float:
         """The generated question's minutes for ``π_Q``: the missed question's own estimate (the probe is written on

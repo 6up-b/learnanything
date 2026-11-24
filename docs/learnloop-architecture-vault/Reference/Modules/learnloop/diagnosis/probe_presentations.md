@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/probe_presentations.py](../../../../../../src/learnloop/diagnosis/probe_presentations.py) |
-| Source lines | 563 |
+| Source lines | 568 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -66,9 +66,9 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `serve_presentation(repository: Repository, presentation_id: str, *, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/diagnosis/probe_presentations.py), line 369) — Mark a committed presentation served: the administration itself, and the only path to ``served``.
 - `probe_serving_block_reason(vault: LoadedVault, repository: Repository, *, session_id: str | None=None, cap_lifted: bool=False) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/probe_presentations.py), line 391) — The §5.9 orchestration gate shared by every serving surface.
 - `probe_value_block_reason(vault: LoadedVault, repository: Repository, episode: 'ProbeEpisodeRecord', practice_item_id: str, *, session_id: str | None=None, cap_lifted: bool=False) -> tuple[str | None, dict[str, Any] | None]` ([source](../../../../../../src/learnloop/diagnosis/probe_presentations.py), line 428) — mvp-0.21 (voi_stopping, site ``probe_episode``): may this item be the episode's next observation?
-- `commit_item_presentation(vault: LoadedVault, repository: Repository, episode: 'ProbeEpisodeRecord', item, hypothesis_set, *, extra_selection_components: Mapping[str, Any] | None=None, clock: Clock | None=None)` ([source](../../../../../../src/learnloop/diagnosis/probe_presentations.py), line 479) — Commit and serve a presentation for one specific item.
-- `class PresentationValidation` ([source](../../../../../../src/learnloop/diagnosis/probe_presentations.py), line 518)
-- `validate_presentation_for_submission(repository: Repository, presentation_id: str, *, practice_item_id: str, attempt_id: str | None=None, clock: Clock | None=None) -> PresentationValidation` ([source](../../../../../../src/learnloop/diagnosis/probe_presentations.py), line 525) — §5.4/§5.1 submission validation: active, same episode/item/segment, unexpired, unconsumed.
+- `commit_item_presentation(vault: LoadedVault, repository: Repository, episode: 'ProbeEpisodeRecord', item, hypothesis_set, *, extra_selection_components: Mapping[str, Any] | None=None, clock: Clock | None=None)` ([source](../../../../../../src/learnloop/diagnosis/probe_presentations.py), line 484) — Commit and serve a presentation for one specific item.
+- `class PresentationValidation` ([source](../../../../../../src/learnloop/diagnosis/probe_presentations.py), line 523)
+- `validate_presentation_for_submission(repository: Repository, presentation_id: str, *, practice_item_id: str, attempt_id: str | None=None, clock: Clock | None=None) -> PresentationValidation` ([source](../../../../../../src/learnloop/diagnosis/probe_presentations.py), line 530) — §5.4/§5.1 submission validation: active, same episode/item/segment, unexpired, unconsumed.
 
 ### Module constants
 
@@ -100,7 +100,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `ProbePresentationRecord`, `Repository`
 - [[Reference/Modules/learnloop/db/stores/probes|learnloop.db.stores.probes]] — imports `ProbeEpisodeRecord`
 - [[Reference/Modules/learnloop/diagnosis/probe_completion|learnloop.diagnosis.probe_completion]] — imports `robust_gate_counterfactual`; calls `robust_gate_counterfactual`
-- [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `EligibleInstrument`, `_entropy`, `effective_qualifying_total`, `eligible_instruments`, `episode_hypothesis_set`, `episode_posterior`, `qualifying_observation_count`, `session_qualifying_total`; calls `_entropy`, `effective_qualifying_total`, `eligible_instruments`, `episode_hypothesis_set`, `episode_posterior`, `qualifying_observation_count`, `session_qualifying_total`
+- [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `EligibleInstrument`, `_entropy`, `effective_qualifying_total`, `eligible_instruments`, `episode_hypothesis_set`, `episode_posterior`, `qualifying_observation_count`, `router_selected_episode`, `session_qualifying_total`; calls `_entropy`, `effective_qualifying_total`, `eligible_instruments`, `episode_hypothesis_set`, `episode_posterior`, `qualifying_observation_count`, `router_selected_episode`, `session_qualifying_total`
 - [[Reference/Modules/learnloop/diagnosis/probe_families|learnloop.diagnosis.probe_families]] — imports `SELECTION_POLICY_VERSION`, `instrument_expected_information_gain`; calls `instrument_expected_information_gain`
 - [[Reference/Modules/learnloop/diagnosis/probe_robust|learnloop.diagnosis.probe_robust]] — imports `instrument_ensemble`, `load_pinned_channel`; calls `instrument_ensemble`, `load_pinned_channel`
 - [[Reference/Modules/learnloop/diagnosis/robust_composition|learnloop.diagnosis.robust_composition]] — imports `robust_eig_per_second`; calls `robust_eig_per_second`

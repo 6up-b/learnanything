@@ -457,8 +457,12 @@ def _host_caller(vault: Any, repository: Any, *, origin: str, host_ref: dict[str
 
 def _request_figure(ctx: SidecarContext, *, origin: str, extraction_id: str | None, span_ids: list[str],
                     region: dict[str, Any] | None, **kwargs: Any) -> dict[str, Any]:
-    """One figure request, from either RPC (:func:`_admitted_request`), with its refusal recorded."""
+    """One figure request, from either RPC (:func:`_admitted_request`), with its refusal recorded. While an inline check
+    is open it waits: a figure would explain what the veils hold."""
 
+    from learnloop_sidecar.check_hold import refuse_while_check_open
+
+    refuse_while_check_open(ctx.require_vault()[1])
     with _refusals_recorded(ctx, SimpleNamespace(origin=origin, span_ids=span_ids, region=region)):
         return _admitted_request(ctx, origin=origin, extraction_id=extraction_id, span_ids=span_ids,
                                  region=region, **kwargs)
@@ -885,6 +889,10 @@ def figure_rich_retry(ctx: SidecarContext, params: RichRetryInput) -> dict[str, 
     straight to the rich job, whose id is answered)."""
 
     from learnloop.figures import rich as RICH
+    from learnloop_sidecar.check_hold import refuse_while_check_open
+
+    # While an inline check is open a retried build waits, as a new one does.
+    refuse_while_check_open(ctx.require_vault()[1])
 
     vault, repository = _require(ctx)
     job = repository.get_ingest_job(params.rich_job_id)

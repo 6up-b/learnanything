@@ -165,6 +165,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/ai_ok_world.py](../../../../../../tests/ai_ok_world.py) — direct import
 - [tests/ink_helpers.py](../../../../../../tests/ink_helpers.py) — direct import
 - [tests/test_menu_protected_material.py](../../../../../../tests/test_menu_protected_material.py) — direct import
+  - `test_a_shared_destination_keeps_its_own_set_on_exam_material_not_held_out`
+  - `test_the_menus_verbs_agree_with_their_destinations_and_the_classic_reader`
 - [tests/test_one_ai_ok.py](../../../../../../tests/test_one_ai_ok.py) — direct import
   - `test_a_fallback_provider_is_held_to_the_same_ok`
   - `test_an_unchecked_model_call_in_any_rpc_answers_waiting_for_ok`

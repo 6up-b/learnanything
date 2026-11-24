@@ -62,7 +62,7 @@ export function Shelf({
   const setOpen = (next: boolean) => onOpenChange?.(next);
   if (folded && !open) {
     return (
-      <aside className="desk-shelf-rail" aria-label="this desk's windows">
+      <aside className="desk-shelf-rail" aria-label="this desk's windows" data-check-region="the shelf">
         <button type="button" className="railbtn" aria-label="show the strip" title="the strip · tap to open" onClick={() => setOpen(true)}>☰<span className="rl">strip</span></button>
       </aside>
     );
@@ -93,14 +93,14 @@ export function Shelf({
     return (
       <>
         <aside className="desk-shelf-rail" aria-label="this desk's windows" />
-        <div className="desk-shelf desk-shelf-overlay" role="dialog" aria-label="the strip">
+        <div className="desk-shelf desk-shelf-overlay" role="dialog" aria-label="the strip" data-check-region="the shelf">
           <button type="button" className="railbtn open" aria-label="hide the strip" title="the strip · tap to close" onClick={() => setOpen(false)}>☰<span className="rl">strip</span></button>
           {body}
         </div>
       </>
     );
   }
-  return <aside className="desk-shelf" aria-label="this desk's windows">{body}</aside>;
+  return <aside className="desk-shelf" aria-label="this desk's windows" data-check-region="the shelf">{body}</aside>;
 }
 
 function ShelfBody({

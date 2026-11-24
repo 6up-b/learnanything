@@ -1,5 +1,7 @@
 import { listen } from "@tauri-apps/api/event";
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { CheckDesk, LIVE_CHECK_TRANSPORT } from "../screens/desks/checks/controller";
+import { CheckOpenGate, checkGateOf } from "./checkGate";
 import { flushSync } from "react-dom";
 import { api } from "../api/client";
 import { NO_ASK_NOT_YET, NO_ASK_TEACH_BACK, quickCheckNothingToAsk } from "../copy/refusals";
@@ -655,6 +657,18 @@ export function App() {
   // is a handful of indexed COUNTs, which is what makes hanging it off tab
   // changes affordable.
   const vaultRoot = snapshot?.vault?.root ?? null;
+  // The vault's inline checks (RD7, spec §12.6) belong to the app, not to the desks: a check open on the desks holds
+  // every other place too. Nothing that shows study material renders before the read says whether one is open.
+  const deskChecks = useMemo(() => (vaultRoot ? new CheckDesk(LIVE_CHECK_TRANSPORT, mintCheckId) : null), [vaultRoot]);
+  useSyncExternalStore(deskChecks?.subscribe ?? noSubscription, deskChecks?.getVersion ?? noVersion);
+  useEffect(() => {
+    deskChecks?.recover();
+  }, [deskChecks]);
+  const onDesks = tab === "reader" && vaultRoot !== null;
+  /** "back to the check": the Reader place on the desks, where the check's card is. */
+  const backToCheck = useCallback(() => {
+    setTab("reader");
+  }, []);
   // A desk lesson request belongs to the vault it was asked in: another vault never replays it.
   useEffect(() => { setDeskLessonRequest(null); }, [vaultRoot]);
   // Mobile PR-7 (§3.3): the queue-revision poll lives here so a change is seen and the
@@ -2058,6 +2072,12 @@ export function App() {
       }
       return <EmptyPlaceholder title="Loading LearnLoop vault" />;
     }
+    // While a check is open on the desks (or before the app knows whether one is), no other place shows: the learner
+    // goes back to the check or sets it aside, plainly.
+    const gate = checkGateOf(deskChecks, onDesks);
+    if (gate && deskChecks) {
+      return <CheckOpenGate state={gate} checks={deskChecks} onBack={backToCheck} />;
+    }
     // The exam overlay pre-empts the tab body — it's entered only from the goal
     // banner and returns to the today tab on exit.
     if (examGoalId) {
@@ -2442,6 +2462,7 @@ export function App() {
       <DeskShell
         key={root}
         vaultKey={root}
+        {...(deskChecks ? { checks: deskChecks } : {})}
         onError={onError}
         firstSourceId={readerSource?.card.sourceId ?? null}
         // Skim is the mute button on the desks too: leaving them while the book being read is skimmed offers nothing.
@@ -2499,6 +2520,9 @@ export function App() {
     return <EmptyPlaceholder title={tab} />;
   }
 
+  // While a check is open the app's overlays that show study material (review, the inspector, a lesson, Ask, open in
+  // source, the palette's search) stay closed: anything they showed would sit outside the veils.
+  const checkHeld = Boolean(deskChecks?.holding());
   const shellTree = (
     <>
       <TerminalFrame
@@ -2549,7 +2573,7 @@ export function App() {
           onDismissNotification={dismissSettingsNotice}
         />
       ) : null}
-      {reviewOpen ? (
+      {reviewOpen && !checkHeld ? (
         <ReviewScreen
           onClose={() => setReviewOpen(false)}
           onError={onError}
@@ -2562,7 +2586,7 @@ export function App() {
         />
       ) : null}
       <InspectorOverlay
-        entityId={inspectorId}
+        entityId={checkHeld ? null : inspectorId}
         // UX Phase 4.1: the question being answered keeps its answer to itself.
         answeringItemId={tab === "today" && todayStage === "practice" ? practiceItemId : null}
         onClose={() => setInspectorId(null)}
@@ -2574,7 +2598,7 @@ export function App() {
           openLessonEntry({ kind: "open", entry: "learning_object", learningObjectIds: [learningObjectId], title });
         } } : {})}
       />
-      {lessonEntry ? (
+      {lessonEntry && !checkHeld ? (
         <Suspense fallback={<div role="status">Loading…</div>}>
           <LessonScreen
             entry={lessonEntry}
@@ -2594,13 +2618,13 @@ export function App() {
       ) : null}
       <AskOverlay
         // Reader CA2: a feedback Ask docks beside feedback instead (above).
-        target={algoConfig().ask !== null && askTarget?.context === "feedback" && tab === "today" && todayStage === "feedback"
+        target={checkHeld || (algoConfig().ask !== null && askTarget?.context === "feedback" && tab === "today" && todayStage === "feedback")
           ? null : askTarget}
         onClose={() => setAskTarget(null)}
         onToast={notify}
         onOpenPractice={(practiceItemId, origin) => openPractice(practiceItemId, null, origin ?? null)}
       />
-      {openSource ? (
+      {openSource && !checkHeld ? (
         <OpenInSource
           extractionId={openSource.extractionId}
           spanId={openSource.spanId}
@@ -2729,7 +2753,7 @@ export function App() {
       {keysHelpOpen ? <KeyboardHelp shell={shell} onClose={() => setKeysHelpOpen(false)} /> : null}
       <SessionFinishHud summary={finishSummary} onDismiss={() => setFinishSummary(null)} />
       <CommandPalette
-        open={paletteOpen}
+        open={paletteOpen && !checkHeld}
         session={session}
         entityIds={unique([practiceItemId, attemptId, ...paletteEntityIds])}
         practiceItemIds={unique([practiceItemId, ...palettePracticeItemIds])}
@@ -2749,6 +2773,19 @@ export function App() {
   );
   // Simple shell: its chrome is a key-isolated region (fix round 4).
   return simple ? <ShellChromeRoot>{shellTree}</ShellChromeRoot> : shellTree;
+}
+
+function noSubscription(): () => void {
+  return () => undefined;
+}
+
+function noVersion(): number {
+  return 0;
+}
+
+/** Ids for the inline checks' requests (a begin, a submission, an exposure): unique on this machine. */
+function mintCheckId(prefix: string): string {
+  return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
 function unique(values: Array<string | null>): string[] {

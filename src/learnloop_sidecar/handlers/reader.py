@@ -2062,12 +2062,12 @@ def reader_author_section_question(
     ir = repository.load_document_ir(resolved)
     section_rows = [row for row in (RG.extraction_sections(ir)[0] if ir is not None else [])
                     if row["id"] == params.section_id]
-    refuse_protected(vault, repository, reading_places(resolved, [
-        *params.span_ids, *(span for row in section_rows for span in row["span_ids"])]))
     if RG.held_out_sections(vault, repository, resolved, section_rows):
         refusal = HELD_BACK_REFUSAL if reading_held_back(vault, repository, resolved) else HELD_OUT_REFUSAL
         raise SidecarError("exam_material", refusal,
                            details={"extraction_id": resolved, "section_id": params.section_id})
+    refuse_protected(vault, repository, reading_places(resolved, params.span_ids), surface="reader_checks",
+                     message=HELD_OUT_REFUSAL)
 
     existing = repository.latest_reader_authored_question(
         extraction_id=resolved, section_id=params.section_id
@@ -2415,7 +2415,7 @@ def enqueue_exercise_import(ctx: SidecarContext, vault, repository, params: Read
     # Reader CA6b fix round 5: the passages named are this reading's (fail closed).
     require_identity(repository, extraction_id=resolved, raw_selection=params.raw_selection,
                      source_id=params.source_id, revision_id=params.revision_id, render_view_id=params.render_view_id)
-    check_selection(vault, repository, resolved, params.raw_selection or {}, params.render_view_id)
+    check_selection(vault, repository, resolved, params.raw_selection or {}, params.render_view_id, surface="reader_import")
     source_id = params.source_id or _source_id_for_extraction(repository, resolved)
     if source_id is not None:
         _require_source_reader(repository, source_id)

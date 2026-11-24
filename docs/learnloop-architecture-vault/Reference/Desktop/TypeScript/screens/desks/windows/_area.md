@@ -34,8 +34,8 @@ No nested ownership area.
 
 | Module | Status | Purpose | Imports | Imported by |
 |---|---|---|---:|---:|
-| [[Reference/Desktop/TypeScript/screens/desks/windows/PanelWindow|PanelWindow.tsx]] | `ACTIVE` | Implements the `PanelWindow` routed desktop screen and coordinates its learner-facing workflow state. | 13 | 1 |
-| [[Reference/Desktop/TypeScript/screens/desks/windows/SourceWindow|SourceWindow.tsx]] | `ACTIVE` | Implements the `SourceWindow` routed desktop screen and coordinates its learner-facing workflow state. | 7 | 4 |
+| [[Reference/Desktop/TypeScript/screens/desks/windows/PanelWindow|PanelWindow.tsx]] | `ACTIVE` | Implements the `PanelWindow` routed desktop screen and coordinates its learner-facing workflow state. | 14 | 1 |
+| [[Reference/Desktop/TypeScript/screens/desks/windows/SourceWindow|SourceWindow.tsx]] | `ACTIVE` | Implements the `SourceWindow` routed desktop screen and coordinates its learner-facing workflow state. | 5 | 4 |
 | [[Reference/Desktop/TypeScript/screens/desks/windows/ThreadWindow|ThreadWindow.tsx]] | `ACTIVE` | Implements the `ThreadWindow` routed desktop screen and coordinates its learner-facing workflow state. | 5 | 1 |
 
 ## Modification guidance

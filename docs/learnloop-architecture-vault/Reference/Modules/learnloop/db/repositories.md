@@ -1920,6 +1920,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_hypothesis_fallback_when_target_set_inadequate`
   - `test_predictive_objective_is_default_and_persisted`
 - [tests/test_probe_remint.py](../../../../../../tests/test_probe_remint.py) — direct import
+- [tests/test_probe_router_replay.py](../../../../../../tests/test_probe_router_replay.py) — direct import
 - [tests/test_probe_surface_mint.py](../../../../../../tests/test_probe_surface_mint.py) — direct import
 - [tests/test_probe_targeting.py](../../../../../../tests/test_probe_targeting.py) — direct import
   - `test_cause_set_diagnostic_selects_discriminating_instrument`
@@ -2079,6 +2080,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reader_rd4_rpcs.py](../../../../../../tests/test_reader_rd4_rpcs.py) — direct import
   - `test_the_fix_rounds_read_is_desktop_only_refuses_an_extra_field_and_is_versioned`
 - [tests/test_reader_rd7a_inline_checks.py](../../../../../../tests/test_reader_rd7a_inline_checks.py) — direct import
+  - `test_rd7_4_every_candidate_of_an_lo_check_is_charged_from_the_set_begin_froze`
+  - `test_rd7_5_an_opening_and_its_reveals_commit_together_and_a_retry_charges_nothing_again`
 - [tests/test_reader_rd7b_check_session.py](../../../../../../tests/test_reader_rd7b_check_session.py) — direct import
 - [tests/test_reader_rd_retire_migration.py](../../../../../../tests/test_reader_rd_retire_migration.py) — direct import
   - `test_a_preparing_window_names_its_source_alone`

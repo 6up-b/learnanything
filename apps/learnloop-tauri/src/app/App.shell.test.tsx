@@ -19,6 +19,8 @@ vi.mock("../api/client", () => {
   const card = { sourceId: "src_axler", title: "Linear Algebra Done Right" };
   const api = new Proxy(
     {
+      // No inline check is open on the desks (the app reads it before showing any place).
+      checkOpenInline: vi.fn(async () => ({ administration: null })),
       loadVault: vi.fn(async () => ({
         vault: { root: "/vault", subjects: [], subjectTitles: [], counts: { learningObjects: 1, practiceItems: 1 }, algorithmVersion: "mvp-0.29" },
         health: { ai: { ready: false, settingsReady: false, manualGrading: false, activeProvider: null }, codex: { ready: false } },

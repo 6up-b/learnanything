@@ -7,7 +7,6 @@ from types import SimpleNamespace
 
 import pytest
 
-from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.diagnosis.split.jobs import drain
 from learnloop.followup_serve import workflow as wf
 from learnloop_sidecar.context import SidecarContext
@@ -17,10 +16,12 @@ from learnloop_sidecar.registry import METHOD_REGISTRY
 from learnloop_sidecar.request_origin import RequestOrigin
 
 from tests.followup_serve_helpers import LIVE_ITEM, BlindRivalClient, live_shape_vault
+from tests.probe_router_helpers import BEFORE_PROBE_ROUTER
 from tests.followup_rival_factor_helpers import _Ready, _generate
 
 
-TAG = LATEST_ALGORITHM_VERSION
+#: The phone's follow-up probe as the probe router's predecessor asked it (``probe_router_helpers``).
+TAG = BEFORE_PROBE_ROUTER
 PHONE = RequestOrigin(device_id="dev_phone", phone_probes=True)
 
 

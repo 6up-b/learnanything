@@ -349,9 +349,16 @@ def test_a_probe_without_a_payload_is_the_predecessors_and_a_payload_is_refused_
         OT.Action(ref="r", kind=OT.REPAIR, item_los=("lo_a",), diagnostic=_payload())
 
 
-def test_no_served_module_imports_the_evaluator():
-    """Nothing under ``src`` imports the successor evaluator (by name, from its package, or through importlib): it
-    runs only in tests and the comparison report until the behaviour step wires it."""
+#: The one served module that imports the successor evaluator: the probe router's learner lane, which prices a probe
+#: with it at the router's decision (``docs/reviews/refactor-g2-design.md`` §4, step 6 wires "the new evaluator";
+#: step 4 kept it unserved until then). Every other module under ``src`` stays off it: a second caller would be a
+#: second valuation of the same decision, outside the router.
+ROUTER_ENTRY = "src/learnloop/daily_plan/learner_probe.py"
+
+
+def test_only_the_routers_learner_lane_imports_the_evaluator():
+    """Nothing under ``src`` but the probe router's one entry (:data:`ROUTER_ENTRY`) imports the successor evaluator
+    (by name, from its package, or through importlib), and that entry does."""
 
     hits = []
     for path in sorted((ROOT / "src").rglob("*.py")):
@@ -371,4 +378,4 @@ def test_no_served_module_imports_the_evaluator():
                     "import_module", "__import__"} and any(
                     isinstance(arg, ast.Constant) and "diagnostic_value" in str(arg.value) for arg in node.args):
                 hits.append(str(path.relative_to(ROOT)))
-    assert hits == []
+    assert sorted(set(hits)) == [ROUTER_ENTRY]

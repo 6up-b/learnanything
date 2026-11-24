@@ -5,10 +5,10 @@ aliases:
   - Next Action Policy
 status: active
 doc_version: 1.0.0
-implementation_version: mvp-0.9
-last_reviewed: 2026-09-23
-source_commit: 0622ea164f76ad7e1d62a00afda51473dbcd992e
-source_commit_timestamp: "2026-09-23T13:06:55-04:00"
+implementation_version: mvp-0.68
+last_reviewed: 2026-11-23
+source_commit: 86f29b0d390ed2ecdbb0347d98ccb1175ac52728
+source_commit_timestamp: "2026-11-23T23:12:28-05:00"
 source_paths:
   - src/learnloop/scheduling/scheduler.py
   - src/learnloop/scheduling/selection_rewards.py
@@ -36,11 +36,12 @@ flowchart LR
     CONTEXT --> INTENT[Assign per-item reward intent]
     INTENT --> REWARD[Score reward/components]
     REWARD --> POLICY[Quotas, floors, caps, contrast/follow-up ordering]
-    POLICY --> SLATE[Persisted explainable slate + decision features]
+    POLICY --> QUEUE[Ranked queue]
+    QUEUE -->|serving with a session| SLATE[Persisted slate + decision features]
     SLATE --> OFFER[Finalized offer receipt]
 ```
 
-Hard rules prevent an attractive score from serving an invalid surface.
+The scheduler reads the admission inputs and calls `admit_due`. After gathering the ranked queue's remaining inputs, it calls `rank_due`. These two stages make their decisions over gathered values. The serving shell owns the writes. See [[Reference/Modules/learnloop/scheduling/scheduler|the scheduler]].
 
 ## Eligibility examples
 
@@ -50,7 +51,7 @@ Hard rules prevent an attractive score from serving an invalid surface.
 - a pending easier/harder variant can hold its source item;
 - unrenderable instruments are not schedulable;
 - staged-controller-owned commitments are excluded from the legacy controller;
-- source-revealed cold follow-ups are deferred;
+- a time-bounded hold can defer a cold follow-up, and a surface that can no longer measure cold is withdrawn;
 - ephemeral diagnostic dialogue turns never enter ordinary practice.
 
 ## Reward components
@@ -78,7 +79,7 @@ During an in-progress diagnostic episode, only admitted instruments bound to the
 
 ## The daily plan's block router
 
-Today's plan picks its next block at each block boundary (`daily_plan.engine.decide`), separately from the scheduler's slate. The plan policy's chooser draws from the staged frame's top-k support: the objective chooser (`daily_plan/objective_chooser.py`) mixes the router LLM's policy with the numeric policy and logs the Decider and the staged rule as advice, and below its tag the R2 mixture (`daily_plan/router_chooser.py`) mixes the Decider and the LLM. The models run in background threads keyed by the decision's boundary key (`daily_plan/router_runtime.py`), from the prefetch at Today's open or after feedback. For the objective chooser, the job's control is `daily_plan/objective_job.py`: it starts the job, runs the Decider and the LLM on their own threads and the numeric policy on the job's, publishes the numeric policy's first complete answer before any wait on the LLM, applies the deadlines, and defers and drains the carried valuations; the chooser starts no thread and reads no deadline. A carried valuation is recorded only by a later decision of the session and plan that deferred it; a closing sidecar context and a new plan stop the ones left (`objective_job.stop_carries`, a bounded wait). The seeds (the numeric policy's, the mix's, and the stop coin's, which draws from the mix's) are in `daily_plan/objective_seeds.py`, with what each depends on. A read whose models are still out leaves the boundary open. A serve waits up to `router.timeout_seconds`, and a model still out is a timeout whose share goes to the staged rule. If the chooser raises, the lane-quota rule chooses (`fallback_reason = chooser_error`). `decide` writes nothing, but it is not pure: its chooser reads the vault, starts the model threads and waits on them.
+Today's plan picks its next block at each block boundary (`daily_plan.engine.decide`), separately from the scheduler's slate. The plan policy's chooser draws from the staged frame's top-k support: the objective chooser (`daily_plan/objective_chooser.py`) mixes the router LLM's policy with the numeric policy and logs the Decider and the staged rule as advice, and with the objective disabled the R2 mixture can mix the Decider and the LLM. The models run in background threads keyed by the decision's boundary key (`daily_plan/router_runtime.py`), from the prefetch at Today's open or after feedback. For the objective chooser, the job's control is `daily_plan/objective_job.py`: it starts the job, runs the Decider and the LLM on their own threads and the numeric policy on the job's, publishes the numeric policy's first complete answer before any wait on the LLM, applies the deadlines, and defers and drains the carried valuations; the chooser starts no thread and reads no deadline. A carried valuation is recorded only by a later decision of the session and plan that deferred it; a closing sidecar context and a new plan stop the ones left (`objective_job.stop_carries`, a bounded wait). The seeds (the numeric policy's, the mix's, and the stop coin's, which draws from the mix's) are in `daily_plan/objective_seeds.py`, with what each depends on. A read whose models are still out leaves the boundary open. A serve waits up to `router.timeout_seconds`, and a model still out is a timeout whose share goes to the staged rule. If the chooser raises, the lane-quota rule chooses (`fallback_reason = chooser_error`). `decide` writes nothing, but it is not pure: its chooser reads the vault, starts the model threads and waits on them.
 
 What the numeric policy optimizes, its terms and where each lives are in [[Router Objective]]: the terms in `router_objective/objective.py`, the rollouts that compute them in `router_objective/rollouts.py`.
 
@@ -90,9 +91,9 @@ The container logs each decision as a `plan_block` row in `router_decisions` in 
 
 `ScheduledItem` carries component values, readiness, selected mode/intent, plain-English reasons, and optional reward debug. `explain_practice_item` exposes why an item did or did not rank.
 
-The queue has two entry points over one build (`scheduling/scheduler.py`). `serve_due_queue` serves: before ranking it reconciles diagnostic supply, placement's fast track and the cold lane's deferrals (in place, because the reads after them must see them), and with a session it then persists the offer in one step (`_persist_offer`): it ends a committed probe presentation the composition left no place for, records the contrast pairs' drawn order ([[contrast_pair_servings]]), and writes the slate described below, followed by the slate's decision record. `read_due_queue` returns the same queue and writes none of these; the charts, `why`, the staged comparator, the simulator and the plan's prefetch (on a read-only attach) call it. The one write a read still makes is the follow-up tasks' lazy status marks inside `Repository.due_followup_tasks`, which a read-only attach skips.
+The queue has two entry points over one build (`scheduling/scheduler.py`). `serve_due_queue` serves: before ranking it reconciles diagnostic supply, placement's fast track and the cold lane's deferrals (in place, because the reads after them must see them), and with a session it then runs one queue persistence step: it ends a committed probe presentation the composition left no place for, records the contrast pairs' drawn order ([[contrast_pair_servings]]), and writes the slate described below, followed by the slate's decision record. `read_due_queue` returns the same queue and writes none of these; the charts, `why`, the staged comparator, the simulator and the plan's prefetch (on a read-only attach) call it. The one write a read still makes is the follow-up tasks' lazy status marks inside `Repository.due_followup_tasks`, which a read-only attach skips.
 
-A serving queue build persists a [[scheduler_slates|slate]] (`selection_policy` `composed_offer_v2`) with one [[scheduler_slate_candidates|candidate]] row per considered item, plus a selection [[decision_features]] row for each candidate whose learning object resolves. The adapter then records the ordered list it actually showed in [[scheduler_offer_receipts]] (`finalize_scheduler_offer`), and an attempt links to the candidate it answered through [[submission_intents]]. See [[Collection and Dataset Contract]].
+A serving queue build with a session persists a [[scheduler_slates|slate]] (`selection_policy` `composed_offer_v2`) with one [[scheduler_slate_candidates|candidate]] row per considered item, plus a selection [[decision_features]] row for each candidate whose learning object resolves. The adapter then records the ordered list it actually showed in [[scheduler_offer_receipts]] (`finalize_scheduler_offer`), and an attempt links to the candidate it answered through [[submission_intents]]. See [[Collection and Dataset Contract]].
 
 > [!warning] Composed offers carry no selection propensity
 > The queue is composed after the exploration draw (floors, quotas, ordering, adapter filtering) and the learner then chooses from it, so no candidate probability of the served action exists. Every candidate of a composed slate stores `selection_propensity = NULL` with `propensity_kind = unavailable_composed_offer`; the pre-composition draw is kept as `components.base_selection_propensity` and is not an importance weight. `learnloop eval` counts such chosen candidates under `unavailable_propensities` and judges off-policy readiness only on `recorded_chosen_candidates`; when every chosen candidate is a composed offer it reports `UNAVAILABLE`. Slates, candidates and linked attempts still explain and replay what was offered and chosen; they do not support off-policy estimates of alternative policies.

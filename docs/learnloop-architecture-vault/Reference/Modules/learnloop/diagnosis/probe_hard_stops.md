@@ -77,7 +77,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] — imports `EPISODE_CONFLICT_MESSAGE`, `learner_preference`, `probe_episode_conflict`; statically calls `learner_preference`, `probe_episode_conflict`
-- [[Reference/Modules/learnloop/diagnosis/probe_offer|learnloop.diagnosis.probe_offer]] — imports `EPISODE_CONFLICT_REASON`, `_causal_origin`, `episode_conflict_reason`, `record_learner_preference`; statically calls `_causal_origin`, `episode_conflict_reason`, `record_learner_preference`
+- [[Reference/Modules/learnloop/diagnosis/probe_offer|learnloop.diagnosis.probe_offer]] — imports `EPISODE_CONFLICT_REASON`, `_causal_origin`, `episode_conflict_reason`, `learner_preference`, `record_learner_preference`; statically calls `_causal_origin`, `episode_conflict_reason`, `learner_preference`, `record_learner_preference`
 - [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]] — imports `causal_origin_factor`; statically calls `causal_origin_factor`
 - [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]] — imports `learner_preference`, `probe_episode_conflict`; statically calls `learner_preference`, `probe_episode_conflict`
 - [[Reference/Modules/learnloop/followup_run/serving|learnloop.followup_run.serving]] — imports `record_learner_preference`; statically calls `record_learner_preference`

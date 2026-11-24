@@ -20,9 +20,9 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/curriculum/goal_lens.py"
   - "src/learnloop/db/stores/deliverables.py"
+  - "src/learnloop/intent/inline_administration.py"
   - "src/learnloop/intent/inline_checks.py"
   - "src/learnloop/source_retrieval/deliverable_path.py"
-  - "src/learnloop/source_retrieval/goal_lens_reads.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -100,6 +100,7 @@ None found by exact static reference scan.
 ### Direct SQL readers
 
 - `src/learnloop/db/stores/deliverables.py`
+- `src/learnloop/intent/inline_administration.py`
 - `src/learnloop/intent/inline_checks.py`
 - `src/learnloop/source_retrieval/goal_lens_reads.py`
 

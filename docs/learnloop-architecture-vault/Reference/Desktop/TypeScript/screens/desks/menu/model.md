@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/menu/model.ts](../../../../../../../../apps/learnloop-tauri/src/screens/desks/menu/model.ts) |
-| Source lines | 282 |
+| Source lines | 294 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/menu/_area|TypeScript/screens/desks/menu]] |
 | Refactor status | `ACTIVE` |
@@ -59,71 +59,73 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export function captureNodes(object: MenuObject): Array<` — function, line 36
 - `export function passageIds(object: MenuObject): string[]` — function, line 43
 - `export function objectInput(object: MenuObject, deskId: string | null): MenuObjectInput` — function, line 49
-- `export function headerLine(object: MenuObject, withheld: boolean | null = null): string` — function, line 76
-- `export type VerbId = | "ask" | "note" | "append" | "carry" | "open_beside" | "find" | "compare" | "show_me" | "make_practice" | "teach_me" | "submit" | "new_desk" | "gather" | "share_slot" | "own_slot" | "knows"` — type, line 86
-- `export interface VerbSpec` — interface, line 90
-- `export const VERBS: VerbSpec[] = [` — const, line 98
-- `export function needsClearance(id: VerbId): boolean` — function, line 123
-- `export function verbsFor(kind: MenuObjectKind): VerbSpec[]` — function, line 128
-- `export function hasPassage(object: MenuObject): boolean` — function, line 133
-- `export interface MenuRow` — interface, line 138
-- `export function shownPromoted(rows: PromotedRowDto[], dismissed: ReadonlySet<string>, cap = 4): PromotedRowDto[]` — function, line 160
-- `export function promotedReason(row: PromotedRowDto): string` — function, line 165
-- `export const MENU_SIZES =` — const, line 172
-- `export function placeMenu(at:` — function, line 175
-- `export function placeSubmenu(row:` — function, line 182
-- `export function objectAt(target: Element, kindOf: (windowId: string)` — function, line 190
+- `export interface MenuVerdict` — interface, line 78
+- `export function verdictFor(verdict: MenuVerdict, verb?: VerbId): boolean` — function, line 84
+- `export function headerLine(object: MenuObject, withheld: boolean | null = null): string` — function, line 88
+- `export type VerbId = | "ask" | "note" | "append" | "carry" | "open_beside" | "find" | "compare" | "show_me" | "make_practice" | "teach_me" | "submit" | "new_desk" | "gather" | "share_slot" | "own_slot" | "knows"` — type, line 98
+- `export interface VerbSpec` — interface, line 102
+- `export const VERBS: VerbSpec[] = [` — const, line 110
+- `export function needsClearance(id: VerbId): boolean` — function, line 135
+- `export function verbsFor(kind: MenuObjectKind): VerbSpec[]` — function, line 140
+- `export function hasPassage(object: MenuObject): boolean` — function, line 145
+- `export interface MenuRow` — interface, line 150
+- `export function shownPromoted(rows: PromotedRowDto[], dismissed: ReadonlySet<string>, cap = 4): PromotedRowDto[]` — function, line 172
+- `export function promotedReason(row: PromotedRowDto): string` — function, line 177
+- `export const MENU_SIZES =` — const, line 184
+- `export function placeMenu(at:` — function, line 187
+- `export function placeSubmenu(row:` — function, line 194
+- `export function objectAt(target: Element, kindOf: (windowId: string)` — function, line 202
 
 ## Internal implementation anchors
 
 - `const ids = object.spanIds?.length ? object.spanIds : object.spanId ? [object.spanId] : []` — const, line 38
 - `const ids = passageIds(object)` — const, line 50
 - `const KIND_LABEL: Record<MenuObjectKind, string> =` — const, line 65
-- `const words = (object.selection || object.text).replace(/\s+/g, " ").trim()` — const, line 79
-- `const clipped = words.length > 46 ? `$` — const, line 80
-- `const NAVIGATION_VERBS: readonly VerbId[] = ["open_beside", "knows", "new_desk", "gather", "share_slot", "own_slot"]` — const, line 118
-- `const LOCAL_VERBS: readonly VerbId[] = ["note"]` — const, line 122
-- `const left = Math.max(MENU_SIZES.edge, Math.min(at.x + 2, viewport.w - size.w - MENU_SIZES.edge))` — const, line 176
-- `const top = Math.max(MENU_SIZES.top, Math.min(at.y + 2, viewport.h - size.h - MENU_SIZES.edge))` — const, line 177
-- `const host = target.closest(`[$` — const, line 191
-- `const windowId = host?.getAttribute(WINDOW_ATTRIBUTE) ?? null` — const, line 192
-- `const head = target.closest(".desk-pane-head")` — const, line 194
-- `const source = sourceOf(windowId)` — const, line 197
-- `const spanId = source ? inView(windowId) : null` — const, line 198
-- `const pad = target.closest("[data-pad]")` — const, line 203
-- `const line = target.closest("[data-block]")` — const, line 205
-- `const selected = selectionWithin(pad, doc, "[data-block]", (element)` — const, line 206
-- `const blockIds = [...new Set([line?.getAttribute("data-block"), ...(selected?.ids ?? [])].filter((id): id is string` — const, line 207
-- `const selection = selected?.text` — const, line 208
-- `const source = sourceOf(windowId)` — const, line 215
-- `const annotation = target.closest("[data-annotation-id]")` — const, line 217
-- `const passage = target.closest("[data-span-id], [data-transcript-span]")` — const, line 218
-- `const annotationSpan = annotation ? (passage ? spanOf(passage) : annotation.getAttribute("data-annotation-span") || undefined) : undefined` — const, line 220
-- `const selected = selectionWithin(host, doc, "[data-span-id], [data-transcript-span], [data-annotation-span]", spanOf)` — const, line 222
-- `const selection = selected &&` — const, line 223
-- `const isNote = annotation.getAttribute("data-annotation-kind") === "note"` — const, line 226
-- `const spanId = spanOf(passage)` — const, line 237
-- `const cue = passage.hasAttribute("data-transcript-span") || kindOf(windowId) === "video"` — const, line 238
-- `const tAttr = passage.getAttribute("data-t") ?? passage.closest("[data-t]")?.getAttribute("data-t")` — const, line 239
-- `function spanOf(element: Element): string | undefined` — function, line 250
-- `function annotationSpans(element: Element): string[]` — function, line 254
-- `const spans = element.getAttribute("data-annotation-spans")` — const, line 255
-- `function selectionWithin(host: Element | null, doc: Document, selector: string, idOf: (element: Element)` — function, line 259
-- `const selection = doc.getSelection?.()` — const, line 260
-- `const range = selection.getRangeAt(0)` — const, line 262
-- `const text = range.toString().replace(/\s+/g, " ").trim()` — const, line 264
-- `const ids: string[] = []` — const, line 266
-- `const slices: Array<` — const, line 267
-- `const id = idOf(element)` — const, line 269
-- `const part = doc.createRange()` — const, line 272
-- `const quote = part.toString().replace(/\s+/g, " ").trim()` — const, line 276
+- `const words = (object.selection || object.text).replace(/\s+/g, " ").trim()` — const, line 91
+- `const clipped = words.length > 46 ? `$` — const, line 92
+- `const NAVIGATION_VERBS: readonly VerbId[] = ["open_beside", "knows", "new_desk", "gather", "share_slot", "own_slot"]` — const, line 130
+- `const LOCAL_VERBS: readonly VerbId[] = ["note"]` — const, line 134
+- `const left = Math.max(MENU_SIZES.edge, Math.min(at.x + 2, viewport.w - size.w - MENU_SIZES.edge))` — const, line 188
+- `const top = Math.max(MENU_SIZES.top, Math.min(at.y + 2, viewport.h - size.h - MENU_SIZES.edge))` — const, line 189
+- `const host = target.closest(`[$` — const, line 203
+- `const windowId = host?.getAttribute(WINDOW_ATTRIBUTE) ?? null` — const, line 204
+- `const head = target.closest(".desk-pane-head")` — const, line 206
+- `const source = sourceOf(windowId)` — const, line 209
+- `const spanId = source ? inView(windowId) : null` — const, line 210
+- `const pad = target.closest("[data-pad]")` — const, line 215
+- `const line = target.closest("[data-block]")` — const, line 217
+- `const selected = selectionWithin(pad, doc, "[data-block]", (element)` — const, line 218
+- `const blockIds = [...new Set([line?.getAttribute("data-block"), ...(selected?.ids ?? [])].filter((id): id is string` — const, line 219
+- `const selection = selected?.text` — const, line 220
+- `const source = sourceOf(windowId)` — const, line 227
+- `const annotation = target.closest("[data-annotation-id]")` — const, line 229
+- `const passage = target.closest("[data-span-id], [data-transcript-span]")` — const, line 230
+- `const annotationSpan = annotation ? (passage ? spanOf(passage) : annotation.getAttribute("data-annotation-span") || undefined) : undefined` — const, line 232
+- `const selected = selectionWithin(host, doc, "[data-span-id], [data-transcript-span], [data-annotation-span]", spanOf)` — const, line 234
+- `const selection = selected &&` — const, line 235
+- `const isNote = annotation.getAttribute("data-annotation-kind") === "note"` — const, line 238
+- `const spanId = spanOf(passage)` — const, line 249
+- `const cue = passage.hasAttribute("data-transcript-span") || kindOf(windowId) === "video"` — const, line 250
+- `const tAttr = passage.getAttribute("data-t") ?? passage.closest("[data-t]")?.getAttribute("data-t")` — const, line 251
+- `function spanOf(element: Element): string | undefined` — function, line 262
+- `function annotationSpans(element: Element): string[]` — function, line 266
+- `const spans = element.getAttribute("data-annotation-spans")` — const, line 267
+- `function selectionWithin(host: Element | null, doc: Document, selector: string, idOf: (element: Element)` — function, line 271
+- `const selection = doc.getSelection?.()` — const, line 272
+- `const range = selection.getRangeAt(0)` — const, line 274
+- `const text = range.toString().replace(/\s+/g, " ").trim()` — const, line 276
+- `const ids: string[] = []` — const, line 278
+- `const slices: Array<` — const, line 279
+- `const id = idOf(element)` — const, line 281
+- `const part = doc.createRange()` — const, line 284
+- `const quote = part.toString().replace(/\s+/g, " ").trim()` — const, line 288
 
 ## Who imports or calls it
 
 > [!note] Static-evidence boundary
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
-- [[Reference/Desktop/TypeScript/screens/desks/DeskShell|src/screens/desks/DeskShell.tsx]] — import-or-re-export: `MenuObject`, `captureNodes`, `hasPassage`, `headerLine`, `objectAt`, `objectInput`, `passageIds`; references `MenuObject`, `captureNodes`, `hasPassage`, `headerLine`, `objectAt`, `objectInput`, `passageIds`
+- [[Reference/Desktop/TypeScript/screens/desks/DeskShell|src/screens/desks/DeskShell.tsx]] — import-or-re-export: `MenuObject`, `MenuVerdict`, `captureNodes`, `hasPassage`, `headerLine`, `objectAt`, `objectInput`, `passageIds`, `verdictFor`; references `MenuObject`, `MenuVerdict`, `captureNodes`, `hasPassage`, `headerLine`, `objectAt`, `objectInput`, `passageIds`, `verdictFor`
 - [[Reference/Desktop/TypeScript/screens/desks/menu/ContextMenu|src/screens/desks/menu/ContextMenu.tsx]] — import-or-re-export: `MENU_SIZES`, `MenuRow`, `placeMenu`, `placeSubmenu`, `promotedReason`, `shownPromoted`; references `MENU_SIZES`, `MenuRow`, `placeMenu`, `placeSubmenu`, `promotedReason`, `shownPromoted`
 - [[Reference/Desktop/TypeScript/screens/desks/menu/verbs|src/screens/desks/menu/verbs.ts]] — import-or-re-export: `MenuObject`, `MenuRow`, `VerbId`, `captureNodes`, `hasPassage`, `needsClearance`, `objectInput`, `passageIds`, `verbsFor`; references `MenuObject`, `MenuRow`, `VerbId`, `captureNodes`, `hasPassage`, `needsClearance`, `objectInput`, `passageIds`, `verbsFor`
 - [[Reference/Desktop/TypeScript/screens/desks/pads/PadOverlays|src/screens/desks/pads/PadOverlays.tsx]] — import-or-re-export: `MenuRow`; references `MenuRow`

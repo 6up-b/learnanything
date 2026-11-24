@@ -95,6 +95,7 @@ from learnloop.diagnosis.remediation import (
 
 from tests.helpers import NOW, NOW_ISO, admit_probe_instrument_card
 from tests.km2_write_path_helpers import SELECT, SHARED
+from tests.probe_router_helpers import BEFORE_PROBE_ROUTER
 from tests.causal_p2_acceptance_helpers import (
     CLOCK,
     COLD_ITEM,
@@ -113,8 +114,11 @@ from tests.causal_p2_acceptance_helpers import (
 
 def test_causal_disambiguation_end_to_end_acceptance(tmp_path):
     # Step 6a reads the opening episode state sync opens per LO without placement (mvp-0.7's sync): placement's
-    # switch off serves it (its off-branch is the predecessor's code; below mvp-0.11 it was off by the tag).
-    vault, repository, _paths = _acceptance_vault(tmp_path, toml="[placement]\nenabled = false\n")
+    # switch off serves it (its off-branch is the predecessor's code; below mvp-0.11 it was off by the tag). Built at
+    # the probe router's predecessor: the journey's offer is the causal gate's verdict, which the router replaces at its
+    # tag (tests/test_probe_router_learner_lane.py).
+    vault, repository, _paths = _acceptance_vault(tmp_path, version=BEFORE_PROBE_ROUTER,
+                                                  toml="[placement]\nenabled = false\n")
     admit_probe_instrument_card(
         repository, learning_object_id=LO_ID, items=(PROBE_ITEM,)
     )

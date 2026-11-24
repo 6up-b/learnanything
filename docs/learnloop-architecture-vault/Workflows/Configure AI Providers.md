@@ -5,10 +5,10 @@ aliases:
   - Manual Provider Workflow
 status: active
 doc_version: 1.0.0
-implementation_version: mvp-0.9
-last_reviewed: 2026-08-17
-source_commit: 62fd1f6404cc3a3007c6f214ba9429c45ef0114f
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
+implementation_version: mvp-0.68
+last_reviewed: 2026-11-23
+source_commit: 86f29b0d390ed2ecdbb0347d98ccb1175ac52728
+source_commit_timestamp: "2026-11-23T23:12:28-05:00"
 source_paths:
   - src/learnloop/ai/routing.py
   - src/learnloop/ai/runtime.py
@@ -37,7 +37,7 @@ uv run learnloop config effective --json --vault "$VAULT"
 uv run learnloop doctor --ai --json --vault "$VAULT"
 ```
 
-The generated configuration normally selects the `codex` profile. A ready result contains an `ai_runtime` object with `ready: true`, `status: "ready"`, the resolved provider type, and model.
+A new vault selects `chatgpt` as the active profile and uses the tiered ChatGPT plan profiles for its chat task routes. A ready result contains an `ai_runtime` object with `ready: true`, `status: "ready"`, the resolved provider type, and model.
 
 > [!info] Readiness is route-specific
 > `doctor --ai` tests provider composition, authentication, and model configuration. It does not prove that a later answer will pass a feature validator. Grading, canonical ingestion, authoring, tutor, and teach-back can route to different profiles.
@@ -57,13 +57,16 @@ An explicit command option or environment override is an intentional hard select
 
 ## 3. Choose one of three operating modes
 
-### Generated Codex profile
+### ChatGPT plan
 
-Keep the default `[ai.providers.codex]` profile and check it directly:
+The generated configuration routes grading to `chatgpt_low` and canonical ingestion to `chatgpt_medium`. Sign in when you want to use the plan route and check its readiness.
 
 ```bash
-uv run learnloop doctor --ai --ai-provider codex --json --vault "$VAULT"
+learnloop ai signin chatgpt
+learnloop doctor --ai --ai-provider chatgpt_low --json --vault "$VAULT"
 ```
+
+An old Codex route can still be read from the config. Its runtime resolves to a retirement refusal. Preview the route changes with `learnloop doctor --fix --dry-run --vault "$VAULT"`. See [[ADR-018 The Codex transport is retired]].
 
 ### OpenAI-compatible or OpenRouter profile
 
@@ -151,7 +154,7 @@ For an OpenRouter profile with no credential, expect `status: "provider_auth_req
 
 ## Observable state
 
-Provider configuration is in `learnloop.toml`; credentials may be in `.env` or global settings. Every real model call creates an `agent_runs` receipt and later transitions it to completion or failure. Manual mode creates no model client.
+Provider configuration is in `learnloop.toml`; credentials may be in `.env` or global settings. Feature workflows can record a run in `agent_runs`. The model-call observer records logical and physical requests in `model_call_receipts`; retries can have their own rows. See [[AI Architecture#Provenance and usage]]. Manual mode creates no model client.
 
 ## Related notes
 

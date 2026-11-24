@@ -5,10 +5,10 @@ aliases:
   - Inspect Learner State
 status: active
 doc_version: 1.0.0
-implementation_version: mvp-0.59
-last_reviewed: 2026-11-17
-source_commit: 0622ea164f76ad7e1d62a00afda51473dbcd992e
-source_commit_timestamp: "2026-09-23T13:06:55-04:00"
+implementation_version: mvp-0.68
+last_reviewed: 2026-11-23
+source_commit: 86f29b0d390ed2ecdbb0347d98ccb1175ac52728
+source_commit_timestamp: "2026-11-23T23:12:28-05:00"
 source_paths:
   - src/learnloop/db/repositories.py
   - src/learnloop/db/table_roles.py
@@ -107,7 +107,7 @@ WHERE submission_id = (SELECT submission_id FROM practice_attempts
                        WHERE id = '<attempt-id>');
 ```
 
-A `pending` completion row means post-attempt work was interrupted and is resumed on the next submit with the same submission id; see [[Continue a Learning Cycle]]. The submission intent names the scheduler offer the attempt answered; see [[Collection and Dataset Contract]].
+A `pending` completion row means post-attempt work has yet to settle. After interruption, the next submit with the same submission id resumes it; see [[Continue a Learning Cycle]]. The submission intent names the scheduler offer the attempt answered; see [[Collection and Dataset Contract]].
 
 This joins the raw receipt, accepted criterion evidence, feedback provenance, and one derived result without implying that any single table is the whole attempt. ^attempt-trace
 

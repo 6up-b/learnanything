@@ -209,8 +209,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_r4_verify_f7_an_exercise_held_out_after_its_card_was_shown_is_never_read_or_opened`
   - `test_the_held_out_sentinel_is_never_offered_by_the_view_the_arm_or_the_fallback`
 - [tests/test_menu_protected_material.py](../../../../../../../tests/test_menu_protected_material.py) — direct import
+  - `test_a_shared_destination_keeps_its_own_set_on_exam_material_not_held_out`
   - `test_a_whole_exam_reading_is_protected_the_same_way`
   - `test_finished_judged_row_loses_a_newly_marked_target`
+  - `test_the_menus_verbs_agree_with_their_destinations_and_the_classic_reader`
 - [tests/test_plan_follows_path.py](../../../../../../../tests/test_plan_follows_path.py) — direct import
   - `test_the_path_never_opens_a_held_out_section_even_where_dl1s_exact_selection_would`
 - [tests/test_protection_surface_matrix.py](../../../../../../../tests/test_protection_surface_matrix.py) — direct import

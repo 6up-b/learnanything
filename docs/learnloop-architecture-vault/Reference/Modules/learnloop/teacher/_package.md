@@ -65,7 +65,7 @@ For system intent, use [[Architecture Overview]].
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/teacher/__init__|learnloop.teacher]] | [[Reference/Modules/learnloop/teacher/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 1 |
 | [[Reference/Modules/learnloop/teacher/actions|learnloop.teacher.actions]] | [[Reference/Modules/learnloop/teacher/actions#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
-| [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]] | [[Reference/Modules/learnloop/teacher/brief#^module-purpose|purpose]] | `ACTIVE` | 7 | 11 |
+| [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]] | [[Reference/Modules/learnloop/teacher/brief#^module-purpose|purpose]] | `ACTIVE` | 8 | 11 |
 | [[Reference/Modules/learnloop/teacher/carried|learnloop.teacher.carried]] | [[Reference/Modules/learnloop/teacher/carried#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/teacher/checks|learnloop.teacher.checks]] | [[Reference/Modules/learnloop/teacher/checks#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
 | [[Reference/Modules/learnloop/teacher/contracts|learnloop.teacher.contracts]] | [[Reference/Modules/learnloop/teacher/contracts#^module-purpose|purpose]] | `ACTIVE` | 8 | 8 |
@@ -115,7 +115,7 @@ For system intent, use [[Architecture Overview]].
 
 ### Packages that import this package
 
-- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 5 static module edges
+- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 6 static module edges
 - [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] — 3 static module edges
 - [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] — 2 static module edges
 - [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 1 static module edge
@@ -135,8 +135,8 @@ flowchart LR
     n_learnloop_attempts["learnloop.attempts"]
     n_learnloop_figures["learnloop.figures"]
     n_learnloop_learner["learnloop.learner"]
-    n_learnloop_vault["learnloop.vault"]
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
+    n_learnloop_vault["learnloop.vault"]
     n_learnloop_scheduling["learnloop.scheduling"]
     center -->|28| n_learnloop
     center -->|18| n_learnloop_db_stores
@@ -146,8 +146,8 @@ flowchart LR
     n_learnloop_figures -->|3| center
     center -->|4| n_learnloop_figures
     center -->|6| n_learnloop_learner
+    n_learnloop_sidecar_handlers -->|6| center
     center -->|5| n_learnloop_vault
-    n_learnloop_sidecar_handlers -->|5| center
     center -->|4| n_learnloop_scheduling
 ```
 

@@ -38,6 +38,7 @@ from learnloop.scheduling.device_eligibility import PlanStepFilter
 
 from tests.daily_plan_fakes import record_attempt, scheduled
 from tests.followup_serve_helpers import AuthorFake
+from tests.probe_router_helpers import BEFORE_PROBE_ROUTER
 from tests.router_mixture_helpers import mixture_env, rows, served_horizon  # noqa: F401 - a fixture
 from tests.router_model_fakes import fake_runtime
 from tests.daily_plan_build_helpers import _wide_items
@@ -643,7 +644,9 @@ def test_off_or_below_the_tag_a_probe_withdraws_the_offer_as_the_predecessor(tmp
     assert wf.get(env.repository, "fw_test")["release_reason"] is None
 
 
-@pytest.mark.parametrize("version,toml", [(TAG, OFF_NO_CHECKS), (OLD, NO_CHECKS)])
+# The switch-off arm at the probe router's predecessor: from the probe router's tag the follow-up's support is that
+# tag's, with IH2's switch on or off (tests/test_probe_router.py).
+@pytest.mark.parametrize("version,toml", [(BEFORE_PROBE_ROUTER, OFF_NO_CHECKS), (OLD, NO_CHECKS)])
 def test_off_or_below_the_tag_the_followup_decision_is_the_predecessors(tmp_path, draw, monkeypatch, version, toml):
     env, row = _miss_env(tmp_path, version=version, toml=toml, questions_left=True)
     draw.prefer = (INSERT_NOW,)
@@ -848,7 +851,9 @@ def test_the_journey_on_a_real_miss_lesson_then_not_now_then_the_question(tmp_pa
     )
     from tests.causal_p2_acceptance_helpers import CLOCK
 
-    paths, vault, repository = live_shape_vault(tmp_path, version=TAG, config=NO_CHECKS, task_features=True)
+    # At the probe router's predecessor, where the worker's new decision may ask the probe.
+    paths, vault, repository = live_shape_vault(tmp_path, version=BEFORE_PROBE_ROUTER, config=NO_CHECKS,
+                                                task_features=True)
     lo = str(vault.practice_items[LIVE_ITEM].learning_object_id)
     offer_ref = f"lesson_offer:{lo}"
     monkeypatch.setattr(SG, "build_candidates", lambda _vault, _repository, *, now_iso: ([LS.Candidate(

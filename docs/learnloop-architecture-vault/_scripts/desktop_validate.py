@@ -236,8 +236,8 @@ def main() -> int:
     # RD-retire phase 2, step 1: screens/desks/source/ScopedSource.tsx and types.ts (entry-reachable).
     # RD-retire phase 2, step 2: screens/ReaderScreen.tsx, screens/reader/readerKeys.ts and searchBasis.ts deleted;
     # screens/desks/model/restore.ts (entry-reachable) and fixtures/deskShellStub.tsx (vitest-support) added.
-    if len(ts_sources) != 433:
-        errors.append(f"source inventory drift: expected 433 TypeScript/TSX files, found {len(ts_sources)}")
+    if len(ts_sources) != 434:
+        errors.append(f"source inventory drift: expected 434 TypeScript/TSX files, found {len(ts_sources)}")
     if len(rust_sources) != 6:
         errors.append(f"source inventory drift: expected 6 authored Rust modules, found {len(rust_sources)}")
     for path in sorted(expected - actual):
@@ -348,11 +348,12 @@ def main() -> int:
         # RD10: the six screens/desks/video modules and screens/desks/carried/related.ts.
         # RD5's fix round: screens/desks/menu/ExerciseSheet.tsx.
         # RD-retire parity (side by side): screens/desks/sideBySide/pairs.ts. Rows 2034, 2039: problemPads.ts,
-        # ProblemPad.tsx, companionFigures.tsx and sharedParams.ts. RD7: the four screens/desks/checks modules.
+        # ProblemPad.tsx, companionFigures.tsx and sharedParams.ts. RD7: the four screens/desks/checks modules. RD7's fix round: checks/hold.ts,
+        # checks/holdContext.ts and app/checkGate.tsx.
         # RD-retire phase 2, step 1: screens/desks/source/ScopedSource.tsx and types.ts.
         # RD-retire phase 2, step 2: ReaderScreen.tsx, readerKeys.ts and searchBasis.ts deleted, model/restore.ts added,
         # and fixtures/readerRenderView.ts read by tests alone now (the old screen's offline demo went with it).
-        "entry-reachable build graph": 406,
+        "entry-reachable build graph": 407,
         # RW5d P2 sketch compartment: sketch.worker.ts and sketchWorkerCore.ts, bundled by vite.config.mjs.
         "bundled worker entry": 2,
         "compiler-implicit": 2,
@@ -370,7 +371,7 @@ def main() -> int:
     status_counts: dict[str, int] = defaultdict(int)
     for info in audited_infos.values():
         status_counts[info.refactor_status] += 1
-    if dict(status_counts) != {"ACTIVE": 439}:
+    if dict(status_counts) != {"ACTIVE": 440}:
         errors.append(f"lifecycle classification drift requires review: {dict(status_counts)}")
 
     link_errors, wikilinks, fragments, markdown_links = validate_links(sorted(actual))

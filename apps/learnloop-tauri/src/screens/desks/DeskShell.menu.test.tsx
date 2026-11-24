@@ -15,7 +15,8 @@ import { openNotebookMenu } from "./notebook/menuBridge";
 import { api } from "../../api/client";
 import { COMPANION_FIGURE_COPY, resetCompanionFiguresForTests } from "./companion/companionFigures";
 
-vi.mock("../../api/client", () => ({ api: {} }));
+// No inline check is open (the desks read it before showing anything).
+vi.mock("../../api/client", () => ({ api: { checkOpenInline: async () => ({ administration: null }) } }));
 vi.mock("./windows/SourceWindow", () => ({ SourceWindow: () => null }));
 vi.mock("./windows/PanelWindow", () => ({ PANEL_TITLES: { guide: "Guide", notes: "Notes", path: "Reading path", library: "Library" }, LibraryPanel: () => null, PathPanel: () => null, RailHostPanel: () => null }));
 
@@ -635,6 +636,30 @@ describe("RD5 fix round: exam or held-out material in the menu", () => {
     const verbs = [...menus()[0].querySelectorAll(":scope > .mi .t")].map((each) => each.firstChild?.textContent);
     expect(verbs).toEqual(["Note in margin", "Open beside", "What this knows"]);
     expect(menus()[0].textContent).not.toContain("the first passage of fx_w_book");
+  });
+
+  it("on a practice exam that is not held out, offers what the classic Reader offers: Ask and Make it practice go, the rest wait; held out, none", async () => {
+    const { transport } = mount();
+    await screen.findByTestId("pane-fx_w_book");
+    const reply = (withheldVerbs: string[]) => ({ version: 1, objectKey: "k", rows: [], cap: 4, pendingJob: null,
+      paid: { searchedByMeaning: false, verified: false, reason: "exam or held-out material: nothing is searched for it" },
+      withheld: true, withheldVerbs }) as unknown as PassagePromotedDto;
+    // The server's per-verb verdict for exam material not held out: each verb by its destination's set.
+    (transport.passagePromoted as ReturnType<typeof vi.fn>).mockImplementation(async () => reply(["append", "carry", "compare", "find", "show_me", "teach_me"]));
+    fireEvent.contextMenu(passage("fx_w_book_s1"));
+    await screen.findByText("exam or held-out material: nothing is searched for it");
+    const verbsNow = () => [...menus()[0].querySelectorAll(":scope > .mi .t")].map((each) => each.firstChild?.textContent);
+    expect(verbsNow()).toEqual(["Ask", "Note in margin", "Open beside", "Make it practice", "What this knows"]);
+    // The Reader's own Ask may read it, so the header quotes it as the Reader's composer does.
+    expect(menus()[0].querySelector(".mh")?.textContent).toContain("“");
+    fireEvent.keyDown(window, { key: "Escape" });
+    await flush();
+    // Held out: every verb that sends or copies it is left out, and the header names the material.
+    (transport.passagePromoted as ReturnType<typeof vi.fn>).mockImplementation(async () => reply(["append", "ask", "carry", "compare", "find", "make_practice", "show_me", "teach_me"]));
+    fireEvent.contextMenu(passage("fx_w_book_s1"));
+    await screen.findByText("exam or held-out material: nothing is searched for it");
+    expect(verbsNow()).toEqual(["Note in margin", "Open beside", "What this knows"]);
+    expect(menus()[0].querySelector(".mh")?.textContent).toBe("a passage · exam or held-out material");
   });
 });
 

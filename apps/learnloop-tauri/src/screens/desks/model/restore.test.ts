@@ -1,6 +1,6 @@
 // What every stored window kind restores as (the Reader's retirement, phase 2 step 2): never a crash, never a window
 // silently lost. The kinds are the ones the desks' content reference has ever had (desks/content_ref.py, migration 262
-// and 271), the fixture workspace's windows, and shapes this version does not know.
+// and 272), the fixture workspace's windows, and shapes this version does not know.
 import { describe, expect, it } from "vitest";
 import type { ContentRefDto } from "../../../api/dto";
 import { fixtureDeskState } from "../../../fixtures/desks/workspace";

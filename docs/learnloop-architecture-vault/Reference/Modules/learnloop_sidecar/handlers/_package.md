@@ -200,8 +200,8 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop_sidecar/handlers/review|learnloop_sidecar.handlers.review]] | [[Reference/Modules/learnloop_sidecar/handlers/review#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop_sidecar/handlers/router_objective|learnloop_sidecar.handlers.router_objective]] | [[Reference/Modules/learnloop_sidecar/handlers/router_objective#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop_sidecar/handlers/search|learnloop_sidecar.handlers.search]] | [[Reference/Modules/learnloop_sidecar/handlers/search#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
-| [[Reference/Modules/learnloop_sidecar/handlers/serializers|learnloop_sidecar.handlers.serializers]] | [[Reference/Modules/learnloop_sidecar/handlers/serializers#^module-purpose|purpose]] | `ACTIVE` | 8 | 19 |
-| [[Reference/Modules/learnloop_sidecar/handlers/sessions|learnloop_sidecar.handlers.sessions]] | [[Reference/Modules/learnloop_sidecar/handlers/sessions#^module-purpose|purpose]] | `ACTIVE` | 11 | 4 |
+| [[Reference/Modules/learnloop_sidecar/handlers/serializers|learnloop_sidecar.handlers.serializers]] | [[Reference/Modules/learnloop_sidecar/handlers/serializers#^module-purpose|purpose]] | `ACTIVE` | 7 | 19 |
+| [[Reference/Modules/learnloop_sidecar/handlers/sessions|learnloop_sidecar.handlers.sessions]] | [[Reference/Modules/learnloop_sidecar/handlers/sessions#^module-purpose|purpose]] | `ACTIVE` | 12 | 4 |
 | [[Reference/Modules/learnloop_sidecar/handlers/settings|learnloop_sidecar.handlers.settings]] | [[Reference/Modules/learnloop_sidecar/handlers/settings#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
 | [[Reference/Modules/learnloop_sidecar/handlers/side_by_side|learnloop_sidecar.handlers.side_by_side]] | [[Reference/Modules/learnloop_sidecar/handlers/side_by_side#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop_sidecar/handlers/source_service|learnloop_sidecar.handlers.source_service]] | [[Reference/Modules/learnloop_sidecar/handlers/source_service#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
@@ -219,21 +219,21 @@ For system intent, use [[Architecture Overview]].
 
 ### This package imports
 
-- [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] — 385 static module edges
+- [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] — 391 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 58 static module edges
 - [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 58 static module edges
-- [[Reference/Modules/learnloop/_package|learnloop]] — 57 static module edges
 - [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 57 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 48 static module edges
 - [[Reference/Modules/learnloop/instructional/_package|learnloop.instructional]] — 39 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 33 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 32 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 30 static module edges
-- [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 29 static module edges
+- [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 28 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 28 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 27 static module edges
 - [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] — 23 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 21 static module edges
-- [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 19 static module edges
+- [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 20 static module edges
 - [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] — 17 static module edges
 - [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 15 static module edges
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 15 static module edges
@@ -257,15 +257,15 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/capture/_package|learnloop.capture]] — 6 static module edges
 - [[Reference/Modules/learnloop/diagnosis/split/_package|learnloop.diagnosis.split]] — 6 static module edges
 - [[Reference/Modules/learnloop/placement/_package|learnloop.placement]] — 6 static module edges
+- [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] — 6 static module edges
 - [[Reference/Modules/learnloop/ai/chatgpt_plan/_package|learnloop.ai.chatgpt_plan]] — 5 static module edges
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/_package|learnloop.diagnosis.text_gaps]] — 5 static module edges
+- [[Reference/Modules/learnloop/passage_union/_package|learnloop.passage_union]] — 5 static module edges
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 5 static module edges
-- [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] — 5 static module edges
 - [[Reference/Modules/learnloop/companion/_package|learnloop.companion]] — 4 static module edges
 - [[Reference/Modules/learnloop/content/facet_identity/_package|learnloop.content.facet_identity]] — 4 static module edges
 - [[Reference/Modules/learnloop/desks/_package|learnloop.desks]] — 4 static module edges
 - [[Reference/Modules/learnloop/ingest/extractors/_package|learnloop.ingest.extractors]] — 4 static module edges
-- [[Reference/Modules/learnloop/passage_union/_package|learnloop.passage_union]] — 4 static module edges
 - [[Reference/Modules/learnloop/practice_index/_package|learnloop.practice_index]] — 4 static module edges
 - [[Reference/Modules/learnloop/ai/providers/_package|learnloop.ai.providers]] — 2 static module edges
 - [[Reference/Modules/learnloop/data_capture/_package|learnloop.data_capture]] — 2 static module edges
@@ -288,8 +288,8 @@ This diagram compresses package-level static imports; edge labels are distinct m
 flowchart LR
     center["learnloop_sidecar.handlers"]
     n_learnloop_sidecar["learnloop_sidecar"]
-    n_learnloop_reader["learnloop.reader"]
     n_learnloop["learnloop"]
+    n_learnloop_reader["learnloop.reader"]
     n_learnloop_source_retrieval["learnloop.source_retrieval"]
     n_learnloop_ai["learnloop.ai"]
     n_learnloop_instructional["learnloop.instructional"]
@@ -298,16 +298,16 @@ flowchart LR
     n_learnloop_db_stores["learnloop.db.stores"]
     n_learnloop_content_sources["learnloop.content.sources"]
     n_learnloop_sidecar -->|5| center
-    center -->|385| n_learnloop_sidecar
+    center -->|391| n_learnloop_sidecar
+    center -->|58| n_learnloop
     center -->|58| n_learnloop_reader
-    center -->|57| n_learnloop
     center -->|57| n_learnloop_source_retrieval
     center -->|48| n_learnloop_ai
     center -->|39| n_learnloop_instructional
     center -->|33| n_learnloop_diagnosis
     center -->|32| n_learnloop_attempts
     center -->|30| n_learnloop_db_stores
-    center -->|29| n_learnloop_content_sources
+    center -->|28| n_learnloop_content_sources
 ```
 
 Interpretation: arrow direction is static import direction and the label is the number of distinct module-to-module edges. It shows coupling pressure, not runtime call frequency or ownership permission.

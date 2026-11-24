@@ -34,10 +34,12 @@ No nested ownership area.
 
 | Module | Status | Purpose | Imports | Imported by |
 |---|---|---|---:|---:|
-| [[Reference/Desktop/TypeScript/screens/desks/checks/CheckCard|CheckCard.tsx]] | `ACTIVE` | Implements the `CheckCard` routed desktop screen and coordinates its learner-facing workflow state. | 5 | 1 |
-| [[Reference/Desktop/TypeScript/screens/desks/checks/VeilLayer|VeilLayer.tsx]] | `ACTIVE` | Implements the `VeilLayer` routed desktop screen and coordinates its learner-facing workflow state. | 3 | 1 |
-| [[Reference/Desktop/TypeScript/screens/desks/checks/controller|controller.ts]] | `ACTIVE` | Provides `CheckTransport`, `LIVE_CHECK_TRANSPORT`, `DueCheck`, `OpenCheck` and related exports within the desktop's TypeScript/screens/desks/checks ownership area. | 3 | 3 |
-| [[Reference/Desktop/TypeScript/screens/desks/checks/model|model.ts]] | `ACTIVE` | Provides `VEIL_LABEL`, `SHOW_ANYWAY_COST`, `SHOW_NOTE_COST`, `PRIMED_BY_NOTE_WORDS` and related exports within the desktop's TypeScript/screens/desks/checks ownership area. | 1 | 4 |
+| [[Reference/Desktop/TypeScript/screens/desks/checks/CheckCard|CheckCard.tsx]] | `ACTIVE` | Implements the `CheckCard` routed desktop screen and coordinates its learner-facing workflow state. | 7 | 1 |
+| [[Reference/Desktop/TypeScript/screens/desks/checks/VeilLayer|VeilLayer.tsx]] | `ACTIVE` | Implements the `VeilLayer` routed desktop screen and coordinates its learner-facing workflow state. | 4 | 1 |
+| [[Reference/Desktop/TypeScript/screens/desks/checks/controller|controller.ts]] | `ACTIVE` | Provides `CheckTransport`, `LIVE_CHECK_TRANSPORT`, `DueCheck`, `OpenCheck` and related exports within the desktop's TypeScript/screens/desks/checks ownership area. | 3 | 5 |
+| [[Reference/Desktop/TypeScript/screens/desks/checks/hold|hold.ts]] | `ACTIVE` | Provides `SAFE_ATTR`, `PASSAGE_TEXT_ATTR`, `REGION_ATTR`, `QUIET_ATTR` and related exports within the desktop's TypeScript/screens/desks/checks ownership area. | 2 | 3 |
+| [[Reference/Desktop/TypeScript/screens/desks/checks/holdContext|holdContext.ts]] | `ACTIVE` | Provides `CheckHoldContext`, `useCheckHeld` within the desktop's TypeScript/screens/desks/checks ownership area. | 0 | 2 |
+| [[Reference/Desktop/TypeScript/screens/desks/checks/model|model.ts]] | `ACTIVE` | Provides `VEIL_LABEL`, `SHOW_ANYWAY_COST`, `SHOW_NOTE_COST`, `SHOW_UNMEASURED_COST` and related exports within the desktop's TypeScript/screens/desks/checks ownership area. | 1 | 5 |
 
 ## Modification guidance
 

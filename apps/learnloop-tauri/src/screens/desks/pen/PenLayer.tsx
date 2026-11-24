@@ -786,7 +786,7 @@ function PenLayerOn({ host, surface }: { host: PenHost; surface: PenSurface }) {
       ))}
     </>
   );
-  return createPortal(<div className="desk-pen-layer" data-pen-layer="" data-pen-on={host.on ? "on" : "off"}>{layer}</div>, body);
+  return createPortal(<div className="desk-pen-layer" data-pen-layer="" data-pen-on={host.on ? "on" : "off"} data-check-region="your ink">{layer}</div>, body);
 }
 
 /** A recognition's chip at the mockup's place beside its stroke, moved left as far as it must be to stay inside the

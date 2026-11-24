@@ -10,7 +10,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from learnloop.content.sources.exam_material import exam_withheld
+from learnloop.content.sources.exam_material import exam_withheld, surface_material
 from learnloop.content.sources.span_aliases import reading_source
 from learnloop.passage_union.union import UnionError, span_range
 from learnloop.section_map import extraction_sections
@@ -28,9 +28,12 @@ def _title(repository: Any, source_id: str | None) -> str | None:
 
 
 def passage_content(vault: Any, repository: Any, *, extraction_id: str, from_span_id: str | None = None,
-                    to_span_id: str | None = None, t0: float | None = None, t1: float | None = None) -> dict[str, Any]:
+                    to_span_id: str | None = None, t0: float | None = None, t1: float | None = None,
+                    surface: str | None = None) -> dict[str, Any]:
     """``{extraction_id, source_id, title, withheld, spans: [{span_id, text, page, t0, t1, section_id,
-    section_label, withheld}]}`` for one range (two passages, or two times over a transcript)."""
+    section_label, withheld}]}`` for one range (two passages, or two times over a transcript). A span is withheld
+    when it is exam material, or (``surface``) when that surface's row of ``exam_material.SURFACE_SETS`` holds it:
+    the exercise sheet reads with the import's own set, so a practice exam that is not held out shows its words."""
 
     ir = repository.load_document_ir(extraction_id)
     if ir is None:
@@ -39,7 +42,11 @@ def passage_content(vault: Any, repository: Any, *, extraction_id: str, from_spa
     sections, blocks, span_to_section = extraction_sections(ir)
     labels = {str(section["id"]): section.get("label") for section in sections}
     by_span = {block.span_id: block for block in ir.blocks}
-    withheld = set(exam_withheld(vault, repository, [(extraction_id, span) for span in span_ids]))
+    if surface is None:
+        withheld = set(exam_withheld(vault, repository, [(extraction_id, span) for span in span_ids]))
+    else:
+        material = surface_material(vault, repository, surface)
+        withheld = {(extraction_id, span) for span in span_ids if material.covers(extraction_id, span)}
     out = []
     for span_id in span_ids:
         block = by_span[span_id]

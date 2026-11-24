@@ -324,11 +324,11 @@ named in the toast. Each failed before the build (the panel kept, nothing restor
 
 ### A2. A window for a book still being prepared
 
-`desk_windows.kind` gains `'preparing'` (migration 271, `271_reader_workbench_preparing_windows.sql`, a
+`desk_windows.kind` gains `'preparing'` (migration 272, `272_reader_workbench_preparing_windows.sql`, a
 temp-then-rename rebuild as 266's; the head fixture holds it, its README section names it): `PreparingRef` names the
 source alone (`{"kind": "preparing", "source_id"}`), since a book being prepared has no reading. The previous plan
 named only the content reference; the table's CHECK needed the migration as well. Backend test:
-`tests/test_reader_rd_retire_migration.py` (the head fixture holds 271 in rollback mode; the rebuild keeps every row
+`tests/test_reader_rd_retire_migration.py` (the head fixture holds 272 in rollback mode; the rebuild keeps every row
 and changes only `desk_windows`, matching the head; a preparing reference round-trips through `desk.apply`, and one
 naming no source or also a reading is refused).
 

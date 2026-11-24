@@ -2,12 +2,12 @@
 title: ADR-003 Explicit table roles govern rebuild
 status: active
 doc_version: 1.0.0
-implementation_version: mvp-0.9
+implementation_version: mvp-0.68
 decision_date: 2026-08-17
 decision_status: accepted
-last_reviewed: 2026-08-17
-source_commit: 62fd1f6404cc3a3007c6f214ba9429c45ef0114f
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
+last_reviewed: 2026-11-23
+source_commit: 86f29b0d390ed2ecdbb0347d98ccb1175ac52728
+source_commit_timestamp: "2026-11-23T23:12:28-05:00"
 source_paths:
   - src/learnloop/db/table_roles.py
   - src/learnloop/substrate/rebuild_orchestrator.py
@@ -33,7 +33,7 @@ Classify every migration-head user table explicitly as RAW_LEDGER, DERIVED, RECE
 
 - Schema changes require a lifecycle decision.
 - Preservation cannot be disguised as a “replayer.”
-- The derived set is intentionally small (ten tables) and exact golden comparison is practical.
+- The [[Database Catalog#DERIVED tables|Database Catalog]] lists the derived set. Exact golden comparison checks the registered clear-and-replay owners.
 
 ## Enforcement
 

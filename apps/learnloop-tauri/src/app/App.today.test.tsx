@@ -53,6 +53,8 @@ const BESIDE_TRAIL = {
 
 vi.mock("../api/client", () => {
   const base: Record<string, unknown> = {
+    // No inline check is open on the desks (the app reads it before showing any place).
+    checkOpenInline: vi.fn(async () => ({ administration: null })),
     loadVault: vi.fn(async () => ({
       vault: { root: stubs.root, subjects: [], subjectTitles: [], counts: { learningObjects: 4, practiceItems: 6 }, algorithmVersion: "mvp-0.31" },
       health: { ai: { ready: true, settingsReady: true, manualGrading: false, activeProvider: "chatgpt_plan" }, codex: { ready: false } },

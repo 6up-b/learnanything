@@ -10,7 +10,7 @@
 -- columns, defaults and CHECKs otherwise. No row changes.
 PRAGMA foreign_keys = OFF;
 
-CREATE TABLE desk_windows__271 (
+CREATE TABLE desk_windows__272 (
   window_id TEXT PRIMARY KEY,
   desk_id TEXT NOT NULL REFERENCES desks(desk_id),
   slot INTEGER NOT NULL CHECK (slot >= 0),
@@ -24,12 +24,12 @@ CREATE TABLE desk_windows__271 (
   opened_at TEXT NOT NULL,
   closed_at TEXT
 );
-INSERT INTO desk_windows__271 (window_id, desk_id, slot, pane, active, kind, spec_json, view_json, opened_at, closed_at)
+INSERT INTO desk_windows__272 (window_id, desk_id, slot, pane, active, kind, spec_json, view_json, opened_at, closed_at)
 SELECT window_id, desk_id, slot, pane, active, kind, spec_json, view_json, opened_at, closed_at
 FROM desk_windows;
 
 DROP TABLE desk_windows;
-ALTER TABLE desk_windows__271 RENAME TO desk_windows;
+ALTER TABLE desk_windows__272 RENAME TO desk_windows;
 CREATE INDEX idx_desk_windows_desk ON desk_windows(desk_id, closed_at, slot, pane);
 
 PRAGMA foreign_keys = ON;

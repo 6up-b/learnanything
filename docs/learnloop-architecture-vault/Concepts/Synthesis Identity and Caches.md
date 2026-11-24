@@ -5,10 +5,10 @@ aliases:
   - Rebuild Reuse
 status: active
 doc_version: 1.0.0
-implementation_version: mvp-0.59
-last_reviewed: 2026-11-13
-source_commit: 7c3dc20ee6b03667f078df61f3b5df28ab445412
-source_commit_timestamp: "2026-11-13T08:19:21-05:00"
+implementation_version: mvp-0.68
+last_reviewed: 2026-11-23
+source_commit: 86f29b0d390ed2ecdbb0347d98ccb1175ac52728
+source_commit_timestamp: "2026-11-23T23:12:28-05:00"
 source_paths:
   - src/learnloop/content/synthesis/synthesis_manifests.py
   - src/learnloop/content/synthesis/proposal_match.py
@@ -31,7 +31,7 @@ A study-map build (a bootstrap or an append) is paid for once per distinct reque
 
 ## The checkpoints decide what is paid
 
-Every paid structured call of ingestion goes through one checkpoint cycle (`ai/execution.py`): inventory windows, synthesis passes, the concept graph structuring call, the append call and its span round, persona fire judgements, vault epigraphs and the facet identity judges. Its key is the rendered request: purpose, prompt, schema and provider settings. Two outer layers answer before them, each only for the request it was paid under: a unit's inventory row and a shard's completed result. See [[Import Canonical Sources]] for each key.
+Every paid structured call of ingestion goes through one checkpoint cycle (`ai/execution.py`): inventory windows, synthesis passes, the concept graph structuring call, each append pass and any span round, persona fire judgements, vault epigraphs and the facet identity judges. Its key is the rendered request: purpose, prompt, schema and provider settings. Two outer layers answer before them, each only for the request it was paid under: a unit's inventory row and a shard's completed result. See [[Import Canonical Sources]] for each key.
 
 A rebuild therefore runs the whole orchestration again. Each call whose request is unchanged answers from its checkpoint at no cost. A call whose request changed is paid: a role override, a new concept edge, an inventory re-read in place, an edited prompt, a resolved brief. The gates, the facet plan and apply always run under today's code.
 
@@ -56,7 +56,7 @@ Because it is a record, a field that moves (a budget, the task graph, a config d
 
 ## What a rebuild costs
 
-An identical rebuild makes no model calls, but it re-runs the CPU stages that the old run-level lookup skipped: normalization, the gates, the instrument gates, the facet plan and the proposal comparison. Measured on copies of real study maps of 100-200 items, that took about 0.35-1.2 s, where the lookup took 0.16-0.6 s. The gate stage itself takes milliseconds.
+A build with unchanged requests and retained valid answers can make no model calls. It still runs the CPU stages that the old run-level lookup skipped: normalization, the gates, the instrument gates, the facet plan and the proposal comparison. Measured on copies of real study maps of 100-200 items, that took about 0.35-1.2 s, where the lookup took 0.16-0.6 s. The gate stage itself takes milliseconds.
 
 The first identical rebuild of a subject whose earlier run predates per-call checkpoints for structuring and persona fire judgements pays those calls once.
 

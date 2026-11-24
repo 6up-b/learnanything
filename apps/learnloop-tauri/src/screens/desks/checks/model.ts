@@ -5,7 +5,7 @@
 // The server decides what is veiled (`check.begin_inline`, `check.protect_more`): every note-bearing surface on every
 // desk by default, a source window's covered passages, their figures and every margin note, and everything visible when
 // coverage cannot be read. The desks only apply what it names, and send back the ref of a veil the learner opens.
-import type { CheckVeilRefDto, CheckVisibleDto } from "../../../api/dto";
+import type { CheckVeilRefDto, CheckVisibleDto, DeskWindowKind } from "../../../api/dto";
 
 /** The pill on every veil (the mockup's wording, verbatim). */
 export const VEIL_LABEL = "hidden during this check · back when you answer";
@@ -15,6 +15,42 @@ export const SHOW_ANYWAY_COST =
 /** Before a note's veil opens: a note's words are never read, so opening one always makes the answer practice. */
 export const SHOW_NOTE_COST =
   "This is one of your notes. LearnLoop doesn't read your notes, so it can't tell whether this one gives the answer away: opening it makes this answer count as practice, and the check stays due.";
+/** Before opening something the server cannot measure (a figure, a lesson, a thread with no exchanges, ink, a
+ *  notebook cell, a part of the page the checks do not describe): opening it always makes the answer practice. */
+export const SHOW_UNMEASURED_COST =
+  "LearnLoop can't tell what this shows against the answer, so opening it makes this answer count as practice, and the check stays due.";
+
+/** What opening this veil costs, said before it opens. */
+export function costOf(ref: CheckVeilRefDto | null): string {
+  if (ref && veilIsNote(ref)) return SHOW_NOTE_COST;
+  if (!ref || ref.measured === false || ref.kind === "surface") return SHOW_UNMEASURED_COST;
+  return SHOW_ANYWAY_COST;
+}
+
+/** What an open check does with each kind of window. "passages": a source's own text shows where the server judged
+ *  it and does not veil it, everything else in the window is held; "whole": the window's body is held whole (the
+ *  server names it; its head says what it is). A new window kind has no entry until someone decides (the type
+ *  refuses it, and a test reads the kinds from the DTO). */
+export const WINDOW_VEIL_DECISIONS: Record<DeskWindowKind, "passages" | "whole"> = {
+  source: "passages",
+  video: "passages",
+  pad: "whole",
+  pad_stack: "whole",
+  lesson: "whole",
+  thread: "whole",
+  compare: "whole",
+  panel: "whole",
+  figure_notebook: "whole",
+  // A book still being prepared shows its original's pages: the book's words, but no passage the server can judge
+  // (it has no reading yet), so the whole body is held.
+  preparing: "whole",
+};
+
+/** Whether this window's passages can show while a check is open (a kind without a decision never can). */
+export function passagesCanShow(kind: string): boolean {
+  return (WINDOW_VEIL_DECISIONS as Record<string, string | undefined>)[kind] === "passages";
+}
+
 /** The answered card's line when a note was opened (the reply's primedBy). */
 export const PRIMED_BY_NOTE_WORDS =
   "counts as practice · you opened one of your notes during this check; LearnLoop cannot tell whether it gave the answer away, so this one counts as practice";
@@ -52,7 +88,9 @@ export function veilSelector(ref: CheckVeilRefDto): string | null {
     case "figure":
       return typeof ref.figure_id === "string" ? `${window} [data-figure="${quoted(ref.figure_id)}"]` : null;
     case "note":
-      return typeof ref.note_id === "string" ? `${window} [data-annotation-id="${quoted(ref.note_id)}"]` : null;
+      // The surface that shows the note's words, never the passage it is anchored to: a paragraph carries its
+      // first annotation's id as an anchor, and veiling it as a note would make reading the book cost practice.
+      return typeof ref.note_id === "string" ? `${window} [data-annotation-id="${quoted(ref.note_id)}"]:not([data-span-id]):not([data-transcript-span])` : null;
     case "companion":
       return "[data-companion-dock] [data-companion-body]";
     case "preview":
@@ -84,6 +122,21 @@ export const REASON_WORDS: Record<CheckReason, string> = {
   already_answered: "counts as practice · this check was already answered in Today",
   practice: "counts as practice · the check stays due",
 };
+
+/** The answered card's line when something the server cannot measure was opened (a region, a figure, ink…). */
+export const PRIMED_UNMEASURED_WORDS =
+  "counts as practice · you opened something during this check that LearnLoop can't measure against the answer, so this one counts as practice";
+
+/** Why a check opens as practice (its serve-time eligibility), in plain words; an unknown reason says only that. */
+const ELIGIBILITY_WORDS: Record<string, string> = {
+  seen_before: "you have seen this answer before, so this one counts as practice and the check comes back later",
+  primed: "something you saw showed the answer, so this one counts as practice",
+  hold: "it was shown to you recently, so this one counts as practice and the check comes back later",
+};
+
+export function eligibilityWords(eligibility: string | null): string {
+  return (eligibility && ELIGIBILITY_WORDS[eligibility]) ?? "this one counts as practice · the check stays due";
+}
 
 /** "› your answer · just now · on your own" or "· counts as practice". */
 export function answeredHead(cold: boolean): string {
@@ -126,7 +179,8 @@ export function visibleNow(stage: ParentNode | null, windows: ReadonlyArray<{ wi
         // server has not already judged.
         const spans = [...host.querySelectorAll("[data-span-id], [data-transcript-span]")];
         entry.spanIds = unique(spans.map((element) => element.getAttribute("data-span-id") ?? element.getAttribute("data-transcript-span")));
-        entry.noteIds = unique([...host.querySelectorAll("[data-annotation-id]")].filter((element) => element.getAttribute("data-annotation-kind") === "note")
+        // A note's own surface (a rail card, a margin note), not a passage that carries the note's id as its anchor.
+        entry.noteIds = unique([...host.querySelectorAll("[data-annotation-id]:not([data-span-id]):not([data-transcript-span])")].filter((element) => element.getAttribute("data-annotation-kind") === "note")
           .map((element) => element.getAttribute("data-annotation-id")));
         entry.figures = [...host.querySelectorAll("[data-figure]")].map((element) => ({
           figureId: element.getAttribute("data-figure") ?? "",

@@ -189,7 +189,7 @@ describe("the context menu", () => {
     await act(async () => {
       await poller.tick();
     });
-    expect(told).toEqual([[false, undefined]]);
+    expect(told).toEqual([[false, false]]);
     expect(screen.queryByText(/Couldn't check this material/)).toBeNull();
     expect(screen.getByText(/the search for more stopped/)).toBeTruthy();
   });

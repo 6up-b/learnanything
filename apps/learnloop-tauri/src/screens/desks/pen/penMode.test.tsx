@@ -8,7 +8,8 @@ import { FIXTURE_LIBRARY, FIXTURE_SOURCES } from "../../../fixtures/desks/source
 import { DeskShell, type DeskTransport } from "../DeskShell";
 import { usePenHost, type PenHost } from "./host";
 
-vi.mock("../../../api/client", () => ({ api: {} }));
+// No inline check is open (the desks read it before showing anything).
+vi.mock("../../../api/client", () => ({ api: { checkOpenInline: async () => ({ administration: null }) } }));
 vi.mock("../windows/SourceWindow", () => ({ SourceWindow: () => null }));
 vi.mock("../windows/PanelWindow", () => ({ PANEL_TITLES: { guide: "Guide", notes: "Notes", path: "Reading path", library: "Library" }, LibraryPanel: () => null, PathPanel: () => null, RailHostPanel: () => null }));
 

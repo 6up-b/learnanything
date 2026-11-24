@@ -402,6 +402,11 @@ def deliver_tutor(ctx: SidecarContext, result: dict[str, Any]) -> dict[str, Any]
     return result
 
 
+#: A comparison refused whole (RW4d's ``comparison_withheld``), in the words every surface uses.
+COMPARISON_WITHHELD = ("Part of this comparison is held out for an exam now (or its sources can't be checked), "
+                       "so it isn't shown.")
+
+
 def deliver_comparison(ctx: SidecarContext, ask_id: str, result: dict[str, Any]) -> dict[str, Any]:
     """A comparison job's result as it may go out NOW (RW4d fix round 5, F2),
     at every delivery (the first one, and each cached read through
@@ -418,9 +423,7 @@ def deliver_comparison(ctx: SidecarContext, ask_id: str, result: dict[str, Any])
         return result  # nothing was compared (too few sources): no comparison to withhold
     vault, repository = ctx.require_vault()
     if SO.withheld_comparisons(vault, repository, [(str(comparison_id), ask_id)]):
-        raise SidecarError("comparison_withheld",
-                           "Part of this comparison is held out for an exam now (or its sources can't be checked), "
-                           "so it isn't shown.")
+        raise SidecarError("comparison_withheld", COMPARISON_WITHHELD)
     if "kept" in result:
         result["kept"] = KC.compare_kept_state(vault, repository, ask_id, str(comparison_id))
     return result
@@ -519,11 +522,12 @@ def reader_library_ask(ctx: SidecarContext, params: LibraryAskInput) -> dict[str
                            workbench_session_id=params.workbench_session_id)
     record = _caller_record(caller, workbench_session_id=params.workbench_session_id)
 
+    # The ask's anchor refuses as the library's own anchor rule does (its row: the held-out partition).
     places = reading_places(extraction_id, params.span_ids)
-    refuse_protected(vault, repository, places)
+    refuse_protected(vault, repository, places, surface="library_ask_anchor")
 
     def work(worker_repo: Any) -> dict[str, Any]:
-        refuse_protected(vault, worker_repo, places)
+        refuse_protected(vault, worker_repo, places, surface="library_ask_anchor")
 
         def find(query: str, **kwargs: Any) -> Any:
             return propose_sources(vault, worker_repo, query, caller=caller, **kwargs)
@@ -649,8 +653,10 @@ def reader_library_compare(ctx: SidecarContext, params: LibraryCompareInput) -> 
                      span_ids=params.anchor_span_ids or [],
                      source_id=params.open_source_id if params.extraction_id else None,
                      span_keys=params.pinned_span_keys or [])
-    places = reading_places(_resolved_or_none(repository, params.extraction_id), params.anchor_span_ids)
-    refuse_protected(vault, repository, places)
+    # A door's own anchor is refused by ``open_comparison`` (``exam_material``, with its words) before anything is
+    # read; the ask's anchor and the pins are the comparison's contributors, refused as RW4d's whole-comparison
+    # rule refuses them (``comparison_withheld``), here and again in the worker.
+    places: list[tuple[str, str]] = []
     scoped = scope_enabled(vault)
     if not scoped:
         # CA3 off: today's request exactly (an ask, two pins, no CA3 field).
@@ -661,7 +667,7 @@ def reader_library_compare(ctx: SidecarContext, params: LibraryCompareInput) -> 
     row = _ask_row(repository, ask_id)
     places.extend(reading_places(row.get("extraction_id"), (row.get("anchor") or {}).get("span_ids", [])))
     places.extend(passage_keys_of(params.pinned_span_keys))
-    refuse_protected(vault, repository, places)
+    refuse_protected(vault, repository, places, code="comparison_withheld", message=COMPARISON_WITHHELD)
     caller = follow_up_caller(vault, repository, row, workbench_session_id=params.workbench_session_id)
     keep = KC.keep_enabled(vault)
     perspectives = KC.clean_perspectives(params.requested_perspectives, limit=KC.max_perspectives(vault))
@@ -693,7 +699,7 @@ def reader_library_compare(ctx: SidecarContext, params: LibraryCompareInput) -> 
         return bound
 
     def work(worker_repo: Any) -> dict[str, Any]:
-        refuse_protected(vault, worker_repo, places)
+        refuse_protected(vault, worker_repo, places, code="comparison_withheld", message=COMPARISON_WITHHELD)
 
         def bound_compare(query: str, **kwargs: Any) -> Any:
             return propose_comparison(vault, worker_repo, query, caller=caller, **kwargs)
@@ -874,7 +880,8 @@ def reader_library_ask_tutor(ctx: SidecarContext, params: LibraryAskTutorInput) 
         raise SidecarError("validation_error", "Pin the passages the tutor should answer from.")
     places = reading_places(row.get("extraction_id"), (row.get("anchor") or {}).get("span_ids", []))
     places.extend(passage_keys_of(pinned_keys))
-    refuse_protected(vault, repository, places)
+    # A held-out pin refuses the tutor (its row); an exam pin is dropped by the tutor's own reader, as before.
+    refuse_protected(vault, repository, places, surface="library_tutor_refusal")
     caller = follow_up_caller(vault, repository, row)
     policy, _reason = derive_policy(caller)
     if policy == "cold_attempt":
@@ -887,7 +894,7 @@ def reader_library_ask_tutor(ctx: SidecarContext, params: LibraryAskTutorInput) 
     provider = LA.OnlyPinned(PinnedSpanProvider(pinned_keys), item=item)
 
     def work(worker_repo: Any) -> dict[str, Any]:
-        refuse_protected(vault, worker_repo, places)
+        refuse_protected(vault, worker_repo, places, surface="library_tutor_refusal")
         binding, stored = _pinned_binding(vault, worker_repo, row, caller)
 
         def answer(*, question_md: str, extraction_id: str, span_id: str) -> dict[str, Any]:

@@ -50,7 +50,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 > [!success] ACTIVE
 > A static TypeScript import path reaches this file from the Vite entry src/main.tsx.
 >
-> Build/entry chain: [[Reference/Desktop/TypeScript/main|src/main.tsx]] → [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] → [[Reference/Desktop/TypeScript/screens/desks/DeskShell|src/screens/desks/DeskShell.tsx]] → [[Reference/Desktop/TypeScript/screens/reader/sideBySide|src/screens/reader/sideBySide.ts]]
+> Build/entry chain: [[Reference/Desktop/TypeScript/main|src/main.tsx]] → [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] → [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] → [[Reference/Desktop/TypeScript/screens/reader/sideBySide|src/screens/reader/sideBySide.ts]]
 
 ## Public API
 
@@ -81,10 +81,9 @@ The system-level behavior stays authoritative in the linked architecture, concep
 > [!note] Static-evidence boundary
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
+- [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] — import-or-re-export: `PaneTarget`, `clampSplit`, `crumbLabel`, `readSplit`, `sideBySideTarget`, `writeSplit`; references `PaneTarget`, `clampSplit`, `crumbLabel`, `readSplit`, `sideBySideTarget`, `writeSplit`
 - [[Reference/Desktop/TypeScript/screens/desks/DeskShell|src/screens/desks/DeskShell.tsx]] — import-or-re-export: `PaneTarget`; references `PaneTarget`
 - [[Reference/Desktop/TypeScript/screens/desks/sideBySide/pairs|src/screens/desks/sideBySide/pairs.ts]] — import-or-re-export: `firstJudgedIn`, `targetOf`; references `firstJudgedIn`, `targetOf`
-- [[Reference/Desktop/TypeScript/screens/desks/source/ScopedSource|src/screens/desks/source/ScopedSource.tsx]] — import-or-re-export: `clampSplit`, `crumbLabel`, `readSplit`, `sideBySideTarget`, `writeSplit`; references `clampSplit`, `crumbLabel`, `readSplit`, `sideBySideTarget`, `writeSplit`
-- [[Reference/Desktop/TypeScript/screens/desks/source/types|src/screens/desks/source/types.ts]] — import-or-re-export: `PaneTarget`; references `PaneTarget`
 - [[Reference/Desktop/TypeScript/screens/reader/returnStack|src/screens/reader/returnStack.ts]] — import-or-re-export: `PaneTarget`; references `PaneTarget`
 - [[Reference/Desktop/TypeScript/screens/reader/useReaderInquiry|src/screens/reader/useReaderInquiry.ts]] — import-or-re-export: `PaneTarget`; references `PaneTarget`
 - [[Reference/Desktop/TypeScript/screens/reader/useSideBySide|src/screens/reader/useSideBySide.ts]] — import-or-re-export: `Pane`, `PaneTarget`, `crumbLabel`, `firstCorrespondent`, `firstJudgedIn`, `isNarrowWindow`, `targetOf`; references `Pane`, `PaneTarget`, `crumbLabel`, `firstCorrespondent`, `firstJudgedIn`, `isNarrowWindow`, `targetOf`

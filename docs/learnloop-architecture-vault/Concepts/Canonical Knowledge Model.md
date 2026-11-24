@@ -4,10 +4,10 @@ aliases:
   - Knowledge Model
 status: active
 doc_version: 1.0.0
-implementation_version: mvp-0.9
-last_reviewed: 2026-08-17
-source_commit: 62fd1f6404cc3a3007c6f214ba9429c45ef0114f
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
+implementation_version: mvp-0.68
+last_reviewed: 2026-11-23
+source_commit: 86f29b0d390ed2ecdbb0347d98ccb1175ac52728
+source_commit_timestamp: "2026-11-23T23:12:28-05:00"
 source_paths:
   - docs/specs/documentation.md
   - src/learnloop/vault/models.py
@@ -88,7 +88,7 @@ Grading resolves points and evidence per criterion. Criterion targets, dependenc
 - contract reachability/frontier tests
 - canonical projection and anti-double-count tests
 - measurement-rank tests
-- depth/rung/blueprint/golden-path tests
+- depth, rung and blueprint tests
 
 ## See also
 

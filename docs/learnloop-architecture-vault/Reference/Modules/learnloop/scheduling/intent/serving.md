@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/scheduling/intent/serving.py](../../../../../../../src/learnloop/scheduling/intent/serving.py) |
-| Source lines | 797 |
+| Source lines | 828 |
 | Owning package | [[Reference/Modules/learnloop/scheduling/intent/_package|learnloop.scheduling.intent]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -82,11 +82,11 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
   - `due_checks(self) -> list[CheckState]` (line 440; public) — Every due, unanswered, unreplaced check, servable or not (round 6, F20: a check with nothing to serve is accounted for, never dropped); selection reads each one's ``servable``.
   - `pick_checks(self, queue: Sequence[Any]) -> tuple[list[Any], list[str]]` (line 450; public) — One item per due check: the first (top-ranked) candidate in the built order; the other candidates leave this build.
   - `check_item_ids(self, item_ids: Iterable[str]) -> dict[str, CheckState]` (line 474; public) — The due checks' items among ``item_ids`` (the plan's pool), one per check: the first in the given order.
-- `build_checks(resolution: Resolution, *, by_lo: Mapping[str, list[str]], item_los: Mapping[str, str], now: datetime, default_days: int, attempts_since: Any, cold_at: Any=None) -> tuple[dict[str, CheckState], Resolution]` ([source](../../../../../../../src/learnloop/scheduling/intent/serving.py), line 505) — Every pending "Check once" with its date and the items it decides; answered ones are folded to ``satisfied`` in the returned resolution.
-- `check_feasibility(item_id: str, gate: Any) -> Mapping[str, Any] | None` ([source](../../../../../../../src/learnloop/scheduling/intent/serving.py), line 586) — THE "Check once" feasibility gate (DL2 fix round 6): why ``item_id`` can never be a check's item now, or None.
-- `check_feasibility_of(gate: Any) -> Any` ([source](../../../../../../../src/learnloop/scheduling/intent/serving.py), line 595)
-- `split_check(check: CheckState, *, eligibility: Any=None, feasibility: Any=None, followup_gate: Any=None) -> CheckState` ([source](../../../../../../../src/learnloop/scheduling/intent/serving.py), line 616) — A due, unanswered check's candidates split by the eligibility decision (``eligibility(item_id, check_created_at)``; None: every one eligible), among those the one check gate passes.
-- `intent_serving(vault: Any, repository: Any, *, now: datetime, weights: tuple[float, ...] | None=None, force: bool=False) -> IntentServing | None` ([source](../../../../../../../src/learnloop/scheduling/intent/serving.py), line 677) — The build's intent view, or None when intent changes nothing.
+- `build_checks(resolution: Resolution, *, by_lo: Mapping[str, list[str]], item_los: Mapping[str, str], now: datetime, default_days: int, attempts_since: Any, cold_at: Any=None, held_at: Any=None) -> tuple[dict[str, CheckState], Resolution]` ([source](../../../../../../../src/learnloop/scheduling/intent/serving.py), line 506) — Every pending "Check once" with its date and the items it decides; answered ones are folded to ``satisfied`` in the returned resolution.
+- `check_feasibility(item_id: str, gate: Any) -> Mapping[str, Any] | None` ([source](../../../../../../../src/learnloop/scheduling/intent/serving.py), line 593) — THE "Check once" feasibility gate (DL2 fix round 6): why ``item_id`` can never be a check's item now, or None.
+- `check_feasibility_of(gate: Any) -> Any` ([source](../../../../../../../src/learnloop/scheduling/intent/serving.py), line 602)
+- `split_check(check: CheckState, *, eligibility: Any=None, feasibility: Any=None, followup_gate: Any=None) -> CheckState` ([source](../../../../../../../src/learnloop/scheduling/intent/serving.py), line 623) — A due, unanswered check's candidates split by the eligibility decision (``eligibility(item_id, check_created_at)``; None: every one eligible), among those the one check gate passes.
+- `intent_serving(vault: Any, repository: Any, *, now: datetime, weights: tuple[float, ...] | None=None, force: bool=False) -> IntentServing | None` ([source](../../../../../../../src/learnloop/scheduling/intent/serving.py), line 707) — The build's intent view, or None when intent changes nothing.
 
 ### Module constants
 
@@ -115,9 +115,10 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 ## Internal implementation anchors
 
 - `_anchors_not_gathered() -> dict[str, tuple[str, str]]` ([source](../../../../../../../src/learnloop/scheduling/intent/serving.py), line 200)
-- `_items_by_learning_object(vault: Any) -> tuple[dict[str, str], dict[str, list[str]]]` ([source](../../../../../../../src/learnloop/scheduling/intent/serving.py), line 491)
-- `_admission_only(admission: Any) -> Any` ([source](../../../../../../../src/learnloop/scheduling/intent/serving.py), line 599) — No gate (a view with no vault behind it): the admission alone.
-- `_inline_locks(vault: Any, repository: Any) -> frozenset[str]` ([source](../../../../../../../src/learnloop/scheduling/intent/serving.py), line 665) — The commitments an open inline administration holds (mvp-0.69); below the tag, none (Today ignores the lock).
+- `_items_by_learning_object(vault: Any) -> tuple[dict[str, str], dict[str, list[str]]]` ([source](../../../../../../../src/learnloop/scheduling/intent/serving.py), line 492)
+- `_admission_only(admission: Any) -> Any` ([source](../../../../../../../src/learnloop/scheduling/intent/serving.py), line 606) — No gate (a view with no vault behind it): the admission alone.
+- `_held_at(vault: Any, repository: Any) -> Any` ([source](../../../../../../../src/learnloop/scheduling/intent/serving.py), line 672) — mvp-0.69 (RD7's fix round): ``held_at(commitment_id, attempt_row)``: the attempt was made on another surface while an inline administration held this commitment (from its opening to its close).
+- `_inline_locks(vault: Any, repository: Any) -> frozenset[str]` ([source](../../../../../../../src/learnloop/scheduling/intent/serving.py), line 695) — The commitments an open inline administration holds (mvp-0.69); below the tag, none (Today ignores the lock).
 
 ## Who imports or calls it
 
@@ -146,7 +147,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 - [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `inline_checks_on`; calls `inline_checks_on`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `parse_utc`; calls `parse_utc`
-- [[Reference/Modules/learnloop/db/stores/check_administrations|learnloop.db.stores.check_administrations]] — imports `open_commitments`; calls `open_commitments`
+- [[Reference/Modules/learnloop/db/stores/check_administrations|learnloop.db.stores.check_administrations]] — imports `module`, `open_commitments`; calls `held_windows`, `open_commitments`
 - [[Reference/Modules/learnloop/db/stores/intent_reads|learnloop.db.stores.intent_reads]] — imports `module`; calls `attempts_since`
 - [[Reference/Modules/learnloop/diagnosis/causal_activity_policy|learnloop.diagnosis.causal_activity_policy]] — imports `attempt_counts_as_assisted`; calls `attempt_counts_as_assisted`
 - [[Reference/Modules/learnloop/params/fitted_params|learnloop.params.fitted_params]] — imports `resolve_fsrs_weights`; calls `resolve_fsrs_weights`
@@ -208,6 +209,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f2_an_automatic_follow_up_never_lands_in_a_scope_the_learner_chose`
 - [tests/test_reader_rd7a_inline_checks.py](../../../../../../../tests/test_reader_rd7a_inline_checks.py) — direct import
   - `test_one_administration_at_a_time_and_today_honours_it`
+  - `test_rd7_16_the_daily_plan_does_not_label_a_held_check`
 - [tests/test_reader_rd7b_cold_followup_parity.py](../../../../../../../tests/test_reader_rd7b_cold_followup_parity.py) — direct import
   - `test_a_due_cold_follow_up_opens_inline_cold_on_the_item_today_would_serve`
   - `test_rw6bs_gate_holds_the_follow_up_on_both_surfaces`
