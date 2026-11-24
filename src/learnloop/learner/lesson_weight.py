@@ -332,7 +332,7 @@ class CheckSensitivity:
 
 def _scored(y: float, frozen: bool) -> dict[str, Any]:
     """The observation's score fields. Mastery's logit-space update (``mastery.irt.enabled = false``) reads the rubric
-    fraction and ignores the override, so at mvp-0.71 the fraction carries the score too (review L42-R10): the
+    fraction and ignores the override, so at mvp-0.71 the fraction carries the score too: the
     attempt step's ``rubric_score / max_points`` is the recorded correctness exactly. Below the tag, as the
     predecessor read it."""
 
@@ -399,8 +399,8 @@ class RecordedUpdate:
     attempt_type: str
     applied: bool
     varied: bool = False
-    #: At mvp-0.71: the variance floor mastery applied after this update (review L42-R7), and, on the check's own
-    #: update, the replayed state it started from (review L42-R8). None below the tag.
+    #: At mvp-0.71: the variance floor mastery applied after this update, and, on the check's own
+    #: update, the replayed state it started from. None below the tag.
     variance_floor: float | None = None
     prior: tuple[float, float] | None = None
 
@@ -444,7 +444,7 @@ def recorded_trajectory(connection: Any, vault: Any, mastery_config: Any, check:
               "LEFT JOIN attempt_surprise s ON s.attempt_id = a.id "
               "LEFT JOIN attempt_debug_payloads d ON d.attempt_id = a.id ")
     if frozen:
-        # The order mastery applied the LO's grades in (review L42-R6): within one second by application sequence.
+        # The order mastery applied the LO's grades in: within one second by application sequence.
         order = attempt_order_for(vault.config)
         before_check, check_params = order.before_sql((str(anchor[0]), str(check["attempt_id"])),
                                                       created_at="a.created_at", attempt_id="a.id")
@@ -533,7 +533,7 @@ def _close(value: float, recorded: float) -> bool:
 def _unreproduced(connection: Any, check: Mapping[str, Any], outcome: Mapping[str, Any],
                   updates: Sequence[RecordedUpdate], recorded: Sequence[tuple[float, float, float, float]],
                   mastery_config: Any) -> tuple[int, str] | None:
-    """Where the recomputation at the recorded mass leaves what mastery recorded (review L42-R7, L42-R8), as
+    """Where the recomputation at the recorded mass leaves what mastery recorded, as
     ``(update index, reason)``; None when every update and the outcome's prior are reproduced. A transition the
     attempt updates do not carry (a re-anchoring claim, another writer of the state) or an evidence clock other than
     the recorded one shows here, and the fit then uses its first-order form, labelled."""
@@ -568,8 +568,7 @@ def trajectory_state(sensitivity: "CheckSensitivity", updates: Sequence[Recorded
                      recorded_mass: float, mastery_config: Any, frozen: bool = False) -> Any:
     """The LO's mastery state just before the outcome, recomputed from the check's recorded prior with
     the check entered at ``mass`` and every other update as recorded. At mvp-0.71 (``frozen``) it starts from the
-    state the check's update replayed from (review L42-R8) and applies each update's recorded variance floor (review
-    L42-R7)."""
+    state the check's update replayed from and applies each update's recorded variance floor."""
 
     from learnloop.db.repositories import MasteryState
 
@@ -640,7 +639,7 @@ def pool_implied_mass(sensitivity: CheckSensitivity, target: float, mastery_conf
     predicted success is monotone in the mass for a fixed grade, so bisection finds it, or the
     end of the search interval nearest it when it is out of reach. At mvp-0.71 (``frozen``) a flat response (every
     mass predicts the same success: an item with no discrimination) identifies no mass, and the result is None
-    (review L42-R14)."""
+   ."""
 
     item_a = sensitivity.item_a if a is None else float(a)
     item_b = sensitivity.item_b if b is None else float(b)
@@ -866,7 +865,7 @@ def qualifying_outcomes(connection: Any, learning_object_ids: Iterable[str], aft
     attempt, with no reveal row on the item before it, and not a lesson probe answered after its lesson showed
     text on the topic (teacher TE2, Codex review F2: that answer is not independent, so it resolves nothing; only
     TE2 writes the exposed source, so nothing recorded before it reads differently). ``order``: the ledger order an
-    item's first use and the result follow (the fit at mvp-0.71 passes the vault's, review L42-R6)."""
+    item's first use and the result follow (the fit at mvp-0.71 passes the vault's)."""
 
     from learnloop.causal_activity_policy import LESSON_PROBE_EXPOSED_SOURCE
 
@@ -955,7 +954,7 @@ def replay_state(vault: Any, repository: Any, *, as_of: str | None = None, throu
     for term, amount in (prior_shift or {}).items():
         for bank in state.banks:
             bank.mean[PRIOR_TERMS[term]] += float(amount)
-    # One snapshot for every read (review L42-R5): a learner runs several processes at once (the sidecar, the phone
+    # One snapshot for every read: a learner runs several processes at once (the sidecar, the phone
     # host, a CLI), and a regrade committing between two reads would score one epoch's answer with another's curve.
     with repository.pinned():
         connection = repository.connection()
@@ -971,7 +970,7 @@ def _replay_in_snapshot(state: WeightState, vault: Any, connection: Any, mastery
     checks = [c for c in _checks(connection) if as_of is None or str(c["created_at"]) < as_of]
     forecasts = [f for f in _forecasts(connection) if as_of is None or str(f["created_at"]) < as_of]
     hedges = read_hedges(connection)
-    # At mvp-0.71 the ledger folds in the order mastery applied it (review L42-R6); below, as the predecessor did.
+    # At mvp-0.71 the ledger folds in the order mastery applied it; below, as the predecessor did.
     order = attempt_order_for(vault.config) if frozen else LEGACY_ORDER
     calibration = _calibration_attempts(connection, hedges, as_of, order)
     los = {str(c["learning_object_id"]) for c in checks} | {f["learning_object_id"] for f in forecasts}

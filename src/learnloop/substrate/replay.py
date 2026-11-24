@@ -346,7 +346,7 @@ def replay_learning_object(
                 capture_grade_curve(connection, applying_grade_to, surprise["predicted_score_dist"],
                                     surprise["algorithm_version"])
             # The lesson-weight tables describe the ledgers through the latest lesson check, and a replacement grade
-            # can change that prefix: refreshed here, so the next rebuild changes nothing (review L42-R11).
+            # can change that prefix: refreshed here, so the next rebuild changes nothing.
             rebuild_lesson_weight_state(vault, repository)
         return result
 

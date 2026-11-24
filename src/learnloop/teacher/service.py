@@ -1254,7 +1254,7 @@ def _answer_check(vault: Any, repository: Any, state: LessonState, payload: Mapp
     # The pool's forecaster is the one that made the forecast being mixed in (its doctrine and model).
     family = str((retained or {}).get("family") or _family_of(state.lesson.get("model")))
     correct_forecast = _latest_forecast(state, "lesson_check_correct", open_check["check_ref"])
-    # The weighing, its recorded prior and the check's own application read one state (review L42-R5): another
+    # The weighing, its recorded prior and the check's own application read one state: another
     # process's grade on this learning object commits wholly before the weighing or after the check is recorded.
     with repository.atomic():
         reference = None

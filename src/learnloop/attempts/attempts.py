@@ -4924,9 +4924,7 @@ def _belief_update(
     # memory — they must not move the fitted *cold* difficulty. An attempt
     # with nothing assessed observed nothing about it either.
     if config.mastery.irt.eb_difficulty_enabled and not draft.primed and not nothing_assessed:
-        # With no fitted difficulty yet the fit starts at the difficulty this grade's mastery update used: live, the
-        # authored value (an unprimed grade without a fitted one reads it); in replay at mvp-0.71, the recorded curve,
-        # so an authored edit since the grade does not reseed it (review L42-R13). Read only while nothing is fitted.
+        # Unfitted, b starts at this update's: authored live, the recorded curve in replay (an edit never reseeds it).
         next_item_parameters = update_item_difficulty(
             prior_state.item_parameter_state,
             practice_item_id=item.id,

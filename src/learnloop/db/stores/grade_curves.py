@@ -82,7 +82,7 @@ def _historical_pair(payload: str | None) -> tuple[float | None, float | None]:
 def _applied_current(observed_json: str | None, correctness: float | None, score_bucket: Callable[[float], str]) -> bool:
     """Whether the surprise row can describe the current epoch: its observed score bucket is the current grade's. The
     surprise row carries no revision, and an evidence-only adjudication (the CLI below the grade channel fixes wrote
-    one without replaying) leaves it describing the epoch before (review L42-R4). An attempt without a resolved score
+    one without replaying) leaves it describing the epoch before. An attempt without a resolved score
     has no grade to disagree with."""
 
     if correctness is None:

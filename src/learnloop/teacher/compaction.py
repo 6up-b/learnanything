@@ -79,7 +79,7 @@ def forecast(repository: Any, lesson_id: str, client: Any, *, prefix: int, estim
         centre = growth + (last[4] if last else output_budget)
         margin = growth + max(growth, output_budget)
         basis = "output_allowance"
-    # The current prompt is already rendered (review L42-R12): its input is known before any allowance. Measured, the
+    # The current prompt is already rendered: its input is known before any allowance. Measured, the
     # last send's count plus the estimated growth of its prompt since (the estimator only measures the difference);
     # without the last prompt's text (withheld), the count alone. The answer needs at most what this lesson's answers
     # have needed (the output allowance before the first measured one).
