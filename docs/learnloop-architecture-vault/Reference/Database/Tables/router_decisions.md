@@ -50,7 +50,7 @@ It belongs to the **scheduling** navigation family. The family context lives in 
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/181_router_decisions.sql`.
-- **Schema touched by:** `181_router_decisions.sql`, `202_router_staged_frame.sql`, `208_learner_text_source_kinds.sql`, `236_router_lesson_suggestions.sql`, `240_data_capture.sql`, `241_followup_generate_serve.sql`, `243_router_objective_receipts.sql`, `246_router_objective_traces.sql`, `251_router_learner_preferences.sql`.
+- **Schema touched by:** `181_router_decisions.sql`, `202_router_staged_frame.sql`, `208_learner_text_source_kinds.sql`, `236_router_lesson_suggestions.sql`, `240_data_capture.sql`, `241_followup_generate_serve.sql`, `243_router_objective_receipts.sql`, `246_router_objective_traces.sql`, `251_router_learner_preferences.sql`, `273_probe_episode_router_stop.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -136,6 +136,7 @@ None found by exact static reference scan.
 - `src/learnloop/db/stores/provenance.py`
 - `src/learnloop/db/stores/router.py`
 - `src/learnloop/db/stores/router_suggestions.py`
+- `src/learnloop/diagnosis/probe_authority.py`
 - `src/learnloop/evsi_calibration/live_report.py`
 - `src/learnloop/followup_run/decision_view.py`
 - `src/learnloop/ops/capture_report.py`

@@ -19,16 +19,15 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/attempts/attempts.py"
+  - "src/learnloop/daily_plan/probe_continuation.py"
   - "src/learnloop/db/evidence_cutoff.py"
   - "src/learnloop/db/records.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/followup_serve.py"
-  - "src/learnloop/db/stores/probes.py"
   - "src/learnloop/db/stores/attempts.py"
   - "src/learnloop/diagnosis/causal_discrimination.py"
   - "src/learnloop/diagnosis/diagnostic_pack.py"
   - "src/learnloop/diagnosis/probe_audit.py"
-  - "src/learnloop/diagnosis/probe_blocks.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -55,7 +54,7 @@ It belongs to the **diagnosis** navigation family. The family context lives in [
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/028_probe_episodes.sql`.
-- **Schema touched by:** `028_probe_episodes.sql`, `029_probe_selection_and_calibration.sql`, `071_probe_robust_cutover.sql`, `123_causal_prior_basis.sql`.
+- **Schema touched by:** `028_probe_episodes.sql`, `029_probe_selection_and_calibration.sql`, `071_probe_robust_cutover.sql`, `123_causal_prior_basis.sql`, `273_probe_episode_router_stop.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -142,6 +141,7 @@ Indexes and uniqueness:
 
 ### Upstream callers of the repository access surface
 
+- `src/learnloop/daily_plan/probe_continuation.py`
 - `src/learnloop/db/stores/attempts.py`
 - `src/learnloop/diagnosis/causal_discrimination.py`
 - `src/learnloop/diagnosis/diagnostic_pack.py`
@@ -161,7 +161,6 @@ Indexes and uniqueness:
 - `src/learnloop/substrate/compat/activity_backfill.py`
 - `src/learnloop_sidecar/handlers/as_printed.py`
 - `src/learnloop_sidecar/handlers/knowledge_map.py`
-- `src/learnloop_sidecar/handlers/practice.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
