@@ -264,3 +264,21 @@ successor is needed; the orchestrator lands them together.
 On backup-API copies of the three floor-set vaults (never a live vault), `learnloop upgrade` to the head: every copy
 upgraded, `integrity_check` ok, `foreign_key_check` empty, head 272, and `desk_windows`, `check_administrations` and
 `check_veil_sets` hold no rows (no copy has used the desks or an inline check). The copies were deleted afterwards.
+
+## The fix round's re-review (2026-11-24): still mvp-0.69
+
+Ledger RD7-61 to RD7-74; findings in `reader-rd7a.md` §10. Four rules of what an administration's evidence means change,
+all under `mvp-0.69`:
+- An attempt on another surface is held when its plan presentation was served during a hold window, whenever it was
+  answered (`plan_presentations.served_at`, no migration). The windows are half-open.
+- An opened text that states the whole key as whole words is a full reveal, whatever the key's length. The rest stays
+  the tutor's overlap rule until reveal adjudication.
+- An opening is charged to every candidate the check has gained since begin, as well as to the frozen ones.
+- Another request adopting the open administration records an unmeasured opening, the gap a lost reply left
+  unprotected.
+
+The playbook ruling stands: no vault holds an `mvp-0.69` row. The owner's live vaults are at migration 255; the
+owner-copy run found no `check_administrations` rows. So no stored row was written under the earlier meanings and
+nothing replays. Each rule moves evidence only toward "not cold" when something could have been shown, except one: the
+half-open window lets an answer made after a hold closed count, as it should. The delivery read
+(`daily_plan/check_delivery`) now applies the same hold rule as settlement.
