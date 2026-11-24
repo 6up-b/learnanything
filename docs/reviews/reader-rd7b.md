@@ -262,7 +262,8 @@ cold card in the Reader names no LO. Left with the backend half's #15 call.
 
 ### 10.4 Stopped or not built, with options
 
-- **#24 before "check now" (RD7-56): an owner call; nothing is built for it until the owner answers.** The spec
+- **#24 before "check now" (RD7-56): the owner chose (b), built on `reader/rd7-unlocated-marker`, both halves; see
+  `reader-rd7a.md` §9.** As stopped here: The spec
   places the closed marker before the host passage, and `checks.due_for` names the LO, host and provenance. The
   review's no-topic reading conflicts with that. The two options:
   - **(a) Keep the spec.** The marker stays before the host passage and names nothing (no question, no LO, no
@@ -338,3 +339,15 @@ cold card in the Reader names no LO. Left with the backend half's #15 call.
   - `backToCheck` calls `chooseReaderSurface("desks")`, which goes when the surface choice does.
   - `App.checkGate.test.tsx` clicks the desks' "old Reader" button (DeskShell's `onLeave`) for one of its leaving
     paths. Without it, the same test still covers Today by its key.
+
+### 10.8 The unlocated marker (RD7-56, option b)
+
+The owner chose (b); the build of both halves is recorded in `reader-rd7a.md` §9. On the client:
+- the desks show one `DeskCheckMarker` per desk, on every desk, in no window and at no passage;
+- `CheckDesk` holds opaque handles from an unfiltered `checks.due_for`, and begins by handle;
+- a dead handle is read again once and the check due now opened;
+- the open card's host comes from the card, and it is scrolled into view after begin;
+- `CheckLenses` places only the open card;
+- the Knows panel has no "cold checks" row.
+
+§10.7's note for the deletion branch still holds: the app gate names no Reader route.
