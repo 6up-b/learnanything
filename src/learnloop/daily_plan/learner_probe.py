@@ -174,10 +174,19 @@ def value(vault: Any, repository: Any, proposal: Any, *, now_iso: str, seed_iden
     from learnloop.diagnosis.learner_probe_proposal import PROBE_ACTION_REF
     from learnloop.router_objective.diagnostic_value import evaluate_probe
 
+    from learnloop.diagnosis.probe_episodes import known_exposure
+
     payload = diagnostic_payload(vault, repository, proposal)
     if isinstance(payload, str):
         return None, {"status": "no_payload", "reason": payload}
     lo = payload.topic
+    # Known exposure at the decision, with the answer admission's own scope (the item and its learning object): an
+    # answer that admission will refuse separates no cause, so the probe earns no information (G2 review R14).
+    exposed_by = known_exposure(vault, repository, practice_item_id=str(proposal.practice_item_id),
+                                learning_object_id=lo, at=now_iso)
+    payload = replace(payload, exposed=exposed_by is not None)
+    exposure = {"exposed": exposed_by is not None, "reason": exposed_by, "scope": "item_and_learning_object",
+                "at": now_iso}
     # The repair block the valuation's topics and duration spread are read for; the plan is not needed (no plan id:
     # the remembered minutes are "missing", as on any decision outside a plan).
     repair = BlockCandidate(candidate_id="repair", lane="repair", action="practice", subtype="completion_or_repair",
@@ -208,7 +217,7 @@ def value(vault: Any, repository: Any, proposal: Any, *, now_iso: str, seed_iden
     # options.
     from dataclasses import asdict
 
-    return valuation, {"status": "valued", "price": {"kappa0": priced.kappa0, "how": priced.how},
+    return valuation, {"status": "valued", "exposure": exposure, "price": {"kappa0": priced.kappa0, "how": priced.how},
                        "topics": len(inputs.topics), "topic_sources": sources.get("topics", {}).get(lo),
                        "frozen": {"inputs": asdict(inputs), "probe_minutes": probe.minutes,
                                   "probe_minutes_log_sd": probe.minutes_log_sd, "payload": payload.summary(),

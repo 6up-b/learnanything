@@ -452,3 +452,32 @@ def test_r12_a_factor_that_is_not_the_causes_is_refused(tmp_path, monkeypatch):
     case = _learner(tmp_path, monkeypatch)
     with pytest.raises(SidecarError):
         call(case.ctx, "causal_repair_status", {"misconceptionId": case.first, "factorId": "not_a_factor_of_it"})
+
+
+# -- the probe priced as its answer will be admitted ------------------------------------------------------------------
+
+
+def test_r14_a_reveal_on_the_learning_object_prices_the_probe_exposed(tmp_path, monkeypatch):
+    from learnloop.attempts.reveal_ledger import record_reveal
+
+    from tests.causal_orchestrator_helpers import LO_ID
+
+    case = _learner(tmp_path, monkeypatch)
+    # A solution shown on a sibling item of the learning object: the answer admission refuses any later answer on
+    # the object as not independent, so the probe can separate no cause.
+    assert record_reveal(case.repository, practice_item_id="pi_svd_define_001", learning_object_id=LO_ID,
+                         source_kind="repair_display", amount=1.0)
+    _read(case)
+    detail = _decision(case)["detail"]
+    assert detail["valuation"]["frozen"]["payload"]["exposed"] is True
+    assert detail["valuation"]["exposure"]["reason"] == "post_reveal_not_independent"
+    assert detail["evaluation"]["channel_use"] == "exposed" and detail["information"] == 0.0
+
+
+def test_r14_with_nothing_revealed_the_probe_is_priced_unexposed_and_says_so(tmp_path, monkeypatch):
+    case = _learner(tmp_path, monkeypatch)
+    _read(case)
+    valuation = _decision(case)["detail"]["valuation"]
+    assert valuation["frozen"]["payload"]["exposed"] is False
+    assert valuation["exposure"] == {"exposed": False, "reason": None, "scope": "item_and_learning_object",
+                                     "at": valuation["exposure"]["at"]}

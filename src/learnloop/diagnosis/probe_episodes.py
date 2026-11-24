@@ -1389,6 +1389,23 @@ def answer_exposure(
     return str(admissibility.reason or "not_independent")
 
 
+def known_exposure(vault: LoadedVault, repository: Repository, *, practice_item_id: str,
+                   learning_object_id: str | None, at: str) -> str | None:
+    """Why an answer given at ``at`` to a probe of this item would not be an independent production, as its admission
+    will judge it, or None: the reveal window :func:`probe_answer_admissibility` reads (a reveal on the item or
+    anywhere on its learning object before the answer), read before any answer exists (G2 review R14: the router
+    prices the probe with what its answer will be worth). Below the evidence reading fixes (mvp-0.61) an episode
+    observation never asked, so None there."""
+
+    from learnloop.algorithm_versions import evidence_reading_fixes_on
+
+    if not evidence_reading_fixes_on(vault.config):
+        return None
+    admissibility = production_admissibility(repository, practice_item_id=practice_item_id,
+                                             learning_object_id=learning_object_id, produced_at=at, read_at=at)
+    return None if admissibility.admissible else str(admissibility.reason or "not_independent")
+
+
 def effective_episode_observations(vault: LoadedVault, repository: Repository, episode_id: str) -> list[dict[str, Any]]:
     """The episode's observation rows (``probe_observations_for_episode``, the held-grade view) as the episode reads
     them at the vault's tag.
