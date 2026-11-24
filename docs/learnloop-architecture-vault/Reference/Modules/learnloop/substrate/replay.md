@@ -209,6 +209,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_replay_preserves_targeted_error_attribution_facets`
 - [tests/test_replay_keeps_diagnosis_ids.py](../../../../../../tests/test_replay_keeps_diagnosis_ids.py) — direct import
   - `test_a_per_lo_replay_appends_no_version`
+- [tests/test_replay_writes_no_ledger.py](../../../../../../tests/test_replay_writes_no_ledger.py) — direct import
 - [tests/test_ro1_availability.py](../../../../../../tests/test_ro1_availability.py) — direct import
   - `test_exam_seeding_records_the_import_time_and_replay_keeps_it`
 - [tests/test_same_second_order.py](../../../../../../tests/test_same_second_order.py) — direct import

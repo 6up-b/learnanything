@@ -806,6 +806,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_selection_never_picks_an_administered_diagnostic_surface`
   - `test_shared_surface_group_makes_the_certificate_unmeasurable`
   - `test_withdrawn_certificate_schedules_nothing_and_cancels_a_queued_probe`
+- [tests/test_chapters_feed_coverage.py](../../../../../../tests/test_chapters_feed_coverage.py) — direct import
+  - `test_a_chapters_row_no_longer_stands_once_the_transcript_changed`
+  - `test_only_sections_wholly_inside_the_range_are_covered`
+  - `test_the_learners_own_correction_stands_and_corrects_a_wrong_acceptance`
+  - `test_with_the_curriculum_off_accepting_writes_no_coverage`
 - [tests/test_characterization_assessment_exam.py](../../../../../../tests/test_characterization_assessment_exam.py) — direct import
 - [tests/test_characterization_certification_ledger.py](../../../../../../tests/test_characterization_certification_ledger.py) — direct import
 - [tests/test_characterization_probe_regrade.py](../../../../../../tests/test_characterization_probe_regrade.py) — direct import
@@ -2840,6 +2845,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_promoted_hypothesis_stays_promoted_and_its_receipt_keeps_its_id`
   - `test_a_rebuild_keeps_every_hypothesis_and_receipt_id`
   - `test_the_shadow_rebuild_reports_no_difference`
+- [tests/test_replay_writes_no_ledger.py](../../../../../../tests/test_replay_writes_no_ledger.py) — direct import
 - [tests/test_required_method_authority.py](../../../../../../tests/test_required_method_authority.py) — direct import
   - `test_a_live_answer_its_regrade_and_replay_are_graded_under_the_frozen_field`
   - `test_a_variant_with_no_verdict_or_an_edited_stem_is_not_published`

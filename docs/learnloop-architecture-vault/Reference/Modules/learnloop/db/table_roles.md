@@ -265,6 +265,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_rebuild_makes_no_model_call_and_is_a_fixed_point`
 - [tests/test_recurrence_live.py](../../../../../../tests/test_recurrence_live.py) — direct import
   - `test_a_verdict_after_a_promotion_moves_only_the_group_projection_and_rebuild_matches_live`
+- [tests/test_replay_writes_no_ledger.py](../../../../../../tests/test_replay_writes_no_ledger.py) — direct import
 - [tests/test_retrieval_spaces_migration.py](../../../../../../tests/test_retrieval_spaces_migration.py) — direct import
   - `test_table_roles_and_the_one_replayer`
 - [tests/test_ro1_availability.py](../../../../../../tests/test_ro1_availability.py) — direct import

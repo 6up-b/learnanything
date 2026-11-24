@@ -375,6 +375,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_replay_keeps_diagnosis_ids.py](../../../../../../tests/test_replay_keeps_diagnosis_ids.py) — direct import
   - `test_a_promoted_hypothesis_stays_promoted_and_its_receipt_keeps_its_id`
   - `test_a_rebuild_keeps_every_hypothesis_and_receipt_id`
+- [tests/test_replay_writes_no_ledger.py](../../../../../../tests/test_replay_writes_no_ledger.py) — direct import
 - [tests/test_required_method_authority.py](../../../../../../tests/test_required_method_authority.py) — direct import
   - `test_a_live_answer_its_regrade_and_replay_are_graded_under_the_frozen_field`
 - [tests/test_required_method_grading.py](../../../../../../tests/test_required_method_grading.py) — direct import
