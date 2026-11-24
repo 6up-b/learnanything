@@ -179,3 +179,158 @@ Both finished normally.
 - A shadow rebuild of an owner copy with this code. On the copies the orchestrator ran, no row holds a gate record,
   so it would show `recorded_before` 0.
 - Where H-2's reminted hypothesis id comes from.
+
+## H-2: replay reverted a hypothesis and reminted its receipt (fixed, branch `refactor/h2-stable-receipt-ids`)
+
+### What happened
+
+A diagnosed attempt's causal record is versioned per episode (`causal_hypotheses`, a raw ledger). Live
+materialization (`diagnosis/causal_attribution.py::materialize_causal_episode`) appends a version only when its
+content differs from the episode's head (`db/stores/causal.py::append_causal_hypothesis`). It then writes a
+content-addressed diagnosis receipt (`dr_<hash>`, which cites each hypothesis's id and version) into the attempt's
+debug payload and sets the cause factor's refs.
+
+Later live events append newer versions of the same episode:
+- a recurrence promotion (status `validated`);
+- a withdrawal (retired);
+- a learner's confirmation.
+
+Replay of the attempt (every whole-vault rebuild, every per-LO replay, a regrade's replay) called the same
+materialization. It recomputed the attempt's own content, the first version's, and compared it with the head, now
+the later live version. They differed, so it appended a third version: a copy of the first, with a fresh ULID
+(`new_ulid()`), stamped at the attempt's time.
+
+Every consequence followed from that one append:
+- the episode's head went back to the first version's status, so a promotion, a withdrawal or a confirmation was
+  silently undone for everything that reads the head;
+- the receipt, rebuilt from the heads, cited the new id, so its content and its content-addressed id changed, and it
+  was appended as the attempt's current receipt;
+- an open cause factor's refs (`unresolved_cause_factors.candidate_causes_json`) would be rewritten to the new version.
+  That is from the code: the journeys hold no open factor on these episodes.
+
+**Not a timestamp or a counter:** the hypothesis id was a fresh ULID, and the receipt id changed because its content
+cited that id.
+
+On the recurrence journey, both misconception episodes (the first two attempts) were reverted on the first rebuild,
+and the mid-check journey's one was too. A second rebuild appended nothing more: the reverted head then matched.
+
+### Who reads these ids
+
+**Hypothesis ids:**
+- the receipt's citations, the overlay's `causalHypotheses`, `unverified` and `traceConsistency`;
+- the cause factors' refs;
+- mechanism taxonomy assignments;
+- blind prediction bundles, probe candidates and decisions, cold outcomes;
+- the would-merge log and `diagnosis_context_receipts.hypothesis_ids_json`;
+- the learner's narrowing and confirmation actions, which the frontend sends by `hypothesisId`.
+
+**Receipt ids:** `diagnosis_adjudications.diagnosis_receipt_id` and the overlay's `receiptId`.
+
+**Was real data already orphaned?** Not as dangling ids: the earlier versions and receipts are never deleted, so every
+stored reference still resolves. What was lost is attachment:
+- after such a rebuild, the head and the attempt's current receipt are the replay's copies;
+- an adjudication of the first receipt, a probe decision or a confirmation on the later version, and the frontend's
+  remembered ids now point at rows history no longer shows as current;
+- the hypothesis's status reads as before the promotion, withdrawal or confirmation.
+
+Any owner vault rebuilt after such a live event carries this. A read-only signature for the orchestrator:
+
+```sh
+sqlite3 -readonly "$COPY_DB" "SELECT count(*) FROM causal_hypotheses h JOIN causal_hypotheses p ON p.id = h.supersedes_id WHERE h.created_at <= p.created_at;"
+```
+
+Replay stamps a version with the replayed attempt's time, so it is no later than its predecessor; a live append is
+later. So this counts versions replay appended. The tracked `mvp017_route_check_replay` fixture holds one: its second
+version carries the first's own time.
+
+### The fix: carry the live version, never revert
+
+- **`append_causal_hypothesis(..., replayed_from=[ids])`.** When the head differs, a version of the episode with
+  identical semantic content is returned instead of appending a new one:
+  - the version the attempt's recorded receipt cites is preferred;
+  - otherwise the newest identical version;
+  - with none identical (a regrade's new grade), a version is appended as live.
+
+  The store reads the episode's versions through the new `causal_hypothesis_versions`.
+- **`materialize_causal_episode(..., replay=True)`,** passed by the attempt step when it replays
+  (`replace_existing`). It hands the recorded receipt's citations to the append. It builds the receipt and the factor
+  refs from the versions live materialization used: the ones just reused, else the recorded receipt's, else the
+  head. Ordered as live ordered them.
+- **Result:** the receipt's content, and so its content-addressed id, is reproduced, and
+  `append_attempt_diagnosis_receipt` (which dedupes by id) adds nothing. Live materialization is unchanged
+  (`replay=False`).
+- **The sibling in this path:** text provenance (`text_write_provenance`) rode on each reverting append, and goes with
+  it. The other diagnosis-path ids (cause factor ids, repair class definitions, abstention notes) were not reminted:
+  no rebuild of the 21 journeys added rows to them.
+
+**Derive or carry?** Carry. A deterministic derivation of hypothesis ids would change every stored id, which is the
+opposite of what is wanted. The receipt id is already content-derived and is reproduced once its content is.
+
+**Vaults an earlier rebuild already reverted** keep exactly what they hold. The reverted copy is identical to the
+first version and the current receipt cites it, so replay prefers it, and nothing moves. The fix stops further
+reversions; it does not undo earlier ones.
+
+**The owner's option:** a one-off script on a backup-API copy that appends, for each episode the signature above
+finds, a version copying the live head it reverted (its predecessor's content: status, evidence). Then check it with
+`doctor` and a shadow rebuild (which now reports appended ledger rows, below) before applying it with LearnLoop
+closed. Receipts already appended stay; history's current receipt then still cites the reverted copy, whose
+statement is the first version's.
+
+**A replay-made version from older code** (the fixture's second version) is handled the same way. Its first version
+is identical to what replay computes today, so replay reuses it and appends nothing. The head stays the stored
+second version. Before the fix the first rebuild appended a third (a copy of the first), and
+`tests/test_mvp017_route_check_replay.py::test_the_bounded_replay_corrects_the_copy_in_one_rebuild_and_then_changes_nothing`
+pinned that append and the recurrence restamp it caused. Its expected list of tables changed by the first rebuild
+loses `causal_hypotheses` and `hypothesis_recurrence_state`. Its other assertions are unchanged: the second rebuild
+changes nothing, and the ledgers are as before.
+
+### The tag question
+
+**No tag**, for the same reasons as H-1:
+- no live write changes;
+- a rebuild now reproduces the stored hypotheses, receipts and refs, and appends nothing to a raw ledger;
+- a vault already reverted is replayed to exactly what it holds.
+
+### The shadow rebuild now shows ledger growth
+
+`ShadowRebuildResult.ledger_rows_added` (and `as_dict()["ledger_rows_added"]`): rows the replay added, by ledger or
+receipt table (`db.table_roles`), counts only. Before this change the shadow rebuild compared only derived
+projections, so it could not have shown H-2. It shows:
+- the rebuild's own receipt (`derived_state_rebuilds`, +1, always);
+- one-time backfills on vaults that never ran them;
+- anything a replay appends that it should not.
+
+### Tests
+
+- **`tests/test_replay_keeps_diagnosis_ids.py`, 24 tests:**
+  - for all 21 journeys, every hypothesis (id, version, head, status), every receipt (current id, citations, the
+    list) and every factor's refs are equal before and after a whole-vault rebuild;
+  - the recurrence journey's two promoted episodes stay promoted and their receipts keep their ids, with every
+    reference still resolving;
+  - a per-LO replay appends no version;
+  - the shadow rebuild reports no diagnosis-ledger rows added, no gate record changed and no difference in facets or
+    schedules. The recurrence journey's vault never ran the bootstrap, so the rebuild adds a cold mastery row for each
+    LO with no attempt, as the rebuild says it must.
+- **`tests/test_gate_records_survive_replay.py::test_what_history_shows_reads_the_same_after_a_rebuild`** no longer
+  leaves out the causal overlay.
+- **Fail-first:**
+  - with `src` at the H-1 tip, 6 failed: the mid-check and recurrence journeys, the promoted-episode test, the
+    per-LO replay, the shadow test and the history test;
+  - with the shadow change alone, the shadow test failed on `causal_hypotheses` and `text_write_provenance`;
+  - after the fix, all 50 tests in the two files passed.
+- **Affected set:** 190 files (every test naming causal hypotheses, materialization, diagnosis receipts, the
+  rebuilds, replay or regrades, plus pins, ratchets, architecture, layout, the CLI snapshot, upgrades and both
+  goldens), four chunks, `-m "not arc_close"`: 719, 1350 (1 xfailed), 1047 and 1470 passed, with 2 failures:
+  - the fixture test above, which pinned the old append;
+  - the structure ratchet, one line over in `attempts/attempts.py`, fixed by keeping the call's line count.
+
+  Then those two files and the two new ones: 56 passed. `ruff`: all checks passed. `lint-imports`: 54 kept,
+  0 broken.
+
+### Found on the way: H-3
+
+Every whole-vault rebuild of the cold-check and deterministic-classification journeys appends rows to
+`raw_grade_events`, `measurement_events`, `grade_interpretations` and `activity_observations`: 3, 12, 3 and 3 rows
+on each cold-check journey, every rebuild, not once. A second rebuild adds them again. This is the grading and
+measurement substrate, not the diagnosis path, so it is not fixed here. Recorded as H-3 (open). The shadow rebuild's
+`ledger_rows_added` now shows it on any vault.
