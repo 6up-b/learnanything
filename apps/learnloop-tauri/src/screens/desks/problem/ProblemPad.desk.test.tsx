@@ -156,6 +156,6 @@ it("leave for now keeps the pad with a way back, and resume reopens the same pro
   });
   fireEvent.click(within(away).getByRole("button"));
   await settleDesk(0, 8);
-  expect(inputsOf("workbench_open").at(-1)).toMatchObject({ entry: "resume", sessionId: "wb_desk" });
+  expect(inputsOf("workbench_open").slice(-1)[0]).toMatchObject({ entry: "resume", sessionId: "wb_desk" });
   await waitFor(() => expect(padsEl().querySelector('[data-problem-pad="wb_desk"][data-problem-state="open"]')).not.toBeNull());
 });
