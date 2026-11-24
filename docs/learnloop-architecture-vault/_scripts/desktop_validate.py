@@ -236,8 +236,8 @@ def main() -> int:
     # RD-retire phase 2, step 1: screens/desks/source/ScopedSource.tsx and types.ts (entry-reachable).
     # RD-retire phase 2, step 2: screens/ReaderScreen.tsx, screens/reader/readerKeys.ts and searchBasis.ts deleted;
     # screens/desks/model/restore.ts (entry-reachable) and fixtures/deskShellStub.tsx (vitest-support) added.
-    if len(ts_sources) != 434:
-        errors.append(f"source inventory drift: expected 434 TypeScript/TSX files, found {len(ts_sources)}")
+    if len(ts_sources) != 436:
+        errors.append(f"source inventory drift: expected 436 TypeScript/TSX files, found {len(ts_sources)}")
     if len(rust_sources) != 6:
         errors.append(f"source inventory drift: expected 6 authored Rust modules, found {len(rust_sources)}")
     for path in sorted(expected - actual):
@@ -353,7 +353,7 @@ def main() -> int:
         # RD-retire phase 2, step 1: screens/desks/source/ScopedSource.tsx and types.ts.
         # RD-retire phase 2, step 2: ReaderScreen.tsx, readerKeys.ts and searchBasis.ts deleted, model/restore.ts added,
         # and fixtures/readerRenderView.ts read by tests alone now (the old screen's offline demo went with it).
-        "entry-reachable build graph": 407,
+        "entry-reachable build graph": 409,
         # RW5d P2 sketch compartment: sketch.worker.ts and sketchWorkerCore.ts, bundled by vite.config.mjs.
         "bundled worker entry": 2,
         "compiler-implicit": 2,
@@ -371,7 +371,7 @@ def main() -> int:
     status_counts: dict[str, int] = defaultdict(int)
     for info in audited_infos.values():
         status_counts[info.refactor_status] += 1
-    if dict(status_counts) != {"ACTIVE": 440}:
+    if dict(status_counts) != {"ACTIVE": 442}:
         errors.append(f"lifecycle classification drift requires review: {dict(status_counts)}")
 
     link_errors, wikilinks, fragments, markdown_links = validate_links(sorted(actual))
