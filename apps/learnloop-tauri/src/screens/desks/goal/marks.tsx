@@ -128,7 +128,7 @@ function watchLens(index: LensIndex, classFor: (spanId: string, keep: boolean) =
           <div className="gtcall" data-goal-head="">
             <span className="gg">◎</span> <b>on your path{times ? ` · ${times}` : ""}</b>
             {first.held ? ` · ${first.reasonMd}` : ` · ${role}${lo?.title ? ` \u201c${lo.title}\u201d` : ""}: ${first.reasonMd.replace(/\.?\s*$/, "")}.`}
-            {rest && index.sections.some((section) => section.level === "skippable") ? " Other sections may be optional at this depth." : ""}
+            {rest && index.sections.some((section) => section.level === "skippable") ? " The rest is not needed for your goal." : ""}
           </div>
         );
       }
@@ -136,7 +136,7 @@ function watchLens(index: LensIndex, classFor: (spanId: string, keep: boolean) =
       if (!skippable || !rest) return null;
       return (
         <div className="gtcall off" data-goal-head="">
-          <span className="gg">◎</span> <b>Optional at this depth</b> · {skippable.reasonMd.replace(/\.?\s*$/, "")}. Read it anyway, if you like.
+          <span className="gg">◎</span> <b>Not needed for your goal</b> · {skippable.reasonMd.replace(/\.?\s*$/, "")}. Read it anyway, if you like.
         </div>
       );
     },

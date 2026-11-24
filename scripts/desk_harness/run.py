@@ -562,7 +562,7 @@ async def run_overview(page: Page, base: str, results: Results, shots: Path | No
     await page.mouse.up()
     await page.keyboard.up("Control")
     await settle(page, 900)
-    results.check("ctrl+drag on the background scrubs the zoom, with the HUD saying so", await overview_on(page) and "ctrl + drag" in hud, hud)
+    results.check("ctrl+drag on the background scrubs the zoom, with the HUD saying so", await overview_on(page) and "ctrl + drag" in hud.lower(), hud)
     await page.keyboard.press("Escape")
     await settle(page, 900)
 
@@ -1089,7 +1089,7 @@ async def run_menus(page: Page, base: str, results: Results, shots: Path | None)
     # The judged row arrives through the job on the poller, said to be found by search and not checked.
     await page.wait_for_selector('.desk-menu .pro .mi:has-text("the same step in another source")', timeout=8000)
     judged = await page.locator('.desk-menu .pro .mi:has-text("the same step in another source")').inner_text()
-    results.check("a judged row arrives through the job and says it was found by search, not checked", "found by search, not checked" in judged, judged[:120])
+    results.check("a judged row arrives through the job and says it was found by search, not checked", "from search, not checked" in judged, judged[:120])
     verbs = [line.split("\n")[0] for line in await page.locator(".desk-menu > .mi .t").all_inner_texts()]
     results.check("the passage's fixed verbs follow the promoted block", len(verbs) >= 10 and verbs[0] == "Ask" and verbs[-1] == "What this knows", verbs)
     await shot(page, shots, "menu-passage")
@@ -1258,7 +1258,7 @@ async def run_goal(page: Page, base: str, results: Results, shots: Path | None) 
     why = await why_after_hover(page, f"{GOAL_BOOK} .gm.gl-core")
     await shot(page, shots, "goal-why")
     results.check("#goal=why: the why on a core passage: the level, For <goal>: the reason, the coverage line",
-                  bool(why) and why["head"] == "core for your goal" and why["body"].startswith("For your goal:")
+                  bool(why) and why["head"] == "core for your goal" and why["body"].startswith("For softmax for attention:")
                   and (why["coverage"] or "").startswith("coverage: introduces") and why["width"] <= 330, why)
     await page.mouse.move(5, 600)
     await settle(page, 400)
@@ -1284,7 +1284,7 @@ async def run_goal(page: Page, base: str, results: Results, shots: Path | None) 
     why = await why_after_hover(page, f"{GOAL_BOOK} .gm.gl-later")
     await shot(page, shots, "goal-basics")
     results.check("#goal=basics: a prerequisite's passage is later, kept at the deeper depth",
-                  bool(why) and why["head"] == "Included at learn to use it" and why["edge"] == "dotted", why)
+                  bool(why) and why["head"] == "Needed only at learn to use it" and why["edge"] == "dotted", why)
     await page.mouse.move(5, 600)
     await page.click("[data-gdepth='learn_to_use_it']")
     await settle(page, 1200)
@@ -1381,7 +1381,7 @@ async def run_lesson(page: Page, base: str, results: Results, shots: Path | None
     results.check("review shows what was recorded (the check, your answer, its result, the close card) and nothing that starts a turn",
                   review["kinds"] == ["lesson-check", "lesson-learner", "lesson-check-result", "lesson-close"] and review["inputs"] == 0 and not review["stop"], review)
     results.check("the modes are review (on) and your additions; redo and extend are not shown",
-                  review["modes"] == [["review", True], ["your additions", False]] and review["line"] == "your committed answers and the reveals, as you left them", review["modes"])
+                  review["modes"] == [["review", True], ["your additions", False]] and review["line"] == "Your saved answers and lesson feedback", review["modes"])
     results.check("the learner's notes under the lesson show beneath its review", review["note"] and review["additions"] == "your additions under this lesson", review)
     results.check("interface text is JetBrains Mono, the lesson's reading text Literata",
                   "JetBrains Mono" in review["head"] and "Literata" in review["reading"], [review["head"], review["reading"]])

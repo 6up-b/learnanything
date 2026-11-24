@@ -3475,7 +3475,7 @@ export function DeskShell({
     ? [["h j k l", "select"], ["↵ / click", "open"], ["alt+↵", "open in focus"], ["alt+[ ]", "move"], ["alt+shift+j/k", "to a desk"], ["drag", "move a card"], ["b", "relations"], ["g", "hold: gather"], ["o / esc", "back"]]
     : focusMode
     ? [["alt+↵ / esc", "leave focus"], ["= − 0", "zoom"], ["alt+h/l", "next window"]]
-    : [["alt+h/l", "window"], ["alt+j/k", "window above or below, then desk"], ["alt+[ ]", "move"], ["alt+, .", "stack or separate windows"], ["alt+↵", "focus"], ["alt+w", "close"], ["c", "companion here"], ["shift+c", "dock the companion"], ["/", "find"]];
+    : [["alt+h/l", "window"], ["alt+j/k", "window · desk"], ["alt+[ ]", "move"], ["alt+, .", "stack · unstack"], ["alt+↵", "focus"], ["alt+w", "close"], ["c", "companion here"], ["shift+c", "dock it"], ["/", "find"]];
 
   return (
     <PadsHostContext.Provider value={padsHost}>
@@ -3902,7 +3902,7 @@ export function DeskShell({
             />
           )))}
         </span>
-        <span className="note">hold <kbd>alt</kbd> for keyboard shortcuts</span>
+        <span className="note">hold <kbd>alt</kbd> for shortcuts</span>
       </footer>
       {opener ? (
         <OpenBeside

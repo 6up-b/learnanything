@@ -66,7 +66,7 @@ describe("marks, dimming and the why", () => {
     const later = indexLens(lens)!.bySpan.get(`${BOOK}_s4_1`)!;
     expect(later.level).toBe("later");
     expect(deeperDepthLabel(band)).toBe("learn to use it");
-    expect(whyLevelLine(later, band)).toBe("Included at learn to use it");
+    expect(whyLevelLine(later, band)).toBe("Needed only at learn to use it");
     expect(whyLevelLine(indexLens(lens)!.bySpan.get(`${BOOK}_s1_1`)!, band)).toBe("core for your goal");
   });
 });
@@ -86,7 +86,7 @@ describe("the band's lines", () => {
     const index = indexLens(lens);
     expect(hereLine(index, `${BOOK}_s1_2`, null, band)).toEqual({ where: "1 Scores into weights", lo: "Turn scores into softmax weights", tag: null, loId: "lo_fx_softmax" });
     expect(hereLine(index, `${BOOK}_s4_1`, null, band)?.tag).toBe("Background");
-    expect(hereLine(index, `${BOOK}_s6_1`, null, band)).toEqual({ where: "6 Computing it safely", lo: null, tag: "Optional at this depth", loId: null });
+    expect(hereLine(index, `${BOOK}_s6_1`, null, band)).toEqual({ where: "6 Computing it safely", lo: null, tag: "Not needed for your goal", loId: null });
     expect(hereLine(index, null, null, band)).toBeNull();
   });
 

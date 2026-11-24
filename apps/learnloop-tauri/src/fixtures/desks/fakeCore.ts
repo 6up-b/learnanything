@@ -253,7 +253,7 @@ function answer(command: string, input: Record<string, unknown>): unknown {
       job.reads += 1;
       if (job.reads < 2) return { version: 1, jobId: input.jobId, status: "running", done: false, rows: [], error: null };
       const paper = FIXTURE_SOURCES.paper;
-      return { version: 1, jobId: input.jobId, status: "done", done: true, error: null, rows: [...job.rows, {
+      return { version: 1, jobId: input.jobId, status: "done", done: true, error: null, withheld: false, rows: [...job.rows, {
         rowId: `row_elsewhere_${input.jobId}`, kind: "correspondent", glyph: "§", label: "the same step in another source", reason: "treats the same step",
         action: { verb: "open", ref: { kind: "source", sourceId: paper.sourceId, extractionId: paper.extractionId, view: "render" }, target: {} },
         learnerAt: null, checked: false, judgeRank: 1, basis: "judged", extra: {},

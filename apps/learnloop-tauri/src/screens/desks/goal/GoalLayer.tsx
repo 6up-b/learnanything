@@ -219,7 +219,7 @@ export function useGoalDesk({ transport, deskGoalId, offKey, onSetGoal, readings
     const lo = section.learningObjects.find((entry) => entry.learningObjectId === section.determiningLoId);
     const kind = markKind(section.level);
     const text = section.held ? "Details are hidden while a cold check is due."
-      : section.level === "skippable" ? `Optional at this depth · ${section.reasonMd}`
+      : section.level === "skippable" ? `Not needed for your goal · ${section.reasonMd}`
       : lo?.title ? `${lo.kind === "prerequisite" ? "Background" : lo.kind === "later" ? "Deeper study" : "Goal topic"}: “${lo.title}” · ${section.reasonMd}`
       : section.reasonMd;
     return (

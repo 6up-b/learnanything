@@ -108,7 +108,7 @@ export function deeperDepthLabel(band: GoalBandDto | null): string | null {
 export function whyLevelLine(section: GoalLensSectionDto, band: GoalBandDto | null): string {
   if (section.level === "later") {
     const deeper = deeperDepthLabel(band);
-    return deeper ? `Included at ${deeper}` : "Included at a deeper level";
+    return deeper ? `Needed only at ${deeper}` : "Needed only at a deeper level";
   }
   return LEVEL_LABEL[section.level];
 }
@@ -164,7 +164,7 @@ export function hereLine(index: LensIndex | null, readingSpan: string | null, wh
   // A section treating an LO whose check is due names nothing: not the window's own place words (the book's heading
   // may be the LO's name), only the server's neutral title (D15).
   if (section.held) return { where: section.title, lo: null, tag: "Details are hidden while a cold check is due", loId: null };
-  if (section.level === "skippable") return { where: place, lo: null, tag: "Optional at this depth", loId: null };
+  if (section.level === "skippable") return { where: place, lo: null, tag: "Not needed for your goal", loId: null };
   if (section.level === "unmapped") return { where: place, lo: null, tag: "No link to your goal yet", loId: null };
   const lo = section.learningObjects.find((entry) => entry.learningObjectId === section.determiningLoId);
   const dot = band?.learningObjects?.find((each) => each.learningObjectId === section.determiningLoId);
@@ -258,7 +258,7 @@ export function shelfGoal(index: LensIndex | null): ShelfGoal | null {
   if (sections.some((section) => section.level === "supporting" || section.level === "core")) return { mark: "sup", line: "supporting your goal", ranges };
   // Nothing on the path: a claim about the whole source holds only if every section is known not needed now.
   if (!noneNeeded(sections)) return { mark: "partial", line: "Some links found for this goal", ranges };
-  if (sections.some((section) => section.level === "later")) return { mark: "later", line: "Included at a deeper level", ranges };
+  if (sections.some((section) => section.level === "later")) return { mark: "later", line: "Needed only at a deeper level", ranges };
   if (sections.some((section) => section.level === "already_shown")) return { mark: "shown", line: "Treated as familiar", ranges };
-  return { mark: "skip", line: "Optional at this depth", ranges };
+  return { mark: "skip", line: "Not needed for your goal", ranges };
 }

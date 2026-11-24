@@ -115,7 +115,7 @@ export function PathView({ band, here, notNeeded, onClose, onDepth, onOpen, onUs
           <div className="gb-lab">What the margin marks mean</div>
           <div><i className="b core" />Main reading for a goal topic</div>
           <div><i className="b sup" />Background, another explanation, or an example</div>
-          <div><i className="b skip" />Optional at this depth</div>
+          <div><i className="b skip" />Not needed for your goal</div>
           <div className="faint">Some sections are needed only at a deeper level. Others cover topics treated as familiar.</div>
         </div>
       </div>
@@ -148,7 +148,7 @@ export function PathView({ band, here, notNeeded, onClose, onDepth, onOpen, onUs
                   <span className="g">§</span>
                   <span className="gp-src">{dot.primary.book}</span>
                   <span className="gp-at">{dot.primary.title}</span>
-                  <span className="gp-why">{later ? "Included at a deeper level" : "Suggested reading"}</span>
+                  <span className="gp-why">{later ? "Needed only at a deeper level" : "Suggested reading"}</span>
                   <span className="gp-st" />
                 </button>
               ) : null}
@@ -188,7 +188,7 @@ export function PathView({ band, here, notNeeded, onClose, onDepth, onOpen, onUs
           );
         })}
         <div className="gp-grp skipg">
-          <div className="gp-gh">┊ Optional at this depth · read it anyway</div>
+          <div className="gp-gh">┊ Not needed for your goal · read it anyway</div>
           {notNeeded.length === 0 ? <div className="gp-s"><span className="g" /><span className="gp-why">nothing in the readings on your desk</span></div> : null}
           {notNeeded.map((entry) => (
             <div key={`${entry.extractionId}/${entry.section.sectionId}`} className="gp-s" data-gp-skip={entry.section.sectionId}>
@@ -196,7 +196,7 @@ export function PathView({ band, here, notNeeded, onClose, onDepth, onOpen, onUs
               <span className="gp-src">{entry.book}</span>
               <span className="gp-at">{entry.section.title}</span>
               <span className="gp-why">
-                {entry.section.level === "later" ? "Included at a deeper level. " : ""}{entry.section.reasonMd}
+                {entry.section.level === "later" ? "Needed only at a deeper level. " : ""}{entry.section.reasonMd}
                 <button type="button" className="gp-anyway" onClick={() => onReadAnyway(entry.extractionId, entry.section.sectionId, entry.section.choice !== "read_anyway")}>
                   {entry.section.choice === "read_anyway" ? "dim it again" : "read it anyway"}
                 </button>

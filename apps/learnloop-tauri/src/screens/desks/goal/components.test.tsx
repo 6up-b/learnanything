@@ -150,7 +150,7 @@ describe("marks, dimming and callouts on a reading", () => {
       [`${ext}_c4`, `${ext}_c11`], [`${ext}_c12`, `${ext}_c15`], [`${ext}_c16`, `${ext}_c25`]]);
     render(<div>{watch.head!((spans) => (spans[0] === `${ext}_c4` ? { start: 18, end: 66 } : null))}{watch.mark!([`${ext}_c5`])}</div>);
     expect(document.querySelector("[data-goal-head]")!.textContent).toBe(
-      "◎ on your path · 0:18–1:06 · another explanation of “Turn scores into softmax weights”: the same recipe spoken: exponentiate, then divide by the sum. Other sections may be optional at this depth.");
+      "◎ on your path · 0:18–1:06 · another explanation of “Turn scores into softmax weights”: the same recipe spoken: exponentiate, then divide by the sum. The rest is not needed for your goal.");
     expect(document.querySelector(".gm")!.className).toBe("gm gl-sup gl-tx");
   });
 
@@ -162,7 +162,7 @@ describe("marks, dimming and callouts on a reading", () => {
     render(<div>{watch.head!(() => null)}</div>);
     const head = document.querySelector("[data-goal-head]")!;
     expect(head.className).toBe("gtcall off");
-    expect(head.textContent).toBe("◎ Optional at this depth · the setup, before any score: no LO your goal needs. Read it anyway, if you like.");
+    expect(head.textContent).toBe("◎ Not needed for your goal · the setup, before any score: no LO your goal needs. Read it anyway, if you like.");
   });
 
   it("puts a mark in each passage's gutter that opens its why, and a callout at a section on the path", () => {
