@@ -16,9 +16,13 @@ describe("restoreContent", () => {
     ["a pad", { kind: "pad", padId: "p" }, KEEP],
     ["a lesson", { kind: "lesson", lessonId: "l" }, KEEP],
     ["a thread", { kind: "thread", rootExchangeId: "x" }, KEEP],
-    ["a saved comparison", { kind: "compare", comparisonId: "c" }, KEEP],
+    // Review fix round (major 20): a comparison named only by its id and a figure's notebook have no body here that
+    // opens them by id: kept and named, not an empty composer or a silent fallback.
+    ["a saved comparison", { kind: "compare", comparisonId: "c" }, { kind: "inert", name: "a kept comparison" }],
+    ["a saved comparison with its question", { kind: "compare", comparisonId: "c", query: "eigen" }, KEEP],
     ["a compare query", { kind: "compare", query: "eigen" }, KEEP],
-    ["a figure notebook", { kind: "figure_notebook", figureId: "f" }, KEEP],
+    ["the bare Compare window", { kind: "compare" }, KEEP],
+    ["a figure notebook", { kind: "figure_notebook", figureId: "f" }, { kind: "inert", name: "a figure's notebook" }],
     ["a book being prepared", { kind: "preparing", sourceId: "s" }, KEEP],
     // The Guide and Notes panels host the book window's rail until it leaves the portal; the library panel keeps its
     // kind (the orchestrator's calls, phase 2 step 2).

@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/desks/workspace.py](../../../../../../src/learnloop/desks/workspace.py) |
-| Source lines | 577 |
+| Source lines | 591 |
 | Owning package | [[Reference/Modules/learnloop/desks/_package|learnloop.desks]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -75,8 +75,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `class AddToStack(_Op)` ([source](../../../../../../src/learnloop/desks/workspace.py), line 156) — Put a pad (or a lesson) in a stack window: a union, so it commutes with every other change to the desk and needs no expected version (one given is not checked).
 - `class RemoveFromStack(_Op)` ([source](../../../../../../src/learnloop/desks/workspace.py), line 166) — Take a pad (or a lesson) out of a stack window, by the same rule; not there: nothing changes.
 - `class EnsureRunningPad(_Op)` ([source](../../../../../../src/learnloop/desks/workspace.py), line 175) — The desk's running pad (spec §10.5), created when it has none, and in a stack window of the desk, opened when it has none: idempotent, so every desk, new or old, gets one in one place.
-- `desk_state(repository: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/desks/workspace.py), line 222) — Every open desk with its slots, the running pads, and each client's last applied batch.
-- `apply_desk_ops(repository: Any, *, client_id: str, seq: int, ops: list[Any], clock: Any=None, check_material: Callable[[], None] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/desks/workspace.py), line 559) — ``desk.apply``: one batch, applied once and in order (``learnloop.desks.protocol``).
+- `desk_state(repository: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/desks/workspace.py), line 235) — Every open desk with its slots, the running pads, and each client's last applied batch.
+- `apply_desk_ops(repository: Any, *, client_id: str, seq: int, ops: list[Any], clock: Any=None, check_material: Callable[[], None] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/desks/workspace.py), line 573) — ``desk.apply``: one batch, applied once and in order (``learnloop.desks.protocol``).
 
 ### Module constants
 
@@ -98,18 +98,19 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ## Internal implementation anchors
 
 - `class _Op(WireModel)` ([source](../../../../../../src/learnloop/desks/workspace.py), line 29)
-- `_window_out(row: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/desks/workspace.py), line 204)
-- `_slots(rows: list[dict[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/desks/workspace.py), line 215)
-- `class _Layout` ([source](../../../../../../src/learnloop/desks/workspace.py), line 244) — One desk's open windows as a list of slots (each a list of window ids, panes in order).
-- `_desk(connection: Any, desk_id: str, expected: int | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/desks/workspace.py), line 284)
-- `_window_desk(connection: Any, desk_id: str, window_id: str, expected: int | None, *, open_only: bool=True) -> tuple[dict, dict]` ([source](../../../../../../src/learnloop/desks/workspace.py), line 295) — The window and the desk the op names, its version checked.
-- `_apply_desk_op(connection: Any, op: Any, now: str, versions: dict[str, int]) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/desks/workspace.py), line 313)
-- `_open_desk(connection: Any, desk_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/desks/workspace.py), line 469)
-- `_same_entry(a: dict[str, Any], b: dict[str, Any]) -> bool` ([source](../../../../../../src/learnloop/desks/workspace.py), line 478)
-- `_stack_of(window: dict[str, Any]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/desks/workspace.py), line 483)
-- `_write_stack(connection: Any, window_id: str, stack: list[dict[str, Any]]) -> None` ([source](../../../../../../src/learnloop/desks/workspace.py), line 487)
-- `_stack_membership(connection: Any, op: AddToStack | RemoveFromStack, now: str, bump: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/desks/workspace.py), line 491) — A stack's membership changed by one entry, whatever else changed on the desk meanwhile: the stack lives in the window's spec, apart from its view, so a whole-view write never drops a tab, and a union or a removal of one entry is the same at any desk version.
-- `_ensure_running_pad(connection: Any, op: EnsureRunningPad, now: str, bump: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/desks/workspace.py), line 522) — The desk's running pad, and a stack window of the desk holding it: whichever is missing is created.
+- `_json_object(text: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/desks/workspace.py), line 204) — A stored JSON object, or an empty one when the text is not one (malformed, a list, null): one damaged row is read as a window with nothing in it, which the client keeps inert and names, never a failed read of every desk.
+- `_window_out(row: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/desks/workspace.py), line 215)
+- `_slots(rows: list[dict[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/desks/workspace.py), line 228)
+- `class _Layout` ([source](../../../../../../src/learnloop/desks/workspace.py), line 257) — One desk's open windows as a list of slots (each a list of window ids, panes in order).
+- `_desk(connection: Any, desk_id: str, expected: int | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/desks/workspace.py), line 297)
+- `_window_desk(connection: Any, desk_id: str, window_id: str, expected: int | None, *, open_only: bool=True) -> tuple[dict, dict]` ([source](../../../../../../src/learnloop/desks/workspace.py), line 308) — The window and the desk the op names, its version checked.
+- `_apply_desk_op(connection: Any, op: Any, now: str, versions: dict[str, int]) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/desks/workspace.py), line 326)
+- `_open_desk(connection: Any, desk_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/desks/workspace.py), line 482)
+- `_same_entry(a: dict[str, Any], b: dict[str, Any]) -> bool` ([source](../../../../../../src/learnloop/desks/workspace.py), line 491)
+- `_stack_of(window: dict[str, Any]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/desks/workspace.py), line 496)
+- `_write_stack(connection: Any, window_id: str, stack: list[dict[str, Any]]) -> None` ([source](../../../../../../src/learnloop/desks/workspace.py), line 501)
+- `_stack_membership(connection: Any, op: AddToStack | RemoveFromStack, now: str, bump: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/desks/workspace.py), line 505) — A stack's membership changed by one entry, whatever else changed on the desk meanwhile: the stack lives in the window's spec, apart from its view, so a whole-view write never drops a tab, and a union or a removal of one entry is the same at any desk version.
+- `_ensure_running_pad(connection: Any, op: EnsureRunningPad, now: str, bump: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/desks/workspace.py), line 536) — The desk's running pad, and a stack window of the desk holding it: whichever is missing is created.
 
 ## Who imports or calls it
 
@@ -148,6 +149,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/desk_helpers.py](../../../../../../tests/desk_helpers.py) — direct import
+- [tests/test_desk_state_damaged_rows.py](../../../../../../tests/test_desk_state_damaged_rows.py) — direct import
 - [tests/test_pad_stale_edits_stacks_and_passage_reads.py](../../../../../../tests/test_pad_stale_edits_stacks_and_passage_reads.py) — direct import
   - `test_a_pads_links_name_their_source_and_time_so_a_closed_source_can_be_reopened`
   - `test_the_running_pad_is_ensured_once_with_its_stack_on_a_new_desk_and_an_old_one`

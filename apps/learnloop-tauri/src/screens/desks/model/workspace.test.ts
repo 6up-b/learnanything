@@ -20,6 +20,7 @@ import {
   setView,
   pairFocused,
   rangeCovers,
+  replaceWindow,
   setFocus,
   undoClose,
   unpairFocused,
@@ -258,5 +259,43 @@ describe("opened beside (RD2 fix round, finding 7)", () => {
     expect(step.ws.windows.z1.view).toEqual({ spanId: "s1", openedBeside: "w1" });
     const saved = setView(step.ws, "d1", "z1", { ...step.ws.windows.z1.view, spanId: "s2" });
     expect(saved.ws.windows.z1.view).toEqual({ spanId: "s2", openedBeside: "w1" });
+  });
+});
+
+// The Reader's retirement, review fix round (major 16, and the retarget of blocker 1): a window replaced in its place
+// keeps its pane of a pair, and the view it is given.
+describe("replacing a window in its place", () => {
+  const paired = (left: boolean) => {
+    let ws = deskWith(3, left ? "w1" : "w2");
+    ws = pairFocused(ws, "d1").ws; // [[w1, w2], [w3]] with the focus's pane active
+    return ws;
+  };
+  it("the left pane of a pair is replaced in that pane, the pair kept, focus and active pane with it", () => {
+    let ws = deskWith(3, "w1");
+    ws = pairFocused(ws, "d1").ws;
+    const step = replaceWindow(ws, "d1", "w1", book("9"), () => "w9", { spanId: "s4" });
+    expect(ids(step.ws)).toEqual([["w9", "w2"], ["w3"]]);
+    expect(step.ws.windows.w9.view).toEqual({ spanId: "s4" });
+    expect(step.ws.windows.w9.active).toBe(true);
+    expect(focusedWindowId(step.ws, deskById(step.ws, "d1"))).toBe("w9");
+    // The server's ops reach the same layout.
+    const replayed = step.ops.reduce((acc, op) => applyDeskOp(acc, op), ws);
+    expect(ids(replayed)).toEqual([["w9", "w2"], ["w3"]]);
+  });
+  it("the right pane of a pair is replaced in that pane; the left one stays active when it was", () => {
+    const ws = paired(true); // w1 active
+    const step = replaceWindow(ws, "d1", "w2", book("9"), () => "w9");
+    expect(ids(step.ws)).toEqual([["w1", "w9"], ["w3"]]);
+    expect(step.ws.windows.w1.active).toBe(true);
+    expect(step.ws.windows.w9.active).toBe(false);
+  });
+  it("an inactive left pane replaced leaves the right one active", () => {
+    let ws = deskWith(3, "w1");
+    ws = pairFocused(ws, "d1").ws;
+    ws = setFocus(ws, "d1", "w2").ws; // w2 the active pane now
+    const step = replaceWindow(ws, "d1", "w1", book("9"), () => "w9");
+    expect(ids(step.ws)).toEqual([["w9", "w2"], ["w3"]]);
+    expect(step.ws.windows.w2.active).toBe(true);
+    expect(step.ws.windows.w9.active).toBe(false);
   });
 });

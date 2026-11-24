@@ -83,7 +83,7 @@ import { adoptMovedSession, startSessionOrAsk } from "./sessionHandoff";
 import { setSessionMoved, useSessionMoved, type SessionMoved } from "./sessionMoved";
 import { clear as clearQueryCache, invalidateAll as invalidateAllQueries } from "../api/queryCache";
 import { clearPdfDocuments } from "../components/pdfDocumentCache";
-import { selectWithDraftFlush } from "./vaultTransition";
+import { noteActiveVault, selectWithDraftFlush } from "./vaultTransition";
 import { todayQueueInput } from "./autoAdvance";
 import { planStepAction, readerTargetForReading, servedForExplicitStep, useDailyPlan } from "./dailyPlan";
 import { readerTargetForRestoration } from "./intentCheck";
@@ -549,6 +549,10 @@ export function App() {
         if (!readerSourceRef.current) {
           setReaderSource({ card, spanId: null });
           setReaderOpenSeq((seq) => seq + 1);
+          // The book the app reopened is this library's remembered book now: the desks saying no book is open (the
+          // learner closed it, even before the desks first reported it, as under a check's hold) forgets it, so the
+          // next start opens the shelf. Ordered by the reports, not by when the first one arrives.
+          rememberedBookRef.current = root ?? null;
         }
       }
     } catch {
@@ -561,6 +565,8 @@ export function App() {
     setStartupError(null);
     try {
       const appSnapshot = await api.loadVault();
+      // Writes gathered from here on are this vault's (vaultTransition.ts); what was kept for it goes now.
+      noteActiveVault(appSnapshot.vault?.root);
       setAlgoConfig(appSnapshot.config);
       setSnapshot(appSnapshot);
       refreshAiConnection();
@@ -1854,7 +1860,11 @@ export function App() {
     setPendingRedo(null);
     setIngestJobId(null);
     setProposalFocusPatchId(null);
+    // The Reader's requests are the vault's being left (review fix round, major 11): its library search words, its
+    // book and the plan reading's banner never reach the next vault's desks.
     setReaderSource(null);
+    setReaderLibrarySearch(null);
+    setPlanReading(null);
     setDeskBook(undefined);
     setAddOpen(false);
     setConnectOpen(false);
@@ -1907,6 +1917,7 @@ export function App() {
         clearPdfDocuments();
         resetShellForVault();
         const next = await api.loadVault();
+        noteActiveVault(next.vault?.root);
         setAlgoConfig(next.config);
         setSnapshot(next);
         setStartupError(null);

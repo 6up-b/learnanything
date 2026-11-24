@@ -66,7 +66,7 @@ vi.mock("../screens/MaintenanceScreen", () => ({ MaintenanceScreen: stub("mainta
 vi.mock("../screens/ReviewScreen", () => ({ ReviewScreen: stub("review-stub") }));
 vi.mock("../screens/SettingsScreen", () => ({ SettingsOverlay: stub("settings-stub") }));
 
-import { resetDeskStub } from "../fixtures/deskShellStub";
+import { deskStub, resetDeskStub } from "../fixtures/deskShellStub";
 import { App } from "./App";
 
 let store: Map<string, string>;
@@ -480,6 +480,21 @@ describe("the lows (item 3)", () => {
     }
     // The modifiers' releases reach the window; Enter's stays with the button.
     expect(ups).toEqual(["Control", "Meta", "Alt", "Shift"]);
+  });
+
+  // The Reader's retirement, review fix round (ledger RDX-21): the close wins by order, not by timing. The desks may say
+  // "no book" before they ever reported the reopened book (their report is held while a check holds them, and the
+  // close comes out alone): the book the app reopened is forgotten all the same.
+  it("closing the reopened book before the desks ever reported it still forgets it", async () => {
+    store.set("learnloop.place", "reader");
+    store.set("learnloop.reader.book:/vault", AXLER.sourceId);
+    deskStub.done = Number.MAX_SAFE_INTEGER; // the desks report nothing of the open request (as under a check's hold)
+    render(<App />);
+    await waitFor(() => expect(screen.getByTestId("reader-stub").getAttribute("data-source")).toBe(AXLER.sourceId));
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "close book" }));
+    });
+    await waitFor(() => expect(store.get("learnloop.reader.book:/vault") ?? "").toBe(""));
   });
 
   it("closing a book forgets it, so the next start opens the shelf", async () => {

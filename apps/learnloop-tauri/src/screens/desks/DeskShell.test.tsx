@@ -54,7 +54,8 @@ function transportFor(server: FixtureDeskServer, library: SourceLibraryCard[] = 
       return server.apply(input);
     },
     library: async () => library,
-    resolveExtraction: async (sourceId: string) => Object.values(FIXTURE_SOURCES).find((source) => source.sourceId === sourceId)?.extractionId ?? sourceId,
+    // A source's current reading, as the sidecar answers it (fx_src_x reads as fx_ext_x, a fixture source or a test's own).
+    resolveExtraction: async (sourceId: string) => Object.values(FIXTURE_SOURCES).find((source) => source.sourceId === sourceId)?.extractionId ?? sourceId.replace(/^fx_src_/, "fx_ext_"),
   };
   return transport;
 }
@@ -1525,6 +1526,7 @@ describe("RD3b: search in context (spec §9.3)", () => {
     for (let i = 0; i < openRows; i += 1) fireEvent.keyDown(input, { key: "ArrowDown" });
     fireEvent.keyDown(input, { key: "Enter" });
     await flush();
+    await flush(); // a book opens on its current reading, read first (review fix round, blocker 1)
     // The paper is already on this desk: it takes the focus, and no second window opens.
     expect(server.batches.flatMap((batch) => batch.ops).some((op) => op.op === "open_window")).toBe(false);
     expect(server.state().desks[0].focusWindowId).toBe("fx_w_paper");
@@ -1548,8 +1550,42 @@ describe("RD3b: search in context (spec §9.3)", () => {
     });
     fireEvent.keyDown(input, { key: "Enter" });
     await flush();
+    await flush(); // a book opens on its current reading, read first (review fix round, blocker 1)
     const opened = server.batches.flatMap((batch) => batch.ops).find((op) => op.op === "open_window");
     expect(opened && opened.op === "open_window" ? opened.content : null).toMatchObject({ kind: "video", sourceId: FIXTURE_SOURCES.video2.sourceId });
+  });
+
+  // The Reader's retirement, review fix round (major 18, ledger RDX-15): a note found by search in a book already open
+  // on the desk opens in that window (its view names the note with a new request), and the same note found again opens
+  // again.
+  it("a note result for a book already open opens the note in that window, and again when found again", async () => {
+    const { server, transport } = mountCompanion();
+    await screen.findByTestId("pane-fx_w_book");
+    const row = { ref: { kind: "source", sourceId: FIXTURE_SOURCES.book.sourceId, extractionId: FIXTURE_SOURCES.book.extractionId }, target: { spanId: "fx_ext_softmax_s1_1", noteKey: "annotation:an9", annotationId: "an9" },
+      noteKind: "note", noteKey: "annotation:an9", noteRefKind: "annotation", title: "why p minus y", heading: null, snippet: "the gradient", capturedOn: null, byMeaning: false };
+    transport.searchEverything.mockResolvedValue({
+      version: 1, query: "gradient",
+      groups: [{ group: "notes", label: "your notes", basis: "words", status: "ok", more: false, rows: [row] }],
+      meaning: { status: "unavailable", jobId: null, unavailable: [] },
+    } as never);
+    const viewOfBook = () => server.state().desks[0].slots.flatMap((slot) => slot.windows).find((window) => window.windowId === "fx_w_book")?.view ?? {};
+    for (const request of [1, 2]) {
+      press("/", "Slash");
+      const input = screen.getByLabelText("Search your library, pads, and replies");
+      fireEvent.change(input, { target: { value: "gradient" } });
+      await act(async () => {
+        vi.advanceTimersByTime(200);
+        await Promise.resolve();
+      });
+      const found = document.querySelector<HTMLElement>('[data-search-group="notes"] [data-search-row]');
+      if (!found) throw new Error(`no note row: ${document.querySelector(".desk-search")?.textContent ?? "no search"}`);
+      fireEvent.click(found as HTMLElement);
+      await flush();
+      await flush();
+      await flush();
+      expect(viewOfBook()).toMatchObject({ annotationId: "an9", annotationRequest: request });
+    }
+    expect(server.batches.flatMap((batch) => batch.ops).some((op) => op.op === "open_window")).toBe(false);
   });
 
   it("a note result opens its note by its identity: a Reader note at its passage in its book, an inbox note said where it lives", async () => {
@@ -1580,6 +1616,7 @@ describe("RD3b: search in context (spec §9.3)", () => {
       const row = [...document.querySelectorAll<HTMLElement>("[data-search-row]")].find((each) => each.textContent?.includes(title));
       fireEvent.click(row as HTMLElement);
       await flush();
+      await flush(); // a book opens on its current reading, read first (review fix round, blocker 1)
     };
     await search("masks hide");
     const opened = server.batches.flatMap((batch) => batch.ops).filter((op) => op.op === "open_window");
@@ -1931,6 +1968,8 @@ describe("RD4 review: a pad's back-link reopens its source", () => {
     await screen.findByTestId("pane-fx_w_book");
     fireEvent.click(screen.getByText("back from fx_w_book"));
     await flush();
+    await flush(); // a book opens on its current reading, read first (review fix round, blocker 1)
+
     const opened = server.batches.flatMap((batch) => batch.ops).find((op) => op.op === "open_window");
     expect(opened && opened.op === "open_window" ? [opened.content, opened.view] : null).toMatchObject([{ kind: "source", sourceId: "fx_src_closed", extractionId: "fx_ext_closed" }, { spanId: "fx_ext_closed_s4" }]);
   });

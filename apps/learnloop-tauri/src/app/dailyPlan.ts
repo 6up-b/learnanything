@@ -83,9 +83,10 @@ export function planStepAction(step: PlanStepDto | null | undefined, { viaBlockL
 export function readerTargetForReading(
   reading: PlanReadingDto,
   library: SourceLibraryCard[] | null | undefined
-): { card: SourceLibraryCard; spanId: string | null } | null {
+): { card: SourceLibraryCard; spanId: string | null; reading?: string | null } | null {
   const card = (library ?? []).find((entry) => entry.sourceId === reading.sourceId);
-  return card ? { card, spanId: reading.startSpanId ?? null } : null;
+  // The passage travels with the reading it was named on: the desks translate it onto the book's current reading.
+  return card ? { card, spanId: reading.startSpanId ?? null, reading: reading.extractionId ?? null } : null;
 }
 
 /**

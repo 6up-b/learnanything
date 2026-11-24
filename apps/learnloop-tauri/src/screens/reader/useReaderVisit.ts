@@ -124,8 +124,13 @@ export function useReaderVisit({ render, offline, inquiry, pdfView }: ReaderVisi
     noteBackToReading();
   }, [touchVisit, visitPayload, noteBackToReading]);
   const noteProactive = useCallback((key: string, element: string) => {
-    if (proactiveSeenRef.current.has(key)) return false;
-    proactiveSeenRef.current.add(key);
+    // An impression is the visit's that shows it (review fix round, minor 22): a window off screen has no visit, so
+    // nothing is recorded (and nothing deduplicated) until the learner can see the offer.
+    const visit = visitRef.current;
+    if (!visit) return false;
+    const seen = `${visit.id}\u0000${key}`;
+    if (proactiveSeenRef.current.has(seen)) return false;
+    proactiveSeenRef.current.add(seen);
     logReaderAction("proactive_shown", { ...visitPayload(), element });
     return true;
   }, [visitPayload]);

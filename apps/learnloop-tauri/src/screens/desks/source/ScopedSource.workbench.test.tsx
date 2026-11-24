@@ -438,3 +438,24 @@ it("CA6b round 5: a check whose reading is not the one open is refused honestly 
   expect(onError).toHaveBeenCalledWith(SPAN_MISMATCH_COPY);
   expect(api.workbenchOpen).not.toHaveBeenCalled();
 });
+
+// The Reader's retirement, review fix round (major 10, ledger RDX-12): one choice is one open. The desks hand the app's
+// check to one window of its book; a window that still receives it (it mounts again, another copy of the book) sends
+// the same idempotency key, so the server opens one problem.
+it("RDX-12: two mounted copies of a book that both receive one check send it with one idempotency key", async () => {
+  const check = {
+    practiceItemId: "pi_check", spanId: "span_spectral_worked", sourceId: view.sourceId, stemMd: "Is A^T A symmetric?",
+    schedulerCandidateId: null, planPresentationId: null,
+    reading: { sourceId: view.sourceId, revisionId: view.revisionId, extractionId: view.extractionId },
+  };
+  api.workbenchOpen.mockResolvedValue({ resumed: false, session: wbSession({ sessionId: "wb_check", practiceItemId: "pi_check",
+    importStatus: "none", entry: "check_me", sourceVisible: false, stemMd: "Is A^T A symmetric?", spanIds: ["span_spectral_worked"] }) });
+  render(<>
+    <ScopedSource initialSource={source} onError={vi.fn()} workbench={{ practiceSessionId: "s1", checkMe: check, onCheckMeShown: vi.fn() }} />
+    <ScopedSource initialSource={source} onError={vi.fn()} workbench={{ practiceSessionId: "s1", checkMe: check, onCheckMeShown: vi.fn() }} />
+  </>);
+  await waitFor(() => expect(api.workbenchOpen).toHaveBeenCalledTimes(2));
+  const keys = api.workbenchOpen.mock.calls.map((call: unknown[]) => (call[0] as { clientIdempotencyKey: string }).clientIdempotencyKey);
+  expect(keys[0]).toBeTruthy();
+  expect(keys[1]).toBe(keys[0]);
+});

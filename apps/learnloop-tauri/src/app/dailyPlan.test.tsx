@@ -43,7 +43,8 @@ it("opens a reading step in the reader at its section's first span", () => {
   expect(action.type).toBe("reader");
   const card = { sourceId: "src_book", title: "Book" } as SourceLibraryCard;
   const target = readerTargetForReading((action as { reading: (typeof READING & { kind: "reading" })["reading"] }).reading, [card]);
-  expect(target).toEqual({ card, spanId: "span_9" });
+  // The passage names the reading it was found on (review fix round, major 7).
+  expect(target).toEqual({ card, spanId: "span_9", reading: "ext" });
   expect(readerTargetForReading(READING.kind === "reading" ? READING.reading : (null as never), [])).toBeNull();
 });
 

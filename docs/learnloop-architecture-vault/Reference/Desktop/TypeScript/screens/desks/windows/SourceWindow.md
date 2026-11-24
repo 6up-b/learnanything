@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/windows/SourceWindow.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/windows/SourceWindow.tsx) |
-| Source lines | 127 |
+| Source lines | 132 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/windows/_area|TypeScript/screens/desks/windows]] |
 | Refactor status | `ACTIVE` |
@@ -56,14 +56,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - `export type ReaderPassThrough = Pick<ComponentProps<typeof ScopedSource>, "onCheckMe" | "onUseExercise" | "onTeachMe" | "workbench">` — type, line 15
 - `export interface SourceStatus` — interface, line 17
-- `export function SourceWindow(` — function, line 24
+- `export function SourceWindow(` — function, line 26
 
 ## Internal implementation anchors
 
-- `const onTitle = useCallback((title: string)` — const, line 90
-- `const onReaderStatus = useCallback( (status:` — const, line 91
-- `const windowing = useMemo<ReaderWindowing>( ()` — const, line 97
-- `const initialSource = useMemo( ()` — const, line 102
+- `const onTitle = useCallback((title: string)` — const, line 95
+- `const onReaderStatus = useCallback( (status:` — const, line 96
+- `const windowing = useMemo<ReaderWindowing>( ()` — const, line 102
+- `const initialSource = useMemo( ()` — const, line 107
 
 ## Who imports or calls it
 

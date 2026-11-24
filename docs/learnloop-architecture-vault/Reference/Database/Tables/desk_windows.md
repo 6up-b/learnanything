@@ -100,6 +100,7 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/reader_rd0_migration_helpers.py`
+- `tests/test_desk_state_damaged_rows.py`
 - `tests/test_reader_rd0_protocol.py`
 - `tests/test_reader_rd_retire_migration.py`
 

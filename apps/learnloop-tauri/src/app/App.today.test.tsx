@@ -826,3 +826,22 @@ describe("CA6b fix round 4, finding 2: a check begun beside that waits on a sess
     // themselves: App.desks.test.tsx "back from a check begun in the paired book".
   });
 });
+
+// The Reader's retirement, review fix round (major 11, ledger RDX-13): "Look in my library" in vault A leaves its words
+// for A's desks only; entering the Reader in B asks B's desks for nothing of A's.
+it("a library search asked in one vault is not replayed into the next vault's desks", async () => {
+  stubs.config = { teacher: { lessons: true } };
+  stubs.api.selectVault = vi.fn(async () => ({ version: 1 }));
+  render(<App />);
+  await flush();
+  await flush();
+  await press({ key: "3", altKey: true });
+  await waitFor(() => expect(lastDeskProps().lessons?.onLookInLibrary).toBeTruthy());
+  await act(async () => lastDeskProps().lessons?.onLookInLibrary?.("eigenvalues of a symmetric matrix"));
+  await flush();
+  expect(lastDeskProps().openRequest?.phrase).toBe("eigenvalues of a symmetric matrix");
+  await switchVault("/vaults/b", null);
+  await press({ key: "3", altKey: true });
+  await flush();
+  expect(lastDeskProps().openRequest?.phrase).toBeUndefined();
+});

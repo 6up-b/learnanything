@@ -19,6 +19,8 @@ export interface SourceStatus {
   readingSpan?: string | null;
   progress?: number;
   where?: string | null;
+  /** The reading the window's Reader shows (its book's current one): the window's reference names it. */
+  reading?: string | null;
 }
 
 export function SourceWindow({
@@ -38,6 +40,7 @@ export function SourceWindow({
   onAsk,
   onOpenPath,
   openNote = null,
+  openNoteRequest = 0,
   drainHost = null,
   onOpenBeside,
   onOpenPair,
@@ -71,6 +74,8 @@ export function SourceWindow({
   onOpenPath?: () => void;
   /** The note the window was opened for (a search result's), which opens in its margin card. */
   openNote?: string | null;
+  /** A new request to open that note (major 18: the same note opened again from search). */
+  openNoteRequest?: number;
   /** While the desk's day closes: where the drain shows this reading's Wrap up. */
   drainHost?: HTMLElement | null;
   /** Another book's passage, opened in a window beside this one. */
@@ -89,14 +94,14 @@ export function SourceWindow({
 }) {
   const onTitle = useCallback((title: string) => onStatus({ title }), [onStatus]);
   const onReaderStatus = useCallback(
-    (status: { readingSpan: string | null; progress: number; where: string | null }) => onStatus(status),
+    (status: { readingSpan: string | null; progress: number; where: string | null; reading?: string | null }) => onStatus(status),
     [onStatus],
   );
   // Pen mode's way onto the text (RD8a): the pen layer mounts on the surface the Reader hands over.
   const [penSurface, setPenSurface] = useState<PenSurface | null>(null);
   const windowing = useMemo<ReaderWindowing>(
-    () => ({ railHost, onTitle, onJumpReady, onMediaReady, onStatus: onReaderStatus, lens, video, onPenSurface: setPenSurface, onInquiryReady, onAsk, onOpenPath, openNote, drainHost, onOpenBeside, onOpenPair, onSection, onPairKey, onTouched, onWorkOnPad }),
-    [railHost, onTitle, onJumpReady, onMediaReady, onReaderStatus, lens, video, onInquiryReady, onAsk, onOpenPath, openNote, drainHost, onOpenBeside, onOpenPair, onSection, onPairKey, onTouched, onWorkOnPad],
+    () => ({ railHost, onTitle, onJumpReady, onMediaReady, onStatus: onReaderStatus, lens, video, onPenSurface: setPenSurface, onInquiryReady, onAsk, onOpenPath, openNote, openNoteRequest, drainHost, onOpenBeside, onOpenPair, onSection, onPairKey, onTouched, onWorkOnPad }),
+    [railHost, onTitle, onJumpReady, onMediaReady, onReaderStatus, lens, video, onInquiryReady, onAsk, onOpenPath, openNote, openNoteRequest, drainHost, onOpenBeside, onOpenPair, onSection, onPairKey, onTouched, onWorkOnPad],
   );
   // The Reader opens its first source once, on mount: a window opens one book for its life.
   const initialSource = useMemo(

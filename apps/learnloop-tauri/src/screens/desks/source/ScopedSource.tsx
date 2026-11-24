@@ -1272,13 +1272,15 @@ export function ScopedSource({
   const windowNotesOnRef = useRef(false);
   // A note the window was opened for opens once it is listed (again when the window is opened for another).
   const windowOpenNote = windowed?.openNote ?? null;
+  const windowOpenNoteRequest = windowed?.openNoteRequest ?? 0;
   const openedNote = useRef<string | null>(null);
   useEffect(() => {
-    if (!windowOpenNote || openedNote.current === windowOpenNote) return;
+    const asked = windowOpenNote ? `${windowOpenNote}\u0000${windowOpenNoteRequest}` : null;
+    if (!windowOpenNote || !asked || openedNote.current === asked) return;
     if (!annotations.some((a) => a.annotationId === windowOpenNote)) return;
-    openedNote.current = windowOpenNote;
+    openedNote.current = asked;
     openAnnotationNote(windowOpenNote);
-  }, [windowOpenNote, annotations, openAnnotationNote]);
+  }, [windowOpenNote, windowOpenNoteRequest, annotations, openAnnotationNote]);
 
   // Split the live selection into one sub-quote per covered [data-span-id]
   // block, in document order. Anchoring works per block, so a quote must never
@@ -2075,8 +2077,8 @@ export function ScopedSource({
   const onWindowStatus = windowed?.onStatus;
   const windowWhere = currentGuideSection ? sectionWords(currentGuideSection.label) : null;
   useEffect(() => {
-    onWindowStatus?.({ readingSpan, progress: readingProgress, where: windowWhere });
-  }, [onWindowStatus, readingSpan, readingProgress, windowWhere]);
+    onWindowStatus?.({ readingSpan, progress: readingProgress, where: windowWhere, reading: windowExtraction });
+  }, [onWindowStatus, readingSpan, readingProgress, windowWhere, windowExtraction]);
   const onWindowMediaReady = windowed?.onMediaReady;
   useEffect(() => {
     if (!onWindowMediaReady) return;
@@ -2685,6 +2687,9 @@ export function ScopedSource({
   }, [reconnect, muted, busy, answerReconnect, passageCheckOffered, inquiryChecks, inquiryCheckAction, escalateInquiryCheck, startQuickCheck, cancelQuickCheck, dismissInquiryCheck, peekPassage]);
 
   /** The reconnect line drawn under the root passage (a return the learner started). */
+  // The passage each inquiry's quick check was asked from inline: with no rail on screen for this window (a book alone
+  // on a desk), the check is asked, answered, cancelled and retried there (review fix round, major 13).
+  const inlineCheckSpans = useRef(new Map<string, string>());
   const inlineReconnect = reconnect && reconnect.inline && !muted ? (
     <ReconnectLine
       placement="inline"
@@ -2692,9 +2697,42 @@ export function ScopedSource({
       busy={busy}
       onYes={() => void answerReconnect("yes")}
       onStillUnclear={(text) => void answerReconnect("still_unclear", text)}
-      onQuickCheck={passageCheckOffered ? () => void answerReconnect("quick_check") : undefined}
+      onQuickCheck={passageCheckOffered ? () => {
+        inlineCheckSpans.current.set(reconnect.rootId, reconnect.spanId);
+        void answerReconnect("quick_check");
+      } : undefined}
     />
   ) : null;
+  const inlineCheckRoot = windowed && !windowed.railHost
+    ? [...inlineCheckSpans.current.keys()].find((rootId) => inquiryChecks[rootId]) ?? null
+    : null;
+  const inlineCheck = inlineCheckRoot ? (() => {
+    const check = inquiryChecks[inlineCheckRoot];
+    return {
+      spanId: inlineCheckSpans.current.get(inlineCheckRoot) as string,
+      node: (
+        <InquiryQuickCheck
+          phase={check.phase}
+          question={check.question}
+          busy={busy}
+          escalated={check.escalated}
+          failure={check.failure ?? undefined}
+          onCancel={check.batchId ? () => cancelQuickCheck(inlineCheckRoot) : undefined}
+          onAnswer={(response) => void inquiryCheckAction(inlineCheckRoot, "answered", response)}
+          onSelfCheck={(value) => void inquiryCheckAction(inlineCheckRoot, "self_checked", value)}
+          onDismiss={() => {
+            if (check.question) void inquiryCheckAction(inlineCheckRoot, "dismissed");
+            else dismissInquiryCheck(inlineCheckRoot);
+          }}
+          onEscalate={() => void escalateInquiryCheck(inlineCheckRoot)}
+          onRetry={() => void startQuickCheck(inlineCheckRoot, "rail")}
+          onShowPassage={peekPassage}
+        />
+      ),
+    };
+  })() : null;
+  // Under the root passage: the reconnect line, else (no rail on screen) the quick check it started.
+  const inlineInquiry = inlineReconnect && reconnect ? { spanId: reconnect.spanId, node: inlineReconnect } : inlineCheck;
 
   const chooseDisposition = useCallback(
     async (d: ReaderDisposition) => {
@@ -3406,6 +3444,25 @@ export function ScopedSource({
     );
   };
   const overDesk = (menu: ReactNode): ReactNode => (windowed ? createPortal(menu, document.body) : menu);
+  // The adaptive offer at a section's end (review fix round, major 6): in the rail when the window's rail has a host,
+  // else in the book itself, so a book alone on a desk still draws it; the draw waits for its window to be on screen.
+  const doseOfferNode = render ? (
+          <DoseOffer
+            extractionId={render.extractionId}
+            sectionId={completedSections[completedSections.length - 1] ?? null}
+            visitId={doseVisitId}
+            boundaryChecksAvailable={boundaryChecksAvailable}
+            cueDensityOff={cueCtl.cues?.density === "off"}
+            skim={mode === "skim"}
+            restoredSpanId={progress.restoredSpan ?? null}
+            sections={guidePlan?.sections ?? NO_SECTIONS}
+            showingQuestionId={guidePlan?.sections.find(
+              (section) => section.id === completedSections[completedSections.length - 1],
+            )?.question?.authoredQuestionId ?? null}
+            onShowExample={(spanId) => jumpToSpan(spanId)}
+            onJump={(spanId) => jumpToSpan(spanId)}
+          />
+  ) : null;
   // The session's Wrap up and the recap card: in the Guide's header, or, on a desk with no Guide on screen, at the top
   // of the window (and the Wrap up in the drain while the desk's day closes).
   const wrapUpNode = recapCtl.wrapUpOpen ? (
@@ -3717,7 +3774,7 @@ export function ScopedSource({
     <MathMacrosProvider macros={render?.mathMacros ?? null}>
     <NotesContext.Provider value={notesCtl.context}>
     <CompareKeepContext.Provider value={keptCtl.context}>
-    <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+    <div data-rendered-extraction={render?.extractionId ?? undefined} style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
       {render && !offline ? (
         // A source window's frame carries the title; the view switch, how the learner reads this book (skim, read
         // closely, mark for later), whether quick checks come up while reading closely, and the line that says the
@@ -3843,6 +3900,7 @@ export function ScopedSource({
             </div>
           ) : null}
           <IntentBox box={intentBox} />
+          {windowed && !windowed.railHost && !working && doseOfferNode ? <div data-window-dose="" style={{ display: "contents" }}>{doseOfferNode}</div> : null}
           {/* The window's own top: the reading's path and the recap card, held at the top of the window while either
               is open (the learner sees them wherever the window opened in the book; the shadow covers the sheet's top
               padding, so no line shows above them); a folded recap stays at the top of the reading. */}
@@ -3921,7 +3979,7 @@ export function ScopedSource({
                 if (spanId) setActiveSpan(spanId);
               }}
               onTagMenu={openDomTagMenu}
-              inlineNote={inlineReconnect && reconnect ? { spanId: reconnect.spanId, node: inlineReconnect } : null}
+              inlineNote={inlineInquiry}
               marks={cueMarksFor("watch")}
               lens={windowed?.lens?.watch ?? null}
               video={windowed?.video ?? null}
@@ -3955,7 +4013,7 @@ export function ScopedSource({
               onHighlightRemove={(id) => void deleteAnnotation(id)}
               onTagMenu={setTagMenu}
               onError={onError}
-              inlineNote={inlineReconnect && reconnect ? { spanId: reconnect.spanId, node: inlineReconnect } : null}
+              inlineNote={inlineInquiry}
               marks={pdfMarks()}
               onPageLayout={setPdfLayout}
               {...(activeCtl.folded.size ? { coveredSpans: activeCtl.folded } : {})}
@@ -4104,7 +4162,7 @@ export function ScopedSource({
                 ) : null}
                 </>)}
               </div>
-              {inlineReconnect && reconnect && block.spanId === reconnect.spanId ? inlineReconnect : null}
+              {inlineInquiry && block.spanId === inlineInquiry.spanId ? inlineInquiry.node : null}
               {windowActiveCard && block.spanId && block.spanId === windowActiveSpan ? windowActiveCard : null}
               {windowNotesCard && block.spanId && block.spanId === windowNotesSpan ? windowNotesCard : null}
               {windowChecks(block.spanId)}
@@ -4383,22 +4441,9 @@ export function ScopedSource({
           ) : null}
 
           {/* Adaptive difficulty AD2+AD3 (§5.12, D21): now and then, one more thing to try at a
-              section's end (a randomized offer, logged before it shows). */}
-          <DoseOffer
-            extractionId={render.extractionId}
-            sectionId={completedSections[completedSections.length - 1] ?? null}
-            visitId={doseVisitId}
-            boundaryChecksAvailable={boundaryChecksAvailable}
-            cueDensityOff={cueCtl.cues?.density === "off"}
-            skim={mode === "skim"}
-            restoredSpanId={progress.restoredSpan ?? null}
-            sections={guidePlan?.sections ?? NO_SECTIONS}
-            showingQuestionId={guidePlan?.sections.find(
-              (section) => section.id === completedSections[completedSections.length - 1],
-            )?.question?.authoredQuestionId ?? null}
-            onShowExample={(spanId) => jumpToSpan(spanId)}
-            onJump={(spanId) => jumpToSpan(spanId)}
-          />
+              section's end (a randomized offer, logged before it shows). In the rail when it has a host; else in the
+              book (below). */}
+          {!windowed || windowed.railHost ? doseOfferNode : null}
 
           {guideRail(railTab === "guide", false)}
 

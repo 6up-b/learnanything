@@ -147,3 +147,25 @@ it("the palette's Ask while the desks are the Reader summons the companion on th
   await settleDesk(0, 3);
   expect(document.querySelector('[aria-label="the companion"]')?.getAttribute("data-companion-mode")).not.toBe("hidden");
 });
+
+// The Reader's retirement, review fix round (major 13, ledger RDX-18): a book alone on its desk has no rail on screen;
+// "quick check" on the inline reconnect used to start a check whose question, answer and cancel lived only in the Ask
+// rail. It is asked and answered under the passage now.
+it("RDX-18: a quick check chosen on the inline reconnect is asked and answered under the passage, with no rail on screen", async () => {
+  answers.set("reader_reconnect_answer", (input) => (input.answer === "quick_check"
+    ? { rootExchangeId: input.exchangeId, resolution: "open", status: "ready", batchId: null,
+      question: { id: "iq_1", extractionId: book.extractionId, sectionId: "s1", status: "proposed", questionMd: "Why does the exponential keep the order?",
+        expectedAnswerMd: "It is increasing.", spanIds: [TEMPERATURE], practiceItemId: null, answeredAt: null, scopeKind: "inquiry" } }
+    : { rootExchangeId: input.exchangeId, resolution: "open" }));
+  const desk = await openBook();
+  await askAbout(desk, "why the exponential?");
+  await askAbout(desk, "and with another base?");
+  fireEvent.keyDown(window, { key: "ArrowLeft", altKey: true });
+  fireEvent.keyDown(window, { key: "ArrowLeft", altKey: true });
+  await settleDesk(0, 4);
+  const line = await waitFor(() => within(winEl()).getByRole("group", { name: "Does this make sense now?" }));
+  fireEvent.click(within(line).getByRole("button", { name: /quick check/ }));
+  await settleDesk(0, 6);
+  expect(inputsOf("reader_reconnect_answer")).toEqual([expect.objectContaining({ answer: "quick_check" })]);
+  await waitFor(() => expect(winEl().textContent).toContain("Why does the exponential keep the order?"));
+});

@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/app/dailyPlan.ts](../../../../../../apps/learnloop-tauri/src/app/dailyPlan.ts) |
-| Source lines | 206 |
+| Source lines | 207 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/app/_area|TypeScript/app]] |
 | Refactor status | `ACTIVE` |
@@ -62,14 +62,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export type PlanStepAction = |` — type, line 53
 - `export function planStepAction(step: PlanStepDto | null | undefined,` — function, line 64
 - `export function readerTargetForReading( reading: PlanReadingDto, library: SourceLibraryCard[] | null | undefined ):` — function, line 83
-- `export async function servedForExplicitStep(sessionId: string, next: PlanStepDto | null): Promise<PlanStepDto | null>` — function, line 98
-- `export interface NextPlanStep` — interface, line 110
-- `export function useNextPlanStep(sessionId: string | null, prefetch: boolean): NextPlanStep` — function, line 125
-- `export function waitingMinutes(until: string, fallback: number, now: number = Date.now()): number` — function, line 157
-- `export function waitingLine(waiting:` — function, line 164
-- `export function questionInProgressLine(question:` — function, line 171
-- `export function rereadPlanAfterWorkbenchClosed(): void` — function, line 181
-- `export function nextPlanKeyLabel( advancing: boolean, step: PlanStepDto | null, reading:` — function, line 188
+- `export async function servedForExplicitStep(sessionId: string, next: PlanStepDto | null): Promise<PlanStepDto | null>` — function, line 99
+- `export interface NextPlanStep` — interface, line 111
+- `export function useNextPlanStep(sessionId: string | null, prefetch: boolean): NextPlanStep` — function, line 126
+- `export function waitingMinutes(until: string, fallback: number, now: number = Date.now()): number` — function, line 158
+- `export function waitingLine(waiting:` — function, line 165
+- `export function questionInProgressLine(question:` — function, line 172
+- `export function rereadPlanAfterWorkbenchClosed(): void` — function, line 182
+- `export function nextPlanKeyLabel( advancing: boolean, step: PlanStepDto | null, reading:` — function, line 189
 
 ## Internal implementation anchors
 
@@ -78,21 +78,21 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const id = sessionId ?? null` — const, line 44
 - `const key = useMemo(()` — const, line 46
 - `const card = (library ?? []).find((entry)` — const, line 87
-- `const served = (await api.nextPlanItem(` — const, line 100
-- `const served = await api.nextPlanItem(` — const, line 104
-- `const MAX_STEP_READS = 4` — const, line 117
-- `const hash = sessionId ? hashKey(["next_plan_item", sessionId]) : null` — const, line 126
-- `const key = useMemo<QueryKey | null>(()` — const, line 128
-- `const query = useCachedQuery<DailyPlanDto>( prefetch ? key : null, ()` — const, line 129
-- `const current = query.data !== undefined && !query.refreshing` — const, line 134
-- `const step = current ? query.data?.step ?? null : null` — const, line 135
-- `const resolve = useCallback(async (): Promise<PlanStepDto | null>` — const, line 137
-- `const snapshot = await getOrFetch<DailyPlanDto>(key, ()` — const, line 140
-- `const state = peek<DailyPlanDto>(key)` — const, line 144
-- `const at = Date.parse(until)` — const, line 158
-- `const minutes = waitingMinutes(waiting.until, waiting.minutes, now)` — const, line 165
-- `const what = waiting.learningObjectTitle ? `a question on $` — const, line 166
-- `const what = question.learningObjectTitle ? ` on $` — const, line 172
+- `const served = (await api.nextPlanItem(` — const, line 101
+- `const served = await api.nextPlanItem(` — const, line 105
+- `const MAX_STEP_READS = 4` — const, line 118
+- `const hash = sessionId ? hashKey(["next_plan_item", sessionId]) : null` — const, line 127
+- `const key = useMemo<QueryKey | null>(()` — const, line 129
+- `const query = useCachedQuery<DailyPlanDto>( prefetch ? key : null, ()` — const, line 130
+- `const current = query.data !== undefined && !query.refreshing` — const, line 135
+- `const step = current ? query.data?.step ?? null : null` — const, line 136
+- `const resolve = useCallback(async (): Promise<PlanStepDto | null>` — const, line 138
+- `const snapshot = await getOrFetch<DailyPlanDto>(key, ()` — const, line 141
+- `const state = peek<DailyPlanDto>(key)` — const, line 145
+- `const at = Date.parse(until)` — const, line 159
+- `const minutes = waitingMinutes(waiting.until, waiting.minutes, now)` — const, line 166
+- `const what = waiting.learningObjectTitle ? `a question on $` — const, line 167
+- `const what = question.learningObjectTitle ? ` on $` — const, line 173
 
 ## Who imports or calls it
 
@@ -134,6 +134,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 ## Tests that define behavior
 
+- [apps/learnloop-tauri/src/app/intentCheck.test.ts](../../../../../../apps/learnloop-tauri/src/app/intentCheck.test.ts) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/app/dailyPlan.test.tsx](../../../../../../apps/learnloop-tauri/src/app/dailyPlan.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 
 ## Modification guidance
