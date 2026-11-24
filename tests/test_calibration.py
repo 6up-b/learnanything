@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 
+from learnloop.algorithm_versions import PROBE_ROUTER_ALGORITHM_VERSION
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import MasteryState, Repository
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
@@ -12,7 +13,7 @@ from learnloop.ops.doctor import run_doctor
 from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_practice_item
 
-from tests.helpers import NOW, NOW_ISO, create_basic_vault
+from tests.helpers import NOW, NOW_ISO, create_basic_vault, set_algorithm_version
 
 
 class _StubRepo:
@@ -110,6 +111,9 @@ def test_threshold_and_min_attempts_are_configurable(tmp_path):
 def _ace_repeatedly(tmp_path, difficulty: float, count: int):
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)
+    # The check flags a label that mastery's curve reads: from the difficulty label's retirement the curve reads
+    # none, so the label's check is exercised at the newest tag before it.
+    set_algorithm_version(paths, PROBE_ROUTER_ALGORITHM_VERSION)
     upsert_practice_item(
         vault_root,
         {

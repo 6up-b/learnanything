@@ -13,7 +13,7 @@ from datetime import timedelta
 import pytest
 
 from learnloop.algorithm_versions import INTERVAL_FACTOR_ALGORITHM_VERSION
-from learnloop.algorithm_versions import FOLLOWUP_SERVE_ALGORITHM_VERSION, LATEST_ALGORITHM_VERSION
+from learnloop.algorithm_versions import FOLLOWUP_SERVE_ALGORITHM_VERSION, PROBE_ROUTER_ALGORITHM_VERSION
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
 from learnloop.clock import FrozenClock, parse_utc
 from learnloop.config.scheduler_switches import interval_factor_removed
@@ -24,7 +24,8 @@ from learnloop.vault.loader import load_vault
 from tests.helpers import NOW
 from tests.ro1_interval_factor_helpers import _due, _play, _vault
 
-TAG = LATEST_ALGORITHM_VERSION
+# The newest tag before the difficulty label's retirement, which moves mastery and surprise on its own.
+TAG = PROBE_ROUTER_ALGORITHM_VERSION
 PREDECESSOR = FOLLOWUP_SERVE_ALGORITHM_VERSION
 OFF = "[scheduler.surprise]\nremove_interval_factor = false\n"
 

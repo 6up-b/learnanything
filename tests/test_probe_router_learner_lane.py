@@ -18,7 +18,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION, PROBE_ROUTER_ALGORITHM_VERSION
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION, PROBE_ROUTER_ALGORITHM_VERSION, successors_from
 from learnloop.daily_plan import learner_probe as LP
 from learnloop.diagnosis import causal_orchestrator as causal
 from learnloop.diagnosis import probe_offer
@@ -78,8 +78,8 @@ def _assignments(repository) -> list[dict]:
 # -- the facts read and the one decision ------------------------------------------------------------------------------
 
 
-def test_the_tag_is_the_head():
-    assert HEAD == PROBE_ROUTER_ALGORITHM_VERSION
+def test_the_head_keeps_the_tag():
+    assert HEAD in successors_from(PROBE_ROUTER_ALGORITHM_VERSION)
 
 
 def test_a_status_read_decides_once_and_a_reread_draws_nothing_and_writes_no_receipt(tmp_path, monkeypatch):

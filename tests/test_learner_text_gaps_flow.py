@@ -10,7 +10,7 @@ import json
 
 import pytest
 
-from learnloop.algorithm_versions import LEARNER_TEXT_GAP_ALGORITHM_VERSION
+from learnloop.algorithm_versions import LEARNER_TEXT_GAP_ALGORITHM_VERSION, PROBE_ROUTER_ALGORITHM_VERSION
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
 from learnloop.db.connection import connect
 from learnloop.db.stores import learner_gaps as store
@@ -104,7 +104,9 @@ def test_a_gap_brings_an_assumed_los_check_forward_and_the_switch_restores_the_p
 
 
 def test_the_switch_off_queue_equals_the_predecessor_version(tmp_path):
-    root, repository = _setup(tmp_path, toml="[learner_text_gaps]\nsooner_check_enabled = false\n")
+    # At the newest tag before the difficulty label's retirement, which moves the queue on its own.
+    root, repository = _setup(tmp_path, version=PROBE_ROUTER_ALGORITHM_VERSION,
+                              toml="[learner_text_gaps]\nsooner_check_enabled = false\n")
     record_self_report(load_vault(root), repository, learning_object_ids=["lo_eigen_basics"], report="know_this",
                        clock=_at(1))
     _gap(root, repository, minutes=10)

@@ -136,6 +136,8 @@ def test_the_subject_receipt_is_the_predecessors_own_prediction_at_the_serve(tmp
         return result
 
     monkeypatch.setattr(PR, "category_mixture", recording)
+    # The grade's own forecast of each answer (one more prediction per answer) is not this test's subject.
+    monkeypatch.setattr("learnloop.adaptive_difficulty.surprise_forecast.safe_grade_receipt", lambda *_a, **_k: None)
     run = repeat_journey(tmp_path / "run", monkeypatch, rounds=1, answer_repeat=False)
     paths = run["paths"]
     stored = {row["forecaster"]: row for row in receipts(paths.sqlite_path, forecasters=RR.REPEAT_FORECASTERS)}
@@ -516,6 +518,12 @@ def test_repeat_receipt_ids_come_from_their_own_stream(tmp_path, monkeypatch):
 # -- non-interference --------------------------------------------------------------------------------------------
 
 
+def _surprise_forecasters(sqlite_path) -> set[str]:
+    with closing(connect(sqlite_path, read_only=True)) as connection:
+        return {json.loads(row[0]).get("forecaster") for row in connection.execute(
+            "SELECT predicted_score_dist_json FROM attempt_surprise")} - {None}
+
+
 def test_repeat_receipts_move_no_id_seed_receipt_score_or_state_under_a_frozen_clock(tmp_path, monkeypatch):
     """Two copies of one journey with a repeat in it, the second without repeat capture: every row of every table
     is identical once the repeat receipts and their score rows are left out (router decisions and their seeds, AD
@@ -530,7 +538,12 @@ def test_repeat_receipts_move_no_id_seed_receipt_score_or_state_under_a_frozen_c
     without = repeat_journey(tmp_path / "without", monkeypatch, capture=False)
     new, old = comparable(with_repeat["paths"].sqlite_path), comparable(without["paths"].sqlite_path)
     assert new.keys() == old.keys()
-    assert {table for table in new if new[table] != old[table]} == set()
+    # From the difficulty label's retirement the repeat answer's surprise is scored against its repeat receipt
+    # (without capture, against the grade's own forecast): that surprise row and the result that carries it are the
+    # only rows that differ, and the forecaster each read is the one named.
+    assert {table for table in new if new[table] != old[table]} <= {"attempt_surprise", "attempt_completion_work"}
+    assert _surprise_forecasters(with_repeat["paths"].sqlite_path) - _surprise_forecasters(
+        without["paths"].sqlite_path) == {RR.REPEAT_SUBJECT}
     for table in ("forecast_receipts", "item_serve_inputs", "ad_state", "ad_attempt_trace", "item_forecast_scores",
                   "plan_presentations", "router_decisions", "ad_selections"):
         assert new[table], table

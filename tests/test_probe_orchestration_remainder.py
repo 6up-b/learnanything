@@ -7,6 +7,7 @@ import io
 import json
 from datetime import timedelta
 
+from learnloop.algorithm_versions import PROBE_ROUTER_ALGORITHM_VERSION
 from learnloop.clock import FrozenClock
 from learnloop.ids import new_ulid
 from learnloop.attempts.attempts import (
@@ -44,7 +45,9 @@ from tests.probe_orchestration_remainder_helpers import CLOCK, ITEM_ID, LO_ID, _
 
 
 def test_repeated_prediction_errors_reopen_probing(tmp_path):
-    _, loaded, repository = _setup(tmp_path)
+    # The confident learner below is set on mastery; from the difficulty label's retirement surprise is scored
+    # against adaptive difficulty's forecast, which that state does not reach, so the trigger runs at the tag before.
+    _, loaded, repository = _setup(tmp_path, version=PROBE_ROUTER_ALGORITHM_VERSION)
     episode_config = loaded.config.probe.episode
     episode_config.reprobe_predictive_surprise_threshold = 0.0
     episode_config.reprobe_prediction_error_count = 2

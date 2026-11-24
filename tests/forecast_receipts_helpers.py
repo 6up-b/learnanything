@@ -59,8 +59,14 @@ def _answer(vault, repository, client, *, answer: str, when, presentation_id: st
 
 
 def _receipts(repository: Repository, kind: str | None = None) -> list[dict]:
+    """The receipts of ``kind``, or the diagnosis's own when None: the grade's forecast of every answer (from the
+    difficulty label's retirement) is AD's, not these tests' subject."""
+
+    from learnloop.scheduling.forecast_receipts import ITEM_UNASSISTED_SUCCESS_AT_GRADE
+
     with repository.connection() as connection:
-        return receipt_store.list_receipts(connection, kind=kind)
+        rows = receipt_store.list_receipts(connection, kind=kind)
+    return rows if kind is not None else [row for row in rows if row["kind"] != ITEM_UNASSISTED_SUCCESS_AT_GRADE]
 
 
 def _diagnosed(tmp_path, *, version: str = LATEST_ALGORITHM_VERSION, config: str = "", method: bool = False):
