@@ -105,7 +105,11 @@ def pad_notebook(vault_root: Path, repository: Any, pad_id: str) -> tuple[bytes,
     if not cells:
         raise SidecarError("notebook_no_cells", "This pad has no marimo cells yet.")
     named = [(adapter.cell_name(cell["block_id"]), cell["code"]) for cell in cells]
+    if len({name for name, _code in named}) != len(named):
+        raise SidecarError("notebook_path_invalid", "Two of the pad's cells would share a name.")
     source = adapter.notebook_from_cells(named).encode("utf-8")
+    if len(source) > settings.NOTEBOOK_MAX_BYTES:
+        raise SidecarError("notebook_path_invalid", "The pad's cells make a notebook larger than LearnLoop opens.")
     revision = hashlib.sha256("\n".join(name for name, _code in named).encode()).hexdigest()
     try:
         # Never through a link: the vault may hold one anywhere below its root.

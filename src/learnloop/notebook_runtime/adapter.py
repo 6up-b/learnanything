@@ -209,8 +209,9 @@ def cell_name(block_id: str) -> str:
     import hashlib
 
     safe = re.sub(r"[^0-9A-Za-z_]", "_", block_id).lower()
-    if safe != block_id.lower():
-        # Two ids that differ only in characters an identifier cannot hold must not share a name.
+    if safe != block_id:
+        # Two ids that differ only in case, or in characters an identifier cannot hold, must not share a name: the
+        # exact id's hash keeps them apart.
         safe = f"{safe}_{hashlib.sha256(block_id.encode()).hexdigest()[:8]}"
     return f"c_{safe}"
 
