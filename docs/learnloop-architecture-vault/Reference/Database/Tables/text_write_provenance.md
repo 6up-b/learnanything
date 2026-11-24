@@ -109,6 +109,7 @@ None found by exact static reference scan.
 - `tests/test_notes_c2b_review5.py`
 - `tests/test_reader_formative_texts.py`
 - `tests/test_regrade_contract_successor.py`
+- `tests/test_replay_keeps_diagnosis_ids.py`
 - `tests/test_ux_phase4_landing.py`
 - `tests/test_workbench_text_gaps.py`
 
