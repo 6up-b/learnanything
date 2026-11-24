@@ -726,3 +726,8 @@
 .desk-exercise .item { margin: 6px 8px; padding: 6px 0; border-top: 1px solid #2a2a2a; }
 .desk-exercise .item .t { color: var(--desk-t); }
 .desk-exercise .item .p { color: var(--desk-t2); font-size: 11px; margin: 2px 0 4px; }
+
+/* An RW2 problem on its pad (spec §15.2): the workbench keeps the app's own theme (its colours are the app's tokens,
+   drawn for the practice screen), set as a card on the pad's paper so its text never reads light on light. */
+.desk-pads .problem-pad { margin: 6px 0 10px; padding: 10px 12px; background: var(--bg); color: var(--text); border-radius: 4px; }
+.desk-pads .problem-away .bx button { margin-left: 6px; }

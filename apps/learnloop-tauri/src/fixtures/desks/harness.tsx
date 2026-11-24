@@ -6,6 +6,7 @@ import React, { useEffect, useState } from "react";
 import type { LessonEntry } from "../../screens/LessonView";
 import ReactDOM from "react-dom/client";
 import { DeskShell, type DeskDebugHandle } from "../../screens/desks/DeskShell";
+import { setAlgoConfig } from "../../app/algoConfig";
 import { DIRECT_HUB, WindowScope, type WindowState } from "../../screens/desks/lifecycle";
 import { SourceWindow } from "../../screens/desks/windows/SourceWindow";
 import { PadStackWindow } from "../../screens/desks/pads/PadStackWindow";
@@ -23,6 +24,7 @@ import "../../styles/palettes.css";
 const errors: string[] = [];
 declare global {
   interface Window {
+    __problemSubmitted?: string;
     __deskHarnessErrors?: string[];
     __deskDebug?: DeskDebugHandle;
     /** `?lesson=1`: ask the desks for a lesson as the app does while they are its place (RD9a). */
@@ -188,10 +190,13 @@ export function Harness({ search = window.location.search }: { search?: string }
   if (params.get("latex") === "1") return <LatexFixture />;
   if (params.get("notebook") === "1") return <NotebookFixture search={search} />;
   if (params.get("padcells") === "1") return <PadCellsFixture />;
-  return <HarnessShell lessonsOn={params.get("lesson") === "1"} />;
+  return <HarnessShell lessonsOn={params.get("lesson") === "1"} problemOn={params.get("problem") === "1"} />;
 }
 
-function HarnessShell({ lessonsOn }: { lessonsOn: boolean }) {
+function HarnessShell({ lessonsOn, problemOn }: { lessonsOn: boolean; problemOn: boolean }) {
+  // `?problem=1` (RW2 on a problem pad, spec §15.2): the workbench and its help are on, and a submit's hand-off to
+  // feedback is noted where the harness script reads it.
+  if (problemOn) setAlgoConfig({ workbench: { enabled: true, openSessionDays: 30, help: { enabled: true } }, hints: { adaptiveEnabled: true } });
   // The app's way in while the desks are its place: each ask once, by its seq.
   const [request, setRequest] = useState<{ seq: number; entry: LessonEntry } | null>(null);
   useEffect(() => {
@@ -204,6 +209,7 @@ function HarnessShell({ lessonsOn }: { lessonsOn: boolean }) {
         vaultKey="desk-fixture"
         // `?lesson=1`: lessons are on (the Reader's Teach me opens a lesson window; RD9a).
         {...(lessonsOn ? { reader: { onTeachMe: () => undefined }, lessons: { request } } : {})}
+        {...(problemOn ? { reader: { workbench: { practiceSessionId: null, onSubmitted: (result) => { window.__problemSubmitted = result.attempt.attemptId; } } } } : {})}
         onError={(message) => errors.push(message)}
         onLeave={() => errors.push("left for the old Reader")}
         onDebugHandle={(handle) => {
