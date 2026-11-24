@@ -3934,7 +3934,9 @@ export function DeskShell({
         if (inquiry) inquiries.current.set(windowId, inquiry);
         else inquiries.current.delete(windowId);
         // A restored reading-path panel: the book's window opens its path once its Reader is there.
-        if (inquiry && pendingPaths.current.delete(windowId)) inquiry.showPath("open");
+        // The request stays until the path actually shows (its Reader may still be reading its guide and settings:
+        // a later readiness tries again; review fix round, major 16).
+        if (inquiry && pendingPaths.current.has(windowId) && inquiry.showPath("open")) pendingPaths.current.delete(windowId);
       };
       inquiryReadyFor.set(windowId, handler);
     }

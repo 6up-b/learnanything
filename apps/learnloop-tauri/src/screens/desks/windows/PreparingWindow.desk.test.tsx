@@ -3,6 +3,7 @@
 // Reader read through the app's api client to the fake sidecar.
 import { cleanup, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { invoke as fixtureInvoke } from "../../../fixtures/desks/fakeCore";
 import { answers, inputsOf, memoryStorage, mountRealDesk, oneDesk, resetSidecar, settleDesk } from "../../../fixtures/desks/realDesk";
 import { FIXTURE_LIBRARY, FIXTURE_SOURCES } from "../../../fixtures/desks/sources";
 import type { SourceLibraryCard } from "../../../api/dto";
@@ -140,4 +141,23 @@ it("a stored unknown panel, a kept comparison by id and a figure's notebook show
   expect(document.querySelector('[data-desk-window="w_kept"]')?.textContent).toContain("a kept comparison");
   expect(document.querySelector('[data-desk-window="w_kept"] input')).toBeNull();
   expect(document.querySelector('[data-desk-window="w_fig"]')?.textContent).toContain("a figure's notebook");
+});
+
+// Review fix round (major 16, ledger RDX-19): a path panel restored while the book's guide and settings are still being
+// read keeps its request until the path shows; it used to be dropped on the first, refused, try.
+it("a stored reading-path panel restored while the guide is still loading opens the path once it is there", async () => {
+  let release: () => void = () => undefined;
+  const gate = new Promise<void>((resolve) => { release = resolve; });
+  for (const command of ["reader_prompt_contract", "reader_guide_plan"]) {
+    answers.set(command, async (input) => {
+      await gate;
+      return fixtureInvoke(command, { input });
+    });
+  }
+  const pathPanel = { windowId: "w_path", pane: 0, kind: "panel", active: true, view: {}, content: { kind: "panel", panel: "path", extractionId: book.extractionId } };
+  mountRealDesk({ state: oneDesk([[BOOK_WINDOW as never], [pathPanel as never]]) });
+  await settleDesk(0, 30);
+  release();
+  await settleDesk(0, 30);
+  await waitFor(() => expect(document.querySelector('[data-desk-window="w_book"]')?.textContent).toContain("How deep"));
 });
