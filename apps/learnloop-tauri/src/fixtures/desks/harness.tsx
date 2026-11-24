@@ -12,6 +12,7 @@ import { PadStackWindow } from "../../screens/desks/pads/PadStackWindow";
 import { PadsHostContext, PendingFigures, type PadsHost } from "../../screens/desks/pads/host";
 import { DeskStore } from "../../screens/desks/store";
 import { REAL_TIMERS } from "../../screens/desks/keys/router";
+import { setAlgoConfig } from "../../app/algoConfig";
 import { fixtureCellsPad, fixtureMathPad } from "./pads";
 import { FIXTURE_LIBRARY, FIXTURE_SOURCES } from "./sources";
 import { FixtureDeskServer } from "./workspace";
@@ -215,6 +216,8 @@ function HarnessShell({ lessonsOn }: { lessonsOn: boolean }) {
 }
 
 export function mountHarness(root: HTMLElement): void {
+  // `?recap=1`: the recap card and Wrap up are on (RW6a's switches), with the fixture's last session on the book.
+  if (new URLSearchParams(window.location.search).get("recap") === "1") setAlgoConfig({ recap: { enabled: true, wrapUpEnabled: true } });
   ReactDOM.createRoot(root).render(
     <React.StrictMode>
       <Harness />

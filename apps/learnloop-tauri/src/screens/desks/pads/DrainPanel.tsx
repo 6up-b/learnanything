@@ -12,11 +12,13 @@ export interface DrainActions {
   carry: (text: string, padId: string) => Promise<void>;
 }
 
-export function DrainPanel({ deskTitle, load, actions, onClose }: {
+export function DrainPanel({ deskTitle, load, actions, onClose, wrapUpHost }: {
   deskTitle: string;
   load: () => Promise<PadDrainDto>;
   actions: DrainActions;
   onClose: () => void;
+  /** Where the desk's readings put their Wrap up, after the pads (the drain gives before it asks). */
+  wrapUpHost?: (node: HTMLDivElement | null) => void;
 }) {
   const [drain, setDrain] = useState<PadDrainDto | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
@@ -100,6 +102,7 @@ export function DrainPanel({ deskTitle, load, actions, onClose }: {
           )}
         </div>
       ))}
+      {wrapUpHost ? <div className="wrapups" data-drain-wrap-ups="" ref={wrapUpHost} /> : null}
       <div className="acts"><button type="button" onClick={onClose}>esc · done</button></div>
     </div>
   );

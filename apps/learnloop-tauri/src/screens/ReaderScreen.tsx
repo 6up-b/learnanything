@@ -302,6 +302,8 @@ export interface ReaderWindowing {
   onOpenPath?: () => void;
   /** A note the window was opened for (a search result names it): its card opens, being edited, once it is listed. */
   openNote?: string | null;
+  /** While the desk's day closes (the drain): where this reading's Wrap up is shown. */
+  drainHost?: HTMLElement | null;
 }
 
 /** What a desk does in a source window's inquiry. */
@@ -921,12 +923,29 @@ export function ReaderScreen({
   const railOnScreen = windowed
     ? Boolean(windowed.railHost) && !isPaused(windowed.railHost?.lifecycle.state ?? "hidden")
     : !isPaused(sourceLifecycleState);
-  const recapShown = Boolean(railOnScreen && recapCtl.recap && !recapCtl.collapsed && !muted && railTab === "guide" && !(inquiry && railCollapsed) && !working);
+  // On a desk with no Guide on screen the recap card and Wrap up show in the window itself (spec §21.1).
+  const guideOnScreen = railOnScreen && railTab === "guide";
+  const recapInWindow = Boolean(windowed) && !guideOnScreen;
+  const recapShown = Boolean(railOnScreen && recapCtl.recap && !recapCtl.collapsed && !muted && railTab === "guide" && !(inquiry && railCollapsed) && !working)
+    || Boolean(recapInWindow && recapCtl.recap && !recapCtl.collapsed && !muted && !working && !isPaused(sourceLifecycleState));
   // Leaving while skimming offers no wrap-up where the learner lands (F9).
   useEffect(() => {
     onSkimmingChange?.(muted);
   }, [muted, onSkimmingChange]);
   const { noteShown: noteRecapShown } = recapCtl;
+  // The desk's drain asks every reading on the desk for its Wrap up, once the session has something to wrap up.
+  const drainHost = windowed?.drainHost ?? null;
+  const wrapUpForDrain = useRef(false);
+  const { wrapUpOffered, openWrapUp: openRecapWrapUp, closeWrapUp: closeRecapWrapUp } = recapCtl;
+  useEffect(() => {
+    if (drainHost && wrapUpOffered && !wrapUpForDrain.current) {
+      wrapUpForDrain.current = true;
+      void openRecapWrapUp();
+    } else if (!drainHost && wrapUpForDrain.current) {
+      wrapUpForDrain.current = false;
+      closeRecapWrapUp();
+    }
+  }, [drainHost, wrapUpOffered, openRecapWrapUp, closeRecapWrapUp]);
   useEffect(() => {
     if (recapShown) noteRecapShown();
   }, [recapShown, noteRecapShown]);
@@ -3827,6 +3846,51 @@ export function ReaderScreen({
     );
   };
   const overDesk = (menu: ReactNode): ReactNode => (windowed ? createPortal(menu, document.body) : menu);
+  // The session's Wrap up and the recap card: in the Guide's header, or, on a desk with no Guide on screen, at the top
+  // of the window (and the Wrap up in the drain while the desk's day closes).
+  const wrapUpNode = recapCtl.wrapUpOpen ? (
+    <WrapUpPanel
+      wrapUp={recapCtl.wrapUpOpen}
+      where="reader"
+      onClose={recapCtl.closeWrapUp}
+      followups={{
+        onUndo: (commitmentId, reason) => api.readerFollowupUndo({ commitmentId, reason }),
+        onUndoAll: (digestId, reason) => api.readerFollowupUndoAll({ digestId, reason }),
+        onRestore: (commitmentId) => api.readerFollowupRestore({ commitmentId }),
+      }}
+      isDone={(line, action) => action.action === "revisit_once" && recapRevisited(line.rootExchangeId)}
+      onAction={async (line, action) => {
+        const params = (action.params ?? {}) as { resolution?: "open" | "resolved"; trigger?: "chip" | "undo" };
+        if (action.rpc === "reader.set_inquiry_status" && params.resolution) {
+          await recapSetStatus(line.rootExchangeId, params.resolution, params.trigger ?? "chip");
+        } else if (action.rpc === "reader.invoke_preset") {
+          await recapRevisit(line.rootExchangeId);
+        }
+      }}
+    />
+  ) : null;
+  const recapCardNode = recapCtl.recap ? (
+    <RecapCard
+      recap={recapCtl.recap}
+      collapsed={recapCtl.collapsed}
+      onExpand={recapCtl.expand}
+      onContinue={() => {
+        recapCtl.continueReading();
+        if (progress.restoredSpan) jumpToSpan(progress.restoredSpan);
+      }}
+      onDismiss={() => void recapCtl.dismiss()}
+      onOpenInquiry={recapOpenInquiry}
+      onSetStatus={(rootId, resolution) => void recapSetStatus(rootId, resolution)}
+      onRevisit={(rootId) => void recapRevisit(rootId)}
+      revisited={recapRevisited}
+      onResume={(sessionId) => void wbCtl.resume(sessionId)}
+      // RW6b: the card keeps the undone line ("undone · keep it
+      // after all") until it is next read, so an undo can be taken back.
+      onUndoFollowup={(commitmentId, reason) => api.readerFollowupUndo({ commitmentId, reason })}
+      onUndoAllFollowups={(digestId, reason) => api.readerFollowupUndoAll({ digestId, reason })}
+      onRestoreFollowup={(commitmentId) => api.readerFollowupRestore({ commitmentId })}
+    />
+  ) : null;
   // The learner's annotations are the Notes rail's; a desk shows the rail only beside a Notes panel, so without one
   // the window's margin carries them (spec §7.1): "›" beside a passage with the learner's annotations opens a card
   // under it with their words, to edit, delete (with undo) or re-anchor.
@@ -4072,6 +4136,16 @@ export function ReaderScreen({
             </div>
           ) : null}
           <IntentBox box={intentBox} />
+          {recapInWindow && !working && ((recapCtl.wrapUpOpen && !drainHost) || (recapCtl.recap && !muted)) ? (
+            // Held at the top of the window while it is open, so the learner sees it wherever the window opened in the
+            // book (its shadow covers the sheet's top padding, so no line shows above it); folded (on the first scroll,
+            // or "continue"), it stays at the top of the reading.
+            <div data-window-recap="" style={{ display: "flex", flexDirection: "column", gap: 8,
+              ...(recapCtl.recap && !recapCtl.collapsed && !muted ? { position: "sticky" as const, top: 0, zIndex: 7, background: COLOR.bg, paddingBottom: 6, boxShadow: `0 -48px 0 0 ${COLOR.bg}` } : {}) }}>
+              {recapCtl.wrapUpOpen && !drainHost ? wrapUpNode : null}
+              {recapCtl.recap && !muted ? recapCardNode : null}
+            </div>
+          ) : null}
           {!pdfSurfaceActive && (domBoxes.length > 0 || domDraft) ? (
             <div aria-hidden="true" style={{ position: "absolute", left: 0, top: 0, width: 0, height: 0, pointerEvents: "none" }}>
               {!domArmed && !domDraft ? (
@@ -4673,51 +4747,10 @@ export function ReaderScreen({
                 )}
               />
             ) : undefined}
-            header={recapCtl.wrapUpOpen || (recapCtl.recap && !muted) ? (
+            header={(!windowed || guideOnScreen) && ((recapCtl.wrapUpOpen && !drainHost) || (recapCtl.recap && !muted)) ? (
               <>
-                {recapCtl.wrapUpOpen ? (
-                  <WrapUpPanel
-                    wrapUp={recapCtl.wrapUpOpen}
-                    where="reader"
-                    onClose={recapCtl.closeWrapUp}
-                    followups={{
-                      onUndo: (commitmentId, reason) => api.readerFollowupUndo({ commitmentId, reason }),
-                      onUndoAll: (digestId, reason) => api.readerFollowupUndoAll({ digestId, reason }),
-                      onRestore: (commitmentId) => api.readerFollowupRestore({ commitmentId }),
-                    }}
-                    isDone={(line, action) => action.action === "revisit_once" && recapRevisited(line.rootExchangeId)}
-                    onAction={async (line, action) => {
-                      const params = (action.params ?? {}) as { resolution?: "open" | "resolved"; trigger?: "chip" | "undo" };
-                      if (action.rpc === "reader.set_inquiry_status" && params.resolution) {
-                        await recapSetStatus(line.rootExchangeId, params.resolution, params.trigger ?? "chip");
-                      } else if (action.rpc === "reader.invoke_preset") {
-                        await recapRevisit(line.rootExchangeId);
-                      }
-                    }}
-                  />
-                ) : null}
-                {recapCtl.recap && !muted ? (
-                  <RecapCard
-                    recap={recapCtl.recap}
-                    collapsed={recapCtl.collapsed}
-                    onExpand={recapCtl.expand}
-                    onContinue={() => {
-                      recapCtl.continueReading();
-                      if (progress.restoredSpan) jumpToSpan(progress.restoredSpan);
-                    }}
-                    onDismiss={() => void recapCtl.dismiss()}
-                    onOpenInquiry={recapOpenInquiry}
-                    onSetStatus={(rootId, resolution) => void recapSetStatus(rootId, resolution)}
-                    onRevisit={(rootId) => void recapRevisit(rootId)}
-                    revisited={recapRevisited}
-                    onResume={(sessionId) => void wbCtl.resume(sessionId)}
-                    // RW6b: the card keeps the undone line ("undone · keep it
-                    // after all") until it is next read, so an undo can be taken back.
-                    onUndoFollowup={(commitmentId, reason) => api.readerFollowupUndo({ commitmentId, reason })}
-                    onUndoAllFollowups={(digestId, reason) => api.readerFollowupUndoAll({ digestId, reason })}
-                    onRestoreFollowup={(commitmentId) => api.readerFollowupRestore({ commitmentId })}
-                  />
-                ) : null}
+                {recapCtl.wrapUpOpen && !drainHost ? wrapUpNode : null}
+                {recapCtl.recap && !muted ? recapCardNode : null}
               </>
             ) : null}
             findSection={contract?.correspondence?.findSection && !offline && !working ? (
@@ -5023,6 +5056,13 @@ export function ReaderScreen({
         )}
       </div>
 
+      {drainHost && recapCtl.wrapUpOpen ? createPortal(
+        <div data-drain-wrap-up="" className="wrapup">
+          <div className="from">§ {sourceTitle ?? "this reading"}</div>
+          {wrapUpNode}
+        </div>,
+        drainHost,
+      ) : null}
       {tagMenu && windowActive ? overDesk(
         <div
           style={{ position: "fixed", inset: 0, zIndex: 320 }}

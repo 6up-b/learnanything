@@ -640,6 +640,8 @@ export function DeskShell({
   // The pad stack whose "where your words go" is open (its ⓘ sits in the window's title bar).
   const [emissionOpen, setEmissionOpen] = useState<string | null>(null);
   const [draining, setDraining] = useState(false);
+  // While the desk's day closes, its readings show their Wrap up in the drain, under the pads (spec §21.1).
+  const [drainWrapHost, setDrainWrapHost] = useState<HTMLDivElement | null>(null);
   // The context menu (spec §9.1) on a source object, What this knows, and the small sheets its verbs ask with.
   const [menu, setMenu] = useState<MenuObject | null>(null);
   const [knows, setKnows] = useState<import("../../api/dto").MenuObjectInput | null>(null);
@@ -3476,6 +3478,7 @@ export function DeskShell({
           onOpenPath: onOpenPathFor(window.windowId),
           // A note a search result opened the window for (its identity in the window's view).
           openNote: typeof window.view?.annotationId === "string" ? (window.view.annotationId as string) : null,
+          drainHost: draining && window.deskId === deskId ? drainWrapHost : null,
           onError,
           ...(reader ? { reader } : {}),
           // A book following a video marks its passage over the goal lens (RD10).
@@ -4163,6 +4166,7 @@ export function DeskShell({
             carry: (text, padId) => carryQuestion(text, { kind: "drain", ref: padId }),
           }}
           onClose={() => setDraining(false)}
+          wrapUpHost={setDrainWrapHost}
         />
       ) : null}
     </div>

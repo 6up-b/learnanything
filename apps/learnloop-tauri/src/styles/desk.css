@@ -618,6 +618,9 @@
 .desk-drain .sub { padding: 0 8px 6px; color: var(--desk-t3); font-size: 10.5px; }
 .desk-drain .pad { padding: 6px 8px; border-top: 1px solid #2a2a2a; }
 .desk-drain .pad .title { color: var(--desk-t); }
+/* Each reading's Wrap up, after the pads (the drain gives before it asks), named by its book. */
+.desk-drain .wrapup { padding: 6px 8px; border-top: 1px solid #2a2a2a; }
+.desk-drain .wrapup .from { color: var(--desk-t3); font-size: 10.5px; margin-bottom: 4px; }
 .desk-drain .pad .lines { color: var(--desk-t3); font-size: 11px; margin: 2px 0; }
 .desk-drain .pad .done { color: #8cc39c; font-size: 11px; }
 .desk-pmark { position: absolute; z-index: 25; font: 12px var(--desk-mono); }

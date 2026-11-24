@@ -358,9 +358,38 @@ function answer(command: string, input: Record<string, unknown>): unknown {
       return videoFixture.decide(input as never);
     case "reader_correspondents":
       return videoFixture.correspondents(input as never);
+    // `?recap=1`: the book's last session, its recap card and its Wrap up (project-authored).
+    case "reader_recap":
+    case "reader_recap_event":
+    case "reader_wrap_up":
+      if (typeof window === "undefined" || new URLSearchParams(window.location.search).get("recap") !== "1") {
+        throw { code: "not_in_fixture", message: `${command} is not part of the desks' fixture`, retryable: false };
+      }
+      return recapAnswer(command, input);
     default:
       throw { code: "not_in_fixture", message: `${command} is not part of the desks' fixture`, retryable: false };
   }
+}
+
+function recapAnswer(command: string, input: Record<string, unknown>): unknown {
+  const extractionId = String(input.extractionId ?? "");
+  if (command === "reader_recap_event") return { version: 1, eventId: `fx_recap_${String(input.event)}`, event: input.event };
+  const ours = extractionId === FIXTURE_SOURCES.book.extractionId;
+  const session = { sessionId: "fx_session", extractionId, visitIds: ["fx_visit"], startedAt: "2026-11-22T20:00:00Z", endedAt: "2026-11-22T20:40:00Z", minutes: 40 };
+  const open = [{ rootExchangeId: "fx_root1", questionEventId: "fx_q1", questionMd: "does the constant always cancel?", spanId: `${extractionId}_s1_4`, anchorSpanIds: [`${extractionId}_s1_4`], openedAt: "2026-11-22T20:05:00Z" }];
+  if (command === "reader_recap") {
+    return { version: 1, dismissed: false, recap: ours ? {
+      recapVersion: "fixture", extractionId, session, continueAt: { sectionId: `${extractionId}_s2`, label: "2 Why the exponential" },
+      stillOpen: open, unfinished: [], worthASecondLook: [], sinceLastTime: { demonstrated: [], checksRetired: [] },
+    } : null };
+  }
+  return {
+    version: 1, wrapUpVersion: "fixture", available: ours, extractionId, session: ours ? session : null, resolved: [],
+    stillOpen: ours ? [{ rootExchangeId: "fx_root1", questionMd: "does the constant always cancel?", spanIds: [`${extractionId}_s1_4`], actions: [
+      { action: "resolve", rpc: "reader.set_inquiry_status", params: { resolution: "resolved", trigger: "chip" } }, { action: "keep_open" },
+    ] }] : [],
+    worthReinforcing: [],
+  };
 }
 
 /** The notebook fixture (`?notebook=1`): a real sandboxed session the harness script started (its frame URL in

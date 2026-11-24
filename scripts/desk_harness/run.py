@@ -1241,6 +1241,27 @@ async def run_intent(page: Page, base: str, results: Results, shots: Path | None
     await shot(page, shots, "window-note-card")
     results.check("the › opens the learner's words in a card under the passage, to edit or delete", "a soft maximum keeps runners-up" in card and "edit note" in card and "delete" in card, card[:120])
 
+    # Last time here and Wrap up on a desk (`?recap=1`): the recap card at the top of the book's window, recorded as
+    # shown once; closing the desk's day shows the pads first, then the book's Wrap up, named by its book.
+    await page.goto(f"{base}/desk-harness.html?recap=1")
+    await page.wait_for_selector("[data-desk-window]")
+    await settle(page, 1800)
+    recap = await page.evaluate("""() => { const c = document.querySelector('[data-desk-window="fx_w_book"] [data-window-recap] [data-recap-card]'); if (!c) return null;
+      const first = document.querySelector('[data-desk-window="fx_w_book"] [data-span-id]'); return { text: c.textContent, above: !!(c.compareDocumentPosition(first) & 4),
+      bg: getComputedStyle(c).backgroundColor, color: getComputedStyle(c).color }; }""")
+    shown = [call for call in await calls(page, "reader_recap_event") if call["input"].get("event") == "recap_shown"]
+    await shot(page, shots, "window-recap")
+    results.check("coming back to the book, the recap card shows at the top of its window, recorded as shown once",
+                  bool(recap) and recap["above"] and "does the constant always cancel?" in recap["text"] and len(shown) == 1, [recap, len(shown)])
+    await page.keyboard.press("Alt+Shift+Q")
+    await settle(page, 1200)
+    drain = await page.evaluate("""() => { const d = document.querySelector('.desk-drain'); const w = d && d.querySelector('[data-drain-wrap-up]'); if (!w) return null;
+      return { from: w.querySelector('.from').textContent, after: !!(d.querySelector('.head').compareDocumentPosition(w) & 4), lines: w.textContent.includes('does the constant always cancel?') }; }""")
+    await shot(page, shots, "drain-wrap-up")
+    results.check("closing the desk's day shows the book's Wrap up after the pads, named by its book",
+                  bool(drain) and drain["after"] and drain["lines"] and "Softmax" in drain["from"], drain)
+    await page.keyboard.press("Escape")
+
 
 GOAL_BOOK = "[data-desk-window='fx_w_book']"
 GOAL_PAPER = "[data-desk-window='fx_w_paper']"

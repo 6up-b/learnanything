@@ -35,7 +35,7 @@ branch before any work on it.
 | Library ask, compare, keep, roles | | | pending |
 | Exercises from my sources | | | pending |
 | Figures and Show me | | | pending |
-| Last time here, wrap up, digest | | | pending |
+| Last time here, wrap up, digest | With no Guide on screen, the recap card shows in the source window on return, held at the window's top while open (wherever the window opened in the book) and at the top of the reading once folded, recorded as shown once and only there; `w` opens the session's Wrap up in the window; closing the desk's day (the drain, `alt+shift+q`) shows today's pads first, then each reading's Wrap up (with its digest and follow-ups) named by its book (`DrainPanel` gains a slot after the pads; each window puts its own Wrap up there, with its chips, undo and restore). The leave-the-Reader offer outside the desks is unchanged | `windows/SourceWindow.wrapup.test.tsx` (real desk): the card above the reading, recorded once; `w` opens Wrap up in the window (`wrap_up_opened`); the drain shows the pads first, then the Wrap up, its "resolve" calling `reader.set_inquiry_status`. `windows/SourceWindow.recap.test.tsx` changed with the behaviour: no panel, or a hidden one, shows the card in the window, recorded once; a visible panel shows it in the panel, still once; a preview records nothing. Harness `intent` run (`?recap=1`): the card at the top of the book's window, recorded once; the drain's Wrap up after the pads, named by its book | **Built and demonstrated.** Before: recap and Wrap up lived only in the Guide's header, so a desk with no Guide panel showed neither, and the drain had no Wrap up. Fail-first: the three desk cases failed before the build. Skimming still mutes the card, but a desk has no way to choose skimming (§5) |
 | Cold follow-ups | Inline checks (RD7, another worker) | | not this branch's: RD7 closes it |
 | Reading paths | | | pending |
 | Side by side | | | pending |
@@ -67,4 +67,10 @@ Still listed (each waits on its row or on phase 2's targeted open):
 
 ## 5. Product decisions asked
 
-(none yet)
+- **Skim, read closely, mark for later on a desk** (the audit's §5, no parity row). The old screen's header offers the
+  mode; skimming mutes the recap card, section prompts, cues and dose offers, and tells the app to hold the
+  leave-time offer. A source window has no header and so no way to choose it: on a desk every reading is "read
+  closely". Options: (a) the choice in the window's source bar beside the view switch, per window; (b) one choice per
+  desk, in the desk's top bar; (c) drop skimming on the desks (the desk's own geometry is the learner's "skim"),
+  keeping it on the phone and the old screen until it goes. Recommended: (a), since the mode is per reading today and
+  the bar already exists. Not built until chosen.
