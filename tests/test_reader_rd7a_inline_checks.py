@@ -291,6 +291,20 @@ def test_opening_a_veil_that_says_nothing_of_the_answer_leaves_it_cold(tmp_path)
     assert "w_pad" in opened[0][0]
 
 
+def test_opening_a_notes_veil_reads_no_note_and_says_so_in_the_receipt(tmp_path):
+    # A note is never evidence (curriculum C2's fence): the administration names the notes the client showed (their
+    # ids), never reads their words, and records an opened note as opened and unmeasured.
+    paths, ctx, session, repository = _sidecar(tmp_path)
+    commitment = _due_check(repository)
+    token = _begin(ctx, session, commitment)["administrationToken"]
+    ref = {"group": "notes", "kind": "note", "window_id": "w_book", "note_id": "note_1"}
+    status = call(ctx, "check.expose", {"administrationToken": token, "ref": ref, "kind": "opened_veil"})["protectionStatus"]
+    assert _rows(paths, "SELECT COUNT(*) FROM reveal_events") == [(0,)]
+    assert status["coldNow"] is True
+    [event] = [event for event in status["exposure"] if event["kind"] == "opened_veil"]
+    assert event["unmeasured_notes"] == ["note_1"] and set(event["amounts"].values()) <= {0.0}
+
+
 # -- submitting, settling, competing surfaces (owner ruling Q3) -------------------------------------------------------
 
 def test_submit_records_one_attempt_on_the_reader_surface_settles_and_is_idempotent(tmp_path):
