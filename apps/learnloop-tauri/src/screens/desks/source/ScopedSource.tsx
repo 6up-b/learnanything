@@ -2687,6 +2687,9 @@ export function ScopedSource({
   }, [reconnect, muted, busy, answerReconnect, passageCheckOffered, inquiryChecks, inquiryCheckAction, escalateInquiryCheck, startQuickCheck, cancelQuickCheck, dismissInquiryCheck, peekPassage]);
 
   /** The reconnect line drawn under the root passage (a return the learner started). */
+  // The passage each inquiry's quick check was asked from inline: with no rail on screen for this window (a book alone
+  // on a desk), the check is asked, answered, cancelled and retried there (review fix round, major 13).
+  const inlineCheckSpans = useRef(new Map<string, string>());
   const inlineReconnect = reconnect && reconnect.inline && !muted ? (
     <ReconnectLine
       placement="inline"
@@ -2694,9 +2697,42 @@ export function ScopedSource({
       busy={busy}
       onYes={() => void answerReconnect("yes")}
       onStillUnclear={(text) => void answerReconnect("still_unclear", text)}
-      onQuickCheck={passageCheckOffered ? () => void answerReconnect("quick_check") : undefined}
+      onQuickCheck={passageCheckOffered ? () => {
+        inlineCheckSpans.current.set(reconnect.rootId, reconnect.spanId);
+        void answerReconnect("quick_check");
+      } : undefined}
     />
   ) : null;
+  const inlineCheckRoot = windowed && !windowed.railHost
+    ? [...inlineCheckSpans.current.keys()].find((rootId) => inquiryChecks[rootId]) ?? null
+    : null;
+  const inlineCheck = inlineCheckRoot ? (() => {
+    const check = inquiryChecks[inlineCheckRoot];
+    return {
+      spanId: inlineCheckSpans.current.get(inlineCheckRoot) as string,
+      node: (
+        <InquiryQuickCheck
+          phase={check.phase}
+          question={check.question}
+          busy={busy}
+          escalated={check.escalated}
+          failure={check.failure ?? undefined}
+          onCancel={check.batchId ? () => cancelQuickCheck(inlineCheckRoot) : undefined}
+          onAnswer={(response) => void inquiryCheckAction(inlineCheckRoot, "answered", response)}
+          onSelfCheck={(value) => void inquiryCheckAction(inlineCheckRoot, "self_checked", value)}
+          onDismiss={() => {
+            if (check.question) void inquiryCheckAction(inlineCheckRoot, "dismissed");
+            else dismissInquiryCheck(inlineCheckRoot);
+          }}
+          onEscalate={() => void escalateInquiryCheck(inlineCheckRoot)}
+          onRetry={() => void startQuickCheck(inlineCheckRoot, "rail")}
+          onShowPassage={peekPassage}
+        />
+      ),
+    };
+  })() : null;
+  // Under the root passage: the reconnect line, else (no rail on screen) the quick check it started.
+  const inlineInquiry = inlineReconnect && reconnect ? { spanId: reconnect.spanId, node: inlineReconnect } : inlineCheck;
 
   const chooseDisposition = useCallback(
     async (d: ReaderDisposition) => {
@@ -3943,7 +3979,7 @@ export function ScopedSource({
                 if (spanId) setActiveSpan(spanId);
               }}
               onTagMenu={openDomTagMenu}
-              inlineNote={inlineReconnect && reconnect ? { spanId: reconnect.spanId, node: inlineReconnect } : null}
+              inlineNote={inlineInquiry}
               marks={cueMarksFor("watch")}
               lens={windowed?.lens?.watch ?? null}
               video={windowed?.video ?? null}
@@ -3977,7 +4013,7 @@ export function ScopedSource({
               onHighlightRemove={(id) => void deleteAnnotation(id)}
               onTagMenu={setTagMenu}
               onError={onError}
-              inlineNote={inlineReconnect && reconnect ? { spanId: reconnect.spanId, node: inlineReconnect } : null}
+              inlineNote={inlineInquiry}
               marks={pdfMarks()}
               onPageLayout={setPdfLayout}
               {...(activeCtl.folded.size ? { coveredSpans: activeCtl.folded } : {})}
@@ -4126,7 +4162,7 @@ export function ScopedSource({
                 ) : null}
                 </>)}
               </div>
-              {inlineReconnect && reconnect && block.spanId === reconnect.spanId ? inlineReconnect : null}
+              {inlineInquiry && block.spanId === inlineInquiry.spanId ? inlineInquiry.node : null}
               {windowActiveCard && block.spanId && block.spanId === windowActiveSpan ? windowActiveCard : null}
               {windowNotesCard && block.spanId && block.spanId === windowNotesSpan ? windowNotesCard : null}
               {windowChecks(block.spanId)}
