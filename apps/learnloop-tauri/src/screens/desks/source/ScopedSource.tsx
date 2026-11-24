@@ -3884,26 +3884,49 @@ export function ScopedSource({
     <NotesContext.Provider value={notesCtl.context}>
     <CompareKeepContext.Provider value={keptCtl.context}>
     <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
-      {windowed ? (
-        // A source window's frame carries the title; the view switch and how the learner reads this book (skim, read
-        // closely, mark for later: the old header's choice, per window, with the same effects) stay with the source.
-        render && !offline ? (
-          <div data-window-source-bar="" style={{ flexShrink: 0, padding: "4px 22px", borderBottom: `1px solid ${COLOR.border}`, display: "flex", alignItems: "center", gap: 12 }}>
-            {pdfView ? (
-              <span
-                onClick={() => setSurface((s) => (s === "pdf" ? "text" : "pdf"))}
-                style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.amberLink, textDecoration: "underline", textUnderlineOffset: 2, cursor: "pointer" }}
-              >
-                {surface === "pdf" ? "extracted text →" : "original pdf →"}
-              </span>
-            ) : null}
-            <span style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
+      {render && !offline && (windowed || !standalone) ? (
+        // A source window's frame carries the title; the view switch, how the learner reads this book (skim, read
+        // closely, mark for later), whether quick checks come up while reading closely, and the line that says the
+        // book was read again since the place it opened at (the old header's, per window, with the same effects) stay
+        // with the source.
+        <div data-window-source-bar="" style={{ flexShrink: 0, padding: "4px 22px", borderBottom: `1px solid ${COLOR.border}`, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          {pdfView ? (
+            <span
+              onClick={() => setSurface((s) => (s === "pdf" ? "text" : "pdf"))}
+              style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.amberLink, textDecoration: "underline", textUnderlineOffset: 2, cursor: "pointer" }}
+            >
+              {surface === "pdf" ? "extracted text →" : "original pdf →"}
+            </span>
+          ) : null}
+          {progress.placeApproximate ? (
+            // Re-read safety: the saved place (or the search hit's passage) was on an earlier reading whose words
+            // changed there.
+            <span data-reread-note="">
+              <Faint style={{ fontSize: 11 }}>
+                {progress.placeApproximate === "found"
+                  ? "This book was read again: you're near the passage you found."
+                  : "This book was read again: you're near where you left off."}
+              </Faint>
+            </span>
+          ) : null}
+          <span style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 12 }}>
+            <button
+              type="button"
+              onClick={() => setSectionPromptsEnabled((value) => !value)}
+              aria-pressed={sectionPromptsEnabled}
+              disabled={mode !== "anchor"}
+              style={{ border: 0, background: "transparent", color: boundaryChecksAvailable ? COLOR.amberLink : COLOR.textFaint, fontFamily: FONT_MONO, fontSize: 11, cursor: mode === "anchor" ? "pointer" : "default", padding: 0 }}
+            >
+              {mode !== "anchor" ? "quick checks while reading closely" : sectionPromptsEnabled ? "quick checks on" : "quick checks off"}
+            </button>
+            <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <Faint style={{ fontSize: 11 }}>I want to</Faint>
               <TermSelect value={mode} options={READER_MODE_OPTIONS} onChange={changeMode} width={150} ariaLabel="how I read this book" />
             </span>
-          </div>
-        ) : null
-      ) : (standalone ? standalone.header({ onOpenLibrary, backToLibrary, onOpenDesks, sourceTitle, offline, progress, pdfView, setSurface, surface, mode, changeMode, currentGuideSection, readingProgress, setSectionPromptsEnabled, sectionPromptsEnabled, boundaryChecksAvailable }) : null)}
+          </span>
+        </div>
+      ) : null}
+      {!windowed && standalone ? standalone.header({ onOpenLibrary, backToLibrary, onOpenDesks, sourceTitle, offline, progress, pdfView, setSurface, surface, mode, changeMode, currentGuideSection, readingProgress, setSectionPromptsEnabled, sectionPromptsEnabled, boundaryChecksAvailable }) : null}
 
       {inquiry ? (
         <DetourStrip
