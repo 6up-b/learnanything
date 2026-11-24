@@ -40,6 +40,7 @@ from learnloop.algorithm_versions import (
     LIFECYCLE_INPUTS_ALGORITHM_VERSION,
     MASTERY_SEED_ALGORITHM_VERSION,
     PAD_TEXT_ALGORITHM_VERSION,
+    INLINE_CHECK_ALGORITHM_VERSION,
     SECTION_END_ALGORITHM_VERSION,
     SUCCESSOR_CHAIN,
     UNTAKEN_EPISODE_END_ALGORITHM_VERSION,
@@ -256,6 +257,9 @@ UPGRADES: tuple[Link, ...] = (
     # A scratchpad's committed words are learner text: only blocks committed from the upgrade on are emitted (the
     # pads' own sweep then queues the words standing at the upgrade), and nothing already derived reads a pad.
     Link(PAD_TEXT_ALGORITHM_VERSION, idempotent_projection),
+    # Inline checks: only administrations from the upgrade on behave differently (none exists before migration 270),
+    # and every effect on evidence is an ordinary attempt or reveal row, which the projection already reads.
+    Link(INLINE_CHECK_ALGORITHM_VERSION, idempotent_projection),
 )
 
 
