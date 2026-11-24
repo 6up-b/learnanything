@@ -355,6 +355,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reader_followups_review.py](../../../../../../tests/test_reader_followups_review.py) — direct import
 - [tests/test_reader_rd7a_inline_checks.py](../../../../../../tests/test_reader_rd7a_inline_checks.py) — direct import
   - `test_rd7_4_every_candidate_of_an_lo_check_is_charged_from_the_set_begin_froze`
+  - `test_rd7_65_an_opening_is_charged_to_a_candidate_made_after_begin`
 - [tests/test_rebuild_closed_row_answer.py](../../../../../../tests/test_rebuild_closed_row_answer.py) — direct import
 - [tests/test_reference_gate_imports.py](../../../../../../tests/test_reference_gate_imports.py) — direct import
   - `test_a_historical_reader_import_resolves_to_model_answer`

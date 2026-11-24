@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/db/stores/intent_reads.py](../../../../../../../src/learnloop/db/stores/intent_reads.py) |
-| Source lines | 179 |
+| Source lines | 180 |
 | Owning package | [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
@@ -62,7 +62,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - `events_for(connection: sqlite3.Connection, commitment_ids: list[str]) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/intent_reads.py), line 95)
 - `attempts_for_anchor(connection: sqlite3.Connection) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/intent_reads.py), line 116) — Every attempt's FSRS-eligibility inputs, newest last per item (§5.3 anchor).
 - `attempts_since(connection: sqlite3.Connection, item_ids: list[str], since: str) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/intent_reads.py), line 129) — Attempts on these items at or after ``since`` (a check's date), oldest first, with what decides whether one was on your own (primed, hints).
-- `surprise_factors(connection: sqlite3.Connection) -> dict[str, float]` ([source](../../../../../../../src/learnloop/db/stores/intent_reads.py), line 154) — Each attempt's recorded FSRS interval factor (the fixture reproduction test).
+- `surprise_factors(connection: sqlite3.Connection) -> dict[str, float]` ([source](../../../../../../../src/learnloop/db/stores/intent_reads.py), line 155) — Each attempt's recorded FSRS interval factor (the fixture reproduction test).
 
 ### Explicit exports
 
