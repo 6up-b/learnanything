@@ -81,6 +81,8 @@ it("a slow open never takes the focus back from the book opened after it", async
   await waitFor(() => expect(focusedSource(desk.server)).toBe(video.sourceId));
   release();
   await settleDesk(0, 20);
+  // Long enough for the desks' outbox to send whatever the late answer did (it sends after a short gathering).
+  await new Promise((resolve) => setTimeout(resolve, 1200));
   expect(focusedSource(desk.server)).toBe(video.sourceId);
   expect(sourcesOnDesk(desk.server)).not.toContain(paper.sourceId);
 });
