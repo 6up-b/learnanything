@@ -97,6 +97,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `module`; statically calls `present`, `record_pending`
 - [[Reference/Modules/learnloop/daily_plan/learner_probe|learnloop.daily_plan.learner_probe]] — imports `module`; statically calls `record_pending`
+- [[Reference/Modules/learnloop/daily_plan/probe_continuation|learnloop.daily_plan.probe_continuation]] — imports `module`; statically calls `record_pending`
 - [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]] — imports `module`; statically calls `record_pending`
 - [[Reference/Modules/learnloop/router_objective/calibration_report|learnloop.router_objective.calibration_report]] — imports `module`; statically calls `rows`
 - [[Reference/Modules/learnloop/router_objective/checks|learnloop.router_objective.checks]] — imports `module`; statically calls `by_unit`, `insert`, `present`, `rows`
@@ -124,7 +125,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/learner_probe|learnloop.daily_plan.learner_probe]], [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]], [[Reference/Modules/learnloop/router_objective/calibration_report|learnloop.router_objective.calibration_report]], [[Reference/Modules/learnloop/router_objective/checks|learnloop.router_objective.checks]] and 4 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/learner_probe|learnloop.daily_plan.learner_probe]], [[Reference/Modules/learnloop/daily_plan/probe_continuation|learnloop.daily_plan.probe_continuation]], [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]], [[Reference/Modules/learnloop/router_objective/calibration_report|learnloop.router_objective.calibration_report]] and 5 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -140,6 +141,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_at_the_tag_with_no_plan_the_coin_decides_and_the_decision_is_logged`
   - `test_the_coin_serves_the_probe_below_the_share_and_the_mix_otherwise`
   - `test_the_probe_coin_has_its_own_seed_and_experiment_independent_of_the_stop_coin`
+- [tests/test_probe_router_decision_integrity.py](../../../../../../tests/test_probe_router_decision_integrity.py) — direct import
+  - `test_r4_a_refused_assignment_rolls_the_decision_back_and_no_probe_is_asked`
+  - `test_r4_the_learner_lanes_decision_and_assignment_commit_together`
 - [tests/test_probe_router_learner_lane.py](../../../../../../tests/test_probe_router_learner_lane.py) — direct import
   - `test_an_unlearned_probe_is_offered_only_by_the_coin_with_its_exact_propensity`
 - [tests/test_ro5_checks.py](../../../../../../tests/test_ro5_checks.py) — direct import

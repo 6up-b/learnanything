@@ -76,8 +76,10 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/daily_plan/probe_continuation|learnloop.daily_plan.probe_continuation]] — imports `causal_origin_factor`; statically calls `causal_origin_factor`
 - [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] — imports `EPISODE_CONFLICT_MESSAGE`, `learner_preference`, `probe_episode_conflict`; statically calls `learner_preference`, `probe_episode_conflict`
-- [[Reference/Modules/learnloop/diagnosis/probe_offer|learnloop.diagnosis.probe_offer]] — imports `EPISODE_CONFLICT_REASON`, `_causal_origin`, `episode_conflict_reason`, `learner_preference`, `record_learner_preference`; statically calls `_causal_origin`, `episode_conflict_reason`, `learner_preference`, `record_learner_preference`
+- [[Reference/Modules/learnloop/diagnosis/probe_offer|learnloop.diagnosis.probe_offer]] — imports `EPISODE_CONFLICT_REASON`, `_causal_origin`, `episode_conflict_reason`, `record_learner_preference`; statically calls `_causal_origin`, `episode_conflict_reason`, `record_learner_preference`
+- [[Reference/Modules/learnloop/diagnosis/probe_presentations|learnloop.diagnosis.probe_presentations]] — imports `learner_preference`; statically calls `learner_preference`
 - [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]] — imports `causal_origin_factor`; statically calls `causal_origin_factor`
 - [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]] — imports `learner_preference`, `probe_episode_conflict`; statically calls `learner_preference`, `probe_episode_conflict`
 - [[Reference/Modules/learnloop/followup_run/serving|learnloop.followup_run.serving]] — imports `record_learner_preference`; statically calls `record_learner_preference`
@@ -103,7 +105,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]], [[Reference/Modules/learnloop/diagnosis/probe_offer|learnloop.diagnosis.probe_offer]], [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]], [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]], [[Reference/Modules/learnloop/followup_run/serving|learnloop.followup_run.serving]].
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/probe_continuation|learnloop.daily_plan.probe_continuation]], [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]], [[Reference/Modules/learnloop/diagnosis/probe_offer|learnloop.diagnosis.probe_offer]], [[Reference/Modules/learnloop/diagnosis/probe_presentations|learnloop.diagnosis.probe_presentations]], [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]] and 2 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

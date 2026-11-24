@@ -229,6 +229,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_verdict_reads_the_facts_in_the_ladders_order`
 - [tests/test_probe_proposal_reads.py](../../../../../../tests/test_probe_proposal_reads.py) — direct import
   - `test_gathering_writes_nothing_and_the_verdict_on_its_facts_is_the_statuss`
+- [tests/test_probe_router_decision_integrity.py](../../../../../../tests/test_probe_router_decision_integrity.py) — direct import
+  - `test_r3_a_selection_whose_candidate_was_rejected_is_refused_and_never_substituted`
 - [tests/test_refusal_records.py](../../../../../../tests/test_refusal_records.py) — direct import
   - `test_a_value_check_that_fails_is_named_on_the_gates_record`
 - [tests/test_serve_eligibility_review.py](../../../../../../tests/test_serve_eligibility_review.py) — direct import

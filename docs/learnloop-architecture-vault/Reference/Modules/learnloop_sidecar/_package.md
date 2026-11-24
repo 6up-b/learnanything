@@ -70,7 +70,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop_sidecar/check_hold|learnloop_sidecar.check_hold]] | [[Reference/Modules/learnloop_sidecar/check_hold#^module-purpose|purpose]] | `ACTIVE` | 6 | 0 |
 | [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] | [[Reference/Modules/learnloop_sidecar/context#^module-purpose|purpose]] | `ACTIVE` | 83 | 227 |
 | [[Reference/Modules/learnloop_sidecar/dto|learnloop_sidecar.dto]] | [[Reference/Modules/learnloop_sidecar/dto#^module-purpose|purpose]] | `ACTIVE` | 86 | 17 |
-| [[Reference/Modules/learnloop_sidecar/errors|learnloop_sidecar.errors]] | [[Reference/Modules/learnloop_sidecar/errors#^module-purpose|purpose]] | `ACTIVE` | 87 | 151 |
+| [[Reference/Modules/learnloop_sidecar/errors|learnloop_sidecar.errors]] | [[Reference/Modules/learnloop_sidecar/errors#^module-purpose|purpose]] | `ACTIVE` | 87 | 152 |
 | [[Reference/Modules/learnloop_sidecar/exam_grading|learnloop_sidecar.exam_grading]] | [[Reference/Modules/learnloop_sidecar/exam_grading#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop_sidecar/logging|learnloop_sidecar.logging]] | [[Reference/Modules/learnloop_sidecar/logging#^module-purpose|purpose]] | `ACTIVE` | 10 | 1 |
 | [[Reference/Modules/learnloop_sidecar/phone_reader|learnloop_sidecar.phone_reader]] | [[Reference/Modules/learnloop_sidecar/phone_reader#^module-purpose|purpose]] | `ACTIVE` | 5 | 0 |
@@ -93,11 +93,11 @@ For system intent, use [[Architecture Overview]].
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/_package|learnloop]] — 15 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 16 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 14 static module edges
+- [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 9 static module edges
 - [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 8 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 8 static module edges
-- [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 5 static module edges
 - [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] — 5 static module edges
 - [[Reference/Modules/learnloop/followup_serve/_package|learnloop.followup_serve]] — 5 static module edges
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 5 static module edges
@@ -141,20 +141,20 @@ flowchart LR
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
     n_learnloop["learnloop"]
     n_learnloop_ai["learnloop.ai"]
+    n_learnloop_daily_plan["learnloop.daily_plan"]
     n_learnloop_reader["learnloop.reader"]
     n_learnloop_vault["learnloop.vault"]
-    n_learnloop_daily_plan["learnloop.daily_plan"]
     n_learnloop_figures["learnloop.figures"]
     n_learnloop_followup_serve["learnloop.followup_serve"]
     n_learnloop_content_pipeline["learnloop.content.pipeline"]
     n_learnloop_content_sources["learnloop.content.sources"]
     n_learnloop_sidecar_handlers -->|391| center
     center -->|5| n_learnloop_sidecar_handlers
-    center -->|15| n_learnloop
+    center -->|16| n_learnloop
     center -->|14| n_learnloop_ai
+    center -->|9| n_learnloop_daily_plan
     center -->|8| n_learnloop_reader
     center -->|8| n_learnloop_vault
-    center -->|5| n_learnloop_daily_plan
     center -->|5| n_learnloop_figures
     center -->|5| n_learnloop_followup_serve
     center -->|4| n_learnloop_content_pipeline

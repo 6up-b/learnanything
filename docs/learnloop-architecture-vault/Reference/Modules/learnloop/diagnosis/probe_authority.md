@@ -47,33 +47,41 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/probe_authority.py](../../../../../../src/learnloop/diagnosis/probe_authority.py) |
-| Source lines | 51 |
+| Source lines | 79 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `router_pin(components: Any) -> bool` ([source](../../../../../../src/learnloop/diagnosis/probe_authority.py), line 27) — Whether a presentation's selection components pin a router decision.
-- `router_selected_presentation(vault: Any, presentation: Any) -> bool` ([source](../../../../../../src/learnloop/diagnosis/probe_authority.py), line 34) — At the tag, whether this presentation is a probe the router selected.
-- `router_selected_rows(vault: Any, rows: Iterable[Mapping[str, Any]]) -> bool` ([source](../../../../../../src/learnloop/diagnosis/probe_authority.py), line 42) — At the tag, whether any of an episode's observation rows (``effective_episode_observations``, which carry their presentation's ``selection_components``) answered a probe the router selected.
+- `router_pin(components: Any) -> bool` ([source](../../../../../../src/learnloop/diagnosis/probe_authority.py), line 35) — Whether a presentation's selection components pin a router decision (whatever tag it was made at).
+- `decision_owns(repository: Any, decision_id: Any) -> bool` ([source](../../../../../../src/learnloop/diagnosis/probe_authority.py), line 41) — Whether the router decision ``decision_id`` is the probe router's: made at its tag (the row's own ``algorithm_version``, frozen when it was drawn, never the vault's tag now) and asking the probe.
+- `pin_owned(repository: Any, components: Any) -> bool` ([source](../../../../../../src/learnloop/diagnosis/probe_authority.py), line 56) — Whether a presentation's pin names a decision the probe router owns (:func:`decision_owns`).
+- `router_selected_presentation(repository: Any, presentation: Any) -> bool` ([source](../../../../../../src/learnloop/diagnosis/probe_authority.py), line 63) — Whether this presentation is a probe the probe router selected.
+- `router_selected_rows(repository: Any, rows: Iterable[Mapping[str, Any]]) -> bool` ([source](../../../../../../src/learnloop/diagnosis/probe_authority.py), line 71) — Whether any of an episode's observation rows (``effective_episode_observations``, which carry their presentation's ``selection_components``) answered a probe the probe router selected.
 
 ### Module constants
 
-- `ROUTER_DECISION_KEY` ([src/learnloop/diagnosis/probe_authority.py](../../../../../../src/learnloop/diagnosis/probe_authority.py), line 24)
+- `ROUTER_DECISION_KEY` ([src/learnloop/diagnosis/probe_authority.py](../../../../../../src/learnloop/diagnosis/probe_authority.py), line 23)
+- `PROBE_ARMS` ([src/learnloop/diagnosis/probe_authority.py](../../../../../../src/learnloop/diagnosis/probe_authority.py), line 25)
+- `LIVE_STATUSES` ([src/learnloop/diagnosis/probe_authority.py](../../../../../../src/learnloop/diagnosis/probe_authority.py), line 27)
 
 ### Explicit exports
 
 `__all__` declares:
 
+- `LIVE_STATUSES`
+- `PROBE_ARMS`
 - `ROUTER_DECISION_KEY`
+- `decision_owns`
+- `pin_owned`
 - `router_pin`
 - `router_selected_presentation`
 - `router_selected_rows`
 
 ## Internal implementation anchors
 
-No private top-level function or class definition is declared in this file.
+- `_pin(components: Any) -> Mapping[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/probe_authority.py), line 30)
 
 ## Who imports or calls it
 
@@ -82,13 +90,13 @@ No private top-level function or class definition is declared in this file.
 
 - [[Reference/Modules/learnloop/diagnosis/probe_blocks|learnloop.diagnosis.probe_blocks]] — imports `router_selected_presentation`; statically calls `router_selected_presentation`
 - [[Reference/Modules/learnloop/diagnosis/probe_completion|learnloop.diagnosis.probe_completion]] — imports `router_selected_rows`; statically calls `router_selected_rows`
-- [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `router_pin`; statically calls `router_pin`
+- [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `LIVE_STATUSES`, `ROUTER_DECISION_KEY`, `decision_owns`; statically calls `decision_owns`
 
 ## Dependencies
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `probe_router_on`; calls `probe_router_on`
+- [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `PROBE_ROUTER_VERSIONS`
 
 ### Platform and third-party dependencies
 
@@ -108,6 +116,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_probe_router_continuation.py](../../../../../../tests/test_probe_router_continuation.py) — direct import
+  - `test_the_router_decides_the_next_observation_once_with_its_exact_served_distribution`
 - [tests/test_probe_router_worth_gates.py](../../../../../../tests/test_probe_router_worth_gates.py) — direct import
   - `test_a_probe_of_another_origin_keeps_its_gates`
   - `test_a_router_selected_probe_is_served_answered_and_ended_with_every_legacy_worth_gate_raising`

@@ -114,6 +114,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/followup_serve/queue|learnloop.followup_serve.queue]] — imports `module`; statically calls `enqueue_generation_job`, `present`, `requeue_generation_job`, `runnable_generation_jobs`, `skip_generation_job`
 - [[Reference/Modules/learnloop/followup_serve/workflow|learnloop.followup_serve.workflow]] — imports `module`; statically calls `append_binding`, `cancel_generation_jobs`, `episodes_pinned_by_workflow`, `insert_event`, `insert_workflow`, `move_workflow`, `open_workflows`, `present`, `update_workflow`, `workflow`, `workflow_events`, `workflow_for_attempt`, `workflow_for_item`, `workflow_for_presentation`
 - [[Reference/Modules/learnloop/router/outcomes|learnloop.router.outcomes]] — imports `all_bindings`; statically calls `all_bindings`
+- [[Reference/Modules/learnloop/router/plan_log|learnloop.router.plan_log]] — imports `module`; statically calls `present`
 
 ## Dependencies
 
@@ -134,7 +135,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/followup_run/contract_job|learnloop.followup_run.contract_job]], [[Reference/Modules/learnloop/followup_run/decision_view|learnloop.followup_run.decision_view]], [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]], [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]], [[Reference/Modules/learnloop/followup_serve/identity|learnloop.followup_serve.identity]] and 3 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/followup_run/contract_job|learnloop.followup_run.contract_job]], [[Reference/Modules/learnloop/followup_run/decision_view|learnloop.followup_run.decision_view]], [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]], [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]], [[Reference/Modules/learnloop/followup_serve/identity|learnloop.followup_serve.identity]] and 4 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -178,6 +179,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ih2_offer_ceiling_and_unseen.py](../../../../../../../tests/test_ih2_offer_ceiling_and_unseen.py) — direct import
 - [tests/test_ih2_one_open_offer.py](../../../../../../../tests/test_ih2_one_open_offer.py) — direct import
   - `test_an_unwritten_workflow_waits_on_the_offer_that_replaced_the_one_it_lost_to`
+- [tests/test_probe_router_decision_integrity.py](../../../../../../../tests/test_probe_router_decision_integrity.py) — direct import
 
 ## Modification guidance
 

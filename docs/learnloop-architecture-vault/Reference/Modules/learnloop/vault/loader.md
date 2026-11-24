@@ -330,6 +330,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/probe_policy_helpers.py](../../../../../../tests/probe_policy_helpers.py) — direct import
 - [tests/probe_robust_cutover_helpers.py](../../../../../../tests/probe_robust_cutover_helpers.py) — direct import
 - [tests/probe_router_authority_helpers.py](../../../../../../tests/probe_router_authority_helpers.py) — direct import
+- [tests/probe_router_owned_helpers.py](../../../../../../tests/probe_router_owned_helpers.py) — direct import
 - [tests/protection_matrix_helpers.py](../../../../../../tests/protection_matrix_helpers.py) — direct import
 - [tests/reader_ca1_astra_fixes_helpers.py](../../../../../../tests/reader_ca1_astra_fixes_helpers.py) — direct import
 - [tests/reader_ca2_codex_review_helpers.py](../../../../../../tests/reader_ca2_codex_review_helpers.py) — direct import
@@ -2514,9 +2515,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_sidecar_remint_happy_path_and_error_codes`
 - [tests/test_probe_router_authority.py](../../../../../../tests/test_probe_router_authority.py) — direct import
   - `test_j_a_generated_followups_block_ends_at_its_one_question_and_value_ends_any_other`
+- [tests/test_probe_router_continuation.py](../../../../../../tests/test_probe_router_continuation.py) — direct import
+  - `test_a_rebuild_after_a_router_stop_reproduces_the_live_rows_and_writes_no_ledger`
+- [tests/test_probe_router_decision_integrity.py](../../../../../../tests/test_probe_router_decision_integrity.py) — direct import
 - [tests/test_probe_router_learner_lane.py](../../../../../../tests/test_probe_router_learner_lane.py) — direct import
 - [tests/test_probe_router_replay.py](../../../../../../tests/test_probe_router_replay.py) — direct import
-- [tests/test_probe_router_worth_gates.py](../../../../../../tests/test_probe_router_worth_gates.py) — direct import
 - [tests/test_probe_surface_mint.py](../../../../../../tests/test_probe_surface_mint.py) — direct import
   - `test_mint_refuses_a_surface_group_the_learner_has_seen`
   - `test_minted_surface_serves_through_the_probe_branch_and_is_single_use`

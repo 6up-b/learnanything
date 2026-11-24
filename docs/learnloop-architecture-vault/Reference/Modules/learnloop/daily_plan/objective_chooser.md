@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/daily_plan/objective_chooser.py](../../../../../../src/learnloop/daily_plan/objective_chooser.py) |
-| Source lines | 1663 |
+| Source lines | 1673 |
 | Owning package | [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -78,7 +78,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `class ObjectiveFollowupGate(ObjectiveRestraintGate, FollowupGate)` ([source](../../../../../../src/learnloop/daily_plan/objective_chooser.py), line 1464) — §8.3 for FG1's generated probe at RO5's tag: the follow-up's ``plan_interrupt`` decision, made before its item exists, on the same two-policy mix as every mid-block follow-up, with its trace and ``μ`` recomputable (``mix.recompute``).
   - `decide_followup(self, record: Any, current: Any, workflow: Mapping[str, Any], *, wait_feasible: bool, facts: Sequence[str]=(), offer: Any=None) -> RestraintOutcome` (line 1479; public) — ``offer`` (IH2, spec_instruct_handoff_v1 §5 item 3): the lesson offer this decision may hold; with one, the support gains it, and no room to wait no longer makes the decision deterministic: ``{insert_now, lesson}``, a real draw, before anything is generated.
   - `_decide_unwritten_probe(self, record: Any, current: Any, workflow: Mapping[str, Any], state: PlanState, candidates: list[BlockCandidate], *, wait_feasible: bool, facts: Sequence[str], offer: Any) -> RestraintOutcome` (line 1553; internal) — The probe router's tag (``probe_router_on``): the probe is not written yet, so the router cannot value its answer pattern and it earns no information credit (G2 design decision 1); it is no option of either policy, now or after the block.
-  - `_followup_minutes(self, workflow: Mapping[str, Any], current: Any) -> float` (line 1635; internal) — The generated question's minutes for ``π_Q``: the missed question's own estimate (the probe is written on its LO, after it), else the mean of the LO's items', else the current block's mean question.
+  - `_followup_minutes(self, workflow: Mapping[str, Any], current: Any) -> float` (line 1645; internal) — The generated question's minutes for ``π_Q``: the missed question's own estimate (the probe is written on its LO, after it), else the mean of the LO's items', else the current block's mean question.
 
 ### Module constants
 
@@ -136,7 +136,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/cli/router|learnloop.cli.router]] — imports `current_weight`; statically calls `current_weight`
-- [[Reference/Modules/learnloop/daily_plan/learner_probe|learnloop.daily_plan.learner_probe]] — imports `module`; statically calls `_local_date`, `current_weight`, `day_price`, `numeric_seed`
+- [[Reference/Modules/learnloop/daily_plan/learner_probe|learnloop.daily_plan.learner_probe]] — imports `module`; statically calls `_local_date`, `current_weight`, `day_price`, `numeric_seed`, `rollout_options`
 - [[Reference/Modules/learnloop/daily_plan/policy|learnloop.daily_plan.policy]] — imports `ObjectiveChooser`, `ObjectiveRestraintGate`; statically calls `ObjectiveChooser`, `ObjectiveRestraintGate`
 - [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]] — imports `ObjectiveFollowupGate`
 
@@ -245,6 +245,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_probe_router.py](../../../../../../tests/test_probe_router.py) — direct import
 - [tests/test_probe_router_authority.py](../../../../../../tests/test_probe_router_authority.py) — direct import
   - `test_f_the_mid_block_restraint_forces_now_with_no_room_and_draws_two_arms_otherwise`
+- [tests/test_probe_router_decision_integrity.py](../../../../../../tests/test_probe_router_decision_integrity.py) — direct import
+  - `test_r15_the_valuation_runs_under_the_choosers_options_and_freezes_what_it_valued`
 - [tests/test_ro4_codex_review.py](../../../../../../tests/test_ro4_codex_review.py) — direct import
   - `test_f1_the_numeric_answer_is_published_before_any_wait_on_the_llm`
   - `test_f5_mid_block_alternatives_are_ordered_sequences_of_their_own_blocks`

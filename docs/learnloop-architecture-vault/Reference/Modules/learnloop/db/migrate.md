@@ -350,6 +350,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_practice_index_adapters.py](../../../../../../tests/test_practice_index_adapters.py) — direct import
 - [tests/test_probe_migration.py](../../../../../../tests/test_probe_migration.py) — direct import
   - `test_migration_closes_in_progress_phases_as_superseded`
+- [tests/test_probe_router_stop_migration.py](../../../../../../tests/test_probe_router_stop_migration.py) — direct import
+  - `test_it_rebuilds_probe_episodes_alone_and_keeps_every_row`
+  - `test_the_head_fixture_holds_it_in_rollback_mode`
 - [tests/test_question_promotions.py](../../../../../../tests/test_question_promotions.py) — direct import
   - `test_027_rebuild_preserves_existing_rows`
   - `test_learner_claims_accepts_tutor_gap_declaration_source`

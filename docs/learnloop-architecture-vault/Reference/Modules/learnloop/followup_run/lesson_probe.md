@@ -135,6 +135,7 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_followup_reserved_only.py](../../../../../../tests/test_followup_reserved_only.py) — imports consumer [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]]
 - [tests/test_probe_router.py](../../../../../../tests/test_probe_router.py) — imports consumer [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]]
 - [tests/test_probe_router_authority.py](../../../../../../tests/test_probe_router_authority.py) — imports consumer [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]]
+- [tests/test_probe_router_decision_integrity.py](../../../../../../tests/test_probe_router_decision_integrity.py) — imports consumer [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]]
 
 ## Modification guidance
 

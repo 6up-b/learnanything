@@ -133,6 +133,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/diagnosis_journey_helpers.py](../../../../../../tests/diagnosis_journey_helpers.py) — direct import
+- [tests/probe_router_owned_helpers.py](../../../../../../tests/probe_router_owned_helpers.py) — direct import
 - [tests/test_probe_router.py](../../../../../../tests/test_probe_router.py) — direct import
   - `test_at_the_tag_an_unwritten_probe_is_not_an_option_of_either_policy`
   - `test_at_the_tag_the_coin_asks_the_probe_now_with_its_exact_propensity`
@@ -142,9 +143,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_probe_coin_has_its_own_seed_and_experiment_independent_of_the_stop_coin`
   - `test_the_served_distribution_is_exact_and_sums_to_one`
   - `test_the_share_is_the_stop_coins_rate_read_through_one_function`
+- [tests/test_probe_router_continuation.py](../../../../../../tests/test_probe_router_continuation.py) — direct import
+- [tests/test_probe_router_decision_integrity.py](../../../../../../tests/test_probe_router_decision_integrity.py) — direct import
+  - `test_r11_the_learner_lane_reads_the_automatic_lanes_decision_and_flips_no_coin`
+  - `test_r18_a_retry_draws_the_same_coin_and_a_receipt_never_stands_for_another_status`
 - [tests/test_probe_router_learner_lane.py](../../../../../../tests/test_probe_router_learner_lane.py) — direct import
   - `test_an_unlearned_probe_is_offered_only_by_the_coin_with_its_exact_propensity`
-- [tests/test_probe_router_worth_gates.py](../../../../../../tests/test_probe_router_worth_gates.py) — direct import
 
 ## Modification guidance
 

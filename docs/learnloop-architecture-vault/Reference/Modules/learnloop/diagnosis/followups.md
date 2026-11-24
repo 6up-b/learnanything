@@ -190,6 +190,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/causal_factor_deferral_helpers.py](../../../../../../tests/causal_factor_deferral_helpers.py) — direct import
 - [tests/diagnosis_journey_helpers.py](../../../../../../tests/diagnosis_journey_helpers.py) — direct import
+- [tests/probe_router_owned_helpers.py](../../../../../../tests/probe_router_owned_helpers.py) — direct import
 - [tests/test_attempt_chain_records.py](../../../../../../tests/test_attempt_chain_records.py) — direct import
   - `test_a_failed_forecast_and_a_failed_post_diagnosis_step_leave_records`
 - [tests/test_causal_attribution_exhibit.py](../../../../../../tests/test_causal_attribution_exhibit.py) — direct import
@@ -253,7 +254,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_ordinary_attempt_outside_block_still_normalizes`
 - [tests/test_probe_router_authority.py](../../../../../../tests/test_probe_router_authority.py) — direct import
   - `test_a_the_practice_lane_settles_the_workflow_and_hands_the_miss_to_the_general_followup`
-- [tests/test_probe_router_worth_gates.py](../../../../../../tests/test_probe_router_worth_gates.py) — direct import
 - [tests/test_question_signal.py](../../../../../../tests/test_question_signal.py) — direct import
 - [tests/test_recall_coverage_interventions.py](../../../../../../tests/test_recall_coverage_interventions.py) — direct import
   - `test_diagnostic_generation_stales_resolved_repeat_failure_need`
