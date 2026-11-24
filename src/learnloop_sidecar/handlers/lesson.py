@@ -237,8 +237,9 @@ def lesson_turn(ctx: SidecarContext, params: LessonTurnInput) -> dict[str, Any]:
     """One step of a lesson; see the module docstring."""
 
     vault, repository = ctx.require_vault()
-    if params.action == "open":
-        # While an inline check is open a new lesson waits: it would teach what the veils hold.
+    if params.action not in ("stop", "close"):
+        # While an inline check is open a lesson waits (a new one, or another turn of one already open): it would teach
+        # what the veils hold. Stopping or closing one still works.
         from learnloop_sidecar.check_hold import refuse_while_check_open
 
         refuse_while_check_open(repository)

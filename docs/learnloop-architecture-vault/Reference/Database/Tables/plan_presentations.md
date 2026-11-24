@@ -23,7 +23,7 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/scoring.py"
   - "src/learnloop/adaptive_difficulty/serve.py"
   - "src/learnloop/attempts/facts.py"
-  - "src/learnloop/daily_plan/engine.py"
+  - "src/learnloop/daily_plan/check_delivery.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -101,7 +101,9 @@ Database triggers:
 ### Direct SQL readers
 
 - `src/learnloop/adaptive_difficulty/material_view.py`
+- `src/learnloop/daily_plan/check_delivery.py`
 - `src/learnloop/daily_plan/measurement.py`
+- `src/learnloop/db/stores/intent_reads.py`
 - `src/learnloop/db/stores/plan_presentations.py`
 - `src/learnloop/evsi_calibration/live_report.py`
 - `src/learnloop/router/outcomes.py`

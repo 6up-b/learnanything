@@ -16,13 +16,13 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/270_reader_workbench_inline_checks.sql"
+  - "src/learnloop/daily_plan/check_delivery.py"
   - "src/learnloop/db/stores/check_administrations.py"
   - "src/learnloop/intent/inline_administration.py"
   - "src/learnloop/intent/inline_checks.py"
   - "src/learnloop/scheduling/intent/serving.py"
   - "src/learnloop_sidecar/check_hold.py"
   - "src/learnloop_sidecar/handlers/goal_lens.py"
-  - "src/learnloop_sidecar/handlers/inline_checks.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"

@@ -41,8 +41,11 @@ class ChecksDueForInput(ParamsModel):
 def checks_due_for_handler(ctx: SidecarContext, params: ChecksDueForInput) -> dict[str, Any]:
     """``{checks: [{handle, being_answered}]}``: no LO, host, provenance, due date or commitment id."""
 
+    from learnloop.intent.inline_checks import next_check_due, serving_view
+
     vault, repository = ctx.require_vault()
-    return versioned({"checks": due_handles(vault, repository)})
+    # When the next check not due yet falls due (a time, nothing of it): the desks read again then.
+    return versioned({"checks": due_handles(vault, repository), "next_due": next_check_due(serving_view(vault, repository))})
 
 
 class VisibleFigure(ParamsModel):
@@ -104,8 +107,9 @@ class ExposeInput(TokenInput):
     #: ``left`` the surface reached (``{kind: "surface", surface}``).
     ref: dict[str, Any]
     kind: Literal["opened_veil", "left", "navigated", "help"]
-    #: The client's id for this opening (stable across retries): a retry returns the first result, charging nothing.
-    exposure_id: str | None = Field(default=None, min_length=1, max_length=128)
+    #: The client's id for this opening (stable across retries): a retry returns the first result, charging nothing; the
+    #: same id for another opening is refused (``exposure_reused``).
+    exposure_id: str = Field(min_length=1, max_length=128)
 
 
 class SubmitInlineInput(TokenInput):
@@ -158,6 +162,12 @@ def _card(vault: Any, repository: Any, admin: dict[str, Any], *, replayed: bool 
         "item_ref": admin["practice_item_id"], "contract_hash": admin["contract_hash"], "cold": admin["cold"],
         "state": admin["state"], "submission_id": admin.get("submission_id"), "replayed": replayed,
         "eligibility": IA.eligibility_of(vault, repository, admin) if not admin["cold"] else None,
+        # After a restart the card says what was opened and whether the answer can still be cold.
+        "looked": [Verbatim({"kind": event.get("kind"), "group": (event.get("ref") or {}).get("group"),
+                             "measured": bool(event.get("measured"))})
+                   for event in admin.get("exposure") or () if event.get("kind") in ("opened_veil", "left")],
+        "cold_now": IA.cold_now(vault, repository, admin) if admin["state"] == "open" else None,
+        "eligibility_now": IA.eligibility_of(vault, repository, admin) if admin["state"] == "open" else None,
         "revision": veils["revision"],
         "protection": {"veil_set_id": veils["veil_set_id"], "method": veils["method"],
                        "veiled": _refs(repository, veils["veiled"]), "opened": _refs(repository, veils["opened"]),
@@ -201,6 +211,14 @@ def _commitment_of(vault: Any, repository: Any, params: BeginInlineInput) -> str
     if commitment_id is None:
         raise IA.InlineCheckError("check_unknown", "This check changed since the desk last looked. Look again.")
     return commitment_id
+
+
+def _attempt_for(repository: Any):
+    def attempt_for(_session_id: str, key: str) -> str | None:
+        row = repository.practice_attempt_by_submission_id(key)
+        return str(row["id"]) if row is not None else None
+
+    return attempt_for
 
 
 @method("check.begin_inline", BeginInlineInput)
@@ -275,7 +293,15 @@ def check_submit_inline(ctx: SidecarContext, params: SubmitInlineInput) -> dict[
     from learnloop.attempts.stuck import stuck_attempt_type
     from learnloop_sidecar.handlers.practice import SubmitAttemptInput, submit_attempt_on
 
+    from learnloop_sidecar.handlers.sessions import require_owned_session
+
     vault, repository = ctx.require_vault()
+    # What the attempt service would refuse is checked before the reservation: a refused answer reserves nothing.
+    before = IA.find(repository, params.administration_token)
+    if before["state"] == "open" and not before.get("submission_id"):
+        if vault.practice_items.get(before["practice_item_id"]) is None:
+            raise SidecarError("not_found", f"Practice item {before['practice_item_id']} was not found.")
+        require_owned_session(ctx, repository, before["session_id"])
     try:
         admin = IA.prepare_submit(vault, repository, token=params.administration_token,
                                   submission_id=params.submission_id, veils_revision=params.veils_revision)
@@ -293,7 +319,14 @@ def check_submit_inline(ctx: SidecarContext, params: SubmitInlineInput) -> dict[
         primed=IA.notes_opened(admin), self_grade=params.self_grade)
     # The one submit implementation; help shown on this item in this session is folded in by the server, exactly as
     # on the practice screen (taking help makes the answer assisted).
-    reply = submit_attempt_on(ctx, submission, entry_surface=IA.SURFACE, hint_window_fold=True)
+    try:
+        reply = submit_attempt_on(ctx, submission, entry_surface=IA.SURFACE, hint_window_fold=True)
+    except Exception:
+        # Refused or failed before an attempt was accepted: the reservation is released, so the card can be answered
+        # again (with a self-grade when grading is unavailable) or set aside.
+        IA.release(repository, token=params.administration_token, submission_id=params.submission_id,
+                   attempt_for=_attempt_for(repository))
+        raise
     attempt_id = reply.get("attempt_id") or reply.get("attemptId")
     if admin["replayed"] and admin.get("outcome") is not None:
         # The outcome the close promised, never one computed again.
@@ -330,19 +363,23 @@ def check_open_inline(ctx: SidecarContext, params: OpenInlineInput) -> dict[str,
     answer reached the attempt service before a crash is closed with it; one whose check was settled elsewhere is
     closed superseded."""
 
+    from learnloop.db.stores import check_administrations as store
+
     vault, repository = ctx.require_vault()
-
-    def attempt_for(session_id: str, key: str) -> str | None:
-        row = repository.practice_attempt_by_submission_id(key)
-        return str(row["id"]) if row is not None else None
-
+    with repository.connection() as connection:
+        was_open = store.open_administration(connection) if store.table_present(connection) else None
     try:
-        admin = IA.reopen(vault, repository, attempt_for=attempt_for)
+        admin = IA.reopen(vault, repository, attempt_for=_attempt_for(repository))
     except IA.InlineCheckError as exc:
         raise _error(exc) from exc
     if admin is None:
         drain_after_check(ctx, vault, repository)
-        return versioned({"administration": None})
+        # An answer that reached the attempt service before a crash, closed now with it: its outcome, for the card.
+        closed = IA.find(repository, was_open["administration_token"]) if was_open is not None else None
+        recovered = (dict(closed["outcome"], administration_token=closed["administration_token"],
+                          attempt_id=closed.get("attempt_id"))
+                     if closed is not None and closed["state"] == "submitted" and closed.get("outcome") else None)
+        return versioned({"administration": None, "recovered": recovered})
     # The card as begin froze it: the item is not served again.
     return versioned({"administration": _card(vault, repository, admin)})
 

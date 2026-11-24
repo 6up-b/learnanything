@@ -2672,6 +2672,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_parity_with_check_once_in_today`
   - `test_rd7_16_the_daily_plan_does_not_label_a_held_check`
   - `test_rd7_3_an_opened_note_outlives_not_now_the_next_attempt_anywhere_is_not_cold`
+  - `test_rd7_61_a_passage_the_section_map_does_not_place_is_held`
   - `test_rd7_8_the_host_passage_is_protected_and_missing_coverage_fails_closed_for_its_source`
   - `test_the_projection_after_an_inline_answer_equals_a_whole_vault_rebuild`
   - `test_the_protection_set_veils_covered_passages_and_every_note_bearing_surface`

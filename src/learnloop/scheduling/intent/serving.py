@@ -684,12 +684,22 @@ def _held_at(vault: Any, repository: Any) -> Any:
         return None
 
     def held_at(commitment_id: str, row: Mapping[str, Any]) -> bool:
-        if str(row.get("entry_surface") or "") == "reader_inline":
-            return False
-        at = str(row.get("created_at") or "")
-        return any(opened <= at and (closed is None or at <= closed) for opened, closed in windows.get(commitment_id, ()))
+        return held_by_inline(windows.get(commitment_id, ()), row)
 
     return held_at
+
+
+def held_by_inline(windows: Iterable[tuple[str, str | None]], row: Mapping[str, Any]) -> bool:
+    """Whether an attempt on another surface was held by an inline administration (one of its ``[opened_at,
+    closed_at)`` windows; an open one runs on): its presentation was served during a window (Today served it as
+    practice then, whenever it was answered), or, with no presentation recorded, it was made during one. The window is
+    half-open: an answer in the second the hold closed, after it, is not held."""
+
+    if str(row.get("entry_surface") or "") == "reader_inline":
+        return False
+    stamps = [str(row[key]) for key in ("presented_at", "created_at") if row.get(key)]
+    return any(opened <= at and (closed is None or at < closed)
+               for opened, closed in windows for at in stamps)
 
 
 def _inline_locks(vault: Any, repository: Any) -> frozenset[str]:

@@ -97,7 +97,7 @@ export class FixtureChecks {
 
   dueFor(): ChecksDueDto {
     const rows = this.dueRows().map((row) => ({ handle: this.handle(row.commitmentId), beingAnswered: this.open?.commitmentId === row.commitmentId }));
-    return { version: 1, checks: rows.sort((a, b) => a.handle.localeCompare(b.handle)) };
+    return { version: 1, checks: rows.sort((a, b) => a.handle.localeCompare(b.handle)), nextDue: null };
   }
 
   /** The check a handle names now (or the open one's spent handle: a lost reply's retry), else null. */

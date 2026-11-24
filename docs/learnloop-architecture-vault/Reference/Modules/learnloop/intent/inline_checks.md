@@ -96,7 +96,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop/intent/inline_administration|learnloop.intent.inline_administration]] — imports `_Sections`, `_primary_passage`; statically calls `_Sections`, `_primary_passage`
 - [[Reference/Modules/learnloop_sidecar/handlers/goal_lens|learnloop_sidecar.handlers.goal_lens]] — imports `answered_checks`, `due_checks`, `next_check_due`, `serving_view`; statically calls `answered_checks`, `due_checks`, `next_check_due`, `serving_view`
-- [[Reference/Modules/learnloop_sidecar/handlers/inline_checks|learnloop_sidecar.handlers.inline_checks]] — imports `due_checks`, `due_handles`, `resolve_handle`; statically calls `due_checks`, `due_handles`, `resolve_handle`
+- [[Reference/Modules/learnloop_sidecar/handlers/inline_checks|learnloop_sidecar.handlers.inline_checks]] — imports `due_checks`, `due_handles`, `next_check_due`, `resolve_handle`, `serving_view`; statically calls `due_checks`, `due_handles`, `next_check_due`, `resolve_handle`, `serving_view`
 
 ## Dependencies
 

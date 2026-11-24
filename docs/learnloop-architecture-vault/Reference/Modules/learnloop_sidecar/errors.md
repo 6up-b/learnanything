@@ -577,6 +577,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_rd7_14_today_claims_its_current_presentation_not_an_old_session_nobody_ended`
   - `test_rd7_17_work_that_would_reveal_the_check_waits_while_it_is_open`
   - `test_rd7_18_a_session_another_device_holds_is_refused_before_the_question_shows`
+  - `test_rd7_66_a_revision_never_sent_is_refused_and_nothing_is_veiled_after_a_reservation`
+  - `test_rd7_67_an_opened_ref_sent_back_decorated_stays_opened_and_an_opening_needs_its_own_id`
+  - `test_rd7_68_an_answer_the_attempt_service_refuses_reserves_nothing`
+  - `test_rd7_69_a_lesson_already_open_takes_no_turn_while_a_check_is_open`
   - `test_submit_records_one_attempt_on_the_reader_surface_settles_and_is_idempotent`
 - [tests/test_reader_rd8a_rpcs.py](../../../../../tests/test_reader_rd8a_rpcs.py) — direct import
   - `test_a_failed_reading_says_why`

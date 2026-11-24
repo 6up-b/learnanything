@@ -342,6 +342,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_practice_question_is_projected_as_the_tutor_records_it`
 - [tests/test_reader_rd3_fix_backend.py](../../../../../../tests/test_reader_rd3_fix_backend.py) — direct import
   - `test_a_question_cancelled_before_sending_keeps_its_desk`
+- [tests/test_reader_rd7a_inline_checks.py](../../../../../../tests/test_reader_rd7a_inline_checks.py) — direct import
+  - `test_rd7_64_an_opening_that_states_a_short_key_exactly_is_a_reveal`
 - [tests/test_reader_rw1b_review.py](../../../../../../tests/test_reader_rw1b_review.py) — direct import
   - `test_f1_a_formative_gap_brings_no_check_forward`
 - [tests/test_reader_rw1c_review.py](../../../../../../tests/test_reader_rw1c_review.py) — direct import

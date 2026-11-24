@@ -297,6 +297,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_rd7_20_a_subthreshold_opening_holds_the_check_and_the_reply_says_so`
   - `test_rd7_3_an_opened_note_outlives_not_now_the_next_attempt_anywhere_is_not_cold`
   - `test_rd7_4_every_candidate_of_an_lo_check_is_charged_from_the_set_begin_froze`
+  - `test_rd7_65_an_opening_is_charged_to_a_candidate_made_after_begin`
+  - `test_rd7_72_due_for_says_when_the_next_check_falls_due`
+  - `test_rd7_74_a_check_not_due_yet_is_refused_before_a_session_starts`
 - [tests/test_reader_rd7b_check_session.py](../../../../../../tests/test_reader_rd7b_check_session.py) — direct import
 - [tests/test_reader_reconstruct.py](../../../../../../tests/test_reader_reconstruct.py) — direct import
   - `test_reconstruct_makes_one_item_and_one_test_me_later_commitment`

@@ -31,7 +31,7 @@ export function DeskCheckMarker({ desk, onCheckNow }: { desk: CheckDesk; onCheck
     return (
       <div className="ck-later ck-desk" data-check-marker="" data-check-folded="" role="status" {...SAFE}>
         <span className="g">◇</span> {markerWords(count)}{" "}
-        <button type="button" className="lnk" onClick={() => onCheckNow()}>check now</button>
+        <button type="button" className="lnk" disabled={desk.openingNow()} onClick={() => onCheckNow()}>check now</button>
       </div>
     );
   }
@@ -41,7 +41,7 @@ export function DeskCheckMarker({ desk, onCheckNow }: { desk: CheckDesk; onCheck
       <div className="gqr">
         <span className="faint">nothing of it shows until you open it · whatever states the answer is veiled while you answer, then comes back</span>
         <button type="button" className="act" onClick={() => desk.defer()}>later</button>
-        <button type="button" className="act pri" onClick={() => onCheckNow()}>check now</button>
+        <button type="button" className="act pri" disabled={desk.openingNow()} onClick={() => onCheckNow()}>check now</button>
       </div>
     </div>
   );

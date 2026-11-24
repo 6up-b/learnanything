@@ -134,7 +134,7 @@ For system intent, use [[Architecture Overview]].
 
 - [[Reference/Modules/learnloop/_package|learnloop]] — 77 static module edges
 - [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] — 53 static module edges
-- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 25 static module edges
+- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 26 static module edges
 - [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 21 static module edges
 - [[Reference/Modules/learnloop/router/_package|learnloop.router]] — 21 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 14 static module edges
@@ -189,7 +189,7 @@ flowchart LR
     n_learnloop -->|1| center
     center -->|77| n_learnloop
     center -->|53| n_learnloop_router_objective
-    center -->|25| n_learnloop_db_stores
+    center -->|26| n_learnloop_db_stores
     center -->|21| n_learnloop_adaptive_difficulty
     center -->|21| n_learnloop_router
     n_learnloop_sidecar_handlers -->|20| center
