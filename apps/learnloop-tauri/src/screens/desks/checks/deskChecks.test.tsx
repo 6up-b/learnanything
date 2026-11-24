@@ -52,7 +52,8 @@ function cardFor(over: Partial<CheckCardDto> = {}): CheckCardDto {
     administrationToken: "cad_1", commitmentId: "cm_1", itemRef: "pi_1", contractHash: "h", cold: true, state: "open",
     protection: { veilSetId: "cvs_1", method: "structural+notes_by_default", groups: ["pads"], opened: [],
       veiled: [{ group: "pads", kind: "window", window_id: "fx_w_pads" }] },
-    prompt: { prompt: "What is the gradient of the loss?" }, ...over,
+    prompt: { prompt: "What is the gradient of the loss?" },
+    host: { extractionId: book.extractionId, sectionId: "s1", spanId: "fx_ext_softmax_s1_1" }, ...over,
   };
 }
 
@@ -62,9 +63,7 @@ const mint = (prefix: string) => `${prefix}_${++mintCount}`;
 function mount(over: Partial<CheckTransport> = {}, onPracticeSession = vi.fn()) {
   const server = new FixtureDeskServer();
   const checkTransport: CheckTransport = {
-    dueFor: vi.fn(async (input: { extractionId: string }) => ({ version: 1, checks: input.extractionId === book.extractionId
-      ? [{ commitmentId: "cm_1", loId: "lo_1", due: "2026-11-22T00:00:00Z", host: { extractionId: book.extractionId, sectionId: "s1", spanId: "fx_ext_softmax_s1_1" }, provenance: {} }]
-      : [] })),
+    dueFor: vi.fn(async () => ({ version: 1, checks: [{ handle: "chk_due_1" }] })),
     begin: vi.fn(async () => cardFor()),
     protectMore: vi.fn(async () => ({ veilAdditions: [] })),
     expose: vi.fn(async () => ({ protectionStatus: { exposure: [], coldNow: true } })),
@@ -98,15 +97,35 @@ afterEach(() => {
 });
 
 describe("an inline check on the desks", () => {
-  it("opens from its closed marker with what is visible, at the host passage, and veils the pads whole", async () => {
+  it("before check now, the desk's one marker sits in no window and at no passage, and nothing on the page names the check", async () => {
+    const { checkTransport } = mount();
+    const marker = (await screen.findByText(/a cold check is due on this desk · on your own/)).closest("[data-check-marker]")!;
+    expect(checkTransport.dueFor).toHaveBeenCalledWith();
+    expect(marker.closest("[data-desk-window]")).toBeNull();
+    expect(marker.closest("[data-span-id], [data-transcript-span]")).toBeNull();
+    expect(document.querySelectorAll("[data-check-marker]")).toHaveLength(1);
+    // The book's passages carry no check mark, and no text, title, label or data attribute holds the handle, the
+    // check's host passage or its topic.
+    const attributes = [...document.querySelectorAll("*")].flatMap((element) => [...element.attributes]
+      .filter((attribute) => attribute.name.startsWith("data-") || ["title", "aria-label"].includes(attribute.name))
+      .map((attribute) => `${attribute.name}=${attribute.value}`));
+    for (const secret of ["chk_due_1", "cm_1", "lo_1"]) {
+      expect(document.body.textContent).not.toContain(secret);
+      expect(attributes.filter((each) => each.includes(secret))).toEqual([]);
+    }
+    // The only check attributes are the marker's (empty) and the hold's fixed region names, the same with no check due.
+    expect(attributes.filter((each) => each.startsWith("data-check-") && !/^data-check-(marker=|safe=|region)/.test(each))).toEqual([]);
+  });
+
+  it("opens from the desk's marker with what is visible, at the host passage the begun card names, and veils the pads whole", async () => {
     const session = { sessionId: "s_1" };
     const { checkTransport, onPracticeSession } = mount({ begin: vi.fn(async () => cardFor({ practiceSession: session as never })) });
-    const marker = await screen.findByText(/a cold check is due before this page · on your own/);
+    const marker = await screen.findByText(/a cold check is due on this desk · on your own/);
     expect(marker.closest("[data-check-marker]")!.textContent).not.toContain("gradient");
     fireEvent.click(screen.getByRole("button", { name: "check now" }));
     await waitFor(() => expect(checkTransport.begin).toHaveBeenCalled());
     const sent = (checkTransport.begin as ReturnType<typeof vi.fn>).mock.calls[0][0];
-    expect(sent).toMatchObject({ commitmentId: "cm_1", sessionId: "s_1" });
+    expect(sent).toMatchObject({ handle: "chk_due_1", sessionId: "s_1" });
     // The app adopts the session the answer is recorded on.
     await waitFor(() => expect(onPracticeSession).toHaveBeenCalledWith(session));
     const kinds = Object.fromEntries(sent.visible.windows.map((window: { windowId: string; kind: string }) => [window.windowId, window.kind]));
@@ -127,7 +146,10 @@ describe("an inline check on the desks", () => {
     // The companion's ask waits, with the reason (shift+c brings it to its dock).
     fireEvent.keyDown(window, { key: "C", shiftKey: true });
     await waitFor(() => expect(document.body.textContent).toContain("the companion waits · after your check"));
-    expect((screen.getByLabelText("ask about this") as HTMLInputElement).disabled).toBe(true);
+    // The ask box is disabled, and held (its label is off while the check is open).
+    const askBox = document.querySelector<HTMLInputElement>("[data-companion-dock] input.input")!;
+    expect(askBox.disabled).toBe(true);
+    expect(askBox.closest("[inert]")).toBeTruthy();
     // Answered: the veils lift and the card says so.
     fireEvent.change(screen.getByLabelText("your answer"), { target: { value: "p - onehot" } });
     fireEvent.click(screen.getByRole("button", { name: "answer ↵" }));
@@ -136,13 +158,12 @@ describe("an inline check on the desks", () => {
   });
 
   // A check whose host passage is not on the desks (cm_9 has no due row here) opens centred near the top.
-  it("a second check cannot open while one is open, and search waits", async () => {
-    const { checkTransport } = mount({ openInline: vi.fn(async () => ({ administration: cardFor({ administrationToken: "cad_open", commitmentId: "cm_9" }) })) });
+  it("a second check cannot open while one is open (the marker gives way to the open card), and search waits", async () => {
+    const { checkTransport } = mount({ openInline: vi.fn(async () => ({ administration: cardFor({ administrationToken: "cad_open", commitmentId: "cm_9", host: null }) })) });
     await waitFor(() => expect(document.querySelector('[data-check-card="overlay"]')).toBeTruthy());
-    await screen.findByText(/a cold check is due before this page · on your own/);
-    const button = screen.getByRole("button", { name: "check now" }) as HTMLButtonElement;
-    expect(button.disabled).toBe(true);
-    expect(document.body.textContent).toContain("another check is open · answer it or say not now first");
+    await waitFor(() => expect(checkTransport.dueFor).toHaveBeenCalled());
+    expect(document.querySelector("[data-check-marker]")).toBeNull();
+    expect(screen.queryByRole("button", { name: "check now" })).toBeNull();
     expect(checkTransport.begin).not.toHaveBeenCalled();
     fireEvent.keyDown(window, { key: "/" });
     await waitFor(() => expect(document.querySelector(".desk-toast")?.textContent).toBe("search waits · after your check · it is open on this desk"));

@@ -50,7 +50,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 > [!success] ACTIVE
 > A static TypeScript import path reaches this file from the Vite entry src/main.tsx.
 >
-> Build/entry chain: [[Reference/Desktop/TypeScript/main|src/main.tsx]] → [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] → [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] → [[Reference/Desktop/TypeScript/components/pdfSelection/model|src/components/pdfSelection/model.ts]]
+> Build/entry chain: [[Reference/Desktop/TypeScript/main|src/main.tsx]] → [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] → [[Reference/Desktop/TypeScript/screens/desks/DeskShell|src/screens/desks/DeskShell.tsx]] → [[Reference/Desktop/TypeScript/screens/desks/windows/SourceWindow|src/screens/desks/windows/SourceWindow.tsx]] → [[Reference/Desktop/TypeScript/screens/desks/source/ScopedSource|src/screens/desks/source/ScopedSource.tsx]] → [[Reference/Desktop/TypeScript/components/pdfSelection/model|src/components/pdfSelection/model.ts]]
 
 ## Public API
 
@@ -211,7 +211,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/components/pdfSelection/PdfSelectionLayer|src/components/pdfSelection/PdfSelectionLayer.tsx]] — import-or-re-export: `Box`; references `Box`
 - [[Reference/Desktop/TypeScript/components/pdfSelection/highlights|src/components/pdfSelection/highlights.ts]] — import-or-re-export: `Box`, `SelRange`, `SelectionModel`, `anchorRange`, `rangeRects`; references `Box`, `SelRange`, `SelectionModel`, `anchorRange`, `rangeRects`
 - [[Reference/Desktop/TypeScript/components/pdfSelection/usePdfSelection|src/components/pdfSelection/usePdfSelection.ts]] — import-or-re-export: `HeadMove`, `Pos`, `SelRange`, `SelectionModel`, `SelectionPayload`, `blockAt`, `blockRange`, `hitTest`, `marqueeRanges`, `moveHead`, `onRanges`, `rangesFromNodes`, `samePos`, `selectionPayload`; references `HeadMove`, `Pos`, `SelRange`, `SelectionModel`, `SelectionPayload`, `blockAt`, `blockRange`, `hitTest`, `marqueeRanges`, `moveHead`, `onRanges`, `rangesFromNodes`, `samePos`, `selectionPayload`
-- [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] — import-or-re-export: `exactNode`; references `exactNode`
+- [[Reference/Desktop/TypeScript/screens/desks/source/ScopedSource|src/screens/desks/source/ScopedSource.tsx]] — import-or-re-export: `exactNode`; references `exactNode`
 
 ## Dependencies
 

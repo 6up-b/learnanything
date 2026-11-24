@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/pen/inkCache.ts](../../../../../../../../apps/learnloop-tauri/src/screens/desks/pen/inkCache.ts) |
-| Source lines | 310 |
+| Source lines | 321 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/pen/_area|TypeScript/screens/desks/pen]] |
 | Refactor status | `ACTIVE` |
@@ -89,15 +89,16 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const attempt = (this.attempts.get(blockId) ?? 0) + 1` — const, line 216
 - `const stale = ()` — const, line 218
 - `const revision = line.revision` — const, line 219
-- `let first: InkTranscribeJobDto` — let, line 230
-- `const jobId = first.jobId` — const, line 244
-- `const remove = this.deps.poller.register<InkTranscribeJobDto>(` — const, line 246
-- `const done = this.settle(padId, blockId, job, revision)` — const, line 251
-- `const reading = this.pad(padId).readings[blockId]` — const, line 267
-- `const result = job.result` — const, line 286
-- `const status: ReadingStatus = result.confidenceLabel === "nothing_read" ? "nothing" : result.applied ? "read" : result.reason === "kept_your_correction" ? "kept_yours" : "read"` — const, line 287
-- `const line = pad.lines[blockId]` — const, line 290
-- `const code = job.error?.code ?? job.status` — const, line 300
+- `const heldNow = this.deps.held?.() ?? null` — const, line 230
+- `let first: InkTranscribeJobDto` — let, line 236
+- `const jobId = first.jobId` — const, line 255
+- `const remove = this.deps.poller.register<InkTranscribeJobDto>(` — const, line 257
+- `const done = this.settle(padId, blockId, job, revision)` — const, line 262
+- `const reading = this.pad(padId).readings[blockId]` — const, line 278
+- `const result = job.result` — const, line 297
+- `const status: ReadingStatus = result.confidenceLabel === "nothing_read" ? "nothing" : result.applied ? "read" : result.reason === "kept_your_correction" ? "kept_yours" : "read"` — const, line 298
+- `const line = pad.lines[blockId]` — const, line 301
+- `const code = job.error?.code ?? job.status` — const, line 311
 
 ## Who imports or calls it
 

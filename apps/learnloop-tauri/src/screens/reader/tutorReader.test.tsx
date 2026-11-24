@@ -4,7 +4,7 @@
 // (the same harness as tutorSwitchOff.test.tsx).
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { ReaderScreen } from "../ReaderScreen";
+import { ScopedSource } from "../desks/source/ScopedSource";
 import { setAlgoConfig } from "../../app/algoConfig";
 import { readerRenderViewFixture as view } from "../../fixtures/readerRenderView";
 import type { SourceLibraryCard } from "../../api/dto";
@@ -107,7 +107,7 @@ it("an answer shows its modes, and its offers fetch early and show on press", as
     { rank: 1, practiceItemId: "pi_1", learningObjectId: "lo", learningObjectTitle: null, practiceMode: "short_answer", prompt: "Show A equals its transpose.", facetIds: [], rationale: null },
   ] });
   api.recordProposalImpressions.mockResolvedValue({ recorded: 1 });
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   const block = await screen.findByText(view.blocks[1].markdown);
   fireEvent.click(screen.getByRole("button", { name: "ask" }));
   select(block);
@@ -129,7 +129,7 @@ it("an answer shows its modes, and its offers fetch early and show on press", as
 it("another way sends the follow-up with its retrieval intent", async () => {
   contract.value = { readerEnabled: true, inquiryEnabled: true, readerTutor: TUTOR };
   api.findPractice.mockResolvedValue({ version: 1, status: "ok", proposalId: "p", items: [] });
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   const block = await screen.findByText(view.blocks[1].markdown);
   fireEvent.click(screen.getByRole("button", { name: "ask" }));
   select(block);
@@ -154,7 +154,7 @@ it("another way sends the follow-up with its retrieval intent", async () => {
 it("the personalized chip is visible in the composer and its value is sent with every Ask (Codex review F8)", async () => {
   contract.value = { readerEnabled: true, inquiryEnabled: true, readerTutor: TUTOR };
   api.findPractice.mockResolvedValue({ version: 1, status: "ok", proposalId: "p", items: [] });
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   const block = await screen.findByText(view.blocks[1].markdown);
   fireEvent.click(screen.getByRole("button", { name: "ask" }));
   select(block);
@@ -177,7 +177,7 @@ it("the personalized chip is visible in the composer and its value is sent with 
 it("without the tutor looking things up there is no chip and nothing is sent", async () => {
   contract.value = { readerEnabled: true, inquiryEnabled: true, readerTutor: { ...TUTOR, retrieval: false, anotherWay: false } };
   api.findPractice.mockResolvedValue({ version: 1, status: "ok", proposalId: "p", items: [] });
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   const block = await screen.findByText(view.blocks[1].markdown);
   fireEvent.click(screen.getByRole("button", { name: "ask" }));
   select(block);

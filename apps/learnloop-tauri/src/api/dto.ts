@@ -2085,7 +2085,9 @@ export interface CausalRepairStatusDto {
 }
 
 /** The router's disposition of a factor's quick check (the probe router's tag). */
-export type CausalProbeRouterState = "pending" | "selected" | "not_selected" | "unavailable";
+/** `void`: the router selected the check, but its candidate can no longer be administered; the repair goes on
+ *  and no other check is offered in its place. */
+export type CausalProbeRouterState = "pending" | "selected" | "not_selected" | "unavailable" | "void";
 
 export interface CausalProbeRouterDispositionDto {
   routerState: CausalProbeRouterState;
@@ -10722,7 +10724,10 @@ export type ContentRefDto =
   | { kind: "thread"; rootExchangeId: string }
   | { kind: "compare"; comparisonId?: string; query?: string }
   | { kind: "panel"; panel: "guide" | "path" | "library" | "notes"; extractionId?: string }
-  | { kind: "figure_notebook"; figureId: string };
+  | { kind: "figure_notebook"; figureId: string }
+  /** A book still being prepared: named by its source alone (it has no reading yet); the desk replaces the window with
+   *  the book's source window once it is ready. */
+  | { kind: "preparing"; sourceId: string };
 
 export type PadStackEntryDto = Extract<ContentRefDto, { kind: "pad" | "lesson" }>;
 export type CompanionDock = "br" | "bl" | "right" | "cb";
@@ -11158,8 +11163,6 @@ export interface PassageUnionSpanDto {
   passageLinks: { linkId: string; targetKind: string; targetId: string; relation: string; quote: string;
     alias: SpanAlias }[];
   figures: { figureId: string; tier: string; verification: string; createdAt: string; alias: SpanAlias }[];
-  /** A check is due before this passage: no item, learning object or purpose (spec §12.6.1). */
-  checksDue: { commitmentId: string }[];
   notes: unknown[];
   authoredQuestions: { questionId: string; status: string; questionStyle: string; scopeKind: string;
     questionMd: string; alias: SpanAlias }[];
@@ -11207,11 +11210,12 @@ export interface CompanionHistoryDto {
   cursor: string | null;
 }
 
+/** checks.due_for: one opaque handle per due check, every due check in the vault, and nothing of any (no topic, host,
+ *  provenance, due date or commitment: the owner's decision on RD7-56). `check.begin_inline` takes the handle; a begin
+ *  spends it, and a spent or dead one (the sidecar restarted) is refused `check_unknown`: read again. */
 export interface ChecksDueDto {
   version: number;
-  checks: { commitmentId: string; loId: string; due: string;
-    host: { extractionId: string; sectionId: string | null; spanId: string | null } | null;
-    provenance: Record<string, string>;
+  checks: { handle: string;
     /** mvp-0.69: an open inline administration holds it (Today shows "being answered in the Reader"). */
     beingAnswered?: boolean }[];
 }
@@ -11232,6 +11236,19 @@ export interface CheckVisibleDto {
 /** One veiled thing, as the server named it (its keys are the server's own, snake_case: a ref is sent back as is). */
 export type CheckVeilRefDto = Record<string, unknown> & { group: string; kind: string };
 
+/** The question as a cold check presents it (an allowlisted presentation: never the expected answer, a hint, the
+ *  rubric, an earlier attempt or a source locator). Frozen at begin and returned unchanged on recovery. */
+export interface CheckPromptDto {
+  practiceItemId?: string;
+  prompt?: string;
+  /** The learner-facing blocks, rendered with Today's presentation component. */
+  presentation?: ItemPresentationDto | null;
+  practiceMode?: string | null;
+  attemptTypesAllowed?: string[];
+  activeFollowupKind?: string | null;
+  intentCheck?: IntentCheckDto | null;
+}
+
 export interface CheckCardDto {
   version?: number;
   administrationToken: string;
@@ -11241,21 +11258,45 @@ export interface CheckCardDto {
   /** Whether the item could be answered cold when it was served (else practice from the start). */
   cold: boolean;
   state: "open" | "submitted" | "abandoned" | "superseded";
+  /** `veiled`: everything veiled (opened ones included); `standing`: veiled and not opened. */
   protection: { veilSetId: string | null; method: string | null; veiled: CheckVeilRefDto[]; opened: CheckVeilRefDto[];
-    groups: string[] };
-  /** Today's own serve of the item (the practice item detail, its check view hiding locators). */
-  prompt: Record<string, unknown>;
+    standing?: CheckVeilRefDto[]; groups: string[] };
+  prompt: CheckPromptDto;
   /** The practice session the answer is recorded on (opened when the app had none), for the app to adopt. */
   practiceSession?: SessionSnapshot | null;
+  /** The submission already reserved on this administration (reused by a retry after a restart), or null. */
+  submissionId?: string | null;
+  /** Why the item opens not cold (`seen_before`, `primed`, `hold`, …), else null: the card is worded from it. */
+  eligibility?: string | null;
+  /** The veil sets' sequence number (as `check.protect_more` returns it). */
+  revision?: number;
+  /** A second begin for a commitment whose administration is open returns that administration's card. */
+  replayed?: boolean;
+  /** Where the begun check sits (its host passage), named only once it is begun; null when it has none. */
+  host?: { extractionId: string; sectionId: string | null; spanId: string | null } | null;
 }
 
-export type CheckExposureKind = "opened_veil" | "navigated" | "help";
+/** check.protect_more: what this request added, every ref veiled now and not opened, and the veil sets' sequence. */
+export interface CheckProtectReplyDto {
+  veilAdditions: CheckVeilRefDto[];
+  standing?: CheckVeilRefDto[];
+  revision?: number;
+}
+
+/** check.expose: what was recorded; a refusal or failure records nothing. */
+export interface CheckExposeReplyDto {
+  protectionStatus: { exposure: Array<Record<string, unknown>>; coldNow: boolean; measured?: boolean; eligibility?: string | null };
+}
+
+export type CheckExposureKind = "opened_veil" | "navigated" | "help" | "left";
 
 /** check.submit_inline: the attempt's own reply, plus whether it answered the check. */
 export type CheckSubmitDto = Record<string, unknown> & { attemptId?: string; administrationToken: string; cold: boolean;
   reason: "on_your_own" | "primed" | "with_help" | "seen_before" | "already_answered" | "practice";
   /** Why it is primed when nothing measured it: one of the learner's notes was opened (a note's words are never read). */
-  primedBy?: "unmeasured_note" };
+  primedBy?: string | null;
+  /** The serve-time reason when the item did not open cold. */
+  eligibility?: string | null };
 
 // -- Reader workbench v2 RD3 (spec §3.4, §8.6, §9.3): the companion's ask as a polled job, search in context.
 // The typed calls only; no component calls them yet.

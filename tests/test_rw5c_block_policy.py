@@ -1,6 +1,6 @@
 """Reader RW5c, Astra review A1: a candidate comes only from a block the Reader displays.
 
-The page drops whole blocks before Markdown sees them (``readerBlockPolicy.json``, which ``ReaderScreen`` and
+The page drops whole blocks before Markdown sees them (``readerBlockPolicy.json``, which the scoped source and
 :mod:`learnloop.reader.source_render_views` both read), so a check that reads them could certify what the page never shows.
 """
 
@@ -116,7 +116,8 @@ def test_every_type_an_extractor_writes_is_classified():
 
 
 def test_the_page_reads_this_policy_and_a_change_to_it_needs_a_certification_bump():
-    screen = (RV.BLOCK_POLICY_PATH.parents[1] / "screens" / "ReaderScreen.tsx").read_text(encoding="utf-8")
+    # The page is the scoped source, moved whole out of screens/ReaderScreen.tsx.
+    screen = (RV.BLOCK_POLICY_PATH.parents[1] / "screens" / "desks" / "source" / "ScopedSource.tsx").read_text(encoding="utf-8")
     module = (RV.BLOCK_POLICY_PATH.parent / "readerBlockPolicy.ts").read_text(encoding="utf-8")
     assert "readerDisplaysBlock(b.blockType)" in screen and '"PageHeader"' not in screen
     assert 'from "./readerBlockPolicy.json"' in module

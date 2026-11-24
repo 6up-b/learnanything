@@ -83,23 +83,40 @@ def _settled(ctx: SidecarContext, vault: Any, repository: Any, goal_id: str) -> 
     return {lo_id for lo_id, key in attempted if key == keys.get(lo_id)}
 
 
-def _checks(vault: Any, repository: Any, goal_id: str) -> tuple[list[dict[str, Any]], list[dict[str, Any]], str | None]:
-    """The due checks, today's answered ones, and when the next check falls due (the band reads again then: a newly
-    due check must hide what it covers)."""
+def masked_checks(repository: Any, due: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Which due checks' LOs the replies mask: the one place that decides it (spec §12.6.1, D15).
+
+    Only the check an open inline administration holds (the owner's decision on RD7-56). Before "check now" nothing
+    may say or place what a due check is about, and masking a due LO's dot, its sections or its chapters would point
+    at it by elimination; the book and the companion are unveiled before begin anyway, so masking then protected
+    nothing. D15's earlier rule (every due check, from its due date) is ``return due``."""
+
+    from learnloop.db.stores import check_administrations as store
+
+    with repository.connection() as connection:
+        held = store.open_commitments(connection)
+    return [row for row in due if row["commitment_id"] in held]
+
+
+def _checks(vault: Any, repository: Any, goal_id: str
+            ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], str | None, int]:
+    """The checks the replies mask for this goal (:func:`masked_checks`), today's answered ones, when the next check
+    falls due (the band reads again then), and how many checks are due in the whole vault."""
 
     view = serving_view(vault, repository)
-    due = due_checks(vault, repository, goal_id=goal_id, view=view)
+    due = masked_checks(repository, due_checks(vault, repository, goal_id=goal_id, view=view))
     answered = answered_checks(vault, repository, since=_day_start())
-    return due, answered, next_check_due(view)
+    due_anywhere = len(view.due_checks()) if view is not None else 0
+    return due, answered, next_check_due(view), due_anywhere
 
 
 def protection_now(vault: Any, repository: Any) -> tuple[GL.Protection, str | None]:
-    """What no workbench reply may say now (every due check, whatever the goal; spec §12.6.1, D15) and when the next
-    check falls due (a reply cached by the client is read again then). The goal lens, follow-along and the video
-    chapters all mask through it."""
+    """What no workbench reply may say now (the checks :func:`masked_checks` masks, whatever the goal; spec §12.6.1,
+    D15) and when the next check falls due (a reply cached by the client is read again then). The goal lens,
+    follow-along, the video chapters and the companion's and lesson's goal sentence all mask through it."""
 
     view = serving_view(vault, repository)
-    due = due_checks(vault, repository, view=view)
+    due = masked_checks(repository, due_checks(vault, repository, view=view))
     return reads.protection(vault, repository, due), next_check_due(view)
 
 
@@ -149,7 +166,7 @@ def goal_band(ctx: SidecarContext, params: GoalBandInput) -> dict[str, Any]:
     other = _not_a_deliverable(vault, repository, params.goal_id)
     if other is not None:
         return versioned(other)
-    due, answered, next_due = _checks(vault, repository, params.goal_id)
+    due, answered, next_due, due_anywhere = _checks(vault, repository, params.goal_id)
     model = _model(ctx, vault, repository, params.goal_id, due, answered)
     work = curriculum._work(ctx)
     with work.lock:
@@ -160,7 +177,7 @@ def goal_band(ctx: SidecarContext, params: GoalBandInput) -> dict[str, Any]:
     band = reads.band_view(vault, repository, model, due=due, answered=answered,
                            protection=reads.protection(vault, repository, due, model),
                            likely=curriculum._likely(vault, repository), pace=_pace(vault, repository, model.goal),
-                           progress=progress)
+                           progress=progress, due_anywhere=due_anywhere)
     return versioned({**band, "next_check_due": next_due})
 
 
@@ -202,7 +219,7 @@ def goal_lens(ctx: SidecarContext, params: GoalLensInput) -> dict[str, Any]:
     other = _not_a_deliverable(vault, repository, params.goal_id)
     if other is not None:
         return versioned({**other, "extraction_id": resolved, "mapping": "unmapped", "levels": []})
-    due, answered, _next_due = _checks(vault, repository, params.goal_id)
+    due, answered, _next_due, _due_anywhere = _checks(vault, repository, params.goal_id)
     model = _model(ctx, vault, repository, params.goal_id, due, answered)
     try:
         return versioned(reads.lens_view(vault, repository, model, resolved,

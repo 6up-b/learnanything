@@ -44,7 +44,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `workflow` — Mutable queue, session, lease, or other in-flight workflow state. It is preserved across rebuilds.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/262_reader_workbench_foundations.sql`.
-- **Schema touched by:** `262_reader_workbench_foundations.sql`.
+- **Schema touched by:** `262_reader_workbench_foundations.sql`, `272_reader_workbench_preparing_windows.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -101,6 +101,7 @@ None found by exact static reference scan.
 
 - `tests/reader_rd0_migration_helpers.py`
 - `tests/test_reader_rd0_protocol.py`
+- `tests/test_reader_rd_retire_migration.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
@@ -117,14 +118,14 @@ Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when c
 > It captures CHECK constraints and defaults that a column summary can hide. The migration files remain authoritative.
 
 ```sql
-CREATE TABLE desk_windows (
+CREATE TABLE "desk_windows" (
   window_id TEXT PRIMARY KEY,
   desk_id TEXT NOT NULL REFERENCES desks(desk_id),
   slot INTEGER NOT NULL CHECK (slot >= 0),
   pane INTEGER NOT NULL DEFAULT 0 CHECK (pane IN (0, 1)),
   active INTEGER NOT NULL DEFAULT 1 CHECK (active IN (0, 1)),
   kind TEXT NOT NULL CHECK (kind IN (
-    'source', 'video', 'pad', 'pad_stack', 'lesson', 'thread', 'compare', 'panel', 'figure_notebook'
+    'source', 'video', 'pad', 'pad_stack', 'lesson', 'thread', 'compare', 'panel', 'figure_notebook', 'preparing'
   )),
   spec_json TEXT NOT NULL,
   view_json TEXT NOT NULL DEFAULT '{}',

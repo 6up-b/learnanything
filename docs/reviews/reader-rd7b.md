@@ -174,3 +174,180 @@ The parity row "Cold follow-ups (RW6b)" (§21.1) is in `reader-rd-retire.md` und
 - No owner vault was opened, and nothing ran in the packaged app (WebKitGTK); the harness is Chromium.
 - The module notes for the five new TypeScript files are not generated (references are regenerated at integration);
   `desktop_validate.py`'s counts are moved.
+
+## 10. Fix round (the RD7 adversarial review, 2026-11-24): the frontend half
+
+Branch `reader/rd7-fix-frontend`, cut from the workbench nouns branch, with the backend half
+(`reader/rd7-fix-backend`, recorded in `reader-rd7a.md` §8) merged. The backend's contract (§8.1 there) is coded
+against in `checks/controller.ts`, the one place the desks call `check.*`. Ledger rows RD7-40 to RD7-59.
+
+### 10.1 The class: what is held is everything not listed as safe
+
+The review's blockers 4, 6, 10, 11 and 12 and major 21 were one defect: the veils looked for known attributes, so
+every surface nobody listed stayed readable. Inverted in `checks/hold.ts`. While a check is open, everything on the
+page is held unless it is on a short list of safe things:
+
+- the check's card and markers, and the veils' pills;
+- each window head's glyph, name and buttons. While a check is open the name says only what the window is: a book's
+  or a video's name, else its kind ("Pads", "lesson"). The head's place-in-reading line and its chips are held;
+- the desk tabs, the header's buttons, and the app's places;
+- a toast that says why something waits (marked by the code that raises it);
+- a source's own words (`data-passage-text`, on the desks only) in a passage the server has judged for this check
+  and does not veil (its standing set);
+- what the learner opened through "show it anyway", for as long as it shows what it showed then. A component says
+  what it shows with `data-check-content`; the companion's body does. A change holds it again.
+
+Held means:
+
+- nothing moves;
+- the text turns transparent behind a blur;
+- canvases, players, frames and images are not painted;
+- the element is `inert` and `aria-hidden`, with its title and accessible labels taken off and put back after;
+- focus inside a newly held part moves to the answer box;
+- a video pauses and will not start.
+
+A mutation observer holds anything new before it paints, for the whole check, whether or not any veil stands. A new
+window kind, tooltip, portal, panel or overlay is held by default. `WINDOW_VEIL_DECISIONS` records, for every window
+kind, whether its passages can show (source and video) or the window is held whole (every other kind). A vitest
+(`checks/windowKinds.test.ts`) reads the kinds from the DTO, the desks' glyphs and the shell's window switch, and fails
+on a kind with no decision.
+
+The other direction is kept and tested: the question reads, the answer box takes typing, an uncovered passage
+reads, and "show it anyway" opens anything held after saying its cost.
+
+What the desks cannot describe to the server opens by region: the shelf, the goal band, the companion, the pen layer,
+or a window's other parts (`data-check-region`; the footer is quiet, with no pill). It is recorded as `check.expose`
+kind `left` with `{kind: "surface", surface, window_id?}`, which the server records as an unmeasured opening. The
+cost line says so before it opens.
+
+### 10.2 Leaving the desks, and a remount
+
+The vault's checks belong to the app (`App.tsx` makes the `CheckDesk` and passes it to the desks). No place, the
+desks included, shows anything before the recovery read (`check.open_inline`) says whether a check is open. A failed
+read says so and offers "try again" (fail closed; a vault below the tag counts as known, with no check). While a
+check is open, every place but the desks (the old Reader, Today, the library, every tool) gives way to a plain choice
+(`app/checkGate.tsx`): "back to the check", or "not now", which closes the administration (the check stays due). The
+app's overlays that show study material stay closed meanwhile: review, the inspector, a lesson, Ask, open in source,
+and the palette.
+
+Routes are blocked, not recorded. The backend's `left` kind is used only for regions (§10.1).
+
+### 10.3 Findings
+
+| # | Severity | Call | Where |
+|---|---|---|---|
+| 4 | blocker | fixed (RD7-41) | a note's mark and panel and a `panel` window are held by default |
+| 5 | blocker | fixed, client half (RD7-46) | §10.2 |
+| 6 | blocker | fixed (RD7-42) | canvas, player and frame not painted; the player paused; the side-by-side pane held |
+| 7 | blocker | fixed, client half (RD7-47) | passages judged per request; unjudged ones held; the observer stays |
+| 8 | blocker | fixed, client half (RD7-48) | `standing` replaces the set; `veilsRevision`; `veils_stale` resends the same submission |
+| 9 | blocker | fixed, client half (RD7-49) | `measured: false` and regions say "practice" before opening |
+| 10 | blocker | fixed (RD7-43) | copies held by default; neutral head names |
+| 11 | blocker | fixed (RD7-44) | the menu waits; the promoted key does nothing; the menu and its sheets close at begin |
+| 12 | blocker | fixed (RD7-45) | `inert`, `aria-hidden`, labels off, focus moved |
+| 17 | major | fixed, client half (RD7-50) | reserved submission reused; draft kept by token; replayed card adopted |
+| 19 | major | fixed, client half (RD7-51) | "not now" disabled while submitting |
+| 20 | major | fixed, client half (RD7-52) | `administration_closed` said; an unknown open administration adopted |
+| 21 | major | fixed (RD7-53) | the history tab names no exchanges; an opening covers only what it showed |
+| 22 | major | fixed (RD7-54) | a note's veil names the note's surface, never the passage it is anchored to |
+| 23 | major | fixed, client half (RD7-55) | card worded from `eligibility`; `primedBy` worded |
+| 24 | major | while open: fixed (band, miniatures held). Before "check now": stopped (RD7-56) | owner call, §10.4 |
+| 26 | major | partly (RD7-57) | presentation blocks shown with Today's component; self-grade not built (§10.4) |
+| 27 | major | fixed, client half (RD7-58) | retries wait; a reading checks again after its save; `check_open` said plainly |
+| 28 | minor | partly (RD7-59) | video readings asked; the overlay stands in when no inline card is on the page; due-boundary refresh not built |
+
+The rest (1-3, 13-16, 18, 25, 29) are the backend half's (`reader-rd7a.md` §8). The phone's part of #15 (its Today
+screen prints the LO title above a Reader-held item) is not changed here: the desktop's Today does the same, and the
+cold card in the Reader names no LO. Left with the backend half's #15 call.
+
+### 10.4 Stopped or not built, with options
+
+- **#24 before "check now" (RD7-56): the owner chose (b), built on `reader/rd7-unlocated-marker`, both halves; see
+  `reader-rd7a.md` §9.** As stopped here: The spec
+  places the closed marker before the host passage, and `checks.due_for` names the LO, host and provenance. The
+  review's no-topic reading conflicts with that. The two options:
+  - **(a) Keep the spec.** The marker stays before the host passage and names nothing (no question, no LO, no
+    provenance); its place is the one cue the spec accepts. Nothing changes.
+  - **(b) An unlocated marker.** "◇ a check is due on this desk", with an opaque handle instead of the commitment's
+    LO. The server resolves the host at begin, and while a check is due the goal band's LO and the overview's
+    miniatures are withheld. This needs a `checks.due_for` change (no LO, host or provenance before begin) and a spec
+    edit (§12.6.1).
+
+  While a check is open, the band and the miniatures are held either way (§10.1).
+- **#26's self-grade.** The cold presentation withholds the rubric, as it must. Self-grading after the answer needs a
+  read that discloses the rubric once the answer is frozen (Today's `recordSelfGradeDisclosure` flow). The backend
+  accepts `selfGrade` on submit, but nothing gives the card the criteria to grade against. Not built: a server read
+  is needed first.
+- **#28's due boundary.** `checks.due_for` returns only checks due now. Refreshing at the moment a check becomes due
+  needs its due time beforehand. Not built.
+
+### 10.5 Assertions changed
+
+- **`checks.test.tsx`**:
+  - the expose call carries `exposureId`, and the submit carries `veilsRevision`;
+  - `applyVeils` became `Holder.apply`;
+  - "lift what is no longer veiled" now opens the pad's ref (an unveiled pad body is held by default);
+  - the test pages carry a safe head and `data-passage-text`, as the desks render them;
+  - the "arriving window" test became per-passage judgement;
+  - the note selector excludes passages.
+- **`deskChecks.test.tsx`**: the companion's ask box is found by its class (its label is off while held). It is
+  still disabled, and now inert too.
+- **The harness's `checks` run**: with no exchanges, the companion's opening is unmeasured (the contract's
+  `measured: false`). Its cost line and the reply's reason are now practice; the exposure carries its id, and the
+  answer its revision.
+- **Desk and App tests whose fake `api` was `{}`, or a Proxy that never answers**: they now answer
+  `checkOpenInline` with no administration. The desks and the app wait for that read, failing closed.
+
+### 10.6 Tests and checks
+
+- **New vitest files:**
+  - `checks/holdSurfaces.test.tsx`: every surface kind through DeskShell, both directions, the remount gate, the
+    menu, a region's opening;
+  - `checks/contract.test.tsx`: the contract;
+  - `checks/windowKinds.test.ts`;
+  - `app/App.checkGate.test.tsx`: the whole App with the real desks.
+- **Added tests in existing files:** the anchored note and an opening re-held on change (`checks.test.tsx`), and a
+  reading held after its save (`inkCache.test.ts`).
+- **Fail-first:** each new test failed against the sources at the branch's start (saved copies restored after).
+- **The harness:**
+  - `veilsweep`, a new run: with a check open, it walks the book, video, paper, Guide and path panels and pad stack
+    one by one, the companion's two tabs, the overview, the other two desks by key, search and the menu, and four
+    surfaces planted live with an answer key (a portal tooltip, a labelled panel, an image, a page canvas). At each,
+    no covered passage, pad line or key is in the visible text, titles, labels or fields, and no canvas, player,
+    frame or image is painted. The canvas is compared pixel for pixel with the page without it. As a control, once
+    answered the canvas paints and the key reads.
+  - At the branch's start the run fails 15 of 20 points: the shelf shows the pad lines, the player paints, and more.
+  - Now every run passes, `veilsweep` included.
+- **Visual stage rd7:** 30 findings before and after (colour 4, geometry 19, type 7), the same rows.
+
+### 10.7 Follow-ups after acceptance
+
+- **The merges.** The workbench nouns branch, with batch 5's protection fix (per-verb `withheld_verbs`), was merged,
+  then `origin/main` (G2, mvp-0.70). The vault references were regenerated afterwards. Three conflicting lines on a
+  chapter's goal-lens wording took the nouns branch's copy pass.
+- **The menu and a verb's own verdict compose.** While a check is open the menu does not open (§10.1). A verb reached
+  any other way waits for the check first and does not ask for its verdict; once the check is answered, its own
+  verdict decides, per verb (`gates.test.tsx`, "the open check and a verb's own verdict compose").
+- **The layer's dialogs stay inside the viewport (RD7-60).** A dialog goes below its pill when it fits, else above
+  it, else against the bottom edge; it never goes past either side, and it is placed again on a resize. The harness's
+  `checks` run asserts this at 1600 × 960 and, for the lowest pill, at 1024 × 600. At the previous tip the small
+  viewport's dialog fell below the viewport and the run timed out on its button.
+- **For the deletion branch (the old Reader removed).** The app gate (`app/checkGate.tsx`, `App.tsx`'s
+  `checkGateOf(deskChecks, onDesks)`) names no Reader route: it holds every place but the desks.
+  - `onDesks` is `tab === "reader" && readerSurface === "desks"`. With the old Reader gone it becomes `tab ===
+    "reader"`.
+  - `backToCheck` calls `chooseReaderSurface("desks")`, which goes when the surface choice does.
+  - `App.checkGate.test.tsx` clicks the desks' "old Reader" button (DeskShell's `onLeave`) for one of its leaving
+    paths. Without it, the same test still covers Today by its key.
+
+### 10.8 The unlocated marker (RD7-56, option b)
+
+The owner chose (b); the build of both halves is recorded in `reader-rd7a.md` §9. On the client:
+- the desks show one `DeskCheckMarker` per desk, on every desk, in no window and at no passage;
+- `CheckDesk` holds opaque handles from an unfiltered `checks.due_for`, and begins by handle;
+- a dead handle is read again once and the check due now opened;
+- the open card's host comes from the card, and it is scrolled into view after begin;
+- `CheckLenses` places only the open card;
+- the Knows panel has no "cold checks" row.
+
+§10.7's note for the deletion branch still holds: the app gate names no Reader route.

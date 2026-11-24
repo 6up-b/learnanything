@@ -237,6 +237,11 @@ def lesson_turn(ctx: SidecarContext, params: LessonTurnInput) -> dict[str, Any]:
     """One step of a lesson; see the module docstring."""
 
     vault, repository = ctx.require_vault()
+    if params.action == "open":
+        # While an inline check is open a new lesson waits: it would teach what the veils hold.
+        from learnloop_sidecar.check_hold import refuse_while_check_open
+
+        refuse_while_check_open(repository)
     try:
         S.require_active(vault)
         if params.action == "open" and params.selection:
@@ -366,7 +371,7 @@ def lesson_list(ctx: SidecarContext, params: LessonListInput) -> dict[str, Any]:
         found = pads.get(lesson["lesson_id"]) or []
         lesson["additions_pad_id"] = found[0] if found else None
         lesson["additions_pad_ids"] = found
-    # A tab names nothing a due check covers (the goal lens's protection, D15).
+    # A tab names nothing a begun check covers (the goal lens's protection, D15).
     from learnloop.curriculum import goal_lens as GL
     from learnloop_sidecar.handlers.goal_lens import protection_now
 

@@ -35,10 +35,14 @@ vi.mock("../screens/PracticeScreen", () => ({
 }));
 vi.mock("../screens/reader/WrapUpOffer", () => ({ WrapUpOffer: () => <div data-testid="wrap-up-offer" /> }));
 vi.mock("../screens/FeedbackScreen", () => ({
-  FeedbackScreen: ({ attemptId, onBack, onNext }: { attemptId: string; onBack: () => void; onNext: () => void }) => (
+  FeedbackScreen: ({ attemptId, onBack, onNext, onOpenStudied }: { attemptId: string; onBack: () => void; onNext: () => void;
+    onOpenStudied?: (restoration: Record<string, unknown>) => void }) => (
     <div data-testid="feedback-stand-in" data-attempt={attemptId}>
       <button type="button" onClick={() => onNext()}>back to the book</button>
       <button type="button" onClick={() => onBack()}>feedback back</button>
+      {/* Daily-loop DL2's link: the book's third section, where this was studied. */}
+      <button type="button" onClick={() => onOpenStudied?.({ label: "studied", detail: null, inquiryRootEventIds: [],
+        anchorSpanIds: ["fx_ext_softmax_s3_2"], extractionId: "fx_ext_softmax", sourceId: "fx_src_softmax" })}>back to where you studied this</button>
     </div>
   ),
 }));
@@ -300,8 +304,13 @@ describe("Today's resume of an unfinished problem", () => {
 });
 
 describe("back from a problem opened from the paired book", () => {
-  async function submitFromPaper(): Promise<string> {
-    pairSidecar({ config: WORKBENCH_CONFIG, withPads: true });
+  async function submitFromPaperRemembering(): Promise<string> {
+    return submitFromPaper(true);
+  }
+
+  async function submitFromPaper(rememberBook = false): Promise<string> {
+    const app = pairSidecar({ config: WORKBENCH_CONFIG, withPads: true });
+    if (rememberBook) app.storage.setItem(`learnloop.reader.book:${app.root}`, book.sourceId);
     workbenchAnswers("wb_pair");
     const onPaper = (sessionId: string, overrides: Record<string, unknown> = {}) => problem(sessionId, {
       extractionId: paper.extractionId, spanIds: [PAPER_P2], sourceId: paper.sourceId, practiceItemId: "pi_attn", entry: "check", ...overrides });
@@ -341,6 +350,23 @@ describe("back from a problem opened from the paired book", () => {
     await waitFor(() => expect(passage.style.borderLeft).toContain("var(--amber)"));
     await waitFor(() => expect(padsEl()?.querySelector('[data-problem-pad="wb_pair"][data-problem-state="submitted"]')).not.toBeNull(), { timeout: 5000 });
     await stillPaired(pairedId);
+  }, 30_000);
+
+  it("feedback's back to where you studied this opens the book at that passage, after the desks already took an open request (RDX-2)", async () => {
+    // The book the learner read last: the app's startup restore asks the desks to open it (one open request, done).
+    const pairedId = await (async () => {
+      const id = await submitFromPaperRemembering();
+      return id;
+    })();
+    fireEvent.click(screen.getByRole("button", { name: "back to where you studied this" }));
+    await settleDesk(0, 20);
+    await waitFor(() => expect(document.querySelector("[data-desk-shell]")).not.toBeNull());
+    // The book's window, focused at the passage it was studied at (before: the request was taken for one already done,
+    // and the desks stayed on the paired paper).
+    await waitFor(() => expect(focusedWindow()).toBe("w_book"));
+    expect(pairedId).not.toBe("w_book");
+    const passage = winOf("w_book")!.querySelector<HTMLElement>(`[data-span-id="${book.extractionId}_s3_2"]`)!;
+    await waitFor(() => expect(passage.style.borderLeft).toContain("var(--amber)"));
   }, 30_000);
 
   it("feedback's back returns to the problem: the paired window at its passage, the problem shown on its pad, submitted; the pair kept", async () => {
@@ -535,5 +561,34 @@ describe("an exercise used from a book window with no session yet", () => {
     await waitFor(() => expect(padsEl()?.querySelector('[data-problem-pad="wb_ex"][data-problem-state="open"]')).not.toBeNull(), { timeout: 5000 });
     expect(winOf("w_book")!.querySelector("[data-workbench-pane]")).toBeNull();
     expect(document.querySelector("[data-desk-shell]")).not.toBeNull();
+  }, 30_000);
+});
+
+// -- the desks are the Reader's only surface (the Reader's retirement, phase 2 step 2) ---------------------------------
+
+describe("the Reader place", () => {
+  it("is the desks even where an older version remembered the old Reader for this machine", async () => {
+    const app = appSidecar({ state: oneDesk([[BOOK_WINDOW as never]]) });
+    // The retired per-machine choice, as an older version stored it: never read now.
+    app.storage.setItem("learnloop.reader.surface", "reader");
+    vi.stubGlobal("localStorage", app.storage);
+    answers.set("reader_prompt_contract", () => contract());
+    await openReaderPlace();
+    await waitFor(() => expect(winOf("w_book")).not.toBeNull());
+    expect(screen.queryByText("← Library")).toBeNull();
+    expect(screen.queryByText("old Reader")).toBeNull();
+  }, 30_000);
+
+  it("says once, with the setting, when reading is off in the library (the old Reader's reader-off notice)", async () => {
+    const app = appSidecar({ state: oneDesk([[BOOK_WINDOW as never]]) });
+    vi.stubGlobal("localStorage", app.storage);
+    answers.set("reader_prompt_contract", () => contract({ readerEnabled: false }));
+    await openReaderPlace();
+    const note = await waitFor(() => {
+      const found = document.querySelector("[data-desk-reader-off]");
+      expect(found).not.toBeNull();
+      return found!;
+    });
+    expect(note.textContent).toContain("tutor_qa.reader_enabled = true");
   }, 30_000);
 });

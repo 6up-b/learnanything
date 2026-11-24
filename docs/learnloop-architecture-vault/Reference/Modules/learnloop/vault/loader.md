@@ -2514,6 +2514,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_sidecar_remint_happy_path_and_error_codes`
 - [tests/test_probe_router_authority.py](../../../../../../tests/test_probe_router_authority.py) — direct import
   - `test_j_a_generated_followups_block_ends_at_its_one_question_and_value_ends_any_other`
+- [tests/test_probe_router_decision_integrity.py](../../../../../../tests/test_probe_router_decision_integrity.py) — direct import
 - [tests/test_probe_router_learner_lane.py](../../../../../../tests/test_probe_router_learner_lane.py) — direct import
 - [tests/test_probe_router_replay.py](../../../../../../tests/test_probe_router_replay.py) — direct import
 - [tests/test_probe_router_worth_gates.py](../../../../../../tests/test_probe_router_worth_gates.py) — direct import
@@ -2665,10 +2666,13 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_lens_levels_follow_the_real_path_and_coverage`
   - `test_the_replies_are_equal_after_a_rebuild_of_derived_state`
 - [tests/test_reader_rd7a_inline_checks.py](../../../../../../tests/test_reader_rd7a_inline_checks.py) — direct import
-  - `test_a_later_answer_after_today_settled_the_check_is_practice_and_ordinary_evidence`
   - `test_an_answer_after_a_notes_veil_was_opened_is_practice_and_says_why`
+  - `test_an_answer_on_another_surface_while_the_reader_holds_the_check_answers_nothing`
   - `test_one_administration_at_a_time_and_today_honours_it`
   - `test_parity_with_check_once_in_today`
+  - `test_rd7_16_the_daily_plan_does_not_label_a_held_check`
+  - `test_rd7_3_an_opened_note_outlives_not_now_the_next_attempt_anywhere_is_not_cold`
+  - `test_rd7_8_the_host_passage_is_protected_and_missing_coverage_fails_closed_for_its_source`
   - `test_the_projection_after_an_inline_answer_equals_a_whole_vault_rebuild`
   - `test_the_protection_set_veils_covered_passages_and_every_note_bearing_surface`
 - [tests/test_reader_rd7b_cold_followup_parity.py](../../../../../../tests/test_reader_rd7b_cold_followup_parity.py) — direct import
@@ -3557,6 +3561,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_branchs_earlier_answer_from_a_now_held_out_passage_never_reaches_the_tutor`
   - `test_the_expanded_delivery_kill_switch_restores_the_predecessors_reader_window`
   - `test_the_reader_manifest_records_what_the_tutor_was_given`
+- [tests/test_tutor_goal_in_view.py](../../../../../../tests/test_tutor_goal_in_view.py) — direct import
+  - `test_a_goal_naming_a_topic_whose_cold_check_is_due_is_given_and_withheld_whole_once_the_check_is_begun`
 - [tests/test_tutor_promotion_service.py](../../../../../../tests/test_tutor_promotion_service.py) — direct import
   - `test_attach_to_existing_with_grounding_auto_applies`
   - `test_reader_promotion_honors_persisted_learning_object_target`

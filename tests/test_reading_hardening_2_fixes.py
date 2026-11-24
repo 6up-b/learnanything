@@ -12,7 +12,7 @@ docs/reviews/reading-hardening-2-codex-review.md).
   start, and on every pass of the sweep.
 
 The F2 tests (a video seek's delayed landing) are component tests in
-``apps/learnloop-tauri/src/screens/ReaderScreen.checkOffer.test.tsx``.
+``apps/learnloop-tauri/src/screens/desks/source/ScopedSource.checkOffer.test.tsx``.
 Every model call is a house fake.
 """
 

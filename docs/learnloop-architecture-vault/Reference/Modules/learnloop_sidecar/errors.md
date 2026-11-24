@@ -77,6 +77,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop_sidecar/check_hold|learnloop_sidecar.check_hold]] — imports `SidecarError`; statically calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `SidecarError`; statically calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/handlers/adaptive_difficulty|learnloop_sidecar.handlers.adaptive_difficulty]] — imports `SidecarError`; statically calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/handlers/adjudication|learnloop_sidecar.handlers.adjudication]] — imports `SidecarError`; statically calls `SidecarError`
@@ -185,7 +186,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Inspect Persistent State]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]], [[Reference/Modules/learnloop_sidecar/handlers/adaptive_difficulty|learnloop_sidecar.handlers.adaptive_difficulty]], [[Reference/Modules/learnloop_sidecar/handlers/adjudication|learnloop_sidecar.handlers.adjudication]], [[Reference/Modules/learnloop_sidecar/handlers/ai_providers|learnloop_sidecar.handlers.ai_providers]], [[Reference/Modules/learnloop_sidecar/handlers/animation|learnloop_sidecar.handlers.animation]] and 81 more.
+Static participation evidence comes from [[Reference/Modules/learnloop_sidecar/check_hold|learnloop_sidecar.check_hold]], [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]], [[Reference/Modules/learnloop_sidecar/handlers/adaptive_difficulty|learnloop_sidecar.handlers.adaptive_difficulty]], [[Reference/Modules/learnloop_sidecar/handlers/adjudication|learnloop_sidecar.handlers.adjudication]], [[Reference/Modules/learnloop_sidecar/handlers/ai_providers|learnloop_sidecar.handlers.ai_providers]] and 82 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -562,11 +563,20 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_read_it_anyway_on_a_dimmed_section_is_stored_idempotent_and_clearable`
   - `test_switched_off_every_rpc_refuses_and_nothing_is_called_or_written`
   - `test_the_empty_and_thin_states`
+- [tests/test_reader_rd7_unlocated_marker.py](../../../../../tests/test_reader_rd7_unlocated_marker.py) — direct import
+  - `test_a_handle_dies_with_the_sidecar_and_a_new_read_recovers`
+  - `test_begin_resolves_the_handle_and_a_spent_stale_or_guessed_one_is_refused`
 - [tests/test_reader_rd7a_inline_checks.py](../../../../../tests/test_reader_rd7a_inline_checks.py) — direct import
   - `test_a_check_with_an_answer_being_written_in_today_is_not_opened_here`
   - `test_below_the_tag_every_check_rpc_refuses_and_today_ignores_the_lock`
   - `test_not_now_closes_with_no_attempt_and_the_duty_stays`
   - `test_one_administration_at_a_time_and_today_honours_it`
+  - `test_rd7_10_a_closed_request_is_refused_with_its_state_not_served_again`
+  - `test_rd7_11_while_a_submission_is_reserved_not_now_and_openings_are_refused`
+  - `test_rd7_13_a_client_behind_the_veil_revision_cannot_submit`
+  - `test_rd7_14_today_claims_its_current_presentation_not_an_old_session_nobody_ended`
+  - `test_rd7_17_work_that_would_reveal_the_check_waits_while_it_is_open`
+  - `test_rd7_18_a_session_another_device_holds_is_refused_before_the_question_shows`
   - `test_submit_records_one_attempt_on_the_reader_surface_settles_and_is_idempotent`
 - [tests/test_reader_rd8a_rpcs.py](../../../../../tests/test_reader_rd8a_rpcs.py) — direct import
   - `test_a_failed_reading_says_why`

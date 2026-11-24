@@ -4,7 +4,7 @@
 // The workspace model (model/workspace.ts) is the truth on screen; every change the learner makes is
 // applied there at once and queued as `desk.apply` ops in the outbox (outbox.ts), which sends them in
 // order. A conflict takes the server's state: the shell reads `desk.state` again.
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ComponentProps, type CSSProperties, type ReactNode } from "react";
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ComponentProps, type CSSProperties, type ReactNode } from "react";
 import { flushSync } from "react-dom";
 import { api } from "../../api/client";
 import { useCachedQuery } from "../../api/useCachedQuery";
@@ -35,6 +35,7 @@ import {
   pairFocused,
   renameDesk,
   reorderSlots,
+  replaceWindow,
   setFocus,
   setCompanionDock,
   setCompanionShown,
@@ -102,7 +103,7 @@ import { SourceWindow, type ReaderPassThrough, type SourceStatus } from "./windo
 import { DeskPairs, keptPairsFor } from "./sideBySide/pairs";
 import type { PaneTarget } from "../reader/sideBySide";
 import { logReaderAction } from "../reader/activity";
-import type { WindowInquiry } from "../ReaderScreen";
+import type { WindowInquiry } from "./source/types";
 import type { WindowAsk, WindowExchange } from "../reader/useReaderInquiry";
 import { ThreadWindow } from "./windows/ThreadWindow";
 import { PadStackWindow } from "./pads/PadStackWindow";
@@ -134,7 +135,9 @@ import { HIDDEN, avoidOffset, companionStep, type CompanionEvent, type Companion
 import { SearchPanel, type SearchApi } from "./search/SearchPanel";
 import type { SearchRow } from "./search/model";
 import { clipQuote, readWindowSelection, type WindowSelection } from "./selection";
-import { LibraryPanel, PANEL_TITLES, PathPanel, RailHostPanel } from "./windows/PanelWindow";
+import { LibraryPanel, PANEL_TITLES, RailHostPanel } from "./windows/PanelWindow";
+import { bookContent, restoreContent } from "./model/restore";
+import type { ReadingPosition } from "../reader/readingPosition";
 import { ScreenErrorBoundary } from "../../app/ScreenErrorBoundary";
 import { useGoalDesk, type GoalReading } from "./goal/GoalLayer";
 import { LIVE_GOAL_TRANSPORT, type GoalTransport } from "./goal/controller";
@@ -153,10 +156,12 @@ import "../../styles/goal.css";
 import "../../styles/lesson.css";
 import "../../styles/video.css";
 import "../../styles/checks.css";
-import { CheckDesk, LIVE_CHECK_TRANSPORT, type CheckTransport } from "./checks/controller";
-import { CheckCardOverlay, CheckLenses } from "./checks/CheckCard";
+import { CheckDesk, LIVE_CHECK_TRANSPORT, checkOpenRefusal, type CheckTransport } from "./checks/controller";
+import { CheckCardOverlay, CheckLenses, DeskCheckMarker } from "./checks/CheckCard";
 import { VeilLayer } from "./checks/VeilLayer";
-import { visibleNow } from "./checks/model";
+import { visibleNow, windowKind } from "./checks/model";
+import { SAFE_ATTR } from "./checks/hold";
+import { CheckHoldContext } from "./checks/holdContext";
 import "../../styles/desk.css";
 // The desks' five fonts ship with the app (SIL OFL 1.1, Fontsource packages pinned in package.json): Vite
 // bundles their files, so nothing is fetched from a font service.
@@ -509,8 +514,6 @@ function writeStored(key: string, value: string): void {
 export interface DeskShellProps {
   vaultKey: string;
   onError: (message: string) => void;
-  /** Back to the old Reader (it stays reachable until the parity matrix passes, spec §21.1). */
-  onLeave?: () => void;
   /** First run: the book the learner read last, for the first desk (spec §5.1). */
   firstSourceId?: string | null;
   transport?: DeskTransport;
@@ -563,12 +566,19 @@ export interface DeskShellProps {
   /** Whether the book being read is skimmed (the focused book window, else the book window focused last): the app
    *  offers nothing where the learner lands after leaving the desks while skimming, as after the old Reader. */
   onSkimmingChange?: (muted: boolean) => void;
+  /** The book being read (the focused book window, else the book window focused last, else the first on the desk in
+   *  view), or null when no book is open: the app remembers it for the next start, offers it as "Continue reading" and
+   *  holds its notices while one is open, as it did for the old Reader's open book. */
+  onReadingChange?: (book: { sourceId: string; title: string } | null) => void;
   /** The app's way into the Reader while the desks are the Reader (the shelf, Today's threads and citations, a return
    *  from feedback, a lesson's "Look in my library"): a book (and passage) to open or focus on the desk in view, or
    *  words to search for. Each request is done once, by its sequence number, however often the desks mount again. */
   openRequest?: DeskOpenRequest | null;
   /** The inline checks' calls (RD7, spec §12.6); absent, the sidecar's. */
   checkTransport?: CheckTransport;
+  /** The vault's inline checks, owned by the app (an open check outlives the desks' screen); absent, the desks make
+   *  their own from `checkTransport`. */
+  checks?: CheckDesk;
 }
 
 export interface DeskOpenRequest {
@@ -588,7 +598,6 @@ const doneOpenRequests = new Map<string, number>();
 export function DeskShell({
   vaultKey,
   onError,
-  onLeave,
   firstSourceId = null,
   transport = LIVE_DESK_TRANSPORT,
   reader: readerProp,
@@ -610,8 +619,10 @@ export function DeskShell({
   videoTransport = LIVE_VIDEO_TRANSPORT,
   askRequest = 0,
   onSkimmingChange,
+  onReadingChange,
   openRequest = null,
   checkTransport = LIVE_CHECK_TRANSPORT,
+  checks,
 }: DeskShellProps) {
   // The vault's one desk store (store.ts): it outlives this shell, so leaving and coming back never makes a
   // second outbox for the same client.
@@ -633,7 +644,11 @@ export function DeskShell({
   useSyncExternalStore(videoDesk.subscribe, videoDesk.getVersion);
   const followLenses = useMemo(() => new FollowLenses(), []);
   // Inline cold checks (RD7, spec §12.6): the due checks' closed markers, the one open administration and its veils.
-  const checkDesk = useMemo(() => new CheckDesk(checkTransport, mintId), [checkTransport, mintId]);
+  // Made once (a parent's new `mintId` each render must not make a new store: a new one would not know yet whether a
+  // check is open, and the desks would wait on it again).
+  const checkMint = useRef(mintId);
+  checkMint.current = mintId;
+  const checkDesk = useMemo(() => checks ?? new CheckDesk(checkTransport, (prefix) => checkMint.current(prefix)), [checks, checkTransport]);
   useSyncExternalStore(checkDesk.subscribe, checkDesk.getVersion);
   const checkLenses = useMemo(() => new CheckLenses(), []);
   // `u` and `alt+;` reach the latest render's handlers (set below).
@@ -650,7 +665,7 @@ export function DeskShell({
   const [visited, setVisited] = useState<Set<string>>(() => new Set());
   const [focusMode, setFocusMode] = useState(false);
   const [whichKey, setWhichKey] = useState(false);
-  const [toast, setToast] = useState<{ text: string; key: number } | null>(null);
+  const [toast, setToast] = useState<{ text: string; key: number; safe?: boolean } | null>(null);
   const [undo, setUndo] = useState<{ deskId: string; windowId: string; title: string; until: number } | null>(null);
   const [status, setStatus] = useState<Record<string, SourceStatus>>({});
   const [entering, setEntering] = useState<Set<string>>(() => new Set());
@@ -743,15 +758,17 @@ export function DeskShell({
   const pendingJump = useRef(new Map<string, string>());
 
   const toastNow = useCallback((text: string) => setToast({ text, key: Date.now() }), []);
+  /** A toast that stays readable while a check holds the page: it says why something waits, nothing of the content. */
+  const toastSafe = useCallback((text: string) => setToast({ text, key: Date.now(), safe: true }), []);
   // While an inline check is open, search waits: its results would show what the veils hold (spec §12.6.4).
   const setSearch = useCallback((next: SearchState | null) => {
     const held = next ? checkDesk.heldReason() : null;
     if (held) {
-      toastNow(`search waits · ${held}`);
+      toastSafe(`search waits · ${held}`);
       return;
     }
     setSearchState(next);
-  }, [checkDesk, toastNow]);
+  }, [checkDesk, toastSafe]);
   useEffect(() => {
     if (!toast) return;
     const handle = timers.set(() => setToast(null), TOAST_MS);
@@ -791,11 +808,75 @@ export function DeskShell({
     const card = firstSourceId ? cards?.find((entry) => entry.sourceId === firstSourceId) ?? null : null;
     const deskId = mintId("desk");
     const created = createDesk(base, deskId, card ? `new desk · ${shortName(card.title)}` : "new desk");
-    if (!card || card.readiness !== "ready") return created;
+    if (!card) return created;
+    if (card.readiness !== "ready") return chain(created, (next) => openBeside(next, deskId, { kind: "preparing", sourceId: card.sourceId }, () => mintId("win")));
     const extractionId = await transport.resolveExtraction(card.sourceId).catch(() => null);
     if (!extractionId) return created;
     return chain(created, (next) => openBeside(next, deskId, contentForCard(card, extractionId), () => mintId("win")));
   }, [chain, firstSourceId, mintId, transport]);
+
+  // Windows that open their reading's path once their Reader is there (a restored reading-path panel).
+  const pendingPaths = useRef(new Set<string>());
+  // Where the learner was in a book's original while it was prepared: its window's reading opens there.
+  const pendingHandoffs = useRef(new Map<string, ReadingPosition>());
+
+  // The book's window in another window's place: its current reading (or the book still being prepared).
+  const bookWindowFor = useCallback(async (
+    deskOfWindow: string, windowId: string, sourceId: string, cards: SourceLibraryCard[] | null, handoff: ReadingPosition | null = null,
+  ): Promise<string | null> => {
+    const card = cards?.find((entry) => entry.sourceId === sourceId) ?? null;
+    const ready = !card || card.readiness === "ready";
+    const extractionId = ready ? await transport.resolveExtraction(sourceId).catch(() => null) : null;
+    if (ready && !extractionId) return null;
+
+    const step = replaceWindow(store.ws, deskOfWindow, windowId, bookContent(sourceId, extractionId, card ? isVideoCard(card) : false), () => mintId("win"));
+
+    // Before the window mounts: its Reader opens where the learner was in the original.
+    if (handoff && extractionId) pendingHandoffs.current.set(step.windowId, handoff);
+    commit(step);
+    return step.windowId;
+  }, [store, transport, commit, mintId]);
+
+  // A book prepared in a window is ready: the book's window takes its place, at the place in the original the learner
+  // had reached; the library's copy of its card is the ready one from now on (a window opens a ready card).
+  const handingOver = useRef(new Set<string>());
+  // The ready card, for a window that mounts before the library's copy is updated (the store's commit renders first).
+  const readyCards = useRef(new Map<string, SourceLibraryCard>());
+  const bookReady = useCallback(async (deskOfWindow: string, windowId: string, card: SourceLibraryCard, position: ReadingPosition | null) => {
+    if (handingOver.current.has(windowId)) return;
+    handingOver.current.add(windowId);
+    readyCards.current.set(card.sourceId, card);
+    setLibrary((cards) => cards?.map((entry) => (entry.sourceId === card.sourceId ? card : entry)) ?? cards);
+    const opened = await bookWindowFor(deskOfWindow, windowId, card.sourceId, [card], position);
+    if (!opened) {
+      handingOver.current.delete(windowId);
+      toastNow(`“${shortName(card.title)}” is ready, but it didn’t open just now. Open it again from your library.`);
+    }
+  }, [bookWindowFor, toastNow]);
+
+  // Stored windows of a kind with a workbench home now, restored there; a window this version cannot show is kept and
+  // named (model/restore.ts).
+  const restoreSaved = useCallback(async (cards: SourceLibraryCard[] | null) => {
+    const unshown: string[] = [];
+    for (const window of Object.values(store.ws.windows)) {
+      if (window.kind === "pad_stack") continue;
+      const restored = restoreContent(window.content);
+      if (restored.kind === "keep") continue;
+      if (restored.kind === "inert") {
+        unshown.push(restored.name);
+        continue;
+      }
+      const sourceId = restored.sourceId
+        ?? (restored.extractionId && transport.sourceOfExtraction ? await transport.sourceOfExtraction(restored.extractionId).catch(() => null) : null);
+      const opened = sourceId ? await bookWindowFor(window.deskId, window.windowId, sourceId, cards) : null;
+      if (!opened) unshown.push(restored.showPath ? "a reading path whose book could not be found" : "a window whose book could not be found");
+      else if (restored.showPath) {
+        const inquiry = inquiries.current.get(opened);
+        if (!inquiry?.showPath("open")) pendingPaths.current.add(opened);
+      }
+    }
+    if (unshown.length) toastNow(`Kept but not shown: ${unshown.join(", ")}. Close ${unshown.length === 1 ? "it" : "them"} when you like.`);
+  }, [store, transport, bookWindowFor, toastNow]);
 
   useEffect(() => {
     let live = true;
@@ -805,6 +886,7 @@ export function DeskShell({
         if (!live) return;
         setLibrary(cards);
         if (state && store.ws.desks.length === 0) store.commit(await firstRun(store.ws, cards));
+        if (state && live) await restoreSaved(cards);
         if (live) setStoreReady(true);
       } catch {
         if (live) onError("Couldn’t open your desks. Switch away from Reader, then open it again.");
@@ -938,6 +1020,28 @@ export function DeskShell({
     return handler;
   }, [skimmingHandlers, reportSkimming]);
   useEffect(() => reportSkimming(), [focusId, reportSkimming]);
+  // The book being read, for the app (said once per change). Never while a check holds the desks: the windows' heads
+  // show neutral titles then, and the app must not learn the check's book from this either; the change is said once
+  // the check is answered or set aside.
+  const readingReported = useRef<string | undefined>(undefined);
+  const onReadingRef = useRef(onReadingChange);
+  onReadingRef.current = onReadingChange;
+  const holdingReading = checkDesk.holding();
+  useEffect(() => {
+    if (!ws || !storeReady || holdingReading) return;
+    const isBook = (id: string | null | undefined) => {
+      const content = id ? ws.windows[id]?.content : null;
+      return content && (content.kind === "source" || content.kind === "video" || content.kind === "preparing") ? content : null;
+    };
+    if (isBook(focusId)) lastBookFocus.current = focusId;
+    const desk = deskById(ws, deskId);
+    const shown = isBook(lastBookFocus.current) ?? isBook(desk?.slots.flat().find((id) => isBook(id)) ?? null);
+    const book = shown ? { sourceId: shown.sourceId, title: library?.find((card) => card.sourceId === shown.sourceId)?.title ?? "" } : null;
+    const key = book ? `${book.sourceId}\u0000${book.title}` : "";
+    if (readingReported.current === key) return;
+    readingReported.current = key;
+    onReadingRef.current?.(book);
+  }, [ws, focusId, deskId, storeReady, library, holdingReading]);
   // Poll owners follow the windows: a paused window's polls wait; a window that closed (gone from the
   // lifecycles) pauses its polls too, and when the shell detaches every owner it knew pauses.
   const knownOwners = useRef(new Set<string>());
@@ -974,12 +1078,21 @@ export function DeskShell({
     // A stack of pads is the learner's scratchpads (the title bar adds ⓘ and "yours").
     if (window.kind === "pad_stack") return "Pads";
     if (!content) return "notes";
-    if (content.kind === "source" || content.kind === "video") return library?.find((card) => card.sourceId === content.sourceId)?.title ?? "source";
+    if (content.kind === "source" || content.kind === "video" || content.kind === "preparing") return library?.find((card) => card.sourceId === content.sourceId)?.title ?? "source";
     if (content.kind === "panel") return PANEL_TITLES[content.panel];
     if (content.kind === "compare") return content.query ? `compare · ${content.query}` : "compare";
     if (content.kind === "lesson") return lessonTabTitle(lessonDesk.summary(content.lessonId)?.title);
     return KIND_WORD[content.kind] ?? content.kind;
   }, [status, library, lessonDesk]);
+  /** A window's name while a check holds the page: what it is, never what it holds (a book's or a video's name, else
+   *  its kind: a lesson's, a thread's or a pad's title can say what the check asks). */
+  const heldTitleOf = useCallback((window: DeskWindow | undefined): string => {
+    if (!window) return "";
+    const content = window.content;
+    if (content && (content.kind === "source" || content.kind === "video")) return library?.find((card) => card.sourceId === content.sourceId)?.title ?? KIND_WORD[content.kind] ?? "source";
+    if (window.kind === "pad_stack") return "Pads";
+    return KIND_WORD[content?.kind ?? window.kind] ?? "window";
+  }, [library]);
 
   // -- the overview: its layout, a zoom's plan and its commit (spec §6.2, §6.3) -----------------------
 
@@ -1979,7 +2092,7 @@ export function DeskShell({
     // While an inline check is open, a new lesson waits: it would teach what the veils hold (spec §12.6.4).
     const held = entry.kind === "resume" ? null : checkDesk.heldReason();
     if (held) {
-      toastNow(`a lesson waits · ${held}`);
+      toastSafe(`a lesson waits · ${held}`);
       return;
     }
     if (entry.kind === "resume") {
@@ -1992,7 +2105,7 @@ export function DeskShell({
     if (!stackId) return;
     commit(setFocus(wsRef.current, id, stackId));
     lessonDesk.open(stackId, entry);
-  }, [wsRef, commit, lessonDesk, placeLesson, stackForLessons, checkDesk, toastNow]);
+  }, [wsRef, commit, lessonDesk, placeLesson, stackForLessons, checkDesk, toastNow, toastSafe]);
   // An opening's lesson joins the stack it was opened in (the focus is left where the learner has it now: the
   // opening turn can take a minute).
   lessonOpened.current = (opening, lessonId) => {
@@ -2101,7 +2214,8 @@ export function DeskShell({
       return;
     }
     if (card.readiness !== "ready") {
-      toastNow(`“${shortName(card.title)}” is still being prepared · open it from the Library to read the original meanwhile`);
+      // Its original, its progress, a failure's action and the retry, in a window of its own until the text is ready.
+      openContent({ kind: "preparing", sourceId: card.sourceId });
       return;
     }
     void transport.resolveExtraction(card.sourceId).then((extractionId) => {
@@ -2367,6 +2481,12 @@ export function DeskShell({
   const askAgain = (exchange: CompanionExchange, question: string, retrievalIntent: "alternative" | "remediate") => {
     const parent = exchange.answer ? exchange.answer.readerAnswerEventId || exchange.answer.eventId : null;
     if (!parent) return;
+    // "another way" and "didn't help" ask the tutor again: they wait while a check is open, as the ask does.
+    const held = checkDesk.heldReason();
+    if (held) {
+      toastSafe(`the companion waits · ${held}`);
+      return;
+    }
     asks.ask({
       deskId: deskIdRef.current, windowId: exchange.windowId, surface: exchange.request.surface, question,
       extractionId: exchange.extractionId, spanId: exchange.spanId,
@@ -2629,6 +2749,8 @@ export function DeskShell({
   }), [menuTransport, mintId, poller, toastNow]);
   const onPromotedRef = useRef<(row: import("../../api/dto").PromotedRowDto, origin: import("../../api/dto").MenuObjectInput | null) => boolean>(() => false);
   const openMenuByKeyRef = useRef<() => boolean>(() => false);
+  /** Closes the menu and its sheets (a check opening; set below, once they exist). */
+  const closeOverlays = useRef<() => void>(() => undefined);
   const hoveredKeyRef = useRef<(what: "note" | "promoted") => boolean>(() => false);
   /** A figure as a `figure` block in the running pad of the desk Show me was asked on (captured when asked), not the
    * desk shown when it is ready: Show me's interim landing, and the companion figure's "move to scratchpad". */
@@ -2714,12 +2836,23 @@ export function DeskShell({
       // While an inline check is open, Show me waits: a figure would explain what the veils hold (spec §12.6.4).
       const held = checkDesk.heldReason();
       if (held) {
-        toastNow(`Show me waits · ${held}`);
+        toastSafe(`Show me waits · ${held}`);
         return null;
       }
       // The Reader's figure build (RW5d), read through the one poller under the pad window that asked: a paused
       // window's poll waits with it. A figure that is not shown lands nowhere.
-      const first = await padsTransport.figureRequest({ goalText: text, origin: "show_me", ...(blockIds ? { blockIds } : {}), anchor: anchor ? { extractionId: anchor.extractionId, spanIds: anchor.spanIds ?? [anchor.spanId] } : null });
+      let first: Awaited<ReturnType<typeof padsTransport.figureRequest>>;
+      try {
+        first = await padsTransport.figureRequest({ goalText: text, origin: "show_me", ...(blockIds ? { blockIds } : {}), anchor: anchor ? { extractionId: anchor.extractionId, spanIds: anchor.spanIds ?? [anchor.spanId] } : null });
+      } catch (error) {
+        // The server holds Show me while a check is open (whatever this desk knew): plain words, no error.
+        const waits = checkOpenRefusal(error);
+        if (waits) {
+          toastSafe(`Show me waits · ${waits}`);
+          return null;
+        }
+        throw error;
+      }
       const job = first.state !== "pending" ? first : await new Promise<typeof first>((resolve, reject) => {
         // The poll ends on every terminal path: a result, a job the sidecar no longer knows, or the window that asked
         // being closed (its paused polls would otherwise wait for ever).
@@ -2773,7 +2906,7 @@ export function DeskShell({
     carry: carryQuestion,
     lessons: lessonsHost,
     problems: problemHost,
-  }), [store, deskId, mintId, padsTransport, reader, openPassage, toastNow, commit, sourcePieces, carryQuestion, stepCompanion, poller, pendingFigures, menuPromoted, lessonsHost, openLesson, problemHost]);
+  }), [store, deskId, mintId, padsTransport, reader, openPassage, toastNow, toastSafe, commit, sourcePieces, carryQuestion, stepCompanion, poller, pendingFigures, menuPromoted, lessonsHost, openLesson, problemHost, checkDesk]);
   // Pen and ink (RD8a): what a source window's pen layer and a pad's ink lines reach through.
   const inkCache = useMemo(() => new InkCache({ api: penApi, poller, settled: () => store.settled(), refreshPad: (padId) => store.refreshPad(padId),
     held: () => checkDesk.heldReason() }), [penApi, poller, store, checkDesk]);
@@ -2964,40 +3097,49 @@ export function DeskShell({
     else openContent({ kind: "source", sourceId: section.sourceId, extractionId: section.extractionId, view: "render" }, { spanId: section.startSpanId });
   }, [openPassage, openContent]);
   // -- inline cold checks (RD7, spec §12.6) -------------------------------------------------------------------------
-  // After a restart the open administration comes back with its veils; the readings on this desk show their markers.
+  // After a restart the open administration comes back with its veils, and the due checks are read (as handles: the
+  // desk's one marker names and places nothing). Nothing of the desks shows before the first read says whether a check
+  // is open (the app usually has the answer already).
   useEffect(() => {
-    if (ws) checkDesk.restart();
-    // Once, when the desks open.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ws === null, checkDesk]);
-  const checkReadings = (desk?.slots.flat() ?? []).flatMap((id) => {
-    const content = ws?.windows[id]?.content;
-    return content?.kind === "source" ? [content.extractionId] : [];
-  }).join("\u0000");
-  useEffect(() => {
-    if (checkReadings) checkDesk.readings(checkReadings.split("\u0000"));
-  }, [checkReadings, checkDesk]);
+    checkDesk.restart();
+  }, [checkDesk]);
   /** What is on screen, as the server classifies it: every desk's windows, the companion, the overview's cards. */
   const visibleForCheck = useCallback(() => {
     const windows = Object.values(wsRef.current.windows).map((window) => ({ windowId: window.windowId, kind: window.kind,
       content: window.content as { kind: string; extractionId?: string } | null }));
-    const exchanges = asks.thread(deskIdRef.current).flatMap((exchange) => (exchange.answer?.eventId ? [exchange.answer.eventId] : []));
+    // The companion's exchanges when its tutor tab shows them; on its history tab it names none (what the history
+    // shows is not this desk's thread, so its opening is unmeasured).
+    const companionTab = typeof document === "undefined" ? null : document.querySelector("[data-companion-body]")?.getAttribute("data-check-content") ?? null;
+    const exchanges = companionTab?.startsWith("history:") ? []
+      : asks.thread(deskIdRef.current).flatMap((exchange) => (exchange.answer?.eventId ? [exchange.answer.eventId] : []));
     return visibleNow(typeof document === "undefined" ? null : document, windows, {
       companionOpen: companionStateRef.current.mode !== "hidden", companionExchangeIds: exchanges,
       previewWindowIds: overviewRef.current ? windows.map((window) => window.windowId) : [],
     });
   }, [asks, wsRef]);
-  /** "check now" on a closed marker: the server opens the administration and names the veils before the prompt. */
-  const checkNow = useCallback((commitmentId: string) => {
-    // Search closes first: its rows could show what the check asks, and it stays closed until the answer.
+  /** "check now" on the desk's marker: the server resolves the handle, opens the administration and names the veils
+   *  before the prompt. */
+  const checkNow = useCallback(() => {
+    // Search, the menu and its sheets close first: they could show what the check asks, and stay closed until the
+    // answer.
     setSearchState(null);
-    void checkDesk.begin(commitmentId, reader?.workbench?.practiceSessionId ?? null, visibleForCheck()).then((opened) => {
-      if (checkDesk.notice) toastNow(checkDesk.notice);
+    closeOverlays.current();
+    void checkDesk.begin(null, reader?.workbench?.practiceSessionId ?? null, visibleForCheck()).then((opened) => {
+      if (checkDesk.notice) toastSafe(checkDesk.notice);
       // The app adopts the session the answer will be recorded on, as after a workbench submit.
       const session = opened ? checkDesk.open()?.card.practiceSession : null;
       if (session) reader?.workbench?.onPracticeSession?.(session);
+      // The marker was at no passage: the begun card, inline at its host when that reading is here, is brought into
+      // view (else the card centred near the top stands in, as ever).
+      if (opened && typeof requestAnimationFrame !== "undefined") {
+        requestAnimationFrame(() => document.querySelector('[data-check-card="inline"]')?.scrollIntoView?.({ block: "center" }));
+      }
     });
-  }, [checkDesk, reader, visibleForCheck, toastNow]);
+  }, [checkDesk, reader, visibleForCheck, toastSafe]);
+  useEffect(() => {
+    checkDesk.setVisibleSource(visibleForCheck);
+    return () => checkDesk.setVisibleSource(null);
+  }, [checkDesk, visibleForCheck]);
   // New windows or passages in view while a check is open: the server veils what it must (check.protect_more; a view
   // unchanged since the last call sends nothing).
   const protectCheckView = useCallback(() => {
@@ -3010,10 +3152,23 @@ export function DeskShell({
     return () => cancelAnimationFrame(handle);
   }, [checkHolding, checkDesk, visibleForCheck, ws, currentDeskId, overview, companionState.mode, status, lifecycles]);
   const openCheck = checkDesk.open();
-  const checkInline = Boolean(openCheck?.host && (desk?.slots.flat() ?? []).some((id) => {
+  const checkInlineHere = Boolean(openCheck?.host && (desk?.slots.flat() ?? []).some((id) => {
     const content = ws?.windows[id]?.content;
     return content?.kind === "source" && content.extractionId === openCheck.host?.extractionId && !isPaused(lifecycles[id]?.state ?? "hidden");
   }));
+  // The card centred near the top stands in unless the inline card is actually on the page (a window showing the
+  // original PDF, or another place in the book, renders no inline card): the way to answer never disappears.
+  const [inlineMissing, setInlineMissing] = useState(false);
+  useLayoutEffect(() => {
+    const missing = Boolean(openCheck && checkInlineHere && typeof document !== "undefined" && !document.querySelector('[data-check-card="inline"]'));
+    if (missing !== inlineMissing) setInlineMissing(missing);
+  });
+  const checkInline = checkInlineHere && !inlineMissing;
+  /** The desks' windows as the hold reads them: only a source or video window's own text can show during a check. */
+  const holdWindows = useMemo(() => new Map(Object.values(ws?.windows ?? {}).map((window) => [window.windowId, {
+    kind: windowKind({ kind: window.kind, content: window.content as { kind: string } | null }),
+    extractionId: window.content && (window.content.kind === "source" || window.content.kind === "video") ? window.content.extractionId : null,
+  }])), [ws]);
 
   const goalDesk = useGoalDesk({
     transport: goalTransport,
@@ -3236,6 +3391,12 @@ export function DeskShell({
   // while it is open on its object, so a closed menu's late answer never lands here.
   const menuPromotedRows = useRef<import("../../api/dto").PromotedRowDto[]>([]);
   const liveMenu = useRef<MenuObject | null>(null);
+  closeOverlays.current = () => {
+    closeSourceMenu();
+    setKnows(null);
+    setExerciseSheet(null);
+    setCarriedOpen(false);
+  };
   const closeSourceMenu = () => {
     liveMenu.current = null;
     menuWithheldAnswer.current.resolve(null);
@@ -3404,6 +3565,13 @@ export function DeskShell({
     openMenuOn(object);
   };
   const openMenuOn = (object: MenuObject) => {
+    // While a check is open the menu waits: its header quotes the object and its rows look things up (anything it
+    // showed would sit outside the veils).
+    const held = checkDesk.heldReason();
+    if (held) {
+      toastSafe(`the menu waits · ${held}`);
+      return;
+    }
     if (object.kind === "pad_line") {
       closeSourceMenu();
       const handle = object.windowId ? padHandles.current.get(object.windowId) : undefined;
@@ -3433,6 +3601,8 @@ export function DeskShell({
   /** `n` (a margin note on the hovered passage) and `b` (the hovered object's first promoted action, labelled
    * opened once it ran); false when the pointer is over nothing they apply to. */
   hoveredKeyRef.current = (what) => {
+    // A promoted action or a margin note by key would read the passage under the pointer: not while a check is open.
+    if (checkDesk.holding()) return false;
     const hovered = hoverTarget.current;
     if (!hovered || !stageRef.current?.contains(hovered)) return false;
     const object = objectAt(hovered, (windowId) => wsRef.current.windows[windowId]?.content?.kind ?? null, (windowId) => {
@@ -3593,6 +3763,8 @@ export function DeskShell({
       handler = (inquiry) => {
         if (inquiry) inquiries.current.set(windowId, inquiry);
         else inquiries.current.delete(windowId);
+        // A restored reading-path panel: the book's window opens its path once its Reader is there.
+        if (inquiry && pendingPaths.current.delete(windowId)) inquiry.showPath("open");
       };
       inquiryReadyFor.set(windowId, handler);
     }
@@ -3638,7 +3810,8 @@ export function DeskShell({
     if (goalPathRef.current.open) return;
     if (goalPathRef.current.toggle()) return;
     if (inquiries.current.get(windowId)?.showPath("open")) return;
-    openContent({ kind: "panel", panel: "path", extractionId: content.extractionId } as ContentRefDto);
+    // Reading paths are off for this library (reader.reading_paths): there is no path to show.
+    toastNow("There’s no reading path for this book.");
   };
   const windowOpenPathRef = useRef(windowOpenPath);
   windowOpenPathRef.current = windowOpenPath;
@@ -3805,19 +3978,27 @@ export function DeskShell({
     return () => timers.clear(handle);
   }, [undo, timers]);
 
-  if (!ws) {
+  // Nothing of the desks renders before the recovery read says whether a check is open (an open one's veils come
+  // first); a failed read says so and offers to read again, and shows nothing meanwhile (fail closed).
+  const recovery = checkDesk.recovery();
+  if (!ws || recovery !== "known") {
     return (
-      <div className="desk-shell" data-desk-shell="">
+      <div className="desk-shell" data-desk-shell="" data-check-recovery={recovery}>
         <header className="desk-top"><span className="desk-brand">◇ LearnLoop</span></header>
         <main className="desk-main"><aside className="desk-shelf" /><section className="desk-stage" ref={stageRef} /></main>
-        <footer className="desk-keys"><span className="note">◐ Opening your desks…</span></footer>
+        <footer className="desk-keys">
+          {recovery === "failed" ? (
+            <span className="note" role="alert">couldn't tell whether a check is open on your desks · <button type="button" onClick={() => checkDesk.retryRecovery()}>try again</button></span>
+          ) : <span className="note">◐ Opening your desks…</span>}
+        </footer>
       </div>
     );
   }
 
   const paneBody = (window: DeskWindow, lifecycle: WindowLifecycle): ReactNode => {
     const content = window.content;
-    const card = content && (content.kind === "source" || content.kind === "video") ? library?.find((entry) => entry.sourceId === content.sourceId) ?? null : null;
+    const listed = content && (content.kind === "source" || content.kind === "video") ? library?.find((entry) => entry.sourceId === content.sourceId) ?? null : null;
+    const card = listed && listed.readiness !== "ready" ? readyCards.current.get(listed.sourceId) ?? listed : listed;
     if (renderPane) return renderPane({ window, lifecycle, card });
     if (window.kind === "pad_stack" || content?.kind === "pad" || content?.kind === "lesson") {
       // A pad or a lesson in a slot of its own is a stack of one.
@@ -3858,13 +4039,14 @@ export function DeskShell({
           onTouched: pairHandlersFor(window.windowId).touched,
           onWorkOnPad: (handoff) => void workOnPad(handoff),
           onSkimming: skimmingFor(window.windowId),
+          handoff: pendingHandoffs.current.get(window.windowId) ?? null,
           onError,
           ...(reader ? { reader } : {}),
-          // A book following a video marks its passage over the goal lens (RD10); a due check's closed marker (or its
-          // open card) sits before its host passage (RD7).
+          // A book following a video marks its passage over the goal lens (RD10); a begun check's open card sits before
+          // its host passage (RD7; a due check is placed at no passage).
           lens: checkLenses.lensFor(window.windowId, content.extractionId, content.kind === "source"
             ? followLenses.lensFor(window.windowId, goalDesk.lensFor(window.windowId, content.extractionId), videoDesk.followedSpan(window.windowId))
-            : goalDesk.lensFor(window.windowId, content.extractionId), checkDesk, checkNow),
+            : goalDesk.lensFor(window.windowId, content.extractionId), checkDesk),
         };
         if (content.kind === "video") {
           return <VideoWindow {...props} windowId={window.windowId} desk={videoDesk} transport={videoTransport} poller={poller} />;
@@ -3886,21 +4068,22 @@ export function DeskShell({
           );
         }
         if (content.panel === "path") {
-          return (
-            <PathPanel
-              extractionId={content.extractionId ?? null}
-              onError={onError}
-              onJump={(spanId) => {
-                const target = content.extractionId ? sourceWindowOf(window.deskId, content.extractionId) : null;
-                if (!target) return;
-                commit(setFocus(wsRef.current, window.deskId, target));
-                const jump = jumps.current.get(target);
-                if (jump) jump(spanId);
-              }}
-            />
-          );
+          // The reading's path is the book's window's own now (p, "what matters here?"); a path panel that arrived from
+          // another device is restored there when the desks next open.
+          return <div className="desk-panel desk-quiet">The reading path is in the book’s window now: press p there.</div>;
         }
         return <LibraryPanel query={null} onOpenHit={openHit} onClose={() => run({ kind: "closeWindow" })} onError={onError} library={library ?? null} reader={reader ?? null} />;
+      }
+      case "preparing": {
+        const preparing = library?.find((entry) => entry.sourceId === content.sourceId) ?? null;
+        return (
+          <PreparingWindow
+            card={preparing}
+            libraryLoaded={library !== null}
+            onReady={(next, position) => void bookReady(window.deskId, window.windowId, next, position)}
+            onError={onError}
+          />
+        );
       }
       case "compare":
         return <LibraryPanel query={content.query ?? null} anchor={compareAnchorOf(window.view)} onOpenHit={openHit} onClose={() => run({ kind: "closeWindow" })} onError={onError} library={library ?? null} reader={reader ?? null} />;
@@ -3912,8 +4095,10 @@ export function DeskShell({
             onOpenClaim={openClaim}
           />
         );
-      default:
-        return <div className="desk-panel desk-quiet">This window can’t open here. Close it and reopen the source from your library.</div>;
+      default: {
+        const restored = restoreContent(content);
+        return <div className="desk-panel desk-quiet">This window ({restored.kind === "inert" ? restored.name : "a window"}) can’t open here. Close it and reopen the source from your library.</div>;
+      }
     }
   };
 
@@ -4000,13 +4185,15 @@ export function DeskShell({
     : [["alt+h/l", "window"], ["alt+j/k", "window · desk"], ["alt+[ ]", "move"], ["alt+, .", "stack · unstack"], ["alt+↵", "focus"], ["alt+w", "close"], ["c", "companion here"], ["shift+c", "dock it"], ["/", "find"]];
 
   return (
+    <CheckHoldContext.Provider value={checkHolding}>
     <PadsHostContext.Provider value={padsHost}>
     <PenHostContext.Provider value={penHost}>
       <NotebookBridgeContext.Provider value={notebookBridge}>
     <div className={`desk-shell${penOn ? " pen-mode" : ""}${focusMode || leaveTarget?.focusWindowId ? " focus-mode" : ""}${overview ? " overview" : ""}${zooming ? " zooming" : ""}${goalDesk.hasBand ? " has-goal" : ""}`} data-desk-shell="" data-focus-mode={focusMode ? "on" : "off"} data-overview={overview ? "on" : "off"}>
       <header className="desk-top">
-        <span className="desk-brand">◇ LearnLoop</span>
-        <nav className="desk-tabs" aria-label="desks">
+        <span className="desk-brand" {...{ [SAFE_ATTR]: "" }}>◇ LearnLoop</span>
+        {/* The desks' names and the header's buttons are chrome (the learner's own names, fixed labels). */}
+        <nav className="desk-tabs" aria-label="desks" {...{ [SAFE_ATTR]: "" }}>
           {ws.desks.map((each) => (
             renaming === each.deskId ? (
               <input
@@ -4053,14 +4240,23 @@ export function DeskShell({
         </nav>
         {goalDesk.topChip}
         <span className="grow" />
+        <span className="desk-top-tools" style={{ display: "contents" }} {...{ [SAFE_ATTR]: "" }}>
         <button type="button" className="tb penchip" aria-pressed={penOn} title="alt+p · pen mode" onClick={() => setPenOn((on) => !on)}>✎ pen <span>{penOn ? "on" : "off"}</span></button>
         {viewportWidth >= DESK_SIZES.shelfFoldBelow ? (
           <button type="button" className="tb simpen" aria-pressed={simulatePen} title="draw with the mouse as if it were a pen" onClick={() => setSimulatePen((on) => { if (!on) setPenOn(true); return !on; })}>simulate pen: <span>{simulatePen ? "on" : "off"}</span></button>
         ) : null}
         <button type="button" className="tb" aria-pressed={overview} title="alt+o" onClick={() => toggleOverview()}>o overview</button>
         <button type="button" className="tb" aria-expanded={opener} onClick={() => setOpener((open) => !open)}>+ open beside</button>
-        {onLeave ? <button type="button" className="tb" onClick={onLeave}>old Reader</button> : null}
+        </span>
       </header>
+      {promptContract.data && promptContract.data.readerEnabled === false ? (
+        // The library's reading switch is off: every Reader read refuses, so the windows cannot open their books. Said
+        // once, with the setting (the old Reader's list of books said it the same way).
+        // Safe while a check is open: one fixed line about a setting, no study material.
+        <div className="desk-quiet" role="note" data-desk-reader-off="" {...{ [SAFE_ATTR]: "" }} style={{ padding: "6px 16px", borderBottom: "1px solid var(--desk-line)" }}>
+          Reading is off in this library: set <code>tutor_qa.reader_enabled = true</code> in learnloop.toml to read and annotate your sources here.
+        </div>
+      ) : null}
       {goalDesk.band}
       <main className={`desk-main${viewportWidth < DESK_SIZES.shelfFoldBelow ? " rail" : ""}`} ref={mainRef}>
         <Shelf
@@ -4173,20 +4369,24 @@ export function DeskShell({
                         data-window-kind={window.kind}
                         className={`desk-pane${paired && window.active ? " active-pane" : ""}`}
                       >
+                        {/* The head is the window's chrome: its glyph, name and buttons stay readable while a check
+                            holds the page (the name then says only what the window is: a book's name, else its kind);
+                            its place in the reading and its chips are held in place like anything else. */}
                         <div className="desk-pane-head">
-                          <span className="g" title={window.kind === "pad_stack" || window.kind === "pad" ? "Pad" : KIND_WORD[window.kind] ?? "Window"}>{KIND_GLYPH[window.kind] ?? "§"}</span>
-                          <span className="t">{titleOf(window)}</span>
+                          <span className="g" {...{ [SAFE_ATTR]: "" }} title={window.kind === "pad_stack" || window.kind === "pad" ? "Pad" : KIND_WORD[window.kind] ?? "Window"}>{KIND_GLYPH[window.kind] ?? "§"}</span>
+                          <span className="t" {...{ [SAFE_ATTR]: "" }}>{checkHolding ? heldTitleOf(window) : titleOf(window)}</span>
                           {window.kind === "pad_stack" ? (
-                            <button type="button" className="emi pinfo" aria-label="where your words go" title="where your words go" aria-expanded={emissionOpen === id}
+                            <button type="button" className="emi pinfo" {...{ [SAFE_ATTR]: "" }} aria-label="where your words go" title="where your words go" aria-expanded={emissionOpen === id}
                               onClick={() => setEmissionOpen((now) => (now === id ? null : id))}>ⓘ</button>
                           ) : null}
                           {window.kind === "pad_stack" ? <span className="loc">yours</span> : status[id]?.where ? <span className="loc">{status[id]?.where}</span> : null}
                           {window.content?.kind === "source" ? <FollowChip desk={videoDesk} windowId={id} /> : null}
-                          {paired ? <span className="hint">{window.active ? "Alt+. gives this window its own space" : "click or alt+j/k"}</span> : null}
+                          {paired ? <span className="hint" {...{ [SAFE_ATTR]: "" }}>{window.active ? "Alt+. gives this window its own space" : "click or alt+j/k"}</span> : null}
                           <button
                             type="button"
                             className="x"
-                            aria-label={`close ${titleOf(window)}`}
+                            {...{ [SAFE_ATTR]: "" }}
+                            aria-label={`close ${checkHolding ? heldTitleOf(window) : titleOf(window)}`}
                             title="close (alt+w)"
                             style={paired ? undefined : { marginLeft: "auto" }}
                             onClick={(event) => {
@@ -4340,7 +4540,8 @@ export function DeskShell({
           ) : null}
           {hud ? <div className="desk-hud" role="status">{hud}</div> : null}
           {openCheck && !checkInline ? <CheckCardOverlay desk={checkDesk} /> : null}
-          <VeilLayer desk={checkDesk} root={typeof document === "undefined" ? null : document} onChange={protectCheckView} />
+          <DeskCheckMarker desk={checkDesk} onCheckNow={checkNow} />
+          <VeilLayer desk={checkDesk} root={typeof document === "undefined" ? null : document.body} windows={holdWindows} onChange={protectCheckView} />
           <Companion
             ref={companionRef}
             state={companionState}
@@ -4363,7 +4564,12 @@ export function DeskShell({
             deskTitle={deskTitle}
             onAsk={askCompanion}
             onCancel={(requestId) => asks.cancel(requestId)}
-            onRetry={(requestId) => asks.retry(requestId)}
+            onRetry={(requestId) => {
+              // A retry asks the tutor again: it waits while a check is open, as the ask does.
+              const held = checkDesk.heldReason();
+              if (held) toastSafe(`the companion waits · ${held}`);
+              else asks.retry(requestId);
+            }}
             onClearChip={() => setChip(null)}
             onOpenClaim={openClaim}
             onOpenAnchor={(anchor) => openClaim({ extractionId: anchor.extractionId, spanId: anchor.spanId })}
@@ -4404,7 +4610,8 @@ export function DeskShell({
         </section>
       </main>
       {goalDesk.overlays}
-      <footer className="desk-keys">
+      {/* The keys' footer is chrome: held quietly while a check is open (its undo line and dots name windows). */}
+      <footer className="desk-keys" data-check-region="the footer" data-check-region-quiet="">
         {goalDesk.hasBand && !overview ? <span className="gk"><kbd title="Press P to open Path">p</kbd> your path</span> : null}
         {penOn && !overview ? (
           <>
@@ -4444,15 +4651,23 @@ export function DeskShell({
           focusTitle={titleOf(focusWindow)}
           onOpen={openContent}
           onOpenCard={(card) => {
+            if (card.readiness !== "ready") {
+              openContent({ kind: "preparing", sourceId: card.sourceId });
+              return;
+            }
             void transport.resolveExtraction(card.sourceId)
               .then((extractionId) => openContent(contentForCard(card, extractionId)))
               .catch(() => toastNow("Couldn’t open this source. Find it in your library and try again."));
+          }}
+          onOpenPath={() => {
+            setOpener(false);
+            if (focusWindow) windowOpenPath(focusWindow.windowId);
           }}
           onClose={() => setOpener(false)}
         />
       ) : null}
       {whichKey ? <WhichKey /> : null}
-      {toast ? <div key={toast.key} className="desk-toast" role="status">{toast.text}</div> : null}
+      {toast ? <div key={toast.key} className="desk-toast" role="status" {...(toast.safe ? { [SAFE_ATTR]: "" } : {})}>{toast.text}</div> : null}
       {focusMode && badge !== null ? (
         <div key={badge} className="desk-zoom-badge fade" role="status">
           {Math.round(focusZoom * 100)}% · alt+↵ or esc to leave · = − to zoom
@@ -4562,6 +4777,7 @@ export function DeskShell({
       </NotebookBridgeContext.Provider>
     </PenHostContext.Provider>
     </PadsHostContext.Provider>
+    </CheckHoldContext.Provider>
   );
 }
 
@@ -4573,6 +4789,39 @@ export function contentForCard(card: SourceLibraryCard, extractionId: string): C
   return isVideoCard(card)
     ? { kind: "video", sourceId: card.sourceId, extractionId }
     : { kind: "source", sourceId: card.sourceId, extractionId, view: "render" };
+}
+
+// The preparing view draws the original with pdf.js: loaded when a book being prepared is first shown.
+const PreparingView = lazy(() => import("../reader/PreparingView").then((module) => ({ default: module.PreparingView })));
+
+/** A book still being prepared, in its own window: the original's pages while the text is made, the progress, a stopped
+ * book's action and its retry (the Reader's preparing view). Ready, it hands over: the desk opens the book's window in
+ * its place (at the page the learner had reached). */
+function PreparingWindow({
+  card,
+  libraryLoaded,
+  onReady,
+  onError,
+}: {
+  card: SourceLibraryCard | null;
+  libraryLoaded: boolean;
+  onReady: (card: SourceLibraryCard, position: ReadingPosition | null) => void;
+  onError: (message: string) => void;
+}) {
+  const ready = card?.readiness === "ready";
+  useEffect(() => {
+    if (card && ready) onReady(card, null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [card?.sourceId, ready]);
+  if (!card) return <div className="desk-panel desk-quiet">{libraryLoaded ? "This source is not in your library any more." : "◐ Opening…"}</div>;
+  if (ready) return <div className="desk-panel desk-quiet">◐ Opening {card.title}…</div>;
+  return (
+    <div className="desk-preparing" style={{ flex: 1, minHeight: 0, height: "100%", display: "flex", flexDirection: "column" }}>
+      <Suspense fallback={<div className="desk-panel desk-quiet">◐ Opening {card.title}…</div>}>
+        <PreparingView key={card.sourceId} card={card} onReady={onReady} onError={onError} />
+      </Suspense>
+    </div>
+  );
 }
 
 function Sliver({ side, title, kind, onClick, register }: { side: "l" | "r"; title: string; kind: string; onClick: () => void; register?: (node: HTMLButtonElement | null) => void }) {
@@ -4621,6 +4870,7 @@ function OpenBeside({
   focusTitle,
   onOpen,
   onOpenCard,
+  onOpenPath,
   onClose,
 }: {
   library: SourceLibraryCard[] | null;
@@ -4628,6 +4878,7 @@ function OpenBeside({
   focusTitle: string;
   onOpen: (content: ContentRefDto) => void;
   onOpenCard: (card: SourceLibraryCard) => void;
+  onOpenPath: () => void;
   onClose: () => void;
 }) {
   const [filter, setFilter] = useState("");
@@ -4661,7 +4912,7 @@ function OpenBeside({
         {book ? (
           <div style={{ marginBottom: 8 }}>
             <div className="wkt">for {focusTitle}</div>
-            {(["guide", "notes", "path"] as const).map((panel) => (
+            {(["guide", "notes"] as const).map((panel) => (
               <div key={panel} className="wkr">
                 <span />
                 <button type="button" style={{ textAlign: "left" }} onClick={() => onOpen({ kind: "panel", panel, extractionId: book.extractionId })}>
@@ -4669,6 +4920,11 @@ function OpenBeside({
                 </button>
               </div>
             ))}
+            {/* The reading's path opens in the book's own window (p), not a panel beside it. */}
+            <div className="wkr">
+              <span />
+              <button type="button" style={{ textAlign: "left" }} onClick={onOpenPath}>◇ {PANEL_TITLES.path}</button>
+            </div>
           </div>
         ) : null}
         <div className="wkt">the library</div>

@@ -71,7 +71,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - [[Reference/Desktop/TypeScript/components/AskOverlay|src/components/AskOverlay.tsx]] — import-or-re-export: `isShowMeKey`; references `isShowMeKey`
 - [[Reference/Desktop/TypeScript/components/askFigures|src/components/askFigures.tsx]] — import-or-re-export: `showMeSourceLine`; references `showMeSourceLine`
-- [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] — import-or-re-export: `ShowMeLine`; references `ShowMeLine`
+- [[Reference/Desktop/TypeScript/screens/desks/source/ScopedSource|src/screens/desks/source/ScopedSource.tsx]] — import-or-re-export: `ShowMeLine`; references `ShowMeLine`
 - [[Reference/Desktop/TypeScript/screens/reader/AskRail|src/screens/reader/AskRail.tsx]] — import-or-re-export: `SHOW_ME_COPY`, `ShowMeLine`, `isShowMeKey`, `passageChip`, `showMeSourceLine`; references `SHOW_ME_COPY`, `ShowMeLine`, `isShowMeKey`, `passageChip`, `showMeSourceLine`
 
 ## Dependencies

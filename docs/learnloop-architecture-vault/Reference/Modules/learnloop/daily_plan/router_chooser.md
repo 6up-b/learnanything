@@ -235,6 +235,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f_on_a_plan_the_router_draws_once_over_its_arms_and_a_lesson_at_the_same_boundary`
   - `test_f_the_mid_block_restraint_forces_now_with_no_room_and_draws_two_arms_otherwise`
   - `test_f_with_no_room_to_wait_the_probe_is_forced_unless_a_lesson_contests_it`
+- [tests/test_probe_router_decision_integrity.py](../../../../../../tests/test_probe_router_decision_integrity.py) — direct import
+  - `test_r2_the_trace_names_the_probe_the_coin_asked_at_its_served_probability`
+  - `test_r4_a_failed_write_never_turns_a_drawn_lesson_into_the_probe`
+  - `test_r4_a_refused_assignment_rolls_the_decision_back_and_no_probe_is_asked`
+  - `test_r4_with_logging_off_the_coins_probe_is_not_asked`
+  - `test_r5_with_the_objective_off_the_old_gate_never_draws_the_unwritten_probe`
 - [tests/test_refusal_records.py](../../../../../../tests/test_refusal_records.py) — direct import
   - `test_the_follow_up_gates_decision_names_its_rule_arms_and_components`
 - [tests/test_ro0_codex_review.py](../../../../../../tests/test_ro0_codex_review.py) — direct import

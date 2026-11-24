@@ -41,6 +41,11 @@ def _vault(tmp_path):
     return paths, ctx, commitment
 
 
+def _handle(ctx) -> str:
+    [check] = call(ctx, "checks.due_for", {})["checks"]
+    return check["handle"]
+
+
 def _sessions(paths) -> list[str]:
     with closing(sqlite3.connect(paths.sqlite_path)) as connection:
         return [row[0] for row in connection.execute("SELECT id FROM sessions ORDER BY started_at")]
@@ -49,7 +54,7 @@ def _sessions(paths) -> list[str]:
 def test_with_no_session_the_check_opens_in_a_new_one_and_returns_it(tmp_path):
     paths, ctx, commitment = _vault(tmp_path)
     assert _sessions(paths) == []
-    card = call(ctx, "check.begin_inline", {"requestId": "r1", "commitmentId": commitment, "visible": {}})
+    card = call(ctx, "check.begin_inline", {"requestId": "r1", "handle": _handle(ctx), "visible": {}})
     [session] = _sessions(paths)
     assert card["practiceSession"]["sessionId"] == session
     assert card["administrationToken"]
@@ -58,16 +63,20 @@ def test_with_no_session_the_check_opens_in_a_new_one_and_returns_it(tmp_path):
 def test_without_one_named_the_most_recent_open_session_is_used(tmp_path):
     paths, ctx, commitment = _vault(tmp_path)
     open_session = call(ctx, "start_session", {"energy": "medium"})["sessionId"]
-    card = call(ctx, "check.begin_inline", {"requestId": "r1", "commitmentId": commitment, "visible": {}})
+    card = call(ctx, "check.begin_inline", {"requestId": "r1", "handle": _handle(ctx), "visible": {}})
     assert card["practiceSession"]["sessionId"] == open_session
     assert _sessions(paths) == [open_session]
 
 
-def test_a_check_that_cannot_open_starts_no_session(tmp_path):
+def test_a_check_that_cannot_open_starts_no_session(tmp_path, monkeypatch):
     paths, ctx, commitment = _vault(tmp_path)
-    call(ctx, "check.begin_inline", {"requestId": "r1", "commitmentId": commitment, "visible": {}})
+    call(ctx, "check.begin_inline", {"requestId": "r1", "handle": _handle(ctx), "visible": {}})
     before = _sessions(paths)
+    import learnloop_sidecar.handlers.inline_checks as H
+
+    # Another due check's handle: it resolves to a second commitment while this one is open.
+    monkeypatch.setattr(H, "resolve_handle", lambda *args, **kwargs: "cm_other")
     with pytest.raises(Exception) as refused:
-        call(ctx, "check.begin_inline", {"requestId": "r2", "commitmentId": "cm_other", "visible": {}})
+        call(ctx, "check.begin_inline", {"requestId": "r2", "handle": "chk_other", "visible": {}})
     assert getattr(refused.value, "code", None) == "administration_open"
     assert _sessions(paths) == before

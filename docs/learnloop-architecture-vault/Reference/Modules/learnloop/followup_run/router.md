@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/followup_run/router.py](../../../../../../src/learnloop/followup_run/router.py) |
-| Source lines | 480 |
+| Source lines | 500 |
 | Owning package | [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -62,13 +62,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
   - `for_author(self) -> dict[str, Any]` (line 91; public)
 - `hard_refusal(vault: Any, repository: Repository, row: Mapping[str, Any], *, factor_id: str) -> str | None` ([source](../../../../../../src/learnloop/followup_run/router.py), line 96) — §5: what still refuses, in the orchestrator's own terms, before anything is spent.
 - `observational(repository: Repository, factor_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/followup_run/router.py), line 117) — §5 item 5: the checks that stopped deciding on this lane, still on the record.
-- `decide(vault: Any, repository: Repository, row: Mapping[str, Any], *, choice: Any, clients: Any, clock: Clock | None) -> FollowupDecision` ([source](../../../../../../src/learnloop/followup_run/router.py), line 243)
-- `decide_once(vault: Any, repository: Repository, row: Mapping[str, Any], *, choice: Any, clients: Any, clock: Clock | None) -> FollowupDecision` ([source](../../../../../../src/learnloop/followup_run/router.py), line 293) — The workflow's one decision (§5 item 2): the one it already recorded, else a new one.
-- `record_decision(vault: Any, repository: Repository, row: Mapping[str, Any], decision: FollowupDecision, *, clock: Clock | None) -> FollowupDecision` ([source](../../../../../../src/learnloop/followup_run/router.py), line 326) — Log it, with its objective frozen, and name it on the workflow, in one transaction, so a crash leaves both or neither.
-- `record_outcome(repository: Repository, row: Mapping[str, Any], decision: FollowupDecision, *, outcome: str, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/followup_run/router.py), line 435) — Generation failure, skip and abandonment are distinct outcomes (§5 item 2).
-- `append_outcome(repository: Repository, decision_id: str, workflow_id: str, *, outcome: str, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/followup_run/router.py), line 443)
-- `bind_item(repository: Repository, row: Mapping[str, Any], decision: FollowupDecision, admitted: Any, *, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/followup_run/router.py), line 449) — The appended binding: decision -> generated item and its probe presentation.
-- `bind_plan_presentation(repository: Repository, row: Mapping[str, Any], *, plan_presentation_id: str, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/followup_run/router.py), line 463) — The second presentation: the plan's own, once Next served it.
+- `decide(vault: Any, repository: Repository, row: Mapping[str, Any], *, choice: Any, clients: Any, clock: Clock | None) -> FollowupDecision` ([source](../../../../../../src/learnloop/followup_run/router.py), line 247)
+- `decide_once(vault: Any, repository: Repository, row: Mapping[str, Any], *, choice: Any, clients: Any, clock: Clock | None) -> FollowupDecision` ([source](../../../../../../src/learnloop/followup_run/router.py), line 297) — The workflow's one decision (§5 item 2): the one it already recorded, else a new one.
+- `record_decision(vault: Any, repository: Repository, row: Mapping[str, Any], decision: FollowupDecision, *, clock: Clock | None) -> FollowupDecision` ([source](../../../../../../src/learnloop/followup_run/router.py), line 335) — Log it, with its objective frozen, and name it on the workflow, in one transaction, so a crash leaves both or neither.
+- `record_outcome(repository: Repository, row: Mapping[str, Any], decision: FollowupDecision, *, outcome: str, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/followup_run/router.py), line 455) — Generation failure, skip and abandonment are distinct outcomes (§5 item 2).
+- `append_outcome(repository: Repository, decision_id: str, workflow_id: str, *, outcome: str, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/followup_run/router.py), line 463)
+- `bind_item(repository: Repository, row: Mapping[str, Any], decision: FollowupDecision, admitted: Any, *, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/followup_run/router.py), line 469) — The appended binding: decision -> generated item and its probe presentation.
+- `bind_plan_presentation(repository: Repository, row: Mapping[str, Any], *, plan_presentation_id: str, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/followup_run/router.py), line 483) — The second presentation: the plan's own, once Next served it.
 
 ### Module constants
 
@@ -79,8 +79,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `DECLINE` ([src/learnloop/followup_run/router.py](../../../../../../src/learnloop/followup_run/router.py), line 43)
 - `ARM_LABELS` ([src/learnloop/followup_run/router.py](../../../../../../src/learnloop/followup_run/router.py), line 46)
 - `VERDICT_ABSENT_NO_INSTRUMENT` ([src/learnloop/followup_run/router.py](../../../../../../src/learnloop/followup_run/router.py), line 125)
-- `PROBE_COIN_NO_PLAN` ([src/learnloop/followup_run/router.py](../../../../../../src/learnloop/followup_run/router.py), line 206)
-- `PROBE_COIN_ROUTER_OFF` ([src/learnloop/followup_run/router.py](../../../../../../src/learnloop/followup_run/router.py), line 207)
+- `PROBE_COIN_NO_PLAN` ([src/learnloop/followup_run/router.py](../../../../../../src/learnloop/followup_run/router.py), line 210)
+- `PROBE_COIN_ROUTER_OFF` ([src/learnloop/followup_run/router.py](../../../../../../src/learnloop/followup_run/router.py), line 211)
 
 ### Explicit exports
 
@@ -107,8 +107,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_observe(repository: Repository, factor_id: str) -> tuple[dict[str, Any], BaseException | None]` ([source](../../../../../../src/learnloop/followup_run/router.py), line 128) — The value checks' answer, or ``{}`` and the exception that stopped them (which never decides).
 - `_card_facts(vault: Any, repository: Repository, choice: Any, seen: Mapping[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/followup_run/router.py), line 159)
 - `_plan_context(vault: Any, repository: Repository, row: Mapping[str, Any], *, clients: Any, clock: Clock | None) -> Any` ([source](../../../../../../src/learnloop/followup_run/router.py), line 171) — The session's standing plan and its router gate, or None (no plan, no timing decision).
-- `_coin_decision(vault: Any, row: Mapping[str, Any], *, decided_by: str, observational: dict[str, Any], value_check_error: BaseException | None, **plan_fields: Any) -> FollowupDecision` ([source](../../../../../../src/learnloop/followup_run/router.py), line 210) — The probe router's tag with no plan or no router to draw: the probe is not written yet, so no policy can value it (G2 design decision 1); no intervention, unless the probe coin asks it now (``probe_coin``), with its exact propensity and its own assignment row.
-- `_gate_record(row: Mapping[str, Any], decision: FollowupDecision, *, logged: bool) -> Any` ([source](../../../../../../src/learnloop/followup_run/router.py), line 321)
+- `_coin_decision(vault: Any, row: Mapping[str, Any], *, decided_by: str, observational: dict[str, Any], value_check_error: BaseException | None, **plan_fields: Any) -> FollowupDecision` ([source](../../../../../../src/learnloop/followup_run/router.py), line 214) — The probe router's tag with no plan or no router to draw: the probe is not written yet, so no policy can value it (G2 design decision 1); no intervention, unless the probe coin asks it now (``probe_coin``), with its exact propensity and its own assignment row.
+- `_gate_record(row: Mapping[str, Any], decision: FollowupDecision, *, logged: bool) -> Any` ([source](../../../../../../src/learnloop/followup_run/router.py), line 325)
+- `class _Unlogged(Exception)` ([source](../../../../../../src/learnloop/followup_run/router.py), line 330) — The probe router's tag: the decision or its coin's assignment could not be committed; nothing it chose is served.
 
 ## Who imports or calls it
 

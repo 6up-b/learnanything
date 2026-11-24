@@ -9,7 +9,7 @@
 // pick; Esc leaves; on the library page Shift+Enter asks instead of searching.
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { ReaderScreen } from "../ReaderScreen";
+import { ScopedSource } from "../desks/source/ScopedSource";
 import { setAlgoConfig } from "../../app/algoConfig";
 import { readerRenderViewFixture as view } from "../../fixtures/readerRenderView";
 import { readerIntentContractFixture as intent } from "../../fixtures/readerIntentContract";
@@ -107,7 +107,7 @@ function select(block: HTMLElement): void {
 
 async function askFromSelection() {
   const onCheckMe = vi.fn();
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} onCheckMe={onCheckMe} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} onCheckMe={onCheckMe} />);
   const block = await screen.findByText(view.blocks[1].markdown);
   select(block);
   await screen.findByRole("textbox", { name: BOX });
@@ -246,7 +246,7 @@ it("practice this question proposes through find_practice and a pick is a learne
 });
 
 it("Ctrl+Shift+F asks about the passage, and Esc goes back to reading", async () => {
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   await screen.findByText(view.blocks[1].markdown);
   fireEvent.keyDown(window, { key: "F", ctrlKey: true, shiftKey: true });
   const box = await screen.findByRole("textbox", { name: "ask your library" });
@@ -278,16 +278,9 @@ it("a failed ask keeps the question and offers try again", async () => {
   await waitFor(() => expect(api.readerLibraryAsk).toHaveBeenCalledTimes(2));
 });
 
-it("Shift+Enter in the library search asks your library instead of searching", async () => {
-  render(<ReaderScreen onError={vi.fn()} />);
-  const search = await screen.findByPlaceholderText("search all sources…");
-  fireEvent.change(search, { target: { value: "symmetric matrices" } });
-  api.readerSearchSources.mockResolvedValue({ query: "x", deep: false, searchedSources: 1, basis: "keyword", rewritten: null, hits: [] });
-  fireEvent.keyDown(search, { key: "Enter", shiftKey: true });
-  await waitFor(() => expect(api.readerLibraryAsk).toHaveBeenCalledWith(expect.objectContaining({ query: "symmetric matrices", entry: "library_search", extractionId: null })));
-  expect(await screen.findByText("A symmetric matrix equals its transpose.")).toBeTruthy();
-  expect(api.readerSearchSources).not.toHaveBeenCalledWith(expect.objectContaining({ deep: true }));
-});
+// Moved: "Shift+Enter in the library search asks your library instead of searching" (the list's search box was the
+// standalone frame's): desks/windows/CompareWindow.bare.test.tsx, "opened with no book open it asks across the library, on no
+// reading and no passage".
 
 it("the comparing keys work only inside the answer (UX §3.5)", async () => {
   api.getSpanView.mockResolvedValue({ spanView: { extractionId: "ext_other", spanId: "o1", page: 3, text: "A symmetric matrix equals its transpose.",
@@ -382,24 +375,9 @@ it("a verification failure is not called one source: the unchecked books show as
   expect(pane.textContent).not.toContain("come from one source");
 });
 
-it("on the library page, a practice proposal can be picked (F10)", async () => {
-  api.findPractice.mockResolvedValue({ version: 1, status: "ok", proposalId: "pp_1", items: [
-    { rank: 1, practiceItemId: "pi_1", learningObjectId: "lo_spectral", learningObjectTitle: "Spectral theorem", practiceMode: "short_answer", prompt: "Show a real symmetric matrix has real eigenvalues.", facetIds: [], rationale: null },
-  ] });
-  const onCheckMe = vi.fn();
-  render(<ReaderScreen onError={vi.fn()} onCheckMe={onCheckMe} />);
-  const search = await screen.findByPlaceholderText("search all sources…");
-  fireEvent.change(search, { target: { value: "symmetric matrices" } });
-  fireEvent.keyDown(search, { key: "Enter", shiftKey: true });
-  const answer = await screen.findByRole("region", { name: "ask your library" });
-  await within(answer).findByText("A symmetric matrix equals its transpose.");
-  fireEvent.click(within(answer).getByRole("button", { name: /practice this question/ }));
-  fireEvent.click(await within(answer).findByRole("button", { name: /practice this ▸/ }));
-  // The learner pick, coming back to the answer's first passage.
-  expect(onCheckMe).toHaveBeenCalledWith(expect.objectContaining({
-    practiceItemId: "pi_1", proposalId: "pp_1", spanId: "o1", card: expect.objectContaining({ sourceId: "src_other" }),
-  }));
-});
+// Moved: "on the library page, a practice proposal can be picked (F10)" (the library page was the standalone frame's):
+// desks/windows/CompareWindow.bare.test.tsx, "with no book open a practice proposal can be picked, at the answer's first
+// passage (F10)".
 
 it("a held-out selection's ask says why it was refused (F1)", async () => {
   api.readerLibraryAsk.mockRejectedValueOnce({ code: "exam_material", message: "This passage is held out of LearnLoop's models.", retryable: false });

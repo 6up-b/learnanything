@@ -1,5 +1,5 @@
 // The whole app in jsdom with the real desks (spec §21.1's proofs from the app's side): App mounted as it is, the
-// Reader place on the desks (the surface the learner chose, remembered), every desk and pad read and written through
+// Reader place on the desks (its only surface), every desk and pad read and written through
 // the app's api client to a fake sidecar, the books and their readings answered by the desks' fixture (fakeCore.ts,
 // through realDesk.tsx), and the app's own reads (the vault, Today) answered here. A command no one answers stays
 // pending, as a slow sidecar's would. A test file routes `@tauri-apps/api/core` to realDesk.tsx exactly as a
@@ -14,8 +14,10 @@ let vaults = 0;
 export interface AppSidecar {
   /** The desks and pads the app reads and writes. */
   server: FixtureDeskServer;
-  /** The machine's local storage, with the Reader place on the desks. */
+  /** The machine's local storage. */
   storage: Storage;
+  /** The vault's root, as the app's snapshot names it. */
+  root: string;
 }
 
 /** The fake sidecar for one app: a vault (``config`` as its snapshot carries it), an empty Today, and the desks. */
@@ -54,7 +56,6 @@ export function appSidecar(options: { state?: DeskStateDto; pads?: PadViewDto[];
     vaultMismatch: false, enabled: true }));
   answers.set("get_review_counts", () => ({ version: 1, pendingProposals: 0, openConflicts: 0 }));
   const storage = memoryStorage();
-  storage.setItem("learnloop.reader.surface", "desks");
   storage.setItem(`learnloop.desks.client.${root}`, clientId);
-  return { server, storage };
+  return { server, storage, root };
 }

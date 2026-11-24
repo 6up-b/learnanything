@@ -11,7 +11,7 @@
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { ReaderScreen } from "../ReaderScreen";
+import { ScopedSource } from "../desks/source/ScopedSource";
 import { setAlgoConfig } from "../../app/algoConfig";
 import { readerRenderViewFixture as view } from "../../fixtures/readerRenderView";
 import { readerIntentContractFixture as intent } from "../../fixtures/readerIntentContract";
@@ -62,7 +62,7 @@ function select(block: HTMLElement): void {
 }
 
 async function openBox() {
-  const result = render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  const result = render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   const block = await screen.findByText(view.blocks[1].markdown);
   select(block);
   const box = await screen.findByRole("textbox", { name: BOX });
@@ -147,7 +147,7 @@ it("a pointer click on a place lets go of the focus: it returns to the body", as
 });
 
 it("after a pointer click on a place, the intent box takes the first printable key", async () => {
-  render(inSimpleFrame(<ReaderScreen initialSource={source} onError={vi.fn()} />));
+  render(inSimpleFrame(<ScopedSource initialSource={source} onError={vi.fn()} />));
   const block = await screen.findByText(view.blocks[1].markdown);
   select(block);
   const box = (await screen.findByRole("textbox", { name: BOX })) as HTMLInputElement;

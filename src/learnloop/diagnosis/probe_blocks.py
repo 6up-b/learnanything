@@ -91,7 +91,7 @@ def block_complete(
         return True
     from learnloop.diagnosis.probe_authority import router_selected_presentation
 
-    if router_selected_presentation(vault, presentation):
+    if router_selected_presentation(repository, presentation):
         # The probe router's tag: the router decided one question; whether another is asked is not this block's
         # value decision.
         return True
@@ -101,7 +101,7 @@ def block_complete(
     qualifying = len(qualifying_rows)
     # mvp-0.21 (voi_stopping): while value decides, the episode's own count
     # neither closes the block nor bounds its size.
-    maximum_binds = episode_maximum_binds(vault, repository, qualifying_rows)
+    maximum_binds = episode_maximum_binds(vault, repository, qualifying_rows, episode=episode)
     if maximum_binds and qualifying >= episode.maximum_observations:
         return True
 

@@ -43,6 +43,7 @@ The Reader workbench's desks: the shell, the window lifecycle contract, the shel
 - [[Reference/Desktop/TypeScript/screens/desks/problem/_area|TypeScript/screens/desks/problem]] — RW2 problems on the desks: one problem pad per workbench session (its id derived from the session's), found from any view of the desks, with the workbench's steps, help ladder, checks and submit.
 - [[Reference/Desktop/TypeScript/screens/desks/search/_area|TypeScript/screens/desks/search]] — Search in context: the groups of search.everything with the client's open-on-this-desk group, the meaning job, insert mode and the panel.
 - [[Reference/Desktop/TypeScript/screens/desks/sideBySide/_area|TypeScript/screens/desks/sideBySide]] — Side by side on the desks as paired windows: the pair a book opens in, which window leads, follow along between the two, and the way back.
+- [[Reference/Desktop/TypeScript/screens/desks/source/_area|TypeScript/screens/desks/source]] — The scoped source: everything a source window mounts (the book's open and identity, selection and capture, inquiry, the PDF, text and video bodies, cues, figures, notes, the lens, pen and windowing seams) and its contracts; the standalone Reader screen mounts the same source with its own branches.
 - [[Reference/Desktop/TypeScript/screens/desks/video/_area|TypeScript/screens/desks/video]] — Video windows on the desks: follow-along (a book's chip, its followed passage and the scroll, from reader.follow_along), the suggested chapters under a player (a polled judged job; accept and not this), the accepted chapters' ticks and minimap ranges, and the players' clocks for the timestamp key.
 - [[Reference/Desktop/TypeScript/screens/desks/windows/_area|TypeScript/screens/desks/windows]] — Desk windows: the Reader's source pane as a scoped source or video window, thread windows, and the panel windows hosting v1 Reader surfaces.
 
@@ -50,11 +51,11 @@ The Reader workbench's desks: the shell, the window lifecycle contract, the shel
 
 | Module | Status | Purpose | Imports | Imported by |
 |---|---|---|---:|---:|
-| [[Reference/Desktop/TypeScript/screens/desks/DeskShell|DeskShell.tsx]] | `ACTIVE` | Implements the `DeskShell` routed desktop screen and coordinates its learner-facing workflow state. | 73 | 3 |
+| [[Reference/Desktop/TypeScript/screens/desks/DeskShell|DeskShell.tsx]] | `ACTIVE` | Implements the `DeskShell` routed desktop screen and coordinates its learner-facing workflow state. | 78 | 4 |
 | [[Reference/Desktop/TypeScript/screens/desks/Shelf|Shelf.tsx]] | `ACTIVE` | Implements the `Shelf` routed desktop screen and coordinates its learner-facing workflow state. | 1 | 1 |
 | [[Reference/Desktop/TypeScript/screens/desks/fitMath|fitMath.tsx]] | `ACTIVE` | Implements the `fitMath` routed desktop screen and coordinates its learner-facing workflow state. | 0 | 6 |
 | [[Reference/Desktop/TypeScript/screens/desks/geometry|geometry.ts]] | `ACTIVE` | Provides `DESK_SIZES`, `Rect`, `Stage`, `slotWidth` and related exports within the desktop's TypeScript/screens/desks ownership area. | 0 | 8 |
-| [[Reference/Desktop/TypeScript/screens/desks/lifecycle|lifecycle.tsx]] | `ACTIVE` | Implements the `lifecycle` routed desktop screen and coordinates its learner-facing workflow state. | 0 | 45 |
+| [[Reference/Desktop/TypeScript/screens/desks/lifecycle|lifecycle.tsx]] | `ACTIVE` | Implements the `lifecycle` routed desktop screen and coordinates its learner-facing workflow state. | 0 | 46 |
 | [[Reference/Desktop/TypeScript/screens/desks/outbox|outbox.ts]] | `ACTIVE` | Provides `InkSaveBody`, `InkEraseBody`, `Batch`, `BatchBody` and related exports within the desktop's TypeScript/screens/desks ownership area. | 1 | 3 |
 | [[Reference/Desktop/TypeScript/screens/desks/selection|selection.ts]] | `ACTIVE` | Provides `WindowSelection`, `quoteOf`, `clipQuote`, `readWindowSelection` within the desktop's TypeScript/screens/desks ownership area. | 3 | 1 |
 | [[Reference/Desktop/TypeScript/screens/desks/store|store.ts]] | `ACTIVE` | Provides `DeskStoreTransport`, `DeskNotice`, `FLUSH_IDLE_MS`, `DeskStore` and related exports within the desktop's TypeScript/screens/desks ownership area. | 5 | 3 |

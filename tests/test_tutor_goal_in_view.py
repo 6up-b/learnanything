@@ -99,15 +99,22 @@ def test_the_goal_in_view_reaches_the_tutor_as_its_sentence_and_depth(goal_desk)
                  (done["questionEventId"],)) == [(goal_id,)]
 
 
-def test_a_goal_naming_a_topic_whose_cold_check_is_due_is_withheld_whole(goal_desk):
+def test_a_goal_naming_a_topic_whose_cold_check_is_due_is_given_and_withheld_whole_once_the_check_is_begun(goal_desk):
+    from learnloop.vault.loader import load_vault
+    from learnloop_sidecar.handlers.companion_ask import goal_in_view
+    from tests.inline_hold_helpers import hold_open
+
     paths, ctx, repository, tutor = goal_desk
     goal_id = scoped_goal(paths, repository, sentence="eigenvalues")
-    _due_check(repository, "lo_eigen")
+    commitment_id = _due_check(repository, "lo_eigen")
     ctx.reload(maintenance=False)
-    done = _ask(ctx, repository, "req_held", goalId=goal_id)
-    assert (done["status"], done["goalInView"]) == ("done", "withheld")
-    assert "goal_in_view" not in tutor.contexts[-1]
-    assert GOAL_TASK not in tutor.prompts[-1] and READER_GOAL_SUFFIX not in tutor.prompts[-1]
+    # Due and not begun: the goal is given as any goal (withholding it would point at the due check's topic).
+    done = _ask(ctx, repository, "req_due", goalId=goal_id)
+    assert (done["status"], done["goalInView"]) == ("done", "given")
+    assert tutor.contexts[-1]["goal_in_view"]["sentence"] == "eigenvalues"
+    # Begun: a goal naming its topic is withheld whole (the companion itself waits for the check then).
+    hold_open(repository, commitment_id)
+    assert goal_in_view(load_vault(paths.root), repository, goal_id) == (None, "withheld")
 
 
 def test_a_goal_that_names_no_held_topic_is_given_while_another_check_is_due(goal_desk):

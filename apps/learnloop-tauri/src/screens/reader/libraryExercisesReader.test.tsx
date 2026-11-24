@@ -6,7 +6,7 @@
 // offers only the book. The setup is RW4a's (libraryAsk.test.tsx).
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { ReaderScreen } from "../ReaderScreen";
+import { ScopedSource } from "../desks/source/ScopedSource";
 import { setAlgoConfig } from "../../app/algoConfig";
 import { readerRenderViewFixture as view } from "../../fixtures/readerRenderView";
 import { readerIntentContractFixture as intent } from "../../fixtures/readerIntentContract";
@@ -106,7 +106,7 @@ function select(block: HTMLElement): void {
 async function askFromSelection() {
   const onCheckMe = vi.fn();
   const onUseExercise = vi.fn();
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} onCheckMe={onCheckMe} onUseExercise={onUseExercise} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} onCheckMe={onCheckMe} onUseExercise={onUseExercise} />);
   const block = await screen.findByText(view.blocks[1].markdown);
   select(block);
   await screen.findByRole("textbox", { name: BOX });
@@ -189,42 +189,5 @@ it("without the workbench a card offers only the book (RW4b)", async () => {
   expect(within(card).getByRole("button", { name: /open in the book/ })).toBeTruthy();
 });
 
-// Codex review F1: on the library page (no book open) both actions open the
-// exercise's book; "use this one" also hands the shell the exercise. Their
-// shared navigation is defined before the page's early return.
-it("on the library page both exercise actions open the exercise's book (F1)", async () => {
-  setAlgoConfig({ workbench: { enabled: true } } as never);
-  const there = exercise("srcex:there", "src_other", "ext_other", "o5", "1. Show a symmetric matrix has real eigenvalues.");
-  api.findPractice.mockResolvedValue({ version: 1, status: "ok", proposalId: "pp_1", items: [], sourceExercises: [there] });
-  api.readerExerciseCandidates.mockResolvedValue(done({ version: 1, proposalId: "pp_1", withheld: 0, candidates: [
-    { key: "srcex:there", extractionId: "ext_other", spanIds: [], sourceId: "src_other", revisionId: "rev", exposure: fresh },
-  ] }, "exercise_candidates"));
-  api.readerSavedPlace.mockResolvedValue({ place: null });
-  const onError = vi.fn();
-  const onUseExercise = vi.fn();
-  const libraryPage = async () => {
-    const page = render(<ReaderScreen onError={onError} onCheckMe={vi.fn()} onUseExercise={onUseExercise} />);
-    const search = await screen.findByPlaceholderText("search all sources…");
-    fireEvent.change(search, { target: { value: "symmetric matrices" } });
-    fireEvent.keyDown(search, { key: "Enter", shiftKey: true });
-    const answer = await screen.findByRole("region", { name: "ask your library" });
-    await within(answer).findByText("A symmetric matrix equals its transpose.");
-    fireEvent.click(within(answer).getByRole("button", { name: /practice this question/ }));
-    return { page, card: await within(answer).findByTestId("exercise-candidate") };
-  };
-  // "Open in the book": the exercise's own book opens at it.
-  const first = await libraryPage();
-  expect(api.readerRenderView).not.toHaveBeenCalled();
-  expect(() => fireEvent.click(within(first.card).getByRole("button", { name: /open in the book/ }))).not.toThrow();
-  await waitFor(() => expect(api.readerRenderView).toHaveBeenCalled());
-  first.page.unmount();
-  api.readerRenderView.mockClear();
-  // "Use this one": the shell gets the exercise, and its book opens too.
-  const second = await libraryPage();
-  expect(() => fireEvent.click(within(second.card).getByRole("button", { name: /use this one/ }))).not.toThrow();
-  expect(onUseExercise).toHaveBeenCalledWith(expect.objectContaining({
-    key: "srcex:there", sourceId: "src_other", card: expect.objectContaining({ sourceId: "src_other" }),
-  }));
-  await waitFor(() => expect(api.readerRenderView).toHaveBeenCalled());
-  expect(onError).not.toHaveBeenCalled();
-});
+// Moved: "on the library page both exercise actions open the exercise's book (F1)" (the library page was the standalone
+// frame's): desks/windows/CompareWindow.bare.test.tsx, "with no book open both exercise actions open the exercise's book (F1)".

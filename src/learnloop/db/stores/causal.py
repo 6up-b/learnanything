@@ -2057,11 +2057,14 @@ class CausalStoreMixin:
         if once:
             with self.connection() as connection:
                 latest = connection.execute(
-                    "SELECT id, decision_fingerprint FROM causal_probe_decision_receipts "
+                    "SELECT id, decision_fingerprint, repair_status, candidate_id FROM causal_probe_decision_receipts "
                     "WHERE factor_id = ? ORDER BY created_at DESC, id DESC LIMIT 1",
                     (factor_id,),
                 ).fetchone()
-            if latest is not None and latest["decision_fingerprint"] == fingerprint:
+            # The same facts under the same status and candidate: a receipt never stands for a status it
+            # did not record.
+            if (latest is not None and latest["decision_fingerprint"] == fingerprint
+                    and latest["repair_status"] == repair_status and latest["candidate_id"] == candidate_id):
                 found = self.causal_probe_decision_receipt(str(latest["id"]))
                 assert found is not None
                 return found

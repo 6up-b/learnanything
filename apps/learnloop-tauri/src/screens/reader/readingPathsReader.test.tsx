@@ -4,7 +4,7 @@
 // scrolled into view); no model sees the selection for it.
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { ReaderScreen } from "../ReaderScreen";
+import { ScopedSource } from "../desks/source/ScopedSource";
 import { setAlgoConfig } from "../../app/algoConfig";
 import { readerRenderViewFixture as view } from "../../fixtures/readerRenderView";
 import { readerIntentContractFixture as intent } from "../../fixtures/readerIntentContract";
@@ -82,7 +82,7 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); setAlgoConfig(undefined); window.getSelection()?.removeAllRanges(); });
 
 it("the Guide shows the reading path in place of the goal card", async () => {
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   expect(await screen.findByText("Next: read Symmetric matrices · about 1 min of reading")).toBeTruthy();
   expect(screen.getByText("toward your goal: Derive mixture distributions")).toBeTruthy();
   expect(screen.queryByText("Reading toward your active goal")).toBeNull();
@@ -90,7 +90,7 @@ it("the Guide shows the reading path in place of the goal card", async () => {
 });
 
 it("Orient's what matters here? opens the Guide's path without asking a model", async () => {
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   await screen.findByText(/Next: read Symmetric/);
   fireEvent.click(screen.getByRole("button", { name: "ask" }));
   const block = await screen.findByText(view.blocks[1].markdown);
@@ -112,7 +112,7 @@ it("a ready path is read again when the Guide is shown again, without a remount"
   const later: ReadingPathDto = { ...PATH, next: { ...PATH.next!, text: "Next: read Orthogonal matrices · about 2 min of reading" } };
   let moved = false;
   api.readerReadingPath.mockImplementation(async () => (moved ? later : PATH));
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   await screen.findByText(PATH.next!.text);
   // Let the open's own reads settle (the plan arriving is a refresh signal too).
   await act(async () => { await new Promise((resolve) => setTimeout(resolve, 2600)); });

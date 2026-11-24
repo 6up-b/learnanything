@@ -343,3 +343,268 @@ something measured primes it).
   or harness run beyond the existing suite.
 - The module catalog notes for the two new modules (`intent/inline_administration.py`,
   `db/stores/check_administrations.py`) are not generated here (references are regenerated at integration).
+
+## 8. Fix round (the RD7 adversarial review, 2026-11-24): the backend half
+
+Branch `reader/rd7-fix-backend`. The review's theme: an answer could still be recorded cold after help, and an opening
+could be charged although nothing was shown. Ledger ids RD7-3 upward (the frontend half uses RD7-40 upward).
+
+### 8.1 The server contract the frontend codes against
+
+Written before the code was finished, so the frontend worker can start. Every key below is camelCase on the wire.
+Everything not named here is unchanged.
+
+**The card** (`check.begin_inline`, `check.open_inline`):
+- **`prompt`** is an allowlisted cold presentation, never the practice item's detail. It holds
+  `{practiceItemId, prompt, presentation, practiceMode, attemptTypesAllowed, activeFollowupKind, intentCheck}`
+  (`intentCheck` keeps `kind, commitmentId, cold, banner, helpHeader, locatorsHidden, duty, beingAnsweredIn`): the
+  question, its learner-facing
+  blocks (render them with Today's presentation component), and the check's banner and hidden locators. There is no
+  expected answer, hint, rubric, prior attempt or source locator in it. It is frozen at begin and returned unchanged on
+  recovery; the item is never served again.
+- **`submissionId`**: the submission reserved on this administration, or null. After a restart, reuse it for the
+  retry. The draft is the client's to keep (by token); the server stores no draft.
+- **`eligibility`**: the serve-time reason when the item opens not cold (`seen_before`, `primed`, `hold`, …), else
+  null. Word the card from it: an item that opens not cold must not say "a check on your own".
+- **`revision`**: the veil sets' sequence number, as in `check.protect_more`.
+- **A second begin for the same commitment**, with a new request id while its administration is open (a lost begin
+  reply, another click), returns that administration's card (`replayed: true`). It is not refused. Another
+  commitment's open administration is still refused, `administration_open`, with `{administrationToken, commitmentId}`
+  in the details.
+- **A begin request id whose administration is closed** is refused, `administration_closed`, with
+  `{state, outcome}` in the details. No prompt is returned.
+
+**Veil refs.** Each ref now carries **`measured`**: true when the server measures what opening it shows against the
+answer keys, false when it cannot. False covers:
+- a note;
+- a figure;
+- a lesson;
+- a thread or history with no exchange ids;
+- a pad block whose kind is not text (ink, sketch, a notebook cell);
+- a whole window with nothing listed;
+- anything the inventory does not describe.
+
+Opening an unmeasured ref always makes the answer practice, so the "show it anyway?" prompt must say that before
+opening.
+
+**`check.protect_more`**: the reply is `{veilAdditions, standing, revision}`:
+- `standing` is every ref veiled now and not opened (the authoritative set);
+- `revision` is the veil sets' sequence number.
+
+Replace the local set with `standing`, and lift a temporary whole-window cover only when the reply's `revision` covers
+the request that window was in. A retried request whose first reply was lost gets the same `standing`.
+
+**`check.expose`**:
+- **Input** adds **`exposureId`** (client-minted, stable for one opening). A retry with the same id returns the first
+  result and charges nothing again.
+- **`kind`** also takes **`"left"`**, with `ref: {kind: "surface", surface: "<where>"}`. The learner reached a surface
+  the veils do not cover while the check was open: the old Reader, Today, the desks unmounted, a route change. It is
+  recorded as an unmeasured opening, so the answer counts as practice. Call it before leaving, or at once on return,
+  if the administration is still open.
+- **Reply**: `{protectionStatus: {exposure, coldNow, measured, eligibility}}`. `measured` says whether this opening was
+  measured. The reveals and the receipt commit together: a refusal or failure means nothing was recorded, and the veil
+  must stay.
+
+**`check.submit_inline`**:
+- **Input** adds:
+  - **`veilsRevision`** (required): the last `revision` the client applied. A lower revision than the server's is
+    refused, `veils_stale`: apply `standing`, then retry with the same submission id.
+  - **`selfGrade`** (optional): the same shape as `submit_attempt`'s, for when grading is unavailable. The reply then
+    says so as `submit_attempt`'s does.
+- **Reply keys** are all camelCase: `cold`, `reason`, `primedBy`, `eligibility`, `administrationToken` (the attempt's
+  own keys as before).
+- **The outcome is saved with the close.** A retry of the same submission id returns the saved outcome, never a newly
+  computed one. While a submission is in flight, `check.abandon_inline` and `check.expose` are refused,
+  `submission_in_flight`: disable "not now".
+
+**Job acceptance while an administration is open.** The server refuses with **`check_open`** (details
+`{administrationToken}`), so a retry or a deferred job cannot get through:
+- a companion ask, and its retry;
+- an ink transcription;
+- a figure request (Show me, either RPC) and a rich figure retry;
+- a lesson opening.
+
+A pad edit's learner-text-gap emission is deferred until the administration closes; every close (submit, not now,
+a recovery that supersedes) reconciles the pads, as a vault's open does.
+
+### 8.2 Findings
+
+Each fix has a fail-first test in `tests/test_reader_rd7a_inline_checks.py` (named `test_rd7_<n>_…` for ledger row
+RD7-n) or `tests/test_reader_rd7_fix_migration.py`, shown failing against the code before the fix (the source files
+swapped back to the branch's base, the tests unchanged: 20 of 20 failed). Ledger rows RD7-3 to RD7-23.
+
+- Fix round: **blocker 1** (an opened note outlives the administration) fixed, RD7-3. An unmeasured opening and a
+  `left` exposure write `source_review` reveals at the priming threshold (`AUTO_PRIME_REVEAL_THRESHOLD`, the existing
+  constant) on every frozen candidate, basis `check_inline:unmeasured`. The reveal ledger is what every serve and
+  every settlement reads, so the next attempt on any candidate, on either surface, after not now, a crash or a
+  supersede, is not cold. No note is read.
+- Fix round: **blocker 2** (candidates) fixed, RD7-4. Begin freezes the serving view's candidates (`build_checks`'s
+  expansion, the one function) with their keys; openings are charged to that set against those keys.
+- Fix round: **blocker 3** (`record_reveal` swallowed failures) fixed, RD7-5. Reveals and receipt in one transaction,
+  the reveal ids derived from the token and the client's `exposureId`, a retry idempotent.
+- Fix round: **blocker 8, server half** fixed, RD7-6 (`standing` and `revision`). The client's reconciliation is the
+  frontend's.
+- Fix round: **blocker 9, server half** fixed, RD7-7 (`measured` on refs and replies; an unmeasurable opening is
+  charged, never a measured zero).
+- Fix round: **blocker 13** fixed, RD7-8. The host (the LO's primary passage section and its goal-path sections) is
+  always protected; an LO without a current coverage judgment veils its host's readings whole, and every source when
+  it has no host. Fail-closed per LO, not only on an exception.
+- Fix round: **blocker 14** fixed, RD7-9 (the allowlisted, frozen presentation).
+- Fix round: **blockers 5 and 7, server half**: `veilsRevision` on submit (`veils_stale`), RD7-13. Proving the veils
+  are mounted is the client's.
+- Fix round: **major 15** fixed, RD7-16. While the Reader holds a check, an attempt on another surface (Today serves
+  the item as practice then) answers nothing and leaves the check's date; the plan does not label the held item
+  `check_once`.
+- Fix round: **major 16** fixed, RD7-14, RD7-15, RD7-18 (Today's claim is the current session's presentation, blank
+  or typed; recovery supersedes after an answer elsewhere; a session another device holds is refused before the
+  serve).
+- Fix round: **major 17, server half** fixed, RD7-22 (begin adopts the open card of the same commitment; the card
+  names the reserved submission).
+- Fix round: **major 18** fixed, RD7-12 (settle first, then the close saves the outcome with its receipt).
+- Fix round: **major 19** fixed, RD7-11 (row counts; `submission_in_flight`).
+- Fix round: **major 20** fixed, RD7-10 and RD7-9 (`administration_closed`; recovery from the frozen card).
+- Fix round: **majors 21 and 22, server half**: no server change needed. The server measures exactly the exchanges a
+  ref names (a ref naming none is unmeasured, RD7-7), and it already keeps a note (`kind: "note"`, unmeasured) apart
+  from the passage it annotates (`kind: "span"`, measured by overlap; a span ref carries no note ids). Naming the
+  displayed tab's exchanges and not labelling a paragraph as a note are the frontend's.
+- Fix round: **major 23** fixed, RD7-20 (the reply carries the Check once decision's reason at the attempt, `hold`
+  included; every added key camelCase, `primedBy`).
+- Fix round: **major 25** fixed, RD7-21 (migration 271's guards).
+- Fix round: **major 26, server half** fixed, RD7-9 and RD7-19 (presentation blocks in the card; `selfGrade`).
+- Fix round: **major 27, server half** fixed, RD7-17 (`check_open` at acceptance; pad emission deferred, drained at
+  the close).
+- Fix round: **minor 29** fixed, RD7-23 (the rebuild comparison covers the schedule state, the commitment events,
+  the check's date and answer, the reveals and the saved outcome). The selector: Reader begin and Today serve the
+  same `intent_serving` view and its `servable` set; Today additionally picks within the plan's pool, the Reader the
+  first servable candidate. Documented, not shared: the Reader has no plan pool.
+- The frontend's: findings 4, 5 and 7 (client side), 6, 8 (client side), 10, 11, 12, 24, 28.
+
+## 9. The unlocated due-check marker (RD7-56: the owner chose option b), both halves
+
+Branch `reader/rd7-unlocated-marker`. Before "check now" nothing names or places what a check is about; spec §12.6.1
+and D15 are rewritten to it, and copy rows 5.3 and 5.6 say when the masks apply.
+
+**The server.**
+- **`checks.due_for`** takes no filter and answers `{checks: [{handle, being_answered}]}`: every due check in the
+  vault, in the handles' order. There is no LO, host, provenance, due date or commitment.
+  - Every filter is gone, because the request is a leak too: asking per reading or passage is answered with where the
+    check is.
+  - A handle is an HMAC under a key the sidecar draws at start (`learnloop.intent.inline_checks`), over
+    (commitment, its administration count). It is the same across reads, spent by a begin, and meaningless without the
+    key.
+  - The key lives in the process, so a handle dies with a sidecar restart (see the client's recovery below).
+- **`check.begin_inline`** takes `handle` instead of `commitment_id`.
+  - A retried request id resolves to its own administration.
+  - The spent handle of the open administration adopts it (a lost reply).
+  - Anything else unresolvable is refused `check_unknown` ("This check changed since the desk last looked. Look
+    again.").
+  - The card now carries `host`. Only a begun check names it.
+- **`passage.union_range`** no longer carries `checks_due`, and the Knows panel's "cold checks" row is gone.
+- **The masking (D15)** follows the open administration, not the due date. `handlers.goal_lens.masked_checks` is the
+  one place that decides which LOs `protection_now`, the band and the lens mask: the open administration's.
+  - The owner restores the pre-begin rule there with `return due`.
+  - Exam-material protection (`SURFACE_SETS`) is untouched.
+- **The band.**
+  - `checks.due_today` counts every due check in the vault. A goal's own count would say which goal the check is in.
+  - No LO's dot, path line, `checks.first` or `next.check` carries a merely due check: these follow the masked rows
+    only.
+  - `next` is the ordinary next section until a check is begun.
+
+**What changes in the tutor's and the lesson list's input before begin.** Both read `protection_now`.
+- **Before this change**, while any check was due:
+  - `companion.ask`'s `goal_in_view` (the tutor's context) was withheld whole when the goal's sentence or title named a
+    due LO's title;
+  - `lesson.list`'s tabs showed `NEUTRAL_LO` with no goal for a lesson on a due LO.
+- **Now**, while a check is due and not begun:
+  - the tutor gets the goal's sentence, depth and depth meaning as for any goal;
+  - the lesson tabs name their topic.
+- **While a check is open** both are masked as before. The companion and a new lesson are refused `check_open` then
+  anyway, so the tutor's input is in practice never masked now.
+- **No structured-prompt identity pin moved.** `test_identity_pins.py` passes unchanged. It is an input, not a
+  template, and no pinned fixture has a due check.
+
+**The client.**
+- **One `DeskCheckMarker` per desk.** It sits top-right on the desk surface, in no window and at no passage, the same
+  on every desk. Its words are "◇ a cold check is due on this desk · on your own", or "N cold checks are due on this
+  desk". It has "check now" and "later". It is absent while an administration is open.
+- **Why per desk, not per window or per video reading.** A marker per window, or only on the desks that hold the host,
+  says where the check is. So does one beside a video reading, whose chapters and transcript place the topic. One
+  marker on every desk says only that a check is due.
+- **`CheckDesk` holds the handles.**
+  - It reads them on the desks' mount (`restart`), after an answer, and after not now.
+  - "check now" begins the first one.
+  - A `check_unknown` reply (a dead or spent handle) reads the due checks again and opens the check due now, once. The
+    marker never named which check it was, so the learner is not stranded. With none due, it says "no cold check is
+    due now".
+- **The open card.**
+  - It takes its host from the card. After begin, the inline card is scrolled into view, because the marker was at no
+    passage.
+  - `CheckLenses` places only the open card.
+  - The fixture server (`fixtures/desks/checks.ts`) mints handles as the sidecar does. It gains `?checks=paper`, a due
+    check hosted in the paper.
+
+**Persisted meaning: none changes, so no tag and no migration.**
+- A handle is computed in the sidecar's process and never stored.
+- `check_administrations`, `check_veil_sets` and the reveal ledger are written exactly as before.
+- `checks_due` was a read, never stored.
+- The masking is a property of replies, not of any row.
+- Nothing replays differently: `test_replay_writes_no_ledger.py` passes, and the rebuild comparison of RD7 is
+  unchanged.
+
+**Judgment calls.**
+- **The marker is on every desk**, rather than only on desks that hold the check's material. That is the least leak.
+  The cost: a learner on an unrelated desk is offered the check there. Answering it there is fine, since the card
+  opens centred near the top.
+- **"check now" begins the first handle in the server's order.** The order is the handles' own: arbitrary, not the
+  due order, which the learner could remember.
+- **A dead handle is retried once with the fresh read**, not refused to the learner.
+- **Residual cue, not changed.** The path view's `check_pending` label on an LO line, for a check made from "Am I
+  ready?", says which LOs have a pending check, due or not. It does not change when a check falls due. With a single
+  pending check, though, it says which LO the due marker is about. That label is the learner's own record of what they
+  asked to be checked on, and Today and Goals list the same commitments by name. Flagged for the owner, not changed.
+
+**Tests.** Fail-first on both halves:
+- **The six server tests** in `tests/test_reader_rd7_unlocated_marker.py` failed 6 of 6 against the base's six
+  changed source files:
+  - the reply holds nothing of the fixture's commitment, LO id or title, item, host reading or span, or provenance;
+  - no filter;
+  - handle resolution: stable, spent, stale, guessed, dead after a restart, and a fresh read recovers;
+  - no `checks_due`;
+  - masking only once begun.
+- **Vitest** (`checks.test.tsx`, `deskChecks.test.tsx`, `KnowsPanel.test.tsx`) failed against the base's frontend
+  sources.
+- **The harness's `veilsweep`** gained `due_not_begun`, five points, all of which failed against a fresh build of the
+  base (the base's marker carried `data-check-marker="fx_cm_grad"`, sat in the book's window, and was cloned into two
+  overview miniatures):
+  - for the book host and for the paper host: no element's text, title, aria label or data attribute holds the
+    commitment, the LO, a handle (`chk_`), or a `data-check-*` attribute beyond the marker's empty one and the hold's
+    fixed region names;
+  - the same marker in the same place on every desk;
+  - the overview's miniatures carry none;
+  - the marker's rect, ancestor path and words are identical for the book and the paper host.
+
+**Assertions changed.**
+- **The RD6, RD6a and RD10 masking tests** (`test_reader_rd6_fix_protection.py`, `test_reader_rd6a_goal_lens.py`,
+  `test_reader_rd10_fix_protection.py`, `test_reader_rd10_fix_sweep.py`) now begin the check
+  (`tests/inline_hold_helpers.hold_open`) before asserting the masks. The lesson-tab test also asserts the tab names
+  its topic while the check is only due.
+- **`test_reader_rd0_reads.py`'s union test** asserts no span carries `checks_due`.
+- **`test_tutor_goal_in_view.py`'s held-goal test**: while the check is only due, the goal is given to the tutor. Once
+  it is begun, `goal_in_view` withholds it whole.
+- **`test_reader_rd7a_inline_checks.py` and `test_reader_rd7b_check_session.py`** begin by handle.
+  - Their "another check is open" cases resolve a second handle through a patched `resolve_handle`, since the fixture
+    has one check.
+- **`checks.test.tsx`**:
+  - begin by handle; the card carries its host;
+  - the marker test is now the desk marker's;
+  - the restart test takes the host from the card.
+- **`deskChecks.test.tsx`**:
+  - "a second check cannot open" is now the marker giving way to the open card;
+  - the begin sends `handle`.
+- **`holdSurfaces.test.tsx` and `readingReport.test.tsx`**: handle-only due rows; the card carries its host.
+- **The harness's `checks` run**:
+  - the marker is the desk's;
+  - begin sends a `chk_` handle and no commitment;
+  - "nothing above the card moves" is measured relative to the book's first passage, because the begun card is
+    scrolled into view;
+  - with a check open, the desk shows no marker.

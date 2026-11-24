@@ -9,6 +9,8 @@ import type {
   CheckCardDto,
   CheckExposureKind,
   CheckSubmitDto,
+  CheckExposeReplyDto,
+  CheckProtectReplyDto,
   CheckVeilRefDto,
   CheckVisibleDto,
   CompanionAskInput,
@@ -1675,8 +1677,9 @@ export const api = {
   passageKnows: (input: MenuObjectInput) => call<PassageKnowsDto>("passage_knows", { input }),
   companionHistory: (input: { from?: string; to?: string; deskId?: string; query?: string; cursor?: string } = {}) =>
     call<CompanionHistoryDto>("companion_history", { input }),
-  checksDueFor: (input: { goalId?: string; learningObjectIds?: string[]; extractionId?: string; spanId?: string } = {}) =>
-    call<ChecksDueDto>("checks_due_for", { input }),
+  // Every due check as an opaque handle, and nothing else: the request names no reading, goal or passage (the reply
+  // would say where a check is), the reply no topic, place or id.
+  checksDueFor: () => call<ChecksDueDto>("checks_due_for", { input: {} }),
   // Reader workbench v2 RD3 (spec §3.4; desktop only, no component calls them yet): the companion's ask answers at
   // once with a polled job (the model call runs off the sidecar's serial loop); search answers its word groups at
   // once and searches by meaning through a polled job. Polls answer at once and never wait.
@@ -1729,13 +1732,13 @@ export const api = {
   chaptersDecide: (input: { chapterId: string; decision: "accept" | "dismiss" }) =>
     call<{ chapter: VideoChapterDto }>("chapters_decide", { input }),
   // Reader workbench RD7 (spec §12.6): the inline administration of a due check.
-  checkBeginInline: (input: { requestId: string; commitmentId: string; sessionId?: string; visible: CheckVisibleDto }) =>
+  checkBeginInline: (input: { requestId: string; handle: string; sessionId?: string; visible: CheckVisibleDto }) =>
     call<CheckCardDto>("check_begin_inline", { input }),
   checkProtectMore: (input: { administrationToken: string; visible: CheckVisibleDto }) =>
-    call<{ veilAdditions: CheckVeilRefDto[] }>("check_protect_more", { input }),
-  checkExpose: (input: { administrationToken: string; ref: CheckVeilRefDto; kind: CheckExposureKind }) =>
-    call<{ protectionStatus: { exposure: Array<Record<string, unknown>>; coldNow: boolean } }>("check_expose", { input }),
-  checkSubmitInline: (input: { administrationToken: string; submissionId: string; answerMd: string;
+    call<CheckProtectReplyDto>("check_protect_more", { input }),
+  checkExpose: (input: { administrationToken: string; ref: CheckVeilRefDto; kind: CheckExposureKind; exposureId: string }) =>
+    call<CheckExposeReplyDto>("check_expose", { input }),
+  checkSubmitInline: (input: { administrationToken: string; submissionId: string; answerMd: string; veilsRevision: number;
                                latencySeconds?: number; activeSeconds?: number }) =>
     call<CheckSubmitDto>("check_submit_inline", { input }),
   checkAbandonInline: (input: { administrationToken: string }) => call<Record<string, never>>("check_abandon_inline", { input }),

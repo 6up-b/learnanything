@@ -50,7 +50,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/companion_ask.py](../../../../../../src/learnloop_sidecar/handlers/companion_ask.py) |
-| Source lines | 303 |
+| Source lines | 307 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
@@ -61,8 +61,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `class CompanionAskJobInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/companion_ask.py), line 86)
 - `goal_in_view(vault: Any, repository: Any, goal_id: str) -> tuple[dict[str, Any] | None, str]` ([source](../../../../../../src/learnloop_sidecar/handlers/companion_ask.py), line 131) — The goal in view as the tutor sees it, and whether it is ``given`` or ``withheld``.
 - `companion_ask(ctx: SidecarContext, params: CompanionAskInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/companion_ask.py), line 227) — Ask the companion; answers at once with the job (see the module docstring).
-- `companion_ask_job(ctx: SidecarContext, params: CompanionAskJobInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/companion_ask.py), line 287) — The job's state, at once (never a wait on the request path).
-- `companion_ask_cancel(ctx: SidecarContext, params: CompanionAskJobInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/companion_ask.py), line 294) — Cancel the job: its next model request is refused; a finished job keeps its outcome.
+- `companion_ask_job(ctx: SidecarContext, params: CompanionAskJobInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/companion_ask.py), line 291) — The job's state, at once (never a wait on the request path).
+- `companion_ask_cancel(ctx: SidecarContext, params: CompanionAskJobInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/companion_ask.py), line 298) — Cancel the job: its next model request is refused; a finished job keeps its outcome.
 
 ### Module constants
 
@@ -90,7 +90,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_job_payload(job: PJ.PolledJob) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/companion_ask.py), line 200)
 - `_receipt_payload(receipt: PJ.Receipt) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/companion_ask.py), line 215)
 - `_known_payload(known: PJ.PolledJob | PJ.Receipt) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/companion_ask.py), line 222)
-- `_require_known(ctx: SidecarContext, request_id: str) -> PJ.PolledJob | PJ.Receipt` ([source](../../../../../../src/learnloop_sidecar/handlers/companion_ask.py), line 278)
+- `_require_known(ctx: SidecarContext, request_id: str) -> PJ.PolledJob | PJ.Receipt` ([source](../../../../../../src/learnloop_sidecar/handlers/companion_ask.py), line 282)
 
 ## Who imports or calls it
 
@@ -108,6 +108,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/companion/history|learnloop.companion.history]] — imports `record_exchange_context`; calls `record_exchange_context`
 - [[Reference/Modules/learnloop/source_retrieval/deliverables|learnloop.source_retrieval.deliverables]] — imports `module`; calls `depth_of`
 - [[Reference/Modules/learnloop/source_retrieval/reading_paths|learnloop.source_retrieval.reading_paths]] — imports `DEPTH_LABELS`, `DEPTH_MEANS`
+- [[Reference/Modules/learnloop_sidecar/check_hold|learnloop_sidecar.check_hold]] — imports `refuse_while_check_open`; calls `refuse_while_check_open`
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `SidecarContext`
 - [[Reference/Modules/learnloop_sidecar/dto|learnloop_sidecar.dto]] — imports `ParamsModel`, `versioned`; calls `versioned`
 - [[Reference/Modules/learnloop_sidecar/errors|learnloop_sidecar.errors]] — imports `SidecarError`; calls `SidecarError`
@@ -144,6 +145,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_context_write_that_failed_is_retried_and_reported_until_it_lands`
 - [tests/test_reader_rd3a_companion_ask.py](../../../../../../tests/test_reader_rd3a_companion_ask.py) — direct import
   - `test_the_rpcs_are_registered_desktop_only_and_refuse_extra_fields`
+- [tests/test_tutor_goal_in_view.py](../../../../../../tests/test_tutor_goal_in_view.py) — direct import
+  - `test_a_goal_naming_a_topic_whose_cold_check_is_due_is_given_and_withheld_whole_once_the_check_is_begun`
 
 ## Modification guidance
 

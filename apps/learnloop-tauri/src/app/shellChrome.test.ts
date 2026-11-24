@@ -25,7 +25,7 @@ const CAPTURE_LISTENERS: Record<string, string> = {
   "screens/reader/useIntentBox.ts": "the Reader's intent box, open only over a selection",
   "screens/LibraryScreen.tsx": "Ctrl/Cmd+F find in the open note (a modified key, the shell lets those through anyway)",
   "screens/reader/useReaderInquiry.ts": "the Reader's inquiry box (open over a selection) and its Ctrl/Cmd+F find",
-  "screens/ReaderScreen.tsx": "the Reader's modal capture surfaces"
+  "screens/desks/source/ScopedSource.tsx": "the Reader's modal capture surfaces (the scoped source, moved from screens/ReaderScreen.tsx)"
 };
 
 const SRC = join(__dirname, "..");

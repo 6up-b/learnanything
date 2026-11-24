@@ -6,9 +6,11 @@
 // were written on the base commit (09acb51fd), before any RW1b frontend code
 // existed; an intent or active-reading call would throw here, because the api
 // mocks name only the calls the base code made.
+// The Reader's retirement (phase 2 step 2): the snapshots now carry the scoped source's source bar in place of the
+// old screen's header and key bar; nothing else in them moved (scripts/rd_retire/snapshot_frames.mjs, entry by entry).
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { ReaderScreen } from "../ReaderScreen";
+import { ScopedSource } from "../desks/source/ScopedSource";
 import { setAlgoConfig } from "../../app/algoConfig";
 import { readerRenderViewFixture as view } from "../../fixtures/readerRenderView";
 import type { SourceLibraryCard } from "../../api/dto";
@@ -71,7 +73,7 @@ const OFF_CONTRACTS: Array<[string, Record<string, unknown>]> = [
 
 it.each(OFF_CONTRACTS)("a selection is today's with %s", async (_label, value) => {
   contract.value = value;
-  const view_ = render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  const view_ = render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   const block = await screen.findByText(view.blocks[1].markdown);
   expect(markup(view_.container)).toMatchSnapshot("reader before a selection");
   select(block);
@@ -88,7 +90,7 @@ it.each(OFF_CONTRACTS)("a selection is today's with %s", async (_label, value) =
 
 it("with Ask open, a selection keeps Ask (today's rule) while reader_intent is off", async () => {
   contract.value = { readerEnabled: true, inquiryEnabled: true };
-  const view_ = render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  const view_ = render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   const block = await screen.findByText(view.blocks[1].markdown);
   fireEvent.click(screen.getByRole("button", { name: "ask" }));
   select(block);

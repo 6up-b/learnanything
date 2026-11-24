@@ -6,7 +6,7 @@
 // other pane's book, and the switch off (the Reader exactly as before).
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { ReaderScreen } from "../ReaderScreen";
+import { ScopedSource } from "../desks/source/ScopedSource";
 import { setAlgoConfig } from "../../app/algoConfig";
 import { readerRenderViewFixture as view } from "../../fixtures/readerRenderView";
 import type { CorrespondentsDto, SideBySideSectionDto, SourceLibraryCard } from "../../api/dto";
@@ -110,14 +110,16 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); setAlgoConfig(undefined); });
 
 async function openList() {
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   fireEvent.click(await screen.findByRole("button", { name: FIND_COPY.action }));
   return screen.findByRole("button", { name: "side by side with Axler 5.A Invariant subspaces" });
 }
 const pane = () => document.querySelector<HTMLElement>("[data-side-by-side-pane]");
 const rail = () => screen.getByRole("complementary", { hidden: true });
 
-it("`side by side` on a line opens the second pane, pushes the crumb and folds the rail to its gutter", async () => {
+// Renamed from "... folds the rail to its gutter": the gutter's "expand the rail (\)" handle was the standalone
+// frame's; `\` bringing the rail back as an overlay is "`s` on a focused line opens side by side; `\` reopens …".
+it("`side by side` on a line opens the second pane, pushes the crumb and folds the rail", async () => {
   fireEvent.click(await openList());
   await waitFor(() => expect(pane()?.dataset.sideBySidePane).toBe("pane"));
   expect(api.readerSideBySideSection).toHaveBeenCalledWith({ extractionId: "ext_axler", sectionId: "ax5a" });
@@ -128,7 +130,6 @@ it("`side by side` on a line opens the second pane, pushes the crumb and folds t
   // An unchecked hit says so in its pane; the rail is folded to its gutter.
   expect(within(pane()!).getByText(SIDE_BY_SIDE_COPY.unchecked)).toBeTruthy();
   expect(rail().style.display).toBe("none");
-  expect(screen.getByRole("button", { name: "expand the rail (\\)" })).toBeTruthy();
   // Follow along is on, and the main pane leads (the learner was reading it).
   expect(within(pane()!).getByRole("button", { name: /follow along ●/ }).getAttribute("aria-pressed")).toBe("true");
   expect(document.querySelector("[data-sbs-main-header] [data-sbs-lead]")).toBeTruthy();
@@ -163,7 +164,7 @@ it("the crumb returns: walking back to the origin closes the second pane", async
 
 it("Ctrl+\\ opens the first correspondent in the API's order; Ctrl+\\ again closes it and the crumb goes", async () => {
   api.readerCorrespondents.mockImplementation(async (input: { searchFallback?: boolean }) => (input.searchFallback ? JUDGED : QUIET));
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   await screen.findAllByText("6.1 Symmetric matrices");
   await act(async () => { fireEvent.keyDown(document.body, { key: "\\", ctrlKey: true }); });
   await waitFor(() => expect(api.readerSideBySideSection).toHaveBeenCalledWith({ extractionId: "ext_axler", sectionId: "ax7a" }));
@@ -225,7 +226,7 @@ it("in a narrow window `side by side` peeks instead, with one dim line and no cr
 
 it("switched off: no side by side on the list, Ctrl+\\ reads nothing, the Reader as before", async () => {
   state.contract = OFF;
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   fireEvent.click(await screen.findByRole("button", { name: FIND_COPY.action }));
   await screen.findByRole("button", { name: "go there: Axler 5.A Invariant subspaces" });
   expect(screen.queryByRole("button", { name: "side by side with Axler 5.A Invariant subspaces" })).toBeNull();

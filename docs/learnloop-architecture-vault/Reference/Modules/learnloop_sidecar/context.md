@@ -582,9 +582,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reader_quick_check_failed.py](../../../../../tests/test_reader_quick_check_failed.py) — direct import
 - [tests/test_reader_rd4_carried_and_proposals.py](../../../../../tests/test_reader_rd4_carried_and_proposals.py) — direct import
 - [tests/test_reader_rd4_submission.py](../../../../../tests/test_reader_rd4_submission.py) — direct import
+- [tests/test_reader_rd7_unlocated_marker.py](../../../../../tests/test_reader_rd7_unlocated_marker.py) — direct import
 - [tests/test_reader_rd7a_inline_checks.py](../../../../../tests/test_reader_rd7a_inline_checks.py) — direct import
   - `test_a_crash_after_the_attempt_and_before_the_close_is_recovered_with_that_attempt`
   - `test_a_restart_reopens_the_open_card_with_its_veils`
+  - `test_rd7_4_every_candidate_of_an_lo_check_is_charged_from_the_set_begin_froze`
 - [tests/test_reader_rd7b_check_session.py](../../../../../tests/test_reader_rd7b_check_session.py) — direct import
 - [tests/test_reader_recap.py](../../../../../tests/test_reader_recap.py) — direct import
   - `test_switched_off_opening_writes_nothing_and_the_recap_rpcs_refuse`

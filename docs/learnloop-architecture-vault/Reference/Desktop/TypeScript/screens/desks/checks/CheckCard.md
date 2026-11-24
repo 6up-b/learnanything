@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/checks/CheckCard.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/checks/CheckCard.tsx) |
-| Source lines | 172 |
+| Source lines | 202 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/checks/_area|TypeScript/screens/desks/checks]] |
 | Refactor status | `ACTIVE` |
@@ -54,54 +54,63 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export function CheckMarker(` — function, line 13
-- `export function CheckCardInline(` — function, line 69
-- `export function CheckCardOverlay(` — function, line 108
-- `export class CheckLenses` — class, line 151
+- `export function markerWords(count: number): string` — function, line 18
+- `export function DeskCheckMarker(` — function, line 26
+- `export function CheckCardInline(` — function, line 100
+- `export function CheckCardOverlay(` — function, line 139
+- `export class CheckLenses` — class, line 182
 
 ## Internal implementation anchors
 
-- `const check = checks[0]` — const, line 15
-- `const held = desk.holding()` — const, line 17
-- `function question(open: OpenCheck): string` — function, line 39
-- `const prompt = open.card.prompt as` — const, line 40
-- `function feedback(open: OpenCheck): string` — function, line 44
-- `const reply = open.reply as` — const, line 45
-- `function answerKeys(desk: CheckDesk)` — function, line 49
-- `function ReasonLine(` — function, line 61
-- `const reason = (open.reply?.reason ?? null) as CheckReason | null` — const, line 62
-- `const byNote = reason === "primed" && open.reply?.primedBy === "unmeasured_note"` — const, line 64
-- `const open = desk.open()` — const, line 71
-- `const veiled = open.veiled` — const, line 73
-- `const looked = lookedLine(open.looked, open.coldNow)` — const, line 74
-- `const cold = Boolean(open.reply?.cold)` — const, line 76
-- `const open = desk.open()` — const, line 110
-- `const veiled = open.veiled` — const, line 112
-- `const looked = lookedLine(open.looked, open.coldNow)` — const, line 113
-- `const version = desk.getVersion()` — const, line 155
-- `const known = this.made.get(windowId)` — const, line 156
-- `const lens: ReaderLens =` — const, line 158
-- `const own = base?.before?.(spanId) ?? null` — const, line 161
-- `const open = desk.open()` — const, line 162
-- `const here = Boolean(open && open.host?.extractionId === extractionId && open.host?.spanId === spanId)` — const, line 163
-- `const due = desk.dueAt(extractionId, spanId).filter((check)` — const, line 164
+- `const SAFE =` — const, line 15
+- `const count = desk.dueChecks().length` — const, line 28
+- `function question(open: OpenCheck): string` — function, line 50
+- `const prompt = open.card.prompt as` — const, line 51
+- `function Question(` — function, line 57
+- `const presentation = open.card.prompt?.presentation` — const, line 58
+- `function opensCold(open: OpenCheck): boolean` — function, line 66
+- `function feedback(open: OpenCheck): string` — function, line 70
+- `const reply = open.reply as` — const, line 71
+- `function answerKeys(desk: CheckDesk)` — function, line 75
+- `function ReasonLine(` — function, line 87
+- `const reason = (open.reply?.reason ?? null) as CheckReason | null` — const, line 88
+- `const primedBy = typeof open.reply?.primedBy === "string" ? open.reply.primedBy : null` — const, line 90
+- `const byNote = reason === "primed" && primedBy === "unmeasured_note"` — const, line 91
+- `const unmeasured = reason === "primed" && primedBy !== null && !byNote` — const, line 92
+- `const eligibility = typeof open.reply?.eligibility === "string" ? open.reply.eligibility : null` — const, line 93
+- `const words = byNote ? PRIMED_BY_NOTE_WORDS : unmeasured ? PRIMED_UNMEASURED_WORDS : reason === "practice" && eligibility ? `counts as practice · $` — const, line 94
+- `const open = desk.open()` — const, line 102
+- `const veiled = open.veiled` — const, line 104
+- `const looked = lookedLine(open.looked, open.coldNow)` — const, line 105
+- `const cold = Boolean(open.reply?.cold)` — const, line 107
+- `const open = desk.open()` — const, line 141
+- `const veiled = open.veiled` — const, line 143
+- `const looked = lookedLine(open.looked, open.coldNow)` — const, line 144
+- `const version = desk.getVersion()` — const, line 186
+- `const known = this.made.get(windowId)` — const, line 187
+- `const lens: ReaderLens =` — const, line 189
+- `const own = base?.before?.(spanId) ?? null` — const, line 192
+- `const open = desk.open()` — const, line 193
+- `const here = Boolean(open && open.host?.extractionId === extractionId && open.host?.spanId === spanId)` — const, line 194
 
 ## Who imports or calls it
 
 > [!note] Static-evidence boundary
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
-- [[Reference/Desktop/TypeScript/screens/desks/DeskShell|src/screens/desks/DeskShell.tsx]] — import-or-re-export: `CheckCardOverlay`, `CheckLenses`; references `CheckCardOverlay`, `CheckLenses`
+- [[Reference/Desktop/TypeScript/screens/desks/DeskShell|src/screens/desks/DeskShell.tsx]] — import-or-re-export: `CheckCardOverlay`, `CheckLenses`, `DeskCheckMarker`; references `CheckCardOverlay`, `CheckLenses`, `DeskCheckMarker`
 
 ## Dependencies
 
 ### Desktop source modules
 
+- [[Reference/Desktop/TypeScript/components/ItemPresentation|src/components/ItemPresentation.tsx]] — import-or-re-export; imports `ItemPresentation`
 - [[Reference/Desktop/TypeScript/render/MarkdownMath|src/render/MarkdownMath.tsx]] — import-or-re-export; imports `MarkdownMath`
-- [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] — import-or-re-export; imports `ReaderLens`
-- [[Reference/Desktop/TypeScript/screens/desks/checks/controller|src/screens/desks/checks/controller.ts]] — import-or-re-export; imports `CheckDesk`, `DueCheck`, `OpenCheck`
-- [[Reference/Desktop/TypeScript/screens/desks/checks/model|src/screens/desks/checks/model.ts]] — import-or-re-export; imports `CheckReason`, `PRIMED_BY_NOTE_WORDS`, `REASON_WORDS`, `answeredHead`, `groupsLine`, `lookedLine`
+- [[Reference/Desktop/TypeScript/screens/desks/checks/controller|src/screens/desks/checks/controller.ts]] — import-or-re-export; imports `CheckDesk`, `OpenCheck`
+- [[Reference/Desktop/TypeScript/screens/desks/checks/hold|src/screens/desks/checks/hold.ts]] — import-or-re-export; imports `SAFE_ATTR`
+- [[Reference/Desktop/TypeScript/screens/desks/checks/model|src/screens/desks/checks/model.ts]] — import-or-re-export; imports `CheckReason`, `PRIMED_BY_NOTE_WORDS`, `PRIMED_UNMEASURED_WORDS`, `REASON_WORDS`, `answeredHead`, `eligibilityWords`, `groupsLine`, `lookedLine`
 - [[Reference/Desktop/TypeScript/screens/desks/fitMath|src/screens/desks/fitMath.tsx]] — import-or-re-export; imports `FitMath`
+- [[Reference/Desktop/TypeScript/screens/desks/source/types|src/screens/desks/source/types.ts]] — import-or-re-export; imports `ReaderLens`
 
 ### Assets, platform, and third-party dependencies
 
@@ -115,6 +124,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 ## Tests that define behavior
 
+- [apps/learnloop-tauri/src/screens/desks/checks/contract.test.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/checks/contract.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/desks/checks/checks.test.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/checks/checks.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 
 ## Modification guidance

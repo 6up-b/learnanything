@@ -8,8 +8,8 @@ text is marked ``needs_reanchor``, never shown as if it were the cited text.
 Per span: the learner's annotations; pad blocks linked to it; tutor exchanges whose selection or
 citations name it; the exchanges where the tutor adjusted the learner's reasoning (an exchange whose
 question was read as a misconception); learner-text gaps tied to it, with their anchor quality; passage
-links with their relation; the questions the learner carries beside it; figures made for it; "a check is due before this" (the host passage of a due
-check, with no item, learning object or purpose); linked notes; reader-authored questions; and its
+links with their relation; the questions the learner carries beside it; figures made for it; linked notes (never a due check: no passage says a
+check is due before it); reader-authored questions; and its
 exposure (how often and when last it was shown) and whether it is exam or held-out material. Per section of the
 range: its learning objects and their coverage.
 
@@ -27,7 +27,6 @@ from learnloop.content.sources.span_aliases import STATUS_CURRENT, SpanTranslato
 from learnloop.db.connection import connect
 from learnloop.db.stores import pad_reads
 from learnloop.db.stores import span_projection_reads as spans_store
-from learnloop.intent.inline_checks import due_checks
 from learnloop.reader.annotations import annotation_placements
 from learnloop.section_map import RangeError, extraction_sections, range_span_ids
 
@@ -99,7 +98,7 @@ class _Placer:
 
 def _empty(span_id: str, section_id: str | None) -> dict[str, Any]:
     return {"span_id": span_id, "section_id": section_id, "annotations": [], "pad_blocks": [], "exchanges": [],
-            "adjustments": [], "gaps": [], "passage_links": [], "figures": [], "checks_due": [], "notes": [],
+            "adjustments": [], "gaps": [], "passage_links": [], "figures": [], "notes": [],
             "authored_questions": [], "carried": [], "exposure": {"times_shown": 0, "last_shown_at": None, "withheld": False}}
 
 
@@ -276,12 +275,8 @@ def union_range(vault: Any, repository: Any, *, extraction_id: str, from_span_id
 
     for key in exam_withheld(vault, repository, [(extraction_id, span) for span in out]):
         out[key[1]]["exposure"]["withheld"] = True
-    for check in due_checks(vault, repository, extraction_id=extraction_id, clock=clock):
-        host = check.get("host") or {}
-        if host.get("span_id") in out:
-            entry = {"commitment_id": check["commitment_id"]}
-            if entry not in out[host["span_id"]]["checks_due"]:
-                out[host["span_id"]]["checks_due"].append(entry)
+    # No due check is placed at a passage: before "check now" nothing says where a check is (the owner's decision on
+    # RD7-56); the desks show one unlocated marker from ``checks.due_for``.
     for span, notes in (notes_by_span or {}).items():
         if span in out:
             out[span]["notes"].extend(notes)

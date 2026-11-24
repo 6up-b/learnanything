@@ -257,13 +257,13 @@ The system-level behavior stays authoritative in the linked architecture, concep
 ### Desktop source modules
 
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `InkTranscribeJobDto`, `ReaderRawSelectionNode`
-- [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] — import-or-re-export; imports `PenSurface`
 - [[Reference/Desktop/TypeScript/screens/desks/lifecycle|src/screens/desks/lifecycle.tsx]] — import-or-re-export; imports `useWindowLifecycle`, `useWindowPaused`
 - [[Reference/Desktop/TypeScript/screens/desks/pen/geometry|src/screens/desks/pen/geometry.ts]] — import-or-re-export; imports `LocalRect`, `distanceToPolyline`, `localRects`, `pageOf`, `passageBeside`, `passages`, `passagesSpanned`, `rangeBetween`, `rangeOfQuote`, `toClient`, `toLocal`, `wordsInLoop`
 - [[Reference/Desktop/TypeScript/screens/desks/pen/host|src/screens/desks/pen/host.ts]] — import-or-re-export; imports `PenHost`, `usePenHost`
 - [[Reference/Desktop/TypeScript/screens/desks/pen/inkCache|src/screens/desks/pen/inkCache.ts]] — import-or-re-export; imports `inkRefusal`
 - [[Reference/Desktop/TypeScript/screens/desks/pen/input|src/screens/desks/pen/input.ts]] — import-or-re-export; imports `PenInput`, `PointerLike`, `Sample`
 - [[Reference/Desktop/TypeScript/screens/desks/pen/recognizer|src/screens/desks/pen/recognizer.ts]] — import-or-re-export; imports `Box`, `Point`, `RECOGNIZED_AS`, `RECOGNIZER`, `StrokeKind`, `boxOf`, `recognize`
+- [[Reference/Desktop/TypeScript/screens/desks/source/types|src/screens/desks/source/types.ts]] — import-or-re-export; imports `PenSurface`
 
 ### Assets, platform, and third-party dependencies
 

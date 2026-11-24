@@ -1,7 +1,7 @@
 // Stands in for @tauri-apps/api/core in the desks' visual harness (vite.desks.config.mjs): every call
 // is answered from the synthetic workspace, and recorded, so the harness can read what each window
 // asked for (reading activity above all). Nothing leaves the page.
-import type { DeskApplyInput, DeskStateDto, LessonViewDto, PadViewDto } from "../../api/dto";
+import type { DeskApplyInput, DeskStateDto, LessonViewDto, PadViewDto, SourceLibraryCard } from "../../api/dto";
 import { FIXTURE_INK_PAD, fixtureInkPad, fixturePads } from "./pads";
 import { FIXTURE_GUIDES, FIXTURE_LIBRARY, FIXTURE_SOURCES, FIXTURE_VIEWS, FIXTURE_WATCH } from "./sources";
 import { FixtureDeskServer, fixtureDeskState } from "./workspace";
@@ -26,8 +26,21 @@ const LESSON_PAGE = typeof window !== "undefined" && new URLSearchParams(window.
 
 /** The harness's workspace: the fixture's, with every desk's running pad in a stack (as the desks ensure it), so a
  * first visit to a desk changes no layout under the overview's transitions. */
+// `?preparing=1`: a book still being prepared (a scanned chapter) is in the library, and its preparing window is the
+// softmax desk's last (the Reader's retirement, phase 2 step 2; the veil walk holds it whole).
+const PREPARING_PAGE = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("preparing") === "1";
+export const FIXTURE_PREPARING_CARD = {
+  ...FIXTURE_LIBRARY[0], sourceId: "fx_src_scan", title: "A scanned chapter on the softmax", currentRevisionId: "rev_fx_src_scan",
+  readiness: "processing" as const, unitCount: 0, blockCount: 0, extractionStatus: "running",
+  statusLine: { text: "Reading the scanned pages · 3 of 12", tone: "working", action: null },
+} as SourceLibraryCard;
+
 function harnessDeskState(): DeskStateDto {
   const state = fixtureDeskState();
+  if (PREPARING_PAGE) {
+    state.desks[0].slots.push({ slot: state.desks[0].slots.length, windows: [{ windowId: "fx_w_prep", pane: 0, kind: "preparing", active: true, view: {},
+      content: { kind: "preparing", sourceId: FIXTURE_PREPARING_CARD.sourceId } }] as never });
+  }
   const extra: Record<string, string> = { fx_desk_attention: "fx_pad_running_attention", fx_desk_backprop: "fx_pad_running_backprop" };
   for (const desk of state.desks) {
     const padId = extra[desk.deskId];
@@ -65,10 +78,11 @@ const goal = new FixtureGoal();
 const lessons = new FixtureLessons();
 // `?video=1`: the video's chapters already suggested, the second accepted (RD10), as the reference shows them.
 const videoFixture = new FixtureVideo(typeof window !== "undefined" && new URLSearchParams(window.location.search).get("video") === "1");
-// `?checks=1`: one inline check due before the book's fifth section; `?checks=open`: also an administration open on a
-// check whose host is not on the desks (RD7). Without it no check is due.
+// `?checks=1`: one inline check due, hosted at the book's fifth section; `?checks=paper`: one due, hosted in the paper
+// instead (the desk's marker must not tell them apart); `?checks=open`: also an administration open on a check whose
+// host is not on the desks (RD7). Without it no check is due.
 const checksMode = typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("checks");
-const checks = new FixtureChecks(checksMode === "open" ? "open" : checksMode === "1" ? "due" : "off");
+const checks = new FixtureChecks(checksMode === "open" ? "open" : checksMode === "1" ? "due" : checksMode === "paper" ? "due-paper" : "off");
 // One carried question beside the book's third passage (project-authored).
 const carried: Array<{ carriedId: string; text: string; carried: boolean; version: number; state: string; anchor: unknown; since: string }> = [
   { carriedId: "fx_carried1", text: "does the temperature trick work for any base?", originKind: "typed", originRef: null,
@@ -165,7 +179,7 @@ function cheapRows(input: Record<string, unknown>): Array<Record<string, unknown
 }
 
 function emptyUnion(spanId: string): Record<string, unknown> {
-  return { spanId, sectionId: null, annotations: [], padBlocks: [], exchanges: [], adjustments: [], gaps: [], passageLinks: [], figures: [], checksDue: [], notes: [],
+  return { spanId, sectionId: null, annotations: [], padBlocks: [], exchanges: [], adjustments: [], gaps: [], passageLinks: [], figures: [], notes: [],
     authoredQuestions: [], carried: [], exposure: { timesShown: 1, lastShownAt: null, withheld: false } };
 }
 /** The pen's writes in this page (RD8a): annotations made by recognized marks and the ink saved with them. */
@@ -204,7 +218,7 @@ function answer(command: string, input: Record<string, unknown>): unknown {
     case "desk_apply":
       return server.apply(input as unknown as DeskApplyInput);
     case "get_source_library":
-      return { version: 1, sources: FIXTURE_LIBRARY };
+      return { version: 1, sources: PREPARING_PAGE ? [...FIXTURE_LIBRARY, FIXTURE_PREPARING_CARD] : FIXTURE_LIBRARY };
     case "reader_prompt_contract":
       return CONTRACT;
     case "reader_render_view": {
@@ -447,7 +461,7 @@ function answer(command: string, input: Record<string, unknown>): unknown {
       }
       return recapAnswer(command, input);
     case "checks_due_for":
-      return checks.dueFor(input as never);
+      return checks.dueFor();
     case "check_begin_inline":
       return checks.begin(input as never);
     case "check_protect_more":

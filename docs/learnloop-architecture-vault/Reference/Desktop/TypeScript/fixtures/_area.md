@@ -34,8 +34,9 @@ Deterministic renderer fixtures used to demonstrate or restore known states.
 
 | Module | Status | Purpose | Imports | Imported by |
 |---|---|---|---:|---:|
+| [[Reference/Desktop/TypeScript/fixtures/deskShellStub|deskShellStub.tsx]] | `ACTIVE` | Exposes deterministic `deskShellStub` fixture data for a reproducible desktop scenario. | 2 | 1 |
 | [[Reference/Desktop/TypeScript/fixtures/readerIntentContract|readerIntentContract.ts]] | `ACTIVE` | Exposes deterministic `readerIntentContract` fixture data for a reproducible desktop scenario. | 1 | 0 |
-| [[Reference/Desktop/TypeScript/fixtures/readerRenderView|readerRenderView.ts]] | `ACTIVE` | Exposes deterministic `readerRenderView` fixture data for a reproducible desktop scenario. | 1 | 1 |
+| [[Reference/Desktop/TypeScript/fixtures/readerRenderView|readerRenderView.ts]] | `ACTIVE` | Exposes deterministic `readerRenderView` fixture data for a reproducible desktop scenario. | 1 | 0 |
 | [[Reference/Desktop/TypeScript/fixtures/retryRequests|retryRequests.ts]] | `ACTIVE` | Exposes deterministic `retryRequests` fixture data for a reproducible desktop scenario. | 1 | 0 |
 
 ## Modification guidance

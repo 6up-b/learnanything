@@ -729,7 +729,10 @@ def build_followup_decision(decision: Mapping[str, Any]) -> dict[str, Any]:
     workflow: Mapping[str, Any] = decision["workflow"]
     chosen_ref = str(decision["chosen_ref"])
     raw = _probability(decision.get("propensity"))
-    if raw is None or raw >= 1.0 - _DETERMINISTIC_TOLERANCE:
+    # The probe router's tag: deterministic only when no other served option had any mass.
+    coin_others = bool(record.get("probe_coin")) and any(
+        float(p or 0.0) > 0.0 for ref, p in pi.items() if str(ref) != chosen_ref)
+    if raw is None or (raw >= 1.0 - _DETERMINISTIC_TOLERANCE and not coin_others):
         propensity, propensity_kind = 1.0, "deterministic"
     else:
         propensity, propensity_kind = raw, "exact"
@@ -878,7 +881,9 @@ def build_learner_probe_decision(decision: Mapping[str, Any]) -> dict[str, Any]:
     served: Mapping[str, Any] = decision.get("served_pi") or {}
     chosen_ref = str(decision["chosen_ref"])
     raw = _probability(decision.get("propensity"))
-    if raw is None or raw >= 1.0 - _DETERMINISTIC_TOLERANCE:
+    # Deterministic only when no other option had any mass: a share of 5e-13 is still a draw.
+    others = any(float(p or 0.0) > 0.0 for ref, p in served.items() if str(ref) != chosen_ref)
+    if raw is None or (raw >= 1.0 - _DETERMINISTIC_TOLERANCE and not others):
         propensity, propensity_kind = 1.0, "deterministic"
     else:
         propensity, propensity_kind = raw, "exact"
@@ -916,7 +921,9 @@ def build_learner_probe_decision(decision: Mapping[str, Any]) -> dict[str, Any]:
         "exclusions_json": _dumps({}),
         "candidate_count": len(candidates),
         "chosen_ref": chosen_ref,
-        "chosen_practice_item_id": item_id if chosen_ref == PROBE_REF else None,
+        # The item is the decision's offer, not an administration: only an acceptance's pin binds it, so outcome
+        # replay never credits an answer the learner gave the item outside the offer.
+        "chosen_practice_item_id": None,
         "chosen_learning_object_id": decision.get("learning_object_id") if chosen_ref == PROBE_REF else None,
         "chosen_scheduler_candidate_id": None,
         "propensity": propensity,

@@ -6,9 +6,11 @@
 // on the base commit (a76c8358a), before any RW7a frontend code existed; the
 // api mocks name only the calls the base code made, so a reading-path call
 // would fail here.
+// The Reader's retirement (phase 2 step 2): the snapshots now carry the scoped source's source bar in place of the
+// old screen's header and key bar; nothing else in them moved (scripts/rd_retire/snapshot_frames.mjs, entry by entry).
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { ReaderScreen } from "../ReaderScreen";
+import { ScopedSource } from "../desks/source/ScopedSource";
 import { setAlgoConfig } from "../../app/algoConfig";
 import { readerRenderViewFixture as view } from "../../fixtures/readerRenderView";
 import type { SourceLibraryCard } from "../../api/dto";
@@ -59,7 +61,7 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals(); setAlgoConfig(undefined); })
 it("switched off (no readingPaths in the contract), the Reader and its Guide are the base's byte for byte", async () => {
   setAlgoConfig({ ui: { practiceFeedback: "simple" } });
   const onError = vi.fn();
-  const view = render(<ReaderScreen initialSource={source} onError={onError} />);
+  const view = render(<ScopedSource initialSource={source} onError={onError} />);
   await screen.findAllByText(/symmetric/i);
   await screen.findByText("Derive mixture distributions");
   expect(screen.getByText("Reading toward your active goal")).toBeTruthy();

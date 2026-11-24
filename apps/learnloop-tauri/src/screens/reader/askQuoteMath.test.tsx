@@ -4,7 +4,7 @@
 // exchange saved before the fix is shown as it was stored.
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { ReaderScreen } from "../ReaderScreen";
+import { ScopedSource } from "../desks/source/ScopedSource";
 import { readerRenderViewFixture as view } from "../../fixtures/readerRenderView";
 import type { SourceLibraryCard } from "../../api/dto";
 import { resetReaderActivityForTests } from "./activity";
@@ -65,7 +65,7 @@ const CLEAN =
   "the spectral decomposition is preferred over a general SVD because the eigenvalues are the variances along principal axes.";
 
 it("UX-26: asking about a passage with a formula sends the passage with the formula once, as its TeX", async () => {
-  render(<ReaderScreen initialSource={initialSource} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={initialSource} onError={vi.fn()} />);
   await selectProse();
   fireEvent.click(screen.getByRole("button", { name: "ask" }));
   const box = await screen.findByPlaceholderText("ask about this passage…");
@@ -82,7 +82,7 @@ it("UX-26: asking about a passage with a formula sends the passage with the form
 });
 
 it("UX-26: a highlight of the same selection anchors with the words it always did", async () => {
-  render(<ReaderScreen initialSource={initialSource} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={initialSource} onError={vi.fn()} />);
   const block = await selectProse();
   // The anchor's words, as the old code took them: the block's selected text, every layer included.
   const asBefore = (block.textContent ?? "").replace(/\s+/g, " ").trim();
@@ -99,7 +99,7 @@ it("UX-26: an exchange saved before the fix is shown as it was stored", async ()
     selectionSpanIds: ["span_symmetric_prose"], selectionQuoteMd: `into a matrix ${OLD}`, createdAt: null,
     questionEventId: "q_old", resolution: "open",
   }] });
-  render(<ReaderScreen initialSource={initialSource} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={initialSource} onError={vi.fn()} />);
   fireEvent.click(await screen.findByRole("button", { name: "ask" }));
   fireEvent.click(await screen.findByRole("button", { name: /▸ Old question\?/ }));
   expect(document.body.textContent).toContain(OLD);

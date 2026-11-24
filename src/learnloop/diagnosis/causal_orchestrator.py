@@ -333,8 +333,9 @@ class RepairStatus:
     reveal_budget: float | None = None
     #: The probe router's tag (``probe_router_on``): the router's disposition of the factor's probe, owned by the
     #: router and only read here: ``pending`` (a probe is executable and no decision exists yet), ``selected``,
-    #: ``not_selected``, or ``unavailable`` (a hard stop or the facts keep the probe out; ``hard_stop_reasons`` says
-    #: which). None below the tag, where the status carries none of these keys.
+    #: ``not_selected``, ``unavailable`` (a hard stop or the facts keep the probe out; ``hard_stop_reasons`` says
+    #: which), or ``void`` (the selected candidate can no longer be administered: the repair goes on and nothing is
+    #: offered in its place). None below the tag, where the status carries none of these keys.
     router_state: str | None = None
     router_decision_id: str | None = None
     hard_stop_reasons: tuple[str, ...] = ()
@@ -477,6 +478,7 @@ def causal_repair_status(
     session_budget_minutes: float | None = None,
     start_repair: bool = True,
     clock: Clock | None = None,
+    record_receipt: bool = True,
 ) -> RepairStatus:
     """Resolve — and where safe, START — the repair for one cause.
 
@@ -516,7 +518,7 @@ def causal_repair_status(
         # the get-or-create below).
         factor = _durable_case_factor(repository, misconception)
         receipt: dict[str, Any] | None = None
-        if factor is not None:
+        if factor is not None and record_receipt:
             receipt = repository.insert_causal_probe_decision_receipt(
                 factor_id=str(factor["id"]),
                 decision="start_durable_repair",
@@ -637,6 +639,7 @@ def causal_repair_status(
         start_repair=start_repair,
         vault=vault,
         clock=clock,
+        record_receipt=record_receipt,
     )
 
 
@@ -811,6 +814,7 @@ def _status_for_factor(
     start_repair: bool,
     clock: Clock | None,
     vault: LoadedVault | None = None,
+    record_receipt: bool = True,
 ) -> RepairStatus:
     """Map a factor to repair status after machine checks and probe valuation.
 
@@ -866,7 +870,9 @@ def _status_for_factor(
         if routed and router_state is None:
             # The facts settle this factor before any probe could be asked (its classes, a machine-owed mapping).
             router_state, hard_stop_reasons = "unavailable", (hard_stop_reasons or (reason,))
-        receipt = repository.insert_causal_probe_decision_receipt(
+        # The probe router's tag: the router's own read before it decides records nothing; the status it then
+        # serves records its facts once (``record_receipt``).
+        receipt = {"id": None} if routed and not record_receipt else repository.insert_causal_probe_decision_receipt(
             factor_id=factor_id,
             decision=decision,
             reason=decision_reason,
@@ -914,7 +920,7 @@ def _status_for_factor(
                 probe_offered=offered,
                 probe_decision=decision,
                 probe_decision_reason=decision_reason,
-                decision_receipt_id=str(receipt["id"]),
+                decision_receipt_id=str(receipt["id"]) if receipt["id"] is not None else None,
                 candidate_id=str(candidate["id"]) if candidate is not None else None,
                 blind_bundle_ids=tuple(
                     str(value)
@@ -1022,6 +1028,7 @@ def _status_for_factor(
     if routed:
         return _routed(
             repository,
+            vault=vault,
             finish=finish,
             reads=reads,
             base_inputs=base_inputs,
@@ -1237,9 +1244,30 @@ def _status_for_factor(
 ROUTER_DECIDES = "router_decides"
 
 
+def candidate_unservable(vault: Any, repository: Repository, candidate: Mapping[str, Any] | None) -> str | None:
+    """Why the quick check on ``candidate`` could not be administered now, or None: the executability read the
+    router draws on and the status reads back. Its item is in the vault and the learner has never answered it or a
+    near-clone of it (the probe's never-seen rule). An answer shown on a routine display is the offer's own refusal
+    at acceptance (``probe_offer``), read there."""
+
+    from learnloop.diagnosis import probe_episodes
+
+    if candidate is None or not candidate.get("practice_item_id"):
+        return "no_candidate"
+    item_id = str(candidate["practice_item_id"])
+    item = vault.practice_items.get(item_id) if vault is not None else None
+    if item is None:
+        return "probe_item_missing_from_vault"
+    attempted_ids, attempted_surfaces = probe_episodes.administered_surface_exclusions(vault, repository)
+    if item_id in attempted_ids or probe_episodes.surface_group_id(item) in attempted_surfaces:
+        return "probe_item_already_answered"
+    return None
+
+
 def _routed(
     repository: Repository,
     *,
+    vault: Any,
     finish: Any,
     reads: ProbeProposalReads,
     base_inputs: Mapping[str, Any],
@@ -1335,6 +1363,12 @@ def _routed(
         decided = learner_probe_decision(connection, factor_id)
     why = "whether the quick check is asked is the router's decision"
     if decided is None:
+        unservable = candidate_unservable(vault, repository, chosen)
+        if unservable is not None:
+            # Nothing to draw over: a probe that cannot be administered is no option.
+            return finish(status="started", reason=unservable, message=STARTED_MESSAGE,
+                          decision="probe_not_executable", decision_reason=unservable, candidate=chosen,
+                          start_episode=True, hard_stop_reasons=("probe_not_executable",), **common)
         if start_repair:
             # The repair entry does not hold a repair on a decision nobody has made (a caller with no router).
             return finish(status="started", reason="no_router_decision", message=STARTED_MESSAGE,
@@ -1345,9 +1379,21 @@ def _routed(
                       candidate=chosen, router_state="pending",
                       proposal=Proposal(chosen=dict(chosen) if chosen is not None else {}, **proposal), **common)
     if str(decided.get("chosen_ref")) == PROBE_REF:
+        # The decision drew over one candidate: only that one is offered. Retired, no longer the active
+        # reviewed one, or no longer administrable, the selection is void and the repair goes on, never a substitute.
+        decided_id = str((decided.get("detail") or {}).get("candidate_id") or "")
+        selected = next((value for value in reads.candidates
+                         if str(value.get("id")) == decided_id and value.get("status") == "active"), None)
+        void = "selected_candidate_unavailable" if selected is None else candidate_unservable(vault, repository,
+                                                                                               selected)
+        if void is not None:
+            return finish(status="started", reason=void, message=STARTED_MESSAGE, decision=ROUTER_DECIDES,
+                          decision_reason=why, candidate=selected or chosen, start_episode=True,
+                          router_state="void", router_decision_id=str(decided["id"]),
+                          hard_stop_reasons=(void,), **common)
         return finish(status="needs_disambiguation", reason="router_selected_probe",
                       message=NEEDS_DISAMBIGUATION_MESSAGE, decision=ROUTER_DECIDES, decision_reason=why,
-                      offered=True, candidate=chosen, router_state="selected",
+                      offered=True, candidate=selected, router_state="selected",
                       router_decision_id=str(decided["id"]), **common)
     return finish(status="started", reason="router_did_not_select_probe", message=STARTED_MESSAGE,
                   decision=ROUTER_DECIDES, decision_reason=why, candidate=chosen, start_episode=True,
@@ -1358,6 +1404,7 @@ __all__ = [
     "CAUSAL_ORCHESTRATOR_POLICY_DEFAULTS",
     "CAUSAL_ORCHESTRATOR_POLICY_SCOPE",
     "ROUTER_DECIDES",
+    "candidate_unservable",
     "EVSI_PROVENANCE",
     "NEEDS_DISAMBIGUATION_MESSAGE",
     "REPAIR_STATUSES",

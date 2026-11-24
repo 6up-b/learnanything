@@ -4,7 +4,7 @@
 // contract) the Reader is as before: no action, no figure RPC, nothing drawn.
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { ReaderScreen } from "../../ReaderScreen";
+import { ScopedSource } from "../../desks/source/ScopedSource";
 import { readerRenderViewFixture as view } from "../../../fixtures/readerRenderView";
 import { readerIntentContractFixture as intent } from "../../../fixtures/readerIntentContract";
 import type { FigureViewDto, ReaderIntentContractDto, SourceLibraryCard } from "../../../api/dto";
@@ -83,7 +83,7 @@ afterEach(cleanup);
 it("make this explorable runs a build and the figure lands under its passage", async () => {
   contract.value = { readerEnabled: true, inquiryEnabled: true, intent, figures: { predictions: true, region: true, revisions: true } };
   api.readerFigureRequest.mockResolvedValue({ jobId: "ljob_1", kind: "figure_build", askId: null, state: "done", result: { reused: false, figure: figure() } });
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   const block = await screen.findByText(view.blocks[1].markdown);
   await waitFor(() => expect(api.readerFigures).toHaveBeenCalledWith({ extractionId: view.extractionId }));
   select(block);
@@ -106,7 +106,7 @@ it("RW5d P1: show me with words sends the selection and the words jointly (G-SM6
     figures: { predictions: true, region: true, revisions: true, showMe: true } };
   api.figureRequest.mockResolvedValue({ jobId: "ljob_2", kind: "figure_build", askId: null, state: "done",
     result: { reused: false, figure: { ...figure(), origin: "show_me", goalText: "but with p near 1", goalAuthor: "learner", grounding: "anchor", passages: [] } } });
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   const block = await screen.findByText(view.blocks[1].markdown);
   select(block);
   const box = await screen.findByRole("textbox", { name: BOX });
@@ -126,7 +126,7 @@ it("RW5d P1: show me with words sends the selection and the words jointly (G-SM6
 
 it("switched off, the Reader has no figure action, calls no figure RPC and draws nothing", async () => {
   contract.value = { readerEnabled: true, inquiryEnabled: true, intent: withoutFigure(intent) };
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   const block = await screen.findByText(view.blocks[1].markdown);
   select(block);
   await screen.findByRole("textbox", { name: BOX });
@@ -144,7 +144,7 @@ it("a figure withheld when it is delivered leaves a failed line that says so (le
   contract.value = { readerEnabled: true, inquiryEnabled: true, intent, figures: { predictions: true, region: true, revisions: true } };
   api.readerFigureRequest.mockResolvedValue({ jobId: "ljob_3", kind: "figure_build", askId: null, state: "done",
     result: { reused: false, figure: null, withheld: true } });
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   const block = await screen.findByText(view.blocks[1].markdown);
   await waitFor(() => expect(api.readerFigures).toHaveBeenCalledWith({ extractionId: view.extractionId }));
   select(block);

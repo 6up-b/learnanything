@@ -13,7 +13,7 @@ import pytest
 from learnloop.db.migrate import UPGRADE_TEST_HELPER, applied_versions, apply_migrations, discover_migrations, upgrade_allowance
 from learnloop.db.table_roles import TABLE_ROLES
 from tests.helpers import MIGRATION_HEAD_FIXTURE
-from tests.reader_rd7a_migration_helpers import RD7A_ADDED_OBJECTS, TABLES, undo_270
+from tests.reader_rd7a_migration_helpers import FIX_VERSION, RD7A_ADDED_OBJECTS, TABLES, undo_270
 
 HEAD = MIGRATION_HEAD_FIXTURE / "state.sqlite"
 MIGRATION = next(m for m in discover_migrations() if m.name == "reader_workbench_inline_checks")
@@ -60,7 +60,7 @@ def test_it_adds_its_objects_and_changes_nothing_else(tmp_path):
         connection.commit()
         before = {row[0]: row[1] for row in connection.execute("SELECT name, sql FROM sqlite_master")}
     with upgrade_allowance(UPGRADE_TEST_HELPER):
-        assert [m.version for m in apply_migrations(database)] == [MIGRATION.version]
+        assert [m.version for m in apply_migrations(database)] == [MIGRATION.version, FIX_VERSION]
     with closing(sqlite3.connect(database)) as connection:
         after = {row[0]: row[1] for row in connection.execute("SELECT name, sql FROM sqlite_master")}
         assert connection.execute("PRAGMA integrity_check").fetchone()[0] == "ok"
@@ -76,7 +76,8 @@ def test_it_adds_its_objects_and_changes_nothing_else(tmp_path):
 def test_one_administration_is_open_at_a_time_and_a_closed_one_is_final(tmp_path):
     with closing(sqlite3.connect(_head_copy(tmp_path), isolation_level=None)) as connection:
         connection.execute(_admin("ad_1"))
-        with pytest.raises(sqlite3.IntegrityError, match="UNIQUE"):
+        # A second open row is refused (by 271's guard, before the one-open index would be reached).
+        with pytest.raises(sqlite3.IntegrityError, match="UNIQUE|never replaced"):
             connection.execute(_admin("ad_2"))
         connection.execute("UPDATE check_administrations SET exposure_json = '[1]' WHERE administration_token = 'ad_1'")
         connection.execute("UPDATE check_administrations SET state = 'abandoned', closed_at = 't2' "

@@ -6,7 +6,7 @@
 // renders exactly as before.
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { ReaderScreen } from "../ReaderScreen";
+import { ScopedSource } from "../desks/source/ScopedSource";
 import { setAlgoConfig } from "../../app/algoConfig";
 import { readerRenderViewFixture as view } from "../../fixtures/readerRenderView";
 import { readerIntentContractFixture as intent } from "../../fixtures/readerIntentContract";
@@ -108,7 +108,7 @@ it("labels a proposed role as the model's and leaves every other passage's label
 });
 
 it("a library answer shows the model's label on the proposed passage only (UX §4.5)", async () => {
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} onCheckMe={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} onCheckMe={vi.fn()} />);
   const block = await screen.findByText(view.blocks[1].markdown);
   select(block);
   await screen.findByRole("textbox", { name: BOX });

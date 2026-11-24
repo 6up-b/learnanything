@@ -53,18 +53,18 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/intent/control|learnloop.intent.control]] | [[Reference/Modules/learnloop/intent/control#^module-purpose|purpose]] | `ACTIVE` | 4 | 15 |
 | [[Reference/Modules/learnloop/intent/deadline|learnloop.intent.deadline]] | [[Reference/Modules/learnloop/intent/deadline#^module-purpose|purpose]] | `ACTIVE` | 1 | 3 |
 | [[Reference/Modules/learnloop/intent/inline_administration|learnloop.intent.inline_administration]] | [[Reference/Modules/learnloop/intent/inline_administration#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
-| [[Reference/Modules/learnloop/intent/inline_checks|learnloop.intent.inline_checks]] | [[Reference/Modules/learnloop/intent/inline_checks#^module-purpose|purpose]] | `ACTIVE` | 4 | 2 |
+| [[Reference/Modules/learnloop/intent/inline_checks|learnloop.intent.inline_checks]] | [[Reference/Modules/learnloop/intent/inline_checks#^module-purpose|purpose]] | `ACTIVE` | 3 | 3 |
 | [[Reference/Modules/learnloop/intent/report|learnloop.intent.report]] | [[Reference/Modules/learnloop/intent/report#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 
 ## Cross-package dependencies
 
 ### This package imports
 
+- [[Reference/Modules/learnloop/_package|learnloop]] — 11 static module edges
 - [[Reference/Modules/learnloop/scheduling/intent/_package|learnloop.scheduling.intent]] — 11 static module edges
-- [[Reference/Modules/learnloop/_package|learnloop]] — 10 static module edges
 - [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] — 4 static module edges
+- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 3 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 3 static module edges
-- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 2 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 1 static module edge
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 1 static module edge
 - [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 1 static module edge
@@ -76,7 +76,6 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 11 static module edges
 - [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 1 static module edge
 - [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 1 static module edge
-- [[Reference/Modules/learnloop/passage_union/_package|learnloop.passage_union]] — 1 static module edge
 - [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 1 static module edge
 
 ### Dependency neighborhood
@@ -86,22 +85,22 @@ This diagram compresses package-level static imports; edge labels are distinct m
 ```mermaid
 flowchart LR
     center["learnloop.intent"]
+    n_learnloop["learnloop"]
     n_learnloop_scheduling_intent["learnloop.scheduling.intent"]
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
-    n_learnloop["learnloop"]
     n_learnloop_curriculum["learnloop.curriculum"]
-    n_learnloop_vault["learnloop.vault"]
     n_learnloop_db_stores["learnloop.db.stores"]
+    n_learnloop_vault["learnloop.vault"]
     n_learnloop_attempts["learnloop.attempts"]
     n_learnloop_cli["learnloop.cli"]
     n_learnloop_daily_plan["learnloop.daily_plan"]
     n_learnloop_learner["learnloop.learner"]
+    center -->|11| n_learnloop
     center -->|11| n_learnloop_scheduling_intent
     n_learnloop_sidecar_handlers -->|11| center
-    center -->|10| n_learnloop
     center -->|4| n_learnloop_curriculum
+    center -->|3| n_learnloop_db_stores
     center -->|3| n_learnloop_vault
-    center -->|2| n_learnloop_db_stores
     center -->|1| n_learnloop_attempts
     n_learnloop_cli -->|1| center
     n_learnloop_daily_plan -->|1| center

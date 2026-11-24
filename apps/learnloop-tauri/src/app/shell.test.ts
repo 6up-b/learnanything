@@ -9,11 +9,9 @@ import {
   placeOfTab,
   rememberBook,
   rememberPlace,
-  rememberReaderSurface,
   rememberTool,
   rememberedBook,
   rememberedPlace,
-  rememberedReaderSurface,
   rememberedTool,
   shellMode,
   tabForPlace,
@@ -157,14 +155,3 @@ describe("remember the last place", () => {
   });
 });
 
-describe("which Reader the Reader place shows (workbench v2)", () => {
-  it("is the old Reader until the desks are chosen on this machine, and stays as chosen", () => {
-    expect(rememberedReaderSurface()).toBe("reader");
-    rememberReaderSurface("desks");
-    expect(rememberedReaderSurface()).toBe("desks");
-    rememberReaderSurface("reader");
-    expect(rememberedReaderSurface()).toBe("reader");
-    localStorage.setItem("learnloop.reader.surface", "something else");
-    expect(rememberedReaderSurface()).toBe("reader");
-  });
-});
