@@ -334,3 +334,86 @@ Every whole-vault rebuild of the cold-check and deterministic-classification jou
 on each cold-check journey, every rebuild, not once. A second rebuild adds them again. This is the grading and
 measurement substrate, not the diagnosis path, so it is not fixed here. Recorded as H-3 (open). The shadow rebuild's
 `ledger_rows_added` now shows it on any vault.
+
+## H-3: rows a rebuild appends to raw ledgers (branch `refactor/h3-replay-appends-raw-ledgers`)
+
+(The ledger row H-3, not arc H's step H3.)
+
+### What writes them, and when
+
+The writer is the grade channel's dual write in the attempt step, reached from replay:
+`attempts/attempts.py::_dual_write_grade_channel` → `grade_resolution.record_grade_dual_write` →
+`ensure_administration_identity` → `substrate/activities.py::open_administration` and `append_observation`, then the
+raw grade event, the interpretation and the measurement events.
+
+From the grade channel fixes on (mvp-0.60, `GRADE_CHANNEL_FIX_VERSIONS`, refactor bug ledger D-36 and D-52), a
+replay instead reuses the attempt's newest observation (`record_replayed_grade`) and appends only what changed. Below
+that tag, a rebuild re-mints each answer's whole chain every time, as the predecessor did. That is kept on purpose so
+the predecessor replays as it did, and `tests/test_rebuild_history_appends.py` pins it.
+
+The journeys that showed the growth (cold pass, cold fail, deterministic classification) run at mvp-0.7, below the
+version floor (mvp-0.58), under the tests' allowance. **So H-3 is D-36 seen at an old tag, not a new defect at the
+head.** Nothing at mvp-0.60 or later re-mints a chain on a second rebuild.
+
+### The sweep
+
+A new guard, `tests/test_replay_writes_no_ledger.py`, covers all 21 journeys plus the grade-application golden's
+broad history at the head (self-graded, model-graded, hinted, primed, "I don't know", stuck, unassessed, held, a
+repeat and a sibling, the blind door, a regrade, an adjudication). On each it runs one whole-vault rebuild, then two
+more, then two rounds of per-LO replay of every LO, counting rows in every `RAW_LEDGER` and `RECEIPT` table
+(`db.table_roles`).
+
+- **The second and third rebuilds** add exactly their one rebuild receipt (`derived_state_rebuilds`) and nothing
+  else.
+- **Per-LO replays** add nothing.
+- **Exception:** a vault below the grade channel fixes may add the grade chain's tables (`activity_observations`,
+  `raw_grade_events`, `grade_interpretations`, `measurement_events`, `activity_administrations`), the predecessor's
+  rule. No other table.
+- **The first rebuild** may add only one-time rows, listed in the test as `FIRST_REBUILD_BACKFILL`:
+  - the activity substrate's backfill of cards, surfaces and families for unanswered items;
+  - administrations, exposures and observations for answers recorded without them;
+  - outcome schemas and mastery seeds a vault never recorded;
+  - the grade channel's one reconciliation of a grade the ledger lags. The broad history's first rebuild adds one raw
+    grade event, one interpretation and three measurement events for that, D-36's "only what changed".
+
+  A second rebuild adds none of these.
+
+The guard is fail-first for H-2's class: with `src` at the H-1 tip (before H-2), it fails on the mid-check and
+recurrence journeys, where the first rebuild appends `causal_hypotheses` and `text_write_provenance`. At this tip,
+22 passed.
+
+### Does anything drift with the number of rebuilds?
+
+No scored or learner-visible number. On a vault rebuilt below mvp-0.60, every reader of the duplicated chains reads
+each attempt's newest observation:
+- the authoritative observation ledger and the projection (`db/stores/observation_ledger.py`);
+- the review queue (fixed by D-36);
+- the field's grader-model read (`field/outcomes.py::_grader_models`);
+- the router check's quarantine read (`router_objective/checks.py`);
+- the first cold administration per contract (`db/stores/activity.py`, first by time).
+
+D-36 found the derived tables equal after each rebuild. The one real harm below the tag, an owner adjudication lost
+to the next rebuild (D-52), is fixed from mvp-0.60 on. What remains is storage: one extra chain per graded answer per
+rebuild run while the vault was below mvp-0.60.
+
+### Existing vaults: leave the rows, an owner option
+
+Nothing here deletes a raw row. Signature, read-only:
+
+```sh
+sqlite3 -readonly "$COPY_DB" "SELECT count(*) AS attempts_with_copies, coalesce(sum(n - 1), 0) AS extra_observations FROM (SELECT attempt_id, count(*) AS n FROM activity_observations WHERE attempt_id IS NOT NULL GROUP BY attempt_id HAVING n > 1);"
+```
+
+From mvp-0.60 an attempt keeps one observation, so more than one means rebuilds below the tag re-minted it.
+
+**Owner options:**
+- **(a) Leave them (recommended).** Every reader takes the newest. The cost is storage.
+- **(b) A one-off compaction on a copy.** Remove every observation but the newest per attempt, with its raw event,
+  interpretations and measurement events, then check with doctor and a shadow rebuild. That is a write to raw
+  ledgers and needs the owner's explicit decision, outside this landing.
+- **(c) Move the version floor to mvp-0.60 or later (ADR-019).** The owner copies are at mvp-0.68. Then no supported
+  vault can re-mint chains, and the predecessor path and its test can go, retiring the class rather than guarding it.
+
+### Tag and migration
+
+None: this landing changes no source file. It adds the guard test and the record.
