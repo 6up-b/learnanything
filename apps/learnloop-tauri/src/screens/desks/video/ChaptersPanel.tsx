@@ -123,7 +123,7 @@ export function useVideoChapters({ extractionId, transport, poller, onChapters, 
       <div className="hd">◇ suggested chapters</div>
       {list.map((chapter) => {
         const topic = chapter.learningObjects?.[0];
-        const lo = topic ? chapter.held || topic.held ? "Topic details hidden" : topic.title : null;
+        const lo = topic ? chapter.held || topic.held ? "a topic with a cold check due" : topic.title : null;
         return (
           <div key={chapter.chapterId} className={`chap${chapter.state === "accepted" ? " accepted" : ""}`} data-chapter={chapter.chapterId}>
             <span className="tr">{clockWords(chapter.t0)}–{clockWords(chapter.t1)}</span>

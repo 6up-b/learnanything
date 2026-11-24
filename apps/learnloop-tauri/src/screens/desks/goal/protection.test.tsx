@@ -14,9 +14,9 @@ import { PathView } from "./PathView";
 
 const BOOK = FIXTURE_SOURCES.book.extractionId;
 const MASKED = "lo_fx_softmax";
-const NEUTRAL_LO = "Topic details hidden";
-const NEUTRAL_SECTION = "Section details hidden";
-const HELD_REASON = "Details are hidden while a question is due.";
+const NEUTRAL_LO = "a topic with a cold check due";
+const NEUTRAL_SECTION = "a section held until its cold check";
+const HELD_REASON = "Details are hidden while a cold check is due.";
 afterEach(cleanup);
 
 /** The band and lens as the server sends them while MASKED's check is due (the goal lens protection rules). */
@@ -37,7 +37,7 @@ function masked(): { band: GoalBandDto; lens: GoalLensDto; names: string[] } {
     ? { ...each, title: null, readinessLine: null, held: true, primary: each.primary ? { ...each.primary, title: NEUTRAL_SECTION } : null } : each));
   band.path = { ...band.path!, lines: band.path!.lines.map((each) => (each.learningObjectId === MASKED
     ? { ...each, title: NEUTRAL_LO, phrase: "", reason: null, held: true, section: neutral(each.section), alternates: each.alternates.map(neutral),
-        exercise: each.exercise ? { ...each.exercise, label: "Exercise details hidden" } : null }
+        exercise: each.exercise ? { ...each.exercise, label: "an exercise held until its cold check" } : null }
     : { ...each, section: heldSections.has(each.section.sectionId) ? neutral(each.section) : each.section })) };
   if (band.next?.kind === "section" && band.next.learningObjectId === MASKED) band.next = { ...band.next, section: { ...band.next.section, title: NEUTRAL_SECTION } };
   lens.levels = lens.levels.map((level) => (level.loIds.includes(MASKED) || heldSections.has(level.sectionId)

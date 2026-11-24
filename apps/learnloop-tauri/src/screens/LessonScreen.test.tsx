@@ -135,7 +135,7 @@ it("a lesson ended by a protection change offers a fresh lesson with a fresh bri
     closed: true, closeReason: "protection_changed",
     feed: [{ kind: "close", reason: "protection_changed", recap: null, delayedChecks: [] }],
   }));
-  expect(screen.getByTestId("lesson-close").textContent).toContain("This lesson ended. Start a new lesson to continue.");
+  expect(screen.getByTestId("lesson-close").textContent).toContain("This lesson ended. Everything so far is saved; start a new lesson to continue.");
   expect(screen.queryByText("Send")).toBeNull();
   api.lessonTurn.mockResolvedValueOnce(lesson({ lessonId: "les2" }));
   await act(async () => { fireEvent.click(screen.getByTestId("lesson-start-fresh")); });

@@ -84,7 +84,7 @@ const CLOSE_WORDS: Record<string, string> = {
   budget: "This lesson reached its spending cap.",
   plan_unavailable: "The teacher became unavailable, so the lesson closed.",
   teacher_contract_failure: "The lesson couldn’t continue. Return to Path to choose what to study next.",
-  protection_changed: "This lesson ended. Start a new lesson to continue.",
+  protection_changed: "This lesson ended. Everything so far is saved; start a new lesson to continue.",
 };
 
 function dueWords(due: string): string {

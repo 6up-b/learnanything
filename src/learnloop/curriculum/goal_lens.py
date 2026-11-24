@@ -256,7 +256,7 @@ def section_level(section: SectionReads, goal: GoalReads) -> SectionLevel:
 # Words (no model: the path's own reason where it has one, else assembled from the labels)
 # ---------------------------------------------------------------------------
 
-HELD_REASON = "Details are hidden while a question is due."
+HELD_REASON = "Details are hidden while a cold check is due."
 
 
 def _quoted(title: str) -> str:
@@ -295,8 +295,8 @@ def reason_text(level: SectionLevel, section: SectionReads, goal: GoalReads) -> 
         "check_pending": f"You said you know {title}. A cold check is pending.",
         "you_skipped": f"You chose to skip {title}.",
         "out_of_scope": "LearnLoop hasn’t found a link to your goal here.",
-        "not_about": "LearnLoop hasn’t found a link to your goal here.",
-        "unmapped": "LearnLoop hasn’t found a link to your goal here.",
+        "not_about": "LearnLoop judged this section not about the topics of your goal.",
+        "unmapped": "LearnLoop hasn’t checked this section against your goal yet.",
         "withheld": "No suggestions for this section. Try another section.",
         "left_out": "No suggestions for this section. Try another section.",
         "partial_unsettled": "LearnLoop is still looking for reading on some of your goal topics.",
@@ -464,11 +464,11 @@ def next_for_goal(checks_due: int, first_check: Mapping[str, Any] | None,
 # build a :class:`Protection` are in ``source_retrieval.goal_lens_reads``.
 
 #: An LO's name while its check is due (the band's own words for such a dot).
-NEUTRAL_LO = "Topic details hidden"
+NEUTRAL_LO = "a topic with a cold check due"
 #: A section's title while it treats an LO whose check is due.
-NEUTRAL_SECTION = "Section details hidden"
+NEUTRAL_SECTION = "a section held until its cold check"
 #: An exercise picked from such a section.
-NEUTRAL_EXERCISE = "Exercise details hidden"
+NEUTRAL_EXERCISE = "an exercise held until its cold check"
 #: In the learner's own words (a goal's sentence, an unmatched phrase): what stands for a held LO's name, so the rest
 #: of their words still shows.
 HIDDEN_TOPIC = "[topic hidden]"

@@ -163,7 +163,7 @@ export function hereLine(index: LensIndex | null, readingSpan: string | null, wh
   if (!section) return { where: place, lo: null, tag: null, loId: null };
   // A section treating an LO whose check is due names nothing: not the window's own place words (the book's heading
   // may be the LO's name), only the server's neutral title (D15).
-  if (section.held) return { where: section.title, lo: null, tag: "Details are hidden while a question is due", loId: null };
+  if (section.held) return { where: section.title, lo: null, tag: "Details are hidden while a cold check is due", loId: null };
   if (section.level === "skippable") return { where: place, lo: null, tag: "Optional at this depth", loId: null };
   if (section.level === "unmapped") return { where: place, lo: null, tag: "No link to your goal yet", loId: null };
   const lo = section.learningObjects.find((entry) => entry.learningObjectId === section.determiningLoId);
@@ -211,7 +211,7 @@ export function dotClasses(dot: GoalBandLoDto, here: string | null): string {
 
 /** A dot's hover title; a held LO's name is not shown (spec §12.6.1). */
 export function dotTitle(dot: GoalBandLoDto): string {
-  if (dot.held) return "Topic details hidden";
+  if (dot.held) return "a topic with a cold check due";
   return [dot.title, dot.kind === "later" ? "later" : dot.kind, dot.readiness].filter(Boolean).join(" · ");
 }
 

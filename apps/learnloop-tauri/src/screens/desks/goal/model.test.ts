@@ -93,7 +93,7 @@ describe("the band's lines", () => {
   it("never names an LO with a due check", () => {
     const { band } = fixture();
     const dot = { ...band.learningObjects![0], title: null, held: true };
-    expect(dotTitle(dot)).toBe("Topic details hidden");
+    expect(dotTitle(dot)).toBe("a topic with a cold check due");
     expect(truncate("x".repeat(50), 44)).toHaveLength(44);
   });
 });
@@ -109,7 +109,7 @@ describe("callouts", () => {
     expect(calloutFor(index.starts.get(`${BOOK}_s4_h`)!)?.label).toBe("for your goal · Background");
     expect(calloutFor(index.starts.get(`${BOOK}_s6_h`)!)).toBeNull();
     expect(calloutFor(index.starts.get(`${BOOK}_s2_h`)!)).toBeNull();
-    const held = { ...index.starts.get(`${BOOK}_s1_h`)!, held: true, reasonMd: "Details are hidden while a question is due." };
-    expect(calloutFor(held)).toEqual({ label: "for your goal", body: "Details are hidden while a question is due.", held: true });
+    const held = { ...index.starts.get(`${BOOK}_s1_h`)!, held: true, reasonMd: "Details are hidden while a cold check is due." };
+    expect(calloutFor(held)).toEqual({ label: "for your goal", body: "Details are hidden while a cold check is due.", held: true });
   });
 });

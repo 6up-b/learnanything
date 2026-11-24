@@ -129,7 +129,7 @@ export function PathView({ band, here, notNeeded, onClose, onDepth, onOpen, onUs
               <div className="gp-h">
                 <span className={`gp-n rd-${dot.readiness}${dot.kind === "prerequisite" ? " pre" : ""}`} />
                 <span className="gp-ord">{index + 1}</span>
-                <span className="gp-ti">{dot.title ?? "Topic details hidden"}</span>
+                <span className="gp-ti">{dot.title ?? "a topic with a cold check due"}</span>
                 <span className={`gp-tag ${later ? "later" : dot.kind === "needed" ? "core" : "prerequisite"}`}>{later ? "Deeper study" : dot.kind === "needed" ? "Goal topic" : "Background"}</span>
                 {here === dot.learningObjectId ? <span className="gp-tag here">In view</span> : null}
                 <span className="grow" />

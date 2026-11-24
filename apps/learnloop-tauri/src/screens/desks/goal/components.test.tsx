@@ -104,7 +104,7 @@ describe("the band", () => {
     render(<GoalBand {...bandProps({ band: { ...value, learningObjects: dots } })} />);
     expect(document.querySelector(".gs.chk.due")!.getAttribute("title")).toBe("Cold check due");
     expect(document.querySelector(".gs.chk.done")).toBeTruthy();
-    expect(document.querySelector("[data-gstop='lo_fx_softmax']")!.getAttribute("title")).toBe("Topic details hidden");
+    expect(document.querySelector("[data-gstop='lo_fx_softmax']")!.getAttribute("title")).toBe("a topic with a cold check due");
   });
 
   it("an unmapped goal offers map it; a goal the learner did not set says so", () => {
@@ -196,7 +196,7 @@ describe("marks, dimming and callouts on a reading", () => {
   });
 
   it("the why card of a held section says only the neutral line", () => {
-    const section = { ...index!.bySpan.get(`${BOOK}_s1_2`)!, held: true, reasonMd: "Details are hidden while a question is due.", coverageLine: null, learnerLine: null };
+    const section = { ...index!.bySpan.get(`${BOOK}_s1_2`)!, held: true, reasonMd: "Details are hidden while a cold check is due.", coverageLine: null, learnerLine: null };
     render(<WhyCard why={{ section, extractionId: BOOK, windowId: "w", rect: { left: 10, top: 200, right: 13, bottom: 260 } }} band={band()} />);
     expect(document.querySelector(".gwhy")!.textContent).not.toContain("Turn scores");
   });

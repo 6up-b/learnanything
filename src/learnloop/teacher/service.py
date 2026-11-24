@@ -338,7 +338,7 @@ def _te2_transcript_entry(entry: Mapping[str, Any]) -> dict[str, Any] | None:
 
 
 #: Why a lesson ended on a protection change, as the learner reads it (ruling R1).
-PROTECTION_CHANGED_NOTICE = "This lesson ended. Start a new lesson to continue."
+PROTECTION_CHANGED_NOTICE = "This lesson ended. Everything so far is saved; start a new lesson to continue."
 
 
 def protection_changed(vault: Any, repository: Any, state: LessonState) -> bool:
@@ -612,7 +612,7 @@ def _require_metered_settings(vault: Any, client: Any) -> None:
         return
     config = vault.config.teacher
     if config.metered_price_per_million is None or config.max_lesson_cost_usd is None:
-        raise LessonError("plan_unavailable", "OpenRouter isn’t set up for lessons in this library. You can keep studying in Practice.")
+        raise LessonError("plan_unavailable", "Lessons through OpenRouter need a spending limit set first. You can keep studying in Practice.")
 
 
 # =============================================================================

@@ -634,7 +634,7 @@ def test_r3_f4_a_lesson_whose_protection_changed_ends_without_another_call(tmp_p
     # No teacher call at all: nothing saved under the old protection is resent, so nothing is redacted.
     assert _teacher_calls(fake) == calls
     assert closed["closed"] and closed["close_reason"] == "protection_changed"
-    assert "This lesson ended. Start a new lesson to continue." in closed["notices"]
+    assert "This lesson ended. Everything so far is saved; start a new lesson to continue." in closed["notices"]
     # Everything already recorded stays; the close is one more entry with its receipt.
     assert _rows(repository, "SELECT id FROM lesson_turns ORDER BY seq")[:len(recorded)] == recorded
     assert _rows(repository, "SELECT close_reason FROM lesson_receipts") == [("protection_changed",)]

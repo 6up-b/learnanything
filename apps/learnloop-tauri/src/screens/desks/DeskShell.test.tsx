@@ -254,7 +254,7 @@ describe("the key router", () => {
     expect(screen.getByText("window left")).toBeTruthy();
     // Built now (the pads, and RD10's timestamp), so on the panel.
     expect(screen.getByText("new pad")).toBeTruthy();
-    expect(screen.getByText("Copy ▶ video time")).toBeTruthy();
+    expect(screen.getByText("Insert ▶ video time")).toBeTruthy();
     act(() => {
       fireEvent.keyUp(window, { key: "Alt", code: "AltLeft" });
     });

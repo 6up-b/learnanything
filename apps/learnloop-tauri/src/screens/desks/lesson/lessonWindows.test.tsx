@@ -256,7 +256,7 @@ describe("your additions under a lesson", () => {
   });
 
   it("a lesson held for a due check gives its additions pad no topic in the stored title", async () => {
-    const summaries = [{ ...FIXTURE_LESSON_SUMMARY, additionsPadId: null, title: "Topic details hidden", goal: null, held: true }];
+    const summaries = [{ ...FIXTURE_LESSON_SUMMARY, additionsPadId: null, title: "a topic with a cold check due", goal: null, held: true }];
     const { server, flush } = mount({ stack: WITH_LESSON, summaries });
     await screen.findByText("If every score goes up by 3, what happens to the loss?");
     fireEvent.click(within(screen.getByRole("group", { name: "lesson modes" })).getByText("your additions"));

@@ -420,11 +420,11 @@ def _apply_desk_op(connection: Any, op: Any, now: str, versions: dict[str, int])
         layout = _Layout(connection, desk["desk_id"])
         index = layout.index_of(op.window_id)
         if len(layout.slots[index]) >= PAIR_SIZE:
-            raise OpRefused("slot_full", "Choose a window next to an unstacked window and try again.")
+            raise OpRefused("slot_full", "At most two windows can share a space. Give one of them its own space first.")
         if index + 1 >= len(layout.slots):
             raise OpRefused("nothing_to_the_right", "Open a window on the right to stack these windows.")
         if len(layout.slots[index + 1]) >= PAIR_SIZE:
-            raise OpRefused("slot_full", "Choose a window next to an unstacked window and try again.")
+            raise OpRefused("slot_full", "At most two windows can share a space. Give one of them its own space first.")
         neighbour = layout.slots.pop(index + 1)
         layout.slots[index].extend(neighbour)
         layout.active -= set(layout.slots[index])

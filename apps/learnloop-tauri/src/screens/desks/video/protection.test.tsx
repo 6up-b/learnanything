@@ -16,8 +16,8 @@ vi.mock("../../../render/MarkdownMath", () => ({ MarkdownMath: ({ value }: { val
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 
 const NAME = "Eigenvalues";
-const NEUTRAL_LO = "Topic details hidden";
-const NEUTRAL_SECTION = "Section details hidden";
+const NEUTRAL_LO = "a topic with a cold check due";
+const NEUTRAL_SECTION = "a section held until its cold check";
 const LAYOUT = { videos: [{ windowId: "w_vid", extractionId: "ext_vid", title: "Matrices, a video" }], books: [{ windowId: "w_book", extractionId: "ext_book", paused: false }] };
 const flush = () => act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
 
