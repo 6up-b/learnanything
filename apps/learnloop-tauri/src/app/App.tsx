@@ -1853,7 +1853,11 @@ export function App() {
     setPendingRedo(null);
     setIngestJobId(null);
     setProposalFocusPatchId(null);
+    // The Reader's requests are the vault's being left (review fix round, major 11): its library search words, its
+    // book and the plan reading's banner never reach the next vault's desks.
     setReaderSource(null);
+    setReaderLibrarySearch(null);
+    setPlanReading(null);
     setDeskBook(undefined);
     setAddOpen(false);
     setConnectOpen(false);
