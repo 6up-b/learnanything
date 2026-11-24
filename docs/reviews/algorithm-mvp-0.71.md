@@ -20,6 +20,38 @@ The historical refit can change weight and pool posteriors and hence future chec
 
 The extended F6 reproduction in `tests/test_teacher_te1_review_fixes.py` runs with measured difficulty off and on. It checks the empirical update, primed repeat, authored edits to an intervening item and the endpoint, each grade's effective curve, and the prior mean and variance at the recorded mass. `tests/test_teacher_te5_grade_curves.py` covers complete and missing predecessor inputs, failed preparation and retry after the source changes, current and superseded epochs, old-version fitting, replacement grades and repeated rebuilds. The local activation exercise uses the previous tag available in the test tree. `tests/test_grading_cli.py` checks adjudication capture and rollback. `tests/test_grade_curves_migration.py` applies 274 on a backup-API copy and checks the exact schema addition, existing attempts, immutability, constraints and integrity.
 
+## Integration on main
+
+L4-2 was built on main as of `60e21faadf` (latest tag `mvp-0.68`, migration head 269), proposing `mvp-0.70` and
+migration 271. Main has since taken the inline checks (`mvp-0.69`, migrations 270 and 271), the probe router
+(`mvp-0.70`, with its fix rounds) and the Reader's retirement (272). G2's second fix round takes 273. The integration
+is a merge of origin/main into `teacher/te5-consolidation`:
+
+- **The tag is `mvp-0.71`**: one constant (`LESSON_WEIGHT_CURVES_ALGORITHM_VERSION`), the chain entry after
+  `PROBE_ROUTER_ALGORITHM_VERSION`, one upgrade row and one test row.
+- **The migration is 274** (`274_attempt_grade_curves.sql`). Its table keeps its role: `attempt_grade_curves` is
+  RAW_LEDGER. Each row is a fact captured when its grade is applied. Replay reads it and never writes it
+  (`tests/test_replay_writes_no_ledger.py` passes). The one capture made from the replay module is the live
+  application of a replacement grade (`applying_grade_to`), which a rebuild never passes.
+- **A Codex defect, removed.** To publish from `mvp-0.69` on a chain that did not have it yet, the build added
+  `Link.after` (a predecessor override) and a predecessor check in the upgrade walk. On main the chain is whole, so the
+  override and the check are gone: the row's predecessor is the chain's, `mvp-0.70`. Kept, the override could have
+  let an upgrade skip a tag's activation.
+- **The activation, re-checked against what main gained:**
+  - Before any projection is cleared, the snapshot freezes every practice attempt's grading epochs. This covers
+    attempts the inline checks administer (ordinary attempts through the one attempt service) and the grade channel's
+    epochs (the canonical grading-epoch rules).
+  - The probe router's records are raw ledgers that the whole-vault rebuild does not clear: its decisions, its coin's
+    assignments, its traces with their replay payloads. Nothing in the snapshot reads them.
+  - The rebuild-history fixes still hold. Replay carries the follow-up gate records and reuses stored hypothesis
+    versions; L4-2's replay change reads the frozen curve and touches neither.
+  - The missing markers and the owner-copy query below name the predecessor `mvp-0.70`.
+- **H3** (lands after this): the capture point stays where it was built. `if reads.recorded_curve is None:` in
+  `attempts.py` takes an `or retired` clause there.
+- **The head fixture.** `fixtures/migration_head` is upgraded to 274 last, once 273 is on main, per CLAUDE.md. Until
+  then the migration tests that read the head fixture apply 274 on top of it and fail; they are named in the
+  integration report. `tests/test_grade_curves_migration.py` applies 274 on the fixture at 272 and passes.
+
 ## Owner-copy procedure
 
 Use consistent SQLite backup-API copies. The following inspection is for the orchestrator. Supply the path of a **copy database** in `COPY_DB`. Both commands open their input read-only. The first reports coverage among the attempts between each recorded lesson check and its resolving outcome, including both endpoints. Resolving attempts for pool-only updates are included. Each attempt counts once across overlapping windows. These counts describe fitted windows through the last answered lesson check. Activation also covers every attempt outside these windows, including unresolved histories. Run this window inspection before the upgrade. A successor surprise row has already been replayed.
@@ -74,7 +106,7 @@ sqlite3 -readonly -json "$COPY_DB" 'SELECT seq,kind,lesson_check_id,resolving_at
 On disposable copies of the same quiescent predecessor backup, with identical authored content and effective settings, use the following sequence. Keep the original and its WAL hash for the final comparison.
 
 1. With the predecessor binary, record the checks, raw receipts, semantic state and trace digests above. Record the total expected epoch count using the query below. Save `learnloop rebuild --vault "$COPY" --shadow --json`. Use a second untouched backup for the upgrade. A shadow run with a version override alone does not run the activation snapshot.
-2. On the second copy use the rebased binary and run `learnloop upgrade --vault "$COPY" --to mvp-0.71`, then `learnloop doctor --vault "$COPY"`. Record the version, schema head, integrity, foreign keys and the same digests. Run the successor-only queries below. The number of reconstructed rows plus missing markers must equal the predecessor epoch count. Every pre-upgrade epoch must have a row. At this point the graded count must be zero.
+2. On the second copy use the rebased binary and run `learnloop upgrade --vault "$COPY" --to mvp-0.71` (from an `mvp-0.69` copy the walk passes through `mvp-0.70`'s idempotent projection first), then `learnloop doctor --vault "$COPY"`. Record the version, schema head, integrity, foreign keys and the same digests. Run the successor-only queries below. The number of reconstructed rows plus missing markers must equal the predecessor epoch count. Every pre-upgrade epoch must have a row. At this point the graded count must be zero.
 3. Compare each changed weight or pool update against its predecessor by kind, check/forecast and resolving attempt. Use `detail_json.trajectory_inputs`, `resolving_input`, `likelihood` and `resolving_fallback` to account for the difference. Compare mastery means/variances, facets, due dates and queue counts across copies, and run the successor shadow report. Keep tag-only differences separate from value changes. The check, lesson receipt and forecast receipt digests must match across copies.
 4. On the upgraded copy run `learnloop rebuild-derived-state --vault "$COPY" --json` twice, taking all successor digests after each run. Both rebuilds must match activation for the curves, lesson weights, pools, trace and raw receipts. Verify the shadow reports' input hashes and the original database/WAL hash. Report counts, digests and explained deltas for review before any live upgrade.
 
