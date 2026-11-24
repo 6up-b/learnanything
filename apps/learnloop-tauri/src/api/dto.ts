@@ -1162,6 +1162,8 @@ export interface IntentCheckDto {
    * measured banner and no help header: the duty's own safeguards apply.
    */
   duty?: "cold_followup" | "diagnostic";
+  /** mvp-0.69: an inline administration holds the check in the Reader; the banner says so and this is practice. */
+  beingAnsweredIn?: "reader";
   restoration: IntentRestorationDto | null;
 }
 
@@ -11203,6 +11205,8 @@ export interface CheckCardDto {
     groups: string[] };
   /** Today's own serve of the item (the practice item detail, its check view hiding locators). */
   prompt: Record<string, unknown>;
+  /** The practice session the answer is recorded on (opened when the app had none), for the app to adopt. */
+  practiceSession?: SessionSnapshot | null;
 }
 
 export type CheckExposureKind = "opened_veil" | "navigated" | "help";

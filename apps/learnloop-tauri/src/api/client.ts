@@ -1726,7 +1726,7 @@ export const api = {
   chaptersDecide: (input: { chapterId: string; decision: "accept" | "dismiss" }) =>
     call<{ chapter: VideoChapterDto }>("chapters_decide", { input }),
   // Reader workbench RD7 (spec §12.6): the inline administration of a due check.
-  checkBeginInline: (input: { requestId: string; commitmentId: string; sessionId: string; visible: CheckVisibleDto }) =>
+  checkBeginInline: (input: { requestId: string; commitmentId: string; sessionId?: string; visible: CheckVisibleDto }) =>
     call<CheckCardDto>("check_begin_inline", { input }),
   checkProtectMore: (input: { administrationToken: string; visible: CheckVisibleDto }) =>
     call<{ veilAdditions: CheckVeilRefDto[] }>("check_protect_more", { input }),
