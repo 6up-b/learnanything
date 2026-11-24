@@ -1443,6 +1443,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_field_signal_production_paths.py](../../../../../../tests/test_field_signal_production_paths.py) — direct import
   - `test_practice_screen_payload_marks_help_before_work`
 - [tests/test_field_workbench_signals.py](../../../../../../tests/test_field_workbench_signals.py) — direct import
+- [tests/test_figure_rich_attempt_records.py](../../../../../../tests/test_figure_rich_attempt_records.py) — direct import
+  - `test_final_attempt_commits_with_figure`
 - [tests/test_figures_codex_review.py](../../../../../../tests/test_figures_codex_review.py) — direct import
   - `test_f7_identical_concurrent_builds_join_one_build`
 - [tests/test_figures_fix_round2.py](../../../../../../tests/test_figures_fix_round2.py) — direct import
@@ -2000,6 +2002,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_question_signal.py](../../../../../../tests/test_question_signal.py) — direct import
 - [tests/test_queue_revision_after_applying_jobs.py](../../../../../../tests/test_queue_revision_after_applying_jobs.py) — direct import
   - `test_a_legacy_ingest_that_applies_practice_moves_the_revision`
+  - `test_cancellation_after_the_legacy_write_publishes_the_new_practice`
+  - `test_completed_practice_and_revision_are_visible_together`
+  - `test_identical_legacy_source_does_not_publish_another_revision`
+  - `test_import_rewriting_identical_practice_bytes_keeps_the_revision`
+  - `test_overlapping_imports_publish_one_shared_write`
 - [tests/test_quick_add.py](../../../../../../tests/test_quick_add.py) — direct import
 - [tests/test_randomization_layer.py](../../../../../../tests/test_randomization_layer.py) — direct import
 - [tests/test_re0_capture.py](../../../../../../tests/test_re0_capture.py) — direct import

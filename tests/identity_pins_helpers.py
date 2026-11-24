@@ -1281,7 +1281,29 @@ def _rich_build_key(**figures: Any) -> Callable[[], Any]:
     return compute
 
 
+def _teacher_goal_contract(visuals: bool, episodes: bool, *, prompt: bool) -> Callable[[], Any]:
+    def compute() -> Any:
+        from learnloop.teacher import service as teacher
+        from learnloop.teacher.brief import SourceBook
+        from learnloop.teacher.contracts import capabilities
+
+        allowed = capabilities(visuals=visuals, episodes=episodes, probes=True) | {"goal_topics"}
+        if not prompt:
+            return teacher.wire_model(allowed).model_json_schema()
+        state = teacher.LessonState(lesson={}, brief={}, book=SourceBook(), turns=[], checks=[], plans=[])
+        return teacher._prompt(state, results=[], help_reply=False, visuals=visuals, episodes=episodes,
+                               te2=True, goal_topics=True)
+    return compute
+
+
 IDENTITY_SITES: tuple[IdentitySite, ...] = (
+    IdentitySite(
+        "TE5", "teacher topic offer prompt and provider schema",
+        ("src/learnloop/teacher/service.py::_prompt", "src/learnloop/teacher/service.py::wire_model"),
+        "teacher structured request identity", "new requests use a distinct schema and prompt family",
+        {f"{kind}.{variant}": _teacher_goal_contract(visuals, episodes, prompt=kind == "prompt")
+         for kind in ("prompt", "schema") for visuals, episodes, variant in (
+             (False, False, "plain"), (True, False, "visuals"), (False, True, "episodes"), (True, True, "both"))}),
     IdentitySite(
         "K9.5m", "pattern, card, reversal and pack-card ledger identities",
         ("src/learnloop/diagnosis/split/jobs.py::record_pattern_verdicts",

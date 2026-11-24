@@ -47,36 +47,39 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/teacher/te2.py](../../../../../../src/learnloop/teacher/te2.py) |
-| Source lines | 173 |
+| Source lines | 195 |
 | Owning package | [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `on(vault: Any) -> bool` ([source](../../../../../../src/learnloop/teacher/te2.py), line 52) — TE2 serves: lessons are on.
-- `lesson_te2(state: Any) -> bool` ([source](../../../../../../src/learnloop/teacher/te2.py), line 59) — The lesson was opened under TE2 (its brief is ``lesson_brief_v2``).
-- `paragraph() -> str` ([source](../../../../../../src/learnloop/teacher/te2.py), line 66)
-- `instructions(text: str, te2: bool) -> str` ([source](../../../../../../src/learnloop/teacher/te2.py), line 70)
-- `prompt_version(base: str, te2: bool) -> str` ([source](../../../../../../src/learnloop/teacher/te2.py), line 74)
-- `doctrine_family(doctrine: str, te2: bool) -> str` ([source](../../../../../../src/learnloop/teacher/te2.py), line 78) — §12.2: a turn under the TE2 paragraph is a different forecaster (its own λ posterior).
-- `turn_model(base: type[TeacherTurnV1], te2: bool) -> type[TeacherTurnV1]` ([source](../../../../../../src/learnloop/teacher/te2.py), line 92) — The turn's strict schema: ``base`` off; with ``serve_probe`` and ``propose_gap`` on.
-- `stored_turn(data: Mapping[str, Any] | None) -> TeacherTurnV1` ([source](../../../../../../src/learnloop/teacher/te2.py), line 98) — A stored accepted turn read back: TE1's widest shape when it validates (so a TE1 turn reads back exactly as before), else TE2's widest (a turn holding a TE2 request).
-- `learner_ref(entry: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/teacher/te2.py), line 108) — How the transcript names a learner's turn (``propose_gap``'s ``ref``).
-- `delayed_check_words(vault: Any, repository: Any, learning_object_id: str, *, withheld: Any, attempted: set[str]) -> str` ([source](../../../../../../src/learnloop/teacher/te2.py), line 119) — Whether a delayed check could be committed on the LO now: an unseen, unrevealed, unwithheld question exists (the delayed checks' own candidate rule, before this lesson shows anything), or none yet.
-- `where_you_left_off(vault: Any, repository: Any, learning_object_ids: Sequence[str], *, exclude: str | None, notes_check: Any=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/teacher/te2.py), line 130) — The newest earlier lesson on these LOs with a stored plan: its latest plan version, labelled "where you left off" (§11.8).
+- `on(vault: Any) -> bool` ([source](../../../../../../src/learnloop/teacher/te2.py), line 53) — TE2 serves: lessons are on.
+- `lesson_te2(state: Any) -> bool` ([source](../../../../../../src/learnloop/teacher/te2.py), line 60) — The lesson was opened under TE2 (its brief is ``lesson_brief_v2``).
+- `paragraph() -> str` ([source](../../../../../../src/learnloop/teacher/te2.py), line 67)
+- `goal_paragraph() -> str` ([source](../../../../../../src/learnloop/teacher/te2.py), line 76)
+- `instructions(text: str, te2: bool, goal_topics: bool=False) -> str` ([source](../../../../../../src/learnloop/teacher/te2.py), line 80)
+- `prompt_version(base: str, te2: bool, goal_topics: bool=False) -> str` ([source](../../../../../../src/learnloop/teacher/te2.py), line 85)
+- `doctrine_family(doctrine: str, te2: bool, goal_topics: bool=False) -> str` ([source](../../../../../../src/learnloop/teacher/te2.py), line 90) — §12.2: a turn under the TE2 paragraph is a different forecaster (its own λ posterior).
+- `turn_model(base: type[TeacherTurnV1], te2: bool, goal_topics: bool=False) -> type[TeacherTurnV1]` ([source](../../../../../../src/learnloop/teacher/te2.py), line 105) — The turn's strict schema: ``base`` off; with ``serve_probe`` and ``propose_gap`` on.
+- `stored_turn(data: Mapping[str, Any] | None) -> TeacherTurnV1` ([source](../../../../../../src/learnloop/teacher/te2.py), line 120) — A stored accepted turn read back: TE1's widest shape when it validates (so a TE1 turn reads back exactly as before), else TE2's widest (a turn holding a TE2 request).
+- `learner_ref(entry: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/teacher/te2.py), line 130) — How the transcript names a learner's turn (``propose_gap``'s ``ref``).
+- `delayed_check_words(vault: Any, repository: Any, learning_object_id: str, *, withheld: Any, attempted: set[str]) -> str` ([source](../../../../../../src/learnloop/teacher/te2.py), line 141) — Whether a delayed check could be committed on the LO now: an unseen, unrevealed, unwithheld question exists (the delayed checks' own candidate rule, before this lesson shows anything), or none yet.
+- `where_you_left_off(vault: Any, repository: Any, learning_object_ids: Sequence[str], *, exclude: str | None, notes_check: Any=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/teacher/te2.py), line 152) — The newest earlier lesson on these LOs with a stored plan: its latest plan version, labelled "where you left off" (§11.8).
 
 ### Module constants
 
-- `TE2_VERSION` ([src/learnloop/teacher/te2.py](../../../../../../src/learnloop/teacher/te2.py), line 40)
-- `PROMPT_SUFFIX` ([src/learnloop/teacher/te2.py](../../../../../../src/learnloop/teacher/te2.py), line 41)
-- `BRIEF_VERSION_V2` ([src/learnloop/teacher/te2.py](../../../../../../src/learnloop/teacher/te2.py), line 42)
-- `LESSON_SURFACE` ([src/learnloop/teacher/te2.py](../../../../../../src/learnloop/teacher/te2.py), line 44)
-- `UNSEEN_EXISTS` ([src/learnloop/teacher/te2.py](../../../../../../src/learnloop/teacher/te2.py), line 46)
-- `UNSEEN_NONE` ([src/learnloop/teacher/te2.py](../../../../../../src/learnloop/teacher/te2.py), line 47)
-- `WHERE_YOU_LEFT_OFF` ([src/learnloop/teacher/te2.py](../../../../../../src/learnloop/teacher/te2.py), line 48)
-- `_PARAGRAPH` ([src/learnloop/teacher/te2.py](../../../../../../src/learnloop/teacher/te2.py), line 49)
-- `_TE2_TURNS` ([src/learnloop/teacher/te2.py](../../../../../../src/learnloop/teacher/te2.py), line 84)
+- `TE2_VERSION` ([src/learnloop/teacher/te2.py](../../../../../../src/learnloop/teacher/te2.py), line 41)
+- `PROMPT_SUFFIX` ([src/learnloop/teacher/te2.py](../../../../../../src/learnloop/teacher/te2.py), line 42)
+- `BRIEF_VERSION_V2` ([src/learnloop/teacher/te2.py](../../../../../../src/learnloop/teacher/te2.py), line 43)
+- `LESSON_SURFACE` ([src/learnloop/teacher/te2.py](../../../../../../src/learnloop/teacher/te2.py), line 45)
+- `UNSEEN_EXISTS` ([src/learnloop/teacher/te2.py](../../../../../../src/learnloop/teacher/te2.py), line 47)
+- `UNSEEN_NONE` ([src/learnloop/teacher/te2.py](../../../../../../src/learnloop/teacher/te2.py), line 48)
+- `WHERE_YOU_LEFT_OFF` ([src/learnloop/teacher/te2.py](../../../../../../src/learnloop/teacher/te2.py), line 49)
+- `_PARAGRAPH` ([src/learnloop/teacher/te2.py](../../../../../../src/learnloop/teacher/te2.py), line 50)
+- `GOAL_VERSION` ([src/learnloop/teacher/te2.py](../../../../../../src/learnloop/teacher/te2.py), line 71)
+- `GOAL_SUFFIX` ([src/learnloop/teacher/te2.py](../../../../../../src/learnloop/teacher/te2.py), line 72)
+- `_TE2_TURNS` ([src/learnloop/teacher/te2.py](../../../../../../src/learnloop/teacher/te2.py), line 97)
 
 ### Explicit exports
 
@@ -103,7 +106,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-No private top-level function or class definition is declared in this file.
+- `_with_goal_topics(model: type[TeacherTurnV1]) -> type[TeacherTurnV1]` ([source](../../../../../../src/learnloop/teacher/te2.py), line 113) — Each provider shape has one class identity, however callers supplied its flags.
 
 ## Who imports or calls it
 
@@ -122,7 +125,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/db/stores/lessons|learnloop.db.stores.lessons]] — imports `module`; calls `lessons_on`, `plans`
 - [[Reference/Modules/learnloop/delayed_checks|learnloop.delayed_checks]] — imports `check_available`; calls `check_available`
 - [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]] — imports `recap_admissible`; calls `recap_admissible`
-- [[Reference/Modules/learnloop/teacher/contracts|learnloop.teacher.contracts]] — imports `TeacherTurnEpisodesV1`, `TeacherTurnTE2EpisodesV1`, `TeacherTurnTE2V1`, `TeacherTurnTE2VisualsEpisodesV1`, `TeacherTurnTE2VisualsV1`, `TeacherTurnV1`, `TeacherTurnVisualsEpisodesV1`, `TeacherTurnVisualsV1`
+- [[Reference/Modules/learnloop/teacher/contracts|learnloop.teacher.contracts]] — imports `CreateGoalLo`, `TeacherTurnEpisodesV1`, `TeacherTurnTE2EpisodesV1`, `TeacherTurnTE2V1`, `TeacherTurnTE2VisualsEpisodesV1`, `TeacherTurnTE2VisualsV1`, `TeacherTurnV1`, `TeacherTurnVisualsEpisodesV1`, `TeacherTurnVisualsV1`
 
 ### Platform and third-party dependencies
 
@@ -165,6 +168,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_teacher_te2log_node_held.py](../../../../../../tests/test_teacher_te2log_node_held.py) — direct import
   - `test_each_p_held_is_a_lesson_node_held_forecast_on_its_lo`
   - `test_switch_off_has_no_p_held_and_writes_no_forecast`
+- [tests/test_teacher_te5_contracts.py](../../../../../../tests/test_teacher_te5_contracts.py) — direct import
+  - `test_recovery_keeps_the_predecessors_plan_and_read_payloads`
 
 ## Modification guidance
 

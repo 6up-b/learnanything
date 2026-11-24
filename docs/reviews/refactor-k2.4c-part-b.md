@@ -33,25 +33,24 @@ not persisted meaning.
   their request fits `append_input_ceiling`, exactly as before; otherwise split in order (`select_new_inventories`'
   order: revision, then unit) into passes of whole inventories, each as large as fits under the ceiling with room
   for its span round (`synthesis_span_request_max_count` × `synthesis_span_char_cap` / 4, both existing settings).
-  Sizes are the runner's own estimate of a rendered request (`_pass_tokens`), so the split point is the number the
+  Sizes are the runner's own estimate of a rendered request (`append_input_tokens`), so the split point is the number the
   refusal computes: no new constant, no new threshold.
 - **Each pass is asked as an append of its own inventories would be:** the run's one neighbourhood, and
-  `shard_ordinal`/`shard_count` left at their defaults (`_append_contexts`), so its prompt and checkpoint key depend
-  on its inventories alone and an unchanged pass is its checkpoint's answer again. No prompt template, prompt version
-  or request changes; an append that fits is byte-identical.
+  `shard_ordinal`/`shard_count` left at their defaults (`_append_contexts`), so a pass can reuse its checkpoint when the complete rendered request,
+  schema and provider settings match. Adding a chapter can change the shared neighbourhood on every pass.
+  The original single-pass base request is covered by the synthesis-tail goldens.
 - **The runner** (`source_set_synthesis._run_synthesis`): a run split into several units has each unit's client ids
   made local (`shard_N__`, as bootstrap's shards), and the units' answers are joined by the mode's
   `SynthesisCall.merge` (bootstrap: `_merge_synthesis`, as before; append: `_merge_append`, its items in pass order
   and each distinct summary once). Bootstrap's path is unchanged (it namespaced and merged as it does now).
-- **After the passes** (`_within_the_brief`, only when split): same-title concepts folded (bootstrap's
-  `_consolidate_same_title_concepts`), and the first restructure per target kept, the later ones dropped with a
+- **After the passes** (`_within_the_brief`, only when split): concepts sharing a declared durable ID, type and title fold.
+  The first valid restructure per target survives, with other valid proposals and their evidence kept in a
   review record (`split_append_restructures`), since two updates of one entity in one proposal would conflict at
   apply. `_apply_concept_merges` writes `concept_relations` only on an answer that has the field (an append's
   model forbids extra keys; bootstrap's always has it, so nothing moves there).
-- **The refusal stays** for what cannot be split: a single inventory whose request is over the ceiling alone is
-  refused before anything is paid, by the budget's existing preflight over every unpaid pass, with the same code
-  (`append_input_over_ceiling`). Its suggested action no longer says splitting "is not built yet": "a single
-  section over it cannot be split into passes" (the golden `append_over_input_ceiling` moves by that string only).
+- **Single-inventory refusal.** An inventory that exceeds the ceiling even with an empty neighbourhood is refused
+  before paid nomination. After neighbourhood selection the runner checks every unpaid base request before the
+  first reconciliation call. The `append_input_over_ceiling` message identifies the request that was refused.
 - Comments and the vault's Build a Study Map note follow.
 
 ### Proofs
@@ -76,8 +75,8 @@ pass.
   of a split append sends the same prefix through the neighbourhood (the test checks it, and that it is most of each
   request), the part a provider's prompt cache can reuse. The receipts already record what providers report as
   cached input. No prompt change was needed for it.
-- **Merge and dedupe** (pure): two passes' same-title concepts fold to one; two restructures of one target keep the
-  first with a review record naming the dropped target; an unsplit answer is returned as the model wrote it.
+- **Merge and dedupe** (pure): two passes declaring the same concept ID, type and title fold to one. Matching titles alone survive separately. Two valid restructures of one target keep the
+  first with a review record retaining the competing edit; an unsplit answer is returned as the model wrote it.
 - **Unchanged:** the 25 synthesis-tail goldens but the one refusal string; the apply-recovery tests; identity pins.
 
 ### Judgment calls to read first
@@ -94,17 +93,16 @@ pass.
    after a changed answer re-pays only that pass; duplicates are handled after the passes.
 5. **No progress line** ("part k of n" on the book card): `append_source` takes no progress callback today, and
    adding one is a separate UX change.
-6. **Persisted meaning:** none. The playbook governs "scoring, scheduling, projection, or admissibility semantics";
-   this changes what ingestion proposes (a proposal where there was a refusal) and reinterprets nothing stored. No
-   algorithm tag; no migration (no new table or column).
+6. The proposal and its review evidence are persisted ingestion content. The playbook's
+   “scoring, scheduling, projection, or admissibility semantics” keep their existing meaning. The fixes use
+   the existing receipt, checkpoint, reservation and job tables.
 
 ### Cost (an estimate, from the request's shape; no owner book was opened)
 
 With new inventories `I` tokens, a fixed part `F` per request (about 6,600 tokens plus the brief, exam profile and
 revision diff) and a neighbourhood `N` (at most 24,000), a split into `n` passes costs about `I + n(F + N)` input,
-plus up to `n` span rounds and up to `n × append_output_tokens` output, where today the append is refused. The `n - 1`
-extra copies of `F + N` are the shared prefix of every pass, which a provider that caches prompts bills at its cached
-rate. A retry after a failure part way pays only the passes not saved.
+plus the input of up to `n` span rounds and at most `2n × append_output_tokens` output. A provider may discount
+repeated input on a prompt-cache hit. The prefix alone does not establish a hit or a billed rate.
 
 ## Commands and results
 
@@ -135,3 +133,12 @@ No structure ratchet number moved; identity pins unchanged; no migration.
 - The whole suite, the durability lane and the arc-close gate (the landing runs them).
 - A real provider's cache hit rate on the passes' shared prefix (fakes only; the prefix is shown, not billed).
 - The cost on a real book (estimate only).
+
+**Fix round (2026-11-23).** K-R1 through K-R8, K-R10 through K-R12 and K-R19 cover paid-pass recovery and admission, bounded evidence, proposal content, call counts and queue freshness. The receipt, reservation and ingest job tables hold the recovery state. These fixes change ingestion content and decision records without changing “scoring, scheduling, projection, or admissibility semantics.”
+
+The fix-round regressions produced 26 failures on the reviewed implementation. The corrected span case measured
+an 8,464-token request against an 8,046-token ceiling after the base pass had run. The final requested test files
+produced 268 passes and six owner-vault skips. The additional golden, ingest, watcher and spend checks produced
+129 passes. The write-ahead apply file added nine passes. Run individually, the identity pins produced 363
+passes, the structure ratchets three, architecture 18 and test layout three. Ruff passed and all 54 import
+contracts held.

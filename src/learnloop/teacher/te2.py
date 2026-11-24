@@ -21,11 +21,12 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from functools import lru_cache
 from pathlib import Path
-from typing import Any
+from typing import Any, get_args
 
-from pydantic import ValidationError
+from pydantic import Field, ValidationError, create_model
 
 from learnloop.teacher.contracts import (
+    CreateGoalLo,
     TeacherTurnEpisodesV1,
     TeacherTurnTE2EpisodesV1,
     TeacherTurnTE2V1,
@@ -67,18 +68,30 @@ def paragraph() -> str:
     return _PARAGRAPH.read_text(encoding="utf-8").strip() + "\n"
 
 
-def instructions(text: str, te2: bool) -> str:
-    return text if not te2 else f"{text}\n{paragraph()}"
+GOAL_VERSION = "teacher_goal_offer_v1"
+GOAL_SUFFIX = "+goal-offer-v1"
 
 
-def prompt_version(base: str, te2: bool) -> str:
-    return f"{base}{PROMPT_SUFFIX}" if te2 else base
+@lru_cache(maxsize=1)
+def goal_paragraph() -> str:
+    return (_PARAGRAPH.parent / "goal_offer_v1.md").read_text(encoding="utf-8").strip() + "\n"
 
 
-def doctrine_family(doctrine: str, te2: bool) -> str:
+def instructions(text: str, te2: bool, goal_topics: bool = False) -> str:
+    text = f"{text}\n{paragraph()}" if te2 else text
+    return f"{text}\n{goal_paragraph()}" if goal_topics else text
+
+
+def prompt_version(base: str, te2: bool, goal_topics: bool = False) -> str:
+    base = f"{base}{PROMPT_SUFFIX}" if te2 else base
+    return base + GOAL_SUFFIX if goal_topics else base
+
+
+def doctrine_family(doctrine: str, te2: bool, goal_topics: bool = False) -> str:
     """§12.2: a turn under the TE2 paragraph is a different forecaster (its own λ posterior)."""
 
-    return f"{doctrine}+{TE2_VERSION}" if te2 else doctrine
+    doctrine = f"{doctrine}+{TE2_VERSION}" if te2 else doctrine
+    return f"{doctrine}+{GOAL_VERSION}" if goal_topics else doctrine
 
 
 _TE2_TURNS: dict[type[TeacherTurnV1], type[TeacherTurnV1]] = {
@@ -89,10 +102,19 @@ _TE2_TURNS: dict[type[TeacherTurnV1], type[TeacherTurnV1]] = {
 }
 
 
-def turn_model(base: type[TeacherTurnV1], te2: bool) -> type[TeacherTurnV1]:
+def turn_model(base: type[TeacherTurnV1], te2: bool, goal_topics: bool = False) -> type[TeacherTurnV1]:
     """The turn's strict schema: ``base`` off; with ``serve_probe`` and ``propose_gap`` on."""
 
-    return _TE2_TURNS[base] if te2 else base
+    model = _TE2_TURNS[base] if te2 else base
+    return _with_goal_topics(model) if goal_topics else model
+
+
+@lru_cache(maxsize=None)
+def _with_goal_topics(model: type[TeacherTurnV1]) -> type[TeacherTurnV1]:
+    """Each provider shape has one class identity, however callers supplied its flags."""
+    request, = get_args(model.model_fields["requests"].annotation)
+    return create_model(model.__name__.removesuffix("V1") + "GoalTopicsV1", __base__=model,
+                        requests=(list[request | CreateGoalLo], Field(default_factory=list, max_length=8)))
 
 
 def stored_turn(data: Mapping[str, Any] | None) -> TeacherTurnV1:

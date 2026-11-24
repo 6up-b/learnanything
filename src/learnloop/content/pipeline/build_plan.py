@@ -19,6 +19,8 @@ from dataclasses import dataclass, field
 from typing import Mapping
 
 from learnloop.config import LearnLoopConfig
+from learnloop.content.synthesis.ai_contracts import AppendReconciliationContext
+from learnloop.content.synthesis.append_budget import append_groups, append_input_tokens
 from learnloop.db.repositories import Repository
 from learnloop.content.sources.source_outline import OutlineUnit, build_source_outline
 
@@ -32,6 +34,7 @@ class StageEstimate:
     max_output_tokens: int
     ceiling: int
     exceeds_ceiling: bool
+    peak_input_tokens: int | None = None
 
     def as_dict(self) -> dict:
         return {
@@ -182,6 +185,7 @@ def build_build_plan(
 
     planned: list[PlannedSource] = []
     unit_tokens: list[int] = []
+    append_units = []
     cached_token_pool = 0
     global_warnings: list[str] = []
     for selection in selections:
@@ -211,6 +215,7 @@ def build_build_plan(
             )
         )
         for unit in units:
+            append_units.append(unit.approx_tokens)
             # Cached inventories don't re-consume input tokens (M4 seam: all False).
             if bool(unit.inventory.get("inventoried")):
                 cached_token_pool += unit.approx_tokens
@@ -220,7 +225,8 @@ def build_build_plan(
 
     stages = _stage_estimates(
         unit_tokens=unit_tokens,
-        cached_token_pool=cached_token_pool,
+        cached_token_pool=cached_token_pool, append_units=append_units,
+        one_facet_per_skill=config.facet_identity.enabled,
         budgets=budgets,
         routing=routing,
         provider_context=provider_context,
@@ -263,6 +269,8 @@ def _stage_estimates(
     budgets,
     routing: str,
     provider_context: int | None,
+    append_units: list[int] | None = None,
+    one_facet_per_skill: bool = False,
 ) -> list[StageEstimate]:
     active_units = [tokens for tokens in unit_tokens if tokens > 0]
     stages: list[StageEstimate] = []
@@ -305,16 +313,30 @@ def _stage_estimates(
     )
 
     if routing == "update":
-        append_ceiling = budgets.append_neighborhood_input_tokens
+        # Before inventory the source sizes are estimates. Cached inventories still participate in reconciliation.
+        units = unit_tokens if append_units is None else append_units
+        append_ceiling = budgets.append_input_ceiling
+        neighborhood = budgets.append_neighborhood_input_tokens
+        span_room = budgets.synthesis_span_request_max_count * budgets.synthesis_span_char_cap // 4
+        fixed = append_input_tokens(AppendReconciliationContext("", "", "source_added",
+                                                                one_facet_per_skill=one_facet_per_skill))
+        def base_size(group):
+            return fixed + neighborhood + sum(group)
+
+        groups = append_groups(units, budgets, base_size) if units else []
+        base = [min(append_ceiling, base_size(group)) for group in groups]
+        expanded = [min(append_ceiling, tokens + span_room) for tokens in base] if budgets.synthesis_span_request_max_count else []
+        peak = max((*base, *expanded), default=0)
         stages.append(
             StageEstimate(
                 stage="append",
-                calls=1 if active_units else 0,
-                input_tokens=min(sum(active_units), append_ceiling) if active_units else 0,
+                calls=len(base) + len(expanded),
+                input_tokens=sum(base) + sum(expanded),
                 cached_tokens=0,
-                max_output_tokens=budgets.append_output_tokens if active_units else 0,
+                max_output_tokens=(len(base) + len(expanded)) * budgets.append_output_tokens,
                 ceiling=append_ceiling,
-                exceeds_ceiling=(sum(active_units) > append_ceiling) if active_units else False,
+                exceeds_ceiling=any(base_size([unit]) > append_ceiling for unit in units) or _over_context([peak], provider_context),
+                peak_input_tokens=peak,
             )
         )
     return stages
@@ -363,9 +385,10 @@ def _provider_warnings(stages: list[StageEstimate], provider: str, provider_cont
         ]
     warnings: list[str] = []
     for stage in stages:
-        if stage.input_tokens > provider_context:
+        request_input = stage.input_tokens if stage.peak_input_tokens is None else stage.peak_input_tokens
+        if request_input > provider_context:
             warnings.append(
-                f"{stage.stage} input {stage.input_tokens} exceeds {provider} context limit {provider_context}"
+                f"{stage.stage} input {request_input} exceeds {provider} context limit {provider_context}"
             )
     return warnings
 

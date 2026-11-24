@@ -2554,6 +2554,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_queue_revision_after_applying_jobs.py](../../../../../../tests/test_queue_revision_after_applying_jobs.py) — direct import
   - `test_a_legacy_ingest_that_applies_practice_moves_the_revision`
   - `test_a_picked_source_exercise_written_as_practice_moves_the_revision`
+  - `test_cancellation_after_the_legacy_write_publishes_the_new_practice`
 - [tests/test_quick_add.py](../../../../../../tests/test_quick_add.py) — direct import
   - `test_exam_prep_quick_add_ends_with_an_applied_map_and_its_goal`
   - `test_narrow_adjunct_preset_uses_reference_role_and_small_upfront_brief`
@@ -3499,6 +3500,14 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_randomized_checks_are_scored_apart_with_their_r`
   - `test_the_pool_weights_trajectory_per_forecaster`
   - `test_the_report_on_a_synthetic_lesson`
+- [tests/test_teacher_te5_contracts.py](../../../../../../tests/test_teacher_te5_contracts.py) — direct import
+  - `test_a_lesson_uses_the_capabilities_recorded_at_open`
+- [tests/test_teacher_te5_goal_topics.py](../../../../../../tests/test_teacher_te5_goal_topics.py) — direct import
+  - `test_consent_rechecks_a_changed_catalog`
+  - `test_decline_then_stale_consent_never_creates`
+  - `test_existing_topic_never_offers_creation`
+  - `test_lookup_consent_replay_and_receipt`
+  - `test_resume_after_yaml_publication_finishes_consent_once`
 - [tests/test_tier1_decider.py](../../../../../../tests/test_tier1_decider.py) — direct import
   - `test_a_decider_cancellation_in_misconception_matching_never_reaches_the_llm`
   - `test_a_review_resume_refuses_a_changed_decider_profile`

@@ -177,8 +177,9 @@ class SharedDailyEnvelope(SpendEnvelope):
                  clock: Clock | None = None, name: str = DAILY_ENVELOPE,
                  owner_kinds: Sequence[str] | None = SERVICE_OWNER_KINDS,
                  price_per_million: float | None | object = _SERVICE_PRICE,
-                 record_refusals: bool = True) -> None:
+                 provider_prices: dict[str, float] | None = None, record_refusals: bool = True) -> None:
         super().__init__(name, cap)
+        self._provider_prices = provider_prices
         self._record_refusals = record_refusals
         self._vault = vault
         self._repository = repository
@@ -200,7 +201,7 @@ class SharedDailyEnvelope(SpendEnvelope):
 
     def accounting(self, connection: sqlite3.Connection, now: str | None = None) -> dict[str, Any]:
         return daily_accounting(connection, self._vault, self._since, envelope=self.name, now=now or self._now(),
-                                owner_kinds=self._owner_kinds, price_per_million=self._price)
+                                owner_kinds=self._owner_kinds, price_per_million=self._price, provider_prices=self._provider_prices)
 
     def _total(self) -> Decimal:
         with closing(connect(self._repository.sqlite_path, read_only=True)) as connection:
@@ -216,7 +217,7 @@ class SharedDailyEnvelope(SpendEnvelope):
             admitted, total = reserve_service_spend(
                 connection, id=handle, envelope=self.name, day=self._day, since=self._since,
                 usd=float(usd), cap=float(self.max_usd), process=PROCESS, now=self._now(),
-                lease_seconds=LEASE_SECONDS, price_per_million=self._price,
+                lease_seconds=LEASE_SECONDS, price_per_million=self._price, provider_prices=self._provider_prices,
                 subscription_providers=subscription_providers(self._vault), owner_kinds=self._owner_kinds)
             if not admitted and self._record_refusals:
                 # In the reservation's BEGIN IMMEDIATE, which already holds the lock: no new wait. Never raises.
@@ -281,7 +282,8 @@ class SharedDailyEnvelope(SpendEnvelope):
 def daily_accounting(connection: sqlite3.Connection, vault: LoadedVault, since: str, *,
                      envelope: str = DAILY_ENVELOPE, now: str | None = None,
                      owner_kinds: Sequence[str] | None = SERVICE_OWNER_KINDS,
-                     price_per_million: float | None | object = _SERVICE_PRICE) -> dict[str, Any]:
+                     price_per_million: float | None | object = _SERVICE_PRICE,
+                     provider_prices: dict[str, float] | None = None) -> dict[str, Any]:
     """The daily cap's total since ``since`` (UTC midnight): the one function
     admission, recovery and every report read."""
 
@@ -290,7 +292,7 @@ def daily_accounting(connection: sqlite3.Connection, vault: LoadedVault, since: 
     return service_spend_accounting(
         connection, envelope=envelope, day=since[:10], since=since, now=now or utc_now_iso(),
         price_per_million=price,  # type: ignore[arg-type]
-        subscription_providers=subscription_providers(vault), owner_kinds=owner_kinds)
+        subscription_providers=subscription_providers(vault), owner_kinds=owner_kinds, provider_prices=provider_prices)
 
 
 def subscription_providers(vault: LoadedVault) -> frozenset[str]:

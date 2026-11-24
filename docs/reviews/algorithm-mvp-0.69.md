@@ -207,3 +207,11 @@ Per copy (publish counts only):
 ## Owner copies (run by the orchestrator)
 
 Not run yet.
+
+## Owner copies (the orchestrator, 2026-11-24)
+
+Run on backup-API copies of the owner's three vaults (the floor set, upgraded by `learnloop upgrade` to `mvp-0.69`),
+in a gitignored directory, deleted afterwards. On every copy: the upgrade exited 0, `integrity_check` is ok,
+`foreign_key_check` is empty, the migration head is 270, and `check_administrations`, `check_veil_sets` and
+`video_chapters` hold no rows. No live vault was opened. The copies are not fresh from the live vaults, so they say
+nothing about checks due there today.

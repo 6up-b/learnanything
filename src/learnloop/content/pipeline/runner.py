@@ -46,6 +46,7 @@ from learnloop.clock import Clock, SystemClock, utc_now_iso
 from learnloop.ai import model_use, plan_fallback
 from learnloop.ai.execution import observe_model_output, record_model_calls
 from learnloop.ai.transport import interrupt_callback
+from learnloop.content.pipeline.practice_publication import PRACTICE_WRITERS, begin_practice_write, publish_practice
 from learnloop.db.checkpoint import checkpoint_wal
 from learnloop.db.repositories import Repository
 from learnloop.db.scopes import JobOwnershipLost, guard_ingest_writes
@@ -744,16 +745,23 @@ class IngestRunner:
                 self._database, job["id"], job.get("worker_id"), job["attempt_count"]
             ):
                 continue
-            changed = self.repo.expire_ingest_lease(
-                job["id"],
-                worker_id=job.get("worker_id"),
-                attempt_count=job["attempt_count"],
-                lease_cutoff_iso=cutoff,
-                phase="failed",
-                message="Interrupted before completion",
-                error={"code": "interrupted", "message": "Worker lease expired before the job finished."},
-                clock=self.clock,
-            )
+            with self.repo.atomic():
+                changed = self.repo.expire_ingest_lease(
+                    job["id"],
+                    worker_id=job.get("worker_id"),
+                    attempt_count=job["attempt_count"],
+                    lease_cutoff_iso=cutoff,
+                    phase="failed",
+                    message="Interrupted before completion",
+                    error={"code": "interrupted", "message": "Worker lease expired before the job finished."},
+                    clock=self.clock,
+                )
+                if changed and job["job_type"] == "figure_rich":
+                    from learnloop.db.stores.provenance import job_attempt_decisions
+
+                    job_attempt_decisions(self.repo, job["id"])
+                if changed and job["job_type"] in PRACTICE_WRITERS:
+                    publish_practice(self.repo, self.vault_root, job["id"], self.clock)
             if not changed:
                 continue
             recovered.append(job["id"])
@@ -967,9 +975,18 @@ class IngestRunner:
             # Outside the write guard: a halt between the handler and its outcome is checked here.
             if self.halted.is_set():
                 return False
-            return self.repo.finish_owned_ingest_job(job_id, owner=owner, **values)
+            with self.repo.atomic():
+                finished = self.repo.finish_owned_ingest_job(job_id, owner=owner, **values)
+                if finished and job["job_type"] in PRACTICE_WRITERS:
+                    publish_practice(self.repo, self.vault_root, job_id, self.clock)
+                elif finished and values["status"] == "completed" and type_row and type_row.affects_queue:
+                    self.repo.bump_queue_revision(clock=self.clock)
+                return finished
 
         if self.halted.is_set():  # claimed just before the halt: left claimed, requeued when its lease expires
+            return
+        type_row = _job_types().job_type(job["job_type"])
+        if not begin_practice_write(self.repo, self.vault_root, job, owner):
             return
         self.repo.update_ingest_batch_status(batch_id, "running", mark_started=True, clock=self.clock)
         ctx = JobContext(
@@ -1001,7 +1018,6 @@ class IngestRunner:
         try:
             if handler is None:
                 raise IngestRunnerError(f"unknown job_type '{job['job_type']}'.")
-            type_row = _job_types().job_type(job["job_type"])
             if type_row is not None and type_row.waits_for_ai_ok:
                 model_use.require(self.vault_root)
             heartbeat_stop = threading.Event()
@@ -1136,7 +1152,7 @@ class IngestRunner:
                     clock=self.clock,
                 )
             else:
-                completed = finish(
+                finish(
                     job["id"],
                     status="completed",
                     phase=ctx._phase or "applied",
@@ -1145,9 +1161,6 @@ class IngestRunner:
                     usage=ctx._usage or None,
                     clock=self.clock,
                 )
-                type_row = _job_types().job_type(job["job_type"])
-                if completed and type_row is not None and type_row.affects_queue:
-                    self.repo.bump_queue_revision(clock=self.clock)
         self._clear_job_interruptible(job["id"], job["attempt_count"])
         self._refresh_batch(batch_id)
 

@@ -19,6 +19,7 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/cli/app.py"
+  - "src/learnloop/figures/records.py"
   - "src/learnloop/provenance.py"
   - "src/learnloop/why/reader.py"
   - "src/learnloop/why/reconstructed.py"
@@ -98,7 +99,7 @@ None found by exact static reference scan.
 
 ### Direct SQL readers
 
-None found by exact static reference scan.
+- `src/learnloop/figures/records.py`
 
 ### Direct SQL writers
 

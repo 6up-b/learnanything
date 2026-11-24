@@ -47,51 +47,51 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/teacher/episodes.py](../../../../../../src/learnloop/teacher/episodes.py) |
-| Source lines | 584 |
+| Source lines | 589 |
 | Owning package | [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `on(vault: Any) -> bool` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 66) — ``teacher.episode_log`` (on without a teacher section).
-- `paragraph() -> str` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 74)
-- `instructions(text: str, episodes: bool) -> str` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 78)
-- `prompt_version(base: str, episodes: bool) -> str` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 82)
-- `turn_model(base: type[TeacherTurnV1], episodes: bool) -> type[TeacherTurnV1]` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 86) — The turn's strict schema: ``base`` (TE1's or the visuals turn) off, with ``note_detour`` and ``p_held`` on.
-- `doctrine_family(doctrine: str, episodes: bool) -> str` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 94) — §12.2: a turn under the episode paragraph is a different forecaster (its own λ posterior).
-- `text_hash(texts: Sequence[str]) -> str` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 100)
-- `has_table(connection: Any, name: str) -> bool` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 109)
-- `prior_belief(repository: Any, brief: Mapping[str, Any], learning_object_id: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 117) — At the opening: the brief's predicted success for the node's LO with its interval and its source (the active predictor, named as the brief names it; no new read of any item parameter), the LO's mastery mean and variance now, and the open misconceptions and causal hypotheses on i…
-- `origin_ids(repository: Any, lesson: Mapping[str, Any], opened_at: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 158) — The lesson's origin (``learner_pick``, or ``router`` with the accepted offer's decision id), that decision's ``router_objective_traces`` id when there is one, and every RO5 assignment (stop coin, randomized checks, open picks) in force for the lesson's day: made on the opening's…
-- `open_episode(repository: Any, *, lesson: Mapping[str, Any], brief: Mapping[str, Any], kind: str, opened_by: str, opened_at: str, node_id: str | None, learning_object_id: str | None, hypotheses: Sequence[str]=(), hypothesis_payload_id: str | None=None, repair_class: str | None=None, teacher_p: float | None=None, teacher_forecast_receipt_id: str | None=None, refs: Mapping[str, Any] | None=None) -> str | None` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 208) — Insert one episode at its opening (``kind`` in :data:`KINDS`); its id, or None (refused, or its opening action already has one).
-- `close_episodes(repository: Any, lesson_id: str, *, closed_at: str, reason: str, node_id: str | None=None, kind: str | None=None, outcome: Mapping[str, Any] | None=None) -> list[str]` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 240) — Close every open episode of the lesson (on ``node_id`` and of ``kind`` when given) once, with its minutes from opening to ``closed_at`` and the outcome refs; the ids closed.
-- `close_one(repository: Any, lesson_id: str, opened_by: str, *, closed_at: str, reason: str, outcome: Mapping[str, Any] | None=None) -> bool` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 270) — Close the one open episode its action opened (teacher TE2: a probe, a gap, an added topic), once, with its minutes and outcome refs (its own savepoint).
-- `minutes(spans: Iterable[Mapping[str, Any]], opened_at: str, closed_at: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 300) — Over ``[opened_at, closed_at]``: ``elapsed_seconds`` (the wall clock), ``active_seconds`` (the foreground intervals inside it), ``unreported_seconds`` (elapsed time no interval, foreground or not, covers: missing, never filled in), ``missing_intervals`` (seqs absent between a sc…
-- `lesson_minutes(repository: Any, lesson: Mapping[str, Any], *, closed_at: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 350) — The lesson's minutes (§8.3 ``minutes``): from ``opened_at`` to its close (or ``closed_at``).
-- `class ActivityRefused(ValueError)` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 372)
-  - `__init__(self, code: str, message: str) -> None` (line 373; internal)
-- `record_intervals(vault: Any, repository: Any, *, lesson_id: str, intervals: Sequence[Mapping[str, Any]], occurred_at: str | None, received_at: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 385) — Append the screen's intervals (one row per (lesson, screen session, seq); a resend writes nothing), each in its own savepoint.
-- `node_held_receipts(state: Any, outline: Sequence[Mapping[str, Any]], *, learning_objects: Collection[str], version: int, family: str, prompt: str, doctrine: str, now: str) -> list[Any]` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 427) — One ``lesson_node_held`` forecast per plan node with ``p_held`` on a vault LO (the node's ``lo_id``, or a node named by its LO; an ``lo_id`` that is no vault LO writes none): bound to the first qualifying cold outcome on the LO, as ``lesson_step_retained`` is.
-- `turn_plans(turn_obj: Any) -> list[list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 462) — The outlines a turn's ``write_plan`` requests write, in request order.
-- `logged_fields(turn_obj: Any) -> list[tuple[str, str]]` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 469) — ``(location, text)`` of every field a turn's model wrote that a log row, a receipt or a note's payload may copy: a note's ``hypothesis`` and ``node`` (episode turns only), each plan node's ``id`` and ``lo_id`` (every turn: they reach the lesson receipt's ``nodes``).
-- `node_known(state: Any, turn_obj: Any, node_id: str | None) -> bool` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 490) — A note's node names a node of the lesson's latest plan, of a plan its own turn writes (before or after the note), or a brief LO.
-- `outline_lo(outline: Sequence[Mapping[str, Any]], node_id: str, learning_objects: Collection[str]) -> str | None` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 501) — The node's LO in ``outline``: its ``lo_id`` when that is a vault LO, else the node's id when that is one; None otherwise (never a guess such as the goal's LO).
-- `node_lo(learning_objects: Collection[str], state: Any, turn_obj: Any, node_id: str) -> str | None` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 514) — A note's node's LO: from the newest plan holding the node (a plan its own turn writes first), else the node as an LO; :func:`outline_lo`'s rule.
-- `inserted_nodes(previous: Sequence[Mapping[str, Any]] | None, outline: Sequence[Mapping[str, Any]]) -> list[str]` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 525) — Nodes a revised plan inserts before a node the previous plan had (a foundation stepped back to), in order; none for a first plan or for nodes only appended after them.
-- `receipt_episodes(repository: Any, lesson_id: str) -> dict[str, list[str]]` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 542) — §8.3 ``episodes``: the lesson's episode ids by kind.
+- `on(vault: Any) -> bool` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 67) — ``teacher.episode_log`` (on without a teacher section).
+- `paragraph() -> str` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 75)
+- `instructions(text: str, episodes: bool) -> str` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 79)
+- `prompt_version(base: str, episodes: bool) -> str` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 83)
+- `turn_model(base: type[TeacherTurnV1], episodes: bool) -> type[TeacherTurnV1]` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 87) — The turn's strict schema: ``base`` (TE1's or the visuals turn) off, with ``note_detour`` and ``p_held`` on.
+- `doctrine_family(doctrine: str, episodes: bool) -> str` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 95) — §12.2: a turn under the episode paragraph is a different forecaster (its own λ posterior).
+- `text_hash(texts: Sequence[str]) -> str` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 101)
+- `has_table(connection: Any, name: str) -> bool` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 110)
+- `prior_belief(repository: Any, brief: Mapping[str, Any], learning_object_id: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 118) — At the opening: the brief's predicted success for the node's LO with its interval and its source (the active predictor, named as the brief names it; no new read of any item parameter), the LO's mastery mean and variance now, and the open misconceptions and causal hypotheses on i…
+- `origin_ids(repository: Any, lesson: Mapping[str, Any], opened_at: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 159) — The lesson's origin (``learner_pick``, or ``router`` with the accepted offer's decision id), that decision's ``router_objective_traces`` id when there is one, and every RO5 assignment (stop coin, randomized checks, open picks) in force for the lesson's day: made on the opening's…
+- `open_episode(repository: Any, *, lesson: Mapping[str, Any], brief: Mapping[str, Any], kind: str, opened_by: str, opened_at: str, node_id: str | None, learning_object_id: str | None, hypotheses: Sequence[str]=(), hypothesis_payload_id: str | None=None, repair_class: str | None=None, teacher_p: float | None=None, teacher_forecast_receipt_id: str | None=None, refs: Mapping[str, Any] | None=None) -> str | None` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 209) — Insert one episode at its opening (``kind`` in :data:`KINDS`); its id, or None (refused, or its opening action already has one).
+- `close_episodes(repository: Any, lesson_id: str, *, closed_at: str, reason: str, node_id: str | None=None, kind: str | None=None, outcome: Mapping[str, Any] | None=None) -> list[str]` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 241) — Close every open episode of the lesson (on ``node_id`` and of ``kind`` when given) once, with its minutes from opening to ``closed_at`` and the outcome refs; the ids closed.
+- `close_one(repository: Any, lesson_id: str, opened_by: str, *, closed_at: str, reason: str, outcome: Mapping[str, Any] | None=None) -> bool` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 271) — Close the one open episode its action opened (teacher TE2: a probe, a gap, an added topic), once, with its minutes and outcome refs (its own savepoint).
+- `minutes(spans: Iterable[Mapping[str, Any]], opened_at: str, closed_at: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 301) — Over ``[opened_at, closed_at]``: ``elapsed_seconds`` (the wall clock), ``active_seconds`` (the foreground intervals inside it), ``unreported_seconds`` (elapsed time no interval, foreground or not, covers: missing, never filled in), ``missing_intervals`` (seqs absent between a sc…
+- `lesson_minutes(repository: Any, lesson: Mapping[str, Any], *, closed_at: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 351) — The lesson's minutes (§8.3 ``minutes``): from ``opened_at`` to its close (or ``closed_at``).
+- `class ActivityRefused(ValueError)` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 373)
+  - `__init__(self, code: str, message: str) -> None` (line 374; internal)
+- `record_intervals(vault: Any, repository: Any, *, lesson_id: str, intervals: Sequence[Mapping[str, Any]], occurred_at: str | None, received_at: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 386) — Append the screen's intervals (one row per (lesson, screen session, seq); a resend writes nothing), each in its own savepoint.
+- `node_held_receipts(state: Any, outline: Sequence[Mapping[str, Any]], *, learning_objects: Collection[str], version: int, family: str, prompt: str, doctrine: str, now: str) -> list[Any]` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 432) — One ``lesson_node_held`` forecast per plan node with ``p_held`` on a vault LO (the node's ``lo_id``, or a node named by its LO; an ``lo_id`` that is no vault LO writes none): bound to the first qualifying cold outcome on the LO, as ``lesson_step_retained`` is.
+- `turn_plans(turn_obj: Any) -> list[list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 467) — The outlines a turn's ``write_plan`` requests write, in request order.
+- `logged_fields(turn_obj: Any) -> list[tuple[str, str]]` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 474) — ``(location, text)`` of every field a turn's model wrote that a log row, a receipt or a note's payload may copy: a note's ``hypothesis`` and ``node`` (episode turns only), each plan node's ``id`` and ``lo_id`` (every turn: they reach the lesson receipt's ``nodes``).
+- `node_known(state: Any, turn_obj: Any, node_id: str | None) -> bool` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 495) — A note's node names a node of the lesson's latest plan, of a plan its own turn writes (before or after the note), or a brief LO.
+- `outline_lo(outline: Sequence[Mapping[str, Any]], node_id: str, learning_objects: Collection[str]) -> str | None` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 506) — The node's LO in ``outline``: its ``lo_id`` when that is a vault LO, else the node's id when that is one; None otherwise (never a guess such as the goal's LO).
+- `node_lo(learning_objects: Collection[str], state: Any, turn_obj: Any, node_id: str) -> str | None` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 519) — A note's node's LO: from the newest plan holding the node (a plan its own turn writes first), else the node as an LO; :func:`outline_lo`'s rule.
+- `inserted_nodes(previous: Sequence[Mapping[str, Any]] | None, outline: Sequence[Mapping[str, Any]]) -> list[str]` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 530) — Nodes a revised plan inserts before a node the previous plan had (a foundation stepped back to), in order; none for a first plan or for nodes only appended after them.
+- `receipt_episodes(repository: Any, lesson_id: str) -> dict[str, list[str]]` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 547) — §8.3 ``episodes``: the lesson's episode ids by kind.
 
 ### Module constants
 
-- `LOG` ([src/learnloop/teacher/episodes.py](../../../../../../src/learnloop/teacher/episodes.py), line 50)
-- `EPISODES_VERSION` ([src/learnloop/teacher/episodes.py](../../../../../../src/learnloop/teacher/episodes.py), line 53)
-- `PROMPT_SUFFIX` ([src/learnloop/teacher/episodes.py](../../../../../../src/learnloop/teacher/episodes.py), line 55)
-- `EPISODE_ROW_VERSION` ([src/learnloop/teacher/episodes.py](../../../../../../src/learnloop/teacher/episodes.py), line 57)
-- `INTERVAL_VERSION` ([src/learnloop/teacher/episodes.py](../../../../../../src/learnloop/teacher/episodes.py), line 58)
-- `KINDS` ([src/learnloop/teacher/episodes.py](../../../../../../src/learnloop/teacher/episodes.py), line 59)
-- `UNLOGGED` ([src/learnloop/teacher/episodes.py](../../../../../../src/learnloop/teacher/episodes.py), line 60)
-- `_PARAGRAPH` ([src/learnloop/teacher/episodes.py](../../../../../../src/learnloop/teacher/episodes.py), line 61)
-- `_OPEN_HYPOTHESIS_STATUSES` ([src/learnloop/teacher/episodes.py](../../../../../../src/learnloop/teacher/episodes.py), line 63)
+- `LOG` ([src/learnloop/teacher/episodes.py](../../../../../../src/learnloop/teacher/episodes.py), line 51)
+- `EPISODES_VERSION` ([src/learnloop/teacher/episodes.py](../../../../../../src/learnloop/teacher/episodes.py), line 54)
+- `PROMPT_SUFFIX` ([src/learnloop/teacher/episodes.py](../../../../../../src/learnloop/teacher/episodes.py), line 56)
+- `EPISODE_ROW_VERSION` ([src/learnloop/teacher/episodes.py](../../../../../../src/learnloop/teacher/episodes.py), line 58)
+- `INTERVAL_VERSION` ([src/learnloop/teacher/episodes.py](../../../../../../src/learnloop/teacher/episodes.py), line 59)
+- `KINDS` ([src/learnloop/teacher/episodes.py](../../../../../../src/learnloop/teacher/episodes.py), line 60)
+- `UNLOGGED` ([src/learnloop/teacher/episodes.py](../../../../../../src/learnloop/teacher/episodes.py), line 61)
+- `_PARAGRAPH` ([src/learnloop/teacher/episodes.py](../../../../../../src/learnloop/teacher/episodes.py), line 62)
+- `_OPEN_HYPOTHESIS_STATUSES` ([src/learnloop/teacher/episodes.py](../../../../../../src/learnloop/teacher/episodes.py), line 64)
 
 ### Explicit exports
 
@@ -130,19 +130,19 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_local_day_start(at: datetime) -> datetime` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 153)
-- `_guarded(repository: Any, what: str, write: Any) -> Any` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 193) — One row's write in its own savepoint of the caller's transaction: refused, it rolls back alone with a warning and the caller goes on (the turn is never blocked).
-- `_overlap(start: datetime, end: datetime, lo: datetime, hi: datetime) -> tuple[datetime, datetime] | None` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 295)
-- `_union_seconds(spans: Sequence[tuple[datetime, datetime]]) -> float` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 329)
-- `_missing(rows: Sequence[Mapping[str, Any]]) -> int` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 343)
-- `_stamp(value: Any, name: str) -> datetime` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 378)
+- `_local_day_start(at: datetime) -> datetime` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 154)
+- `_guarded(repository: Any, what: str, write: Any) -> Any` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 194) — One row's write in its own savepoint of the caller's transaction: refused, it rolls back alone with a warning and the caller goes on (the turn is never blocked).
+- `_overlap(start: datetime, end: datetime, lo: datetime, hi: datetime) -> tuple[datetime, datetime] | None` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 296)
+- `_union_seconds(spans: Sequence[tuple[datetime, datetime]]) -> float` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 330)
+- `_missing(rows: Sequence[Mapping[str, Any]]) -> int` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 344)
+- `_stamp(value: Any, name: str) -> datetime` ([source](../../../../../../src/learnloop/teacher/episodes.py), line 379)
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/teacher/probes|learnloop.teacher.probes]] — imports `module`; statically calls `close_one`, `node_known`, `node_lo`, `on`, `open_episode`
+- [[Reference/Modules/learnloop/teacher/probes|learnloop.teacher.probes]] — imports `module`; statically calls `close_one`, `node_known`, `node_lo`, `open_episode`
 - [[Reference/Modules/learnloop/teacher/report|learnloop.teacher.report]] — imports `module`; statically calls `lesson_minutes`
 - [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] — imports `module`; statically calls `close_episodes`, `close_one`, `doctrine_family`, `has_table`, `inserted_nodes`, `instructions`, `lesson_minutes`, `logged_fields`, `node_held_receipts`, `node_known`, `node_lo`, `on`, `open_episode`, `outline_lo`, `prompt_version`, `receipt_episodes`, `turn_model`
 - [[Reference/Modules/learnloop_sidecar/handlers/lesson|learnloop_sidecar.handlers.lesson]] — imports `module`; statically calls `record_intervals`
@@ -152,11 +152,11 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `parse_utc`; calls `parse_utc`
-- [[Reference/Modules/learnloop/db/stores/lessons|learnloop.db.stores.lessons]] — imports `module`; calls `close_episode`, `episode_tables_present`, `episodes`, `insert_episode`, `insert_interval`, `intervals`, `lesson`
+- [[Reference/Modules/learnloop/db/stores/lessons|learnloop.db.stores.lessons]] — imports `module`; calls `close_episode`, `episode_tables_present`, `episodes`, `insert_episode`, `insert_interval`, `intervals`, `lesson`, `turns`
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
 - [[Reference/Modules/learnloop/router_objective/assignments|learnloop.router_objective.assignments]] — imports `EXPERIMENTS`, `TABLE`
 - [[Reference/Modules/learnloop/scheduling/forecast_receipts|learnloop.scheduling.forecast_receipts]] — imports `ForecastReceipt`, `LESSON_COLD_OUTCOME`, `LESSON_NODE_HELD`; calls `ForecastReceipt`
-- [[Reference/Modules/learnloop/teacher/contracts|learnloop.teacher.contracts]] — imports `TeacherTurnEpisodesV1`, `TeacherTurnV1`, `TeacherTurnVisualsEpisodesV1`
+- [[Reference/Modules/learnloop/teacher/contracts|learnloop.teacher.contracts]] — imports `TeacherTurnEpisodesV1`, `TeacherTurnV1`, `TeacherTurnVisualsEpisodesV1`, `lesson_capabilities`; calls `lesson_capabilities`
 
 ### Platform and third-party dependencies
 

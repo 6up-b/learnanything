@@ -781,3 +781,14 @@ def test_second_process_attaches_beside_a_writing_primary_on_wal(tmp_path):
             process.terminate()
             process.join(timeout=10)
         parent.close()
+
+
+def test_queue_revision_invalidates_a_recent_secondary_snapshot(tmp_path):
+    paths = create_basic_vault(tmp_path / "vault")
+    ctx = SidecarContext()
+    ctx.load_secondary(paths.root)
+    ctx.refresh_if_content_changed()
+    _edit_item_prompt(paths, "A prompt published with the revision.")
+    ctx.repository.bump_queue_revision()
+    ctx.refresh_if_content_changed(now=ctx._fingerprint_checked_at)
+    assert ctx.vault.practice_items["pi_svd_define_001"].prompt == "A prompt published with the revision."

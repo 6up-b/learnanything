@@ -48,23 +48,23 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/content/synthesis/source_append.py](../../../../../../../src/learnloop/content/synthesis/source_append.py) |
-| Source lines | 1305 |
+| Source lines | 1310 |
 | Owning package | [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `request_append_reconciliation(client: StructuredTransport, context: AppendReconciliationContext) -> AppendReconciliation` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 82) — Reconcile one bounded append context through the shared transport.
+- `request_append_reconciliation(client: StructuredTransport, context: AppendReconciliationContext, *, receipt_checkpoint: tuple[str, int] | None=None) -> AppendReconciliation` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 82) — Reconcile one bounded append context through the shared transport.
 - `append_checkpoint_key(prompt: str, settings: dict[str, Any]) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 102) — Model-work checkpoint identity of one append call (the first call or its span round): a bootstrap pass's key under the append's purpose.
 - `select_new_inventories(entries: list[dict[str, Any]], revision_ids: Collection[str], new_unit_ids: Mapping[str, Sequence[str]] | None) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 181) — The inventory entries an append sends as new.
 - `units_not_yet_sent(root: Path, source_set_id: str) -> tuple[list[str], dict[str, list[str]]]` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 246) — What an append that names no revision sends (the CLI's ``synthesize``): the set's units no kept synthesis of it has sent (:func:`_sent_units`), as ``(new_revision_ids, new_unit_ids)`` for :func:`append_source`.
 - `append_scope(vault: LoadedVault, *, change_kind: str, revision_ids: Collection[str], neighborhood: dict[str, Any], new_unit_ids: Mapping[str, Sequence[str]] | None=None, facet_identity_client: Any=None, revision_diff: Mapping[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 278) — The append manifest's ``scope``: what changed and what the append read around it.
 - `subject_has_applied_study_map(vault: LoadedVault, subject_id: str) -> bool` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 311) — The bootstrap-vs-append discriminator (§8/§10).
 - `class AppendResult` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 328)
-  - `as_dict(self) -> dict[str, Any]` (line 350; public)
-- `append_source(root: Path, source_set_id: str, *, client: Any, new_revision_ids: list[str] | None=None, new_unit_ids: Mapping[str, Sequence[str]] | None=None, change_kind: str='source_added', revision_diff: dict[str, Any] | None=None, brief: dict[str, Any] | None=None, auto_apply: bool=True, repository: Repository | None=None, clock: Clock | None=None, budget_overrides: dict[str, int] | None=None, unlimited_token_budget: bool=False, embedding_client_factory: Callable[[], Any] | None=None, facet_identity_client: Any=None, apply_gate: Callable[[], bool] | None=None) -> AppendResult` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 375) — Run bounded append reconciliation and (by policy) auto-apply routine items.
-- `plan_append_embedding(root: Path, source_set_id: str, *, new_revision_ids: list[str] | None=None, new_unit_ids: Mapping[str, Sequence[str]] | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 418) — Dry run of one append's Slice 2 T5 embedding spend.
+  - `as_dict(self) -> dict[str, Any]` (line 351; public)
+- `append_source(root: Path, source_set_id: str, *, client: Any, new_revision_ids: list[str] | None=None, new_unit_ids: Mapping[str, Sequence[str]] | None=None, change_kind: str='source_added', revision_diff: dict[str, Any] | None=None, brief: dict[str, Any] | None=None, auto_apply: bool=True, repository: Repository | None=None, clock: Clock | None=None, budget_overrides: dict[str, int] | None=None, unlimited_token_budget: bool=False, embedding_client_factory: Callable[[], Any] | None=None, facet_identity_client: Any=None, apply_gate: Callable[[], bool] | None=None) -> AppendResult` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 376) — Run bounded append reconciliation and (by policy) auto-apply routine items.
+- `plan_append_embedding(root: Path, source_set_id: str, *, new_revision_ids: list[str] | None=None, new_unit_ids: Mapping[str, Sequence[str]] | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 419) — Dry run of one append's Slice 2 T5 embedding spend.
 
 ### Module constants
 
@@ -72,9 +72,9 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - `APPEND_PROPOSAL_PURPOSE` ([src/learnloop/content/synthesis/source_append.py](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 79)
 - `APPEND_INPUT_OVER_CEILING` ([src/learnloop/content/synthesis/source_append.py](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 99)
 - `_AUTO_APPLY_RELATIONS` ([src/learnloop/content/synthesis/source_append.py](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 324)
-- `_APPEND_LISTS` ([src/learnloop/content/synthesis/source_append.py](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 926)
-- `APPEND_CALL` ([src/learnloop/content/synthesis/source_append.py](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 977)
-- `APPEND` ([src/learnloop/content/synthesis/source_append.py](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 992)
+- `_APPEND_LISTS` ([src/learnloop/content/synthesis/source_append.py](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 922)
+- `APPEND_CALL` ([src/learnloop/content/synthesis/source_append.py](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 982)
+- `APPEND` ([src/learnloop/content/synthesis/source_append.py](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 997)
 
 ## Internal implementation anchors
 
@@ -82,37 +82,36 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - `_over_ceiling(tokens: int, ceiling: int) -> StudyMapError` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 161)
 - `_units_by_revision(unit_keys: Collection[str], revision_ids: Collection[str]) -> dict[str, set[str]]` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 206) — ``{revision: units}`` from a manifest's ``"revision:unit"`` keys.
 - `_sent_units(repository: Repository, source_set_id: str, revision_ids: Collection[str]) -> dict[str, set[str]]` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 216) — The units each kept synthesis of the set sent, per revision.
-- `_append(vault: LoadedVault, repository: Repository, root: Path, source_set_id: str, *, client: Any, new_revision_ids: list[str] | None, change_kind: str, revision_diff: dict[str, Any], new_unit_ids: Mapping[str, Sequence[str]] | None=None, brief: dict[str, Any], auto_apply: bool, clock: Clock | None, budget_overrides: dict[str, int] | None=None, unlimited_token_budget: bool=False, embedding_client_factory: Callable[[], Any] | None=None, facet_identity_client: Any=None, apply_gate: Callable[[], bool] | None=None) -> AppendResult` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 446) — The append opens its run with the shared head (:func:`open_synthesis_run`); its scope step selects the new inventories and the bounded neighbourhood around them, which the manifest records and the request reads.
-- `_apply_routine_items(root: Path, repository: Repository, vault: LoadedVault, outcome: SynthesisOutcome, *, auto_apply: bool, apply_gate: Callable[[], bool] | None, clock: Clock | None, synthesis_run_id: str | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 516) — The append's apply step: which of the proposal's items wait for review, and §10.3's lane, where routine span/assessment attachments apply under the vault lock; everything else stays a pending review proposal.
-- `_lane_refusal(auto_apply: bool, auto_ids: Sequence[str], apply_gate: Callable[[], bool] | None) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 572) — Why §10.3's lane applied nothing this run: not asked, nothing routine, or the gate's own refusal.
-- `_waiting_reasons(items: Sequence[Mapping[str, Any]], applied: set[str], refusals: Mapping[str, str], *, lane_refusal: str | None) -> list[tuple[str, str]]` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 582) — Each item left for review and why: its §10.3 condition, an item kind the lane never applies, or (for an item the lane would have applied) why the lane applied nothing.
-- `class _AppendState` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 605) — What the append's own item kinds share: the answer and the inputs it is read against, and the rows, gate items, review records and auto-apply ids built so far (the bootstrap normalizer's rows come first).
-- `_provenance_links(st: _AppendState) -> None` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 621) — Provenance links: dropped with a review record when their span does not resolve or is exam material aimed at a facet; those ``_auto_apply_refusal`` finds nothing against join ``auto_apply_ids``.
-- `_notation_mappings(st: _AppendState) -> None` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 701) — Notation mappings (review-required).
-- `_source_conflicts(st: _AppendState) -> None` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 727) — Source conflicts (always reviewed).
-- `_restructures(st: _AppendState) -> None` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 751) — Restructures (update or deactivate; review and lock-checked); a facet reword goes through its own check.
-- `_normalize_append(reconciliation, inputs, vault, now, *, subject_id, items_off: bool=False, nominator=None, facet_identity_plan=None) -> Normalized` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 819) — Map an AppendReconciliation to proposal rows and gate items: the bootstrap normalizer over its new coverage, then the append's own item kinds after it, with the client ids §10.3 auto-applies.
-- `class _AppendContext` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 859) — What an append's request reads beyond the source set's inputs (``SynthesisRun.context``).
-- `_append_passes(run: Any) -> list[list[dict[str, Any]]]` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 869) — The append's units of work: the new inventories whole when their request fits ``append_input_ceiling``, as before; otherwise split, in order (``select_new_inventories``': revision, then unit order), into passes of whole inventories, each as large as fits under the ceiling with r…
-- `_pass_tokens(run: Any) -> Callable[[list[dict[str, Any]]], int]` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 898) — A pass's base request size, estimated as the runner estimates every request it checks.
-- `_append_contexts(run: Any)` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 910)
-- `_merge_append(merged: Any, answer: Any) -> Any` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 931) — Two passes' answers as one: their items in pass order, their summaries each once.
-- `_within_the_brief(run: Any, answer: Any, *, shard_count: int=1, **_unused: Any) -> tuple[Any, dict[str, Any], list[dict[str, Any]]]` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 941)
-- `_one_restructure_per_target(answer: Any) -> tuple[Any, list[dict[str, Any]]]` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 952) — A split append's restructures, the first per target: two updates of one entity in one proposal would conflict at apply, so the later ones are dropped with a review record naming them.
-- `_append_digest(rows: list[dict[str, Any]], context: _AppendContext, summary: str) -> Any` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 973)
-- `_within_preset(reconciliation: Any, brief: Mapping[str, Any]) -> tuple[Any, list[dict[str, Any]]]` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 1023) — The answer the brief's authoring preset allows, with a review record of what it dropped.
-- `class _FacetReword` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 1049) — A facet restructure, normalized: its proposal payload and the citations the gates judge.
-- `_facet_reword(obj: dict[str, Any], vault: LoadedVault, inputs: Any, operation: str, target_id: str) -> _FacetReword` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 1066) — Normalize a facet restructure: a reword of a registered facet.
-- `_checked_reword(target_id: str, current: dict[str, Any], payload: dict[str, Any], gate_refs: list[ProvenanceRef], support: Any, unresolved: list[str], inputs: Any, policy: facet_meaning.MeaningPolicy=facet_meaning.REWORD_CONFIRM) -> _FacetReword` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 1176) — A reword, judged in advance by the chokepoint the apply runs again.
-- `_span_problem(span: dict[str, Any], inputs) -> str | None` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 1211) — Why a cited span cannot attach, or None when it can.
-- `_relation_for_intent(intent: str | None) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 1226)
-- `_hash_type(target_type: str) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 1234)
-- `_target_type(target_type: str) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 1238)
-- `_auto_apply_refusal(payload, gate_refs, current_hash, target_type) -> str | None` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 1244) — §10.3 auto-apply predicate for a provenance_link: ``None`` when it applies, else the condition that failed (the run's auto-apply record names it).
-- `_span_yaml(span, inputs) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 1277)
-- `_snapshot(repository: Repository, vault: LoadedVault) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 1287)
-- `_link_count(repository: Repository) -> int` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 1297)
-- `_diff_from_snapshot(repository, vault_after, before, patch_id) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 1302)
+- `_append(vault: LoadedVault, repository: Repository, root: Path, source_set_id: str, *, client: Any, new_revision_ids: list[str] | None, change_kind: str, revision_diff: dict[str, Any], new_unit_ids: Mapping[str, Sequence[str]] | None=None, brief: dict[str, Any], auto_apply: bool, clock: Clock | None, budget_overrides: dict[str, int] | None=None, unlimited_token_budget: bool=False, embedding_client_factory: Callable[[], Any] | None=None, facet_identity_client: Any=None, apply_gate: Callable[[], bool] | None=None) -> AppendResult` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 447) — The append opens its run with the shared head (:func:`open_synthesis_run`); its scope step selects the new inventories and the bounded neighbourhood around them, which the manifest records and the request reads.
+- `_apply_routine_items(root: Path, repository: Repository, vault: LoadedVault, outcome: SynthesisOutcome, *, auto_apply: bool, apply_gate: Callable[[], bool] | None, clock: Clock | None, synthesis_run_id: str | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 526) — The append's apply step: which of the proposal's items wait for review, and §10.3's lane, where routine span/assessment attachments apply under the vault lock; everything else stays a pending review proposal.
+- `_lane_refusal(auto_apply: bool, auto_ids: Sequence[str], apply_gate: Callable[[], bool] | None) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 582) — Why §10.3's lane applied nothing this run: not asked, nothing routine, or the gate's own refusal.
+- `_waiting_reasons(items: Sequence[Mapping[str, Any]], applied: set[str], refusals: Mapping[str, str], *, lane_refusal: str | None) -> list[tuple[str, str]]` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 592) — Each item left for review and why: its §10.3 condition, an item kind the lane never applies, or (for an item the lane would have applied) why the lane applied nothing.
+- `class _AppendState` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 615) — What the append's own item kinds share: the answer and the inputs it is read against, and the rows, gate items, review records and auto-apply ids built so far (the bootstrap normalizer's rows come first).
+- `_provenance_links(st: _AppendState) -> None` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 631) — Provenance links: dropped with a review record when their span does not resolve or is exam material aimed at a facet; those ``_auto_apply_refusal`` finds nothing against join ``auto_apply_ids``.
+- `_notation_mappings(st: _AppendState) -> None` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 711) — Notation mappings (review-required).
+- `_source_conflicts(st: _AppendState) -> None` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 737) — Source conflicts (always reviewed).
+- `_restructures(st: _AppendState) -> None` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 761) — Restructures (update or deactivate; review and lock-checked); a facet reword goes through its own check.
+- `_normalize_append(reconciliation, inputs, vault, now, *, subject_id, items_off: bool=False, nominator=None, facet_identity_plan=None) -> Normalized` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 829) — Map an AppendReconciliation to proposal rows and gate items: the bootstrap normalizer over its new coverage, then the append's own item kinds after it, with the client ids §10.3 auto-applies.
+- `class _AppendContext` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 869) — What an append's request reads beyond the source set's inputs (``SynthesisRun.context``).
+- `_append_passes(run: Any) -> list[list[dict[str, Any]]]` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 879) — The append's units of work: the new inventories whole when their request fits ``append_input_ceiling``, as before; otherwise split, in order (``select_new_inventories``': revision, then unit order), into passes of whole inventories, each as large as fits under the ceiling with r…
+- `_append_contexts(run: Any)` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 896)
+- `_merge_append(merged: Any, answer: Any) -> Any` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 927) — Two passes' answers as one: their items in pass order, their summaries each once.
+- `_within_the_brief(run: Any, answer: Any, *, shard_count: int=1, **_unused: Any) -> tuple[Any, dict[str, Any], list[dict[str, Any]]]` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 940)
+- `_one_restructure_per_target(run: Any, answer: Any) -> tuple[Any, list[dict[str, Any]]]` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 951) — A split append's restructures, the first per target: two updates of one entity in one proposal would conflict at apply, so the later ones are dropped with a review record naming them.
+- `_append_digest(rows: list[dict[str, Any]], context: _AppendContext, summary: str) -> Any` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 978)
+- `_within_preset(reconciliation: Any, brief: Mapping[str, Any]) -> tuple[Any, list[dict[str, Any]]]` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 1028) — The answer the brief's authoring preset allows, with a review record of what it dropped.
+- `class _FacetReword` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 1054) — A facet restructure, normalized: its proposal payload and the citations the gates judge.
+- `_facet_reword(obj: dict[str, Any], vault: LoadedVault, inputs: Any, operation: str, target_id: str) -> _FacetReword` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 1071) — Normalize a facet restructure: a reword of a registered facet.
+- `_checked_reword(target_id: str, current: dict[str, Any], payload: dict[str, Any], gate_refs: list[ProvenanceRef], support: Any, unresolved: list[str], inputs: Any, policy: facet_meaning.MeaningPolicy=facet_meaning.REWORD_CONFIRM) -> _FacetReword` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 1181) — A reword, judged in advance by the chokepoint the apply runs again.
+- `_span_problem(span: dict[str, Any], inputs) -> str | None` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 1216) — Why a cited span cannot attach, or None when it can.
+- `_relation_for_intent(intent: str | None) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 1231)
+- `_hash_type(target_type: str) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 1239)
+- `_target_type(target_type: str) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 1243)
+- `_auto_apply_refusal(payload, gate_refs, current_hash, target_type) -> str | None` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 1249) — §10.3 auto-apply predicate for a provenance_link: ``None`` when it applies, else the condition that failed (the run's auto-apply record names it).
+- `_span_yaml(span, inputs) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 1282)
+- `_snapshot(repository: Repository, vault: LoadedVault) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 1292)
+- `_link_count(repository: Repository) -> int` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 1302)
+- `_diff_from_snapshot(repository, vault_after, before, patch_id) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/synthesis/source_append.py), line 1307)
 
 ## Who imports or calls it
 
@@ -136,6 +135,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - [[Reference/Modules/learnloop/content/facet_identity/plan|learnloop.content.facet_identity.plan]] — imports `ingest_dry_run`; calls `ingest_dry_run`
 - [[Reference/Modules/learnloop/content/proposals/patches|learnloop.content.proposals.patches]] — imports `apply_accepted_items`, `compute_target_hash`; calls `apply_accepted_items`, `compute_target_hash`
 - [[Reference/Modules/learnloop/content/synthesis/ai_contracts|learnloop.content.synthesis.ai_contracts]] — imports `AppendReconciliation`, `AppendReconciliationContext`, `SourceSetSynthesis`, `append_reconciliation_prompt`, `append_reconciliation_prompt_version`; calls `AppendReconciliationContext`, `SourceSetSynthesis`, `append_reconciliation_prompt`
+- [[Reference/Modules/learnloop/content/synthesis/append_budget|learnloop.content.synthesis.append_budget]] — imports `append_groups`, `append_input_tokens`; calls `append_groups`, `append_input_tokens`
 - [[Reference/Modules/learnloop/content/synthesis/append_neighborhood|learnloop.content.synthesis.append_neighborhood]] — imports `select_neighborhood`; calls `select_neighborhood`
 - [[Reference/Modules/learnloop/content/synthesis/facet_doctor|learnloop.content.synthesis.facet_doctor]] — imports `near_duplicate_facet_review`; calls `near_duplicate_facet_review`
 - [[Reference/Modules/learnloop/content/synthesis/graph_nomination|learnloop.content.synthesis.graph_nomination]] — imports `GraphNominator`, `plan_ingest_embedding`; calls `plan_ingest_embedding`
@@ -154,7 +154,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `collections`, `dataclasses`, `json`, `pathlib`, `typing`
+- Standard library: `__future__`, `collections`, `dataclasses`, `pathlib`, `typing`
 - Third party: none imported directly
 
 ## Larger workflow participation
@@ -178,9 +178,16 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_split_appends_answers_merge_once_per_concept_and_restructure`
   - `test_an_append_over_its_ceiling_is_split_and_applies_what_one_unsplit_append_would`
   - `test_an_append_that_fits_is_one_request_as_before`
+  - `test_completed_receipt_survives_crash_before_pass_checkpoint`
   - `test_each_pass_is_its_own_paid_request_under_the_appends_limits`
   - `test_every_pass_shares_its_prompt_through_the_neighbourhood_so_providers_can_cache_it`
+  - `test_later_cited_reword_survives_invalid_first_edit`
   - `test_passes_hold_as_many_units_as_fit_with_room_for_a_span_round`
+  - `test_singleton_lower_bound_checked_before_neighborhood_nomination`
+  - `test_span_round_with_no_room_keeps_the_base_answer`
+  - `test_split_conflict_and_other_pass_disposition_have_distinct_local_names`
+  - `test_split_preserves_distinct_concepts_with_the_same_title`
+  - `test_split_summary_remembers_distinct_original_multiline_summaries`
 - [tests/test_build_study_map_routing.py](../../../../../../../tests/test_build_study_map_routing.py) — direct import
   - `test_helper_detects_applied_study_map`
 - [tests/test_cli_append_units.py](../../../../../../../tests/test_cli_append_units.py) — direct import

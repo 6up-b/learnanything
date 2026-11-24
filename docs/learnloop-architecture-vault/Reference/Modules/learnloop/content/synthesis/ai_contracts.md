@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/content/synthesis/ai_contracts.py](../../../../../../../src/learnloop/content/synthesis/ai_contracts.py) |
-| Source lines | 1061 |
+| Source lines | 1063 |
 | Owning package | [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -97,37 +97,37 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - `class RegistryConceptMerge(WireModel)` ([source](../../../../../../../src/learnloop/content/synthesis/ai_contracts.py), line 585) — The structuring model's decision that a candidate IS a registry concept (T5).
 - `class ConceptGraphStructuringWithRegistry(ConceptGraphStructuring)` ([source](../../../../../../../src/learnloop/content/synthesis/ai_contracts.py), line 597)
 - `class AppendReconciliation(WireModel)` ([source](../../../../../../../src/learnloop/content/synthesis/ai_contracts.py), line 601)
-- `class VaultEpigraph(WireModel)` ([source](../../../../../../../src/learnloop/content/synthesis/ai_contracts.py), line 618) — One Start-screen epigraph: a one-line aphorism or a three-line haiku.
-- `class VaultEpigraphBatch(WireModel)` ([source](../../../../../../../src/learnloop/content/synthesis/ai_contracts.py), line 628)
-- `source_unit_inventory_prompt(context: SourceUnitInventoryContext) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/ai_contracts.py), line 988)
-- `source_set_synthesis_prompt_version(one_facet_per_skill: bool) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/ai_contracts.py), line 996)
-- `source_set_synthesis_prompt(context: SourceSetSynthesisContext) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/ai_contracts.py), line 1003)
-- `concept_graph_has_registry_nominations(context: ConceptGraphContext | None) -> bool` ([source](../../../../../../../src/learnloop/content/synthesis/ai_contracts.py), line 1014)
-- `concept_graph_structuring_prompt(context: ConceptGraphContext) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/ai_contracts.py), line 1021)
-- `append_reconciliation_prompt_version(one_facet_per_skill: bool) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/ai_contracts.py), line 1039)
-- `append_reconciliation_prompt(context: AppendReconciliationContext) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/ai_contracts.py), line 1046)
-- `vault_epigraphs_prompt(context: VaultEpigraphContext) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/ai_contracts.py), line 1056)
+- `class VaultEpigraph(WireModel)` ([source](../../../../../../../src/learnloop/content/synthesis/ai_contracts.py), line 620) — One Start-screen epigraph: a one-line aphorism or a three-line haiku.
+- `class VaultEpigraphBatch(WireModel)` ([source](../../../../../../../src/learnloop/content/synthesis/ai_contracts.py), line 630)
+- `source_unit_inventory_prompt(context: SourceUnitInventoryContext) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/ai_contracts.py), line 990)
+- `source_set_synthesis_prompt_version(one_facet_per_skill: bool) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/ai_contracts.py), line 998)
+- `source_set_synthesis_prompt(context: SourceSetSynthesisContext) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/ai_contracts.py), line 1005)
+- `concept_graph_has_registry_nominations(context: ConceptGraphContext | None) -> bool` ([source](../../../../../../../src/learnloop/content/synthesis/ai_contracts.py), line 1016)
+- `concept_graph_structuring_prompt(context: ConceptGraphContext) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/ai_contracts.py), line 1023)
+- `append_reconciliation_prompt_version(one_facet_per_skill: bool) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/ai_contracts.py), line 1041)
+- `append_reconciliation_prompt(context: AppendReconciliationContext) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/ai_contracts.py), line 1048)
+- `vault_epigraphs_prompt(context: VaultEpigraphContext) -> str` ([source](../../../../../../../src/learnloop/content/synthesis/ai_contracts.py), line 1058)
 
 ### Module constants
 
-- `SOURCE_UNIT_INVENTORY_PROMPT_VERSION` ([src/learnloop/content/synthesis/ai_contracts.py](../../../../../../../src/learnloop/content/synthesis/ai_contracts.py), line 632)
-- `SOURCE_SET_SYNTHESIS_PROMPT_VERSION` ([src/learnloop/content/synthesis/ai_contracts.py](../../../../../../../src/learnloop/content/synthesis/ai_contracts.py), line 636)
-- `SOURCE_SET_SYNTHESIS_FACET_IDENTITY_PROMPT_VERSION` ([src/learnloop/content/synthesis/ai_contracts.py](../../../../../../../src/learnloop/content/synthesis/ai_contracts.py), line 639)
-- `CONCEPT_GRAPH_STRUCTURING_PROMPT_VERSION` ([src/learnloop/content/synthesis/ai_contracts.py](../../../../../../../src/learnloop/content/synthesis/ai_contracts.py), line 640)
-- `CONCEPT_GRAPH_REGISTRY_PROMPT_VERSION` ([src/learnloop/content/synthesis/ai_contracts.py](../../../../../../../src/learnloop/content/synthesis/ai_contracts.py), line 641)
-- `APPEND_RECONCILIATION_PROMPT_VERSION` ([src/learnloop/content/synthesis/ai_contracts.py](../../../../../../../src/learnloop/content/synthesis/ai_contracts.py), line 642)
-- `APPEND_RECONCILIATION_FACET_IDENTITY_PROMPT_VERSION` ([src/learnloop/content/synthesis/ai_contracts.py](../../../../../../../src/learnloop/content/synthesis/ai_contracts.py), line 643)
-- `VAULT_EPIGRAPHS_PROMPT_VERSION` ([src/learnloop/content/synthesis/ai_contracts.py](../../../../../../../src/learnloop/content/synthesis/ai_contracts.py), line 644)
-- `SOURCE_UNIT_INVENTORY_PROMPT` ([src/learnloop/content/synthesis/ai_contracts.py](../../../../../../../src/learnloop/content/synthesis/ai_contracts.py), line 646)
-- `SOURCE_SET_SYNTHESIS_PROMPT` ([src/learnloop/content/synthesis/ai_contracts.py](../../../../../../../src/learnloop/content/synthesis/ai_contracts.py), line 681)
-- `SOURCE_SET_SYNTHESIS_PROMPT` ([src/learnloop/content/synthesis/ai_contracts.py](../../../../../../../src/learnloop/content/synthesis/ai_contracts.py), line 815)
-- `ONE_FACET_PER_SKILL_RULE` ([src/learnloop/content/synthesis/ai_contracts.py](../../../../../../../src/learnloop/content/synthesis/ai_contracts.py), line 817)
-- `APPEND_ONE_FACET_PER_SKILL_RULE` ([src/learnloop/content/synthesis/ai_contracts.py](../../../../../../../src/learnloop/content/synthesis/ai_contracts.py), line 826)
-- `CONCEPT_GRAPH_STRUCTURING_PROMPT` ([src/learnloop/content/synthesis/ai_contracts.py](../../../../../../../src/learnloop/content/synthesis/ai_contracts.py), line 833)
-- `CONCEPT_GRAPH_REGISTRY_ADDENDUM` ([src/learnloop/content/synthesis/ai_contracts.py](../../../../../../../src/learnloop/content/synthesis/ai_contracts.py), line 883)
-- `APPEND_RECONCILIATION_PROMPT` ([src/learnloop/content/synthesis/ai_contracts.py](../../../../../../../src/learnloop/content/synthesis/ai_contracts.py), line 901)
-- `APPEND_RECONCILIATION_PROMPT` ([src/learnloop/content/synthesis/ai_contracts.py](../../../../../../../src/learnloop/content/synthesis/ai_contracts.py), line 957)
-- `VAULT_EPIGRAPHS_PROMPT` ([src/learnloop/content/synthesis/ai_contracts.py](../../../../../../../src/learnloop/content/synthesis/ai_contracts.py), line 959)
+- `SOURCE_UNIT_INVENTORY_PROMPT_VERSION` ([src/learnloop/content/synthesis/ai_contracts.py](../../../../../../../src/learnloop/content/synthesis/ai_contracts.py), line 634)
+- `SOURCE_SET_SYNTHESIS_PROMPT_VERSION` ([src/learnloop/content/synthesis/ai_contracts.py](../../../../../../../src/learnloop/content/synthesis/ai_contracts.py), line 638)
+- `SOURCE_SET_SYNTHESIS_FACET_IDENTITY_PROMPT_VERSION` ([src/learnloop/content/synthesis/ai_contracts.py](../../../../../../../src/learnloop/content/synthesis/ai_contracts.py), line 641)
+- `CONCEPT_GRAPH_STRUCTURING_PROMPT_VERSION` ([src/learnloop/content/synthesis/ai_contracts.py](../../../../../../../src/learnloop/content/synthesis/ai_contracts.py), line 642)
+- `CONCEPT_GRAPH_REGISTRY_PROMPT_VERSION` ([src/learnloop/content/synthesis/ai_contracts.py](../../../../../../../src/learnloop/content/synthesis/ai_contracts.py), line 643)
+- `APPEND_RECONCILIATION_PROMPT_VERSION` ([src/learnloop/content/synthesis/ai_contracts.py](../../../../../../../src/learnloop/content/synthesis/ai_contracts.py), line 644)
+- `APPEND_RECONCILIATION_FACET_IDENTITY_PROMPT_VERSION` ([src/learnloop/content/synthesis/ai_contracts.py](../../../../../../../src/learnloop/content/synthesis/ai_contracts.py), line 645)
+- `VAULT_EPIGRAPHS_PROMPT_VERSION` ([src/learnloop/content/synthesis/ai_contracts.py](../../../../../../../src/learnloop/content/synthesis/ai_contracts.py), line 646)
+- `SOURCE_UNIT_INVENTORY_PROMPT` ([src/learnloop/content/synthesis/ai_contracts.py](../../../../../../../src/learnloop/content/synthesis/ai_contracts.py), line 648)
+- `SOURCE_SET_SYNTHESIS_PROMPT` ([src/learnloop/content/synthesis/ai_contracts.py](../../../../../../../src/learnloop/content/synthesis/ai_contracts.py), line 683)
+- `SOURCE_SET_SYNTHESIS_PROMPT` ([src/learnloop/content/synthesis/ai_contracts.py](../../../../../../../src/learnloop/content/synthesis/ai_contracts.py), line 817)
+- `ONE_FACET_PER_SKILL_RULE` ([src/learnloop/content/synthesis/ai_contracts.py](../../../../../../../src/learnloop/content/synthesis/ai_contracts.py), line 819)
+- `APPEND_ONE_FACET_PER_SKILL_RULE` ([src/learnloop/content/synthesis/ai_contracts.py](../../../../../../../src/learnloop/content/synthesis/ai_contracts.py), line 828)
+- `CONCEPT_GRAPH_STRUCTURING_PROMPT` ([src/learnloop/content/synthesis/ai_contracts.py](../../../../../../../src/learnloop/content/synthesis/ai_contracts.py), line 835)
+- `CONCEPT_GRAPH_REGISTRY_ADDENDUM` ([src/learnloop/content/synthesis/ai_contracts.py](../../../../../../../src/learnloop/content/synthesis/ai_contracts.py), line 885)
+- `APPEND_RECONCILIATION_PROMPT` ([src/learnloop/content/synthesis/ai_contracts.py](../../../../../../../src/learnloop/content/synthesis/ai_contracts.py), line 903)
+- `APPEND_RECONCILIATION_PROMPT` ([src/learnloop/content/synthesis/ai_contracts.py](../../../../../../../src/learnloop/content/synthesis/ai_contracts.py), line 959)
+- `VAULT_EPIGRAPHS_PROMPT` ([src/learnloop/content/synthesis/ai_contracts.py](../../../../../../../src/learnloop/content/synthesis/ai_contracts.py), line 961)
 
 ## Internal implementation anchors
 
@@ -139,6 +139,8 @@ No private top-level function or class definition is declared in this file.
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `SOURCE_SET_SYNTHESIS_PROMPT_VERSION`
+- [[Reference/Modules/learnloop/content/pipeline/build_plan|learnloop.content.pipeline.build_plan]] — imports `AppendReconciliationContext`; statically calls `AppendReconciliationContext`
+- [[Reference/Modules/learnloop/content/synthesis/append_budget|learnloop.content.synthesis.append_budget]] — imports `AppendReconciliation`, `AppendReconciliationContext`, `append_reconciliation_prompt`; statically calls `append_reconciliation_prompt`
 - [[Reference/Modules/learnloop/content/synthesis/source_append|learnloop.content.synthesis.source_append]] — imports `AppendReconciliation`, `AppendReconciliationContext`, `SourceSetSynthesis`, `append_reconciliation_prompt`, `append_reconciliation_prompt_version`; statically calls `AppendReconciliationContext`, `SourceSetSynthesis`, `append_reconciliation_prompt`
 - [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]] — imports `CONCEPT_GRAPH_REGISTRY_PROMPT_VERSION`, `ConceptGraphContext`, `ConceptGraphStructuring`, `ConceptGraphStructuringWithRegistry`, `SourceSetSynthesis`, `SourceSetSynthesisContext`, `concept_graph_has_registry_nominations`, `concept_graph_structuring_prompt`, `source_set_synthesis_prompt`, `source_set_synthesis_prompt_version`; statically calls `ConceptGraphContext`, `SourceSetSynthesisContext`, `concept_graph_has_registry_nominations`, `concept_graph_structuring_prompt`, `source_set_synthesis_prompt`
 - [[Reference/Modules/learnloop/content/synthesis/source_unit_inventory|learnloop.content.synthesis.source_unit_inventory]] — imports `SOURCE_UNIT_INVENTORY_PROMPT_VERSION`, `SourceUnitInventory`, `SourceUnitInventoryContext`, `source_unit_inventory_prompt`; statically calls `SourceUnitInventory`, `SourceUnitInventoryContext`, `source_unit_inventory_prompt`
@@ -164,7 +166,7 @@ Use this module in context through:
 - [[Import Canonical Sources]]
 - [[Build a Study Map]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/content/synthesis/source_append|learnloop.content.synthesis.source_append]], [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]], [[Reference/Modules/learnloop/content/synthesis/source_unit_inventory|learnloop.content.synthesis.source_unit_inventory]], [[Reference/Modules/learnloop/content/synthesis/vault_epigraphs|learnloop.content.synthesis.vault_epigraphs]].
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/content/pipeline/build_plan|learnloop.content.pipeline.build_plan]], [[Reference/Modules/learnloop/content/synthesis/append_budget|learnloop.content.synthesis.append_budget]], [[Reference/Modules/learnloop/content/synthesis/source_append|learnloop.content.synthesis.source_append]], [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]] and 2 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -183,6 +185,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_append_split_passes.py](../../../../../../../tests/test_append_split_passes.py) — direct import
   - `test_a_split_appends_answers_merge_once_per_concept_and_restructure`
   - `test_every_pass_shares_its_prompt_through_the_neighbourhood_so_providers_can_cache_it`
+  - `test_folded_facets_parent_resolves_through_the_surviving_concept`
+  - `test_span_round_with_no_room_keeps_the_base_answer`
+  - `test_split_conflict_and_other_pass_disposition_have_distinct_local_names`
+  - `test_split_preserves_distinct_concepts_with_the_same_title`
+  - `test_split_summary_remembers_distinct_original_multiline_summaries`
 - [tests/test_build_wait_detail.py](../../../../../../../tests/test_build_wait_detail.py) — direct import
   - `test_an_extra_evidence_pass_is_named_as_one`
 - [tests/test_chatgpt_plan_runaway.py](../../../../../../../tests/test_chatgpt_plan_runaway.py) — direct import

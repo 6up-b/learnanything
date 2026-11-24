@@ -462,3 +462,56 @@ def test_every_code_is_staged():
     assert HOLDS_STAGED == set(HOLD_CODES)
     assert MATCHES_STAGED == set(FR.REUSE_MATCHES)
     assert WITHHELD_STAGED == {FR.WITHHELD_AT_DELIVERY, FR.WITHHELD_PICK, FR.SPEC_UNPARSABLE}
+
+
+def test_schema_refusal_records_only_its_code(tmp_path):
+    from learnloop_sidecar.server import _handle
+
+    paths, repo = build_figure_vault(tmp_path / "vault")
+    ctx = context(paths.root, author=AuthorFake())
+    private = "withheld passage text"
+    response = _handle(ctx, {"jsonrpc": "2.0", "id": 1, "method": "reader.figure_request",
+                             "params": {**PRESS, "spanIds": [private] * 41}})
+    assert response["error"]["code"] == -32602
+    record = _only(repo)
+    assert record["rule"] == "validation_error"
+    assert record["facts"] == {}
+    assert private not in json.dumps(record)
+
+
+def test_withheld_poll_after_outer_rollback_has_a_committed_record(tmp_path):
+    paths, repo = build_figure_vault(tmp_path / "vault")
+    with pytest.raises(RuntimeError, match="rollback"):
+        with repo.atomic():
+            FR.write_withheld_once(repo, "fig_blocked", FR.WITHHELD_PICK, where="list")
+            raise RuntimeError("rollback")
+    FR.write_withheld_once(repo, "fig_blocked", FR.WITHHELD_PICK, where="list")
+    assert _only(repo, FR.KIND_WITHHELD)["subject_id"] == "fig_blocked"
+
+
+def test_a_pending_press_names_its_request_and_job(tmp_path, monkeypatch):
+    _, repo, ctx = _rich_press(tmp_path, monkeypatch, [("rich", "manim", RF.brief(), WHY)])
+    build(ctx, dict(PRESS))
+    pending = build(ctx, dict(PRESS))["rich"]
+    (record,) = [r for r in _records(repo, FR.KIND_REQUEST) if r["rule"] == FR.REQUEST_RICH_PENDING]
+    assert record["subject_id"] == pending["requestId"]
+    assert record["facts"]["job_id"] == pending["richJobId"]
+
+
+def test_reusable_winner_between_press_and_lock_is_built_meanwhile(tmp_path, monkeypatch):
+    paths, repo = build_figure_vault(tmp_path / "vault")
+    ctx = context(paths.root, author=AuthorFake([flagship()]))
+    winner = build(ctx, dict(PRESS))["figure"]
+    reusable = FB.store.reusable
+    visible = False
+
+    def before_lock(*args):
+        nonlocal visible
+        visible = True
+        return None
+
+    monkeypatch.setattr(FB.store, "reusable", lambda *args: reusable(*args) if visible else None)
+    monkeypatch.setattr(FB.store, "latest_for_input", before_lock)
+    assert build(ctx, dict(PRESS))["figure"]["figureId"] == winner["figureId"]
+    (record,) = [r for r in _records(repo, FR.KIND_REQUEST) if r["rule"] == FR.REQUEST_REUSED]
+    assert record["facts"]["matched"] == "built_meanwhile"
