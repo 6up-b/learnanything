@@ -2349,6 +2349,14 @@ export function DeskShell({
       return;
     }
     doneOpenRequests.set(vaultKey, openRequest.seq);
+    // A ready book whose preparing window is still there (its hand-over failed: the reading could not be read just then)
+    // is handed over again, rather than the stuck window focused (review fix round, major 17).
+    const waiting = card.readiness === "ready" ? Object.values(wsRef.current.windows).find((window) =>
+      window.content?.kind === "preparing" && window.content.sourceId === card.sourceId) : undefined;
+    if (waiting) {
+      void bookReady(waiting.deskId, waiting.windowId, card, null);
+      return;
+    }
     if (card.readiness !== "ready") {
       // Its original, its progress, a failure's action and the retry, in a window of its own until the text is ready.
       openContent({ kind: "preparing", sourceId: card.sourceId });
@@ -2361,7 +2369,7 @@ export function DeskShell({
       // A passage found on an earlier reading of the book is translated onto the reading it has now (openContent).
       openContent(contentForCard(card, extractionId), { spanId: openRequest.spanId, spanReading: openRequest.reading ?? extractionId, deskId: accepted.deskId });
     }, () => toastNow("couldn't open that book just now"));
-  }, [openRequest, storeReady, deskId, library, vaultKey, transport, openContent, toastNow]);
+  }, [openRequest, storeReady, deskId, library, vaultKey, transport, openContent, toastNow, bookReady]);
 
   const openHit = useCallback((hit: { sourceId: string | null; extractionId: string; spanId: string }) => {
     if (!hit.sourceId) return;

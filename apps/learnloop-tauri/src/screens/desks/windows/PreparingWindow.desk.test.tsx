@@ -161,3 +161,25 @@ it("a stored reading-path panel restored while the guide is still loading opens 
   await settleDesk(0, 30);
   await waitFor(() => expect(document.querySelector('[data-desk-window="w_book"]')?.textContent).toContain("How deep"));
 });
+
+// Review fix round (major 17, ledger RDX-20): a book whose hand-over from its preparing window failed (its reading could
+// not be read just then) opens when the learner opens it again from the library, instead of focusing the stuck window.
+it("a ready book whose hand-over failed opens when asked for again from the library", async () => {
+  library = FIXTURE_LIBRARY;
+  let failures = 1;
+  answers.set("reader_render_view", (input) => {
+    if (input.extractionId === paper.sourceId && failures > 0) {
+      failures -= 1;
+      throw { code: "sidecar_unavailable", message: "restarting", retryable: true };
+    }
+    return fixtureInvoke("reader_render_view", { input });
+  });
+  const prep = { windowId: "w_prep", pane: 0, kind: "preparing", active: true, view: {}, content: { kind: "preparing", sourceId: paper.sourceId } };
+  const desk = mountRealDesk({ state: oneDesk([[BOOK_WINDOW as never], [prep as never]]) });
+  await settleDesk(0, 30);
+  desk.rerender({ openRequest: { seq: 7, sourceId: paper.sourceId, spanId: null, reading: null } });
+  await settleDesk(0, 30);
+  await waitFor(() => expect(storedWindows(desk.server).flat().map((each) => each.content)).toContainEqual(
+    { kind: "source", sourceId: paper.sourceId, extractionId: paper.extractionId, view: "render" }), { timeout: 4000 });
+  expect(storedWindows(desk.server).flat().some((each) => each.kind === "preparing")).toBe(false);
+});
