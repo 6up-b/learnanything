@@ -249,7 +249,7 @@ function answer(command: string, input: Record<string, unknown>): unknown {
       const rows = cheapRows(input);
       const jobId = typeof input.spanId === "string" ? `pj_${++promotedJobCount}` : null;
       if (jobId) promotedJobs.set(jobId, { rows, reads: 0, cancelled: false });
-      return { version: 1, objectKey: JSON.stringify(input), rows, cap: 4, pendingJob: jobId ? { jobId } : null, withheld: false, paid: { searchedByMeaning: false, verified: false, reason: null } };
+      return { version: 1, objectKey: JSON.stringify(input), rows, cap: 4, pendingJob: jobId ? { jobId } : null, withheld: false, withheldVerbs: [], paid: { searchedByMeaning: false, verified: false, reason: null } };
     }
     case "passage_promoted_job": {
       const job = promotedJobs.get(String(input.jobId));
@@ -258,7 +258,7 @@ function answer(command: string, input: Record<string, unknown>): unknown {
       job.reads += 1;
       if (job.reads < 2) return { version: 1, jobId: input.jobId, status: "running", done: false, rows: [], error: null };
       const paper = FIXTURE_SOURCES.paper;
-      return { version: 1, jobId: input.jobId, status: "done", done: true, error: null, withheld: false, rows: [...job.rows, {
+      return { version: 1, jobId: input.jobId, status: "done", done: true, error: null, withheld: false, withheldVerbs: [], rows: [...job.rows, {
         rowId: `row_elsewhere_${input.jobId}`, kind: "correspondent", glyph: "§", label: "the same step in another source", reason: "treats the same step",
         action: { verb: "open", ref: { kind: "source", sourceId: paper.sourceId, extractionId: paper.extractionId, view: "render" }, target: {} },
         learnerAt: null, checked: false, judgeRank: 1, basis: "judged", extra: {},

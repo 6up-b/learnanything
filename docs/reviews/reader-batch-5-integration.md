@@ -52,6 +52,15 @@ overshot, and one stale fixture hid its effect in the harness:
   the pre-existing refusal wins everywhere.
 - **BATCH5-12, a statement-guard trip of my own.** BATCH5-5's chapter masking called `exam_withheld` inside a
   handler, which the exercise-statement guard reads as a statement read; it goes through `withheld_places` now.
+- **BATCH5-13, refusal order.** `pad.submit_block` and `carried.carry` ran the protection check before their own
+  refusals, so `not_learners_words` and `empty_question` came back as `exam_material` on a protected origin; their own
+  checks now run first (nothing is written before both pass).
+- **BATCH5-14, the menu's verdict per verb.** The desk menu's one verdict read all exam material, so it hid Ask and
+  Make it practice on a practice exam the classic Reader lets the learner ask about and import. The verdict is per
+  verb now, each by its destination's row of `SURFACE_SETS` (one table, `VERB_SURFACES`). The header rule: the
+  header quotes the passage when the Reader's own Ask may read it (`reader_ask`, the held-out partition), else it
+  names the material. A test walks the same passage, a practice exam and a held-out one, through every verb's
+  destination and the Reader's protection read and requires them to agree.
 - **BATCH5-8, the harness fixture.** The fake finished promoted job carried no verdict, so in the harness every judged
   search failed closed and the promoted rows vanished from the source menu. The server sends the verdict; the fixture
   now does too.
@@ -143,11 +152,9 @@ change from the longer strings.
 
 ## 6. Not reconciled
 
-- The desks' own verdict (`passage.promoted`'s `withheld`) still reads all exam material, so on a desk the menu
-  leaves out Ask, Make it practice and the other sending verbs on a practice exam that is not held out, where the
-  classic Reader's Ask and import allow it. That is the menu's design (WB-DOCS-1), left as it is for the owner.
-- Destinations new with the workbench (pad inserts, carried questions, a desk's compare window, the workbench
-  search's selection) keep the branch's all-exam rule; they had no earlier protection to preserve.
+- Owner option: destinations new with the workbench (pad inserts, carried questions, a desk's compare window, the
+  workbench search's selection) keep all exam material as their set; they had no earlier protection to preserve,
+  and a row in `SURFACE_SETS` would move them.
 - COPY-5 to COPY-10, COPY-12 and COPY-13 stay open (outside this brief).
 - A few `DeskShell.menu.test.tsx` tests failed once each (0 to 5 ms) when run beside other files while the C edits
   were in progress; they pass alone, repeated, and in both full vitest runs since.

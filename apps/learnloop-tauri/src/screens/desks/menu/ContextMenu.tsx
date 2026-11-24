@@ -40,7 +40,9 @@ export interface ContextMenuProps {
   onRows?: (rows: PromotedRowDto[]) => void;
   /** Whether the object is exam or held-out material, once its first answer says (the verbs that would quote or send
    * its words are left out then). */
-  onWithheld?: (withheld: boolean, failed?: boolean) => void;
+  /** The object's verdict: `withheld` (all exam material: the menu's own search) and, per verb, the verbs whose
+   *  destination withholds it (`withheldVerbs`; undefined from an older sidecar: `withheld` for every verb). */
+  onWithheld?: (withheld: boolean, failed?: boolean, withheldVerbs?: string[]) => void;
   poller?: Poller;
   /** The window the menu is about: the job's poll waits while it is paused. */
   owner?: string | null;
@@ -175,7 +177,7 @@ export function ContextMenu({ header, neutralHeader, label, rows, at, object = n
       setCheap(found.rows);
       onRowsNow.current?.(found.rows);
       setWithheld(found.withheld === true);
-      report?.(found.withheld);
+      report?.(found.withheld, false, found.withheldVerbs);
       if (found.pendingJob && poller) {
         jobId = found.pendingJob.jobId;
         setJudgedPending(true);
@@ -197,7 +199,9 @@ export function ContextMenu({ header, neutralHeader, label, rows, at, object = n
                 setReadFailed(false);
                 setWithheld(blocked);
                 if (blocked) setSubmenuOpen(false);
-                report?.(blocked);
+                // A verb withheld at either answer stays withheld (a mark made since only adds).
+                const verbs = found.withheldVerbs && job.withheldVerbs ? [...new Set([...found.withheldVerbs, ...job.withheldVerbs])] : undefined;
+                report?.(blocked, false, verbs);
                 setCheap(job.rows);
                 onRowsNow.current?.(job.rows);
               } else {

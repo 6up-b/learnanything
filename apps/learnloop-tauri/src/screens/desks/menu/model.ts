@@ -73,6 +73,18 @@ const KIND_LABEL: Record<MenuObjectKind, string> = {
 
 /** "<a passage | a transcript cue | your margin note | a window> · “<first 46 chars>”" (§9.1, §9.2). Exam or held-out
  * material is named, never quoted. */
+/** An object's protection verdict for the menu: `all` (all exam material: the menu's own search, and every verb when
+ *  the sidecar sent no per-verb list) and the verbs whose destination withholds it (`verbs`). */
+export interface MenuVerdict {
+  all: boolean;
+  verbs?: ReadonlySet<string>;
+}
+
+/** Whether a verb (or, with none, the object as the menu's own search reads it) is withheld under a verdict. */
+export function verdictFor(verdict: MenuVerdict, verb?: VerbId): boolean {
+  return verb !== undefined && verdict.verbs ? verdict.verbs.has(verb) : verdict.all;
+}
+
 export function headerLine(object: MenuObject, withheld: boolean | null = null): string {
   if (withheld === null) return KIND_LABEL[object.kind];
   if (withheld) return `${KIND_LABEL[object.kind]} · exam or held-out material`;

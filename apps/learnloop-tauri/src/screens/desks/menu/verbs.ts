@@ -58,8 +58,9 @@ export interface MenuContext {
   showKnows: (object: MenuObject) => void;
   /** The rows passage.promoted gave this object (Open beside takes the first correspondent among them). */
   promotedRows: () => PromotedRowDto[];
-  /** Whether the object is exam or held-out material (resolves when its first answer says; false with no passage). */
-  withheld: () => Promise<boolean | null>;
+  /** Whether the object is withheld for this verb (by its destination's own set; with none, as the menu's search reads it): resolves
+   *  when the first answer says, null when it could not be read; false with no passage. */
+  withheld: (verb?: VerbId) => Promise<boolean | null>;
   /** Claim the open menu once, after a pending key or click clears protection. */
   begin?: () => boolean;
   /** Why the verbs that would reveal or send veiled material wait now (an inline check is open), or null. */
@@ -92,8 +93,9 @@ export function promotedRef(row: PromotedRowDto): { ref: ContentRefDto; spanId: 
 }
 
 /** The section a passage sits in, from What this knows' read. */
-async function sectionOf(object: MenuObject, ctx: MenuContext): Promise<{ sectionId: string | null; role: string | null }> {
-  const knows = await ctx.api.passageKnows(objectInput(object, ctx.deskId));
+async function sectionOf(object: MenuObject, ctx: MenuContext, forVerb?: "make_practice"): Promise<{ sectionId: string | null; role: string | null }> {
+  // Read for the verb that asks: its destination's set decides (a practice exam not held out is read for practice).
+  const knows = await ctx.api.passageKnows({ ...objectInput(object, ctx.deskId), ...(forVerb ? { forVerb } : {}) });
   const place = knows.places.find((each) => each.spanId === object.spanId) ?? knows.places[0];
   return { sectionId: place?.knows.sectionId ?? null, role: place?.role ?? null };
 }
@@ -111,7 +113,7 @@ export async function runVerb(id: VerbId, object: MenuObject, ctx: MenuContext, 
     // A verb that would quote or send the words waits for the object's protection: exam or held-out material is
     // never sent anywhere from the menu (a key pressed before the menu's first answer waits for it too).
     if (needsClearance(id)) {
-      const withheld = await ctx.withheld();
+      const withheld = await ctx.withheld(id);
       if (withheld !== false) {
         // Unknown (the check could not be read) is refused too, but says how to go on rather than nothing.
         ctx.toast(withheld ? "this is exam or held-out material: its words are not sent anywhere from here"
@@ -198,7 +200,7 @@ export async function runVerb(id: VerbId, object: MenuObject, ctx: MenuContext, 
       }
       case "make_practice": {
         if (!anchor) return;
-        const { sectionId, role } = await sectionOf(object, ctx);
+        const { sectionId, role } = await sectionOf(object, ctx, "make_practice");
         if (role === "exercise") {
           // The exercise's own words first, then the import, then what it made with edit and retire (the sheet).
           ctx.reviewExercise(object, anchor);
@@ -237,11 +239,13 @@ export async function runVerb(id: VerbId, object: MenuObject, ctx: MenuContext, 
 }
 
 /** The menu's verb rows for a source object (a passage, cue, highlight, note or window), in their fixed order. */
-export function sourceMenuRows(object: MenuObject, ctx: MenuContext, appendTarget: string, withheld = false): MenuRow[] {
+export function sourceMenuRows(object: MenuObject, ctx: MenuContext, appendTarget: string,
+  withheld: boolean | ((id: VerbId) => boolean) = false): MenuRow[] {
+  const isWithheld = (id: VerbId) => (typeof withheld === "function" ? withheld(id) : withheld);
   // What this knows reads a passage: a window with none in view (a panel, a thread) offers only its moves; on exam or
   // held-out material the verbs that would quote or send its words are left out.
   const held = ctx.heldReason?.() ?? null;
-  return verbsFor(object.kind).filter((verb) => (verb.id !== "knows" || hasPassage(object)) && !(withheld && needsClearance(verb.id))).map((verb) => ({
+  return verbsFor(object.kind).filter((verb) => (verb.id !== "knows" || hasPassage(object)) && !(needsClearance(verb.id) && isWithheld(verb.id))).map((verb) => ({
     id: verb.id,
     glyph: verb.glyph,
     label: verb.id === "append" ? `Append to “${appendTarget}”  ▸` : verb.label,

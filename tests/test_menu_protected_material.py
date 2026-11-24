@@ -485,3 +485,78 @@ def test_a_paths_own_refusals_come_before_the_protection_check(protected):
         call(ctx, "carried.carry", {"carriedId": "held", "originKind": "selection", "text": "why?",
                                     "anchor": {"extractionId": BOOK, "spanId": "s_held"}})
     assert refused.value.code == "exam_material"
+
+
+#: A refusal that is protection's (each path's own code): anything else (no AI provider in tests) is not.
+PROTECTION_CODES = {"exam_material", "protected", "comparison_withheld", "held_out_material"}
+
+
+def _destinations(span, section):
+    """Each menu verb's destination call on one passage, as the desk sends it."""
+    selection = {"extractionId": BOOK, "spanIds": [span]}
+    return {
+        "ask": [("companion.ask", {"requestId": f"ask-{span}", "surface": "reader", "extractionId": BOOK, "spanId": span,
+                                   "selectionSpanIds": [span], "question": "Why?"})],
+        "make_practice": [("reader.import_exercise", {"extractionId": BOOK, "rawSelection": {"nodes": [{"spanId": span}]}}),
+                          ("reader.author_section_question", {"extractionId": BOOK, "sectionId": section, "spanIds": [span]})],
+        "compare": [("reader.library_compare", {"door": "selection", "question": "how do they differ?",
+                                                "extractionId": BOOK, "anchorSpanIds": [span]})],
+        "show_me": [("figure.request", {"goalText": "show me", "anchor": selection})],
+        "teach_me": [("lesson.turn", {"action": "open", "entry": "reader_selection", "selection": selection})],
+        "find": [("search.everything", {"query": "kernels", "selection": selection})],
+        "carry": [("carried.carry", {"carriedId": f"carry-{span}", "originKind": "selection", "text": "why?",
+                                     "anchor": {"extractionId": BOOK, "spanId": span}})],
+        "append": [("pad.apply", {"clientId": "c", "seq": 2, "padId": "pad_1", "ops": [
+            {"op": "insert_block", "kind": "source_quote", "provenance": "source", "positionKey": "a2",
+             "blockId": f"app-{span}", "bodyMd": "a quote", "payload": {"extraction_id": BOOK, "span_id": span}}]})],
+    }
+
+
+@pytest.mark.parametrize("marking", ["practice_exam", "held_out"])
+def test_the_menus_verbs_agree_with_their_destinations_and_the_classic_reader(protected, monkeypatch, marking):
+    """The desk menu's per-verb verdict (passage.promoted's withheld_verbs) is each destination's own: a verb is left
+    out exactly when its destination refuses the passage, and the verbs the classic Reader also offers (its Ask, its
+    import and checks) are offered exactly when the Reader's protection read allows them. On a practice exam that is
+    not held out, Ask and Make it practice stay; held out, every verb that sends or copies it goes."""
+    from learnloop.ai import model_use
+    from learnloop.reader.reader_guidance import reading_protection
+    from learnloop.vault.loader import load_vault
+    from learnloop_sidecar.errors import SidecarError
+
+    monkeypatch.setattr(model_use, "waiting", lambda *_args, **_kwargs: False)
+    if marking == "practice_exam":
+        save_unit_selection(protected.repository, BOOK, ["u_open", "u_held"], role_override="exam")
+        span, section = "s_open", "u_open"
+    else:
+        _hold_out(protected.repository)
+        span, section = "s_held", "u_held"
+    ctx = protected.ctx
+    menu = call(ctx, "passage.promoted", {"objectKind": "passage", "extractionId": BOOK, "spanId": span})
+    withheld = set(menu["withheldVerbs"])
+    assert menu["withheld"] is True  # exam material either way: the menu's own search reads none of it
+    for verb, calls in _destinations(span, section).items():
+        refused = []
+        for rpc, params in calls:
+            try:
+                call(ctx, rpc, params)
+            except SidecarError as error:
+                if error.code in PROTECTION_CODES:
+                    refused.append(rpc)
+        assert (verb in withheld) == bool(refused), (marking, verb, refused)
+    # Make it practice's own reads (the section and role, the exercise's words) follow the same verdict.
+    practice = "make_practice" not in withheld
+    try:
+        call(ctx, "passage.knows", {"objectKind": "passage", "extractionId": BOOK, "spanId": span,
+                                    "forVerb": "make_practice"})
+        read = True
+    except SidecarError as error:
+        assert error.code == "exam_material"
+        read = False
+    words = call(ctx, "passage.content", {"extractionId": BOOK, "fromSpanId": span, "toSpanId": span,
+                                          "forVerb": "make_practice"})
+    assert read == practice and (words["spans"][0]["text"] is not None) == practice, marking
+    reader = reading_protection(load_vault(protected.paths.root), protected.repository, BOOK, [span])
+    reader_holds = reader["withheld"] or span in reader["held_out_span_ids"]
+    for verb in ("ask", "make_practice"):
+        assert (verb in withheld) == reader_holds, (marking, verb)
+    assert (withheld == set(_destinations(span, section))) == (marking == "held_out")

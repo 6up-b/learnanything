@@ -10953,6 +10953,8 @@ export interface MenuObjectInput {
   blockId?: string;
   windowId?: string;
   deskId?: string;
+  /** passage.knows only: the menu verb it is read for (Make it practice reads the section and role by its own set). */
+  forVerb?: "make_practice";
 }
 
 /** passage.promoted's input: the object, and one id per menu opening (reused on a retry: the same job and its work
@@ -10996,10 +10998,16 @@ export interface PassagePromotedDto {
   /** A passage of the object (for a pad line, one its words are linked to) is exam or held-out material: nothing is
    * searched or judged for it, and no row leads from or to a protected passage (the learner's own rows stay). */
   withheld: boolean;
+  /** The menu verbs whose destination withholds the object, each by its own row of the server's surface table (a
+   *  practice exam that is not held out keeps Ask and Make it practice, as in the classic Reader). Absent from an
+   *  older sidecar: `withheld` then stands for every verb. */
+  withheldVerbs?: string[];
 }
 
 export interface PromotedJobDto {
   withheld?: boolean;
+  /** At a delivery: the per-verb verdict read again (see PassagePromotedDto.withheldVerbs). */
+  withheldVerbs?: string[];
   version: number;
   jobId: string;
   status: "queued" | "running" | "done" | "failed" | "cancelled" | "expired";
@@ -11148,9 +11156,14 @@ export interface PassageUnionDto {
     learningObjects: { learningObjectId: string; treatment: string | null; learnerOverride: string | null }[] }[];
 }
 
-export type PassageUnionInput =
+export type PassageUnionInput = (
   | { extractionId: string; fromSpanId: string; toSpanId: string }
-  | { extractionId: string; t0: number; t1: number };
+  | { extractionId: string; t0: number; t1: number }
+) & {
+  /** passage.content only: the menu verb the words are read for; its destination's set decides what is withheld
+   *  (Make it practice's exercise sheet reads with the import's). */
+  forVerb?: "make_practice";
+};
 
 export interface CompanionExchangeDto {
   questionEventId: string;
