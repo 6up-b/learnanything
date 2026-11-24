@@ -167,7 +167,7 @@ def route_unavailable_message(label: str, *, saved: bool) -> str:
 
     if saved:
         return f"{label} is unavailable. Your lesson is saved. Select Try again to continue."
-    return f"{label} is unavailable. The lesson couldn’t start. Select Try again to start it."
+    return f"{label} is unavailable. The lesson didn’t start, and nothing was saved. Select Try again to start it."
 
 
 class LessonSuggestionInput(ParamsModel):

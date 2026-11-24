@@ -171,7 +171,7 @@ export function LessonView({
     onBusyRef.current?.(busy);
   }, [busy]);
   // Which wait `busy` is, so the waiting line says the true one (the goal lookup is not the teacher writing).
-  const [busyFor, setBusyFor] = useState<"turn" | "goal">("turn");
+  const [busyFor, setBusyFor] = useState<"turn" | "goal" | "check">("turn");
   const [unavailable, setUnavailable] = useState<string | null>(null);
   const [reply, setReply] = useState("");
   // What the learner just sent (a reply, a prediction), shown in the thread until the lesson shows it: the box is
@@ -199,7 +199,8 @@ export function LessonView({
 
   const run = useCallback(async (input: LessonTurnInput) => {
     setBusy(true);
-    setBusyFor("turn");
+    // An answer to a check or a probe is graded before the teacher writes: the wait says which.
+    setBusyFor(input.action === "answer_check" || input.action === "answer_probe" ? "check" : "turn");
     setUnavailable(null);
     setRetry(null);
     lastFailure.current = null;
@@ -587,7 +588,9 @@ export function LessonView({
             // A lesson turn took 11 to 83 s in the walks; finding a typed goal in the books is a lookup, not the teacher.
             busyFor === "goal"
               ? <Waiting testId="lesson-wait" line={WAITING_COPY.lookingInBooks} />
-              : <Waiting testId="lesson-wait" line="Working on your lesson…" later={WAITING_COPY.teacherWritingLater} />
+              : busyFor === "check"
+                ? <Waiting testId="lesson-wait" line="Checking your answer…" later={WAITING_COPY.teacherWritingLater} />
+                : <Waiting testId="lesson-wait" line={WAITING_COPY.teacherWriting} later={WAITING_COPY.teacherWritingLater} />
           ) : null}
           {unavailable ? (
             <div role="status" data-testid="lesson-unavailable" style={{ color: COLOR.textDim }}>
