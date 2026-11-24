@@ -17,6 +17,17 @@ LABEL_FIELDS = ("judge", "question_set_version", "state_hash")
 _FINISH_FIELDS = ("status", "finished_at", "input_tokens", "output_tokens", "cached_input_tokens", "cache_write_tokens", "reasoning_tokens", "cost", "provider_response_id", "resolved_model", "usage_json", "finish_reason", "error_type", "output_text")
 
 
+def annotate_started_receipt(connection: Any, call_id: str, notes: dict[str, Any]) -> None:
+    """Attach request metadata before send, in the decision writer's transaction."""
+    row = connection.execute("SELECT budget_json FROM model_call_receipts WHERE id=? AND status='started'",
+                             (call_id,)).fetchone()
+    if row is None:
+        raise ValueError("A request annotation needs a started receipt")
+    # Keep other observers' budget and retry annotations, including explicit nulls in a snapshot.
+    budget = {**json.loads(row[0] or "{}"), **notes}
+    connection.execute("UPDATE model_call_receipts SET budget_json=? WHERE id=?", (json.dumps(budget), call_id))
+
+
 def finish_receipt(connection: Any, event: dict[str, Any], *, owner_kind: str, owner_id: str) -> None:
     """Finalize a started receipt on the caller's connection (the caller owns the transaction)."""
 

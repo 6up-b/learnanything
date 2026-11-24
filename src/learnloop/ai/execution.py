@@ -380,18 +380,21 @@ def observe_model_calls(observer: Callable[[str, dict[str, Any]], Any]):
 
 
 @contextmanager
-def tee_model_calls(observer: Callable[[str, dict[str, Any]], Any]):
+def tee_model_calls(observer: Callable[[str, dict[str, Any]], Any], *, require_start: bool = False):
     """Also observe model calls with ``observer``, keeping the context's own observer.
 
-    The existing observer (a command's receipt writer) runs first and its
-    failures propagate as before; ``observer`` only measures, so its own
-    failure never touches the call.
+    The existing observer runs first and its failures propagate. The added
+    observer is best-effort by default. Set ``require_start`` when the
+    request depends on state the added observer must persist before send.
     """
 
     previous = _observer.get()
 
     def both(action: str, event: dict[str, Any]) -> Any:
         result = previous(action, event) if previous is not None else None
+        if require_start and action == "start":
+            observer(action, event)
+            return result
         try:
             observer(action, event)
         except Exception:  # noqa: BLE001 - a measurement never fails the call it measures

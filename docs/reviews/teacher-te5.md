@@ -1,6 +1,6 @@
 # Teacher v2 · TE5
 
-Base and tip `9038b096e7446d5f433f95d881de7e7c1bd0da15`, branch `teacher/te5-consolidation`. The orchestrator commits the working tree. L4-2 would use mvp-0.70 after the Reader's mvp-0.69. No algorithm tag or migration in this change.
+A and C landed in `60e21faadfe34f7fc62460ce0309a4a4b699da5b` on `teacher/te5-consolidation`, from `9038b096e7446d5f433f95d881de7e7c1bd0da15`. Part B is in the working tree for the orchestrator to commit. L4-2 would use mvp-0.70 after the Reader's mvp-0.69. No algorithm tag or migration in this change.
 
 ## A · Schema and recovery
 
@@ -60,29 +60,44 @@ The baseline identity registry had no teacher-turn entries. `python tests/test_i
 | `test_teacher_te2log_report.py` | The pool-trajectory report reads the new lesson's exact forecaster key. It still asserts the resulting pool points. |
 | `test_reader_rw5d_p4b_teacher_visuals.py` | Visual-on and visual-off model comparisons select the new schema. The full prompt reconstruction and exact base-family comparison include the topic paragraph. The checks for visual field exclusion, figures, and distinct pools stay in place. |
 
-## B · Context compaction awaits the route measurement
+## B · Receipt-backed context compaction
 
-§4.3 calls for the selected teacher route's context window less headroom measured on the dry-run lesson. The configured window is `ingest.providers[provider].context_tokens` (optional). Use the actual teacher provider and model, including reroutes. Migration 160's `model_call_receipts` records provider, model, purpose, parent call, input/output usage and output budget. For a measured run, select one physical request per teacher send, in order, retaining corrections and read follow-ups. A missing provider count is unknown. The teacher's per-action `usage` rows can sum several calls, including a correction. Their total is unsuitable as a single context size.
+On 2026-11-23 the orchestrator selected a lesson-local margin in place of §4.3's dry-run calibration and approved using existing teacher request receipts for the compaction boundary. A teacher route with a configured `ingest.providers[provider].context_tokens` uses its own provider and model. A route without a limit sends the ordinary full prompt and uses its existing receipt observer.
 
-Let L be that window, I[j] a measured teacher input and O[j] its output. A reproducible proposed dry-run margin is the largest observed value of `I[j+1] - I[j] + O[j+1]` across consecutive sends on the same route, bounded below by zero. It captures the extra transcript and tool results needed for the next turn plus room for its answer. Compact before the next send when `I[last] + margin >= L`. This is an empirical high-water mark, not a guarantee against a larger paste or retrieval. An alternative using the current prompt is to take the transport's existing input estimate plus the requested output ceiling and calibrate the largest positive underestimate against the dry-run inputs. That handles large fresh inputs at the cost of an estimate and can compact sooner.
+### Trigger and contents
 
-A read-only count on the migration-head synthetic fixture returned zero teacher-turn receipts with both input and output counts. The checkout has no identified dry-run receipt series paired with the production teacher route's limit. §12 and §17 Q9 assign the run to the owner. The cumulative 0.3–1M input tokens per lesson, source budget and synthetic fake usage do not measure the required headroom.
+Each bounded teacher operation identifies its lesson and transcript prefix on its request receipt. The forecast follows its children to physical sends in insertion order, including corrections and read follow-ups. A missing count, change of route or change of prefix breaks a growth pair. An eligible pair contributes `max(0, current input − previous input + current output)`. The forecast adds the sample mean and the distance from the mean to the largest observed sample to the input baseline. A new lesson learns from its own receipts. The observed spread can underestimate a future jump.
 
-| Choice | Cost and behavior |
-|---|---|
-| Supply the route, configured limit and the measured dry-run counts. | One owner run or an existing equivalent receipt export. A fixed measured margin is available from the first live turn. Recalibrate after a route or prompt change. |
-| Use the high-water mark from each live lesson instead. | No separate calibration call. The margin is unknown at open and can miss the first large jump. The behavior depends on that lesson's observed counts and requires persisting the calibration through resume. This changes §4.3's dry-run rule. |
+With no usable pair, the forecast uses the active generation ceiling or the serving provider's configured teacher output allowance. When the most recent input belongs to this route and prefix, the baseline is that measured input and the margin is the last output plus the greater of that output and the allowance. Without that baseline the existing spend gate estimates the current input and the allowance supplies the margin. There is no dry-run call or cross-lesson prior. Pooling would require a versioned route-specific prior and a replay cutoff for each decision.
 
-B is unbuilt. Once a rule is selected, test both sides of the boundary, old-turn replacement with plan/check/episode facts, verbatim recent turns and open commitments, identical resumed prompts, the receipt's summary version and zero summarizer calls.
+Equality with the limit triggers consideration of a new prefix. The replacement must shorten the encoded prompt. The teacher keeps the last accepted exchange and everything since the preceding teacher turn verbatim. Code builds the summary from plan, check, episode, probe, forecast, capability and open topic-offer facts. The prompt still carries the current plan, open check and open prediction. The full journal supplies delayed-check commitments and receipt reconstruction.
+
+### Storage and recovery
+
+Migration 165 already provides `model_call_receipts.budget_json`. On the request that first uses a new prefix, this JSON holds `teacher_lesson_id`, `transcript_prefix`, `summary_version` and the frozen `context_summary`. The required receipt-start observer commits these notes and a `lesson_context_compaction` decision pointing to that request in one short transaction before the send. A correction or later send using the same boundary records its prefix and version. The first receipt retains the frozen summary. An outer sidecar or CLI writer keeps ownership of its receipt. Direct calls use the lesson as owner.
+
+Resume follows the lesson's latest compaction decision to that receipt. A failed decision write rolls back the projection and prevents the send. An outer observer can already have opened a plain start receipt in this case. A provider outage after publication leaves a usable projection. The final lesson receipt records the version that was used.
+
+### Stop evidence and resolution
+
+Before this recovery the six focused cases produced **2 failed, 4 passed**. The first failure was a retained learner reference moving from `t16` to `t17` after the prototype allocated a `context_compacted` turn. Two successive receipt-backed compactions now keep the clues at `t12` and `t16`. At a predicted 1,500 tokens, the limited send changes only the serialized transcript prefix. At 1,501 and without a limit, the complete sent text matches the full rendering byte for byte. The outage fixture compares both sent prompts, the complete reconstructed receipt, the committed delayed checks and the number of teacher sends.
+
+The second failure was in the live writer. A plan revision in a closing turn lacked the `created_at` already stored with that version in `lesson_plans`. The writer now puts the exact insertion timestamp in its live plan cache. With and without compaction, a revised outline followed immediately by close yields the same two plan versions as the database and the same full receipt after reload. Existing immutable lesson receipt JSON is read as written. An older omission still means the timestamp was absent from that receipt. The stored plan, its version and its chronology retain their meaning.
+
+### Assertion and storage checks
+
+Part B changes zero assertions in tracked tests and zero identity digests. In the prototype test, the assertion linking a decision to a synthetic journal turn now checks the actual request ID, owner, purpose, JSON prefix, version and summary. It also checks the entire journal for an extra boundary turn. The learner-reference distance assertion remains, alongside exact reference values and two distinct prefix lengths. The live plan-version equality remains, alongside full receipt equality and an exact check for version presence on each route.
+
+The first expanded run had 3 failed and 4 passed. Two new assertions compared SQLite row objects directly to tuples. They now compare the values. The repeated-boundary fixture expected three entries in its second prefix but the transcript also includes the plan-stored step. It now checks the exact four entries replaced by count. Nine focused cases then passed. The architecture check subsequently located the receipt SQL in the teacher module. The existing model-call store now owns that write. A nested-operation regression initially had 1 failed and 10 passed because a teacher receipt with a parent could lose its decision. The operation and its correction now have distinct receipts sharing one decided boundary, including when the calling scope already has a model receipt.
 
 ## D · L4-2 is an owner decision
 
 `algorithm-mvp-0.70.md` compares prospective grade-epoch capture with freezing historical reconstructions at activation. Its table covers the writes, replay sources, missing-input behavior and expected owner-copy deltas for each. Neither policy was implemented. The read-only SQL ran against `fixtures/migration_head/state.sqlite`: fitted checks/attempts/primed/with curve/missing curve were `0/0/0/0/0`, foreign-key violations `0`, integrity `ok`. All three ordered semantic-digest queries ran on the empty fixture. An owner-copy measurement is outstanding.
 
-## Landing order and verification
+## Historical A/C landing order
 
-1. Apply the untracked landing aid `te5-part-a.patch` to the orchestrator's index at the base commit. It contains the exact A sources, tests, ledger and record prior to C. Its reverse application passed `--check` at that boundary. Leave the patch out of commits.
-2. Commit C's sources, tests, identity helper, generated identities and its parts of the ledger and stage record together. B and D change documentation only. The worker left the linked index untouched.
+1. The untracked landing aid `te5-part-a.patch` contains the exact A sources, tests, ledger and record prior to C. Its reverse application passed `--check` at that boundary. It is outside the Part B change.
+2. The A/C landing included C's sources, tests, identity helper, generated identities and their ledger and stage record. B and D were owner decisions at that boundary. The orchestrator committed A and C together.
 
 The patch also applied cleanly to copies of the affected HEAD files under the isolated scratch directory. The reconstructed A tree had the predecessor's exact contract file in `legacy_turns.py`, the exact source of `_prompt` and `_prompt_version`, and zero golden or doctrine paths in the patch.
 
@@ -90,13 +105,41 @@ The patch also applied cleanly to copies of the affected HEAD files under the is
 |---|---|
 | A | `src/learnloop/teacher/{contracts,episodes,legacy_turns,probes,service,visuals}.py`, `tests/{test_teacher_structured_contracts,test_teacher_te5_contracts}.py`, the A portions of `docs/reviews/{refactor-bug-ledger,teacher-te5}.md` |
 | C | `src/learnloop/goals/goal_lo.py`, `src/learnloop/teacher/{actions,contracts,service,te2,topics}.py`, `src/learnloop/teacher/doctrine/te2/goal_offer_v1.md`, `tests/identity_pins_helpers.py`, `tests/goldens/identities.toml`, `tests/{test_teacher_te5_goal_topics,test_teacher_te5_contracts,test_teacher_te2log_episodes,test_teacher_te2log_node_held,test_teacher_te2log_report,test_reader_rw5d_p4b_teacher_visuals}.py`, the C portions of `docs/reviews/{refactor-bug-ledger,teacher-te5}.md` |
-| B | Compaction decision in this record |
+| B | `src/learnloop/ai/execution.py`, `src/learnloop/db/stores/model_calls.py`, `src/learnloop/teacher/{compaction,service}.py`, `tests/test_teacher_te5_compaction.py` and the B portions of the ledger and this record |
 | D | `docs/reviews/algorithm-mvp-0.70.md` and the L4-2 decision in this record |
 
-The shared code files can be staged at the two boundaries using the A patch. No worker commit, index update, model request to a live service, frontend change, owner-vault access, algorithm-version change or migration.
+The A patch documented the intermediate schema before the consolidated commit. The worker left the linked index to the orchestrator.
 
-## Verification on the combined tree
+## Verification on the A/C tree
 
 The final gate uses the same isolated venv wrapper and explicit test groups as the Part A table. The teacher chunks passed with 118, 81, 55, 54 and 83 tests respectively. The eight case/variant tests for the new action passed in `test_teacher_te5_goal_topics.py`. The original TE5 contract suite passed all 26. C0b landing and scope passed 24 together in `test_curriculum_c0b_landing.py` and `test_deliverable_scope.py`. Identity passed 371, structured contracts 42, architecture 18 and layout 3. The prescribed pin writer exited 0. Ruff reported `All checks passed!`, import-linter reported `Contracts: 54 kept, 0 broken.`, and `git diff --check` exited 0.
 
 The transition runs found one import-boundary failure in A, a Ruff export-list error, duplicate dynamic schema classes and a stale exact family key in C. The regression assertions retain exact class and family checks. The synthetic interruption test exercises the vault/database split at LO publication. The final gate used no test skips or exclusions beyond the requested selection. Desktop rendering and the owner dry run and replay measurements were outside this sandbox.
+
+## Part B final verification
+
+All commands ran in the checkout with the prepared venv and the prescribed empty environment. The arguments below follow `python -m pytest -q -n 1 -p no:cacheprovider`. Each row was a separate process. Architecture and layout ran individually.
+
+| Explicit file arguments | Result line |
+|---|---|
+| `tests/test_teacher_te5_compaction.py` | `11 passed in 4.43s` |
+| `tests/test_identity_pins.py` | `371 passed in 17.49s` |
+| `tests/test_teacher_te5_contracts.py` `tests/test_teacher_te5_goal_topics.py` | `34 passed in 3.73s` |
+| `tests/test_teacher_exam_question_guard.py` `tests/test_teacher_from_check.py` `tests/test_teacher_structured_contracts.py` `tests/test_teacher_te0_confidence_events.py` `tests/test_teacher_te0_fix_round2.py` `tests/test_teacher_te0_review_fixes.py` | `118 passed in 20.84s` |
+| `tests/test_teacher_te1_curriculum_c4.py` `tests/test_teacher_te1_lesson.py` `tests/test_teacher_te1_migration.py` `tests/test_teacher_te1_review_fixes.py` `tests/test_teacher_te1_successor.py` `tests/test_teacher_te1_weight.py` | `81 passed in 17.47s` |
+| `tests/test_teacher_te1b_landing_r2.py` `tests/test_teacher_te1b_migration.py` `tests/test_teacher_te1b_rereview_fixes.py` `tests/test_teacher_te1b_review_fixes.py` `tests/test_teacher_te1b_suggestions.py` | `55 passed in 9.67s` |
+| `tests/test_teacher_te2_landing_r1.py` `tests/test_teacher_te2_lessons.py` `tests/test_teacher_te2_migration.py` `tests/test_teacher_te2_probes.py` `tests/test_teacher_te2_review_fixes.py` `tests/test_teacher_te2_sidecar.py` `tests/test_teacher_te2_successor.py` | `54 passed in 13.64s` |
+| `tests/test_teacher_te2log_activity.py` `tests/test_teacher_te2log_episodes.py` `tests/test_teacher_te2log_migration.py` `tests/test_teacher_te2log_node_held.py` `tests/test_teacher_te2log_receipt.py` `tests/test_teacher_te2log_report.py` `tests/test_reader_rw5d_p4b_teacher_visuals.py` | `83 passed in 25.82s` |
+| `tests/test_structured_contracts.py` | `42 passed in 1.01s` |
+| `tests/test_architecture.py` | `18 passed in 34.15s` |
+| `tests/test_test_layout.py` | `3 passed in 21.65s` |
+| `tests/test_curriculum_c0b_landing.py` `tests/test_deliverable_scope.py` | `24 passed in 6.21s` |
+
+| Other command | Result |
+|---|---|
+| `ruff check` | `All checks passed!` |
+| `lint-imports --no-cache` | `Contracts: 54 kept, 0 broken.` |
+| `git diff --check` | Exit 0 |
+| `git diff --exit-code HEAD -- tests/test_identity_pins.py tests/identity_pins_helpers.py tests/goldens src/learnloop/teacher/doctrine migrations CLAUDE.md docs/learnloop-architecture-vault/Reference` | Exit 0 |
+
+The final gate had 894 passing pytest cases across the listed invocations. Part B moved zero pins. The linked index belongs to the orchestrator. Part D and the owner dry run remain outside this change.

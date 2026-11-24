@@ -54,7 +54,7 @@ from __future__ import annotations
 import json
 import time
 from collections.abc import Callable, Iterator, Mapping, Sequence
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -69,6 +69,7 @@ from learnloop.clock import Clock, utc_now_iso
 from learnloop.db.stores import lessons as store
 from learnloop.ids import new_ulid
 from learnloop.teacher import checks as CK
+from learnloop.teacher import compaction as C
 from learnloop.teacher import episodes as E
 from learnloop.teacher import exposure as X
 from learnloop.teacher import guards as G
@@ -392,7 +393,7 @@ def _end_for_protection(vault: Any, repository: Any, state: LessonState, *, cloc
 
 def _prompt(state: LessonState, *, results: Sequence[Mapping[str, Any]], help_reply: bool,
             visuals: bool = False, episodes: bool = False, te2: bool = False,
-            goal_topics: bool = False) -> str:
+            goal_topics: bool = False, history: list[dict[str, Any]] | None = None) -> str:
     # Sent only while the protection state is the brief's (:func:`protection_changed`, checked before
     # every call): what the lesson saved was safe when saved, and still is.
     context = {
@@ -402,7 +403,7 @@ def _prompt(state: LessonState, *, results: Sequence[Mapping[str, Any]], help_re
         "plan": state.plans[-1]["outline"] if state.plans else None,
         "results": list(results),
         "help_reply": help_reply,
-        "transcript": transcript(state),
+        "transcript": transcript(state) if history is None else history,
     }
     # Reader RW5d P4b: the visuals paragraph and its prompt version only while visuals are on; TE2-log: the
     # episode paragraph and its suffix only while teacher.episode_log is on (both off: TE1's prompt byte for byte).
@@ -416,6 +417,30 @@ def _prompt(state: LessonState, *, results: Sequence[Mapping[str, Any]], help_re
 
 def _prompt_version(visuals: bool, episodes: bool, te2: bool, goal_topics: bool = False) -> str:
     return T2.prompt_version(E.prompt_version(V.prompt_version(visuals), episodes), te2, goal_topics)
+
+
+def _limited_prompt(vault: Any, repository: Any, state: LessonState, client: Any, limit: int,
+                    fields: Mapping[str, Any]) -> tuple[str, C.Projection]:
+    from learnloop.ai.execution import generation_ceiling
+    from learnloop.ai.output_budget import output_budget
+
+    history = transcript(state)
+    previous = C.latest(repository, state.lesson_id)
+    prompt = _prompt(state, history=previous.apply(history), **fields)
+    cut = C.recent_start(history)
+    if cut <= previous.prefix:
+        return prompt, previous
+    output = generation_ceiling() or output_budget(vault.config, "teacher", provider=client.provider_name)
+    facts = C.forecast(repository, state.lesson_id, client, prefix=previous.prefix,
+                       estimated_input=state.gate.estimate_tokens(client, prompt=prompt, budget=0), output_budget=output)
+    if facts["predicted_tokens"] < limit:
+        return prompt, previous
+    summary = C.summarize(repository, state)
+    projection = C.Projection(cut, summary, C.decision(state, cut, summary, facts, limit, len(history)))
+    shorter = _prompt(state, history=projection.apply(history), **fields)
+    if len(shorter.encode()) >= len(prompt.encode()):
+        return prompt, previous
+    return shorter, projection
 
 
 def _te2_now(vault: Any, state: LessonState) -> bool:
@@ -1669,12 +1694,19 @@ def _call_teacher(vault: Any, repository: Any, state: LessonState, client: Any, 
     from learnloop.ai.errors import AIInvalidOutput
 
     visuals, episodes, te2 = "visuals" in allowed, "episodes" in allowed, "probes" in allowed
-    prompt = _prompt(state, results=results, help_reply=help_reply, visuals=visuals, episodes=episodes, te2=te2,
-                     goal_topics="goal_topics" in allowed)
+    fields = dict(results=results, help_reply=help_reply, visuals=visuals, episodes=episodes, te2=te2,
+                  goal_topics="goal_topics" in allowed)
     model = wire_model(allowed)
     try:
-        raw = _request_teacher_turn(vault, repository, state, client, prompt=prompt, model=model,
-                                    outcome=outcome, clock=clock)
+        with ExitStack() as stack:
+            limit = C.context_limit(vault.config, client)
+            if limit is None:
+                prompt = _prompt(state, **fields)
+            else:
+                prompt, projection = _limited_prompt(vault, repository, state, client, limit, fields)
+                stack.enter_context(C.record_requests(repository, state.lesson_id, projection))
+            raw = _request_teacher_turn(vault, repository, state, client, prompt=prompt, model=model,
+                                        outcome=outcome, clock=clock)
     except _BlankTeacherTurn:
         # Both blanks were already counted; the loop may use any remaining slot.
         return None
@@ -2036,14 +2068,15 @@ def _write_plan(vault: Any, repository: Any, state: LessonState, turn_obj: Teach
     outline = [node.model_dump(exclude_unset=True) for node in request.plan]
     previous = state.plans[-1]["outline"] if state.plans else None
     with repository.atomic():
+        created_at = utc_now_iso(clock)
         version = store.insert_plan(repository.connection(), lesson_id=state.lesson_id, outline=outline,
-                                    created_at=utc_now_iso(clock))
+                                    created_at=created_at)
         entry = _append(repository, state, actor="code", action="write_plan", refs=_effect_refs(turn_entry, effect),
                         payload={"version": version}, clock=clock)
         if _turn_flags(turn_entry)["episodes"]:
             _plan_episodes(vault, repository, state, turn_obj, outline, previous, version=version,
                            entry=entry, model=model, turn_entry=turn_entry, clock=clock)
-    state.plans.append({"version": version, "outline": outline})
+    state.plans.append({"version": version, "outline": outline, "created_at": created_at})
 
 
 def _note_detour(vault: Any, repository: Any, state: LessonState, turn_obj: TeacherTurnV1, request: ActionRequestV1,
@@ -2554,8 +2587,10 @@ def _receipt(vault: Any, repository: Any, state: LessonState, *, reason: str, re
     episode_fields.pop("unrecorded", None)
     # TE2: the probes, the filed gaps and the added topics (absent, and gaps/created_los empty, otherwise).
     te2_fields = _receipt_te2_fields(repository, state)
+    compacted = C.latest(repository, state.lesson_id)
     return {
         "version": RECEIPT_VERSION,
+        **({"summary_version": compacted.summary["version"]} if compacted.summary else {}),
         "lesson_id": state.lesson_id,
         "driver": state.lesson["driver"],
         "model": state.lesson.get("model"),
