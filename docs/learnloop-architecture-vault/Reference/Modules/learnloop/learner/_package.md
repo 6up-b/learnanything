@@ -102,7 +102,7 @@ For system intent, use [[Learning System]].
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/_package|learnloop]] — 30 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 31 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 27 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 26 static module edges
 - [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] — 6 static module edges
@@ -169,7 +169,7 @@ flowchart LR
     n_learnloop_content_authoring["learnloop.content.authoring"]
     n_learnloop_tutor["learnloop.tutor"]
     n_learnloop -->|3| center
-    center -->|30| n_learnloop
+    center -->|31| n_learnloop
     n_learnloop_sidecar_handlers -->|28| center
     center -->|27| n_learnloop_db
     center -->|26| n_learnloop_vault

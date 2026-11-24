@@ -193,6 +193,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/goals/certification_cold_probe|learnloop.goals.certification_cold_probe]] — imports `evidence_reading_fixes_on`; statically calls `evidence_reading_fixes_on`
 - [[Reference/Modules/learnloop/intent/inline_administration|learnloop.intent.inline_administration]] — imports `inline_checks_on`; statically calls `inline_checks_on`
 - [[Reference/Modules/learnloop/learner/assessment_contracts|learnloop.learner.assessment_contracts]] — imports `KM_ALGORITHM_VERSION`, `P0_ALGORITHM_VERSION`, `REVEAL_LEDGER_ALGORITHM_VERSION`
+- [[Reference/Modules/learnloop/learner/calibration|learnloop.learner.calibration]] — imports `label_retired`; statically calls `label_retired`
 - [[Reference/Modules/learnloop/learner/facet_state_reader|learnloop.learner.facet_state_reader]] — imports `FACET_BELIEF_FIX_VERSIONS`
 - [[Reference/Modules/learnloop/learner/mastery|learnloop.learner.mastery]] — imports `label_retired`, `mastery_seed_on`; statically calls `label_retired`, `mastery_seed_on`
 - [[Reference/Modules/learnloop/learner/mastery_seed|learnloop.learner.mastery_seed]] — imports `mastery_seed_on`; statically calls `mastery_seed_on`
@@ -235,7 +236,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/replay|learnloop.adaptive_difficulty.replay]], [[Reference/Modules/learnloop/adaptive_difficulty/successor|learnloop.adaptive_difficulty.successor]], [[Reference/Modules/learnloop/adaptive_difficulty/surprise_forecast|learnloop.adaptive_difficulty.surprise_forecast]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]] and 41 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/replay|learnloop.adaptive_difficulty.replay]], [[Reference/Modules/learnloop/adaptive_difficulty/successor|learnloop.adaptive_difficulty.successor]], [[Reference/Modules/learnloop/adaptive_difficulty/surprise_forecast|learnloop.adaptive_difficulty.surprise_forecast]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]] and 42 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -295,6 +296,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/route_rules_in_grader_helpers.py](../../../../../tests/route_rules_in_grader_helpers.py) — direct import
 - [tests/router_card_helpers.py](../../../../../tests/router_card_helpers.py) — direct import
 - [tests/router_mixture_helpers.py](../../../../../tests/router_mixture_helpers.py) — direct import
+- [tests/serve_determinism_helpers.py](../../../../../tests/serve_determinism_helpers.py) — direct import
 - [tests/successor_switches.py](../../../../../tests/successor_switches.py) — direct import
 - [tests/te3b_offers_helpers.py](../../../../../tests/te3b_offers_helpers.py) — direct import
 - [tests/teacher_fakes.py](../../../../../tests/teacher_fakes.py) — direct import
@@ -331,6 +333,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_batch3_landing.py](../../../../../tests/test_batch3_landing.py) — direct import
   - `test_mvp035_is_one_constant_after_mvp034_and_the_latest`
 - [tests/test_calibration.py](../../../../../tests/test_calibration.py) — direct import
+  - `test_from_the_label_retirement_the_flag_names_how_the_item_plays_against_its_lo_and_no_label`
 - [tests/test_canonical_projection_fold_skip.py](../../../../../tests/test_canonical_projection_fold_skip.py) — direct import
 - [tests/test_carried_valuation_lifecycle.py](../../../../../tests/test_carried_valuation_lifecycle.py) — direct import
   - `test_a_new_plan_stops_and_joins_the_carries_its_predecessors_left`
@@ -768,6 +771,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_tag`
 - [tests/test_serve_eligibility_review.py](../../../../../tests/test_serve_eligibility_review.py) — direct import
   - `test_f4_the_successor_follows_regrade_contracts_and_keeps_every_predecessor`
+- [tests/test_serve_tie_breaks.py](../../../../../tests/test_serve_tie_breaks.py) — direct import
+  - `test_a_delayed_picks_tie_is_one_answer_in_any_candidate_order_and_replays_from_its_receipt`
 - [tests/test_sg_slip_vs_gap.py](../../../../../tests/test_sg_slip_vs_gap.py) — direct import
 - [tests/test_sg_successor.py](../../../../../tests/test_sg_successor.py) — direct import
   - `test_the_successor_is_one_constant_after_the_placement_hole_and_the_latest`

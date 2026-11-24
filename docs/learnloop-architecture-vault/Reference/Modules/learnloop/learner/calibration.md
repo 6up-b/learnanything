@@ -47,25 +47,25 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/learner/calibration.py](../../../../../../src/learnloop/learner/calibration.py) |
-| Source lines | 110 |
+| Source lines | 124 |
 | Owning package | [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class MiscalibrationFlag` ([source](../../../../../../src/learnloop/learner/calibration.py), line 21)
-  - `message(self) -> str` (line 29; public)
-- `difficulty_miscalibration_flags(vault: LoadedVault, repository, *, min_attempts: int=DEFAULT_MIN_ATTEMPTS, threshold: float=DEFAULT_INNOVATION_THRESHOLD) -> list[MiscalibrationFlag]` ([source](../../../../../../src/learnloop/learner/calibration.py), line 39) — Per-item flags where the mean innovation ``y - p`` is persistently one-sided.
+- `class MiscalibrationFlag` ([source](../../../../../../src/learnloop/learner/calibration.py), line 22)
+  - `message(self) -> str` (line 32; public)
+- `difficulty_miscalibration_flags(vault: LoadedVault, repository, *, min_attempts: int=DEFAULT_MIN_ATTEMPTS, threshold: float=DEFAULT_INNOVATION_THRESHOLD) -> list[MiscalibrationFlag]` ([source](../../../../../../src/learnloop/learner/calibration.py), line 51) — Per-item flags where the mean innovation ``y - p`` is persistently one-sided.
 
 ### Module constants
 
-- `DEFAULT_MIN_ATTEMPTS` ([src/learnloop/learner/calibration.py](../../../../../../src/learnloop/learner/calibration.py), line 16)
-- `DEFAULT_INNOVATION_THRESHOLD` ([src/learnloop/learner/calibration.py](../../../../../../src/learnloop/learner/calibration.py), line 17)
+- `DEFAULT_MIN_ATTEMPTS` ([src/learnloop/learner/calibration.py](../../../../../../src/learnloop/learner/calibration.py), line 17)
+- `DEFAULT_INNOVATION_THRESHOLD` ([src/learnloop/learner/calibration.py](../../../../../../src/learnloop/learner/calibration.py), line 18)
 
 ## Internal implementation anchors
 
-- `_expected_correctness(predicted_score_dist_json: str | None) -> float | None` ([source](../../../../../../src/learnloop/learner/calibration.py), line 102)
+- `_expected_correctness(predicted_score_dist_json: str | None) -> float | None` ([source](../../../../../../src/learnloop/learner/calibration.py), line 116)
 
 ## Who imports or calls it
 
@@ -78,6 +78,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ### LearnLoop dependencies
 
+- [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `label_retired`; calls `label_retired`
 - [[Reference/Modules/learnloop/held_grades|learnloop.held_grades]] — imports `held_attempt_ids`; calls `held_attempt_ids`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LoadedVault`
 
@@ -102,6 +103,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_calibration.py](../../../../../../tests/test_calibration.py) — direct import
   - `test_balanced_innovation_is_not_flagged`
   - `test_below_min_attempts_is_not_flagged`
+  - `test_from_the_label_retirement_the_flag_names_how_the_item_plays_against_its_lo_and_no_label`
   - `test_persistent_overperformance_flags_too_hard`
   - `test_persistent_underperformance_flags_too_easy`
   - `test_pipeline_flags_an_item_rated_too_hard`

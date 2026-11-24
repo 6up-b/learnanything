@@ -2346,6 +2346,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_refused_cli_attempt_writes_nothing`
   - `test_the_cli_attempt_records_a_primed_cold_check_as_practice`
   - `test_the_tui_open_serves_a_cold_check_submit_would_prime_as_practice`
+- [tests/test_serve_tie_breaks.py](../../../../../../tests/test_serve_tie_breaks.py) — direct import
+  - `test_a_delayed_picks_tie_is_one_answer_in_any_candidate_order_and_replays_from_its_receipt`
 - [tests/test_session_attempt_attribution.py](../../../../../../tests/test_session_attempt_attribution.py) — direct import
   - `test_overlapping_sessions_attribute_attempts_by_session_id`
   - `test_time_window_fallback_applies_only_to_legacy_null_session_rows`

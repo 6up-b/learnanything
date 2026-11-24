@@ -3205,6 +3205,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f4_a_probe_of_an_item_submit_would_prime_is_refused`
   - `test_f4_new_vaults_start_at_the_successor`
   - `test_f4_q33s_bounded_window`
+- [tests/test_serve_tie_breaks.py](../../../../../../tests/test_serve_tie_breaks.py) — direct import
+  - `test_a_delayed_picks_tie_is_one_answer_in_any_candidate_order_and_replays_from_its_receipt`
 - [tests/test_settings_store.py](../../../../../../tests/test_settings_store.py) — direct import
 - [tests/test_sg_slip_vs_gap.py](../../../../../../tests/test_sg_slip_vs_gap.py) — direct import
   - `test_off_and_below_the_tag_the_card_is_the_predecessors`

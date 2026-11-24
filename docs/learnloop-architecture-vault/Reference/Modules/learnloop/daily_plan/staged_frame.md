@@ -143,6 +143,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/serve_determinism_helpers.py](../../../../../../tests/serve_determinism_helpers.py) — direct import
 - [tests/test_ad2_serving.py](../../../../../../tests/test_ad2_serving.py) — direct import
   - `test_support_respects_constraints_reversibility_and_admission`
 - [tests/test_ih4_preferences_inform_router.py](../../../../../../tests/test_ih4_preferences_inform_router.py) — direct import

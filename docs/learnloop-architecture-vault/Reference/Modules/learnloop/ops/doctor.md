@@ -233,6 +233,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_calibration.py](../../../../../../tests/test_calibration.py) — direct import
   - `test_doctor_does_not_flag_a_well_calibrated_item`
   - `test_doctor_surfaces_miscalibration_warning`
+  - `test_from_the_label_retirement_the_flag_names_how_the_item_plays_against_its_lo_and_no_label`
 - [tests/test_chatgpt_plan_cli.py](../../../../../../tests/test_chatgpt_plan_cli.py) — direct import
   - `test_doctor_ignores_an_unrouted_plan_profile`
   - `test_doctor_warns_when_a_route_uses_a_plan_this_machine_cannot_serve`
