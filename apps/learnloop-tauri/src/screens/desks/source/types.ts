@@ -33,6 +33,9 @@ export interface ReaderOpenSource {
    *  its way back there (Alt+← reopens side by side) across the shell's
    *  practice and feedback screens. Absent: the Reader opens as before. */
   besideTrail?: ReturnStack | null;
+  /** Where the learner was in the original while the book was being prepared (its window's hand-over): the reading
+   *  opens there. Absent: the saved place, as before. */
+  handoff?: ReadingPosition | null;
 }
 /** Reader workbench v2 (spec §7.1, §21.1): this Reader is one source window on a desk. It shows the
  *  source pane only; the window's frame carries the title, and the rail (Guide, Ask, Notes) shows in a

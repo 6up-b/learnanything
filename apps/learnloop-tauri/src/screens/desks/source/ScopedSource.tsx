@@ -1141,7 +1141,10 @@ export function ScopedSource({
     void openSource(
       initialSource.card,
       initialSource.spanId ?? undefined,
-      initialSource.spanId && initialSource.reading ? { jumpReading: initialSource.reading } : {},
+      {
+        ...(initialSource.spanId && initialSource.reading ? { jumpReading: initialSource.reading } : {}),
+        ...(initialSource.handoff ? { handoff: initialSource.handoff } : {}),
+      },
     ).then((outcome) => {
       // Reader CA6b (Codex re-review F8): back from a check or a work through
       // that began in side by side's second pane, the way back there is the

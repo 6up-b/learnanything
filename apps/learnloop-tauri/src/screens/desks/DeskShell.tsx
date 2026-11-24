@@ -4,7 +4,7 @@
 // The workspace model (model/workspace.ts) is the truth on screen; every change the learner makes is
 // applied there at once and queued as `desk.apply` ops in the outbox (outbox.ts), which sends them in
 // order. A conflict takes the server's state: the shell reads `desk.state` again.
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ComponentProps, type CSSProperties, type ReactNode } from "react";
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ComponentProps, type CSSProperties, type ReactNode } from "react";
 import { flushSync } from "react-dom";
 import { api } from "../../api/client";
 import { useCachedQuery } from "../../api/useCachedQuery";
@@ -35,6 +35,7 @@ import {
   pairFocused,
   renameDesk,
   reorderSlots,
+  replaceWindow,
   setFocus,
   setCompanionDock,
   setCompanionShown,
@@ -134,7 +135,9 @@ import { HIDDEN, avoidOffset, companionStep, type CompanionEvent, type Companion
 import { SearchPanel, type SearchApi } from "./search/SearchPanel";
 import type { SearchRow } from "./search/model";
 import { clipQuote, readWindowSelection, type WindowSelection } from "./selection";
-import { LibraryPanel, PANEL_TITLES, PathPanel, RailHostPanel } from "./windows/PanelWindow";
+import { LibraryPanel, PANEL_TITLES, RailHostPanel } from "./windows/PanelWindow";
+import { bookContent, restoreContent } from "./model/restore";
+import type { ReadingPosition } from "../reader/readingPosition";
 import { ScreenErrorBoundary } from "../../app/ScreenErrorBoundary";
 import { useGoalDesk, type GoalReading } from "./goal/GoalLayer";
 import { LIVE_GOAL_TRANSPORT, type GoalTransport } from "./goal/controller";
@@ -782,11 +785,75 @@ export function DeskShell({
     const card = firstSourceId ? cards?.find((entry) => entry.sourceId === firstSourceId) ?? null : null;
     const deskId = mintId("desk");
     const created = createDesk(base, deskId, card ? `new desk · ${shortName(card.title)}` : "new desk");
-    if (!card || card.readiness !== "ready") return created;
+    if (!card) return created;
+    if (card.readiness !== "ready") return chain(created, (next) => openBeside(next, deskId, { kind: "preparing", sourceId: card.sourceId }, () => mintId("win")));
     const extractionId = await transport.resolveExtraction(card.sourceId).catch(() => null);
     if (!extractionId) return created;
     return chain(created, (next) => openBeside(next, deskId, contentForCard(card, extractionId), () => mintId("win")));
   }, [chain, firstSourceId, mintId, transport]);
+
+  // Windows that open their reading's path once their Reader is there (a restored reading-path panel).
+  const pendingPaths = useRef(new Set<string>());
+  // Where the learner was in a book's original while it was prepared: its window's reading opens there.
+  const pendingHandoffs = useRef(new Map<string, ReadingPosition>());
+
+  // The book's window in another window's place: its current reading (or the book still being prepared).
+  const bookWindowFor = useCallback(async (
+    deskOfWindow: string, windowId: string, sourceId: string, cards: SourceLibraryCard[] | null, handoff: ReadingPosition | null = null,
+  ): Promise<string | null> => {
+    const card = cards?.find((entry) => entry.sourceId === sourceId) ?? null;
+    const ready = !card || card.readiness === "ready";
+    const extractionId = ready ? await transport.resolveExtraction(sourceId).catch(() => null) : null;
+    if (ready && !extractionId) return null;
+
+    const step = replaceWindow(store.ws, deskOfWindow, windowId, bookContent(sourceId, extractionId, card ? isVideoCard(card) : false), () => mintId("win"));
+
+    // Before the window mounts: its Reader opens where the learner was in the original.
+    if (handoff && extractionId) pendingHandoffs.current.set(step.windowId, handoff);
+    commit(step);
+    return step.windowId;
+  }, [store, transport, commit, mintId]);
+
+  // A book prepared in a window is ready: the book's window takes its place, at the place in the original the learner
+  // had reached; the library's copy of its card is the ready one from now on (a window opens a ready card).
+  const handingOver = useRef(new Set<string>());
+  // The ready card, for a window that mounts before the library's copy is updated (the store's commit renders first).
+  const readyCards = useRef(new Map<string, SourceLibraryCard>());
+  const bookReady = useCallback(async (deskOfWindow: string, windowId: string, card: SourceLibraryCard, position: ReadingPosition | null) => {
+    if (handingOver.current.has(windowId)) return;
+    handingOver.current.add(windowId);
+    readyCards.current.set(card.sourceId, card);
+    setLibrary((cards) => cards?.map((entry) => (entry.sourceId === card.sourceId ? card : entry)) ?? cards);
+    const opened = await bookWindowFor(deskOfWindow, windowId, card.sourceId, [card], position);
+    if (!opened) {
+      handingOver.current.delete(windowId);
+      toastNow(`“${shortName(card.title)}” is ready, but it didn’t open just now. Open it again from your library.`);
+    }
+  }, [bookWindowFor, toastNow]);
+
+  // Stored windows of a kind with a workbench home now, restored there; a window this version cannot show is kept and
+  // named (model/restore.ts).
+  const restoreSaved = useCallback(async (cards: SourceLibraryCard[] | null) => {
+    const unshown: string[] = [];
+    for (const window of Object.values(store.ws.windows)) {
+      if (window.kind === "pad_stack") continue;
+      const restored = restoreContent(window.content);
+      if (restored.kind === "keep") continue;
+      if (restored.kind === "inert") {
+        unshown.push(restored.name);
+        continue;
+      }
+      const sourceId = restored.sourceId
+        ?? (restored.extractionId && transport.sourceOfExtraction ? await transport.sourceOfExtraction(restored.extractionId).catch(() => null) : null);
+      const opened = sourceId ? await bookWindowFor(window.deskId, window.windowId, sourceId, cards) : null;
+      if (!opened) unshown.push(restored.showPath ? "a reading path whose book could not be found" : "a window whose book could not be found");
+      else if (restored.showPath) {
+        const inquiry = inquiries.current.get(opened);
+        if (!inquiry?.showPath("open")) pendingPaths.current.add(opened);
+      }
+    }
+    if (unshown.length) toastNow(`Kept but not shown: ${unshown.join(", ")}. Close ${unshown.length === 1 ? "it" : "them"} when you like.`);
+  }, [store, transport, bookWindowFor, toastNow]);
 
   useEffect(() => {
     let live = true;
@@ -796,6 +863,7 @@ export function DeskShell({
         if (!live) return;
         setLibrary(cards);
         if (state && store.ws.desks.length === 0) store.commit(await firstRun(store.ws, cards));
+        if (state && live) await restoreSaved(cards);
         if (live) setStoreReady(true);
       } catch {
         if (live) onError("Couldn’t open your desks. Switch away from Reader, then open it again.");
@@ -965,7 +1033,7 @@ export function DeskShell({
     // A stack of pads is the learner's scratchpads (the title bar adds ⓘ and "yours").
     if (window.kind === "pad_stack") return "Pads";
     if (!content) return "notes";
-    if (content.kind === "source" || content.kind === "video") return library?.find((card) => card.sourceId === content.sourceId)?.title ?? "source";
+    if (content.kind === "source" || content.kind === "video" || content.kind === "preparing") return library?.find((card) => card.sourceId === content.sourceId)?.title ?? "source";
     if (content.kind === "panel") return PANEL_TITLES[content.panel];
     if (content.kind === "compare") return content.query ? `compare · ${content.query}` : "compare";
     if (content.kind === "lesson") return lessonTabTitle(lessonDesk.summary(content.lessonId)?.title);
@@ -2092,7 +2160,8 @@ export function DeskShell({
       return;
     }
     if (card.readiness !== "ready") {
-      toastNow(`“${shortName(card.title)}” is still being prepared · open it from the Library to read the original meanwhile`);
+      // Its original, its progress, a failure's action and the retry, in a window of its own until the text is ready.
+      openContent({ kind: "preparing", sourceId: card.sourceId });
       return;
     }
     void transport.resolveExtraction(card.sourceId).then((extractionId) => {
@@ -3584,6 +3653,8 @@ export function DeskShell({
       handler = (inquiry) => {
         if (inquiry) inquiries.current.set(windowId, inquiry);
         else inquiries.current.delete(windowId);
+        // A restored reading-path panel: the book's window opens its path once its Reader is there.
+        if (inquiry && pendingPaths.current.delete(windowId)) inquiry.showPath("open");
       };
       inquiryReadyFor.set(windowId, handler);
     }
@@ -3629,7 +3700,8 @@ export function DeskShell({
     if (goalPathRef.current.open) return;
     if (goalPathRef.current.toggle()) return;
     if (inquiries.current.get(windowId)?.showPath("open")) return;
-    openContent({ kind: "panel", panel: "path", extractionId: content.extractionId } as ContentRefDto);
+    // Reading paths are off for this library (reader.reading_paths): there is no path to show.
+    toastNow("There’s no reading path for this book.");
   };
   const windowOpenPathRef = useRef(windowOpenPath);
   windowOpenPathRef.current = windowOpenPath;
@@ -3808,7 +3880,8 @@ export function DeskShell({
 
   const paneBody = (window: DeskWindow, lifecycle: WindowLifecycle): ReactNode => {
     const content = window.content;
-    const card = content && (content.kind === "source" || content.kind === "video") ? library?.find((entry) => entry.sourceId === content.sourceId) ?? null : null;
+    const listed = content && (content.kind === "source" || content.kind === "video") ? library?.find((entry) => entry.sourceId === content.sourceId) ?? null : null;
+    const card = listed && listed.readiness !== "ready" ? readyCards.current.get(listed.sourceId) ?? listed : listed;
     if (renderPane) return renderPane({ window, lifecycle, card });
     if (window.kind === "pad_stack" || content?.kind === "pad" || content?.kind === "lesson") {
       // A pad or a lesson in a slot of its own is a stack of one.
@@ -3849,6 +3922,7 @@ export function DeskShell({
           onTouched: pairHandlersFor(window.windowId).touched,
           onWorkOnPad: (handoff) => void workOnPad(handoff),
           onSkimming: skimmingFor(window.windowId),
+          handoff: pendingHandoffs.current.get(window.windowId) ?? null,
           onError,
           ...(reader ? { reader } : {}),
           // A book following a video marks its passage over the goal lens (RD10); a due check's closed marker (or its
@@ -3877,21 +3951,22 @@ export function DeskShell({
           );
         }
         if (content.panel === "path") {
-          return (
-            <PathPanel
-              extractionId={content.extractionId ?? null}
-              onError={onError}
-              onJump={(spanId) => {
-                const target = content.extractionId ? sourceWindowOf(window.deskId, content.extractionId) : null;
-                if (!target) return;
-                commit(setFocus(wsRef.current, window.deskId, target));
-                const jump = jumps.current.get(target);
-                if (jump) jump(spanId);
-              }}
-            />
-          );
+          // The reading's path is the book's window's own now (p, "what matters here?"); a path panel that arrived from
+          // another device is restored there when the desks next open.
+          return <div className="desk-panel desk-quiet">The reading path is in the book’s window now: press p there.</div>;
         }
         return <LibraryPanel query={null} onOpenHit={openHit} onClose={() => run({ kind: "closeWindow" })} onError={onError} library={library ?? null} reader={reader ?? null} />;
+      }
+      case "preparing": {
+        const preparing = library?.find((entry) => entry.sourceId === content.sourceId) ?? null;
+        return (
+          <PreparingWindow
+            card={preparing}
+            libraryLoaded={library !== null}
+            onReady={(next, position) => void bookReady(window.deskId, window.windowId, next, position)}
+            onError={onError}
+          />
+        );
       }
       case "compare":
         return <LibraryPanel query={content.query ?? null} anchor={compareAnchorOf(window.view)} onOpenHit={openHit} onClose={() => run({ kind: "closeWindow" })} onError={onError} library={library ?? null} reader={reader ?? null} />;
@@ -3903,8 +3978,10 @@ export function DeskShell({
             onOpenClaim={openClaim}
           />
         );
-      default:
-        return <div className="desk-panel desk-quiet">This window can’t open here. Close it and reopen the source from your library.</div>;
+      default: {
+        const restored = restoreContent(content);
+        return <div className="desk-panel desk-quiet">This window ({restored.kind === "inert" ? restored.name : "a window"}) can’t open here. Close it and reopen the source from your library.</div>;
+      }
     }
   };
 
@@ -4435,9 +4512,17 @@ export function DeskShell({
           focusTitle={titleOf(focusWindow)}
           onOpen={openContent}
           onOpenCard={(card) => {
+            if (card.readiness !== "ready") {
+              openContent({ kind: "preparing", sourceId: card.sourceId });
+              return;
+            }
             void transport.resolveExtraction(card.sourceId)
               .then((extractionId) => openContent(contentForCard(card, extractionId)))
               .catch(() => toastNow("Couldn’t open this source. Find it in your library and try again."));
+          }}
+          onOpenPath={() => {
+            setOpener(false);
+            if (focusWindow) windowOpenPath(focusWindow.windowId);
           }}
           onClose={() => setOpener(false)}
         />
@@ -4562,6 +4647,39 @@ export function contentForCard(card: SourceLibraryCard, extractionId: string): C
     : { kind: "source", sourceId: card.sourceId, extractionId, view: "render" };
 }
 
+// The preparing view draws the original with pdf.js: loaded when a book being prepared is first shown.
+const PreparingView = lazy(() => import("../reader/PreparingView").then((module) => ({ default: module.PreparingView })));
+
+/** A book still being prepared, in its own window: the original's pages while the text is made, the progress, a stopped
+ * book's action and its retry (the Reader's preparing view). Ready, it hands over: the desk opens the book's window in
+ * its place (at the page the learner had reached). */
+function PreparingWindow({
+  card,
+  libraryLoaded,
+  onReady,
+  onError,
+}: {
+  card: SourceLibraryCard | null;
+  libraryLoaded: boolean;
+  onReady: (card: SourceLibraryCard, position: ReadingPosition | null) => void;
+  onError: (message: string) => void;
+}) {
+  const ready = card?.readiness === "ready";
+  useEffect(() => {
+    if (card && ready) onReady(card, null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [card?.sourceId, ready]);
+  if (!card) return <div className="desk-panel desk-quiet">{libraryLoaded ? "This source is not in your library any more." : "◐ Opening…"}</div>;
+  if (ready) return <div className="desk-panel desk-quiet">◐ Opening {card.title}…</div>;
+  return (
+    <div className="desk-preparing" style={{ flex: 1, minHeight: 0, height: "100%", display: "flex", flexDirection: "column" }}>
+      <Suspense fallback={<div className="desk-panel desk-quiet">◐ Opening {card.title}…</div>}>
+        <PreparingView key={card.sourceId} card={card} onReady={onReady} onError={onError} />
+      </Suspense>
+    </div>
+  );
+}
+
 function Sliver({ side, title, kind, onClick, register }: { side: "l" | "r"; title: string; kind: string; onClick: () => void; register?: (node: HTMLButtonElement | null) => void }) {
   return (
     <button type="button" ref={register} className={`desk-sliver ${side}`} aria-label={`${side === "l" ? "previous" : "next"} window: ${title}`} title={`${side === "l" ? "Previous" : "Next"} window: ${title}`} onClick={onClick}>
@@ -4608,6 +4726,7 @@ function OpenBeside({
   focusTitle,
   onOpen,
   onOpenCard,
+  onOpenPath,
   onClose,
 }: {
   library: SourceLibraryCard[] | null;
@@ -4615,6 +4734,7 @@ function OpenBeside({
   focusTitle: string;
   onOpen: (content: ContentRefDto) => void;
   onOpenCard: (card: SourceLibraryCard) => void;
+  onOpenPath: () => void;
   onClose: () => void;
 }) {
   const [filter, setFilter] = useState("");
@@ -4648,7 +4768,7 @@ function OpenBeside({
         {book ? (
           <div style={{ marginBottom: 8 }}>
             <div className="wkt">for {focusTitle}</div>
-            {(["guide", "notes", "path"] as const).map((panel) => (
+            {(["guide", "notes"] as const).map((panel) => (
               <div key={panel} className="wkr">
                 <span />
                 <button type="button" style={{ textAlign: "left" }} onClick={() => onOpen({ kind: "panel", panel, extractionId: book.extractionId })}>
@@ -4656,6 +4776,11 @@ function OpenBeside({
                 </button>
               </div>
             ))}
+            {/* The reading's path opens in the book's own window (p), not a panel beside it. */}
+            <div className="wkr">
+              <span />
+              <button type="button" style={{ textAlign: "left" }} onClick={onOpenPath}>◇ {PANEL_TITLES.path}</button>
+            </div>
           </div>
         ) : null}
         <div className="wkt">the library</div>

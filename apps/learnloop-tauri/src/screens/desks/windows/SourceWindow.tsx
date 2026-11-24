@@ -10,6 +10,7 @@ import type { PenSurface, ReaderLens, ReaderWindowing, WindowInquiry } from "../
 import type { WindowAsk } from "../../reader/useReaderInquiry";
 import { PenLayer } from "../pen/PenLayer";
 import type { VideoExtras } from "../../reader/YouTubeWatchPanel";
+import type { ReadingPosition } from "../../reader/readingPosition";
 
 export type ReaderPassThrough = Pick<ComponentProps<typeof ScopedSource>, "onCheckMe" | "onUseExercise" | "onTeachMe" | "workbench">;
 
@@ -45,6 +46,7 @@ export function SourceWindow({
   onTouched,
   onWorkOnPad,
   onSkimming,
+  handoff = null,
 }: {
   content: Extract<ContentRefDto, { kind: "source" | "video" }>;
   card: SourceLibraryCard | null;
@@ -82,6 +84,8 @@ export function SourceWindow({
   onWorkOnPad?: ReaderWindowing["onWorkOnPad"];
   /** Whether this window's reading is skimmed now (the app holds the leave-time offer while the book read is). */
   onSkimming?: (muted: boolean) => void;
+  /** The place in the original the learner was at while the book was prepared in this window's place. */
+  handoff?: ReadingPosition | null;
 }) {
   const onTitle = useCallback((title: string) => onStatus({ title }), [onStatus]);
   const onReaderStatus = useCallback(
@@ -96,7 +100,7 @@ export function SourceWindow({
   );
   // The Reader opens its first source once, on mount: a window opens one book for its life.
   const initialSource = useMemo(
-    () => (card ? { card, spanId: startSpan, reading: startSpan ? content.extractionId : null } : null),
+    () => (card ? { card, spanId: startSpan, reading: startSpan ? content.extractionId : null, ...(handoff ? { handoff } : {}) } : null),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [card?.sourceId],
   );

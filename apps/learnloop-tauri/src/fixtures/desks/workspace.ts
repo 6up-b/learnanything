@@ -24,7 +24,7 @@ export function fixtureDeskState(): DeskStateDto {
           { slot: 1, windows: [{ windowId: "fx_w_video", pane: 0, kind: "video", active: true, view: {}, content: { kind: "video", sourceId: video.sourceId, extractionId: video.extractionId } }] },
           { slot: 2, windows: [{ windowId: "fx_w_paper", pane: 0, kind: "source", active: true, view: {}, content: { kind: "source", sourceId: paper.sourceId, extractionId: paper.extractionId, view: "render" } }] },
           { slot: 3, windows: [{ windowId: "fx_w_guide", pane: 0, kind: "panel", active: true, view: {}, content: { kind: "panel", panel: "guide", extractionId: book.extractionId } }] },
-          { slot: 4, windows: [{ windowId: "fx_w_path", pane: 0, kind: "panel", active: true, view: {}, content: { kind: "panel", panel: "path", extractionId: book.extractionId } }] },
+          { slot: 4, windows: [{ windowId: "fx_w_notes", pane: 0, kind: "panel", active: true, view: {}, content: { kind: "panel", panel: "notes", extractionId: book.extractionId } }] },
           { slot: 5, windows: [{ windowId: "fx_w_pads", pane: 0, kind: "pad_stack", active: true, view: {}, stack: [{ kind: "pad", padId: "fx_pad_running" }, { kind: "pad", padId: "fx_pad_deriving" }] }] },
         ],
       },
