@@ -212,3 +212,27 @@ def test_a_grade_committing_while_a_check_is_weighed_waits_for_the_check(tmp_pat
 def _checks(repository):
     with repository.connection() as connection:
         return LW._checks(connection)
+
+
+def test_a_regrade_leaves_the_lesson_weight_tables_as_a_rebuild_would(tmp_path):
+    """L42-R11: the DERIVED tables describe the ledgers through the latest lesson check; a replacement grade of an
+    answer inside that prefix refreshes them in its own transaction, so a rebuild right after it changes nothing."""
+
+    from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
+
+    paths, repository = build_teacher_vault(tmp_path / "vault")
+    _lesson_with_check(paths, repository, at=T)
+    resolver = _cold(paths, repository, "pi_eig_2", T + timedelta(days=1), points=4)
+    _lesson_with_check(paths, repository, at=T + timedelta(days=2))
+    tables = ("SELECT * FROM lesson_weight_state ORDER BY family",
+              "SELECT seq, kind, lesson_check_id, resolving_attempt_id, learning_object_id, at, detail_json "
+              "FROM lesson_weight_trace ORDER BY seq",
+              "SELECT * FROM confidence_calibration_state ORDER BY family")
+    resolved = [row for row in _rows(repository, tables[1]) if row[1] == "weight_update"]
+    assert [row[3] for row in resolved] == [resolver.attempt_id]
+    _regrade(load_vault(paths.root), repository, resolver.attempt_id, {"correctness": 0},
+             when=T + timedelta(days=3))
+    after_regrade = [_rows(repository, sql) for sql in tables]
+    assert '"y": 0.0' in next(row[-1] for row in after_regrade[1] if row[1] == "weight_update")
+    rebuild_all_derived_state(load_vault(paths.root), repository)
+    assert [_rows(repository, sql) for sql in tables] == after_regrade

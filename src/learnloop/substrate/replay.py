@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
 
 from learnloop.db.stores.grade_curves import capture_grade_curve
+from learnloop.learner.lesson_weight import rebuild_lesson_weight_state
 from learnloop.clock import Clock, FrozenClock, parse_utc, utc_now_iso
 from learnloop.db.attempt_order import attempt_order_for
 from learnloop.db.repositories import CANONICAL_STAMPED_TABLES, Repository
@@ -344,6 +345,9 @@ def replay_learning_object(
             with repository.connection() as connection:
                 capture_grade_curve(connection, applying_grade_to, surprise["predicted_score_dist"],
                                     surprise["algorithm_version"])
+            # The lesson-weight tables describe the ledgers through the latest lesson check, and a replacement grade
+            # can change that prefix: refreshed here, so the next rebuild changes nothing (review L42-R11).
+            rebuild_lesson_weight_state(vault, repository)
         return result
 
 
