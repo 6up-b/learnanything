@@ -101,9 +101,12 @@ its own projection when it served it.
 
 - **Which receipt.** The subject view's (`@subject`), the view serving reads (H2's choice). Not `@subject_uniform`,
   not `@lo`.
-- **Which attempt.** The first graded attempt bound to the presentation, on the receipt's item. A later attempt on the
-  same presentation (a retry after feedback) is primed or falls back. A receipt with `status != 'ok'`, an unreadable
-  `p`, or one recorded after the serve (`valid_for_serve`, the scorer's rule) falls back.
+- **Which attempt.** The first graded attempt bound to the presentation, on the receipt's item. The live door already
+  binds only one answer to a presentation: a second answer is recorded unbound (`db/stores/plan_presentations.py:96`,
+  `presentation_already_answered`), so a retry after feedback falls back. The rule still checks "first" for
+  history written before that door. A receipt with `status != 'ok'`, an unreadable `p`, or one recorded after the
+  serve (`valid_for_serve`, the scorer's rule) falls back. `scripts/difficulty_four_way.py`'s
+  `receipt_predictions` is this rule as code; the build moves it into `src` unchanged.
 - **Priming.** For a primed attempt the receipt's logit is shifted by `a·priming_b_offset`. That is the same shift
   H2 applied to `b'`, and the same one the mastery path applies.
 - **The form.** Surprise's innovation is `(y − p̄_eff)/√(H²P + R_y)`, computed around `b' = μ_prior − logit(p̄_eff)/a`
@@ -177,7 +180,7 @@ Direct label reads that belong to H4, H5 or H6 are listed in those sections. The
 | Table | What moves |
 |---|---|
 | `learning_object_mastery` | Every LO whose history includes a labelled item or an LO prior: arm (b)'s deltas. |
-| `attempt_surprise` | `predicted_score_dist` (mastery's `b` becomes 0, plus the new keys), `predictive_surprise`, `surprise_direction` (H2: no flip on the owner copies under (b), (c) or (d)), `bayesian_surprise` (through mastery's posterior only). The recorded `fsrs_interval_factor` stays 1.0 (removed since mvp-0.46). **To verify in the build:** what the whole-vault rebuild does to `triggered_actions_json`, `suppressed_actions_json` and `gate_diagnostics_json`. The live follow-up gate writes them (`content/proposals/proposals.py:1546`, `db/stores/attempts.py:1278`), and I did not establish whether `learning_state`'s replay restores, recomputes or clears them. |
+| `attempt_surprise` | `predicted_score_dist` (mastery's `b` becomes 0, plus the new keys), `predictive_surprise`, `surprise_direction` (H2: no flip on the owner copies under (b), (c) or (d)), `bayesian_surprise` (through mastery's posterior only). The recorded `fsrs_interval_factor` stays 1.0 (removed since mvp-0.46). The follow-up gate's records on the row (`triggered_actions_json`, `suppressed_actions_json`, `gate_diagnostics_json`) are **cleared** by any rebuild today, not recomputed: §3.9. |
 | `item_parameter_state` | Empty at the tag (EB never runs). Rows of a vault that had EB on are cleared by the rebuild. |
 | `facet_outcome_observations` (field) | Features `b` and the source flag. |
 | `facet_recall_state`, `facet_capability_evidence` | Through event severities (`expected_correctness`). To be measured by the shadow rebuild. |
@@ -237,6 +240,73 @@ If the owner wants (b) together with a snapshot of history at upgrade, that is L
 - A guard that neither `item_parameter_state` nor a label field is read at or above the tag.
 - AD's protection guard classifies `attempt_surprise` explicitly as `DENIED`. Today it is refused only as
   unclassified, which is fail-closed but implicit.
+
+### 3.9 The follow-up gate's records across a rebuild (checked)
+
+**What happens today, independent of H3.** The live follow-up gate (`diagnosis/followups.py`, run after the grade)
+writes its decision onto the attempt's surprise row with an UPDATE (`db/stores/attempts.py:1274`,
+`update_attempt_surprise_actions`): the actions it queued (`triggered_actions_json`), the ones it held back
+(`suppressed_actions_json`) and what it read and scored (`gate_diagnostics_json`). The grade inserts the row with
+those empty (`attempts/surprise.py:43-44`). Every replay of `learning_state` deletes the row and inserts the grade's
+fresh one, and the gate is never run in replay:
+
+- a whole-vault rebuild clears the table (`substrate/rebuild_orchestrator.py:374`);
+- a per-LO replay resets the LO's attempts' rows (`db/repositories.py:1133`), which a regrade runs
+  (`attempts/regrade.py:673`), as do the grading CLI, the integration backfill, goal series and exam seeding.
+
+So the gate's records are **cleared, not recomputed**.
+
+**Checked** on the 21 synthetic diagnosis journeys (`tests/diagnosis_journey_helpers.py`), with a whole-vault
+rebuild after each journey (a scratch test, not committed):
+- 9 journeys had gate records: 15 rows with actions, suppressed actions or diagnostics;
+- after the rebuild, every one read `[]`, `[]` and `null`;
+- `followup_tasks` and `remediation_episodes` were unchanged.
+
+**What changes for the learner.** Nothing that was served or answered changes: follow-up tasks, attempts, remediation
+episodes and ratings are their own rows. Decisions already acted on are not reversed. But their record goes, and these
+readers lose it:
+
+| Reader | Learner-visible | After a rebuild |
+|---|---|---|
+| Attempt detail in history (`learnloop_sidecar/handlers/serializers.py:855-1002`): the surprise card's queued and held-back actions, and "this answered the follow-up from …" (`followup_source_attempt`, `:858`) | yes | Gone |
+| Session summary's count of follow-ups queued (`learnloop_sidecar/handlers/sessions.py:1068-1095`) | yes | 0 for past sessions |
+| Feedback reopened for an old attempt (`learnloop_sidecar/handlers/feedback.py:317`) | yes | No actions shown |
+| Rating a follow-up's usefulness (`feedback.py:1231`: it finds the gate attempt through the actions) | yes | A past follow-up can no longer be linked to its gate |
+| The scheduler's legacy pending list (`db/stores/remediation.py:42-90`): a queued `negative_surprise_followup:` or `intervention_followup:queued:` action not yet answered | yes (the queue) | It leaves the queue. The `followup_tasks` lane is unaffected. |
+| The gate fitter's training set (`diagnosis/gate_fit.py:63`, `learnloop fit gate`) and the scheduling evaluation (`scheduling/evaluation.py:253`) | no | Every evaluation before the rebuild is gone |
+| The signal quantiles' recent rows (`db/stores/learner_model.py:977`) | no | Their diagnostics are gone |
+
+Every earlier whole-vault upgrade (mvp-0.46 among them) and every regrade did this on the owner's vaults. H3's
+upgrade would do it again. It is a defect in its own right: ledger row **H-1** (`docs/reviews/refactor-bug-ledger.md`),
+due before H3 lands.
+
+**Options for the defect** (Q16):
+
+| Option | What | Cost |
+|---|---|---|
+| **(A) Carry the three columns across replay**, by attempt id: read them before a reset, write them back onto the replayed row | The pattern the replay already uses for the diagnosis receipts (`substrate/replay.py:50`, `_restore_debug_audit_events`). It covers the whole-vault, per-LO and regrade paths. A regrade keeps the gate's record of the first grade (the gate decided once). | No migration. A DERIVED table keeps holding three live-written columns (a classification debt, recorded). |
+| **(B) Move the gate's decisions into an append-only receipt table** (role `RECEIPT`), with the readers above switched to it | The table roles' own rule: a decision record is never derived state. | A migration (the next free number) and every reader above. It can follow (A). |
+| **(C) Leave it** | The note records it, and H3's upgrade clears the records once more. | Not recommended: it empties the queue's legacy follow-ups and the gate fitter's data. |
+
+**Recommendation: (A) now, as its own small fix before H3** (with a fail-first test on the journeys above). (B) is
+for later, if the owner wants the classification clean.
+
+Whether (A) needs a tag is the orchestrator's call. It changes no live grade and makes a rebuild reproduce the live
+rows. Records already cleared by earlier rebuilds cannot be recomputed, because the gate read live state. Backups
+taken before those rebuilds hold them, and restoring them is a separate owner decision. The coverage script (§10)
+counts what each copy holds now.
+
+**What H3 itself adds, once the records survive** (Q17). The re-derived direction and predictive surprise are shown
+beside a recorded decision that read other values (the gate's own inputs are inside `gate_diagnostics_json`). H2 saw
+no direction flip on the owner copies, so the visible difference is the surprise numbers.
+
+| Option | What |
+|---|---|
+| **(D1) Show both as they are** | The re-derived surprise and the recorded decision. |
+| **(D2) Where a decision exists, show the inputs it recorded** | Otherwise the re-derived surprise. A small DTO change. |
+| **(D3) Keep pre-tag surprise rows as recorded** | Copied through the rebuild. Surprise is per attempt, so mastery's running state is unaffected. It splits history's surprise into two meanings. |
+
+**Recommendation: (D2).** History then shows what drove each decision.
 
 ## 4. H4: AD's own signal
 
@@ -494,58 +564,32 @@ Consequences:
 For the orchestrator, on backup-API copies (`learnloop.db.copies.copy_tree_with_databases`), through the scratch
 wrapper. Counts and digests only go into a tracked file, never ids or values.
 
-**Before building H3, to decide Q2 and Q8.** `COPY_DB` is the copy's `state.sqlite`.
+**Before building H3, to decide Q2, Q8 and Q16.** There are two scripts (scripts and tests only; neither writes
+anything; stdout is counts and summary statistics, never an id or text). Both refuse a path under
+`~/learnloop-vaults` or `~/learnloop-retired`. Both hash the copy's databases before and after and fail on a change.
+Run them through the scratch wrapper on a backup-API copy:
 
 ```sh
-sqlite3 -readonly -header "$COPY_DB" <<'SQL'
-PRAGMA query_only = ON;
--- Graded attempts and how many a serve-time AD receipt covers (the first attempt bound to its presentation).
-WITH firsts AS (
-  SELECT a.plan_presentation_id AS pid, min(a.created_at || a.id) AS first_key
-  FROM practice_attempts a WHERE a.plan_presentation_id IS NOT NULL GROUP BY a.plan_presentation_id
-), attempts AS (
-  SELECT a.id, a.primed, a.attempt_type, a.plan_presentation_id,
-         (a.created_at || a.id) = f.first_key AS first_on_presentation
-  FROM practice_attempts a LEFT JOIN firsts f ON f.pid = a.plan_presentation_id
-), receipts AS (
-  SELECT plan_presentation_id AS pid, count(*) AS n FROM forecast_receipts
-  WHERE kind = 'item_unassisted_success' AND status = 'ok' AND p IS NOT NULL
-    AND forecaster IN ('ad_threshold@subject', 'ad_threshold_repeat@subject')
-  GROUP BY plan_presentation_id
-)
-SELECT count(*) AS attempts,
-       count(*) FILTER (WHERE plan_presentation_id IS NOT NULL) AS bound,
-       count(*) FILTER (WHERE first_on_presentation AND r.n > 0) AS with_ad_receipt,
-       count(*) FILTER (WHERE first_on_presentation AND r.n > 0 AND primed) AS with_ad_receipt_primed,
-       count(*) FILTER (WHERE r.n > 1) AS presentations_with_two_receipts
-FROM attempts LEFT JOIN receipts r ON r.pid = attempts.plan_presentation_id;
--- The same split by attempt type (no ids).
-SELECT attempt_type, count(*) AS attempts, count(plan_presentation_id) AS bound
-FROM practice_attempts GROUP BY attempt_type ORDER BY attempt_type;
--- EB: rows ever written (the config is read separately).
-SELECT count(*) AS item_parameter_rows FROM item_parameter_state;
--- Exam pools: unreleased reservations by stratum.
-SELECT coalesce(difficulty_stratum, 'null') AS stratum, count(*) AS reserved
-FROM exam_pool_items WHERE released_at IS NULL GROUP BY stratum ORDER BY stratum;
-SELECT count(*) AS foreign_key_violations FROM pragma_foreign_key_check;
-PRAGMA integrity_check;
-SQL
+# Counts: receipt coverage per attempt type (with the fallback reasons), item_parameter_state rows, unreleased
+# exam pools by stratum, the gate's records on attempt_surprise (§3.9), the label census, the four config values,
+# integrity_check and foreign-key violations. One JSON object on stdout; --out also writes it (outside the copy).
+uv run python scripts/difficulty_receipt_coverage.py "$COPY" [--out "$PRIVATE/coverage.json"]
+
+# The replay, now six arms: H2's (a)-(d) and
+#   (e) e_surprise_from_receipt: surprise from the bound serve-time receipt, mastery's own prediction otherwise;
+#   (f) f_label_off_and_receipt: (b)'s config and (e)'s surprise, i.e. H3 as designed.
+# stdout per arm: mastery, surprise (with negative direction and above the follow-up threshold, against (a)),
+# due dates, queue; then the receipt tiers, the fallback reasons, and the receipt p against AD's p replayed to the
+# attempt (count, |difference|). --out holds per-row values and ids: private, never tracked.
+uv run python scripts/difficulty_four_way.py "$COPY" --out "$PRIVATE/four_way.json" --as-of 2026-11-24T00:00:00Z
 ```
 
-- **Config:** `learnloop config effective --vault "$COPY" --json`, through the wrapper. Report only
-  `mastery.irt.eb_difficulty_enabled`, `mastery.irt.difficulty_default`, `mastery.irt.difficulty_from_prior` and
-  `scheduler.surprise.remove_interval_factor`.
-- **Label census:** the vault's YAML holds the labels, which SQL cannot see. Use a read-only extension of
-  `scripts/difficulty_four_way.py`'s loader that prints items by `difficulty_source` (and `none`) and LOs with a
-  `difficulty_prior`, as counts.
-- **Two new arms for `scripts/difficulty_four_way.py`** (a script change only, its own small step with its tests):
-  - (e) surprise from the bound receipt, with the fallback;
-  - (f) (b) plus (e), which is H3 as designed.
+Use one `--as-of` for every vault. Upgrade each copy to the head's tag first, as H2 did.
 
-  Each reports what H2's arms report, plus tier counts (receipt or fallback), the direction transitions, and the
-  follow-up gate's would-fire count. It also compares the receipt `p̄` with H2's prefix-replay `p̄` per attempt where
-  both exist (median and max absolute difference). This answers how far "AD at serve" differs from "AD just before the
-  answer".
+What to send back, per vault:
+- coverage's `receipt_coverage.all` and its per-type split;
+- `item_parameter_state_rows`, `exam_pools`, `gate_records`, `label`, `config`, the integrity line;
+- the replay's stdout.
 
 **After H3 is built, per the playbook (steps 7 and 8), on disposable copies of one predecessor backup:**
 
@@ -578,6 +622,8 @@ H4 repeats steps 1 to 3 with AD's scoring report. H5's pools add the pools-with-
 | Q13 | Exam strata | drop; or AD-predictive strata frozen at build | Drop, unless the pools-with-and-without count shows pools losing their spread |
 | Q14 | Authoring result schemas | remove the field in H5 with the prompt bumps; or keep it optional and unasked | Remove in H5 (§5.3) |
 | Q15 | H5's pool change: its own tag, or on H3's | own (three tags); or on H3's (two) | Own |
+| Q16 | The gate's records, cleared by every rebuild (§3.9, ledger H-1) | (A) carry them across replay; (B) a receipt table; (C) leave | (A) before H3, (B) later if wanted |
+| Q17 | History's surprise beside a recorded decision after H3 | (D1) both as they are; (D2) the decision's recorded inputs where one exists; (D3) pre-tag surprise rows kept as recorded | (D2) |
 
 ## 12. Checked, and not checked
 
@@ -595,9 +641,13 @@ H4 repeats steps 1 to 3 with AD's scoring report. H5's pools add the pools-with-
 - The identity sites C1, C2, C2p, A9, A19 and A20.
 - The goldens that hold `b` or `difficulty_b`.
 - The last migration number.
+- What a rebuild does to the gate's records on `attempt_surprise` (§3.9: cleared, checked on the 21 synthetic
+  diagnosis journeys), and every reader of them.
+- That the live door binds one answer per presentation (§2.2).
+- The two owner-copy scripts of §10, on the synthetic vault: `tests/test_difficulty_receipt_coverage.py`,
+  `tests/test_difficulty_receipt_arms.py`, `tests/test_difficulty_four_way.py` (18 tests, passed).
 
 **Not checked:**
-- What the whole-vault rebuild does to the follow-up actions stored on `attempt_surprise` (§3.3).
 - Whether any CHECK constrains a new receipt `kind` (only needed for Q2 b).
 - Whether `field_llm_probability` still reuses C2p's key.
 - The grade-application, mastery-seed and placement goldens' behaviour under H3.
