@@ -85,8 +85,16 @@ class FigureNotebookRef(WireModel):
     figure_id: str = Field(min_length=1)
 
 
+class PreparingRef(WireModel):
+    """A book still being prepared: it has no reading yet, so it is named by its source alone. Its window shows the
+    original while the text is made; once the book is ready the desk replaces it with the book's source window."""
+
+    kind: Literal["preparing"]
+    source_id: str = Field(min_length=1)
+
+
 ContentRef = Annotated[
-    Union[SourceRef, VideoRef, PadRef, LessonRef, ThreadRef, CompareRef, PanelRef, FigureNotebookRef],
+    Union[SourceRef, VideoRef, PadRef, LessonRef, ThreadRef, CompareRef, PanelRef, FigureNotebookRef, PreparingRef],
     Field(discriminator="kind"),
 ]
 
@@ -108,6 +116,7 @@ class TargetedRef(WireModel):
 
 
 __all__ = [
-    "CompareRef", "ContentRef", "FigureNotebookRef", "LessonRef", "PadRef", "PanelRef", "SourceRef", "SpanRange",
+    "CompareRef", "ContentRef", "FigureNotebookRef", "LessonRef", "PadRef", "PanelRef", "PreparingRef", "SourceRef",
+    "SpanRange",
     "StackEntry", "Target", "TargetedRef", "ThreadRef", "VideoRef", "WireModel",
 ]

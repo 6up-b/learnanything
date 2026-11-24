@@ -10703,7 +10703,10 @@ export type ContentRefDto =
   | { kind: "thread"; rootExchangeId: string }
   | { kind: "compare"; comparisonId?: string; query?: string }
   | { kind: "panel"; panel: "guide" | "path" | "library" | "notes"; extractionId?: string }
-  | { kind: "figure_notebook"; figureId: string };
+  | { kind: "figure_notebook"; figureId: string }
+  /** A book still being prepared: named by its source alone (it has no reading yet); the desk replaces the window with
+   *  the book's source window once it is ready. */
+  | { kind: "preparing"; sourceId: string };
 
 export type PadStackEntryDto = Extract<ContentRefDto, { kind: "pad" | "lesson" }>;
 export type CompanionDock = "br" | "bl" | "right" | "cb";
