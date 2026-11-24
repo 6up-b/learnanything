@@ -339,4 +339,14 @@ own config. Measured on the synthetic journey only (below).
 
 ## Owner copies (run by the orchestrator)
 
-Not run yet.
+Run on 2026-11-24 on backup-API copies of the three floor-set vaults (never a live vault), each upgraded to `mvp-0.69`
+first, with the isolation above. Counts only; the copies were deleted afterwards.
+
+- Counts before against counts after the upgrade to `mvp-0.70`: on every copy only `algorithm_version` and
+  `probe_router_on` moved. The upgrade decided nothing and rewrote no receipt, decision or episode.
+- `integrity_check` ok and `foreign_key_check` empty on every copy.
+- The shadow rebuild's difference counters are the same at `mvp-0.69` and at `mvp-0.70` on every copy (mastery rows
+  differing: 34, 21 and 18; facet rows: 3, 4 and 1; no schedule row), so this tag adds none. Each rebuild added one
+  row to a ledger, its own rebuild receipt.
+- `doctor` exits non-zero on these copies before and after alike, on content findings this step does not touch
+  (rubric criteria whose `depends_on` names a facet, and study-map warnings).
