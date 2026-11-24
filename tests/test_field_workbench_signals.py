@@ -52,7 +52,7 @@ def _iso(minutes: float) -> str:
     return _at(minutes).now().isoformat().replace("+00:00", "Z")
 
 
-def _vault(tmp_path, name="vault", *, version=TAG, toml=LOW_Q):
+def _vault(tmp_path, name="vault", *, version=LATEST_ALGORITHM_VERSION, toml=LOW_Q):
     from learnloop.db.repositories import Repository
     from learnloop.clock import FrozenClock
     from learnloop.substrate.state_sync import sync_vault_state
@@ -530,7 +530,7 @@ def _seed_everything(paths):
 def test_off_the_derivation_and_blocking_are_the_predecessors(tmp_path):
     # The predecessor: its tag with the switch off (the switch's off-branch is the predecessor's code).
     base_paths, base_vault, _ = _vault(tmp_path, "base", version=PREDECESSOR, toml=LOW_Q + OFF)
-    paths, vault, _ = _vault(tmp_path, "off", toml=LOW_Q + OFF)
+    paths, vault, _ = _vault(tmp_path, "off", toml=LOW_Q + OFF, version=TAG)
     for target in (base_paths, paths):
         _seed_everything(target)
     assert _signals(paths, vault) == _signals(base_paths, base_vault)
@@ -541,7 +541,7 @@ def test_on_the_derivation_is_the_predecessors_plus_the_workbench_rows(tmp_path)
     from learnloop.field.workbench_signals import is_workbench_signal
 
     base_paths, base_vault, _ = _vault(tmp_path, "base", version=PREDECESSOR, toml=LOW_Q + OFF)
-    paths, vault, _ = _vault(tmp_path, "on")
+    paths, vault, _ = _vault(tmp_path, "on", version=TAG)
     for target in (base_paths, paths):
         _seed_everything(target)
     on = _signals(paths, vault)
@@ -560,7 +560,7 @@ def test_on_the_derivation_is_the_predecessors_plus_the_workbench_rows(tmp_path)
 
 @pytest.mark.parametrize("seed", [_stuck_on_diag, _early_help_on_diag], ids=["stuck_step", "early_help"])
 def test_a_workbench_signal_withholds_fast_track_and_the_receipt_says_the_old_rule_fired(tmp_path, seed):
-    paths, vault, repository = _vault(tmp_path)
+    paths, vault, repository = _vault(tmp_path, version=TAG)
     seed(paths)
     _two_clean_answers(vault, repository)
     assert reconcile_fast_track(vault, repository, clock=_at(20)) == []
@@ -578,7 +578,7 @@ def test_a_workbench_signal_withholds_fast_track_and_the_receipt_says_the_old_ru
     assert len(_receipts(paths)) == 1
 
     # Control: switched off, the old rule fires and no receipt is written.
-    off_paths, off_vault, off_repository = _vault(tmp_path, "off", toml=LOW_Q + OFF)
+    off_paths, off_vault, off_repository = _vault(tmp_path, "off", toml=LOW_Q + OFF, version=TAG)
     seed(off_paths)
     _two_clean_answers(off_vault, off_repository)
     assert [d["source"] for d in reconcile_fast_track(off_vault, off_repository, clock=_at(20))] == ["fast_track"]
@@ -605,7 +605,7 @@ def test_a_stuck_step_teaches_the_lo_first_and_the_candidate_records_the_old_val
 
 
 def test_a_quick_check_split_records_the_predecessors_verdict(tmp_path):
-    paths, vault, repository = _vault(tmp_path)
+    paths, vault, repository = _vault(tmp_path, version=TAG)
     _stuck_on_diag(paths)
     session_id, progress = _start(vault, repository, ["lo_diag"], minutes=3)
     _answer_target(vault, repository, session_id, progress, 4)

@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import pytest
 
-from learnloop.algorithm_versions import INTERVAL_FACTOR_ALGORITHM_VERSION, ROUTER_OBJECTIVE_ALGORITHM_VERSION
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION, INTERVAL_FACTOR_ALGORITHM_VERSION, ROUTER_OBJECTIVE_ALGORITHM_VERSION
 from learnloop.config.schema import LearnLoopConfig
 from learnloop.goals import goal_contracts as GC
 from learnloop.goals import use_weights as U
@@ -133,7 +133,7 @@ def test_the_goal_form_is_told_the_default_use_weight_at_the_tag_only(tmp_path):
 def test_create_goal_copies_the_asked_use_weight_or_the_default_when_left_alone(tmp_path):
     from learnloop_sidecar.errors import SidecarError
 
-    ctx, paths = _sidecar(tmp_path / "on", ROUTER_OBJECTIVE_ALGORITHM_VERSION)
+    ctx, paths = _sidecar(tmp_path / "on", LATEST_ALGORITHM_VERSION)
     asked = _rpc(ctx, "create_goal", {**_NEW_GOAL, "datedUseWeight": 2.5})["goal"]["id"]
     assert _yaml_use_weight(paths, asked) == {"dated": 2.5, "per_lo": {}, "undated_density": pytest.approx(1 / 90)}
     left_alone = _rpc(ctx, "create_goal", dict(_NEW_GOAL))["goal"]["id"]

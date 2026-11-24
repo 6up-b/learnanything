@@ -177,11 +177,10 @@ def test_f4_no_snapshot_leaves_the_residual_out():
 
 
 def test_f5_the_contrasts_return_reader_admits_an_import_only_once_known(tmp_path):
-    from learnloop.algorithm_versions import ROUTER_LEARNED_TAIL_ALGORITHM_VERSION
 
     from tests.ro1_availability_reads_helpers import AFTER, CUTOFF, LO, _seeded
 
-    vault, repository = _seeded(tmp_path, ROUTER_LEARNED_TAIL_ALGORITHM_VERSION, None)
+    vault, repository = _seeded(tmp_path, LATEST_ALGORITHM_VERSION, None)
     trace = {"evaluation": {"window_days": 9, "c0": 0.0, "uses": {"topics": [], "dated": [
         {"goal_id": "g", "lo": LO, "due_at": "2026-05-01T09:00:00Z", "omega": 1.0, "m0": 0.0}]}}}
     row = {**_row("d1", "2026-04-25T10:00:00Z", closes="2026-05-04T10:00:00Z"), "trace": trace}

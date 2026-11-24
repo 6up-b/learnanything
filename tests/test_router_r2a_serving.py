@@ -30,7 +30,7 @@ import pytest
 
 import learnloop.clock as clock_module
 import learnloop_sidecar.handlers  # noqa: F401 - registers the RPCs
-from learnloop.algorithm_versions import ROUTER_STAGED_FRAME_ALGORITHM_VERSION
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION, ROUTER_STAGED_FRAME_ALGORITHM_VERSION
 from learnloop.daily_plan.engine import DEFAULT_POLICY, advance, build_plan, learner_pick
 from learnloop.daily_plan.policy import policy_for
 from learnloop.db.copies import copy_tree_with_databases
@@ -231,10 +231,10 @@ def test_an_unplanned_proposal_pick_delivers_with_its_blocks_decision(tmp_path, 
 # -- the receipt chain through the RPCs ----------------------------------------------
 
 
-def _rpc_vault(tmp_path, monkeypatch):
+def _rpc_vault(tmp_path, monkeypatch, *, version=LATEST_ALGORITHM_VERSION):
     monkeypatch.setattr(clock_module.SystemClock, "now", lambda _self: FROZEN)
     paths = create_daily_plan_vault(
-        tmp_path / "vault", learning_objects={"lo_extra": [("pi_extra_1", 2.0), ("pi_extra_2", 2.0)]}, version=A,
+        tmp_path / "vault", learning_objects={"lo_extra": [("pi_extra_1", 2.0), ("pi_extra_2", 2.0)]}, version=version,
     )
     _staged(paths.root)
     ctx = SidecarContext()
@@ -259,7 +259,7 @@ def _bound(paths, attempt_id):
 
 
 def test_a_served_steps_presentation_binds_the_answer_through_the_rpcs(tmp_path, monkeypatch):
-    paths, ctx = _rpc_vault(tmp_path, monkeypatch)
+    paths, ctx = _rpc_vault(tmp_path, monkeypatch, version=A)
     session_id = _call(ctx, "start_session", {"availableMinutes": 25})["sessionId"]
     served = _call(ctx, "next_plan_item", {"sessionId": session_id, "serve": True})["step"]
     assert served["kind"] == "item" and served["presentationId"]
@@ -353,7 +353,7 @@ def test_router_outcomes_replay_twice_with_no_model_call(tmp_path, monkeypatch):
     def forbidden(*_args, **_kwargs):
         raise AssertionError("router outcomes replay must not construct a model client")
 
-    paths, ctx = _rpc_vault(tmp_path, monkeypatch)
+    paths, ctx = _rpc_vault(tmp_path, monkeypatch, version=A)
     session_id = _call(ctx, "start_session", {"availableMinutes": 25})["sessionId"]
     served = _call(ctx, "next_plan_item", {"sessionId": session_id, "serve": True})["step"]
     answered = _submit(ctx, session_id, served["practiceItemId"], served["presentationId"])

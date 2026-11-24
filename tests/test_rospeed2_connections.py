@@ -26,7 +26,7 @@ from typing import Any
 
 import pytest
 
-from learnloop.algorithm_versions import ROUTER_FOLLOWUPS_ALGORITHM_VERSION
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION, ROUTER_FOLLOWUPS_ALGORITHM_VERSION
 
 from learnloop.db import connection as DBC
 from learnloop.db.connection import connect, reused_connections
@@ -130,12 +130,11 @@ def test_inside_an_ad_operation_a_pooled_connection_carries_its_guard_and_nothin
     from learnloop.db.repositories import Repository
     from learnloop.vault.loader import load_vault
 
-    from learnloop.algorithm_versions import LESSON_OFFERS_ALGORITHM_VERSION
 
     from tests.helpers import create_basic_vault, set_algorithm_version
 
     paths = create_basic_vault(tmp_path / "vault")
-    set_algorithm_version(paths, LESSON_OFFERS_ALGORITHM_VERSION)
+    set_algorithm_version(paths, LATEST_ALGORITHM_VERSION)
     vault = load_vault(paths.root)
     assert vault.config.adaptive_difficulty.enabled
     repository = Repository(paths.sqlite_path)

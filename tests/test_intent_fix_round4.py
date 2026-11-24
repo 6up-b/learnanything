@@ -402,7 +402,7 @@ def test_f15_the_probe_contract_carries_the_diagnostic_variant(tmp_path, monkeyp
 
     # Placement off: its opening episodes are ignored for serving.
     paths = create_placement_vault(
-        tmp_path / "vault", version=INTENT_ALGORITHM_VERSION, placement_toml="[placement]\nenabled = false\n"
+        tmp_path / "vault", placement_toml="[placement]\nenabled = false\n"
     )
     repository = Repository(paths.sqlite_path)
     admit_probe_instrument_card(repository)

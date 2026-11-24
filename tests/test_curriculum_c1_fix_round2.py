@@ -26,7 +26,7 @@ from __future__ import annotations
 
 import json
 
-from learnloop.algorithm_versions import DELIVERABLE_PLAN_ALGORITHM_VERSION
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION, DELIVERABLE_PLAN_ALGORITHM_VERSION
 from learnloop.daily_plan import engine as E
 from learnloop.source_retrieval import deliverable_path as DP
 from learnloop.vault.loader import load_vault
@@ -342,7 +342,7 @@ def test_l6_a_memo_hit_returns_exactly_what_the_choice_computed(tmp_path, monkey
 def test_a_move_withdraws_the_staged_block_and_it_counts_no_minutes(tmp_path, monkeypatch):
     """The withdrawn block of a move counts no minutes and is no reading of the day."""
 
-    c1 = _c1(tmp_path, monkeypatch, due_at="2026-12-20", version=DELIVERABLE_PLAN_ALGORITHM_VERSION)
+    c1 = _c1(tmp_path, monkeypatch, due_at="2026-12-20", version=LATEST_ALGORITHM_VERSION)
     c1.clock.advance(days=1)
     ctx = context(c1.paths.root)
     _no_refresh(ctx)

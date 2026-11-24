@@ -23,7 +23,7 @@ from typing import Any
 
 import pytest
 
-from learnloop.algorithm_versions import COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
 from learnloop.clock import FrozenClock
 from learnloop.source_retrieval import compare_scope as CS
@@ -227,9 +227,9 @@ def _with_checks(root):
     from learnloop.substrate.state_sync import sync_vault_state
 
     paths, repository = build_deliverable_vault(root)
-    set_config(paths.root, {("algorithms", "algorithm_version"): COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION})
+    set_config(paths.root, {("algorithms", "algorithm_version"): LATEST_ALGORITHM_VERSION})
     clock = FrozenClock(NOW)
-    # Synced at the tag, as tests/test_cold_retry_reschedule.py builds its rebuild-equivalent vault.
+    # Synced first, as tests/test_cold_retry_reschedule.py builds its rebuild-equivalent vault.
     sync_vault_state(load_vault(paths.root), repository, clock=clock)
     cover_all(paths, repository, "lo_eigen")
     vault = load_vault(paths.root)

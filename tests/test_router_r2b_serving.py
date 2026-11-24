@@ -284,7 +284,7 @@ def test_the_deciders_route_never_resolves_to_a_chat_model(tmp_path, monkeypatch
     from learnloop.ai.routing import route_profile_mismatch
     from learnloop.vault.loader import load_vault
 
-    paths = create_daily_plan_vault(tmp_path / "vault", version=B)
+    paths = create_daily_plan_vault(tmp_path / "vault")
     toml = paths.root / "learnloop.toml"
     toml.write_text(toml.read_text().replace("[ai.routing]\n", '[ai.routing]\nrouter_decider = "codex"\n', 1))
     vault = load_vault(paths.root)
