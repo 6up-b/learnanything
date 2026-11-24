@@ -160,7 +160,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop_sidecar/handlers/inline_checks|learnloop_sidecar.handlers.inline_checks]] — imports `module`; statically calls `abandon`, `attempt_submission_key`, `begin`, `eligibility_of`, `expose`, `finish_submit`, `notes_opened`, `preflight`, `prepare_submit`, `protect_more`, `reopen`, `veils`, `with_measured`
+- [[Reference/Modules/learnloop_sidecar/handlers/inline_checks|learnloop_sidecar.handlers.inline_checks]] — imports `module`; statically calls `InlineCheckError`, `abandon`, `attempt_submission_key`, `begin`, `eligibility_of`, `expose`, `finish_submit`, `notes_opened`, `preflight`, `prepare_submit`, `protect_more`, `reopen`, `veils`, `with_measured`
 
 ## Dependencies
 

@@ -73,6 +73,7 @@ function openCard(): CheckCardDto {
     administrationToken: "cad_open", commitmentId: "cm_1", itemRef: "pi_1", contractHash: "h", cold: true, state: "open",
     protection: { veilSetId: "v1", method: "structural", groups: ["source passages"], opened: [], veiled: [SPAN_VEIL] },
     prompt: { prompt: "What is the gradient of the loss?" }, submissionId: null, eligibility: null, revision: 1,
+    host: { extractionId: book.extractionId, sectionId: "s5", spanId: COVERED },
   };
 }
 
@@ -82,7 +83,7 @@ const mint = (prefix: string) => `${prefix}_${++mintCount}`;
 function mount(over: Partial<CheckTransport> = {}) {
   const server = new FixtureDeskServer();
   const checkTransport: CheckTransport = {
-    dueFor: vi.fn(async () => ({ version: 1, checks: [{ commitmentId: "cm_1", loId: "lo_1", due: "2026-11-22T00:00:00Z", host: { extractionId: book.extractionId, sectionId: "s5", spanId: COVERED }, provenance: {} }] })),
+    dueFor: vi.fn(async () => ({ version: 1, checks: [{ handle: "chk_due_1" }] })),
     begin: vi.fn(async () => openCard()),
     protectMore: vi.fn(async () => ({ veilAdditions: [], standing: [SPAN_VEIL], revision: 1 })),
     expose: vi.fn(async () => ({ protectionStatus: { exposure: [], coldNow: false, measured: false } })),

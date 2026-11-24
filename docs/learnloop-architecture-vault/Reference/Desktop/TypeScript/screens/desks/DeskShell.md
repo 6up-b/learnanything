@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/DeskShell.tsx](../../../../../../../apps/learnloop-tauri/src/screens/desks/DeskShell.tsx) |
-| Source lines | 4943 |
+| Source lines | 4944 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/_area|TypeScript/screens/desks]] |
 | Refactor status | `ACTIVE` |
@@ -71,8 +71,8 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export interface DeskShellProps` — interface, line 514
 - `export interface DeskOpenRequest` — interface, line 584
 - `export function DeskShell(` — function, line 598
-- `export function isVideoCard(card: SourceLibraryCard): boolean` — function, line 4783
-- `export function contentForCard(card: SourceLibraryCard, extractionId: string): ContentRefDto` — function, line 4787
+- `export function isVideoCard(card: SourceLibraryCard): boolean` — function, line 4784
+- `export function contentForCard(card: SourceLibraryCard, extractionId: string): ContentRefDto` — function, line 4788
 
 ## Internal implementation anchors
 
@@ -726,14 +726,12 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const extractionId = content && (content.kind === "source" || content.kind === "video") ? content.extractionId : null` — const, line 3090
 - `const openGoalSection = useCallback((section:` — const, line 3094
 - `const onDesk = Object.values(wsRef.current.windows).some((window)` — const, line 3095
-- `const checkReadings = (desk?.slots.flat() ?? []).flatMap((id)` — const, line 3105
-- `const content = ws?.windows[id]?.content` — const, line 3106
-- `const visibleForCheck = useCallback(()` — const, line 3113
-- `const windows = Object.values(wsRef.current.windows).map((window)` — const, line 3114
-- `const companionTab = typeof document === "undefined" ? null : document.querySelector("[data-companion-body]")?.getAttribute("data-check-content") ?? null` — const, line 3118
-- `const exchanges = companionTab?.startsWith("history:") ? [] : asks.thread(deskIdRef.current).flatMap((exchange)` — const, line 3119
-- `const checkNow = useCallback((commitmentId: string)` — const, line 3127
-- `const session = opened ? checkDesk.open()?.card.practiceSession : null` — const, line 3135
+- `const visibleForCheck = useCallback(()` — const, line 3107
+- `const windows = Object.values(wsRef.current.windows).map((window)` — const, line 3108
+- `const companionTab = typeof document === "undefined" ? null : document.querySelector("[data-companion-body]")?.getAttribute("data-check-content") ?? null` — const, line 3112
+- `const exchanges = companionTab?.startsWith("history:") ? [] : asks.thread(deskIdRef.current).flatMap((exchange)` — const, line 3113
+- `const checkNow = useCallback(()` — const, line 3122
+- `const session = opened ? checkDesk.open()?.card.practiceSession : null` — const, line 3130
 - `const protectCheckView = useCallback(()` — const, line 3145
 - `const checkHolding = checkDesk.holding()` — const, line 3148
 - `const handle = requestAnimationFrame(()` — const, line 3151
@@ -1003,24 +1001,24 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const key = slotKey(each.deskId, slot)` — const, line 4483
 - `const content = ws.windows[id]?.content` — const, line 4525
 - `const stackWindow = Object.values(wsRef.current.windows).find((window)` — const, line 4531
-- `const held = checkDesk.heldReason()` — const, line 4568
-- `const target = appendTargetOf(deskId)` — const, line 4684
-- `const shown: MenuVerdict =` — const, line 4696
-- `const verdict = failed ? null : shown` — const, line 4697
-- `const stackWindow = Object.values(wsRef.current.windows).find((window)` — const, line 4719
-- `const ids = captureNodes(exerciseSheet.object).map((node)` — const, line 4730
-- `const who = await menuTransport.readingIdentity(anchor.extractionId)` — const, line 4735
-- `const PreparingView = lazy(()` — const, line 4794
-- `function PreparingWindow(` — function, line 4799
-- `const ready = card?.readiness === "ready"` — const, line 4810
-- `function Sliver(` — function, line 4826
-- `function WhichKey()` — function, line 4836
-- `const groups: Array<` — const, line 4837
-- `const rows = DESK_BINDINGS.filter((binding)` — const, line 4848
-- `function OpenBeside(` — function, line 4866
-- `const words = filter.trim().toLowerCase()` — const, line 4884
-- `const sources = (library ?? []).filter((card)` — const, line 4885
-- `const book = focus?.content && (focus.content.kind === "source" || focus.content.kind === "video") ? focus.content : null` — const, line 4886
+- `const held = checkDesk.heldReason()` — const, line 4569
+- `const target = appendTargetOf(deskId)` — const, line 4685
+- `const shown: MenuVerdict =` — const, line 4697
+- `const verdict = failed ? null : shown` — const, line 4698
+- `const stackWindow = Object.values(wsRef.current.windows).find((window)` — const, line 4720
+- `const ids = captureNodes(exerciseSheet.object).map((node)` — const, line 4731
+- `const who = await menuTransport.readingIdentity(anchor.extractionId)` — const, line 4736
+- `const PreparingView = lazy(()` — const, line 4795
+- `function PreparingWindow(` — function, line 4800
+- `const ready = card?.readiness === "ready"` — const, line 4811
+- `function Sliver(` — function, line 4827
+- `function WhichKey()` — function, line 4837
+- `const groups: Array<` — const, line 4838
+- `const rows = DESK_BINDINGS.filter((binding)` — const, line 4849
+- `function OpenBeside(` — function, line 4867
+- `const words = filter.trim().toLowerCase()` — const, line 4885
+- `const sources = (library ?? []).filter((card)` — const, line 4886
+- `const book = focus?.content && (focus.content.kind === "source" || focus.content.kind === "video") ? focus.content : null` — const, line 4887
 
 ## Who imports or calls it
 
@@ -1045,7 +1043,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/screens/LessonView|src/screens/LessonView.tsx]] — import-or-re-export; imports `LessonEntry`
 - [[Reference/Desktop/TypeScript/screens/desks/Shelf|src/screens/desks/Shelf.tsx]] — import-or-re-export; imports `CarriedList`, `Shelf`, `ShelfRow`
 - [[Reference/Desktop/TypeScript/screens/desks/carried/related|src/screens/desks/carried/related.ts]] — import-or-re-export; imports `CarriedRelated`, `allCarried`
-- [[Reference/Desktop/TypeScript/screens/desks/checks/CheckCard|src/screens/desks/checks/CheckCard.tsx]] — import-or-re-export; imports `CheckCardOverlay`, `CheckLenses`
+- [[Reference/Desktop/TypeScript/screens/desks/checks/CheckCard|src/screens/desks/checks/CheckCard.tsx]] — import-or-re-export; imports `CheckCardOverlay`, `CheckLenses`, `DeskCheckMarker`
 - [[Reference/Desktop/TypeScript/screens/desks/checks/VeilLayer|src/screens/desks/checks/VeilLayer.tsx]] — import-or-re-export; imports `VeilLayer`
 - [[Reference/Desktop/TypeScript/screens/desks/checks/controller|src/screens/desks/checks/controller.ts]] — import-or-re-export; imports `CheckDesk`, `CheckTransport`, `LIVE_CHECK_TRANSPORT`, `checkOpenRefusal`
 - [[Reference/Desktop/TypeScript/screens/desks/checks/hold|src/screens/desks/checks/hold.ts]] — import-or-re-export; imports `SAFE_ATTR`

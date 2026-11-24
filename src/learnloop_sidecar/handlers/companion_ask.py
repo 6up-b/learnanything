@@ -132,9 +132,9 @@ def goal_in_view(vault: Any, repository: Any, goal_id: str) -> tuple[dict[str, A
     """The goal in view as the tutor sees it, and whether it is ``given`` or ``withheld``.
 
     Only the goal's own sentence (its title when it has none) and the depth the learner chose, with what that
-    depth means: never its topics, sections or readiness. While a cold check is due, the goal lens's protection
-    holds every topic with a due check, in any goal (``handlers.goal_lens.protection_now``); a goal whose words
-    name one is withheld whole, so the tutor can never repeat the held topic back to the learner."""
+    depth means: never its topics, sections or readiness. The goal lens's protection holds the topic of a check that
+    is begun (``handlers.goal_lens.protection_now``; a check merely due is masked nowhere, since masking it would point
+    at it); a goal whose words name a held topic is withheld whole, so the tutor can never repeat it back."""
 
     from learnloop.source_retrieval import deliverables as DL
     from learnloop.source_retrieval.reading_paths import DEPTH_LABELS, DEPTH_MEANS

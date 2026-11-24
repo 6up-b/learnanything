@@ -158,7 +158,7 @@ import "../../styles/lesson.css";
 import "../../styles/video.css";
 import "../../styles/checks.css";
 import { CheckDesk, LIVE_CHECK_TRANSPORT, checkOpenRefusal, type CheckTransport } from "./checks/controller";
-import { CheckCardOverlay, CheckLenses } from "./checks/CheckCard";
+import { CheckCardOverlay, CheckLenses, DeskCheckMarker } from "./checks/CheckCard";
 import { VeilLayer } from "./checks/VeilLayer";
 import { visibleNow, windowKind } from "./checks/model";
 import { SAFE_ATTR } from "./checks/hold";
@@ -3244,18 +3244,12 @@ export function DeskShell({
     else openContent({ kind: "source", sourceId: section.sourceId, extractionId: section.extractionId, view: "render" }, { spanId: section.startSpanId });
   }, [openPassage, openContent]);
   // -- inline cold checks (RD7, spec §12.6) -------------------------------------------------------------------------
-  // After a restart the open administration comes back with its veils; the readings on this desk show their markers.
-  // Nothing of the desks shows before this read says whether a check is open (the app usually has the answer already).
+  // After a restart the open administration comes back with its veils, and the due checks are read (as handles: the
+  // desk's one marker names and places nothing). Nothing of the desks shows before the first read says whether a check
+  // is open (the app usually has the answer already).
   useEffect(() => {
-    checkDesk.recover();
+    checkDesk.restart();
   }, [checkDesk]);
-  const checkReadings = (desk?.slots.flat() ?? []).flatMap((id) => {
-    const content = ws?.windows[id]?.content;
-    return content?.kind === "source" || content?.kind === "video" ? [content.extractionId] : [];
-  }).join("\u0000");
-  useEffect(() => {
-    if (checkReadings) checkDesk.readings(checkReadings.split("\u0000"));
-  }, [checkReadings, checkDesk]);
   /** What is on screen, as the server classifies it: every desk's windows, the companion, the overview's cards. */
   const visibleForCheck = useCallback(() => {
     // A book's window is named by the reading its page shows (the passages read from the page are that reading's),
@@ -3272,17 +3266,23 @@ export function DeskShell({
       previewWindowIds: overviewRef.current ? windows.map((window) => window.windowId) : [],
     });
   }, [asks, wsRef]);
-  /** "check now" on a closed marker: the server opens the administration and names the veils before the prompt. */
-  const checkNow = useCallback((commitmentId: string) => {
+  /** "check now" on the desk's marker: the server resolves the handle, opens the administration and names the veils
+   *  before the prompt. */
+  const checkNow = useCallback(() => {
     // Search, the menu and its sheets close first: they could show what the check asks, and stay closed until the
     // answer.
     setSearchState(null);
     closeOverlays.current();
-    void checkDesk.begin(commitmentId, reader?.workbench?.practiceSessionId ?? null, visibleForCheck()).then((opened) => {
+    void checkDesk.begin(null, reader?.workbench?.practiceSessionId ?? null, visibleForCheck()).then((opened) => {
       if (checkDesk.notice) toastSafe(checkDesk.notice);
       // The app adopts the session the answer will be recorded on, as after a workbench submit.
       const session = opened ? checkDesk.open()?.card.practiceSession : null;
       if (session) reader?.workbench?.onPracticeSession?.(session);
+      // The marker was at no passage: the begun card, inline at its host when that reading is here, is brought into
+      // view (else the card centred near the top stands in, as ever).
+      if (opened && typeof requestAnimationFrame !== "undefined") {
+        requestAnimationFrame(() => document.querySelector('[data-check-card="inline"]')?.scrollIntoView?.({ block: "center" }));
+      }
     });
   }, [checkDesk, reader, visibleForCheck, toastSafe]);
   useEffect(() => {
@@ -4227,11 +4227,11 @@ export function DeskShell({
           handoff: pendingHandoffs.current.get(window.windowId) ?? null,
           onError,
           ...(reader ? { reader: readerFor(window.windowId) } : {}),
-          // A book following a video marks its passage over the goal lens (RD10); a due check's closed marker (or its
-          // open card) sits before its host passage (RD7).
+          // A book following a video marks its passage over the goal lens (RD10); a begun check's open card sits before
+          // its host passage (RD7; a due check is placed at no passage).
           lens: checkLenses.lensFor(window.windowId, content.extractionId, content.kind === "source"
             ? followLenses.lensFor(window.windowId, goalDesk.lensFor(window.windowId, content.extractionId), videoDesk.followedSpan(window.windowId))
-            : goalDesk.lensFor(window.windowId, content.extractionId), checkDesk, checkNow),
+            : goalDesk.lensFor(window.windowId, content.extractionId), checkDesk),
         };
         if (content.kind === "video") {
           return <VideoWindow {...props} windowId={window.windowId} desk={videoDesk} transport={videoTransport} poller={poller} />;
@@ -4731,6 +4731,7 @@ export function DeskShell({
           ) : null}
           {hud ? <div className="desk-hud" role="status">{hud}</div> : null}
           {openCheck && !checkInline ? <CheckCardOverlay desk={checkDesk} /> : null}
+          <DeskCheckMarker desk={checkDesk} onCheckNow={checkNow} />
           <VeilLayer desk={checkDesk} root={typeof document === "undefined" ? null : document.body} windows={holdWindows} onChange={protectCheckView} />
           <Companion
             ref={companionRef}

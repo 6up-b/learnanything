@@ -284,6 +284,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reader_rd6_fix_reads.py](../../../../../../tests/test_reader_rd6_fix_reads.py) — direct import
 - [tests/test_reader_rd6a_goal_lens.py](../../../../../../tests/test_reader_rd6a_goal_lens.py) — direct import
   - `test_a_due_check_hides_its_los_purpose_text_and_comes_first_next`
+- [tests/test_reader_rd7_unlocated_marker.py](../../../../../../tests/test_reader_rd7_unlocated_marker.py) — direct import
 - [tests/test_reader_rd7a_inline_checks.py](../../../../../../tests/test_reader_rd7a_inline_checks.py) — direct import
   - `test_a_check_settled_elsewhere_while_open_is_closed_superseded_on_the_next_read`
   - `test_a_crash_after_the_attempt_and_before_the_close_is_recovered_with_that_attempt`

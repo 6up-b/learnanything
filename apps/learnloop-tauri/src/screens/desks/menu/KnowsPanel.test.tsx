@@ -8,7 +8,7 @@ afterEach(cleanup);
 
 const span = (extra: Partial<PassageUnionSpanDto> = {}): PassageUnionSpanDto => ({
   spanId: "s1", sectionId: "sec1", annotations: [], padBlocks: [], exchanges: [], adjustments: [], gaps: [], passageLinks: [], figures: [],
-  checksDue: [], notes: [], authoredQuestions: [], carried: [], exposure: { timesShown: 2, lastShownAt: null, withheld: false }, ...extra,
+  notes: [], authoredQuestions: [], carried: [], exposure: { timesShown: 2, lastShownAt: null, withheld: false }, ...extra,
 });
 
 describe("What this knows", () => {
@@ -28,11 +28,13 @@ describe("What this knows", () => {
     expect(openThread).toHaveBeenCalledWith("q1");
   });
 
-  it("says a check is due and shows nothing of it", async () => {
-    const read = { objectKey: "k", sourceIds: [], places: [{ extractionId: "e", spanId: "s1", role: null, knows: span({ checksDue: [{ commitmentId: "secret_c" }] }) }] } as unknown as PassageKnowsDto;
+  it("says nothing of a due check: no passage is a check's place", async () => {
+    // A server older than the unlocated marker could still send a passage's due check: the panel shows no row for it.
+    const read = { objectKey: "k", sourceIds: [], places: [{ extractionId: "e", spanId: "s1", role: null, knows: span({ checksDue: [{ commitmentId: "secret_c" }] } as never) }] } as unknown as PassageKnowsDto;
     render(<KnowsPanel object={{ objectKind: "passage", extractionId: "e", spanId: "s1" }} load={async () => read} actions={{ openThread: vi.fn(), openPadBlock: vi.fn(), openPassage: vi.fn() }} onClose={() => undefined} />);
-    await screen.findByText(/a cold check is due before this passage/);
-    expect(document.body.textContent).not.toContain("secret_c");
+    await screen.findByRole("dialog", { name: "passage details" });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(document.body.textContent).not.toMatch(/cold check|secret_c/);
   });
 
   it("says when nothing is held yet", async () => {

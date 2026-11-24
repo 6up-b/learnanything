@@ -957,6 +957,10 @@ async def check_inline_open(page: Page, *, companion: bool) -> None:
     if companion:
         await page.click("[data-desk-window='fx_w_book'] .desk-pane-head .t")
         await keys(page, "Shift+C")
+        # Docking the companion took the focus from the answer box (the window head was clicked first); the
+        # reference's card holds the focus with the companion docked, so the answer box is focused again: the state
+        # compares the card as the learner sees it while answering (its focus border), not the capture's own clicks.
+        await page.focus(f"{CHECK_INLINE} textarea")
     await page.locator(CHECK_INLINE).evaluate("(c) => c.scrollIntoView({ block: 'start' })")
     await wait(page, 900)
 

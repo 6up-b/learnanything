@@ -51,7 +51,8 @@ function cardFor(over: Partial<CheckCardDto> = {}): CheckCardDto {
     administrationToken: "cad_1", commitmentId: "cm_1", itemRef: "pi_1", contractHash: "h", cold: true, state: "open",
     protection: { veilSetId: "cvs_1", method: "structural+notes_by_default", groups: ["pads"], opened: [],
       veiled: [{ group: "pads", kind: "window", window_id: "fx_w_pads" }] },
-    prompt: { prompt: "What is the gradient of the loss?" }, ...over,
+    prompt: { prompt: "What is the gradient of the loss?" },
+    host: { extractionId: book.extractionId, sectionId: "s1", spanId: "fx_ext_softmax_s1_1" }, ...over,
   };
 }
 
@@ -60,9 +61,7 @@ const mint = (prefix: string) => `${prefix}_${++mintCount}`;
 
 function mount(over: Partial<CheckTransport> = {}, onPracticeSession = vi.fn(), onReadingChange = vi.fn(), server = new FixtureDeskServer()) {
   const checkTransport: CheckTransport = {
-    dueFor: vi.fn(async (input: { extractionId: string }) => ({ version: 1, checks: input.extractionId === book.extractionId
-      ? [{ commitmentId: "cm_1", loId: "lo_1", due: "2026-11-22T00:00:00Z", host: { extractionId: book.extractionId, sectionId: "s1", spanId: "fx_ext_softmax_s1_1" }, provenance: {} }]
-      : [] })),
+    dueFor: vi.fn(async () => ({ version: 1, checks: [{ handle: "chk_due_1" }] })),
     begin: vi.fn(async () => cardFor()),
     protectMore: vi.fn(async () => ({ veilAdditions: [] })),
     expose: vi.fn(async () => ({ protectionStatus: { exposure: [], coldNow: true } })),

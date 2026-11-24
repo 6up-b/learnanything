@@ -100,11 +100,17 @@ def test_nothing_left_names_the_held_lo_and_nothing_changes_without_a_due_check(
 # -- the RPCs, end to end -------------------------------------------------------------------------------------------
 
 def _due_check(repository, lo_id, *, days: int = -1) -> None:
+    """A check (due unless ``days`` is ahead) on the LO, begun inline (the replies mask a check's LO only once it is begun)."""
+
+    from tests.inline_hold_helpers import hold_open
+
     day = (datetime.now(UTC) + timedelta(days=days)).strftime("%Y-%m-%d")
-    C.create_commitment(
+    commitment = C.create_commitment(
         repository, action="test_me_later", intent_text=f"check {lo_id}", depth_preset=DP.READY_DEPTH_PRESET,
         targets=[{"target_kind": "learning_object", "target_ref": lo_id, "role": "required"}],
         client_idempotency_key=f"rd10fix:{lo_id}:{days}", due_hint=day, provenance={"via": "deliverable_ready"})
+    if days < 0:
+        hold_open(repository, commitment.id)
 
 
 def _wait(ctx, job_id):

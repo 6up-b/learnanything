@@ -145,6 +145,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_context_write_that_failed_is_retried_and_reported_until_it_lands`
 - [tests/test_reader_rd3a_companion_ask.py](../../../../../../tests/test_reader_rd3a_companion_ask.py) — direct import
   - `test_the_rpcs_are_registered_desktop_only_and_refuse_extra_fields`
+- [tests/test_tutor_goal_in_view.py](../../../../../../tests/test_tutor_goal_in_view.py) — direct import
+  - `test_a_goal_naming_a_topic_whose_cold_check_is_due_is_given_and_withheld_whole_once_the_check_is_begun`
 
 ## Modification guidance
 
