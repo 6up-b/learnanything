@@ -3294,6 +3294,24 @@ export function DeskShell({
     extractionId: window.content && (window.content.kind === "source" || window.content.kind === "video") ? shownReading(shownReadings, window.windowId) ?? window.content.extractionId : null,
   }])), [ws, shownReadings]);
 
+  // The app's check or exercise hand-off goes to one window of its book (major 10): the focused one, else the first on
+  // the desk in view, else the first anywhere; another window of the same book (a visited desk's) never opens it too.
+  const handoffSource = reader?.workbench?.checkMe?.sourceId ?? reader?.workbench?.exercise?.sourceId ?? null;
+  const handoffWindow = useMemo(() => {
+    if (!handoffSource || !ws) return null;
+    const ofBook = (id: string) => {
+      const content = ws.windows[id]?.content;
+      return Boolean(content && (content.kind === "source" || content.kind === "video") && content.sourceId === handoffSource);
+    };
+    if (focusId && ofBook(focusId)) return focusId;
+    const here = (desk?.slots.flat() ?? []).find(ofBook);
+    return here ?? Object.keys(ws.windows).find(ofBook) ?? null;
+  }, [handoffSource, ws, focusId, desk]);
+  const readerElsewhere = useMemo<ReaderPassThrough | undefined>(() => (reader?.workbench && handoffSource
+    ? { ...reader, workbench: { ...reader.workbench, checkMe: null, exercise: null } }
+    : reader), [reader, handoffSource]);
+  const readerFor = (windowId: string): ReaderPassThrough | undefined => (windowId === handoffWindow ? reader : readerElsewhere);
+
   const goalDesk = useGoalDesk({
     transport: goalTransport,
     deskGoalId: desk?.goalId,
@@ -4176,7 +4194,7 @@ export function DeskShell({
           onSkimming: skimmingFor(window.windowId),
           handoff: pendingHandoffs.current.get(window.windowId) ?? null,
           onError,
-          ...(reader ? { reader } : {}),
+          ...(reader ? { reader: readerFor(window.windowId) } : {}),
           // A book following a video marks its passage over the goal lens (RD10); a due check's closed marker (or its
           // open card) sits before its host passage (RD7).
           lens: checkLenses.lensFor(window.windowId, content.extractionId, content.kind === "source"

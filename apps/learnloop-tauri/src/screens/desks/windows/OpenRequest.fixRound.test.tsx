@@ -2,9 +2,10 @@
 // and RDX-11). A book added while the desks were open is found (the desks read their library again before saying it is
 // gone), a first library read that failed is tried again, and a slow open never takes the focus back from the book
 // opened after it.
-import { cleanup, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { answers, memoryStorage, mountRealDesk, oneDesk, resetSidecar, settleDesk } from "../../../fixtures/desks/realDesk";
+import { setAlgoConfig } from "../../../app/algoConfig";
+import { answers, inputsOf, memoryStorage, mountRealDesk, oneDesk, resetSidecar, settleDesk } from "../../../fixtures/desks/realDesk";
 import { invoke as fixtureInvoke } from "../../../fixtures/desks/fakeCore";
 import { FIXTURE_LIBRARY, FIXTURE_SOURCES } from "../../../fixtures/desks/sources";
 import type { SourceLibraryCard } from "../../../api/dto";
@@ -85,4 +86,31 @@ it("a slow open never takes the focus back from the book opened after it", async
   await new Promise((resolve) => setTimeout(resolve, 1200));
   expect(focusedSource(desk.server)).toBe(video.sourceId);
   expect(sourcesOnDesk(desk.server)).not.toContain(paper.sourceId);
+});
+
+// Major 10 (RDX-12): the app's check hand-off goes to one window of its book, not to every mounted copy of it.
+it("a check chosen in the app opens once, though its book is open on two visited desks", async () => {
+  setAlgoConfig({ workbench: { enabled: true, openSessionDays: 30 } });
+  try {
+    const desk = mountRealDesk();
+    await settleDesk(0, 20);
+    // Visit the attention desk (its own window of the paper mounts) and come back.
+    await act(async () => { fireEvent.keyDown(window, { key: "j", code: "KeyJ", altKey: true }); });
+    await settleDesk(0, 20);
+    await act(async () => { fireEvent.keyDown(window, { key: "k", code: "KeyK", altKey: true }); });
+    await settleDesk(0, 20);
+    expect(document.querySelector('[data-desk-window="fx_w_paper2"]')).not.toBeNull();
+    const check = {
+      practiceItemId: "pi_check", spanId: `${paper.extractionId}_s1_1`, sourceId: paper.sourceId, stemMd: "Why scale the dot product?",
+      schedulerCandidateId: null, planPresentationId: null,
+      reading: { sourceId: paper.sourceId, revisionId: null, extractionId: paper.extractionId },
+    };
+    desk.rerender({ reader: { workbench: { practiceSessionId: "s1", checkMe: check as never, onCheckMeShown: vi.fn() } } as never });
+    await settleDesk(0, 30);
+    await waitFor(() => expect(inputsOf("workbench_open").length).toBeGreaterThan(0));
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    expect(inputsOf("workbench_open")).toHaveLength(1);
+  } finally {
+    setAlgoConfig(undefined);
+  }
 });
