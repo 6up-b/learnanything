@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router/plan_log.py](../../../../../../src/learnloop/router/plan_log.py) |
-| Source lines | 988 |
+| Source lines | 1051 |
 | Owning package | [[Reference/Modules/learnloop/router/_package|learnloop.router]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -65,8 +65,12 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `log_followup_decision(connection: Any, decision: Mapping[str, Any]) -> str | None` ([source](../../../../../../src/learnloop/router/plan_log.py), line 845) — Write one FG1 row on the caller's transaction, its card and payloads beside it.
 - `learner_probe_receipt_key(factor_id: str) -> str` ([source](../../../../../../src/learnloop/router/plan_log.py), line 871) — One decision per factor: a remounted panel, a second status read and the repair entry all read it back.
 - `build_learner_probe_decision(decision: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router/plan_log.py), line 877) — The learner lane's ``plan_interrupt`` row (pure): the factor's probe offered or not, each option's logged probability its served one (``served_pi``), and the facts and valuation it was drawn on in ``detail``.
-- `learner_probe_decision(connection: Any, factor_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/router/plan_log.py), line 938) — The learner lane's decision on this factor's probe, or None: ``id``, ``chosen_ref``, ``propensity``, ``chosen_practice_item_id`` and the ``detail`` it was drawn on.
-- `log_learner_probe_decision(connection: Any, decision: Mapping[str, Any]) -> str | None` ([source](../../../../../../src/learnloop/router/plan_log.py), line 954) — Write the learner lane's row on the caller's transaction.
+- `learner_probe_decision(connection: Any, factor_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/router/plan_log.py), line 941) — The learner lane's decision on this factor's probe, or None: ``id``, ``chosen_ref``, ``propensity``, ``chosen_practice_item_id`` and the ``detail`` it was drawn on.
+- `automatic_probe_decision(connection: Any, factor_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/router/plan_log.py), line 957) — The automatic lane's (FG1's) committed decision on this factor's probe, or None: ``id``, ``chosen_ref``, ``propensity``.
+- `probe_continuation_receipt_key(episode_id: str, observations: int, redraw: int=0) -> str` ([source](../../../../../../src/learnloop/router/plan_log.py), line 979) — One decision per next observation: the episode, how many observations it holds, and how many earlier decisions at that count were answered by a pin that ended unanswered (each such end opens a new boundary).
+- `probe_continuation_decisions(connection: Any, episode_id: str, observations: int) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/router/plan_log.py), line 986) — The continuation decisions at this boundary, oldest first: ``id``, ``chosen_ref``, ``propensity``, ``receipt_key``.
+- `log_probe_continuation_decision(connection: Any, decision: Mapping[str, Any]) -> str | None` ([source](../../../../../../src/learnloop/router/plan_log.py), line 998) — Write a continuation decision on the caller's transaction (the learner lane's row shape, with its own receipt key, surface and stop option).
+- `log_learner_probe_decision(connection: Any, decision: Mapping[str, Any]) -> str | None` ([source](../../../../../../src/learnloop/router/plan_log.py), line 1011) — Write the learner lane's row on the caller's transaction.
 
 ### Module constants
 
@@ -87,6 +91,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `LEARNER_PROBE_SURFACE` ([src/learnloop/router/plan_log.py](../../../../../../src/learnloop/router/plan_log.py), line 865)
 - `PROBE_REF` ([src/learnloop/router/plan_log.py](../../../../../../src/learnloop/router/plan_log.py), line 867)
 - `NO_PROBE_REF` ([src/learnloop/router/plan_log.py](../../../../../../src/learnloop/router/plan_log.py), line 868)
+- `PROBE_CONTINUATION_SURFACE` ([src/learnloop/router/plan_log.py](../../../../../../src/learnloop/router/plan_log.py), line 974)
+- `CONTINUATION_STOP_REF` ([src/learnloop/router/plan_log.py](../../../../../../src/learnloop/router/plan_log.py), line 976)
 
 ### Explicit exports
 
@@ -99,7 +105,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `LEARNER_PROBE_SURFACE`
 - `NO_PROBE_REF`
 - `PROBE_REF`
+- `CONTINUATION_STOP_REF`
+- `PROBE_CONTINUATION_SURFACE`
+- `automatic_probe_decision`
 - `build_learner_probe_decision`
+- `log_probe_continuation_decision`
+- `probe_continuation_decisions`
+- `probe_continuation_receipt_key`
 - `learner_probe_decision`
 - `learner_probe_receipt_key`
 - `log_learner_probe_decision`
@@ -139,11 +151,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `CONTINUE_REF`, `INSERT_REF`, `drawn_lesson_on`, `held_a_lesson`, `log_plan_block_decision`, `log_plan_interrupt_decision`; statically calls `drawn_lesson_on`, `held_a_lesson`, `log_plan_interrupt_decision`
 - [[Reference/Modules/learnloop/daily_plan/learner_action|learnloop.daily_plan.learner_action]] — imports `module`; statically calls `_dumps`, `_hash`, `_surface`
-- [[Reference/Modules/learnloop/daily_plan/learner_probe|learnloop.daily_plan.learner_probe]] — imports `NO_PROBE_REF`, `PROBE_REF`, `log_learner_probe_decision`; statically calls `log_learner_probe_decision`
+- [[Reference/Modules/learnloop/daily_plan/learner_probe|learnloop.daily_plan.learner_probe]] — imports `NO_PROBE_REF`, `PROBE_REF`, `automatic_probe_decision`, `learner_probe_decision`, `log_learner_probe_decision`; statically calls `automatic_probe_decision`, `learner_probe_decision`, `log_learner_probe_decision`
+- [[Reference/Modules/learnloop/daily_plan/probe_continuation|learnloop.daily_plan.probe_continuation]] — imports `CONTINUATION_STOP_REF`, `PROBE_REF`, `log_probe_continuation_decision`, `probe_continuation_decisions`, `probe_continuation_receipt_key`; statically calls `log_probe_continuation_decision`, `probe_continuation_decisions`, `probe_continuation_receipt_key`
 - [[Reference/Modules/learnloop/daily_plan/router_chooser|learnloop.daily_plan.router_chooser]] — imports `module`
-- [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] — imports `PROBE_REF`, `learner_probe_decision`; statically calls `learner_probe_decision`
-- [[Reference/Modules/learnloop/diagnosis/probe_offer|learnloop.diagnosis.probe_offer]] — imports `PROBE_REF`, `learner_probe_decision`; statically calls `learner_probe_decision`
+- [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] — imports `INSERT_REF`, `PROBE_REF`, `automatic_probe_decision`, `learner_probe_decision`; statically calls `automatic_probe_decision`, `learner_probe_decision`
+- [[Reference/Modules/learnloop/diagnosis/probe_offer|learnloop.diagnosis.probe_offer]] — imports `PROBE_REF`, `automatic_probe_decision`, `learner_probe_decision`; statically calls `automatic_probe_decision`, `learner_probe_decision`
 - [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]] — imports `existing_followup_decision`, `log_followup_decision`; statically calls `existing_followup_decision`, `log_followup_decision`
+- [[Reference/Modules/learnloop/router/outcomes|learnloop.router.outcomes]] — imports `LEARNER_PROBE_SURFACE`, `PROBE_CONTINUATION_SURFACE`
 
 ## Dependencies
 
@@ -151,6 +165,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `parse_utc`, `utc_now_iso`; calls `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/db/stores/embedding_vectors|learnloop.db.stores.embedding_vectors]] — imports `put_vector`; calls `put_vector`
+- [[Reference/Modules/learnloop/db/stores/followup_serve|learnloop.db.stores.followup_serve]] — imports `module`; calls `present`
 - [[Reference/Modules/learnloop/db/stores/router|learnloop.db.stores.router]] — imports `ROUTER_LOG_VERSION`, `append_router_decision`, `append_router_payload`, `prune_router_payloads`; calls `append_router_decision`, `append_router_payload`, `prune_router_payloads`
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
 - [[Reference/Modules/learnloop/plan_refs|learnloop.plan_refs]] — imports `LESSON_OFFER_PREFIX`, `STOP_FOR_TODAY`
@@ -167,7 +182,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/learner_action|learnloop.daily_plan.learner_action]], [[Reference/Modules/learnloop/daily_plan/learner_probe|learnloop.daily_plan.learner_probe]], [[Reference/Modules/learnloop/daily_plan/router_chooser|learnloop.daily_plan.router_chooser]], [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] and 2 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/learner_action|learnloop.daily_plan.learner_action]], [[Reference/Modules/learnloop/daily_plan/learner_probe|learnloop.daily_plan.learner_probe]], [[Reference/Modules/learnloop/daily_plan/probe_continuation|learnloop.daily_plan.probe_continuation]], [[Reference/Modules/learnloop/daily_plan/router_chooser|learnloop.daily_plan.router_chooser]] and 4 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -179,7 +194,15 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_restraint_keeps_the_floor_on_not_ready_too`
 - [tests/test_plan_refs.py](../../../../../../tests/test_plan_refs.py) — direct import
   - `test_the_strings_keep_their_bytes_and_every_layer_reads_the_leafs`
+- [tests/test_probe_router_continuation.py](../../../../../../tests/test_probe_router_continuation.py) — direct import
+  - `test_a_flat_instrument_the_router_asks_is_admitted_and_served_first_whatever_its_eig`
+  - `test_a_router_stop_completes_the_episode_with_its_own_reason`
+  - `test_the_router_decides_the_next_observation_once_with_its_exact_served_distribution`
 - [tests/test_probe_router_decision_integrity.py](../../../../../../tests/test_probe_router_decision_integrity.py) — direct import
+  - `test_r11_a_probe_the_automatic_lane_asked_is_the_factors_one_probe`
+  - `test_r11_the_learner_lane_reads_the_automatic_lanes_decision_and_flips_no_coin`
+  - `test_r12_the_status_and_its_decision_are_the_shown_factors_never_the_oldest`
+  - `test_r17_both_arms_freeze_one_outcome_target_the_factors_learning_object`
   - `test_r20_a_tiny_share_is_still_an_exact_propensity`
   - `test_r4_a_failed_write_never_turns_a_drawn_lesson_into_the_probe`
 - [tests/test_probe_router_learner_lane.py](../../../../../../tests/test_probe_router_learner_lane.py) — direct import

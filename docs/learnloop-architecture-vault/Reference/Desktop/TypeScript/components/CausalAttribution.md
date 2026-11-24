@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/components/CausalAttribution.tsx](../../../../../../apps/learnloop-tauri/src/components/CausalAttribution.tsx) |
-| Source lines | 1294 |
+| Source lines | 1324 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/components/_area|TypeScript/components]] |
 | Refactor status | `ACTIVE` |
@@ -59,8 +59,11 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export function probeOfferCopy(reason: string): string` — function, line 375
 - `export function CausalRepairStatusPanel(` — function, line 379
 - `export function useCausalRepairActions(` — function, line 498
-- `export function CausalFeedbackPanel(` — function, line 577
-- `export function CausalEpisodeInspector(` — function, line 918
+- `export const ROUTER_DECISION_POLL_FIRST_MS = 500` — const, line 580
+- `export const ROUTER_DECISION_POLL_TRIES = 6` — const, line 581
+- `export function useRouterDecisionPoll( status: CausalRepairStatusDto | null, reread: ()` — function, line 587
+- `export function CausalFeedbackPanel(` — function, line 607
+- `export function CausalEpisodeInspector(` — function, line 948
 
 ## Internal implementation anchors
 
@@ -98,50 +101,53 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const color = primary ? COLOR.cyan : COLOR.amber` — const, line 459
 - `const runAction = useCallback( (actionId: CausalRepairActionId, status: CausalRepairStatusDto)` — const, line 513
 - `const factorId = status.factorId` — const, line 515
-- `const refresh = ()` — const, line 519
-- `const done = ()` — const, line 523
-- `const fail = (error: unknown)` — const, line 524
-- `const offer = result.offer` — const, line 537
-- `const graderFeedback = feedback.unverified.filter( (claim)` — const, line 605
-- `const nonHypothesisUnverified = feedback.unverified.filter( (claim)` — const, line 608
-- `const correctionRemainsUnverified = graderFeedback.length > 0 && feedback.verifiedCorrection === null` — const, line 611
-- `const hasUnverifiedClaims = nonHypothesisUnverified.length > 0 || feedback.causalHypotheses.length > 0 || correctionRemainsUnverified` — const, line 613
-- `const canContest = Boolean(feedback.contestAction.available && onContest)` — const, line 617
-- `const statement = claim.statement?.trim()` — const, line 636
-- `const statement = claim.statement?.trim()` — const, line 741
-- `function AuditRow(` — function, line 885
-- `function observedEvidence(hypothesis: CausalHypothesisDto): string | null` — function, line 903
-- `const value = hypothesis.evidence?.observedEvidence` — const, line 904
-- `function recordString(record: Record<string, unknown> | null, key: string): string | null` — function, line 908
-- `const value = record?.[key]` — const, line 909
-- `function recordNumber(record: Record<string, unknown> | null, key: string): number | null` — function, line 913
-- `const value = record?.[key]` — const, line 914
-- `const receipt = episode?.receipt` — const, line 919
-- `const hypothesisById = new Map( (episode?.hypotheses ?? []).map((hypothesis)` — const, line 928
-- `const axesById = new Map(receipt.attributionAxes.map((axis)` — const, line 931
-- `const orderedRefs = [...receipt.hypotheses].sort((left, right)` — const, line 932
-- `const leftRank = receipt.ordinalRanking.indexOf(left.id)` — const, line 933
-- `const rightRank = receipt.ordinalRanking.indexOf(right.id)` — const, line 934
-- `const selected = receipt.repairSelection.selected` — const, line 938
-- `const legacyTaxonomy = receipt.mechanismTaxonomy ??` — const, line 939
-- `const taxonomyClusters = Array.isArray(legacyTaxonomy.clusters) ? legacyTaxonomy.clusters : []` — const, line 940
-- `const taxonomyAbstained = Array.isArray(legacyTaxonomy.abstained) ? legacyTaxonomy.abstained : []` — const, line 943
-- `const tone = criterion.fullCredit ? COLOR.green : criterion.assessable ? COLOR.red : COLOR.textFaint` — const, line 968
-- `const mark = criterion.fullCredit ? "✓" : criterion.assessable ? "✗" : "·"` — const, line 969
-- `const hypothesis = hypothesisById.get(ref.id)` — const, line 1008
-- `const axis = axesById.get(ref.id)` — const, line 1010
-- `const support = receipt.supportScores[ref.id]` — const, line 1011
-- `const evidence = observedEvidence(hypothesis)` — const, line 1012
-- `const errorType = recordString(hypothesis.evidence, "errorType")` — const, line 1013
-- `const severity = recordNumber(hypothesis.evidence, "severity")` — const, line 1014
-- `const observedSignature = recordString(hypothesis.evidence, "observedSignature")` — const, line 1015
-- `const preregisteredSignature = recordString( hypothesis.evidence, "preregisteredSignature", )` — const, line 1016
-- `const applicabilitySurface = recordString(hypothesis.applicability, "surfaceFamily")` — const, line 1020
-- `const criterion = typeof claim.criterionId === "string" ? claim.criterionId : null` — const, line 1071
-- `const must = typeof claim.must === "string" ? humanize(claim.must) : null` — const, line 1073
-- `const cluster = raw && typeof raw === "object" && !Array.isArray(raw) ? raw as Record<string, unknown> :` — const, line 1241
-- `const group = raw && typeof raw === "object" && !Array.isArray(raw) ? raw as Record<string, unknown> :` — const, line 1260
-- `function AuditMetric(` — function, line 1287
+- `const refresh = ()` — const, line 520
+- `const done = ()` — const, line 524
+- `const fail = (error: unknown)` — const, line 525
+- `const offer = result.offer` — const, line 538
+- `const tries = useRef(0)` — const, line 591
+- `const wait = ROUTER_DECISION_POLL_FIRST_MS * 2 ** tries.current` — const, line 598
+- `const timer = setTimeout(()` — const, line 600
+- `const graderFeedback = feedback.unverified.filter( (claim)` — const, line 635
+- `const nonHypothesisUnverified = feedback.unverified.filter( (claim)` — const, line 638
+- `const correctionRemainsUnverified = graderFeedback.length > 0 && feedback.verifiedCorrection === null` — const, line 641
+- `const hasUnverifiedClaims = nonHypothesisUnverified.length > 0 || feedback.causalHypotheses.length > 0 || correctionRemainsUnverified` — const, line 643
+- `const canContest = Boolean(feedback.contestAction.available && onContest)` — const, line 647
+- `const statement = claim.statement?.trim()` — const, line 666
+- `const statement = claim.statement?.trim()` — const, line 771
+- `function AuditRow(` — function, line 915
+- `function observedEvidence(hypothesis: CausalHypothesisDto): string | null` — function, line 933
+- `const value = hypothesis.evidence?.observedEvidence` — const, line 934
+- `function recordString(record: Record<string, unknown> | null, key: string): string | null` — function, line 938
+- `const value = record?.[key]` — const, line 939
+- `function recordNumber(record: Record<string, unknown> | null, key: string): number | null` — function, line 943
+- `const value = record?.[key]` — const, line 944
+- `const receipt = episode?.receipt` — const, line 949
+- `const hypothesisById = new Map( (episode?.hypotheses ?? []).map((hypothesis)` — const, line 958
+- `const axesById = new Map(receipt.attributionAxes.map((axis)` — const, line 961
+- `const orderedRefs = [...receipt.hypotheses].sort((left, right)` — const, line 962
+- `const leftRank = receipt.ordinalRanking.indexOf(left.id)` — const, line 963
+- `const rightRank = receipt.ordinalRanking.indexOf(right.id)` — const, line 964
+- `const selected = receipt.repairSelection.selected` — const, line 968
+- `const legacyTaxonomy = receipt.mechanismTaxonomy ??` — const, line 969
+- `const taxonomyClusters = Array.isArray(legacyTaxonomy.clusters) ? legacyTaxonomy.clusters : []` — const, line 970
+- `const taxonomyAbstained = Array.isArray(legacyTaxonomy.abstained) ? legacyTaxonomy.abstained : []` — const, line 973
+- `const tone = criterion.fullCredit ? COLOR.green : criterion.assessable ? COLOR.red : COLOR.textFaint` — const, line 998
+- `const mark = criterion.fullCredit ? "✓" : criterion.assessable ? "✗" : "·"` — const, line 999
+- `const hypothesis = hypothesisById.get(ref.id)` — const, line 1038
+- `const axis = axesById.get(ref.id)` — const, line 1040
+- `const support = receipt.supportScores[ref.id]` — const, line 1041
+- `const evidence = observedEvidence(hypothesis)` — const, line 1042
+- `const errorType = recordString(hypothesis.evidence, "errorType")` — const, line 1043
+- `const severity = recordNumber(hypothesis.evidence, "severity")` — const, line 1044
+- `const observedSignature = recordString(hypothesis.evidence, "observedSignature")` — const, line 1045
+- `const preregisteredSignature = recordString( hypothesis.evidence, "preregisteredSignature", )` — const, line 1046
+- `const applicabilitySurface = recordString(hypothesis.applicability, "surfaceFamily")` — const, line 1050
+- `const criterion = typeof claim.criterionId === "string" ? claim.criterionId : null` — const, line 1101
+- `const must = typeof claim.must === "string" ? humanize(claim.must) : null` — const, line 1103
+- `const cluster = raw && typeof raw === "object" && !Array.isArray(raw) ? raw as Record<string, unknown> :` — const, line 1271
+- `const group = raw && typeof raw === "object" && !Array.isArray(raw) ? raw as Record<string, unknown> :` — const, line 1290
+- `function AuditMetric(` — function, line 1317
 
 ## Who imports or calls it
 
@@ -150,8 +156,8 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - [[Reference/Desktop/TypeScript/components/InspectorOverlay|src/components/InspectorOverlay.tsx]] — import-or-re-export: `CausalEpisodeInspector`, `formatCausalTarget`, `formatDivergenceAnchor`; references `CausalEpisodeInspector`, `formatCausalTarget`, `formatDivergenceAnchor`
 - [[Reference/Desktop/TypeScript/components/ProbeBlockResult|src/components/ProbeBlockResult.tsx]] — import-or-re-export: `CausalFeedbackPanel`; references `CausalFeedbackPanel`
-- [[Reference/Desktop/TypeScript/screens/FeedbackScreen|src/screens/FeedbackScreen.tsx]] — import-or-re-export: `CausalFeedbackPanel`, `formatCausalTarget`, `formatDivergenceAnchor`, `useCausalRepairActions`; references `CausalFeedbackPanel`, `formatCausalTarget`, `formatDivergenceAnchor`, `useCausalRepairActions`
-- [[Reference/Desktop/TypeScript/screens/RepairScreen|src/screens/RepairScreen.tsx]] — import-or-re-export: `CausalRepairStatusPanel`, `useCausalRepairActions`; references `CausalRepairStatusPanel`, `useCausalRepairActions`
+- [[Reference/Desktop/TypeScript/screens/FeedbackScreen|src/screens/FeedbackScreen.tsx]] — import-or-re-export: `CausalFeedbackPanel`, `formatCausalTarget`, `formatDivergenceAnchor`, `useCausalRepairActions`, `useRouterDecisionPoll`; references `CausalFeedbackPanel`, `formatCausalTarget`, `formatDivergenceAnchor`, `useCausalRepairActions`, `useRouterDecisionPoll`
+- [[Reference/Desktop/TypeScript/screens/RepairScreen|src/screens/RepairScreen.tsx]] — import-or-re-export: `CausalRepairStatusPanel`, `useCausalRepairActions`, `useRouterDecisionPoll`; references `CausalRepairStatusPanel`, `useCausalRepairActions`, `useRouterDecisionPoll`
 
 ## Dependencies
 

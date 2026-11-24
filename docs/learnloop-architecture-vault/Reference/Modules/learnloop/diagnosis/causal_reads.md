@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/causal_reads.py](../../../../../../src/learnloop/diagnosis/causal_reads.py) |
-| Source lines | 377 |
+| Source lines | 386 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -56,8 +56,9 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 - `open_factors_for_hypothesis(repository: Repository, causal_hypothesis_id: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/causal_reads.py), line 48) — Open cause factors on this hypothesis' own learning object (§3.9).
 - `diagnosis_receipt(repository: Repository, attempt_id: str | None) -> Mapping[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/causal_reads.py), line 153)
-- `class DiscriminationInputs` ([source](../../../../../../src/learnloop/diagnosis/causal_reads.py), line 296) — The two EVSI terms plus where each came from (standing constraint 4).
-- `class CausalRepairError(ValueError)` ([source](../../../../../../src/learnloop/diagnosis/causal_reads.py), line 375) — The repair case itself is unusable (no such misconception / candidate).
+- `probe_burden_minutes(repository: Repository, practice_item_id: str | None, default_minutes: float) -> tuple[float, str]` ([source](../../../../../../src/learnloop/diagnosis/causal_reads.py), line 282) — A probe's minutes and their source, as the repair status reads them (the instrument card's expected seconds, else ``default_minutes``): the probe router's continuation prices its next instrument with the same read.
+- `class DiscriminationInputs` ([source](../../../../../../src/learnloop/diagnosis/causal_reads.py), line 305) — The two EVSI terms plus where each came from (standing constraint 4).
+- `class CausalRepairError(ValueError)` ([source](../../../../../../src/learnloop/diagnosis/causal_reads.py), line 384) — The repair case itself is unusable (no such misconception / candidate).
 
 ### Module constants
 
@@ -76,8 +77,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `_repair_class_by_hypothesis(causes: Sequence[Mapping[str, Any]]) -> dict[str, str]` ([source](../../../../../../src/learnloop/diagnosis/causal_reads.py), line 192)
 - `_avoided_overteaching_minutes(repository: Repository, *, attempt_id: str | None, repair_class_ids: Sequence[str], default_minutes: float) -> tuple[float, str]` ([source](../../../../../../src/learnloop/diagnosis/causal_reads.py), line 206) — Expected teaching minutes a discriminating answer would save, + provenance.
 - `_probe_burden_minutes(repository: Repository, practice_item_id: str | None, default_minutes: float) -> tuple[float, str]` ([source](../../../../../../src/learnloop/diagnosis/causal_reads.py), line 259) — Probe burden from the instrument card's own expected seconds, + provenance.
-- `_recent_diagnostic_burden(repository: Repository, learning_object_id: str, window: int) -> int` ([source](../../../../../../src/learnloop/diagnosis/causal_reads.py), line 282)
-- `_discrimination_inputs(candidate: Mapping[str, Any] | None, repair_class_by_hypothesis: Mapping[str, str]) -> DiscriminationInputs` ([source](../../../../../../src/learnloop/diagnosis/causal_reads.py), line 307) — ``(expected_information_gain, p(information changes the repair))``.
+- `_recent_diagnostic_burden(repository: Repository, learning_object_id: str, window: int) -> int` ([source](../../../../../../src/learnloop/diagnosis/causal_reads.py), line 291)
+- `_discrimination_inputs(candidate: Mapping[str, Any] | None, repair_class_by_hypothesis: Mapping[str, str]) -> DiscriminationInputs` ([source](../../../../../../src/learnloop/diagnosis/causal_reads.py), line 316) — ``(expected_information_gain, p(information changes the repair))``.
 
 ## Who imports or calls it
 
@@ -85,12 +86,14 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `MACHINE_CHECK_INSTRUMENT_COMMISSIONING`
+- [[Reference/Modules/learnloop/daily_plan/learner_probe|learnloop.daily_plan.learner_probe]] — imports `CausalRepairError`
+- [[Reference/Modules/learnloop/daily_plan/probe_continuation|learnloop.daily_plan.probe_continuation]] — imports `probe_burden_minutes`; statically calls `probe_burden_minutes`
 - [[Reference/Modules/learnloop/diagnosis/causal_cold_verification|learnloop.diagnosis.causal_cold_verification]] — imports `CAUSAL_ORCHESTRATOR_FORMULA_VERSION`, `_case_repair_class_id`, `_receipt_repair_class_id`, `diagnosis_receipt`, `open_factors_for_hypothesis`; statically calls `_case_repair_class_id`, `_receipt_repair_class_id`, `diagnosis_receipt`, `open_factors_for_hypothesis`
 - [[Reference/Modules/learnloop/diagnosis/causal_discrimination|learnloop.diagnosis.causal_discrimination]] — imports `CAUSAL_ORCHESTRATOR_FORMULA_VERSION`, `CausalRepairError`; statically calls `CausalRepairError`
 - [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] — imports `CAUSAL_ORCHESTRATOR_FORMULA_VERSION`, `CausalRepairError`, `_avoided_overteaching_minutes`, `_case_repair_class_id`, `_discrimination_inputs`, `_durable_case_factor`, `_probe_burden_minutes`, `_recent_diagnostic_burden`, `_repair_class_by_hypothesis`, `_unmapped_case_obligation`, `diagnosis_receipt`, `open_factors_for_hypothesis`; statically calls `CausalRepairError`, `_avoided_overteaching_minutes`, `_case_repair_class_id`, `_discrimination_inputs`, `_durable_case_factor`, `_probe_burden_minutes`, `_recent_diagnostic_burden`, `_repair_class_by_hypothesis`, `_unmapped_case_obligation`, `diagnosis_receipt`, `open_factors_for_hypothesis`
 - [[Reference/Modules/learnloop/diagnosis/followups|learnloop.diagnosis.followups]] — imports `CausalRepairError`
 - [[Reference/Modules/learnloop/diagnosis/machine_checks|learnloop.diagnosis.machine_checks]] — imports `CAUSAL_ORCHESTRATOR_FORMULA_VERSION`, `MACHINE_CHECK_INSTRUMENT_COMMISSIONING`, `MACHINE_CHECK_REPAIR_MAPPING`, `PROBE_BLOCKING_MACHINE_CHECK_KINDS`, `SWEPT_MACHINE_CHECK_KINDS`
-- [[Reference/Modules/learnloop/diagnosis/probe_offer|learnloop.diagnosis.probe_offer]] — imports `CAUSAL_ORCHESTRATOR_FORMULA_VERSION`
+- [[Reference/Modules/learnloop/diagnosis/probe_offer|learnloop.diagnosis.probe_offer]] — imports `CAUSAL_ORCHESTRATOR_FORMULA_VERSION`, `CausalRepairError`
 - [[Reference/Modules/learnloop/diagnosis/remediation|learnloop.diagnosis.remediation]] — imports `CausalRepairError`
 - [[Reference/Modules/learnloop_sidecar/handlers/remediation|learnloop_sidecar.handlers.remediation]] — imports `CausalRepairError`
 
@@ -113,7 +116,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/diagnosis/causal_cold_verification|learnloop.diagnosis.causal_cold_verification]], [[Reference/Modules/learnloop/diagnosis/causal_discrimination|learnloop.diagnosis.causal_discrimination]], [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]], [[Reference/Modules/learnloop/diagnosis/followups|learnloop.diagnosis.followups]] and 4 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/daily_plan/learner_probe|learnloop.daily_plan.learner_probe]], [[Reference/Modules/learnloop/daily_plan/probe_continuation|learnloop.daily_plan.probe_continuation]], [[Reference/Modules/learnloop/diagnosis/causal_cold_verification|learnloop.diagnosis.causal_cold_verification]], [[Reference/Modules/learnloop/diagnosis/causal_discrimination|learnloop.diagnosis.causal_discrimination]] and 6 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

@@ -808,6 +808,25 @@ def router_selected_episode(vault: LoadedVault, repository: Repository, episode:
     return False
 
 
+def router_pinned_item(repository: Repository, episode: Any) -> str | None:
+    """The item of the router's standing, unanswered pin in this episode, or None: a presentation committed for a
+    decision the probe router made at its tag that asked the probe (the learner lane's accepted offer, a continuation),
+    not yet answered or ended. The automatic lane's workflow pin keeps its own serving path, so it is not one. Its
+    item is the router's decision: the doors admit it by that decision, whatever its EIG."""
+
+    from learnloop.diagnosis.probe_authority import ROUTER_DECISION_KEY, decision_owns
+
+    if episode is None:
+        return None
+    standing = repository.active_probe_presentation(str(episode.id))
+    if standing is None or standing.status not in ("selected", "served"):
+        return None
+    pin = (standing.selection_components or {}).get("causal_probe")
+    if not isinstance(pin, Mapping) or pin.get("followup_workflow_id") or not pin.get(ROUTER_DECISION_KEY):
+        return None
+    return str(standing.practice_item_id) if decision_owns(repository, pin.get(ROUTER_DECISION_KEY)) else None
+
+
 def episode_hypothesis_set(
     repository: Repository, episode: ProbeEpisodeRecord
 ) -> HypothesisSet | None:
@@ -862,11 +881,13 @@ def eligible_instruments(
     if hypothesis_set is None:
         return []
     # FG1 §5: a workflow's pinned probe holds this episode until it is answered or closed: a
-    # routine selection committing another presentation would supersede the pin.
+    # routine selection committing another presentation would supersede the pin. So does a router's accepted
+    # learner-lane pin: the router's decision named it, and only its answer, the learner's refusal at
+    # its door, or the episode's end lets it go.
     standing = repository.active_probe_presentation(episode.id)
     if standing is not None and standing.practice_item_id != reserved_for:
         pin = dict(standing.selection_components or {}).get("causal_probe")
-        if isinstance(pin, Mapping) and pin.get("followup_workflow_id"):
+        if isinstance(pin, Mapping) and (pin.get("followup_workflow_id") or pin.get("router_decision_id")):
             return []
     # Learner-set LO lifecycle: no item of a dormant/resolved LO is administered,
     # as a probe or otherwise (vault.lifecycle).
@@ -1387,6 +1408,23 @@ def answer_exposure(
     if admissibility is None or admissibility.admissible:
         return None
     return str(admissibility.reason or "not_independent")
+
+
+def known_exposure(vault: LoadedVault, repository: Repository, *, practice_item_id: str,
+                   learning_object_id: str | None, at: str) -> str | None:
+    """Why an answer given at ``at`` to a probe of this item would not be an independent production, as its admission
+    will judge it, or None: the reveal window :func:`probe_answer_admissibility` reads (a reveal on the item or
+    anywhere on its learning object before the answer), read before any answer exists (the router
+    prices the probe with what its answer will be worth). Below the evidence reading fixes (mvp-0.61) an episode
+    observation never asked, so None there."""
+
+    from learnloop.algorithm_versions import evidence_reading_fixes_on
+
+    if not evidence_reading_fixes_on(vault.config):
+        return None
+    admissibility = production_admissibility(repository, practice_item_id=practice_item_id,
+                                             learning_object_id=learning_object_id, produced_at=at, read_at=at)
+    return None if admissibility.admissible else str(admissibility.reason or "not_independent")
 
 
 def effective_episode_observations(vault: LoadedVault, repository: Repository, episode_id: str) -> list[dict[str, Any]]:

@@ -152,6 +152,7 @@ from learnloop.db.stores import data_capture as capture_store
 from learnloop.db.stores.plan_presentations import presentations_for_blocks
 from learnloop.db.stores.router import OVERRIDE_KEY_PREFIX, replace_router_outcomes
 from learnloop.outcome_contract import RETENTION_MIN_DELAY_SECONDS, retention_exclusions
+from learnloop.router.plan_log import LEARNER_PROBE_SURFACE, PROBE_CONTINUATION_SURFACE
 
 OUTCOME_VERSION = "router_outcomes_v2"
 
@@ -1281,7 +1282,7 @@ def derive_router_outcomes(
     decisions = [
         dict(row)
         for row in connection.execute(
-            "SELECT id, receipt_key, decision_kind, session_id, created_at, chosen_ref, chosen_practice_item_id, "
+            "SELECT id, receipt_key, decision_kind, surface, session_id, created_at, chosen_ref, chosen_practice_item_id, "
             "chosen_learning_object_id, chosen_scheduler_candidate_id, parent_decision_id, "
             "CASE WHEN decision_kind = 'lesson_suggestion' THEN detail_json END AS detail_json "
             "FROM router_decisions ORDER BY created_at, id"
@@ -1318,7 +1319,12 @@ def derive_router_outcomes(
             outcomes.append(_suggestion_outcome(decision, ledger, pfc_states, suggestion_responses))
             continue
         objective = frozen.get(decision["id"])
-        if objective is not None and objective.get("arm") in ACTIONLESS_ARMS:
+        # The probe router's learner lane and its continuations: asking the probe and not asking it are measured
+        # on the one target both froze (the factor's learning object), intention to treat, whether or not the offer
+        # was taken: an answer to the offered item outside the offer is never this decision's action.
+        if objective is not None and (objective.get("arm") in ACTIONLESS_ARMS
+                                      or decision.get("surface") in (LEARNER_PROBE_SURFACE,
+                                                                     PROBE_CONTINUATION_SURFACE)):
             outcomes.append(_objective_outcome(decision, objective, ledger, pfc_states,
                                                states.get(decision["id"], ()), reading_started))
             continue

@@ -23,11 +23,11 @@ source_paths:
   - "src/learnloop/evsi_calibration/live_report.py"
   - "src/learnloop/placement/state.py"
   - "src/learnloop/router_objective/decision_state.py"
+  - "src/learnloop/daily_plan/probe_continuation.py"
   - "src/learnloop/diagnosis/diagnostic_pack.py"
   - "src/learnloop/diagnosis/probe_audit.py"
   - "src/learnloop/diagnosis/probe_blocks.py"
   - "src/learnloop/diagnosis/probe_episodes.py"
-  - "src/learnloop/diagnosis/probe_evidence.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -115,6 +115,7 @@ Indexes and uniqueness:
 
 ### Upstream callers of the repository access surface
 
+- `src/learnloop/daily_plan/probe_continuation.py`
 - `src/learnloop/diagnosis/diagnostic_pack.py`
 - `src/learnloop/diagnosis/probe_audit.py`
 - `src/learnloop/diagnosis/probe_blocks.py`

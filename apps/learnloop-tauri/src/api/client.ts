@@ -829,9 +829,20 @@ export const api = {
   // One orchestration service behind four RPCs. `causalRepairStatus` is a pure
   // read (it records the decision receipt but mints no remediation episode);
   // the three action calls are the learner offer.
-  causalRepairStatus: (misconceptionId: string, sessionId?: string | null) =>
+  // `scope` names the factor the screen shows: its `factorId` once a status has named it, else
+  // the `attemptId` the feedback is for. A cause can sit in two open factors; without it the oldest is read.
+  causalRepairStatus: (
+    misconceptionId: string,
+    sessionId?: string | null,
+    scope?: { factorId?: string | null; attemptId?: string | null },
+  ) =>
     call<CausalRepairStatusResultDto>("causal_repair_status", {
-      input: { misconceptionId, sessionId: sessionId ?? null }
+      input: {
+        misconceptionId,
+        sessionId: sessionId ?? null,
+        factorId: scope?.factorId ?? null,
+        attemptId: scope?.attemptId ?? null
+      }
     }),
   /** "Take the quick check" — enter the factor-aware episode and pin the probe. */
   causalProbeOfferAction: (input: {
@@ -1394,8 +1405,14 @@ export const api = {
   getReviewLog: () => call<ReviewLogDto>("get_review_log"),
   // Returns `episode: null` + the typed §6 `repairStatus` when the causal state
   // holds the branch-specific repair — a state to render, not an error to toast.
-  startRemediation: (misconceptionId: string) =>
-    mutating(ATTEMPT_TAGS, call<StartRemediationDto>("start_remediation", { misconceptionId })),
+  // `factorId` and `sessionId`: the factor the repair was opened for, and the session whose
+  // "Not now" applies at the entry. Omitted by surfaces that name only the cause.
+  startRemediation: (misconceptionId: string, scope?: { factorId?: string | null; sessionId?: string | null }) =>
+    mutating(ATTEMPT_TAGS, call<StartRemediationDto>("start_remediation", {
+      misconceptionId,
+      ...(scope?.factorId ? { factorId: scope.factorId } : {}),
+      ...(scope?.sessionId ? { sessionId: scope.sessionId } : {})
+    })),
   prescribeRemediation: (episodeId: string) =>
     call<RemediationDto>("prescribe_remediation", { episodeId }),
   startRemediationTreatment: (episodeId: string) =>

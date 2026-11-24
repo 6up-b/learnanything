@@ -164,6 +164,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_v4_record_reveal_keeps_swallowing_for_its_existing_callers`
 - [tests/test_library_exercises.py](../../../../../../tests/test_library_exercises.py) — direct import
   - `test_r3_verify_f11_admission_reads_the_bound_items_own_exposure_and_says_practice_only`
+- [tests/test_probe_router_decision_integrity.py](../../../../../../tests/test_probe_router_decision_integrity.py) — direct import
+  - `test_r14_a_reveal_on_the_learning_object_prices_the_probe_exposed`
 - [tests/test_serve_eligibility.py](../../../../../../tests/test_serve_eligibility.py) — direct import
   - `test_submit_exposure_is_the_sql_total_row_for_row`
   - `test_the_cold_delay_is_the_remediation_delay_and_the_constants_are_one`

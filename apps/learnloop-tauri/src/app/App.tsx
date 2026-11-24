@@ -322,6 +322,8 @@ export function App() {
   // tab. openRepair is the App-level entry point — wire it to Feedback's "repair
   // this" and Today cards as well (pass onRepair={openRepair}).
   const [repairMisconceptionId, setRepairMisconceptionId] = useState<string | null>(null);
+  // The cause factor the repair was opened for, when the opener knew it.
+  const [repairFactorId, setRepairFactorId] = useState<string | null>(null);
   // A primed item handed off from the repair overlay while NO session was open.
   // Practice needs a session, but discarding the id here stranded the repair
   // episode in `treatment` forever (it is never reused). Stash it, route the
@@ -1661,7 +1663,8 @@ export function App() {
 
   // Launch the F6 Repair flow (§4.10) for a misconception. Shared entry point
   // for Review's working hypotheses and (once wired) Feedback / Today.
-  function openRepair(misconceptionId: string) {
+  function openRepair(misconceptionId: string, factorId?: string | null) {
+    setRepairFactorId(factorId ?? null);
     setRepairMisconceptionId(misconceptionId);
   }
 
@@ -2685,6 +2688,7 @@ export function App() {
       {repairMisconceptionId ? (
         <RepairScreen
           misconceptionId={repairMisconceptionId}
+          factorId={repairFactorId}
           sessionId={session?.sessionId ?? null}
           onClose={() => setRepairMisconceptionId(null)}
           onPractice={(practiceItemId) => {

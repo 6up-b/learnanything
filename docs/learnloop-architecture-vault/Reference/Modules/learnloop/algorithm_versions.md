@@ -172,6 +172,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/daily_plan/learner_probe|learnloop.daily_plan.learner_probe]] — imports `probe_router_on`; statically calls `probe_router_on`
 - [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]] — imports `FAILURE_SHARE_VERSIONS`, `committed_check_delivery_on`; statically calls `committed_check_delivery_on`
 - [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]] — imports `committed_check_delivery_on`, `probe_router_on`; statically calls `committed_check_delivery_on`, `probe_router_on`
+- [[Reference/Modules/learnloop/daily_plan/probe_continuation|learnloop.daily_plan.probe_continuation]] — imports `probe_router_on`; statically calls `probe_router_on`
 - [[Reference/Modules/learnloop/db/attempt_order|learnloop.db.attempt_order]] — imports `APPLICATION_ORDER_VERSIONS`, `application_order_on`; statically calls `application_order_on`
 - [[Reference/Modules/learnloop/diagnosis/causal_attribution|learnloop.diagnosis.causal_attribution]] — imports `evidence_reading_fixes_on`; statically calls `evidence_reading_fixes_on`
 - [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] — imports `probe_router_on`; statically calls `probe_router_on`
@@ -203,6 +204,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/substrate/shadow_rebuild|learnloop.substrate.shadow_rebuild]] — imports `OLDEST_SUPPORTED`
 - [[Reference/Modules/learnloop/substrate/state_sync|learnloop.substrate.state_sync]] — imports `mastery_seed_on`; statically calls `mastery_seed_on`
 - [[Reference/Modules/learnloop/version_floor|learnloop.version_floor]] — imports `LATEST_ALGORITHM_VERSION`, `OLDEST_SUPPORTED`, `RECURRENCE_GROUP_ALGORITHM_VERSION`, `SUCCESSOR_CHAIN`
+- [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `probe_router_on`; statically calls `probe_router_on`
 - [[Reference/Modules/learnloop_sidecar/handlers/remediation|learnloop_sidecar.handlers.remediation]] — imports `probe_router_on`; statically calls `probe_router_on`
 
 ### Repository tooling consumers
@@ -228,7 +230,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/successor|learnloop.adaptive_difficulty.successor]], [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]], [[Reference/Modules/learnloop/attempts/lifecycle_inputs|learnloop.attempts.lifecycle_inputs]], [[Reference/Modules/learnloop/attempts/replay_reading|learnloop.attempts.replay_reading]], [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] and 37 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/successor|learnloop.adaptive_difficulty.successor]], [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]], [[Reference/Modules/learnloop/attempts/lifecycle_inputs|learnloop.attempts.lifecycle_inputs]], [[Reference/Modules/learnloop/attempts/replay_reading|learnloop.attempts.replay_reading]], [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] and 39 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -267,6 +269,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/plan_follows_path_helpers.py](../../../../../tests/plan_follows_path_helpers.py) — direct import
 - [tests/probe_robust_cutover_helpers.py](../../../../../tests/probe_robust_cutover_helpers.py) — direct import
 - [tests/probe_router_helpers.py](../../../../../tests/probe_router_helpers.py) — direct import
+- [tests/probe_router_owned_helpers.py](../../../../../tests/probe_router_owned_helpers.py) — direct import
 - [tests/protection_matrix_helpers.py](../../../../../tests/protection_matrix_helpers.py) — direct import
 - [tests/reader_ca2_codex_rereview_helpers.py](../../../../../tests/reader_ca2_codex_rereview_helpers.py) — direct import
 - [tests/reader_ca2_codex_review_helpers.py](../../../../../tests/reader_ca2_codex_review_helpers.py) — direct import
@@ -526,7 +529,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_probe_router_learner_lane.py](../../../../../tests/test_probe_router_learner_lane.py) — direct import
   - `test_the_tag_is_the_head`
 - [tests/test_probe_router_replay.py](../../../../../tests/test_probe_router_replay.py) — direct import
-- [tests/test_probe_router_worth_gates.py](../../../../../tests/test_probe_router_worth_gates.py) — direct import
 - [tests/test_probe_targeting.py](../../../../../tests/test_probe_targeting.py) — direct import
 - [tests/test_projection_evidence_polarity.py](../../../../../tests/test_projection_evidence_polarity.py) — direct import
 - [tests/test_projection_timeline_agreement.py](../../../../../tests/test_projection_timeline_agreement.py) — direct import

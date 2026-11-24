@@ -279,6 +279,15 @@ def _probe_burden_minutes(
     return default_minutes, "heuristic_default"
 
 
+def probe_burden_minutes(
+    repository: Repository, practice_item_id: str | None, default_minutes: float
+) -> tuple[float, str]:
+    """A probe's minutes and their source, as the repair status reads them (the instrument card's expected seconds,
+    else ``default_minutes``): the probe router's continuation prices its next instrument with the same read."""
+
+    return _probe_burden_minutes(repository, practice_item_id, default_minutes)
+
+
 def _recent_diagnostic_burden(
     repository: Repository, learning_object_id: str, window: int
 ) -> int:

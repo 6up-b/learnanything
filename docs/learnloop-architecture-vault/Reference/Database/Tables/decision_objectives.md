@@ -119,6 +119,8 @@ None found by exact static reference scan.
 - `tests/test_data_capture_landing_review.py`
 - `tests/test_followup_router.py`
 - `tests/test_probe_router_authority.py`
+- `tests/test_probe_router_continuation.py`
+- `tests/test_probe_router_decision_integrity.py`
 - `tests/test_ro0_codex_verify.py`
 - `tests/test_ro0_row10_cold_timing.py`
 - `tests/test_router_objective_migration.py`

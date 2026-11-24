@@ -458,6 +458,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_landing_i_a_too_easy_retirement_during_a_session`
 - [tests/test_practice_index_adapters.py](../../../../../tests/test_practice_index_adapters.py) — direct import
   - `test_sidecar_rpcs`
+- [tests/test_probe_router_decision_integrity.py](../../../../../tests/test_probe_router_decision_integrity.py) — direct import
+  - `test_r12_a_factor_that_is_not_the_causes_is_refused`
 - [tests/test_protection_surface_matrix.py](../../../../../tests/test_protection_surface_matrix.py) — direct import
   - `test_a_completed_pinned_answer_is_refused_once_its_passage_is_held_out`
   - `test_a_completed_pinned_answer_is_refused_when_protection_cannot_be_read`

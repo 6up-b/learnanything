@@ -699,6 +699,7 @@ class SidecarContext:
 
         if self.repository is None:
             return
+        self._resume_probe_router()
         if self.repository.post_attempt_jobs(states=("queued", "leased")):
             self.post_attempt_worker.notify()
             return
@@ -713,6 +714,26 @@ class SidecarContext:
         if pending_followup_jobs(self.repository):
             # FG1 generation left by a previous process, or queued at an episode's entry.
             self.post_attempt_worker.notify()
+
+    def _resume_probe_router(self) -> None:
+        """The probe router's decisions a previous process left waiting: its learner-lane status
+        reads answered ``pending``, or a router-owned episode waits on its next observation, and the job had not
+        decided yet."""
+
+        from learnloop.algorithm_versions import probe_router_on
+
+        if self.vault is None or self.repository is None or not probe_router_on(self.vault.config):
+            return
+        from learnloop.daily_plan import probe_continuation
+        from learnloop.daily_plan.learner_probe import requested
+
+        try:
+            waiting = requested(self.repository) or probe_continuation.requested(self.vault, self.repository)
+        except Exception:  # noqa: BLE001 - startup maintenance never fails an open
+            _LOGGER.warning("probe router decisions not resumed", exc_info=True)
+            return
+        if waiting:
+            self.post_attempt_worker.request_probe_router()
 
     def reload(self, *, maintenance: bool = True) -> None:
         if self.vault_root is None:

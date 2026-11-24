@@ -109,6 +109,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 No test imports this module directly. These tests exercise a direct production consumer:
 
+- [tests/probe_router_owned_helpers.py](../../../../../../../tests/probe_router_owned_helpers.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/voi_stopping|learnloop.diagnosis.voi_stopping]]
 - [tests/test_data_capture_a1_prefilter.py](../../../../../../../tests/test_data_capture_a1_prefilter.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/voi_stopping|learnloop.diagnosis.voi_stopping]]
 - [tests/test_data_capture_codex_review.py](../../../../../../../tests/test_data_capture_codex_review.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/voi_stopping|learnloop.diagnosis.voi_stopping]]
 - [tests/test_due_queue_golden.py](../../../../../../../tests/test_due_queue_golden.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/voi_stopping|learnloop.diagnosis.voi_stopping]]

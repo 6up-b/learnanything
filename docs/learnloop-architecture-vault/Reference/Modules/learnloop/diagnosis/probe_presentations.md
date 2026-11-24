@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/probe_presentations.py](../../../../../../src/learnloop/diagnosis/probe_presentations.py) |
-| Source lines | 568 |
+| Source lines | 620 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -63,16 +63,20 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `commit_presentation(vault: LoadedVault, repository: Repository, episode: ProbeEpisodeRecord, eligible: EligibleInstrument, *, scheduler_candidate_id: str | None=None, extra_selection_components: Mapping[str, Any] | None=None, candidates: list[EligibleInstrument] | None=None, supersede_active: bool=True, clock: Clock | None=None) -> ProbePresentationRecord` ([source](../../../../../../src/learnloop/diagnosis/probe_presentations.py), line 137) — Durably commit the selection before the item is returned to the client.
 - `record_presentation_forecast(vault: LoadedVault, repository: Repository, presentation: ProbePresentationRecord, *, learning_object_id: str | None=None, candidate_count: int | None=None, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/diagnosis/probe_presentations.py), line 194) — EVSI calibration Part B: log the forecast this probe selection ran on.
 - `presentation_commit_payload(vault: LoadedVault, repository: Repository, episode: ProbeEpisodeRecord, eligible: EligibleInstrument, *, scheduler_candidate_id: str | None=None, extra_selection_components: Mapping[str, Any] | None=None, candidates: list[EligibleInstrument] | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/probe_presentations.py), line 246) — Build the frozen presentation row before its owning transaction.
-- `serve_presentation(repository: Repository, presentation_id: str, *, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/diagnosis/probe_presentations.py), line 369) — Mark a committed presentation served: the administration itself, and the only path to ``served``.
-- `probe_serving_block_reason(vault: LoadedVault, repository: Repository, *, session_id: str | None=None, cap_lifted: bool=False) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/probe_presentations.py), line 391) — The §5.9 orchestration gate shared by every serving surface.
-- `probe_value_block_reason(vault: LoadedVault, repository: Repository, episode: 'ProbeEpisodeRecord', practice_item_id: str, *, session_id: str | None=None, cap_lifted: bool=False) -> tuple[str | None, dict[str, Any] | None]` ([source](../../../../../../src/learnloop/diagnosis/probe_presentations.py), line 428) — mvp-0.21 (voi_stopping, site ``probe_episode``): may this item be the episode's next observation?
-- `commit_item_presentation(vault: LoadedVault, repository: Repository, episode: 'ProbeEpisodeRecord', item, hypothesis_set, *, extra_selection_components: Mapping[str, Any] | None=None, clock: Clock | None=None)` ([source](../../../../../../src/learnloop/diagnosis/probe_presentations.py), line 484) — Commit and serve a presentation for one specific item.
-- `class PresentationValidation` ([source](../../../../../../src/learnloop/diagnosis/probe_presentations.py), line 523)
-- `validate_presentation_for_submission(repository: Repository, presentation_id: str, *, practice_item_id: str, attempt_id: str | None=None, clock: Clock | None=None) -> PresentationValidation` ([source](../../../../../../src/learnloop/diagnosis/probe_presentations.py), line 530) — §5.4/§5.1 submission validation: active, same episode/item/segment, unexpired, unconsumed.
+- `class LearnerRefusedPin(Exception)` ([source](../../../../../../src/learnloop/diagnosis/probe_presentations.py), line 373) — The probe router's learner lane: the learner said "Not now", "Teach me now" or no more diagnostics after accepting the quick check, so its pin was retired before it was ever shown.
+  - `__init__(self, presentation_id: str, preference: str) -> None` (line 377; internal)
+- `learner_refused_pin(repository: Repository, presentation: ProbePresentationRecord) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/probe_presentations.py), line 383) — The refusal that retires a learner-lane router pin before its first display, or None: the learner's current preference on the pin's factor, read with the scope the status reads it (the factor, its learning object, the pin's session), when it refuses.
+- `serve_presentation(repository: Repository, presentation_id: str, *, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/diagnosis/probe_presentations.py), line 410) — Mark a committed presentation served: the administration itself, and the only path to ``served``.
+- `probe_serving_block_reason(vault: LoadedVault, repository: Repository, *, session_id: str | None=None, cap_lifted: bool=False) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/probe_presentations.py), line 437) — The §5.9 orchestration gate shared by every serving surface.
+- `probe_value_block_reason(vault: LoadedVault, repository: Repository, episode: 'ProbeEpisodeRecord', practice_item_id: str, *, session_id: str | None=None, cap_lifted: bool=False) -> tuple[str | None, dict[str, Any] | None]` ([source](../../../../../../src/learnloop/diagnosis/probe_presentations.py), line 474) — mvp-0.21 (voi_stopping, site ``probe_episode``): may this item be the episode's next observation?
+- `commit_item_presentation(vault: LoadedVault, repository: Repository, episode: 'ProbeEpisodeRecord', item, hypothesis_set, *, extra_selection_components: Mapping[str, Any] | None=None, clock: Clock | None=None)` ([source](../../../../../../src/learnloop/diagnosis/probe_presentations.py), line 530) — Commit and serve a presentation for one specific item.
+- `class PresentationValidation` ([source](../../../../../../src/learnloop/diagnosis/probe_presentations.py), line 575)
+- `validate_presentation_for_submission(repository: Repository, presentation_id: str, *, practice_item_id: str, attempt_id: str | None=None, clock: Clock | None=None) -> PresentationValidation` ([source](../../../../../../src/learnloop/diagnosis/probe_presentations.py), line 582) — §5.4/§5.1 submission validation: active, same episode/item/segment, unexpired, unconsumed.
 
 ### Module constants
 
 - `PROBE_ITEM_ANSWER_SHOWN` ([src/learnloop/diagnosis/probe_presentations.py](../../../../../../src/learnloop/diagnosis/probe_presentations.py), line 90)
+- `LEARNER_REFUSED_PROBE` ([src/learnloop/diagnosis/probe_presentations.py](../../../../../../src/learnloop/diagnosis/probe_presentations.py), line 370)
 
 ## Internal implementation anchors
 
@@ -84,13 +88,14 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `validate_presentation_for_submission`; statically calls `validate_presentation_for_submission`
+- [[Reference/Modules/learnloop/daily_plan/probe_continuation|learnloop.daily_plan.probe_continuation]] — imports `commit_presentation`; statically calls `commit_presentation`
 - [[Reference/Modules/learnloop/diagnosis/probe_dialogue|learnloop.diagnosis.probe_dialogue]] — imports `RoutineDisplayCovered`, `commit_presentation`, `serve_presentation`; statically calls `commit_presentation`, `serve_presentation`
 - [[Reference/Modules/learnloop/diagnosis/probe_evidence|learnloop.diagnosis.probe_evidence]] — imports `validate_presentation_for_submission`; statically calls `validate_presentation_for_submission`
 - [[Reference/Modules/learnloop/diagnosis/probe_offer|learnloop.diagnosis.probe_offer]] — imports `RoutineDisplayCovered`, `commit_presentation`, `routine_display_covers_item`; statically calls `commit_presentation`, `routine_display_covers_item`
 - [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `RoutineDisplayCovered`, `presentation_commit_payload`, `probe_serving_block_reason`, `record_presentation_forecast`; statically calls `presentation_commit_payload`, `probe_serving_block_reason`, `record_presentation_forecast`
 - [[Reference/Modules/learnloop/sim/diagnostic_validation|learnloop.sim.diagnostic_validation]] — imports `RoutineDisplayCovered`, `commit_presentation`, `serve_presentation`; statically calls `commit_presentation`, `serve_presentation`
 - [[Reference/Modules/learnloop/tui/screens/practice|learnloop.tui.screens.practice]] — imports `commit_item_presentation`, `probe_serving_block_reason`, `probe_value_block_reason`; statically calls `commit_item_presentation`, `probe_serving_block_reason`, `probe_value_block_reason`
-- [[Reference/Modules/learnloop_sidecar/handlers/practice|learnloop_sidecar.handlers.practice]] — imports `PROBE_ITEM_ANSWER_SHOWN`, `RoutineDisplayCovered`, `commit_item_presentation`, `probe_serving_block_reason`, `probe_value_block_reason`, `routine_display_covers_item`, `serve_presentation`, `validate_presentation_for_submission`; statically calls `commit_item_presentation`, `probe_serving_block_reason`, `probe_value_block_reason`, `routine_display_covers_item`, `serve_presentation`, `validate_presentation_for_submission`
+- [[Reference/Modules/learnloop_sidecar/handlers/practice|learnloop_sidecar.handlers.practice]] — imports `LEARNER_REFUSED_PROBE`, `LearnerRefusedPin`, `PROBE_ITEM_ANSWER_SHOWN`, `RoutineDisplayCovered`, `commit_item_presentation`, `probe_serving_block_reason`, `probe_value_block_reason`, `routine_display_covers_item`, `serve_presentation`, `validate_presentation_for_submission`; statically calls `commit_item_presentation`, `probe_serving_block_reason`, `probe_value_block_reason`, `routine_display_covers_item`, `serve_presentation`, `validate_presentation_for_submission`
 
 ## Dependencies
 
@@ -101,7 +106,9 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/db/stores/probes|learnloop.db.stores.probes]] — imports `ProbeEpisodeRecord`
 - [[Reference/Modules/learnloop/diagnosis/probe_completion|learnloop.diagnosis.probe_completion]] — imports `robust_gate_counterfactual`; calls `robust_gate_counterfactual`
 - [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `EligibleInstrument`, `_entropy`, `effective_qualifying_total`, `eligible_instruments`, `episode_hypothesis_set`, `episode_posterior`, `qualifying_observation_count`, `router_selected_episode`, `session_qualifying_total`; calls `_entropy`, `effective_qualifying_total`, `eligible_instruments`, `episode_hypothesis_set`, `episode_posterior`, `qualifying_observation_count`, `router_selected_episode`, `session_qualifying_total`
+- [[Reference/Modules/learnloop/diagnosis/probe_facts|learnloop.diagnosis.probe_facts]] — imports `REFUSING_PREFERENCES`
 - [[Reference/Modules/learnloop/diagnosis/probe_families|learnloop.diagnosis.probe_families]] — imports `SELECTION_POLICY_VERSION`, `instrument_expected_information_gain`; calls `instrument_expected_information_gain`
+- [[Reference/Modules/learnloop/diagnosis/probe_hard_stops|learnloop.diagnosis.probe_hard_stops]] — imports `learner_preference`; calls `learner_preference`
 - [[Reference/Modules/learnloop/diagnosis/probe_robust|learnloop.diagnosis.probe_robust]] — imports `instrument_ensemble`, `load_pinned_channel`; calls `instrument_ensemble`, `load_pinned_channel`
 - [[Reference/Modules/learnloop/diagnosis/robust_composition|learnloop.diagnosis.robust_composition]] — imports `robust_eig_per_second`; calls `robust_eig_per_second`
 - [[Reference/Modules/learnloop/diagnosis/voi_forecasting|learnloop.diagnosis.voi_forecasting]] — imports `record_probe_presentation_forecast`, `record_value_decision_forecast`; calls `record_probe_presentation_forecast`, `record_value_decision_forecast`
@@ -121,7 +128,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/diagnosis/probe_dialogue|learnloop.diagnosis.probe_dialogue]], [[Reference/Modules/learnloop/diagnosis/probe_evidence|learnloop.diagnosis.probe_evidence]], [[Reference/Modules/learnloop/diagnosis/probe_offer|learnloop.diagnosis.probe_offer]], [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] and 3 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/daily_plan/probe_continuation|learnloop.daily_plan.probe_continuation]], [[Reference/Modules/learnloop/diagnosis/probe_dialogue|learnloop.diagnosis.probe_dialogue]], [[Reference/Modules/learnloop/diagnosis/probe_evidence|learnloop.diagnosis.probe_evidence]], [[Reference/Modules/learnloop/diagnosis/probe_offer|learnloop.diagnosis.probe_offer]] and 4 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

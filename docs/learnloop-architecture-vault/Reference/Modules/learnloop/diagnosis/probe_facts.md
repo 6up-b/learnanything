@@ -107,6 +107,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] — imports `ProbeProposalReads`, `REFUSING_PREFERENCES`, `channel_status`, `settled_by_repair_classes`; statically calls `ProbeProposalReads`, `channel_status`, `settled_by_repair_classes`
 - [[Reference/Modules/learnloop/diagnosis/causal_probe_coherence|learnloop.diagnosis.causal_probe_coherence]] — imports `probe_facts`, `probe_verdict`; statically calls `probe_facts`, `probe_verdict`
 - [[Reference/Modules/learnloop/diagnosis/learner_probe_proposal|learnloop.diagnosis.learner_probe_proposal]] — imports `ProbeProposalReads`
+- [[Reference/Modules/learnloop/diagnosis/probe_presentations|learnloop.diagnosis.probe_presentations]] — imports `REFUSING_PREFERENCES`
 - [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]] — imports `settled_by_repair_classes`; statically calls `settled_by_repair_classes`
 
 ### Repository tooling consumers
@@ -131,12 +132,13 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]], [[Reference/Modules/learnloop/diagnosis/causal_probe_coherence|learnloop.diagnosis.causal_probe_coherence]], [[Reference/Modules/learnloop/diagnosis/learner_probe_proposal|learnloop.diagnosis.learner_probe_proposal]], [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]].
+Static participation evidence comes from [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]], [[Reference/Modules/learnloop/diagnosis/causal_probe_coherence|learnloop.diagnosis.causal_probe_coherence]], [[Reference/Modules/learnloop/diagnosis/learner_probe_proposal|learnloop.diagnosis.learner_probe_proposal]], [[Reference/Modules/learnloop/diagnosis/probe_presentations|learnloop.diagnosis.probe_presentations]], [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
+- [tests/probe_router_owned_helpers.py](../../../../../../tests/probe_router_owned_helpers.py) — direct import
 - [tests/test_probe_facts.py](../../../../../../tests/test_probe_facts.py) — direct import
   - `test_a_refusing_preference_is_a_hard_stop`
   - `test_a_session_budget_below_the_burden_as_given_is_a_hard_stop`
@@ -149,7 +151,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_missing_channel_is_a_status_and_not_the_zero_it_is_priced_at`
   - `test_gathering_writes_nothing_and_the_verdict_on_its_facts_is_the_statuss`
   - `test_the_reads_give_the_facts_the_verdict_computes_from_the_same_values`
-- [tests/test_probe_router_worth_gates.py](../../../../../../tests/test_probe_router_worth_gates.py) — direct import
 
 ## Modification guidance
 

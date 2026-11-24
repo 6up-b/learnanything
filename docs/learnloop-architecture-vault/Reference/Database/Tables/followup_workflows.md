@@ -18,6 +18,7 @@ source_paths:
   - "migrations/241_followup_generate_serve.sql"
   - "src/learnloop/db/stores/followup_serve.py"
   - "src/learnloop/recognition/ledger.py"
+  - "src/learnloop/router/plan_log.py"
   - "src/learnloop/router_objective/decision_state.py"
   - "src/learnloop/why/reconstructed.py"
 tags:
@@ -104,6 +105,7 @@ None found by exact static reference scan.
 
 - `src/learnloop/db/stores/followup_serve.py`
 - `src/learnloop/recognition/ledger.py`
+- `src/learnloop/router/plan_log.py`
 - `src/learnloop/router_objective/decision_state.py`
 - `src/learnloop/why/reconstructed.py`
 

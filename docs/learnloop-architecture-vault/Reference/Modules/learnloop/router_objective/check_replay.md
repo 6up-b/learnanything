@@ -46,27 +46,28 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router_objective/check_replay.py](../../../../../../src/learnloop/router_objective/check_replay.py) |
-| Source lines | 142 |
+| Source lines | 161 |
 | Owning package | [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `encode(value: Any) -> Any` ([source](../../../../../../src/learnloop/router_objective/check_replay.py), line 51) — ``value`` as plain JSON values: each supported dataclass as ``{"type", "fields"}`` with every field.
-- `decode(value: Any) -> Any` ([source](../../../../../../src/learnloop/router_objective/check_replay.py), line 65) — :func:`encode`'s inverse (lists come back as tuples); a dataclass missing any field is refused.
-- `untyped(action: Action) -> Action` ([source](../../../../../../src/learnloop/router_objective/check_replay.py), line 80) — ``action`` priced the predecessor's way: each typed check its ``(LO, days)`` pair, through every branch.
-- `carries_typed_checks(actions: Sequence[Action]) -> bool` ([source](../../../../../../src/learnloop/router_objective/check_replay.py), line 96) — Whether any candidate (or a branch of one) carries typed committed checks.
-- `canonical(body: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/router_objective/check_replay.py), line 106)
-- `record(inputs: Inputs, actions: Sequence[Action], *, seed: str, draws: int, first_draws: int, max_draws: int, as_of: str, options: Mapping[str, Any], versions: Mapping[str, Any], sensors: Mapping[str, Any]) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/router_objective/check_replay.py), line 110) — The payload for one decision's numeric answer, or None when a number cannot be written exactly (NaN or an infinity) or a type is not one this format knows: such a decision is not replayable, and says nothing else.
-- `read(stored: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/check_replay.py), line 127) — A stored payload decoded, after its version and digest are checked (``ValueError`` otherwise).
+- `encode(value: Any) -> Any` ([source](../../../../../../src/learnloop/router_objective/check_replay.py), line 66) — ``value`` as plain JSON values: each supported dataclass as ``{"type", "fields"}`` with every field.
+- `decode(value: Any) -> Any` ([source](../../../../../../src/learnloop/router_objective/check_replay.py), line 82) — :func:`encode`'s inverse (lists come back as tuples); a dataclass missing any field is refused.
+- `untyped(action: Action) -> Action` ([source](../../../../../../src/learnloop/router_objective/check_replay.py), line 99) — ``action`` priced the predecessor's way: each typed check its ``(LO, days)`` pair, through every branch.
+- `carries_typed_checks(actions: Sequence[Action]) -> bool` ([source](../../../../../../src/learnloop/router_objective/check_replay.py), line 115) — Whether any candidate (or a branch of one) carries typed committed checks.
+- `canonical(body: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/router_objective/check_replay.py), line 125)
+- `record(inputs: Inputs, actions: Sequence[Action], *, seed: str, draws: int, first_draws: int, max_draws: int, as_of: str, options: Mapping[str, Any], versions: Mapping[str, Any], sensors: Mapping[str, Any]) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/router_objective/check_replay.py), line 129) — The payload for one decision's numeric answer, or None when a number cannot be written exactly (NaN or an infinity) or a type is not one this format knows: such a decision is not replayable, and says nothing else.
+- `read(stored: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/check_replay.py), line 146) — A stored payload decoded, after its version and digest are checked (``ValueError`` otherwise).
 
 ### Module constants
 
-- `REPLAY_VERSION` ([src/learnloop/router_objective/check_replay.py](../../../../../../src/learnloop/router_objective/check_replay.py), line 43)
-- `TRACE_KEY` ([src/learnloop/router_objective/check_replay.py](../../../../../../src/learnloop/router_objective/check_replay.py), line 45)
-- `_CLASSES` ([src/learnloop/router_objective/check_replay.py](../../../../../../src/learnloop/router_objective/check_replay.py), line 46)
-- `_REGISTRY` ([src/learnloop/router_objective/check_replay.py](../../../../../../src/learnloop/router_objective/check_replay.py), line 48)
+- `REPLAY_VERSION` ([src/learnloop/router_objective/check_replay.py](../../../../../../src/learnloop/router_objective/check_replay.py), line 56)
+- `TRACE_KEY` ([src/learnloop/router_objective/check_replay.py](../../../../../../src/learnloop/router_objective/check_replay.py), line 58)
+- `_CLASSES` ([src/learnloop/router_objective/check_replay.py](../../../../../../src/learnloop/router_objective/check_replay.py), line 59)
+- `_FROZENSET` ([src/learnloop/router_objective/check_replay.py](../../../../../../src/learnloop/router_objective/check_replay.py), line 62)
+- `_REGISTRY` ([src/learnloop/router_objective/check_replay.py](../../../../../../src/learnloop/router_objective/check_replay.py), line 63)
 
 ### Explicit exports
 
@@ -91,6 +92,7 @@ No private top-level function or class definition is declared in this file.
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/daily_plan/learner_probe|learnloop.daily_plan.learner_probe]] — imports `module`; statically calls `read`, `record`
 - [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]] — imports `module`; statically calls `carries_typed_checks`, `record`
 - [[Reference/Modules/learnloop/router_objective/trace_assembly|learnloop.router_objective.trace_assembly]] — imports `TRACE_KEY`
 
@@ -103,6 +105,7 @@ No private top-level function or class definition is declared in this file.
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/router_objective/ad_link|learnloop.router_objective.ad_link]] — imports `AdLink`, `LessonCurve`
+- [[Reference/Modules/learnloop/router_objective/diagnostic_payload|learnloop.router_objective.diagnostic_payload]] — imports `Channel`, `DiagnosticProbe`, `Hypothesis`, `MissingChannel`, `RepairOption`
 - [[Reference/Modules/learnloop/router_objective/memory|learnloop.router_objective.memory]] — imports `Combiner`
 - [[Reference/Modules/learnloop/router_objective/types|learnloop.router_objective.types]] — imports `Action`, `CauseSplit`, `CheckCommitment`, `DatedUse`, `EffectSlope`, `Inputs`, `Learning`, `Price`, `Topic`
 
@@ -117,7 +120,7 @@ Use this module in context through:
 
 - [[Rebuild and Shadow Compare]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]], [[Reference/Modules/learnloop/router_objective/trace_assembly|learnloop.router_objective.trace_assembly]].
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/learner_probe|learnloop.daily_plan.learner_probe]], [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]], [[Reference/Modules/learnloop/router_objective/trace_assembly|learnloop.router_objective.trace_assembly]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
