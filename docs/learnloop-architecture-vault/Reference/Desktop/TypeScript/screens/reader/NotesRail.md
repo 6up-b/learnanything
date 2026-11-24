@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/NotesRail.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/NotesRail.tsx) |
-| Source lines | 729 |
+| Source lines | 760 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
@@ -50,7 +50,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 > [!success] ACTIVE
 > A static TypeScript import path reaches this file from the Vite entry src/main.tsx.
 >
-> Build/entry chain: [[Reference/Desktop/TypeScript/main|src/main.tsx]] → [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] → [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] → [[Reference/Desktop/TypeScript/screens/reader/NotesRail|src/screens/reader/NotesRail.tsx]]
+> Build/entry chain: [[Reference/Desktop/TypeScript/main|src/main.tsx]] → [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] → [[Reference/Desktop/TypeScript/screens/desks/DeskShell|src/screens/desks/DeskShell.tsx]] → [[Reference/Desktop/TypeScript/screens/desks/windows/SourceWindow|src/screens/desks/windows/SourceWindow.tsx]] → [[Reference/Desktop/TypeScript/screens/desks/source/ScopedSource|src/screens/desks/source/ScopedSource.tsx]] → [[Reference/Desktop/TypeScript/screens/reader/NotesRail|src/screens/reader/NotesRail.tsx]]
 
 ## Public API
 
@@ -58,6 +58,10 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export interface ExerciseImportState` — interface, line 46
 - `export interface NotesRailProps` — interface, line 60
 - `export function NotesRail(props: NotesRailProps)` — function, line 159
+- `export type AnnotationCardProps = Pick<NotesRailProps, "offline" | "busy" | "selection" | "jumpToAnnotation" | "reanchorAnnotation" | "manualAnchorToSelection" | "reanchorNotes" | "editingAnnotationId" | "setEditingAnnotationId" | "editingAnnotationText" | "s…` — type, line 570
+- `export function AnnotationCard(` — function, line 575
+- `export type AuthoringCardProps = Pick<NotesRailProps, "offline" | "authoringQuote" | "authoredQuestion" | "setAuthoredQuestion" | "authoredAnswer" | "setAuthoredAnswer" | "authoredCardId" | "setAuthoredCardId" | "authoredStatus" | "authoringBusy" | "saveOwnQu…` — type, line 676
+- `export function AuthoringCard(` — function, line 682
 
 ## Internal implementation anchors
 
@@ -65,18 +69,18 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const highlighted = highlightNote !== null` — const, line 176
 - `const unsaved = note.trim() !== ""` — const, line 178
 - `const spanId = selection?.spanId ?? activeSpan` — const, line 404
-- `const requestError = parseRequestError(request.errorJson)` — const, line 513
-- `const result = sourceObjectId ? synthesizedObjects.get(sourceObjectId) : undefined` — const, line 514
-- `const expanded = expandedRequests.has(request.id)` — const, line 515
-- `const proposalOpen = proposalId !== null && openProposalIds.has(proposalId)` — const, line 516
-- `const next = new Set(ids)` — const, line 535
+- `const requestError = parseRequestError(request.errorJson)` — const, line 441
+- `const result = sourceObjectId ? synthesizedObjects.get(sourceObjectId) : undefined` — const, line 442
+- `const expanded = expandedRequests.has(request.id)` — const, line 443
+- `const proposalOpen = proposalId !== null && openProposalIds.has(proposalId)` — const, line 444
+- `const next = new Set(ids)` — const, line 463
 
 ## Who imports or calls it
 
 > [!note] Static-evidence boundary
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
-- [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] — import-or-re-export: `ExerciseImportState`, `NotesRail`; references `ExerciseImportState`, `NotesRail`
+- [[Reference/Desktop/TypeScript/screens/desks/source/ScopedSource|src/screens/desks/source/ScopedSource.tsx]] — import-or-re-export: `AnnotationCard`, `AuthoringCard`, `ExerciseImportState`, `NotesRail`; references `AnnotationCard`, `AuthoringCard`, `ExerciseImportState`, `NotesRail`
 
 ## Dependencies
 

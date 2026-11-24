@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/pads/PadOverlays.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/pads/PadOverlays.tsx) |
-| Source lines | 517 |
+| Source lines | 519 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/pads/_area|TypeScript/screens/desks/pads]] |
 | Refactor status | `ACTIVE` |
@@ -55,83 +55,83 @@ The system-level behavior stays authoritative in the linked architecture, concep
 ## Public API
 
 - `export interface MenuRequest` — interface, line 14
-- `export function PadMenu(` — function, line 75
-- `export function ArrangeOverlay(` — function, line 241
-- `export function stateQuestion(state: StoredTeachBackState | null | undefined, practiceItemId: string): string | null` — function, line 362
-- `export function pendingTeachBackQuestion(currentAnswer: string | null | undefined, practiceItemId: string): string | null` — function, line 371
-- `export function SubmitSheet(` — function, line 384
+- `export function PadMenu(` — function, line 76
+- `export function ArrangeOverlay(` — function, line 243
+- `export function stateQuestion(state: StoredTeachBackState | null | undefined, practiceItemId: string): string | null` — function, line 364
+- `export function pendingTeachBackQuestion(currentAnswer: string | null | undefined, practiceItemId: string): string | null` — function, line 373
+- `export function SubmitSheet(` — function, line 386
 
 ## Internal implementation anchors
 
-- `type InsertBlock =` — type, line 28
-- `interface Row` — interface, line 30
-- `async function insertPiece(host: PadsHost, onInsert: (block: InsertBlock)` — function, line 41
-- `const content = await host.api.passageContent(` — const, line 43
-- `const span = content.spans.find((each)` — const, line 44
-- `function anchorsOf(state: PadState | null, blockId: string | null): Array<` — function, line 62
-- `const block = state.blocks.find((each)` — const, line 64
-- `const fromLinks = state.anchors.filter((anchor)` — const, line 65
-- `const p = (block?.payload ??` — const, line 66
-- `const block: PadBlockDto | null = state?.blocks.find((each)` — const, line 88
-- `const anchors = anchorsOf(state, request.blockId)` — const, line 89
-- `const pieces = useMemo(()` — const, line 90
-- `const hub = useListenerHub()` — const, line 94
-- `const text = request.text.trim()` — const, line 95
-- `const close = (then?: ()` — const, line 96
-- `const lifecycle = useWindowLifecycle()` — const, line 101
-- `const object: MenuObjectInput | null = request.blockId ?` — const, line 105
-- `const quoting = new Set(["a", "/", "v", "p", "c", "t"])` — const, line 106
-- `const allTextRows: Row[] = text ? [` — const, line 107
-- `const textRows = withheld ? allTextRows.filter((row)` — const, line 129
-- `const insertRows: Row[] = [ // §9.2 gives this row the letter k, but an open menu's j/k move the selection (§5.4's matrix): moving // wins, so the row is chosen with ↑↓ ↵ (or alt+d from the pad) and shows no letter.` — const, line 130
-- `const spanId = row.kind === "result" ? row.target?.spanId : undefined` — const, line 143
-- `const tailRows: Row[] = [ ...(request.blockId && host.menu ? [` — const, line 151
-- `const toRow = (section: MenuRow["section"])` — const, line 155
-- `const rows: MenuRow[] = [...textRows.map(toRow("verb")), ...insertRows.map(toRow("insert")), ...tailRows.map(toRow("tail"))]` — const, line 160
-- `function PracticeSheet(` — function, line 182
-- `const node = useRef<HTMLDivElement | null>(null)` — const, line 192
-- `let live = true` — let, line 195
-- `const first = anchors[0]` — const, line 196
-- `const ids = [...new Set(union.sections.flatMap((section)` — const, line 200
-- `function messageOf(error: unknown): string` — function, line 236
-- `const hub = useListenerHub()` — const, line 251
-- `const onKey = (event: KeyboardEvent)` — const, line 253
-- `const id = order[index]` — const, line 266
-- `const next = [...now]` — const, line 271
-- `const next = [...now]` — const, line 278
-- `const next = new Set(now)` — const, line 285
-- `const titles = new Map(pads.map((pad)` — const, line 299
-- `const lines = new Map(pads.map((pad)` — const, line 300
-- `const next = new Set(now)` — const, line 317
-- `interface FrozenSubmission` — interface, line 335
-- `const FROZEN = new WeakMap<object, Map<string, FrozenSubmission>>()` — const, line 342
-- `function frozenFor(store: object): Map<string, FrozenSubmission>` — function, line 344
-- `let map = FROZEN.get(store)` — let, line 345
-- `interface TeachBackTurn` — interface, line 354
-- `type StoredTeachBackState =` — type, line 359
-- `const item = state.practice_item_id ?? state.practiceItemId` — const, line 364
-- `const last = state.turns?.[state.turns.length - 1]` — const, line 366
-- `const envelope = JSON.parse(currentAnswer) as` — const, line 374
-- `const block = state?.blocks.find((each)` — const, line 385
-- `const anchors = anchorsOf(state, blockId)` — const, line 392
-- `let live = true` — let, line 394
-- `const p = block.payload as Record<string, unknown>` — const, line 396
-- `const found = out.problems.find((problem)` — const, line 400
-- `const first = anchors[0]` — const, line 404
-- `const padId = state.pad.padId` — const, line 417
-- `const submit = async (as: "attempt" | "teach_back", key: string, item: ()` — const, line 419
-- `const sessionId = host.practiceSessionId` — const, line 420
-- `const frozen = frozenFor(host.store)` — const, line 427
-- `const slot = `$` — const, line 428
-- `const current = host.store.pads[padId]?.blocks.find((each)` — const, line 432
-- `let request = frozen.get(slot)` — let, line 433
-- `const answered = await host.api.padSubmitBlock(` — const, line 439
-- `const entry = answered.entry as` — const, line 445
-- `let question: string | null = entry && entry.done === false ? entry.questionMd ?? null : null` — let, line 446
-- `const session = await host.api.getSession(sessionId).catch(()` — const, line 451
-- `const answerTurn = async (finish: boolean)` — const, line 468
-- `const sessionId = host.practiceSessionId` — const, line 469
-- `const next = await host.api.submitTeachBackTurn(` — const, line 474
+- `type InsertBlock =` — type, line 29
+- `interface Row` — interface, line 31
+- `async function insertPiece(host: PadsHost, onInsert: (block: InsertBlock)` — function, line 42
+- `const content = await host.api.passageContent(` — const, line 44
+- `const span = content.spans.find((each)` — const, line 45
+- `function anchorsOf(state: PadState | null, blockId: string | null): Array<` — function, line 63
+- `const block = state.blocks.find((each)` — const, line 65
+- `const fromLinks = state.anchors.filter((anchor)` — const, line 66
+- `const p = (block?.payload ??` — const, line 67
+- `const block: PadBlockDto | null = state?.blocks.find((each)` — const, line 89
+- `const blockIds = request.blockIds ?? (request.blockId ? [request.blockId] : [])` — const, line 90
+- `const anchors = anchorsOf(state, request.blockId)` — const, line 91
+- `const pieces = useMemo(()` — const, line 92
+- `const hub = useListenerHub()` — const, line 96
+- `const text = request.text.trim()` — const, line 97
+- `const close = (then?: ()` — const, line 98
+- `const lifecycle = useWindowLifecycle()` — const, line 103
+- `const object: MenuObjectInput | null = request.blockId ?` — const, line 107
+- `const allTextRows: Row[] = text ? [` — const, line 108
+- `const textRows = withheld !== false ? allTextRows.filter((row)` — const, line 130
+- `const insertRows: Row[] = [ // §9.2 gives this row the letter k, but an open menu's j/k move the selection (§5.4's matrix): moving // wins, so the row is chosen with ↑↓ ↵ (or alt+d from the pad) and shows no letter.` — const, line 131
+- `const spanId = row.kind === "result" ? row.target?.spanId : undefined` — const, line 144
+- `const tailRows: Row[] = [ ...(request.blockId && host.menu ? [` — const, line 152
+- `const toRow = (section: MenuRow["section"])` — const, line 156
+- `const rows: MenuRow[] = [...textRows.map(toRow("verb")), ...insertRows.map(toRow("insert")), ...tailRows.map(toRow("tail"))]` — const, line 161
+- `function PracticeSheet(` — function, line 184
+- `const node = useRef<HTMLDivElement | null>(null)` — const, line 194
+- `let live = true` — let, line 197
+- `const first = anchors[0]` — const, line 198
+- `const ids = [...new Set(union.sections.flatMap((section)` — const, line 202
+- `function messageOf(error: unknown): string` — function, line 238
+- `const hub = useListenerHub()` — const, line 253
+- `const onKey = (event: KeyboardEvent)` — const, line 255
+- `const id = order[index]` — const, line 268
+- `const next = [...now]` — const, line 273
+- `const next = [...now]` — const, line 280
+- `const next = new Set(now)` — const, line 287
+- `const titles = new Map(pads.map((pad)` — const, line 301
+- `const lines = new Map(pads.map((pad)` — const, line 302
+- `const next = new Set(now)` — const, line 319
+- `interface FrozenSubmission` — interface, line 337
+- `const FROZEN = new WeakMap<object, Map<string, FrozenSubmission>>()` — const, line 344
+- `function frozenFor(store: object): Map<string, FrozenSubmission>` — function, line 346
+- `let map = FROZEN.get(store)` — let, line 347
+- `interface TeachBackTurn` — interface, line 356
+- `type StoredTeachBackState =` — type, line 361
+- `const item = state.practice_item_id ?? state.practiceItemId` — const, line 366
+- `const last = state.turns?.[state.turns.length - 1]` — const, line 368
+- `const envelope = JSON.parse(currentAnswer) as` — const, line 376
+- `const block = state?.blocks.find((each)` — const, line 387
+- `const anchors = anchorsOf(state, blockId)` — const, line 394
+- `let live = true` — let, line 396
+- `const p = block.payload as Record<string, unknown>` — const, line 398
+- `const found = out.problems.find((problem)` — const, line 402
+- `const first = anchors[0]` — const, line 406
+- `const padId = state.pad.padId` — const, line 419
+- `const submit = async (as: "attempt" | "teach_back", key: string, item: ()` — const, line 421
+- `const sessionId = host.practiceSessionId` — const, line 422
+- `const frozen = frozenFor(host.store)` — const, line 429
+- `const slot = `$` — const, line 430
+- `const current = host.store.pads[padId]?.blocks.find((each)` — const, line 434
+- `let request = frozen.get(slot)` — let, line 435
+- `const answered = await host.api.padSubmitBlock(` — const, line 441
+- `const entry = answered.entry as` — const, line 447
+- `let question: string | null = entry && entry.done === false ? entry.questionMd ?? null : null` — let, line 448
+- `const session = await host.api.getSession(sessionId).catch(()` — const, line 453
+- `const answerTurn = async (finish: boolean)` — const, line 470
+- `const sessionId = host.practiceSessionId` — const, line 471
+- `const next = await host.api.submitTeachBackTurn(` — const, line 476
 
 ## Who imports or calls it
 

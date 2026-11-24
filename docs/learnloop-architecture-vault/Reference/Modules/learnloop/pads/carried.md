@@ -128,6 +128,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_pad_stale_edits_stacks_and_passage_reads.py](../../../../../../tests/test_pad_stale_edits_stacks_and_passage_reads.py) — direct import
   - `test_the_carried_list_pages_past_the_first_fifty_and_each_question_takes_its_labels`
+- [tests/test_teacher_carried_questions.py](../../../../../../tests/test_teacher_carried_questions.py) — direct import
+  - `test_a_lesson_carries_the_learners_open_questions_with_the_passages_they_sit_beside`
+  - `test_a_lesson_with_no_open_carried_question_is_unchanged`
 
 ## Modification guidance
 

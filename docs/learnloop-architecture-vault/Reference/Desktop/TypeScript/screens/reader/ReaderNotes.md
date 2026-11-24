@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/ReaderNotes.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/ReaderNotes.tsx) |
-| Source lines | 527 |
+| Source lines | 530 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
@@ -50,7 +50,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 > [!success] ACTIVE
 > A static TypeScript import path reaches this file from the Vite entry src/main.tsx.
 >
-> Build/entry chain: [[Reference/Desktop/TypeScript/main|src/main.tsx]] → [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] → [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] → [[Reference/Desktop/TypeScript/screens/reader/ReaderNotes|src/screens/reader/ReaderNotes.tsx]]
+> Build/entry chain: [[Reference/Desktop/TypeScript/main|src/main.tsx]] → [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] → [[Reference/Desktop/TypeScript/screens/desks/DeskShell|src/screens/desks/DeskShell.tsx]] → [[Reference/Desktop/TypeScript/screens/desks/windows/PanelWindow|src/screens/desks/windows/PanelWindow.tsx]] → [[Reference/Desktop/TypeScript/screens/reader/ReaderNotes|src/screens/reader/ReaderNotes.tsx]]
 
 ## Public API
 
@@ -64,12 +64,12 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export function NoteMarkButton(` — function, line 187
 - `export function mergeMarks(previous: ReadonlyMap<string, NoteMark>, next: readonly NoteMark[], hidden: ReadonlyMap<string, HiddenNote>): Map<string, NoteMark>` — function, line 235
 - `export function useNoteMarks(` — function, line 247
-- `export function PathLineNotes(` — function, line 301
-- `export function usePathNotes(goalId: string | null, ready: boolean)` — function, line 322
-- `export function passagesOfKeys(keys: string[]): Array<` — function, line 368
-- `export type NoteTakeOutcome = "kept" | "drafted" | "failed"` — type, line 379
-- `export function NotesTakeBand(` — function, line 381
-- `export function NoteLinkPicker(` — function, line 433
+- `export function PathLineNotes(` — function, line 304
+- `export function usePathNotes(goalId: string | null, ready: boolean)` — function, line 325
+- `export function passagesOfKeys(keys: string[]): Array<` — function, line 371
+- `export type NoteTakeOutcome = "kept" | "drafted" | "failed"` — type, line 382
+- `export function NotesTakeBand(` — function, line 384
+- `export function NoteLinkPicker(` — function, line 436
 
 ## Internal implementation anchors
 
@@ -102,52 +102,54 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const marksFor = useRef<string | null>(null)` — const, line 258
 - `let cancelled = false` — let, line 265
 - `const same = marksFor.current === extractionId` — const, line 270
-- `const onChanged = useCallback(()` — const, line 278
-- `const remember = useCallback((link: NoteLinkDto, hiddenId: string)` — const, line 279
-- `const forget = useCallback((linkId: string)` — const, line 282
-- `const next = new Map(current)` — const, line 285
-- `const settingsKey = settings ? JSON.stringify(settings) : ""` — const, line 290
-- `const context = useMemo<NotesContextValue | null>( ()` — const, line 291
-- `const ctx = useNotes()` — const, line 302
-- `const first = notes[0]` — const, line 305
-- `const ctx = useNotes()` — const, line 323
-- `const enabled = Boolean(ctx?.settings.enabled) && Boolean(goalId) && ready` — const, line 326
-- `const revision = ctx?.revision ?? 0` — const, line 327
-- `const ctxRef = useRef(ctx)` — const, line 328
-- `const linking = useRef<` — const, line 330
-- `const whenLive = useWhenLive()` — const, line 331
-- `let cancelled = false` — let, line 334
-- `let timer: ReturnType<typeof setTimeout> | undefined` — let, line 335
-- `const hidden = ctxRef.current?.hidden ?? NO_HIDDEN` — const, line 339
-- `const same = linking.current.goalId === goalId` — const, line 340
-- `const before = same ? linking.current.state : null` — const, line 341
-- `const next = new Map(out.lines.map((line)` — const, line 344
-- `const merged = retainHidden(list, next.get(lo) ?? [], hidden)` — const, line 347
-- `const wait = out.linking === "running" ? NOTES_POLL_MS.running : out.linking === "waiting" ? NOTES_POLL_MS.waiting : null` — const, line 354
-- `const out: Array<` — const, line 369
-- `const at = key.indexOf(":")` — const, line 371
-- `const ctx = useNotes()` — const, line 386
-- `const keysKey = keys.join("|")` — const, line 390
-- `const passages = useMemo(()` — const, line 391
-- `const enabled = Boolean(ctx?.settings.enabled) && passages.length > 0` — const, line 392
-- `const revision = ctx?.revision ?? 0` — const, line 393
-- `const use = async (link: NoteLinkDto)` — const, line 396
-- `let cancelled = false` — let, line 408
-- `const ctx = useNotes()` — const, line 439
-- `const meaningOffered = Boolean(ctx?.settings.meaning)` — const, line 447
-- `const mode: "words" | "meaning" = meaningOffered && byMeaning ? "meaning" : "words"` — const, line 449
-- `const search = useCallback(async (words: string, how: "words" | "meaning" = "words")` — const, line 451
-- `const where = words ?` — const, line 454
-- `const out = await api.notesSearch(how === "meaning" ?` — const, line 455
-- `const on = ctx !== null` — const, line 466
-- `const link = async (hit: NoteHitDto)` — const, line 469
+- `const reread = useCallback(()` — const, line 278
+- `const onChanged = announceNotesChange` — const, line 281
+- `const remember = useCallback((link: NoteLinkDto, hiddenId: string)` — const, line 282
+- `const forget = useCallback((linkId: string)` — const, line 285
+- `const next = new Map(current)` — const, line 288
+- `const settingsKey = settings ? JSON.stringify(settings) : ""` — const, line 293
+- `const context = useMemo<NotesContextValue | null>( ()` — const, line 294
+- `const ctx = useNotes()` — const, line 305
+- `const first = notes[0]` — const, line 308
+- `const ctx = useNotes()` — const, line 326
+- `const enabled = Boolean(ctx?.settings.enabled) && Boolean(goalId) && ready` — const, line 329
+- `const revision = ctx?.revision ?? 0` — const, line 330
+- `const ctxRef = useRef(ctx)` — const, line 331
+- `const linking = useRef<` — const, line 333
+- `const whenLive = useWhenLive()` — const, line 334
+- `let cancelled = false` — let, line 337
+- `let timer: ReturnType<typeof setTimeout> | undefined` — let, line 338
+- `const hidden = ctxRef.current?.hidden ?? NO_HIDDEN` — const, line 342
+- `const same = linking.current.goalId === goalId` — const, line 343
+- `const before = same ? linking.current.state : null` — const, line 344
+- `const next = new Map(out.lines.map((line)` — const, line 347
+- `const merged = retainHidden(list, next.get(lo) ?? [], hidden)` — const, line 350
+- `const wait = out.linking === "running" ? NOTES_POLL_MS.running : out.linking === "waiting" ? NOTES_POLL_MS.waiting : null` — const, line 357
+- `const out: Array<` — const, line 372
+- `const at = key.indexOf(":")` — const, line 374
+- `const ctx = useNotes()` — const, line 389
+- `const keysKey = keys.join("|")` — const, line 393
+- `const passages = useMemo(()` — const, line 394
+- `const enabled = Boolean(ctx?.settings.enabled) && passages.length > 0` — const, line 395
+- `const revision = ctx?.revision ?? 0` — const, line 396
+- `const use = async (link: NoteLinkDto)` — const, line 399
+- `let cancelled = false` — let, line 411
+- `const ctx = useNotes()` — const, line 442
+- `const meaningOffered = Boolean(ctx?.settings.meaning)` — const, line 450
+- `const mode: "words" | "meaning" = meaningOffered && byMeaning ? "meaning" : "words"` — const, line 452
+- `const search = useCallback(async (words: string, how: "words" | "meaning" = "words")` — const, line 454
+- `const where = words ?` — const, line 457
+- `const out = await api.notesSearch(how === "meaning" ?` — const, line 458
+- `const on = ctx !== null` — const, line 469
+- `const link = async (hit: NoteHitDto)` — const, line 472
 
 ## Who imports or calls it
 
 > [!note] Static-evidence boundary
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
-- [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] — import-or-re-export: `NOTES_COPY`, `NoteLinkPicker`, `NoteMarkButton`, `useNoteMarks`; references `NOTES_COPY`, `NoteLinkPicker`, `NoteMarkButton`, `useNoteMarks`
+- [[Reference/Desktop/TypeScript/screens/desks/source/ScopedSource|src/screens/desks/source/ScopedSource.tsx]] — import-or-re-export: `NOTES_COPY`, `NoteLinkPicker`, `NoteMarkButton`, `useNoteMarks`; references `NOTES_COPY`, `NoteLinkPicker`, `NoteMarkButton`, `useNoteMarks`
+- [[Reference/Desktop/TypeScript/screens/desks/windows/PanelWindow|src/screens/desks/windows/PanelWindow.tsx]] — import-or-re-export: `useNoteMarks`; references `useNoteMarks`
 - [[Reference/Desktop/TypeScript/screens/reader/CompareKeep|src/screens/reader/CompareKeep.tsx]] — import-or-re-export: `NotesTakeBand`; references `NotesTakeBand`
 - [[Reference/Desktop/TypeScript/screens/reader/ComparePointTable|src/screens/reader/ComparePointTable.tsx]] — import-or-re-export: `NoteTakeOutcome`, `NotesTakeBand`; references `NoteTakeOutcome`, `NotesTakeBand`
 - [[Reference/Desktop/TypeScript/screens/reader/DeliverableSliceCard|src/screens/reader/DeliverableSliceCard.tsx]] — import-or-re-export: `PathLineNotes`, `usePathNotes`; references `PathLineNotes`, `usePathNotes`
@@ -161,7 +163,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `COLOR`, `FONT_MONO`
 - [[Reference/Desktop/TypeScript/errors|src/errors.ts]] — import-or-re-export; imports `errorMessage`
 - [[Reference/Desktop/TypeScript/screens/desks/lifecycle|src/screens/desks/lifecycle.tsx]] — import-or-re-export; imports `useWhenLive`
-- [[Reference/Desktop/TypeScript/screens/reader/notesContext|src/screens/reader/notesContext.ts]] — import-or-re-export; imports `HiddenNote`, `NotesContextValue`, `useNotes`
+- [[Reference/Desktop/TypeScript/screens/reader/notesContext|src/screens/reader/notesContext.ts]] — import-or-re-export; imports `HiddenNote`, `NotesContextValue`, `announceNotesChange`, `onNotesChange`, `useNotes`
 - [[Reference/Desktop/TypeScript/screens/reader/voices|src/screens/reader/voices.tsx]] — import-or-re-export; imports `LearnerVoice`, `MeaningLabel`
 
 ### Assets, platform, and third-party dependencies

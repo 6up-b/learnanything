@@ -50,7 +50,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 > [!success] ACTIVE
 > A static TypeScript import path reaches this file from the Vite entry src/main.tsx.
 >
-> Build/entry chain: [[Reference/Desktop/TypeScript/main|src/main.tsx]] → [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] → [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] → [[Reference/Desktop/TypeScript/screens/reader/recapCopy|src/screens/reader/recapCopy.ts]]
+> Build/entry chain: [[Reference/Desktop/TypeScript/main|src/main.tsx]] → [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] → [[Reference/Desktop/TypeScript/screens/reader/WrapUpOffer|src/screens/reader/WrapUpOffer.tsx]] → [[Reference/Desktop/TypeScript/screens/reader/recapCopy|src/screens/reader/recapCopy.ts]]
 
 ## Public API
 
@@ -83,7 +83,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 > [!note] Static-evidence boundary
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
-- [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] — import-or-re-export: `RECAP_COPY`; references `RECAP_COPY`
+- [[Reference/Desktop/TypeScript/screens/desks/source/ScopedSource|src/screens/desks/source/ScopedSource.tsx]] — import-or-re-export: `RECAP_COPY`; references `RECAP_COPY`
 - [[Reference/Desktop/TypeScript/screens/reader/ComingUp|src/screens/reader/ComingUp.tsx]] — import-or-re-export: `COMING_UP_COPY`, `aboutCheckMinutes`, `upcomingDay`; references `COMING_UP_COPY`, `aboutCheckMinutes`, `upcomingDay`
 - [[Reference/Desktop/TypeScript/screens/reader/RecapCard|src/screens/reader/RecapCard.tsx]] — import-or-re-export: `RECAP_COPY`, `aboutMinutes`, `fullDay`, `observationLine`, `retiredCheckLine`, `shortDay`, `stepsLabel`; references `RECAP_COPY`, `aboutMinutes`, `fullDay`, `observationLine`, `retiredCheckLine`, `shortDay`, `stepsLabel`
 - [[Reference/Desktop/TypeScript/screens/reader/WrapUpOffer|src/screens/reader/WrapUpOffer.tsx]] — import-or-re-export: `RECAP_COPY`; references `RECAP_COPY`

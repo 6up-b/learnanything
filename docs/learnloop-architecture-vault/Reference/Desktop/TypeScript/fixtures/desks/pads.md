@@ -95,6 +95,8 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/fixtures/desks/companion|src/fixtures/desks/companion.ts]] — import-or-re-export: `FIXTURE_MATH`; references `FIXTURE_MATH`
 - [[Reference/Desktop/TypeScript/fixtures/desks/fakeCore|src/fixtures/desks/fakeCore.ts]] — import-or-re-export: `FIXTURE_INK_PAD`, `fixtureInkPad`, `fixturePads`; references `FIXTURE_INK_PAD`, `fixtureInkPad`, `fixturePads`
 - [[Reference/Desktop/TypeScript/fixtures/desks/harness|src/fixtures/desks/harness.tsx]] — import-or-re-export: `fixtureCellsPad`, `fixtureMathPad`; references `fixtureCellsPad`, `fixtureMathPad`
+- [[Reference/Desktop/TypeScript/fixtures/desks/realApp|src/fixtures/desks/realApp.tsx]] — import-or-re-export: `fixturePads`; references `fixturePads`
+- [[Reference/Desktop/TypeScript/fixtures/desks/realDesk|src/fixtures/desks/realDesk.tsx]] — import-or-re-export: `fixturePads`; references `fixturePads`
 - [[Reference/Desktop/TypeScript/fixtures/desks/workspace|src/fixtures/desks/workspace.ts]] — import-or-re-export: `FIXTURE_INK_PAD`, `fixtureInkOwners`, `fixturePads`; references `FIXTURE_INK_PAD`, `fixtureInkOwners`, `fixturePads`
 
 ## Dependencies

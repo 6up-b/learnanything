@@ -190,6 +190,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 No test imports this module directly. These tests exercise a direct production consumer:
 
+- [tests/ink_helpers.py](../../../../../../../tests/ink_helpers.py) — imports consumer [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]]
 - [tests/reading_request_sweep_helpers.py](../../../../../../../tests/reading_request_sweep_helpers.py) — imports consumer [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]]
 - [tests/reread_safety_helpers.py](../../../../../../../tests/reread_safety_helpers.py) — imports consumer [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]]
 - [tests/test_auto_build_spend_report.py](../../../../../../../tests/test_auto_build_spend_report.py) — imports consumer [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]]
@@ -201,7 +202,6 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_first_questions_today.py](../../../../../../../tests/test_first_questions_today.py) — imports consumer [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]]
 - [tests/test_followups_batch7_note_titles.py](../../../../../../../tests/test_followups_batch7_note_titles.py) — imports consumer [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]]
 - [tests/test_glm_ocr.py](../../../../../../../tests/test_glm_ocr.py) — imports consumer [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]]
-- [tests/test_ingest_decision_records.py](../../../../../../../tests/test_ingest_decision_records.py) — imports consumer [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]]
 
 ## Modification guidance
 

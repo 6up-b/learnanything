@@ -303,6 +303,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reader_rw6b_landing.py](../../../../../../tests/test_reader_rw6b_landing.py) — direct import
   - `test_i_check_once_commitments_and_follow_ups_coexist_and_the_gate_touches_only_follow_ups`
 - [tests/test_staged_policy.py](../../../../../../tests/test_staged_policy.py) — direct import
+- [tests/test_tutor_goal_in_view.py](../../../../../../tests/test_tutor_goal_in_view.py) — direct import
 
 ## Modification guidance
 

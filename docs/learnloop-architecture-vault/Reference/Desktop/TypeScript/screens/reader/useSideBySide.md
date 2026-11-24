@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/useSideBySide.ts](../../../../../../../apps/learnloop-tauri/src/screens/reader/useSideBySide.ts) |
-| Source lines | 552 |
+| Source lines | 568 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
@@ -50,7 +50,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 > [!success] ACTIVE
 > A static TypeScript import path reaches this file from the Vite entry src/main.tsx.
 >
-> Build/entry chain: [[Reference/Desktop/TypeScript/main|src/main.tsx]] → [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] → [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] → [[Reference/Desktop/TypeScript/screens/reader/useSideBySide|src/screens/reader/useSideBySide.ts]]
+> Build/entry chain: [[Reference/Desktop/TypeScript/main|src/main.tsx]] → [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] → [[Reference/Desktop/TypeScript/screens/desks/source/types|src/screens/desks/source/types.ts]] → [[Reference/Desktop/TypeScript/screens/reader/useSideBySide|src/screens/reader/useSideBySide.ts]]
 
 ## Public API
 
@@ -60,100 +60,102 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export interface MainPane` — interface, line 71
 - `export interface CurrentEntry` — interface, line 79
 - `export interface SideBySideInput` — interface, line 88
-- `export type SideBySideVia = "find_list" | "also_list" | "peek" | "key"` — type, line 107
-- `export interface SideBySide` — interface, line 133
-- `export function useSideBySide(` — function, line 179
+- `export type SideBySideVia = "find_list" | "also_list" | "peek" | "key"` — type, line 110
+- `export interface SideBySide` — interface, line 136
+- `export function useSideBySide(` — function, line 182
 
 ## Internal implementation anchors
 
-- `type EndedBy = "close" | "walked_off" | "replaced" | "source" | "switch_off"` — type, line 109
-- `interface Pair` — interface, line 111
-- `interface LastFollow` — interface, line 125
-- `function useNarrow(active: boolean): boolean` — function, line 167
-- `const hub = useListenerHub()` — const, line 169
-- `const onResize = ()` — const, line 172
-- `const narrow = useNarrow(enabled)` — const, line 182
-- `const pairRef = useRef<Pair | null>(null)` — const, line 194
-- `const setPair = useCallback((next: Pair | null)` — const, line 195
-- `const leaderRef = useRef<Pane>("main")` — const, line 199
-- `const mainRef = useRef<MainPane | null>(main)` — const, line 201
-- `const enabledRef = useRef(enabled)` — const, line 203
-- `const sectionRef = useRef<SideBySideSectionDto | null>(null)` — const, line 205
-- `const currentEntryRef = useRef<CurrentEntry | null>(currentEntry)` — const, line 207
-- `const visitRef = useRef(visitPayload)` — const, line 209
-- `const loadToken = useRef(0)` — const, line 211
-- `const crossing = useRef(0)` — const, line 212
-- `const opening = useRef(0)` — const, line 214
-- `const pendingOpen = useRef(0)` — const, line 216
-- `const narrowRef = useRef(narrow)` — const, line 217
-- `const lastFollow = useRef<LastFollow | null>(null)` — const, line 219
-- `const sideScroll = useRef<` — const, line 221
-- `const setDraft = useCallback((update: (current: SidePaneDraft | null)` — const, line 223
-- `const visit = ()` — const, line 227
-- `const load = useCallback((target: PaneTarget)` — const, line 229
-- `const mine = ++loadToken.current` — const, line 230
-- `const logEnded = useCallback((ended: Pair, via: EndedBy)` — const, line 245
-- `const reset = useCallback((via: EndedBy)` — const, line 254
-- `const ended = pairRef.current` — const, line 255
-- `const start = useCallback((target: PaneTarget, entryId: string | null, sheet: boolean, mainSourceId: string): Pair` — const, line 273
-- `const previous = pairRef.current` — const, line 274
-- `const next: Pair =` — const, line 280
-- `const open = useCallback((target: PaneTarget, via: SideBySideVia)` — const, line 291
-- `const here = mainRef.current` — const, line 292
-- `const sheet = narrowRef.current` — const, line 296
-- `const label = crumbLabel(target)` — const, line 297
-- `const current = pairRef.current` — const, line 298
-- `let entryId: string | null = null` — let, line 299
-- `const onItsCrumb = current && !current.sheet && current.entryId && current.entryId === currentEntryRef.current?.id` — const, line 303
-- `const opened = start(target, entryId, sheet, here.sourceId)` — const, line 308
-- `const close = useCallback(()` — const, line 324
-- `const current = pairRef.current` — const, line 325
-- `const openFirst = useCallback(async ()` — const, line 331
-- `const here = mainRef.current` — const, line 332
-- `const mine = ++pendingOpen.current` — const, line 334
-- `let view: CorrespondentsDto` — let, line 335
-- `const first = firstCorrespondent(view)` — const, line 346
-- `const touch = useCallback((pane: Pane)` — const, line 354
-- `const followFrom = useCallback(async (from: Pane, extractionId: string, sectionId: string)` — const, line 368
-- `const current = pairRef.current` — const, line 369
-- `const here = mainRef.current` — const, line 370
-- `const mine = ++crossing.current` — const, line 372
-- `const openedAs = opening.current` — const, line 373
-- `const followerSource = from === "main" ? current.target.sourceId : here.sourceId` — const, line 374
-- `let view: CorrespondentsDto | null = null` — let, line 375
-- `const now = pairRef.current` — const, line 385
-- `const hit = firstJudgedIn(view, followerSource)` — const, line 387
-- `const follower: Pane = from === "main" ? "side" : "main"` — const, line 388
-- `const target = targetOf(hit)` — const, line 393
-- `let fromSectionId: string | null` — let, line 394
-- `const noteManualMove = useCallback((pane: Pane, sectionId: string)` — const, line 425
-- `const moved = lastFollow.current` — const, line 426
-- `const lastMainSection = useRef<string | null>(main?.sectionId ?? null)` — const, line 438
-- `const sectionId = main?.sectionId ?? null` — const, line 440
-- `const previous = lastMainSection.current` — const, line 441
-- `const goSide = useCallback((sectionId: string)` — const, line 450
-- `const current = pairRef.current` — const, line 451
-- `const target: PaneTarget =` — const, line 455
-- `const toggleFollow = useCallback(()` — const, line 462
-- `const mainSource = main?.sourceId ?? null` — const, line 472
-- `const current = pairRef.current` — const, line 474
-- `const entryId = currentEntry?.id ?? null` — const, line 475
-- `const target = currentEntry?.kind === "side_by_side" ? currentEntry.sideBySide ?? null : null` — const, line 477
-- `const onCrumb = Boolean(target && entryId && enabled && !narrow && mainSource && currentEntry?.sourceId === mainSource)` — const, line 478
-- `const opened = start(target as PaneTarget, entryId, false, mainSource as string)` — const, line 481
-- `const here = mainRef.current` — const, line 482
-- `const current = pairRef.current` — const, line 500
-- `const rememberScroll = useCallback((key: string, top: number)` — const, line 516
-- `const scrollFor = useCallback((key: string)` — const, line 519
-- `const shownTarget: PaneTarget | null = pair ?` — const, line 522
-- `const live = Boolean(enabled && pair)` — const, line 526
+- `type EndedBy = "close" | "walked_off" | "replaced" | "source" | "switch_off"` — type, line 112
+- `interface Pair` — interface, line 114
+- `interface LastFollow` — interface, line 128
+- `function useNarrow(active: boolean): boolean` — function, line 170
+- `const hub = useListenerHub()` — const, line 172
+- `const onResize = ()` — const, line 175
+- `const narrow = useNarrow(enabled)` — const, line 185
+- `const pairRef = useRef<Pair | null>(null)` — const, line 197
+- `const setPair = useCallback((next: Pair | null)` — const, line 198
+- `const leaderRef = useRef<Pane>("main")` — const, line 202
+- `const mainRef = useRef<MainPane | null>(main)` — const, line 204
+- `const openElsewhereRef = useRef(openElsewhere)` — const, line 206
+- `const enabledRef = useRef(enabled)` — const, line 208
+- `const sectionRef = useRef<SideBySideSectionDto | null>(null)` — const, line 210
+- `const currentEntryRef = useRef<CurrentEntry | null>(currentEntry)` — const, line 212
+- `const visitRef = useRef(visitPayload)` — const, line 214
+- `const loadToken = useRef(0)` — const, line 216
+- `const crossing = useRef(0)` — const, line 217
+- `const opening = useRef(0)` — const, line 219
+- `const pendingOpen = useRef(0)` — const, line 221
+- `const narrowRef = useRef(narrow)` — const, line 222
+- `const lastFollow = useRef<LastFollow | null>(null)` — const, line 224
+- `const sideScroll = useRef<` — const, line 226
+- `const setDraft = useCallback((update: (current: SidePaneDraft | null)` — const, line 228
+- `const visit = ()` — const, line 232
+- `const load = useCallback((target: PaneTarget)` — const, line 234
+- `const mine = ++loadToken.current` — const, line 235
+- `const logEnded = useCallback((ended: Pair, via: EndedBy)` — const, line 250
+- `const reset = useCallback((via: EndedBy)` — const, line 259
+- `const ended = pairRef.current` — const, line 260
+- `const start = useCallback((target: PaneTarget, entryId: string | null, sheet: boolean, mainSourceId: string): Pair` — const, line 278
+- `const previous = pairRef.current` — const, line 279
+- `const next: Pair =` — const, line 285
+- `const open = useCallback((target: PaneTarget, via: SideBySideVia)` — const, line 296
+- `const here = mainRef.current` — const, line 297
+- `const sheet = narrowRef.current` — const, line 312
+- `const label = crumbLabel(target)` — const, line 313
+- `const current = pairRef.current` — const, line 314
+- `let entryId: string | null = null` — let, line 315
+- `const onItsCrumb = current && !current.sheet && current.entryId && current.entryId === currentEntryRef.current?.id` — const, line 319
+- `const opened = start(target, entryId, sheet, here.sourceId)` — const, line 324
+- `const close = useCallback(()` — const, line 340
+- `const current = pairRef.current` — const, line 341
+- `const openFirst = useCallback(async ()` — const, line 347
+- `const here = mainRef.current` — const, line 348
+- `const mine = ++pendingOpen.current` — const, line 350
+- `let view: CorrespondentsDto` — let, line 351
+- `const first = firstCorrespondent(view)` — const, line 362
+- `const touch = useCallback((pane: Pane)` — const, line 370
+- `const followFrom = useCallback(async (from: Pane, extractionId: string, sectionId: string)` — const, line 384
+- `const current = pairRef.current` — const, line 385
+- `const here = mainRef.current` — const, line 386
+- `const mine = ++crossing.current` — const, line 388
+- `const openedAs = opening.current` — const, line 389
+- `const followerSource = from === "main" ? current.target.sourceId : here.sourceId` — const, line 390
+- `let view: CorrespondentsDto | null = null` — let, line 391
+- `const now = pairRef.current` — const, line 401
+- `const hit = firstJudgedIn(view, followerSource)` — const, line 403
+- `const follower: Pane = from === "main" ? "side" : "main"` — const, line 404
+- `const target = targetOf(hit)` — const, line 409
+- `let fromSectionId: string | null` — let, line 410
+- `const noteManualMove = useCallback((pane: Pane, sectionId: string)` — const, line 441
+- `const moved = lastFollow.current` — const, line 442
+- `const lastMainSection = useRef<string | null>(main?.sectionId ?? null)` — const, line 454
+- `const sectionId = main?.sectionId ?? null` — const, line 456
+- `const previous = lastMainSection.current` — const, line 457
+- `const goSide = useCallback((sectionId: string)` — const, line 466
+- `const current = pairRef.current` — const, line 467
+- `const target: PaneTarget =` — const, line 471
+- `const toggleFollow = useCallback(()` — const, line 478
+- `const mainSource = main?.sourceId ?? null` — const, line 488
+- `const current = pairRef.current` — const, line 490
+- `const entryId = currentEntry?.id ?? null` — const, line 491
+- `const target = currentEntry?.kind === "side_by_side" ? currentEntry.sideBySide ?? null : null` — const, line 493
+- `const onCrumb = Boolean(target && entryId && enabled && !narrow && mainSource && currentEntry?.sourceId === mainSource)` — const, line 494
+- `const opened = start(target as PaneTarget, entryId, false, mainSource as string)` — const, line 497
+- `const here = mainRef.current` — const, line 498
+- `const current = pairRef.current` — const, line 516
+- `const rememberScroll = useCallback((key: string, top: number)` — const, line 532
+- `const scrollFor = useCallback((key: string)` — const, line 535
+- `const shownTarget: PaneTarget | null = pair ?` — const, line 538
+- `const live = Boolean(enabled && pair)` — const, line 542
 
 ## Who imports or calls it
 
 > [!note] Static-evidence boundary
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
-- [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] — import-or-re-export: `SIDE_BY_SIDE_COPY`, `SIDE_BY_SIDE_SCROLL_KEYS`, `useSideBySide`; references `SIDE_BY_SIDE_COPY`, `SIDE_BY_SIDE_SCROLL_KEYS`, `useSideBySide`
+- [[Reference/Desktop/TypeScript/screens/desks/source/ScopedSource|src/screens/desks/source/ScopedSource.tsx]] — import-or-re-export: `SIDE_BY_SIDE_COPY`, `SIDE_BY_SIDE_SCROLL_KEYS`, `useSideBySide`; references `SIDE_BY_SIDE_COPY`, `SIDE_BY_SIDE_SCROLL_KEYS`, `useSideBySide`
+- [[Reference/Desktop/TypeScript/screens/desks/source/types|src/screens/desks/source/types.ts]] — import-or-re-export: `SideBySideVia`; references `SideBySideVia`
 - [[Reference/Desktop/TypeScript/screens/reader/SideBySidePane|src/screens/reader/SideBySidePane.tsx]] — import-or-re-export: `SIDE_BY_SIDE_COPY`, `SIDE_BY_SIDE_SCROLL_KEYS`, `SideBySide`; references `SIDE_BY_SIDE_COPY`, `SIDE_BY_SIDE_SCROLL_KEYS`, `SideBySide`
 
 ## Dependencies

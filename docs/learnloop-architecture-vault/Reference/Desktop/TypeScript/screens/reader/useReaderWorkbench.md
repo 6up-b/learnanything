@@ -136,7 +136,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] — import-or-re-export: `ReaderWorkbenchCheck`, `ReaderWorkbenchProps`, `ReaderWorkbenchResume`; references `ReaderWorkbenchCheck`, `ReaderWorkbenchProps`, `ReaderWorkbenchResume`
 - [[Reference/Desktop/TypeScript/app/readerWorkbench|src/app/readerWorkbench.ts]] — import-or-re-export: `ReaderWorkbenchCheck`; references `ReaderWorkbenchCheck`
-- [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] — import-or-re-export: `ReaderWorkbenchProps`, `useReaderWorkbench`; references `ReaderWorkbenchProps`, `useReaderWorkbench`
+- [[Reference/Desktop/TypeScript/screens/desks/source/ScopedSource|src/screens/desks/source/ScopedSource.tsx]] — import-or-re-export: `ReaderWorkbenchProps`, `useReaderWorkbench`; references `ReaderWorkbenchProps`, `useReaderWorkbench`
 - [[Reference/Desktop/TypeScript/screens/reader/ReaderWorkingPosture|src/screens/reader/ReaderWorkingPosture.tsx]] — import-or-re-export: `ActiveWorkbench`, `ReaderWorkbench`; references `ActiveWorkbench`, `ReaderWorkbench`
 
 ## Dependencies

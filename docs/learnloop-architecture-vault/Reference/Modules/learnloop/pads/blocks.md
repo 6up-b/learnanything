@@ -47,38 +47,38 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/pads/blocks.py](../../../../../../src/learnloop/pads/blocks.py) |
-| Source lines | 566 |
+| Source lines | 569 |
 | Owning package | [[Reference/Modules/learnloop/pads/_package|learnloop.pads]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class CreatePad(_Op)` ([source](../../../../../../src/learnloop/pads/blocks.py), line 44)
-- `class SetTitle(_Op)` ([source](../../../../../../src/learnloop/pads/blocks.py), line 53)
-- `class Keep(_Op)` ([source](../../../../../../src/learnloop/pads/blocks.py), line 59)
-- `class Unkeep(_Op)` ([source](../../../../../../src/learnloop/pads/blocks.py), line 64)
-- `class InsertBlock(_Op)` ([source](../../../../../../src/learnloop/pads/blocks.py), line 69)
-- `class KeepBoth(WireModel)` ([source](../../../../../../src/learnloop/pads/blocks.py), line 81) — Where a stale edit's words go instead of being lost (spec §3.5): a new block, client-minted, right after the block's current head, marked with what it conflicted with.
-- `class EditBlock(_Op)` ([source](../../../../../../src/learnloop/pads/blocks.py), line 91)
-- `class RemoveBlock(_Op)` ([source](../../../../../../src/learnloop/pads/blocks.py), line 103)
-- `class MoveBlock(_Op)` ([source](../../../../../../src/learnloop/pads/blocks.py), line 110)
-- `class LiftOut(_Op)` ([source](../../../../../../src/learnloop/pads/blocks.py), line 118)
-- `class LinkAnchor(_Op)` ([source](../../../../../../src/learnloop/pads/blocks.py), line 130)
-- `class UnlinkAnchor(_Op)` ([source](../../../../../../src/learnloop/pads/blocks.py), line 143)
-- `class EraseInk(_Op)` ([source](../../../../../../src/learnloop/pads/blocks.py), line 152) — The pen's barrel button over an ink block's strokes: a tombstone over their ids (``pads.ink``).
-- `class PadNotFound(LookupError)` ([source](../../../../../../src/learnloop/pads/blocks.py), line 195)
-- `pad_view(repository: Any, pad_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/pads/blocks.py), line 242) — ``pad.get``: the pad, its standing blocks in order (removed blocks left out) and their links.
-- `pad_list(repository: Any, *, desk_id: str | None=None, query: str | None=None, kept: bool | None=None, cursor: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/pads/blocks.py), line 275) — ``pad.list``: pads most recently changed first, a page at a time, each with its first line.
-- `key_between(a: str | None, b: str | None) -> str` ([source](../../../../../../src/learnloop/pads/blocks.py), line 322) — A position key strictly between ``a`` and ``b`` (either may be None: before or after everything).
-- `apply_pad_ops(repository: Any, *, client_id: str, seq: int, pad_id: str, ops: list[Any], clock: Any=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/pads/blocks.py), line 545) — ``pad.apply``: one batch on one pad, applied once and in order (``learnloop.desks.protocol``).
+- `class CreatePad(_Op)` ([source](../../../../../../src/learnloop/pads/blocks.py), line 45)
+- `class SetTitle(_Op)` ([source](../../../../../../src/learnloop/pads/blocks.py), line 54)
+- `class Keep(_Op)` ([source](../../../../../../src/learnloop/pads/blocks.py), line 60)
+- `class Unkeep(_Op)` ([source](../../../../../../src/learnloop/pads/blocks.py), line 65)
+- `class InsertBlock(_Op)` ([source](../../../../../../src/learnloop/pads/blocks.py), line 70)
+- `class KeepBoth(WireModel)` ([source](../../../../../../src/learnloop/pads/blocks.py), line 82) — Where a stale edit's words go instead of being lost (spec §3.5): a new block, client-minted, right after the block's current head, marked with what it conflicted with.
+- `class EditBlock(_Op)` ([source](../../../../../../src/learnloop/pads/blocks.py), line 92)
+- `class RemoveBlock(_Op)` ([source](../../../../../../src/learnloop/pads/blocks.py), line 104)
+- `class MoveBlock(_Op)` ([source](../../../../../../src/learnloop/pads/blocks.py), line 111)
+- `class LiftOut(_Op)` ([source](../../../../../../src/learnloop/pads/blocks.py), line 119)
+- `class LinkAnchor(_Op)` ([source](../../../../../../src/learnloop/pads/blocks.py), line 131)
+- `class UnlinkAnchor(_Op)` ([source](../../../../../../src/learnloop/pads/blocks.py), line 144)
+- `class EraseInk(_Op)` ([source](../../../../../../src/learnloop/pads/blocks.py), line 153) — The pen's barrel button over an ink block's strokes: a tombstone over their ids (``pads.ink``).
+- `class PadNotFound(LookupError)` ([source](../../../../../../src/learnloop/pads/blocks.py), line 196)
+- `pad_view(repository: Any, pad_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/pads/blocks.py), line 243) — ``pad.get``: the pad, its standing blocks in order (removed blocks left out) and their links.
+- `pad_list(repository: Any, *, desk_id: str | None=None, query: str | None=None, kept: bool | None=None, cursor: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/pads/blocks.py), line 276) — ``pad.list``: pads most recently changed first, a page at a time, each with its first line.
+- `key_between(a: str | None, b: str | None) -> str` ([source](../../../../../../src/learnloop/pads/blocks.py), line 323) — A position key strictly between ``a`` and ``b`` (either may be None: before or after everything).
+- `apply_pad_ops(repository: Any, *, client_id: str, seq: int, pad_id: str, ops: list[Any], clock: Any=None, check_material: Callable[[], None] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/pads/blocks.py), line 546) — ``pad.apply``: one batch on one pad, applied once and in order (``learnloop.desks.protocol``).
 
 ### Module constants
 
-- `EDITABLE_KINDS` ([src/learnloop/pads/blocks.py](../../../../../../src/learnloop/pads/blocks.py), line 35)
-- `PAGE_SIZE` ([src/learnloop/pads/blocks.py](../../../../../../src/learnloop/pads/blocks.py), line 37)
-- `PAD_OPS` ([src/learnloop/pads/blocks.py](../../../../../../src/learnloop/pads/blocks.py), line 170)
-- `_DIGITS` ([src/learnloop/pads/blocks.py](../../../../../../src/learnloop/pads/blocks.py), line 301)
+- `EDITABLE_KINDS` ([src/learnloop/pads/blocks.py](../../../../../../src/learnloop/pads/blocks.py), line 36)
+- `PAGE_SIZE` ([src/learnloop/pads/blocks.py](../../../../../../src/learnloop/pads/blocks.py), line 38)
+- `PAD_OPS` ([src/learnloop/pads/blocks.py](../../../../../../src/learnloop/pads/blocks.py), line 171)
+- `_DIGITS` ([src/learnloop/pads/blocks.py](../../../../../../src/learnloop/pads/blocks.py), line 302)
 
 ### Explicit exports
 
@@ -95,18 +95,18 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `class _Op(WireModel)` ([source](../../../../../../src/learnloop/pads/blocks.py), line 40)
-- `_block_out(head: dict[str, Any], created: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/pads/blocks.py), line 179)
-- `_pad_out(row: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/pads/blocks.py), line 188)
-- `class _Places` ([source](../../../../../../src/learnloop/pads/blocks.py), line 199) — Where a link points, enough to open it with no window of that source open (review finding 13): the source the reading belongs to (a ``ContentRef``'s ``source_id``), and on a transcript the cue's start (``t``, a video reference's time).
-- `_inherited_anchors(connection: Any, heads: list[dict[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/pads/blocks.py), line 223) — Links a lifted block carries from the block it was lifted out of, where a lift made before links moved with the words left them on the stub: shown on the lifted block, read-only (``inherited_from_block_id`` names the stub's block, whose link events they are).
-- `_midpoint(a: str, b: str | None) -> str` ([source](../../../../../../src/learnloop/pads/blocks.py), line 304)
-- `_key_after(connection: Any, pad_id: str, head: dict[str, Any]) -> str` ([source](../../../../../../src/learnloop/pads/blocks.py), line 330) — A key right after ``head`` in its pad, before the next block; the head's own key when the next block shares it (equal keys order by block id: as close as the keys allow).
-- `_keep_both(connection: Any, pad_id: str, client_id: str, op: EditBlock, head: dict[str, Any], base: dict[str, Any], now: str, heads: dict[str, str]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/pads/blocks.py), line 343) — A stale edit's words as a block of their own right after the current head; the head is left as it is.
-- `_version_id(connection: Any, minted: str | None) -> str` ([source](../../../../../../src/learnloop/pads/blocks.py), line 370)
-- `_current_head(connection: Any, pad_id: str, block_id: str, expected: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/pads/blocks.py), line 378)
-- `_successor(head: dict[str, Any], version_id: str, client_id: str, now: str, **changes: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/pads/blocks.py), line 389)
-- `_apply_pad_op(connection: Any, pad_id: str, client_id: str, op: Any, now: str, heads: dict[str, str], versions: dict[str, int]) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/pads/blocks.py), line 397)
+- `class _Op(WireModel)` ([source](../../../../../../src/learnloop/pads/blocks.py), line 41)
+- `_block_out(head: dict[str, Any], created: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/pads/blocks.py), line 180)
+- `_pad_out(row: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/pads/blocks.py), line 189)
+- `class _Places` ([source](../../../../../../src/learnloop/pads/blocks.py), line 200) — Where a link points, enough to open it with no window of that source open (review finding 13): the source the reading belongs to (a ``ContentRef``'s ``source_id``), and on a transcript the cue's start (``t``, a video reference's time).
+- `_inherited_anchors(connection: Any, heads: list[dict[str, Any]]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/pads/blocks.py), line 224) — Links a lifted block carries from the block it was lifted out of, where a lift made before links moved with the words left them on the stub: shown on the lifted block, read-only (``inherited_from_block_id`` names the stub's block, whose link events they are).
+- `_midpoint(a: str, b: str | None) -> str` ([source](../../../../../../src/learnloop/pads/blocks.py), line 305)
+- `_key_after(connection: Any, pad_id: str, head: dict[str, Any]) -> str` ([source](../../../../../../src/learnloop/pads/blocks.py), line 331) — A key right after ``head`` in its pad, before the next block; the head's own key when the next block shares it (equal keys order by block id: as close as the keys allow).
+- `_keep_both(connection: Any, pad_id: str, client_id: str, op: EditBlock, head: dict[str, Any], base: dict[str, Any], now: str, heads: dict[str, str]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/pads/blocks.py), line 344) — A stale edit's words as a block of their own right after the current head; the head is left as it is.
+- `_version_id(connection: Any, minted: str | None) -> str` ([source](../../../../../../src/learnloop/pads/blocks.py), line 371)
+- `_current_head(connection: Any, pad_id: str, block_id: str, expected: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/pads/blocks.py), line 379)
+- `_successor(head: dict[str, Any], version_id: str, client_id: str, now: str, **changes: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/pads/blocks.py), line 390)
+- `_apply_pad_op(connection: Any, pad_id: str, client_id: str, op: Any, now: str, heads: dict[str, str], versions: dict[str, int]) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/pads/blocks.py), line 398)
 
 ## Who imports or calls it
 
@@ -132,7 +132,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `re`, `typing`
+- Standard library: `__future__`, `collections`, `re`, `typing`
 - Third party: `pydantic`
 
 ## Larger workflow participation

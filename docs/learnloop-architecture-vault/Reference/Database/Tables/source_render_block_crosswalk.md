@@ -21,6 +21,7 @@ source_paths:
   - "src/learnloop/content/sources/source_deletion.py"
   - "src/learnloop/reader/annotations.py"
   - "src/learnloop/reader/source_render_views.py"
+  - "src/learnloop_sidecar/workbench_protection.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -102,6 +103,7 @@ Indexes and uniqueness:
 - `src/learnloop/content/sources/source_deletion.py`
 - `src/learnloop/reader/annotations.py`
 - `src/learnloop/reader/source_render_views.py`
+- `src/learnloop_sidecar/workbench_protection.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

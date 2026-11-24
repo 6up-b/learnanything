@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/teacher/brief.py](../../../../../../src/learnloop/teacher/brief.py) |
-| Source lines | 947 |
+| Source lines | 954 |
 | Owning package | [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -158,6 +158,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/source_retrieval/deliverables|learnloop.source_retrieval.deliverables]] — imports `module`; calls `enabled`, `latest_resolution`
 - [[Reference/Modules/learnloop/source_retrieval/reading_paths|learnloop.source_retrieval.reading_paths]] — imports `lo_statuses`; calls `lo_statuses`
 - [[Reference/Modules/learnloop/source_retrieval/section_coverage|learnloop.source_retrieval.section_coverage]] — imports `CoverageError`, `Library`, `read_protection`; calls `Library`, `read_protection`
+- [[Reference/Modules/learnloop/teacher/carried|learnloop.teacher.carried]] — imports `module`; calls `for_brief`
 - [[Reference/Modules/learnloop/teacher/contracts|learnloop.teacher.contracts]] — imports `READ_ACTIONS`
 - [[Reference/Modules/learnloop/teacher/diagnosed_sources|learnloop.teacher.diagnosed_sources]] — imports `OVER_BUDGET`, `TOPIC_FILLS_BUDGET`, `module`; calls `follow`
 - [[Reference/Modules/learnloop/teacher/doctrines|learnloop.teacher.doctrines]] — imports `doctrine_identity`; calls `doctrine_identity`

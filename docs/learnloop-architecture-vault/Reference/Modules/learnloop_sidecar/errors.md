@@ -162,6 +162,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop_sidecar/server|learnloop_sidecar.server]] — imports `SidecarError`, `json_rpc_error`, `sidecar_error`, `waiting_for_ok_error`; statically calls `SidecarError`, `json_rpc_error`, `sidecar_error`, `waiting_for_ok_error`
 - [[Reference/Modules/learnloop_sidecar/serving|learnloop_sidecar.serving]] — imports `SidecarError`; statically calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/source_identity|learnloop_sidecar.source_identity]] — imports `SidecarError`; statically calls `SidecarError`
+- [[Reference/Modules/learnloop_sidecar/workbench_protection|learnloop_sidecar.workbench_protection]] — imports `SidecarError`; statically calls `SidecarError`
 
 ## Dependencies
 
@@ -184,7 +185,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Inspect Persistent State]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]], [[Reference/Modules/learnloop_sidecar/handlers/adaptive_difficulty|learnloop_sidecar.handlers.adaptive_difficulty]], [[Reference/Modules/learnloop_sidecar/handlers/adjudication|learnloop_sidecar.handlers.adjudication]], [[Reference/Modules/learnloop_sidecar/handlers/ai_providers|learnloop_sidecar.handlers.ai_providers]], [[Reference/Modules/learnloop_sidecar/handlers/animation|learnloop_sidecar.handlers.animation]] and 80 more.
+Static participation evidence comes from [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]], [[Reference/Modules/learnloop_sidecar/handlers/adaptive_difficulty|learnloop_sidecar.handlers.adaptive_difficulty]], [[Reference/Modules/learnloop_sidecar/handlers/adjudication|learnloop_sidecar.handlers.adjudication]], [[Reference/Modules/learnloop_sidecar/handlers/ai_providers|learnloop_sidecar.handlers.ai_providers]], [[Reference/Modules/learnloop_sidecar/handlers/animation|learnloop_sidecar.handlers.animation]] and 81 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -400,6 +401,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_with_the_sources_service_absent_the_view_is_absent`
 - [tests/test_menu_promoted_rows.py](../../../../../tests/test_menu_promoted_rows.py) — direct import
   - `test_a_retried_menu_request_answers_with_its_job_and_runs_once`
+- [tests/test_menu_protected_material.py](../../../../../tests/test_menu_protected_material.py) — direct import
+  - `test_a_stored_mark_on_held_out_material_reaches_no_other_surface`
+  - `test_an_unplaced_quote_that_repeats_held_words_is_still_refused`
+  - `test_destination_refuses_mixed_selection_without_menu`
+  - `test_pad_selection_follows_every_lines_payload_and_links`
+  - `test_unplaced_legacy_pad_quote_needs_new_clearance_after_a_mark`
 - [tests/test_mobile_handoff.py](../../../../../tests/test_mobile_handoff.py) — direct import
   - `test_a_desktop_start_over_a_phone_session_asks_and_replace_is_its_answer`
   - `test_writes_from_the_device_that_lost_it_are_session_moved`
@@ -674,6 +681,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_start_opens_a_lesson_whose_origin_is_the_decision`
 - [tests/test_teacher_te2log_activity.py](../../../../../tests/test_teacher_te2log_activity.py) — direct import
   - `test_lesson_activity_is_a_desktop_only_rpc_that_records_intervals`
+- [tests/test_tutor_goal_in_view.py](../../../../../tests/test_tutor_goal_in_view.py) — direct import
+  - `test_an_unknown_goal_is_refused_before_anything_is_asked`
 - [tests/test_ux_phase1_add_source.py](../../../../../tests/test_ux_phase1_add_source.py) — direct import
   - `test_add_source_rejects_a_bad_page_range_plainly`
 - [tests/test_ux_phase1_connect_ai.py](../../../../../tests/test_ux_phase1_connect_ai.py) — direct import

@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/useKeptComparisons.ts](../../../../../../../apps/learnloop-tauri/src/screens/reader/useKeptComparisons.ts) |
-| Source lines | 54 |
+| Source lines | 56 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
@@ -50,7 +50,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 > [!success] ACTIVE
 > A static TypeScript import path reaches this file from the Vite entry src/main.tsx.
 >
-> Build/entry chain: [[Reference/Desktop/TypeScript/main|src/main.tsx]] → [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] → [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] → [[Reference/Desktop/TypeScript/screens/reader/useKeptComparisons|src/screens/reader/useKeptComparisons.ts]]
+> Build/entry chain: [[Reference/Desktop/TypeScript/main|src/main.tsx]] → [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] → [[Reference/Desktop/TypeScript/screens/desks/DeskShell|src/screens/desks/DeskShell.tsx]] → [[Reference/Desktop/TypeScript/screens/desks/windows/PanelWindow|src/screens/desks/windows/PanelWindow.tsx]] → [[Reference/Desktop/TypeScript/screens/reader/useKeptComparisons|src/screens/reader/useKeptComparisons.ts]]
 
 ## Public API
 
@@ -63,14 +63,15 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const settingsKey = settings ? JSON.stringify(settings) : ""` — const, line 25
 - `let cancelled = false` — let, line 34
 - `const reload = useCallback(()` — const, line 48
-- `const context = useMemo<CompareKeepContextValue | null>( // eslint-disable-next-line react-hooks/exhaustive-deps ()` — const, line 49
+- `const context = useMemo<CompareKeepContextValue | null>( // eslint-disable-next-line react-hooks/exhaustive-deps ()` — const, line 51
 
 ## Who imports or calls it
 
 > [!note] Static-evidence boundary
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
-- [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] — import-or-re-export: `useKeptComparisons`; references `useKeptComparisons`
+- [[Reference/Desktop/TypeScript/screens/desks/source/ScopedSource|src/screens/desks/source/ScopedSource.tsx]] — import-or-re-export: `useKeptComparisons`; references `useKeptComparisons`
+- [[Reference/Desktop/TypeScript/screens/desks/windows/PanelWindow|src/screens/desks/windows/PanelWindow.tsx]] — import-or-re-export: `useKeptComparisons`; references `useKeptComparisons`
 
 ## Dependencies
 
@@ -78,7 +79,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - [[Reference/Desktop/TypeScript/api/client|src/api/client.ts]] — import-or-re-export; imports `api`
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `KeptMarkDto`, `ReaderPromptContractDto`
-- [[Reference/Desktop/TypeScript/screens/reader/compareKeepContext|src/screens/reader/compareKeepContext.ts]] — import-or-re-export; imports `CompareKeepContextValue`
+- [[Reference/Desktop/TypeScript/screens/reader/compareKeepContext|src/screens/reader/compareKeepContext.ts]] — import-or-re-export; imports `CompareKeepContextValue`, `announceKeptChange`, `onKeptChange`
 
 ### Assets, platform, and third-party dependencies
 

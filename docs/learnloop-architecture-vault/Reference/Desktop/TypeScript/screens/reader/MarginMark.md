@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/MarginMark.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/MarginMark.tsx) |
-| Source lines | 484 |
+| Source lines | 494 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
@@ -50,7 +50,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 > [!success] ACTIVE
 > A static TypeScript import path reaches this file from the Vite entry src/main.tsx.
 >
-> Build/entry chain: [[Reference/Desktop/TypeScript/main|src/main.tsx]] → [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] → [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] → [[Reference/Desktop/TypeScript/screens/reader/MarginMark|src/screens/reader/MarginMark.tsx]]
+> Build/entry chain: [[Reference/Desktop/TypeScript/main|src/main.tsx]] → [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] → [[Reference/Desktop/TypeScript/screens/desks/source/types|src/screens/desks/source/types.ts]] → [[Reference/Desktop/TypeScript/screens/reader/useReaderCues|src/screens/reader/useReaderCues.ts]] → [[Reference/Desktop/TypeScript/screens/reader/MarginMark|src/screens/reader/MarginMark.tsx]]
 
 ## Public API
 
@@ -58,7 +58,8 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export interface MarginMarkProps` — interface, line 25
 - `export function MarginMark(` — function, line 74
 - `export interface CueReceipt` — interface, line 400
-- `export function CueFooter(` — function, line 412
+- `export function CueReceipts(` — function, line 410
+- `export function CueFooter(` — function, line 428
 
 ## Internal implementation anchors
 
@@ -88,7 +89,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 > [!note] Static-evidence boundary
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
-- [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] — import-or-re-export: `CueFooter`, `MarginMark`; references `CueFooter`, `MarginMark`
+- [[Reference/Desktop/TypeScript/screens/desks/source/ScopedSource|src/screens/desks/source/ScopedSource.tsx]] — import-or-re-export: `CueFooter`, `CueReceipts`, `MarginMark`; references `CueFooter`, `CueReceipts`, `MarginMark`
 - [[Reference/Desktop/TypeScript/screens/reader/useReaderCues|src/screens/reader/useReaderCues.ts]] — import-or-re-export: `CueCheckPhase`, `CueReceipt`; references `CueCheckPhase`, `CueReceipt`
 
 ## Dependencies

@@ -208,6 +208,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_row_stored_with_the_uri_is_shown_readable_and_stays_as_it_was`
   - `test_a_titled_source_and_a_capture_keep_their_names`
   - `test_the_notes_content_hash_is_unchanged_so_nothing_reads_as_changed`
+- [tests/test_menu_protected_material.py](../../../../../../tests/test_menu_protected_material.py) — direct import
+  - `test_a_stored_mark_on_held_out_material_reaches_no_other_surface`
 - [tests/test_notes_as_learner_text.py](../../../../../../tests/test_notes_as_learner_text.py) — direct import
   - `test_c2b_a_reader_note_written_beside_material_protected_since_is_never_read`
 - [tests/test_notes_c2b_review5.py](../../../../../../tests/test_notes_c2b_review5.py) — direct import

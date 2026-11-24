@@ -46,7 +46,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `workflow` — Mutable queue, session, lease, or other in-flight workflow state. It is preserved across rebuilds.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/262_reader_workbench_foundations.sql`.
-- **Schema touched by:** `262_reader_workbench_foundations.sql`.
+- **Schema touched by:** `262_reader_workbench_foundations.sql`, `271_reader_workbench_preparing_windows.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -102,6 +102,7 @@ None found by exact static reference scan.
 - `tests/desk_helpers.py`
 - `tests/reader_rd0_migration_helpers.py`
 - `tests/test_architecture.py`
+- `tests/test_menu_protected_material.py`
 - `tests/test_mobile_allowlist.py`
 - `tests/test_pad_stale_edits_stacks_and_passage_reads.py`
 - `tests/test_reader_rd0_fences.py`
@@ -116,6 +117,8 @@ None found by exact static reference scan.
 - `tests/test_reader_rd7b_check_session.py`
 - `tests/test_reader_rd8a_ink.py`
 - `tests/test_reader_rd9a_fix.py`
+- `tests/test_reader_rd_retire_migration.py`
+- `tests/test_reading_hardening_2_fixes.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

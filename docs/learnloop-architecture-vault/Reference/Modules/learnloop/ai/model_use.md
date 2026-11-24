@@ -128,6 +128,7 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - [[Reference/Modules/learnloop/content/pipeline/runner|learnloop.content.pipeline.runner]] — imports `module`; statically calls `require`
 - [[Reference/Modules/learnloop/diagnosis/recurrence/benchmarks|learnloop.diagnosis.recurrence.benchmarks]] — imports `module`; statically calls `bind`
 - [[Reference/Modules/learnloop/ops/embedding_compare|learnloop.ops.embedding_compare]] — imports `module`; statically calls `bind`
+- [[Reference/Modules/learnloop/pads/ink_transcribe|learnloop.pads.ink_transcribe]] — imports `module`; statically calls `require`
 - [[Reference/Modules/learnloop/source_retrieval/deliverables|learnloop.source_retrieval.deliverables]] — imports `module`; statically calls `waiting`
 - [[Reference/Modules/learnloop/source_retrieval/reading_paths|learnloop.source_retrieval.reading_paths]] — imports `module`; statically calls `waiting`
 - [[Reference/Modules/learnloop_sidecar/errors|learnloop_sidecar.errors]] — imports `module`; statically calls `waiting`
@@ -155,13 +156,14 @@ Use this module in context through:
 - [[Configure AI Providers]]
 - [[Process Model Output]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/ai/client|learnloop.ai.client]], [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]], [[Reference/Modules/learnloop/ai/providers/openrouter_video|learnloop.ai.providers.openrouter_video]], [[Reference/Modules/learnloop/cli/probability_arms|learnloop.cli.probability_arms]], [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] and 13 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/ai/client|learnloop.ai.client]], [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]], [[Reference/Modules/learnloop/ai/providers/openrouter_video|learnloop.ai.providers.openrouter_video]], [[Reference/Modules/learnloop/cli/probability_arms|learnloop.cli.probability_arms]], [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] and 14 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
 - [tests/ai_ok_world.py](../../../../../../tests/ai_ok_world.py) — direct import
+- [tests/ink_helpers.py](../../../../../../tests/ink_helpers.py) — direct import
 - [tests/test_menu_protected_material.py](../../../../../../tests/test_menu_protected_material.py) — direct import
 - [tests/test_one_ai_ok.py](../../../../../../tests/test_one_ai_ok.py) — direct import
   - `test_a_fallback_provider_is_held_to_the_same_ok`
@@ -171,6 +173,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_one_record_and_an_earlier_ok_count_and_nothing_else_does`
   - `test_the_readers_ask_waits_for_the_ok_and_sends_nothing`
   - `test_the_video_adapter_asks_for_the_ok_too`
+- [tests/test_reader_ink_glm_ocr.py](../../../../../../tests/test_reader_ink_glm_ocr.py) — direct import
+  - `test_hosted_before_the_ok_to_use_ai_sends_nothing`
 - [tests/test_reader_rd3a_search.py](../../../../../../tests/test_reader_rd3a_search.py) — direct import
   - `test_waiting_for_the_ok_to_use_ai_runs_nothing_by_meaning`
 
