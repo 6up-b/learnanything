@@ -99,7 +99,7 @@ def _ref_key(ref: Mapping[str, Any]) -> str:
 Covered = Callable[[Sequence[str]], "dict[str, set[tuple[str, str]]] | None"]
 
 
-def _host_places(repository: Any, learning_object_ids: Iterable[str]) -> tuple[set[tuple[str, str]], set[str]]:
+def host_places(repository: Any, learning_object_ids: Iterable[str]) -> tuple[set[tuple[str, str]], set[str]]:
     """Where each LO is taught as the desks place it: its primary passage's section and every goal path's section for
     it (the host a check's marker sits before). Returns those sections and the readings that hold them."""
 
@@ -135,11 +135,11 @@ def protection(vault: Any, repository: Any, opened: Opened, visible: Mapping[str
     from learnloop.intent.inline_checks import _Sections
 
     by_lo = covered(opened.learning_object_ids)
-    hosts, _host_readings = _host_places(repository, opened.learning_object_ids)
+    hosts, _host_readings = host_places(repository, opened.learning_object_ids)
     # An LO with no current coverage judgment: the readings that host it are protected whole; with no host either, every
     # source is (fail closed). Coverage unreadable: every source is.
     uncovered = [lo for lo in opened.learning_object_ids if by_lo is not None and not by_lo.get(lo)]
-    uncovered_hosts = {lo: _host_places(repository, [lo]) for lo in uncovered}
+    uncovered_hosts = {lo: host_places(repository, [lo]) for lo in uncovered}
     whole_everywhere = by_lo is None or any(not places for places, _readings in uncovered_hosts.values())
     whole_readings = {reading for _places, readings in uncovered_hosts.values() for reading in readings}
     sections_covered: set[tuple[str, str]] = set().union(*(by_lo or {}).values()) | hosts
@@ -848,6 +848,7 @@ def reopen(vault: Any, repository: Any, *, attempt_for: Callable[[str, str], str
 
 
 __all__ = [
+    "host_places",
     "BELOW_TAG", "Covered", "InlineCheckError", "METHOD", "METHOD_WHOLE_SOURCES", "OPENED_BASIS", "Opened", "PLACED_KINDS",
     "SURFACE", "UNMEASURED_BASIS", "abandon", "attempt_submission_key", "begin", "being_answered", "cold_now",
     "cold_presentation", "eligibility_of", "expose", "find", "finish_submit", "measured", "narrow", "outcome",

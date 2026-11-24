@@ -151,21 +151,27 @@ def test_no_prompt_leaves_when_the_veils_cannot_be_recorded(tmp_path, monkeypatc
     assert _rows(paths, "SELECT COUNT(*) FROM check_administrations") == [(0,)]
 
 
-def test_the_protection_set_veils_covered_passages_and_every_note_bearing_surface(tmp_path, monkeypatch):
-    paths, _ctx, _session, repository = _sidecar(tmp_path)
-    from learnloop.vault.loader import load_vault
+def _sections(monkeypatch, by_span: dict[str, str]) -> None:
+    """The reading's sections, by span id (no extraction holds them in the test vault)."""
 
+    import learnloop.intent.inline_checks as inline_checks
 
     class Sections:
         def __init__(self, _repository):
             pass
 
         def section_of(self, extraction_id, span_id):
-            return {"s1": "sec_cdf", "s2": "sec_other"}.get(span_id)
-
-    import learnloop.intent.inline_checks as inline_checks
+            return by_span.get(span_id)
 
     monkeypatch.setattr(inline_checks, "_Sections", Sections)
+
+
+def test_the_protection_set_veils_covered_passages_and_every_note_bearing_surface(tmp_path, monkeypatch):
+    paths, _ctx, _session, repository = _sidecar(tmp_path)
+    from learnloop.vault.loader import load_vault
+
+
+    _sections(monkeypatch, {"s1": "sec_cdf", "s2": "sec_other"})
     opened = IA.Opened(commitment_id="cm", practice_item_id=ITEM, cold=True, candidates=(ITEM,),
                        learning_object_ids=(LO,), provenance={})
     visible = {
@@ -670,17 +676,8 @@ def test_rd7_8_the_host_passage_is_protected_and_missing_coverage_fails_closed_f
 
     paths, _ctx, _session, repository = _sidecar(tmp_path)
 
-    class Sections:
-        def __init__(self, _repository):
-            pass
-
-        def section_of(self, extraction_id, span_id):
-            return {"h1": "sec_host", "c1": "sec_cov", "o1": "sec_other"}.get(span_id)
-
-    import learnloop.intent.inline_checks as inline_checks
-
-    monkeypatch.setattr(inline_checks, "_Sections", Sections)
-    monkeypatch.setattr(IA, "_host_places", lambda _repository, los: ({("ext_book", "sec_host")}, {"ext_book"}))
+    _sections(monkeypatch, {"h1": "sec_host", "c1": "sec_cov", "o1": "sec_other"})
+    monkeypatch.setattr(IA, "host_places", lambda _repository, los: ({("ext_book", "sec_host")}, {"ext_book"}))
     opened = IA.Opened(commitment_id="cm", practice_item_id=ITEM, cold=True, candidates=(ITEM,),
                        learning_object_ids=(LO,), provenance={})
     visible = {"windows": [{"window_id": "w_book", "kind": "source", "extraction_id": "ext_book", "span_ids": ["h1", "c1", "o1"]},
