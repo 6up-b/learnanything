@@ -225,7 +225,9 @@ def check_submit_inline(ctx: SidecarContext, params: SubmitInlineInput) -> dict[
         session_id=admin["session_id"], practice_item_id=admin["practice_item_id"], answer_md=params.answer_md,
         attempt_type=stuck_attempt_type(item.attempt_types_allowed, hints_used=0),
         assessment_contract_version_id=admin["contract_hash"], latency_seconds=params.latency_seconds,
-        active_seconds=params.active_seconds, submission_id=IA.attempt_submission_key(params.submission_id))
+        active_seconds=params.active_seconds, submission_id=IA.attempt_submission_key(params.submission_id),
+        # A note's veil opened during the check: its words cannot be measured (C2), so the answer is declared primed.
+        primed=IA.notes_opened(admin))
     # The one submit implementation; help shown on this item in this session is folded in by the server, exactly as
     # on the practice screen (taking help makes the answer assisted).
     reply = submit_attempt_on(ctx, submission, entry_surface=IA.SURFACE, hint_window_fold=True)
@@ -236,6 +238,7 @@ def check_submit_inline(ctx: SidecarContext, params: SubmitInlineInput) -> dict[
         outcome = IA.finish_submit(vault, repository, token=params.administration_token, attempt_id=str(attempt_id),
                                    pending_before=admin["pending_before"])
     return {**reply, "cold": outcome["cold"], "reason": outcome["reason"],
+            **({"primed_by": outcome["primed_by"]} if outcome.get("primed_by") else {}),
             "administration_token": params.administration_token}
 
 

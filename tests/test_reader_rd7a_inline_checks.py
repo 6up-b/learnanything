@@ -305,6 +305,34 @@ def test_opening_a_notes_veil_reads_no_note_and_says_so_in_the_receipt(tmp_path)
     assert event["unmeasured_notes"] == ["note_1"] and set(event["amounts"].values()) <= {0.0}
 
 
+def test_an_answer_after_a_notes_veil_was_opened_is_practice_and_says_why(tmp_path):
+    # Whether an unread note gave the answer away cannot be told, so the answer errs toward practice: it is submitted
+    # declared primed (the attempt row's primed flag, which a rebuild reads), with no note read and no reveal row,
+    # and the reply's sub-reason says a note was opened (an orchestrator interim the owner is still to confirm).
+    from learnloop.substrate.replay import rebuild_derived_state
+    from learnloop.vault.loader import load_vault
+
+    paths, ctx, session, repository = _sidecar(tmp_path)
+    commitment = _due_check(repository)
+    token = _begin(ctx, session, commitment)["administrationToken"]
+    call(ctx, "check.expose", {"administrationToken": token, "kind": "opened_veil",
+                               "ref": {"group": "notes", "kind": "note", "window_id": "w_book", "note_id": "note_1"}})
+    reply = _submit(ctx, token)
+    assert (reply["cold"], reply["reason"], reply["primed_by"]) == (False, "primed", "unmeasured_note")
+    assert _rows(paths, "SELECT primed FROM practice_attempts WHERE id = ?", (reply["attemptId"],)) == [(1,)]
+    assert _rows(paths, "SELECT COUNT(*) FROM reveal_events") == [(0,)]
+    assert C.resolve_disposition(repository, commitment) == "one_check_pending"
+
+    def projection() -> dict[str, Any]:
+        mastery = {lo: (round(state.logit_mean, 9), round(state.logit_variance, 9), state.evidence_count)
+                   for lo, state in repository.mastery_states().items()}
+        return {"mastery": mastery, "primed": _rows(paths, "SELECT id, primed FROM practice_attempts ORDER BY id")}
+
+    live = projection()
+    rebuild_derived_state(load_vault(paths.root), repository)
+    assert projection() == live
+
+
 # -- submitting, settling, competing surfaces (owner ruling Q3) -------------------------------------------------------
 
 def test_submit_records_one_attempt_on_the_reader_surface_settles_and_is_idempotent(tmp_path):

@@ -43,6 +43,8 @@ SURFACE = "reader_inline"
 #: How the protection was computed: the check's LO's covered passages by structure, every note-bearing surface by
 #: default (the owner's ruling on uncertain protection).
 METHOD = "structural+notes_by_default"
+#: The submit reply's sub-reason when the answer is practice because a note's veil was opened (``notes_opened``).
+PRIMED_BY_NOTE = "unmeasured_note"
 #: The same when coverage could not be read: every visible source passage is veiled instead of its covered ones.
 METHOD_WHOLE_SOURCES = "whole_sources+notes_by_default"
 #: Window kinds whose text structure can place (their passages are veiled by coverage); every other window is veiled
@@ -462,6 +464,15 @@ def prepare_submit(vault: Any, repository: Any, *, token: str, submission_id: st
     return {**admin, "submission_id": submission_id, "pending_before": pending, "replayed": False}
 
 
+def notes_opened(admin: Mapping[str, Any]) -> bool:
+    """Whether the learner opened a note's veil during this administration (an exposure event with unmeasured notes).
+    A note's words are never read (C2), so whether it gave the answer away cannot be told: the answer is submitted as
+    primed (the attempt's declared ``primed`` flag, stored on the attempt row a rebuild reads), erring toward practice.
+    An orchestrator interim the owner is still to confirm (the alternative: an unmeasured opening costs nothing)."""
+
+    return any(event.get("kind") == "opened_veil" and event.get("unmeasured_notes") for event in admin.get("exposure") or ())
+
+
 def attempt_submission_key(submission_id: str) -> str:
     """The attempt service's own idempotency key for an inline submission."""
 
@@ -500,7 +511,8 @@ def outcome(vault: Any, repository: Any, *, token: str, pending_before: bool | N
     if pending_before is False:
         return {"cold": False, "reason": "already_answered"}
     if primed and int(primed[0] or 0):
-        return {"cold": False, "reason": "primed"}
+        # The sub-reason lets the card say why honestly: a note was opened, and nothing could measure it.
+        return {"cold": False, "reason": "primed", **({"primed_by": PRIMED_BY_NOTE} if notes_opened(admin) else {})}
     if primed and int(primed[1] or 0):
         return {"cold": False, "reason": "with_help"}
     if not admin["cold"]:
