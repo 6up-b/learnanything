@@ -26,6 +26,7 @@ from learnloop.diagnosis.probe_hard_stops import (
     EPISODE_CONFLICT_REASON,
     _causal_origin,
     episode_conflict_reason,
+    learner_preference,
     record_learner_preference,
 )
 from learnloop.vault.models import LoadedVault
@@ -113,6 +114,55 @@ def accept_probe_offer(
     record_probe_offer(repository, offer=offer, decision_receipt_id=decision_receipt_id,
                        router_decision_id=router_decision_id, followup_workflow_id=followup_workflow_id)
     return offer
+
+
+#: The probe router's tag: an offer request with no router decision selecting the factor's probe behind it.
+ROUTER_DECISION_REQUIRED = "router_decision_required"
+
+
+def router_disposition(repository: Repository, factor_id: str) -> dict[str, Any]:
+    """The router's decision on the factor's learner-lane probe as the offer reads it: ``router_state`` (``pending``
+    with no decision, ``selected`` or ``not_selected``) and ``router_decision_id``."""
+
+    from learnloop.router.plan_log import PROBE_REF, learner_probe_decision
+
+    with repository.connection() as connection:
+        decided = learner_probe_decision(connection, factor_id)
+    if decided is None:
+        return {"router_state": "pending", "router_decision_id": None}
+    selected = str(decided.get("chosen_ref")) == PROBE_REF
+    return {"router_state": "selected" if selected else "not_selected", "router_decision_id": str(decided["id"]),
+            "learning_object_id": (decided.get("detail") or {}).get("learning_object_id")}
+
+
+def accept_routed_probe_offer(
+    vault: LoadedVault,
+    repository: Repository,
+    *,
+    factor_id: str,
+    decision_receipt_id: str | None = None,
+    session_id: str | None = None,
+    clock: Clock | None = None,
+) -> tuple[ProbeOffer, dict[str, Any]]:
+    """"Take the quick check" at the probe router's tag: only the router's selection of this factor's probe is
+    accepted, with the learner's hard stops read again at the moment of acceptance (a "Not now" or "Teach me now"
+    recorded after the decision refuses it). A request the router did not select (a stale offer from before the tag,
+    a decision not made yet, or one that did not select the probe) is a typed refusal, never an offer of its own.
+    Returns the offer and the router's disposition."""
+
+    from learnloop.diagnosis.probe_facts import REFUSING_PREFERENCES
+
+    disposition = router_disposition(repository, factor_id)
+    if disposition["router_state"] != "selected":
+        return ProbeOffer(accepted=False, reason=ROUTER_DECISION_REQUIRED, factor_id=factor_id), disposition
+    preference = learner_preference(repository, factor_id=factor_id, session_id=session_id,
+                                    learning_object_id=disposition.get("learning_object_id"))
+    if preference in REFUSING_PREFERENCES:
+        return ProbeOffer(accepted=False, reason="learner_preference", factor_id=factor_id), disposition
+    offer = accept_probe_offer(vault, repository, factor_id=factor_id, decision_receipt_id=decision_receipt_id,
+                               session_id=session_id, clock=clock,
+                               router_decision_id=disposition["router_decision_id"])
+    return offer, disposition
 
 
 def _accept_probe_offer(

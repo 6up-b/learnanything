@@ -20,8 +20,8 @@ describe("What this knows", () => {
     }) }] } as unknown as PassageKnowsDto;
     render(<KnowsPanel object={{ objectKind: "passage", extractionId: "e", spanId: "s1" }} load={async () => read} actions={{ openThread, openPadBlock: vi.fn(), openPassage: vi.fn() }} onClose={() => undefined} />);
     const question = await screen.findByText(/why is it positive/);
-    expect(question.textContent).toContain("may need re-anchoring");
-    expect(screen.getByText("your questions to the tutor")).toBeTruthy();
+    expect(question.textContent).toContain("from an earlier version of this source; the link may open nearby");
+    expect(screen.getByText("your questions in the companion")).toBeTruthy();
     expect(screen.getByText(/does it hold for n = 0/)).toBeTruthy();
     expect(screen.getByText(/shown 2 times/)).toBeTruthy();
     fireEvent.click(question);
@@ -31,7 +31,7 @@ describe("What this knows", () => {
   it("says a check is due and shows nothing of it", async () => {
     const read = { objectKey: "k", sourceIds: [], places: [{ extractionId: "e", spanId: "s1", role: null, knows: span({ checksDue: [{ commitmentId: "secret_c" }] }) }] } as unknown as PassageKnowsDto;
     render(<KnowsPanel object={{ objectKind: "passage", extractionId: "e", spanId: "s1" }} load={async () => read} actions={{ openThread: vi.fn(), openPadBlock: vi.fn(), openPassage: vi.fn() }} onClose={() => undefined} />);
-    await screen.findByText(/a check is due before this passage/);
+    await screen.findByText(/a cold check is due before this passage/);
     expect(document.body.textContent).not.toContain("secret_c");
   });
 
@@ -47,7 +47,7 @@ describe("What this knows", () => {
     const onClose = vi.fn();
     const view = render(<KnowsPanel object={{ objectKind: "window", windowId: "w" }} load={async () => ({ objectKey: "k", sourceIds: [], places: [] }) as unknown as PassageKnowsDto} actions={{ openThread: vi.fn(), openPadBlock: vi.fn(), openPassage: vi.fn() }} onClose={onClose} />);
     await screen.findByText("nothing here yet");
-    expect(screen.getByRole("dialog", { name: "what this knows" }).contains(document.activeElement)).toBe(true);
+    expect(screen.getByRole("dialog", { name: "passage details" }).contains(document.activeElement)).toBe(true);
     fireEvent.keyDown(document.body, { key: "Escape" });
     expect(onClose).toHaveBeenCalledTimes(1);
     view.unmount();
@@ -65,7 +65,7 @@ describe("What this knows", () => {
       notes: [{ linkId: "l1", line: "your note from 3 Oct", note: { title: "softmax", text: "the exponent keeps order" } }],
     }) }] } as unknown as PassageKnowsDto;
     render(<KnowsPanel object={{ objectKind: "passage", extractionId: "e", spanId: "s1" }} load={async () => read} actions={{ openThread, openPadBlock: vi.fn(), openPassage }} onClose={() => undefined} />);
-    fireEvent.click(await screen.findByText(/changed a reading of your words/));
+    fireEvent.click(await screen.findByText(/changed how LearnLoop read your words/));
     expect(openThread).toHaveBeenCalledWith("q7");
     expect(screen.getByText(/your note from 3 Oct · the exponent keeps order/)).toBeTruthy();
     fireEvent.click(screen.getByText(/› highlight/));

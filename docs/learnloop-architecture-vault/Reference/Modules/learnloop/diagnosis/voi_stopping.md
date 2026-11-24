@@ -271,6 +271,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `FORECAST_VERSION`, `module`; statically calls `InformationEntry`, `MinutesEstimate`, `VoiContext`, `greedy_information_admission`, `not_in_plan_receipt`, `record_plan_value_forecasts`, `voi_stopping_active`
+- [[Reference/Modules/learnloop/daily_plan/learner_probe|learnloop.daily_plan.learner_probe]] — imports `label_conditionals`; statically calls `label_conditionals`
 - [[Reference/Modules/learnloop/diagnosis/followups|learnloop.diagnosis.followups]] — imports `SITE_FOLLOWUP`, `VOI_VALUE_SUPPRESSION`, `module`, `record_followup_decision`, `voi_stopping_active`; statically calls `Candidate`, `VoiContext`, `former_cap`, `record_followup_decision`, `value_candidates`, `voi_stopping_active`
 - [[Reference/Modules/learnloop/diagnosis/gate_fit|learnloop.diagnosis.gate_fit]] — imports `VALUATION_SUPPRESSION_REASONS`
 - [[Reference/Modules/learnloop/diagnosis/probe_blocks|learnloop.diagnosis.probe_blocks]] — imports `module`; statically calls `VoiContext`, `probe_episode_decision`, `voi_stopping_active`
@@ -312,7 +313,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/diagnosis/followups|learnloop.diagnosis.followups]], [[Reference/Modules/learnloop/diagnosis/gate_fit|learnloop.diagnosis.gate_fit]], [[Reference/Modules/learnloop/diagnosis/probe_blocks|learnloop.diagnosis.probe_blocks]], [[Reference/Modules/learnloop/diagnosis/probe_completion|learnloop.diagnosis.probe_completion]] and 4 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/learner_probe|learnloop.daily_plan.learner_probe]], [[Reference/Modules/learnloop/diagnosis/followups|learnloop.diagnosis.followups]], [[Reference/Modules/learnloop/diagnosis/gate_fit|learnloop.diagnosis.gate_fit]], [[Reference/Modules/learnloop/diagnosis/probe_blocks|learnloop.diagnosis.probe_blocks]] and 5 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -333,6 +334,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_g_value_suppresses_a_followup_and_the_learners_request_overrides_it`
   - `test_h_the_scheduler_withholds_a_probe_whose_value_does_not_pay`
   - `test_i_the_serving_door_refuses_a_new_presentation_by_value_and_records_why`
+- [tests/test_probe_router_worth_gates.py](../../../../../../tests/test_probe_router_worth_gates.py) — direct import
+  - `test_a_router_selected_probe_is_served_answered_and_ended_with_every_legacy_worth_gate_raising`
+  - `test_below_the_tag_a_pinned_router_decision_is_no_dispatch`
 - [tests/test_voi_merge_composition.py](../../../../../../tests/test_voi_merge_composition.py) — direct import
   - `test_a_committed_probe_logs_its_value_decision_once_beside_the_selection_forecast`
   - `test_a_follow_up_decided_again_on_its_attempt_is_superseded`

@@ -39,7 +39,7 @@ No nested ownership area.
 | [[Reference/Desktop/TypeScript/screens/desks/video/VideoWindow|VideoWindow.tsx]] | `ACTIVE` | Implements the `VideoWindow` routed desktop screen and coordinates its learner-facing workflow state. | 7 | 1 |
 | [[Reference/Desktop/TypeScript/screens/desks/video/desk|desk.ts]] | `ACTIVE` | Provides `VideoTransport`, `LIVE_VIDEO_TRANSPORT`, `VideoClock`, `DeskVideos` and related exports within the desktop's TypeScript/screens/desks/video ownership area. | 3 | 4 |
 | [[Reference/Desktop/TypeScript/screens/desks/video/followLens|followLens.ts]] | `ACTIVE` | Provides `FollowLenses` within the desktop's TypeScript/screens/desks/video ownership area. | 1 | 1 |
-| [[Reference/Desktop/TypeScript/screens/desks/video/model|model.ts]] | `ACTIVE` | Provides `clockWords`, `FollowedPassage`, `choosePassage`, `chapterWords` and related exports within the desktop's TypeScript/screens/desks/video ownership area. | 1 | 5 |
+| [[Reference/Desktop/TypeScript/screens/desks/video/model|model.ts]] | `ACTIVE` | Provides `clockWords`, `FollowedPassage`, `choosePassage`, `chapterLabel` and related exports within the desktop's TypeScript/screens/desks/video ownership area. | 1 | 5 |
 
 ## Modification guidance
 

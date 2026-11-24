@@ -126,7 +126,7 @@ def test_a_pad_added_to_a_stack_survives_another_devices_desk_change_and_its_vie
     last = device_a.desk({"op": "remove_from_stack", "desk_id": "d1", "window_id": "w_stack",
                           "entry": {"kind": "pad", "pad_id": PAD}})
     assert last["results"][0] == {"status": "refused", "code": "last_in_stack",
-                                  "message": "A stack holds at least one pad: close the window instead."}
+                                  "message": "This is the last pad in the stack. Close the window to close it."}
     missing = device_a.desk({"op": "add_to_stack", "desk_id": "d1", "window_id": "w_stack",
                              "entry": {"kind": "pad", "pad_id": "pad_nope"}})
     assert missing["results"][0]["code"] == "pad_not_found"

@@ -203,62 +203,30 @@ export function GuideRail({
   // Sections finished here with "I've read this section", and whether that queued their questions (or they wait for
   // the book to be ready); the hook's own record covers a section finished by its end.
   const [finishedHere, setFinishedHere] = useState<Record<string, SectionFinish>>({});
-  // Checks closed with "Done with this check" this visit, by reading and section: what they showed stays, folded.
-  const [closedChecks, setClosedChecks] = useState<Record<string, ClosedCheck>>({});
   const sections = guidePlan?.sections ?? [];
   const currentIndex = currentGuideSection ? sections.findIndex((section) => section.id === currentGuideSection.id) : -1;
   const nextSection = currentIndex >= 0 ? sections[currentIndex + 1] ?? null : null;
   // The book's last section (a one-section book's only one): no section break comes, and nothing to keep going to.
   const lastSection = currentIndex >= 0 && nextSection === null;
   const currentFinished = currentGuideSection ? completedSections.includes(currentGuideSection.id) : false;
-  const closeCheck = (section: ReaderGuideSectionDto, kept: Omit<ClosedCheck, "sectionId" | "label"> | null) => {
-    setDismissedSections((ids) => [...new Set([...ids, section.id])]);
-    if (kept) setClosedChecks((all) => ({ ...all, [`${extractionId}:${section.id}`]: { sectionId: section.id, label: section.label, ...kept } }));
-    void completeSection(section.id, "check_closed");
-  };
-  const open = new Set(openQuestionSections.map((section) => section.id));
-  const kept = Object.entries(closedChecks)
-    .filter(([key, check]) => key.startsWith(`${extractionId}:`) && !open.has(check.sectionId))
-    .map(([key, check]) => <ClosedCheckRecord key={key} check={check} />);
-  // The active checks before any optional guide material: opening one brings its question and answer box into view.
-  const checks = boundaryChecksAvailable
-    ? openQuestionSections.map((section) => (
-        <div key={section.id} data-quick-check={section.id}>
-          {section.question?.placement === "auto_authored" ? (
-            <AuthoredQuestionCard
-              section={section}
-              autoStart={focusQuickCheck === section.id}
-              onJump={peek}
-              onDismiss={() => setDismissedSections((ids) => [...new Set([...ids, section.id])])}
-              onComplete={(answer) => closeCheck(section, answer ?? null)}
-              onAnswered={() => setAnsweredSections?.((ids) => [...new Set([...ids, section.id])])}
-              onError={onError}
-            />
-          ) : (
-            <SectionQuestionCard
-              section={section}
-              autoStart={focusQuickCheck === section.id}
-              extractionId={extractionId}
-              onReveal={() => revealSection(section.id)}
-              onJump={peek}
-              onDismiss={() => setDismissedSections((ids) => [...new Set([...ids, section.id])])}
-              onComplete={(answer) => closeCheck(section, answer ?? null)}
-              onChosen={() => void completeSection(section.id, "idea_chosen")}
-              onAnswered={() => setAnsweredSections?.((ids) => [...new Set([...ids, section.id])])}
-              onError={onError}
-            />
-          )}
-        </div>
-      ))
-    : [];
   // Without a read count (an older caller) the bar follows the reading marker.
   const sectionRead = currentSectionRead ?? currentSectionProgress;
   return (
     <div style={{ display: visible ? "block" : "none" }}>
       {/* Open quick checks come first, before any optional guide material (UX Phase 1 usability round 1, U5; the
           first evening's controls above the fold). */}
-      {checks}
-      {kept}
+      <QuickChecks
+        extractionId={extractionId}
+        available={boundaryChecksAvailable}
+        sections={openQuestionSections}
+        focusQuickCheck={focusQuickCheck}
+        onJump={peek}
+        setDismissedSections={setDismissedSections}
+        setAnsweredSections={setAnsweredSections}
+        completeSection={completeSection}
+        revealSection={revealSection}
+        onError={onError}
+      />
       {header}
       <SectionHeader style={{ marginTop: 0 }}>Reading guide</SectionHeader>
       {path ?? (guidePlan?.goalContext ? (
@@ -1087,5 +1055,66 @@ function FocusedButton({ label, onClick }: { label: string; onClick: () => void 
     <span ref={ref}>
       <SecondaryButton onClick={onClick}>{label}</SecondaryButton>
     </span>
+  );
+}
+
+/** The open quick checks and authored questions of some sections, and what the closed ones showed (this visit). The
+ *  Guide shows them first; a desk window with no Guide on screen shows each under its section (spec §21.1). */
+export function QuickChecks({
+  extractionId, available, sections, focusQuickCheck = null, onJump: peek, setDismissedSections, setAnsweredSections,
+  completeSection, revealSection, onError,
+}: Pick<GuideRailProps, "extractionId" | "setDismissedSections" | "setAnsweredSections" | "completeSection" | "revealSection" | "onError"> & {
+  available: boolean;
+  sections: ReaderGuideSectionDto[];
+  focusQuickCheck?: string | null;
+  onJump: (spanId: string) => void;
+}) {
+  // Checks closed with "Done with this check" this visit, by reading and section: what they showed stays, folded.
+  const [closedChecks, setClosedChecks] = useState<Record<string, ClosedCheck>>({});
+  const closeCheck = (section: ReaderGuideSectionDto, kept: Omit<ClosedCheck, "sectionId" | "label"> | null) => {
+    setDismissedSections((ids) => [...new Set([...ids, section.id])]);
+    if (kept) setClosedChecks((all) => ({ ...all, [`${extractionId}:${section.id}`]: { sectionId: section.id, label: section.label, ...kept } }));
+    void completeSection(section.id, "check_closed");
+  };
+  const open = new Set(sections.map((section) => section.id));
+  const kept = Object.entries(closedChecks)
+    .filter(([key, check]) => key.startsWith(`${extractionId}:`) && !open.has(check.sectionId))
+    .map(([key, check]) => <ClosedCheckRecord key={key} check={check} />);
+  // The active checks before any optional guide material: opening one brings its question and answer box into view.
+  const checks = available
+    ? sections.map((section) => (
+        <div key={section.id} data-quick-check={section.id}>
+          {section.question?.placement === "auto_authored" ? (
+            <AuthoredQuestionCard
+              section={section}
+              autoStart={focusQuickCheck === section.id}
+              onJump={peek}
+              onDismiss={() => setDismissedSections((ids) => [...new Set([...ids, section.id])])}
+              onComplete={(answer) => closeCheck(section, answer ?? null)}
+              onAnswered={() => setAnsweredSections?.((ids) => [...new Set([...ids, section.id])])}
+              onError={onError}
+            />
+          ) : (
+            <SectionQuestionCard
+              section={section}
+              autoStart={focusQuickCheck === section.id}
+              extractionId={extractionId}
+              onReveal={() => revealSection(section.id)}
+              onJump={peek}
+              onDismiss={() => setDismissedSections((ids) => [...new Set([...ids, section.id])])}
+              onComplete={(answer) => closeCheck(section, answer ?? null)}
+              onChosen={() => void completeSection(section.id, "idea_chosen")}
+              onAnswered={() => setAnsweredSections?.((ids) => [...new Set([...ids, section.id])])}
+              onError={onError}
+            />
+          )}
+        </div>
+      ))
+    : [];
+  return (
+    <>
+      {checks}
+      {kept}
+    </>
   );
 }

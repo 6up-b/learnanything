@@ -212,7 +212,6 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - [[Reference/Modules/learnloop/ops/pf_publish|learnloop.ops.pf_publish]] — imports `content_key`; statically calls `content_key`
 - [[Reference/Modules/learnloop/ops/pf_reports|learnloop.ops.pf_reports]] — imports `content_key`; statically calls `content_key`
 - [[Reference/Modules/learnloop/ops/pf_verify|learnloop.ops.pf_verify]] — imports `content_key`; statically calls `content_key`
-- [[Reference/Modules/learnloop/pads/ink_transcribe|learnloop.pads.ink_transcribe]] — imports `call_labels`; statically calls `call_labels`
 - [[Reference/Modules/learnloop/practice_index/dossiers|learnloop.practice_index.dossiers]] — imports `content_key`; statically calls `content_key`
 - [[Reference/Modules/learnloop/practice_index/evaluation|learnloop.practice_index.evaluation]] — imports `content_key`; statically calls `content_key`
 - [[Reference/Modules/learnloop/practice_index/listwise|learnloop.practice_index.listwise]] — imports `content_key`; statically calls `content_key`
@@ -279,7 +278,7 @@ Use this module in context through:
 - [[Configure AI Providers]]
 - [[Process Model Output]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_audit|learnloop.adaptive_difficulty.history_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/adaptive_difficulty/sending|learnloop.adaptive_difficulty.sending]] and 135 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_audit|learnloop.adaptive_difficulty.history_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/adaptive_difficulty/sending|learnloop.adaptive_difficulty.sending]] and 134 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -304,7 +303,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/hint_outcome_helpers.py](../../../../../../tests/hint_outcome_helpers.py) — direct import
 - [tests/http_provider_double.py](../../../../../../tests/http_provider_double.py) — direct import
 - [tests/identity_pins_helpers.py](../../../../../../tests/identity_pins_helpers.py) — direct import
-- [tests/ink_helpers.py](../../../../../../tests/ink_helpers.py) — direct import
 - [tests/library_ask_fixtures.py](../../../../../../tests/library_ask_fixtures.py) — direct import
 - [tests/live_dialogue_contract_helpers.py](../../../../../../tests/live_dialogue_contract_helpers.py) — direct import
 - [tests/local_embeddings_fakes.py](../../../../../../tests/local_embeddings_fakes.py) — direct import
@@ -482,6 +480,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_project_cli.py](../../../../../../tests/test_project_cli.py) — direct import
 - [tests/test_provenance.py](../../../../../../tests/test_provenance.py) — direct import
   - `test_a_model_calls_receipt_carries_the_trace_it_started_under`
+- [tests/test_reader_ink_glm_ocr.py](../../../../../../tests/test_reader_ink_glm_ocr.py) — direct import
+  - `test_one_admission_and_receipt_at_ingests_price_and_a_retry_spends_nothing`
 - [tests/test_reader_passage_check.py](../../../../../../tests/test_reader_passage_check.py) — direct import
   - `test_a_metered_check_is_one_admitted_physical_request_held_to_its_output_allowance`
 - [tests/test_reader_rd3_fix_backend.py](../../../../../../tests/test_reader_rd3_fix_backend.py) — direct import

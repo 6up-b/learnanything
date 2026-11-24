@@ -63,7 +63,7 @@ import { FitMath } from "./desks/fitMath";
 
 export type LessonEntry =
   | { kind: "open"; entry: "learning_object" | "reader_selection" | "new_topic"; learningObjectIds?: string[];
-      selection?: { extractionId: string; spanIds: string[] }; title?: string;
+      selection?: { extractionId: string; spanIds: string[]; blockIds?: string[] }; title?: string;
       /** Teacher TE1b: the Start of Today's suggestion card (its decision and the lesson id its response recorded). */
       suggestion?: { decisionId: string; lessonId: string };
       /** IH7 (the owner's decision 2): the "learn this" preference this lesson was asked for with. */
@@ -79,12 +79,12 @@ export const PROBE_POLL_MS = DIAGNOSIS_POLL_MS;
 
 const TAP_LABELS = ["1", "2", "3", "4", "5"];
 const CLOSE_WORDS: Record<string, string> = {
-  goal_reached: "Lesson done.",
+  goal_reached: "Lesson finished.",
   learner_stop: "Lesson stopped.",
   budget: "This lesson reached its spending cap.",
   plan_unavailable: "The teacher became unavailable, so the lesson closed.",
-  teacher_contract_failure: "The teacher kept getting its turns wrong, so the lesson closed.",
-  protection_changed: "Some of what this lesson relied on is now kept for your exam or held out, so the lesson ended here.",
+  teacher_contract_failure: "The lesson couldn’t continue. Return to Path to choose what to study next.",
+  protection_changed: "This lesson ended. Everything so far is saved; start a new lesson to continue.",
 };
 
 function dueWords(due: string): string {
@@ -171,7 +171,7 @@ export function LessonView({
     onBusyRef.current?.(busy);
   }, [busy]);
   // Which wait `busy` is, so the waiting line says the true one (the goal lookup is not the teacher writing).
-  const [busyFor, setBusyFor] = useState<"turn" | "goal">("turn");
+  const [busyFor, setBusyFor] = useState<"turn" | "goal" | "check">("turn");
   const [unavailable, setUnavailable] = useState<string | null>(null);
   const [reply, setReply] = useState("");
   // What the learner just sent (a reply, a prediction), shown in the thread until the lesson shows it: the box is
@@ -199,7 +199,8 @@ export function LessonView({
 
   const run = useCallback(async (input: LessonTurnInput) => {
     setBusy(true);
-    setBusyFor("turn");
+    // An answer to a check or a probe is graded before the teacher writes: the wait says which.
+    setBusyFor(input.action === "answer_check" || input.action === "answer_probe" ? "check" : "turn");
     setUnavailable(null);
     setRetry(null);
     lastFailure.current = null;
@@ -524,7 +525,7 @@ export function LessonView({
             <div data-testid="lesson-learner-sent" style={{ margin: "10px 0 10px 40px", padding: "8px 12px", border: `1px solid ${COLOR.border}`,
                                                        fontFamily: FONT_MONO, fontSize: 12 }}>
               {sent}
-              <Faint style={{ display: "block", marginTop: 2 }}>sent</Faint>
+              <Faint style={{ display: "block", marginTop: 2 }}>{busy ? "Sending…" : "Your reply"}</Faint>
             </div>
           ) : null}
           {view && view.closed && view.closeReason === "protection_changed" && view.learningObjectIds?.length
@@ -587,7 +588,9 @@ export function LessonView({
             // A lesson turn took 11 to 83 s in the walks; finding a typed goal in the books is a lookup, not the teacher.
             busyFor === "goal"
               ? <Waiting testId="lesson-wait" line={WAITING_COPY.lookingInBooks} />
-              : <Waiting testId="lesson-wait" line={WAITING_COPY.teacherWriting} later={WAITING_COPY.teacherWritingLater} />
+              : busyFor === "check"
+                ? <Waiting testId="lesson-wait" line="Checking your answer…" later={WAITING_COPY.teacherWritingLater} />
+                : <Waiting testId="lesson-wait" line={WAITING_COPY.teacherWriting} later={WAITING_COPY.teacherWritingLater} />
           ) : null}
           {unavailable ? (
             <div role="status" data-testid="lesson-unavailable" style={{ color: COLOR.textDim }}>
@@ -616,7 +619,7 @@ export function LessonView({
                 <textarea aria-label="Your answer" value={answer} onChange={(e) => setAnswer(e.target.value)}
                           style={{ width: "100%", minHeight: 70 }} />
               )}
-              <textarea aria-label="Your thinking (optional)" placeholder="your thinking (optional; the teacher reads it, the grader never does)"
+              <textarea aria-label="Your thinking (optional)" placeholder="Your thinking is optional. The teacher can use it. Only your answer is graded."
                         value={thinking} onChange={(e) => setThinking(e.target.value)} style={{ width: "100%", minHeight: 40, marginTop: 6 }} />
               {answer.trim() ? (
                 <div data-testid="lesson-tap" style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 6 }}>
@@ -649,24 +652,24 @@ export function LessonView({
           ) : null}
         </article>
         <aside data-testid="lesson-plan" {...look.plan}>
-          <Faint style={{ fontSize: 10, letterSpacing: "0.14em" }}>MAP</Faint>
-          {(view?.plan ?? []).length === 0 ? <Faint>The map appears once the teacher plans the lesson.</Faint> : null}
+          <Faint style={{ fontSize: 10, letterSpacing: "0.14em" }}>Lesson outline</Faint>
+          {(view?.plan ?? []).length === 0 ? <Faint>The outline appears after the teacher plans the lesson.</Faint> : null}
           <ol style={{ paddingLeft: 18 }}>
-            {(view?.plan ?? []).map((node) => (
+            {(view?.plan ?? []).map((node, index) => (
               <li key={node.id} data-position={node.position}
                   style={{ color: node.position === "current" ? COLOR.text : node.position === "visited" ? COLOR.textDim : COLOR.textFaint,
                            fontWeight: node.position === "current" ? 600 : 400 }}>
-                {node.statement ?? node.id}
+                {node.statement ?? `Lesson step ${index + 1}`}
               </li>
             ))}
           </ol>
           {view ? (
             <details style={{ marginTop: 16 }}>
-              <summary><Faint>inspector</Faint></summary>
+              <summary><Faint>How this lesson was made</Faint></summary>
               <div style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.textFaint }}>
-                <div>doctrine {view.inspector.doctrine}</div>
-                <div>route {view.inspector.route ?? "–"} · {view.inspector.model ?? "–"}</div>
-                <div>{view.inspector.forecasts.length} forecast(s)</div>
+                <div>Teaching rules · {view.inspector.doctrine}</div>
+                <div>AI service and model · {view.inspector.route ?? "–"} · {view.inspector.model ?? "–"}</div>
+                <div>Learning estimates · {view.inspector.forecasts.length}</div>
               </div>
             </details>
           ) : null}
@@ -711,9 +714,9 @@ function Prose({ value, windowed }: { value: string; windowed: boolean }) {
 
 /** Reader RW5d P4b: what a lesson figure that isn't drawn says (code-owned words). */
 export const LESSON_FIGURE_COPY: Readonly<Record<Exclude<LessonFigureStatus, "shown">, string>> = Object.freeze({
-  failed: "couldn't build a figure for this step",
-  withheld: "the figure for this step isn't shown (it would give an answer away, or its passage is held out now)",
-  unavailable: "the figure model isn't available right now, so this step has no figure",
+  failed: "Couldn’t make a figure for this step. You can continue the lesson.",
+  withheld: "No figure for this step: it would give an answer away, or its passage is held out now.",
+  unavailable: "The figure model isn’t available right now, so this step has no figure.",
 });
 
 /** The lesson's figure contract: no predictions (the teacher poses them), no region, no "not right?". */
@@ -836,13 +839,12 @@ function FeedEntry({ item, openCheckRef, checkOpen, onOpenCheck, windowed }: {
             <ul>
               {item.delayedChecks.map((check, index) => (
                 <li key={index}>
-                  I&apos;ll ask you one question on {check.title ?? "this topic"}, on your own, {dueWords(check.due)}
-                  {check.purpose === "transfer" ? " (in a new situation)" : ""}.
+                  A cold check comes {dueWords(check.due)}. Answer it on your own{check.purpose === "transfer" ? ", in a new situation" : ""}.
                 </li>
               ))}
             </ul>
           ) : (
-            <Faint>No later check could be set this time.</Faint>
+            <Faint>No later cold check could be set this time.</Faint>
           )}
         </div>
       );

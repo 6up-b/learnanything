@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/windows/PanelWindow.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/windows/PanelWindow.tsx) |
-| Source lines | 110 |
+| Source lines | 172 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/windows/_area|TypeScript/screens/desks/windows]] |
 | Refactor status | `ACTIVE` |
@@ -54,17 +54,30 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export const PANEL_TITLES: Record<PanelContent["panel"], string> =` — const, line 18
-- `export function RailHostPanel(` — function, line 26
-- `export function PathPanel(` — function, line 54
-- `export function LibraryPanel(` — function, line 66
+- `export const PANEL_TITLES: Record<PanelContent["panel"], string> =` — const, line 27
+- `export function RailHostPanel(` — function, line 35
+- `export function PathPanel(` — function, line 63
+- `export function LibraryPanel(` — function, line 75
 
 ## Internal implementation anchors
 
-- `type PanelContent = Extract<ContentRefDto,` — type, line 16
-- `const contractQuery = useCachedQuery(["reader_prompt_contract"], ()` — const, line 79
-- `const ctl = useLibraryAsk(` — const, line 80
-- `const ask = useCallback((text: string)` — const, line 82
+- `type PanelContent = Extract<ContentRefDto,` — type, line 25
+- `const contractQuery = useCachedQuery(["reader_prompt_contract"], ()` — const, line 94
+- `const contract = contractQuery.data ?? null` — const, line 95
+- `const ctl = useLibraryAsk(` — const, line 96
+- `const kept = useKeptComparisons(` — const, line 99
+- `const notes = useNoteMarks(` — const, line 100
+- `const cardOf = (sourceId: string | null | undefined)` — const, line 101
+- `const pickPractice = (item: ProposedItemDto, proposalId: string | null)` — const, line 104
+- `const asked = ctl.state?.request` — const, line 105
+- `const hit = ctl.state?.ask.value?.hits[0]` — const, line 106
+- `const at = asked?.identity ?` — const, line 107
+- `const card = cardOf(at?.sourceId)` — const, line 110
+- `const useExercise = (candidate: ExerciseCandidate)` — const, line 119
+- `const card = cardOf(candidate.sourceId)` — const, line 120
+- `const exerciseSettings = ctl.enabled ? contract?.libraryExercises ?? null : null` — const, line 127
+- `const exercises: LibraryExercisesProps | null = exerciseSettings ?` — const, line 128
+- `const ask = useCallback((text: string)` — const, line 139
 
 ## Who imports or calls it
 
@@ -78,10 +91,18 @@ The system-level behavior stays authoritative in the linked architecture, concep
 ### Desktop source modules
 
 - [[Reference/Desktop/TypeScript/api/client|src/api/client.ts]] — import-or-re-export; imports `api`
-- [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `ContentRefDto`, `LibraryHitDto`
+- [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `ContentRefDto`, `LibraryHitDto`, `ProposedItemDto`, `SourceLibraryCard`
 - [[Reference/Desktop/TypeScript/api/useCachedQuery|src/api/useCachedQuery.ts]] — import-or-re-export; imports `useCachedQuery`
+- [[Reference/Desktop/TypeScript/app/algoConfig|src/app/algoConfig.ts]] — import-or-re-export; imports `algoConfig`
+- [[Reference/Desktop/TypeScript/screens/desks/windows/SourceWindow|src/screens/desks/windows/SourceWindow.tsx]] — import-or-re-export; imports `ReaderPassThrough`
 - [[Reference/Desktop/TypeScript/screens/reader/LibraryPane|src/screens/reader/LibraryPane.tsx]] — import-or-re-export; imports `LibraryPane`
+- [[Reference/Desktop/TypeScript/screens/reader/ProposalExercises|src/screens/reader/ProposalExercises.tsx]] — import-or-re-export; imports `LibraryExercisesProps`
+- [[Reference/Desktop/TypeScript/screens/reader/ReaderNotes|src/screens/reader/ReaderNotes.tsx]] — import-or-re-export; imports `useNoteMarks`
 - [[Reference/Desktop/TypeScript/screens/reader/ReadingPathCard|src/screens/reader/ReadingPathCard.tsx]] — import-or-re-export; imports `ReadingPathCard`
+- [[Reference/Desktop/TypeScript/screens/reader/compareKeepContext|src/screens/reader/compareKeepContext.ts]] — import-or-re-export; imports `CompareKeepContext`
+- [[Reference/Desktop/TypeScript/screens/reader/exerciseCandidates (ts)|src/screens/reader/exerciseCandidates.ts]] — import-or-re-export; imports `ExerciseCandidate`, `exerciseOpenRequest`
+- [[Reference/Desktop/TypeScript/screens/reader/notesContext|src/screens/reader/notesContext.ts]] — import-or-re-export; imports `NotesContext`
+- [[Reference/Desktop/TypeScript/screens/reader/useKeptComparisons|src/screens/reader/useKeptComparisons.ts]] — import-or-re-export; imports `useKeptComparisons`
 - [[Reference/Desktop/TypeScript/screens/reader/useLibraryAsk|src/screens/reader/useLibraryAsk.ts]] — import-or-re-export; imports `useLibraryAsk`
 
 ### Assets, platform, and third-party dependencies

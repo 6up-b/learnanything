@@ -45,8 +45,8 @@ BELIEF = LearnerGap(kind="misconception", prerequisite_name=None, prerequisite_l
 
 
 def test_the_tag_and_the_kind():
-    assert PAD_TEXT_ALGORITHM_VERSION == "mvp-0.68" == SUCCESSOR_CHAIN[-1]
-    for version, on in ((SUCCESSOR_CHAIN[-2], False), (PAD_TEXT_ALGORITHM_VERSION, True)):
+    assert PAD_TEXT_ALGORITHM_VERSION == "mvp-0.68" == SUCCESSOR_CHAIN[-3]
+    for version, on in ((SUCCESSOR_CHAIN[-4], False), (PAD_TEXT_ALGORITHM_VERSION, True)):
         config = type("C", (), {"algorithms": type("A", (), {"algorithm_version": version})()})()
         assert pad_text_on(config) is on
     assert "pad_text" in SOURCE_KINDS and "pad_text" in READABLE_SOURCE_KINDS
@@ -229,7 +229,7 @@ def test_ink_transcriptions_and_corrections_are_emitted_as_transcribed(tmp_path)
 
 def test_below_the_tag_a_pad_emits_nothing_and_the_upgrade_queues_its_standing_words(tmp_path):
     paths, repository, batches = pad_vault(tmp_path)
-    set_algorithm_version(paths, SUCCESSOR_CHAIN[-2])
+    set_algorithm_version(paths, SUCCESSOR_CHAIN[-4])
     create_pad(batches)
     reply = apply_and_settle(paths, repository, batches, PAD, insert("b1", "old words", version_id="v1"))
     apply_and_settle(paths, repository, batches, PAD, edit("b1", head_of(reply, "b1"), "standing words", "v2"))

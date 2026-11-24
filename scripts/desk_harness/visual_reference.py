@@ -20,7 +20,7 @@ Build the harness page first (apps/learnloop-tauri: `npx vite build --config vit
     uv run --no-project --with playwright==1.65.2 --with pillow==11.3.0 \\
         python scripts/desk_harness/visual_reference.py --ref <the private reference directory> --stage rd4
 
-`--stage` is rd1, rd2, rd3, rd4, rd5, rd6, rd8, rd9, rd10, notebook or all; `--state NAME` runs one state; `--viewport design|laptop|both`.
+`--stage` is rd1, rd2, rd3, rd4, rd5, rd6, rd7, rd8, rd9, rd10, notebook or all; `--state NAME` runs one state; `--viewport design|laptop|both`.
 Exit status 0 when the run completed (differences are findings, not failures), 2 when the reference is
 missing. `--dump NAME` prints the harness's element tree in that state (for mapping new regions).
 """
@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import datetime
 import json
 import re
 import sys
@@ -40,7 +41,7 @@ from typing import Any
 from playwright.async_api import Page, async_playwright
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from run import DIST, route_outside, serve  # noqa: E402  (a sibling script, not a package)
+from run import DIST, INK_JOT_STROKE_JS, open_problem_from_book, route_outside, serve  # noqa: E402  (a sibling script, not a package)
 
 # The mockup's design viewport and the laptop it folds for (the shelf becomes a rail below 1400 px).
 VIEWPORTS = {"design": {"width": 1440, "height": 900}, "laptop": {"width": 1280, "height": 800}}
@@ -75,6 +76,24 @@ REGIONS: dict[str, Region] = {}
 def region(name: str, harness: str, geom: str = "none", skip: tuple[str, ...] = ()) -> None:
     REGIONS[name] = Region(harness, geom, skip)
 
+
+# ── inline cold checks (RD7; the harness's ?checks=1 and ?checks=open pages): the open card at the host passage (the
+# goal lens's callout, opened), the card centred near the top, the veils. The reference's own class names. ──
+region("auto:div.ovl.coldcheck", "[data-check-card='overlay']", "box")
+region("auto:div.cch", "[data-check-card='overlay'] .cch", "width")
+region("auto:div.ccq", "[data-check-card='overlay'] .ccq", "none")
+region("auto:div.cca", "[data-check-card='overlay'] .cca", "width")
+region("auto:div.ccb", "[data-check-card='overlay'] .ccb", "width")
+region("auto:div.ccf", "[data-check-card='overlay'] .ccf", "none")
+region("auto:div.ccfh", "[data-check-card='overlay'] .ccfh", "none")
+region("auto:div.ccv", "[data-check-card='overlay'] .ccv", "none")
+region("auto:div.open", "[data-check-card='inline'].callout.gq.open", "width")
+region("auto:div.done", "[data-check-card='inline'].callout.gq.done", "width")
+region("auto:textarea.gqa", "[data-check-card='inline'] textarea.gqa", "size")
+region("auto:div.gqv", "[data-check-card='inline'] .gqv", "width")
+region("auto:div.gqy", "[data-check-card='inline'] .gqy", "none")
+region("auto:div.gqf", "[data-check-card='inline'] .gqf", "none")
+region("auto:div.veiled", "[data-desk-window] .veiled", "none")
 
 # ── video and carried polish (RD10; the harness's ?video=1 page): the follow chip, suggested chapters, ticks ──
 region("follow_chip", "[data-desk-window] .desk-pane-head .chip.fchip", "height")
@@ -364,6 +383,14 @@ region("ink_read_label", ".desk-pads .ocrl2 .ocrt", "height")
 region("ink_read_tex", ".desk-pads .ocrl2 .ocrtex", "none")
 region("ink_hint", ".desk-pads .hint2", "none")
 
+# ── handwritten work on a problem pad (owner decision 2026-11-23; `#pen=ladder`): the ladder is the workbench's own
+# (unchanged), so only what the reference's ladder says of the ink is compared: the open ◇ in the line's gutter
+# (its `.hmk.open`), the quiet line the ladder opens with (its `.lh`, ours the note that help reads LearnLoop's
+# reading) and the line's reading (its `.lread`, ours the line's "read as" under the ink).
+region("auto:button.open", ".desk-pads .hmk[data-ink-help]", "none")
+region("auto:div.lh", ".desk-pads .ink-help-note[data-ink-help-note='reading']", "none")
+region("auto:div.lread", ".desk-pads [data-ink-step] .ocrl2", "none")
+
 # The pointer's cursor is compared on these regions only (pen mode's crosshair on the text).
 CURSOR_REGIONS = frozenset({"pen_text_cursor"})
 
@@ -504,6 +531,17 @@ async def d_plain(page: Page) -> None:
 
 async def d_desk1(page: Page) -> None:
     await page.get_by_role("button", name="attention", exact=True).click()
+    await wait(page, 1500)
+
+
+async def d_pair(page: Page) -> None:
+    """Side by side as a pair (`?pairs=1`): the backprop desk's book, then Ctrl+\\ pairs its first correspondent."""
+    await page.get_by_role("button", name="backprop", exact=True).click()
+    await page.wait_for_selector("[data-desk-window='fx_w_book_range'] [data-span-id]")
+    await wait(page, 1200)
+    await page.click("[data-desk-window='fx_w_book_range'] .desk-pane-head .t")
+    await page.keyboard.press("Control+Backslash")
+    await page.wait_for_selector("[data-desk-window] [data-span-id^='fx_ext_attention_p1']")
     await wait(page, 1500)
 
 
@@ -900,6 +938,101 @@ PEN_STROKE_JS = r"""
 """
 
 
+# ── inline cold checks (RD7) ──
+CHECK_INLINE = "[data-check-card='inline']"
+CHECK_ANSWER = "p_k - 1 if k = y, else p_k. The log undoes the exp in the softmax, so"
+
+
+async def check_inline_open(page: Page, *, companion: bool) -> None:
+    """The pads beside the book, the book at its due check's closed marker, "check now", an answer typed (the
+    reference's card holds one), and the companion at its dock when the reference shows it."""
+    await pads_beside_book(page)
+    marker = page.locator("[data-desk-window='fx_w_book'] [data-check-marker]")
+    await marker.wait_for(timeout=8000)
+    await marker.evaluate("(m) => m.scrollIntoView({ block: 'start' })")
+    await wait(page, 600)
+    await page.click("[data-desk-window='fx_w_book'] [data-check-marker] >> text=check now")
+    await page.wait_for_selector(CHECK_INLINE, timeout=8000)
+    await page.fill(f"{CHECK_INLINE} textarea", CHECK_ANSWER)
+    if companion:
+        await page.click("[data-desk-window='fx_w_book'] .desk-pane-head .t")
+        await keys(page, "Shift+C")
+    await page.locator(CHECK_INLINE).evaluate("(c) => c.scrollIntoView({ block: 'start' })")
+    await wait(page, 900)
+
+
+async def d_check_inline(page: Page) -> None:
+    await check_inline_open(page, companion=True)
+
+
+async def d_check_inline_plain(page: Page) -> None:
+    await check_inline_open(page, companion=False)
+
+
+async def d_check_answered(page: Page) -> None:
+    await check_inline_open(page, companion=True)
+    await page.press(f"{CHECK_INLINE} textarea", "Enter")
+    await page.wait_for_selector("[data-check-phase='answered']", timeout=8000)
+    await page.locator(CHECK_INLINE).evaluate("(c) => c.scrollIntoView({ block: 'start' })")
+    await wait(page, 900)
+
+
+async def check_overlay_open(page: Page) -> None:
+    """After a restart: the open check whose host is not on the desks, centred near the top; the pads beside the book
+    (the answer box takes the focus, so the desks are focused first to move windows)."""
+    await page.wait_for_selector("[data-check-card='overlay']", timeout=8000)
+    await page.locator("[data-check-card='overlay'] textarea").evaluate("(t) => t.blur()")
+    await pads_beside_book(page)
+    await page.fill("[data-check-card='overlay'] textarea", CHECK_ANSWER)
+    await wait(page, 900)
+
+
+async def d_check_overlay(page: Page) -> None:
+    await check_overlay_open(page)
+
+
+async def d_check_overlay_answered(page: Page) -> None:
+    await check_overlay_open(page)
+    await page.press("[data-check-card='overlay'] textarea", "Enter")
+    await page.wait_for_selector("[data-check-card='overlay'][data-check-phase='answered']", timeout=8000)
+    await wait(page, 900)
+
+
+async def d_check_pen_veil(page: Page) -> None:
+    """Pen mode with the handwritten pad beside the book, under an open check's veils. A veiled pad takes no input (its
+    tabs included), so the handwritten pad is chosen before the check opens; the check is the book's own, so its card
+    opens at the host passage, not centred near the top as in the reference."""
+    await pads_beside_book(page)
+    await page.locator('[data-pad-tab="fx_pad_hand"]').click()
+    marker = page.locator("[data-desk-window='fx_w_book'] [data-check-marker]")
+    await marker.wait_for(timeout=8000)
+    await marker.evaluate("(m) => m.scrollIntoView({ block: 'center' })")
+    await page.click("[data-desk-window='fx_w_book'] [data-check-marker] >> text=check now")
+    await page.wait_for_selector(CHECK_INLINE, timeout=8000)
+    await page.locator(f"{CHECK_INLINE} textarea").evaluate("(t) => t.blur()")
+    await keys(page, "Alt+p")
+    await wait(page, 900)
+
+
+async def d_ink_ladder(page: Page) -> None:
+    """A problem worked by hand (`?problem=1&inkhelp=1`): three lines read, checked, the ladder open on the ◇ line."""
+    await wait(page, 1500)
+    await open_problem_from_book(page)
+    await page.locator(".penchip").click()
+    await wait(page, 400)
+    for n in range(3):
+        await page.evaluate(INK_JOT_STROKE_JS, n)
+        await wait(page, 900)
+    read_it = page.locator('.desk-pads [data-pad] button', has_text="read it")
+    if await read_it.count():
+        await read_it.first.click()
+    await wait(page, 1800)
+    await page.locator('.desk-pads [data-problem-pad] [role=group][aria-label="workbench actions"] button', has_text="check my work").first.click()
+    await wait(page, 1200)
+    await page.locator(".desk-pads [data-ink-help]").first.click()
+    await wait(page, 900)
+
+
 async def d_pen_pad(page: Page) -> None:
     """The handwritten pad beside the book, open, in pen mode."""
     await pads_beside_book(page)
@@ -981,6 +1114,11 @@ GOAL_PATH = ("goal_path", "goal_path_left", "goal_path_h3", "goal_path_scope", "
 STATES: list[State] = [
     State("plain", "rd1", d_plain, SHELL + WINDOWS + ("comp_panel", "comp_closed_tab")),
     State("desk=1", "rd1", d_desk1, SHELL + WINDOWS),
+    # Side by side as paired windows (spec §21.1, §5.2). The reference has no state with two windows in one slot (its
+    # "stack" is tabs); `desk=1` is its state with two reading windows in view, compared for the windows' colours,
+    # tokens and type, never their geometry (a pair stacks top and bottom by §5.2).
+    State("pair", "pairs", d_pair, tuple(name for name in WINDOWS if not name.startswith("video_")), query="?pairs=1", geometry=False, reference="desk=1",
+          note="the mockup's two windows in view against the desks' pair: colour, tokens and type only"),
     State("focus=3", "rd1", d_focus3, SHELL + WINDOWS),
     State("move", "rd1", d_move, SHELL + WINDOWS),
     State("zoom=after", "rd1", d_zoom_after, ("window_focus", "window_focus_head", "focus_badge", "book_paper", "book_prose", "topbar")),
@@ -1049,8 +1187,28 @@ STATES: list[State] = [
     State("pen=note", "rd8", d_pen("note"), PEN + ("pen_stroke_note", "pen_note", "pen_note_who", "pen_note_text", "pen_note_label")),
     State("pen=lasso", "rd8", d_pen("lasso"), PEN + ("pen_stroke_lasso", "pen_mark_sel", "pen_chip_ask")),
     State("pen=strike", "rd8", d_pen("strike"), PEN + ("pen_stroke_strike",)),
+    # Inline cold checks (RD7): the card at the host passage (the goal lens's callout opened), answered, and the card
+    # centred near the top after a restart. The reference's card names the check's LO and provenance; ours shows none
+    # (spec §12.6.1 and P3 invariant 10), so its text differs and only the boxes, colours and type are compared.
+    State("goal=check,rd7", "rd7", d_check_inline, ("auto:div.open", "auto:textarea.gqa", "auto:div.gqv", "auto:div.veiled", "comp_panel"),
+          variant="arxiv_v2_goal", reference="goal=check", query="?goal=1&checks=1",
+          note="the reference's card names its LO and provenance; ours withholds them (§12.6.1)"),
+    State("goal=answered", "rd7", d_check_answered, ("auto:div.done", "auto:div.gqy", "auto:div.gqf", "auto:div.gqv"),
+          variant="arxiv_v2_goal", query="?goal=1&checks=1", note="the reference adds a readiness line the desks do not show"),
+    State("goal=checkb", "rd7", d_check_inline_plain, ("auto:div.open", "auto:textarea.gqa", "auto:div.gqv", "auto:div.veiled"),
+          variant="arxiv_v2_goal", query="?goal=1&checks=1", note="the reference's host is the paper; ours is the book's"),
+    State("s12=check", "rd7", d_check_overlay, ("auto:div.ovl.coldcheck", "auto:div.cch", "auto:div.ccq", "auto:div.cca", "auto:div.ccb"),
+          variant="arxiv_v2_goal", query="?goal=1&checks=open"),
+    State("s12=answered", "rd7", d_check_overlay_answered, ("auto:div.ovl.coldcheck", "auto:div.cch", "auto:div.ccq", "auto:div.ccf",
+                                                              "auto:div.ccfh", "auto:div.ccv"),
+          variant="arxiv_v2_goal", query="?goal=1&checks=open"),
+    State("pen=veil", "rd7", d_check_pen_veil, ("auto:div.veiled", "pen_chip_top"),
+          variant="arxiv_v2_goal", query="?goal=1&checks=1&inkpad=1",
+          note="our check's host is in view, so its card is inline; the reference's is centred near the top"),
     State("pen=pad", "rd8", d_pen_pad, ("pen_chip_top", "pen_hint", "ink_pad_paper", "ink_bar", "ink_bar_button", "ink_prov", "ink_read",
                                          "ink_read_label", "ink_read_tex", "ink_hint", "pad_window_head", "pad_tab_open"), query="?inkpad=1"),
+    State("pen=ladder", "rd8", d_ink_ladder, ("auto:button.open", "auto:div.lh", "auto:div.lread"), query="?problem=1&inkhelp=1", geometry=False,
+          note="the ladder itself is the workbench's (unchanged); the ink's mark, the quiet line and the line's reading compared"),
 ]
 
 STATE_BY_NAME = {state.name: state for state in STATES}
@@ -1195,9 +1353,15 @@ def pixel_share(mock_png: Path, app_png: Path, side_by_side: Path) -> float:
 
 # ── the run ──
 
+#: The synthetic workspace's "now": the same day the desk harness's run starts its pages on.
+FIXTURE_NOW = datetime.datetime(2026, 11, 23, 12, 0, tzinfo=datetime.UTC)
+
 
 async def open_harness(browser: Any, base: str, viewport: dict[str, int], state: State) -> Page:
     page = await browser.new_page(viewport=viewport)
+    # The fixture's "now" (its pads' newest day), as the desk harness's run sets it, so a pass on another day compares
+    # the same dated headings.
+    await page.clock.install(time=FIXTURE_NOW)
     await page.route("**/*", lambda route: route.continue_() if route.request.url.startswith(base) else route_outside(route))
     if state.init_storage:
         script = ";".join(f"localStorage.setItem({json.dumps(k)}, {json.dumps(v)})" for k, v in state.init_storage)
@@ -1311,7 +1475,7 @@ def summarise(results: list[dict[str, Any]]) -> str:
 async def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--ref", type=Path, required=True, help="the private reference directory")
-    parser.add_argument("--stage", default="all", choices=["rd1", "rd2", "rd3", "rd4", "rd5", "rd6", "rd8", "rd9", "rd10", "notebook", "all"])
+    parser.add_argument("--stage", default="all", choices=["rd1", "rd2", "rd3", "rd4", "rd5", "rd6", "rd7", "rd8", "rd9", "rd10", "pairs", "notebook", "all"])
     parser.add_argument("--state", default=None)
     parser.add_argument("--viewport", default="both", choices=["design", "laptop", "both"])
     parser.add_argument("--out", type=Path, default=None, help="where the comparison goes (default: <ref>/compare)")

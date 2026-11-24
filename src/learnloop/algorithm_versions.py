@@ -1030,6 +1030,29 @@ MASTERY_SEED_ALGORITHM_VERSION = "mvp-0.67"
 # (owner rule 2026-11-16). ONE constant.
 PAD_TEXT_ALGORITHM_VERSION = "mvp-0.68"
 
+# mvp-0.69 (inline cold checks in the Reader; docs/reviews/algorithm-mvp-0.69.md), on top of the pad text, mvp-0.68.
+# A due "Check once" can be administered where the learner reads (surface 'reader_inline', migration 270): the item
+# Today's check view would serve, its frozen contract, the attempt through the one attempt service, settlement as for
+# any qualifying attempt. What changes: a new serving surface whose attempts answer checks; an administration lock
+# Today honours (while one is open its check is not served as the check there); and exposure written at once by a new
+# writer: opening a veil writes a 'source_review' reveal sized by the opened text's overlap with each candidate's key
+# (the Check once rule then decides whether the answer is practice). No existing row changes meaning. No kill switch
+# (owner rule 2026-11-16). ONE constant.
+INLINE_CHECK_ALGORITHM_VERSION = "mvp-0.69"
+
+# The probe router (refactor G2; docs/reviews/refactor-g2-design.md, docs/reviews/algorithm-probe-router.md), on top of
+# the inline checks, mvp-0.69. The action router is the one decider of whether a probe is asked after a miss. On the automatic
+# follow-up lane the decision comes before the probe is written, so the router cannot value its answer pattern and the
+# probe earns no information credit (the design's decision 1; the owner's option f of 2026-11-20): it is no option of
+# either policy, and the mix decides between no intervention and a lesson where one is offered. Beside the mix, the
+# probe coin asks the probe now, feedback held, on a randomized share of eligible misses (``router_objective.
+# probe_coin``), at the stop coin's rate (the owner's decision of 2026-11-23: derived from an existing arm, not a new
+# constant), with its own seed, an exact served distribution and its own assignment row. No room to wait, no plan and
+# the router switched off take the same coin instead of asking the probe deterministically; a no-plan decision is
+# logged. Hard refusals still come first. Nothing already derived moves. No kill switch (owner rule 2026-11-16). ONE
+# constant: renumbering the tag is this line (the chain, the sets and the predicate follow it).
+PROBE_ROUTER_ALGORITHM_VERSION = "mvp-0.70"
+
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
 # first. Each successor means its predecessor's semantics PLUS its own, so
 # every gate below is "this tag or any later one". A successor appends its tag
@@ -1096,6 +1119,8 @@ SUCCESSOR_CHAIN: tuple[str, ...] = (
     LIFECYCLE_INPUTS_ALGORITHM_VERSION,
     MASTERY_SEED_ALGORITHM_VERSION,
     PAD_TEXT_ALGORITHM_VERSION,
+    INLINE_CHECK_ALGORITHM_VERSION,
+    PROBE_ROUTER_ALGORITHM_VERSION,
 )
 
 
@@ -1249,12 +1274,39 @@ def mastery_seed_on(config: object) -> bool:
 PAD_TEXT_VERSIONS: frozenset[str] = successors_from(PAD_TEXT_ALGORITHM_VERSION)
 
 
+# Versions where a due check may be administered inline in the Reader and Today honours the administration lock. Every
+# later successor keeps it; gates must use this set, never equality, and read it through :func:`inline_checks_on`.
+INLINE_CHECK_VERSIONS: frozenset[str] = successors_from(INLINE_CHECK_ALGORITHM_VERSION)
+
+
+def inline_checks_on(config: object) -> bool:
+    """Inline checks (mvp-0.69), gated by the vault's tag alone (no kill switch): below it every ``check.*`` RPC
+    refuses and Today ignores the lock, exactly as at mvp-0.68. ``config`` is a vault's config."""
+
+    algorithms = getattr(config, "algorithms", None)
+    return getattr(algorithms, "algorithm_version", None) in INLINE_CHECK_VERSIONS
+
+
 def pad_text_on(config: object) -> bool:
     """A scratchpad's committed words are learner text (mvp-0.68), gated by the vault's tag alone (no kill switch):
     below it a pad emits nothing, exactly as at mvp-0.67. ``config`` is a vault's config."""
 
     algorithms = getattr(config, "algorithms", None)
     return getattr(algorithms, "algorithm_version", None) in PAD_TEXT_VERSIONS
+
+# Versions where the router decides the automatic lane's probe and an unwritten probe is asked only by the probe coin.
+# Every later successor keeps it; gates must use this set, never equality, and read it through
+# :func:`probe_router_on`.
+PROBE_ROUTER_VERSIONS: frozenset[str] = successors_from(PROBE_ROUTER_ALGORITHM_VERSION)
+
+
+def probe_router_on(config: object) -> bool:
+    """The router decides the automatic lane's probe and an unwritten probe is asked only by the probe coin (the probe
+    router's tag), gated by the vault's tag alone (no kill switch): below it the predecessor's follow-up decision
+    exactly. ``config`` is a vault's config."""
+
+    algorithms = getattr(config, "algorithms", None)
+    return getattr(algorithms, "algorithm_version", None) in PROBE_ROUTER_VERSIONS
 
 # The newest successor: the last tag in the chain. ``learnloop upgrade`` with
 # no ``--to`` targets it, and new vaults start at it

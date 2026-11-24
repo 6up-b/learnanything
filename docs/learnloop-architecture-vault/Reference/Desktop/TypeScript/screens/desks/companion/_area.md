@@ -34,9 +34,10 @@ No nested ownership area.
 
 | Module | Status | Purpose | Imports | Imported by |
 |---|---|---|---:|---:|
-| [[Reference/Desktop/TypeScript/screens/desks/companion/Companion|Companion.tsx]] | `ACTIVE` | Implements the `Companion` routed desktop screen and coordinates its learner-facing workflow state. | 8 | 1 |
+| [[Reference/Desktop/TypeScript/screens/desks/companion/Companion|Companion.tsx]] | `ACTIVE` | Implements the `Companion` routed desktop screen and coordinates its learner-facing workflow state. | 9 | 1 |
 | [[Reference/Desktop/TypeScript/screens/desks/companion/DiffProposal|DiffProposal.tsx]] | `ACTIVE` | Implements the `DiffProposal` routed desktop screen and coordinates its learner-facing workflow state. | 0 | 2 |
 | [[Reference/Desktop/TypeScript/screens/desks/companion/asks|asks.ts]] | `ACTIVE` | Provides `CompanionApi`, `ExchangeStatus`, `CompanionExchange`, `DeskWritesSettled` and related exports within the desktop's TypeScript/screens/desks/companion ownership area. | 2 | 2 |
+| [[Reference/Desktop/TypeScript/screens/desks/companion/companionFigures|companionFigures.tsx]] | `ACTIVE` | Implements the `companionFigures` routed desktop screen and coordinates its learner-facing workflow state. | 5 | 1 |
 | [[Reference/Desktop/TypeScript/screens/desks/companion/model|model.ts]] | `ACTIVE` | Provides `COMPANION_SIZES`, `DOCKS`, `dockRect`, `anchoredRect` and related exports within the desktop's TypeScript/screens/desks/companion ownership area. | 2 | 2 |
 
 ## Modification guidance

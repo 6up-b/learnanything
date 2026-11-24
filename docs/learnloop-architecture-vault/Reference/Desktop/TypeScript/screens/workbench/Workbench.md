@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/workbench/Workbench.tsx](../../../../../../../apps/learnloop-tauri/src/screens/workbench/Workbench.tsx) |
-| Source lines | 881 |
+| Source lines | 927 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/workbench/_area|TypeScript/screens/workbench]] |
 | Refactor status | `ACTIVE` |
@@ -56,111 +56,119 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - `export type WorkbenchLayout = "split" | "stacked" | "full"` — type, line 44
 - `export interface WorkbenchProps` — interface, line 46
-- `export function stepsAsWork(steps: readonly` — function, line 121
-- `export function Workbench(props: WorkbenchProps)` — function, line 132
+- `export interface HandwrittenWork` — interface, line 113
+- `export function stepsAsWork(steps: readonly` — function, line 135
+- `export function Workbench(props: WorkbenchProps)` — function, line 146
 
 ## Internal implementation anchors
 
-- `const linkStyle: CSSProperties =` — const, line 110
-- `const actionStyle: CSSProperties =` — const, line 114
-- `function isTyping(target: EventTarget | null): boolean` — function, line 128
-- `const wb = useWorkbenchSession(initial,` — const, line 134
-- `const serverSession = props.serverSession` — const, line 136
-- `const applyServer = wb.applyServer` — const, line 137
-- `const regionRef = useRef<HTMLElement | null>(null)` — const, line 141
-- `const first = steps[0]` — const, line 143
-- `const openedAt = useRef(Date.now())` — const, line 151
-- `const activeClock = useAttemptClock()` — const, line 154
-- `const hostClock = props.activeSeconds` — const, line 155
-- `const paused = useWindowPaused()` — const, line 161
-- `const timer = setInterval(()` — const, line 166
-- `const title = problemTitle(session.stemMd)` — const, line 170
-- `const fromBook = session.origin === "reader"` — const, line 171
-- `const asPrinted = useAsPrinted(props.hideProblem ? null : session.practiceItemId)` — const, line 175
-- `const blocksPrint = useProblemCrops( !props.hideProblem && !session.practiceItemId && fromBook ? session.extractionId : null, session.spanIds, session.printRegion ?? null, )` — const, line 179
-- `const originalPageTarget: OriginalPageTarget | null = session.practiceItemId ? (asPrinted?.kind === "page" && asPrinted.originalPage ? asPrinted.originalPage : null) : originalPageOfCrops(blocksPrint, session.sourceId)` — const, line 186
-- `const bound = session.practiceItemId !== null` — const, line 190
-- `const open = session.status === "open"` — const, line 191
-- `const live = liveSteps(steps)` — const, line 192
-- `const workMd = stepsAsWork(live)` — const, line 193
-- `const onWorkChange = props.onWorkChange` — const, line 194
-- `const leaving = wb.leaving` — const, line 200
-- `const helpConfig = algoConfig().workbenchHelp` — const, line 204
-- `const hintsConfig = algoConfig().adaptiveHints` — const, line 205
-- `const rw2c = useRouteExamples(` — const, line 208
-- `const help = useWorkbenchHelp(` — const, line 218
-- `const helpOn = helpConfig !== null` — const, line 236
-- `const canHelp = helpOn && open && !readOnly && bound && !leaving` — const, line 237
-- `const focusedChain = (()` — const, line 238
-- `const step = live.find((candidate)` — const, line 239
-- `const stepOptions: StepOption[] = live.flatMap((step, index)` — const, line 242
-- `const chain = stepChain(step)` — const, line 243
-- `const check = helpOn ? withLocalEdits(help.check, live.map((step)` — const, line 248
-- `const liveChains = new Set(stepOptions.map((option)` — const, line 251
-- `const onAStep = (stepId: string | null)` — const, line 252
-- `const ladderLoose = helpOn && help.ladder.open && !onAStep(help.ladder.focusedStepId ?? focusedChain)` — const, line 253
-- `const pendingLoose = Boolean(helpOn && help.hintPending && !onAStep(help.hintPending.stepId ?? focusedChain))` — const, line 254
-- `const noticeLoose = Boolean(helpOn && help.notice && !onAStep(help.notice.stepId ?? focusedChain))` — const, line 255
-- `const looseHints = helpOn ? help.hints.filter((hint)` — const, line 256
-- `const takeWorked = canHelp ? (level: 4 | 5)` — const, line 260
-- `function openAskInline()` — function, line 261
-- `const askSignal = props.askSignal ?? 0` — const, line 265
-- `const askSignalSeen = useRef(askSignal)` — const, line 266
-- `function runCheck()` — function, line 274
-- `function openHelp()` — function, line 278
-- `function smallerStep()` — function, line 282
-- `const waypoint = [...help.hints].reverse().find((hint)` — const, line 283
-- `function peek(spanId: string, target?: PassageTarget)` — function, line 287
-- `function requestFocus(key: string)` — function, line 293
-- `async function submit()` — function, line 297
-- `const named = props.schedulerCandidateId !== undefined || props.planPresentationId !== undefined` — const, line 308
-- `const result = await wb.submit(` — const, line 309
-- `const command = getCommandError(error)` — const, line 319
-- `const departing = useRef(false)` — const, line 330
-- `async function depart(then: (session: WorkbenchSessionDto)` — function, line 331
-- `let result:` — let, line 336
-- `async function leave()` — function, line 350
-- `async function abandon()` — function, line 354
-- `const closed = await wb.abandon()` — const, line 357
-- `function stuck()` — function, line 361
-- `const key = wb.addStep(null, "stuck")` — const, line 363
-- `function toggleBook()` — function, line 367
-- `function moveFocus(fromKey: string | null, delta: number)` — function, line 372
-- `const keys = live.map((step)` — const, line 373
-- `const index = fromKey ? keys.indexOf(fromKey) : -1` — const, line 374
-- `const target = keys[Math.min(keys.length - 1, Math.max(0, index + delta))]` — const, line 375
-- `function onRegionKeyDown(event: ReactKeyboardEvent<HTMLElement>)` — function, line 379
-- `const ctrl = event.ctrlKey || event.metaKey` — const, line 380
-- `const key = event.key` — const, line 381
-- `const handled = ()` — const, line 382
-- `const current = steps.find((step)` — const, line 425
-- `function onStepKeyDown(stepKey: string, event: ReactKeyboardEvent<HTMLTextAreaElement>, info: LiveMarkdownKeyInfo)` — function, line 430
-- `const key = wb.addStep(stepKey, "step")` — const, line 433
-- `const index = live.findIndex((step)` — const, line 438
-- `const previous = live[index - 1]` — const, line 440
-- `const header = ( <div data-testid="workbench-header" style=` — const, line 445
-- `const setup = !readOnly && session.status !== "submitted" ? ( session.importStatus === "pending" && session.parts && session.parts.length > 1 ? ( <div role="group" aria-label="which part" style=` — const, line 478
-- `const pickedExposure = session.exercisePick?.exposure ?? null` — const, line 514
-- `const exposureNote = !readOnly && session.status !== "submitted" && pickedExposure?.exposed ? ( <div data-testid="workbench-exercise-exposure"> <MeaningLabel style=` — const, line 515
-- `const problem = ( <div style=` — const, line 527
-- `const bookLine = fromBook && open && !readOnly && !wb.started ? ( <div role="radiogroup" aria-label="the book while you work" style=` — const, line 566
-- `const checked = session.sourceVisible === visible` — const, line 569
-- `let number = 0` — let, line 589
-- `const work = ( <div style=` — const, line 590
-- `const label = `Step $` — const, line 610
-- `const editor = readOnly ? ( <div style=` — const, line 619
-- `const chain = stepChain(step)` — const, line 635
-- `const verdict = helpOn && chain ? verdictFor(check, chain) : null` — const, line 636
-- `const stepHints = helpOn && chain ? help.hints.filter((hint)` — const, line 637
-- `const ladderHere = helpOn && help.ladder.open && chain !== null && (help.ladder.focusedStepId ?? focusedChain) === chain` — const, line 638
-- `const pendingHere = helpOn && help.hintPending && chain !== null && (help.hintPending.stepId ?? focusedChain) === chain` — const, line 639
-- `const noticeHere = helpOn && help.notice && chain !== null && (help.notice.stepId ?? focusedChain) === chain` — const, line 640
-- `const focusedVerdict = helpOn && focusedKey ? verdictFor(check, stepChain(live.find((entry)` — const, line 642
-- `const outlined = Boolean(chain && focusedVerdict?.dependsOn.includes(chain))` — const, line 643
-- `const confidenceRow = helpOn && open && !readOnly && bound ? ( <div role="radiogroup" aria-label=` — const, line 764
-- `const recordLine = ( <div style=` — const, line 778
-- `const actions = !readOnly && open ? ( <div style=` — const, line 785
-- `const reopenLine = !readOnly && session.status === "abandoned" ? ( <MeaningLabel style=` — const, line 833
+- `const linkStyle: CSSProperties =` — const, line 124
+- `const actionStyle: CSSProperties =` — const, line 128
+- `function isTyping(target: EventTarget | null): boolean` — function, line 142
+- `const wb = useWorkbenchSession(initial,` — const, line 148
+- `const handwritten = props.handwritten` — const, line 151
+- `const linesKey = JSON.stringify(handwritten?.lines ?? [])` — const, line 152
+- `const bindLine = wb.bindLine` — const, line 153
+- `const lineOfStep = new Map<string, string>()` — const, line 159
+- `const taken = new Set(lineOfStep.values())` — const, line 162
+- `const line = handwritten.lines.find((each)` — const, line 165
+- `const serverSession = props.serverSession` — const, line 172
+- `const applyServer = wb.applyServer` — const, line 173
+- `const regionRef = useRef<HTMLElement | null>(null)` — const, line 177
+- `const first = steps[0]` — const, line 179
+- `const openedAt = useRef(Date.now())` — const, line 187
+- `const activeClock = useAttemptClock()` — const, line 190
+- `const hostClock = props.activeSeconds` — const, line 191
+- `const paused = useWindowPaused()` — const, line 197
+- `const timer = setInterval(()` — const, line 202
+- `const title = problemTitle(session.stemMd)` — const, line 206
+- `const fromBook = session.origin === "reader"` — const, line 207
+- `const asPrinted = useAsPrinted(props.hideProblem ? null : session.practiceItemId)` — const, line 211
+- `const blocksPrint = useProblemCrops( !props.hideProblem && !session.practiceItemId && fromBook ? session.extractionId : null, session.spanIds, session.printRegion ?? null, )` — const, line 215
+- `const originalPageTarget: OriginalPageTarget | null = session.practiceItemId ? (asPrinted?.kind === "page" && asPrinted.originalPage ? asPrinted.originalPage : null) : originalPageOfCrops(blocksPrint, session.sourceId)` — const, line 222
+- `const bound = session.practiceItemId !== null` — const, line 226
+- `const open = session.status === "open"` — const, line 227
+- `const live = liveSteps(steps)` — const, line 228
+- `const workMd = stepsAsWork(live)` — const, line 229
+- `const onWorkChange = props.onWorkChange` — const, line 230
+- `const leaving = wb.leaving` — const, line 236
+- `const helpConfig = algoConfig().workbenchHelp` — const, line 240
+- `const hintsConfig = algoConfig().adaptiveHints` — const, line 241
+- `const rw2c = useRouteExamples(` — const, line 244
+- `const help = useWorkbenchHelp(` — const, line 254
+- `const helpOn = helpConfig !== null` — const, line 272
+- `const canHelp = helpOn && open && !readOnly && bound && !leaving` — const, line 273
+- `const focusedChain = (()` — const, line 274
+- `const step = live.find((candidate)` — const, line 275
+- `const stepOptions: StepOption[] = live.flatMap((step, index)` — const, line 278
+- `const chain = stepChain(step)` — const, line 279
+- `const check = helpOn ? withLocalEdits(help.check, live.map((step)` — const, line 284
+- `const liveChains = new Set(stepOptions.map((option)` — const, line 287
+- `const onAStep = (stepId: string | null)` — const, line 288
+- `const ladderLoose = helpOn && help.ladder.open && !onAStep(help.ladder.focusedStepId ?? focusedChain)` — const, line 289
+- `const pendingLoose = Boolean(helpOn && help.hintPending && !onAStep(help.hintPending.stepId ?? focusedChain))` — const, line 290
+- `const noticeLoose = Boolean(helpOn && help.notice && !onAStep(help.notice.stepId ?? focusedChain))` — const, line 291
+- `const looseHints = helpOn ? help.hints.filter((hint)` — const, line 292
+- `const takeWorked = canHelp ? (level: 4 | 5)` — const, line 296
+- `function openAskInline()` — function, line 297
+- `const askSignal = props.askSignal ?? 0` — const, line 301
+- `const askSignalSeen = useRef(askSignal)` — const, line 302
+- `function runCheck()` — function, line 310
+- `function openHelp()` — function, line 314
+- `function smallerStep()` — function, line 318
+- `const waypoint = [...help.hints].reverse().find((hint)` — const, line 319
+- `function peek(spanId: string, target?: PassageTarget)` — function, line 323
+- `function requestFocus(key: string)` — function, line 329
+- `async function submit()` — function, line 333
+- `const named = props.schedulerCandidateId !== undefined || props.planPresentationId !== undefined` — const, line 344
+- `const result = await wb.submit(` — const, line 345
+- `const command = getCommandError(error)` — const, line 355
+- `const departing = useRef(false)` — const, line 366
+- `async function depart(then: (session: WorkbenchSessionDto)` — function, line 367
+- `let result:` — let, line 372
+- `async function leave()` — function, line 386
+- `async function abandon()` — function, line 390
+- `const closed = await wb.abandon()` — const, line 393
+- `function stuck()` — function, line 397
+- `const key = wb.addStep(null, "stuck")` — const, line 399
+- `function toggleBook()` — function, line 403
+- `function moveFocus(fromKey: string | null, delta: number)` — function, line 408
+- `const keys = live.map((step)` — const, line 409
+- `const index = fromKey ? keys.indexOf(fromKey) : -1` — const, line 410
+- `const target = keys[Math.min(keys.length - 1, Math.max(0, index + delta))]` — const, line 411
+- `function onRegionKeyDown(event: ReactKeyboardEvent<HTMLElement>)` — function, line 415
+- `const ctrl = event.ctrlKey || event.metaKey` — const, line 416
+- `const key = event.key` — const, line 417
+- `const handled = ()` — const, line 418
+- `const current = steps.find((step)` — const, line 461
+- `function onStepKeyDown(stepKey: string, event: ReactKeyboardEvent<HTMLTextAreaElement>, info: LiveMarkdownKeyInfo)` — function, line 466
+- `const key = wb.addStep(stepKey, "step")` — const, line 469
+- `const index = live.findIndex((step)` — const, line 474
+- `const previous = live[index - 1]` — const, line 476
+- `const header = ( <div data-testid="workbench-header" style=` — const, line 481
+- `const setup = !readOnly && session.status !== "submitted" ? ( session.importStatus === "pending" && session.parts && session.parts.length > 1 ? ( <div role="group" aria-label="which part" style=` — const, line 514
+- `const pickedExposure = session.exercisePick?.exposure ?? null` — const, line 550
+- `const exposureNote = !readOnly && session.status !== "submitted" && pickedExposure?.exposed ? ( <div data-testid="workbench-exercise-exposure"> <MeaningLabel style=` — const, line 551
+- `const problem = ( <div style=` — const, line 563
+- `const bookLine = fromBook && open && !readOnly && !wb.started ? ( <div role="radiogroup" aria-label="the book while you work" style=` — const, line 602
+- `const checked = session.sourceVisible === visible` — const, line 605
+- `let number = 0` — let, line 625
+- `const work = ( <div style=` — const, line 626
+- `const label = `Step $` — const, line 646
+- `const inkLine = handwritten ? lineOfStep.get(step.key) : undefined` — const, line 655
+- `const editor = inkLine !== undefined ? ( <div data-ink-step=` — const, line 656
+- `const chain = stepChain(step)` — const, line 674
+- `const verdict = helpOn && chain ? verdictFor(check, chain) : null` — const, line 675
+- `const stepHints = helpOn && chain ? help.hints.filter((hint)` — const, line 676
+- `const ladderHere = helpOn && help.ladder.open && chain !== null && (help.ladder.focusedStepId ?? focusedChain) === chain` — const, line 677
+- `const pendingHere = helpOn && help.hintPending && chain !== null && (help.hintPending.stepId ?? focusedChain) === chain` — const, line 678
+- `const noticeHere = helpOn && help.notice && chain !== null && (help.notice.stepId ?? focusedChain) === chain` — const, line 679
+- `const focusedVerdict = helpOn && focusedKey ? verdictFor(check, stepChain(live.find((entry)` — const, line 681
+- `const outlined = Boolean(chain && focusedVerdict?.dependsOn.includes(chain))` — const, line 682
+- `const confidenceRow = helpOn && open && !readOnly && bound ? ( <div role="radiogroup" aria-label=` — const, line 810
+- `const recordLine = ( <div style=` — const, line 824
+- `const actions = !readOnly && open ? ( <div style=` — const, line 831
+- `const reopenLine = !readOnly && session.status === "abandoned" ? ( <MeaningLabel style=` — const, line 879
 
 ## Who imports or calls it
 
@@ -168,6 +176,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
 - [[Reference/Desktop/TypeScript/screens/PracticeScreen|src/screens/PracticeScreen.tsx]] — import-or-re-export: `Workbench`; references `Workbench`
+- [[Reference/Desktop/TypeScript/screens/desks/problem/ProblemPad|src/screens/desks/problem/ProblemPad.tsx]] — import-or-re-export: `HandwrittenWork`, `Workbench`; references `HandwrittenWork`, `Workbench`
 - [[Reference/Desktop/TypeScript/screens/reader/ReaderWorkingPosture|src/screens/reader/ReaderWorkingPosture.tsx]] — import-or-re-export: `Workbench`; references `Workbench`
 
 ## Dependencies

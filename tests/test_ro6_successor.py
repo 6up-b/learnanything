@@ -32,7 +32,7 @@ RO6_KEYS = {"learned_tail": True, "residual_prior_sd": 0.01, "residual_weight_pr
 def test_the_successor_is_one_constant_after_ro5_and_the_latest():
     assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1] == OLD == "mvp-0.48"
     # The follow-up batch (mvp-0.50) and teacher TE2 (mvp-0.51) landed after it and keep it.
-    assert TAG == "mvp-0.49" == SUCCESSOR_CHAIN[-20] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.68"
+    assert TAG == "mvp-0.49" == SUCCESSOR_CHAIN[-22] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.70"
 
 
 def test_the_seeds_are_labelled_and_validated():

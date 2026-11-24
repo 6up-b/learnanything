@@ -32,7 +32,7 @@ OLD = ROUTER_FOLLOWUPS_ALGORITHM_VERSION
 def test_the_successor_is_one_constant_after_the_router_followups_and_the_latest():
     assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1] == OLD == "mvp-0.50"
     # Teacher TE3a's AD successor (mvp-0.52) landed after it and keeps it.
-    assert TAG == "mvp-0.51" == SUCCESSOR_CHAIN[-18] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.68"
+    assert TAG == "mvp-0.51" == SUCCESSOR_CHAIN[-20] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.70"
 
 
 def test_the_keep_bound_and_its_validation():

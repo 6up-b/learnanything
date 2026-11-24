@@ -28,7 +28,7 @@ Area: [[Reference/Desktop/TypeScript/screens/desks/pen/_area|TypeScript/screens/
 
 ## Why this module exists
 
-Provides `InkCacheApi`, `ReadingStatus`, `LineReading`, `InkLine` and related exports within the desktop's TypeScript/screens/desks/pen ownership area.
+Provides `InkCacheApi`, `inkRefusal`, `ReadingStatus`, `LineReading` and related exports within the desktop's TypeScript/screens/desks/pen ownership area.
 
 The system-level behavior stays authoritative in the linked architecture, concept, and workflow notes; this note owns only source-level lookup facts.
 
@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/pen/inkCache.ts](../../../../../../../../apps/learnloop-tauri/src/screens/desks/pen/inkCache.ts) |
-| Source lines | 295 |
+| Source lines | 310 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/pen/_area|TypeScript/screens/desks/pen]] |
 | Refactor status | `ACTIVE` |
@@ -55,47 +55,49 @@ The system-level behavior stays authoritative in the linked architecture, concep
 ## Public API
 
 - `export interface InkCacheApi` — interface, line 11
-- `export type ReadingStatus = "reading" | "read" | "kept_yours" | "nothing" | "cannot" | "failed" | "cancelled"` — type, line 18
-- `export interface LineReading` — interface, line 20
-- `export interface InkLine` — interface, line 27
-- `export interface PadInk` — interface, line 40
-- `export interface InkCacheDeps` — interface, line 49
-- `export class InkCache` — class, line 66
+- `export function inkRefusal(code: string): string | null` — function, line 20
+- `export type ReadingStatus = "reading" | "read" | "kept_yours" | "nothing" | "cannot" | "failed" | "cancelled"` — type, line 26
+- `export interface LineReading` — interface, line 28
+- `export interface InkLine` — interface, line 35
+- `export interface PadInk` — interface, line 48
+- `export interface InkCacheDeps` — interface, line 57
+- `export class InkCache` — class, line 76
 
 ## Internal implementation anchors
 
-- `const EMPTY: PadInk =` — const, line 47
-- `function codeOf(error: unknown): string` — function, line 58
-- `function messageOf(error: unknown): string` — function, line 62
-- `const known = this.loads.get(padId)` — const, line 102
-- `const read = this.deps.api.inkList(` — const, line 104
-- `const lines: Record<string, InkLine> =` — const, line 107
-- `const local = pad.lines[owner.ownerId]` — const, line 110
-- `const pending = line.strokes.filter((s)` — const, line 116
-- `const server = lines[blockId]` — const, line 117
-- `const readings =` — const, line 125
-- `const kept = owner.transcription` — const, line 127
-- `const line = pad.lines[blockId] ??` — const, line 149
-- `const from = this.pad(fromPadId)` — const, line 165
-- `const line = from.lines[blockId]` — const, line 166
-- `const reading = from.readings[blockId]` — const, line 168
-- `const before = this.writing.get(padId)` — const, line 176
-- `const line = pad.lines[blockId]` — const, line 184
-- `const line = this.pad(padId).lines[blockId]` — const, line 196
-- `const last = line?.strokes[line.strokes.length - 1]` — const, line 197
-- `const current = this.pad(padId).readings[blockId]` — const, line 199
-- `const attempt = (this.attempts.get(blockId) ?? 0) + 1` — const, line 201
-- `const stale = ()` — const, line 203
-- `const revision = line.revision` — const, line 204
-- `let first: InkTranscribeJobDto` — let, line 215
-- `const jobId = first.jobId` — const, line 229
-- `const remove = this.deps.poller.register<InkTranscribeJobDto>(` — const, line 231
-- `const done = this.settle(padId, blockId, job, revision)` — const, line 236
-- `const reading = this.pad(padId).readings[blockId]` — const, line 252
-- `const result = job.result` — const, line 271
-- `const status: ReadingStatus = result.confidenceLabel === "nothing_read" ? "nothing" : result.applied ? "read" : result.reason === "kept_your_correction" ? "kept_yours" : "read"` — const, line 272
-- `const line = pad.lines[blockId]` — const, line 275
-- `const code = job.error?.code ?? job.status` — const, line 285
+- `const EMPTY: PadInk =` — const, line 55
+- `function codeOf(error: unknown): string` — function, line 68
+- `function messageOf(error: unknown): string` — function, line 72
+- `const known = this.loads.get(padId)` — const, line 112
+- `const read = this.deps.api.inkList(` — const, line 114
+- `const lines: Record<string, InkLine> =` — const, line 117
+- `const local = pad.lines[owner.ownerId]` — const, line 120
+- `const pending = line.strokes.filter((s)` — const, line 126
+- `const server = lines[blockId]` — const, line 127
+- `const readings =` — const, line 135
+- `const kept = owner.transcription` — const, line 137
+- `const line = pad.lines[blockId] ??` — const, line 159
+- `const from = this.pad(fromPadId)` — const, line 175
+- `const line = from.lines[blockId]` — const, line 176
+- `const reading = from.readings[blockId]` — const, line 178
+- `const before = this.writing.get(padId)` — const, line 186
+- `const line = pad.lines[blockId]` — const, line 194
+- `const line = this.pad(padId).lines[blockId]` — const, line 206
+- `const last = line?.strokes[line.strokes.length - 1]` — const, line 207
+- `const current = this.pad(padId).readings[blockId]` — const, line 209
+- `const held = this.deps.held?.() ?? null` — const, line 211
+- `const attempt = (this.attempts.get(blockId) ?? 0) + 1` — const, line 216
+- `const stale = ()` — const, line 218
+- `const revision = line.revision` — const, line 219
+- `let first: InkTranscribeJobDto` — let, line 230
+- `const jobId = first.jobId` — const, line 244
+- `const remove = this.deps.poller.register<InkTranscribeJobDto>(` — const, line 246
+- `const done = this.settle(padId, blockId, job, revision)` — const, line 251
+- `const reading = this.pad(padId).readings[blockId]` — const, line 267
+- `const result = job.result` — const, line 286
+- `const status: ReadingStatus = result.confidenceLabel === "nothing_read" ? "nothing" : result.applied ? "read" : result.reason === "kept_your_correction" ? "kept_yours" : "read"` — const, line 287
+- `const line = pad.lines[blockId]` — const, line 290
+- `const code = job.error?.code ?? job.status` — const, line 300
 
 ## Who imports or calls it
 
@@ -103,6 +105,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
 - [[Reference/Desktop/TypeScript/screens/desks/DeskShell|src/screens/desks/DeskShell.tsx]] — import-or-re-export: `InkCache`; references `InkCache`
+- [[Reference/Desktop/TypeScript/screens/desks/pen/PenLayer|src/screens/desks/pen/PenLayer.tsx]] — import-or-re-export: `inkRefusal`; references `inkRefusal`
 - [[Reference/Desktop/TypeScript/screens/desks/pen/host|src/screens/desks/pen/host.ts]] — import-or-re-export: `InkCache`; references `InkCache`
 
 ## Dependencies
@@ -127,6 +130,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 - [apps/learnloop-tauri/src/screens/desks/pen/inkPad.test.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/pen/inkPad.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/desks/pen/inkCache.test.ts](../../../../../../../../apps/learnloop-tauri/src/screens/desks/pen/inkCache.test.ts) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/desks/pen/PenLayer.test.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/pen/PenLayer.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/desks/checks/gates.test.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/checks/gates.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 
 ## Modification guidance
 

@@ -6,13 +6,13 @@ aliases:
   - OLDEST_SUPPORTED
 status: active
 doc_version: 1.1.0
-implementation_version: mvp-0.58
+implementation_version: mvp-0.68
 decision_date: 2026-11-12
 decision_status: accepted
 amends: ADR-012 Freeze the compatibility substrate
-last_reviewed: 2026-11-12
-source_commit: 16a9e3fd48356ac09ef57d2a855e5c9ee01c128e
-source_commit_timestamp: "2026-11-12T15:04:51-05:00"
+last_reviewed: 2026-11-23
+source_commit: 86f29b0d390ed2ecdbb0347d98ccb1175ac52728
+source_commit_timestamp: "2026-11-23T23:12:28-05:00"
 source_paths:
   - src/learnloop/algorithm_versions.py
   - src/learnloop/version_floor.py
@@ -61,7 +61,7 @@ When the floor rises, the rows at or below it go with the gates and kill switche
 
 ## Restoring a backup below the floor
 
-A vault below the floor is upgraded by the code that still has every link: the annotated git tag `pre-floor`, the last commit before the chain left (the refactor's orchestrator creates it when D3 lands; no agent creates or pushes it).
+A vault below the floor is upgraded by the code that still has every link: the annotated git tag `pre-floor`, the last commit before the chain left.
 
 1. Restore the backup to its own folder (never over a live vault).
 2. Check out `pre-floor` in a separate worktree (`git worktree add ../learnloop-pre-floor pre-floor`), `uv sync` there, and run `uv run learnloop upgrade --vault <restored vault>` from it (with the `--to` steps the refusal names for a vault older than `mvp-0.9`).
@@ -73,7 +73,7 @@ The refusal at every door prints steps 2's commands for the vault's own path (`v
 
 ## The floor follows the vaults
 
-A standing rule (owner-approved, refactor strategy v3 §2.18 L7): when the owner's `scripts/vault_report.py` shows every live vault at or past a tag, one chore step raises `OLDEST_SUPPORTED` to it and removes the gates and kill switches at or below it. The floor is not set once; each successor adds a gate and a switch, and this keeps the next floor move a single step.
+A standing rule (owner-approved, refactor strategy v3 §2.18 L7): when the owner's `scripts/vault_report.py` shows every live vault at or past a tag, one chore step raises `OLDEST_SUPPORTED` to it and removes the gates and kill switches at or below it. A successor gates its own new semantics. Some have a kill switch, including switches kept for simulation. Others, including the grade-channel fix and D8 capture tags, use the tag alone.
 
 A removed switch's field goes into `config/retired.py`'s `RETIRED_FIELDS`, so a vault whose `learnloop.toml` still sets it loads (the key is read by nothing) and every identity that dumped its section keeps its bytes. The kept-because list (`tests/test_kill_switches.py`'s `KEPT_BECAUSE_AT_OR_BELOW_THE_FLOOR`) names each tagged switch at or below the floor that is still in the schema, with the reason it stays; a switch at or below the floor that is in the schema and not on the list fails the test, and a removal deletes the field, its row in `config/kill_switches.py` and its line on the list together. Refactor D7's first batch began the removals at the floor `mvp-0.58` (`docs/reviews/refactor-d7a.md`): the list went from 94 switches to 87, to 85 with its second part, to 84 with its third (`eligibility.enabled`), and to 82 with its fourth (`diagnosis.split_enabled` and `diagnosis.shadow`: every vault grades new answers blind; jointly graded history is read by its missing blind record, and tests that need it build it with `tests/joint_grading_helpers.py`). D7's third batch (Today: the plan, the router frame, reading paths, intent, capture; `docs/reviews/refactor-d7e.md`) took it to 75 with its first part: `adaptive_difficulty.generation_contract`, `router.probe_tie_admission`, `intent.enabled`, `intent.recall_targets_enabled`, `followups.enabled`, `reading_paths.plan_uses_path` and `curriculum.plan_uses_path`; and to 71 with its second: `router.lesson_suggestions.enabled` and `.in_objective`, `teacher.probes` and `data_capture.serving` (the one replay-read switch of the batch: every vault's router outcomes are derived as `router_outcomes_v3`, as they were with it on). The section that refuses unknown keys (`[router.lesson_suggestions]`) still refuses them; its retired keys are taken out before validation, so a vault that sets them loads. Where a switch's off branch was also a kept feature switch's (the Guide's paths, the curriculum, AD's master switch), that switch now reaches it, and a test of that branch goes through it. A test vault put at an older tag (`tests/successor_switches.py`) no longer turns off a successor whose switch is gone.
 

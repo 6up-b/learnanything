@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/goal/GoalBand.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/goal/GoalBand.tsx) |
-| Source lines | 129 |
+| Source lines | 137 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/goal/_area|TypeScript/screens/desks/goal]] |
 | Refactor status | `ACTIVE` |
@@ -55,16 +55,17 @@ The system-level behavior stays authoritative in the linked architecture, concep
 ## Public API
 
 - `export interface HereView` — interface, line 8
-- `export function GoalBand(` — function, line 15
-- `export function GoalTopChip(` — function, line 114
+- `export function GoalBand(` — function, line 21
+- `export function GoalTopChip(` — function, line 122
 
 ## Internal implementation anchors
 
-- `const mapped = band.status !== "no_scope" && band.status !== "not_a_deliverable"` — const, line 29
-- `const dots = band.learningObjects ?? []` — const, line 30
-- `const next = nextLine(band)` — const, line 31
-- `const active = (goals ?? []).filter((goal)` — const, line 32
-- `const active = (goals ?? []).filter((goal)` — const, line 116
+- `function choiceLabel(labels: Record<string, string> | null, goal: GoalsListSnapshot["goals"][number], index: number): string` — function, line 17
+- `const mapped = band.status !== "no_scope" && band.status !== "not_a_deliverable"` — const, line 36
+- `const dots = band.learningObjects ?? []` — const, line 37
+- `const next = nextLine(band)` — const, line 38
+- `const active = (goals ?? []).filter((goal)` — const, line 39
+- `const active = (goals ?? []).filter((goal)` — const, line 124
 
 ## Who imports or calls it
 

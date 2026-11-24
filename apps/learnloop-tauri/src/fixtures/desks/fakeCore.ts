@@ -9,6 +9,9 @@ import { FixtureCompanion } from "./companion";
 import { FixtureGoal } from "./goal";
 import { FIXTURE_LESSON_ID, FixtureLessons, fixtureAdditionsPad } from "./lessons";
 import { FixtureVideo } from "./video";
+import { fixtureFigure } from "./figures";
+import { FixtureWorkbench } from "./workbench";
+import { FixtureChecks } from "./checks";
 
 export type InvokeArgs = Record<string, unknown>;
 
@@ -62,6 +65,10 @@ const goal = new FixtureGoal();
 const lessons = new FixtureLessons();
 // `?video=1`: the video's chapters already suggested, the second accepted (RD10), as the reference shows them.
 const videoFixture = new FixtureVideo(typeof window !== "undefined" && new URLSearchParams(window.location.search).get("video") === "1");
+// `?checks=1`: one inline check due before the book's fifth section; `?checks=open`: also an administration open on a
+// check whose host is not on the desks (RD7). Without it no check is due.
+const checksMode = typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("checks");
+const checks = new FixtureChecks(checksMode === "open" ? "open" : checksMode === "1" ? "due" : "off");
 // One carried question beside the book's third passage (project-authored).
 const carried: Array<{ carriedId: string; text: string; carried: boolean; version: number; state: string; anchor: unknown; since: string }> = [
   { carriedId: "fx_carried1", text: "does the temperature trick work for any base?", originKind: "typed", originRef: null,
@@ -93,13 +100,32 @@ const calls: HarnessCall[] = [];
 
 declare global {
   interface Window {
-    __deskHarness?: { calls: HarnessCall[]; server: FixtureDeskServer; companion: FixtureCompanion; goal: FixtureGoal; lessons: FixtureLessons; video: FixtureVideo };
+    __deskHarness?: { calls: HarnessCall[]; server: FixtureDeskServer; companion: FixtureCompanion; goal: FixtureGoal; lessons: FixtureLessons; video: FixtureVideo; checks: FixtureChecks };
   }
 }
-window.__deskHarness = { calls, server, companion, goal, lessons, video: videoFixture };
+window.__deskHarness = { calls, server, companion, goal, lessons, video: videoFixture, checks };
 
 function viewFor(id: string) {
   return FIXTURE_VIEWS[id] ?? Object.values(FIXTURE_VIEWS).find((view) => view.extractionId === id) ?? null;
+}
+
+const PAIRS = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("pairs") === "1";
+
+/** Side by side's fixture (`?pairs=1`): the book's section n (n = 1…6) is treated by the paper's section ((n-1) % 3 + 1),
+ *  a judged correspondent opening at that section's first passage. */
+function pairCorrespondents(input: { extractionId: string; sectionId: string }) {
+  const { book, paper } = FIXTURE_SOURCES;
+  const n = input.extractionId === book.extractionId ? Number(/_s(\d+)$/.exec(input.sectionId)?.[1] ?? NaN) : NaN;
+  if (!Number.isFinite(n)) return { extractionId: input.extractionId, sectionId: input.sectionId, status: "none", learningObjects: [], search: null, checkableLearningObjectIds: [] };
+  const section = `${paper.extractionId}_p${((n - 1) % 3) + 1}`;
+  const view = FIXTURE_VIEWS[paper.sourceId];
+  const first = view?.blocks.find((block) => block.spanId?.startsWith(`${section}_`))?.spanId ?? null;
+  return {
+    extractionId: input.extractionId, sectionId: input.sectionId, status: "judged", search: null, checkableLearningObjectIds: [],
+    learningObjects: [{ learningObjectId: `lo_pair_${n}`, title: "a shared idea", sources: [{ sourceId: paper.sourceId, sourceTitle: "Attention as averaging (a note)", sections: [{
+      extractionId: paper.extractionId, sectionId: section, title: `§${((n - 1) % 3) + 1}`, sourceId: paper.sourceId, sourceTitle: "Attention as averaging (a note)",
+      read: false, jump: { extractionId: paper.extractionId, sectionId: section, spanId: first }, treatment: "develops", by: "judge" }] }] }],
+  };
 }
 
 const CONTRACT = {
@@ -107,18 +133,27 @@ const CONTRACT = {
   answerModes: ["answer_directly"], mayReveal: [], manifestIncludes: [], manifestNeverIncludes: [], citations: "spans",
   exposureOnCommit: "none", inquiryEnabled: true, readingPaths: { enabled: true, depths: [] },
   // `?intent=1`: the Reader's intent box over a selection is on (its key claim against the desks' shortcuts).
-  ...(typeof window !== "undefined" && new URLSearchParams(window.location.search).get("intent") === "1"
+  // `?problem=1` (RW2 on a problem pad, spec §15.2): the box also offers "work through this".
+  ...(typeof window !== "undefined" && ["intent", "problem"].some((key) => new URLSearchParams(window.location.search).get(key) === "1")
     ? { intent: {
       palette: [{ group: "understand", label: "understand", intention: "understand", actions: [
         { id: "ask", group: "understand", intention: "understand", label: "Ask", effect: { kind: "ask", answerMode: "answer_directly" }, model: true },
-      ] }],
+      ] }, ...(new URLSearchParams(window.location.search).get("problem") === "1" ? [{ group: "apply", label: "Apply", intention: "apply", actions: [
+        { id: "work_through", group: "apply", intention: "apply", label: "work through this", effect: { kind: "work_through" }, model: true },
+      ] }] : [])],
       notesPalette: [], speculative: false, speculateAfterMs: 0, timeoutSeconds: 30,
     } }
     : {}),
+  // `?pairs=1`: side by side is on (the book's sections each have a judged correspondent in the paper, below).
+  ...(PAIRS ? { sideBySide: { enabled: true } } : {}),
 };
 
 // The context menu's promoted rows: a cheap row per passage (the learner's own question there, so rows differ by
 // passage) and a judged job that adds a correspondent found by search, unchecked, on its second read.
+/** RW2's workbench, faked for the problem pad's harness run. */
+const workbench = new FixtureWorkbench();
+if (typeof window !== "undefined") (window as unknown as { __fixtureWorkbench?: FixtureWorkbench }).__fixtureWorkbench = workbench;
+
 const promotedJobs = new Map<string, { rows: Array<Record<string, unknown>>; reads: number; cancelled: boolean }>();
 let promotedJobCount = 0;
 
@@ -134,9 +169,35 @@ function emptyUnion(spanId: string): Record<string, unknown> {
     authoredQuestions: [], carried: [], exposure: { timesShown: 1, lastShownAt: null, withheld: false } };
 }
 /** The pen's writes in this page (RD8a): annotations made by recognized marks and the ink saved with them. */
-const pen: { annotations: Array<{ sourceId: string; annotation: { id: string }; version: { annotationType: string; learnerText: string } }>; inks: Record<string, unknown>[] } = { annotations: [], inks: [] };
+/** The lines a problem pad's handwriting reads as (`?problem=1&inkhelp=1`), in the order they are written. */
+const INK_HELP_LINES = ["$\\sum_k p_k = \\sum_k e^{h_k} / \\sum_j e^{h_j}$", "$= 1$", "$p_k = -h_k$"];
+const inkHelpRead = new Map<string, number>();
+
+function inkHelpReading(inkId: string): Record<string, unknown> | null {
+  if (typeof window === "undefined" || new URLSearchParams(window.location.search).get("inkhelp") !== "1") return null;
+  const save = pen.inks.find((each) => each.inkId === inkId) as { owner?: { blockId?: string } } | undefined;
+  const blockId = save?.owner?.blockId;
+  if (!blockId) return null;
+  const padId = Object.keys(server.pads).find((id) => server.pads[id].blocks.some((block) => block.blockId === blockId));
+  if (!padId) return null;
+  const index = inkHelpRead.get(blockId) ?? inkHelpRead.size;
+  inkHelpRead.set(blockId, index);
+  const text = INK_HELP_LINES[index % INK_HELP_LINES.length];
+  const state = server.pads[padId];
+  const headVersionId = `fx_ink_read_${blockId}`;
+  server.pads = { ...server.pads, [padId]: { ...state, blocks: state.blocks.map((block) => (block.blockId === blockId
+    ? { ...block, headVersionId, bodyMd: text, provenance: "ink_transcription" as const,
+        payload: { ...block.payload, ink_transcription: { transcription_id: `fx_it_${blockId}`, content_hash: `fx_h_${blockId}`, confidence_label: "may_be_wrong" } } }
+    : block)) } };
+  return { transcriptionId: `fx_it_${blockId}`, ownerKind: "block", ownerId: blockId, contentHash: `fx_h_${blockId}`, latexMd: text,
+    confidenceLabel: "may_be_wrong", model: "glm-ocr-0.9B", createdAt: "2026-11-23T09:00:30Z", applied: true, reason: null, headVersionId };
+}
+
+const pen: { annotations: Array<{ sourceId: string; annotation: { id: string }; version: { annotationType: string; learnerText: string }; [placed: string]: unknown }>; inks: Record<string, unknown>[] } = { annotations: [], inks: [] };
 
 function answer(command: string, input: Record<string, unknown>): unknown {
+  const fromWorkbench = workbench.answer(command, input);
+  if (fromWorkbench !== undefined) return fromWorkbench;
   switch (command) {
     case "desk_state":
       return server.state();
@@ -154,6 +215,13 @@ function answer(command: string, input: Record<string, unknown>): unknown {
     case "reader_guide_plan": {
       const guide = FIXTURE_GUIDES[String(input.extractionId)];
       const view = viewFor(String(input.extractionId));
+      // `?checks=1`: the book's first section has a question placed before it (project-authored).
+      if (guide && typeof window !== "undefined" && new URLSearchParams(window.location.search).get("checks") === "1") {
+        return { ...guide, sections: guide.sections.map((section, index) => (index === 0 && guide.extractionId === FIXTURE_SOURCES.book.extractionId ? {
+          ...section, question: { placement: "owner_reviewed", practiceItemId: "fx_pi_weights", prompt: "Before you read: what should weights from scores add up to?",
+            reason: "a question placed before this section", readingPhase: "before_section", placementEventId: "fx_pe_1", learningObjectId: "fx_lo_1" },
+        } : section)) };
+      }
       return guide ?? { sourceId: view?.sourceId ?? "", extractionId: String(input.extractionId), personalized: false, selectionBasis: "fixture", goalContext: null, sections: [] };
     }
     case "reader_get_progress":
@@ -171,7 +239,18 @@ function answer(command: string, input: Record<string, unknown>): unknown {
     // refuses it today (the plan's transport reads no images).
     case "reader_capture": {
       const annotationId = `fx_ann_${pen.annotations.length + 1}`;
-      pen.annotations.push({ sourceId: String(input.sourceId), annotation: { id: annotationId }, version: { annotationType: input.action === "highlight" ? "highlight" : String(input.action), learnerText: String(input.learnerText ?? "") } });
+      // Placed on the open reading as the sidecar places it: the selection's nodes, here.
+      const nodes = ((input.rawSelection as { nodes?: Array<{ spanId: string; quote?: string; start?: number; end?: number }> } | undefined)?.nodes ?? []);
+      const segments = nodes.map((node) => ({ spanId: node.spanId, codepointStart: node.start ?? 0, codepointEnd: node.end ?? 0, exactQuote: node.quote ?? "" }));
+      pen.annotations.push({
+        sourceId: String(input.sourceId), annotation: { id: annotationId },
+        version: { annotationType: input.action === "highlight" ? "highlight" : input.action === "annotate" ? "interpretation" : String(input.action), learnerText: String(input.learnerText ?? "") },
+        ...(segments.length ? {
+          anchor: { status: "exact", extractionId: String(input.extractionId) },
+          segments: segments.map((segment) => ({ spanId: segment.spanId, exactQuote: segment.exactQuote, geometryJson: null })),
+          placement: { state: "here", flagSpanId: null, segments },
+        } : {}),
+      });
       return { annotationId, outboxId: `fx_out_${annotationId}`, interactionEventId: `fx_ev_${annotationId}`, anchorStatus: "exact", captureKind: "annotation", deduplicated: false, receipt: "captured" };
     }
     case "reader_delete_intent_annotation":
@@ -188,13 +267,23 @@ function answer(command: string, input: Record<string, unknown>): unknown {
     }
     case "ink_list":
       return { version: 1, padId: input.padId ?? null, sourceId: input.sourceId ?? null, owners: input.padId ? server.inkFor(String(input.padId)) : [] };
-    case "ink_transcribe":
+    case "ink_transcribe": {
+      // `?problem=1&inkhelp=1`: GLM-OCR reads each line of a problem pad as the next of three lines, and the reading
+      // becomes the block's words as the server writes them (provenance ink_transcription); elsewhere it is refused.
+      const read = inkHelpReading(String(input.inkId));
+      if (read) return { version: 1, jobId: null, status: "done", done: true, error: null, result: read };
       return { version: 1, jobId: null, status: "failed", done: true, result: null,
-        error: { code: "cannot_read_images", message: "The model routed to read handwriting cannot read images, so nothing was sent.", retryable: false, details: null } };
+        error: { code: "unavailable", message: "Handwriting can't be read yet: text recognition (GLM-OCR) isn't set up.", retryable: true, details: null } };
+    }
     case "reader_ask_history":
       return { exchanges: [] };
     case "reader_drain_outbox":
       return { drained: [], failed: [] };
+    // Show me (spec §13.1): a figure build answered at its first read, with the fixture figure.
+    case "figure_request":
+      return { jobId: "fx_figure_job", kind: "figure_build", askId: null, state: "pending", result: null, anchor: input.anchor ?? null };
+    case "reader_figure_job":
+      return { jobId: String(input.jobId), kind: "figure_build", askId: null, state: "done", result: { figure: fixtureFigure(`${FIXTURE_SOURCES.book.extractionId}_s1_1`), reused: false } };
     case "reader_log_activity":
       return { recorded: Array.isArray(input.events) ? input.events.length : 0 };
     case "reader_note_reading_progress":
@@ -244,7 +333,7 @@ function answer(command: string, input: Record<string, unknown>): unknown {
       const rows = cheapRows(input);
       const jobId = typeof input.spanId === "string" ? `pj_${++promotedJobCount}` : null;
       if (jobId) promotedJobs.set(jobId, { rows, reads: 0, cancelled: false });
-      return { version: 1, objectKey: JSON.stringify(input), rows, cap: 4, pendingJob: jobId ? { jobId } : null, paid: false };
+      return { version: 1, objectKey: JSON.stringify(input), rows, cap: 4, pendingJob: jobId ? { jobId } : null, withheld: false, withheldVerbs: [], paid: { searchedByMeaning: false, verified: false, reason: null } };
     }
     case "passage_promoted_job": {
       const job = promotedJobs.get(String(input.jobId));
@@ -253,7 +342,7 @@ function answer(command: string, input: Record<string, unknown>): unknown {
       job.reads += 1;
       if (job.reads < 2) return { version: 1, jobId: input.jobId, status: "running", done: false, rows: [], error: null };
       const paper = FIXTURE_SOURCES.paper;
-      return { version: 1, jobId: input.jobId, status: "done", done: true, error: null, rows: [...job.rows, {
+      return { version: 1, jobId: input.jobId, status: "done", done: true, error: null, withheld: false, withheldVerbs: [], rows: [...job.rows, {
         rowId: `row_elsewhere_${input.jobId}`, kind: "correspondent", glyph: "§", label: "the same step in another source", reason: "treats the same step",
         action: { verb: "open", ref: { kind: "source", sourceId: paper.sourceId, extractionId: paper.extractionId, view: "render" }, target: {} },
         learnerAt: null, checked: false, judgeRank: 1, basis: "judged", extra: {},
@@ -308,6 +397,8 @@ function answer(command: string, input: Record<string, unknown>): unknown {
     case "goals_list":
       // The goal lens is the harness's `?goal=1` page; without it the desks have no goal, as before.
       return typeof window !== "undefined" && new URLSearchParams(window.location.search).get("goal") === "1" ? goal.goals() : { version: 1, goals: [] };
+    case "goal_choices":
+      return goal.goalChoices();
     case "goal_band":
       return goal.band();
     case "goal_lens":
@@ -346,10 +437,53 @@ function answer(command: string, input: Record<string, unknown>): unknown {
     case "chapters_decide":
       return videoFixture.decide(input as never);
     case "reader_correspondents":
-      return videoFixture.correspondents(input as never);
+      return PAIRS ? pairCorrespondents(input as never) : videoFixture.correspondents(input as never);
+    // `?recap=1`: the book's last session, its recap card and its Wrap up (project-authored).
+    case "reader_recap":
+    case "reader_recap_event":
+    case "reader_wrap_up":
+      if (typeof window === "undefined" || new URLSearchParams(window.location.search).get("recap") !== "1") {
+        throw { code: "not_in_fixture", message: `${command} is not part of the desks' fixture`, retryable: false };
+      }
+      return recapAnswer(command, input);
+    case "checks_due_for":
+      return checks.dueFor(input as never);
+    case "check_begin_inline":
+      return checks.begin(input as never);
+    case "check_protect_more":
+      return checks.protectMore(input as never);
+    case "check_expose":
+      return checks.expose(input as never);
+    case "check_submit_inline":
+      return checks.submit(input as never);
+    case "check_abandon_inline":
+      return checks.abandon(input as never);
+    case "check_open_inline":
+      return checks.openInline();
     default:
       throw { code: "not_in_fixture", message: `${command} is not part of the desks' fixture`, retryable: false };
   }
+}
+
+function recapAnswer(command: string, input: Record<string, unknown>): unknown {
+  const extractionId = String(input.extractionId ?? "");
+  if (command === "reader_recap_event") return { version: 1, eventId: `fx_recap_${String(input.event)}`, event: input.event };
+  const ours = extractionId === FIXTURE_SOURCES.book.extractionId;
+  const session = { sessionId: "fx_session", extractionId, visitIds: ["fx_visit"], startedAt: "2026-11-22T20:00:00Z", endedAt: "2026-11-22T20:40:00Z", minutes: 40 };
+  const open = [{ rootExchangeId: "fx_root1", questionEventId: "fx_q1", questionMd: "does the constant always cancel?", spanId: `${extractionId}_s1_4`, anchorSpanIds: [`${extractionId}_s1_4`], openedAt: "2026-11-22T20:05:00Z" }];
+  if (command === "reader_recap") {
+    return { version: 1, dismissed: false, recap: ours ? {
+      recapVersion: "fixture", extractionId, session, continueAt: { sectionId: `${extractionId}_s2`, label: "2 Why the exponential" },
+      stillOpen: open, unfinished: [], worthASecondLook: [], sinceLastTime: { demonstrated: [], checksRetired: [] },
+    } : null };
+  }
+  return {
+    version: 1, wrapUpVersion: "fixture", available: ours, extractionId, session: ours ? session : null, resolved: [],
+    stillOpen: ours ? [{ rootExchangeId: "fx_root1", questionMd: "does the constant always cancel?", spanIds: [`${extractionId}_s1_4`], actions: [
+      { action: "resolve", rpc: "reader.set_inquiry_status", params: { resolution: "resolved", trigger: "chip" } }, { action: "keep_open" },
+    ] }] : [],
+    worthReinforcing: [],
+  };
 }
 
 /** The notebook fixture (`?notebook=1`): a real sandboxed session the harness script started (its frame URL in

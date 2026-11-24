@@ -72,7 +72,7 @@ export function Shelf({
       <ShelfBody rows={rows} undo={undo} today={today} onFocus={(id) => { onFocus(id); if (folded) setOpen(false); }} onReorder={onReorder} onSearch={onSearch ? () => { onSearch(); if (folded) setOpen(false); } : undefined} />
       {carried.length ? (
         <div className="desk-carried" data-shelf-carried="">
-          <h4><span>Carried</span></h4>
+          <h4><span>Saved questions</span></h4>
           {carried.map((question) => (
             <button key={question.carriedId} type="button" className="q" title={question.text} onClick={onCarriedList}>
               <span className="t">? {question.text}</span>
@@ -81,7 +81,7 @@ export function Shelf({
           ))}
           {onCarriedList ? (
             <button type="button" className="more" onClick={onCarriedList}>
-              {carriedMore > 0 ? `three shown (an attention limit) · all carried questions (${carriedMore} more) ›` : "all carried questions ›"}
+              {carriedMore > 0 ? `three shown (an attention limit) · all saved questions (${carriedMore} more) ›` : "all saved questions ›"}
             </button>
           ) : null}
         </div>
@@ -186,15 +186,15 @@ function ShelfBody({
             </div>
             <div className="n">{row.title}</div>
             {row.progress !== null || row.goal?.ranges.length || row.chapters?.length ? (
-              <div className="bar" aria-label={row.progress !== null ? `${Math.round(row.progress * 100)}% through` : "on your path"}>
+              <div className="bar" aria-label={row.progress !== null ? `Position ${Math.round(row.progress * 100)}%` : "Goal reading"}>
                 <span className="ln" />
                 {(row.goal?.ranges ?? []).map(([from, to]) => (
-                  <span key={`${from}-${to}`} className="gr" style={{ left: `${(from * 100).toFixed(1)}%`, width: `${((to - from) * 100).toFixed(1)}%` }} />
+                  <span key={`${from}-${to}`} className="gr" title="Goal reading" style={{ left: `${(from * 100).toFixed(1)}%`, width: `${((to - from) * 100).toFixed(1)}%` }} />
                 ))}
                 {(row.chapters ?? []).map((range) => (
-                  <span key={`ch-${range.start}`} className="chr" data-chapter-range="" style={{ left: `${(range.start * 100).toFixed(1)}%`, width: `${((range.end - range.start) * 100).toFixed(1)}%` }} />
+                  <span key={`ch-${range.start}`} className="chr" title="Chapter" data-chapter-range="" style={{ left: `${(range.start * 100).toFixed(1)}%`, width: `${((range.end - range.start) * 100).toFixed(1)}%` }} />
                 ))}
-                {row.progress !== null ? <span className="rd" style={{ width: `${Math.max(0, Math.min(1, row.progress)) * 100}%` }} /> : null}
+                {row.progress !== null ? <span className="rd" title="Current position" style={{ width: `${Math.max(0, Math.min(1, row.progress)) * 100}%` }} /> : null}
               </div>
             ) : null}
             {row.where ? <div className="w">{row.where}</div> : null}
@@ -255,11 +255,11 @@ export function CarriedList({ load, mark, onClose }: {
     }, (error: unknown) => setFailure(error && typeof error === "object" && "message" in error ? String((error as { message: unknown }).message) : String(error)));
   };
   return (
-    <div className="desk-sheet desk-carried-list" role="dialog" aria-label="carried questions" onKeyDown={(event) => {
+    <div className="desk-sheet desk-carried-list" role="dialog" aria-label="saved questions" onKeyDown={(event) => {
       if (event.key === "Escape") onClose();
     }}>
-      <div className="head">◌ carried questions · they come back beside a related passage</div>
-      {rows === null ? <div className="note">◐ reading them…</div> : rows.length === 0 ? <div className="note">nothing carried</div> : null}
+      <div className="head">◌ saved questions · they may appear beside a related passage</div>
+      {rows === null ? <div className="note">◐ {failure ? "Saved questions unavailable." : "Loading saved questions…"}</div> : rows.length === 0 ? <div className="note">no saved questions</div> : null}
       {rows?.map((question) => (
         <div key={question.carriedId} className="row" data-carried-row={question.carriedId}>
           <span className="t">? {question.text}</span>
@@ -271,7 +271,7 @@ export function CarriedList({ load, mark, onClose }: {
           </span>
         </div>
       ))}
-      {failure ? <div className="note err">{failure}</div> : null}
+      {failure ? <div className="note err">Reopen saved questions to try again.</div> : null}
       <div className="acts">
         {cursor ? <button type="button" disabled={busy} onClick={() => read(cursor)}>older ›</button> : null}
         <button type="button" onClick={onClose}>close</button>

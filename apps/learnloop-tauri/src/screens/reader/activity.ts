@@ -63,17 +63,20 @@ export function logReaderActivity(event: ReaderActivityEvent): void {
 }
 
 // RO0 row 4: who sends the learner to the next visit. Set where the Reader is opened for them (the plan's reading
-// block), read once by the visit; every other visit is the learner's own.
-let nextVisitInitiator: string | null = null;
+// block), read once by the visit; every other visit is the learner's own. Named for a reading, it is that reading's
+// visit's: on the desks every book window starts a visit, and only the plan's book was opened for the learner.
+let nextVisitInitiator: { initiator: string; extractionId: string | null } | null = null;
 
-export function setNextReaderVisitInitiator(initiator: string): void {
-  nextVisitInitiator = initiator;
+export function setNextReaderVisitInitiator(initiator: string, extractionId: string | null = null): void {
+  nextVisitInitiator = { initiator, extractionId };
 }
 
-export function takeReaderVisitInitiator(): string {
-  const initiator = nextVisitInitiator ?? "learner";
+export function takeReaderVisitInitiator(extractionId: string | null = null): string {
+  const pending = nextVisitInitiator;
+  if (!pending) return "learner";
+  if (pending.extractionId && extractionId && pending.extractionId !== extractionId) return "learner";
   nextVisitInitiator = null;
-  return initiator;
+  return pending.initiator;
 }
 
 export function logReaderAction(

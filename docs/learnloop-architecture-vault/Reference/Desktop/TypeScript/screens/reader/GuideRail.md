@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/GuideRail.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/GuideRail.tsx) |
-| Source lines | 1091 |
+| Source lines | 1120 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
@@ -63,65 +63,66 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export const QUESTION_CONTROLS: Array<` — const, line 60
 - `export interface GuideRailProps` — interface, line 68
 - `export function GuideRail(` — function, line 149
-- `export function SectionBoundaryOffer(` — function, line 503
-- `export function AuthoredQuestionCard(` — function, line 642
+- `export function SectionBoundaryOffer(` — function, line 471
+- `export function AuthoredQuestionCard(` — function, line 610
+- `export function QuickChecks(` — function, line 1063
 
 ## Internal implementation anchors
 
 - `const book = bookTitle ? `“$` — const, line 35
 - `const peek = peekPassage ?? jumpToSpan` — const, line 202
-- `const sections = guidePlan?.sections ?? []` — const, line 208
-- `const currentIndex = currentGuideSection ? sections.findIndex((section)` — const, line 209
-- `const nextSection = currentIndex >= 0 ? sections[currentIndex + 1] ?? null : null` — const, line 210
-- `const lastSection = currentIndex >= 0 && nextSection === null` — const, line 212
-- `const currentFinished = currentGuideSection ? completedSections.includes(currentGuideSection.id) : false` — const, line 213
-- `const closeCheck = (section: ReaderGuideSectionDto, kept: Omit<ClosedCheck, "sectionId" | "label"> | null)` — const, line 214
-- `const open = new Set(openQuestionSections.map((section)` — const, line 219
-- `const kept = Object.entries(closedChecks) .filter(([key, check])` — const, line 220
-- `const checks = boundaryChecksAvailable ? openQuestionSections.map((section)` — const, line 224
-- `const sectionRead = currentSectionRead ?? currentSectionProgress` — const, line 255
-- `const result = await completeSection(sectionId)` — const, line 349
-- `const finish: SectionFinish = result.enqueuedGeneration ? "writing" : result.waitingForBuild ? "waiting" : "done"` — const, line 351
-- `const readThrough = completedSections.includes(section.id) || (sectionSeen[section.id] ?? 0) >= section.spanIds.length` — const, line 372
-- `const state = section.id === currentGuideSection?.id ? "current" : readThrough ? "read" : "upcoming"` — const, line 374
-- `const glyph = state === "read" ? "✓" : state === "current" ? "◐" : "·"` — const, line 375
-- `type SectionFinish = "writing" | "waiting" | "done"` — type, line 544
-- `function SectionDone(` — function, line 546
-- `const finished = completed || finishedHere !== null` — const, line 572
-- `const wasFinished = useRef<` — const, line 575
-- `const guardUntil = useRef(0)` — const, line 576
-- `const before = wasFinished.current` — const, line 577
-- `const wayOn = (go: ()` — const, line 582
-- `const question = section.question` — const, line 662
-- `const questionId = question?.authoredQuestionId ?? null` — const, line 669
-- `const sourceSpan = question?.spanIds?.[0] ?? null` — const, line 670
-- `const submit = useCallback(async ()` — const, line 675
-- `const dismissForever = useCallback(async ()` — const, line 689
-- `const escalate = useCallback(async ()` — const, line 702
-- `const result = await api.readerEscalateAuthoredQuestion(` — const, line 706
-- `function SectionQuestionCard(` — function, line 803
-- `const question = section.question` — const, line 831
-- `const begin = useCallback(async ()` — const, line 839
-- `const opened = await api.readerPresentQuestion(` — const, line 843
-- `const submit = useCallback(async ()` — const, line 863
-- `const skip = useCallback(async ()` — const, line 882
-- `const control = useCallback(async (value: string)` — const, line 900
-- `const choose = useCallback(async (next: ReaderDisposition)` — const, line 933
-- `function ClosedCheckRecord(` — function, line 1035
-- `function CheckActions(` — function, line 1059
-- `const ref = useRef<HTMLDivElement>(null)` — const, line 1060
-- `const element = ref.current` — const, line 1062
-- `const frame = window.requestAnimationFrame(()` — const, line 1064
-- `function FocusedButton(` — function, line 1078
-- `const ref = useRef<HTMLSpanElement>(null)` — const, line 1079
-- `const active = document.activeElement` — const, line 1081
+- `const sections = guidePlan?.sections ?? []` — const, line 206
+- `const currentIndex = currentGuideSection ? sections.findIndex((section)` — const, line 207
+- `const nextSection = currentIndex >= 0 ? sections[currentIndex + 1] ?? null : null` — const, line 208
+- `const lastSection = currentIndex >= 0 && nextSection === null` — const, line 210
+- `const currentFinished = currentGuideSection ? completedSections.includes(currentGuideSection.id) : false` — const, line 211
+- `const sectionRead = currentSectionRead ?? currentSectionProgress` — const, line 213
+- `const result = await completeSection(sectionId)` — const, line 317
+- `const finish: SectionFinish = result.enqueuedGeneration ? "writing" : result.waitingForBuild ? "waiting" : "done"` — const, line 319
+- `const readThrough = completedSections.includes(section.id) || (sectionSeen[section.id] ?? 0) >= section.spanIds.length` — const, line 340
+- `const state = section.id === currentGuideSection?.id ? "current" : readThrough ? "read" : "upcoming"` — const, line 342
+- `const glyph = state === "read" ? "✓" : state === "current" ? "◐" : "·"` — const, line 343
+- `type SectionFinish = "writing" | "waiting" | "done"` — type, line 512
+- `function SectionDone(` — function, line 514
+- `const finished = completed || finishedHere !== null` — const, line 540
+- `const wasFinished = useRef<` — const, line 543
+- `const guardUntil = useRef(0)` — const, line 544
+- `const before = wasFinished.current` — const, line 545
+- `const wayOn = (go: ()` — const, line 550
+- `const question = section.question` — const, line 630
+- `const questionId = question?.authoredQuestionId ?? null` — const, line 637
+- `const sourceSpan = question?.spanIds?.[0] ?? null` — const, line 638
+- `const submit = useCallback(async ()` — const, line 643
+- `const dismissForever = useCallback(async ()` — const, line 657
+- `const escalate = useCallback(async ()` — const, line 670
+- `const result = await api.readerEscalateAuthoredQuestion(` — const, line 674
+- `function SectionQuestionCard(` — function, line 771
+- `const question = section.question` — const, line 799
+- `const begin = useCallback(async ()` — const, line 807
+- `const opened = await api.readerPresentQuestion(` — const, line 811
+- `const submit = useCallback(async ()` — const, line 831
+- `const skip = useCallback(async ()` — const, line 850
+- `const control = useCallback(async (value: string)` — const, line 868
+- `const choose = useCallback(async (next: ReaderDisposition)` — const, line 901
+- `function ClosedCheckRecord(` — function, line 1003
+- `function CheckActions(` — function, line 1027
+- `const ref = useRef<HTMLDivElement>(null)` — const, line 1028
+- `const element = ref.current` — const, line 1030
+- `const frame = window.requestAnimationFrame(()` — const, line 1032
+- `function FocusedButton(` — function, line 1046
+- `const ref = useRef<HTMLSpanElement>(null)` — const, line 1047
+- `const active = document.activeElement` — const, line 1049
+- `const closeCheck = (section: ReaderGuideSectionDto, kept: Omit<ClosedCheck, "sectionId" | "label"> | null)` — const, line 1074
+- `const open = new Set(sections.map((section)` — const, line 1079
+- `const kept = Object.entries(closedChecks) .filter(([key, check])` — const, line 1080
+- `const checks = available ? sections.map((section)` — const, line 1084
 
 ## Who imports or calls it
 
 > [!note] Static-evidence boundary
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
-- [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] — import-or-re-export: `GuideRail`, `SectionBoundaryOffer`; references `GuideRail`, `SectionBoundaryOffer`
+- [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] — import-or-re-export: `GuideRail`, `QuickChecks`, `SectionBoundaryOffer`; references `GuideRail`, `QuickChecks`, `SectionBoundaryOffer`
 - [[Reference/Desktop/TypeScript/screens/reader/DoseOffer|src/screens/reader/DoseOffer.tsx]] — import-or-re-export: `AuthoredQuestionCard`; references `AuthoredQuestionCard`
 
 ## Dependencies

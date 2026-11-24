@@ -132,6 +132,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/field/outcomes|learnloop.field.outcomes]] — imports `stuck_answer_summary`; statically calls `stuck_answer_summary`
 - [[Reference/Modules/learnloop/field/signals|learnloop.field.signals]] — imports `stuck_answers`; statically calls `stuck_answers`
 - [[Reference/Modules/learnloop/tui/screens/practice|learnloop.tui.screens.practice]] — imports `STUCK_CONTROL_LABEL`, `STUCK_PROMPT_TEXT`
+- [[Reference/Modules/learnloop_sidecar/handlers/inline_checks|learnloop_sidecar.handlers.inline_checks]] — imports `stuck_attempt_type`; statically calls `stuck_attempt_type`
 - [[Reference/Modules/learnloop_sidecar/handlers/pads|learnloop_sidecar.handlers.pads]] — imports `stuck_attempt_type`; statically calls `stuck_attempt_type`
 - [[Reference/Modules/learnloop_sidecar/handlers/practice|learnloop_sidecar.handlers.practice]] — imports `stuck_attempt_type`; statically calls `stuck_attempt_type`
 - [[Reference/Modules/learnloop_sidecar/handlers/workbench|learnloop_sidecar.handlers.workbench]] — imports `stuck_attempt_type`; statically calls `stuck_attempt_type`
@@ -156,7 +157,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Inspect Persistent State]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/ai_contracts|learnloop.attempts.ai_contracts]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/blind_grading|learnloop.attempts.blind_grading]], [[Reference/Modules/learnloop/attempts/grading_support|learnloop.attempts.grading_support]], [[Reference/Modules/learnloop/attempts/hint_fold|learnloop.attempts.hint_fold]] and 9 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/ai_contracts|learnloop.attempts.ai_contracts]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/blind_grading|learnloop.attempts.blind_grading]], [[Reference/Modules/learnloop/attempts/grading_support|learnloop.attempts.grading_support]], [[Reference/Modules/learnloop/attempts/hint_fold|learnloop.attempts.hint_fold]] and 10 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

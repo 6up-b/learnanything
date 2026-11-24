@@ -51,7 +51,7 @@ it("the evidence markers are the well's discrete glyphs, never a percentage", ()
   expect(container.textContent).toContain("◌");
   expect(container.textContent).toContain("●");
   expect(container.textContent).not.toMatch(/%/);
-  expect(screen.getByLabelText("worked with help · a check on your own is pending")).toBeTruthy();
+  expect(screen.getByLabelText("worked with help · a cold check is pending")).toBeTruthy();
 });
 
 it("check markers say what checked them, and a model's reading is never 'checked'", () => {

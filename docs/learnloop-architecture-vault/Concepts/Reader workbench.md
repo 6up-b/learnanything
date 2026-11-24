@@ -72,3 +72,22 @@ The runtime supervises marimo inside a sandbox. The sandbox has no writable host
 Each desk follows its own most recently played video. A book window uses the transcript section, the accepted chapter and the book's judged correspondents to show the current connection. The link can be turned off. Only playing scrolls the book. The follow read uses neither a model nor the search fallback. The timestamp shortcut writes a source quote anchored to the active cue when one is available.
 
 Chapter suggestions run on request through the coverage judge's route and are stored in `video_chapters`. A decision accepts or dismisses a suggestion once. Only accepted chapters mark the scrub track and supply the named chapter to follow-along. Suggestions and decisions are workflow data. See [[Reference/Modules/learnloop_sidecar/handlers/video|Video RPCs]], [[Reference/Database/Tables/video_chapters|Chapter records]] and [[Workbench protection#Follow-along and chapters]].
+
+## Words a learner reads
+
+The owner settled the workbench's nouns on 2026-11-23: companion, pad, saved question, cold check. Code names stay as
+they are (`carried_*`, the scratchpad classes, the `carry` verb id); only what a learner reads follows the glossary.
+
+| Word | What it names |
+|---|---|
+| **pad** / **pads** | A writable page on a desk, and the window that stacks them. A desk's own pad is the **running pad** (one name: its stored title "running" is shown as "running pad"). |
+| **saved question** | A question set aside for later; it may come back beside a related passage. The act is **save for later** (the menu's verb, a pad line's "? save for later", the drain's "save for later “…”"). |
+| **companion** | The ask surface: where questions are asked and answered on the desks. **The tutor** still names who answers ("the tutor's words", "the tutor asks, as a student would"), never the surface. |
+| **cold check** | A check on your own, with nothing open that could give the answer away (the inline card, the path's dates, What this knows). |
+| **quick check** | A section's optional question while reading (the Guide's). Not a cold check. |
+| **quick question** | A lesson's question asked on the lesson screen. Not a cold check either. |
+
+Two scans keep the retired words out: `screens/desks/workbenchNouns.test.ts` (the desks and the lesson view) and
+`tests/test_workbench_nouns.py` (the desks' handlers' messages). The record is in
+`docs/reviews/reader-workbench-copy-audit.md` §3.
+

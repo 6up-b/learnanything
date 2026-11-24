@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/pads/model.ts](../../../../../../../../apps/learnloop-tauri/src/screens/desks/pads/model.ts) |
-| Source lines | 286 |
+| Source lines | 293 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/pads/_area|TypeScript/screens/desks/pads]] |
 | Refactor status | `ACTIVE` |
@@ -59,61 +59,62 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export type Pads = Record<string, PadState>` — type, line 17
 - `export class PadOpRefusal extends Error` — class, line 19
 - `export class PadOpConflict extends Error` — class, line 25
-- `export function fromPadView(view: PadViewDto): PadState` — function, line 31
-- `export function keyBetween(a: string | null, b: string | null): string` — function, line 46
-- `export function keyAfter(blocks: PadBlockDto[], after: string | null): string` — function, line 70
-- `export function applyPadOp(pads: Pads, padId: string, op: PadOpDto, now: string): Pads` — function, line 123
-- `export function anchorHead(state: PadState, blockId: string, extractionId: string, spanId: string): string | null` — function, line 222
-- `export type KeptBothRedirects = Map<string,` — type, line 232
-- `export function restampPadOp(pads: Pads, padId: string, op: PadOpDto, now: string, redirects?: KeptBothRedirects):` — function, line 237
-- `export function isLearnersWords(block: PadBlockDto): boolean` — function, line 271
-- `export function firstLine(text: string): string` — function, line 278
-- `export function plainLine(text: string): string` — function, line 284
+- `export function padName(pad:` — function, line 33
+- `export function fromPadView(view: PadViewDto): PadState` — function, line 38
+- `export function keyBetween(a: string | null, b: string | null): string` — function, line 53
+- `export function keyAfter(blocks: PadBlockDto[], after: string | null): string` — function, line 77
+- `export function applyPadOp(pads: Pads, padId: string, op: PadOpDto, now: string): Pads` — function, line 130
+- `export function anchorHead(state: PadState, blockId: string, extractionId: string, spanId: string): string | null` — function, line 229
+- `export type KeptBothRedirects = Map<string,` — type, line 239
+- `export function restampPadOp(pads: Pads, padId: string, op: PadOpDto, now: string, redirects?: KeptBothRedirects):` — function, line 244
+- `export function isLearnersWords(block: PadBlockDto): boolean` — function, line 278
+- `export function firstLine(text: string): string` — function, line 285
+- `export function plainLine(text: string): string` — function, line 291
 
 ## Internal implementation anchors
 
-- `function sortBlocks(blocks: PadBlockDto[]): PadBlockDto[]` — function, line 35
-- `const DIGITS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"` — const, line 41
-- `function midpoint(a: string, b: string | null): string` — function, line 51
-- `let n = 0` — let, line 54
-- `const low = a ? DIGITS.indexOf(a[0]) : 0` — const, line 61
-- `const high = b !== null ? DIGITS.indexOf(b[0]) : DIGITS.length` — const, line 62
-- `const index = blocks.findIndex((block)` — const, line 72
-- `const here = blocks[index]?.positionKey ?? blocks[blocks.length - 1]?.positionKey ?? null` — const, line 73
-- `const next = index >= 0 ? blocks[index + 1]?.positionKey ?? null : null` — const, line 74
-- `function replace(pads: Pads, padId: string, state: PadState): Pads` — function, line 80
-- `function requirePad(pads: Pads, padId: string): PadState` — function, line 84
-- `const state = pads[padId]` — const, line 85
-- `function requireHead(state: PadState, blockId: string, expected: string): PadBlockDto` — function, line 90
-- `const block = state.blocks.find((each)` — const, line 91
-- `function withBlock(state: PadState, block: PadBlockDto): PadState` — function, line 97
-- `function keepBoth(pads: Pads, padId: string, state: PadState, op: Extract<PadOpDto,` — function, line 101
-- `const keep = op.keepBoth as NonNullable<typeof op.keepBoth>` — const, line 102
-- `const kind = head?.kind ?? "text"` — const, line 104
-- `const kept: PadBlockDto =` — const, line 106
-- `const state = requirePad(pads, padId)` — const, line 132
-- `const pad =` — const, line 138
-- `const block: PadBlockDto =` — const, line 145
-- `const current = state.blocks.find((block)` — const, line 152
-- `const head = requireHead(state, op.blockId, op.expectedHead)` — const, line 156
-- `const next: PadBlockDto =` — const, line 158
-- `const head = requireHead(state, op.blockId, op.expectedHead)` — const, line 173
-- `const head = requireHead(state, op.blockId, op.expectedHead)` — const, line 177
-- `const lifted: PadBlockDto =` — const, line 179
-- `const stub: PadBlockDto =` — const, line 180
-- `const created: PadState =` — const, line 184
-- `const current = anchorHead(state, op.blockId, op.extractionId, op.spanId)` — const, line 194
-- `const others = state.anchors.filter((anchor)` — const, line 196
-- `const anchor: PadAnchorDto =` — const, line 201
-- `const block = state.blocks.find((each)` — const, line 206
-- `const next: PadBlockDto =` — const, line 212
-- `const found = state.anchors.filter((anchor)` — const, line 223
-- `const state = pads[padId]` — const, line 238
-- `let stamped: PadOpDto = op` — let, line 239
-- `const moved = redirects?.get(op.expectedHead)` — const, line 243
-- `const target = stamped as Extract<PadOpDto,` — const, line 246
-- `const head = state.blocks.find((block)` — const, line 247
-- `const head = state.blocks.find((block)` — const, line 256
+- `function sortBlocks(blocks: PadBlockDto[]): PadBlockDto[]` — function, line 42
+- `const DIGITS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"` — const, line 48
+- `function midpoint(a: string, b: string | null): string` — function, line 58
+- `let n = 0` — let, line 61
+- `const low = a ? DIGITS.indexOf(a[0]) : 0` — const, line 68
+- `const high = b !== null ? DIGITS.indexOf(b[0]) : DIGITS.length` — const, line 69
+- `const index = blocks.findIndex((block)` — const, line 79
+- `const here = blocks[index]?.positionKey ?? blocks[blocks.length - 1]?.positionKey ?? null` — const, line 80
+- `const next = index >= 0 ? blocks[index + 1]?.positionKey ?? null : null` — const, line 81
+- `function replace(pads: Pads, padId: string, state: PadState): Pads` — function, line 87
+- `function requirePad(pads: Pads, padId: string): PadState` — function, line 91
+- `const state = pads[padId]` — const, line 92
+- `function requireHead(state: PadState, blockId: string, expected: string): PadBlockDto` — function, line 97
+- `const block = state.blocks.find((each)` — const, line 98
+- `function withBlock(state: PadState, block: PadBlockDto): PadState` — function, line 104
+- `function keepBoth(pads: Pads, padId: string, state: PadState, op: Extract<PadOpDto,` — function, line 108
+- `const keep = op.keepBoth as NonNullable<typeof op.keepBoth>` — const, line 109
+- `const kind = head?.kind ?? "text"` — const, line 111
+- `const kept: PadBlockDto =` — const, line 113
+- `const state = requirePad(pads, padId)` — const, line 139
+- `const pad =` — const, line 145
+- `const block: PadBlockDto =` — const, line 152
+- `const current = state.blocks.find((block)` — const, line 159
+- `const head = requireHead(state, op.blockId, op.expectedHead)` — const, line 163
+- `const next: PadBlockDto =` — const, line 165
+- `const head = requireHead(state, op.blockId, op.expectedHead)` — const, line 180
+- `const head = requireHead(state, op.blockId, op.expectedHead)` — const, line 184
+- `const lifted: PadBlockDto =` — const, line 186
+- `const stub: PadBlockDto =` — const, line 187
+- `const created: PadState =` — const, line 191
+- `const current = anchorHead(state, op.blockId, op.extractionId, op.spanId)` — const, line 201
+- `const others = state.anchors.filter((anchor)` — const, line 203
+- `const anchor: PadAnchorDto =` — const, line 208
+- `const block = state.blocks.find((each)` — const, line 213
+- `const next: PadBlockDto =` — const, line 219
+- `const found = state.anchors.filter((anchor)` — const, line 230
+- `const state = pads[padId]` — const, line 245
+- `let stamped: PadOpDto = op` — let, line 246
+- `const moved = redirects?.get(op.expectedHead)` — const, line 250
+- `const target = stamped as Extract<PadOpDto,` — const, line 253
+- `const head = state.blocks.find((block)` — const, line 254
+- `const head = state.blocks.find((block)` — const, line 263
 
 ## Who imports or calls it
 
@@ -121,9 +122,10 @@ The system-level behavior stays authoritative in the linked architecture, concep
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
 - [[Reference/Desktop/TypeScript/fixtures/desks/workspace|src/fixtures/desks/workspace.ts]] — import-or-re-export: `PadOpConflict`, `PadOpRefusal`, `Pads`, `applyPadOp`, `fromPadView`; references `PadOpConflict`, `PadOpRefusal`, `Pads`, `applyPadOp`, `fromPadView`
-- [[Reference/Desktop/TypeScript/screens/desks/DeskShell|src/screens/desks/DeskShell.tsx]] — import-or-re-export: `keyAfter`; references `keyAfter`
+- [[Reference/Desktop/TypeScript/screens/desks/DeskShell|src/screens/desks/DeskShell.tsx]] — import-or-re-export: `keyAfter`, `padName`; references `keyAfter`, `padName`
+- [[Reference/Desktop/TypeScript/screens/desks/pads/DrainPanel|src/screens/desks/pads/DrainPanel.tsx]] — import-or-re-export: `padName`; references `padName`
 - [[Reference/Desktop/TypeScript/screens/desks/pads/PadOverlays|src/screens/desks/pads/PadOverlays.tsx]] — import-or-re-export: `PadState`, `isLearnersWords`; references `PadState`, `isLearnersWords`
-- [[Reference/Desktop/TypeScript/screens/desks/pads/PadStackWindow|src/screens/desks/pads/PadStackWindow.tsx]] — import-or-re-export: `EDITABLE_KINDS`, `PadState`, `firstLine`, `isLearnersWords`, `keyAfter`, `plainLine`; references `EDITABLE_KINDS`, `PadState`, `firstLine`, `isLearnersWords`, `keyAfter`, `plainLine`
+- [[Reference/Desktop/TypeScript/screens/desks/pads/PadStackWindow|src/screens/desks/pads/PadStackWindow.tsx]] — import-or-re-export: `EDITABLE_KINDS`, `PadState`, `firstLine`, `isLearnersWords`, `keyAfter`, `padName`, `plainLine`; references `EDITABLE_KINDS`, `PadState`, `firstLine`, `isLearnersWords`, `keyAfter`, `padName`, `plainLine`
 - [[Reference/Desktop/TypeScript/screens/desks/store|src/screens/desks/store.ts]] — import-or-re-export: `KeptBothRedirects`, `PadOpRefusal`, `Pads`, `applyPadOp`, `fromPadView`, `restampPadOp`; references `KeptBothRedirects`, `PadOpRefusal`, `Pads`, `applyPadOp`, `fromPadView`, `restampPadOp`
 
 ## Dependencies

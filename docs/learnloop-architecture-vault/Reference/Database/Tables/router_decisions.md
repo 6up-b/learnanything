@@ -23,7 +23,7 @@ source_paths:
   - "src/learnloop/daily_plan/boundary_records.py"
   - "src/learnloop/daily_plan/engine.py"
   - "src/learnloop/daily_plan/learner_action.py"
-  - "src/learnloop/daily_plan/measurement.py"
+  - "src/learnloop/daily_plan/learner_probe.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"

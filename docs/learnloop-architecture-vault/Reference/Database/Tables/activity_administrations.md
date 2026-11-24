@@ -144,6 +144,7 @@ Indexes and uniqueness:
 - `tests/test_goal_contracts.py`
 - `tests/test_reader_branches.py`
 - `tests/test_reader_dialogue.py`
+- `tests/test_replay_writes_no_ledger.py`
 - `tests/test_administration_adapters.py`
 - `tests/test_grade_resolution_pipeline.py`
 

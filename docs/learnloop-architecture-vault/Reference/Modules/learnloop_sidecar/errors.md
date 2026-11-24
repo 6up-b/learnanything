@@ -109,6 +109,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop_sidecar/handlers/hints|learnloop_sidecar.handlers.hints]] — imports `SidecarError`; statically calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/handlers/ingest|learnloop_sidecar.handlers.ingest]] — imports `SidecarError`, `require_ai_ok`; statically calls `SidecarError`, `require_ai_ok`
 - [[Reference/Modules/learnloop_sidecar/handlers/ink|learnloop_sidecar.handlers.ink]] — imports `SidecarError`; statically calls `SidecarError`
+- [[Reference/Modules/learnloop_sidecar/handlers/inline_checks|learnloop_sidecar.handlers.inline_checks]] — imports `SidecarError`; statically calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/handlers/intent|learnloop_sidecar.handlers.intent]] — imports `SidecarError`; statically calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/handlers/item_authoring|learnloop_sidecar.handlers.item_authoring]] — imports `SidecarError`; statically calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/handlers/kept_comparisons|learnloop_sidecar.handlers.kept_comparisons]] — imports `SidecarError`; statically calls `SidecarError`
@@ -161,6 +162,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop_sidecar/server|learnloop_sidecar.server]] — imports `SidecarError`, `json_rpc_error`, `sidecar_error`, `waiting_for_ok_error`; statically calls `SidecarError`, `json_rpc_error`, `sidecar_error`, `waiting_for_ok_error`
 - [[Reference/Modules/learnloop_sidecar/serving|learnloop_sidecar.serving]] — imports `SidecarError`; statically calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/source_identity|learnloop_sidecar.source_identity]] — imports `SidecarError`; statically calls `SidecarError`
+- [[Reference/Modules/learnloop_sidecar/workbench_protection|learnloop_sidecar.workbench_protection]] — imports `SidecarError`; statically calls `SidecarError`
 
 ## Dependencies
 
@@ -183,7 +185,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Inspect Persistent State]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]], [[Reference/Modules/learnloop_sidecar/handlers/adaptive_difficulty|learnloop_sidecar.handlers.adaptive_difficulty]], [[Reference/Modules/learnloop_sidecar/handlers/adjudication|learnloop_sidecar.handlers.adjudication]], [[Reference/Modules/learnloop_sidecar/handlers/ai_providers|learnloop_sidecar.handlers.ai_providers]], [[Reference/Modules/learnloop_sidecar/handlers/animation|learnloop_sidecar.handlers.animation]] and 79 more.
+Static participation evidence comes from [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]], [[Reference/Modules/learnloop_sidecar/handlers/adaptive_difficulty|learnloop_sidecar.handlers.adaptive_difficulty]], [[Reference/Modules/learnloop_sidecar/handlers/adjudication|learnloop_sidecar.handlers.adjudication]], [[Reference/Modules/learnloop_sidecar/handlers/ai_providers|learnloop_sidecar.handlers.ai_providers]], [[Reference/Modules/learnloop_sidecar/handlers/animation|learnloop_sidecar.handlers.animation]] and 81 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -399,6 +401,15 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_with_the_sources_service_absent_the_view_is_absent`
 - [tests/test_menu_promoted_rows.py](../../../../../tests/test_menu_promoted_rows.py) — direct import
   - `test_a_retried_menu_request_answers_with_its_job_and_runs_once`
+- [tests/test_menu_protected_material.py](../../../../../tests/test_menu_protected_material.py) — direct import
+  - `test_a_paths_own_refusals_come_before_the_protection_check`
+  - `test_a_shared_destination_keeps_its_own_set_on_exam_material_not_held_out`
+  - `test_a_stored_mark_on_held_out_material_reaches_no_other_surface`
+  - `test_an_unplaced_quote_that_repeats_held_words_is_still_refused`
+  - `test_destination_refuses_mixed_selection_without_menu`
+  - `test_pad_selection_follows_every_lines_payload_and_links`
+  - `test_the_menus_verbs_agree_with_their_destinations_and_the_classic_reader`
+  - `test_unplaced_legacy_pad_quote_needs_new_clearance_after_a_mark`
 - [tests/test_mobile_handoff.py](../../../../../tests/test_mobile_handoff.py) — direct import
   - `test_a_desktop_start_over_a_phone_session_asks_and_replace_is_its_answer`
   - `test_writes_from_the_device_that_lost_it_are_session_moved`
@@ -551,6 +562,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_read_it_anyway_on_a_dimmed_section_is_stored_idempotent_and_clearable`
   - `test_switched_off_every_rpc_refuses_and_nothing_is_called_or_written`
   - `test_the_empty_and_thin_states`
+- [tests/test_reader_rd7a_inline_checks.py](../../../../../tests/test_reader_rd7a_inline_checks.py) — direct import
+  - `test_a_check_with_an_answer_being_written_in_today_is_not_opened_here`
+  - `test_below_the_tag_every_check_rpc_refuses_and_today_ignores_the_lock`
+  - `test_not_now_closes_with_no_attempt_and_the_duty_stays`
+  - `test_one_administration_at_a_time_and_today_honours_it`
+  - `test_submit_records_one_attempt_on_the_reader_surface_settles_and_is_idempotent`
 - [tests/test_reader_rd8a_rpcs.py](../../../../../tests/test_reader_rd8a_rpcs.py) — direct import
   - `test_a_failed_reading_says_why`
   - `test_a_reading_belongs_to_its_vault`
@@ -667,6 +684,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_start_opens_a_lesson_whose_origin_is_the_decision`
 - [tests/test_teacher_te2log_activity.py](../../../../../tests/test_teacher_te2log_activity.py) — direct import
   - `test_lesson_activity_is_a_desktop_only_rpc_that_records_intervals`
+- [tests/test_tutor_goal_in_view.py](../../../../../tests/test_tutor_goal_in_view.py) — direct import
+  - `test_an_unknown_goal_is_refused_before_anything_is_asked`
 - [tests/test_ux_phase1_add_source.py](../../../../../tests/test_ux_phase1_add_source.py) — direct import
   - `test_add_source_rejects_a_bad_page_range_plainly`
 - [tests/test_ux_phase1_connect_ai.py](../../../../../tests/test_ux_phase1_connect_ai.py) — direct import

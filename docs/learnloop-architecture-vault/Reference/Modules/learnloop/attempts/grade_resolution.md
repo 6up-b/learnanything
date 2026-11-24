@@ -190,6 +190,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_an_adjudication_of_a_regrade_revises_its_epoch_under_its_contract`
   - `test_an_adjudication_releases_an_unrecorded_hold_under_the_contract_it_cites`
   - `test_rebuild_converges_after_an_adjudication_as_it_did_before`
+- [tests/test_replay_writes_no_ledger.py](../../../../../../tests/test_replay_writes_no_ledger.py) — direct import
+  - `test_the_broad_graded_history_at_the_head_adds_no_ledger_row`
 - [tests/test_route_rules_in_grader.py](../../../../../../tests/test_route_rules_in_grader.py) — direct import
   - `test_live_an_adjudication_releases_a_hold_on_replay`
 - [tests/test_teach_back.py](../../../../../../tests/test_teach_back.py) — direct import

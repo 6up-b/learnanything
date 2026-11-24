@@ -341,13 +341,19 @@ def followup_gate_record(row: Mapping[str, Any], decision: Any, *, logged: bool,
     refused = bool(getattr(decision, "refused", False))
     reason = str(getattr(decision, "reason", "") or "")
     drawn = mixture.get("drawn_component") or record.get("drawn_component")
+    coin = record.get("probe_coin") if isinstance(record.get("probe_coin"), Mapping) else {}
     if refused or decided_by in {"no_plan", "staged", "recorded"}:
         rule = reason
+    elif coin.get("served") == chosen and coin.get("arm") == "ask_probe":
+        # The probe router's tag: the probe coin, not a policy, asked the probe.
+        rule = "probe_coin"
     elif drawn:
         rule = f"drawn_{drawn}"
     else:
         rule = decided_by or reason
     pi = mixture.get("pi") if isinstance(mixture.get("pi"), Mapping) else {}
+    if not pi and isinstance(record.get("served_pi"), Mapping):
+        pi = record["served_pi"]  # the probe coin with no mix: its served distribution
     alternatives = tuple(
         _compact({"ref": _ref(option), "p": _number(p), "lost_by": "not_drawn"})
         for option, p in pi.items() if str(option) != chosen

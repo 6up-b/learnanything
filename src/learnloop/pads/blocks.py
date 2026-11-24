@@ -14,6 +14,7 @@ evidence: the explicit exits are ``pads.emission`` (committed words to learner-t
 """
 from __future__ import annotations
 
+from collections.abc import Callable
 import re
 from typing import Annotated, Any, Literal, Union
 
@@ -347,7 +348,7 @@ def _keep_both(connection: Any, pad_id: str, client_id: str, op: EditBlock, head
     keep = op.keep_both
     assert keep is not None
     if reads.head(connection, keep.block_id) is not None:
-        raise OpRefused("block_exists", f"A block {keep.block_id!r} already exists.")
+        raise OpRefused("block_exists", "This line already exists. Check the pad before trying again.")
     payload = dict(op.payload if op.payload is not None else base["payload"])
     payload["conflict"] = {"of_block_id": op.block_id, "expected_head": op.expected_head,
                            "server_head_version_id": head["version_id"], "label": keep.label, "at": now}
@@ -371,16 +372,16 @@ def _version_id(connection: Any, minted: str | None) -> str:
     if minted is None:
         return new_ulid()
     if reads.version_exists(connection, minted):
-        raise OpRefused("version_exists", f"A block version {minted!r} already exists.")
+        raise OpRefused("version_exists", "This line has changed. Check the latest text before trying again.")
     return minted
 
 
 def _current_head(connection: Any, pad_id: str, block_id: str, expected: str | None) -> dict[str, Any]:
     head = reads.head(connection, block_id)
     if head is None:
-        raise OpRefused("block_not_found", f"No block {block_id!r}.")
+        raise OpRefused("block_not_found", "Couldn’t find this line. Reopen the pad and try again.")
     if head["pad_id"] != pad_id:
-        raise OpRefused("block_not_in_pad", "That block belongs to another pad.")
+        raise OpRefused("block_not_in_pad", "Open the pad containing this line and try again.")
     if expected is not None and expected != head["version_id"]:
         raise OpConflict({"block_id": block_id, "head_version_id": head["version_id"]})
     return head
@@ -405,15 +406,15 @@ def _apply_pad_op(connection: Any, pad_id: str, client_id: str, op: Any, now: st
             # not know the first's pad is refused and writes into it instead.
             existing = reads.lesson_additions_pads(connection, [op.lesson_id]).get(op.lesson_id)
             if existing:
-                raise OpRefused("lesson_additions_exists", f"This lesson's additions are in pad {existing[0]!r}.")
+                raise OpRefused("lesson_additions_exists", "Reopen the lesson to add to its existing notes.")
         store.insert_pad(connection, pad_id=pad_id, kind=op.kind, title=op.title, home_desk_id=op.home_desk_id,
                          workbench_session_id=op.workbench_session_id, lesson_id=op.lesson_id, now=now)
         versions[pad_id] = 1
         return None
     if pad is None:
-        raise OpRefused("pad_not_found", f"No pad {pad_id!r}.")
+        raise OpRefused("pad_not_found", "Couldn’t find this pad. Open it again.")
     if pad["archived_at"] is not None:
-        raise OpRefused("pad_archived", "That pad is archived.")
+        raise OpRefused("pad_archived", "This pad is archived. Open another pad to continue writing.")
     if isinstance(op, (SetTitle, Keep, Unkeep)):
         if int(op.expected_version) != int(pad["version"]):
             raise OpConflict({"pad_id": pad_id, "version": int(pad["version"])})
@@ -443,7 +444,7 @@ def _apply_pad_op(connection: Any, pad_id: str, client_id: str, op: Any, now: st
             seen = reads.version(connection, op.expected_head)
             base = seen if seen is not None and seen["block_id"] == op.block_id else current
             if base["kind"] not in EDITABLE_KINDS:
-                raise OpRefused("not_editable", "This block quotes a source, the tutor or a figure; add a note under it.")
+                raise OpRefused("not_editable", "Add your own note below this line.")
             return _keep_both(connection, pad_id, client_id, op, current, base, now, heads)
     if isinstance(op, (EditBlock, RemoveBlock, MoveBlock, LiftOut)):
         head = _current_head(connection, pad_id, op.block_id, op.expected_head)
@@ -452,7 +453,7 @@ def _apply_pad_op(connection: Any, pad_id: str, client_id: str, op: Any, now: st
         version_id = _version_id(connection, op.stub_version_id if isinstance(op, LiftOut) else op.version_id)
         if isinstance(op, EditBlock):
             if head["kind"] not in EDITABLE_KINDS:
-                raise OpRefused("not_editable", "This block quotes a source, the tutor or a figure; add a note under it.")
+                raise OpRefused("not_editable", "Add your own note below this line.")
             changes: dict[str, Any] = {}
             if op.body_md is not None:
                 changes["body_md"] = op.body_md
@@ -511,9 +512,9 @@ def _apply_pad_op(connection: Any, pad_id: str, client_id: str, op: Any, now: st
             raise OpConflict({"block_id": op.block_id, "extraction_id": op.extraction_id, "span_id": op.span_id,
                               "anchor_head": current})
         if isinstance(op, UnlinkAnchor) and (latest is None or latest["action"] != "link"):
-            raise OpRefused("not_linked", "That block is not linked to that passage.")
+            raise OpRefused("not_linked", "This line has no link to that passage. Choose another line.")
         if op.event_id is not None and reads.anchor_event_exists(connection, op.event_id):
-            raise OpRefused("event_exists", f"An anchor event {op.event_id!r} already exists.")
+            raise OpRefused("event_exists", "This link already changed. Reopen the pad and check it before trying again.")
         event_id = op.event_id or new_ulid()
         store.insert_anchor_event(
             connection, event_id=event_id, block_id=op.block_id, extraction_id=op.extraction_id, span_id=op.span_id,
@@ -543,12 +544,14 @@ def _apply_pad_op(connection: Any, pad_id: str, client_id: str, op: Any, now: st
 
 
 def apply_pad_ops(repository: Any, *, client_id: str, seq: int, pad_id: str, ops: list[Any],
-                  clock: Any = None) -> dict[str, Any]:
+                  clock: Any = None, check_material: Callable[[], None] | None = None) -> dict[str, Any]:
     """``pad.apply``: one batch on one pad, applied once and in order (``learnloop.desks.protocol``)."""
 
     request = {"pad_id": pad_id, "ops": [op.wire() for op in ops]}
 
     def apply(connection: Any, now: str) -> dict[str, Any]:
+        if check_material:
+            check_material()
         heads: dict[str, str] = {}
         versions: dict[str, int] = {}
         results = [run_op(connection, lambda op=op: _apply_pad_op(connection, pad_id, client_id, op, now, heads,

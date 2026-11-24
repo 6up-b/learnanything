@@ -94,9 +94,9 @@ def apply_batch(
     ``apply_ops(connection, now)`` applies its ops inside the transaction and returns the reply."""
 
     if not client_id:
-        raise ProtocolError("validation_error", "A write batch names its client.")
+        raise ProtocolError("validation_error", "Couldn’t sync this change. Reopen the desk and try again.")
     if seq < 1:
-        raise ProtocolError("validation_error", "A batch's number starts at 1.")
+        raise ProtocolError("validation_error", "Couldn’t sync this change. Reopen the desk and try again.")
     digest = request_hash(channel, request)
     with repository.atomic():
         connection = repository.connection()
@@ -105,7 +105,7 @@ def apply_batch(
             if stored.channel != channel or stored.request_hash != digest:
                 raise ProtocolError(
                     "seq_reused",
-                    f"Batch {seq} of this client was already applied with other ops.",
+                    "Couldn’t sync this change. Reopen the desk and check the latest changes.",
                     {"seq": seq},
                 )
             return stored.result
@@ -113,7 +113,7 @@ def apply_batch(
         if seq != expected:
             raise ProtocolError(
                 "seq_gap",
-                f"Batch {seq} arrived before batch {expected}; send the batches in order.",
+                "Couldn’t sync this change. Reopen the desk and try again.",
                 {"seq": seq, "expected_seq": expected},
             )
         now = utc_now_iso(clock)

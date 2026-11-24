@@ -29,7 +29,7 @@ export const DELIVERABLE_COPY = {
   undo: "undo",
   skipping: "you're skipping it · nothing is marked as known",
   readingAnyway: "you chose to read it",
-  checkWaiting: "a check on your own is waiting · off your path until then",
+  checkWaiting: "a cold check is waiting · off your path until then",
   usingInstead: "your choice",
   onPathIn: (title: string, book: string, section: string) => `${title}: on your path in ${book} ${section} ▸`,
   notInBooks: "not in your books yet:",
@@ -38,8 +38,8 @@ export const DELIVERABLE_COPY = {
   notWhatINeedPlaceholder: "say what you need instead",
   send: "send ↵",
   ready: "Am I ready?",
-  readyChecks: "add a check on your own for each one not shown yet",
-  readyNote: "Readiness is only checks on your own, later: reading never counts.",
+  readyChecks: "add a cold check for each one not shown yet",
+  readyNote: "Readiness is only cold checks, later: reading never counts.",
 } as const;
 
 /** How often the Guide reads a slice being chosen or covered again (the server never waits). */

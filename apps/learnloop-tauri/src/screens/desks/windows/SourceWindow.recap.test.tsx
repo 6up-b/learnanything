@@ -1,6 +1,6 @@
-// A source window records recap_shown only when the card is on screen (spec §3.6): its rail is shown in a
-// panel window that is itself visible. A preview, a window with no rail panel, or a hidden panel shows no
-// card, so nothing is recorded as shown.
+// A source window records recap_shown only when the card is on screen (spec §3.6). The card shows in the Guide of a
+// panel window bound to the book when that panel is visible, and otherwise at the top of the window itself (spec
+// §21.1: "the recap card in the source window on return"). A preview shows no card, so nothing is recorded.
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { readerRenderViewFixture as view } from "../../../fixtures/readerRenderView";
@@ -102,19 +102,24 @@ it("a preview with a recap records nothing as shown", async () => {
   expect(shownEvents()).toBe(0);
 });
 
-it("an active window with no rail panel shows no card, so records none", async () => {
-  render(<Window state="active" panel={null} />);
+it("an active window with no rail panel shows the card at its top, recorded once", async () => {
+  const { container } = render(<Window state="active" panel={null} />);
   await screen.findByText(view.blocks[1].markdown);
   await settle();
   expect(api.readerRecap).toHaveBeenCalled();
-  expect(shownEvents()).toBe(0);
+  expect(container.querySelector("[data-window-recap] [data-recap-card]")).not.toBeNull();
+  await waitFor(() => expect(shownEvents()).toBe(1));
 });
 
-it("a rail panel that is hidden records none; once it is on screen the card is recorded once", async () => {
-  const { rerender } = render(<Window state="active" panel={{ host, state: "hidden" }} />);
+it("a rail panel that is hidden leaves the card in the window; on screen it moves to the panel, still recorded once", async () => {
+  const { container, rerender } = render(<Window state="active" panel={{ host, state: "hidden" }} />);
   await screen.findByText(view.blocks[1].markdown);
   await settle();
-  expect(shownEvents()).toBe(0);
-  rerender(<Window state="active" panel={{ host, state: "visible" }} />);
+  expect(container.querySelector("[data-window-recap] [data-recap-card]")).not.toBeNull();
   await waitFor(() => expect(shownEvents()).toBe(1));
+  rerender(<Window state="active" panel={{ host, state: "visible" }} />);
+  await waitFor(() => expect(host.querySelector("[data-recap-card]")).not.toBeNull());
+  expect(container.querySelector("[data-window-recap] [data-recap-card]")).toBeNull();
+  await settle();
+  expect(shownEvents()).toBe(1);
 });

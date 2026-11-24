@@ -106,6 +106,7 @@ None found by exact static reference scan.
 - `tests/identity_pins_helpers.py`
 - `tests/reader_rd8a_migration_helpers.py`
 - `tests/test_ink_transcriptions_guard_migration.py`
+- `tests/test_reader_ink_glm_ocr.py`
 - `tests/test_reader_rd8a_migration.py`
 - `tests/test_reader_rd8a_transcribe.py`
 

@@ -609,9 +609,13 @@ def ask(
     learner_state: Any | None = None,
     context_withheld: Any | None = None,
     on_question_recorded: Any | None = None,
+    goal_in_view: Mapping[str, Any] | None = None,
     clock: Clock | None = None,
 ) -> dict[str, Any]:
     """Answer a span-grounded reader question (§7.6).
+
+    ``goal_in_view`` (the workbench companion's: ``{goal_id, sentence, depth, depth_means}``, checked against the
+    goal lens's protection by the adapter) joins the tutor's context (``tutor_qa.ask_question``'s ``reader_goal``).
 
     ``on_question_recorded`` (``tutor_qa.ask_question``'s) is called with the question's id once the
     question is recorded, before its answer is asked for.
@@ -807,6 +811,7 @@ def ask(
         **({"reader_learner_state": learner_state} if learner_state is not None else {}),
         **({"reader_withheld": context_withheld} if context_withheld is not None else {}),
         **({"on_question_recorded": on_question_recorded} if on_question_recorded is not None else {}),
+        **({"reader_goal": goal_in_view} if goal_in_view is not None else {}),
         clock=clock,
     )
     if source_span_provider is not None or "reader_tutor" in result or reader_binding is not None:

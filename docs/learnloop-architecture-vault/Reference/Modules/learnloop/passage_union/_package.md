@@ -48,7 +48,7 @@ For system intent, use [[Architecture Overview]].
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/passage_union/__init__|learnloop.passage_union]] | [[Reference/Modules/learnloop/passage_union/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
 | [[Reference/Modules/learnloop/passage_union/content|learnloop.passage_union.content]] | [[Reference/Modules/learnloop/passage_union/content#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
-| [[Reference/Modules/learnloop/passage_union/elsewhere|learnloop.passage_union.elsewhere]] | [[Reference/Modules/learnloop/passage_union/elsewhere#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
+| [[Reference/Modules/learnloop/passage_union/elsewhere|learnloop.passage_union.elsewhere]] | [[Reference/Modules/learnloop/passage_union/elsewhere#^module-purpose|purpose]] | `ACTIVE` | 3 | 3 |
 | [[Reference/Modules/learnloop/passage_union/promoted|learnloop.passage_union.promoted]] | [[Reference/Modules/learnloop/passage_union/promoted#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/passage_union/union|learnloop.passage_union.union]] | [[Reference/Modules/learnloop/passage_union/union#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
 
@@ -66,7 +66,7 @@ For system intent, use [[Architecture Overview]].
 
 ### Packages that import this package
 
-- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 4 static module edges
+- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 5 static module edges
 - [[Reference/Modules/learnloop/pads/_package|learnloop.pads]] — 1 static module edge
 
 ### Dependency neighborhood
@@ -77,8 +77,8 @@ This diagram compresses package-level static imports; edge labels are distinct m
 flowchart LR
     center["learnloop.passage_union"]
     n_learnloop_content_sources["learnloop.content.sources"]
-    n_learnloop_source_retrieval["learnloop.source_retrieval"]
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
+    n_learnloop_source_retrieval["learnloop.source_retrieval"]
     n_learnloop["learnloop"]
     n_learnloop_db_stores["learnloop.db.stores"]
     n_learnloop_db["learnloop.db"]
@@ -86,8 +86,8 @@ flowchart LR
     n_learnloop_pads["learnloop.pads"]
     n_learnloop_reader["learnloop.reader"]
     center -->|6| n_learnloop_content_sources
+    n_learnloop_sidecar_handlers -->|5| center
     center -->|4| n_learnloop_source_retrieval
-    n_learnloop_sidecar_handlers -->|4| center
     center -->|3| n_learnloop
     center -->|3| n_learnloop_db_stores
     center -->|1| n_learnloop_db

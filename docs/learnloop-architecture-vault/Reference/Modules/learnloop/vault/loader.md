@@ -329,6 +329,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/probe_orchestration_remainder_helpers.py](../../../../../../tests/probe_orchestration_remainder_helpers.py) — direct import
 - [tests/probe_policy_helpers.py](../../../../../../tests/probe_policy_helpers.py) — direct import
 - [tests/probe_robust_cutover_helpers.py](../../../../../../tests/probe_robust_cutover_helpers.py) — direct import
+- [tests/probe_router_authority_helpers.py](../../../../../../tests/probe_router_authority_helpers.py) — direct import
 - [tests/protection_matrix_helpers.py](../../../../../../tests/protection_matrix_helpers.py) — direct import
 - [tests/reader_ca1_astra_fixes_helpers.py](../../../../../../tests/reader_ca1_astra_fixes_helpers.py) — direct import
 - [tests/reader_ca2_codex_review_helpers.py](../../../../../../tests/reader_ca2_codex_review_helpers.py) — direct import
@@ -806,6 +807,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_selection_never_picks_an_administered_diagnostic_surface`
   - `test_shared_surface_group_makes_the_certificate_unmeasurable`
   - `test_withdrawn_certificate_schedules_nothing_and_cancels_a_queued_probe`
+- [tests/test_chapters_feed_coverage.py](../../../../../../tests/test_chapters_feed_coverage.py) — direct import
+  - `test_a_chapters_row_no_longer_stands_once_the_transcript_changed`
+  - `test_only_sections_wholly_inside_the_range_are_covered`
+  - `test_the_learners_own_correction_stands_and_corrects_a_wrong_acceptance`
+  - `test_with_the_curriculum_off_accepting_writes_no_coverage`
 - [tests/test_characterization_assessment_exam.py](../../../../../../tests/test_characterization_assessment_exam.py) — direct import
 - [tests/test_characterization_certification_ledger.py](../../../../../../tests/test_characterization_certification_ledger.py) — direct import
 - [tests/test_characterization_probe_regrade.py](../../../../../../tests/test_characterization_probe_regrade.py) — direct import
@@ -1718,6 +1724,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f3_a_cold_success_whose_grade_is_now_held_is_not_measured`
   - `test_the_kill_switch_writes_no_receipt`
   - `test_the_report_reads_a_vault_without_receipts_as_empty`
+- [tests/test_gate_records_survive_replay.py](../../../../../../tests/test_gate_records_survive_replay.py) — direct import
+  - `test_a_per_lo_replay_keeps_them`
+  - `test_a_regrade_keeps_them`
+  - `test_a_whole_vault_rebuild_keeps_the_gates_records`
+  - `test_the_shadow_rebuild_compares_the_gates_records`
+  - `test_what_history_shows_reads_the_same_after_a_rebuild`
 - [tests/test_gate_score.py](../../../../../../tests/test_gate_score.py) — direct import
 - [tests/test_generated_item_gate.py](../../../../../../tests/test_generated_item_gate.py) — direct import
   - `test_registered_facet_accepted`
@@ -2148,7 +2160,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_measurement_state_labels.py](../../../../../../tests/test_measurement_state_labels.py) — direct import
 - [tests/test_menu_promoted_rows.py](../../../../../../tests/test_menu_promoted_rows.py) — direct import
 - [tests/test_menu_protected_material.py](../../../../../../tests/test_menu_protected_material.py) — direct import
+  - `test_a_stored_mark_on_held_out_material_reaches_no_other_surface`
   - `test_search_elsewhere_never_finds_or_judges_protected_material`
+  - `test_the_menus_verbs_agree_with_their_destinations_and_the_classic_reader`
 - [tests/test_method_explicit_landing.py](../../../../../../tests/test_method_explicit_landing.py) — direct import
   - `test_a_plan_rows_preview_keeps_the_sentence_whole`
   - `test_check_me_keeps_the_sentence_whole_when_it_clips`
@@ -2500,6 +2514,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_sidecar_remint_happy_path_and_error_codes`
 - [tests/test_probe_router_authority.py](../../../../../../tests/test_probe_router_authority.py) — direct import
   - `test_j_a_generated_followups_block_ends_at_its_one_question_and_value_ends_any_other`
+- [tests/test_probe_router_learner_lane.py](../../../../../../tests/test_probe_router_learner_lane.py) — direct import
+- [tests/test_probe_router_replay.py](../../../../../../tests/test_probe_router_replay.py) — direct import
+- [tests/test_probe_router_worth_gates.py](../../../../../../tests/test_probe_router_worth_gates.py) — direct import
 - [tests/test_probe_surface_mint.py](../../../../../../tests/test_probe_surface_mint.py) — direct import
   - `test_mint_refuses_a_surface_group_the_learner_has_seen`
   - `test_minted_surface_serves_through_the_probe_branch_and_is_single_use`
@@ -2647,6 +2664,16 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_empty_and_thin_states`
   - `test_the_lens_levels_follow_the_real_path_and_coverage`
   - `test_the_replies_are_equal_after_a_rebuild_of_derived_state`
+- [tests/test_reader_rd7a_inline_checks.py](../../../../../../tests/test_reader_rd7a_inline_checks.py) — direct import
+  - `test_a_later_answer_after_today_settled_the_check_is_practice_and_ordinary_evidence`
+  - `test_an_answer_after_a_notes_veil_was_opened_is_practice_and_says_why`
+  - `test_one_administration_at_a_time_and_today_honours_it`
+  - `test_parity_with_check_once_in_today`
+  - `test_the_projection_after_an_inline_answer_equals_a_whole_vault_rebuild`
+  - `test_the_protection_set_veils_covered_passages_and_every_note_bearing_surface`
+- [tests/test_reader_rd7b_cold_followup_parity.py](../../../../../../tests/test_reader_rd7b_cold_followup_parity.py) — direct import
+  - `test_a_due_cold_follow_up_opens_inline_cold_on_the_item_today_would_serve`
+  - `test_rw6bs_gate_holds_the_follow_up_on_both_surfaces`
 - [tests/test_reader_rd9a_fix.py](../../../../../../tests/test_reader_rd9a_fix.py) — direct import
 - [tests/test_reader_rd9a_lesson_windows.py](../../../../../../tests/test_reader_rd9a_lesson_windows.py) — direct import
   - `test_lesson_list_names_each_lesson_with_its_additions_pad`
@@ -2819,6 +2846,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_rebuild_derived_state_replays_attempt_logs`
   - `test_replay_error_attributions_preserve_misconception_fields`
   - `test_replay_preserves_targeted_error_attribution_facets`
+- [tests/test_replay_keeps_diagnosis_ids.py](../../../../../../tests/test_replay_keeps_diagnosis_ids.py) — direct import
+  - `test_a_per_lo_replay_appends_no_version`
+  - `test_a_promoted_hypothesis_stays_promoted_and_its_receipt_keeps_its_id`
+  - `test_a_rebuild_keeps_every_hypothesis_and_receipt_id`
+  - `test_the_shadow_rebuild_reports_no_difference`
+- [tests/test_replay_writes_no_ledger.py](../../../../../../tests/test_replay_writes_no_ledger.py) — direct import
 - [tests/test_required_method_authority.py](../../../../../../tests/test_required_method_authority.py) — direct import
   - `test_a_live_answer_its_regrade_and_replay_are_graded_under_the_frozen_field`
   - `test_a_variant_with_no_verdict_or_an_edited_stem_is_not_published`
@@ -3370,6 +3403,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_source_scoped_teach_back_does_not_reuse_lo_wide_card`
 - [tests/test_teach_handoff_stop_settles.py](../../../../../../tests/test_teach_handoff_stop_settles.py) — direct import
   - `test_the_calibration_dialogue_s_stop_settles_its_committed_turns`
+- [tests/test_teacher_carried_questions.py](../../../../../../tests/test_teacher_carried_questions.py) — direct import
 - [tests/test_teacher_exam_question_guard.py](../../../../../../tests/test_teacher_exam_question_guard.py) — direct import
   - `test_a_reserved_question_split_between_message_and_check_is_withheld`
   - `test_a_short_reserved_question_counts_when_an_ordinary_item_shows_its_number`

@@ -58,6 +58,9 @@ export interface GoalDesk {
   /** The top bar's "◎ set a goal", when the desk has no goal. */
   topChip: ReactNode;
   hasBand: boolean;
+  /** The lens's goal while its band shows (the desk's goal, else the vault's primary one): the companion asks
+   * under it, so the tutor's answers aim at it. */
+  goalId: string | null;
   lensFor: (windowId: string, extractionId: string) => ReaderLens | null;
   /** "◎ for your goal · …" over a pad stack, from its pads' anchors. */
   padLine: (padIds: readonly string[]) => ReactNode;
@@ -167,7 +170,7 @@ export function useGoalDesk({ transport, deskGoalId, offKey, onSetGoal, readings
   const focusedIndex: LensIndex | null = focused?.extractionId ? indexFor(focused.extractionId) : null;
   const here: HereView | null = focused
     ? (focused.extractionId ? hereLine(focusedIndex, topSpan ?? focused.readingSpan, topSpan ? null : focused.where, band)
-      : { where: focused.where ?? "your scratchpads", lo: null, tag: null, loId: null })
+      : { where: focused.where ?? "your pads", lo: null, tag: null, loId: null })
     : null;
 
   const togglePath = useCallback(() => {
@@ -218,9 +221,9 @@ export function useGoalDesk({ transport, deskGoalId, offKey, onSetGoal, readings
     const { section } = best;
     const lo = section.learningObjects.find((entry) => entry.learningObjectId === section.determiningLoId);
     const kind = markKind(section.level);
-    const text = section.held ? "a cold check is due on what these pads link to"
-      : section.level === "skippable" ? `not needed for your goal · ${section.reasonMd}`
-      : lo?.title ? `${lo.kind === "prerequisite" ? "a prerequisite" : lo.kind === "later" ? "later" : "a goal LO"}: “${lo.title}” · ${section.reasonMd}`
+    const text = section.held ? "Details are hidden while a cold check is due."
+      : section.level === "skippable" ? `Not needed for your goal · ${section.reasonMd}`
+      : lo?.title ? `${lo.kind === "prerequisite" ? "Background" : lo.kind === "later" ? "Deeper study" : "Goal topic"}: “${lo.title}” · ${section.reasonMd}`
       : section.reasonMd;
     return (
       <div className={`gfor g-${kind ?? "none"}`} data-goal-padline="">
@@ -234,6 +237,7 @@ export function useGoalDesk({ transport, deskGoalId, offKey, onSetGoal, readings
     <GoalBand
       band={band}
       goals={goal.goals}
+      labels={goal.labels}
       here={here}
       dimOn={dimOn}
       onToggleDim={goal.toggleDim}
@@ -245,7 +249,7 @@ export function useGoalDesk({ transport, deskGoalId, offKey, onSetGoal, readings
       onMapIt={goal.mapIt}
     />
   ) : null;
-  const topChip = !goal.goalId && goal.goals !== null ? <GoalTopChip goals={goal.goals} onChooseGoal={chooseGoal} /> : null;
+  const topChip = !goal.goalId && goal.goals !== null ? <GoalTopChip goals={goal.goals} labels={goal.labels} onChooseGoal={chooseGoal} /> : null;
   const overlays = (
     <>
       {why ? <WhyCard key={`${why.windowId}:${why.section.sectionId}`} why={why} band={band} /> : null}
@@ -281,12 +285,12 @@ export function useGoalDesk({ transport, deskGoalId, offKey, onSetGoal, readings
     if (!best) return null;
     const lo = best.learningObjects.find((entry) => entry.learningObjectId === best!.determiningLoId);
     const mark = markKind(best.level);
-    return { mark: mark === "core" ? "sup" : mark, line: best.held ? "your pads, for your goal" : lo?.title ? `your pads on \u201c${lo.title}\u201d` : "your pads, not tied to your goal", ranges: [] };
+    return { mark: mark === "core" ? "sup" : mark, line: best.held ? "your pads, for your goal" : lo?.title ? `your pads on \u201c${lo.title}\u201d` : "No link from these pads to your goal", ranges: [] };
   }, [band, indexFor, padAnchors]);
 
   const primaryFor = useCallback((learningObjectId: string) => {
     const primary = band?.learningObjects?.find((dot) => dot.learningObjectId === learningObjectId)?.primary;
     return primary ? { extractionId: primary.extractionId, sectionId: primary.sectionId } : null;
   }, [band]);
-  return { band: bandNode, topChip, hasBand, lensFor, padLine, overlays, rowGoal, pathOpen: goal.pathOpen, togglePath, primaryFor };
+  return { band: bandNode, topChip, hasBand, goalId: hasBand ? goal.goalId : null, lensFor, padLine, overlays, rowGoal, pathOpen: goal.pathOpen, togglePath, primaryFor };
 }

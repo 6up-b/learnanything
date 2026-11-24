@@ -5,10 +5,10 @@ aliases:
   - Shadow Rebuild Workflow
 status: active
 doc_version: 1.0.0
-implementation_version: mvp-0.60
-last_reviewed: 2026-08-17
-source_commit: 62fd1f6404cc3a3007c6f214ba9429c45ef0114f
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
+implementation_version: mvp-0.68
+last_reviewed: 2026-11-23
+source_commit: 86f29b0d390ed2ecdbb0347d98ccb1175ac52728
+source_commit_timestamp: "2026-11-23T23:12:28-05:00"
 source_paths:
   - src/learnloop/substrate/rebuild_orchestrator.py
   - src/learnloop/substrate/shadow_rebuild.py
@@ -25,119 +25,47 @@ tags:
 
 # Rebuild and Shadow Compare
 
-Replay reconstructs derived learner projections from authoritative receipts. A **shadow rebuild** does that in an isolated SQLite copy and compares candidate state; a **live rebuild** clears and rewrites the registered DERIVED tables. Roles and replayability are defined in [[State and Persistence]] and enumerated in [[Database Catalog]].
+Replay reconstructs projections from stored attempts, contracts and other retained inputs. It never asks a model or deletes evidence. [[State and Persistence]] explains table roles and write authority. [[Database Catalog#DERIVED tables|Database Catalog]] lists the clearable tables.
 
-## Choose the safe branch
-
-```mermaid
-flowchart TD
-    Q[Need to inspect an algorithm/config change?] -->|yes| S[Shadow rebuild in scratch copy]
-    Q -->|no; doctor identifies stale derived state| B[Back up closed vault]
-    S --> C{Live DB hash unchanged?}
-    C -->|no| STOP[Stop and investigate invariant failure]
-    C -->|yes| D[Review mastery/facet/schedule diff]
-    D -->|candidate rejected| END[No live mutation]
-    D -->|candidate accepted later| B
-    B --> L[Live rebuild-derived-state]
-    L --> V[Doctor and inspect marker]
-```
-
-Shadow comparison is the default analytical tool. It never promotes a candidate automatically. ^shadow-first
-
-## 1. Run a baseline shadow rebuild
+## Compare in a scratch copy
 
 ```bash
-VAULT="$HOME/LearnLoop/linear-algebra"
-
-uv run learnloop rebuild --shadow --json --vault "$VAULT"
+learnloop rebuild --shadow --json --vault "$VAULT"
+learnloop rebuild --shadow --set mastery.irt.eb_difficulty_enabled=true --json --vault "$VAULT"
 ```
 
-The result includes:
+The live database is attached read-only and copied with SQLite backup. The candidate runs on the copy. Repeat `--set` for additional overrides. The report gives the applied overrides, per-replayer accounting, and mastery, facet and schedule differences. Check `live_database.unchanged` and review the individual deltas. Shadow mode never promotes its copy or runs live migrations or state sync.
 
-- baseline and candidate algorithm versions;
-- each replayer and its owned tables;
-- raw, replayed, and unaccounted attempt ids/counts;
-- mastery, facet, and schedule diffs;
-- `live_database.sha256_before`, `sha256_after`, and `unchanged`.
+^shadow-first
 
-`unchanged` must be `true`. Shadow mode uses SQLite backup into scratch storage and attaches the live database read-only; it neither migrates the live database nor syncs files.
+## Understand what replay reads
 
-## 2. Compare a supported config candidate
+The [[Reference/Modules/learnloop/substrate/rebuild_orchestrator|replayer registry]] gives ownership and dependency order. The activity prerequisite can materialize missing authoritative observations before learner replay. Recurrence groups are rebuilt ahead of the learner fold, canonical facet and capability projections read the completed fold, and identifiability reads the canonical projection. The registry also owns the other clearable families, including router outcomes, adaptive-difficulty state and the source text index.
 
-```bash
-uv run learnloop rebuild --shadow \
-  --set mastery.irt.eb_difficulty_enabled=true \
-  --json --vault "$VAULT"
-```
+Replay reads the bounded history prefix for the attempt being applied. Three later activations record inputs the old ledgers could not always recover:
 
-`--set dotted.path=value` is repeatable. Overrides are schema-validated before replay and returned in `applied_overrides`. Review individual changes, not only summary counts.
+| From | Input replay uses | Older history |
+|---|---|---|
+| `mvp-0.65` | [[Reference/Database/Tables/attempt_application_order|Application order]] breaks ties between grades stamped in the same second by recorded application sequence. | Keeps the predecessor order with an unknown-order label. |
+| `mvp-0.66` | [[Reference/Database/Tables/attempt_lifecycle_inputs|Lifecycle inputs]] give the facet set used at application, so later retirement does not change that application. | Uses a labelled reconstruction from the predecessor's replay. |
+| `mvp-0.67` | [[Reference/Database/Tables/mastery_seed_inputs|Mastery seed inputs]] preserve the claims that seeded the first persisted mastery state. | Uses a labelled reconstruction. A starting-level change affects topics created afterwards. |
 
-> [!warning] No promotion command
-> A favorable shadow diff is evidence for a configuration decision, not permission for the scratch database to replace `state.sqlite`. Edit supported config deliberately, back up the vault, then run a live rebuild.
-
-## 3. Understand what replay owns
-
-The orchestrator runs registered replayers in order:
-
-1. `activity_substrate` prepares authoritative adapters and owns no DERIVED table;
-2. `learning_state` owns six derived tables;
-3. `canonical_projection` owns three;
-4. `identifiability` owns one.
-
-The ten current DERIVED tables are cataloged under their role in [[Database Catalog#DERIVED tables]]. A full replay verifies that every raw attempt is accounted for. It must not clear raw ledgers, receipts, workflow state, or compatibility tables.
+From `mvp-0.60`, a rebuild uses the newest activity observation for the answer. It adds a raw grade event when the grade changed and a new interpretation when it differs from the current head. An adjudicated, reviewed or quarantined head survives unless a changed grade supersedes it. Earlier supported tags can append a new history chain during rebuild. See [[Algorithm Versions and Reproducibility]] for upgrade and history boundaries.
 
 ## Run a live rebuild only when justified
 
-Stop desktop/sidecar writers and create a full vault backup. Then:
+Close vault writers and back up the vault before repairing live derived state. Run [[Doctor Migrations and Recovery|doctor]] before and after.
 
 ```bash
-uv run learnloop doctor --json --vault "$VAULT"
-
-uv run learnloop rebuild-derived-state \
-  --json --vault "$VAULT"
-
-uv run learnloop doctor --json --vault "$VAULT"
+learnloop doctor --json --vault "$VAULT"
+learnloop rebuild-derived-state --json --vault "$VAULT"
+learnloop doctor --json --vault "$VAULT"
 ```
 
-To scope a repair, repeat `--learning-object`:
+Repeat `--learning-object` to scope learner replay to selected topics. Shared dependent projections may still need a broader refresh. The result gives the algorithm version, rebuilt topics, replayed attempt count and marker when written. The orchestrator validates replay ownership and attempt coverage and writes the rebuild receipt in the transaction. Unaccounted attempts fail that rebuild.
 
-```bash
-uv run learnloop rebuild-derived-state \
-  --learning-object <learning-object-id> \
-  --json --vault "$VAULT"
-```
-
-The stable compatibility payload returns `algorithm_version`, `replayed_attempts`, `rebuilt_learning_objects`, `learning_object_ids`, and `marker_id` when a marker was written. Detailed per-replayer ownership/accounting is exposed by the shadow command, not duplicated in this live command payload. Save both the live result and the preceding shadow report with the incident record.
-
-> [!important] Live-replay invariant
-> Rebuild clears and reconstructs only registered DERIVED-role tables, records one marker, and refuses an unaccounted raw attempt. It does not reinterpret source files or delete evidence.
-
-From `mvp-0.60` (the grade channel fixes; no kill switch), a rebuild also appends nothing to history that did not change: replay keeps each practice answer's newest activity observation and appends to it a raw grade event only when the grade changed (a regrade) and an interpretation only when the current calibration model or projection version reads it differently, never over a head an owner adjudication, a review flag or a quarantine wrote. Below the tag (`mvp-0.58`, `mvp-0.59`) each rebuild re-mints every answer's observation, raw grade event, interpretation and four measurement events (raw ledger rows, kept), and the projection reads the newest copy. The upgrade to `mvp-0.60` is a whole-vault rebuild: it re-reads, once, the answers whose live observation earlier rebuilds never superseded (their re-mints sort before it, refactor bug ledger D-55), which can move canonical facet cells. A cell of the canonical facet cache or an identifiability watermark that a rebuild leaves with the same values keeps its `created_at` / `updated_at` / `checked_at`, so a second rebuild changes no row (the rebuild receipt says when the vault was rebuilt).
-
-## 5. Inspect the result
-
-```bash
-uv run learnloop show <learning-object-id> --json --vault "$VAULT"
-uv run learnloop review --limit 5 --json --vault "$VAULT"
-```
-
-Compare these supported views with the pre-rebuild snapshot. For provenance-level inspection, use [[Inspect Persistent State]].
-
-## When not to rebuild
-
-- pending SQL migrations → [[Doctor Migrations and Recovery#Repair path]];
-- a failed import job → [[Import Canonical Sources#Resume, cancel, and retry]];
-- invalid source or item files → fix the content/proposal path;
-- a model call failed → [[Process Model Output#Failure handling]];
-- a merely surprising queue item → use `why` first.
+Inspect a topic with `learnloop show` and use [[Inspect Persistent State]] for its evidence and receipts. Run [[Debug a decision]] first when the only symptom is a surprising choice. Use [[Import Canonical Sources#Resume, cancel, and retry]] for a failed build and [[Process Model Output#Failure handling]] for failed grading.
 
 ## Worked drill
 
-[[Recovery and Rebuild Drill]] exercises shadow comparison, backup, and the decision boundary without requiring a live mutation.
-
-## Related notes
-
-- [[State and Persistence]]
-- [[Database Catalog]]
-- [[Inspect Persistent State]]
-- [[Doctor Migrations and Recovery]]
+[[Recovery and Rebuild Drill]] walks through shadow comparison and the live-repair boundary. Use it alongside [[State and Persistence#Copying and backing up a vault]].

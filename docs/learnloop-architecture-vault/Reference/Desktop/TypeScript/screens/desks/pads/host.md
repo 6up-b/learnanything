@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/pads/host.ts](../../../../../../../../apps/learnloop-tauri/src/screens/desks/pads/host.ts) |
-| Source lines | 173 |
+| Source lines | 177 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/pads/_area|TypeScript/screens/desks/pads]] |
 | Refactor status | `ACTIVE` |
@@ -54,23 +54,23 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export interface PadsApi` — interface, line 26
-- `export interface SourcePiece` — interface, line 46
-- `export interface PadsHost` — interface, line 55
-- `export interface PadStackHandle` — interface, line 98
-- `export interface PendingFigure` — interface, line 120
-- `export class PendingFigures` — class, line 129
-- `export const PadsHostContext = createContext<PadsHost | null>(null)` — const, line 155
-- `export function usePadsHost(): PadsHost | null` — function, line 157
-- `export function localDay(date: Date = new Date()): string` — function, line 162
-- `export function dayHeading(day: string, today: string): string` — function, line 168
+- `export interface PadsApi` — interface, line 27
+- `export interface SourcePiece` — interface, line 47
+- `export interface PadsHost` — interface, line 56
+- `export interface PadStackHandle` — interface, line 101
+- `export interface PendingFigure` — interface, line 123
+- `export class PendingFigures` — class, line 133
+- `export const PadsHostContext = createContext<PadsHost | null>(null)` — const, line 159
+- `export function usePadsHost(): PadsHost | null` — function, line 161
+- `export function localDay(date: Date = new Date()): string` — function, line 166
+- `export function dayHeading(day: string, today: string): string` — function, line 172
 
 ## Internal implementation anchors
 
-- `const waiting = this.byWindow.get(windowId) ?? []` — const, line 149
-- `const pad = (n: number)` — const, line 163
-- `const date = new Date(`$` — const, line 169
-- `const label = date.toLocaleDateString("en-GB",` — const, line 171
+- `const waiting = this.byWindow.get(windowId) ?? []` — const, line 153
+- `const pad = (n: number)` — const, line 167
+- `const date = new Date(`$` — const, line 173
+- `const label = date.toLocaleDateString("en-GB",` — const, line 175
 
 ## Who imports or calls it
 
@@ -92,6 +92,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/screens/desks/lesson/host|src/screens/desks/lesson/host.ts]] — import-or-re-export; imports `LessonsHost`
 - [[Reference/Desktop/TypeScript/screens/desks/menu/ContextMenu|src/screens/desks/menu/ContextMenu.tsx]] — import-or-re-export; imports `PromotedApi`
 - [[Reference/Desktop/TypeScript/screens/desks/notebook/menuBridge|src/screens/desks/notebook/menuBridge.ts]] — import-or-re-export; imports `NotebookMenuRequest`
+- [[Reference/Desktop/TypeScript/screens/desks/problem/ProblemPad|src/screens/desks/problem/ProblemPad.tsx]] — import-or-re-export; imports `ProblemHost`
 - [[Reference/Desktop/TypeScript/screens/desks/search/model|src/screens/desks/search/model.ts]] — import-or-re-export; imports `SearchRow`
 - [[Reference/Desktop/TypeScript/screens/desks/store|src/screens/desks/store.ts]] — import-or-re-export; imports `DeskStore`
 

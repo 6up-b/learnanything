@@ -47,6 +47,6 @@ describe("the groups", () => {
 
   it("the keys move through the shown rows in order; the meaning note names why a group cannot be searched by meaning", () => {
     expect(selectableRows(shownGroups(base)).map((row) => row.key)[0]).toBe("open:w1");
-    expect(meaningNote({ ...WORDS, meaning: { status: "unavailable", jobId: null, unavailable: [{ group: "pads", reason: "no meaning index of pad text" }, { group: "threads", reason: "no meaning index of exchanges" }] } })).toBe("by meaning: no meaning index of pad text · no meaning index of exchanges");
+    expect(meaningNote({ ...WORDS, meaning: { status: "unavailable", jobId: null, unavailable: [{ group: "pads", reason: "no meaning index of pad text" }, { group: "threads", reason: "no meaning index of exchanges" }] } })).toBe("no meaning index of pad text · no meaning index of exchanges");
   });
 });

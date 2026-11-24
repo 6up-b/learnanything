@@ -137,9 +137,9 @@ export function shownGroups(input: {
     // Not searched by words, or by meaning (unavailable, or failed): said under the group's name, never
     // "nothing found".
     const off = words && words.status !== "ok"
-      ? words.reason ?? "not available"
+      ? words.reason ?? "Word search is unavailable. Edit your query to try again."
       : meaning && meaning.status !== "ok"
-        ? `by meaning: ${meaning.reason ?? (meaning.status === "failed" ? "the search failed" : "not available")}`
+        ? meaning.reason ?? "Similar-passage search is unavailable. Try word matches."
         : null;
     if (rows.length === 0 && !off && !pendingGroups.has(id)) continue;
     out.push(limit({ id, label: words?.label ?? meaning?.label ?? id, rows, hidden: 0, off, pending: pendingGroups.has(id) }, input.expanded));
@@ -162,5 +162,5 @@ export function selectableRows(groups: ShownGroup[]): SearchRow[] {
 export function meaningNote(words: SearchEverythingDto | null, fromJob: ReadonlyArray<{ group: string; reason: string }> = []): string | null {
   if (!words) return null;
   const reasons = [...new Set([...words.meaning.unavailable, ...fromJob].map((entry) => entry.reason))];
-  return reasons.length ? `by meaning: ${reasons.join(" · ")}` : null;
+  return reasons.length ? reasons.join(" · ") : null;
 }

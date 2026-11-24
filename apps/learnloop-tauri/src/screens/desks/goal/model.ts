@@ -10,10 +10,10 @@ export const LEVEL_LABEL: Record<LensLevel, string> = {
   core: "core for your goal",
   supporting: "supporting",
   later: "later",
-  already_shown: "already shown",
+  already_shown: "Treated as familiar",
   skippable: "skippable for now",
-  partial: "partly mapped for this goal",
-  unmapped: "not mapped for this goal yet",
+  partial: "Some links found for this goal",
+  unmapped: "No link to your goal yet",
 };
 
 /** The mark a level draws (§12.3): a solid bar, the same at 34 %, a dotted line, a short grey tick, or none. */
@@ -85,7 +85,7 @@ export function mostNeededSpan(index: LensIndex, spanIds: readonly string[]): st
 }
 
 /** Whether every section is known not to be needed now (mapped, and skippable, later or already shown): only then
- *  may a whole source, or the rest of it, be called not needed. A partly mapped or unmapped section keeps it open. */
+ *  may a whole source, or the rest of it, be called not needed. A Some links found or unmapped section keeps it open. */
 export function noneNeeded(sections: readonly GoalLensSectionDto[]): boolean {
   return sections.length > 0 && sections.every((section) => section.mapping === "mapped"
     && (section.level === "skippable" || section.level === "later" || section.level === "already_shown"));
@@ -108,12 +108,13 @@ export function deeperDepthLabel(band: GoalBandDto | null): string | null {
 export function whyLevelLine(section: GoalLensSectionDto, band: GoalBandDto | null): string {
   if (section.level === "later") {
     const deeper = deeperDepthLabel(band);
-    return deeper ? `later · kept at ${deeper}` : "later";
+    return deeper ? `Needed only at ${deeper}` : "Needed only at a deeper level";
   }
   return LEVEL_LABEL[section.level];
 }
 
-/** "For <goal>:" — the goal's own short words (its title, else its sentence). */
+/** "For <goal>:" — the goal's own short words (its title, else its sentence), as the server sends them: a held topic's
+ * name is masked there, so the learner's words show and nothing due is named. */
 export function goalShort(band: GoalBandDto | null): string {
   const title = band?.goal.title?.trim();
   return title || band?.goal.sentence || "your goal";
@@ -122,7 +123,7 @@ export function goalShort(band: GoalBandDto | null): string {
 /** "◎ YOUR GOAL · QUEST · NO DEADLINE" (kind shown, never stored; spec §12.1). */
 export function goalLabel(band: GoalBandDto): string {
   const due = band.goal.dueAt ? `due ${formatDay(band.goal.dueAt)}` : "no deadline";
-  return `◎ your goal · ${band.goal.kind} · ${due}`;
+  return `◎ your goal · ${due}`;
 }
 
 export function formatDay(stamp: string): string {
@@ -141,16 +142,16 @@ export function countsLine(band: GoalBandDto): string {
     counts.untested ? `${counts.untested} untested` : null,
   ].filter(Boolean);
   const n = counts.learningObjects;
-  return [`${n} learning object${n === 1 ? "" : "s"}`, ...parts].join(" · ");
+  return [`${n} topic${n === 1 ? "" : "s"}`, ...parts].join(" · ");
 }
 
-/** "Next for the goal": due checks, the next unread primary, or "nothing due · the path is read". */
+/** "Next for the goal": due checks, the next unread primary, or "No cold checks due. No further reading suggested on this path.". */
 export function nextLine(band: GoalBandDto): { text: string; kind: "checks" | "section" | "read" | "none" } {
   const next = band.next;
-  if (!next || next.kind === "none") return { text: "nothing on the path yet", kind: "none" };
-  if (next.kind === "checks") return { text: `◇ ${next.count} cold check${next.count === 1 ? "" : "s"} due today`, kind: "checks" };
+  if (!next || next.kind === "none") return { text: "No reading suggestions yet. Open Path or choose another goal.", kind: "none" };
+  if (next.kind === "checks") return { text: `◇ ${next.count} cold check${next.count === 1 ? "" : "s"} due · answer in Today`, kind: "checks" };
   if (next.kind === "section") return { text: `§ ${next.section.book} ${next.section.title}`, kind: "section" };
-  return { text: "nothing due · the path is read", kind: "read" };
+  return { text: "No cold checks due. No further reading suggested on this path.", kind: "read" };
 }
 
 /** "You are reading": the focused window's passage mapped through the lens (spec §12.2 part 3). */
@@ -160,18 +161,18 @@ export function hereLine(index: LensIndex | null, readingSpan: string | null, wh
   const section = index.bySpan.get(readingSpan);
   const place = where || section?.title || "";
   if (!section) return { where: place, lo: null, tag: null, loId: null };
-  if (section.level === "skippable") return { where: place, lo: null, tag: "not needed for your goal", loId: null };
-  if (section.level === "unmapped") return { where: place, lo: null, tag: "not mapped for this goal yet", loId: null };
   // A section treating an LO whose check is due names nothing: not the window's own place words (the book's heading
   // may be the LO's name), only the server's neutral title (D15).
-  if (section.held) return { where: section.title, lo: null, tag: "a cold check is due here", loId: null };
+  if (section.held) return { where: section.title, lo: null, tag: "Details are hidden while a cold check is due", loId: null };
+  if (section.level === "skippable") return { where: place, lo: null, tag: "Not needed for your goal", loId: null };
+  if (section.level === "unmapped") return { where: place, lo: null, tag: "No link to your goal yet", loId: null };
   const lo = section.learningObjects.find((entry) => entry.learningObjectId === section.determiningLoId);
   const dot = band?.learningObjects?.find((each) => each.learningObjectId === section.determiningLoId);
   const tag = section.level === "later" ? "later"
-    : section.level === "already_shown" ? "already shown"
-    : section.reasonKey === "alternate" ? "another way"
-    : lo?.kind === "prerequisite" ? "prerequisite"
-    : section.level === "partial" ? "partly mapped" : null;
+    : section.level === "already_shown" ? "Treated as familiar"
+    : section.reasonKey === "alternate" ? "Another explanation"
+    : lo?.kind === "prerequisite" ? "Background"
+    : section.level === "partial" ? "Some links found" : null;
   return { where: place, lo: truncate(lo?.title ?? dot?.title ?? null, 44), tag, loId: section.determiningLoId };
 }
 
@@ -190,13 +191,13 @@ export function calloutFor(section: GoalLensSectionDto): Callout | null {
   if (!lo) return null;
   const quoted = lo.title ? `“${lo.title}”` : "this topic";
   if (section.reasonKey === "primary") {
-    return { label: "for your goal · core", body: `${section.reasonMd} Primary on your path for ${quoted}.`, held: false };
+    return { label: "for your goal · Main reading", body: `${section.reasonMd} Main reading for ${quoted}.`, held: false };
   }
   if (section.reasonKey === "prerequisite") {
-    return { label: "for your goal · prerequisite", body: `${section.reasonMd} Primary on your path for ${quoted}, which your goal builds on.`, held: false };
+    return { label: "for your goal · Background", body: `${section.reasonMd} Main reading for ${quoted}, which your goal builds on.`, held: false };
   }
   if (section.reasonKey === "alternate") {
-    return { label: "for your goal · another way", body: `Another way for ${quoted}: ${section.reasonMd}`, held: false };
+    return { label: "for your goal · Another explanation", body: `Another way for ${quoted}: ${section.reasonMd}`, held: false };
   }
   return null;
 }
@@ -210,12 +211,12 @@ export function dotClasses(dot: GoalBandLoDto, here: string | null): string {
 
 /** A dot's hover title; a held LO's name is not shown (spec §12.6.1). */
 export function dotTitle(dot: GoalBandLoDto): string {
-  if (dot.held) return "a cold check is due on this topic";
+  if (dot.held) return "a topic with a cold check due";
   return [dot.title, dot.kind === "later" ? "later" : dot.kind, dot.readiness].filter(Boolean).join(" · ");
 }
 
 export function readOrNot(read: boolean): string {
-  return read ? "read" : "not read";
+  return read ? "Progress recorded" : "No completion recorded";
 }
 
 /** The band's reading line keeps an LO's title to a glance (44 characters, as the reference does). */
@@ -236,7 +237,7 @@ export function shelfGoal(index: LensIndex | null): ShelfGoal | null {
   if (!index) return null;
   const sections = index.sections;
   if (!sections.length || sections.every((section) => section.mapping === "unmapped")) {
-    return { mark: null, line: "not mapped for this goal yet", ranges: [] };
+    return { mark: null, line: "No link to your goal yet", ranges: [] };
   }
   const total = sections.reduce((sum, section) => sum + section.spanIds.length, 0) || 1;
   const ranges: Array<[number, number]> = [];
@@ -251,13 +252,13 @@ export function shelfGoal(index: LensIndex | null): ShelfGoal | null {
     }
   }
   const primaries = new Set(sections.filter((section) => section.reasonKey === "primary" && section.determiningLoId).map((section) => section.determiningLoId));
-  if (primaries.size) return { mark: "core", line: `primary for ${primaries.size} of your LO${primaries.size === 1 ? "" : "s"}`, ranges };
+  if (primaries.size) return { mark: "core", line: `Main reading for ${primaries.size} of your topic${primaries.size === 1 ? "" : "s"}`, ranges };
   if (sections.some((section) => section.reasonKey === "prerequisite")) return { mark: "sup", line: "background your goal builds on", ranges };
-  if (sections.some((section) => section.reasonKey === "alternate")) return { mark: "sup", line: "another way", ranges };
+  if (sections.some((section) => section.reasonKey === "alternate")) return { mark: "sup", line: "Another explanation", ranges };
   if (sections.some((section) => section.level === "supporting" || section.level === "core")) return { mark: "sup", line: "supporting your goal", ranges };
   // Nothing on the path: a claim about the whole source holds only if every section is known not needed now.
-  if (!noneNeeded(sections)) return { mark: "partial", line: "partly mapped for this goal", ranges };
-  if (sections.some((section) => section.level === "later")) return { mark: "later", line: "needed only deeper", ranges };
-  if (sections.some((section) => section.level === "already_shown")) return { mark: "shown", line: "already shown", ranges };
-  return { mark: "skip", line: "not needed for your goal", ranges };
+  if (!noneNeeded(sections)) return { mark: "partial", line: "Some links found for this goal", ranges };
+  if (sections.some((section) => section.level === "later")) return { mark: "later", line: "Needed only at a deeper level", ranges };
+  if (sections.some((section) => section.level === "already_shown")) return { mark: "shown", line: "Treated as familiar", ranges };
+  return { mark: "skip", line: "Not needed for your goal", ranges };
 }

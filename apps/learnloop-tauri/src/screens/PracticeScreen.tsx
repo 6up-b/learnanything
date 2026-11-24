@@ -1734,7 +1734,8 @@ export function PracticeScreen({
             // DL2: the cold banner (Reader §9.3 item 10), provenance-free.
             // Reader CA2 (§7.7): it changes only after a question about the
             // maths; a clarification leaves it as it was.
-            <div className="hint-banner" role="status" data-testid="intent-check-banner" style={{ borderColor: COLOR.amber }}>
+            <div className="hint-banner" role="status" data-testid="intent-check-banner" style={{ borderColor: COLOR.amber }}
+              {...(intentCheck.beingAnsweredIn ? { "data-being-answered": intentCheck.beingAnsweredIn } : {})}>
               {askConverted ? ASK_COPY.convertedBanner : figureConverted ? PANEL_FIGURE_COPY.banner : intentCheck.banner}
             </div>
           ) : null}

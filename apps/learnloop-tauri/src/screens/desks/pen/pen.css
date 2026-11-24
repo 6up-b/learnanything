@@ -65,3 +65,14 @@ svg.desk-pen-ink .stroke.strike { stroke: #a83a2b; opacity: .6; }
 .desk-pads .ocrl2 button { color: #2b4fa8; font: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
 .desk-pads .ocrl2 .ocrfix { flex: 1; font: 12px var(--desk-mono); color: #3b3832; background: #fff8ec; border: 0; border-bottom: 1px dashed #9a5a17; outline: none; resize: none; }
 .desk-pads .hint2 { font: 11px/1.4 var(--desk-mono); color: #9a968e; display: block; padding-top: 16px; pointer-events: none; }
+
+/* A problem pad's handwritten steps (owner decision 2026-11-23; the mockup's #pen=ladder): ◇ on the first line that
+   doesn't hold, as the reference's open mark, and the quiet line the ladder opens with, as its .lh. */
+.desk-pads .hmk { width: 20px; height: 20px; padding: 0; border: 0; border-radius: 3px; background: #efeaf9; color: #6a5aa8; font: 12px var(--desk-mono); cursor: pointer; flex-shrink: 0; }
+.desk-pads .ink-help-note { font: 11px/16.5px var(--desk-mono); color: #dccdf2; margin: 4px 0; }
+.desk-pads .ink-help-note button { color: #dccdf2; font: inherit; background: none; border: 0; padding: 0; text-decoration: underline; cursor: pointer; }
+/* A line's reading in the problem's workbench (dark, as the reference's ladder): the quiet line in its .lread colour. */
+.desk-pads [data-ink-step] .ocrl2 { font: 11px/16.5px var(--desk-mono); color: #c8c8d2; margin: -4px 0 6px 6px; }
+.desk-pads [data-ink-step] .ocrl2 .ocrt, .desk-pads [data-ink-step] .ocrl2 .ocrl, .desk-pads [data-ink-step] .ocrl2 .ocrs { color: #c8c8d2; }
+.desk-pads [data-ink-step] .ocrl2 .ocrtex { color: #c8c8d2; }
+.desk-pads [data-ink-step] .ocrl2 button { color: #dccdf2; }

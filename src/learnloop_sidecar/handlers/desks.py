@@ -16,6 +16,7 @@ from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import EmptyParams, ParamsModel, Verbatim, versioned
 from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.registry import method
+from learnloop_sidecar.workbench_protection import payload_places, refuse_protected
 
 #: Every RPC this module registers (pinned desktop-only).
 DESK_RPCS: tuple[str, ...] = ("desk.state", "desk.apply")
@@ -50,9 +51,20 @@ def desk_state_handler(ctx: SidecarContext, params: EmptyParams) -> dict[str, An
 def desk_apply_handler(ctx: SidecarContext, params: DeskApplyInput) -> dict[str, Any]:
     """One batch of desk ops: ``{applied_seq, results: [ok | conflict{current} | refused{code}], versions}``."""
 
-    _vault, repository = ctx.require_vault()
+    vault, repository = ctx.require_vault()
+
+    def check_material() -> None:
+        for op in params.ops:
+            view = getattr(op, "view", {})
+            if "compareAnchor" in view:
+                places = payload_places(view["compareAnchor"])
+                if not places:
+                    raise SidecarError("validation_error", "A comparison anchor needs its passages.")
+                refuse_protected(vault, repository, places)
+
     try:
-        reply = apply_desk_ops(repository, client_id=params.client_id, seq=params.seq, ops=list(params.ops))
+        reply = apply_desk_ops(repository, client_id=params.client_id, seq=params.seq, ops=list(params.ops),
+                               check_material=check_material)
     except ProtocolError as exc:
         raise protocol_error(exc) from exc
     return versioned(reply)

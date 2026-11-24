@@ -70,10 +70,23 @@ def span_range(ir: Any, *, from_span_id: str | None, to_span_id: str | None, t0:
 class _Placer:
     """Places a (reading, span) of any reading of the book on this reading's range."""
 
-    def __init__(self, repository: Any, extraction_id: str, wanted: set[str]) -> None:
+    def __init__(self, repository: Any, extraction_id: str, wanted: set[str], with_origins: bool = False) -> None:
         self.extraction_id = extraction_id
         self.wanted = wanted
         self.translator = SpanTranslator(repository, extraction_id)
+        self.with_origins = with_origins
+
+    def origins(self, places: Iterable[tuple[str, str]]) -> dict[str, Any]:
+        """Where a row's words came from, each other reading's span also translated to this reading (what a caller
+        checks against protection), under ``_word_origins``; nothing when the caller did not ask for it."""
+
+        if not self.with_origins:
+            return {}
+        origins = set(places)
+        for reading, span in list(origins):
+            if reading != self.extraction_id and (current := self.translator.resolve(reading, span).span_id):
+                origins.add((self.extraction_id, current))
+        return {"_word_origins": origins}
 
     def place(self, reading: Any, span: Any) -> tuple[str, str] | None:
         if reading is None or span is None:
@@ -92,7 +105,8 @@ def _empty(span_id: str, section_id: str | None) -> dict[str, Any]:
 
 def union_range(vault: Any, repository: Any, *, extraction_id: str, from_span_id: str | None = None,
                 to_span_id: str | None = None, t0: float | None = None, t1: float | None = None,
-                notes_by_span: Mapping[str, list[dict[str, Any]]] | None = None, clock: Any = None) -> dict[str, Any]:
+                notes_by_span: Mapping[str, list[dict[str, Any]]] | None = None, clock: Any = None,
+                include_word_origins: bool = False) -> dict[str, Any]:
     """``notes_by_span``: the notes linked beside each passage of this reading, handed in by the caller
     (the sidecar, which reaches the notes' code; nothing in learnloop below it does)."""
 
@@ -105,7 +119,8 @@ def union_range(vault: Any, repository: Any, *, extraction_id: str, from_span_id
     if not out:
         return {"extraction_id": extraction_id, "spans": [], "sections": []}
     wanted = set(out)
-    placer = _Placer(repository, extraction_id, wanted)
+    placer = _Placer(repository, extraction_id, wanted, include_word_origins)
+    word_origins = placer.origins
     readings = [extraction_id, *other_readings(repository, extraction_id)]
     marks, reading_ids = _in(readings)
 
@@ -121,6 +136,10 @@ def union_range(vault: Any, repository: Any, *, extraction_id: str, from_span_id
                      "created_at": version.get("created_at") or (head or {}).get("annotation", {}).get("created_at")}
             spans = [segment["span_id"] for segment in placement["segments"]] or (
                 [placement["flag_span_id"]] if placement.get("flag_span_id") else [])
+            if include_word_origins:
+                anchor = (head or {}).get("anchor") or {}
+                entry.update(word_origins((anchor["extraction_id"], segment["span_id"])
+                                          for segment in (head or {}).get("segments", []) if segment.get("span_id")))
             for span in dict.fromkeys(spans):
                 if span in out:
                     out[span]["annotations"].append(entry)
@@ -155,7 +174,10 @@ def union_range(vault: Any, repository: Any, *, extraction_id: str, from_span_id
             if placed:
                 out[placed[0]]["carried"].append({
                     "carried_id": row["carried_id"], "text": row["text"], "since": row["since"],
-                    "state": row["state"], "alias": placed[1]})
+                    "state": row["state"], "alias": placed[1],
+                    **word_origins([(anchor["extraction_id"], span) for span in
+                                    [anchor["span_id"], *anchor.get("span_ids", [])]] +
+                                   [tuple(place) for place in anchor.get("source_places", [])])})
 
         # Tutor exchanges and the reasoning the tutor adjusted.
         exchange_rows = spans_store.rows_on_readings(connection, "question_event_spans", readings)
@@ -166,6 +188,10 @@ def union_range(vault: Any, repository: Any, *, extraction_id: str, from_span_id
         adjusted = {row["source_id"]: row["id"] for row in _rows(
             connection, "SELECT id, source_id FROM learner_text_gaps WHERE source_kind = 'tutor_question' "
             "AND kind = 'misconception' AND source_id IN (%s)" % _in(events)[0], _in(events)[1])} if events else {}
+        exchange_origins: dict[str, list[tuple[str, str]]] = {}
+        if include_word_origins:
+            for row in exchange_rows:
+                exchange_origins.setdefault(row["question_event_id"], []).append((row["extraction_id"], row["span_id"]))
         for row in exchange_rows:
             placed = placer.place(row["extraction_id"], row["span_id"])
             event = events.get(row["question_event_id"])
@@ -174,7 +200,7 @@ def union_range(vault: Any, repository: Any, *, extraction_id: str, from_span_id
             out[placed[0]]["exchanges"].append({
                 "question_event_id": row["question_event_id"], "role": row["role"], "quality": row["quality"],
                 "alias": placed[1], "context": event["context"], "question_md": event["question_md"],
-                "created_at": event["created_at"]})
+                "created_at": event["created_at"], **word_origins(exchange_origins.get(event["id"], []))})
             if row["question_event_id"] in adjusted:
                 entry = {"question_event_id": row["question_event_id"], "gap_id": adjusted[row["question_event_id"]]}
                 if entry not in out[placed[0]]["adjustments"]:
@@ -202,7 +228,8 @@ def union_range(vault: Any, repository: Any, *, extraction_id: str, from_span_id
             if placed:
                 out[placed[0]]["passage_links"].append({
                     "link_id": row["id"], "target_kind": row["target_kind"], "target_id": row["target_id"],
-                    "relation": row["relation"], "quote": row["quote"], "alias": placed[1]})
+                    "relation": row["relation"], "quote": row["quote"], "alias": placed[1],
+                    **word_origins([(row["extraction_id"], row["span_id"])])})
         for row in _rows(connection, "SELECT f.id, f.extraction_id, f.span_ids_json, f.tier, f.verification, "
                                      "f.created_at FROM interactive_figures AS f WHERE f.extraction_id IN "
                                      f"({marks}) AND NOT EXISTS (SELECT 1 FROM interactive_figures AS c WHERE "
@@ -223,7 +250,8 @@ def union_range(vault: Any, repository: Any, *, extraction_id: str, from_span_id
                 if placed:
                     out[placed[0]]["authored_questions"].append({
                         "question_id": row["id"], "status": row["status"], "question_style": row["question_style"],
-                        "scope_kind": row["scope_kind"], "question_md": row["question_md"], "alias": placed[1]})
+                        "scope_kind": row["scope_kind"], "question_md": row["question_md"], "alias": placed[1],
+                        **word_origins((row["extraction_id"], s) for s in spans)})
 
         # Exposure: how often the passage was shown, and when last. The Reader's seen-passage rows are not read
         # here: they are generation evidence with one reader of their own.

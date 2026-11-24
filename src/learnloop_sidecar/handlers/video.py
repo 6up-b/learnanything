@@ -38,8 +38,7 @@ from learnloop_sidecar.registry import method
 VIDEO_RPCS: tuple[str, ...] = ("reader.follow_along", "chapters.list", "chapters.suggest", "chapters.job",
                                "chapters.cancel", "chapters.decide")
 KIND = "chapters.suggest"
-NOT_FOUND_MESSAGE = ("This suggestion isn't running any more (LearnLoop restarted or the vault changed since it was "
-                     "asked). Ask again: a video already judged is not judged twice.")
+NOT_FOUND_MESSAGE = "This suggestion expired. Select Suggest from the transcript again."
 _REGISTRY = "video_chapter_jobs"
 _JOBS_LOCK = threading.Lock()
 
@@ -75,7 +74,33 @@ def _protected_chapters(vault: Any, repository: Any, extraction_id: str,
     falling due since the judgment still hides what it covers), and when the next check falls due."""
 
     protection, next_due = protection_now(vault, repository)
-    return GL.protect_chapters(chapters, protection, _sections(repository, extraction_id)), next_due
+    sections = VC.transcript_sections(repository, extraction_id)
+    masked = GL.protect_chapters(chapters, protection, [(section.section_id, section.t0, section.t1) for section in sections])
+    return _exam_masked(vault, repository, extraction_id, masked, sections), next_due
+
+
+def _exam_masked(vault: Any, repository: Any, extraction_id: str, chapters: list[dict[str, Any]],
+                 sections: list[Any]) -> list[dict[str, Any]]:
+    """A chapter over exam or held-out material keeps its times and ids, its title and tags neutral. Protection is
+    read at every delivery: a chapter saved before its video or range was marked names nothing after."""
+
+    from learnloop.passage_union.elsewhere import withheld_places
+
+    held = {span for _reading, span in withheld_places(vault, repository, {(extraction_id, span) for section in sections
+                                                                            for span in section.span_ids})}
+    if not held:
+        return chapters
+    out = []
+    for chapter in chapters:
+        over = any(held.intersection(section.span_ids) for section in sections
+                   if section.t0 <= float(chapter["t1"]) and (section.t1 if section.t1 is not None else section.t0) >= float(chapter["t0"]))
+        if over:
+            chapter = {**chapter, "title": GL.NEUTRAL_SECTION, "held": True}
+            if "learning_objects" in chapter:
+                chapter["learning_objects"] = [{**tag, "title": GL.NEUTRAL_LO, "held": True}
+                                               for tag in chapter["learning_objects"] or ()]
+        out.append(chapter)
+    return out
 
 
 def _chapters_error(exc: VC.ChaptersError | SC.CoverageError) -> SidecarError:

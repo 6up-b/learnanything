@@ -38,6 +38,9 @@ class RetiredField:
     annotation: Any
     default: Any
     removed_by: str
+    #: The field was left out of every dump at its default (``exclude_if``): an identity dump puts it back only
+    #: when the input set it to something else, as the dump that hashed it did.
+    omit_at_default: bool = False
 
 
 #: Every retired field an identity dump still carries, with its type and default at ``88607cb3fe`` (arc C's base;
@@ -91,6 +94,9 @@ RETIRED_FIELDS: tuple[RetiredField, ...] = (
     RetiredField("FiguresConfig", ("show_me_enabled",), bool, True, "K10.16"),
     RetiredField("FiguresConfig", ("sketch_enabled",), bool, True, "K10.16"),
     RetiredField("FiguresConfig", ("checked_labels_enabled",), bool, True, "K10.16"),
+    # The vision-model route for reading ink, replaced by GLM-OCR (owner decision 2026-11-23); it was left out of a
+    # dump while unset.
+    RetiredField("AIRoutingConfig", ("ink_transcription",), str | None, None, "ink-glm-ocr", omit_at_default=True),
 )
 
 _BY_MODEL: dict[str, tuple[RetiredField, ...]] = {}
@@ -207,10 +213,13 @@ def _put_back(model: BaseModel, dump: dict[str, Any]) -> None:
     for section in {field.path[0] for field in fields if len(field.path) > 1}:
         dump[section] = {}
     for field in fields:
+        value = remembered.get(field.path, field.default)
+        if field.omit_at_default and value == field.default:
+            continue
         node = dump
         for key in field.path[:-1]:
             node = node[key]
-        node[field.path[-1]] = remembered.get(field.path, field.default)
+        node[field.path[-1]] = value
 
 
 def _descend(value: Any, node: Any) -> None:

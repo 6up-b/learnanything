@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api } from "../../api/client";
 import type { KeptMarkDto, ReaderPromptContractDto } from "../../api/dto";
-import type { CompareKeepContextValue } from "./compareKeepContext";
+import { announceKeptChange, onKeptChange, type CompareKeepContextValue } from "./compareKeepContext";
 
 const NO_MARKS: ReadonlyMap<string, KeptMarkDto> = new Map();
 
@@ -46,9 +46,11 @@ export function useKeptComparisons({
   }, [settingsKey, extractionId, offline, tick]);
 
   const reload = useCallback(() => setTick((value) => value + 1), []);
+  // A keep made in another window (a Compare window beside this book) reads these marks again too.
+  useEffect(() => onKeptChange(reload), [reload]);
   const context = useMemo<CompareKeepContextValue | null>(
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    () => (settings ? { settings, onChanged: reload, openSourceId: sourceId } : null), [settingsKey, reload, sourceId],
+    () => (settings ? { settings, onChanged: announceKeptChange, openSourceId: sourceId } : null), [settingsKey, sourceId],
   );
   return { enabled: Boolean(settings), marks, reload, context };
 }

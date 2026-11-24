@@ -785,6 +785,19 @@ def _record_generation_need(
     )
 
 
+def router_selected_episode(vault: LoadedVault, repository: Repository, episode: Any) -> bool:
+    """At the probe router's tag, whether any presentation of this episode is a probe the router selected
+    (``probe_authority``): its continuation and completion are then no worth gate's."""
+
+    from learnloop.algorithm_versions import probe_router_on
+    from learnloop.diagnosis.probe_authority import router_pin
+
+    if episode is None or not probe_router_on(vault.config):
+        return False
+    return any(router_pin(presentation.selection_components or {})
+               for presentation in repository.probe_presentations_for_episode(str(episode.id)))
+
+
 def episode_hypothesis_set(
     repository: Repository, episode: ProbeEpisodeRecord
 ) -> HypothesisSet | None:
@@ -1138,6 +1151,17 @@ def compile_fallback_instrument(
 # --- Posterior replay (§5.3, Checkpoint 0.1) ----------------------------------------
 
 
+@dataclass(frozen=True)
+class EpisodeEvidence:
+    """Admitted likelihoods in replay order, and the probe counts before hold exclusion."""
+
+    hypothesis_set: HypothesisSet
+    weighted_likelihoods: tuple[tuple[Mapping[str, float], float], ...]
+    total_observations: int
+    completion_candidates: tuple[str, ...]
+    held_attempt_ids: frozenset[str]
+
+
 def episode_posterior(
     vault: LoadedVault,
     repository: Repository,
@@ -1155,22 +1179,25 @@ def episode_posterior(
     - incidental attempts (no presentation) replay through the generic
       observation model with contamination-damped likelihoods (§5.3).
 
-    Attempts recorded after an intervention boundary (tutoring transition or
-    feedback reveal) belong to a post-intervention state segment and never
-    update the pre-intervention diagnostic posterior.
-
-    held-grade-evidence F11: an attempt whose grade is held for review (THE
-    predicate, ``canonical_projection.held_for_review_attempts``, plus
-    ``held_attempt_ids``: the attempt step's in-flight grade, whose blind
-    record is not written yet) moves no posterior, through either channel.
+    Incidental attempts at or after a tutoring transition or feedback reveal
+    belong to the post-intervention segment. Both channels exclude held
+    grades, including an in-flight hold supplied before its grade is stored.
     """
 
     hypothesis_set = hypothesis_set or episode_hypothesis_set(repository, episode)
     if hypothesis_set is None or not hypothesis_set.hypotheses:
         return None
-    prior = dict(hypothesis_set.prior)
-    posterior = dict(prior)
+    evidence = _gather_episode_evidence(vault, repository, episode, hypothesis_set, held_attempt_ids)
+    return fold_posterior(evidence)
 
+
+def _gather_episode_evidence(
+    vault: LoadedVault,
+    repository: Repository,
+    episode: ProbeEpisodeRecord,
+    hypothesis_set: HypothesisSet,
+    held_attempt_ids: Iterable[str],
+) -> EpisodeEvidence:
     intervention_at = _first_intervention_at(repository, episode)
     observation_rows = effective_episode_observations(vault, repository, episode.id)
     observations_by_attempt = {row["attempt_id"]: row for row in observation_rows}
@@ -1180,7 +1207,8 @@ def episode_posterior(
 
     held = set(_held_attempt_ids(repository, (attempt.get("id") for attempt in attempts)))
     held.update(str(value) for value in held_attempt_ids)
-    qualifying = 0
+    weighted_likelihoods = []
+    completion_candidates = []
     total_observations = 0
     entered = parse_utc(episode.entered_at)
     episode_config = vault.config.probe.episode
@@ -1193,8 +1221,8 @@ def episode_posterior(
         if observation_row is not None:
             observation = observation_row["observation"]
             total_observations += 1
-            if observation.eligible_for_completion and attempt_id not in held:
-                qualifying += 1
+            if observation.eligible_for_completion:
+                completion_candidates.append(attempt_id)
             if not observation.updates_belief or attempt_id in held:
                 continue
             likelihoods = _observation_likelihoods_from_row(vault, repository, episode, attempt, observation_row)
@@ -1204,12 +1232,7 @@ def episode_posterior(
                     if observation.independent_evidence_discount is not None
                     else 1.0
                 )
-                posterior = _bayes_update(
-                    posterior,
-                    likelihoods,
-                    weight=weight,
-                    prior_for_marginal=posterior,
-                )
+                weighted_likelihoods.append((likelihoods, weight))
             continue
         if attempt.get("probe_presentation_id"):
             presentation = repository.probe_presentation(
@@ -1241,14 +1264,32 @@ def episode_posterior(
             weight = episode_config.hinted_evidence_weight
         if attempt.get("attempt_type") in ("exam_attempt", "exam_evidence"):
             weight = min(weight, episode_config.hinted_evidence_weight)
-        posterior = _bayes_update(posterior, likelihoods, weight=weight, prior_for_marginal=posterior)
+        weighted_likelihoods.append((likelihoods, weight))
 
-    return EpisodePosterior(
+    return EpisodeEvidence(
         hypothesis_set=hypothesis_set,
+        weighted_likelihoods=tuple(weighted_likelihoods),
+        total_observations=total_observations,
+        completion_candidates=tuple(completion_candidates),
+        held_attempt_ids=frozenset(held),
+    )
+
+
+def fold_posterior(evidence: EpisodeEvidence) -> EpisodePosterior:
+    """Replay each discount against the belief immediately before that answer."""
+
+    prior = dict(evidence.hypothesis_set.prior)
+    posterior = dict(prior)
+    for likelihoods, weight in evidence.weighted_likelihoods:
+        posterior = _bayes_update(posterior, likelihoods, weight=weight, prior_for_marginal=posterior)
+    return EpisodePosterior(
+        hypothesis_set=evidence.hypothesis_set,
         prior=prior,
         posterior=posterior,
-        qualifying_observations=qualifying,
-        total_observations=total_observations,
+        qualifying_observations=sum(
+            attempt_id not in evidence.held_attempt_ids for attempt_id in evidence.completion_candidates
+        ),
+        total_observations=evidence.total_observations,
         entropy=_entropy(posterior),
     )
 

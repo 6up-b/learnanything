@@ -275,7 +275,7 @@ export function NotesRail(props: NotesRailProps) {
             <div data-testid="reader-teach-me" style={{ display: "flex", flexDirection: "column", gap: 4 }}>
               <PrimaryButton onClick={() => onTeachMe()} disabled={busy}>teach me this ▸</PrimaryButton>
               <MeaningLabel>
-                a lesson on this section&apos;s topics, starting from what LearnLoop knows about you; it ends by setting one later check on your own.
+                a lesson on this section&apos;s topics, starting from what LearnLoop knows about you; it ends by setting one cold check for later.
               </MeaningLabel>
             </div>
           ) : null}
@@ -411,79 +411,7 @@ export function NotesRail(props: NotesRailProps) {
               write my own question
             </SecondaryButton>
           ) : (
-            <Card style={{ display: "flex", flexDirection: "column", gap: 8, background: COLOR.bgElev }}>
-              {authoringQuote ? (
-                <span style={{ fontFamily: FONT_MONO, fontSize: 10, color: COLOR.textFaint }}>From “{clip(authoringQuote, 120)}”</span>
-              ) : null}
-              <textarea
-                value={authoredQuestion}
-                disabled={authoredCardId !== null}
-                onChange={(event) => setAuthoredQuestion(event.target.value)}
-                placeholder="Write a question future-you should answer…"
-                style={{ fontFamily: FONT_MONO, fontSize: 12, background: COLOR.bgInput, border: `1px solid ${COLOR.border}`, color: COLOR.text, padding: 8, minHeight: 64, resize: "vertical" }}
-              />
-              <textarea
-                value={authoredAnswer}
-                disabled={authoredCardId !== null}
-                onChange={(event) => setAuthoredAnswer(event.target.value)}
-                placeholder="Write the answer in your own words…"
-                style={{ fontFamily: FONT_MONO, fontSize: 12, background: COLOR.bgInput, border: `1px solid ${COLOR.border}`, color: COLOR.text, padding: 8, minHeight: 72, resize: "vertical" }}
-              />
-              {authoredQuestion.trim() || authoredAnswer.trim() ? (
-                <div style={{ display: "flex", flexDirection: "column", gap: 4, borderTop: `1px solid ${COLOR.border}`, paddingTop: 6 }}>
-                  <Faint style={{ fontSize: 10 }}>PREVIEW</Faint>
-                  {authoredQuestion.trim() ? (
-                    <div className="markdown" style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.text }}>
-                      <MarkdownMath value={authoredQuestion} />
-                    </div>
-                  ) : null}
-                  {authoredAnswer.trim() ? (
-                    <div className="markdown" style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.textDim }}>
-                      <MarkdownMath value={authoredAnswer} />
-                    </div>
-                  ) : null}
-                </div>
-              ) : null}
-              {authoredCardId ? (
-                <>
-                  <Faint style={{ fontSize: 11, color: authoredQuestionMessage(authoredStatus).scheduled ? COLOR.green : COLOR.textDim }}>
-                    {authoredQuestionMessage(authoredStatus).text}
-                  </Faint>
-                  {!offline ? <SecondaryButton onClick={() => void runCoach()}>check the wording</SecondaryButton> : null}
-                  {coach ? (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                      {coach.suggestions.length === 0 ? (
-                        <Faint style={{ fontSize: 11 }}>The wording looks clear as written.</Faint>
-                      ) : coach.suggestions.map((suggestion, index) => (
-                        <Faint key={index} style={{ fontSize: 11 }}>• {suggestion.prompt}</Faint>
-                      ))}
-                      {coach.suggestions.length > 0 ? (
-                        <Faint style={{ fontSize: 10 }}>Your saved wording stays unchanged. Use “write another” below to make a revised card.</Faint>
-                      ) : null}
-                    </div>
-                  ) : null}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAuthoredQuestion("");
-                      setAuthoredAnswer("");
-                      setAuthoredCardId(null);
-                      setCoach(null);
-                    }}
-                    style={{ alignSelf: "flex-start", border: 0, background: "transparent", color: COLOR.amberLink, fontFamily: FONT_MONO, fontSize: 10, padding: 0, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}
-                  >
-                    write another
-                  </button>
-                </>
-              ) : (
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  <PrimaryButton onClick={() => void saveOwnQuestion()} disabled={authoringBusy || !authoredQuestion.trim() || !authoredAnswer.trim()}>
-                    save for practice
-                  </PrimaryButton>
-                  <SecondaryButton onClick={() => setAuthoringOpen(false)} disabled={authoringBusy}>cancel</SecondaryButton>
-                </div>
-              )}
-            </Card>
+            <AuthoringCard {...props} />
           )}
         </>
       ) : null}
@@ -630,100 +558,203 @@ export function NotesRail(props: NotesRailProps) {
         <Faint style={{ fontSize: 12 }}>no annotations yet.</Faint>
       ) : (
         annotations.map((a, i) => (
-          // The desks' context menu reads the card as the learner's highlight or margin note on its passage.
-          <div key={a.annotationId ?? i} style={{ display: "contents" }}
-            {...(a.annotationId ? { "data-annotation-id": a.annotationId, "data-annotation-kind": a.kind === "highlight" ? "highlight" : "note", "data-annotation-span": placedSpanIds(a)[0] ?? "" } : {})}>
-          <Card
-            onClick={() => jumpToAnnotation(a)}
-            style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 6, cursor: a.segments.length ? "pointer" : "default" }}
-          >
-            <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-              <Pill color="cyan">{a.kind}</Pill>
-              {a.status === "needs_reanchor" ? <Pill color="amber">anchor needs review</Pill> : <Faint style={{ fontSize: 10 }}>{a.status}</Faint>}
-              {a.placement?.state === "moved" ? (
-                <span data-placement="moved" style={{ fontSize: 10, color: COLOR.amberLink }}>moved here when the book was read again</span>
-              ) : a.placement?.state === "flagged" ? (
-                <Pill color="amber">its words changed when the book was read again</Pill>
-              ) : null}
-            </div>
-            <span style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.textDim }}>“{clip(a.quote, 180)}”</span>
-            {a.status === "needs_reanchor" && a.annotationId && !offline ? (
-              <div style={{ display: "flex", flexDirection: "column", gap: 4 }} onClick={(e) => e.stopPropagation()}>
-                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                  <button
-                    type="button"
-                    onClick={() => void reanchorAnnotation(a.annotationId!)}
-                    disabled={busy}
-                    style={{ border: 0, background: "transparent", color: COLOR.amberLink, fontFamily: FONT_MONO, fontSize: 10, padding: 0, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}
-                  >
-                    re-anchor to this version
-                  </button>
-                  {selection ? (
-                    <button
-                      type="button"
-                      onClick={() => void manualAnchorToSelection(a.annotationId!)}
-                      disabled={busy}
-                      style={{ border: 0, background: "transparent", color: COLOR.amberLink, fontFamily: FONT_MONO, fontSize: 10, padding: 0, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}
-                    >
-                      anchor to selection
-                    </button>
-                  ) : null}
-                </div>
-                {reanchorNotes[a.annotationId] ? (
-                  <Faint style={{ fontSize: 10 }}>{reanchorNotes[a.annotationId]}</Faint>
-                ) : null}
-              </div>
-            ) : null}
-            {editingAnnotationId !== null && editingAnnotationId === a.annotationId ? (
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }} onClick={(e) => e.stopPropagation()}>
-                <textarea
-                  autoFocus
-                  value={editingAnnotationText}
-                  onChange={(e) => setEditingAnnotationText(e.target.value)}
-                  placeholder="your note…"
-                  onKeyDown={(e) => {
-                    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") void saveAnnotationEdit();
-                    if (e.key === "Escape") setEditingAnnotationId(null);
-                  }}
-                  style={{ fontFamily: FONT_MONO, fontSize: 12, background: COLOR.bgInput, border: `1px solid ${COLOR.borderFocus}`, color: COLOR.text, padding: 8, minHeight: 54, resize: "vertical" }}
-                />
-                <div style={{ display: "flex", gap: 8 }}>
-                  <PrimaryButton onClick={() => void saveAnnotationEdit()} disabled={busy}>save ↵</PrimaryButton>
-                  <SecondaryButton onClick={() => setEditingAnnotationId(null)} disabled={busy}>cancel</SecondaryButton>
-                </div>
-              </div>
-            ) : (
-              <>
-                {a.learnerText ? <span style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.text }}>{a.learnerText}</span> : null}
-                {a.annotationId && !offline ? (
-                  <div style={{ display: "flex", gap: 10 }} onClick={(e) => e.stopPropagation()}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditingAnnotationId(a.annotationId);
-                        setEditingAnnotationText(a.learnerText);
-                      }}
-                      disabled={busy}
-                      style={{ border: 0, background: "transparent", color: COLOR.textFaint, fontFamily: FONT_MONO, fontSize: 10, padding: 0, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}
-                    >
-                      {a.learnerText ? "edit note" : "add note"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void deleteAnnotation(a.annotationId!)}
-                      disabled={busy}
-                      style={{ border: 0, background: "transparent", color: COLOR.textFaint, fontFamily: FONT_MONO, fontSize: 10, padding: 0, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}
-                    >
-                      delete
-                    </button>
-                  </div>
-                ) : null}
-              </>
-            )}
-          </Card>
-          </div>
+          <AnnotationCard key={a.annotationId ?? i} a={a} {...props} />
         ))
       )}
     </div>
+  );
+}
+
+/** What an annotation card needs of the Reader: its edit, delete and re-anchor (the Notes rail's, and a desk window's
+ *  margin card's when no Notes panel is on screen). */
+export type AnnotationCardProps = Pick<NotesRailProps, "offline" | "busy" | "selection" | "jumpToAnnotation" | "reanchorAnnotation"
+  | "manualAnchorToSelection" | "reanchorNotes" | "editingAnnotationId" | "setEditingAnnotationId" | "editingAnnotationText"
+  | "setEditingAnnotationText" | "saveAnnotationEdit" | "deleteAnnotation">;
+
+/** One of the learner's annotations: its kind and anchor state, its words, and edit, delete and re-anchor. */
+export function AnnotationCard({ a, offline, busy, selection, jumpToAnnotation, reanchorAnnotation, manualAnchorToSelection, reanchorNotes,
+  editingAnnotationId, setEditingAnnotationId, editingAnnotationText, setEditingAnnotationText, saveAnnotationEdit, deleteAnnotation,
+}: AnnotationCardProps & { a: MarginAnnotation }) {
+  return (
+    // The desks' context menu reads the card as the learner's highlight or margin note on its passage.
+    <div style={{ display: "contents" }}
+      {...(a.annotationId ? { "data-annotation-id": a.annotationId, "data-annotation-kind": a.kind === "highlight" ? "highlight" : "note", "data-annotation-span": placedSpanIds(a)[0] ?? "", "data-annotation-spans": JSON.stringify(placedSpanIds(a)) } : {})}>
+    <Card
+      onClick={() => jumpToAnnotation(a)}
+      style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 6, cursor: a.segments.length ? "pointer" : "default" }}
+    >
+      <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+        <Pill color="cyan">{a.kind}</Pill>
+        {a.status === "needs_reanchor" ? <Pill color="amber">anchor needs review</Pill> : <Faint style={{ fontSize: 10 }}>{a.status}</Faint>}
+        {a.placement?.state === "moved" ? (
+          <span data-placement="moved" style={{ fontSize: 10, color: COLOR.amberLink }}>moved here when the book was read again</span>
+        ) : a.placement?.state === "flagged" ? (
+          <Pill color="amber">its words changed when the book was read again</Pill>
+        ) : null}
+      </div>
+      {a.quote ? <span style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.textDim }}>“{clip(a.quote, 180)}”</span> : null}
+      {a.status === "needs_reanchor" && a.annotationId && !offline ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }} onClick={(e) => e.stopPropagation()}>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <button
+              type="button"
+              onClick={() => void reanchorAnnotation(a.annotationId!)}
+              disabled={busy}
+              style={{ border: 0, background: "transparent", color: COLOR.amberLink, fontFamily: FONT_MONO, fontSize: 10, padding: 0, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}
+            >
+              re-anchor to this version
+            </button>
+            {selection ? (
+              <button
+                type="button"
+                onClick={() => void manualAnchorToSelection(a.annotationId!)}
+                disabled={busy}
+                style={{ border: 0, background: "transparent", color: COLOR.amberLink, fontFamily: FONT_MONO, fontSize: 10, padding: 0, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}
+              >
+                anchor to selection
+              </button>
+            ) : null}
+          </div>
+          {reanchorNotes[a.annotationId] ? (
+            <Faint style={{ fontSize: 10 }}>{reanchorNotes[a.annotationId]}</Faint>
+          ) : null}
+        </div>
+      ) : null}
+      {editingAnnotationId !== null && editingAnnotationId === a.annotationId ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }} onClick={(e) => e.stopPropagation()}>
+          <textarea
+            autoFocus
+            value={editingAnnotationText}
+            onChange={(e) => setEditingAnnotationText(e.target.value)}
+            placeholder="your note…"
+            onKeyDown={(e) => {
+              if ((e.ctrlKey || e.metaKey) && e.key === "Enter") void saveAnnotationEdit();
+              if (e.key === "Escape") setEditingAnnotationId(null);
+            }}
+            style={{ fontFamily: FONT_MONO, fontSize: 12, background: COLOR.bgInput, border: `1px solid ${COLOR.borderFocus}`, color: COLOR.text, padding: 8, minHeight: 54, resize: "vertical" }}
+          />
+          <div style={{ display: "flex", gap: 8 }}>
+            <PrimaryButton onClick={() => void saveAnnotationEdit()} disabled={busy}>save ↵</PrimaryButton>
+            <SecondaryButton onClick={() => setEditingAnnotationId(null)} disabled={busy}>cancel</SecondaryButton>
+          </div>
+        </div>
+      ) : (
+        <>
+          {a.learnerText ? <span style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.text }}>{a.learnerText}</span> : null}
+          {a.annotationId && !offline ? (
+            <div style={{ display: "flex", gap: 10 }} onClick={(e) => e.stopPropagation()}>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingAnnotationId(a.annotationId);
+                  setEditingAnnotationText(a.learnerText);
+                }}
+                disabled={busy}
+                style={{ border: 0, background: "transparent", color: COLOR.textFaint, fontFamily: FONT_MONO, fontSize: 10, padding: 0, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}
+              >
+                {a.learnerText ? "edit note" : "add note"}
+              </button>
+              <button
+                type="button"
+                onClick={() => void deleteAnnotation(a.annotationId!)}
+                disabled={busy}
+                style={{ border: 0, background: "transparent", color: COLOR.textFaint, fontFamily: FONT_MONO, fontSize: 10, padding: 0, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}
+              >
+                delete
+              </button>
+            </div>
+          ) : null}
+        </>
+      )}
+    </Card>
+    </div>
+  );
+}
+
+/** What the learner's own question card needs of the Reader (the Notes rail's, and a desk window's when no Notes
+ *  panel is on screen). */
+export type AuthoringCardProps = Pick<NotesRailProps, "offline" | "authoringQuote" | "authoredQuestion" | "setAuthoredQuestion" | "authoredAnswer"
+  | "setAuthoredAnswer" | "authoredCardId" | "setAuthoredCardId" | "authoredStatus" | "authoringBusy" | "saveOwnQuestion" | "coach" | "setCoach"
+  | "runCoach" | "setAuthoringOpen">;
+
+/** The learner's own question on a passage: the question and their answer, previewed, saved for practice, with the
+ *  wording coach after. */
+export function AuthoringCard({ offline, authoringQuote, authoredQuestion, setAuthoredQuestion, authoredAnswer, setAuthoredAnswer,
+  authoredCardId, setAuthoredCardId, authoredStatus, authoringBusy, saveOwnQuestion, coach, setCoach, runCoach, setAuthoringOpen,
+}: AuthoringCardProps) {
+  return (
+    <Card style={{ display: "flex", flexDirection: "column", gap: 8, background: COLOR.bgElev }}>
+      {authoringQuote ? (
+        <span style={{ fontFamily: FONT_MONO, fontSize: 10, color: COLOR.textFaint }}>From “{clip(authoringQuote, 120)}”</span>
+      ) : null}
+      <textarea
+        value={authoredQuestion}
+        disabled={authoredCardId !== null}
+        onChange={(event) => setAuthoredQuestion(event.target.value)}
+        placeholder="Write a question future-you should answer…"
+        style={{ fontFamily: FONT_MONO, fontSize: 12, background: COLOR.bgInput, border: `1px solid ${COLOR.border}`, color: COLOR.text, padding: 8, minHeight: 64, resize: "vertical" }}
+      />
+      <textarea
+        value={authoredAnswer}
+        disabled={authoredCardId !== null}
+        onChange={(event) => setAuthoredAnswer(event.target.value)}
+        placeholder="Write the answer in your own words…"
+        style={{ fontFamily: FONT_MONO, fontSize: 12, background: COLOR.bgInput, border: `1px solid ${COLOR.border}`, color: COLOR.text, padding: 8, minHeight: 72, resize: "vertical" }}
+      />
+      {authoredQuestion.trim() || authoredAnswer.trim() ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 4, borderTop: `1px solid ${COLOR.border}`, paddingTop: 6 }}>
+          <Faint style={{ fontSize: 10 }}>PREVIEW</Faint>
+          {authoredQuestion.trim() ? (
+            <div className="markdown" style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.text }}>
+              <MarkdownMath value={authoredQuestion} />
+            </div>
+          ) : null}
+          {authoredAnswer.trim() ? (
+            <div className="markdown" style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.textDim }}>
+              <MarkdownMath value={authoredAnswer} />
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+      {authoredCardId ? (
+        <>
+          <Faint style={{ fontSize: 11, color: authoredQuestionMessage(authoredStatus).scheduled ? COLOR.green : COLOR.textDim }}>
+            {authoredQuestionMessage(authoredStatus).text}
+          </Faint>
+          {!offline ? <SecondaryButton onClick={() => void runCoach()}>check the wording</SecondaryButton> : null}
+          {coach ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              {coach.suggestions.length === 0 ? (
+                <Faint style={{ fontSize: 11 }}>The wording looks clear as written.</Faint>
+              ) : coach.suggestions.map((suggestion, index) => (
+                <Faint key={index} style={{ fontSize: 11 }}>• {suggestion.prompt}</Faint>
+              ))}
+              {coach.suggestions.length > 0 ? (
+                <Faint style={{ fontSize: 10 }}>Your saved wording stays unchanged. Use “write another” below to make a revised card.</Faint>
+              ) : null}
+            </div>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => {
+              setAuthoredQuestion("");
+              setAuthoredAnswer("");
+              setAuthoredCardId(null);
+              setCoach(null);
+            }}
+            style={{ alignSelf: "flex-start", border: 0, background: "transparent", color: COLOR.amberLink, fontFamily: FONT_MONO, fontSize: 10, padding: 0, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}
+          >
+            write another
+          </button>
+        </>
+      ) : (
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <PrimaryButton onClick={() => void saveOwnQuestion()} disabled={authoringBusy || !authoredQuestion.trim() || !authoredAnswer.trim()}>
+            save for practice
+          </PrimaryButton>
+          <SecondaryButton onClick={() => setAuthoringOpen(false)} disabled={authoringBusy}>cancel</SecondaryButton>
+        </div>
+      )}
+    </Card>
   );
 }

@@ -106,6 +106,7 @@ Indexes and uniqueness:
 - `src/learnloop/reader/reader_intent.py`
 - `src/learnloop/reader/reader_requests.py`
 - `src/learnloop/reader/source_identity.py`
+- `src/learnloop_sidecar/handlers/passage_union.py`
 - `src/learnloop_sidecar/handlers/reader.py`
 
 > [!note] Static-reference boundary

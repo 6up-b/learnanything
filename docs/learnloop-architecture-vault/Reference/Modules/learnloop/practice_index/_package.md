@@ -63,7 +63,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/practice_index/dossiers|learnloop.practice_index.dossiers]] | [[Reference/Modules/learnloop/practice_index/dossiers#^module-purpose|purpose]] | `ACTIVE` | 2 | 5 |
 | [[Reference/Modules/learnloop/practice_index/evaluation|learnloop.practice_index.evaluation]] | [[Reference/Modules/learnloop/practice_index/evaluation#^module-purpose|purpose]] | `ACTIVE` | 3 | 3 |
 | [[Reference/Modules/learnloop/practice_index/listwise|learnloop.practice_index.listwise]] | [[Reference/Modules/learnloop/practice_index/listwise#^module-purpose|purpose]] | `ACTIVE` | 14 | 3 |
-| [[Reference/Modules/learnloop/practice_index/paid|learnloop.practice_index.paid]] | [[Reference/Modules/learnloop/practice_index/paid#^module-purpose|purpose]] | `ACTIVE` | 51 | 24 |
+| [[Reference/Modules/learnloop/practice_index/paid|learnloop.practice_index.paid]] | [[Reference/Modules/learnloop/practice_index/paid#^module-purpose|purpose]] | `ACTIVE` | 50 | 24 |
 | [[Reference/Modules/learnloop/practice_index/query_vectors|learnloop.practice_index.query_vectors]] | [[Reference/Modules/learnloop/practice_index/query_vectors#^module-purpose|purpose]] | `ACTIVE` | 8 | 0 |
 | [[Reference/Modules/learnloop/practice_index/retrieval|learnloop.practice_index.retrieval]] | [[Reference/Modules/learnloop/practice_index/retrieval#^module-purpose|purpose]] | `ACTIVE` | 12 | 15 |
 | [[Reference/Modules/learnloop/practice_index/text|learnloop.practice_index.text]] | [[Reference/Modules/learnloop/practice_index/text#^module-purpose|purpose]] | `ACTIVE` | 5 | 3 |
@@ -100,7 +100,6 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 2 static module edges
 - [[Reference/Modules/learnloop/remote/_package|learnloop.remote]] — 2 static module edges
 - [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 1 static module edge
-- [[Reference/Modules/learnloop/pads/_package|learnloop.pads]] — 1 static module edge
 
 ### Dependency neighborhood
 

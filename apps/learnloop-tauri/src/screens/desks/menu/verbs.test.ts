@@ -34,6 +34,7 @@ function context(over: Partial<MenuContext> = {}, apiOver: Partial<MenuContext["
     append: vi.fn(),
     askNote: vi.fn(async () => "my note"),
     confirm: vi.fn(async () => true),
+    writeOwnQuestion: vi.fn(),
     showMe: vi.fn(async () => ({ figureId: "fig1", line: "a figure" })),
     figureDestination: () => "pad_asked_on",
     landFigure: vi.fn(),
@@ -59,7 +60,7 @@ describe("each verb calls its server entry", () => {
     await runVerb("ask", passage(), ctx);
     expect(ctx.ask).toHaveBeenCalledWith(expect.objectContaining({ spanId: "s1" }));
     await runVerb("find", passage({ selection: "chosen words" }), ctx);
-    expect(ctx.openSearch).toHaveBeenCalledWith("chosen words");
+    expect(ctx.openSearch).toHaveBeenCalledWith("chosen words", { extractionId: "ext1", spanIds: ["s1"] });
     await runVerb("carry", passage(), ctx);
     expect(ctx.carry).toHaveBeenCalledWith("the passage's words", { kind: "selection", ref: null, anchor: { extractionId: "ext1", spanId: "s1" } });
   });
@@ -78,9 +79,9 @@ describe("each verb calls its server entry", () => {
     const { ctx, toasts } = context({}, { readerCapture: vi.fn(async () => ({ annotationId: "a1", anchorStatus: "needs_reanchor" }) as never) });
     await runVerb("note", passage({ selection: "end of one start of two", spanIds: ["s1", "s2"], slices: [{ spanId: "s1", quote: "end of one" }, { spanId: "s2", quote: "start of two" }] }), ctx);
     expect(ctx.api.readerCapture).toHaveBeenCalledWith(expect.objectContaining({
-      rawSelection: { extractionId: "ext1", nodes: [{ spanId: "s1", quote: "end of one" }, { spanId: "s2", quote: "start of two" }] },
+      rawSelection: { extractionId: "ext1", spanId: "s1", spanIds: ["s1", "s2"], nodes: [{ spanId: "s1", quote: "end of one" }, { spanId: "s2", quote: "start of two" }] },
     }));
-    expect(toasts).toEqual(["noted, but its place in the passage needs re-anchoring"]);
+    expect(toasts).toEqual(["noted in the margin · its exact place couldn’t be found, so it sits beside the passage"]);
   });
 
   it("Note in margin left empty writes nothing", async () => {
@@ -106,7 +107,7 @@ describe("each verb calls its server entry", () => {
     await runVerb("open_beside", passage(), second.ctx);
     expect(second.ctx.api.readerCorrespondents).toHaveBeenCalledWith({ extractionId: "ext1", sectionId: "sec1", searchFallback: true });
     expect(second.ctx.openContent).toHaveBeenCalledWith({ kind: "source", sourceId: "src3", extractionId: "ext3" }, { spanId: "u1" });
-    expect(second.toasts).toEqual(["found by search, not checked"]);
+    expect(second.toasts).toEqual(["a possible match from search · LearnLoop hasn’t checked it against this passage"]);
   });
 
   it("Compare opens a compare window on the words; Teach me opens a lesson on the passage in the desk's stack", async () => {
@@ -130,7 +131,7 @@ describe("each verb calls its server entry", () => {
     const none = context({ showMe: vi.fn(async () => null) });
     await runVerb("show_me", passage(), none.ctx);
     expect(none.ctx.landFigure).not.toHaveBeenCalled();
-    expect(none.toasts).toContain("no figure for this passage · nothing was shown");
+    expect(none.toasts).toContain("Couldn’t make a figure for this passage. Try another passage.");
   });
 
   it("Make it practice on an exercise opens its sheet (its words, then the import); otherwise drafts a section question after a confirmation", async () => {
@@ -142,11 +143,19 @@ describe("each verb calls its server entry", () => {
 
     const prose = context();
     await runVerb("make_practice", passage(), prose.ctx);
-    expect(prose.ctx.api.readerAuthorSectionQuestion).toHaveBeenCalledWith({ extractionId: "ext1", sectionId: "sec1" });
+    expect(prose.ctx.api.readerAuthorSectionQuestion).toHaveBeenCalledWith({ extractionId: "ext1", sectionId: "sec1", spanIds: ["s1"] });
 
     const declined = context({ confirm: vi.fn(async () => false) });
     await runVerb("make_practice", passage(), declined.ctx);
     expect(declined.ctx.api.readerAuthorSectionQuestion).not.toHaveBeenCalled();
+  });
+
+  it("Make it practice offers to write it oneself: taken, the passage's own question card opens and nothing is drafted", async () => {
+    const mine = context({ confirm: vi.fn(async () => "mine" as const) });
+    await runVerb("make_practice", passage(), mine.ctx);
+    expect(mine.ctx.confirm).toHaveBeenCalledWith(expect.any(String), expect.any(String), { mine: true });
+    expect(mine.ctx.writeOwnQuestion).toHaveBeenCalledWith(passage(), { extractionId: "ext1", spanId: expect.any(String) });
+    expect(mine.ctx.api.readerAuthorSectionQuestion).not.toHaveBeenCalled();
   });
 
   it("a window's verbs are the desks' moves on it; What this knows opens the panel", async () => {
@@ -163,7 +172,7 @@ describe("each verb calls its server entry", () => {
       throw new Error("the reader is away");
     }) });
     await runVerb("note", passage(), ctx);
-    expect(toasts).toEqual(["couldn't do that just now · the reader is away"]);
+    expect(toasts).toEqual(["Couldn’t do that · the reader is away"]);
   });
 });
 

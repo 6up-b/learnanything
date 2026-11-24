@@ -111,6 +111,8 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/test_probe_router.py`
+- `tests/test_probe_router_learner_lane.py`
 - `tests/test_randomization_layer.py`
 - `tests/test_ro5_landing.py`
 - `tests/test_ro5_stop_coin.py`

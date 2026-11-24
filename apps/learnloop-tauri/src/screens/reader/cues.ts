@@ -42,7 +42,7 @@ export const CUE_COPY = {
   readingNote: "its reading of that answer",
   readingPending: "LearnLoop's model is still reading that answer.",
   checkMe: "check me",
-  checkMeHint: "a short question on your own, with the book out of view",
+  checkMeHint: "a short cold check, with the book out of view",
   checkMeFinding: "◐ finding a short question…",
   checkMeNone: "Nothing in your practice fits this yet.",
   checkMeFailed: "Couldn't find a question just now.",

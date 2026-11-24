@@ -86,7 +86,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const last = ranges[ranges.length - 1]` — const, line 119
 - `const times = ranges.map((range)` — const, line 123
 - `const lo = first.learningObjects.find((entry)` — const, line 124
-- `const role = first.reasonKey === "primary" ? "primary for" : first.reasonKey === "alternate" ? "another way for" : first.reasonKey === "prerequisite" ? "background for" : "supporting"` — const, line 125
+- `const role = first.reasonKey === "primary" ? "main reading for" : first.reasonKey === "alternate" ? "another explanation of" : first.reasonKey === "prerequisite" ? "background for" : "supporting"` — const, line 125
 - `const skippable = index.sections.find((section)` — const, line 135
 - `const ref = useRef<HTMLDivElement | null>(null)` — const, line 149
 - `const card = ref.current` — const, line 154

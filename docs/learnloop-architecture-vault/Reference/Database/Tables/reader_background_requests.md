@@ -148,6 +148,7 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/test_menu_protected_material.py`
 - `tests/test_reader_rw1b_rereview.py`
 - `tests/test_ad1_reading_opportunities.py`
 - `tests/test_ingest_jobs.py`

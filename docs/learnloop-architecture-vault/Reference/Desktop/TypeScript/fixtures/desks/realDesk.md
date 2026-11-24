@@ -1,0 +1,140 @@
+---
+title: "Desktop module · src/fixtures/desks/realDesk.tsx"
+type: "desktop-module-reference"
+status: "current"
+refactor_status: "ACTIVE"
+version: "1.0.0"
+module: "desktop.src.fixtures.desks.realDesk"
+language: "TypeScript"
+area: "TypeScript/fixtures/desks"
+source_path: "apps/learnloop-tauri/src/fixtures/desks/realDesk.tsx"
+source_paths:
+  - "apps/learnloop-tauri/src/fixtures/desks/realDesk.tsx"
+activation_kind: "vitest-support"
+activation_evidence: "Outside the Vite build graph: test support imported only by vitest files, directly or through other test support; it runs under `npm test` and is never in the app bundle."
+generated: true
+generated_at: "2026-08-18"
+tags:
+  - "learnloop/docs"
+  - "learnloop/reference/module"
+  - "learnloop/desktop"
+  - "learnloop/desktop/typescript"
+  - "refactor/active"
+---
+
+# `src/fixtures/desks/realDesk.tsx`
+
+Area: [[Reference/Desktop/TypeScript/fixtures/desks/_area|TypeScript/fixtures/desks]] · Jump to [[#Public API|API]], [[#Who imports or calls it|callers]], [[#Tests that define behavior|tests]], or [[#Modification guidance|change guidance]].
+
+## Why this module exists
+
+Exposes deterministic `realDesk` fixture data for a reproducible desktop scenario.
+
+The system-level behavior stays authoritative in the linked architecture, concept, and workflow notes; this note owns only source-level lookup facts.
+
+^desktop-module-purpose
+
+## Source facts
+
+| Fact | Value |
+|---|---|
+| Source | [apps/learnloop-tauri/src/fixtures/desks/realDesk.tsx](../../../../../../../apps/learnloop-tauri/src/fixtures/desks/realDesk.tsx) |
+| Source lines | 118 |
+| Language | `TypeScript` |
+| Area | [[Reference/Desktop/TypeScript/fixtures/desks/_area|TypeScript/fixtures/desks]] |
+| Refactor status | `ACTIVE` |
+| Activation kind | `vitest-support` |
+
+## Activation and status evidence
+
+> [!success] ACTIVE
+> Outside the Vite build graph: test support imported only by vitest files, directly or through other test support; it runs under `npm test` and is never in the app bundle.
+>
+> Test-import chain (from a vitest file): [[Reference/Desktop/TypeScript/fixtures/desks/realDesk|src/fixtures/desks/realDesk.tsx]]
+
+## Public API
+
+- `export type Answer = (input: Record<string, unknown>)` — type, line 22
+- `export const sent: Array<` — const, line 25
+- `export const answers = new Map<string, Answer>()` — const, line 27
+- `export const unknownCommands =` — const, line 31
+- `export const core =` — const, line 47
+- `export function resetSidecar(): void` — function, line 49
+- `export function inputsOf(command: string): Array<Record<string, unknown>>` — function, line 58
+- `export function oneDesk(windows: DeskStateDto["desks"][number]["slots"][number]["windows"][]): DeskStateDto` — function, line 63
+- `export function memoryStorage(): Storage` — function, line 70
+- `export function mountRealDesk(options:` — function, line 87
+- `export async function settleDesk(ms = 0, rounds = 8, advance: (ms: number)` — function, line 111
+
+## Internal implementation anchors
+
+- `async function invoke<T>(command: string, args:` — function, line 33
+- `const input = args.input ??` — const, line 34
+- `const own = answers.get(command)` — const, line 36
+- `const state = fixtureDeskState()` — const, line 64
+- `const first = state.desks[0]` — const, line 65
+- `const values = new Map<string, string>()` — const, line 71
+- `let mounted = 0` — let, line 84
+- `const server = new FixtureDeskServer(options.state ?? fixtureDeskState(), options.pads ?? fixturePads())` — const, line 88
+- `const poller = new Poller(` — const, line 89
+- `const onError = (message: string)` — const, line 90
+- `const errors: string[] = []` — const, line 91
+- `const vaultKey = `real-desk-$` — const, line 92
+- `const transport: DeskTransport =` — const, line 94
+- `const ui = (props: Partial<DeskShellProps> =` — const, line 101
+- `const view = render(ui())` — const, line 104
+- `const rerender = (props: Partial<DeskShellProps>)` — const, line 106
+
+## Who imports or calls it
+
+> [!note] Static-evidence boundary
+> “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
+
+- [[Reference/Desktop/TypeScript/fixtures/desks/realApp|src/fixtures/desks/realApp.tsx]] — import-or-re-export: `answers`, `memoryStorage`, `resetSidecar`, `unknownCommands`; references `answers`, `memoryStorage`, `resetSidecar`, `unknownCommands`
+- [[Reference/Desktop/TypeScript/fixtures/desks/realDesk|src/fixtures/desks/realDesk.tsx]] — dynamic import: dynamic import; no named call claim
+
+## Dependencies
+
+### Desktop source modules
+
+- [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `DeskStateDto`, `PadViewDto`
+- [[Reference/Desktop/TypeScript/api/poller|src/api/poller.ts]] — import-or-re-export; imports `Poller`
+- [[Reference/Desktop/TypeScript/api/queryCache|src/api/queryCache.ts]] — import-or-re-export; imports `clearQueryCache`
+- [[Reference/Desktop/TypeScript/fixtures/desks/fakeCore|src/fixtures/desks/fakeCore.ts]] — import-or-re-export; imports `fixtureFileSrc`, `fixtureInvoke`
+- [[Reference/Desktop/TypeScript/fixtures/desks/pads|src/fixtures/desks/pads.ts]] — import-or-re-export; imports `fixturePads`
+- [[Reference/Desktop/TypeScript/fixtures/desks/realDesk|src/fixtures/desks/realDesk.tsx]] — dynamic import
+- [[Reference/Desktop/TypeScript/fixtures/desks/workspace|src/fixtures/desks/workspace.ts]] — import-or-re-export; imports `FixtureDeskServer`, `fixtureDeskState`
+- [[Reference/Desktop/TypeScript/screens/desks/DeskShell|src/screens/desks/DeskShell.tsx]] — import-or-re-export; imports `DeskShell`, `DeskShellProps`, `DeskTransport`, `LIVE_DESK_TRANSPORT`
+
+### Assets, platform, and third-party dependencies
+
+- Imported packages/crates: `@testing-library/react`
+
+## Larger desktop and workflow participation
+
+- [[Architecture/Adapter Architecture#Request flow|adapter request flow]] — places this module on the UI/sidecar boundary.
+
+The workflow note owns end-to-end sequencing; this module note describes only its local participation and edges.
+
+## Tests that define behavior
+
+- [apps/learnloop-tauri/src/screens/desks/windows/SourceWindow.wrapup.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/desks/windows/SourceWindow.wrapup.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/desks/windows/SourceWindow.sideBySide.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/desks/windows/SourceWindow.sideBySide.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/desks/windows/SourceWindow.path.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/desks/windows/SourceWindow.path.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/desks/windows/SourceWindow.ownQuestion.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/desks/windows/SourceWindow.ownQuestion.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/desks/windows/SourceWindow.notes.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/desks/windows/SourceWindow.notes.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/desks/windows/SourceWindow.mode.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/desks/windows/SourceWindow.mode.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/desks/windows/SourceWindow.intent.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/desks/windows/SourceWindow.intent.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/desks/windows/SourceWindow.inquiry.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/desks/windows/SourceWindow.inquiry.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+
+## Modification guidance
+
+- Change this source at its stated ownership boundary, then check every inbound consumer and outbound dependency listed above.
+- Run `npm run typecheck`, `npm test` and `npm run frontend:build` from `apps/learnloop-tauri`; for Rust changes also run `cargo test` from `apps/learnloop-tauri/src-tauri`.
+- Update the canonical concept or workflow note when system semantics change; do not copy that explanation into this generated reference.
+
+### Regeneration checklist
+
+1. Modify [apps/learnloop-tauri/src/fixtures/desks/realDesk.tsx](../../../../../../../apps/learnloop-tauri/src/fixtures/desks/realDesk.tsx) and focused tests.
+2. Run `.venv/bin/python docs/learnloop-architecture-vault/_scripts/desktop_generate.py`.
+3. Run `.venv/bin/python docs/learnloop-architecture-vault/_scripts/desktop_validate.py`.

@@ -102,6 +102,9 @@ export interface SideBySideInput {
   /** The visit's identity for the records. */
   visitPayload?: () => Record<string, unknown>;
   onError: (message: string) => void;
+  /** On the desks the other book opens in a window paired with this one instead of a second pane (spec §21.1:
+   *  side by side is two windows, or a pair): the opening is recorded as here, and the desk hosts the rest. */
+  openElsewhere?: ((target: PaneTarget, via: SideBySideVia) => void) | null;
 }
 
 export type SideBySideVia = "find_list" | "also_list" | "peek" | "key";
@@ -177,7 +180,7 @@ function useNarrow(active: boolean): boolean {
 }
 
 export function useSideBySide({
-  enabled, main, jumpMain, pushCrumb, replaceCrumb, dropCrumb, currentEntry, visitPayload, onError,
+  enabled, main, jumpMain, pushCrumb, replaceCrumb, dropCrumb, currentEntry, visitPayload, onError, openElsewhere = null,
 }: SideBySideInput): SideBySide {
   const narrow = useNarrow(enabled);
   const [pair, setPairState] = useState<Pair | null>(null);
@@ -200,6 +203,8 @@ export function useSideBySide({
   leaderRef.current = leader;
   const mainRef = useRef<MainPane | null>(main);
   mainRef.current = main;
+  const openElsewhereRef = useRef(openElsewhere);
+  openElsewhereRef.current = openElsewhere;
   const enabledRef = useRef(enabled);
   enabledRef.current = enabled;
   const sectionRef = useRef<SideBySideSectionDto | null>(null);
@@ -293,6 +298,17 @@ export function useSideBySide({
     if (!enabledRef.current || !here || target.sourceId === here.sourceId) return;
     pendingOpen.current += 1;
     setNotice(null);
+    if (openElsewhereRef.current) {
+      // The desk opens the book in a window paired with this one; the opening is recorded as a second pane's was.
+      logReaderAction("side_by_side_opened", {
+        ...visit(), extraction_id: here.extractionId, source_id: here.sourceId, section_id: here.sectionId,
+        target_source_id: target.sourceId, target_extraction_id: target.extractionId,
+        target_section_id: target.sectionId, target_span_id: target.spanId, by: target.by, via,
+        side_by_side_id: newActivityId(), detour_id: null,
+      });
+      openElsewhereRef.current(target, via);
+      return;
+    }
     const sheet = narrowRef.current;
     const label = crumbLabel(target);
     const current = pairRef.current;

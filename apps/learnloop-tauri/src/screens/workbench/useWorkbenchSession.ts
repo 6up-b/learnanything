@@ -130,6 +130,12 @@ export interface WorkbenchSessionControls {
   submit: (input: Omit<WorkbenchSubmitInput, "sessionId">) => Promise<WorkbenchSubmitDto>;
   /** RW2b: the record line after a check or a hint was shown (G62). */
   applyRecord: (record: WorkbenchRecordDto) => void;
+  /** Handwritten work (pen and ink on a problem pad): the step a line's text is, by the line's id. The first text
+   *  adds the step under a key derived from the line (the server answers a repeat with the step it already has, so
+   *  a reopened problem finds its lines' steps again); a later text is an edit of that step. */
+  bindLine: (lineId: string, body: string) => void;
+  /** The step key each line is bound to (rendered as the line, not as a typed editor). */
+  boundLines: ReadonlyMap<string, string>;
   /** RW4b fix round 4 (R6): the server's newer view of this problem (an
    *  exercise's admission: its exposure, its key, its serve) applied to the
    *  mounted problem. The learner's steps, the book choice and the write
@@ -285,6 +291,17 @@ export function useWorkbenchSession(
         dequeue(op);
         rejected.current.delete(op.key);
         commitSteps(updateLocal(stepsRef.current, op.key, { serverId: result.step.stepId, chainId: result.step.chainId }));
+        // A line's step the server already had (the problem reopened): the line takes the listed step, and the
+        // copy made for it goes, so one step stands for one line.
+        const listed = op.kind === "add" ? stepsRef.current.find((step) => step.key !== op.key && step.chainId === result.step.chainId) : undefined;
+        const line = listed ? [...boundRef.current].find(([, key]) => key === op.key)?.[0] : undefined;
+        if (listed && line !== undefined) {
+          const body = stepsRef.current.find((step) => step.key === op.key)?.body ?? listed.body;
+          commitSteps(updateLocal(stepsRef.current.filter((step) => step.key !== op.key), listed.key, { body }));
+          boundRef.current = new Map(boundRef.current).set(line, listed.key);
+          setBound(boundRef.current);
+          if (body !== result.step.bodyMd) queue.current.push({ kind: "edit", key: listed.key, idem: newKey() });
+        }
         setRecord(result.record);
         // "Saved" means the stored text is the text in the window: anything
         // typed since this write was sent goes in a new write of its own.
@@ -375,6 +392,30 @@ export function useWorkbenchSession(
     }
     return key;
   }, [commitSteps, enqueue]);
+
+  const boundRef = useRef<ReadonlyMap<string, string>>(new Map());
+  const [bound, setBound] = useState<ReadonlyMap<string, string>>(boundRef.current);
+  const bindLine = useCallback((lineId: string, body: string) => {
+    if (readOnly || paused() || !body.trim()) return;
+    const key = boundRef.current.get(lineId);
+    if (key !== undefined) {
+      const step = stepsRef.current.find((candidate) => candidate.key === key);
+      if (step && !step.deleted && step.body !== body) setBody(key, body);
+      return;
+    }
+    const added = newKey();
+    // An empty step the learner never wrote in gives way to the line (as to "I'm stuck").
+    let list = stepsRef.current;
+    const unwritten = (step: LocalStep) =>
+      step.kind === "step" && !step.deleted && step.serverId === null && !step.body.trim()
+      && !queue.current.some((queued) => queued.key === step.key);
+    while (list.length > 0 && unwritten(list[list.length - 1])) list = list.slice(0, -1);
+    commitSteps([...list, { key: added, serverId: null, kind: "step", body, deleted: false, versions: [] }]);
+    boundRef.current = new Map(boundRef.current).set(lineId, added);
+    setBound(boundRef.current);
+    setStarted(true);
+    enqueue({ kind: "add", key: added, idem: `ink-step:${lineId}` });
+  }, [readOnly, commitSteps, enqueue, setBody]);
 
   const deleteStep = useCallback((key: string) => {
     if (paused()) return;
@@ -650,6 +691,7 @@ export function useWorkbenchSession(
   }, [commitSession]);
 
   return {
+    bindLine, boundLines: bound,
     session, steps, record, save, started, frozen, leaving, setBody, addStep, deleteStep, undoDelete, flushEdits, drained,
     setBook, leave, abandon, reopen, retryImport, bind, submit, applyRecord, applyServer,
   };

@@ -367,9 +367,12 @@ const PROBE_OFFER_COPY: Record<string, string> = {
     "You saw this check's answer recently, so it can't test you yet. It will be ready tomorrow.",
   another_probe_episode_is_open:
     "Another diagnostic is already open for this topic — finish that one first.",
+  // The probe router's tag: the quick check is offered only when the router chose to ask it.
+  router_decision_required: "There's no quick check to take for this one — the repair can go ahead.",
+  learner_preference: "You asked me not to check again for now — you can still ask to be taught.",
 };
 
-function probeOfferCopy(reason: string): string {
+export function probeOfferCopy(reason: string): string {
   return PROBE_OFFER_COPY[reason] ?? "The quick check could not be started right now.";
 }
 

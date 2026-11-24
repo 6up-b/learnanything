@@ -58,6 +58,10 @@ STEM_CHARS = 160
 INTERVAL_Z = 1.959964
 
 
+#: A lesson refused because its passage is exam or held-out material (code ``protected``).
+PROTECTED_SELECTION = "That passage is kept for your exam, so I won't teach it."
+
+
 class LessonRefused(ValueError):
     """A lesson that may not open (protected material, an unknown topic), with one plain line."""
 
@@ -201,14 +205,14 @@ def resolve_goal(vault: Any, repository: Any, *, entry: str, learning_object_ids
     span_ids = [str(span) for span in (selection.get("span_ids") or []) if span]
     library = Library(vault, repository)
     if extraction_id in library.left_out or any(library.protection.span_out(extraction_id, s) for s in span_ids):
-        raise LessonRefused("protected", "That passage is kept for your exam, so I won't teach it.")
+        raise LessonRefused("protected", PROTECTED_SELECTION)
     reading = library.reading(extraction_id)
     if reading is None:
         raise LessonRefused("validation_error", "That passage isn't in your library's readable sections.")
     section_id = next((library.section_of(extraction_id, span) for span in span_ids
                        if library.section_of(extraction_id, span)), None)
     if section_id is None or section_id in reading.withheld:
-        raise LessonRefused("protected", "That passage is kept for your exam, so I won't teach it.")
+        raise LessonRefused("protected", PROTECTED_SELECTION)
     los = [lo for lo in library.section_learning_objects(extraction_id, section_id) if lo in vault.learning_objects]
     extra = [lo for lo in learning_object_ids if lo in vault.learning_objects and lo not in los]
     los = [*los, *extra]
@@ -925,12 +929,20 @@ def build_brief(vault: Any, repository: Any, *, learning_object_ids: Sequence[st
     left_off = T2.where_you_left_off(vault, repository, learning_object_ids, exclude=lesson_id, notes_check=notes_check)
     if left_off is not None:
         brief["where_you_left_off"] = left_off
+    # The learner's open carried questions (owner decision 2026-11-23): absent when none is open, so such a
+    # lesson's brief is byte for byte what it was.
+    from learnloop.teacher import carried as CQ
+
+    carried = CQ.for_brief(repository, library, passage_teachable)
+    if carried is not None:
+        brief["carried_questions"] = carried
     return brief, book
 
 
 __all__ = [
     "LessonRefused",
     "NotesCheck",
+    "PROTECTED_SELECTION",
     "RECAP_OMITTED",
     "SourceBook",
     "ad_readiness",
