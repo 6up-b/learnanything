@@ -587,20 +587,28 @@ export function closeWindow(ws: Workspace, deskId: string, windowId: string): St
 }
 
 /** A window shown as another content in its place (spec §5.2's no-duplicate rule kept): a book still being prepared
- * becomes the book's window once it is ready, and a stored window of a retired kind becomes its workbench home
- * (`model/restore.ts`). The new window opens right after the old one, which closes; the focus follows when the old one
- * had it. When the desk already shows that content in another window, the old one closes and that window is the
- * one meant. The old window is not offered back by "undo close": it was replaced, not closed by the learner. */
+ * becomes the book's window once it is ready, a stored window of a retired kind becomes its workbench home
+ * (`model/restore.ts`), and a book's window named on an earlier reading of the book names the one it shows. The new
+ * window takes the old one's place: right after it, in the old one's pane of a pair (the pair kept, the active pane
+ * too), with the view given; the focus follows when the old one had it. When the desk already shows that content in
+ * another window, the old one closes and that window is the one meant. The old window is not offered back by "undo
+ * close": it was replaced, not closed by the learner. */
 export function replaceWindow(
   ws: Workspace,
   deskId: string,
   windowId: string,
   content: ContentRefDto,
   mintId: () => string,
+  view: Record<string, unknown> = {},
 ): Step & { windowId: string } {
   const desk = requireDesk(ws, deskId);
-  if (slotIndexOf(desk, windowId) < 0) return { ...start(ws), windowId };
+  const index = slotIndexOf(desk, windowId);
+  if (index < 0) return { ...start(ws), windowId };
   const wasFocus = focusedWindowId(ws, desk) === windowId;
+  const pair = desk.slots[index];
+  const partner = pair.length > 1 ? pair.find((id) => id !== windowId) ?? null : null;
+  const wasLeft = pair[0] === windowId;
+  const wasActive = ws.windows[windowId]?.active ?? false;
   const others = { ...desk, slots: desk.slots.map((slot) => slot.filter((id) => id !== windowId)).filter((slot) => slot.length > 0) };
   const duplicate = findDuplicate(ws, others, content);
   const opened = duplicate ?? mintId();
@@ -609,10 +617,21 @@ export function replaceWindow(
     const relation = ws.windows[windowId]?.view?.openedBeside;
     step = push(step, {
       op: "open_window", deskId, windowId: opened, content,
-      view: typeof relation === "string" ? { openedBeside: relation } : {}, afterWindowId: windowId,
+      view: { ...view, ...(typeof relation === "string" ? { openedBeside: relation } : {}) }, afterWindowId: windowId,
     });
   }
   step = push(step, { op: "close_window", deskId, windowId });
+  if (!duplicate && partner) {
+    // The pair is kept: the replacement goes back into the old window's pane, left or right.
+    if (wasLeft) {
+      step = push(step, { op: "move_window", deskId, windowId: opened, toSlot: slotIndexOf(requireDesk(step.ws, deskId), partner) });
+      step = push(step, { op: "pair", deskId, windowId: opened });
+    } else {
+      step = push(step, { op: "pair", deskId, windowId: partner });
+      if (wasActive) step = push(step, { op: "set_active_pane", deskId, windowId: opened });
+    }
+    if (wasLeft && !wasActive) step = push(step, { op: "set_active_pane", deskId, windowId: partner });
+  }
   if (wasFocus) {
     const focused = setFocus(step.ws, deskId, opened);
     step = { ws: focused.ws, ops: [...step.ops, ...focused.ops] };

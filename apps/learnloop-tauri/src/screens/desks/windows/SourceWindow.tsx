@@ -19,6 +19,8 @@ export interface SourceStatus {
   readingSpan?: string | null;
   progress?: number;
   where?: string | null;
+  /** The reading the window's Reader shows (its book's current one): the window's reference names it. */
+  reading?: string | null;
 }
 
 export function SourceWindow({
@@ -89,7 +91,7 @@ export function SourceWindow({
 }) {
   const onTitle = useCallback((title: string) => onStatus({ title }), [onStatus]);
   const onReaderStatus = useCallback(
-    (status: { readingSpan: string | null; progress: number; where: string | null }) => onStatus(status),
+    (status: { readingSpan: string | null; progress: number; where: string | null; reading?: string | null }) => onStatus(status),
     [onStatus],
   );
   // Pen mode's way onto the text (RD8a): the pen layer mounts on the surface the Reader hands over.

@@ -94,7 +94,8 @@ function padsFakes(server: FixtureDeskServer) {
       state: async () => server.state(),
       apply: async (input: Parameters<FixtureDeskServer["apply"]>[0]) => server.apply(input),
       library: async () => FIXTURE_LIBRARY,
-      resolveExtraction: async (sourceId: string) => Object.values(FIXTURE_SOURCES).find((source) => source.sourceId === sourceId)?.extractionId ?? sourceId,
+      // A source's current reading, as the sidecar answers it (fx_src_x reads as fx_ext_x, a fixture source or a test's own).
+    resolveExtraction: async (sourceId: string) => Object.values(FIXTURE_SOURCES).find((source) => source.sourceId === sourceId)?.extractionId ?? sourceId.replace(/^fx_src_/, "fx_ext_"),
       applyPad: async (input: Parameters<FixtureDeskServer["applyPad"]>[0]) => server.applyPad(input),
       padGet: async ({ padId }: { padId: string }) => server.padGet(padId),
     },
@@ -352,6 +353,7 @@ describe("RD5 fix round: the menu's rows and actions", () => {
     });
     fireEvent.keyDown(window, { key: "b" });
     await flush();
+    await flush(); // a book opens on its current reading, read first (review fix round, blocker 1)
     const desk = server.state().desks.find((each) => each.deskId === "fx_desk_softmax");
     expect(desk?.focusWindowId).toBe("fx_w_paper");
     expect(desk?.slots.flatMap((slot) => slot.windows).some((window) => window.content?.kind === "video" && (window.content as { sourceId: string }).sourceId === FIXTURE_SOURCES.video2.sourceId)).toBe(false);

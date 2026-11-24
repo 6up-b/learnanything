@@ -2075,8 +2075,8 @@ export function ScopedSource({
   const onWindowStatus = windowed?.onStatus;
   const windowWhere = currentGuideSection ? sectionWords(currentGuideSection.label) : null;
   useEffect(() => {
-    onWindowStatus?.({ readingSpan, progress: readingProgress, where: windowWhere });
-  }, [onWindowStatus, readingSpan, readingProgress, windowWhere]);
+    onWindowStatus?.({ readingSpan, progress: readingProgress, where: windowWhere, reading: windowExtraction });
+  }, [onWindowStatus, readingSpan, readingProgress, windowWhere, windowExtraction]);
   const onWindowMediaReady = windowed?.onMediaReady;
   useEffect(() => {
     if (!onWindowMediaReady) return;
@@ -3717,7 +3717,7 @@ export function ScopedSource({
     <MathMacrosProvider macros={render?.mathMacros ?? null}>
     <NotesContext.Provider value={notesCtl.context}>
     <CompareKeepContext.Provider value={keptCtl.context}>
-    <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+    <div data-rendered-extraction={render?.extractionId ?? undefined} style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
       {render && !offline ? (
         // A source window's frame carries the title; the view switch, how the learner reads this book (skim, read
         // closely, mark for later), whether quick checks come up while reading closely, and the line that says the

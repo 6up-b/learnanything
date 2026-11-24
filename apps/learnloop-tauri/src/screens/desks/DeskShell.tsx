@@ -181,6 +181,9 @@ export interface DeskTransport extends OutboxTransport {
   resolveExtraction(sourceId: string): Promise<string>;
   /** The source a reading belongs to (a passage named by its reading alone: a history anchor, a citation). */
   sourceOfExtraction?(extractionId: string): Promise<string>;
+  /** A passage of one reading of a book on another (the saved-place translation through the re-read's aliases), or
+   *  null when it has no place there. */
+  translatePlace?(input: { sourceId: string; spanId: string; from: string; to: string }): Promise<string | null>;
 }
 
 export const LIVE_DESK_TRANSPORT: DeskTransport = {
@@ -196,6 +199,10 @@ export const LIVE_DESK_TRANSPORT: DeskTransport = {
     api.readerRenderView({ extractionId: sourceId }))).extractionId,
   // The same read by the reading's id: its render names the source.
   sourceOfExtraction: async (extractionId) => (await api.readerRenderView({ extractionId })).sourceId,
+  translatePlace: async ({ sourceId, spanId, from, to }) => {
+    const landed = await api.readerSavedPlace({ sourceId, spanId, extractionId: from, toExtractionId: to });
+    return landed.extractionId === to && landed.spanId && landed.status !== "stale" ? landed.spanId : null;
+  },
 };
 
 /** The companion's hand-off waits this long after an anchored summon before a scroll counts (spec §8.3). */
@@ -275,6 +282,21 @@ export function groundingFor(ws: Workspace, chip: AskChip | null, focus: DeskWin
 }
 
 /** A Compare window's passage anchor, kept in its view by the menu's Compare (null when it was opened bare). */
+/** A window's content as a cold check names it: a book's window by the reading its page renders (the scoped source's
+ *  `data-rendered-extraction`, read with the passages), which a reference naming an earlier reading never overrides. */
+export function renderedContent(windowId: string, content: { kind: string; extractionId?: string } | null): { kind: string; extractionId?: string } | null {
+  if (!content || (content.kind !== "source" && content.kind !== "video") || typeof document === "undefined") return content;
+  const host = document.querySelector(`[data-desk-window="${windowId.replace(/["\\]/g, "\\$&")}"] [data-rendered-extraction]`);
+  const rendered = host?.getAttribute("data-rendered-extraction");
+  return rendered && rendered !== content.extractionId ? { ...content, extractionId: rendered } : content;
+}
+
+/** One window's reading out of the "id=reading" list the desks key the hold's windows by. */
+function shownReading(list: string, windowId: string): string | null {
+  for (const entry of list.split("\u0000")) if (entry.startsWith(`${windowId}=`)) return entry.slice(windowId.length + 1);
+  return null;
+}
+
 function compareAnchorOf(view: Record<string, unknown> | undefined): { extractionId: string; spanIds: string[]; sourceId: string; revisionId: string | null } | null {
   const anchor = view?.compareAnchor as Record<string, unknown> | undefined;
   if (!anchor || typeof anchor.extractionId !== "string" || typeof anchor.sourceId !== "string" || !Array.isArray(anchor.spanIds)) return null;
@@ -821,6 +843,55 @@ export function DeskShell({
   // Where the learner was in a book's original while it was prepared: its window's reading opens there.
   const pendingHandoffs = useRef(new Map<string, ReadingPosition>());
 
+  // A window shown as another content in its place (model/workspace.ts `replaceWindow`: the same pane, a pair kept):
+  // what was waiting for the old window (its path to open, a jump, the place in its original) waits for the new one.
+  const retarget = useCallback((deskOfWindow: string, windowId: string, content: ContentRefDto, view: Record<string, unknown> = {}): string => {
+    const step = replaceWindow(store.ws, deskOfWindow, windowId, content, () => mintId("win"), view);
+    if (step.windowId !== windowId) {
+      const handoff = pendingHandoffs.current.get(windowId);
+      if (handoff && !pendingHandoffs.current.has(step.windowId)) pendingHandoffs.current.set(step.windowId, handoff);
+      pendingHandoffs.current.delete(windowId);
+      const jump = pendingJump.current.get(windowId);
+      if (jump && !pendingJump.current.has(step.windowId)) pendingJump.current.set(step.windowId, jump);
+      pendingJump.current.delete(windowId);
+      if (pendingPaths.current.delete(windowId)) pendingPaths.current.add(step.windowId);
+    }
+    commit(step);
+    return step.windowId;
+  }, [store, commit, mintId]);
+
+  /** A passage named on one reading of a book, on another: itself on the same reading, else translated (null: none). */
+  const placeOn = useCallback(async (sourceId: string, spanId: string, from: string | null | undefined, to: string): Promise<string | null> => {
+    if (!from || from === to) return spanId;
+    if (!transport.translatePlace) return null;
+    return transport.translatePlace({ sourceId, spanId, from, to }).catch(() => null);
+  }, [transport]);
+
+  // A book's window names the reading it shows (the Reader's retirement, review fix round, blocker 1): the reading its
+  // Reader renders is the book's current one, so a window whose reference names an earlier reading (restored after the
+  // book was read again, or opened from a place found before) is put right before anything reads it as that window's
+  // reading: a cold check's protection, the companion's grounding, a pad's link. Its saved place goes with it, on the
+  // reading it is on now (translated; none when it has no place there).
+  const retargeting = useRef(new Set<string>());
+  const retargetReading = useCallback(async (windowId: string, reading: string, renderedSpan: string | null = null): Promise<string | null> => {
+    const window = store.ws.windows[windowId];
+    const content = window?.content;
+    if (!window || !content || (content.kind !== "source" && content.kind !== "video") || content.extractionId === reading) return windowId;
+    if (retargeting.current.has(windowId)) return null;
+    retargeting.current.add(windowId);
+    try {
+      const saved = typeof window.view?.spanId === "string" ? (window.view.spanId as string) : null;
+      const spanId = renderedSpan ?? (saved ? await placeOn(content.sourceId, saved, content.extractionId, reading) : null);
+      const now = store.ws.windows[windowId];
+      const nowContent = now?.content;
+      if (!now || !nowContent || (nowContent.kind !== "source" && nowContent.kind !== "video") || nowContent.extractionId === reading) return now ? windowId : null;
+      const { spanId: _old, ...view } = now.view ?? {};
+      return retarget(now.deskId, windowId, { ...nowContent, extractionId: reading }, { ...view, ...(spanId ? { spanId } : {}) });
+    } finally {
+      retargeting.current.delete(windowId);
+    }
+  }, [store, placeOn, retarget]);
+
   // The book's window in another window's place: its current reading (or the book still being prepared).
   const bookWindowFor = useCallback(async (
     deskOfWindow: string, windowId: string, sourceId: string, cards: SourceLibraryCard[] | null, handoff: ReadingPosition | null = null,
@@ -830,13 +901,10 @@ export function DeskShell({
     const extractionId = ready ? await transport.resolveExtraction(sourceId).catch(() => null) : null;
     if (ready && !extractionId) return null;
 
-    const step = replaceWindow(store.ws, deskOfWindow, windowId, bookContent(sourceId, extractionId, card ? isVideoCard(card) : false), () => mintId("win"));
-
     // Before the window mounts: its Reader opens where the learner was in the original.
-    if (handoff && extractionId) pendingHandoffs.current.set(step.windowId, handoff);
-    commit(step);
-    return step.windowId;
-  }, [store, transport, commit, mintId]);
+    if (handoff && extractionId) pendingHandoffs.current.set(windowId, handoff);
+    return retarget(deskOfWindow, windowId, bookContent(sourceId, extractionId, card ? isVideoCard(card) : false));
+  }, [transport, retarget]);
 
   // A book prepared in a window is ready: the book's window takes its place, at the place in the original the learner
   // had reached; the library's copy of its card is the ready one from now on (a window opens a ready card).
@@ -859,6 +927,16 @@ export function DeskShell({
   // named (model/restore.ts).
   const restoreSaved = useCallback(async (cards: SourceLibraryCard[] | null) => {
     const unshown: string[] = [];
+    // A book's window saved on a reading the book has replaced since names the one it will show (blocker 1), a window
+    // on a desk not shown yet included. Not waited for: the read is the one the window's Reader makes anyway (cached),
+    // and a window showing meanwhile is named by its page's reading wherever a check reads it.
+    for (const window of Object.values(store.ws.windows)) {
+      const content = window.content;
+      if (!content || (content.kind !== "source" && content.kind !== "video") || restoreContent(content).kind !== "keep") continue;
+      void transport.resolveExtraction(content.sourceId).then((current) => {
+        if (current !== content.extractionId) void retargetReading(window.windowId, current);
+      }, () => undefined);
+    }
     for (const window of Object.values(store.ws.windows)) {
       if (window.kind === "pad_stack") continue;
       const restored = restoreContent(window.content);
@@ -877,7 +955,7 @@ export function DeskShell({
       }
     }
     if (unshown.length) toastNow(`Kept but not shown: ${unshown.join(", ")}. Close ${unshown.length === 1 ? "it" : "them"} when you like.`);
-  }, [store, transport, bookWindowFor, toastNow]);
+  }, [store, transport, bookWindowFor, retargetReading, toastNow]);
 
   useEffect(() => {
     let live = true;
@@ -2141,7 +2219,7 @@ export function DeskShell({
     notebookFrame: lessons?.notebookFrame ?? lessonNotebookFrame,
   }), [lessonDesk, onError, openLesson, lessons?.onQuickCheck, lessons?.onLookInLibrary, lessons?.notebookFrame, lessons?.onProbe]);
 
-  const openContent = useCallback((content: ContentRefDto, options: { spanId?: string | null; view?: Record<string, unknown>; peek?: boolean } = {}) => {
+  const placeContent = useCallback((content: ContentRefDto, options: { spanId?: string | null; view?: Record<string, unknown>; peek?: boolean } = {}) => {
     const current = wsRef.current;
     const id = deskIdRef.current;
     if (!id) return;
@@ -2184,6 +2262,25 @@ export function DeskShell({
     setOpener(false);
   }, [commit, mintId, timers, placeLesson]);
 
+  /** Opens a content beside the focus, or focuses the window showing it. A book's window opens on the book's current
+   *  reading whatever reading the caller named (blocker 1: the reading its Reader renders), and a passage named on an
+   *  earlier reading (`spanReading`, else the content's own) is translated onto it, for a new window and for one already
+   *  open alike (major 7); with no place there the book opens at the learner's place in it, and says so. */
+  const openContent = useCallback((content: ContentRefDto, options: { spanId?: string | null; spanReading?: string | null; view?: Record<string, unknown>; peek?: boolean } = {}) => {
+    const { spanReading, ...rest } = options;
+    if (content.kind !== "source" && content.kind !== "video") {
+      placeContent(content, rest);
+      return;
+    }
+    void (async () => {
+      const current = await transport.resolveExtraction(content.sourceId).catch(() => content.extractionId);
+      const named = spanReading ?? content.extractionId;
+      const spanId = rest.spanId ? await placeOn(content.sourceId, rest.spanId, named, current) : null;
+      placeContent({ ...content, extractionId: current }, { ...rest, spanId });
+      if (rest.spanId && !spanId) toastNow("that passage was on an earlier reading of this book · it opened at your place in it");
+    })();
+  }, [placeContent, transport, placeOn, toastNow]);
+
   /** The passage a window opens at for the app's open request still to be done: the book's window on the desk in view
    *  that the request would focus (the one `openBeside` finds), on the request's reading. */
   const openingAt = (windowId: string, windowDeskId: string, content: { kind: string; sourceId?: string; extractionId?: string }): string | null => {
@@ -2220,10 +2317,8 @@ export function DeskShell({
       return;
     }
     void transport.resolveExtraction(card.sourceId).then((extractionId) => {
-      // A passage found on an earlier reading of the book is not a passage of the reading it has now: the book opens.
-      const sameReading = !openRequest.reading || openRequest.reading === extractionId;
-      openContent(contentForCard(card, extractionId), { spanId: sameReading ? openRequest.spanId : null });
-      if (!sameReading && openRequest.spanId) toastNow("that passage was on an earlier reading of this book · it opened at your place in it");
+      // A passage found on an earlier reading of the book is translated onto the reading it has now (openContent).
+      openContent(contentForCard(card, extractionId), { spanId: openRequest.spanId, spanReading: openRequest.reading ?? extractionId });
     }, () => toastNow("couldn't open that book just now"));
   }, [openRequest, storeReady, deskId, library, vaultKey, transport, openContent, toastNow]);
 
@@ -3112,8 +3207,10 @@ export function DeskShell({
   }, [checkReadings, checkDesk]);
   /** What is on screen, as the server classifies it: every desk's windows, the companion, the overview's cards. */
   const visibleForCheck = useCallback(() => {
+    // A book's window is named by the reading its page shows (the passages read from the page are that reading's),
+    // never by a reference that may name an earlier one (blocker 1).
     const windows = Object.values(wsRef.current.windows).map((window) => ({ windowId: window.windowId, kind: window.kind,
-      content: window.content as { kind: string; extractionId?: string } | null }));
+      content: renderedContent(window.windowId, window.content as { kind: string; extractionId?: string } | null) }));
     // The companion's exchanges when its tutor tab shows them; on its history tab it names none (what the history
     // shows is not this desk's thread, so its opening is unmeasured).
     const companionTab = typeof document === "undefined" ? null : document.querySelector("[data-companion-body]")?.getAttribute("data-check-content") ?? null;
@@ -3165,11 +3262,13 @@ export function DeskShell({
     if (missing !== inlineMissing) setInlineMissing(missing);
   });
   const checkInline = checkInlineHere && !inlineMissing;
+  const shownReadings = Object.entries(status).map(([id, each]) => (each.reading ? `${id}=${each.reading}` : "")).join("\u0000");
   /** The desks' windows as the hold reads them: only a source or video window's own text can show during a check. */
   const holdWindows = useMemo(() => new Map(Object.values(ws?.windows ?? {}).map((window) => [window.windowId, {
     kind: windowKind({ kind: window.kind, content: window.content as { kind: string } | null }),
-    extractionId: window.content && (window.content.kind === "source" || window.content.kind === "video") ? window.content.extractionId : null,
-  }])), [ws]);
+    // The reading the window's Reader reported it shows, before its reference is put right (blocker 1).
+    extractionId: window.content && (window.content.kind === "source" || window.content.kind === "video") ? shownReading(shownReadings, window.windowId) ?? window.content.extractionId : null,
+  }])), [ws, shownReadings]);
 
   const goalDesk = useGoalDesk({
     transport: goalTransport,
@@ -3712,6 +3811,14 @@ export function DeskShell({
     if (!handler) {
       handler = (next: SourceStatus) => {
         setStatus((all) => ({ ...all, [windowId]: { ...all[windowId], ...next } }));
+        // The window's Reader shows another reading than its reference names (a window that mounted after the book was
+        // read again): the reference is put right, at the passage in view (blocker 1's backstop; restore and every open
+        // name the current reading already).
+        const shown = store.ws.windows[windowId]?.content;
+        if (next.reading && shown && (shown.kind === "source" || shown.kind === "video") && shown.extractionId !== next.reading) {
+          void retargetReading(windowId, next.reading, next.readingSpan ?? null);
+          return;
+        }
         // The window changed: its card's picture is rebuilt the next time the overview shows it.
         miniatures.invalidate(windowId);
         // The reading place, saved as the window's scroll anchor by passage once the learner settles
@@ -3737,7 +3844,7 @@ export function DeskShell({
       statusFor.set(windowId, handler);
     }
     return handler;
-  }, [statusFor, timers, store, miniatures]);
+  }, [statusFor, timers, store, miniatures, retargetReading]);
 
   const jumpReadyFor = useMemo(() => new Map<string, (jump: ((spanId: string) => void) | null) => void>(), []);
   const onJumpReadyFor = useCallback((windowId: string) => {

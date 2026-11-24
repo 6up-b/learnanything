@@ -7,8 +7,9 @@ import type { IntentRestorationDto, SourceLibraryCard } from "../api/dto";
 export function readerTargetForRestoration(
   restoration: IntentRestorationDto,
   library: SourceLibraryCard[] | null | undefined
-): { card: SourceLibraryCard; spanId: string | null } | null {
+): { card: SourceLibraryCard; spanId: string | null; reading?: string | null } | null {
   if (!restoration.sourceId) return null;
   const card = (library ?? []).find((entry) => entry.sourceId === restoration.sourceId);
-  return card ? { card, spanId: restoration.anchorSpanIds[0] ?? null } : null;
+  // The anchor travels with the reading it was named on: the desks translate it onto the book's current reading.
+  return card ? { card, spanId: restoration.anchorSpanIds[0] ?? null, reading: restoration.extractionId ?? null } : null;
 }

@@ -54,7 +54,8 @@ function transportFor(server: FixtureDeskServer, library: SourceLibraryCard[] = 
       return server.apply(input);
     },
     library: async () => library,
-    resolveExtraction: async (sourceId: string) => Object.values(FIXTURE_SOURCES).find((source) => source.sourceId === sourceId)?.extractionId ?? sourceId,
+    // A source's current reading, as the sidecar answers it (fx_src_x reads as fx_ext_x, a fixture source or a test's own).
+    resolveExtraction: async (sourceId: string) => Object.values(FIXTURE_SOURCES).find((source) => source.sourceId === sourceId)?.extractionId ?? sourceId.replace(/^fx_src_/, "fx_ext_"),
   };
   return transport;
 }
@@ -1525,6 +1526,7 @@ describe("RD3b: search in context (spec §9.3)", () => {
     for (let i = 0; i < openRows; i += 1) fireEvent.keyDown(input, { key: "ArrowDown" });
     fireEvent.keyDown(input, { key: "Enter" });
     await flush();
+    await flush(); // a book opens on its current reading, read first (review fix round, blocker 1)
     // The paper is already on this desk: it takes the focus, and no second window opens.
     expect(server.batches.flatMap((batch) => batch.ops).some((op) => op.op === "open_window")).toBe(false);
     expect(server.state().desks[0].focusWindowId).toBe("fx_w_paper");
@@ -1548,6 +1550,7 @@ describe("RD3b: search in context (spec §9.3)", () => {
     });
     fireEvent.keyDown(input, { key: "Enter" });
     await flush();
+    await flush(); // a book opens on its current reading, read first (review fix round, blocker 1)
     const opened = server.batches.flatMap((batch) => batch.ops).find((op) => op.op === "open_window");
     expect(opened && opened.op === "open_window" ? opened.content : null).toMatchObject({ kind: "video", sourceId: FIXTURE_SOURCES.video2.sourceId });
   });
@@ -1580,6 +1583,7 @@ describe("RD3b: search in context (spec §9.3)", () => {
       const row = [...document.querySelectorAll<HTMLElement>("[data-search-row]")].find((each) => each.textContent?.includes(title));
       fireEvent.click(row as HTMLElement);
       await flush();
+      await flush(); // a book opens on its current reading, read first (review fix round, blocker 1)
     };
     await search("masks hide");
     const opened = server.batches.flatMap((batch) => batch.ops).filter((op) => op.op === "open_window");
@@ -1931,6 +1935,8 @@ describe("RD4 review: a pad's back-link reopens its source", () => {
     await screen.findByTestId("pane-fx_w_book");
     fireEvent.click(screen.getByText("back from fx_w_book"));
     await flush();
+    await flush(); // a book opens on its current reading, read first (review fix round, blocker 1)
+
     const opened = server.batches.flatMap((batch) => batch.ops).find((op) => op.op === "open_window");
     expect(opened && opened.op === "open_window" ? [opened.content, opened.view] : null).toMatchObject([{ kind: "source", sourceId: "fx_src_closed", extractionId: "fx_ext_closed" }, { spanId: "fx_ext_closed_s4" }]);
   });
