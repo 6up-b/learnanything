@@ -28,6 +28,7 @@ from pathlib import Path
 from typing import Any
 
 from learnloop.ai.execution import content_key
+from learnloop.algorithm_versions import LESSON_WEIGHT_CURVE_VERSIONS
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.ids import new_ulid
 from learnloop.learner import lesson_weight as LW
@@ -143,6 +144,7 @@ def check_mass(vault: Any, repository: Any, *, learning_object_id: str, tap: int
     from learnloop.learner.mastery import resolve_item_irt_params
 
     fixed = float(attempt_evidence_mass(CHECK_ATTEMPT_TYPE, vault.config.evidence))
+    frozen = vault.config.algorithms.algorithm_version in LESSON_WEIGHT_CURVE_VERSIONS
     state = LW.replay_state(vault, repository, as_of=as_of)
     z_c, z_source = LW.confidence_term(state, tap, hedge)
     prediction = lo_prediction(vault, repository, learning_object_id)
@@ -168,11 +170,11 @@ def check_mass(vault: Any, repository: Any, *, learning_object_id: str, tap: int
         ref_a, ref_b = float(ref.get("a", a)), float(ref.get("b", b))
         days = float(ref.get("days") or 0.0)
         drift = float(getattr(vault.config.mastery, "sigma2_drift", 0.0))
-        mu_l, var_l = LW.posterior_after(sensitivity, learned, vault.config.mastery)
+        mu_l, var_l = LW.posterior_after(sensitivity, learned, vault.config.mastery, frozen=frozen)
         p_a = LW.predicted_success(mu_l, var_l, a=ref_a, b=ref_b, drift=drift, days=days)
         target = lam * float(p_teacher_retained) + (1.0 - lam) * p_a
         applied = learned if lam <= 0.0 else LW.pool_implied_mass(sensitivity, target, vault.config.mastery,
-                                                                  a=ref_a, b=ref_b, days=days)
+                                                                  a=ref_a, b=ref_b, days=days, frozen=frozen)
         rule = LW.RULE_POOL
         pool = {"family": family, "lambda": lam, "p_b": float(p_teacher_retained), "p_a": p_a, "target": target,
                 "reference": ref}

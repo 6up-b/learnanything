@@ -327,8 +327,18 @@ class CheckSensitivity:
                    observed_at=str(value["observed_at"]))
 
 
-def posterior_after(sensitivity: CheckSensitivity, mass: float, mastery_config: Any) -> tuple[float, float]:
-    """``(μ, P)`` after the check entered at ``mass`` (the mastery model's own update)."""
+def _scored(y: float, frozen: bool) -> dict[str, Any]:
+    """The observation's score fields. Mastery's logit-space update (``mastery.irt.enabled = false``) reads the rubric
+    fraction and ignores the override, so at mvp-0.71 the fraction carries the score too (review L42-R10): the
+    attempt step's ``rubric_score / max_points`` is the recorded correctness exactly. Below the tag, as the
+    predecessor read it."""
+
+    return {"rubric_score": float(y) if frozen else 0, "max_points": 1, "soft_score_override": float(y)}
+
+
+def posterior_after(sensitivity: CheckSensitivity, mass: float, mastery_config: Any, *,
+                    frozen: bool = False) -> tuple[float, float]:
+    """``(μ, P)`` after the check entered at ``mass`` (the mastery model's own update). ``frozen``: at mvp-0.71."""
 
     from learnloop.db.repositories import MasteryState
     from learnloop.learner.mastery import MasteryObservation, update_mastery
@@ -340,9 +350,9 @@ def posterior_after(sensitivity: CheckSensitivity, mass: float, mastery_config: 
         evidence_count=0, last_evidence_at=sensitivity.last_evidence_at, algorithm_version="lesson_weight",
         updated_at=sensitivity.observed_at)
     observation = MasteryObservation(
-        rubric_score=0, max_points=1, evidence_coverage=1.0, hint_dampening=1.0, grader_confidence=1.0,
+        evidence_coverage=1.0, hint_dampening=1.0, grader_confidence=1.0,
         attempt_type=LESSON_CHECK_ATTEMPT_TYPE, observed_at=observed, attempt_evidence_mass=float(mass),
-        soft_score_override=float(sensitivity.correctness))
+        **_scored(sensitivity.correctness, frozen))
     state = update_mastery(prior, observation, mastery_config, "lesson_weight",
                            item_a=sensitivity.item_a, item_b=sensitivity.item_b)
     return float(state.logit_mean), float(state.logit_variance)
@@ -493,7 +503,7 @@ def recorded_trajectory(connection: Any, vault: Any, mastery_config: Any, check:
 
 
 def trajectory_state(sensitivity: "CheckSensitivity", updates: Sequence[RecordedUpdate], *, mass: float,
-                     recorded_mass: float, mastery_config: Any) -> Any:
+                     recorded_mass: float, mastery_config: Any, frozen: bool = False) -> Any:
     """The LO's mastery state just before the outcome, recomputed from the check's recorded prior with
     the check entered at ``mass`` and every other update as recorded."""
 
@@ -512,10 +522,10 @@ def trajectory_state(sensitivity: "CheckSensitivity", updates: Sequence[Recorded
         observed = parse_utc(update.at)
         assert observed is not None
         observation = MasteryObservation(
-            rubric_score=0, max_points=1, evidence_coverage=1.0, hint_dampening=1.0, grader_confidence=1.0,
+            evidence_coverage=1.0, hint_dampening=1.0, grader_confidence=1.0,
             attempt_type=update.attempt_type, observed_at=observed, observation_weight_override=weight,
-            interpretation_variance=update.interpretation_variance, soft_score_override=update.y,
-            primed=update.primed)
+            interpretation_variance=update.interpretation_variance, primed=update.primed,
+            **_scored(update.y, frozen))
         state = update_mastery(state, observation, mastery_config, "lesson_weight", item_a=update.item_a,
                                item_b=update.item_b)
     return state
@@ -532,7 +542,8 @@ def trajectory_success(state: Any, *, a: float, b: float, at: str, mastery_confi
 
 
 def pool_implied_mass(sensitivity: CheckSensitivity, target: float, mastery_config: Any, *,
-                      a: float | None = None, b: float | None = None, days: float = 0.0) -> float:
+                      a: float | None = None, b: float | None = None, days: float = 0.0,
+                      frozen: bool = False) -> float:
     """The mass at which the mastery update makes the predicted success equal ``target`` (§12.2):
     the success on the committed cold item (``a``, ``b``; the check's own item when not given) at
     the forecast's horizon (``days`` of drift), the same item and horizon ``target``'s ``p_A`` was
@@ -547,7 +558,7 @@ def pool_implied_mass(sensitivity: CheckSensitivity, target: float, mastery_conf
     drift = float(getattr(mastery_config, "sigma2_drift", 0.0))
 
     def p_at(eta: float) -> float:
-        mu, var = posterior_after(sensitivity, float(sigmoid(eta)), mastery_config)
+        mu, var = posterior_after(sensitivity, float(sigmoid(eta)), mastery_config, frozen=frozen)
         return predicted_success(mu, var, a=item_a, b=item_b, drift=drift, days=days)
 
     lo, hi = -_IMPLIED_ETA_BOUND, _IMPLIED_ETA_BOUND
@@ -575,7 +586,8 @@ def _soft_log_lik(p: np.ndarray, y: float) -> np.ndarray:
 
 
 def _resolve_check(state: WeightState, check: Mapping[str, Any], outcome: Mapping[str, Any], share: float,
-                   mastery_config: Any, trajectory: Sequence[RecordedUpdate] | None = None) -> dict[str, Any]:
+                   mastery_config: Any, trajectory: Sequence[RecordedUpdate] | None = None,
+                   frozen: bool = False) -> dict[str, Any]:
     """One check's factor from its resolving outcome, at power ``share``.
 
     With the LO's recorded ``trajectory`` (:func:`recorded_trajectory`), the likelihood recomputes the
@@ -600,10 +612,10 @@ def _resolve_check(state: WeightState, check: Mapping[str, Any], outcome: Mappin
         if exact:
             assert trajectory is not None
             final = trajectory_state(sensitivity, trajectory, mass=mass, recorded_mass=recorded_mass,
-                                     mastery_config=mastery_config)
+                                     mastery_config=mastery_config, frozen=frozen)
             return trajectory_success(final, a=outcome_a, b=outcome_b, at=str(outcome["created_at"]),
                                       mastery_config=mastery_config)
-        mu, var = posterior_after(sensitivity, mass, mastery_config)
+        mu, var = posterior_after(sensitivity, mass, mastery_config, frozen=frozen)
         return predicted_success(mu, var, a=outcome_a, b=outcome_b, drift=drift, days=days)
 
     def p_of_eta(eta: np.ndarray) -> np.ndarray:
@@ -923,7 +935,7 @@ def _replay_in_snapshot(state: WeightState, vault: Any, connection: Any, mastery
                 trajectory = recorded_trajectory(connection, vault, mastery_config, check, payload,
                                                  inputs_trace=inputs_trace)
                 detail = _resolve_check(state, check, enriched, 1.0 / len(pending), mastery_config,
-                                        trajectory=trajectory)
+                                        trajectory=trajectory, frozen=frozen)
                 if resolving_curve is not None:
                     detail.update(trajectory_inputs=inputs_trace, resolving_input=resolving_curve.trace())
                     if resolving_curve.item_a is None:
