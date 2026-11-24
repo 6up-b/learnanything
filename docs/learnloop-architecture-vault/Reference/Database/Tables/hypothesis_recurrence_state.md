@@ -111,7 +111,6 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/ad23_contract_helpers.py`
-- `tests/test_mvp017_route_check_replay.py`
 - `tests/test_rebuild_orchestrator.py`
 - `tests/test_recurrence_live.py`
 - `tests/diagnosis_journey_helpers.py`

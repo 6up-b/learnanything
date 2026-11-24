@@ -120,6 +120,7 @@ Database triggers:
 - `Repository.causal_hypotheses_with_operations()`
 - `Repository.causal_hypotheses_with_statement()`
 - `Repository.causal_hypothesis()`
+- `Repository.causal_hypothesis_versions()`
 - `Repository.find_record()`
 - `Repository.hypothesis_episode_rows()`
 - `Repository.input_fingerprint_parts()`

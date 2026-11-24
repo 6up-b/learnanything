@@ -43,7 +43,10 @@ TREATMENT_VERBS: dict[str, str] = {"introduces": "introduces", "develops": "deve
 #: A learner's *also about…* where no judge row says how the section treats the LO (coverage's standing
 #: row then has no treatment).
 LEARNER_ABOUT = "learner"
-ABOUT: tuple[str, ...] = (*TREATMENTS[:4], LEARNER_ABOUT)
+#: A video chapter the learner accepted, where no judge row says how the section treats the LO (owner decision
+#: 2026-11-23: accepted chapters feed coverage). A place the topic is taught: never more than supporting.
+CHAPTER_ABOUT = "chapter"
+ABOUT: tuple[str, ...] = (*TREATMENTS[:4], LEARNER_ABOUT, CHAPTER_ABOUT)
 
 #: The per-LO levels in need order (highest first); ``out`` is an LO the learner took off the path.
 NEED_ORDER: tuple[str, ...] = ("core", "supporting", "later", "already_shown")
@@ -61,7 +64,7 @@ LO_KINDS: tuple[str, ...] = ("needed", "prerequisite", "later")
 #: Why an LO or a section has its level (the frontend's keys; :func:`reason_text` words them).
 REASON_KEYS: tuple[str, ...] = (
     "primary", "prerequisite", "alternate", "another_treatment", "applies", "mentions", "learner_about",
-    "deeper_depth",
+    "chapter_about", "deeper_depth",
     "demonstrated", "assumed", "check_pending", "you_skipped", "out_of_scope", "not_about", "unmapped",
     "withheld", "left_out", "partial_unsettled", "partial_unplaced",
 )
@@ -199,6 +202,8 @@ def lo_level(lo: GoalLo, place: PathPlace | None, row: Coverage, ref: str) -> Lo
         return made("supporting", "another_treatment")
     if row.treatment == LEARNER_ABOUT:
         return made("supporting", "learner_about")
+    if row.treatment == CHAPTER_ABOUT:
+        return made("supporting", "chapter_about")
     return made("supporting", "applies" if row.treatment == "applies" else "mentions")
 
 
@@ -289,6 +294,7 @@ def reason_text(level: SectionLevel, section: SectionReads, goal: GoalReads) -> 
         "applies": f"It uses {title}, a topic of your goal.",
         "mentions": f"It mentions {title}, a topic of your goal.",
         "learner_about": f"You linked this section to {title}.",
+        "chapter_about": f"A chapter you accepted here is about {title}.",
         "deeper_depth": f"Needed for {title} only at a deeper level than {goal.depth_label}.",
         "demonstrated": f"You’ve shown {title} on your own.",
         "assumed": f"LearnLoop treats {title} as familiar (not tested).",
@@ -343,6 +349,8 @@ def coverage_line(level: SectionLevel, section: SectionReads, goal: GoalReads) -
         where = "outside your current path"
     if entry.treatment == LEARNER_ABOUT:
         return f"You linked this section to {_quoted(lo.title)} · {role} · {where}"
+    if entry.treatment == CHAPTER_ABOUT:
+        return f"A chapter you accepted links this section to {_quoted(lo.title)} · {role} · {where}"
     verb = TREATMENT_VERBS.get(entry.treatment, "covers")
     return f"This section {verb} {_quoted(lo.title)} · {role} · {where}"
 

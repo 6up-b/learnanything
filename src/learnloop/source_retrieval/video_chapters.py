@@ -289,11 +289,23 @@ def store_suggestions(repository: Repository, extraction_id: str, source_id: str
 def decide(vault: Any, repository: Repository, chapter_id_: str, decision: str, *,
            clock: Clock | None = None) -> dict[str, Any]:
     """Accept a suggested chapter or dismiss it ("not this"), once. Deciding it again the same way answers the stored
-    decision; the other way is refused."""
+    decision; the other way is refused.
+
+    Accepting feeds section coverage (owner decision 2026-11-23), in the same transaction: the chapter's range becomes
+    coverage of the LOs it is tagged with (``section_coverage.chapter_accepted``: once per chapter, the learner's own
+    corrections standing). "Not this" feeds nothing. Coverage is the curriculum's, so with ``curriculum.enabled`` off
+    nothing is written."""
 
     state = DECISIONS.get(decision)
     if state is None:
         raise ChaptersError("validation_error", "Couldn’t update this chapter. Reopen the video and try again.")
+    with repository.connection() as connection:
+        known = _rows(connection, "SELECT extraction_id FROM video_chapters WHERE chapter_id = ?", [chapter_id_])
+    feeds = state == "accepted" and bool(known) and SC.enabled(vault)
+    # Read before the write transaction: the library and the transcript's sections as they are now.
+    library = SC.Library(vault, repository) if feeds else None
+    sections = [(section.section_id, section.t0, section.t1)
+                for section in transcript_sections(repository, str(known[0]["extraction_id"]))] if feeds else []
     with repository.atomic():
         connection = repository.connection()
         rows = _rows(connection, "SELECT * FROM video_chapters WHERE chapter_id = ?", [chapter_id_])
@@ -301,8 +313,12 @@ def decide(vault: Any, repository: Repository, chapter_id_: str, decision: str, 
             raise ChaptersError("chapter_not_found", "Couldn’t find this chapter. Reopen the video and try again.")
         row = rows[0]
         if row["state"] == "suggested":
+            now = utc_now_iso(clock)
             connection.execute("UPDATE video_chapters SET state = ?, decided_at = ? WHERE chapter_id = ?",
-                               (state, utc_now_iso(clock), chapter_id_))
+                               (state, now, chapter_id_))
+            if library is not None:
+                SC.chapter_accepted(connection, vault, library, _view(row) | {"judgment_ref": row["judgment_ref"]},
+                                    sections, now)
         elif row["state"] != state:
             raise ChaptersError("already_decided", "This chapter was already updated. Reopen the video to see it.")
     found = list_chapters(vault, repository, str(row["extraction_id"]), states=STATES)

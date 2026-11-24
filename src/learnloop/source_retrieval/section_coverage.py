@@ -133,6 +133,9 @@ LEDGER_LEFT = "learning_object"
 LEDGER_RIGHT = "reader_section"
 PROMPT_VERSION = "section_coverage_judge.v1"
 CORRECTION_VERSION = "section_coverage_correction.v1"
+#: A learner row written when the learner accepted a judged video chapter (``chapter_accepted``): the learner's act on
+#: a judged chapter, so ``origin`` is ``learner`` and this version (with the ledger verdict) says where it came from.
+CHAPTER_VERSION = "section_coverage_chapter_accepted.v1"
 ENVELOPE = "curriculum.max_daily_cost_usd"
 #: The routes that one daily cap counts: this judge and C0b's scope resolver and path judge
 #: (``source_retrieval.deliverables``), so the curriculum spends at most one cap a day.
@@ -1681,6 +1684,8 @@ class Standing:
     learner_text: str | None = None
     #: The LOs the judge read the section as taking for known (C0b's prerequisite choice reads them).
     assumes: tuple[str, ...] = ()
+    #: The accepted video chapter a learner row came from (``chapter_accepted``), else None.
+    chapter_id: str | None = None
 
     @property
     def about(self) -> bool:
@@ -1741,6 +1746,11 @@ def standing(vault: Any, repository: Repository, library: Library,
             section = library.section(extraction_id, section_id)
             if section is None:
                 continue
+            chapter = chapter_of(row)
+            if chapter is not None and section.section_hash != row["section_hash"]:
+                # An accepted chapter described the transcript as it was: once the section changed it says nothing of
+                # it (a learner's own correction stands across changes; a chapter's acceptance does not).
+                continue
             base = entries.get(section.key)
             if row["learner_override"] == "not_about":
                 treatment: str | None = "not_about"
@@ -1752,7 +1762,7 @@ def standing(vault: Any, repository: Repository, library: Library,
                 notation=base.notation if base is not None else None,
                 origin=base.origin if base is not None else "learner",
                 rank=base.rank if base is not None else 1_000_000, by="learner", learner_text=row.get("learner_text"),
-                assumes=base.assumes if base is not None else ())
+                assumes=base.assumes if base is not None else (), chapter_id=chapter)
         out[lo_id] = entries
     return out
 
@@ -1826,6 +1836,84 @@ def _write_correction(connection: sqlite3.Connection, vault: Any, section: Secti
     }
     store.insert(connection, row)
     return row
+
+
+# ---------------------------------------------------------------------------
+# An accepted video chapter (owner decision 2026-11-23: "accepted video chapters feed section coverage")
+# ---------------------------------------------------------------------------
+
+
+def chapter_state_key(chapter_id: str) -> str:
+    return f"chapter:{chapter_id}"
+
+
+def chapter_of(row: Mapping[str, Any]) -> str | None:
+    """The accepted chapter a learner row came from, else None."""
+
+    key = str(row.get("state_key") or "")
+    return key.removeprefix("chapter:") if row.get("prompt_version") == CHAPTER_VERSION and key.startswith("chapter:") \
+        else None
+
+
+def chapter_accepted(connection: sqlite3.Connection, vault: Any, library: Library, chapter: Mapping[str, Any],
+                     sections: Sequence[tuple[str, float, float]], now: str) -> list[dict[str, Any]]:
+    """In the caller's transaction (the chapter's acceptance): the chapter's time range becomes coverage of the LOs it
+    is tagged with. One ``learner`` row (``is_about``) and its ``learner_card`` verdict per (transcript section, LO),
+    for each section wholly inside the chapter's range (``sections``: id, start, end), readable and not withheld.
+
+    * **Once per chapter** (a chapter is decided once): any row already written for it answers, and nothing is
+      written again.
+    * **The learner's own correction stands**: a section whose newest learner row for the LO is a correction (not
+      about, also about) keeps it; a later *not about this* corrects a wrong acceptance (decisions are final).
+    * **Never more than "about"**: the row says the range treats the LO, no treatment and no path placement; the goal
+      lens reads it as a place the topic is taught (supporting), and only by its own rules over all coverage.
+    """
+
+    if not store.table_present(connection):
+        return []
+    chapter_id = str(chapter["chapter_id"])
+    key = chapter_state_key(chapter_id)
+    if connection.execute("SELECT 1 FROM section_coverage WHERE state_key = ? LIMIT 1", (key,)).fetchone():
+        return []
+    extraction_id = str(chapter["extraction_id"])
+    reading = library.reading(extraction_id)
+    if extraction_id in library.left_out or reading is None:
+        return []
+    t0, t1 = float(chapter["t0"]), float(chapter["t1"])
+    inside = [section_id for section_id, s0, s1 in sections if t0 <= s0 and s1 <= t1
+              and section_id in reading.sections and section_id not in reading.withheld]
+    los = [str(lo) for lo in chapter.get("learning_object_ids") or () if _active(vault, str(lo))]
+    if not inside or not los:
+        return []
+    standing_fixes = store.corrections(connection, learning_object_ids=los,
+                                       sections=[(extraction_id, section_id) for section_id in inside])
+    written = []
+    for section_id in inside:
+        section = library.section(extraction_id, section_id)
+        if section is None:
+            continue
+        for lo_id in los:
+            fix = standing_fixes.get((extraction_id, section_id, lo_id))
+            if fix is not None and fix["learner_override"] != "none":
+                continue
+            rationale = {"override": "is_about", "source": "accepted_chapter", "chapter_id": chapter_id,
+                         "chapter_judgment_ref": chapter.get("judgment_ref"), "t0": t0, "t1": t1}
+            ledger_id = append_judgment(
+                connection, task=LEDGER_TASK, left_kind=LEDGER_LEFT, left_id=lo_id, right_kind=LEDGER_RIGHT,
+                right_id=f"{extraction_id}/{section_id}", judge="learner_card", verdict="is_about",
+                input_hash=content_key({"chapter_id": chapter_id, "section_hash": section.section_hash}),
+                rationale=json.dumps(rationale, sort_keys=True), created_at=now)
+            row = {
+                "id": "scv_" + new_ulid(), "extraction_id": extraction_id, "section_id": section_id,
+                "learning_object_id": lo_id, "treatment": None, "roles_json": "[]", "assumes_json": "[]",
+                "notation_md": None, "origin": "learner", "candidate_rank": None, "learner_override": "is_about",
+                "learner_text": None, "section_hash": section.section_hash,
+                "lo_hash": lo_hash(vault.learning_objects[lo_id]), "state_key": key, "ledger_id": ledger_id,
+                "model": "learner", "prompt_version": CHAPTER_VERSION, "created_at": now,
+            }
+            store.insert(connection, row)
+            written.append(row)
+    return written
 
 
 # ---------------------------------------------------------------------------
