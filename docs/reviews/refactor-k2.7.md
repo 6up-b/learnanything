@@ -254,3 +254,5 @@ All through the scratch wrapper (isolated home, config and temp dir), tests memo
 - K2-20's harm on a screen that reads only the queue revision: found by reading, not shown by a test.
 - The vault's generated references for the five new modules (`module_validate.py` lists them as missing until
   the landing regenerates).
+
+**Fix round (2026-11-23).** The runner publishes a changed practice snapshot in the same transaction as completion, cancellation or lease expiry. K-R8 and K-R12 cover recovery and the two orderings of a desktop watch event.

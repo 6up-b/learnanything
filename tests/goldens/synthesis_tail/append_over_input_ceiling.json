@@ -8,7 +8,7 @@
      "actual_output_tokens": 0,
      "codex_revision": null,
      "completed_at": "2026-07-13T12:00:00Z",
-     "error_message": "append_input_over_ceiling: This update's request comes to about 7,560 input tokens, over its ceiling of 10 ([ingest.budgets] append_input_ceiling), so nothing was sent.",
+     "error_message": "append_input_over_ceiling: This update's request comes to about 7,560 input tokens, over its ceiling of 10 ([ingest.budgets] append_input_ceiling). This reconciliation request was not sent.",
      "est_input_tokens": 0,
      "est_output_tokens": 0,
      "id": "01M3250V00TP209AYDNCPVR75G",
@@ -264,7 +264,7 @@
         {
          "entity_refs": [],
          "gate": "append_input_ceiling",
-         "message": "This update's request comes to about 7,560 input tokens, over its ceiling of 10 ([ingest.budgets] append_input_ceiling), so nothing was sent.",
+         "message": "This update's request comes to about 7,560 input tokens, over its ceiling of 10 ([ingest.budgets] append_input_ceiling). This reconciliation request was not sent.",
          "severity": "hard_fail",
          "suggested_action": "build fewer new sections at once, or raise [ingest.budgets] append_input_ceiling; a single section over it cannot be split into passes"
         }
@@ -290,12 +290,12 @@
    {
     "entity_refs": [],
     "gate": "append_input_ceiling",
-    "message": "This update's request comes to about 7,560 input tokens, over its ceiling of 10 ([ingest.budgets] append_input_ceiling), so nothing was sent.",
+    "message": "This update's request comes to about 7,560 input tokens, over its ceiling of 10 ([ingest.budgets] append_input_ceiling). This reconciliation request was not sent.",
     "severity": "hard_fail",
     "suggested_action": "build fewer new sections at once, or raise [ingest.budgets] append_input_ceiling; a single section over it cannot be split into passes"
    }
   ],
-  "message": "This update's request comes to about 7,560 input tokens, over its ceiling of 10 ([ingest.budgets] append_input_ceiling), so nothing was sent.",
+  "message": "This update's request comes to about 7,560 input tokens, over its ceiling of 10 ([ingest.budgets] append_input_ceiling). This reconciliation request was not sent.",
   "synthesis_run_id": null
  },
  "files": {},

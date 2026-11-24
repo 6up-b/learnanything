@@ -31,7 +31,7 @@ import logging
 import re
 from collections.abc import Mapping, Sequence
 from contextlib import nullcontext
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from collections import Counter
 from pathlib import Path
 from typing import Any, Callable
@@ -1283,6 +1283,7 @@ class SynthesisAnswer:
     usage: dict[str, Any] | None = None
     #: The mode's review records about the answer itself, reported after the normalizer's.
     diagnostics: list[dict[str, Any]] = field(default_factory=list)
+    calls: int = 0
 
 
 @dataclass(frozen=True)
@@ -1540,9 +1541,11 @@ def finish_synthesis_run(
         requirement="Include a learning object with a matching blueprint that contains a recipe.",
     )
     asked_again: list[dict[str, Any]] = []
+    calls = 0
     try:
         for fresh_answers in (False, True):
             answer = ask()
+            calls += answer.calls
             if token_usage is not None:
                 token_usage += consume_client_usage(client)
             if not fresh_answers and not topic_requirement.holds(answer.candidate):
@@ -1624,7 +1627,7 @@ def finish_synthesis_run(
 
     outcome = SynthesisOutcome(
         proposal_id=proposal_id, match=match, normalized=normalized, gate_diagnostics=diagnostics,
-        generation_needs=generation_needs, answer=answer,
+        generation_needs=generation_needs, answer=replace(answer, calls=calls),
     )
     outcome.applied = apply(outcome)
     if match is not None:
@@ -2014,6 +2017,7 @@ def _run_synthesis(run: SynthesisRun, mode: SynthesisMode, answers: _SavedAnswer
     context_for = call.contexts(run)
     merged = None
     span_request_count = 0
+    evidence_diagnostics = []
     resolved_hashes: list[str] = []
     reused_shards = 0
     spend = call.spend(budgets, run.unlimited_token_budget)
@@ -2058,8 +2062,9 @@ def _run_synthesis(run: SynthesisRun, mode: SynthesisMode, answers: _SavedAnswer
         output_limit = spend.pass_output_limit()
         output_ceiling = spend.pass_output_ceiling()
         meter = UsageMeter(client)
+        receipt = {"receipt_checkpoint": (checkpoint.key, tokens)} if mode.name == "append" else {}
         with generation_limit(output_limit, ceiling=output_ceiling):
-            result = call.request(client, context)
+            result = call.request(client, context, **receipt)
         output_charge = meter.output_charge(_result_tokens(result))
         spend.charge_pass(estimated_input=tokens, reported_input=meter.reported().input_tokens, output=output_charge)
         # Checked before it is saved: kept, an answer over the ceiling would
@@ -2108,8 +2113,17 @@ def _run_synthesis(run: SynthesisRun, mode: SynthesisMode, answers: _SavedAnswer
             )
             # Reserve the remaining base shards before spending on optional
             # evidence expansion. Re-check before every subsequent base call.
-            result = run_pass(context_for(shard, ordinal, len(shards), resolved), future_input_reserve=future_reserve)
-            spend.check_shard_output(result)
+            followup = context_for(shard, ordinal, len(shards), resolved)
+            if mode.name == "append" and len(followup.resolved_spans) < len(resolved):
+                evidence_diagnostics.append({
+                    "gate": "append_span_input_ceiling", "severity": "review", "entity_refs": [],
+                    "message": (f"Group {ordinal + 1}: the ceiling allowed {len(followup.resolved_spans)} of "
+                                f"{len(resolved)} resolved evidence spans. Reconciliation calls sent so far: {spend.calls}."),
+                    "suggested_action": "review the reconciliation against the omitted evidence",
+                })
+            if mode.name != "append" or followup.resolved_spans:
+                result = run_pass(followup, future_input_reserve=future_reserve)
+                spend.check_shard_output(result)
         span_request_count += shard_span_requests
         resolved_hashes.extend(shard_hashes)
         if call.sharded:
@@ -2144,8 +2158,8 @@ def _run_synthesis(run: SynthesisRun, mode: SynthesisMode, answers: _SavedAnswer
     return SynthesisAnswer(
         candidate, span_request_count,
         resolved_span_hashes=resolved_hashes if mode.records_resolved_span_hashes else None,
-        usage=usage if mode.records_call_usage else None,
-        diagnostics=diagnostics,
+        usage=usage if mode.records_call_usage else None, calls=spend.calls,
+        diagnostics=[*evidence_diagnostics, *diagnostics],
     )
 
 
@@ -2304,7 +2318,8 @@ def _namespace_synthesis_shard(result: Any, ordinal: int) -> Any:
 
     def rewrite(value: Any, key: str | None = None) -> Any:
         if isinstance(value, list):
-            if key and (key.endswith("_client_ids") or key == "depends_on_client_item_ids"):
+            if key and (key.endswith("_client_ids") or key in {"depends_on_client_item_ids",
+                                                               "conflict_candidates", "non_conflict_dispositions"}):
                 return [f"{prefix}{item}" if item else item for item in value]
             return [rewrite(item) for item in value]
         if isinstance(value, dict):
@@ -2325,7 +2340,7 @@ def _namespace_synthesis_shard(result: Any, ordinal: int) -> Any:
 # --- cross-shard concept consolidation ---------------------------------------
 
 
-def _consolidate_same_title_concepts(result: Any) -> Any:
+def _consolidate_same_title_concepts(result: Any, *, require_identity: bool = False) -> Any:
     """Deterministic pass: fold concepts whose normalized titles are identical.
 
     Independent shards routinely re-declare the same concept ("Sample Space" in
@@ -2333,12 +2348,14 @@ def _consolidate_same_title_concepts(result: Any) -> Any:
     without a model call; the semantic near-duplicates are left to the
     model-assisted pass."""
 
-    by_title: dict[str, Any] = {}
+    by_title: dict[tuple[str, str, str], Any] = {}
     mapping: dict[str, str] = {}
     for concept in getattr(result, "concepts", []) or []:
         client_id = getattr(concept, "client_item_id", "") or ""
-        key = snake_case(getattr(concept, "title", "") or "")
-        if not key or not client_id:
+        title = snake_case(getattr(concept, "title", "") or "")
+        identity = concept.id if require_identity else ""
+        key = (title, identity, concept.type if require_identity else "")
+        if not title or not client_id or (require_identity and not identity):
             continue
         first = by_title.get(key)
         if first is None:
@@ -2879,6 +2896,12 @@ def _apply_concept_merges(result: Any, mapping: dict[str, str]) -> Any:
                 return mapping.get(value, value)
         return value
 
+    # A facet normalizes its durable parent verbatim, while its client reference resolves even after an ID collision.
+    for facet in data.get("facets") or []:
+        if facet.get("concept_id") in dropped_declared_ids:
+            if not facet.get("concept_client_id"):
+                facet["concept_client_id"] = dropped_declared_ids[facet["concept_id"]]
+            facet["concept_id"] = ""
     data = rewrite(data)
     # Folding duplicates can turn a relation between them into a self-edge, or
     # make two relations identical — drop/dedupe rather than propagate.

@@ -836,7 +836,7 @@ def _append_synthesis(ctx: JobContext) -> dict[str, Any]:
             },
             retryable=exc.code not in {"source_set_not_found", APPEND_INPUT_OVER_CEILING},
         ) from exc
-    ctx.record_usage({"calls": 0 if result.reused else 1})
+    ctx.record_usage({"calls": result.calls})
     ctx.report("synthesized", message="Source reconciliation synthesized")
     if result.nothing_new:
         ctx.report("applied", message="Nothing new: the study map already holds this update")

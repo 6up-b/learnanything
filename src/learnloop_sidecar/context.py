@@ -31,6 +31,7 @@ from learnloop.reader.reader_authoring import adopt_reference_questions
 from learnloop.substrate.passage_spans import initialize_on_open as initialize_passage_spans
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.hashes import practice_item_hash
+from learnloop.content.pipeline.practice_publication import publish_watched_practice
 from learnloop.vault.loader import (
     CONTENT_FINGERPRINT_TTL_SECONDS,
     load_practice_item_file,
@@ -154,6 +155,7 @@ class SidecarContext:
     # It advances only on a comparison that matched or a reload that
     # succeeded, so a failed refresh is retried by the next request.
     content_fingerprint: str | None = field(default=None, repr=False)
+    _verified_queue_revision: int | None = field(default=None, repr=False, compare=False)
     _fingerprint_checked_at: float = field(default=float("-inf"), repr=False, compare=False)
     # Mobile PR-5 (spec_mobile_tailnet_v1 §6.8): who the request being handled
     # comes from. The host sets it around each call (:meth:`acting_as`); the
@@ -422,6 +424,8 @@ class SidecarContext:
         self.content_fingerprint = loaded.fingerprint
         # The window starts when the snapshot was verified against the files,
         # after the load, never when it began (review F4).
+        revision = repository.queue_revision()["revision"]
+        self._verified_queue_revision = revision if vault_content_fingerprint(target) == loaded.fingerprint else None
         self._fingerprint_checked_at = loaded.verified_at
         # In-memory only: lets a serve's background builds run in this process.
         self.map_builds.bind(sqlite_path)
@@ -430,7 +434,7 @@ class SidecarContext:
         """Reload a secondary context when another process changed the vault's files.
 
         Run before each request (mobile spec §3.1, G12). The fingerprint is
-        compared at most every ``CONTENT_FINGERPRINT_TTL_SECONDS`` after the
+        compared immediately on a new queue revision, otherwise every ``CONTENT_FINGERPRINT_TTL_SECONDS`` after the
         vault was last known current, so a change is seen by the first request
         at most that long after it. A mismatch reloads with
         :meth:`load_secondary`. True when it reloaded.
@@ -444,9 +448,12 @@ class SidecarContext:
         if not self.secondary or self.vault_root is None:
             raise SidecarError("vault_not_secondary", "Only a secondary attach compares content fingerprints.")
         moment = time.monotonic() if now is None else float(now)
-        if moment - self._fingerprint_checked_at < CONTENT_FINGERPRINT_TTL_SECONDS:
+        revision = self.repository.queue_revision()["revision"]
+        fresh = moment - self._fingerprint_checked_at < CONTENT_FINGERPRINT_TTL_SECONDS
+        if revision == self._verified_queue_revision and fresh:
             return False
         if vault_content_fingerprint(self.vault_root) == self.content_fingerprint:
+            self._verified_queue_revision = revision
             self._fingerprint_checked_at = moment
             return False
         self.load_secondary(self.vault_root)  # sets the window from its own verification
@@ -849,12 +856,12 @@ class SidecarContext:
             # Editors that rewrite in place can briefly expose an incomplete
             # document. The full loader owns issue reporting and conservative
             # recovery for malformed/cross-entity changes.
-            return self._full_refresh()
+            return self._full_refresh(practice=True)
 
         if changed:
             self.prepare_new_revisions(None, item_ids=changed)
         revision = (
-            repository.bump_queue_revision()
+            publish_watched_practice(repository, vault.root)
             if changed
             else repository.queue_revision()["revision"]
         )
@@ -865,10 +872,10 @@ class SidecarContext:
             "practice_item_count": len(vault.practice_items),
         }
 
-    def _full_refresh(self) -> dict[str, Any]:
+    def _full_refresh(self, *, practice: bool = False) -> dict[str, Any]:
         self.reload(maintenance=False)
         vault, repository = self.require_vault()
-        revision = repository.bump_queue_revision()
+        revision = publish_watched_practice(repository, vault.root) if practice else repository.bump_queue_revision()
         return {
             "mode": "full",
             "changed_practice_item_ids": [],
