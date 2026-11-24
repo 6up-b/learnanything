@@ -3125,6 +3125,11 @@ def rebuild_command(
         f"mastery={summary['mastery']}, facet={summary['facet']}, "
         f"schedule={summary['schedule']} semantic change(s)."
     )
+    gate = result.followup_gate_records
+    typer.echo(
+        f"Follow-up gate records: {gate.get('recorded_before', 0)} recorded, "
+        f"{gate.get('changed', 0)} changed by the replay."
+    )
     typer.echo(
         "Live database unchanged "
         f"(sha256={result.live_database_sha256_after})."

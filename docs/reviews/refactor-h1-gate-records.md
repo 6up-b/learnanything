@@ -1,0 +1,181 @@
+# The follow-up gate's records survive replay (refactor bug ledger H-1)
+
+Found while designing H3 to H6 (`docs/reviews/refactor-h3-h6-design.md` §3.9, on the arc H design branch). Fixed here
+as its own small landing, option (A) of that section. Base: origin/main `86f29b0d39`.
+
+## The defect
+
+The live follow-up gate (`diagnosis/followups.py`) runs after the grade and writes its decision onto the attempt's
+surprise row with an UPDATE (`db/stores/attempts.py`, `update_attempt_surprise_actions`):
+
+- the actions it queued (`triggered_actions_json`);
+- the ones it held back (`suppressed_actions_json`);
+- what it read and scored (`gate_diagnostics_json`).
+
+The grade itself inserts the row with those empty. Replay never runs the gate. Yet every replay of `learning_state`
+deleted the row and inserted the grade's fresh one:
+
+- the whole-vault rebuild cleared the table (`substrate/rebuild_orchestrator.py`, `_run_learning_state`);
+- a per-LO replay reset the LO's attempts' rows (`substrate/replay.py`, `_replay_learning_object`). A regrade runs one,
+  and so do the grading command, the integration backfill, goal series and exam seeding.
+
+So the records were cleared, not recomputed. Nothing served or answered was undone: follow-up tasks, attempts,
+remediation episodes and ratings are their own rows. But history lost the record:
+
+- the attempt's feedback and detail lost their queued and held-back actions, the gate's diagnostics, and the "this
+  answered the follow-up from …" link (`followup_source_attempt`), which the rating path uses too;
+- past sessions' count of follow-ups queued read 0;
+- an unanswered legacy queued follow-up (`negative_surprise_followup:`, `intervention_followup:queued:`) left the
+  scheduler's pending list;
+- the gate fitter (`learnloop fit gate`), the scheduling evaluation and the signal quantiles lost their rows.
+
+## The fix
+
+Replay now carries the three columns across, by attempt id, the way it already carries diagnosis receipts and the
+firewall's audit events:
+
+- **Per-LO replay** (`substrate/replay.py`). `_replay_learning_object` reads the LO's attempts' gate records before
+  the reset deletes their rows (`Repository.attempt_surprise_gate_records`). After each attempt replays, it writes the
+  record back onto the replayed row, byte for byte (`Repository.restore_attempt_surprise_gate_record`). The record goes
+  back before the next attempt replays, as live, where the gate ran between the two answers. This covers the regrade,
+  the grading command, the integration backfill, goal series and exam seeding.
+- **Whole-vault rebuild** (`substrate/rebuild_orchestrator.py`). `_run_learning_state` reads every row's record before
+  it clears the table and hands them to the per-LO replay (`rebuild_derived_state(..., gate_records=...)`), because the
+  per-LO read would then find the table empty.
+- **The shadow rebuild** (`substrate/shadow_rebuild.py`) now compares these columns. `ShadowRebuildResult` gains
+  `followup_gate_records`, counts only:
+  - rows before and after;
+  - rows the gate wrote something on, before and after;
+  - rows changed, and recorded rows the replay cleared;
+  - rows added and removed.
+
+  `as_dict()` (so `learnloop rebuild --shadow --json`) carries it as `followup_gate_records`. The text summary adds one
+  line: "Follow-up gate records: N recorded, M changed by the replay." Before this, the shadow rebuild never compared
+  `attempt_surprise`, so it could not have reported the clearing.
+
+No replayer reads these columns. The scheduler's pending list, the feedback, the session summary, the gate fitter and
+the reports are all live reads. So carrying them changes no other derived number.
+
+## The tag question
+
+The playbook's step 1: "Decide whether the change alters persisted meaning. If it does, add a new immediate-successor
+`algorithm_version`." Step 6: "The same-version rebuild on the golden fixture must reproduce the same semantic
+projection."
+
+**No tag.** Reasons:
+
+- The fix changes no live write. A grade and the gate write what they wrote before.
+- What it changes is a rebuild's output, from "the grade's empty record" to "the record stored now". So after any
+  rebuild every row holds exactly what it held before the rebuild.
+- A rebuild therefore never moves a stored value it did not move before. It stops moving one it should never have
+  moved: step 6's same-version reproduction, restored.
+- No replayer derives anything from these columns, so no derived number moves either.
+- The D8 gaps that did take tags (mvp-0.65 to mvp-0.67) were different. Each changed numbers replay derives (mastery,
+  coverage, the seed) relative to what vaults had stored. Here no derived number changes.
+
+**What `learnloop rebuild --shadow` reports on an existing vault:**
+- **Records already cleared by an earlier rebuild** (the owner copies the orchestrator ran: 0 rows with records):
+  `recorded_before` 0, `changed` 0, `cleared` 0. Nothing to restore, so no difference.
+- **Records the live gate wrote since the last rebuild:** `recorded_before` N, `changed` 0. The replay keeps them.
+  The predecessor code would have reported `cleared` N, had the shadow rebuild compared them.
+
+## Records already cleared cannot be recomputed
+
+The gate read live state when it decided: the session's time and caps, the learner's minutes, its thresholds as fitted
+then, the item pool. Replay has none of that and never runs the gate. Records an earlier rebuild cleared (every
+whole-vault upgrade so far, mvp-0.46 among them, every regrade's LO, every `learnloop rebuild`) are gone from the live
+vaults.
+
+**The owner's option: restore from a backup taken before the clearing rebuild.** What it would involve:
+
+1. **Pick the backup.** The newest backup of each vault taken before the rebuild that cleared it. Several upgrades may
+   each have cleared a different part of history: an attempt graded between two rebuilds is only in a backup taken
+   between them.
+2. **A one-off script, run on a backup-API copy of the live vault first, never on the live vault.** For every attempt
+   present in both, it copies the three columns from the backup's `attempt_surprise` into the copy's row, and only
+   where the copy's row holds the grade's empty values. That way a record the gate wrote since is never overwritten.
+3. **Decide the queue part separately.** A restored queued action that nobody has answered since puts a legacy
+   follow-up back on the scheduler's pending list, possibly weeks old. Two choices:
+   - restore everything;
+   - restore the diagnostics and the held-back actions, and the queued actions only where a later attempt answered
+     them. That gives history and the rating link back without reviving stale follow-ups.
+4. **Check it.** On the copy: `learnloop doctor`, the shadow rebuild (with this fix it carries the restored records:
+   `changed` 0), and a count of restored rows. Then apply it to the live vault with LearnLoop closed.
+
+After this landing, any later rebuild keeps what is restored. Without this landing, the next rebuild would clear it
+again, so the restore only makes sense after this lands.
+
+## Tests
+
+`tests/test_gate_records_survive_replay.py`, 26 tests:
+
+| Test | What | Before the fix (the shadow comparison in place, the replay as on the base) |
+|---|---|---|
+| `test_a_whole_vault_rebuild_keeps_the_gates_records[<case>]` | The 21 synthetic diagnosis journeys (`tests/diagnosis_journey_helpers.py`): every row's three columns are identical before and after a whole-vault rebuild | 9 failed (the journeys with gate records), 12 passed (no records to lose) |
+| `test_the_journeys_hold_gate_records_to_keep` | The recurrence journey has three rows with actions and diagnostics, so the tests below are not empty | passed (it checks the fixture) |
+| `test_a_per_lo_replay_keeps_them` | `replay_learning_object` on every LO keeps them | failed |
+| `test_a_regrade_keeps_them` | A regrade of an attempt with a gate record keeps every record, the regraded attempt's included | failed |
+| `test_what_history_shows_reads_the_same_after_a_rebuild` | With a queued action on an attempt whose item was answered later and one nobody answered since: every attempt's feedback bundle (the surprise card's actions and diagnostics, the follow-up link, the rating, the queued flag), `followup_source_attempt` (the rating path), the session's follow-up count (2) and the scheduler's pending list are the same after a whole-vault rebuild | failed (count 2 → 0, the pending item gone, the links gone) |
+| `test_the_shadow_rebuild_compares_the_gates_records` | `followup_gate_records`: 3 recorded, 0 changed, added or removed | failed (`changed` 3, `cleared` 3) |
+
+The feedback comparison leaves out the bundle's causal overlay (`causalFeedback`). That part is the diagnosis
+receipt's, not the gate's, and it does differ after a rebuild of the recurrence journey: ledger row H-2 below.
+
+## What else moved, deliberately
+
+- **`tests/goldens/grade_application/history.json`**: three lines. The golden history's regrade replays its learning
+  object, and that replay used to clear the first attempt's gate record. The golden had pinned the cleared values
+  (`[]`, `[]`, `null`) in the live rows, and in the rebuild's added and removed rows. Now the record the gate wrote
+  stays. Only those three columns of that one row differ (checked field by field against the regenerated file).
+  Regenerated with `GRADE_APPLICATION_GOLDEN_WRITE=1`.
+- **`tests/test_voi_stopping.py::test_each_follow_up_decision_keeps_its_own_receipt_through_rebuilds`**: one
+  assertion changed. It pinned the defect: "The derived copy is gone (attempt_surprise is rebuilt without it)". That
+  review (F1) had moved the value-of-information decision to its own immutable receipt (`followup_value_decisions`)
+  because the copy on the surprise row did not survive a rebuild. The test now asserts that the copy survives the
+  rebuild and the LO replay and equals the receipt's decision. Its other assertions, that the receipt stands
+  unchanged and that a later decision is a new receipt, are unchanged.
+
+## Found on the way: H-2
+
+On the recurrence journey, a whole-vault rebuild changes the causal overlay of the first attempt's feedback. The
+diagnosis receipt it renders has another `receiptId`, and one of its two hypotheses (the misconception's, "Believes
+V and V transpose are the same matrix.") has a new `hypothesisId`. The other hypothesis and every statement are
+unchanged. So a surrogate id the learner's history shows is reminted by replay, and anything keyed by that hypothesis
+id across a rebuild would lose its target. Not investigated further here: it is not the gate's. Recorded as H-2
+(open), for the orchestrator to place.
+
+## Contract changes
+
+- `ShadowRebuildResult.followup_gate_records` (new field), and `learnloop rebuild --shadow --json`'s new
+  `shadow_rebuild.followup_gate_records` (counts only).
+- The text output of `learnloop rebuild --shadow` gains one line.
+- `Repository.attempt_surprise_gate_records(attempt_ids=None)` and
+  `Repository.restore_attempt_surprise_gate_record(attempt_id, record)`, in the attempts store (the owner of
+  `attempt_surprise`).
+- `replay_learning_object(..., gate_records=None)` and `rebuild_derived_state(..., gate_records=None)`: optional
+  keyword arguments.
+
+No migration, no tag, no config field, no identity pin.
+
+## Commands and results
+
+Each pytest run: `-n 1 -p no:cacheprovider`, through the scratch wrapper, in a 3G scope.
+
+| Command | Result |
+|---|---|
+| The new file on the base code, before the fix | 13 failed, 13 passed |
+| The new file after the fix | 26 passed |
+| 176 files: every test file that calls a rebuild, a replay, a regrade or the shadow rebuild, or reads `attempt_surprise`, the follow-up link or the pending list, plus identity pins, structure ratchets, architecture, test layout, the CLI help snapshot, the upgrades and the diagnosis journey golden; four chunks, `-m "not arc_close"` | 722 passed, 1 xfailed; 1173 passed, 1 failed (the grade-application golden); 946 passed; 1508 passed, 1 failed (the value-of-information test) |
+| After the golden and the assertion above | `tests/test_grade_application_golden.py` 2 passed; `tests/test_voi_stopping.py` 65 passed |
+| `uv run ruff check` / `uv run lint-imports --no-cache` | All checks passed! / Contracts: 54 kept, 0 broken. |
+
+No identity pin moved. One slip in procedure: one single-file run (the grade-application golden, to read its
+difference) started while the third chunk was still running, so two test commands ran at once for about five seconds.
+Both finished normally.
+
+## Not verified
+
+- The landing gate and the full suite.
+- A shadow rebuild of an owner copy with this code. On the copies the orchestrator ran, no row holds a gate record,
+  so it would show `recorded_before` 0.
+- Where H-2's reminted hypothesis id comes from.
