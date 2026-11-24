@@ -524,6 +524,12 @@ class RequestAdmission:
     tokens: int
     estimated_usd: float
     price_per_token: float
+    envelope: SpendEnvelope | None = None
+    reservation: object = None
+
+    @property
+    def reservation_ref(self) -> str | None:
+        return self.envelope.reservation_ref(self.reservation) if self.envelope else None
 
 
 class MeteredRequestGate:
@@ -563,6 +569,7 @@ class MeteredRequestGate:
         is_subscription: Callable[[Any], bool],
         default_output_tokens: int = 0,
         spent_before_usd: float = 0.0,
+        daily_envelope: Callable[[], SpendEnvelope] | None = None,
         cancelled: Callable[[], bool] | None = None,
     ) -> None:
         if limit_usd is not None:
@@ -570,6 +577,7 @@ class MeteredRequestGate:
         _money("spent_before_usd", spent_before_usd)
         _count("default_output_tokens", default_output_tokens)
         self._limit = None if limit_usd is None else Decimal(str(limit_usd))
+        self._daily_envelope = daily_envelope
         self._price = price_per_token
         self._is_subscription = is_subscription
         self._default_output = default_output_tokens
@@ -628,7 +636,7 @@ class MeteredRequestGate:
         provider = getattr(client, "provider_name", None)
         price = self._price(provider)
         if price is None:
-            if self._limit is None:
+            if self._limit is None and self._daily_envelope is None:
                 return None  # no limit to price against: nothing to admit or settle
             with self._lock:
                 self.refusal = {"reason": "unknown_price", "provider": provider, "purpose": purpose}
@@ -648,17 +656,26 @@ class MeteredRequestGate:
                 raise SpendLimitExceeded("estimated_usd exceeds max_estimated_usd", rule="max_estimated_usd",
                                          limit=float(self._limit), used=float(committed), requested=float(usd),
                                          scope="request_gate")
+            envelope = self._daily_envelope() if self._daily_envelope else None
+            try:
+                reservation = envelope.reserve(usd) if envelope else None
+            except SpendLimitExceeded:
+                self.refusal = {"reason": "daily_cap", "provider": provider, "purpose": purpose,
+                                "request_estimate_usd": float(usd)}
+                raise
             key = self._next_key
             self._next_key += 1
             self._in_flight[key] = usd
             self.admitted += 1
         return RequestAdmission(key=key, provider=provider, tokens=tokens, estimated_usd=float(usd),
-                                price_per_token=price)
+                                price_per_token=price, envelope=envelope, reservation=reservation)
 
     def settle(self, admission: RequestAdmission | None, usage: Mapping[str, Any]) -> None:
         if admission is None:
             return
         actual = _reported_usd(usage, admission.price_per_token)
+        if admission.envelope:
+            admission.envelope.settle(admission.reservation, actual)
         with self._lock:
             reserved = self._in_flight.pop(admission.key, Decimal(0))
             self._spent += reserved if actual is None else actual

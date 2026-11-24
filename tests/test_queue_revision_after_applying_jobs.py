@@ -79,3 +79,135 @@ def test_a_picked_source_exercise_written_as_practice_moves_the_revision(tmp_pat
     assert job["result"]["status"] == "written"
     assert set(load_vault(paths.root).practice_items) - items_before == {job["result"]["practice_item_id"]}
     assert repository.queue_revision()["revision"] > before
+
+
+def test_completed_practice_and_revision_are_visible_together(tmp_path, monkeypatch):
+    paths = create_basic_vault(tmp_path / "vault")
+    repository = Repository(paths.sqlite_path)
+    observer = Repository(paths.sqlite_path)
+    observations = []
+    before = observer.queue_revision()["revision"]
+    finish = repository.finish_owned_ingest_job
+
+    def observe_terminal(job_id, **kwargs):
+        result = finish(job_id, **kwargs)
+        if observer.get_ingest_job(job_id)["status"] == "completed":
+            observations.append(observer.queue_revision()["revision"])
+        return result
+
+    def ingest(*, vault_root, **_):
+        add_followup_item(vault_root, "pi_new")
+        return _Applied()
+
+    monkeypatch.setattr(repository, "finish_owned_ingest_job", observe_terminal)
+    runner = IngestRunner(repository, vault_root=paths.root, worker_id="w",
+                          services=RunnerServices(run_legacy_ingest=ingest))
+    runner.enqueue_batch("legacy_ingest", [JobSpec("legacy_ingest", {"source": "notes.md",
+                                                                    "subject_id": "linear-algebra"})])
+    runner.drain()
+    assert observer.queue_revision()["revision"] > before
+    assert before not in observations
+
+
+def test_identical_legacy_source_does_not_publish_another_revision(tmp_path):
+    paths = create_basic_vault(tmp_path / "vault")
+    repo = Repository(paths.sqlite_path)
+
+    def reused(**_):
+        return {"reused_existing": True, "auto_applied_count": 0}
+
+    runner = IngestRunner(repo, vault_root=paths.root, worker_id="w", services=RunnerServices(run_legacy_ingest=reused))
+    runner.enqueue_batch("legacy_ingest", [JobSpec("legacy_ingest", {"source": "notes.md",
+                                                                    "subject_id": "linear-algebra"})])
+    before = repo.queue_revision()["revision"]
+    runner.drain()
+    assert repo.ingest_jobs_by_types(("legacy_ingest",))[0]["status"] == "completed"
+    assert repo.queue_revision()["revision"] == before
+
+
+def test_cancellation_after_the_legacy_write_publishes_the_new_practice(tmp_path):
+    from learnloop.content.pipeline.runner import JobCancelled
+
+    paths = create_basic_vault(tmp_path / "vault")
+    repo = Repository(paths.sqlite_path)
+
+    def ingest(*, vault_root, **_):
+        add_followup_item(vault_root, "pi_cancelled_ingest")
+        raise JobCancelled("cancel after the write")
+
+    runner = IngestRunner(repo, vault_root=paths.root, worker_id="w", services=RunnerServices(run_legacy_ingest=ingest))
+    runner.enqueue_batch("legacy_ingest", [JobSpec("legacy_ingest", {"source": "notes.md",
+                                                                    "subject_id": "linear-algebra"})])
+    before = repo.queue_revision()["revision"]
+    runner.drain()
+    assert repo.ingest_jobs_by_types(("legacy_ingest",))[0]["status"] == "cancelled"
+    assert "pi_cancelled_ingest" in load_vault(paths.root).practice_items
+    assert repo.queue_revision()["revision"] > before
+
+
+@pytest.mark.parametrize("watch_during_job", [False, True])
+def test_watcher_and_job_publish_the_same_new_practice_once(tmp_path, watch_during_job):
+    from learnloop_sidecar.context import SidecarContext
+
+    paths = create_basic_vault(tmp_path / "vault")
+    ctx = SidecarContext()
+    ctx.load(paths.root, maintenance=False)
+    repo = ctx.repository
+    filename = paths.practice_item_path("linear-algebra", "pi_shared").relative_to(paths.root).as_posix()
+
+    def ingest(*, vault_root, **_):
+        add_followup_item(vault_root, "pi_shared")
+        if watch_during_job:
+            ctx.refresh_vault_files([filename])
+        return _Applied()
+
+    runner = IngestRunner(repo, vault_root=paths.root, worker_id="w", services=RunnerServices(run_legacy_ingest=ingest))
+    runner.enqueue_batch("legacy_ingest", [JobSpec("legacy_ingest", {"source": "notes.md", "subject_id": "linear-algebra"})])
+    before = repo.queue_revision()["revision"]
+    runner.drain()
+    if not watch_during_job:
+        ctx.refresh_vault_files([filename])
+    assert repo.ingest_jobs_by_types(("legacy_ingest",))[0]["status"] == "completed"
+    assert repo.queue_revision()["revision"] == before + 1
+
+
+def test_overlapping_imports_publish_one_shared_write(tmp_path):
+    paths = create_basic_vault(tmp_path / "vault")
+    repo = Repository(paths.sqlite_path)
+    payload = {"source": "notes.md", "subject_id": "linear-algebra"}
+
+    def second_import(*, vault_root, **_):
+        add_followup_item(vault_root, "pi_shared")
+        return _Applied()
+
+    def first_import(**_):
+        second = IngestRunner(Repository(paths.sqlite_path), vault_root=paths.root, worker_id="second",
+                              services=RunnerServices(run_legacy_ingest=second_import))
+        second.enqueue_batch("exam_ingest", [JobSpec("exam_ingest", {**payload, "mode": "exam"})])
+        second.drain(max_jobs=1, eligible_job_types=("exam_ingest",), allow_parallel=True)
+        return _Applied()
+
+    first = IngestRunner(repo, vault_root=paths.root, worker_id="first", services=RunnerServices(run_legacy_ingest=first_import))
+    first.enqueue_batch("legacy_ingest", [JobSpec("legacy_ingest", payload)])
+    before = repo.queue_revision()["revision"]
+    first.drain(max_jobs=1)
+    assert [j["status"] for j in repo.ingest_jobs_by_types(("legacy_ingest", "exam_ingest"))] == ["completed"] * 2
+    assert repo.queue_revision()["revision"] == before + 1
+
+
+def test_import_rewriting_identical_practice_bytes_keeps_the_revision(tmp_path):
+    paths = create_basic_vault(tmp_path / "vault")
+    repo = Repository(paths.sqlite_path)
+    add_followup_item(paths.root, "pi_same")
+    practice = paths.practice_item_path("linear-algebra", "pi_same")
+
+    def rewrite(**_):
+        practice.write_bytes(practice.read_bytes())
+        return _Applied()
+
+    runner = IngestRunner(repo, vault_root=paths.root, worker_id="w", services=RunnerServices(run_legacy_ingest=rewrite))
+    runner.enqueue_batch("legacy_ingest", [JobSpec("legacy_ingest", {"source": "notes.md", "subject_id": "linear-algebra"})])
+    before = repo.queue_revision()["revision"]
+    runner.drain()
+    assert repo.ingest_jobs_by_types(("legacy_ingest",))[0]["status"] == "completed"
+    assert repo.queue_revision()["revision"] == before

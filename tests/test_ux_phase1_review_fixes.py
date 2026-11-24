@@ -793,3 +793,30 @@ def test_f3_rereview_a_link_planner_that_dies_after_queuing_its_build_is_found(t
     assert core.latest_auto_outcome(repo, source_id)["build_batch_id"] == core.child_batch_id(planner["id"])
     text = source_status_line(repo, load_vault(root), source_id)["text"]
     assert text.startswith("Getting ") and " ready for questions" in text
+
+
+def test_request_gate_counts_another_operations_receipt_after_job_admission(tmp_path):
+    from contextlib import ExitStack
+    from types import SimpleNamespace
+
+    from learnloop.ai.execution import model_call
+    from learnloop.content.pipeline.runner import IngestRunnerError
+    from tests.structured_ai import StructuredClientFake
+
+    root = fresh_library(tmp_path)
+    authoring = _metered(root, 1000.0)
+    set_config(root, {("ingest", "cost_pause", "daily_cap_usd"): 1.0})
+    repo, _ = _jobs(root, fake_services(authoring))
+    client = StructuredClientFake()
+    client.provider_name = "openrouter"
+    client.provider_type = "openai_compatible"
+    with pytest.raises(IngestRunnerError) as paused, ExitStack() as scopes:
+        ctx = SimpleNamespace(vault_root=root, repo=repo, job={"batch_id": "batch", "job_type": "append"},
+                              payload={"auto_build": {"source_id": "src", "job_tokens": 1}},
+                              services=SimpleNamespace(authoring_route=lambda _ctx: authoring), clock=CLOCK,
+                              cancelled=lambda: False, hold=scopes.enter_context)
+        core.admit_auto_build_job(ctx)
+        _receipt(repo, provider="openrouter", cost=0.60)
+        with model_call(client, purpose="reconciliation", prompt="", budget=800):
+            pytest.fail("a request that exceeds the shared balance reached the provider")
+    assert paused.value.code == "spend_paused"
