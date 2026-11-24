@@ -133,7 +133,7 @@ export async function runVerb(id: VerbId, object: MenuObject, ctx: MenuContext, 
           rawSelection: { extractionId: anchor.extractionId, ...(anchor.spanIds ? { spanId: anchor.spanId, spanIds: anchor.spanIds } : {}), nodes: captureNodes(object) },
         });
         // Where it landed is the capture's own answer: a note that could not be placed says so.
-        ctx.toast(receipt.anchorStatus === "needs_reanchor" ? "noted, but its place in the passage needs re-anchoring" : "noted in the margin");
+        ctx.toast(receipt.anchorStatus === "needs_reanchor" ? "noted in the margin · its exact place couldn’t be found, so it sits beside the passage" : "noted in the margin");
         return;
       }
       case "open_beside": {
@@ -147,18 +147,18 @@ export async function runVerb(id: VerbId, object: MenuObject, ctx: MenuContext, 
         if (!anchor) return;
         const { sectionId } = await sectionOf(object, ctx);
         if (!sectionId) {
-          ctx.toast("nothing found that treats this passage elsewhere yet");
+          ctx.toast("No related passage found. Try Search with a few words from this passage.");
           return;
         }
         const found = await ctx.api.readerCorrespondents({ extractionId: anchor.extractionId, sectionId, searchFallback: true });
         const section = found.learningObjects.flatMap((lo) => lo.sources.flatMap((source) => source.sections))[0]
           ?? found.search?.sources.flatMap((source) => source.sections)[0];
         if (!section) {
-          ctx.toast("nothing found that treats this passage elsewhere yet");
+          ctx.toast("No related passage found. Try Search with a few words from this passage.");
           return;
         }
         ctx.openContent({ kind: "source", sourceId: section.sourceId, extractionId: section.jump.extractionId }, { spanId: section.jump.spanId });
-        if (found.status === "unchecked") ctx.toast("found by search, not checked");
+        if (found.status === "unchecked") ctx.toast("a possible match from search · LearnLoop hasn’t checked it against this passage");
         return;
       }
       case "compare": {
@@ -175,11 +175,11 @@ export async function runVerb(id: VerbId, object: MenuObject, ctx: MenuContext, 
         if (!anchor) return;
         // Where it lands is decided now: the running pad of this desk, even if another desk is shown when it is ready.
         const destination = ctx.figureDestination();
-        ctx.toast("◇ making a figure for this passage · it lands in your running pad when it's ready");
+        ctx.toast("◇ making a figure for this passage · it will be added to your running pad when it’s ready");
         // The Reader's figure build, polled under the window asked from (a paused window's poll waits).
         const figure = await ctx.showMe(words.slice(0, 300), anchor, object.windowId);
         if (!figure) {
-          ctx.toast("no figure for this passage · nothing was shown");
+          ctx.toast("Couldn’t make a figure for this passage. Try another passage.");
           return;
         }
         await ctx.landFigure(object, figure, destination);
@@ -194,7 +194,7 @@ export async function runVerb(id: VerbId, object: MenuObject, ctx: MenuContext, 
           return;
         }
         if (!sectionId) {
-          ctx.toast("this passage sits in no section to write a question for");
+          ctx.toast("This passage isn’t in a section, so no question can be drafted for it. Choose a passage in a section.");
           return;
         }
         if (!(await ctx.confirm("✎ make it practice · a question for this section", "LearnLoop drafts a question from this section; it shows in the section to answer or keep when it is ready"))) return;
@@ -221,7 +221,7 @@ export async function runVerb(id: VerbId, object: MenuObject, ctx: MenuContext, 
         return;
     }
   } catch (error) {
-    ctx.toast(`couldn't do that just now · ${errorText(error)}`);
+    ctx.toast(`Couldn’t do that · ${errorText(error)}`);
   }
 }
 

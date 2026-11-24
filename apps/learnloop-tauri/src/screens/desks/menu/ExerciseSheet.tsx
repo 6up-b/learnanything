@@ -62,7 +62,7 @@ export function ExerciseSheet({ readWords, startImport, readStatus, poller, owne
             setSkipped(status.result.skipped.length);
             setPhase("done");
           } else {
-            setFailure(status.error?.message ?? status.message ?? "the import did not finish");
+            setFailure(status.error?.message ?? status.message ?? "Couldn’t add the exercise. Close this and reopen it to try again.");
             setPhase("failed");
           }
           return { done: true };
@@ -91,7 +91,7 @@ export function ExerciseSheet({ readWords, startImport, readStatus, poller, owne
       {phase === "importing" ? <div className="note">◐ importing the exercise…</div> : null}
       {phase === "done" ? (
         <>
-          <div className="note">{items.length === 1 ? "this is in your queue now" : `these ${items.length} are in your queue now`} · edit or retire any that is wrong{skipped ? ` · ${skipped} part${skipped === 1 ? "" : "s"} could not be made` : ""}</div>
+          <div className="note">{items.length === 0 ? "No practice questions were added." : items.length === 1 ? "this is in your queue now · edit or retire it if it is wrong" : `these ${items.length} are in your queue now · edit or retire any that is wrong`}{skipped ? ` · ${skipped} part${skipped === 1 ? "" : "s"} could not be made` : ""}</div>
           {items.map((item) => (
             <div key={item.practiceItemId} className="item" data-imported-item={item.practiceItemId}>
               <div className="t">{retired.has(item.practiceItemId) ? `retired · ${item.title}` : item.title}</div>
@@ -107,7 +107,7 @@ export function ExerciseSheet({ readWords, startImport, readStatus, poller, owne
       {failure ? <div className="note err">{failure}</div> : null}
       <div className="acts">
         {phase === "review" && words && !withheld ? <button type="button" onClick={() => void begin()}>import it as practice</button> : null}
-        <button type="button" onClick={onClose}>{phase === "done" ? "done" : "not now"}</button>
+        <button type="button" onClick={onClose}>{phase === "done" ? "done" : phase === "failed" ? "close" : "not now"}</button>
       </div>
     </div>
   );

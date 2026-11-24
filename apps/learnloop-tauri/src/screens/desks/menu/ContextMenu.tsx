@@ -334,7 +334,7 @@ export function ContextMenu({ header, neutralHeader, label, rows, at, object = n
         {row.promoted ? (
           <span className="k pl">
             <span role="button" tabIndex={-1} className="lb" title="wrong: don't suggest this here" onClick={(event) => { event.stopPropagation(); dismiss(row.promoted as PromotedRowDto, "not_this"); }}>not this</span>
-            <span role="button" tabIndex={-1} className="lb" title="not now" aria-label="dismiss" onClick={(event) => { event.stopPropagation(); dismiss(row.promoted as PromotedRowDto, "dismiss"); }}>×</span>
+            <span role="button" tabIndex={-1} className="lb" title="hide this suggestion" aria-label="hide this suggestion" onClick={(event) => { event.stopPropagation(); dismiss(row.promoted as PromotedRowDto, "dismiss"); }}>×</span>
           </span>
         ) : <span className="k">{row.key ?? ""}</span>}
       </button>
@@ -376,7 +376,7 @@ export function ContextMenu({ header, neutralHeader, label, rows, at, object = n
           <div className="mh">append to</div>
           {append.pads.map((pad, padIndex) => (
             <button key={pad.padId} type="button" role="menuitem" className={`mi${padIndex === subIndex ? " sel" : ""}`} onMouseEnter={() => setSubIndex(padIndex)} onClick={() => append.onPick(pad.padId)}>
-              <span className="g">{pad.padId === append.current ? "✓" : ""}</span>
+              <span className="g" title={pad.padId === append.current ? "current pad" : undefined}>{pad.padId === append.current ? "✓" : ""}</span>
               <span className="t">{pad.title}</span>
               <span className="k" />
             </button>

@@ -53,7 +53,7 @@ describe("the context menu", () => {
       await poller.tick();
     });
     await screen.findByText("row r2");
-    expect(screen.getByText("treats the same idea · found by search, not checked")).toBeTruthy();
+    expect(screen.getByText("treats the same idea · possible match from search, not checked by LearnLoop")).toBeTruthy();
     expect(screen.queryByText(/looking for more/)).toBeNull();
   });
 
@@ -204,7 +204,7 @@ describe("the context menu", () => {
     expect(labels).toEqual([["r1", "not_this"]]);
     expect(screen.queryByText("row r1")).toBeNull();
     const second = screen.getByText("row r2").closest("button") as HTMLElement;
-    fireEvent.click(within(second).getByLabelText("dismiss"));
+    fireEvent.click(within(second).getByLabelText("hide this suggestion"));
     expect(labels).toEqual([["r1", "not_this"], ["r2", "dismiss"]]);
     expect(screen.queryByText("row r2")).toBeNull();
     expect(onPromoted).not.toHaveBeenCalled();

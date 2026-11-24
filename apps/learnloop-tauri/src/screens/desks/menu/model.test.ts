@@ -34,7 +34,7 @@ describe("the verbs for each object kind", () => {
 describe("the header and the object as the server reads it", () => {
   it("names the kind and the first 46 characters of the selection or the object", () => {
     const at = { x: 0, y: 0 };
-    expect(headerLine({ kind: "cue", windowId: "w", text: "short words", at }, false)).toBe("a transcript cue · “short words”");
+    expect(headerLine({ kind: "cue", windowId: "w", text: "short words", at }, false)).toBe("a caption · “short words”");
     const long = "x".repeat(60);
     expect(headerLine({ kind: "passage", windowId: "w", text: "ignored", selection: long, at }, false)).toBe(`a passage · “${"x".repeat(46)}…”`);
   });
@@ -54,7 +54,7 @@ describe("the promoted rows", () => {
   });
 
   it("says a judge's unchecked finding was found by search, not checked", () => {
-    expect(promotedReason(row("a", { checked: false, reason: "treats the same idea" }))).toBe("treats the same idea · found by search, not checked");
+    expect(promotedReason(row("a", { checked: false, reason: "treats the same idea" }))).toBe("treats the same idea · possible match from search, not checked by LearnLoop");
     expect(promotedReason(row("a", { checked: true, reason: "you asked about this" }))).toBe("you asked about this");
   });
 });

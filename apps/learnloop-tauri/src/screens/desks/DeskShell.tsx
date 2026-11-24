@@ -2394,7 +2394,7 @@ export function DeskShell({
       const text = (element?.textContent ?? "").replace(/\s+/g, " ").trim().slice(0, 600);
       if (!text) continue;
       const title = titleOf(window);
-      out.push({ label: `${content.kind === "video" ? "the cue playing now" : "the passage in view"} · ${shortName(title)}`, extractionId: content.extractionId, spanId, text, sourceTitle: title });
+      out.push({ label: `${content.kind === "video" ? "the current caption" : "the passage in view"} · ${shortName(title)}`, extractionId: content.extractionId, spanId, text, sourceTitle: title });
     }
     return out;
   }, [titleOf]);
@@ -2884,7 +2884,7 @@ export function DeskShell({
           rawSelection: { extractionId: object.extractionId, spanId: object.spanId, spanIds: passageIds(object), nodes: captureNodes(object) },
         });
         // A highlight that could not be placed is not linked from the block (the block still links its passages).
-        if (receipt.anchorStatus === "needs_reanchor") toastNow("the highlight's place needs re-anchoring: the line links to the passages without it");
+        if (receipt.anchorStatus === "needs_reanchor") toastNow("couldn’t place the highlight · the pad line still links to the passage");
         else annotationId = receipt.annotationId;
       } catch (error) {
         toastNow(`couldn't capture that passage · ${errorText(error)}`);
@@ -2902,8 +2902,8 @@ export function DeskShell({
       // Every passage the selection touches links back to the line (each with its own ✎ mark).
       ...captureNodes(object).map((node) => ({ op: "link_anchor" as const, blockId, extractionId: object.extractionId as string, spanId: node.spanId, eventId: mintId("lnk"), expectedAnchorHead: null, annotationId })),
     ]);
-    if (refused) toastNow(`couldn't append it · ${refused.message}`);
-    else toastNow(`appended to “${pad.pad.title || "running"}”`);
+    if (refused) toastNow(`couldn’t add it · ${refused.message}`);
+    else toastNow(`adding to “${pad.pad.title || "running"}”…`);
   }, [appendTargetOf, commit, menuTransport, mintId, rememberAppendTarget, store, titleOf, toastNow]);
 
   // The rows the open source menu shows (Open beside takes its correspondent from them): told by that menu only
@@ -2948,7 +2948,7 @@ export function DeskShell({
       }
       store.commitPad(padId, [{ op: "insert_block", blockId: mintId("blk"), versionId: mintId("ver"), kind: "figure", provenance: "learnloop", positionKey: keyAfterLast(pad.blocks), day: localDay(),
         bodyMd: figure.line, payload: { figure_id: figure.figureId, extraction_id: object.extractionId ?? null, span_id: object.spanId ?? null, span_ids: passageIds(object) } }]);
-      toastNow("◇ the figure is in your running pad");
+      toastNow("◇ adding the figure to your running pad…");
     },
     windowMove: (kind, windowId) => {
       const id = deskIdRef.current;

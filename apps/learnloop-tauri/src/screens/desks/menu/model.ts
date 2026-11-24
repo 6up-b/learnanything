@@ -64,7 +64,7 @@ export function objectInput(object: MenuObject, deskId: string | null): MenuObje
 
 const KIND_LABEL: Record<MenuObjectKind, string> = {
   passage: "a passage",
-  cue: "a transcript cue",
+  cue: "a caption",
   highlight: "your highlight",
   note: "your margin note",
   window: "a window",
@@ -159,7 +159,7 @@ export function shownPromoted(rows: PromotedRowDto[], dismissed: ReadonlySet<str
 
 /** A promoted row's reason as the learner reads it: a judge's unchecked finding says so. */
 export function promotedReason(row: PromotedRowDto): string {
-  if (row.checked === false && !/not checked/.test(row.reason)) return `${row.reason} · found by search, not checked`;
+  if (row.checked === false && !/not checked/.test(row.reason)) return `${row.reason} · possible match from search, not checked by LearnLoop`;
   return row.reason;
 }
 

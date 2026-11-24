@@ -80,7 +80,7 @@ describe("each verb calls its server entry", () => {
     expect(ctx.api.readerCapture).toHaveBeenCalledWith(expect.objectContaining({
       rawSelection: { extractionId: "ext1", spanId: "s1", spanIds: ["s1", "s2"], nodes: [{ spanId: "s1", quote: "end of one" }, { spanId: "s2", quote: "start of two" }] },
     }));
-    expect(toasts).toEqual(["noted, but its place in the passage needs re-anchoring"]);
+    expect(toasts).toEqual(["noted in the margin · its exact place couldn’t be found, so it sits beside the passage"]);
   });
 
   it("Note in margin left empty writes nothing", async () => {
@@ -106,7 +106,7 @@ describe("each verb calls its server entry", () => {
     await runVerb("open_beside", passage(), second.ctx);
     expect(second.ctx.api.readerCorrespondents).toHaveBeenCalledWith({ extractionId: "ext1", sectionId: "sec1", searchFallback: true });
     expect(second.ctx.openContent).toHaveBeenCalledWith({ kind: "source", sourceId: "src3", extractionId: "ext3" }, { spanId: "u1" });
-    expect(second.toasts).toEqual(["found by search, not checked"]);
+    expect(second.toasts).toEqual(["a possible match from search · LearnLoop hasn’t checked it against this passage"]);
   });
 
   it("Compare opens a compare window on the words; Teach me opens a lesson on the passage in the desk's stack", async () => {
@@ -130,7 +130,7 @@ describe("each verb calls its server entry", () => {
     const none = context({ showMe: vi.fn(async () => null) });
     await runVerb("show_me", passage(), none.ctx);
     expect(none.ctx.landFigure).not.toHaveBeenCalled();
-    expect(none.toasts).toContain("no figure for this passage · nothing was shown");
+    expect(none.toasts).toContain("Couldn’t make a figure for this passage. Try another passage.");
   });
 
   it("Make it practice on an exercise opens its sheet (its words, then the import); otherwise drafts a section question after a confirmation", async () => {
@@ -163,7 +163,7 @@ describe("each verb calls its server entry", () => {
       throw new Error("the reader is away");
     }) });
     await runVerb("note", passage(), ctx);
-    expect(toasts).toEqual(["couldn't do that just now · the reader is away"]);
+    expect(toasts).toEqual(["Couldn’t do that · the reader is away"]);
   });
 });
 

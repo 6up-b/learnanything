@@ -209,7 +209,7 @@ describe("the desks' context menu", () => {
     await screen.findByTestId("pane-fx_w_book");
     fireEvent.contextMenu(passage("fx_w_book_s1"));
     const promoted = (await screen.findByText("your question on the first passage")).closest("button") as HTMLElement;
-    fireEvent.click(within(promoted).getByLabelText("dismiss"));
+    fireEvent.click(within(promoted).getByLabelText("hide this suggestion"));
     await waitFor(() => expect(labels).toEqual([expect.objectContaining({ proposalKind: "promoted_row", proposalId: "r1", label: "dismiss" })]));
     expect(screen.queryByText("your question on the first passage")).toBeNull();
   });
@@ -383,7 +383,7 @@ describe("RD5 fix round: the menu's rows and actions", () => {
     await flush();
     fireEvent.click(await screen.findByText("a gap row"));
     await waitFor(() => expect(transport.passageKnows).toHaveBeenCalledWith(expect.objectContaining({ objectKind: "pad_line", blockId: "fx_b_r1" })));
-    expect(screen.getByRole("dialog", { name: "what this knows" })).toBeTruthy();
+    expect(screen.getByRole("dialog", { name: "passage details" })).toBeTruthy();
     window.removeEventListener("learnloop:pad-flash", onFlash);
   });
 });
@@ -429,7 +429,7 @@ describe("RD5 fix round: a window header's menu", () => {
     await waitFor(() => expect(transport.passageKnows).toHaveBeenCalledWith(expect.objectContaining({ objectKind: "window", spanId: "fx_w_book_s1" })));
     // Escape lets What this knows go (it owns the focus while open).
     fireEvent.keyDown(window, { key: "Escape" });
-    await waitFor(() => expect(screen.queryByRole("dialog", { name: "what this knows" })).toBeNull());
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "passage details" })).toBeNull());
     // The pad stack's header: no passage, so no rows asked and no What this knows.
     await waitFor(() => expect(document.querySelector('[data-desk-window="fx_w_pads"] .desk-pane-head')).toBeTruthy());
     fireEvent.contextMenu(document.querySelector('[data-desk-window="fx_w_pads"] .desk-pane-head') as HTMLElement);
@@ -578,7 +578,7 @@ describe("RD5 fix round: labels are kept until stored", () => {
     await screen.findByTestId("pane-fx_w_book");
     fireEvent.contextMenu(passage("fx_w_book_s1"));
     const promoted = (await screen.findByText("your question on the first passage")).closest("button") as HTMLElement;
-    fireEvent.click(within(promoted).getByLabelText("dismiss"));
+    fireEvent.click(within(promoted).getByLabelText("hide this suggestion"));
     await flush();
     await act(async () => {
       await poller.tick();
@@ -589,7 +589,7 @@ describe("RD5 fix round: labels are kept until stored", () => {
     fireEvent.keyDown(window, { key: "Escape" });
     fireEvent.contextMenu(passage("fx_w_book_s2"));
     const second = (await screen.findByText("your question on the second passage")).closest("button") as HTMLElement;
-    fireEvent.click(within(second).getByLabelText("dismiss"));
+    fireEvent.click(within(second).getByLabelText("hide this suggestion"));
     await flush();
     expect(await screen.findByText(/couldn't keep that you set it aside/)).toBeTruthy();
   });
