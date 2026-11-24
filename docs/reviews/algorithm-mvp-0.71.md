@@ -87,19 +87,23 @@ Use consistent SQLite backup-API copies. The following inspection is for the orc
 ```sh
 sqlite3 -readonly -header "$COPY_DB" <<'SQL'
 PRAGMA query_only = ON;
-WITH windows AS (
-  SELECT p.created_at AS starts, p.id AS start_id, o.created_at AS ends, o.id AS end_id,
-         c.learning_object_id AS lo
+WITH ordered AS (
+  SELECT a.id, a.primed, a.created_at, a.learning_object_id,
+         coalesce(q.sequence, 9223372036854775807) AS seq
+  FROM practice_attempts a LEFT JOIN attempt_application_order q ON q.attempt_id = a.id
+), windows AS (
+  SELECT p.created_at AS starts, p.seq AS start_seq, p.id AS start_id,
+         o.created_at AS ends, o.seq AS end_seq, o.id AS end_id, c.learning_object_id AS lo
   FROM lesson_weight_trace t
   JOIN lesson_checks c ON c.id = t.lesson_check_id
-  JOIN practice_attempts p ON p.id = c.attempt_id
-  JOIN practice_attempts o ON o.id = t.resolving_attempt_id
+  JOIN ordered p ON p.id = c.attempt_id
+  JOIN ordered o ON o.id = t.resolving_attempt_id
   WHERE t.kind = 'weight_update'
 ), members AS (
   SELECT a.id, a.primed
-  FROM windows w JOIN practice_attempts a ON a.learning_object_id = w.lo
-    AND (a.created_at, a.id) >= (w.starts, w.start_id)
-    AND (a.created_at, a.id) <= (w.ends, w.end_id)
+  FROM windows w JOIN ordered a ON a.learning_object_id = w.lo
+    AND (a.created_at, a.seq, a.id) >= (w.starts, w.start_seq, w.start_id)
+    AND (a.created_at, a.seq, a.id) <= (w.ends, w.end_seq, w.end_id)
   UNION
   SELECT a.id, a.primed FROM lesson_weight_trace t
   JOIN practice_attempts a ON a.id = t.resolving_attempt_id WHERE t.kind = 'pool_update'

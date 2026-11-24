@@ -84,6 +84,7 @@ from learnloop.adf_numeric import (
     sigmoid,
 )
 from learnloop.algorithm_versions import LESSON_WEIGHT_CURVE_VERSIONS
+from learnloop.db.attempt_order import LEGACY_ORDER, AttemptOrder, attempt_order_for
 from learnloop.db.stores.grade_curves import current_curve
 from learnloop.db.stores.write_provenance import read_snapshot
 from learnloop.clock import parse_utc
@@ -420,22 +421,34 @@ def recorded_trajectory(connection: Any, vault: Any, mastery_config: Any, check:
                                 (str(check["attempt_id"]),)).fetchone()
     if anchor is None:
         return None
-    rows = connection.execute(
-        "SELECT a.id, a.practice_item_id, a.created_at, a.correctness, a.primed, a.attempt_type, s.posterior_delta_json, "
-        "d.payload_json FROM practice_attempts a "
-        "LEFT JOIN attempt_surprise s ON s.attempt_id = a.id "
-        "LEFT JOIN attempt_debug_payloads d ON d.attempt_id = a.id "
-        "WHERE a.learning_object_id = ? AND (a.created_at > ? OR (a.created_at = ? AND a.id >= ?)) "
-        "AND (a.created_at < ? OR (a.created_at = ? AND a.id < ?)) ORDER BY a.created_at, a.id",
-        (lo, anchor[0], anchor[0], str(check["attempt_id"]), str(outcome["created_at"]),
-         str(outcome["created_at"]), str(outcome["id"]))).fetchall()
+    frozen = vault.config.algorithms.algorithm_version in LESSON_WEIGHT_CURVE_VERSIONS
+    select = ("SELECT a.id, a.practice_item_id, a.created_at, a.correctness, a.primed, a.attempt_type, "
+              "s.posterior_delta_json, d.payload_json FROM practice_attempts a "
+              "LEFT JOIN attempt_surprise s ON s.attempt_id = a.id "
+              "LEFT JOIN attempt_debug_payloads d ON d.attempt_id = a.id ")
+    if frozen:
+        # The order mastery applied the LO's grades in (review L42-R6): within one second by application sequence.
+        order = attempt_order_for(vault.config)
+        before_check, check_params = order.before_sql((str(anchor[0]), str(check["attempt_id"])),
+                                                      created_at="a.created_at", attempt_id="a.id")
+        before_outcome, outcome_params = order.before_sql((str(outcome["created_at"]), str(outcome["id"])),
+                                                          created_at="a.created_at", attempt_id="a.id")
+        rows = connection.execute(
+            f"{select}WHERE a.learning_object_id = ? AND NOT {before_check} AND {before_outcome} "
+            f"ORDER BY {order.order_sql(created_at='a.created_at', attempt_id='a.id')}",
+            (lo, *check_params, *outcome_params)).fetchall()
+    else:
+        rows = connection.execute(
+            f"{select}WHERE a.learning_object_id = ? AND (a.created_at > ? OR (a.created_at = ? AND a.id >= ?)) "
+            "AND (a.created_at < ? OR (a.created_at = ? AND a.id < ?)) ORDER BY a.created_at, a.id",
+            (lo, anchor[0], anchor[0], str(check["attempt_id"]), str(outcome["created_at"]),
+             str(outcome["created_at"]), str(outcome["id"]))).fetchall()
     if not rows or str(rows[0][0]) != str(check["attempt_id"]):
         return None
     held = held_for_review_attempts(connection, [row[0] for row in rows])
     sensitivity = check["inputs"].get("sensitivity") or {}
     last = sensitivity.get("last_evidence_at")
     out: list[RecordedUpdate] = []
-    frozen = vault.config.algorithms.algorithm_version in LESSON_WEIGHT_CURVE_VERSIONS
     complete = True
     for attempt_id, item_id, at, correctness, primed, attempt_type, delta_json, debug_json in rows:
         curve = current_curve(connection, attempt_id) if frozen else None
@@ -744,12 +757,13 @@ def _forecasts(connection: Any) -> list[dict[str, Any]]:
 
 
 def qualifying_outcomes(connection: Any, learning_object_ids: Iterable[str], after: str | None,
-                        *, until: str | None = None) -> list[dict[str, Any]]:
+                        *, until: str | None = None, order: AttemptOrder = LEGACY_ORDER) -> list[dict[str, Any]]:
     """Graded attempts that can resolve a lesson check (§12.1), in order: on one of the LOs, after
     ``after``, of a cold type (:data:`COLD_ATTEMPT_TYPES`), unprimed, with no hint, the item's first
     attempt, with no reveal row on the item before it, and not a lesson probe answered after its lesson showed
     text on the topic (teacher TE2, Codex review F2: that answer is not independent, so it resolves nothing; only
-    TE2 writes the exposed source, so nothing recorded before it reads differently)."""
+    TE2 writes the exposed source, so nothing recorded before it reads differently). ``order``: the ledger order an
+    item's first use and the result follow (the fit at mvp-0.71 passes the vault's, review L42-R6)."""
 
     from learnloop.causal_activity_policy import LESSON_PROBE_EXPOSED_SOURCE
 
@@ -764,18 +778,23 @@ def qualifying_outcomes(connection: Any, learning_object_ids: Iterable[str], aft
         bound = " AND a.created_at <= ?"
         params.append(until)
     params.append(LESSON_PROBE_EXPOSED_SOURCE)
+    earlier = "(b.created_at < a.created_at OR (b.created_at = a.created_at AND b.id < a.id))"
+    if order.by_sequence:
+        first, second = order.sequence_sql("b.id"), order.sequence_sql("a.id")
+        earlier = (f"(b.created_at < a.created_at OR (b.created_at = a.created_at AND ({first} < {second} "
+                   f"OR ({first} = {second} AND b.id < a.id))))")
     rows = connection.execute(
         f"SELECT a.id, a.learning_object_id, a.practice_item_id, a.correctness, a.created_at, a.attempt_type "
         f"FROM practice_attempts a "
         f"WHERE a.learning_object_id IN ({marks}) AND a.created_at > ? AND a.attempt_type IN ({types}) "
         f"AND a.primed = 0 AND a.hints_used = 0 AND a.correctness IS NOT NULL{bound} "
-        "AND NOT EXISTS (SELECT 1 FROM practice_attempts b WHERE b.practice_item_id = a.practice_item_id "
-        "  AND (b.created_at < a.created_at OR (b.created_at = a.created_at AND b.id < a.id))) "
+        f"AND NOT EXISTS (SELECT 1 FROM practice_attempts b WHERE b.practice_item_id = a.practice_item_id "
+        f"  AND {earlier}) "
         "AND NOT EXISTS (SELECT 1 FROM reveal_events r WHERE r.practice_item_id = a.practice_item_id "
         "  AND r.created_at < a.created_at) "
         "AND NOT EXISTS (SELECT 1 FROM causal_activity_classification_events c WHERE c.attempt_id = a.id "
         "  AND c.source = ?) "
-        "ORDER BY a.created_at, a.id", params).fetchall()
+        f"ORDER BY {order.order_sql(created_at='a.created_at', attempt_id='a.id')}", params).fetchall()
     # A grade held for review is the grader's provisional score: no outcome anywhere (held_grades, the
     # canonical predicate; review F2). Released, it qualifies again on the next replay.
     held = held_for_review_attempts(connection, [row[0] for row in rows]) if rows else frozenset()
@@ -783,13 +802,14 @@ def qualifying_outcomes(connection: Any, learning_object_ids: Iterable[str], aft
              "created_at": row[4], "attempt_type": row[5]} for row in rows if str(row[0]) not in held]
 
 
-def _calibration_attempts(connection: Any, hedges: Mapping[str, str], until: str | None) -> list[dict[str, Any]]:
+def _calibration_attempts(connection: Any, hedges: Mapping[str, str], until: str | None,
+                          order: AttemptOrder = LEGACY_ORDER) -> list[dict[str, Any]]:
     bound, params = "", []
     if until is not None:
         bound, params = " AND created_at < ?", [until]
     rows = connection.execute(
         "SELECT id, answer_confidence, correctness, created_at FROM practice_attempts "
-        f"WHERE correctness IS NOT NULL{bound} ORDER BY created_at, id", params).fetchall()
+        f"WHERE correctness IS NOT NULL{bound} ORDER BY {order.order_sql()}", params).fetchall()
     held = held_for_review_attempts(connection, [row[0] for row in rows]) if rows else frozenset()
     out = []
     for attempt_id, tap, correctness, created in rows:
@@ -848,10 +868,12 @@ def _replay_in_snapshot(state: WeightState, vault: Any, connection: Any, mastery
     checks = [c for c in _checks(connection) if as_of is None or str(c["created_at"]) < as_of]
     forecasts = [f for f in _forecasts(connection) if as_of is None or str(f["created_at"]) < as_of]
     hedges = read_hedges(connection)
-    calibration = _calibration_attempts(connection, hedges, as_of)
+    # At mvp-0.71 the ledger folds in the order mastery applied it (review L42-R6); below, as the predecessor did.
+    order = attempt_order_for(vault.config) if frozen else LEGACY_ORDER
+    calibration = _calibration_attempts(connection, hedges, as_of, order)
     los = {str(c["learning_object_id"]) for c in checks} | {f["learning_object_id"] for f in forecasts}
     first = min([str(c["created_at"]) for c in checks] + [str(f["created_at"]) for f in forecasts], default=None)
-    outcomes = qualifying_outcomes(connection, los, first)
+    outcomes = qualifying_outcomes(connection, los, first, order=order)
     if as_of is not None:
         outcomes = [o for o in outcomes if str(o["created_at"]) < as_of]
     # Events in time order. A check (and a forecast) sees only what happened strictly before its
@@ -862,10 +884,13 @@ def _replay_in_snapshot(state: WeightState, vault: Any, connection: Any, mastery
         events.append((str(check["created_at"]), 0, str(check["id"]), "check", check))
     for forecast in forecasts:
         events.append((str(forecast["created_at"]), 1, str(forecast["key"]), "forecast", forecast))
-    for attempt in calibration:
-        events.append((str(attempt["created_at"]), 2, str(attempt["id"]), "calibrate", attempt))
-    for outcome in outcomes:
-        events.append((str(outcome["created_at"]), 3, str(outcome["id"]), "outcome", outcome))
+    # Attempts within one instant keep the ledger's order (their rank in it); below the tag, their ids.
+    for rank, attempt in enumerate(calibration):
+        events.append((str(attempt["created_at"]), 2, f"{rank:012d}" if frozen else str(attempt["id"]), "calibrate",
+                       attempt))
+    for rank, outcome in enumerate(outcomes):
+        events.append((str(outcome["created_at"]), 3, f"{rank:012d}" if frozen else str(outcome["id"]), "outcome",
+                       outcome))
     events.sort(key=lambda event: (event[0], event[1], event[2]))
     if through is not None:
         events = [event for event in events if event[0] <= through]
