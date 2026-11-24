@@ -579,3 +579,13 @@ the sidecar does, instead of echoing the source id.
 **What this relies on from the checks worker** (screens/desks/checks/ and `intent/inline_*.py`, not edited here): the
 server returns a verdict per span with an unknown span held, and the hold's `passageJudged(window, extraction, span)`
 honours exactly the triple sent. This branch guarantees the pair it sends is the rendered one.
+
+**Proof on the tip** (merged with `origin/main` at `88c0a42823`: the inline-check server's per-span verdicts, an
+unplaced passage held, and the desks' hold from "check now"): typecheck clean; the whole vitest suite 429 files,
+4,564 tests passed; `cargo check` clean; every desk-harness run on a fresh `vite build`: 239 passed, 0 failed; Python:
+the import-affected set against main (34 files) plus `test_desk_state_damaged_rows.py`, identity pins, structure
+ratchets, architecture, test layout, desktop RPC contract, mobile allowlist, workbench nouns: 1,446 passed; ruff clean;
+lint-imports 55 kept, 0 broken. References regenerated after the last code commit; the four validators pass
+(`desktop_validate`'s counts raised by `readingReports.ts`: 437 TypeScript files, entry-reachable 410, ACTIVE 443).
+**Not verified here:** the visual-reference comparison (the private reference set; the orchestrator's), a PDF page's
+card for a page-only passage in a real webview (M14), and the fixes without a test (m22, m24).
