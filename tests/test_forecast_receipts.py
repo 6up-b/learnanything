@@ -350,7 +350,9 @@ def test_a_scheduled_cold_check_records_its_repair_forecast_and_resolves_on_its_
 
     def spy(spy_vault, spy_repository, **kwargs):
         written = real(spy_vault, spy_repository, **kwargs)
-        query = "SELECT (SELECT COUNT(*) FROM followup_tasks), (SELECT COUNT(*) FROM forecast_receipts)"
+        # The repair's receipts (the grade's own forecast of the answer is AD's kind, written in the same transaction).
+        query = ("SELECT (SELECT COUNT(*) FROM followup_tasks), (SELECT COUNT(*) FROM forecast_receipts"
+                 " WHERE kind != 'item_unassisted_success_at_grade')")
         with spy_repository.connection() as inside:
             observed["inside"] = tuple(inside.execute(query).fetchone())
         with closing(connect(root / "state.sqlite", read_only=True)) as outside:

@@ -367,7 +367,7 @@
    null
   ],
   [
-   "<id210>",
+   "<id222>",
    "<id3>",
    "setup",
    0.0,
@@ -388,7 +388,7 @@
    null
   ],
   [
-   "<id211>",
+   "<id223>",
    "<id3>",
    "result",
    0.0,
@@ -409,7 +409,7 @@
    null
   ],
   [
-   "<id212>",
+   "<id224>",
    "<id4>",
    "setup",
    0.0,
@@ -420,7 +420,7 @@
    3,
    "<at11>",
    "<at15>",
-   "<id213>",
+   "<id225>",
    null,
    "<id78>",
    0,
@@ -430,7 +430,7 @@
    null
   ],
   [
-   "<id214>",
+   "<id226>",
    "<id4>",
    "result",
    0.0,
@@ -441,7 +441,7 @@
    3,
    "<at11>",
    "<at15>",
-   "<id213>",
+   "<id225>",
    null,
    "<id78>",
    0,
@@ -451,7 +451,7 @@
    null
   ],
   [
-   "<id215>",
+   "<id227>",
    "<id1>",
    "correctness",
    4.0,
@@ -598,7 +598,7 @@
    null
   ],
   [
-   "<id213>",
+   "<id225>",
    "<id4>",
    "setup",
    0.0,
@@ -619,7 +619,7 @@
    null
   ],
   [
-   "<id216>",
+   "<id228>",
    "<id4>",
    "result",
    0.0,
@@ -642,7 +642,7 @@
  ],
  "judgment_ledger": [
   [
-   "<id217>",
+   "<id229>",
    "<at11>",
    null,
    "stuck_reading",
@@ -659,9 +659,9 @@
    "stuck answer describes confusion: 'where Sigma comes from'"
   ],
   [
-   "<id218>",
+   "<id230>",
    "<at15>",
-   "<id217>",
+   "<id229>",
    "stuck_reading",
    "attempt",
    "<id4>",
@@ -890,7 +890,7 @@
  ],
  "raw_grade_events": [
   [
-   "<id161>",
+   "<id173>",
    "<id10>",
    "<id55>",
    "<id2>",
@@ -900,7 +900,7 @@
    null,
    "grading_prompt_v1",
    "grading_proposal_v1",
-   "<hex120>",
+   "<hex168>",
    "<id70>",
    "{\"grader_confidence\":0.8,\"grading_source\":\"ai\",\"max_points\":4,\"rubric_score\":0}",
    null,
@@ -910,14 +910,14 @@
    "{\"result\":\"none\",\"setup\":\"none\"}",
    "grade_classifier_response_v1",
    "grade_classifier_criterion_v1",
-   "{\"domain\":\"lo_svd_compute\",\"grader_identity_hash\":\"<hex120>\",\"length_bucket\":\"1-50\",\"outcome_schema_id\":\"<id207>\",\"outcome_schema_version\":1,\"purpose\":\"practice\"}",
+   "{\"domain\":\"lo_svd_compute\",\"grader_identity_hash\":\"<hex168>\",\"length_bucket\":\"1-50\",\"outcome_schema_id\":\"<id219>\",\"outcome_schema_version\":1,\"purpose\":\"practice\"}",
    6,
    "1-50",
    null,
    "<at9>"
   ],
   [
-   "<id162>",
+   "<id174>",
    "<id14>",
    "<id57>",
    "<id3>",
@@ -927,7 +927,7 @@
    null,
    "grading_prompt_v1",
    "grading_proposal_v1",
-   "<hex120>",
+   "<hex168>",
    "<id71>",
    "{\"grader_confidence\":0.8,\"grading_source\":\"ai\",\"max_points\":4,\"rubric_score\":0}",
    null,
@@ -937,14 +937,14 @@
    "{\"result\":\"none\",\"setup\":\"none\"}",
    "grade_classifier_response_v1",
    "grade_classifier_criterion_v1",
-   "{\"domain\":\"lo_svd_compute\",\"grader_identity_hash\":\"<hex120>\",\"length_bucket\":\"1-50\",\"outcome_schema_id\":\"<id207>\",\"outcome_schema_version\":1,\"purpose\":\"practice\"}",
+   "{\"domain\":\"lo_svd_compute\",\"grader_identity_hash\":\"<hex168>\",\"length_bucket\":\"1-50\",\"outcome_schema_id\":\"<id219>\",\"outcome_schema_version\":1,\"purpose\":\"practice\"}",
    6,
    "1-50",
    null,
    "<at10>"
   ],
   [
-   "<id163>",
+   "<id175>",
    "<id10>",
    "<id59>",
    "<id4>",
@@ -954,7 +954,7 @@
    null,
    "grading_prompt_v1",
    "grading_proposal_v1",
-   "<hex120>",
+   "<hex168>",
    "<id72>",
    "{\"grader_confidence\":0.8,\"grading_source\":\"ai\",\"max_points\":4,\"rubric_score\":0}",
    null,
@@ -964,14 +964,14 @@
    "{\"result\":\"none\",\"setup\":\"none\"}",
    "grade_classifier_response_v1",
    "grade_classifier_criterion_v1",
-   "{\"domain\":\"lo_svd_compute\",\"grader_identity_hash\":\"<hex120>\",\"length_bucket\":\"1-50\",\"outcome_schema_id\":\"<id207>\",\"outcome_schema_version\":1,\"purpose\":\"practice\"}",
+   "{\"domain\":\"lo_svd_compute\",\"grader_identity_hash\":\"<hex168>\",\"length_bucket\":\"1-50\",\"outcome_schema_id\":\"<id219>\",\"outcome_schema_version\":1,\"purpose\":\"practice\"}",
    7,
    "1-50",
    null,
    "<at11>"
   ],
   [
-   "<id164>",
+   "<id176>",
    "<id6>",
    "<id61>",
    "<id1>",
@@ -981,7 +981,7 @@
    null,
    "grading_prompt_v1",
    "grading_proposal_v1",
-   "<hex120>",
+   "<hex168>",
    "<id73>",
    "{\"grader_confidence\":0.9,\"grading_source\":\"ai\",\"max_points\":4,\"rubric_score\":4}",
    null,
@@ -991,14 +991,14 @@
    "{\"correctness\":\"full\"}",
    "grade_classifier_response_v1",
    "grade_classifier_criterion_v1",
-   "{\"domain\":\"lo_transpose\",\"grader_identity_hash\":\"<hex120>\",\"length_bucket\":\"1-50\",\"outcome_schema_id\":\"<id207>\",\"outcome_schema_version\":1,\"purpose\":\"practice\"}",
+   "{\"domain\":\"lo_transpose\",\"grader_identity_hash\":\"<hex168>\",\"length_bucket\":\"1-50\",\"outcome_schema_id\":\"<id219>\",\"outcome_schema_version\":1,\"purpose\":\"practice\"}",
    1,
    "1-50",
    null,
    "<at4>"
   ],
   [
-   "<id166>",
+   "<id178>",
    "<id14>",
    "<id63>",
    "<id5>",
@@ -1008,7 +1008,7 @@
    null,
    "grading_prompt_v1",
    "grading_proposal_v1",
-   "<hex121>",
+   "<hex169>",
    null,
    "{\"grader_confidence\":0.6,\"grading_source\":\"self\",\"max_points\":4,\"rubric_score\":1}",
    null,
@@ -1018,14 +1018,14 @@
    "{\"result\":\"none\",\"setup\":\"partial\"}",
    "grade_classifier_response_v1",
    "grade_classifier_criterion_v1",
-   "{\"domain\":\"lo_svd_compute\",\"grader_identity_hash\":\"<hex121>\",\"length_bucket\":\"1-50\",\"outcome_schema_id\":\"<id207>\",\"outcome_schema_version\":1,\"purpose\":\"practice\"}",
+   "{\"domain\":\"lo_svd_compute\",\"grader_identity_hash\":\"<hex169>\",\"length_bucket\":\"1-50\",\"outcome_schema_id\":\"<id219>\",\"outcome_schema_version\":1,\"purpose\":\"practice\"}",
    5,
    "1-50",
    null,
    "<at12>"
   ],
   [
-   "<id167>",
+   "<id179>",
    "<id14>",
    "<id63>",
    "<id5>",
@@ -1035,7 +1035,7 @@
    null,
    "grading_prompt_v1",
    "grading_proposal_v1",
-   "<hex120>",
+   "<hex168>",
    null,
    "{\"grader_confidence\":0.9,\"grading_source\":\"ai\",\"max_points\":4,\"rubric_score\":4}",
    null,
@@ -1045,14 +1045,14 @@
    "{\"result\":\"full\",\"setup\":\"full\"}",
    "grade_classifier_response_v1",
    "grade_classifier_criterion_v1",
-   "{\"domain\":\"lo_svd_compute\",\"grader_identity_hash\":\"<hex120>\",\"length_bucket\":\"1-50\",\"outcome_schema_id\":\"<id207>\",\"outcome_schema_version\":1,\"purpose\":\"practice\"}",
+   "{\"domain\":\"lo_svd_compute\",\"grader_identity_hash\":\"<hex168>\",\"length_bucket\":\"1-50\",\"outcome_schema_id\":\"<id219>\",\"outcome_schema_version\":1,\"purpose\":\"practice\"}",
    5,
    "1-50",
    null,
    "<at12>"
   ],
   [
-   "<id168>",
+   "<id180>",
    "<id10>",
    "<id55>",
    "<id2>",
@@ -1062,7 +1062,7 @@
    null,
    "grading_prompt_v1",
    "grading_proposal_v1",
-   "<hex120>",
+   "<hex168>",
    null,
    "{\"grader_confidence\":0.9,\"grading_source\":\"ai\",\"max_points\":4,\"rubric_score\":4}",
    null,
@@ -1072,7 +1072,7 @@
    "{\"result\":\"full\",\"setup\":\"full\"}",
    "grade_classifier_response_v1",
    "grade_classifier_criterion_v1",
-   "{\"domain\":\"lo_svd_compute\",\"grader_identity_hash\":\"<hex120>\",\"length_bucket\":\"1-50\",\"outcome_schema_id\":\"<id207>\",\"outcome_schema_version\":1,\"purpose\":\"practice\"}",
+   "{\"domain\":\"lo_svd_compute\",\"grader_identity_hash\":\"<hex168>\",\"length_bucket\":\"1-50\",\"outcome_schema_id\":\"<id219>\",\"outcome_schema_version\":1,\"purpose\":\"practice\"}",
    6,
    "1-50",
    null,
@@ -1081,10 +1081,10 @@
  ],
  "text_write_provenance": [
   [
-   "<id287>",
+   "<id299>",
    "hypothesis",
    "<id92>",
-   "<hex124>",
+   "<hex172>",
    "causal_materialization",
    1,
    "[]",
@@ -1094,7 +1094,7 @@
    "<at9>"
   ],
   [
-   "<id288>",
+   "<id300>",
    "grading",
    "<id2>",
    null,
@@ -1107,10 +1107,10 @@
    "<at9>"
   ],
   [
-   "<id289>",
+   "<id301>",
    "hypothesis",
    "<id94>",
-   "<hex124>",
+   "<hex172>",
    "causal_materialization",
    1,
    "[]",
@@ -1120,7 +1120,7 @@
    "<at10>"
   ],
   [
-   "<id290>",
+   "<id302>",
    "grading",
    "<id3>",
    null,
@@ -1133,10 +1133,10 @@
    "<at10>"
   ],
   [
-   "<id291>",
+   "<id303>",
    "hypothesis",
    "<id96>",
-   "<hex124>",
+   "<hex172>",
    "causal_materialization",
    1,
    "[]",
@@ -1146,7 +1146,7 @@
    "<at11>"
   ],
   [
-   "<id292>",
+   "<id304>",
    "grading",
    "<id4>",
    null,
@@ -1159,7 +1159,7 @@
    "<at11>"
   ],
   [
-   "<id293>",
+   "<id305>",
    "grading",
    "<id1>",
    null,
@@ -1172,10 +1172,10 @@
    "<at4>"
   ],
   [
-   "<id294>",
+   "<id306>",
    "hypothesis",
    "<id98>",
-   "<hex124>",
+   "<hex172>",
    "causal_materialization",
    1,
    "[]",
@@ -1185,10 +1185,10 @@
    "<at9>"
   ],
   [
-   "<id295>",
+   "<id307>",
    "hypothesis",
    "<id99>",
-   "<hex124>",
+   "<hex172>",
    "causal_materialization",
    1,
    "[]",
@@ -1198,10 +1198,10 @@
    "<at10>"
   ],
   [
-   "<id296>",
+   "<id308>",
    "hypothesis",
    "<id100>",
-   "<hex124>",
+   "<hex172>",
    "causal_materialization",
    1,
    "[]",
@@ -1211,7 +1211,7 @@
    "<at11>"
   ],
   [
-   "<id297>",
+   "<id309>",
    "grading",
    "<id5>",
    null,
@@ -1224,7 +1224,7 @@
    "<at13>"
   ],
   [
-   "<id298>",
+   "<id310>",
    "grading",
    "<id2>",
    null,
@@ -1237,7 +1237,7 @@
    "<at14>"
   ],
   [
-   "<id299>",
+   "<id311>",
    "grading",
    "<id4>",
    null,
