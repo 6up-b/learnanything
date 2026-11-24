@@ -283,3 +283,87 @@ key), so step 2 keeps it at its window value (never collapsed) rather than delet
 - **The preparing view's content kind**: a book still being prepared opens on its original in the standalone screen
   (`PreparingView`, the shared branch above the window's own opening line); a desk has no content kind for an original
   yet, so a source window cannot name or restore that view.
+
+## Phase 2, step 2: the deletion (in progress on `reader/rd-retire-extraction`)
+
+**Done.** `origin/main` (the rebuild-history fixes, chapters feeding coverage) is merged. The goal lens keeps batch 5's
+learner wording, and main's accepted-chapter reason now speaks in the same voice: the reason reads "A chapter you
+accepted here is about …" and the coverage line reads "A chapter you accepted links this section to …". The two tests
+main added read those words. The nouns branch will meet the same conflict when it lands.
+
+**Stopped here, at a clean commit**, because this session's context ran low. The plan below is the order of the brief;
+each part is its own commit(s) with its proof.
+
+### A1. Saved panels' identities: what the code says, and two calls to make first
+
+Stored desks may hold these window kinds:
+- `{ kind: "panel", panel: "guide" | "path" | "library" | "notes", extractionId? }`: `desks/content_ref.py` `PanelRef`;
+  `api/dto.ts` around line 10705.
+- `{ kind: "compare", comparisonId | query }`: `CompareRef`, which requires exactly one of the two.
+
+`model/workspace.ts` keys each kind for dedupe (`panel:<panel>:<extraction>`, `compare:<id>:<query>`).
+
+The mapping is a pure function, `restoreContent(stored) → ContentRef | null`, in `screens/desks/model/`. Its test runs
+over every kind in `fixtures/desks` and every shape the persisted-layout schema has taken. A kind it does not know
+restores as a plain source window, never a crash or a lost window.
+
+| Stored | Restores as | Why |
+|---|---|---|
+| `panel: guide` | a source window on that `extractionId` (or the existing one) | the parity rows put the Guide's pieces (marks, checks, recap, path) in the window when no Guide panel is on screen |
+| `panel: notes` | the same | margin notes live in the window |
+| `panel: path` | the same, with the book's path open | `p` opens the path in the window |
+| `compare` | itself | it is already a workbench kind |
+| `panel: library` | **a call to make**, see (a) below | |
+
+The two calls:
+
+- **(a) The library panel.** Its workbench home is the Compare window: the library pane mounted with the Reader's
+  contexts. But `CompareRef` refuses a reference with neither a comparison nor a query, and a library panel has
+  neither. The options:
+  1. Let `CompareRef` hold an empty library view. This is a wire and stored-shape change: allowed, but the schema and
+     the RPC contract change with it.
+  2. Restore the library panel as a source window on its extraction when it has one, and otherwise drop it with a
+     toast naming it.
+  3. Keep `panel: library` as a kind until the library pane has a window of its own.
+- **(b) Guide and Notes panels are still the hosts of the rail's portal.** That includes the Ask tab, through
+  `railHost`, which stays until item 5. Mapping them away on restore removes the rail from a restored desk, while a
+  learner can still open those panels. The options:
+  1. Keep `panel: guide` and `panel: notes` as live kinds until item 5, and map only `path` and `library`.
+  2. Map all four now and rely on the in-window equivalents the parity rows proved.
+
+### A2 to C (unchanged from the brief and the step 1 record)
+
+- **A2.** A content kind for a source still being prepared:
+  - the `PreparingView` (its progress, failure and retry) moves into a window;
+  - this needs a new `ContentRef` variant in `content_ref.py` and `dto.ts`, and its own test.
+- **A3.** The surface switch retires:
+  - the switch retires through `config/retired.py`'s `RETIRED_FIELDS`;
+  - identity pins keep their bytes;
+  - an old config that sets the switch loads and is ignored, with a test;
+  - every route in App that opened the old Reader opens the right window on the right desk: Today, Library, search, a
+    goal, a lesson's source link, and a deep link.
+- **A4.** The standalone-only offers each get a findable home or a recorded drop:
+  - the list of books and its search (the desk's Library panel or search);
+  - the shelf;
+  - "← Library";
+  - "I want to" (the window's source bar already has it);
+  - the re-read note;
+  - the key bar's wrap up (the window's `w`);
+  - the offline demo (a drop candidate: the desks need a vault);
+  - the reader-off view.
+
+  If any has neither a home nor a recorded drop, stop before deletion.
+- **B. Port the tests to the window's own controls.**
+  - Port the 28 cases in `scripts/rd_retire/standalone_only_cases.json`.
+  - Port the 64 standalone-mount test files: `grep -rl "import { ReaderScreen }"` outside `ReaderScreen.*.test.tsx`.
+  - Retire a file only when it tests the old frame alone; name each retired file and say why.
+  - Check coverage by mapping each retired case to the case that now covers its shared behaviour.
+- **C. Delete.**
+  - Order 3 of the step 1 list: App's lazy `ReaderScreen` and its mounts, the surface switch, `DeskShell`'s `onLeave`,
+    then `ReaderScreen.tsx`.
+  - Then order 4: the `standalone` prop and its four calls; the standalone-only state and the screen-only props, with
+    `railCollapsed` pinned at its window value; `StandaloneShell` and its contexts; `readerKeys.ts`; `searchBasis.ts`;
+    the original `ReaderScreen.*.test.tsx` files.
+  - `railHost` and `RailScope` stay.
+  - If the nouns branch's new tip (batch 5's per-verb withheld-verbs fix) arrives first, merge it before the deletion
+    commits.
