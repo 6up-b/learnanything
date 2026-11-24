@@ -20,7 +20,7 @@ OBJECTS = frozenset(TABLES) | {
     "check_veil_sets_no_update", "check_veil_sets_no_delete", "check_veil_sets_no_replace",
     "video_chapters_no_replace_decided",
 }
-#: The fix round's migration (272) adds one object on these tables: the administrations' replacing-insert guard. An
+#: The fix round's migration (271) adds one object on these tables: the administrations' replacing-insert guard. An
 #: earlier migration's upgrade diff runs both, so it subtracts both.
 FIX_OBJECTS = frozenset({"check_administrations_no_replace"})
 #: The TEXT primary keys' and UNIQUE columns' autoindexes, and the fix round's object.
@@ -32,8 +32,8 @@ RD7A_ADDED_OBJECTS = OBJECTS | FIX_OBJECTS | {
 
 
 def undo_270(connection: sqlite3.Connection) -> None:
-    """Take a head copy back to before 270 and its fix round (272): their tables and the video chapters' guard
-    dropped, and 272's ``schema_migrations`` row removed (it altered 270's tables, so it is applied again after 270).
+    """Take a head copy back to before 270 and its fix round (271): their tables and the video chapters' guard
+    dropped, and 271's ``schema_migrations`` row removed (it altered 270's tables, so it is applied again after 270).
     The caller removes 270's row with its own."""
 
     connection.execute("DELETE FROM schema_migrations WHERE version = ?", (FIX_VERSION,))

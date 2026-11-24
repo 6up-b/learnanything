@@ -1,8 +1,7 @@
-"""Migration 272 (RD7's fix round, the adversarial review of 2026-11-24): five columns on ``check_administrations``
+"""Migration 271 (RD7's fix round, the adversarial review of 2026-11-24): five columns on ``check_administrations``
 that an administration writes while it is open (what begin froze, what the close promised), and guards so no RD7 row
 can be replaced: a replacing insert meeting any unique key, the one-open index or an explicit rowid is refused (or, for
-a decided video chapter, skipped). The number is the file name alone (``MIGRATION``); 271 is reserved for another
-stage, so only the number changes if this one is renumbered."""
+a decided video chapter, skipped). The number is the file name alone (``MIGRATION``)."""
 
 from __future__ import annotations
 
@@ -30,7 +29,7 @@ def _copy(tmp_path: Path) -> Path:
     return database
 
 
-def _undo_272(connection: sqlite3.Connection) -> None:
+def _undo_271(connection: sqlite3.Connection) -> None:
     """The head as 270 left it: the new columns and guard gone, the two guards as 270 wrote them."""
 
     connection.execute("DROP TRIGGER check_administrations_no_replace")
@@ -59,7 +58,7 @@ def _admin(token: str, *, state: str = "open", rowid: int | None = None, submiss
 def test_it_adds_its_columns_and_guard_redefines_two_guards_and_keeps_every_row(tmp_path):
     database = _copy(tmp_path)
     with closing(sqlite3.connect(database)) as connection:
-        _undo_272(connection)
+        _undo_271(connection)
         connection.execute(_admin("ad_kept", state="abandoned").replace("INSERT OR REPLACE", "INSERT"))
         connection.commit()
         before = {row[0]: row[1] for row in connection.execute("SELECT name, sql FROM sqlite_master")}

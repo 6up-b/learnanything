@@ -218,10 +218,9 @@ nothing about checks due there today.
 ## Fix round (the RD7 adversarial review, 2026-11-24): the backend half
 
 Branch `reader/rd7-fix-backend`; findings, tests and the server contract in `reader-rd7a.md` §8, ledger RD7-3 to
-RD7-23. Migration 272 (271 is reserved for L4-2, which has not landed: 272 is built on 270 and only its number changes
-if the orchestrator renumbers or reorders at landing). It adds five columns to `check_administrations` (the frozen
+RD7-23. Migration 271, on 270 (this round lands before L4-2, which moves to 272). It adds five columns to `check_administrations` (the frozen
 candidates with their keys, the frozen cold presentation, `pending_before`, the saved outcome, the recorded exposure
-ids) and the replacing-insert and rowid guards. The head fixture is upgraded to 272 in its own commit.
+ids) and the replacing-insert and rowid guards. The head fixture is upgraded from 270 to 271 in its own commit.
 
 **What changes in meaning, all under `mvp-0.69`:**
 
@@ -258,5 +257,4 @@ still an ordinary attempt or reveal row the projection reads. A replay writes no
 on main before this round, and a vault records an administration in between, this ruling no longer holds and a
 successor is needed; the orchestrator lands them together.
 
-**Checks.** `tests/test_migrations.py::test_the_migration_files_are_contiguous_from_the_oldest_to_the_head` fails
-on this branch alone (271 missing) and passes once L4-2 lands or 272 is renumbered. The identity pins did not move.
+**Checks.** The migration files are contiguous to the head 271. The identity pins did not move.
