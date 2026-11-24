@@ -107,13 +107,13 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 ## Tests that define behavior
 
 - [apps/learnloop-tauri/src/screens/desks/video/video.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/desks/video/video.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/desks/video/protection.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/desks/video/protection.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/desks/search/SearchPanel.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/desks/search/SearchPanel.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/desks/pen/inkPad.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/desks/pen/inkPad.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/desks/pen/inkCache.test.ts](../../../../../../apps/learnloop-tauri/src/screens/desks/pen/inkCache.test.ts) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/desks/pen/PenLayer.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/desks/pen/PenLayer.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/desks/menu/ExerciseSheet.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/desks/menu/ExerciseSheet.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/desks/menu/ContextMenu.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/desks/menu/ContextMenu.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
-- [apps/learnloop-tauri/src/screens/desks/companion/asks.test.ts](../../../../../../apps/learnloop-tauri/src/screens/desks/companion/asks.test.ts) — vitest test: imports and executes this module under jsdom (`npm test`).
-- [apps/learnloop-tauri/src/screens/desks/DeskShell.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/desks/DeskShell.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 
 ## Modification guidance
 

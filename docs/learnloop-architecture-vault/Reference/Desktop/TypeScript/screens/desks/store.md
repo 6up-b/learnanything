@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/store.ts](../../../../../../../apps/learnloop-tauri/src/screens/desks/store.ts) |
-| Source lines | 436 |
+| Source lines | 453 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/_area|TypeScript/screens/desks]] |
 | Refactor status | `ACTIVE` |
@@ -58,7 +58,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export type DeskNotice = |` — type, line 25
 - `export const FLUSH_IDLE_MS = 250` — const, line 34
 - `export class DeskStore` — class, line 61
-- `export function deskStoreFor(vaultKey: string, transport: DeskStoreTransport, timers: Timers, clientId: ()` — function, line 424
+- `export function deskStoreFor(vaultKey: string, transport: DeskStoreTransport, timers: Timers, clientId: ()` — function, line 441
 
 ## Internal implementation anchors
 
@@ -71,41 +71,42 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `function errorText(error: unknown): string` — function, line 55
 - `const known = this.padReads.get(padId)` — const, line 111
 - `const read = this.transport.padGet(` — const, line 114
-- `const state = this.pads[padId]` — const, line 141
-- `const blocks = state.blocks.map((block)` — const, line 143
-- `let pads = this.pads` — let, line 155
-- `const view = await this.transport.padGet(` — const, line 176
-- `const run = this.flushChain.then(()` — const, line 264
-- `const kind = await this.flushReporting()` — const, line 280
-- `const outcome = await this.outbox.flush()` — const, line 289
-- `const redirects = keptBothRedirects(outcome.batch, outcome.reply.results)` — const, line 294
-- `const kept = redirects.size` — const, line 295
-- `const dropped = outcome.reply.results.filter((result)` — const, line 296
-- `const redirects = keptBothRedirects(outcome.batch, outcome.reply.results)` — const, line 301
-- `const kept = redirects.size` — const, line 303
-- `let state: DeskStateDto` — let, line 324
-- `const snapshot = this.outbox.queued()` — const, line 332
-- `const taken = new Set(snapshot.map((batch)` — const, line 333
-- `const queued: BatchBody[] = [...(first ? [first] : []), ...snapshot]` — const, line 334
-- `const head = state.serverSeq.find((entry)` — const, line 335
-- `let ws: Workspace =` — let, line 336
-- `const still = entries.filter((entry)` — const, line 338
-- `let pads: Pads =` — let, line 342
-- `const padIds = [...new Set([...Object.keys(this.pads), ...queued.flatMap((batch)` — const, line 343
-- `const read = async (ids: string[])` — const, line 344
-- `const reads = await Promise.all(ids.map((padId)` — const, line 345
-- `const tail = this.outbox.queued().filter((batch)` — const, line 354
-- `const unread = [...new Set(tail.flatMap((batch)` — const, line 358
-- `const now = new Date().toISOString()` — const, line 363
-- `let lost = 0` — let, line 364
-- `const rebased: BatchBody[] = []` — const, line 365
-- `const padOps: PadOpDto[] = []` — const, line 377
-- `const next = restampPadOp(pads, batch.pad.padId, op, now, redirects)` — const, line 380
-- `const ops: DeskOpDto[] = []` — const, line 391
-- `const next = restampOp(ws, op)` — const, line 394
-- `const STORES = new WeakMap<object, Map<string, DeskStore>>()` — const, line 421
-- `let byVault = STORES.get(transport)` — let, line 425
-- `let store = byVault.get(vaultKey)` — let, line 430
+- `const state = this.pads[padId]` — const, line 145
+- `const blocks = state.blocks.map((block)` — const, line 147
+- `let pads = this.pads` — let, line 160
+- `const before = this.padChanges.get(padId) ?? 0` — const, line 183
+- `const view = await this.transport.padGet(` — const, line 185
+- `const run = this.flushChain.then(()` — const, line 280
+- `const kind = await this.flushReporting()` — const, line 296
+- `const outcome = await this.outbox.flush()` — const, line 305
+- `const redirects = keptBothRedirects(outcome.batch, outcome.reply.results)` — const, line 310
+- `const kept = redirects.size` — const, line 311
+- `const dropped = outcome.reply.results.filter((result)` — const, line 312
+- `const redirects = keptBothRedirects(outcome.batch, outcome.reply.results)` — const, line 317
+- `const kept = redirects.size` — const, line 319
+- `let state: DeskStateDto` — let, line 340
+- `const snapshot = this.outbox.queued()` — const, line 348
+- `const taken = new Set(snapshot.map((batch)` — const, line 349
+- `const queued: BatchBody[] = [...(first ? [first] : []), ...snapshot]` — const, line 350
+- `const head = state.serverSeq.find((entry)` — const, line 351
+- `let ws: Workspace =` — let, line 352
+- `const still = entries.filter((entry)` — const, line 354
+- `let pads: Pads =` — let, line 358
+- `const padIds = [...new Set([...Object.keys(this.pads), ...queued.flatMap((batch)` — const, line 359
+- `const read = async (ids: string[])` — const, line 360
+- `const reads = await Promise.all(ids.map((padId)` — const, line 361
+- `const tail = this.outbox.queued().filter((batch)` — const, line 370
+- `const unread = [...new Set(tail.flatMap((batch)` — const, line 374
+- `const now = new Date().toISOString()` — const, line 379
+- `let lost = 0` — let, line 380
+- `const rebased: BatchBody[] = []` — const, line 381
+- `const padOps: PadOpDto[] = []` — const, line 393
+- `const next = restampPadOp(pads, batch.pad.padId, op, now, redirects)` — const, line 396
+- `const ops: DeskOpDto[] = []` — const, line 407
+- `const next = restampOp(ws, op)` — const, line 410
+- `const STORES = new WeakMap<object, Map<string, DeskStore>>()` — const, line 438
+- `let byVault = STORES.get(transport)` — let, line 442
+- `let store = byVault.get(vaultKey)` — let, line 447
 
 ## Who imports or calls it
 

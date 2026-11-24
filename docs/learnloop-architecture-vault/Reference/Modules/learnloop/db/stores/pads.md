@@ -114,6 +114,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_reader_rd9a_fix.py](../../../../../../../tests/test_reader_rd9a_fix.py) — direct import
+  - `test_a_lesson_has_one_additions_pad_and_older_duplicates_are_all_named`
 - [tests/test_reader_rd9a_lesson_windows.py](../../../../../../../tests/test_reader_rd9a_lesson_windows.py) — direct import
   - `test_lesson_list_names_each_lesson_with_its_additions_pad`
 

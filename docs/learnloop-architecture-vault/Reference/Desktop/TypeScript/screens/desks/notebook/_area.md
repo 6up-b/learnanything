@@ -39,7 +39,7 @@ No nested ownership area.
 | [[Reference/Desktop/TypeScript/screens/desks/notebook/PadCell|PadCell.tsx]] | `ACTIVE` | Implements the `PadCell` routed desktop screen and coordinates its learner-facing workflow state. | 5 | 1 |
 | [[Reference/Desktop/TypeScript/screens/desks/notebook/bridge|bridge.ts]] | `ACTIVE` | Provides `BridgeKind`, `BridgeRect`, `BridgeMessage`, `BRIDGE_TEXT_MAX` and related exports within the desktop's TypeScript/screens/desks/notebook ownership area. | 0 | 4 |
 | [[Reference/Desktop/TypeScript/screens/desks/notebook/menuBridge|menuBridge.ts]] | `ACTIVE` | Provides `MARIMO_CELL_INSERT`, `MARIMO_CELL_ROW`, `NotebookMenuRequest`, `notebookMenuRequest` and related exports within the desktop's TypeScript/screens/desks/notebook ownership area. | 2 | 3 |
-| [[Reference/Desktop/TypeScript/screens/desks/notebook/padNotebooks|padNotebooks.ts]] | `ACTIVE` | Provides `PadNotebook`, `padNotebook`, `subscribePadNotebooks`, `cellShape` and related exports within the desktop's TypeScript/screens/desks/notebook ownership area. | 1 | 1 |
+| [[Reference/Desktop/TypeScript/screens/desks/notebook/padNotebooks|padNotebooks.ts]] | `ACTIVE` | Provides `PadNotebook`, `padNotebookKey`, `padNotebook`, `subscribePadNotebooks` and related exports within the desktop's TypeScript/screens/desks/notebook ownership area. | 1 | 1 |
 
 ## Modification guidance
 

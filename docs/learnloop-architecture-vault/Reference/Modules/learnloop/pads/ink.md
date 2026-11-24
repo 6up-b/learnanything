@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/pads/ink.py](../../../../../../src/learnloop/pads/ink.py) |
-| Source lines | 341 |
+| Source lines | 389 |
 | Owning package | [[Reference/Modules/learnloop/pads/_package|learnloop.pads]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -72,11 +72,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `strokes_hash(strokes: list[dict[str, Any]]) -> str` ([source](../../../../../../src/learnloop/pads/ink.py), line 143) — The hash of standing strokes (ids and points, in order): a reading of them is keyed by it.
 - `save_ink(repository: Any, *, client_id: str, seq: int, owner: InkOwner, ink_id: str, strokes: list[InkStroke], pointer_meta: PointerMeta, clock: Any=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/pads/ink.py), line 181) — ``ink.save``: one batch holding one save, applied once and in order: ``{applied_seq, ink_id, results}``.
 - `erase_in_batch(connection: Any, *, pad_id: str, block_id: str, erase_id: str | None, stroke_ids: list[str], client_id: str, now: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/pads/ink.py), line 218) — The ``erase_ink`` pad op, inside the pad batch's transaction: a tombstone over standing strokes of one ink block of this pad.
-- `erase_ink(repository: Any, *, client_id: str, seq: int, owner: InkOwner, erase_id: str, stroke_ids: list[str], clock: Any=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/pads/ink.py), line 259) — ``ink.erase``: one batch erasing strokes of an annotation's or a reading's ink (a block's ink is erased by ``pad.apply``'s ``erase_ink``, in its pad's batch).
-- `owner_of(connection: Any, ink_id: str) -> InkOwner` ([source](../../../../../../src/learnloop/pads/ink.py), line 287)
-- `owner_view(connection: Any, owner_kind: str, owner_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/pads/ink.py), line 294) — One owner's standing strokes, their hash and its reading (``current`` when it read exactly these strokes).
-- `ink_for_pad(repository: Any, pad_id: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/pads/ink.py), line 310) — The ink of a pad's standing ink blocks, in the pad's block order.
-- `ink_for_source(repository: Any, source_id: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/pads/ink.py), line 322) — The ink of a source's listed annotations (a deleted annotation's ink is not listed), then the ink on its readings' pages (owner kind ``source``, one owner per reading, never read).
+- `copy_to_lifted(connection: Any, *, from_block_id: str, to_block_id: str, client_id: str, now: str) -> None` ([source](../../../../../../src/learnloop/pads/ink.py), line 243) — A lifted ink line's handwriting (``lift_out``, inside the pad batch): the standing strokes of the block it was lifted from, saved again for the lifted block (the same stroke ids and points, so the same hash), and the reading of exactly those strokes kept for it too, so nothing i…
+- `erase_ink(repository: Any, *, client_id: str, seq: int, owner: InkOwner, erase_id: str, stroke_ids: list[str], clock: Any=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/pads/ink.py), line 281) — ``ink.erase``: one batch erasing strokes of an annotation's or a reading's ink (a block's ink is erased by ``pad.apply``'s ``erase_ink``, in its pad's batch).
+- `owner_of(connection: Any, ink_id: str) -> InkOwner` ([source](../../../../../../src/learnloop/pads/ink.py), line 309)
+- `reading_decision(connection: Any, row: dict[str, Any]) -> tuple[str, str | None]` ([source](../../../../../../src/learnloop/pads/ink.py), line 316) — What a block's reading does to its block, now: ``applied`` (it is the head's words), ``write`` (it becomes them), or ``refused`` with why (the block removed, the learner's words standing, or strokes that changed since they were read: a reading finishing after a newer one never r…
+- `owner_view(connection: Any, owner_kind: str, owner_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/pads/ink.py), line 337) — One owner's standing strokes, their hash and its reading (``current`` when it read exactly these strokes).
+- `ink_for_pad(repository: Any, pad_id: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/pads/ink.py), line 358) — The ink of a pad's standing ink blocks, in the pad's block order.
+- `ink_for_source(repository: Any, source_id: str) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/pads/ink.py), line 370) — The ink of a source's listed annotations (a deleted annotation's ink is not listed), then the ink on its readings' pages (owner kind ``source``, one owner per reading, never read).
 
 ### Module constants
 
@@ -107,7 +109,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `ink_for_pad`
 - `ink_for_source`
 - `owner_of`
+- `copy_to_lifted`
 - `owner_view`
+- `reading_decision`
 - `save_ink`
 - `standing`
 - `strokes_hash`
@@ -117,22 +121,22 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_strokes_value(strokes: list[InkStroke]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/pads/ink.py), line 122)
 - `_owner_pad(connection: Any, owner: InkOwner) -> str` ([source](../../../../../../src/learnloop/pads/ink.py), line 149) — The pad of a block owner ('' for an annotation), checking the owner can take ink.
 - `_receipt_pad(repository: Any, owner: InkOwner) -> str` ([source](../../../../../../src/learnloop/pads/ink.py), line 173)
-- `_insert_erase(connection: Any, owner: InkOwner, erase_id: str, stroke_ids: list[str], client_id: str, now: str) -> None` ([source](../../../../../../src/learnloop/pads/ink.py), line 243)
+- `_insert_erase(connection: Any, owner: InkOwner, erase_id: str, stroke_ids: list[str], client_id: str, now: str) -> None` ([source](../../../../../../src/learnloop/pads/ink.py), line 265)
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/pads/blocks|learnloop.pads.blocks]] — imports `module`; statically calls `erase_in_batch`
-- [[Reference/Modules/learnloop/pads/ink_transcribe|learnloop.pads.ink_transcribe]] — imports `module`; statically calls `InkError`, `owner_of`, `standing`, `strokes_hash`
+- [[Reference/Modules/learnloop/pads/blocks|learnloop.pads.blocks]] — imports `module`; statically calls `copy_to_lifted`, `erase_in_batch`
+- [[Reference/Modules/learnloop/pads/ink_transcribe|learnloop.pads.ink_transcribe]] — imports `module`; statically calls `InkError`, `owner_of`, `reading_decision`, `standing`, `strokes_hash`
 - [[Reference/Modules/learnloop_sidecar/handlers/ink|learnloop_sidecar.handlers.ink]] — imports `module`; statically calls `erase_ink`, `ink_for_pad`, `ink_for_source`, `save_ink`
 
 ## Dependencies
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/db/stores/ink_strokes|learnloop.db.stores.ink_strokes]] — imports `module`; calls `annotation_exists`, `extraction_exists`, `insert_save`, `latest_reading`, `owner_saves`, `owners_with_ink`, `save`, `source_extraction_ids`
+- [[Reference/Modules/learnloop/db/stores/ink_strokes|learnloop.db.stores.ink_strokes]] — imports `module`; calls `annotation_exists`, `extraction_exists`, `insert_reading`, `insert_save`, `latest_reading`, `owner_saves`, `owners_with_ink`, `reading_for`, `save`, `source_extraction_ids`
 - [[Reference/Modules/learnloop/db/stores/pad_reads|learnloop.db.stores.pad_reads]] — imports `module`; calls `head`, `heads`, `pad`
 - [[Reference/Modules/learnloop/db/stores/workspace_batches|learnloop.db.stores.workspace_batches]] — imports `PAD`
 - [[Reference/Modules/learnloop/desks/content_ref|learnloop.desks.content_ref]] — imports `WireModel`
@@ -159,6 +163,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/identity_pins_helpers.py](../../../../../../tests/identity_pins_helpers.py) — direct import
 - [tests/ink_helpers.py](../../../../../../tests/ink_helpers.py) — direct import
+- [tests/test_reader_rd8a_fix.py](../../../../../../tests/test_reader_rd8a_fix.py) — direct import
+  - `test_a_partial_erase_leaves_the_words_until_the_line_is_read_again`
+  - `test_lifting_an_ink_line_out_keeps_its_handwriting_and_its_reading`
+- [tests/test_reader_rd8a_fix_rpcs.py](../../../../../../tests/test_reader_rd8a_fix_rpcs.py) — direct import
+  - `test_the_listed_reading_beside_the_learners_correction_says_why_it_is_not_the_words`
 - [tests/test_reader_rd8a_ink.py](../../../../../../tests/test_reader_rd8a_ink.py) — direct import
   - `test_a_malformed_stroke_is_refused`
   - `test_a_margin_notes_ink_is_listed_with_its_source`

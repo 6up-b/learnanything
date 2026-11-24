@@ -157,13 +157,13 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop_sidecar/handlers/figures|learnloop_sidecar.handlers.figures]] | [[Reference/Modules/learnloop_sidecar/handlers/figures#^module-purpose|purpose]] | `ACTIVE` | 4 | 10 |
 | [[Reference/Modules/learnloop_sidecar/handlers/first_run|learnloop_sidecar.handlers.first_run]] | [[Reference/Modules/learnloop_sidecar/handlers/first_run#^module-purpose|purpose]] | `ACTIVE` | 1 | 5 |
 | [[Reference/Modules/learnloop_sidecar/handlers/followup|learnloop_sidecar.handlers.followup]] | [[Reference/Modules/learnloop_sidecar/handlers/followup#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
-| [[Reference/Modules/learnloop_sidecar/handlers/goal_lens|learnloop_sidecar.handlers.goal_lens]] | [[Reference/Modules/learnloop_sidecar/handlers/goal_lens#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
+| [[Reference/Modules/learnloop_sidecar/handlers/goal_lens|learnloop_sidecar.handlers.goal_lens]] | [[Reference/Modules/learnloop_sidecar/handlers/goal_lens#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |
 | [[Reference/Modules/learnloop_sidecar/handlers/goals|learnloop_sidecar.handlers.goals]] | [[Reference/Modules/learnloop_sidecar/handlers/goals#^module-purpose|purpose]] | `ACTIVE` | 4 | 0 |
 | [[Reference/Modules/learnloop_sidecar/handlers/graph|learnloop_sidecar.handlers.graph]] | [[Reference/Modules/learnloop_sidecar/handlers/graph#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop_sidecar/handlers/graph_edit|learnloop_sidecar.handlers.graph_edit]] | [[Reference/Modules/learnloop_sidecar/handlers/graph_edit#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop_sidecar/handlers/hints|learnloop_sidecar.handlers.hints]] | [[Reference/Modules/learnloop_sidecar/handlers/hints#^module-purpose|purpose]] | `ACTIVE` | 2 | 7 |
 | [[Reference/Modules/learnloop_sidecar/handlers/ingest|learnloop_sidecar.handlers.ingest]] | [[Reference/Modules/learnloop_sidecar/handlers/ingest#^module-purpose|purpose]] | `ACTIVE` | 5 | 11 |
-| [[Reference/Modules/learnloop_sidecar/handlers/ink|learnloop_sidecar.handlers.ink]] | [[Reference/Modules/learnloop_sidecar/handlers/ink#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
+| [[Reference/Modules/learnloop_sidecar/handlers/ink|learnloop_sidecar.handlers.ink]] | [[Reference/Modules/learnloop_sidecar/handlers/ink#^module-purpose|purpose]] | `ACTIVE` | 1 | 3 |
 | [[Reference/Modules/learnloop_sidecar/handlers/inline_checks|learnloop_sidecar.handlers.inline_checks]] | [[Reference/Modules/learnloop_sidecar/handlers/inline_checks#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
 | [[Reference/Modules/learnloop_sidecar/handlers/inspector|learnloop_sidecar.handlers.inspector]] | [[Reference/Modules/learnloop_sidecar/handlers/inspector#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop_sidecar/handlers/intent|learnloop_sidecar.handlers.intent]] | [[Reference/Modules/learnloop_sidecar/handlers/intent#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
@@ -173,7 +173,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop_sidecar/handlers/knowledge_map|learnloop_sidecar.handlers.knowledge_map]] | [[Reference/Modules/learnloop_sidecar/handlers/knowledge_map#^module-purpose|purpose]] | `ACTIVE` | 1 | 5 |
 | [[Reference/Modules/learnloop_sidecar/handlers/knowledge_model|learnloop_sidecar.handlers.knowledge_model]] | [[Reference/Modules/learnloop_sidecar/handlers/knowledge_model#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop_sidecar/handlers/learner_gaps|learnloop_sidecar.handlers.learner_gaps]] | [[Reference/Modules/learnloop_sidecar/handlers/learner_gaps#^module-purpose|purpose]] | `ACTIVE` | 4 | 3 |
-| [[Reference/Modules/learnloop_sidecar/handlers/lesson|learnloop_sidecar.handlers.lesson]] | [[Reference/Modules/learnloop_sidecar/handlers/lesson#^module-purpose|purpose]] | `ACTIVE` | 1 | 13 |
+| [[Reference/Modules/learnloop_sidecar/handlers/lesson|learnloop_sidecar.handlers.lesson]] | [[Reference/Modules/learnloop_sidecar/handlers/lesson#^module-purpose|purpose]] | `ACTIVE` | 1 | 14 |
 | [[Reference/Modules/learnloop_sidecar/handlers/library|learnloop_sidecar.handlers.library]] | [[Reference/Modules/learnloop_sidecar/handlers/library#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop_sidecar/handlers/library_ask|learnloop_sidecar.handlers.library_ask]] | [[Reference/Modules/learnloop_sidecar/handlers/library_ask#^module-purpose|purpose]] | `ACTIVE` | 7 | 6 |
 | [[Reference/Modules/learnloop_sidecar/handlers/library_exercises|learnloop_sidecar.handlers.library_exercises]] | [[Reference/Modules/learnloop_sidecar/handlers/library_exercises#^module-purpose|purpose]] | `ACTIVE` | 3 | 4 |
@@ -245,27 +245,27 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 11 static module edges
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 11 static module edges
 - [[Reference/Modules/learnloop/hints/_package|learnloop.hints]] — 11 static module edges
+- [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] — 10 static module edges
 - [[Reference/Modules/learnloop/intent/_package|learnloop.intent]] — 10 static module edges
 - [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 10 static module edges
 - [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] — 9 static module edges
 - [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] — 9 static module edges
 - [[Reference/Modules/learnloop/content/proposals/_package|learnloop.content.proposals]] — 8 static module edges
 - [[Reference/Modules/learnloop/config/_package|learnloop.config]] — 7 static module edges
-- [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] — 7 static module edges
 - [[Reference/Modules/learnloop/ingest/_package|learnloop.ingest]] — 7 static module edges
+- [[Reference/Modules/learnloop/notebook_runtime/_package|learnloop.notebook_runtime]] — 7 static module edges
 - [[Reference/Modules/learnloop/capture/_package|learnloop.capture]] — 6 static module edges
 - [[Reference/Modules/learnloop/diagnosis/split/_package|learnloop.diagnosis.split]] — 6 static module edges
-- [[Reference/Modules/learnloop/notebook_runtime/_package|learnloop.notebook_runtime]] — 6 static module edges
 - [[Reference/Modules/learnloop/placement/_package|learnloop.placement]] — 6 static module edges
 - [[Reference/Modules/learnloop/ai/chatgpt_plan/_package|learnloop.ai.chatgpt_plan]] — 5 static module edges
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/_package|learnloop.diagnosis.text_gaps]] — 5 static module edges
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 5 static module edges
+- [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] — 5 static module edges
 - [[Reference/Modules/learnloop/companion/_package|learnloop.companion]] — 4 static module edges
 - [[Reference/Modules/learnloop/content/facet_identity/_package|learnloop.content.facet_identity]] — 4 static module edges
 - [[Reference/Modules/learnloop/desks/_package|learnloop.desks]] — 4 static module edges
 - [[Reference/Modules/learnloop/passage_union/_package|learnloop.passage_union]] — 4 static module edges
 - [[Reference/Modules/learnloop/practice_index/_package|learnloop.practice_index]] — 4 static module edges
-- [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] — 4 static module edges
 - [[Reference/Modules/learnloop/ingest/extractors/_package|learnloop.ingest.extractors]] — 3 static module edges
 - [[Reference/Modules/learnloop/ai/providers/_package|learnloop.ai.providers]] — 2 static module edges
 - [[Reference/Modules/learnloop/data_capture/_package|learnloop.data_capture]] — 2 static module edges

@@ -44,7 +44,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `receipt` — Historical audit/decision receipt. It is preserved and never rebuilt.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/267_reader_workbench_ink.sql`.
-- **Schema touched by:** `267_reader_workbench_ink.sql`.
+- **Schema touched by:** `267_reader_workbench_ink.sql`, `269_ink_transcriptions_guard.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -105,6 +105,7 @@ None found by exact static reference scan.
 
 - `tests/identity_pins_helpers.py`
 - `tests/reader_rd8a_migration_helpers.py`
+- `tests/test_ink_transcriptions_guard_migration.py`
 - `tests/test_reader_rd8a_migration.py`
 - `tests/test_reader_rd8a_transcribe.py`
 

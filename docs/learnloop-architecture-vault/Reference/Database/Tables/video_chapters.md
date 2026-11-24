@@ -103,8 +103,10 @@ None found by exact static reference scan.
 - `tests/identity_pins_helpers.py`
 - `tests/reader_rd10_migration_helpers.py`
 - `tests/test_architecture.py`
+- `tests/test_reader_rd10_fix_protection.py`
 - `tests/test_reader_rd10_migration.py`
 - `tests/test_reader_rd10_video.py`
+- `tests/test_video_chapters_no_replace.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

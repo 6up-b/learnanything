@@ -93,9 +93,9 @@ The system-level behavior stays authoritative in the linked architecture, concep
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
 - [[Reference/Desktop/TypeScript/fixtures/desks/companion|src/fixtures/desks/companion.ts]] — import-or-re-export: `FIXTURE_MATH`; references `FIXTURE_MATH`
-- [[Reference/Desktop/TypeScript/fixtures/desks/fakeCore|src/fixtures/desks/fakeCore.ts]] — import-or-re-export: `FIXTURE_INK_PAD`, `fixtureInkOwners`, `fixtureInkPad`, `fixturePads`; references `FIXTURE_INK_PAD`, `fixtureInkOwners`, `fixtureInkPad`, `fixturePads`
+- [[Reference/Desktop/TypeScript/fixtures/desks/fakeCore|src/fixtures/desks/fakeCore.ts]] — import-or-re-export: `FIXTURE_INK_PAD`, `fixtureInkPad`, `fixturePads`; references `FIXTURE_INK_PAD`, `fixtureInkPad`, `fixturePads`
 - [[Reference/Desktop/TypeScript/fixtures/desks/harness|src/fixtures/desks/harness.tsx]] — import-or-re-export: `fixtureCellsPad`, `fixtureMathPad`; references `fixtureCellsPad`, `fixtureMathPad`
-- [[Reference/Desktop/TypeScript/fixtures/desks/workspace|src/fixtures/desks/workspace.ts]] — import-or-re-export: `fixturePads`; references `fixturePads`
+- [[Reference/Desktop/TypeScript/fixtures/desks/workspace|src/fixtures/desks/workspace.ts]] — import-or-re-export: `FIXTURE_INK_PAD`, `fixtureInkOwners`, `fixturePads`; references `FIXTURE_INK_PAD`, `fixtureInkOwners`, `fixturePads`
 
 ## Dependencies
 

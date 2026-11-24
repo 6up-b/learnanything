@@ -74,9 +74,9 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/teacher/from_check|learnloop.teacher.from_check]] | [[Reference/Modules/learnloop/teacher/from_check#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/teacher/guards|learnloop.teacher.guards]] | [[Reference/Modules/learnloop/teacher/guards#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/teacher/notes|learnloop.teacher.notes]] | [[Reference/Modules/learnloop/teacher/notes#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
-| [[Reference/Modules/learnloop/teacher/probes|learnloop.teacher.probes]] | [[Reference/Modules/learnloop/teacher/probes#^module-purpose|purpose]] | `ACTIVE` | 2 | 4 |
+| [[Reference/Modules/learnloop/teacher/probes|learnloop.teacher.probes]] | [[Reference/Modules/learnloop/teacher/probes#^module-purpose|purpose]] | `ACTIVE` | 3 | 5 |
 | [[Reference/Modules/learnloop/teacher/report|learnloop.teacher.report]] | [[Reference/Modules/learnloop/teacher/report#^module-purpose|purpose]] | `ACTIVE` | 1 | 3 |
-| [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] | [[Reference/Modules/learnloop/teacher/service#^module-purpose|purpose]] | `ACTIVE` | 3 | 44 |
+| [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] | [[Reference/Modules/learnloop/teacher/service#^module-purpose|purpose]] | `ACTIVE` | 3 | 46 |
 | [[Reference/Modules/learnloop/teacher/summaries|learnloop.teacher.summaries]] | [[Reference/Modules/learnloop/teacher/summaries#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/teacher/te2|learnloop.teacher.te2]] | [[Reference/Modules/learnloop/teacher/te2#^module-purpose|purpose]] | `ACTIVE` | 4 | 8 |
 | [[Reference/Modules/learnloop/teacher/topics|learnloop.teacher.topics]] | [[Reference/Modules/learnloop/teacher/topics#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
@@ -111,7 +111,7 @@ For system intent, use [[Architecture Overview]].
 
 ### Packages that import this package
 
-- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 4 static module edges
+- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 5 static module edges
 - [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] — 3 static module edges
 - [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] — 2 static module edges
 - [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 1 static module edge
@@ -132,8 +132,8 @@ flowchart LR
     n_learnloop_figures["learnloop.figures"]
     n_learnloop_learner["learnloop.learner"]
     n_learnloop_vault["learnloop.vault"]
-    n_learnloop_scheduling["learnloop.scheduling"]
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
+    n_learnloop_scheduling["learnloop.scheduling"]
     center -->|28| n_learnloop
     center -->|17| n_learnloop_db_stores
     center -->|11| n_learnloop_attempts
@@ -143,8 +143,8 @@ flowchart LR
     center -->|4| n_learnloop_figures
     center -->|6| n_learnloop_learner
     center -->|5| n_learnloop_vault
+    n_learnloop_sidecar_handlers -->|5| center
     center -->|4| n_learnloop_scheduling
-    n_learnloop_sidecar_handlers -->|4| center
 ```
 
 Interpretation: arrow direction is static import direction and the label is the number of distinct module-to-module edges. It shows coupling pressure, not runtime call frequency or ownership permission.

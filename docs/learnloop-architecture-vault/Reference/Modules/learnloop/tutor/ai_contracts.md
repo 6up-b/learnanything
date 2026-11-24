@@ -269,6 +269,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reader_rd0_spans.py](../../../../../../tests/test_reader_rd0_spans.py) — direct import
   - `test_a_practice_question_is_projected_as_the_tutor_records_it`
 - [tests/test_reader_rd4_emission.py](../../../../../../tests/test_reader_rd4_emission.py) — direct import
+- [tests/test_reader_rd8a_fix.py](../../../../../../tests/test_reader_rd8a_fix.py) — direct import
 - [tests/test_reader_rd8a_transcribe.py](../../../../../../tests/test_reader_rd8a_transcribe.py) — direct import
 - [tests/test_required_method_items.py](../../../../../../tests/test_required_method_items.py) — direct import
   - `test_authoring_prompts_carry_the_rule_and_moved_their_versions`

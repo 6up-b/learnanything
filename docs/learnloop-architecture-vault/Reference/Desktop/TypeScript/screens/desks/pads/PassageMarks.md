@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/pads/PassageMarks.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/pads/PassageMarks.tsx) |
-| Source lines | 147 |
+| Source lines | 148 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/pads/_area|TypeScript/screens/desks/pads]] |
 | Refactor status | `ACTIVE` |
@@ -57,7 +57,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export interface PadLink` — interface, line 9
 - `export function visibleSpanRange(stage: HTMLElement, windowId: string):` — function, line 20
 - `export function placeMarks(stage: HTMLElement, windows: Array<` — function, line 51
-- `export function PassageMarks(` — function, line 84
+- `export function PassageMarks(` — function, line 85
 
 ## Internal implementation anchors
 
@@ -82,13 +82,13 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const place = at(link.spanId)` — const, line 67
 - `const anchor = question.anchor as` — const, line 71
 - `const place = at(anchor.span_id)` — const, line 73
-- `function sameMarks(a: Placed[], b: Placed[]): boolean` — function, line 80
-- `const windowsKey = windows.map((each)` — const, line 95
-- `let frame = 0` — let, line 98
-- `const update = ()` — const, line 99
-- `const next = placeMarks(stage, windows, links, carried)` — const, line 101
-- `const schedule = ()` — const, line 105
-- `const timer = setInterval(schedule, 1000)` — const, line 111
+- `function sameMarks(a: Placed[], b: Placed[]): boolean` — function, line 81
+- `const windowsKey = windows.map((each)` — const, line 96
+- `let frame = 0` — let, line 99
+- `const update = ()` — const, line 100
+- `const next = placeMarks(stage, windows, links, carried)` — const, line 102
+- `const schedule = ()` — const, line 106
+- `const timer = setInterval(schedule, 1000)` — const, line 112
 
 ## Who imports or calls it
 
@@ -116,7 +116,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 ## Tests that define behavior
 
-- No repository test directly names this source path or a uniquely owned export. `npm run typecheck`, `npm test` and `npm run frontend:build` are the executable frontend gates; add a focused test when changing behavior.
+- [apps/learnloop-tauri/src/screens/desks/pads/passageMarks.test.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/pads/passageMarks.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 
 ## Modification guidance
 

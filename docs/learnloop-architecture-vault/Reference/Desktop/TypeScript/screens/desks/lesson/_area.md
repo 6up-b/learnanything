@@ -34,7 +34,7 @@ No nested ownership area.
 
 | Module | Status | Purpose | Imports | Imported by |
 |---|---|---|---:|---:|
-| [[Reference/Desktop/TypeScript/screens/desks/lesson/LessonPaper|LessonPaper.tsx]] | `ACTIVE` | Implements the `LessonPaper` routed desktop screen and coordinates its learner-facing workflow state. | 4 | 1 |
+| [[Reference/Desktop/TypeScript/screens/desks/lesson/LessonPaper|LessonPaper.tsx]] | `ACTIVE` | Implements the `LessonPaper` routed desktop screen and coordinates its learner-facing workflow state. | 5 | 1 |
 | [[Reference/Desktop/TypeScript/screens/desks/lesson/PathLessonRow|PathLessonRow.tsx]] | `ACTIVE` | Implements the `PathLessonRow` routed desktop screen and coordinates its learner-facing workflow state. | 2 | 1 |
 | [[Reference/Desktop/TypeScript/screens/desks/lesson/host|host.ts]] | `ACTIVE` | Provides `LessonsTransport`, `LIVE_LESSONS_TRANSPORT`, `Opening`, `LessonDesk` and related exports within the desktop's TypeScript/screens/desks/lesson ownership area. | 4 | 4 |
 | [[Reference/Desktop/TypeScript/screens/desks/lesson/model|model.ts]] | `ACTIVE` | Provides `LESSON_KEY`, `OPENING_KEY`, `lessonKey`, `lessonOfKey` and related exports within the desktop's TypeScript/screens/desks/lesson ownership area. | 2 | 5 |

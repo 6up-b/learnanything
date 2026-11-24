@@ -28,7 +28,7 @@ Area: [[Reference/Desktop/TypeScript/screens/desks/notebook/_area|TypeScript/scr
 
 ## Why this module exists
 
-Provides `PadNotebook`, `padNotebook`, `subscribePadNotebooks`, `cellShape` and related exports within the desktop's TypeScript/screens/desks/notebook ownership area.
+Provides `PadNotebook`, `padNotebookKey`, `padNotebook`, `subscribePadNotebooks` and related exports within the desktop's TypeScript/screens/desks/notebook ownership area.
 
 The system-level behavior stays authoritative in the linked architecture, concept, and workflow notes; this note owns only source-level lookup facts.
 
@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/notebook/padNotebooks.ts](../../../../../../../../apps/learnloop-tauri/src/screens/desks/notebook/padNotebooks.ts) |
-| Source lines | 112 |
+| Source lines | 117 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/notebook/_area|TypeScript/screens/desks/notebook]] |
 | Refactor status | `ACTIVE` |
@@ -55,16 +55,17 @@ The system-level behavior stays authoritative in the linked architecture, concep
 ## Public API
 
 - `export interface PadNotebook` — interface, line 15
-- `export function padNotebook(padId: string): PadNotebook` — function, line 38
-- `export function subscribePadNotebooks(listener: ()` — function, line 47
-- `export function cellShape(blocks:` — function, line 53
-- `export function needsOpen(state: PadNotebook, shape: string[]): boolean` — function, line 59
-- `export function startPadNotebook(padId: string, shape: string[]): void` — function, line 65
-- `export function notePadSession(padId: string, session: NotebookSessionDto): void` — function, line 71
-- `export function noteRunPending(padId: string, blockId: string, error: string | null = null): void` — function, line 83
-- `export function cellRun(state: PadNotebook, blockId: string): NotebookCellRunDto | null` — function, line 88
-- `export function cellStateLine(state: PadNotebook, blockId: string): string` — function, line 94
-- `export function resetPadNotebooksForTests(): void` — function, line 109
+- `export function padNotebookKey(vaultScope: string, padId: string): string` — function, line 39
+- `export function padNotebook(padId: string): PadNotebook` — function, line 43
+- `export function subscribePadNotebooks(listener: ()` — function, line 52
+- `export function cellShape(blocks:` — function, line 58
+- `export function needsOpen(state: PadNotebook, shape: string[]): boolean` — function, line 64
+- `export function startPadNotebook(padId: string, shape: string[]): void` — function, line 70
+- `export function notePadSession(padId: string, session: NotebookSessionDto): void` — function, line 76
+- `export function noteRunPending(padId: string, blockId: string, error: string | null = null): void` — function, line 88
+- `export function cellRun(state: PadNotebook, blockId: string): NotebookCellRunDto | null` — function, line 93
+- `export function cellStateLine(state: PadNotebook, blockId: string): string` — function, line 99
+- `export function resetPadNotebooksForTests(): void` — function, line 114
 
 ## Internal implementation anchors
 
@@ -72,21 +73,21 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const pads = new Map<string, PadNotebook>()` — const, line 31
 - `const listeners = new Set<()` — const, line 32
 - `function emit(): void` — function, line 34
-- `function update(padId: string, change: (now: PadNotebook)` — function, line 42
-- `const session = state.session` — const, line 60
-- `const names = session.padCells ?? now.names` — const, line 73
-- `const pending =` — const, line 74
-- `const run = session.cellRuns?.[name]` — const, line 76
-- `const name = state.names[blockId]` — const, line 89
-- `const session = state.session` — const, line 97
-- `const run = cellRun(state, blockId)` — const, line 101
+- `function update(padId: string, change: (now: PadNotebook)` — function, line 47
+- `const session = state.session` — const, line 65
+- `const names = session.padCells ?? now.names` — const, line 78
+- `const pending =` — const, line 79
+- `const run = session.cellRuns?.[name]` — const, line 81
+- `const name = state.names[blockId]` — const, line 94
+- `const session = state.session` — const, line 102
+- `const run = cellRun(state, blockId)` — const, line 106
 
 ## Who imports or calls it
 
 > [!note] Static-evidence boundary
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
-- [[Reference/Desktop/TypeScript/screens/desks/notebook/PadCell|src/screens/desks/notebook/PadCell.tsx]] — import-or-re-export: `cellShape`, `cellStateLine`, `needsOpen`, `notePadSession`, `noteRunPending`, `padNotebook`, `startPadNotebook`, `subscribePadNotebooks`; references `cellShape`, `cellStateLine`, `needsOpen`, `notePadSession`, `noteRunPending`, `padNotebook`, `startPadNotebook`, `subscribePadNotebooks`
+- [[Reference/Desktop/TypeScript/screens/desks/notebook/PadCell|src/screens/desks/notebook/PadCell.tsx]] — import-or-re-export: `cellShape`, `cellStateLine`, `needsOpen`, `notePadSession`, `noteRunPending`, `padNotebook`, `padNotebookKey`, `startPadNotebook`, `subscribePadNotebooks`; references `cellShape`, `cellStateLine`, `needsOpen`, `notePadSession`, `noteRunPending`, `padNotebook`, `padNotebookKey`, `startPadNotebook`, `subscribePadNotebooks`
 
 ## Dependencies
 

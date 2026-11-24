@@ -46,25 +46,26 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/goal_lens.py](../../../../../../src/learnloop_sidecar/handlers/goal_lens.py) |
-| Source lines | 234 |
+| Source lines | 245 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class GoalBandInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/goal_lens.py), line 126)
-- `goal_band(ctx: SidecarContext, params: GoalBandInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/goal_lens.py), line 131) — The goal band (§12.2) and the path view's data (§12.5).
-- `class GoalLensInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/goal_lens.py), line 153)
-  - `_range(self) -> GoalLensInput` (line 162; internal)
-- `goal_lens(ctx: SidecarContext, params: GoalLensInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/goal_lens.py), line 173) — Each section's level for the goal across one reading, or the visible range of it (§12.3).
-- `class SectionChoiceInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/goal_lens.py), line 203)
-- `goal_section_choice(ctx: SidecarContext, params: SectionChoiceInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/goal_lens.py), line 214) — *Read it anyway* on a section the lens dims, for this goal (``none`` clears it).
+- `protection_now(vault: Any, repository: Any) -> tuple[GL.Protection, str | None]` ([source](../../../../../../src/learnloop_sidecar/handlers/goal_lens.py), line 94) — What no workbench reply may say now (every due check, whatever the goal; spec §12.6.1, D15) and when the next check falls due (a reply cached by the client is read again then).
+- `class GoalBandInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/goal_lens.py), line 137)
+- `goal_band(ctx: SidecarContext, params: GoalBandInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/goal_lens.py), line 142) — The goal band (§12.2) and the path view's data (§12.5).
+- `class GoalLensInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/goal_lens.py), line 164)
+  - `_range(self) -> GoalLensInput` (line 173; internal)
+- `goal_lens(ctx: SidecarContext, params: GoalLensInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/goal_lens.py), line 184) — Each section's level for the goal across one reading, or the visible range of it (§12.3).
+- `class SectionChoiceInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/goal_lens.py), line 214)
+- `goal_section_choice(ctx: SidecarContext, params: SectionChoiceInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/goal_lens.py), line 225) — *Read it anyway* on a section the lens dims, for this goal (``none`` clears it).
 
 ### Module constants
 
-- `LOG` ([src/learnloop_sidecar/handlers/goal_lens.py](../../../../../../src/learnloop_sidecar/handlers/goal_lens.py), line 38)
-- `GOAL_LENS_RPCS` ([src/learnloop_sidecar/handlers/goal_lens.py](../../../../../../src/learnloop_sidecar/handlers/goal_lens.py), line 41)
+- `LOG` ([src/learnloop_sidecar/handlers/goal_lens.py](../../../../../../src/learnloop_sidecar/handlers/goal_lens.py), line 39)
+- `GOAL_LENS_RPCS` ([src/learnloop_sidecar/handlers/goal_lens.py](../../../../../../src/learnloop_sidecar/handlers/goal_lens.py), line 42)
 
 ### Explicit exports
 
@@ -74,13 +75,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_day_start(clock: Any=None) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/goal_lens.py), line 44) — Today's first instant on the learner's clock, in UTC as stored stamps are.
-- `_progress(ctx: SidecarContext, goal_id: str) -> reads.Progress` ([source](../../../../../../src/learnloop_sidecar/handlers/goal_lens.py), line 53) — The Guide's background work for this goal, read without starting any (the path view's inputs).
-- `_settled(ctx: SidecarContext, vault: Any, repository: Any, goal_id: str) -> set[str]` ([source](../../../../../../src/learnloop_sidecar/handlers/goal_lens.py), line 68) — The unjudged LOs this sidecar's coverage already tried for the goal with nothing left to judge (no candidate section): their sections are settled.
-- `_checks(vault: Any, repository: Any, goal_id: str) -> tuple[list[dict[str, Any]], list[dict[str, Any]], str | None]` ([source](../../../../../../src/learnloop_sidecar/handlers/goal_lens.py), line 83) — The due checks, today's answered ones, and when the next check falls due (the band reads again then: a newly due check must hide what it covers).
-- `_model(ctx: SidecarContext, vault: Any, repository: Any, goal_id: str, due: list[dict[str, Any]], answered: list[dict[str, Any]]) -> reads.GoalModel` ([source](../../../../../../src/learnloop_sidecar/handlers/goal_lens.py), line 93)
-- `_not_a_deliverable(vault: Any, goal_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/goal_lens.py), line 103) — A goal the learner did not make (it has no deliverable to map): the band says so, the lens is off.
-- `_pace(vault: Any, repository: Any, goal: Any) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/goal_lens.py), line 115)
+- `_day_start(clock: Any=None) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/goal_lens.py), line 45) — Today's first instant on the learner's clock, in UTC as stored stamps are.
+- `_progress(ctx: SidecarContext, goal_id: str) -> reads.Progress` ([source](../../../../../../src/learnloop_sidecar/handlers/goal_lens.py), line 54) — The Guide's background work for this goal, read without starting any (the path view's inputs).
+- `_settled(ctx: SidecarContext, vault: Any, repository: Any, goal_id: str) -> set[str]` ([source](../../../../../../src/learnloop_sidecar/handlers/goal_lens.py), line 69) — The unjudged LOs this sidecar's coverage already tried for the goal with nothing left to judge (no candidate section): their sections are settled.
+- `_checks(vault: Any, repository: Any, goal_id: str) -> tuple[list[dict[str, Any]], list[dict[str, Any]], str | None]` ([source](../../../../../../src/learnloop_sidecar/handlers/goal_lens.py), line 84) — The due checks, today's answered ones, and when the next check falls due (the band reads again then: a newly due check must hide what it covers).
+- `_model(ctx: SidecarContext, vault: Any, repository: Any, goal_id: str, due: list[dict[str, Any]], answered: list[dict[str, Any]]) -> reads.GoalModel` ([source](../../../../../../src/learnloop_sidecar/handlers/goal_lens.py), line 104)
+- `_not_a_deliverable(vault: Any, goal_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/goal_lens.py), line 114) — A goal the learner did not make (it has no deliverable to map): the band says so, the lens is off.
+- `_pace(vault: Any, repository: Any, goal: Any) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/goal_lens.py), line 126)
 
 ## Who imports or calls it
 
@@ -88,6 +89,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]] — imports `module`
+- [[Reference/Modules/learnloop_sidecar/handlers/lesson|learnloop_sidecar.handlers.lesson]] — imports `protection_now`; statically calls `protection_now`
+- [[Reference/Modules/learnloop_sidecar/handlers/video|learnloop_sidecar.handlers.video]] — imports `protection_now`; statically calls `protection_now`
 
 ## Dependencies
 
@@ -95,6 +98,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `parse_utc`, `utc_now_iso`; calls `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/content/sources/source_outline|learnloop.content.sources.source_outline]] — imports `resolve_extraction_id`; calls `resolve_extraction_id`
+- [[Reference/Modules/learnloop/curriculum/goal_lens|learnloop.curriculum.goal_lens]] — imports `module`
 - [[Reference/Modules/learnloop/goals/goal_pace|learnloop.goals.goal_pace]] — imports `compute_goal_pace`; calls `compute_goal_pace`
 - [[Reference/Modules/learnloop/goals/goal_projection|learnloop.goals.goal_projection]] — imports `goal_report`; calls `goal_report`
 - [[Reference/Modules/learnloop/intent/inline_checks|learnloop.intent.inline_checks]] — imports `answered_checks`, `due_checks`, `next_check_due`, `serving_view`; calls `answered_checks`, `due_checks`, `next_check_due`, `serving_view`
@@ -122,7 +126,7 @@ Use this module in context through:
 
 - [[Goals Exams and Certification Workflow]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]].
+Static participation evidence comes from [[Reference/Modules/learnloop_sidecar/handlers/__init__|learnloop_sidecar.handlers]], [[Reference/Modules/learnloop_sidecar/handlers/lesson|learnloop_sidecar.handlers.lesson]], [[Reference/Modules/learnloop_sidecar/handlers/video|learnloop_sidecar.handlers.video]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

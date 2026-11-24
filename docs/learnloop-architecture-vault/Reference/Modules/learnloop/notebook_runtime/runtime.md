@@ -46,62 +46,65 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/notebook_runtime/runtime.py](../../../../../../src/learnloop/notebook_runtime/runtime.py) |
-| Source lines | 430 |
+| Source lines | 467 |
 | Owning package | [[Reference/Modules/learnloop/notebook_runtime/_package|learnloop.notebook_runtime]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class SessionNotFound(LookupError)` ([source](../../../../../../src/learnloop/notebook_runtime/runtime.py), line 61) — No such session in the vault open now.
-- `class SessionsFull(RuntimeError)` ([source](../../../../../../src/learnloop/notebook_runtime/runtime.py), line 65) — As many sessions run as allowed and every one has a frame attached.
-- `class NotConnected(RuntimeError)` ([source](../../../../../../src/learnloop/notebook_runtime/runtime.py), line 69) — No frame has connected to the session yet, so marimo has no session to address.
-- `class CellUnknown(KeyError)` ([source](../../../../../../src/learnloop/notebook_runtime/runtime.py), line 73) — A cell name the session's notebook does not have.
-- `class KernelRefused(RuntimeError)` ([source](../../../../../../src/learnloop/notebook_runtime/runtime.py), line 77) — marimo answered a sidecar request with an error.
-- `class ReleaseRefused(PermissionError)` ([source](../../../../../../src/learnloop/notebook_runtime/runtime.py), line 81) — A lesson notebook's held cells are released only by the learner's commit, and never in a review.
-- `class NotebookRuntime` ([source](../../../../../../src/learnloop/notebook_runtime/runtime.py), line 93)
-  - `__init__(self, *, backend: Any=None, base_dir: Path | None=None, requirements: Callable[[], list[str]]=missing_requirements, sweep_seconds: float=settings.SWEEP_SECONDS, supervisor_options: dict[str, Any] | None=None) -> None` (line 94; internal)
-  - `_ensure_loop(self) -> asyncio.AbstractEventLoop` (line 113; internal)
-  - `_call(self, make: Callable[[], Awaitable[T]], timeout: float=CALL_SECONDS) -> T` (line 132; internal)
-  - `running(self) -> bool` (line 141; public)
-  - `open(self, *, vault_key: str, owner: str, source: bytes, view: str, limits: Limits, idle_minutes: int, max_sessions: int, revision: str | None=None, contract: dict[str, Any] | None=None, review: bool=False) -> dict[str, Any]` (line 146; public) — ``revision`` names the notebook's identity when its bytes are not it: a pad's cells are one notebook while the same cells stand in the same order, whatever their code (an edit reaches the running kernel through ``run_cells``), so moving or reopening the pad keeps its kernel.
-  - `status(self, *, vault_key: str, session_id: str) -> dict[str, Any]` (line 160; public)
-  - `close_session(self, *, vault_key: str, session_id: str) -> dict[str, Any]` (line 163; public)
-  - `release(self, *, vault_key: str, session_id: str, names: list[str]) -> dict[str, Any]` (line 166; public)
-  - `run_cells(self, *, vault_key: str, session_id: str, cells: list[tuple[str, str]]) -> dict[str, Any]` (line 169; public)
-  - `switch_vault(self, vault_key: str | None) -> None` (line 172; public) — A vault switch (or a refusal of the vault open now, with None): every session of another vault stops.
-  - `close(self) -> None` (line 181; public) — Stop every session and the loop thread (the context closing).
-  - `_backend_now(self) -> Any` (line 205; internal)
-  - `_base(self) -> Path` (line 210; internal)
-  - `_entry(self, vault_key: str, session_id: str) -> _Entry` (line 217; internal)
-  - `_view(self, entry: _Entry) -> dict[str, Any]` (line 223; internal)
-  - `async _open(self, vault_key: str, owner: str, source: bytes, view: str, limits: Limits, idle_minutes: int, max_sessions: int, revision: str | None=None, contract: dict[str, Any] | None=None, review: bool=False) -> dict[str, Any]` (line 232; internal)
-  - `async _make_room(self, max_sessions: int, keep: _Entry | None=None) -> None` (line 277; internal)
-  - `async _status(self, vault_key: str, session_id: str) -> dict[str, Any]` (line 289; internal)
-  - `async _close_session(self, vault_key: str, session_id: str) -> dict[str, Any]` (line 292; internal)
-  - `async _forget(self, entry: _Entry, reason: str) -> None` (line 299; internal)
-  - `async _stop_where(self, select: Callable[[_Entry], bool], reason: str, *, forget: bool=False) -> None` (line 313; internal)
-  - `_connected(self, entry: _Entry) -> None` (line 321; internal)
-  - `_cell_ids(self, entry: _Entry, names: list[str]) -> list[str]` (line 328; internal)
-  - `async _release(self, vault_key: str, session_id: str, names: list[str]) -> dict[str, Any]` (line 334; internal)
-  - `async _run_cells(self, vault_key: str, session_id: str, cells: list[tuple[str, str]]) -> dict[str, Any]` (line 360; internal)
-  - `async sweep(self, now: float | None=None) -> list[str]` (line 373; public) — Stop sessions idle past their limit, or whose run directory grew past its bound; their ids.
-  - `async _sweep_forever(self) -> None` (line 390; internal)
-  - `sessions(self) -> list[Session]` (line 400; public)
-  - `run_on_loop(self, make: Callable[[], Awaitable[T]], timeout: float=CALL_SECONDS) -> T` (line 403; public)
+- `class SessionNotFound(LookupError)` ([source](../../../../../../src/learnloop/notebook_runtime/runtime.py), line 60) — No such session in the vault open now.
+- `class SessionsFull(RuntimeError)` ([source](../../../../../../src/learnloop/notebook_runtime/runtime.py), line 64) — As many sessions run as allowed and every one has a frame attached.
+- `class NotConnected(RuntimeError)` ([source](../../../../../../src/learnloop/notebook_runtime/runtime.py), line 68) — No frame has connected to the session yet, so marimo has no session to address.
+- `class CellUnknown(KeyError)` ([source](../../../../../../src/learnloop/notebook_runtime/runtime.py), line 72) — A cell name the session's notebook does not have.
+- `class KernelRefused(RuntimeError)` ([source](../../../../../../src/learnloop/notebook_runtime/runtime.py), line 76) — marimo answered a sidecar request with an error.
+- `class ReleaseRefused(PermissionError)` ([source](../../../../../../src/learnloop/notebook_runtime/runtime.py), line 80) — A lesson notebook's held cells are released only by the learner's commit, and never in a review.
+- `class NotebookRuntime` ([source](../../../../../../src/learnloop/notebook_runtime/runtime.py), line 92)
+  - `__init__(self, *, backend: Any=None, base_dir: Path | None=None, requirements: Callable[[], list[str]]=missing_requirements, sweep_seconds: float=settings.SWEEP_SECONDS, supervisor_options: dict[str, Any] | None=None) -> None` (line 93; internal)
+  - `_ensure_loop(self) -> asyncio.AbstractEventLoop` (line 112; internal)
+  - `_call(self, make: Callable[[], Awaitable[T]], timeout: float=CALL_SECONDS) -> T` (line 131; internal)
+  - `running(self) -> bool` (line 140; public)
+  - `open(self, *, vault_key: str, owner: str, source: bytes, view: str, limits: Limits, idle_minutes: int, max_sessions: int, revision: str | None=None, contract: dict[str, Any] | None=None, review: bool=False, cells: list[tuple[str, str]] | None=None) -> dict[str, Any]` (line 145; public) — ``revision`` names the notebook's identity when its bytes are not it: a pad's cells are one notebook while the same cells stand in the same order, whatever their code (an edit reaches the running kernel through ``run_cells``), so moving or reopening the pad keeps its kernel.
+  - `status(self, *, vault_key: str, session_id: str) -> dict[str, Any]` (line 161; public)
+  - `close_session(self, *, vault_key: str, session_id: str) -> dict[str, Any]` (line 164; public)
+  - `mark_review(self, *, vault_key: str, session_id: str) -> dict[str, Any]` (line 167; public) — The session's lesson closed: a review from now on (nothing committed or released); its view.
+  - `release(self, *, vault_key: str, session_id: str, names: list[str]) -> dict[str, Any]` (line 172; public)
+  - `run_cells(self, *, vault_key: str, session_id: str, cells: list[tuple[str, str]]) -> dict[str, Any]` (line 175; public)
+  - `switch_vault(self, vault_key: str | None) -> None` (line 178; public) — A vault switch (or a refusal of the vault open now, with None): every session of another vault stops.
+  - `close(self) -> None` (line 191; public) — Stop every session and the loop thread (the context closing).
+  - `_kill_left(self, entries: list[_Entry]) -> None` (line 216; internal) — SIGKILL the process group of every given session's server still running (from the calling thread: it cannot be cancelled with the loop's tasks).
+  - `_backend_now(self) -> Any` (line 231; internal)
+  - `_base(self) -> Path` (line 236; internal)
+  - `_entry(self, vault_key: str, session_id: str) -> _Entry` (line 243; internal)
+  - `_view(self, entry: _Entry) -> dict[str, Any]` (line 249; internal)
+  - `async _open(self, vault_key: str, owner: str, source: bytes, view: str, limits: Limits, idle_minutes: int, max_sessions: int, revision: str | None=None, contract: dict[str, Any] | None=None, review: bool=False, cells: list[tuple[str, str]] | None=None) -> dict[str, Any]` (line 258; internal)
+  - `async _make_room(self, max_sessions: int, keep: _Entry | None=None) -> None` (line 305; internal)
+  - `async _status(self, vault_key: str, session_id: str) -> dict[str, Any]` (line 317; internal)
+  - `async _close_session(self, vault_key: str, session_id: str) -> dict[str, Any]` (line 320; internal)
+  - `async _forget(self, entry: _Entry, reason: str) -> None` (line 327; internal)
+  - `async _stop_where(self, select: Callable[[_Entry], bool], reason: str, *, forget: bool=False) -> None` (line 340; internal)
+  - `_connected(self, entry: _Entry) -> None` (line 348; internal)
+  - `_cell_ids(self, entry: _Entry, names: list[str]) -> list[str]` (line 355; internal)
+  - `async _mark_review(self, vault_key: str, session_id: str) -> dict[str, Any]` (line 361; internal)
+  - `async _release(self, vault_key: str, session_id: str, names: list[str]) -> dict[str, Any]` (line 366; internal)
+  - `async _run_cells(self, vault_key: str, session_id: str, cells: list[tuple[str, str]]) -> dict[str, Any]` (line 392; internal)
+  - `async sweep(self, now: float | None=None) -> list[str]` (line 412; public) — Stop sessions idle past their limit; their ids.
+  - `async _sweep_forever(self) -> None` (line 427; internal)
+  - `sessions(self) -> list[Session]` (line 437; public)
+  - `run_on_loop(self, make: Callable[[], Awaitable[T]], timeout: float=CALL_SECONDS) -> T` (line 440; public)
 
 ### Module constants
 
-- `LOG` ([src/learnloop/notebook_runtime/runtime.py](../../../../../../src/learnloop/notebook_runtime/runtime.py), line 51)
-- `T` ([src/learnloop/notebook_runtime/runtime.py](../../../../../../src/learnloop/notebook_runtime/runtime.py), line 52)
-- `CALL_SECONDS` ([src/learnloop/notebook_runtime/runtime.py](../../../../../../src/learnloop/notebook_runtime/runtime.py), line 56)
-- `CLOSE_SECONDS` ([src/learnloop/notebook_runtime/runtime.py](../../../../../../src/learnloop/notebook_runtime/runtime.py), line 58)
+- `LOG` ([src/learnloop/notebook_runtime/runtime.py](../../../../../../src/learnloop/notebook_runtime/runtime.py), line 50)
+- `T` ([src/learnloop/notebook_runtime/runtime.py](../../../../../../src/learnloop/notebook_runtime/runtime.py), line 51)
+- `CALL_SECONDS` ([src/learnloop/notebook_runtime/runtime.py](../../../../../../src/learnloop/notebook_runtime/runtime.py), line 55)
+- `CLOSE_SECONDS` ([src/learnloop/notebook_runtime/runtime.py](../../../../../../src/learnloop/notebook_runtime/runtime.py), line 57)
 
 ## Internal implementation anchors
 
-- `class _Entry` ([source](../../../../../../src/learnloop/notebook_runtime/runtime.py), line 86)
-- `async _cancel_other_tasks() -> None` ([source](../../../../../../src/learnloop/notebook_runtime/runtime.py), line 407) — Every task left on the runtime's loop (the sweep, a draining pipe) ends before the loop stops.
-- `_memory_bytes(session: Session) -> int | None` ([source](../../../../../../src/learnloop/notebook_runtime/runtime.py), line 417) — The session's scope memory (``memory.current``), when it runs in a scope of its own.
+- `class _Entry` ([source](../../../../../../src/learnloop/notebook_runtime/runtime.py), line 85)
+- `async _cancel_other_tasks() -> None` ([source](../../../../../../src/learnloop/notebook_runtime/runtime.py), line 444) — Every task left on the runtime's loop (the sweep, a draining pipe) ends before the loop stops.
+- `_memory_bytes(session: Session) -> int | None` ([source](../../../../../../src/learnloop/notebook_runtime/runtime.py), line 454) — The session's scope memory (``memory.current``), when it runs in a scope of its own.
 
 ## Who imports or calls it
 
@@ -118,15 +121,16 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/notebook_runtime/adapter|learnloop.notebook_runtime.adapter]] — imports `module`; calls `cell_config_body`, `run_body`
+- [[Reference/Modules/learnloop/notebook_runtime/adapter|learnloop.notebook_runtime.adapter]] — imports `module`; calls `cell_config_body`, `notebook_from_cells`, `run_body`
+- [[Reference/Modules/learnloop/notebook_runtime/hostfiles|learnloop.notebook_runtime.hostfiles]] — imports `module`; calls `remove_private`, `remove_private_dir`, `write_private`
 - [[Reference/Modules/learnloop/notebook_runtime/proxy|learnloop.notebook_runtime.proxy]] — imports `FrameProxy`; calls `FrameProxy`
 - [[Reference/Modules/learnloop/notebook_runtime/sandbox|learnloop.notebook_runtime.sandbox]] — imports `Layout`, `Limits`, `RuntimeUnavailable`, `SOCKET_PATH_MAX_BYTES`, `missing_requirements`, `runtime_base_dir`, `scope_available`, `write_shared_files`; calls `Layout`, `RuntimeUnavailable`, `runtime_base_dir`, `scope_available`, `write_shared_files`
 - [[Reference/Modules/learnloop/notebook_runtime/settings|learnloop.notebook_runtime.settings]] — imports `module`
-- [[Reference/Modules/learnloop/notebook_runtime/supervisor|learnloop.notebook_runtime.supervisor]] — imports `LIVE_STATES`, `READY`, `STARTING`, `STOPPED`, `SandboxBackend`, `Session`, `Supervisor`, `notebook_revision`, `run_dir_bytes`; calls `SandboxBackend`, `Session`, `Supervisor`, `notebook_revision`, `run_dir_bytes`
+- [[Reference/Modules/learnloop/notebook_runtime/supervisor|learnloop.notebook_runtime.supervisor]] — imports `LIVE_STATES`, `READY`, `STARTING`, `STOPPED`, `SandboxBackend`, `Session`, `Supervisor`, `notebook_revision`; calls `SandboxBackend`, `Session`, `Supervisor`, `notebook_revision`
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `asyncio`, `collections`, `dataclasses`, `logging`, `os`, `pathlib`, `secrets`, `threading`, `time`, `typing`
+- Standard library: `__future__`, `asyncio`, `collections`, `dataclasses`, `logging`, `pathlib`, `secrets`, `signal`, `threading`, `time`, `typing`
 - Third party: none imported directly
 
 ## Larger workflow participation
@@ -141,6 +145,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/notebook_runtime_helpers.py](../../../../../../tests/notebook_runtime_helpers.py) — direct import
+- [tests/test_notebook_host_boundary.py](../../../../../../tests/test_notebook_host_boundary.py) — direct import
+  - `test_a_notebook_cannot_write_past_its_caps`
+  - `test_a_running_sessions_secret_is_in_no_command_line`
+  - `test_a_trap_planted_from_inside_never_reaches_the_host`
 - [tests/test_notebook_lessons.py](../../../../../../tests/test_notebook_lessons.py) — direct import
   - `test_a_refused_release_is_said_and_the_inputs_refuse_extra_fields`
 - [tests/test_notebook_rpcs.py](../../../../../../tests/test_notebook_rpcs.py) — direct import
@@ -149,7 +158,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_refused_runtime_is_said_before_anything_starts`
   - `test_a_runtime_directory_too_deep_for_a_socket_is_refused`
   - `test_a_session_is_not_found_from_another_vault`
+  - `test_a_session_marked_as_a_review_releases_nothing`
   - `test_a_vault_switch_stops_and_forgets_the_other_vaults_sessions`
+  - `test_closing_kills_a_server_that_stalls_its_shutdown_and_ignores_sigterm`
   - `test_release_and_run_need_a_frame_and_known_cells`
   - `test_with_every_session_shown_a_new_one_is_refused`
 - [tests/test_notebook_runtime_sandbox.py](../../../../../../tests/test_notebook_runtime_sandbox.py) — direct import

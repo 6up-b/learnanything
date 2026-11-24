@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/video/VideoWindow.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/video/VideoWindow.tsx) |
-| Source lines | 26 |
+| Source lines | 28 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/video/_area|TypeScript/screens/desks/video]] |
 | Refactor status | `ACTIVE` |
@@ -60,9 +60,11 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - `const extractionId = source.content.extractionId` — const, line 19
 - `const onChapters = useCallback((chapters: VideoChapterDto[])` — const, line 20
-- `const ticks = useMemo(()` — const, line 22
-- `const onClock = useCallback<NonNullable<VideoExtras["onClock"]>>((clock)` — const, line 23
-- `const video = useMemo<VideoExtras>(()` — const, line 24
+- `const decisions = useSyncExternalStore(desk.subscribe, ()` — const, line 21
+- `const onDecided = useCallback(()` — const, line 22
+- `const ticks = useMemo(()` — const, line 24
+- `const onClock = useCallback<NonNullable<VideoExtras["onClock"]>>((clock)` — const, line 25
+- `const video = useMemo<VideoExtras>(()` — const, line 26
 
 ## Who imports or calls it
 

@@ -50,31 +50,31 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/video.py](../../../../../../src/learnloop_sidecar/handlers/video.py) |
-| Source lines | 188 |
+| Source lines | 214 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class FollowAlongInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/video.py), line 45)
-- `class ChaptersInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/video.py), line 53)
-- `class ChaptersJobInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/video.py), line 57)
-- `class ChaptersDecideInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/video.py), line 61)
-- `reader_follow_along(ctx: SidecarContext, params: FollowAlongInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/video.py), line 71) — What the book follows at the video's time (no model call, no write).
-- `chapters_list(ctx: SidecarContext, params: ChaptersInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/video.py), line 83) — A video reading's chapters, suggested and accepted, by time.
-- `chapters_suggest(ctx: SidecarContext, params: ChaptersInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/video.py), line 118) — Judge the video's chapters: ``{job_id, status, done, result, error}`` at once.
-- `chapters_job(ctx: SidecarContext, params: ChaptersJobInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/video.py), line 164) — The suggestion's state, at once (never a wait on the request path).
-- `chapters_cancel(ctx: SidecarContext, params: ChaptersJobInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/video.py), line 171) — Cancel the suggestion: its next model request is refused; a finished one keeps its outcome.
-- `chapters_decide(ctx: SidecarContext, params: ChaptersDecideInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/video.py), line 178) — Accept a suggested chapter or dismiss it ("not this"), once; the chapter as it now stands.
+- `class FollowAlongInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/video.py), line 47)
+- `class ChaptersInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/video.py), line 55)
+- `class ChaptersJobInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/video.py), line 59)
+- `class ChaptersDecideInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/video.py), line 63)
+- `reader_follow_along(ctx: SidecarContext, params: FollowAlongInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/video.py), line 86) — What the book follows at the video's time (no model call, no write).
+- `chapters_list(ctx: SidecarContext, params: ChaptersInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/video.py), line 100) — A video reading's chapters, suggested and accepted, by time.
+- `chapters_suggest(ctx: SidecarContext, params: ChaptersInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/video.py), line 140) — Judge the video's chapters: ``{job_id, status, done, result, error}`` at once.
+- `chapters_job(ctx: SidecarContext, params: ChaptersJobInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/video.py), line 188) — The suggestion's state, at once (never a wait on the request path).
+- `chapters_cancel(ctx: SidecarContext, params: ChaptersJobInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/video.py), line 195) — Cancel the suggestion: its next model request is refused; a finished one keeps its outcome.
+- `chapters_decide(ctx: SidecarContext, params: ChaptersDecideInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/video.py), line 202) — Accept a suggested chapter or dismiss it ("not this"), once; the chapter as it now stands.
 
 ### Module constants
 
-- `VIDEO_RPCS` ([src/learnloop_sidecar/handlers/video.py](../../../../../../src/learnloop_sidecar/handlers/video.py), line 36)
-- `KIND` ([src/learnloop_sidecar/handlers/video.py](../../../../../../src/learnloop_sidecar/handlers/video.py), line 38)
-- `NOT_FOUND_MESSAGE` ([src/learnloop_sidecar/handlers/video.py](../../../../../../src/learnloop_sidecar/handlers/video.py), line 39)
-- `_REGISTRY` ([src/learnloop_sidecar/handlers/video.py](../../../../../../src/learnloop_sidecar/handlers/video.py), line 41)
-- `_JOBS_LOCK` ([src/learnloop_sidecar/handlers/video.py](../../../../../../src/learnloop_sidecar/handlers/video.py), line 42)
+- `VIDEO_RPCS` ([src/learnloop_sidecar/handlers/video.py](../../../../../../src/learnloop_sidecar/handlers/video.py), line 38)
+- `KIND` ([src/learnloop_sidecar/handlers/video.py](../../../../../../src/learnloop_sidecar/handlers/video.py), line 40)
+- `NOT_FOUND_MESSAGE` ([src/learnloop_sidecar/handlers/video.py](../../../../../../src/learnloop_sidecar/handlers/video.py), line 41)
+- `_REGISTRY` ([src/learnloop_sidecar/handlers/video.py](../../../../../../src/learnloop_sidecar/handlers/video.py), line 43)
+- `_JOBS_LOCK` ([src/learnloop_sidecar/handlers/video.py](../../../../../../src/learnloop_sidecar/handlers/video.py), line 44)
 
 ### Explicit exports
 
@@ -84,12 +84,14 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_chapters_error(exc: VC.ChaptersError | SC.CoverageError) -> SidecarError` ([source](../../../../../../src/learnloop_sidecar/handlers/video.py), line 66)
-- `_jobs(ctx: SidecarContext) -> PJ.PolledJobs` ([source](../../../../../../src/learnloop_sidecar/handlers/video.py), line 90)
-- `_error(error: SidecarError | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/video.py), line 94)
-- `_payload(job_id: str | None, status: str, *, finished: bool, result: dict[str, Any] | None, error: SidecarError | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/video.py), line 100)
-- `_job_payload(job: PJ.PolledJob) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/video.py), line 105)
-- `_find(ctx: SidecarContext, job_id: str, *, cancel: bool=False) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/video.py), line 149)
+- `_sections(repository: Any, extraction_id: str) -> list[tuple[str, float, float | None]]` ([source](../../../../../../src/learnloop_sidecar/handlers/video.py), line 68)
+- `_protected_chapters(vault: Any, repository: Any, extraction_id: str, chapters: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], str | None]` ([source](../../../../../../src/learnloop_sidecar/handlers/video.py), line 72) — Chapters as a reply may carry them while checks are due (masked at every read, a poll included, so a check falling due since the judgment still hides what it covers), and when the next check falls due.
+- `_chapters_error(exc: VC.ChaptersError | SC.CoverageError) -> SidecarError` ([source](../../../../../../src/learnloop_sidecar/handlers/video.py), line 81)
+- `_jobs(ctx: SidecarContext) -> PJ.PolledJobs` ([source](../../../../../../src/learnloop_sidecar/handlers/video.py), line 108)
+- `_error(error: SidecarError | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/video.py), line 112)
+- `_payload(job_id: str | None, status: str, *, finished: bool, result: dict[str, Any] | None, error: SidecarError | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/video.py), line 118)
+- `_job_payload(ctx: SidecarContext, job: PJ.PolledJob) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/video.py), line 123)
+- `_find(ctx: SidecarContext, job_id: str, *, cancel: bool=False) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/video.py), line 173)
 
 ## Who imports or calls it
 
@@ -103,14 +105,16 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/ai/plan_fallback|learnloop.ai.plan_fallback]] — imports `module`; calls `relay_job_offer`
+- [[Reference/Modules/learnloop/curriculum/goal_lens|learnloop.curriculum.goal_lens]] — imports `module`; calls `protect_chapters`, `protect_follow`
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
 - [[Reference/Modules/learnloop/source_retrieval/follow_along|learnloop.source_retrieval.follow_along]] — imports `module`; calls `follow`
 - [[Reference/Modules/learnloop/source_retrieval/section_coverage|learnloop.source_retrieval.section_coverage]] — imports `module`
-- [[Reference/Modules/learnloop/source_retrieval/video_chapters|learnloop.source_retrieval.video_chapters]] — imports `module`; calls `decide`, `list_chapters`, `suggest`
+- [[Reference/Modules/learnloop/source_retrieval/video_chapters|learnloop.source_retrieval.video_chapters]] — imports `module`; calls `decide`, `list_chapters`, `suggest`, `transcript_sections`
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `SidecarContext`
 - [[Reference/Modules/learnloop_sidecar/dto|learnloop_sidecar.dto]] — imports `ParamsModel`, `versioned`; calls `versioned`
 - [[Reference/Modules/learnloop_sidecar/errors|learnloop_sidecar.errors]] — imports `SidecarError`; calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/handlers/correspondents|learnloop_sidecar.handlers.correspondents]] — imports `_library_cache`, `_require`; calls `_library_cache`, `_require`
+- [[Reference/Modules/learnloop_sidecar/handlers/goal_lens|learnloop_sidecar.handlers.goal_lens]] — imports `protection_now`; calls `protection_now`
 - [[Reference/Modules/learnloop_sidecar/polled_jobs|learnloop_sidecar.polled_jobs]] — imports `module`; calls `registry`, `vault_key`
 - [[Reference/Modules/learnloop_sidecar/registry|learnloop_sidecar.registry]] — imports `method`; calls `method`
 

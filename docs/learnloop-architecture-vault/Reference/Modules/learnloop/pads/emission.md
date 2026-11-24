@@ -152,6 +152,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_below_the_tag_a_pad_emits_nothing_and_the_upgrade_queues_its_standing_words`
   - `test_switched_off_nothing_is_queued_and_switched_on_the_reconcile_queues_it`
   - `test_the_tag_and_the_kind`
+- [tests/test_reader_rd8a_fix.py](../../../../../../tests/test_reader_rd8a_fix.py) — direct import
+  - `test_erasing_handwriting_takes_its_automatic_transcription_and_what_was_read_from_it`
 - [tests/test_reader_rd8a_transcribe.py](../../../../../../tests/test_reader_rd8a_transcribe.py) — direct import
   - `test_ink_on_a_page_is_never_read_nor_learner_text`
 

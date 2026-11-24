@@ -66,7 +66,7 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/curriculum/__init__|learnloop.curriculum]] | [[Reference/Modules/learnloop/curriculum/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
 | [[Reference/Modules/learnloop/curriculum/ai_contracts|learnloop.curriculum.ai_contracts]] | [[Reference/Modules/learnloop/curriculum/ai_contracts#^module-purpose|purpose]] | `ACTIVE` | 2 | 4 |
 | [[Reference/Modules/learnloop/curriculum/commitment_arcs|learnloop.curriculum.commitment_arcs]] | [[Reference/Modules/learnloop/curriculum/commitment_arcs#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
-| [[Reference/Modules/learnloop/curriculum/commitments|learnloop.curriculum.commitments]] | [[Reference/Modules/learnloop/curriculum/commitments#^module-purpose|purpose]] | `ACTIVE` | 24 | 48 |
+| [[Reference/Modules/learnloop/curriculum/commitments|learnloop.curriculum.commitments]] | [[Reference/Modules/learnloop/curriculum/commitments#^module-purpose|purpose]] | `ACTIVE` | 24 | 50 |
 | [[Reference/Modules/learnloop/curriculum/concepts|learnloop.curriculum.concepts]] | [[Reference/Modules/learnloop/curriculum/concepts#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/curriculum/confusable_concepts|learnloop.curriculum.confusable_concepts]] | [[Reference/Modules/learnloop/curriculum/confusable_concepts#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/curriculum/curriculum_locks|learnloop.curriculum.curriculum_locks]] | [[Reference/Modules/learnloop/curriculum/curriculum_locks#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
@@ -74,7 +74,7 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/curriculum/depth_envelopes|learnloop.curriculum.depth_envelopes]] | [[Reference/Modules/learnloop/curriculum/depth_envelopes#^module-purpose|purpose]] | `ACTIVE` | 3 | 0 |
 | [[Reference/Modules/learnloop/curriculum/depth_rungs|learnloop.curriculum.depth_rungs]] | [[Reference/Modules/learnloop/curriculum/depth_rungs#^module-purpose|purpose]] | `ACTIVE` | 9 | 3 |
 | [[Reference/Modules/learnloop/curriculum/depth_transition|learnloop.curriculum.depth_transition]] | [[Reference/Modules/learnloop/curriculum/depth_transition#^module-purpose|purpose]] | `ACTIVE` | 3 | 3 |
-| [[Reference/Modules/learnloop/curriculum/goal_lens|learnloop.curriculum.goal_lens]] | [[Reference/Modules/learnloop/curriculum/goal_lens#^module-purpose|purpose]] | `ACTIVE` | 1 | 3 |
+| [[Reference/Modules/learnloop/curriculum/goal_lens|learnloop.curriculum.goal_lens]] | [[Reference/Modules/learnloop/curriculum/goal_lens#^module-purpose|purpose]] | `ACTIVE` | 4 | 5 |
 | [[Reference/Modules/learnloop/curriculum/golden_path_assessment|learnloop.curriculum.golden_path_assessment]] | [[Reference/Modules/learnloop/curriculum/golden_path_assessment#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
 | [[Reference/Modules/learnloop/curriculum/golden_path_confirm|learnloop.curriculum.golden_path_confirm]] | [[Reference/Modules/learnloop/curriculum/golden_path_confirm#^module-purpose|purpose]] | `ACTIVE` | 1 | 4 |
 | [[Reference/Modules/learnloop/curriculum/golden_path_fixture|learnloop.curriculum.golden_path_fixture]] | [[Reference/Modules/learnloop/curriculum/golden_path_fixture#^module-purpose|purpose]] | `ACTIVE` | 1 | 9 |
@@ -106,8 +106,8 @@ For system intent, use [[Learning System]].
 
 ### Packages that import this package
 
+- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 10 static module edges
 - [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 8 static module edges
-- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 7 static module edges
 - [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 5 static module edges
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 4 static module edges
 - [[Reference/Modules/learnloop/intent/_package|learnloop.intent]] — 3 static module edges
@@ -134,8 +134,8 @@ flowchart LR
     n_learnloop["learnloop"]
     n_learnloop_db["learnloop.db"]
     n_learnloop_substrate["learnloop.substrate"]
-    n_learnloop_reader["learnloop.reader"]
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
+    n_learnloop_reader["learnloop.reader"]
     n_learnloop_diagnosis["learnloop.diagnosis"]
     n_learnloop_ai["learnloop.ai"]
     n_learnloop_cli["learnloop.cli"]
@@ -144,8 +144,8 @@ flowchart LR
     center -->|21| n_learnloop
     center -->|17| n_learnloop_db
     center -->|17| n_learnloop_substrate
+    n_learnloop_sidecar_handlers -->|10| center
     n_learnloop_reader -->|8| center
-    n_learnloop_sidecar_handlers -->|7| center
     n_learnloop_diagnosis -->|1| center
     center -->|5| n_learnloop_diagnosis
     center -->|5| n_learnloop_ai

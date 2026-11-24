@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/video/desk.ts](../../../../../../../../apps/learnloop-tauri/src/screens/desks/video/desk.ts) |
-| Source lines | 207 |
+| Source lines | 243 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/video/_area|TypeScript/screens/desks/video]] |
 | Refactor status | `ACTIVE` |
@@ -58,31 +58,38 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export const LIVE_VIDEO_TRANSPORT: VideoTransport =` — const, line 24
 - `export interface VideoClock` — interface, line 34
 - `export interface DeskVideos` — interface, line 42
-- `export class VideoDesk` — class, line 57
+- `export function pastCheck(result:` — function, line 58
+- `export class VideoDesk` — class, line 63
 
 ## Internal implementation anchors
 
 - `interface Followed` — interface, line 47
 - `const NO_PRIMARY = ()` — const, line 55
-- `const before = JSON.stringify(this.layout)` — const, line 86
-- `const before = this.clocks.get(windowId)` — const, line 100
-- `const driver = this.driver()` — const, line 121
-- `const clock = this.clocks.get(driver.windowId)` — const, line 123
-- `const known = this.followed.get(book.windowId)` — const, line 127
-- `const section = known?.result.section` — const, line 128
-- `const inside = section ? clock.t >= section.t0 && (section.t1 === null || clock.t < section.t1) : known?.result.t !== -1` — const, line 129
-- `const fresh = known && known.videoExtractionId === driver.extractionId && (inside || Math.floor(known.askedT) === Math.floor(clock.t))` — const, line 130
-- `const before = this.followed.get(bookWindowId)?.passage ?? null` — const, line 141
-- `const passage = choosePassage(result, bookExtractionId, this.primaryFor)` — const, line 142
-- `const driver = this.driver()` — const, line 144
-- `const playing = driver ? this.clocks.get(driver.windowId)?.playing ?? false : false` — const, line 145
-- `const passage = this.followed.get(bookWindowId)?.passage` — const, line 160
-- `const driver = this.driver()` — const, line 171
-- `const known = this.followed.get(bookWindowId)` — const, line 173
-- `const result = known && known.videoExtractionId === driver.extractionId ? known.result : null` — const, line 174
-- `const chapter = chapterWords(result)` — const, line 175
-- `const accepted = chapters.filter((chapter)` — const, line 191
-- `const before = this.accepted.get(extractionId) ?? []` — const, line 192
+- `const due = result?.nextCheckDue ? Date.parse(result.nextCheckDue) : NaN` — const, line 59
+- `const before = JSON.stringify(this.layout)` — const, line 96
+- `const before = this.clocks.get(windowId)` — const, line 110
+- `let best:` — let, line 127
+- `let at = 0` — let, line 128
+- `const seq = this.played.get(video.windowId) ?? 0` — const, line 130
+- `const driver = this.driver()` — const, line 137
+- `const clock = this.clocks.get(driver.windowId)` — const, line 139
+- `const known = this.followed.get(book.windowId)` — const, line 143
+- `const section = known?.result.section` — const, line 144
+- `const inside = section ? clock.t >= section.t0 && (section.t1 === null || clock.t < section.t1) : known?.result.t !== -1` — const, line 145
+- `const fresh = known && known.videoExtractionId === driver.extractionId && !pastCheck(known.result) && (inside || Math.floor(known.askedT) === Math.floor(clock.t))` — const, line 146
+- `const book = this.layout.books.find((each)` — const, line 160
+- `const before = this.followed.get(bookWindowId)?.passage ?? null` — const, line 165
+- `const passage = choosePassage(result, bookExtractionId, this.primaryFor)` — const, line 166
+- `const driver = this.driver()` — const, line 168
+- `const playing = driver ? this.clocks.get(driver.windowId)?.playing ?? false : false` — const, line 169
+- `const passage = this.followed.get(bookWindowId)?.passage` — const, line 184
+- `const driver = this.driver()` — const, line 195
+- `const known = this.followed.get(bookWindowId)` — const, line 197
+- `const answered = known && known.videoExtractionId === driver.extractionId ? known.result : null` — const, line 198
+- `const result = answered && !pastCheck(answered) ? answered : null` — const, line 200
+- `const chapter = chapterWords(result)` — const, line 201
+- `const accepted = chapters.filter((chapter)` — const, line 217
+- `const before = this.accepted.get(extractionId) ?? []` — const, line 218
 
 ## Who imports or calls it
 
@@ -115,6 +122,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 ## Tests that define behavior
 
 - [apps/learnloop-tauri/src/screens/desks/video/video.test.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/video/video.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/desks/video/protection.test.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/video/protection.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/desks/video/deskVideo.test.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/video/deskVideo.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 
 ## Modification guidance
