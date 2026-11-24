@@ -152,10 +152,10 @@ export const STAGE_CHANGES: Record<string, Behaviour[]> = {
     {
       behaviour: "the palette's ask waits in the workbench",
       kind: "simple-only",
-      // The source moved out of screens/ReaderScreen.tsx whole (the Reader's retirement, phase 2).
-      in: "screens/desks/source/ScopedSource.tsx",
-      evidence: [/askWaiting=\{askWaitsForWork \?/],
-      reason: "set only by askRequest, which the App passes only in the simple shell"
+      // The Reader's retirement (phase 2 step 2): the palette's ask summons the desks' companion, so nothing sets
+      // askWaiting any more; its default renders the posture as base did.
+      evidence: [/askWaiting = null,/],
+      reason: "absent (its default, null), the posture renders exactly as base's"
     }
   ],
   "screens/ReaderScreen.tsx": [

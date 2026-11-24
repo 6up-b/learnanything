@@ -1,14 +1,16 @@
+// Ported from screens/ReaderScreen.parity.test.tsx (the Reader’s retirement, phase 2 step 2; missed by step 1): the same cases,
+// mounting the scoped source a source window mounts, without the standalone screen's own branches.
 // RW1a on every source kind the Reader opens (G51): a video transcript and the
 // learner's own text notes get the same inquiry model -- branches, the detour
 // strip, Alt+← back and the inline reconnect line under the passage. Plus the
 // return stack's restart rule (G57: a restart restores only the root) and the
-// Reader-wide keys ([ ] tabs, \ rail).
+// Reader-wide keys ([ ] tabs).
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { ReaderScreen } from "./ReaderScreen";
-import { readerRenderViewFixture } from "../fixtures/readerRenderView";
-import type { ReaderRenderViewDto, SourceLibraryCard } from "../api/dto";
-import { resetReaderActivityForTests } from "./reader/activity";
+import { ScopedSource } from "./ScopedSource";
+import { readerRenderViewFixture } from "../../../fixtures/readerRenderView";
+import type { ReaderRenderViewDto, SourceLibraryCard } from "../../../api/dto";
+import { resetReaderActivityForTests } from "../../reader/activity";
 
 const api = vi.hoisted(() => ({
   readerRenderView: vi.fn(), readerGuidePlan: vi.fn(), readerGetProgress: vi.fn(), readerPdfView: vi.fn(),
@@ -16,16 +18,16 @@ const api = vi.hoisted(() => ({
   readerLogActivity: vi.fn(), readerRestoreSource: vi.fn(), readerWatchPlan: vi.fn(),
 }));
 const source = vi.hoisted(() => ({ card: null as unknown }));
-vi.mock("../api/client", () => ({ api }));
-vi.mock("../api/useCachedQuery", () => ({ useCachedQuery: (key: string[]) => ({ data: key[0] === "reader_prompt_contract" ? { readerEnabled: true, inquiryEnabled: true } : { sources: [source.card] }, error: null }) }));
-vi.mock("./reader/readerCache", () => ({ cachedSourceRead: (_id: string, _key: unknown, fetch: () => unknown) => fetch() }));
-vi.mock("./reader/guidePlan", () => ({ readGuidePlan: () => Promise.resolve({ sections: [] }), useGuideDiagnosisRefresh: () => undefined }));
-vi.mock("./reader/useReaderRequests", () => ({
+vi.mock("../../../api/client", () => ({ api }));
+vi.mock("../../../api/useCachedQuery", () => ({ useCachedQuery: (key: string[]) => ({ data: key[0] === "reader_prompt_contract" ? { readerEnabled: true, inquiryEnabled: true } : { sources: [source.card] }, error: null }) }));
+vi.mock("../../reader/readerCache", () => ({ cachedSourceRead: (_id: string, _key: unknown, fetch: () => unknown) => fetch() }));
+vi.mock("../../reader/guidePlan", () => ({ readGuidePlan: () => Promise.resolve({ sections: [] }), useGuideDiagnosisRefresh: () => undefined }));
+vi.mock("../../reader/useReaderRequests", () => ({
   useReaderRequests: () => ({ requests: [], proposalCount: 0, synthesizedObjects: new Map(), openProposalIds: new Set(), loadError: null, refresh: () => Promise.resolve() }),
   parseRequestError: () => null, parseRequestResult: () => ({}),
 }));
-vi.mock("../components/PdfReaderPane", () => ({ PdfReaderPane: () => null }));
-vi.mock("../render/MarkdownMath", () => ({ MarkdownMath: ({ value }: { value: string }) => <div>{value}</div> }));
+vi.mock("../../../components/PdfReaderPane", () => ({ PdfReaderPane: () => null }));
+vi.mock("../../../render/MarkdownMath", () => ({ MarkdownMath: ({ value }: { value: string }) => <div>{value}</div> }));
 
 const transcript: ReaderRenderViewDto = {
   ...readerRenderViewFixture,
@@ -122,7 +124,7 @@ async function followUpAndReturn(view: ReaderRenderViewDto) {
 it("a video transcript: the reconnect line sits under the transcript passage", async () => {
   setSource(transcript, "video");
   api.readerAskHistory.mockResolvedValue({ exchanges: [exchange(transcript, "s2")] });
-  render(<ReaderScreen initialSource={{ card: source.card as SourceLibraryCard, spanId: null }} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={{ card: source.card as SourceLibraryCard, spanId: null }} onError={vi.fn()} />);
   await screen.findByTitle("watch hvjkcmzfix8");
   await followUpAndReturn(transcript);
   const inline = await screen.findAllByRole("group", { name: "Does this make sense now?" });
@@ -134,7 +136,7 @@ it("a video transcript: the reconnect line sits under the transcript passage", a
 it("the learner's text notes: the same branches, strip and inline reconnect", async () => {
   setSource(notes, "notes");
   api.readerAskHistory.mockResolvedValue({ exchanges: [exchange(notes, "n1")] });
-  render(<ReaderScreen initialSource={{ card: source.card as SourceLibraryCard, spanId: "n1" }} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={{ card: source.card as SourceLibraryCard, spanId: "n1" }} onError={vi.fn()} />);
   await screen.findAllByText(notes.blocks[1].markdown);
   await followUpAndReturn(notes);
   const lines = await screen.findAllByRole("group", { name: "Does this make sense now?" });
@@ -144,7 +146,7 @@ it("the learner's text notes: the same branches, strip and inline reconnect", as
 it("while a detour is open, the saved reading position stays at its root (a restart restores only the root)", async () => {
   setSource(readerRenderViewFixture, "notes");
   api.readerAskHistory.mockResolvedValue({ exchanges: [exchange(readerRenderViewFixture, "span_symmetric_prose")] });
-  render(<ReaderScreen initialSource={{ card: source.card as SourceLibraryCard, spanId: "span_spectral_worked" }} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={{ card: source.card as SourceLibraryCard, spanId: "span_spectral_worked" }} onError={vi.fn()} />);
   fireEvent.click(await screen.findByRole("button", { name: "ask" }));
   fireEvent.click(await screen.findByRole("button", { name: /▸ Why weighted\?/ }));
   const key = `learnloop.reader.position.${readerRenderViewFixture.sourceId}`;
@@ -156,18 +158,16 @@ it("while a detour is open, the saved reading position stays at its root (a rest
   expect(window.localStorage.getItem(key)).not.toBe("span_symmetric_prose");
 });
 
-it("[ and ] move between rail tabs, and \\ collapses and expands the rail", async () => {
+// Phase 2 step 2: the rail's collapse (\ and its "expand the rail" handle) was the standalone screen's; a scoped
+// source's rail is never collapsed (a window's rail lives in its panel window), so only [ and ] are checked here.
+it("[ and ] move between rail tabs", async () => {
   setSource(readerRenderViewFixture, "notes");
   api.readerAskHistory.mockResolvedValue({ exchanges: [] });
-  render(<ReaderScreen initialSource={{ card: source.card as SourceLibraryCard, spanId: null }} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={{ card: source.card as SourceLibraryCard, spanId: null }} onError={vi.fn()} />);
   const guideTab = await screen.findByRole("button", { name: "guide" });
   expect(guideTab.getAttribute("aria-pressed")).toBe("true");
   fireEvent.keyDown(window, { key: "]" });
   expect(screen.getByRole("button", { name: "ask" }).getAttribute("aria-pressed")).toBe("true");
   fireEvent.keyDown(window, { key: "[" });
   expect(screen.getByRole("button", { name: "guide" }).getAttribute("aria-pressed")).toBe("true");
-  fireEvent.keyDown(window, { key: "\\" });
-  expect(screen.getByRole("button", { name: "expand the rail (\\)" })).toBeTruthy();
-  fireEvent.keyDown(window, { key: "\\" });
-  expect(screen.queryByRole("button", { name: "expand the rail (\\)" })).toBeNull();
 });

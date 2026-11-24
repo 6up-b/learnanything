@@ -152,12 +152,12 @@ it("the answer to a follow-up is brought into view inside the rail, never the sh
 // Every module of the Reader and the panes it opens, as text: a native
 // `scrollIntoView` there can move the application (see the top of this file).
 const READER_MODULES = import.meta.glob(
-  ["./**/*.{ts,tsx}", "!./**/*.test.{ts,tsx}", "../ReaderScreen.tsx", "../../components/PdfReaderPane.tsx"],
+  ["./**/*.{ts,tsx}", "!./**/*.test.{ts,tsx}", "../desks/source/ScopedSource.tsx", "../../components/PdfReaderPane.tsx"],
   { query: "?raw", import: "default", eager: true },
 ) as Record<string, string>;
 
 it("no module of the Reader asks the browser to scroll an element into view itself", () => {
-  expect(Object.keys(READER_MODULES)).toEqual(expect.arrayContaining(["../ReaderScreen.tsx", "../../components/PdfReaderPane.tsx", "./AskRail.tsx"]));
+  expect(Object.keys(READER_MODULES)).toEqual(expect.arrayContaining(["../desks/source/ScopedSource.tsx", "../../components/PdfReaderPane.tsx", "./AskRail.tsx"]));
   const calls = Object.entries(READER_MODULES).flatMap(([file, text]) =>
     text.split("\n").flatMap((line, index) => (/\.scrollIntoView\??\.?\(/.test(line) ? [`${file}:${index + 1}`] : [])));
   expect(calls).toEqual([]);

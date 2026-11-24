@@ -1,12 +1,10 @@
-// ReaderScreen (P3 slice 1: spec_p3_reader_integration §3-§5; spec_tauri_ui §3 P3).
+// The scoped source: one book's Reader in a desk's source window (spec_reader_workbench_v2 §7.1), extracted from the
+// old standalone ReaderScreen (P3 slice 1: spec_p3_reader_integration §3-§5; spec_tauri_ui §3 P3), which the Reader's
+// retirement deleted (docs/reviews/reader-rd-retire.md, phase 2).
 //
-// The reading front door. Opens with a picker over the real source library
-// (ready sources only); choosing a source fetches its live marker-markdown
-// render view (blocks + per-block health) from `reader.render_view`, which
-// resolves the source id to its latest completed extraction. The deterministic
-// offline fixture survives only as an explicitly labeled demo, used when the
-// sidecar is unreachable or on request (U-031) — offline captures are local to
-// the window and honestly labeled as such. A text selection over a block is
+// A window opens one book for its life: its live marker-markdown render view (blocks + per-block health) from
+// `reader.render_view`, which resolves the source id to its latest completed extraction; a book still being prepared
+// shows its original until the text is ready. A text selection over a block is
 // captured LOCALLY through `reader.capture` -> ONE durable annotation + outbox
 // row (§5.3) before any model job, and shown in the annotation margin with its
 // anchor status (`needs_reanchor` surfaces an "anchor needs review" note, never
@@ -21,11 +19,10 @@ import { api } from "../../../api/client";
 import { useCachedQuery } from "../../../api/useCachedQuery";
 import { TAG } from "../../../api/queryTags";
 import { setQueryData } from "../../../api/queryCache";
-import type { CorrespondentFigureDto, CorrespondentSectionDto, FigurePassageDto, FigureViewDto, LibraryAskEntry, LibraryHitDto, PassageTarget, ProposedItemDto, ReaderAnnotationPlacementDto, ReaderAnswerMode, ReaderArcDto, ReaderCoachLintDto, ReaderCueDto, ReaderDisposition, ReaderGuidePlanDto, ReaderGuideSectionDto, ReaderImportExerciseInput, ReaderIntentActionDto, ReaderPdfViewDto, ReaderPresetReceiptDto, ReaderPromptContractDto, ReaderRenderBlockDto, ReaderRenderViewDto, ReaderSourceSearchDto, ReaderWatchPlanDto, ReadingPathExerciseDto, SourceIdentity, SourceLibraryCard } from "../../../api/dto";
+import type { CorrespondentFigureDto, CorrespondentSectionDto, FigurePassageDto, FigureViewDto, LibraryAskEntry, LibraryHitDto, PassageTarget, ProposedItemDto, ReaderAnnotationPlacementDto, ReaderAnswerMode, ReaderArcDto, ReaderCoachLintDto, ReaderCueDto, ReaderDisposition, ReaderGuidePlanDto, ReaderGuideSectionDto, ReaderImportExerciseInput, ReaderIntentActionDto, ReaderPdfViewDto, ReaderPresetReceiptDto, ReaderPromptContractDto, ReaderRenderBlockDto, ReaderRenderViewDto, ReaderWatchPlanDto, ReadingPathExerciseDto, SourceIdentity, SourceLibraryCard } from "../../../api/dto";
 import { COLOR, Card, FONT_MONO, Faint, Pill, TermSelect } from "../../../components/term";
 import { MarkdownMath } from "../../../render/MarkdownMath";
 import { MathMacrosProvider } from "../../../render/mathMacros";
-import { readerRenderViewFixture } from "../../../fixtures/readerRenderView";
 import { youtubeVideoId } from "../../../components/sourceTail";
 import { readerDisplaysBlock } from "../../../render/readerBlockPolicy";
 import { PdfReaderPane, type PdfReaderPaneHandle, type TagMenuRequest } from "../../../components/PdfReaderPane";
@@ -99,7 +96,7 @@ import { screenLeavesKey } from "../../../app/keymap";
 import { selectionQuote } from "../../../render/mathSnippet";
 import { scrollIntoViewWithin } from "../../../components/scrollWithin";
 import { type AnnotationSegment, type MarginAnnotation, type ReaderSelection, askGroundingSpans, clip, groundingProtected, passageKeys, placedSpanIds, sectionWords, selectionNodes, selectionProtected } from "../../reader/readerShared";
-import type { ReaderCheckMeRequest, ReaderExerciseRequest, ReaderOpenSource, ReaderWindowing, StandaloneShell } from "./types";
+import type { ReaderCheckMeRequest, ReaderExerciseRequest, ReaderOpenSource, ReaderWindowing } from "./types";
 
 /** A stable empty list for the dose offer before the guide plan loads. */
 const NO_SECTIONS: never[] = [];
@@ -213,46 +210,18 @@ interface IntentPane {
 export function ScopedSource({
   onError,
   initialSource = null,
-  onSourceChange,
-  onOpenLibrary,
-  onOpenToday,
-  shelf,
   onCheckMe,
   onUseExercise,
   onTeachMe,
   workbench,
   onSkimmingChange,
-  askRequest,
-  initialLibrarySearch = "",
   windowed = null,
-  onOpenDesks,
-  standalone = null,
 }: {
-  /** The standalone Reader screen's own branches (its list, header, collapsed rail and key bar); absent in a source window. */
-  standalone?: StandaloneShell | null;
-  /** Reader workbench v2: the header's way to the desks (absent: no link, as before). */
-  onOpenDesks?: () => void;
-  /** Reader workbench v2: a source window on a desk (absent: the Reader place, as before). */
+  /** Reader workbench v2: a source window on a desk (absent: a scoped source alone, as its tests mount it). */
   windowed?: ReaderWindowing | null;
   onError: (message: string) => void;
-  /** TE2 landing ruling R2: the across-source search's words when the Reader mounts (a lesson's "Look in my
-   *  library" on a typed goal's leftover); empty, the box starts empty as before. */
-  initialLibrarySearch?: string;
-  /** UX Phase 2: the palette's "Ask the tutor about this" with a book open.
-   *  Each new value opens the rail on Ask and focuses its box; the value the
-   *  Reader mounts with opens nothing. */
-  askRequest?: number;
-  /** The source that was open when the Reader last unmounted (hoisted by the shell). */
+  /** The book (and passage) the source opens with, once, on mount: a window opens one book for its life. */
   initialSource?: ReaderOpenSource | null;
-  onSourceChange?: (next: ReaderOpenSource | null) => void;
-  /** "← Library" goes to the Library place, the one shelf (spec K5; usability
-   *  round 1: the Reader's own list was a second "Library"). */
-  onOpenLibrary?: () => void;
-  /** "Back to Today" at the end of a book's last section (absent: the Reader offers no way there). */
-  onOpenToday?: () => void;
-  /** With no book open, the Library's own shelf (spec K5, usability round 2:
-   *  the Reader's own list read as a second Library). */
-  shelf?: ReactNode;
   /** RW3a: open the item a margin cue's "check me" found, as a learner pick
    *  with the book out of view; absent, the cue offers no check me. */
   onCheckMe?: (request: ReaderCheckMeRequest) => void;
@@ -285,7 +254,9 @@ export function ScopedSource({
   const [render, setRender] = useState<ReaderRenderViewDto | null>(null);
   const [guidePlan, setGuidePlan] = useState<ReaderGuidePlanDto | null>(null);
   const [guideLoading, setGuideLoading] = useState(false);
-  const [offline, setOffline] = useState(false);
+  // The standalone screen's offline demo chapter (when the sidecar was down) went with that screen: no source is the
+  // fixture now. Pinned for the shared reads that still name it.
+  const offline = false;
   // Source picker state: the real library (ready sources are openable), whether
   // the sidecar answered at all, and the title of whatever is open.
   // If the sidecar is unreachable the demo fixture stays available, clearly
@@ -369,13 +340,6 @@ export function ScopedSource({
   // practice" click; the panel survives clearing the selection so the learner
   // can keep reading while it authors.
   const [exerciseImport, setExerciseImport] = useState<ExerciseImportState | null>(null);
-  // Across-source search on the library screen ("where did I read that?").
-  const [librarySearch, setLibrarySearch] = useState(initialLibrarySearch);
-  // Enter asks for a deep search (meaning + rewritten question); typing resets it.
-  const [searchDeep, setSearchDeep] = useState(false);
-  const [searchResults, setSearchResults] = useState<ReaderSourceSearchDto | null>(null);
-  const [searchBusy, setSearchBusy] = useState(false);
-  const [searchError, setSearchError] = useState<string | null>(null);
   // Inline annotation maintenance (edit note / delete tombstone) in the rail.
   const [editingAnnotationId, setEditingAnnotationId] = useState<string | null>(null);
   const [editingAnnotationText, setEditingAnnotationText] = useState("");
@@ -387,13 +351,10 @@ export function ScopedSource({
   // UX Phase 1 (§6.3): a book whose text is still being prepared opens on its
   // original PDF in PreparingView; the full Reader takes over when it is ready.
   const [preparingCard, setPreparingCard] = useState<SourceLibraryCard | null>(null);
-  const [railCollapsed, setRailCollapsed] = useState(() => {
-    try {
-      return window.localStorage.getItem("learnloop.reader.rail-collapsed") === "on";
-    } catch {
-      return false;
-    }
-  });
+  // The rail is never collapsed: a source window's rail lives in its panel window, and the standalone screen's
+  // collapse (its \\ key, its handle, the per-device preference) went with that screen. Pinned at the window's value
+  // for the shared reads (the recap's visibility, the marks' layout key).
+  const railCollapsed = false;
   const bodyRef = useRef<HTMLDivElement | null>(null);
   const railRef = useRef<HTMLDivElement | null>(null);
   const paneRef = useRef<PdfReaderPaneHandle | null>(null);
@@ -521,7 +482,6 @@ export function ScopedSource({
   // hardening; screens/reader/useReadingProgress). checkOffer.ts stays the one
   // offer rule: every offer path below reads `offeredCheckSections`.
   const showGuideRail = useCallback(() => {
-    setRailCollapsed(false);
     setRailTab("guide");
   }, []);
   const progress = useReadingProgress({
@@ -906,41 +866,6 @@ export function ScopedSource({
     return () => observer.disconnect();
   }, [render]);
 
-  // Debounced across-source search (library screen only; deterministic, local).
-  useEffect(() => {
-    if (render || sidecarDown) return;
-    const query = librarySearch.trim();
-    if (query.length < 2) {
-      setSearchResults(null);
-      setSearchBusy(false);
-      setSearchError(null);
-      return;
-    }
-    let cancelled = false;
-    setSearchBusy(true);
-    setSearchError(null);
-    const timer = window.setTimeout(() => {
-      api
-        .readerSearchSources({ query, deep: searchDeep })
-        .then((result) => {
-          if (!cancelled) setSearchResults(result);
-        })
-        .catch((error) => {
-          if (!cancelled) {
-            setSearchResults(null);
-            setSearchError(errorMessage(error, "Could not search the source library."));
-          }
-        })
-        .finally(() => {
-          if (!cancelled) setSearchBusy(false);
-        });
-    }, searchDeep ? 0 : 300);
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timer);
-    };
-  }, [librarySearch, searchDeep, render, sidecarDown]);
-
   // Reset per-source panel state so nothing from the previous source leaks over.
   const resetSourceState = useCallback(() => {
     // Leaving a book for another (or for the Library) saves what was read in
@@ -1008,7 +933,6 @@ export function ScopedSource({
         resetSourceState();
         setRender(null);
         setPreparingCard(card);
-        onSourceChange?.({ card, spanId: null });
         return "preparing";
       }
       // A book handed over from the preparing view keeps its original on screen
@@ -1030,12 +954,10 @@ export function ScopedSource({
         // RW1a: another source after leaving one is a detour (useReaderInquiry).
         noteSourceOpened(card, jumpSpan && options.jumpReading ? options.jumpReading : view.extractionId, jumpSpan, options.via);
         setRender(view);
-        setOffline(false);
         setSourceTitle(card.title);
         // The shell remembers the SOURCE, not the jump: a search hit lands the
         // learner on the passage once; returning to this tab later resumes
         // from the saved reading position, not the original hit.
-        onSourceChange?.({ card, spanId: null });
         // The saved place, a search hit's passage over it, or (with neither)
         // the reading history once it is read (useReadingProgress).
         placeAtOpen(
@@ -1088,7 +1010,6 @@ export function ScopedSource({
         onError(errorMessage(error));
         // A source that no longer opens (deleted, re-extracted away) must not
         // be resumed on every return to this tab.
-        onSourceChange?.(null);
         return "not_opened";
       } finally {
         openingRef.current = null;
@@ -1098,38 +1019,10 @@ export function ScopedSource({
     },
     // progress.handoffRef is a stable ref.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [onError, onSourceChange, resetSourceState, settleOpening, noteSourceOpened, placeAtOpen, hydrateProgress],
+    [onError, resetSourceState, settleOpening, noteSourceOpened, placeAtOpen, hydrateProgress],
   );
   openSourceRef.current = openSource;
 
-  const openFixture = useCallback(() => {
-    resetSourceState();
-    setRender(readerRenderViewFixture);
-    setOffline(true);
-    setSourceTitle("demo chapter (fixture)");
-    onSourceChange?.(null);
-  }, [onSourceChange, resetSourceState]);
-
-  const backToLibrary = useCallback(() => {
-    // RW1a: remember where the learner was, so a search hit opened from the
-    // library is a detour with a way back (Alt+← reopens this passage).
-    if (render && !offline) {
-      const spanId = readingSpan ?? activeSpan;
-      const section = guidePlan?.sections.find((candidate) => spanId && candidate.spanIds.includes(spanId));
-      rememberLeftSource({
-        id: newActivityId(), kind: "origin", sourceId: render.sourceId, sourceTitle,
-        extractionId: render.extractionId, spanId, selection, railTab, exchangeId: null,
-        label: [sourceTitle, section ? sectionWords(section.label) : null].filter(Boolean).join(" · ") || "where I was",
-        openedAt: Date.now(),
-      });
-    }
-    resetSourceState();
-    setPreparingCard(null);
-    setRender(null);
-    setOffline(false);
-    setSourceTitle(null);
-    onSourceChange?.(null);
-  }, [onSourceChange, resetSourceState, render, offline, readingSpan, activeSpan, guidePlan, sourceTitle, selection, railTab, rememberLeftSource]);
 
   // Resume the source that was open when this tab was last left: the shell
   // keeps the card, the cache keeps the reads, so the return is instant.
@@ -1370,7 +1263,6 @@ export function ScopedSource({
     if (!target) return;
     // On a desk with no Notes panel on screen the note opens in the window's margin card, being edited.
     if (windowNotesOnRef.current) setWindowNotesSpan(placedSpanIds(target)[0] ?? null);
-    setRailCollapsed(false);
     setRailTab("notes");
     setEditingAnnotationId(annotationId);
     setEditingAnnotationText(target.learnerText);
@@ -1457,7 +1349,6 @@ export function ScopedSource({
   });
   const { noteSelection: noteIntentSelection, noteSelectionCleared: noteIntentCleared } = intentBox;
   const openActiveRail = useCallback(() => {
-    setRailCollapsed(false);
     setRailTab("notes");
   }, []);
   const activeCtl = useActiveReading({
@@ -2297,57 +2188,19 @@ export function ScopedSource({
         event.preventDefault();
         // Reader CA6: in side by side the rail stays folded to its gutter; \\ opens it as an overlay.
         if (sbsPanesRef.current) setSbsRailOverlay((open) => !open);
-        else setRailCollapsed((collapsed) => !collapsed);
       } else if ((event.key === "x" || event.key === "X") && alsoKeyRef.current()) {
         // Reader CA5: open "also in your books" at its first line (off while the
         // intent box shows, in the working posture, or with no line to open).
         event.preventDefault();
         // In side by side (CA6) the rail is an overlay over the gutter: open that.
         if (sbsPanesRef.current) setSbsRailOverlay(true);
-        else setRailCollapsed(false);
         setRailTab("guide");
         setAlsoExpandToken((token) => token + 1);
       }
     };
     return hub.listen("window", "keydown", onKey);
   }, [inquiry, render, hub]);
-  useEffect(() => {
-    try {
-      window.localStorage.setItem("learnloop.reader.rail-collapsed", railCollapsed ? "on" : "off");
-    } catch {
-      /* A per-device preference; reading works without it. */
-    }
-  }, [railCollapsed]);
 
-  // UX Phase 2 (Codex review F5): the palette's ask opens this Ask, as the
-  // learner asked (D41), with its box focused; it never sends a question.
-  // Fix round 3 (whole-stage verify 20261021-130232-Uk06Al item 4): from any
-  // posture. Comparing hides the rail, so the comparison closes first. The
-  // working posture hides it too, and leaving it is the learner's call (Leave
-  // for now saves the steps, and can be refused), so a visible line in the
-  // workbench says how, and Ask opens once the learner has left.
-  const askRequestSeen = useRef(askRequest);
-  const [askWaitsForWork, setAskWaitsForWork] = useState(false);
-  const revealAskRef = useRef<() => void>(() => undefined);
-  revealAskRef.current = () => {
-    if (libraryCtl.open || libraryCompose !== null) closeLibrary();
-    setRailCollapsed(false);
-    setRailTab("ask");
-    window.setTimeout(() => askComposerRef.current?.focus({ preventScroll: true }), 0);
-  };
-  useEffect(() => {
-    if (askRequest === undefined || askRequest === askRequestSeen.current) return;
-    askRequestSeen.current = askRequest;
-    if (working) setAskWaitsForWork(true);
-    else revealAskRef.current();
-    // `working` is read as it is when the request arrives, not followed.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [askRequest]);
-  useEffect(() => {
-    if (working || !askWaitsForWork) return;
-    setAskWaitsForWork(false);
-    revealAskRef.current();
-  }, [working, askWaitsForWork]);
   // Reader CA3, Codex review F1: the selection verb while a problem is open.
   // The comparing posture is hidden while working, so nothing runs (nothing is
   // paid for) then; a line in the workbench says so, and the comparison opens
@@ -3083,27 +2936,11 @@ export function ScopedSource({
       }
     : null;
   // ── A book still being prepared: its original, at once (UX Phase 1, §6.3) ──
-  // On the library page no book is open: the pick is the same learner pick,
-  // coming back to the answer's first passage (Codex review F10). With the
-  // workbench on, the check opens beside that passage, so its book opens too
-  // (a detour, as "open" is).
-  const pickLibraryPagePractice = (item: ProposedItemDto, proposalId: string | null) => {
-    const hit = libraryCtl.state?.ask.value?.hits[0];
-    const card = hit ? (library ?? []).find((candidate) => candidate.sourceId === hit.sourceId) : undefined;
-    if (!hit || !card || !onCheckMe) return;
-    // The hit's own book and reading (its revision is not known here: the sidecar checks the reading).
-    onCheckMe({ practiceItemId: item.practiceItemId, proposalId, spanId: hit.spanId, card,
-      reading: { sourceId: card.sourceId, revisionId: null, extractionId: hit.extractionId } });
-    if (algoConfig().workbench && opening === null) {
-      void openSource(card, hit.spanId, { via: "search", jumpReading: hit.extractionId });
-    }
-  };
   if (!render && preparingCard) {
     return (
       <PreparingView
         key={preparingCard.sourceId}
         card={preparingCard}
-        onBack={onOpenLibrary ?? backToLibrary}
         onReady={(next, position) => {
           // The preparing view stays up through the hand-over and keeps polling.
           if (openingRef.current !== next.sourceId) void openSource(next, undefined, { handoff: position });
@@ -3123,7 +2960,7 @@ export function ScopedSource({
   }
 
   // ── A book being opened: named, not a second list of books (round 2) ──
-  if (!render) return standalone ? standalone.unopened({ render, opening, openingTitle, library, shelf, sidecarDown, enabled, librarySearch, setLibrarySearch, setSearchDeep, libraryCtl, searchBusy, searchResults, notesCtl, keptCtl, openSource, onCheckMe, pickLibraryPagePractice, exerciseProps, figureOffersOn, makeExplorable, searchError, contract, openFixture }) : null;
+  if (!render) return null;
 
   // ── RW2a: the working posture ──
   const wbActive = wbCtl.active;
@@ -3258,7 +3095,6 @@ export function ScopedSource({
           return;
         }
         // A routed Ask opens the Ask tab, because the learner asked (D41).
-        setRailCollapsed(false);
         setRailTab("ask");
         if (text) {
           void submitAsk(text, null, { answerMode: "answerMode" in effect ? effect.answerMode : undefined, meta });
@@ -3371,7 +3207,6 @@ export function ScopedSource({
           windowed.onOpenPath();
           return;
         }
-        setRailCollapsed(false);
         setRailTab("guide");
         setPathFocus((value) => value + 1);
         return;
@@ -3799,7 +3634,6 @@ export function ScopedSource({
       completeSection={completeSection}
       sectionFinishes={sectionFinishes}
       endedSections={endedSections}
-      {...(onOpenToday ? { onOpenToday } : {})}
       bookTitle={sourceTitle}
       onError={onError}
       boundaryBlock={boundaryBlock}
@@ -3884,7 +3718,7 @@ export function ScopedSource({
     <NotesContext.Provider value={notesCtl.context}>
     <CompareKeepContext.Provider value={keptCtl.context}>
     <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
-      {render && !offline && (windowed || !standalone) ? (
+      {render && !offline ? (
         // A source window's frame carries the title; the view switch, how the learner reads this book (skim, read
         // closely, mark for later), whether quick checks come up while reading closely, and the line that says the
         // book was read again since the place it opened at (the old header's, per window, with the same effects) stay
@@ -3926,7 +3760,6 @@ export function ScopedSource({
           </span>
         </div>
       ) : null}
-      {!windowed && standalone ? standalone.header({ onOpenLibrary, backToLibrary, onOpenDesks, sourceTitle, offline, progress, pdfView, setSurface, surface, mode, changeMode, currentGuideSection, readingProgress, setSectionPromptsEnabled, sectionPromptsEnabled, boundaryChecksAvailable }) : null}
 
       {inquiry ? (
         <DetourStrip
@@ -4438,7 +4271,6 @@ export function ScopedSource({
             onAbandoned={(session, generation) => leaveWorkbench(session, true, generation)}
             onPeekPassage={peekWorkbenchPassage}
             onError={onError}
-            askWaiting={askWaitsForWork ? { onDismiss: () => setAskWaitsForWork(false) } : null}
             compareWaiting={compareWaitsForWork ? { text: SCOPE_COPY.waitsForWork, onDismiss: () => setCompareWaitsForWork(null) } : null}
           />
         ) : null}
@@ -4458,7 +4290,6 @@ export function ScopedSource({
           />
         ) : null}
         {/* Right rail: annotation margin + capture + Ask */}
-        {standalone ? standalone.collapsedRail({ windowed, inquiry, railCollapsed, sbsPanes, working, comparing, sbsRailOverlay, setSbsRailOverlay, setRailCollapsed }) : null}
         {placeRail(
         <div
           ref={railRef}
@@ -4901,7 +4732,6 @@ export function ScopedSource({
         </div>
       ) : null}
 
-      {standalone ? standalone.keyBar({ windowed, pdfSurfaceActive, inquiry, cueCtl, recapCtl, working, alsoOn, alsoAvailable, alsoHidden, comparing }) : null}
     </div>
     </CompareKeepContext.Provider>
     </NotesContext.Provider>

@@ -1,21 +1,14 @@
-// The scoped source's contracts: what a source window (and, until step 2 of the Reader's retirement, the standalone
-// Reader screen) hands the source and gets back. Moved whole from screens/ReaderScreen.tsx; the Standalone* contexts
-// are what the standalone screen's own branches read from the source (the names they read, nothing more).
+// The scoped source's contracts: what a source window hands the source and gets back. Moved whole from the retired
+// standalone Reader screen (the Reader's retirement, phase 2).
 
-import type { Dispatch, ReactNode, SetStateAction } from "react";
-import type { LibraryHitDto, ProposedItemDto, ReaderGuideSectionDto, ReaderPdfViewDto, ReaderPromptContractDto, ReaderRenderViewDto, ReaderSourceSearchDto, SourceLibraryCard } from "../../../api/dto";
+import type { ReactNode } from "react";
+import type { SourceLibraryCard } from "../../../api/dto";
 import type { ReadingPosition } from "../../reader/readingPosition";
 import type { ListenerHub, ScopeClaims, WindowLifecycle } from "../lifecycle";
-import type { useReadingProgress } from "../../reader/useReadingProgress";
 import type { WindowAsk, WindowExchange } from "../../reader/useReaderInquiry";
 import type { VideoExtras, WatchLens } from "../../reader/YouTubeWatchPanel";
-import type { CueCheckMeRequest, useReaderCues } from "../../reader/useReaderCues";
+import type { CueCheckMeRequest } from "../../reader/useReaderCues";
 import type { ReturnStack } from "../../reader/returnStack";
-import type { useReaderRecap } from "../../reader/useReaderRecap";
-import type { useLibraryAsk } from "../../reader/useLibraryAsk";
-import type { useKeptComparisons } from "../../reader/useKeptComparisons";
-import type { useNoteMarks } from "../../reader/ReaderNotes";
-import type { ExplorableOutcome, LibraryExercisesProps } from "../../reader/LibraryAnswer";
 import type { ReaderWorkbenchExercise } from "../../reader/exerciseCandidates";
 import type { ProblemHandoff } from "../problem/problemPads";
 import type { SideBySideVia } from "../../reader/useSideBySide";
@@ -138,82 +131,3 @@ export interface ReaderCheckMeRequest extends CueCheckMeRequest {
 /** RW4b "use this one" on a textbook exercise: the problem to open at once
  *  on its verbatim statement, in the source it comes from. */
 export type ReaderExerciseRequest = ReaderWorkbenchExercise & { card: SourceLibraryCard };
-
-export interface StandaloneUnopened {
-  render: ReaderRenderViewDto | null;
-  opening: string | null;
-  openingTitle: string | null;
-  library: SourceLibraryCard[] | null;
-  shelf: ReactNode;
-  sidecarDown: boolean;
-  enabled: boolean;
-  librarySearch: string;
-  setLibrarySearch: Dispatch<SetStateAction<string>>;
-  setSearchDeep: Dispatch<SetStateAction<boolean>>;
-  libraryCtl: ReturnType<typeof useLibraryAsk>;
-  searchBusy: boolean;
-  searchResults: ReaderSourceSearchDto | null;
-  notesCtl: ReturnType<typeof useNoteMarks>;
-  keptCtl: ReturnType<typeof useKeptComparisons>;
-  openSource: (card: SourceLibraryCard, jumpSpan?: string, options?: { via?: "search" | "restore"; handoff?: ReadingPosition | null; jumpReading?: string | null; view?: ReaderRenderViewDto; }) => Promise<"opened" | "preparing" | "not_opened">;
-  onCheckMe: ((request: ReaderCheckMeRequest) => void) | undefined;
-  pickLibraryPagePractice: (item: ProposedItemDto, proposalId: string | null) => void;
-  exerciseProps: LibraryExercisesProps | null;
-  figureOffersOn: boolean;
-  makeExplorable: (target: Pick<LibraryHitDto, "sourceId" | "extractionId" | "spanId">, origin: "library" | "tutor", offerRef: string) => Promise<ExplorableOutcome>;
-  searchError: string | null;
-  contract: ReaderPromptContractDto | null;
-  openFixture: () => void;
-}
-
-export interface StandaloneHeader {
-  onOpenLibrary: (() => void) | undefined;
-  backToLibrary: () => void;
-  onOpenDesks: (() => void) | undefined;
-  sourceTitle: string | null;
-  offline: boolean;
-  progress: ReturnType<typeof useReadingProgress>;
-  pdfView: ReaderPdfViewDto | null;
-  setSurface: Dispatch<SetStateAction<"text" | "pdf">>;
-  surface: "text" | "pdf";
-  mode: string;
-  changeMode: (next: string) => Promise<void>;
-  currentGuideSection: ReaderGuideSectionDto | null;
-  readingProgress: number;
-  setSectionPromptsEnabled: Dispatch<SetStateAction<boolean>>;
-  sectionPromptsEnabled: boolean;
-  boundaryChecksAvailable: boolean;
-}
-
-export interface StandaloneCollapsedRail {
-  windowed: ReaderWindowing | null;
-  inquiry: boolean;
-  railCollapsed: boolean;
-  sbsPanes: boolean;
-  working: boolean;
-  comparing: boolean;
-  sbsRailOverlay: boolean;
-  setSbsRailOverlay: Dispatch<SetStateAction<boolean>>;
-  setRailCollapsed: Dispatch<SetStateAction<boolean>>;
-}
-
-export interface StandaloneKeyBar {
-  windowed: ReaderWindowing | null;
-  pdfSurfaceActive: boolean;
-  inquiry: boolean;
-  cueCtl: ReturnType<typeof useReaderCues>;
-  recapCtl: ReturnType<typeof useReaderRecap>;
-  working: boolean;
-  alsoOn: boolean;
-  alsoAvailable: boolean;
-  alsoHidden: boolean;
-  comparing: boolean;
-}
-
-/** The standalone screen's own branches, as functions of the source's state (absent in a source window). */
-export interface StandaloneShell {
-  unopened: (ctx: StandaloneUnopened) => ReactNode;
-  header: (ctx: StandaloneHeader) => ReactNode;
-  collapsedRail: (ctx: StandaloneCollapsedRail) => ReactNode;
-  keyBar: (ctx: StandaloneKeyBar) => ReactNode;
-}

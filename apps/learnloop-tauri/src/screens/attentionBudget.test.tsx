@@ -99,7 +99,7 @@ it("skim mode shows no section offer (with inquiry on, skim is the mute button)"
 const READER_COMPONENTS: Record<string, string> = import.meta.glob(
   // RW2a: the workbench is a Reader posture too (G54). RW5a: the figures (their
   // only motion is a parameter the learner set or played).
-  ["./ReaderScreen.tsx", "../components/PdfReaderPane.tsx", "./reader/*.tsx", "!./reader/*.test.tsx", "./workbench/*.tsx", "!./workbench/*.test.tsx",
+  ["./desks/source/ScopedSource.tsx", "../components/PdfReaderPane.tsx", "./reader/*.tsx", "!./reader/*.test.tsx", "./workbench/*.tsx", "!./workbench/*.test.tsx",
     "./reader/figures/*.tsx", "!./reader/figures/*.test.tsx"],
   { query: "?raw", import: "default", eager: true },
 );
