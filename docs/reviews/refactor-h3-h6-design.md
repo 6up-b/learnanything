@@ -591,6 +591,73 @@ What to send back, per vault:
 - `item_parameter_state_rows`, `exam_pools`, `gate_records`, `label`, `config`, the integrity line;
 - the replay's stdout.
 
+### 10.1 What the copies showed (2026-11-23)
+
+**Source.** The orchestrator ran both scripts on three owner copies: the Nov 12 floor set, upgraded to mvp-0.68 by
+the lane, so not fresh from the live vaults. Every run exited 0, the inputs were unchanged, integrity was ok with no
+foreign-key violation, and `item_parameter_state` was empty everywhere. EB was off, `difficulty_from_prior` on, and
+the interval factor removed. Words and counts only:
+
+| Vault | Attempts | Bound to a plan presentation | Label | Arm (b) | Arms (c), (e) |
+|---|---|---|---|---|---|
+| 1 | 3, all self reports | 0 | on 1 of 32 items | nothing changes | nothing changes |
+| 2 | 70: exam attempts 30, independent 16, open text 13, self reports 8, teach-back 2, probe 1 | 0 (all `fallback:unbound`) | on 99 of 99 items (97 LLM estimates, 2 authored) | mastery changed 8 of 21 LOs (mean +0.106, max +0.606); surprise changed 70 of 70 (mean predictive shift +0.39); no direction changed; queue Spearman 0.948, top-10 overlap 9 of 10; rows above the follow-up threshold 3 against 4 | (c): surprise changed 70 of 70, tiers default 8, item 25, population 37. (e): surprise changed 0 of 70, tiers fallback 70. |
+| 3 | 3 | 1 (`no_receipt`), 2 unbound | on 46 of 77 items | queue Spearman 0.967 | (c): surprise changed 3 of 3 |
+
+Further results:
+- No due date moved in any arm.
+- Vault 2 holds exam pools: 30 reservations released, and one goal's unreleased pool, 6 low and 9 mid.
+- No copy holds a gate record. The lane's upgrade rebuilt them, so this says nothing about the live vaults (§3.9,
+  ledger H-1).
+
+**Reading.** On this history no answer has a serve-time receipt. So H3 as designed (arm f) is arm (b) for every
+historical attempt: surprise's prediction falls back to mastery's own everywhere. AD's forecast would shape surprise
+only for answers bound to a plan presentation after the tag. Arm (c), AD replayed up to each answer, reached 62 of
+vault 2's 70 attempts. That is the reach a forecast made at grade time could have on that history.
+
+### 10.2 Which answers bind a plan presentation today (from the code)
+
+Only the daily plan creates presentations (`daily_plan/engine.py:5961`, `_serve`, through
+`db/stores/plan_presentations.py:39`). An answer binds one only when its client sends the id or a saved draft names
+it (`learnloop_sidecar/handlers/practice.py:1120`, `_plan_presentation`).
+
+**Bind:**
+- an answer to a practice item opened from a plan step on Today (`apps/learnloop-tauri/src/app/dailyPlan.ts:54`,
+  `screens/TodayScreen.tsx:691`), through `submit_attempt` or `submit_dont_know` (`practice.py:1461`, `:1658`);
+- the same from the phone's plan (`apps/learnloop-mobile/src/App.tsx:542`);
+- a Reader workbench session started from a plan step's offer (`handlers/workbench.py:1107`, `:1231-1254`;
+  `app/readerWorkbench.ts:87`).
+
+**Never bind:**
+- practice opened anywhere else (the knowledge map, an item list, the Reader's "practice this", search, a follow-up
+  opened from feedback);
+- exam attempts (the practice-exam session);
+- self reports;
+- teach-back;
+- diagnostic and placement probes (they bind probe presentations, which AD's serve hook does not cover);
+- lesson checks and delayed checks;
+- Reader checks and workbench submissions not started from the plan.
+
+A second answer to one presentation is also recorded unbound (§2.2).
+
+**So the receipt design reads AD only for first answers to Today's and the phone's plan steps.** Vault 2's history
+has none, though bound 0 there may partly reflect history from before presentations existed (router R2a, migration
+202). How much future serving goes through the plan is a usage question the code cannot answer. Every other path
+falls back to mastery's own prediction, which is arm (b).
+
+### 10.3 The option of a grade-time forecast for unbound answers (Q18)
+
+| Option | What | Cost |
+|---|---|---|
+| **(a) Receipts only** (as designed) | AD shapes surprise for plan-bound first answers. Everything else, and all history, is arm (b). | None beyond the design. AD then reads "almost nowhere" on today's habits. |
+| **(a + b) A grade-time forecast for unbound answers** | At grade, AD's subject-view prediction for the item, as AD stood before the answer. Computed read-only before the grade's write, and written as a forecast receipt bound to the attempt: a new kind value in code, no migration (to confirm no CHECK constrains it). Surprise reads it where no serve receipt applies. | **Time:** `adaptive_difficulty.replay.snapshot` is cached by AD's events fingerprint, and every answer or reading event changes it. So the first grade after any change runs AD's whole replay (all history, every grid point). The serve pays this already for plan steps, but an unbound answer would pay it at grade, and it grows with history (ADM0 measures replay and Next latency; refactor F2 notes the router's speed target is unmet). **Reach:** AD reads only its eligible types (independent, open text, diagnostic probe, exam attempt, hinted, don't-know; `adaptive_difficulty/outcomes.py:40`). Self reports (D8), teach-back and lesson checks stay on the fallback. A protected item (held-out material, an exam reservation: A8) gets no prediction. **History:** none, unless the upgrade also writes one per historical attempt by H2's prefix replay (O(n) AD replays at the upgrade; vault 2's 70 took seconds in H2's run). |
+| **(c) Drop AD from surprise in H3** | H3 is arm (b) only; the firewall amendment of §8 is not needed. AD's surprise source returns as its own later step, when plan-bound answering is common or ADM2a writes forecasts at every presentation. | None. The owner's lean to (c) waits. |
+
+**Recommendation: decide with the owner before H3 is built.** If the owner wants AD in surprise now, (a + b),
+with the upgrade's historical prefix forecasts, is the version that reads AD on most answers AD can read at all.
+Measure its grade-time cost on a copy first: time a cold `replay.snapshot` on vault 2's copy. If the owner is content
+for AD to enter surprise as plan-bound answering grows, (a) as designed. (c) is the smallest H3.
+
 **After H3 is built, per the playbook (steps 7 and 8), on disposable copies of one predecessor backup:**
 
 1. Record the original database hash. On the mvp-0.70 copy, run the inspections above and `learnloop rebuild
@@ -623,7 +690,8 @@ H4 repeats steps 1 to 3 with AD's scoring report. H5's pools add the pools-with-
 | Q14 | Authoring result schemas | remove the field in H5 with the prompt bumps; or keep it optional and unasked | Remove in H5 (§5.3) |
 | Q15 | H5's pool change: its own tag, or on H3's | own (three tags); or on H3's (two) | Own |
 | Q16 | The gate's records, cleared by every rebuild (§3.9, ledger H-1) | (A) carry them across replay; (B) a receipt table; (C) leave | (A) before H3, (B) later if wanted |
-| Q17 | History's surprise beside a recorded decision after H3 | (D1) both as they are; (D2) the decision's recorded inputs where one exists; (D3) pre-tag surprise rows kept as recorded | (D2) |
+| Q17 | History's surprise beside a recorded decision after H3 | (D1) both as they are; (D2) the decision's recorded inputs where one exists; (D3) pre-tag surprise rows kept as recorded | (D2), accepted by the orchestrator |
+| Q18 | Receipt coverage is zero on the copies (§10.1): where AD reaches surprise | (a) receipts only; (a + b) plus a grade-time forecast for unbound answers, with historical prefix forecasts at the upgrade; (c) drop AD from surprise in H3 | The owner decides before H3 is built (§10.3) |
 
 ## 12. Checked, and not checked
 
