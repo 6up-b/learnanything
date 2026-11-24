@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/checks/VeilLayer.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/checks/VeilLayer.tsx) |
-| Source lines | 156 |
+| Source lines | 248 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/checks/_area|TypeScript/screens/desks/checks]] |
 | Refactor status | `ACTIVE` |
@@ -54,39 +54,62 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export function applyVeils(root: ParentNode, veils: readonly CheckVeilRefDto[]): Pill[]` — function, line 55
-- `export function VeilLayer(` — function, line 83
+- `export function dialogPlace(at:` — function, line 91
+- `export type HoldWindows = ReadonlyMap<string, HoldWindow>` — type, line 115
+- `export function VeilLayer(` — function, line 119
 
 ## Internal implementation anchors
 
-- `const MARK = "ck-veiled"` — const, line 13
-- `const UNVEIL_MS = 700` — const, line 14
 - `interface Pill` — interface, line 16
-- `const OCCLUDERS = "[data-companion-dock], [data-check-card='overlay'], [data-desk-search], .goalband"` — const, line 24
-- `function placeOf(element: Element, root: ParentNode):` — function, line 28
-- `const box = element.getBoundingClientRect()` — const, line 29
+- `const OCCLUDERS = "[data-companion-dock], [data-check-card='overlay'], [data-desk-search], .goalband"` — const, line 26
+- `function shownBox(element: Element): DOMRect | null` — function, line 29
+- `const box = element.getBoundingClientRect()` — const, line 30
 - `const frames = [element.parentElement?.closest("[data-desk-pane-body]"), element.closest("[data-desk-window]")] .filter((each): each is Element` — const, line 32
 - `const left = Math.max(box.left, ...frames.map((f)` — const, line 35
 - `const right = Math.min(box.right, ...frames.map((f)` — const, line 36
 - `const top = Math.max(box.top, ...frames.map((f)` — const, line 37
 - `const bottom = Math.min(box.bottom, ...frames.map((f)` — const, line 38
-- `const at =` — const, line 40
-- `const r = cover.getBoundingClientRect()` — const, line 43
-- `function element0(wanted: Map<Element, CheckVeilRefDto>): Element | null` — function, line 49
-- `const wanted = new Map<Element, CheckVeilRefDto>()` — const, line 56
-- `const selector = veilSelector(ref)` — const, line 58
-- `const pills: Pill[] = []` — const, line 69
-- `const laidOut = (element0(wanted)?.ownerDocument.documentElement.getBoundingClientRect().width ?? 0) > 0` — const, line 70
-- `const at = laidOut ? placeOf(element, root) :` — const, line 75
-- `const veils = desk.veils()` — const, line 85
-- `const veilsKey = veils.map(refKey).join("|")` — const, line 86
-- `const frame = useRef(0)` — const, line 89
-- `const current = useRef(veils)` — const, line 90
-- `const changed = useRef(onChange)` — const, line 92
-- `const run = ()` — const, line 97
-- `const next = applyVeils(root, current.current)` — const, line 100
-- `const schedule = ()` — const, line 105
-- `const observer = new MutationObserver(()` — const, line 110
+- `function placeOf(element: Element, root: ParentNode):` — function, line 45
+- `const shown = shownBox(element)` — const, line 46
+- `const at =` — const, line 48
+- `const r = cover.getBoundingClientRect()` — const, line 51
+- `function pillsOf(result: HoldResult, root: ParentNode, laidOut: boolean, judging: boolean): Pill[]` — function, line 57
+- `const pills: Pill[] = []` — const, line 58
+- `const at = laidOut ? placeOf(element, root) :` — const, line 61
+- `let best:` — let, line 68
+- `const shown = shownBox(element)` — const, line 74
+- `const at = placeOf(element, root)` — const, line 76
+- `const EDGE = 8` — const, line 86
+- `const PILL_GAP = 18` — const, line 87
+- `const half = size.width / 2` — const, line 93
+- `const left = Math.min(Math.max(at.left, EDGE + half), Math.max(EDGE + half, viewport.width - EDGE - half))` — const, line 94
+- `const below = at.top + PILL_GAP` — const, line 95
+- `const above = at.top - PILL_GAP - size.height` — const, line 96
+- `const top = below + size.height <= viewport.height - EDGE ? below : above >= EDGE ? above : Math.max(EDGE, viewport.height - EDGE - size.height)` — const, line 97
+- `function samePills(a: readonly Pill[], b: readonly Pill[]): boolean` — function, line 103
+- `function printsOf(root: Element | null, ref: CheckVeilRefDto): string` — function, line 109
+- `const selector = veilSelector(ref)` — const, line 110
+- `const holding = desk.holding()` — const, line 121
+- `const version = desk.getVersion()` — const, line 122
+- `const askRef = useRef<HTMLDivElement | null>(null)` — const, line 125
+- `const dialog = askRef.current` — const, line 128
+- `const place = ()` — const, line 130
+- `const box = dialog.getBoundingClientRect()` — const, line 131
+- `const at = dialogPlace(` — const, line 132
+- `const holder = useRef<Holder | null>(null)` — const, line 140
+- `const frame = useRef(0)` — const, line 142
+- `const changed = useRef(onChange)` — const, line 143
+- `const windowsRef = useRef(windows)` — const, line 145
+- `const hold = useRef<()` — const, line 148
+- `const result = holder.current!.apply(root,` — const, line 151
+- `const place = useRef<()` — const, line 159
+- `const result = hold.current()` — const, line 161
+- `const laidOut = root.ownerDocument.documentElement.getBoundingClientRect().width > 0` — const, line 163
+- `const next = pillsOf(result, root, laidOut, desk.judging())` — const, line 164
+- `const run = ()` — const, line 175
+- `const schedule = ()` — const, line 181
+- `const observer = new MutationObserver(()` — const, line 186
+- `const pill = asking` — const, line 238
 
 ## Who imports or calls it
 
@@ -101,7 +124,8 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `CheckVeilRefDto`
 - [[Reference/Desktop/TypeScript/screens/desks/checks/controller|src/screens/desks/checks/controller.ts]] — import-or-re-export; imports `CheckDesk`
-- [[Reference/Desktop/TypeScript/screens/desks/checks/model|src/screens/desks/checks/model.ts]] — import-or-re-export; imports `SHOW_ANYWAY_COST`, `SHOW_NOTE_COST`, `VEIL_LABEL`, `refKey`, `veilIsNote`, `veilSelector`
+- [[Reference/Desktop/TypeScript/screens/desks/checks/hold|src/screens/desks/checks/hold.ts]] — import-or-re-export; imports `HeldRegion`, `HoldResult`, `HoldWindow`, `Holder`, `SAFE_ATTR`, `printOf`
+- [[Reference/Desktop/TypeScript/screens/desks/checks/model|src/screens/desks/checks/model.ts]] — import-or-re-export; imports `VEIL_LABEL`, `costOf`, `refKey`, `veilSelector`
 
 ### Assets, platform, and third-party dependencies
 

@@ -50,7 +50,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/ink.py](../../../../../../src/learnloop_sidecar/handlers/ink.py) |
-| Source lines | 304 |
+| Source lines | 308 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
@@ -68,8 +68,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `ink_erase(ctx: SidecarContext, params: InkEraseInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ink.py), line 109) — The barrel over an annotation's or a reading's ink: ``{applied_seq, erase_id, results: [ok{duplicate} | refused{code}]}`` (a block's ink is erased in its pad batch).
 - `ink_list(ctx: SidecarContext, params: InkListInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ink.py), line 123) — The ink of a pad's standing ink blocks, or of a source's listed annotations: per owner its standing strokes, their hash and its latest reading (``current`` when it read exactly these strokes).
 - `ink_transcribe(ctx: SidecarContext, params: InkTranscribeInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ink.py), line 230) — Read the strokes ``ink_id``'s owner holds now: ``{job_id, status, done, result, error}`` at once.
-- `ink_transcribe_job(ctx: SidecarContext, params: InkJobInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ink.py), line 291) — The reading's state, at once (never a wait on the request path).
-- `ink_transcribe_cancel(ctx: SidecarContext, params: InkJobInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ink.py), line 298) — Cancel the reading: its next model request is refused; a finished reading keeps its outcome.
+- `ink_transcribe_job(ctx: SidecarContext, params: InkJobInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ink.py), line 295) — The reading's state, at once (never a wait on the request path).
+- `ink_transcribe_cancel(ctx: SidecarContext, params: InkJobInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ink.py), line 302) — Cancel the reading: its next model request is refused; a finished reading keeps its outcome.
 
 ### Module constants
 
@@ -97,7 +97,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_receipt_payload(receipt: PJ.Receipt) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ink.py), line 176)
 - `_after_reading(ctx: SidecarContext, vault: Any, repository: Any, result: dict[str, Any], live: Callable[[], bool]) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/ink.py), line 181) — A reading written into its block is committed learner text: emitted and given its proposals, as a pad batch's blocks are.
 - `_as_sidecar_error(exc: Exception) -> SidecarError` ([source](../../../../../../src/learnloop_sidecar/handlers/ink.py), line 202)
-- `_find(ctx: SidecarContext, job_id: str, *, cancel: bool=False) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ink.py), line 277)
+- `_find(ctx: SidecarContext, job_id: str, *, cancel: bool=False) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/ink.py), line 281)
 
 ## Who imports or calls it
 
@@ -121,6 +121,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/pads/ink_render|learnloop.pads.ink_render]] — imports `InkTooLarge`
 - [[Reference/Modules/learnloop/pads/ink_transcribe|learnloop.pads.ink_transcribe]] — imports `module`; calls `prepare`, `stored`, `transcribe`
 - [[Reference/Modules/learnloop/pads/proposals|learnloop.pads.proposals]] — imports `module`; calls `propose_for_blocks`
+- [[Reference/Modules/learnloop_sidecar/check_hold|learnloop_sidecar.check_hold]] — imports `refuse_while_check_open`; calls `refuse_while_check_open`
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `SidecarContext`
 - [[Reference/Modules/learnloop_sidecar/dto|learnloop_sidecar.dto]] — imports `ParamsModel`, `versioned`; calls `versioned`
 - [[Reference/Modules/learnloop_sidecar/errors|learnloop_sidecar.errors]] — imports `SidecarError`; calls `SidecarError`

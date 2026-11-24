@@ -81,7 +81,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/intent/inline_administration|learnloop.intent.inline_administration]] — imports `_Sections`; statically calls `_Sections`
+- [[Reference/Modules/learnloop/intent/inline_administration|learnloop.intent.inline_administration]] — imports `_Sections`, `_primary_passage`; statically calls `_Sections`, `_primary_passage`
 - [[Reference/Modules/learnloop/passage_union/union|learnloop.passage_union.union]] — imports `due_checks`; statically calls `due_checks`
 - [[Reference/Modules/learnloop_sidecar/handlers/goal_lens|learnloop_sidecar.handlers.goal_lens]] — imports `answered_checks`, `due_checks`, `next_check_due`, `serving_view`; statically calls `answered_checks`, `due_checks`, `next_check_due`, `serving_view`
 - [[Reference/Modules/learnloop_sidecar/handlers/inline_checks|learnloop_sidecar.handlers.inline_checks]] — imports `due_checks`; statically calls `due_checks`
@@ -117,7 +117,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_due_checks_name_their_host_and_nothing_of_the_item`
 - [tests/test_reader_rd7a_inline_checks.py](../../../../../../tests/test_reader_rd7a_inline_checks.py) — direct import
   - `test_one_administration_at_a_time_and_today_honours_it`
-  - `test_the_protection_set_veils_covered_passages_and_every_note_bearing_surface`
 
 ## Modification guidance
 

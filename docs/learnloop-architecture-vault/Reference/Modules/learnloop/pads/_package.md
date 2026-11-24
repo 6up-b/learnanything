@@ -58,7 +58,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/pads/carried|learnloop.pads.carried]] | [[Reference/Modules/learnloop/pads/carried#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
 | [[Reference/Modules/learnloop/pads/cells|learnloop.pads.cells]] | [[Reference/Modules/learnloop/pads/cells#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/pads/drain|learnloop.pads.drain]] | [[Reference/Modules/learnloop/pads/drain#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
-| [[Reference/Modules/learnloop/pads/emission|learnloop.pads.emission]] | [[Reference/Modules/learnloop/pads/emission#^module-purpose|purpose]] | `ACTIVE` | 7 | 5 |
+| [[Reference/Modules/learnloop/pads/emission|learnloop.pads.emission]] | [[Reference/Modules/learnloop/pads/emission#^module-purpose|purpose]] | `ACTIVE` | 8 | 6 |
 | [[Reference/Modules/learnloop/pads/ink|learnloop.pads.ink]] | [[Reference/Modules/learnloop/pads/ink#^module-purpose|purpose]] | `ACTIVE` | 3 | 7 |
 | [[Reference/Modules/learnloop/pads/ink_render|learnloop.pads.ink_render]] | [[Reference/Modules/learnloop/pads/ink_render#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/pads/ink_transcribe|learnloop.pads.ink_transcribe]] | [[Reference/Modules/learnloop/pads/ink_transcribe#^module-purpose|purpose]] | `ACTIVE` | 1 | 4 |
@@ -83,7 +83,7 @@ For system intent, use [[Architecture Overview]].
 ### Packages that import this package
 
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 12 static module edges
-- [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] — 2 static module edges
+- [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] — 3 static module edges
 
 ### Dependency neighborhood
 
@@ -96,9 +96,9 @@ flowchart LR
     n_learnloop["learnloop"]
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
     n_learnloop_desks["learnloop.desks"]
+    n_learnloop_sidecar["learnloop_sidecar"]
     n_learnloop_ai["learnloop.ai"]
     n_learnloop_content_sources["learnloop.content.sources"]
-    n_learnloop_sidecar["learnloop_sidecar"]
     n_learnloop_content_pipeline["learnloop.content.pipeline"]
     n_learnloop_db["learnloop.db"]
     n_learnloop_ingest_extractors["learnloop.ingest.extractors"]
@@ -106,9 +106,9 @@ flowchart LR
     center -->|12| n_learnloop
     n_learnloop_sidecar_handlers -->|12| center
     center -->|4| n_learnloop_desks
+    n_learnloop_sidecar -->|3| center
     center -->|2| n_learnloop_ai
     center -->|2| n_learnloop_content_sources
-    n_learnloop_sidecar -->|2| center
     center -->|1| n_learnloop_content_pipeline
     center -->|1| n_learnloop_db
     center -->|1| n_learnloop_ingest_extractors

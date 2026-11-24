@@ -1778,6 +1778,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_umbrella_rebuild_runs_both_replayers`
 - [tests/test_reader_rd7a_inline_checks.py](../../../../../tests/test_reader_rd7a_inline_checks.py) — direct import
   - `test_one_administration_at_a_time_and_today_honours_it`
+  - `test_rd7_16_the_daily_plan_does_not_label_a_held_check`
+  - `test_rd7_20_a_subthreshold_opening_holds_the_check_and_the_reply_says_so`
 - [tests/test_reader_rd7b_cold_followup_parity.py](../../../../../tests/test_reader_rd7b_cold_followup_parity.py) — direct import
 - [tests/test_reader_recap.py](../../../../../tests/test_reader_recap.py) — direct import
   - `test_claims_needing_an_independent_check_are_assisted_only_facets`

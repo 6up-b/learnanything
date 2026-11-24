@@ -28,7 +28,7 @@ Area: [[Reference/Desktop/TypeScript/screens/desks/checks/_area|TypeScript/scree
 
 ## Why this module exists
 
-Provides `VEIL_LABEL`, `SHOW_ANYWAY_COST`, `SHOW_NOTE_COST`, `PRIMED_BY_NOTE_WORDS` and related exports within the desktop's TypeScript/screens/desks/checks ownership area.
+Provides `VEIL_LABEL`, `SHOW_ANYWAY_COST`, `SHOW_NOTE_COST`, `SHOW_UNMEASURED_COST` and related exports within the desktop's TypeScript/screens/desks/checks ownership area.
 
 The system-level behavior stays authoritative in the linked architecture, concept, and workflow notes; this note owns only source-level lookup facts.
 
@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/checks/model.ts](../../../../../../../../apps/learnloop-tauri/src/screens/desks/checks/model.ts) |
-| Source lines | 153 |
+| Source lines | 204 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/checks/_area|TypeScript/screens/desks/checks]] |
 | Refactor status | `ACTIVE` |
@@ -57,51 +57,59 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export const VEIL_LABEL = "hidden during this check · back when you answer"` — const, line 11
 - `export const SHOW_ANYWAY_COST = "If it shows what the answer says, this answer counts as practice and the check stays due. If it doesn't, nothing changes."` — const, line 13
 - `export const SHOW_NOTE_COST = "This is one of your notes. LearnLoop doesn't read your notes, so it can't tell whether this one gives the answer away: opening it makes this answer count as practice, and the check stays due."` — const, line 16
-- `export const PRIMED_BY_NOTE_WORDS = "counts as practice · you opened one of your notes during this check` — const, line 19
-- `export function veilIsNote(ref: CheckVeilRefDto): boolean` — function, line 24
-- `export function refKey(ref: Record<string, unknown>): string` — function, line 31
-- `export function veilSelector(ref: CheckVeilRefDto): string | null` — function, line 42
-- `export function groupsLine(veiled: readonly CheckVeilRefDto[]): string` — function, line 70
-- `export type CheckReason = "on_your_own" | "primed" | "with_help" | "seen_before" | "already_answered" | "practice"` — type, line 76
-- `export const REASON_WORDS: Record<CheckReason, string> =` — const, line 79
-- `export function answeredHead(cold: boolean): string` — function, line 89
-- `export function lookedLine(groups: readonly string[], coldNow: boolean | null): string | null` — function, line 94
-- `export function windowKind(window:` — function, line 102
-- `export function visibleNow(stage: ParentNode | null, windows: ReadonlyArray<` — function, line 114
-- `export function visibleKey(visible: CheckVisibleDto): string` — function, line 151
+- `export const SHOW_UNMEASURED_COST = "LearnLoop can't tell what this shows against the answer, so opening it makes this answer count as practice, and the check stays due."` — const, line 20
+- `export function costOf(ref: CheckVeilRefDto | null): string` — function, line 24
+- `export const WINDOW_VEIL_DECISIONS: Record<DeskWindowKind, "passages" | "whole"> =` — const, line 34
+- `export function passagesCanShow(kind: string): boolean` — function, line 47
+- `export const PRIMED_BY_NOTE_WORDS = "counts as practice · you opened one of your notes during this check` — const, line 52
+- `export function veilIsNote(ref: CheckVeilRefDto): boolean` — function, line 57
+- `export function refKey(ref: Record<string, unknown>): string` — function, line 64
+- `export function veilSelector(ref: CheckVeilRefDto): string | null` — function, line 75
+- `export function groupsLine(veiled: readonly CheckVeilRefDto[]): string` — function, line 105
+- `export type CheckReason = "on_your_own" | "primed" | "with_help" | "seen_before" | "already_answered" | "practice"` — type, line 111
+- `export const REASON_WORDS: Record<CheckReason, string> =` — const, line 114
+- `export const PRIMED_UNMEASURED_WORDS = "counts as practice · you opened something during this check that LearnLoop can't measure against the answer, so this one counts as practice"` — const, line 124
+- `export function eligibilityWords(eligibility: string | null): string` — function, line 134
+- `export function answeredHead(cold: boolean): string` — function, line 139
+- `export function lookedLine(groups: readonly string[], coldNow: boolean | null): string | null` — function, line 144
+- `export function windowKind(window:` — function, line 152
+- `export function visibleNow(stage: ParentNode | null, windows: ReadonlyArray<` — function, line 164
+- `export function visibleKey(visible: CheckVisibleDto): string` — function, line 202
 
 ## Internal implementation anchors
 
-- `const keys = Object.keys(ref).filter((key)` — const, line 32
-- `function quoted(value: string): string` — function, line 36
-- `const window = typeof ref.window_id === "string" ? `[data-desk-window="$` — const, line 43
-- `const counts = new Map<string, number>()` — const, line 71
-- `const what = [...new Set(groups)].join(" · ")` — const, line 96
-- `const content = window.content?.kind` — const, line 103
-- `const unique = (values: Iterable<string | null | undefined>): string[]` — const, line 110
-- `const out: CheckVisibleDto["windows"] = []` — const, line 116
-- `const kind = windowKind(window)` — const, line 118
-- `const host = stage?.querySelector(`[data-desk-window="$` — const, line 119
-- `const entry: CheckVisibleDto["windows"][number] =` — const, line 120
-- `const extractionId = window.content?.extractionId` — const, line 122
-- `const spans = [...host.querySelectorAll("[data-span-id], [data-transcript-span]")]` — const, line 127
-- `const blocks = unique([...host.querySelectorAll("[data-block]")].map((element)` — const, line 137
+- `const keys = Object.keys(ref).filter((key)` — const, line 65
+- `function quoted(value: string): string` — function, line 69
+- `const window = typeof ref.window_id === "string" ? `[data-desk-window="$` — const, line 76
+- `const counts = new Map<string, number>()` — const, line 106
+- `const ELIGIBILITY_WORDS: Record<string, string> =` — const, line 128
+- `const what = [...new Set(groups)].join(" · ")` — const, line 146
+- `const content = window.content?.kind` — const, line 153
+- `const unique = (values: Iterable<string | null | undefined>): string[]` — const, line 160
+- `const out: CheckVisibleDto["windows"] = []` — const, line 166
+- `const kind = windowKind(window)` — const, line 168
+- `const host = stage?.querySelector(`[data-desk-window="$` — const, line 169
+- `const entry: CheckVisibleDto["windows"][number] =` — const, line 170
+- `const extractionId = window.content?.extractionId` — const, line 172
+- `const spans = [...host.querySelectorAll("[data-span-id], [data-transcript-span]")]` — const, line 177
+- `const blocks = unique([...host.querySelectorAll("[data-block]")].map((element)` — const, line 188
 
 ## Who imports or calls it
 
 > [!note] Static-evidence boundary
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
-- [[Reference/Desktop/TypeScript/screens/desks/DeskShell|src/screens/desks/DeskShell.tsx]] — import-or-re-export: `visibleNow`; references `visibleNow`
-- [[Reference/Desktop/TypeScript/screens/desks/checks/CheckCard|src/screens/desks/checks/CheckCard.tsx]] — import-or-re-export: `CheckReason`, `PRIMED_BY_NOTE_WORDS`, `REASON_WORDS`, `answeredHead`, `groupsLine`, `lookedLine`; references `CheckReason`, `PRIMED_BY_NOTE_WORDS`, `REASON_WORDS`, `answeredHead`, `groupsLine`, `lookedLine`
-- [[Reference/Desktop/TypeScript/screens/desks/checks/VeilLayer|src/screens/desks/checks/VeilLayer.tsx]] — import-or-re-export: `SHOW_ANYWAY_COST`, `SHOW_NOTE_COST`, `VEIL_LABEL`, `refKey`, `veilIsNote`, `veilSelector`; references `SHOW_ANYWAY_COST`, `SHOW_NOTE_COST`, `VEIL_LABEL`, `refKey`, `veilIsNote`, `veilSelector`
+- [[Reference/Desktop/TypeScript/screens/desks/DeskShell|src/screens/desks/DeskShell.tsx]] — import-or-re-export: `visibleNow`, `windowKind`; references `visibleNow`, `windowKind`
+- [[Reference/Desktop/TypeScript/screens/desks/checks/CheckCard|src/screens/desks/checks/CheckCard.tsx]] — import-or-re-export: `CheckReason`, `PRIMED_BY_NOTE_WORDS`, `PRIMED_UNMEASURED_WORDS`, `REASON_WORDS`, `answeredHead`, `eligibilityWords`, `groupsLine`, `lookedLine`; references `CheckReason`, `PRIMED_BY_NOTE_WORDS`, `PRIMED_UNMEASURED_WORDS`, `REASON_WORDS`, `answeredHead`, `eligibilityWords`, `groupsLine`, `lookedLine`
+- [[Reference/Desktop/TypeScript/screens/desks/checks/VeilLayer|src/screens/desks/checks/VeilLayer.tsx]] — import-or-re-export: `VEIL_LABEL`, `costOf`, `refKey`, `veilSelector`; references `VEIL_LABEL`, `costOf`, `refKey`, `veilSelector`
 - [[Reference/Desktop/TypeScript/screens/desks/checks/controller|src/screens/desks/checks/controller.ts]] — import-or-re-export: `CheckReason`, `refKey`, `visibleKey`; references `CheckReason`, `refKey`, `visibleKey`
+- [[Reference/Desktop/TypeScript/screens/desks/checks/hold|src/screens/desks/checks/hold.ts]] — import-or-re-export: `VEIL_LABEL`, `passagesCanShow`, `refKey`, `veilSelector`; references `VEIL_LABEL`, `passagesCanShow`, `refKey`, `veilSelector`
 
 ## Dependencies
 
 ### Desktop source modules
 
-- [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `CheckVeilRefDto`, `CheckVisibleDto`
+- [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `CheckVeilRefDto`, `CheckVisibleDto`, `DeskWindowKind`
 
 ### Assets, platform, and third-party dependencies
 
@@ -115,6 +123,8 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 ## Tests that define behavior
 
+- [apps/learnloop-tauri/src/screens/desks/checks/windowKinds.test.ts](../../../../../../../../apps/learnloop-tauri/src/screens/desks/checks/windowKinds.test.ts) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/desks/checks/contract.test.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/checks/contract.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/desks/checks/checks.test.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/checks/checks.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [tests/test_ih_lesson_candidate_after_cold_miss.py](../../../../../../../../tests/test_ih_lesson_candidate_after_cold_miss.py) — cross-boundary name contract: references uniquely owned exported name `REASON_WORDS`; it does **not** directly execute this source module.
 

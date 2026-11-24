@@ -71,7 +71,7 @@ Reusable learner-facing controls and composite interaction surfaces.
 | [[Reference/Desktop/TypeScript/components/InspectorOverlay|InspectorOverlay.tsx]] | `ACTIVE` | Provides the reusable `InspectorOverlay` interaction surface used by one or more desktop workflows. | 17 | 1 |
 | [[Reference/Desktop/TypeScript/components/IntentCheckFeedback|IntentCheckFeedback.tsx]] | `ACTIVE` | Provides the reusable `IntentCheckFeedback` interaction surface used by one or more desktop workflows. | 2 | 1 |
 | [[Reference/Desktop/TypeScript/components/IntentControl|IntentControl.tsx]] | `ACTIVE` | Provides the reusable `IntentControl` interaction surface used by one or more desktop workflows. | 4 | 2 |
-| [[Reference/Desktop/TypeScript/components/ItemPresentation|ItemPresentation.tsx]] | `ACTIVE` | Provides the reusable `ItemPresentation` interaction surface used by one or more desktop workflows. | 4 | 6 |
+| [[Reference/Desktop/TypeScript/components/ItemPresentation|ItemPresentation.tsx]] | `ACTIVE` | Provides the reusable `ItemPresentation` interaction surface used by one or more desktop workflows. | 4 | 7 |
 | [[Reference/Desktop/TypeScript/components/KeyboardHelp|KeyboardHelp.tsx]] | `ACTIVE` | Provides the reusable `KeyboardHelp` interaction surface used by one or more desktop workflows. | 2 | 1 |
 | [[Reference/Desktop/TypeScript/components/KnowledgeModel|KnowledgeModel.tsx]] | `ACTIVE` | Provides the reusable `KnowledgeModel` interaction surface used by one or more desktop workflows. | 4 | 5 |
 | [[Reference/Desktop/TypeScript/components/NativeMediaSettings|NativeMediaSettings.tsx]] | `ACTIVE` | Provides the reusable `NativeMediaSettings` interaction surface used by one or more desktop workflows. | 4 | 2 |

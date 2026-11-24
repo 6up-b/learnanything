@@ -60,8 +60,8 @@ For system intent, use [[Architecture Overview]].
 
 ### This package imports
 
+- [[Reference/Modules/learnloop/_package|learnloop]] — 11 static module edges
 - [[Reference/Modules/learnloop/scheduling/intent/_package|learnloop.scheduling.intent]] — 11 static module edges
-- [[Reference/Modules/learnloop/_package|learnloop]] — 10 static module edges
 - [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] — 4 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 3 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 2 static module edges
@@ -86,9 +86,9 @@ This diagram compresses package-level static imports; edge labels are distinct m
 ```mermaid
 flowchart LR
     center["learnloop.intent"]
+    n_learnloop["learnloop"]
     n_learnloop_scheduling_intent["learnloop.scheduling.intent"]
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
-    n_learnloop["learnloop"]
     n_learnloop_curriculum["learnloop.curriculum"]
     n_learnloop_vault["learnloop.vault"]
     n_learnloop_db_stores["learnloop.db.stores"]
@@ -96,9 +96,9 @@ flowchart LR
     n_learnloop_cli["learnloop.cli"]
     n_learnloop_daily_plan["learnloop.daily_plan"]
     n_learnloop_learner["learnloop.learner"]
+    center -->|11| n_learnloop
     center -->|11| n_learnloop_scheduling_intent
     n_learnloop_sidecar_handlers -->|11| center
-    center -->|10| n_learnloop
     center -->|4| n_learnloop_curriculum
     center -->|3| n_learnloop_vault
     center -->|2| n_learnloop_db_stores

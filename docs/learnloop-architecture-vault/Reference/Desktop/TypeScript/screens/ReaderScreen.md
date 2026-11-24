@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/ReaderScreen.tsx](../../../../../../apps/learnloop-tauri/src/screens/ReaderScreen.tsx) |
-| Source lines | 5359 |
+| Source lines | 5366 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/_area|TypeScript/screens]] |
 | Refactor status | `ACTIVE` |
@@ -623,14 +623,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const offerSection = endSection && !muted && !dismissedSections.includes(endSection.id) && !completedSections.includes(endSection.id) && ((endQuestionAvailable && endSection.question !== null) || endSection.suggestedPassages.length > 0)` — const, line 4608
 - `const sel = window.getSelection()` — const, line 4633
 - `const quote = sel && !sel.isCollapsed ? sel.toString().replace(/\s+/g, " ").trim() : ""` — const, line 4634
-- `const cue = side.cues.markOn(spanId)` — const, line 4753
-- `const node = sbsPaneRef.current?.querySelector(`[data-sbs-span="$` — const, line 4781
-- `const node = sbsPaneRef.current?.querySelector(`[data-sbs-span="$` — const, line 4804
-- `const active = railTab === tab` — const, line 4919
-- `const waiting = tab === "guide" && pendingQuickCheckCount > 0` — const, line 4923
-- `const marked = tab === "ask" && askTabMarked && !active` — const, line 4924
-- `const run =` — const, line 5188
-- `const book = exchange?.about ?? render` — const, line 5197
+- `const cue = side.cues.markOn(spanId)` — const, line 4760
+- `const node = sbsPaneRef.current?.querySelector(`[data-sbs-span="$` — const, line 4788
+- `const node = sbsPaneRef.current?.querySelector(`[data-sbs-span="$` — const, line 4811
+- `const active = railTab === tab` — const, line 4926
+- `const waiting = tab === "guide" && pendingQuickCheckCount > 0` — const, line 4930
+- `const marked = tab === "ask" && askTabMarked && !active` — const, line 4931
+- `const run =` — const, line 5195
+- `const book = exchange?.about ?? render` — const, line 5204
 
 ## Who imports or calls it
 

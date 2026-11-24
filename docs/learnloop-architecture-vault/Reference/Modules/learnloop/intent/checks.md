@@ -189,9 +189,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reader_followups_review.py](../../../../../../tests/test_reader_followups_review.py) — direct import
   - `test_f10_the_workbench_session_carries_the_way_back_without_an_inquiry`
 - [tests/test_reader_rd7a_inline_checks.py](../../../../../../tests/test_reader_rd7a_inline_checks.py) — direct import
-  - `test_a_later_answer_after_today_settled_the_check_is_practice_and_ordinary_evidence`
+  - `test_an_answer_on_another_surface_while_the_reader_holds_the_check_answers_nothing`
   - `test_one_administration_at_a_time_and_today_honours_it`
   - `test_parity_with_check_once_in_today`
+  - `test_rd7_3_an_opened_note_outlives_not_now_the_next_attempt_anywhere_is_not_cold`
 
 ## Modification guidance
 
