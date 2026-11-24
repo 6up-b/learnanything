@@ -73,4 +73,8 @@ is reinterpreted. The upgrade row is `Link(PROBE_ROUTER_ALGORITHM_VERSION, idemp
   C3b.start_key, C3b.start_key_offer, C5, C6): regenerated with the behaviour change and without it (the chain
   appended alone), the same file. The diagnosis journey golden differs only by the tag string (every removed line
   equals an added line once `mvp-0.68`/`mvp-0.69` are normalized). The effective defaults show the tag line.
+- After merging the inline checks (`mvp-0.69`) the tag is `mvp-0.70`: the same nine pins moved again by the tag
+  alone, the journey golden and `tests/goldens/placement_stored_misses.json` again by the tag string only, the CLI
+  surface's `upgrade --to` default, and the chain-position assertions of the successor tests the inline checks'
+  landing bumped (one more step back for each named older tag, the head's literal one tag on).
 - No assertion was weakened.

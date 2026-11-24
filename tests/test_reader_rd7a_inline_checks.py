@@ -94,11 +94,12 @@ def test_the_rpcs_are_registered_desktop_only_and_refuse_extra_fields():
 
 
 def test_below_the_tag_every_check_rpc_refuses_and_today_ignores_the_lock(tmp_path):
-    from learnloop.algorithm_versions import SUCCESSOR_CHAIN
+    from learnloop.algorithm_versions import INLINE_CHECK_ALGORITHM_VERSION, SUCCESSOR_CHAIN
     from tests.helpers import set_algorithm_version
 
     paths, ctx, session, repository = _sidecar(tmp_path)
-    set_algorithm_version(paths, SUCCESSOR_CHAIN[-2])
+    # The tag just below the inline checks' (by name: later tags follow them in the chain).
+    set_algorithm_version(paths, SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(INLINE_CHECK_ALGORITHM_VERSION) - 1])
     ctx.load(paths.root)
     commitment = _due_check(repository)
     with pytest.raises(SidecarError) as refused:
