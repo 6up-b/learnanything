@@ -134,7 +134,7 @@ function emptyUnion(spanId: string): Record<string, unknown> {
     authoredQuestions: [], carried: [], exposure: { timesShown: 1, lastShownAt: null, withheld: false } };
 }
 /** The pen's writes in this page (RD8a): annotations made by recognized marks and the ink saved with them. */
-const pen: { annotations: Array<{ sourceId: string; annotation: { id: string }; version: { annotationType: string; learnerText: string } }>; inks: Record<string, unknown>[] } = { annotations: [], inks: [] };
+const pen: { annotations: Array<{ sourceId: string; annotation: { id: string }; version: { annotationType: string; learnerText: string }; [placed: string]: unknown }>; inks: Record<string, unknown>[] } = { annotations: [], inks: [] };
 
 function answer(command: string, input: Record<string, unknown>): unknown {
   switch (command) {
@@ -171,7 +171,18 @@ function answer(command: string, input: Record<string, unknown>): unknown {
     // refuses it today (the plan's transport reads no images).
     case "reader_capture": {
       const annotationId = `fx_ann_${pen.annotations.length + 1}`;
-      pen.annotations.push({ sourceId: String(input.sourceId), annotation: { id: annotationId }, version: { annotationType: input.action === "highlight" ? "highlight" : String(input.action), learnerText: String(input.learnerText ?? "") } });
+      // Placed on the open reading as the sidecar places it: the selection's nodes, here.
+      const nodes = ((input.rawSelection as { nodes?: Array<{ spanId: string; quote?: string; start?: number; end?: number }> } | undefined)?.nodes ?? []);
+      const segments = nodes.map((node) => ({ spanId: node.spanId, codepointStart: node.start ?? 0, codepointEnd: node.end ?? 0, exactQuote: node.quote ?? "" }));
+      pen.annotations.push({
+        sourceId: String(input.sourceId), annotation: { id: annotationId },
+        version: { annotationType: input.action === "highlight" ? "highlight" : input.action === "annotate" ? "interpretation" : String(input.action), learnerText: String(input.learnerText ?? "") },
+        ...(segments.length ? {
+          anchor: { status: "exact", extractionId: String(input.extractionId) },
+          segments: segments.map((segment) => ({ spanId: segment.spanId, exactQuote: segment.exactQuote, geometryJson: null })),
+          placement: { state: "here", flagSpanId: null, segments },
+        } : {}),
+      });
       return { annotationId, outboxId: `fx_out_${annotationId}`, interactionEventId: `fx_ev_${annotationId}`, anchorStatus: "exact", captureKind: "annotation", deduplicated: false, receipt: "captured" };
     }
     case "reader_delete_intent_annotation":

@@ -99,7 +99,7 @@ import { useReaderRecap } from "./reader/useReaderRecap";
 import { RecapCard } from "./reader/RecapCard";
 import { WrapUpPanel } from "./reader/WrapUpPanel";
 import { RECAP_COPY } from "./reader/recapCopy";
-import { NotesRail, type ExerciseImportState } from "./reader/NotesRail";
+import { AnnotationCard, NotesRail, type ExerciseImportState } from "./reader/NotesRail";
 import { IntentBox } from "./reader/IntentBox";
 import { useIntentBox, type IntentCancel, type IntentRunHandle, type IntentRunHow } from "./reader/useIntentBox";
 import { onlyNamesAnAction } from "./reader/intentPalette";
@@ -300,6 +300,8 @@ export interface ReaderWindowing {
   onAsk?: (ask: WindowAsk) => void;
   /** "what matters here?": the desk's path for this reading (the goal's path view, else the reading's path). */
   onOpenPath?: () => void;
+  /** A note the window was opened for (a search result names it): its card opens, being edited, once it is listed. */
+  openNote?: string | null;
 }
 
 /** What a desk does in a source window's inquiry. */
@@ -308,6 +310,8 @@ export interface WindowInquiry {
   peek: (spanId: string) => void;
   /** A companion answer about this reading landed (a follow-up, with its parent). */
   noteAnswer: (exchange: WindowExchange, parent: WindowExchange | null) => void;
+  /** The desk wrote an annotation on this reading (a margin note, an append): its marks are read again. */
+  annotationsChanged: () => void;
 }
 
 /** The desks' goal lens, laid over a reading's passages by span id (the text itself is never changed). */
@@ -1491,11 +1495,25 @@ export function ReaderScreen({
   const openAnnotationNote = useCallback((annotationId: string) => {
     const target = annotations.find((a) => a.annotationId === annotationId);
     if (!target) return;
+    // On a desk with no Notes panel on screen the note opens in the window's margin card, being edited.
+    if (windowNotesOnRef.current) setWindowNotesSpan(placedSpanIds(target)[0] ?? null);
     setRailCollapsed(false);
     setRailTab("notes");
     setEditingAnnotationId(annotationId);
     setEditingAnnotationText(target.learnerText);
   }, [annotations]);
+  // The window's margin card of the learner's annotations on one passage (a desk with no Notes panel on screen).
+  const [windowNotesSpan, setWindowNotesSpan] = useState<string | null>(null);
+  const windowNotesOnRef = useRef(false);
+  // A note the window was opened for opens once it is listed (again when the window is opened for another).
+  const windowOpenNote = windowed?.openNote ?? null;
+  const openedNote = useRef<string | null>(null);
+  useEffect(() => {
+    if (!windowOpenNote || openedNote.current === windowOpenNote) return;
+    if (!annotations.some((a) => a.annotationId === windowOpenNote)) return;
+    openedNote.current = windowOpenNote;
+    openAnnotationNote(windowOpenNote);
+  }, [windowOpenNote, annotations, openAnnotationNote]);
 
   // Split the live selection into one sub-quote per covered [data-span-id]
   // block, in document order. Anchoring works per block, so a quote must never
@@ -2287,9 +2305,9 @@ export function ReaderScreen({
   const onWindowInquiryReady = windowed?.onInquiryReady;
   useEffect(() => {
     if (!onWindowInquiryReady) return;
-    onWindowInquiryReady(render ? { peek: peekPassage, noteAnswer: noteCompanionAnswer } : null);
+    onWindowInquiryReady(render ? { peek: peekPassage, noteAnswer: noteCompanionAnswer, annotationsChanged: () => void refreshAnnotations() } : null);
     return () => onWindowInquiryReady(null);
-  }, [onWindowInquiryReady, render, peekPassage, noteCompanionAnswer]);
+  }, [onWindowInquiryReady, render, peekPassage, noteCompanionAnswer, refreshAnnotations]);
   const onWindowPenSurface = windowed?.onPenSurface;
   const penTextShown = Boolean(render) && !(pdfView && surface === "pdf");
   useEffect(() => {
@@ -3809,6 +3827,62 @@ export function ReaderScreen({
     );
   };
   const overDesk = (menu: ReactNode): ReactNode => (windowed ? createPortal(menu, document.body) : menu);
+  // The learner's annotations are the Notes rail's; a desk shows the rail only beside a Notes panel, so without one
+  // the window's margin carries them (spec §7.1): "›" beside a passage with the learner's annotations opens a card
+  // under it with their words, to edit, delete (with undo) or re-anchor.
+  const windowNotesOn = Boolean(windowed) && !(railOnScreen && railTab === "notes") && !offline;
+  windowNotesOnRef.current = windowNotesOn;
+  const annotationsBySpan = new Map<string, MarginAnnotation[]>();
+  if (windowNotesOn) {
+    for (const annotation of annotations) {
+      const spanId = annotation.annotationId ? placedSpanIds(annotation)[0] : undefined;
+      if (spanId) annotationsBySpan.set(spanId, [...(annotationsBySpan.get(spanId) ?? []), annotation]);
+    }
+  }
+  const windowNotesList = windowNotesSpan ? annotationsBySpan.get(windowNotesSpan) ?? [] : [];
+  const windowNotesCard = windowNotesOn && windowNotesSpan && windowNotesList.length ? (
+    <div role="group" aria-label="your notes on this passage" data-window-notes="" style={{ margin: "4px 0 8px", paddingLeft: 12, borderLeft: `2px solid ${COLOR.border}`, display: "flex", flexDirection: "column", gap: 4 }}>
+      {windowNotesList.map((annotation) => (
+        <AnnotationCard
+          key={annotation.annotationId}
+          a={annotation}
+          offline={offline}
+          busy={busy}
+          selection={selection}
+          jumpToAnnotation={jumpToAnnotation}
+          reanchorAnnotation={reanchorAnnotation}
+          manualAnchorToSelection={manualAnchorToSelection}
+          reanchorNotes={reanchorNotes}
+          editingAnnotationId={editingAnnotationId}
+          setEditingAnnotationId={setEditingAnnotationId}
+          editingAnnotationText={editingAnnotationText}
+          setEditingAnnotationText={setEditingAnnotationText}
+          saveAnnotationEdit={saveAnnotationEdit}
+          deleteAnnotation={deleteAnnotation}
+        />
+      ))}
+      <button type="button" onClick={() => setWindowNotesSpan(null)} style={{ alignSelf: "flex-start", border: 0, background: "transparent", color: COLOR.textFaint, fontFamily: FONT_MONO, fontSize: 10, padding: 0, cursor: "pointer" }}>
+        close
+      </button>
+    </div>
+  ) : null;
+  const windowNoteMark = (spanId: string | null | undefined): ReactNode => (windowNotesOn && spanId && annotationsBySpan.has(spanId) ? (
+    <button
+      type="button"
+      className="ll-window-note-mark"
+      data-window-note-mark=""
+      aria-label="your notes on this passage"
+      aria-expanded={windowNotesSpan === spanId}
+      onMouseDown={(event) => event.stopPropagation()}
+      onClick={(event) => {
+        event.stopPropagation();
+        setWindowNotesSpan((open) => (open === spanId ? null : spanId));
+      }}
+      // 30 px left of the text (§7.1): the passage's own padding is 12 px.
+      style={{ position: "absolute", left: -18, top: 2, border: 0, background: "transparent", color: COLOR.amber, fontFamily: FONT_MONO, fontSize: 14, padding: 0, cursor: "pointer" }}
+    />
+  ) : null);
+
   // The active-reading card is the Notes rail's header; a desk shows the rail only beside a Notes panel, so without
   // one the card shows in the window, under the last passage it is about (the fold, if any, follows it).
   const windowActiveCard = windowed && activeReadingOn && (activeCtl.active || activeCtl.another) && !(railOnScreen && railTab === "notes") ? (
@@ -3818,6 +3892,11 @@ export function ReaderScreen({
   ) : null;
   const windowActiveSpans = activeCtl.another ? activeCtl.another.spanIds : activeCtl.active?.anchorSpanIds ?? [];
   const windowActiveSpan = windowActiveCard ? windowActiveSpans[windowActiveSpans.length - 1] ?? null : null;
+  // On the original PDF the window's cards sit under their passages as the pane's inline notes.
+  const windowInlineNotes = [
+    ...(windowActiveCard && windowActiveSpan ? [{ spanId: windowActiveSpan, node: windowActiveCard }] : []),
+    ...(windowNotesCard && windowNotesSpan ? [{ spanId: windowNotesSpan, node: windowNotesCard }] : []),
+  ];
 
   // The book's own TeX macros, for every formula the Reader shows of it (its blocks, the Ask chip, answers about
   // it): the extraction keeps \vvec but not the page's definition of it.
@@ -4088,9 +4167,9 @@ export function ReaderScreen({
                   ...figuresCtl.followed.map((entry) => entry.figure.anchorSpanId)])]
                   .filter((spanId): spanId is string => Boolean(spanId))
                   .map((spanId) => ({ spanId, node: <FiguresUnder ctl={figuresCtl} spanId={spanId} /> })),
-                  ...(windowActiveCard && windowActiveSpan ? [{ spanId: windowActiveSpan, node: windowActiveCard }] : [])],
+                  ...windowInlineNotes],
                 regionSelection: Boolean(contract?.figures?.region),
-              } : windowActiveCard && windowActiveSpan ? { inlineNotes: [{ spanId: windowActiveSpan, node: windowActiveCard }] } : {})}
+              } : windowInlineNotes.length ? { inlineNotes: windowInlineNotes } : {})}
             />
           ) : null}
           {removed ? (
@@ -4181,7 +4260,7 @@ export function ReaderScreen({
                   background: block.spanId && annotatedSpans.has(block.spanId) ? "rgba(245, 166, 35, 0.04)" : guidePassage ? COLOR.washPurple : undefined,
                   paddingLeft: 12,
                   // RW3a: a margin mark sits in the column's gutter, beside its passage.
-                  position: cueMark || (block.spanId && (wbResumeBySpan.has(block.spanId) || keptCtl.marks.has(block.spanId) || notesCtl.marks.has(block.spanId)) && !working) || windowed?.lens?.mark ? "relative" : undefined,
+                  position: cueMark || (block.spanId && (wbResumeBySpan.has(block.spanId) || keptCtl.marks.has(block.spanId) || notesCtl.marks.has(block.spanId) || annotationsBySpan.has(block.spanId)) && !working) || windowed?.lens?.mark ? "relative" : undefined,
                 }}
               >
                 {folded ? null : (<>
@@ -4190,6 +4269,7 @@ export function ReaderScreen({
                 {resumeMark(block.spanId)}
                 {block.spanId && !working && keptCtl.marks.get(block.spanId) ? <KeptMark mark={keptCtl.marks.get(block.spanId)!} /> : null}
                 {block.spanId && !working && notesCtl.marks.get(block.spanId) ? <NoteMarkButton mark={notesCtl.marks.get(block.spanId)!} /> : null}
+                {!working ? windowNoteMark(block.spanId) : null}
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   {guidePassage ? <Pill color="purple">worth a second look</Pill> : null}
                   {BADGED_HEALTH.has(block.health.status) ? (
@@ -4222,6 +4302,7 @@ export function ReaderScreen({
               </div>
               {inlineReconnect && reconnect && block.spanId === reconnect.spanId ? inlineReconnect : null}
               {windowActiveCard && block.spanId && block.spanId === windowActiveSpan ? windowActiveCard : null}
+              {windowNotesCard && block.spanId && block.spanId === windowNotesSpan ? windowNotesCard : null}
               {figuresCtl.enabled ? <FiguresUnder ctl={figuresCtl} spanId={block.spanId} /> : null}
               {offerSection ? (
                 <SectionBoundaryOffer

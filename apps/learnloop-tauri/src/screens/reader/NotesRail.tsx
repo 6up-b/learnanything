@@ -630,100 +630,115 @@ export function NotesRail(props: NotesRailProps) {
         <Faint style={{ fontSize: 12 }}>no annotations yet.</Faint>
       ) : (
         annotations.map((a, i) => (
-          // The desks' context menu reads the card as the learner's highlight or margin note on its passage.
-          <div key={a.annotationId ?? i} style={{ display: "contents" }}
-            {...(a.annotationId ? { "data-annotation-id": a.annotationId, "data-annotation-kind": a.kind === "highlight" ? "highlight" : "note", "data-annotation-span": placedSpanIds(a)[0] ?? "" } : {})}>
-          <Card
-            onClick={() => jumpToAnnotation(a)}
-            style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 6, cursor: a.segments.length ? "pointer" : "default" }}
-          >
-            <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-              <Pill color="cyan">{a.kind}</Pill>
-              {a.status === "needs_reanchor" ? <Pill color="amber">anchor needs review</Pill> : <Faint style={{ fontSize: 10 }}>{a.status}</Faint>}
-              {a.placement?.state === "moved" ? (
-                <span data-placement="moved" style={{ fontSize: 10, color: COLOR.amberLink }}>moved here when the book was read again</span>
-              ) : a.placement?.state === "flagged" ? (
-                <Pill color="amber">its words changed when the book was read again</Pill>
-              ) : null}
-            </div>
-            <span style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.textDim }}>“{clip(a.quote, 180)}”</span>
-            {a.status === "needs_reanchor" && a.annotationId && !offline ? (
-              <div style={{ display: "flex", flexDirection: "column", gap: 4 }} onClick={(e) => e.stopPropagation()}>
-                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                  <button
-                    type="button"
-                    onClick={() => void reanchorAnnotation(a.annotationId!)}
-                    disabled={busy}
-                    style={{ border: 0, background: "transparent", color: COLOR.amberLink, fontFamily: FONT_MONO, fontSize: 10, padding: 0, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}
-                  >
-                    re-anchor to this version
-                  </button>
-                  {selection ? (
-                    <button
-                      type="button"
-                      onClick={() => void manualAnchorToSelection(a.annotationId!)}
-                      disabled={busy}
-                      style={{ border: 0, background: "transparent", color: COLOR.amberLink, fontFamily: FONT_MONO, fontSize: 10, padding: 0, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}
-                    >
-                      anchor to selection
-                    </button>
-                  ) : null}
-                </div>
-                {reanchorNotes[a.annotationId] ? (
-                  <Faint style={{ fontSize: 10 }}>{reanchorNotes[a.annotationId]}</Faint>
-                ) : null}
-              </div>
-            ) : null}
-            {editingAnnotationId !== null && editingAnnotationId === a.annotationId ? (
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }} onClick={(e) => e.stopPropagation()}>
-                <textarea
-                  autoFocus
-                  value={editingAnnotationText}
-                  onChange={(e) => setEditingAnnotationText(e.target.value)}
-                  placeholder="your note…"
-                  onKeyDown={(e) => {
-                    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") void saveAnnotationEdit();
-                    if (e.key === "Escape") setEditingAnnotationId(null);
-                  }}
-                  style={{ fontFamily: FONT_MONO, fontSize: 12, background: COLOR.bgInput, border: `1px solid ${COLOR.borderFocus}`, color: COLOR.text, padding: 8, minHeight: 54, resize: "vertical" }}
-                />
-                <div style={{ display: "flex", gap: 8 }}>
-                  <PrimaryButton onClick={() => void saveAnnotationEdit()} disabled={busy}>save ↵</PrimaryButton>
-                  <SecondaryButton onClick={() => setEditingAnnotationId(null)} disabled={busy}>cancel</SecondaryButton>
-                </div>
-              </div>
-            ) : (
-              <>
-                {a.learnerText ? <span style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.text }}>{a.learnerText}</span> : null}
-                {a.annotationId && !offline ? (
-                  <div style={{ display: "flex", gap: 10 }} onClick={(e) => e.stopPropagation()}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditingAnnotationId(a.annotationId);
-                        setEditingAnnotationText(a.learnerText);
-                      }}
-                      disabled={busy}
-                      style={{ border: 0, background: "transparent", color: COLOR.textFaint, fontFamily: FONT_MONO, fontSize: 10, padding: 0, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}
-                    >
-                      {a.learnerText ? "edit note" : "add note"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void deleteAnnotation(a.annotationId!)}
-                      disabled={busy}
-                      style={{ border: 0, background: "transparent", color: COLOR.textFaint, fontFamily: FONT_MONO, fontSize: 10, padding: 0, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}
-                    >
-                      delete
-                    </button>
-                  </div>
-                ) : null}
-              </>
-            )}
-          </Card>
-          </div>
+          <AnnotationCard key={a.annotationId ?? i} a={a} {...props} />
         ))
       )}
+    </div>
+  );
+}
+
+/** What an annotation card needs of the Reader: its edit, delete and re-anchor (the Notes rail's, and a desk window's
+ *  margin card's when no Notes panel is on screen). */
+export type AnnotationCardProps = Pick<NotesRailProps, "offline" | "busy" | "selection" | "jumpToAnnotation" | "reanchorAnnotation"
+  | "manualAnchorToSelection" | "reanchorNotes" | "editingAnnotationId" | "setEditingAnnotationId" | "editingAnnotationText"
+  | "setEditingAnnotationText" | "saveAnnotationEdit" | "deleteAnnotation">;
+
+/** One of the learner's annotations: its kind and anchor state, its words, and edit, delete and re-anchor. */
+export function AnnotationCard({ a, offline, busy, selection, jumpToAnnotation, reanchorAnnotation, manualAnchorToSelection, reanchorNotes,
+  editingAnnotationId, setEditingAnnotationId, editingAnnotationText, setEditingAnnotationText, saveAnnotationEdit, deleteAnnotation,
+}: AnnotationCardProps & { a: MarginAnnotation }) {
+  return (
+    // The desks' context menu reads the card as the learner's highlight or margin note on its passage.
+    <div style={{ display: "contents" }}
+      {...(a.annotationId ? { "data-annotation-id": a.annotationId, "data-annotation-kind": a.kind === "highlight" ? "highlight" : "note", "data-annotation-span": placedSpanIds(a)[0] ?? "" } : {})}>
+    <Card
+      onClick={() => jumpToAnnotation(a)}
+      style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 6, cursor: a.segments.length ? "pointer" : "default" }}
+    >
+      <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+        <Pill color="cyan">{a.kind}</Pill>
+        {a.status === "needs_reanchor" ? <Pill color="amber">anchor needs review</Pill> : <Faint style={{ fontSize: 10 }}>{a.status}</Faint>}
+        {a.placement?.state === "moved" ? (
+          <span data-placement="moved" style={{ fontSize: 10, color: COLOR.amberLink }}>moved here when the book was read again</span>
+        ) : a.placement?.state === "flagged" ? (
+          <Pill color="amber">its words changed when the book was read again</Pill>
+        ) : null}
+      </div>
+      {a.quote ? <span style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.textDim }}>“{clip(a.quote, 180)}”</span> : null}
+      {a.status === "needs_reanchor" && a.annotationId && !offline ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }} onClick={(e) => e.stopPropagation()}>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            <button
+              type="button"
+              onClick={() => void reanchorAnnotation(a.annotationId!)}
+              disabled={busy}
+              style={{ border: 0, background: "transparent", color: COLOR.amberLink, fontFamily: FONT_MONO, fontSize: 10, padding: 0, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}
+            >
+              re-anchor to this version
+            </button>
+            {selection ? (
+              <button
+                type="button"
+                onClick={() => void manualAnchorToSelection(a.annotationId!)}
+                disabled={busy}
+                style={{ border: 0, background: "transparent", color: COLOR.amberLink, fontFamily: FONT_MONO, fontSize: 10, padding: 0, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}
+              >
+                anchor to selection
+              </button>
+            ) : null}
+          </div>
+          {reanchorNotes[a.annotationId] ? (
+            <Faint style={{ fontSize: 10 }}>{reanchorNotes[a.annotationId]}</Faint>
+          ) : null}
+        </div>
+      ) : null}
+      {editingAnnotationId !== null && editingAnnotationId === a.annotationId ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }} onClick={(e) => e.stopPropagation()}>
+          <textarea
+            autoFocus
+            value={editingAnnotationText}
+            onChange={(e) => setEditingAnnotationText(e.target.value)}
+            placeholder="your note…"
+            onKeyDown={(e) => {
+              if ((e.ctrlKey || e.metaKey) && e.key === "Enter") void saveAnnotationEdit();
+              if (e.key === "Escape") setEditingAnnotationId(null);
+            }}
+            style={{ fontFamily: FONT_MONO, fontSize: 12, background: COLOR.bgInput, border: `1px solid ${COLOR.borderFocus}`, color: COLOR.text, padding: 8, minHeight: 54, resize: "vertical" }}
+          />
+          <div style={{ display: "flex", gap: 8 }}>
+            <PrimaryButton onClick={() => void saveAnnotationEdit()} disabled={busy}>save ↵</PrimaryButton>
+            <SecondaryButton onClick={() => setEditingAnnotationId(null)} disabled={busy}>cancel</SecondaryButton>
+          </div>
+        </div>
+      ) : (
+        <>
+          {a.learnerText ? <span style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.text }}>{a.learnerText}</span> : null}
+          {a.annotationId && !offline ? (
+            <div style={{ display: "flex", gap: 10 }} onClick={(e) => e.stopPropagation()}>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditingAnnotationId(a.annotationId);
+                  setEditingAnnotationText(a.learnerText);
+                }}
+                disabled={busy}
+                style={{ border: 0, background: "transparent", color: COLOR.textFaint, fontFamily: FONT_MONO, fontSize: 10, padding: 0, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}
+              >
+                {a.learnerText ? "edit note" : "add note"}
+              </button>
+              <button
+                type="button"
+                onClick={() => void deleteAnnotation(a.annotationId!)}
+                disabled={busy}
+                style={{ border: 0, background: "transparent", color: COLOR.textFaint, fontFamily: FONT_MONO, fontSize: 10, padding: 0, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}
+              >
+                delete
+              </button>
+            </div>
+          ) : null}
+        </>
+      )}
+    </Card>
     </div>
   );
 }

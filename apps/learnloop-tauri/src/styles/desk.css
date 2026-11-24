@@ -113,6 +113,10 @@
   --amber-link: var(--desk-amber);
   --border: var(--desk-line);
 }
+/* The learner's words in a window's margin (spec §7.1 "› for the learner's words"): the glyph is drawn by CSS, so a
+   selection over the passage never quotes it. */
+.ll-window-note-mark::before { content: "›"; }
+.ll-window-note-mark { user-select: none; -webkit-user-select: none; }
 .desk-pane[data-window-kind="source"] [data-span-id],
 .desk-pane[data-window-kind="video"] [data-transcript-span] {
   font-family: var(--desk-book) !important;

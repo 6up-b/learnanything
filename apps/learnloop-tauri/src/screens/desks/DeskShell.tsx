@@ -2953,7 +2953,16 @@ export function DeskShell({
   const menuWithheldAnswer = useRef<{ promise: Promise<boolean>; resolve: (withheld: boolean) => void }>({ promise: Promise.resolve(false), resolve: () => undefined });
   const menuContext = useMemo<MenuContext>(() => ({
     deskId,
-    api: menuTransport,
+    // A capture from the menu (a margin note, an append's highlight) is read again by the windows showing its
+    // reading, so its mark shows there at once.
+    api: { ...menuTransport, readerCapture: async (input) => {
+      const receipt = await menuTransport.readerCapture(input);
+      for (const [windowId, inquiry] of inquiries.current) {
+        const content = wsRef.current.windows[windowId]?.content;
+        if (content && (content.kind === "source" || content.kind === "video") && content.extractionId === input.extractionId) inquiry.annotationsChanged();
+      }
+      return receipt;
+    } },
     mintId,
     toast: toastNow,
     ask: (object) => {
@@ -3465,6 +3474,8 @@ export function DeskShell({
           onInquiryReady: onInquiryReadyFor(window.windowId),
           onAsk: onAskFor(window.windowId),
           onOpenPath: onOpenPathFor(window.windowId),
+          // A note a search result opened the window for (its identity in the window's view).
+          openNote: typeof window.view?.annotationId === "string" ? (window.view.annotationId as string) : null,
           onError,
           ...(reader ? { reader } : {}),
           // A book following a video marks its passage over the goal lens (RD10).

@@ -1220,6 +1220,27 @@ async def run_intent(page: Page, base: str, results: Results, shots: Path | None
     restored = await calls(page, "reader_restore_source")
     results.check("alt+← in that window walks back to where the learner was", len(restored) == 1, restored)
 
+    # A margin note written with n shows in the book's margin at once (spec §7.1: "›" 30 px left of the text, drawn by
+    # CSS so a selection never quotes it), and opens a card under its passage with the learner's words.
+    target = page.locator('[data-desk-window="fx_w_book"] [data-span-id]', has_text="largest score").first
+    await target.scroll_into_view_if_needed()
+    await target.hover()
+    await page.keyboard.press("n")
+    await settle(page, 400)
+    await page.keyboard.type("a soft maximum keeps runners-up")
+    await page.get_by_text("keep it").click()
+    await settle(page, 1200)
+    mark = await page.evaluate("""() => { const m = document.querySelector('[data-desk-window="fx_w_book"] [data-window-note-mark]'); if (!m) return null;
+      const p = m.closest('[data-span-id]'), ps = getComputedStyle(p), r = m.getBoundingClientRect(), pr = p.getBoundingClientRect();
+      return { glyph: getComputedStyle(m, '::before').content, text: m.textContent, gap: Math.round(pr.left + parseFloat(ps.borderLeftWidth) + parseFloat(ps.paddingLeft) - r.left) }; }""")
+    results.check("a margin note written with n shows › in the book's margin at once, drawn by CSS, 30 px left of the text",
+                  bool(mark) and mark["glyph"] == '"›"' and mark["text"] == "" and abs(mark["gap"] - 30) <= 4, mark)
+    await page.locator('[data-desk-window="fx_w_book"] [data-window-note-mark]').first.click()
+    await settle(page, 400)
+    card = await page.locator('[data-desk-window="fx_w_book"] [data-window-notes]').inner_text() if await page.locator('[data-desk-window="fx_w_book"] [data-window-notes]').count() else ""
+    await shot(page, shots, "window-note-card")
+    results.check("the › opens the learner's words in a card under the passage, to edit or delete", "a soft maximum keeps runners-up" in card and "edit note" in card and "delete" in card, card[:120])
+
 
 GOAL_BOOK = "[data-desk-window='fx_w_book']"
 GOAL_PAPER = "[data-desk-window='fx_w_paper']"
