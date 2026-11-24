@@ -384,8 +384,8 @@ def learner_refused_pin(repository: Repository, presentation: ProbePresentationR
     """The refusal that retires a learner-lane router pin before its first display, or None: the learner's current
     preference on the pin's factor, read with the scope the status reads it (the factor, its learning object, the
     pin's session), when it refuses. Acceptance read the same preference and found none, so a refusing one came after
-    the pin. Only a pin still unshown (``selected``) that names a router decision and no follow-up workflow is the
-    learner lane's: the automatic lane's pin is its own decision's, and a shown probe is being answered."""
+    the pin. Only a pin still unshown (``selected``) that names a router decision, no follow-up workflow and no
+    continuation is the learner lane's: the automatic lane's pin is its own decision's, and a shown probe is being answered."""
 
     from learnloop.diagnosis.probe_facts import REFUSING_PREFERENCES
     from learnloop.diagnosis.probe_hard_stops import learner_preference
@@ -394,6 +394,10 @@ def learner_refused_pin(repository: Repository, presentation: ProbePresentationR
         return None
     pin = (presentation.selection_components or {}).get("causal_probe")
     if not isinstance(pin, Mapping) or not pin.get("router_decision_id") or pin.get("followup_workflow_id"):
+        return None
+    if pin.get("continuation_of_episode"):
+        # The router's continuation of an episode the learner is already answering: the offer's refusal does not
+        # reach it (the episode ends on its evidence, its count or the router's stop).
         return None
     episode = repository.probe_episode(presentation.probe_episode_id)
     preference = learner_preference(
@@ -540,6 +544,12 @@ def commit_item_presentation(
     that slate is not a diagnostic assignment; it remains ordinary practice.
     """
 
+    from learnloop.diagnosis.probe_episodes import router_selected_episode
+
+    if router_selected_episode(vault, repository, episode):
+        # The probe router's tag: a router-owned episode's next observation is the router's decision, committed by
+        # it as a pinned presentation (``daily_plan.probe_continuation``); opening an item never commits one.
+        return None
     candidates = eligible_instruments(vault, repository, episode, hypothesis_set=hypothesis_set)
     eligible = next((entry for entry in candidates if entry.item.id == item.id), None)
     if eligible is None:

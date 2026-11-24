@@ -4,8 +4,9 @@ Five daemon slots - ``diagnose`` (concurrency 1, strict attempt order),
 ``embed`` (concurrency 1, unordered), ``gaps`` (learner-text gaps,
 concurrency 1, oldest first: ``learner_text_gap_jobs``), ``followup``
 (FG1's generation, concurrency 1: ``followup_generation_jobs``) and ``probe_router``
-(the probe router's learner-lane decisions, concurrency 1: the factors a status read left
-waiting, ``learner_probe.requested``; it runs when asked, never on an idle poll) - drain their queues
+(the probe router's decisions, concurrency 1: the factors a status read left waiting,
+``learner_probe.requested``, and the router-owned episodes waiting on their next observation,
+``probe_continuation.requested``; it runs when asked, never on an idle poll) - drain their queues
 on their own SQLite connection, in short transactions. The queue is durable and lease-fenced,
 so a process exit loses at most the in-flight model call; the next start (or the
 next notify) reclaims expired leases. Built on the ``ExamGradingManager``
@@ -260,12 +261,15 @@ class PostAttemptWorker:
         return outcomes
 
     def _run_probe_router(self, vault: Any, repository: Any, *, max_jobs: int, clock: Any) -> list[Any]:
-        """The probe router's learner lane: the valuation and the decision a status read left
-        waiting, off the request loop. Pure computation and local writes: no model is asked."""
+        """The probe router's decisions, off the request loop: the learner lane's a status read left waiting, then
+        the continuations router-owned episodes wait on. Pure computation and local writes: no model is asked."""
 
         from learnloop.daily_plan.learner_probe import run_pending as run_probe_router
+        from learnloop.daily_plan.probe_continuation import run_pending as run_continuations
 
         ran = self._with_busy_retry(lambda: run_probe_router(vault, repository, clock=clock, max_jobs=max_jobs))
+        ran = [*(ran or []), *(self._with_busy_retry(
+            lambda: run_continuations(vault, repository, clock=clock, max_jobs=max_jobs)) or [])]
         if ran:
             with self._changed:
                 self._changed.notify_all()

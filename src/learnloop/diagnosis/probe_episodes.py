@@ -808,6 +808,25 @@ def router_selected_episode(vault: LoadedVault, repository: Repository, episode:
     return False
 
 
+def router_pinned_item(repository: Repository, episode: Any) -> str | None:
+    """The item of the router's standing, unanswered pin in this episode, or None: a presentation committed for a
+    decision the probe router made at its tag that asked the probe (the learner lane's accepted offer, a continuation),
+    not yet answered or ended. The automatic lane's workflow pin keeps its own serving path, so it is not one. Its
+    item is the router's decision: the doors admit it by that decision, whatever its EIG."""
+
+    from learnloop.diagnosis.probe_authority import ROUTER_DECISION_KEY, decision_owns
+
+    if episode is None:
+        return None
+    standing = repository.active_probe_presentation(str(episode.id))
+    if standing is None or standing.status not in ("selected", "served"):
+        return None
+    pin = (standing.selection_components or {}).get("causal_probe")
+    if not isinstance(pin, Mapping) or pin.get("followup_workflow_id") or not pin.get(ROUTER_DECISION_KEY):
+        return None
+    return str(standing.practice_item_id) if decision_owns(repository, pin.get(ROUTER_DECISION_KEY)) else None
+
+
 def episode_hypothesis_set(
     repository: Repository, episode: ProbeEpisodeRecord
 ) -> HypothesisSet | None:

@@ -185,7 +185,10 @@ def diagnostic_payload(vault: Any, repository: Any, proposal: Any) -> DP.Diagnos
     if item is None:
         return "probe_item_missing_from_vault"
     labels = [str(h.label) for h in hypothesis_set.hypotheses]
-    prior = {str(key): float(value) for key, value in hypothesis_set.prior.items()}
+    # The locked set's prior; a continuation's proposal carries the episode's posterior instead (``prior``).
+    override = getattr(proposal, "prior", None)
+    prior = {str(key): float(value) for key, value in (override if override is not None
+                                                       else hypothesis_set.prior).items()}
     hypotheses = tuple(DP.Hypothesis(label, max(prior.get(label, 0.0), 0.0), _cause_class(repository, label))
                        for label in labels)
     if sum(h.prior for h in hypotheses) <= 0.0:
@@ -313,9 +316,16 @@ def information(valuation: Any) -> float:
     return float((valuation.record.get("values") or {}).get("information") or 0.0)
 
 
-def decide_proposal(vault: Any, repository: Any, proposal: Any, *, clock: Clock | None = None) -> str | None:
-    """Decide the proposal's probe once and record it; returns the factor's decision id (an earlier one when a
-    concurrent read recorded it first)."""
+def draw(vault: Any, repository: Any, *, key: str, unit: str, valuation: Any, now_iso: str, probe_ref: str,
+         other_ref: str) -> tuple[str, float, dict[str, float], dict[str, Any], list[dict[str, Any]]]:
+    """The router's draw between asking a probe (``probe_ref``) and not (``other_ref``) at the boundary ``key``:
+    ``(served, its propensity, the served distribution, the record's draw fields, pending assignments)``.
+
+    **Learned** (information above zero at the learned slopes): the probe is an option of the mix, which draws between
+    the two with the numeric policy's choice (the LLM policy not asked; its share goes where a failed policy's goes)
+    and the exploration floor. **Unlearned**: the mix has one option (``other_ref``) and the probe coin asks the probe
+    on its share, with its own assignment row. Seeded by the boundary (``key``, ``unit``), never by a decision's id,
+    so a retry after a crash or a concurrent run draws the same. The logged distribution is the one drawn from."""
 
     from learnloop.daily_plan import objective_chooser as OC
     from learnloop.diagnosis.learner_probe_proposal import PROBE_ACTION_REF
@@ -323,6 +333,48 @@ def decide_proposal(vault: Any, repository: Any, proposal: Any, *, clock: Clock 
     from learnloop.router_objective import mix
     from learnloop.router_objective import probe_coin as PC
     from learnloop.router_objective_switches import failure_share_to_other_policy_on
+
+    config = vault.config
+    gained = information(valuation)
+    fields: dict[str, Any] = {}
+    pending: list[dict[str, Any]] = []
+    if gained > 0.0:
+        numeric = probe_ref if valuation.choice == PROBE_ACTION_REF else other_ref
+        w, weight_record = OC.current_weight(repository, config, at=now_iso)
+        to_other = failure_share_to_other_policy_on(config)
+        seed = mix.seed_for(key, unit)
+        epsilon = float(config.router.epsilon_min)
+        choice = C.post_miss_choice(C.PostMissInputs(
+            support=(other_ref, probe_ref), staged_ref=other_ref, wait_ref=other_ref, per_option=True,
+            llm_status=LLM_NOT_ASKED, llm_options=None, llm_option_rationale=None, llm_p_yes=None, llm_rationale=None,
+            numeric_status=C.ANSWERED, numeric_choice=numeric, w=w, to_other_policy=to_other, epsilon=epsilon,
+            seed=seed))
+        served, propensity, served_pi = choice.drawn.chosen, choice.propensity, dict(choice.drawn.pi)
+        fields["mixture"] = {"design": mix.DESIGN, "policy": mix.POLICY, "seed": seed, "boundary_key": key,
+                             "support": [other_ref, probe_ref], "staged_ref": other_ref, "epsilon": epsilon,
+                             "w": w, "weight": weight_record, "effective_weights": dict(choice.effective),
+                             "failed": list(choice.failed), "fallback": mix.fallback_label(choice.failed),
+                             "fallback_reasons": {name: LLM_NOT_ASKED for name in choice.failed},
+                             "failure_rule": mix.failure_rule_name(to_other), "numeric_choice": choice.numeric_choice,
+                             "drawn_component": choice.drawn.component, "u1": choice.drawn.u1, "u2": choice.drawn.u2,
+                             "pi": served_pi}
+    else:
+        mu = {other_ref: 1.0}
+        rate = PC.share(config)
+        served, propensity, served_pi = other_ref, 1.0, dict(mu)
+        if PC.applies(rate):
+            coin_seed = PC.seed_for(key, unit)
+            coin = PC.flip(coin_seed, rate, probe_ref=probe_ref, mu=mu, drawn=other_ref, boundary_key=key)
+            served, propensity = coin.served, coin.served_propensity
+            served_pi = PC.served_distribution(mu, rate, probe_ref=probe_ref)
+            fields["probe_coin"] = coin.as_dict()
+            pending.append(PC.pending_assignment(coin, seed=coin_seed, support=[probe_ref, other_ref]))
+    return served, propensity, served_pi, fields, pending
+
+
+def decide_proposal(vault: Any, repository: Any, proposal: Any, *, clock: Clock | None = None) -> str | None:
+    """Decide the proposal's probe once and record it; returns the factor's decision id (an earlier one when a
+    concurrent read recorded it first)."""
 
     from learnloop.router.plan_log import automatic_probe_decision
 
@@ -357,43 +409,10 @@ def decide_proposal(vault: Any, repository: Any, proposal: Any, *, clock: Clock 
                                 ("version", "decisions", "given", "values", "choice", "results", "prior_choice",
                                  "policy_changes_with_result", "channel_use", "excluded", "cost")}
         detail["evaluation"]["numeric_choice"] = valuation.choice
-    pending: list[dict[str, Any]] = []
-    if learned:
-        # A learned probe is an option of the mix like any learned action.
-        numeric = PROBE_REF if valuation.choice == PROBE_ACTION_REF else NO_PROBE_REF
-        w, weight_record = OC.current_weight(repository, config, at=now_iso)
-        to_other = failure_share_to_other_policy_on(config)
-        # Seeded by the factor, not the decision's id: a retry after a crash, or a concurrent read, draws the same
-        #.
-        seed = mix.seed_for(key, "learner_probe")
-        epsilon = float(config.router.epsilon_min)
-        choice = C.post_miss_choice(C.PostMissInputs(
-            support=(NO_PROBE_REF, PROBE_REF), staged_ref=NO_PROBE_REF, wait_ref=NO_PROBE_REF, per_option=True,
-            llm_status=LLM_NOT_ASKED, llm_options=None, llm_option_rationale=None, llm_p_yes=None, llm_rationale=None,
-            numeric_status=C.ANSWERED, numeric_choice=numeric, w=w, to_other_policy=to_other, epsilon=epsilon,
-            seed=seed))
-        served, propensity, served_pi = choice.drawn.chosen, choice.propensity, dict(choice.drawn.pi)
-        detail["mixture"] = {"design": mix.DESIGN, "policy": mix.POLICY, "seed": seed, "boundary_key": key,
-                             "support": [NO_PROBE_REF, PROBE_REF], "staged_ref": NO_PROBE_REF, "epsilon": epsilon,
-                             "w": w, "weight": weight_record, "effective_weights": dict(choice.effective),
-                             "failed": list(choice.failed), "fallback": mix.fallback_label(choice.failed),
-                             "fallback_reasons": {name: LLM_NOT_ASKED for name in choice.failed},
-                             "failure_rule": mix.failure_rule_name(to_other), "numeric_choice": choice.numeric_choice,
-                             "drawn_component": choice.drawn.component, "u1": choice.drawn.u1, "u2": choice.drawn.u2,
-                             "pi": served_pi}
-    else:
-        # An unlearned probe is no option of the mix: the mix has one option (no probe), and the probe coin offers
-        # the probe on its share.
-        mu = {NO_PROBE_REF: 1.0}
-        rate = PC.share(config)
-        served, propensity, served_pi = NO_PROBE_REF, 1.0, dict(mu)
-        if PC.applies(rate):
-            coin_seed = PC.seed_for(key, "learner_probe")
-            coin = PC.flip(coin_seed, rate, probe_ref=PROBE_REF, mu=mu, drawn=NO_PROBE_REF, boundary_key=key)
-            served, propensity = coin.served, coin.served_propensity
-            served_pi = PC.served_distribution(mu, rate, probe_ref=PROBE_REF)
-            detail["probe_coin"] = coin.as_dict()
-            pending.append(PC.pending_assignment(coin, seed=coin_seed, support=[PROBE_REF, NO_PROBE_REF]))
+    served, propensity, served_pi, drawn, pending = draw(
+        vault, repository, key=key, unit="learner_probe", valuation=valuation, now_iso=now_iso,
+        probe_ref=PROBE_REF, other_ref=NO_PROBE_REF)
+    detail.update(drawn)
     detail["served_pi"] = served_pi
     try:
         with repository.atomic(), repository.connection() as connection:
@@ -430,5 +449,6 @@ def decide_proposal(vault: Any, repository: Any, proposal: Any, *, clock: Clock 
     return recorded
 
 
-__all__ = ["LLM_NOT_ASKED", "OWNER_DECISIONS", "POLICY", "decide", "decide_proposal", "diagnostic_payload", "information",
+__all__ = ["LLM_NOT_ASKED", "OWNER_DECISIONS", "POLICY", "decide", "decide_proposal", "diagnostic_payload", "draw",
+           "information",
            "requested", "revalue", "run_pending", "value"]

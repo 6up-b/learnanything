@@ -710,16 +710,18 @@ class SidecarContext:
 
     def _resume_probe_router(self) -> None:
         """The probe router's decisions a previous process left waiting: its learner-lane status
-        reads answered ``pending`` and the job had not decided yet."""
+        reads answered ``pending``, or a router-owned episode waits on its next observation, and the job had not
+        decided yet."""
 
         from learnloop.algorithm_versions import probe_router_on
 
         if self.vault is None or self.repository is None or not probe_router_on(self.vault.config):
             return
+        from learnloop.daily_plan import probe_continuation
         from learnloop.daily_plan.learner_probe import requested
 
         try:
-            waiting = requested(self.repository)
+            waiting = requested(self.repository) or probe_continuation.requested(self.vault, self.repository)
         except Exception:  # noqa: BLE001 - startup maintenance never fails an open
             _LOGGER.warning("probe router decisions not resumed", exc_info=True)
             return

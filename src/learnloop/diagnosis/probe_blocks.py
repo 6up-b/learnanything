@@ -38,6 +38,7 @@ from learnloop.diagnosis.probe_episodes import (
     episode_posterior,
 )
 from learnloop.diagnosis.probe_completion import (
+    complete_on_router_stop,
     episode_maximum_binds,
     evaluate_completion,
     persist_episode_beliefs,
@@ -447,6 +448,32 @@ def settle_block_answers(
         )
 
     return released_feedback, normalized_misconception_ids
+
+
+def stop_on_router_decision(
+    vault: LoadedVault,
+    repository: Repository,
+    episode: ProbeEpisodeRecord,
+    *,
+    router_decision_id: str,
+    clock: Clock | None = None,
+) -> str:
+    """The probe router's stop on a router-owned episode between blocks (``daily_plan.probe_continuation``): the
+    episode completes with ``router_stop``, and, as a block end that completes it, a diagnosed gap gets its typed
+    transition decision and the tutoring segment. Its last block already released its feedback."""
+
+    posterior = episode_posterior(vault, repository, episode)
+    reason = complete_on_router_stop(repository, episode, router_decision_id=router_decision_id,
+                                     posterior=posterior, clock=clock)
+    refreshed = repository.probe_episode(episode.id) or episode
+    top_label = posterior.top[0] if posterior is not None else ""
+    if posterior is not None and top_label and top_label not in ("robust_initial_grasp",):
+        decision = build_typed_transition_decision(vault, repository, refreshed, posterior,
+                                                   first_error_step_or_claim=None)
+        set_target_decision(repository, refreshed.id, decision, clock=clock)
+        repository.open_state_segment(learning_object_id=episode.learning_object_id, probe_episode_id=episode.id,
+                                      reason="tutoring_transition", clock=clock)
+    return reason
 
 
 def end_diagnostic_block(

@@ -671,6 +671,18 @@ def _requested_factor(
     return factors[0]
 
 
+def repair_classes_for_factor(repository: Repository, factor_id: str) -> dict[str, str]:
+    """Each hypothesis's repair class on the factor's classified cause set, as the repair status reads it (empty for a
+    factor that is not open or names no repair class)."""
+
+    factor = repository.unresolved_cause_factor(factor_id)
+    if factor is None:
+        return {}
+    targeting = classify_cause_set(list(factor.get("candidate_causes") or []), repository=repository,
+                                   factor_id=factor_id, attempt_id=str(factor.get("attempt_id") or "") or None)
+    return _repair_class_by_hypothesis(targeting.causes)
+
+
 def gather_probe_reads(
     repository: Repository,
     *,
@@ -1451,5 +1463,6 @@ __all__ = [
     "RepairStatus",
     "causal_repair_status",
     "gather_probe_reads",
+    "repair_classes_for_factor",
     "resolve_orchestrator_parameters",
 ]

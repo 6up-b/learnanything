@@ -152,7 +152,7 @@ from learnloop.db.stores import data_capture as capture_store
 from learnloop.db.stores.plan_presentations import presentations_for_blocks
 from learnloop.db.stores.router import OVERRIDE_KEY_PREFIX, replace_router_outcomes
 from learnloop.outcome_contract import RETENTION_MIN_DELAY_SECONDS, retention_exclusions
-from learnloop.router.plan_log import LEARNER_PROBE_SURFACE
+from learnloop.router.plan_log import LEARNER_PROBE_SURFACE, PROBE_CONTINUATION_SURFACE
 
 OUTCOME_VERSION = "router_outcomes_v2"
 
@@ -1319,11 +1319,12 @@ def derive_router_outcomes(
             outcomes.append(_suggestion_outcome(decision, ledger, pfc_states, suggestion_responses))
             continue
         objective = frozen.get(decision["id"])
-        # The probe router's learner lane: offering the quick check and not offering it are measured
+        # The probe router's learner lane and its continuations: asking the probe and not asking it are measured
         # on the one target both froze (the factor's learning object), intention to treat, whether or not the offer
         # was taken: an answer to the offered item outside the offer is never this decision's action.
         if objective is not None and (objective.get("arm") in ACTIONLESS_ARMS
-                                      or decision.get("surface") == LEARNER_PROBE_SURFACE):
+                                      or decision.get("surface") in (LEARNER_PROBE_SURFACE,
+                                                                     PROBE_CONTINUATION_SURFACE)):
             outcomes.append(_objective_outcome(decision, objective, ledger, pfc_states,
                                                states.get(decision["id"], ()), reading_started))
             continue
