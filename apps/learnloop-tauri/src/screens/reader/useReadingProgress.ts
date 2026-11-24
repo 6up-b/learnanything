@@ -21,6 +21,7 @@ import {
   type SetStateAction,
 } from "react";
 import { api } from "../../api/client";
+import { releaseSeenSaves, SEEN_REPORT_MS, seenSaveFor, sendSeenCounts, type SeenSave } from "./readingReports";
 import type {
   ReaderGuidePlanDto,
   ReaderGuideSectionDto,
@@ -51,9 +52,7 @@ import { useListenerHub, useReadingActivityRef, useWindowPaused } from "../desks
 // takes to settle before scrolling counts as reading again, and how long
 // reading positions gather before they are saved.
 export const SEEN_SETTLE_MS = 1500;
-export const SEEN_REPORT_MS = 1500;
-// Timed retries of a failed progress save (leaving the Reader always retries).
-const SEEN_RETRY_LIMIT = 3;
+export { SEEN_REPORT_MS } from "./readingReports";
 // The reading marker sits 70% of the way down the reading area (as the
 // extracted-text view's), and a page-only passage counts as read once the
 // marker is this far through it.
@@ -64,97 +63,6 @@ const PAGE_READ_THROUGH = 0.85;
 // any other (pages loading, a jump, a resume) is the view settling.
 const USER_SCROLL_MS = 1200;
 const SCROLL_KEYS = new Set(["ArrowDown", "ArrowUp", "PageDown", "PageUp", "Home", "End", " ", "Spacebar"]);
-
-/** One book's reading-progress saves (round-2 review F3, re-review F7): the
- * newest count per section, the counts the backend acknowledged and the ones
- * on their way, and the book's timed retry. It outlives leaving the book, so a
- * retry set before the learner left sends that book's newest counts. */
-interface SeenSave {
-  wanted: Record<string, { spansSeen: number; spanCount: number }>;
-  acknowledged: Record<string, number>;
-  sending: Record<string, number>;
-  /** The passages the learner's own reading observed, per section, and the sections
-   *  whose last passage was among them. The backend unions them, so each goes until it is acknowledged; an
-   *  answered report acknowledges every id it carried, the ones the backend left out as not the section's too,
-   *  so none is sent again. */
-  passages: Record<string, Set<string>>;
-  acknowledgedPassages: Set<string>;
-  sendingPassages: Set<string>;
-  ends: Set<string>;
-  acknowledgedEnds: Set<string>;
-  sendingEnds: Set<string>;
-  attempts: number;
-  timer: number | null;
-}
-
-function seenSaveFor(saves: Map<string, SeenSave>, extractionId: string): SeenSave {
-  let save = saves.get(extractionId);
-  if (!save) {
-    save = {
-      wanted: {}, acknowledged: {}, sending: {}, passages: {}, acknowledgedPassages: new Set(),
-      sendingPassages: new Set(), ends: new Set(), acknowledgedEnds: new Set(), sendingEnds: new Set(),
-      attempts: 0, timer: null,
-    };
-    saves.set(extractionId, save);
-  }
-  return save;
-}
-
-/** What hears an acknowledged save: the book, the section and the backend's answer (whose progress says whether the
- *  section is finished: from algorithm tag mvp-0.63 its end, carried by the save, finishes it). */
-type SeenSaved = (extractionId: string, sectionId: string, result: ReaderMarkProgressResultDto | null) => void;
-
-/** Send a book's counts that are neither acknowledged nor on their way. A
- * failed save is tried again a few times (a busy database, a restarting
- * sidecar) with whatever the book's newest counts are by then; after that it
- * waits for the next change, or for the learner leaving the book or the Reader.
- * `onSaved` hears each count the backend acknowledged, a retry's included
- * (RW7a Codex re-review F3: what reads the progress back waits for it). */
-function sendSeenCounts(
-  saves: Map<string, SeenSave>, extractionId: string, onSaved?: SeenSaved,
-): void {
-  const save = saves.get(extractionId);
-  if (!save) return;
-  const sectionIds = new Set([...Object.keys(save.wanted), ...Object.keys(save.passages), ...save.ends]);
-  for (const sectionId of sectionIds) {
-    const counts = save.wanted[sectionId];
-    const countNew = counts !== undefined
-      && counts.spansSeen > Math.max(save.acknowledged[sectionId] ?? 0, save.sending[sectionId] ?? 0);
-    const passages = [...(save.passages[sectionId] ?? [])]
-      .filter((spanId) => !save.acknowledgedPassages.has(spanId) && !save.sendingPassages.has(spanId));
-    const end = save.ends.has(sectionId) && !save.acknowledgedEnds.has(sectionId) && !save.sendingEnds.has(sectionId);
-    if (!countNew && passages.length === 0 && !end) continue;
-    if (countNew) save.sending[sectionId] = counts.spansSeen;
-    for (const spanId of passages) save.sendingPassages.add(spanId);
-    if (end) save.sendingEnds.add(sectionId);
-    api.readerNoteReadingProgress({
-      extractionId, sectionId,
-      ...(counts ? { spansSeen: counts.spansSeen, spanCount: counts.spanCount } : {}),
-      ...(passages.length > 0 ? { seenSpanIds: passages } : {}),
-      ...(end ? { reachedEnd: true } : {}),
-    })
-      .then((result) => {
-        if (counts) save.acknowledged[sectionId] = Math.max(save.acknowledged[sectionId] ?? 0, counts.spansSeen);
-        for (const spanId of passages) save.acknowledgedPassages.add(spanId);
-        if (end) save.acknowledgedEnds.add(sectionId);
-        save.attempts = 0;
-        onSaved?.(extractionId, sectionId, result ?? null);
-      })
-      .catch(() => {
-        if (save.timer !== null || save.attempts >= SEEN_RETRY_LIMIT) return;
-        save.attempts += 1;
-        save.timer = window.setTimeout(() => {
-          save.timer = null;
-          sendSeenCounts(saves, extractionId, onSaved);
-        }, SEEN_REPORT_MS * 2 ** save.attempts);
-      })
-      .finally(() => {
-        if (counts && save.sending[sectionId] === counts.spansSeen) delete save.sending[sectionId];
-        for (const spanId of passages) save.sendingPassages.delete(spanId);
-        if (end) save.sendingEnds.delete(sectionId);
-      });
-  }
-}
 
 /** The passages a reading position observed, as the progress report names them (by id), beside what the
  *  learner's own movement showed in the view (`passagesInView`, sampled where the movement happens). On the
@@ -950,9 +858,11 @@ export function useReadingProgress(input: ReadingProgressInput): ReadingProgress
   }, [render, offline, guidePlan, sectionSeen, seenPassages, reachedEnds, noteProgressSaved]);
   useEffect(() => {
     const saves = seenSavesRef.current;
-    // Closing the Reader saves every book it still holds counts for.
+    // Closing the book's window saves every book it still holds counts for; what the backend has not acknowledged
+    // stays (readingReports.ts) for leaving the Reader, a vault change or that vault's next load.
     return () => {
       for (const extractionId of saves.keys()) sendSeenCounts(saves, extractionId);
+      releaseSeenSaves(saves);
     };
   }, []);
 

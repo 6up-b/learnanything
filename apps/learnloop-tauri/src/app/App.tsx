@@ -83,7 +83,7 @@ import { adoptMovedSession, startSessionOrAsk } from "./sessionHandoff";
 import { setSessionMoved, useSessionMoved, type SessionMoved } from "./sessionMoved";
 import { clear as clearQueryCache, invalidateAll as invalidateAllQueries } from "../api/queryCache";
 import { clearPdfDocuments } from "../components/pdfDocumentCache";
-import { selectWithDraftFlush } from "./vaultTransition";
+import { noteActiveVault, selectWithDraftFlush } from "./vaultTransition";
 import { todayQueueInput } from "./autoAdvance";
 import { planStepAction, readerTargetForReading, servedForExplicitStep, useDailyPlan } from "./dailyPlan";
 import { readerTargetForRestoration } from "./intentCheck";
@@ -559,6 +559,8 @@ export function App() {
     setStartupError(null);
     try {
       const appSnapshot = await api.loadVault();
+      // Writes gathered from here on are this vault's (vaultTransition.ts); what was kept for it goes now.
+      noteActiveVault(appSnapshot.vault?.root);
       setAlgoConfig(appSnapshot.config);
       setSnapshot(appSnapshot);
       refreshAiConnection();
@@ -1904,6 +1906,7 @@ export function App() {
         clearPdfDocuments();
         resetShellForVault();
         const next = await api.loadVault();
+        noteActiveVault(next.vault?.root);
         setAlgoConfig(next.config);
         setSnapshot(next);
         setStartupError(null);

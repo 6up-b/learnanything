@@ -27,6 +27,7 @@ import { api } from "../../api/client";
 import type { ReaderCueDto, ReaderCueImpressionInput, ReaderCuesDto } from "../../api/dto";
 import type { CuePlacement } from "./cues";
 import { newActivityId } from "./activity";
+import { registerVaultDraft, vaultKey } from "../../app/vaultTransition";
 import { observerGeneration } from "./observerGeneration";
 import { useListenerHub, useReadingActivityAllowed } from "../desks/lifecycle";
 
@@ -95,6 +96,8 @@ interface Queued {
   once: string;
   entry: ReaderCueImpressionInput;
   attempts: number;
+  /** The vault it was seen in: it is sent only there (app/vaultTransition.ts); one left from another vault is dropped. */
+  vault: string | null;
 }
 
 /** In view by one criterion for every arm: half the passage, or half the
@@ -148,7 +151,8 @@ export function useCueImpressions(input: CueImpressionsInput): CueImpressions {
   const flushRef = useRef<() => void>(() => undefined);
   const flush = useCallback(() => {
     timerRef.current = null;
-    const items = queueRef.current;
+    const vault = vaultKey();
+    const items = queueRef.current.filter((item) => item.vault !== null && item.vault === vault);
     queueRef.current = [];
     const batches = new Map<string, Queued[]>();
     for (const item of items) {
@@ -186,9 +190,12 @@ export function useCueImpressions(input: CueImpressionsInput): CueImpressions {
     if (sentRef.current.has(once)) return;
     sentRef.current.add(once);
     if (!firstPlanRef.current.has(seenKey)) firstPlanRef.current.set(seenKey, planId);
-    queueRef.current.push({ extractionId, visitId: visit, planId, once, entry, attempts: 0 });
+    queueRef.current.push({ extractionId, visitId: visit, planId, once, entry, attempts: 0, vault: vaultKey() });
     if (timerRef.current === null) timerRef.current = setTimeout(() => flushRef.current(), IMPRESSION_FLUSH_MS);
   }, [currentVisit, discovery, extractionId]);
+
+  // Before a vault change what was seen in the vault being left is sent to it (after the change it is dropped).
+  useEffect(() => registerVaultDraft({ freeze: () => undefined, flush: async () => flushRef.current(), resume: () => undefined }), []);
 
   // Leaving the source (or the Reader) sends what is queued, each receipt to its own source.
   useEffect(() => () => {

@@ -8,12 +8,15 @@
 // off, so the switched-off Reader writes nothing new.
 import { api } from "../../api/client";
 import type { ReaderActivityEvent } from "../../api/dto";
+import { registerVaultDraft, vaultKey } from "../../app/vaultTransition";
 
 const FLUSH_MS = 1500;
 const MAX_BATCH = 200;
 
 let enabled = false;
-let queue: ReaderActivityEvent[] = [];
+// Each event with the vault it happened in (app/vaultTransition.ts): a batch goes only to that vault, and an event
+// left over from a vault the app has moved away from is dropped (activity is best-effort), never sent into the next.
+let queue: Array<{ vault: string | null; event: ReaderActivityEvent }> = [];
 let timer: ReturnType<typeof setTimeout> | null = null;
 
 // Learner activity counters, read before and after a model wait (the
@@ -44,8 +47,10 @@ export function newActivityId(): string {
 export function flushReaderActivity(): void {
   if (timer !== null) clearTimeout(timer);
   timer = null;
+  const key = vaultKey();
+  queue = queue.filter((entry) => entry.vault !== null && entry.vault === key);
   if (!enabled || queue.length === 0) return;
-  const batch = queue.splice(0, MAX_BATCH);
+  const batch = queue.splice(0, MAX_BATCH).map((entry) => entry.event);
   try {
     const send = (api as { readerLogActivity?: (input: { events: ReaderActivityEvent[] }) => Promise<unknown> }).readerLogActivity;
     if (typeof send !== "function") return;
@@ -58,9 +63,12 @@ export function flushReaderActivity(): void {
 
 export function logReaderActivity(event: ReaderActivityEvent): void {
   if (!enabled) return;
-  queue.push({ occurred_at: new Date().toISOString(), ...event });
+  queue.push({ vault: vaultKey(), event: { occurred_at: new Date().toISOString(), ...event } });
   if (timer === null) timer = setTimeout(flushReaderActivity, FLUSH_MS);
 }
+
+// Before a vault change what was logged in the vault being left is sent to it.
+registerVaultDraft({ freeze: () => undefined, flush: async () => flushReaderActivity(), resume: () => undefined });
 
 // RO0 row 4: who sends the learner to the next visit. Set where the Reader is opened for them (the plan's reading
 // block), read once by the visit; every other visit is the learner's own. Named for a reading, it is that reading's

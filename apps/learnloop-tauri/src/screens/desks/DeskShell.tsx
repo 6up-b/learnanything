@@ -11,6 +11,7 @@ import { useCachedQuery } from "../../api/useCachedQuery";
 import { TAG } from "../../api/queryTags";
 import { TUTOR_COPY } from "../reader/TutorAnswer";
 import { cachedSourceRead } from "../reader/readerCache";
+import { flushReadingReports } from "../reader/readingReports";
 import { poller as appPoller, type Poller } from "../../api/poller";
 import type { CarriedQuestionDto, CompanionDock, CompanionHistoryDto, ContentRefDto, PadDrainDto, DeskApplyDto, DeskApplyInput, DeskStateDto, SourceLibraryCard, TutorCitationDto } from "../../api/dto";
 import {
@@ -3701,6 +3702,9 @@ export function DeskShell({
     viewTimers.current.clear();
     for (const handle of shellTimers.current) timers.clear(handle);
     shellTimers.current.clear();
+    // Leaving the Reader: every reading report the backend has not acknowledged goes once more, a closed book's
+    // included (its windows' own cleanups run after this one, so after them). Only to the vault it was read in.
+    void Promise.resolve().then(flushReadingReports);
   }, [timers]);
   const statusFor = useMemo(() => new Map<string, (next: SourceStatus) => void>(), []);
   const onStatusFor = useCallback((windowId: string) => {
