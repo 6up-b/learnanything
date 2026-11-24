@@ -2472,6 +2472,8 @@ export function App() {
             onError={onError}
             onLeave={() => chooseReaderSurface("reader")}
             firstSourceId={readerSource?.card.sourceId ?? null}
+            // Skim is the mute button on the desks too: leaving them while the book being read is skimmed offers nothing.
+            onSkimmingChange={noteReaderSkimming}
             {...(simple ? { askRequest: readerAskRequest } : {})}
             // Every way into the Reader (the shelf, Today's threads and citations, a return from feedback, a lesson's
             // "Look in my library") opens its book or search on the desk in view, once per open.

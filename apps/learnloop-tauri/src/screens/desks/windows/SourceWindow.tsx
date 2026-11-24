@@ -43,6 +43,7 @@ export function SourceWindow({
   onPairKey,
   onTouched,
   onWorkOnPad,
+  onSkimming,
 }: {
   content: Extract<ContentRefDto, { kind: "source" | "video" }>;
   card: SourceLibraryCard | null;
@@ -78,6 +79,8 @@ export function SourceWindow({
   onTouched?: ReaderWindowing["onTouched"];
   /** A problem opened in this window is worked on the desk's problem pad (spec §15.2). */
   onWorkOnPad?: ReaderWindowing["onWorkOnPad"];
+  /** Whether this window's reading is skimmed now (the app holds the leave-time offer while the book read is). */
+  onSkimming?: (muted: boolean) => void;
 }) {
   const onTitle = useCallback((title: string) => onStatus({ title }), [onStatus]);
   const onReaderStatus = useCallback(
@@ -111,6 +114,7 @@ export function SourceWindow({
         initialSource={initialSource}
         windowed={windowing}
         {...(reader ?? {})}
+        {...(onSkimming ? { onSkimmingChange: onSkimming } : {})}
       />
       <PenLayer surface={penSurface} />
     </>

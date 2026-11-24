@@ -99,7 +99,7 @@ import { clientIdFor, type OutboxTransport } from "./outbox";
 import { deskStoreFor } from "./store";
 import { CarriedList, Shelf, type ShelfRow } from "./Shelf";
 import { SourceWindow, type ReaderPassThrough, type SourceStatus } from "./windows/SourceWindow";
-import { DeskPairs } from "./sideBySide/pairs";
+import { DeskPairs, keptPairsFor } from "./sideBySide/pairs";
 import type { PaneTarget } from "../reader/sideBySide";
 import { logReaderAction } from "../reader/activity";
 import type { WindowInquiry } from "../ReaderScreen";
@@ -548,6 +548,9 @@ export interface DeskShellProps {
   /** The app's "Ask the tutor about this" while the desks are the Reader: each new count summons the companion on
    *  what is in view (it never dismisses it). */
   askRequest?: number;
+  /** Whether the book being read is skimmed (the focused book window, else the book window focused last): the app
+   *  offers nothing where the learner lands after leaving the desks while skimming, as after the old Reader. */
+  onSkimmingChange?: (muted: boolean) => void;
   /** The app's way into the Reader while the desks are the Reader (the shelf, Today's threads and citations, a return
    *  from feedback, a lesson's "Look in my library"): a book (and passage) to open or focus on the desk in view, or
    *  words to search for. Each request is done once, by its sequence number, however often the desks mount again. */
@@ -594,6 +597,7 @@ export function DeskShell({
   lessonsTransport = LIVE_LESSONS_TRANSPORT,
   videoTransport = LIVE_VIDEO_TRANSPORT,
   askRequest = 0,
+  onSkimmingChange,
   openRequest = null,
   checkTransport = LIVE_CHECK_TRANSPORT,
 }: DeskShellProps) {
@@ -893,6 +897,35 @@ export function DeskShell({
   lifecyclesRef.current = lifecycles;
   const focusIdRef = useRef(focusId);
   focusIdRef.current = focusId;
+  // Skimming, per book window (each window's own way of reading): the app hears the book being read, the focused book
+  // window, else the book window focused last.
+  const skimming = useRef(new Map<string, boolean>());
+  const lastBookFocus = useRef<string | null>(null);
+  const skimmingReported = useRef<boolean | null>(null);
+  const onSkimmingRef = useRef(onSkimmingChange);
+  onSkimmingRef.current = onSkimmingChange;
+  const reportSkimming = useCallback(() => {
+    const focused = focusIdRef.current;
+    const content = focused ? wsRef.current.windows[focused]?.content : undefined;
+    if (focused && content && (content.kind === "source" || content.kind === "video")) lastBookFocus.current = focused;
+    const muted = Boolean(lastBookFocus.current && skimming.current.get(lastBookFocus.current));
+    if (skimmingReported.current === muted) return;
+    skimmingReported.current = muted;
+    onSkimmingRef.current?.(muted);
+  }, [wsRef]);
+  const skimmingHandlers = useMemo(() => new Map<string, (muted: boolean) => void>(), []);
+  const skimmingFor = useCallback((windowId: string) => {
+    let handler = skimmingHandlers.get(windowId);
+    if (!handler) {
+      handler = (muted: boolean) => {
+        skimming.current.set(windowId, muted);
+        reportSkimming();
+      };
+      skimmingHandlers.set(windowId, handler);
+    }
+    return handler;
+  }, [skimmingHandlers, reportSkimming]);
+  useEffect(() => reportSkimming(), [focusId, reportSkimming]);
   // Poll owners follow the windows: a paused window's polls wait; a window that closed (gone from the
   // lifecycles) pauses its polls too, and when the shell detaches every owner it knew pauses.
   const knownOwners = useRef(new Set<string>());
@@ -3564,6 +3597,7 @@ export function DeskShell({
   // Side by side (the v1 Reader's second pane as two windows, spec §21.1): Ctrl+\ or a list's "side by side" in a
   // book window opens the other book in a window paired with it; following, F6 and the way back live in DeskPairs.
   const pairs = useMemo(() => new DeskPairs({
+    loaded: () => store.loaded,
     windowOf: (id) => {
       const content = wsRef.current.windows[id]?.content;
       return content && content.kind === "source" ? { sourceId: content.sourceId, extractionId: content.extractionId } : null;
@@ -3576,7 +3610,8 @@ export function DeskShell({
     },
     notice: (text) => toastNow(text),
     record: (event, payload) => logReaderAction(event, payload),
-  }), [toastNow]);
+    // The vault's pairs outlive this mount: back from a check or its feedback, a pair is still one.
+  }, keptPairsFor(vaultKey)), [toastNow, store, vaultKey]);
   const windowOpenPair = (windowId: string, target: PaneTarget) => {
     const id = deskIdRef.current;
     const current = wsRef.current;
@@ -3760,6 +3795,7 @@ export function DeskShell({
           onPairKey: pairHandlersFor(window.windowId).key,
           onTouched: pairHandlersFor(window.windowId).touched,
           onWorkOnPad: (handoff) => void workOnPad(handoff),
+          onSkimming: skimmingFor(window.windowId),
           onError,
           ...(reader ? { reader } : {}),
           // A book following a video marks its passage over the goal lens (RD10); a due check's closed marker (or its
