@@ -39,8 +39,8 @@ PREDECESSOR = TEACHER_ALGORITHM_VERSION
 
 def test_mvp042_is_one_constant_after_mvp041_and_the_latest():
     # Teacher TE1b's mvp-0.43 follows it as the latest (and keeps it).
-    assert SUCCESSOR_CHAIN[-28:-26] == (PREDECESSOR, TAG) == ("mvp-0.41", "mvp-0.42")
-    assert LATEST_ALGORITHM_VERSION == SUCCESSOR_CHAIN[-1] == "mvp-0.68"
+    assert SUCCESSOR_CHAIN[-29:-27] == (PREDECESSOR, TAG) == ("mvp-0.41", "mvp-0.42")
+    assert LATEST_ALGORITHM_VERSION == SUCCESSOR_CHAIN[-1] == "mvp-0.69"
 
 
 def _rolled(tmp_path, *, version: str, config: str = ARGMAX, option: str = "next_step@L3"):

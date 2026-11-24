@@ -29,6 +29,7 @@ The Reader workbench's desks: the shell, the window lifecycle contract, the shel
 ## Child areas
 
 - [[Reference/Desktop/TypeScript/screens/desks/carried/_area|TypeScript/screens/desks/carried]] — Carried questions resurfacing beside related passages: a question's section by the union read, its judged correspondents in the other open readings, and every page of the carried list.
+- [[Reference/Desktop/TypeScript/screens/desks/checks/_area|TypeScript/screens/desks/checks]] — Inline cold checks on the desks: a due check's closed marker before its host passage (no cues), check now with what is visible, the server's veils laid on the page with their pills and show it anyway (check.expose at once), check.protect_more for what comes into view, the card at the host passage or centred near the top, submit and its reason in plain words, not now, and restart.
 - [[Reference/Desktop/TypeScript/screens/desks/companion/_area|TypeScript/screens/desks/companion]] — The app-wide companion: its docks, summon, dissolve, hand-off and pill (geometry and state machine), its questions as polled companion.ask jobs, the panel with the desk's thread and the history, and previewed diffs.
 - [[Reference/Desktop/TypeScript/screens/desks/goal/_area|TypeScript/screens/desks/goal]] — The goal lens on the desks: the goal band under the top bar, criticality marks with their why card, dimming, section callouts, a pad stack's goal line and the path view, all read from goal.band and goal.lens.
 - [[Reference/Desktop/TypeScript/screens/desks/keys/_area|TypeScript/screens/desks/keys]] — The desks' key router (the scope and precedence matrix, the bare-Alt hold rule) and the one listener router for every window.
@@ -47,9 +48,9 @@ The Reader workbench's desks: the shell, the window lifecycle contract, the shel
 
 | Module | Status | Purpose | Imports | Imported by |
 |---|---|---|---:|---:|
-| [[Reference/Desktop/TypeScript/screens/desks/DeskShell|DeskShell.tsx]] | `ACTIVE` | Implements the `DeskShell` routed desktop screen and coordinates its learner-facing workflow state. | 57 | 2 |
+| [[Reference/Desktop/TypeScript/screens/desks/DeskShell|DeskShell.tsx]] | `ACTIVE` | Implements the `DeskShell` routed desktop screen and coordinates its learner-facing workflow state. | 61 | 2 |
 | [[Reference/Desktop/TypeScript/screens/desks/Shelf|Shelf.tsx]] | `ACTIVE` | Implements the `Shelf` routed desktop screen and coordinates its learner-facing workflow state. | 1 | 1 |
-| [[Reference/Desktop/TypeScript/screens/desks/fitMath|fitMath.tsx]] | `ACTIVE` | Implements the `fitMath` routed desktop screen and coordinates its learner-facing workflow state. | 0 | 5 |
+| [[Reference/Desktop/TypeScript/screens/desks/fitMath|fitMath.tsx]] | `ACTIVE` | Implements the `fitMath` routed desktop screen and coordinates its learner-facing workflow state. | 0 | 6 |
 | [[Reference/Desktop/TypeScript/screens/desks/geometry|geometry.ts]] | `ACTIVE` | Provides `DESK_SIZES`, `Rect`, `Stage`, `slotWidth` and related exports within the desktop's TypeScript/screens/desks ownership area. | 0 | 8 |
 | [[Reference/Desktop/TypeScript/screens/desks/lifecycle|lifecycle.tsx]] | `ACTIVE` | Implements the `lifecycle` routed desktop screen and coordinates its learner-facing workflow state. | 0 | 45 |
 | [[Reference/Desktop/TypeScript/screens/desks/outbox|outbox.ts]] | `ACTIVE` | Provides `InkSaveBody`, `InkEraseBody`, `Batch`, `BatchBody` and related exports within the desktop's TypeScript/screens/desks ownership area. | 1 | 3 |

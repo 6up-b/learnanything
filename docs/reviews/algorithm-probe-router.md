@@ -2,8 +2,9 @@
 
 The algorithm record of refactor step G2's behaviour (design: [`refactor-g2-design.md`](refactor-g2-design.md); steps 1
 to 5: [`refactor-g2a.md`](refactor-g2a.md), [`refactor-g2b.md`](refactor-g2b.md)). Its tag is
-`PROBE_ROUTER_ALGORITHM_VERSION`, one constant in `learnloop.algorithm_versions`; it was built as `mvp-0.69` and takes
-the next free tag at landing (the renumber is that one line, and the goldens and pins regenerated with it). No kill
+`PROBE_ROUTER_ALGORITHM_VERSION`, one constant in `learnloop.algorithm_versions`; it is `mvp-0.70` on the branch
+(after the inline checks' `mvp-0.69`; L4-2, also being built, was promised `mvp-0.70`: whichever lands second takes the
+next tag, a renumber of that one line with the goldens, pins and chain-position assertions regenerated). No kill
 switch (owner rule 2026-11-16).
 
 **Status: slice 1 of 2 built on the branch; it does not land alone.** The design's rule is that the router's authority

@@ -1030,8 +1030,18 @@ MASTERY_SEED_ALGORITHM_VERSION = "mvp-0.67"
 # (owner rule 2026-11-16). ONE constant.
 PAD_TEXT_ALGORITHM_VERSION = "mvp-0.68"
 
+# mvp-0.69 (inline cold checks in the Reader; docs/reviews/algorithm-mvp-0.69.md), on top of the pad text, mvp-0.68.
+# A due "Check once" can be administered where the learner reads (surface 'reader_inline', migration 270): the item
+# Today's check view would serve, its frozen contract, the attempt through the one attempt service, settlement as for
+# any qualifying attempt. What changes: a new serving surface whose attempts answer checks; an administration lock
+# Today honours (while one is open its check is not served as the check there); and exposure written at once by a new
+# writer: opening a veil writes a 'source_review' reveal sized by the opened text's overlap with each candidate's key
+# (the Check once rule then decides whether the answer is practice). No existing row changes meaning. No kill switch
+# (owner rule 2026-11-16). ONE constant.
+INLINE_CHECK_ALGORITHM_VERSION = "mvp-0.69"
+
 # The probe router (refactor G2; docs/reviews/refactor-g2-design.md, docs/reviews/algorithm-probe-router.md), on top of
-# the pad text tag. The action router is the one decider of whether a probe is asked after a miss. On the automatic
+# the inline checks, mvp-0.69. The action router is the one decider of whether a probe is asked after a miss. On the automatic
 # follow-up lane the decision comes before the probe is written, so the router cannot value its answer pattern and the
 # probe earns no information credit (the design's decision 1; the owner's option f of 2026-11-20): it is no option of
 # either policy, and the mix decides between no intervention and a lesson where one is offered. Beside the mix, the
@@ -1041,7 +1051,7 @@ PAD_TEXT_ALGORITHM_VERSION = "mvp-0.68"
 # the router switched off take the same coin instead of asking the probe deterministically; a no-plan decision is
 # logged. Hard refusals still come first. Nothing already derived moves. No kill switch (owner rule 2026-11-16). ONE
 # constant: a renumber at landing is this line (the chain, the sets and the predicate follow it).
-PROBE_ROUTER_ALGORITHM_VERSION = "mvp-0.69"
+PROBE_ROUTER_ALGORITHM_VERSION = "mvp-0.70"
 
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
 # first. Each successor means its predecessor's semantics PLUS its own, so
@@ -1109,6 +1119,7 @@ SUCCESSOR_CHAIN: tuple[str, ...] = (
     LIFECYCLE_INPUTS_ALGORITHM_VERSION,
     MASTERY_SEED_ALGORITHM_VERSION,
     PAD_TEXT_ALGORITHM_VERSION,
+    INLINE_CHECK_ALGORITHM_VERSION,
     PROBE_ROUTER_ALGORITHM_VERSION,
 )
 
@@ -1261,6 +1272,19 @@ def mastery_seed_on(config: object) -> bool:
 # Versions where a committed pad block of the learner's own words is emitted as a ``pad_text`` learner text. Every
 # later successor keeps it; gates must use this set, never equality, and read it through :func:`pad_text_on`.
 PAD_TEXT_VERSIONS: frozenset[str] = successors_from(PAD_TEXT_ALGORITHM_VERSION)
+
+
+# Versions where a due check may be administered inline in the Reader and Today honours the administration lock. Every
+# later successor keeps it; gates must use this set, never equality, and read it through :func:`inline_checks_on`.
+INLINE_CHECK_VERSIONS: frozenset[str] = successors_from(INLINE_CHECK_ALGORITHM_VERSION)
+
+
+def inline_checks_on(config: object) -> bool:
+    """Inline checks (mvp-0.69), gated by the vault's tag alone (no kill switch): below it every ``check.*`` RPC
+    refuses and Today ignores the lock, exactly as at mvp-0.68. ``config`` is a vault's config."""
+
+    algorithms = getattr(config, "algorithms", None)
+    return getattr(algorithms, "algorithm_version", None) in INLINE_CHECK_VERSIONS
 
 
 def pad_text_on(config: object) -> bool:

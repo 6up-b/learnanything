@@ -53,6 +53,8 @@ export interface InkCacheDeps {
   settled: () => Promise<"saved" | "unsaved">;
   /** Read a pad again (a reading written into a block moves its head). */
   refreshPad: (padId: string) => Promise<void>;
+  /** Why a reading waits now (an inline check is open: a reading would show what its veils hold), or null. */
+  held?: () => string | null;
 }
 
 function codeOf(error: unknown): string {
@@ -198,6 +200,11 @@ export class InkCache {
     if (!line || !last) return;
     const current = this.pad(padId).readings[blockId];
     if (current?.status === "reading") return;
+    const held = this.deps.held?.() ?? null;
+    if (held) {
+      this.setReading(padId, blockId, { status: "failed", jobId: null, result: null, message: `read it ${held}` });
+      return;
+    }
     const attempt = (this.attempts.get(blockId) ?? 0) + 1;
     this.attempts.set(blockId, attempt);
     const stale = () => this.attempts.get(blockId) !== attempt;

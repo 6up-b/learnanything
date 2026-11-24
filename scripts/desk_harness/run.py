@@ -38,6 +38,11 @@ math in the companion's answer. The display-math run (`?latex=1`, spec §13.4 ru
 equations in every pad block kind at three widths and in a hover card, and measures each equation's ink
 against its nearest clipping ancestor below the window's scroller, before and after a resize.
 
+The checks' run (RD7, `?checks=1` and `?checks=open`) adds the inline cold check: the closed marker with no cues,
+"check now" sending what is visible, the veils (every non-source window whole, the covered passages, the companion)
+with nothing moved, the pills and "show it anyway" with its cost, search and the companion waiting, the answer and its
+reason, the veils lifted, and a restart's open check centred near the top with "not now".
+
 Exit status: 0 when every check passes, 1 otherwise. Screenshots go to --shots when given.
 """
 
@@ -1504,6 +1509,128 @@ async def run_video(page: Page, base: str, results: Results, shots: Path | None)
                   any(c.get("extractionId") == "fx_ext_softmax" and c.get("sectionId") == "s1" and c.get("searchFallback") is False for c in corr), corr)
 
 
+PADS = "[data-desk-window='fx_w_pads']"
+VEILED_STYLE_JS = """(sel) => { const el = document.querySelector(sel); if (!el) return null; const s = getComputedStyle(el);
+  return { veiled: el.classList.contains('veiled'), color: s.color, shadow: s.textShadow, events: s.pointerEvents, label: el.dataset.veil ?? null }; }"""
+RECT_JS = "(sel) => { const el = document.querySelector(sel); if (!el) return null; const r = el.getBoundingClientRect(); return [r.x, r.y, r.width, r.height].map((v) => Math.round(v)); }"
+
+
+async def run_checks(page: Page, base: str, results: Results, shots: Path | None) -> None:
+    """Inline cold checks (RD7, spec §12.6) on the fixture's due check before the book's fifth section (`?checks=1`): the
+    closed marker with no cues, "check now" sending what is visible, the veils (every non-source window whole, the
+    covered passages, the companion), nothing moving, the pill and "show it anyway" with its cost, the companion and
+    search waiting, the answer and its reason, the veils lifted; then a restart's administration whose host is not on
+    the desks (`?checks=open`): the card centred near the top, and "not now"."""
+    await page.goto(f"{base}/desk-harness.html?checks=1")
+    await page.wait_for_selector(f"{BOOK} [data-check-marker]", timeout=8000)
+    await page.evaluate(f"() => document.querySelector(\"{BOOK} [data-check-marker]\").scrollIntoView({{ block: 'center' }})")
+    await settle(page, 900)
+    await shot(page, shots, "checks-marker")
+    marker = await page.evaluate(f"""() => {{ const m = document.querySelector("{BOOK} [data-check-marker]"); const next = m.parentElement?.querySelector("[data-span-id]");
+      return {{ text: m.textContent, buttons: [...m.querySelectorAll('button')].map((b) => b.textContent), before: next ? next.dataset.spanId : null }}; }}""")
+    results.check("a due check's closed marker sits before its host passage: no question, no LO, no provenance; later and check now",
+                  "a check is due before this page · on your own" in marker["text"] and "gradient" not in marker["text"].lower()
+                  and "ready" not in marker["text"].lower() and marker["buttons"] == ["later", "check now"], marker)
+    pads_before = await page.evaluate(RECT_JS, f"{PADS} [data-desk-pane-body]")
+    head_before = await page.evaluate(RECT_JS, f"{BOOK} [data-span-id='fx_ext_softmax_s4_1']")
+    await page.click(f"{BOOK} [data-check-marker] >> text=check now")
+    await page.wait_for_selector(f"{BOOK} [data-check-card='inline']", timeout=8000)
+    await settle(page, 900)
+    await shot(page, shots, "checks-open")
+    [begun] = [call["input"] for call in await calls(page, "check_begin_inline")]
+    windows = {w["windowId"]: w for w in begun["visible"]["windows"]}
+    results.check("check now calls check.begin_inline with what is visible (every window; a book's passages; no session named when the app has none)",
+                  begun["commitmentId"] == "fx_cm_grad" and "sessionId" not in begun and windows.get("fx_w_book", {}).get("kind") == "source"
+                  and "fx_ext_softmax_s5_1" in windows["fx_w_book"].get("spanIds", []) and windows.get("fx_w_pads", {}).get("kind") == "pad_stack", begun)
+    pad = await page.evaluate(VEILED_STYLE_JS, f"{PADS} [data-desk-pane-body]")
+    results.check("the pad stack's body is veiled whole: transparent text behind an 11 px blur, no input, the pill's words",
+                  bool(pad) and pad["veiled"] and pad["color"] == "rgba(0, 0, 0, 0)" and "11px" in pad["shadow"] and pad["events"] == "none"
+                  and pad["label"] == "hidden during this check · back when you answer", pad)
+    head = await page.evaluate(VEILED_STYLE_JS, f"{PADS} .desk-pane-head")
+    results.check("the window's head still says what it is", bool(head) and not head["veiled"], head)
+    spans = await page.evaluate(f"() => [...document.querySelectorAll(\"{BOOK} [data-span-id]\")].filter((p) => p.classList.contains('veiled')).map((p) => p.dataset.spanId)")
+    results.check("in the book, exactly the covered passages are veiled (the host section's)",
+                  bool(spans) and all(span.startswith("fx_ext_softmax_s5_") for span in spans), spans)
+    pads_after = await page.evaluate(RECT_JS, f"{PADS} [data-desk-pane-body]")
+    results.check("nothing moves: the veiled pad keeps its rect", pads_before == pads_after, [pads_before, pads_after])
+    head_after = await page.evaluate(RECT_JS, f"{BOOK} [data-span-id='fx_ext_softmax_s4_1']")
+    results.check("nothing above the card moves in the book", head_before == head_after, [head_before, head_after])
+    pills = await page.evaluate("() => [...document.querySelectorAll('[data-check-veils] .ck-pill')].map((p) => { const s = getComputedStyle(p); return [p.textContent, s.fontSize, s.backgroundColor, s.borderTopColor, s.borderTopLeftRadius]; })")
+    results.check("each veil has its pill (10.5 px, the reference's paper and border, 10 px radius)",
+                  len(pills) >= 2 and all(p[0] == "hidden during this check · back when you answer" and p[1:] == ["10.5px", "rgba(247, 245, 240, 0.92)", "rgb(216, 210, 196)", "10px"] for p in pills), pills)
+    card = await page.evaluate(f"() => {{ const c = document.querySelector(\"{BOOK} [data-check-card='inline']\"); return {{ text: c.textContent, focus: document.activeElement?.className ?? '' }}; }}")
+    results.check("the card shows the question, the veiled groups and the rule, with the answer box focused",
+                  "true class" in card["text"] and "veiled while you answer · " in card["text"]
+                  and "only an on-your-own answer settles this check" in card["text"], card["text"][:240])
+    results.check("the answer box has the focus", "gqa" in card["focus"], card["focus"])
+    # Search waits while the check is open (its rows could show what the veils hold).
+    await page.click(f"{BOOK} .desk-pane-head .t")
+    await page.keyboard.press("/")
+    await settle(page, 300)
+    toast = await page.evaluate("() => document.querySelector('.desk-toast')?.textContent ?? null")
+    opened = await page.evaluate("() => Boolean(document.querySelector('.desk-search'))")
+    results.check("search waits while the check is open, and says why", toast == "search waits · after your check · it is open on this desk" and not opened, [toast, opened])
+    # The companion: its ask waits; opening it brings its body under a veil (check.protect_more).
+    await page.keyboard.press("Shift+C")
+    await settle(page, 900)
+    comp = await page.evaluate("() => ({ cannot: document.querySelector('[data-companion-dock] .cannot')?.textContent ?? null, disabled: document.querySelector('[data-companion-dock] input.input')?.disabled ?? null, veiled: document.querySelector('[data-companion-dock] [data-companion-body]')?.classList.contains('veiled') ?? null })")
+    more = [call["input"] for call in await calls(page, "check_protect_more")]
+    results.check("the companion's ask waits with the reason, and opening it veils its body through check.protect_more",
+                  comp["cannot"] == "the tutor waits · after your check · it is open on this desk" and comp["disabled"] is True and comp["veiled"] is True
+                  and any(m["visible"].get("companionOpen") for m in more), [comp, len(more)])
+    await shot(page, shots, "checks-companion")
+    # A veil out of sight (the pad stack is on this desk but not in view) has no pill; the companion's has one above it.
+    hidden_pills = await page.evaluate("() => document.querySelectorAll(\"[data-check-veils] .ck-pill[data-veil-ref*='fx_w_pads']\").length")
+    results.check("a veil out of sight has no pill (the pad stack is not in view)", hidden_pills == 0, hidden_pills)
+    # Show it anyway on the companion: the cost first, then check.expose, then the veil lifts.
+    await page.click("[data-check-veils] .ck-pill[data-veil-ref*='companion']")
+    await settle(page, 200)
+    ask = await page.evaluate("() => document.querySelector('.ck-ask')?.textContent ?? null")
+    results.check("show it anyway says what opening can cost before anything is recorded",
+                  bool(ask) and "If it shows what the answer says" in ask and not await calls(page, "check_expose"), ask)
+    await page.click(".ck-ask button.pri")
+    await settle(page, 900)
+    exposed = [call["input"] for call in await calls(page, "check_expose")]
+    body = await page.evaluate(VEILED_STYLE_JS, "[data-companion-dock] [data-companion-body]")
+    pad = await page.evaluate(VEILED_STYLE_JS, f"{PADS} [data-desk-pane-body]")
+    results.check("opening a veil records the exposure at once, then lifts that veil (only that one)", len(exposed) == 1 and exposed[0]["ref"].get("kind") == "companion"
+                  and exposed[0]["kind"] == "opened_veil" and body and not body["veiled"] and pad and pad["veiled"], [exposed, body, pad])
+    # The answer: ↵ sends it once; the reply's reason in plain words; every veil lifted; the marker gone.
+    await page.fill(f"{BOOK} [data-check-card='inline'] textarea", "p_k - 1 if k = y, else p_k")
+    await page.press(f"{BOOK} [data-check-card='inline'] textarea", "Enter")
+    await page.wait_for_selector(f"{BOOK} [data-check-phase='answered']", timeout=8000)
+    await settle(page, 900)
+    await shot(page, shots, "checks-answered")
+    sent = [call["input"] for call in await calls(page, "check_submit_inline")]
+    reason = await page.evaluate(f"() => document.querySelector(\"{BOOK} [data-check-reason]\")?.textContent ?? null")
+    left = await page.evaluate("() => document.querySelectorAll('.veiled').length")
+    results.check("the answer is sent once through check.submit_inline, and the reason is said in plain words",
+                  len(sent) == 1 and sent[0]["answerMd"] == "p_k - 1 if k = y, else p_k" and reason == "on your own · this settles the check", [sent, reason])
+    results.check("answered, every veil is lifted", left == 0, left)
+    await page.click(f"{BOOK} [data-check-phase='answered'] >> text=close")
+    await settle(page, 600)
+    gone = await page.evaluate(f"() => document.querySelectorAll(\"{BOOK} [data-check-marker], {BOOK} [data-check-card]\").length")
+    results.check("an answered check leaves no marker and no card", gone == 0, gone)
+
+    # A restart with an administration open whose host passage is not on the desks: the card centred near the top.
+    await page.goto(f"{base}/desk-harness.html?checks=open")
+    await page.wait_for_selector("[data-check-card='overlay']", timeout=8000)
+    await settle(page, 900)
+    await shot(page, shots, "checks-overlay")
+    box = await page.evaluate(RECT_JS, "[data-check-card='overlay']")
+    reopened = await calls(page, "check_open_inline")
+    pad = await page.evaluate(VEILED_STYLE_JS, f"{PADS} [data-desk-pane-body]")
+    results.check("after a restart the open check comes back once, centred near the top (560 px wide, 64 px down), with its veils",
+                  len(reopened) == 1 and bool(box) and box[2] == 560 and box[1] == 64 and abs(box[0] + 280 - VIEWPORT["width"] / 2) <= 1 and pad and pad["veiled"], [len(reopened), box, pad])
+    marker = await page.evaluate(f"() => document.querySelector(\"{BOOK} [data-check-marker] button.pri\")?.disabled ?? null")
+    results.check("a second check cannot open while one is open (its check now is disabled)", marker is True, marker)
+    await page.click("[data-check-card='overlay'] >> text=not now")
+    await settle(page, 900)
+    closed = await calls(page, "check_abandon_inline")
+    left = await page.evaluate("() => [document.querySelectorAll('[data-check-card]').length, document.querySelectorAll('.veiled').length]")
+    results.check("not now closes the administration with no answer, and lifts the veils", len(closed) == 1 and left == [0, 0], [len(closed), left])
+
+
 async def run_preview(page: Page, base: str, results: Results) -> None:
     """A preview (a card or miniature) logs no reading activity; the same window active does (control)."""
     for state, expect_activity in (("preview", False), ("active", True)):
@@ -1541,7 +1668,7 @@ async def main() -> int:
             # Playwright hides scrollbars in headless Chromium; the display-math checks need them drawn, as the
             # app's webview draws them (a wide equation's scroller must show its bar).
             with_bars = await playwright.chromium.launch(headless=True, ignore_default_args=["--hide-scrollbars"])
-            runners = ("desks", "overview", "companion", "intent", "pads", "menus", "latex", "goal", "lesson", "video", "preview")
+            runners = ("desks", "overview", "companion", "intent", "pads", "menus", "latex", "goal", "lesson", "video", "checks", "preview")
             chosen = [name for name in args.only.split(",") if name] or list(runners)
             for runner in (name for name in runners if name in chosen):
                 context = await (with_bars if runner in ("pads", "latex", "lesson") else browser).new_context(viewport=VIEWPORT)
@@ -1568,6 +1695,8 @@ async def main() -> int:
                         await run_lesson(page, base, results, args.shots)
                     elif runner == "video":
                         await run_video(page, base, results, args.shots)
+                    elif runner == "checks":
+                        await run_checks(page, base, results, args.shots)
                     else:
                         await run_preview(page, base, results)
                 except Exception as error:  # noqa: BLE001 - a broken step is a failed check, and the report still prints
