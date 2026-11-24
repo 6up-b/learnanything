@@ -34,6 +34,7 @@ function context(over: Partial<MenuContext> = {}, apiOver: Partial<MenuContext["
     append: vi.fn(),
     askNote: vi.fn(async () => "my note"),
     confirm: vi.fn(async () => true),
+    writeOwnQuestion: vi.fn(),
     showMe: vi.fn(async () => ({ figureId: "fig1", line: "a figure" })),
     figureDestination: () => "pad_asked_on",
     landFigure: vi.fn(),
@@ -147,6 +148,14 @@ describe("each verb calls its server entry", () => {
     const declined = context({ confirm: vi.fn(async () => false) });
     await runVerb("make_practice", passage(), declined.ctx);
     expect(declined.ctx.api.readerAuthorSectionQuestion).not.toHaveBeenCalled();
+  });
+
+  it("Make it practice offers to write it oneself: taken, the passage's own question card opens and nothing is drafted", async () => {
+    const mine = context({ confirm: vi.fn(async () => "mine" as const) });
+    await runVerb("make_practice", passage(), mine.ctx);
+    expect(mine.ctx.confirm).toHaveBeenCalledWith(expect.any(String), expect.any(String), { mine: true });
+    expect(mine.ctx.writeOwnQuestion).toHaveBeenCalledWith(passage(), { extractionId: "ext1", spanId: expect.any(String) });
+    expect(mine.ctx.api.readerAuthorSectionQuestion).not.toHaveBeenCalled();
   });
 
   it("a window's verbs are the desks' moves on it; What this knows opens the panel", async () => {

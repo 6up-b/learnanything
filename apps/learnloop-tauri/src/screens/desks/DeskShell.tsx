@@ -282,7 +282,7 @@ function errorText(error: unknown): string {
 }
 
 /** The menu's small sheets: a margin note's words, or a review before something joins the queue. */
-function MenuSheet({ sheet, onDone }: { sheet: { kind: "note" | "confirm"; title: string; detail: string }; onDone: (value: string | boolean | null) => void }) {
+function MenuSheet({ sheet, onDone }: { sheet: { kind: "note" | "confirm"; title: string; detail: string; mine?: boolean }; onDone: (value: string | boolean | null) => void }) {
   const [text, setText] = useState("");
   const node = useRef<HTMLDivElement | null>(null);
   useSheetFocus(node, () => onDone(sheet.kind === "note" ? null : false));
@@ -292,6 +292,7 @@ function MenuSheet({ sheet, onDone }: { sheet: { kind: "note" | "confirm"; title
       {sheet.kind === "note" ? <label>your note<textarea aria-label="your note" value={text} onChange={(event) => setText(event.target.value)} /></label> : null}
       <div className="acts">
         <button type="button" disabled={sheet.kind === "note" && !text.trim()} onClick={() => onDone(sheet.kind === "note" ? text.trim() : true)}>{sheet.kind === "note" ? "keep it" : "yes"}</button>
+        {sheet.kind === "confirm" && sheet.mine ? <button type="button" data-sheet-choice="mine" onClick={() => onDone("mine")}>write it myself</button> : null}
         <button type="button" onClick={() => onDone(sheet.kind === "note" ? null : false)}>not now</button>
       </div>
     </div>
@@ -668,7 +669,7 @@ export function DeskShell({
   // The context menu (spec §9.1) on a source object, What this knows, and the small sheets its verbs ask with.
   const [menu, setMenu] = useState<MenuObject | null>(null);
   const [knows, setKnows] = useState<import("../../api/dto").MenuObjectInput | null>(null);
-  const [menuSheet, setMenuSheet] = useState<{ kind: "note" | "confirm"; title: string; detail: string; resolve: (value: string | boolean | null) => void } | null>(null);
+  const [menuSheet, setMenuSheet] = useState<{ kind: "note" | "confirm"; title: string; detail: string; mine?: boolean; resolve: (value: string | boolean | null) => void } | null>(null);
   // Make it practice on an exercise: the sheet that shows its words, imports it and lists what it made.
   const [exerciseSheet, setExerciseSheet] = useState<{ object: MenuObject; anchor: { extractionId: string; spanId: string }; key: string } | null>(null);
   const menuOpenRef = useRef(false);
@@ -3030,7 +3031,15 @@ export function DeskShell({
     carry: (text, origin) => carryQuestion(text, origin),
     append: (object, choice) => void appendTo(object, choice),
     askNote: () => new Promise<string | null>((resolve) => setMenuSheet({ kind: "note", title: "› note in margin", detail: "your words beside this passage", resolve: (value) => resolve(typeof value === "string" ? value : null) })),
-    confirm: (title, detail) => new Promise<boolean>((resolve) => setMenuSheet({ kind: "confirm", title, detail, resolve: (value) => resolve(value === true) })),
+    confirm: (title, detail, options) => new Promise<boolean | "mine">((resolve) => setMenuSheet({ kind: "confirm", title, detail, mine: options?.mine,
+      resolve: (value) => resolve(value === "mine" ? "mine" : value === true) })),
+    // The window showing the passage opens the Reader's own question card there (one opens beside if none shows it).
+    writeOwnQuestion: (object, anchor) => {
+      const windowId = object.windowId && inquiries.current.has(object.windowId) ? object.windowId : null;
+      const inquiry = windowId ? inquiries.current.get(windowId) : undefined;
+      if (inquiry) inquiry.writeOwnQuestion(anchor.spanId, (object.selection || object.text).trim());
+      else toastNow("open the passage's book on this desk to write your own question there");
+    },
     showMe: (text, anchor, owner) => padsHost.showMe ? padsHost.showMe(text, anchor, owner ?? undefined) : Promise.resolve(null),
     figureDestination: () => runningPadOf(deskIdRef.current),
     landFigure: async (object, figure, padId) => {

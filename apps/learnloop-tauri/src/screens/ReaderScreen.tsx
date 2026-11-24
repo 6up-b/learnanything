@@ -99,7 +99,7 @@ import { useReaderRecap } from "./reader/useReaderRecap";
 import { RecapCard } from "./reader/RecapCard";
 import { WrapUpPanel } from "./reader/WrapUpPanel";
 import { RECAP_COPY } from "./reader/recapCopy";
-import { AnnotationCard, NotesRail, type ExerciseImportState } from "./reader/NotesRail";
+import { AnnotationCard, AuthoringCard, NotesRail, type ExerciseImportState } from "./reader/NotesRail";
 import { IntentBox } from "./reader/IntentBox";
 import { useIntentBox, type IntentCancel, type IntentRunHandle, type IntentRunHow } from "./reader/useIntentBox";
 import { onlyNamesAnAction } from "./reader/intentPalette";
@@ -329,6 +329,8 @@ export interface WindowInquiry {
   /** The reading's own path (RW7a) in the window, for a desk with no goal: toggled, or opened; false when this
    *  reading has no path to show (reading paths off). */
   showPath: (how: "toggle" | "open") => boolean;
+  /** "write it myself" from the menu's Make it practice: the Reader's own question card on this passage, in the window. */
+  writeOwnQuestion: (spanId: string, quote: string) => void;
 }
 
 /** The desks' goal lens, laid over a reading's passages by span id (the text itself is never changed). */
@@ -2359,9 +2361,11 @@ export function ReaderScreen({
     onWindowJumpReady(render ? (spanId: string) => jumpToSpan(spanId, "start") : null);
     return () => onWindowJumpReady(null);
   }, [onWindowJumpReady, render, jumpToSpan]);
-  // RW7a's path for this reading, shown in the window on a desk with no goal (the goal's path view needs one).
+  // The reading's guide (RW7a's path for this reading with the Guide's section lines), shown in the window on a desk
+  // with no goal and no Guide panel on screen (the goal's path view needs a goal).
   const [windowPathOpen, setWindowPathOpen] = useState(false);
-  const readingPathsOn = Boolean(contract?.readingPaths) && !offline;
+  // The guide needs a plan to show (its sections) or the reading's path.
+  const readingPathsOn = (Boolean(contract?.readingPaths) || Boolean(guidePlan?.sections.length)) && !offline;
   useScopeClaim("menu", Boolean(windowed) && windowPathOpen);
   useEffect(() => {
     if (!windowPathOpen) return;
@@ -2378,6 +2382,16 @@ export function ReaderScreen({
     if (!onWindowInquiryReady) return;
     onWindowInquiryReady(render ? {
       peek: peekPassage, noteAnswer: noteCompanionAnswer, annotationsChanged: () => void refreshAnnotations(),
+      writeOwnQuestion: (spanId, quote) => {
+        setAuthoringSpanId(spanId);
+        setAuthoringQuote(quote || (blocks.find((block) => block.spanId === spanId)?.markdown.replace(/\s+/g, " ") ?? ""));
+        setAuthoredQuestion("");
+        setAuthoredAnswer("");
+        setAuthoredCardId(null);
+        setCoach(null);
+        setAuthoringOpen(true);
+        jumpToSpan(spanId, "start");
+      },
       showPath: (how) => {
         if (!readingPathsOn) return false;
         setWindowPathOpen((open) => (how === "open" ? true : !open));
@@ -2386,7 +2400,7 @@ export function ReaderScreen({
       },
     } : null);
     return () => onWindowInquiryReady(null);
-  }, [onWindowInquiryReady, render, peekPassage, noteCompanionAnswer, refreshAnnotations, readingPathsOn]);
+  }, [onWindowInquiryReady, render, peekPassage, noteCompanionAnswer, refreshAnnotations, readingPathsOn, blocks, jumpToSpan]);
   const onWindowPenSurface = windowed?.onPenSurface;
   const penTextShown = Boolean(render) && !(pdfView && surface === "pdf");
   useEffect(() => {
@@ -4025,7 +4039,8 @@ export function ReaderScreen({
   // The Guide shows its open quick checks first; a desk shows no Guide unless a panel is opened for the book, so a
   // window without one shows each section's check under that section (its opening for a check placed before it,
   // else its end), kept mounted so what a closed check showed stays there.
-  const windowChecksOn = Boolean(windowed) && !guideOnScreen && boundaryChecksAvailable && !working;
+  // (While the reading's guide is open in the window, its checks are there, at its top.)
+  const windowChecksOn = Boolean(windowed) && !guideOnScreen && boundaryChecksAvailable && !working && !windowPathOpen;
   const openCheckIds = new Set(openQuestionSections.map((section) => section.id));
   const windowCheckAt = new Map<string, ReaderGuideSectionDto>();
   if (windowChecksOn) {
@@ -4053,15 +4068,168 @@ export function ReaderScreen({
       />
     );
   };
+  // The learner's own question card is the Notes rail's; without a Notes panel on screen it shows in the window under
+  // the passage it is about.
+  const windowAuthoringCard = Boolean(windowed) && authoringOpen && authoringSpanId && !(railOnScreen && railTab === "notes") && !offline ? (
+    <div role="group" aria-label="your own question" data-window-authoring="" style={{ margin: "4px 0 8px", paddingLeft: 12, borderLeft: `2px solid ${COLOR.border}` }}>
+      <AuthoringCard
+        offline={offline}
+        authoringQuote={authoringQuote}
+        authoredQuestion={authoredQuestion}
+        setAuthoredQuestion={setAuthoredQuestion}
+        authoredAnswer={authoredAnswer}
+        setAuthoredAnswer={setAuthoredAnswer}
+        authoredCardId={authoredCardId}
+        setAuthoredCardId={setAuthoredCardId}
+        authoredStatus={authoredStatus}
+        authoringBusy={authoringBusy}
+        saveOwnQuestion={saveOwnQuestion}
+        coach={coach}
+        setCoach={setCoach}
+        runCoach={runCoach}
+        setAuthoringOpen={setAuthoringOpen}
+      />
+    </div>
+  ) : null;
   // The window's own top holds the reading's path and the recap card (and a Wrap up opened with w).
-  const windowPathShown = Boolean(windowed && windowPathOpen && readingPathsOn && render && !working);
+  const windowPathShown = Boolean(windowed && windowPathOpen && readingPathsOn && render && !working && !guideOnScreen);
   const windowTopShown = windowPathShown || Boolean(recapInWindow && !working && ((recapCtl.wrapUpOpen && !drainHost) || (recapCtl.recap && !muted)));
   const windowInlineNotes = [
     ...(windowActiveCard && windowActiveSpan ? [{ spanId: windowActiveSpan, node: windowActiveCard }] : []),
     ...(windowNotesCard && windowNotesSpan ? [{ spanId: windowNotesSpan, node: windowNotesCard }] : []),
+    ...(windowAuthoringCard && authoringSpanId ? [{ spanId: authoringSpanId, node: windowAuthoringCard }] : []),
     // On the original PDF, an open check sits under its passage as an inline note.
     ...[...windowCheckAt.entries()].filter(([, section]) => openCheckIds.has(section.id)).map(([spanId]) => ({ spanId, node: windowChecks(spanId) })),
   ];
+
+  // The Guide: in its rail when a panel shows it, and, on a desk with none on screen, as the reading's guide opened in
+  // the window with p (its section, its progress and what to do near the break, finding the section in other books,
+  // the path and contents); the recap card and the marks' controls are the window's own there.
+  const guideHeader = (!windowed || guideOnScreen) && ((recapCtl.wrapUpOpen && !drainHost) || (recapCtl.recap && !muted)) ? (
+        <>
+          {recapCtl.wrapUpOpen && !drainHost ? wrapUpNode : null}
+          {recapCtl.recap && !muted ? recapCardNode : null}
+        </>
+      ) : null;
+  const guideFooter = cueCtl.cues ? (
+        <CueFooter
+          density={cueCtl.cues.density}
+          bookOff={cueCtl.cues.sourceOff}
+          receipts={cueCtl.receipts}
+          onDensity={cueCtl.setDensity}
+          onTurnOnBook={cueCtl.turnOnBook}
+          discovered={cueCtl.discovered}
+        />
+      ) : null;
+  const guideRail = (visible: boolean, inWindow: boolean): ReactNode => (render ? (
+    <GuideRail
+      visible={visible}
+      extractionId={render.extractionId}
+      offline={offline}
+      guidePlan={guidePlan}
+      guideLoading={guideLoading}
+      currentGuideSection={currentGuideSection}
+      currentSectionProgress={currentSectionProgress}
+      currentSectionRead={currentSectionRead}
+      sectionSeen={sectionSeen}
+      readingMoved={readingMoved}
+      currentQuestionOpen={currentQuestionOpen}
+      boundaryChecksAvailable={boundaryChecksAvailable}
+      authoringSections={authoringSections}
+      timedOutSections={timedOutSections}
+      retryQuickCheck={retryQuickCheck}
+      revealedSections={revealedSections}
+      completedSections={completedSections}
+      dismissedSections={dismissedSections}
+      answeredSections={answeredSections}
+      setAnsweredSections={setAnsweredSections}
+      focusQuickCheck={focusQuickCheck}
+      annotatedSpans={annotatedSpans}
+      openQuestionSections={openQuestionSections}
+      setDismissedSections={setDismissedSections}
+      jumpToSpan={jumpToSpan}
+      peekPassage={peekPassage}
+      revealSection={revealSection}
+      completeSection={completeSection}
+      sectionFinishes={sectionFinishes}
+      endedSections={endedSections}
+      {...(onOpenToday ? { onOpenToday } : {})}
+      bookTitle={sourceTitle}
+      onError={onError}
+      boundaryBlock={boundaryBlock}
+      boundarySkipped={boundarySkipped}
+      setBoundarySkipped={setBoundarySkipped}
+      boundaryAnswered={boundaryAnswered}
+      setBoundaryAnswered={setBoundaryAnswered}
+      boundaryResponse={boundaryResponse}
+      setBoundaryResponse={setBoundaryResponse}
+      boundarySubmitted={boundarySubmitted}
+      setBoundarySubmitted={setBoundarySubmitted}
+      questionControl={questionControl}
+      sendQuestionControl={sendQuestionControl}
+      disposition={disposition}
+      chooseDisposition={chooseDisposition}
+      path={contract?.readingPaths ? (
+        // Curriculum C0b: a deliverable's slice for this book takes the path card
+        // (its RPC refuses while curriculum.enabled is off: then RW7a's card, as today).
+        <GuidePathSlot
+          extractionId={render.extractionId}
+          onJump={(spanId) => jumpToSpan(spanId, "start")}
+          onError={onError}
+          refreshKey={pathRefreshKey}
+          readingPathCard={(
+            <ReadingPathCard
+              extractionId={render.extractionId}
+              onJump={(spanId) => jumpToSpan(spanId, "start")}
+              onTryExercise={wbCtl.enabled ? tryPathExercise : null}
+              onError={onError}
+              focusToken={pathFocus}
+              refreshKey={pathRefreshKey}
+            />
+          )}
+        />
+      ) : undefined}
+      header={inWindow ? null : guideHeader}
+      findSection={contract?.correspondence?.findSection && !offline && !working ? (
+        <FindSection
+          extractionId={render.extractionId}
+          section={currentGuideSection
+            ? { id: currentGuideSection.id, label: currentGuideSection.label, startSpanId: currentGuideSection.startSpanId }
+            : null}
+          onGoThere={(target) => void openLibraryHit(target)}
+          onCompare={libraryCtl.settings?.compare ? compareFoundSection : null}
+          onSideBySide={sbs.enabled ? (hit) => sbs.open(sideBySideTarget(hit), "find_list") : null}
+          onError={onError}
+          refreshKey={coverageRefresh}
+          onPeekChange={setFindPeek}
+          closePeekToken={alsoClosePeekToken}
+        />
+      ) : undefined}
+      alsoInBooks={alsoOn && !working ? (
+        <AlsoInBooks
+          extractionId={render.extractionId}
+          section={currentGuideSection
+            ? { id: currentGuideSection.id, label: currentGuideSection.label, startSpanId: currentGuideSection.startSpanId }
+            : null}
+          hidden={alsoHidden}
+          onHide={hideAlsoInBooks}
+          onGoThere={(target) => void openLibraryHit(target)}
+          onCompare={libraryCtl.settings?.compare ? compareFoundSection : null}
+          // `s` side by side (CA6): the same entry as CA5a's find list's.
+          onSideBySide={sbs.enabled ? (hit) => sbs.open(sideBySideTarget(hit), "also_list") : null}
+          // RW5d P4a: a kept figure of the line's section, shown here (figures follow the section).
+          onOpenFigure={figuresCtl.enabled && !offline ? openFollowedFigure : null}
+          onPeekChange={setAlsoPeek}
+          onAvailableChange={setAlsoAvailable}
+          onCoverageChanged={() => setCoverageRefresh((count) => count + 1)}
+          onError={onError}
+          expandToken={alsoExpandToken}
+          closePeekToken={alsoClosePeekToken}
+        />
+      ) : undefined}
+      footer={inWindow ? null : guideFooter}
+    />
+  ) : null);
 
   // The book's own TeX macros, for every formula the Reader shows of it (its blocks, the Ask chip, answers about
   // it): the extraction keeps \vvec but not the page's definition of it.
@@ -4071,14 +4239,21 @@ export function ReaderScreen({
     <CompareKeepContext.Provider value={keptCtl.context}>
     <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
       {windowed ? (
-        // A source window's frame carries the title; only the view switch stays with the source.
-        pdfView && !offline ? (
-          <div data-window-source-bar="" style={{ flexShrink: 0, padding: "4px 22px", borderBottom: `1px solid ${COLOR.border}` }}>
-            <span
-              onClick={() => setSurface((s) => (s === "pdf" ? "text" : "pdf"))}
-              style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.amberLink, textDecoration: "underline", textUnderlineOffset: 2, cursor: "pointer" }}
-            >
-              {surface === "pdf" ? "extracted text →" : "original pdf →"}
+        // A source window's frame carries the title; the view switch and how the learner reads this book (skim, read
+        // closely, mark for later: the old header's choice, per window, with the same effects) stay with the source.
+        render && !offline ? (
+          <div data-window-source-bar="" style={{ flexShrink: 0, padding: "4px 22px", borderBottom: `1px solid ${COLOR.border}`, display: "flex", alignItems: "center", gap: 12 }}>
+            {pdfView ? (
+              <span
+                onClick={() => setSurface((s) => (s === "pdf" ? "text" : "pdf"))}
+                style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.amberLink, textDecoration: "underline", textUnderlineOffset: 2, cursor: "pointer" }}
+              >
+                {surface === "pdf" ? "extracted text →" : "original pdf →"}
+              </span>
+            ) : null}
+            <span style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
+              <Faint style={{ fontSize: 11 }}>I want to</Faint>
+              <TermSelect value={mode} options={READER_MODE_OPTIONS} onChange={changeMode} width={150} ariaLabel="how I read this book" />
             </span>
           </div>
         ) : null
@@ -4244,30 +4419,15 @@ export function ReaderScreen({
           <div data-window-top="" style={{ display: "flex", flexDirection: "column", gap: 8, flexShrink: 0,
             ...(windowPathShown || (recapInWindow && !working && recapCtl.recap && !recapCtl.collapsed && !muted) ? { position: "sticky" as const, top: 0, zIndex: 8, background: COLOR.bg, paddingBottom: 6, boxShadow: `0 -48px 0 0 ${COLOR.bg}`, maxHeight: "60%", overflowY: "auto" as const } : {}) }}>
             {windowPathShown && render ? (
-              <section role="region" aria-label="the reading's path" data-window-path=""
+              <section role="region" aria-label="the reading's guide" data-window-path=""
                 style={{ border: `1px solid ${COLOR.border}`, padding: "8px 10px", display: "flex", flexDirection: "column", gap: 6 }}>
                 <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-                  <Faint style={{ fontSize: 10, letterSpacing: "0.12em" }}>WHAT MATTERS IN THIS READING</Faint>
+                  <Faint style={{ fontSize: 10, letterSpacing: "0.12em" }}>THE READING'S GUIDE</Faint>
                   <button type="button" onClick={() => setWindowPathOpen(false)} style={{ marginLeft: "auto", border: 0, background: "transparent", padding: 0, cursor: "pointer", fontFamily: FONT_MONO, fontSize: 10, color: COLOR.amberLink }}>
                     close · esc
                   </button>
                 </div>
-                <GuidePathSlot
-                  extractionId={render.extractionId}
-                  onJump={(spanId) => jumpToSpan(spanId, "start")}
-                  onError={onError}
-                  refreshKey={pathRefreshKey}
-                  readingPathCard={(
-                    <ReadingPathCard
-                      extractionId={render.extractionId}
-                      onJump={(spanId) => jumpToSpan(spanId, "start")}
-                      onTryExercise={wbCtl.enabled ? tryPathExercise : null}
-                      onError={onError}
-                      focusToken={pathFocus}
-                      refreshKey={pathRefreshKey}
-                    />
-                  )}
-                />
+                {guideRail(true, true)}
               </section>
             ) : null}
             {recapInWindow && !working && ((recapCtl.wrapUpOpen && !drainHost) || (recapCtl.recap && !muted)) ? (
@@ -4510,6 +4670,7 @@ export function ReaderScreen({
               {windowActiveCard && block.spanId && block.spanId === windowActiveSpan ? windowActiveCard : null}
               {windowNotesCard && block.spanId && block.spanId === windowNotesSpan ? windowNotesCard : null}
               {windowChecks(block.spanId)}
+              {windowAuthoringCard && block.spanId === authoringSpanId ? windowAuthoringCard : null}
               {figuresCtl.enabled ? <FiguresUnder ctl={figuresCtl} spanId={block.spanId} /> : null}
               {offerSection ? (
                 <SectionBoundaryOffer
@@ -4813,127 +4974,7 @@ export function ReaderScreen({
             onJump={(spanId) => jumpToSpan(spanId)}
           />
 
-          <GuideRail
-            visible={railTab === "guide"}
-            extractionId={render.extractionId}
-            offline={offline}
-            guidePlan={guidePlan}
-            guideLoading={guideLoading}
-            currentGuideSection={currentGuideSection}
-            currentSectionProgress={currentSectionProgress}
-            currentSectionRead={currentSectionRead}
-            sectionSeen={sectionSeen}
-            readingMoved={readingMoved}
-            currentQuestionOpen={currentQuestionOpen}
-            boundaryChecksAvailable={boundaryChecksAvailable}
-            authoringSections={authoringSections}
-            timedOutSections={timedOutSections}
-            retryQuickCheck={retryQuickCheck}
-            revealedSections={revealedSections}
-            completedSections={completedSections}
-            dismissedSections={dismissedSections}
-            answeredSections={answeredSections}
-            setAnsweredSections={setAnsweredSections}
-            focusQuickCheck={focusQuickCheck}
-            annotatedSpans={annotatedSpans}
-            openQuestionSections={openQuestionSections}
-            setDismissedSections={setDismissedSections}
-            jumpToSpan={jumpToSpan}
-            peekPassage={peekPassage}
-            revealSection={revealSection}
-            completeSection={completeSection}
-            sectionFinishes={sectionFinishes}
-            endedSections={endedSections}
-            {...(onOpenToday ? { onOpenToday } : {})}
-            bookTitle={sourceTitle}
-            onError={onError}
-            boundaryBlock={boundaryBlock}
-            boundarySkipped={boundarySkipped}
-            setBoundarySkipped={setBoundarySkipped}
-            boundaryAnswered={boundaryAnswered}
-            setBoundaryAnswered={setBoundaryAnswered}
-            boundaryResponse={boundaryResponse}
-            setBoundaryResponse={setBoundaryResponse}
-            boundarySubmitted={boundarySubmitted}
-            setBoundarySubmitted={setBoundarySubmitted}
-            questionControl={questionControl}
-            sendQuestionControl={sendQuestionControl}
-            disposition={disposition}
-            chooseDisposition={chooseDisposition}
-            path={contract?.readingPaths ? (
-              // Curriculum C0b: a deliverable's slice for this book takes the path card
-              // (its RPC refuses while curriculum.enabled is off: then RW7a's card, as today).
-              <GuidePathSlot
-                extractionId={render.extractionId}
-                onJump={(spanId) => jumpToSpan(spanId, "start")}
-                onError={onError}
-                refreshKey={pathRefreshKey}
-                readingPathCard={(
-                  <ReadingPathCard
-                    extractionId={render.extractionId}
-                    onJump={(spanId) => jumpToSpan(spanId, "start")}
-                    onTryExercise={wbCtl.enabled ? tryPathExercise : null}
-                    onError={onError}
-                    focusToken={pathFocus}
-                    refreshKey={pathRefreshKey}
-                  />
-                )}
-              />
-            ) : undefined}
-            header={(!windowed || guideOnScreen) && ((recapCtl.wrapUpOpen && !drainHost) || (recapCtl.recap && !muted)) ? (
-              <>
-                {recapCtl.wrapUpOpen && !drainHost ? wrapUpNode : null}
-                {recapCtl.recap && !muted ? recapCardNode : null}
-              </>
-            ) : null}
-            findSection={contract?.correspondence?.findSection && !offline && !working ? (
-              <FindSection
-                extractionId={render.extractionId}
-                section={currentGuideSection
-                  ? { id: currentGuideSection.id, label: currentGuideSection.label, startSpanId: currentGuideSection.startSpanId }
-                  : null}
-                onGoThere={(target) => void openLibraryHit(target)}
-                onCompare={libraryCtl.settings?.compare ? compareFoundSection : null}
-                onSideBySide={sbs.enabled ? (hit) => sbs.open(sideBySideTarget(hit), "find_list") : null}
-                onError={onError}
-                refreshKey={coverageRefresh}
-                onPeekChange={setFindPeek}
-                closePeekToken={alsoClosePeekToken}
-              />
-            ) : undefined}
-            alsoInBooks={alsoOn && !working ? (
-              <AlsoInBooks
-                extractionId={render.extractionId}
-                section={currentGuideSection
-                  ? { id: currentGuideSection.id, label: currentGuideSection.label, startSpanId: currentGuideSection.startSpanId }
-                  : null}
-                hidden={alsoHidden}
-                onHide={hideAlsoInBooks}
-                onGoThere={(target) => void openLibraryHit(target)}
-                onCompare={libraryCtl.settings?.compare ? compareFoundSection : null}
-                // `s` side by side (CA6): the same entry as CA5a's find list's.
-                onSideBySide={sbs.enabled ? (hit) => sbs.open(sideBySideTarget(hit), "also_list") : null}
-                // RW5d P4a: a kept figure of the line's section, shown here (figures follow the section).
-                onOpenFigure={figuresCtl.enabled && !offline ? openFollowedFigure : null}
-                onPeekChange={setAlsoPeek}
-                onAvailableChange={setAlsoAvailable}
-                onCoverageChanged={() => setCoverageRefresh((count) => count + 1)}
-                onError={onError}
-                expandToken={alsoExpandToken}
-                closePeekToken={alsoClosePeekToken}
-              />
-            ) : undefined}
-            footer={cueCtl.cues ? (
-              <CueFooter
-                density={cueCtl.cues.density}
-                bookOff={cueCtl.cues.sourceOff}
-                receipts={cueCtl.receipts}
-                onDensity={cueCtl.setDensity}
-                onTurnOnBook={cueCtl.turnOnBook}
-                discovered={cueCtl.discovered}
-              />
-            ) : null}
-          />
+          {guideRail(railTab === "guide", false)}
 
           <NotesRail
             {...(activeReadingOn && (activeCtl.active || activeCtl.another) ? {

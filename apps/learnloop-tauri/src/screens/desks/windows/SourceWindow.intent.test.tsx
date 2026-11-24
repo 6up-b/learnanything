@@ -1,7 +1,7 @@
 // The intent box over a selection in a source window on a desk, with real bodies (spec §7.1; §21.1 "intent box,
 // active reading: inside source windows"): every routed action has a destination the learner sees without a Guide or
 // Notes panel. An ask goes to the desk's companion, asked at once in the routed answer mode; an active-reading
-// question shows under the passages it is about, in the window; "what matters here?" opens the reading's path.
+// question shows under the passages it is about, in the window; "what matters here?" opens the reading's guide.
 import { cleanup, fireEvent, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { answers, inputsOf, memoryStorage, mountRealDesk, oneDesk, resetSidecar, settleDesk } from "../../../fixtures/desks/realDesk";
@@ -102,7 +102,7 @@ it("“what matters here?” opens the reading's own path in the window, on a de
   const { desk, box } = await openAndSelect();
   await choose(box, "what matters here?");
   await settleDesk(0, 6);
-  expect(within(winEl()).getByRole("region", { name: "the reading's path" })).toBeTruthy();
+  expect(within(winEl()).getByRole("region", { name: "the reading's guide" })).toBeTruthy();
   expect(inputsOf("reader_reading_path")[0]).toMatchObject({ extractionId: book.extractionId });
   void desk;
 });

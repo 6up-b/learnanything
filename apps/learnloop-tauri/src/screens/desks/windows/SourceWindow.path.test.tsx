@@ -74,18 +74,18 @@ async function openBook() {
   return desk;
 }
 
-it("with no goal, p opens the reading's path in the focused book window, asking its depth and storing it; esc closes it", async () => {
+it("with no goal, p opens the reading's guide in the focused book window, asking its depth and storing it; esc closes it", async () => {
   await openBook();
   fireEvent.keyDown(window, { key: "p" });
-  const region = await within(winEl()).findByRole("region", { name: "the reading's path" });
+  const region = await within(winEl()).findByRole("region", { name: "the reading's guide" });
   const ask = await within(region).findByRole("group", { name: "How deep do you want to go?" });
   fireEvent.click(within(ask).getByRole("button", { name: /learn to use it/ }));
   await settleDesk(0, 4);
   expect(inputsOf("reader_reading_path_set_depth")).toEqual([{ extractionId: book.extractionId, depth: "learn_to_use_it" }]);
-  expect(await within(region).findByText("3 Temperature")).toBeTruthy();
+  await waitFor(() => expect(region.querySelector(`[data-reading-path-section="${book.extractionId}_s3"]`)).not.toBeNull());
   fireEvent.keyDown(window, { key: "Escape" });
   await settleDesk(0, 2);
-  expect(within(winEl()).queryByRole("region", { name: "the reading's path" })).toBeNull();
+  expect(within(winEl()).queryByRole("region", { name: "the reading's guide" })).toBeNull();
 });
 
 it("a section's read it anyway is stored, and the exercise worth trying opens as a problem", async () => {
@@ -95,7 +95,7 @@ it("a section's read it anyway is stored, and the exercise worth trying opens as
   answers.set("workbench_open", () => { throw { code: "unavailable", message: "not in this test", retryable: false }; });
   await openBook();
   fireEvent.keyDown(window, { key: "p" });
-  const region = await within(winEl()).findByRole("region", { name: "the reading's path" });
+  const region = await within(winEl()).findByRole("region", { name: "the reading's guide" });
   await waitFor(() => expect(region.querySelector(`[data-reading-path-section="${book.extractionId}_s4"]`)).not.toBeNull());
   const row = region.querySelector<HTMLElement>(`[data-reading-path-section="${book.extractionId}_s4"]`)!;
   fireEvent.click(within(row).getByRole("button", { name: /why/ }));

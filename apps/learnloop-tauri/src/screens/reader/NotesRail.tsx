@@ -411,79 +411,7 @@ export function NotesRail(props: NotesRailProps) {
               write my own question
             </SecondaryButton>
           ) : (
-            <Card style={{ display: "flex", flexDirection: "column", gap: 8, background: COLOR.bgElev }}>
-              {authoringQuote ? (
-                <span style={{ fontFamily: FONT_MONO, fontSize: 10, color: COLOR.textFaint }}>From “{clip(authoringQuote, 120)}”</span>
-              ) : null}
-              <textarea
-                value={authoredQuestion}
-                disabled={authoredCardId !== null}
-                onChange={(event) => setAuthoredQuestion(event.target.value)}
-                placeholder="Write a question future-you should answer…"
-                style={{ fontFamily: FONT_MONO, fontSize: 12, background: COLOR.bgInput, border: `1px solid ${COLOR.border}`, color: COLOR.text, padding: 8, minHeight: 64, resize: "vertical" }}
-              />
-              <textarea
-                value={authoredAnswer}
-                disabled={authoredCardId !== null}
-                onChange={(event) => setAuthoredAnswer(event.target.value)}
-                placeholder="Write the answer in your own words…"
-                style={{ fontFamily: FONT_MONO, fontSize: 12, background: COLOR.bgInput, border: `1px solid ${COLOR.border}`, color: COLOR.text, padding: 8, minHeight: 72, resize: "vertical" }}
-              />
-              {authoredQuestion.trim() || authoredAnswer.trim() ? (
-                <div style={{ display: "flex", flexDirection: "column", gap: 4, borderTop: `1px solid ${COLOR.border}`, paddingTop: 6 }}>
-                  <Faint style={{ fontSize: 10 }}>PREVIEW</Faint>
-                  {authoredQuestion.trim() ? (
-                    <div className="markdown" style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.text }}>
-                      <MarkdownMath value={authoredQuestion} />
-                    </div>
-                  ) : null}
-                  {authoredAnswer.trim() ? (
-                    <div className="markdown" style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.textDim }}>
-                      <MarkdownMath value={authoredAnswer} />
-                    </div>
-                  ) : null}
-                </div>
-              ) : null}
-              {authoredCardId ? (
-                <>
-                  <Faint style={{ fontSize: 11, color: authoredQuestionMessage(authoredStatus).scheduled ? COLOR.green : COLOR.textDim }}>
-                    {authoredQuestionMessage(authoredStatus).text}
-                  </Faint>
-                  {!offline ? <SecondaryButton onClick={() => void runCoach()}>check the wording</SecondaryButton> : null}
-                  {coach ? (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                      {coach.suggestions.length === 0 ? (
-                        <Faint style={{ fontSize: 11 }}>The wording looks clear as written.</Faint>
-                      ) : coach.suggestions.map((suggestion, index) => (
-                        <Faint key={index} style={{ fontSize: 11 }}>• {suggestion.prompt}</Faint>
-                      ))}
-                      {coach.suggestions.length > 0 ? (
-                        <Faint style={{ fontSize: 10 }}>Your saved wording stays unchanged. Use “write another” below to make a revised card.</Faint>
-                      ) : null}
-                    </div>
-                  ) : null}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAuthoredQuestion("");
-                      setAuthoredAnswer("");
-                      setAuthoredCardId(null);
-                      setCoach(null);
-                    }}
-                    style={{ alignSelf: "flex-start", border: 0, background: "transparent", color: COLOR.amberLink, fontFamily: FONT_MONO, fontSize: 10, padding: 0, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}
-                  >
-                    write another
-                  </button>
-                </>
-              ) : (
-                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  <PrimaryButton onClick={() => void saveOwnQuestion()} disabled={authoringBusy || !authoredQuestion.trim() || !authoredAnswer.trim()}>
-                    save for practice
-                  </PrimaryButton>
-                  <SecondaryButton onClick={() => setAuthoringOpen(false)} disabled={authoringBusy}>cancel</SecondaryButton>
-                </div>
-              )}
-            </Card>
+            <AuthoringCard {...props} />
           )}
         </>
       ) : null}
@@ -740,5 +668,93 @@ export function AnnotationCard({ a, offline, busy, selection, jumpToAnnotation, 
       )}
     </Card>
     </div>
+  );
+}
+
+/** What the learner's own question card needs of the Reader (the Notes rail's, and a desk window's when no Notes
+ *  panel is on screen). */
+export type AuthoringCardProps = Pick<NotesRailProps, "offline" | "authoringQuote" | "authoredQuestion" | "setAuthoredQuestion" | "authoredAnswer"
+  | "setAuthoredAnswer" | "authoredCardId" | "setAuthoredCardId" | "authoredStatus" | "authoringBusy" | "saveOwnQuestion" | "coach" | "setCoach"
+  | "runCoach" | "setAuthoringOpen">;
+
+/** The learner's own question on a passage: the question and their answer, previewed, saved for practice, with the
+ *  wording coach after. */
+export function AuthoringCard({ offline, authoringQuote, authoredQuestion, setAuthoredQuestion, authoredAnswer, setAuthoredAnswer,
+  authoredCardId, setAuthoredCardId, authoredStatus, authoringBusy, saveOwnQuestion, coach, setCoach, runCoach, setAuthoringOpen,
+}: AuthoringCardProps) {
+  return (
+    <Card style={{ display: "flex", flexDirection: "column", gap: 8, background: COLOR.bgElev }}>
+      {authoringQuote ? (
+        <span style={{ fontFamily: FONT_MONO, fontSize: 10, color: COLOR.textFaint }}>From “{clip(authoringQuote, 120)}”</span>
+      ) : null}
+      <textarea
+        value={authoredQuestion}
+        disabled={authoredCardId !== null}
+        onChange={(event) => setAuthoredQuestion(event.target.value)}
+        placeholder="Write a question future-you should answer…"
+        style={{ fontFamily: FONT_MONO, fontSize: 12, background: COLOR.bgInput, border: `1px solid ${COLOR.border}`, color: COLOR.text, padding: 8, minHeight: 64, resize: "vertical" }}
+      />
+      <textarea
+        value={authoredAnswer}
+        disabled={authoredCardId !== null}
+        onChange={(event) => setAuthoredAnswer(event.target.value)}
+        placeholder="Write the answer in your own words…"
+        style={{ fontFamily: FONT_MONO, fontSize: 12, background: COLOR.bgInput, border: `1px solid ${COLOR.border}`, color: COLOR.text, padding: 8, minHeight: 72, resize: "vertical" }}
+      />
+      {authoredQuestion.trim() || authoredAnswer.trim() ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 4, borderTop: `1px solid ${COLOR.border}`, paddingTop: 6 }}>
+          <Faint style={{ fontSize: 10 }}>PREVIEW</Faint>
+          {authoredQuestion.trim() ? (
+            <div className="markdown" style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.text }}>
+              <MarkdownMath value={authoredQuestion} />
+            </div>
+          ) : null}
+          {authoredAnswer.trim() ? (
+            <div className="markdown" style={{ fontFamily: FONT_MONO, fontSize: 12, color: COLOR.textDim }}>
+              <MarkdownMath value={authoredAnswer} />
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+      {authoredCardId ? (
+        <>
+          <Faint style={{ fontSize: 11, color: authoredQuestionMessage(authoredStatus).scheduled ? COLOR.green : COLOR.textDim }}>
+            {authoredQuestionMessage(authoredStatus).text}
+          </Faint>
+          {!offline ? <SecondaryButton onClick={() => void runCoach()}>check the wording</SecondaryButton> : null}
+          {coach ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              {coach.suggestions.length === 0 ? (
+                <Faint style={{ fontSize: 11 }}>The wording looks clear as written.</Faint>
+              ) : coach.suggestions.map((suggestion, index) => (
+                <Faint key={index} style={{ fontSize: 11 }}>• {suggestion.prompt}</Faint>
+              ))}
+              {coach.suggestions.length > 0 ? (
+                <Faint style={{ fontSize: 10 }}>Your saved wording stays unchanged. Use “write another” below to make a revised card.</Faint>
+              ) : null}
+            </div>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => {
+              setAuthoredQuestion("");
+              setAuthoredAnswer("");
+              setAuthoredCardId(null);
+              setCoach(null);
+            }}
+            style={{ alignSelf: "flex-start", border: 0, background: "transparent", color: COLOR.amberLink, fontFamily: FONT_MONO, fontSize: 10, padding: 0, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}
+          >
+            write another
+          </button>
+        </>
+      ) : (
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <PrimaryButton onClick={() => void saveOwnQuestion()} disabled={authoringBusy || !authoredQuestion.trim() || !authoredAnswer.trim()}>
+            save for practice
+          </PrimaryButton>
+          <SecondaryButton onClick={() => setAuthoringOpen(false)} disabled={authoringBusy}>cancel</SecondaryButton>
+        </div>
+      )}
+    </Card>
   );
 }

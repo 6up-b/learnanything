@@ -43,8 +43,11 @@ export interface MenuContext {
   askNote: (object: MenuObject) => Promise<string | null>;
   /** Make it practice on an exercise: its words, the import, and what it made (a sheet of the desks'). */
   reviewExercise: (object: MenuObject, anchor: { extractionId: string; spanId: string }) => void;
-  /** "Draft this for your queue?": the confirmation before Make it practice drafts a section question. */
-  confirm: (title: string, detail: string) => Promise<boolean>;
+  /** "Draft this for your queue?": the confirmation before Make it practice drafts a section question. With `mine`,
+   *  it also offers to write the question oneself, and resolves "mine" when the learner takes that. */
+  confirm: (title: string, detail: string, options?: { mine?: boolean }) => Promise<boolean | "mine">;
+  /** The Reader's own question card on the passage, in its window: the learner writes the question and its answer. */
+  writeOwnQuestion: (object: MenuObject, anchor: { extractionId: string; spanId: string }) => void;
   /** Show me: the figure built for the passage (null when none is shown), polled under the window asked from. */
   showMe: (text: string, anchor: { extractionId: string; spanId: string }, ownerWindowId: string | null) => Promise<{ figureId: string; line: string } | null>;
   /** Where a figure asked for now will land: the running pad of the desk asked on (null: it has none). */
@@ -190,7 +193,14 @@ export async function runVerb(id: VerbId, object: MenuObject, ctx: MenuContext):
           ctx.toast("this passage sits in no section to write a question for");
           return;
         }
-        if (!(await ctx.confirm("✎ make it practice · a question for this section", "LearnLoop drafts a question from this section; it shows in the section to answer or keep when it is ready"))) return;
+        const choice = await ctx.confirm("✎ make it practice · a question for this section", "LearnLoop drafts a question from this section; it shows in the section to answer or keep when it is ready",
+          { mine: true });
+        // Or the learner's own question on the passage, written in the Reader's own card.
+        if (choice === "mine") {
+          ctx.writeOwnQuestion(object, anchor);
+          return;
+        }
+        if (!choice) return;
         const drafted = await ctx.api.readerAuthorSectionQuestion({ extractionId: anchor.extractionId, sectionId });
         ctx.toast(drafted.status === "exists" ? "this section already has a question waiting" : "drafting a question for this section");
         return;
