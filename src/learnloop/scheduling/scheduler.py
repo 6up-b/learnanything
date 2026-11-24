@@ -28,6 +28,7 @@ from learnloop.diagnosis.probe_episodes import (
     episode_hypothesis_set,
     episode_posterior,
     qualifying_observation_count,
+    router_selected_episode,
     session_qualifying_total,
 )
 from learnloop.diagnosis.probe_presentations import (
@@ -3422,8 +3423,6 @@ def _episode_probe_reads(
     channels: dict[str, Any] = {}
     session_qualifying: Any = None
     voi_loaded = False
-    from learnloop.diagnosis.probe_episodes import router_selected_episode
-
     router_owned = frozenset(str(episode.id) for episode in episodes
                              if router_selected_episode(vault, repository, episode))
     for episode in episodes:

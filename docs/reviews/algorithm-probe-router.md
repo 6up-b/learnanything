@@ -27,7 +27,8 @@ lane to the router and removes the downstream worth gates for router-selected pr
 | `d32f299ccc` | 2 | The feedback surface's DTO carries the router's disposition |
 | `d0a683ead1` | 2 | `tests/test_probe_router_replay.py`: the same history rebuilds to the same rows at both tags |
 | `d7e6c0d66c` | 2 | `scripts/probe_router_copy_counts.py` and its test |
-| (this record) | 2 | This record |
+| `e435d5ec32` | 2 | This record (amended in the last commits) |
+| `c7c57caec0` | 2 | No new import cycle: the payload builder moves to `daily_plan.learner_probe`, the episode predicate to `probe_episodes`; the scheduler's line ratchet raised |
 
 ## The owner's decisions this records
 
@@ -247,6 +248,10 @@ records for them. So a tag: `mvp-0.70`, the immediate successor of `mvp-0.69`, w
   hash, seed or manifest an existing pin covers. Its seeds go through `objective_seeds.numeric_seed`,
   `router_objective.mix.seed_for` and `probe_coin.seed_for`, each already a pinned family.
 - **Effective defaults and the CLI surface:** unchanged in slice 2.
+- **Structure ratchets:** `golden_json_lines` +4,581 (the two successor journeys, above);
+  `src/learnloop/scheduling/scheduler.py` 4,428 to 4,442 (+14: which probing episodes the router owns, site H). The
+  dispatch commit (`bcec1da1f3`) alone added an import edge from scheduling into diagnosis that the frozen-cycles
+  contract refuses, and put the payload builder in a diagnosis import cycle; `c7c57caec0` removes both.
 
 ## What the orchestrator must run on owner copies
 
