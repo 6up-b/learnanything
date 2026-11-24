@@ -31,7 +31,7 @@ function figure(figureId: string): FigureViewDto {
     specJson: JSON.stringify(SPEC), demonstrates: "how the weights move with the temperature", assumptions: [], predictions: [],
     goalText: "softmax at a temperature", grounding: "passages",
     passages: [{ extractionId: book.extractionId, spanId: FIRST, sourceTitle: "Softmax, a short book", page: 2 }],
-  } as FigureViewDto;
+  } as unknown as FigureViewDto;
 }
 
 let built = "fig_a";
