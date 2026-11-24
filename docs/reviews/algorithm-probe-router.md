@@ -29,6 +29,7 @@ lane to the router and removes the downstream worth gates for router-selected pr
 | `d7e6c0d66c` | 2 | `scripts/probe_router_copy_counts.py` and its test |
 | `e435d5ec32` | 2 | This record (amended in the last commits) |
 | `c7c57caec0` | 2 | No new import cycle: the payload builder moves to `daily_plan.learner_probe`, the episode predicate to `probe_episodes`; the scheduler's line ratchet raised |
+| `d9c82ccb3c` | 2 | The scheduler reads the router's episodes through its module-level `probe_episodes` import |
 
 ## The owner's decisions this records
 
