@@ -549,6 +549,8 @@ so 273 sits on 272.
 | `cff2bd743e` | Migration 273 (`probe_episodes.completion_reason` gains `router_stop`), the migration-head fixture upgraded in place, its test |
 | `f49a3f43dc` | The continuation decision, its doors and tests |
 | `89be3a4726` | The stop option renamed (`CONTINUATION_STOP_REF`); 273 in the earlier migrations' upgrade diffs |
+| `ad538f8469` | Merge `origin/main` again (`1966a33cbf`: the unlocated due-check marker, the inline-check server fixes, round 1 of this fix landed; head still 272). The conflicts were generated reference notes only, regenerated after |
+| `0b3daa34da` | A router decision's measurement never takes a probe instrument as its check |
 
 **The decision** (`daily_plan.probe_continuation`). An episode is router-owned when a probe the router selected at its
 tag was administered in it (`probe_authority`). Such an episode can be left in progress with no presentation standing
@@ -621,6 +623,17 @@ decides its next observation.
    now" is about the offer. Retiring the pin would open a new boundary each time, and the episode would loop.
 3. **The next instrument is the top eligible one.** The router decides whether, not which. The valuation prices that
    one instrument.
+4. **A decision's measurement never takes a probe instrument** (`0b3daa34da`). The proof after the second merge found
+   the objective a learner-lane or continuation decision freezes arranging its "Check once" on a probe's instrument
+   (the journey golden had taken `pi_causal_probe_001` itself). The check then held the router's next instrument back
+   (`intent_check_waiting`), and would have served it as an ordinary question. Both lanes now exclude the learning
+   object's instrument items from the arrangement (`learner_probe.instrument_items`: card-bound items, diagnostic
+   surfaces, the factor's candidates).
+   - Fail-first test: `test_no_router_decisions_measurement_takes_a_probe_instrument_as_its_check`.
+   - The journey golden's two `router_learner_*` journeys now check `pi_svd_define_001` (20 lines fewer).
+   - Not covered: a *replacement* check (after a check answered warm) is picked later without these exclusions, as the
+     automatic lane's are. Also, the automatic lane's own objective still passes no exclusions; its generated probe is
+     reserved by its workflow.
 
 **Proof (this part):**
 
@@ -661,6 +674,13 @@ decides its next observation.
     `ROUTER_STOP_ALTERED_TABLES` (`tests/probe_router_stop_migration_helpers.py`: `probe_episodes`, rebuilt by 273),
     as they set aside every earlier rebuild. These are assertion changes by the migration, the established way.
   - Every other file passed. The module catalog test passes after the regeneration.
+- **After the second merge** (`ad538f8469`, then `0b3daa34da`), the import-based affected set (`affected_tests.py
+  --base ad538f8469`: 517 files) passes, in 13 chunks of 40, `-n 1 -m "not arc_close"`. So do the proof files:
+  - `tests/test_probe_router*.py`, the migration, fixture, upgrades, table roles and replay files;
+  - the identity pins, the structure ratchets, architecture and test layout;
+  - the journey golden; `ruff` and `lint-imports` (55 kept);
+  - `npm run typecheck`, the touched vitest files (146 tests) and `cargo check`.
+  - All three reference generators ran on the committed tree (`63378c44bc`).
 
 ## Owner copies (run by the orchestrator)
 
