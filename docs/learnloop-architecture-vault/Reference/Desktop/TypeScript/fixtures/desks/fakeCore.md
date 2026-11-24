@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/fixtures/desks/fakeCore.ts](../../../../../../../apps/learnloop-tauri/src/fixtures/desks/fakeCore.ts) |
-| Source lines | 543 |
+| Source lines | 544 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/fixtures/desks/_area|TypeScript/fixtures/desks]] |
 | Refactor status | `ACTIVE` |
@@ -57,8 +57,8 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export type InvokeArgs = Record<string, unknown>` — type, line 16
 - `export interface HarnessCall` — interface, line 18
 - `export const FIXTURE_PREPARING_CARD =` — const, line 32
-- `export async function invoke<T>(command: string, args: InvokeArgs =` — function, line 535
-- `export function convertFileSrc(filePath: string, protocol = "asset"): string` — function, line 541
+- `export async function invoke<T>(command: string, args: InvokeArgs =` — function, line 536
+- `export function convertFileSrc(filePath: string, protocol = "asset"): string` — function, line 542
 
 ## Internal implementation anchors
 
@@ -78,82 +78,82 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const goal = new FixtureGoal()` — const, line 77
 - `const lessons = new FixtureLessons()` — const, line 78
 - `const videoFixture = new FixtureVideo(typeof window !== "undefined" && new URLSearchParams(window.location.search).get("video") === "1")` — const, line 80
-- `const checksMode = typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("checks")` — const, line 83
-- `const checks = new FixtureChecks(checksMode === "open" ? "open" : checksMode === "1" ? "due" : "off")` — const, line 84
-- `const carried: Array<` — const, line 86
-- `function fixtureProposals(padId: string)` — function, line 93
-- `function fixtureDrain(deskId: string)` — function, line 104
-- `const pads = Object.values(server.pads).filter((pad)` — const, line 105
-- `const words = pad.blocks.map((block)` — const, line 107
-- `const last = words[words.length - 1] ?? ""` — const, line 108
-- `const calls: HarnessCall[] = []` — const, line 112
-- `interface Window` — interface, line 115
-- `function viewFor(id: string)` — function, line 121
-- `const PAIRS = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("pairs") === "1"` — const, line 125
-- `function pairCorrespondents(input:` — function, line 129
-- `const n = input.extractionId === book.extractionId ? Number(/_s(\d+)$/.exec(input.sectionId)?.[1] ?? NaN) : NaN` — const, line 131
-- `const section = `$` — const, line 133
-- `const view = FIXTURE_VIEWS[paper.sourceId]` — const, line 134
-- `const first = view?.blocks.find((block)` — const, line 135
-- `const CONTRACT =` — const, line 144
-- `const workbench = new FixtureWorkbench()` — const, line 167
-- `const promotedJobs = new Map<string,` — const, line 170
-- `let promotedJobCount = 0` — let, line 171
-- `function cheapRows(input: Record<string, unknown>): Array<Record<string, unknown>>` — function, line 173
-- `const spanId = typeof input.spanId === "string" ? input.spanId : null` — const, line 174
-- `function emptyUnion(spanId: string): Record<string, unknown>` — function, line 180
-- `const INK_HELP_LINES = ["$\\sum_k p_k = \\sum_k e^` — const, line 186
-- `const inkHelpRead = new Map<string, number>()` — const, line 187
-- `function inkHelpReading(inkId: string): Record<string, unknown> | null` — function, line 189
-- `const save = pen.inks.find((each)` — const, line 191
-- `const blockId = save?.owner?.blockId` — const, line 192
-- `const padId = Object.keys(server.pads).find((id)` — const, line 194
-- `const index = inkHelpRead.get(blockId) ?? inkHelpRead.size` — const, line 196
-- `const text = INK_HELP_LINES[index % INK_HELP_LINES.length]` — const, line 198
-- `const state = server.pads[padId]` — const, line 199
-- `const headVersionId = `fx_ink_read_$` — const, line 200
-- `const pen:` — const, line 209
-- `function answer(command: string, input: Record<string, unknown>): unknown` — function, line 211
-- `const fromWorkbench = workbench.answer(command, input)` — const, line 212
-- `const view = viewFor(String(input.extractionId))` — const, line 224
-- `const guide = FIXTURE_GUIDES[String(input.extractionId)]` — const, line 229
-- `const view = viewFor(String(input.extractionId))` — const, line 230
-- `const plan = FIXTURE_WATCH[String(input.sourceId)]` — const, line 245
-- `const annotationId = `fx_ann_$` — const, line 254
-- `const nodes = ((input.rawSelection as` — const, line 256
-- `const segments = nodes.map((node)` — const, line 257
-- `const applied = server.applyInk(` — const, line 278
-- `const read = inkHelpReading(String(input.inkId))` — const, line 286
-- `const extractionId = String(input.extractionId)` — const, line 320
-- `const bySpan = new Map<string, Array<Record<string, unknown>>>()` — const, line 321
-- `const block = pad.blocks.find((each)` — const, line 325
-- `const sectionOf = (spanId: string)` — const, line 331
-- `const extractionId = String(input.extractionId)` — const, line 336
-- `const view = viewFor(extractionId)` — const, line 337
-- `const spanId = String(input.fromSpanId ?? "")` — const, line 338
-- `const block = view?.blocks.find((each)` — const, line 339
-- `const rows = cheapRows(input)` — const, line 346
-- `const jobId = typeof input.spanId === "string" ? `pj_$` — const, line 347
-- `const job = promotedJobs.get(String(input.jobId))` — const, line 352
-- `const paper = FIXTURE_SOURCES.paper` — const, line 357
-- `const job = promotedJobs.get(String(input.jobId))` — const, line 365
-- `const spanId = typeof input.spanId === "string" ? input.spanId : null` — const, line 370
-- `const extractionId = typeof input.extractionId === "string" ? input.extractionId : null` — const, line 371
-- `const question =` — const, line 377
-- `const question = carried.find((each)` — const, line 384
-- `function recapAnswer(command: string, input: Record<string, unknown>): unknown` — function, line 481
-- `const extractionId = String(input.extractionId ?? "")` — const, line 482
-- `const ours = extractionId === FIXTURE_SOURCES.book.extractionId` — const, line 484
-- `const session =` — const, line 485
-- `const open = [` — const, line 486
-- `interface Window` — interface, line 505
-- `function notebookLesson(view: LessonViewDto): LessonViewDto` — function, line 513
-- `const mode = typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("nblesson")` — const, line 514
-- `function notebookSession(command: string, input: Record<string, unknown>)` — function, line 520
-- `const forced = new URLSearchParams(window.location.search).get("nbstate")` — const, line 521
-- `const real = window.__notebookHarness` — const, line 522
-- `const state = forced && forced !== "ready" ? forced : "ready"` — const, line 526
-- `const input = (args.input as Record<string, unknown> | undefined) ?? args` — const, line 536
+- `const checksMode = typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("checks")` — const, line 84
+- `const checks = new FixtureChecks(checksMode === "open" ? "open" : checksMode === "1" ? "due" : checksMode === "paper" ? "due-paper" : "off")` — const, line 85
+- `const carried: Array<` — const, line 87
+- `function fixtureProposals(padId: string)` — function, line 94
+- `function fixtureDrain(deskId: string)` — function, line 105
+- `const pads = Object.values(server.pads).filter((pad)` — const, line 106
+- `const words = pad.blocks.map((block)` — const, line 108
+- `const last = words[words.length - 1] ?? ""` — const, line 109
+- `const calls: HarnessCall[] = []` — const, line 113
+- `interface Window` — interface, line 116
+- `function viewFor(id: string)` — function, line 122
+- `const PAIRS = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("pairs") === "1"` — const, line 126
+- `function pairCorrespondents(input:` — function, line 130
+- `const n = input.extractionId === book.extractionId ? Number(/_s(\d+)$/.exec(input.sectionId)?.[1] ?? NaN) : NaN` — const, line 132
+- `const section = `$` — const, line 134
+- `const view = FIXTURE_VIEWS[paper.sourceId]` — const, line 135
+- `const first = view?.blocks.find((block)` — const, line 136
+- `const CONTRACT =` — const, line 145
+- `const workbench = new FixtureWorkbench()` — const, line 168
+- `const promotedJobs = new Map<string,` — const, line 171
+- `let promotedJobCount = 0` — let, line 172
+- `function cheapRows(input: Record<string, unknown>): Array<Record<string, unknown>>` — function, line 174
+- `const spanId = typeof input.spanId === "string" ? input.spanId : null` — const, line 175
+- `function emptyUnion(spanId: string): Record<string, unknown>` — function, line 181
+- `const INK_HELP_LINES = ["$\\sum_k p_k = \\sum_k e^` — const, line 187
+- `const inkHelpRead = new Map<string, number>()` — const, line 188
+- `function inkHelpReading(inkId: string): Record<string, unknown> | null` — function, line 190
+- `const save = pen.inks.find((each)` — const, line 192
+- `const blockId = save?.owner?.blockId` — const, line 193
+- `const padId = Object.keys(server.pads).find((id)` — const, line 195
+- `const index = inkHelpRead.get(blockId) ?? inkHelpRead.size` — const, line 197
+- `const text = INK_HELP_LINES[index % INK_HELP_LINES.length]` — const, line 199
+- `const state = server.pads[padId]` — const, line 200
+- `const headVersionId = `fx_ink_read_$` — const, line 201
+- `const pen:` — const, line 210
+- `function answer(command: string, input: Record<string, unknown>): unknown` — function, line 212
+- `const fromWorkbench = workbench.answer(command, input)` — const, line 213
+- `const view = viewFor(String(input.extractionId))` — const, line 225
+- `const guide = FIXTURE_GUIDES[String(input.extractionId)]` — const, line 230
+- `const view = viewFor(String(input.extractionId))` — const, line 231
+- `const plan = FIXTURE_WATCH[String(input.sourceId)]` — const, line 246
+- `const annotationId = `fx_ann_$` — const, line 255
+- `const nodes = ((input.rawSelection as` — const, line 257
+- `const segments = nodes.map((node)` — const, line 258
+- `const applied = server.applyInk(` — const, line 279
+- `const read = inkHelpReading(String(input.inkId))` — const, line 287
+- `const extractionId = String(input.extractionId)` — const, line 321
+- `const bySpan = new Map<string, Array<Record<string, unknown>>>()` — const, line 322
+- `const block = pad.blocks.find((each)` — const, line 326
+- `const sectionOf = (spanId: string)` — const, line 332
+- `const extractionId = String(input.extractionId)` — const, line 337
+- `const view = viewFor(extractionId)` — const, line 338
+- `const spanId = String(input.fromSpanId ?? "")` — const, line 339
+- `const block = view?.blocks.find((each)` — const, line 340
+- `const rows = cheapRows(input)` — const, line 347
+- `const jobId = typeof input.spanId === "string" ? `pj_$` — const, line 348
+- `const job = promotedJobs.get(String(input.jobId))` — const, line 353
+- `const paper = FIXTURE_SOURCES.paper` — const, line 358
+- `const job = promotedJobs.get(String(input.jobId))` — const, line 366
+- `const spanId = typeof input.spanId === "string" ? input.spanId : null` — const, line 371
+- `const extractionId = typeof input.extractionId === "string" ? input.extractionId : null` — const, line 372
+- `const question =` — const, line 378
+- `const question = carried.find((each)` — const, line 385
+- `function recapAnswer(command: string, input: Record<string, unknown>): unknown` — function, line 482
+- `const extractionId = String(input.extractionId ?? "")` — const, line 483
+- `const ours = extractionId === FIXTURE_SOURCES.book.extractionId` — const, line 485
+- `const session =` — const, line 486
+- `const open = [` — const, line 487
+- `interface Window` — interface, line 506
+- `function notebookLesson(view: LessonViewDto): LessonViewDto` — function, line 514
+- `const mode = typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("nblesson")` — const, line 515
+- `function notebookSession(command: string, input: Record<string, unknown>)` — function, line 521
+- `const forced = new URLSearchParams(window.location.search).get("nbstate")` — const, line 522
+- `const real = window.__notebookHarness` — const, line 523
+- `const state = forced && forced !== "ready" ? forced : "ready"` — const, line 527
+- `const input = (args.input as Record<string, unknown> | undefined) ?? args` — const, line 537
 
 ## Who imports or calls it
 

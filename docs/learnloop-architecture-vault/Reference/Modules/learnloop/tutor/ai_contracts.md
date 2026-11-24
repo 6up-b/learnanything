@@ -295,7 +295,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_tutor_delivery_fixes.py](../../../../../../tests/test_tutor_delivery_fixes.py) — direct import
   - `test_a_referenced_theorem_is_citable`
 - [tests/test_tutor_goal_in_view.py](../../../../../../tests/test_tutor_goal_in_view.py) — direct import
-  - `test_a_goal_naming_a_topic_whose_cold_check_is_due_is_withheld_whole`
   - `test_the_goal_in_view_reaches_the_tutor_as_its_sentence_and_depth`
   - `test_with_no_goal_in_view_the_tutors_prompt_is_the_reader_asks_byte_for_byte`
 - [tests/test_tutor_promotion_service.py](../../../../../../tests/test_tutor_promotion_service.py) — direct import

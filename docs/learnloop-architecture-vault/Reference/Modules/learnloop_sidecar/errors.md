@@ -563,6 +563,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_read_it_anyway_on_a_dimmed_section_is_stored_idempotent_and_clearable`
   - `test_switched_off_every_rpc_refuses_and_nothing_is_called_or_written`
   - `test_the_empty_and_thin_states`
+- [tests/test_reader_rd7_unlocated_marker.py](../../../../../tests/test_reader_rd7_unlocated_marker.py) — direct import
+  - `test_a_handle_dies_with_the_sidecar_and_a_new_read_recovers`
+  - `test_begin_resolves_the_handle_and_a_spent_stale_or_guessed_one_is_refused`
 - [tests/test_reader_rd7a_inline_checks.py](../../../../../tests/test_reader_rd7a_inline_checks.py) — direct import
   - `test_a_check_with_an_answer_being_written_in_today_is_not_opened_here`
   - `test_below_the_tag_every_check_rpc_refuses_and_today_ignores_the_lock`
