@@ -133,3 +133,20 @@ def test_a_reanchoring_claim_inside_the_window_is_labelled_not_recomputed(tmp_pa
     update = _weight_update(load_vault(paths.root), repository)
     assert update["detail"]["likelihood"] == "first_order"
     assert update["detail"]["trajectory_inputs"][-1]["outcome_prior_not_reproduced"] is True
+
+
+def test_a_flat_response_keeps_the_learned_mass(tmp_path):
+    """L42-R14: on an item with no discrimination (a = 0) every mass predicts the same success, so the pool's
+    forecast says nothing about the mass. The check keeps its learned mass and records why, instead of the search's
+    nearest end (almost no mass)."""
+
+    from learnloop.teacher import checks as CK
+
+    paths, repository = build_teacher_vault(tmp_path / "vault")
+    vault = load_vault(paths.root)
+    mass = CK.check_mass(vault, repository, learning_object_id="lo_eigen", tap=4, hedge=None, correctness=1.0,
+                         item=vault.practice_items["pi_eig_1"], as_of="2026-11-01T09:00:00Z", p_teacher_retained=0.8,
+                         family="doctrine_v1:fake", reference={"a": 0.0, "b": 0.0, "days": 1.0})
+    assert mass["pool"]["lambda"] > 0.0
+    assert mass["mass_applied"] == mass["mass_learned"]
+    assert mass["pool"]["implied"] == "flat_response"

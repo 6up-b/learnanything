@@ -173,11 +173,15 @@ def check_mass(vault: Any, repository: Any, *, learning_object_id: str, tap: int
         mu_l, var_l = LW.posterior_after(sensitivity, learned, vault.config.mastery, frozen=frozen)
         p_a = LW.predicted_success(mu_l, var_l, a=ref_a, b=ref_b, drift=drift, days=days)
         target = lam * float(p_teacher_retained) + (1.0 - lam) * p_a
-        applied = learned if lam <= 0.0 else LW.pool_implied_mass(sensitivity, target, vault.config.mastery,
+        implied = learned if lam <= 0.0 else LW.pool_implied_mass(sensitivity, target, vault.config.mastery,
                                                                   a=ref_a, b=ref_b, days=days, frozen=frozen)
         rule = LW.RULE_POOL
         pool = {"family": family, "lambda": lam, "p_b": float(p_teacher_retained), "p_a": p_a, "target": target,
                 "reference": ref}
+        # A flat response identifies no mass: the learned one stands, and the record says the pool supplied none.
+        applied = learned if implied is None else implied
+        if implied is None:
+            pool["implied"] = "flat_response"
     else:
         rule, applied = LW.RULE_LEARNED, learned
     return {

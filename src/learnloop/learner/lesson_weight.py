@@ -630,7 +630,7 @@ def trajectory_success(state: Any, *, a: float, b: float, at: str, mastery_confi
 
 def pool_implied_mass(sensitivity: CheckSensitivity, target: float, mastery_config: Any, *,
                       a: float | None = None, b: float | None = None, days: float = 0.0,
-                      frozen: bool = False) -> float:
+                      frozen: bool = False) -> float | None:
     """The mass at which the mastery update makes the predicted success equal ``target`` (§12.2):
     the success on the committed cold item (``a``, ``b``; the check's own item when not given) at
     the forecast's horizon (``days`` of drift), the same item and horizon ``target``'s ``p_A`` was
@@ -638,7 +638,9 @@ def pool_implied_mass(sensitivity: CheckSensitivity, target: float, mastery_conf
 
     A one-dimensional search on the logit scale (the mass lies in (0, 1) by the link); the
     predicted success is monotone in the mass for a fixed grade, so bisection finds it, or the
-    end of the search interval nearest it when it is out of reach."""
+    end of the search interval nearest it when it is out of reach. At mvp-0.71 (``frozen``) a flat response (every
+    mass predicts the same success: an item with no discrimination) identifies no mass, and the result is None
+    (review L42-R14)."""
 
     item_a = sensitivity.item_a if a is None else float(a)
     item_b = sensitivity.item_b if b is None else float(b)
@@ -650,6 +652,8 @@ def pool_implied_mass(sensitivity: CheckSensitivity, target: float, mastery_conf
 
     lo, hi = -_IMPLIED_ETA_BOUND, _IMPLIED_ETA_BOUND
     p_lo, p_hi = p_at(lo), p_at(hi)
+    if frozen and p_lo == p_hi:
+        return None
     increasing = p_hi >= p_lo
     if (target <= min(p_lo, p_hi)) or (target >= max(p_lo, p_hi)):
         nearer_low = abs(target - p_lo) <= abs(target - p_hi)
