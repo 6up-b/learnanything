@@ -160,3 +160,9 @@ The runtime's six defaults are unchanged (`docs/reviews/notebook-runtime-b1-b3.m
   through Playwright's routing, rather than adding a test origin to the CSP.
 - **The DeskShell bridge host is additive,** and `menu` is not wired: it belongs to the pads, which this step does
   not touch.
+
+## Fix round (adversarial review of the notebook work on main, 2026-11-23)
+
+| Finding | Ledger | What changed | Proof |
+|---|---|---|---|
+| The specified automatic retries were absent | NBF-19 | `NotebookFrame` retries a failed `notebook.open` or `notebook.status` three times, 1.5 s apart (spec §11.2), showing "the notebook isn't answering; trying again (n of 3)…" and keeping a frame that was already showing; after the third, the failure line with "try again". An unavailable runtime is not retried. Not built: recovering an iframe whose own load failed (an HTTP error page inside the frame fires no error event); the next reading or a reload recovers it | Two failures then success: the frame mounts after two retries with no failure line; four failures: three retries, then "couldn't run" with "try again" |

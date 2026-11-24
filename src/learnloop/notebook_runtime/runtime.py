@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import os
+import signal
 import secrets
 import threading
 import time
@@ -24,7 +24,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, TypeVar
 
-from learnloop.notebook_runtime import adapter, settings
+from learnloop.notebook_runtime import adapter, hostfiles, settings
 from learnloop.notebook_runtime.proxy import FrameProxy
 from learnloop.notebook_runtime.sandbox import (
     Layout,
@@ -45,7 +45,6 @@ from learnloop.notebook_runtime.supervisor import (
     Session,
     Supervisor,
     notebook_revision,
-    run_dir_bytes,
 )
 
 LOG = logging.getLogger(__name__)
@@ -145,23 +144,30 @@ class NotebookRuntime:
 
     def open(self, *, vault_key: str, owner: str, source: bytes, view: str, limits: Limits, idle_minutes: int,
              max_sessions: int, revision: str | None = None, contract: dict[str, Any] | None = None,
-             review: bool = False) -> dict[str, Any]:
+             review: bool = False, cells: list[tuple[str, str]] | None = None) -> dict[str, Any]:
         """``revision`` names the notebook's identity when its bytes are not it: a pad's cells are one notebook
         while the same cells stand in the same order, whatever their code (an edit reaches the running kernel
         through ``run_cells``), so moving or reopening the pad keeps its kernel. ``contract`` is a lesson
-        notebook's commit points and held cells, and ``review`` says the lesson is closed (nothing is released)."""
+        notebook's commit points and held cells, and ``review`` says the lesson is closed (nothing is released).
+        ``cells``: a pad's cells the notebook was generated from; a cell run later is written into the snapshot a
+        restart loads, so a crash never brings back code the learner replaced."""
 
         problems = self._requirements()
         if problems:
             raise RuntimeUnavailable("; ".join(problems))
         return self._call(lambda: self._open(vault_key, owner, source, view, limits, idle_minutes, max_sessions,
-                                             revision, contract, review))
+                                             revision, contract, review, cells))
 
     def status(self, *, vault_key: str, session_id: str) -> dict[str, Any]:
         return self._call(lambda: self._status(vault_key, session_id))
 
     def close_session(self, *, vault_key: str, session_id: str) -> dict[str, Any]:
         return self._call(lambda: self._close_session(vault_key, session_id))
+
+    def mark_review(self, *, vault_key: str, session_id: str) -> dict[str, Any]:
+        """The session's lesson closed: a review from now on (nothing committed or released); its view."""
+
+        return self._call(lambda: self._mark_review(vault_key, session_id))
 
     def release(self, *, vault_key: str, session_id: str, names: list[str]) -> dict[str, Any]:
         return self._call(lambda: self._release(vault_key, session_id, names))
@@ -175,8 +181,12 @@ class NotebookRuntime:
         if not self.running:
             self._epoch += 1
             return
-        self._call(lambda: self._stop_where(lambda entry: entry.session.vault_key != vault_key, "vault_switch"),
-                   timeout=CLOSE_SECONDS)
+        others = [entry for entry in list(self._entries.values()) if entry.session.vault_key != vault_key]
+        try:
+            self._call(lambda: self._stop_where(lambda entry: entry.session.vault_key != vault_key, "vault_switch"),
+                       timeout=CLOSE_SECONDS)
+        finally:
+            self._kill_left(others)
 
     def close(self) -> None:
         """Stop every session and the loop thread (the context closing). Bounded; idempotent."""
@@ -184,10 +194,13 @@ class NotebookRuntime:
         if not self.running:
             return
         loop, thread = self._loop, self._thread
+        every = list(self._entries.values())
         try:
             self._call(lambda: self._stop_where(lambda entry: True, "closed", forget=True), timeout=CLOSE_SECONDS)
         except Exception:  # noqa: BLE001 - the loop stops below either way
             LOG.warning("notebook sessions did not all stop within %.0f s", CLOSE_SECONDS, exc_info=True)
+        # One deadline for the graceful part; then every server still alive is killed, before any task is cancelled.
+        self._kill_left(every)
         assert loop is not None and thread is not None
         try:
             self._call(_cancel_other_tasks, timeout=5)
@@ -199,6 +212,19 @@ class NotebookRuntime:
             loop.close()
         with self._lock:
             self._loop, self._thread, self._sweep = None, None, None
+
+    def _kill_left(self, entries: list[_Entry]) -> None:
+        """SIGKILL the process group of every given session's server still running (from the calling thread: it
+        cannot be cancelled with the loop's tasks)."""
+
+        for entry in entries:
+            process = entry.session.process
+            if process is None or process.returncode is not None:
+                continue
+            try:
+                entry.supervisor.backend.signal_group(entry.session, signal.SIGKILL)
+            except (ProcessLookupError, PermissionError):
+                pass
 
     # -- on the loop --------------------------------------------------------------------------------------------
 
@@ -231,7 +257,7 @@ class NotebookRuntime:
 
     async def _open(self, vault_key: str, owner: str, source: bytes, view: str, limits: Limits, idle_minutes: int,
                     max_sessions: int, revision: str | None = None, contract: dict[str, Any] | None = None,
-                    review: bool = False) -> dict[str, Any]:
+                    review: bool = False, cells: list[tuple[str, str]] | None = None) -> dict[str, Any]:
         revision = revision or notebook_revision(source)
         for entry in list(self._entries.values()):
             if entry.session.vault_key != vault_key or entry.session.owner != owner:
@@ -240,11 +266,15 @@ class NotebookRuntime:
                 entry.idle_minutes = idle_minutes
                 # A lesson closed while its notebook ran is a review from now on (a lesson never reopens).
                 entry.session.review = entry.session.review or review
+                # The same notebook may have new code (a pad's cells edited meanwhile): the snapshot a start or a
+                # supervised restart loads is always the latest, live session or not.
+                hostfiles.write_private(entry.session.layout.notebook.parent, entry.session.layout.notebook.name,
+                                        source)
+                if cells is not None:
+                    entry.session.snapshot_cells = list(cells)
                 if entry.session.state not in LIVE_STATES:
                     await self._make_room(max_sessions, keep=entry)
                     entry.session.limits = limits
-                    # The same notebook may have new code since it stopped (a pad's cells edited meanwhile).
-                    entry.session.layout.notebook.write_bytes(source)
                     asyncio.get_running_loop().create_task(entry.supervisor.start())
                     entry.session.state = STARTING
                 entry.session.touch()
@@ -254,17 +284,15 @@ class NotebookRuntime:
         base = self._base()
         assert self._shared is not None
         session_id = f"nbs_{secrets.token_hex(8)}"
-        notebook = base / "nb" / f"{session_id}.py"
-        notebook.parent.mkdir(parents=True, exist_ok=True)
-        os.chmod(notebook.parent, 0o700)
-        notebook.write_bytes(source)
+        notebook = hostfiles.write_private(base / "nb", f"{session_id}.py", source)
         layout = Layout(run_dir=base / "run" / session_id[4:], notebook=notebook, config_dir=self._shared[0],
                         hosts_file=self._shared[1])
         if len(str(layout.socket).encode()) > SOCKET_PATH_MAX_BYTES:
-            notebook.unlink()
+            hostfiles.remove_private(notebook.parent, notebook.name)
             raise RuntimeUnavailable(f"the runtime directory {base} is too deep for a Unix socket's path")
         session = Session(session_id=session_id, owner=owner, vault_key=vault_key, revision=revision,
-                          layout=layout, limits=limits, view=view, epoch=self._epoch, contract=contract, review=review)
+                          layout=layout, limits=limits, view=view, epoch=self._epoch, contract=contract, review=review,
+                          snapshot_cells=list(cells) if cells is not None else None)
         supervisor = Supervisor(session, self._backend_now(), **self._supervisor_options)
         proxy = FrameProxy(session)
         await proxy.start()
@@ -300,15 +328,14 @@ class NotebookRuntime:
         await entry.supervisor.stop(reason)
         await entry.proxy.stop()
         self._entries.pop(entry.session.session_id, None)
-        for path in (entry.session.layout.notebook, entry.session.layout.token_file):
-            try:
-                path.unlink()
-            except FileNotFoundError:
-                pass
+        layout = entry.session.layout
         try:
-            entry.session.layout.run_dir.rmdir()
-        except OSError:
-            pass
+            hostfiles.remove_private(layout.notebook.parent, layout.notebook.name)
+            hostfiles.remove_private(layout.run_dir, layout.token_file.name)
+            hostfiles.remove_private(layout.run_dir, layout.socket.name)
+            hostfiles.remove_private_dir(layout.run_dir)
+        except hostfiles.UnsafePath:
+            LOG.warning("a notebook session's host files were not as made; left in place")
 
     async def _stop_where(self, select: Callable[[_Entry], bool], reason: str, *, forget: bool = False) -> None:
         self._epoch += 1
@@ -330,6 +357,11 @@ class NotebookRuntime:
         if unknown:
             raise CellUnknown(", ".join(unknown))
         return [entry.session.cell_ids[name] for name in names]
+
+    async def _mark_review(self, vault_key: str, session_id: str) -> dict[str, Any]:
+        entry = self._entry(vault_key, session_id)
+        entry.session.review = True
+        return self._view(entry)
 
     async def _release(self, vault_key: str, session_id: str, names: list[str]) -> dict[str, Any]:
         entry = self._entry(vault_key, session_id)
@@ -367,11 +399,19 @@ class NotebookRuntime:
             raise KernelRefused(f"marimo refused the run ({status})")
         for cell_id, (_name, code) in zip(ids, cells, strict=True):
             entry.session.cell_codes[cell_id] = code
+        snapshot = entry.session.snapshot_cells
+        if snapshot is not None:
+            # What a restart loads: the code that ran, not the code the session opened with.
+            ran = dict(cells)
+            entry.session.snapshot_cells = [(name, ran.get(name, code)) for name, code in snapshot]
+            hostfiles.write_private(entry.session.layout.notebook.parent, entry.session.layout.notebook.name,
+                                    adapter.notebook_from_cells(entry.session.snapshot_cells).encode("utf-8"))
         entry.session.touch()
         return {"session_id": session_id, "ran": [name for name, _code in cells]}
 
     async def sweep(self, now: float | None = None) -> list[str]:
-        """Stop sessions idle past their limit, or whose run directory grew past its bound; their ids."""
+        """Stop sessions idle past their limit; their ids. (The sandbox writes no host directory, so there is no
+        size to watch: its tmpfs mounts are capped and charged to its scope.)"""
 
         now = time.monotonic() if now is None else now
         stopped = []
@@ -381,9 +421,6 @@ class NotebookRuntime:
                 continue
             if session.frames == 0 and now - session.last_activity >= entry.idle_minutes * 60:
                 await entry.supervisor.stop("idle")
-                stopped.append(session.session_id)
-            elif run_dir_bytes(session.layout.run_dir) > settings.RUN_DIR_MAX_BYTES:
-                await entry.supervisor.stop("run_dir_full")
                 stopped.append(session.session_id)
         return stopped
 

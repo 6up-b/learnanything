@@ -4,7 +4,7 @@ import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { NotebookSessionDto } from "../../../api/dto";
 import { DIRECT_HUB, WindowScope, type WindowState } from "../lifecycle";
-import { NotebookBridgeContext, NotebookFrame, POLL_MS, frameView, statusLine, type NotebookApi } from "./NotebookFrame";
+import { NotebookBridgeContext, NotebookFrame, POLL_MS, RETRY, frameView, statusLine, type NotebookApi } from "./NotebookFrame";
 
 vi.mock("../../../api/client", () => ({ api: {} }));
 
@@ -157,4 +157,40 @@ it("names every state in one line", () => {
   expect(statusLine(frameView(null, null))).toBe("opening the notebook…");
   expect(statusLine(frameView(session("stopped", { stopReason: "vault_switch" }), null))).toBe("notebook closed when the vault changed");
   expect(statusLine(frameView(session("ready"), null))).toBe("");
+});
+
+it("retries a failed open three times, 1.5 s apart, before saying it failed (spec §11.2)", async () => {
+  let failures = 2;
+  const flaky = calls(async () => {
+    if (failures > 0) {
+      failures -= 1;
+      throw { code: "notebook_runtime_busy", message: "didn't answer in time", retryable: true };
+    }
+    return session("ready");
+  });
+  render(<Frame api={flaky} />);
+  await settle();
+  expect(screen.getByRole("status").textContent).toContain("trying again (1 of 3)");
+  await act(async () => vi.advanceTimersByTime(RETRY.everyMs));
+  await settle();
+  expect(screen.getByRole("status").textContent).toContain("trying again (2 of 3)");
+  await act(async () => vi.advanceTimersByTime(RETRY.everyMs));
+  await settle();
+  expect(document.querySelector("iframe")).not.toBeNull();
+  expect(flaky.opens).toBe(3);
+});
+
+it("after three retries the failure is said, with a try again", async () => {
+  const down = calls(async () => {
+    throw { code: "notebook_runtime_busy", message: "didn't answer in time", retryable: true };
+  });
+  render(<Frame api={down} />);
+  for (let i = 0; i < 4; i += 1) {
+    await settle();
+    await act(async () => vi.advanceTimersByTime(RETRY.everyMs));
+  }
+  await settle();
+  expect(down.opens).toBe(4);
+  expect(screen.getByRole("status").textContent).toContain("couldn't run");
+  expect(screen.getByRole("button", { name: "try again" })).toBeTruthy();
 });

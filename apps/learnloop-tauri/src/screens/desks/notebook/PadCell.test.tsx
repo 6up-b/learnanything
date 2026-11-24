@@ -5,7 +5,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { PadBlockDto } from "../../../api/dto";
 import { PadsHostContext, type PadsHost } from "../pads/host";
 import { PadCell } from "./PadCell";
-import { notePadSession, resetPadNotebooksForTests } from "./padNotebooks";
+import { notePadSession, padNotebookKey, resetPadNotebooksForTests } from "./padNotebooks";
 
 const api = vi.hoisted(() => ({ notebookRunCells: vi.fn(), notebookStatus: vi.fn(), notebookOpen: vi.fn() }));
 vi.mock("../../../api/client", () => ({ api }));
@@ -76,7 +76,7 @@ it("with the kernel running, ⇧↵ runs the cell's code in it under the cell's 
     await Promise.resolve();
   });
   const opened = await api.notebookOpen();
-  act(() => notePadSession("p1", { ...opened, state: "ready" }));
+  act(() => notePadSession(padNotebookKey("", "p1"), { ...opened, state: "ready" }));
   api.notebookRunCells.mockResolvedValue({ version: 1, sessionId: "nbs_1", ran: ["c_b"] });
   await act(async () => {
     fireEvent.click(screen.getAllByLabelText("run this cell")[1]);
@@ -95,4 +95,25 @@ it("escape puts the code back without writing it", () => {
   fireEvent.keyDown(area, { key: "Escape" });
   expect(onCommit).not.toHaveBeenCalled();
   expect(screen.getByText("x = 2")).toBeTruthy();
+});
+
+it("a pad of the same id in another vault starts nothing of this vault's kernel", async () => {
+  const other = { store: { settled: vi.fn(async () => "saved"), clientId: "client-vault-b" } } as unknown as PadsHost;
+  const mine = { store: { settled: vi.fn(async () => "saved"), clientId: "client-vault-a" } } as unknown as PadsHost;
+  const view = render(
+    <PadsHostContext.Provider value={mine}>
+      <PadCell padId="p1" block={blocks[0]} blocks={blocks} editable onCommit={vi.fn()} />
+    </PadsHostContext.Provider>,
+  );
+  await act(async () => {
+    fireEvent.click(screen.getByLabelText("run this cell"));
+    await Promise.resolve();
+  });
+  view.unmount();
+  render(
+    <PadsHostContext.Provider value={other}>
+      <PadCell padId="p1" block={blocks[0]} blocks={blocks} editable onCommit={vi.fn()} />
+    </PadsHostContext.Provider>,
+  );
+  expect(screen.getByText("kernel not started")).toBeTruthy();
 });

@@ -146,6 +146,49 @@ def test_the_generated_notebook_loads_as_its_cells(ctx, tmp_path):
 
 
 def test_cell_names_are_identifiers_unique_per_block():
-    assert adapter.cell_name("blk_01ABC") == "c_blk_01abc"
+    assert adapter.cell_name("blk_01ABC").startswith("c_blk_01abc_") and adapter.cell_name("blk_01abc") == "c_blk_01abc"
     assert adapter.cell_name("a-b") != adapter.cell_name("a_b") and adapter.cell_name("a-b").isidentifier()
     assert adapter.notebook_from_cells([("c_x", "x = 1")]) == adapter.notebook_from_cells([("c_x", "x = 1")])
+
+
+def test_the_derived_notebook_never_follows_a_link_out_of_the_vault(ctx, tmp_path):
+    """A link at `.learnloop/notebooks/pads` (or any component) is refused, and a link planted at the old fixed
+    temporary name is never written through."""
+
+    import os
+
+    insert(ctx, "cell_a", "x = 2", "a0")
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    pads = Path(ctx.vault_root) / ".learnloop" / "notebooks" / "pads"
+    pads.parent.mkdir(parents=True, exist_ok=True)
+    os.symlink(outside, pads)
+    with pytest.raises(SidecarError) as caught:
+        open_pad(ctx)
+    assert caught.value.code == "notebook_path_invalid" and list(outside.iterdir()) == []
+    pads.unlink()
+    pads.mkdir()
+    victim = tmp_path / "victim.txt"
+    victim.write_text("MINE")
+    target = f"{adapter.cell_name(PAD)[2:]}.py"
+    os.symlink(victim, pads / f".{target}.{os.getpid()}.tmp")
+    os.symlink(victim, pads / target)
+    open_pad(ctx)
+    assert victim.read_text() == "MINE"
+    assert not (pads / target).is_symlink() and (pads / target).read_bytes().startswith(b"import marimo")
+
+
+def test_ids_that_differ_only_in_case_get_distinct_names():
+    assert adapter.cell_name("A") != adapter.cell_name("a")
+    assert adapter.cell_name("blk_01ABC") != adapter.cell_name("blk_01abc")
+    assert all(adapter.cell_name(each).isidentifier() for each in ("A", "a", "blk_01ABC", "x-y", "ü"))
+
+
+def test_a_generated_notebook_larger_than_a_notebook_may_be_is_refused(ctx):
+    from learnloop.notebook_runtime import settings
+
+    insert(ctx, "cell_a", "x = '" + "y" * settings.NOTEBOOK_MAX_BYTES + "'", "a0")
+    with pytest.raises(SidecarError) as caught:
+        open_pad(ctx)
+    assert caught.value.code == "notebook_path_invalid" and ctx.notebook_runtime.opens == []
+    assert not (Path(ctx.vault_root) / ".learnloop" / "notebooks" / "pads" / f"{PAD}.py").exists()

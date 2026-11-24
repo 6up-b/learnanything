@@ -14,6 +14,7 @@ import {
   notePadSession,
   noteRunPending,
   padNotebook,
+  padNotebookKey,
   startPadNotebook,
   subscribePadNotebooks,
 } from "./padNotebooks";
@@ -43,7 +44,10 @@ function message(error: unknown): string {
 
 export function PadCell({ padId, block, blocks, editable, onCommit }: PadCellProps) {
   const host = usePadsHost();
-  const state = useSyncExternalStore(subscribePadNotebooks, () => padNotebook(padId));
+  // The shared state is the pad's in this vault: another vault (a copy) may hold a pad of the same id, and its
+  // kernel is its own. The desk store is one per vault, and so is its client id.
+  const key = padNotebookKey(host?.store.clientId ?? "", padId);
+  const state = useSyncExternalStore(subscribePadNotebooks, () => padNotebook(key));
   const [draft, setDraft] = useState<string | null>(null);
   const area = useRef<HTMLTextAreaElement | null>(null);
   const shape = cellShape(blocks);
@@ -55,12 +59,12 @@ export function PadCell({ padId, block, blocks, editable, onCommit }: PadCellPro
 
   const run = useCallback(async (code: string) => {
     if (code !== block.bodyMd) onCommit(code);
-    const now = padNotebook(padId);
-    noteRunPending(padId, block.blockId);
+    const now = padNotebook(key);
+    noteRunPending(key, block.blockId);
     if (needsOpen(now, shape)) {
       // The sidecar generates the notebook from the pad as it is saved: its writes land first.
       await host?.store.settled();
-      startPadNotebook(padId, shape);
+      startPadNotebook(key, shape);
       return;
     }
     const name = now.names[block.blockId];
@@ -68,20 +72,20 @@ export function PadCell({ padId, block, blocks, editable, onCommit }: PadCellPro
     try {
       await api.notebookRunCells({ sessionId: now.session.sessionId, cells: [{ name, code }] });
     } catch (error) {
-      noteRunPending(padId, block.blockId, `couldn't run: ${message(error)}`);
+      noteRunPending(key, block.blockId, `couldn't run: ${message(error)}`);
       return;
     }
     const sessionId = now.session.sessionId;
     const until = Date.now() + RUN_POLL.forMs;
-    while (Date.now() < until && padNotebook(padId).pending[block.blockId]) {
+    while (Date.now() < until && padNotebook(key).pending[block.blockId]) {
       await new Promise((resolve) => setTimeout(resolve, RUN_POLL.everyMs));
       try {
-        notePadSession(padId, await api.notebookStatus({ sessionId }));
+        notePadSession(key, await api.notebookStatus({ sessionId }));
       } catch {
         return;
       }
     }
-  }, [block.blockId, block.bodyMd, host, onCommit, padId, shape.join("|")]);
+  }, [block.blockId, block.bodyMd, host, onCommit, key, shape.join("|")]);
 
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === "Enter" && event.shiftKey) {
@@ -142,7 +146,7 @@ export function PadCell({ padId, block, blocks, editable, onCommit }: PadCellPro
             owner={`pad:${padId}`}
             title="your marimo cells"
             style={{ height: GROUP_HEIGHT_PX }}
-            onSession={(session) => notePadSession(padId, session)}
+            onSession={(session) => notePadSession(key, session)}
           />
         </div>
       ) : null}

@@ -188,3 +188,24 @@ def test_a_refused_release_is_said_and_the_inputs_refuse_extra_fields(lessons):
     assert caught.value.code == "notebook_release_refused"
     with pytest.raises(ValueError):
         N.NotebookOpenInput.model_validate({"owner": "lesson:les_1", "review": True})
+
+
+def test_a_lesson_closed_elsewhere_releases_nothing_more(lessons):
+    """The lesson closes on another surface while its notebook runs: the next status reads it as a review and a
+    release is refused, from the lesson's own record, not the frame's."""
+
+    from learnloop_sidecar.handlers import notebooks as N
+
+    paths, repository, ctx = lessons
+    lesson_id = _open_lesson(paths, repository)
+    _write_notebook(paths, lesson_id)
+    _open(ctx, f"lesson:{lesson_id}")
+    release = N.NotebookReleaseInput.model_validate({"sessionId": "nbs_rec", "cells": ["reveal_square"]})
+    assert N.notebook_release_handler(ctx, release)["released"] == ["reveal_square"]
+    _close(paths, repository, lesson_id)
+    status = N.notebook_status_handler(ctx, N.NotebookSessionInput.model_validate({"sessionId": "nbs_rec"}))
+    assert status["lesson"]["review"] is True
+    with pytest.raises(SidecarError) as caught:
+        N.notebook_release_handler(ctx, release)
+    assert caught.value.code == "notebook_release_refused"
+    assert ctx.notebook_runtime.releases == [["reveal_square"]]

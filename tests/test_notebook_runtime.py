@@ -7,6 +7,7 @@ from __future__ import annotations
 import asyncio
 import json
 import signal
+import time
 from pathlib import Path
 
 import pytest
@@ -263,17 +264,6 @@ def test_a_session_with_a_frame_attached_is_not_idle(runtime):
     assert runtime.run_on_loop(lambda: runtime.sweep(now=runtime.sessions()[0].last_activity + 3600)) == []
 
 
-def test_a_run_directory_past_its_bound_stops_the_session(runtime, monkeypatch):
-    view = _open(runtime)
-    _ready(runtime, "/v1", view["session_id"])
-    session = runtime.sessions()[0]
-    session.frames = 1
-    session.layout.run_dir.mkdir(parents=True, exist_ok=True)
-    (session.layout.run_dir / "filler").write_bytes(b"x" * (settings.RUN_DIR_MAX_BYTES + 1))
-    assert runtime.run_on_loop(lambda: runtime.sweep()) == [view["session_id"]]
-    assert runtime.status(vault_key="/v1", session_id=view["session_id"])["stop_reason"] == "run_dir_full"
-
-
 def test_release_and_run_need_a_frame_and_known_cells(runtime):
     from learnloop.notebook_runtime.runtime import CellUnknown, NotConnected
 
@@ -507,7 +497,7 @@ def test_the_launch_uses_the_shared_hardened_profile_and_the_servers_mounts(tmp_
     layout = Layout(run_dir=tmp_path / "run", notebook=tmp_path / "nb.py", config_dir=tmp_path / "cfg",
                     hosts_file=tmp_path / "hosts")
     argv, env = launch_command(layout, Limits(memory_mib=2048, scratch_mib=256), base_url="/s/x", unit="u",
-                               scoped=True, bwrap="/usr/bin/bwrap")
+                               scoped=True, socket_fd=9, bwrap="/usr/bin/bwrap")
     cut = argv.index("--", argv.index("/usr/bin/bwrap"))
     flags, inner = argv[argv.index("/usr/bin/bwrap"):cut], argv[cut + 1:]
     for flag in ("--unshare-all", "--die-with-parent", "--unshare-user", "--disable-userns", "--cap-drop"):
@@ -517,10 +507,15 @@ def test_the_launch_uses_the_shared_hardened_profile_and_the_servers_mounts(tmp_
     assert ["--ro-bind", str(layout.hosts_file), "/etc/hosts"] == flags[flags.index(str(layout.hosts_file)) - 1:][:3]
     assert flags[flags.index("--tmpfs", flags.index("--size")) - 2:][:4] == ["--size", str(256 * 1024 * 1024),
                                                                           "--tmpfs", "/scratch"]
-    assert ["--bind", str(layout.run_dir), str(layout.run_dir)] == flags[flags.index("--bind"):][:3]
+    # No writable host path: the server listens on the socket trusted code made (descriptor 9 here) and reads its
+    # token through a read-only mount.
+    assert "--bind" not in flags and str(layout.run_dir) not in flags
+    assert ["--ro-bind", str(layout.token_file), "/ll/token"] == flags[flags.index(str(layout.token_file)) - 1:][:3]
     assert "--dev-bind" not in flags  # CPU only: no device node beyond the profile's minimal /dev
-    assert inner[2:4] == ["-B", "/ll/launcher.py"] and inner[4] == str(layout.socket)
-    assert "--token-password-file" in inner and inner[inner.index("--base-url") + 1] == "/s/x"
+    assert inner[2:4] == ["-B", "/ll/launcher.py"] and inner[4] == "9"
+    # The secret path is in the environment, never the arguments (any local user reads a command line).
+    assert inner[inner.index("--token-password-file") + 1] == "/ll/token" and "--base-url" not in inner
+    assert env["LEARNLOOP_NOTEBOOK_BASE_URL"] == "/s/x"
     assert env["HOME"] == "/scratch" and env["XDG_CONFIG_HOME"] == "/ll/config"
     assert flags[flags.index("--unsetenv") + 1] == "DBUS_SESSION_BUS_ADDRESS"
     assert argv[:argv.index("/usr/bin/bwrap")][-1] == "--"
@@ -624,9 +619,14 @@ def test_the_runtimes_http_only_ever_targets_its_sessions_unix_socket(tmp_path, 
 
     monkeypatch.setattr(httpx, "AsyncHTTPTransport", Transport)
     monkeypatch.setattr(httpx, "AsyncClient", Client)
-    held = session(tmp_path)
-    supervisor_module.SandboxBackend(scoped=False)._client(held)
-    proxy.FrameProxy(held)._upstream()
+    from learnloop.notebook_runtime import hostfiles
+
+    with short_base_dir() as base:  # a socket's path must be short
+        held = session(base)
+        hostfiles.private_dir(held.layout.run_dir)
+        hostfiles.listening_socket(held.layout.run_dir, held.layout.socket.name).close()
+        supervisor_module.SandboxBackend(scoped=False)._client(held)
+        proxy.FrameProxy(held)._upstream()
     assert len(built) == 2 and len(transports) == 2
     assert all(kwargs["base_url"] == "http://127.0.0.1" for kwargs in built)
     assert all(set(kwargs) == {"uds"} and kwargs["uds"] == str(held.layout.socket) for kwargs in transports)
@@ -649,3 +649,153 @@ def test_the_runtimes_http_only_ever_targets_its_sessions_unix_socket(tmp_path, 
                 for host in re.findall(r"[a-z]+://([^/:\s'\"`{]+)", node.value):
                     assert host == "127.0.0.1" or host == "localhost" or host.endswith(".localhost"), (path.name, host)
     assert settings.FRAME_HOST == "127.0.0.1"
+
+
+# -- the frame cannot grow the sidecar's memory ---------------------------------------------------------------------
+
+def _asgi_body(app, scope, body):
+    sent = []
+
+    async def receive():
+        return {"type": "http.request", "body": body, "more_body": False}
+
+    async def send(message):
+        sent.append(message)
+
+    asyncio.run(app(scope, receive, send))
+    return sent
+
+
+def test_an_oversized_request_is_refused_and_nothing_is_recorded_before_the_server_accepts_it(tmp_path):
+    import json as _json
+
+    held = session(tmp_path, secret="abc")
+    held.cell_ids = {"controls": "Hbol"}
+    app = proxy.FrameProxy(held)
+    app.port = 7000
+    path = "/s/abc/" + adapter.SET_UI_ELEMENT_VALUE
+    big = _json.dumps({"objectIds": ["Hbol-0"], "values": ["x" * settings.REQUEST_MAX_BYTES]}).encode()
+    sent = _asgi_body(app, _scope(path, method="POST"), big)
+    assert sent[0]["status"] == 413 and held.ui_values == {}
+    small = _json.dumps({"objectIds": ["Hbol-0", "fake-1"], "values": [3, 4]}).encode()
+    sent = _asgi_body(app, _scope(path, method="POST"), small)
+    assert sent[0]["status"] == 503 and held.ui_values == {}  # the server did not take it: nothing kept
+
+
+def test_recorded_values_are_only_known_controls_within_a_bound(tmp_path):
+    from learnloop.notebook_runtime.supervisor import record_ui_values
+
+    held = session(tmp_path)
+    held.cell_ids = {"controls": "Hbol", "other": "MJUe"}
+    record_ui_values(held, {"Hbol-0": 3, "nope-0": 1, "Hbol": 2, "MJUe-1": "y"})
+    assert held.ui_values == {"Hbol-0": 3, "MJUe-1": "y"}
+    record_ui_values(held, {"MJUe-2": "x" * settings.UI_VALUES_MAX_BYTES})
+    assert "MJUe-2" not in held.ui_values
+    record_ui_values(held, {"Hbol-0": 5})
+    assert held.ui_values["Hbol-0"] == 5
+
+
+# -- a stop that lands while a server is being spawned ---------------------------------------------------------------
+
+def test_a_stop_during_a_spawn_kills_the_server_when_the_spawn_returns(tmp_path):
+    class SlowSpawn(FakeBackend):
+        def __init__(self) -> None:
+            super().__init__()
+            self.gate = asyncio.Event()
+
+        async def spawn(self, held):
+            await self.gate.wait()
+            return await super().spawn(held)
+
+    async def scenario():
+        backend = SlowSpawn()
+        supervisor = Supervisor(session(tmp_path), backend)
+        starting = asyncio.create_task(supervisor.start())
+        await asyncio.sleep(0.05)
+        stopping = asyncio.create_task(supervisor.stop("closed"))
+        await asyncio.sleep(0.05)
+        backend.gate.set()
+        await asyncio.wait_for(asyncio.gather(starting, stopping), 5)
+        return backend, supervisor
+
+    backend, supervisor = asyncio.run(scenario())
+    assert backend.processes and all(process.returncode is not None for process in backend.processes)
+    assert supervisor.session.state == STOPPED and supervisor.session.process is None
+
+
+# -- closing never leaves a server running ---------------------------------------------------------------------
+
+def test_closing_kills_a_server_that_stalls_its_shutdown_and_ignores_sigterm(monkeypatch):
+    pytest.importorskip("uvicorn")
+    import signal as signals
+
+    from learnloop.notebook_runtime import runtime as runtime_module
+    from learnloop.notebook_runtime.runtime import NotebookRuntime
+
+    class Stubborn(FakeBackend):
+        async def shutdown(self, held):
+            self.shutdowns += 1
+            await asyncio.sleep(3600)
+
+        def signal_group(self, held, signum):
+            self.signals.append(signum)
+            if signum == signals.SIGKILL and held.process is not None:
+                held.process.exit(-signum)
+
+    monkeypatch.setattr(runtime_module, "CLOSE_SECONDS", 0.5)
+    backend = Stubborn()
+    with short_base_dir() as base:
+        made = NotebookRuntime(backend=backend, base_dir=base, requirements=lambda: [], sweep_seconds=3600,
+                               supervisor_options={"stop_timeout": 30})
+        view = made.open(vault_key="/v1", owner="pad:p1", source=b"x = 1", view="app", limits=LIMITS,
+                         idle_minutes=10, max_sessions=3)
+        _ready(made, "/v1", view["session_id"])
+        process = backend.processes[0]
+        started = time.monotonic()
+        made.close()
+    assert process.returncode is not None and signals.SIGKILL in backend.signals
+    assert time.monotonic() - started < 15
+
+
+# -- no notebook without aggregate memory and task caps -----------------------------------------------------------
+
+def test_without_a_user_manager_notebooks_are_refused_not_run_under_a_per_process_limit(monkeypatch):
+    from learnloop.notebook_runtime import sandbox as sandbox_module
+
+    monkeypatch.setitem(sandbox_module._SCOPE_PROBE, "ok", False)
+    assert any("user manager" in problem for problem in sandbox_module.missing_requirements())
+    with pytest.raises(sandbox_module.RuntimeUnavailable):
+        scope_prefix("u", Limits(memory_mib=512, scratch_mib=64), scoped=False)
+
+
+def test_a_session_marked_as_a_review_releases_nothing(runtime):
+    from learnloop.notebook_runtime.runtime import ReleaseRefused
+
+    contract = {"points": [{"name": "commit_a", "held": ["reveal_a"]}], "held": ["reveal_a"]}
+    view = runtime.open(vault_key="/v1", owner="lesson:l1", source=b"x = 1", view="app", limits=LIMITS,
+                        idle_minutes=10, max_sessions=3, contract=contract)
+    _ready(runtime, "/v1", view["session_id"])
+    runtime.sessions()[0].commits.add("commit_a")
+    assert runtime.mark_review(vault_key="/v1", session_id=view["session_id"])["lesson"]["review"] is True
+    with pytest.raises(ReleaseRefused):
+        runtime.release(vault_key="/v1", session_id=view["session_id"], names=["reveal_a"])
+
+
+# -- a restart runs the code the learner last ran, not the code it opened with ----------------------------------
+
+def test_an_edited_cell_survives_a_restart_and_a_live_reopen_refreshes_the_snapshot(runtime):
+    one = [("c_x", "x = 1"), ("c_y", "y = x + 1")]
+    view = runtime.open(vault_key="/v1", owner="pad:p", source=adapter.notebook_from_cells(one).encode(), view="app",
+                        limits=LIMITS, idle_minutes=10, max_sessions=3, revision="shape", cells=one)
+    _ready(runtime, "/v1", view["session_id"])
+    session = runtime.sessions()[0]
+    session.marimo_session_id, session.frames = "s_page", 1
+    session.cell_ids = {"c_x": "Hbol", "c_y": "MJUe"}
+    runtime.run_cells(vault_key="/v1", session_id=view["session_id"], cells=[("c_x", "x = 2")])
+    snapshot = session.layout.notebook.read_text()
+    assert "x = 2" in snapshot and "x = 1" not in snapshot  # what a supervised restart loads
+    edited = [("c_x", "x = 3"), ("c_y", "y = x + 1")]
+    runtime.open(vault_key="/v1", owner="pad:p", source=adapter.notebook_from_cells(edited).encode(), view="app",
+                 limits=LIMITS, idle_minutes=10, max_sessions=3, revision="shape", cells=edited)
+    assert runtime.sessions()[0].session_id == view["session_id"]  # the live session kept
+    assert "x = 3" in session.layout.notebook.read_text()
