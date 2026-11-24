@@ -121,3 +121,23 @@ it("a window of a kind this version does not know is kept: the book's window whe
   expect(document.querySelector(".desk-toast")?.textContent).toContain("Kept but not shown: a whiteboard window");
   expect(desk.errors).toEqual([]);
 });
+
+// Review fix round (major 20, ledger RDX-9): what each stored kind actually shows. A panel of a kind this version does
+// not know is inert (never a live Library panel); a comparison named only by its id and a figure's notebook, which no
+// body here opens by id, are inert and named, not an empty composer or a silent fallback.
+it("a stored unknown panel, a kept comparison by id and a figure's notebook show inert and are named", async () => {
+  const outline = { windowId: "w_outline", pane: 0, kind: "panel", active: true, view: {}, content: { kind: "panel", panel: "outline" } };
+  const kept = { windowId: "w_kept", pane: 0, kind: "compare", active: true, view: {}, content: { kind: "compare", comparisonId: "cmp_1" } };
+  const figure = { windowId: "w_fig", pane: 0, kind: "figure_notebook", active: true, view: {}, content: { kind: "figure_notebook", figureId: "fig_1" } };
+  library = FIXTURE_LIBRARY;
+  mountRealDesk({ state: oneDesk([[BOOK_WINDOW as never], [outline as never], [kept as never], [figure as never]]) });
+  await settleDesk(0, 30);
+  await waitFor(() => expect(document.querySelector(".desk-toast")?.textContent).toContain("Kept but not shown"));
+  const toast = document.querySelector(".desk-toast")?.textContent ?? "";
+  for (const name of ["an outline window", "a kept comparison", "a figure's notebook"]) expect(toast).toContain(name);
+  expect(document.querySelector('[data-desk-window="w_outline"]')?.textContent).toContain("an outline window");
+  expect(document.querySelector('[data-desk-window="w_outline"] input')).toBeNull();
+  expect(document.querySelector('[data-desk-window="w_kept"]')?.textContent).toContain("a kept comparison");
+  expect(document.querySelector('[data-desk-window="w_kept"] input')).toBeNull();
+  expect(document.querySelector('[data-desk-window="w_fig"]')?.textContent).toContain("a figure's notebook");
+});

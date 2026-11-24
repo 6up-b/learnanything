@@ -54,6 +54,10 @@ export function restoreContent(stored: unknown): Restored {
     return { kind: "inert", name: nameOf(kind) };
   }
   if (kind === "preparing") return sourceId ? { kind: "keep" } : { kind: "inert", name: "a book being prepared" };
+  // A Compare window opens on its question (or none: the bare Compare window); a comparison named only by its id, and
+  // a figure's notebook, have no body in this version that opens them by id (review fix round, major 20): kept, named.
+  if (kind === "compare" && text(ref.comparisonId) && !text(ref.query)) return { kind: "inert", name: "a kept comparison" };
+  if (kind === "figure_notebook") return { kind: "inert", name: "a figure's notebook" };
   if (typeof kind === "string" && KNOWN.has(kind) && kind !== "panel") return { kind: "keep" };
   // A kind this version does not know (or a panel it does not): the book's window when it names one.
   if (sourceId || extractionId) return { kind: "book", sourceId, extractionId, showPath: false };

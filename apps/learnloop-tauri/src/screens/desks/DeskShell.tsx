@@ -4183,7 +4183,12 @@ export function DeskShell({
           // another device is restored there when the desks next open.
           return <div className="desk-panel desk-quiet">The reading path is in the book’s window now: press p there.</div>;
         }
-        return <LibraryPanel query={null} onOpenHit={openHit} onClose={() => run({ kind: "closeWindow" })} onError={onError} library={library ?? null} reader={reader ?? null} />;
+        if (content.panel === "library") {
+          return <LibraryPanel query={null} onOpenHit={openHit} onClose={() => run({ kind: "closeWindow" })} onError={onError} library={library ?? null} reader={reader ?? null} />;
+        }
+        // A panel this version does not know is kept inert and named (model/restore.ts), never a live Library panel.
+        const unknownPanel = restoreContent(content);
+        return <div className="desk-panel desk-quiet">This window ({unknownPanel.kind === "inert" ? unknownPanel.name : "a window"}) can’t open here. Close it and reopen the source from your library.</div>;
       }
       case "preparing": {
         const preparing = library?.find((entry) => entry.sourceId === content.sourceId) ?? null;
@@ -4197,6 +4202,7 @@ export function DeskShell({
         );
       }
       case "compare":
+        if (restoreContent(content).kind === "inert") return <div className="desk-panel desk-quiet">This window (a kept comparison) can’t open here. Ask it again from a book’s passage.</div>;
         return <LibraryPanel query={content.query ?? null} anchor={compareAnchorOf(window.view)} onOpenHit={openHit} onClose={() => run({ kind: "closeWindow" })} onError={onError} library={library ?? null} reader={reader ?? null} />;
       case "thread":
         return (
