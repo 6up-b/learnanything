@@ -11161,8 +11161,6 @@ export interface PassageUnionSpanDto {
   passageLinks: { linkId: string; targetKind: string; targetId: string; relation: string; quote: string;
     alias: SpanAlias }[];
   figures: { figureId: string; tier: string; verification: string; createdAt: string; alias: SpanAlias }[];
-  /** A check is due before this passage: no item, learning object or purpose (spec §12.6.1). */
-  checksDue: { commitmentId: string }[];
   notes: unknown[];
   authoredQuestions: { questionId: string; status: string; questionStyle: string; scopeKind: string;
     questionMd: string; alias: SpanAlias }[];
@@ -11210,11 +11208,12 @@ export interface CompanionHistoryDto {
   cursor: string | null;
 }
 
+/** checks.due_for: one opaque handle per due check, every due check in the vault, and nothing of any (no topic, host,
+ *  provenance, due date or commitment: the owner's decision on RD7-56). `check.begin_inline` takes the handle; a begin
+ *  spends it, and a spent or dead one (the sidecar restarted) is refused `check_unknown`: read again. */
 export interface ChecksDueDto {
   version: number;
-  checks: { commitmentId: string; loId: string; due: string;
-    host: { extractionId: string; sectionId: string | null; spanId: string | null } | null;
-    provenance: Record<string, string>;
+  checks: { handle: string;
     /** mvp-0.69: an open inline administration holds it (Today shows "being answered in the Reader"). */
     beingAnswered?: boolean }[];
 }
@@ -11271,6 +11270,8 @@ export interface CheckCardDto {
   revision?: number;
   /** A second begin for a commitment whose administration is open returns that administration's card. */
   replayed?: boolean;
+  /** Where the begun check sits (its host passage), named only once it is begun; null when it has none. */
+  host?: { extractionId: string; sectionId: string | null; spanId: string | null } | null;
 }
 
 /** check.protect_more: what this request added, every ref veiled now and not opened, and the veil sets' sequence. */

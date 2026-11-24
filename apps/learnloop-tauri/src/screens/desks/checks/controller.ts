@@ -1,6 +1,7 @@
 // Inline cold checks on the desks (spec §12.6; RD7's frontend half), as an external store (useSyncExternalStore): the
-// due checks of the readings in view (their closed markers), the one open administration with its veils, what the
-// learner opened, the answer and its reply. Every step is the server's (`check.*`): the desks never decide what is
+// due checks as opaque handles (one unlocated marker per desk: before "check now" nothing says what a check is about or
+// where it sits, the owner's decision on RD7-56), the one open administration with its veils, what the learner
+// opened, the answer and its reply. Every step is the server's (`check.*`): the desks never decide what is
 // veiled or what an answer counts as.
 //
 // The store belongs to the app, one per vault, not to the desks: an open administration outlives the desks' screen,
@@ -11,8 +12,8 @@ import type { CheckCardDto, CheckExposeReplyDto, CheckExposureKind, CheckProtect
 import { refKey, visibleKey, type CheckReason } from "./model";
 
 export interface CheckTransport {
-  dueFor(input: { extractionId: string }): Promise<ChecksDueDto>;
-  begin(input: { requestId: string; commitmentId: string; sessionId?: string; visible: CheckVisibleDto }): Promise<CheckCardDto>;
+  dueFor(): Promise<ChecksDueDto>;
+  begin(input: { requestId: string; handle: string; sessionId?: string; visible: CheckVisibleDto }): Promise<CheckCardDto>;
   protectMore(input: { administrationToken: string; visible: CheckVisibleDto }): Promise<CheckProtectReplyDto>;
   expose(input: { administrationToken: string; ref: CheckVeilRefDto; kind: CheckExposureKind; exposureId: string }): Promise<CheckExposeReplyDto>;
   submit(input: { administrationToken: string; submissionId: string; answerMd: string; veilsRevision: number }): Promise<CheckSubmitDto>;
@@ -21,7 +22,7 @@ export interface CheckTransport {
 }
 
 export const LIVE_CHECK_TRANSPORT: CheckTransport = {
-  dueFor: (input) => api.checksDueFor(input),
+  dueFor: () => api.checksDueFor(),
   begin: (input) => api.checkBeginInline(input),
   protectMore: (input) => api.checkProtectMore(input),
   expose: (input) => api.checkExpose(input),
@@ -48,8 +49,8 @@ export interface OpenCheck {
   /** The submission's id: the one the server reserved, else minted once per administration (a retry is the same). */
   submissionId: string;
   reply: CheckSubmitDto | null;
-  /** Where its due row says it sits (null when the check opened from elsewhere, or after a restart). */
-  host: DueCheck["host"];
+  /** Where the server says the begun check sits (its card's host; null when it has none). */
+  host: CheckCardDto["host"];
   error: string | null;
 }
 
@@ -75,6 +76,7 @@ export function checkOpenRefusal(error: unknown): string | null {
 /** Why a check cannot open now, in the learner's words (the server's refusal codes). */
 const REFUSED: Record<string, string> = {
   administration_open: "another check is open · answer it or say not now first",
+  check_unknown: "no cold check is due now",
   administration_closed: "this check is closed already",
   being_answered_in_today: "this check is being answered in Today",
   nothing_to_serve: "nothing can be asked for this check right now · it comes back later",
@@ -118,9 +120,9 @@ export const BROWSER_DRAFTS: DraftStore = {
 };
 
 export class CheckDesk {
-  private due = new Map<string, DueCheck[]>();
-  private asked = new Set<string>();
-  private later = new Set<string>();
+  private due: DueCheck[] = [];
+  private dueRead: "none" | "asking" | "known" = "none";
+  private later = false;
   private current: OpenCheck | null = null;
   private lastVisible: string | null = null;
   /** The passages the server has judged for the open check, per window and reading (a reply covered the request that
@@ -211,42 +213,42 @@ export class CheckDesk {
     this.visibleSource = source;
   }
 
-  // -- the due checks and their closed markers ---------------------------------------------------------------------
+  // -- the due checks and the desk's marker ------------------------------------------------------------------------
 
-  /** Read the due checks of these readings (once each; again after an answer). */
-  readings(extractionIds: readonly string[]): void {
-    for (const extractionId of new Set(extractionIds)) {
-      if (this.asked.has(extractionId)) continue;
-      this.asked.add(extractionId);
-      void Promise.resolve().then(() => this.transport.dueFor({ extractionId })).then((out) => {
-        this.due.set(extractionId, out.checks.filter((check) => check.host?.extractionId === extractionId));
-        if (this.current && !this.current.host) this.current = { ...this.current, host: this.hostOf(this.current.card.commitmentId) };
-        this.emit();
-      }, () => this.asked.delete(extractionId));
-    }
+  /** Read the due checks (every one in the vault, as handles; again after a check closes, and when a handle is found
+   *  dead). The request names nothing: asking about a reading or a passage would itself be answered with where a check
+   *  is. */
+  readDue(): void {
+    if (this.dueRead === "asking") return;
+    this.dueRead = "asking";
+    void Promise.resolve().then(() => this.transport.dueFor()).then((out) => {
+      this.due = out.checks;
+      this.dueRead = "known";
+      this.emit();
+    }, () => {
+      this.dueRead = "none";
+    });
   }
 
-  private hostOf(commitmentId: string): DueCheck["host"] {
-    return [...this.due.values()].flat().find((check) => check.commitmentId === commitmentId)?.host ?? null;
+  /** The checks due now that the desk's marker offers (none is named: a handle each, in the server's order). */
+  dueChecks(): DueCheck[] {
+    return this.due.filter((check) => !check.beingAnswered);
   }
 
-  /** The due checks whose host passage is this span of this reading (a closed marker sits before it). */
-  dueAt(extractionId: string, spanId: string): DueCheck[] {
-    return (this.due.get(extractionId) ?? []).filter((check) => check.host?.spanId === spanId);
-  }
-
-  /** "later" on a closed marker: folded for this session (the check stays due, and "check now" is still offered). */
-  defer(commitmentId: string): void {
-    this.later.add(commitmentId);
+  /** "later" on the marker: folded for this session (the checks stay due, and "check now" is still offered). */
+  defer(): void {
+    this.later = true;
     this.emit();
   }
 
-  deferred(commitmentId: string): boolean {
-    return this.later.has(commitmentId);
+  deferred(): boolean {
+    return this.later;
   }
 
-  undefer(commitmentId: string): void {
-    if (this.later.delete(commitmentId)) this.emit();
+  undefer(): void {
+    if (!this.later) return;
+    this.later = false;
+    this.emit();
   }
 
   // -- the administration -----------------------------------------------------------------------------------------
@@ -259,7 +261,7 @@ export class CheckDesk {
     void Promise.resolve().then(() => this.transport.openInline()).then((out) => {
       this.recovering = false;
       this.recoveryState = "known";
-      if (out.administration && !this.holding()) this.adopt(out.administration, this.hostOf(out.administration.commitmentId));
+      if (out.administration && !this.holding()) this.adopt(out.administration, out.administration.host ?? null);
       this.emit();
     }, (error) => {
       this.recovering = false;
@@ -280,9 +282,10 @@ export class CheckDesk {
   /** The desks' own mount: the recovery read, once. */
   restart(): void {
     this.recover();
+    this.readDue();
   }
 
-  private adopt(card: CheckCardDto, host: DueCheck["host"], judgedFrom: CheckVisibleDto | null = null): void {
+  private adopt(card: CheckCardDto, host: CheckCardDto["host"], judgedFrom: CheckVisibleDto | null = null): void {
     const draft = this.drafts.get(card.administrationToken) ?? "";
     const seen = new Set<string>();
     // Every ref veiled so far, once (the server's `veiled` includes the opened ones; an older card's did not).
@@ -315,22 +318,36 @@ export class CheckDesk {
     }
   }
 
-  /** "check now": the server opens the administration and names the veils; the prompt comes back only then. A lost
-   *  reply's retry (another click) gets the same administration back. */
-  async begin(commitmentId: string, sessionId: string | null, visible: CheckVisibleDto): Promise<boolean> {
+  /** "check now": the server resolves the handle, opens the administration and names the veils; the prompt (and where
+   *  the check sits) comes back only then. A lost reply's retry (another click) gets the same administration back. A
+   *  dead handle (the sidecar restarted, or the check moved) is read again once and the check now due is opened: the
+   *  marker never named which check it was, so the learner is not stranded on a stale one. */
+  async begin(handle: string | null, sessionId: string | null, visible: CheckVisibleDto): Promise<boolean> {
     this.notice = null;
     if (this.holding()) {
       this.notice = REFUSED.administration_open;
       this.emit();
       return false;
     }
-    const host = this.hostOf(commitmentId);
+    let chosen = handle ?? this.dueChecks()[0]?.handle ?? null;
+    const open = (each: string) => this.transport.begin({ requestId: this.mintId("creq"), handle: each, ...(sessionId ? { sessionId } : {}), visible });
     try {
-      // With no session yet, the server opens the answer in the most recent open one or a new one (the card says which).
-      const card = await this.transport.begin({ requestId: this.mintId("creq"), commitmentId, ...(sessionId ? { sessionId } : {}), visible });
+      if (!chosen) throw Object.assign(new Error("no cold check is due"), { code: "check_unknown" });
+      let card: CheckCardDto;
+      try {
+        // With no session yet, the server opens the answer in the most recent open one or a new one (the card says which).
+        card = await open(chosen);
+      } catch (error) {
+        if (codeOf(error) !== "check_unknown") throw error;
+        this.due = (await this.transport.dueFor()).checks;
+        this.dueRead = "known";
+        chosen = this.dueChecks()[0]?.handle ?? null;
+        if (!chosen) throw error;
+        card = await open(chosen);
+      }
       // A replayed card's veils were judged on an earlier view: this view's passages wait for a protect request.
-      this.adopt(card, host, card.replayed ? null : visible);
-      this.later.delete(commitmentId);
+      this.adopt(card, card.host ?? null, card.replayed ? null : visible);
+      this.later = false;
     } catch (error) {
       const code = codeOf(error);
       this.notice = REFUSED[code ?? ""] ?? `couldn't open the check · ${messageOf(error)}`;
@@ -341,7 +358,7 @@ export class CheckDesk {
       }
     }
     this.emit();
-    return this.current?.card.commitmentId === commitmentId && this.holding();
+    return this.holding();
   }
 
   /** New windows or passages came into view: the server veils what it must before it is read. Its reply carries the
@@ -487,11 +504,8 @@ export class CheckDesk {
       }
       this.current = { ...(this.current ?? open), phase: "answered", reply };
       this.drafts.set(open.card.administrationToken, null);
-      if (open.host?.extractionId) {
-        // The check's markers are read again (an answered check has none).
-        this.asked.delete(open.host.extractionId);
-        this.readings([open.host.extractionId]);
-      }
+      // The due checks are read again (an answered check is not due; a begun one's handle is spent).
+      this.readDue();
     } catch (error) {
       const now = this.current ?? open;
       this.current = { ...now, phase: "open", error: `couldn't send your answer · ${REFUSED[codeOf(error) ?? ""] ?? messageOf(error)} · it is kept here` };
@@ -520,6 +534,8 @@ export class CheckDesk {
       this.current = null;
       this.regions = new Map();
       this.openedPrints = new Map();
+      // Still due, under a new handle (the begin spent the old one).
+      this.readDue();
     } catch (error) {
       this.current = { ...open, error: `couldn't close the check · ${REFUSED[codeOf(error) ?? ""] ?? messageOf(error)}` };
     }

@@ -78,10 +78,11 @@ const goal = new FixtureGoal();
 const lessons = new FixtureLessons();
 // `?video=1`: the video's chapters already suggested, the second accepted (RD10), as the reference shows them.
 const videoFixture = new FixtureVideo(typeof window !== "undefined" && new URLSearchParams(window.location.search).get("video") === "1");
-// `?checks=1`: one inline check due before the book's fifth section; `?checks=open`: also an administration open on a
-// check whose host is not on the desks (RD7). Without it no check is due.
+// `?checks=1`: one inline check due, hosted at the book's fifth section; `?checks=paper`: one due, hosted in the paper
+// instead (the desk's marker must not tell them apart); `?checks=open`: also an administration open on a check whose
+// host is not on the desks (RD7). Without it no check is due.
 const checksMode = typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("checks");
-const checks = new FixtureChecks(checksMode === "open" ? "open" : checksMode === "1" ? "due" : "off");
+const checks = new FixtureChecks(checksMode === "open" ? "open" : checksMode === "1" ? "due" : checksMode === "paper" ? "due-paper" : "off");
 // One carried question beside the book's third passage (project-authored).
 const carried: Array<{ carriedId: string; text: string; carried: boolean; version: number; state: string; anchor: unknown; since: string }> = [
   { carriedId: "fx_carried1", text: "does the temperature trick work for any base?", originKind: "typed", originRef: null,
@@ -178,7 +179,7 @@ function cheapRows(input: Record<string, unknown>): Array<Record<string, unknown
 }
 
 function emptyUnion(spanId: string): Record<string, unknown> {
-  return { spanId, sectionId: null, annotations: [], padBlocks: [], exchanges: [], adjustments: [], gaps: [], passageLinks: [], figures: [], checksDue: [], notes: [],
+  return { spanId, sectionId: null, annotations: [], padBlocks: [], exchanges: [], adjustments: [], gaps: [], passageLinks: [], figures: [], notes: [],
     authoredQuestions: [], carried: [], exposure: { timesShown: 1, lastShownAt: null, withheld: false } };
 }
 /** The pen's writes in this page (RD8a): annotations made by recognized marks and the ink saved with them. */
@@ -460,7 +461,7 @@ function answer(command: string, input: Record<string, unknown>): unknown {
       }
       return recapAnswer(command, input);
     case "checks_due_for":
-      return checks.dueFor(input as never);
+      return checks.dueFor();
     case "check_begin_inline":
       return checks.begin(input as never);
     case "check_protect_more":
