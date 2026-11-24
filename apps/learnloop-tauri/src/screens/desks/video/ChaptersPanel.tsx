@@ -1,13 +1,19 @@
 // "◇ suggested chapters" under a video window's player (spec §7.9; RD10): each chapter's time range, title and LO tag,
 // with accept (stored; its tick joins the scrub track and its range the minimap) and not this (dismissed, logged).
 // The chapters are judged on the learner's ask ("suggest from the transcript"): a polled job, polled only while the
-// window is live, cancellable while it runs. A suggestion is a proposal: it never changes coverage.
+// window is live, cancellable while it runs. A suggestion is a proposal: it never changes coverage. Accepting one
+// does (owner decision 2026-11-23): its range then counts as a place its topics are taught, once; the panel says so
+// before the learner accepts.
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { ChaptersJobDto, VideoChapterDto } from "../../../api/dto";
 import type { Poller } from "../../../api/poller";
 import { useWhenLive, useWindowLifecycle } from "../lifecycle";
 import type { VideoTransport } from "./desk";
 import { clockWords } from "./model";
+
+/** What accepting does, said before the learner accepts (a decision is final; a section's "not about this"
+ *  corrects it). */
+export const ACCEPT_LINE = "accepting counts this stretch as teaching its topic for your goal · it stays; if part of it isn't, mark that part not about this";
 
 export interface ChaptersState {
   chapters: VideoChapterDto[];
@@ -116,6 +122,7 @@ export function useVideoChapters({ extractionId, transport, poller, onChapters, 
   const side = useMemo(() => (
     <div className="vside desk-chapters" data-chapters="">
       <div className="hd">◇ suggested chapters</div>
+      {list.some((chapter) => chapter.state === "suggested") ? <div className="cline quiet" data-chapters-accept-line="">{ACCEPT_LINE}</div> : null}
       {list.map((chapter) => {
         const lo = chapter.learningObjects?.[0]?.title ?? null;
         return (
@@ -125,7 +132,7 @@ export function useVideoChapters({ extractionId, transport, poller, onChapters, 
             <span className="acts">
               {chapter.state === "suggested" ? (
                 <>
-                  <button type="button" className="btn" onClick={() => decide(chapter, "accept")}>accept</button>
+                  <button type="button" className="btn" title={ACCEPT_LINE} onClick={() => decide(chapter, "accept")}>accept</button>
                   <button type="button" className="btn" onClick={() => decide(chapter, "dismiss")}>not this</button>
                 </>
               ) : <span className="kept">✓ accepted</span>}
