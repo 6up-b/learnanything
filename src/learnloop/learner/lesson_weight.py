@@ -85,6 +85,7 @@ from learnloop.adf_numeric import (
 )
 from learnloop.algorithm_versions import LESSON_WEIGHT_CURVE_VERSIONS
 from learnloop.db.stores.grade_curves import current_curve
+from learnloop.db.stores.write_provenance import read_snapshot
 from learnloop.clock import parse_utc
 from learnloop.held_grades import held_for_review_attempts
 
@@ -831,18 +832,28 @@ def replay_state(vault: Any, repository: Any, *, as_of: str | None = None, throu
     for term, amount in (prior_shift or {}).items():
         for bank in state.banks:
             bank.mean[PRIOR_TERMS[term]] += float(amount)
-    with repository.connection() as connection:
-        if not _table(connection, "lesson_checks"):
-            return state
-        checks = [c for c in _checks(connection) if as_of is None or str(c["created_at"]) < as_of]
-        forecasts = [f for f in _forecasts(connection) if as_of is None or str(f["created_at"]) < as_of]
-        hedges = read_hedges(connection)
-        calibration = _calibration_attempts(connection, hedges, as_of)
-        los = {str(c["learning_object_id"]) for c in checks} | {f["learning_object_id"] for f in forecasts}
-        first = min([str(c["created_at"]) for c in checks] + [str(f["created_at"]) for f in forecasts], default=None)
-        outcomes = qualifying_outcomes(connection, los, first)
-        if as_of is not None:
-            outcomes = [o for o in outcomes if str(o["created_at"]) < as_of]
+    # One snapshot for every read (review L42-R5): a learner runs several processes at once (the sidecar, the phone
+    # host, a CLI), and a regrade committing between two reads would score one epoch's answer with another's curve.
+    with repository.pinned():
+        connection = repository.connection()
+        with read_snapshot(connection):
+            _replay_in_snapshot(state, vault, connection, mastery_config, frozen, as_of=as_of, through=through)
+    return state
+
+
+def _replay_in_snapshot(state: WeightState, vault: Any, connection: Any, mastery_config: Any, frozen: bool, *,
+                        as_of: str | None, through: str | None) -> None:
+    if not _table(connection, "lesson_checks"):
+        return
+    checks = [c for c in _checks(connection) if as_of is None or str(c["created_at"]) < as_of]
+    forecasts = [f for f in _forecasts(connection) if as_of is None or str(f["created_at"]) < as_of]
+    hedges = read_hedges(connection)
+    calibration = _calibration_attempts(connection, hedges, as_of)
+    los = {str(c["learning_object_id"]) for c in checks} | {f["learning_object_id"] for f in forecasts}
+    first = min([str(c["created_at"]) for c in checks] + [str(f["created_at"]) for f in forecasts], default=None)
+    outcomes = qualifying_outcomes(connection, los, first)
+    if as_of is not None:
+        outcomes = [o for o in outcomes if str(o["created_at"]) < as_of]
     # Events in time order. A check (and a forecast) sees only what happened strictly before its
     # instant, as the live check's ``as_of`` does, so at one instant it comes first; an outcome
     # resolves only checks and forecasts made strictly before it.
@@ -876,8 +887,7 @@ def replay_state(vault: Any, repository: Any, *, as_of: str | None = None, throu
             open_checks[lo] = [c for c in open_checks.get(lo, []) if str(c["created_at"]) >= at]
             resolving_curve = None
             if frozen:
-                with repository.connection() as connection:
-                    resolving_curve = current_curve(connection, str(payload["id"]))
+                resolving_curve = current_curve(connection, str(payload["id"]))
                 enriched = dict(payload)
                 if resolving_curve.item_a is not None:
                     enriched.update(item_a=resolving_curve.item_a, item_b=resolving_curve.item_b)
@@ -885,9 +895,8 @@ def replay_state(vault: Any, repository: Any, *, as_of: str | None = None, throu
                 enriched = {**payload, **_outcome_item_params(vault, mastery_config, payload)}
             for check in pending:
                 inputs_trace = [] if frozen else None
-                with repository.connection() as connection:
-                    trajectory = recorded_trajectory(connection, vault, mastery_config, check, payload,
-                                                     inputs_trace=inputs_trace)
+                trajectory = recorded_trajectory(connection, vault, mastery_config, check, payload,
+                                                 inputs_trace=inputs_trace)
                 detail = _resolve_check(state, check, enriched, 1.0 / len(pending), mastery_config,
                                         trajectory=trajectory)
                 if resolving_curve is not None:
@@ -913,7 +922,6 @@ def replay_state(vault: Any, repository: Any, *, as_of: str | None = None, throu
                 state.trace.append({"kind": "pool_update", "lesson_check_id": None,
                                     "resolving_attempt_id": payload["id"], "learning_object_id": lo, "at": at,
                                     "detail": {**detail, "forecast_key": forecast["key"]}})
-    return state
 
 
 def _mass_detail(state: WeightState, check: Mapping[str, Any]) -> dict[str, Any]:

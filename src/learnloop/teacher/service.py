@@ -1250,22 +1250,25 @@ def _answer_check(vault: Any, repository: Any, state: LessonState, payload: Mapp
     retained = _latest_forecast(state, "lesson_step_retained", node_id)
     # The pool's forecaster is the one that made the forecast being mixed in (its doctrine and model).
     family = str((retained or {}).get("family") or _family_of(state.lesson.get("model")))
-    reference = None
-    if retained is not None:
-        reference = CK.cold_reference(vault, repository, lo, lesson_id=state.lesson_id,
-                                      exclude=_lesson_shown(vault, state),
-                                      lesson_item_ids=[c["minted_item_id"] for c in state.checks
-                                                       if c.get("minted_item_id")])
-    mass = CK.check_mass(vault, repository, learning_object_id=lo, tap=tap, hedge=hedge, correctness=correctness,
-                         item=item, as_of=as_of, p_teacher_retained=(retained or {}).get("p"), family=family,
-                         reference=reference)
     correct_forecast = _latest_forecast(state, "lesson_check_correct", open_check["check_ref"])
-    CK.record_answered_check(
-        vault, repository, lesson_id=state.lesson_id, node_id=node_id, check_ref=open_check["check_ref"], item=item,
-        attempt_id=attempt_id, answer=answer, grade=grade, grading_run_id=run_id,
-        grading_source=clients.grading_source, tap=tap, mass=mass, created_at=as_of,
-        forecast_correct_key=(correct_forecast or {}).get("key"), forecast_retained_key=(retained or {}).get("key"),
-        clock=clock)
+    # The weighing, its recorded prior and the check's own application read one state (review L42-R5): another
+    # process's grade on this learning object commits wholly before the weighing or after the check is recorded.
+    with repository.atomic():
+        reference = None
+        if retained is not None:
+            reference = CK.cold_reference(vault, repository, lo, lesson_id=state.lesson_id,
+                                          exclude=_lesson_shown(vault, state),
+                                          lesson_item_ids=[c["minted_item_id"] for c in state.checks
+                                                           if c.get("minted_item_id")])
+        mass = CK.check_mass(vault, repository, learning_object_id=lo, tap=tap, hedge=hedge, correctness=correctness,
+                             item=item, as_of=as_of, p_teacher_retained=(retained or {}).get("p"), family=family,
+                             reference=reference)
+        CK.record_answered_check(
+            vault, repository, lesson_id=state.lesson_id, node_id=node_id, check_ref=open_check["check_ref"],
+            item=item, attempt_id=attempt_id, answer=answer, grade=grade, grading_run_id=run_id,
+            grading_source=clients.grading_source, tap=tap, mass=mass, created_at=as_of,
+            forecast_correct_key=(correct_forecast or {}).get("key"),
+            forecast_retained_key=(retained or {}).get("key"), clock=clock)
     if "episodes" in state.capabilities:
         # TE2-log: a detour on this node closes at its re-check (its own savepoint; never blocks the answer).
         E.close_episodes(repository, state.lesson_id, closed_at=as_of, reason="rechecked", node_id=node_id,
