@@ -76,6 +76,60 @@ def resolve(vault: Any, repository: Any, text: str, *, client: Any | None = None
     return out
 
 
+def proposal_text(request: Any) -> str:
+    return f"Proposed topic for “{request.phrase}” ({FROM_MODEL}): {request.title} — {request.statement}"
+
+
+def offer_text(entry: Mapping[str, Any], *, active: bool = True) -> str:
+    data = entry["payload"]
+    if data["status"] == "matched":
+        return "Your library already has a matching topic."
+    if data["status"] != "pending":
+        return "LearnLoop could not offer that topic."
+    if not active:
+        return f"LearnLoop offered to add “{data['title']}”."
+    ref = f"t{entry['seq']}"
+    return (f"Add “{data['title']}”? Reply “Library {ref}” to look in your library, "
+            f"“Add {ref}” to create it, or “Skip {ref}” to decline.")
+
+
+def offer_decision(turns: Sequence[Mapping[str, Any]], text: str) -> tuple[str, Mapping[str, Any]] | None:
+    """Only an explicit learner reply naming a recorded offer can authorize the write."""
+    words = text.casefold().split()
+    if len(words) != 2 or words[0] not in ("library", "add", "skip"):
+        return None
+    for entry in turns:
+        if (entry["action"] == "topic_offer" and entry["payload"]["status"] == "pending"
+                and words[1] == f"t{entry['seq']}"):
+            return words[0], entry
+    return None
+
+
+def create_offered_topic(vault: Any, repository: Any, state: Any, offer: Mapping[str, Any], *,
+                         clock: Any) -> dict[str, Any]:
+    from learnloop.ingest.locators import BLOCK_SPAN_V1, format_block_span
+    from learnloop.source_retrieval import deliverables as DL
+
+    data = offer["payload"]
+    anchors = []
+    for alias in data["anchors"]:
+        if not state.book.available(alias):
+            raise TopicsRefused("protected", PROTECTED_LINE)
+        passage = state.book.passages[alias]
+        extraction, span = passage["extraction_id"], passage["span_id"]
+        anchors.append({"ref_type": "canonical_source", "ref_id": extraction, "extraction_id": extraction,
+                        "span_ids": [span], "locator": format_block_span(extraction, span),
+                        "locator_scheme": BLOCK_SPAN_V1})
+    try:
+        made = DL.create_lesson_topic(vault, repository, lesson_id=state.lesson_id, phrase=data["phrase"],
+                                      title=data["title"], statement=data["statement"], subject_id=data["subject_id"],
+                                      anchors=anchors, clock=clock)
+    except DL.DeliverableError as exc:
+        raise TopicsRefused(exc.code, str(exc)) from exc
+    return {"learning_object_id": made["learning_object_id"], "created": made["created"], "phrase": data["phrase"],
+            "title": data["title"], "label": FROM_MODEL}
+
+
 @dataclass
 class OpenPlan:
     learning_object_ids: list[str]

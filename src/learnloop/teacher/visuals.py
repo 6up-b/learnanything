@@ -246,7 +246,7 @@ def not_built_for_protection(resolved: Mapping[str, Any]) -> dict[str, Any]:
             "reason": "some of what this lesson relied on is now kept for your exam, so the figure isn't built"}
 
 
-def build(vault: Any, repository: Any, state: Any, resolved: Mapping[str, Any], builder: Builder, *,
+def build(vault: Any, repository: Any, state: Any, resolved: Mapping[str, Any], builder: Builder | None, *,
           caller: Any) -> dict[str, Any]:
     """Build the step's figure: ``{status, figure_id?, reason?, code?}`` (never raises a refusal; a spend
     refusal of the lesson's envelope propagates, so the lesson closes with ``budget``)."""
@@ -254,6 +254,8 @@ def build(vault: Any, repository: Any, state: Any, resolved: Mapping[str, Any], 
     from learnloop.figures import request as FQ
 
     base = _base(resolved)
+    if builder is None:
+        return {**base, "status": UNAVAILABLE, "code": "no_builder", "reason": "This host cannot build the figure."}
     try:
         outcome = builder(figure_request(state, resolved, caller=caller))
     except FQ.FigureRefused as exc:
