@@ -1174,6 +1174,25 @@ async def run_intent(page: Page, base: str, results: Results, shots: Path | None
     value = await page.locator("[data-intent-box] input").input_value()
     rect = await companion_rect(page)
     results.check("with the focus in the intent box, c and / are typed into it and summon nothing", value.endswith("cc/") and rect is None and await page.locator("[data-desk-search]").count() == 0, [value, rect])
+    await page.keyboard.press("Escape")
+    await page.mouse.click(5, 300)
+    await settle(page, 300)
+    # Ctrl+drag boxes over the book's text (the Reader's marquee, spec §7.1): releasing ctrl commits the boxes' words
+    # as one selection in the window, and the desks take neither the drag (no zoom scrub) nor the chord.
+    box = await page.evaluate("""() => { const ps = [...document.querySelectorAll('[data-desk-window="fx_w_book"] [data-span-id]')].filter((e) => e.textContent.includes('largest score') || e.textContent.includes('Adding the same constant'));
+      ps[0].scrollIntoView({ block: 'center' }); const a = ps[0].getBoundingClientRect(); return { x: a.x, y: a.y, w: a.width, h: a.height }; }""")
+    box_before = await page.locator('[data-desk-window="fx_w_book"] [data-intent-box]').count()
+    await page.keyboard.down("Control")
+    await page.mouse.move(box["x"] + 4, box["y"] + 2)
+    await page.mouse.down()
+    await page.mouse.move(box["x"] + box["w"] * 0.6, box["y"] + box["h"] - 2, steps=8)
+    await page.mouse.up()
+    await page.keyboard.up("Control")
+    await settle(page, 500)
+    marquee = await page.evaluate("""() => ({ box: !!document.querySelector('[data-desk-window="fx_w_book"] [data-intent-box]'),
+      overview: document.querySelector('[data-desk-shell]')?.getAttribute('data-overview'), zooming: document.querySelector('[data-desk-shell]')?.classList.contains('zooming') })""")
+    results.check("ctrl+drag boxes over a book window's text commit their words as one selection there (its intent box), and the desks neither zoom nor take the chord",
+                  box_before == 0 and marquee["box"] and marquee["overview"] == "off" and not marquee["zooming"], [box_before, marquee])
 
 
 GOAL_BOOK = "[data-desk-window='fx_w_book']"
