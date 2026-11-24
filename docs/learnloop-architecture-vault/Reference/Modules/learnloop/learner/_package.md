@@ -86,8 +86,8 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/learner/inference_precheck|learnloop.learner.inference_precheck]] | [[Reference/Modules/learnloop/learner/inference_precheck#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/learner/learner_profile|learnloop.learner.learner_profile]] | [[Reference/Modules/learnloop/learner/learner_profile#^module-purpose|purpose]] | `ACTIVE` | 4 | 3 |
 | [[Reference/Modules/learnloop/learner/learner_review_feed|learnloop.learner.learner_review_feed]] | [[Reference/Modules/learnloop/learner/learner_review_feed#^module-purpose|purpose]] | `ACTIVE` | 1 | 7 |
-| [[Reference/Modules/learnloop/learner/lesson_weight|learnloop.learner.lesson_weight]] | [[Reference/Modules/learnloop/learner/lesson_weight#^module-purpose|purpose]] | `ACTIVE` | 12 | 11 |
-| [[Reference/Modules/learnloop/learner/mastery|learnloop.learner.mastery]] | [[Reference/Modules/learnloop/learner/mastery#^module-purpose|purpose]] | `ACTIVE` | 42 | 20 |
+| [[Reference/Modules/learnloop/learner/lesson_weight|learnloop.learner.lesson_weight]] | [[Reference/Modules/learnloop/learner/lesson_weight#^module-purpose|purpose]] | `ACTIVE` | 13 | 14 |
+| [[Reference/Modules/learnloop/learner/mastery|learnloop.learner.mastery]] | [[Reference/Modules/learnloop/learner/mastery#^module-purpose|purpose]] | `ACTIVE` | 42 | 22 |
 | [[Reference/Modules/learnloop/learner/mastery_seed|learnloop.learner.mastery_seed]] | [[Reference/Modules/learnloop/learner/mastery_seed#^module-purpose|purpose]] | `ACTIVE` | 5 | 0 |
 | [[Reference/Modules/learnloop/learner/mastery_step_attribution|learnloop.learner.mastery_step_attribution]] | [[Reference/Modules/learnloop/learner/mastery_step_attribution#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/learner/measurement_state|learnloop.learner.measurement_state]] | [[Reference/Modules/learnloop/learner/measurement_state#^module-purpose|purpose]] | `ACTIVE` | 3 | 1 |
@@ -102,15 +102,15 @@ For system intent, use [[Learning System]].
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/_package|learnloop]] — 30 static module edges
-- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 27 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 31 static module edges
+- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 28 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 26 static module edges
+- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 6 static module edges
 - [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] — 6 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 5 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 5 static module edges
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 5 static module edges
 - [[Reference/Modules/learnloop/config/_package|learnloop.config]] — 4 static module edges
-- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 4 static module edges
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 1 static module edge
 - [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] — 1 static module edge
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 1 static module edge
@@ -119,8 +119,8 @@ For system intent, use [[Learning System]].
 ### Packages that import this package
 
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 28 static module edges
+- [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 19 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 18 static module edges
-- [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 18 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 15 static module edges
 - [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] — 14 static module edges
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 9 static module edges
@@ -159,24 +159,24 @@ This diagram compresses package-level static imports; edge labels are distinct m
 flowchart LR
     center["learnloop.learner"]
     n_learnloop["learnloop"]
-    n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
     n_learnloop_db["learnloop.db"]
+    n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
     n_learnloop_vault["learnloop.vault"]
-    n_learnloop_diagnosis["learnloop.diagnosis"]
     n_learnloop_substrate["learnloop.substrate"]
+    n_learnloop_diagnosis["learnloop.diagnosis"]
     n_learnloop_attempts["learnloop.attempts"]
     n_learnloop_goals["learnloop.goals"]
     n_learnloop_content_authoring["learnloop.content.authoring"]
     n_learnloop_tutor["learnloop.tutor"]
     n_learnloop -->|3| center
-    center -->|30| n_learnloop
+    center -->|31| n_learnloop
+    center -->|28| n_learnloop_db
     n_learnloop_sidecar_handlers -->|28| center
-    center -->|27| n_learnloop_db
     center -->|26| n_learnloop_vault
+    n_learnloop_substrate -->|19| center
+    center -->|5| n_learnloop_substrate
     n_learnloop_diagnosis -->|18| center
     center -->|5| n_learnloop_diagnosis
-    n_learnloop_substrate -->|18| center
-    center -->|5| n_learnloop_substrate
     n_learnloop_attempts -->|15| center
     center -->|5| n_learnloop_attempts
     n_learnloop_goals -->|14| center

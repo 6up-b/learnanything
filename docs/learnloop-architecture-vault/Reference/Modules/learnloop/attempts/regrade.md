@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/attempts/regrade.py](../../../../../../src/learnloop/attempts/regrade.py) |
-| Source lines | 783 |
+| Source lines | 784 |
 | Owning package | [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -69,9 +69,9 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 - `_run_deferred_agent_regrades(vault: LoadedVault, repository: Repository, *, runtime, client: AIProviderClient | None, missing_client_reason: str, grading_source: str, limit: int | None, clock: Clock | None) -> DeferredRegradeResult` ([source](../../../../../../src/learnloop/attempts/regrade.py), line 108)
 - `_publish_regrade(vault: LoadedVault, repository: Repository, attempt: dict, *, item, learning_object, validated: ValidatedCodexGrade, agent_run_id: str, new_evidence_rows: list[dict], first_new_evidence_id: str, new_score: int, rubric, bind_frozen: Any | None, primary_error_type: str | None, content_events: list[dict], blind_record: dict | None, prior_blind: dict | None, blind_context_hash: str | None, grader_identity_overrides: dict[str, tuple[str, str] | None] | None, clock: Clock | None, grading_source: str='ai') -> None` ([source](../../../../../../src/learnloop/attempts/regrade.py), line 508) — Every write of one regrade, in order, inside the caller's transaction.
-- `_agent_run_provider_fields(client: AIProviderClient, runtime) -> dict[str, str | None]` ([source](../../../../../../src/learnloop/attempts/regrade.py), line 752)
-- `_manual_review_reason(existing: str | None, attempt: dict) -> str | None` ([source](../../../../../../src/learnloop/attempts/regrade.py), line 768)
-- `_disagreement_summary(old_evidence, new_evidence_rows, old_score: int, new_score: int) -> str` ([source](../../../../../../src/learnloop/attempts/regrade.py), line 780)
+- `_agent_run_provider_fields(client: AIProviderClient, runtime) -> dict[str, str | None]` ([source](../../../../../../src/learnloop/attempts/regrade.py), line 753)
+- `_manual_review_reason(existing: str | None, attempt: dict) -> str | None` ([source](../../../../../../src/learnloop/attempts/regrade.py), line 769)
+- `_disagreement_summary(old_evidence, new_evidence_rows, old_score: int, new_score: int) -> str` ([source](../../../../../../src/learnloop/attempts/regrade.py), line 781)
 
 ## Who imports or calls it
 

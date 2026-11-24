@@ -112,6 +112,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/db/stores/observation_ledger|learnloop.db.stores.observation_ledger]] — imports `AttemptOrder`, `LEGACY_ORDER`
 - [[Reference/Modules/learnloop/field/outcomes|learnloop.field.outcomes]] — imports `attempt_order_for`; statically calls `attempt_order_for`
 - [[Reference/Modules/learnloop/learner/facet_evidence_timeline|learnloop.learner.facet_evidence_timeline]] — imports `AttemptOrder`, `LEGACY_ORDER`, `application_sequences`, `attempt_order_for_version`; statically calls `application_sequences`, `attempt_order_for_version`
+- [[Reference/Modules/learnloop/learner/lesson_weight|learnloop.learner.lesson_weight]] — imports `AttemptOrder`, `LEGACY_ORDER`, `attempt_order_for`; statically calls `attempt_order_for`
 - [[Reference/Modules/learnloop/substrate/canonical_projection|learnloop.substrate.canonical_projection]] — imports `AttemptOrder`, `LEGACY_ORDER`, `application_sequences`, `attempt_order_for_version`; statically calls `application_sequences`, `attempt_order_for_version`
 - [[Reference/Modules/learnloop/substrate/family_memory|learnloop.substrate.family_memory]] — imports `AttemptOrder`, `application_sequences`, `attempt_order_for`; statically calls `application_sequences`, `attempt_order_for`
 - [[Reference/Modules/learnloop/substrate/replay|learnloop.substrate.replay]] — imports `attempt_order_for`; statically calls `attempt_order_for`
@@ -134,7 +135,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Inspect Persistent State]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/replay|learnloop.adaptive_difficulty.replay]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/db/stores/attempts|learnloop.db.stores.attempts]], [[Reference/Modules/learnloop/db/stores/facet_projection|learnloop.db.stores.facet_projection]], [[Reference/Modules/learnloop/db/stores/observation_ledger|learnloop.db.stores.observation_ledger]] and 5 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/replay|learnloop.adaptive_difficulty.replay]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/db/stores/attempts|learnloop.db.stores.attempts]], [[Reference/Modules/learnloop/db/stores/facet_projection|learnloop.db.stores.facet_projection]], [[Reference/Modules/learnloop/db/stores/observation_ledger|learnloop.db.stores.observation_ledger]] and 6 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

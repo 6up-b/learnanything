@@ -141,6 +141,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_teacher_te1_review_fixes.py](../../../../../../tests/test_teacher_te1_review_fixes.py) — direct import
   - `test_f8_a_downstream_edge_alone_is_not_transfer`
   - `test_f8_a_downstream_item_whose_rubric_measures_a_taught_facet_is_transfer`
+- [tests/test_teacher_te5_compaction.py](../../../../../../tests/test_teacher_te5_compaction.py) — direct import
 
 ## Modification guidance
 

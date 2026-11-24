@@ -664,6 +664,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/state_sync_scheduling_race_helpers.py](../../../../../tests/state_sync_scheduling_race_helpers.py) — direct import
 - [tests/stuck_prompt_helpers.py](../../../../../tests/stuck_prompt_helpers.py) — direct import
 - [tests/teach_back_helpers.py](../../../../../tests/teach_back_helpers.py) — direct import
+- [tests/teacher_te1_review_fixes_helpers.py](../../../../../tests/teacher_te1_review_fixes_helpers.py) — direct import
 - [tests/teacher_te1b_suggestions_helpers.py](../../../../../tests/teacher_te1b_suggestions_helpers.py) — direct import
 - [tests/teacher_te2_probes_helpers.py](../../../../../tests/teacher_te2_probes_helpers.py) — direct import
 - [tests/teacher_te2log_receipt_helpers.py](../../../../../tests/teacher_te2log_receipt_helpers.py) — direct import
@@ -1508,6 +1509,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_learner_text_gaps_review.py](../../../../../tests/test_learner_text_gaps_review.py) — direct import
   - `test_f13_the_pipeline_switched_off_queues_exactly_as_the_predecessor_version`
   - `test_f4_without_a_grounded_subject_only_the_anchors_are_judged_and_nothing_is_created`
+- [tests/test_lesson_weight_fit_reads.py](../../../../../tests/test_lesson_weight_fit_reads.py) — direct import
 - [tests/test_library_ask_review.py](../../../../../tests/test_library_ask_review.py) — direct import
   - `test_the_pinned_tutor_burns_a_reserve_it_reproduces_and_joins_history_and_gaps`
 - [tests/test_lp_claim_fixes.py](../../../../../tests/test_lp_claim_fixes.py) — direct import
@@ -2247,6 +2249,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_forecast_report_resolves_it_on_the_first_cold_outcome`
 - [tests/test_teacher_te2log_report.py](../../../../../tests/test_teacher_te2log_report.py) — direct import
   - `test_the_pool_weights_trajectory_per_forecaster`
+- [tests/test_teacher_te5_grade_curves.py](../../../../../tests/test_teacher_te5_grade_curves.py) — direct import
+  - `test_pool_only_endpoint_uses_its_snapshot_and_reports_an_unapplied_replacement`
+  - `test_upgrade_freezes_once_then_refits_and_rebuilds_twice`
 - [tests/test_today_headline.py](../../../../../tests/test_today_headline.py) — direct import
   - `test_a_blueprint_lo_with_an_integration_gap_is_learning`
 - [tests/test_today_surfaces.py](../../../../../tests/test_today_surfaces.py) — direct import

@@ -125,6 +125,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/router_objective/choose|learnloop.router_objective.choose]] — imports `DecisionRecord`, `module`; statically calls `DecisionRecord`, `is_code`, `ref`
 - [[Reference/Modules/learnloop/scheduling/slate_record|learnloop.scheduling.slate_record]] — imports `DecisionRecord`, `current_trace`, `is_code`; statically calls `DecisionRecord`, `current_trace`, `is_code`
 - [[Reference/Modules/learnloop/source_retrieval/deliverable_path|learnloop.source_retrieval.deliverable_path]] — imports `module`; statically calls `DecisionRecord`, `current_trace`, `is_code`, `where`
+- [[Reference/Modules/learnloop/teacher/compaction|learnloop.teacher.compaction]] — imports `module`; statically calls `DecisionRecord`, `ref`, `write`
 - [[Reference/Modules/learnloop/why/reader|learnloop.why.reader]] — imports `module`; statically calls `is_code`, `read`, `read_children`, `read_kind`, `read_naming`, `where`
 - [[Reference/Modules/learnloop/why/reconstructed|learnloop.why.reconstructed]] — imports `module`; statically calls `cap_alternatives`, `is_code`
 - [[Reference/Modules/learnloop_sidecar/background_jobs|learnloop_sidecar.background_jobs]] — imports `module`; statically calls `current_trace`, `trace_scope`
@@ -152,7 +153,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]], [[Reference/Modules/learnloop/attempts/grade_records|learnloop.attempts.grade_records]], [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/content/authoring/jobs|learnloop.content.authoring.jobs]], [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] and 29 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]], [[Reference/Modules/learnloop/attempts/grade_records|learnloop.attempts.grade_records]], [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/content/authoring/jobs|learnloop.content.authoring.jobs]], [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] and 30 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

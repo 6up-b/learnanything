@@ -71,6 +71,7 @@ No private top-level function or class definition is declared in this file.
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `SurpriseResult`, `compute_surprise`; statically calls `compute_surprise`
+- [[Reference/Modules/learnloop/ops/upgrades|learnloop.ops.upgrades]] — imports `score_bucket`; statically calls `score_bucket`
 
 ## Dependencies
 
@@ -95,13 +96,15 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Inspect Persistent State]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]].
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/ops/upgrades|learnloop.ops.upgrades]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
 - [tests/test_surprise.py](../../../../../../tests/test_surprise.py) — direct import
+- [tests/test_teacher_te5_grade_curves.py](../../../../../../tests/test_teacher_te5_grade_curves.py) — direct import
+  - `test_upgrade_labels_superseded_epochs_and_keeps_a_legacy_stamp`
 
 ## Modification guidance
 

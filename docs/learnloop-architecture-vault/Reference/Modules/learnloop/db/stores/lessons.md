@@ -124,6 +124,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/teacher/actions|learnloop.teacher.actions]] — imports `module`; statically calls `receipt`
 - [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]] — imports `module`; statically calls `checks`, `lessons_on`, `receipt`, `turns`
 - [[Reference/Modules/learnloop/teacher/checks|learnloop.teacher.checks]] — imports `module`; statically calls `insert_check`
+- [[Reference/Modules/learnloop/teacher/compaction|learnloop.teacher.compaction]] — imports `module`; statically calls `checks`, `episode_tables_present`, `episodes`
 - [[Reference/Modules/learnloop/teacher/episodes|learnloop.teacher.episodes]] — imports `module`; statically calls `close_episode`, `episode_tables_present`, `episodes`, `insert_episode`, `insert_interval`, `intervals`, `lesson`, `turns`
 - [[Reference/Modules/learnloop/teacher/probes|learnloop.teacher.probes]] — imports `module`; statically calls `append_turn`, `lesson`, `turns`
 - [[Reference/Modules/learnloop/teacher/report|learnloop.teacher.report]] — imports `module`; statically calls `episode_tables_present`, `episodes`, `receipt`
@@ -150,7 +151,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]], [[Reference/Modules/learnloop/diagnosis/text_gaps/sources|learnloop.diagnosis.text_gaps.sources]], [[Reference/Modules/learnloop/teacher/actions|learnloop.teacher.actions]], [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]], [[Reference/Modules/learnloop/teacher/checks|learnloop.teacher.checks]] and 6 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/objective_inputs|learnloop.daily_plan.objective_inputs]], [[Reference/Modules/learnloop/diagnosis/text_gaps/sources|learnloop.diagnosis.text_gaps.sources]], [[Reference/Modules/learnloop/teacher/actions|learnloop.teacher.actions]], [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]], [[Reference/Modules/learnloop/teacher/checks|learnloop.teacher.checks]] and 7 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -172,6 +173,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_teacher_te2log_episodes.py](../../../../../../../tests/test_teacher_te2log_episodes.py) — direct import
   - `test_a_refused_episode_row_rolls_back_alone_and_never_blocks_the_turn`
   - `test_te1s_forecast_node_is_resolved_and_guarded_with_the_switch_off`
+- [tests/test_teacher_te5_compaction.py](../../../../../../../tests/test_teacher_te5_compaction.py) — direct import
+  - `test_compacted_correction_records_one_boundary`
+  - `test_interrupted_compaction_preserves_evidence_and_replays_receipt`
+  - `test_last_turn_plan_in_receipt_matches_stored_versions`
+  - `test_live_boundary_and_predecessor_bytes`
 
 ## Modification guidance
 

@@ -1766,6 +1766,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_fixture_bootstrap_confirms_a_certifying_run`
   - `test_fixture_vault_is_mvp_0_8`
 - [tests/test_golden_path_run.py](../../../../../../tests/test_golden_path_run.py) — direct import
+- [tests/test_grade_curves_capture_integrity.py](../../../../../../tests/test_grade_curves_capture_integrity.py) — direct import
+  - `test_a_grade_committed_after_another_process_upgraded_keeps_its_curve`
 - [tests/test_grade_resolution_pipeline.py](../../../../../../tests/test_grade_resolution_pipeline.py) — direct import
   - `test_exam_answer_dual_writes_assessment_grade`
 - [tests/test_grader_channel_prior_knobs.py](../../../../../../tests/test_grader_channel_prior_knobs.py) — direct import
@@ -2102,6 +2104,18 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f5_a_match_on_the_items_own_lo_is_no_prerequisite_target`
   - `test_f6_a_question_retargeted_by_a_later_reading_is_observed_at_the_reading`
   - `test_f8_a_diagnosis_no_longer_scans_stuck_answers`
+- [tests/test_lesson_weight_fit_reads.py](../../../../../../tests/test_lesson_weight_fit_reads.py) — direct import
+  - `test_a_regrade_committing_while_the_fit_reads_does_not_reach_it`
+  - `test_a_regrade_leaves_the_lesson_weight_tables_as_a_rebuild_would`
+  - `test_an_items_first_use_is_the_attempt_applied_first_in_its_second`
+  - `test_an_update_applied_before_the_outcome_in_its_second_is_in_the_window`
+- [tests/test_lesson_weight_fit_trajectory.py](../../../../../../tests/test_lesson_weight_fit_trajectory.py) — direct import
+  - `test_a_flat_response_keeps_the_learned_mass`
+  - `test_a_reanchoring_claim_inside_the_window_is_labelled_not_recomputed`
+  - `test_a_regraded_answer_before_the_check_moves_the_recomputations_start`
+  - `test_an_update_whose_variance_the_floor_set_is_labelled_not_recomputed`
+  - `test_the_recomputation_applies_the_recorded_floor_at_another_mass`
+  - `test_with_irt_off_the_recomputed_trajectory_reads_full_and_partial_credit`
 - [tests/test_library_ask_expand.py](../../../../../../tests/test_library_ask_expand.py) — direct import
   - `test_a_similar_passage_never_becomes_an_expansion`
   - `test_concept_edges_and_lo_ids_are_read_too`
@@ -3531,6 +3545,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_randomized_checks_are_scored_apart_with_their_r`
   - `test_the_pool_weights_trajectory_per_forecaster`
   - `test_the_report_on_a_synthetic_lesson`
+- [tests/test_teacher_te5_compaction.py](../../../../../../tests/test_teacher_te5_compaction.py) — direct import
 - [tests/test_teacher_te5_contracts.py](../../../../../../tests/test_teacher_te5_contracts.py) — direct import
   - `test_a_lesson_uses_the_capabilities_recorded_at_open`
 - [tests/test_teacher_te5_goal_topics.py](../../../../../../tests/test_teacher_te5_goal_topics.py) — direct import
@@ -3539,6 +3554,13 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_existing_topic_never_offers_creation`
   - `test_lookup_consent_replay_and_receipt`
   - `test_resume_after_yaml_publication_finishes_consent_once`
+- [tests/test_teacher_te5_grade_curves.py](../../../../../../tests/test_teacher_te5_grade_curves.py) — direct import
+  - `test_a_rebuild_seeds_measured_difficulty_from_the_recorded_cold_curve`
+  - `test_an_unapplied_adjudication_before_the_upgrade_is_not_given_the_applied_epochs_curve`
+  - `test_pool_only_endpoint_uses_its_snapshot_and_reports_an_unapplied_replacement`
+  - `test_regrade_adds_a_curve_for_only_the_new_epoch`
+  - `test_upgrade_freezes_once_then_refits_and_rebuilds_twice`
+  - `test_upgrade_labels_superseded_epochs_and_keeps_a_legacy_stamp`
 - [tests/test_tier1_decider.py](../../../../../../tests/test_tier1_decider.py) — direct import
   - `test_a_decider_cancellation_in_misconception_matching_never_reaches_the_llm`
   - `test_a_review_resume_refuses_a_changed_decider_profile`

@@ -195,6 +195,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_shadow_rebuild_after_a_lesson_has_zero_projection_deltas`
 - [tests/test_teacher_te2_lessons.py](../../../../../../tests/test_teacher_te2_lessons.py) — direct import
   - `test_rebuild_equivalence_on_a_lesson_with_a_probe`
+- [tests/test_teacher_te5_grade_curves.py](../../../../../../tests/test_teacher_te5_grade_curves.py) — direct import
+  - `test_upgrade_freezes_once_then_refits_and_rebuilds_twice`
 - [tests/test_version_floor.py](../../../../../../tests/test_version_floor.py) — direct import
   - `test_a_shadow_rebuild_cannot_be_forced_below_the_floor`
   - `test_a_shadow_rebuild_cannot_be_forced_to_a_tag_this_code_does_not_know`

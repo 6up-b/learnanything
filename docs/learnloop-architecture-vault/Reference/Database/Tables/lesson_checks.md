@@ -126,6 +126,7 @@ None found by exact static reference scan.
 - `tests/test_teacher_te1_review_fixes.py`
 - `tests/test_teacher_te1_weight.py`
 - `tests/test_teacher_te2log_episodes.py`
+- `tests/test_teacher_te5_grade_curves.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

@@ -197,6 +197,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_teach_back.py](../../../../../../tests/test_teach_back.py) — direct import
 - [tests/test_teacher_te1_review_fixes.py](../../../../../../tests/test_teacher_te1_review_fixes.py) — direct import
   - `test_f2_a_held_cold_grade_resolves_nothing_until_released`
+- [tests/test_teacher_te5_grade_curves.py](../../../../../../tests/test_teacher_te5_grade_curves.py) — direct import
+  - `test_an_unapplied_adjudication_before_the_upgrade_is_not_given_the_applied_epochs_curve`
+  - `test_pool_only_endpoint_uses_its_snapshot_and_reports_an_unapplied_replacement`
 - [tests/test_unresolved_cause_gate.py](../../../../../../tests/test_unresolved_cause_gate.py) — direct import
 - [tests/test_ux_phase4_feedback.py](../../../../../../tests/test_ux_phase4_feedback.py) — direct import
   - `test_f3_an_unresolved_contest_is_queued_for_review_and_adjudication_clears_it`

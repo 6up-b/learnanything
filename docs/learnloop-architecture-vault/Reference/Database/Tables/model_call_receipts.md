@@ -116,6 +116,7 @@ Indexes and uniqueness:
 
 ### Repository access surface
 
+- `Repository.annotate_started_receipt()`
 - `Repository.finish_receipt()`
 - `Repository.ingest_batch_spend_rows()`
 - `Repository.model_call_roots_since()`
@@ -145,6 +146,7 @@ Indexes and uniqueness:
 - `src/learnloop/source_retrieval/timing.py`
 - `src/learnloop/substrate/data_quality.py`
 - `src/learnloop/substrate/model_usage.py`
+- `src/learnloop/teacher/compaction.py`
 - `src/learnloop/why/reader.py`
 - `src/learnloop/why/reconstructed.py`
 - `src/learnloop/workbench/check.py`

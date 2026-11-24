@@ -21,8 +21,8 @@ source_paths:
   - "src/learnloop/cli/app.py"
   - "src/learnloop/figures/records.py"
   - "src/learnloop/provenance.py"
+  - "src/learnloop/teacher/compaction.py"
   - "src/learnloop/why/reader.py"
-  - "src/learnloop/why/reconstructed.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"
@@ -100,6 +100,7 @@ None found by exact static reference scan.
 ### Direct SQL readers
 
 - `src/learnloop/figures/records.py`
+- `src/learnloop/teacher/compaction.py`
 
 ### Direct SQL writers
 

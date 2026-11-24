@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/ai/execution.py](../../../../../../src/learnloop/ai/execution.py) |
-| Source lines | 644 |
+| Source lines | 647 |
 | Owning package | [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
@@ -85,21 +85,21 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
   - `answer_stored(self, call: Callable[[], T], *, usage: Callable[[T], dict[str, Any]] | None=None) -> tuple[T, bool, Any]` (line 342; public) — :meth:`answer`, with the stored form of the answer served (what :meth:`discard` names).
 - `checkpointed(store: CheckpointStore, *, purpose: str, prompt: Any, schema: Any, settings: dict[str, Any] | None, result_model: type[T], identity_extra: dict[str, Any] | None=None, validate: Callable[[T], Any] | None=None) -> ModelCheckpoint[T]` ([source](../../../../../../src/learnloop/ai/execution.py), line 354) — The checkpoint of one paid structured call keyed on what it sends (:func:`request_key`), reading its answer back as ``result_model`` and, when given, ``validate`` (which raises on an answer that no longer holds).
 - `observe_model_calls(observer: Callable[[str, dict[str, Any]], Any])` ([source](../../../../../../src/learnloop/ai/execution.py), line 374)
-- `tee_model_calls(observer: Callable[[str, dict[str, Any]], Any])` ([source](../../../../../../src/learnloop/ai/execution.py), line 383) — Also observe model calls with ``observer``, keeping the context's own observer.
-- `class RequestGate(Protocol)` ([source](../../../../../../src/learnloop/ai/execution.py), line 408) — Admission for each physical model request made in a context.
-  - `admit(self, client: Any, *, purpose: str, prompt: Any, budget: int | None) -> Any` (line 420; public)
-  - `settle(self, admission: Any, usage: dict[str, Any]) -> None` (line 423; public)
-- `gate_model_requests(gate: RequestGate)` ([source](../../../../../../src/learnloop/ai/execution.py), line 428) — Admit every physical model request started in this context through ``gate``.
-- `active_request_gate() -> RequestGate | None` ([source](../../../../../../src/learnloop/ai/execution.py), line 438) — The request gate installed in this context, if any: a caller adding a check of its own composes with it instead of replacing it.
-- `class ModelEventStore(Protocol)` ([source](../../../../../../src/learnloop/ai/execution.py), line 445)
-  - `record_model_event(self, action: str, event: dict[str, Any], *, owner_kind: str, owner_id: str) -> None` (line 446; public)
-- `record_model_calls(store: ModelEventStore, *, owner_kind: str, owner_id: str)` ([source](../../../../../../src/learnloop/ai/execution.py), line 450) — Observe every model call in this context into ``store`` under one owner.
-- `declared_budgets(budgets: dict[str, Any])` ([source](../../../../../../src/learnloop/ai/execution.py), line 463) — Record the token budgets an operation runs under on its root receipts.
-- `generation_limit(output_tokens: int | None, *, ceiling: int | None=None)` ([source](../../../../../../src/learnloop/ai/execution.py), line 478) — Hold the calls in this context to ``output_tokens``, the size an answer is asked to aim for (a route that takes no output cap states it in the prompt).
-- `output_limit() -> int | None` ([source](../../../../../../src/learnloop/ai/execution.py), line 507)
-- `generation_ceiling() -> int | None` ([source](../../../../../../src/learnloop/ai/execution.py), line 511) — The most a complete answer in this context may be (at least :func:`output_limit`), or None when nothing holds it.
-- `observed_sdk_turn(function)` ([source](../../../../../../src/learnloop/ai/execution.py), line 518)
-- `model_call(client: Any, *, purpose: str, prompt: Any=None, schema: Any=None, budget: int | None=None, wrapper: bool=False)` ([source](../../../../../../src/learnloop/ai/execution.py), line 529) — One model call: a receipt for the observer and, unless ``wrapper`` (an operation around the physical requests a provider makes), admission through the context's request gate before anything is sent.
+- `tee_model_calls(observer: Callable[[str, dict[str, Any]], Any], *, require_start: bool=False)` ([source](../../../../../../src/learnloop/ai/execution.py), line 383) — Also observe model calls with ``observer``, keeping the context's own observer.
+- `class RequestGate(Protocol)` ([source](../../../../../../src/learnloop/ai/execution.py), line 411) — Admission for each physical model request made in a context.
+  - `admit(self, client: Any, *, purpose: str, prompt: Any, budget: int | None) -> Any` (line 423; public)
+  - `settle(self, admission: Any, usage: dict[str, Any]) -> None` (line 426; public)
+- `gate_model_requests(gate: RequestGate)` ([source](../../../../../../src/learnloop/ai/execution.py), line 431) — Admit every physical model request started in this context through ``gate``.
+- `active_request_gate() -> RequestGate | None` ([source](../../../../../../src/learnloop/ai/execution.py), line 441) — The request gate installed in this context, if any: a caller adding a check of its own composes with it instead of replacing it.
+- `class ModelEventStore(Protocol)` ([source](../../../../../../src/learnloop/ai/execution.py), line 448)
+  - `record_model_event(self, action: str, event: dict[str, Any], *, owner_kind: str, owner_id: str) -> None` (line 449; public)
+- `record_model_calls(store: ModelEventStore, *, owner_kind: str, owner_id: str)` ([source](../../../../../../src/learnloop/ai/execution.py), line 453) — Observe every model call in this context into ``store`` under one owner.
+- `declared_budgets(budgets: dict[str, Any])` ([source](../../../../../../src/learnloop/ai/execution.py), line 466) — Record the token budgets an operation runs under on its root receipts.
+- `generation_limit(output_tokens: int | None, *, ceiling: int | None=None)` ([source](../../../../../../src/learnloop/ai/execution.py), line 481) — Hold the calls in this context to ``output_tokens``, the size an answer is asked to aim for (a route that takes no output cap states it in the prompt).
+- `output_limit() -> int | None` ([source](../../../../../../src/learnloop/ai/execution.py), line 510)
+- `generation_ceiling() -> int | None` ([source](../../../../../../src/learnloop/ai/execution.py), line 514) — The most a complete answer in this context may be (at least :func:`output_limit`), or None when nothing holds it.
+- `observed_sdk_turn(function)` ([source](../../../../../../src/learnloop/ai/execution.py), line 521)
+- `model_call(client: Any, *, purpose: str, prompt: Any=None, schema: Any=None, budget: int | None=None, wrapper: bool=False)` ([source](../../../../../../src/learnloop/ai/execution.py), line 532) — One model call: a receipt for the observer and, unless ``wrapper`` (an operation around the physical requests a provider makes), admission through the context's request gate before anything is sent.
 
 ### Module constants
 
@@ -109,9 +109,9 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 
 ## Internal implementation anchors
 
-- `_observed_call(client: Any, *, purpose: str, prompt: Any, schema: Any, budget: int | None, collect_usage: bool=False, reservation_ref: str | None=None)` ([source](../../../../../../src/learnloop/ai/execution.py), line 568)
-- `_failure_status(exc: BaseException) -> str` ([source](../../../../../../src/learnloop/ai/execution.py), line 625)
-- `_record_finish(observer: Callable[[str, dict[str, Any]], Any], call_id: str, metadata: dict[str, Any]) -> None` ([source](../../../../../../src/learnloop/ai/execution.py), line 633) — Best-effort: the durable start is the safety guarantee, the finish is telemetry.
+- `_observed_call(client: Any, *, purpose: str, prompt: Any, schema: Any, budget: int | None, collect_usage: bool=False, reservation_ref: str | None=None)` ([source](../../../../../../src/learnloop/ai/execution.py), line 571)
+- `_failure_status(exc: BaseException) -> str` ([source](../../../../../../src/learnloop/ai/execution.py), line 628)
+- `_record_finish(observer: Callable[[str, dict[str, Any]], Any], call_id: str, metadata: dict[str, Any]) -> None` ([source](../../../../../../src/learnloop/ai/execution.py), line 636) — Best-effort: the durable start is the safety guarantee, the finish is telemetry.
 
 ## Who imports or calls it
 
@@ -242,7 +242,8 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - [[Reference/Modules/learnloop/source_retrieval/video_chapters|learnloop.source_retrieval.video_chapters]] — imports `call_labels`, `content_key`, `gate_model_requests`; statically calls `call_labels`, `content_key`, `gate_model_requests`
 - [[Reference/Modules/learnloop/substrate/families|learnloop.substrate.families]] — imports `content_key`; statically calls `content_key`
 - [[Reference/Modules/learnloop/teacher/checks|learnloop.teacher.checks]] — imports `content_key`; statically calls `content_key`
-- [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] — imports `active_request_gate`, `gate_model_requests`; statically calls `active_request_gate`, `gate_model_requests`
+- [[Reference/Modules/learnloop/teacher/compaction|learnloop.teacher.compaction]] — imports `tee_model_calls`; statically calls `tee_model_calls`
+- [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] — imports `active_request_gate`, `gate_model_requests`, `generation_ceiling`; statically calls `active_request_gate`, `gate_model_requests`, `generation_ceiling`
 - [[Reference/Modules/learnloop/tui/state|learnloop.tui.state]] — imports `record_model_calls`; statically calls `record_model_calls`
 - [[Reference/Modules/learnloop/tutor/tutor_qa|learnloop.tutor.tutor_qa]] — imports `content_key`; statically calls `content_key`
 - [[Reference/Modules/learnloop/why/reconstructed|learnloop.why.reconstructed]] — imports `content_key`; statically calls `content_key`
@@ -278,7 +279,7 @@ Use this module in context through:
 - [[Configure AI Providers]]
 - [[Process Model Output]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_audit|learnloop.adaptive_difficulty.history_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/adaptive_difficulty/sending|learnloop.adaptive_difficulty.sending]] and 134 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_audit|learnloop.adaptive_difficulty.history_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/adaptive_difficulty/sending|learnloop.adaptive_difficulty.sending]] and 135 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -534,6 +535,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_teacher_structured_contracts.py](../../../../../../tests/test_teacher_structured_contracts.py) — direct import
   - `test_all_eight_turn_variants_check_inside_receipt`
   - `test_two_failed_turns_leave_the_existing_third_slot`
+- [tests/test_teacher_te5_compaction.py](../../../../../../tests/test_teacher_te5_compaction.py) — direct import
+  - `test_compacted_correction_records_one_boundary`
 - [tests/test_tier1_decider.py](../../../../../../tests/test_tier1_decider.py) — direct import
   - `test_contamination_one_routes_switch_restores_its_old_checkpoints_budget_check_and_ledger`
   - `test_decider_receipt_and_spend_ignore_llm_output_budget`

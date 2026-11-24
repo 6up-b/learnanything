@@ -219,6 +219,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_forecast_receipts_landing.py](../../../../../../tests/test_forecast_receipts_landing.py) — direct import
   - `test_the_renumbered_migration_and_its_table_role`
 - [tests/test_goal_contracts.py](../../../../../../tests/test_goal_contracts.py) — direct import
+- [tests/test_grade_curves_migration.py](../../../../../../tests/test_grade_curves_migration.py) — direct import
+  - `test_migration_adds_the_empty_immutable_ledger_and_keeps_predecessor_rows`
 - [tests/test_help_assist_figures_migration.py](../../../../../../tests/test_help_assist_figures_migration.py) — direct import
   - `test_232_is_the_figures_migration_and_help_assists_stays_a_raw_ledger`
   - `test_232_on_the_durability_lane`

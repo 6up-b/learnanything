@@ -113,7 +113,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/adaptive_difficulty/forecasters|learnloop.adaptive_difficulty.forecasters]] — imports `resolve_item_irt_params`; statically calls `resolve_item_irt_params`
-- [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `MasteryObservation`, `MasteryObservationTrace`, `MasterySeed`, `display_mastery`, `item_irt_params`, `resolve_item_irt_params`, `seed_for_learning_object`, `update_item_difficulty`, `update_mastery_traced`; statically calls `MasteryObservation`, `display_mastery`, `item_irt_params`, `resolve_item_irt_params`, `seed_for_learning_object`, `update_item_difficulty`, `update_mastery_traced`
+- [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `MasteryObservation`, `MasteryObservationTrace`, `MasterySeed`, `display_mastery`, `resolve_item_irt_params`, `seed_for_learning_object`, `update_item_difficulty`, `update_mastery_traced`; statically calls `MasteryObservation`, `display_mastery`, `resolve_item_irt_params`, `seed_for_learning_object`, `update_item_difficulty`, `update_mastery_traced`
 - [[Reference/Modules/learnloop/attempts/surprise|learnloop.attempts.surprise]] — imports `MasteryObservation`, `irt_observation`, `logit`, `observation_weight`, `sigmoid`; statically calls `irt_observation`, `logit`, `observation_weight`, `sigmoid`
 - [[Reference/Modules/learnloop/content/authoring/item_authoring|learnloop.content.authoring.item_authoring]] — imports `replace_claim_and_reanchor`; statically calls `replace_claim_and_reanchor`
 - [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]] — imports `covering_learner_claim`, `display_mastery`; statically calls `covering_learner_claim`, `display_mastery`
@@ -223,6 +223,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_after_what_they_replaced_handles_a_chain_longer_than_the_recursion_limit`
   - `test_after_what_they_replaced_moves_only_a_replacement_that_would_sort_first`
   - `test_two_writers_on_one_warm_lo_apply_their_reports_in_the_order_replay_reads`
+- [tests/test_lesson_weight_fit_trajectory.py](../../../../../../tests/test_lesson_weight_fit_trajectory.py) — direct import
+  - `test_a_reanchoring_claim_inside_the_window_is_labelled_not_recomputed`
 - [tests/test_lp_claim_fixes.py](../../../../../../tests/test_lp_claim_fixes.py) — direct import
   - `test_defect1_on_a_gap_declaration_reanchors_a_materialized_lo`
   - `test_defect2_on_a_claim_between_attempts_reanchors_between_them`
@@ -259,6 +261,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_state_sync_seeds_from_weak_learner_claim_below_probe_threshold`
   - `test_state_sync_uses_strong_learner_claim_for_initial_mastery`
 - [tests/test_surprise.py](../../../../../../tests/test_surprise.py) — direct import
+- [tests/test_teacher_te1_review_fixes.py](../../../../../../tests/test_teacher_te1_review_fixes.py) — direct import
+  - `test_f6_the_trajectory_at_the_recorded_mass_reproduces_the_outcomes_recorded_prior`
 - [tests/test_tutor_promotion_w2.py](../../../../../../tests/test_tutor_promotion_w2.py) — direct import
   - `test_high_claim_preserves_mean_and_respects_claim_variance_floor`
   - `test_low_claim_now_seeds_prior`

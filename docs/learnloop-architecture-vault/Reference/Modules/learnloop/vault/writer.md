@@ -416,7 +416,13 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_incremental_watch_refresh_keeps_an_attempt_committed_after_its_read`
 - [tests/test_subject_registry.py](../../../../../../tests/test_subject_registry.py) — direct import
 - [tests/test_teach_back.py](../../../../../../tests/test_teach_back.py) — direct import
+- [tests/test_teacher_te1_review_fixes.py](../../../../../../tests/test_teacher_te1_review_fixes.py) — direct import
+  - `test_f6_the_trajectory_at_the_recorded_mass_reproduces_the_outcomes_recorded_prior`
 - [tests/test_teacher_te2log_episodes.py](../../../../../../tests/test_teacher_te2log_episodes.py) — direct import
+- [tests/test_teacher_te5_grade_curves.py](../../../../../../tests/test_teacher_te5_grade_curves.py) — direct import
+  - `test_a_rebuild_seeds_measured_difficulty_from_the_recorded_cold_curve`
+  - `test_regrade_adds_a_curve_for_only_the_new_epoch`
+  - `test_upgrade_freezes_once_then_refits_and_rebuilds_twice`
 - [tests/test_tui_practice.py](../../../../../../tests/test_tui_practice.py) — direct import
   - `test_practice_screen_uses_item_allowed_attempt_type`
 - [tests/test_tutor_delivery_fixes.py](../../../../../../tests/test_tutor_delivery_fixes.py) — direct import

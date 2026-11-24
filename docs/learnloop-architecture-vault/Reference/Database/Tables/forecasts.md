@@ -117,6 +117,7 @@ Indexes and uniqueness:
 - `src/learnloop/evsi_calibration/live_report.py`
 - `src/learnloop/goals/forecast_ledger.py`
 - `src/learnloop/scheduling/voi_forecasts.py`
+- `src/learnloop/teacher/service.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

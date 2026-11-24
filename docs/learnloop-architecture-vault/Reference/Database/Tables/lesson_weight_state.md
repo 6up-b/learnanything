@@ -90,10 +90,12 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/teacher_te1_migration_helpers.py`
+- `tests/test_lesson_weight_fit_reads.py`
 - `tests/test_reader_rw5d_p4b_teacher_visuals.py`
 - `tests/test_rebuild_orchestrator.py`
 - `tests/test_teacher_te1_successor.py`
 - `tests/test_teacher_te1_weight.py`
+- `tests/test_teacher_te5_grade_curves.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

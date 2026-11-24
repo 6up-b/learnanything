@@ -19,6 +19,7 @@ source_paths:
   - "src/learnloop/algorithm_versions.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/attempts.py"
+  - "src/learnloop/db/stores/grade_curves.py"
   - "src/learnloop/db/stores/intent_reads.py"
   - "src/learnloop/db/stores/learner_model.py"
   - "src/learnloop/db/stores/practice_state.py"
@@ -109,6 +110,7 @@ Indexes and uniqueness:
 
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/attempts.py`
+- `src/learnloop/db/stores/grade_curves.py`
 - `src/learnloop/db/stores/intent_reads.py`
 - `src/learnloop/db/stores/learner_model.py`
 - `src/learnloop/db/stores/practice_state.py`
@@ -164,6 +166,7 @@ Indexes and uniqueness:
 - `tests/test_ro1_projection.py`
 - `tests/test_sg_slip_vs_gap.py`
 - `tests/test_signal_quantiles.py`
+- `tests/test_teacher_te5_grade_curves.py`
 - `tests/test_voi_forecasts.py`
 - `tests/test_voi_merge_composition.py`
 - `tests/ro1_interval_factor_helpers.py`
@@ -172,7 +175,6 @@ Indexes and uniqueness:
 - `tests/test_attempt_completion.py`
 - `tests/test_attempts.py`
 - `tests/test_certification_cold_probe.py`
-- `tests/test_cli_attempt.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

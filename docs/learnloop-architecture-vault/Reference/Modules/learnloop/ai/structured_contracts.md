@@ -204,6 +204,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_teacher_structured_contracts.py](../../../../../../tests/test_teacher_structured_contracts.py) — direct import
   - `test_all_eight_turn_variants_check_inside_receipt`
   - `test_two_failed_turns_leave_the_existing_third_slot`
+- [tests/test_teacher_te5_compaction.py](../../../../../../tests/test_teacher_te5_compaction.py) — direct import
+  - `test_compacted_correction_records_one_boundary`
 
 ## Modification guidance
 

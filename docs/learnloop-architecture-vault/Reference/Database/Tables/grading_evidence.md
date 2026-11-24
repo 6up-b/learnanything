@@ -121,6 +121,7 @@ Indexes and uniqueness:
 - `src/learnloop/db/stores/answered_contracts.py`
 - `src/learnloop/db/stores/attempts.py`
 - `src/learnloop/db/stores/facet_identity.py`
+- `src/learnloop/db/stores/grade_curves.py`
 - `src/learnloop/db/stores/observation_ledger.py`
 - `src/learnloop/db/stores/write_provenance.py`
 - `src/learnloop/diagnosis/forecast_receipts.py`

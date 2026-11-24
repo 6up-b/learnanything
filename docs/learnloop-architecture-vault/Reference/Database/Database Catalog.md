@@ -8,8 +8,8 @@ aliases:
   - "state.sqlite table index"
   - "Database table MOC"
   - "Table Catalog"
-schema_head: 273
-table_count: 420
+schema_head: 274
+table_count: 421
 generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
@@ -19,13 +19,13 @@ source_paths:
   - "tests/test_migrations.py"
 tags:
   - "learnloop/database/moc"
-  - "learnloop/database/schema-head-273"
+  - "learnloop/database/schema-head-274"
   - "learnloop/navigation"
 ---
 
 # Database Catalog
 
-This is the exhaustive map of the 420 user tables at migration head 273. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
+This is the exhaustive map of the 421 user tables at migration head 274. Use [[Table Roles]] to interpret rebuild policy and [[Rebuild Ownership]] to see which projections are actually cleared and replayed. The larger persistence boundary lives in [[State and Persistence]]. ^catalog-scope
 
 > [!important] Role is not runtime status
 > `raw_ledger`, `derived`, `receipt`, `workflow`, and `compat` say what rebuild may do. `active`, `legacy-preserved`, `dormant-shadow`, and `dormant-owner-gated` say how the refactored runtime treats the table. See [[Table Roles#Role versus functionality status]].
@@ -36,7 +36,7 @@ This is the exhaustive map of the 420 user tables at migration head 273. Use [[T
 
 | Role | Tables |
 |---|---:|
-| [[Table Roles#Raw Ledger|`raw_ledger`]] | 175 |
+| [[Table Roles#Raw Ledger|`raw_ledger`]] | 176 |
 | [[Table Roles#Derived|`derived`]] | 29 |
 | [[Table Roles#Receipt|`receipt`]] | 100 |
 | [[Table Roles#Workflow|`workflow`]] | 110 |
@@ -46,7 +46,7 @@ This is the exhaustive map of the 420 user tables at migration head 273. Use [[T
 
 | Status | Tables |
 |---|---:|
-| `active` | 411 |
+| `active` | 412 |
 | `active-historical-seam` | 1 |
 | `dormant-owner-gated` | 2 |
 | `dormant-shadow` | 2 |
@@ -108,6 +108,7 @@ Attempt capture, grading, measurement, and evidence authority. This is a navigat
 - [[Reference/Database/Tables/attempt_debug_payloads|attempt_debug_payloads]] — `raw_ledger` · `active` · Gives attempt debug payload a stable database identity so an attempt can be graded, replayed, and traced back to the evidence that changed learner state. It supplies replay-stable input rather than a disposable cache. Rows bind `attempt_id`, `algorithm_version`, making the operational relationship explicit.
 - [[Reference/Database/Tables/attempt_diagnoses|attempt_diagnoses]] — `raw_ledger` · `active` · Gives attempt diagnose a stable database identity so an attempt can be graded, replayed, and traced back to the evidence that changed learner state. It supplies replay-stable input rather than a disposable cache. Rows bind `attempt_id`, `blind_grade_record_id`, `agent_run_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/attempt_feedback_metadata|attempt_feedback_metadata]] — `raw_ledger` · `active` · Gives attempt feedback metadata a stable database identity so an attempt can be graded, replayed, and traced back to the evidence that changed learner state. It supplies replay-stable input rather than a disposable cache. Rows bind `attempt_id`, `agent_run_id`, `fallback_reason`, making the operational relationship explicit.
+- [[Reference/Database/Tables/attempt_grade_curves|attempt_grade_curves]] — `raw_ledger` · `active` · Gives attempt grade curve a stable database identity so an attempt can be graded, replayed, and traced back to the evidence that changed learner state. It supplies replay-stable input rather than a disposable cache. Rows bind `attempt_id`, `algorithm_version`, `epoch_key`, making the operational relationship explicit.
 - [[Reference/Database/Tables/attempt_lifecycle_inputs|attempt_lifecycle_inputs]] — `raw_ledger` · `active` · Gives attempt lifecycle input a stable database identity so an attempt can be graded, replayed, and traced back to the evidence that changed learner state. It supplies replay-stable input rather than a disposable cache. Rows bind `attempt_id`, `learning_object_id`, `policy_version`, making the operational relationship explicit.
 - [[Reference/Database/Tables/attempt_submission_receipts|attempt_submission_receipts]] — `receipt` · `active` · Makes client submission of attempt idempotent and auditable so an attempt can be graded, replayed, and traced back to the evidence that changed learner state. It preserves the decision trail and is never cleared by derived-state rebuilds. Rows bind `submission_id`, `attempt_id`, `practice_item_id`, making the operational relationship explicit.
 - [[Reference/Database/Tables/attempt_surprise|attempt_surprise]] — `derived` · `active` · Materializes per-attempt Bayesian surprise and follow-up gate diagnostics. Its current rows may be cleared and reconstructed by the registered projection owner. Rows bind `attempt_id`, `algorithm_version`, `predictive_surprise`, making the operational relationship explicit.

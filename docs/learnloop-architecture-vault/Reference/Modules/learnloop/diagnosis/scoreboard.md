@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/scoreboard.py](../../../../../../src/learnloop/diagnosis/scoreboard.py) |
-| Source lines | 1833 |
+| Source lines | 1835 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -67,15 +67,15 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `cells_cleared_per_question(vault: LoadedVault, repository: Repository) -> Metric` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 730) — Contract cells measured, per question served (Meas §5.7, §0).
 - `class CertificationPrefix` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 840) — The earliest attempt prefix at which one learning object certifies.
   - `regret(self) -> int | None` (line 854; public)
-- `certification_prefixes(vault: LoadedVault, repository: Repository, *, budget: int=DEFAULT_REPLAY_BUDGET) -> tuple[list[CertificationPrefix], dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 924) — Bisect the earliest certifying prefix for every learning object.
-- `certification_efficiency_metrics(vault: LoadedVault, repository: Repository, *, replay: bool=False, budget: int=DEFAULT_REPLAY_BUDGET) -> tuple[Metric, Metric]` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 1036) — `questions_to_certification` and `certification_regret` (Meas §5.7).
-- `tokens_per_resolved_diagnostic_episode(repository: Repository) -> Metric` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 1199) — Grading tokens per resolved diagnostic episode (B5; C3's revert criterion).
-- `probe_action_change_rate(repository: Repository) -> Metric` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 1322) — Probes whose outcome changed the selected repair, over probes administered.
-- `planted_ground_truth(repository: Repository) -> dict[str, dict[str, Any]] | None` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 1399) — Licensed B1 labels keyed by attempt, or ``None`` without a license.
-- `planted_vs_adjudicated_agreement(repository: Repository) -> Metric` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 1429) — B4 agreement on the planted/adjudicated overlap.
-- `false_certification_rate(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None) -> Metric` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 1557) — Composed from item 4.2's producer (Meas §5.7).
-- `measurement_rank_metric(vault: LoadedVault) -> Metric` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 1720) — Independent dimensions the item pool can resolve, vs facets declared.
-- `scoreboard(vault: LoadedVault, repository: Repository, *, replay: bool=False, replay_budget: int=DEFAULT_REPLAY_BUDGET, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 1760) — The whole §3 B5 board, in B5's frozen order.
+- `certification_prefixes(vault: LoadedVault, repository: Repository, *, budget: int=DEFAULT_REPLAY_BUDGET) -> tuple[list[CertificationPrefix], dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 926) — Bisect the earliest certifying prefix for every learning object.
+- `certification_efficiency_metrics(vault: LoadedVault, repository: Repository, *, replay: bool=False, budget: int=DEFAULT_REPLAY_BUDGET) -> tuple[Metric, Metric]` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 1038) — `questions_to_certification` and `certification_regret` (Meas §5.7).
+- `tokens_per_resolved_diagnostic_episode(repository: Repository) -> Metric` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 1201) — Grading tokens per resolved diagnostic episode (B5; C3's revert criterion).
+- `probe_action_change_rate(repository: Repository) -> Metric` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 1324) — Probes whose outcome changed the selected repair, over probes administered.
+- `planted_ground_truth(repository: Repository) -> dict[str, dict[str, Any]] | None` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 1401) — Licensed B1 labels keyed by attempt, or ``None`` without a license.
+- `planted_vs_adjudicated_agreement(repository: Repository) -> Metric` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 1431) — B4 agreement on the planted/adjudicated overlap.
+- `false_certification_rate(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None) -> Metric` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 1559) — Composed from item 4.2's producer (Meas §5.7).
+- `measurement_rank_metric(vault: LoadedVault) -> Metric` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 1722) — Independent dimensions the item pool can resolve, vs facets declared.
+- `scoreboard(vault: LoadedVault, repository: Repository, *, replay: bool=False, replay_budget: int=DEFAULT_REPLAY_BUDGET, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 1762) — The whole §3 B5 board, in B5's frozen order.
 
 ### Module constants
 
@@ -87,9 +87,9 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `HARMFUL_WITHDRAWAL_REASONS` ([src/learnloop/diagnosis/scoreboard.py](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 581)
 - `HARMFUL_VERDICTS` ([src/learnloop/diagnosis/scoreboard.py](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 590)
 - `DEFAULT_REPLAY_BUDGET` ([src/learnloop/diagnosis/scoreboard.py](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 836)
-- `_PROBE_NOW_DECISION` ([src/learnloop/diagnosis/scoreboard.py](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 1315)
-- `_PROBE_RECEIPT_LIMIT` ([src/learnloop/diagnosis/scoreboard.py](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 1319)
-- `_FALSE_CERTIFICATION_PRODUCER` ([src/learnloop/diagnosis/scoreboard.py](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 1541)
+- `_PROBE_NOW_DECISION` ([src/learnloop/diagnosis/scoreboard.py](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 1317)
+- `_PROBE_RECEIPT_LIMIT` ([src/learnloop/diagnosis/scoreboard.py](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 1321)
+- `_FALSE_CERTIFICATION_PRODUCER` ([src/learnloop/diagnosis/scoreboard.py](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 1543)
 
 ## Internal implementation anchors
 
@@ -98,8 +98,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `_cell_has_evidence(evidence: Sequence[Any], capability: str) -> bool` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 708) — Any observation at all in this cell — positive or negative.
 - `_attempt_boundaries(repository: Repository) -> list[tuple[str, str]]` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 860) — Every attempt as (created_at, id), chronological — the cutoff axis.
 - `_certified_at_cutoff(vault: LoadedVault, source_path: Path, scratch_dir: Path, boundary_iso: str, index: int) -> frozenset[str]` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 873) — Learning objects the authority certifies given attempts up to `boundary_iso`.
-- `_resolve_false_certification_producer() -> Callable[..., Any] | None` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 1547)
-- `_adjudication_metrics(repository: Repository) -> tuple[list[Metric], dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 1622) — The four metrics the A4 store already produces, composed not recomputed.
+- `_resolve_false_certification_producer() -> Callable[..., Any] | None` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 1549)
+- `_adjudication_metrics(repository: Repository) -> tuple[list[Metric], dict[str, Any]]` ([source](../../../../../../src/learnloop/diagnosis/scoreboard.py), line 1624) — The four metrics the A4 store already produces, composed not recomputed.
 
 ## Who imports or calls it
 
@@ -126,7 +126,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/diagnosis/causal_probe_coherence|learnloop.diagnosis.causal_probe_coherence]] — imports `resolve_causal_probe_parameters`; calls `resolve_causal_probe_parameters`
 - [[Reference/Modules/learnloop/diagnosis/diagnosis_adjudication|learnloop.diagnosis.diagnosis_adjudication]] — imports `FILLED_VERDICTS`, `adjudicated_ground_truth`, `diagnosis_adjudication_scoreboard`; calls `adjudicated_ground_truth`, `diagnosis_adjudication_scoreboard`
 - [[Reference/Modules/learnloop/goals/goal_certification|learnloop.goals.goal_certification]] — imports `lo_certification`; calls `lo_certification`
-- [[Reference/Modules/learnloop/goals/goal_series|learnloop.goals.goal_series]] — imports `prune_rows`; calls `prune_rows`
+- [[Reference/Modules/learnloop/goals/goal_series|learnloop.goals.goal_series]] — imports `drop_scratch_delete_guards`, `prune_rows`; calls `drop_scratch_delete_guards`, `prune_rows`
 - [[Reference/Modules/learnloop/held_grades|learnloop.held_grades]] — imports `held_attempt_ids`, `held_for_review_attempts`, `pfc_assessments`; calls `held_attempt_ids`, `held_for_review_attempts`, `pfc_assessments`
 - [[Reference/Modules/learnloop/learner/contract_reachability|learnloop.learner.contract_reachability]] — imports `contract_cells`; calls `contract_cells`
 - [[Reference/Modules/learnloop/learner/identifiability|learnloop.learner.identifiability]] — imports `build_registry_view`, `measurement_rank`; calls `build_registry_view`, `measurement_rank`
