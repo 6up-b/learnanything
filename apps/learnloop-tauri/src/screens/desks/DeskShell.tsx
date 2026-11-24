@@ -2825,7 +2825,9 @@ export function DeskShell({
     return [{
       id: `${exchange.requestId}:running`,
       target: known ? padName(store.pads[known]?.pad) : "running pad",
-      label: "Copy the full reply",
+      // "the reply": the preview line says it shows only the first lines, and the header holds two lines at the
+      // companion's laptop width with the pad's whole name ("running pad").
+      label: "Copy the reply",
       lines,
       onAccept: async () => {
         if (!runningPadOf(exchange.deskId)) await Promise.all(deskPadIds(exchange.deskId).map((padId) => store.loadPad(padId)));

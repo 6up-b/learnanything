@@ -1840,7 +1840,7 @@ describe("RD4b: pads in the desks", () => {
       expect(found).not.toBeNull();
       return found as HTMLElement;
     });
-    expect(diff.textContent).toContain("Copy the full reply");
+    expect(diff.textContent).toContain("Copy the reply to “running pad”");
     expect(diff.textContent).toContain("+ Because the factor cancels.");
     fireEvent.click(screen.getByRole("button", { name: "accept" }));
     await waitFor(() => expect(diff.textContent).toContain("Reply queued"));

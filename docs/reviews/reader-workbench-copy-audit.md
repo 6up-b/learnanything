@@ -110,7 +110,7 @@ the mockup's glyphs stay.
 | pad | `desks/pads/PadStackWindow.tsx` | “Scratchpad · ✎ by hand”, “Scratchpad · “<title>””; “…in scratchpads to suggest help” | “Pad · ✎ by hand”, “Pad · “<title>””; “…in pads…” |
 | pad | `desks/companion/companionFigures.tsx` | “move to scratchpad” | “move to pad” |
 | pad | `desks/goal/GoalLayer.tsx` | “your scratchpads” | “your pads” |
-| running pad | `desks/pads/{DrainPanel,PadStackWindow}.tsx`, `desks/DeskShell.tsx` (append targets, toasts, reply copies) | “running” as the running pad's name | “running pad” (`padName`) |
+| running pad | `desks/pads/{DrainPanel,PadStackWindow}.tsx`, `desks/DeskShell.tsx` (append targets, toasts, reply copies) | “running” as the running pad's name; “Copy the full reply to “running”” | “running pad” (`padName`); “Copy the reply to “running pad””, so the companion's preview header keeps two lines at laptop width (the visual pass's docked companion lost a bubble to the third line) |
 | saved question | `desks/Shelf.tsx` | “Carried”; “all carried questions ›”; “◌ carried questions · …”; “nothing carried”; “Carried questions unavailable.”, “Loading carried questions…”, “Reopen carried questions to try again.”; dialog “carried questions” | “Saved questions”; “all saved questions ›”; “◌ saved questions · …”; “no saved questions”; “Saved questions unavailable.”, “Loading saved questions…”, “Reopen saved questions to try again.”; dialog “saved questions” |
 | saved question | `desks/menu/model.ts`, `desks/pads/PadOverlays.tsx` | verb “Carry” | “Save for later” |
 | saved question | `desks/pads/PadStackWindow.tsx` | chip “? carry” | “? save for later” |
@@ -151,7 +151,7 @@ asks on every screen), and “a check on your own” on Practice, Feedback, Repa
 drain's line, the shelf's link and list, the passage mark), `desks/checks/{checks,deskChecks}.test.tsx` (the marker,
 the overlay's name, the companion's wait), `desks/menu/KnowsPanel.test.tsx`, `desks/pads/passageMarks.test.tsx`,
 `desks/pen/{inkPad,PenLayer}.test.tsx`, `reader/{ComingUp,cues,libraryExercises,voices}.test.*`,
-`workbench/Workbench.test.tsx` (three), the snapshot `ReaderScreen.cuesSwitchOff.test.tsx.snap` (check me's hint), and
+`workbench/Workbench.test.tsx` (three), `desks/DeskShell.test.tsx`'s reply copy (now “Copy the reply to “running pad””), the snapshot `ReaderScreen.cuesSwitchOff.test.tsx.snap` (check me's hint), and
 the desk harness (`run.py`: the companion's tab, Show me's “move to pad”, the cold check marker and the companion's
 wait, two check names).
 
