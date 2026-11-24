@@ -1661,7 +1661,9 @@ export function DeskShell({
         const index = slotIndexOf(desk, focus);
         const shown = visibilityRef.current.filter((slot) => slot.inView).map((slot) => slot.index);
         const other = shown.find((slot) => slot !== index);
-        if (other !== undefined) commit(swapInView(current, id, other));
+        // Nothing to swap with: the key is the window's own (a book's "also in your books"; review fix round, minor 25).
+        if (other === undefined) return false;
+        commit(swapInView(current, id, other));
         return true;
       }
       case "playPause": {
@@ -4201,7 +4203,9 @@ export function DeskShell({
           // opens at that passage. Its Reader places itself once it opens, asynchronously (a saved place, its reading
           // history), so a jump made before that would be undone; a window that opens at the passage is not.
           startSpan: openingAt(window.windowId, window.deskId, content)
-            ?? (typeof window.view?.spanId === "string" ? (window.view.spanId as string) : null),
+            ?? (typeof window.view?.spanId === "string" ? (window.view.spanId as string) : null)
+            // A ranged window with no saved place opens at its range's start (review fix round, minor 24).
+            ?? (content.kind === "source" && content.range?.fromSpanId ? content.range.fromSpanId : null),
           railHost: railNode && railPanel ? { node: railNode, tab: railTab, lifecycle: lifecycles[railPanel] ?? { windowId: railPanel, state: "hidden" }, hub: hubFor(railPanel), claims: claimsFor(railPanel) } : null,
           onStatus: onStatusFor(window.windowId),
           onJumpReady: onJumpReadyFor(window.windowId),
