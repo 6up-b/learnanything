@@ -5,6 +5,7 @@ from __future__ import annotations
 from learnloop.db.repositories import Repository
 from learnloop.clock import FrozenClock
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from tests.diagnosis_fakes import ReviewFakeClient
 from tests.split_live_helpers import ReadyRuntime, at, drain_jobs, split_vault, submit
 
@@ -212,7 +213,7 @@ def test_the_open_factor_takes_the_diagnosis_causes_when_it_lands(tmp_path):
     from tests.km2_write_path_helpers import build_shared_facet_vault
 
     paths = build_shared_facet_vault(tmp_path / "vault")
-    set_algorithm_version(paths, "mvp-0.10")
+    set_algorithm_version(paths, LATEST_ALGORITHM_VERSION)
     vault = load_vault(paths.root)
     repository = Repository(paths.sqlite_path)
     sync_vault_state(vault, repository)

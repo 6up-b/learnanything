@@ -226,7 +226,7 @@ def test_stuck_answers_hypotheses_join_recurrence_groups_and_count_toward_k(tmp_
     hypothesis joins the group the judge merges, and it counts toward the
     third-time escalation."""
 
-    _paths, vault, repository = _recurrence_vault(tmp_path, version="mvp-0.13")
+    _paths, vault, repository = _recurrence_vault(tmp_path)
     client = _StuckStatementFake(STATEMENTS, decide=shares_word("transpos"), operators={"third": "worked_contrast"})
     embedder = FakeEmbeddingClient()
     first = submit(vault, repository, client, item_id="pi_svd_compute_001", answer="A = U Sigma V first", when=at(10))

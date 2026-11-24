@@ -15,6 +15,7 @@ from learnloop.goals.exam_session import (
 from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_practice_item
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from tests.helpers import NOW, NOW_ISO, create_basic_vault, seed_due_item
 from tests.exam_session_helpers import _grade
 
@@ -230,7 +231,7 @@ def test_exam_answers_certify_facet_evidence_on_canonical_vault(tmp_path):
 
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)
-    set_algorithm_version(paths, "mvp-0.8")
+    set_algorithm_version(paths, LATEST_ALGORITHM_VERSION)
     _add_item(vault_root, "pi_exam_a", facets=["recall"], difficulty=0.5)
     vault = load_vault(vault_root)
     repository = Repository(paths.sqlite_path)
@@ -284,7 +285,7 @@ def test_an_exam_answer_is_stamped_with_its_graders_calibration_identity(tmp_pat
 
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)
-    set_algorithm_version(paths, "mvp-0.10")
+    set_algorithm_version(paths, LATEST_ALGORITHM_VERSION)
     _add_item(vault_root, "pi_exam_a", facets=["recall"], difficulty=0.5)
     vault = load_vault(vault_root)
     repository = Repository(paths.sqlite_path)

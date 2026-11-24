@@ -227,9 +227,9 @@ def test_f3_an_lo_check_planned_item_exposed_after_planning_is_displaced(iv):
 def test_f4_a_held_grade_never_becomes_the_anchor_through_the_real_attempt_path(tmp_path):
     from tests.split_live_helpers import split_vault
     from tests.held_grade_evidence_helpers import _graded_apply, _held_apply
-    from tests.route_rules_in_grader_helpers import ITEM, VERSION
+    from tests.route_rules_in_grader_helpers import ITEM
 
-    _paths, vault, repository = split_vault(tmp_path, version=VERSION)
+    _paths, vault, repository = split_vault(tmp_path)
     reviewed = datetime(2026, 10, 1, 12, 0, tzinfo=UTC)
     _graded_apply(vault, repository, ITEM, {"setup": 2.0, "result": 2.0}, attempt_id="att_review", when=reviewed)
     due_before = repository.practice_item_state(ITEM).due_at
