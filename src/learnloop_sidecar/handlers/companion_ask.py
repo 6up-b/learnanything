@@ -56,6 +56,7 @@ from learnloop_sidecar.handlers.reader import (
     reader_ask_reply,
 )
 from learnloop_sidecar.registry import method
+from learnloop_sidecar.workbench_protection import block_places, reading_places, refuse_protected
 
 LOG = logging.getLogger(__name__)
 
@@ -193,7 +194,14 @@ def _known_payload(known: PJ.PolledJob | PJ.Receipt) -> dict[str, Any]:
 def companion_ask(ctx: SidecarContext, params: CompanionAskInput) -> dict[str, Any]:
     """Ask the companion; answers at once with the job (see the module docstring)."""
 
-    _vault, repository = ctx.require_vault()
+    origin_vault, repository = ctx.require_vault()
+
+    def check_origin() -> None:
+        places = reading_places(params.extraction_id, [params.span_id, *params.selection_span_ids])
+        places.extend(block_places(origin_vault, repository, params.pad_block_ids))
+        refuse_protected(origin_vault, repository, places)
+
+    check_origin()
     jobs = _jobs(ctx)
     vault = PJ.vault_key(ctx)
     key = _request_key(params)
@@ -213,6 +221,7 @@ def companion_ask(ctx: SidecarContext, params: CompanionAskInput) -> dict[str, A
     writer = _ContextWriter(call.repository, where)
 
     def work(job: PJ.PolledJob) -> dict[str, Any]:
+        check_origin()
         writer.bind(job)
         try:
             result = generate_reader_answer(call, on_question_recorded=writer.question_recorded)

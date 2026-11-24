@@ -34,9 +34,9 @@ describe("the verbs for each object kind", () => {
 describe("the header and the object as the server reads it", () => {
   it("names the kind and the first 46 characters of the selection or the object", () => {
     const at = { x: 0, y: 0 };
-    expect(headerLine({ kind: "cue", windowId: "w", text: "short words", at })).toBe("a transcript cue · “short words”");
+    expect(headerLine({ kind: "cue", windowId: "w", text: "short words", at }, false)).toBe("a transcript cue · “short words”");
     const long = "x".repeat(60);
-    expect(headerLine({ kind: "passage", windowId: "w", text: "ignored", selection: long, at })).toBe(`a passage · “${"x".repeat(46)}…”`);
+    expect(headerLine({ kind: "passage", windowId: "w", text: "ignored", selection: long, at }, false)).toBe(`a passage · “${"x".repeat(46)}…”`);
   });
 
   it("sends only what the object has", () => {
@@ -105,7 +105,7 @@ describe("what was right-clicked", () => {
     window.getSelection()?.addRange(range);
     const object = objectAt(document.querySelector("[data-span-id=s1]") as Element, () => "source", source, at);
     expect(object).toMatchObject({ kind: "highlight", annotationId: "a1", selection: "words", spanIds: ["s1"], slices: [{ spanId: "s1", quote: "words" }] });
-    expect(headerLine(object as MenuObject)).toBe("your highlight · “words”");
+    expect(headerLine(object as MenuObject, false)).toBe("your highlight · “words”");
   });
 
   it("reads a transcript cue with its time", () => {
@@ -115,9 +115,9 @@ describe("what was right-clicked", () => {
 
   it("reads a highlight on its passage, and a margin note's card by the passage it names", () => {
     mountHtml(`<div data-desk-window="w1"><div data-span-id="s1" data-annotation-id="a1" data-annotation-kind="highlight">marked</div>
-      <div data-annotation-id="a2" data-annotation-kind="note" data-annotation-span="s1"><span id="n">my note</span></div></div>`);
+      <div data-annotation-id="a2" data-annotation-kind="note" data-annotation-span="s1" data-annotation-spans='["s1","s2"]'><span id="n">my note</span></div></div>`);
     expect(objectAt(document.querySelector("[data-span-id=s1]") as Element, () => "source", source, at)).toMatchObject({ kind: "highlight", annotationId: "a1", spanId: "s1" });
-    expect(objectAt(document.getElementById("n") as Element, () => "source", source, at)).toMatchObject({ kind: "note", annotationId: "a2", spanId: "s1", text: "my note" });
+    expect(objectAt(document.getElementById("n") as Element, () => "source", source, at)).toMatchObject({ kind: "note", annotationId: "a2", spanId: "s1", spanIds: ["s1", "s2"], text: "my note" });
   });
 
   it("reads a window header and a pad line, and nothing elsewhere", () => {

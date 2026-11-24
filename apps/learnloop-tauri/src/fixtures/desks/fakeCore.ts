@@ -244,7 +244,7 @@ function answer(command: string, input: Record<string, unknown>): unknown {
       const rows = cheapRows(input);
       const jobId = typeof input.spanId === "string" ? `pj_${++promotedJobCount}` : null;
       if (jobId) promotedJobs.set(jobId, { rows, reads: 0, cancelled: false });
-      return { version: 1, objectKey: JSON.stringify(input), rows, cap: 4, pendingJob: jobId ? { jobId } : null, paid: false };
+      return { version: 1, objectKey: JSON.stringify(input), rows, cap: 4, pendingJob: jobId ? { jobId } : null, withheld: false, paid: { searchedByMeaning: false, verified: false, reason: null } };
     }
     case "passage_promoted_job": {
       const job = promotedJobs.get(String(input.jobId));

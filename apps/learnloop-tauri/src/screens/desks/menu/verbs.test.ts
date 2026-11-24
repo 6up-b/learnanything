@@ -59,7 +59,7 @@ describe("each verb calls its server entry", () => {
     await runVerb("ask", passage(), ctx);
     expect(ctx.ask).toHaveBeenCalledWith(expect.objectContaining({ spanId: "s1" }));
     await runVerb("find", passage({ selection: "chosen words" }), ctx);
-    expect(ctx.openSearch).toHaveBeenCalledWith("chosen words");
+    expect(ctx.openSearch).toHaveBeenCalledWith("chosen words", { extractionId: "ext1", spanIds: ["s1"] });
     await runVerb("carry", passage(), ctx);
     expect(ctx.carry).toHaveBeenCalledWith("the passage's words", { kind: "selection", ref: null, anchor: { extractionId: "ext1", spanId: "s1" } });
   });
@@ -78,7 +78,7 @@ describe("each verb calls its server entry", () => {
     const { ctx, toasts } = context({}, { readerCapture: vi.fn(async () => ({ annotationId: "a1", anchorStatus: "needs_reanchor" }) as never) });
     await runVerb("note", passage({ selection: "end of one start of two", spanIds: ["s1", "s2"], slices: [{ spanId: "s1", quote: "end of one" }, { spanId: "s2", quote: "start of two" }] }), ctx);
     expect(ctx.api.readerCapture).toHaveBeenCalledWith(expect.objectContaining({
-      rawSelection: { extractionId: "ext1", nodes: [{ spanId: "s1", quote: "end of one" }, { spanId: "s2", quote: "start of two" }] },
+      rawSelection: { extractionId: "ext1", spanId: "s1", spanIds: ["s1", "s2"], nodes: [{ spanId: "s1", quote: "end of one" }, { spanId: "s2", quote: "start of two" }] },
     }));
     expect(toasts).toEqual(["noted, but its place in the passage needs re-anchoring"]);
   });
@@ -142,7 +142,7 @@ describe("each verb calls its server entry", () => {
 
     const prose = context();
     await runVerb("make_practice", passage(), prose.ctx);
-    expect(prose.ctx.api.readerAuthorSectionQuestion).toHaveBeenCalledWith({ extractionId: "ext1", sectionId: "sec1" });
+    expect(prose.ctx.api.readerAuthorSectionQuestion).toHaveBeenCalledWith({ extractionId: "ext1", sectionId: "sec1", spanIds: ["s1"] });
 
     const declined = context({ confirm: vi.fn(async () => false) });
     await runVerb("make_practice", passage(), declined.ctx);
@@ -183,7 +183,7 @@ describe("the verb rows and a promoted row's place", () => {
 });
 
 describe("exam or held-out material", () => {
-  it("the verbs that would quote or send its words send nothing and say so; a margin note of one's own still goes", async () => {
+  it("the verbs that would quote or send its words send nothing and say so; a margin note cannot capture a protected selection", async () => {
     const { ctx, toasts } = context({ withheld: async () => true });
     for (const id of ["ask", "find", "compare", "show_me", "make_practice", "append", "carry", "teach_me"] as const) await runVerb(id, passage(), ctx);
     expect(ctx.ask).not.toHaveBeenCalled();
@@ -196,12 +196,12 @@ describe("exam or held-out material", () => {
     expect(ctx.api.passageKnows).not.toHaveBeenCalled();
     expect(new Set(toasts)).toEqual(new Set(["this is exam or held-out material: its words are not sent anywhere from here"]));
     await runVerb("note", passage(), ctx);
-    expect(ctx.api.readerCapture).toHaveBeenCalled();
+    expect(ctx.api.readerCapture).not.toHaveBeenCalled();
   });
 
   it("its menu leaves those verbs out and names the material without quoting it", () => {
     const rows = sourceMenuRows(passage(), context().ctx, "running", true).map((row) => row.id);
-    expect(rows).toEqual(["note", "open_beside", "knows"]);
+    expect(rows).toEqual(["open_beside", "knows"]);
     expect(headerLine(passage(), true)).toBe("a passage · exam or held-out material");
   });
 });

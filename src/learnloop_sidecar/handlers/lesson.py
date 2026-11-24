@@ -63,6 +63,7 @@ from learnloop_sidecar.handlers.ai_providers import (
     ready_grading_provider,
 )
 from learnloop_sidecar.registry import method
+from learnloop_sidecar.workbench_protection import block_places, reading_places, refuse_protected
 
 #: Every TE1/TE1b RPC this module registers (pinned desktop-only in tests/test_mobile_allowlist.py).
 LESSON_RPCS: tuple[str, ...] = ("lesson.turn", "lesson.view", "lesson.suggestion", "lesson.suggestion_respond")
@@ -78,6 +79,7 @@ LESSON_WINDOW_RPCS: tuple[str, ...] = ("lesson.list",)
 
 
 class LessonSelection(ParamsModel):
+    block_ids: list[str] = Field(default_factory=list)
     extraction_id: str
     span_ids: list[str]
 
@@ -236,6 +238,11 @@ def lesson_turn(ctx: SidecarContext, params: LessonTurnInput) -> dict[str, Any]:
     vault, repository = ctx.require_vault()
     try:
         S.require_active(vault)
+        if params.action == "open" and params.selection:
+            selection = params.selection
+            places = reading_places(selection.extraction_id, selection.span_ids)
+            places.extend(block_places(vault, repository, selection.block_ids))
+            refuse_protected(vault, repository, places)
         clients = _clients(ctx, vault)
         if clients.figures is None:
             # Reader RW5d P4b: the teacher's visuals are built here, inline.
@@ -247,7 +254,7 @@ def lesson_turn(ctx: SidecarContext, params: LessonTurnInput) -> dict[str, Any]:
             with PR.held_serving(params.frame == "window"):
                 result = S.open_lesson(
                     vault, repository, entry=params.entry, learning_object_ids=params.learning_object_ids,
-                    selection=params.selection.model_dump() if params.selection is not None else None,
+                    selection=params.selection.model_dump(exclude={"block_ids"}) if params.selection is not None else None,
                     goal_text=params.goal_text, clients=clients,
                     origin="router" if suggested else "learner_pick",
                     origin_ref=params.suggestion_decision_id if suggested else None,

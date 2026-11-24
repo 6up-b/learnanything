@@ -1856,6 +1856,12 @@ describe("RD4 review: asking from a pad line", () => {
     const state = fixtureDeskState();
     return { ...fromDeskState(state), closed: {} };
   })();
+  it("a selection whose source window closed cannot borrow the focused reading", () => {
+    const grounding = groundingFor(ws, { extractionId: "original", spanIds: ["s1"], windowId: "closed" },
+      ws.windows.fx_w_book, {});
+    expect(grounding).toEqual({ reason: "reopen the selected passage to ask about it" });
+  });
+
   it("an anchored pad line grounds the question in its passage, with the pad block named", () => {
     const grounding = groundingFor(ws, { spanIds: [], windowId: "fx_w_pads", pad: { padId: "fx_pad_running", blockId: "fx_b_r2", anchor: { extractionId: "fx_ext_softmax", spanId: "fx_ext_softmax_s1_3" } } }, ws.windows.fx_w_pads, {});
     expect(grounding).toMatchObject({ reason: null, extractionId: "fx_ext_softmax", spanId: "fx_ext_softmax_s1_3", padBlockId: "fx_b_r2" });

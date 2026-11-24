@@ -14,6 +14,7 @@ import { isLearnersWords, type PadState } from "./model";
 export interface MenuRequest {
   padId: string;
   blockId: string | null;
+  blockIds?: string[];
   text: string;
   x: number;
   y: number;
@@ -42,7 +43,7 @@ async function insertPiece(host: PadsHost, onInsert: (block: InsertBlock) => voi
   try {
     const content = await host.api.passageContent({ extractionId, fromSpanId: spanId, toSpanId: spanId });
     const span = content.spans.find((each) => each.spanId === spanId) ?? content.spans[0];
-    if (content.withheld || !span || span.withheld || span.text === null) {
+    if (content.withheld !== false || !span || span.withheld !== false || span.text === null) {
       host.toast("this passage is held out (exam material): it is not copied into a pad");
       return;
     }
@@ -86,11 +87,12 @@ export function PadMenu({ request, host, windowId, state, muted, onClose, onInse
   onMute: () => void;
 }) {
   const block: PadBlockDto | null = state?.blocks.find((each) => each.blockId === request.blockId) ?? null;
+  const blockIds = request.blockIds ?? (request.blockId ? [request.blockId] : []);
   const anchors = anchorsOf(state, request.blockId);
   const pieces = useMemo(() => host.sourcePieces(), [host]);
   const [practicing, setPracticing] = useState(false);
   // A line whose words are about exam or held-out material (its first answer says): nothing sends them on.
-  const [withheld, setWithheld] = useState(false);
+  const [withheld, setWithheld] = useState<boolean | null>(null);
   const hub = useListenerHub();
   const text = request.text.trim();
   const close = (then?: () => void) => () => {
@@ -102,31 +104,30 @@ export function PadMenu({ request, host, windowId, state, muted, onClose, onInse
   useEffect(() => {
     if (lifecycle.state !== "active") onClose();
   }, [lifecycle.state, onClose]);
-  const object: MenuObjectInput | null = request.blockId ? { objectKind: "pad_line", blockId: request.blockId, windowId, ...(host.deskId ? { deskId: host.deskId } : {}) } : null;
-  const quoting = new Set(["a", "/", "v", "p", "c", "t"]);
+  const object: MenuObjectInput | null = request.blockId ? { objectKind: "pad_line", blockId: request.blockId, ...(blockIds.length > 1 ? { blockIds } : {}), windowId, ...(host.deskId ? { deskId: host.deskId } : {}) } : null;
   const allTextRows: Row[] = text ? [
-    { key: "a", glyph: "?", label: "Ask about this", run: close(() => host.askAbout(text, { padId: request.padId, blockId: request.blockId, anchor: anchors[0] ?? null })) },
+    { key: "a", glyph: "?", label: "Ask about this", run: close(() => host.askAbout(text, { padId: request.padId, blockId: request.blockId, blockIds, anchor: anchors[0] ?? null })) },
     ...(request.blockId ? [{ key: "n", glyph: "›", label: "Note in margin", note: "a note attached under this line", run: close(onNote) }] : []),
-    { key: "/", glyph: "⌕", label: "Find in my sources", run: close(() => host.openSearch(text)) },
+    { key: "/", glyph: "⌕", label: "Find in my sources", run: close(() => host.openSearch(text, undefined, blockIds)) },
     // A line with no passage has no Show me (the figure is built for a passage).
     ...(host.showMe && anchors.length ? [{ key: "v", glyph: "◇", label: "Show me", note: "a figure lands below this line", run: close(() => {
       host.toast("◇ making a figure for this line · it lands below it when it's ready");
       // The finished figure goes to the window's waiting figures: written only while the pad is live.
-      void host.showMe?.(text, anchors[0] ?? null, windowId).then((figure) => {
+      void host.showMe?.(text, anchors[0] ?? null, windowId, blockIds).then((figure) => {
         if (!figure) host.toast("no figure for this line · nothing was shown");
-        else host.figures.push(windowId, { padId: request.padId, afterBlockId: request.blockId, figureId: figure.figureId, line: figure.line });
+        else host.figures.push(windowId, { padId: request.padId, afterBlockId: request.blockId, blockIds, figureId: figure.figureId, line: figure.line });
       }, () => host.toast("couldn't make a figure for this line"));
     }) }] : []),
     ...(anchors.length ? [{ key: "p", glyph: "✎", label: "Make it practice", note: "drafts an item from this line for your queue", run: () => setPracticing(true) }] : []),
-    { key: "c", glyph: "◌", label: "Carry", run: close(() => host.carry(text, { kind: "block", ref: request.blockId, anchor: anchors[0] ?? null })) },
+    { key: "c", glyph: "◌", label: "Carry", run: close(() => host.carry(text, { kind: "block", ref: request.blockId, blockIds, anchor: anchors[0] ?? null })) },
     // A lesson is on one reading: the line's passages in its first linked reading (span ids repeat across books).
     ...(anchors.length && host.teachMe ? [{ key: "t", glyph: "◎", label: "Teach me this", run: close(() => host.teachMe?.(anchors[0].extractionId,
-      anchors.filter((each) => each.extractionId === anchors[0].extractionId).map((each) => each.spanId))) }] : []),
+      anchors.filter((each) => each.extractionId === anchors[0].extractionId).map((each) => each.spanId), blockIds)) }] : []),
     ...(block && isLearnersWords(block) ? [{ key: "s", glyph: "✓", label: "Submit this block as…", run: close(onSubmit) }] : []),
   ] : [];
   // On exam or held-out material the rows that would send the line's words on (the tutor, a search, a figure,
   // practice, a carried question, a lesson) are left out, as a protected passage is never copied into a pad.
-  const textRows = withheld ? allTextRows.filter((row) => !quoting.has(row.key)) : allTextRows;
+  const textRows = withheld !== false ? allTextRows.filter((row) => row.key === "n") : allTextRows;
   const insertRows: Row[] = [
     // §9.2 gives this row the letter k, but an open menu's j/k move the selection (§5.4's matrix): moving
     // wins, so the row is chosen with ↑↓ ↵ (or alt+d from the pad) and shows no letter.
@@ -149,7 +150,7 @@ export function PadMenu({ request, host, windowId, state, muted, onClose, onInse
     })) },
   ];
   const tailRows: Row[] = [
-    ...(request.blockId && host.menu ? [{ key: "knows", glyph: "i", label: "What this knows", run: close(() => host.menu?.knows({ objectKind: "pad_line", blockId: request.blockId as string, windowId })) }] : []),
+    ...(request.blockId && host.menu ? [{ key: "knows", glyph: "i", label: "What this knows", run: close(() => host.menu?.knows({ objectKind: "pad_line", blockId: request.blockId as string, blockIds, windowId })) }] : []),
     ...(request.lessonId ? [] : [{ key: "u", glyph: "◇", label: muted ? "show LearnLoop's suggestions on this pad" : "mute LearnLoop's suggestions on this pad", run: close(onMute) }]),
   ];
   const toRow = (section: MenuRow["section"]) => (row: Row): MenuRow => ({
@@ -161,7 +162,8 @@ export function PadMenu({ request, host, windowId, state, muted, onClose, onInse
   return (
     <ContextMenu
       label="the pad menu"
-      header={withheld ? `${request.label ?? "your pad"} · about exam or held-out material` : `${request.label ?? "your pad"} · “${(text || "this line").replace(/\s+/g, " ").slice(0, 46)}${text.length > 46 ? "…" : ""}”`}
+      neutralHeader={request.label ?? "your pad"}
+      header={withheld === null ? request.label ?? "your pad" : withheld ? `${request.label ?? "your pad"} · about exam or held-out material` : `${request.label ?? "your pad"} · “${(text || "this line").replace(/\s+/g, " ").slice(0, 46)}${text.length > 46 ? "…" : ""}”`}
       rows={rows}
       at={{ x: request.x, y: request.y }}
       object={object}
@@ -174,12 +176,12 @@ export function PadMenu({ request, host, windowId, state, muted, onClose, onInse
       onClose={onClose}
       listen={(target, type, handler, capture) => hub.listen(target, type, handler, capture)}
     >
-      {practicing && state && block ? <PracticeSheet host={host} text={text} anchors={anchors} onClose={onClose} /> : undefined}
+      {practicing && withheld === false && state && block ? <PracticeSheet host={host} blockIds={blockIds} text={text} anchors={anchors} onClose={onClose} /> : undefined}
     </ContextMenu>
   );
 }
 
-function PracticeSheet({ host, text, anchors, onClose }: { host: PadsHost; text: string; anchors: Array<{ extractionId: string; spanId: string }>; onClose: () => void }) {
+function PracticeSheet({ host, blockIds, text, anchors, onClose }: { host: PadsHost; blockIds: string[]; text: string; anchors: Array<{ extractionId: string; spanId: string }>; onClose: () => void }) {
   const [prompt, setPrompt] = useState(text);
   const [answer, setAnswer] = useState("");
   const [los, setLos] = useState<string[] | null>(null);
@@ -219,7 +221,7 @@ function PracticeSheet({ host, text, anchors, onClose }: { host: PadsHost; text:
           if (!lo || saving) return;
           setSaving(true);
           setFailure(null);
-          void host.api.authorPracticeItem({ learningObjectId: lo, prompt: prompt.trim(), expectedAnswer: answer.trim(), clientIdempotencyKey: authoringKey }).then(() => {
+          void host.api.authorPracticeItem({ blockIds, learningObjectId: lo, prompt: prompt.trim(), expectedAnswer: answer.trim(), clientIdempotencyKey: authoringKey }).then(() => {
             host.toast("added to your queue");
             onClose();
           }, (error: unknown) => {

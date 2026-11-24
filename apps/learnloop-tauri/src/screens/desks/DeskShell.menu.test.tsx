@@ -48,7 +48,7 @@ function menuFakes() {
     passagePromoted: vi.fn(async (input: MenuObjectInput) => {
       asked.push(input);
       const rows = input.spanId?.endsWith("_s1") ? [row("r1", "your question on the first passage")] : input.spanId?.endsWith("_s2") ? [row("r2", "your question on the second passage")] : [];
-      return { version: 1, objectKey: JSON.stringify(input), rows, cap: 4, pendingJob: null, paid: false } as unknown as PassagePromotedDto;
+      return { version: 1, objectKey: JSON.stringify(input), rows, cap: 4, pendingJob: null, paid: false, withheld: false } as unknown as PassagePromotedDto;
     }),
     passagePromotedJob: vi.fn(async () => ({}) as never),
     passagePromotedCancel: vi.fn(async () => ({}) as never),
@@ -165,7 +165,7 @@ describe("the desks' context menu", () => {
     fireEvent.contextMenu(passage("fx_w_book_s1"), { clientX: 400, clientY: 300 });
     expect(menus()).toHaveLength(1);
     expect(paneMenus).toEqual([]);
-    expect(screen.getByText("a passage · “the first passage of fx_w_book”")).toBeTruthy();
+    expect(await screen.findByText("a passage · “the first passage of fx_w_book”")).toBeTruthy();
     await screen.findByText("your question on the first passage");
     expect(asked[0]).toEqual({ objectKind: "passage", extractionId: FIXTURE_SOURCES.book.extractionId, spanId: "fx_w_book_s1", windowId: "fx_w_book", deskId: "fx_desk_softmax",
       requestId: expect.stringMatching(/^prom_/) });
@@ -176,7 +176,7 @@ describe("the desks' context menu", () => {
   it("the menu asks its rows once and keeps its judged job while the desks re-render around it", async () => {
     const { transport, again } = mount();
     (transport.passagePromoted as ReturnType<typeof vi.fn>).mockImplementation(async (input: MenuObjectInput) =>
-      ({ version: 1, objectKey: JSON.stringify(input), rows: [row("r1", "a cheap row")], cap: 4, pendingJob: { jobId: "job1" }, paid: false }) as unknown as PassagePromotedDto);
+      ({ version: 1, objectKey: JSON.stringify(input), rows: [row("r1", "a cheap row")], cap: 4, pendingJob: { jobId: "job1" }, paid: false, withheld: false }) as unknown as PassagePromotedDto);
     (transport.passagePromotedJob as ReturnType<typeof vi.fn>).mockImplementation(async () => ({ version: 1, jobId: "job1", status: "running", done: false, rows: [], error: null }));
     await screen.findByTestId("pane-fx_w_book");
     fireEvent.contextMenu(passage("fx_w_book_s1"));
@@ -222,7 +222,7 @@ describe("the desks' context menu", () => {
     expect(menus()).toHaveLength(1);
     const verbs = [...menus()[0].querySelectorAll(":scope > .mi .t")].map((each) => each.firstChild?.textContent);
     expect(verbs).toEqual(["New desk from these", "Gather linked sources", "Share a slot with the next", "Own slot", "What this knows"]);
-    expect(menus()[0].querySelector(".mh")?.textContent).toMatch(/^a window · “/);
+    await waitFor(() => expect(menus()[0].querySelector(".mh")?.textContent).toMatch(/^a window · “/));
   });
 
   it("`.` opens the menu on the hovered passage, through the key router", async () => {
@@ -243,7 +243,7 @@ describe("the desks' context menu", () => {
     await screen.findByTestId("pane-fx_w_book");
     fireEvent.contextMenu(passage("fx_w_book_s1"));
     fireEvent.keyDown(window, { key: "t" });
-    expect(menus()).toHaveLength(0);
+    await waitFor(() => expect(menus()).toHaveLength(0));
     await waitFor(() => expect(screen.getByTestId("pane-fx_w_pads").getAttribute("data-openings")).toBe("1"));
     await flush();
     expect(document.querySelector(".desk-window.focus [data-desk-window]")?.getAttribute("data-desk-window")).toBe("fx_w_pads");
@@ -319,7 +319,8 @@ describe("the shelf's running pad and the pad stack's title bar, as the mockup h
     // The stack that shows the pad took the focus (a press inside a frame never reaches the desks).
     expect(document.querySelector(".desk-window.focus [data-desk-window]")?.getAttribute("data-desk-window")).toBe("fx_w_pads");
     const menu = await screen.findByRole("menu", { name: "the pad menu" });
-    expect(within(menu).getByText("your pad · “x = 1”")).toBeTruthy();
+    expect(within(menu).getByText("your pad")).toBeTruthy();
+    expect(menu.textContent).not.toContain("x = 1");
     expect(within(menu).getByText("marimo cell")).toBeTruthy();
   });
 });
@@ -335,14 +336,14 @@ describe("RD5 fix round: the menu's rows and actions", () => {
     let answerA: (found: PassagePromotedDto) => void = () => undefined;
     (transport.passagePromoted as ReturnType<typeof vi.fn>).mockImplementation((input: MenuObjectInput) => (input.spanId?.endsWith("_s1")
       ? new Promise<PassagePromotedDto>((resolve) => { answerA = resolve; })
-      : Promise.resolve({ version: 1, objectKey: "b", rows: [corr("rb", FIXTURE_SOURCES.paper)], cap: 4, pendingJob: null, paid: false } as unknown as PassagePromotedDto)));
+      : Promise.resolve({ version: 1, objectKey: "b", rows: [corr("rb", FIXTURE_SOURCES.paper)], cap: 4, pendingJob: null, paid: false, withheld: false } as unknown as PassagePromotedDto)));
     await screen.findByTestId("pane-fx_w_book");
     fireEvent.contextMenu(passage("fx_w_book_s1"));
     fireEvent.keyDown(window, { key: "Escape" });
     fireEvent.contextMenu(passage("fx_w_book_s2"));
     await screen.findByText("elsewhere rb");
     await act(async () => {
-      answerA({ version: 1, objectKey: "a", rows: [corr("ra", FIXTURE_SOURCES.video2)], cap: 4, pendingJob: null, paid: false } as unknown as PassagePromotedDto);
+      answerA({ version: 1, objectKey: "a", rows: [corr("ra", FIXTURE_SOURCES.video2)], cap: 4, pendingJob: null, paid: false, withheld: false } as unknown as PassagePromotedDto);
       await Promise.resolve();
     });
     fireEvent.keyDown(window, { key: "b" });
@@ -358,7 +359,7 @@ describe("RD5 fix round: the menu's rows and actions", () => {
     const onFlash = (event: Event) => flashed.push((event as CustomEvent<{ blockId: string }>).detail.blockId);
     window.addEventListener("learnloop:pad-flash", onFlash);
     const rowOf = (rowId: string, label: string, action: Record<string, unknown>): PromotedRowDto => ({ rowId, kind: "your_words", glyph: "›", label, reason: "r", action, learnerAt: null, checked: null, judgeRank: 0, basis: "union", extra: {} } as unknown as PromotedRowDto);
-    (transport.passagePromoted as ReturnType<typeof vi.fn>).mockImplementation(async (input: MenuObjectInput) => ({ version: 1, objectKey: "k", cap: 4, pendingJob: null, paid: false,
+    (transport.passagePromoted as ReturnType<typeof vi.fn>).mockImplementation(async (input: MenuObjectInput) => ({ version: 1, objectKey: "k", cap: 4, pendingJob: null, paid: false, withheld: false,
       rows: input.objectKind === "pad_line"
         ? [rowOf("rg", "a gap row", { verb: "knows", gapId: "g1" })]
         : [rowOf("rp", "your pad line", { verb: "open", ref: { kind: "pad", padId: "fx_pad_running" }, target: { blockId: "fx_b_r2" } }), rowOf("rn", "your margin note", { verb: "annotation", annotationId: "a1" })] }) as unknown as PassagePromotedDto);
@@ -404,6 +405,9 @@ describe("RD5 fix round: a selection across passages", () => {
     fireEvent.click(within(screen.getByRole("menu", { name: "append to" })).getAllByRole("menuitem")[0]);
     await waitFor(() => expect(transport.readerCapture).toHaveBeenCalled());
     const capture = (transport.readerCapture as ReturnType<typeof vi.fn>).mock.calls[0][0] as { rawSelection: { nodes: Array<{ spanId: string; quote?: string }> } };
+    expect(transport.passagePromoted).toHaveBeenCalledWith(expect.objectContaining({
+      spanId: "fx_w_book_s1", spanIds: ["fx_w_book_s1", "fx_w_book_s2"],
+    }));
     expect(capture.rawSelection.nodes).toEqual([{ spanId: "fx_w_book_s1", quote: "first passage of fx_w_book" }, { spanId: "fx_w_book_s2", quote: "the second" }]);
     await flush();
     await flush();
@@ -614,7 +618,61 @@ describe("RD5 fix round: exam or held-out material in the menu", () => {
     await screen.findByText("exam or held-out material: nothing is searched for it");
     expect(menus()[0].querySelector(".mh")?.textContent).toBe("a passage · exam or held-out material");
     const verbs = [...menus()[0].querySelectorAll(":scope > .mi .t")].map((each) => each.firstChild?.textContent);
-    expect(verbs).toEqual(["Note in margin", "Open beside", "What this knows"]);
+    expect(verbs).toEqual(["Open beside", "What this knows"]);
     expect(menus()[0].textContent).not.toContain("the first passage of fx_w_book");
   });
+});
+
+it("keeps the header neutral while pending and offers retry after a failed protection read", async () => {
+  const carry = vi.fn(async () => ({ carried: {} as never, created: true }));
+  const { transport } = mount({ pads: (pads) => { pads.transport.carriedCarry = carry; } });
+  let fail!: () => void;
+  vi.mocked(transport.passagePromoted).mockImplementationOnce(() => new Promise((_resolve, reject) => { fail = reject; }));
+  await screen.findByTestId("pane-fx_w_book");
+  fireEvent.contextMenu(passage("fx_w_book_s1"));
+  expect(menus()[0].textContent).not.toContain("the first passage of fx_w_book");
+  fireEvent.keyDown(window, { key: "c" });
+  await act(async () => fail());
+  expect(carry).not.toHaveBeenCalled();
+  expect(menus()[0].querySelector(".mh")?.textContent).toBe("a passage");
+  expect(menus()[0].textContent).not.toContain("the first passage of fx_w_book");
+  expect(within(menus()[0] as HTMLElement).queryByText("Carry")).toBeNull();
+  fireEvent.click(await screen.findByRole("button", { name: /retry/i }));
+  await screen.findByText("your question on the first passage");
+  expect(menus()[0].textContent).toContain("the first passage of fx_w_book");
+});
+
+it("a pending Append destination cannot write after its menu is replaced", async () => {
+  const { server, transport } = mount();
+  let answer!: (found: PassagePromotedDto) => void;
+  vi.mocked(transport.passagePromoted).mockImplementationOnce(() => new Promise((resolve) => { answer = resolve; }));
+  await screen.findByTestId("pane-fx_w_book");
+  fireEvent.contextMenu(passage("fx_w_book_s1"));
+  fireEvent.click(screen.getByText(/^Append to “/));
+  fireEvent.click(within(screen.getByRole("menu", { name: "append to" })).getByText("a new pad"));
+  expect(transport.readerCapture).not.toHaveBeenCalled();
+  expect(server.padBatches).toHaveLength(0);
+  fireEvent.contextMenu(passage("fx_w_book_s2"));
+  await screen.findByText("your question on the second passage");
+  await act(async () => answer({ rows: [], withheld: false, pendingJob: null } as unknown as PassagePromotedDto));
+  await flush();
+  expect(transport.readerCapture).not.toHaveBeenCalled();
+  expect(server.padBatches).toHaveLength(0);
+  expect(menus()[0].textContent).toContain("the second passage");
+});
+
+
+it("refuses a new-pad Append chosen before a protected answer", async () => {
+  const { server, transport } = mount();
+  let answer!: (found: PassagePromotedDto) => void;
+  vi.mocked(transport.passagePromoted).mockImplementationOnce(() => new Promise((resolve) => { answer = resolve; }));
+  await screen.findByTestId("pane-fx_w_book");
+  fireEvent.contextMenu(passage("fx_w_book_s1"));
+  fireEvent.click(screen.getByText(/^Append to “/));
+  fireEvent.click(within(screen.getByRole("menu", { name: "append to" })).getByText("a new pad"));
+  expect(server.padBatches).toHaveLength(0);
+  await act(async () => answer({ rows: [], withheld: true, pendingJob: null } as unknown as PassagePromotedDto));
+  await screen.findByText("exam or held-out material: nothing is searched for it");
+  expect(transport.readerCapture).not.toHaveBeenCalled();
+  expect(server.padBatches).toHaveLength(0);
 });

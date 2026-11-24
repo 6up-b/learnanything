@@ -46,6 +46,8 @@ from learnloop_sidecar.source_identity import require_identity
 from learnloop_sidecar.dto import ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.registry import method
+from learnloop.source_retrieval.find_sources import span_keys as passage_keys_of
+from learnloop_sidecar.workbench_protection import reading_places, refuse_protected
 
 LOG = logging.getLogger(__name__)
 
@@ -517,7 +519,12 @@ def reader_library_ask(ctx: SidecarContext, params: LibraryAskInput) -> dict[str
                            workbench_session_id=params.workbench_session_id)
     record = _caller_record(caller, workbench_session_id=params.workbench_session_id)
 
+    places = reading_places(extraction_id, params.span_ids)
+    refuse_protected(vault, repository, places)
+
     def work(worker_repo: Any) -> dict[str, Any]:
+        refuse_protected(vault, worker_repo, places)
+
         def find(query: str, **kwargs: Any) -> Any:
             return propose_sources(vault, worker_repo, query, caller=caller, **kwargs)
 
@@ -642,6 +649,8 @@ def reader_library_compare(ctx: SidecarContext, params: LibraryCompareInput) -> 
                      span_ids=params.anchor_span_ids or [],
                      source_id=params.open_source_id if params.extraction_id else None,
                      span_keys=params.pinned_span_keys or [])
+    places = reading_places(_resolved_or_none(repository, params.extraction_id), params.anchor_span_ids)
+    refuse_protected(vault, repository, places)
     scoped = scope_enabled(vault)
     if not scoped:
         # CA3 off: today's request exactly (an ask, two pins, no CA3 field).
@@ -650,6 +659,9 @@ def reader_library_compare(ctx: SidecarContext, params: LibraryCompareInput) -> 
     else:
         ask_id = _open_for_door(ctx, vault, repository, params)
     row = _ask_row(repository, ask_id)
+    places.extend(reading_places(row.get("extraction_id"), (row.get("anchor") or {}).get("span_ids", [])))
+    places.extend(passage_keys_of(params.pinned_span_keys))
+    refuse_protected(vault, repository, places)
     caller = follow_up_caller(vault, repository, row, workbench_session_id=params.workbench_session_id)
     keep = KC.keep_enabled(vault)
     perspectives = KC.clean_perspectives(params.requested_perspectives, limit=KC.max_perspectives(vault))
@@ -681,6 +693,8 @@ def reader_library_compare(ctx: SidecarContext, params: LibraryCompareInput) -> 
         return bound
 
     def work(worker_repo: Any) -> dict[str, Any]:
+        refuse_protected(vault, worker_repo, places)
+
         def bound_compare(query: str, **kwargs: Any) -> Any:
             return propose_comparison(vault, worker_repo, query, caller=caller, **kwargs)
 
@@ -858,6 +872,9 @@ def reader_library_ask_tutor(ctx: SidecarContext, params: LibraryAskTutorInput) 
         pinned_keys = list(dict.fromkeys([*kept[1], *pinned_keys]))
     if not pinned_keys:
         raise SidecarError("validation_error", "Pin the passages the tutor should answer from.")
+    places = reading_places(row.get("extraction_id"), (row.get("anchor") or {}).get("span_ids", []))
+    places.extend(passage_keys_of(pinned_keys))
+    refuse_protected(vault, repository, places)
     caller = follow_up_caller(vault, repository, row)
     policy, _reason = derive_policy(caller)
     if policy == "cold_attempt":
@@ -870,6 +887,7 @@ def reader_library_ask_tutor(ctx: SidecarContext, params: LibraryAskTutorInput) 
     provider = LA.OnlyPinned(PinnedSpanProvider(pinned_keys), item=item)
 
     def work(worker_repo: Any) -> dict[str, Any]:
+        refuse_protected(vault, worker_repo, places)
         binding, stored = _pinned_binding(vault, worker_repo, row, caller)
 
         def answer(*, question_md: str, extraction_id: str, span_id: str) -> dict[str, Any]:

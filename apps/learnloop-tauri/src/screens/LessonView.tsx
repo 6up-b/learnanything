@@ -63,7 +63,7 @@ import { FitMath } from "./desks/fitMath";
 
 export type LessonEntry =
   | { kind: "open"; entry: "learning_object" | "reader_selection" | "new_topic"; learningObjectIds?: string[];
-      selection?: { extractionId: string; spanIds: string[] }; title?: string;
+      selection?: { extractionId: string; spanIds: string[]; blockIds?: string[] }; title?: string;
       /** Teacher TE1b: the Start of Today's suggestion card (its decision and the lesson id its response recorded). */
       suggestion?: { decisionId: string; lessonId: string };
       /** IH7 (the owner's decision 2): the "learn this" preference this lesson was asked for with. */

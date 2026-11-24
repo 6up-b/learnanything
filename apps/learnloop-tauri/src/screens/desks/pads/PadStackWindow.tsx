@@ -168,6 +168,7 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
   const [card, setCard] = useState<Card | null>(null);
   const cardTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [menu, setMenu] = useState<MenuRequest | null>(null);
+  const menuOpening = useRef(0);
   const [arranging, setArranging] = useState(false);
   const [submitting, setSubmitting] = useState<{ padId: string; blockId: string } | null>(null);
   const [infoOwn, setInfoOwn] = useState(false);
@@ -468,6 +469,7 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
     menuAtHover() {
       const at = hovered.current;
       if (!at) return false;
+      menuOpening.current++;
       setMenu({ padId: at.padId, blockId: at.blockId, text: at.text, x: at.x, y: at.y });
       return true;
     },
@@ -479,12 +481,14 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
       // A right-click inside a notebook frame (spec §11.3), labelled for the notebook's owner; its text is the
       // frame's selection (untrusted notebook text, shown only quoted).
       const padId = request.lessonId ? lessons?.desk.additionsFor(request.lessonId) ?? `lesson:${request.lessonId}` : request.padId ?? "";
+      menuOpening.current++;
       setMenu({ padId, blockId: null, text: request.text, x: request.x, y: request.y, label: request.label, insertLabel: request.insertLabel, lessonId: request.lessonId });
     },
-    openMenu(padId, blockId, at, selection) {
+    openMenu(padId, blockId, at, selection, blockIds) {
       // The desks' one right-click listener hands a pad line's menu to its window (the rows are the pad's).
       const block = blockId ? store.pads[padId]?.blocks.find((each) => each.blockId === blockId) : undefined;
-      setMenu({ padId, blockId, text: selection || (block ? firstLine(block.bodyMd) : ""), x: at.x, y: at.y });
+      menuOpening.current++;
+      setMenu({ padId, blockId, blockIds, text: selection || (block ? firstLine(block.bodyMd) : ""), x: at.x, y: at.y });
     },
   });
   // The desks' keys reach this stack through a stable handle that always calls the latest render's.
@@ -495,7 +499,7 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
     sketchBlock: () => impl.current?.sketchBlock(),
     arrange: () => impl.current?.arrange(),
     menuAtHover: () => impl.current?.menuAtHover() ?? false,
-    openMenu: (padId, blockId, at, selection) => impl.current?.openMenu(padId, blockId, at, selection),
+    openMenu: (padId, blockId, at, selection, blockIds) => impl.current?.openMenu(padId, blockId, at, selection, blockIds),
     openFrameMenu: (request) => impl.current?.openFrameMenu(request),
     showPad: (padId) => impl.current?.showPad(padId),
   }), []);
@@ -511,7 +515,7 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
     if (paused) return;
     for (const figure of host.figures.take(windowId)) {
       if (!store.pads[figure.padId]) continue;
-      insertAfter(figure.padId, figure.afterBlockId, { kind: "figure", provenance: "learnloop", bodyMd: figure.line, payload: { figure_id: figure.figureId } });
+      insertAfter(figure.padId, figure.afterBlockId, { kind: "figure", provenance: "learnloop", bodyMd: figure.line, payload: { figure_id: figure.figureId, parent_block_id: figure.afterBlockId, source_block_ids: figure.blockIds } });
     }
     // insertAfter reads the store as it is now.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -932,6 +936,7 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
       ) : null}
       {menu ? (
         <PadMenu
+          key={menuOpening.current}
           request={menu}
           host={host}
           windowId={windowId}

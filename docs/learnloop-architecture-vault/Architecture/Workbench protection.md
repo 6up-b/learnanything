@@ -9,6 +9,7 @@ source_commit_timestamp: "2026-11-23T19:57:34-05:00"
 source_paths:
   - src/learnloop/content/sources/exam_material.py
   - src/learnloop/passage_union
+  - src/learnloop_sidecar/workbench_protection.py
   - src/learnloop/pads/proposals.py
   - src/learnloop/curriculum/goal_lens.py
   - src/learnloop/source_retrieval/goal_lens_reads.py
@@ -31,14 +32,19 @@ The [[Reader workbench]] has two protections. Exam and held-out marks govern whe
 
 | Surface | What the code withholds |
 |---|---|
-| `passage.union_range` | Uses `exam_withheld` to set each affected span's `exposure.withheld`. The union does not carry the passage body and does not strip related rows. Section labels, stored link quotes, questions and learner material can still be present. Due checks anchored here contribute commitment ids only. `passage.knows` uses the same union and notes adapter. |
+| `passage.union_range` | Uses `exam_withheld` to set each affected span's `exposure.withheld`. The union does not carry the passage body and does not strip related rows. Section labels, stored link quotes, questions and learner material can still be present. Due checks anchored here contribute commitment ids only. |
 | `passage.content` | Uses the same exam predicate and sets the affected spans' text to null. It still returns source and section metadata. The pad's source-piece action and the exercise import sheet stop on a withheld reply. |
-| `passage.promoted` | Checks the named passage or cue, or the passages linked through a pad line's lineage. A withheld object supplies no query text for search by meaning. Stored links are filtered at both ends, correspondents skip protected origins, and retrieval excludes protected passages and rejects protected hits before judging. The menu can still show the learner's own rows. |
+| `passage.promoted` | Checks the clicked passage and every passage that supplied selected words, including passages named in pad payloads, links and ancestry. A withheld object supplies no query text for search by meaning. Stored links are filtered at both ends, correspondents skip protected origins, and retrieval excludes protected passages and rejects protected hits before judging. The menu can still show navigation rows with neutral labels. Text in learner rows follows its own origins. |
+| `passage.knows` | Refuses a protected menu object. On a clear object, text-bearing entries such as carried questions and margin notes also follow their own passage anchors. |
 | `pad.proposals` | Checks both the block's lineage and the proposal's target at read time. A newly protected origin or target removes the whole proposal from the reply. Proposal creation also checks the origin before search. |
 
 See [[Reference/Modules/learnloop/passage_union/union|Union read]], [[Reference/Modules/learnloop/passage_union/content|Passage content]], [[Reference/Modules/learnloop/passage_union/elsewhere|Related passages]] and [[Reference/Modules/learnloop/pads/proposals|Pad proposals]].
 
-Once the initial reply says `withheld`, the menu replaces the header quote and hides Ask, Find, Compare, Show me, Make it practice, Append, Carry and Teach me. The normal verb dispatcher waits for that verdict. It checks one source span even when the selection crosses several. The Append submenu takes a separate write path, and the first failed read resolves the menu's verdict as false. The initial header can quote before the verdict arrives. The promoted job's poll returns its stored rows without rechecking the current marks. See [[Add a menu verb]] and the [menu findings in the bug ledger](../../reviews/refactor-bug-ledger.md#reader-workbench-vault-documentation-review).
+Each menu opening starts with a neutral header. Text-bearing verbs, including a choice in the Append submenu, need explicit clearance for that opening. A failed protection read keeps the words hidden and offers Retry. Closing or replacing a menu invalidates waiting actions.
+
+Carry, Append, source pieces, margin captures, Ask, Find, Compare, Show me, practice and Teacher check the selection's passage or pad origins at the destination. A mixed selection is refused as a whole. A worker that uses selected words later checks its origins again. A legacy pad quote without an anchor can be inserted or reused only when the protected set is empty.
+
+Every poll of a finished promoted job rechecks its original passages, current pad ancestry and the passages behind each kept quote or related row. A newly protected origin withholds the result. A protected target removes its row while other rows keep their order. See [[Add a menu verb]] and the [menu findings in the bug ledger](../../reviews/refactor-bug-ledger.md#reader-workbench-vault-documentation-review).
 
 ## The shared due-check mask
 

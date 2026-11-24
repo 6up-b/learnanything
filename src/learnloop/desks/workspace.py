@@ -8,6 +8,7 @@ evidence or the router (the import fences in ``pyproject.toml``).
 """
 from __future__ import annotations
 
+from collections.abc import Callable
 import json
 from typing import Annotated, Any, Literal, Union
 
@@ -555,12 +556,15 @@ def _ensure_running_pad(connection: Any, op: EnsureRunningPad, now: str, bump: A
             "added_to_stack": added}
 
 
-def apply_desk_ops(repository: Any, *, client_id: str, seq: int, ops: list[Any], clock: Any = None) -> dict[str, Any]:
+def apply_desk_ops(repository: Any, *, client_id: str, seq: int, ops: list[Any], clock: Any = None,
+                   check_material: Callable[[], None] | None = None) -> dict[str, Any]:
     """``desk.apply``: one batch, applied once and in order (``learnloop.desks.protocol``)."""
 
     request = {"ops": [op.wire() for op in ops]}
 
     def apply(connection: Any, now: str) -> dict[str, Any]:
+        if check_material:
+            check_material()
         versions: dict[str, int] = {}
         results = [run_op(connection, lambda op=op: _apply_desk_op(connection, op, now, versions)) for op in ops]
         return {"results": results,
