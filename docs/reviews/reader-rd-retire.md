@@ -561,9 +561,10 @@ own files put back to the commit before, the test run, the fix restored). Ledger
 | m27 | A book with the Reader off for it is missing from the opener | **Accepted, record corrected**: A4's "lists every book" means every book the Reader may open; a book opted out of the reader loop at ingest is not offered on the desks. | — |
 
 **Assertions changed.** `app/intentCheck.test.ts` (two) and `app/dailyPlan.test.tsx` (one): the targets carry their
-reading. `model/restore.test.ts`: a saved comparison by id and a figure notebook restore inert, not kept. 22 snapshot
-entries of the switch-off tests (`intentSwitchOff`, `libraryAskSwitchOff`, `readingPathsSwitchOff`, `recapSwitchOff`,
-`tutorSwitchOff`) gain only the source root's `data-rendered-extraction` attribute (checked: each entry equal to the
+reading. `model/restore.test.ts`: a saved comparison by id and a figure notebook restore inert, not kept.
+`windows/LibraryPanel.compare.test.tsx` "opened bare asks across the library through the ask box" (was `ask`, now
+`askBox`). 26 snapshot entries of the switch-off tests (`intentSwitchOff`, `libraryAskSwitchOff`,
+`readingPathsSwitchOff`, `recapSwitchOff`, `tutorSwitchOff`, `workbench/switchOff`) gain only the source root's `data-rendered-extraction` attribute (checked: each entry equal to the
 old one once the attribute is taken out). Seven `DeskShell(.menu).test.tsx` cases gained a second `flush()`: a book
 open reads the book's current reading first; their doubles' `resolveExtraction` answers `fx_src_x` as `fx_ext_x`, as
 the sidecar does, instead of echoing the source id.
