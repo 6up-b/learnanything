@@ -158,10 +158,15 @@ export function VeilLayer({ desk, root, windows, onChange }: { desk: CheckDesk; 
       attributeFilter: ["class", "inert", "aria-hidden", "title", "aria-label", "data-check-content", SAFE_ATTR, "data-passage-text", "data-block"] });
     addEventListener("scroll", schedule, { capture: true, passive: true });
     addEventListener("resize", schedule);
+    // A panel that slides in (the companion) moves without changing the page: its pill is placed again when it lands.
+    addEventListener("transitionend", schedule, { capture: true });
+    addEventListener("animationend", schedule, { capture: true });
     return () => {
       observer.disconnect();
       removeEventListener("scroll", schedule, { capture: true });
       removeEventListener("resize", schedule);
+      removeEventListener("transitionend", schedule, { capture: true });
+      removeEventListener("animationend", schedule, { capture: true });
       if (frame.current) cancelAnimationFrame(frame.current);
       frame.current = 0;
     };

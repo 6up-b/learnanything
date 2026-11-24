@@ -252,6 +252,26 @@ describe("the veils in the page", () => {
   });
 });
 
+describe("an opening covers only what it showed", () => {
+  it("the companion opened on its tutor tab is held again when it shows its history", () => {
+    const root = document.createElement("div");
+    root.innerHTML = `<div data-companion-dock="br" data-check-region="the companion"><div data-check-safe="">tabs</div>
+      <div data-companion-body="" data-check-content="tutor:r1">an exchange</div></div>`;
+    document.body.appendChild(root);
+    const holder = new Holder();
+    const opened = [{ ref: COMPANION, print: "tutor:r1" }];
+    let result = holder.apply(root, holdInput([], [], { opened }));
+    expect(result.changed).toEqual([]);
+    expect(root.querySelector("[data-companion-body]")!.closest("[inert]")).toBeNull();
+    root.querySelector("[data-companion-body]")!.setAttribute("data-check-content", "history:q1");
+    result = holder.apply(root, holdInput([], [], { opened }));
+    expect(result.changed).toEqual([refKey(COMPANION)]);
+    expect(root.querySelector("[data-companion-body]")!.closest("[inert]")).toBeTruthy();
+    holder.releaseAll();
+    root.remove();
+  });
+});
+
 describe("the cards", () => {
   it("the closed marker says no question, no topic and no provenance; check now and later", async () => {
     const { desk } = fake();

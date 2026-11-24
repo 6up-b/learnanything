@@ -153,7 +153,7 @@ import "../../styles/goal.css";
 import "../../styles/lesson.css";
 import "../../styles/video.css";
 import "../../styles/checks.css";
-import { CheckDesk, LIVE_CHECK_TRANSPORT, type CheckTransport } from "./checks/controller";
+import { CheckDesk, LIVE_CHECK_TRANSPORT, checkOpenRefusal, type CheckTransport } from "./checks/controller";
 import { CheckCardOverlay, CheckLenses } from "./checks/CheckCard";
 import { VeilLayer } from "./checks/VeilLayer";
 import { visibleNow, windowKind } from "./checks/model";
@@ -2739,7 +2739,18 @@ export function DeskShell({
       }
       // The Reader's figure build (RW5d), read through the one poller under the pad window that asked: a paused
       // window's poll waits with it. A figure that is not shown lands nowhere.
-      const first = await padsTransport.figureRequest({ goalText: text, origin: "show_me", ...(blockIds ? { blockIds } : {}), anchor: anchor ? { extractionId: anchor.extractionId, spanIds: anchor.spanIds ?? [anchor.spanId] } : null });
+      let first: Awaited<ReturnType<typeof padsTransport.figureRequest>>;
+      try {
+        first = await padsTransport.figureRequest({ goalText: text, origin: "show_me", ...(blockIds ? { blockIds } : {}), anchor: anchor ? { extractionId: anchor.extractionId, spanIds: anchor.spanIds ?? [anchor.spanId] } : null });
+      } catch (error) {
+        // The server holds Show me while a check is open (whatever this desk knew): plain words, no error.
+        const waits = checkOpenRefusal(error);
+        if (waits) {
+          toastSafe(`Show me waits · ${waits}`);
+          return null;
+        }
+        throw error;
+      }
       const job = first.state !== "pending" ? first : await new Promise<typeof first>((resolve, reject) => {
         // The poll ends on every terminal path: a result, a job the sidecar no longer knows, or the window that asked
         // being closed (its paused polls would otherwise wait for ever).
@@ -4241,23 +4252,23 @@ export function DeskShell({
                         data-window-kind={window.kind}
                         className={`desk-pane${paired && window.active ? " active-pane" : ""}`}
                       >
-                        {/* The head is the window's chrome: it stays readable while a check holds the page, and then
-                            shows only what the window is (a book's name, else its kind), nothing it holds. */}
-                        <div className="desk-pane-head" {...{ [SAFE_ATTR]: "" }}>
-                          <span className="g" title={window.kind === "pad_stack" || window.kind === "pad" ? "Pad" : KIND_WORD[window.kind] ?? "Window"}>{KIND_GLYPH[window.kind] ?? "§"}</span>
-                          <span className="t">{checkHolding ? heldTitleOf(window) : titleOf(window)}</span>
-                          {checkHolding ? null : <>
+                        {/* The head is the window's chrome: its glyph, name and buttons stay readable while a check
+                            holds the page (the name then says only what the window is: a book's name, else its kind);
+                            its place in the reading and its chips are held in place like anything else. */}
+                        <div className="desk-pane-head">
+                          <span className="g" {...{ [SAFE_ATTR]: "" }} title={window.kind === "pad_stack" || window.kind === "pad" ? "Pad" : KIND_WORD[window.kind] ?? "Window"}>{KIND_GLYPH[window.kind] ?? "§"}</span>
+                          <span className="t" {...{ [SAFE_ATTR]: "" }}>{checkHolding ? heldTitleOf(window) : titleOf(window)}</span>
                           {window.kind === "pad_stack" ? (
-                            <button type="button" className="emi pinfo" aria-label="where your words go" title="where your words go" aria-expanded={emissionOpen === id}
+                            <button type="button" className="emi pinfo" {...{ [SAFE_ATTR]: "" }} aria-label="where your words go" title="where your words go" aria-expanded={emissionOpen === id}
                               onClick={() => setEmissionOpen((now) => (now === id ? null : id))}>ⓘ</button>
                           ) : null}
                           {window.kind === "pad_stack" ? <span className="loc">yours</span> : status[id]?.where ? <span className="loc">{status[id]?.where}</span> : null}
                           {window.content?.kind === "source" ? <FollowChip desk={videoDesk} windowId={id} /> : null}
-                          </>}
-                          {paired ? <span className="hint">{window.active ? "Alt+. gives this window its own space" : "click or alt+j/k"}</span> : null}
+                          {paired ? <span className="hint" {...{ [SAFE_ATTR]: "" }}>{window.active ? "Alt+. gives this window its own space" : "click or alt+j/k"}</span> : null}
                           <button
                             type="button"
                             className="x"
+                            {...{ [SAFE_ATTR]: "" }}
                             aria-label={`close ${checkHolding ? heldTitleOf(window) : titleOf(window)}`}
                             title="close (alt+w)"
                             style={paired ? undefined : { marginLeft: "auto" }}
