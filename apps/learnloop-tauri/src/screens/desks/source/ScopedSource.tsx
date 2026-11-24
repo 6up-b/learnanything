@@ -3408,6 +3408,25 @@ export function ScopedSource({
     );
   };
   const overDesk = (menu: ReactNode): ReactNode => (windowed ? createPortal(menu, document.body) : menu);
+  // The adaptive offer at a section's end (review fix round, major 6): in the rail when the window's rail has a host,
+  // else in the book itself, so a book alone on a desk still draws it; the draw waits for its window to be on screen.
+  const doseOfferNode = render ? (
+          <DoseOffer
+            extractionId={render.extractionId}
+            sectionId={completedSections[completedSections.length - 1] ?? null}
+            visitId={doseVisitId}
+            boundaryChecksAvailable={boundaryChecksAvailable}
+            cueDensityOff={cueCtl.cues?.density === "off"}
+            skim={mode === "skim"}
+            restoredSpanId={progress.restoredSpan ?? null}
+            sections={guidePlan?.sections ?? NO_SECTIONS}
+            showingQuestionId={guidePlan?.sections.find(
+              (section) => section.id === completedSections[completedSections.length - 1],
+            )?.question?.authoredQuestionId ?? null}
+            onShowExample={(spanId) => jumpToSpan(spanId)}
+            onJump={(spanId) => jumpToSpan(spanId)}
+          />
+  ) : null;
   // The session's Wrap up and the recap card: in the Guide's header, or, on a desk with no Guide on screen, at the top
   // of the window (and the Wrap up in the drain while the desk's day closes).
   const wrapUpNode = recapCtl.wrapUpOpen ? (
@@ -3845,6 +3864,7 @@ export function ScopedSource({
             </div>
           ) : null}
           <IntentBox box={intentBox} />
+          {windowed && !windowed.railHost && !working && doseOfferNode ? <div data-window-dose="" style={{ display: "contents" }}>{doseOfferNode}</div> : null}
           {/* The window's own top: the reading's path and the recap card, held at the top of the window while either
               is open (the learner sees them wherever the window opened in the book; the shadow covers the sheet's top
               padding, so no line shows above them); a folded recap stays at the top of the reading. */}
@@ -4385,22 +4405,9 @@ export function ScopedSource({
           ) : null}
 
           {/* Adaptive difficulty AD2+AD3 (§5.12, D21): now and then, one more thing to try at a
-              section's end (a randomized offer, logged before it shows). */}
-          <DoseOffer
-            extractionId={render.extractionId}
-            sectionId={completedSections[completedSections.length - 1] ?? null}
-            visitId={doseVisitId}
-            boundaryChecksAvailable={boundaryChecksAvailable}
-            cueDensityOff={cueCtl.cues?.density === "off"}
-            skim={mode === "skim"}
-            restoredSpanId={progress.restoredSpan ?? null}
-            sections={guidePlan?.sections ?? NO_SECTIONS}
-            showingQuestionId={guidePlan?.sections.find(
-              (section) => section.id === completedSections[completedSections.length - 1],
-            )?.question?.authoredQuestionId ?? null}
-            onShowExample={(spanId) => jumpToSpan(spanId)}
-            onJump={(spanId) => jumpToSpan(spanId)}
-          />
+              section's end (a randomized offer, logged before it shows). In the rail when it has a host; else in the
+              book (below). */}
+          {!windowed || windowed.railHost ? doseOfferNode : null}
 
           {guideRail(railTab === "guide", false)}
 
