@@ -16,7 +16,7 @@ from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.registry import method
-from learnloop_sidecar.workbench_protection import block_places
+from learnloop_sidecar.workbench_protection import VERB_SURFACES, block_places, withheld_verbs
 
 #: Every RPC this module registers (pinned desktop-only).
 PASSAGE_UNION_RPCS: tuple[str, ...] = ("passage.union_range",)
@@ -68,16 +68,23 @@ def passage_union_range_handler(ctx: SidecarContext, params: UnionRangeInput) ->
     return versioned(union)
 
 
-@method("passage.content", UnionRangeInput)
-def passage_content_handler(ctx: SidecarContext, params: UnionRangeInput) -> dict[str, Any]:
+class PassageContentInput(UnionRangeInput):
+    #: The menu verb the words are read for: its destination's set decides what is withheld (Make it practice's
+    #: exercise sheet reads with the import's); none, all exam material (a source piece copied into a pad).
+    for_verb: Literal["make_practice"] | None = None
+
+
+@method("passage.content", PassageContentInput)
+def passage_content_handler(ctx: SidecarContext, params: PassageContentInput) -> dict[str, Any]:
     """One range of a reading as the source has it: ``{extraction_id, source_id, title, withheld, spans: [{span_id,
     text, page, t0, t1, section_id, section_label, withheld}]}`` (a ``source_piece``'s words, location and time)."""
 
     vault, repository = ctx.require_vault()
+    surface = VERB_SURFACES[params.for_verb][0] if params.for_verb else None
     try:
         return versioned(passage_content(vault, repository, extraction_id=params.extraction_id,
                                          from_span_id=params.from_span_id, to_span_id=params.to_span_id,
-                                         t0=params.t0, t1=params.t1))
+                                         t0=params.t0, t1=params.t1, surface=surface))
     except UnionError as exc:
         raise SidecarError(exc.code, str(exc)) from exc
 
@@ -105,6 +112,9 @@ class MenuObjectInput(ParamsModel):
     block_ids: list[str] = Field(default_factory=list)
     window_id: str | None = None
     desk_id: str | None = None
+    #: passage.knows only: the menu verb it is read for (Make it practice reads the passage's section and role), so
+    #: its destination's own set decides the refusal, as the menu's per-verb verdict does.
+    for_verb: Literal["make_practice"] | None = None
 
     @model_validator(mode="after")
     def _names_its_object(self) -> MenuObjectInput:
@@ -249,6 +259,8 @@ def passage_knows_handler(ctx: SidecarContext, params: MenuObjectInput) -> dict[
 
     vault, repository = ctx.require_vault()
     key, places, _text, sources, withheld = _menu_places(vault, repository, params)
+    if params.for_verb is not None:
+        withheld = params.for_verb in withheld_verbs(vault, repository, places)
     if withheld:
         raise SidecarError("exam_material", "Details for this material are withheld.")
     with repository.connection() as connection:
@@ -327,8 +339,11 @@ def passage_promoted_handler(ctx: SidecarContext, params: PromotedInput) -> dict
         ctx, kind=PROMOTED_KIND, job_id=params.request_id or f"prom_{new_ulid()}", work=work,
         request_key=request_key, supersede_key=f"menu:{params.desk_id or ''}").job_id
     rows, blocked = _deliver_rows(ctx, kept_rows(cheap))
+    # Per verb (``withheld_verbs``): each verb's destination decides by its own set, so a practice exam that is not
+    # held out keeps the Ask and practice the Reader offers; ``withheld`` stays the menu's own search's (all exam).
+    verbs = sorted(VERB_SURFACES) if blocked and not withheld else withheld_verbs(vault, repository, places)
     return versioned({"object_key": key, "rows": rows, "cap": P.CAP, "withheld": withheld or blocked,
-                      "pending_job": {"job_id": job_id}, "paid": paid})
+                      "withheld_verbs": verbs, "pending_job": {"job_id": job_id}, "paid": paid})
 
 
 class PromotedJobInput(ParamsModel):
@@ -364,6 +379,18 @@ def _deliver_rows(ctx: SidecarContext, result: dict[str, Any]) -> tuple[list[dic
             withheld.isdisjoint(row_places.get(row["row_id"], ()))], origin_withheld
 
 
+def _verbs_now(ctx: SidecarContext, result: dict[str, Any]) -> list[str]:
+    """The per-verb verdict at a delivery, read again from the object's origins (a mark made since counts); a pad line
+    that cannot be read withholds every verb."""
+
+    vault, repository = ctx.require_vault()
+    try:
+        origins = set(result["origins"]) | set(block_places(vault, repository, result["block_ids"]))
+    except SidecarError:
+        return sorted(VERB_SURFACES)
+    return withheld_verbs(vault, repository, origins)
+
+
 def _promoted_job_payload(ctx: SidecarContext, job_id: str) -> dict[str, Any]:
     from learnloop.ai import plan_fallback
     from learnloop_sidecar import polled_jobs as PJ
@@ -383,10 +410,11 @@ def _promoted_job_payload(ctx: SidecarContext, job_id: str) -> dict[str, Any]:
     status = state["status"]
     error = state["error"] if status == PJ.FAILED else None
     rows, withheld = _deliver_rows(ctx, state["result"]) if status == PJ.DONE else ([], None)
+    verbs = None if withheld is None else _verbs_now(ctx, state["result"])
     return versioned({
         "job_id": job_id, "status": status, "done": bool(state["finished"]),
         # A cancelled or superseded menu delivers nothing, even when its work finished.
-        "rows": rows, **({"withheld": withheld} if withheld is not None else {}),
+        "rows": rows, **({"withheld": withheld, "withheld_verbs": verbs} if withheld is not None else {}),
         "error": None if error is None else {"code": error.code, "message": error.message,
                                              "retryable": error.retryable},
     })

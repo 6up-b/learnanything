@@ -28,7 +28,7 @@ Area: [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/rea
 
 ## Why this module exists
 
-Provides `CompareKeepContextValue`, `CompareKeepContext`, `useCompareKeep` within the desktop's TypeScript/screens/reader ownership area.
+Provides `CompareKeepContextValue`, `CompareKeepContext`, `announceKeptChange`, `onKeptChange` and related exports within the desktop's TypeScript/screens/reader ownership area.
 
 The system-level behavior stays authoritative in the linked architecture, concept, and workflow notes; this note owns only source-level lookup facts.
 
@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/compareKeepContext.ts](../../../../../../../apps/learnloop-tauri/src/screens/reader/compareKeepContext.ts) |
-| Source lines | 20 |
+| Source lines | 34 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
@@ -56,11 +56,13 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - `export interface CompareKeepContextValue` — interface, line 8
 - `export const CompareKeepContext = createContext<CompareKeepContextValue | null>(null)` — const, line 16
-- `export function useCompareKeep(): CompareKeepContextValue | null` — function, line 18
+- `export function announceKeptChange(): void` — function, line 23
+- `export function onKeptChange(listener: ()` — function, line 27
+- `export function useCompareKeep(): CompareKeepContextValue | null` — function, line 32
 
 ## Internal implementation anchors
 
-No non-exported declaration anchor was detected by the static extractor.
+- `const keptChanges = new EventTarget()` — const, line 20
 
 ## Who imports or calls it
 
@@ -68,9 +70,10 @@ No non-exported declaration anchor was detected by the static extractor.
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
 - [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] — import-or-re-export: `CompareKeepContext`; references `CompareKeepContext`
+- [[Reference/Desktop/TypeScript/screens/desks/windows/PanelWindow|src/screens/desks/windows/PanelWindow.tsx]] — import-or-re-export: `CompareKeepContext`; references `CompareKeepContext`
 - [[Reference/Desktop/TypeScript/screens/reader/CompareKeep|src/screens/reader/CompareKeep.tsx]] — import-or-re-export: `useCompareKeep`; references `useCompareKeep`
 - [[Reference/Desktop/TypeScript/screens/reader/ComparePointTable|src/screens/reader/ComparePointTable.tsx]] — import-or-re-export: `useCompareKeep`; references `useCompareKeep`
-- [[Reference/Desktop/TypeScript/screens/reader/useKeptComparisons|src/screens/reader/useKeptComparisons.ts]] — import-or-re-export: `CompareKeepContextValue`; references `CompareKeepContextValue`
+- [[Reference/Desktop/TypeScript/screens/reader/useKeptComparisons|src/screens/reader/useKeptComparisons.ts]] — import-or-re-export: `CompareKeepContextValue`, `announceKeptChange`, `onKeptChange`; references `CompareKeepContextValue`, `announceKeptChange`, `onKeptChange`
 
 ## Dependencies
 

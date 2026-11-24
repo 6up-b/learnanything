@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/workbench/useWorkbenchSession.ts](../../../../../../../apps/learnloop-tauri/src/screens/workbench/useWorkbenchSession.ts) |
-| Source lines | 656 |
+| Source lines | 698 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/workbench/_area|TypeScript/screens/workbench]] |
 | Refactor status | `ACTIVE` |
@@ -59,7 +59,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export function leftUnsavedNote(reason: string | null): string` — function, line 84
 - `export function notSavedError(reason: string | null, action: string):` — function, line 91
 - `export interface WorkbenchSessionControls` — interface, line 100
-- `export function useWorkbenchSession( initial: WorkbenchSessionDto, options:` — function, line 140
+- `export function useWorkbenchSession( initial: WorkbenchSessionDto, options:` — function, line 146
 
 ## Internal implementation anchors
 
@@ -74,112 +74,122 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `type BookOp =` — type, line 69
 - `type Op = StepOp | BookOp` — type, line 70
 - `function newKey(): string` — function, line 72
-- `const readOnly = options.readOnly ?? false` — const, line 144
-- `const local = fromServer(initial.steps.filter((step)` — const, line 148
-- `const sessionRef = useRef(session)` — const, line 157
-- `const stepsRef = useRef(steps)` — const, line 158
-- `const queue = useRef<Op[]>([])` — const, line 159
-- `const running = useRef(false)` — const, line 160
-- `const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null)` — const, line 161
-- `const failures = useRef(0)` — const, line 162
-- `const closed = useRef(false)` — const, line 163
-- `const lifeSeq = useRef(0)` — const, line 168
-- `const live = useRef<number | null>(null)` — const, line 169
-- `const liveNow = ()` — const, line 171
-- `const stillLive = (sentIn: number | null)` — const, line 173
-- `const frozenRef = useRef(false)` — const, line 174
-- `const leavingRef = useRef(false)` — const, line 176
-- `const paused = ()` — const, line 178
-- `const rejected = useRef(new Map<string, string>())` — const, line 180
-- `const editTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>())` — const, line 181
-- `const waiters = useRef<Array<(ok: boolean)` — const, line 182
-- `const onSessionRef = useRef(options.onSession)` — const, line 183
-- `const onErrorRef = useRef(options.onError)` — const, line 185
-- `const commitSteps = useCallback((next: LocalStep[])` — const, line 188
-- `const commitSession = useCallback((next: WorkbenchSessionDto, notify = true)` — const, line 192
-- `const firstRejection = useCallback(()` — const, line 199
-- `const settleWaiters = useCallback((ok: boolean)` — const, line 201
-- `const pending = waiters.current` — const, line 202
-- `const settleIdle = useCallback(()` — const, line 208
-- `const reason = firstRejection()` — const, line 209
-- `const stepInput = useCallback((op: StepOp): WorkbenchSaveStepInput | null` — const, line 216
-- `const list = stepsRef.current` — const, line 217
-- `const index = list.findIndex((step)` — const, line 218
-- `const step = list[index]` — const, line 219
-- `const sessionId = sessionRef.current.sessionId` — const, line 221
-- `const before = list.slice(0, index).reverse().find((candidate)` — const, line 223
-- `const hasUnsentWrite = useCallback((key: string)` — const, line 231
-- `const nextOp = useCallback((): Op | undefined` — const, line 237
-- `const stepRefused = [...rejected.current.keys()].some((key)` — const, line 238
-- `const firstBook = queue.current.find((queued)` — const, line 239
-- `const holdBook = stepRefused && firstBook !== undefined && !firstBook.payload && !firstBook.visible` — const, line 240
-- `const dequeue = useCallback((op: Op)` — const, line 243
-- `const pump = useCallback(async ()` — const, line 247
-- `const op = nextOp()` — const, line 249
-- `const input = stepInput(op)` — const, line 261
-- `const result = await api.workbenchSetBook(op.payload!)` — const, line 273
-- `const result = await api.workbenchSaveStep(op.payload!)` — const, line 284
-- `const local = stepsRef.current.find((step)` — const, line 291
-- `const code = getCommandError(error)?.code ?? ""` — const, line 301
-- `const delay = RETRY_DELAYS_MS[Math.min(failures.current, RETRY_DELAYS_MS.length - 1)]` — const, line 314
-- `const enqueue = useCallback((op: Op)` — const, line 323
-- `const queueEdit = useCallback((key: string)` — const, line 330
-- `const step = stepsRef.current.find((candidate)` — const, line 331
-- `const addQueued = queue.current.some((queued)` — const, line 333
-- `const flushEdits = useCallback(()` — const, line 338
-- `const setBody = useCallback((key: string, body: string)` — const, line 346
-- `const timers = editTimers.current` — const, line 350
-- `const existing = timers.get(key)` — const, line 351
-- `const addStep = useCallback((afterKey: string | null, kind: WorkbenchStepKind = "step")` — const, line 359
-- `const key = newKey()` — const, line 360
-- `let list = stepsRef.current` — let, line 362
-- `const unwritten = (step: LocalStep)` — const, line 365
-- `const deleteStep = useCallback((key: string)` — const, line 379
-- `const step = stepsRef.current.find((candidate)` — const, line 381
-- `const timer = editTimers.current.get(key)` — const, line 383
-- `const saved = step.serverId !== null || queue.current.some((queued)` — const, line 388
-- `const undoDelete = useCallback((key: string)` — const, line 401
-- `const drained = useCallback(()` — const, line 407
-- `const persist = useCallback(async (action: string)` — const, line 415
-- `const setBook = useCallback(async (visible: boolean)` — const, line 420
-- `const leaveHeld = useRef(false)` — const, line 439
-- `const departure = useRef<Promise<` — const, line 440
-- `const leave = useCallback(()` — const, line 441
-- `const startPause = ()` — const, line 444
-- `const endPause = ()` — const, line 448
-- `const check = async (): Promise<` — const, line 454
-- `const reason = firstRejection()` — const, line 457
-- `const run = async ()` — const, line 465
-- `const first = await check()` — const, line 475
-- `const last = first.note === null ? await check() : first` — const, line 486
-- `const pending = run().finally(()` — const, line 494
-- `const abandon = useCallback(async ()` — const, line 501
-- `const sentIn = liveNow()` — const, line 505
-- `const result = await api.workbenchAbandon(` — const, line 506
-- `const reopen = useCallback(async ()` — const, line 516
-- `const sentIn = liveNow()` — const, line 518
-- `const result = await api.workbenchReopen(` — const, line 519
-- `const retryImport = useCallback(async ()` — const, line 526
-- `const sentIn = liveNow()` — const, line 528
-- `const result = await api.workbenchRetryImport(` — const, line 529
-- `const bind = useCallback(async (practiceItemId: string)` — const, line 536
-- `const sentIn = liveNow()` — const, line 538
-- `const result = await api.workbenchBind(` — const, line 539
-- `const submit = useCallback(async (input: Omit<WorkbenchSubmitInput, "sessionId">)` — const, line 546
-- `const sentIn = liveNow()` — const, line 548
-- `const result = await api.workbenchSubmit(` — const, line 549
-- `const flushForTransition = useCallback(async ()` — const, line 557
-- `const flushForClose = useCallback(async ()` — const, line 577
-- `const reportError = useCallback((message: string)` — const, line 581
-- `const waiting = !readOnly && session.status !== "submitted" && session.importStatus === "pending" && !session.parts` — const, line 585
-- `const windowPaused = useWindowPaused()` — const, line 587
-- `const timer = setInterval(()` — const, line 590
-- `const sentIn = liveNow()` — const, line 591
-- `const next = result.session` — const, line 598
-- `const current = sessionRef.current` — const, line 599
-- `const applyRecord = useCallback((next: WorkbenchRecordDto)` — const, line 636
-- `const applyServer = useCallback((next: WorkbenchSessionDto)` — const, line 638
-- `const current = sessionRef.current` — const, line 639
+- `const readOnly = options.readOnly ?? false` — const, line 150
+- `const local = fromServer(initial.steps.filter((step)` — const, line 154
+- `const sessionRef = useRef(session)` — const, line 163
+- `const stepsRef = useRef(steps)` — const, line 164
+- `const queue = useRef<Op[]>([])` — const, line 165
+- `const running = useRef(false)` — const, line 166
+- `const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null)` — const, line 167
+- `const failures = useRef(0)` — const, line 168
+- `const closed = useRef(false)` — const, line 169
+- `const lifeSeq = useRef(0)` — const, line 174
+- `const live = useRef<number | null>(null)` — const, line 175
+- `const liveNow = ()` — const, line 177
+- `const stillLive = (sentIn: number | null)` — const, line 179
+- `const frozenRef = useRef(false)` — const, line 180
+- `const leavingRef = useRef(false)` — const, line 182
+- `const paused = ()` — const, line 184
+- `const rejected = useRef(new Map<string, string>())` — const, line 186
+- `const editTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>())` — const, line 187
+- `const waiters = useRef<Array<(ok: boolean)` — const, line 188
+- `const onSessionRef = useRef(options.onSession)` — const, line 189
+- `const onErrorRef = useRef(options.onError)` — const, line 191
+- `const commitSteps = useCallback((next: LocalStep[])` — const, line 194
+- `const commitSession = useCallback((next: WorkbenchSessionDto, notify = true)` — const, line 198
+- `const firstRejection = useCallback(()` — const, line 205
+- `const settleWaiters = useCallback((ok: boolean)` — const, line 207
+- `const pending = waiters.current` — const, line 208
+- `const settleIdle = useCallback(()` — const, line 214
+- `const reason = firstRejection()` — const, line 215
+- `const stepInput = useCallback((op: StepOp): WorkbenchSaveStepInput | null` — const, line 222
+- `const list = stepsRef.current` — const, line 223
+- `const index = list.findIndex((step)` — const, line 224
+- `const step = list[index]` — const, line 225
+- `const sessionId = sessionRef.current.sessionId` — const, line 227
+- `const before = list.slice(0, index).reverse().find((candidate)` — const, line 229
+- `const hasUnsentWrite = useCallback((key: string)` — const, line 237
+- `const nextOp = useCallback((): Op | undefined` — const, line 243
+- `const stepRefused = [...rejected.current.keys()].some((key)` — const, line 244
+- `const firstBook = queue.current.find((queued)` — const, line 245
+- `const holdBook = stepRefused && firstBook !== undefined && !firstBook.payload && !firstBook.visible` — const, line 246
+- `const dequeue = useCallback((op: Op)` — const, line 249
+- `const pump = useCallback(async ()` — const, line 253
+- `const op = nextOp()` — const, line 255
+- `const input = stepInput(op)` — const, line 267
+- `const result = await api.workbenchSetBook(op.payload!)` — const, line 279
+- `const result = await api.workbenchSaveStep(op.payload!)` — const, line 290
+- `const listed = op.kind === "add" ? stepsRef.current.find((step)` — const, line 296
+- `const line = listed ? [...boundRef.current].find(([, key])` — const, line 297
+- `const body = stepsRef.current.find((step)` — const, line 299
+- `const local = stepsRef.current.find((step)` — const, line 308
+- `const code = getCommandError(error)?.code ?? ""` — const, line 318
+- `const delay = RETRY_DELAYS_MS[Math.min(failures.current, RETRY_DELAYS_MS.length - 1)]` — const, line 331
+- `const enqueue = useCallback((op: Op)` — const, line 340
+- `const queueEdit = useCallback((key: string)` — const, line 347
+- `const step = stepsRef.current.find((candidate)` — const, line 348
+- `const addQueued = queue.current.some((queued)` — const, line 350
+- `const flushEdits = useCallback(()` — const, line 355
+- `const setBody = useCallback((key: string, body: string)` — const, line 363
+- `const timers = editTimers.current` — const, line 367
+- `const existing = timers.get(key)` — const, line 368
+- `const addStep = useCallback((afterKey: string | null, kind: WorkbenchStepKind = "step")` — const, line 376
+- `const key = newKey()` — const, line 377
+- `let list = stepsRef.current` — let, line 379
+- `const unwritten = (step: LocalStep)` — const, line 382
+- `const boundRef = useRef<ReadonlyMap<string, string>>(new Map())` — const, line 396
+- `const bindLine = useCallback((lineId: string, body: string)` — const, line 398
+- `const key = boundRef.current.get(lineId)` — const, line 400
+- `const step = stepsRef.current.find((candidate)` — const, line 402
+- `const added = newKey()` — const, line 406
+- `let list = stepsRef.current` — let, line 408
+- `const unwritten = (step: LocalStep)` — const, line 409
+- `const deleteStep = useCallback((key: string)` — const, line 420
+- `const step = stepsRef.current.find((candidate)` — const, line 422
+- `const timer = editTimers.current.get(key)` — const, line 424
+- `const saved = step.serverId !== null || queue.current.some((queued)` — const, line 429
+- `const undoDelete = useCallback((key: string)` — const, line 442
+- `const drained = useCallback(()` — const, line 448
+- `const persist = useCallback(async (action: string)` — const, line 456
+- `const setBook = useCallback(async (visible: boolean)` — const, line 461
+- `const leaveHeld = useRef(false)` — const, line 480
+- `const departure = useRef<Promise<` — const, line 481
+- `const leave = useCallback(()` — const, line 482
+- `const startPause = ()` — const, line 485
+- `const endPause = ()` — const, line 489
+- `const check = async (): Promise<` — const, line 495
+- `const reason = firstRejection()` — const, line 498
+- `const run = async ()` — const, line 506
+- `const first = await check()` — const, line 516
+- `const last = first.note === null ? await check() : first` — const, line 527
+- `const pending = run().finally(()` — const, line 535
+- `const abandon = useCallback(async ()` — const, line 542
+- `const sentIn = liveNow()` — const, line 546
+- `const result = await api.workbenchAbandon(` — const, line 547
+- `const reopen = useCallback(async ()` — const, line 557
+- `const sentIn = liveNow()` — const, line 559
+- `const result = await api.workbenchReopen(` — const, line 560
+- `const retryImport = useCallback(async ()` — const, line 567
+- `const sentIn = liveNow()` — const, line 569
+- `const result = await api.workbenchRetryImport(` — const, line 570
+- `const bind = useCallback(async (practiceItemId: string)` — const, line 577
+- `const sentIn = liveNow()` — const, line 579
+- `const result = await api.workbenchBind(` — const, line 580
+- `const submit = useCallback(async (input: Omit<WorkbenchSubmitInput, "sessionId">)` — const, line 587
+- `const sentIn = liveNow()` — const, line 589
+- `const result = await api.workbenchSubmit(` — const, line 590
+- `const flushForTransition = useCallback(async ()` — const, line 598
+- `const flushForClose = useCallback(async ()` — const, line 618
+- `const reportError = useCallback((message: string)` — const, line 622
+- `const waiting = !readOnly && session.status !== "submitted" && session.importStatus === "pending" && !session.parts` — const, line 626
+- `const windowPaused = useWindowPaused()` — const, line 628
+- `const timer = setInterval(()` — const, line 631
+- `const sentIn = liveNow()` — const, line 632
+- `const next = result.session` — const, line 639
+- `const current = sessionRef.current` — const, line 640
+- `const applyRecord = useCallback((next: WorkbenchRecordDto)` — const, line 677
+- `const applyServer = useCallback((next: WorkbenchSessionDto)` — const, line 679
+- `const current = sessionRef.current` — const, line 680
 
 ## Who imports or calls it
 
@@ -214,6 +224,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 ## Tests that define behavior
 
+- [apps/learnloop-tauri/src/screens/workbench/handwritten.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/workbench/handwritten.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/workbench/Workbench.test.tsx](../../../../../../../apps/learnloop-tauri/src/screens/workbench/Workbench.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 
 ## Modification guidance

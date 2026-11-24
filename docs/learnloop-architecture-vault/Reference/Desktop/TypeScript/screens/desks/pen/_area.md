@@ -35,10 +35,10 @@ No nested ownership area.
 | Module | Status | Purpose | Imports | Imported by |
 |---|---|---|---:|---:|
 | [[Reference/Desktop/TypeScript/screens/desks/pen/InkLine|InkLine.tsx]] | `ACTIVE` | Implements the `InkLine` routed desktop screen and coordinates its learner-facing workflow state. | 6 | 1 |
-| [[Reference/Desktop/TypeScript/screens/desks/pen/PenLayer|PenLayer.tsx]] | `ACTIVE` | Implements the `PenLayer` routed desktop screen and coordinates its learner-facing workflow state. | 7 | 1 |
+| [[Reference/Desktop/TypeScript/screens/desks/pen/PenLayer|PenLayer.tsx]] | `ACTIVE` | Implements the `PenLayer` routed desktop screen and coordinates its learner-facing workflow state. | 8 | 1 |
 | [[Reference/Desktop/TypeScript/screens/desks/pen/geometry|geometry.ts]] | `ACTIVE` | Provides `PASSAGE`, `LocalRect`, `caretAt`, `passages` and related exports within the desktop's TypeScript/screens/desks/pen ownership area. | 1 | 2 |
 | [[Reference/Desktop/TypeScript/screens/desks/pen/host|host.ts]] | `ACTIVE` | Provides `PenApi`, `PenHost`, `PenHostContext`, `usePenHost` within the desktop's TypeScript/screens/desks/pen ownership area. | 4 | 5 |
-| [[Reference/Desktop/TypeScript/screens/desks/pen/inkCache|inkCache.ts]] | `ACTIVE` | Provides `InkCacheApi`, `ReadingStatus`, `LineReading`, `InkLine` and related exports within the desktop's TypeScript/screens/desks/pen ownership area. | 2 | 2 |
+| [[Reference/Desktop/TypeScript/screens/desks/pen/inkCache|inkCache.ts]] | `ACTIVE` | Provides `InkCacheApi`, `inkRefusal`, `ReadingStatus`, `LineReading` and related exports within the desktop's TypeScript/screens/desks/pen ownership area. | 2 | 3 |
 | [[Reference/Desktop/TypeScript/screens/desks/pen/input|input.ts]] | `ACTIVE` | Provides `PointerLike`, `Sample`, `FinishedStroke`, `DownOutcome` and related exports within the desktop's TypeScript/screens/desks/pen ownership area. | 0 | 2 |
 | [[Reference/Desktop/TypeScript/screens/desks/pen/live|live.ts]] | `ACTIVE` | Provides `LIVE_PEN_API` within the desktop's TypeScript/screens/desks/pen ownership area. | 2 | 1 |
 | [[Reference/Desktop/TypeScript/screens/desks/pen/recognizer|recognizer.ts]] | `ACTIVE` | Provides `Point`, `Box`, `LineBox`, `RecognizerPage` and related exports within the desktop's TypeScript/screens/desks/pen ownership area. | 0 | 2 |

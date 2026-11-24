@@ -385,6 +385,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_remaining_decision_records.py](../../../../../../tests/test_remaining_decision_records.py) — direct import
   - `test_every_b8_builder_passes_the_prose_check_with_learner_text_planted`
   - `test_the_daily_re_judgment_records_what_it_decided_and_nothing_for_none_or_fresh`
+- [tests/test_tutor_goal_in_view.py](../../../../../../tests/test_tutor_goal_in_view.py) — direct import
 
 ## Modification guidance
 

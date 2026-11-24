@@ -157,6 +157,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_attempts_record_the_key_status_and_unverified_ones_never_certify`
   - `test_the_policy_gate_changes_only_certification`
 - [tests/test_workbench_assistance.py](../../../../../../tests/test_workbench_assistance.py) — direct import
+- [tests/test_workbench_ink_steps.py](../../../../../../tests/test_workbench_ink_steps.py) — direct import
+  - `test_worked_help_on_an_ink_step_marks_the_later_attempt_as_on_a_typed_step`
 
 ## Modification guidance
 

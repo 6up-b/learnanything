@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/video/ChaptersPanel.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/video/ChaptersPanel.tsx) |
-| Source lines | 152 |
+| Source lines | 158 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/video/_area|TypeScript/screens/desks/video]] |
 | Refactor status | `ACTIVE` |
@@ -69,12 +69,13 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `let timer: number | undefined` — let, line 55
 - `const due = out.nextCheckDue ? Date.parse(out.nextCheckDue) : NaN` — const, line 60
 - `const settle = useCallback((out: ChaptersJobDto)` — const, line 68
-- `const suggest = useCallback(()` — const, line 93
-- `const cancel = useCallback(()` — const, line 101
-- `const decide = useCallback((chapter: VideoChapterDto, decision: "accept" | "dismiss")` — const, line 106
-- `const list = useMemo(()` — const, line 120
-- `const side = useMemo(()` — const, line 122
-- `const lo = chapter.learningObjects?.[0]?.title ?? null` — const, line 127
+- `const suggest = useCallback(()` — const, line 98
+- `const cancel = useCallback(()` — const, line 106
+- `const decide = useCallback((chapter: VideoChapterDto, decision: "accept" | "dismiss")` — const, line 111
+- `const list = useMemo(()` — const, line 125
+- `const side = useMemo(()` — const, line 127
+- `const topic = chapter.learningObjects?.[0]` — const, line 132
+- `const lo = topic ? chapter.held || topic.held ? "a topic with a cold check due" : topic.title : null` — const, line 133
 
 ## Who imports or calls it
 
@@ -91,7 +92,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/api/poller|src/api/poller.ts]] — import-or-re-export; imports `Poller`
 - [[Reference/Desktop/TypeScript/screens/desks/lifecycle|src/screens/desks/lifecycle.tsx]] — import-or-re-export; imports `useWhenLive`, `useWindowLifecycle`
 - [[Reference/Desktop/TypeScript/screens/desks/video/desk|src/screens/desks/video/desk.ts]] — import-or-re-export; imports `VideoTransport`
-- [[Reference/Desktop/TypeScript/screens/desks/video/model|src/screens/desks/video/model.ts]] — import-or-re-export; imports `clockWords`
+- [[Reference/Desktop/TypeScript/screens/desks/video/model|src/screens/desks/video/model.ts]] — import-or-re-export; imports `chapterLabel`, `clockWords`
 
 ### Assets, platform, and third-party dependencies
 

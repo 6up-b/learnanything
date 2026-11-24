@@ -122,8 +122,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_canvas_is_the_strokes_box_plus_one_pen_width_each_side`
   - `test_the_pen_is_the_specs_on_the_paper_it_was_drawn_on`
   - `test_the_same_strokes_give_the_same_bytes`
-- [tests/test_reader_rd8a_transcribe.py](../../../../../../tests/test_reader_rd8a_transcribe.py) — direct import
-  - `test_the_render_digest_and_the_prompt_are_stable`
 
 ## Modification guidance
 

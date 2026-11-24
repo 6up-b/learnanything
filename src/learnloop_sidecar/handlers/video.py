@@ -84,10 +84,10 @@ def _exam_masked(vault: Any, repository: Any, extraction_id: str, chapters: list
     """A chapter over exam or held-out material keeps its times and ids, its title and tags neutral. Protection is
     read at every delivery: a chapter saved before its video or range was marked names nothing after."""
 
-    from learnloop.content.sources.exam_material import exam_withheld
+    from learnloop.passage_union.elsewhere import withheld_places
 
-    held = {span for _reading, span in exam_withheld(vault, repository, {(extraction_id, span) for section in sections
-                                                                          for span in section.span_ids})}
+    held = {span for _reading, span in withheld_places(vault, repository, {(extraction_id, span) for section in sections
+                                                                            for span in section.span_ids})}
     if not held:
         return chapters
     out = []

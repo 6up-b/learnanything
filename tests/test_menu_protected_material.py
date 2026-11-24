@@ -238,12 +238,14 @@ def test_finished_menu_rechecks_origin_and_targets_at_each_poll(protected, unit)
     ("search.everything", {"query": HELD_WORDS, "selection": {"extractionId": BOOK, "spanIds": ["s2", "s_held"]}}),
 ])
 def test_destination_refuses_mixed_selection_without_menu(protected, rpc, params):
+    """A path that had its own protection refusal before the menu's checks keeps its code (a lesson's
+    ``protected``); every other refuses ``exam_material``."""
     from learnloop_sidecar.errors import SidecarError
 
     _hold_out(protected.repository)
     with pytest.raises(SidecarError) as refused:
         call(protected.ctx, rpc, params)
-    assert refused.value.code == "exam_material"
+    assert refused.value.code == {"lesson.turn": "protected"}.get(rpc, "exam_material")
     assert HELD_WORDS not in json.dumps(call(protected.ctx, "pad.get", {"padId": "pad_1"}))
     assert HELD_WORDS not in json.dumps(call(protected.ctx, "carried.list", {}))
 
@@ -274,7 +276,7 @@ def test_pad_selection_follows_every_lines_payload_and_links(protected):
     ]:
         with pytest.raises(SidecarError) as refused:
             call(ctx, rpc, params)
-        assert refused.value.code == "exam_material", rpc
+        assert refused.value.code == {"lesson.turn": "protected"}.get(rpc, "exam_material"), rpc
 
 
 def test_finished_judged_row_loses_a_newly_marked_target(protected):
@@ -425,3 +427,136 @@ def test_a_stored_mark_on_held_out_material_reaches_no_other_surface(protected):
     everywhere = json.dumps(call(ctx, "search.everything", {"query": "margin thought", "scopes": ["notes", "pads"]}))
     assert OPEN_NOTE in everywhere and HELD_NOTE not in everywhere
     assert HELD_NOTE not in json.dumps(call(ctx, "pad.proposals", {"padId": "pad_1"}))
+
+
+def _exam_now(protected):
+    from learnloop.content.sources.exam_material import exam_withheld, held_out_material
+    from learnloop.vault.loader import load_vault
+
+    vault = load_vault(protected.paths.root)
+    return (exam_withheld(vault, protected.repository, [(BOOK, "s_open")])
+            and not held_out_material(vault, protected.repository).covers(BOOK, "s_open"))
+
+
+@pytest.mark.parametrize("rpc,params", [
+    ("companion.ask", {"requestId": "exam-ok", "surface": "reader", "extractionId": BOOK, "spanId": "s_open",
+                       "selectionSpanIds": ["s_open"], "question": "Why?"}),
+    ("reader.import_exercise", {"extractionId": BOOK, "rawSelection": {"nodes": [{"spanId": "s_open"}]}}),
+    ("reader.author_section_question", {"extractionId": BOOK, "sectionId": "u_open", "spanIds": ["s_open"]}),
+    ("reader.library_ask", {"query": "kernels", "extractionId": BOOK, "spanIds": ["s_open"]}),
+])
+def test_a_shared_destination_keeps_its_own_set_on_exam_material_not_held_out(protected, rpc, params, monkeypatch):
+    """The Reader's Ask, its import and checks and the library's anchor read the held-out partition (their rows of
+    ``SURFACE_SETS``): a practice exam that is not held out stays usable there, as before the workbench. The
+    destination check refuses only what that destination refused."""
+    from learnloop_sidecar.errors import SidecarError
+
+    from learnloop.ai import model_use
+
+    monkeypatch.setattr(model_use, "waiting", lambda *_args, **_kwargs: False)
+    save_unit_selection(protected.repository, BOOK, ["u_open", "u_held"], role_override="exam")
+    assert _exam_now(protected), "the reading is exam material, and not held out"
+    try:
+        call(protected.ctx, rpc, params)
+    except SidecarError as error:  # a later refusal (no AI provider in tests) is not the destination check's
+        assert error.code != "exam_material", (rpc, error.code, error.message)
+
+
+def test_a_paths_own_refusals_come_before_the_protection_check(protected):
+    """pad.submit_block and carried.carry refuse with their own codes first (words that are not the learner's, an
+    empty question): the protection check runs after them, so a protected origin never hides why."""
+    from learnloop_sidecar.errors import SidecarError
+
+    ctx = protected.ctx
+    call(ctx, "pad.apply", {"clientId": "c", "seq": 2, "padId": "pad_1", "ops": [
+        {"op": "insert_block", "blockId": "hq", "versionId": "vhq", "kind": "source_quote", "provenance": "source",
+         "positionKey": "a2", "bodyMd": "The far passage.", "payload": {"extraction_id": BOOK, "span_id": "s3"}},
+        {"op": "link_anchor", "blockId": "hq", "extractionId": BOOK, "spanId": "s3", "expectedAnchorHead": None}]})
+    _hold_out(protected.repository)
+    with pytest.raises(SidecarError) as refused:
+        call(ctx, "pad.submit_block", {"submissionId": "sub_hq", "blockId": "hq", "versionId": "vhq", "as": "attempt",
+                                       "target": {"sessionId": "ses", "practiceItemId": "item"}})
+    assert refused.value.code == "not_learners_words"
+    with pytest.raises(SidecarError) as refused:
+        call(ctx, "carried.carry", {"carriedId": "empty", "originKind": "selection", "text": "  ",
+                                    "anchor": {"extractionId": BOOK, "spanId": "s_held"}})
+    assert refused.value.code == "empty_question"
+    with pytest.raises(SidecarError) as refused:
+        call(ctx, "carried.carry", {"carriedId": "held", "originKind": "selection", "text": "why?",
+                                    "anchor": {"extractionId": BOOK, "spanId": "s_held"}})
+    assert refused.value.code == "exam_material"
+
+
+#: A refusal that is protection's (each path's own code): anything else (no AI provider in tests) is not.
+PROTECTION_CODES = {"exam_material", "protected", "comparison_withheld", "held_out_material"}
+
+
+def _destinations(span, section):
+    """Each menu verb's destination call on one passage, as the desk sends it."""
+    selection = {"extractionId": BOOK, "spanIds": [span]}
+    return {
+        "ask": [("companion.ask", {"requestId": f"ask-{span}", "surface": "reader", "extractionId": BOOK, "spanId": span,
+                                   "selectionSpanIds": [span], "question": "Why?"})],
+        "make_practice": [("reader.import_exercise", {"extractionId": BOOK, "rawSelection": {"nodes": [{"spanId": span}]}}),
+                          ("reader.author_section_question", {"extractionId": BOOK, "sectionId": section, "spanIds": [span]})],
+        "compare": [("reader.library_compare", {"door": "selection", "question": "how do they differ?",
+                                                "extractionId": BOOK, "anchorSpanIds": [span]})],
+        "show_me": [("figure.request", {"goalText": "show me", "anchor": selection})],
+        "teach_me": [("lesson.turn", {"action": "open", "entry": "reader_selection", "selection": selection})],
+        "find": [("search.everything", {"query": "kernels", "selection": selection})],
+        "carry": [("carried.carry", {"carriedId": f"carry-{span}", "originKind": "selection", "text": "why?",
+                                     "anchor": {"extractionId": BOOK, "spanId": span}})],
+        "append": [("pad.apply", {"clientId": "c", "seq": 2, "padId": "pad_1", "ops": [
+            {"op": "insert_block", "kind": "source_quote", "provenance": "source", "positionKey": "a2",
+             "blockId": f"app-{span}", "bodyMd": "a quote", "payload": {"extraction_id": BOOK, "span_id": span}}]})],
+    }
+
+
+@pytest.mark.parametrize("marking", ["practice_exam", "held_out"])
+def test_the_menus_verbs_agree_with_their_destinations_and_the_classic_reader(protected, monkeypatch, marking):
+    """The desk menu's per-verb verdict (passage.promoted's withheld_verbs) is each destination's own: a verb is left
+    out exactly when its destination refuses the passage, and the verbs the classic Reader also offers (its Ask, its
+    import and checks) are offered exactly when the Reader's protection read allows them. On a practice exam that is
+    not held out, Ask and Make it practice stay; held out, every verb that sends or copies it goes."""
+    from learnloop.ai import model_use
+    from learnloop.reader.reader_guidance import reading_protection
+    from learnloop.vault.loader import load_vault
+    from learnloop_sidecar.errors import SidecarError
+
+    monkeypatch.setattr(model_use, "waiting", lambda *_args, **_kwargs: False)
+    if marking == "practice_exam":
+        save_unit_selection(protected.repository, BOOK, ["u_open", "u_held"], role_override="exam")
+        span, section = "s_open", "u_open"
+    else:
+        _hold_out(protected.repository)
+        span, section = "s_held", "u_held"
+    ctx = protected.ctx
+    menu = call(ctx, "passage.promoted", {"objectKind": "passage", "extractionId": BOOK, "spanId": span})
+    withheld = set(menu["withheldVerbs"])
+    assert menu["withheld"] is True  # exam material either way: the menu's own search reads none of it
+    for verb, calls in _destinations(span, section).items():
+        refused = []
+        for rpc, params in calls:
+            try:
+                call(ctx, rpc, params)
+            except SidecarError as error:
+                if error.code in PROTECTION_CODES:
+                    refused.append(rpc)
+        assert (verb in withheld) == bool(refused), (marking, verb, refused)
+    # Make it practice's own reads (the section and role, the exercise's words) follow the same verdict.
+    practice = "make_practice" not in withheld
+    try:
+        call(ctx, "passage.knows", {"objectKind": "passage", "extractionId": BOOK, "spanId": span,
+                                    "forVerb": "make_practice"})
+        read = True
+    except SidecarError as error:
+        assert error.code == "exam_material"
+        read = False
+    words = call(ctx, "passage.content", {"extractionId": BOOK, "fromSpanId": span, "toSpanId": span,
+                                          "forVerb": "make_practice"})
+    assert read == practice and (words["spans"][0]["text"] is not None) == practice, marking
+    reader = reading_protection(load_vault(protected.paths.root), protected.repository, BOOK, [span])
+    reader_holds = reader["withheld"] or span in reader["held_out_span_ids"]
+    for verb in ("ask", "make_practice"):
+        assert (verb in withheld) == reader_holds, (marking, verb)
+    assert (withheld == set(_destinations(span, section))) == (marking == "held_out")

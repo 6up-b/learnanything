@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/goal/GoalLayer.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/goal/GoalLayer.tsx) |
-| Source lines | 292 |
+| Source lines | 296 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/goal/_area|TypeScript/screens/desks/goal]] |
 | Refactor status | `ACTIVE` |
@@ -57,66 +57,66 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export interface GoalReading` — interface, line 37
 - `export interface GoalPadAnchor` — interface, line 47
 - `export interface GoalDesk` — interface, line 55
-- `export function useGoalDesk(` — function, line 73
+- `export function useGoalDesk(` — function, line 76
 
 ## Internal implementation anchors
 
 - `function readFlag(key: string | null): boolean` — function, line 18
 - `function writeFlag(key: string | null, on: boolean): void` — function, line 27
-- `const asked = useMemo(()` — const, line 91
-- `const chooseGoal = useCallback((goalId: string | null)` — const, line 97
-- `const goal = useGoalLens(` — const, line 102
-- `const pending = useRef<unknown>(null)` — const, line 106
-- `const shownRef = useRef<WhyState | null>(null)` — const, line 107
-- `const handlers = useMemo<MarkHandlers>(()` — const, line 109
-- `const now = shownRef.current` — const, line 117
-- `const lenses = useMemo(()` — const, line 128
-- `const out = new Map<string, ReaderLens | null>()` — const, line 129
-- `const lensFor = useCallback((windowId: string)` — const, line 138
-- `const focusedWindowId = focused?.windowId ?? null` — const, line 143
-- `const focusedReading = focused?.extractionId ?? null` — const, line 144
-- `let frame = 0` — let, line 148
-- `const read = ()` — const, line 149
-- `const host = document.querySelector(`[$` — const, line 151
-- `const line = host.getBoundingClientRect().top + 80` — const, line 153
-- `const passages = [...host.querySelectorAll<HTMLElement>("[data-span-id]")]` — const, line 154
-- `const at = passages.find((element)` — const, line 155
-- `const span = at?.getAttribute("data-span-id") ?? null` — const, line 156
-- `const schedule = ()` — const, line 159
-- `const remove = hubFor(focusedWindowId).listen("document", "scroll", schedule, true)` — const, line 160
-- `const handle = timers.set(schedule, 600)` — const, line 162
-- `const focusedIndex: LensIndex | null = focused?.extractionId ? indexFor(focused.extractionId) : null` — const, line 167
-- `const here: HereView | null = focused ? (focused.extractionId ? hereLine(focusedIndex, topSpan ?? focused.readingSpan, topSpan ? null : focused.where, band) :` — const, line 168
-- `const togglePath = useCallback(()` — const, line 173
-- `const openLo = useCallback((learningObjectId: string)` — const, line 179
-- `const dot = band?.learningObjects?.find((each)` — const, line 180
-- `const onNext = useCallback(()` — const, line 184
-- `const next = band?.next` — const, line 185
-- `const host = (next.check?.host ?? null) as` — const, line 189
-- `const notNeeded = useMemo<NotNeeded[]>(()` — const, line 194
-- `const out: NotNeeded[] = []` — const, line 195
-- `const seen = new Set<string>()` — const, line 196
-- `const padLine = useCallback((padIds: readonly string[])` — const, line 207
-- `const wanted = new Set(padIds)` — const, line 209
-- `const rank = ["core", "supporting", "later", "already_shown", "partial", "skippable", "unmapped"]` — const, line 210
-- `let best:` — let, line 211
-- `const section = indexFor(anchor.extractionId)?.bySpan.get(anchor.spanId)` — const, line 214
-- `const lo = section.learningObjects.find((entry)` — const, line 219
-- `const kind = markKind(section.level)` — const, line 220
-- `const text = section.held ? "a cold check is due on what these pads link to" : section.level === "skippable" ? `not needed for your goal · $` — const, line 221
-- `const hasBand = Boolean(band)` — const, line 232
-- `const bandNode = band ? ( <GoalBand band=` — const, line 233
-- `const topChip = !goal.goalId && goal.goals !== null ? <GoalTopChip goals=` — const, line 248
-- `const overlays = ( <>` — const, line 249
-- `const rowGoal = useCallback((extractionId: string | null, padIds: readonly string[]): ShelfGoal | null` — const, line 269
-- `const wanted = new Set(padIds)` — const, line 273
-- `const rank = ["core", "supporting", "later", "already_shown", "partial", "skippable", "unmapped"]` — const, line 274
-- `let best: ReturnType<LensIndex["bySpan"]["get"]> = undefined` — let, line 275
-- `const section = indexFor(anchor.extractionId)?.bySpan.get(anchor.spanId)` — const, line 278
-- `const lo = best.learningObjects.find((entry)` — const, line 282
-- `const mark = markKind(best.level)` — const, line 283
-- `const primaryFor = useCallback((learningObjectId: string)` — const, line 287
-- `const primary = band?.learningObjects?.find((dot)` — const, line 288
+- `const asked = useMemo(()` — const, line 94
+- `const chooseGoal = useCallback((goalId: string | null)` — const, line 100
+- `const goal = useGoalLens(` — const, line 105
+- `const pending = useRef<unknown>(null)` — const, line 109
+- `const shownRef = useRef<WhyState | null>(null)` — const, line 110
+- `const handlers = useMemo<MarkHandlers>(()` — const, line 112
+- `const now = shownRef.current` — const, line 120
+- `const lenses = useMemo(()` — const, line 131
+- `const out = new Map<string, ReaderLens | null>()` — const, line 132
+- `const lensFor = useCallback((windowId: string)` — const, line 141
+- `const focusedWindowId = focused?.windowId ?? null` — const, line 146
+- `const focusedReading = focused?.extractionId ?? null` — const, line 147
+- `let frame = 0` — let, line 151
+- `const read = ()` — const, line 152
+- `const host = document.querySelector(`[$` — const, line 154
+- `const line = host.getBoundingClientRect().top + 80` — const, line 156
+- `const passages = [...host.querySelectorAll<HTMLElement>("[data-span-id]")]` — const, line 157
+- `const at = passages.find((element)` — const, line 158
+- `const span = at?.getAttribute("data-span-id") ?? null` — const, line 159
+- `const schedule = ()` — const, line 162
+- `const remove = hubFor(focusedWindowId).listen("document", "scroll", schedule, true)` — const, line 163
+- `const handle = timers.set(schedule, 600)` — const, line 165
+- `const focusedIndex: LensIndex | null = focused?.extractionId ? indexFor(focused.extractionId) : null` — const, line 170
+- `const here: HereView | null = focused ? (focused.extractionId ? hereLine(focusedIndex, topSpan ?? focused.readingSpan, topSpan ? null : focused.where, band) :` — const, line 171
+- `const togglePath = useCallback(()` — const, line 176
+- `const openLo = useCallback((learningObjectId: string)` — const, line 182
+- `const dot = band?.learningObjects?.find((each)` — const, line 183
+- `const onNext = useCallback(()` — const, line 187
+- `const next = band?.next` — const, line 188
+- `const host = (next.check?.host ?? null) as` — const, line 192
+- `const notNeeded = useMemo<NotNeeded[]>(()` — const, line 197
+- `const out: NotNeeded[] = []` — const, line 198
+- `const seen = new Set<string>()` — const, line 199
+- `const padLine = useCallback((padIds: readonly string[])` — const, line 210
+- `const wanted = new Set(padIds)` — const, line 212
+- `const rank = ["core", "supporting", "later", "already_shown", "partial", "skippable", "unmapped"]` — const, line 213
+- `let best:` — let, line 214
+- `const section = indexFor(anchor.extractionId)?.bySpan.get(anchor.spanId)` — const, line 217
+- `const lo = section.learningObjects.find((entry)` — const, line 222
+- `const kind = markKind(section.level)` — const, line 223
+- `const text = section.held ? "Details are hidden while a cold check is due." : section.level === "skippable" ? `Not needed for your goal · $` — const, line 224
+- `const hasBand = Boolean(band)` — const, line 235
+- `const bandNode = band ? ( <GoalBand band=` — const, line 236
+- `const topChip = !goal.goalId && goal.goals !== null ? <GoalTopChip goals=` — const, line 252
+- `const overlays = ( <>` — const, line 253
+- `const rowGoal = useCallback((extractionId: string | null, padIds: readonly string[]): ShelfGoal | null` — const, line 273
+- `const wanted = new Set(padIds)` — const, line 277
+- `const rank = ["core", "supporting", "later", "already_shown", "partial", "skippable", "unmapped"]` — const, line 278
+- `let best: ReturnType<LensIndex["bySpan"]["get"]> = undefined` — let, line 279
+- `const section = indexFor(anchor.extractionId)?.bySpan.get(anchor.spanId)` — const, line 282
+- `const lo = best.learningObjects.find((entry)` — const, line 286
+- `const mark = markKind(best.level)` — const, line 287
+- `const primaryFor = useCallback((learningObjectId: string)` — const, line 291
+- `const primary = band?.learningObjects?.find((dot)` — const, line 292
 
 ## Who imports or calls it
 

@@ -65,7 +65,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `let live = true` — let, line 39
 - `const begin = async ()` — const, line 49
 - `const receipt = await startImport()` — const, line 53
-- `const withheld = words?.withheld === true || Boolean(words?.spans.some((span)` — const, line 77
+- `const withheld = words !== null && (words.withheld !== false || words.spans.some((span)` — const, line 77
 
 ## Who imports or calls it
 

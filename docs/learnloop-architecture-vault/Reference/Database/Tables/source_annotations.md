@@ -107,6 +107,7 @@ Indexes and uniqueness:
 - `src/learnloop/reader/reader_restoration.py`
 - `src/learnloop/reader/source_identity.py`
 - `src/learnloop/source_retrieval/vault_notes.py`
+- `src/learnloop_sidecar/handlers/passage_union.py`
 - `src/learnloop_sidecar/handlers/reader.py`
 
 > [!note] Static-reference boundary
@@ -115,6 +116,7 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/desk_helpers.py`
+- `tests/test_menu_protected_material.py`
 - `tests/test_mobile_allowlist.py`
 - `tests/test_reader_ca6_side_by_side.py`
 - `tests/test_reader_capture.py`

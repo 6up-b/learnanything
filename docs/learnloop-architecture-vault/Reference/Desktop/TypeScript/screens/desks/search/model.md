@@ -93,7 +93,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const seen = new Set<string>()` — const, line 126
 - `const key = rowKey(id, raw, index)` — const, line 130
 - `const described = describeRow(id, raw, input.deskTitle)` — const, line 133
-- `const off = words && words.status !== "ok" ? words.reason ?? "not available" : meaning && meaning.status !== "ok" ? `by meaning: $` — const, line 139
+- `const off = words && words.status !== "ok" ? words.reason ?? "Word search is unavailable. Edit your query to try again." : meaning && meaning.status !== "ok" ? meaning.reason ?? "Similar-passage search is unavailable. Try word matches." : null` — const, line 139
 - `function limit(group: ShownGroup, expanded: ReadonlySet<string>): ShownGroup` — function, line 150
 - `const reasons = [...new Set([...words.meaning.unavailable, ...fromJob].map((entry)` — const, line 164
 
