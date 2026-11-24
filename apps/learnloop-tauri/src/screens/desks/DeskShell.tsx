@@ -1419,7 +1419,9 @@ export function DeskShell({
         setSearch({ query: "" });
         return true;
       case "path":
-        return goalPathRef.current.toggle();
+        // The goal's path view; with no goal, the focused book's own path in its window.
+        if (goalPathRef.current.toggle()) return true;
+        return focusIdRef.current ? inquiries.current.get(focusIdRef.current)?.showPath("toggle") ?? false : false;
       case "follow":
         return videoKeys.current.follow();
       case "timestamp":
@@ -3322,13 +3324,14 @@ export function DeskShell({
     return handler;
   }, [askFor]);
 
-  // "what matters here?" in a window: the goal's path view when the desk has a goal band, else the reading's path
-  // beside the window (the path panel, until the per-reading path has its own home).
+  // "what matters here?" in a window: the goal's path view when the desk has a goal band, else the reading's own path
+  // in that window.
   const windowOpenPath = (windowId: string) => {
     const content = wsRef.current.windows[windowId]?.content;
     if (!content || (content.kind !== "source" && content.kind !== "video")) return;
     if (goalPathRef.current.open) return;
     if (goalPathRef.current.toggle()) return;
+    if (inquiries.current.get(windowId)?.showPath("open")) return;
     openContent({ kind: "panel", panel: "path", extractionId: content.extractionId } as ContentRefDto);
   };
   const windowOpenPathRef = useRef(windowOpenPath);

@@ -97,12 +97,12 @@ it("an active-reading question shows in the window, under the passages it is abo
   expect(within(winEl()).queryByRole("region", { name: "let me try the next step" })).toBeNull();
 });
 
-it("“what matters here?” opens the reading's path on the desk", async () => {
+it("“what matters here?” opens the reading's own path in the window, on a desk with no goal", async () => {
+  answers.set("reader_reading_path", () => ({ extractionId: book.extractionId, status: "ask_depth", depth: null, depths: [], goal: null, sections: [], next: null }));
   const { desk, box } = await openAndSelect();
   await choose(box, "what matters here?");
   await settleDesk(0, 6);
-  // A window beside the book, its frame titled for the reading path.
-  const opened = Array.from(document.querySelectorAll<HTMLElement>("[data-desk-window]")).filter((each) => each.getAttribute("data-desk-window") !== "w_book");
-  expect(opened.map((each) => each.querySelector(".desk-pane-head")?.textContent ?? "")).toEqual(expect.arrayContaining([expect.stringContaining("Reading path")]));
+  expect(within(winEl()).getByRole("region", { name: "the reading's path" })).toBeTruthy();
+  expect(inputsOf("reader_reading_path")[0]).toMatchObject({ extractionId: book.extractionId });
   void desk;
 });

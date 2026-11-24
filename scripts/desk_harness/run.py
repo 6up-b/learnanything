@@ -1262,6 +1262,22 @@ async def run_intent(page: Page, base: str, results: Results, shots: Path | None
                   bool(drain) and drain["after"] and drain["lines"] and "Softmax" in drain["from"], drain)
     await page.keyboard.press("Escape")
 
+    # With no goal, p opens the focused book's own reading path in its window (RW7a kept on a desk), at its top.
+    await settle(page, 300)
+    await page.locator('[data-desk-window="fx_w_book"] .desk-pane-head').click()
+    await settle(page, 300)
+    await page.keyboard.press("p")
+    await settle(page, 800)
+    region = await page.evaluate("""() => { const r = document.querySelector('[data-desk-window="fx_w_book"] [data-window-path]'); if (!r) return null;
+      const sc = r.closest('.ll-scroll'); const rr = r.getBoundingClientRect(), sr = sc.getBoundingClientRect();
+      return { text: r.textContent.slice(0, 120), top: Math.round(rr.top - sr.top), height: Math.round(rr.height), visible: rr.bottom > sr.top && rr.top < sr.bottom }; }""")
+    await shot(page, shots, "window-path")
+    results.check("with no goal, p opens the book's reading path in its window, in view at its top", bool(region) and region["visible"] and region["height"] > 60 and "How deep" in region["text"], region)
+    await page.keyboard.press("Escape")
+    await settle(page, 300)
+    closed = await page.locator('[data-desk-window="fx_w_book"] [data-window-path]').count()
+    results.check("esc closes the reading path", closed == 0, closed)
+
 
 GOAL_BOOK = "[data-desk-window='fx_w_book']"
 GOAL_PAPER = "[data-desk-window='fx_w_paper']"
