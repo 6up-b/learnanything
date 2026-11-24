@@ -574,3 +574,42 @@ def test_r3_a_candidate_ranking_ahead_at_acceptance_is_never_served_under_the_de
     assert (status["routerState"], status["candidateId"]) == ("selected", drawn_over)
     offer = _offer(case)
     assert offer["accepted"] and (offer["candidateId"], offer["practiceItemId"]) == (drawn_over, PROBE_ITEM)
+
+
+# -- a refusal after the pin retires it before it is shown ------------------------------------------------------------
+
+
+def _pinned_then(case, monkeypatch, action: str) -> tuple[dict, dict]:
+    from types import SimpleNamespace
+
+    from tests.probe_router_authority_helpers import PROBE_ITEM, call
+
+    assert _read(case)["routerState"] == "selected"
+    offer = _offer(case)
+    assert offer["accepted"]
+    if action:
+        call(case.ctx, action, {"factorId": case.factor, "misconceptionId": case.first})
+    monkeypatch.setattr("learnloop_sidecar.handlers.practice.ready_grading_provider",
+                        lambda *_a, **_k: ("fake", SimpleNamespace(ready=True), object()))
+    contract = call(case.ctx, "get_probe_contract", {"practiceItemId": PROBE_ITEM, "sessionId": "sess"})
+    return offer, contract
+
+
+def test_r6_not_now_after_the_pin_retires_it_at_its_first_display(tmp_path, monkeypatch):
+    case = _learner(tmp_path, monkeypatch)
+    offer, contract = _pinned_then(case, monkeypatch, "causal_probe_defer")
+    assert (contract["active"], contract["reason"]) == (False, "learner_refused_probe")
+    presentation = case.repository.probe_presentation(offer["presentationId"])
+    assert (presentation.status, presentation.end_reason) == ("ended", "abandoned")
+
+
+def test_r6_teach_me_now_after_the_pin_retires_it_too(tmp_path, monkeypatch):
+    case = _learner(tmp_path, monkeypatch)
+    _offer_, contract = _pinned_then(case, monkeypatch, "causal_teach_me_now")
+    assert (contract["active"], contract["reason"]) == (False, "learner_refused_probe")
+
+
+def test_r6_with_no_refusal_the_pin_is_served(tmp_path, monkeypatch):
+    case = _learner(tmp_path, monkeypatch)
+    offer, contract = _pinned_then(case, monkeypatch, "")
+    assert contract["active"] is True and contract["presentationId"] == offer["presentationId"]

@@ -366,6 +366,43 @@ def _robust_channel_pin(
     }
 
 
+#: Why a learner-lane pin was not shown: its learner refused after it was pinned (:func:`learner_refused_pin`).
+LEARNER_REFUSED_PROBE = "learner_refused_probe"
+
+
+class LearnerRefusedPin(Exception):
+    """The probe router's learner lane: the learner said "Not now", "Teach me now" or no more diagnostics after
+    accepting the quick check, so its pin was retired before it was ever shown (G2 review R6)."""
+
+    def __init__(self, presentation_id: str, preference: str) -> None:
+        super().__init__(f"{presentation_id}: the learner refused the quick check after it was pinned ({preference})")
+        self.presentation_id = presentation_id
+        self.preference = preference
+
+
+def learner_refused_pin(repository: Repository, presentation: ProbePresentationRecord) -> str | None:
+    """The refusal that retires a learner-lane router pin before its first display, or None: the learner's current
+    preference on the pin's factor, read with the scope the status reads it (the factor, its learning object, the
+    pin's session), when it refuses. Acceptance read the same preference and found none, so a refusing one came after
+    the pin. Only a pin still unshown (``selected``) that names a router decision and no follow-up workflow is the
+    learner lane's: the automatic lane's pin is its own decision's, and a shown probe is being answered."""
+
+    from learnloop.diagnosis.probe_facts import REFUSING_PREFERENCES
+    from learnloop.diagnosis.probe_hard_stops import learner_preference
+
+    if presentation.status != "selected":
+        return None
+    pin = (presentation.selection_components or {}).get("causal_probe")
+    if not isinstance(pin, Mapping) or not pin.get("router_decision_id") or pin.get("followup_workflow_id"):
+        return None
+    episode = repository.probe_episode(presentation.probe_episode_id)
+    preference = learner_preference(
+        repository, factor_id=str(pin.get("causal_factor_id") or "") or None,
+        learning_object_id=episode.learning_object_id if episode is not None else None,
+        session_id=pin.get("session_id"))
+    return preference if preference in REFUSING_PREFERENCES else None
+
+
 def serve_presentation(
     repository: Repository,
     presentation_id: str,
@@ -376,10 +413,15 @@ def serve_presentation(
     the only path to ``served``. A presentation committed before its item's
     answer was shown on a routine display that still covers now is ended
     (``invalidated``) instead, and :class:`RoutineDisplayCovered` raised (UX
-    Phase 4 round 7)."""
+    Phase 4 round 7). A learner-lane pin its learner refused after pinning is
+    ended (``abandoned``) instead, and :class:`LearnerRefusedPin` raised."""
 
     presentation = repository.probe_presentation(presentation_id)
     if presentation is not None:
+        refused = learner_refused_pin(repository, presentation)
+        if refused is not None:
+            repository.end_probe_presentation(presentation_id, end_reason="abandoned", clock=clock)
+            raise LearnerRefusedPin(presentation_id, refused)
         try:
             refuse_routine_display_covered(repository, presentation.practice_item_id, clock=clock)
         except RoutineDisplayCovered:

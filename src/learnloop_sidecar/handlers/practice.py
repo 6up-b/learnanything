@@ -44,7 +44,9 @@ from learnloop.diagnosis.probe_controls import (
     stop_diagnosing_and_teach,
 )
 from learnloop.diagnosis.probe_presentations import (
+    LEARNER_REFUSED_PROBE,
     PROBE_ITEM_ANSWER_SHOWN,
+    LearnerRefusedPin,
     RoutineDisplayCovered,
     commit_item_presentation,
     probe_serving_block_reason,
@@ -605,6 +607,9 @@ def _probe_contract(ctx: SidecarContext, vault: Any, repository: Any, item: Any,
                 # Committed before the item's answer was shown on a routine
                 # display: ended, and the item is ordinary practice (round 7).
                 return versioned({"active": False, "reason": PROBE_ITEM_ANSWER_SHOWN})
+            except LearnerRefusedPin:
+                # The probe router's learner lane: refused after it was pinned, so retired unshown (G2 review R6).
+                return versioned({"active": False, "reason": LEARNER_REFUSED_PROBE})
             contract = episode_contract(vault, repository, item.learning_object_id) or {}
             why = {"followup_why": "This question comes from your last answer."} if followup_row is not None else {}
             return versioned(_with_intent_check(vault, repository, item.id, {"active": True, "presentation_id": active.id, **contract, **why}))
