@@ -82,6 +82,24 @@ function pillsOf(result: HoldResult, root: ParentNode, laidOut: boolean, judging
   return pills;
 }
 
+/** The gap a dialog of this layer keeps from the viewport's edges, and from the pill it answers. */
+const EDGE = 8;
+const PILL_GAP = 18;
+
+/** Where a dialog of this layer goes so that all of it shows at any viewport size: below its pill when it fits,
+ *  else above it, else against the bottom edge; never past the left or right edge. `at` is the pill's centre. */
+export function dialogPlace(at: { left: number; top: number }, size: { width: number; height: number },
+                            viewport: { width: number; height: number }): { left: number; top: number } {
+  const half = size.width / 2;
+  const left = Math.min(Math.max(at.left, EDGE + half), Math.max(EDGE + half, viewport.width - EDGE - half));
+  const below = at.top + PILL_GAP;
+  const above = at.top - PILL_GAP - size.height;
+  const top = below + size.height <= viewport.height - EDGE ? below
+    : above >= EDGE ? above
+    : Math.max(EDGE, viewport.height - EDGE - size.height);
+  return { left, top };
+}
+
 function samePills(a: readonly Pill[], b: readonly Pill[]): boolean {
   return a.length === b.length && a.every((pill, i) => pill.key === b[i].key && pill.left === b[i].left && pill.top === b[i].top
     && pill.arriving === b[i].arriving && pill.region?.print === b[i].region?.print);
@@ -104,6 +122,21 @@ export function VeilLayer({ desk, root, windows, onChange }: { desk: CheckDesk; 
   const version = desk.getVersion();
   const [pills, setPills] = useState<Pill[]>([]);
   const [asking, setAsking] = useState<Pill | null>(null);
+  const askRef = useRef<HTMLDivElement | null>(null);
+  // The dialog is placed once it has a size, inside the viewport (and again when the viewport changes).
+  useLayoutEffect(() => {
+    const dialog = askRef.current;
+    if (!asking || !dialog || typeof window === "undefined") return;
+    const place = () => {
+      const box = dialog.getBoundingClientRect();
+      const at = dialogPlace({ left: asking.left, top: asking.top }, { width: box.width, height: box.height }, { width: window.innerWidth, height: window.innerHeight });
+      dialog.style.left = `${at.left}px`;
+      dialog.style.top = `${at.top}px`;
+    };
+    place();
+    addEventListener("resize", place);
+    return () => removeEventListener("resize", place);
+  }, [asking]);
   const holder = useRef<Holder | null>(null);
   holder.current ??= new Holder();
   const frame = useRef(0);
@@ -196,7 +229,7 @@ export function VeilLayer({ desk, root, windows, onChange }: { desk: CheckDesk; 
         )
       ))}
       {asking ? (
-        <div className="ck-ask" role="dialog" aria-label="show it anyway?" style={{ left: asking.left, top: asking.top + 18 }}>
+        <div className="ck-ask" role="dialog" aria-label="show it anyway?" ref={askRef} style={{ left: asking.left, top: asking.top + PILL_GAP }}>
           <b>show it anyway?</b> <span className="faint">{asking.ref?.group ?? (asking.region?.windowId ? "this window's other parts" : asking.region?.region)}</span>
           <p>{costOf(asking.ref)}</p>
           <div className="ck-ask-b">

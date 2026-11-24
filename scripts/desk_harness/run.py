@@ -1911,6 +1911,11 @@ VEILED_STYLE_JS = """(sel) => { const el = document.querySelector(sel); if (!el)
 RECT_JS = "(sel) => { const el = document.querySelector(sel); if (!el) return null; const r = el.getBoundingClientRect(); return [r.x, r.y, r.width, r.height].map((v) => Math.round(v)); }"
 
 
+# Whether the layer's open dialog shows whole inside the viewport (true), or its rect and the viewport when not.
+DIALOG_INSIDE_JS = """() => { const d = document.querySelector('.ck-ask'); if (!d) return 'no dialog'; const r = d.getBoundingClientRect();
+  return r.left >= 0 && r.top >= 0 && r.right <= innerWidth && r.bottom <= innerHeight ? true : [r.left, r.top, r.right, r.bottom, innerWidth, innerHeight]; }"""
+
+
 async def run_checks(page: Page, base: str, results: Results, shots: Path | None) -> None:
     """Inline cold checks (RD7, spec §12.6) on the fixture's due check before the book's fifth section (`?checks=1`): the
     closed marker with no cues, "check now" sending what is visible, the veils (every non-source window whole, the
@@ -1986,6 +1991,8 @@ async def run_checks(page: Page, base: str, results: Results, shots: Path | None
     # `measured: false`), so the cost said first is that opening it makes the answer practice.
     results.check("show it anyway says what opening can cost before anything is recorded (an unmeasured opening: practice)",
                   bool(ask) and "opening it makes this answer count as practice" in ask and not await calls(page, "check_expose"), ask)
+    inside = await page.evaluate(DIALOG_INSIDE_JS)
+    results.check("the show it anyway dialog is all inside the viewport", inside is True, inside)
     await page.click(".ck-ask button.pri")
     await settle(page, 900)
     exposed = [call["input"] for call in await calls(page, "check_expose")]
@@ -1993,6 +2000,20 @@ async def run_checks(page: Page, base: str, results: Results, shots: Path | None
     pad = await page.evaluate(VEILED_STYLE_JS, f"{PADS} [data-desk-pane-body]")
     results.check("opening a veil records the exposure at once with its exposure id, then lifts that veil (only that one)", len(exposed) == 1 and exposed[0]["ref"].get("kind") == "companion"
                   and exposed[0]["kind"] == "opened_veil" and bool(exposed[0].get("exposureId")) and body and not body["veiled"] and pad and pad["veiled"], [exposed, body, pad])
+    # At a small viewport the layer's dialog still shows whole (below its pill, else above it, never past an edge).
+    await page.set_viewport_size({"width": 1024, "height": 600})
+    await settle(page, 700)
+    small = await page.evaluate("() => [...document.querySelectorAll('[data-check-veils] .ck-pill:not([disabled])')].map((p) => { const r = p.getBoundingClientRect(); return [r.top, p.dataset.veilRef]; }).sort((a, b) => b[0] - a[0])")
+    lowest = small[0][1] if small else None
+    if lowest:
+        await page.evaluate("(ref) => [...document.querySelectorAll('[data-check-veils] .ck-pill')].find((p) => p.dataset.veilRef === ref)?.click()", lowest)
+        await settle(page, 300)
+    inside_small = await page.evaluate(DIALOG_INSIDE_JS)
+    results.check("at a 1024 × 600 viewport the lowest pill's dialog is all inside the viewport", bool(lowest) and inside_small is True, [lowest, inside_small])
+    if await page.locator(".ck-ask").count():
+        await page.click(".ck-ask >> text=keep it hidden")
+    await page.set_viewport_size(VIEWPORT)
+    await settle(page, 700)
     # The answer: ↵ sends it once; the reply's reason in plain words; every veil lifted; the marker gone.
     await page.fill(f"{BOOK} [data-check-card='inline'] textarea", "p_k - 1 if k = y, else p_k")
     await page.press(f"{BOOK} [data-check-card='inline'] textarea", "Enter")

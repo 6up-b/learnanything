@@ -262,14 +262,17 @@ cold card in the Reader names no LO. Left with the backend half's #15 call.
 
 ### 10.4 Stopped or not built, with options
 
-- **#24 before "check now".** The spec places the closed marker before the host passage, and `checks.due_for` names
-  the LO, host and provenance. The review's no-topic reading conflicts with that. The options:
-  - (a) keep the spec (the marker names nothing; the place is the cue the spec accepts);
-  - (b) an unlocated marker ("◇ a check is due on this desk") with an opaque handle, the host resolved server-side
-    at begin, and the band's LO and the overview's miniatures withheld while a check is due. This needs a
-    `checks.due_for` change and a spec edit.
+- **#24 before "check now" (RD7-56): an owner call; nothing is built for it until the owner answers.** The spec
+  places the closed marker before the host passage, and `checks.due_for` names the LO, host and provenance. The
+  review's no-topic reading conflicts with that. The two options:
+  - **(a) Keep the spec.** The marker stays before the host passage and names nothing (no question, no LO, no
+    provenance); its place is the one cue the spec accepts. Nothing changes.
+  - **(b) An unlocated marker.** "◇ a check is due on this desk", with an opaque handle instead of the commitment's
+    LO. The server resolves the host at begin, and while a check is due the goal band's LO and the overview's
+    miniatures are withheld. This needs a `checks.due_for` change (no LO, host or provenance before begin) and a spec
+    edit (§12.6.1).
 
-  While a check is open, the band and the miniatures are held (§10.1).
+  While a check is open, the band and the miniatures are held either way (§10.1).
 - **#26's self-grade.** The cold presentation withholds the rubric, as it must. Self-grading after the answer needs a
   read that discloses the rubric once the answer is frozen (Today's `recordSelfGradeDisclosure` flow). The backend
   accepts `selfGrade` on submit, but nothing gives the card the criteria to grade against. Not built: a server read
@@ -315,3 +318,23 @@ cold card in the Reader names no LO. Left with the backend half's #15 call.
   - At the branch's start the run fails 15 of 20 points: the shelf shows the pad lines, the player paints, and more.
   - Now every run passes, `veilsweep` included.
 - **Visual stage rd7:** 30 findings before and after (colour 4, geometry 19, type 7), the same rows.
+
+### 10.7 Follow-ups after acceptance
+
+- **The merges.** The workbench nouns branch, with batch 5's protection fix (per-verb `withheld_verbs`), was merged,
+  then `origin/main` (G2, mvp-0.70). The vault references were regenerated afterwards. Three conflicting lines on a
+  chapter's goal-lens wording took the nouns branch's copy pass.
+- **The menu and a verb's own verdict compose.** While a check is open the menu does not open (§10.1). A verb reached
+  any other way waits for the check first and does not ask for its verdict; once the check is answered, its own
+  verdict decides, per verb (`gates.test.tsx`, "the open check and a verb's own verdict compose").
+- **The layer's dialogs stay inside the viewport (RD7-60).** A dialog goes below its pill when it fits, else above
+  it, else against the bottom edge; it never goes past either side, and it is placed again on a resize. The harness's
+  `checks` run asserts this at 1600 × 960 and, for the lowest pill, at 1024 × 600. At the previous tip the small
+  viewport's dialog fell below the viewport and the run timed out on its button.
+- **For the deletion branch (the old Reader removed).** The app gate (`app/checkGate.tsx`, `App.tsx`'s
+  `checkGateOf(deskChecks, onDesks)`) names no Reader route: it holds every place but the desks.
+  - `onDesks` is `tab === "reader" && readerSurface === "desks"`. With the old Reader gone it becomes `tab ===
+    "reader"`.
+  - `backToCheck` calls `chooseReaderSurface("desks")`, which goes when the surface choice does.
+  - `App.checkGate.test.tsx` clicks the desks' "old Reader" button (DeskShell's `onLeave`) for one of its leaving
+    paths. Without it, the same test still covers Today by its key.

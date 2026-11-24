@@ -10,7 +10,7 @@ import type { CheckCardDto, CheckVeilRefDto } from "../../../api/dto";
 import { CheckDesk, type CheckTransport } from "./controller";
 import { CheckCardInline, CheckCardOverlay, CheckMarker } from "./CheckCard";
 import { PRIMED_BY_NOTE_WORDS, REASON_WORDS, SHOW_ANYWAY_COST, SHOW_NOTE_COST, VEIL_LABEL, answeredHead, groupsLine, lookedLine, refKey, veilIsNote, veilSelector, visibleNow } from "./model";
-import { VeilLayer } from "./VeilLayer";
+import { VeilLayer, dialogPlace } from "./VeilLayer";
 import { Holder, type HoldInput } from "./hold";
 
 vi.mock("../../../api/client", () => ({ api: {} }));
@@ -269,6 +269,22 @@ describe("an opening covers only what it showed", () => {
     expect(root.querySelector("[data-companion-body]")!.closest("[inert]")).toBeTruthy();
     holder.releaseAll();
     root.remove();
+  });
+});
+
+describe("the layer's dialogs stay inside the viewport", () => {
+  it("below its pill when it fits, above it when not, never past an edge, at any size", () => {
+    const size = { width: 300, height: 150 };
+    expect(dialogPlace({ left: 800, top: 100 }, size, { width: 1600, height: 960 })).toEqual({ left: 800, top: 118 });
+    // Near the bottom: above its pill.
+    expect(dialogPlace({ left: 800, top: 900 }, size, { width: 1600, height: 960 })).toEqual({ left: 800, top: 732 });
+    // Near the right edge: its centre moves in so all of it shows.
+    expect(dialogPlace({ left: 1590, top: 100 }, size, { width: 1600, height: 960 }).left).toBe(1600 - 8 - 150);
+    // A viewport too short for either side: against the bottom edge, its top still inside.
+    const tiny = dialogPlace({ left: 100, top: 120 }, size, { width: 400, height: 260 });
+    expect(tiny.top).toBeGreaterThanOrEqual(8);
+    expect(tiny.top + size.height).toBeLessThanOrEqual(260 - 8);
+    expect(tiny.left - size.width / 2).toBeGreaterThanOrEqual(8);
   });
 });
 
