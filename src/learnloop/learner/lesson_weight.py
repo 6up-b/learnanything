@@ -83,6 +83,8 @@ from learnloop.adf_numeric import (
     normalized_log_weights,
     sigmoid,
 )
+from learnloop.algorithm_versions import LESSON_WEIGHT_CURVE_VERSIONS
+from learnloop.db.stores.grade_curves import current_curve
 from learnloop.clock import parse_utc
 from learnloop.held_grades import held_for_review_attempts
 
@@ -404,7 +406,7 @@ def _interpretation_variance(mu: float, variance: float, last: str | None, at: s
 
 
 def recorded_trajectory(connection: Any, vault: Any, mastery_config: Any, check: Mapping[str, Any],
-                        outcome: Mapping[str, Any]) -> list[RecordedUpdate] | None:
+                        outcome: Mapping[str, Any], *, inputs_trace: list[dict] | None = None) -> list[RecordedUpdate] | None:
     """The check's own update and every update on its LO after it and before the outcome, in order,
     each with its recorded factors; None when one of them left no record to recompute it from."""
 
@@ -432,19 +434,38 @@ def recorded_trajectory(connection: Any, vault: Any, mastery_config: Any, check:
     sensitivity = check["inputs"].get("sensitivity") or {}
     last = sensitivity.get("last_evidence_at")
     out: list[RecordedUpdate] = []
+    frozen = vault.config.algorithms.algorithm_version in LESSON_WEIGHT_CURVE_VERSIONS
+    complete = True
     for attempt_id, item_id, at, correctness, primed, attempt_type, delta_json, debug_json in rows:
+        curve = current_curve(connection, attempt_id) if frozen else None
+        if curve is not None:
+            if inputs_trace is not None:
+                inputs_trace.append(curve.trace())
+            if curve.item_a is None or curve.item_b is None:
+                complete = False
+                continue
         try:
             delta = json.loads(delta_json) if delta_json else None
             debug = json.loads(debug_json) if debug_json else None
         except ValueError:
-            return None
-        if not delta or not debug or debug.get("observation_weight") is None:
-            return None
+            delta = debug = None
+        if curve is not None:
+            if (not isinstance(delta, dict) or not isinstance(debug, dict)
+                    or any(delta.get(key) is None for key in ("mu_before", "mu_after", "P_before", "P_after"))
+                    or debug.get("observation_weight") is None):
+                if inputs_trace is not None:
+                    inputs_trace[-1]["missing_observation_or_delta"] = True
+                complete = False
+                continue
+            a, b = curve.item_a, curve.item_b
+        else:
+            if not delta or not debug or debug.get("observation_weight") is None:
+                return None
+            item = vault.practice_items.get(str(item_id))
+            a, b = item_irt_params(item, vault.learning_objects.get(lo), mastery_config)
         mu0, var0 = float(delta["mu_before"]), float(delta["P_before"])
         mu1, var1 = float(delta["mu_after"]), float(delta["P_after"])
         applied = correctness is not None and str(attempt_id) not in held and (mu0 != mu1 or var0 != var1)
-        item = vault.practice_items.get(str(item_id))
-        a, b = item_irt_params(item, vault.learning_objects.get(lo), mastery_config)
         weight = float(debug["observation_weight"])
         variance = (_interpretation_variance(mu0, var0, last, str(at), a=float(a), b=float(b), weight=weight,
                                              variance_after=var1, config=mastery_config) if applied else 0.0)
@@ -454,7 +475,7 @@ def recorded_trajectory(connection: Any, vault: Any, mastery_config: Any, check:
             applied=applied, varied=str(attempt_id) == str(check["attempt_id"])))
         if applied and not primed:
             last = str(at)
-    return out
+    return out if complete else None
 
 
 def trajectory_state(sensitivity: "CheckSensitivity", updates: Sequence[RecordedUpdate], *, mass: float,
@@ -806,6 +827,7 @@ def replay_state(vault: Any, repository: Any, *, as_of: str | None = None, throu
 
     mastery_config = vault.config.mastery
     state = WeightState()
+    frozen = vault.config.algorithms.algorithm_version in LESSON_WEIGHT_CURVE_VERSIONS
     for term, amount in (prior_shift or {}).items():
         for bank in state.banks:
             bank.mean[PRIOR_TERMS[term]] += float(amount)
@@ -852,12 +874,26 @@ def replay_state(vault: Any, repository: Any, *, as_of: str | None = None, throu
             lo = str(payload["learning_object_id"])
             pending = [c for c in open_checks.get(lo, []) if str(c["created_at"]) < at]
             open_checks[lo] = [c for c in open_checks.get(lo, []) if str(c["created_at"]) >= at]
-            enriched = {**payload, **_outcome_item_params(vault, mastery_config, payload)}
-            for check in pending:
+            resolving_curve = None
+            if frozen:
                 with repository.connection() as connection:
-                    trajectory = recorded_trajectory(connection, vault, mastery_config, check, payload)
+                    resolving_curve = current_curve(connection, str(payload["id"]))
+                enriched = dict(payload)
+                if resolving_curve.item_a is not None:
+                    enriched.update(item_a=resolving_curve.item_a, item_b=resolving_curve.item_b)
+            else:
+                enriched = {**payload, **_outcome_item_params(vault, mastery_config, payload)}
+            for check in pending:
+                inputs_trace = [] if frozen else None
+                with repository.connection() as connection:
+                    trajectory = recorded_trajectory(connection, vault, mastery_config, check, payload,
+                                                     inputs_trace=inputs_trace)
                 detail = _resolve_check(state, check, enriched, 1.0 / len(pending), mastery_config,
                                         trajectory=trajectory)
+                if resolving_curve is not None:
+                    detail.update(trajectory_inputs=inputs_trace, resolving_input=resolving_curve.trace())
+                    if resolving_curve.item_a is None:
+                        detail["resolving_fallback"] = "check_sensitivity"
                 state.updates += 1
                 state.through_at = at
                 state.trace.append({"kind": "weight_update", "lesson_check_id": check["id"],
@@ -867,6 +903,12 @@ def replay_state(vault: Any, repository: Any, *, as_of: str | None = None, throu
             open_forecasts[lo] = [f for f in open_forecasts.get(lo, []) if str(f["created_at"]) >= at]
             for forecast in waiting:
                 detail = _resolve_forecast(state, forecast, enriched, 1.0 / len(waiting), mastery_config)
+                if resolving_curve is not None:
+                    detail["resolving_input"] = resolving_curve.trace()
+                    forecast_state = forecast.get("state") or {}
+                    if (resolving_curve.item_a is None or forecast_state.get("mu") is None
+                            or forecast_state.get("variance") is None):
+                        detail["resolving_fallback"] = "forecast_p_a"
                 state.through_at = at
                 state.trace.append({"kind": "pool_update", "lesson_check_id": None,
                                     "resolving_attempt_id": payload["id"], "learning_object_id": lo, "at": at,

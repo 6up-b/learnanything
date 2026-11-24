@@ -49,8 +49,8 @@ IH5_KEYS = {"failure_share_to_other_policy": True, "lessons_compete_with_followu
 def test_the_successor_is_one_constant_after_phone_v3():
     assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1] == OLD == "mvp-0.54"
     # The placement hole's successor (mvp-0.56) follows it and keeps it, and slip or gap's (mvp-0.57) after that.
-    assert TAG == "mvp-0.55" == SUCCESSOR_CHAIN[-14] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.68"
-    assert FAILURE_SHARE_VERSIONS == frozenset({TAG, "mvp-0.56", "mvp-0.57", "mvp-0.58", "mvp-0.59", "mvp-0.60", "mvp-0.61", "mvp-0.62", "mvp-0.63", "mvp-0.64", "mvp-0.65", "mvp-0.66", "mvp-0.67", "mvp-0.68"})
+    assert TAG == "mvp-0.55" == SUCCESSOR_CHAIN[-16] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.70"
+    assert FAILURE_SHARE_VERSIONS == frozenset({TAG, "mvp-0.56", "mvp-0.57", "mvp-0.58", "mvp-0.59", "mvp-0.60", "mvp-0.61", "mvp-0.62", "mvp-0.63", "mvp-0.64", "mvp-0.65", "mvp-0.66", "mvp-0.67", "mvp-0.68", "mvp-0.69", "mvp-0.70"})
 
 
 def test_the_switch_defaults_on_and_is_classified():

@@ -75,6 +75,8 @@ from learnloop.learner.facet_diagnostics import (
     read_breadth,
     read_lo_coverage,
 )
+from learnloop.algorithm_versions import LESSON_WEIGHT_CURVE_VERSIONS
+from learnloop.db.stores.grade_curves import current_curve
 from learnloop.learner.lesson_weight import lesson_check_mass
 from learnloop.learner.mastery import (
     MasteryObservation,
@@ -4126,6 +4128,7 @@ class GradeReads:
     reference_status: str
     error_event_ids: list[str]
     grading_evidence: Any = None
+    recorded_curve: tuple[float, float] | None = None
 
 
 def _compute_resolved_grade_application(
@@ -4226,7 +4229,14 @@ def _compute_resolved_grade_application(
         for index in range(0 if scope.held else len(grade.error_attributions))
     ]
     grading_evidence = None if grade.evidence_rows else repository.fetch_grading_evidence(attempt_id)
+    recorded_curve = None
+    if replay and vault.config.algorithms.algorithm_version in LESSON_WEIGHT_CURVE_VERSIONS:
+        with repository.connection() as connection:
+            curve = current_curve(connection, attempt_id)
+        if curve.item_a is not None and curve.item_b is not None:
+            recorded_curve = (curve.item_a, curve.item_b)
     reads = GradeReads(
+        recorded_curve=recorded_curve,
         prior_state=prior_state,
         interpretation_variance=interpretation_variance,
         recorded_mass=recorded_mass,
@@ -4616,15 +4626,16 @@ def _grade_evidence(inputs: GradeInputs, scope: GradeScope, reads: GradeReads) -
     prior_state = reads.prior_state
     prior_mastery = prior_state.mastery
     grade_attributions, repair_suggestions, attribution_audit_events = _kept_attributions(inputs, scope)
-    item_a, item_b = resolve_item_irt_params(
-        item, learning_object, config.mastery, prior_state.item_parameter_state
-    )
-    if draft.primed:
-        # Source just re-read: the item is effectively easier. Shifting b (rather
-        # than dampening the observation weight) keeps the evidence asymmetric —
-        # a primed success barely moves mu, a primed failure moves it strongly.
-        # Prediction and surprise read the same shifted b, staying consistent.
-        item_b -= config.mastery.irt.priming_b_offset
+    if reads.recorded_curve is None:
+        item_a, item_b = resolve_item_irt_params(
+            item, learning_object, config.mastery, prior_state.item_parameter_state
+        )
+        if draft.primed:
+            item_b -= config.mastery.irt.priming_b_offset
+    else:
+        # Regenerating the posterior delta with a different curve corrupts the fit's recovered noise.
+        # The effective difficulty already includes any priming offset.
+        item_a, item_b = reads.recorded_curve
     expected_correctness, prediction_trace = predicted_correctness_from_prior(
         prior_state.aggregate_facet_recall,
         item,

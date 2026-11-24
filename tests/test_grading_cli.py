@@ -138,6 +138,15 @@ def test_adjudicate_replays_before_commit(tmp_path, monkeypatch, interrupt):
 
     before = state()
     evidence = repo.fetch_grading_evidence(attempt_id, include_superseded=True)
+
+    def curves():
+        with repo.connection() as connection:
+            return [tuple(row) for row in connection.execute(
+                "SELECT grading_revision, item_a, item_b, provenance FROM attempt_grade_curves "
+                "WHERE attempt_id = ? ORDER BY grading_revision", (attempt_id,))]
+
+    original, = curves()
+    assert original[0] == 0 and original[-1] == "graded"
     if interrupt:
         def fail(*args, **kwargs):
             raise RuntimeError("replay interrupted")
@@ -149,12 +158,15 @@ def test_adjudicate_replays_before_commit(tmp_path, monkeypatch, interrupt):
         assert repo.active_interpretation_for_observation(obs)["id"] == head
         assert repo.fetch_grading_evidence(attempt_id, include_superseded=True) == evidence
         assert state() == before
+        assert curves() == [original]
     else:
         assert out.exit_code == 0, out.exception
         assert "downstream state rebuilt" in out.output
         after = state()
         rebuild_all_derived_state(vault, repo, clock=CLOCK)
         assert after == state()
+        pair = repo.latest_attempt_surprise(attempt_id)["predicted_score_dist"]
+        assert curves() == [original, (1, pair["a"], pair["b"], "graded")]
         assert all(old != new for old, new in zip(before, after, strict=True))
 
 

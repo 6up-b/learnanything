@@ -26,6 +26,7 @@ from __future__ import annotations
 import json
 import os
 from collections.abc import Callable, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -37,6 +38,7 @@ from learnloop.algorithm_versions import (
     FACET_BELIEF_FIX_ALGORITHM_VERSION,
     GRADE_CHANNEL_FIX_ALGORITHM_VERSION,
     LATEST_ALGORITHM_VERSION,
+    LESSON_WEIGHT_CURVES_ALGORITHM_VERSION,
     LIFECYCLE_INPUTS_ALGORITHM_VERSION,
     MASTERY_SEED_ALGORITHM_VERSION,
     PAD_TEXT_ALGORITHM_VERSION,
@@ -49,6 +51,7 @@ from learnloop.learner.mastery_seed import reconstructing_legacy_mastery_seeds
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.config import load_config
 from learnloop.db.stores.attempts import rank_legacy_attempts
+from learnloop.db.stores.grade_curves import snapshot_grade_curves
 from learnloop.db.stores.practice_state import record_legacy_mastery_seeds
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.attempts import record_legacy_lifecycle_inputs
@@ -86,6 +89,8 @@ class Activation:
     description: str
     run: Callable[[LoadedVault, Repository, str, Clock | None], None]
     committed: Callable[[Repository, str], bool]
+    # A failed rebuild may be retried after the predecessor has regenerated its projections.
+    snapshot: Callable[[Repository, str], bool] | None = None
 
 
 def _project(vault: LoadedVault, repository: Repository, predecessor: str, clock: Clock | None) -> None:
@@ -212,14 +217,26 @@ legacy_mastery_seeds_then_rebuild = Activation(
 )
 
 
+def _freeze_grade_curves(repository: Repository, predecessor: str) -> bool:
+    with repository.connection() as connection:
+        return snapshot_grade_curves(connection, predecessor)
+
+
+frozen_grade_curves_then_rebuild = Activation(
+    "the predecessor grade curves frozen before a whole-vault rebuild", _rebuild, _rebuild_committed,
+    snapshot=_freeze_grade_curves,
+)
+
+
 @dataclass(frozen=True)
 class Link:
     tag: str
     activate: Activation
+    after: str | None = None
 
     @property
     def predecessor(self) -> str:
-        return SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(self.tag) - 1]
+        return self.after or SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(self.tag) - 1]
 
 
 #: The upgrade table, oldest first: one row per successor from the floor up. A successor adds its row.
@@ -256,6 +273,7 @@ UPGRADES: tuple[Link, ...] = (
     # A scratchpad's committed words are learner text: only blocks committed from the upgrade on are emitted (the
     # pads' own sweep then queues the words standing at the upgrade), and nothing already derived reads a pad.
     Link(PAD_TEXT_ALGORITHM_VERSION, idempotent_projection),
+    Link(LESSON_WEIGHT_CURVES_ALGORITHM_VERSION, frozen_grade_curves_then_rebuild, after="mvp-0.69"),
 )
 
 
@@ -338,7 +356,10 @@ def _walk(links: Sequence[Link], original: str, to: str) -> list[Link] | None:
     end = tags.index(to)
     if start is None or start > end:
         return None
-    return list(links[start:end + 1])
+    walk = list(links[start:end + 1])
+    if any(left.tag != right.predecessor for left, right in zip(walk, walk[1:], strict=False)):
+        return None
+    return walk
 
 
 def _unknown_journal(sqlite_path: Path) -> str:
@@ -403,6 +424,19 @@ def _activate(root: Path, link: Link, *, publish: bool, clock: Clock | None) -> 
         return _activate_as_writer(root, link, publish=publish, clock=clock)
 
 
+@contextmanager
+def _activation_transaction(repository: Repository, link: Link, *, snapshot_history: bool, publish: bool):
+    # Each first snapshot commits before replay can clear its source. Recheck under BEGIN IMMEDIATE:
+    # an already attached predecessor writer could have applied another grade between transactions.
+    while True:
+        with repository.atomic():
+            if snapshot_history and link.activate.snapshot and (publish or not link.activate.committed(repository, link.tag)):
+                if link.activate.snapshot(repository, link.predecessor):
+                    continue
+            yield
+            return
+
+
 def _activate_as_writer(root: Path, link: Link, *, publish: bool, clock: Clock | None) -> bool:
     vault = load_vault(root)
     predecessor, target = link.predecessor, link.tag
@@ -413,9 +447,11 @@ def _activate_as_writer(root: Path, link: Link, *, publish: bool, clock: Clock |
     repository = open_vault_repository(vault.root, sqlite_path)
     config_path = root / "learnloop.toml"
     journal_path = _journal_path(vault)
+    # A vault born at the tag has no predecessor projection to freeze.
+    snapshot_history = publish or journal_path.exists()
     published = False
     try:
-        with repository.atomic():
+        with _activation_transaction(repository, link, snapshot_history=snapshot_history, publish=publish):
             if not publish and link.activate.committed(repository, target):
                 return False
             # The predecessor's manifest, frozen from its own config (only the version line differs).

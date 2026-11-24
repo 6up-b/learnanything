@@ -49,6 +49,7 @@ REGISTERED_SQL_OWNERS = frozenset(
         "src/learnloop/db/stores/goals.py",
         "src/learnloop/db/stores/task_blueprints.py",
         "src/learnloop/db/stores/attempts.py",
+        "src/learnloop/db/stores/grade_curves.py",
         "src/learnloop/db/stores/grading.py",
         "src/learnloop/db/stores/causal.py",
         "src/learnloop/db/stores/probes.py",

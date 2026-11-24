@@ -19,11 +19,10 @@ from tests.teacher_fakes import (
     build_teacher_vault,
     check_turn,
     clients,
-    landed_turn,
     plan_turn,
 )
 from tests.ux_phase1_support import set_config
-from tests.teacher_te1_review_fixes_helpers import _metered, _rows, _spend, _turn
+from tests.teacher_te1_review_fixes_helpers import _cold, _lesson_with_check, _metered, _rows, _spend, _turn
 
 T0 = datetime(2026, 11, 1, 9, 0, tzinfo=UTC)
 KEY = "quokka zebra marmot: two, five"
@@ -327,33 +326,6 @@ def test_f12_three_provider_invalid_outputs_close_the_lesson_as_a_contract_failu
 # --- F2: held grades never train the weight, the pool or the recalibration -----------------------------
 
 
-def _lesson_with_check(paths, repository, *, at, retained: float | None = None):
-    fake = TeacherFake([plan_turn, check_turn()])
-    view = S.open_lesson(load_vault(paths.root), repository, entry="learning_object", learning_object_ids=["lo_eigen"],
-                         clients=clients(fake), clock=FrozenClock(at))
-    if retained is not None:
-        fake.turns = [landed_turn(p=retained), check_turn()]
-        S.take_turn(load_vault(paths.root), repository, lesson_id=view["lesson_id"], action="reply",
-                    payload={"text": "go"}, clients=clients(fake), clock=FrozenClock(at + timedelta(minutes=1)))
-    S.take_turn(load_vault(paths.root), repository, lesson_id=view["lesson_id"], action="reply",
-                payload={"text": "and?"}, clients=clients(fake), clock=FrozenClock(at + timedelta(minutes=2)))
-    S.take_turn(load_vault(paths.root), repository, lesson_id=view["lesson_id"], action="answer_check",
-                payload={"answer": "det(A - tI) = 0", "tap": 5}, clients=clients(fake),
-                clock=FrozenClock(at + timedelta(minutes=3)))
-    return view["lesson_id"]
-
-
-def _cold(paths, repository, item_id, at, *, points: int = 4, confidence: int | None = 4, hints: int = 0):
-    from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
-
-    return complete_self_graded_attempt(
-        load_vault(paths.root), repository,
-        AttemptDraft(practice_item_id=item_id, learner_answer_md="cold answer",
-                     attempt_type="hinted_attempt" if hints else "independent_attempt", hints_used=hints,
-                     answer_confidence=confidence),
-        SelfGradeInput(criterion_points={"correctness": points}, confidence=4), clock=FrozenClock(at))
-
-
 def test_f2_a_held_cold_grade_resolves_nothing_until_released(tmp_path):
     from learnloop.attempts.grade_resolution import append_adjudication_evidence_revision
     from tests.held_grade_evidence_helpers import _hold_by_regrade
@@ -423,21 +395,43 @@ def test_f5_a_forecast_agreeing_with_the_cold_prediction_leaves_the_mass_near_th
 # --- F6: the likelihood recomputes the LO's recorded trajectory ----------------------------------------
 
 
-def test_f6_the_trajectory_at_the_recorded_mass_reproduces_the_outcomes_recorded_prior(tmp_path):
+@pytest.mark.parametrize("measured", [False, True])
+def test_f6_the_trajectory_at_the_recorded_mass_reproduces_the_outcomes_recorded_prior(tmp_path, measured):
+    from learnloop.learner.mastery import item_irt_params
+    from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
+    from learnloop.vault.writer import upsert_practice_item
+
     paths, repository = build_teacher_vault(tmp_path / "vault")
-    _lesson_with_check(paths, repository, at=T0)
-    # Two intervening updates on the same LO that resolve nothing: an item the lesson's teaching exposed
-    # (a reveal row), and a hinted attempt (its own observation factors: the hint dampening).
+    set_config(paths.root, {("mastery", "irt", "eb_difficulty_enabled"): measured})
+    _lesson_with_check(paths, repository, at=T0, retained=0.8)
+    # The exposed item, the hinted attempt and the primed repeat all precede the cold outcome.
     _cold(paths, repository, "pi_eig_3", T0 + timedelta(days=1), points=0)
     _cold(paths, repository, "pi_eig_1", T0 + timedelta(days=2), points=4, hints=1)
+    vault = load_vault(paths.root)
+    item = vault.practice_items["pi_eig_1"]
+    _, authored = item_irt_params(item, vault.learning_objects[item.learning_object_id], vault.config.mastery)
+    before_priming = repository.item_parameter_state(item.id).b_mean if measured else authored
+    if measured:
+        assert before_priming != pytest.approx(authored)
+    primed = _cold(paths, repository, item.id, T0 + timedelta(days=3), points=0, primed=True)
     outcome = _cold(paths, repository, "pi_eig_2", T0 + timedelta(days=4), points=4)
+    live = LW._state_rows(LW.replay_state(vault, repository))
+    for item_id in (item.id, "pi_eig_2"):
+        data = vault.practice_items[item_id].model_dump(mode="json")
+        data["difficulty"] = 0.99
+        upsert_practice_item(paths.root, data)
     vault = load_vault(paths.root)
     with repository.connection() as connection:
         check = LW._checks(connection)[0]
         outcome_row = {"id": outcome.attempt_id, "created_at": connection.execute(
             "SELECT created_at FROM practice_attempts WHERE id = ?", (outcome.attempt_id,)).fetchone()[0]}
         trajectory = LW.recorded_trajectory(connection, vault, vault.config.mastery, check, outcome_row)
-    assert trajectory is not None and [u.varied for u in trajectory] == [True, False, False]
+    assert trajectory is not None and [u.varied for u in trajectory] == [True, False, False, False]
+    for step in trajectory:
+        pair = repository.latest_attempt_surprise(step.attempt_id)["predicted_score_dist"]
+        assert (step.item_a, step.item_b) == (pair["a"], pair["b"])
+    assert trajectory[-1].attempt_id == primed.attempt_id and trajectory[-1].primed
+    assert trajectory[-1].item_b == pytest.approx(before_priming - vault.config.mastery.irt.priming_b_offset)
     recorded = repository.latest_attempt_surprise(outcome.attempt_id)["posterior_delta"]
     sensitivity = LW.CheckSensitivity.from_dict(check["inputs"]["sensitivity"])
     state = LW.trajectory_state(sensitivity, trajectory, mass=float(check["mass_applied"]),
@@ -447,7 +441,15 @@ def test_f6_the_trajectory_at_the_recorded_mass_reproduces_the_outcomes_recorded
     # The live replay resolves the check through that trajectory, intervening updates included.
     replay = LW.replay_state(vault, repository)
     update = next(entry for entry in replay.trace if entry["kind"] == "weight_update")
-    assert update["detail"]["likelihood"] == "recorded_trajectory" and update["detail"]["intervening"] == 2
+    assert update["detail"]["likelihood"] == "recorded_trajectory" and update["detail"]["intervening"] == 3
+    assert LW._state_rows(replay) == live
+    end = repository.latest_attempt_surprise(outcome.attempt_id)["predicted_score_dist"]
+    for entry in replay.trace:
+        if entry["kind"] in ("pool_update", "weight_update"):
+            source = entry["detail"]["resolving_input"]
+            assert (source["provenance"], source["item_a"], source["item_b"]) == ("graded", end["a"], end["b"])
+    rebuild_all_derived_state(vault, repository)
+    assert LW._state_rows(LW.replay_state(vault, repository)) == live
 
 
 # --- F13: check-correctness forecasts resolve on the check's attempt -----------------------------------

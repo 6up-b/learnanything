@@ -1030,6 +1030,9 @@ MASTERY_SEED_ALGORITHM_VERSION = "mvp-0.67"
 # (owner rule 2026-11-16). ONE constant.
 PAD_TEXT_ALGORITHM_VERSION = "mvp-0.68"
 
+# Effective mastery curves for the lesson-weight fit, following the Reader's mvp-0.69.
+LESSON_WEIGHT_CURVES_ALGORITHM_VERSION = "mvp-0.70"
+
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
 # first. Each successor means its predecessor's semantics PLUS its own, so
 # every gate below is "this tag or any later one". A successor appends its tag
@@ -1096,6 +1099,7 @@ SUCCESSOR_CHAIN: tuple[str, ...] = (
     LIFECYCLE_INPUTS_ALGORITHM_VERSION,
     MASTERY_SEED_ALGORITHM_VERSION,
     PAD_TEXT_ALGORITHM_VERSION,
+    LESSON_WEIGHT_CURVES_ALGORITHM_VERSION,
 )
 
 
@@ -1255,6 +1259,9 @@ def pad_text_on(config: object) -> bool:
 
     algorithms = getattr(config, "algorithms", None)
     return getattr(algorithms, "algorithm_version", None) in PAD_TEXT_VERSIONS
+
+LESSON_WEIGHT_CURVE_VERSIONS = successors_from(LESSON_WEIGHT_CURVES_ALGORITHM_VERSION)
+
 
 # The newest successor: the last tag in the chain. ``learnloop upgrade`` with
 # no ``--to`` targets it, and new vaults start at it

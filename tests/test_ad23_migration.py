@@ -206,9 +206,10 @@ def test_a_vault_at_218_without_214_gets_it(tmp_path) -> None:
     from tests.mastery_seed_inputs_migration_helpers import MASTERY_SEED_ADDED_OBJECTS
     from tests.reader_rd4_migration_helpers import RD4_ADDED_OBJECTS
     from tests.reader_rd8a_migration_helpers import RD8A_ADDED_OBJECTS
+    from tests.grade_curves_migration_helpers import GRADE_CURVE_OBJECTS
     from tests.reader_rd10_migration_helpers import RD10_ADDED_OBJECTS
 
-    assert set(after) - set(before) - IH3_ADDED_OBJECTS - B1_ADDED_OBJECTS - SEEN_SPANS_ADDED_OBJECTS - TOPIC_WORK_ADDED_OBJECTS - JOB_PROGRESS_ADDED_OBJECTS - APPLICATION_ORDER_ADDED_OBJECTS - LIFECYCLE_INPUTS_ADDED_OBJECTS - RD0_ADDED_OBJECTS - RD0_GUARDS_ADDED_OBJECTS - MASTERY_SEED_ADDED_OBJECTS - RD4_ADDED_OBJECTS - RD8A_ADDED_OBJECTS - RD10_ADDED_OBJECTS == AD23_ADDED_OBJECTS
+    assert set(after) - set(before) - IH3_ADDED_OBJECTS - B1_ADDED_OBJECTS - SEEN_SPANS_ADDED_OBJECTS - TOPIC_WORK_ADDED_OBJECTS - JOB_PROGRESS_ADDED_OBJECTS - APPLICATION_ORDER_ADDED_OBJECTS - LIFECYCLE_INPUTS_ADDED_OBJECTS - RD0_ADDED_OBJECTS - RD0_GUARDS_ADDED_OBJECTS - MASTERY_SEED_ADDED_OBJECTS - RD4_ADDED_OBJECTS - RD8A_ADDED_OBJECTS - RD10_ADDED_OBJECTS - GRADE_CURVE_OBJECTS == AD23_ADDED_OBJECTS
     # Phone V3's 250 (help_assists' surface CHECK) runs after them too.
     from tests.mobile_v3_migration_helpers import V3_ALTERED_TABLES
     # RE0's 252 (practice_attempts.active_seconds) and refactor B1's 253 (model_call_receipts.trace_id) last.

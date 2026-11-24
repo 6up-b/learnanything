@@ -32,6 +32,7 @@ from learnloop.algorithm_versions import (
     FACET_BELIEF_FIX_ALGORITHM_VERSION,
     GRADE_CHANNEL_FIX_ALGORITHM_VERSION,
     LATEST_ALGORITHM_VERSION,
+    LESSON_WEIGHT_CURVES_ALGORITHM_VERSION,
     LIFECYCLE_INPUTS_ALGORITHM_VERSION,
     MASTERY_SEED_ALGORITHM_VERSION,
     OLDEST_SUPPORTED,
@@ -49,6 +50,7 @@ from learnloop.ops.upgrades import (
     UPGRADES,
     Activation,
     Link,
+    frozen_grade_curves_then_rebuild,
     idempotent_projection,
     legacy_lifecycle_inputs_then_rebuild,
     legacy_mastery_seeds_then_rebuild,
@@ -77,6 +79,7 @@ EXPECTED_ACTIVATIONS = {
     LIFECYCLE_INPUTS_ALGORITHM_VERSION: legacy_lifecycle_inputs_then_rebuild,
     MASTERY_SEED_ALGORITHM_VERSION: legacy_mastery_seeds_then_rebuild,
     PAD_TEXT_ALGORITHM_VERSION: idempotent_projection,
+    LESSON_WEIGHT_CURVES_ALGORITHM_VERSION: frozen_grade_curves_then_rebuild,
 }
 
 LINKS = pytest.mark.parametrize("link", UPGRADES, ids=lambda link: link.tag)

@@ -53,8 +53,8 @@ ITEM_ID = "pi_svd_define_001"
 def test_the_successor_is_one_constant_after_the_figure_wait_estimate():
     assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1] == OLD == "mvp-0.58"
     # The grade channel fixes (mvp-0.60) and the evidence reading fixes (mvp-0.61) follow it and keep it.
-    assert TAG == "mvp-0.59" == SUCCESSOR_CHAIN[-10] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.68"
-    assert FACET_BELIEF_FIX_VERSIONS == frozenset({TAG, "mvp-0.60", "mvp-0.61", "mvp-0.62", "mvp-0.63", "mvp-0.64", "mvp-0.65", "mvp-0.66", "mvp-0.67", "mvp-0.68"})
+    assert TAG == "mvp-0.59" == SUCCESSOR_CHAIN[-12] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.70"
+    assert FACET_BELIEF_FIX_VERSIONS == frozenset({TAG, "mvp-0.60", "mvp-0.61", "mvp-0.62", "mvp-0.63", "mvp-0.64", "mvp-0.65", "mvp-0.66", "mvp-0.67", "mvp-0.68", "mvp-0.69", "mvp-0.70"})
 
 
 def test_the_switch_defaults_on_and_is_classified():

@@ -4,6 +4,8 @@ import json
 from dataclasses import dataclass
 from typing import Any, Mapping
 
+from learnloop.algorithm_versions import LESSON_WEIGHT_CURVE_VERSIONS
+from learnloop.db.stores.grade_curves import capture_grade_curve
 from learnloop.clock import Clock, FrozenClock, parse_utc, utc_now_iso
 from learnloop.db.attempt_order import attempt_order_for
 from learnloop.db.repositories import CANONICAL_STAMPED_TABLES, Repository
@@ -287,6 +289,7 @@ def replay_learning_object(
     error_attribution_overrides: dict[str, list[GradeAttribution]] | None = None,
     grader_identity_overrides: dict[str, tuple[str, str] | None] | None = None,
     project_canonical_state: bool = True,
+    applying_grade_to: str | None = None,
     clock: Clock | None = None,
 ) -> ReplayResult:
     """Rebuild attempt-derived state for one learning object from persisted grades.
@@ -314,7 +317,7 @@ def replay_learning_object(
     """
 
     with repository.atomic():
-        return _replay_learning_object(
+        result = _replay_learning_object(
             vault,
             repository,
             learning_object_id,
@@ -323,6 +326,17 @@ def replay_learning_object(
             project_canonical_state=project_canonical_state,
             clock=clock,
         )
+        if applying_grade_to is not None and vault.config.algorithms.algorithm_version in LESSON_WEIGHT_CURVE_VERSIONS:
+            # Only the replacement grade was applied here. Its neighbours were replayed.
+            if applying_grade_to not in result.attempt_ids:
+                raise ValueError(f"replacement grade for {applying_grade_to} was not applied on {learning_object_id}")
+            surprise = repository.latest_attempt_surprise(applying_grade_to)
+            if surprise is None:
+                raise RuntimeError(f"applied grade for {applying_grade_to} has no mastery curve")
+            with repository.connection() as connection:
+                capture_grade_curve(connection, applying_grade_to, surprise["predicted_score_dist"],
+                                    surprise["algorithm_version"])
+        return result
 
 
 def _replay_learning_object(

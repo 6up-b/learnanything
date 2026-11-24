@@ -90,7 +90,9 @@ def grading_adjudicate(
             attempt_id = repository.observation_attempt_id(observation_id)
             attempt = repository.fetch_practice_attempt(attempt_id) if attempt_id else None
             if attempt is not None and replays:
-                replay_learning_object(loaded, repository, attempt["learning_object_id"])
+                revised = adj["evidence_revision"]["status"] == "revised"
+                replay_learning_object(loaded, repository, attempt["learning_object_id"],
+                                       applying_grade_to=attempt_id if revised else None)
             _require_ruling_as_head(repository, observation_id, attempt_id, adj["interpretation_id"])
     except _RulingNotHead as exc:
         typer.echo(f"Adjudication rolled back: {exc}")

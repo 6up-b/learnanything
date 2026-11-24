@@ -674,6 +674,7 @@ def _publish_regrade(
         vault,
         repository,
         learning_object.id,
+        applying_grade_to=attempt["id"],
         error_attribution_overrides={
             attempt["id"]: [
                 GradeAttribution(

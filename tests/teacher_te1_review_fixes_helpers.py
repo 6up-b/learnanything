@@ -4,12 +4,14 @@ imports another (``tests/test_test_layout.py``; refactor step T1)."""
 from __future__ import annotations
 
 import json
+from datetime import timedelta
 from typing import Any
 
+from learnloop.clock import FrozenClock
 from learnloop.teacher import service as S
 from learnloop.vault.loader import load_vault
 
-from tests.teacher_fakes import TeacherFake, build_teacher_vault, clients
+from tests.teacher_fakes import TeacherFake, build_teacher_vault, check_turn, clients, landed_turn, plan_turn
 from tests.ux_phase1_support import set_config
 
 
@@ -66,3 +68,31 @@ def _metered(tmp_path, turns, *, cap_factor: float):
     set_config(paths.root, {("teacher", "max_lesson_cost_usd"): cap})
     fake.turns = list(turns)
     return paths, repository, fake, view["lesson_id"], cap
+
+
+def _lesson_with_check(paths, repository, *, at, retained: float | None = None):
+    fake = TeacherFake([plan_turn, check_turn()])
+    view = S.open_lesson(load_vault(paths.root), repository, entry="learning_object", learning_object_ids=["lo_eigen"],
+                         clients=clients(fake), clock=FrozenClock(at))
+    if retained is not None:
+        fake.turns = [landed_turn(p=retained), check_turn()]
+        S.take_turn(load_vault(paths.root), repository, lesson_id=view["lesson_id"], action="reply",
+                    payload={"text": "go"}, clients=clients(fake), clock=FrozenClock(at + timedelta(minutes=1)))
+    S.take_turn(load_vault(paths.root), repository, lesson_id=view["lesson_id"], action="reply",
+                payload={"text": "and?"}, clients=clients(fake), clock=FrozenClock(at + timedelta(minutes=2)))
+    S.take_turn(load_vault(paths.root), repository, lesson_id=view["lesson_id"], action="answer_check",
+                payload={"answer": "det(A - tI) = 0", "tap": 5}, clients=clients(fake),
+                clock=FrozenClock(at + timedelta(minutes=3)))
+    return view["lesson_id"]
+
+
+def _cold(paths, repository, item_id, at, *, points: int = 4, confidence: int | None = 4, hints: int = 0,
+          primed: bool = False):
+    from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
+
+    return complete_self_graded_attempt(
+        load_vault(paths.root), repository,
+        AttemptDraft(practice_item_id=item_id, learner_answer_md="cold answer",
+                     attempt_type="hinted_attempt" if hints else "independent_attempt", hints_used=hints,
+                     answer_confidence=confidence, primed=primed),
+        SelfGradeInput(criterion_points={"correctness": points}, confidence=4), clock=FrozenClock(at))

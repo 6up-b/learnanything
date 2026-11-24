@@ -24822,6 +24822,23 @@
    ],
    "removed": []
   },
+  "attempt_grade_curves": {
+   "added": [
+    "{\"algorithm_version\": \"<head tag>\", \"attempt_id\": \"<ulid:0>\", \"epoch_key\": \"revision:0\", \"grading_revision\": 0, \"item_a\": 1.0, \"item_b\": 0.0, \"provenance\": \"graded\"}",
+    "{\"algorithm_version\": \"<head tag>\", \"attempt_id\": \"att_i1_dont_know\", \"epoch_key\": \"revision:0\", \"grading_revision\": 0, \"item_a\": 1.0, \"item_b\": 0.0, \"provenance\": \"graded\"}",
+    "{\"algorithm_version\": \"<head tag>\", \"attempt_id\": \"att_i1_held\", \"epoch_key\": \"revision:0\", \"grading_revision\": 0, \"item_a\": 1.0, \"item_b\": 0.0, \"provenance\": \"graded\"}",
+    "{\"algorithm_version\": \"<head tag>\", \"attempt_id\": \"att_i1_hinted\", \"epoch_key\": \"revision:0\", \"grading_revision\": 0, \"item_a\": 1.0, \"item_b\": 0.0, \"provenance\": \"graded\"}",
+    "{\"algorithm_version\": \"<head tag>\", \"attempt_id\": \"att_i1_model\", \"epoch_key\": \"revision:0\", \"grading_revision\": 0, \"item_a\": 1.0, \"item_b\": 0.0, \"provenance\": \"graded\"}",
+    "{\"algorithm_version\": \"<head tag>\", \"attempt_id\": \"att_i1_model\", \"epoch_key\": \"revision:1\", \"grading_revision\": 1, \"item_a\": 1.0, \"item_b\": 0.0, \"provenance\": \"graded\"}",
+    "{\"algorithm_version\": \"<head tag>\", \"attempt_id\": \"att_i1_primed\", \"epoch_key\": \"revision:0\", \"grading_revision\": 0, \"item_a\": 1.0, \"item_b\": -2.0, \"provenance\": \"graded\"}",
+    "{\"algorithm_version\": \"<head tag>\", \"attempt_id\": \"att_i1_repeat\", \"epoch_key\": \"revision:0\", \"grading_revision\": 0, \"item_a\": 1.0, \"item_b\": 0.0, \"provenance\": \"graded\"}",
+    "{\"algorithm_version\": \"<head tag>\", \"attempt_id\": \"att_i1_self\", \"epoch_key\": \"revision:0\", \"grading_revision\": 0, \"item_a\": 1.0, \"item_b\": 0.0, \"provenance\": \"graded\"}",
+    "{\"algorithm_version\": \"<head tag>\", \"attempt_id\": \"att_i1_sibling\", \"epoch_key\": \"revision:0\", \"grading_revision\": 0, \"item_a\": 1.0, \"item_b\": 0.0, \"provenance\": \"graded\"}",
+    "{\"algorithm_version\": \"<head tag>\", \"attempt_id\": \"att_i1_stuck\", \"epoch_key\": \"revision:0\", \"grading_revision\": 0, \"item_a\": 1.0, \"item_b\": 0.0, \"provenance\": \"graded\"}",
+    "{\"algorithm_version\": \"<head tag>\", \"attempt_id\": \"att_i1_unassessed\", \"epoch_key\": \"revision:0\", \"grading_revision\": 0, \"item_a\": 1.0, \"item_b\": 0.0, \"provenance\": \"graded\"}"
+   ],
+   "removed": []
+  },
   "attempt_lifecycle_inputs": {
    "added": [
     "{\"attempt_id\": \"<ulid:0>\", \"basis\": \"captured_at_application\", \"learning_object_id\": \"lo_svd_compute\", \"policy_version\": \"active_item_evidence_facets_v1\", \"recorded_at\": \"2026-06-11T12:00:00Z\", \"required_facets_json\": \"[\\\"compute\\\",\\\"recall\\\"]\"}",

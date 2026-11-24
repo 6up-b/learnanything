@@ -37,7 +37,7 @@ SG_KEYS = {"miss_cause_sensor": True, "miss_cause_in_value": True}
 def test_the_successor_is_one_constant_after_the_placement_hole_and_the_latest():
     assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1] == OLD == "mvp-0.56"
     # The figure wait estimate's successor (mvp-0.58) follows it and keeps it.
-    assert TAG == "mvp-0.57" == SUCCESSOR_CHAIN[-12] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.68"
+    assert TAG == "mvp-0.57" == SUCCESSOR_CHAIN[-14] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.70"
 
 
 def test_the_switches_default_on_and_are_classified():

@@ -10,6 +10,8 @@ from dataclasses import field  # noqa: F401  Keeps the moved field-shadowing dir
 from datetime import UTC, date, timedelta
 from typing import Any, Iterable, Mapping, Sequence
 
+from learnloop.algorithm_versions import LESSON_WEIGHT_CURVE_VERSIONS
+from learnloop.db.stores.grade_curves import capture_grade_curve
 from learnloop.clock import Clock, SystemClock, parse_utc, utc_now_iso
 from learnloop.db.records import (
     ItemParameterState,
@@ -1332,6 +1334,9 @@ class AttemptStoreMixin:
                 )
             for row in evidence_rows:
                 self._insert_grading_evidence(connection, attempt["id"], row)
+            if surprise["algorithm_version"] in LESSON_WEIGHT_CURVE_VERSIONS:
+                capture_grade_curve(connection, attempt["id"], surprise["predicted_score_dist"],
+                                    surprise["algorithm_version"])
             for event in error_events:
                 self._insert_error_event(connection, event)
             self._insert_attempt_surprise(connection, surprise)
