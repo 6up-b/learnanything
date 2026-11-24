@@ -121,6 +121,7 @@ import type { BridgeMessage } from "./notebook/bridge";
 import { notebookMenuRequest, openNotebookMenu, setNotebookMenuOpener } from "./notebook/menuBridge";
 import { lessonNotebookFrame } from "./notebook/LessonNotebook";
 import { handOver, type ProblemHandoff } from "./problem/problemPads";
+import { CompanionFigures, showInCompanion, useCompanionFigures, type CompanionFigureHost } from "./companion/companionFigures";
 import type { ProblemHost } from "./problem/ProblemPad";
 import { problemTitle } from "../workbench/stepModel";
 import type { NotebookOwner } from "../../api/dto";
@@ -2477,6 +2478,25 @@ export function DeskShell({
   const onPromotedRef = useRef<(row: import("../../api/dto").PromotedRowDto, origin: import("../../api/dto").MenuObjectInput | null) => boolean>(() => false);
   const openMenuByKeyRef = useRef<() => boolean>(() => false);
   const hoveredKeyRef = useRef<(what: "note" | "promoted") => boolean>(() => false);
+  /** A figure as a `figure` block in the running pad of the desk Show me was asked on (captured when asked), not the
+   * desk shown when it is ready: Show me's interim landing, and the companion figure's "move to scratchpad". */
+  const landFigureBlock = useCallback(async (anchor: { extractionId: string | null; spanId: string | null }, figure: { figureId: string; line: string }, padId: string | null) => {
+    if (padId) await store.loadPad(padId);
+    const pad = padId ? store.pads[padId] : null;
+    if (!padId || !pad) {
+      toastNow("the figure is ready, but that desk has no running pad to put it in");
+      throw new Error("no running pad");
+    }
+    store.commitPad(padId, [{ op: "insert_block", blockId: mintId("blk"), versionId: mintId("ver"), kind: "figure", provenance: "learnloop", positionKey: keyAfterLast(pad.blocks), day: localDay(),
+      bodyMd: figure.line, payload: { figure_id: figure.figureId, extraction_id: anchor.extractionId, span_id: anchor.spanId } }]);
+    toastNow("◇ the figure is in your running pad");
+  }, [store, toastNow, mintId]);
+  const companionFigureHost = useMemo<CompanionFigureHost>(() => ({
+    moveToPad: (entry) => landFigureBlock(entry.anchor, { figureId: entry.figure.figureId, line: entry.figure.demonstrates || entry.figure.goalText || "a figure" }, entry.destination),
+    openSource: (extractionId, spanId) => openClaim({ extractionId, spanId }),
+  }), [landFigureBlock, openClaim]);
+  const shownFigures = useCompanionFigures(vaultKey);
+
   // RW2 on a desk (spec §15.2): a problem a source window opens is worked on a problem pad in the desk's stack (the
   // pad of its workbench session when one is loaded, else a new one), brought into view; the window keeps reading.
   const workOnPad = useCallback((handoff: ProblemHandoff) => {
@@ -2556,7 +2576,7 @@ export function DeskShell({
       });
       const figure = job.result?.figure;
       if (!figure || !figure.shown) return null;
-      return { figureId: figure.figureId, line: figure.demonstrates || figure.goalText || text };
+      return { figureId: figure.figureId, line: figure.demonstrates || figure.goalText || text, figure };
     },
     figures: pendingFigures,
     menu: {
@@ -3012,18 +3032,15 @@ export function DeskShell({
     confirm: (title, detail) => new Promise<boolean>((resolve) => setMenuSheet({ kind: "confirm", title, detail, resolve: (value) => resolve(value === true) })),
     showMe: (text, anchor, owner) => padsHost.showMe ? padsHost.showMe(text, anchor, owner ?? undefined) : Promise.resolve(null),
     figureDestination: () => runningPadOf(deskIdRef.current),
-    landFigure: async (object, figure, padId) => {
-      // The running pad of the desk Show me was asked on (captured when asked), not the desk shown when it is ready.
-      if (padId) await store.loadPad(padId);
-      const pad = padId ? store.pads[padId] : null;
-      if (!padId || !pad) {
-        toastNow("the figure is ready, but that desk has no running pad to put it in");
-        return;
-      }
-      store.commitPad(padId, [{ op: "insert_block", blockId: mintId("blk"), versionId: mintId("ver"), kind: "figure", provenance: "learnloop", positionKey: keyAfterLast(pad.blocks), day: localDay(),
-        bodyMd: figure.line, payload: { figure_id: figure.figureId, extraction_id: object.extractionId ?? null, span_id: object.spanId ?? null } }]);
-      toastNow("◇ the figure is in your running pad");
+    showFigure: (object, figure, destination) => {
+      showInCompanion(vaultKey, {
+        key: mintId("cfig"), figure, destination, anchor: { extractionId: object.extractionId ?? null, spanId: object.spanId ?? null },
+        sourceTitle: object.windowId ? titleOf(wsRef.current.windows[object.windowId]) : null,
+      });
+      // The figure is in the companion's answer: it is summoned (docked) if it was hidden.
+      if (companionStateRef.current.mode === "hidden") stepCompanion({ kind: "dock" });
     },
+    landFigure: (object, figure, padId) => landFigureBlock({ extractionId: object.extractionId ?? null, spanId: object.spanId ?? null }, figure, padId).catch(() => undefined),
     windowMove: (kind, windowId) => {
       const id = deskIdRef.current;
       if (!id) return;
@@ -3042,7 +3059,7 @@ export function DeskShell({
     reviewExercise: (object, anchor) => setExerciseSheet({ object, anchor, key: mintId("import") }),
     promotedRows: () => menuPromotedRows.current,
     withheld: () => menuWithheldAnswer.current.promise,
-  }), [deskId, menuTransport, mintId, toastNow, stepCompanion, openContent, carryQuestion, appendTo, padsHost, runningPadOf, store, commit, openLesson, newDeskFrom]);
+  }), [deskId, menuTransport, mintId, toastNow, stepCompanion, openContent, carryQuestion, appendTo, padsHost, runningPadOf, store, commit, openLesson, newDeskFrom, vaultKey, titleOf, landFigureBlock]);
 
   // A right-click inside a notebook frame (spec §11.3) opens the pad menu in the stack window that shows the
   // notebook's owner: a pad's cells ("your pad") or a lesson's notebook ("the lesson", inserting under the lesson).
@@ -4013,6 +4030,7 @@ export function DeskShell({
             onOpenClaim={openClaim}
             onOpenAnchor={(anchor) => openClaim({ extractionId: anchor.extractionId, spanId: anchor.spanId })}
             onOpenThread={openThread}
+            figures={shownFigures.length ? <CompanionFigures scope={vaultKey} host={companionFigureHost} /> : null}
             tutor={readerTutor?.retrieval ? {
               personalized: { on: personalizedOn, onToggle: setPersonalizedChoice },
               anotherWay: readerTutor.anotherWay,

@@ -9,7 +9,7 @@
 // slider; step buttons under reduced motion; nothing moves until pressed,
 // D39), the values table (`t`) and "not right?". Nothing here takes focus,
 // animates by itself or opens a modal (W12, G54).
-import { useEffect, useId, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
 import { useWindowPaused } from "../../desks/lifecycle";
 import type { FigurePredictionDto, FigureViewDto } from "../../../api/dto";
 import { COLOR, FONT_MONO } from "../../../components/term";
@@ -19,6 +19,7 @@ import { LearnerQuote, MeaningLabel, ModelVoice, SourceVoice } from "../voices";
 import { CheckedBadge, CheckedLines, FigureLabelsProvider, FigureSourceInfo, labelElements, LabelText, useFigureLabels } from "./figureLabels";
 import { FigurePanel, formatValue } from "./FigurePanels";
 import { compileSpec, evaluateFigure, type CompiledFigure, type FigureParameter } from "./figureSpec";
+import { useSharedParams } from "./sharedParams";
 
 // The code-owned frame (RW5a final round, High 1). A figure's header badge and
 // its property checks are written here, from closed values only: the
@@ -430,7 +431,9 @@ function ParameterControl({
 }
 
 function FigureBody({ figure, ctl, compiled }: { figure: FigureViewDto; ctl: FiguresCtl; compiled: CompiledFigure }) {
-  const [params, setParams] = useState<Record<string, number>>(() => defaultsOf(compiled));
+  // Every instance of this figure shares its parameters (spec §13.1): the book's inset and the companion's widget.
+  const initial = useCallback(() => defaultsOf(compiled), [compiled]);
+  const [params, setParams] = useSharedParams(figure.figureId, initial);
   const [showTable, setShowTable] = useState(false);
   const [skipped, setSkipped] = useState(false);
   const [playing, setPlaying] = useState<string | null>(null);

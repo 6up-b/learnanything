@@ -7206,6 +7206,7 @@ export interface ReaderActivityEvent {
     | "tutor_offer_pressed"
     | "figure_opened"
     | "figure_animated"
+    | "figure_not_useful"
     | "corresponding_section_peeked"
     | "corresponding_section_opened"
     /** RW5d P2: the watchdog paused a sketch; a sketch call failed (its kind, never the text). */

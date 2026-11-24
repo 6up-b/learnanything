@@ -64,6 +64,8 @@ CLIENT_ACTION_EVENTS: tuple[str, ...] = (
     # definition; the same payload keys as CA5's correspondenceEvents.ts).
     "corresponding_section_peeked",
     "corresponding_section_opened",
+    # Reader workbench v2 (spec §13.1; salience only): Show me's figure in the companion set aside as "not useful".
+    "figure_not_useful",
     "sketch_paused",      # RW5d P2: the Worker watchdog paused a slow sketch (spec §6.6, §13.4)
     "sketch_error",       # RW5d P2: a sketch call failed at the learner's settings (the kind, never the text)
     # RW5d P2b (spec §13.4; salience only): the fuller version opened from its

@@ -12,6 +12,8 @@ import { DeskShell, type MenuTransport, type PaneRenderInput } from "./DeskShell
 import { usePadsHost } from "./pads/host";
 import { PadStackWindow } from "./pads/PadStackWindow";
 import { openNotebookMenu } from "./notebook/menuBridge";
+import { api } from "../../api/client";
+import { COMPANION_FIGURE_COPY, resetCompanionFiguresForTests } from "./companion/companionFigures";
 
 vi.mock("../../api/client", () => ({ api: {} }));
 vi.mock("./windows/SourceWindow", () => ({ SourceWindow: () => null }));
@@ -142,6 +144,7 @@ const passage = (id: string) => document.querySelector(`[data-span-id="${id}"]`)
 const menus = () => document.querySelectorAll(".desk-menu:not(.submenu)");
 
 beforeEach(() => {
+  resetCompanionFiguresForTests();
   vi.useFakeTimers({ shouldAdvanceTime: true });
   paneMenus.length = 0;
   const values = new Map<string, string>();
@@ -445,7 +448,9 @@ describe("RD5 fix round: a pad line's Teach me", () => {
 });
 
 describe("RD5 fix round: Show me", () => {
-  it("lands the figure in the running pad of the desk it was asked on, even with another desk shown, and its poll ends", async () => {
+  it("shows the figure in the companion; moved to the scratchpad it lands in the running pad of the desk it was asked on, even with another desk shown, and its poll ends", async () => {
+    // Spec §13.1: Show me's figure appears in the companion (which reads its history when it shows).
+    (api as unknown as Record<string, unknown>).companionHistory = async () => ({ version: 1, exchanges: [], cursor: null });
     let answer: (read: unknown) => void = () => undefined;
     const { server, poller } = mount({ pads: (pads) => {
       pads.transport.figureRequest = (async () => ({ jobId: "fj1", kind: "figure_build", askId: null, state: "pending", result: null })) as never;
@@ -466,6 +471,16 @@ describe("RD5 fix round: Show me", () => {
       answer({ jobId: "fj1", kind: "figure_build", askId: null, state: "done", result: { figure: { figureId: "fig9", shown: true, demonstrates: "a picture of it", goalText: "" }, reused: false } });
       await tick;
     });
+    await flush();
+    await flush();
+    // Nothing lands in a pad by itself: the figure is in the companion, with "move to scratchpad".
+    expect(server.padBatches.some((batch) => (batch.ops as PadOpDto[]).some((op) => op.op === "insert_block" && op.kind === "figure"))).toBe(false);
+    const shown = await waitFor(() => {
+      const found = document.querySelector<HTMLElement>('[data-companion-figure="fig9"]');
+      if (!found) throw new Error("not yet");
+      return found;
+    });
+    fireEvent.click(within(shown).getByRole("button", { name: COMPANION_FIGURE_COPY.move }));
     await flush();
     await flush();
     const inserts = server.padBatches.filter((batch) => (batch.ops as PadOpDto[]).some((op) => op.op === "insert_block" && op.kind === "figure"));
