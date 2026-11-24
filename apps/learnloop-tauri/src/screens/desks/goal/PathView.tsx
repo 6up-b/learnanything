@@ -86,13 +86,14 @@ export function PathView({ band, here, notNeeded, onClose, onDepth, onOpen, onUs
   return (
     <div ref={ref} className="ovl gpath desk-gpath" role="dialog" aria-label="your path" tabIndex={-1} onKeyDown={onKeyDown} data-goal-path="">
       <div className="gp-l">
-        <div className="gb-lab">{goalLabel(band)} <span className="gb-prov">set {formatDay(band.goal.setAt)}</span></div>
-        <h3>Your goal</h3>
+        <div className="gb-lab">{goalLabel(band)} <span className="gb-prov">your words, {formatDay(band.goal.setAt)}</span></div>
+        <h3>“{band.goal.sentence}”</h3>
         <div className="gp-scope"><b>{needed} topic{needed === 1 ? "" : "s"} for your goal</b> and {prerequisites} background topic{prerequisites === 1 ? "" : "s"}<ScopeCorrection onCorrect={onCorrect} /></div>
         {(band.unmatched ?? []).map((phrase) => (
           <div key={phrase.phrase} className="gp-unm">
-            <i>A topic still needs a match</i>{phrase.proposedTitle ? " → Review in Goals" : null}
-            <button type="button" className="act" onClick={() => onAddPhrase(phrase.phrase)}>add it</button>
+            “<i>{phrase.phrase}</i>” isn't in your library yet{phrase.proposedTitle ? <> → {phrase.proposedTitle}</> : null}
+            {/* A phrase the server masked (it names a topic whose check is due) is not offered to add as it reads. */}
+            {phrase.held ? null : <button type="button" className="act" onClick={() => onAddPhrase(phrase.phrase)}>add it</button>}
           </div>
         ))}
         <div className="gp-depth">

@@ -72,7 +72,7 @@ describe("the band", () => {
     const props = bandProps();
     render(<GoalBand {...props} />);
     expect(screen.getByText(/◎ your goal · no deadline/)).toBeTruthy();
-    expect(screen.getByText(/set 2 Nov/)).toBeTruthy();
+    expect(screen.getByText(/your words, 2 Nov/)).toBeTruthy();
     const dots = [...document.querySelectorAll("[data-gstop]")];
     expect(dots.map((dot) => dot.getAttribute("data-gstop"))).toEqual(["lo_fx_xent", "lo_fx_softmax", "lo_fx_temp", "lo_fx_grad", "lo_fx_attend"]);
     expect(dots[0].className).toBe("gs rd-untested pre");
@@ -191,7 +191,7 @@ describe("marks, dimming and callouts on a reading", () => {
     render(<WhyCard why={{ section, extractionId: BOOK, windowId: "w", rect: { left: 10, top: 200, right: 13, bottom: 260 } }} band={band()} />);
     const card = document.querySelector(".gwhy")!;
     expect(card.querySelector(".gwh")!.textContent).toBe("core for your goal");
-    expect(card.querySelector(".gwr")!.textContent).toBe("For your goal: The formula you'll write: exponentiate each score and divide by the sum.");
+    expect(card.querySelector(".gwr")!.textContent).toBe("For softmax for attention: The formula you'll write: exponentiate each score and divide by the sum.");
     expect(card.querySelector(".gwc")!.textContent).toBe("coverage: introduces “Turn scores into softmax weights” · a goal LO · its primary section · core · Based on this section");
   });
 

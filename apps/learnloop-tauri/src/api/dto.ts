@@ -11464,6 +11464,13 @@ export interface GoalBandLoDto {
   held: boolean;
 }
 
+/** goal.choices: the desk's goal chooser (a held topic's name masked in each label, as the band masks it). */
+export interface GoalChoicesDto {
+  version: number;
+  goals: Array<{ goalId: string; label: string; setAt: string; learnerSet: boolean }>;
+  nextCheckDue: string | null;
+}
+
 export interface GoalBandDto {
   version: number;
   goalId: string;
@@ -11481,7 +11488,7 @@ export interface GoalBandDto {
   /** "N LEARNING OBJECTS · a LIKELY · b UNTESTED": the LOs within the chosen depth. */
   counts?: { learningObjects: number; demonstrated: number; likely: number; untested: number };
   /** The phrases of the goal sentence not in the library yet (curriculum.scope_decide's add it / no). */
-  unmatched?: Array<{ phrase: string; proposedTitle?: string; proposedStatement?: string } & Record<string, unknown>>;
+  unmatched?: Array<{ phrase: string; proposedTitle?: string; proposedStatement?: string; /** It named a topic whose check is due: masked by the server, not offered to add. */ held?: boolean } & Record<string, unknown>>;
   /** No LO is named beside a due check. */
   checks?: { dueToday: number; answeredToday: number;
     first: { commitmentId: string; host: { extractionId: string; sectionId: string | null; spanId: string | null } | null } | null };

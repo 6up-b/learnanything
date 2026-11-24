@@ -28,8 +28,9 @@ function masked(): { band: GoalBandDto; lens: GoalLensDto; names: string[] } {
   const line = band.path!.lines.find((each) => each.learningObjectId === MASKED)!;
   // What may not appear anywhere: the LO's title and the titles of the sections that treat it.
   const names = [dot.title!, line.section.title, ...line.alternates.map((alternate) => alternate.title)];
-  band.goal = { ...band.goal, sentence: `Learn ${names[0]}`, title: names[0] };
-  band.unmatched = [{ ...band.unmatched![0], phrase: names[0], proposedTitle: names[1] }];
+  // The server masks a held topic's name inside the learner's own words (goal_lens.protect_goal, protect_unmatched).
+  band.goal = { ...band.goal, sentence: "Learn [topic hidden]", title: "[topic hidden]" };
+  band.unmatched = [{ ...band.unmatched![0], phrase: "[topic hidden] by hand", proposedTitle: "[topic hidden]", held: true }];
   const heldSections = new Set([line.section.sectionId, ...line.alternates.map((alternate) => alternate.sectionId)]);
   const neutral = <T extends { title: string }>(section: T): T => ({ ...section, title: NEUTRAL_SECTION, treatmentWords: "", treatment: null, difference: "" });
   band.learningObjects = band.learningObjects!.map((each) => (each.learningObjectId === MASKED
@@ -72,7 +73,8 @@ describe("a masked LO, rendered", () => {
     expect(hereLine(optional, held.startSpanId, names[1], band)?.where).toBe(NEUTRAL_SECTION);
     render(
       <div>
-        <GoalBand band={band} goals={new FixtureGoal().goals().goals.map((goal) => ({ ...goal, title: names[0], intentSentence: names[0] }))} here={here} dimOn onToggleDim={vi.fn()} onPath={vi.fn()} onDepth={vi.fn()}
+        <GoalBand band={band} goals={new FixtureGoal().goals().goals.map((goal) => ({ ...goal, title: names[0], intentSentence: names[0] }))}
+          labels={Object.fromEntries(new FixtureGoal().goals().goals.map((goal) => [goal.id, "Learn [topic hidden]"]))} here={here} dimOn onToggleDim={vi.fn()} onPath={vi.fn()} onDepth={vi.fn()}
           onOpenLo={vi.fn()} onNext={vi.fn()} onChooseGoal={vi.fn()} onMapIt={vi.fn()} />
         <PathView band={band} here={MASKED} notNeeded={[]} onClose={vi.fn()} onDepth={vi.fn()} onOpen={vi.fn()} onUseInstead={vi.fn()}
           onReadAnyway={vi.fn()} onAddPhrase={vi.fn()} />
@@ -80,10 +82,14 @@ describe("a masked LO, rendered", () => {
       </div>,
     );
     expect(here?.where).toBe(NEUTRAL_SECTION);
-    fireEvent.click(screen.getByRole("button", { name: "Switch goal" }));
+    // The chooser names each goal by the server's protected label, never by the raw sentence of goals_list.
+    fireEvent.click(screen.getByRole("button", { name: "“Learn [topic hidden]”" }));
     expect(leaks(names)).toEqual([]);
     // It is still there, held: the dot, the path row and the card say a check is due.
     expect(document.querySelector(`[data-gstop='${MASKED}']`)).toBeTruthy();
     expect(document.body.textContent).toContain(NEUTRAL_LO);
+    // The learner's own words around the masked name still show, and a masked phrase is not offered to add.
+    expect(screen.getAllByText(/Learn \[topic hidden\]/).length).toBeGreaterThan(0);
+    expect(document.querySelector(".gp-unm .act")).toBeNull();
   });
 });

@@ -28,6 +28,7 @@ function goalTransport(goal = new FixtureGoal(), overrides: Partial<GoalTranspor
   const log = <T,>(name: string, answer: (input: never) => T) => async (input?: unknown) => { calls.push({ name, input }); return answer(input as never); };
   const transport: GoalTransport = {
     goals: log("goals", () => goal.goals()),
+    choices: log("choices", () => goal.goalChoices()),
     band: log("band", () => goal.band()),
     lens: log("lens", (input: { extractionId: string }) => goal.lens(input.extractionId)),
     sectionChoice: log("sectionChoice", (input: Parameters<FixtureGoal["sectionChoice"]>[0]) => goal.sectionChoice(input)) as never,
@@ -94,7 +95,7 @@ describe("the goal band on the desks", () => {
     const { transport, calls } = goalTransport();
     mount(transport);
     await waitFor(() => expect(screen.getByRole("region", { name: "your goal" })).toBeTruthy());
-    expect(screen.getByRole("button", { name: "Switch goal" })).toBeTruthy();
+    expect(screen.getByText("“Understand softmax well enough to implement attention”")).toBeTruthy();
     expect(screen.getByText(/5 topics · 1 likely · 4 untested/)).toBeTruthy();
     expect(screen.getByText("your path")).toBeTruthy();
     await settle();
@@ -154,12 +155,12 @@ describe("the goal band on the desks", () => {
     const { transport } = goalTransport();
     const { server } = mount(transport);
     await waitFor(() => expect(screen.getByRole("region", { name: "your goal" })).toBeTruthy());
-    fireEvent.click(screen.getByRole("button", { name: "Switch goal" }));
+    fireEvent.click(screen.getByRole("button", { name: /Understand softmax/ }));
     await act(async () => { fireEvent.click(screen.getByRole("menuitem", { name: "no goal (the lens off)" })); });
     await settle();
     expect(screen.queryByRole("region", { name: "your goal" })).toBeNull();
     fireEvent.click(await screen.findByRole("button", { name: "◎ set a goal" }));
-    await act(async () => { fireEvent.click(screen.getByRole("menuitem", { name: /Goal 1 · set/ })); });
+    await act(async () => { fireEvent.click(screen.getByRole("menuitem", { name: /Understand softmax/ })); });
     await settle();
     await waitFor(() => expect(screen.getByRole("region", { name: "your goal" })).toBeTruthy());
     await waitFor(() => expect(server.state().desks.find((desk) => desk.deskId === "fx_desk_softmax")?.goalId).toBe("fx_goal_softmax"));

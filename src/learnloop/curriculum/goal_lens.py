@@ -469,6 +469,9 @@ NEUTRAL_LO = "Topic details hidden"
 NEUTRAL_SECTION = "Section details hidden"
 #: An exercise picked from such a section.
 NEUTRAL_EXERCISE = "Exercise details hidden"
+#: In the learner's own words (a goal's sentence, an unmatched phrase): what stands for a held LO's name, so the rest
+#: of their words still shows.
+HIDDEN_TOPIC = "[topic hidden]"
 
 
 @dataclass(frozen=True)
@@ -500,6 +503,16 @@ class Protection:
             return False
         folded = text.casefold()
         return any(re.search(rf"(?<!\w){re.escape(title)}(?!\w)", folded) for title in self.titles)
+
+    def mask_names(self, text: Any) -> Any:
+        """The words with every held LO's name (as whole words, any case) replaced by :data:`HIDDEN_TOPIC`: the
+        learner's own sentence keeps everything else."""
+
+        if not isinstance(text, str) or not text or not self.titles:
+            return text
+        for title in sorted(self.titles, key=len, reverse=True):
+            text = re.sub(rf"(?<!\w){re.escape(title)}(?!\w)", HIDDEN_TOPIC, text, flags=re.IGNORECASE)
+        return text
 
     def protects(self, extraction_id: Any, section_id: Any) -> bool:
         return f"{extraction_id}/{section_id}" in self.sections
@@ -566,12 +579,46 @@ def protect_path(view: Mapping[str, Any] | None, protection: Protection) -> dict
     return out
 
 
+def protect_goal(goal: Mapping[str, Any] | None, protection: Protection) -> dict[str, Any] | None:
+    """A goal as the band and the chooser show it: the learner's words, with only a held LO's name masked."""
+
+    if goal is None:
+        return None
+    out = dict(goal)
+    for key in ("title", "sentence", "label"):
+        if key in out:
+            out[key] = protection.mask_names(out[key])
+    return out
+
+
+def protect_unmatched(rows: Sequence[Any], protection: Protection) -> list[Any]:
+    """The goal's unmatched phrases: a phrase or proposed title that names a held LO keeps its other words, the name
+    masked, and is marked ``held`` (so it is never offered to add as it reads)."""
+
+    out = []
+    for row in rows:
+        if not isinstance(row, Mapping):
+            out.append(row)
+            continue
+        item = dict(row)
+        named = any(protection.names_held(item.get(key)) for key in ("phrase", "proposed_title", "proposed_statement"))
+        for key in ("phrase", "proposed_title", "proposed_statement"):
+            if key in item:
+                item[key] = protection.mask_names(item[key])
+        if named:
+            item["held"] = True
+        out.append(item)
+    return out
+
+
 def protect_band(reply: Mapping[str, Any], protection: Protection) -> dict[str, Any]:
-    """``goal.band``: its dots, its next step and its path."""
+    """``goal.band``: its goal, unmatched phrases, dots, next step and path."""
 
     out = dict(reply)
     if not protection.active:
         return out
+    out["goal"] = protect_goal(reply.get("goal"), protection)
+    out["unmatched"] = protect_unmatched(reply.get("unmatched") or (), protection)
     dots = []
     for dot in reply.get("learning_objects") or ():
         row = dict(dot)
@@ -715,5 +762,6 @@ __all__ = [
     "BandLo", "Coverage", "GoalLo", "GoalReads", "LoLevel", "NEUTRAL_EXERCISE", "NEUTRAL_LO", "NEUTRAL_SECTION",
     "NextLine", "PathPlace", "Protection", "SectionLevel", "SectionReads", "band_counts", "band_learning_objects",
     "chapter_held", "level_view", "lo_level", "next_for_goal", "protect_band", "protect_chapters", "protect_follow",
+    "protect_goal", "protect_unmatched",
     "protect_lens", "protect_lessons", "protect_path", "section_level",
 ]

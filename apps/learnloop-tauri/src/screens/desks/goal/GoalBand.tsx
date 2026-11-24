@@ -12,9 +12,16 @@ export interface HereView {
   loId: string | null;
 }
 
-export function GoalBand({ band, goals, here, dimOn, onToggleDim, onPath, onDepth, onOpenLo, onNext, onChooseGoal, onMapIt }: {
+/** A goal as the chooser names it: the server's protected label (the learner's words, a held topic's name masked);
+ * until that is read, or when it could not be, a neutral name rather than the raw sentence. */
+function choiceLabel(labels: Record<string, string> | null, goal: GoalsListSnapshot["goals"][number], index: number): string {
+  return labels?.[goal.id] ?? `Goal ${index + 1} · set ${formatDay(goal.createdAt)}`;
+}
+
+export function GoalBand({ band, goals, labels = null, here, dimOn, onToggleDim, onPath, onDepth, onOpenLo, onNext, onChooseGoal, onMapIt }: {
   band: GoalBandDto;
   goals: GoalsListSnapshot["goals"] | null;
+  labels?: Record<string, string> | null;
   here: HereView | null;
   dimOn: boolean;
   onToggleDim: () => void;
@@ -33,16 +40,17 @@ export function GoalBand({ band, goals, here, dimOn, onToggleDim, onPath, onDept
   return (
     <div className="desk-goalband goalband" role="region" aria-label="your goal" data-goal-status={band.status}>
       <div className="gb-goal">
-        <div className="gb-lab">{goalLabel(band)} <span className="gb-prov">set {formatDay(band.goal.setAt)}</span></div>
+        <div className="gb-lab">{goalLabel(band)} <span className="gb-prov">your words, {formatDay(band.goal.setAt)}</span></div>
+        {/* The learner's sentence as the server gives it: a held topic's name is masked there, nothing else. */}
         <button type="button" className="gb-t" title="switch this desk's goal" aria-expanded={choosing} onClick={() => setChoosing((open) => !open)}>
-          Switch goal
+          “{band.goal.sentence}”
         </button>
         {choosing ? (
           <div className="gb-choose" role="menu" aria-label="this desk's goal">
             {active.map((goal, index) => (
               <button key={goal.id} type="button" role="menuitem" aria-current={goal.id === band.goalId ? "true" : undefined}
                 onClick={() => { setChoosing(false); onChooseGoal(goal.id); }}>
-                Goal {index + 1} · set {formatDay(goal.createdAt)}
+                {choiceLabel(labels, goal, index)}
               </button>
             ))}
             <button type="button" role="menuitem" onClick={() => { setChoosing(false); onChooseGoal(null); }}>no goal (the lens off)</button>
@@ -72,7 +80,7 @@ export function GoalBand({ band, goals, here, dimOn, onToggleDim, onPath, onDept
                 </Fragment>
               ))}
               {(band.unmatched ?? []).map((phrase) => (
-                <button key={`unm:${phrase.phrase}`} type="button" className="gs unm" title="A topic still needs a match. Open Path." aria-label="A topic still needs a match. Open Path." onClick={onPath} />
+                <button key={`unm:${phrase.phrase}`} type="button" className="gs unm" title={`not in your library yet: “${phrase.phrase}” · open Path`} aria-label={`not in your library yet: ${phrase.phrase}`} onClick={onPath} />
               ))}
             </div>
             <div className="gb-depth" title="how deep for this? one depth per goal">
@@ -111,7 +119,7 @@ export function GoalBand({ band, goals, here, dimOn, onToggleDim, onPath, onDept
 }
 
 /** No goal on this desk: no band, a quiet chip in the top bar (spec §12.8). */
-export function GoalTopChip({ goals, onChooseGoal }: { goals: GoalsListSnapshot["goals"] | null; onChooseGoal: (goalId: string) => void }) {
+export function GoalTopChip({ goals, labels = null, onChooseGoal }: { goals: GoalsListSnapshot["goals"] | null; labels?: Record<string, string> | null; onChooseGoal: (goalId: string) => void }) {
   const [open, setOpen] = useState(false);
   const active = (goals ?? []).filter((goal) => goal.status === "active");
   return (
@@ -120,7 +128,7 @@ export function GoalTopChip({ goals, onChooseGoal }: { goals: GoalsListSnapshot[
       {open ? (
         <span className="gb-choose" role="menu" aria-label="a goal for this desk">
           {active.length ? active.map((goal, index) => (
-            <button key={goal.id} type="button" role="menuitem" onClick={() => { setOpen(false); onChooseGoal(goal.id); }}>Goal {index + 1} · set {formatDay(goal.createdAt)}</button>
+            <button key={goal.id} type="button" role="menuitem" onClick={() => { setOpen(false); onChooseGoal(goal.id); }}>{choiceLabel(labels, goal, index)}</button>
           )) : <span className="none">no active goal yet · set one in Goals</span>}
         </span>
       ) : null}

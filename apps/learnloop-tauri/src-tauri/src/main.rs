@@ -661,6 +661,7 @@ fn main() {
                 goal_band,
                 goal_lens,
                 goal_section_choice,
+                goal_choices,
                 curriculum_path,
                 ink_save,
                 ink_erase,

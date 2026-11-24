@@ -113,7 +113,13 @@ export function whyLevelLine(section: GoalLensSectionDto, band: GoalBandDto | nu
   return LEVEL_LABEL[section.level];
 }
 
-/** "For <goal>:" — the goal's own short words (its title, else its sentence). */
+/** "For <goal>:" — the goal's own short words (its title, else its sentence), as the server sends them: a held topic's
+ * name is masked there, so the learner's words show and nothing due is named. */
+export function goalShort(band: GoalBandDto | null): string {
+  const title = band?.goal.title?.trim();
+  return title || band?.goal.sentence || "your goal";
+}
+
 /** "◎ YOUR GOAL · QUEST · NO DEADLINE" (kind shown, never stored; spec §12.1). */
 export function goalLabel(band: GoalBandDto): string {
   const due = band.goal.dueAt ? `due ${formatDay(band.goal.dueAt)}` : "no deadline";

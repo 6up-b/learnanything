@@ -398,6 +398,7 @@ import type {
 import type {
   DeliverablePathViewDto,
   GoalBandDto,
+  GoalChoicesDto,
   GoalLensDto,
   GoalLensInput,
   GoalSectionChoiceDto,
@@ -1684,6 +1685,8 @@ export const api = {
   // dimmed section. A path line's own choices stay curriculumPathOverride's. None calls a model or starts work;
   // curriculumPath with judge: true starts the coverage and the path judgment a goal owes (in the background).
   goalBand: (input: { goalId: string }) => call<GoalBandDto>("goal_band", { input }),
+  /** The desk's goal chooser: each active goal in the learner's words, a held topic's name masked (spec §12.6.1). */
+  goalChoices: () => call<GoalChoicesDto>("goal_choices", { input: {} }),
   goalLens: (input: GoalLensInput) => call<GoalLensDto>("goal_lens", { input }),
   goalSectionChoice: (input: GoalSectionChoiceInput) => call<GoalSectionChoiceDto>("goal_section_choice", { input }),
   curriculumPath: (input: { goalId: string; judge?: boolean; retry?: boolean }) =>

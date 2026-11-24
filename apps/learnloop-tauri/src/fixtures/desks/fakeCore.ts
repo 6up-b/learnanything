@@ -308,6 +308,8 @@ function answer(command: string, input: Record<string, unknown>): unknown {
     case "goals_list":
       // The goal lens is the harness's `?goal=1` page; without it the desks have no goal, as before.
       return typeof window !== "undefined" && new URLSearchParams(window.location.search).get("goal") === "1" ? goal.goals() : { version: 1, goals: [] };
+    case "goal_choices":
+      return goal.goalChoices();
     case "goal_band":
       return goal.band();
     case "goal_lens":

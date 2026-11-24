@@ -6,7 +6,7 @@ import type { GoalBandDto } from "../../../api/dto";
 import type { ReaderLens } from "../../ReaderScreen";
 import type { WatchLens } from "../../reader/YouTubeWatchPanel";
 import type { WhyState } from "./controller";
-import { calloutFor, isDimmed, markKind, mostNeededSpan, noneNeeded, whyLevelLine, type LensIndex } from "./model";
+import { calloutFor, goalShort, isDimmed, markKind, mostNeededSpan, noneNeeded, whyLevelLine, type LensIndex } from "./model";
 
 /** The why card opens after a 120 ms hover (spec §12.3) and hides 160 ms after leaving (the mockup's). */
 export const WHY_OPEN_MS = 120;
@@ -177,7 +177,7 @@ export function WhyCard({ why, band }: { why: WhyState; band: GoalBandDto | null
       style={place ? { left: place.left, top: place.top } : { left: -9999, top: 0 }}
     >
       <div className="gwh"><i className={`b ${legend ?? ""}`} />{whyLevelLine(section, band)}<span className="grow" /></div>
-      <div className="gwr"><b>For your goal:</b> {reason}{section.learnerLine ? ` ${section.learnerLine}` : ""}</div>
+      <div className="gwr"><b>For {goalShort(band)}:</b> {reason}{section.learnerLine ? ` ${section.learnerLine}` : ""}</div>
       {section.coverageLine || section.judgedPer ? (
         <div className="gwc">
           {section.coverageLine ?? ""}

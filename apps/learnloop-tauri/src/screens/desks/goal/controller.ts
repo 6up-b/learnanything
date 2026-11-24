@@ -13,6 +13,7 @@ import type {
   GoalLensSectionDto,
   GoalSectionChoiceDto,
   GoalSectionChoiceInput,
+  GoalChoicesDto,
   GoalsListSnapshot,
   ReadingPathDepth,
 } from "../../../api/dto";
@@ -22,6 +23,8 @@ import { indexLens, type LensIndex } from "./model";
 /** The goal lens's calls; absent, the sidecar's. */
 export interface GoalTransport {
   goals: () => Promise<GoalsListSnapshot>;
+  /** The chooser's labels, protected on the server (goal.choices); absent, the chooser names goals neutrally. */
+  choices?: () => Promise<GoalChoicesDto>;
   band: (input: { goalId: string }) => Promise<GoalBandDto>;
   lens: (input: GoalLensInput) => Promise<GoalLensDto>;
   sectionChoice: (input: GoalSectionChoiceInput) => Promise<GoalSectionChoiceDto>;
@@ -37,6 +40,7 @@ export interface GoalTransport {
 
 export const LIVE_GOAL_TRANSPORT: GoalTransport = {
   goals: () => api.goalsList(),
+  choices: () => api.goalChoices(),
   band: (input) => api.goalBand(input),
   lens: (input) => api.goalLens(input),
   sectionChoice: (input) => api.goalSectionChoice(input),
@@ -107,6 +111,8 @@ export interface WhyState {
 export interface GoalLensState {
   goalId: string | null;
   goals: GoalsListSnapshot["goals"] | null;
+  /** The chooser's protected labels by goal id (null until read, or when the read failed). */
+  labels: Record<string, string> | null;
   band: GoalBandDto | null;
   indexFor: (extractionId: string) => LensIndex | null;
   dimOn: boolean;
@@ -137,6 +143,8 @@ export function useGoalLens({ transport, deskGoalId, off = false, readings, time
   onError: (message: string) => void;
 }): GoalLensState {
   const [goals, setGoals] = useState<GoalsListSnapshot["goals"] | null>(null);
+  // Each goal's label as the chooser shows it: the learner's words with a held topic's name masked by the server.
+  const [labels, setLabels] = useState<Record<string, string> | null>(null);
   const [band, setBand] = useState<GoalBandDto | null>(null);
   const [lenses, setLenses] = useState<Record<string, GoalLensDto>>({});
   const [generation, setGeneration] = useState(0);
@@ -163,6 +171,13 @@ export function useGoalLens({ transport, deskGoalId, off = false, readings, time
     let live = true;
     // A transport that cannot list goals (none wired) leaves the desks without a lens, never broken.
     Promise.resolve().then(() => transport.goals()).then((snapshot) => { if (live) setGoals(snapshot.goals); }, () => { if (live) setGoals((now) => now ?? []); });
+    // A failed read leaves the labels unknown: the chooser then names goals neutrally, never by a raw sentence.
+    if (transport.choices) {
+      const choices = transport.choices;
+      Promise.resolve().then(() => choices()).then((reply) => {
+        if (live) setLabels(Object.fromEntries(reply.goals.map((goal) => [goal.goalId, goal.label])));
+      }, () => { if (live) setLabels(null); });
+    }
     return () => { live = false; };
   }, [transport, goalsAsked]);
 
@@ -302,5 +317,5 @@ export function useGoalLens({ transport, deskGoalId, off = false, readings, time
       .then(refresh, () => report("Couldn’t change the goal’s topics. Reopen Path and try again."));
   }, [goalId, transport, refresh, report]);
 
-  return { goalId, goals, band, indexFor, dimOn, toggleDim, pathOpen, setPathOpen, why: whyNow, showWhy, setDepth, readAnyway, override, mapIt, addPhrase, correctScope, refresh };
+  return { goalId, goals, labels, band, indexFor, dimOn, toggleDim, pathOpen, setPathOpen, why: whyNow, showWhy, setDepth, readAnyway, override, mapIt, addPhrase, correctScope, refresh };
 }

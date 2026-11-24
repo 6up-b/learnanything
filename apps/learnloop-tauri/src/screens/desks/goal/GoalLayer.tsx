@@ -234,6 +234,7 @@ export function useGoalDesk({ transport, deskGoalId, offKey, onSetGoal, readings
     <GoalBand
       band={band}
       goals={goal.goals}
+      labels={goal.labels}
       here={here}
       dimOn={dimOn}
       onToggleDim={goal.toggleDim}
@@ -245,7 +246,7 @@ export function useGoalDesk({ transport, deskGoalId, offKey, onSetGoal, readings
       onMapIt={goal.mapIt}
     />
   ) : null;
-  const topChip = !goal.goalId && goal.goals !== null ? <GoalTopChip goals={goal.goals} onChooseGoal={chooseGoal} /> : null;
+  const topChip = !goal.goalId && goal.goals !== null ? <GoalTopChip goals={goal.goals} labels={goal.labels} onChooseGoal={chooseGoal} /> : null;
   const overlays = (
     <>
       {why ? <WhyCard key={`${why.windowId}:${why.section.sectionId}`} why={why} band={band} /> : null}
