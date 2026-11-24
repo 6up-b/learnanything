@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/intent/inline_checks.py](../../../../../../src/learnloop/intent/inline_checks.py) |
-| Source lines | 255 |
+| Source lines | 262 |
 | Owning package | [[Reference/Modules/learnloop/intent/_package|learnloop.intent]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -58,9 +58,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `next_check_due(view: Any) -> str | None` ([source](../../../../../../src/learnloop/intent/inline_checks.py), line 115) — When the next check not due yet falls due (a UTC stamp), or None: a reader of the due checks (the goal band, which hides what a due check covers) reads again then.
 - `due_checks(vault: Any, repository: Any, *, goal_id: str | None=None, learning_object_ids: Iterable[str] | None=None, extraction_id: str | None=None, span_id: str | None=None, clock: Clock | None=None, view: Any | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/intent/inline_checks.py), line 124) — Every due check, one row per (check, learning object), oldest due first, filtered.
 - `answered_checks(vault: Any, repository: Any, *, since: str, clock: Clock | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/intent/inline_checks.py), line 170) — Every "Check once" answered on the learner's own since ``since`` (a UTC stamp), one row per (check, learning object): the goal band fills its ◇ once a check is answered.
-- `handle_of(commitment_id: str, administrations: int) -> str` ([source](../../../../../../src/learnloop/intent/inline_checks.py), line 212)
-- `due_handles(vault: Any, repository: Any, *, clock: Clock | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/intent/inline_checks.py), line 217) — ``checks.due_for``'s rows: one opaque handle per due check, every due check in the vault (a filter by goal, reading or passage would itself say where it is), in the handles' own order (the due order could be recalled).
-- `resolve_handle(vault: Any, repository: Any, handle: str, *, clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/intent/inline_checks.py), line 232) — The due check a handle names now, or None (spent, stale, from another sidecar run, or guessed).
+- `new_handle_key() -> None` ([source](../../../../../../src/learnloop/intent/inline_checks.py), line 212) — Draw a new key, as a sidecar's start does: every handle minted before is dead (``check_unknown``).
+- `handle_of(commitment_id: str, administrations: int) -> str` ([source](../../../../../../src/learnloop/intent/inline_checks.py), line 219)
+- `due_handles(vault: Any, repository: Any, *, clock: Clock | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/intent/inline_checks.py), line 224) — ``checks.due_for``'s rows: one opaque handle per due check, every due check in the vault (a filter by goal, reading or passage would itself say where it is), in the handles' own order (the due order could be recalled).
+- `resolve_handle(vault: Any, repository: Any, handle: str, *, clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/intent/inline_checks.py), line 239) — The due check a handle names now, or None (spent, stale, from another sidecar run, or guessed).
 
 ### Module constants
 
@@ -75,6 +76,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `due_checks`
 - `due_handles`
 - `handle_of`
+- `new_handle_key`
 - `next_check_due`
 - `resolve_handle`
 - `serving_view`
