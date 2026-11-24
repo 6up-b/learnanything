@@ -184,11 +184,12 @@ def test_no_unsandboxed_call_site_touches_a_host_path_without_the_safe_helpers()
 
 def test_the_launcher_inside_the_sandbox_only_serves_the_inherited_socket():
     import ast
-    import inspect
+    from pathlib import Path
 
     from learnloop.notebook_runtime import adapter
 
-    tree = ast.parse(inspect.getsource(adapter.launch))
+    module = ast.parse(Path(adapter.__file__).read_text(encoding="utf-8"))
+    tree = next(node for node in module.body if isinstance(node, ast.FunctionDef) and node.name == "launch")
     calls = {node.func.attr if isinstance(node.func, ast.Attribute) else getattr(node.func, "id", None)
              for node in ast.walk(tree) if isinstance(node, ast.Call)}
     assert not calls & {"unlink", "open", "bind", "mkdir", "chmod"}
