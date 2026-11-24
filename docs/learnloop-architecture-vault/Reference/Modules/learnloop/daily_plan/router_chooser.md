@@ -217,6 +217,18 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_yes_no_answer_is_two_arms_and_keeps_its_words_whatever_it_answered`
   - `test_an_answer_the_mix_cannot_use_fails_its_policy_and_moves_its_share`
   - `test_the_choice_reads_only_its_inputs_and_draws_only_from_its_seed`
+- [tests/test_probe_router.py](../../../../../../tests/test_probe_router.py) — direct import
+  - `test_at_the_tag_a_lesson_is_drawn_against_no_intervention_and_the_probe_only_by_the_coin`
+  - `test_at_the_tag_a_zero_share_never_asks_and_writes_no_assignment`
+  - `test_at_the_tag_an_unwritten_probe_is_not_an_option_of_either_policy`
+  - `test_at_the_tag_no_room_to_wait_no_longer_forces_the_probe`
+  - `test_at_the_tag_the_coin_asks_the_probe_now_with_its_exact_propensity`
+  - `test_at_the_tag_the_lane_logs_the_coin_with_its_decision`
+  - `test_at_the_tag_with_no_plan_the_coin_can_ask_and_the_probe_is_written`
+  - `test_at_the_tag_with_no_plan_the_coin_decides_and_the_decision_is_logged`
+  - `test_below_the_tag_the_plan_keeps_the_predecessors_three_arms_and_forced_probe`
+  - `test_the_coin_serves_the_probe_below_the_share_and_the_mix_otherwise`
+  - `test_the_served_distribution_is_exact_and_sums_to_one`
 - [tests/test_probe_router_authority.py](../../../../../../tests/test_probe_router_authority.py) — direct import
   - `test_f_a_retry_on_a_plan_reuses_the_logged_draw`
   - `test_f_no_intervention_settles_and_releases_with_nothing_generated`

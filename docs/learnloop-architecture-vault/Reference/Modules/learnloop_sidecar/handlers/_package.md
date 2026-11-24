@@ -220,7 +220,7 @@ For system intent, use [[Architecture Overview]].
 ### This package imports
 
 - [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] — 375 static module edges
-- [[Reference/Modules/learnloop/_package|learnloop]] — 57 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 58 static module edges
 - [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 57 static module edges
 - [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 54 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 48 static module edges
@@ -233,7 +233,7 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 27 static module edges
 - [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] — 23 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 21 static module edges
-- [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 19 static module edges
+- [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 20 static module edges
 - [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] — 17 static module edges
 - [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 15 static module edges
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 15 static module edges
@@ -299,7 +299,7 @@ flowchart LR
     n_learnloop_content_sources["learnloop.content.sources"]
     n_learnloop_sidecar -->|5| center
     center -->|375| n_learnloop_sidecar
-    center -->|57| n_learnloop
+    center -->|58| n_learnloop
     center -->|57| n_learnloop_reader
     center -->|54| n_learnloop_source_retrieval
     center -->|48| n_learnloop_ai

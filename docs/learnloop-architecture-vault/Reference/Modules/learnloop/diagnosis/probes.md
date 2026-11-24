@@ -120,6 +120,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]] — imports `rank_error_type_candidates`
+- [[Reference/Modules/learnloop/daily_plan/learner_probe|learnloop.daily_plan.learner_probe]] — imports `HypothesisSet`
 - [[Reference/Modules/learnloop/diagnosis/causal_probe_coherence|learnloop.diagnosis.causal_probe_coherence]] — imports `Hypothesis`, `HypothesisSet`; statically calls `Hypothesis`, `HypothesisSet`
 - [[Reference/Modules/learnloop/diagnosis/followups|learnloop.diagnosis.followups]] — imports `_BRIDGE_SENSITIVITY`, `_BRIDGE_SPECIFICITY`, `build_hypothesis_set`, `expected_information_gain`, `facet_expected_information_gain`, `hypothesis_conditionals`, `item_registry_discrimination`, `probe_posterior`, `resolve_item_irt`; statically calls `build_hypothesis_set`, `expected_information_gain`, `facet_expected_information_gain`, `hypothesis_conditionals`, `item_registry_discrimination`, `probe_posterior`, `resolve_item_irt`
 - [[Reference/Modules/learnloop/diagnosis/forecast_receipts|learnloop.diagnosis.forecast_receipts]] — imports `facet_conditional_distribution`; statically calls `facet_conditional_distribution`
@@ -163,7 +164,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]], [[Reference/Modules/learnloop/diagnosis/causal_probe_coherence|learnloop.diagnosis.causal_probe_coherence]], [[Reference/Modules/learnloop/diagnosis/followups|learnloop.diagnosis.followups]], [[Reference/Modules/learnloop/diagnosis/forecast_receipts|learnloop.diagnosis.forecast_receipts]], [[Reference/Modules/learnloop/diagnosis/predictive_eig|learnloop.diagnosis.predictive_eig]] and 12 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]], [[Reference/Modules/learnloop/daily_plan/learner_probe|learnloop.daily_plan.learner_probe]], [[Reference/Modules/learnloop/diagnosis/causal_probe_coherence|learnloop.diagnosis.causal_probe_coherence]], [[Reference/Modules/learnloop/diagnosis/followups|learnloop.diagnosis.followups]], [[Reference/Modules/learnloop/diagnosis/forecast_receipts|learnloop.diagnosis.forecast_receipts]] and 13 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -174,6 +175,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_single_observation_does_not_promote_confusable`
 - [tests/test_difficulty_kinds_apart.py](../../../../../../tests/test_difficulty_kinds_apart.py) — direct import
   - `test_switch_off_literal_caller_values`
+- [tests/test_episode_posterior_fold.py](../../../../../../tests/test_episode_posterior_fold.py) — direct import
+  - `test_fold_uses_the_running_posterior_to_discount_the_next_likelihood`
+  - `test_fold_with_no_updates_returns_the_prior_and_counts_the_inert_observation`
 - [tests/test_facet_diagnostics_v03.py](../../../../../../tests/test_facet_diagnostics_v03.py) — direct import
   - `test_facet_eig_is_zero_for_unsupported_candidate_and_positive_for_isolating_probe`
 - [tests/test_hypothesis_sets.py](../../../../../../tests/test_hypothesis_sets.py) — direct import
