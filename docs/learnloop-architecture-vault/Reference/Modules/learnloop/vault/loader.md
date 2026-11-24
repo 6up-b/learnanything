@@ -2147,6 +2147,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_registry_view_rank_counts_items_and_criteria`
 - [tests/test_measurement_state_labels.py](../../../../../../tests/test_measurement_state_labels.py) — direct import
 - [tests/test_menu_promoted_rows.py](../../../../../../tests/test_menu_promoted_rows.py) — direct import
+- [tests/test_menu_protected_material.py](../../../../../../tests/test_menu_protected_material.py) — direct import
+  - `test_search_elsewhere_never_finds_or_judges_protected_material`
 - [tests/test_method_explicit_landing.py](../../../../../../tests/test_method_explicit_landing.py) — direct import
   - `test_a_plan_rows_preview_keeps_the_sentence_whole`
   - `test_check_me_keeps_the_sentence_whole_when_it_clips`
@@ -2631,6 +2633,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_chapters_are_judged_once_stored_suggested_and_accepting_stores`
   - `test_chapters_are_off_with_the_curriculum`
   - `test_follow_along_maps_the_playing_cue_to_the_books_correspondent_passage`
+- [tests/test_reader_rd6_fix_freshness.py](../../../../../../tests/test_reader_rd6_fix_freshness.py) — direct import
+  - `test_an_lo_tried_and_found_nowhere_is_settled_only_against_that_library`
+- [tests/test_reader_rd6_fix_protection.py](../../../../../../tests/test_reader_rd6_fix_protection.py) — direct import
 - [tests/test_reader_rd6a_goal_lens.py](../../../../../../tests/test_reader_rd6a_goal_lens.py) — direct import
   - `test_a_section_about_a_deeper_lo_is_later_and_a_depth_change_re_renders_it`
   - `test_the_empty_and_thin_states`
@@ -3183,6 +3188,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_sidecar_inspect_note_source_ref_with_timestamp_suffix`
   - `test_sidecar_loads_linear_algebra_fixture_vault`
 - [tests/test_sidecar_item_authoring.py](../../../../../../tests/test_sidecar_item_authoring.py) — direct import
+  - `test_a_retried_authoring_request_saves_one_item`
   - `test_edit_retire_author_flow`
   - `test_split_flow`
 - [tests/test_sidecar_knowledge_model.py](../../../../../../tests/test_sidecar_knowledge_model.py) — direct import

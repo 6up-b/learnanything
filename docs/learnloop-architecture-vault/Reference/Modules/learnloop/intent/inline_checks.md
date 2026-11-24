@@ -47,15 +47,17 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/intent/inline_checks.py](../../../../../../src/learnloop/intent/inline_checks.py) |
-| Source lines | 176 |
+| Source lines | 193 |
 | Owning package | [[Reference/Modules/learnloop/intent/_package|learnloop.intent]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `due_checks(vault: Any, repository: Any, *, goal_id: str | None=None, learning_object_ids: Iterable[str] | None=None, extraction_id: str | None=None, span_id: str | None=None, clock: Clock | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/intent/inline_checks.py), line 104) — Every due check, one row per (check, learning object), oldest due first, filtered.
-- `answered_checks(vault: Any, repository: Any, *, since: str, clock: Clock | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/intent/inline_checks.py), line 147) — Every "Check once" answered on the learner's own since ``since`` (a UTC stamp), one row per (check, learning object): the goal band fills its ◇ once a check is answered.
+- `serving_view(vault: Any, repository: Any, *, clock: Clock | None=None) -> Any` ([source](../../../../../../src/learnloop/intent/inline_checks.py), line 104) — The serving view the check reads below share (one build answers both).
+- `next_check_due(view: Any) -> str | None` ([source](../../../../../../src/learnloop/intent/inline_checks.py), line 111) — When the next check not due yet falls due (a UTC stamp), or None: a reader of the due checks (the goal band, which hides what a due check covers) reads again then.
+- `due_checks(vault: Any, repository: Any, *, goal_id: str | None=None, learning_object_ids: Iterable[str] | None=None, extraction_id: str | None=None, span_id: str | None=None, clock: Clock | None=None, view: Any | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/intent/inline_checks.py), line 120) — Every due check, one row per (check, learning object), oldest due first, filtered.
+- `answered_checks(vault: Any, repository: Any, *, since: str, clock: Clock | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/intent/inline_checks.py), line 164) — Every "Check once" answered on the learner's own since ``since`` (a UTC stamp), one row per (check, learning object): the goal band fills its ◇ once a check is answered.
 
 ### Explicit exports
 
@@ -63,6 +65,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - `answered_checks`
 - `due_checks`
+- `next_check_due`
+- `serving_view`
 
 ## Internal implementation anchors
 
@@ -78,7 +82,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/passage_union/union|learnloop.passage_union.union]] — imports `due_checks`; statically calls `due_checks`
-- [[Reference/Modules/learnloop_sidecar/handlers/goal_lens|learnloop_sidecar.handlers.goal_lens]] — imports `answered_checks`, `due_checks`; statically calls `answered_checks`, `due_checks`
+- [[Reference/Modules/learnloop_sidecar/handlers/goal_lens|learnloop_sidecar.handlers.goal_lens]] — imports `answered_checks`, `due_checks`, `next_check_due`, `serving_view`; statically calls `answered_checks`, `due_checks`, `next_check_due`, `serving_view`
 - [[Reference/Modules/learnloop_sidecar/handlers/inline_checks|learnloop_sidecar.handlers.inline_checks]] — imports `due_checks`; statically calls `due_checks`
 
 ## Dependencies

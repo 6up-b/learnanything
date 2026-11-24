@@ -127,3 +127,80 @@ doc), colours and type exact.
   fixture); Open beside against a real `reader.correspondents`; Note in margin against the real capture.
 - A highlight saved in the fixture's book: there is none, so `#menuhl` is compared on a passage's menu (the same
   frame, rows and type).
+
+## Fix round (frontend)
+
+The adversarial review of RD5 (Codex Astra, 2026-11-23; 2 blockers, 15 major, 6 minor) read main at batch 1. This
+is the half whose fixes are in `apps/learnloop-tauri`, on the second integration batch's tip; every finding was
+checked against that code first. The two blockers (protected material reaching rows, proposals and the judged job)
+and the other Python findings are the backend half's. Ledger RD5-30 to RD5-46.
+
+| Review finding | Outcome |
+|---|---|
+| Major: a menu closed before `passage.promoted` answered never cancelled its job | Fixed, RD5-30 |
+| Major: menu A's late rows overwrote B's, and B's Open beside opened A's correspondent | Fixed, RD5-31 (the rows are told by the open menu only) |
+| Major: a selection across passages quoted the whole run in every node; Append linked one passage | Fixed, RD5-33 (per-passage slices, every passage linked, the capture's placement read) |
+| Major: a selection inside a highlight was dropped | Fixed, RD5-34 |
+| Major: Make it practice on an exercise admits items behind a yes/no, with no review of the draft | **Stopped, options below** |
+| Major: the pad's practice sheet authored twice on a double press | Fixed on the client, RD5-41 (one save at a time); the retry identity across a lost reply needs the backend's key |
+| Major: a window header named no passage | Fixed, RD5-35 (the passage in view; a window with none offers its moves only) |
+| Major: promoted actions half wired, all labelled opened | Fixed, RD5-32 |
+| Major: Compare lost its intent and anchor | Fixed, RD5-40 (the anchored comparison through the selection's door, on confirm) |
+| Major: a pad line's Teach me opened the app's lesson screen | Already routed to the desks' lesson tabs on this branch (RD9a wraps `reader.onTeachMe` with `openLesson`), but only when the app passes that hook; made one path, RD5-36 |
+| Major: New desk from these ran gather | Fixed, RD5-39 |
+| Major: Show me landed on the desk shown when ready; its poll leaked | Fixed, RD5-38 |
+| Major: Teach me on a line linked to two readings mixed their spans | Fixed, RD5-37 |
+| Major: a lost `passage.promoted` reply mints another job (no request identity) | Backend half (the key and its replay); the client sends it once the contract names it |
+| Major: an interrupted vault's job can still publish rows | Backend half |
+| Minor: focus and escape in the sheets, focus restored | Fixed, RD5-44 |
+| Minor: the Append submenu by key | Fixed, RD5-43 |
+| Minor: a failed label swallowed | Fixed, RD5-45 (retried under its id on the poller; a refusal says so). Labels pending at app close are not kept across a restart |
+| Minor: What this knows misses notes and adjustments, opens little | Fixed on the client, RD5-46; `passage.knows` handing the notes in is the backend's |
+| Minor: `n`, `b` never ran; `.` stopped at a stack | Fixed, RD5-42 |
+| Minor: duplicate candidates keep the older timestamp | Backend half |
+
+**Stopped: Make it practice on an exercise.** The import job writes schedulable items when it finishes, the same path
+the Reader's own "use this exercise" takes; a review of the actual draft before admission needs the job to hold its
+cards unwritten until an admit call, which is new persisted state (a draft held per import, or a column on the
+import's rows). Options: (a) a prepare/admit split in the backend with that state, the menu showing the draft's
+question, parts and answer with keep / not now; (b) keep the import as it is and show its written cards after it
+finishes, each with the existing retire control, so a wrong one leaves the queue at once; (c) keep it as it is. The
+record's earlier "review sheet" was wrong: the sheet is a confirmation of what the import does (judgment call 5),
+not a review of its draft.
+
+**Assumed of the backend half** (the client is ready, or reads them when present): a client key on
+`passage.promoted` (sent once named); `passage.knows` returning `notes` as `passage.union_range` does (the panel
+renders them); a margin note's or figure's promoted row may name its passage (`action.extractionId`,
+`action.target.spanId`; the client falls back to the menu's passage); an identity key on `author_practice_item`.
+
+**Assertions changed (the behaviour changed, nothing loosened):** a promoted row's action is called with the menu's
+object as well; the Make-it-practice import test expects the selection's nodes without a quote when nothing is
+selected (a selection now always carries its slices); the window header test closes What this knows by escape (it
+owns the focus now).
+
+**Checks:** typecheck clean; vitest 389 files, 4310 tests; the desk harness, every run, passes (the overview run
+needs the comparison's `pillow`: 23 of 23 with it); visual reference `rd5` 2 rows and `rd4` 19, unchanged; pytest
+identity pins, structure ratchets, mobile allowlist and desktop RPC contract 759 passed, architecture 18, layout 3;
+ruff clean; lint-imports 54 kept. No Rust, config, HTTP use or migration changed. Each fix's test failed with the
+code before it (run against the files at the previous commit).
+
+### After the backend half (`reader/rd5fixb`, contract in reader-rd5a.md §9)
+
+Merged, then main (batch 2). The client sides of its contract:
+
+| Contract item | Client side |
+|---|---|
+| `requestId` on `passage.promoted` | One per menu opening, reused on a retryable failure; `request_reused` mints a new one once (RD5-47) |
+| `withheld` | The menu says "exam or held-out material: nothing is searched for it", names the object without quoting it, and leaves out Ask, Find, Compare, Show me, Make it practice, Append, Carry and Teach me; a verb pressed before the first answer waits for it and refuses on protected material; the pad menu does the same for a line about it (RD5-48). Carry and Teach me are beyond the brief's list: a carried question and a lesson take the words on too |
+| An interrupted job reads failed (`interrupted`) | None of its rows show; the menu says it can look again, and a new opening asks anew (RD5-49) |
+| `clientIdempotencyKey` on `author_practice_item` | One key per practice sheet, sent with every save of it (RD5-41 now fixed) |
+| `passage.knows` fills notes | Rendered since RD5-46 |
+| Make it practice on an exercise (RD5-8) | Option (A): a sheet shows the exercise's own words (`passage.content`; protected material is neither shown nor imported), imports only when asked, and lists the items made with the existing edit and retire controls, said plainly to be in the queue already (RD5-50). Draft-then-admit (B) stays an owner option: it needs storage of its own |
+
+When the first answer fails outright, the menu treats the object as unprotected (the verbs' own calls keep their
+protections); a judgment call. New file: `screens/desks/menu/ExerciseSheet.tsx` (`desktop_validate.py`: 418 files,
+398 entry-reachable, ACTIVE 424).
+
+**Assertions changed:** the menu's `passage.promoted` calls carry the `requestId` (two tests expect it); Make it
+practice on an exercise opens the sheet, where the test expected the confirmation and the import.
+

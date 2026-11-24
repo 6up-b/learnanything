@@ -48,6 +48,8 @@ export interface GoalPadAnchor {
   padId: string;
   extractionId: string;
   spanId: string;
+  /** No window that is not paused shows its pad: its reading is not asked for (its cached levels stay). */
+  paused?: boolean;
 }
 
 export interface GoalDesk {
@@ -88,7 +90,7 @@ export function useGoalDesk({ transport, deskGoalId, offKey, onSetGoal, readings
 }): GoalDesk {
   const asked = useMemo(() => [...new Set([
     ...readings.filter((reading) => !reading.paused).map((reading) => reading.extractionId),
-    ...padAnchors.map((anchor) => anchor.extractionId),
+    ...padAnchors.filter((anchor) => !anchor.paused).map((anchor) => anchor.extractionId),
   ])], [readings, padAnchors]);
   const [off, setOff] = useState(() => readFlag(offKey));
   useEffect(() => { setOff(readFlag(offKey)); }, [offKey]);
@@ -258,6 +260,7 @@ export function useGoalDesk({ transport, deskGoalId, offKey, onSetGoal, readings
           onUseInstead={(learningObjectId: string, section: DeliverableSectionDto) => goal.override(learningObjectId, "use_instead", `${section.extractionId}/${section.sectionId}`)}
           onReadAnyway={goal.readAnyway}
           onAddPhrase={goal.addPhrase}
+          onCorrect={goal.correctScope}
           {...(lessonRow ? { lessonRow: (learningObjectId: string) => lessonRow(learningObjectId, () => goal.setPathOpen(false)) } : {})}
         />
       ) : null}

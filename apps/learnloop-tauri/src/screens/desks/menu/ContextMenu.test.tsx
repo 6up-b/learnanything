@@ -48,7 +48,7 @@ describe("the context menu", () => {
     render(<ContextMenu header="a passage · “words”" rows={verbs()} at={{ x: 100, y: 100 }} object={{ objectKind: "passage", extractionId: "e", spanId: "s" }} promoted={api} poller={poller} owner="w1" onClose={() => undefined} />);
     await screen.findByText("row r1");
     expect(screen.getByText(/looking for more/)).toBeTruthy();
-    expect(api.passagePromoted).toHaveBeenCalledWith({ objectKind: "passage", extractionId: "e", spanId: "s" });
+    expect(api.passagePromoted).toHaveBeenCalledWith({ objectKind: "passage", extractionId: "e", spanId: "s", requestId: expect.stringMatching(/^prom_/) });
     await act(async () => {
       await poller.tick();
     });
@@ -81,6 +81,101 @@ describe("the context menu", () => {
     expect(cancelled).toEqual([]);
   });
 
+  it("a menu closed before its first answer cancels the judged job that answer names", async () => {
+    let answer: (found: PassagePromotedDto) => void = () => undefined;
+    const { api, cancelled } = promotedApi(promoted([]));
+    api.passagePromoted = vi.fn(() => new Promise<PassagePromotedDto>((resolve) => { answer = resolve; }));
+    const poller = new Poller({ setInterval: () => 1, clearInterval: () => undefined });
+    const view = render(<ContextMenu header="h" rows={verbs()} at={{ x: 0, y: 0 }} object={{ objectKind: "passage", extractionId: "e", spanId: "s" }} promoted={api} poller={poller} onClose={() => undefined} />);
+    view.unmount();
+    await act(async () => {
+      answer(promoted([row("r1")], { jobId: "late1" }));
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(cancelled).toEqual(["late1"]));
+  });
+
+  it("tells its rows only while it is open: the cheap ones, then the judged ones; a late answer is never told", async () => {
+    const poller = new Poller({ setInterval: () => 1, clearInterval: () => undefined });
+    const told: string[][] = [];
+    const { api } = promotedApi(promoted([row("r1")], { jobId: "j5" }), [
+      { status: "done", done: true, rows: [row("r1"), row("r2")], error: null } as unknown as PromotedJobDto,
+    ]);
+    render(<ContextMenu header="h" rows={verbs()} at={{ x: 0, y: 0 }} object={{ objectKind: "passage", extractionId: "e", spanId: "s" }} promoted={api} poller={poller}
+      onRows={(rows) => told.push(rows.map((each) => each.rowId))} onClose={() => undefined} />);
+    await screen.findByText("row r1");
+    await act(async () => {
+      await poller.tick();
+    });
+    await screen.findByText("row r2");
+    expect(told).toEqual([["r1"], ["r1", "r2"]]);
+
+    let answer: (found: PassagePromotedDto) => void = () => undefined;
+    const late = promotedApi(promoted([]));
+    late.api.passagePromoted = vi.fn(() => new Promise<PassagePromotedDto>((resolve) => { answer = resolve; }));
+    const lateTold: string[][] = [];
+    const view = render(<ContextMenu header="h2" rows={verbs()} at={{ x: 0, y: 0 }} object={{ objectKind: "passage", extractionId: "e", spanId: "t" }} promoted={late.api}
+      onRows={(rows) => lateTold.push(rows.map((each) => each.rowId))} onClose={() => undefined} />);
+    view.unmount();
+    await act(async () => {
+      answer(promoted([row("old")]));
+      await Promise.resolve();
+    });
+    expect(lateTold).toEqual([]);
+  });
+
+  it("a promoted row whose action could not run is not labelled opened", async () => {
+    const { api, labels } = promotedApi(promoted([row("r1")]));
+    render(<ContextMenu header="h" rows={verbs()} at={{ x: 0, y: 0 }} object={{ objectKind: "passage", extractionId: "e", spanId: "s" }} promoted={api} onPromoted={() => false} onClose={() => undefined} />);
+    fireEvent.click(await screen.findByText("row r1"));
+    expect(labels).toEqual([]);
+  });
+
+  it("sends one request id per opening and reuses it on a retry after a lost reply; a new opening sends a new one", async () => {
+    const { api } = promotedApi(promoted([row("r1")]));
+    let lost = true;
+    const seen: string[] = [];
+    api.passagePromoted = vi.fn(async (input: { requestId?: string }) => {
+      seen.push(input.requestId ?? "");
+      if (lost) {
+        lost = false;
+        throw { code: "sidecar_unavailable", message: "the reply was lost", retryable: true };
+      }
+      return promoted([row("r1")]);
+    }) as never;
+    const view = render(<ContextMenu header="h" rows={verbs()} at={{ x: 0, y: 0 }} object={{ objectKind: "passage", extractionId: "e", spanId: "s" }} promoted={api} onClose={() => undefined} />);
+    await screen.findByText("row r1");
+    expect(seen).toHaveLength(2);
+    expect(seen[1]).toBe(seen[0]);
+    view.unmount();
+    render(<ContextMenu header="h" rows={verbs()} at={{ x: 0, y: 0 }} object={{ objectKind: "passage", extractionId: "e", spanId: "s" }} promoted={api} onClose={() => undefined} />);
+    await screen.findByText("row r1");
+    expect(seen[2]).not.toBe(seen[0]);
+  });
+
+  it("exam or held-out material: says plainly nothing is searched, and tells the caller", async () => {
+    const told: boolean[] = [];
+    const { api } = promotedApi({ ...promoted([]), withheld: true } as PassagePromotedDto);
+    render(<ContextMenu header="h" rows={verbs()} at={{ x: 0, y: 0 }} object={{ objectKind: "passage", extractionId: "e", spanId: "s" }} promoted={api} onWithheld={(w) => told.push(w)} onClose={() => undefined} />);
+    await screen.findByText("exam or held-out material: nothing is searched for it");
+    expect(told).toEqual([true]);
+  });
+
+  it("a judged job interrupted by a vault switch shows no rows of it and says the menu can look again", async () => {
+    const poller = new Poller({ setInterval: () => 1, clearInterval: () => undefined });
+    const { api } = promotedApi(promoted([row("r1")], { jobId: "j8" }), [
+      { status: "failed", done: true, rows: [], error: { code: "interrupted", message: "another vault opened", retryable: true } } as unknown as PromotedJobDto,
+    ]);
+    render(<ContextMenu header="h" rows={verbs()} at={{ x: 0, y: 0 }} object={{ objectKind: "passage", extractionId: "e", spanId: "s" }} promoted={api} poller={poller} onClose={() => undefined} />);
+    await screen.findByText("row r1");
+    await act(async () => {
+      await poller.tick();
+    });
+    expect(screen.getByText(/the search for more stopped/)).toBeTruthy();
+    expect(screen.queryByText(/looking for more/)).toBeNull();
+    expect(screen.getByText("row r1")).toBeTruthy();
+  });
+
   it("labels a promoted row opened, dismissed or not this by its row id; a dismissed row leaves the menu", async () => {
     const onPromoted = vi.fn();
     const onClose = vi.fn();
@@ -106,7 +201,7 @@ describe("the context menu", () => {
     fireEvent.click(await screen.findByText("row r1"));
     expect(labels).toEqual([["r1", "opened"]]);
     expect(onClose).toHaveBeenCalled();
-    expect(onPromoted).toHaveBeenCalledWith(expect.objectContaining({ rowId: "r1" }));
+    expect(onPromoted).toHaveBeenCalledWith(expect.objectContaining({ rowId: "r1" }), { objectKind: "passage", extractionId: "e", spanId: "s" });
   });
 
   it("moves with j/k and the arrows, runs with enter or a verb's letter, skips the disabled row, closes on escape and outside", () => {
@@ -157,6 +252,30 @@ describe("the context menu", () => {
     expect(onPick).toHaveBeenCalledWith("+");
     fireEvent.click(within(submenu).getByText("deriving"));
     expect(onPick).toHaveBeenCalledWith("p2");
+  });
+
+  it("the Append submenu takes the keys while open: arrows and Tab move in it, enter picks there, left goes back", () => {
+    const onPick = vi.fn();
+    const runs = { ask: vi.fn(), note: vi.fn() };
+    render(<ContextMenu header="h" rows={verbs(runs)} at={{ x: 0, y: 0 }} onClose={() => undefined}
+      append={{ pads: [{ padId: "p1", title: "running" }, { padId: "p2", title: "deriving" }], current: "p1", onPick }} />);
+    fireEvent.keyDown(window, { key: "w" });
+    const submenu = screen.getByRole("menu", { name: "append to" });
+    const selected = () => submenu.querySelector(".mi.sel")?.textContent ?? "";
+    expect(selected()).toContain("running");
+    fireEvent.keyDown(window, { key: "ArrowDown" });
+    expect(selected()).toContain("deriving");
+    fireEvent.keyDown(window, { key: "Tab" });
+    expect(selected()).toContain("a new pad");
+    fireEvent.keyDown(window, { key: "k" });
+    fireEvent.keyDown(window, { key: "Enter" });
+    expect(onPick).toHaveBeenCalledWith("p2");
+    // The parent menu did not move or run meanwhile.
+    expect(runs.note).not.toHaveBeenCalled();
+    fireEvent.keyDown(window, { key: "ArrowLeft" });
+    expect(screen.queryByRole("menu", { name: "append to" })).toBeNull();
+    fireEvent.keyDown(window, { key: "ArrowDown" });
+    expect(document.querySelector(".desk-menu .mi.sel")?.textContent).toContain("Note in margin");
   });
 
   it("keeps the verbs below the promoted block, What this knows after the separator", async () => {

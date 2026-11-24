@@ -30,7 +30,7 @@ export interface PadsApi {
   carriedCarry(input: CarryInput): Promise<{ carried: CarriedQuestionDto; created: boolean }>;
   requestTeachBack(input: { learningObjectId?: string; practiceItemId?: string }): Promise<{ practiceItemId: string }>;
   passageUnionRange(input: PassageUnionInput): Promise<PassageUnionDto>;
-  authorPracticeItem(input: { learningObjectId: string; prompt: string; expectedAnswer: string }): Promise<{ practiceItemId: string }>;
+  authorPracticeItem(input: { learningObjectId: string; prompt: string; expectedAnswer: string; clientIdempotencyKey?: string }): Promise<{ practiceItemId: string }>;
   /** A teach-back's next turn (the existing entry point), when a submitted teach-back asks a follow-up. */
   submitTeachBackTurn(input: SubmitTeachBackTurnInput): Promise<TeachBackTurnResult>;
   /** The session (its checkpoint holds a teach-back in progress). */
@@ -80,7 +80,8 @@ export interface PadsHost {
   menu?: {
     promoted: PromotedApi;
     poller: Poller;
-    onPromoted: (row: PromotedRowDto) => void;
+    /** A promoted row's action, run for the object its menu was opened on; false when it could not run. */
+    onPromoted: (row: PromotedRowDto, origin: MenuObjectInput | null) => boolean;
     knows: (object: MenuObjectInput) => void;
   };
   /** A pad joins a stack window by its own desk op (add_to_stack), never through the window's view. */

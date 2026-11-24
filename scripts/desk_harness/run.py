@@ -1251,7 +1251,7 @@ async def run_goal(page: Page, base: str, results: Results, shots: Path | None) 
     await page.keyboard.press("Shift+C")
     await settle(page, 700)
     context = await page.evaluate("() => { const g = document.querySelector('.desk-companion .ctx .gctx'); return g ? { text: g.textContent, colour: getComputedStyle(g).color } : null; }")
-    results.check("the companion keeps the goal in view", bool(context) and context["text"] == "◎ goal in context" and context["colour"] == "rgb(169, 159, 208)", context)
+    results.check("the companion keeps the goal in view", bool(context) and context["text"] == "◎ goal in view" and context["colour"] == "rgb(169, 159, 208)", context)
     await page.keyboard.press("Shift+C")
     await settle(page, 500)
 

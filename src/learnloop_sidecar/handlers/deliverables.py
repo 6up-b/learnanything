@@ -88,6 +88,16 @@ def _require(ctx: SidecarContext) -> tuple[Any, Any]:
     return vault, repository
 
 
+def _require_read(ctx: SidecarContext) -> tuple[Any, Any]:
+    """``_require`` for a read (the goal band and lens): the same refusal, no recovery. Finishing a stopped
+    publication writes goals.yaml and the journal, which a read must never do; the next curriculum action does it."""
+
+    vault, repository = ctx.require_vault()
+    if not DL.enabled(vault):
+        raise SidecarError("curriculum_disabled", "The deliverable curriculum is off (curriculum.enabled = false).")
+    return vault, repository
+
+
 def _error(exc: Exception) -> SidecarError:
     code = getattr(exc, "code", None) or "validation_error"
     return SidecarError(str(code), str(exc))
@@ -108,10 +118,10 @@ class _Work:
     def __init__(self) -> None:
         self.lock = threading.Lock()
         self.covering: dict[str, dict[str, Any]] = {}
-        #: The (LO, statement key) pairs this sidecar already tried to cover per goal: an
-        #: LO with no candidate writes no row, so without this every read would search
-        #: for it again. Keyed by the statement (``DP.coverage_key``): a changed LO is
-        #: tried again (Codex review F5).
+        #: The (LO, attempt key) pairs this sidecar already tried to cover per goal: an LO with no candidate writes
+        #: no row, so without this every read would search for it again. Keyed by the statement and the library
+        #: (``DP.attempt_keys``): a changed LO (Codex review F5), or a reading added or changed
+        #: since, is tried again.
         self.attempted: dict[str, set[tuple[str, str | None]]] = {}
         #: Path judgments per (goal, depth, path state key): ``running`` while one is in
         #: flight, else the failure the Guide shows. The one coalescing set of the Guide's
@@ -166,15 +176,16 @@ def _cover(ctx: SidecarContext, vault: Any, repository: Any, goal_id: str) -> No
     work = _work(ctx)
     with work.lock:
         attempted = set(work.attempted.get(goal_id, ()))
-    owed = [lo for lo in DP.coverage_owed(vault, repository, goal_id)
-            if (lo, DP.coverage_key(vault, lo)) not in attempted]
+    candidates = DP.coverage_owed(vault, repository, goal_id)
+    keys = DP.attempt_keys(vault, repository, candidates)
+    owed = [lo for lo in candidates if (lo, keys[lo]) not in attempted]
     if not owed:
         return
     with work.lock:
         if (work.covering.get(goal_id) or {}).get("state") == "running":
             return
         work.covering[goal_id] = {"state": "running", "learning_object_ids": owed}
-        work.attempted.setdefault(goal_id, set()).update((lo, DP.coverage_key(vault, lo)) for lo in owed)
+        work.attempted.setdefault(goal_id, set()).update((lo, keys[lo]) for lo in owed)
     grant, origin, stamp = _unit(vault, f"deliverable-coverage:{goal_id}")
     live_vault = ctx.loaded_vault
     root = Path(vault.root).resolve()

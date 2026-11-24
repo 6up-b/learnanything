@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { PassageKnowsDto, PromotedRowDto } from "../../../api/dto";
-import type { MenuObject } from "./model";
+import { headerLine, type MenuObject } from "./model";
 import { promotedRef, runVerb, sourceMenuRows, type MenuContext } from "./verbs";
 
 const passage = (extra: Partial<MenuObject> = {}): MenuObject => ({
@@ -35,11 +35,14 @@ function context(over: Partial<MenuContext> = {}, apiOver: Partial<MenuContext["
     askNote: vi.fn(async () => "my note"),
     confirm: vi.fn(async () => true),
     showMe: vi.fn(async () => ({ figureId: "fig1", line: "a figure" })),
+    figureDestination: () => "pad_asked_on",
     landFigure: vi.fn(),
     windowMove: vi.fn(),
     teachMe: vi.fn(),
+    reviewExercise: vi.fn(),
     showKnows: vi.fn(),
     promotedRows: () => [],
+    withheld: async () => false,
     ...over,
   };
   return { ctx, toasts };
@@ -63,12 +66,21 @@ describe("each verb calls its server entry", () => {
 
   it("Note in margin asks for the words, then writes an annotation on the passage through the capture", async () => {
     const { ctx, toasts } = context();
-    await runVerb("note", passage({ selection: "some words" }), ctx);
+    await runVerb("note", passage({ selection: "some words", slices: [{ spanId: "s1", quote: "some words" }] }), ctx);
     expect(ctx.api.readerCapture).toHaveBeenCalledWith({
       sourceId: "src1", revisionId: "rev1", extractionId: "ext1", renderViewId: "rv1", action: "annotate", clientIdempotencyKey: "note_1", learnerText: "my note",
       rawSelection: { extractionId: "ext1", nodes: [{ spanId: "s1", quote: "some words" }] },
     });
     expect(toasts).toEqual(["noted in the margin"]);
+  });
+
+  it("Note in margin on a selection across passages quotes each passage's own words, and says when it could not be placed", async () => {
+    const { ctx, toasts } = context({}, { readerCapture: vi.fn(async () => ({ annotationId: "a1", anchorStatus: "needs_reanchor" }) as never) });
+    await runVerb("note", passage({ selection: "end of one start of two", spanIds: ["s1", "s2"], slices: [{ spanId: "s1", quote: "end of one" }, { spanId: "s2", quote: "start of two" }] }), ctx);
+    expect(ctx.api.readerCapture).toHaveBeenCalledWith(expect.objectContaining({
+      rawSelection: { extractionId: "ext1", nodes: [{ spanId: "s1", quote: "end of one" }, { spanId: "s2", quote: "start of two" }] },
+    }));
+    expect(toasts).toEqual(["noted, but its place in the passage needs re-anchoring"]);
   });
 
   it("Note in margin left empty writes nothing", async () => {
@@ -100,7 +112,9 @@ describe("each verb calls its server entry", () => {
   it("Compare opens a compare window on the words; Teach me opens a lesson on the passage in the desk's stack", async () => {
     const { ctx } = context();
     await runVerb("compare", passage({ selection: "two ideas" }), ctx);
-    expect(ctx.openContent).toHaveBeenCalledWith({ kind: "compare", query: "two ideas" });
+    // Anchored on the passage, so asking in the window compares from it (not a plain library answer).
+    expect(ctx.openContent).toHaveBeenCalledWith({ kind: "compare", query: "two ideas" },
+      { view: { compareAnchor: { extractionId: "ext1", spanIds: ["s1"], sourceId: "src1", revisionId: "rev1" } } });
     await runVerb("teach_me", passage(), ctx);
     expect(ctx.teachMe).toHaveBeenCalledWith({ kind: "open", entry: "reader_selection", selection: { extractionId: "ext1", spanIds: ["s1"] } });
     // With no passage (a margin note's words alone), the lesson starts from the words.
@@ -112,21 +126,18 @@ describe("each verb calls its server entry", () => {
     const { ctx } = context();
     await runVerb("show_me", passage(), ctx);
     expect(ctx.showMe).toHaveBeenCalledWith("the passage's words", { extractionId: "ext1", spanId: "s1" }, "w1");
-    expect(ctx.landFigure).toHaveBeenCalledWith(expect.objectContaining({ spanId: "s1" }), { figureId: "fig1", line: "a figure" });
+    expect(ctx.landFigure).toHaveBeenCalledWith(expect.objectContaining({ spanId: "s1" }), { figureId: "fig1", line: "a figure" }, "pad_asked_on");
     const none = context({ showMe: vi.fn(async () => null) });
     await runVerb("show_me", passage(), none.ctx);
     expect(none.ctx.landFigure).not.toHaveBeenCalled();
     expect(none.toasts).toContain("no figure for this passage · nothing was shown");
   });
 
-  it("Make it practice imports an exercise as the book has it, otherwise drafts a section question, each after a review", async () => {
+  it("Make it practice on an exercise opens its sheet (its words, then the import); otherwise drafts a section question after a confirmation", async () => {
     const exercise = context({}, { passageKnows: vi.fn(async () => knows("exercise", "sec1")) });
     await runVerb("make_practice", passage(), exercise.ctx);
-    expect(exercise.ctx.confirm).toHaveBeenCalled();
-    expect(exercise.ctx.api.readerImportExercise).toHaveBeenCalledWith({
-      sourceId: "src1", revisionId: "rev1", extractionId: "ext1", renderViewId: "rv1", clientIdempotencyKey: "import_1",
-      rawSelection: { extractionId: "ext1", nodes: [{ spanId: "s1" }] },
-    });
+    expect(exercise.ctx.reviewExercise).toHaveBeenCalledWith(expect.objectContaining({ spanId: "s1" }), { extractionId: "ext1", spanId: "s1" });
+    expect(exercise.ctx.api.readerImportExercise).not.toHaveBeenCalled();
     expect(exercise.ctx.api.readerAuthorSectionQuestion).not.toHaveBeenCalled();
 
     const prose = context();
@@ -168,5 +179,29 @@ describe("the verb rows and a promoted row's place", () => {
     const video = { ...correspondent("r2"), action: { verb: "open", ref: { kind: "video", source_id: "v", extraction_id: "ve" }, target: { spanId: null, t: 30 } } } as unknown as PromotedRowDto;
     expect(promotedRef(video)).toEqual({ ref: { kind: "video", sourceId: "v", extractionId: "ve", t: 30 }, spanId: null });
     expect(promotedRef({ ...correspondent("r3"), action: { verb: "knows" } } as unknown as PromotedRowDto)).toBeNull();
+  });
+});
+
+describe("exam or held-out material", () => {
+  it("the verbs that would quote or send its words send nothing and say so; a margin note of one's own still goes", async () => {
+    const { ctx, toasts } = context({ withheld: async () => true });
+    for (const id of ["ask", "find", "compare", "show_me", "make_practice", "append", "carry", "teach_me"] as const) await runVerb(id, passage(), ctx);
+    expect(ctx.ask).not.toHaveBeenCalled();
+    expect(ctx.openSearch).not.toHaveBeenCalled();
+    expect(ctx.openContent).not.toHaveBeenCalled();
+    expect(ctx.showMe).not.toHaveBeenCalled();
+    expect(ctx.append).not.toHaveBeenCalled();
+    expect(ctx.carry).not.toHaveBeenCalled();
+    expect(ctx.teachMe).not.toHaveBeenCalled();
+    expect(ctx.api.passageKnows).not.toHaveBeenCalled();
+    expect(new Set(toasts)).toEqual(new Set(["this is exam or held-out material: its words are not sent anywhere from here"]));
+    await runVerb("note", passage(), ctx);
+    expect(ctx.api.readerCapture).toHaveBeenCalled();
+  });
+
+  it("its menu leaves those verbs out and names the material without quoting it", () => {
+    const rows = sourceMenuRows(passage(), context().ctx, "running", true).map((row) => row.id);
+    expect(rows).toEqual(["note", "open_beside", "knows"]);
+    expect(headerLine(passage(), true)).toBe("a passage · exam or held-out material");
   });
 });

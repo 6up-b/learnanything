@@ -154,6 +154,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_positive_role_filter_keeps_only_effective_exercise_blocks`
 - [tests/test_menu_elsewhere_and_proposals.py](../../../../../../tests/test_menu_elsewhere_and_proposals.py) — direct import
   - `test_search_findings_are_the_judges_picks_checked_or_every_hit_unchecked_without_a_judgment`
+- [tests/test_menu_protected_material.py](../../../../../../tests/test_menu_protected_material.py) — direct import
 - [tests/test_query_student.py](../../../../../../tests/test_query_student.py) — direct import
 - [tests/test_reader_ca4_table_by_point.py](../../../../../../tests/test_reader_ca4_table_by_point.py) — direct import
 - [tests/test_reader_rw1c_review.py](../../../../../../tests/test_reader_rw1c_review.py) — direct import

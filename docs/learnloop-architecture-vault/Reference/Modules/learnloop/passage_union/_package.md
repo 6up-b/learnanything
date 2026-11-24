@@ -48,7 +48,7 @@ For system intent, use [[Architecture Overview]].
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/passage_union/__init__|learnloop.passage_union]] | [[Reference/Modules/learnloop/passage_union/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
 | [[Reference/Modules/learnloop/passage_union/content|learnloop.passage_union.content]] | [[Reference/Modules/learnloop/passage_union/content#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
-| [[Reference/Modules/learnloop/passage_union/elsewhere|learnloop.passage_union.elsewhere]] | [[Reference/Modules/learnloop/passage_union/elsewhere#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
+| [[Reference/Modules/learnloop/passage_union/elsewhere|learnloop.passage_union.elsewhere]] | [[Reference/Modules/learnloop/passage_union/elsewhere#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
 | [[Reference/Modules/learnloop/passage_union/promoted|learnloop.passage_union.promoted]] | [[Reference/Modules/learnloop/passage_union/promoted#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/passage_union/union|learnloop.passage_union.union]] | [[Reference/Modules/learnloop/passage_union/union#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
 
@@ -56,7 +56,7 @@ For system intent, use [[Architecture Overview]].
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 5 static module edges
+- [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 6 static module edges
 - [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 4 static module edges
 - [[Reference/Modules/learnloop/_package|learnloop]] — 3 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 3 static module edges
@@ -85,7 +85,7 @@ flowchart LR
     n_learnloop_intent["learnloop.intent"]
     n_learnloop_pads["learnloop.pads"]
     n_learnloop_reader["learnloop.reader"]
-    center -->|5| n_learnloop_content_sources
+    center -->|6| n_learnloop_content_sources
     center -->|4| n_learnloop_source_retrieval
     n_learnloop_sidecar_handlers -->|4| center
     center -->|3| n_learnloop

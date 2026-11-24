@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/goal/marks.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/goal/marks.tsx) |
-| Source lines | 174 |
+| Source lines | 189 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/goal/_area|TypeScript/screens/desks/goal]] |
 | Refactor status | `ACTIVE` |
@@ -58,7 +58,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export const WHY_HIDE_MS = 160` — const, line 13
 - `export interface MarkHandlers` — interface, line 15
 - `export function readerLens(` — function, line 27
-- `export function WhyCard(` — function, line 133
+- `export function WhyCard(` — function, line 148
 
 ## Internal implementation anchors
 
@@ -75,24 +75,29 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const callout = section ? calloutFor(section) : null` — const, line 69
 - `function clock(seconds: number): string` — function, line 88
 - `const whole = Math.max(0, Math.floor(seconds))` — const, line 89
-- `function watchLens(index: LensIndex, classFor: (spanId: string, keep: boolean)` — function, line 95
-- `const onPath = index.sections.filter((section)` — const, line 97
-- `const classes = spanIds.length ? classFor(spanIds[0], false) : undefined` — const, line 100
-- `const first = onPath[0]` — const, line 106
-- `const range = timeOf(first.spanIds)` — const, line 108
-- `const lo = first.learningObjects.find((entry)` — const, line 109
-- `const role = first.reasonKey === "primary" ? "primary for" : first.reasonKey === "alternate" ? "another way for" : first.reasonKey === "prerequisite" ? "background for" : "supporting"` — const, line 110
-- `const skippable = index.sections.find((section)` — const, line 120
-- `const ref = useRef<HTMLDivElement | null>(null)` — const, line 134
-- `const card = ref.current` — const, line 139
-- `const width = card.offsetWidth` — const, line 141
-- `const height = card.offsetHeight` — const, line 142
-- `let left = why.rect.right + 10` — let, line 143
-- `const top = Math.max(46, Math.min(why.rect.top - 6, window.innerHeight - height - 34))` — const, line 145
-- `const frame = requestAnimationFrame(()` — const, line 150
-- `const kind = markKind(section.level)` — const, line 153
-- `const legend = kind === "later" || kind === "shown" ? "skip" : kind === "partial" ? "partial" : kind` — const, line 154
-- `const reason = section.reasonMd.replace(/\.?\s*$/, ".")` — const, line 155
+- `function watchLens(index: LensIndex, classFor: (spanId: string, keep: boolean)` — function, line 96
+- `const onPath = index.sections.filter((section)` — const, line 98
+- `const spanId = mostNeededSpan(index, spanIds)` — const, line 101
+- `const classes = spanId ? classFor(spanId, false) : undefined` — const, line 102
+- `const spanId = mostNeededSpan(index, spanIds)` — const, line 106
+- `const first = onPath[0]` — const, line 111
+- `const rest = noneNeeded(index.sections.filter((section)` — const, line 113
+- `const ranges: Array<` — const, line 116
+- `const last = ranges[ranges.length - 1]` — const, line 119
+- `const times = ranges.map((range)` — const, line 123
+- `const lo = first.learningObjects.find((entry)` — const, line 124
+- `const role = first.reasonKey === "primary" ? "primary for" : first.reasonKey === "alternate" ? "another way for" : first.reasonKey === "prerequisite" ? "background for" : "supporting"` — const, line 125
+- `const skippable = index.sections.find((section)` — const, line 135
+- `const ref = useRef<HTMLDivElement | null>(null)` — const, line 149
+- `const card = ref.current` — const, line 154
+- `const width = card.offsetWidth` — const, line 156
+- `const height = card.offsetHeight` — const, line 157
+- `let left = why.rect.right + 10` — let, line 158
+- `const top = Math.max(46, Math.min(why.rect.top - 6, window.innerHeight - height - 34))` — const, line 160
+- `const frame = requestAnimationFrame(()` — const, line 165
+- `const kind = markKind(section.level)` — const, line 168
+- `const legend = kind === "later" || kind === "shown" ? "skip" : kind === "partial" ? "partial" : kind` — const, line 169
+- `const reason = section.reasonMd.replace(/\.?\s*$/, ".")` — const, line 170
 
 ## Who imports or calls it
 
@@ -108,7 +113,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `GoalBandDto`
 - [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] — import-or-re-export; imports `ReaderLens`
 - [[Reference/Desktop/TypeScript/screens/desks/goal/controller|src/screens/desks/goal/controller.ts]] — import-or-re-export; imports `WhyState`
-- [[Reference/Desktop/TypeScript/screens/desks/goal/model|src/screens/desks/goal/model.ts]] — import-or-re-export; imports `LensIndex`, `calloutFor`, `goalShort`, `isDimmed`, `markKind`, `whyLevelLine`
+- [[Reference/Desktop/TypeScript/screens/desks/goal/model|src/screens/desks/goal/model.ts]] — import-or-re-export; imports `LensIndex`, `calloutFor`, `goalShort`, `isDimmed`, `markKind`, `mostNeededSpan`, `noneNeeded`, `whyLevelLine`
 - [[Reference/Desktop/TypeScript/screens/reader/YouTubeWatchPanel|src/screens/reader/YouTubeWatchPanel.tsx]] — import-or-re-export; imports `WatchLens`
 
 ### Assets, platform, and third-party dependencies
@@ -126,6 +131,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 ## Tests that define behavior
 
 - [apps/learnloop-tauri/src/screens/desks/goal/watch.test.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/goal/watch.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/desks/goal/protection.test.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/goal/protection.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/desks/goal/components.test.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/goal/components.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [tests/test_sidecar_goals.py](../../../../../../../../tests/test_sidecar_goals.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.
 - [tests/test_sidecar_exams.py](../../../../../../../../tests/test_sidecar_exams.py) — related cross-boundary behavior contract; it does **not** directly execute this source module.

@@ -97,10 +97,11 @@ import { CarriedList, Shelf, type ShelfRow } from "./Shelf";
 import { SourceWindow, type ReaderPassThrough, type SourceStatus } from "./windows/SourceWindow";
 import { ThreadWindow } from "./windows/ThreadWindow";
 import { PadStackWindow } from "./pads/PadStackWindow";
-import { ContextMenu, type PromotedApi } from "./menu/ContextMenu";
+import { ContextMenu, useSheetFocus, type PromotedApi } from "./menu/ContextMenu";
 import { KnowsPanel } from "./menu/KnowsPanel";
-import { headerLine, objectAt, objectInput, type MenuObject } from "./menu/model";
-import { promotedRef, sourceMenuRows, type MenuApi, type MenuContext } from "./menu/verbs";
+import { ExerciseSheet } from "./menu/ExerciseSheet";
+import { captureNodes, hasPassage, headerLine, objectAt, objectInput, type MenuObject } from "./menu/model";
+import { promotedRef, runVerb, sourceMenuRows, type MenuApi, type MenuContext } from "./menu/verbs";
 import { DrainPanel } from "./pads/DrainPanel";
 import { PassageMarks, visibleSpanRange, type PadLink } from "./pads/PassageMarks";
 import { keyAfter } from "./pads/model";
@@ -237,6 +238,14 @@ export function groundingFor(ws: Workspace, chip: AskChip | null, focus: DeskWin
   return { reason: "ask from a passage: focus a book or a video, or select a passage, then press c" };
 }
 
+/** A Compare window's passage anchor, kept in its view by the menu's Compare (null when it was opened bare). */
+function compareAnchorOf(view: Record<string, unknown> | undefined): { extractionId: string; spanIds: string[]; sourceId: string; revisionId: string | null } | null {
+  const anchor = view?.compareAnchor as Record<string, unknown> | undefined;
+  if (!anchor || typeof anchor.extractionId !== "string" || typeof anchor.sourceId !== "string" || !Array.isArray(anchor.spanIds)) return null;
+  return { extractionId: anchor.extractionId, sourceId: anchor.sourceId, spanIds: anchor.spanIds.filter((id): id is string => typeof id === "string"),
+    revisionId: typeof anchor.revisionId === "string" ? anchor.revisionId : null };
+}
+
 /** The first passage showing at the top of a window (its reading place when none was reported yet). */
 function firstVisibleSpan(windowId: string | null): string | null {
   if (!windowId) return null;
@@ -266,12 +275,12 @@ function errorText(error: unknown): string {
 /** The menu's small sheets: a margin note's words, or a review before something joins the queue. */
 function MenuSheet({ sheet, onDone }: { sheet: { kind: "note" | "confirm"; title: string; detail: string }; onDone: (value: string | boolean | null) => void }) {
   const [text, setText] = useState("");
+  const node = useRef<HTMLDivElement | null>(null);
+  useSheetFocus(node, () => onDone(sheet.kind === "note" ? null : false));
   return (
-    <div className="desk-sheet" role="dialog" aria-label={sheet.title} onKeyDown={(event) => {
-      if (event.key === "Escape") onDone(sheet.kind === "note" ? null : false);
-    }}>
+    <div ref={node} tabIndex={-1} className="desk-sheet" role="dialog" aria-label={sheet.title}>
       <div className="head">{sheet.title} · {sheet.detail}</div>
-      {sheet.kind === "note" ? <label>your note<textarea autoFocus aria-label="your note" value={text} onChange={(event) => setText(event.target.value)} /></label> : null}
+      {sheet.kind === "note" ? <label>your note<textarea aria-label="your note" value={text} onChange={(event) => setText(event.target.value)} /></label> : null}
       <div className="acts">
         <button type="button" disabled={sheet.kind === "note" && !text.trim()} onClick={() => onDone(sheet.kind === "note" ? text.trim() : true)}>{sheet.kind === "note" ? "keep it" : "yes"}</button>
         <button type="button" onClick={() => onDone(sheet.kind === "note" ? null : false)}>not now</button>
@@ -326,6 +335,7 @@ export interface MenuTransport extends MenuApi {
   passagePromotedJob: PromotedApi["passagePromotedJob"];
   passagePromotedCancel: PromotedApi["passagePromotedCancel"];
   proposalLabel(input: import("../../api/dto").ProposalLabelInput): Promise<unknown>;
+  readerExerciseImportStatus(input: { batchId: string }): Promise<import("../../api/dto").ReaderExerciseImportStatusDto>;
 }
 
 export const LIVE_MENU_TRANSPORT: MenuTransport = {
@@ -343,6 +353,7 @@ export const LIVE_MENU_TRANSPORT: MenuTransport = {
   readerCapture: (input) => api.readerCapture(input),
   readerImportExercise: (input) => api.readerImportExercise(input),
   readerAuthorSectionQuestion: (input) => api.readerAuthorSectionQuestion(input),
+  readerExerciseImportStatus: (input) => api.readerExerciseImportStatus(input),
 };
 
 /** The companion's and search's calls (spec §3.4; RD3a's jobs). */
@@ -619,8 +630,10 @@ export function DeskShell({
   const [menu, setMenu] = useState<MenuObject | null>(null);
   const [knows, setKnows] = useState<import("../../api/dto").MenuObjectInput | null>(null);
   const [menuSheet, setMenuSheet] = useState<{ kind: "note" | "confirm"; title: string; detail: string; resolve: (value: string | boolean | null) => void } | null>(null);
+  // Make it practice on an exercise: the sheet that shows its words, imports it and lists what it made.
+  const [exerciseSheet, setExerciseSheet] = useState<{ object: MenuObject; anchor: { extractionId: string; spanId: string }; key: string } | null>(null);
   const menuOpenRef = useRef(false);
-  menuOpenRef.current = menu !== null || knows !== null || menuSheet !== null;
+  menuOpenRef.current = menu !== null || knows !== null || menuSheet !== null || exerciseSheet !== null;
   // Pen mode (spec §10.10): alt+p, the ✎ chip, or a pen's first touch; "simulate pen" lets the mouse draw.
   const [penOn, setPenOn] = useState(false);
   const [simulatePen, setSimulatePen] = useState(false);
@@ -1201,6 +1214,30 @@ export function DeskShell({
     setCurrentDeskId(newDeskId);
   }, [commit, mintId, setCurrentDeskId, timers, titleOf, toastNow, ungather]);
 
+  /** The window menu's ⊞ New desk from these (spec §5.1, §9.2): the window moves to a new desk with its linked
+   * thread windows (none needed), titled from it; not gather, which moves what is related and refuses alone. */
+  const newDeskFrom = useCallback((windowId: string) => {
+    const current = wsRef.current;
+    const id = deskIdRef.current;
+    if (!id || current.windows[windowId]?.deskId !== id) return;
+    const threads = relationsOf(current, windowId)
+      .filter((relation) => current.windows[relation.windowId]?.deskId === id && current.windows[relation.windowId]?.content?.kind === "thread")
+      .map((relation) => relation.windowId);
+    const newDeskId = mintId("desk");
+    const title = `new desk · ${shortName(titleOf(current.windows[windowId]))}`;
+    let step = createDesk(current, newDeskId, title);
+    let after: string | null = null;
+    for (const moving of [windowId, ...threads]) {
+      const next = moveToDesk(step.ws, id, moving, newDeskId, after);
+      step = { ws: next.ws, ops: [...step.ops, ...next.ops] };
+      after = moving;
+    }
+    const focused = setFocus(step.ws, newDeskId, windowId);
+    commit({ ws: focused.ws, ops: [...step.ops, ...focused.ops] });
+    setMovedNotice({ deskId: id, title, until: timers.now() + MOVED_NOTICE_MS });
+    setCurrentDeskId(newDeskId);
+  }, [commit, mintId, setCurrentDeskId, timers, titleOf]);
+
   const run = useCallback((action: DeskAction): boolean => {
     const current = wsRef.current;
     const id = deskIdRef.current;
@@ -1344,10 +1381,15 @@ export function DeskShell({
       case "menu": {
         // `.` or the ContextMenu key: the pad menu on the hovered line; else the menu on the hovered object, or on
         // the focused window's first object.
+        // A focused stack with no hovered line falls through to the hovered object (a passage beside it).
         const stack = focusedStackRef.current();
-        if (stack) return stack.menuAtHover();
+        if (stack?.menuAtHover()) return true;
         return openMenuByKeyRef.current();
       }
+      case "marginNote":
+        return hoveredKeyRef.current("note");
+      case "promoted":
+        return hoveredKeyRef.current("promoted");
       case "drain":
         setDraining(true);
         return true;
@@ -2335,10 +2377,34 @@ export function DeskShell({
     passagePromoted: (input) => menuTransport.passagePromoted(input),
     passagePromotedJob: (input) => menuTransport.passagePromotedJob(input),
     passagePromotedCancel: (input) => menuTransport.passagePromotedCancel(input),
-    label: (rowId, label) => void menuTransport.proposalLabel({ labelId: mintId("lbl"), proposalKind: "promoted_row", proposalId: rowId, label }).catch(() => undefined),
-  }), [menuTransport, mintId]);
-  const onPromotedRef = useRef<(row: import("../../api/dto").PromotedRowDto) => void>(() => undefined);
+    label: (rowId, label) => {
+      // A label keeps its id until it is stored (labels are idempotent by id): a failed send is retried on the one
+      // poller with its backoff; one the sidecar refuses outright says so (the row may come back next time).
+      const input = { labelId: mintId("lbl"), proposalKind: "promoted_row" as const, proposalId: rowId, label };
+      const refused = (error: unknown) => Boolean(error && typeof error === "object" && (error as { retryable?: unknown }).retryable === false);
+      const giveUp = () => toastNow(label === "opened" ? "couldn't note that you opened it" : "couldn't keep that you set it aside · it may come back");
+      void menuTransport.proposalLabel(input).catch((error: unknown) => {
+        if (refused(error)) {
+          giveUp();
+          return;
+        }
+        const stop = poller.register<unknown>({
+          key: `promoted-label:${input.labelId}`,
+          owner: null,
+          request: () => menuTransport.proposalLabel(input),
+          onResult: () => ({ done: true }),
+          onError: (again) => {
+            if (!refused(again)) return;
+            stop();
+            giveUp();
+          },
+        });
+      });
+    },
+  }), [menuTransport, mintId, poller, toastNow]);
+  const onPromotedRef = useRef<(row: import("../../api/dto").PromotedRowDto, origin: import("../../api/dto").MenuObjectInput | null) => boolean>(() => false);
   const openMenuByKeyRef = useRef<() => boolean>(() => false);
+  const hoveredKeyRef = useRef<(what: "note" | "promoted") => boolean>(() => false);
   const padsHost = useMemo<PadsHost>(() => ({
     store,
     deskId,
@@ -2357,17 +2423,25 @@ export function DeskShell({
       // window's poll waits with it. A figure that is not shown lands nowhere.
       const first = await padsTransport.figureRequest({ goalText: text, origin: "show_me", anchor: anchor ? { extractionId: anchor.extractionId, spanIds: [anchor.spanId] } : null });
       const job = first.state !== "pending" ? first : await new Promise<typeof first>((resolve, reject) => {
-        poller.register<typeof first>({
+        // The poll ends on every terminal path: a result, a job the sidecar no longer knows, or the window that asked
+        // being closed (its paused polls would otherwise wait for ever).
+        let stop: () => void = () => undefined;
+        const gone = { code: "owner_gone", message: "the window that asked is closed" };
+        stop = poller.register<typeof first>({
           key: `figure-job:${first.jobId}`,
           owner: ownerWindowId ?? null,
-          request: () => padsTransport.readerFigureJob({ jobId: first.jobId }),
+          request: () => (ownerWindowId && !wsRef.current.windows[ownerWindowId] ? Promise.reject(gone) : padsTransport.readerFigureJob({ jobId: first.jobId })),
           onResult: (read) => {
             if (read.state === "pending") return { done: false };
             resolve(read);
             return { done: true };
           },
           onError: (error) => {
-            if (error && typeof error === "object" && (error as { code?: unknown }).code === "job_not_found") reject(error);
+            const code = error && typeof error === "object" ? (error as { code?: unknown }).code : null;
+            if (code === "job_not_found" || code === "owner_gone") {
+              stop();
+              reject(error);
+            }
           },
         });
       });
@@ -2379,10 +2453,11 @@ export function DeskShell({
     menu: {
       promoted: menuPromoted,
       poller,
-      onPromoted: (row) => onPromotedRef.current(row),
+      onPromoted: (row, origin) => onPromotedRef.current(row, origin),
       knows: (object) => setKnows(object),
     },
-    ...(reader?.onTeachMe ? { teachMe: (extractionId: string, spanIds: string[]) => reader.onTeachMe?.({ extractionId, spanIds }) } : {}),
+    // A pad line's Teach me opens a lesson tab in the desk's stack, as the source menu's does (one path).
+    teachMe: (extractionId: string, spanIds: string[]) => openLesson({ kind: "open", entry: "reader_selection", selection: { extractionId, spanIds } }),
     toast: toastNow,
     setView: (windowId, view) => {
       const window = wsRef.current.windows[windowId];
@@ -2399,7 +2474,7 @@ export function DeskShell({
     },
     carry: carryQuestion,
     lessons: lessonsHost,
-  }), [store, deskId, mintId, padsTransport, reader, openPassage, toastNow, commit, sourcePieces, carryQuestion, stepCompanion, poller, pendingFigures, menuPromoted, lessonsHost]);
+  }), [store, deskId, mintId, padsTransport, reader, openPassage, toastNow, commit, sourcePieces, carryQuestion, stepCompanion, poller, pendingFigures, menuPromoted, lessonsHost, openLesson]);
   // Pen and ink (RD8a): what a source window's pen layer and a pad's ink lines reach through.
   const inkCache = useMemo(() => new InkCache({ api: penApi, poller, settled: () => store.settled(), refreshPad: (padId) => store.refreshPad(padId) }), [penApi, poller, store]);
   const penHost = useMemo<PenHost>(() => ({
@@ -2547,11 +2622,21 @@ export function DeskShell({
     return out;
   }, [unionLinks]);
   // -- the goal lens (spec §12): the band, each reading's marks, the path view ----------------------------
-  // A pad stack's goal line reads its own pads' anchors (loaded pads), whatever is on screen.
-  const goalPadAnchors = useMemo(() => Object.values(store.pads).flatMap((pad) => pad.anchors.map((anchor) => ({ padId: pad.pad.padId, extractionId: anchor.extractionId, spanId: anchor.spanId }))),
+  // A pad stack's goal line reads its own pads' anchors (loaded pads), whatever is on screen; a pad no unpaused
+  // window shows asks the lens for nothing (paused, as a paused reading).
+  const goalPadAnchors = useMemo(() => {
+    const live = new Set<string>();
+    for (const window of Object.values(ws?.windows ?? {})) {
+      if (isPaused(lifecycles[window.windowId]?.state ?? "hidden")) continue;
+      if (window.content?.kind === "pad") live.add(window.content.padId);
+      for (const entry of window.stack ?? []) if (entry.kind === "pad") live.add(entry.padId);
+    }
+    return Object.values(store.pads).flatMap((pad) => pad.anchors.map((anchor) => ({ padId: pad.pad.padId, extractionId: anchor.extractionId,
+      spanId: anchor.spanId, paused: !live.has(pad.pad.padId) })));
+  },
     // store.pads changes identity on every pad change (padVersionNow re-renders this shell).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [store.pads, padVersionNow]);
+    [store.pads, padVersionNow, ws, lifecycles]);
   const goalReadings = useMemo<GoalReading[]>(() => {
     if (!ws) return [];
     const out: GoalReading[] = [];
@@ -2768,9 +2853,11 @@ export function DeskShell({
         const receipt = await menuTransport.readerCapture({
           sourceId: who.sourceId, revisionId: who.revisionId, extractionId: object.extractionId, renderViewId: who.renderViewId,
           action: "highlight", clientIdempotencyKey: mintId("hl"),
-          rawSelection: { extractionId: object.extractionId, nodes: (object.spanIds?.length ? object.spanIds : [object.spanId]).map((spanId) => ({ spanId, ...(object.selection ? { quote: object.selection } : {}) })) },
+          rawSelection: { extractionId: object.extractionId, nodes: captureNodes(object) },
         });
-        annotationId = receipt.annotationId;
+        // A highlight that could not be placed is not linked from the block (the block still links its passages).
+        if (receipt.anchorStatus === "needs_reanchor") toastNow("the highlight's place needs re-anchoring: the line links to the passages without it");
+        else annotationId = receipt.annotationId;
       } catch {
         // The block still links to the passage; only the highlight is missing.
       }
@@ -2783,26 +2870,18 @@ export function DeskShell({
       { op: "insert_block", blockId, versionId: mintId("ver"), kind: "source_quote", provenance: "source", positionKey: keyAfterLast(pad.blocks),
         day: pad.pad.kind === "running" ? localDay() : null, bodyMd: body,
         payload: { source_id: object.sourceId ?? null, source_title: titleOf(window), extraction_id: object.extractionId, span_id: object.spanId, ...(object.t !== undefined ? { t: object.t } : {}) } },
-      { op: "link_anchor", blockId, extractionId: object.extractionId, spanId: object.spanId, eventId: mintId("lnk"), expectedAnchorHead: null, annotationId },
+      // Every passage the selection touches links back to the line (each with its own ✎ mark).
+      ...captureNodes(object).map((node) => ({ op: "link_anchor" as const, blockId, extractionId: object.extractionId as string, spanId: node.spanId, eventId: mintId("lnk"), expectedAnchorHead: null, annotationId })),
     ]);
     if (refused) toastNow(`couldn't append it · ${refused.message}`);
     else toastNow(`appended to “${pad.pad.title || "running"}”`);
   }, [appendTargetOf, commit, menuTransport, mintId, rememberAppendTarget, store, titleOf, toastNow]);
 
+  // The rows the open source menu shows (Open beside takes its correspondent from them): told by that menu only
+  // while it is open on its object, so a closed menu's late answer never lands here.
   const menuPromotedRows = useRef<import("../../api/dto").PromotedRowDto[]>([]);
-  // The source menu's promoted calls keep the rows they gave (Open beside takes its correspondent from them). One
-  // object across renders: a new one would restart the menu's request and cancel its judged job.
-  const sourceMenuPromoted = useMemo<PromotedApi>(() => ({
-    ...menuPromoted,
-    passagePromoted: (input) => menuPromoted.passagePromoted(input).then((found) => {
-      menuPromotedRows.current = found.rows;
-      return found;
-    }),
-    passagePromotedJob: (input) => menuPromoted.passagePromotedJob(input).then((job) => {
-      if (job.done && job.status === "done") menuPromotedRows.current = job.rows;
-      return job;
-    }),
-  }), [menuPromoted]);
+  const [menuWithheld, setMenuWithheld] = useState(false);
+  const menuWithheldAnswer = useRef<{ promise: Promise<boolean>; resolve: (withheld: boolean) => void }>({ promise: Promise.resolve(false), resolve: () => undefined });
   const menuContext = useMemo<MenuContext>(() => ({
     deskId,
     api: menuTransport,
@@ -2822,11 +2901,13 @@ export function DeskShell({
     askNote: () => new Promise<string | null>((resolve) => setMenuSheet({ kind: "note", title: "› note in margin", detail: "your words beside this passage", resolve: (value) => resolve(typeof value === "string" ? value : null) })),
     confirm: (title, detail) => new Promise<boolean>((resolve) => setMenuSheet({ kind: "confirm", title, detail, resolve: (value) => resolve(value === true) })),
     showMe: (text, anchor, owner) => padsHost.showMe ? padsHost.showMe(text, anchor, owner ?? undefined) : Promise.resolve(null),
-    landFigure: (object, figure) => {
-      const padId = runningPadOf(deskIdRef.current);
+    figureDestination: () => runningPadOf(deskIdRef.current),
+    landFigure: async (object, figure, padId) => {
+      // The running pad of the desk Show me was asked on (captured when asked), not the desk shown when it is ready.
+      if (padId) await store.loadPad(padId);
       const pad = padId ? store.pads[padId] : null;
       if (!padId || !pad) {
-        toastNow("the figure is ready, but this desk has no running pad to put it in");
+        toastNow("the figure is ready, but that desk has no running pad to put it in");
         return;
       }
       store.commitPad(padId, [{ op: "insert_block", blockId: mintId("blk"), versionId: mintId("ver"), kind: "figure", provenance: "learnloop", positionKey: keyAfterLast(pad.blocks), day: localDay(),
@@ -2836,16 +2917,22 @@ export function DeskShell({
     windowMove: (kind, windowId) => {
       const id = deskIdRef.current;
       if (!id) return;
+      if (kind === "new_desk") {
+        newDeskFrom(windowId);
+        return;
+      }
       commit(setFocus(wsRef.current, id, windowId));
-      if (kind === "new_desk") runRef.current({ kind: "gather", toNewDesk: true });
-      else if (kind === "gather") runRef.current({ kind: "gather", toNewDesk: false });
+      if (kind === "gather") runRef.current({ kind: "gather", toNewDesk: false });
       else if (kind === "share_slot") runRef.current({ kind: "pair" });
       else runRef.current({ kind: "unpair" });
     },
     showKnows: (object) => setKnows(objectInput(object, deskIdRef.current)),
     teachMe: (entry) => openLesson(entry),
+    // One import key per sheet: a resent import of the same exercise is the same import.
+    reviewExercise: (object, anchor) => setExerciseSheet({ object, anchor, key: mintId("import") }),
     promotedRows: () => menuPromotedRows.current,
-  }), [deskId, menuTransport, mintId, toastNow, stepCompanion, openContent, carryQuestion, appendTo, padsHost, runningPadOf, store, commit, openLesson]);
+    withheld: () => menuWithheldAnswer.current.promise,
+  }), [deskId, menuTransport, mintId, toastNow, stepCompanion, openContent, carryQuestion, appendTo, padsHost, runningPadOf, store, commit, openLesson, newDeskFrom]);
 
   // A right-click inside a notebook frame (spec §11.3) opens the pad menu in the stack window that shows the
   // notebook's owner: a pad's cells ("your pad") or a lesson's notebook ("the lesson", inserting under the lesson).
@@ -2873,16 +2960,55 @@ export function DeskShell({
     return () => setNotebookMenuOpener(null);
   }, [lessonDesk, commit, timers]);
 
-  /** A promoted row's action: open its place, What this knows, the carried list, the passage of a note. */
-  onPromotedRef.current = (row) => {
+  /** A pad line in view: its stack window takes the focus (opened beside when no stack shows the pad) and the line
+   * flashes (the ✎ marks' way back to a pad). */
+  const openPadBlock = (padId: string, blockId: string | null) => {
+    const id = deskIdRef.current;
+    if (!id) return;
+    const stackWindow = Object.values(wsRef.current.windows).find((window) => window.deskId === id && (window.stack ?? []).some((entry) => entry.kind === "pad" && entry.padId === padId));
+    if (stackWindow) {
+      commit(setFocus(wsRef.current, id, stackWindow.windowId));
+      padHandles.current.get(stackWindow.windowId)?.showPad(padId);
+    } else {
+      openContent({ kind: "pad", padId });
+    }
+    if (blockId) timers.set(() => window.dispatchEvent(new CustomEvent("learnloop:pad-flash", { detail: { blockId } })), 0);
+  };
+
+  /** A promoted row's action, for the object its menu was opened on (a source object or a pad line): open its place
+   * (a pad at its line), What this knows of that object, the carried list, a margin note's or a figure's passage
+   * (the Reader shows the passage's notes and figures there). False when the row names nothing that can open. */
+  onPromotedRef.current = (row, origin) => {
     const place = promotedRef(row);
     if (place) {
-      openContent(place.ref, { spanId: place.spanId });
-      return;
+      if (place.ref.kind === "pad") openPadBlock(place.ref.padId, row.action.target?.blockId ?? null);
+      else openContent(place.ref, { spanId: place.spanId });
+      return true;
     }
-    if (row.action.verb === "knows" && menu) setKnows(objectInput(menu, deskIdRef.current));
-    else if (row.action.verb === "carried") setCarriedOpen(true);
-    else if (row.action.verb === "figure") toastNow("the figure opens in the tutor when figures come to the desks");
+    switch (row.action.verb) {
+      case "knows":
+        if (!origin) return false;
+        setKnows(origin);
+        return true;
+      case "carried":
+        setCarriedOpen(true);
+        return true;
+      case "annotation":
+      case "figure": {
+        // The row's own passage when it names one, else the passage the menu was opened on.
+        const named = row.action as { extractionId?: string; target?: { spanId?: string } };
+        const extractionId = named.extractionId ?? origin?.extractionId;
+        const spanId = named.target?.spanId ?? origin?.spanId;
+        if (!extractionId || !spanId) {
+          toastNow("couldn't find the passage this belongs to");
+          return false;
+        }
+        openPassage(extractionId, spanId);
+        return true;
+      }
+      default:
+        return false;
+    }
   };
 
   /** The one right-click listener (spec §4.4: the menu opens once): on a passage, a cue, a highlight or note, a
@@ -2893,7 +3019,7 @@ export function DeskShell({
     const object = objectAt(target, (windowId) => wsRef.current.windows[windowId]?.content?.kind ?? null, (windowId) => {
       const content = wsRef.current.windows[windowId]?.content;
       return content && (content.kind === "source" || content.kind === "video") ? { sourceId: content.sourceId, extractionId: content.extractionId } : null;
-    }, { x: event.clientX, y: event.clientY });
+    }, { x: event.clientX, y: event.clientY }, firstVisibleSpan);
     if (!object) return;
     event.preventDefault();
     event.stopPropagation();
@@ -2906,11 +3032,46 @@ export function DeskShell({
       return;
     }
     menuPromotedRows.current = [];
+    // The object's protection is known from its first answer; a verb that would send its words waits for it.
+    setMenuWithheld(false);
+    let resolve: (withheld: boolean) => void = () => undefined;
+    menuWithheldAnswer.current = { promise: new Promise<boolean>((done) => { resolve = done; }), resolve: (withheld) => resolve(withheld) };
+    if (!hasPassage(object)) menuWithheldAnswer.current.resolve(false);
     setMenu(object);
   };
 
   // The object under the pointer, for `.` and the ContextMenu key (else the focused window's first object).
   const hoverTarget = useRef<Element | null>(null);
+  /** `n` (a margin note on the hovered passage) and `b` (the hovered object's first promoted action, labelled
+   * opened once it ran); false when the pointer is over nothing they apply to. */
+  hoveredKeyRef.current = (what) => {
+    const hovered = hoverTarget.current;
+    if (!hovered || !stageRef.current?.contains(hovered)) return false;
+    const object = objectAt(hovered, (windowId) => wsRef.current.windows[windowId]?.content?.kind ?? null, (windowId) => {
+      const content = wsRef.current.windows[windowId]?.content;
+      return content && (content.kind === "source" || content.kind === "video") ? { sourceId: content.sourceId, extractionId: content.extractionId } : null;
+    }, (() => {
+      const box = hovered.getBoundingClientRect();
+      return { x: box.left + 30, y: box.bottom + 2 };
+    })(), firstVisibleSpan);
+    if (!object || !hasPassage(object)) return false;
+    if (what === "note") {
+      if (object.kind !== "passage" && object.kind !== "cue") return false;
+      void runVerb("note", object, menuContext);
+      return true;
+    }
+    const input = objectInput(object, deskIdRef.current);
+    void menuPromoted.passagePromoted(input).then((found) => {
+      if (found.pendingJob) void menuPromoted.passagePromotedCancel({ jobId: found.pendingJob.jobId }).catch(() => undefined);
+      const first = found.rows[0];
+      if (!first) {
+        toastNow("nothing to open from here yet");
+        return;
+      }
+      if (onPromotedRef.current(first, input)) menuPromoted.label(first.rowId, "opened");
+    }, () => toastNow("couldn't read what this passage holds just now"));
+    return true;
+  };
   openMenuByKeyRef.current = () => {
     const stage = stageRef.current;
     const focusWindow = focusIdRef.current;
@@ -2925,7 +3086,7 @@ export function DeskShell({
     };
     const hovered = hoverTarget.current;
     if (hovered && stage?.contains(hovered)) {
-      const object = objectAt(hovered, kindOf, sourceOf, atOf(hovered));
+      const object = objectAt(hovered, kindOf, sourceOf, atOf(hovered), firstVisibleSpan);
       if (object) {
         openMenuOn(object);
         return true;
@@ -2936,7 +3097,7 @@ export function DeskShell({
     const host = stage.querySelector(`[${WINDOW_ATTRIBUTE}="${focusWindow}"]`);
     const first = spanId ? host?.querySelector(`[data-span-id="${spanId}"], [data-transcript-span="${spanId}"]`) : host?.querySelector(".desk-pane-head");
     if (!first) return false;
-    const object = objectAt(first, kindOf, sourceOf, atOf(first));
+    const object = objectAt(first, kindOf, sourceOf, atOf(first), firstVisibleSpan);
     if (!object) return false;
     openMenuOn(object);
     return true;
@@ -3174,7 +3335,7 @@ export function DeskShell({
         return <LibraryPanel query={null} onOpenHit={openHit} onClose={() => run({ kind: "closeWindow" })} onError={onError} />;
       }
       case "compare":
-        return <LibraryPanel query={content.query ?? null} onOpenHit={openHit} onClose={() => run({ kind: "closeWindow" })} onError={onError} />;
+        return <LibraryPanel query={content.query ?? null} anchor={compareAnchorOf(window.view)} onOpenHit={openHit} onClose={() => run({ kind: "closeWindow" })} onError={onError} />;
       case "thread":
         return (
           <ThreadWindow
@@ -3717,18 +3878,25 @@ export function DeskShell({
       ) : null}
       {menu ? (
         <ContextMenu
-          header={headerLine(menu)}
+          header={headerLine(menu, menuWithheld)}
           rows={sourceMenuRows(menu, menuContext, (() => {
             const target = appendTargetOf(deskId);
             return deskPads(deskId).find((pad) => pad.padId === target)?.title ?? "a new pad";
-          })()).map((row) => ({ ...row, run: () => {
+          })(), menuWithheld).map((row) => ({ ...row, run: () => {
             setMenu(null);
             row.run?.();
           } }))}
           at={menu.at}
-          object={menu.extractionId || menu.windowId ? objectInput(menu, deskId) : null}
-          promoted={sourceMenuPromoted}
-          onPromoted={(row) => onPromotedRef.current(row)}
+          object={hasPassage(menu) ? objectInput(menu, deskId) : null}
+          promoted={menuPromoted}
+          onPromoted={(row, origin) => onPromotedRef.current(row, origin)}
+          onRows={(rows) => {
+            menuPromotedRows.current = rows;
+          }}
+          onWithheld={(withheld) => {
+            setMenuWithheld(withheld);
+            menuWithheldAnswer.current.resolve(withheld);
+          }}
           poller={poller}
           owner={menu.windowId}
           append={menu.kind === "passage" || menu.kind === "cue" || menu.kind === "highlight" ? {
@@ -3756,6 +3924,27 @@ export function DeskShell({
             openPassage: (extractionId, spanId) => openPassage(extractionId, spanId),
           }}
           onClose={() => setKnows(null)}
+        />
+      ) : null}
+      {exerciseSheet ? (
+        <ExerciseSheet
+          readWords={() => {
+            const ids = captureNodes(exerciseSheet.object).map((node) => node.spanId);
+            return padsTransport.passageContent({ extractionId: exerciseSheet.anchor.extractionId, fromSpanId: ids[0] ?? exerciseSheet.anchor.spanId, toSpanId: ids[ids.length - 1] ?? exerciseSheet.anchor.spanId });
+          }}
+          startImport={async () => {
+            const { object, anchor, key } = exerciseSheet;
+            const who = await menuTransport.readingIdentity(anchor.extractionId);
+            return menuTransport.readerImportExercise({
+              sourceId: who.sourceId, revisionId: who.revisionId, extractionId: anchor.extractionId, renderViewId: who.renderViewId, clientIdempotencyKey: key,
+              rawSelection: { extractionId: anchor.extractionId, nodes: captureNodes(object) },
+            });
+          }}
+          readStatus={(batchId) => menuTransport.readerExerciseImportStatus({ batchId })}
+          poller={poller}
+          owner={exerciseSheet.object.windowId}
+          onClose={() => setExerciseSheet(null)}
+          onError={toastNow}
         />
       ) : null}
       {menuSheet ? <MenuSheet sheet={menuSheet} onDone={(value) => {

@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/menu/verbs.ts](../../../../../../../../apps/learnloop-tauri/src/screens/desks/menu/verbs.ts) |
-| Source lines | 214 |
+| Source lines | 235 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/menu/_area|TypeScript/screens/desks/menu]] |
 | Refactor status | `ACTIVE` |
@@ -56,38 +56,40 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - `export interface MenuApi` — interface, line 19
 - `export interface MenuContext` — interface, line 30
-- `export function promotedRef(row: PromotedRowDto):` — function, line 68
-- `export async function runVerb(id: VerbId, object: MenuObject, ctx: MenuContext): Promise<void>` — function, line 86
-- `export function sourceMenuRows(object: MenuObject, ctx: MenuContext, appendTarget: string): MenuRow[]` — function, line 203
+- `export function promotedRef(row: PromotedRowDto):` — function, line 74
+- `export async function runVerb(id: VerbId, object: MenuObject, ctx: MenuContext): Promise<void>` — function, line 92
+- `export function sourceMenuRows(object: MenuObject, ctx: MenuContext, appendTarget: string, withheld = false): MenuRow[]` — function, line 222
 
 ## Internal implementation anchors
 
-- `function errorText(error: unknown): string` — function, line 59
-- `function anchorOf(object: MenuObject):` — function, line 63
-- `const ref = row.action.ref as Record<string, unknown> | undefined` — const, line 69
-- `const camel: Record<string, unknown> =` — const, line 71
-- `const target = row.action.target ??` — const, line 73
-- `async function sectionOf(object: MenuObject, ctx: MenuContext): Promise<` — function, line 79
-- `const knows = await ctx.api.passageKnows(objectInput(object, ctx.deskId))` — const, line 80
-- `const place = knows.places.find((each)` — const, line 81
-- `const anchor = anchorOf(object)` — const, line 87
-- `const words = (object.selection || object.text).trim()` — const, line 88
-- `const note = await ctx.askNote(object)` — const, line 105
-- `const who = await ctx.api.readingIdentity(anchor.extractionId)` — const, line 107
-- `const row = ctx.promotedRows().find((each)` — const, line 118
-- `const place = row ? promotedRef(row) : null` — const, line 119
-- `const found = await ctx.api.readerCorrespondents(` — const, line 130
-- `const section = found.learningObjects.flatMap((lo)` — const, line 131
-- `const figure = await ctx.showMe(words.slice(0, 300), anchor, object.windowId)` — const, line 149
-- `const who = await ctx.api.readingIdentity(anchor.extractionId)` — const, line 162
-- `const drafted = await ctx.api.readerAuthorSectionQuestion(` — const, line 175
+- `function errorText(error: unknown): string` — function, line 65
+- `function anchorOf(object: MenuObject):` — function, line 69
+- `const ref = row.action.ref as Record<string, unknown> | undefined` — const, line 75
+- `const camel: Record<string, unknown> =` — const, line 77
+- `const target = row.action.target ??` — const, line 79
+- `async function sectionOf(object: MenuObject, ctx: MenuContext): Promise<` — function, line 85
+- `const knows = await ctx.api.passageKnows(objectInput(object, ctx.deskId))` — const, line 86
+- `const place = knows.places.find((each)` — const, line 87
+- `const anchor = anchorOf(object)` — const, line 93
+- `const words = (object.selection || object.text).trim()` — const, line 94
+- `const note = await ctx.askNote(object)` — const, line 117
+- `const who = await ctx.api.readingIdentity(anchor.extractionId)` — const, line 119
+- `const receipt = await ctx.api.readerCapture(` — const, line 120
+- `const row = ctx.promotedRows().find((each)` — const, line 131
+- `const place = row ? promotedRef(row) : null` — const, line 132
+- `const found = await ctx.api.readerCorrespondents(` — const, line 143
+- `const section = found.learningObjects.flatMap((lo)` — const, line 144
+- `const who = await ctx.api.readingIdentity(anchor.extractionId)` — const, line 161
+- `const destination = ctx.figureDestination()` — const, line 170
+- `const figure = await ctx.showMe(words.slice(0, 300), anchor, object.windowId)` — const, line 173
+- `const drafted = await ctx.api.readerAuthorSectionQuestion(` — const, line 194
 
 ## Who imports or calls it
 
 > [!note] Static-evidence boundary
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
-- [[Reference/Desktop/TypeScript/screens/desks/DeskShell|src/screens/desks/DeskShell.tsx]] — import-or-re-export: `MenuApi`, `MenuContext`, `promotedRef`, `sourceMenuRows`; references `MenuApi`, `MenuContext`, `promotedRef`, `sourceMenuRows`
+- [[Reference/Desktop/TypeScript/screens/desks/DeskShell|src/screens/desks/DeskShell.tsx]] — import-or-re-export: `MenuApi`, `MenuContext`, `promotedRef`, `runVerb`, `sourceMenuRows`; references `MenuApi`, `MenuContext`, `promotedRef`, `runVerb`, `sourceMenuRows`
 
 ## Dependencies
 
@@ -95,7 +97,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `ContentRefDto`, `CorrespondentsDto`, `MenuObjectInput`, `PassageKnowsDto`, `PromotedRowDto`, `ReaderAuthorSectionQuestionDto`, `ReaderCaptureInput`, `ReaderCaptureReceiptDto`, `ReaderExerciseImportReceiptDto`, `ReaderImportExerciseInput`
 - [[Reference/Desktop/TypeScript/screens/LessonView|src/screens/LessonView.tsx]] — import-or-re-export; imports `LessonEntry`
-- [[Reference/Desktop/TypeScript/screens/desks/menu/model|src/screens/desks/menu/model.ts]] — import-or-re-export; imports `MenuObject`, `MenuRow`, `VerbId`, `objectInput`, `verbsFor`
+- [[Reference/Desktop/TypeScript/screens/desks/menu/model|src/screens/desks/menu/model.ts]] — import-or-re-export; imports `MenuObject`, `MenuRow`, `QUOTING_VERBS`, `VerbId`, `captureNodes`, `hasPassage`, `objectInput`, `verbsFor`
 
 ### Assets, platform, and third-party dependencies
 

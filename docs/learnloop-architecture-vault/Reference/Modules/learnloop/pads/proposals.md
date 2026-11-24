@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/pads/proposals.py](../../../../../../src/learnloop/pads/proposals.py) |
-| Source lines | 160 |
+| Source lines | 191 |
 | Owning package | [[Reference/Modules/learnloop/pads/_package|learnloop.pads]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -56,9 +56,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - `class ProposalRefused(Exception)` ([source](../../../../../../src/learnloop/pads/proposals.py), line 36)
   - `__init__(self, code: str, message: str) -> None` (line 37; internal)
-- `propose_for_blocks(repository: Any, block_ids: Iterable[str], *, vault: Any=None, clock: Any=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/pads/proposals.py), line 74) — After a pad batch: one proposal for each block whose newly committed words have none yet and a candidate (:func:`_findings`).
-- `pad_proposals(repository: Any, pad_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/pads/proposals.py), line 112) — ``pad.proposals``: each standing block's proposal for its current words, with its labels (``shown`` false once dismissed or marked "not this").
-- `label(repository: Any, *, label_id: str, proposal_kind: str, proposal_id: str, label_value: str, clock: Any=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/pads/proposals.py), line 134) — Record one label, idempotent by the client-minted ``label_id``.
+- `propose_for_blocks(repository: Any, block_ids: Iterable[str], *, vault: Any=None, clock: Any=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/pads/proposals.py), line 80) — After a pad batch: one proposal for each block whose newly committed words have none yet and a candidate (:func:`_findings`).
+- `pad_proposals(repository: Any, pad_id: str, *, vault: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/pads/proposals.py), line 138) — ``pad.proposals``: each standing block's proposal for its current words, with its labels (``shown`` false once dismissed or marked "not this").
+- `label(repository: Any, *, label_id: str, proposal_kind: str, proposal_id: str, label_value: str, clock: Any=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/pads/proposals.py), line 165) — Record one label, idempotent by the client-minted ``label_id``.
 
 ### Module constants
 
@@ -85,7 +85,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_table(connection: Any, name: str) -> bool` ([source](../../../../../../src/learnloop/pads/proposals.py), line 42)
 - `_block_places(connection: Any, head: dict[str, Any]) -> set[tuple[str, str]]` ([source](../../../../../../src/learnloop/pads/proposals.py), line 47)
 - `_findings(vault: Any, repository: Any, connection: Any, head: dict[str, Any]) -> list[Any]` ([source](../../../../../../src/learnloop/pads/proposals.py), line 51) — The candidates for one block, best first: a passage the cue judge tied to the same learner problem (ranked for this learner), else another book's section the coverage judge says treats the same topic, else a passage found for the block's words by keyword ("found by search, not c…
-- `_out(row: dict[str, Any], labels: list[dict[str, Any]], current: bool) -> dict[str, Any]` ([source](../../../../../../src/learnloop/pads/proposals.py), line 104)
+- `_out(row: dict[str, Any], labels: list[dict[str, Any]], current: bool) -> dict[str, Any]` ([source](../../../../../../src/learnloop/pads/proposals.py), line 110)
+- `_protected(vault: Any, repository: Any, rows: list[dict[str, Any]], origins: dict[str, set[tuple[str, str]]]) -> set[str]` ([source](../../../../../../src/learnloop/pads/proposals.py), line 118) — The proposals that name exam or held-out material now: their target, or a passage their block is about (``origins``, by words version; marked after the proposal was made, or since its words were lifted).
 
 ## Who imports or calls it
 
@@ -105,7 +106,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/db/stores/pad_reads|learnloop.db.stores.pad_reads]] — imports `module`; calls `head`, `heads`, `label`, `labels_for`, `pad`, `proposal`, `proposal_for_version`, `proposals_for_versions`
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
 - [[Reference/Modules/learnloop/pads/emission|learnloop.pads.emission]] — imports `emittable`, `lineage`, `passages_of`, `words_version`; calls `emittable`, `lineage`, `passages_of`, `words_version`
-- [[Reference/Modules/learnloop/passage_union/elsewhere|learnloop.passage_union.elsewhere]] — imports `RELATION_REASONS`, `as_proposal`, `module`; calls `as_proposal`, `by_correspondents`, `by_passage_links`, `by_search`
+- [[Reference/Modules/learnloop/passage_union/elsewhere|learnloop.passage_union.elsewhere]] — imports `RELATION_REASONS`, `as_proposal`, `module`, `withheld_places`; calls `as_proposal`, `by_correspondents`, `by_passage_links`, `by_search`, `withheld_places`
 
 ### Platform and third-party dependencies
 

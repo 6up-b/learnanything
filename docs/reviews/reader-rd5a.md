@@ -99,7 +99,8 @@ exposure; every row with its `alias`), and the passage's effective role (`exerci
 judge tied to the same learner problem (as before, ranked for this learner); else another book's section the coverage
 judge says treats the same topic (`found_by: "correspondent"`, checked); else a passage found for the block's words by
 keyword (`found_by: "search"`, "found by search, not checked"). None of them calls a model at the commit (meaning search
-and its verification are the menu job's); without the vault only passage links are looked at. The order among the
+and its verification are the menu job's); without the vault nothing is proposed (whether a passage is protected is the
+vault's to say; §9). The order among the
 finders is the same rule's: the learner-ranked judgment first, then judged coverage, then unchecked search. Still at
 most one proposal per words version.
 
@@ -149,3 +150,87 @@ No identity pin, golden or structure number moved; no ledger row (no defect foun
 - A real `search_spans` deep search, `verify_spans` judgment or correspondents over a real library (fakes only; the
   owner-copy lane can time `passage.promoted` and its job over a vault's most-read reading).
 - The landing gate, the full suite, `npm test`, `npm run frontend:build`.
+
+## 9. Fix round, backend half (the Codex Astra review of RD5)
+
+The review (2 blockers, 15 major, 6 minor across RD5) was checked against this branch's code (cut from the second
+integration batch). Every finding below was real; none was refuted. The findings whose fix is in
+`apps/learnloop-tauri` are the frontend half's (ids from RD5-30); the server sides of three of them are here.
+
+| Finding | Outcome | Ledger |
+|---|---|---|
+| Blocker: a menu on exam or held-out material searched by its words and sent them to the judge | fixed: the one predicate (`exam_withheld`, the union read's and `passage.content`'s) is asked of the object's passages, through a pad line's lineage, before its words are used; protected, nothing is searched or judged and the reply says `withheld`; the elsewhere scope leaves exam material out and drops a protected hit before the judge | RD5-1 |
+| Blocker: a passage held out after it was linked still gave rows and proposals with its quote | fixed: passage links filtered at read time (origins and targets); `pad.proposals` asks the predicate again at each read and leaves a protected proposal out whole; a block about protected material gets no search proposal; no vault, no proposal | RD5-2 |
+| Major: a retried menu request minted another job | fixed (server): optional `request_id` | RD5-3 |
+| Major: an interrupted job still delivered its rows | fixed: an interrupted job publishes nothing and reads as `interrupted` | RD5-4 |
+| Major: "save to my queue" made a card per click | fixed (server): optional `client_idempotency_key` on `author_practice_item` | RD5-5 |
+| Major: Make it practice admits items before the learner sees them | stopped (server side): options below | RD5-8 |
+| Minor: What this knows lost the linked notes | fixed (server): one notes adapter for every union read here | RD5-6 |
+| Minor: a duplicate candidate kept its first learner time | fixed: the latest act wins | RD5-7 |
+
+**Make it practice, the options** (the spec: "the learner reviews it in a small sheet before it joins the queue").
+`reader.author_section_question` already drafts (a section check the learner answers, escalated to a card later);
+`reader.import_exercise` writes schedulable items when its job lands, and an item is only `active` or `retired`.
+(A) Client only, now: the sheet shows the exercise's own words (`passage.content`) and what will be made, then imports;
+when the job lands it lists the items made with edit and retire (`edit_practice_item`, `retire_practice_item`); the
+review follows admission and RD5b's record says so. (B) Draft, then admit, as the spec orders it: the import job stops
+before writing items and keeps its authored drafts with their key-check verdicts as a pending import; a new
+`reader.import_exercise_admit` (and a discard) writes them. That needs persisted state for pending drafts (a status on
+the import record or a table: a migration after 269) and a rule for drafts left across restarts. (C) A new item status
+for "not yet admitted": persisted meaning across every reader of items; not recommended. Recommendation: A now, B as a
+landing of its own if the owner wants review before admission.
+
+**Contract changes** (for the frontend half, which merges this branch):
+
+1. `passage.promoted` takes an optional `requestId`: a repeat with the same parameters answers with the same
+   `pendingJob.jobId` (the request id) and freshly read cheap rows, and its work runs once; the same id with other
+   parameters is refused (`request_reused`). Without it the job id is minted as before. `passage.knows` does not take
+   it (its own parameters model).
+2. `passage.promoted`'s reply gains `withheld` (boolean): a passage of the object (or, for a pad line, a passage its
+   words are linked to) is exam or held-out material. Then `paid` is `{searchedByMeaning: false, verified: false,
+   reason: "exam or held-out material: nothing is searched for it"}`, and no `next_step`, `elsewhere` or
+   `correspondent` row comes from a protected passage or leads to one (the learner's own rows stay).
+3. Every polled job (`passage.promoted_job`, `companion.ask_job`, the search, video and ink jobs: one registry
+   module) interrupted by a vault switch reads, once finished, as `status: "failed"` with `error.code: "interrupted"`
+   (retryable) and no result; it used to read `done` with its result when its work finished after the switch.
+4. `pad.proposals` leaves out a proposal whose target or block passage is protected now; the shape is unchanged.
+5. `author_practice_item` takes an optional `clientIdempotencyKey` (1 to 200 characters): the same key returns the
+   same `practiceItemId` and makes no second card, whatever else is sent, so the client mints a new key per sheet.
+6. `passage.knows`'s `places[].knows.notes` now carries the linked notes, as `passage.union_range` does.
+7. No new RPC, no Rust passthrough, nothing removed from a reply.
+
+Internal: `elsewhere.by_passage_links` takes the vault first; `pads.proposals.pad_proposals` takes a required `vault`;
+`propose_for_blocks` without a vault proposes nothing; `elsewhere.withheld_places` is new. Shared files touched,
+small and additive: `learnloop_sidecar/polled_jobs.py` (the finished state and the result's publication),
+`handlers/pads.py` (passes the vault), `handlers/item_authoring.py`.
+
+**Judgment calls.** A pad line's words count as protected when any passage they are linked to through lineage is
+(the review's "through pad lineage"). A passage link from a protected passage is not followed, though its target is
+not itself protected (the review's "filter origins and targets"). A protected stored proposal is left out whole
+rather than returned with empty fields (no shape change). Interruption reads only the vault-switch flag: a context
+close keeps a sent request's outcome, as RD3's `test_an_answer_finishing_after_the_close_restarts_no_worker` pins.
+The same idempotency key with other content returns the first card rather than refusing.
+
+**Assertions changed.** `tests/test_menu_elsewhere_and_proposals.py` passes the vault to `pad_proposals` (its new
+required argument). No other existing assertion changed.
+
+**Commands and results** (each pytest run `-n 1 -p no:cacheprovider` through the scratch wrapper in a 3G scope):
+
+| Command | Result |
+|---|---|
+| `tests/test_menu_protected_material.py` on the landed code | 5 failed (the held-out passage's words were the query and the judge's question; the scope allowed a held-out passage; a stored proposal and a next-step row carried the protected quote) |
+| The same after the fix | 5 passed |
+| The four new tests in `tests/test_menu_promoted_rows.py` on the landed code, then after | 4 failed (no request id; `done` with rows after a switch; no notes; the older time kept), then 23 passed |
+| `tests/test_sidecar_item_authoring.py` on the landed code, then after | 1 failed (the key refused), then 4 passed |
+| The RD0, RD3, RD8a and RD10 files and the linked-notes file (polled-job users) | first 1 failed, 262 passed (a close's epoch read as an interruption; narrowed to the switch), then 52 passed on the companion, RD3 fix and menu files |
+| Capture and item-authoring files (`make_card`'s request hash) | 105 passed |
+| 60 files: every test file naming the union read, pads, polled jobs, item authoring, the menu and companion RPCs or their helpers, the protection files, capture, identity pins, structure ratchets, architecture, desktop RPC contract, mobile allowlist, test layout, RD0 fences; three chunks, `-m "not arc_close"` | 770 passed; 835 passed; 288 passed |
+| `tests/test_identity_pins.py` after each source commit | 363 passed (three times) |
+| `uv run ruff check` / `uv run lint-imports --no-cache` | All checks passed! / Contracts: 54 kept, 0 broken. |
+| `uv run python scripts/check_gate_partition.py` | collected 33923: landing 33857 + arc_close 66 |
+
+No identity pin, golden or structure number moved. No config field, no HTTP use, no migration, no prompt change, no
+tag (display and request identity only).
+
+**Not verified.** A real search, judge or correspondents run over a real library (spies and fakes only); the landing
+gate and the full suite; the frontend (none of its files changed here).

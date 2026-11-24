@@ -81,6 +81,17 @@ def learning_objects_named(connection: sqlite3.Connection, extraction_id: str, s
 
 
 
+def section_hashes_in_reading(connection: sqlite3.Connection, extraction_id: str) -> dict[tuple[str, str], set[str]]:
+    """Per (section, LO), every section hash any row for it was written against (a judge's or the learner's)."""
+
+    out: dict[tuple[str, str], set[str]] = {}
+    for section_id, lo_id, section_hash in connection.execute(
+            "SELECT DISTINCT section_id, learning_object_id, section_hash FROM section_coverage WHERE extraction_id = ?",
+            (extraction_id,)):
+        out.setdefault((str(section_id), str(lo_id)), set()).add(str(section_hash))
+    return out
+
+
 def learning_objects_in_reading(connection: sqlite3.Connection, extraction_id: str) -> list[str]:
     """Every LO any row (judge or learner) names for a section of this reading."""
 

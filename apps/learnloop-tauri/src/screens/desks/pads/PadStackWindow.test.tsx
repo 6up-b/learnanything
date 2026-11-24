@@ -284,6 +284,21 @@ describe("a pad stack window", () => {
     expect(blocks[at + 1]).toMatchObject({ kind: "cell", provenance: "learner", bodyMd: "" });
   });
 
+  it("Teach me on a line linked to two readings teaches the first reading's passages only (never its spans under another reading)", async () => {
+    const { store, host, flush } = mount();
+    const teachMe = vi.fn();
+    host.teachMe = teachMe;
+    await waitFor(() => expect(block("fx_b_r2")).toBeTruthy());
+    store.commitPad("fx_pad_running", [
+      { op: "link_anchor", blockId: "fx_b_r2", extractionId: "fx_ext_attention", spanId: "fx_ext_attention_s1_1", eventId: "lnk_other", expectedAnchorHead: null, annotationId: null },
+      { op: "link_anchor", blockId: "fx_b_r2", extractionId: "fx_ext_softmax", spanId: "fx_ext_softmax_s1_4", eventId: "lnk_same", expectedAnchorHead: null, annotationId: null },
+    ]);
+    await flush();
+    fireEvent.contextMenu(block("fx_b_r2"));
+    fireEvent.click(screen.getByText("Teach me this"));
+    expect(teachMe).toHaveBeenCalledWith("fx_ext_softmax", ["fx_ext_softmax_s1_3", "fx_ext_softmax_s1_4"]);
+  });
+
   it("a notebook frame's right-click opens the pad menu labelled for its owner, the frame's text only ever quoted", async () => {
     const { store, flush } = mount();
     await waitFor(() => expect(block("fx_b_r1")).toBeTruthy());
@@ -424,6 +439,70 @@ describe("the fix round (RD4 review)", () => {
     fireEvent.click(screen.getByText("Submit this block as…"));
     return screen.findByRole("button", { name: /a teach-back of the idea/ });
   }
+
+  it("Make it practice saves once: a second press while the first save is on its way authors nothing more", async () => {
+    const { api } = mount({ server: anchoredRunning() });
+    api.passageUnionRange = (async () => ({ sections: [{ learningObjects: [{ learningObjectId: "lo1" }] }] })) as never;
+    let finish: () => void = () => undefined;
+    const authored: unknown[] = [];
+    api.authorPracticeItem = ((input: unknown) => {
+      authored.push(input);
+      return new Promise((resolve) => { finish = () => resolve({ practiceItemId: "pi1" }); });
+    }) as never;
+    await waitFor(() => expect(block("fx_b_r1")).toBeTruthy());
+    fireEvent.contextMenu(block("fx_b_r1"));
+    fireEvent.click(screen.getByText("Make it practice"));
+    const sheet = await screen.findByRole("dialog", { name: "make it practice" });
+    fireEvent.change(within(sheet).getAllByRole("textbox")[1], { target: { value: "the largest score wins" } });
+    await waitFor(() => expect((within(sheet).getByText("save to my queue") as HTMLButtonElement).disabled).toBe(false));
+    const save = within(sheet).getByText("save to my queue");
+    fireEvent.click(save);
+    fireEvent.click(within(sheet).getByRole("button", { name: "saving…" }));
+    expect(authored).toHaveLength(1);
+    await act(async () => {
+      finish();
+      await Promise.resolve();
+    });
+  });
+
+  it("Make it practice sends one key per sheet with every save of it (a retry after a lost reply reuses it)", async () => {
+    const { api } = mount({ server: anchoredRunning() });
+    api.passageUnionRange = (async () => ({ sections: [{ learningObjects: [{ learningObjectId: "lo1" }] }] })) as never;
+    const authored: Array<{ clientIdempotencyKey?: string }> = [];
+    let lost = true;
+    api.authorPracticeItem = (async (input: { clientIdempotencyKey?: string }) => {
+      authored.push(input);
+      if (lost) {
+        lost = false;
+        throw { code: "sidecar_unavailable", message: "the reply was lost" };
+      }
+      return { practiceItemId: "pi1" };
+    }) as never;
+    await waitFor(() => expect(block("fx_b_r1")).toBeTruthy());
+    fireEvent.contextMenu(block("fx_b_r1"));
+    fireEvent.click(screen.getByText("Make it practice"));
+    const sheet = await screen.findByRole("dialog", { name: "make it practice" });
+    fireEvent.change(within(sheet).getAllByRole("textbox")[1], { target: { value: "the largest score wins" } });
+    await waitFor(() => expect((within(sheet).getByText("save to my queue") as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(within(sheet).getByText("save to my queue"));
+    await waitFor(() => expect((within(sheet).getByText("save to my queue") as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(within(sheet).getByText("save to my queue"));
+    await waitFor(() => expect(authored).toHaveLength(2));
+    expect(authored[0].clientIdempotencyKey).toBeTruthy();
+    expect(authored[1].clientIdempotencyKey).toBe(authored[0].clientIdempotencyKey);
+  });
+
+  it("the Make it practice sheet takes the focus, and escape lets it go", async () => {
+    const { api } = mount({ server: anchoredRunning() });
+    api.passageUnionRange = (async () => ({ sections: [{ learningObjects: [{ learningObjectId: "lo1" }] }] })) as never;
+    await waitFor(() => expect(block("fx_b_r1")).toBeTruthy());
+    fireEvent.contextMenu(block("fx_b_r1"));
+    fireEvent.click(screen.getByText("Make it practice"));
+    const sheet = await screen.findByRole("dialog", { name: "make it practice" });
+    expect(sheet.contains(document.activeElement)).toBe(true);
+    fireEvent.keyDown(document.body, { key: "Escape" });
+    expect(screen.queryByRole("dialog", { name: "make it practice" })).toBeNull();
+  });
 
   it("a submission retried after a lost reply resends the same frozen request: one submission id, one teach-back target", async () => {
     const { api } = mount({ server: anchoredRunning() });

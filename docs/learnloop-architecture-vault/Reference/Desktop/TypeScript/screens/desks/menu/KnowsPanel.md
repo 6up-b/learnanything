@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/menu/KnowsPanel.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/menu/KnowsPanel.tsx) |
-| Source lines | 84 |
+| Source lines | 96 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/menu/_area|TypeScript/screens/desks/menu]] |
 | Refactor status | `ACTIVE` |
@@ -54,18 +54,21 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export interface KnowsActions` — interface, line 7
-- `export function knowsGroups(place: PassageUnionSpanDto, actions: KnowsActions): Array<` — function, line 23
-- `export function KnowsPanel(` — function, line 38
+- `export interface KnowsActions` — interface, line 8
+- `export function knowsGroups(place: PassageUnionSpanDto, actions: KnowsActions, at?:` — function, line 31
+- `export function KnowsPanel(` — function, line 50
 
 ## Internal implementation anchors
 
-- `function quality(alias: string): string` — function, line 13
-- `function day(at: string | null | undefined): string` — function, line 17
-- `const date = new Date(at)` — const, line 19
-- `const groups: Array<` — const, line 24
-- `let live = true` — let, line 47
-- `const groups = knowsGroups(place.knows, actions)` — const, line 64
+- `function quality(alias: string): string` — function, line 14
+- `function day(at: string | null | undefined): string` — function, line 18
+- `const date = new Date(at)` — const, line 20
+- `interface LinkedNote` — interface, line 25
+- `const openHere = at ? ()` — const, line 33
+- `const groups: Array<` — const, line 34
+- `const panel = useRef<HTMLDivElement | null>(null)` — const, line 57
+- `let live = true` — let, line 61
+- `const groups = knowsGroups(place.knows, actions,` — const, line 76
 
 ## Who imports or calls it
 
@@ -79,6 +82,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 ### Desktop source modules
 
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `MenuObjectInput`, `PassageKnowsDto`, `PassageUnionSpanDto`
+- [[Reference/Desktop/TypeScript/screens/desks/menu/ContextMenu|src/screens/desks/menu/ContextMenu.tsx]] — import-or-re-export; imports `useSheetFocus`
 
 ### Assets, platform, and third-party dependencies
 

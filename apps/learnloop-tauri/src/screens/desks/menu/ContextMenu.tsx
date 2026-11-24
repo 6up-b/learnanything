@@ -4,14 +4,14 @@
 // it, a press outside closes. The Append row opens its submenu of the desk's pads on hover (→ from the keys).
 // Styled as the mockup measures it (desk.css `.desk-menu`).
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import type { MenuObjectInput, PassagePromotedDto, PromotedJobDto, PromotedRowDto, ProposalLabel } from "../../../api/dto";
+import type { MenuObjectInput, PassagePromotedDto, PassagePromotedInput, PromotedJobDto, PromotedRowDto, ProposalLabel } from "../../../api/dto";
 import type { Poller } from "../../../api/poller";
 import { screenLeavesKey } from "../../../app/keymap";
 import { MENU_SIZES, placeMenu, placeSubmenu, promotedReason, shownPromoted, type MenuRow } from "./model";
 
 /** The promoted rows' calls (passage.promoted and its job; proposal.label with proposalKind "promoted_row"). */
 export interface PromotedApi {
-  passagePromoted(input: MenuObjectInput): Promise<PassagePromotedDto>;
+  passagePromoted(input: PassagePromotedInput): Promise<PassagePromotedDto>;
   passagePromotedJob(input: { jobId: string }): Promise<PromotedJobDto>;
   passagePromotedCancel(input: { jobId: string }): Promise<PromotedJobDto>;
   label(rowId: string, label: ProposalLabel): void;
@@ -32,8 +32,14 @@ export interface ContextMenuProps {
   /** The object as the server reads it, for its promoted rows (none for an object with no passage). */
   object?: MenuObjectInput | null;
   promoted?: PromotedApi | null;
-  /** What runs a promoted row's action (open, What this knows, the carried question…). */
-  onPromoted?: (row: PromotedRowDto) => void;
+  /** What runs a promoted row's action (open, What this knows, the carried question…); false when it could not. */
+  onPromoted?: (row: PromotedRowDto, origin: MenuObjectInput | null) => boolean | void;
+  /** The rows this menu shows now, for the verbs that read them (Open beside): told only while the menu is open on
+   * its object, so a late answer for a closed menu never reaches another. */
+  onRows?: (rows: PromotedRowDto[]) => void;
+  /** Whether the object is exam or held-out material, once its first answer says (the verbs that would quote or send
+   * its words are left out then). */
+  onWithheld?: (withheld: boolean) => void;
   poller?: Poller;
   /** The window the menu is about: the job's poll waits while it is paused. */
   owner?: string | null;
@@ -47,21 +53,66 @@ export interface ContextMenuProps {
   listen?: (target: "window", type: string, handler: (event: Event) => void, capture?: boolean) => () => void;
 }
 
+function newRequestId(): string {
+  const random = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now().toString(36)}${Math.random().toString(36).slice(2)}`;
+  return `prom_${random}`;
+}
+
 const PAGE_LISTEN = (target: "window", type: string, handler: (event: Event) => void, capture = false) => {
   window.addEventListener(type, handler, capture);
   return () => window.removeEventListener(type, handler, capture);
 };
 
-export function ContextMenu({ header, label, rows, at, object = null, promoted = null, onPromoted, poller, owner = null, append = null, insertHeading, onClose, children, listen = PAGE_LISTEN }: ContextMenuProps) {
+/** A menu's sheet or panel owns the focus while it is open (spec §5.4): it takes it when it opens (its first
+ * field, else itself), escape closes it wherever the key lands, and the focus goes back to where it was. */
+export function useSheetFocus(ref: { current: HTMLElement | null }, onEscape: () => void): void {
+  const escape = useRef(onEscape);
+  escape.current = onEscape;
+  useEffect(() => {
+    const before = document.activeElement as HTMLElement | null;
+    const node = ref.current;
+    if (node && !node.contains(document.activeElement)) {
+      const field = node.querySelector<HTMLElement>("textarea, input, select");
+      (field ?? node).focus();
+    }
+    const onKey = (event: KeyboardEvent) => {
+      // A modal sheet: it owns escape wherever the focus is.
+      if (screenLeavesKey(event, { modal: true }) || event.key !== "Escape") return;
+      event.preventDefault();
+      event.stopPropagation();
+      escape.current();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      if (before && before.isConnected && before !== document.body) before.focus();
+    };
+  }, [ref]);
+}
+
+export function ContextMenu({ header, label, rows, at, object = null, promoted = null, onPromoted, onRows, onWithheld, poller, owner = null, append = null, insertHeading, onClose, children, listen = PAGE_LISTEN }: ContextMenuProps) {
   const [cheap, setCheap] = useState<PromotedRowDto[]>([]);
   const [judgedPending, setJudgedPending] = useState(false);
+  // Exam or held-out material: nothing was searched for it (said plainly in the promoted block).
+  const [withheld, setWithheld] = useState(false);
+  // The judged rows' job ended without rows (interrupted by a vault switch, or failed): nothing stale shows.
+  const [judgedStopped, setJudgedStopped] = useState(false);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const [index, setIndex] = useState(0);
   const [submenuOpen, setSubmenuOpen] = useState(false);
+  // The submenu's own selection (its pads, then "a new pad"): its keys move it while it is open.
+  const [subIndex, setSubIndex] = useState(0);
   const [place, setPlace] = useState<{ left: number; top: number }>({ left: at.x + 2, top: at.y + 2 });
   const [subPlace, setSubPlace] = useState<{ left: number; top: number } | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const appendRef = useRef<HTMLButtonElement | null>(null);
+  // Closing the menu gives the focus back to where it was (the passage's window, the pad's editor).
+  useEffect(() => {
+    const before = document.activeElement as HTMLElement | null;
+    return () => {
+      if (before && before.isConnected && before !== document.body) before.focus();
+    };
+  }, []);
 
   // The promoted rows: the cheap ones at once; the job's rows replace them when it is done. The job is cancelled
   // when the menu closes before it is (a newer menu on the desk supersedes it on the server too).
@@ -70,6 +121,10 @@ export function ContextMenu({ header, label, rows, at, object = null, promoted =
   // cancel the judged job) while the menu stays open on the same object.
   const promotedNow = useRef(promoted);
   promotedNow.current = promoted;
+  const onRowsNow = useRef(onRows);
+  onRowsNow.current = onRows;
+  const onWithheldNow = useRef(onWithheld);
+  onWithheldNow.current = onWithheld;
   const hasPromoted = promoted !== null;
   useEffect(() => {
     const promoted = promotedNow.current;
@@ -78,9 +133,30 @@ export function ContextMenu({ header, label, rows, at, object = null, promoted =
     let jobId: string | null = null;
     let finished = false;
     let stop: (() => void) | null = null;
-    void promoted.passagePromoted(object).then((found) => {
-      if (!live) return;
+    // One request id per menu opening: a retry after a lost reply reuses it (the same job, its work done once).
+    let requestId = newRequestId();
+    const ask = (): Promise<PassagePromotedDto> => promoted.passagePromoted({ ...object, requestId }).catch((error: unknown) => {
+      const code = error && typeof error === "object" ? (error as { code?: unknown; retryable?: unknown }) : null;
+      if (code?.code === "request_reused") {
+        // The id met another object (it never should): a new one, once.
+        requestId = newRequestId();
+        return promoted.passagePromoted({ ...object, requestId });
+      }
+      if (code?.retryable === true && live) return promoted.passagePromoted({ ...object, requestId });
+      throw error;
+    });
+    void ask().then((found) => {
+      if (!live) {
+        // Closed before the first answer came: its judged job is cancelled now (nothing else knows its id). A verb
+        // run from the menu meanwhile still waits on the object's protection: it is told.
+        if (found.pendingJob) void promoted.passagePromotedCancel({ jobId: found.pendingJob.jobId }).catch(() => undefined);
+        onWithheldNow.current?.(found.withheld === true);
+        return;
+      }
       setCheap(found.rows);
+      onRowsNow.current?.(found.rows);
+      setWithheld(found.withheld === true);
+      onWithheldNow.current?.(found.withheld === true);
       if (found.pendingJob && poller) {
         jobId = found.pendingJob.jobId;
         setJudgedPending(true);
@@ -93,7 +169,13 @@ export function ContextMenu({ header, label, rows, at, object = null, promoted =
             if (job.done) {
               finished = true;
               setJudgedPending(false);
-              if (job.status === "done") setCheap(job.rows);
+              if (job.status === "done") {
+                setCheap(job.rows);
+                onRowsNow.current?.(job.rows);
+              } else {
+                // Interrupted (another vault opened) or failed: no rows of it show; the menu opened again asks anew.
+                setJudgedStopped(true);
+              }
             }
             return { done: job.done };
           },
@@ -102,7 +184,10 @@ export function ContextMenu({ header, label, rows, at, object = null, promoted =
           },
         });
       }
-    }, () => undefined);
+    }, () => {
+      // No answer: the protection is not known from here; the verbs' own calls keep theirs.
+      onWithheldNow.current?.(false);
+    });
     return () => {
       live = false;
       stop?.();
@@ -115,9 +200,9 @@ export function ContextMenu({ header, label, rows, at, object = null, promoted =
   const promotedRows: MenuRow[] = shownPromoted(cheap, dismissed).map((row) => ({
     id: `promoted:${row.rowId}`, glyph: row.glyph, label: row.label, note: promotedReason(row), section: "promoted", promoted: row,
     run: () => {
-      promoted?.label(row.rowId, "opened");
       onClose();
-      onPromoted?.(row);
+      // Labelled opened only when its action ran (a row that could not open stays unlabelled).
+      if (onPromoted?.(row, object) !== false) promoted?.label(row.rowId, "opened");
     },
   }));
   const all = [...promotedRows, ...rows];
@@ -135,6 +220,7 @@ export function ContextMenu({ header, label, rows, at, object = null, promoted =
     const row = appendRef.current?.getBoundingClientRect();
     if (!row) return;
     setSubPlace(placeSubmenu({ right: row.right, top: row.top }, MENU_SIZES.submenuWidth, { w: window.innerWidth }));
+    if (!submenuOpen) setSubIndex(Math.max(0, append?.pads.findIndex((pad) => pad.padId === append.current) ?? 0));
     setSubmenuOpen(true);
   };
 
@@ -149,6 +235,18 @@ export function ContextMenu({ header, label, rows, at, object = null, promoted =
       // A modal menu: it owns the keyboard while it is open, never a chord.
       if (screenLeavesKey(event, { modal: true }) || event.altKey || event.ctrlKey || event.metaKey) return;
       const current = runnable[Math.min(index, runnable.length - 1)];
+      if (submenuOpen && append) {
+        // The Append submenu owns the keys while open: its rows move and run; left or escape go back to the menu.
+        const count = append.pads.length + 1;
+        if (event.key === "ArrowDown" || event.key === "j" || (event.key === "Tab" && !event.shiftKey)) setSubIndex((now) => (now + 1) % count);
+        else if (event.key === "ArrowUp" || event.key === "k" || (event.key === "Tab" && event.shiftKey)) setSubIndex((now) => (now - 1 + count) % count);
+        else if (event.key === "Enter") append.onPick(subIndex < append.pads.length ? append.pads[subIndex].padId : "+");
+        else if (event.key === "Escape" || event.key === "ArrowLeft") setSubmenuOpen(false);
+        else return;
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
       if (event.key === "Escape") {
         if (submenuOpen) setSubmenuOpen(false);
         else onClose();
@@ -217,10 +315,12 @@ export function ContextMenu({ header, label, rows, at, object = null, promoted =
     <>
       <div ref={menuRef} className="desk-menu" role="menu" aria-label={label ?? header} style={{ left: place.left, top: place.top }}>
         <div className="mh">{header}</div>
-        {promotedRows.length || judgedPending ? (
+        {promotedRows.length || judgedPending || withheld || judgedStopped ? (
           <div className="pro" data-menu-promoted="">
             {promotedRows.map(rowView)}
             {judgedPending ? <div className="pending">◐ looking for more · the four most useful show</div> : null}
+            {withheld ? <div className="pending" data-menu-withheld="">exam or held-out material: nothing is searched for it</div> : null}
+            {judgedStopped ? <div className="pending">the search for more stopped · open the menu again to look again</div> : null}
           </div>
         ) : null}
         {verbs.filter((row) => !row.aid).map(rowView)}
@@ -233,15 +333,15 @@ export function ContextMenu({ header, label, rows, at, object = null, promoted =
       {submenuOpen && append && subPlace ? (
         <div className="desk-menu submenu" role="menu" aria-label="append to" style={{ left: subPlace.left, top: subPlace.top }}>
           <div className="mh">append to</div>
-          {append.pads.map((pad) => (
-            <button key={pad.padId} type="button" role="menuitem" className={`mi${pad.padId === append.current ? " sel" : ""}`} onClick={() => append.onPick(pad.padId)}>
+          {append.pads.map((pad, padIndex) => (
+            <button key={pad.padId} type="button" role="menuitem" className={`mi${padIndex === subIndex ? " sel" : ""}`} onMouseEnter={() => setSubIndex(padIndex)} onClick={() => append.onPick(pad.padId)}>
               <span className="g">{pad.padId === append.current ? "✓" : ""}</span>
               <span className="t">{pad.title}</span>
               <span className="k" />
             </button>
           ))}
           <div className="sep" />
-          <button type="button" role="menuitem" className="mi" onClick={() => append.onPick("+")}>
+          <button type="button" role="menuitem" className={`mi${subIndex === append.pads.length ? " sel" : ""}`} onMouseEnter={() => setSubIndex(append.pads.length)} onClick={() => append.onPick("+")}>
             <span className="g">+</span>
             <span className="t">a new pad</span>
             <span className="k">alt+n</span>

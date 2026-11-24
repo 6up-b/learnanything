@@ -1,11 +1,11 @@
 // The pad's overlays: the pad menu (spec §9.2, its marimo row inserting a cell run in the pad's notebook),
 // the arrange overlay (§10.2), and the sheets for submitting a block (§10.9) and making a line into practice.
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { PadBlockDto, PadBlockKind, PadProvenance } from "../../../api/dto";
 import type { MenuObjectInput } from "../../../api/dto";
 import { screenLeavesKey } from "../../../app/keymap";
 import { useListenerHub, useWindowLifecycle } from "../lifecycle";
-import { ContextMenu } from "../menu/ContextMenu";
+import { ContextMenu, useSheetFocus } from "../menu/ContextMenu";
 import { MARIMO_CELL_INSERT, MARIMO_CELL_ROW } from "../notebook/menuBridge";
 import type { MenuRow } from "../menu/model";
 import type { PadsHost } from "./host";
@@ -89,6 +89,8 @@ export function PadMenu({ request, host, windowId, state, muted, onClose, onInse
   const anchors = anchorsOf(state, request.blockId);
   const pieces = useMemo(() => host.sourcePieces(), [host]);
   const [practicing, setPracticing] = useState(false);
+  // A line whose words are about exam or held-out material (its first answer says): nothing sends them on.
+  const [withheld, setWithheld] = useState(false);
   const hub = useListenerHub();
   const text = request.text.trim();
   const close = (then?: () => void) => () => {
@@ -101,7 +103,8 @@ export function PadMenu({ request, host, windowId, state, muted, onClose, onInse
     if (lifecycle.state !== "active") onClose();
   }, [lifecycle.state, onClose]);
   const object: MenuObjectInput | null = request.blockId ? { objectKind: "pad_line", blockId: request.blockId, windowId, ...(host.deskId ? { deskId: host.deskId } : {}) } : null;
-  const textRows: Row[] = text ? [
+  const quoting = new Set(["a", "/", "v", "p", "c", "t"]);
+  const allTextRows: Row[] = text ? [
     { key: "a", glyph: "?", label: "Ask about this", run: close(() => host.askAbout(text, { padId: request.padId, blockId: request.blockId, anchor: anchors[0] ?? null })) },
     ...(request.blockId ? [{ key: "n", glyph: "›", label: "Note in margin", note: "a note attached under this line", run: close(onNote) }] : []),
     { key: "/", glyph: "⌕", label: "Find in my sources", run: close(() => host.openSearch(text)) },
@@ -116,9 +119,14 @@ export function PadMenu({ request, host, windowId, state, muted, onClose, onInse
     }) }] : []),
     ...(anchors.length ? [{ key: "p", glyph: "✎", label: "Make it practice", note: "drafts an item from this line for your queue", run: () => setPracticing(true) }] : []),
     { key: "c", glyph: "◌", label: "Carry", run: close(() => host.carry(text, { kind: "block", ref: request.blockId, anchor: anchors[0] ?? null })) },
-    ...(anchors.length && host.teachMe ? [{ key: "t", glyph: "◎", label: "Teach me this", run: close(() => host.teachMe?.(anchors[0].extractionId, anchors.map((each) => each.spanId))) }] : []),
+    // A lesson is on one reading: the line's passages in its first linked reading (span ids repeat across books).
+    ...(anchors.length && host.teachMe ? [{ key: "t", glyph: "◎", label: "Teach me this", run: close(() => host.teachMe?.(anchors[0].extractionId,
+      anchors.filter((each) => each.extractionId === anchors[0].extractionId).map((each) => each.spanId))) }] : []),
     ...(block && isLearnersWords(block) ? [{ key: "s", glyph: "✓", label: "Submit this block as…", run: close(onSubmit) }] : []),
   ] : [];
+  // On exam or held-out material the rows that would send the line's words on (the tutor, a search, a figure,
+  // practice, a carried question, a lesson) are left out, as a protected passage is never copied into a pad.
+  const textRows = withheld ? allTextRows.filter((row) => !quoting.has(row.key)) : allTextRows;
   const insertRows: Row[] = [
     // §9.2 gives this row the letter k, but an open menu's j/k move the selection (§5.4's matrix): moving
     // wins, so the row is chosen with ↑↓ ↵ (or alt+d from the pad) and shows no letter.
@@ -153,12 +161,13 @@ export function PadMenu({ request, host, windowId, state, muted, onClose, onInse
   return (
     <ContextMenu
       label="the pad menu"
-      header={`${request.label ?? "your pad"} · “${(text || "this line").replace(/\s+/g, " ").slice(0, 46)}${text.length > 46 ? "…" : ""}”`}
+      header={withheld ? `${request.label ?? "your pad"} · about exam or held-out material` : `${request.label ?? "your pad"} · “${(text || "this line").replace(/\s+/g, " ").slice(0, 46)}${text.length > 46 ? "…" : ""}”`}
       rows={rows}
       at={{ x: request.x, y: request.y }}
       object={object}
       promoted={host.menu?.promoted ?? null}
       onPromoted={host.menu?.onPromoted}
+      onWithheld={setWithheld}
       poller={host.menu?.poller}
       owner={windowId}
       insertHeading={request.insertLabel ?? (request.blockId ? "insert below this line" : "insert at the end of this pad")}
@@ -176,6 +185,12 @@ function PracticeSheet({ host, text, anchors, onClose }: { host: PadsHost; text:
   const [los, setLos] = useState<string[] | null>(null);
   const [lo, setLo] = useState<string | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
+  // One save at a time: a second press while the first is on its way would author a second item.
+  const [saving, setSaving] = useState(false);
+  // One key per sheet, sent with every save of it: a retry after a lost reply returns the same item.
+  const [authoringKey] = useState(() => host.mintId("pi"));
+  const node = useRef<HTMLDivElement | null>(null);
+  useSheetFocus(node, onClose);
   useEffect(() => {
     let live = true;
     const first = anchors[0];
@@ -191,7 +206,7 @@ function PracticeSheet({ host, text, anchors, onClose }: { host: PadsHost; text:
     };
   }, [anchors, host]);
   return (
-    <div className="desk-sheet" role="dialog" aria-label="make it practice">
+    <div ref={node} tabIndex={-1} className="desk-sheet" role="dialog" aria-label="make it practice">
       <div className="head">✎ make it practice · it joins your queue once you save it</div>
       <label>the question<textarea value={prompt} onChange={(event) => setPrompt(event.target.value)} /></label>
       <label>what a right answer says<textarea value={answer} onChange={(event) => setAnswer(event.target.value)} /></label>
@@ -200,13 +215,18 @@ function PracticeSheet({ host, text, anchors, onClose }: { host: PadsHost; text:
       )}
       {failure ? <div className="note err">{failure}</div> : null}
       <div className="acts">
-        <button type="button" disabled={!lo || !prompt.trim() || !answer.trim()} onClick={() => {
-          if (!lo) return;
-          void host.api.authorPracticeItem({ learningObjectId: lo, prompt: prompt.trim(), expectedAnswer: answer.trim() }).then(() => {
+        <button type="button" disabled={saving || !lo || !prompt.trim() || !answer.trim()} onClick={() => {
+          if (!lo || saving) return;
+          setSaving(true);
+          setFailure(null);
+          void host.api.authorPracticeItem({ learningObjectId: lo, prompt: prompt.trim(), expectedAnswer: answer.trim(), clientIdempotencyKey: authoringKey }).then(() => {
             host.toast("added to your queue");
             onClose();
-          }, (error: unknown) => setFailure(messageOf(error)));
-        }}>save to my queue</button>
+          }, (error: unknown) => {
+            setSaving(false);
+            setFailure(messageOf(error));
+          });
+        }}>{saving ? "saving…" : "save to my queue"}</button>
         <button type="button" onClick={onClose}>not now</button>
       </div>
     </div>

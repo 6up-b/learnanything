@@ -23,7 +23,7 @@ from typing import Any
 from pydantic import Field, model_validator
 
 from learnloop.clock import parse_utc, utc_now_iso
-from learnloop.intent.inline_checks import answered_checks, due_checks
+from learnloop.intent.inline_checks import answered_checks, due_checks, next_check_due, serving_view
 from learnloop.section_map import RangeError
 from learnloop.source_retrieval import deliverable_path as DP
 from learnloop.source_retrieval import deliverables as DL
@@ -65,7 +65,7 @@ def _progress(ctx: SidecarContext, goal_id: str) -> reads.Progress:
     return read
 
 
-def _settled(ctx: SidecarContext, vault: Any, goal_id: str) -> set[str]:
+def _settled(ctx: SidecarContext, vault: Any, repository: Any, goal_id: str) -> set[str]:
     """The unjudged LOs this sidecar's coverage already tried for the goal with nothing left to judge (no
     candidate section): their sections are settled. None while it runs, or after it failed."""
 
@@ -73,22 +73,28 @@ def _settled(ctx: SidecarContext, vault: Any, goal_id: str) -> set[str]:
     with work.lock:
         state = (work.covering.get(goal_id) or {}).get("state")
         attempted = set(work.attempted.get(goal_id, ()))
-    if state in ("running", "failed"):
+    if state in ("running", "failed") or not attempted:
         return set()
-    return {lo_id for lo_id, key in attempted if key == DP.coverage_key(vault, lo_id)}
+    # Settled only against the library it was tried in: a reading added since may hold the LO.
+    keys = DP.attempt_keys(vault, repository, sorted({lo_id for lo_id, _key in attempted}))
+    return {lo_id for lo_id, key in attempted if key == keys.get(lo_id)}
 
 
-def _checks(vault: Any, repository: Any, goal_id: str) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    due = due_checks(vault, repository, goal_id=goal_id)
+def _checks(vault: Any, repository: Any, goal_id: str) -> tuple[list[dict[str, Any]], list[dict[str, Any]], str | None]:
+    """The due checks, today's answered ones, and when the next check falls due (the band reads again then: a newly
+    due check must hide what it covers)."""
+
+    view = serving_view(vault, repository)
+    due = due_checks(vault, repository, goal_id=goal_id, view=view)
     answered = answered_checks(vault, repository, since=_day_start())
-    return due, answered
+    return due, answered, next_check_due(view)
 
 
 def _model(ctx: SidecarContext, vault: Any, repository: Any, goal_id: str,
            due: list[dict[str, Any]], answered: list[dict[str, Any]]) -> reads.GoalModel:
     try:
         return reads.read_goal(vault, repository, goal_id, held={row["lo_id"] for row in due},
-                               answered={row["lo_id"] for row in answered}, settled=_settled(ctx, vault, goal_id),
+                               answered={row["lo_id"] for row in answered}, settled=_settled(ctx, vault, repository, goal_id),
                                progress=_progress(ctx, goal_id))
     except DL.DeliverableError as exc:
         raise curriculum._error(exc) from exc
@@ -125,11 +131,11 @@ class GoalBandInput(ParamsModel):
 def goal_band(ctx: SidecarContext, params: GoalBandInput) -> dict[str, Any]:
     """The goal band (§12.2) and the path view's data (§12.5)."""
 
-    vault, repository = curriculum._require(ctx)
+    vault, repository = curriculum._require_read(ctx)
     other = _not_a_deliverable(vault, params.goal_id)
     if other is not None:
         return versioned(other)
-    due, answered = _checks(vault, repository, params.goal_id)
+    due, answered, next_due = _checks(vault, repository, params.goal_id)
     model = _model(ctx, vault, repository, params.goal_id, due, answered)
     work = curriculum._work(ctx)
     with work.lock:
@@ -137,9 +143,11 @@ def goal_band(ctx: SidecarContext, params: GoalBandInput) -> dict[str, Any]:
     progress = {"covering": covering.get("state") == "running",
                 "failure": ({"reason": covering.get("reason"), "message": covering.get("message")}
                             if covering.get("state") == "failed" else None)}
-    return versioned(reads.band_view(vault, repository, model, due=due, answered=answered,
-                                     likely=curriculum._likely(vault, repository),
-                                     pace=_pace(vault, repository, model.goal), progress=progress))
+    band = reads.band_view(vault, repository, model, due=due, answered=answered,
+                           protection=reads.protection(vault, repository, due, model),
+                           likely=curriculum._likely(vault, repository), pace=_pace(vault, repository, model.goal),
+                           progress=progress)
+    return versioned({**band, "next_check_due": next_due})
 
 
 class GoalLensInput(ParamsModel):
@@ -169,7 +177,7 @@ def goal_lens(ctx: SidecarContext, params: GoalLensInput) -> dict[str, Any]:
     from learnloop.reader import reader_dialogue as RD
     from learnloop_sidecar.handlers.reader import _require_source_reader, _source_id_for_extraction
 
-    vault, repository = curriculum._require(ctx)
+    vault, repository = curriculum._require_read(ctx)
     if not RD.reader_enabled(vault):
         raise SidecarError("reader_disabled", "The reader dialogue is disabled (tutor_qa.reader_enabled=False).")
     resolved = resolve_extraction_id(repository, params.extraction_id)
@@ -181,10 +189,12 @@ def goal_lens(ctx: SidecarContext, params: GoalLensInput) -> dict[str, Any]:
     other = _not_a_deliverable(vault, params.goal_id)
     if other is not None:
         return versioned({**other, "extraction_id": resolved, "mapping": "unmapped", "levels": []})
-    due, answered = _checks(vault, repository, params.goal_id)
+    due, answered, _next_due = _checks(vault, repository, params.goal_id)
     model = _model(ctx, vault, repository, params.goal_id, due, answered)
     try:
-        return versioned(reads.lens_view(vault, repository, model, resolved, from_span_id=params.from_span_id,
+        return versioned(reads.lens_view(vault, repository, model, resolved,
+                                         protection=reads.protection(vault, repository, due, model),
+                                         from_span_id=params.from_span_id,
                                          to_span_id=params.to_span_id, t0=params.t0, t1=params.t1))
     except RangeError as exc:
         raise SidecarError(exc.code, str(exc)) from exc

@@ -13,7 +13,7 @@ import type {
   ReaderImportExerciseInput,
 } from "../../../api/dto";
 import type { LessonEntry } from "../../LessonView";
-import { objectInput, verbsFor, type MenuObject, type MenuRow, type VerbId } from "./model";
+import { QUOTING_VERBS, captureNodes, hasPassage, objectInput, verbsFor, type MenuObject, type MenuRow, type VerbId } from "./model";
 
 /** The server entries the verbs call. */
 export interface MenuApi {
@@ -41,12 +41,16 @@ export interface MenuContext {
   append: (object: MenuObject, padId: string | "+" | null) => void;
   /** A margin note's words, asked in a small sheet; resolves null when the learner leaves it. */
   askNote: (object: MenuObject) => Promise<string | null>;
-  /** "Draft this for your queue?": the review before Make it practice adds anything. */
+  /** Make it practice on an exercise: its words, the import, and what it made (a sheet of the desks'). */
+  reviewExercise: (object: MenuObject, anchor: { extractionId: string; spanId: string }) => void;
+  /** "Draft this for your queue?": the confirmation before Make it practice drafts a section question. */
   confirm: (title: string, detail: string) => Promise<boolean>;
   /** Show me: the figure built for the passage (null when none is shown), polled under the window asked from. */
   showMe: (text: string, anchor: { extractionId: string; spanId: string }, ownerWindowId: string | null) => Promise<{ figureId: string; line: string } | null>;
-  /** The figure, landed where the desks keep figures (the running pad). */
-  landFigure: (object: MenuObject, figure: { figureId: string; line: string }) => void;
+  /** Where a figure asked for now will land: the running pad of the desk asked on (null: it has none). */
+  figureDestination: () => string | null;
+  /** The figure, landed in the pad named when it was asked for. */
+  landFigure: (object: MenuObject, figure: { figureId: string; line: string }, padId: string | null) => void | Promise<void>;
   /** A Teacher lesson opened in the desk's stack (a tab of its own while its first turn runs; spec §11.1). */
   teachMe: (entry: LessonEntry) => void;
   /** The desks' own moves for a window (§5.2, §6.6). */
@@ -54,6 +58,8 @@ export interface MenuContext {
   showKnows: (object: MenuObject) => void;
   /** The rows passage.promoted gave this object (Open beside takes the first correspondent among them). */
   promotedRows: () => PromotedRowDto[];
+  /** Whether the object is exam or held-out material (resolves when its first answer says; false with no passage). */
+  withheld: () => Promise<boolean>;
 }
 
 function errorText(error: unknown): string {
@@ -87,6 +93,12 @@ export async function runVerb(id: VerbId, object: MenuObject, ctx: MenuContext):
   const anchor = anchorOf(object);
   const words = (object.selection || object.text).trim();
   try {
+    // A verb that would quote or send the words waits for the object's protection: exam or held-out material is
+    // never sent anywhere from the menu (a key pressed before the menu's first answer waits for it too).
+    if (QUOTING_VERBS.includes(id) && await ctx.withheld()) {
+      ctx.toast("this is exam or held-out material: its words are not sent anywhere from here");
+      return;
+    }
     switch (id) {
       case "ask":
         ctx.ask(object);
@@ -105,12 +117,13 @@ export async function runVerb(id: VerbId, object: MenuObject, ctx: MenuContext):
         const note = await ctx.askNote(object);
         if (!note) return;
         const who = await ctx.api.readingIdentity(anchor.extractionId);
-        await ctx.api.readerCapture({
+        const receipt = await ctx.api.readerCapture({
           sourceId: who.sourceId, revisionId: who.revisionId, extractionId: anchor.extractionId, renderViewId: who.renderViewId,
           action: "annotate", clientIdempotencyKey: ctx.mintId("note"), learnerText: note,
-          rawSelection: { extractionId: anchor.extractionId, nodes: (object.spanIds?.length ? object.spanIds : [anchor.spanId]).map((spanId) => ({ spanId, ...(object.selection ? { quote: object.selection } : {}) })) },
+          rawSelection: { extractionId: anchor.extractionId, nodes: captureNodes(object) },
         });
-        ctx.toast("noted in the margin");
+        // Where it landed is the capture's own answer: a note that could not be placed says so.
+        ctx.toast(receipt.anchorStatus === "needs_reanchor" ? "noted, but its place in the passage needs re-anchoring" : "noted in the margin");
         return;
       }
       case "open_beside": {
@@ -138,12 +151,23 @@ export async function runVerb(id: VerbId, object: MenuObject, ctx: MenuContext):
         if (found.status === "unchecked") ctx.toast("found by search, not checked");
         return;
       }
-      case "compare":
-        // The Compare window, on the selection's words (it asks across the library when the learner confirms there).
-        ctx.openContent({ kind: "compare", query: words.slice(0, 200) });
+      case "compare": {
+        // The Compare window, on the selection's words and anchored on its passages: asking there runs the
+        // comparison from those passages (the selection's door), once the learner confirms the question.
+        if (!anchor) {
+          ctx.openContent({ kind: "compare", query: words.slice(0, 200) });
+          return;
+        }
+        const who = await ctx.api.readingIdentity(anchor.extractionId);
+        ctx.openContent({ kind: "compare", query: words.slice(0, 200) }, { view: { compareAnchor: {
+          extractionId: anchor.extractionId, spanIds: object.spanIds?.length ? object.spanIds : [anchor.spanId], sourceId: who.sourceId, revisionId: who.revisionId,
+        } } });
         return;
+      }
       case "show_me": {
         if (!anchor) return;
+        // Where it lands is decided now: the running pad of this desk, even if another desk is shown when it is ready.
+        const destination = ctx.figureDestination();
         ctx.toast("◇ making a figure for this passage · it lands in your running pad when it's ready");
         // The Reader's figure build, polled under the window asked from (a paused window's poll waits).
         const figure = await ctx.showMe(words.slice(0, 300), anchor, object.windowId);
@@ -151,20 +175,15 @@ export async function runVerb(id: VerbId, object: MenuObject, ctx: MenuContext):
           ctx.toast("no figure for this passage · nothing was shown");
           return;
         }
-        ctx.landFigure(object, figure);
+        await ctx.landFigure(object, figure, destination);
         return;
       }
       case "make_practice": {
         if (!anchor) return;
         const { sectionId, role } = await sectionOf(object, ctx);
         if (role === "exercise") {
-          if (!(await ctx.confirm("✎ make it practice · import this exercise", "it joins your queue as the book has it, with its parts and its solution kept apart"))) return;
-          const who = await ctx.api.readingIdentity(anchor.extractionId);
-          await ctx.api.readerImportExercise({
-            sourceId: who.sourceId, revisionId: who.revisionId, extractionId: anchor.extractionId, renderViewId: who.renderViewId, clientIdempotencyKey: ctx.mintId("import"),
-            rawSelection: { extractionId: anchor.extractionId, nodes: (object.spanIds?.length ? object.spanIds : [anchor.spanId]).map((spanId) => ({ spanId })) },
-          });
-          ctx.toast("importing the exercise · it joins your queue when it is ready");
+          // The exercise's own words first, then the import, then what it made with edit and retire (the sheet).
+          ctx.reviewExercise(object, anchor);
           return;
         }
         if (!sectionId) {
@@ -200,8 +219,10 @@ export async function runVerb(id: VerbId, object: MenuObject, ctx: MenuContext):
 }
 
 /** The menu's verb rows for a source object (a passage, cue, highlight, note or window), in their fixed order. */
-export function sourceMenuRows(object: MenuObject, ctx: MenuContext, appendTarget: string): MenuRow[] {
-  return verbsFor(object.kind).map((verb) => ({
+export function sourceMenuRows(object: MenuObject, ctx: MenuContext, appendTarget: string, withheld = false): MenuRow[] {
+  // What this knows reads a passage: a window with none in view (a panel, a thread) offers only its moves; on exam or
+  // held-out material the verbs that would quote or send its words are left out.
+  return verbsFor(object.kind).filter((verb) => (verb.id !== "knows" || hasPassage(object)) && !(withheld && QUOTING_VERBS.includes(verb.id))).map((verb) => ({
     id: verb.id,
     glyph: verb.glyph,
     label: verb.id === "append" ? `Append to “${appendTarget}”  ▸` : verb.label,

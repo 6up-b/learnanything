@@ -47,34 +47,35 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/item_authoring.py](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py) |
-| Source lines | 298 |
+| Source lines | 310 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class AuthorPracticeItemInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py), line 30)
-- `class EditPracticeItemInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py), line 39)
-- `class RetirePracticeItemInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py), line 47)
-- `class SplitPracticeItemPart(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py), line 53)
-- `class SplitPracticeItemInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py), line 58)
-- `class RequestRungVariantInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py), line 64)
-- `class RungVariantStatusInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py), line 70)
-- `class RemintDiagnosticProbeInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py), line 74)
-- `request_rung_variant_rpc(ctx: SidecarContext, params: RequestRungVariantInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py), line 100) — Learner-initiated re-runging: record the request + evidence package synchronously, then enqueue the variant authoring job (interactive band).
-- `get_rung_variant_status(ctx: SidecarContext, params: RungVariantStatusInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py), line 132)
-- `remint_diagnostic_probe(ctx: SidecarContext, params: RemintDiagnosticProbeInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py), line 148) — Keep an administered diagnostic probe as an ordinary practice item.
-- `author_practice_item(ctx: SidecarContext, params: AuthorPracticeItemInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py), line 171)
-- `edit_practice_item(ctx: SidecarContext, params: EditPracticeItemInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py), line 201)
-- `retire_practice_item(ctx: SidecarContext, params: RetirePracticeItemInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py), line 257)
-- `split_practice_item(ctx: SidecarContext, params: SplitPracticeItemInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py), line 285)
+- `class AuthorPracticeItemInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py), line 31)
+- `class EditPracticeItemInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py), line 50)
+- `class RetirePracticeItemInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py), line 58)
+- `class SplitPracticeItemPart(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py), line 64)
+- `class SplitPracticeItemInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py), line 69)
+- `class RequestRungVariantInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py), line 75)
+- `class RungVariantStatusInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py), line 81)
+- `class RemintDiagnosticProbeInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py), line 85)
+- `request_rung_variant_rpc(ctx: SidecarContext, params: RequestRungVariantInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py), line 111) — Learner-initiated re-runging: record the request + evidence package synchronously, then enqueue the variant authoring job (interactive band).
+- `get_rung_variant_status(ctx: SidecarContext, params: RungVariantStatusInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py), line 143)
+- `remint_diagnostic_probe(ctx: SidecarContext, params: RemintDiagnosticProbeInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py), line 159) — Keep an administered diagnostic probe as an ordinary practice item.
+- `author_practice_item(ctx: SidecarContext, params: AuthorPracticeItemInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py), line 182)
+- `edit_practice_item(ctx: SidecarContext, params: EditPracticeItemInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py), line 213)
+- `retire_practice_item(ctx: SidecarContext, params: RetirePracticeItemInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py), line 269)
+- `split_practice_item(ctx: SidecarContext, params: SplitPracticeItemInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py), line 297)
 
 ## Internal implementation anchors
 
-- `_root(ctx: SidecarContext)` ([source](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py), line 78)
-- `_variant_request_payload(row: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py), line 83)
-- `_queue_key_recheck(ctx: SidecarContext, practice_item_id: str) -> str | None` ([source](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py), line 223) — Canonical sources S1 (§7.3a, D20): an edited exercise import is unverified until a check of its NEW prompt, key and rubric passes; with ``exercise_verification`` on, that check is queued here (in the background).
+- `_keyed_item_id(key: str) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py), line 44) — The card a client's idempotency key names (one key, one card).
+- `_root(ctx: SidecarContext)` ([source](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py), line 89)
+- `_variant_request_payload(row: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py), line 94)
+- `_queue_key_recheck(ctx: SidecarContext, practice_item_id: str) -> str | None` ([source](../../../../../../src/learnloop_sidecar/handlers/item_authoring.py), line 235) — Canonical sources S1 (§7.3a, D20): an edited exercise import is unverified until a check of its NEW prompt, key and rubric passes; with ``exercise_verification`` on, that check is queued here (in the background).
 
 ## Who imports or calls it
 
@@ -102,7 +103,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `contextlib`, `threading`, `typing`
+- Standard library: `__future__`, `contextlib`, `hashlib`, `threading`, `typing`
 - Third party: `pydantic`
 
 ## Larger workflow participation

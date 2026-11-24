@@ -207,3 +207,29 @@ the read-only fence's sources, and a new test breaks the fence and the grader fe
 `tests/test_mobile_allowlist.py` (`READER_RD6A_RPCS`).
 
 No defect was found, so the ledger gains no row.
+
+## Fix round (backend): the RD6 adversarial review (Codex Astra, 2026-11-23)
+
+Branch `reader/rd6fix`, from the second integration batch (`326aac6928`), both halves in one branch. The review had
+2 blockers, 8 majors and 4 minors; each was checked against the code here and every one held. Each has a fail-first
+test (shown failing against the code before the fix) and a ledger row, RD6-1 upward. No migration, algorithm tag,
+prompt or config key; no persisted row changes meaning (the coverage freshness fixes change what a read concludes,
+not what a row says). The frontend sides are in RD6b's fix round.
+
+| Finding | Ledger | What changed | Fail-first test |
+|---|---|---|---|
+| Blocker 1: a held LO's path row still named it (title, phrase, section titles, treatment words, exercise label, a dot's primary, `next`) | RD6-1 | One server function masks every text-bearing field of the band, its path and the lens: `GL.protect_band` / `GL.protect_lens` in `curriculum.goal_lens`, and `band_view` / `lens_view` require a `Protection` (no reply leaves unmasked). Neutral words replace text; ids, numbers and flags stay | `test_reader_rd6_fix_protection.py`: the field table (`test_every_text_bearing_band_field_is_masked`, 27 rows), `test_a_held_los_own_path_row_names_nothing` (end to end, every string of both replies walked) |
+| Blocker 2: masking held only the goal's own LOs; a section shared with another goal's due LO, a reason naming it, a goal containing only the other LO | RD6-2 | `goal_lens_reads.protection` reads every due LO whatever the goal: their titles (matched as whole words in any text), the sections treating them (standing coverage about them, their placements in any goal, the checks' hosts), the LOs depending on them (prerequisites, or assumed by a section read for them). A protected section is held in every goal's lens; a reason that names a held LO or belongs to a dependent LO is withheld | `test_another_goals_due_check_masks_a_shared_section_and_names_nothing_of_it`, `test_every_text_bearing_lens_field_is_masked` (15 rows) |
+| Major: a changed section's needed rows dropped, the section skippable | RD6-3 | A goal LO whose rows on a section were all written against an earlier version of it (section hash), with none standing now, leaves the section partial (`partial_unsettled`), never skippable or unmapped (`SectionReads.stale`) | `test_reader_rd6_fix_freshness.py::test_a_section_changed_since_a_needed_los_rows_is_unknown_for_it_never_skippable` |
+| Major: "tried once, found nowhere" settled after the library changed | RD6-4 | A coverage attempt is keyed by the LO's statement and the library's scope signature (`DP.attempt_keys`): a reading added, re-extracted or switched unsettles the LO for the lens and owes it to coverage again | `test_an_lo_tried_and_found_nowhere_is_settled_only_against_that_library` |
+| Major: band and lens reads could write files (`curriculum._require` finishing a stopped publication) | RD6-5 | `goal.band` and `goal.lens` take `curriculum._require_read` (the same refusal, no recovery); the next curriculum action finishes the publication | `test_reader_rd6_fix_reads.py::test_band_and_lens_reads_leave_an_unfinished_goal_change_for_the_next_action` (every vault file's size and time) |
+| Major (backend side): a ready band never learned a check fell due | RD6-7 | `goal.band` carries `next_check_due` (the earliest check not due yet, from the serving view the due checks already build, so one build serves both); the frontend reads the band again then | `test_the_band_says_when_the_next_check_falls_due_so_it_is_read_again_then` |
+
+Corrections to this record: §5 judgment call 6 ("held text is enforced in the backend for the surfaces RD6 composes")
+was true only of the reason and alternates' differences of the goal's own LOs; it now holds of every text-bearing
+field and across goals. §5 judgment call 1's settled set is now bound to the library as well as the statement. §9's
+"no model call, no write" test counted table rows only; the new reads test checks the files.
+
+Judgment calls: a dependent LO's reason is withheld, not rewritten (no prompt); a section title that names a held LO
+is neutral even when the section is not known to treat it (the words alone would tell); the neutral words are
+"a topic with a cold check due", "a section held until its cold check", "an exercise held until its cold check".

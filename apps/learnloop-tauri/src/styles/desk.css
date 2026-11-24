@@ -681,3 +681,11 @@
 .desk-pane-head .emi:hover { color: var(--desk-t); border-color: var(--desk-t3); }
 /* Opened from the title bar, the note hangs under its ⓘ (20 px left of it, 6 px below). */
 .desk-pads > .pinfo-pop:first-child { left: 94px; right: auto; top: 6px; }
+
+/* Make it practice on an exercise (§9.1 `p`): the exercise's own words in the book's face, then what it made. */
+.desk-exercise { width: 520px; max-width: calc(100vw - 32px); max-height: 70vh; overflow-y: auto; }
+.desk-exercise .words { margin: 4px 8px; padding: 8px 10px; background: var(--desk-paper); color: var(--desk-ink); border-radius: 3px; font: 14px/1.6 var(--desk-book); }
+.desk-exercise .words p { margin: 0 0 6px; }
+.desk-exercise .item { margin: 6px 8px; padding: 6px 0; border-top: 1px solid #2a2a2a; }
+.desk-exercise .item .t { color: var(--desk-t); }
+.desk-exercise .item .p { color: var(--desk-t2); font-size: 11px; margin: 2px 0 4px; }
