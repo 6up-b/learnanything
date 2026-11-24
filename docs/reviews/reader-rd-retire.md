@@ -478,3 +478,44 @@ the Guide, Notes, Ask, checks and recap out of the portal. `scripts/rd_retire/ch
 
 - RDX-2: feedback's "Back to where you studied this" opened nothing on the desks after any earlier open request.
 - RDX-3: Continue reading after a restart on another place opened the Library, not the remembered book.
+
+### The gate round: merged with the RD7 fix round and main
+
+At the coordinator's request, before the gate: `reader/rd7-fix-frontend` at `475a29f5d1` merged (batch 5's per-verb
+protection fix, main at `1293ec6f96`, the RD7 fix round's allowlist hold and the app's check gate), then `origin/main`
+(the workbench superset, landed; only generated notes differed).
+
+- **Migration 272.** The fix round's `271_reader_workbench_inline_checks_fix.sql` lands first, so this branch's is
+  `272_reader_workbench_preparing_windows.sql` (temp table `desk_windows__272`; every mention renamed). 271 touches
+  `check_administrations`, `check_veil_sets` and the video chapters' guard, not `desk_windows` (checked), so the rebuild
+  carries 262's definition as it stands. The head fixture was upgraded again from the merged 271 head in its own commit
+  (`[272]` applied only, rollback mode, no companions, `integrity_check` ok, `foreign_key_check` empty, `desk_windows`
+  alone redefined, 7,909,376 bytes) with its README section.
+- **After the merge.** App's `onDesks` is the Reader place with a library (no surface); "back to the check" no longer
+  chooses a surface; the check gate's test leaves the desks by Today's key only (the desks' "old Reader" button is
+  gone, and the button sat in the header's safe tool group, so the hold needs no change for it).
+- **This branch's surfaces under an open check** (the fix round's hold is an allowlist: what is not marked safe is
+  held):
+  - a preparing window: `WINDOW_VEIL_DECISIONS.preparing = "whole"` (its original's pages carry the book's words but no
+    passage the server can judge; only a source's and a video's own text can show);
+  - the source bar's re-read note and quick-checks toggle, and an inert window of an unknown kind: held by default with
+    the window's body, deliberately (nothing marks them safe);
+  - the reader-off note: on the safe list deliberately (one fixed line about a setting, no study material);
+  - the book being read (`onReadingChange`): not told to the app while a check holds the desks, since the windows' heads
+    show neutral titles then, and told once the check is answered or set aside (`screens/desks/readingReport.test.tsx`,
+    which fails without the hold).
+- **The veil walk with a preparing window.** The harness fixture's `?preparing=1` puts a book still being prepared in
+  the library and its preparing window on the softmax desk; the `veilsweep` run opens with it and adds its progress line
+  to the phrases it looks for: at every point of the walk nothing of it shows, and the walk checks the window is held
+  whole (body veiled, its status line inert).
+- The desks' stand-in in the app's tests keeps its open book across a remount, as the desks do (the check gate can
+  mount the Reader place again; "closing a book forgets it" relied on it).
+
+**Proof on the merged tree** (`9f375c2cf6`, then the main merge, which changed generated notes only): typecheck clean;
+the whole vitest suite 427 files, 4,531 tests passed; `cargo check` clean; every harness run on a fresh `vite build`:
+234 passed, 0 failed (veilsweep 26 of 26 with the preparing window); Python (migrations incl. 270, 271 and 272,
+tracked fixtures, upgrades, table roles, identity pins, effective-defaults golden, structure ratchets, architecture,
+test layout, desktop RPC contract, mobile allowlist, the nouns scan, the RD7 files, the RD0/RD1/RD4 desk tests, public
+tip guards, the frontend-path guards): 1,465 passed; ruff clean; lint-imports 55 kept, 0 broken;
+`check_gate_partition.py`: 34,595 collected (landing 34,529 + arc_close 66). References regenerated after the last
+code commit; the four validators below.
