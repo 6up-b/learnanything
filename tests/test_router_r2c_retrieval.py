@@ -25,7 +25,7 @@ from learnloop.db.stores.embedding_vectors import put_vector
 from learnloop.db.stores.router import append_router_decision
 from learnloop.router.outcomes import derive_router_outcomes
 
-from tests.router_mixture_helpers import mixture_env, rows, run
+from tests.router_mixture_helpers import B, mixture_env, rows, run
 from tests.router_model_fakes import FakeDecider, FakeEmbedding, FakeLLM, fake_runtime
 from tests.split_live_helpers import enable_embeddings
 
@@ -102,7 +102,7 @@ def test_the_inclusion_coin_is_seeded_logged_and_honours_its_rate():
 
 
 def test_without_embeddings_retrieval_is_a_logged_no_op(tmp_path):
-    env = mixture_env(tmp_path, fake_runtime(decider=FakeDecider(), llm=FakeLLM(), embedding=FakeEmbedding()))
+    env = mixture_env(tmp_path, fake_runtime(decider=FakeDecider(), llm=FakeLLM(), embedding=FakeEmbedding()), version=B)
     run(env)
     decisions = [row for row in rows(env) if row["policy"] == "router_mixture_v1"]
     assert decisions
@@ -121,7 +121,7 @@ def _embedded_env(tmp_path, *, rate: float, llm=None, embedding=None, router: st
                                embedding=embedding or FakeEmbedding(), seed=seed_with_first_uniform(at_least=0.2)),
         toml=f"[router]\nsimilar_include_rate = {rate}\n{router}[router.weights]\nstaged = 0.5\ndecider = 0.5\n"
              "llm = 0.0\n",
-    )
+     version=B)
     enable_embeddings(env.vault.root)
     from learnloop.daily_plan.policy import policy_for
     from learnloop.vault.loader import load_vault

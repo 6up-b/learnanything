@@ -68,6 +68,7 @@ The orchestrator updates this file in each landing commit. This snapshot is the 
 | D2b part 2b | Move plan tests off old tags where possible | landed | `5f0d44269e` | [refactor-d2b3.md](refactor-d2b3.md) | — |
 | D2b part 2c | Run the second pass over old-tag tests | landed | `6c114e2ae1` | [refactor-d2b4.md](refactor-d2b4.md) | — |
 | D2b third pass | Review the remaining tests that name old tags | landed | this commit | [refactor-d2b5.md](refactor-d2b5.md) | 450 test cases moved to the head (vaults below the head: 2,493 → 2,043); eleven builders now default to the head; row stamps kept as data. Left: 187 passing cases not moved (mostly through `mixture_env`'s default) and 247 whose tag comes from a hand-written config or copied fixture |
+| D2b fourth pass | Tests off old algorithm tags where the tag is not the subject, fourth pass | landed | this commit | [refactor-d2b6.md](refactor-d2b6.md) | 368 cases moved in 84 files (2,071 to 1,705); tests and helpers only, no assertion changed. What is left is the tag as the subject, except 54 cases that pass at the head behind shared wrappers and 84 whose tag sits in a hand-written config or copied fixture: another pass would not pay |
 | D3 | Replace the upgrade chain with one table | landed | `9eb0194c2c` | [refactor-d3.md](refactor-d3.md) | — |
 | D4 | Remove constant attempt, mastery and grading gates | landed | `41387e1236` | [refactor-d4.md](refactor-d4.md) | — |
 | D5 | Remove constant rebuild, projection and doctor gates | landed | `a4bd9f2b77` | [part 1](refactor-d5.md), [part 2](refactor-d5b.md) | — |
@@ -108,7 +109,7 @@ The orchestrator updates this file in each landing commit. This snapshot is the 
 | E7 | Build the shared view of evidence once | waiting on | — | — | The [evidence packet spec](../specs/spec_evidence_packets_v1.md) |
 | E7b | Move shared learner signals ahead of E7 | dropped | — | [Nov 16 audit](refactor-strategy-v3-audit-2026-11-16.md#3-additions) | Folded into E7 by the Nov 17 decision |
 | E8 | Remove performance switches from learned model identity | deferred | — | — | Goes with F2 (owner, Nov 17: F2 only if Next after feedback is slow) |
-| E9 | Rename misleading modules and move feature-owned files | not started | — | — | E1–E7 |
+| E9 | Rename misleading modules and move feature-owned files | closed (no eligible move) | this commit | [refactor-e9.md](refactor-e9.md) | Step 0 measured every root module's importers: 35 of 37 are imported by more than one production package, and the two single-package cases (`reader_learner_state` into `reader`, `app_launch` into `cli`) would each break an import contract. Nothing moves; the root keeps its modules. Done by a Codex worker |
 
 ## Arc F and RE2
 

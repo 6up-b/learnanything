@@ -5,7 +5,7 @@ reads (``teacher.te2``). Every model is a fake; no network."""
 from __future__ import annotations
 
 
-from learnloop.algorithm_versions import TEACHER_PROBES_ALGORITHM_VERSION
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.teacher import service as S
 from learnloop.vault.loader import load_vault
 from tests.teacher_fakes import TeacherFake, build_teacher_vault, clients, plan_turn
@@ -28,7 +28,7 @@ def test_the_rpcs_are_registered_desktop_only():
     assert opened.add_topics == ["a"] and opened.subject_id == "s"
 
 
-def _ctx(tmp_path, version=TEACHER_PROBES_ALGORITHM_VERSION):
+def _ctx(tmp_path, version=LATEST_ALGORITHM_VERSION):
     from tests.teacher_te1_successor_helpers import _Ctx
 
     paths, repository = build_teacher_vault(tmp_path / "vault", version=version)

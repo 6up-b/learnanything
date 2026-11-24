@@ -9,6 +9,7 @@ from types import SimpleNamespace
 import pytest
 
 from learnloop.algorithm_versions import (
+    LATEST_ALGORITHM_VERSION,
     SECTION_END_ALGORITHM_VERSION,
     UNTAKEN_EPISODE_END_ALGORITHM_VERSION,
     untaken_episode_end_on,
@@ -185,7 +186,7 @@ def test_an_ordinary_review_taken_the_moment_it_fell_due_ends_the_episode(tmp_pa
     """The sweep runs after attempts: when the learner's first attempt after the item fell due is that item's own
     review, the review has moved its due date by the time the sweep looks, and the episode still ends."""
 
-    vault, repository, misconception_id, attempt_id = _world(tmp_path, AT)
+    vault, repository, misconception_id, attempt_id = _world(tmp_path, LATEST_ALGORITHM_VERSION)
     episode = _open_episode(vault, repository, misconception_id, attempt_id, "treatment")
     due = _missed_item_due(repository)
     review_at = due + timedelta(minutes=1)
@@ -204,7 +205,7 @@ def test_an_ordinary_review_taken_the_moment_it_fell_due_ends_the_episode(tmp_pa
 def test_a_primed_answer_on_the_item_is_no_ordinary_review(tmp_path):
     """A primed answer on the item writes no FSRS state, so it is not the item's review and ends nothing."""
 
-    vault, repository, misconception_id, attempt_id = _world(tmp_path, AT)
+    vault, repository, misconception_id, attempt_id = _world(tmp_path, LATEST_ALGORITHM_VERSION)
     episode = _open_episode(vault, repository, misconception_id, attempt_id, "prescribed")
     due = _missed_item_due(repository)
     early = OPENED + timedelta(minutes=5)
@@ -221,7 +222,7 @@ def test_a_primed_answer_on_the_item_is_no_ordinary_review(tmp_path):
 
 
 def test_an_episode_whose_primed_attempt_was_taken_is_untouched(tmp_path):
-    vault, repository, misconception_id, attempt_id = _world(tmp_path, AT)
+    vault, repository, misconception_id, attempt_id = _world(tmp_path, LATEST_ALGORITHM_VERSION)
     episode = _open_episode(vault, repository, misconception_id, attempt_id, "treatment")
     due = _missed_item_due(repository)
     primed = complete_self_graded_attempt(
@@ -239,7 +240,7 @@ def test_an_episode_whose_primed_attempt_was_taken_is_untouched(tmp_path):
 
 @pytest.mark.parametrize("state", ["diagnosis", "cold_scheduled", "completed"])
 def test_an_episode_in_any_other_state_is_untouched(tmp_path, state):
-    vault, repository, misconception_id, attempt_id = _world(tmp_path, AT)
+    vault, repository, misconception_id, attempt_id = _world(tmp_path, LATEST_ALGORITHM_VERSION)
     episode = _open_episode(vault, repository, misconception_id, attempt_id, "prescribed")
     repository.update_remediation_episode(episode["id"], state=state, clock=FrozenClock(OPENED))
     before = repository.remediation_episode(episode["id"])
@@ -248,7 +249,7 @@ def test_an_episode_in_any_other_state_is_untouched(tmp_path, state):
 
 
 def test_a_diagnosis_case_ends_at_its_hypothesis_attempts_item(tmp_path):
-    vault, repository, _misconception_id, attempt_id = _world(tmp_path, AT)
+    vault, repository, _misconception_id, attempt_id = _world(tmp_path, LATEST_ALGORITHM_VERSION)
     hypothesis = repository.append_causal_hypothesis(
         episode_key="k94-case", attempt_id=attempt_id, learning_object_id=LO_ID, cause_scope="learner_state",
         statement="Treats SVD as an eigendecomposition.", statement_normalized="treats svd as eigendecomposition",
@@ -266,7 +267,7 @@ def test_a_diagnosis_case_ends_at_its_hypothesis_attempts_item(tmp_path):
 def test_an_episode_whose_item_cannot_be_resolved_stays_open(tmp_path):
     """No diagnosing attempt, no date to end it by."""
 
-    vault, repository, _misconception_id, _attempt_id = _world(tmp_path, AT)
+    vault, repository, _misconception_id, _attempt_id = _world(tmp_path, LATEST_ALGORITHM_VERSION)
     episode = repository.create_remediation_episode(
         case_kind="diagnosis", case_ref="no-such-hypothesis", state="prescribed", clock=FrozenClock(OPENED))
     _sweep(vault, repository, _missed_item_due(repository) + timedelta(days=60))
@@ -301,7 +302,7 @@ def test_the_sweeps_due_read_is_the_plans(tmp_path, uncommitted):
     from learnloop.scheduling.intent.recall_targets import ordinary_due_reader
     from learnloop.scheduling.intent.serving import intent_serving
 
-    vault, repository, _misconception_id, _attempt_id = _world(tmp_path, AT)
+    vault, repository, _misconception_id, _attempt_id = _world(tmp_path, LATEST_ALGORITHM_VERSION)
     root = tmp_path / "vault"
     with (root / "learnloop.toml").open("a", encoding="utf-8") as handle:
         handle.write(

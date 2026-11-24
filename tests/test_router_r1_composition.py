@@ -43,6 +43,7 @@ from learnloop.vault.yaml_io import write_yaml
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.registry import METHOD_REGISTRY
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from tests.daily_plan_fakes import NOW, MovableClock, make_env, scheduled, seed_due
 from tests.helpers import append_config_toml, create_daily_plan_vault
 
@@ -92,7 +93,7 @@ def frozen_now(monkeypatch):
 def test_the_full_list_seam_reads_the_plan(tmp_path):
     from learnloop_sidecar.handlers.queue import today_head_served
 
-    plan = create_daily_plan_vault(tmp_path / "plan", version="mvp-0.15")
+    plan = create_daily_plan_vault(tmp_path / "plan", version=LATEST_ALGORITHM_VERSION)
     assert today_head_served(load_vault(plan.root)) is False
     append_config_toml(plan.root, "[plan]\nenabled = false\n")
     # The plan's kill switch: Today is the legacy queue again, whose head is served.
@@ -101,7 +102,7 @@ def test_the_full_list_seam_reads_the_plan(tmp_path):
 
 def test_under_the_plan_the_full_list_serves_no_head_and_a_pick_from_it_is_logged(tmp_path, frozen_now):
     paths = create_daily_plan_vault(
-        tmp_path / "vault", version="mvp-0.15",
+        tmp_path / "vault", version=LATEST_ALGORITHM_VERSION,
         learning_objects={"lo_extra": [("pi_extra_1", 2.0), ("pi_extra_2", 2.0)]},
     )
     ctx = _ctx(paths.root)

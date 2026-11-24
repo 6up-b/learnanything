@@ -27,7 +27,7 @@ from learnloop.vault.loader import load_vault
 from learnloop.daily_plan.router_chooser import INSERT_NOW
 from tests.daily_plan_fakes import record_attempt, scheduled
 from tests.helpers import NOW, append_config_toml, create_basic_vault, seed_due_item, set_algorithm_version
-from tests.router_mixture_helpers import mixture_env
+from tests.router_mixture_helpers import B, mixture_env
 from tests.router_model_fakes import fake_runtime
 from tests.daily_plan_build_helpers import _wide_items
 from tests.question_context_helpers import FakeTutorClient
@@ -86,7 +86,7 @@ def test_f2_the_forced_shape_names_its_item():
 
 def test_f2_a_forced_only_boundary_keeps_the_served_items_state_and_minutes(tmp_path):
     forced = "pi_spec_easy"
-    env = mixture_env(tmp_path, fake_runtime(), items=lambda: [scheduled(forced, "lo_spectral"), *_wide_items()])
+    env = mixture_env(tmp_path, fake_runtime(), items=lambda: [scheduled(forced, "lo_spectral"), *_wide_items()], version=B)
     env.repository.requested_practice_item_ids = lambda *, skip_commitment_ids=(): [forced]
     build_plan(env, kind="normal", budget=25.0, remembered=25, minutes_source="chip")
     advance(env, serve=True)

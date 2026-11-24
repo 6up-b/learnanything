@@ -12,7 +12,7 @@ import pytest
 from learnloop.ai.decisions import ChoiceQuestion, NoulQuestion, request_body
 from learnloop.router import requests as rq
 
-from tests.router_mixture_helpers import mixture_env, rows, run
+from tests.router_mixture_helpers import B, mixture_env, rows, run
 from tests.router_model_fakes import FakeDecider, FakeLLM, fake_runtime, options_in
 
 OPTIONS = (
@@ -45,7 +45,7 @@ def test_through_the_chooser_an_unknown_id_is_a_fallback_and_is_never_chosen(tmp
         return answer
 
     runtime = fake_runtime(decider=FakeDecider(), llm=FakeLLM(answer=rogue))
-    env = mixture_env(tmp_path, runtime)
+    env = mixture_env(tmp_path, runtime, version=B)
     run(env)
     decisions = [row for row in rows(env) if row["policy"] == "router_mixture_v1"]
     assert decisions

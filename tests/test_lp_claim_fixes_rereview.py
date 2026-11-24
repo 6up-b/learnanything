@@ -16,7 +16,6 @@ from datetime import timedelta
 
 import pytest
 
-from learnloop.algorithm_versions import CLAIM_FIXES_ALGORITHM_VERSION as TAG
 from learnloop.clock import FrozenClock
 from learnloop.ids import new_ulid
 from learnloop.learner.mastery import reanchor_mastery_from_claim
@@ -185,7 +184,7 @@ def test_f9_a_miss_the_diagnosis_timeout_decides_carries_its_line_reopened_after
     from tests.split_live_helpers import drain_jobs, split_vault
     from tests.placement_diagnosis_decides_helpers import DUE_HOURS, LO as SPLIT_LO, _Diagnosed, _miss
 
-    _paths, vault, repository = split_vault(tmp_path, version=TAG, seed=False)
+    _paths, vault, repository = split_vault(tmp_path, seed=False)
     record_self_report(vault, repository, learning_object_ids=[SPLIT_LO], report="know_this", clock=FrozenClock(at(0)))
     miss = _miss(vault, repository, _Diagnosed(), drain=False)
     # The provider never comes: the diagnose job stays queued.

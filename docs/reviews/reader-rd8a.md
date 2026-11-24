@@ -487,3 +487,10 @@ Migration 267 was applied to backup-API copies of the owner's three vaults (the 
 `learnloop upgrade`), in a gitignored directory, deleted afterwards. On every copy: the upgrade exited 0,
 `integrity_check` is ok, `foreign_key_check` is empty, the migration head is 267, and `ink_strokes` and
 `ink_transcriptions` hold no rows. No live vault was opened.
+
+## Owner copies after the fix round (the orchestrator, 2026-11-23)
+
+Migration 269 (the transcription guard) was applied to backup-API copies of the owner's three vaults (the floor set,
+upgraded by `learnloop upgrade`), in a gitignored directory, deleted afterwards. On every copy: the upgrade exited 0,
+`integrity_check` is ok, `foreign_key_check` is empty, the migration head is 269, and `ink_strokes`,
+`ink_transcriptions` and `video_chapters` hold no rows. No live vault was opened.

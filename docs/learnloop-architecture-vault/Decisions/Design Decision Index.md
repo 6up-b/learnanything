@@ -41,6 +41,9 @@ These notes capture the accepted decision, its context, consequences, and execut
 | [[ADR-017 One decision record, one trace id, one entry point]] | `decision_records` (a receipt nothing replays), a trace id per learner-visible action carried to model calls and logs, and a read-only `learnloop why` |
 | [[ADR-018 The Codex transport is retired]] | the Codex SDK, HTTP adapter and lockdown are gone; an old config naming Codex loads and every entry refuses it |
 | [[ADR-019 The oldest supported tag]] | a vault below `OLDEST_SUPPORTED` (or naming no tag) is refused at every door, `learnloop upgrade` included, naming the commands that upgrade it with the code tagged `pre-floor`; from the floor up the upgrade is one table (`ops/upgrades.py`) |
+| [[ADR-020 Keep notebook session files on the host]] | the sandbox inherits the socket descriptor and has no writable host path |
+| [[ADR-021 Keep both conflicting pad edits]] | a stale edit can land as its own block while the newer head stands |
+| [[ADR-022 Scope polled jobs to vault and epoch]] | job and request ids resolve within a vault, and stale work cannot wake the current context |
 
 ## Source of accepted decisions
 

@@ -23,6 +23,7 @@ from learnloop.diagnosis import chain_records
 from learnloop.followup_serve.gates import SERVING_SURFACE
 from learnloop_sidecar.post_attempt_worker import PostAttemptWorker
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from tests.followup_serve_helpers import CLOCK, AuthorFake, BlindRivalClient, author_clients, live_shape_vault
 from tests.split_live_helpers import submit
 
@@ -313,7 +314,7 @@ def test_the_sidecar_records_a_rejected_probe_value(tmp_path, monkeypatch):
 
     from tests.voi_stopping_helpers import LO, _minutes, _probe_vault
 
-    paths, vault, repository = _probe_vault(tmp_path, "mvp-0.21")
+    paths, vault, repository = _probe_vault(tmp_path, LATEST_ALGORITHM_VERSION)
     _minutes(monkeypatch, 10_000.0)  # no observation pays for ten thousand minutes
     monkeypatch.setattr(practice, "ready_grading_provider",
                         lambda _vault, override=None: ("test", SimpleNamespace(ready=True), object()))

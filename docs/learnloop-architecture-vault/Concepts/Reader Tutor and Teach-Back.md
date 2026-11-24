@@ -24,6 +24,8 @@ Reader and tutor interactions help the learner understand source material withou
 
 ## Reader
 
+[[Concepts/Reader workbench|Reader workbench]] describes the desktop desks, the companion and the two ways pad writing reaches learner-text analysis or practice.
+
 Reader views are anchored to extracted source spans. Learner questions can request direct answers, guided reasoning, or an ask-first response. Answers are citation-validated and bounded to the manifest. Owner-placed reading checks are source-visible instructional administrations and always skippable.
 
 [[Concepts/Figures|Figures]] explains Show me from a passage, a question or both, including simulations and explanation videos, source protection and attempt-help accounting. Figures remain illustrations, never certification.

@@ -58,7 +58,7 @@ def test_replay_plans_nothing_and_a_shadow_rebuild_is_zero(tmp_path):
     from learnloop.substrate.replay import rebuild_derived_state
     from learnloop.substrate.shadow_rebuild import shadow_rebuild
 
-    vault, repo, session = _seeded(tmp_path)
+    vault, repo, session = _seeded(tmp_path, version=TAG)
     rebuild_derived_state(vault, repo, clock=at(250))
     row = _plan(vault, repo, session, FakeSearch([_candidate("pi_svd_define_002", 0.99, 0.01, 1.0)]))
     assert row["followup_commitment_ids"]

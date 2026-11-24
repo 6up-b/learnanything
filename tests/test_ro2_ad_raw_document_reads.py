@@ -18,6 +18,7 @@ import ast
 import json
 from pathlib import Path
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from tests.ad_fakes import rows
 
 SRC = Path(__file__).resolve().parents[1] / "src"
@@ -219,7 +220,7 @@ def test_at_run_time_ad_loads_a_reading_only_through_its_chokepoint(tmp_path, mo
         finally:
             inside["depth"] -= 1
 
-    paths, repository, extraction, span, unit = _textbook_with_span_question(tmp_path, "mvp-0.46")
+    paths, repository, extraction, span, unit = _textbook_with_span_question(tmp_path, LATEST_ALGORITHM_VERSION)
     import sqlite3
 
     with sqlite3.connect(paths.sqlite_path) as connection:
@@ -305,14 +306,13 @@ def test_ro4s_reading_action_maps_its_section_through_the_chokepoint(tmp_path, m
     AD off, the plan's own mapping, the same LOs. Fails before the fix (the raw wrapper loaded the IR)."""
 
     from learnloop.adaptive_difficulty.material_view import MaterialView
-    from learnloop.algorithm_versions import ROUTER_OBJECTIVE_ALGORITHM_VERSION
     from learnloop.daily_plan import objective_inputs as OI
     from learnloop.daily_plan.types import BlockCandidate, ReadingTarget
     from learnloop.db.repositories import Repository
     from learnloop.vault.loader import load_vault
     from tests.ro2_ad_document_ir_helpers import _textbook_with_span_question
 
-    paths, repository, extraction, _span, unit = _textbook_with_span_question(tmp_path, ROUTER_OBJECTIVE_ALGORITHM_VERSION)
+    paths, repository, extraction, _span, unit = _textbook_with_span_question(tmp_path, LATEST_ALGORITHM_VERSION)
     inside = {"depth": 0}
     loads: list[bool] = []
     raw_load = Repository.load_document_ir

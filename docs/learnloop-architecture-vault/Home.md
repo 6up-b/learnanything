@@ -58,6 +58,14 @@ For a spatial overview, open the [LearnLoop System canvas](Maps/LearnLoop%20Syst
 - [[Configuration]] — `learnloop.toml`, defaults, compatibility normalization.
 - [[Parameter Governance and Evaluation]] — decision knobs, sensitivity, simulation, and promotion evidence.
 
+## Reader workbench
+
+- [[Concepts/Reader workbench|Reader workbench]] — desks, pad writes, the companion, the goal lens, ink, lessons, notebooks and video.
+- [[Workbench protection]] — exam and held-out passage checks, due-check masking and its open gaps.
+- [[Add a window kind to the workbench]] and [[Add a menu verb]] — change the desktop and sidecar together.
+- [[Debug a workbench write]] — trace an edit from the outbox to its receipt and the saved heads.
+- [[ADR-020 Keep notebook session files on the host]], [[ADR-021 Keep both conflicting pad edits]] and [[ADR-022 Scope polled jobs to vault and epoch]] — the workbench's runtime and write decisions.
+
 ## Lookup and vault maintenance
 
 - [[Example Index]] — copyable new-user, learning, inspection, recovery, and provider sessions.

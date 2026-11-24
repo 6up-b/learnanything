@@ -68,10 +68,10 @@ class FakeTutor(StructuredClientFake):
 
 
 def _vault(tmp_path, updates: dict | None = None):
-    """A basic vault at the successor's tag (the basic vault is mvp-0.6)."""
+    """A basic vault at the head, with ``updates`` to its configuration."""
 
     paths = create_basic_vault(tmp_path / "vault")
-    set_config(paths.root, {("algorithms", "algorithm_version"): TAG, **(updates or {})})
+    set_config(paths.root, {("algorithms", "algorithm_version"): LATEST_ALGORITHM_VERSION, **(updates or {})})
     return paths, load_vault(paths.root), Repository(paths.sqlite_path)
 
 
@@ -132,7 +132,7 @@ def _repair_at(tmp_path):
     from tests.remediation_cold_retry_helpers import _setup
 
     vault, repository, misconception_id = _setup(tmp_path)
-    set_config(vault.root, {("algorithms", "algorithm_version"): TAG})
+    set_config(vault.root, {("algorithms", "algorithm_version"): LATEST_ALGORITHM_VERSION})
     return load_vault(vault.root), repository, misconception_id
 
 

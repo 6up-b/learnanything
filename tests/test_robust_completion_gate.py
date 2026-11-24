@@ -12,6 +12,7 @@ from __future__ import annotations
 from datetime import timedelta
 
 from learnloop.algorithm_versions import (
+    LATEST_ALGORITHM_VERSION,
     FACET_BELIEF_FIX_ALGORITHM_VERSION,
     FIGURE_WAIT_ALGORITHM_VERSION,
     ROBUST_GATE_FIX_VERSIONS,
@@ -97,7 +98,7 @@ def test_the_gate_does_not_end_a_planted_episode_whose_next_probe_pays(tmp_path)
     (perturbation) are a real near-tie, so the pick is fragile, while the stop rule says the next probe pays.
     mvp-0.58 ended the episode there; the fixed gate keeps asking."""
 
-    result, gate = _planted_run(tmp_path, version=TAG)
+    result, gate = _planted_run(tmp_path, version=LATEST_ALGORITHM_VERSION)
     first = gate[0]
     assert first["observations_so_far"] == 2
     assert first["abstained"] is True and first["should_stop"] is False

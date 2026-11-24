@@ -28,6 +28,7 @@ from learnloop.router_objective import tail_serve as TS
 from learnloop.router_objective import rollouts as ROL
 from learnloop.router_objective import types as OT
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from tests.router_mixture_helpers import served_horizon  # noqa: F401 - a fixture
 from tests.ro6_codex_review_helpers import (CFG, FAR, STOP, _logged, _quiet, _row, _trace, _value_actions,  # noqa: F401
                                          _value_inputs, utc)
@@ -92,11 +93,10 @@ def test_f1_the_contrasts_read_every_window_complete(monkeypatch):
 
 
 def test_f1_a_complete_return_leaves_an_unknown_dated_use_out_and_keeps_a_window_with_no_checkable_use(tmp_path):
-    from learnloop.algorithm_versions import ROUTER_LEARNED_TAIL_ALGORITHM_VERSION
 
     from tests.ro1_availability_reads_helpers import AFTER, CUTOFF, LO, _seeded
 
-    vault, repository = _seeded(tmp_path, ROUTER_LEARNED_TAIL_ALGORITHM_VERSION, None)
+    vault, repository = _seeded(tmp_path, LATEST_ALGORITHM_VERSION, None)
     trace = {"evaluation": {"window_days": 9, "c0": 0.0, "uses": {"topics": [], "dated": [
         {"goal_id": "g", "lo": LO, "due_at": "2026-05-01T09:00:00Z", "omega": 1.0, "m0": 0.0}]}}}
     row = {**_row("d1", "2026-04-25T10:00:00Z", closes="2026-05-04T10:00:00Z"), "trace": trace}

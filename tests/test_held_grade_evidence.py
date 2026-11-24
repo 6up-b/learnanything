@@ -46,7 +46,6 @@ from tests.route_rules_in_grader_helpers import (
     CLOCK,
     ITEM,
     RUBRIC,
-    VERSION,
     DivergentUnlocatedGrader,
     _first_scheduled_attempt,
     _proposal,
@@ -144,7 +143,7 @@ class BlankIdGrader(DivergentUnlocatedGrader):
 
 
 def test_f1_live_a_blank_criterion_id_keeps_no_shortfall_and_queues_no_diagnosis(tmp_path):
-    _paths, vault, repository = split_vault(tmp_path, version=VERSION)
+    _paths, vault, repository = split_vault(tmp_path)
     result = submit(vault, repository, BlankIdGrader(), answer=ALTERNATIVE)
     support = _support(repository, result.attempt_id)
     assert support["proof_route_check"]["unlocated_criterion_ids"] == ["result"]
@@ -186,7 +185,7 @@ def test_f2_a_regrade_that_validates_nothing_keeps_the_hold(tmp_path, clarified)
 
     from tests.pfc_unassessed_readers_helpers import _field_outcomes
 
-    _paths, vault, repository = split_vault(tmp_path, version=VERSION)
+    _paths, vault, repository = split_vault(tmp_path)
     held = _held_live(vault, repository)
     before = _schedule(repository)
     from learnloop.ai.errors import AIProviderUnavailable
@@ -262,7 +261,7 @@ def test_f3_a_held_cold_probe_abstains_from_certification_validation(tmp_path, p
 def test_f4_a_validating_regrade_leaves_no_stale_unassessed_row(tmp_path):
     from tests.pfc_unassessed_readers_helpers import _field_outcomes
 
-    _paths, vault, repository = split_vault(tmp_path, version=VERSION)
+    _paths, vault, repository = split_vault(tmp_path)
     held = _held_live(vault, repository)
     regrade_attempt(
         vault, repository, repository.fetch_practice_attempt(held.attempt_id),
@@ -292,7 +291,7 @@ def test_f5_an_adjudication_releases_the_follow_up_suppression(tmp_path):
     from learnloop.attempts.grade_resolution import append_adjudication_evidence_revision
     from learnloop.attempts.post_attempt import run_post_attempt_pipeline
 
-    _paths, vault, repository = split_vault(tmp_path, version=VERSION)
+    _paths, vault, repository = split_vault(tmp_path)
     _first_scheduled_attempt(vault, repository)
     when = T + timedelta(days=3)
     held = submit(vault, repository, HOLDING(), answer=ALTERNATIVE + " (again)",
@@ -316,7 +315,7 @@ def test_f5_an_adjudication_releases_the_follow_up_suppression(tmp_path):
 def test_f6_the_dataset_exports_no_held_score_as_observed(tmp_path):
     from learnloop.substrate.dataset import outcome_records
 
-    paths, vault, repository = split_vault(tmp_path, version=VERSION)
+    paths, vault, repository = split_vault(tmp_path)
     source = _graded_apply(vault, repository, ITEM, {"setup": 2.0, "result": 2.0},
                            attempt_id="att_source", when=T)
     held = _held_apply(vault, repository, ITEM, {"setup": 0.0, "result": 0.0},
@@ -350,7 +349,7 @@ def test_f6_the_dataset_exports_no_held_score_as_observed(tmp_path):
 def test_f7_exam_calibration_reads_no_held_outcome(tmp_path, monkeypatch):
     from learnloop.goals.exam_calibration import calibration_report
 
-    _paths, vault, repository = split_vault(tmp_path, version=VERSION)
+    _paths, vault, repository = split_vault(tmp_path)
     held = _held_apply(vault, repository, ITEM, {"setup": 0.0, "result": 0.0},
                        attempt_id="att_held", when=T, answer_confidence=4)
     monkeypatch.setattr(repository, "all_exam_predictions", lambda: [{
@@ -381,7 +380,7 @@ def test_f8_the_fsrs_fitter_never_fits_a_review_that_never_happened(tmp_path):
     from learnloop.scheduling.fsrs_fitting import review_log_loss
     from learnloop.scheduling.review_log import reconstruct_review_log, review_log_from_attempts
 
-    _paths, vault, repository = split_vault(tmp_path, version=VERSION)
+    _paths, vault, repository = split_vault(tmp_path)
     _graded_apply(vault, repository, ITEM, {"setup": 2.0, "result": 2.0}, attempt_id="att_ok", when=T)
     _held_apply(vault, repository, ITEM, {"setup": 0.0, "result": 0.0},
                 attempt_id="att_held", when=T + timedelta(days=3))
@@ -407,7 +406,7 @@ def test_f8_the_fsrs_fitter_never_fits_a_review_that_never_happened(tmp_path):
 def test_f9_f10_held_grades_build_no_failure_streak_and_move_no_item_quality(tmp_path):
     from learnloop.diagnosis.followups import current_same_item_failure_streak
 
-    _paths, vault, repository = split_vault(tmp_path, version=VERSION)
+    _paths, vault, repository = split_vault(tmp_path)
     _graded_apply(vault, repository, ITEM, {"setup": 2.0, "result": 2.0}, attempt_id="att_ok", when=T)
     quality = repository.practice_item_quality_state(ITEM)
     assert current_same_item_failure_streak(repository, ITEM) == 0
@@ -579,7 +578,7 @@ def held_worlds(tmp_path_factory):
     all look back across the held grade."""
 
     base = tmp_path_factory.mktemp("held-guard")
-    paths, vault, repository = split_vault(base / "seed", version=VERSION)
+    paths, vault, repository = split_vault(base / "seed")
     _graded_apply(vault, repository, ITEM, {"setup": 2.0, "result": 2.0}, attempt_id="att_ok",
                   when=T, answer_confidence=4)
     from learnloop.attempts.attempts import GradeAttribution
@@ -664,7 +663,7 @@ def test_review_f1_a_regrade_into_a_hold_supersedes_the_assessed_grade_it_replac
     from learnloop.scheduling.review_log import reconstruct_review_log
     from learnloop.substrate.dataset import outcome_records
 
-    paths, vault, repository = split_vault(tmp_path, version=VERSION)
+    paths, vault, repository = split_vault(tmp_path)
     first = _first_scheduled_attempt(vault, repository)
     before = _schedule(repository)
     graded = submit(vault, repository, VALIDATING(), answer=ALTERNATIVE + " (again)",
@@ -779,7 +778,7 @@ def test_review_f1_the_ledger_reads_the_evidence_as_the_attempt_step_does(tmp_pa
 
     from learnloop.attempts.grade_resolution import append_adjudication_evidence_revision
 
-    _paths, vault, repository = split_vault(tmp_path, version=VERSION)
+    _paths, vault, repository = split_vault(tmp_path)
     _first_scheduled_attempt(vault, repository)
     before = _schedule(repository)
     graded = submit(vault, repository, VALIDATING(), answer=ALTERNATIVE + " (again)",

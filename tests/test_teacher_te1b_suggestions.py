@@ -393,8 +393,8 @@ def test_without_the_decision_log_the_desktop_config_has_no_suggestions(tmp_path
     from learnloop_sidecar.context import config_dto
     from tests.ux_phase1_support import set_config
 
-    on_paths, _ = _vault(tmp_path, name="on", version=LESSON_SUGGESTIONS_ALGORITHM_VERSION)
-    off_paths, _ = _vault(tmp_path, name="off", version=LESSON_SUGGESTIONS_ALGORITHM_VERSION)
+    on_paths, _ = _vault(tmp_path, name="on", version=LATEST_ALGORITHM_VERSION)
+    off_paths, _ = _vault(tmp_path, name="off", version=LATEST_ALGORITHM_VERSION)
     set_config(off_paths.root, {("router", "log_decisions"): False})
     on, off = (config_dto(load_vault(p.root)) for p in (on_paths, off_paths))
     assert on["teacher"] == {"lessons": True, "suggestions": True, "te2": True}

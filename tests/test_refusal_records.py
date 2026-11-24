@@ -290,11 +290,11 @@ def test_a_guard_record_that_cannot_be_built_still_refuses(tmp_path, monkeypatch
 
 
 def _router_day(tmp_path: Path, name: str, *, write) -> tuple[list[tuple], list]:
-    from tests.router_mixture_helpers import mixture_env, rows, run
+    from tests.router_mixture_helpers import B, mixture_env, rows, run
     from tests.router_model_fakes import FakeDecider, FakeLLM, fake_runtime
 
     runtime = fake_runtime(decider=FakeDecider(), llm=FakeLLM(), seed=lambda _key, _decision: "pinned-seed")
-    env = mixture_env(tmp_path / name, runtime, toml="[router]\nmax_daily_cost_usd = 0.0\n")
+    env = mixture_env(tmp_path / name, runtime, toml="[router]\nmax_daily_cost_usd = 0.0\n", version=B)
     with pytest.MonkeyPatch.context() as patch:
         if write is not None:
             from learnloop.db.stores import provenance as store

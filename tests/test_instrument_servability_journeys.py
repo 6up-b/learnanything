@@ -61,6 +61,7 @@ from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_practice_item
 from learnloop_sidecar.errors import SidecarError
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from tests.certain_grade_helpers import make_grade_certain
 from tests.helpers import (
     NOW,
@@ -667,7 +668,7 @@ def test_the_certification_cold_probe_selects_an_instrument_as_its_held_out_item
     from tests.helpers import set_algorithm_version
 
     paths = create_basic_vault(tmp_path / "vault")
-    set_algorithm_version(paths, "mvp-0.7")
+    set_algorithm_version(paths, LATEST_ALGORITHM_VERSION)
     # One-component blueprint at the cell the basic vault's item observes, so a
     # single full-marks unassisted attempt produces a real certificate.
     lo_path = paths.learning_object_path("linear-algebra", LO_ID)
