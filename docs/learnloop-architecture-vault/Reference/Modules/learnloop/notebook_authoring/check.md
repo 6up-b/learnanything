@@ -47,19 +47,20 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/notebook_authoring/check.py](../../../../../../src/learnloop/notebook_authoring/check.py) |
-| Source lines | 68 |
+| Source lines | 64 |
 | Owning package | [[Reference/Modules/learnloop/notebook_authoring/_package|learnloop.notebook_authoring]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class OutputPathError(ValueError)` ([source](../../../../../../src/learnloop/notebook_authoring/check.py), line 13) — The requested output cannot be confined without overwriting existing data.
-- `check_structure(path: Path, out: Path) -> tuple[dict, str]` ([source](../../../../../../src/learnloop/notebook_authoring/check.py), line 52) — Return the report and summary; the source is never imported or modified.
+- `class OutputPathError(ValueError)` ([source](../../../../../../src/learnloop/notebook_authoring/check.py), line 14) — The requested output cannot be confined without overwriting existing data.
+- `check_structure(path: Path, out: Path) -> tuple[dict, str]` ([source](../../../../../../src/learnloop/notebook_authoring/check.py), line 41) — Return the report and summary; the source is never imported or modified.
+- `write_reports(out, scope, report, summary, *, manifest=None)` ([source](../../../../../../src/learnloop/notebook_authoring/check.py), line 56)
 
 ## Internal implementation anchors
 
-- `_output_directory(path: Path) -> Iterator[int]` ([source](../../../../../../src/learnloop/notebook_authoring/check.py), line 18)
+- `_output_directory(path: Path, names: tuple[str, ...]) -> Iterator[int]` ([source](../../../../../../src/learnloop/notebook_authoring/check.py), line 19)
 
 ## Who imports or calls it
 
@@ -67,12 +68,14 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/cli/notebook|learnloop.cli.notebook]] — imports `OutputPathError`, `check_structure`; statically calls `check_structure`
+- [[Reference/Modules/learnloop/notebook_authoring/contract_check|learnloop.notebook_authoring.contract_check]] — imports `write_reports`; statically calls `write_reports`
 
 ## Dependencies
 
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/notebook_authoring/marimo_adapter|learnloop.notebook_authoring.marimo_adapter]] — imports `inspect_structure`; calls `inspect_structure`
+- [[Reference/Modules/learnloop/notebook_authoring/scratch|learnloop.notebook_authoring.scratch]] — imports `directory_fd`; calls `directory_fd`
 
 ### Platform and third-party dependencies
 
@@ -86,16 +89,15 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/notebook|learnloop.cli.notebook]].
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/notebook|learnloop.cli.notebook]], [[Reference/Modules/learnloop/notebook_authoring/contract_check|learnloop.notebook_authoring.contract_check]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
-No direct or one-hop consumer test was found by static import analysis.
+No test imports this module directly. These tests exercise a direct production consumer:
 
-> [!caution] Test gap signal
-> Treat this as a navigation signal, not proof that behavior is untested: dynamic and higher-level coverage is outside this static map. Add focused coverage when changing isolated behavior here.
+- [tests/test_notebook_contract.py](../../../../../../tests/test_notebook_contract.py) — imports consumer [[Reference/Modules/learnloop/notebook_authoring/contract_check|learnloop.notebook_authoring.contract_check]]
 
 ## Modification guidance
 

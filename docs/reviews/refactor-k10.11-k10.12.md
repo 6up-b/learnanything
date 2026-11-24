@@ -164,3 +164,5 @@ stopped patching private names).
 - The whole suite, the durability lane and the arc-close gate (the landing runs them).
 - Real press, prebuild and video counts for the storage estimate (synthetic).
 - The vault's generated references (the landing regenerates them).
+
+**Fix round (2026-11-23).** K-R9 and K-R13 through K-R18 repair rich attempt recovery, cancellation, request identity, validation refusals and withheld-poll retries. The additional decisions describe figure authoring and delivery. They leave “scoring, scheduling, projection, or admissibility semantics” intact.

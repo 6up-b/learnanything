@@ -9,6 +9,7 @@ from learnloop.ai.errors import AIInterrupted
 from learnloop.ai.execution import observe_model_calls
 from learnloop.ai.structured_contracts import correction_prompt, first_failure, recovery_note
 from learnloop.teacher import service as S, episodes as E, te2 as T2, visuals as V
+from learnloop.teacher.contracts import TeacherTurnV2, capabilities
 from learnloop.vault.loader import load_vault
 from tests.live_dialogue_contract_helpers import chat, teacher
 from tests.structured_contracts_helpers import root_receipts
@@ -35,9 +36,11 @@ max_lesson_cost_usd = 10.0
     with S._lesson_spend(vault, repository, state, clock=None), observe_model_calls(
             lambda action, event: events.append((action, event))):
         answer, _ = S._call_teacher(vault, repository, state, client, results=[], help_reply=False,
-                                    outcome=outcome, clock=None, visuals=visuals, episodes=episodes, te2=te2)
+                                    outcome=outcome, clock=None,
+                                    allowed=capabilities(visuals=visuals, episodes=episodes, probes=te2))
     model = T2.turn_model(E.turn_model(V.turn_model(visuals), episodes), te2)
-    assert type(answer) is model
+    assert client.operations[0].result_model is model
+    assert type(answer) is TeacherTurnV2
     assert len(requests) == 2 and outcome.usage["calls"] == 2
     assert client.operations[0].prompt == first and client.operations[0].timeout_seconds is None
     assert client.operations[1].prompt == correction_prompt(first, S.TEACHER_MESSAGE_CONTRACT[0])

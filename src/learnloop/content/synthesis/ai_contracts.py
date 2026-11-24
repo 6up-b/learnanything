@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from typing import Any, Literal
 
-from pydantic import Field, model_validator
+from pydantic import Field, PrivateAttr, model_validator
 
 from learnloop.ai.schemas import WireModel
 from learnloop.ai.transport import render_structured_prompt
@@ -599,6 +599,8 @@ class ConceptGraphStructuringWithRegistry(ConceptGraphStructuring):
 
 
 class AppendReconciliation(WireModel):
+    # Local merge state preserves boundaries when an individual summary contains newlines.
+    _pass_summaries: tuple[str, ...] = PrivateAttr(default=())
     summary: str = ""
     span_requests: list[SynthSpanRequest] = Field(default_factory=list)
     concepts: list[SynthConcept] = Field(default_factory=list)

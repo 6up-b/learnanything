@@ -115,6 +115,7 @@ Indexes and uniqueness:
 - `Repository.insert_ingest_job()`
 - `Repository.job_outcome()`
 - `Repository.latest_ingest_job_per_source()`
+- `Repository.latest_practice_snapshot_job()`
 - `Repository.newest_ingest_job_by_payload()`
 - `Repository.owns_ingest_job()`
 - `Repository.request_ingest_batch_cancel()`
@@ -138,6 +139,7 @@ Indexes and uniqueness:
 - `src/learnloop/content/pipeline/add_source.py`
 - `src/learnloop/content/pipeline/import_jobs.py`
 - `src/learnloop/content/pipeline/jobs.py`
+- `src/learnloop/content/pipeline/practice_publication.py`
 - `src/learnloop/content/pipeline/reread.py`
 - `src/learnloop/content/pipeline/runner.py`
 - `src/learnloop/content/pipeline/wait_detail.py`
@@ -145,14 +147,13 @@ Indexes and uniqueness:
 - `src/learnloop/content/synthesis/jobs.py`
 - `src/learnloop/daily_plan/next_practice.py`
 - `src/learnloop/db/stores/ingest_queue.py`
+- `src/learnloop/db/stores/provenance.py`
 - `src/learnloop/figures/build.py`
 - `src/learnloop/figures/rich.py`
 - `src/learnloop/reader/section_generation.py`
 - `src/learnloop/scheduling/serving_exclusions.py`
 - `src/learnloop/source_retrieval/jobs.py`
 - `src/learnloop/source_retrieval/source_vectors.py`
-- `src/learnloop_sidecar/handlers/figures.py`
-- `src/learnloop_sidecar/handlers/reader.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

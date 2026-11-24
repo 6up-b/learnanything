@@ -1155,7 +1155,7 @@ def _receipt_billing(declared: Mapping[str, Any], provider: str | None, subscrip
             or (declared.get("practice_index") or {}).get("billing") == "subscription" \
             or (declared.get("pf") or {}).get("cost_basis") == "estimated_only":
         return "subscription"
-    if declared:
+    if declared.keys() - {"checkpoint_key"}:
         return "metered"
     return "subscription" if provider and provider in subscription_providers else "metered"
 
@@ -1365,6 +1365,7 @@ def _second_floor(moment: datetime) -> str:
 
 def service_spend_accounting(connection: sqlite3.Connection, *, envelope: str, day: str, since: str,
                              now: datetime | str, price_per_million: float | None = None,
+                             provider_prices: Mapping[str, float] | None = None,
                              subscription_providers: Collection[str] = (),
                              owner_kinds: Sequence[str] | None = SERVICE_OWNER_KINDS) -> dict[str, Any]:
     """The daily cap's total for ``envelope`` on ``day`` (receipts since ``since``),
@@ -1423,11 +1424,18 @@ def service_spend_accounting(connection: sqlite3.Connection, *, envelope: str, d
     for parent_id, owner_kind, provider, started_at, cost, input_tokens, output_tokens, usage_json, budget_json in leaves:
         declared = _root_budget(connection, parent_id, budget_json, cache)
         refs = [str(ref) for ref in (declared.get(RESERVATIONS_KEY) or ()) if isinstance(ref, str)]
+        # A physical admission belongs only to the envelope that issued it. Other services count their own roots.
+        service_receipt = bool(refs) or owner_kinds is None or owner_kind in owner_kinds
+        local = _loads(budget_json, {}) or {}
+        if isinstance(local, dict) and local.get("request_reservation"):
+            refs.append(local["request_reservation"])
         refs_seen.update(refs)
         tokens = int(input_tokens or 0) + int(output_tokens or 0)
         recorded = _recorded_rate(declared)
+        if recorded is None and provider_prices and provider in provider_prices:
+            recorded = provider_prices[provider] / 1_000_000
         receipts.append({
-            "refs": refs, "owner_kind": owner_kind, "started": _moment(started_at), "cost": cost,
+            "refs": refs, "service": service_receipt, "started": _moment(started_at), "cost": cost,
             "tokens": tokens, "usage_json": usage_json, "recorded_rate": recorded,
             "billing": _receipt_billing(declared, provider, subscription_providers),
         })
@@ -1443,7 +1451,7 @@ def service_spend_accounting(connection: sqlite3.Connection, *, envelope: str, d
     for receipt in receipts:
         refs, started, cost = receipt["refs"], receipt["started"], receipt["cost"]
         in_window = started is not None and started >= floor_at
-        service = bool(refs) or owner_kinds is None or receipt["owner_kind"] in owner_kinds
+        service = receipt["service"]
         if receipt["billing"] == "subscription":
             if service and in_window:
                 used = _estimated_tokens(receipt["tokens"], receipt["usage_json"])
@@ -1548,6 +1556,7 @@ def recover_service_spend(connection: sqlite3.Connection, accounting: Mapping[st
 
 def reserve_service_spend(connection: sqlite3.Connection, *, id: str, envelope: str, day: str, since: str,
                           usd: float, cap: float, process: str, now: datetime | str, lease_seconds: float,
+                          provider_prices: Mapping[str, float] | None = None,
                           price_per_million: float | None = None, subscription_providers: Collection[str] = (),
                           owner_kinds: Sequence[str] | None = SERVICE_OWNER_KINDS) -> tuple[bool, float]:
     """Admit one request under the shared cap, inside the caller's BEGIN IMMEDIATE transaction.
@@ -1560,7 +1569,7 @@ def reserve_service_spend(connection: sqlite3.Connection, *, id: str, envelope: 
 
     accounting = service_spend_accounting(
         connection, envelope=envelope, day=day, since=since, now=now, price_per_million=price_per_million,
-        subscription_providers=subscription_providers, owner_kinds=owner_kinds)
+        subscription_providers=subscription_providers, owner_kinds=owner_kinds, provider_prices=provider_prices)
     recover_service_spend(connection, accounting, now=now)
     total = float(accounting["usd"])
     if total + float(usd) > float(cap) + _EPSILON:
@@ -1652,8 +1661,10 @@ def released_reservations(connection: sqlite3.Connection, budget_json: Any) -> l
         declared = json.loads(budget_json or "{}") or {}
     except (TypeError, ValueError):
         return []
-    refs = [str(ref) for ref in (declared.get(RESERVATIONS_KEY) or ()) if isinstance(ref, str)] \
-        if isinstance(declared, dict) else []
+    if not isinstance(declared, dict):
+        return []
+    reservations = [*(declared.get(RESERVATIONS_KEY) or ()), declared.get("request_reservation")]
+    refs = [ref for ref in reservations if isinstance(ref, str)]
     if not refs:
         return []
     return [row[0] for row in connection.execute(

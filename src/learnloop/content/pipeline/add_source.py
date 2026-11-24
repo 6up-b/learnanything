@@ -975,7 +975,8 @@ def admit_auto_build_job(ctx, *, planned_tokens: int | None = None) -> None:
         return
     repo = ctx.repo
     source_id = str(auto.get("source_id") or "")
-    config = load_vault(ctx.vault_root).config
+    vault = load_vault(ctx.vault_root)
+    config = vault.config
     batch_id = str(ctx.job["batch_id"])
     if not config.ingest.auto_build:
         _cancel_rest_of_batch(ctx)
@@ -993,6 +994,7 @@ def admit_auto_build_job(ctx, *, planned_tokens: int | None = None) -> None:
         # than the learner was shown (or than ran without asking).
         authorized = auto.get("estimate_usd")
     limit = max(float(authorized) - spent_build, 0.0) if authorized is not None else None
+    authorization_left = limit
     reason = "authorization"
     cap = config.ingest.cost_pause.daily_cap_usd
     if cap is not None:
@@ -1019,9 +1021,18 @@ def admit_auto_build_job(ctx, *, planned_tokens: int | None = None) -> None:
             raise _spend_paused(reason, {**details, "estimate_usd": round(usd, 4), "spend_check": str(exc)}) from exc
     # Every request of the rest of this attempt, whatever route it really
     # takes (a subscription route is never limited; a metered fallback is).
-    gate = _request_gate(config, limit, _request_output_ceiling(config, str(ctx.job.get("job_type") or "")),
-                         cancelled=ctx.cancelled)
-    ctx.hold(_requests_admitted(gate, reason, details))
+    def daily_envelope():
+        from learnloop.source_retrieval.service_spend import SharedDailyEnvelope, midnight
+
+        prices = {name: _price_per_million(config, name) for name in
+                  {*config.ingest.cost_pause.prices, "zai-glm-ocr", "glm-ocr-local"}}
+        return SharedDailyEnvelope(vault, repo, day=midnight(ctx.clock), clock=ctx.clock, cap=cap,
+                                   name="ingest.cost_pause.daily_cap_usd", owner_kinds=None,
+                                   price_per_million=_price_per_million(config, None), provider_prices=prices)
+
+    gate = _request_gate(config, authorization_left, _request_output_ceiling(config, str(ctx.job.get("job_type") or "")),
+                         cancelled=ctx.cancelled, daily_envelope=daily_envelope if cap is not None else None)
+    ctx.hold(_requests_admitted(gate, details))
 
 
 def _request_output_ceiling(config, job_type: str) -> int:
@@ -1037,12 +1048,12 @@ def _request_output_ceiling(config, job_type: str) -> int:
                int(budgets.append_output_tokens))
 
 
-def _request_gate(config, limit_usd: float | None, default_output_tokens: int, *, cancelled=None):
+def _request_gate(config, limit_usd: float | None, default_output_tokens: int, *, cancelled=None, daily_envelope=None):
     from learnloop.ai.spend import MeteredRequestGate, is_subscription_transport
 
     return MeteredRequestGate(
         cancelled=cancelled,
-        limit_usd=limit_usd,
+        limit_usd=limit_usd, daily_envelope=daily_envelope,
         price_per_token=lambda provider: _price_per_million(config, provider) / 1_000_000,
         is_subscription=lambda client: (
             is_subscription_transport(client=client)
@@ -1065,7 +1076,7 @@ def _spend_paused(reason: str, details: Mapping[str, Any]):
 
 
 @contextmanager
-def _requests_admitted(gate, reason: str, details: Mapping[str, Any]):
+def _requests_admitted(gate, details: Mapping[str, Any]):
     """Hold ``gate`` over every model request of the attempt; a request it
     refused stops the job as ``spend_paused`` (whatever the pipeline made of
     the refusal on its way out)."""
@@ -1085,7 +1096,8 @@ def _requests_admitted(gate, reason: str, details: Mapping[str, Any]):
         # What the job reported on its way out is kept (a preserved
         # candidate, for Retry's zero-model repair first).
         earlier = dict(exc.details) if isinstance(exc, IngestRunnerError) else {}
-        raise _spend_paused(reason, {**earlier, **details, "request": dict(gate.refusal),
+        reason = "daily_cap" if gate.refusal["reason"] == "daily_cap" else "authorization"
+        raise _spend_paused(reason, {**earlier, **details, "reason": reason, "request": dict(gate.refusal),
                                      "spent_by_job_usd": round(gate.spent_usd, 4)}) from exc
 
 

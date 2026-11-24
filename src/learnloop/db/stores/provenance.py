@@ -40,6 +40,32 @@ def write_decision(repository: Any, record: provenance.DecisionRecord) -> str | 
     return provenance.write_through(repository, record)
 
 
+def job_attempt_decisions(repository, job_id, *, record=None, publish=True):
+    """Keep a pending author verdict on its job until its decision row commits.
+
+    A new verdict replaces the interrupted verdict with the same ID. Each successful insert and removal
+    share the caller's transaction, including a figure commit or lease expiry.
+    """
+    with repository.atomic():
+        job = repository.get_ingest_job(job_id) if job_id else None
+        if job is None:
+            if publish and record:
+                write_decision(repository, record)
+            return
+        payload = dict(job["payload"])
+        pending = payload.pop("pending_author_verdicts", {})
+        if not (pending or record):
+            return
+        if record:
+            pending[record.id] = record.as_dict()
+        if publish:
+            pending = {key: row for key, row in pending.items()
+                       if write_decision(repository, provenance.DecisionRecord(**row)) is None}
+        if pending:
+            payload["pending_author_verdicts"] = pending
+        repository.update_ingest_job_payload(job_id, payload)
+
+
 def write_decision_without_waiting(repository: Any, record: provenance.DecisionRecord) -> str | None:
     """Write ``record`` in a short transaction on a connection of its own that never waits for a lock; its id, or
     ``None``. Never raises.

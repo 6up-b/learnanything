@@ -91,6 +91,7 @@ def _handle_request(ctx: SidecarContext, request: Any) -> dict[str, Any] | None:
     started = time.perf_counter()
     log_event("rpc.request", method=method_name, id=request_id)
     offer: dict[str, Any] | None = None
+    params = None
     try:
         raw_params = request.get("params")
         params = spec.params_model.model_validate({} if raw_params is None else raw_params)
@@ -118,6 +119,11 @@ def _handle_request(ctx: SidecarContext, request: Any) -> dict[str, Any] | None:
                 raise
         result = _with_fallback_offer(result, _offered(ctx, offers, method_name))
     except ValidationError as exc:
+        if method_name in {"figure.request", "reader.figure_request", "reader.figure_revise"} and params is None:
+            from learnloop.figures import records
+
+            if ctx.repository is not None:
+                records.write_records(ctx.repository, [records.request_record(None, status="refused", rule="validation_error")])
         log_event("rpc.error", method=method_name, id=request_id, code="validation_error",
                   duration_ms=_elapsed_ms(started))
         return {

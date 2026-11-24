@@ -552,7 +552,8 @@ def model_call(
     usage: dict[str, Any] = {}
     try:
         with _observed_call(
-            client, purpose=purpose, prompt=prompt, schema=schema, budget=budget, collect_usage=True
+            client, purpose=purpose, prompt=prompt, schema=schema, budget=budget, collect_usage=True,
+            reservation_ref=getattr(admission, "reservation_ref", None),
         ) as metadata:
             usage = metadata
             yield metadata
@@ -565,7 +566,8 @@ def model_call(
 
 @contextmanager
 def _observed_call(
-    client: Any, *, purpose: str, prompt: Any, schema: Any, budget: int | None, collect_usage: bool = False
+    client: Any, *, purpose: str, prompt: Any, schema: Any, budget: int | None, collect_usage: bool = False,
+    reservation_ref: str | None = None
 ):
     observer = _observer.get()
     metadata: dict[str, Any] = {}
@@ -587,6 +589,9 @@ def _observed_call(
     annotations = _annotations.get()
     if annotations:
         budgets = {**(budgets or {}), **annotations}
+    receipt_budget = budgets if is_root else None
+    if reservation_ref:
+        receipt_budget = {**(receipt_budget or {}), "request_reservation": reservation_ref}
     observer("start", {
         "id": call_id, "parent_call_id": _parent.get(), "purpose": purpose,
         "provider": getattr(client, "provider_name", None), "model": getattr(client, "model", None) or getattr(profile, "model", None),
@@ -594,7 +599,7 @@ def _observed_call(
         "prompt_hash": content_key(prompt), "schema_hash": content_key(schema),
         "input_text": prompt if isinstance(prompt, str) and is_root and not _withhold_input.get() else None,
         "schema_json": json.dumps(schema, sort_keys=True) if is_root else None,
-        "budget_json": json.dumps(budgets, sort_keys=True) if is_root and budgets is not None else None,
+        "budget_json": json.dumps(receipt_budget, sort_keys=True) if receipt_budget is not None else None,
         "output_budget_tokens": budget, "started_at": datetime.now(timezone.utc).isoformat(),
         # The action this call belongs to (ADR-017): joins a decision to its calls without the boundary key.
         "trace_id": current_trace(),

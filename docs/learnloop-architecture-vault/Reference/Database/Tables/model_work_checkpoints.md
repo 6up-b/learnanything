@@ -24,9 +24,9 @@ source_paths:
   - "src/learnloop/content/facet_identity/judge.py"
   - "src/learnloop/content/pipeline/import_jobs.py"
   - "src/learnloop/daily_plan/router_teach_back.py"
+  - "src/learnloop/db/stores/model_calls.py"
   - "src/learnloop/field/classification.py"
   - "src/learnloop/followup_run/contract_job.py"
-  - "src/learnloop/ops/pf_calls.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -95,6 +95,7 @@ Indexes and uniqueness:
 
 - `src/learnloop/ai/execution.py`
 - `src/learnloop/daily_plan/router_teach_back.py`
+- `src/learnloop/db/stores/model_calls.py`
 - `src/learnloop/field/classification.py`
 - `src/learnloop/followup_run/contract_job.py`
 - `src/learnloop/ops/pf_calls.py`

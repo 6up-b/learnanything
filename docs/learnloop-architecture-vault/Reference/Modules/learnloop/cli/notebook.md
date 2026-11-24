@@ -49,7 +49,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/cli/notebook.py](../../../../../../src/learnloop/cli/notebook.py) |
-| Source lines | 33 |
+| Source lines | 38 |
 | Owning package | [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
@@ -57,7 +57,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ## Public API
 
 - `class Scope(str, Enum)` ([source](../../../../../../src/learnloop/cli/notebook.py), line 11)
-- `check(path: Annotated[Path, typer.Argument(help='Marimo Python notebook to inspect.')], scope: Annotated[Scope, typer.Option('--scope', help='Checks to perform; structure does not imply acceptance.')], out: Annotated[Path, typer.Option('--out', help='Explicit report directory outside the checkout; no symlinks.')]) -> None` ([source](../../../../../../src/learnloop/cli/notebook.py), line 16) — Write structure.json and structure.txt; exit 1 for structural findings, 2 for refusal.
+- `check(path: Annotated[Path, typer.Argument(help='Marimo Python notebook to inspect.')], scope: Annotated[Scope, typer.Option('--scope', help='Checks to perform; structure does not imply acceptance.')], out: Annotated[Path, typer.Option('--out', help='Explicit report directory outside the checkout; no symlinks.')]) -> None` ([source](../../../../../../src/learnloop/cli/notebook.py), line 17) — Write static findings and a summary.
 
 ## Internal implementation anchors
 
@@ -75,6 +75,7 @@ No private top-level function or class definition is declared in this file.
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/notebook_authoring/check|learnloop.notebook_authoring.check]] — imports `OutputPathError`, `check_structure`; calls `check_structure`
+- [[Reference/Modules/learnloop/notebook_authoring/contract_check|learnloop.notebook_authoring.contract_check]] — imports `check_contract`; calls `check_contract`
 
 ### Platform and third-party dependencies
 

@@ -76,7 +76,7 @@ def test_the_pool_weights_trajectory_per_forecaster(tmp_path):
                     clients=clients(fake), clock=FrozenClock(T0 + timedelta(minutes=minute)))
     _cold(paths, repository, "pi_eig_2", 3)
     out = report(load_vault(paths.root), repository)
-    family = f"{S.DOCTRINE_VERSION}+teacher_episodes_v1+teacher_te2_v1:fake-teacher-model"
+    family = f"{S.DOCTRINE_VERSION}+teacher_episodes_v1+teacher_te2_v1+teacher_goal_offer_v1:fake-teacher-model"
     points = out["pool_trajectory"][family]
     assert points[0]["at"] is None and points[0]["updates"] == 0
     assert len(points) >= 2 and points[-1]["updates"] == len(points) - 1

@@ -794,6 +794,18 @@ class IngestQueueStoreMixin:
             "dependencies": dependencies,
         }
 
+    def latest_practice_snapshot_job(self, writers: Sequence[str], *, published_only: bool = False) -> str | None:
+        condition = ("AND json_type(payload_json, '$.practice_published') = 'text'" if published_only else "")
+        priority = "" if published_only else "(status='running') DESC,"
+        with self.connection() as connection:
+            row = connection.execute(
+                f"SELECT id FROM ingest_jobs WHERE job_type IN ({','.join('?' for _ in writers)}) "
+                "AND json_type(payload_json, '$.practice_snapshot') = 'text' "
+                f"{condition} ORDER BY {priority} json_extract(payload_json, '$.practice_revision') DESC, rowid DESC LIMIT 1",
+                tuple(writers),
+            ).fetchone()
+        return row[0] if row else None
+
     def update_ingest_job_payload(
         self, job_id: str, payload: Mapping[str, Any]
     ) -> None:

@@ -56,6 +56,7 @@ from dataclasses import dataclass, field
 from types import SimpleNamespace
 from typing import Any
 
+from learnloop.ai.spend import SpendLimitExceeded
 from learnloop.ai.transport import render_structured_prompt
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.content.authoring.ai_contracts import (
@@ -76,6 +77,7 @@ from learnloop.figure_admission import (
 )
 from learnloop.figure_admission import manim_opt_in as admission_manim_opt_in
 from learnloop.figure_admission import rich_tiers_enabled as admission_rich_tiers_enabled
+from learnloop.figures.rich_attempts import RichAttempts
 from learnloop.figures import labels as L
 from learnloop.figures import records as FR
 from learnloop.figures import manim_figure as M
@@ -514,40 +516,27 @@ def run_rich_job(vault: Any, repository: Repository, payload: Mapping[str, Any],
     ends (``job_id``, the queue's job, is their subject when no row was
     stored); a record never changes the job."""
 
-    attempts = FR.AuthorAttempts(prompt_version=RICH_PROMPT_VERSION, kind=FR.KIND_RICH_AUTHOR)
-    try:
-        result = _rich_job(vault, repository, payload, client=client, report=report, renderer=renderer,
-                           function_runner=function_runner, live_vault=live_vault, cancellation=cancellation,
-                           clock=clock, job_id=job_id, attempts=attempts)
-    except RichJobStopped as exc:
-        _record_rich(repository, payload, attempts, job_id=job_id, error=exc)
-        FR.write_records(repository, FR.in_one_trace([FR.rich_stop_record(
-            exc.code, retryable=exc.retryable, job_id=job_id, request_id=content_key_for(payload),
-            attempts=len(attempts.attempts))]))
-        raise
-    except BaseException as exc:
-        _record_rich(repository, payload, attempts, job_id=job_id, error=exc)
-        raise
-    _record_rich(repository, payload, attempts, job_id=job_id, result=result)
-    return result
-
-
-def _record_rich(repository: Repository, payload: Mapping[str, Any], attempts: FR.AuthorAttempts, *,
-                 job_id: str | None, result: Mapping[str, Any] | None = None,
-                 error: BaseException | None = None) -> None:
-    """The job's ``figure_rich_author`` records, one per attempt it started (none when it stopped before any:
-    its stop record says why). Never raises."""
-
-    if not attempts.attempts:
-        return
     base = payload.get("base") or {}
     request = SimpleNamespace(origin=base.get("origin") or "selection",
                               prefetch_decision_id=payload.get("prefetch_decision_id"))
-    outcome = None if result is None else SimpleNamespace(
-        view={"figure_id": result.get("figure_id"), "verification": result.get("verification")},
-        reused=bool(result.get("reused")))
-    attempts.write(repository, request=request, request_id=content_key_for(payload), model=attempts.model,
-                   outcome=outcome, error=error, job_id=job_id)
+    attempts = RichAttempts(repository, job_id, request, content_key_for(payload), RICH_PROMPT_VERSION)
+    try:
+        _say(report, "writing", "writing an animation for this passage")
+        result = _rich_job(vault, repository, payload, client=client, report=report, renderer=renderer,
+                           function_runner=function_runner, live_vault=live_vault, cancellation=cancellation,
+                           clock=clock, job_id=job_id, attempts=attempts)
+    except (RichJobStopped, *cancellation) as exc:
+        stopped = isinstance(exc, RichJobStopped)
+        attempts.finish(error=exc)
+        FR.write_records(repository, FR.in_one_trace([FR.rich_stop_record(
+            exc.code if stopped else "cancelled", retryable=stopped and exc.retryable, job_id=job_id, request_id=content_key_for(payload),
+            attempts=len(attempts.attempts))]))
+        raise
+    except BaseException as exc:
+        attempts.finish(error=exc)
+        raise
+    attempts.finish(result=result)
+    return result
 
 
 def _rich_job(vault: Any, repository: Repository, payload: Mapping[str, Any], *, client: Any | None,
@@ -760,9 +749,7 @@ def _run(vault: Any, repository: Repository, payload: Mapping[str, Any], *, base
          gate: FiguresGate, client: Any | None, report: Report | None, renderer: Renderer | None,
          function_runner: M.FunctionRunner | None, clock: Clock | None,
          cancellation: tuple[type[BaseException], ...] = (),
-         attempts: FR.AuthorAttempts | None = None) -> dict[str, Any]:
-    attempts = attempts if attempts is not None else FR.AuthorAttempts(kind=FR.KIND_RICH_AUTHOR)
-    from learnloop.ai.spend import SpendLimitExceeded
+         attempts: RichAttempts) -> dict[str, Any]:
     from learnloop.content.authoring.concept_animation import (
         capped_scope_prefix,
         lint_scene_pacing,
@@ -777,7 +764,6 @@ def _run(vault: Any, repository: Repository, payload: Mapping[str, Any], *, base
     request_id = content_key_for(payload)
     route = R.FigureRoute(vault, repository, RICH_TASK, client=client, envelope=envelope,
                           owner_id=f"figure_rich:{request_id}", max_calls=MAX_RICH_ATTEMPTS)
-    attempts.model = route.model
     problem = route.problem()
     if problem is not None:
         if problem.reason == "unavailable":
@@ -796,11 +782,11 @@ def _run(vault: Any, repository: Repository, payload: Mapping[str, Any], *, base
     failure = ""
     for attempt in range(MAX_RICH_ATTEMPTS):
         last = attempt == MAX_RICH_ATTEMPTS - 1
-        attempts.start(attempt + 1)
+        attempts.start(attempt + 1, route=route)
         _say(report, "writing", "writing an animation for this passage")
         prompt = rich_prompt(rich_context(vault, author_context, brief, problems, payload.get("revision")))
         try:
-            output = route.ask(prompt, FigureManimOutputV1, metadata={"attempt": attempt + 1,
+            output = attempts.ask(route, prompt, FigureManimOutputV1, metadata={"attempt": attempt + 1,
                                                                      "prompt_version": RICH_PROMPT_VERSION})
         except (FiguresChanged, *cancellation):
             raise
@@ -855,9 +841,9 @@ def _run(vault: Any, repository: Repository, payload: Mapping[str, Any], *, base
             continue
         figure, checks = candidate, found
         break
-    if figure is None and fallback is not None:
+    rendering_fallback = figure is None and fallback is not None
+    if rendering_fallback:
         figure, checks = fallback
-        attempts.fact(fallback_rendered=True)
     if figure is not None:
         _say(report, "rendering", "rendering the video (manim)")
         gate.check("render")
@@ -865,6 +851,8 @@ def _run(vault: Any, repository: Repository, payload: Mapping[str, Any], *, base
                         timeout_seconds=config.timeout_seconds, manim_executable=config.manim_executable,
                         manim_command=resolve_manim_command(config, vault.root),
                         wrapper=capped_scope_prefix(background=payload.get("build_mode") == "prefetch"))
+        if rendering_fallback:
+            attempts.fact(fallback_rendered=True)
         # Codex review F6: a cancel pressed while the render ran is noticed
         # here, before anything is stored or asked again.
         _say(report, "rendering", PHASES["rendering"])
@@ -886,15 +874,14 @@ def _run(vault: Any, repository: Repository, payload: Mapping[str, Any], *, base
     gate.check("store")
     return _store(vault, repository, payload, base=base, route=route, figure=figure, checks=checks, video=video,
                   failure=failure or "the animation model gave no usable animation", span_texts=span_texts,
-                  clock=clock)
+                  clock=clock, attempts=attempts)
 
 
 def _repair_render(vault: Any, repository: Repository, payload: Mapping[str, Any], *, base: Mapping[str, Any],
                    gate: FiguresGate, route: R.FigureRoute, report: Report | None, render: Renderer,
                    function_runner: M.FunctionRunner | None, stderr: str, previous: M.ManimFigure,
                    clock: Clock | None, cancellation: tuple[type[BaseException], ...] = (),
-                   attempts: FR.AuthorAttempts | None = None) -> dict[str, Any]:
-    attempts = attempts if attempts is not None else FR.AuthorAttempts(kind=FR.KIND_RICH_AUTHOR)
+                   attempts: RichAttempts) -> dict[str, Any]:
     from learnloop.content.authoring.concept_animation import (
         capped_scope_prefix,
         resolve_manim_command,
@@ -910,11 +897,11 @@ def _repair_render(vault: Any, repository: Repository, payload: Mapping[str, Any
     checks: M.CheckReport | None = None
     video = None
     failure = "the video couldn't be rendered"
-    attempts.start(route.made + 1)
+    attempts.start(route.made + 1, route=route)
     attempts.fact(repair="render")
     _say(report, "writing", "writing an animation for this passage")
     try:
-        output = route.ask(rich_prompt(rich_context(vault, dict(payload.get("author_context") or {}), brief,
+        output = attempts.ask(route, rich_prompt(rich_context(vault, dict(payload.get("author_context") or {}), brief,
                                                     problems, payload.get("revision"))),
                            FigureManimOutputV1, metadata={"attempt": route.made + 1, "repair": "render",
                                                           "prompt_version": RICH_PROMPT_VERSION})
@@ -950,6 +937,9 @@ def _repair_render(vault: Any, repository: Repository, payload: Mapping[str, Any
         # Codex review F6: a cancel (the job's report() raising) is never an
         # honest failure to store.
         raise
+    except (R.FigureUnavailable, SpendLimitExceeded) as exc:
+        attempts.end(FR.REQUEST_REFUSED, status="refused")
+        failure = str(exc)
     except M.ManimFigureError as exc:
         attempts.end(FR.RICH_BRIEF_INVALID, problems=len(exc.problems))
         failure = exc.problems[0]
@@ -958,7 +948,7 @@ def _repair_render(vault: Any, repository: Repository, payload: Mapping[str, Any
         failure = f"the animation model failed: {type(exc).__name__}"
     gate.check("store")
     return _store(vault, repository, payload, base=base, route=route, figure=figure, checks=checks, video=video,
-                  failure=failure, span_texts=span_texts, clock=clock)
+                  failure=failure, span_texts=span_texts, clock=clock, attempts=attempts)
 
 
 def _render_failed(attempts: FR.AuthorAttempts, result: Any) -> None:
@@ -993,7 +983,7 @@ def canonical_spec(figure: M.ManimFigure, brief: Mapping[str, Any], assumptions:
 
 def _store(vault: Any, repository: Repository, payload: Mapping[str, Any], *, base: Mapping[str, Any],
            route: R.FigureRoute, figure: M.ManimFigure | None, checks: M.CheckReport | None, video: bytes | None,
-           failure: str, span_texts: Mapping[str, str], clock: Clock | None) -> dict[str, Any]:
+           failure: str, span_texts: Mapping[str, str], clock: Clock | None, attempts: RichAttempts) -> dict[str, Any]:
     from learnloop.content.authoring.concept_animation import store_video_bytes
 
     brief = dict(payload.get("brief") or {})
@@ -1042,6 +1032,7 @@ def _store(vault: Any, repository: Repository, payload: Mapping[str, Any], *, ba
                             judge="verifier", input_hash=str(payload["input_hash"]), verdict=row["verification"],
                             rationale=str(row["verification_report"].get("reason") or
                                           f"{len(row['checks'])} checks")[:400], created_at=created_at)
+            attempts.finish(result={"figure_id": figure_id, "verification": row["verification"]})
             # With no quick figure the tier receipt was appended against the
             # request when the author's choice was accepted (Codex review
             # F10); the request now names this figure (above), never a

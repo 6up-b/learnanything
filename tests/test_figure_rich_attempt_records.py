@@ -128,3 +128,122 @@ STAGED = {FR.ACCEPTED, FR.CLAIM_FAILED, FR.RICH_BRIEF_INVALID, FR.SCENE_INVALID,
 
 def test_every_attempt_code_is_staged():
     assert STAGED == set(FR.RICH_ATTEMPT_CODES)
+
+
+def test_finished_verdict_is_durable_before_next_author_call(tmp_path, monkeypatch):
+    rig = _Rig(tmp_path, monkeypatch, list(QUICK), [WRONG_CLAIM, RF.scene_output()])
+    rig.build()
+    complete = rig.rich_author.complete
+    snapshots = []
+
+    def inspect(request):
+        snapshots.append(_attempts(rig))
+        return complete(request)
+
+    monkeypatch.setattr(rig.rich_author, "complete", inspect)
+    rig.ingest.drain()
+    assert snapshots == [[], [(FR.CLAIM_FAILED, "discarded")]]
+    assert _attempts(rig) == [(FR.CLAIM_FAILED, "discarded"), (FR.ACCEPTED, "chosen")]
+
+
+def test_final_attempt_commits_with_figure(tmp_path, monkeypatch):
+    rig = _Rig(tmp_path, monkeypatch, list(QUICK))
+    rig.build()
+    from contextlib import contextmanager
+    from learnloop.db.repositories import Repository
+
+    observer = Repository(rig.repository.sqlite_path)
+    atomic = Repository.atomic
+    snapshots = []
+
+    @contextmanager
+    def observe_commit(repository):
+        with atomic(repository):
+            yield
+        if not snapshots and any(row["tier"] == "manim" for row in rows(observer, "interactive_figures")):
+            snapshots.append(_attempts(rig))
+
+    monkeypatch.setattr(Repository, "atomic", observe_commit)
+    rig.ingest.drain()
+    assert snapshots == [[(FR.ACCEPTED, "chosen")]]
+    assert _attempts(rig) == snapshots[0]
+
+
+def test_rich_job_cancelled_at_its_initial_report_records_stop(tmp_path, monkeypatch):
+    from learnloop.content.pipeline.runner import JobCancelled, JobContext
+
+    rig = _Rig(tmp_path, monkeypatch, list(QUICK))
+    rig.build()
+
+    def cancel(*args, **kwargs):
+        raise JobCancelled("cancel pressed")
+
+    monkeypatch.setattr(JobContext, "report", cancel)
+    rig.ingest.drain()
+    assert rig.job()["status"] == "cancelled"
+    (stop,) = _records(rig, FR.KIND_RICH_STOP)
+    assert (stop["rule"], stop["subject_id"], stop["facts"]["attempts"]) == ("cancelled", rig.job()["id"], 0)
+
+
+def test_rich_repair_refused_by_budget_records_the_refusal(tmp_path, monkeypatch):
+    rig = _run(tmp_path, monkeypatch, [RF.scene_output(), SpendLimitExceeded("cap", rule="envelope_cap")],
+               renders=RF.Renders([RF.failed_render()]))
+    assert _attempts(rig) == [(FR.RENDER_FAILED, "discarded"), (FR.REQUEST_REFUSED, "refused")]
+
+
+def test_cancel_before_fallback_render_records_no_render(tmp_path, monkeypatch):
+    import learnloop.content.authoring.concept_animation as CA
+    from learnloop.content.pipeline.runner import JobCancelled
+
+    rig = _Rig(tmp_path, monkeypatch, list(QUICK), [RF.scene_output(), WRONG_CLAIM])
+    rig.build()
+    monkeypatch.setattr(CA, "lint_scene_pacing", lambda *_args, **_kwargs: ["too fast"])
+    check = RICH.FiguresGate.check
+
+    def cancel_at_render(self, purpose="request"):
+        if purpose == "render":
+            raise JobCancelled("cancel before render")
+        return check(self, purpose)
+
+    monkeypatch.setattr(RICH.FiguresGate, "check", cancel_at_render)
+    rig.ingest.drain()
+    assert rig.job()["status"] == "cancelled" and rig.renders.calls == []
+    records = _records(rig, FR.KIND_RICH_AUTHOR)
+    assert len(records) == 2
+    assert all(not r["facts"].get("fallback_rendered") for r in records)
+
+
+def test_attempts_record_the_model_each_receipt_resolved(tmp_path, monkeypatch):
+    from learnloop.ai.execution import report_call_usage
+
+    rig = _Rig(tmp_path, monkeypatch, list(QUICK), [WRONG_CLAIM, RF.scene_output()])
+    rig.build()
+    complete = rig.rich_author.complete
+
+    def resolved(request):
+        result = complete(request)
+        report_call_usage({"resolved_model": f"resolved-{rig.rich_author.calls}"})
+        return result
+
+    monkeypatch.setattr(rig.rich_author, "complete", resolved)
+    rig.ingest.drain()
+    records = _records(rig, FR.KIND_RICH_AUTHOR)
+    assert [json.loads(r["versions_json"])["model"] for r in records] == ["resolved-1", "resolved-2"]
+
+
+def test_lease_recovery_preserves_the_interrupted_author_attempt(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+    from learnloop.figures.rich_attempts import RichAttempts
+
+    rig = _Rig(tmp_path, monkeypatch, list(QUICK))
+    rig.build()
+    job = rig.repository.claim_next_ingest_job(worker_id="gone", now_iso="2020-01-01T00:00:00Z",
+                                              lease_cutoff_iso="2019-12-31T00:00:00Z")
+    attempts = RichAttempts(rig.repository, job["id"], SimpleNamespace(origin="selection"),
+                            RICH.content_key_for(job["payload"]), RICH.RICH_PROMPT_VERSION)
+    attempts.start(1)
+    attempts.end(FR.CLAIM_FAILED, problems=1)
+    attempts.start(2)
+    assert rig.ingest.recover_stale_leases() == [job["id"]]
+    assert rig.ingest.recover_stale_leases() == []
+    assert _attempts(rig) == [(FR.CLAIM_FAILED, "discarded"), (FR.INTERRUPTED, "failed")]

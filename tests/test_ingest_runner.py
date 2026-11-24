@@ -1828,6 +1828,7 @@ def test_append_synthesis_forwards_budget_overrides(tmp_path, monkeypatch):
             reused=False,
             nothing_new=False,
             auto_applied_item_ids=[],
+            calls=1,
         )
 
     monkeypatch.setattr("learnloop.content.synthesis.source_append.append_source", fake_append_source)
