@@ -5,7 +5,6 @@ copies without writing them, prints counts only, and its comparison agrees with 
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime
 
 from learnloop.algorithm_versions import LABEL_RETIRED_ALGORITHM_VERSION, PROBE_ROUTER_ALGORITHM_VERSION
 from learnloop.db.copies import copy_tree_with_databases
