@@ -3465,6 +3465,7 @@ export function DeskShell({
           onInquiryReady: onInquiryReadyFor(window.windowId),
           onAsk: onAskFor(window.windowId),
           onOpenPath: onOpenPathFor(window.windowId),
+          onOpenBeside: openHit,
           onError,
           ...(reader ? { reader } : {}),
           // A book following a video marks its passage over the goal lens (RD10).
@@ -3506,10 +3507,10 @@ export function DeskShell({
             />
           );
         }
-        return <LibraryPanel query={null} onOpenHit={openHit} onClose={() => run({ kind: "closeWindow" })} onError={onError} />;
+        return <LibraryPanel query={null} onOpenHit={openHit} onClose={() => run({ kind: "closeWindow" })} onError={onError} library={library ?? null} reader={reader ?? null} />;
       }
       case "compare":
-        return <LibraryPanel query={content.query ?? null} anchor={compareAnchorOf(window.view)} onOpenHit={openHit} onClose={() => run({ kind: "closeWindow" })} onError={onError} />;
+        return <LibraryPanel query={content.query ?? null} anchor={compareAnchorOf(window.view)} onOpenHit={openHit} onClose={() => run({ kind: "closeWindow" })} onError={onError} library={library ?? null} reader={reader ?? null} />;
       case "thread":
         return (
           <ThreadWindow

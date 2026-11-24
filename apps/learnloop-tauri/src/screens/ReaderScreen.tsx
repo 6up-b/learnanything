@@ -300,6 +300,9 @@ export interface ReaderWindowing {
   onAsk?: (ask: WindowAsk) => void;
   /** "what matters here?": the desk's path for this reading (the goal's path view, else the reading's path). */
   onOpenPath?: () => void;
+  /** Another book's passage (a library hit, a textbook exercise in another book) opens in a window beside this one,
+   *  never in place of this window's book (a window opens one book for its life). */
+  onOpenBeside?: (hit: { sourceId: string; extractionId: string; spanId: string }) => void;
 }
 
 /** What a desk does in a source window's inquiry. */
@@ -2918,6 +2921,11 @@ export function ReaderScreen({
     if (render && hit.sourceId === render.sourceId) {
       peekPassage(hit.spanId);
       return Promise.resolve("opened");
+    }
+    if (windowed?.onOpenBeside && hit.sourceId) {
+      // On the desks another book opens in its own window beside this one (its way back is this window, still open).
+      windowed.onOpenBeside({ sourceId: hit.sourceId, extractionId: hit.extractionId, spanId: hit.spanId });
+      return Promise.resolve("not_opened");
     }
     const card = (library ?? []).find((candidate) => candidate.sourceId === hit.sourceId);
     if (!card || opening !== null) return Promise.resolve("not_opened");

@@ -28,6 +28,20 @@ export interface NotesContextValue {
 
 export const NotesContext = createContext<NotesContextValue | null>(null);
 
+// A link, a hide or a keep made in one window changes what every window shows of the learner's notes: each reads
+// its marks and note lines again (a Compare window's take, a book open beside).
+const noteChanges = new EventTarget();
+
+/** The learner's notes changed somewhere: every surface holding them reads them again. */
+export function announceNotesChange(): void {
+  noteChanges.dispatchEvent(new Event("changed"));
+}
+
+export function onNotesChange(listener: () => void): () => void {
+  noteChanges.addEventListener("changed", listener);
+  return () => noteChanges.removeEventListener("changed", listener);
+}
+
 export function useNotes(): NotesContextValue | null {
   return useContext(NotesContext);
 }

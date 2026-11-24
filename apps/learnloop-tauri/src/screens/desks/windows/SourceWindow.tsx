@@ -35,6 +35,7 @@ export function SourceWindow({
   onInquiryReady,
   onAsk,
   onOpenPath,
+  onOpenBeside,
 }: {
   content: Extract<ContentRefDto, { kind: "source" | "video" }>;
   card: SourceLibraryCard | null;
@@ -57,6 +58,8 @@ export function SourceWindow({
   onAsk?: (ask: WindowAsk) => void;
   /** "what matters here?": the desk's path for this reading. */
   onOpenPath?: () => void;
+  /** Another book's passage, opened in a window beside this one. */
+  onOpenBeside?: (hit: { sourceId: string; extractionId: string; spanId: string }) => void;
 }) {
   const onTitle = useCallback((title: string) => onStatus({ title }), [onStatus]);
   const onReaderStatus = useCallback(
@@ -66,8 +69,8 @@ export function SourceWindow({
   // Pen mode's way onto the text (RD8a): the pen layer mounts on the surface the Reader hands over.
   const [penSurface, setPenSurface] = useState<PenSurface | null>(null);
   const windowing = useMemo<ReaderWindowing>(
-    () => ({ railHost, onTitle, onJumpReady, onMediaReady, onStatus: onReaderStatus, lens, video, onPenSurface: setPenSurface, onInquiryReady, onAsk, onOpenPath }),
-    [railHost, onTitle, onJumpReady, onMediaReady, onReaderStatus, lens, video, onInquiryReady, onAsk, onOpenPath],
+    () => ({ railHost, onTitle, onJumpReady, onMediaReady, onStatus: onReaderStatus, lens, video, onPenSurface: setPenSurface, onInquiryReady, onAsk, onOpenPath, onOpenBeside }),
+    [railHost, onTitle, onJumpReady, onMediaReady, onReaderStatus, lens, video, onInquiryReady, onAsk, onOpenPath, onOpenBeside],
   );
   // The Reader opens its first source once, on mount: a window opens one book for its life.
   const initialSource = useMemo(
