@@ -197,6 +197,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_feedback_overlay_and_cli_are_receipt_checked`
 - [tests/test_coldness_receipt.py](../../../../../../tests/test_coldness_receipt.py) — direct import
   - `test_detail_serve_writes_one_snapshot_for_an_active_cold_task`
+- [tests/test_gate_records_survive_replay.py](../../../../../../tests/test_gate_records_survive_replay.py) — direct import
+  - `test_what_history_shows_reads_the_same_after_a_rebuild`
 - [tests/test_guided_redo.py](../../../../../../tests/test_guided_redo.py) — direct import
   - `test_feedback_reports_guided_redo_availability`
 - [tests/test_learner_review_system_entries.py](../../../../../../tests/test_learner_review_system_entries.py) — direct import

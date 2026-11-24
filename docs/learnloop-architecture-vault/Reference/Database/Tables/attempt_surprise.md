@@ -90,6 +90,7 @@ Indexes and uniqueness:
 
 - `Repository._insert_attempt_surprise()`
 - `Repository.attempt_innovation_samples()`
+- `Repository.attempt_surprise_gate_records()`
 - `Repository.find_record()`
 - `Repository.followup_source_attempt()`
 - `Repository.gate_training_rows()`
@@ -100,6 +101,7 @@ Indexes and uniqueness:
 - `Repository.recent_surprise_signals()`
 - `Repository.replace_attempt_derived_outcome()`
 - `Repository.reset_learning_object_derived_state()`
+- `Repository.restore_attempt_surprise_gate_record()`
 - `Repository.review_session_rows()`
 - `Repository.update_attempt_surprise_actions()`
 
@@ -114,6 +116,7 @@ Indexes and uniqueness:
 - `src/learnloop/evsi_calibration/live_report.py`
 - `src/learnloop/learner/lesson_weight.py`
 - `src/learnloop/router_objective/miss_cause.py`
+- `src/learnloop/substrate/shadow_rebuild.py`
 - `src/learnloop/teacher/service.py`
 - `src/learnloop_sidecar/handlers/sessions.py`
 
@@ -142,8 +145,8 @@ Indexes and uniqueness:
 - `src/learnloop/learner/session_learning_diff.py`
 - `src/learnloop/scheduling/evaluation.py`
 - `src/learnloop/scheduling/scheduler.py`
+- `src/learnloop/substrate/rebuild_orchestrator.py`
 - `src/learnloop/substrate/replay.py`
-- `src/learnloop_sidecar/handlers/feedback.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -152,6 +155,7 @@ Indexes and uniqueness:
 
 - `tests/ad23_contract_helpers.py`
 - `tests/test_gate_fit.py`
+- `tests/test_gate_records_survive_replay.py`
 - `tests/test_intent_recall_targets.py`
 - `tests/test_mvp017_route_check_replay.py`
 - `tests/test_rebuild_equivalence_review.py`
@@ -162,7 +166,6 @@ Indexes and uniqueness:
 - `tests/test_signal_quantiles.py`
 - `tests/test_voi_forecasts.py`
 - `tests/test_voi_merge_composition.py`
-- `tests/test_voi_stopping.py`
 - `tests/ro1_interval_factor_helpers.py`
 - `tests/test_agent_runs.py`
 - `tests/test_attempt_ai_flow.py`

@@ -1718,6 +1718,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f3_a_cold_success_whose_grade_is_now_held_is_not_measured`
   - `test_the_kill_switch_writes_no_receipt`
   - `test_the_report_reads_a_vault_without_receipts_as_empty`
+- [tests/test_gate_records_survive_replay.py](../../../../../../tests/test_gate_records_survive_replay.py) — direct import
+  - `test_a_per_lo_replay_keeps_them`
+  - `test_a_regrade_keeps_them`
+  - `test_a_whole_vault_rebuild_keeps_the_gates_records`
+  - `test_the_shadow_rebuild_compares_the_gates_records`
+  - `test_what_history_shows_reads_the_same_after_a_rebuild`
 - [tests/test_gate_score.py](../../../../../../tests/test_gate_score.py) — direct import
 - [tests/test_generated_item_gate.py](../../../../../../tests/test_generated_item_gate.py) — direct import
   - `test_registered_facet_accepted`

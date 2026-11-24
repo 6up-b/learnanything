@@ -1249,6 +1249,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_forecast_receipts_landing.py](../../../../../tests/test_forecast_receipts_landing.py) — direct import
   - `test_the_provenance_record_the_diagnosis_and_its_forecasts_commit_as_one_transaction`
   - `test_the_resolver_reads_the_regraded_events_the_lineage_names_never_a_retired_one`
+- [tests/test_gate_records_survive_replay.py](../../../../../tests/test_gate_records_survive_replay.py) — direct import
+  - `test_what_history_shows_reads_the_same_after_a_rebuild`
 - [tests/test_gate_score.py](../../../../../tests/test_gate_score.py) — direct import
 - [tests/test_goal_certification_any_of.py](../../../../../tests/test_goal_certification_any_of.py) — direct import
 - [tests/test_goal_contracts.py](../../../../../tests/test_goal_contracts.py) — direct import
