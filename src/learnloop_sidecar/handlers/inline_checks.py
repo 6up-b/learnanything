@@ -1,7 +1,7 @@
 """Reader workbench v2 RPCs for checks where the learner reads (spec §3.4, §12.6; mvp-0.69).
 
-* ``checks.due_for``: the due delayed checks by goal, learning object, reading or passage, each with its host passage.
-  Read only; it shows nothing of the item.
+* ``checks.due_for``: one opaque handle per due delayed check, every due check in the vault and nothing else (the
+  owner's decision on RD7-56: before "check now" nothing names or places what a check is about). Read only.
 * The inline administration protocol (``learnloop.intent.inline_administration``): ``check.begin_inline`` (the item
   Today's check view would serve, served through Today's own session serve so its contract is frozen the same way,
   and the protection with its first veil set, all before the prompt is returned), ``check.protect_more``,
@@ -19,7 +19,7 @@ from typing import Any, Literal
 from pydantic import Field
 
 from learnloop.intent import inline_administration as IA
-from learnloop.intent.inline_checks import due_checks
+from learnloop.intent.inline_checks import due_handles, resolve_handle
 from learnloop_sidecar.handlers.practice import SelfGradeInputDto
 from learnloop_sidecar.check_hold import drain_after_check
 from learnloop_sidecar.context import SidecarContext
@@ -34,20 +34,15 @@ INLINE_CHECK_RPCS: tuple[str, ...] = ("checks.due_for", "check.begin_inline", "c
 
 
 class ChecksDueForInput(ParamsModel):
-    goal_id: str | None = None
-    learning_object_ids: list[str] | None = None
-    extraction_id: str | None = None
-    span_id: str | None = None
+    """No filter: asking "is a check due on this reading, goal or passage?" would itself be answered with where it is."""
 
 
 @method("checks.due_for", ChecksDueForInput)
 def checks_due_for_handler(ctx: SidecarContext, params: ChecksDueForInput) -> dict[str, Any]:
-    """``{checks: [{commitment_id, lo_id, due, host?, provenance, being_answered}]}``."""
+    """``{checks: [{handle, being_answered}]}``: no LO, host, provenance, due date or commitment id."""
 
     vault, repository = ctx.require_vault()
-    return versioned({"checks": due_checks(
-        vault, repository, goal_id=params.goal_id, learning_object_ids=params.learning_object_ids,
-        extraction_id=params.extraction_id, span_id=params.span_id)})
+    return versioned({"checks": due_handles(vault, repository)})
 
 
 class VisibleFigure(ParamsModel):
@@ -88,7 +83,8 @@ class Visible(ParamsModel):
 
 class BeginInlineInput(ParamsModel):
     request_id: str = Field(min_length=1, max_length=128)
-    commitment_id: str = Field(min_length=1)
+    #: ``checks.due_for``'s handle: the server resolves the check (and its host and candidates) from it.
+    handle: str = Field(min_length=1, max_length=128)
     #: The desks' practice session: the attempt service records the answer on it, as every surface does. Absent (the
     #: app has none yet), the most recent open one, else a new one, as a workbench submit resolves it.
     session_id: str | None = None
@@ -167,7 +163,17 @@ def _card(vault: Any, repository: Any, admin: dict[str, Any], *, replayed: bool 
                        "veiled": _refs(repository, veils["veiled"]), "opened": _refs(repository, veils["opened"]),
                        "standing": _refs(repository, veils["standing"]), "groups": veils["groups"]},
         "prompt": Verbatim(admin.get("presentation") or {}),
+        # Where the open card sits: the check's host passage, named only once the check is begun (before, the desks
+        # know a handle and nothing else).
+        "host": _host_of(vault, repository, admin) if admin["state"] == "open" else None,
     }
+
+
+def _host_of(vault: Any, repository: Any, admin: dict[str, Any]) -> dict[str, Any] | None:
+    from learnloop.intent.inline_checks import due_checks
+
+    rows = [row for row in due_checks(vault, repository) if row["commitment_id"] == admin["commitment_id"]]
+    return next((dict(row["host"]) for row in rows if row.get("host")), None)
 
 
 def _serve(ctx: SidecarContext, session_id: str):
@@ -179,6 +185,22 @@ def _serve(ctx: SidecarContext, session_id: str):
         return get_practice_item(ctx, ServePracticeItemInput(practice_item_id=practice_item_id, session_id=session_id))
 
     return serve
+
+
+def _commitment_of(vault: Any, repository: Any, params: BeginInlineInput) -> str:
+    """The check a begin names: a request already seen is that request's (its retry), else the handle's now. A spent,
+    stale or guessed handle is refused plainly; the desks read the due checks again."""
+
+    from learnloop.db.stores import check_administrations as store
+
+    with repository.connection() as connection:
+        known = store.by_request(connection, params.request_id) if store.table_present(connection) else None
+    if known is not None:
+        return str(known["commitment_id"])
+    commitment_id = resolve_handle(vault, repository, params.handle)
+    if commitment_id is None:
+        raise IA.InlineCheckError("check_unknown", "This check changed since the desk last looked. Look again.")
+    return commitment_id
 
 
 @method("check.begin_inline", BeginInlineInput)
@@ -193,16 +215,17 @@ def check_begin_inline(ctx: SidecarContext, params: BeginInlineInput) -> dict[st
 
     vault, repository = ctx.require_vault()
     try:
+        commitment_id = _commitment_of(vault, repository, params)
         # Refused checks start no session: the lock and the due rule are read before one is resolved. A retried or
         # repeated begin adopts the open administration as it was frozen (nothing is served again).
-        standing = IA.preflight(vault, repository, request_id=params.request_id, commitment_id=params.commitment_id)
+        standing = IA.preflight(vault, repository, request_id=params.request_id, commitment_id=commitment_id)
         if standing is not None:
             return versioned({**_card(vault, repository, standing, replayed=True),
                               "practice_session": session_snapshot(repository, standing["session_id"])})
         session_id = _practice_session(ctx, repository, params.session_id)
         # The answer is written on this session: a session another device holds is refused before the question shows.
         require_owned_session(ctx, repository, session_id)
-        opened = IA.begin(vault, repository, request_id=params.request_id, commitment_id=params.commitment_id,
+        opened = IA.begin(vault, repository, request_id=params.request_id, commitment_id=commitment_id,
                           session_id=session_id, visible=params.visible.model_dump(),
                           serve=_serve(ctx, session_id), covered=_covered(vault, repository))
     except IA.InlineCheckError as exc:

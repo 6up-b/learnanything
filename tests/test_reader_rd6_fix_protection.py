@@ -156,11 +156,17 @@ def test_a_title_is_matched_as_whole_words():
 # -- the replies, end to end ----------------------------------------------------------------------------------------
 
 def _due_check(repository, lo_id):
+    """A due check on the LO, begun inline (the replies mask a check's LO only once it is begun)."""
+
+    from tests.inline_hold_helpers import hold_open
+
     due = (datetime.now(UTC) - timedelta(days=1)).strftime("%Y-%m-%d")
-    return C.create_commitment(
+    commitment_id = C.create_commitment(
         repository, action="test_me_later", intent_text=f"check {lo_id}", depth_preset=DP.READY_DEPTH_PRESET,
         targets=[{"target_kind": "learning_object", "target_ref": lo_id, "role": "required"}],
         client_idempotency_key=f"rd6fix:{lo_id}", due_hint=due, provenance={"via": "deliverable_ready"}).id
+    hold_open(repository, commitment_id)
+    return commitment_id
 
 
 def _shared_vault(tmp_path):

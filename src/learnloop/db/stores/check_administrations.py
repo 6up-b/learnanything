@@ -76,6 +76,15 @@ def open_commitments(connection: sqlite3.Connection) -> frozenset[str]:
         "SELECT commitment_id FROM check_administrations WHERE state = 'open'"))
 
 
+def administration_counts(connection: sqlite3.Connection) -> dict[str, int]:
+    """Per commitment, how many inline administrations it has had (a due check's handle is spent by each begin)."""
+
+    if not table_present(connection):
+        return {}
+    return {str(row[0]): int(row[1]) for row in connection.execute(
+        "SELECT commitment_id, COUNT(*) FROM check_administrations GROUP BY commitment_id")}
+
+
 def held_windows(connection: sqlite3.Connection) -> dict[str, list[tuple[str, str | None]]]:
     """Per commitment, every inline administration's (opened_at, closed_at): the times it held the check."""
 

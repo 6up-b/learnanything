@@ -89,13 +89,11 @@ def test_the_union_returns_every_kind_for_a_passage_across_readings(seeded):
     assert [q["question_id"] for q in s3["authored_questions"]] == ["raq_union"]
     assert s3["notes"] == [{"note_title": "my take"}]
     assert s3["exposure"] == {"times_shown": 2, "last_shown_at": "2026-05-19T02:00:00Z", "withheld": False}
-    # A due check of the passage's learning object is hosted where its section starts, and the union names
-    # nothing of it but its commitment.
-    assert s3["checks_due"] == []
-    assert len(s1["checks_due"]) == 1 and set(s1["checks_due"][0]) == {"commitment_id"}
+    # A due check of the passage's learning object is placed at no passage (the desks' marker is unlocated).
+    assert all("checks_due" not in entry for entry in union["spans"])
     assert union["sections"] == [{"section_id": SECTION, "title": f"Section {SECTION}", "learning_objects": [
         {"learning_object_id": LO, "treatment": "introduces", "learner_override": None}]}]
-    assert not any(s2[key] for key in ("annotations", "pad_blocks", "exchanges", "gaps", "figures", "checks_due"))
+    assert not any(s2[key] for key in ("annotations", "pad_blocks", "exchanges", "gaps", "figures"))
 
 
 def test_a_same_place_alias_is_flagged_never_shown_as_the_cited_text(tmp_path):
