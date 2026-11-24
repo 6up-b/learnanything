@@ -283,3 +283,17 @@ def test_validation_refusals(tmp_path):
         build(ctx, {"extractionId": EXTRACTION, "spanIds": ["no_such_span"]})
     # Reader CA6b fix round 5: a passage the reading does not have is the typed refusal.
     assert caught.value.code == "span_extraction_mismatch"
+
+
+def test_the_client_records_a_companion_figure_set_aside_as_not_useful(tmp_path):
+    """Spec §13.1: "not useful" on Show me's figure in the companion removes it and is logged (salience only)."""
+
+    paths, repository = _vault(tmp_path)
+    ctx = context(paths.root)
+    call(ctx, "reader.log_activity", {"events": [
+        {"kind": "reader_action_invoked", "event": "figure_not_useful",
+         "payload": {"figureId": "fig_1", "extractionId": EXTRACTION}},
+    ]})
+    events = [row["payload"] for row in repository.reader_interaction_events(kind="reader_action_invoked")
+              if row["payload"].get("event") == "figure_not_useful"]
+    assert len(events) == 1 and events[0].get("figure_id", events[0].get("figureId")) == "fig_1"

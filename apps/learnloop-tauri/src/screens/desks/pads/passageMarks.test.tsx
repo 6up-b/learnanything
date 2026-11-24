@@ -20,7 +20,7 @@ function stage(): HTMLElement {
   return root;
 }
 
-describe("a carried question beside two passages of one window", () => {
+describe("a saved question beside two passages of one window", () => {
   it("is two marks with their own keys, and a click opens one popover", async () => {
     const root = stage();
     const carried = [question("s1"), question("s2")];
@@ -30,7 +30,7 @@ describe("a carried question beside two passages of one window", () => {
     render(<PassageMarks stage={root} windows={[{ windowId: "w", extractionId: "ext_book" }]} links={[]} carried={carried}
       onOpenLink={vi.fn()} onSurfaced={vi.fn()} onMarkCarried={vi.fn()} />);
     await act(async () => { await Promise.resolve(); });
-    const buttons = document.querySelectorAll("button[aria-label='a question you carried']");
+    const buttons = document.querySelectorAll("button[aria-label='Open saved question']");
     expect(buttons).toHaveLength(2);
     fireEvent.click(buttons[0]);
     expect(document.querySelectorAll(".desk-pmark .pop")).toHaveLength(1);

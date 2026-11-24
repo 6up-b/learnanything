@@ -117,6 +117,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/helpers.py](../../../../../../tests/helpers.py) — direct import
+- [tests/ink_helpers.py](../../../../../../tests/ink_helpers.py) — direct import
 - [tests/protection_matrix_helpers.py](../../../../../../tests/protection_matrix_helpers.py) — direct import
 - [tests/rich_fixtures.py](../../../../../../tests/rich_fixtures.py) — direct import
 - [tests/test_concept_animation_service.py](../../../../../../tests/test_concept_animation_service.py) — direct import
@@ -143,6 +144,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_one_ai_ok.py](../../../../../../tests/test_one_ai_ok.py) — direct import
   - `test_the_ok_is_read_live_from_the_library_and_from_this_computer`
 - [tests/test_protection_surface_matrix.py](../../../../../../tests/test_protection_surface_matrix.py) — direct import
+- [tests/test_reader_ink_glm_ocr.py](../../../../../../tests/test_reader_ink_glm_ocr.py) — direct import
+  - `test_a_local_backend_that_does_not_answer_is_not_available`
+  - `test_one_admission_and_receipt_at_ingests_price_and_a_retry_spends_nothing`
 - [tests/test_settings_sidecar.py](../../../../../../tests/test_settings_sidecar.py) — direct import
   - `test_detect_provider_capabilities_without_a_model_skips_the_network`
   - `test_start_import_batch_fails_fast_for_native_pdf_conflicts`

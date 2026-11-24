@@ -101,7 +101,7 @@ describe("an inline check on the desks", () => {
   it("opens from its closed marker with what is visible, at the host passage, and veils the pads whole", async () => {
     const session = { sessionId: "s_1" };
     const { checkTransport, onPracticeSession } = mount({ begin: vi.fn(async () => cardFor({ practiceSession: session as never })) });
-    const marker = await screen.findByText(/a check is due before this page · on your own/);
+    const marker = await screen.findByText(/a cold check is due before this page · on your own/);
     expect(marker.closest("[data-check-marker]")!.textContent).not.toContain("gradient");
     fireEvent.click(screen.getByRole("button", { name: "check now" }));
     await waitFor(() => expect(checkTransport.begin).toHaveBeenCalled());
@@ -126,7 +126,7 @@ describe("an inline check on the desks", () => {
     expect(document.querySelector('[data-desk-window="fx_w_pads"] .desk-pane-head')!.className).not.toContain("veiled");
     // The companion's ask waits, with the reason (shift+c brings it to its dock).
     fireEvent.keyDown(window, { key: "C", shiftKey: true });
-    await waitFor(() => expect(document.body.textContent).toContain("the tutor waits · after your check"));
+    await waitFor(() => expect(document.body.textContent).toContain("the companion waits · after your check"));
     expect((screen.getByLabelText("ask about this") as HTMLInputElement).disabled).toBe(true);
     // Answered: the veils lift and the card says so.
     fireEvent.change(screen.getByLabelText("your answer"), { target: { value: "p - onehot" } });
@@ -139,7 +139,7 @@ describe("an inline check on the desks", () => {
   it("a second check cannot open while one is open, and search waits", async () => {
     const { checkTransport } = mount({ openInline: vi.fn(async () => ({ administration: cardFor({ administrationToken: "cad_open", commitmentId: "cm_9" }) })) });
     await waitFor(() => expect(document.querySelector('[data-check-card="overlay"]')).toBeTruthy());
-    await screen.findByText(/a check is due before this page · on your own/);
+    await screen.findByText(/a cold check is due before this page · on your own/);
     const button = screen.getByRole("button", { name: "check now" }) as HTMLButtonElement;
     expect(button.disabled).toBe(true);
     expect(document.body.textContent).toContain("another check is open · answer it or say not now first");

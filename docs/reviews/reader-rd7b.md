@@ -115,9 +115,9 @@ RD7a's gate failed `test_notes_never_read`: the administration read `learner_not
 in three backend-only commits for the RD7a landing branch:
 1. `f06f50395c`: the administration reads no note's words; an opened note is recorded under `unmeasured_notes`.
 2. `413cfa8bd2`: an answer after a note's veil was opened is submitted with the attempt's declared `primed` flag (the
-   raw attempt row a rebuild reads; replay equality tested), with the reply's `primed_by: unmeasured_note`. This is an
-   orchestrator interim, still to be confirmed by the owner. The alternative is that an unmeasured opening costs
-   nothing. It is recorded in `reader-rd7a.md` §6a and `algorithm-mvp-0.69.md`.
+   raw attempt row a rebuild reads; replay equality tested), with the reply's `primed_by: unmeasured_note`. The owner
+   confirmed it on 2026-11-23 (opening one of your own notes during a cold check counts as practice). The alternative,
+   kept as history, was that an unmeasured opening costs nothing. It is recorded in `reader-rd7a.md` §6a and `algorithm-mvp-0.69.md`.
 3. `d67ffccb66`: `coldNow` is false once a note was opened.
 
 The frontend words this before and after (§3). On this branch, RD7-1 (reading a margin note's words to measure it) is

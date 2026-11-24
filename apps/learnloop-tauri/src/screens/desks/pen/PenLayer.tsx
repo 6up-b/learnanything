@@ -19,6 +19,7 @@ import type { InkTranscribeJobDto, ReaderRawSelectionNode } from "../../../api/d
 import type { PenSurface } from "../../ReaderScreen";
 import { useWindowLifecycle, useWindowPaused } from "../lifecycle";
 import { usePenHost, type PenHost } from "./host";
+import { inkRefusal } from "./inkCache";
 import { PenInput, type PointerLike, type Sample } from "./input";
 import { RECOGNIZED_AS, RECOGNIZER, boxOf, recognize, type Box, type Point, type StrokeKind } from "./recognizer";
 import {
@@ -341,7 +342,7 @@ function PenLayerOn({ host, surface }: { host: PenHost; surface: PenSurface }) {
       return { annotationId, inkId };
     } catch {
       if (undone.current.delete(mark.id)) return null;
-      update(mark.id, (current) => ({ ...current, state: "failed", chip: current.chip ? { ...current.chip, text: "couldn't keep this mark · your ink is still here" } : null }));
+      update(mark.id, (current) => ({ ...current, state: "failed", chip: current.chip ? { ...current.chip, text: "Couldn’t save this mark. You can draw it again." } : null }));
       return null;
     }
   }, [surface, update, removeAnnotation]);
@@ -382,7 +383,7 @@ function PenLayerOn({ host, surface }: { host: PenHost; surface: PenSurface }) {
       case "lasso": {
         const range = wordsInLoop(body, points);
         if (!range) {
-          plainInk("ink · nothing inside to select · kept on the page");
+          plainInk("Ink on the page. Circle some words to select them.");
           return;
         }
         const selection = body.ownerDocument.getSelection();
@@ -396,7 +397,7 @@ function PenLayerOn({ host, surface }: { host: PenHost; surface: PenSurface }) {
         const y = recognition.lineY ?? (box.y0 + box.y1) / 2;
         const range = rangeBetween(body, { x: box.x0 + 2, y }, { x: box.x1 - 2, y });
         if (!range) {
-          plainInk("ink · no words under it · kept on the page");
+          plainInk("Ink on the page. Draw across the words you want to mark.");
           return;
         }
         const kind = recognition.kind;
@@ -408,7 +409,7 @@ function PenLayerOn({ host, surface }: { host: PenHost; surface: PenSurface }) {
       case "bracket": {
         const spanned = passagesSpanned(body, box);
         if (!spanned.length) {
-          plainInk("ink · no paragraph beside it · kept on the page");
+          plainInk("Ink on the page. Draw the bracket next to a paragraph.");
           return;
         }
         const mark: Mark = { ...base, kind: "bracket", rects: localRects(body, spanned.map((element) => element.getBoundingClientRect())), state: "saving", chip: chipFor("bracket", RECOGNIZED_AS.bracket) };
@@ -420,7 +421,7 @@ function PenLayerOn({ host, surface }: { host: PenHost; surface: PenSurface }) {
       }
       case "note": {
         if (!beside?.dataset.spanId) {
-          plainInk("ink · no passage beside it · kept on the page");
+          plainInk("Ink on the page. Write in the margin beside a passage.");
           return;
         }
         // The note stays open for more strokes; it is kept (one annotation) and read (one reading) when it ends.
@@ -434,7 +435,7 @@ function PenLayerOn({ host, surface }: { host: PenHost; surface: PenSurface }) {
         return;
       }
       case "ink":
-        plainInk("ink · not recognised · kept on the page");
+        plainInk("Ink on the page. Draw over or beside text to make a mark.");
         return;
     }
   // readNote is stable (declared below with useCallback on stable deps)
@@ -452,7 +453,7 @@ function PenLayerOn({ host, surface }: { host: PenHost; surface: PenSurface }) {
     if ((await h.settled()) !== "saved") {
       // The outbox lives in memory (the durable store is the RD-spike's open choice): unsent ink is kept only while the
       // app stays open, and saying "on this device" would promise more.
-      update(markId, (mark) => (mark.note ? { ...mark, note: { ...mark.note, reading: "failed", readingLabel: "your ink isn't sent yet · it is kept while LearnLoop stays open" } } : mark));
+      update(markId, (mark) => (mark.note ? { ...mark, note: { ...mark.note, reading: "failed", readingLabel: "Waiting for your handwriting to save. Keep LearnLoop open. You can type your note here." } } : mark));
       return;
     }
     if (gone(markId)) return;
@@ -468,10 +469,11 @@ function PenLayerOn({ host, surface }: { host: PenHost; surface: PenSurface }) {
             readingLabel: nothing ? "nothing read · write your note here" : "transcribed · may be wrong · fix it" } };
         }
         const code = job.error?.code ?? job.status;
-        if (code === "cannot_read_images") {
-          return { ...mark, note: { ...note, reading: "cannot", readingLabel: "handwriting can't be read yet · your ink is kept" } };
+        const refusal = inkRefusal(code);
+        if (refusal) {
+          return { ...mark, note: { ...note, reading: "cannot", readingLabel: `${refusal} · your ink is kept` } };
         }
-        return { ...mark, note: { ...note, reading: "failed", readingLabel: `not read (${job.error?.message ?? code}) · your ink is kept` } };
+        return { ...mark, note: { ...note, reading: "failed", readingLabel: "Couldn’t convert the handwriting. You can type your note here." } };
       });
       return true;
     };
@@ -774,9 +776,9 @@ function PenLayerOn({ host, surface }: { host: PenHost; surface: PenSurface }) {
           {mark.chip ? (
             <Chip body={body} kind={mark.kind} x={mark.chip.x} y={mark.chip.y} below={mark.chip.below}>
               <span>{mark.chip.text}</span>
-              {mark.kind === "lasso" ? <button type="button" className="askc" onClick={() => hostRef.current.askCompanion()}>ask the tutor · c</button> : null}
+              {mark.kind === "lasso" ? <button type="button" className="askc" onClick={() => hostRef.current.askCompanion()}>ask in the companion · c</button> : null}
               <button type="button" data-undo="" onClick={() => undo(mark)}>undo</button>
-              <button type="button" data-x="" aria-label="dismiss" onClick={() => update(mark.id, (current) => ({ ...current, chip: null }))}>✕</button>
+              <button type="button" data-x="" aria-label="Hide pen message" title="Hide pen message" onClick={() => update(mark.id, (current) => ({ ...current, chip: null }))}>✕</button>
             </Chip>
           ) : null}
           {mark.note ? <NoteBox mark={mark} onKeep={keepNote} /> : null}

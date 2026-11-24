@@ -59,6 +59,17 @@ export interface AskRequest {
   quote?: string | null;
   /** Pad blocks asked about (recorded with the exchange). */
   padBlockIds?: string[];
+  /** The exchange this follow-up branches from, when the asker names it (a reconnect's "still unclear" branches
+   *  from its question); absent, the thread's last answer about the same reading. */
+  parentExchangeId?: string | null;
+  /** The answer mode the ask was routed to (a source window's intent box). */
+  answerMode?: CompanionAskInput["answerMode"];
+  /** RW1c: "another way" (alternative) and "that didn't help" (remediate) under an answer. */
+  retrievalIntent?: CompanionAskInput["retrievalIntent"];
+  /** RW1c: the personalized chip (absent while the tutor does not look things up). */
+  personalized?: boolean;
+  /** The goal in view on the desk: the tutor is given its sentence and depth. */
+  goalId?: string | null;
 }
 
 function errorOf(error: unknown): { code: string; message: string; retryable: boolean } {
@@ -75,7 +86,7 @@ function errorOf(error: unknown): { code: string; message: string; retryable: bo
 
 const UNSAVED = {
   code: "desk_not_saved",
-  message: "Your desk's latest changes couldn't be saved, so this question was not sent (it is asked about the desk as it is saved).",
+  message: "Your question hasn’t been sent. Try again when your desk changes finish saving.",
   retryable: true,
 };
 
@@ -144,7 +155,7 @@ export class CompanionAsks {
   /** Ask: the question shows at once, waiting while `ready` (the desk writes it depends on) settles, then
    * asking as it follows its job. Returns the request id. */
   ask(request: AskRequest, ready?: Promise<DeskWritesSettled>): string {
-    const parent = this.parentFor(request);
+    const parent = request.parentExchangeId !== undefined ? request.parentExchangeId : this.parentFor(request);
     const input: Omit<CompanionAskInput, "requestId"> = {
       surface: request.surface,
       deskId: request.deskId,
@@ -155,6 +166,10 @@ export class CompanionAsks {
       ...(request.selectionSpanIds?.length ? { selectionSpanIds: request.selectionSpanIds } : {}),
       ...(request.quote ? { selectionQuote: request.quote } : {}),
       ...(request.padBlockIds?.length ? { padBlockIds: request.padBlockIds } : {}),
+      ...(request.answerMode ? { answerMode: request.answerMode } : {}),
+      ...(request.retrievalIntent ? { retrievalIntent: request.retrievalIntent } : {}),
+      ...(request.personalized !== undefined ? { personalized: request.personalized } : {}),
+      ...(request.goalId ? { goalId: request.goalId } : {}),
     };
     return this.send(input, request.windowId, request.quote ?? null, ready);
   }
@@ -291,7 +306,7 @@ export class CompanionAsks {
           return { ...base, status: "cancelled", stopping: false };
         case "expired":
           // Finished and dropped from the sidecar's memory: the exchange is in the history.
-          return { ...base, status: "interrupted", error: { code: "expired", message: "This finished while the panel was away; it is in your history.", retryable: false } };
+          return { ...base, status: "interrupted", error: { code: "expired", message: "This reply is no longer available here. Check History or ask again.", retryable: false } };
         default:
           return { ...base, status: "asking" };
       }

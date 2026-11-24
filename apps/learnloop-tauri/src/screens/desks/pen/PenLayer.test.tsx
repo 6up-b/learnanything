@@ -95,7 +95,7 @@ function fakeApi(job: Partial<InkTranscribeJobDto> = {}): PenApi {
     readerSourceAnnotations: vi.fn(async () => ({ annotations: [] })),
     inkList: vi.fn(async () => ({ version: 1, padId: null, sourceId: "src", owners: [] })),
     inkTranscribe: vi.fn(async () => ({ version: 1, jobId: null, status: "failed" as const, done: true, result: null,
-      error: { code: "cannot_read_images", message: "cannot read images", retryable: false, details: null }, ...job })),
+      error: { code: "unavailable", message: "text recognition isn't set up", retryable: true, details: null }, ...job })),
     inkTranscribeJob: vi.fn(),
     inkTranscribeCancel: vi.fn(),
   };
@@ -223,7 +223,7 @@ describe("the pen layer", () => {
     expect(vi.mocked(api.readerCapture).mock.calls[0][0]).toMatchObject({ action: "interpretation", rawSelection: { nodes: [{ spanId: "s1", start: 0, end: 1_000_000 }] } });
     const inkId = vi.mocked(host.saveInk).mock.calls[0][0].inkId;
     expect(api.inkTranscribe).toHaveBeenCalledWith({ inkId });
-    expect(screen.getByText("handwriting can't be read yet · your ink is kept")).toBeTruthy();
+    expect(screen.getByText("handwriting can't be read yet: text recognition isn't set up · to add it, paste a z.ai API key in Settings, under Ingestion, or run a local GLM-OCR server · your ink is kept")).toBeTruthy();
     const field = screen.getByLabelText("your note's words");
     fireEvent.change(field, { target: { value: "does the log cancel the exp?" } });
     fireEvent.keyDown(field, { key: "Enter" });
@@ -255,7 +255,7 @@ describe("the pen layer", () => {
     expect(document.getSelection()?.toString()).toContain("brown");
     expect(api.readerCapture).not.toHaveBeenCalled();
     expect(host.saveInk).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByText("ask the tutor · c"));
+    fireEvent.click(screen.getByText("ask in the companion · c"));
     expect(host.askCompanion).toHaveBeenCalled();
   });
 
@@ -281,7 +281,7 @@ describe("the pen layer", () => {
     const { api, host } = setup();
     draw([[150, 105], [250, 160], [300, 110], [420, 170]]);
     await settle();
-    expect(screen.getByText("ink · not recognised · kept on the page")).toBeTruthy();
+    expect(screen.getByText("Ink on the page. Draw over or beside text to make a mark.")).toBeTruthy();
     expect(api.readerCapture).not.toHaveBeenCalled();
     expect(host.saveInk).toHaveBeenCalledTimes(1);
     expect(vi.mocked(host.saveInk).mock.calls[0][0].owner).toEqual({ extractionId: "ext" });

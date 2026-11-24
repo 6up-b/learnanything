@@ -7,6 +7,7 @@
 // moves focus.
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { resetSharedParamsForTests } from "./sharedParams";
 import type { FigurePredictionResultDto, FigureViewDto } from "../../../api/dto";
 import corpus from "./figureGoldenCorpus.json";
 import { FIGURE_COPY, FIGURE_FRAME, FiguresUnder, PROPERTY_CHECK_COPY } from "./FigureInline";
@@ -50,6 +51,8 @@ function Harness({ spans, contract = CONTRACT }: { spans: string[]; contract?: F
 }
 
 beforeEach(() => {
+  // Shared parameters live for the app's run (spec §13.1): each test starts from a figure's defaults.
+  resetSharedParamsForTests();
   vi.resetAllMocks();
   api.readerFigures.mockResolvedValue({ extractionId: "ext_prob", figures: [figureView()] });
   api.readerLogActivity.mockResolvedValue({ recorded: 0 });

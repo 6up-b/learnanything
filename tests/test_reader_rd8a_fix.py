@@ -8,7 +8,7 @@ from learnloop.db.stores import pad_reads
 from learnloop.pads import emission, ink
 from learnloop.pads import ink_transcribe as reading
 from learnloop.tutor.ai_contracts import LearnerGap
-from tests.ink_helpers import STROKES, ImageReader, ink_pad, reads_as
+from tests.ink_helpers import STROKES, glm_local, ink_pad
 from tests.reader_rd4_helpers import PAD, edit, gap_clients, pad_reversals, read_queued, vault
 
 BELIEF = LearnerGap(kind="misconception", prerequisite_name=None, prerequisite_line=None,
@@ -21,13 +21,17 @@ def _head(repository, block_id="b1"):
 
 
 def _read(paths, repository, prepared, text):
-    result = reading.transcribe(vault(paths), repository, prepared, client=ImageReader(reads_as(text)))
+    from learnloop.ingest.extractors import glm_ocr
+
+    glm_ocr._open.text = text  # the installed fake GLM-OCR answers this next
+    result = reading.transcribe(vault(paths), repository, prepared)
     emission.settle_blocks(vault(paths), repository, [prepared.owner_id])
     return result
 
 
-def test_a_reading_of_strokes_that_changed_meanwhile_is_kept_but_never_replaces_the_newer_one(tmp_path):
+def test_a_reading_of_strokes_that_changed_meanwhile_is_kept_but_never_replaces_the_newer_one(tmp_path, monkeypatch):
     paths, repository, _batches, client = ink_pad(tmp_path)
+    ocr = glm_local(monkeypatch, paths.root)
     client.save("ink_1", STROKES[:2], block_id="b1")
     older = reading.prepare(repository, "ink_1")
     client.save("ink_2", STROKES[2:], block_id="b1")
@@ -37,12 +41,14 @@ def test_a_reading_of_strokes_that_changed_meanwhile_is_kept_but_never_replaces_
     assert (second["applied"], first["applied"], first["reason"]) == (True, False, "strokes_changed")
     assert _head(repository)["body_md"] == "the whole line"
     # Kept (the same strokes are never read twice), and a retry still says why it stands aside.
-    again = reading.transcribe(vault(paths), repository, older, client=ImageReader(reads_as("x")))
+    ocr.text = "x"
+    again = reading.transcribe(vault(paths), repository, older)
     assert (again["applied"], again["reason"]) == (False, "strokes_changed")
 
 
-def test_a_cached_reading_beside_the_learners_correction_keeps_its_reason(tmp_path):
+def test_a_cached_reading_beside_the_learners_correction_keeps_its_reason(tmp_path, monkeypatch):
     paths, repository, batches, client = ink_pad(tmp_path)
+    ocr = glm_local(monkeypatch, paths.root)
     client.save("ink_1", STROKES[:2], block_id="b1")
     first = _read(paths, repository, reading.prepare(repository, "ink_1"), "a")
     batches.pad(PAD, edit("b1", first["head_version_id"], "mine", "v_fix"))
@@ -50,12 +56,14 @@ def test_a_cached_reading_beside_the_learners_correction_keeps_its_reason(tmp_pa
     prepared = reading.prepare(repository, "ink_2")
     kept = _read(paths, repository, prepared, "b")
     assert (kept["applied"], kept["reason"]) == (False, "kept_your_correction")
-    again = reading.transcribe(vault(paths), repository, prepared, client=ImageReader(reads_as("c")))
+    ocr.text = "c"
+    again = reading.transcribe(vault(paths), repository, prepared)
     assert (again["applied"], again["reason"]) == (False, "kept_your_correction")
 
 
-def test_erasing_handwriting_takes_its_automatic_transcription_and_what_was_read_from_it(tmp_path):
+def test_erasing_handwriting_takes_its_automatic_transcription_and_what_was_read_from_it(tmp_path, monkeypatch):
     paths, repository, batches, client = ink_pad(tmp_path)
+    glm_local(monkeypatch, paths.root)
     client.save("ink_1", STROKES, block_id="b1")
     first = _read(paths, repository, reading.prepare(repository, "ink_1"), "$\\sqrt{a+b} = \\sqrt{a} + \\sqrt{b}$")
     read_queued(paths, repository, gap_clients(BELIEF)[0])
@@ -67,8 +75,9 @@ def test_erasing_handwriting_takes_its_automatic_transcription_and_what_was_read
     assert pad_reversals(repository) == {first["head_version_id"]: "superseded"}
 
 
-def test_a_partial_erase_leaves_the_words_until_the_line_is_read_again(tmp_path):
+def test_a_partial_erase_leaves_the_words_until_the_line_is_read_again(tmp_path, monkeypatch):
     paths, repository, batches, client = ink_pad(tmp_path)
+    glm_local(monkeypatch, paths.root)
     client.save("ink_1", STROKES, block_id="b1")
     first = _read(paths, repository, reading.prepare(repository, "ink_1"), "a + b")
     reply = batches.pad(PAD, {"op": "erase_ink", "block_id": "b1", "stroke_ids": ["s3"]})
@@ -78,8 +87,9 @@ def test_a_partial_erase_leaves_the_words_until_the_line_is_read_again(tmp_path)
     assert listed["transcription"]["current"] is False
 
 
-def test_erasing_handwriting_keeps_the_learners_own_words(tmp_path):
+def test_erasing_handwriting_keeps_the_learners_own_words(tmp_path, monkeypatch):
     paths, repository, batches, client = ink_pad(tmp_path)
+    glm_local(monkeypatch, paths.root)
     client.save("ink_1", STROKES, block_id="b1")
     first = _read(paths, repository, reading.prepare(repository, "ink_1"), "a")
     batches.pad(PAD, edit("b1", first["head_version_id"], "my words", "v_fix"))
@@ -88,8 +98,9 @@ def test_erasing_handwriting_keeps_the_learners_own_words(tmp_path):
     assert (_head(repository)["body_md"], _head(repository)["version_id"]) == ("my words", "v_fix")
 
 
-def test_lifting_an_ink_line_out_keeps_its_handwriting_and_its_reading(tmp_path):
+def test_lifting_an_ink_line_out_keeps_its_handwriting_and_its_reading(tmp_path, monkeypatch):
     paths, repository, batches, client = ink_pad(tmp_path, kind="running")
+    ocr = glm_local(monkeypatch, paths.root)
     client.save("ink_1", STROKES, block_id="b1")
     first = _read(paths, repository, reading.prepare(repository, "ink_1"), "a + b")
     batches.pad(PAD, {"op": "lift_out", "block_id": "b1", "expected_head": first["head_version_id"], "new_pad_id": "pad_2",
@@ -97,7 +108,8 @@ def test_lifting_an_ink_line_out_keeps_its_handwriting_and_its_reading(tmp_path)
     [moved] = ink.ink_for_pad(repository, "pad_2")
     assert moved["owner_id"] == "b9" and [s["stroke_id"] for s in moved["strokes"]] == ["s1", "s2", "s3"]
     assert ink.ink_for_pad(repository, PAD) == []
-    reader = ImageReader(reads_as("paid again"))
-    again = reading.transcribe(vault(paths), repository, reading.prepare(repository, moved["strokes"][0]["ink_id"]), client=reader)
-    assert reader.requests == [] and again["latex_md"] == "a + b"
+    ocr.text = "paid again"
+    sent = ocr.reached
+    again = reading.transcribe(vault(paths), repository, reading.prepare(repository, moved["strokes"][0]["ink_id"]))
+    assert ocr.reached == sent and again["latex_md"] == "a + b"
     assert (again["applied"], again["reason"]) == (True, None)

@@ -225,10 +225,16 @@ def main() -> int:
     # VideoWindow.tsx, FollowChip.tsx and followLens.ts, and screens/desks/carried/related.ts (entry-reachable);
     # fixtures/desks/video.ts (vitest-support).
     # RD5's fix round: screens/desks/menu/ExerciseSheet.tsx (Make it practice on an exercise; entry-reachable).
+    # RD-retire parity (side by side): screens/desks/sideBySide/pairs.ts. RD-retire parity's real-body tests:
+    # fixtures/desks/realDesk.tsx (vitest-support).
+    # RD-retire parity (rows 2034, 2039): screens/desks/problem/ problemPads.ts and ProblemPad.tsx,
+    # screens/desks/companion/companionFigures.tsx and screens/reader/figures/sharedParams.ts (entry-reachable);
+    # fixtures/desks/figures.ts and workbench.ts (vitest-support).
     # Reader workbench v2 RD7 (inline cold checks): screens/desks/checks/ model.ts, controller.ts, CheckCard.tsx and
     # VeilLayer.tsx (entry-reachable); fixtures/desks/checks.ts (vitest-support).
-    if len(ts_sources) != 423:
-        errors.append(f"source inventory drift: expected 423 TypeScript/TSX files, found {len(ts_sources)}")
+    # RD-retire's loose ends: fixtures/desks/realApp.tsx (the whole app over the real desks; vitest-support).
+    if len(ts_sources) != 432:
+        errors.append(f"source inventory drift: expected 432 TypeScript/TSX files, found {len(ts_sources)}")
     if len(rust_sources) != 6:
         errors.append(f"source inventory drift: expected 6 authored Rust modules, found {len(rust_sources)}")
     for path in sorted(expected - actual):
@@ -337,14 +343,17 @@ def main() -> int:
         # padNotebooks.ts and menuBridge.ts. Notebook lessons: LessonNotebook.tsx.
         # RD9a: screens/LessonView.tsx and the four screens/desks/lesson modules.
         # RD10: the six screens/desks/video modules and screens/desks/carried/related.ts.
-        # RD5's fix round: screens/desks/menu/ExerciseSheet.tsx. RD7: the four screens/desks/checks modules.
-        "entry-reachable build graph": 402,
+        # RD5's fix round: screens/desks/menu/ExerciseSheet.tsx.
+        # RD-retire parity (side by side): screens/desks/sideBySide/pairs.ts. Rows 2034, 2039: problemPads.ts,
+        # ProblemPad.tsx, companionFigures.tsx and sharedParams.ts. RD7: the four screens/desks/checks modules.
+        "entry-reachable build graph": 407,
         # RW5d P2 sketch compartment: sketch.worker.ts and sketchWorkerCore.ts, bundled by vite.config.mjs.
         "bundled worker entry": 2,
         "compiler-implicit": 2,
         # RD1: fixtures/desks (sources, workspace, fakeCore, harness). RD4b: fixtures/desks/pads.ts. RD6b: fixtures/desks/goal.ts.
-        # RD9a: fixtures/desks/lessons.ts. RD10: fixtures/desks/video.ts. RD7: fixtures/desks/checks.ts.
-        "vitest-support": 17,
+        # RD9a: fixtures/desks/lessons.ts. RD10: fixtures/desks/video.ts. RD-retire: fixtures/desks/realDesk.tsx, figures.ts and workbench.ts. RD7: fixtures/desks/checks.ts.
+        # RD-retire's loose ends: fixtures/desks/realApp.tsx.
+        "vitest-support": 21,
         "native-entry-reachable": 6,
     }
     if dict(activation_counts) != expected_activation_counts:
@@ -354,7 +363,7 @@ def main() -> int:
     status_counts: dict[str, int] = defaultdict(int)
     for info in audited_infos.values():
         status_counts[info.refactor_status] += 1
-    if dict(status_counts) != {"ACTIVE": 429}:
+    if dict(status_counts) != {"ACTIVE": 438}:
         errors.append(f"lifecycle classification drift requires review: {dict(status_counts)}")
 
     link_errors, wikilinks, fragments, markdown_links = validate_links(sorted(actual))

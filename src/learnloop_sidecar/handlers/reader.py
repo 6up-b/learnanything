@@ -47,6 +47,7 @@ from learnloop_sidecar.handlers.ai_providers import (
 )
 from learnloop_sidecar.handlers.learner_gaps import queue_tutor_question_gap
 from learnloop_sidecar.registry import method
+from learnloop_sidecar.workbench_protection import check_selection, reading_places, refuse_protected
 
 
 def _require_reader(ctx: SidecarContext):
@@ -210,9 +211,8 @@ def prepare_reader_ask(ctx: SidecarContext, params: ReaderAskInput) -> ReaderAsk
                          phone=ctx.request_origin is not None)
 
 
-def generate_reader_answer(call: ReaderAskCall, *, on_question_recorded: Any = None) -> dict[str, Any]:
+def generate_reader_answer(call: ReaderAskCall, *, on_question_recorded: Any = None, goal_in_view: Any = None) -> dict:
     """The model call and the exchange it records (``reader_dialogue.ask``), its failures as sidecar errors."""
-
     vault, params, lookup, binding = call.vault, call.params, call.lookup, call.binding
     restricted, learner_state, destination = call.restricted, call.learner_state, call.destination
     try:
@@ -244,6 +244,7 @@ def generate_reader_answer(call: ReaderAskCall, *, on_question_recorded: Any = N
             **({"learner_state": learner_state} if learner_state is not None else {}),
             **({"context_withheld": destination} if destination is not None else {}),
             **({"on_question_recorded": on_question_recorded} if on_question_recorded is not None else {}),
+            **({"goal_in_view": goal_in_view} if goal_in_view is not None else {}),
         )
     except QuestionLimitReached as exc:
         raise SidecarError(
@@ -1213,20 +1214,16 @@ def reader_capture(ctx: SidecarContext, params: ReaderCaptureInput) -> dict[str,
         nodes = [selection, *(node for node in selection.get("nodes") or [] if isinstance(node, dict))]
         refuse_if_withheld(ctx, _vault, repository, params.extraction_id,
                            [node.get("span_id") or node.get("spanId") for node in nodes])
+    # A highlight or margin note on exam or held-out material is stored (the learner marking their own reading): a
+    # plain capture queues no model work, and every reader of stored annotations withholds one beside protected
+    # material. What sends words on is refused where it does (a preset when sent, the menus' verbs at destination).
     try:
         receipt = RC.capture(
-            repository,
-            source_id=params.source_id,
-            revision_id=params.revision_id,
-            extraction_id=params.extraction_id,
-            action=params.action,
-            client_idempotency_key=params.client_idempotency_key,
-            raw_selection=params.raw_selection,
-            render_view_id=params.render_view_id,
-            learner_text=params.learner_text,
-            what_i_think_is_going_on=params.what_i_think_is_going_on,
-            session_id=params.session_id,
-        )
+            repository, source_id=params.source_id, revision_id=params.revision_id,
+            extraction_id=params.extraction_id, action=params.action,
+            client_idempotency_key=params.client_idempotency_key, raw_selection=params.raw_selection,
+            render_view_id=params.render_view_id, learner_text=params.learner_text,
+            what_i_think_is_going_on=params.what_i_think_is_going_on, session_id=params.session_id)
     except (RC.CaptureError, ANN.AnnotationError) as exc:
         raise SidecarError("validation_error", str(exc)) from exc
     return versioned(receipt)
@@ -2037,6 +2034,7 @@ def _authored_question_payload(row: dict[str, Any]) -> dict[str, Any]:
 
 
 class ReaderAuthorSectionQuestionInput(ParamsModel):
+    span_ids: list[str] = Field(default_factory=list)
     extraction_id: str
     section_id: str
 
@@ -2068,6 +2066,8 @@ def reader_author_section_question(
         refusal = HELD_BACK_REFUSAL if reading_held_back(vault, repository, resolved) else HELD_OUT_REFUSAL
         raise SidecarError("exam_material", refusal,
                            details={"extraction_id": resolved, "section_id": params.section_id})
+    refuse_protected(vault, repository, reading_places(resolved, params.span_ids), surface="reader_checks",
+                     message=HELD_OUT_REFUSAL)
 
     existing = repository.latest_reader_authored_question(
         extraction_id=resolved, section_id=params.section_id
@@ -2087,8 +2087,7 @@ def reader_author_section_question(
             retryable=True,
         )
     batch_id = ctx.ingest_jobs.enqueue_reader_quick_check(
-        extraction_id=resolved, section_id=params.section_id
-    )
+        extraction_id=resolved, section_id=params.section_id, **({"selection_span_ids": params.span_ids} if params.span_ids else {}))
     return versioned({"status": "queued", "batch_id": batch_id, "question": None})
 
 
@@ -2416,6 +2415,7 @@ def enqueue_exercise_import(ctx: SidecarContext, vault, repository, params: Read
     # Reader CA6b fix round 5: the passages named are this reading's (fail closed).
     require_identity(repository, extraction_id=resolved, raw_selection=params.raw_selection,
                      source_id=params.source_id, revision_id=params.revision_id, render_view_id=params.render_view_id)
+    check_selection(vault, repository, resolved, params.raw_selection or {}, params.render_view_id, surface="reader_import")
     source_id = params.source_id or _source_id_for_extraction(repository, resolved)
     if source_id is not None:
         _require_source_reader(repository, source_id)

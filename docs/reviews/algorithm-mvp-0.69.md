@@ -44,8 +44,7 @@ Before the tag a due "Check once" is answered only where Today serves it. At the
   LO's covered passages are veiled by structure. There is no "counts as practice" rule for what was on screen before
   the veils dropped, so evidence is decided by the reveal ledger alone. The Decider's judgment, later, may only
   un-veil (`inline_administration.narrow`).
-- **Opened notes are unmeasured, and the answer counts as practice** (orchestrator interim, an owner decision still to
-  confirm). A note's words are never read (curriculum C2's fence: a note is never evidence). The veil set names the notes the
+- **Opened notes are unmeasured, and the answer counts as practice** (confirmed by the owner, 2026-11-23). A note's words are never read (curriculum C2's fence: a note is never evidence). The veil set names the notes the
   client showed by id only, and opening a note's veil (a margin note or any `learner_notes`-backed surface) writes no
   reveal: the exposure event lists it under `unmeasured_notes`. Because whether an unread note gave the answer away
   cannot be told, the answer errs toward practice: `check.submit_inline` submits it with the attempt's declared `primed`
@@ -54,9 +53,9 @@ Before the tag a due "Check once" is answered only where Today serves it. At the
   tested (`test_an_answer_after_a_notes_veil_was_opened_is_practice_and_says_why`). Measured surfaces (pads, companion
   exchanges, source passages) keep the overlap rule exactly as built.
   
-  **An owner decision still to confirm.** This is an orchestrator interim that errs toward practice, the side the owner
-  leaned to ("I would err on veiling notes by default"). The alternative: an unmeasured opening costs nothing (the
-  answer stays cold unless something measured primes it).
+  **Confirmed by the owner (2026-11-23):** opening one of your own notes during a cold check counts as practice. The
+  alternative it was weighed against, kept as history: an unmeasured opening costs nothing (the answer stays cold unless
+  something measured primes it).
 - **A later answer on the other surface** (owner ruling Q3, the existing rule) answers nothing and stays ordinary
   evidence; the reply labels it practice (`reason: already_answered`).
 

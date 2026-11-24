@@ -8,6 +8,8 @@
   its mapping state, the why and the learner's part (``curriculum.goal_lens``'s rules).
 * ``goal.section_choice``: *read it anyway* (or ``none``) on a section the lens dims. A path line's own
   choices stay ``curriculum.path_override``'s.
+* ``goal.choices``: the desk's goal chooser: each active goal in the learner's words, a held LO's name masked
+  (the same protection as the band's).
 
 Display of the real model: no model call, and nothing is started (the background coverage and path
 judgment start where they do today, from ``curriculum.path`` and the Guide). Nothing here writes
@@ -39,7 +41,7 @@ from learnloop_sidecar.registry import method
 LOG = logging.getLogger(__name__)
 
 #: Every RPC this module registers (pinned desktop-only).
-GOAL_LENS_RPCS: tuple[str, ...] = ("goal.band", "goal.lens", "goal.section_choice")
+GOAL_LENS_RPCS: tuple[str, ...] = ("goal.band", "goal.lens", "goal.section_choice", "goal.choices")
 
 
 def _day_start(clock: Any = None) -> str:
@@ -111,16 +113,17 @@ def _model(ctx: SidecarContext, vault: Any, repository: Any, goal_id: str,
         raise curriculum._error(exc) from exc
 
 
-def _not_a_deliverable(vault: Any, goal_id: str) -> dict[str, Any] | None:
+def _not_a_deliverable(vault: Any, repository: Any, goal_id: str) -> dict[str, Any] | None:
     """A goal the learner did not make (it has no deliverable to map): the band says so, the lens is off."""
 
     goal = next((goal for goal in vault.goals if goal.id == goal_id), None)
     if goal is None:
-        raise SidecarError("not_found", f"No goal {goal_id!r}.")
+        raise SidecarError("not_found", "Couldn’t find this goal. Choose one in Goals and try again.")
     if goal.creation_source == "learner":
         return None
-    return {"goal_id": goal_id, "goal": reads.goal_view(goal), "status": "not_a_deliverable",
-            "message": "LearnLoop maps only goals you set yourself to your sources."}
+    protection, _next_due = protection_now(vault, repository)
+    return {"goal_id": goal_id, "goal": GL.protect_goal(reads.goal_view(goal), protection), "status": "not_a_deliverable",
+            "message": "Choose a goal you set, or create one in Goals."}
 
 
 def _pace(vault: Any, repository: Any, goal: Any) -> dict[str, Any] | None:
@@ -143,7 +146,7 @@ def goal_band(ctx: SidecarContext, params: GoalBandInput) -> dict[str, Any]:
     """The goal band (§12.2) and the path view's data (§12.5)."""
 
     vault, repository = curriculum._require_read(ctx)
-    other = _not_a_deliverable(vault, params.goal_id)
+    other = _not_a_deliverable(vault, repository, params.goal_id)
     if other is not None:
         return versioned(other)
     due, answered, next_due = _checks(vault, repository, params.goal_id)
@@ -175,8 +178,7 @@ class GoalLensInput(ParamsModel):
         times = (self.t0 is None) == (self.t1 is None)
         both = self.from_span_id is not None and self.t0 is not None
         if not spans or not times or both:
-            raise ValueError("a range is two passages (from_span_id, to_span_id), two times (t0, t1) or none "
-                             "(the whole reading)")
+            raise ValueError("Select the passage or caption again.")
         return self
 
 
@@ -190,14 +192,14 @@ def goal_lens(ctx: SidecarContext, params: GoalLensInput) -> dict[str, Any]:
 
     vault, repository = curriculum._require_read(ctx)
     if not RD.reader_enabled(vault):
-        raise SidecarError("reader_disabled", "The reader dialogue is disabled (tutor_qa.reader_enabled=False).")
+        raise SidecarError("reader_disabled", "Reading help is off for this library. You can keep reading or open Practice.")
     resolved = resolve_extraction_id(repository, params.extraction_id)
     if resolved is None:
-        raise SidecarError("extraction_not_found", f"No extraction resolves for {params.extraction_id!r}.")
+        raise SidecarError("extraction_not_found", "Couldn’t find this source. Reopen it from your library.")
     source_id = _source_id_for_extraction(repository, resolved)
     if source_id is not None:
         _require_source_reader(repository, source_id)
-    other = _not_a_deliverable(vault, params.goal_id)
+    other = _not_a_deliverable(vault, repository, params.goal_id)
     if other is not None:
         return versioned({**other, "extraction_id": resolved, "mapping": "unmapped", "levels": []})
     due, answered, _next_due = _checks(vault, repository, params.goal_id)
@@ -234,7 +236,7 @@ def goal_section_choice(ctx: SidecarContext, params: SectionChoiceInput) -> dict
         raise curriculum._error(exc) from exc
     resolved = resolve_extraction_id(repository, params.extraction_id)
     if resolved is None:
-        raise SidecarError("extraction_not_found", f"No extraction resolves for {params.extraction_id!r}.")
+        raise SidecarError("extraction_not_found", "Couldn’t find this source. Reopen it from your library.")
     try:
         return versioned({"choice": choices.choose(repository, params.goal_id, resolved, params.section_id,
                                                    params.choice, operation_id=params.operation_id)})
@@ -243,3 +245,21 @@ def goal_section_choice(ctx: SidecarContext, params: SectionChoiceInput) -> dict
 
 
 __all__ = ["GOAL_LENS_RPCS"]
+
+
+class GoalChoicesInput(ParamsModel):
+    pass
+
+
+@method("goal.choices", GoalChoicesInput)
+def goal_choices(ctx: SidecarContext, params: GoalChoicesInput) -> dict[str, Any]:
+    """The desk's goal chooser: every active goal in the learner's words (their sentence, else the title), a held
+    LO's name masked as the band masks it (any due check, whatever the goal), and when to read again."""
+
+    vault, repository = curriculum._require_read(ctx)
+    protection, next_due = protection_now(vault, repository)
+    goals = [GL.protect_goal({"goal_id": goal.id, "label": goal.intent_sentence or goal.title,
+                              "set_at": goal.created_at, "learner_set": goal.creation_source == "learner"}, protection)
+             for goal in vault.goals if goal.status == "active"]
+    return versioned({"goals": goals, "next_check_due": next_due})
+

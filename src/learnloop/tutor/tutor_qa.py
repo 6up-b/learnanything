@@ -57,6 +57,7 @@ from learnloop.clock import Clock, parse_utc, utc_now_iso
 from learnloop.content.sources.exam_material import held_out_among, held_out_refusal, surface_material
 from learnloop.ai.transport import OperationClient, execute_structured_operation
 from learnloop.tutor.ai_contracts import (
+    READER_GOAL_SUFFIX,
     READER_LEARNER_STATE_SUFFIX,
     READER_TUTOR_EXPLORABLE_PROMPT_VERSION,
     READER_TUTOR_EXPLORABLE_SHOW_ME_PROMPT_VERSION,
@@ -86,6 +87,7 @@ from learnloop.tutor.ai_contracts import (
     TutorQAContext,
     tutor_context_payload,
     tutor_qa_prompt,
+    reader_goal_on,
     reader_learner_state_on,
 )
 from learnloop.router_objective import question_state
@@ -213,6 +215,9 @@ def _prompt_version(context: TutorQAContext, *, tools: bool) -> str:
     if reader_learner_state_on(context):
         # Learner-blindness relax: the Reader context carries the learner state.
         version = version + READER_LEARNER_STATE_SUFFIX
+    if reader_goal_on(context):
+        # The workbench companion's goal in view.
+        version = version + READER_GOAL_SUFFIX
     return version
 
 
@@ -766,6 +771,7 @@ def ask_question(
     worked_help_check: Callable[[str, Any], Sequence[str]] | None = None,
     reader_learner_state: Any = None,
     reader_withheld: Any = None,
+    reader_goal: Mapping[str, Any] | None = None,
     on_question_recorded: Callable[[str], None] | None = None,
     clock: Clock | None = None,
 ) -> dict[str, Any]:
@@ -1108,6 +1114,11 @@ def ask_question(
             # context as built (every delivery path: the selection, a
             # lookup, pinned passages); the guards above never read it.
             ai_context = reader_learner_state.apply(ai_context)
+        if reader_goal is not None:
+            # The workbench companion's goal in view (its sentence and depth, already checked against the goal
+            # lens's protection by the adapter); joins the context as built, as the learner state does.
+            ai_context = dataclasses.replace(ai_context, goal_in_view={
+                key: value for key, value in reader_goal.items() if key != "goal_id"})
         if extraction_id and span_id:
             from learnloop.reader.reader_progression import learning_objects_for_span
 
@@ -1139,6 +1150,8 @@ def ask_question(
                 source_context["reader_caller"] = dict(reader_caller)
             if reader_learner_state is not None:
                 source_context["learner_state"] = reader_learner_state.receipt()
+            if reader_goal is not None:
+                source_context["goal_in_view"] = {"goal_id": reader_goal.get("goal_id"), "given": True}
         event_id = repository.insert_question_event(
             {**question_row, "source_context": source_context}, clock=clock,
         )

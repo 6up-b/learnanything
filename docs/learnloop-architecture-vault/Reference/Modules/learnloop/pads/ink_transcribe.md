@@ -36,7 +36,7 @@ Up: [[Reference/Modules/learnloop/pads/_package|learnloop.pads]] · Root: [[Modu
 
 ## Why this module exists
 
-`learnloop.pads.ink_transcribe` exists within [[Reference/Modules/learnloop/pads/_package|learnloop.pads]] to own the behavior summarized by its module contract: Reading the learner's ink (spec §10.10 "Transcription"): one image of an owner's standing strokes, sent to the model routed for ``ink_transcription``, read as Markdown with LaTeX.
+`learnloop.pads.ink_transcribe` exists within [[Reference/Modules/learnloop/pads/_package|learnloop.pads]] to own the behavior summarized by its module contract: Reading the learner's ink (spec §10.10 "Transcription"): one image of an owner's standing strokes, read by GLM-OCR, the text recognition ingest uses for page images, and kept as GLM-OCR returns it.
 
 The authoritative system-level explanation remains in [[Architecture Overview]]; this note records where this source module participates rather than restating those concepts.
 
@@ -47,53 +47,48 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/pads/ink_transcribe.py](../../../../../../src/learnloop/pads/ink_transcribe.py) |
-| Source lines | 269 |
+| Source lines | 230 |
 | Owning package | [[Reference/Modules/learnloop/pads/_package|learnloop.pads]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class InkTranscriptionV1(WireModel)` ([source](../../../../../../src/learnloop/pads/ink_transcribe.py), line 67)
-- `build_prompt(image_sha256: str) -> str` ([source](../../../../../../src/learnloop/pads/ink_transcribe.py), line 72)
-- `class InkUnavailable(Exception)` ([source](../../../../../../src/learnloop/pads/ink_transcribe.py), line 80) — Nothing was read.
-  - `__init__(self, reason: str, message: str) -> None` (line 84; internal)
-- `class Prepared` ([source](../../../../../../src/learnloop/pads/ink_transcribe.py), line 91) — What one reading reads: an owner's standing strokes, their hash and the resolution they were drawn at.
-  - `key(self) -> str` (line 101; public)
-- `prepare(repository: Repository, ink_id: str) -> Prepared` ([source](../../../../../../src/learnloop/pads/ink_transcribe.py), line 105) — The strokes ``ink_id``'s owner holds now (every save of that owner, not only this one), or ``InkError``.
-- `stored(repository: Repository, prepared: Prepared) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/pads/ink_transcribe.py), line 125)
-- `render(prepared: Prepared) -> bytes` ([source](../../../../../../src/learnloop/pads/ink_transcribe.py), line 131)
-- `class InkRoute` ([source](../../../../../../src/learnloop/pads/ink_transcribe.py), line 136) — The reading's pinned route for one request (the step check's pattern: ``workbench.check.CheckRoute``).
-  - `__init__(self, vault: Any, repository: Repository, *, client: Any | None, envelope: Any, owner_id: str) -> None` (line 139; internal)
-  - `subscription(self) -> bool` (line 150; public)
-  - `problem(self) -> InkUnavailable | None` (line 153; public)
-  - `ask(self, prompt: str, image: bytes) -> InkTranscriptionV1` (line 166; public)
-  - `model(self) -> str | None` (line 191; public)
-- `transcribe(vault: Any, repository: Repository, prepared: Prepared, *, client: Any | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/pads/ink_transcribe.py), line 234) — Read the strokes (or return their reading, spending nothing) and keep it.
+- `class InkUnavailable(Exception)` ([source](../../../../../../src/learnloop/pads/ink_transcribe.py), line 63) — Nothing was read and nothing was sent.
+  - `__init__(self, reason: str, message: str) -> None` (line 67; internal)
+- `class Prepared` ([source](../../../../../../src/learnloop/pads/ink_transcribe.py), line 74) — What one reading reads: an owner's standing strokes, their hash and the resolution they were drawn at.
+  - `key(self) -> str` (line 84; public)
+- `prepare(repository: Repository, ink_id: str) -> Prepared` ([source](../../../../../../src/learnloop/pads/ink_transcribe.py), line 88) — The strokes ``ink_id``'s owner holds now (every save of that owner, not only this one), or ``InkError``.
+- `stored(repository: Repository, prepared: Prepared) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/pads/ink_transcribe.py), line 108)
+- `render(prepared: Prepared) -> bytes` ([source](../../../../../../src/learnloop/pads/ink_transcribe.py), line 114)
+- `class InkReader` ([source](../../../../../../src/learnloop/pads/ink_transcribe.py), line 119) — GLM-OCR as ingest would run it for a page image now: the backend it selects, and its admission.
+  - `__init__(self, vault: Any) -> None` (line 122; internal)
+  - `read(self, image: bytes) -> str` (line 130; public) — The text GLM-OCR recognises in ``image``, unchanged.
+  - `provider(self) -> str | None` (line 149; public)
+  - `version(self) -> str` (line 153; public) — What read it, on the kept row (``prompt_version``: a reader's version; no prompt is sent).
+- `transcribe(vault: Any, repository: Repository, prepared: Prepared, *, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/pads/ink_transcribe.py), line 198) — Read the strokes (or return their reading, spending nothing) and keep it.
 
 ### Module constants
 
-- `ROUTE_TASK` ([src/learnloop/pads/ink_transcribe.py](../../../../../../src/learnloop/pads/ink_transcribe.py), line 51)
-- `OWNER_KIND` ([src/learnloop/pads/ink_transcribe.py](../../../../../../src/learnloop/pads/ink_transcribe.py), line 52)
-- `PROMPT_VERSION` ([src/learnloop/pads/ink_transcribe.py](../../../../../../src/learnloop/pads/ink_transcribe.py), line 53)
-- `SERVER_CLIENT_ID` ([src/learnloop/pads/ink_transcribe.py](../../../../../../src/learnloop/pads/ink_transcribe.py), line 56)
-- `INSTRUCTIONS` ([src/learnloop/pads/ink_transcribe.py](../../../../../../src/learnloop/pads/ink_transcribe.py), line 58)
+- `TASK` ([src/learnloop/pads/ink_transcribe.py](../../../../../../src/learnloop/pads/ink_transcribe.py), line 46)
+- `SERVER_CLIENT_ID` ([src/learnloop/pads/ink_transcribe.py](../../../../../../src/learnloop/pads/ink_transcribe.py), line 49)
+- `UPLOAD_FLOW` ([src/learnloop/pads/ink_transcribe.py](../../../../../../src/learnloop/pads/ink_transcribe.py), line 51)
+- `TURN_ON_MESSAGE` ([src/learnloop/pads/ink_transcribe.py](../../../../../../src/learnloop/pads/ink_transcribe.py), line 53)
+- `NEEDS_OK_MESSAGE` ([src/learnloop/pads/ink_transcribe.py](../../../../../../src/learnloop/pads/ink_transcribe.py), line 57)
 
 ### Explicit exports
 
 `__all__` declares:
 
-- `INSTRUCTIONS`
-- `InkRoute`
-- `InkTranscriptionV1`
+- `InkReader`
 - `InkUnavailable`
 - `MAY_BE_WRONG`
+- `NEEDS_OK_MESSAGE`
 - `NOTHING_READ`
-- `OWNER_KIND`
-- `PROMPT_VERSION`
 - `Prepared`
-- `ROUTE_TASK`
-- `build_prompt`
+- `TASK`
+- `TURN_ON_MESSAGE`
+- `UPLOAD_FLOW`
 - `prepare`
 - `render`
 - `stored`
@@ -101,8 +96,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_result(connection: Any, row: dict[str, Any], *, applied: bool | None=None, reason: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/pads/ink_transcribe.py), line 197)
-- `_apply_to_block(connection: Any, row: dict[str, Any], now: str) -> tuple[bool, str | None]` ([source](../../../../../../src/learnloop/pads/ink_transcribe.py), line 214) — Write the reading as the block's next version, or say why not (the caller's transaction).
+- `_result(connection: Any, row: dict[str, Any], *, applied: bool | None=None, reason: str | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/pads/ink_transcribe.py), line 161)
+- `_apply_to_block(connection: Any, row: dict[str, Any], now: str) -> tuple[bool, str | None]` ([source](../../../../../../src/learnloop/pads/ink_transcribe.py), line 178) — Write the reading as the block's next version, or say why not (the caller's transaction).
 
 ## Who imports or calls it
 
@@ -115,25 +110,22 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/ai/execution|learnloop.ai.execution]] — imports `call_labels`; calls `call_labels`
-- [[Reference/Modules/learnloop/ai/schemas|learnloop.ai.schemas]] — imports `WireModel`
-- [[Reference/Modules/learnloop/ai/spend|learnloop.ai.spend]] — imports `SpendBudget`, `SpendCaps`, `spend_envelopes`; calls `SpendBudget`, `SpendCaps`, `spend_envelopes`
-- [[Reference/Modules/learnloop/ai/transport|learnloop.ai.transport]] — imports `IMAGE_INPUT`, `render_structured_prompt`; calls `render_structured_prompt`
+- [[Reference/Modules/learnloop/ai/model_use|learnloop.ai.model_use]] — imports `module`; calls `require`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `utc_now_iso`; calls `utc_now_iso`
+- [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] — imports `file_upload_allowed`; calls `file_upload_allowed`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/db/stores/ink_strokes|learnloop.db.stores.ink_strokes]] — imports `module`; calls `annotation_exists`, `insert_reading`, `owner_saves`, `reading_for`
 - [[Reference/Modules/learnloop/db/stores/pad_reads|learnloop.db.stores.pad_reads]] — imports `module`; calls `head`
 - [[Reference/Modules/learnloop/db/stores/pads|learnloop.db.stores.pads]] — imports `module`; calls `insert_version`, `touch_pad`
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
+- [[Reference/Modules/learnloop/ingest/extractors/glm_ocr|learnloop.ingest.extractors.glm_ocr]] — imports `GlmOcrDocumentExtractor`, `LAYOUT_MODEL`, `RECOGNITION_MODEL`, `selected_backend`; calls `GlmOcrDocumentExtractor`, `selected_backend`
 - [[Reference/Modules/learnloop/pads/ink|learnloop.pads.ink]] — imports `module`; calls `InkError`, `owner_of`, `reading_decision`, `standing`, `strokes_hash`
 - [[Reference/Modules/learnloop/pads/ink_render|learnloop.pads.ink_render]] — imports `module`; calls `render_png`
-- [[Reference/Modules/learnloop/practice_index/paid|learnloop.practice_index.paid]] — imports `PaidCalls`, `PaidRoute`, `plan_route`, `resolve_client`; calls `PaidCalls`, `plan_route`, `resolve_client`
-- [[Reference/Modules/learnloop/workbench/check|learnloop.workbench.check]] — imports `module`; calls `daily_envelope`, `models_off`
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `dataclasses`, `hashlib`, `typing`
-- Third party: `pydantic`
+- Standard library: `__future__`, `dataclasses`, `typing`
+- Third party: none imported directly
 
 ## Larger workflow participation
 
@@ -148,8 +140,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
-- [tests/identity_pins_helpers.py](../../../../../../tests/identity_pins_helpers.py) — direct import
-- [tests/ink_helpers.py](../../../../../../tests/ink_helpers.py) — direct import
+- [tests/test_reader_ink_glm_ocr.py](../../../../../../tests/test_reader_ink_glm_ocr.py) — direct import
+  - `test_a_local_backend_that_does_not_answer_is_not_available`
+  - `test_hosted_glm_ocr_reads_the_image_of_the_strokes_and_nothing_else`
+  - `test_hosted_without_the_learners_ok_for_z_ai_sends_nothing`
+  - `test_without_glm_ocr_nothing_is_sent_and_the_line_says_how_to_turn_it_on`
 - [tests/test_reader_rd8a_fix.py](../../../../../../tests/test_reader_rd8a_fix.py) — direct import
   - `test_a_cached_reading_beside_the_learners_correction_keeps_its_reason`
   - `test_a_partial_erase_leaves_the_words_until_the_line_is_read_again`
@@ -161,13 +156,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_reading_finishing_after_its_context_moved_on_keeps_its_facts_but_wakes_no_worker`
   - `test_the_listed_reading_beside_the_learners_correction_says_why_it_is_not_the_words`
 - [tests/test_reader_rd8a_transcribe.py](../../../../../../tests/test_reader_rd8a_transcribe.py) — direct import
-  - `test_a_model_that_cannot_read_images_is_refused_before_anything_is_sent`
   - `test_a_removed_blocks_ink_is_not_read`
   - `test_ink_on_a_page_is_never_read_nor_learner_text`
-  - `test_one_image_of_the_standing_strokes_is_sent_alone_and_named_in_the_prompt`
-  - `test_the_reading_becomes_the_blocks_next_version_and_is_kept_with_its_provenance`
-  - `test_the_render_digest_and_the_prompt_are_stable`
-  - `test_with_models_off_and_no_client_nothing_is_reached`
+  - `test_one_image_of_the_standing_strokes_is_sent_alone`
 
 ## Modification guidance
 

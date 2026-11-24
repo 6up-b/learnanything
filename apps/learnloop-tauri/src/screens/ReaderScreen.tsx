@@ -74,7 +74,7 @@ import { useReaderInquiry } from "./reader/useReaderInquiry";
 import { YouTubeWatchPanel, type VideoExtras, type WatchLens, type WatchPanelHandle } from "./reader/YouTubeWatchPanel";
 import { useReaderCues, type CueCheckMeRequest, type CueRequestOrigin } from "./reader/useReaderCues";
 import { CUE_COPY, type PdfPageLayout } from "./reader/cues";
-import { CueFooter, MarginMark } from "./reader/MarginMark";
+import { CueFooter, CueReceipts, MarginMark } from "./reader/MarginMark";
 import type { PassageTarget, ReaderCueDto } from "../api/dto";
 
 import { type AskAbout, type ReaderExchange } from "./reader/ReaderAskBranches";
@@ -91,7 +91,7 @@ import {
 import { besideTrail, goTo as stackGoTo, type ReturnStack } from "./reader/returnStack";
 import { AskRail } from "./reader/AskRail";
 import { createTutorOfferStore } from "./reader/TutorOffers";
-import { GuideRail, SectionBoundaryOffer } from "./reader/GuideRail";
+import { GuideRail, QuickChecks, SectionBoundaryOffer } from "./reader/GuideRail";
 import { ReadingPathCard } from "./reader/ReadingPathCard";
 import { GuidePathSlot } from "./reader/DeliverableSliceCard";
 import { readingPathRefreshKey } from "./reader/readingPath";
@@ -99,7 +99,7 @@ import { useReaderRecap } from "./reader/useReaderRecap";
 import { RecapCard } from "./reader/RecapCard";
 import { WrapUpPanel } from "./reader/WrapUpPanel";
 import { RECAP_COPY } from "./reader/recapCopy";
-import { NotesRail, type ExerciseImportState } from "./reader/NotesRail";
+import { AnnotationCard, AuthoringCard, NotesRail, type ExerciseImportState } from "./reader/NotesRail";
 import { IntentBox } from "./reader/IntentBox";
 import { useIntentBox, type IntentCancel, type IntentRunHandle, type IntentRunHow } from "./reader/useIntentBox";
 import { onlyNamesAnAction } from "./reader/intentPalette";
@@ -125,12 +125,13 @@ import { useReaderWorkbench, type ReaderWorkbenchProps } from "./reader/useReade
 import { exerciseOpenRequest, type ExerciseCandidate, type ReaderWorkbenchExercise } from "./reader/exerciseCandidates";
 import type { ExplorableOutcome, LibraryExercisesProps } from "./reader/LibraryAnswer";
 import { ReaderWorkingPosture } from "./reader/ReaderWorkingPosture";
+import type { ProblemHandoff } from "./desks/problem/problemPads";
 import { FindSection } from "./reader/FindSection";
 import { SideBySidePane } from "./reader/SideBySidePane";
-import { SIDE_BY_SIDE_COPY, SIDE_BY_SIDE_SCROLL_KEYS, useSideBySide } from "./reader/useSideBySide";
-import { clampSplit, crumbLabel, readSplit, targetOf as sideBySideTarget, writeSplit } from "./reader/sideBySide";
+import { SIDE_BY_SIDE_COPY, SIDE_BY_SIDE_SCROLL_KEYS, useSideBySide, type SideBySideVia } from "./reader/useSideBySide";
+import { clampSplit, crumbLabel, readSplit, targetOf as sideBySideTarget, writeSplit, type PaneTarget } from "./reader/sideBySide";
 import { inSidePane, useSidePane, type PaneCaptureTarget, type SidePane } from "./reader/useSidePane";
-import type { AskAnchor } from "./reader/useReaderInquiry";
+import type { AskAnchor, WindowAsk, WindowExchange } from "./reader/useReaderInquiry";
 import { ALSO_COPY, AlsoInBooks, type AlsoPeekCrumb } from "./reader/AlsoInBooks";
 import { WORKBENCH_COPY, problemTitle } from "./workbench/stepModel";
 import { screenLeavesKey } from "../app/keymap";
@@ -293,6 +294,47 @@ export interface ReaderWindowing {
   /** Pen mode's way onto this source (RD8a): the text surface, the open reading's identity and the selection
    * model for a range the pen marked (null while no text reading is shown). */
   onPenSurface?: (surface: PenSurface | null) => void;
+  /** The desk's way into this window's inquiry (spec §21.1: the companion holds the thread; the detour strip and
+   *  alt+← stay in the window): a claim of this reading peeks, and a companion answer joins its detours. */
+  onInquiryReady?: (inquiry: WindowInquiry | null) => void;
+  /** Asks go to the desk's companion (a routed ask, a reconnect's "still unclear"), not to a rail the desk hides. */
+  onAsk?: (ask: WindowAsk) => void;
+  /** "what matters here?": the desk's path for this reading (the goal's path view, else the reading's path). */
+  onOpenPath?: () => void;
+  /** A note the window was opened for (a search result names it): its card opens, being edited, once it is listed. */
+  openNote?: string | null;
+  /** While the desk's day closes (the drain): where this reading's Wrap up is shown. */
+  drainHost?: HTMLElement | null;
+  /** Another book's passage (a library hit, a textbook exercise in another book) opens in a window beside this one,
+   *  never in place of this window's book (a window opens one book for its life). */
+  onOpenBeside?: (hit: { sourceId: string; extractionId: string; spanId: string }) => void;
+  /** Side by side on the desks: the other book opens in a window paired with this one (its first correspondent from
+   *  Ctrl+\, or a list's "side by side"); the desk hosts following, focus and the way back between the two. */
+  onOpenPair?: (target: PaneTarget, via: SideBySideVia) => void;
+  /** The section in view moved (the desk's follow along between paired windows reads it). */
+  onSection?: (section: { extractionId: string; sectionId: string } | null) => void;
+  /** Side by side's keys on the desks, for the pair this window is in: Ctrl+Shift+L follow along, F6 the other one. */
+  onPairKey?: (key: "follow" | "other") => void;
+  /** The learner's hand on this window (a scroll, a click, a touch), for the pair it is in. */
+  onTouched?: () => void;
+  /** RW2 on a desk (spec §15.2): a problem this window opens (work through this, an exercise, a check, a resume) is
+   *  worked on the desk's problem pad instead of a working posture over the book. */
+  onWorkOnPad?: (handoff: ProblemHandoff) => void;
+}
+
+/** What a desk does in a source window's inquiry. */
+export interface WindowInquiry {
+  /** A claim of this reading opened from outside: a peek, so the strip shows the way back and alt+← walks it. */
+  peek: (spanId: string) => void;
+  /** A companion answer about this reading landed (a follow-up, with its parent). */
+  noteAnswer: (exchange: WindowExchange, parent: WindowExchange | null) => void;
+  /** The desk wrote an annotation on this reading (a margin note, an append): its marks are read again. */
+  annotationsChanged: () => void;
+  /** The reading's own path (RW7a) in the window, for a desk with no goal: toggled, or opened; false when this
+   *  reading has no path to show (reading paths off). */
+  showPath: (how: "toggle" | "open") => boolean;
+  /** "write it myself" from the menu's Make it practice: the Reader's own question card on this passage, in the window. */
+  writeOwnQuestion: (spanId: string, quote: string) => void;
 }
 
 /** The desks' goal lens, laid over a reading's passages by span id (the text itself is never changed). */
@@ -744,7 +786,7 @@ export function ReaderScreen({
     setInquiryStatus, markBranchDone, commitInquiry,
     committedFor, openInquiry, startQuickCheck, cancelQuickCheck, dismissInquiryCheck, answerReconnect, inquiryCheckAction,
     escalateInquiryCheck, peekPassage, restoreEntry, onBodyScroll, noteSourceOpened, rememberLeftSource,
-    resetInquiryState, pushSideBySide, replaceSideBySide, snapshotSideBySide, dropDetour,
+    resetInquiryState, pushSideBySide, replaceSideBySide, snapshotSideBySide, dropDetour, noteCompanionAnswer,
   } = useReaderInquiry({
     render, offline, inquiry, muted, library, sourceTitle, selection, setSelection, setSelectionActions,
     activeSpan, railTab, setRailTab, answerMode, setBusy, onError, annotations, refreshAnnotations, setArc,
@@ -755,6 +797,7 @@ export function ReaderScreen({
     workbenchSessionRef: askWorkbenchSessionRef,
     personalizedRef: askPersonalizedRef,
     composerAnchorRef: askComposerAnchorRef,
+    askElsewhere: windowed?.onAsk ?? null,
   });
 
   // RW3a: margin cues from the Guide's own citations (screens/reader/useReaderCues).
@@ -817,7 +860,20 @@ export function ReaderScreen({
     props: wbProps,
     onError,
   });
-  const working = wbCtl.active !== null;
+  // On a desk the problem goes to its pad (spec §15.2): handed over with what the opening knew, and this window
+  // returns to reading at once. The workbench's own opening logic (imports, admission, the serve) ran as before.
+  const workOnPad = windowed?.onWorkOnPad ?? null;
+  useEffect(() => {
+    const active = wbCtl.active;
+    if (!workOnPad || !active) return;
+    workOnPad({
+      session: active.session, readOnly: active.readOnly, autoFocus: active.autoFocus,
+      schedulerCandidateId: active.schedulerCandidateId ?? null, planPresentationId: active.planPresentationId ?? null,
+      card: active.card, spanId: active.session.spanIds[0] ?? null,
+    });
+    wbCtl.close(active.session, { generation: active.generation });
+  }, [workOnPad, wbCtl.active]); // eslint-disable-line react-hooks/exhaustive-deps
+  const working = wbCtl.active !== null && !workOnPad;
   // Reader CA5: "also in your books" (the contract names it only while
   // reader.correspondence.enabled and curriculum.enabled are on). Shown in skim
   // mode (a table of contents), never in the working posture or offline.
@@ -901,12 +957,29 @@ export function ReaderScreen({
   const railOnScreen = windowed
     ? Boolean(windowed.railHost) && !isPaused(windowed.railHost?.lifecycle.state ?? "hidden")
     : !isPaused(sourceLifecycleState);
-  const recapShown = Boolean(railOnScreen && recapCtl.recap && !recapCtl.collapsed && !muted && railTab === "guide" && !(inquiry && railCollapsed) && !working);
+  // On a desk with no Guide on screen the recap card and Wrap up show in the window itself (spec §21.1).
+  const guideOnScreen = railOnScreen && railTab === "guide";
+  const recapInWindow = Boolean(windowed) && !guideOnScreen;
+  const recapShown = Boolean(railOnScreen && recapCtl.recap && !recapCtl.collapsed && !muted && railTab === "guide" && !(inquiry && railCollapsed) && !working)
+    || Boolean(recapInWindow && recapCtl.recap && !recapCtl.collapsed && !muted && !working && !isPaused(sourceLifecycleState));
   // Leaving while skimming offers no wrap-up where the learner lands (F9).
   useEffect(() => {
     onSkimmingChange?.(muted);
   }, [muted, onSkimmingChange]);
   const { noteShown: noteRecapShown } = recapCtl;
+  // The desk's drain asks every reading on the desk for its Wrap up, once the session has something to wrap up.
+  const drainHost = windowed?.drainHost ?? null;
+  const wrapUpForDrain = useRef(false);
+  const { wrapUpOffered, openWrapUp: openRecapWrapUp, closeWrapUp: closeRecapWrapUp } = recapCtl;
+  useEffect(() => {
+    if (drainHost && wrapUpOffered && !wrapUpForDrain.current) {
+      wrapUpForDrain.current = true;
+      void openRecapWrapUp();
+    } else if (!drainHost && wrapUpForDrain.current) {
+      wrapUpForDrain.current = false;
+      closeRecapWrapUp();
+    }
+  }, [drainHost, wrapUpOffered, openRecapWrapUp, closeRecapWrapUp]);
   useEffect(() => {
     if (recapShown) noteRecapShown();
   }, [recapShown, noteRecapShown]);
@@ -1475,11 +1548,25 @@ export function ReaderScreen({
   const openAnnotationNote = useCallback((annotationId: string) => {
     const target = annotations.find((a) => a.annotationId === annotationId);
     if (!target) return;
+    // On a desk with no Notes panel on screen the note opens in the window's margin card, being edited.
+    if (windowNotesOnRef.current) setWindowNotesSpan(placedSpanIds(target)[0] ?? null);
     setRailCollapsed(false);
     setRailTab("notes");
     setEditingAnnotationId(annotationId);
     setEditingAnnotationText(target.learnerText);
   }, [annotations]);
+  // The window's margin card of the learner's annotations on one passage (a desk with no Notes panel on screen).
+  const [windowNotesSpan, setWindowNotesSpan] = useState<string | null>(null);
+  const windowNotesOnRef = useRef(false);
+  // A note the window was opened for opens once it is listed (again when the window is opened for another).
+  const windowOpenNote = windowed?.openNote ?? null;
+  const openedNote = useRef<string | null>(null);
+  useEffect(() => {
+    if (!windowOpenNote || openedNote.current === windowOpenNote) return;
+    if (!annotations.some((a) => a.annotationId === windowOpenNote)) return;
+    openedNote.current = windowOpenNote;
+    openAnnotationNote(windowOpenNote);
+  }, [windowOpenNote, annotations, openAnnotationNote]);
 
   // Split the live selection into one sub-quote per covered [data-span-id]
   // block, in document order. Anchoring works per block, so a quote must never
@@ -1618,7 +1705,17 @@ export function ReaderScreen({
     currentEntry: returnStack.entries[returnStack.cursor] ?? null,
     visitPayload,
     onError,
+    openElsewhere: windowed?.onOpenPair ?? null,
   });
+  // On the desks the section in view is reported, so a window paired with this one can follow it.
+  const sectionInView = render && currentGuideSection ? `${render.extractionId}\u0000${currentGuideSection.id}` : null;
+  const onSectionRef = useRef(windowed?.onSection);
+  onSectionRef.current = windowed?.onSection;
+  useEffect(() => {
+    if (!onSectionRef.current) return;
+    const [extractionId, sectionId] = sectionInView ? sectionInView.split("\u0000") : [null, null];
+    onSectionRef.current(extractionId && sectionId ? { extractionId, sectionId } : null);
+  }, [sectionInView]);
   // The second pane shows while side by side is open in a wide window; a
   // comparison the learner starts takes the right side meanwhile (both are
   // the comparing posture), and side by side comes back when it closes.
@@ -1815,7 +1912,13 @@ export function ReaderScreen({
   // The main pane leads once the learner's hand is on it (scroll, click, select).
   const touchMain = () => {
     if (sbsRef.current.panes) sbsRef.current.touch("main");
+    // On the desks the learner's hand on this window is told to its pair (a follow pending for it is dropped).
+    touchedRef.current?.();
   };
+  const touchedRef = useRef(windowed?.onTouched);
+  touchedRef.current = windowed?.onTouched;
+  const pairKeyRef = useRef(windowed?.onPairKey);
+  pairKeyRef.current = windowed?.onPairKey;
   // Side by side's keys (§6.4): Ctrl+\ opens the first correspondent of the
   // section in view (or closes the second pane), Ctrl+Shift+L turns follow
   // along on or off, F6 moves focus between the panes, Esc in a pane closes
@@ -1834,6 +1937,13 @@ export function ReaderScreen({
         event.preventDefault();
         if (open) ctl.close();
         else void ctl.openFirst();
+      } else if (mod && event.shiftKey && !event.altKey && event.key.toLowerCase() === "l" && pairKeyRef.current) {
+        // On the desks the pair is two windows: the desk turns following on or off for it.
+        event.preventDefault();
+        pairKeyRef.current("follow");
+      } else if (event.key === "F6" && !mod && !event.altKey && pairKeyRef.current) {
+        event.preventDefault();
+        pairKeyRef.current("other");
       } else if (mod && event.shiftKey && !event.altKey && event.key.toLowerCase() === "l" && ctl.panes && shown) {
         event.preventDefault();
         ctl.toggleFollow();
@@ -2268,6 +2378,46 @@ export function ReaderScreen({
     onWindowJumpReady(render ? (spanId: string) => jumpToSpan(spanId, "start") : null);
     return () => onWindowJumpReady(null);
   }, [onWindowJumpReady, render, jumpToSpan]);
+  // The reading's guide (RW7a's path for this reading with the Guide's section lines), shown in the window on a desk
+  // with no goal and no Guide panel on screen (the goal's path view needs a goal).
+  const [windowPathOpen, setWindowPathOpen] = useState(false);
+  // The guide needs a plan to show (its sections) or the reading's path.
+  const readingPathsOn = (Boolean(contract?.readingPaths) || Boolean(guidePlan?.sections.length)) && !offline;
+  useScopeClaim("menu", Boolean(windowed) && windowPathOpen);
+  useEffect(() => {
+    if (!windowPathOpen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (screenLeavesKey(event, { ownChords: true })) return;
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+      event.preventDefault();
+      setWindowPathOpen(false);
+    };
+    return hub.listen("window", "keydown", onKey);
+  }, [windowPathOpen, hub]);
+  const onWindowInquiryReady = windowed?.onInquiryReady;
+  useEffect(() => {
+    if (!onWindowInquiryReady) return;
+    onWindowInquiryReady(render ? {
+      peek: peekPassage, noteAnswer: noteCompanionAnswer, annotationsChanged: () => void refreshAnnotations(),
+      writeOwnQuestion: (spanId, quote) => {
+        setAuthoringSpanId(spanId);
+        setAuthoringQuote(quote || (blocks.find((block) => block.spanId === spanId)?.markdown.replace(/\s+/g, " ") ?? ""));
+        setAuthoredQuestion("");
+        setAuthoredAnswer("");
+        setAuthoredCardId(null);
+        setCoach(null);
+        setAuthoringOpen(true);
+        jumpToSpan(spanId, "start");
+      },
+      showPath: (how) => {
+        if (!readingPathsOn) return false;
+        setWindowPathOpen((open) => (how === "open" ? true : !open));
+        setPathFocus((value) => value + 1);
+        return true;
+      },
+    } : null);
+    return () => onWindowInquiryReady(null);
+  }, [onWindowInquiryReady, render, peekPassage, noteCompanionAnswer, refreshAnnotations, readingPathsOn, blocks, jumpToSpan]);
   const onWindowPenSurface = windowed?.onPenSurface;
   const penTextShown = Boolean(render) && !(pdfView && surface === "pdf");
   useEffect(() => {
@@ -2897,6 +3047,11 @@ export function ReaderScreen({
       peekPassage(hit.spanId);
       return Promise.resolve("opened");
     }
+    if (windowed?.onOpenBeside && hit.sourceId) {
+      // On the desks another book opens in its own window beside this one (its way back is this window, still open).
+      windowed.onOpenBeside({ sourceId: hit.sourceId, extractionId: hit.extractionId, spanId: hit.spanId });
+      return Promise.resolve("not_opened");
+    }
     const card = (library ?? []).find((candidate) => candidate.sourceId === hit.sourceId);
     if (!card || opening !== null) return Promise.resolve("not_opened");
     if (render && !offline) {
@@ -3461,6 +3616,18 @@ export function ReaderScreen({
           }
           return;
         }
+        if (windowed?.onAsk) {
+          // On a desk the companion is the Ask (spec §8): asked there at once with the box's words, on the selection,
+          // in the routed answer mode; an empty Enter opens it on the selection to ask.
+          const spanId = pane.spanIds[0] ?? activeSpan ?? readingSpan;
+          if (!spanId) return;
+          logReaderAction("action_invoked", { ...visitPayload(), action_kind: text ? "ask" : "ask_opened", ...meta });
+          windowed.onAsk({
+            question: text, spanId, selectionSpanIds: pane.spanIds, quote: pane.words.trim() || null,
+            ...("answerMode" in effect && effect.answerMode ? { answerMode: effect.answerMode } : {}),
+          });
+          return;
+        }
         // A routed Ask opens the Ask tab, because the learner asked (D41).
         setRailCollapsed(false);
         setRailTab("ask");
@@ -3570,6 +3737,11 @@ export function ReaderScreen({
         }
         // RW7a: Orient's "what matters here?" opens the Guide's reading path.
         logReaderAction("action_invoked", { ...visitPayload(), action_kind: "what_matters_here", ...meta });
+        if (windowed?.onOpenPath) {
+          // On a desk the Guide is not on screen: the desk's own path for this reading.
+          windowed.onOpenPath();
+          return;
+        }
         setRailCollapsed(false);
         setRailTab("guide");
         setPathFocus((value) => value + 1);
@@ -3770,6 +3942,311 @@ export function ReaderScreen({
     );
   };
   const overDesk = (menu: ReactNode): ReactNode => (windowed ? createPortal(menu, document.body) : menu);
+  // The session's Wrap up and the recap card: in the Guide's header, or, on a desk with no Guide on screen, at the top
+  // of the window (and the Wrap up in the drain while the desk's day closes).
+  const wrapUpNode = recapCtl.wrapUpOpen ? (
+    <WrapUpPanel
+      wrapUp={recapCtl.wrapUpOpen}
+      where="reader"
+      onClose={recapCtl.closeWrapUp}
+      followups={{
+        onUndo: (commitmentId, reason) => api.readerFollowupUndo({ commitmentId, reason }),
+        onUndoAll: (digestId, reason) => api.readerFollowupUndoAll({ digestId, reason }),
+        onRestore: (commitmentId) => api.readerFollowupRestore({ commitmentId }),
+      }}
+      isDone={(line, action) => action.action === "revisit_once" && recapRevisited(line.rootExchangeId)}
+      onAction={async (line, action) => {
+        const params = (action.params ?? {}) as { resolution?: "open" | "resolved"; trigger?: "chip" | "undo" };
+        if (action.rpc === "reader.set_inquiry_status" && params.resolution) {
+          await recapSetStatus(line.rootExchangeId, params.resolution, params.trigger ?? "chip");
+        } else if (action.rpc === "reader.invoke_preset") {
+          await recapRevisit(line.rootExchangeId);
+        }
+      }}
+    />
+  ) : null;
+  const recapCardNode = recapCtl.recap ? (
+    <RecapCard
+      recap={recapCtl.recap}
+      collapsed={recapCtl.collapsed}
+      onExpand={recapCtl.expand}
+      onContinue={() => {
+        recapCtl.continueReading();
+        if (progress.restoredSpan) jumpToSpan(progress.restoredSpan);
+      }}
+      onDismiss={() => void recapCtl.dismiss()}
+      onOpenInquiry={recapOpenInquiry}
+      onSetStatus={(rootId, resolution) => void recapSetStatus(rootId, resolution)}
+      onRevisit={(rootId) => void recapRevisit(rootId)}
+      revisited={recapRevisited}
+      onResume={(sessionId) => void wbCtl.resume(sessionId)}
+      // RW6b: the card keeps the undone line ("undone · keep it
+      // after all") until it is next read, so an undo can be taken back.
+      onUndoFollowup={(commitmentId, reason) => api.readerFollowupUndo({ commitmentId, reason })}
+      onUndoAllFollowups={(digestId, reason) => api.readerFollowupUndoAll({ digestId, reason })}
+      onRestoreFollowup={(commitmentId) => api.readerFollowupRestore({ commitmentId })}
+    />
+  ) : null;
+  // The learner's annotations are the Notes rail's; a desk shows the rail only beside a Notes panel, so without one
+  // the window's margin carries them (spec §7.1): "›" beside a passage with the learner's annotations opens a card
+  // under it with their words, to edit, delete (with undo) or re-anchor.
+  const windowNotesOn = Boolean(windowed) && !(railOnScreen && railTab === "notes") && !offline;
+  windowNotesOnRef.current = windowNotesOn;
+  const annotationsBySpan = new Map<string, MarginAnnotation[]>();
+  if (windowNotesOn) {
+    for (const annotation of annotations) {
+      const spanId = annotation.annotationId ? placedSpanIds(annotation)[0] : undefined;
+      if (spanId) annotationsBySpan.set(spanId, [...(annotationsBySpan.get(spanId) ?? []), annotation]);
+    }
+  }
+  const windowNotesList = windowNotesSpan ? annotationsBySpan.get(windowNotesSpan) ?? [] : [];
+  const windowNotesCard = windowNotesOn && windowNotesSpan && windowNotesList.length ? (
+    <div role="group" aria-label="your notes on this passage" data-window-notes="" style={{ margin: "4px 0 8px", paddingLeft: 12, borderLeft: `2px solid ${COLOR.border}`, display: "flex", flexDirection: "column", gap: 4 }}>
+      {windowNotesList.map((annotation) => (
+        <AnnotationCard
+          key={annotation.annotationId}
+          a={annotation}
+          offline={offline}
+          busy={busy}
+          selection={selection}
+          jumpToAnnotation={jumpToAnnotation}
+          reanchorAnnotation={reanchorAnnotation}
+          manualAnchorToSelection={manualAnchorToSelection}
+          reanchorNotes={reanchorNotes}
+          editingAnnotationId={editingAnnotationId}
+          setEditingAnnotationId={setEditingAnnotationId}
+          editingAnnotationText={editingAnnotationText}
+          setEditingAnnotationText={setEditingAnnotationText}
+          saveAnnotationEdit={saveAnnotationEdit}
+          deleteAnnotation={deleteAnnotation}
+        />
+      ))}
+      <button type="button" onClick={() => setWindowNotesSpan(null)} style={{ alignSelf: "flex-start", border: 0, background: "transparent", color: COLOR.textFaint, fontFamily: FONT_MONO, fontSize: 10, padding: 0, cursor: "pointer" }}>
+        close
+      </button>
+    </div>
+  ) : null;
+  const windowNoteMark = (spanId: string | null | undefined): ReactNode => (windowNotesOn && spanId && annotationsBySpan.has(spanId) ? (
+    <button
+      type="button"
+      className="ll-window-note-mark"
+      data-window-note-mark=""
+      aria-label="your notes on this passage"
+      aria-expanded={windowNotesSpan === spanId}
+      onMouseDown={(event) => event.stopPropagation()}
+      onClick={(event) => {
+        event.stopPropagation();
+        setWindowNotesSpan((open) => (open === spanId ? null : spanId));
+      }}
+      // 30 px left of the text (§7.1): the passage's own padding is 12 px.
+      style={{ position: "absolute", left: -18, top: 2, border: 0, background: "transparent", color: COLOR.amber, fontFamily: FONT_MONO, fontSize: 14, padding: 0, cursor: "pointer" }}
+    />
+  ) : null);
+
+  // The active-reading card is the Notes rail's header; a desk shows the rail only beside a Notes panel, so without
+  // one the card shows in the window, under the last passage it is about (the fold, if any, follows it).
+  const windowActiveCard = windowed && activeReadingOn && (activeCtl.active || activeCtl.another) && !(railOnScreen && railTab === "notes") ? (
+    <div data-window-active-reading="" style={{ margin: "4px 0 8px", paddingLeft: 12, borderLeft: `2px solid ${COLOR.border}` }}>
+      <ActiveReadingCard ctl={activeCtl} sourceTitle={sourceTitle} onShowPassage={jumpToSpan} />
+    </div>
+  ) : null;
+  const windowActiveSpans = activeCtl.another ? activeCtl.another.spanIds : activeCtl.active?.anchorSpanIds ?? [];
+  const windowActiveSpan = windowActiveCard ? windowActiveSpans[windowActiveSpans.length - 1] ?? null : null;
+  // On the original PDF the window's cards sit under their passages as the pane's inline notes.
+  // The Guide shows its open quick checks first; a desk shows no Guide unless a panel is opened for the book, so a
+  // window without one shows each section's check under that section (its opening for a check placed before it,
+  // else its end), kept mounted so what a closed check showed stays there.
+  // (While the reading's guide is open in the window, its checks are there, at its top.)
+  const windowChecksOn = Boolean(windowed) && !guideOnScreen && boundaryChecksAvailable && !working && !windowPathOpen;
+  const openCheckIds = new Set(openQuestionSections.map((section) => section.id));
+  const windowCheckAt = new Map<string, ReaderGuideSectionDto>();
+  if (windowChecksOn) {
+    for (const section of guidePlan?.sections ?? []) {
+      if (!section.question) continue;
+      windowCheckAt.set(section.question.readingPhase === "before_section" ? section.startSpanId : section.endSpanId, section);
+    }
+  }
+  const windowChecks = (spanId: string | null | undefined): ReactNode => {
+    const section = spanId ? windowCheckAt.get(spanId) : undefined;
+    if (!section || !render) return null;
+    return (
+      <QuickChecks
+        key={`checks-${section.id}`}
+        extractionId={render.extractionId}
+        available
+        sections={openCheckIds.has(section.id) ? [section] : []}
+        focusQuickCheck={focusQuickCheck}
+        onJump={peekPassage}
+        setDismissedSections={setDismissedSections}
+        setAnsweredSections={setAnsweredSections}
+        completeSection={completeSection}
+        revealSection={revealSection}
+        onError={onError}
+      />
+    );
+  };
+  // The learner's own question card is the Notes rail's; without a Notes panel on screen it shows in the window under
+  // the passage it is about.
+  const windowAuthoringCard = Boolean(windowed) && authoringOpen && authoringSpanId && !(railOnScreen && railTab === "notes") && !offline ? (
+    <div role="group" aria-label="your own question" data-window-authoring="" style={{ margin: "4px 0 8px", paddingLeft: 12, borderLeft: `2px solid ${COLOR.border}` }}>
+      <AuthoringCard
+        offline={offline}
+        authoringQuote={authoringQuote}
+        authoredQuestion={authoredQuestion}
+        setAuthoredQuestion={setAuthoredQuestion}
+        authoredAnswer={authoredAnswer}
+        setAuthoredAnswer={setAuthoredAnswer}
+        authoredCardId={authoredCardId}
+        setAuthoredCardId={setAuthoredCardId}
+        authoredStatus={authoredStatus}
+        authoringBusy={authoringBusy}
+        saveOwnQuestion={saveOwnQuestion}
+        coach={coach}
+        setCoach={setCoach}
+        runCoach={runCoach}
+        setAuthoringOpen={setAuthoringOpen}
+      />
+    </div>
+  ) : null;
+  // The window's own top holds the reading's path and the recap card (and a Wrap up opened with w).
+  const windowPathShown = Boolean(windowed && windowPathOpen && readingPathsOn && render && !working && !guideOnScreen);
+  const windowTopShown = windowPathShown || Boolean(recapInWindow && !working && ((recapCtl.wrapUpOpen && !drainHost) || (recapCtl.recap && !muted)));
+  const windowInlineNotes = [
+    ...(windowActiveCard && windowActiveSpan ? [{ spanId: windowActiveSpan, node: windowActiveCard }] : []),
+    ...(windowNotesCard && windowNotesSpan ? [{ spanId: windowNotesSpan, node: windowNotesCard }] : []),
+    ...(windowAuthoringCard && authoringSpanId ? [{ spanId: authoringSpanId, node: windowAuthoringCard }] : []),
+    // On the original PDF, an open check sits under its passage as an inline note.
+    ...[...windowCheckAt.entries()].filter(([, section]) => openCheckIds.has(section.id)).map(([spanId]) => ({ spanId, node: windowChecks(spanId) })),
+  ];
+
+  // The Guide: in its rail when a panel shows it, and, on a desk with none on screen, as the reading's guide opened in
+  // the window with p (its section, its progress and what to do near the break, finding the section in other books,
+  // the path and contents); the recap card and the marks' controls are the window's own there.
+  const guideHeader = (!windowed || guideOnScreen) && ((recapCtl.wrapUpOpen && !drainHost) || (recapCtl.recap && !muted)) ? (
+        <>
+          {recapCtl.wrapUpOpen && !drainHost ? wrapUpNode : null}
+          {recapCtl.recap && !muted ? recapCardNode : null}
+        </>
+      ) : null;
+  const guideFooter = cueCtl.cues ? (
+        <CueFooter
+          density={cueCtl.cues.density}
+          bookOff={cueCtl.cues.sourceOff}
+          receipts={cueCtl.receipts}
+          onDensity={cueCtl.setDensity}
+          onTurnOnBook={cueCtl.turnOnBook}
+          discovered={cueCtl.discovered}
+        />
+      ) : null;
+  const guideRail = (visible: boolean, inWindow: boolean): ReactNode => (render ? (
+    <GuideRail
+      visible={visible}
+      extractionId={render.extractionId}
+      offline={offline}
+      guidePlan={guidePlan}
+      guideLoading={guideLoading}
+      currentGuideSection={currentGuideSection}
+      currentSectionProgress={currentSectionProgress}
+      currentSectionRead={currentSectionRead}
+      sectionSeen={sectionSeen}
+      readingMoved={readingMoved}
+      currentQuestionOpen={currentQuestionOpen}
+      boundaryChecksAvailable={boundaryChecksAvailable}
+      authoringSections={authoringSections}
+      timedOutSections={timedOutSections}
+      retryQuickCheck={retryQuickCheck}
+      revealedSections={revealedSections}
+      completedSections={completedSections}
+      dismissedSections={dismissedSections}
+      answeredSections={answeredSections}
+      setAnsweredSections={setAnsweredSections}
+      focusQuickCheck={focusQuickCheck}
+      annotatedSpans={annotatedSpans}
+      openQuestionSections={openQuestionSections}
+      setDismissedSections={setDismissedSections}
+      jumpToSpan={jumpToSpan}
+      peekPassage={peekPassage}
+      revealSection={revealSection}
+      completeSection={completeSection}
+      sectionFinishes={sectionFinishes}
+      endedSections={endedSections}
+      {...(onOpenToday ? { onOpenToday } : {})}
+      bookTitle={sourceTitle}
+      onError={onError}
+      boundaryBlock={boundaryBlock}
+      boundarySkipped={boundarySkipped}
+      setBoundarySkipped={setBoundarySkipped}
+      boundaryAnswered={boundaryAnswered}
+      setBoundaryAnswered={setBoundaryAnswered}
+      boundaryResponse={boundaryResponse}
+      setBoundaryResponse={setBoundaryResponse}
+      boundarySubmitted={boundarySubmitted}
+      setBoundarySubmitted={setBoundarySubmitted}
+      questionControl={questionControl}
+      sendQuestionControl={sendQuestionControl}
+      disposition={disposition}
+      chooseDisposition={chooseDisposition}
+      path={contract?.readingPaths ? (
+        // Curriculum C0b: a deliverable's slice for this book takes the path card
+        // (its RPC refuses while curriculum.enabled is off: then RW7a's card, as today).
+        <GuidePathSlot
+          extractionId={render.extractionId}
+          onJump={(spanId) => jumpToSpan(spanId, "start")}
+          onError={onError}
+          refreshKey={pathRefreshKey}
+          readingPathCard={(
+            <ReadingPathCard
+              extractionId={render.extractionId}
+              onJump={(spanId) => jumpToSpan(spanId, "start")}
+              onTryExercise={wbCtl.enabled ? tryPathExercise : null}
+              onError={onError}
+              focusToken={pathFocus}
+              refreshKey={pathRefreshKey}
+            />
+          )}
+        />
+      ) : undefined}
+      header={inWindow ? null : guideHeader}
+      findSection={contract?.correspondence?.findSection && !offline && !working ? (
+        <FindSection
+          extractionId={render.extractionId}
+          section={currentGuideSection
+            ? { id: currentGuideSection.id, label: currentGuideSection.label, startSpanId: currentGuideSection.startSpanId }
+            : null}
+          onGoThere={(target) => void openLibraryHit(target)}
+          onCompare={libraryCtl.settings?.compare ? compareFoundSection : null}
+          onSideBySide={sbs.enabled ? (hit) => sbs.open(sideBySideTarget(hit), "find_list") : null}
+          onError={onError}
+          refreshKey={coverageRefresh}
+          onPeekChange={setFindPeek}
+          closePeekToken={alsoClosePeekToken}
+        />
+      ) : undefined}
+      alsoInBooks={alsoOn && !working ? (
+        <AlsoInBooks
+          extractionId={render.extractionId}
+          section={currentGuideSection
+            ? { id: currentGuideSection.id, label: currentGuideSection.label, startSpanId: currentGuideSection.startSpanId }
+            : null}
+          hidden={alsoHidden}
+          onHide={hideAlsoInBooks}
+          onGoThere={(target) => void openLibraryHit(target)}
+          onCompare={libraryCtl.settings?.compare ? compareFoundSection : null}
+          // `s` side by side (CA6): the same entry as CA5a's find list's.
+          onSideBySide={sbs.enabled ? (hit) => sbs.open(sideBySideTarget(hit), "also_list") : null}
+          // RW5d P4a: a kept figure of the line's section, shown here (figures follow the section).
+          onOpenFigure={figuresCtl.enabled && !offline ? openFollowedFigure : null}
+          onPeekChange={setAlsoPeek}
+          onAvailableChange={setAlsoAvailable}
+          onCoverageChanged={() => setCoverageRefresh((count) => count + 1)}
+          onError={onError}
+          expandToken={alsoExpandToken}
+          closePeekToken={alsoClosePeekToken}
+        />
+      ) : undefined}
+      footer={inWindow ? null : guideFooter}
+    />
+  ) : null);
 
   // The book's own TeX macros, for every formula the Reader shows of it (its blocks, the Ask chip, answers about
   // it): the extraction keeps \vvec but not the page's definition of it.
@@ -3779,14 +4256,21 @@ export function ReaderScreen({
     <CompareKeepContext.Provider value={keptCtl.context}>
     <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
       {windowed ? (
-        // A source window's frame carries the title; only the view switch stays with the source.
-        pdfView && !offline ? (
-          <div data-window-source-bar="" style={{ flexShrink: 0, padding: "4px 22px", borderBottom: `1px solid ${COLOR.border}` }}>
-            <span
-              onClick={() => setSurface((s) => (s === "pdf" ? "text" : "pdf"))}
-              style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.amberLink, textDecoration: "underline", textUnderlineOffset: 2, cursor: "pointer" }}
-            >
-              {surface === "pdf" ? "extracted text →" : "original pdf →"}
+        // A source window's frame carries the title; the view switch and how the learner reads this book (skim, read
+        // closely, mark for later: the old header's choice, per window, with the same effects) stay with the source.
+        render && !offline ? (
+          <div data-window-source-bar="" style={{ flexShrink: 0, padding: "4px 22px", borderBottom: `1px solid ${COLOR.border}`, display: "flex", alignItems: "center", gap: 12 }}>
+            {pdfView ? (
+              <span
+                onClick={() => setSurface((s) => (s === "pdf" ? "text" : "pdf"))}
+                style={{ fontFamily: FONT_MONO, fontSize: 11, color: COLOR.amberLink, textDecoration: "underline", textUnderlineOffset: 2, cursor: "pointer" }}
+              >
+                {surface === "pdf" ? "extracted text →" : "original pdf →"}
+              </span>
+            ) : null}
+            <span style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
+              <Faint style={{ fontSize: 11 }}>I want to</Faint>
+              <TermSelect value={mode} options={READER_MODE_OPTIONS} onChange={changeMode} width={150} ariaLabel="how I read this book" />
             </span>
           </div>
         ) : null
@@ -3945,6 +4429,32 @@ export function ReaderScreen({
             </div>
           ) : null}
           <IntentBox box={intentBox} />
+          {/* The window's own top: the reading's path and the recap card, held at the top of the window while either
+              is open (the learner sees them wherever the window opened in the book; the shadow covers the sheet's top
+              padding, so no line shows above them); a folded recap stays at the top of the reading. */}
+          {windowTopShown ? (
+          <div data-window-top="" style={{ display: "flex", flexDirection: "column", gap: 8, flexShrink: 0,
+            ...(windowPathShown || (recapInWindow && !working && recapCtl.recap && !recapCtl.collapsed && !muted) ? { position: "sticky" as const, top: 0, zIndex: 8, background: COLOR.bg, paddingBottom: 6, boxShadow: `0 -48px 0 0 ${COLOR.bg}`, maxHeight: "60%", overflowY: "auto" as const } : {}) }}>
+            {windowPathShown && render ? (
+              <section role="region" aria-label="the reading's guide" data-window-path=""
+                style={{ border: `1px solid ${COLOR.border}`, padding: "8px 10px", display: "flex", flexDirection: "column", gap: 6 }}>
+                <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                  <Faint style={{ fontSize: 10, letterSpacing: "0.12em" }}>THE READING'S GUIDE</Faint>
+                  <button type="button" onClick={() => setWindowPathOpen(false)} style={{ marginLeft: "auto", border: 0, background: "transparent", padding: 0, cursor: "pointer", fontFamily: FONT_MONO, fontSize: 10, color: COLOR.amberLink }}>
+                    close · esc
+                  </button>
+                </div>
+                {guideRail(true, true)}
+              </section>
+            ) : null}
+            {recapInWindow && !working && ((recapCtl.wrapUpOpen && !drainHost) || (recapCtl.recap && !muted)) ? (
+              <div data-window-recap="" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {recapCtl.wrapUpOpen && !drainHost ? wrapUpNode : null}
+                {recapCtl.recap && !muted ? recapCardNode : null}
+              </div>
+            ) : null}
+          </div>
+          ) : null}
           {!pdfSurfaceActive && (domBoxes.length > 0 || domDraft) ? (
             <div aria-hidden="true" style={{ position: "absolute", left: 0, top: 0, width: 0, height: 0, pointerEvents: "none" }}>
               {!domArmed && !domDraft ? (
@@ -4036,12 +4546,13 @@ export function ReaderScreen({
               onPageLayout={setPdfLayout}
               {...(activeCtl.folded.size ? { coveredSpans: activeCtl.folded } : {})}
               {...(figuresCtl.enabled ? {
-                inlineNotes: [...new Set([...figuresCtl.figures.map((f) => f.anchorSpanId), ...figuresCtl.pending.map((p) => p.anchorSpanId),
+                inlineNotes: [...[...new Set([...figuresCtl.figures.map((f) => f.anchorSpanId), ...figuresCtl.pending.map((p) => p.anchorSpanId),
                   ...figuresCtl.followed.map((entry) => entry.figure.anchorSpanId)])]
                   .filter((spanId): spanId is string => Boolean(spanId))
                   .map((spanId) => ({ spanId, node: <FiguresUnder ctl={figuresCtl} spanId={spanId} /> })),
+                  ...windowInlineNotes],
                 regionSelection: Boolean(contract?.figures?.region),
-              } : {})}
+              } : windowInlineNotes.length ? { inlineNotes: windowInlineNotes } : {})}
             />
           ) : null}
           {removed ? (
@@ -4132,7 +4643,7 @@ export function ReaderScreen({
                   background: block.spanId && annotatedSpans.has(block.spanId) ? "rgba(245, 166, 35, 0.04)" : guidePassage ? COLOR.washPurple : undefined,
                   paddingLeft: 12,
                   // RW3a: a margin mark sits in the column's gutter, beside its passage.
-                  position: cueMark || (block.spanId && (wbResumeBySpan.has(block.spanId) || keptCtl.marks.has(block.spanId) || notesCtl.marks.has(block.spanId)) && !working) || windowed?.lens?.mark ? "relative" : undefined,
+                  position: cueMark || (block.spanId && (wbResumeBySpan.has(block.spanId) || keptCtl.marks.has(block.spanId) || notesCtl.marks.has(block.spanId) || annotationsBySpan.has(block.spanId)) && !working) || windowed?.lens?.mark ? "relative" : undefined,
                 }}
               >
                 {folded ? null : (<>
@@ -4141,6 +4652,7 @@ export function ReaderScreen({
                 {resumeMark(block.spanId)}
                 {block.spanId && !working && keptCtl.marks.get(block.spanId) ? <KeptMark mark={keptCtl.marks.get(block.spanId)!} /> : null}
                 {block.spanId && !working && notesCtl.marks.get(block.spanId) ? <NoteMarkButton mark={notesCtl.marks.get(block.spanId)!} /> : null}
+                {!working ? windowNoteMark(block.spanId) : null}
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   {guidePassage ? <Pill color="purple">worth a second look</Pill> : null}
                   {BADGED_HEALTH.has(block.health.status) ? (
@@ -4172,6 +4684,10 @@ export function ReaderScreen({
                 </>)}
               </div>
               {inlineReconnect && reconnect && block.spanId === reconnect.spanId ? inlineReconnect : null}
+              {windowActiveCard && block.spanId && block.spanId === windowActiveSpan ? windowActiveCard : null}
+              {windowNotesCard && block.spanId && block.spanId === windowNotesSpan ? windowNotesCard : null}
+              {windowChecks(block.spanId)}
+              {windowAuthoringCard && block.spanId === authoringSpanId ? windowAuthoringCard : null}
               {figuresCtl.enabled ? <FiguresUnder ctl={figuresCtl} spanId={block.spanId} /> : null}
               {offerSection ? (
                 <SectionBoundaryOffer
@@ -4188,6 +4704,29 @@ export function ReaderScreen({
               </Fragment>
             );
           })}
+          {windowed && !railOnScreen && cueCtl.cues ? (
+            // A desk shows no Guide rail unless a panel is opened for this book, so the window keeps the Guide
+            // footer's marks controls itself: the density at the foot of its reading, and what a mark changed (set
+            // aside, fewer marks, off for the book) held at the window's foot with its undo. Without them a change
+            // made from a mark could not be undone, nor marks turned back on, where the learner reads.
+            <>
+              <div data-window-cue-footer="">
+                <CueFooter
+                  density={cueCtl.cues.density}
+                  bookOff={cueCtl.cues.sourceOff}
+                  receipts={[]}
+                  onDensity={cueCtl.setDensity}
+                  onTurnOnBook={cueCtl.turnOnBook}
+                  discovered={cueCtl.discovered}
+                />
+              </div>
+              {cueCtl.receipts.length ? (
+                <div style={{ position: "sticky", bottom: 0, zIndex: 6, background: COLOR.bg, padding: "6px 0" }}>
+                  <CueReceipts receipts={cueCtl.receipts} />
+                </div>
+              ) : null}
+            </>
+          ) : null}
         </div>
 
         {sbsPanes ? (
@@ -4452,168 +4991,7 @@ export function ReaderScreen({
             onJump={(spanId) => jumpToSpan(spanId)}
           />
 
-          <GuideRail
-            visible={railTab === "guide"}
-            extractionId={render.extractionId}
-            offline={offline}
-            guidePlan={guidePlan}
-            guideLoading={guideLoading}
-            currentGuideSection={currentGuideSection}
-            currentSectionProgress={currentSectionProgress}
-            currentSectionRead={currentSectionRead}
-            sectionSeen={sectionSeen}
-            readingMoved={readingMoved}
-            currentQuestionOpen={currentQuestionOpen}
-            boundaryChecksAvailable={boundaryChecksAvailable}
-            authoringSections={authoringSections}
-            timedOutSections={timedOutSections}
-            retryQuickCheck={retryQuickCheck}
-            revealedSections={revealedSections}
-            completedSections={completedSections}
-            dismissedSections={dismissedSections}
-            answeredSections={answeredSections}
-            setAnsweredSections={setAnsweredSections}
-            focusQuickCheck={focusQuickCheck}
-            annotatedSpans={annotatedSpans}
-            openQuestionSections={openQuestionSections}
-            setDismissedSections={setDismissedSections}
-            jumpToSpan={jumpToSpan}
-            peekPassage={peekPassage}
-            revealSection={revealSection}
-            completeSection={completeSection}
-            sectionFinishes={sectionFinishes}
-            endedSections={endedSections}
-            {...(onOpenToday ? { onOpenToday } : {})}
-            bookTitle={sourceTitle}
-            onError={onError}
-            boundaryBlock={boundaryBlock}
-            boundarySkipped={boundarySkipped}
-            setBoundarySkipped={setBoundarySkipped}
-            boundaryAnswered={boundaryAnswered}
-            setBoundaryAnswered={setBoundaryAnswered}
-            boundaryResponse={boundaryResponse}
-            setBoundaryResponse={setBoundaryResponse}
-            boundarySubmitted={boundarySubmitted}
-            setBoundarySubmitted={setBoundarySubmitted}
-            questionControl={questionControl}
-            sendQuestionControl={sendQuestionControl}
-            disposition={disposition}
-            chooseDisposition={chooseDisposition}
-            path={contract?.readingPaths ? (
-              // Curriculum C0b: a deliverable's slice for this book takes the path card
-              // (its RPC refuses while curriculum.enabled is off: then RW7a's card, as today).
-              <GuidePathSlot
-                extractionId={render.extractionId}
-                onJump={(spanId) => jumpToSpan(spanId, "start")}
-                onError={onError}
-                refreshKey={pathRefreshKey}
-                readingPathCard={(
-                  <ReadingPathCard
-                    extractionId={render.extractionId}
-                    onJump={(spanId) => jumpToSpan(spanId, "start")}
-                    onTryExercise={wbCtl.enabled ? tryPathExercise : null}
-                    onError={onError}
-                    focusToken={pathFocus}
-                    refreshKey={pathRefreshKey}
-                  />
-                )}
-              />
-            ) : undefined}
-            header={recapCtl.wrapUpOpen || (recapCtl.recap && !muted) ? (
-              <>
-                {recapCtl.wrapUpOpen ? (
-                  <WrapUpPanel
-                    wrapUp={recapCtl.wrapUpOpen}
-                    where="reader"
-                    onClose={recapCtl.closeWrapUp}
-                    followups={{
-                      onUndo: (commitmentId, reason) => api.readerFollowupUndo({ commitmentId, reason }),
-                      onUndoAll: (digestId, reason) => api.readerFollowupUndoAll({ digestId, reason }),
-                      onRestore: (commitmentId) => api.readerFollowupRestore({ commitmentId }),
-                    }}
-                    isDone={(line, action) => action.action === "revisit_once" && recapRevisited(line.rootExchangeId)}
-                    onAction={async (line, action) => {
-                      const params = (action.params ?? {}) as { resolution?: "open" | "resolved"; trigger?: "chip" | "undo" };
-                      if (action.rpc === "reader.set_inquiry_status" && params.resolution) {
-                        await recapSetStatus(line.rootExchangeId, params.resolution, params.trigger ?? "chip");
-                      } else if (action.rpc === "reader.invoke_preset") {
-                        await recapRevisit(line.rootExchangeId);
-                      }
-                    }}
-                  />
-                ) : null}
-                {recapCtl.recap && !muted ? (
-                  <RecapCard
-                    recap={recapCtl.recap}
-                    collapsed={recapCtl.collapsed}
-                    onExpand={recapCtl.expand}
-                    onContinue={() => {
-                      recapCtl.continueReading();
-                      if (progress.restoredSpan) jumpToSpan(progress.restoredSpan);
-                    }}
-                    onDismiss={() => void recapCtl.dismiss()}
-                    onOpenInquiry={recapOpenInquiry}
-                    onSetStatus={(rootId, resolution) => void recapSetStatus(rootId, resolution)}
-                    onRevisit={(rootId) => void recapRevisit(rootId)}
-                    revisited={recapRevisited}
-                    onResume={(sessionId) => void wbCtl.resume(sessionId)}
-                    // RW6b: the card keeps the undone line ("undone · keep it
-                    // after all") until it is next read, so an undo can be taken back.
-                    onUndoFollowup={(commitmentId, reason) => api.readerFollowupUndo({ commitmentId, reason })}
-                    onUndoAllFollowups={(digestId, reason) => api.readerFollowupUndoAll({ digestId, reason })}
-                    onRestoreFollowup={(commitmentId) => api.readerFollowupRestore({ commitmentId })}
-                  />
-                ) : null}
-              </>
-            ) : null}
-            findSection={contract?.correspondence?.findSection && !offline && !working ? (
-              <FindSection
-                extractionId={render.extractionId}
-                section={currentGuideSection
-                  ? { id: currentGuideSection.id, label: currentGuideSection.label, startSpanId: currentGuideSection.startSpanId }
-                  : null}
-                onGoThere={(target) => void openLibraryHit(target)}
-                onCompare={libraryCtl.settings?.compare ? compareFoundSection : null}
-                onSideBySide={sbs.enabled ? (hit) => sbs.open(sideBySideTarget(hit), "find_list") : null}
-                onError={onError}
-                refreshKey={coverageRefresh}
-                onPeekChange={setFindPeek}
-                closePeekToken={alsoClosePeekToken}
-              />
-            ) : undefined}
-            alsoInBooks={alsoOn && !working ? (
-              <AlsoInBooks
-                extractionId={render.extractionId}
-                section={currentGuideSection
-                  ? { id: currentGuideSection.id, label: currentGuideSection.label, startSpanId: currentGuideSection.startSpanId }
-                  : null}
-                hidden={alsoHidden}
-                onHide={hideAlsoInBooks}
-                onGoThere={(target) => void openLibraryHit(target)}
-                onCompare={libraryCtl.settings?.compare ? compareFoundSection : null}
-                // `s` side by side (CA6): the same entry as CA5a's find list's.
-                onSideBySide={sbs.enabled ? (hit) => sbs.open(sideBySideTarget(hit), "also_list") : null}
-                // RW5d P4a: a kept figure of the line's section, shown here (figures follow the section).
-                onOpenFigure={figuresCtl.enabled && !offline ? openFollowedFigure : null}
-                onPeekChange={setAlsoPeek}
-                onAvailableChange={setAlsoAvailable}
-                onCoverageChanged={() => setCoverageRefresh((count) => count + 1)}
-                onError={onError}
-                expandToken={alsoExpandToken}
-                closePeekToken={alsoClosePeekToken}
-              />
-            ) : undefined}
-            footer={cueCtl.cues ? (
-              <CueFooter
-                density={cueCtl.cues.density}
-                bookOff={cueCtl.cues.sourceOff}
-                receipts={cueCtl.receipts}
-                onDensity={cueCtl.setDensity}
-                onTurnOnBook={cueCtl.turnOnBook}
-                discovered={cueCtl.discovered}
-              />
-            ) : null}
-          />
+          {guideRail(railTab === "guide", false)}
 
           <NotesRail
             {...(activeReadingOn && (activeCtl.active || activeCtl.another) ? {
@@ -4869,6 +5247,13 @@ export function ReaderScreen({
         )}
       </div>
 
+      {drainHost && recapCtl.wrapUpOpen ? createPortal(
+        <div data-drain-wrap-up="" className="wrapup">
+          <div className="from">§ {sourceTitle ?? "this reading"}</div>
+          {wrapUpNode}
+        </div>,
+        drainHost,
+      ) : null}
       {tagMenu && windowActive ? overDesk(
         <div
           style={{ position: "fixed", inset: 0, zIndex: 320 }}

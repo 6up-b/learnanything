@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/goal/PathView.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/goal/PathView.tsx) |
-| Source lines | 210 |
+| Source lines | 211 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/goal/_area|TypeScript/screens/desks/goal]] |
 | Refactor status | `ACTIVE` |
@@ -71,8 +71,8 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const prerequisites = dots.filter((dot)` — const, line 76
 - `const depthLabel = band.depths?.find((depth)` — const, line 77
 - `const onKeyDown = (event: ReactKeyboardEvent)` — const, line 78
-- `const line = lines.get(dot.learningObjectId)` — const, line 124
-- `const later = dot.kind === "later"` — const, line 125
+- `const line = lines.get(dot.learningObjectId)` — const, line 125
+- `const later = dot.kind === "later"` — const, line 126
 
 ## Who imports or calls it
 
@@ -86,7 +86,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 ### Desktop source modules
 
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `DeliverableSectionDto`, `GoalBandDto`, `GoalBandLoDto`, `GoalLensSectionDto`, `ReadingPathDepth`
-- [[Reference/Desktop/TypeScript/screens/desks/goal/model|src/screens/desks/goal/model.ts]] — import-or-re-export; imports `formatDay`, `goalLabel`
+- [[Reference/Desktop/TypeScript/screens/desks/goal/model|src/screens/desks/goal/model.ts]] — import-or-re-export; imports `formatDay`, `goalLabel`, `readOrNot`
 
 ### Assets, platform, and third-party dependencies
 

@@ -282,7 +282,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - [[Reference/Modules/learnloop/learner_protection|learnloop.learner_protection]] — imports `SNAPSHOT_UNSETTLED`, `module`, `protection_issues`, `source_ref_protected`; statically calls `held_out_items`, `item_exam_status`, `protection_issues`, `source_ref_protected`, `surface_exam_material`
 - [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]] — imports `protection_issues`; statically calls `protection_issues`
 - [[Reference/Modules/learnloop/ops/pf_generation|learnloop.ops.pf_generation]] — imports `exam_material`, `source_ref_protected`; statically calls `exam_material`, `source_ref_protected`
-- [[Reference/Modules/learnloop/passage_union/content|learnloop.passage_union.content]] — imports `exam_withheld`; statically calls `exam_withheld`
+- [[Reference/Modules/learnloop/passage_union/content|learnloop.passage_union.content]] — imports `exam_withheld`, `surface_material`; statically calls `exam_withheld`, `surface_material`
 - [[Reference/Modules/learnloop/passage_union/elsewhere|learnloop.passage_union.elsewhere]] — imports `exam_withheld`; statically calls `exam_withheld`
 - [[Reference/Modules/learnloop/passage_union/union|learnloop.passage_union.union]] — imports `exam_withheld`; statically calls `exam_withheld`
 - [[Reference/Modules/learnloop/reader/part_read|learnloop.reader.part_read]] — imports `surface_material`; statically calls `surface_material`
@@ -317,6 +317,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - [[Reference/Modules/learnloop_sidecar/phone_reader|learnloop_sidecar.phone_reader]] — imports `HELD_OUT_REFUSAL`, `surface_material`; statically calls `surface_material`
 - [[Reference/Modules/learnloop_sidecar/server|learnloop_sidecar.server]] — imports `SourceSetsUnreadable`
 - [[Reference/Modules/learnloop_sidecar/serving|learnloop_sidecar.serving]] — imports `HELD_OUT_ITEM_REFUSAL`, `exam_reserved`, `held_out_item_ids`, `held_out_selection_active`, `surface_material`; statically calls `exam_reserved`, `held_out_item_ids`, `held_out_selection_active`, `surface_material`
+- [[Reference/Modules/learnloop_sidecar/workbench_protection|learnloop_sidecar.workbench_protection]] — imports `SURFACE_SETS`, `exam_material`, `exam_withheld`, `surface_material`; statically calls `exam_material`, `exam_withheld`, `surface_material`
 
 ## Dependencies
 
@@ -342,7 +343,7 @@ Use this module in context through:
 
 - [[Goals Exams and Certification Workflow]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/data_check|learnloop.adaptive_difficulty.data_check]], [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/adaptive_difficulty/protection|learnloop.adaptive_difficulty.protection]], [[Reference/Modules/learnloop/content/authoring/exercise_authoring|learnloop.content.authoring.exercise_authoring]] and 64 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/data_check|learnloop.adaptive_difficulty.data_check]], [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/adaptive_difficulty/protection|learnloop.adaptive_difficulty.protection]], [[Reference/Modules/learnloop/content/authoring/exercise_authoring|learnloop.content.authoring.exercise_authoring]] and 65 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -467,6 +468,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_recurrence_group_rooted_in_a_protected_hypothesis_keeps_no_statement`
 - [tests/test_mcp_tools.py](../../../../../../../tests/test_mcp_tools.py) — direct import
   - `test_learning_context_fails_closed_when_protection_cannot_be_read`
+- [tests/test_menu_protected_material.py](../../../../../../../tests/test_menu_protected_material.py) — direct import
 - [tests/test_plan_follows_path.py](../../../../../../../tests/test_plan_follows_path.py) — direct import
   - `test_an_exam_reading_plans_nothing_through_its_path`
 - [tests/test_protection_surface_matrix.py](../../../../../../../tests/test_protection_surface_matrix.py) — direct import

@@ -95,7 +95,7 @@ it("a review says so and releases nothing, even with a commit recorded", async (
   const api = calls(() => session("ready", lesson({ review: true }, true)));
   render(<Lesson api={api} view={{ ...FIXTURE_LESSON_VIEW, closed: true }} />);
   await settle();
-  expect(screen.getByText(/review · the notebook as the teacher made it/)).toBeTruthy();
+  expect(screen.getByText("Review the notebook from this lesson.")).toBeTruthy();
   await act(async () => vi.advanceTimersByTime(POLL_MS.ready));
   await settle();
   expect(api.released).toEqual([]);

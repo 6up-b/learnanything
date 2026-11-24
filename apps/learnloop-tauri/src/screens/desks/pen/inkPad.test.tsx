@@ -20,7 +20,7 @@ import { InkCache } from "./inkCache";
 const timers: Timers = { set: () => 0, clear: () => undefined, now: () => 0 };
 
 const refused: InkTranscribeJobDto = { version: 1, jobId: null, status: "failed", done: true, result: null,
-  error: { code: "cannot_read_images", message: "The model routed to read handwriting cannot read images.", retryable: false, details: null } };
+  error: { code: "unavailable", message: "Handwriting can't be read yet: text recognition (GLM-OCR) isn't set up.", retryable: true, details: null } };
 
 function reading(over: Partial<NonNullable<InkTranscribeJobDto["result"]>>): InkTranscribeJobDto {
   return { version: 1, jobId: null, status: "done", done: true, error: null, result: {
@@ -169,7 +169,7 @@ describe("an ink pad", () => {
     expect(api.inkTranscribe).toHaveBeenCalledTimes(1);
     const inkId = vi.mocked(api.inkTranscribe).mock.calls[0][0].inkId;
     expect(inkId).toMatch(/^ink_/);
-    expect(within(line("fx_b_h3")).getByText(/handwriting can't be read yet · your ink is kept/)).toBeTruthy();
+    expect(within(line("fx_b_h3")).getByText(/handwriting can't be read yet: text recognition isn't set up · to add it, paste a z\.ai API key in Settings, under Ingestion, or run a local GLM-OCR server · your ink is kept/)).toBeTruthy();
     expect(line("fx_b_h3").querySelectorAll("path[data-ink-stroke]")).toHaveLength(4);
     fireEvent.click(within(line("fx_b_h3")).getByText("type what you wrote"));
     const field = within(line("fx_b_h3")).getByLabelText("what this line says");
@@ -280,7 +280,7 @@ describe("an ink pad", () => {
     await act(async () => {
       await touched.store.settled();
     });
-    expect(sentOps(touched.server).find((op) => op.op === "create_pad")).toMatchObject({ kind: "ink", title: "Scratchpad · ✎ by hand" });
+    expect(sentOps(touched.server).find((op) => op.op === "create_pad")).toMatchObject({ kind: "ink", title: "Pad · ✎ by hand" });
     cleanup();
     const paused = mount();
     await settle();

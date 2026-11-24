@@ -239,7 +239,7 @@ describe("the cards", () => {
     const onCheckNow = vi.fn();
     render(<CheckMarker checks={desk.dueAt("ext_book", "s1")} desk={desk} onCheckNow={onCheckNow} />);
     const marker = document.querySelector('[data-check-marker="cm_1"]')!;
-    expect(marker.textContent).toContain("a check is due before this page · on your own");
+    expect(marker.textContent).toContain("a cold check is due before this page · on your own");
     expect(marker.textContent).not.toContain("lo_1");
     expect(marker.textContent).not.toContain("∂");
     fireEvent.click(screen.getByText("check now"));
@@ -268,7 +268,7 @@ describe("the cards", () => {
     const { desk, transport } = fake();
     await desk.begin("cm_1", "s_1", { windows: [] });
     render(<CheckCardOverlay desk={desk} />);
-    expect(screen.getByRole("dialog", { name: "a check on your own" })).toBeTruthy();
+    expect(screen.getByRole("dialog", { name: "a cold check" })).toBeTruthy();
     fireEvent.click(screen.getByText("not now"));
     await flush();
     expect(transport.abandon).toHaveBeenCalled();

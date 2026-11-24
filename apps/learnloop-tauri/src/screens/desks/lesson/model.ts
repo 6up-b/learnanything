@@ -69,7 +69,7 @@ export function modeButtons(closed: boolean): Array<{ mode: LessonMode; label: s
 
 export function modeLine(mode: LessonMode, closed: boolean): string {
   if (mode === "additions") return "your own notes under this lesson · every pad insert works here; the lesson stays as the teacher made it";
-  return closed ? "your committed answers and the reveals, as you left them" : "the lesson so far · reply, answer its checks, or stop it here";
+  return closed ? "Your saved answers and lesson feedback" : "the lesson so far · reply, answer its checks, or stop it here";
 }
 
 /** Whether a lesson is a notebook (RD9b's frame shows it); otherwise the window shows the lesson itself. */

@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/content/authoring/jobs.py](../../../../../../../src/learnloop/content/authoring/jobs.py) |
-| Source lines | 1141 |
+| Source lines | 1146 |
 | Owning package | [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -61,42 +61,42 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - `default_promotion_analysis_client(ctx: JobContext) -> Any` ([source](../../../../../../../src/learnloop/content/authoring/jobs.py), line 74) — Fast classification/dedup pass for a durable promotion request.
 - `default_promotion_authoring_client(ctx: JobContext) -> Any` ([source](../../../../../../../src/learnloop/content/authoring/jobs.py), line 88) — Judgment-heavy practice generation follows the configured authoring route.
 - `handle_reader_quick_check(ctx: JobContext) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/authoring/jobs.py), line 102) — Author one section-boundary quick check (reader producer slice).
-- `handle_reader_exercise_import(ctx: JobContext) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/authoring/jobs.py), line 391) — reader_exercise_import: author the learner's selected textbook exercise(s) into complete, schedulable PracticeItems.
-- `handle_source_exercise_import(ctx: JobContext) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/authoring/jobs.py), line 505) — source_exercise_import: a learner picked a textbook exercise proposal (canonical sources S1, §7.2).
-- `ad_commission_batch_id(commission_id: str) -> str` ([source](../../../../../../../src/learnloop/content/authoring/jobs.py), line 552) — The one durable batch of an adaptive difficulty commission's generation (the store's name for it: a commission's expiry reads its job, Codex review F5).
-- `ad_commission_skip_record(*, commission_id: Any, job_id: Any, rule: str) -> Any` ([source](../../../../../../../src/learnloop/content/authoring/jobs.py), line 571) — Why a commission's job generated nothing (pure): ``commission_closed`` (it landed or expired), ``view_unavailable`` (AD's held-out predicate couldn't be read) or ``guard_denied`` (AD's guard refused a read; the denial itself is in ``ad_guard_denials.jsonl``).
-- `handle_practice_expansion(ctx: JobContext) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/authoring/jobs.py), line 683) — practice_expansion: per-LO item generation (reader-first seeding).
-- `handle_goal_population(ctx: JobContext) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/authoring/jobs.py), line 846) — Generate and apply the missing practicable supply for one active goal.
-- `handle_question_promotion(ctx: JobContext) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/authoring/jobs.py), line 937) — Run one persisted Open-question → practice request.
-- `handle_rung_variant(ctx: JobContext) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/authoring/jobs.py), line 1036) — rung_variant: author one learner-requested easier/harder sibling item.
-- `handle_concept_animation(ctx: JobContext) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/authoring/jobs.py), line 1068) — concept_animation: author + validate + render one explainer scene.
+- `handle_reader_exercise_import(ctx: JobContext) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/authoring/jobs.py), line 394) — reader_exercise_import: author the learner's selected textbook exercise(s) into complete, schedulable PracticeItems.
+- `handle_source_exercise_import(ctx: JobContext) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/authoring/jobs.py), line 510) — source_exercise_import: a learner picked a textbook exercise proposal (canonical sources S1, §7.2).
+- `ad_commission_batch_id(commission_id: str) -> str` ([source](../../../../../../../src/learnloop/content/authoring/jobs.py), line 557) — The one durable batch of an adaptive difficulty commission's generation (the store's name for it: a commission's expiry reads its job, Codex review F5).
+- `ad_commission_skip_record(*, commission_id: Any, job_id: Any, rule: str) -> Any` ([source](../../../../../../../src/learnloop/content/authoring/jobs.py), line 576) — Why a commission's job generated nothing (pure): ``commission_closed`` (it landed or expired), ``view_unavailable`` (AD's held-out predicate couldn't be read) or ``guard_denied`` (AD's guard refused a read; the denial itself is in ``ad_guard_denials.jsonl``).
+- `handle_practice_expansion(ctx: JobContext) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/authoring/jobs.py), line 688) — practice_expansion: per-LO item generation (reader-first seeding).
+- `handle_goal_population(ctx: JobContext) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/authoring/jobs.py), line 851) — Generate and apply the missing practicable supply for one active goal.
+- `handle_question_promotion(ctx: JobContext) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/authoring/jobs.py), line 942) — Run one persisted Open-question → practice request.
+- `handle_rung_variant(ctx: JobContext) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/authoring/jobs.py), line 1041) — rung_variant: author one learner-requested easier/harder sibling item.
+- `handle_concept_animation(ctx: JobContext) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/authoring/jobs.py), line 1073) — concept_animation: author + validate + render one explainer scene.
 
 ### Module constants
 
-- `INQUIRY_HELD_POLL_SECONDS` ([src/learnloop/content/authoring/jobs.py](../../../../../../../src/learnloop/content/authoring/jobs.py), line 225)
-- `INQUIRY_HELD_MAX_POLLS` ([src/learnloop/content/authoring/jobs.py](../../../../../../../src/learnloop/content/authoring/jobs.py), line 226)
-- `_ENDED_JOB_STATUSES` ([src/learnloop/content/authoring/jobs.py](../../../../../../../src/learnloop/content/authoring/jobs.py), line 228)
-- `AD_MODELS_OFF_CODE` ([src/learnloop/content/authoring/jobs.py](../../../../../../../src/learnloop/content/authoring/jobs.py), line 564)
-- `AD_COMMISSION_SKIP` ([src/learnloop/content/authoring/jobs.py](../../../../../../../src/learnloop/content/authoring/jobs.py), line 568)
+- `INQUIRY_HELD_POLL_SECONDS` ([src/learnloop/content/authoring/jobs.py](../../../../../../../src/learnloop/content/authoring/jobs.py), line 228)
+- `INQUIRY_HELD_MAX_POLLS` ([src/learnloop/content/authoring/jobs.py](../../../../../../../src/learnloop/content/authoring/jobs.py), line 229)
+- `_ENDED_JOB_STATUSES` ([src/learnloop/content/authoring/jobs.py](../../../../../../../src/learnloop/content/authoring/jobs.py), line 231)
+- `AD_MODELS_OFF_CODE` ([src/learnloop/content/authoring/jobs.py](../../../../../../../src/learnloop/content/authoring/jobs.py), line 569)
+- `AD_COMMISSION_SKIP` ([src/learnloop/content/authoring/jobs.py](../../../../../../../src/learnloop/content/authoring/jobs.py), line 573)
 
 ## Internal implementation anchors
 
-- `_reader_source_sets(vault_root: Path) -> Any` ([source](../../../../../../../src/learnloop/content/authoring/jobs.py), line 132) — The vault, read when a Reader request is sent (the held-out partition reads its source sets; exam protection, Codex review F3).
-- `_refuse_held_out_reader_material(ctx: JobContext, extraction_id: str, span_ids: Sequence[str]) -> None` ([source](../../../../../../../src/learnloop/content/authoring/jobs.py), line 147) — Exam protection (2026-10-13): a Reader check over held-out material (the one held-out partition, read with the vault's source sets) is refused before any model call, and before a check authored before the mark is handed back (code ``exam_material``).
-- `_section_span_ids(repository: Repository, extraction_id: str, section_id: str) -> list[str]` ([source](../../../../../../../src/learnloop/content/authoring/jobs.py), line 162) — Every block of one guide section (the quick check's own derivation), or [].
-- `_passage_span_ids(repository: Repository, extraction_id: str, anchors: Sequence[str]) -> list[str]` ([source](../../../../../../../src/learnloop/content/authoring/jobs.py), line 172) — The anchors and every block of the passage check's view of them.
-- `_paid_quick_check_client(ctx: JobContext) -> Any` ([source](../../../../../../../src/learnloop/content/authoring/jobs.py), line 182) — The client of a paid passage check (an inquiry's or a selection's), resolved for that feature.
-- `_exercise_import_client(ctx: JobContext) -> Any` ([source](../../../../../../../src/learnloop/content/authoring/jobs.py), line 197) — The authoring client of an exercise import, resolved for that feature (re-review F2).
-- `_passage_check_spend(ctx: JobContext) -> RQC.PassageCheckSpend` ([source](../../../../../../../src/learnloop/content/authoring/jobs.py), line 212) — The vault's admission settings for one passage check ([reader_inquiry]).
-- `_pause_while_inquiry_held(ctx: JobContext, seconds: float) -> None` ([source](../../../../../../../src/learnloop/content/authoring/jobs.py), line 231) — Wait between polls of a held inquiry claim (a seam for tests).
-- `_inquiry_owner_ended(repo: Repository, owner: str) -> bool` ([source](../../../../../../../src/learnloop/content/authoring/jobs.py), line 237) — True when the claim's owner is an ingest job that has finished: it was expired, failed or cancelled after claiming, so its claim is abandoned.
-- `_handle_reader_inquiry_check(ctx: JobContext) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/authoring/jobs.py), line 246) — RW1a: author the reconnect line's quick check for one inquiry's root passage.
-- `_handle_reader_selection_check(ctx: JobContext) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/authoring/jobs.py), line 320) — RW1b: author one active-reading question on a selection (next step, why step, assumptions, reconstruct).
-- `_record_reader_import_keys(ctx: JobContext, result: dict[str, Any], *, extraction_id: str, span_ids: list[str], source_id: str | None, revision_id: str | None) -> None` ([source](../../../../../../../src/learnloop/content/authoring/jobs.py), line 459) — Canonical sources S1 (§7.3a): the Reader's import records its key status.
-- `_verify_quietly(root: Path, repository: Repository, rows: list[dict[str, str]], trigger: str) -> None` ([source](../../../../../../../src/learnloop/content/authoring/jobs.py), line 493)
-- `_record_commission_skip(ctx: JobContext, commission_id: str, rule: str) -> None` ([source](../../../../../../../src/learnloop/content/authoring/jobs.py), line 597) — Write :func:`ad_commission_skip_record` in a short transaction of its own, outside every AD operation; never raises.
-- `_handle_ad_commission(ctx: JobContext, lo_ids: list[str], commission_id: str) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/authoring/jobs.py), line 613) — One item at an open AD commission's point, through the ordinary generation path and its gates (spec_adaptive_difficulty_v1 §6.1 "runs in the background", §7.1, §7.4).
-- `class _TopicWork` ([source](../../../../../../../src/learnloop/content/authoring/jobs.py), line 781) — The topic-work rows a practice_expansion job writes for (``topic_keys`` in its payload): their checkpoint scopes, the proposals earlier waves of their sections applied, and their state as the parts land.
+- `_reader_source_sets(vault_root: Path) -> Any` ([source](../../../../../../../src/learnloop/content/authoring/jobs.py), line 135) — The vault, read when a Reader request is sent (the held-out partition reads its source sets; exam protection, Codex review F3).
+- `_refuse_held_out_reader_material(ctx: JobContext, extraction_id: str, span_ids: Sequence[str]) -> None` ([source](../../../../../../../src/learnloop/content/authoring/jobs.py), line 150) — Exam protection (2026-10-13): a Reader check over held-out material (the one held-out partition, read with the vault's source sets) is refused before any model call, and before a check authored before the mark is handed back (code ``exam_material``).
+- `_section_span_ids(repository: Repository, extraction_id: str, section_id: str) -> list[str]` ([source](../../../../../../../src/learnloop/content/authoring/jobs.py), line 165) — Every block of one guide section (the quick check's own derivation), or [].
+- `_passage_span_ids(repository: Repository, extraction_id: str, anchors: Sequence[str]) -> list[str]` ([source](../../../../../../../src/learnloop/content/authoring/jobs.py), line 175) — The anchors and every block of the passage check's view of them.
+- `_paid_quick_check_client(ctx: JobContext) -> Any` ([source](../../../../../../../src/learnloop/content/authoring/jobs.py), line 185) — The client of a paid passage check (an inquiry's or a selection's), resolved for that feature.
+- `_exercise_import_client(ctx: JobContext) -> Any` ([source](../../../../../../../src/learnloop/content/authoring/jobs.py), line 200) — The authoring client of an exercise import, resolved for that feature (re-review F2).
+- `_passage_check_spend(ctx: JobContext) -> RQC.PassageCheckSpend` ([source](../../../../../../../src/learnloop/content/authoring/jobs.py), line 215) — The vault's admission settings for one passage check ([reader_inquiry]).
+- `_pause_while_inquiry_held(ctx: JobContext, seconds: float) -> None` ([source](../../../../../../../src/learnloop/content/authoring/jobs.py), line 234) — Wait between polls of a held inquiry claim (a seam for tests).
+- `_inquiry_owner_ended(repo: Repository, owner: str) -> bool` ([source](../../../../../../../src/learnloop/content/authoring/jobs.py), line 240) — True when the claim's owner is an ingest job that has finished: it was expired, failed or cancelled after claiming, so its claim is abandoned.
+- `_handle_reader_inquiry_check(ctx: JobContext) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/authoring/jobs.py), line 249) — RW1a: author the reconnect line's quick check for one inquiry's root passage.
+- `_handle_reader_selection_check(ctx: JobContext) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/authoring/jobs.py), line 323) — RW1b: author one active-reading question on a selection (next step, why step, assumptions, reconstruct).
+- `_record_reader_import_keys(ctx: JobContext, result: dict[str, Any], *, extraction_id: str, span_ids: list[str], source_id: str | None, revision_id: str | None) -> None` ([source](../../../../../../../src/learnloop/content/authoring/jobs.py), line 464) — Canonical sources S1 (§7.3a): the Reader's import records its key status.
+- `_verify_quietly(root: Path, repository: Repository, rows: list[dict[str, str]], trigger: str) -> None` ([source](../../../../../../../src/learnloop/content/authoring/jobs.py), line 498)
+- `_record_commission_skip(ctx: JobContext, commission_id: str, rule: str) -> None` ([source](../../../../../../../src/learnloop/content/authoring/jobs.py), line 602) — Write :func:`ad_commission_skip_record` in a short transaction of its own, outside every AD operation; never raises.
+- `_handle_ad_commission(ctx: JobContext, lo_ids: list[str], commission_id: str) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/authoring/jobs.py), line 618) — One item at an open AD commission's point, through the ordinary generation path and its gates (spec_adaptive_difficulty_v1 §6.1 "runs in the background", §7.1, §7.4).
+- `class _TopicWork` ([source](../../../../../../../src/learnloop/content/authoring/jobs.py), line 786) — The topic-work rows a practice_expansion job writes for (``topic_keys`` in its payload): their checkpoint scopes, the proposals earlier waves of their sections applied, and their state as the parts land.
 
 ## Who imports or calls it
 

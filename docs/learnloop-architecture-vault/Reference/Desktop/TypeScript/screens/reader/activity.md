@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/activity.ts](../../../../../../../apps/learnloop-tauri/src/screens/reader/activity.ts) |
-| Source lines | 109 |
+| Source lines | 112 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
@@ -59,13 +59,13 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export function newActivityId(): string` — function, line 36
 - `export function flushReaderActivity(): void` — function, line 44
 - `export function logReaderActivity(event: ReaderActivityEvent): void` — function, line 59
-- `export function setNextReaderVisitInitiator(initiator: string): void` — function, line 69
-- `export function takeReaderVisitInitiator(): string` — function, line 73
-- `export function logReaderAction( event: NonNullable<ReaderActivityEvent["event"]>, payload: ReaderActivityEvent["payload"], ): void` — function, line 79
-- `export function noteLearnerActivity(kind: keyof typeof counters): void` — function, line 86
-- `export function learnerActivitySnapshot(): Readonly<typeof counters>` — function, line 90
-- `export function activitySince(before: Readonly<typeof counters>): Record<string, boolean>` — function, line 95
-- `export function resetReaderActivityForTests(): void` — function, line 104
+- `export function setNextReaderVisitInitiator(initiator: string, extractionId: string | null = null): void` — function, line 70
+- `export function takeReaderVisitInitiator(extractionId: string | null = null): string` — function, line 74
+- `export function logReaderAction( event: NonNullable<ReaderActivityEvent["event"]>, payload: ReaderActivityEvent["payload"], ): void` — function, line 82
+- `export function noteLearnerActivity(kind: keyof typeof counters): void` — function, line 89
+- `export function learnerActivitySnapshot(): Readonly<typeof counters>` — function, line 93
+- `export function activitySince(before: Readonly<typeof counters>): Record<string, boolean>` — function, line 98
+- `export function resetReaderActivityForTests(): void` — function, line 107
 
 ## Internal implementation anchors
 
@@ -77,9 +77,9 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const counters =` — const, line 21
 - `const batch = queue.splice(0, MAX_BATCH)` — const, line 48
 - `const send = (api as` — const, line 50
-- `let nextVisitInitiator: string | null = null` — let, line 67
-- `const initiator = nextVisitInitiator ?? "learner"` — const, line 74
-- `const out: Record<string, boolean> =` — const, line 96
+- `let nextVisitInitiator:` — let, line 68
+- `const pending = nextVisitInitiator` — const, line 75
+- `const out: Record<string, boolean> =` — const, line 99
 
 ## Who imports or calls it
 
@@ -88,6 +88,8 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] — import-or-re-export: `setNextReaderVisitInitiator`; references `setNextReaderVisitInitiator`
 - [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] — import-or-re-export: `activitySince`, `learnerActivitySnapshot`, `logReaderAction`, `logReaderActivity`, `newActivityId`; references `activitySince`, `learnerActivitySnapshot`, `logReaderAction`, `logReaderActivity`, `newActivityId`
+- [[Reference/Desktop/TypeScript/screens/desks/DeskShell|src/screens/desks/DeskShell.tsx]] — import-or-re-export: `logReaderAction`; references `logReaderAction`
+- [[Reference/Desktop/TypeScript/screens/desks/companion/companionFigures|src/screens/desks/companion/companionFigures.tsx]] — import-or-re-export: `logReaderAction`; references `logReaderAction`
 - [[Reference/Desktop/TypeScript/screens/reader/SideBySidePane|src/screens/reader/SideBySidePane.tsx]] — import-or-re-export: `newActivityId`; references `newActivityId`
 - [[Reference/Desktop/TypeScript/screens/reader/TutorOffers|src/screens/reader/TutorOffers.tsx]] — import-or-re-export: `logReaderAction`; references `logReaderAction`
 - [[Reference/Desktop/TypeScript/screens/reader/correspondenceEvents|src/screens/reader/correspondenceEvents.ts]] — import-or-re-export: `logReaderAction`; references `logReaderAction`

@@ -146,7 +146,7 @@ def test_the_goal_lens_reads_an_accepted_chapters_range_as_a_place_the_topic_is_
     call(ctx, "chapters.decide", {"chapter_id": "vc_intro", "decision": "accept"})
     after = levels(ctx, goal_id, VIDEO)
     assert summary(after["v_intro"]) == ("supporting", "mapped", "chapter_about", ["lo_eigen"])
-    assert after["v_intro"]["coverageLine"].startswith("coverage: is about (a chapter you accepted) “")
+    assert after["v_intro"]["coverageLine"].startswith("A chapter you accepted is about “")
     # Every other section's level is unchanged: a chapter only adds a place the topic is taught.
     assert {key: summary(value) for key, value in after.items() if key != "v_intro"} == {
         key: summary(value) for key, value in before.items() if key != "v_intro"}

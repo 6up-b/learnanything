@@ -12,9 +12,16 @@ export interface HereView {
   loId: string | null;
 }
 
-export function GoalBand({ band, goals, here, dimOn, onToggleDim, onPath, onDepth, onOpenLo, onNext, onChooseGoal, onMapIt }: {
+/** A goal as the chooser names it: the server's protected label (the learner's words, a held topic's name masked);
+ * until that is read, or when it could not be, a neutral name rather than the raw sentence. */
+function choiceLabel(labels: Record<string, string> | null, goal: GoalsListSnapshot["goals"][number], index: number): string {
+  return labels?.[goal.id] ?? `Goal ${index + 1} · set ${formatDay(goal.createdAt)}`;
+}
+
+export function GoalBand({ band, goals, labels = null, here, dimOn, onToggleDim, onPath, onDepth, onOpenLo, onNext, onChooseGoal, onMapIt }: {
   band: GoalBandDto;
   goals: GoalsListSnapshot["goals"] | null;
+  labels?: Record<string, string> | null;
   here: HereView | null;
   dimOn: boolean;
   onToggleDim: () => void;
@@ -34,15 +41,16 @@ export function GoalBand({ band, goals, here, dimOn, onToggleDim, onPath, onDept
     <div className="desk-goalband goalband" role="region" aria-label="your goal" data-goal-status={band.status}>
       <div className="gb-goal">
         <div className="gb-lab">{goalLabel(band)} <span className="gb-prov">your words, {formatDay(band.goal.setAt)}</span></div>
+        {/* The learner's sentence as the server gives it: a held topic's name is masked there, nothing else. */}
         <button type="button" className="gb-t" title="switch this desk's goal" aria-expanded={choosing} onClick={() => setChoosing((open) => !open)}>
           “{band.goal.sentence}”
         </button>
         {choosing ? (
           <div className="gb-choose" role="menu" aria-label="this desk's goal">
-            {active.map((goal) => (
+            {active.map((goal, index) => (
               <button key={goal.id} type="button" role="menuitem" aria-current={goal.id === band.goalId ? "true" : undefined}
                 onClick={() => { setChoosing(false); onChooseGoal(goal.id); }}>
-                {goal.intentSentence || goal.title}
+                {choiceLabel(labels, goal, index)}
               </button>
             ))}
             <button type="button" role="menuitem" onClick={() => { setChoosing(false); onChooseGoal(null); }}>no goal (the lens off)</button>
@@ -51,11 +59,11 @@ export function GoalBand({ band, goals, here, dimOn, onToggleDim, onPath, onDept
       </div>
       {!mapped ? (
         <div className="gb-path gb-unmapped">
-          <div className="gb-lab">{band.status === "not_a_deliverable" ? "not mapped" : "not mapped yet"}</div>
+          <div className="gb-lab">{band.status === "not_a_deliverable" ? "Choose one of your goals" : "Reading suggestions unavailable"}</div>
           <div className="gb-ht">
             {band.status === "not_a_deliverable"
-              ? (band.message ?? "LearnLoop maps only goals you set yourself to your sources.")
-              : <>LearnLoop hasn't mapped this goal to your sources yet · <button type="button" className="gb-map" onClick={onMapIt}>map it</button></>}
+              ? (band.message ?? "Choose a goal you set, or create one in Goals.")
+              : <>Find reading in your library for this goal · <button type="button" className="gb-map" onClick={onMapIt}>Find reading</button></>}
           </div>
         </div>
       ) : (
@@ -68,11 +76,11 @@ export function GoalBand({ band, goals, here, dimOn, onToggleDim, onPath, onDept
                   <button type="button" className={dotClasses(dot, here?.loId ?? null)} data-gstop={dot.learningObjectId} title={dotTitle(dot)}
                     aria-label={dotTitle(dot)} onClick={() => onOpenLo(dot.learningObjectId)} />
                   {/* No LO's name on the ◇, and no hover (spec §12.6.1). */}
-                  {dot.check ? <span className={`gs chk ${dot.check === "due" ? "due" : "done"}`} aria-label={dot.check === "due" ? "a cold check due" : "a cold check answered today"} /> : null}
+                  {dot.check ? <span className={`gs chk ${dot.check === "due" ? "due" : "done"}`} title={dot.check === "due" ? "Cold check due" : "Cold check answered today"} aria-label={dot.check === "due" ? "Cold check due" : "Cold check answered today"} /> : null}
                 </Fragment>
               ))}
               {(band.unmatched ?? []).map((phrase) => (
-                <button key={`unm:${phrase.phrase}`} type="button" className="gs unm" title={`not in your library yet: “${phrase.phrase}” · add it`} aria-label={`not in your library yet: ${phrase.phrase}`} onClick={onPath} />
+                <button key={`unm:${phrase.phrase}`} type="button" className="gs unm" title={`not in your library yet: “${phrase.phrase}” · open Path`} aria-label={`not in your library yet: ${phrase.phrase}`} onClick={onPath} />
               ))}
             </div>
             <div className="gb-depth" title="how deep for this? one depth per goal">
@@ -87,8 +95,8 @@ export function GoalBand({ band, goals, here, dimOn, onToggleDim, onPath, onDept
         </div>
       )}
       <div className="gb-here">
-        <div className="gb-lab"><span className="gring" /> you are reading</div>
-        <div className="gb-ht" data-goal-here="">
+        <div className="gb-lab"><span className="gring" title="In view" /> In view</div>
+        <div className="gb-ht" data-goal-here="" title={here ? undefined : "No passage in view"}>
           {!here ? "—" : here.lo
             ? <>{here.where} · <b>{here.lo}</b>{here.tag ? <span className="off"> · {here.tag}</span> : null}</>
             : <>{here.where}{here.tag ? <span className="off"> · {here.tag}</span> : null}</>}
@@ -111,7 +119,7 @@ export function GoalBand({ band, goals, here, dimOn, onToggleDim, onPath, onDept
 }
 
 /** No goal on this desk: no band, a quiet chip in the top bar (spec §12.8). */
-export function GoalTopChip({ goals, onChooseGoal }: { goals: GoalsListSnapshot["goals"] | null; onChooseGoal: (goalId: string) => void }) {
+export function GoalTopChip({ goals, labels = null, onChooseGoal }: { goals: GoalsListSnapshot["goals"] | null; labels?: Record<string, string> | null; onChooseGoal: (goalId: string) => void }) {
   const [open, setOpen] = useState(false);
   const active = (goals ?? []).filter((goal) => goal.status === "active");
   return (
@@ -119,8 +127,8 @@ export function GoalTopChip({ goals, onChooseGoal }: { goals: GoalsListSnapshot[
       <button type="button" className="tb" aria-expanded={open} onClick={() => setOpen((now) => !now)}>◎ set a goal</button>
       {open ? (
         <span className="gb-choose" role="menu" aria-label="a goal for this desk">
-          {active.length ? active.map((goal) => (
-            <button key={goal.id} type="button" role="menuitem" onClick={() => { setOpen(false); onChooseGoal(goal.id); }}>{goal.intentSentence || goal.title}</button>
+          {active.length ? active.map((goal, index) => (
+            <button key={goal.id} type="button" role="menuitem" onClick={() => { setOpen(false); onChooseGoal(goal.id); }}>{choiceLabel(labels, goal, index)}</button>
           )) : <span className="none">no active goal yet · set one in Goals</span>}
         </span>
       ) : null}

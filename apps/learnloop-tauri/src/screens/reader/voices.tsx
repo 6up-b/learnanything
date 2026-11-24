@@ -134,7 +134,7 @@ export type EvidenceStatus = "untested" | "with_help" | "demonstrated";
 
 const EVIDENCE: Record<EvidenceStatus, { glyph: string; words: string; color: string }> = {
   untested: { glyph: "○", words: "untested", color: COLOR.textDim },
-  with_help: { glyph: "◌", words: "worked with help · a check on your own is pending", color: COLOR.amber },
+  with_help: { glyph: "◌", words: "worked with help · a cold check is pending", color: COLOR.amber },
   demonstrated: { glyph: "●", words: "demonstrated on your own", color: COLOR.green },
 };
 

@@ -81,7 +81,7 @@ describe("the desk's follow-along", () => {
     const desk = new VideoDesk(transport, (windowId, spanId) => followed.push([windowId, spanId]));
     desk.setLayout(LAYOUT);
     // Before the player has said anything: where the video is.
-    expect(chipText(desk.chipFor("w_book")!)).toBe("following ▶ 0:00");
+    expect(chipText(desk.chipFor("w_book")!)).toBe("Looking for a passage at ▶ 0:00…");
     desk.clock("w_vid", "ext_vid", { t: 21, playing: false, spanId: "c3", duration: 60 });
     await flush();
     expect(asked.map((input) => input.t)).toEqual([21]);
@@ -179,7 +179,7 @@ describe("the suggested chapters", () => {
     jobs.push({ jobId: "vch_1", status: "done", done: true, error: null,
       result: { status: "ready", reason: null, message: null, chapters: [chapter("c1", "suggested", 0, 20, "intro"), chapter("c2", "suggested", 20, 40, "eigenvalues")] } });
     fireEvent.click(screen.getByText("suggest from the transcript"));
-    await screen.findByText(/judging the transcript/);
+    await screen.findByText(/Looking for chapters in the transcript/);
     await screen.findByText("eigenvalues");
     expect(screen.getByText("0:20–0:40")).toBeTruthy();
     expect(screen.getAllByText("◇ Eigenvalues", { exact: false }).length).toBe(2);
@@ -211,7 +211,7 @@ describe("the suggested chapters", () => {
     mountChapters("active", transport);
     fireEvent.click(await screen.findByText("suggest from the transcript"));
     fireEvent.click(await screen.findByText("cancel"));
-    await screen.findByText("cancelled · nothing was kept");
+    await screen.findByText("Chapter suggestion stopped.");
     expect(transport.chaptersCancel).toHaveBeenCalledWith({ jobId: "vch_1" });
     expect(screen.getByText("kept")).toBeTruthy();
   });

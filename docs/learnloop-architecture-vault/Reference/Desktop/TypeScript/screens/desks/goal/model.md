@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/goal/model.ts](../../../../../../../../apps/learnloop-tauri/src/screens/desks/goal/model.ts) |
-| Source lines | 263 |
+| Source lines | 264 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/goal/_area|TypeScript/screens/desks/goal]] |
 | Refactor status | `ACTIVE` |
@@ -66,20 +66,20 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export function isDimmed(section: GoalLensSectionDto | undefined, dimOn: boolean): boolean` — function, line 96
 - `export function deeperDepthLabel(band: GoalBandDto | null): string | null` — function, line 101
 - `export function whyLevelLine(section: GoalLensSectionDto, band: GoalBandDto | null): string` — function, line 108
-- `export function goalShort(band: GoalBandDto | null): string` — function, line 117
-- `export function goalLabel(band: GoalBandDto): string` — function, line 123
-- `export function formatDay(stamp: string): string` — function, line 128
-- `export function countsLine(band: GoalBandDto): string` — function, line 135
-- `export function nextLine(band: GoalBandDto):` — function, line 148
-- `export function hereLine(index: LensIndex | null, readingSpan: string | null, where: string | null, band: GoalBandDto | null):` — function, line 157
-- `export interface Callout` — interface, line 180
-- `export function calloutFor(section: GoalLensSectionDto): Callout | null` — function, line 186
-- `export function dotClasses(dot: GoalBandLoDto, here: string | null): string` — function, line 205
-- `export function dotTitle(dot: GoalBandLoDto): string` — function, line 212
-- `export function readOrNot(read: boolean): string` — function, line 217
-- `export function truncate(text: string | null, limit: number): string | null` — function, line 222
-- `export interface ShelfGoal` — interface, line 229
-- `export function shelfGoal(index: LensIndex | null): ShelfGoal | null` — function, line 235
+- `export function goalShort(band: GoalBandDto | null): string` — function, line 118
+- `export function goalLabel(band: GoalBandDto): string` — function, line 124
+- `export function formatDay(stamp: string): string` — function, line 129
+- `export function countsLine(band: GoalBandDto): string` — function, line 136
+- `export function nextLine(band: GoalBandDto):` — function, line 149
+- `export function hereLine(index: LensIndex | null, readingSpan: string | null, where: string | null, band: GoalBandDto | null):` — function, line 158
+- `export interface Callout` — interface, line 181
+- `export function calloutFor(section: GoalLensSectionDto): Callout | null` — function, line 187
+- `export function dotClasses(dot: GoalBandLoDto, here: string | null): string` — function, line 206
+- `export function dotTitle(dot: GoalBandLoDto): string` — function, line 213
+- `export function readOrNot(read: boolean): string` — function, line 218
+- `export function truncate(text: string | null, limit: number): string | null` — function, line 223
+- `export interface ShelfGoal` — interface, line 230
+- `export function shelfGoal(index: LensIndex | null): ShelfGoal | null` — function, line 236
 
 ## Internal implementation anchors
 
@@ -95,27 +95,27 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const depths = band?.depths ?? []` — const, line 102
 - `const at = depths.findIndex((depth)` — const, line 103
 - `const deeper = deeperDepthLabel(band)` — const, line 110
-- `const title = band?.goal.title?.trim()` — const, line 118
-- `const due = band.goal.dueAt ? `due $` — const, line 124
-- `const parsed = new Date(stamp)` — const, line 129
-- `const counts = band.counts` — const, line 136
-- `const parts = [ counts.demonstrated ? `$` — const, line 138
-- `const n = counts.learningObjects` — const, line 143
-- `const next = band.next` — const, line 149
-- `const section = index.bySpan.get(readingSpan)` — const, line 160
-- `const place = where || section?.title || ""` — const, line 161
-- `const lo = section.learningObjects.find((entry)` — const, line 168
-- `const dot = band?.learningObjects?.find((each)` — const, line 169
-- `const tag = section.level === "later" ? "later" : section.level === "already_shown" ? "already shown" : section.reasonKey === "alternate" ? "another way" : lo?.kind === "prerequisite" ? "prerequisite" : section.level === "partial" ? "partly mapped" : null` — const, line 170
-- `const lo = section.learningObjects.find((entry)` — const, line 188
-- `const quoted = lo.title ? `“$` — const, line 191
-- `const sections = index.sections` — const, line 237
-- `const total = sections.reduce((sum, section)` — const, line 241
-- `const ranges: Array<[number, number]> = []` — const, line 242
-- `let at = 0` — let, line 243
-- `const from = at / total` — const, line 245
-- `const last = ranges[ranges.length - 1]` — const, line 248
-- `const primaries = new Set(sections.filter((section)` — const, line 253
+- `const title = band?.goal.title?.trim()` — const, line 119
+- `const due = band.goal.dueAt ? `due $` — const, line 125
+- `const parsed = new Date(stamp)` — const, line 130
+- `const counts = band.counts` — const, line 137
+- `const parts = [ counts.demonstrated ? `$` — const, line 139
+- `const n = counts.learningObjects` — const, line 144
+- `const next = band.next` — const, line 150
+- `const section = index.bySpan.get(readingSpan)` — const, line 161
+- `const place = where || section?.title || ""` — const, line 162
+- `const lo = section.learningObjects.find((entry)` — const, line 169
+- `const dot = band?.learningObjects?.find((each)` — const, line 170
+- `const tag = section.level === "later" ? "later" : section.level === "already_shown" ? "Treated as familiar" : section.reasonKey === "alternate" ? "Another explanation" : lo?.kind === "prerequisite" ? "Background" : section.level === "partial" ? "Some links fo…` — const, line 171
+- `const lo = section.learningObjects.find((entry)` — const, line 189
+- `const quoted = lo.title ? `“$` — const, line 192
+- `const sections = index.sections` — const, line 238
+- `const total = sections.reduce((sum, section)` — const, line 242
+- `const ranges: Array<[number, number]> = []` — const, line 243
+- `let at = 0` — let, line 244
+- `const from = at / total` — const, line 246
+- `const last = ranges[ranges.length - 1]` — const, line 249
+- `const primaries = new Set(sections.filter((section)` — const, line 254
 
 ## Who imports or calls it
 
@@ -124,7 +124,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - [[Reference/Desktop/TypeScript/screens/desks/goal/GoalBand|src/screens/desks/goal/GoalBand.tsx]] — import-or-re-export: `countsLine`, `dotClasses`, `dotTitle`, `formatDay`, `goalLabel`, `nextLine`; references `countsLine`, `dotClasses`, `dotTitle`, `formatDay`, `goalLabel`, `nextLine`
 - [[Reference/Desktop/TypeScript/screens/desks/goal/GoalLayer|src/screens/desks/goal/GoalLayer.tsx]] — import-or-re-export: `LensIndex`, `ShelfGoal`, `hereLine`, `markKind`, `shelfGoal`; references `LensIndex`, `ShelfGoal`, `hereLine`, `markKind`, `shelfGoal`
-- [[Reference/Desktop/TypeScript/screens/desks/goal/PathView|src/screens/desks/goal/PathView.tsx]] — import-or-re-export: `formatDay`, `goalLabel`; references `formatDay`, `goalLabel`
+- [[Reference/Desktop/TypeScript/screens/desks/goal/PathView|src/screens/desks/goal/PathView.tsx]] — import-or-re-export: `formatDay`, `goalLabel`, `readOrNot`; references `formatDay`, `goalLabel`, `readOrNot`
 - [[Reference/Desktop/TypeScript/screens/desks/goal/controller|src/screens/desks/goal/controller.ts]] — import-or-re-export: `LensIndex`, `indexLens`; references `LensIndex`, `indexLens`
 - [[Reference/Desktop/TypeScript/screens/desks/goal/marks|src/screens/desks/goal/marks.tsx]] — import-or-re-export: `LensIndex`, `calloutFor`, `goalShort`, `isDimmed`, `markKind`, `mostNeededSpan`, `noneNeeded`, `whyLevelLine`; references `LensIndex`, `calloutFor`, `goalShort`, `isDimmed`, `markKind`, `mostNeededSpan`, `noneNeeded`, `whyLevelLine`
 

@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/fixtures/desks/goal.ts](../../../../../../../apps/learnloop-tauri/src/fixtures/desks/goal.ts) |
-| Source lines | 228 |
+| Source lines | 235 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/fixtures/desks/_area|TypeScript/fixtures/desks]] |
 | Refactor status | `ACTIVE` |
@@ -54,51 +54,51 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export const FIXTURE_GOAL_ID = "fx_goal_softmax"` — const, line 14
-- `export class FixtureGoal` — class, line 65
+- `export const FIXTURE_GOAL_ID = "fx_goal_softmax"` — const, line 15
+- `export class FixtureGoal` — class, line 66
 
 ## Internal implementation anchors
 
-- `const BOOK = FIXTURE_SOURCES.book` — const, line 15
-- `const PAPER = FIXTURE_SOURCES.paper` — const, line 16
-- `const VIDEO = FIXTURE_SOURCES.video` — const, line 17
-- `const DEPTHS: Array<` — const, line 18
-- `interface FixtureLo` — interface, line 24
-- `const LOS: FixtureLo[] = [` — const, line 32
-- `type Place = "primary" | "alternate" | "elsewhere" | "out_of_scope" | "not_about"` — type, line 41
-- `const BOOK_SECTIONS: Array<[string, string | null, string, string, Place]> = [` — const, line 42
-- `const PAPER_SECTIONS: Array<[string, string | null, string, string, Place]> = [ ["p1", "lo_fx_attend", "introduces", "The definition you'll implement, as one line of matrices.", "primary"], ["p2", "lo_fx_temp", "mentions", "Why the square root: a temperature…` — const, line 50
-- `const VIDEO_SECTIONS: Array<[string, number, number, string | null, string, string, Place]> = [ ["v0", 1, 3, null, "", "the setup, before any score: no LO your goal needs", "out_of_scope"], ["v1", 4, 11, "lo_fx_softmax", "develops", "the same recipe spoken: e…` — const, line 57
-- `const view = Object.values(FIXTURE_VIEWS).find((each)` — const, line 86
-- `const heading = view?.blocks.find((block)` — const, line 87
-- `const title = String(heading?.markdown ?? "").replace(/^#+\s*/, "")` — const, line 88
-- `const dots: GoalBandLoDto[] = LOS.map((lo, ordinal)` — const, line 100
-- `const at = this.sectionOf(lo.id)` — const, line 101
-- `const kind = this.kind(lo)` — const, line 102
-- `const within = dots.filter((dot)` — const, line 107
-- `const lines = dots.filter((dot)` — const, line 108
-- `const at = this.sectionOf(dot.learningObjectId)!` — const, line 109
-- `const row = [...BOOK_SECTIONS, ...PAPER_SECTIONS].find(([section, lo])` — const, line 110
-- `const primary = dot.primary!` — const, line 111
-- `const depthSize = (depth: ReadingPathDepth)` — const, line 127
-- `const count = LOS.filter((lo)` — const, line 128
-- `const view = Object.values(FIXTURE_VIEWS).find((each)` — const, line 154
-- `const spanIds = cues ? Array.from(` — const, line 155
-- `const ref = `$` — const, line 158
-- `const choice = (this.choices.get(ref) ?? null) as "read_anyway" | null` — const, line 159
-- `const fixtureLo = lo ? LOS.find((each)` — const, line 160
-- `const kind = fixtureLo ? this.kind(fixtureLo) : null` — const, line 161
-- `let level: GoalLensSectionDto["level"]` — let, line 162
-- `let reasonKey: GoalLensSectionDto["reasonKey"]` — let, line 163
-- `let reasonMd = reason` — let, line 164
-- `const heading = view.blocks.find((block)` — const, line 182
-- `const verb =` — const, line 183
-- `const role = kind === "needed" ? "a goal LO" : kind === "later" ? "needed at a deeper depth" : "a prerequisite"` — const, line 184
-- `const where = place === "primary" ? "its primary section" : place === "alternate" ? "another way" : "not on your path here"` — const, line 185
-- `const table = extractionId === BOOK.extractionId ? BOOK_SECTIONS : extractionId === PAPER.extractionId ? PAPER_SECTIONS : []` — const, line 200
-- `const levels = extractionId === VIDEO.extractionId ? VIDEO_SECTIONS.map(([section, from, to, lo, treatment, reason, place])` — const, line 201
-- `const ref = `$` — const, line 209
-- `const replayed = this.operations.has(input.operationId)` — const, line 210
+- `const BOOK = FIXTURE_SOURCES.book` — const, line 16
+- `const PAPER = FIXTURE_SOURCES.paper` — const, line 17
+- `const VIDEO = FIXTURE_SOURCES.video` — const, line 18
+- `const DEPTHS: Array<` — const, line 19
+- `interface FixtureLo` — interface, line 25
+- `const LOS: FixtureLo[] = [` — const, line 33
+- `type Place = "primary" | "alternate" | "elsewhere" | "out_of_scope" | "not_about"` — type, line 42
+- `const BOOK_SECTIONS: Array<[string, string | null, string, string, Place]> = [` — const, line 43
+- `const PAPER_SECTIONS: Array<[string, string | null, string, string, Place]> = [ ["p1", "lo_fx_attend", "introduces", "The definition you'll implement, as one line of matrices.", "primary"], ["p2", "lo_fx_temp", "mentions", "Why the square root: a temperature…` — const, line 51
+- `const VIDEO_SECTIONS: Array<[string, number, number, string | null, string, string, Place]> = [ ["v0", 1, 3, null, "", "the setup, before any score: no LO your goal needs", "out_of_scope"], ["v1", 4, 11, "lo_fx_softmax", "develops", "the same recipe spoken: e…` — const, line 58
+- `const view = Object.values(FIXTURE_VIEWS).find((each)` — const, line 87
+- `const heading = view?.blocks.find((block)` — const, line 88
+- `const title = String(heading?.markdown ?? "").replace(/^#+\s*/, "")` — const, line 89
+- `const dots: GoalBandLoDto[] = LOS.map((lo, ordinal)` — const, line 107
+- `const at = this.sectionOf(lo.id)` — const, line 108
+- `const kind = this.kind(lo)` — const, line 109
+- `const within = dots.filter((dot)` — const, line 114
+- `const lines = dots.filter((dot)` — const, line 115
+- `const at = this.sectionOf(dot.learningObjectId)!` — const, line 116
+- `const row = [...BOOK_SECTIONS, ...PAPER_SECTIONS].find(([section, lo])` — const, line 117
+- `const primary = dot.primary!` — const, line 118
+- `const depthSize = (depth: ReadingPathDepth)` — const, line 134
+- `const count = LOS.filter((lo)` — const, line 135
+- `const view = Object.values(FIXTURE_VIEWS).find((each)` — const, line 161
+- `const spanIds = cues ? Array.from(` — const, line 162
+- `const ref = `$` — const, line 165
+- `const choice = (this.choices.get(ref) ?? null) as "read_anyway" | null` — const, line 166
+- `const fixtureLo = lo ? LOS.find((each)` — const, line 167
+- `const kind = fixtureLo ? this.kind(fixtureLo) : null` — const, line 168
+- `let level: GoalLensSectionDto["level"]` — let, line 169
+- `let reasonKey: GoalLensSectionDto["reasonKey"]` — let, line 170
+- `let reasonMd = reason` — let, line 171
+- `const heading = view.blocks.find((block)` — const, line 189
+- `const verb =` — const, line 190
+- `const role = kind === "needed" ? "a goal LO" : kind === "later" ? "needed at a deeper depth" : "a prerequisite"` — const, line 191
+- `const where = place === "primary" ? "its primary section" : place === "alternate" ? "another way" : "not on your path here"` — const, line 192
+- `const table = extractionId === BOOK.extractionId ? BOOK_SECTIONS : extractionId === PAPER.extractionId ? PAPER_SECTIONS : []` — const, line 207
+- `const levels = extractionId === VIDEO.extractionId ? VIDEO_SECTIONS.map(([section, from, to, lo, treatment, reason, place])` — const, line 208
+- `const ref = `$` — const, line 216
+- `const replayed = this.operations.has(input.operationId)` — const, line 217
 
 ## Who imports or calls it
 
@@ -111,7 +111,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ### Desktop source modules
 
-- [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `GoalBandDto`, `GoalBandLoDto`, `GoalLensDto`, `GoalLensSectionDto`, `GoalsListSnapshot`, `ReadingPathDepth`
+- [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `GoalBandDto`, `GoalBandLoDto`, `GoalChoicesDto`, `GoalLensDto`, `GoalLensSectionDto`, `GoalsListSnapshot`, `ReadingPathDepth`
 - [[Reference/Desktop/TypeScript/fixtures/desks/sources|src/fixtures/desks/sources.ts]] — import-or-re-export; imports `FIXTURE_SOURCES`, `FIXTURE_VIEWS`
 
 ### Assets, platform, and third-party dependencies

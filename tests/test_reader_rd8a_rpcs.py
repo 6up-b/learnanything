@@ -10,16 +10,7 @@ from pydantic import ValidationError
 from learnloop_sidecar.handlers.ink import INK_RPCS
 from learnloop_sidecar.errors import SidecarError
 from tests.helpers import create_basic_vault
-from tests.ink_helpers import (
-    STROKES,
-    WAIT,
-    HeldReader,
-    ImageReader,
-    close_and_wait,
-    ink_jobs,
-    reads_as,
-    wait_reading,
-)
+from tests.ink_helpers import STROKES, WAIT, close_and_wait, glm_local, ink_jobs, wait_reading
 from tests.reading_path_fixtures import call, context
 
 MINIMAL = {
@@ -35,19 +26,25 @@ MINIMAL = {
 
 
 @pytest.fixture
-def contexts(tmp_path):
-    made = []
+def contexts(tmp_path, monkeypatch):
+    """A context on a new vault whose GLM-OCR is the local backend, faked at its transport (``glm=False``: none set
+    up): ``(ctx, fake)``."""
 
-    def make(name="vault", **attrs):
-        ctx = context(create_basic_vault(tmp_path / name).root, **attrs)
+    made, fakes = [], []
+
+    def make(name="vault", *, text="$x$", hold=False, glm=True):
+        root = create_basic_vault(tmp_path / name).root
+        fake = glm_local(monkeypatch, root, text, hold=hold) if glm else None
+        if fake is not None:
+            fakes.append(fake)
+        ctx = context(root)
         made.append(ctx)
-        return ctx
+        return ctx, fake
 
     yield make
+    for fake in fakes:
+        fake.release.set()
     for ctx in made:
-        for job_reader in [getattr(ctx, "ink_transcription_client", None)]:
-            if isinstance(job_reader, HeldReader):
-                job_reader.release.set()
         close_and_wait(ctx)
 
 
@@ -93,7 +90,7 @@ def test_nested_models_refuse_extra_fields_and_repeated_stroke_ids():
 
 
 def test_save_and_list_replies_are_versioned_and_camel_cased(contexts):
-    ctx = contexts()
+    ctx, _fake = contexts()
     saved = _ink_block(ctx)
     assert saved["version"] == 1 and saved["inkId"] == "ink_1" and saved["appliedSeq"] == 2
     assert saved["results"] == [{"status": "ok", "duplicate": False}]
@@ -106,8 +103,7 @@ def test_save_and_list_replies_are_versioned_and_camel_cased(contexts):
 
 
 def test_a_reading_is_a_job_and_strokes_already_read_answer_at_once(contexts):
-    reader = ImageReader(reads_as("$x$"))
-    ctx = contexts(ink_transcription_client=reader)
+    ctx, reader = contexts()
     _ink_block(ctx)
     started = call(ctx, "ink.transcribe", {"inkId": "ink_1"})
     assert started["version"] == 1 and started["jobId"].startswith("ink_")
@@ -117,7 +113,7 @@ def test_a_reading_is_a_job_and_strokes_already_read_answer_at_once(contexts):
     # Asked again: answered at once from the kept reading, with no job and nothing sent.
     again = call(ctx, "ink.transcribe", {"inkId": "ink_1"})
     assert (again["jobId"], again["status"], again["done"]) == (None, "done", True)
-    assert again["result"]["transcriptionId"] == done["result"]["transcriptionId"] and len(reader.requests) == 1
+    assert again["result"]["transcriptionId"] == done["result"]["transcriptionId"] and reader.reached == 1
     # The block now reads as the transcription.
     pad = call(ctx, "pad.get", {"padId": "p"})
     assert [(b["bodyMd"], b["provenance"]) for b in pad["blocks"]] == [("$x$", "ink_transcription")]
@@ -130,8 +126,7 @@ def test_a_reading_is_a_job_and_strokes_already_read_answer_at_once(contexts):
 
 
 def test_a_second_ask_while_reading_joins_the_job_and_cancel_sends_nothing_more(contexts):
-    held = HeldReader(reads_as("$x$"))
-    ctx = contexts(ink_transcription_client=held)
+    ctx, held = contexts(hold=True)
     _ink_block(ctx)
     first = call(ctx, "ink.transcribe", {"inkId": "ink_1"})
     assert held.inside.wait(WAIT)
@@ -153,8 +148,7 @@ def test_a_second_ask_while_reading_joins_the_job_and_cancel_sends_nothing_more(
 def test_a_cancel_before_the_request_is_sent_sends_nothing(contexts):
     from learnloop_sidecar import polled_jobs
 
-    reader = ImageReader(reads_as("$x$"))
-    ctx = contexts(ink_transcription_client=reader)
+    ctx, reader = contexts()
     _ink_block(ctx)
     gate = __import__("threading").Event()
     original = polled_jobs.PolledJobs.start
@@ -176,12 +170,11 @@ def test_a_cancel_before_the_request_is_sent_sends_nothing(contexts):
     call(ctx, "ink.transcribe_cancel", {"jobId": first["jobId"]})
     gate.set()
     final = wait_reading(ctx, first["jobId"])
-    assert final["status"] == "cancelled" and reader.requests == []
+    assert final["status"] == "cancelled" and reader.reached == 0
 
 
 def test_a_reading_belongs_to_its_vault(contexts):
-    held = HeldReader(reads_as("$x$"))
-    ctx = contexts(ink_transcription_client=held)
+    ctx, held = contexts(hold=True)
     _ink_block(ctx)
     first = call(ctx, "ink.transcribe", {"inkId": "ink_1"})
     assert held.inside.wait(WAIT)
@@ -196,11 +189,12 @@ def test_a_reading_belongs_to_its_vault(contexts):
 
 
 def test_a_failed_reading_says_why(contexts):
-    ctx = contexts(ink_transcription_client=ImageReader(reads_as("$x$"), reads_images=False))
+    ctx, _none = contexts(glm=False)
     _ink_block(ctx)
     started = call(ctx, "ink.transcribe", {"inkId": "ink_1"})
     failed = wait_reading(ctx, started["jobId"])
-    assert (failed["status"], failed["done"], failed["error"]["code"]) == ("failed", True, "cannot_read_images")
+    assert (failed["status"], failed["done"], failed["error"]["code"]) == ("failed", True, "unavailable")
+    assert "Settings, under Ingestion" in failed["error"]["message"]
     with pytest.raises(SidecarError) as unknown:
         call(ctx, "ink.transcribe", {"inkId": "ink_none"})
     assert unknown.value.code == "ink_not_found"

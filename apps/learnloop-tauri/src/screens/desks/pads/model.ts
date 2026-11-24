@@ -28,6 +28,13 @@ export class PadOpConflict extends Error {
   }
 }
 
+/** A pad's name as the learner reads it: its title, and a desk's running pad (stored with the title "running") always
+ *  as "running pad", the one name the workbench gives it; an untitled pad is "a pad". */
+export function padName(pad: { title?: string | null; kind?: string | null } | null | undefined): string {
+  if (pad?.kind === "running" && (!pad.title || pad.title === "running")) return "running pad";
+  return pad?.title || "a pad";
+}
+
 export function fromPadView(view: PadViewDto): PadState {
   return { pad: { ...view.pad }, blocks: sortBlocks(view.blocks.map((block) => ({ ...block, submissions: [...(block.submissions ?? [])] }))), anchors: [...view.anchors] };
 }
@@ -83,13 +90,13 @@ function replace(pads: Pads, padId: string, state: PadState): Pads {
 
 function requirePad(pads: Pads, padId: string): PadState {
   const state = pads[padId];
-  if (!state) throw new PadOpRefusal("pad_not_found", `No pad ${padId}.`);
+  if (!state) throw new PadOpRefusal("pad_not_found", "Couldn’t find this pad. Open it again.");
   return state;
 }
 
 function requireHead(state: PadState, blockId: string, expected: string): PadBlockDto {
   const block = state.blocks.find((each) => each.blockId === blockId);
-  if (!block) throw new PadOpRefusal("block_not_found", "That block is not in this pad.");
+  if (!block) throw new PadOpRefusal("block_not_found", "Couldn’t find this line. Reopen the pad and try again.");
   if (block.headVersionId !== expected) throw new PadOpConflict({ block_id: blockId, head_version_id: block.headVersionId });
   return block;
 }
@@ -100,9 +107,9 @@ function withBlock(state: PadState, block: PadBlockDto): PadState {
 
 function keepBoth(pads: Pads, padId: string, state: PadState, op: Extract<PadOpDto, { op: "edit_block" }>, head: PadBlockDto | null, now: string): Pads {
   const keep = op.keepBoth as NonNullable<typeof op.keepBoth>;
-  if (state.blocks.some((block) => block.blockId === keep.blockId)) throw new PadOpRefusal("block_exists", `A block ${keep.blockId} already exists.`);
+  if (state.blocks.some((block) => block.blockId === keep.blockId)) throw new PadOpRefusal("block_exists", "This line may already be in the pad. Check the pad before trying again.");
   const kind = head?.kind ?? "text";
-  if (!EDITABLE_KINDS.has(kind)) throw new PadOpRefusal("not_editable", "This block quotes a source, the tutor or a figure; add a note under it.");
+  if (!EDITABLE_KINDS.has(kind)) throw new PadOpRefusal("not_editable", "Add your own note below this line.");
   const kept: PadBlockDto = {
     blockId: keep.blockId,
     headVersionId: keep.versionId ?? `${keep.blockId}~${now}`,
@@ -154,7 +161,7 @@ export function applyPadOp(pads: Pads, padId: string, op: PadOpDto, now: string)
       // head stays, and these words land as a block of their own right after it, marked as the conflict they are.
       if (op.keepBoth && (!current || current.headVersionId !== op.expectedHead)) return keepBoth(pads, padId, state, op, current ?? null, now);
       const head = requireHead(state, op.blockId, op.expectedHead);
-      if (!EDITABLE_KINDS.has(head.kind)) throw new PadOpRefusal("not_editable", "This block quotes a source, the tutor or a figure; add a note under it.");
+      if (!EDITABLE_KINDS.has(head.kind)) throw new PadOpRefusal("not_editable", "Add your own note below this line.");
       const next: PadBlockDto = {
         ...head, headVersionId: op.versionId ?? `${head.blockId}~${now}`, updatedAt: now,
         ...(op.bodyMd !== undefined ? { bodyMd: op.bodyMd } : {}),
@@ -175,7 +182,7 @@ export function applyPadOp(pads: Pads, padId: string, op: PadOpDto, now: string)
     }
     case "lift_out": {
       const head = requireHead(state, op.blockId, op.expectedHead);
-      if (pads[op.newPadId]) throw new PadOpRefusal("pad_exists", `A pad ${op.newPadId} already exists.`);
+      if (pads[op.newPadId]) throw new PadOpRefusal("pad_exists", "This pad may already exist. Check the window list before trying again.");
       const lifted: PadBlockDto = { ...head, blockId: op.newBlockId, headVersionId: op.newVersionId ?? op.newBlockId, positionKey: op.positionKey ?? "a0", createdAt: now, updatedAt: now, submissions: [] };
       const stub: PadBlockDto = {
         ...head, kind: "lifted", bodyMd: "", provenance: "learnloop", headVersionId: op.stubVersionId ?? `${head.blockId}~${now}`, updatedAt: now,
@@ -190,12 +197,12 @@ export function applyPadOp(pads: Pads, padId: string, op: PadOpDto, now: string)
     }
     case "link_anchor":
     case "unlink_anchor": {
-      if (!state.blocks.some((block) => block.blockId === op.blockId)) throw new PadOpRefusal("block_not_found", "That block is not in this pad.");
+      if (!state.blocks.some((block) => block.blockId === op.blockId)) throw new PadOpRefusal("block_not_found", "Couldn’t find this line. Reopen the pad and try again.");
       const current = anchorHead(state, op.blockId, op.extractionId, op.spanId);
       if (current !== op.expectedAnchorHead) throw new PadOpConflict({ block_id: op.blockId, anchor_head: current });
       const others = state.anchors.filter((anchor) => !(anchor.blockId === op.blockId && anchor.extractionId === op.extractionId && anchor.spanId === op.spanId));
       if (op.op === "unlink_anchor") {
-        if (others.length === state.anchors.length) throw new PadOpRefusal("not_linked", "That block is not linked to that passage.");
+        if (others.length === state.anchors.length) throw new PadOpRefusal("not_linked", "This line has no link to that passage. Choose another line.");
         return replace(pads, padId, { ...state, anchors: others });
       }
       const anchor: PadAnchorDto = { eventId: op.eventId ?? `${op.blockId}:${op.spanId}:${now}`, blockId: op.blockId, extractionId: op.extractionId, spanId: op.spanId, anchor: op.anchor ?? {}, annotationId: op.annotationId ?? null, createdAt: now };
@@ -204,8 +211,8 @@ export function applyPadOp(pads: Pads, padId: string, op: PadOpDto, now: string)
     case "erase_ink": {
       // The strokes live outside the pad model (inkList); here only the pad's change time moves, as on the server.
       const block = state.blocks.find((each) => each.blockId === op.blockId);
-      if (!block) throw new PadOpRefusal("block_not_found", "That block is not in this pad.");
-      if (block.kind !== "ink") throw new PadOpRefusal("not_an_ink_block", "Ink goes in an ink block.");
+      if (!block) throw new PadOpRefusal("block_not_found", "Couldn’t find this line. Reopen the pad and try again.");
+      if (block.kind !== "ink") throw new PadOpRefusal("not_an_ink_block", "Open a handwriting pad to write with the pen.");
       if (op.versionId && block.provenance === "ink_transcription") {
         // Every stroke erased: LearnLoop's reading of them goes with them, as on the server (a blank version).
         const { ink_transcription: _gone, ...payload } = block.payload;
@@ -245,7 +252,7 @@ export function restampPadOp(pads: Pads, padId: string, op: PadOpDto, now: strin
       if (moved) stamped = { ...op, blockId: moved.blockId, expectedHead: moved.versionId, keepBoth: op.keepBoth };
       const target = stamped as Extract<PadOpDto, { op: "edit_block" }>;
       const head = state.blocks.find((block) => block.blockId === target.blockId);
-      if ((!head || head.headVersionId !== target.expectedHead) && !target.keepBoth) throw new PadOpRefusal("stale", "Its block changed elsewhere; the newer words were kept.");
+      if ((!head || head.headVersionId !== target.expectedHead) && !target.keepBoth) throw new PadOpRefusal("stale", "This line changed in another window. Check the latest text before trying again.");
       if (head && head.headVersionId !== target.expectedHead && target.keepBoth && target.versionId) {
         redirects?.set(target.versionId, { blockId: target.keepBoth.blockId, versionId: target.keepBoth.versionId ?? target.keepBoth.blockId });
       } else if (!head && target.keepBoth && target.versionId) {
@@ -254,15 +261,15 @@ export function restampPadOp(pads: Pads, padId: string, op: PadOpDto, now: strin
     }
     if (op.op === "remove_block" || op.op === "move_block" || op.op === "lift_out") {
       const head = state.blocks.find((block) => block.blockId === op.blockId);
-      if (!head) throw new PadOpRefusal("block_not_found", "That block was removed.");
-      if (head.headVersionId !== op.expectedHead) throw new PadOpRefusal("stale", "Its block changed elsewhere; nothing was done to the newer words.");
+      if (!head) throw new PadOpRefusal("block_not_found", "This line was removed. Choose another line.");
+      if (head.headVersionId !== op.expectedHead) throw new PadOpRefusal("stale", "This line changed in another window. Check the latest text before trying again.");
     }
     if (op.op === "link_anchor" || op.op === "unlink_anchor") stamped = { ...op, expectedAnchorHead: anchorHead(state, op.blockId, op.extractionId, op.spanId) };
   }
   try {
     return { pads: applyPadOp(pads, padId, stamped, now), op: stamped };
   } catch (error) {
-    if (error instanceof PadOpConflict) throw new PadOpRefusal("conflict", "It no longer applies.");
+    if (error instanceof PadOpConflict) throw new PadOpRefusal("conflict", "This pad changed. Check the latest text and try again.");
     throw error;
   }
 }

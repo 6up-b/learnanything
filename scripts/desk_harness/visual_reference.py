@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import datetime
 import json
 import re
 import sys
@@ -40,7 +41,7 @@ from typing import Any
 from playwright.async_api import Page, async_playwright
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from run import DIST, route_outside, serve  # noqa: E402  (a sibling script, not a package)
+from run import DIST, INK_JOT_STROKE_JS, open_problem_from_book, route_outside, serve  # noqa: E402  (a sibling script, not a package)
 
 # The mockup's design viewport and the laptop it folds for (the shelf becomes a rail below 1400 px).
 VIEWPORTS = {"design": {"width": 1440, "height": 900}, "laptop": {"width": 1280, "height": 800}}
@@ -382,6 +383,14 @@ region("ink_read_label", ".desk-pads .ocrl2 .ocrt", "height")
 region("ink_read_tex", ".desk-pads .ocrl2 .ocrtex", "none")
 region("ink_hint", ".desk-pads .hint2", "none")
 
+# ── handwritten work on a problem pad (owner decision 2026-11-23; `#pen=ladder`): the ladder is the workbench's own
+# (unchanged), so only what the reference's ladder says of the ink is compared: the open ◇ in the line's gutter
+# (its `.hmk.open`), the quiet line the ladder opens with (its `.lh`, ours the note that help reads LearnLoop's
+# reading) and the line's reading (its `.lread`, ours the line's "read as" under the ink).
+region("auto:button.open", ".desk-pads .hmk[data-ink-help]", "none")
+region("auto:div.lh", ".desk-pads .ink-help-note[data-ink-help-note='reading']", "none")
+region("auto:div.lread", ".desk-pads [data-ink-step] .ocrl2", "none")
+
 # The pointer's cursor is compared on these regions only (pen mode's crosshair on the text).
 CURSOR_REGIONS = frozenset({"pen_text_cursor"})
 
@@ -522,6 +531,17 @@ async def d_plain(page: Page) -> None:
 
 async def d_desk1(page: Page) -> None:
     await page.get_by_role("button", name="attention", exact=True).click()
+    await wait(page, 1500)
+
+
+async def d_pair(page: Page) -> None:
+    """Side by side as a pair (`?pairs=1`): the backprop desk's book, then Ctrl+\\ pairs its first correspondent."""
+    await page.get_by_role("button", name="backprop", exact=True).click()
+    await page.wait_for_selector("[data-desk-window='fx_w_book_range'] [data-span-id]")
+    await wait(page, 1200)
+    await page.click("[data-desk-window='fx_w_book_range'] .desk-pane-head .t")
+    await page.keyboard.press("Control+Backslash")
+    await page.wait_for_selector("[data-desk-window] [data-span-id^='fx_ext_attention_p1']")
     await wait(page, 1500)
 
 
@@ -994,6 +1014,25 @@ async def d_check_pen_veil(page: Page) -> None:
     await wait(page, 900)
 
 
+async def d_ink_ladder(page: Page) -> None:
+    """A problem worked by hand (`?problem=1&inkhelp=1`): three lines read, checked, the ladder open on the ◇ line."""
+    await wait(page, 1500)
+    await open_problem_from_book(page)
+    await page.locator(".penchip").click()
+    await wait(page, 400)
+    for n in range(3):
+        await page.evaluate(INK_JOT_STROKE_JS, n)
+        await wait(page, 900)
+    read_it = page.locator('.desk-pads [data-pad] button', has_text="read it")
+    if await read_it.count():
+        await read_it.first.click()
+    await wait(page, 1800)
+    await page.locator('.desk-pads [data-problem-pad] [role=group][aria-label="workbench actions"] button', has_text="check my work").first.click()
+    await wait(page, 1200)
+    await page.locator(".desk-pads [data-ink-help]").first.click()
+    await wait(page, 900)
+
+
 async def d_pen_pad(page: Page) -> None:
     """The handwritten pad beside the book, open, in pen mode."""
     await pads_beside_book(page)
@@ -1075,6 +1114,11 @@ GOAL_PATH = ("goal_path", "goal_path_left", "goal_path_h3", "goal_path_scope", "
 STATES: list[State] = [
     State("plain", "rd1", d_plain, SHELL + WINDOWS + ("comp_panel", "comp_closed_tab")),
     State("desk=1", "rd1", d_desk1, SHELL + WINDOWS),
+    # Side by side as paired windows (spec §21.1, §5.2). The reference has no state with two windows in one slot (its
+    # "stack" is tabs); `desk=1` is its state with two reading windows in view, compared for the windows' colours,
+    # tokens and type, never their geometry (a pair stacks top and bottom by §5.2).
+    State("pair", "pairs", d_pair, tuple(name for name in WINDOWS if not name.startswith("video_")), query="?pairs=1", geometry=False, reference="desk=1",
+          note="the mockup's two windows in view against the desks' pair: colour, tokens and type only"),
     State("focus=3", "rd1", d_focus3, SHELL + WINDOWS),
     State("move", "rd1", d_move, SHELL + WINDOWS),
     State("zoom=after", "rd1", d_zoom_after, ("window_focus", "window_focus_head", "focus_badge", "book_paper", "book_prose", "topbar")),
@@ -1163,6 +1207,8 @@ STATES: list[State] = [
           note="our check's host is in view, so its card is inline; the reference's is centred near the top"),
     State("pen=pad", "rd8", d_pen_pad, ("pen_chip_top", "pen_hint", "ink_pad_paper", "ink_bar", "ink_bar_button", "ink_prov", "ink_read",
                                          "ink_read_label", "ink_read_tex", "ink_hint", "pad_window_head", "pad_tab_open"), query="?inkpad=1"),
+    State("pen=ladder", "rd8", d_ink_ladder, ("auto:button.open", "auto:div.lh", "auto:div.lread"), query="?problem=1&inkhelp=1", geometry=False,
+          note="the ladder itself is the workbench's (unchanged); the ink's mark, the quiet line and the line's reading compared"),
 ]
 
 STATE_BY_NAME = {state.name: state for state in STATES}
@@ -1307,9 +1353,15 @@ def pixel_share(mock_png: Path, app_png: Path, side_by_side: Path) -> float:
 
 # ── the run ──
 
+#: The synthetic workspace's "now": the same day the desk harness's run starts its pages on.
+FIXTURE_NOW = datetime.datetime(2026, 11, 23, 12, 0, tzinfo=datetime.UTC)
+
 
 async def open_harness(browser: Any, base: str, viewport: dict[str, int], state: State) -> Page:
     page = await browser.new_page(viewport=viewport)
+    # The fixture's "now" (its pads' newest day), as the desk harness's run sets it, so a pass on another day compares
+    # the same dated headings.
+    await page.clock.install(time=FIXTURE_NOW)
     await page.route("**/*", lambda route: route.continue_() if route.request.url.startswith(base) else route_outside(route))
     if state.init_storage:
         script = ";".join(f"localStorage.setItem({json.dumps(k)}, {json.dumps(v)})" for k, v in state.init_storage)
@@ -1423,7 +1475,7 @@ def summarise(results: list[dict[str, Any]]) -> str:
 async def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--ref", type=Path, required=True, help="the private reference directory")
-    parser.add_argument("--stage", default="all", choices=["rd1", "rd2", "rd3", "rd4", "rd5", "rd6", "rd7", "rd8", "rd9", "rd10", "notebook", "all"])
+    parser.add_argument("--stage", default="all", choices=["rd1", "rd2", "rd3", "rd4", "rd5", "rd6", "rd7", "rd8", "rd9", "rd10", "pairs", "notebook", "all"])
     parser.add_argument("--state", default=None)
     parser.add_argument("--viewport", default="both", choices=["design", "laptop", "both"])
     parser.add_argument("--out", type=Path, default=None, help="where the comparison goes (default: <ref>/compare)")

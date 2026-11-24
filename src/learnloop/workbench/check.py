@@ -71,18 +71,14 @@ ROUTE_TASK = "workbench_check"
 OWNER_KIND = "workbench_check"
 PROMPT_VERSION = "workbench_check.v2"
 ENVELOPE = "workbench.max_daily_cost_usd"
-#: Owner kinds the workbench's daily envelope counts (its own calls): the step
-#: checks and the readings of the learner's ink (``pads.ink_transcribe``),
-#: which share the workbench's price and daily cap.
-ENVELOPE_OWNER_KINDS = ("workbench_check", "ink_transcription")
+#: Owner kinds the workbench's daily envelope counts (its own calls).
+ENVELOPE_OWNER_KINDS = ("workbench_check",)
 #: ``LEARNLOOP_WORKBENCH_MODELS=off``: no workbench route resolves a real
 #: client (the test suite sets it); an injected client still answers.
 MODELS_ENV = "LEARNLOOP_WORKBENCH_MODELS"
 VERDICTS = ("valid", "questionable", "unchecked")
 #: One check's paid-call bounds (a runaway-loop bound; money is the envelope).
 _CAPS = dict(max_candidates=0, max_pairs=0, max_retries=2, max_calls=3, max_total_tokens=300_000)
-#: The same bounds for another workbench call on its own route (a reading of the learner's ink).
-CALL_CAPS = _CAPS
 STEP_CHARS = 4_000
 
 #: The markers beside a step (UX §3.4, §5.4): ✓ checked and follows, ≠ checked

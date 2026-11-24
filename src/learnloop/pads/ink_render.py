@@ -75,7 +75,7 @@ def render_png(strokes: list[dict[str, Any]], *, device_pixel_ratio: float, pape
     image.save(out, format="PNG")
     data = out.getvalue()
     if len(data) > MAX_IMAGE_BYTES:
-        raise InkTooLarge(f"the image is {len(data)} bytes, more than a request may carry")
+        raise InkTooLarge(f"the image is {len(data)} bytes, more than a request may hold")
     return data
 
 

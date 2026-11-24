@@ -76,7 +76,7 @@ it("UX-22: a sent reply stays in the thread, marked as sent, while the teacher w
   expect((screen.getByLabelText("Reply to the teacher") as HTMLTextAreaElement).value).toBe("");
   const sent = screen.getByTestId("lesson-learner-sent");
   expect(sent.textContent).toContain("I see the projection but not why it's perpendicular.");
-  expect(sent.textContent).toContain("sent");
+  expect(sent.textContent).toContain("Sending…");
   await act(async () => {
     turn.resolve(lesson({ feed: [
       { kind: "message", text: "Here is the map.", choices: [] },

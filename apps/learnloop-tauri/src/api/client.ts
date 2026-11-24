@@ -403,6 +403,7 @@ import type {
 import type {
   DeliverablePathViewDto,
   GoalBandDto,
+  GoalChoicesDto,
   GoalLensDto,
   GoalLensInput,
   GoalSectionChoiceDto,
@@ -1212,7 +1213,7 @@ export const api = {
   listQuestionQueue: (input?: { resolution?: string | null; limit?: number | null }) =>
     call<QuestionQueueSnapshot>("list_question_queue", { input: input ?? {} }),
   // clientIdempotencyKey: one per sheet, reused on a retry (the same key returns the same item and makes no second).
-  authorPracticeItem: (input: { captureId?: string; learningObjectId: string; prompt: string; expectedAnswer: string; practiceMode?: string; hints?: string[]; clientIdempotencyKey?: string }) =>
+  authorPracticeItem: (input: { blockIds?: string[]; captureId?: string; learningObjectId: string; prompt: string; expectedAnswer: string; practiceMode?: string; hints?: string[]; clientIdempotencyKey?: string }) =>
     mutating([TAG.queue], call<{ practiceItemId: string }>("author_practice_item", { input })),
   // Learner-initiated re-runging: request an easier/harder sibling variant of
   // an item. Records the evidence package synchronously, authors async.
@@ -1441,7 +1442,7 @@ export const api = {
   readerPdfView: (input: { extractionId: string }) =>
     call<ReaderPdfViewDto>("reader_pdf_view", { input }),
   // reader quick-check producer: enqueue authoring for a section; act on the result.
-  readerAuthorSectionQuestion: (input: { extractionId: string; sectionId: string }) =>
+  readerAuthorSectionQuestion: (input: { extractionId: string; sectionId: string; spanIds?: string[] }) =>
     mutatingReader(call<ReaderAuthorSectionQuestionDto>("reader_author_section_question", { input })),
   readerAuthoredQuestionAction: (input: { questionId: string; action: "answered" | "dismissed"; response?: string | null }) =>
     mutatingReader(call<{ question: ReaderAuthoredQuestionDto }>("reader_authored_question_action", { input })),
@@ -1689,6 +1690,8 @@ export const api = {
   // dimmed section. A path line's own choices stay curriculumPathOverride's. None calls a model or starts work;
   // curriculumPath with judge: true starts the coverage and the path judgment a goal owes (in the background).
   goalBand: (input: { goalId: string }) => call<GoalBandDto>("goal_band", { input }),
+  /** The desk's goal chooser: each active goal in the learner's words, a held topic's name masked (spec §12.6.1). */
+  goalChoices: () => call<GoalChoicesDto>("goal_choices", { input: {} }),
   goalLens: (input: GoalLensInput) => call<GoalLensDto>("goal_lens", { input }),
   goalSectionChoice: (input: GoalSectionChoiceInput) => call<GoalSectionChoiceDto>("goal_section_choice", { input }),
   curriculumPath: (input: { goalId: string; judge?: boolean; retry?: boolean }) =>

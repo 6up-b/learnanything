@@ -69,7 +69,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 ## Internal implementation anchors
 
 - `function emptyBody(body: BatchBody): boolean` — function, line 29
-- `const PERMANENT_REFUSALS = new Set(["validation_error", "stale_sidecar_schema"])` — const, line 89
+- `const PERMANENT_REFUSALS = new Set(["exam_material", "validation_error", "stale_sidecar_schema"])` — const, line 89
 - `function errorText(error: unknown): string` — function, line 95
 - `const key = `learnloop.desks.client.$` — const, line 108
 - `const stored = storage?.getItem(key)` — const, line 110

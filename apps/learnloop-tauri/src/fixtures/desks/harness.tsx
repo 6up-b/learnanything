@@ -5,7 +5,8 @@
 import React, { useEffect, useState } from "react";
 import type { LessonEntry } from "../../screens/LessonView";
 import ReactDOM from "react-dom/client";
-import { DeskShell, type DeskDebugHandle } from "../../screens/desks/DeskShell";
+import { DeskShell, type DeskDebugHandle, type DeskOpenRequest } from "../../screens/desks/DeskShell";
+import { setAlgoConfig } from "../../app/algoConfig";
 import { DIRECT_HUB, WindowScope, type WindowState } from "../../screens/desks/lifecycle";
 import { SourceWindow } from "../../screens/desks/windows/SourceWindow";
 import { PadStackWindow } from "../../screens/desks/pads/PadStackWindow";
@@ -23,10 +24,15 @@ import "../../styles/palettes.css";
 const errors: string[] = [];
 declare global {
   interface Window {
+    __problemSubmitted?: string;
     __deskHarnessErrors?: string[];
     __deskDebug?: DeskDebugHandle;
     /** `?lesson=1`: ask the desks for a lesson as the app does while they are its place (RD9a). */
     __deskLessonAsk?: (entry: LessonEntry) => void;
+    /** The Reader place left, as for a check's practice screen and its feedback: the desks unmount. */
+    __deskAway?: () => void;
+    /** Back to the Reader place with the app's way back: the desks mount again and open (or focus) a book at a passage. */
+    __deskReturn?: (sourceId: string, spanId: string | null) => void;
   }
 }
 window.__deskHarnessErrors = errors;
@@ -188,22 +194,38 @@ export function Harness({ search = window.location.search }: { search?: string }
   if (params.get("latex") === "1") return <LatexFixture />;
   if (params.get("notebook") === "1") return <NotebookFixture search={search} />;
   if (params.get("padcells") === "1") return <PadCellsFixture />;
-  return <HarnessShell lessonsOn={params.get("lesson") === "1"} />;
+  return <HarnessShell lessonsOn={params.get("lesson") === "1"} problemOn={params.get("problem") === "1"} />;
 }
 
-function HarnessShell({ lessonsOn }: { lessonsOn: boolean }) {
+function HarnessShell({ lessonsOn, problemOn }: { lessonsOn: boolean; problemOn: boolean }) {
+  // `?problem=1` (RW2 on a problem pad, spec §15.2): the workbench and its help are on, and a submit's hand-off to
+  // feedback is noted where the harness script reads it.
+  if (problemOn) setAlgoConfig({ workbench: { enabled: true, openSessionDays: 30, help: { enabled: true } }, hints: { adaptiveEnabled: true } });
   // The app's way in while the desks are its place: each ask once, by its seq.
   const [request, setRequest] = useState<{ seq: number; entry: LessonEntry } | null>(null);
   useEffect(() => {
     if (!lessonsOn) return;
     window.__deskLessonAsk = (entry) => setRequest((now) => ({ seq: (now?.seq ?? 0) + 1, entry }));
   }, [lessonsOn]);
+  // The app's round trip away from the desks and back (a check or a problem, its feedback, "back to the book").
+  const [shown, setShown] = useState(true);
+  const [openRequest, setOpenRequest] = useState<DeskOpenRequest | null>(null);
+  useEffect(() => {
+    window.__deskAway = () => setShown(false);
+    window.__deskReturn = (sourceId, spanId) => {
+      setOpenRequest((now) => ({ seq: (now?.seq ?? 0) + 1, sourceId, spanId, reading: null }));
+      setShown(true);
+    };
+  }, []);
+  if (!shown) return <div data-desks-away="" style={{ position: "fixed", inset: 0, background: "#111" }} />;
   return (
     <div style={{ position: "fixed", inset: 0, display: "flex" }}>
       <DeskShell
+        openRequest={openRequest}
         vaultKey="desk-fixture"
         // `?lesson=1`: lessons are on (the Reader's Teach me opens a lesson window; RD9a).
         {...(lessonsOn ? { reader: { onTeachMe: () => undefined }, lessons: { request } } : {})}
+        {...(problemOn ? { reader: { workbench: { practiceSessionId: null, onSubmitted: (result) => { window.__problemSubmitted = result.attempt.attemptId; } } } } : {})}
         onError={(message) => errors.push(message)}
         onLeave={() => errors.push("left for the old Reader")}
         onDebugHandle={(handle) => {
@@ -215,6 +237,8 @@ function HarnessShell({ lessonsOn }: { lessonsOn: boolean }) {
 }
 
 export function mountHarness(root: HTMLElement): void {
+  // `?recap=1`: the recap card and Wrap up are on (RW6a's switches), with the fixture's last session on the book.
+  if (new URLSearchParams(window.location.search).get("recap") === "1") setAlgoConfig({ recap: { enabled: true, wrapUpEnabled: true } });
   ReactDOM.createRoot(root).render(
     <React.StrictMode>
       <Harness />

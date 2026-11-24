@@ -32,7 +32,7 @@ function timeline(count: number): ReaderComingUpDto {
 
 it("shows each check as a dated line with its purpose and minutes, never a count", () => {
   render(<ComingUp comingUp={timeline(2)} now={NOW} onUndo={vi.fn()} onUndoAll={vi.fn()} />);
-  const region = screen.getByText("Coming up · checks on your own").parentElement as HTMLElement;
+  const region = screen.getByText("Coming up · cold checks").parentElement as HTMLElement;
   expect(region.textContent).toContain("Wed");
   expect(region.textContent).toContain("a new problem on Mixtures, on your own · about 6 min");
   expect(region.textContent?.toLowerCase()).not.toMatch(/overdue|\bdue\b|error|mistake|\d+ checks?/);
@@ -122,7 +122,7 @@ it("the card shows Coming up and a retirement as good news with undo", () => {
   render(<RecapCard recap={card()} collapsed={false} now={NOW} {...handlers()} onUndoFollowup={vi.fn()}
                     onUndoAllFollowups={vi.fn()} onRestoreFollowup={onRestore} />);
   const region = screen.getByRole("region", { name: "Last time here" });
-  expect(within(region).getByText("Coming up · checks on your own")).toBeTruthy();
+  expect(within(region).getByText("Coming up · cold checks")).toBeTruthy();
   expect(region.textContent).toContain("No longer needed: you solved one like it on Sun");
   fireEvent.click(within(region).getByRole("button", { name: "undo: keep this check" }));
   expect(onRestore).toHaveBeenCalledWith("cr1");
@@ -144,6 +144,6 @@ it("the good news names the solve's own day, or the settled explanations", () =>
 
 it("the card leaves Coming up out without the follow-up actions (an older sidecar)", () => {
   render(<RecapCard recap={card({ comingUp: undefined })} collapsed={false} now={NOW} {...handlers()} />);
-  expect(screen.queryByText("Coming up · checks on your own")).toBeNull();
+  expect(screen.queryByText("Coming up · cold checks")).toBeNull();
   expect(screen.queryByRole("button", { name: "undo: keep this check" })).toBeNull();
 });

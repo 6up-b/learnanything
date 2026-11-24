@@ -46,7 +46,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/curriculum/goal_lens.py](../../../../../../src/learnloop/curriculum/goal_lens.py) |
-| Source lines | 725 |
+| Source lines | 775 |
 | Owning package | [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -66,25 +66,28 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `reason_text(level: SectionLevel, section: SectionReads, goal: GoalReads) -> str` ([source](../../../../../../src/learnloop/curriculum/goal_lens.py), line 271) — The why card's "For <goal>: <why>" line (§12.3 point 6): the path's per-section reason for a section it places, assembled from the labels otherwise.
 - `learner_line(level: SectionLevel, section: SectionReads, goal: GoalReads) -> str | None` ([source](../../../../../../src/learnloop/curriculum/goal_lens.py), line 314) — The learner's own part in the level: their choice here or on the path, or today's answer.
 - `coverage_line(level: SectionLevel, section: SectionReads, goal: GoalReads) -> str | None` ([source](../../../../../../src/learnloop/curriculum/goal_lens.py), line 335) — "coverage: introduces “<LO>” · a goal LO · its primary section · core" (§12.3).
-- `level_view(level: SectionLevel, section: SectionReads, goal: GoalReads) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/goal_lens.py), line 356) — One section's level as ``goal.lens`` returns it (the frontend's marks, dimming and why card).
-- `class BandLo` ([source](../../../../../../src/learnloop/curriculum/goal_lens.py), line 389)
-- `band_learning_objects(los: Sequence[BandLo]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/curriculum/goal_lens.py), line 403) — One dot per LO in path order.
-- `band_counts(los: Iterable[BandLo]) -> dict[str, int]` ([source](../../../../../../src/learnloop/curriculum/goal_lens.py), line 421) — "N LEARNING OBJECTS · a LIKELY · b UNTESTED": the LOs within the chosen depth.
-- `class NextLine` ([source](../../../../../../src/learnloop/curriculum/goal_lens.py), line 430) — One path line as "next for the goal" reads it.
-- `next_for_goal(checks_due: int, first_check: Mapping[str, Any] | None, lines: Sequence[NextLine]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/goal_lens.py), line 440) — "◇ n cold checks due today", else the next unread primary section, else "the path is read".
-- `class Protection` ([source](../../../../../../src/learnloop/curriculum/goal_lens.py), line 481)
-  - `of(cls, held: Iterable[str], titles: Iterable[str], sections: Iterable[str]=(), depends: Iterable[str]=()) -> Protection` (line 493; public)
-  - `active(self) -> bool` (line 499; public)
-  - `names_held(self, text: Any) -> bool` (line 502; public) — Whether words name a held LO: its title as whole words, in any case (so "Rank" is not "ranking").
-  - `protects(self, extraction_id: Any, section_id: Any) -> bool` (line 510; public)
-  - `lo_masked(self, lo_id: Any) -> bool` (line 513; public)
-- `protect_path(view: Mapping[str, Any] | None, protection: Protection) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/curriculum/goal_lens.py), line 541) — The band's path view: a held LO's line names nothing; any line's section, alternates, exercise and reason are masked by what they treat, depend on or say.
-- `protect_band(reply: Mapping[str, Any], protection: Protection) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/goal_lens.py), line 575) — ``goal.band``: its dots, its next step and its path.
-- `protect_lens(reply: Mapping[str, Any], protection: Protection) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/goal_lens.py), line 602) — ``goal.lens``: a section treating a held LO (in any goal) is held: its title, reason, coverage line and every LO's name withheld; any other section's words are withheld where they name a held LO.
-- `chapter_held(chapter: Mapping[str, Any], protection: Protection, sections: Sequence[tuple[str, float, float | None]]=()) -> bool` ([source](../../../../../../src/learnloop/curriculum/goal_lens.py), line 643) — Whether a video chapter says something of a held LO: it is tagged with one, its title names one, or it spans a transcript section that treats one (``sections``: the video's (section id, t0, t1)).
-- `protect_chapters(chapters: Sequence[Mapping[str, Any]], protection: Protection, sections: Sequence[tuple[str, float, float | None]]=()) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/curriculum/goal_lens.py), line 655) — A video's chapters (``chapters.list``, ``chapters.decide``, a suggestion's result): a chapter about a held LO keeps its times and ids, its title neutral; a held LO's tag names nothing.
-- `protect_lessons(lessons: Sequence[Mapping[str, Any]], protection: Protection) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/curriculum/goal_lens.py), line 674) — Lesson summaries (``lesson.list``: the lesson windows' tabs, the path view's lesson row): a lesson on a held LO, or whose title or goal names one, keeps its ids and dates, its title neutral and its goal withheld.
-- `protect_follow(reply: Mapping[str, Any], protection: Protection, sections: Sequence[tuple[str, float, float | None]]=()) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/goal_lens.py), line 688) — ``reader.follow_along``: the chapter and transcript section a chip names, and the book's correspondent passages per LO, name nothing held (the chip shows them whether the book follows or is unlinked).
+- `level_view(level: SectionLevel, section: SectionReads, goal: GoalReads) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/goal_lens.py), line 358) — One section's level as ``goal.lens`` returns it (the frontend's marks, dimming and why card).
+- `class BandLo` ([source](../../../../../../src/learnloop/curriculum/goal_lens.py), line 391)
+- `band_learning_objects(los: Sequence[BandLo]) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/curriculum/goal_lens.py), line 405) — One dot per LO in path order.
+- `band_counts(los: Iterable[BandLo]) -> dict[str, int]` ([source](../../../../../../src/learnloop/curriculum/goal_lens.py), line 423) — "N LEARNING OBJECTS · a LIKELY · b UNTESTED": the LOs within the chosen depth.
+- `class NextLine` ([source](../../../../../../src/learnloop/curriculum/goal_lens.py), line 432) — One path line as "next for the goal" reads it.
+- `next_for_goal(checks_due: int, first_check: Mapping[str, Any] | None, lines: Sequence[NextLine]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/goal_lens.py), line 442) — "◇ n cold checks due today", else the next unread primary section, else "the path is read".
+- `class Protection` ([source](../../../../../../src/learnloop/curriculum/goal_lens.py), line 486)
+  - `of(cls, held: Iterable[str], titles: Iterable[str], sections: Iterable[str]=(), depends: Iterable[str]=()) -> Protection` (line 498; public)
+  - `active(self) -> bool` (line 504; public)
+  - `names_held(self, text: Any) -> bool` (line 507; public) — Whether words name a held LO: its title as whole words, in any case (so "Rank" is not "ranking").
+  - `mask_names(self, text: Any) -> Any` (line 515; public) — The words with every held LO's name (as whole words, any case) replaced by :data:`HIDDEN_TOPIC`: the learner's own sentence keeps everything else.
+  - `protects(self, extraction_id: Any, section_id: Any) -> bool` (line 525; public)
+  - `lo_masked(self, lo_id: Any) -> bool` (line 528; public)
+- `protect_path(view: Mapping[str, Any] | None, protection: Protection) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/curriculum/goal_lens.py), line 556) — The band's path view: a held LO's line names nothing; any line's section, alternates, exercise and reason are masked by what they treat, depend on or say.
+- `protect_goal(goal: Mapping[str, Any] | None, protection: Protection) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/curriculum/goal_lens.py), line 590) — A goal as the band and the chooser show it: the learner's words, with only a held LO's name masked.
+- `protect_unmatched(rows: Sequence[Any], protection: Protection) -> list[Any]` ([source](../../../../../../src/learnloop/curriculum/goal_lens.py), line 602) — The goal's unmatched phrases: a phrase or proposed title that names a held LO keeps its other words, the name masked, and is marked ``held`` (so it is never offered to add as it reads).
+- `protect_band(reply: Mapping[str, Any], protection: Protection) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/goal_lens.py), line 622) — ``goal.band``: its goal, unmatched phrases, dots, next step and path.
+- `protect_lens(reply: Mapping[str, Any], protection: Protection) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/goal_lens.py), line 651) — ``goal.lens``: a section treating a held LO (in any goal) is held: its title, reason, coverage line and every LO's name withheld; any other section's words are withheld where they name a held LO.
+- `chapter_held(chapter: Mapping[str, Any], protection: Protection, sections: Sequence[tuple[str, float, float | None]]=()) -> bool` ([source](../../../../../../src/learnloop/curriculum/goal_lens.py), line 692) — Whether a video chapter says something of a held LO: it is tagged with one, its title names one, or it spans a transcript section that treats one (``sections``: the video's (section id, t0, t1)).
+- `protect_chapters(chapters: Sequence[Mapping[str, Any]], protection: Protection, sections: Sequence[tuple[str, float, float | None]]=()) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/curriculum/goal_lens.py), line 704) — A video's chapters (``chapters.list``, ``chapters.decide``, a suggestion's result): a chapter about a held LO keeps its times and ids, its title neutral; a held LO's tag names nothing.
+- `protect_lessons(lessons: Sequence[Mapping[str, Any]], protection: Protection) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/curriculum/goal_lens.py), line 723) — Lesson summaries (``lesson.list``: the lesson windows' tabs, the path view's lesson row): a lesson on a held LO, or whose title or goal names one, keeps its ids and dates, its title neutral and its goal withheld.
+- `protect_follow(reply: Mapping[str, Any], protection: Protection, sections: Sequence[tuple[str, float, float | None]]=()) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/goal_lens.py), line 737) — ``reader.follow_along``: the chapter and transcript section a chip names, and the book's correspondent passages per LO, name nothing held (the chip shows them whether the book follows or is unlinked).
 
 ### Module constants
 
@@ -102,10 +105,11 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `LO_KINDS` ([src/learnloop/curriculum/goal_lens.py](../../../../../../src/learnloop/curriculum/goal_lens.py), line 62)
 - `REASON_KEYS` ([src/learnloop/curriculum/goal_lens.py](../../../../../../src/learnloop/curriculum/goal_lens.py), line 65)
 - `HELD_REASON` ([src/learnloop/curriculum/goal_lens.py](../../../../../../src/learnloop/curriculum/goal_lens.py), line 264)
-- `READINESS` ([src/learnloop/curriculum/goal_lens.py](../../../../../../src/learnloop/curriculum/goal_lens.py), line 385)
-- `NEUTRAL_LO` ([src/learnloop/curriculum/goal_lens.py](../../../../../../src/learnloop/curriculum/goal_lens.py), line 473)
-- `NEUTRAL_SECTION` ([src/learnloop/curriculum/goal_lens.py](../../../../../../src/learnloop/curriculum/goal_lens.py), line 475)
-- `NEUTRAL_EXERCISE` ([src/learnloop/curriculum/goal_lens.py](../../../../../../src/learnloop/curriculum/goal_lens.py), line 477)
+- `READINESS` ([src/learnloop/curriculum/goal_lens.py](../../../../../../src/learnloop/curriculum/goal_lens.py), line 387)
+- `NEUTRAL_LO` ([src/learnloop/curriculum/goal_lens.py](../../../../../../src/learnloop/curriculum/goal_lens.py), line 475)
+- `NEUTRAL_SECTION` ([src/learnloop/curriculum/goal_lens.py](../../../../../../src/learnloop/curriculum/goal_lens.py), line 477)
+- `NEUTRAL_EXERCISE` ([src/learnloop/curriculum/goal_lens.py](../../../../../../src/learnloop/curriculum/goal_lens.py), line 479)
+- `HIDDEN_TOPIC` ([src/learnloop/curriculum/goal_lens.py](../../../../../../src/learnloop/curriculum/goal_lens.py), line 482)
 
 ### Explicit exports
 
@@ -133,6 +137,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `protect_band`
 - `protect_chapters`
 - `protect_follow`
+- `protect_goal`
+- `protect_unmatched`
 - `protect_lens`
 - `protect_lessons`
 - `protect_path`
@@ -142,9 +148,9 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 - `_need_rank(level: str) -> int` ([source](../../../../../../src/learnloop/curriculum/goal_lens.py), line 210)
 - `_quoted(title: str) -> str` ([source](../../../../../../src/learnloop/curriculum/goal_lens.py), line 267)
-- `_neutral(section: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/goal_lens.py), line 517) — A section reference with nothing of what it treats: neutral title, no treatment, no difference.
-- `_section(section: Mapping[str, Any] | None, protection: Protection) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/curriculum/goal_lens.py), line 527) — A section reference (a path line's, an alternate, a band dot's primary, ``next``): neutral words when it treats a held LO or its title names one.
-- `_overlaps(t0: Any, t1: Any, start: float, end: float | None) -> bool` ([source](../../../../../../src/learnloop/curriculum/goal_lens.py), line 639)
+- `_neutral(section: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/curriculum/goal_lens.py), line 532) — A section reference with nothing of what it treats: neutral title, no treatment, no difference.
+- `_section(section: Mapping[str, Any] | None, protection: Protection) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/curriculum/goal_lens.py), line 542) — A section reference (a path line's, an alternate, a band dot's primary, ``next``): neutral words when it treats a held LO or its title names one.
+- `_overlaps(t0: Any, t1: Any, start: float, end: float | None) -> bool` ([source](../../../../../../src/learnloop/curriculum/goal_lens.py), line 688)
 
 ## Who imports or calls it
 
@@ -152,7 +158,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/source_retrieval/goal_lens_reads|learnloop.source_retrieval.goal_lens_reads]] — imports `module`; statically calls `BandLo`, `Coverage`, `GoalLo`, `GoalReads`, `NextLine`, `PathPlace`, `Protection`, `SectionReads`, `band_counts`, `band_learning_objects`, `level_view`, `next_for_goal`, `protect_band`, `protect_lens`, `section_level`
-- [[Reference/Modules/learnloop_sidecar/handlers/goal_lens|learnloop_sidecar.handlers.goal_lens]] — imports `module`
+- [[Reference/Modules/learnloop_sidecar/handlers/goal_lens|learnloop_sidecar.handlers.goal_lens]] — imports `module`; statically calls `protect_goal`
 - [[Reference/Modules/learnloop_sidecar/handlers/lesson|learnloop_sidecar.handlers.lesson]] — imports `module`; statically calls `protect_lessons`
 - [[Reference/Modules/learnloop_sidecar/handlers/video|learnloop_sidecar.handlers.video]] — imports `module`; statically calls `protect_chapters`, `protect_follow`
 
@@ -186,13 +192,17 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_nothing_left_names_the_held_lo_and_nothing_changes_without_a_due_check`
 - [tests/test_reader_rd10_fix_sweep.py](../../../../../../tests/test_reader_rd10_fix_sweep.py) — direct import
   - `test_a_lesson_on_a_topic_whose_check_is_due_names_nothing_in_its_tab`
+- [tests/test_reader_rd10_video.py](../../../../../../tests/test_reader_rd10_video.py) — direct import
+  - `test_a_saved_chapter_names_nothing_once_its_video_is_marked_exam_material`
 - [tests/test_reader_rd6_fix_protection.py](../../../../../../tests/test_reader_rd6_fix_protection.py) — direct import
+  - `test_a_goals_own_words_keep_everything_but_a_held_topics_name`
   - `test_a_held_los_own_path_row_names_nothing`
   - `test_a_title_is_matched_as_whole_words`
   - `test_another_goals_due_check_masks_a_shared_section_and_names_nothing_of_it`
   - `test_every_text_bearing_band_field_is_masked`
   - `test_every_text_bearing_lens_field_is_masked`
   - `test_no_string_left_names_the_held_lo_and_nothing_changes_without_a_due_check`
+  - `test_the_band_and_the_chooser_show_the_goal_in_the_learners_words_masked_only_while_its_check_is_due`
 - [tests/test_reader_rd6a_goal_lens.py](../../../../../../tests/test_reader_rd6a_goal_lens.py) — direct import
   - `test_a_due_check_hides_its_los_purpose_text_and_comes_first_next`
 - [tests/test_reader_rd6a_goal_lens_core.py](../../../../../../tests/test_reader_rd6a_goal_lens_core.py) — direct import

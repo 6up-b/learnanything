@@ -224,12 +224,12 @@ def test_reason_text_is_the_paths_own_line_on_the_path_and_assembled_off_it():
     level = GL.section_level(primary, goal)
     assert GL.reason_text(level, primary, goal) == "Strang's chapter is the clearest for you."
     assert GL.coverage_line(level, primary, goal) == (
-        "coverage: develops “Eigenvalues” · a goal LO · its primary section · core")
+        "This section develops “Eigenvalues” · goal topic · main reading")
     alternate = GL.SectionReads(HERE, "Here", cov(("lo_b", "develops")), ("lo_b",))
     assert GL.reason_text(GL.section_level(alternate, goal), alternate, goal) == "shorter, with pictures"
     deep = GL.SectionReads(HERE, "Here", cov(("lo_deep", "applies")))
     assert GL.reason_text(GL.section_level(deep, goal), deep, goal) == (
-        "Needed for “Fields” only deeper than get the idea.")
+        "Needed for “Fields” only at a deeper level than get the idea.")
 
 
 def test_the_learner_line_names_their_choice_or_todays_answer():
@@ -256,7 +256,7 @@ def test_a_chapters_words():
     level = GL.section_level(section, goal)
     assert GL.reason_text(level, section, goal) == "A chapter you accepted here is about “Bases”, a topic of your goal."
     assert GL.coverage_line(level, section, goal) == (
-        "coverage: is about (a chapter you accepted) “Bases” · a goal LO · not on your path here · supporting")
+        "A chapter you accepted is about “Bases” · goal topic · outside your current path")
 
 
 def test_the_band_counts_within_the_depth_and_hides_held_names():

@@ -41,9 +41,9 @@ afterEach(() => {
 
 it("shows each cell's header and code, the tutor's marked, and no kernel until ⇧↵", () => {
   render(<Cells />);
-  expect(screen.getAllByText(/marimo · reactive · runs when you press ⇧↵/)).toHaveLength(2);
+  expect(screen.getAllByText(/Python cell · ⇧↵/)).toHaveLength(2);
   expect(screen.getByText(/the tutor's/)).toBeTruthy();
-  expect(screen.getAllByText("kernel not started")).toHaveLength(2);
+  expect(screen.getAllByText("Ready to run")).toHaveLength(2);
   expect(document.querySelector("[data-cell-group]")).toBeNull();
 });
 
@@ -72,14 +72,14 @@ it("⇧↵ commits the edit, waits for the pad's writes, and starts the pad's ke
 it("with the kernel running, ⇧↵ runs the cell's code in it under the cell's name", async () => {
   render(<Cells />);
   await act(async () => {
-    fireEvent.click(screen.getAllByLabelText("run this cell")[0]);
+    fireEvent.click(screen.getAllByLabelText("Run code")[0]);
     await Promise.resolve();
   });
   const opened = await api.notebookOpen();
   act(() => notePadSession(padNotebookKey("", "p1"), { ...opened, state: "ready" }));
   api.notebookRunCells.mockResolvedValue({ version: 1, sessionId: "nbs_1", ran: ["c_b"] });
   await act(async () => {
-    fireEvent.click(screen.getAllByLabelText("run this cell")[1]);
+    fireEvent.click(screen.getAllByLabelText("Run code")[1]);
     await Promise.resolve();
   });
   expect(api.notebookRunCells).toHaveBeenCalledWith({ sessionId: "nbs_1", cells: [{ name: "c_b", code: "y = x * 3\ny" }] });
@@ -106,7 +106,7 @@ it("a pad of the same id in another vault starts nothing of this vault's kernel"
     </PadsHostContext.Provider>,
   );
   await act(async () => {
-    fireEvent.click(screen.getByLabelText("run this cell"));
+    fireEvent.click(screen.getByLabelText("Run code"));
     await Promise.resolve();
   });
   view.unmount();
@@ -115,5 +115,5 @@ it("a pad of the same id in another vault starts nothing of this vault's kernel"
       <PadCell padId="p1" block={blocks[0]} blocks={blocks} editable onCommit={vi.fn()} />
     </PadsHostContext.Provider>,
   );
-  expect(screen.getByText("kernel not started")).toBeTruthy();
+  expect(screen.getByText("Ready to run")).toBeTruthy();
 });

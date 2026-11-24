@@ -141,7 +141,8 @@ def test_with_embeddings_off_nothing_runs_by_meaning_and_each_group_says_why(sea
     assert meaning["status"] == "unavailable" and meaning["jobId"] is None
     reasons = {entry["group"]: entry["reason"] for entry in meaning["unavailable"]}
     assert set(reasons) == {"passages", "notes", "pads", "threads", "exchanges"}
-    assert "embedding" in reasons["passages"] and "no meaning index" in reasons["pads"]
+    assert reasons["passages"] == "Similar-passage search is unavailable. Word search is available."
+    assert reasons["pads"] == "Pads are searched by word matches."
     assert getattr(ctx, "search_jobs", None) is None or not ctx.search_jobs._jobs
 
 

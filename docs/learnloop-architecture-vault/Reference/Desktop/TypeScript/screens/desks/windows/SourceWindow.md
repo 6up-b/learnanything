@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/windows/SourceWindow.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/windows/SourceWindow.tsx) |
-| Source lines | 87 |
+| Source lines | 122 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/windows/_area|TypeScript/screens/desks/windows]] |
 | Refactor status | `ACTIVE` |
@@ -54,16 +54,16 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export type ReaderPassThrough = Pick<ComponentProps<typeof ReaderScreen>, "onCheckMe" | "onUseExercise" | "onTeachMe" | "workbench">` — type, line 12
-- `export interface SourceStatus` — interface, line 14
-- `export function SourceWindow(` — function, line 21
+- `export type ReaderPassThrough = Pick<ComponentProps<typeof ReaderScreen>, "onCheckMe" | "onUseExercise" | "onTeachMe" | "workbench">` — type, line 13
+- `export interface SourceStatus` — interface, line 15
+- `export function SourceWindow(` — function, line 22
 
 ## Internal implementation anchors
 
-- `const onTitle = useCallback((title: string)` — const, line 51
-- `const onReaderStatus = useCallback( (status:` — const, line 52
-- `const windowing = useMemo<ReaderWindowing>( ()` — const, line 58
-- `const initialSource = useMemo( ()` — const, line 63
+- `const onTitle = useCallback((title: string)` — const, line 85
+- `const onReaderStatus = useCallback( (status:` — const, line 86
+- `const windowing = useMemo<ReaderWindowing>( ()` — const, line 92
+- `const initialSource = useMemo( ()` — const, line 97
 
 ## Who imports or calls it
 
@@ -73,15 +73,17 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/fixtures/desks/harness|src/fixtures/desks/harness.tsx]] — import-or-re-export: `SourceWindow`; references `SourceWindow`
 - [[Reference/Desktop/TypeScript/screens/desks/DeskShell|src/screens/desks/DeskShell.tsx]] — import-or-re-export: `ReaderPassThrough`, `SourceStatus`, `SourceWindow`; references `ReaderPassThrough`, `SourceStatus`, `SourceWindow`
 - [[Reference/Desktop/TypeScript/screens/desks/video/VideoWindow|src/screens/desks/video/VideoWindow.tsx]] — import-or-re-export: `SourceWindow`; references `SourceWindow`
+- [[Reference/Desktop/TypeScript/screens/desks/windows/PanelWindow|src/screens/desks/windows/PanelWindow.tsx]] — import-or-re-export: `ReaderPassThrough`; references `ReaderPassThrough`
 
 ## Dependencies
 
 ### Desktop source modules
 
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `ContentRefDto`, `SourceLibraryCard`
-- [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] — import-or-re-export; imports `PenSurface`, `ReaderLens`, `ReaderScreen`, `ReaderWindowing`
+- [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] — import-or-re-export; imports `PenSurface`, `ReaderLens`, `ReaderScreen`, `ReaderWindowing`, `WindowInquiry`
 - [[Reference/Desktop/TypeScript/screens/desks/pen/PenLayer|src/screens/desks/pen/PenLayer.tsx]] — import-or-re-export; imports `PenLayer`
 - [[Reference/Desktop/TypeScript/screens/reader/YouTubeWatchPanel|src/screens/reader/YouTubeWatchPanel.tsx]] — import-or-re-export; imports `VideoExtras`
+- [[Reference/Desktop/TypeScript/screens/reader/useReaderInquiry|src/screens/reader/useReaderInquiry.ts]] — import-or-re-export; imports `WindowAsk`
 
 ### Assets, platform, and third-party dependencies
 

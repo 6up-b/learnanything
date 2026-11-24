@@ -2160,7 +2160,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_measurement_state_labels.py](../../../../../../tests/test_measurement_state_labels.py) — direct import
 - [tests/test_menu_promoted_rows.py](../../../../../../tests/test_menu_promoted_rows.py) — direct import
 - [tests/test_menu_protected_material.py](../../../../../../tests/test_menu_protected_material.py) — direct import
+  - `test_a_stored_mark_on_held_out_material_reaches_no_other_surface`
   - `test_search_elsewhere_never_finds_or_judges_protected_material`
+  - `test_the_menus_verbs_agree_with_their_destinations_and_the_classic_reader`
 - [tests/test_method_explicit_landing.py](../../../../../../tests/test_method_explicit_landing.py) — direct import
   - `test_a_plan_rows_preview_keeps_the_sentence_whole`
   - `test_check_me_keeps_the_sentence_whole_when_it_clips`
@@ -3401,6 +3403,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_source_scoped_teach_back_does_not_reuse_lo_wide_card`
 - [tests/test_teach_handoff_stop_settles.py](../../../../../../tests/test_teach_handoff_stop_settles.py) — direct import
   - `test_the_calibration_dialogue_s_stop_settles_its_committed_turns`
+- [tests/test_teacher_carried_questions.py](../../../../../../tests/test_teacher_carried_questions.py) — direct import
 - [tests/test_teacher_exam_question_guard.py](../../../../../../tests/test_teacher_exam_question_guard.py) — direct import
   - `test_a_reserved_question_split_between_message_and_check_is_withheld`
   - `test_a_short_reserved_question_counts_when_an_ordinary_item_shows_its_number`

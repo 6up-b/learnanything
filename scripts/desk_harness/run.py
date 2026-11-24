@@ -33,7 +33,7 @@ head, a pad stack's goal line, and one whole-reading goal.lens per reading in vi
 
 The pads' run (RD4) adds the RD4 deep links' equivalents (the running pad, the sticky tabs' merge and
 fillets, the § row's hover fade, the submitted tag, ⓘ, the editor writing through pad.apply, the pad menu,
-lift out, a sketch block's tools, arrange and split, a passage's ✎ link, the carried ◌, the drain) and display
+lift out, a sketch block's tools, arrange and split, a passage's ✎ link, the saved question's ◌, the drain) and display
 math in the companion's answer. The display-math run (`?latex=1`, spec §13.4 rule 5) renders tall and wide
 equations in every pad block kind at three widths and in a hover card, and measures each equation's ink
 against its nearest clipping ancestor below the window's scroller, before and after a resize.
@@ -50,6 +50,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import datetime
 import functools
 import http.server
 import json
@@ -62,6 +63,8 @@ from playwright.async_api import Page, Route, async_playwright
 ROOT = Path(__file__).resolve().parents[2]
 DIST = ROOT / "apps" / "learnloop-tauri" / "dist-desk-harness"
 VIEWPORT = {"width": 1600, "height": 960}
+#: The synthetic workspace's "now" (its pads' newest day): every harness page starts its clock here.
+FIXTURE_NOW = datetime.datetime(2026, 11, 23, 12, 0, tzinfo=datetime.UTC)
 
 # A stand-in for the YouTube widget: after the page's "listening" handshake it reports a time of its
 # own (from the URL's `t` parameter) as the real widget does, and records every command it is sent.
@@ -567,7 +570,7 @@ async def run_overview(page: Page, base: str, results: Results, shots: Path | No
     await page.mouse.up()
     await page.keyboard.up("Control")
     await settle(page, 900)
-    results.check("ctrl+drag on the background scrubs the zoom, with the HUD saying so", await overview_on(page) and "ctrl + drag" in hud, hud)
+    results.check("ctrl+drag on the background scrubs the zoom, with the HUD saying so", await overview_on(page) and "ctrl + drag" in hud.lower(), hud)
     await page.keyboard.press("Escape")
     await settle(page, 900)
 
@@ -748,7 +751,7 @@ async def run_companion(page: Page, base: str, results: Results, shots: Path | N
 
     # #spot=softmax: / opens search; groups, open on this desk first; the meaning pass merges in with its tag.
     # A second question is asked first and held open, so the hover below is timed while an answer generates.
-    await page.locator(".desk-companion .ctabs button", has_text="tutor").click()
+    await page.locator(".desk-companion .ctabs button", has_text="this desk").click()
     await page.evaluate("() => { window.__deskHarness.companion.held = true; }")
     await page.locator(".desk-companion .input").fill("and what does a temperature change?")
     await page.locator(".desk-companion .input").press("Enter")
@@ -766,7 +769,7 @@ async def run_companion(page: Page, base: str, results: Results, shots: Path | N
         await page.keyboard.press("ArrowDown")
     await page.keyboard.press("Tab")
     await page.wait_for_timeout(200)
-    tagged = await page.locator(".desk-search .r .w", has_text="by meaning").count()
+    tagged = await page.locator(".desk-search .r .w", has_text="Similar match").count()
     results.check("/ opens search: groups in order with open on this desk first; the meaning pass merges in tagged (#spot=softmax)",
                   bool(groups) and groups[0] == "open" and "passages" in groups and tagged >= 1, [groups, tagged])
     sel_top = await page.evaluate("() => document.querySelector('.desk-search-sel')?.style.top")
@@ -943,7 +946,7 @@ async def run_pads(page: Page, base: str, results: Results, shots: Path | None) 
     # #s12=info: the ⓘ popover says where the words go.
     await page.locator(".desk-pane-head .pinfo").click()
     info = await page.locator(".desk-pads .pinfo-pop").inner_text()
-    results.check("ⓘ says where your words go and that only submitted blocks count (#s12=info)", "where your words go" in info and "Only blocks you submit" in info, info[:80])
+    results.check("ⓘ says where your words go and that only submitted blocks count (#s12=info)", "where your words go" in info and "when you submit it" in info, info[:80])
     await shot(page, shots, "pads-info")
     await page.locator(".desk-pane-head .pinfo").click()
 
@@ -963,7 +966,7 @@ async def run_pads(page: Page, base: str, results: Results, shots: Path | None) 
     # #s11=menu: right-click a line of yours.
     await page.locator('.desk-pads [data-block="fx_b_r1"]').click(button="right")
     menu = await page.locator(".desk-menu").inner_text()
-    results.check("the pad menu: the verbs, then INSERT BELOW THIS LINE with the marimo cell row live (#s11=menu)", "Ask about this" in menu and "Submit this block as…" in menu and "INSERT BELOW THIS LINE" in menu and "marimo cell" in menu and "arrives with notebooks" not in menu, menu[:160])
+    results.check("the pad menu: the verbs, then INSERT BELOW THIS LINE with the Python cell row live (#s11=menu)", "Ask about this" in menu and "Submit this block as…" in menu and "INSERT BELOW THIS LINE" in menu and "Python cell" in menu and "arrives with notebooks" not in menu, menu[:160])
     await shot(page, shots, "pads-menu")
     await page.keyboard.press("Escape")
 
@@ -990,7 +993,7 @@ async def run_pads(page: Page, base: str, results: Results, shots: Path | None) 
     await settle(page, 600)
     stub = await page.locator('.desk-pads [data-block="fx_b_r7"] .lifted').inner_text()
     tabs = await page.locator(".desk-pads .ptab").count()
-    results.check("lift out leaves '→ lifted to …' and a third pad in the stack (#s11=lift)", stub.startswith("→ lifted to") and tabs == 3, [stub[:60], tabs])
+    results.check("lift out leaves '→ Moved to …' and a third pad in the stack (#s11=lift)", stub.startswith("→ Moved to") and tabs == 3, [stub[:60], tabs])
     await shot(page, shots, "pads-lift")
 
     # #s11=sketchqk: alt+d adds a sketch block with every tool.
@@ -1027,7 +1030,7 @@ async def run_pads(page: Page, base: str, results: Results, shots: Path | None) 
 
     # The carried question's quiet ◌ beside its passage, logged as surfaced once.
     surfaced = [call for call in await calls(page, "carried_mark") if call["input"].get("event") == "surfaced"]
-    results.check("a carried question shows as a quiet ◌ beside its passage and is logged as surfaced once", await page.locator(".desk-pmark.carried").count() >= 1 and len(surfaced) == 1, len(surfaced))
+    results.check("a saved question shows as a quiet ◌ beside its passage and is logged as surfaced once", await page.locator(".desk-pmark.carried").count() >= 1 and len(surfaced) == 1, len(surfaced))
 
     # The drain: alt+shift+q.
     await page.keyboard.press("Alt+Shift+Q")
@@ -1094,7 +1097,7 @@ async def run_menus(page: Page, base: str, results: Results, shots: Path | None)
     # The judged row arrives through the job on the poller, said to be found by search and not checked.
     await page.wait_for_selector('.desk-menu .pro .mi:has-text("the same step in another source")', timeout=8000)
     judged = await page.locator('.desk-menu .pro .mi:has-text("the same step in another source")').inner_text()
-    results.check("a judged row arrives through the job and says it was found by search, not checked", "found by search, not checked" in judged, judged[:120])
+    results.check("a judged row arrives through the job and says it was found by search, not checked", "from search, not checked" in judged, judged[:120])
     verbs = [line.split("\n")[0] for line in await page.locator(".desk-menu > .mi .t").all_inner_texts()]
     results.check("the passage's fixed verbs follow the promoted block", len(verbs) >= 10 and verbs[0] == "Ask" and verbs[-1] == "What this knows", verbs)
     await shot(page, shots, "menu-passage")
@@ -1179,6 +1182,129 @@ async def run_intent(page: Page, base: str, results: Results, shots: Path | None
     value = await page.locator("[data-intent-box] input").input_value()
     rect = await companion_rect(page)
     results.check("with the focus in the intent box, c and / are typed into it and summon nothing", value.endswith("cc/") and rect is None and await page.locator("[data-desk-search]").count() == 0, [value, rect])
+    await page.keyboard.press("Escape")
+    await page.mouse.click(5, 300)
+    await settle(page, 300)
+    # Ctrl+drag boxes over the book's text (the Reader's marquee, spec §7.1): releasing ctrl commits the boxes' words
+    # as one selection in the window, and the desks take neither the drag (no zoom scrub) nor the chord.
+    box = await page.evaluate("""() => { const ps = [...document.querySelectorAll('[data-desk-window="fx_w_book"] [data-span-id]')].filter((e) => e.textContent.includes('largest score') || e.textContent.includes('Adding the same constant'));
+      ps[0].scrollIntoView({ block: 'center' }); const a = ps[0].getBoundingClientRect(); return { x: a.x, y: a.y, w: a.width, h: a.height }; }""")
+    box_before = await page.locator('[data-desk-window="fx_w_book"] [data-intent-box]').count()
+    await page.keyboard.down("Control")
+    await page.mouse.move(box["x"] + 4, box["y"] + 2)
+    await page.mouse.down()
+    await page.mouse.move(box["x"] + box["w"] * 0.6, box["y"] + box["h"] - 2, steps=8)
+    await page.mouse.up()
+    await page.keyboard.up("Control")
+    await settle(page, 500)
+    marquee = await page.evaluate("""() => ({ box: !!document.querySelector('[data-desk-window="fx_w_book"] [data-intent-box]'),
+      overview: document.querySelector('[data-desk-shell]')?.getAttribute('data-overview'), zooming: document.querySelector('[data-desk-shell]')?.classList.contains('zooming') })""")
+    results.check("ctrl+drag boxes over a book window's text commit their words as one selection there (its intent box), and the desks neither zoom nor take the chord",
+                  box_before == 0 and marquee["box"] and marquee["overview"] == "off" and not marquee["zooming"], [box_before, marquee])
+
+    # A claim of the open book in the companion's answer peeks in the book's window (spec §21.1): its detour strip
+    # shows where the learner was, in the desk's dark tokens on the window's dark, and alt+← walks back to it.
+    await page.goto(f"{base}/desk-harness.html")
+    await page.wait_for_selector("[data-desk-window]")
+    await settle(page, 1500)
+    await page.evaluate("""() => { const p = [...document.querySelectorAll('[data-desk-window="fx_w_book"] [data-span-id]')].find((e) => e.textContent.includes("Adding the same constant"));
+      const sc = p.closest('.ll-scroll'); sc.scrollTop += p.getBoundingClientRect().top - sc.getBoundingClientRect().top - 300; }""")
+    await settle(page, 300)
+    await select_passage(page, "Adding the same constant")
+    await page.keyboard.press("c")
+    await settle(page, 400)
+    await page.locator('[aria-label="ask about this"]').fill("why does the constant cancel?")
+    await page.keyboard.press("Enter")
+    await page.wait_for_selector("button.claim", timeout=5000)
+    await page.locator("button.claim").first.click()
+    await settle(page, 800)
+    strip = await page.evaluate("""() => { const n = document.querySelector('[data-desk-window="fx_w_book"] nav[aria-label="Detour"]'); if (!n) return null;
+      const link = n.querySelector('button'); return { text: n.textContent, color: getComputedStyle(n).color, link: link ? getComputedStyle(link).color : null }; }""")
+    await shot(page, shots, "claim-peek")
+    results.check("a claim of the open book peeks in its window: the detour strip shows the way back, in the desk's dark tokens",
+                  bool(strip) and "alt+← back" in strip["text"] and strip["color"] == "rgb(139, 139, 157)" and strip["link"] == "rgb(227, 160, 99)", strip)
+    await page.keyboard.press("Alt+ArrowLeft")
+    await settle(page, 600)
+    restored = await calls(page, "reader_restore_source")
+    results.check("alt+← in that window walks back to where the learner was", len(restored) == 1, restored)
+
+    # A margin note written with n shows in the book's margin at once (spec §7.1: "›" 30 px left of the text, drawn by
+    # CSS so a selection never quotes it), and opens a card under its passage with the learner's words.
+    target = page.locator('[data-desk-window="fx_w_book"] [data-span-id]', has_text="largest score").first
+    await target.scroll_into_view_if_needed()
+    await target.hover()
+    await page.keyboard.press("n")
+    await settle(page, 400)
+    await page.keyboard.type("a soft maximum keeps runners-up")
+    await page.get_by_text("keep it").click()
+    await settle(page, 1200)
+    mark = await page.evaluate("""() => { const m = document.querySelector('[data-desk-window="fx_w_book"] [data-window-note-mark]'); if (!m) return null;
+      const p = m.closest('[data-span-id]'), ps = getComputedStyle(p), r = m.getBoundingClientRect(), pr = p.getBoundingClientRect();
+      return { glyph: getComputedStyle(m, '::before').content, text: m.textContent, gap: Math.round(pr.left + parseFloat(ps.borderLeftWidth) + parseFloat(ps.paddingLeft) - r.left) }; }""")
+    results.check("a margin note written with n shows › in the book's margin at once, drawn by CSS, 30 px left of the text",
+                  bool(mark) and mark["glyph"] == '"›"' and mark["text"] == "" and abs(mark["gap"] - 30) <= 4, mark)
+    await page.locator('[data-desk-window="fx_w_book"] [data-window-note-mark]').first.click()
+    await settle(page, 400)
+    card = await page.locator('[data-desk-window="fx_w_book"] [data-window-notes]').inner_text() if await page.locator('[data-desk-window="fx_w_book"] [data-window-notes]').count() else ""
+    await shot(page, shots, "window-note-card")
+    results.check("the › opens the learner's words in a card under the passage, to edit or delete", "a soft maximum keeps runners-up" in card and "edit note" in card and "delete" in card, card[:120])
+
+    # Last time here and Wrap up on a desk (`?recap=1`): the recap card at the top of the book's window, recorded as
+    # shown once; closing the desk's day shows the pads first, then the book's Wrap up, named by its book.
+    await page.goto(f"{base}/desk-harness.html?recap=1")
+    await page.wait_for_selector("[data-desk-window]")
+    await settle(page, 1800)
+    recap = await page.evaluate("""() => { const c = document.querySelector('[data-desk-window="fx_w_book"] [data-window-recap] [data-recap-card]'); if (!c) return null;
+      const first = document.querySelector('[data-desk-window="fx_w_book"] [data-span-id]'); return { text: c.textContent, above: !!(c.compareDocumentPosition(first) & 4),
+      bg: getComputedStyle(c).backgroundColor, color: getComputedStyle(c).color }; }""")
+    shown = [call for call in await calls(page, "reader_recap_event") if call["input"].get("event") == "recap_shown"]
+    await shot(page, shots, "window-recap")
+    results.check("coming back to the book, the recap card shows at the top of its window, recorded as shown once",
+                  bool(recap) and recap["above"] and "does the constant always cancel?" in recap["text"] and len(shown) == 1, [recap, len(shown)])
+    await page.keyboard.press("Alt+Shift+Q")
+    await settle(page, 1200)
+    drain = await page.evaluate("""() => { const d = document.querySelector('.desk-drain'); const w = d && d.querySelector('[data-drain-wrap-up]'); if (!w) return null;
+      return { from: w.querySelector('.from').textContent, after: !!(d.querySelector('.head').compareDocumentPosition(w) & 4), lines: w.textContent.includes('does the constant always cancel?') }; }""")
+    await shot(page, shots, "drain-wrap-up")
+    results.check("closing the desk's day shows the book's Wrap up after the pads, named by its book",
+                  bool(drain) and drain["after"] and drain["lines"] and "Softmax" in drain["from"], drain)
+    await page.keyboard.press("Escape")
+
+    # With no goal, p opens the focused book's own reading path in its window (RW7a kept on a desk), at its top.
+    await settle(page, 300)
+    await page.locator('[data-desk-window="fx_w_book"] .desk-pane-head').click()
+    await settle(page, 300)
+    await page.keyboard.press("p")
+    await settle(page, 800)
+    region = await page.evaluate("""() => { const r = document.querySelector('[data-desk-window="fx_w_book"] [data-window-path]'); if (!r) return null;
+      const sc = r.closest('.ll-scroll'); const rr = r.getBoundingClientRect(), sr = sc.getBoundingClientRect();
+      return { text: r.textContent.slice(0, 120), top: Math.round(rr.top - sr.top), height: Math.round(rr.height), visible: rr.bottom > sr.top && rr.top < sr.bottom }; }""")
+    await shot(page, shots, "window-path")
+    results.check("with no goal, p opens the book's reading path in its window, in view at its top", bool(region) and region["visible"] and region["height"] > 60 and "How deep" in region["text"], region)
+    await page.keyboard.press("Escape")
+    await settle(page, 300)
+    closed = await page.locator('[data-desk-window="fx_w_book"] [data-window-path]').count()
+    results.check("esc closes the reading path", closed == 0, closed)
+
+    # A quick check placed before a section (`?checks=1`) shows in the book's window under the section's opening.
+    await page.goto(f"{base}/desk-harness.html?checks=1")
+    await page.wait_for_selector("[data-desk-window]")
+    await settle(page, 1800)
+    # The book opens following the video, past its first section: a check left behind is offered once the learner
+    # reads on in this visit, so the learner scrolls back up to it.
+    box = await page.locator('[data-desk-window="fx_w_book"] .ll-scroll').first.bounding_box()
+    await page.mouse.move(box["x"] + box["width"] / 2, box["y"] + 200)
+    for _ in range(6):
+        await page.mouse.wheel(0, -400)
+        await settle(page, 150)
+    await settle(page, 600)
+    check = await page.evaluate("""() => { const c = document.querySelector('[data-desk-window="fx_w_book"] [data-quick-check]'); if (!c) return null;
+      const next = document.querySelector('[data-desk-window="fx_w_book"] [data-span-id="fx_ext_softmax_s2_h"]');
+      return { text: c.textContent.slice(0, 160), beforeNext: !!(c.compareDocumentPosition(next) & 4), width: Math.round(c.getBoundingClientRect().width) }; }""")
+    await page.locator('[data-desk-window="fx_w_book"] [data-quick-check]').first.scroll_into_view_if_needed()
+    await settle(page, 300)
+    await shot(page, shots, "window-check")
+    results.check("a quick check placed before a section shows in the book's window, in that section", bool(check) and "what should weights" in check["text"] and check["beforeNext"], check)
 
 
 GOAL_BOOK = "[data-desk-window='fx_w_book']"
@@ -1225,7 +1351,7 @@ async def run_goal(page: Page, base: str, results: Results, shots: Path | None) 
     results.check("#goal=frame: skippable text is dimmed (never hidden)", bool(dimmed) and set(dimmed) == {"rgb(142, 137, 127)"}, dimmed[:3])
     callout = await page.evaluate(f"() => {{ const c = document.querySelector(\"{GOAL_BOOK} .callout.gcall\"); return c ? {{ lab: c.querySelector('.lab').textContent, bg: getComputedStyle(c).backgroundColor }} : null; }}")
     results.check("#goal=frame: a core section opens with a dark callout in LearnLoop's voice",
-                  bool(callout) and callout["lab"] == "◎ for your goal · core" and callout["bg"] == "rgb(29, 29, 32)", callout)
+                  bool(callout) and callout["lab"] == "◎ for your goal · Main reading" and callout["bg"] == "rgb(29, 29, 32)", callout)
     lens_calls = await calls(page, "goal_lens")
     asked = sorted(call["input"]["extractionId"] for call in lens_calls)
     results.check("one whole-reading goal.lens per reading in view, none for a paused window",
@@ -1241,7 +1367,7 @@ async def run_goal(page: Page, base: str, results: Results, shots: Path | None) 
       const mark = row.querySelector('.gm.sh'); return { cls: row.className, bg: mark ? getComputedStyle(mark).backgroundColor : null,
         line: row.querySelector('.gwl')?.textContent ?? null, ranges: row.querySelectorAll('.bar .gr').length }; }""")
     results.check("#goal=frame: the book's shelf row carries the bar at its right edge, what it is for, and the path's ranges",
-                  bool(shelf) and shelf["bg"] == "rgb(169, 159, 208)" and shelf["line"] == "◎ primary for 2 of your LOs" and shelf["ranges"] >= 1, shelf)
+                  bool(shelf) and shelf["bg"] == "rgb(169, 159, 208)" and shelf["line"] == "◎ Main reading for 2 of your topics" and shelf["ranges"] >= 1, shelf)
     video = await page.evaluate("""() => { const w = document.querySelector("[data-desk-window='fx_w_video']"); if (!w) return null;
       const group = w.querySelector('.tp.g-sup'); const mark = group?.querySelector('.tx > .gm.gl-tx'); const tx = group?.querySelector('.tx');
       const dim = w.querySelector('.tp.gl-dim [data-transcript-span]');
@@ -1289,7 +1415,7 @@ async def run_goal(page: Page, base: str, results: Results, shots: Path | None) 
     why = await why_after_hover(page, f"{GOAL_BOOK} .gm.gl-later")
     await shot(page, shots, "goal-basics")
     results.check("#goal=basics: a prerequisite's passage is later, kept at the deeper depth",
-                  bool(why) and why["head"] == "later · kept at learn to use it" and why["edge"] == "dotted", why)
+                  bool(why) and why["head"] == "Needed only at learn to use it" and why["edge"] == "dotted", why)
     await page.mouse.move(5, 600)
     await page.click("[data-gdepth='learn_to_use_it']")
     await settle(page, 1200)
@@ -1319,7 +1445,7 @@ async def run_goal(page: Page, base: str, results: Results, shots: Path | None) 
     paper = await mark_facts(page, f"{GOAL_PAPER} .gm.gl-core")
     head = await page.evaluate(f"() => document.querySelector(\"{GOAL_PAPER} .gpcall\")?.textContent ?? null")
     results.check("#goal=paper: the paper's marks keep 11 px from the text and its head says what it is for",
-                  bool(paper) and paper["gap"] == 11 and bool(head) and "for your goal · core:" in head, {"mark": paper, "head": head})
+                  bool(paper) and paper["gap"] == 11 and bool(head) and "for your goal · Main reading:" in head, {"mark": paper, "head": head})
 
     await page.click(".desk-shelf >> text=notes")
     await settle(page, 1800)
@@ -1386,7 +1512,7 @@ async def run_lesson(page: Page, base: str, results: Results, shots: Path | None
     results.check("review shows what was recorded (the check, your answer, its result, the close card) and nothing that starts a turn",
                   review["kinds"] == ["lesson-check", "lesson-learner", "lesson-check-result", "lesson-close"] and review["inputs"] == 0 and not review["stop"], review)
     results.check("the modes are review (on) and your additions; redo and extend are not shown",
-                  review["modes"] == [["review", True], ["your additions", False]] and review["line"] == "your committed answers and the reveals, as you left them", review["modes"])
+                  review["modes"] == [["review", True], ["your additions", False]] and review["line"] == "Your saved answers and lesson feedback", review["modes"])
     results.check("the learner's notes under the lesson show beneath its review", review["note"] and review["additions"] == "your additions under this lesson", review)
     results.check("interface text is JetBrains Mono, the lesson's reading text Literata",
                   "JetBrains Mono" in review["head"] and "Literata" in review["reading"], [review["head"], review["reading"]])
@@ -1430,6 +1556,108 @@ BOOK = "[data-desk-window='fx_w_book']"
 
 async def chip_text(page: Page, window: str) -> str | None:
     return await page.evaluate(f"() => document.querySelector(\"{window} .desk-pane-head .fchip\")?.textContent ?? null")
+
+
+PAIR_BOOK = "fx_w_book_range"
+
+
+async def pair_windows(page: Page) -> list[dict[str, Any]]:
+    """The windows of the desk shown (another desk's are hidden), each with what its frame says and the reading it holds."""
+    shown = [w for w in await windows(page) if w["state"] != "hidden"]
+    extra = await page.evaluate("""(ids) => Object.fromEntries(ids.map((id) => { const pane = document.querySelector(`[data-desk-window="${id}"]`);
+      return [id, { head: pane?.querySelector('.desk-pane-head')?.textContent ?? '', paper: Boolean(pane?.querySelector("[data-span-id^='fx_ext_attention_']")),
+        focused: Boolean(pane?.closest('.desk-window.focus')) && pane?.getAttribute('data-window-state') === 'active' }]; }))""", [w["id"] for w in shown])
+    return [{**w, **extra[w["id"]]} for w in shown]
+
+
+async def scroll_reading(page: Page, window_id: str, span_id: str) -> None:
+    """The learner's own scroll in a window until `span_id` is under the reading marker (70% down the reading)."""
+    await page.evaluate("""([id, span]) => { const el = document.querySelector(`[data-desk-window="${id}"] [data-span-id="${span}"]`);
+      const scroller = el.closest('.ll-scroll'); scroller.dispatchEvent(new WheelEvent('wheel', { bubbles: true, deltaY: 1 }));
+      const s = scroller.getBoundingClientRect(), r = el.getBoundingClientRect();
+      scroller.scrollTop += r.top - (s.top + s.height * 0.7) + 6; }""", [window_id, span_id])
+
+
+async def run_pairs(page: Page, base: str, results: Results, shots: Path | None) -> None:
+    """Side by side as paired windows (spec §21.1 "Two windows in view, or a pair", §5.2) on the fixture with
+    correspondents (`?pairs=1`), on the backprop desk (its book alone): Ctrl+\\ opens the first correspondent paired,
+    the learner's scroll across a section moves the other window once, Ctrl+Shift+L stops following, F6 moves the
+    focus."""
+    await page.goto(f"{base}/desk-harness.html?pairs=1")
+    await page.wait_for_selector("[data-desk-window]")
+    await page.get_by_role("button", name="backprop", exact=True).click()
+    await page.wait_for_selector(f"[data-desk-window='{PAIR_BOOK}'] [data-span-id]")
+    await settle(page, 1200)
+    await page.click(f"[data-desk-window='{PAIR_BOOK}'] .desk-pane-head .t")
+    await page.keyboard.press("Control+Backslash")
+    await page.wait_for_function("() => [...document.querySelectorAll('[data-desk-window]')].some((p) => p.getAttribute('data-window-state') !== 'hidden' && p.querySelector(\"[data-span-id^='fx_ext_attention_']\"))", timeout=8000)
+    await settle(page, 1200)
+    shown = await pair_windows(page)
+    book = next(w for w in shown if w["id"] == PAIR_BOOK)
+    paper = next((w for w in shown if w["paper"]), None)
+    stacked = bool(paper) and abs(book["slot"]["x"] - paper["slot"]["x"]) < 0.5 and book["pane"]["y"] < paper["pane"]["y"] and abs(book["pane"]["h"] - paper["pane"]["h"]) <= 1
+    results.check("Ctrl+\\ opens the section's first correspondent in a window paired with the book (one slot, two equal panes)", stacked,
+                  [(w["id"], w["slot"], w["pane"]) for w in shown])
+    results.check("the paired window opens at the correspondent's section", bool(paper) and "1 Attention as a weighted average" in paper["head"], paper and paper["head"])
+    await shot(page, shots, "pairs-open")
+    if not paper:
+        return
+    asked_before = len(await calls(page, "reader_correspondents"))
+    # The learner scrolls the book across into its next section: the paper moves once, and asks nothing back.
+    await settle(page, 1800)
+    await scroll_reading(page, PAIR_BOOK, "fx_ext_softmax_s5_1")
+    await settle(page, 1800)
+    moved = await pair_windows(page)
+    paper_now = next(w for w in moved if w["id"] == paper["id"])
+    follows = [c["input"] for c in (await calls(page, "reader_correspondents"))[asked_before:]]
+    results.check("scrolling the book across a section moves its pair once, to the correspondent (and the moved window asks nothing back)",
+                  "2 Why divide by the square root" in paper_now["head"] and [(f["extractionId"], f["sectionId"]) for f in follows] == [("fx_ext_softmax", "fx_ext_softmax_s5")],
+                  [paper_now["head"], follows])
+    await shot(page, shots, "pairs-followed")
+    # Ctrl+Shift+L: following off for the pair; scrolling back moves nothing.
+    await page.click(f"[data-desk-window='{PAIR_BOOK}'] .desk-pane-head .t")
+    await page.keyboard.press("Control+Shift+L")
+    await settle(page, 400)
+    toast = await page.locator(".desk-toast").inner_text() if await page.locator(".desk-toast").count() else ""
+    asked_before = len(await calls(page, "reader_correspondents"))
+    await scroll_reading(page, PAIR_BOOK, "fx_ext_softmax_s4_1")
+    await settle(page, 1800)
+    still = next(w for w in await pair_windows(page) if w["id"] == paper["id"])
+    after = (await calls(page, "reader_correspondents"))[asked_before:]
+    results.check("Ctrl+Shift+L stops following for the pair (it says so; the other window stays)",
+                  "off" in toast and "2 Why divide by the square root" in still["head"] and after == [], [toast, still["head"], after])
+    # F6: the focus to the other window of the pair, and back.
+    await page.keyboard.press("F6")
+    await settle(page, 400)
+    first = [w["id"] for w in await pair_windows(page) if w["focused"]]
+    await page.keyboard.press("F6")
+    await settle(page, 400)
+    second = [w["id"] for w in await pair_windows(page) if w["focused"]]
+    results.check("F6 moves the focus to the other window of the pair, and back", first == [paper["id"]] and second == [PAIR_BOOK], [first, second])
+    # The app's round trip (a check begun in the paired book, its practice screen and feedback, back): the desks unmount
+    # and mount again with the way back to the paper's passage. The pair is still one, the paper focused at the passage.
+    target = "fx_ext_attention_p2_2"
+    await page.evaluate("() => window.__deskAway()")
+    await page.wait_for_selector("[data-desks-away]")
+    await settle(page, 300)
+    await page.evaluate("([source, span]) => window.__deskReturn(source, span)", ["fx_src_attention", target])
+    await page.wait_for_selector(f"[data-desk-window='{paper['id']}'] [data-span-id='{target}']", timeout=8000)
+    await settle(page, 1500)
+    back = await pair_windows(page)
+    book_back = next((w for w in back if w["id"] == PAIR_BOOK), None)
+    paper_back = next((w for w in back if w["id"] == paper["id"]), None)
+    still_paired = bool(book_back and paper_back) and abs(book_back["slot"]["x"] - paper_back["slot"]["x"]) < 0.5 and book_back["pane"]["y"] < paper_back["pane"]["y"]
+    seen = await page.evaluate(f"""() => {{ const p = document.querySelector("[data-desk-window='{paper['id']}'] [data-span-id='{target}']");
+      const body = p && p.closest('[data-desk-window]').querySelector('[data-desk-pane-body]'); if (!p || !body) return null;
+      const r = p.getBoundingClientRect(), b = body.getBoundingClientRect(); return {{ inView: r.top >= b.top && r.top < b.bottom, bar: getComputedStyle(p).borderLeftColor }}; }}""")
+    results.check("back from a check begun in the paired book: the pair as it was, the paper focused, its passage in view",
+                  still_paired and bool(paper_back and paper_back["focused"]) and bool(seen and seen["inView"]),
+                  [[(w["id"], round(w["slot"]["x"]), round(w["pane"]["y"]), w["focused"]) for w in back], seen])
+    await page.keyboard.press("F6")
+    await settle(page, 400)
+    after_back = [w["id"] for w in await pair_windows(page) if w["focused"]]
+    results.check("and it is still a pair: F6 goes to the book", after_back == [PAIR_BOOK], after_back)
+    await shot(page, shots, "pairs-back")
 
 
 async def run_video(page: Page, base: str, results: Results, shots: Path | None) -> None:
@@ -1508,8 +1736,173 @@ async def run_video(page: Page, base: str, results: Results, shots: Path | None)
 
     # A carried question comes back beside a related passage: its book section's judged correspondent in the video.
     corr = [call["input"] for call in await calls(page, "reader_correspondents")]
-    results.check("a carried question's related passages are read from judged correspondents (no search)",
+    results.check("a saved question's related passages are read from judged correspondents (no search)",
                   any(c.get("extractionId") == "fx_ext_softmax" and c.get("sectionId") == "s1" and c.get("searchFallback") is False for c in corr), corr)
+
+
+async def run_problem(page: Page, base: str, results: Results, shots: Path | None) -> None:
+    """RW2 on a problem pad (spec §15.2, §21.1 "Workbench (RW2a–d)"): "work through this" on a selection in the book
+    opens the problem on a problem pad in the desk's stack, hosting the workbench; a step saves, the help ladder
+    opens, and Submit hands the attempt to feedback (`?problem=1`, the fake sidecar's minimal workbench)."""
+    await page.goto(f"{base}/desk-harness.html?problem=1")
+    await page.wait_for_selector("[data-desk-window]")
+    await settle(page, 1500)
+    await page.locator('[data-desk-window="fx_w_book"]').click(position={"x": 30, "y": 30})
+    await drag_select(page, "largest score")
+    await page.wait_for_selector("[data-intent-box] input", timeout=4000)
+    await page.locator("[data-intent-box] input").click()
+    await page.keyboard.press("Tab")
+    await page.locator('[data-desk-window="fx_w_book"] [role=group][aria-label="what do you want to do?"] button', has_text="work through this").click()
+    await page.wait_for_selector('.desk-pads [data-problem-pad="fx_wb_1"][data-problem-state="open"]', timeout=8000)
+    await settle(page, 800)
+    where = await page.evaluate("""() => ({ inStack: !!document.querySelector('.desk-pads [data-problem-pad] [aria-label="workbench"]'),
+        overBook: !!document.querySelector('[data-desk-window="fx_w_book"] [data-workbench-pane], [data-desk-window="fx_w_book"] [aria-label="workbench"]') })""")
+    results.check("work through this opens the problem on a problem pad in the desk's stack, hosting the workbench, and nothing over the book",
+                  where["inStack"] and not where["overBook"], where)
+    await shot(page, shots, "problem-pad")
+    step = page.locator('.desk-pads [data-problem-pad] textarea').first
+    await step.click()
+    await page.keyboard.type("Each weight is positive.")
+    await settle(page, 1500)
+    calls = await page.evaluate("() => window.__fixtureWorkbench.calls.map((c) => [c.command, c.input.bodyMd ?? null])")
+    results.check("a step typed on the pad is saved through the workbench", any(c[0] == "workbench_save_step" and "Each weight is positive." in str(c[1]) for c in calls), [c[0] for c in calls][-6:])
+    await page.locator('.desk-pads [data-problem-pad] [role=group][aria-label="workbench actions"] button', has_text="help ·").first.click()
+    await settle(page, 800)
+    ladder = await page.locator('.desk-pads [data-problem-pad] [role=listbox][aria-label="help ladder"]').count()
+    calls = await page.evaluate("() => window.__fixtureWorkbench.calls.map((c) => c.command)")
+    results.check("the help ladder opens on the pad (the workbench's suggestion asked)", ladder == 1 and "workbench_suggest_help" in calls, [ladder, calls[-4:]])
+    await page.keyboard.press("Escape")
+    await settle(page, 300)
+    await page.locator('.desk-pads [data-problem-pad] [role=group][aria-label="workbench actions"] button', has_text="Submit").first.click()
+    await settle(page, 1500)
+    handed = await page.evaluate("() => window.__problemSubmitted ?? null")
+    state = await page.locator('.desk-pads [data-problem-pad="fx_wb_1"]').get_attribute("data-problem-state")
+    results.check("Submit records through the workbench and hands the attempt to feedback; the pad shows it submitted",
+                  handed == "fx_attempt_wb" and state == "submitted", [handed, state])
+
+
+INK_JOT_STROKE_JS = r"""
+(n) => {
+  const pad = document.querySelector('.desk-pads [data-problem-pad]').closest('[data-pad]');
+  const jot = pad.querySelector('[data-ink-surface][aria-label="write a new line with the pen"]');
+  const r = jot.getBoundingClientRect();
+  const pts = []; for (let t = 0; t <= 1; t += .05) pts.push([r.left + 20 + t * 160, r.top + 24 + Math.sin(t * 9 + n) * 8]);
+  const fire = (type, [x, y], i) => jot.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, composed: true, pointerId: 9, pointerType: 'pen',
+    isPrimary: true, clientX: x, clientY: y, pressure: type === 'pointerup' ? 0 : .5, button: type === 'pointermove' ? -1 : 0, buttons: type === 'pointerup' ? 0 : 1 }));
+  fire('pointerdown', pts[0], 0); pts.slice(1).forEach((p, i) => fire('pointermove', p, i + 1)); fire('pointerup', pts[pts.length - 1], pts.length);
+  return pts.length;
+}
+"""
+
+
+async def open_problem_from_book(page: Page) -> None:
+    """\"work through this\" on a selection in the book: the problem on its pad in the desk's stack."""
+    await page.locator('[data-desk-window="fx_w_book"]').click(position={"x": 30, "y": 30})
+    await drag_select(page, "largest score")
+    await page.wait_for_selector("[data-intent-box] input", timeout=4000)
+    await page.locator("[data-intent-box] input").click()
+    await page.keyboard.press("Tab")
+    await page.locator('[data-desk-window="fx_w_book"] [role=group][aria-label="what do you want to do?"] button', has_text="work through this").click()
+    await page.wait_for_selector('.desk-pads [data-problem-pad="fx_wb_1"][data-problem-state="open"]', timeout=8000)
+    await settle(page, 800)
+
+
+async def run_inkhelp(page: Page, base: str, results: Results, shots: Path | None) -> None:
+    """Handwritten work on a problem pad (owner decision 2026-11-23) with the fake workbench and GLM-OCR reading
+    (`?problem=1&inkhelp=1`): each line's reading becomes a step of the problem through the workbench's step writer,
+    shown as the line with its reading quiet under it; the check's ◇ opens the ladder on the line, saying once that
+    help reads LearnLoop's reading; the learner's correction under the line replaces the step's text."""
+    await page.goto(f"{base}/desk-harness.html?problem=1&inkhelp=1")
+    await page.wait_for_selector("[data-desk-window]")
+    await settle(page, 1500)
+    await open_problem_from_book(page)
+    # Pen mode by its chip (the problem's first step has the caret, where Alt+p would be typing).
+    await page.locator(".penchip").click()
+    await settle(page, 400)
+    for n in range(3):
+        await page.evaluate(INK_JOT_STROKE_JS, n)
+        await settle(page, 900)
+    read_it = page.locator('.desk-pads [data-pad] button', has_text="read it")
+    if await read_it.count():
+        await read_it.first.click()
+    await settle(page, 1800)
+    saved = await page.evaluate("() => window.__fixtureWorkbench.calls.filter((c) => c.command === 'workbench_save_step' && String(c.input.clientIdempotencyKey).startsWith('ink-step:')).map((c) => [c.input.op, c.input.bodyMd])")
+    inside = await page.evaluate("""() => { const p = document.querySelector('.desk-pads [data-problem-pad]');
+      return { steps: [...p.querySelectorAll('[data-ink-step]')].map((s) => s.querySelector('.ocrl2')?.textContent ?? ''),
+        loose: [...p.closest('[data-pad]').querySelectorAll(':scope [data-ink-block]')].filter((b) => !b.closest('[data-ink-step]')).length }; }""")
+    results.check("each ink line's reading becomes a step of the problem through the workbench, in the order written",
+                  [s[0] for s in saved] == ["add", "add", "add"] and [s[1] for s in saved] == ["$\\sum_k p_k = \\sum_k e^{h_k} / \\sum_j e^{h_j}$", "$= 1$", "$p_k = -h_k$"], saved)
+    results.check("each step shows as its line, its reading quiet under it (may be wrong · fix it); no line shows twice",
+                  len(inside["steps"]) == 3 and all("may be wrong" in s for s in inside["steps"]) and inside["loose"] == 0, inside)
+    await page.locator('.desk-pads [data-problem-pad] [role=group][aria-label="workbench actions"] button', has_text="check my work").first.click()
+    await settle(page, 1200)
+    marks = await page.evaluate("() => [...document.querySelectorAll('.desk-pads [data-ink-help]')].map((m) => m.dataset.inkHelp)")
+    lines = await page.evaluate("() => [...document.querySelectorAll('.desk-pads [data-ink-step]')].map((s) => s.dataset.inkStep)")
+    results.check("the check's first line that doesn't hold carries ◇ in its gutter (the third line)", len(marks) == 1 and marks == lines[2:3], [marks, lines])
+    await page.locator(".desk-pads [data-ink-help]").first.click()
+    await settle(page, 900)
+    note = await page.locator(".desk-pads [data-ink-help-note='reading']").count()
+    ladder = await page.locator('.desk-pads [data-problem-pad] [role=listbox][aria-label="help ladder"]').count()
+    asked = await page.evaluate("() => window.__fixtureWorkbench.calls.some((c) => c.command === 'workbench_suggest_help')")
+    results.check("◇ opens the ladder on that line, saying help reads LearnLoop's reading of it", note == 1 and ladder == 1 and asked, [note, ladder, asked])
+    await shot(page, shots, "inkhelp-ladder")
+    await page.keyboard.press("Escape")
+    await settle(page, 300)
+    third = page.locator(".desk-pads [data-ink-step]").nth(2)
+    await third.locator("button", has_text="fix it").click()
+    await third.locator("textarea[aria-label='what this line says']").fill("$p_k = e^{h_k} / \\sum_j e^{h_j}$")
+    await page.keyboard.press("Enter")
+    await settle(page, 1500)
+    bodies = await page.evaluate("() => window.__fixtureWorkbench.stepBodies()")
+    shown = await third.locator("[data-ink-transcription]").get_attribute("data-ink-transcription")
+    results.check("the learner's correction under the line replaces the step's text (what help and the check read)",
+                  "$p_k = e^{h_k} / \\sum_j e^{h_j}$" in bodies.values() and "$p_k = -h_k$" not in bodies.values() and shown == "yours", [bodies, shown])
+    await page.locator(".desk-pads [data-ink-help]").first.click()
+    await settle(page, 600)
+    again = await page.locator(".desk-pads [data-ink-help-note='reading']").count()
+    results.check("help on the corrected line no longer speaks of LearnLoop's reading", again == 0, again)
+    await page.keyboard.press("Escape")
+
+
+async def run_showme(page: Page, base: str, results: Results, shots: Path | None) -> None:
+    """Show me in the companion (spec §13.1, §21.1 "Figures and Show me"): the menu's Show me on a passage puts the
+    figure in the companion, live, with view source, move to pad and not useful, and nothing in a pad until
+    it is moved there."""
+    await page.goto(f"{base}/desk-harness.html")
+    await page.wait_for_selector('[data-desk-window="fx_w_book"] [data-span-id]')
+    await settle(page, 1500)
+    figs_before = await page.locator('.desk-pads .mark.fig').count()
+    passage = page.locator('[data-desk-window="fx_w_book"] [data-span-id]').filter(has_text="weight").first
+    await passage.click(button="right", position={"x": 40, "y": 8})
+    await page.wait_for_selector(".desk-menu:not(.submenu)")
+    await page.keyboard.press("v")
+    await page.wait_for_selector("[data-companion-figure]", timeout=10000)
+    await page.evaluate("document.fonts.ready")
+    await settle(page, 600)
+    look = await page.evaluate("""() => { const f = document.querySelector('[data-companion-figure]'); const w = f.querySelector('.cfig-widget');
+        return { head: f.querySelector('.cfig-head').textContent, foot: f.querySelector('.cfig-foot').textContent,
+          buttons: [...f.querySelectorAll('.cfig-actions button')].map((b) => b.textContent),
+          sliders: f.querySelectorAll('input[type=range]').length, svg: f.querySelectorAll('svg').length,
+          headFont: getComputedStyle(f.querySelector('.cfig-head')).fontFamily.split(',')[0],
+          frame: getComputedStyle(w.querySelector('[data-figure]') ?? w).backgroundColor, clipped: w.scrollWidth > w.clientWidth + 1,
+          inCompanion: !!f.closest('[aria-label="the companion"]') }; }""")
+    results.check("Show me's figure appears in the companion, live (sliders and a plot), named for its source and page",
+                  look["inCompanion"] and look["head"].startswith("◇ Show me · a figure for") and look["sliders"] > 0 and look["svg"] > 0, look)
+    results.check("its three buttons and the footer that says it is help, not a check",
+                  look["buttons"] == ["view source", "move to pad", "not useful"] and "it is help, not a check" in look["foot"], look["buttons"])
+    results.check("the companion's text is JetBrains Mono, the widget in its own frame as in a book window, nothing clipped sideways",
+                  "JetBrains Mono" in look["headFont"] and not look["clipped"], look)
+    results.check("nothing lands in a pad by itself", await page.locator('.desk-pads .mark.fig').count() == figs_before)
+    await shot(page, shots, "showme-companion")
+    await page.locator("[data-companion-figure] .cfig-actions button", has_text="view source").click()
+    source = await page.locator("[data-companion-figure] [data-figure-source] pre").inner_text()
+    results.check("view source shows the figure's own source (display tier)", "parameters" in source, source[:80])
+    await page.locator("[data-companion-figure] .cfig-actions button", has_text="move to pad").click()
+    await settle(page, 1200)
+    moved = await page.locator('.desk-pads .mark.fig').count()
+    gone = await page.locator("[data-companion-figure]").count()
+    results.check("move to pad writes the figure block in the running pad and the figure leaves the companion",
+                  moved == figs_before + 1 and gone == 0, [figs_before, moved, gone])
 
 
 PADS = "[data-desk-window='fx_w_pads']"
@@ -1532,7 +1925,7 @@ async def run_checks(page: Page, base: str, results: Results, shots: Path | None
     marker = await page.evaluate(f"""() => {{ const m = document.querySelector("{BOOK} [data-check-marker]"); const next = m.parentElement?.querySelector("[data-span-id]");
       return {{ text: m.textContent, buttons: [...m.querySelectorAll('button')].map((b) => b.textContent), before: next ? next.dataset.spanId : null }}; }}""")
     results.check("a due check's closed marker sits before its host passage: no question, no LO, no provenance; later and check now",
-                  "a check is due before this page · on your own" in marker["text"] and "gradient" not in marker["text"].lower()
+                  "a cold check is due before this page · on your own" in marker["text"] and "gradient" not in marker["text"].lower()
                   and "ready" not in marker["text"].lower() and marker["buttons"] == ["later", "check now"], marker)
     pads_before = await page.evaluate(RECT_JS, f"{PADS} [data-desk-pane-body]")
     head_before = await page.evaluate(RECT_JS, f"{BOOK} [data-span-id='fx_ext_softmax_s4_1']")
@@ -1579,7 +1972,7 @@ async def run_checks(page: Page, base: str, results: Results, shots: Path | None
     comp = await page.evaluate("() => ({ cannot: document.querySelector('[data-companion-dock] .cannot')?.textContent ?? null, disabled: document.querySelector('[data-companion-dock] input.input')?.disabled ?? null, veiled: document.querySelector('[data-companion-dock] [data-companion-body]')?.classList.contains('veiled') ?? null })")
     more = [call["input"] for call in await calls(page, "check_protect_more")]
     results.check("the companion's ask waits with the reason, and opening it veils its body through check.protect_more",
-                  comp["cannot"] == "the tutor waits · after your check · it is open on this desk" and comp["disabled"] is True and comp["veiled"] is True
+                  comp["cannot"] == "the companion waits · after your check · it is open on this desk" and comp["disabled"] is True and comp["veiled"] is True
                   and any(m["visible"].get("companionOpen") for m in more), [comp, len(more)])
     await shot(page, shots, "checks-companion")
     # A veil out of sight (the pad stack is on this desk but not in view) has no pill; the companion's has one above it.
@@ -1655,7 +2048,7 @@ async def run_preview(page: Page, base: str, results: Results) -> None:
 async def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--shots", type=Path, default=None)
-    parser.add_argument("--only", default="", help="comma-separated runs (desks, overview, companion, intent, pads, menus, latex, goal, lesson, video, preview); all by default")
+    parser.add_argument("--only", default="", help="comma-separated runs (desks, overview, companion, intent, pads, menus, latex, goal, lesson, video, pairs, showme, problem, inkhelp, preview); all by default")
     args = parser.parse_args()
     if not (DIST / "desk-harness.html").exists():
         print("Build the harness page first: cd apps/learnloop-tauri && npx vite build --config vite.desks.config.mjs")
@@ -1671,10 +2064,13 @@ async def main() -> int:
             # Playwright hides scrollbars in headless Chromium; the display-math checks need them drawn, as the
             # app's webview draws them (a wide equation's scroller must show its bar).
             with_bars = await playwright.chromium.launch(headless=True, ignore_default_args=["--hide-scrollbars"])
-            runners = ("desks", "overview", "companion", "intent", "pads", "menus", "latex", "goal", "lesson", "video", "checks", "preview")
+            runners = ("desks", "overview", "companion", "intent", "pads", "menus", "latex", "goal", "lesson", "video", "pairs", "showme", "problem", "inkhelp", "checks", "preview")
             chosen = [name for name in args.only.split(",") if name] or list(runners)
             for runner in (name for name in runners if name in chosen):
                 context = await (with_bars if runner in ("pads", "latex", "lesson") else browser).new_context(viewport=VIEWPORT)
+                # The fixture's pads are dated 2026-11-23 (their "today"): the page's clock starts on that day and runs
+                # on from there, so a run on any other day reads the same dated headings.
+                await context.clock.install(time=FIXTURE_NOW)
                 await context.route(lambda url: not url.startswith(base), route_outside)
                 page = await context.new_page()
                 try:
@@ -1698,8 +2094,16 @@ async def main() -> int:
                         await run_lesson(page, base, results, args.shots)
                     elif runner == "video":
                         await run_video(page, base, results, args.shots)
+                    elif runner == "pairs":
+                        await run_pairs(page, base, results, args.shots)
+                    elif runner == "showme":
+                        await run_showme(page, base, results, args.shots)
+                    elif runner == "problem":
+                        await run_problem(page, base, results, args.shots)
                     elif runner == "checks":
                         await run_checks(page, base, results, args.shots)
+                    elif runner == "inkhelp":
+                        await run_inkhelp(page, base, results, args.shots)
                     else:
                         await run_preview(page, base, results)
                 except Exception as error:  # noqa: BLE001 - a broken step is a failed check, and the report still prints

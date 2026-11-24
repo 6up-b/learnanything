@@ -126,9 +126,6 @@ AITask = Literal[
     # Reader workbench RW2b: "Check my work" (a chat route that never
     # resolves to Codex, as hint_writer).
     "workbench_check",
-    # Reader workbench v2 RD8a: reading the learner's ink (an image of the
-    # strokes; a route whose model cannot read images is refused before sending).
-    "ink_transcription",
     # Reader workbench RW3b: the cue judge (a listwise task, background work).
     "passage_cue_judge",
     # Reader workbench RW4e: the owner-run batch role labeller (a listwise task).
@@ -269,9 +266,6 @@ ROUTE_FOR_OPERATION: dict[str, AITask] = {
     "ad_feature_audit": "ad_feature_audit",
     # Reader workbench RW2b: one check of the learner's steps.
     "workbench_check": "workbench_check",
-    # Reader workbench v2 RD8a: one image of an ink owner's standing strokes read
-    # as Markdown with LaTeX.
-    "ink_transcription": "ink_transcription",
     # Reader workbench RW3b: one listwise judgment of a cue target's
     # shortlisted passages (background, when a source opens).
     "passage_cue_judge": "passage_cue_judge",
