@@ -490,7 +490,7 @@ def notes_opened(admin: Mapping[str, Any]) -> bool:
     """Whether the learner opened a note's veil during this administration (an exposure event with unmeasured notes).
     A note's words are never read (C2), so whether it gave the answer away cannot be told: the answer is submitted as
     primed (the attempt's declared ``primed`` flag, stored on the attempt row a rebuild reads), erring toward practice.
-    An orchestrator interim the owner is still to confirm (the alternative: an unmeasured opening costs nothing)."""
+    Confirmed by the owner (2026-11-23): opening one of your own notes during a cold check counts as practice."""
 
     return any(event.get("kind") == "opened_veil" and event.get("unmeasured_notes") for event in admin.get("exposure") or ())
 
