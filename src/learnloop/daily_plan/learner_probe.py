@@ -333,6 +333,17 @@ def decide_proposal(vault: Any, repository: Any, proposal: Any, *, clock: Clock 
                 if len(written) != len(pending):
                     # The decision and its coin's assignment commit together or not at all.
                     raise RuntimeError("the probe coin's assignment was not written")
+            if recorded == decision_id and proposal.learning_object_id:
+                # One outcome target for both arms, frozen before either is executed (G2 review R17): the factor's
+                # learning object, whichever was drawn, as the automatic lane's decision freezes its own. The probe
+                # arm's own answer is still bound only by an acceptance's pin.
+                from learnloop.daily_plan import measurement as objectives
+
+                support = [ref for ref in (NO_PROBE_REF, PROBE_REF) if float(served_pi.get(ref, 0.0)) > 0.0]
+                objectives.record(vault, repository, connection, decision_id=decision_id, decision_kind="plan_interrupt",
+                                  frozen=objectives.freeze_followup(str(proposal.learning_object_id), support=support),
+                                  arm=objectives.ARM_INSERT if served == PROBE_REF else objectives.ARM_NO_INTERVENTION,
+                                  clock=clock, exclude=set())
     except Exception:  # noqa: BLE001 - an unrecorded decision offers nothing: the status stays pending
         LOG.warning("probe router: the learner lane's decision was not recorded for factor %s", proposal.factor_id,
                     exc_info=True)

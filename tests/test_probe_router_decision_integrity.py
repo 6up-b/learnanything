@@ -481,3 +481,56 @@ def test_r14_with_nothing_revealed_the_probe_is_priced_unexposed_and_says_so(tmp
     assert valuation["frozen"]["payload"]["exposed"] is False
     assert valuation["exposure"] == {"exposed": False, "reason": None, "scope": "item_and_learning_object",
                                      "at": valuation["exposure"]["at"]}
+
+
+# -- both offer arms measured on one target ---------------------------------------------------------------------------
+
+
+def _objective(case) -> dict:
+    import json
+
+    decision = _decision(case)
+    with case.repository.connection() as connection:
+        row = dict(connection.execute("SELECT * FROM decision_objectives WHERE decision_id = ?",
+                                      (decision["id"],)).fetchone())
+    row["support"] = json.loads(row.pop("support_json"))
+    return row
+
+
+def test_r17_both_arms_freeze_one_outcome_target_the_factors_learning_object(tmp_path, monkeypatch):
+    from learnloop.daily_plan import measurement as objectives
+    from learnloop.router.plan_log import NO_PROBE_REF, PROBE_REF
+
+    from tests.causal_orchestrator_helpers import LO_ID
+
+    offered = _learner(tmp_path / "offered", monkeypatch, u=0.05)
+    assert _read(offered)["routerState"] == "selected"
+    declined = _learner(tmp_path / "declined", monkeypatch, u=0.9)
+    assert _read(declined)["routerState"] == "not_selected"
+    probe, repair = _objective(offered), _objective(declined)
+    assert probe["learning_object_id"] == repair["learning_object_id"] == LO_ID
+    assert probe["support"] == repair["support"] == [NO_PROBE_REF, PROBE_REF]
+    assert (probe["arm"], repair["arm"]) == (objectives.ARM_INSERT, objectives.ARM_NO_INTERVENTION)
+
+
+def test_r17_a_declined_offer_and_no_offer_are_measured_on_the_same_target(tmp_path, monkeypatch):
+    import json
+
+    from learnloop.data_capture import reading_exposures as RE
+    from learnloop.router import outcomes as RO
+
+    from tests.causal_orchestrator_helpers import LO_ID
+
+    measured = {}
+    for name, u in (("offered", 0.05), ("declined", 0.9)):
+        case = _learner(tmp_path / name, monkeypatch, u=u)
+        _read(case)
+        version = RO.outcome_version_for(case.vault.config)
+        with case.repository.connection() as connection:
+            (row,) = [r for r in RO.derive_router_outcomes(
+                connection, outcome_version=version,
+                reader_exposures=RE.for_version(connection, case.vault, case.repository, version))
+                if r["decision_id"] == _decision(case)["id"]]
+        measured[name] = (row["target_learning_object_id"], json.loads(row["detail_json"]).get("r_cold_rule"))
+    assert measured["offered"] == measured["declined"]
+    assert measured["offered"][0] == LO_ID
