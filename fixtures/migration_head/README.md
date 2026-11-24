@@ -1,11 +1,23 @@
 # Migration-head fixture
 
-**Holds migration 271 (`271_reader_workbench_inline_checks_fix.sql`), the head.** The directory's name carries no number (since
+**Holds migration 272 (`272_reader_workbench_preparing_windows.sql`), the head.** The directory's name carries no number (since
 refactor A2): a new migration upgrades `state.sqlite` here in place, in rollback mode, and adds a section below naming
 the new head; no test or script changes for the number (`CLAUDE.md`, "Adding a migration"). Tests reach it
 through `MIGRATION_HEAD_FIXTURE` in `tests/helpers.py`; `tests/test_migrations.py` checks that it holds the newest
 file in `migrations/` and stays in rollback mode. Older sections below name the numbered directories it was renamed
 from, as they were then.
+
+## Reader workbench v2, the Reader's retirement (migration 272), `reader/rd-retire-extraction`, 2026-11-24
+
+Upgraded in place (no rename; base: the inline checks' fix round's head 271) by the B1 procedure below:
+`272_reader_workbench_preparing_windows.sql` (`desk_windows.kind` gains `'preparing'`, the table rebuilt with its
+index; 271 touched no part of `desk_windows`) applied through `learnloop.db.migrate.apply_migrations` on a backup-API
+copy of the tracked 271 file, outside the checkout, under `upgrade_allowance(UPGRADE_SCRATCH_COPY)`, which applied
+`[272]` only; `wal_checkpoint(TRUNCATE)`, `journal_mode=DELETE` (header bytes 1/1), `integrity_check` ok,
+`foreign_key_check` empty; the tracked file removed and the copy written into its place with `backup_database`, no
+companion files. Compared with the 271 file: nothing added or removed, `desk_windows` alone redefined, and the only
+table whose rows changed is `schema_migrations` (gains 272). The file is 7,909,376 bytes. (The branch first numbered
+it 271; it was renumbered when the inline checks' fix round's 271 landed first.)
 
 ## Reader workbench v2 inline checks' fix round (migration 271), `reader/rd7-fix-backend`, 2026-11-24
 
