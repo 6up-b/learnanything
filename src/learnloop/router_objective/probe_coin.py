@@ -17,7 +17,7 @@ comes from its own seed (:func:`seed_for`, never the mix's or the stop coin's), 
 ``policy_experiment_assignments`` (``assignments.PROBE_COIN``). A ``policy`` decision's ``μ`` is the mix's conditional
 distribution, exactly, since the coin is independent of it.
 
-**The share is the stop coin's rate.** The owner ruled on 2026-11-23 that the share is derived from an existing
+**The share is the stop coin's rate.** The owner decided on 2026-11-23 that the share is derived from an existing
 randomized arm's rate, not a new constant; the orchestrator chose the stop coin (``router_objective.stop_coin``): the
 same mechanism (a coin beside the mix, with an exact propensity, for an action the policies value below another) and
 the same family of declared prices for information. One config field now prices two arms: changing ``stop_coin`` moves

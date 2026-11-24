@@ -1046,11 +1046,11 @@ INLINE_CHECK_ALGORITHM_VERSION = "mvp-0.69"
 # probe earns no information credit (the design's decision 1; the owner's option f of 2026-11-20): it is no option of
 # either policy, and the mix decides between no intervention and a lesson where one is offered. Beside the mix, the
 # probe coin asks the probe now, feedback held, on a randomized share of eligible misses (``router_objective.
-# probe_coin``), at the stop coin's rate (the owner's 2026-11-23 ruling: derived from an existing arm, not a new
+# probe_coin``), at the stop coin's rate (the owner's decision of 2026-11-23: derived from an existing arm, not a new
 # constant), with its own seed, an exact served distribution and its own assignment row. No room to wait, no plan and
 # the router switched off take the same coin instead of asking the probe deterministically; a no-plan decision is
 # logged. Hard refusals still come first. Nothing already derived moves. No kill switch (owner rule 2026-11-16). ONE
-# constant: a renumber at landing is this line (the chain, the sets and the predicate follow it).
+# constant: renumbering the tag is this line (the chain, the sets and the predicate follow it).
 PROBE_ROUTER_ALGORITHM_VERSION = "mvp-0.70"
 
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
