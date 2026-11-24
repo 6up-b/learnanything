@@ -435,12 +435,15 @@ def expose(vault: Any, repository: Any, *, token: str, ref: Mapping[str, Any], k
             store.insert_veil_set(connection, veil_set_id="cvs_" + new_ulid(), token=token,
                                   commitment_id=admin["commitment_id"], kind="more", method=admin["protection_method"],
                                   veiled=[], opened=[*opened_refs, dict(ref)], now=now)
-    return {"exposure": exposure, "cold_now": cold_now(vault, repository, admin, clock=clock)}
+    return {"exposure": exposure, "cold_now": cold_now(vault, repository, {**admin, "exposure": exposure}, clock=clock)}
 
 
 def cold_now(vault: Any, repository: Any, admin: Mapping[str, Any], *, clock: Clock | None = None) -> bool:
-    """Whether the check's item could still be answered cold now (the Check once decision over the reveal ledger)."""
+    """Whether the check's item could still be answered cold now (the Check once decision over the reveal ledger). Not
+    after a note's veil was opened: the answer will be submitted primed (``notes_opened``)."""
 
+    if notes_opened(admin):
+        return False
     check = _check(vault, repository, admin["commitment_id"], clock=clock)
     return bool(check is not None and check.cold(admin["practice_item_id"]))
 
