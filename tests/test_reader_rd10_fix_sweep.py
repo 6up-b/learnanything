@@ -36,9 +36,15 @@ def test_a_lesson_on_a_topic_whose_check_is_due_names_nothing_in_its_tab(tmp_pat
     title = load_vault(paths.root).learning_objects["lo_eigen"].title
     assert H.lesson_list(ctx, H.LessonListInput())["lessons"][0]["title"] == title
     day = (datetime.now(UTC) - timedelta(days=1)).strftime("%Y-%m-%d")
-    C.create_commitment(repository, action="test_me_later", intent_text="check", depth_preset=DP.READY_DEPTH_PRESET,
-                        targets=[{"target_kind": "learning_object", "target_ref": "lo_eigen", "role": "required"}],
-                        client_idempotency_key="rd10fix:lesson", due_hint=day, provenance={"via": "deliverable_ready"})
+    commitment = C.create_commitment(
+        repository, action="test_me_later", intent_text="check", depth_preset=DP.READY_DEPTH_PRESET,
+        targets=[{"target_kind": "learning_object", "target_ref": "lo_eigen", "role": "required"}],
+        client_idempotency_key="rd10fix:lesson", due_hint=day, provenance={"via": "deliverable_ready"})
+    # Due and not begun, the tab names the topic as ever (a masked tab would point at the due check).
+    assert H.lesson_list(ctx, H.LessonListInput())["lessons"][0]["title"] == title
+    from tests.inline_hold_helpers import hold_open
+
+    hold_open(repository, commitment.id)
     listed = H.lesson_list(ctx, H.LessonListInput())["lessons"]
     assert (listed[0]["title"], listed[0]["goal"], listed[0]["held"]) == (GL.NEUTRAL_LO, None, True)
     word = title.split()[0].casefold()

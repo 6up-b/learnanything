@@ -286,8 +286,8 @@ Open specs, claims, back-links, search results, promoted rows and path rows all 
 | `search.everything` / `search.job` | `{query, desk_id, scopes?}` | groups (§9.3) | Lexical groups at once; meaning groups through the job |
 | `goal.band` | `{goal_id}` | §12.2 | Composes `curriculum.ready`, `curriculum.path`, due checks and pace |
 | `goal.lens` | `{goal_id, extraction_id, from_span_id?, to_span_id?}` or `{goal_id, extraction_id, t0, t1}` | `{levels:[{span_id\|range, level, reason_key, reason_md, lo_ids, mapping: mapped\|partial\|unmapped}]}` | Goal-conditioned, separate from the union read (§12.3) |
-| `checks.due_for` | `{goal_id?, learning_object_ids?, extraction_id?, span_id?}` | `{checks:[{commitment_id, lo_id, due, host?, provenance}]}` | Read only; shows nothing of the item (§12.6) |
-| `check.begin_inline` | `{request_id, commitment_id, visible}` | `{administration_token, item_ref, contract_hash, protection:{veil_set_id, method}, prompt}` | Atomic: it picks the item through `scheduling/intent/serving.py`'s eligibility, freezes the assessment contract, opens an administration and computes the structural protection, **before the prompt is returned** (§12.6) |
+| `checks.due_for` | `{}` (no filter) | `{checks:[{handle, being_answered}]}` | Read only; every due check in the vault as an opaque handle, and nothing of any (no LO, host, provenance, due date or commitment; §12.6.1) |
+| `check.begin_inline` | `{request_id, handle, visible}` (`check_unknown` for a spent, stale or guessed handle) | `{administration_token, item_ref, contract_hash, protection:{veil_set_id, method}, prompt}` | Atomic: it picks the item through `scheduling/intent/serving.py`'s eligibility, freezes the assessment contract, opens an administration and computes the structural protection, **before the prompt is returned** (§12.6) |
 | `check.expose` | `{administration_token, ref, kind: opened_veil\|navigated\|help}` | `{protection_status}` | Persisted at once through the exposure machinery, not deferred to submit |
 | `check.protect_more` | `{administration_token, visible}` | `{veil_additions}` | Called when new content becomes visible during the administration (navigation, new window, search) |
 | `check.submit_inline` | `{administration_token, submission_id, answer_md}` | the existing attempt reply plus `{cold: bool, reason}` | Records the attempt through the existing attempt service for that item; settlement then runs as for any qualifying attempt (`intent/checks.py:settle_answered_checks`). Idempotent by `submission_id` |
@@ -864,7 +864,6 @@ Where no correspondent exists, the chip says "no passage here" and nothing scrol
 - learner-text gaps anchored to it (`learner_text_gap_spans`), with their anchor quality;
 - `passage_links` with reasons;
 - figures made for it;
-- "a check is due before this" (`checks.due_for` hosts), with no item content (§12.6);
 - linked notes (`learner_note_links`);
 - the LOs and coverage of its section;
 - reader-authored questions;
@@ -1591,17 +1590,34 @@ At the end comes "┊ not needed for your goal · read it anyway", the dimmed li
 - RW6b's cold follow-ups;
 - TE6's generated delayed checks once built.
 
-#### 12.6.1 What is shown before the check opens (no cues)
-The host passage is the LO's primary path section. When a window approaches it, a **closed** marker sits before the passage:
-- "◇ a check is due before this page · on your own · about N min";
-- "check now" and "later".
+#### 12.6.1 What is shown before the check opens (no cues; the owner's decision on RD7-56, option b)
+Before "check now" nothing names **or places** what a check is about. Each desk shows **one unlocated marker**, at the
+desk's top, in no window and at no passage, on every desk alike while any check is due:
+- "◇ a cold check is due on this desk · on your own" ("N cold checks are due on this desk" for several);
+- "check now" and "later" ("later" folds it to one quiet line for the session).
 
-The closed marker shows **no question, no LO title, no provenance and no purpose text**. Check once hides locators until feedback (`intent/checks.py:155`), and P3 invariant 10 withholds source text, purpose and "why" from cold administration.
+One marker per desk, not per window or per reading: a marker in the window that holds the host, or only on desks that
+hold it, would say where the check is. The marker shows **no question, no LO title, no provenance, no purpose text and
+no place**. Check once hides locators until feedback (`intent/checks.py:155`), and P3 invariant 10 withholds source
+text, purpose and "why" from cold administration.
 
-**What else changes while any check is due for an LO:**
-- The goal band shows only "◇ N checks due today", with no LO names on the ◇ squares, which take no hover.
-- Callouts, criticality "why" cards and path rows for that LO hide their purpose text.
-- Overview thumbnails and miniatures of windows holding that LO's protected content are not rendered (a placeholder card).
+**The reads.** `checks.due_for` takes no filter (asking "is a check due on this reading, goal or passage?" would be
+answered with where it is) and answers one opaque **handle** per due check, every due check in the vault, in the
+handles' own order, with nothing else. A handle is a keyed hash of (commitment, administrations so far): stable across
+reads, spent by a begin, meaningless without the sidecar's key. The key lives in the sidecar's process, so a handle
+dies with a restart: the desks read the due checks again after any refusal, and a spent, stale or guessed handle is
+refused plainly (`check_unknown`); the desks then read again and open the check due now (the marker never said which
+it was). `check.begin_inline` resolves the handle, and with it the host and candidates; only the begun card names the
+host (its open card sits there when that reading is on the desk, else centred near the top). No passage carries a due
+check (`passage.union_range` has no `checks_due`).
+
+**What else, while a check is due and not begun.** Nothing marks the due LO anywhere: the goal band, the lens, the
+path rows, follow-along and the video chapters show their ordinary content, the same as with no check due, and the
+band's "N cold checks due" counts every due check in the vault (a count of this goal's would say which goal). Masking a
+due LO's dot, sections or chapters with neutral words would point at it by elimination, and the book and the companion
+are unveiled before begin anyway. The masking (D15) applies to the **begun** check's LO only, from begin to the close
+(`handlers.goal_lens.masked_checks`, the one place that decides it); while a check is open the desks hold the band and
+the overview's miniatures as well (§12.6.4). Today's own listing of the check is unchanged.
 
 #### 12.6.2 Opening: protection before the prompt
 "check now" calls `check.begin_inline`, which atomically:
@@ -1905,7 +1921,7 @@ For each new RPC:
 **Emission:** a committed block produces a `pad_text` gap row, and a sketch produces none. **Submission:** a submitted block produces an attempt or teach-back through the existing entry. The grader's inputs contain no pad, desk, ink or veil data (an import-contract test and a payload test).
 
 **Inline checks:**
-- `checks.due_for` finds hosts;
+- `checks.due_for` answers handles only, and `check.begin_inline` resolves the host from one;
 - `check.begin_inline` → `check.submit_inline` produces the same attempt, grade and settlement as Check once for the same item, contract and answer (a parity test);
 - duplicate submissions, a crash and restart mid-administration, the same commitment open in Today and the Reader, held candidates, and an exposed (assisted) answer that leaves the cold duty pending;
 - the closed marker, band and callouts reveal no item, LO or purpose text while a check is due;
@@ -2014,7 +2030,7 @@ Astra also resolved an open question in the first draft: `deliverable_path_secti
 | D12 | When the old Reader goes | In a dedicated RD-retire landing after RD4, RD5, RD6 and RD9a, once every parity row passes (§21.1); panel adapters bridge the gap | Two Readers would drift; deletion must follow demonstrable parity (review F7) |
 | D13 | Blur effects on WebKitGTK | Kept if within the frame budget, else opacity and scale only (measured in RD2) | §3.6 |
 | D14 | Alt + vertical scroll: overview zoom (the later request, O6) or pads and desks (the Nov 21 touch decision)? | Zoom. Pads and desks move with `alt+j/k` and by plain scrolling in stacks | The owner's later, more specific request; please confirm |
-| D15 | While a check is due, hide that LO's purpose text and names (band, callouts, why cards, thumbnails)? | Yes, until the check is answered or abandoned for the day | Cold presentation (review F1); it costs a little goal context for an honest check |
+| D15 | While a check is due, hide that LO's purpose text and names (band, callouts, why cards, thumbnails)? | Only once the check is begun, until it closes (the owner's decision on RD7-56, option b, which reverses the pre-begin half): while it is merely due nothing marks it, since a masked dot, section or chapter would point at it | Cold presentation (review F1). Masking from the due date is restored in one place, `handlers.goal_lens.masked_checks` |
 | D16 | Uncertain protection (an unanchored pad was visible before veiling, no Decider yet): what happens to the answer? | Graded and kept as practice; the cold duty stays pending and returns in Today | Honest labels; never a cold credit from masking |
 
 ---

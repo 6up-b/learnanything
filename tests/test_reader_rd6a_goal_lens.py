@@ -197,12 +197,19 @@ def test_a_topic_whose_coverage_is_unjudged_keeps_sections_partial_until_it_is_j
     assert call(ctx, "goal.band", {"goal_id": goal_id})["coverage"]["unjudged"] == []
 
 
-def _due_check(repository, lo_id, *, days_ago=1):
+def _due_check(repository, lo_id, *, days_ago=1, begun=True):
+    """A due check on the LO, begun inline (the replies mask a check's LO only once it is begun)."""
+
+    from tests.inline_hold_helpers import hold_open
+
     due = (datetime.now(UTC) - timedelta(days=days_ago)).strftime("%Y-%m-%d")
-    return C.create_commitment(
+    commitment_id = C.create_commitment(
         repository, action="test_me_later", intent_text=f"check {lo_id}", depth_preset=DP.READY_DEPTH_PRESET,
         targets=[{"target_kind": "learning_object", "target_ref": lo_id, "role": "required"}],
         client_idempotency_key=f"rd6a:{lo_id}", due_hint=due, provenance={"via": "deliverable_ready"}).id
+    if begun:
+        hold_open(repository, commitment_id)
+    return commitment_id
 
 
 def test_a_due_check_hides_its_los_purpose_text_and_comes_first_next(tmp_path):

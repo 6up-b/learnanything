@@ -1,7 +1,8 @@
 // The synthetic workspace's inline cold checks (spec §12.6; RD7): `checks.due_for` and the administration's calls,
 // answered as the sidecar answers them, by hand (a fixture, never a model). On the harness's `?checks=1` page one check
-// is due before the book's fifth section ("The gradient"); `?checks=open` also has an administration open on the
-// paper's check, whose host passage is not on the desks (its card opens centred near the top, as after a restart).
+// is due, hosted at the book's fifth section ("The gradient"): `checks.due_for` answers its opaque handle and nothing
+// else, and the host is named only by the begun card; `?checks=open` also has an administration open on the paper's
+// check, whose host passage is not on the desks (its card opens centred near the top, as after a restart).
 // The protection set follows the owner's rule: every window but a source's text veiled whole, the companion when open,
 // margin notes, and, in a source, the covered passages (the host section's) and their figures. Every call is recorded
 // by the fake core. Project-authored text only.
@@ -40,6 +41,15 @@ function measured(ref: CheckVeilRefDto): boolean {
   return false;
 }
 
+/** A handle as the sidecar mints one: a keyed hash of (commitment, administrations so far), naming neither. */
+function handleOf(commitmentId: string, generation: number): string {
+  let hash = 0x811c9dc5;
+  for (const ch of `fx-key|${commitmentId}|${generation}`) hash = Math.imul(hash ^ ch.charCodeAt(0), 0x01000193) >>> 0;
+  let second = hash;
+  for (const ch of `${generation}|${commitmentId}|fx-salt`) second = Math.imul(second ^ ch.charCodeAt(0), 0x01000193) >>> 0;
+  return `chk_${hash.toString(16).padStart(8, "0")}${second.toString(16).padStart(8, "0")}`;
+}
+
 interface Open {
   token: string;
   commitmentId: string;
@@ -60,19 +70,44 @@ export class FixtureChecks {
   private outcomes = new Map<string, Record<string, unknown>>();
   private count = 0;
   private revision = 0;
+  /** Administrations so far, per commitment (a begin spends the handle). */
+  private generations = new Map<string, number>();
 
-  constructor(private readonly mode: "off" | "due" | "open") {
-    if (mode === "open") this.open = this.fresh("fx_cad_open", PAPER_CHECK.commitmentId, null);
+  constructor(private readonly mode: "off" | "due" | "due-paper" | "open") {
+    if (mode === "open") {
+      this.open = this.fresh("fx_cad_open", PAPER_CHECK.commitmentId, null);
+      this.generations.set(PAPER_CHECK.commitmentId, 1);
+    }
+  }
+
+  /** The due checks: the book's, and the paper's when an administration holds it. */
+  private dueRows(): Array<typeof BOOK_CHECK | typeof PAPER_CHECK> {
+    if (this.mode === "off") return [];
+    const rows = this.mode === "open" ? [BOOK_CHECK, PAPER_CHECK] : this.mode === "due-paper" ? [PAPER_CHECK] : [BOOK_CHECK];
+    return rows.filter((check) => !this.answered.has(check.commitmentId));
+  }
+
+  private handle(commitmentId: string): string {
+    return handleOf(commitmentId, this.generations.get(commitmentId) ?? 0);
   }
 
   private fresh(token: string, commitmentId: string, requestId: string | null): Open {
     return { token, commitmentId, requestId, veiled: [], opened: [], exposures: new Map(), unmeasured: false, submissionId: null };
   }
 
-  dueFor(input: { extractionId: string }): ChecksDueDto {
-    if (this.mode === "off") return { version: 1, checks: [] };
-    const rows = [BOOK_CHECK, PAPER_CHECK].filter((check) => check.host.extractionId === input.extractionId && !this.answered.has(check.commitmentId));
-    return { version: 1, checks: rows.map((row) => ({ ...row, beingAnswered: this.open?.commitmentId === row.commitmentId })) } as ChecksDueDto;
+  dueFor(): ChecksDueDto {
+    const rows = this.dueRows().map((row) => ({ handle: this.handle(row.commitmentId), beingAnswered: this.open?.commitmentId === row.commitmentId }));
+    return { version: 1, checks: rows.sort((a, b) => a.handle.localeCompare(b.handle)) };
+  }
+
+  /** The check a handle names now (or the open one's spent handle: a lost reply's retry), else null. */
+  private resolve(handle: string): string | null {
+    for (const row of this.dueRows()) {
+      if (this.handle(row.commitmentId) === handle) return row.commitmentId;
+      const spent = (this.generations.get(row.commitmentId) ?? 0) - 1;
+      if (this.open?.commitmentId === row.commitmentId && spent >= 0 && handleOf(row.commitmentId, spent) === handle) return row.commitmentId;
+    }
+    return null;
   }
 
   /** The covered sections: the check's host section (the LO's primary path section). */
@@ -118,6 +153,7 @@ export class FixtureChecks {
         presentation: { practiceItemId: `fx_pi_${open.commitmentId}`, blocks: [{ kind: "prompt", markdown: PROMPTS[open.commitmentId] ?? "", label: null }] } },
       practiceSession: { sessionId: "fx_ps_1" } as never,
       submissionId: open.submissionId, eligibility: null, revision: this.revision, ...(replayed ? { replayed: true } : {}),
+      host: (open.commitmentId === PAPER_CHECK.commitmentId ? PAPER_CHECK : BOOK_CHECK).host,
     };
   }
 
@@ -125,19 +161,22 @@ export class FixtureChecks {
     throw { code: "administration_closed", message: "That check is closed.", retryable: false };
   }
 
-  begin(input: { requestId?: string; commitmentId: string; visible: CheckVisibleDto }): CheckCardDto {
+  begin(input: { requestId?: string; handle: string; visible: CheckVisibleDto }): CheckCardDto {
     const done = input.requestId ? this.closed.get(input.requestId) : undefined;
     if (done) throw { code: "administration_closed", message: "That check is closed.", retryable: false, details: done };
+    const commitmentId = this.resolve(input.handle);
+    if (!commitmentId) throw { code: "check_unknown", message: "This check changed since the desk last looked. Look again.", retryable: false };
     if (this.open) {
       // A lost reply's retry (or another click) for the same commitment gets its card back.
-      if (this.open.commitmentId === input.commitmentId) return this.card(this.open, true);
+      if (this.open.commitmentId === commitmentId) return this.card(this.open, true);
       throw { code: "administration_open", message: "Another check is open; answer it or say not now first.", retryable: false,
         details: { administrationToken: this.open.token, commitmentId: this.open.commitmentId } };
     }
     this.count += 1;
     this.revision += 1;
-    this.open = this.fresh(`fx_cad_${this.count}`, input.commitmentId, input.requestId ?? null);
-    this.open.veiled = this.protection(input.commitmentId, input.visible);
+    this.generations.set(commitmentId, (this.generations.get(commitmentId) ?? 0) + 1);
+    this.open = this.fresh(`fx_cad_${this.count}`, commitmentId, input.requestId ?? null);
+    this.open.veiled = this.protection(commitmentId, input.visible);
     return this.card(this.open);
   }
 

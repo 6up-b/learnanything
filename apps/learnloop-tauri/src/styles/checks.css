@@ -55,6 +55,10 @@ canvas.ck-held, video.ck-held, iframe.ck-held, img.ck-held, svg.ck-held { visibi
 .desk-shell .ck-later { margin: 4px 0 14px; font: 11px var(--desk-mono); color: var(--desk-t3); }
 .desk-shell .ck-later .g { color: #c9c0ee; }
 .desk-shell .ck-later .lnk, .desk-shell .ck-closed .lnk { background: none; border: 0; padding: 0; color: #c9c0ee; font: inherit; text-decoration: underline dotted; cursor: pointer; }
+/* The desk's one due-check marker: the same place on every desk, in no window and at no passage (it says only that a
+   check is due). */
+.desk-shell .ck-desk { position: absolute; top: 10px; right: 16px; z-index: 45; box-sizing: border-box; width: 380px; max-width: calc(100% - 32px); margin: 0; }
+.desk-shell .ck-later.ck-desk { width: auto; padding: 4px 8px; background: var(--gl-elev); border: 1px solid var(--gl-bd2); border-radius: 3px; }
 .desk-shell .ck-reason { font-size: 11px; color: #c9c0ee; margin: 2px 0 8px; }
 .desk-shell .ck-looked { font-size: 11px; color: var(--gl-amber-hi); margin: 6px 0 0; }
 .desk-shell .ck-note { font-size: 10.5px; color: var(--desk-t3); margin-top: 6px; }

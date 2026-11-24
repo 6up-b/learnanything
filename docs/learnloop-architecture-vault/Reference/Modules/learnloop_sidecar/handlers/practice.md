@@ -283,6 +283,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_probe_router_authority.py](../../../../../../tests/test_probe_router_authority.py) — direct import
   - `test_f_with_no_plan_an_existing_presentation_is_served_with_no_new_value_admission`
 - [tests/test_reader_rd4_submission.py](../../../../../../tests/test_reader_rd4_submission.py) — direct import
+- [tests/test_reader_rd7_unlocated_marker.py](../../../../../../tests/test_reader_rd7_unlocated_marker.py) — direct import
 - [tests/test_reader_rd7a_inline_checks.py](../../../../../../tests/test_reader_rd7a_inline_checks.py) — direct import
   - `test_a_crash_after_the_submission_was_named_and_before_the_attempt_retries_to_one_attempt`
   - `test_rd7_9_recovery_shows_the_frozen_card_without_serving_again_and_names_the_reserved_submission`

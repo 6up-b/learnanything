@@ -42,7 +42,6 @@ export function knowsGroups(place: PassageUnionSpanDto, actions: KnowsActions, a
     { title: "linked passages", rows: place.passageLinks.map((each) => ({ text: `§ ${each.relation.replace(/_/g, " ")}${each.quote ? ` · “${each.quote.slice(0, 80)}”` : ""}${quality(each.alias)}` })) },
     { title: "figures", rows: place.figures.map((each) => ({ text: `◇ a figure · ${each.verification.replace(/_/g, " ")}${day(each.createdAt)}`, open: openHere })) },
     { title: "questions written for this passage", rows: place.authoredQuestions.map((each) => ({ text: `? ${each.questionMd} · ${each.status}`, open: openHere })) },
-    { title: "cold checks", rows: place.checksDue.length ? [{ text: "a cold check is due before this passage (nothing of it shows until it opens)" }] : [] },
   ];
   return groups.filter((group) => group.rows.length);
 }

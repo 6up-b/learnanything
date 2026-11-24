@@ -2081,6 +2081,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_committed_note_under_a_linked_quote_gets_one_proposal_from_the_passage_links`
 - [tests/test_reader_rd4_rpcs.py](../../../../../../tests/test_reader_rd4_rpcs.py) — direct import
   - `test_the_fix_rounds_read_is_desktop_only_refuses_an_extra_field_and_is_versioned`
+- [tests/test_reader_rd7_unlocated_marker.py](../../../../../../tests/test_reader_rd7_unlocated_marker.py) — direct import
 - [tests/test_reader_rd7a_inline_checks.py](../../../../../../tests/test_reader_rd7a_inline_checks.py) — direct import
   - `test_rd7_4_every_candidate_of_an_lo_check_is_charged_from_the_set_begin_froze`
   - `test_rd7_5_an_opening_and_its_reveals_commit_together_and_a_retry_charges_nothing_again`

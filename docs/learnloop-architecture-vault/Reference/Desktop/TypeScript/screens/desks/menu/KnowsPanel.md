@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/menu/KnowsPanel.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/menu/KnowsPanel.tsx) |
-| Source lines | 96 |
+| Source lines | 95 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/menu/_area|TypeScript/screens/desks/menu]] |
 | Refactor status | `ACTIVE` |
@@ -56,7 +56,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - `export interface KnowsActions` — interface, line 8
 - `export function knowsGroups(place: PassageUnionSpanDto, actions: KnowsActions, at?:` — function, line 31
-- `export function KnowsPanel(` — function, line 50
+- `export function KnowsPanel(` — function, line 49
 
 ## Internal implementation anchors
 
@@ -66,9 +66,9 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `interface LinkedNote` — interface, line 25
 - `const openHere = at ? ()` — const, line 33
 - `const groups: Array<` — const, line 34
-- `const panel = useRef<HTMLDivElement | null>(null)` — const, line 57
-- `let live = true` — let, line 61
-- `const groups = knowsGroups(place.knows, actions,` — const, line 76
+- `const panel = useRef<HTMLDivElement | null>(null)` — const, line 56
+- `let live = true` — let, line 60
+- `const groups = knowsGroups(place.knows, actions,` — const, line 75
 
 ## Who imports or calls it
 

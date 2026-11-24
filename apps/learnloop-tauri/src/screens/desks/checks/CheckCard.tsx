@@ -1,42 +1,48 @@
-// The inline cold check's markup on the desks (spec §12.6.1, §12.6.4-§12.6.6; RD7's frontend half): the closed marker
-// before the host passage (no question, no LO title, no provenance, no purpose: no cues), the open card (inline at the
-// host passage when its reading is on this desk, else centred near the top), and the answered card with the reply's
-// reason in plain words. Every word about what an answer counts as comes from the server's reply.
+// The inline cold check's markup on the desks (spec §12.6.1, §12.6.4-§12.6.6; RD7's frontend half): the desk's one
+// marker, placed at no passage (before "check now" nothing says what a check is about or where it sits: the owner's
+// decision on RD7-56), the open card (inline at the host passage the begun card names when its reading is on this desk,
+// else centred near the top), and the answered card with the reply's reason in plain words. Every word about what an answer counts as comes from the server's reply.
 import { useSyncExternalStore, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { ItemPresentation } from "../../../components/ItemPresentation";
 import { MarkdownMath } from "../../../render/MarkdownMath";
 import type { ReaderLens } from "../source/types";
 import { FitMath } from "../fitMath";
-import type { CheckDesk, DueCheck, OpenCheck } from "./controller";
+import type { CheckDesk, OpenCheck } from "./controller";
 import { SAFE_ATTR } from "./hold";
 import { PRIMED_BY_NOTE_WORDS, PRIMED_UNMEASURED_WORDS, REASON_WORDS, answeredHead, eligibilityWords, groupsLine, lookedLine, type CheckReason } from "./model";
 
 /** The card and its markers stay readable while a check holds the page (they say nothing of the answer). */
 const SAFE = { [SAFE_ATTR]: "" };
 
-/** "◇ a check is due before this page · on your own" with "check now" and "later" (folded: a quiet line). */
-export function CheckMarker({ checks, desk, onCheckNow }: { checks: DueCheck[]; desk: CheckDesk; onCheckNow: (commitmentId: string) => void }) {
+/** The words of the desk's marker: how many cold checks are due, and nothing of any of them. */
+export function markerWords(count: number): string {
+  return count === 1 ? "a cold check is due on this desk" : `${count} cold checks are due on this desk`;
+}
+
+/** The desk's one marker: "◇ a cold check is due on this desk · on your own" with "check now" and "later" (folded: a
+ *  quiet line). It sits at the desk's top, at no passage and in no window, on every desk alike (a marker per window, or
+ *  only on desks that hold the host, would say where the check is). It names nothing: no question, topic, reading,
+ *  provenance or id (the handle stays in the store, never in the page). */
+export function DeskCheckMarker({ desk, onCheckNow }: { desk: CheckDesk; onCheckNow: () => void }) {
   useSyncExternalStore(desk.subscribe, desk.getVersion);
-  const check = checks[0];
-  if (!check) return null;
-  const held = desk.holding();
-  if (desk.deferred(check.commitmentId)) {
+  const count = desk.dueChecks().length;
+  if (!count || desk.open()) return null;
+  if (desk.deferred()) {
     return (
-      <div className="ck-later" data-check-marker={check.commitmentId} data-check-folded="" {...SAFE}>
-        <span className="g">◇</span> a cold check is due before this page{" "}
-        <button type="button" className="lnk" disabled={held} title={held ? "another cold check is open" : undefined} onClick={() => onCheckNow(check.commitmentId)}>check now</button>
+      <div className="ck-later ck-desk" data-check-marker="" data-check-folded="" role="status" {...SAFE}>
+        <span className="g">◇</span> {markerWords(count)}{" "}
+        <button type="button" className="lnk" onClick={() => onCheckNow()}>check now</button>
       </div>
     );
   }
   return (
-    <div className="callout gq ck-closed" data-check-marker={check.commitmentId} {...SAFE}>
-      <span className="lab">◇ a cold check is due before this page · on your own</span>
+    <div className="callout gq ck-closed ck-desk" data-check-marker="" role="status" {...SAFE}>
+      <span className="lab">◇ {markerWords(count)} · on your own</span>
       <div className="gqr">
-        <span className="faint">whatever states the answer is veiled in place while you answer, then comes back</span>
-        <button type="button" className="act" onClick={() => desk.defer(check.commitmentId)}>later</button>
-        <button type="button" className="act pri" disabled={held} title={held ? "another cold check is open" : undefined} onClick={() => onCheckNow(check.commitmentId)}>check now</button>
+        <span className="faint">nothing of it shows until you open it · whatever states the answer is veiled while you answer, then comes back</span>
+        <button type="button" className="act" onClick={() => desk.defer()}>later</button>
+        <button type="button" className="act pri" onClick={() => onCheckNow()}>check now</button>
       </div>
-      {held && desk.open()?.card.commitmentId !== check.commitmentId ? <div className="ck-note">another check is open · answer it or say not now first</div> : null}
     </div>
   );
 }
@@ -171,12 +177,12 @@ export function CheckCardOverlay({ desk }: { desk: CheckDesk }) {
   );
 }
 
-/** The check's part of a source window's lens: the closed marker before each due check's host passage, or the open
- *  card there. One composed lens per window, made again only when its base or the checks change. */
+/** The check's part of a source window's lens: the open card before the begun check's host passage (no due check is
+ *  placed at a passage). One composed lens per window, made again only when its base or the checks change. */
 export class CheckLenses {
   private made = new Map<string, { base: ReaderLens | null; extractionId: string; version: number; lens: ReaderLens | null }>();
 
-  lensFor(windowId: string, extractionId: string, base: ReaderLens | null, desk: CheckDesk, onCheckNow: (commitmentId: string) => void): ReaderLens | null {
+  lensFor(windowId: string, extractionId: string, base: ReaderLens | null, desk: CheckDesk): ReaderLens | null {
     const version = desk.getVersion();
     const known = this.made.get(windowId);
     if (known && known.base === base && known.extractionId === extractionId && known.version === version) return known.lens;
@@ -186,9 +192,8 @@ export class CheckLenses {
         const own = base?.before?.(spanId) ?? null;
         const open = desk.open();
         const here = Boolean(open && open.host?.extractionId === extractionId && open.host?.spanId === spanId);
-        const due = desk.dueAt(extractionId, spanId).filter((check) => check.commitmentId !== open?.card.commitmentId);
-        if (!here && !due.length) return own;
-        return <>{own}{here ? <CheckCardInline desk={desk} /> : <CheckMarker checks={due} desk={desk} onCheckNow={onCheckNow} />}</>;
+        if (!here) return own;
+        return <>{own}<CheckCardInline desk={desk} /></>;
       },
     };
     this.made.set(windowId, { base, extractionId, version, lens });

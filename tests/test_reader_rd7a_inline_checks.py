@@ -65,9 +65,20 @@ VISIBLE = {"windows": [
 ], "companionOpen": True, "companionExchangeIds": ["qe_2"], "previewWindowIds": ["w_pad"]}
 
 
+def _handle(ctx, commitment: str) -> str:
+    """The handle ``checks.due_for`` answers for this check now (the desks know nothing else of it)."""
+
+    from learnloop.db.stores import check_administrations as store
+    from learnloop.intent.inline_checks import handle_of
+
+    with ctx.require_vault()[1].connection() as connection:
+        count = store.administration_counts(connection).get(commitment, 0)
+    return handle_of(commitment, count)
+
+
 def _begin(ctx, session, commitment, *, request_id="req_1", visible=None):
-    return call(ctx, "check.begin_inline", {"requestId": request_id, "commitmentId": commitment, "sessionId": session,
-                                           "visible": VISIBLE if visible is None else visible})
+    return call(ctx, "check.begin_inline", {"requestId": request_id, "handle": _handle(ctx, commitment),
+                                           "sessionId": session, "visible": VISIBLE if visible is None else visible})
 
 
 def _submit(ctx, token, *, submission_id="sub_1", answer=ANSWER):
@@ -212,7 +223,7 @@ def test_protect_more_veils_only_what_is_new(tmp_path):
 
 # -- the lock shared with Today -------------------------------------------------------------------------------------
 
-def test_one_administration_at_a_time_and_today_honours_it(tmp_path):
+def test_one_administration_at_a_time_and_today_honours_it(tmp_path, monkeypatch):
     from learnloop.clock import SystemClock
     from learnloop.intent.checks import BEING_ANSWERED_BANNER, served_check
     from learnloop.intent.inline_checks import due_checks
@@ -230,7 +241,11 @@ def test_one_administration_at_a_time_and_today_honours_it(tmp_path):
     again = _begin(ctx, session, commitment, request_id="req_2")
     assert (again["administrationToken"], again["replayed"]) == (token, True)
     assert _rows(paths, "SELECT COUNT(*) FROM check_administrations") == [(1,)]
-    with pytest.raises(SidecarError) as second:
+    import learnloop_sidecar.handlers.inline_checks as H
+
+    # Another due check's handle (the fixture has one check: its handle resolves to a second commitment here).
+    with monkeypatch.context() as patched, pytest.raises(SidecarError) as second:
+        patched.setattr(H, "resolve_handle", lambda *args, **kwargs: "cm_another_check")
         _begin(ctx, session, "cm_another_check", request_id="req_3")
     assert second.value.code == "administration_open"
     assert second.value.details["administration_token"] == token
