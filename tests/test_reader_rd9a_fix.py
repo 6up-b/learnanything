@@ -57,3 +57,30 @@ def test_a_finished_te2_lesson_reviews_its_quick_question_in_recorded_order(tmp_
     assert kinds[at + 1:at + 3] == ["learner", "probe_result"]
     question = review["feed"][at]
     assert question["question"] and question["probe_ref"]
+
+
+def test_a_quick_question_is_never_served_or_answered_in_a_desk_window(tmp_path):
+    from learnloop.teacher import probes as PR
+    from learnloop_sidecar.errors import SidecarError
+    from tests.teacher_te2_probes_helpers import _Lesson, probe_turn
+
+    lesson = _Lesson(tmp_path, [probe_turn])
+    lesson.generate()
+    served = "SELECT COUNT(*) FROM lesson_turns WHERE lesson_id = ? AND action = 'probe_served'"
+    with PR.held_serving(True):
+        window = S.view_lesson(lesson.vault(), lesson.repository, lesson.lesson_id)
+    assert window["probe"]["status"] == "waiting" and "question" not in window["probe"]
+    assert lesson.rows(served, (lesson.lesson_id,)) == [(0,)]
+    # The lesson screen asks it (served there, as before the desks).
+    screen = lesson.look()
+    assert screen["probe"]["status"] == "open" and screen["probe"]["question"]
+    assert lesson.rows(served, (lesson.lesson_id,)) == [(1,)]
+    # A window's step never answers it, whatever it sends.
+    ctx = context(lesson.paths.root)
+    import pytest
+
+    with pytest.raises(SidecarError) as refused:
+        call(ctx, "lesson.turn", {"action": "answer_probe", "lesson_id": lesson.lesson_id, "probe_ref": screen["probe"]["probeRef"]
+                                  if "probeRef" in screen["probe"] else screen["probe"]["probe_ref"],
+                                  "answer": "(1, 0)", "frame": "window"})
+    assert refused.value.code == "probe_on_lesson_screen"

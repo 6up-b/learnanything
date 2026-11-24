@@ -263,6 +263,8 @@ export interface LessonsHost {
   onLookInLibrary?: (phrase: string) => void;
   /** Open a lesson in a window on the current desk (a fresh lesson after a protection change, the path view's row). */
   openLesson: (entry: LessonEntry) => void;
+  /** A lesson's quick question, asked on the full lesson screen; settled when that screen closes. */
+  openProbeScreen?: (lessonId: string) => Promise<void>;
   /** RD9b's notebook frame for a lesson whose medium is a notebook; absent until it is built. */
   notebookFrame?: (lessonId: string, view: LessonViewDto) => ReactNode;
 }

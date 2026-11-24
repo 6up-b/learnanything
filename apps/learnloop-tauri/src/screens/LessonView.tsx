@@ -120,6 +120,9 @@ export interface LessonViewProps {
   onStartFresh?: (learningObjectIds: string[]) => void;
   /** Whether a step is in flight (a window's opening tab offers to let a failed opening go only once it is not). */
   onBusy?: (busy: boolean) => void;
+  /** A desk window's way to the lesson screen for a quick question, settled when the screen closes (the owner's
+   *  interim until RD7's administration guard: a quick question is never answered in a window). */
+  onProbe?: () => Promise<void>;
   /** A window's opening turn goes through its host, which sends it once and shares it with any later view of the same
    *  opening (a window closed and brought back). Without it, the turn is sent here. */
   shareOpening?: (send: () => Promise<LessonViewDto>) => Promise<LessonViewDto>;
@@ -137,8 +140,11 @@ export function LessonView({
   onStartFresh,
   onBusy,
   shareOpening,
+  onProbe,
 }: LessonViewProps) {
   const windowed = frame === "window";
+  // Every read and step says where the lesson is shown: a window's never serves or answers a quick question.
+  const framed = windowed ? { frame: "window" as const } : {};
   // The window's lifecycle (outside the desks: never paused, listeners straight on the window, as before).
   const paused = useWindowPaused();
   const pausedRef = useRef(paused);
@@ -200,7 +206,7 @@ export function LessonView({
     // TE2-log: the intervals so far reach the sidecar before the step (a close's receipt counts them).
     activity.current?.flush();
     try {
-      const next = input.action === "open" && shareOpening ? await shareOpening(() => api.lessonTurn(input)) : await api.lessonTurn(input);
+      const next = input.action === "open" && shareOpening ? await shareOpening(() => api.lessonTurn({ ...input, ...framed })) : await api.lessonTurn({ ...input, ...framed });
       setView(next);
       return next;
     } catch (error) {
@@ -247,7 +253,7 @@ export function LessonView({
     if (!recover || paused) return;
     const lessonId = recover;
     setRecover(null);
-    void api.lessonView({ lessonId }).then((next) => { if (mounted.current) setView(next); }).catch(() => undefined);
+    void api.lessonView({ lessonId, ...framed }).then((next) => { if (mounted.current) setView(next); }).catch(() => undefined);
   }, [recover, paused, setView]);
 
   /** Send what the learner wrote, keeping it on screen while the teacher writes. A step that failed outright puts it
@@ -265,7 +271,7 @@ export function LessonView({
     if (entry.kind === "typed") {
       // TE2: nothing opens until the learner says what they want to learn.
     } else if (entry.kind === "resume") {
-      void api.lessonView({ lessonId: entry.lessonId }).then((next) => { if (!cancelled) setView(next); })
+      void api.lessonView({ lessonId: entry.lessonId, ...framed }).then((next) => { if (!cancelled) setView(next); })
         .catch((error: unknown) => onError(getCommandError(error)?.message ?? String(error)));
     } else {
       void run({ action: "open", entry: entry.entry, learningObjectIds: entry.learningObjectIds ?? [],
@@ -329,7 +335,9 @@ export function LessonView({
     setCheckOpen(false);
   }, [openCheck?.checkRef]);
   const probe = view?.probe ?? null;
-  const probeOpen = Boolean(probe && probe.status === "open");
+  // In a window a quick question only waits: it is answered on the lesson screen.
+  const probeOpen = Boolean(probe && probe.status === "open" && !windowed);
+  const probeWaiting = Boolean(probe && (probe.status === "waiting" || (probe.status === "open" && windowed)));
   useEffect(() => {
     setProbeAnswer("");
     setProbeTap(null);
@@ -339,7 +347,7 @@ export function LessonView({
     // A paused window polls nothing; live again, it checks back on the same question.
     if (!lessonId || !probe || probe.status !== "preparing" || busy || paused) return;
     const timer = window.setTimeout(() => {
-      void api.lessonView({ lessonId }).then(setView).catch(() => undefined);
+      void api.lessonView({ lessonId, ...framed }).then(setView).catch(() => undefined);
     }, PROBE_POLL_MS);
     return () => window.clearTimeout(timer);
   }, [lessonId, probe, busy, paused]);
@@ -540,6 +548,19 @@ export function LessonView({
               ) : null}
             </section>
           ) : null}
+          {view && !view.closed && probe && probeWaiting ? (
+            <section data-testid="lesson-probe-waiting" role="status" style={{ margin: "10px 0" }}>
+              <Faint>A quick question is waiting · it is asked on the lesson screen, on your own.</Faint>
+              {onProbe && lessonId ? (
+                <div style={{ marginTop: 6 }}>
+                  <button type="button" data-testid="lesson-probe-screen" disabled={busy}
+                          onClick={() => void onProbe().then(() => readWhenLive(lessonId))}>
+                    Answer it on the lesson screen
+                  </button>
+                </div>
+              ) : null}
+            </section>
+          ) : null}
           {view && !view.closed && probe && probeOpen ? (
             <section data-testid="lesson-probe" style={{ margin: "10px 0", padding: 10, border: `1px solid ${COLOR.border}` }}>
               <Faint>{probe.label}</Faint>
@@ -619,7 +640,7 @@ export function LessonView({
               </button>
             </section>
           ) : null}
-          {view && !view.closed && !probeOpen ? (
+          {view && !view.closed && !probeOpen && !probeWaiting ? (
             <section style={{ marginTop: 14 }}>
               <textarea aria-label="Reply to the teacher" placeholder={openCheck ? "ask for help with the check…" : "reply…"}
                         value={reply} onChange={(e) => setReply(e.target.value)} style={{ width: "100%", minHeight: 50 }} />

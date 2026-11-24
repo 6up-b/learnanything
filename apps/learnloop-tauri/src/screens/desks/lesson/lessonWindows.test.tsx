@@ -127,7 +127,7 @@ describe("a Teacher lesson as a stack tab", () => {
     expect(within(lesson).getByTestId("lesson-learner").textContent).toContain("the log-sum-exp goes up by 3");
     expect(within(lesson).getByTestId("lesson-check-result").textContent).toContain("correct");
     expect(within(lesson).getByTestId("lesson-close").textContent).toContain("Lesson done.");
-    expect(api.lessonView).toHaveBeenCalledWith({ lessonId: FIXTURE_LESSON_ID });
+    expect(api.lessonView).toHaveBeenCalledWith({ lessonId: FIXTURE_LESSON_ID, frame: "window" });
     expect(api.lessonTurn).not.toHaveBeenCalled();
     // Nothing to answer, reply to or stop.
     expect(within(lesson).queryByRole("textbox")).toBeNull();
@@ -161,7 +161,7 @@ describe("a Teacher lesson as a stack tab", () => {
     api.lessonTurn.mockImplementation(() => new Promise(() => undefined));
     rerender("visible");
     await waitFor(() => expect(lessonCalls()).toEqual({ turns: 1, views: 1 }));
-    expect(api.lessonView).toHaveBeenCalledWith({ lessonId: FIXTURE_LESSON_ID });
+    expect(api.lessonView).toHaveBeenCalledWith({ lessonId: FIXTURE_LESSON_ID, frame: "window" });
   });
 
   it("a question being prepared is checked back on only while the window is live", async () => {
@@ -332,7 +332,7 @@ describe("reads a lesson window makes only while it is live", () => {
     await act(async () => { fail({ code: "lesson_exists", message: "exists", details: { lesson_id: FIXTURE_LESSON_ID } }); });
     expect(api.lessonView).not.toHaveBeenCalled();
     view.rerender(ui("active"));
-    await waitFor(() => expect(api.lessonView).toHaveBeenCalledWith({ lessonId: FIXTURE_LESSON_ID }));
+    await waitFor(() => expect(api.lessonView).toHaveBeenCalledWith({ lessonId: FIXTURE_LESSON_ID, frame: "window" }));
     cleanup();
     api.lessonView.mockClear();
     const closed = render(ui("active"));
@@ -385,6 +385,30 @@ describe("a finished lesson's review records no activity", () => {
     cleanup();
     await act(async () => { await Promise.resolve(); });
     expect(api.lessonActivity).not.toHaveBeenCalled();
+  });
+});
+
+describe("a lesson's quick question in a desk window", () => {
+  it("is never answerable there: it waits, opens the lesson screen, and the tab reads the lesson again on return", async () => {
+    const asked = { ...FIXTURE_LESSON_VIEW, closed: false, closeReason: null, feed: FIXTURE_LESSON_VIEW.feed.slice(0, 1),
+      probe: { probeRef: "p1", status: "open" as const, label: "A quick question first", question: "Which vector does A stretch by three?", teachAnyway: false } };
+    api.lessonView.mockImplementation(async () => asked);
+    let back: () => void = () => undefined;
+    const openProbeScreen = vi.fn(() => new Promise<void>((resolve) => { back = resolve; }));
+    mount({ stack: [{ kind: "lesson", lessonId: FIXTURE_LESSON_ID }], host: { openProbeScreen } });
+    await screen.findByTestId("lesson-probe-waiting");
+    // Not the question, no answer box, no reply box: nothing to answer in the window.
+    expect(screen.queryByText("Which vector does A stretch by three?")).toBeNull();
+    expect(screen.queryByLabelText("Your answer to the question")).toBeNull();
+    expect(screen.queryByLabelText("Reply to the teacher")).toBeNull();
+    expect(api.lessonView).toHaveBeenCalledWith({ lessonId: FIXTURE_LESSON_ID, frame: "window" });
+    fireEvent.click(screen.getByTestId("lesson-probe-screen"));
+    expect(openProbeScreen).toHaveBeenCalledWith(FIXTURE_LESSON_ID);
+    const reads = api.lessonView.mock.calls.length;
+    api.lessonView.mockImplementation(async () => ({ ...asked, probe: null }));
+    await act(async () => { back(); });
+    await waitFor(() => expect(api.lessonView.mock.calls.length).toBe(reads + 1));
+    await waitFor(() => expect(screen.queryByTestId("lesson-probe-waiting")).toBeNull());
   });
 });
 

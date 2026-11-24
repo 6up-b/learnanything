@@ -81,6 +81,7 @@ export function LessonPaper({ host, itemKey, lessonId, entry, additions, hasAddi
             onView={onView}
             onBusy={onBusy}
             {...(lessonId ? {} : { shareOpening })}
+            {...(host.openProbeScreen && shownId ? { onProbe: () => host.openProbeScreen!(shownId) } : {})}
             onError={host.onError}
             {...(host.onQuickCheck ? { onQuickCheck: host.onQuickCheck } : {})}
             {...(host.onLookInLibrary ? { onLookInLibrary: host.onLookInLibrary } : {})}

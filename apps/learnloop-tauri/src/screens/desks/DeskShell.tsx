@@ -504,6 +504,8 @@ export interface DeskShellProps {
     request?: { seq: number; entry: LessonEntry; vault?: string } | null;
     /** The request was taken (opened or dropped): the app forgets it, so a remount or a vault switch replays nothing. */
     onConsumed?: (seq: number) => void;
+    /** A lesson's quick question on the full lesson screen (never in a desk window); settled when it closes. */
+    onProbe?: (lessonId: string) => Promise<void>;
     onQuickCheck?: (learningObjectIds: string[]) => void;
     onLookInLibrary?: (phrase: string) => void;
     /** RD9b's notebook frame for a notebook lesson. */
@@ -1860,9 +1862,10 @@ export function DeskShell({
     openLesson,
     ...(lessons?.onQuickCheck ? { onQuickCheck: lessons.onQuickCheck } : {}),
     ...(lessons?.onLookInLibrary ? { onLookInLibrary: lessons.onLookInLibrary } : {}),
+    ...(lessons?.onProbe ? { openProbeScreen: lessons.onProbe } : {}),
     // A notebook lesson's frame (spec §11.2); a caller may stand in its own.
     notebookFrame: lessons?.notebookFrame ?? lessonNotebookFrame,
-  }), [lessonDesk, onError, openLesson, lessons?.onQuickCheck, lessons?.onLookInLibrary, lessons?.notebookFrame]);
+  }), [lessonDesk, onError, openLesson, lessons?.onQuickCheck, lessons?.onLookInLibrary, lessons?.notebookFrame, lessons?.onProbe]);
 
   const openContent = useCallback((content: ContentRefDto, options: { spanId?: string | null; view?: Record<string, unknown> } = {}) => {
     const current = wsRef.current;

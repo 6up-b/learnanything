@@ -10404,6 +10404,8 @@ export interface WorkbenchRequestHelpInput {
 
 /** lesson.turn's input: open a lesson ("Teach me this") or take one step in it. */
 export interface LessonTurnInput {
+  /** Where the lesson is shown: a desk window's step serves no quick question and answers none. */
+  frame?: "screen" | "window";
   /** `resume`: run the teacher's turn an outage interrupted (nothing new from the learner). Teacher TE2:
    *  `answer_probe` (the open question), `teach_anyway` (one still being prepared), `close` (Today's "Close it"). */
   action: "open" | "reply" | "answer_prediction" | "answer_check" | "stop" | "resume" | "answer_probe"
@@ -10527,7 +10529,8 @@ export interface LessonViewDto {
 /** Teacher TE2 (spec_teacher_v1 §11.3, §19): a lesson's quick question. Never its answer. */
 export interface LessonProbeDto {
   probeRef: string;
-  status: "preparing" | "open";
+  /** `waiting`: ready, and asked on the full lesson screen (a desk window's read neither serves nor shows it). */
+  status: "preparing" | "open" | "waiting";
   label: string;
   question?: string;
   teachAnyway: boolean;

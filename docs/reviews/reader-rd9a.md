@@ -110,7 +110,7 @@ an answer counts as. No migration, algorithm tag, prompt or config key.
 |---|---|---|---|
 | A desk lesson request replayed after a remount or a vault switch | RD9a-1 | The request carries its vault. DeskShell opens it only in that vault and reports it taken (`lessons.onConsumed`). App forgets it then, and on any vault change | `lesson/deskLessons.test.tsx` |
 | Close and undo during an opening sent a second opening turn | RD9a-2 | `LessonDesk.shareOpening` owns the opening's turn: sent once, shared by later views, and its identity settled with no view mounted | `lesson/lessonWindows.test.tsx` ("an opening closed and brought back…") |
-| A TE2 quick question is not isolated in a window | RD9a-3 | **Stopped** (an answer given with help in reach would be recorded as a cold, unassisted probe). Options: (a) the full lesson screen for a probe; (b) a desk-wide guard; (c) record such answers as assisted (a tag). Details in the ledger row | none |
+| A TE2 quick question is not isolated in a window | RD9a-3 | **Interim, the owner's option (a)**, until RD7's administration guard exists. The quick question is asked on the full lesson screen, never in a desk window. A window's `lesson.view` and `lesson.turn` say `frame: "window"`; the sidecar then neither serves nor shows a ready question (`status: "waiting"`, no first-serve claim; `probes.held_serving`) and refuses `answer_probe` (`probe_on_lesson_screen`). The tab says a quick question is waiting and opens the lesson screen (App's `openProbeScreen`); when that screen closes, the tab reads the lesson again. How an answer is recorded is unchanged. Options (b), a desk-wide guard, and (c), recording such answers as assisted (a tag), stay listed for when RD7 is decided | `test_reader_rd9a_fix.py::test_a_quick_question_is_never_served_or_answered_in_a_desk_window`, `lesson/lessonWindows.test.tsx` ("a lesson's quick question in a desk window…") |
 | Two additions pads per lesson | RD9a-4 | The sidecar refuses a second pad per lesson inside the batch's transaction. `lesson.list` names the oldest and lists all of them. The desk creates nothing until the summary lands, takes the stored pad, and shows older duplicates' notes | `test_reader_rd9a_fix.py`, `lesson/lessonWindows.test.tsx` (2) |
 | A failed step's recovery reads ignored the lifecycle and unmounting | RD9a-5 | Recovery reads wait for a mounted, live view (`readWhenLive`) | `lesson/lessonWindows.test.tsx` |
 | Folded or scrolled-away papers kept polling | RD9a-6 | Each paper's effective lifecycle (`PausedPart` in `lifecycle.tsx`) pauses it while folded or out of view | `lesson/lessonWindows.test.tsx` |
@@ -122,10 +122,13 @@ Judgment calls:
 - Older duplicate additions pads are shown under the lesson, not merged into one pad.
 - The desk tells the learner "reading your notes under this lesson" and creates nothing while the summary is unknown.
 
-Assertions changed: none.
+Assertions changed: for RD9a-3, a window's `lesson.view` input now carries `frame: "window"`. This changes three
+`toHaveBeenCalledWith` assertions in `lessonWindows.test.tsx` and the desk harness's lesson-run check on
+`lesson.view`'s input. Returning from the probe's lesson screen shows no "lesson kept" notice (the learner is back at
+the tab).
 
 Shared files touched (small, additive):
-- `App.tsx`: the request's vault and consumption.
+- `App.tsx`: the request's vault and consumption; `openProbeScreen` and its return to the tab.
 - `DeskShell.tsx`: honouring them.
 - `lifecycle.tsx`: `PausedPart`.
 - `PadStackWindow.tsx`: additions known, older pads.

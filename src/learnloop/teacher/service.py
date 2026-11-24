@@ -2659,6 +2659,10 @@ def _view_te2(vault: Any, repository: Any, state: LessonState, out: dict[str, An
     if probe.status == "preparing":
         out["probe"] = {"probe_ref": probe.ref, "status": "preparing", "label": PR.PREPARING, "teach_anyway": True}
         return
+    if PR.serving_held():
+        # A desk window: the question is asked on the lesson screen, so this read neither serves nor shows it.
+        out["probe"] = {"probe_ref": probe.ref, "status": "waiting", "label": PR.WAITING, "teach_anyway": False}
+        return
     served = PR.serve(vault, repository, state.lesson, state.turns, clock=clock)
     if served is not None:
         out["probe"] = {"probe_ref": served["probe_ref"], "status": "open", "label": "A quick question first",
