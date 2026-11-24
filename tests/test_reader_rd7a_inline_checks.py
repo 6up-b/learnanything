@@ -300,7 +300,8 @@ def test_opening_a_notes_veil_reads_no_note_and_says_so_in_the_receipt(tmp_path)
     ref = {"group": "notes", "kind": "note", "window_id": "w_book", "note_id": "note_1"}
     status = call(ctx, "check.expose", {"administrationToken": token, "ref": ref, "kind": "opened_veil"})["protectionStatus"]
     assert _rows(paths, "SELECT COUNT(*) FROM reveal_events") == [(0,)]
-    assert status["coldNow"] is True
+    # Not cold any more: the answer will be submitted primed (an unmeasured note errs toward practice).
+    assert status["coldNow"] is False
     [event] = [event for event in status["exposure"] if event["kind"] == "opened_veil"]
     assert event["unmeasured_notes"] == ["note_1"] and set(event["amounts"].values()) <= {0.0}
 
