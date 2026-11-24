@@ -340,3 +340,48 @@ RD2's 22 (against 21) is the first card's opacity at two values (it recedes in `
 `#scrub=0.5` frame: which card is first on screen differs with the fixture); RD3's 7 (against 5) is the anchored
 panel's place at two viewports (it follows the fixture's passage). No real difference was missing from §9.
 
+## 11. After the old Reader's retirement (2026-11-24, main `92a3331649`)
+
+Neither the RD7 fix round nor the old Reader's retirement could run this comparison (no access to the private
+reference). One fresh harness build of main, every stage at both viewports, `--out` a scratch directory:
+
+| Stage | Baseline | Main | This branch |
+|---|---|---|---|
+| pairs | 1 | 1 (colour 1) | 1 |
+| RD1 | 36 | 36 (colour 2, geometry 30, missing 2, type 2) | 36 |
+| RD2 | 21 | 21 (colour 8, geometry 6, missing 5, type 2) | 21 |
+| RD3 | 7 | 7 (colour 1, geometry 4, missing 2) | 7 |
+| RD4 | 19 | 19 (geometry 1, missing 15, type 3) | 19 |
+| RD5 | 2 | 2 (colour 2) | 2 |
+| RD6 | 7 | 7 (colour 4, missing 3) | 7 |
+| RD7 | (none recorded; 30 on the naming-pass branch) | 30 (colour 4, geometry 19, type 7) | **26** (geometry 19, type 7): the new baseline |
+| RD8 | 3 | 3 (colour 2, geometry 1) | 3 |
+| RD9 | 4 | 4 (geometry 4) | 4 |
+| RD10 | (none recorded) | 1 (geometry 1) | 1: the new baseline |
+
+**No stage got worse.** Row by row against the naming-pass branch's run, the only change is one region's value:
+the restarted check's overlay card (`div.ovl.coldcheck`, states `s12=check` and `s12=answered`) is 2.5 px taller (the
+reference's 218.6 and 396.5 against 266.2 → 268.7 and 367.4 → 369.8), from `111e9ea4d3` (the card shows the question
+as Today does, through `ItemPresentation` inside `FitMath`): a decided change, the same rows as before at new values.
+None of the decided changes named for this check (the header's "old Reader" button gone, neutral window heads during
+a check, the naming pass's words, the path panel folded into the book's window) moved a measured region.
+
+**RD10's one row** is the chapters panel, 157 px against the reference's 127: the line that says what accepting does
+before the learner accepts (owner decision 2026-11-23, chapters feed coverage). Accepted.
+
+**RD7's rows, classified** (26 after VR-48):
+
+| Rows | What | Why | Disposition |
+|---|---|---|---|
+| 4 (`textarea.gqa` border colours, removed) | The answer box unfocused in the companion state | The capture's own clicks took the focus | **Fixed** (VR-48) |
+| 14 (`div.open` ×4, `div.gqv` ×4, `textarea.gqa` width ×4, `div.done` ×2) | The inline card 23 px narrower (35 px in the plain state) | The card opens at its marker inside the passage, which carries the sheet's 12 px and the text column; the reference's callout spans its paper grid's column | Placement: **superseded by RD7-56 (b)** (the unlocated marker changes where the card opens; `checks/` marker placement is that branch's) |
+| 2 (`div.ovl.coldcheck` height) | The restarted check's card taller while open, shorter once answered | The card says what is veiled and the rule, and shows the question as Today does | Decided (RD7's honest cost wording; `111e9ea4d3`) |
+| 1 (`div.veiled` padding) | 12 px left padding on a veiled passage | The passages carry the sheet's 12 px (§9's fix round) | Decided |
+| 7 (`div.veiled` font family, size, line height) | The veiled text is the reading font at 16.5 px | Fixture: the reference veils a mono pad line (`pen=veil`) and a paragraph in its own serif (`goal=checkb`); the desks veil a book passage in Literata, the app's reading font | Fixture |
+| 2 (`comp_panel` y) | The docked companion 97 px higher while a check is open | Its veil's pill sits under it (RD7b: a panel's pill placed after it slides in) | Decided (RD7b) |
+
+No row in this run measures the located due-check marker itself; anything about its placement is superseded by
+RD7-56 (b).
+
+**Sanity run of the desk harness on main** (the same fresh build, every run): 234 passed, 0 failed, display math included.
+
