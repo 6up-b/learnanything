@@ -548,3 +548,29 @@ def test_r15_the_decision_replays_numerically_from_its_frozen_record_alone(tmp_p
     assert replayed.choice == detail["evaluation"]["numeric_choice"]
     assert replayed.record["results"] == detail["evaluation"]["results"]
     assert replayed.record["decisions"] == detail["evaluation"]["decisions"]
+
+
+def test_r3_a_candidate_ranking_ahead_at_acceptance_is_never_served_under_the_decision(tmp_path, monkeypatch):
+    from learnloop.db.repositories import Repository
+
+    from tests.probe_router_authority_helpers import PROBE_ITEM
+
+    case = _learner(tmp_path, monkeypatch)
+    selected = _read(case)
+    assert selected["routerState"] == "selected"
+    drawn_over = selected["candidateId"]
+    real = Repository.causal_probe_candidates_for_factor
+
+    def with_a_newer_favourite(self, factor_id, *args, **kwargs):
+        rows = real(self, factor_id, *args, **kwargs)
+        # Candidate B, reviewed after the decision on another item, ranks ahead of A (the decision's) everywhere the
+        # shared order is read.
+        ahead = [{**row, "id": "cand_b", "practice_item_id": "pi_svd_define_001", "created_at": "0000"}
+                 for row in rows if str(row["id"]) == drawn_over]
+        return ahead + rows
+
+    monkeypatch.setattr(Repository, "causal_probe_candidates_for_factor", with_a_newer_favourite)
+    status = _read(case)
+    assert (status["routerState"], status["candidateId"]) == ("selected", drawn_over)
+    offer = _offer(case)
+    assert offer["accepted"] and (offer["candidateId"], offer["practiceItemId"]) == (drawn_over, PROBE_ITEM)
