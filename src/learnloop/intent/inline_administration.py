@@ -28,6 +28,7 @@ receipt rows that nothing derived reads.
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
@@ -88,8 +89,13 @@ def _require_tag(vault: Any) -> None:
 
 # -- the protection set -------------------------------------------------------------------------------------------
 
+#: What a ref carries for display, never part of what it names: an opened ref the client sends back decorated is the
+#: same veil as the standing one (else it would be held again and a second opening charged).
+_DISPLAY_KEYS = frozenset({"group", "measured"})
+
+
 def _ref_key(ref: Mapping[str, Any]) -> str:
-    return json.dumps({key: ref[key] for key in sorted(ref) if key != "group"}, sort_keys=True)
+    return json.dumps({key: ref[key] for key in sorted(ref) if key not in _DISPLAY_KEYS}, sort_keys=True)
 
 
 #: ``covered(learning_object_ids) -> {lo_id: {(extraction_id, section_id)}} | None``: per LO, the sections that treat
@@ -154,7 +160,9 @@ def protection(vault: Any, repository: Any, opened: Opened, visible: Mapping[str
         if whole_everywhere or extraction_id in whole_readings or (extraction_id, span_id) in anchors:
             return True
         section_id = sections.section_of(extraction_id, span_id)
-        return section_id is not None and (extraction_id, section_id) in sections_covered
+        # A passage the section map does not place (a span it lacks, or a reading whose structure cannot be loaded)
+        # cannot be judged: held (the client reads every listed passage the reply does not veil as judged).
+        return section_id is None or (extraction_id, section_id) in sections_covered
 
     for window in visible.get("windows") or ():
         window_id = str(window.get("window_id") or "")
@@ -372,12 +380,39 @@ def preflight(vault: Any, repository: Any, *, request_id: str, commitment_id: st
         return known
     if current is not None:
         if current["commitment_id"] == commitment_id:
-            # A lost begin reply, or another click: the open administration of this check is adopted, not refused.
-            return current
+            # Another request for the open administration of this check: its begin reply was lost and the desks did
+            # not hold meanwhile (a client that held retries with the same request id, or reads it back with the
+            # restart read). What was readable in that gap is unknown: an unmeasured opening, charged once per request.
+            _record_gap(vault, repository, current, request_id)
+            return find(repository, current["administration_token"])
         refuse_open_elsewhere(repository, commitment_id)
     if C.resolve_disposition(repository, commitment_id) != "one_check_pending":
         raise InlineCheckError(DUE_ONLY, "This check isn't pending any more.")
+    # Every refusal begin would give before it serves, here: a refused check starts no session.
+    _servable_now(vault, repository, commitment_id, clock=None)
     return None
+
+
+def _record_gap(vault: Any, repository: Any, admin: Mapping[str, Any], request_id: str) -> None:
+    try:
+        expose(vault, repository, token=admin["administration_token"], kind="left",
+               ref={"kind": "surface", "surface": "begin_reply_lost"}, exposure_id=f"adopt_{request_id}")
+    except InlineCheckError as exc:
+        if exc.code != "submission_in_flight":
+            raise
+
+
+def _servable_now(vault: Any, repository: Any, commitment_id: str, *, clock: Clock | None) -> Any:
+    """The check as begin would serve it, or the refusal: not due, nothing servable, or Today showing it."""
+
+    check = _check(vault, repository, commitment_id, clock=clock)
+    if check is None or not check.pending:
+        raise InlineCheckError(DUE_ONLY, "This check isn't due yet.")
+    if not check.servable:
+        raise InlineCheckError("nothing_to_serve", "Nothing can be asked for this check right now; it comes back later.")
+    if _open_in_today(repository, check.candidates):
+        raise InlineCheckError("being_answered_in_today", "This check is being answered in Today.")
+    return check
 
 
 def begin(vault: Any, repository: Any, *, request_id: str, commitment_id: str, session_id: str,
@@ -391,15 +426,8 @@ def begin(vault: Any, repository: Any, *, request_id: str, commitment_id: str, s
     standing = preflight(vault, repository, request_id=request_id, commitment_id=commitment_id)
     if standing is not None:
         return {"administration": standing, "replayed": True}
-    check = _check(vault, repository, commitment_id, clock=clock)
-    if check is None or not check.pending:
-        raise InlineCheckError(DUE_ONLY, "This check isn't due yet.")
-    servable = check.servable
-    if not servable:
-        raise InlineCheckError("nothing_to_serve", "Nothing can be asked for this check right now; it comes back later.")
-    if _open_in_today(repository, check.candidates):
-        raise InlineCheckError("being_answered_in_today", "This check is being answered in Today.")
-    item_id = servable[0]
+    check = _servable_now(vault, repository, commitment_id, clock=clock)
+    item_id = check.servable[0]
     opened = Opened(commitment_id=commitment_id, practice_item_id=item_id, cold=check.cold(item_id),
                     candidates=tuple(check.candidates),
                     learning_object_ids=_learning_objects(vault, repository, commitment_id, check.candidates),
@@ -477,6 +505,10 @@ def protect_more(vault: Any, repository: Any, *, token: str, visible: Mapping[st
     method, veiled = protection(vault, repository, opened, visible, covered)
     with repository.atomic():
         connection = repository.connection()
+        # Open and unreserved at the write itself: nothing is appended once an answer is on its way or the check closed.
+        current = store.by_token(connection, token)
+        _require_open(current)
+        _require_unreserved(current)
         known, already_opened = union(store.veil_sets(connection, token))
         keys = {_ref_key(ref) for ref in known}
         additions = [ref for ref in veiled if _ref_key(ref) not in keys]
@@ -590,31 +622,22 @@ def expose(vault: Any, repository: Any, *, token: str, ref: Mapping[str, Any], k
 
     from learnloop.attempts.reveal_ledger import reveal_episode_id
     from learnloop.serve_eligibility import AUTO_PRIME_REVEAL_THRESHOLD
-    from learnloop.tutor.tutor_qa import span_answer_overlap
 
     _require_tag(vault)
     if kind not in ("opened_veil", "left", "navigated", "help"):
         raise InlineCheckError("validation_error", f"Unknown exposure {kind!r}.")
     admin = find(repository, token)
     if exposure_id is not None and exposure_id in (admin.get("exposure_ids") or ()):
-        recorded = next((event for event in admin["exposure"] if event.get("exposure_id") == exposure_id), None)
-        return _exposure_result(vault, repository, admin, recorded, clock=clock)
+        return _replayed_exposure(vault, repository, admin, exposure_id, kind, ref, clock=clock)
     _require_open(admin)
     _require_unreserved(admin)
-    opened = _opened_for(admin, repository)
     charging = kind in ("opened_veil", "left")
     is_measured = kind == "opened_veil" and measured(repository, ref)
     amounts: dict[str, float] = {}
     if charging:
         texts = _text_of(repository, ref) if is_measured else []
-        for entry in admin.get("candidates") or ({"practice_item_id": item, "learning_object_id": None, "key": None}
-                                                for item in opened.candidates):
-            item_id = str(entry["practice_item_id"])
-            key = entry.get("key")
-            if key is None:
-                item = vault.practice_items.get(item_id)
-                key = str(item.expected_answer or "") if item is not None else ""
-            amounts[item_id] = (max((span_answer_overlap(text, key) for text in texts if text), default=0.0)
+        for item_id, key in _charged_keys(vault, repository, admin, clock=clock).items():
+            amounts[item_id] = (max((revealed(text, key) for text in texts if text), default=0.0)
                                 if is_measured else float(AUTO_PRIME_REVEAL_THRESHOLD))
     now = _now(clock)
     event: dict[str, Any] = {"kind": kind, "ref": dict(ref), "at": now, "amounts": amounts, "measured": is_measured}
@@ -624,6 +647,10 @@ def expose(vault: Any, repository: Any, *, token: str, ref: Mapping[str, Any], k
     if notes:
         event["unmeasured_notes"] = notes
     los = {str(entry["practice_item_id"]): entry.get("learning_object_id") for entry in admin.get("candidates") or ()}
+    for item_id in amounts:
+        if item_id not in los:
+            item = vault.practice_items.get(item_id)
+            los[item_id] = str(item.learning_object_id) if item is not None and item.learning_object_id else None
     episodes = {item_id: reveal_episode_id(repository, item_id, strict=True) for item_id, amount in amounts.items()
                 if amount > 0}
     with repository.atomic():
@@ -632,8 +659,7 @@ def expose(vault: Any, repository: Any, *, token: str, ref: Mapping[str, Any], k
         _require_open(current)
         _require_unreserved(current)
         if exposure_id is not None and exposure_id in (current.get("exposure_ids") or ()):
-            recorded = next((item for item in current["exposure"] if item.get("exposure_id") == exposure_id), None)
-            return _exposure_result(vault, repository, current, recorded, clock=clock)
+            return _replayed_exposure(vault, repository, current, exposure_id, kind, ref, clock=clock)
         for index, (item_id, amount) in enumerate(sorted(amounts.items())):
             if amount <= 0:
                 continue
@@ -655,6 +681,51 @@ def expose(vault: Any, repository: Any, *, token: str, ref: Mapping[str, Any], k
                                   veiled=[], opened=[*opened_refs, dict(ref)], now=now)
         after = store.by_token(connection, token)
     return _exposure_result(vault, repository, after, event, clock=clock)
+
+
+def _replayed_exposure(vault: Any, repository: Any, admin: Mapping[str, Any], exposure_id: str, kind: str,
+                       ref: Mapping[str, Any], *, clock: Clock | None) -> dict[str, Any]:
+    """A retried opening returns the first result; the same id for another opening is refused (it would be recorded
+    as nothing)."""
+
+    recorded = next((event for event in admin["exposure"] if event.get("exposure_id") == exposure_id), None)
+    if recorded is not None and (recorded.get("kind") != kind or _ref_key(recorded.get("ref") or {}) != _ref_key(ref)):
+        raise InlineCheckError("exposure_reused", "That opening's id was used for another opening.")
+    return _exposure_result(vault, repository, admin, recorded, clock=clock)
+
+
+def _charged_keys(vault: Any, repository: Any, admin: Mapping[str, Any], *, clock: Clock | None) -> dict[str, str]:
+    """Every item an opening is charged to, with the key it is measured against: the candidates begin froze (their
+    keys as they were then), and any candidate the check has gained since (an item made for its LO after begin, with
+    its key now), so an opening that states a newer item's answer cannot leave that item to settle the check cold."""
+
+    keys: dict[str, str] = {}
+    for entry in admin.get("candidates") or ():
+        keys[str(entry["practice_item_id"])] = str(entry.get("key") or "")
+    if not keys:
+        keys[str(admin["practice_item_id"])] = ""
+    check = _check(vault, repository, admin["commitment_id"], clock=clock)
+    for item_id in (check.candidates if check is not None else ()):
+        keys.setdefault(str(item_id), "")
+    for item_id, key in list(keys.items()):
+        if not key:
+            item = vault.practice_items.get(item_id)
+            keys[item_id] = str(item.expected_answer or "") if item is not None else ""
+    return keys
+
+
+def revealed(text: str, key: str) -> float:
+    """How much of an answer key an opened text shows: the tutor's overlap rule (inherited until the Decider judges
+    reveals), and the whole key stated as whole words counts in full whatever its length (the overlap rule scores a
+    short key such as "osmosis" zero when a passage states exactly it)."""
+
+    from learnloop.tutor.tutor_qa import span_answer_overlap
+
+    overlap = span_answer_overlap(text, key)
+    words = " ".join(str(key or "").split()).casefold()
+    if words and re.search(rf"(?<!\w){re.escape(words)}(?!\w)", " ".join(str(text or "").split()).casefold()):
+        return 1.0
+    return overlap
 
 
 def cold_now(vault: Any, repository: Any, admin: Mapping[str, Any], *, clock: Clock | None = None) -> bool:
@@ -679,20 +750,26 @@ def prepare_submit(vault: Any, repository: Any, *, token: str, submission_id: st
         if admin["submission_id"] != submission_id:
             raise InlineCheckError("already_submitted", "This check was already answered.")
         return {**admin, "replayed": True}
-    _require_open(admin)
-    if admin["submission_id"] not in (None, submission_id):
-        raise InlineCheckError("already_submitted", "An answer to this check is already on its way.")
-    if veils_revision is not None and admin["submission_id"] is None:
-        current = veils(repository, token)["revision"]
-        if veils_revision < current:
-            raise InlineCheckError("veils_stale", "Some of what is on screen isn't covered yet; it is now. Send again.",
-                                   {"revision": current})
-    pending = admin["pending_before"] if admin["submission_id"] is not None else \
-        C.resolve_disposition(repository, admin["commitment_id"]) == "one_check_pending"
+    pending = C.resolve_disposition(repository, admin["commitment_id"]) == "one_check_pending"
+    # The state, the reservation and the revision are read and the reservation written in one transaction: no veil set
+    # can be appended between the revision check and the reservation (protect_more refuses once one is reserved).
     with repository.atomic():
-        if not store.set_submission(repository.connection(), token, submission_id, pending_before=bool(pending)):
+        connection = repository.connection()
+        current = store.by_token(connection, token)
+        _require_open(current)
+        if current["submission_id"] not in (None, submission_id):
             raise InlineCheckError("already_submitted", "An answer to this check is already on its way.")
-    return {**find(repository, token), "replayed": False}
+        if current["submission_id"] is None:
+            sets = store.veil_sets(connection, token)
+            revision = sets[-1]["seq"] if sets else 0
+            # Exactly the server's revision: behind it some veil is not applied; ahead of it is a revision never sent.
+            if veils_revision is not None and veils_revision != revision:
+                raise InlineCheckError("veils_stale", "Some of what is on screen isn't covered yet; it is now. Send again.",
+                                       {"revision": revision})
+            if not store.set_submission(connection, token, submission_id, pending_before=bool(pending)):
+                raise InlineCheckError("already_submitted", "An answer to this check is already on its way.")
+        reserved = store.by_token(connection, token)
+    return {**reserved, "replayed": False}
 
 
 def notes_opened(admin: Mapping[str, Any]) -> bool:
@@ -781,9 +858,25 @@ def _close_veils(connection: Any, token: str, now: str) -> None:
                           kind="close", method=admin["protection_method"], veiled=[], opened=opened, now=now)
 
 
+def release(repository: Any, *, token: str, submission_id: str,
+            attempt_for: Callable[[str, str], str | None]) -> bool:
+    """A reservation no attempt was accepted for is undone (the attempt service refused: grading unavailable, the item
+    gone, the session elsewhere), so the card can be answered again or set aside. True when released."""
+
+    admin = find(repository, token)
+    if admin["state"] != "open" or admin["submission_id"] != submission_id:
+        return False
+    if attempt_for(admin["session_id"], attempt_submission_key(submission_id)) is not None:
+        return False
+    with repository.atomic():
+        return store.release_submission(repository.connection(), token, submission_id)
+
+
 def abandon(vault: Any, repository: Any, *, token: str, clock: Clock | None = None) -> None:
     """"Not now": closed with no attempt; the duty stays pending and what was opened stays in the reveal ledger. While
-    a submission is reserved it is refused (the answer decides)."""
+    a submission is reserved it is refused (the answer decides: its attempt may be on its way). A submission the
+    attempt service refused is released by the submit itself (:func:`release`), and one cut off by a crash is resent
+    with its id from the restored card, so a reservation never holds the check open for good."""
 
     _require_tag(vault)
     admin = find(repository, token)
@@ -834,16 +927,20 @@ def reopen(vault: Any, repository: Any, *, attempt_for: Callable[[str, str], str
             return None
         return admin
     check = _check(vault, repository, admin["commitment_id"], clock=clock)
+    # A row with no frozen presentation (opened before migration 271's columns) cannot be shown again as it was served:
+    # it is superseded rather than shown empty.
     still = (C.resolve_disposition(repository, admin["commitment_id"]) == "one_check_pending" and check is not None
              and check.pending and admin["practice_item_id"] in check.candidates
-             and not _attempted_elsewhere(repository, admin))
+             and admin.get("presentation") is not None and not _attempted_elsewhere(repository, admin))
     if not still:
         now = _now(clock)
         with repository.atomic():
             connection = repository.connection()
             if store.close(connection, token, state="superseded", now=now, unreserved=True):
                 _close_veils(connection, token, now)
-        return None
+                return None
+        # Lost a race (a submission was reserved meanwhile): the row as it now stands decides.
+        return reopen(vault, repository, attempt_for=attempt_for, clock=clock)
     return admin
 
 
@@ -852,5 +949,5 @@ __all__ = [
     "BELOW_TAG", "Covered", "InlineCheckError", "METHOD", "METHOD_WHOLE_SOURCES", "OPENED_BASIS", "Opened", "PLACED_KINDS",
     "SURFACE", "UNMEASURED_BASIS", "abandon", "attempt_submission_key", "begin", "being_answered", "cold_now",
     "cold_presentation", "eligibility_of", "expose", "find", "finish_submit", "measured", "narrow", "outcome",
-    "preflight", "prepare_submit", "protect_more", "protection", "reopen", "union", "veils", "with_measured",
+    "preflight", "prepare_submit", "protect_more", "protection", "release", "reopen", "revealed", "union", "veils", "with_measured",
 ]

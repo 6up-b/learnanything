@@ -128,6 +128,16 @@ def set_submission(connection: sqlite3.Connection, token: str, submission_id: st
     return row is not None and row[0] == submission_id
 
 
+def release_submission(connection: sqlite3.Connection, token: str, submission_id: str) -> bool:
+    """Undo a reservation no attempt was accepted for (grading unavailable, the item gone, the session elsewhere), so
+    the card can be answered again or set aside. Only while open and still reserved by that submission."""
+
+    cursor = connection.execute(
+        "UPDATE check_administrations SET submission_id = NULL, pending_before = NULL WHERE administration_token = ? "
+        "AND state = 'open' AND submission_id = ?", (token, submission_id))
+    return cursor.rowcount == 1
+
+
 def close(connection: sqlite3.Connection, token: str, *, state: str, now: str, attempt_id: str | None = None,
           outcome: Mapping[str, Any] | None = None, unreserved: bool = False) -> bool:
     """Close an open administration (with its attempt and the outcome it promised). ``unreserved``: only while no

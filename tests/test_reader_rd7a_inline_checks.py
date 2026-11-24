@@ -4,6 +4,8 @@ service (a grader fake), abandon, crash recovery at each transition, the owner's
 whole-vault rebuild reproduces. No model is called but the grader fake."""
 from __future__ import annotations
 
+import itertools
+
 import sqlite3
 from contextlib import closing
 from datetime import UTC, datetime, timedelta
@@ -20,6 +22,7 @@ from tests.approach_map_fakes import EXPECTED, ITEM, LO
 from tests.hint_fakes import hint_vault
 from tests.workbench_help_fakes import call
 
+_OPENINGS = itertools.count(1)
 ANSWER = "F(x) = x^2 on [0, 1], so P(X <= 1/2) = 1/4."
 
 
@@ -236,11 +239,16 @@ def test_one_administration_at_a_time_and_today_honours_it(tmp_path, monkeypatch
     view = served_check(vault, repository, ITEM, now=SystemClock().now())
     assert view is not None and view["cold"] is True and "being_answered_in" not in view
     token = _begin(ctx, session, commitment)["administrationToken"]
-    # Two administrations never overlap: another begin of this check (a lost reply, a second click) adopts the open
-    # one; another check's begin is refused, naming the open one.
+    # Two administrations never overlap: the same request again adopts the open one as it was; another request for this
+    # check (its begin reply was lost and the desks did not hold) adopts it too, recording the gap as an unmeasured
+    # opening; another check's begin is refused, naming the open one.
+    same = _begin(ctx, session, commitment)
+    assert (same["administrationToken"], same["replayed"]) == (token, True)
+    assert _rows(paths, "SELECT COUNT(*) FROM reveal_events") == [(0,)]
     again = _begin(ctx, session, commitment, request_id="req_2")
     assert (again["administrationToken"], again["replayed"]) == (token, True)
     assert _rows(paths, "SELECT COUNT(*) FROM check_administrations") == [(1,)]
+    assert _rows(paths, "SELECT basis FROM reveal_events") == [(IA.UNMEASURED_BASIS,)]
     import learnloop_sidecar.handlers.inline_checks as H
 
     # Another due check's handle (the fixture has one check: its handle resolves to a second commitment here).
@@ -262,7 +270,8 @@ def test_one_administration_at_a_time_and_today_honours_it(tmp_path, monkeypatch
     assert kept == [] and chosen == []
     assert [row["being_answered"] for row in due_checks(vault, repository)] == [True]
     call(ctx, "check.abandon_inline", {"administrationToken": token})
-    assert served_check(vault, repository, ITEM, now=SystemClock().now())["cold"] is True
+    # Not held any more; not cold either (the gap of the lost reply outlives the administration).
+    assert served_check(vault, repository, ITEM, now=SystemClock().now())["cold"] is False
     assert intent_serving(vault, repository, now=SystemClock().now(), force=True).locked == frozenset()
 
 
@@ -293,7 +302,7 @@ def test_opening_a_veil_that_states_the_answer_primes_the_item_and_the_answer_is
     commitment = _due_check(repository)
     ref = _seed_block(ctx, EXPECTED)
     token = _begin(ctx, session, commitment)["administrationToken"]
-    status = call(ctx, "check.expose", {"administrationToken": token, "ref": ref, "kind": "opened_veil"})["protectionStatus"]
+    status = call(ctx, "check.expose", {"exposureId": f"op_{next(_OPENINGS)}", "administrationToken": token, "ref": ref, "kind": "opened_veil"})["protectionStatus"]
     # Persisted at once, before any answer: a source review sized by the overlap with the key.
     reveals = _rows(paths, "SELECT practice_item_id, source_kind, amount, basis FROM reveal_events")
     assert [(item, kind, basis) for item, kind, _amount, basis in reveals] == [(ITEM, "source_review", IA.OPENED_BASIS)]
@@ -309,10 +318,10 @@ def test_opening_a_veil_that_says_nothing_of_the_answer_leaves_it_cold(tmp_path)
     commitment = _due_check(repository)
     ref = _seed_block(ctx, "Remember to buy milk on Tuesday.")
     token = _begin(ctx, session, commitment)["administrationToken"]
-    status = call(ctx, "check.expose", {"administrationToken": token, "ref": ref, "kind": "opened_veil"})["protectionStatus"]
+    status = call(ctx, "check.expose", {"exposureId": f"op_{next(_OPENINGS)}", "administrationToken": token, "ref": ref, "kind": "opened_veil"})["protectionStatus"]
     assert _rows(paths, "SELECT COUNT(*) FROM reveal_events") == [(0,)]  # a zero overlap writes nothing
     assert status["coldNow"] is True
-    call(ctx, "check.expose", {"administrationToken": token, "ref": {"kind": "window", "window_id": "w_x"},
+    call(ctx, "check.expose", {"exposureId": f"op_{next(_OPENINGS)}", "administrationToken": token, "ref": {"kind": "window", "window_id": "w_x"},
                                "kind": "navigated"})
     assert _rows(paths, "SELECT COUNT(*) FROM reveal_events") == [(0,)]  # navigating is no exposure
     reply = _submit(ctx, token)
@@ -329,7 +338,7 @@ def test_opening_a_notes_veil_reads_no_note_and_says_so_in_the_receipt(tmp_path)
     commitment = _due_check(repository)
     token = _begin(ctx, session, commitment)["administrationToken"]
     ref = {"group": "notes", "kind": "note", "window_id": "w_book", "note_id": "note_1"}
-    status = call(ctx, "check.expose", {"administrationToken": token, "ref": ref, "kind": "opened_veil"})["protectionStatus"]
+    status = call(ctx, "check.expose", {"exposureId": f"op_{next(_OPENINGS)}", "administrationToken": token, "ref": ref, "kind": "opened_veil"})["protectionStatus"]
     # Unmeasured: charged at the priming threshold on every candidate, so it outlives this administration.
     from learnloop.serve_eligibility import AUTO_PRIME_REVEAL_THRESHOLD
 
@@ -350,7 +359,7 @@ def test_an_answer_after_a_notes_veil_was_opened_is_practice_and_says_why(tmp_pa
     paths, ctx, session, repository = _sidecar(tmp_path)
     commitment = _due_check(repository)
     token = _begin(ctx, session, commitment)["administrationToken"]
-    call(ctx, "check.expose", {"administrationToken": token, "kind": "opened_veil",
+    call(ctx, "check.expose", {"exposureId": f"op_{next(_OPENINGS)}", "administrationToken": token, "kind": "opened_veil",
                                "ref": {"group": "notes", "kind": "note", "window_id": "w_book", "note_id": "note_1"}})
     reply = _submit(ctx, token)
     assert (reply["cold"], reply["reason"], reply["primedBy"]) == (False, "primed", "unmeasured_note")
@@ -541,7 +550,7 @@ def test_the_projection_after_an_inline_answer_equals_a_whole_vault_rebuild(tmp_
     commitment = _due_check(repository)
     ref = _seed_block(ctx, EXPECTED)
     token = _begin(ctx, session, commitment)["administrationToken"]
-    call(ctx, "check.expose", {"administrationToken": token, "ref": ref, "kind": "opened_veil"})
+    call(ctx, "check.expose", {"exposureId": f"op_{next(_OPENINGS)}", "administrationToken": token, "ref": ref, "kind": "opened_veil"})
     _submit(ctx, token)
 
     def projection() -> dict[str, Any]:
@@ -585,7 +594,7 @@ def test_rd7_3_an_opened_note_outlives_not_now_the_next_attempt_anywhere_is_not_
     paths, ctx, session, repository = _sidecar(tmp_path)
     commitment = _due_check(repository)
     token = _begin(ctx, session, commitment)["administrationToken"]
-    call(ctx, "check.expose", {"administrationToken": token, "ref": NOTE_REF, "kind": "opened_veil"})
+    call(ctx, "check.expose", {"exposureId": f"op_{next(_OPENINGS)}", "administrationToken": token, "ref": NOTE_REF, "kind": "opened_veil"})
     call(ctx, "check.abandon_inline", {"administrationToken": token})
     # A new Reader administration opens not cold, and says why.
     card = _begin(ctx, session, commitment, request_id="req_after")
@@ -600,7 +609,7 @@ def test_rd7_3_an_opened_note_outlives_not_now_the_next_attempt_anywhere_is_not_
 def test_rd7_3_leaving_for_an_unveiled_surface_is_an_unmeasured_opening(tmp_path):
     paths, ctx, session, repository = _sidecar(tmp_path)
     token = _begin(ctx, session, _due_check(repository))["administrationToken"]
-    status = call(ctx, "check.expose", {"administrationToken": token, "kind": "left",
+    status = call(ctx, "check.expose", {"exposureId": f"op_{next(_OPENINGS)}", "administrationToken": token, "kind": "left",
                                         "ref": {"kind": "surface", "surface": "old_reader"}})["protectionStatus"]
     assert status["coldNow"] is False and status["measured"] is False
     assert _rows(paths, "SELECT practice_item_id, amount, basis FROM reveal_events") == [
@@ -634,7 +643,7 @@ def test_rd7_4_every_candidate_of_an_lo_check_is_charged_from_the_set_begin_froz
     token = card["administrationToken"]
     frozen = {row["practice_item_id"] for row in IA.find(repository, token)["candidates"]}
     assert frozen >= {ITEM, "pi_cdf_b"}  # every item of the LO, as build_checks expands it
-    call(ctx, "check.expose", {"administrationToken": token, "ref": ref, "kind": "opened_veil"})
+    call(ctx, "check.expose", {"exposureId": f"op_{next(_OPENINGS)}", "administrationToken": token, "ref": ref, "kind": "opened_veil"})
     charged = dict(_rows(paths, "SELECT practice_item_id, amount FROM reveal_events"))
     # The pad states the other candidate's answer: that candidate is charged, whichever item was served.
     assert charged.get("pi_cdf_b", 0) > 0
@@ -681,7 +690,7 @@ def test_rd7_7_an_opening_nothing_can_measure_is_charged_and_says_so_before(tmp_
     measured = {ref["window_id"]: ref["measured"] for ref in card["protection"]["veiled"] if ref["kind"] == "window"}
     assert measured == {"w_lesson": False, "w_thread": False}
     figure = {"group": "figures", "kind": "figure", "window_id": "w_book", "figure_id": "f1"}
-    status = call(ctx, "check.expose", {"administrationToken": card["administrationToken"], "ref": figure,
+    status = call(ctx, "check.expose", {"exposureId": f"op_{next(_OPENINGS)}", "administrationToken": card["administrationToken"], "ref": figure,
                                         "kind": "opened_veil"})["protectionStatus"]
     assert status["measured"] is False and status["coldNow"] is False
     assert _rows(paths, "SELECT amount, basis FROM reveal_events") == [(AUTO_PRIME_REVEAL_THRESHOLD, IA.UNMEASURED_BASIS)]
@@ -699,12 +708,14 @@ def test_rd7_8_the_host_passage_is_protected_and_missing_coverage_fails_closed_f
     visible = {"windows": [{"window_id": "w_book", "kind": "source", "extraction_id": "ext_book", "span_ids": ["h1", "c1", "o1"]},
                            {"window_id": "w_far", "kind": "source", "extraction_id": "ext_far", "span_ids": ["f1"]}]}
     spans = lambda veiled: {(ref["window_id"], ref["span_id"]) for ref in veiled if ref["kind"] == "span"}  # noqa: E731
-    # Judged coverage: the covered section and the host's (a host with no coverage judged about it is still the host).
+    # Judged coverage: the covered section and the host's (a host with no coverage judged about it is still the host);
+    # a passage the section map does not place (the far reading's) cannot be judged, so it is held.
     _method, veiled = IA.protection(load_vault(paths.root), repository, opened, visible, lambda los: {LO: {("ext_book", "sec_cov")}})
-    assert spans(veiled) == {("w_book", "h1"), ("w_book", "c1")}
+    assert spans(veiled) == {("w_book", "h1"), ("w_book", "c1"), ("w_far", "f1")}
     # No current coverage judgment for the LO: its host's reading whole, another reading not.
     method, veiled = IA.protection(load_vault(paths.root), repository, opened, visible, lambda los: {})
-    assert method == IA.METHOD_WHOLE_SOURCES and spans(veiled) == {("w_book", "h1"), ("w_book", "c1"), ("w_book", "o1")}
+    assert method == IA.METHOD_WHOLE_SOURCES and spans(veiled) == {("w_book", "h1"), ("w_book", "c1"), ("w_book", "o1"),
+                                                                    ("w_far", "f1")}
 
 
 def test_rd7_9_recovery_shows_the_frozen_card_without_serving_again_and_names_the_reserved_submission(tmp_path, monkeypatch):
@@ -737,7 +748,7 @@ def test_rd7_11_while_a_submission_is_reserved_not_now_and_openings_are_refused(
     token = _begin(ctx, session, _due_check(repository))["administrationToken"]
     IA.prepare_submit(ctx.require_vault()[0], repository, token=token, submission_id="sub_1")
     for name, extra in (("check.abandon_inline", {}),
-                        ("check.expose", {"ref": NOTE_REF, "kind": "opened_veil"})):
+                        ("check.expose", {"exposureId": f"op_{next(_OPENINGS)}", "ref": NOTE_REF, "kind": "opened_veil"})):
         with pytest.raises(SidecarError) as refused:
             call(ctx, name, {"administrationToken": token, **extra})
         assert refused.value.code == "submission_in_flight"
@@ -866,7 +877,7 @@ def test_rd7_20_a_subthreshold_opening_holds_the_check_and_the_reply_says_so(tmp
         clock=FrozenClock(datetime.now(UTC) - timedelta(hours=1))).id
     ref = _seed_block(ctx, "Integrate")
     token = _begin(ctx, session, commitment)["administrationToken"]
-    status = call(ctx, "check.expose", {"administrationToken": token, "ref": ref, "kind": "opened_veil"})["protectionStatus"]
+    status = call(ctx, "check.expose", {"exposureId": f"op_{next(_OPENINGS)}", "administrationToken": token, "ref": ref, "kind": "opened_veil"})["protectionStatus"]
     [amount] = [row[0] for row in _rows(paths, "SELECT amount FROM reveal_events")]
     assert 0 < amount < AUTO_PRIME_REVEAL_THRESHOLD
     assert status["eligibility"] == "hold" and status["coldNow"] is False
@@ -874,3 +885,209 @@ def test_rd7_20_a_subthreshold_opening_holds_the_check_and_the_reply_says_so(tmp
     assert (reply["cold"], reply["reason"], reply["eligibility"]) == (False, "hold", "hold")
     assert _rows(paths, "SELECT primed FROM practice_attempts WHERE id = ?", (reply["attemptId"],)) == [(0,)]
     assert C.resolve_disposition(repository, commitment) == "one_check_pending"
+
+
+# -- the re-review of the fix round (2026-11-24) ----------------------------------------------------------------------
+
+def test_rd7_61_a_passage_the_section_map_does_not_place_is_held(tmp_path, monkeypatch):
+    from learnloop.vault.loader import load_vault
+
+    paths, _ctx, _session, repository = _sidecar(tmp_path)
+    _sections(monkeypatch, {"c1": "sec_cov", "o1": "sec_other"})
+    monkeypatch.setattr(IA, "host_places", lambda _repository, los: (set(), set()))
+    opened = IA.Opened(commitment_id="cm", practice_item_id=ITEM, cold=True, candidates=(ITEM,),
+                       learning_object_ids=(LO,), provenance={})
+    visible = {"windows": [{"window_id": "w_book", "kind": "source", "extraction_id": "ext_book",
+                            "span_ids": ["c1", "o1", "unmapped"]}]}
+    _method, veiled = IA.protection(load_vault(paths.root), repository, opened, visible, lambda los: {LO: {("ext_book", "sec_cov")}})
+    # Covered and unplaced passages are held; one placed in another section reads.
+    assert {ref["span_id"] for ref in veiled if ref["kind"] == "span"} == {"c1", "unmapped"}
+
+
+def test_rd7_62_another_request_adopting_the_open_check_records_the_gap_and_the_same_request_does_not(tmp_path):
+    paths, ctx, session, repository = _sidecar(tmp_path)
+    commitment = _due_check(repository)
+    token = _begin(ctx, session, commitment)["administrationToken"]
+    assert _begin(ctx, session, commitment)["administrationToken"] == token
+    assert _rows(paths, "SELECT COUNT(*) FROM reveal_events") == [(0,)]
+    _begin(ctx, session, commitment, request_id="req_lost_reply")
+    _begin(ctx, session, commitment, request_id="req_lost_reply")
+    assert _rows(paths, "SELECT amount, basis FROM reveal_events") == [(AUTO_PRIME_REVEAL_THRESHOLD, IA.UNMEASURED_BASIS)]
+    assert IA.cold_now(ctx.require_vault()[0], repository, IA.find(repository, token)) is False
+
+
+def test_rd7_63_a_presentation_served_during_the_hold_answers_nothing_whenever_it_is_answered():
+    from learnloop.scheduling.intent.serving import held_by_inline
+
+    windows = [("2026-11-24T10:00:00Z", "2026-11-24T10:10:00Z")]
+    today = {"entry_surface": "today"}
+    # Served during the hold as practice, answered after the Reader set it aside: held.
+    assert held_by_inline(windows, {**today, "presented_at": "2026-11-24T10:05:00Z", "created_at": "2026-11-24T10:12:00Z"})
+    # Served and answered after the close (the same second as the close included): not held.
+    assert not held_by_inline(windows, {**today, "presented_at": "2026-11-24T10:10:00Z", "created_at": "2026-11-24T10:10:00Z"})
+    # No presentation recorded: the attempt's own time decides.
+    assert held_by_inline(windows, {**today, "presented_at": None, "created_at": "2026-11-24T10:01:00Z"})
+    assert not held_by_inline(windows, {"entry_surface": "reader_inline", "created_at": "2026-11-24T10:01:00Z"})
+
+
+def test_rd7_64_an_opening_that_states_a_short_key_exactly_is_a_reveal():
+    from learnloop.tutor.tutor_qa import span_answer_overlap
+
+    passage = "Water moves across the membrane by osmosis, from the dilute side to the concentrated one."
+    # The inherited overlap rule scores it zero (a single short word); the whole key stated counts in full.
+    assert span_answer_overlap(passage, "osmosis") == 0.0
+    assert IA.revealed(passage, "Osmosis") == 1.0
+    # Only the whole key as whole words: a longer word containing it, or part of a longer key, is the overlap rule's.
+    assert IA.revealed("hyperosmosisology", "osmosis") == 0.0
+    assert IA.revealed(passage, "reverse osmosis") == span_answer_overlap(passage, "reverse osmosis")
+
+
+def test_rd7_65_an_opening_is_charged_to_a_candidate_made_after_begin(tmp_path):
+    from learnloop.vault.writer import upsert_practice_item
+    from tests.helpers import NOW_ISO
+
+    paths = hint_vault(tmp_path)
+    ctx = SidecarContext()
+    ctx.load(paths.root)
+    ctx.post_attempt_worker.autostart = False
+    session = call(ctx, "start_session", {"energy": "medium"})["sessionId"]
+    repository = Repository.attach(paths.sqlite_path)
+    yesterday = (datetime.now(UTC) - timedelta(days=1)).date().isoformat()
+    commitment = C.create_commitment(
+        repository, action="test_me_later", intent_text="check the CDF later",
+        targets=[{"target_kind": "learning_object", "target_ref": LO, "role": "required"}],
+        depth_preset="keep_in_touch", client_idempotency_key="rd7_65", due_hint=yesterday).id
+    newer_key = "The variance of X is one eighteenth."
+    ref = _seed_block(ctx, newer_key)
+    token = _begin(ctx, session, commitment)["administrationToken"]
+    upsert_practice_item(paths.root, {
+        "id": "pi_cdf_new", "learning_object_id": LO, "subjects": None, "practice_mode": "short_answer",
+        "attempt_types_allowed": ["independent_attempt"], "evidence_facets": ["recall"], "evidence_weights": {"recall": 1.0},
+        "prompt": "What is the variance of X?", "expected_answer": newer_key,
+        "grading_rubric": {"max_points": 4, "criteria": [{"id": "c", "points": 4, "description": "Correct."}], "fatal_errors": []},
+        "created_at": NOW_ISO, "updated_at": NOW_ISO})
+    ctx.reload(maintenance=False)
+    assert "pi_cdf_new" not in {row["practice_item_id"] for row in IA.find(repository, token)["candidates"]}
+    call(ctx, "check.expose", {"administrationToken": token, "ref": ref, "kind": "opened_veil", "exposureId": "op_new"})
+    charged = dict(_rows(paths, "SELECT practice_item_id, amount FROM reveal_events"))
+    assert charged.get("pi_cdf_new", 0) >= AUTO_PRIME_REVEAL_THRESHOLD
+
+
+def test_rd7_66_a_revision_never_sent_is_refused_and_nothing_is_veiled_after_a_reservation(tmp_path):
+    paths, ctx, session, repository = _sidecar(tmp_path)
+    token = _begin(ctx, session, _due_check(repository))["administrationToken"]
+    revision = IA.veils(repository, token)["revision"]
+    with pytest.raises(SidecarError) as ahead:
+        call(ctx, "check.submit_inline", {"administrationToken": token, "submissionId": "sub_1", "answerMd": ANSWER,
+                                          "veilsRevision": revision + 5})
+    assert ahead.value.code == "veils_stale"
+    IA.prepare_submit(ctx.require_vault()[0], repository, token=token, submission_id="sub_1", veils_revision=revision)
+    with pytest.raises(SidecarError) as late:
+        call(ctx, "check.protect_more", {"administrationToken": token, "visible": {
+            "windows": [*VISIBLE["windows"], {"windowId": "w_new", "kind": "pad_stack"}]}})
+    assert late.value.code == "submission_in_flight"
+    assert IA.veils(repository, token)["revision"] == revision
+
+
+def test_rd7_67_an_opened_ref_sent_back_decorated_stays_opened_and_an_opening_needs_its_own_id(tmp_path):
+    paths, ctx, session, repository = _sidecar(tmp_path)
+    ref = _seed_block(ctx, "a line that says nothing of it")
+    card = _begin(ctx, session, _due_check(repository))
+    token = card["administrationToken"]
+    # The veil exactly as the card gave it, with its display fields (the client sends it back so).
+    shown = next(each for each in card["protection"]["standing"] if each["kind"] == "window")
+    assert "measured" in shown
+    call(ctx, "check.expose", {"administrationToken": token, "ref": shown, "kind": "opened_veil", "exposureId": "op_a"})
+    standing = call(ctx, "check.protect_more", {"administrationToken": token, "visible": {
+        "windows": [*VISIBLE["windows"], {"windowId": "w_new", "kind": "pad_stack"}]}})["standing"]
+    assert not any(each.get("window_id") == shown["window_id"] and each["kind"] == "window" for each in standing)
+    with pytest.raises(Exception):
+        call(ctx, "check.expose", {"administrationToken": token, "ref": ref, "kind": "opened_veil"})
+    with pytest.raises(SidecarError) as reused:
+        call(ctx, "check.expose", {"administrationToken": token, "ref": NOTE_REF, "kind": "opened_veil", "exposureId": "op_a"})
+    assert reused.value.code == "exposure_reused"
+
+
+def test_rd7_68_an_answer_the_attempt_service_refuses_reserves_nothing(tmp_path, monkeypatch):
+    import learnloop_sidecar.handlers.inline_checks as H
+
+    paths, ctx, session, repository = _sidecar(tmp_path)
+    token = _begin(ctx, session, _due_check(repository))["administrationToken"]
+
+    def refused(*_args, **_kwargs):
+        raise SidecarError("grading_unavailable", "Grading is unavailable.")
+
+    with monkeypatch.context() as patched:
+        patched.setattr(H, "submit_attempt_on", refused, raising=False)
+        import learnloop_sidecar.handlers.practice as practice
+
+        patched.setattr(practice, "submit_attempt_on", refused)
+        with pytest.raises(SidecarError):
+            _submit(ctx, token)
+    assert IA.find(repository, token)["submission_id"] is None
+    call(ctx, "check.abandon_inline", {"administrationToken": token})
+    assert IA.find(repository, token)["state"] == "abandoned"
+
+
+def test_rd7_69_a_lesson_already_open_takes_no_turn_while_a_check_is_open(tmp_path):
+    paths, ctx, session, repository = _sidecar(tmp_path)
+    _begin(ctx, session, _due_check(repository))
+    with pytest.raises(SidecarError) as held:
+        call(ctx, "lesson.turn", {"action": "reply", "lessonId": "les_any"})
+    assert held.value.code == "check_open"
+
+
+def test_rd7_71_a_row_with_no_frozen_presentation_is_superseded_on_recovery(tmp_path):
+    from tests.inline_hold_helpers import hold_open
+
+    paths, ctx, session, repository = _sidecar(tmp_path)
+    commitment = _due_check(repository)
+    token = hold_open(repository, commitment, item=ITEM, opened_at=datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"))
+    with closing(sqlite3.connect(paths.sqlite_path)) as connection:
+        connection.execute("UPDATE check_administrations SET presentation_json = NULL WHERE administration_token = ?", (token,))
+        connection.commit()
+    assert call(ctx, "check.open_inline", {})["administration"] is None
+    assert IA.find(repository, token)["state"] == "superseded"
+
+
+def test_rd7_72_due_for_says_when_the_next_check_falls_due(tmp_path):
+    paths, ctx, session, repository = _sidecar(tmp_path)
+    later = (datetime.now(UTC) + timedelta(days=2)).date().isoformat()
+    C.create_commitment(repository, action="test_me_later", intent_text="later", depth_preset="keep_in_touch",
+                        targets=[{"target_kind": "legacy_practice_item", "target_ref": ITEM, "role": "required"}],
+                        client_idempotency_key="rd7_72", due_hint=later)
+    reply = call(ctx, "checks.due_for", {})
+    assert reply["checks"] == [] and reply["nextDue"] and reply["nextDue"] > datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def test_rd7_73_the_restored_card_says_what_was_opened_and_a_crashed_answer_returns_its_outcome(tmp_path, monkeypatch):
+    paths, ctx, session, repository = _sidecar(tmp_path)
+    token = _begin(ctx, session, _due_check(repository))["administrationToken"]
+    call(ctx, "check.expose", {"administrationToken": token, "ref": NOTE_REF, "kind": "opened_veil", "exposureId": "op_n"})
+    card = call(ctx, "check.open_inline", {})["administration"]
+    assert card["looked"] == [{"kind": "opened_veil", "group": "notes", "measured": False}]
+    assert card["coldNow"] is False and card["eligibilityNow"] is not None
+    # The answer reached the attempt service, then the sidecar stopped before the close.
+    with monkeypatch.context() as patched:
+        patched.setattr(IA, "finish_submit", lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("stopped")))
+        with pytest.raises(Exception):
+            _submit(ctx, token)
+    recovered = call(ctx, "check.open_inline", {})
+    assert recovered["administration"] is None
+    assert recovered["recovered"]["administrationToken"] == token and recovered["recovered"]["cold"] is False
+
+
+def test_rd7_74_a_check_not_due_yet_is_refused_before_a_session_starts(tmp_path):
+    paths = hint_vault(tmp_path)
+    ctx = SidecarContext()
+    ctx.load(paths.root)
+    ctx.post_attempt_worker.autostart = False
+    repository = Repository.attach(paths.sqlite_path)
+    later = (datetime.now(UTC) + timedelta(days=3)).date().isoformat()
+    commitment = C.create_commitment(repository, action="test_me_later", intent_text="later", depth_preset="keep_in_touch",
+                                     targets=[{"target_kind": "legacy_practice_item", "target_ref": ITEM, "role": "required"}],
+                                     client_idempotency_key="rd7_74", due_hint=later).id
+    with pytest.raises(IA.InlineCheckError) as refused:
+        IA.preflight(ctx.require_vault()[0], repository, request_id="r1", commitment_id=commitment)
+    assert refused.value.code == "not_due"
+    assert _rows(paths, "SELECT COUNT(*) FROM sessions") == [(0,)]
