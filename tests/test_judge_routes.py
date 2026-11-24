@@ -165,9 +165,8 @@ def test_settings_payload_discloses_each_judgment_route(tmp_path, monkeypatch, c
                            "workbench_check", "passage_cue_judge", "reading_path_judge", "figure_author",
                            "deliverable_scope_resolver", "deliverable_path_judge", "reader_digest",
                            "figure_rich_author", "note_link_judge", "teacher", "figure_prefetch_judge",
-                           "followup_probe_author", "ink_transcription"}
-    # Reader workbench v2 RD8a: reading handwriting sends a picture of the strokes and nothing else.
-    assert "a picture of those strokes as you drew them, and nothing else" in judges["ink_transcription"]["disclosure"]
+                           "followup_probe_author"}
+    # Handwriting is read by GLM-OCR (no judgment route): its disclosure is the z.ai upload OK, as for a page image.
     # Reader RW5d P5: the prefetch judge reads section text (and in gap mode one sentence of what
     # LearnLoop thinks you're unsure of), only with the switch on, only on the plan, never exam material.
     assert "figures.prefetch_enabled is on" in judges["figure_prefetch_judge"]["disclosure"]

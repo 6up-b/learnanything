@@ -190,7 +190,7 @@ function answer(command: string, input: Record<string, unknown>): unknown {
       return { version: 1, padId: input.padId ?? null, sourceId: input.sourceId ?? null, owners: input.padId ? server.inkFor(String(input.padId)) : [] };
     case "ink_transcribe":
       return { version: 1, jobId: null, status: "failed", done: true, result: null,
-        error: { code: "cannot_read_images", message: "The model routed to read handwriting cannot read images, so nothing was sent.", retryable: false, details: null } };
+        error: { code: "unavailable", message: "Handwriting can't be read yet: text recognition (GLM-OCR) isn't set up.", retryable: true, details: null } };
     case "reader_ask_history":
       return { exchanges: [] };
     case "reader_drain_outbox":

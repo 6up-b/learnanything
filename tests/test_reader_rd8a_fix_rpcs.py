@@ -13,17 +13,7 @@ from learnloop.pads import ink
 from learnloop.pads import ink_transcribe as reading
 from learnloop_sidecar.handlers import ink as ink_handler
 from tests.helpers import create_basic_vault
-from tests.ink_helpers import (
-    STROKES,
-    WAIT,
-    HeldReader,
-    ImageReader,
-    close_and_wait,
-    ink_jobs,
-    ink_pad,
-    reads_as,
-    wait_reading,
-)
+from tests.ink_helpers import STROKES, WAIT, close_and_wait, glm_local, ink_jobs, ink_pad, wait_reading
 from tests.reader_rd4_helpers import PAD, edit, rows, vault
 from tests.reading_path_fixtures import call, context
 
@@ -40,22 +30,11 @@ class _Watched(threading.Event):
         return super().wait(timeout)
 
 
-class CountingReader(HeldReader):
-    """A held reader counting the requests that reached it (``requests`` keeps only those that returned)."""
-
-    def __init__(self, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
-        self.reached = 0
-
-    def complete(self, request):
-        self.reached += 1
-        return super().complete(request)
-
-
 @pytest.fixture
-def held_context(tmp_path):
-    held = CountingReader(reads_as("$x$"))
-    ctx = context(create_basic_vault(tmp_path / "vault").root, ink_transcription_client=held)
+def held_context(tmp_path, monkeypatch):
+    root = create_basic_vault(tmp_path / "vault").root
+    held = glm_local(monkeypatch, root, "$x$", hold=True)
+    ctx = context(root)
     yield ctx, held
     held.release.set()
     close_and_wait(ctx)
@@ -99,26 +78,28 @@ class _Context:
         self.post_attempt_worker = _Worker()
 
 
-def test_a_reading_finishing_after_its_context_moved_on_keeps_its_facts_but_wakes_no_worker(tmp_path):
+def test_a_reading_finishing_after_its_context_moved_on_keeps_its_facts_but_wakes_no_worker(tmp_path, monkeypatch):
     paths, repository, _batches, client = ink_pad(tmp_path)
+    glm_local(monkeypatch, paths.root, "a + b")
     client.save("ink_1", STROKES, block_id="b1")
-    result = reading.transcribe(vault(paths), repository, reading.prepare(repository, "ink_1"),
-                                client=ImageReader(reads_as("a + b")))
+    result = reading.transcribe(vault(paths), repository, reading.prepare(repository, "ink_1"))
     stale = _Context()
     ink_handler._after_reading(stale, vault(paths), repository, result, lambda: False)
     assert stale.post_attempt_worker.woken == 0
     assert rows(repository, "SELECT source_id FROM learner_text_gap_jobs WHERE state = 'queued'") == [(result["head_version_id"],)]
 
 
-def test_the_listed_reading_beside_the_learners_correction_says_why_it_is_not_the_words(tmp_path):
+def test_the_listed_reading_beside_the_learners_correction_says_why_it_is_not_the_words(tmp_path, monkeypatch):
     paths, repository, batches, client = ink_pad(tmp_path)
+    ocr = glm_local(monkeypatch, paths.root, "a")
     client.save("ink_1", STROKES[:2], block_id="b1")
-    first = reading.transcribe(vault(paths), repository, reading.prepare(repository, "ink_1"), client=ImageReader(reads_as("a")))
+    first = reading.transcribe(vault(paths), repository, reading.prepare(repository, "ink_1"))
     [listed] = ink.ink_for_pad(repository, PAD)
     assert (listed["transcription"]["applied"], listed["transcription"]["reason"]) == (True, None)
     batches.pad(PAD, edit("b1", first["head_version_id"], "mine", "v_fix"))
     client.save("ink_2", STROKES[2:], block_id="b1")
-    reading.transcribe(vault(paths), repository, reading.prepare(repository, "ink_2"), client=ImageReader(reads_as("b")))
+    ocr.text = "b"
+    reading.transcribe(vault(paths), repository, reading.prepare(repository, "ink_2"))
     [listed] = ink.ink_for_pad(repository, PAD)
     assert listed["transcription"]["latex_md"] == "b"
     assert (listed["transcription"]["current"], listed["transcription"]["applied"], listed["transcription"]["reason"]) == (

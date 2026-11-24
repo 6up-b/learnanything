@@ -386,6 +386,14 @@ class GlmOcrDocumentExtractor:
                     raw, mime, reader, pages[middle:], total_pages=total_pages, context=context, asset=asset
                 )
             page_range = (1, len(pages))
+        result = self._answer(self._api_payload(body, mime, page_range), pages, context)
+        if checkpoint is not None:
+            checkpoint.save(result)
+        return [(result, pages)]
+
+    def _api_payload(self, body: bytes, mime: str, page_range: tuple[int, int] | None) -> dict[str, Any]:
+        """The hosted request for one file (a PDF window, or an image)."""
+
         encoded = base64.b64encode(body).decode("ascii")
         payload: dict[str, Any] = {
             "model": "glm-ocr",
@@ -396,10 +404,25 @@ class GlmOcrDocumentExtractor:
         }
         if page_range is not None:
             payload["start_page_id"], payload["end_page_id"] = page_range
-        result = self._answer(payload, pages, context)
-        if checkpoint is not None:
-            checkpoint.save(result)
-        return [(result, pages)]
+        return payload
+
+    def recognise_image(self, raw: bytes, *, upload_allowed: bool, interrupt=None) -> str:
+        """One PNG or JPG image read by GLM-OCR's pipeline, through the same request (admission, receipt, retries,
+        errors) as a document's: its text as GLM-OCR returns it (:func:`recognised_text`), nothing rewritten.
+        ``upload_allowed``: the learner's OK for sending a file to z.ai (hosted only; refused before sending)."""
+
+        if self.backend == "api" and not upload_allowed:
+            raise GlmOcrConsentRequired(CONSENT_MESSAGE)
+        mime = _mime(raw)
+        if mime == "application/pdf":
+            raise GlmOcrExtractionError("recognise_image reads one PNG or JPG image")
+        if self.backend == "api" and len(raw) > IMAGE_LIMIT:
+            raise GlmOcrExtractionError("Hosted GLM-OCR reads images of at most 10 MB")
+        payload = {"images": [_data_uri(mime, raw)]} if self.backend == "local" else self._api_payload(raw, mime, None)
+        result = self._request(payload, 1, interrupt=interrupt)
+        _validated(result, [0])
+        (regions,), _shape = _page_regions(result, 1, [0])
+        return recognised_text(regions)
 
     def _answer(self, payload: dict, pages: list[int], context: ExtractionContext) -> dict:
         """One window's answer, read before the next window is paid for: a
@@ -1343,6 +1366,22 @@ def _region_order(region: dict) -> tuple[int, int]:
 # Block types whose text is prose: labels are joined and amounts escaped.
 _LABEL_TYPES = frozenset({"Text", "SectionHeader"})
 _PROSE_TYPES = frozenset({"Text", "SectionHeader", "Caption", "Footnote"})
+
+
+def recognised_text(regions: list[dict]) -> str:
+    """One image's regions as the text GLM-OCR recognised: each region's content in reading order, trimmed, a blank
+    line between regions. Image regions carry a crop reference, never text, and are left out; nothing else is
+    changed (a formula keeps its ``$$``, a table its markup)."""
+
+    texts = []
+    for region in sorted(regions, key=_region_order):
+        if _labels(region)[0] == "image":
+            continue
+        content = region.get("content", region.get("text"))
+        text = str(content).strip() if content is not None else ""
+        if text:
+            texts.append(text)
+    return "\n\n".join(texts)
 
 
 def responses_to_ir(

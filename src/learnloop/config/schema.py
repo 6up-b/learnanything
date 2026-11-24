@@ -1285,7 +1285,7 @@ RETIRED_ROUTES: dict[str, str] = {
 }
 
 
-class AIRoutingConfig(BaseModel):
+class AIRoutingConfig(KeepsRetiredFields):
     # Never inherits active_provider, its fallback or LEARNLOOP_AI_PROVIDER.
     # Empty = the code-default openrouter_embedding profile;
     # nothing is sent unless embedding.enabled (default false) is also on.
@@ -1469,16 +1469,6 @@ class AIRoutingConfig(BaseModel):
     # recommended for latency, reported, not enforced). A metered profile is held to workbench.max_daily_cost_usd at
     # workbench.price_per_million (unset: refused before sending).
     workbench_check: str | None = None
-    # Reader workbench v2: reading the learner's handwriting, one structured
-    # call with an image of an ink line's (or a handwritten margin note's)
-    # standing strokes and nothing else, when the learner asks for it. Empty =
-    # ai.active_provider (the ChatGPT plan); a route whose model cannot read
-    # images is refused before anything is sent; OpenRouter only on the
-    # learner's "Use OpenRouter instead". A metered route is held to
-    # workbench.max_daily_cost_usd at workbench.price_per_million (unset:
-    # refused before sending). Left out of a dump at its default, so
-    # whole-config hashes keep the bytes they had before the field existed.
-    ink_transcription: str | None = Field(default=None, exclude_if=lambda value: value is None)
     # Reader workbench: the cue judge, one listwise call per cue target (a verdict, a quote and the
     # instructional roles per passage), in the background when a source opens
     # (never on a request path). Empty = ai.active_provider (Codex by default,
