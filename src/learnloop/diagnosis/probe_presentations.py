@@ -372,7 +372,7 @@ LEARNER_REFUSED_PROBE = "learner_refused_probe"
 
 class LearnerRefusedPin(Exception):
     """The probe router's learner lane: the learner said "Not now", "Teach me now" or no more diagnostics after
-    accepting the quick check, so its pin was retired before it was ever shown (G2 review R6)."""
+    accepting the quick check, so its pin was retired before it was ever shown."""
 
     def __init__(self, presentation_id: str, preference: str) -> None:
         super().__init__(f"{presentation_id}: the learner refused the quick check after it was pinned ({preference})")

@@ -953,7 +953,7 @@ def learner_probe_decision(connection: Any, factor_id: str) -> dict[str, Any] | 
 
 def automatic_probe_decision(connection: Any, factor_id: str) -> dict[str, Any] | None:
     """The automatic lane's (FG1's) committed decision on this factor's probe, or None: ``id``, ``chosen_ref``,
-    ``propensity``. One factor gets one probe decision across the two lanes (G2 review R11): the learner lane reads
+    ``propensity``. One factor gets one probe decision across the two lanes: the learner lane reads
     this one back instead of flipping a coin of its own. A hard refusal (``decline``) is no draw, so it is not one."""
 
     from learnloop.db.stores import followup_serve as workflows

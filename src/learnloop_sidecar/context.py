@@ -709,7 +709,7 @@ class SidecarContext:
             self.post_attempt_worker.notify()
 
     def _resume_probe_router(self) -> None:
-        """The probe router's decisions a previous process left waiting (G2 review R19): its learner-lane status
+        """The probe router's decisions a previous process left waiting: its learner-lane status
         reads answered ``pending`` and the job had not decided yet."""
 
         from learnloop.algorithm_versions import probe_router_on

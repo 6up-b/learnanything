@@ -1319,7 +1319,7 @@ def derive_router_outcomes(
             outcomes.append(_suggestion_outcome(decision, ledger, pfc_states, suggestion_responses))
             continue
         objective = frozen.get(decision["id"])
-        # The probe router's learner lane (G2 review R17): offering the quick check and not offering it are measured
+        # The probe router's learner lane: offering the quick check and not offering it are measured
         # on the one target both froze (the factor's learning object), intention to treat, whether or not the offer
         # was taken: an answer to the offered item outside the offer is never this decision's action.
         if objective is not None and (objective.get("arm") in ACTIONLESS_ARMS

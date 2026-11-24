@@ -516,7 +516,7 @@ export function useCausalRepairActions({
       if (!factorId) return;
       setPendingActionId(actionId);
       setNote(null);
-      // The same factor's status, never another open factor of the cause (G2 review R12).
+      // The same factor's status, never another open factor of the cause.
       const refresh = () =>
         api
           .causalRepairStatus(status.misconceptionId, sessionId, { factorId })
@@ -580,7 +580,7 @@ export function useCausalRepairActions({
 export const ROUTER_DECISION_POLL_FIRST_MS = 500;
 export const ROUTER_DECISION_POLL_TRIES = 6;
 
-/** The probe router's tag (G2 review R19): the router decides a factor's quick check in the sidecar's worker, off
+/** The probe router's tag: the router decides a factor's quick check in the sidecar's worker, off
  *  its request loop, so a status read answers `routerState: "pending"` until that job has run. While a shown status
  *  is pending, read it again (backing off), until the router has decided or the tries run out; the panel meanwhile
  *  offers what a pending status offers (Teach me now). Stops on unmount and once decided. */

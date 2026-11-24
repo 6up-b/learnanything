@@ -22,7 +22,7 @@ logged exactly.
 The router's valuation reads the vault's frozen objective inputs (``objective_inputs.build``) with no plan needed:
 the decision is the learner's, made where the learner reads the feedback.
 
-**The job** (G2 review R19). The sidecar's status read makes no decision: it reads the facts (recording their receipt
+**The job.** The sidecar's status read makes no decision: it reads the facts (recording their receipt
 once, as every status read does) and answers ``pending``; the valuation and the decision run in the sidecar's worker
 (:func:`run_pending`), off the serial request loop, and a later read shows the decision. The queue is durable with no
 table of its own: a factor is waiting (:func:`requested`) while its latest receipt is the router's pending read and no
@@ -239,7 +239,7 @@ def value(vault: Any, repository: Any, proposal: Any, *, now_iso: str, seed_iden
         return None, {"status": "no_payload", "reason": payload}
     lo = payload.topic
     # Known exposure at the decision, with the answer admission's own scope (the item and its learning object): an
-    # answer that admission will refuse separates no cause, so the probe earns no information (G2 review R14).
+    # answer that admission will refuse separates no cause, so the probe earns no information.
     exposed_by = known_exposure(vault, repository, practice_item_id=str(proposal.practice_item_id),
                                 learning_object_id=lo, at=now_iso)
     payload = replace(payload, exposed=exposed_by is not None)
@@ -272,8 +272,8 @@ def value(vault: Any, repository: Any, proposal: Any, *, now_iso: str, seed_iden
     valuation = evaluate_probe(inputs, probe, decisions=OWNER_DECISIONS, draws=draws, seed=seed, wait_feasible=True,
                                **options)
     # Frozen for replay: the whole unrounded inputs and the probe action as valued, the seed, the draw count and the
-    # options; ``replay`` is the lossless payload :func:`revalue` values again from the stored row alone (G2 review
-    # R15), the rest its readable view.
+    # options; ``replay`` is the lossless payload :func:`revalue` values again from the stored row alone, the rest
+    # its readable view.
     from dataclasses import asdict
 
     from learnloop.router_objective import check_replay
@@ -329,7 +329,7 @@ def decide_proposal(vault: Any, repository: Any, proposal: Any, *, clock: Clock 
     with repository.connection() as connection:
         automatic = automatic_probe_decision(connection, proposal.factor_id)
     if automatic is not None:
-        # The automatic lane decided this factor's probe since the status was read (G2 review R11): its decision is
+        # The automatic lane decided this factor's probe since the status was read: its decision is
         # the factor's one decision, and no second draw is made.
         return str(automatic["id"])
     config = vault.config
@@ -413,7 +413,7 @@ def decide_proposal(vault: Any, repository: Any, proposal: Any, *, clock: Clock 
                     # The decision and its coin's assignment commit together or not at all.
                     raise RuntimeError("the probe coin's assignment was not written")
             if recorded == decision_id and proposal.learning_object_id:
-                # One outcome target for both arms, frozen before either is executed (G2 review R17): the factor's
+                # One outcome target for both arms, frozen before either is executed: the factor's
                 # learning object, whichever was drawn, as the automatic lane's decision freezes its own. The probe
                 # arm's own answer is still bound only by an acceptance's pin.
                 from learnloop.daily_plan import measurement as objectives

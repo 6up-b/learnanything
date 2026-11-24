@@ -2018,7 +2018,7 @@ export function FeedbackScreen({
   }, [feedback]);
 
   // The attempt this feedback is for: the status read names the factor on it,
-  // never another open factor of the same cause (G2 review R12).
+  // never another open factor of the same cause.
   const repairAttemptId = feedback?.attemptId ?? null;
 
   useEffect(() => {
@@ -2041,7 +2041,7 @@ export function FeedbackScreen({
     return () => { cancelled = true; };
   }, [repairCaseId, sessionId, repairAttemptId]);
 
-  // The probe router's tag (G2 review R19): a status the router has not decided
+  // The probe router's tag: a status the router has not decided
   // yet is read again until its decision job has run. A decided "started" (the
   // check not offered) leaves nothing held to explain.
   const rereadRepairStatus = useCallback(() => {

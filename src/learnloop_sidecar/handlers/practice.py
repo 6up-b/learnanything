@@ -608,7 +608,7 @@ def _probe_contract(ctx: SidecarContext, vault: Any, repository: Any, item: Any,
                 # display: ended, and the item is ordinary practice (round 7).
                 return versioned({"active": False, "reason": PROBE_ITEM_ANSWER_SHOWN})
             except LearnerRefusedPin:
-                # The probe router's learner lane: refused after it was pinned, so retired unshown (G2 review R6).
+                # The probe router's learner lane: refused after it was pinned, so retired unshown.
                 return versioned({"active": False, "reason": LEARNER_REFUSED_PROBE})
             contract = episode_contract(vault, repository, item.learning_object_id) or {}
             why = {"followup_why": "This question comes from your last answer."} if followup_row is not None else {}

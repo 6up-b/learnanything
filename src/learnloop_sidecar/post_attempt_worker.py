@@ -260,7 +260,7 @@ class PostAttemptWorker:
         return outcomes
 
     def _run_probe_router(self, vault: Any, repository: Any, *, max_jobs: int, clock: Any) -> list[Any]:
-        """The probe router's learner lane (G2 review R19): the valuation and the decision a status read left
+        """The probe router's learner lane: the valuation and the decision a status read left
         waiting, off the request loop. Pure computation and local writes: no model is asked."""
 
         from learnloop.daily_plan.learner_probe import run_pending as run_probe_router

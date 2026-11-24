@@ -1127,7 +1127,7 @@ pub async fn get_review_log(sidecar: State<'_, SidecarManager>) -> Result<Value,
 }
 
 // `factor_id` and `session_id` are optional: the factor the repair was opened for and
-// the session whose "Not now" applies at the entry (G2 review R12, R6).
+// the session whose "Not now" applies at the entry.
 #[tauri::command]
 pub async fn start_remediation(
     misconception_id: String,

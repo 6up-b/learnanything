@@ -122,8 +122,8 @@ export function RepairScreen({
   onError
 }: {
   misconceptionId: string;
-  /** The cause factor the repair was opened for, when the opener knows it (G2
-   *  review R12): a cause can sit in two open factors. */
+  /** The cause factor the repair was opened for, when the opener knows it: a
+   *  cause can sit in two open factors. */
   factorId?: string | null;
   /** Active session, when known — scopes the causal probe preference. */
   sessionId?: string | null;
@@ -190,7 +190,7 @@ export function RepairScreen({
     };
   }, [misconceptionId, factorId, sessionId, report]);
 
-  // The probe router's tag (G2 review R19): the entry holds while the router
+  // The probe router's tag: the entry holds while the router
   // decides the factor's quick check in its job; ask the entry again until it
   // has (then it holds on the selection, or starts the repair).
   const reenter = useCallback(

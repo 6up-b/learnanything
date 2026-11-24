@@ -129,7 +129,7 @@ def router_disposition(repository: Repository, factor_id: str) -> dict[str, Any]
         decided = learner_probe_decision(connection, factor_id)
         automatic = automatic_probe_decision(connection, factor_id) if decided is None else None
     if automatic is not None:
-        # The automatic lane's decision on the factor is its one decision (G2 review R11): nothing to accept here.
+        # The automatic lane's decision on the factor is its one decision: nothing to accept here.
         return {"router_state": "not_selected", "router_decision_id": str(automatic["id"])}
     if decided is None:
         return {"router_state": "pending", "router_decision_id": None}
@@ -469,7 +469,7 @@ def request_teaching_now(
         detail={"misconception_id": misconception_id},
         clock=clock,
     )
-    # The status of the factor the consent was recorded on, never another factor of the same cause (G2 review R12).
+    # The status of the factor the consent was recorded on, never another factor of the same cause.
     return causal_repair_status(
         vault,
         repository,

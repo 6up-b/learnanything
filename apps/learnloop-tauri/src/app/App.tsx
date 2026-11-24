@@ -325,7 +325,7 @@ export function App() {
   // tab. openRepair is the App-level entry point — wire it to Feedback's "repair
   // this" and Today cards as well (pass onRepair={openRepair}).
   const [repairMisconceptionId, setRepairMisconceptionId] = useState<string | null>(null);
-  // The cause factor the repair was opened for, when the opener knew it (G2 review R12).
+  // The cause factor the repair was opened for, when the opener knew it.
   const [repairFactorId, setRepairFactorId] = useState<string | null>(null);
   // A primed item handed off from the repair overlay while NO session was open.
   // Practice needs a session, but discarding the id here stranded the repair

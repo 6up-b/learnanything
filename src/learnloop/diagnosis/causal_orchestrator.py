@@ -651,7 +651,7 @@ def causal_repair_status(
 def _requested_factor(
     factors: Sequence[Mapping[str, Any]], *, factor_id: str | None, attempt_id: str | None
 ) -> Mapping[str, Any]:
-    """The open factor the caller shows (G2 review R12). A cause can sit in two open factors (two misses with the
+    """The open factor the caller shows. A cause can sit in two open factors (two misses with the
     same rival causes): without a name the oldest was read, so the second factor's feedback decided the first
     factor's probe and left its own pending, and "Teach me now" recorded consent on one factor and read another.
 
@@ -1342,7 +1342,7 @@ def _routed(
         "prior_basis": reads.prior_basis,
         "likelihood_completeness": dict(reads.likelihood_completeness),
         "decided_by": "probe_router",
-        # The session the read was made in: the router's decision job reads the status again in it (G2 review R19).
+        # The session the read was made in: the router's decision job reads the status again in it.
         "session_id": proposal.get("session_id"),
     }
     common = dict(inputs=inputs, preference=preference)
@@ -1394,7 +1394,7 @@ def _routed(
         automatic = automatic_probe_decision(connection, factor_id) if decided is None else None
     why = "whether the quick check is asked is the router's decision"
     if automatic is not None:
-        # One decision per factor across the lanes (G2 review R11): the automatic lane already decided this factor's
+        # One decision per factor across the lanes: the automatic lane already decided this factor's
         # probe after the miss (asked it, or drew another arm), so the learner lane offers no second draw.
         asked = str(automatic.get("chosen_ref")) == INSERT_REF
         return finish(status="started", reason="router_asked_on_automatic_lane" if asked

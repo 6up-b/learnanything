@@ -14,7 +14,7 @@ final draw count with the first batch's and the ceiling, the rollout options, th
 versions, and each check's delivery sensors as the offer recorded them. Only numbers, ids and version names: no
 question, answer or title.
 
-The probe router's learner lane writes the same format for its probe valuation (G2 review R15): the probe action
+The probe router's learner lane writes the same format for its probe valuation: the probe action
 carries its diagnostic payload (:mod:`diagnostic_payload`'s dataclasses, a repair's coverage a frozen set), so a
 decision is revalued from its stored row alone (``learner_probe.revalue``). Neither addition changes how a payload
 that holds none of them is written.

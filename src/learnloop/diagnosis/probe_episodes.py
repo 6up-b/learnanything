@@ -863,7 +863,7 @@ def eligible_instruments(
         return []
     # FG1 §5: a workflow's pinned probe holds this episode until it is answered or closed: a
     # routine selection committing another presentation would supersede the pin. So does a router's accepted
-    # learner-lane pin (G2 review R7): the router's decision named it, and only its answer, the learner's refusal at
+    # learner-lane pin: the router's decision named it, and only its answer, the learner's refusal at
     # its door, or the episode's end lets it go.
     standing = repository.active_probe_presentation(episode.id)
     if standing is not None and standing.practice_item_id != reserved_for:
@@ -1395,7 +1395,7 @@ def known_exposure(vault: LoadedVault, repository: Repository, *, practice_item_
                    learning_object_id: str | None, at: str) -> str | None:
     """Why an answer given at ``at`` to a probe of this item would not be an independent production, as its admission
     will judge it, or None: the reveal window :func:`probe_answer_admissibility` reads (a reveal on the item or
-    anywhere on its learning object before the answer), read before any answer exists (G2 review R14: the router
+    anywhere on its learning object before the answer), read before any answer exists (the router
     prices the probe with what its answer will be worth). Below the evidence reading fixes (mvp-0.61) an episode
     observation never asked, so None there."""
 

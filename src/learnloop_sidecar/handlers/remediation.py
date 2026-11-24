@@ -31,7 +31,7 @@ from learnloop_sidecar.registry import method
 
 class MisconceptionInput(ParamsModel):
     misconception_id: str
-    #: The factor the repair surface was opened for, and its session (G2 review R12, R6): a cause can sit in two
+    #: The factor the repair surface was opened for, and its session: a cause can sit in two
     #: open factors, and a session's "Not now" applies at the repair entry too. Both optional: the other surfaces
     #: that open a repair name only the cause.
     factor_id: str | None = None
@@ -120,7 +120,7 @@ def _routed_read(ctx: SidecarContext, vault: Any, repository: Any, *, misconcept
                  session_id: str | None = None, factor_id: str | None = None,
                  attempt_id: str | None = None) -> Any:
     """The probe router's tag: the status as read, the router's decision included once it is made. A read decides
-    nothing (G2 review R19): a factor still waiting on the router reads ``pending`` (the offer withheld, Teach me now
+    nothing: a factor still waiting on the router reads ``pending`` (the offer withheld, Teach me now
     left), and the decision job is asked to run in the worker, off this request loop; the app reads again."""
 
     status = causal_repair_status(vault, repository, misconception_id=misconception_id, session_id=session_id,
@@ -190,7 +190,7 @@ def start_remediation_handler(ctx: SidecarContext, params: MisconceptionInput) -
 class RepairStatusInput(ParamsModel):
     misconception_id: str
     session_id: str | None = None
-    #: The factor the feedback screen shows, once a status has named it, else the attempt it shows (G2 review R12):
+    #: The factor the feedback screen shows, once a status has named it, else the attempt it shows:
     #: the status read, the router's decision and the actions are that factor's (``causal_repair_status``).
     factor_id: str | None = None
     attempt_id: str | None = None

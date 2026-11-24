@@ -827,7 +827,7 @@ export const api = {
   // One orchestration service behind four RPCs. `causalRepairStatus` is a pure
   // read (it records the decision receipt but mints no remediation episode);
   // the three action calls are the learner offer.
-  // `scope` names the factor the screen shows (G2 review R12): its `factorId` once a status has named it, else
+  // `scope` names the factor the screen shows: its `factorId` once a status has named it, else
   // the `attemptId` the feedback is for. A cause can sit in two open factors; without it the oldest is read.
   causalRepairStatus: (
     misconceptionId: string,
@@ -1403,7 +1403,7 @@ export const api = {
   getReviewLog: () => call<ReviewLogDto>("get_review_log"),
   // Returns `episode: null` + the typed §6 `repairStatus` when the causal state
   // holds the branch-specific repair — a state to render, not an error to toast.
-  // `factorId` and `sessionId` (G2 review R12, R6): the factor the repair was opened for, and the session whose
+  // `factorId` and `sessionId`: the factor the repair was opened for, and the session whose
   // "Not now" applies at the entry. Omitted by surfaces that name only the cause.
   startRemediation: (misconceptionId: string, scope?: { factorId?: string | null; sessionId?: string | null }) =>
     mutating(ATTEMPT_TAGS, call<StartRemediationDto>("start_remediation", {
