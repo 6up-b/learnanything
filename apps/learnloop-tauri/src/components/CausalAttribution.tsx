@@ -1,4 +1,4 @@
-import { useCallback, useState, type CSSProperties, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { api } from "../api/client";
 import type {
   CausalDivergenceAnchorDto,
@@ -516,9 +516,10 @@ export function useCausalRepairActions({
       if (!factorId) return;
       setPendingActionId(actionId);
       setNote(null);
+      // The same factor's status, never another open factor of the cause (G2 review R12).
       const refresh = () =>
         api
-          .causalRepairStatus(status.misconceptionId, sessionId)
+          .causalRepairStatus(status.misconceptionId, sessionId, { factorId })
           .then((result) => onStatus(result.repairStatus));
       const done = () => setPendingActionId(null);
       const fail = (error: unknown) => {
@@ -572,6 +573,35 @@ export function useCausalRepairActions({
   );
 
   return { pendingActionId, note, runAction };
+}
+
+/** How long the first re-read of a status the router has not decided yet waits, and how many re-reads follow
+ *  (each waiting twice as long as the one before: about half a minute in all). */
+export const ROUTER_DECISION_POLL_FIRST_MS = 500;
+export const ROUTER_DECISION_POLL_TRIES = 6;
+
+/** The probe router's tag (G2 review R19): the router decides a factor's quick check in the sidecar's worker, off
+ *  its request loop, so a status read answers `routerState: "pending"` until that job has run. While a shown status
+ *  is pending, read it again (backing off), until the router has decided or the tries run out; the panel meanwhile
+ *  offers what a pending status offers (Teach me now). Stops on unmount and once decided. */
+export function useRouterDecisionPoll(
+  status: CausalRepairStatusDto | null,
+  reread: () => Promise<unknown> | void,
+): void {
+  const tries = useRef(0);
+  useEffect(() => {
+    if (status?.routerState !== "pending") {
+      tries.current = 0;
+      return;
+    }
+    if (tries.current >= ROUTER_DECISION_POLL_TRIES) return;
+    const wait = ROUTER_DECISION_POLL_FIRST_MS * 2 ** tries.current;
+    tries.current += 1;
+    const timer = setTimeout(() => {
+      void Promise.resolve(reread()).catch(() => {});
+    }, wait);
+    return () => clearTimeout(timer);
+  }, [status, reread]);
 }
 
 export function CausalFeedbackPanel({

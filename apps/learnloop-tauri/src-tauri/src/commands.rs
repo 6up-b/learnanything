@@ -1126,15 +1126,19 @@ pub async fn get_review_log(sidecar: State<'_, SidecarManager>) -> Result<Value,
     blocking_sidecar_call(sidecar, "get_review_log", json!({})).await
 }
 
+// `factor_id` and `session_id` are optional: the factor the repair was opened for and
+// the session whose "Not now" applies at the entry (G2 review R12, R6).
 #[tauri::command]
 pub async fn start_remediation(
     misconception_id: String,
+    factor_id: Option<String>,
+    session_id: Option<String>,
     sidecar: State<'_, SidecarManager>,
 ) -> Result<Value, CommandError> {
     blocking_sidecar_call(
         sidecar,
         "start_remediation",
-        json!({"misconceptionId": misconception_id}),
+        json!({"misconceptionId": misconception_id, "factorId": factor_id, "sessionId": session_id}),
     )
     .await
 }

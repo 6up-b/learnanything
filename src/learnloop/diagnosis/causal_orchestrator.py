@@ -1342,6 +1342,8 @@ def _routed(
         "prior_basis": reads.prior_basis,
         "likelihood_completeness": dict(reads.likelihood_completeness),
         "decided_by": "probe_router",
+        # The session the read was made in: the router's decision job reads the status again in it (G2 review R19).
+        "session_id": proposal.get("session_id"),
     }
     common = dict(inputs=inputs, preference=preference)
 

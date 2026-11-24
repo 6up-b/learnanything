@@ -35,6 +35,7 @@ from tests.probe_router_authority_helpers import (
     call,
     count,
     divergent_factor,
+    read_status,
     receipts,
     router_rows,
     sidecar,
@@ -61,7 +62,9 @@ def _arm(monkeypatch, u: float) -> None:
 
 
 def _read(ctx, case) -> dict:
-    return call(ctx, "causal_repair_status", {"misconceptionId": case.first})["repairStatus"]
+    """The status read as the screen ends up with it: the router's decision job waited for when it is pending."""
+
+    return read_status(ctx, {"misconceptionId": case.first})
 
 
 def _learner_rows(repository) -> list[dict]:
@@ -90,15 +93,17 @@ def test_a_status_read_decides_once_and_a_reread_draws_nothing_and_writes_no_rec
     (decision,) = _learner_rows(case.repository)
     assert first["routerState"] == "not_selected" and first["routerDecisionId"] == decision["id"]
     assert first["status"] == "started" and first["probeOffered"] is False and first["actions"] == []
-    # No worth verdict: the receipt records the facts, and says the router decides.
-    (receipt,) = receipts(case.repository, case.factor)
+    # No worth verdict: the receipts record the facts (the pending read's, then the decided status's), and say the
+    # router decides.
+    pending, receipt = receipts(case.repository, case.factor)
+    assert pending["repair_status"] == "needs_disambiguation" and receipt["repair_status"] == "started"
     assert receipt["decision"] == causal.ROUTER_DECIDES and first["probeDecision"] == causal.ROUTER_DECIDES
     inputs = json.loads(receipt["inputs_json"])
     assert inputs["decided_by"] == "probe_router" and "expected_avoided_overteaching_minutes" not in inputs
     # A remounted panel reads the same decision: no new router row, no new receipt.
     again = _read(ctx, case)
     assert again["routerDecisionId"] == decision["id"] and again["routerState"] == "not_selected"
-    assert len(_learner_rows(case.repository)) == 1 and len(receipts(case.repository, case.factor)) == 1
+    assert len(_learner_rows(case.repository)) == 1 and len(receipts(case.repository, case.factor)) == 2
     assert decision["receipt_key"] == learner_probe_receipt_key(case.factor)
 
 
@@ -229,14 +234,23 @@ def test_teach_me_now_starts_the_repair_without_the_probe(tmp_path, monkeypatch)
 
 
 def test_the_repair_entry_holds_only_on_the_routers_selection(tmp_path, monkeypatch):
+    def entered(case) -> dict:
+        # The entry holds while the router decides (G2 review R19: the decision is its job's, off the request
+        # loop); the job waited for, the entry is asked again.
+        ctx = sidecar(case.root)
+        waiting = call(ctx, "start_remediation", {"misconceptionId": case.first})
+        assert waiting["episode"] is None and waiting["repairStatus"]["routerState"] == "pending"
+        ctx.post_attempt_worker.run_pending("probe_router")
+        return call(ctx, "start_remediation", {"misconceptionId": case.first})
+
     held_case = _case(tmp_path / "held")
     _arm(monkeypatch, 0.05)
-    held = call(sidecar(held_case.root), "start_remediation", {"misconceptionId": held_case.first})
+    held = entered(held_case)
     assert held["episode"] is None and held["repairStatus"]["routerState"] == "selected"
     assert held["repairStatus"]["probeOffered"] is True
     started_case = _case(tmp_path / "started")
     _arm(monkeypatch, 0.9)
-    started = call(sidecar(started_case.root), "start_remediation", {"misconceptionId": started_case.first})
+    started = entered(started_case)
     assert started["episode"] is not None and started["repairStatus"] is None
     assert len(_learner_rows(started_case.repository)) == 1
 

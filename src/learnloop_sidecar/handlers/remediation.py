@@ -116,32 +116,48 @@ def _episode_case_payload(repository, episode: dict[str, Any]) -> dict[str, Any]
     )
 
 
-def _route_first(vault: Any, repository: Any, misconception_id: str, session_id: str | None = None,
-                 factor_id: str | None = None) -> None:
-    """The probe router's tag: the router decides the factor's probe before the repair entry reads its status, so
-    the entry holds the repair only on the router's selection. A durable misconception has no probe to decide and a
-    case that is not one is the entry's own error to report; neither is read here."""
+def _routed_read(ctx: SidecarContext, vault: Any, repository: Any, *, misconception_id: str,
+                 session_id: str | None = None, factor_id: str | None = None,
+                 attempt_id: str | None = None) -> Any:
+    """The probe router's tag: the status as read, the router's decision included once it is made. A read decides
+    nothing (G2 review R19): a factor still waiting on the router reads ``pending`` (the offer withheld, Teach me now
+    left), and the decision job is asked to run in the worker, off this request loop; the app reads again."""
+
+    status = causal_repair_status(vault, repository, misconception_id=misconception_id, session_id=session_id,
+                                  start_repair=False, factor_id=factor_id, attempt_id=attempt_id)
+    if status.router_state == "pending":
+        ctx.post_attempt_worker.request_probe_router()
+    return status
+
+
+def _pending_hold(ctx: SidecarContext, vault: Any, repository: Any, params: Any) -> Any:
+    """The probe router's tag: the repair entry's status while the router has not decided the factor's probe, or
+    None. The entry holds on a pending decision (as on a selection) instead of starting the repair under it; the
+    decision job is asked to run. A durable misconception has no probe to decide and a case that is not one is the
+    entry's own error to report; neither is read here."""
 
     from learnloop.algorithm_versions import probe_router_on
 
     if not probe_router_on(vault.config):
-        return
-    durable = repository.misconception(misconception_id)
+        return None
+    durable = repository.misconception(params.misconception_id)
     if durable is not None and durable.status in {"active", "resolving"}:
-        return
-    from learnloop.daily_plan import learner_probe
-
+        return None
     try:
-        learner_probe.decide(vault, repository, misconception_id=misconception_id, session_id=session_id,
-                             factor_id=factor_id)
+        status = _routed_read(ctx, vault, repository, misconception_id=params.misconception_id,
+                              session_id=params.session_id, factor_id=params.factor_id)
     except CausalRepairError:
-        return
+        return None
+    return status if status.router_state == "pending" else None
 
 
 @method("start_remediation", MisconceptionInput)
 def start_remediation_handler(ctx: SidecarContext, params: MisconceptionInput) -> dict[str, Any]:
     vault, repository = ctx.require_vault()
-    _route_first(vault, repository, params.misconception_id, params.session_id, params.factor_id)
+    pending = _pending_hold(ctx, vault, repository, params)
+    if pending is not None:
+        return versioned({"episode": None, "case": _optional_case_payload(repository, params.misconception_id),
+                          "repair_status": pending.as_dict()})
     try:
         episode = start_remediation_episode(
             repository, params.misconception_id, vault=vault, session_id=params.session_id,
@@ -200,8 +216,9 @@ def causal_repair_status_handler(
     starts the repair when the causal state permits it.
 
     At the probe router's tag it reads the facts and the router's decision on
-    the factor's probe, which the router makes here once if none exists
-    (``daily_plan.learner_probe.decide``); a reread draws nothing again.
+    the factor's probe. The read decides nothing: with no decision yet it is
+    ``pending`` and the decision job runs in the worker
+    (``daily_plan.learner_probe.run_pending``); the app reads again.
     """
 
     from learnloop.algorithm_versions import probe_router_on
@@ -209,11 +226,9 @@ def causal_repair_status_handler(
     vault, repository = ctx.require_vault()
     try:
         if probe_router_on(vault.config):
-            from learnloop.daily_plan import learner_probe
-
-            status = learner_probe.decide(vault, repository, misconception_id=params.misconception_id,
-                                          session_id=params.session_id, factor_id=params.factor_id,
-                                          attempt_id=params.attempt_id)
+            status = _routed_read(ctx, vault, repository, misconception_id=params.misconception_id,
+                                  session_id=params.session_id, factor_id=params.factor_id,
+                                  attempt_id=params.attempt_id)
         else:
             status = causal_repair_status(
                 vault,

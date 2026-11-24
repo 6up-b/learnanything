@@ -141,9 +141,11 @@ def _answered_elsewhere(monkeypatch) -> None:
 
 
 def _read(case) -> dict:
-    from tests.probe_router_authority_helpers import call
+    """The status read as the screen ends up with it: the router's decision job waited for when it is pending."""
 
-    return call(case.ctx, "causal_repair_status", {"misconceptionId": case.first})["repairStatus"]
+    from tests.probe_router_authority_helpers import read_status
+
+    return read_status(case.ctx, {"misconceptionId": case.first})
 
 
 def _offer(case) -> dict:
@@ -420,13 +422,12 @@ def _second_factor(case) -> str:
 def test_r12_the_status_and_its_decision_are_the_shown_factors_never_the_oldest(tmp_path, monkeypatch):
     from learnloop.router.plan_log import learner_probe_decision
 
-    from tests.probe_router_authority_helpers import call
+    from tests.probe_router_authority_helpers import read_status
 
     case = _learner(tmp_path, monkeypatch)
     second = _second_factor(case)
-    named = call(case.ctx, "causal_repair_status", {"misconceptionId": case.first, "factorId": second})["repairStatus"]
-    by_attempt = call(case.ctx, "causal_repair_status",
-                      {"misconceptionId": case.first, "attemptId": "att_second"})["repairStatus"]
+    named = read_status(case.ctx, {"misconceptionId": case.first, "factorId": second})
+    by_attempt = read_status(case.ctx, {"misconceptionId": case.first, "attemptId": "att_second"})
     assert named["factorId"] == by_attempt["factorId"] == second
     with case.repository.connection() as connection:
         # The oldest factor's probe was never decided by the second factor's feedback.
@@ -632,3 +633,73 @@ def test_r7_an_accepted_learner_pin_holds_its_episode_against_a_routine_selectio
     # The pin's own item stays eligible for the pin.
     assert [entry.item.id for entry in eligible_instruments(case.vault, case.repository, episode,
                                                             reserved_for=PROBE_ITEM)] == [PROBE_ITEM]
+
+
+# -- the valuation runs in a job, never in the read --------------------------------------------------------------------
+
+
+def _status_call(ctx, case) -> dict:
+    from tests.probe_router_authority_helpers import call
+
+    return call(ctx, "causal_repair_status", {"misconceptionId": case.first})["repairStatus"]
+
+
+def _counting_valuations(monkeypatch) -> list[str]:
+    from learnloop.daily_plan import learner_probe
+
+    valued: list[str] = []
+    real = learner_probe.value
+    monkeypatch.setattr(learner_probe, "value",
+                        lambda vault, repository, proposal, **k: valued.append(proposal.factor_id)
+                        or real(vault, repository, proposal, **k))
+    return valued
+
+
+def test_r19_the_status_read_values_nothing_and_the_job_decides_once(tmp_path, monkeypatch):
+    case = _learner(tmp_path, monkeypatch)
+    valued = _counting_valuations(monkeypatch)
+    first = _status_call(case.ctx, case)
+    assert (first["routerState"], first["probeOffered"]) == ("pending", False)
+    assert valued == [] and _learner_decisions(case) == 0
+    # The job is waited for (run to its end), never timed: it decides once, and the next read shows its decision.
+    case.ctx.post_attempt_worker.run_pending("probe_router")
+    assert valued == [case.factor] and _learner_decisions(case) == 1
+    assert _status_call(case.ctx, case)["routerState"] == "selected"
+    case.ctx.post_attempt_worker.run_pending("probe_router")
+    assert valued == [case.factor]
+
+
+def test_r19_a_process_that_ended_before_its_job_resumes_it_on_the_next_start(tmp_path, monkeypatch):
+    from tests.probe_router_authority_helpers import sidecar
+
+    case = _learner(tmp_path, monkeypatch)
+    assert _status_call(case.ctx, case)["routerState"] == "pending"
+    restarted = sidecar(case.root)
+    woken: list[str] = []
+    monkeypatch.setattr(restarted.post_attempt_worker, "request_probe_router", lambda: woken.append("probe_router"))
+    restarted.resume_post_attempt_jobs()
+    assert woken == ["probe_router"]
+    restarted.post_attempt_worker.run_pending("probe_router")
+    assert _status_call(restarted, case)["routerState"] == "selected"
+
+
+def test_r19_a_refusal_before_the_job_runs_is_read_by_the_job(tmp_path, monkeypatch):
+    from tests.probe_router_authority_helpers import call
+
+    case = _learner(tmp_path, monkeypatch)
+    valued = _counting_valuations(monkeypatch)
+    assert _status_call(case.ctx, case)["routerState"] == "pending"
+    call(case.ctx, "causal_probe_defer", {"factorId": case.factor})
+    case.ctx.post_attempt_worker.run_pending("probe_router")
+    assert valued == [] and _learner_decisions(case) == 0
+    status = _status_call(case.ctx, case)
+    assert (status["routerState"], status["hardStopReasons"]) == ("unavailable", ["learner_preference"])
+
+
+def test_r19_the_repair_entry_holds_while_the_router_decides(tmp_path, monkeypatch):
+    from tests.probe_router_authority_helpers import call
+
+    case = _learner(tmp_path, monkeypatch)
+    valued = _counting_valuations(monkeypatch)
+    held = call(case.ctx, "start_remediation", {"misconceptionId": case.first})
+    assert held["episode"] is None and held["repairStatus"]["routerState"] == "pending" and valued == []

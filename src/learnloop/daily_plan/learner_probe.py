@@ -21,6 +21,13 @@ logged exactly.
 
 The router's valuation reads the vault's frozen objective inputs (``objective_inputs.build``) with no plan needed:
 the decision is the learner's, made where the learner reads the feedback.
+
+**The job** (G2 review R19). The sidecar's status read makes no decision: it reads the facts (recording their receipt
+once, as every status read does) and answers ``pending``; the valuation and the decision run in the sidecar's worker
+(:func:`run_pending`), off the serial request loop, and a later read shows the decision. The queue is durable with no
+table of its own: a factor is waiting (:func:`requested`) while its latest receipt is the router's pending read and no
+decision exists on it, so a process that ends before its job ran finds it again at the next start. The job reads the
+status again before it decides, so a refusal made meanwhile is honoured, and its own read records the status it found.
 """
 
 from __future__ import annotations
@@ -71,6 +78,57 @@ def decide(vault: Any, repository: Any, *, misconception_id: str, session_id: st
     return causal_repair_status(vault, repository, misconception_id=misconception_id, session_id=session_id,
                                 start_repair=False, clock=clock, factor_id=status.factor_id or factor_id,
                                 attempt_id=attempt_id)
+
+
+def requested(repository: Any) -> list[dict[str, Any]]:
+    """The factors waiting on the router's decision, oldest first: an open factor whose latest receipt is the
+    router's pending read (``router_decides``, ``needs_disambiguation``) and that has no decision of either lane. Each
+    is ``factor_id``, ``misconception_id`` and the ``session_id`` the read was made in."""
+
+    import json
+
+    from learnloop.diagnosis.causal_orchestrator import ROUTER_DECIDES
+    from learnloop.router.plan_log import automatic_probe_decision, learner_probe_decision
+
+    latest: dict[str, dict[str, Any]] = {}
+    with repository.connection() as connection:
+        rows = connection.execute(
+            "SELECT r.factor_id, r.misconception_id, r.decision, r.repair_status, r.inputs_json, r.created_at "
+            "FROM causal_probe_decision_receipts r JOIN unresolved_cause_factors f ON f.id = r.factor_id "
+            "WHERE f.status = 'open' ORDER BY r.created_at, r.rowid").fetchall()
+        for row in rows:
+            latest[str(row["factor_id"])] = dict(row)
+        waiting = []
+        for factor_id, row in latest.items():
+            if row["decision"] != ROUTER_DECIDES or row["repair_status"] != "needs_disambiguation":
+                continue
+            if learner_probe_decision(connection, factor_id) or automatic_probe_decision(connection, factor_id):
+                continue
+            inputs = json.loads(row["inputs_json"] or "{}")
+            waiting.append({"factor_id": factor_id, "misconception_id": str(row["misconception_id"] or ""),
+                            "session_id": inputs.get("session_id"), "at": str(row["created_at"])})
+    return sorted(waiting, key=lambda value: (value["at"], value["factor_id"]))
+
+
+def run_pending(vault: Any, repository: Any, *, clock: Clock | None = None, max_jobs: int = 100) -> list[str]:
+    """The decision job: decide each waiting factor (:func:`requested`) once, reading its status again first.
+    Returns the factors it ran. One factor's failure is logged and leaves the rest to run; a factor whose decision
+    could not be recorded stays waiting for the next run."""
+
+    from learnloop.diagnosis.causal_reads import CausalRepairError
+
+    ran: list[str] = []
+    for request in requested(repository)[:max_jobs]:
+        try:
+            decide(vault, repository, misconception_id=request["misconception_id"], session_id=request["session_id"],
+                   factor_id=request["factor_id"], clock=clock)
+        except CausalRepairError:
+            continue  # no longer an open factor of its cause: nothing to decide
+        except Exception:  # noqa: BLE001 - a job never dies on one factor
+            LOG.warning("probe router: the decision job failed for factor %s", request["factor_id"], exc_info=True)
+            continue
+        ran.append(request["factor_id"])
+    return ran
 
 
 def _cause_class(repository: Any, hypothesis_id: str) -> str:
@@ -373,4 +431,4 @@ def decide_proposal(vault: Any, repository: Any, proposal: Any, *, clock: Clock 
 
 
 __all__ = ["LLM_NOT_ASKED", "OWNER_DECISIONS", "POLICY", "decide", "decide_proposal", "diagnostic_payload", "information",
-           "revalue", "value"]
+           "requested", "revalue", "run_pending", "value"]

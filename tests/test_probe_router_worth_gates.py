@@ -31,7 +31,7 @@ from learnloop.router_objective import probe_coin as PC
 
 from tests.helpers import append_config_toml
 from tests.probe_block_end_helpers import _submit
-from tests.probe_router_authority_helpers import PROBE_ITEM, TAG, call, divergent_factor, sidecar
+from tests.probe_router_authority_helpers import PROBE_ITEM, TAG, call, divergent_factor, read_status, sidecar
 
 #: Every legacy function that answered "is this probe worth it?" downstream of a miss (sites B, G to K).
 LEGACY_WORTH = (
@@ -76,7 +76,7 @@ def _selected(tmp_path, monkeypatch, *, version: str = LATEST_ALGORITHM_VERSION)
     case = SimpleNamespace(vault=load_vault(root), repository=repository, root=root, factor=factor, first=first)
     monkeypatch.setattr(PC, "draw_uniform", lambda _seed: 0.0)
     ctx = sidecar(case.root)
-    status = call(ctx, "causal_repair_status", {"misconceptionId": case.first})["repairStatus"]
+    status = read_status(ctx, {"misconceptionId": case.first})
     assert status["routerState"] == "selected"
     offer = call(ctx, "causal_probe_offer_action", {"factorId": case.factor})["offer"]
     assert offer["accepted"] is True
