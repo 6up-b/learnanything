@@ -456,7 +456,11 @@ def recorded_trajectory(connection: Any, vault: Any, mastery_config: Any, check:
             (lo, *check_params, *outcome_params)).fetchall()
     else:
         rows = connection.execute(
-            f"{select}WHERE a.learning_object_id = ? AND (a.created_at > ? OR (a.created_at = ? AND a.id >= ?)) "
+            "SELECT a.id, a.practice_item_id, a.created_at, a.correctness, a.primed, a.attempt_type, "
+            "s.posterior_delta_json, d.payload_json FROM practice_attempts a "
+            "LEFT JOIN attempt_surprise s ON s.attempt_id = a.id "
+            "LEFT JOIN attempt_debug_payloads d ON d.attempt_id = a.id "
+            "WHERE a.learning_object_id = ? AND (a.created_at > ? OR (a.created_at = ? AND a.id >= ?)) "
             "AND (a.created_at < ? OR (a.created_at = ? AND a.id < ?)) ORDER BY a.created_at, a.id",
             (lo, anchor[0], anchor[0], str(check["attempt_id"]), str(outcome["created_at"]),
              str(outcome["created_at"]), str(outcome["id"]))).fetchall()

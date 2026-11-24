@@ -18,7 +18,7 @@ The historical refit can change weight and pool posteriors and hence future chec
 
 **Integrated on main as `mvp-0.71` and migration 274** (it was built as `mvp-0.70` and 271 on an older main; see "Integration on main" below).
 
-The extended F6 reproduction in `tests/test_teacher_te1_review_fixes.py` runs with measured difficulty off and on. It checks the empirical update, primed repeat, authored edits to an intervening item and the endpoint, each grade's effective curve, and the prior mean and variance at the recorded mass. `tests/test_teacher_te5_grade_curves.py` covers complete and missing predecessor inputs, failed preparation and retry after the source changes, current and superseded epochs, old-version fitting, replacement grades and repeated rebuilds. The local activation exercise uses the previous tag available in the test tree. `tests/test_grading_cli.py` checks adjudication capture and rollback. `tests/test_grade_curves_migration.py` applies 274 on a backup-API copy and checks the exact schema addition, existing attempts, immutability, constraints and integrity.
+The extended F6 reproduction in `tests/test_teacher_te1_review_fixes.py` runs with measured difficulty off and on. It checks the empirical update, primed repeat, authored edits to an intervening item and the endpoint, each grade's effective curve, and the prior mean and variance at the recorded mass. `tests/test_teacher_te5_grade_curves.py` covers complete and missing predecessor inputs, failed preparation and retry after the source changes, current and superseded epochs, old-version fitting, replacement grades and repeated rebuilds. The local activation exercise uses the previous tag available in the test tree. `tests/test_grading_cli.py` checks adjudication capture and rollback. `tests/test_grade_curves_migration.py` applies 274 on a backup-API copy and checks the exact schema addition, existing attempts, immutability, constraints and integrity. The review fix round adds `tests/test_grade_curves_capture_integrity.py`, `tests/test_lesson_weight_fit_reads.py` and `tests/test_lesson_weight_fit_trajectory.py`, and runs the owner-copy queries below in tests.
 
 ## Integration on main
 
@@ -48,9 +48,8 @@ is a merge of origin/main into `teacher/te5-consolidation`:
   - The missing markers and the owner-copy query below name the predecessor `mvp-0.70`.
 - **H3** (lands after this): the capture point stays where it was built. `if reads.recorded_curve is None:` in
   `attempts.py` takes an `or retired` clause there.
-- **The head fixture.** `fixtures/migration_head` is upgraded to 274 last, once 273 is on main, per CLAUDE.md. Until
-  then the migration tests that read the head fixture apply 274 on top of it and fail; they are named in the
-  integration report. `tests/test_grade_curves_migration.py` applies 274 on the fixture at 272 and passes.
+- **The head fixture.** `fixtures/migration_head` is at 274, redone from the tracked 273 file after the fix round's
+  change to 274's replacement guard (its README section names it).
 
 ## Review fix round (the adversarial review of 2026-11-24)
 
@@ -76,6 +75,7 @@ code. Ledger rows are L42-R1 to L42-R14.
 | Major: empirical difficulty reseeded from an edited authored value | **Fixed (L42-R13):** with no fitted difficulty yet, its first update starts at the difficulty the grade's mastery update used. Live that is the authored value (an unprimed grade with nothing fitted reads it), so live is unchanged; in replay at `mvp-0.71` it is the recorded curve. Fail-first: `test_a_rebuild_seeds_measured_difficulty_from_the_recorded_cold_curve`. |
 | Minor: a flat response (a = 0) records almost no mass | **Fixed (L42-R14)** at `mvp-0.71`: when every mass predicts the same success the pool identifies no mass; the check keeps its learned mass and its pool record says `implied: flat_response`. Fail-first: `test_a_flat_response_keeps_the_learned_mass`. |
 | Minor: the window query counted an overflowed pair as available | **Fixed:** the query above uses the finite-pair predicate. |
+| Found by the fix round's affected-set run: the scoreboard's certification replay pruned a scratch copy without dropping its append-only delete guards, so a captured curve failed every prefix | **Fixed (L42-R15):** the copy drops them with goal history's function first. Test: `test_certification_replay_prunes_past_an_adjudicated_attempt` (failed on the branch before). Also found there, tag-only: `tests/goldens/placement_stored_misses.json` still said `mvp-0.70` (an integration miss); regenerated, the tag its only change. |
 
 Each fail-first test was run on the source before its fix and failed there (the R7/R8 tests on the commit before theirs). All fit changes except R5's snapshot, R11's refresh and R13's seed are gated on `mvp-0.71`; those three change no predecessor output (one snapshot reads the same rows; the refreshed tables are what a rebuild writes; the live seed is the authored value it was).
 

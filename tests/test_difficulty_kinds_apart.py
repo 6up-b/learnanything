@@ -8,6 +8,7 @@ from types import SimpleNamespace as NS
 
 import pytest
 
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.config import EvidenceConfig, MasteryConfig, ProbeConfig
 from learnloop.daily_plan.lesson_suggestion import _predicted
 from learnloop.delayed_checks import predicted_item_success
@@ -27,7 +28,8 @@ def _literal_inputs(scalar_difficulty, lo_scalar_difficulty):
               transfer_distance=0.0, scaffold_level=0.0, surface_family=None, repair_targets=[])
     lo = NS(id="lo", difficulty_prior=lo_scalar_difficulty)
     vault = NS(config=NS(mastery=mastery, probe=ProbeConfig(), evidence=EvidenceConfig(),
-                         adaptive_difficulty=NS(practice_band=(0.7, 0.8))),
+                         adaptive_difficulty=NS(practice_band=(0.7, 0.8)),
+                         algorithms=NS(algorithm_version=LATEST_ALGORITHM_VERSION)),
                practice_items={"pi": item}, learning_objects={"lo": lo},
                learning_object_for_item=lambda _: lo, rubric_for_item=lambda _: None)
     state = NS(logit_mean=0.4, logit_variance=0.3, last_evidence_at="2026-11-01T00:00:00Z")
@@ -196,9 +198,8 @@ AUDITED_READERS = {
         },
     ),
     'src/learnloop/attempts/attempts.py': (
-        'separate: scalar/IRT mastery + authored EB prior; FSRS review, summary and state conversion',
+        'separate: scalar/IRT mastery (the EB prior starts at its b); FSRS review, summary and state conversion',
         {
-            '_belief_update: item_irt_params(item, learning_object, config.mastery)': 1,
             "_fsrs_review_summary: 'difficulty'": 3,
             "_fsrs_review_summary: getattr(next_memory, 'difficulty', None)": 1,
             "_fsrs_review_summary: getattr(previous_state, 'difficulty', None)": 1,

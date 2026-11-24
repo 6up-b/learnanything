@@ -889,6 +889,7 @@ def _certified_at_cutoff(
     # the first is the one `goal_report_series` has been exercising.
     from learnloop.goals.goal_certification import lo_certification
     from learnloop.goals.goal_series import prune_rows
+    from learnloop.goals.goal_series_store import drop_scratch_delete_guards
     from learnloop.substrate.replay import rebuild_derived_state
 
     scratch_path = scratch_dir / f"prefix_{index}.sqlite"
@@ -897,6 +898,8 @@ def _certified_at_cutoff(
         scratch = Repository.attach(scratch_path, read_only=False)
         with scratch.pinned():
             with scratch.connection() as connection:
+                # The copy is thrown away: its append-only raw ledgers (the grade curves among them) are pruned too.
+                drop_scratch_delete_guards(connection)
                 doomed = [
                     row[0]
                     for row in connection.execute(
