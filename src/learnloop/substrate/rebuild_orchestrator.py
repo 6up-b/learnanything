@@ -367,7 +367,11 @@ def _run_learning_state(
     spec: DerivedStateReplayer, context: _ReplayContext
 ) -> ReplayerResult:
     cleared: dict[str, int] = {}
+    gate_records = None
     if context.learning_object_ids is None:
+        # The follow-up gate's records on the surprise rows are live decisions the replay never re-makes: read
+        # them before the clear, and the per-LO replay puts each back on its attempt's replayed row.
+        gate_records = context.repository.attempt_surprise_gate_records()
         # A whole-vault rebuild must remove rows whose source attempt/content no
         # longer exists.  The per-LO replay below also performs its own scoped
         # resets; those are harmless after this family-level clear.
@@ -382,6 +386,7 @@ def _run_learning_state(
         clock=context.clock,
         record_receipt=False,
         project_canonical_state=False,
+        gate_records=gate_records,
     )
     context.learning_result = result
 

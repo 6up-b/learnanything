@@ -469,9 +469,9 @@ def test_each_follow_up_decision_keeps_its_own_receipt_through_rebuilds(tmp_path
         result.attempt_id, 1, voi.CONTINUE,
     )
     _rebuild_and_replay(loaded, repository, result.learning_object_id)
-    # The derived copy is gone (attempt_surprise is rebuilt without it) ...
-    assert "voi_stopping" not in (repository.latest_attempt_surprise(result.attempt_id).get("gate_diagnostics") or {})
-    # ... the receipt is not.
+    # The gate's copy on the surprise row is carried across the rebuild and the LO replay ...
+    assert repository.latest_attempt_surprise(result.attempt_id)["gate_diagnostics"]["voi_stopping"] == first["decision"]
+    # ... and the receipt stands as it was.
     assert voi.followup_receipts(repository, result.attempt_id) == [first]
     # A later decision on the same attempt is a new receipt; the first stays.
     _minutes(monkeypatch, 10_000.0)
