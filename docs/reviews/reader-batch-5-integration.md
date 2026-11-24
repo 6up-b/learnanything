@@ -169,6 +169,27 @@ while a check is open, then for its own verdict).
 `private_patch_sites` 466 → 467: main's RD7 test site beside this branch's GLM-OCR ones (one line, its reason
 beside it).
 
+### 5.2 Landing inside `reader/workbench-nouns`
+
+Batch 5 at `634d7dc83a` lands inside the naming-pass superset (RD-retire phase 1, batch 5 as first merged, RD7, the
+loose ends, the ink help ladder, goal to the tutor, the naming pass). Merged into it in `cbece86e05` (DeskShell's one
+`SearchState` with the menu's per-verb verdict and the wider dependency list; `carried.check_question` with the naming
+pass's words; the structure golden's 467 is one site both sides explained; the harness keeps NOUNS-1's clock and
+BATCH5-15 points to it), then main `33ec65219a` in `ca1d9024d2` (the goal lens keeps the copy pass's reasons and
+coverage words and gains main's `chapter_about` in the same style; `chapters.decide` keeps its learner-facing refusal
+and main's coverage feed), references regenerated in `78c66dd031`.
+
+| Check | Result |
+|---|---|
+| The 293 protection files and the import-affected set of `carried.py`, the handlers and the other changed modules, with pins, ratchets, architecture, layout, the desktop RPC contract, the mobile allowlist and the nouns scan (836 files), gate selection, in chunks | 15,509 passed, 78 skipped, 1 failed: `test_difficulty_kinds_apart.py` imports the terminal app and this worktree's venv lacks the `tui` extra; with `textual` layered in (`uv run --with textual`) the file passes (25 passed) |
+| Both noun scans (`workbenchNouns.test.ts`, `tests/test_workbench_nouns.py`) | pass |
+| `npm run typecheck`; vitest, 4 workers | clean; 422 files, 4,488 tests passed |
+| `cargo check` | clean |
+| Desk harness, every run (on a fresh build of the tip) | 207 passed, 0 failed (display math included) |
+| `ruff`; `lint-imports`; `check_gate_partition` | clean; 55 kept, 0 broken; 34,375 = landing 34,309 + arc_close 66 |
+| Generators and the four validators | regenerated; module, desktop, database and vault validators pass |
+| Visual comparison, every stage, both viewports (`--out` a scratch directory) | pairs 1, rd1 36, rd2 21, rd3 7, rd4 19, rd5 2, rd6 7, rd8 3, rd9 4 (each equal to the baseline); rd7 30 and rd10 1 (no baseline given) |
+
 ## 6. Not reconciled
 
 - Owner option: destinations new with the workbench (pad inserts, carried questions, a desk's compare window, the
