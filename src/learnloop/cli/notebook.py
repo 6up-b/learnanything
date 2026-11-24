@@ -10,6 +10,7 @@ notebook_app = typer.Typer(help='Inspect owner-authored notebooks without execut
 
 class Scope(str, Enum):
     structure = 'structure'
+    contract = 'contract'
 
 
 @notebook_app.command('check')
@@ -18,11 +19,15 @@ def check(
     scope: Annotated[Scope, typer.Option('--scope', help='Checks to perform; structure does not imply acceptance.')],
     out: Annotated[Path, typer.Option('--out', help='Explicit report directory outside the checkout; no symlinks.')],
 ) -> None:
-    """Write structure.json and structure.txt; exit 1 for structural findings, 2 for refusal."""
+    """Write static findings and a summary. Exit 1 for findings, 2 for refusal."""
     from learnloop.notebook_authoring.check import OutputPathError, check_structure
 
     try:
-        report, summary = check_structure(path, out)
+        if scope is Scope.contract:
+            from learnloop.notebook_authoring.contract_check import check_contract
+            report, summary = check_contract(path, out)
+        else:
+            report, summary = check_structure(path, out)
     except OutputPathError as exc:
         typer.echo(f'Output refused: {exc}', err=True)
         raise typer.Exit(2) from exc

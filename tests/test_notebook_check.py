@@ -6,20 +6,20 @@ import json
 from pathlib import Path
 import subprocess
 import sys
-import tempfile
+import tomllib
 
 import pytest
 from typer.testing import CliRunner
 
-from tests.notebook_authoring_helpers import notebook
+from tests.notebook_authoring_helpers import external_report_directory, notebook
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 @pytest.fixture
 def external():
-    with tempfile.TemporaryDirectory(prefix='notebook-check-', dir='/tmp') as name:
-        yield Path(name)
+    with external_report_directory() as path:
+        yield path
 
 
 def invoke(path, out, *extra):
@@ -62,7 +62,7 @@ assert not any(n.startswith(('marimo', 'learnloop.notebook_authoring')) for n in
 
 
 @pytest.mark.parametrize('failure', ['missing', 'wrong-version', 'unimportable'])
-def test_dependency_error_is_actionable(external, monkeypatch, failure):
+def test_dependency_error_is_actionable(tmp_path, monkeypatch, failure):
     original = importlib.metadata.version
     def version(name):
         if name == 'marimo':
@@ -77,13 +77,15 @@ def test_dependency_error_is_actionable(external, monkeypatch, failure):
         for key in list(sys.modules):
             if key.startswith('marimo.'):
                 monkeypatch.delitem(sys.modules, key)
-    path = external / 'input.py'
+    path = tmp_path / 'input.py'
     path.write_text(notebook(('one', 'x = 1')))
-    result = invoke(path, external / 'report')
+    result = invoke(path, tmp_path / 'report')
     assert result.exit_code == 2
     assert 'uv sync --extra notebook' in result.output
-    assert 'marimo==0.25.2' in result.output
-    assert not (external / 'report').exists()
+    project = tomllib.loads((ROOT / 'pyproject.toml').read_text())
+    pin, = (dep for dep in project['project']['optional-dependencies']['notebook'] if dep.startswith('marimo=='))
+    assert pin in result.output
+    assert not (tmp_path / 'report').exists()
 
 
 def test_cells_names_definitions_references_and_function_cells(external):
@@ -136,8 +138,10 @@ def test_structure_pass_explicitly_is_not_acceptance(external):
 
 
 @pytest.mark.parametrize('mode', ['traversal', 'symlink', 'parent-symlink', 'file-symlink', 'hardlink', 'existing', 'checkout'])
-def test_output_refusals(external, mode):
+def test_output_refusals(tmp_path, mode, request):
     pytest.importorskip('marimo')
+    # Link and collision cases reach the descriptor checks only outside a checkout.
+    external = tmp_path if mode in ('traversal', 'checkout') else request.getfixturevalue('external')
     path = external / 'input.py'
     path.write_text(notebook(('one', 'x = 1')))
     out = external / 'report'
@@ -170,9 +174,9 @@ def test_output_refusals(external, mode):
     assert not list(external.rglob('structure.txt'))
 
 
-def test_out_is_required(external):
+def test_out_is_required(tmp_path):
     from learnloop.cli import app
-    result = CliRunner().invoke(app, ['notebook', 'check', str(external / 'input.py'), '--scope', 'structure'])
+    result = CliRunner().invoke(app, ['notebook', 'check', str(tmp_path / 'input.py'), '--scope', 'structure'])
     assert result.exit_code == 2
     assert '--out' in result.output
 
@@ -196,7 +200,7 @@ def test_invalid_notebooks_still_get_failed_reports(external, source):
     assert report['findings']
 
 
-def test_compilation_does_not_create_marimo_scratch(external, monkeypatch):
+def test_compilation_does_not_create_marimo_scratch(monkeypatch):
     pytest.importorskip('marimo')
     from marimo._ast import compiler
     def forbidden(*args, **kwargs):
@@ -204,6 +208,14 @@ def test_compilation_does_not_create_marimo_scratch(external, monkeypatch):
     monkeypatch.setattr(compiler, 'get_tmpdir', forbidden)
     from learnloop.notebook_authoring.marimo_adapter import _parse_structure
     assert _parse_structure(notebook(('one', 'x = 1')))['findings'] == []
+
+
+def test_malformed_cell_decorator_is_an_artifact_finding():
+    pytest.importorskip('marimo')
+    from learnloop.notebook_authoring.marimo_adapter import inspect_structure
+    source = notebook(('quantity', 'x = 3')).replace('def quantity():', 'class Quantity:')
+    report = inspect_structure(source)
+    assert [finding['kind'] for finding in report['findings']] == ['invalid_notebook']
 
 
 def test_fresh_parser_import_writes_nothing_outside_output(external):
@@ -218,3 +230,14 @@ def test_fresh_parser_import_writes_nothing_outside_output(external):
                             cwd=ROOT, env=env, capture_output=True, text=True)
     assert result.returncode == 0, result.stderr
     assert not (external / 'unrequested-cache').exists()
+
+
+@pytest.mark.parametrize('source', [
+    notebook(('quantity', 'x = 3')) + '\nimport key\n',
+    notebook(('quantity', 'x = 3')).replace('@app.cell', '@app.cell(name=b"quantity")'),
+])
+def test_unrepresented_source_fails_as_a_format_finding(source):
+    pytest.importorskip('marimo')
+    from learnloop.notebook_authoring.marimo_adapter import inspect_structure
+    report = inspect_structure(source)
+    assert any(f['kind'] == 'notebook_format' for f in report['findings'])

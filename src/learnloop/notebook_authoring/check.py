@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Iterator
 
 from learnloop.notebook_authoring.marimo_adapter import inspect_structure
+from learnloop.notebook_authoring.scratch import directory_fd
 
 
 class OutputPathError(ValueError):
@@ -15,7 +16,7 @@ class OutputPathError(ValueError):
 
 
 @contextmanager
-def _output_directory(path: Path) -> Iterator[int]:
+def _output_directory(path: Path, names: tuple[str, ...]) -> Iterator[int]:
     if '..' in path.parts:
         raise OutputPathError('parent traversal is not allowed')
     absolute = path.absolute()
@@ -23,30 +24,18 @@ def _output_directory(path: Path) -> Iterator[int]:
     if any((parent / '.git').is_file() or (parent / '.git/HEAD').is_file()
            for parent in (absolute, *absolute.parents)):
         raise OutputPathError('choose an output directory outside the checkout')
-    flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
-    directory = os.open(absolute.anchor, flags)
     try:
-        for part in absolute.parts[1:]:
-            try:
-                child = os.open(part, flags, dir_fd=directory)
-            except FileNotFoundError:
-                os.mkdir(part, mode=0o700, dir_fd=directory)
-                child = os.open(part, flags, dir_fd=directory)
-            os.close(directory)
-            directory = child
-        # Both names must be unused before either report is written. Exclusive
-        # creation below also rejects a symlink/hardlink planted after this check.
-        for name in ('structure.json', 'structure.txt'):
-            try:
-                os.stat(name, dir_fd=directory, follow_symlinks=False)
-            except FileNotFoundError:
-                continue
-            raise OutputPathError(f'{name} already exists; choose a fresh output directory')
-        yield directory
+        with directory_fd(absolute, create=True) as directory:
+            # Exclusive creation also refuses a link planted after this preflight.
+            for name in names:
+                try:
+                    os.stat(name, dir_fd=directory, follow_symlinks=False)
+                except FileNotFoundError:
+                    continue
+                raise OutputPathError(f'{name} already exists; choose a fresh output directory')
+            yield directory
     except OSError as exc:
         raise OutputPathError('output must use real directories and unused report files, without symlinks') from exc
-    finally:
-        os.close(directory)
 
 
 def check_structure(path: Path, out: Path) -> tuple[dict, str]:
@@ -60,9 +49,16 @@ def check_structure(path: Path, out: Path) -> tuple[dict, str]:
     summary = (f"Structure only: {report['structure_status']}; {len(report['cells'])} cells; "
                f"{len(report['findings'])} findings.\n"
                'Review incomplete: no execution, no review layers; not acceptance.\n')
-    with _output_directory(out) as directory:
-        for name, contents in (('structure.json', json.dumps(report, indent=2) + '\n'), ('structure.txt', summary)):
+    write_reports(out, 'structure', report, summary)
+    return report, summary
+
+
+def write_reports(out, scope, report, summary, *, manifest=None):
+    files = {f'{scope}.json': json.dumps(report, indent=2) + '\n', f'{scope}.txt': summary}
+    if manifest is not None:
+        files['manifest.json'] = json.dumps(manifest, indent=2) + '\n'
+    with _output_directory(out, tuple(files)) as directory:
+        for name, contents in files.items():
             fd = os.open(name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600, dir_fd=directory)
             with os.fdopen(fd, 'w', encoding='utf-8') as handle:
                 handle.write(contents)
-    return report, summary
