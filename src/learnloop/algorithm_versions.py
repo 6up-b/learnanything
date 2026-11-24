@@ -1030,6 +1030,19 @@ MASTERY_SEED_ALGORITHM_VERSION = "mvp-0.67"
 # (owner rule 2026-11-16). ONE constant.
 PAD_TEXT_ALGORITHM_VERSION = "mvp-0.68"
 
+# The probe router (refactor G2; docs/reviews/refactor-g2-design.md, docs/reviews/algorithm-probe-router.md), on top of
+# the pad text tag. The action router is the one decider of whether a probe is asked after a miss. On the automatic
+# follow-up lane the decision comes before the probe is written, so the router cannot value its answer pattern and the
+# probe earns no information credit (the design's decision 1; the owner's option f of 2026-11-20): it is no option of
+# either policy, and the mix decides between no intervention and a lesson where one is offered. Beside the mix, the
+# probe coin asks the probe now, feedback held, on a randomized share of eligible misses (``router_objective.
+# probe_coin``), at the stop coin's rate (the owner's 2026-11-23 ruling: derived from an existing arm, not a new
+# constant), with its own seed, an exact served distribution and its own assignment row. No room to wait, no plan and
+# the router switched off take the same coin instead of asking the probe deterministically; a no-plan decision is
+# logged. Hard refusals still come first. Nothing already derived moves. No kill switch (owner rule 2026-11-16). ONE
+# constant: a renumber at landing is this line (the chain, the sets and the predicate follow it).
+PROBE_ROUTER_ALGORITHM_VERSION = "mvp-0.69"
+
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
 # first. Each successor means its predecessor's semantics PLUS its own, so
 # every gate below is "this tag or any later one". A successor appends its tag
@@ -1096,6 +1109,7 @@ SUCCESSOR_CHAIN: tuple[str, ...] = (
     LIFECYCLE_INPUTS_ALGORITHM_VERSION,
     MASTERY_SEED_ALGORITHM_VERSION,
     PAD_TEXT_ALGORITHM_VERSION,
+    PROBE_ROUTER_ALGORITHM_VERSION,
 )
 
 
@@ -1255,6 +1269,20 @@ def pad_text_on(config: object) -> bool:
 
     algorithms = getattr(config, "algorithms", None)
     return getattr(algorithms, "algorithm_version", None) in PAD_TEXT_VERSIONS
+
+# Versions where the router decides the automatic lane's probe and an unwritten probe is asked only by the probe coin.
+# Every later successor keeps it; gates must use this set, never equality, and read it through
+# :func:`probe_router_on`.
+PROBE_ROUTER_VERSIONS: frozenset[str] = successors_from(PROBE_ROUTER_ALGORITHM_VERSION)
+
+
+def probe_router_on(config: object) -> bool:
+    """The router decides the automatic lane's probe and an unwritten probe is asked only by the probe coin (the probe
+    router's tag), gated by the vault's tag alone (no kill switch): below it the predecessor's follow-up decision
+    exactly. ``config`` is a vault's config."""
+
+    algorithms = getattr(config, "algorithms", None)
+    return getattr(algorithms, "algorithm_version", None) in PROBE_ROUTER_VERSIONS
 
 # The newest successor: the last tag in the chain. ``learnloop upgrade`` with
 # no ``--to`` targets it, and new vaults start at it
