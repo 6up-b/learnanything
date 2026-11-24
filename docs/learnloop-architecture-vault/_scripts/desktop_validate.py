@@ -353,7 +353,8 @@ def main() -> int:
         # RD-retire phase 2, step 1: screens/desks/source/ScopedSource.tsx and types.ts.
         # RD-retire phase 2, step 2: ReaderScreen.tsx, readerKeys.ts and searchBasis.ts deleted, model/restore.ts added,
         # and fixtures/readerRenderView.ts read by tests alone now (the old screen's offline demo went with it).
-        "entry-reachable build graph": 409,
+        # RD-retire's review fix round: screens/reader/readingReports.ts (reading reports bound to their vault).
+        "entry-reachable build graph": 410,
         # RW5d P2 sketch compartment: sketch.worker.ts and sketchWorkerCore.ts, bundled by vite.config.mjs.
         "bundled worker entry": 2,
         "compiler-implicit": 2,
@@ -371,7 +372,7 @@ def main() -> int:
     status_counts: dict[str, int] = defaultdict(int)
     for info in audited_infos.values():
         status_counts[info.refactor_status] += 1
-    if dict(status_counts) != {"ACTIVE": 442}:
+    if dict(status_counts) != {"ACTIVE": 443}:
         errors.append(f"lifecycle classification drift requires review: {dict(status_counts)}")
 
     link_errors, wikilinks, fragments, markdown_links = validate_links(sorted(actual))
