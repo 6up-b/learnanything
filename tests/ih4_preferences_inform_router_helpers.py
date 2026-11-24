@@ -30,6 +30,12 @@ def _pin(monkeypatch) -> Any:
     real_seed = production(OC.__name__, "numeric_seed")
     monkeypatch.setattr(OC, "numeric_seed", lambda identity: real_seed(
         {k: v for k, v in identity.items() if k not in ("version", "plan_id")}))
+    # A delayed check's pick among tied items (a decision's measurement) is seeded on the decision's fresh id: the
+    # twins' picks share production's seed of one pinned decision.
+    import learnloop.delayed_checks as delayed_checks
+
+    real_pick_seed = production(delayed_checks.__name__, "seed_for")
+    monkeypatch.setattr(delayed_checks, "seed_for", lambda _seed_key: real_pick_seed("decision:pinned"))
     return lambda _key, _decision: "pinned-seed"
 
 

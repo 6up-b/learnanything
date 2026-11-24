@@ -177,12 +177,20 @@ absence, and AD's `p̄` for selection is a later question, item by item.
   every never-attempted item of the LO now predicts alike, so the median falls to the item ids. It is still
   deterministic. Test: `test_assumed_known.py::test_from_the_label_retirement_the_check_choice_reads_no_label`.
 - **The delayed check's pick** (`delayed_checks.py`, the item nearest the practice band, from the data-capture tag):
-  items of one LO tie, so the pick is the uniform draw its receipt records. Test:
-  `test_data_capture_a6_delayed_pick.py::test_from_the_label_retirement_an_los_items_tie_and_the_pick_draws`.
-- **The label-miscalibration check** (`learner/calibration.py`, doctor's `difficulty:miscalibrated`): it compares
-  the answers with mastery's curve, which no longer reads the label. So it now flags items that play easier or
-  harder than their LO, and its wording still speaks of the label's `b`. It goes with the label's other readers in
-  H5 or H6 (Q9's neighbour).
+  items of one LO tie, so the pick is the uniform draw its receipt records. That draw is seeded, logged and
+  replayable:
+  - **seeded:** `delayed_checks.seed_for(seed_key)`, where the key names a persisted decision (`decision:<id>` for a
+    measurement, the lesson and LO for a teacher's retention check, `dry:<lo>` for a read). It is never the
+    candidates or the run;
+  - **logged:** the receipt carries the considered items with their predictions, the tied set (sorted by item id),
+    `n`, the propensity `1/n`, the seed, the draw and the choice, and the commitment's provenance stores it;
+  - **replayable:** `tied[int(draw·n)]` from the receipt alone. `test_serve_tie_breaks.py` checks this in every
+    candidate order.
+
+  Test: `test_data_capture_a6_delayed_pick.py::test_from_the_label_retirement_an_los_items_tie_and_the_pick_draws`.
+- **The label-miscalibration check** (`learner/calibration.py`, doctor's `difficulty:miscalibrated`): it compares the
+  answers with mastery's curve, which no longer reads the label. So from the tag it flags items that play easier or
+  harder than their LO, and its message now says that and that no difficulty label is read (ledger H-4, fixed).
 - **The plan's next step** weighs labelled items differently. One C1 journey now takes an item where it took the
   fresh reading. That test is checked at the tag before.
 - **Readers of the surprise row's direction** (the re-probe on repeated prediction errors, the follow-up gate)
@@ -190,6 +198,35 @@ absence, and AD's `p̄` for selection is a later question, item by item.
   no longer makes failures surprising; that test runs at the tag before.
 - **Fast-track placement:** the assumed-known tests' fixture states that "items carry authored difficulties so the
   incumbent's predicted success orders them". Those tests now run at the tag before (`assumed_known_helpers`).
+
+## Ties on the serve path (ledger H-5)
+
+**What failed.** At the tag IH4's twin tests split in most runs: one twin ended a block early and served one more
+block. They split with fixed hash seeds too.
+
+**The read that differed.** The decision's measurement (`daily_plan/measurement.py`) reserves a delayed check on the
+decided LO through the pick above. With the label retired, the LO's items tie, so the seeded draw decides. Its seed
+names the decision, and each twin's decision id is a fresh ULID. So the twins reserved different items, and the
+reserved item is withheld from the open block (`intent_check_waiting`).
+
+**Production is not nondeterministic.** Given the persisted decision, the pick is fixed and replays from its receipt.
+What was missing was the tests' pin: the router's other seeded draws are pinned by default (`tests/pinned_draws.py`),
+and this one was not.
+
+**The fix:**
+- the seed is one module function, `delayed_checks.seed_for`;
+- `pinned_draws` pins it as the `delayed_pick` family;
+- IH4's twin pin gives both twins production's seed of one pinned decision;
+- IH4's file is back at the head; it passed 5 of 5 runs, where it failed 5 of 6 before.
+
+**The guard.** `test_serve_tie_breaks.py` serves one day at the head in three processes: hash seed 0, hash seed 1,
+and hash seed 0 with SQLite's `reverse_unordered_selects` on every connection. All three must give the same staged
+picks, served steps and measurement picks, and the day must meet a tie. With the draw unpinned it fails (negative
+control run); pinned, it passes.
+
+**The staged pick's own last tie-break** (`LaneQuotaChooser`: lane share, lane rank, planner value, then the
+candidate's position in the feasible list) depends on the list's build order. The guard's reversed row order does not
+move it.
 
 ## History and replay
 
@@ -252,7 +289,7 @@ The seam guards are in `tests/test_difficulty_kinds_apart.py` and `tests/test_it
   - Every failure was read. Each is a consequence named above, a test pinned to the latest tag as "its own tag", a
     count of every receipt or AD prediction, or a grade-time receipt id drawn from a per-process stream (now keyed).
   - All are fixed in `072488b416`, `30751316f1` and the commits after them.
-  - One is open and pinned to the tag before: IH4's twin claims (ledger H-5).
+  - IH4's twin claims were the last; their root cause and fix are in "Ties on the serve path" (ledger H-5).
 - **After merging origin/main (`1966a33cbf`):**
   - the 25 failing files, plus every test file the merge changed: 680 passed;
   - the pins, ratchets, architecture, layout, upgrade, CLI surface, the replay guards

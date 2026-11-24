@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 
+from learnloop.algorithm_versions import label_retired
 from learnloop.vault.models import LoadedVault
 
 DEFAULT_MIN_ATTEMPTS = 5
@@ -24,11 +25,22 @@ class MiscalibrationFlag:
     attempts: int
     mean_innovation: float
     direction: str  # "too_hard" | "too_easy"
+    #: Whether mastery's curve reads the item's difficulty label (below the label's retirement).
+    label_read: bool = True
 
     @property
     def message(self) -> str:
         verdict = "too hard" if self.direction == "too_hard" else "too easy"
         outcome = "beats" if self.direction == "too_hard" else "trails"
+        if not self.label_read:
+            # From the label's retirement mastery predicts every item of an LO alike: the flag says how the item
+            # plays against its LO, and names no label to correct.
+            plays = "easier" if self.direction == "too_hard" else "harder"
+            return (
+                f"{self.practice_item_id}: plays {plays} than its learning object; learner {outcome} mastery's "
+                f"prediction by mean innovation {self.mean_innovation:+.2f} over {self.attempts} attempts "
+                "(no difficulty label is read)."
+            )
         return (
             f"{self.practice_item_id}: difficulty likely miscalibrated (b {verdict}); "
             f"learner {outcome} prediction by mean innovation {self.mean_innovation:+.2f} "
@@ -51,6 +63,7 @@ def difficulty_miscalibration_flags(
     predates the IRT trace (no ``expected_correctness``) are skipped.
     """
 
+    retired = label_retired(vault.config.algorithms.algorithm_version)
     samples: dict[str, list[float]] = {}
     learning_objects: dict[str, str | None] = {}
     rows = repository.attempt_innovation_samples()
@@ -93,6 +106,7 @@ def difficulty_miscalibration_flags(
                 attempts=len(innovations),
                 mean_innovation=mean_innovation,
                 direction=direction,
+                label_read=not retired,
             )
         )
     flags.sort(key=lambda flag: flag.practice_item_id)
