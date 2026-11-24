@@ -3322,6 +3322,9 @@ class AdmissionReads:
     probe_familiarity: Mapping[tuple[str, str], Any]
     #: Whether the build's device refuses each item, by item id; None without a device filter.
     device_refusals: Mapping[str, Any] | None
+    #: The probing episodes whose probe the router selected (``probe_authority``): at the probe router's tag no value
+    #: decision admits or withholds their instruments; EIG still ranks them.
+    router_owned_episodes: frozenset[str] = frozenset()
 
 
 def _probing_episodes(open_episodes: Mapping[str, Any], probe_block_reason: str | None) -> list[Any]:
@@ -3419,6 +3422,10 @@ def _episode_probe_reads(
     channels: dict[str, Any] = {}
     session_qualifying: Any = None
     voi_loaded = False
+    from learnloop.diagnosis.probe_authority import router_selected_episode
+
+    router_owned = frozenset(str(episode.id) for episode in episodes
+                             if router_selected_episode(vault, repository, episode))
     for episode in episodes:
         context = _attempted_read(_load_episode_context, vault, repository, episode, contexts)
         contexts[episode.id] = context
@@ -3428,7 +3435,7 @@ def _episode_probe_reads(
         eligibles[episode.id] = eligible
         if isinstance(eligible, _ReadFailed) or not eligible:
             continue
-        if voi_probe_active:
+        if voi_probe_active and str(episode.id) not in router_owned:
             qualifying[episode.id] = _attempted_read(qualifying_observation_count, vault, repository, episode.id)
             if session_qualifying is None:
                 session_qualifying = _attempted_read(session_qualifying_total, vault, repository, session_id)
@@ -3462,6 +3469,7 @@ def _episode_probe_reads(
         "qualifying_observations": qualifying,
         "session_qualifying_observations": session_qualifying,
         "pinned_channels": channels,
+        "router_owned_episodes": router_owned,
     }
 
 
@@ -3635,6 +3643,7 @@ def _after_check_split(
         qualifying_observations={**reads.qualifying_observations, **more["qualifying_observations"]},
         session_qualifying_observations=session_qualifying,
         pinned_channels={**reads.pinned_channels, **more["pinned_channels"]},
+        router_owned_episodes=reads.router_owned_episodes | more["router_owned_episodes"],
         voi_context=_decision_context(voi_context) if loaded else None,
     )
 
@@ -3785,6 +3794,10 @@ class _LazyAdmissionReads:
     @property
     def pinned_channels(self) -> Any:
         return self._episode_reads["pinned_channels"]
+
+    @property
+    def router_owned_episodes(self) -> Any:
+        return self._episode_reads["router_owned_episodes"]
 
     @property
     def probe_familiarity(self) -> Any:
@@ -4067,7 +4080,9 @@ class _BuildAdmission:
             # fallback) are probe candidates. Everything else scores zero
             # hypothesis EIG and stays ordinary practice.
             voi_withheld = False
-            if context is not None and eligible_entry is not None and self.voi_probe_active:
+            # The probe router's tag: a probe the router selected is not admitted or withheld again by value.
+            if (context is not None and eligible_entry is not None and self.voi_probe_active
+                    and str(episode.id) not in self.reads.router_owned_episodes):
                 voi_decision = self.voi_probe_decisions.get(episode.id)
                 if voi_decision is None:
                     voi_decision = voi.probe_episode_decision(
