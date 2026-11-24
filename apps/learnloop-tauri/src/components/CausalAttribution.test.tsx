@@ -3,7 +3,7 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { CausalRepairStatusDto } from "../api/dto";
-import { CausalRepairStatusPanel } from "./CausalAttribution";
+import { CausalRepairStatusPanel, probeOfferCopy } from "./CausalAttribution";
 
 vi.mock("../api/client", () => ({ api: {} }));
 
@@ -55,4 +55,23 @@ describe("CausalRepairStatusPanel, a withheld quick check", () => {
       expect(screen.getByText(DEFERRED_MESSAGE)).toBeTruthy();
     }
   );
+});
+
+describe("the probe router's tag", () => {
+  it("renders a status carrying the router's disposition as any other", () => {
+    const status: CausalRepairStatusDto = {
+      ...withheld("defer_learner_preference"),
+      routerState: "unavailable",
+      routerDecisionId: "decision_1",
+      hardStopReasons: ["learner_preference"]
+    };
+    render(<CausalRepairStatusPanel status={status} />);
+    expect(screen.getByText(/You asked me not to check again for now/)).toBeTruthy();
+  });
+
+  it("explains an offer refused for want of the router's selection, and one refused by the learner's Not now", () => {
+    expect(probeOfferCopy("router_decision_required")).toMatch(/no quick check to take/);
+    expect(probeOfferCopy("learner_preference")).toMatch(/You asked me not to check again/);
+    expect(probeOfferCopy("something_else")).toBe("The quick check could not be started right now.");
+  });
 });

@@ -2075,6 +2075,22 @@ export interface CausalRepairStatusDto {
   revealBudget?: number | null;
   decisionPolicyVersion?: string | null;
   formulaVersion?: string | null;
+  /** The probe router's tag (absent below it): whether the quick check is offered is the router's decision, made
+   *  once per factor and read back by every status read. `probeOffered` is true only for `selected`. */
+  routerState?: CausalProbeRouterState;
+  routerDecisionId?: string | null;
+  /** Why the probe is `unavailable` (e.g. "learner_preference", "machine_checks_pending",
+   *  "no_executable_instrument", "common_repair_covers"). */
+  hardStopReasons?: string[];
+}
+
+/** The router's disposition of a factor's quick check (the probe router's tag). */
+export type CausalProbeRouterState = "pending" | "selected" | "not_selected" | "unavailable";
+
+export interface CausalProbeRouterDispositionDto {
+  routerState: CausalProbeRouterState;
+  routerDecisionId: string | null;
+  learningObjectId?: string | null;
 }
 
 export interface CausalRepairStatusResultDto {
@@ -2099,6 +2115,9 @@ export interface CausalProbeOfferDto {
 export interface CausalProbeOfferResultDto {
   version: number;
   offer: CausalProbeOfferDto;
+  /** The probe router's tag: the router's disposition the request was checked against. A request without the
+   *  router's selection comes back `accepted: false`, `reason: "router_decision_required"`. */
+  router?: CausalProbeRouterDispositionDto;
 }
 
 export interface CausalProbePreferenceDto {
