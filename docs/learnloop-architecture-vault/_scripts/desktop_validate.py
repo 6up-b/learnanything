@@ -236,8 +236,8 @@ def main() -> int:
     # RD-retire phase 2, step 1: screens/desks/source/ScopedSource.tsx and types.ts (entry-reachable).
     # RD-retire phase 2, step 2: screens/ReaderScreen.tsx, screens/reader/readerKeys.ts and searchBasis.ts deleted;
     # screens/desks/model/restore.ts (entry-reachable) and fixtures/deskShellStub.tsx (vitest-support) added.
-    if len(ts_sources) != 436:
-        errors.append(f"source inventory drift: expected 436 TypeScript/TSX files, found {len(ts_sources)}")
+    if len(ts_sources) != 437:
+        errors.append(f"source inventory drift: expected 437 TypeScript/TSX files, found {len(ts_sources)}")
     if len(rust_sources) != 6:
         errors.append(f"source inventory drift: expected 6 authored Rust modules, found {len(rust_sources)}")
     for path in sorted(expected - actual):
