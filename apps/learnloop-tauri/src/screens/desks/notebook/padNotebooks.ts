@@ -35,6 +35,11 @@ function emit(): void {
   for (const listener of listeners) listener();
 }
 
+/** The registry's key for a pad in one vault (its desk store's client id, one per vault). */
+export function padNotebookKey(vaultScope: string, padId: string): string {
+  return `${vaultScope}\u0000${padId}`;
+}
+
 export function padNotebook(padId: string): PadNotebook {
   return pads.get(padId) ?? EMPTY;
 }
