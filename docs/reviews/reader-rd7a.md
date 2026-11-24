@@ -343,3 +343,138 @@ something measured primes it).
   or harness run beyond the existing suite.
 - The module catalog notes for the two new modules (`intent/inline_administration.py`,
   `db/stores/check_administrations.py`) are not generated here (references are regenerated at integration).
+
+## 8. Fix round (the RD7 adversarial review, 2026-11-24): the backend half
+
+Branch `reader/rd7-fix-backend`. The review's theme: an answer could still be recorded cold after help, and an opening
+could be charged although nothing was shown. Ledger ids RD7-3 upward (the frontend half uses RD7-40 upward).
+
+### 8.1 The server contract the frontend codes against
+
+Written before the code was finished, so the frontend worker can start. Every key below is camelCase on the wire.
+Everything not named here is unchanged.
+
+**The card** (`check.begin_inline`, `check.open_inline`):
+- **`prompt`** is an allowlisted cold presentation, never the practice item's detail. It holds
+  `{practiceItemId, prompt, presentation, practiceMode, attemptTypesAllowed, activeFollowupKind, intentCheck}`
+  (`intentCheck` keeps `kind, commitmentId, cold, banner, helpHeader, locatorsHidden, duty, beingAnsweredIn`): the
+  question, its learner-facing
+  blocks (render them with Today's presentation component), and the check's banner and hidden locators. There is no
+  expected answer, hint, rubric, prior attempt or source locator in it. It is frozen at begin and returned unchanged on
+  recovery; the item is never served again.
+- **`submissionId`**: the submission reserved on this administration, or null. After a restart, reuse it for the
+  retry. The draft is the client's to keep (by token); the server stores no draft.
+- **`eligibility`**: the serve-time reason when the item opens not cold (`seen_before`, `primed`, `hold`, …), else
+  null. Word the card from it: an item that opens not cold must not say "a check on your own".
+- **`revision`**: the veil sets' sequence number, as in `check.protect_more`.
+- **A second begin for the same commitment**, with a new request id while its administration is open (a lost begin
+  reply, another click), returns that administration's card (`replayed: true`). It is not refused. Another
+  commitment's open administration is still refused, `administration_open`, with `{administrationToken, commitmentId}`
+  in the details.
+- **A begin request id whose administration is closed** is refused, `administration_closed`, with
+  `{state, outcome}` in the details. No prompt is returned.
+
+**Veil refs.** Each ref now carries **`measured`**: true when the server measures what opening it shows against the
+answer keys, false when it cannot. False covers:
+- a note;
+- a figure;
+- a lesson;
+- a thread or history with no exchange ids;
+- a pad block whose kind is not text (ink, sketch, a notebook cell);
+- a whole window with nothing listed;
+- anything the inventory does not describe.
+
+Opening an unmeasured ref always makes the answer practice, so the "show it anyway?" prompt must say that before
+opening.
+
+**`check.protect_more`**: the reply is `{veilAdditions, standing, revision}`:
+- `standing` is every ref veiled now and not opened (the authoritative set);
+- `revision` is the veil sets' sequence number.
+
+Replace the local set with `standing`, and lift a temporary whole-window cover only when the reply's `revision` covers
+the request that window was in. A retried request whose first reply was lost gets the same `standing`.
+
+**`check.expose`**:
+- **Input** adds **`exposureId`** (client-minted, stable for one opening). A retry with the same id returns the first
+  result and charges nothing again.
+- **`kind`** also takes **`"left"`**, with `ref: {kind: "surface", surface: "<where>"}`. The learner reached a surface
+  the veils do not cover while the check was open: the old Reader, Today, the desks unmounted, a route change. It is
+  recorded as an unmeasured opening, so the answer counts as practice. Call it before leaving, or at once on return,
+  if the administration is still open.
+- **Reply**: `{protectionStatus: {exposure, coldNow, measured, eligibility}}`. `measured` says whether this opening was
+  measured. The reveals and the receipt commit together: a refusal or failure means nothing was recorded, and the veil
+  must stay.
+
+**`check.submit_inline`**:
+- **Input** adds:
+  - **`veilsRevision`** (required): the last `revision` the client applied. A lower revision than the server's is
+    refused, `veils_stale`: apply `standing`, then retry with the same submission id.
+  - **`selfGrade`** (optional): the same shape as `submit_attempt`'s, for when grading is unavailable. The reply then
+    says so as `submit_attempt`'s does.
+- **Reply keys** are all camelCase: `cold`, `reason`, `primedBy`, `eligibility`, `administrationToken` (the attempt's
+  own keys as before).
+- **The outcome is saved with the close.** A retry of the same submission id returns the saved outcome, never a newly
+  computed one. While a submission is in flight, `check.abandon_inline` and `check.expose` are refused,
+  `submission_in_flight`: disable "not now".
+
+**Job acceptance while an administration is open.** The server refuses with **`check_open`** (details
+`{administrationToken}`), so a retry or a deferred job cannot get through:
+- a companion ask, and its retry;
+- an ink transcription;
+- a figure request (Show me, either RPC) and a rich figure retry;
+- a lesson opening.
+
+A pad edit's learner-text-gap emission is deferred until the administration closes; every close (submit, not now,
+a recovery that supersedes) reconciles the pads, as a vault's open does.
+
+### 8.2 Findings
+
+Each fix has a fail-first test in `tests/test_reader_rd7a_inline_checks.py` (named `test_rd7_<n>_…` for ledger row
+RD7-n) or `tests/test_reader_rd7_fix_migration.py`, shown failing against the code before the fix (the source files
+swapped back to the branch's base, the tests unchanged: 20 of 20 failed). Ledger rows RD7-3 to RD7-23.
+
+- Fix round: **blocker 1** (an opened note outlives the administration) fixed, RD7-3. An unmeasured opening and a
+  `left` exposure write `source_review` reveals at the priming threshold (`AUTO_PRIME_REVEAL_THRESHOLD`, the existing
+  constant) on every frozen candidate, basis `check_inline:unmeasured`. The reveal ledger is what every serve and
+  every settlement reads, so the next attempt on any candidate, on either surface, after not now, a crash or a
+  supersede, is not cold. No note is read.
+- Fix round: **blocker 2** (candidates) fixed, RD7-4. Begin freezes the serving view's candidates (`build_checks`'s
+  expansion, the one function) with their keys; openings are charged to that set against those keys.
+- Fix round: **blocker 3** (`record_reveal` swallowed failures) fixed, RD7-5. Reveals and receipt in one transaction,
+  the reveal ids derived from the token and the client's `exposureId`, a retry idempotent.
+- Fix round: **blocker 8, server half** fixed, RD7-6 (`standing` and `revision`). The client's reconciliation is the
+  frontend's.
+- Fix round: **blocker 9, server half** fixed, RD7-7 (`measured` on refs and replies; an unmeasurable opening is
+  charged, never a measured zero).
+- Fix round: **blocker 13** fixed, RD7-8. The host (the LO's primary passage section and its goal-path sections) is
+  always protected; an LO without a current coverage judgment veils its host's readings whole, and every source when
+  it has no host. Fail-closed per LO, not only on an exception.
+- Fix round: **blocker 14** fixed, RD7-9 (the allowlisted, frozen presentation).
+- Fix round: **blockers 5 and 7, server half**: `veilsRevision` on submit (`veils_stale`), RD7-13. Proving the veils
+  are mounted is the client's.
+- Fix round: **major 15** fixed, RD7-16. While the Reader holds a check, an attempt on another surface (Today serves
+  the item as practice then) answers nothing and leaves the check's date; the plan does not label the held item
+  `check_once`.
+- Fix round: **major 16** fixed, RD7-14, RD7-15, RD7-18 (Today's claim is the current session's presentation, blank
+  or typed; recovery supersedes after an answer elsewhere; a session another device holds is refused before the
+  serve).
+- Fix round: **major 17, server half** fixed, RD7-22 (begin adopts the open card of the same commitment; the card
+  names the reserved submission).
+- Fix round: **major 18** fixed, RD7-12 (settle first, then the close saves the outcome with its receipt).
+- Fix round: **major 19** fixed, RD7-11 (row counts; `submission_in_flight`).
+- Fix round: **major 20** fixed, RD7-10 and RD7-9 (`administration_closed`; recovery from the frozen card).
+- Fix round: **majors 21 and 22, server half**: no server change needed. The server measures exactly the exchanges a
+  ref names (a ref naming none is unmeasured, RD7-7), and it already keeps a note (`kind: "note"`, unmeasured) apart
+  from the passage it annotates (`kind: "span"`, measured by overlap; a span ref carries no note ids). Naming the
+  displayed tab's exchanges and not labelling a paragraph as a note are the frontend's.
+- Fix round: **major 23** fixed, RD7-20 (the reply carries the Check once decision's reason at the attempt, `hold`
+  included; every added key camelCase, `primedBy`).
+- Fix round: **major 25** fixed, RD7-21 (migration 272's guards).
+- Fix round: **major 26, server half** fixed, RD7-9 and RD7-19 (presentation blocks in the card; `selfGrade`).
+- Fix round: **major 27, server half** fixed, RD7-17 (`check_open` at acceptance; pad emission deferred, drained at
+  the close).
+- Fix round: **minor 29** fixed, RD7-23 (the rebuild comparison covers the schedule state, the commitment events,
+  the check's date and answer, the reveals and the saved outcome). The selector: Reader begin and Today serve the
+  same `intent_serving` view and its `servable` set; Today additionally picks within the plan's pool, the Reader the
+  first servable candidate. Documented, not shared: the Reader has no plan pool.
+- The frontend's: findings 4, 5 and 7 (client side), 6, 8 (client side), 10, 11, 12, 24, 28.

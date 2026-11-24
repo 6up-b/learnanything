@@ -214,3 +214,49 @@ in a gitignored directory, deleted afterwards. On every copy: the upgrade exited
 `foreign_key_check` is empty, the migration head is 270, and `check_administrations`, `check_veil_sets` and
 `video_chapters` hold no rows. No live vault was opened. The copies are not fresh from the live vaults, so they say
 nothing about checks due there today.
+
+## Fix round (the RD7 adversarial review, 2026-11-24): the backend half
+
+Branch `reader/rd7-fix-backend`; findings, tests and the server contract in `reader-rd7a.md` §8, ledger RD7-3 to
+RD7-23. Migration 272 (271 is reserved for L4-2, which has not landed: 272 is built on 270 and only its number changes
+if the orchestrator renumbers or reorders at landing). It adds five columns to `check_administrations` (the frozen
+candidates with their keys, the frozen cold presentation, `pending_before`, the saved outcome, the recorded exposure
+ids) and the replacing-insert and rowid guards. The head fixture is upgraded to 272 in its own commit.
+
+**What changes in meaning, all under `mvp-0.69`:**
+
+- **Unmeasured exposure is a reveal.** Opening a note, a figure, a lesson, a thread or history naming no exchange,
+  ink, a notebook cell or a whole unlisted window, and leaving for a surface the veils do not cover (`left`), writes a
+  `source_review` reveal of `AUTO_PRIME_REVEAL_THRESHOLD` (the existing constant; no new number) on every frozen
+  candidate, basis `check_inline:unmeasured`. The item is primed by the existing rule, in the ledger every serve and
+  every settlement reads, so it outlives the administration. No note is read (C2).
+- **Measured exposure is charged to the frozen candidates**, against the keys begin froze, never a set rebuilt from
+  the served item.
+- **Reveals and the exposure receipt commit in one transaction**, the reveal ids derived from the administration and
+  the client's exposure id: a retry charges nothing twice, so nothing crosses the priming threshold by duplication,
+  and a failed write records nothing and lifts no veil.
+- **An attempt held by the Reader answers nothing elsewhere.** `build_checks` skips, for `answered_by`, an attempt on
+  another surface made within an administration's open window (a closed window is `[opened_at, closed_at]`, an open
+  one runs to now), and leaves the check's date: Today serves the held item only as practice. The window comes from
+  `check_administrations`, read through `held_windows`; below the tag, or with no administrations, nothing changes.
+  The daily plan's `check_item_ids` skips held checks.
+- **The outcome is saved with the close**: settlement runs first, then the close writes the outcome in the receipt's
+  transaction. The outcome's reason is now the Check once decision's own at the attempt (`hold` included), so a
+  subthreshold opening reads as held, never "on your own".
+
+The evidence-honesty direction holds: each change can only make an answer count as not cold when the learner was
+shown something or left the veils, never the reverse. A learner who answered cold with nothing opened writes no
+reveal and is not primed (the RD7a tests of the cold path still pass unchanged).
+
+**Playbook ruling: these ride on `mvp-0.69`, no successor tag.** A tag records a change in what persisted rows mean
+for vaults that hold them. `mvp-0.69` has not reached a vault: the orchestrator's owner-copy run (the section above)
+found zero rows in `check_administrations`, `check_veil_sets` and `video_chapters` on every copy, and no
+`check_inline:*` reveal can exist without an administration. So no stored row was written under the first meaning,
+nothing needs replaying, and the upgrade row's `Link(mvp-0.69, idempotent_projection)` stays right: every effect is
+still an ordinary attempt or reveal row the projection reads. A replay writes none of these rows
+(`tests/test_replay_writes_no_ledger.py` passes): reveals are written only on a live opening. If `mvp-0.69` lands
+on main before this round, and a vault records an administration in between, this ruling no longer holds and a
+successor is needed; the orchestrator lands them together.
+
+**Checks.** `tests/test_migrations.py::test_the_migration_files_are_contiguous_from_the_oldest_to_the_head` fails
+on this branch alone (271 missing) and passes once L4-2 lands or 272 is renumbered. The identity pins did not move.

@@ -228,6 +228,10 @@ def companion_ask(ctx: SidecarContext, params: CompanionAskInput) -> dict[str, A
     """Ask the companion; answers at once with the job (see the module docstring)."""
 
     origin_vault, repository = ctx.require_vault()
+    # While an inline check is open the companion waits (a retry included): an answer could hold what the veils do.
+    from learnloop_sidecar.check_hold import refuse_while_check_open
+
+    refuse_while_check_open(repository)
 
     def check_origin() -> None:
         places = reading_places(params.extraction_id, [params.span_id, *params.selection_span_ids])

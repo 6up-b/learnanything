@@ -46,7 +46,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/source_retrieval/goal_lens_reads.py](../../../../../../src/learnloop/source_retrieval/goal_lens_reads.py) |
-| Source lines | 436 |
+| Source lines | 437 |
 | Owning package | [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -58,15 +58,15 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `primary_of(model: GoalModel, lo_id: str) -> DP.Treatment | None` ([source](../../../../../../src/learnloop/source_retrieval/goal_lens_reads.py), line 172) — The section a click on the LO opens: its path primary, else the first primary-eligible coverage row.
 - `depth_sizes(model: GoalModel) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/source_retrieval/goal_lens_reads.py), line 181) — Each depth with the size of its path (§12.5, decision D3): its LOs, and the distinct primary sections they read (the path's choice, else coverage's first eligible one) with their minutes at DL1's pace.
 - `reading_sections(vault: Any, repository: Repository, model: GoalModel, extraction_id: str, *, from_span_id: str | None=None, to_span_id: str | None=None, t0: float | None=None, t1: float | None=None) -> list[tuple[dict[str, Any], GL.SectionReads]]` ([source](../../../../../../src/learnloop/source_retrieval/goal_lens_reads.py), line 202) — Each section of the reading that the range touches (every section without a range), with the passages of the range it holds and its lens reads.
-- `goal_view(goal: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/goal_lens_reads.py), line 265) — "◎ YOUR GOAL · <KIND> · <deadline> (your words, <date set>)" (§12.2 part 1).
-- `protection(vault: Any, repository: Repository, due: Sequence[Mapping[str, Any]], model: GoalModel | None=None) -> GL.Protection` ([source](../../../../../../src/learnloop/source_retrieval/goal_lens_reads.py), line 285) — What the replies may not say while checks are due (spec §12.6.1, D15), from every due LO whatever the goal: their titles; the sections that treat them (standing coverage about them, their path placements in any goal, their checks' hosts); the LOs whose explanations depend on the…
-- `band_view(vault: Any, repository: Repository, model: GoalModel, *, due: Sequence[Mapping[str, Any]], answered: Sequence[Mapping[str, Any]], protection: GL.Protection, likely: LikelyReader | None=None, pace: Mapping[str, Any] | None=None, progress: Mapping[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/goal_lens_reads.py), line 332) — ``goal.band``: the goal, its LOs as dots, the depth with each depth's size, the next step, pace and the path's view, masked by ``protection`` (required: no band leaves here unmasked; D15).
-- `lens_view(vault: Any, repository: Repository, model: GoalModel, extraction_id: str, *, protection: GL.Protection, from_span_id: str | None=None, to_span_id: str | None=None, t0: float | None=None, t1: float | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/goal_lens_reads.py), line 406) — ``goal.lens``: one level per section the range touches (passages inherit it, decision D1), masked by ``protection`` (required: no lens leaves here unmasked; D15).
+- `goal_view(goal: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/goal_lens_reads.py), line 266) — "◎ YOUR GOAL · <KIND> · <deadline> (your words, <date set>)" (§12.2 part 1).
+- `protection(vault: Any, repository: Repository, due: Sequence[Mapping[str, Any]], model: GoalModel | None=None) -> GL.Protection` ([source](../../../../../../src/learnloop/source_retrieval/goal_lens_reads.py), line 286) — What the replies may not say while checks are due (spec §12.6.1, D15), from every due LO whatever the goal: their titles; the sections that treat them (standing coverage about them, their path placements in any goal, their checks' hosts); the LOs whose explanations depend on the…
+- `band_view(vault: Any, repository: Repository, model: GoalModel, *, due: Sequence[Mapping[str, Any]], answered: Sequence[Mapping[str, Any]], protection: GL.Protection, likely: LikelyReader | None=None, pace: Mapping[str, Any] | None=None, progress: Mapping[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/goal_lens_reads.py), line 333) — ``goal.band``: the goal, its LOs as dots, the depth with each depth's size, the next step, pace and the path's view, masked by ``protection`` (required: no band leaves here unmasked; D15).
+- `lens_view(vault: Any, repository: Repository, model: GoalModel, extraction_id: str, *, protection: GL.Protection, from_span_id: str | None=None, to_span_id: str | None=None, t0: float | None=None, t1: float | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/goal_lens_reads.py), line 407) — ``goal.lens``: one level per section the range touches (passages inherit it, decision D1), masked by ``protection`` (required: no lens leaves here unmasked; D15).
 
 ### Module constants
 
-- `DEMONSTRATED_LINE` ([src/learnloop/source_retrieval/goal_lens_reads.py](../../../../../../src/learnloop/source_retrieval/goal_lens_reads.py), line 261)
-- `UNTESTED_LINE` ([src/learnloop/source_retrieval/goal_lens_reads.py](../../../../../../src/learnloop/source_retrieval/goal_lens_reads.py), line 262)
+- `DEMONSTRATED_LINE` ([src/learnloop/source_retrieval/goal_lens_reads.py](../../../../../../src/learnloop/source_retrieval/goal_lens_reads.py), line 262)
+- `UNTESTED_LINE` ([src/learnloop/source_retrieval/goal_lens_reads.py](../../../../../../src/learnloop/source_retrieval/goal_lens_reads.py), line 263)
 
 ### Explicit exports
 
@@ -88,11 +88,11 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - `_closure(vault: Any, needed: Sequence[str], depth: str, background: Mapping[str, set[str]]) -> dict[str, set[str]]` ([source](../../../../../../src/learnloop/source_retrieval/goal_lens_reads.py), line 67)
 - `_no_progress(_depth: str | None, _key: str | None) -> tuple[None, bool, None]` ([source](../../../../../../src/learnloop/source_retrieval/goal_lens_reads.py), line 79)
-- `_readiness(model: GoalModel, lo_id: str, likely: LikelyReader | None) -> tuple[str, str]` ([source](../../../../../../src/learnloop/source_retrieval/goal_lens_reads.py), line 272)
-- `_section_ref(treatment: DP.Treatment | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/source_retrieval/goal_lens_reads.py), line 325)
-- `_band_view(vault: Any, repository: Repository, model: GoalModel, *, due: Sequence[Mapping[str, Any]], answered: Sequence[Mapping[str, Any]], likely: LikelyReader | None=None, pace: Mapping[str, Any] | None=None, progress: Mapping[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/goal_lens_reads.py), line 342)
-- `_held_line(line: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/goal_lens_reads.py), line 399) — A path row whose LO has a due check: its purpose text hidden until the check is answered (§12.6.1).
-- `_lens_view(vault: Any, repository: Repository, model: GoalModel, extraction_id: str, *, from_span_id: str | None=None, to_span_id: str | None=None, t0: float | None=None, t1: float | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/goal_lens_reads.py), line 416)
+- `_readiness(model: GoalModel, lo_id: str, likely: LikelyReader | None) -> tuple[str, str]` ([source](../../../../../../src/learnloop/source_retrieval/goal_lens_reads.py), line 273)
+- `_section_ref(treatment: DP.Treatment | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/source_retrieval/goal_lens_reads.py), line 326)
+- `_band_view(vault: Any, repository: Repository, model: GoalModel, *, due: Sequence[Mapping[str, Any]], answered: Sequence[Mapping[str, Any]], likely: LikelyReader | None=None, pace: Mapping[str, Any] | None=None, progress: Mapping[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/goal_lens_reads.py), line 343)
+- `_held_line(line: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/goal_lens_reads.py), line 400) — A path row whose LO has a due check: its purpose text hidden until the check is answered (§12.6.1).
+- `_lens_view(vault: Any, repository: Repository, model: GoalModel, extraction_id: str, *, from_span_id: str | None=None, to_span_id: str | None=None, t0: float | None=None, t1: float | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/source_retrieval/goal_lens_reads.py), line 417)
 
 ## Who imports or calls it
 

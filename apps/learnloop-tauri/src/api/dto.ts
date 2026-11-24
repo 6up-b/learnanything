@@ -11600,7 +11600,7 @@ export type GoalLensLevel = "core" | "supporting" | "later" | "already_shown" | 
 
 export type GoalLensReasonKey =
   | "primary" | "prerequisite" | "alternate" | "another_treatment" | "applies" | "mentions" | "learner_about"
-  | "deeper_depth" | "demonstrated" | "assumed" | "check_pending" | "you_skipped" | "out_of_scope" | "not_about"
+  | "chapter_about" | "deeper_depth" | "demonstrated" | "assumed" | "check_pending" | "you_skipped" | "out_of_scope" | "not_about"
   | "unmapped" | "withheld" | "left_out" | "partial_unsettled" | "partial_unplaced";
 
 /** One section's level for the goal; its passages inherit it (decision D1: judged per section). */

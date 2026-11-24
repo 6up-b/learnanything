@@ -75,7 +75,7 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 | [[Reference/Modules/learnloop/db/row_serialization|learnloop.db.row_serialization]] | [[Reference/Modules/learnloop/db/row_serialization#^module-purpose|purpose]] | `ACTIVE` | 18 | 0 |
 | [[Reference/Modules/learnloop/db/scopes|learnloop.db.scopes]] | [[Reference/Modules/learnloop/db/scopes#^module-purpose|purpose]] | `ACTIVE` | 16 | 6 |
 | [[Reference/Modules/learnloop/db/storage|learnloop.db.storage]] | [[Reference/Modules/learnloop/db/storage#^module-purpose|purpose]] | `ACTIVE` | 1 | 6 |
-| [[Reference/Modules/learnloop/db/table_roles|learnloop.db.table_roles]] | [[Reference/Modules/learnloop/db/table_roles#^module-purpose|purpose]] | `ACTIVE` | 6 | 87 |
+| [[Reference/Modules/learnloop/db/table_roles|learnloop.db.table_roles]] | [[Reference/Modules/learnloop/db/table_roles#^module-purpose|purpose]] | `ACTIVE` | 7 | 88 |
 
 ## Child package maps
 
@@ -93,7 +93,7 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 - [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 69 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 57 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 38 static module edges
-- [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 28 static module edges
+- [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 29 static module edges
 - [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 27 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 27 static module edges
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 27 static module edges
@@ -170,7 +170,7 @@ flowchart LR
     n_learnloop_db_stores -->|38| center
     center -->|27| n_learnloop_db_stores
     n_learnloop_diagnosis -->|57| center
-    n_learnloop_substrate -->|28| center
+    n_learnloop_substrate -->|29| center
     n_learnloop_cli -->|27| center
     n_learnloop_learner -->|27| center
     n_learnloop_sidecar_handlers -->|27| center

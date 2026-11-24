@@ -999,7 +999,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export interface GoalBandDto` — interface, line 11503
 - `export type GoalLensInput = |` — type, line 11539
 - `export type GoalLensLevel = "core" | "supporting" | "later" | "already_shown" | "skippable" | "partial" | "unmapped"` — type, line 11544
-- `export type GoalLensReasonKey = | "primary" | "prerequisite" | "alternate" | "another_treatment" | "applies" | "mentions" | "learner_about" | "deeper_depth" | "demonstrated" | "assumed" | "check_pending" | "you_skipped" | "out_of_scope" | "not_about" | "unmap…` — type, line 11546
+- `export type GoalLensReasonKey = | "primary" | "prerequisite" | "alternate" | "another_treatment" | "applies" | "mentions" | "learner_about" | "chapter_about" | "deeper_depth" | "demonstrated" | "assumed" | "check_pending" | "you_skipped" | "out_of_scope" | "n…` — type, line 11546
 - `export interface GoalLensSectionDto` — interface, line 11552
 - `export interface GoalLensDto` — interface, line 11582
 - `export interface GoalSectionChoiceInput` — interface, line 11596

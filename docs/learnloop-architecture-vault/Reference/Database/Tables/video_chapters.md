@@ -104,6 +104,7 @@ None found by exact static reference scan.
 - `tests/identity_pins_helpers.py`
 - `tests/reader_rd10_migration_helpers.py`
 - `tests/test_architecture.py`
+- `tests/test_chapters_feed_coverage.py`
 - `tests/test_reader_rd10_fix_protection.py`
 - `tests/test_reader_rd10_migration.py`
 - `tests/test_reader_rd10_video.py`
