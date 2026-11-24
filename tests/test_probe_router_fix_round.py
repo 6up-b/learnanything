@@ -190,3 +190,71 @@ def test_r13_a_probe_whose_answer_was_shown_is_no_option_and_nothing_is_drawn(tm
                                                                            "probe_item_answer_shown")
     with case.repository.connection() as connection:
         assert connection.execute("SELECT COUNT(*) FROM router_decisions").fetchone()[0] == 0
+
+
+# -- G2-R4: no arm is served without its committed decision and assignment --------------------------------------------
+
+
+def _automatic(tmp_path, monkeypatch, draw, *, u: float, toml: str = "", prefer=None):
+    from types import SimpleNamespace
+
+    from learnloop.followup_run import jobs
+    from learnloop.followup_serve import workflow as wf
+    from learnloop.router_objective import probe_coin as PC
+
+    from tests.followup_serve_helpers import AuthorFake
+    from tests.ih2_lessons_compete_helpers import _author_refuses, _miss_env
+
+    env, row = _miss_env(tmp_path, version=HEAD,
+                         toml='[router_objective]\nstop_coin = 0.2\ncheck_rate = "off"\n' + toml)
+    _author_refuses(monkeypatch)
+    monkeypatch.setattr(PC, "draw_uniform", lambda _seed: u)
+    if prefer:
+        draw.prefer = prefer
+    clients = SimpleNamespace(author=AuthorFake(), authoring=None, runtime=env.policy.restraint.runtime)
+    jobs._run_probe_lane(env.vault, env.repository, row, choice=SimpleNamespace(factor_id="f", hypothesis_ids=()),
+                         clients=clients, clock=env.clock)
+    with env.repository.connection() as connection:
+        decisions = connection.execute("SELECT COUNT(*) FROM router_decisions WHERE decision_kind = 'plan_interrupt'"
+                                       ).fetchone()[0]
+    return wf.get(env.repository, row["id"]), decisions
+
+
+def test_r4_with_logging_off_the_coins_probe_is_not_asked(tmp_path, monkeypatch, draw):
+    from learnloop.daily_plan.router_chooser import NO_INTERVENTION
+
+    after, decisions = _automatic(tmp_path, monkeypatch, draw, u=0.0, toml="\n[router]\nlog_decisions = false\n")
+    assert decisions == 0 and after["chosen_ref"] == NO_INTERVENTION and not after["practice_item_id"]
+
+
+def test_r4_a_refused_assignment_rolls_the_decision_back_and_no_probe_is_asked(tmp_path, monkeypatch, draw):
+    from learnloop.daily_plan.router_chooser import NO_INTERVENTION
+    from learnloop.router_objective import assignments
+
+    monkeypatch.setattr(assignments, "insert", lambda *_a, **_k: None)
+    after, decisions = _automatic(tmp_path, monkeypatch, draw, u=0.0)
+    assert decisions == 0 and after["chosen_ref"] == NO_INTERVENTION
+
+
+def test_r4_a_failed_write_never_turns_a_drawn_lesson_into_the_probe(tmp_path, monkeypatch, draw):
+    from learnloop.daily_plan.router_chooser import NO_INTERVENTION
+    from learnloop.plan_refs import LESSON_OFFER_PREFIX
+    from learnloop.router import plan_log
+
+    def broken(*_a, **_k):
+        raise RuntimeError("the ledger refused the row")
+
+    monkeypatch.setattr(plan_log, "log_followup_decision", broken)
+    after, _decisions = _automatic(tmp_path, monkeypatch, draw, u=0.9, prefer=(LESSON_OFFER_PREFIX,))
+    assert after["chosen_ref"] == NO_INTERVENTION
+
+
+def test_r4_the_learner_lanes_decision_and_assignment_commit_together(tmp_path, monkeypatch):
+    from learnloop.router_objective import assignments
+
+    case = _learner(tmp_path, monkeypatch)
+    monkeypatch.setattr(assignments, "insert", lambda *_a, **_k: None)
+    status = _read(case)
+    assert status["routerState"] == "pending" and status["probeOffered"] is False
+    with case.repository.connection() as connection:
+        assert connection.execute("SELECT COUNT(*) FROM router_decisions").fetchone()[0] == 0

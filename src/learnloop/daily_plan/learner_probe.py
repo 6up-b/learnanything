@@ -269,17 +269,27 @@ def decide_proposal(vault: Any, repository: Any, proposal: Any, *, clock: Clock 
             detail["probe_coin"] = coin.as_dict()
             pending.append(PC.pending_assignment(coin, seed=coin_seed, support=[PROBE_REF, NO_PROBE_REF]))
     detail["served_pi"] = served_pi
-    with repository.atomic(), repository.connection() as connection:
-        recorded = log_learner_probe_decision(connection, {
-            "decision_id": decision_id, "factor_id": proposal.factor_id, "chosen_ref": served,
-            "propensity": propensity, "served_pi": served_pi, "practice_item_id": proposal.practice_item_id,
-            "learning_object_id": proposal.learning_object_id, "session_id": proposal.session_id,
-            "policy": POLICY, "mode": "probe_router", "detail": detail, "decided_at": now_iso, "config": config,
-        })
-        if recorded == decision_id and pending:
-            from learnloop.router_objective import assignments as ro5_assignments
+    try:
+        with repository.atomic(), repository.connection() as connection:
+            recorded = log_learner_probe_decision(connection, {
+                "decision_id": decision_id, "factor_id": proposal.factor_id, "chosen_ref": served,
+                "propensity": propensity, "served_pi": served_pi, "practice_item_id": proposal.practice_item_id,
+                "learning_object_id": proposal.learning_object_id, "session_id": proposal.session_id,
+                "policy": POLICY, "mode": "probe_router", "detail": detail, "decided_at": now_iso, "config": config,
+            })
+            if recorded is None:
+                raise RuntimeError("the decision was not logged")
+            if recorded == decision_id and pending:
+                from learnloop.router_objective import assignments as ro5_assignments
 
-            ro5_assignments.record_pending(connection, pending, unit_id=decision_id, at=now_iso)
+                written = ro5_assignments.record_pending(connection, pending, unit_id=decision_id, at=now_iso)
+                if len(written) != len(pending):
+                    # The decision and its coin's assignment commit together or not at all (G2-R4).
+                    raise RuntimeError("the probe coin's assignment was not written")
+    except Exception:  # noqa: BLE001 - an unrecorded decision offers nothing: the status stays pending
+        LOG.warning("probe router: the learner lane's decision was not recorded for factor %s", proposal.factor_id,
+                    exc_info=True)
+        return None
     return recorded
 
 

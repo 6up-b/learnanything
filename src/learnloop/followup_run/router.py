@@ -323,6 +323,11 @@ def _gate_record(row: Mapping[str, Any], decision: FollowupDecision, *, logged: 
                                                 value_check_error=decision.value_check_error)
 
 
+class _Unlogged(Exception):
+    """The probe router's tag: the decision or its coin's assignment could not be committed; nothing it chose is
+    served (G2-R4)."""
+
+
 def record_decision(vault: Any, repository: Repository, row: Mapping[str, Any], decision: FollowupDecision, *,
                     clock: Clock | None) -> FollowupDecision:
     """Log it, with its objective frozen, and name it on the workflow, in one transaction, so
@@ -345,6 +350,7 @@ def record_decision(vault: Any, repository: Repository, row: Mapping[str, Any], 
         return decision
     decision_id: str | None = None
     now = utc_now_iso(clock)
+    probe_router = probe_router_on(vault.config)
     # IH2: a follow-up that lost to a lesson is decided again later, on a receipt of its own naming that decision.
     redraw_of = wf.lost_offer_decision(repository, str(row["id"]))
     offer_block_id = new_ulid() if decision.lesson_offer else None
@@ -387,12 +393,18 @@ def record_decision(vault: Any, repository: Repository, row: Mapping[str, Any], 
                                        router_record=decision.record, config=vault.config,
                                        local_date=str(decision.local_date or ""), session_id=row.get("session_id"),
                                        at=now)
+            if probe_router and decision_id is None:
+                # The probe router's tag: no arm is served without its committed decision (G2-R4).
+                raise _Unlogged("the decision was not logged")
             if decision_id is not None and (decision.record or {}).get("ro5_assignments"):
-                # The probe router's tag: the probe coin's assignment, with the decision it belongs to.
+                # The probe router's tag: the probe coin's assignment, with the decision it belongs to; both commit or
+                # neither does (G2-R4).
                 from learnloop.router_objective import assignments as ro5_assignments
 
-                ro5_assignments.record_pending(connection, decision.record["ro5_assignments"], unit_id=decision_id,
-                                               at=now)
+                pending = decision.record["ro5_assignments"]
+                written = ro5_assignments.record_pending(connection, pending, unit_id=decision_id, at=now)
+                if probe_router and len(written) != len(pending):
+                    raise _Unlogged("the probe coin's assignment was not written")
             if decision_id is not None and decision.offer_placement is not None:
                 from learnloop.daily_plan.engine import place_interrupt_offer
 
@@ -423,7 +435,11 @@ def record_decision(vault: Any, repository: Repository, row: Mapping[str, Any], 
             return logged
     except Exception:  # noqa: BLE001 - logging never blocks the learner's plan
         LOG.warning("follow-up decision not logged for %s", row["id"], exc_info=True)
-    if decision.lesson_offer:
+    if probe_router and not decision.refused:
+        # The probe router's tag: an unlogged decision serves the predecessor-safe arm, no intervention: never a probe
+        # asked without its decision and assignment, and never another arm in a drawn lesson's place (G2-R4).
+        decision = replace(decision, chosen_ref=NO_INTERVENTION, offer_placement=None, propensity=1.0)
+    elif decision.lesson_offer:
         # IH2: with no receipt there is no offer to answer, so the rules' pick, the follow-up, stands.
         decision = replace(decision, chosen_ref=ASK_NOW, offer_placement=None)
     wf.set_fields(repository, str(row["id"]), chosen_ref=decision.chosen_ref, decision_id=None, clock=clock)
