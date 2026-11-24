@@ -274,7 +274,7 @@ def test_f4_the_successor_follows_regrade_contracts_and_keeps_every_predecessor(
     )
 
     assert ELIGIBILITY_DECISION_ALGORITHM_VERSION == "mvp-0.27" == SUCCESSOR_CHAIN[18]
-    assert LATEST_ALGORITHM_VERSION == SUCCESSOR_CHAIN[-1] == "mvp-0.70"
+    assert LATEST_ALGORITHM_VERSION == SUCCESSOR_CHAIN[-1] == "mvp-0.71"
     assert SUCCESSOR_CHAIN[17] == REGRADE_CONTRACT_ALGORITHM_VERSION
 
 
@@ -287,7 +287,7 @@ def test_f4_new_vaults_start_at_the_successor(tmp_path):
     # A new vault starts at the latest successor (mvp-0.40 since curriculum C1, after Reader RW6b's mvp-0.39, the cold-retry reschedule's mvp-0.38, mobile PR-4's mvp-0.37, the kept replaced claims' mvp-0.36, Reader CA2's mvp-0.35 and rebuild equivalence's
     # mvp-0.34, LP-min (a)'s mvp-0.33, RW7b's mvp-0.32, RW2d's mvp-0.31, AD2+AD3's mvp-0.30 and the intent successor mvp-0.29),
     # which keeps this one.
-    assert fresh.config.algorithms.algorithm_version == "mvp-0.70"
+    assert fresh.config.algorithms.algorithm_version == "mvp-0.71"
 
 
 def test_f4_a_probe_of_an_item_submit_would_prime_is_refused(tmp_path):
