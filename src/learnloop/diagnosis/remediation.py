@@ -139,6 +139,7 @@ def start_remediation_episode(
     vault: LoadedVault | None = None,
     session_id: str | None = None,
     clock: Clock | None = None,
+    factor_id: str | None = None,
 ) -> dict[str, Any]:
     """Start the repair episode, or raise the typed causal hold.
 
@@ -159,6 +160,7 @@ def start_remediation_episode(
             misconception_id=misconception_id,
             session_id=session_id,
             clock=clock,
+            factor_id=factor_id,
         )
     except CausalRepairError as exc:
         raise RemediationError(str(exc)) from exc

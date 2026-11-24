@@ -78,6 +78,17 @@ def call(ctx, name: str, params: dict[str, Any]) -> dict[str, Any]:
     return spec.handler(ctx, spec.params_model.model_validate(params))
 
 
+def read_status(ctx, params: dict[str, Any]) -> dict[str, Any]:
+    """The feedback screen's status read as it ends up at the probe router's tag: read; when the router has not
+    decided yet (``pending``), its decision job waited for (run to its end, never timed), and read again."""
+
+    status = call(ctx, "causal_repair_status", params)["repairStatus"]
+    if status.get("routerState") != "pending":
+        return status
+    ctx.post_attempt_worker.run_pending("probe_router")
+    return call(ctx, "causal_repair_status", params)["repairStatus"]
+
+
 def decision_records(repository: Repository, kind: str) -> list[dict[str, Any]]:
     """The ``decision_records`` of one kind, oldest first, their JSON fields read."""
 
@@ -101,5 +112,5 @@ def router_rows(repository: Repository, kind: str = "plan_interrupt") -> list[di
     return out
 
 
-__all__ = ["CLOCK", "PROBE_ITEM", "TAG", "call", "count", "decision_records", "divergent_factor", "receipts",
-           "router_rows", "sidecar", "table_rows"]
+__all__ = ["CLOCK", "PROBE_ITEM", "TAG", "call", "count", "decision_records", "divergent_factor", "read_status",
+           "receipts", "router_rows", "sidecar", "table_rows"]

@@ -56,6 +56,7 @@ from tests.reader_rd10_migration_helpers import RD10_ADDED_OBJECTS
 from tests.reader_rd7a_migration_helpers import RD7A_ADDED_OBJECTS
 from tests.apply_intents_conflicted_migration_helpers import K35_ALTERED_TABLES
 from tests.reader_section_completion_migration_helpers import SECTION_END_ALTERED_TABLES
+from tests.probe_router_stop_migration_helpers import ROUTER_STOP_ALTERED_TABLES
 from tests.teacher_te2_migration_helpers import TE2_ALTERED_TABLES
 from tests.mobile_jobs_migration_helpers import M2A_ADDED_OBJECTS
 from tests.rw5c_migration_helpers import RW5C_ADDED_OBJECTS
@@ -119,7 +120,7 @@ def test_232_widens_three_checks_adds_figure_id_and_keeps_every_row(tmp_path):
     after = _schema(database)
     assert set(after) - set(before) - TE1_ADDED_OBJECTS - P5_ADDED_OBJECTS - RW5C_ADDED_OBJECTS - M2A_ADDED_OBJECTS - DATA_CAPTURE_ADDED_OBJECTS - FOLLOWUP_ADDED_OBJECTS - MARKS_ADDED_OBJECTS - RO0_ADDED_OBJECTS - RO2_ADDED_OBJECTS - RO4_ADDED_OBJECTS - TE2LOG_ADDED_OBJECTS - IH3_ADDED_OBJECTS - B1_ADDED_OBJECTS - SEEN_SPANS_ADDED_OBJECTS - TOPIC_WORK_ADDED_OBJECTS - JOB_PROGRESS_ADDED_OBJECTS - APPLICATION_ORDER_ADDED_OBJECTS - LIFECYCLE_INPUTS_ADDED_OBJECTS - RD0_ADDED_OBJECTS - RD0_GUARDS_ADDED_OBJECTS - MASTERY_SEED_ADDED_OBJECTS - RD4_ADDED_OBJECTS - RD8A_ADDED_OBJECTS - RD10_ADDED_OBJECTS - RD7A_ADDED_OBJECTS - GRADE_CURVE_OBJECTS == set(P3_ADDED_OBJECTS)
     assert {name for name in before if before[name] != after.get(name)} - J2_DROPPED_OBJECTS == set(P3_ALTERED_TABLES) | set(
-        C2B_ALTERED_TABLES) | (TE1_ALTERED_TABLES | (B1_ALTERED_TABLES | (K35_ALTERED_TABLES | SECTION_END_ALTERED_TABLES)) | RO1_ALTERED_TABLES | TE3A_ALTERED_TABLES) | UNLINKED_ALTERED_TABLES | (
+        C2B_ALTERED_TABLES) | (TE1_ALTERED_TABLES | (B1_ALTERED_TABLES | (K35_ALTERED_TABLES | SECTION_END_ALTERED_TABLES | ROUTER_STOP_ALTERED_TABLES)) | RO1_ALTERED_TABLES | TE3A_ALTERED_TABLES) | UNLINKED_ALTERED_TABLES | (
         TE2_ALTERED_TABLES & set(before))
     with closing(sqlite3.connect(database)) as connection:
         columns = [row[1] for row in connection.execute("PRAGMA table_info(help_assists)")]

@@ -888,11 +888,13 @@ def build_learner_probe_decision(decision: Mapping[str, Any]) -> dict[str, Any]:
     else:
         propensity, propensity_kind = raw, "exact"
     item_id = decision.get("practice_item_id")
+    # A continuation's other option is the episode's stop (``probe_continuation_receipt_key``).
+    other_ref = str(decision.get("other_ref") or NO_PROBE_REF)
     candidates = [
         {"ref": PROBE_REF, "kind": "probe", "item_ids": [item_id] if item_id else [], "feasible": True,
          "propensity": propensity if chosen_ref == PROBE_REF else float(served.get(PROBE_REF, 0.0))},
-        {"ref": NO_PROBE_REF, "kind": "repair", "item_ids": [], "feasible": True,
-         "propensity": propensity if chosen_ref == NO_PROBE_REF else float(served.get(NO_PROBE_REF, 0.0))},
+        {"ref": other_ref, "kind": "repair" if other_ref == NO_PROBE_REF else "stop", "item_ids": [], "feasible": True,
+         "propensity": propensity if chosen_ref == other_ref else float(served.get(other_ref, 0.0))},
     ]
     config = decision.get("config")
     algorithms = getattr(config, "algorithms", None)
@@ -900,12 +902,13 @@ def build_learner_probe_decision(decision: Mapping[str, Any]) -> dict[str, Any]:
     detail: dict[str, Any] = dict(decision.get("detail") or {})
     mixture: Mapping[str, Any] = detail.get("mixture") or {}
     sampled = bool(mixture) and propensity_kind == "exact"
-    inputs = {"factor_id": decision["factor_id"], "candidates": candidates, "algorithm_version": algorithm_version}
+    inputs = {"factor_id": decision["factor_id"], "candidates": candidates, "algorithm_version": algorithm_version,
+              **({"probe_episode_id": decision["probe_episode_id"]} if decision.get("probe_episode_id") else {})}
     return {
         "id": str(decision.get("decision_id") or new_ulid()),
-        "receipt_key": learner_probe_receipt_key(str(decision["factor_id"])),
+        "receipt_key": str(decision.get("receipt_key") or learner_probe_receipt_key(str(decision["factor_id"]))),
         "decision_kind": INTERRUPT_KIND,
-        "surface": LEARNER_PROBE_SURFACE,
+        "surface": str(decision.get("surface") or LEARNER_PROBE_SURFACE),
         "mode": str(decision.get("mode") or "probe_router"),
         "policy": str(decision.get("policy") or "probe_router"),
         "algorithm_version": algorithm_version,
@@ -951,6 +954,60 @@ def learner_probe_decision(connection: Any, factor_id: str) -> dict[str, Any] | 
     return out
 
 
+def automatic_probe_decision(connection: Any, factor_id: str) -> dict[str, Any] | None:
+    """The automatic lane's (FG1's) committed decision on this factor's probe, or None: ``id``, ``chosen_ref``,
+    ``propensity``. One factor gets one probe decision across the two lanes: the learner lane reads
+    this one back instead of flipping a coin of its own. A hard refusal (``decline``) is no draw, so it is not one."""
+
+    from learnloop.db.stores import followup_serve as workflows
+
+    if not _ledger_present(connection) or not workflows.present(connection):
+        return None
+    row = connection.execute(
+        "SELECT d.id, d.chosen_ref, d.propensity FROM followup_workflows w JOIN router_decisions d ON d.id = w.decision_id "
+        "WHERE w.factor_id = ? AND w.lane = 'probe' AND d.chosen_ref != ? ORDER BY d.created_at, d.id LIMIT 1",
+        (factor_id, DECLINE_REF)).fetchone()
+    return dict(row) if row is not None else None
+
+
+#: The probe router's continuation decisions: whether a router-owned episode's next observation is asked.
+PROBE_CONTINUATION_SURFACE = "probe_episode"
+#: The continuation's other option: the episode stops (completes with ``router_stop``).
+CONTINUATION_STOP_REF = "stop"
+
+
+def probe_continuation_receipt_key(episode_id: str, observations: int, redraw: int = 0) -> str:
+    """One decision per next observation: the episode, how many observations it holds, and how many earlier
+    decisions at that count were answered by a pin that ended unanswered (each such end opens a new boundary)."""
+
+    return f"{INTERRUPT_KIND}:probe_continuation:{episode_id}:{int(observations)}:{int(redraw)}"
+
+
+def probe_continuation_decisions(connection: Any, episode_id: str, observations: int) -> list[dict[str, Any]]:
+    """The continuation decisions at this boundary, oldest first: ``id``, ``chosen_ref``, ``propensity``,
+    ``receipt_key``."""
+
+    if not _ledger_present(connection):
+        return []
+    prefix = f"{INTERRUPT_KIND}:probe_continuation:{episode_id}:{int(observations)}:"
+    return [dict(row) for row in connection.execute(
+        "SELECT id, chosen_ref, propensity, receipt_key FROM router_decisions WHERE receipt_key LIKE ? "
+        "ORDER BY created_at, id", (prefix + "%",))]
+
+
+def log_probe_continuation_decision(connection: Any, decision: Mapping[str, Any]) -> str | None:
+    """Write a continuation decision on the caller's transaction (the learner lane's row shape, with its own receipt
+    key, surface and stop option). Returns the boundary's decision on record: this one, or a concurrent run's."""
+
+    if not _ledger_present(connection):
+        return None
+    row = build_learner_probe_decision({**decision, "surface": PROBE_CONTINUATION_SURFACE,
+                                        "other_ref": CONTINUATION_STOP_REF})
+    append_router_decision(connection, row)
+    found = connection.execute("SELECT id FROM router_decisions WHERE receipt_key = ?", (row["receipt_key"],)).fetchone()
+    return str(found[0]) if found is not None else None
+
+
 def log_learner_probe_decision(connection: Any, decision: Mapping[str, Any]) -> str | None:
     """Write the learner lane's row on the caller's transaction. Returns the factor's decision on record: this one, or
     the one a concurrent read wrote first (the receipt key is the factor's, so the later row is a no-op)."""
@@ -970,7 +1027,13 @@ __all__ = [
     "LEARNER_PROBE_SURFACE",
     "NO_PROBE_REF",
     "PROBE_REF",
+    "CONTINUATION_STOP_REF",
+    "PROBE_CONTINUATION_SURFACE",
+    "automatic_probe_decision",
     "build_learner_probe_decision",
+    "log_probe_continuation_decision",
+    "probe_continuation_decisions",
+    "probe_continuation_receipt_key",
     "learner_probe_decision",
     "learner_probe_receipt_key",
     "log_learner_probe_decision",

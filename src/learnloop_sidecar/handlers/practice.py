@@ -44,7 +44,9 @@ from learnloop.diagnosis.probe_controls import (
     stop_diagnosing_and_teach,
 )
 from learnloop.diagnosis.probe_presentations import (
+    LEARNER_REFUSED_PROBE,
     PROBE_ITEM_ANSWER_SHOWN,
+    LearnerRefusedPin,
     RoutineDisplayCovered,
     commit_item_presentation,
     probe_serving_block_reason,
@@ -468,6 +470,8 @@ class ProbeContractInput(ParamsModel):
 
 #: Sentinel for a durable assignment that no session's slate owns.
 _OTHER_SESSION = object()
+#: Why a router-owned episode's item is not a probe now: the router has not decided its next observation.
+ROUTER_DECISION_PENDING = "router_decision_pending"
 
 
 def _committed_presentation(repository, episode, session_id: str | None):
@@ -605,12 +609,24 @@ def _probe_contract(ctx: SidecarContext, vault: Any, repository: Any, item: Any,
                 # Committed before the item's answer was shown on a routine
                 # display: ended, and the item is ordinary practice (round 7).
                 return versioned({"active": False, "reason": PROBE_ITEM_ANSWER_SHOWN})
+            except LearnerRefusedPin:
+                # The probe router's learner lane: refused after it was pinned, so retired unshown.
+                return versioned({"active": False, "reason": LEARNER_REFUSED_PROBE})
             contract = episode_contract(vault, repository, item.learning_object_id) or {}
             why = {"followup_why": "This question comes from your last answer."} if followup_row is not None else {}
             return versioned(_with_intent_check(vault, repository, item.id, {"active": True, "presentation_id": active.id, **contract, **why}))
         if validation.reason == "item_mismatch":
             return versioned({"active": False, "reason": "different_probe_assignment"})
         return versioned({"active": False, "reason": validation.reason or "stale_presentation"})
+
+    # The probe router's tag: a router-owned episode's next observation is the router's decision, served only as the
+    # pin it commits (above). With none standing the router has not decided yet, or has stopped: no other instrument
+    # is committed here, and the decision job is asked to run.
+    from learnloop.diagnosis.probe_episodes import router_selected_episode
+
+    if router_selected_episode(vault, repository, episode):
+        ctx.post_attempt_worker.request_probe_router()
+        return versioned({"active": False, "reason": ROUTER_DECISION_PENDING})
 
     # §5.9 routine planner, shadow mode (§13.3): log where this episode ranks
     # among all open episodes under plain vs disagreement-boosted information
