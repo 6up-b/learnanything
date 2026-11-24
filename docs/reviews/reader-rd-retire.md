@@ -68,3 +68,25 @@ Still listed (each waits on its row or on phase 2's targeted open):
 ## 5. Product decisions asked
 
 (none yet)
+
+## `reader/rd-retire-parity-c`: library ask and Compare, exercises from my sources, side by side
+
+Three rows, each checked again against this branch first. Tests mount the real desks (`fixtures/desks/realDesk.tsx`);
+each failed on the code before its build.
+
+| §21.1 row | Replacement on the workbench | Test (real bodies) | Verdict |
+|---|---|---|---|
+| Library ask, compare, keep, roles | The Compare (and library) window mounts the library pane with what the Reader gave it: Keep and the learner's take (`CompareKeepContext`, `NotesContext`, from the Reader's own `useKeptComparisons` and `useNoteMarks`), "practice this ▸" handed to the shell as a learner pick in the asked book at the asked passage (that book's window opens or takes the focus, as the library page opened it), and the textbook exercise rows. A keep or a take made in any window announces itself, and every reading's ⇄ and › marks read again (`announceKeptChange`, `announceNotesChange`), so a book open beside shows the mark at once. Library ask stays reachable unanchored from the opener's "ask across the library" and anchored from the Compare verb | `windows/CompareWindow.desk.test.tsx`: an anchored ask and each hit's role (a model's proposed role labelled as the model's); pins compared by point, kept, the book beside showing ⇄ with no reload; a practice pick with its book, passage and reading, the book's window focused | **Demonstrated** (roles were already shown; keep, practice and exercises built) |
+| Exercises from my sources | Exercise rows in the book window's library answer (the Reader's `ProposalExercises`, unchanged): candidate discovery and the fallback as before; "use this one" and "open in the book" for an exercise in another book open that book in a window beside (`ReaderWindowing.onOpenBeside`), never in place of the window's own book, and the shell's queued exercise opens in that book's window only (a window opens the problem of its own book) | `windows/SourceWindow.exercises.test.tsx`: the rows listed in the window; "use this one" here hands over the exercise with its source and opens nothing; in another book it opens that book beside and the queued exercise opens there alone (`workbench_open` once, with the exercise's own passage); "open in the book" opens it beside | **Demonstrated** |
+| Side by side | Two windows in view, or a pair (§5.2), as the spec says; the nested second pane is not rebuilt. Ctrl+\ (the first correspondent) and the lists' "side by side" open the other book in a window paired with the book (`openPaired`: one slot, two panes; beside it when the slot is full; an open book is focused where it is), recorded as `side_by_side_opened` as the pane recorded it. The desk hosts what the pane did between the two (`desks/sideBySide/pairs.ts`): follow along (on by default; the other window moves once per section crossing to its book's first judged correspondent, a search hit never moves it, none says "stays put", the moved window never answers back; `follow_along_moved` recorded), Ctrl+Shift+L for the pair, F6 to the other window. Second-pane targeting needs nothing: each window's selection, capture, checks and asks are its own book's. Each window keeps its own place and anchors | `windows/SourceWindow.sideBySide.test.tsx`: Ctrl+\ opens the correspondent paired with the book, no pane inside the book's window; scrolling the book into a new section moves its pair once and the move asks nothing back; Ctrl+Shift+L stops following, F6 moves the focus each way; a highlight in the paired window is that book's | **Demonstrated** (see the notes) |
+
+Notes on these rows:
+- **Side by side: what changed by design.** The pane's crumb (`↩ … › side by side with …`) and walking off it to close
+  have no counterpart: both windows stay on the desk, each with its own place, and closing one is closing a window.
+  The narrow window's peek sheet is not needed: a pair stacks top and bottom at any width. "The last-touched pane is
+  never moved" is kept in the form above (a window moved by following never leads from that move); a learner
+  scrolling the follower meanwhile is not yet guarded against a late answer for the leader's earlier crossing.
+- **The way back after a check opened from the second book** (CA6b's `besideTrail`, through the shell's practice and
+  feedback screens) waits on phase 2's targeted open, like every app-level return to a passage (the audit's §4).
+- `ReaderWindowing` gained `onOpenBeside`, `onOpenPair`, `onSection` and `onPairKey` (additive; the old screen passes
+  none and behaves as before).

@@ -31,6 +31,7 @@ import {
   type Step,
   moveWindowTo,
   openBeside,
+  openPaired,
   pairFocused,
   renameDesk,
   reorderSlots,
@@ -98,6 +99,9 @@ import { clientIdFor, type OutboxTransport } from "./outbox";
 import { deskStoreFor } from "./store";
 import { CarriedList, Shelf, type ShelfRow } from "./Shelf";
 import { SourceWindow, type ReaderPassThrough, type SourceStatus } from "./windows/SourceWindow";
+import { DeskPairs } from "./sideBySide/pairs";
+import type { PaneTarget } from "../reader/sideBySide";
+import { logReaderAction } from "../reader/activity";
 import type { WindowInquiry } from "../ReaderScreen";
 import type { WindowAsk, WindowExchange } from "../reader/useReaderInquiry";
 import { ThreadWindow } from "./windows/ThreadWindow";
@@ -3332,6 +3336,60 @@ export function DeskShell({
     return handler;
   }, [openPathFor]);
 
+  // Side by side (the v1 Reader's second pane as two windows, spec §21.1): Ctrl+\ or a list's "side by side" in a
+  // book window opens the other book in a window paired with it; following, F6 and the way back live in DeskPairs.
+  const pairs = useMemo(() => new DeskPairs({
+    windowOf: (id) => {
+      const content = wsRef.current.windows[id]?.content;
+      return content && content.kind === "source" ? { sourceId: content.sourceId, extractionId: content.extractionId } : null;
+    },
+    correspondents: (input) => api.readerCorrespondents(input),
+    jump: (id, spanId) => {
+      const jump = jumps.current.get(id);
+      if (jump) jump(spanId);
+      else pendingJump.current.set(id, spanId);
+    },
+    notice: (text) => toastNow(text),
+    record: (event, payload) => logReaderAction(event, payload),
+  }), [toastNow]);
+  const windowOpenPair = (windowId: string, target: PaneTarget) => {
+    const id = deskIdRef.current;
+    const current = wsRef.current;
+    if (!id || !current.windows[windowId]) return;
+    const step = openPaired(current, id, windowId, { kind: "source", sourceId: target.sourceId, extractionId: target.extractionId } as ContentRefDto,
+      () => mintId("win"), { spanId: target.spanId, view: target.spanId ? { spanId: target.spanId } : {} });
+    commit(step);
+    if (step.windowId !== windowId) pairs.pair(windowId, step.windowId);
+    if (step.existed && target.spanId) {
+      const jump = jumps.current.get(step.windowId);
+      if (jump) jump(target.spanId);
+      else pendingJump.current.set(step.windowId, target.spanId);
+    }
+  };
+  const windowOpenPairRef = useRef(windowOpenPair);
+  windowOpenPairRef.current = windowOpenPair;
+  const pairHandlers = useMemo(() => new Map<string, { open: (target: PaneTarget) => void; section: (section: { extractionId: string; sectionId: string } | null) => void; key: (key: "follow" | "other") => void }>(), []);
+  const pairHandlersFor = useCallback((windowId: string) => {
+    let handlers = pairHandlers.get(windowId);
+    if (!handlers) {
+      handlers = {
+        open: (target) => windowOpenPairRef.current(windowId, target),
+        section: (section) => void pairs.crossed(windowId, section),
+        key: (key) => {
+          if (key === "follow") {
+            pairs.toggleFollow(windowId);
+            return;
+          }
+          const partner = pairs.partnerOf(windowId);
+          const id = deskIdRef.current;
+          if (partner && id) commit(setFocus(wsRef.current, id, partner));
+        },
+      };
+      pairHandlers.set(windowId, handlers);
+    }
+    return handlers;
+  }, [pairHandlers, pairs, commit]);
+
   // A companion answer that lands while the desks are shown is told to the window it was asked from (else the first
   // window on the desk showing its reading): a follow-up joins that window's detours with its parent, so walking back
   // to where the learner was asks "does this make sense now?" there. Answers already in the thread when the desks
@@ -3466,6 +3524,9 @@ export function DeskShell({
           onAsk: onAskFor(window.windowId),
           onOpenPath: onOpenPathFor(window.windowId),
           onOpenBeside: openHit,
+          onOpenPair: pairHandlersFor(window.windowId).open,
+          onSection: pairHandlersFor(window.windowId).section,
+          onPairKey: pairHandlersFor(window.windowId).key,
           onError,
           ...(reader ? { reader } : {}),
           // A book following a video marks its passage over the goal lens (RD10).

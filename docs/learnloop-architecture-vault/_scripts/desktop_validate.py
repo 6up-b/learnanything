@@ -225,8 +225,9 @@ def main() -> int:
     # VideoWindow.tsx, FollowChip.tsx and followLens.ts, and screens/desks/carried/related.ts (entry-reachable);
     # fixtures/desks/video.ts (vitest-support).
     # RD5's fix round: screens/desks/menu/ExerciseSheet.tsx (Make it practice on an exercise; entry-reachable).
-    if len(ts_sources) != 418:
-        errors.append(f"source inventory drift: expected 418 TypeScript/TSX files, found {len(ts_sources)}")
+    # RD-retire parity (side by side): screens/desks/sideBySide/pairs.ts.
+    if len(ts_sources) != 419:
+        errors.append(f"source inventory drift: expected 419 TypeScript/TSX files, found {len(ts_sources)}")
     if len(rust_sources) != 6:
         errors.append(f"source inventory drift: expected 6 authored Rust modules, found {len(rust_sources)}")
     for path in sorted(expected - actual):
@@ -336,7 +337,8 @@ def main() -> int:
         # RD9a: screens/LessonView.tsx and the four screens/desks/lesson modules.
         # RD10: the six screens/desks/video modules and screens/desks/carried/related.ts.
         # RD5's fix round: screens/desks/menu/ExerciseSheet.tsx.
-        "entry-reachable build graph": 398,
+        # RD-retire parity (side by side): screens/desks/sideBySide/pairs.ts.
+        "entry-reachable build graph": 399,
         # RW5d P2 sketch compartment: sketch.worker.ts and sketchWorkerCore.ts, bundled by vite.config.mjs.
         "bundled worker entry": 2,
         "compiler-implicit": 2,
@@ -352,7 +354,7 @@ def main() -> int:
     status_counts: dict[str, int] = defaultdict(int)
     for info in audited_infos.values():
         status_counts[info.refactor_status] += 1
-    if dict(status_counts) != {"ACTIVE": 424}:
+    if dict(status_counts) != {"ACTIVE": 425}:
         errors.append(f"lifecycle classification drift requires review: {dict(status_counts)}")
 
     link_errors, wikilinks, fragments, markdown_links = validate_links(sorted(actual))

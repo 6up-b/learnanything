@@ -502,6 +502,32 @@ export function openBeside(
   return { ...step, windowId, existed: false };
 }
 
+/** Side by side on the desks (the v1 Reader's second pane as two windows, spec §21.1 and §5.2): the other book opens
+ * in a window paired with the one it was opened from (one slot, top and bottom), which keeps its own book and place.
+ * When that window's slot already holds two, or nothing can join it, the book opens beside it (two windows in view);
+ * a book already open on the desk is focused where it is. */
+export function openPaired(
+  ws: Workspace,
+  deskId: string,
+  originId: string,
+  content: ContentRefDto,
+  mintId: () => string,
+  options: { spanId?: string | null; view?: Record<string, unknown> } = {},
+): Step & { windowId: string; existed: boolean; paired: boolean } {
+  const focused = setFocus(ws, deskId, originId);
+  const opened = openBeside(focused.ws, deskId, content, mintId, options);
+  let step: Step = { ws: opened.ws, ops: [...focused.ops, ...opened.ops] };
+  if (opened.existed) return { ...step, windowId: opened.windowId, existed: true, paired: false };
+  const desk = requireDesk(step.ws, deskId);
+  const index = slotIndexOf(desk, originId);
+  const canPair = index >= 0 && desk.slots[index].length < PAIR_SIZE && desk.slots[index + 1]?.length === 1
+    && desk.slots[index + 1][0] === opened.windowId;
+  if (!canPair) return { ...step, windowId: opened.windowId, existed: false, paired: false };
+  step = push(step, { op: "pair", deskId, windowId: originId });
+  const after = setFocus(step.ws, deskId, opened.windowId);
+  return { ws: after.ws, ops: [...step.ops, ...after.ops], windowId: opened.windowId, existed: false, paired: true };
+}
+
 /** A pad joins a stack window (spec §10; a union by one entry, never a whole-view write, so a tab another device
  * added, or a desk change meanwhile, cannot drop it). Already there: nothing to send. */
 export function addToStack(ws: Workspace, deskId: string, windowId: string, padId: string): Step {

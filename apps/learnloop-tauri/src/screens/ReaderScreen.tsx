@@ -127,8 +127,8 @@ import type { ExplorableOutcome, LibraryExercisesProps } from "./reader/LibraryA
 import { ReaderWorkingPosture } from "./reader/ReaderWorkingPosture";
 import { FindSection } from "./reader/FindSection";
 import { SideBySidePane } from "./reader/SideBySidePane";
-import { SIDE_BY_SIDE_COPY, SIDE_BY_SIDE_SCROLL_KEYS, useSideBySide } from "./reader/useSideBySide";
-import { clampSplit, crumbLabel, readSplit, targetOf as sideBySideTarget, writeSplit } from "./reader/sideBySide";
+import { SIDE_BY_SIDE_COPY, SIDE_BY_SIDE_SCROLL_KEYS, useSideBySide, type SideBySideVia } from "./reader/useSideBySide";
+import { clampSplit, crumbLabel, readSplit, targetOf as sideBySideTarget, writeSplit, type PaneTarget } from "./reader/sideBySide";
 import { inSidePane, useSidePane, type PaneCaptureTarget, type SidePane } from "./reader/useSidePane";
 import type { AskAnchor, WindowAsk, WindowExchange } from "./reader/useReaderInquiry";
 import { ALSO_COPY, AlsoInBooks, type AlsoPeekCrumb } from "./reader/AlsoInBooks";
@@ -303,6 +303,13 @@ export interface ReaderWindowing {
   /** Another book's passage (a library hit, a textbook exercise in another book) opens in a window beside this one,
    *  never in place of this window's book (a window opens one book for its life). */
   onOpenBeside?: (hit: { sourceId: string; extractionId: string; spanId: string }) => void;
+  /** Side by side on the desks: the other book opens in a window paired with this one (its first correspondent from
+   *  Ctrl+\, or a list's "side by side"); the desk hosts following, focus and the way back between the two. */
+  onOpenPair?: (target: PaneTarget, via: SideBySideVia) => void;
+  /** The section in view moved (the desk's follow along between paired windows reads it). */
+  onSection?: (section: { extractionId: string; sectionId: string } | null) => void;
+  /** Side by side's keys on the desks, for the pair this window is in: Ctrl+Shift+L follow along, F6 the other one. */
+  onPairKey?: (key: "follow" | "other") => void;
 }
 
 /** What a desk does in a source window's inquiry. */
@@ -1637,7 +1644,17 @@ export function ReaderScreen({
     currentEntry: returnStack.entries[returnStack.cursor] ?? null,
     visitPayload,
     onError,
+    openElsewhere: windowed?.onOpenPair ?? null,
   });
+  // On the desks the section in view is reported, so a window paired with this one can follow it.
+  const sectionInView = render && currentGuideSection ? `${render.extractionId}\u0000${currentGuideSection.id}` : null;
+  const onSectionRef = useRef(windowed?.onSection);
+  onSectionRef.current = windowed?.onSection;
+  useEffect(() => {
+    if (!onSectionRef.current) return;
+    const [extractionId, sectionId] = sectionInView ? sectionInView.split("\u0000") : [null, null];
+    onSectionRef.current(extractionId && sectionId ? { extractionId, sectionId } : null);
+  }, [sectionInView]);
   // The second pane shows while side by side is open in a wide window; a
   // comparison the learner starts takes the right side meanwhile (both are
   // the comparing posture), and side by side comes back when it closes.
@@ -1835,6 +1852,8 @@ export function ReaderScreen({
   const touchMain = () => {
     if (sbsRef.current.panes) sbsRef.current.touch("main");
   };
+  const pairKeyRef = useRef(windowed?.onPairKey);
+  pairKeyRef.current = windowed?.onPairKey;
   // Side by side's keys (§6.4): Ctrl+\ opens the first correspondent of the
   // section in view (or closes the second pane), Ctrl+Shift+L turns follow
   // along on or off, F6 moves focus between the panes, Esc in a pane closes
@@ -1853,6 +1872,13 @@ export function ReaderScreen({
         event.preventDefault();
         if (open) ctl.close();
         else void ctl.openFirst();
+      } else if (mod && event.shiftKey && !event.altKey && event.key.toLowerCase() === "l" && pairKeyRef.current) {
+        // On the desks the pair is two windows: the desk turns following on or off for it.
+        event.preventDefault();
+        pairKeyRef.current("follow");
+      } else if (event.key === "F6" && !mod && !event.altKey && pairKeyRef.current) {
+        event.preventDefault();
+        pairKeyRef.current("other");
       } else if (mod && event.shiftKey && !event.altKey && event.key.toLowerCase() === "l" && ctl.panes && shown) {
         event.preventDefault();
         ctl.toggleFollow();

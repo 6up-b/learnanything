@@ -126,7 +126,7 @@ it("use this one on another book's exercise opens that book beside, where the qu
   const { desk, cards, onUseExercise, workbench, win } = await candidateRows();
   fireEvent.click(within(cards[1]).getByRole("button", { name: /use this one/ }));
   await settleDesk(0, 10);
-  const request = onUseExercise.mock.calls.at(-1)![0];
+  const request = onUseExercise.mock.calls[onUseExercise.mock.calls.length - 1][0];
   expect(request).toMatchObject({ key: "srcex:there", sourceId: paper.sourceId, card: expect.objectContaining({ sourceId: paper.sourceId }) });
   // A window of its own beside the book, which keeps its book.
   await waitFor(() => expect(holding(PAPER_SPAN)).toHaveLength(1));
