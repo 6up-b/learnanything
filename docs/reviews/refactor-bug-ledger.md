@@ -949,8 +949,11 @@ Tests use synthetic vaults and fake transports.
 
 ## Reader retirement, phase 2 (the scoped source's extraction)
 
-Found while extracting the scoped source (record: `docs/reviews/reader-rd-retire.md`, "Phase 2, step 1").
+Found while extracting the scoped source and deleting the standalone screen (record: `docs/reviews/reader-rd-retire.md`,
+"Phase 2, step 1" and "Phase 2, step 2").
 
 | Id | Found in | Bug | Fail-first test | Fix | Status |
 |---|---|---|---|---|---|
 | RDX-1 | `screens/desks/source/ScopedSource.tsx` (moved from `screens/ReaderScreen.tsx`) | A source rail hosted in a Notes panel window rendered as the Guide ("Reading guide") first: the rail's tab started on the Guide, and opening the source reset it to the Guide, before an effect applied the panel's tab. Under load a reader of the window (and the hosted-rail test) could see the Guide's name in a Notes window. | `windows/SourceWindow.lifecycle.test.tsx`: "a rail hosted on the Notes tab never shows the Guide's name, not even for a render while the book opens" (saw `["Notes", "Reading guide"]`). | The rail's tab starts on the hosting window's tab, and the reset when a source opens goes to that tab (the Guide only without a host, as before). | Fixed |
+| RDX-2 | `app/App.tsx` (`openStudiedNow`) | Feedback's "Back to where you studied this" (and the printed page's "open in the Reader") set the book for the Reader without a new open request. The old screen remounted on the book; the desks take each request once by its number, so after any earlier request (a startup restore, a return) the desks opened nothing and stayed where they were. | `app/App.desks.test.tsx`: "feedback's back to where you studied this opens the book at that passage, after the desks already took an open request (RDX-2)" (saw the problem pad focused, not the book). | It is a new open request (the sequence number moves). | Fixed |
+| RDX-3 | `app/App.tsx` (the book being read) | With the desks as the Reader, Continue reading after a restart on another place opened the Library: the app knew the book being read only from the desks' report, and the desks report only once shown, so the book restored at startup did not count. | `app/App.fixRound4.test.tsx`: "the remembered book comes back whatever the landing place (item 3) > restarting on Progress, Continue reading opens the last book". | Until the desks first report, the book restored at startup stands for the book being read (a null report, closing the last book, still means none). | Fixed |

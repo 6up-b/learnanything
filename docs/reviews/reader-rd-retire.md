@@ -284,86 +284,190 @@ key), so step 2 keeps it at its window value (never collapsed) rather than delet
   (`PreparingView`, the shared branch above the window's own opening line); a desk has no content kind for an original
   yet, so a source window cannot name or restore that view.
 
-## Phase 2, step 2: the deletion (in progress on `reader/rd-retire-extraction`)
+## Phase 2, step 2: the deletion (`reader/rd-retire-extraction`)
 
-**Done.** `origin/main` (the rebuild-history fixes, chapters feeding coverage) is merged. The goal lens keeps batch 5's
-learner wording, and main's accepted-chapter reason now speaks in the same voice: the reason reads "A chapter you
-accepted here is about …" and the coverage line reads "A chapter you accepted links this section to …". The two tests
-main added read those words. The nouns branch will meet the same conflict when it lands.
+The old standalone Reader screen is gone: the desks are the Reader's only surface. Each part is its own commit(s), in
+the brief's order. `origin/main` was merged first (the goal lens's chapter reason in batch 5's voice: "A chapter you
+accepted here is about …" and "A chapter you accepted links this section to …"; the nouns branch will meet the same
+conflict when it lands).
 
-**Stopped here, at a clean commit**, because this session's context ran low. The plan below is the order of the brief;
-each part is its own commit(s) with its proof.
+### A1. Saved panels' identities (`screens/desks/model/restore.ts`)
 
-### A1. Saved panels' identities: what the code says, and two calls to make first
+The orchestrator's calls: a saved `library` panel keeps its kind (no change to `CompareRef`, any stored shape or RPC
+contract), and `guide` and `notes` panels keep their live kinds until the rail leaves the portal. `restoreContent` is
+a pure function from a stored content reference (any shape) to what it restores as, tested over every kind the
+content reference has had, the fixture workspace's windows and damaged or unknown shapes (`model/restore.test.ts`,
+29 cases):
 
-Stored desks may hold these window kinds:
-- `{ kind: "panel", panel: "guide" | "path" | "library" | "notes", extractionId? }`: `desks/content_ref.py` `PanelRef`;
-  `api/dto.ts` around line 10705.
-- `{ kind: "compare", comparisonId | query }`: `CompareRef`, which requires exactly one of the two.
+| Stored | Restores as |
+|---|---|
+| `source`, `video`, `pad`, `lesson`, `thread`, `compare`, `figure_notebook`, `preparing` | itself |
+| `panel: guide`, `panel: notes` | itself (the hosts of the book window's rail until it leaves the portal) |
+| `panel: library` | itself (the Compare window's body; stored shape unchanged) |
+| `panel: path` with a reading | the book's window with its path open: the book's window already on that desk (the panel closes, the window takes the focus if the panel had it), else the book's window opened in the panel's place; the reading's source is asked of the reading (`sourceOfExtraction`) |
+| `panel: path` with no reading | kept, shown inert, named in a toast ("a reading path with no book") |
+| a `source` or `video` that lost its reading or its source | the book's window again |
+| an unknown kind (or an unknown panel) naming a source or a reading | the book's window (a book being prepared when only its source is named) |
+| an unknown kind naming nothing, no content, not an object | kept, shown inert ("This window (a whiteboard window) can't open here…"), named in one toast for the load |
 
-`model/workspace.ts` keys each kind for dedupe (`panel:<panel>:<extraction>`, `compare:<id>:<query>`).
+The desks apply it once per load, before the shell reports ready (`DeskShell.restoreSaved`), through
+`replaceWindow` (model/workspace.ts: the new window opens right after the old one, which closes; the focus follows;
+the replaced window is not offered back by "undo close"). No path panel is opened any more: `p`, "what matters
+here?" and the opener's "Reading path" row open the path in the book's window; with no path for the book the desks
+say so. A path panel that arrives from another device mid-session says the path is in the book's window and is
+restored on the next load. The fixture workspace's path panel is a Notes panel now (`fx_w_notes`).
 
-The mapping is a pure function, `restoreContent(stored) → ContentRef | null`, in `screens/desks/model/`. Its test runs
-over every kind in `fixtures/desks` and every shape the persisted-layout schema has taken. A kind it does not know
-restores as a plain source window, never a crash or a lost window.
+Tests (real desks, `windows/PreparingWindow.desk.test.tsx`): a stored path panel with the book on the desk closes and
+the book's window shows its path; with no window of its book, the book's window opens in its place with its path
+open; an unknown kind naming a source restores as that book's window, and one naming nothing is kept, inert and
+named in the toast. Each failed before the build (the panel kept, nothing restored).
 
-| Stored | Restores as | Why |
-|---|---|---|
-| `panel: guide` | a source window on that `extractionId` (or the existing one) | the parity rows put the Guide's pieces (marks, checks, recap, path) in the window when no Guide panel is on screen |
-| `panel: notes` | the same | margin notes live in the window |
-| `panel: path` | the same, with the book's path open | `p` opens the path in the window |
-| `compare` | itself | it is already a workbench kind |
-| `panel: library` | **a call to make**, see (a) below | |
+### A2. A window for a book still being prepared
 
-The two calls:
+`desk_windows.kind` gains `'preparing'` (migration 271, `271_reader_workbench_preparing_windows.sql`, a
+temp-then-rename rebuild as 266's; the head fixture holds it, its README section names it): `PreparingRef` names the
+source alone (`{"kind": "preparing", "source_id"}`), since a book being prepared has no reading. The previous plan
+named only the content reference; the table's CHECK needed the migration as well. Backend test:
+`tests/test_reader_rd_retire_migration.py` (the head fixture holds 271 in rollback mode; the rebuild keeps every row
+and changes only `desk_windows`, matching the head; a preparing reference round-trips through `desk.apply`, and one
+naming no source or also a reading is refused).
 
-- **(a) The library panel.** Its workbench home is the Compare window: the library pane mounted with the Reader's
-  contexts. But `CompareRef` refuses a reference with neither a comparison nor a query, and a library panel has
-  neither. The options:
-  1. Let `CompareRef` hold an empty library view. This is a wire and stored-shape change: allowed, but the schema and
-     the RPC contract change with it.
-  2. Restore the library panel as a source window on its extraction when it has one, and otherwise drop it with a
-     toast naming it.
-  3. Keep `panel: library` as a kind until the library pane has a window of its own.
-- **(b) Guide and Notes panels are still the hosts of the rail's portal.** That includes the Ask tab, through
-  `railHost`, which stays until item 5. Mapping them away on restore removes the rail from a restored desk, while a
-  learner can still open those panels. The options:
-  1. Keep `panel: guide` and `panel: notes` as live kinds until item 5, and map only `path` and `library`.
-  2. Map all four now and rely on the in-window equivalents the parity rows proved.
+On the desks a book still being prepared opens in a window of its own (the app's open request, the opener, first
+run): the Reader's `PreparingView` (the original's pages, the progress line, a stopped book's action and retry),
+lazily loaded, with no "← Library" (closing the window is the way out). When it is ready (the view's own poll, or a
+ready card at restore), the book's window replaces it in its place, focused, at the page the learner had reached in
+the original (the hand-over's position, `SourceWindow.handoff` → `ReaderOpenSource.handoff`). The library's copy of
+the card is replaced by the ready one first: a window that mounts in the store's commit, before the library state
+updates, reads the ready card (`readyCards`), or it would reopen the preparing view. Test: the same file, "a book
+still being prepared opens in a window of its own, with its original and its progress, and becomes the book's window
+when ready" (asked again, the same window is focused; ready, the stored window is the book's source window).
 
-### A2 to C (unchanged from the brief and the step 1 record)
+### A3. The desks are the only Reader surface
 
-- **A2.** A content kind for a source still being prepared:
-  - the `PreparingView` (its progress, failure and retry) moves into a window;
-  - this needs a new `ContentRef` variant in `content_ref.py` and `dto.ts`, and its own test.
-- **A3.** The surface switch retires:
-  - the switch retires through `config/retired.py`'s `RETIRED_FIELDS`;
-  - identity pins keep their bytes;
-  - an old config that sets the switch loads and is ignored, with a test;
-  - every route in App that opened the old Reader opens the right window on the right desk: Today, Library, search, a
-    goal, a lesson's source link, and a deep link.
-- **A4.** The standalone-only offers each get a findable home or a recorded drop:
-  - the list of books and its search (the desk's Library panel or search);
-  - the shelf;
-  - "← Library";
-  - "I want to" (the window's source bar already has it);
-  - the re-read note;
-  - the key bar's wrap up (the window's `w`);
-  - the offline demo (a drop candidate: the desks need a vault);
-  - the reader-off view.
+- `App.tsx` mounts no `ReaderScreen`: the Reader place and the plan's reading are the desks, or "Open a library to
+  read in it." with no library open. Every route that opened the old Reader sets the book (or search words) and a new
+  open request for the desks: Today's threads and citations, the Library shelf, Continue reading, Add, the startup
+  restore, a check's or a problem's return, feedback's "Back to where you studied this" (fixed, RDX-2), a goal's
+  plan reading, a lesson's "Look in my library", the palette's Ask (the companion). The desks' own deep links are
+  their open requests (`SourceWindow.entry.test.tsx`, `App.desks.test.tsx`).
+- The surface switch: `app/shell.ts`'s per-machine `learnloop.reader.surface` (remembered/remember functions and
+  their test) is gone, and `DeskShell`'s `onLeave` and "old Reader" button with it. It was never a `learnloop.toml`
+  field, so `RETIRED_FIELDS` has nothing to carry and the identity pins and the effective-defaults golden are
+  unchanged (both run green). A machine whose storage still says `"reader"` gets the desks
+  (`App.desks.test.tsx`, "is the desks even where an older version remembered the old Reader for this machine").
+- The app heard the old screen's open book (`onSourceChange`); the desks now report the book being read
+  (`DeskShell.onReadingChange`: the focused book window, else the one focused last, else the first on the desk in
+  view, or none). The app remembers it per library (closing the last book window forgets it), offers it as Continue
+  reading, holds its notices while one is open, and reopens the Reader on a check's book when it is another. Until the
+  desks first report, the book restored at startup stands for it (RDX-3).
+- **The Reader config switches, audited** (spec §21.1's last row). Every switch the old screen read is read by the
+  scoped source a window mounts (`reader_inquiry.enabled` → `inquiryEnabled`, `tutor_qa.reader_enabled` →
+  `readerEnabled` and the sidecar's `_require_reader`, `workbench.enabled`, the cue and recap switches, `reader_intent`,
+  `reading_paths`, `library_ask`, `side_by_side`, `reader_tutor`), or by the sidecar; the standalone branches read
+  no switch of their own. So none is retired: each is kept, as the spec says when something else reads it.
+- The app's own tests (11 files) mount a stand-in for the desks (`fixtures/deskShellStub.tsx`): what the app asks of
+  them (the open request, the ask count, the workbench's resume, the hand-offs) is on its element, and it reports as
+  the desks do. Retired: three assertions on the old screen's `besideTrail` (App.today, the CA6b cases), covered by
+  `App.desks.test.tsx` "back from a check begun in the paired book … still a pair", and fixRound4's `data-title`
+  (the open request carries no title: the desks read it from the library).
 
-  If any has neither a home nor a recorded drop, stop before deletion.
-- **B. Port the tests to the window's own controls.**
-  - Port the 28 cases in `scripts/rd_retire/standalone_only_cases.json`.
-  - Port the 64 standalone-mount test files: `grep -rl "import { ReaderScreen }"` outside `ReaderScreen.*.test.tsx`.
-  - Retire a file only when it tests the old frame alone; name each retired file and say why.
-  - Check coverage by mapping each retired case to the case that now covers its shared behaviour.
-- **C. Delete.**
-  - Order 3 of the step 1 list: App's lazy `ReaderScreen` and its mounts, the surface switch, `DeskShell`'s `onLeave`,
-    then `ReaderScreen.tsx`.
-  - Then order 4: the `standalone` prop and its four calls; the standalone-only state and the screen-only props, with
-    `railCollapsed` pinned at its window value; `StandaloneShell` and its contexts; `readerKeys.ts`; `searchBasis.ts`;
-    the original `ReaderScreen.*.test.tsx` files.
-  - `railHost` and `RailScope` stay.
-  - If the nouns branch's new tip (batch 5's per-verb withheld-verbs fix) arrives first, merge it before the deletion
-    commits.
+### A4. What only the standalone branches offered
+
+| Standalone offer | On the workbench |
+|---|---|
+| The list of books and its search | The desks' opener (`+ open beside`) lists every book; the desks' search (`[data-desk-search]`) searches them; ask across the library and Compare are the Compare window (`CompareWindow.desk.test.tsx`, `CompareWindow.bare.test.tsx`: the old library page with no book open is a Compare window with none, keep and reopen, the take band, a practice pick, both exercise actions) |
+| The shelf with no book open | The Library place's shelf, one key away; the desks' shelf lists the desk's windows |
+| "← Library" | Closing the window (`alt+w`, ✕); the Library place (Alt+2) |
+| "desks ▸" | Gone by design (no second surface) |
+| The header's "I want to" | The source bar's "I want to" (per window; it was already there) |
+| The header's re-read note | **Built**: the source bar says "This book was read again: you're near …" (`[data-reread-note]`) |
+| The header's quick-checks toggle | **Built**: the source bar's "quick checks on/off" (the same per-device preference). It had no workbench home: a learner who turned checks off in the old Reader could not turn them back on |
+| The header's progress bar and section name | The window's title bar names the section in view; the percent through is **dropped**: display only, the scroll position shows it |
+| The header's line "Select a passage to ask about it…" | **Dropped**: instructional copy; the desks' footer hints and the intent box carry the same |
+| The key bar | The desks' footer hints and which-key; wrap up is the window's `w` (`SourceWindow.wrapup.test.tsx`); `x` still opens "also in your books" |
+| The collapsed rail's handle and `\` | **Dropped**: a window's rail lives in its panel window and is never collapsed (`railCollapsed` pinned at `false`) |
+| The offline demo chapter | **Dropped**: it showed only while the sidecar was down, and its captures were never kept; the desks need a library, and the app says when the sidecar is unreachable |
+| The reader-off view | **Built**: the desks say once, with the setting, when `tutor_qa.reader_enabled` is off (`[data-desk-reader-off]`; `App.desks.test.tsx`) |
+| A book still being prepared | A2's window |
+| "Back to Today" at a book's last section (`onOpenToday`) | **Dropped**: only the old screen passed it; Today is one key away (Alt+1) |
+| The palette's Ask into the Ask rail (`askRequest`), and its wait in the working posture | The palette summons the desks' companion (`SourceWindow.inquiry.test.tsx`); a problem is worked on its pad, so nothing waits |
+| A search hit's relevance signal (`reader.retrieval_open` with the search's receipt) | **Dropped, for the orchestrator**: only the list's search sent it. It records only while a new embedding space is on (`embedding.local` or `.fallback`, both off by default), so by default nothing was recorded. The desks' search (`search_everything`) carries no receipt; giving it one is a backend follow-up if the opt-in experiment needs the opened signal |
+
+Each drop is display or default-off; none loses something a learner did or stored.
+
+### B. The tests
+
+- **64 standalone-mount files.** 41 component tests mounted `ReaderScreen` directly: they mount `ScopedSource`
+  (same props); 265 of their 306 cases passed unchanged. 11 app tests mounted a stand-in of the screen: they mount
+  the desks' stand-in (A3). The rest named the file in a path guard or a comment: the classic-is-base evidence
+  (`app/classicIsBase.test.ts`), the capture-listener pin, and three lints that read the Reader's sources as text
+  (`attentionBudget`, `voices`, `scrollStaysInReader`). **Found:** those three lints still read the thin
+  `ReaderScreen.tsx` after step 1 and so missed the moved source; they read `ScopedSource.tsx` now, and pass.
+- **The switch-off snapshot tests** ("byte-identical with the switch off": intent, reading paths, recap, tutor,
+  workbench, library ask): their snapshots held the old header and key bar. Rewritten, and
+  `scripts/rd_retire/snapshot_frames.mjs` showed every entry equal to the old one once the old header and key bar
+  and the new source bar are taken out (24 entries, plus library ask's); nothing else moved.
+- **The 41 cases that reached the frame** at first: 6 passed once the source bar carried "I want to" and the re-read
+  note, 12 with the snapshots rewritten (above); of the other 23, ported in place (a key retried until it acts instead of waiting on the key
+  bar's offer, the rail opened with `\` after Esc, the source bar's "I want to"; 16, four renamed), moved to the real
+  desks (`CompareWindow.bare.test.tsx`, 5), or retired (2: "Shift+Enter in the library search is today's Enter with
+  library_ask / reader_inquiry off": the list's search box is gone; the switch stays pinned by the palette rows). The
+  covering test is named at each site.
+- **The 28 left-out cases** (`standalone_only_cases.json`): 18 ported to the step-1 copies (leaving a book is closing
+  its window, `cleanup()`; another book or a search hit is a new mount with a reading, as a window mounts it; "I want
+  to" and the re-read note are the source bar's), 1 moved to the real desks (`SourceWindow.retired.test.tsx`: a book
+  window still opening names its book in one line and then shows its reading), 9 retired: "← Library goes to the
+  Library…", "the Reader's own book list offers no demo chapter…", "with no book open, the Reader shows the Library's
+  own shelf", "a lesson's Look in my library opens the library search…" (covered by `SourceWindow.entry`'s "Look in my
+  library opens the desks' search"), "F7: the newest count of a book left behind is still sent when the Reader
+  closes" (leaving and closing are one step now; covered by the ported F7 retry case and the copy's F3 resend),
+  "lists a book that is not ready yet on the picker" (covered by `PreparingWindow.desk`'s first case and the copy's
+  preparing case), "still says so when the reader really is off" (covered by `App.desks`' reader-off case), "opening
+  another book from its library card leaves a way back" (covered by `SourceWindow.exercises`' open beside and
+  `DeskShell.test`'s opened-beside relation), "opening a search hit sends the result's receipt…" (the dropped signal,
+  A4). Each copy's header says where each case went.
+- **`ReaderScreen.parity.test.tsx`**, which step 1 did not copy, is `ScopedSource.parity.test.tsx` now (the
+  transcript and notes inquiry, the restart rule, `[`/`]`); its `\` collapse half is retired with the collapse.
+- **Retired whole**: the 23 `ReaderScreen.*.test.tsx` originals and their snapshot (their cases are in the copies);
+  `readerKeys.test.ts` and `searchBasis.test.ts` (their modules were the old key bar's and list's alone);
+  `paletteAsk.test.tsx` and `paletteAskPostures.test.tsx` (the palette's ask into the screen's Ask rail and its wait
+  in the working posture: the screen-only `askRequest` is deleted; the palette summons the companion, covered by
+  `SourceWindow.inquiry.test.tsx` "the palette's Ask … summons and never dismisses").
+
+### C. The deletion
+
+Deleted: `screens/ReaderScreen.tsx` (332 lines), App's lazy `ReaderScreen` and both mounts, `app/shell.ts`'s surface
+switch, `DeskShell`'s `onLeave`; in `ScopedSource.tsx` the `standalone` prop and its four calls, the list's search state
+and effect, the offline demo (`offline` pinned `false`), `backToLibrary`, the library page's practice pick, the
+palette's `askRequest` path, the screen-only props (`onSourceChange`, `onOpenLibrary`, `onOpenToday`, `shelf`,
+`askRequest`, `initialLibrarySearch`, `onOpenDesks`), the rail collapse and its preference (`railCollapsed` pinned
+`false`); `types.ts`'s `StandaloneShell` and its four contexts; `screens/reader/readerKeys.ts`, `searchBasis.ts`; the
+path panel's `PathPanel`. `railHost` and `RailScope` stay. Lines: `ScopedSource.tsx` 4,884 → 4,740 (with the source
+bar's additions), `types.ts` 216 → 133; the deletion commit removes about 7,800 lines, almost all of it the 23
+original test files.
+
+Kept for a later step, recorded: the scoped source's non-windowed branches (the nested second pane of side by side,
+the rail's own layout, `offline`'s dead conditions) are reached only by its tests now; they go with the rows that move
+the Guide, Notes, Ask, checks and recap out of the portal. `scripts/rd_retire/check.mjs` and `generate.mjs` are step
+1's record and read files that no longer exist.
+
+### Proof
+
+- `npm run typecheck`; the whole vitest suite after A and B: 448 files, 4,694 tests passed; after C: see the status
+  row; `cargo check` clean.
+- Desk harness (`vite build --config vite.desks.config.mjs`, then `uv run --no-project --with playwright==1.65.2
+  --with pillow==11.3.0 python scripts/desk_harness/run.py`): 207 passed, 0 failed (after A; rerun after C below).
+- Python: `tests/test_reader_rd_retire_migration.py`, `test_migrations.py`, the RD0 and RD4 migration tests,
+  `test_reader_rd1_model_parity.py`, `test_reader_rd0_protocol.py`, `test_identity_pins.py`,
+  `test_effective_defaults_golden.py`, `test_tracked_fixture_databases.py`, `test_public_tip_guards.py`, the guards
+  that read frontend paths (`test_rw5c_block_policy.py`, `test_reading_hardening_2_fixes.py`), `test_table_roles.py`:
+  green; ruff clean; lint-imports 55 kept, 0 broken.
+- Generated references regenerated after the last code commit (`_scripts/generate_all.py`); `desktop_validate`
+  counts recomputed with its generator.
+- **Not run here:** the visual-reference comparison (`visual_reference.py`) needs the private reference directory;
+  the orchestrator runs it.
+
+### Bugs found (ledger)
+
+- RDX-2: feedback's "Back to where you studied this" opened nothing on the desks after any earlier open request.
+- RDX-3: Continue reading after a restart on another place opened the Library, not the remembered book.
