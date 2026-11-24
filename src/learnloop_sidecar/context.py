@@ -488,8 +488,10 @@ class SidecarContext:
             # Reader workbench v2 (mvp-0.68): a scratchpad's standing words with no reading yet (committed while
             # emission could not run), and gaps read from words since replaced or removed, set aside.
             from learnloop.pads.emission import reconcile as reconcile_pad_text
+            from learnloop_sidecar.check_hold import open_check
 
-            if reconcile_pad_text(self.vault, self.repository).queued:
+            # An inline check still open (a restart mid-check): the words wait for its close, which reconciles them.
+            if open_check(self.repository) is None and reconcile_pad_text(self.vault, self.repository).queued:
                 self.post_attempt_worker.notify()
         except Exception:  # noqa: BLE001 - never block opening the vault
             _LOGGER.warning("could not settle the scratchpads' learner text", exc_info=True)
@@ -618,6 +620,11 @@ class SidecarContext:
 
     def _settle_pad_text(self) -> None:
         if self.vault is None or self.repository is None:
+            return
+        from learnloop_sidecar.check_hold import open_check
+
+        # While an inline check is open the pads' words wait for its close (which reconciles them), as a pad edit's do.
+        if open_check(self.repository) is not None:
             return
         try:
             from learnloop.pads.emission import reconcile as reconcile_pad_text

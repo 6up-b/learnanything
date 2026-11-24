@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/daily_plan/check_delivery.py](../../../../../../src/learnloop/daily_plan/check_delivery.py) |
-| Source lines | 435 |
+| Source lines | 443 |
 | Owning package | [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -63,8 +63,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
   - `as_dict(self) -> dict[str, Any]` (line 151; public)
 - `posterior(counts: DeliveryCounts, *, eligible_now: bool) -> DeliveryPosterior` ([source](../../../../../../src/learnloop/daily_plan/check_delivery.py), line 161) — The one-trial seed updated by the resolved trials: ``alpha = e + S``, ``beta = (1 − e) + F``.
 - `counts(trials: Iterable[Trial], *, purpose: str, as_of: str, regime: str=LEGACY_REGIME) -> DeliveryCounts` ([source](../../../../../../src/learnloop/daily_plan/check_delivery.py), line 169) — One purpose's and regime's statistics over classified trials (another purpose's never pooled in).
-- `classify(repository: Any, *, as_of: str, config: Any=None) -> tuple[Trial, ...]` ([source](../../../../../../src/learnloop/daily_plan/check_delivery.py), line 378) — Every planned delayed-check entry of every lesson receipt recorded by ``as_of``, classified as of then.
-- `statistics(repository: Any, *, as_of: str, config: Any=None, purposes: Sequence[str]=PURPOSES) -> dict[str, DeliveryCounts]` ([source](../../../../../../src/learnloop/daily_plan/check_delivery.py), line 422) — Each purpose's counts as of ``as_of`` (the legacy regime's).
+- `classify(repository: Any, *, as_of: str, config: Any=None) -> tuple[Trial, ...]` ([source](../../../../../../src/learnloop/daily_plan/check_delivery.py), line 386) — Every planned delayed-check entry of every lesson receipt recorded by ``as_of``, classified as of then.
+- `statistics(repository: Any, *, as_of: str, config: Any=None, purposes: Sequence[str]=PURPOSES) -> dict[str, DeliveryCounts]` ([source](../../../../../../src/learnloop/daily_plan/check_delivery.py), line 430) — Each purpose's counts as of ``as_of`` (the legacy regime's).
 
 ### Module constants
 
@@ -132,8 +132,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_settled_answer(connection: Any, commitment_id: str, as_of: str, *, derived: Mapping[str, Any] | None) -> str | None` ([source](../../../../../../src/learnloop/daily_plan/check_delivery.py), line 243) — A satisfaction recorded by ``as_of`` whose answer counts: the administration's attempt id when its grade is usable then, ``""`` for a satisfaction that names no attempt this store holds (the event is the evidence), or None (no satisfaction, or only ones whose answer was not grad…
 - `_grade_usable(connection: Any, attempt: Mapping[str, Any], as_of: str) -> bool` ([source](../../../../../../src/learnloop/daily_plan/check_delivery.py), line 261) — The attempt's grade could be used at ``as_of``: it has a correctness, and it was not held for review then.
 - `_answer(repository: Any, connection: Any, snapshot: Any, *, item_id: str, learning_object_id: str | None, as_of: str, default_days: int, known: str) -> tuple[Mapping[str, Any] | None, Any]` ([source](../../../../../../src/learnloop/daily_plan/check_delivery.py), line 299) — The attempt that answers the check by ``as_of`` (the intent resolver's rule over the entry's own item), and the check's effective date then.
-- `_replaced(snapshots: Mapping[str, Any], snapshot: Any, item_id: str, learning_object_id: str | None) -> bool` ([source](../../../../../../src/learnloop/daily_plan/check_delivery.py), line 330) — Another commitment decides the check's item as of the read (the intent resolver's F21 rule for an item-level check).
-- `_outcome(repository: Any, connection: Any, entry: Mapping[str, Any], snapshots: Mapping[str, Any], *, as_of: str, cutoff: Any, default_days: int, known: str) -> tuple[str, str, str | None]` ([source](../../../../../../src/learnloop/daily_plan/check_delivery.py), line 340) — One entry's ``(outcome, reason, answering attempt)`` as of ``as_of`` (the module's table, in its order).
+- `_replaced(snapshots: Mapping[str, Any], snapshot: Any, item_id: str, learning_object_id: str | None) -> bool` ([source](../../../../../../src/learnloop/daily_plan/check_delivery.py), line 338) — Another commitment decides the check's item as of the read (the intent resolver's F21 rule for an item-level check).
+- `_outcome(repository: Any, connection: Any, entry: Mapping[str, Any], snapshots: Mapping[str, Any], *, as_of: str, cutoff: Any, default_days: int, known: str) -> tuple[str, str, str | None]` ([source](../../../../../../src/learnloop/daily_plan/check_delivery.py), line 348) — One entry's ``(outcome, reason, answering attempt)`` as of ``as_of`` (the module's table, in its order).
 
 ## Who imports or calls it
 
@@ -153,11 +153,12 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `parse_utc`; calls `parse_utc`
 - [[Reference/Modules/learnloop/db/attempt_availability|learnloop.db.attempt_availability]] — imports `attempt_time_sql`; calls `attempt_time_sql`
+- [[Reference/Modules/learnloop/db/stores/check_administrations|learnloop.db.stores.check_administrations]] — imports `module`; calls `held_windows`
 - [[Reference/Modules/learnloop/db/stores/intent_reads|learnloop.db.stores.intent_reads]] — imports `module`; calls `commitment_tables_present`, `events_for`, `head_targets_for`, `versions_for`
 - [[Reference/Modules/learnloop/held_grades|learnloop.held_grades]] — imports `held_for_review_attempts`; calls `held_for_review_attempts`
 - [[Reference/Modules/learnloop/outcome_contract|learnloop.outcome_contract]] — imports `grade_held_for_review`; calls `grade_held_for_review`
 - [[Reference/Modules/learnloop/scheduling/intent/resolution|learnloop.scheduling.intent.resolution]] — imports `Resolution`, `snapshot_from_rows`; calls `Resolution`, `snapshot_from_rows`
-- [[Reference/Modules/learnloop/scheduling/intent/serving|learnloop.scheduling.intent.serving]] — imports `check_date`, `on_your_own`; calls `check_date`, `on_your_own`
+- [[Reference/Modules/learnloop/scheduling/intent/serving|learnloop.scheduling.intent.serving]] — imports `check_date`, `held_by_inline`, `on_your_own`; calls `check_date`, `held_by_inline`, `on_your_own`
 - [[Reference/Modules/learnloop/serve_eligibility|learnloop.serve_eligibility]] — imports `check_once_at_attempt`; calls `check_once_at_attempt`
 
 ### Platform and third-party dependencies
@@ -182,6 +183,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_check_delivery.py](../../../../../../tests/test_check_delivery.py) — direct import
   - `test_a_later_decision_sees_the_late_grade_and_the_redated_answer`
   - `test_a_settled_answer_counts_once_before_and_after_its_settlement`
+  - `test_an_answer_held_by_an_inline_check_answers_nothing_in_the_delivery_read`
   - `test_an_empty_vault_predicts_exactly_the_availability`
   - `test_before_its_answer_is_known_nothing_counts`
   - `test_every_class_as_of_a_decision`

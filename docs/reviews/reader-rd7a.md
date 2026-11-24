@@ -608,3 +608,122 @@ and D15 are rewritten to it, and copy rows 5.3 and 5.6 say when the masks apply.
   - "nothing above the card moves" is measured relative to the book's first passage, because the begun card is
     scrolled into view;
   - with a check open, the desk shows no marker.
+
+## 10. The fix round's re-review: server and protocol findings
+
+Branch `reader/rd7-unlocated-marker`. Ledger RD7-61 to RD7-74. Every finding was verified against the code first and
+judged by the owner's proportionate bar: fix what happens in ordinary use or silently corrupts evidence; record as
+accepted what needs the learner to deceive themselves. The frontend hold-class findings (1, 2, 3, 4, 6 and 14) wait for
+the owner's call on a simpler check mode.
+
+**Fixed:**
+- Fix round: **blocker 5**, RD7-61.
+  - A passage the section map does not place is held: a span the map lacks, or a reading whose structure cannot load.
+  - The reply's veils are the per-passage verdict the client reads.
+- Fix round: **blocker 8**, RD7-62.
+  - **The client** holds everything from the moment "check now" is sent: `CheckDesk`'s opening state counts as
+    holding.
+  - A retry sends the same request id, which the server answers with that administration and records nothing.
+  - A begin with no answer is settled by the restart read. An open administration is adopted; none releases the
+    desks; no answer keeps them held.
+  - **The server** treats another request adopting the open administration as a gap the desks did not hold. It is
+    recorded as an unmeasured opening, once per request.
+- Fix round: **blocker 10**, RD7-63. The hold is bound to the attempt's plan presentation: one served during a hold
+  window answers nothing whenever it is answered. The windows are half-open, so an answer made in the second the hold
+  closed, after it, is not held.
+- Fix round: **blocker 11**, RD7-64.
+  - The whole key stated as whole words counts as a full reveal, whatever its length. The overlap rule scores
+    "osmosis" zero when a passage states exactly it.
+  - No new threshold. The rest stays the tutor's overlap rule until reveal adjudication replaces it:
+    - partial statements of a short key;
+    - paraphrases;
+    - a key stated in other words or notation.
+  - The cost of the whole-word rule: a very short key, such as "2" or "yes", is charged when the opened text happens
+    to contain it. That errs toward practice, the honest direction.
+- Fix round: **blocker 12**, RD7-65. An opening is charged to the frozen candidates and to every candidate the check has
+  gained since begin, each against its key now.
+  - Not covered: an item made after the opening itself. That needs item generation in the minutes between an opening
+    and the answer.
+- Fix round: **blocker 13**, RD7-66.
+  - The reservation reads state, reservation and revision, and writes the reservation, in one transaction.
+  - The revision must equal the server's.
+  - `protect_more` checks open and unreserved at its write.
+  - A supersede that loses a race re-reads the winning row.
+- Fix round: **major 15**, RD7-67.
+  - Display fields (`group`, `measured`) are not part of a ref's identity.
+  - `exposureId` is required.
+  - An id reused for another opening is refused (`exposure_reused`).
+- Fix round: **major 17**, RD7-68.
+  - The item and the session's owner are checked before the reservation.
+  - A submit the attempt service refuses or fails releases its reservation.
+  - A crash before the attempt still leaves the reservation, and the restored card resends it with its
+    `submissionId`.
+- Fix round: **major 18, part**, RD7-69.
+  - Every `lesson.turn` action but stop and close waits.
+  - The vault-open and gap-drain pad reconciles wait for the close.
+  - The other entry points are accepted (below).
+- Fix round: **major 19**, RD7-70. The delivery read applies settlement's hold rule.
+- Fix round: **major 20, part**, RD7-71. An open row with no frozen presentation is superseded on recovery.
+- Fix round: **major 22, part**, RD7-72. `checks.due_for` says when the next check falls due (`nextDue`, a time and
+  nothing of the check), and the desks read the due checks again then.
+- Fix round: **major 23, server half**, RD7-73.
+  - The card carries what was opened (`looked`), whether the answer can still be cold (`coldNow`) and the current
+    eligibility (`eligibilityNow`).
+  - The restart read returns a crashed answer's outcome (`recovered`).
+  - Showing them is the client's, and not built.
+- Fix round: **minor 26**, RD7-74. Every refusal begin gives before it serves runs in the preflight, so a refused check
+  starts no session.
+
+**Accepted, with the reason:**
+- **Blocker 7, the server half:** there is none. The gate's keyboard, palette and notices are client-side.
+- **Blocker 9, what is realistic for one learner with a desktop and a phone.**
+  - Today on the phone serves through the same sidecar, so it sees the lock when it serves. That case is RD7-63, now
+    fixed.
+  - Reading a cached copy of the covered section on the phone during a desktop check, or opening the same source in
+    another vault, needs the learner to go looking for the answer elsewhere. No lock reaches a disconnected copy.
+  - The cold credit guarantees against accidental exposure on the device where the check is open, not against
+    deliberate reading on another.
+- **Major 16, client-side:**
+  - a known-empty companion versus its history tab (both send no exchange ids);
+  - a folded transcript cue;
+  - an ambiguous expose delivery.
+  - The server cannot tell these apart from what it is sent. Left for the client and the check-mode decision.
+- **Major 18, the rest:**
+  - hints (the attempt service already folds them in as help);
+  - a figure list resuming a job, ink accepted before begin, notebook cells, chapter suggestions and compare.
+  - Each one's result shows only in a window the check holds whole, so nothing reaches the learner before the close.
+- **Major 20, the rest.** The owner's live vaults are at migration 255, and no vault holds a 270 row. Submitted legacy
+  rows keep their state.
+- **Major 21:** a replacing **update** of a chapter's rowid. No code path updates `video_chapters`' rowid, and a guard
+  needs a migration (274). Accepted: it takes hand-written SQL.
+- **Major 22, the overview half: refuted by the owner's RD7-56 decision.** Before "check now" every surface shows its
+  ordinary content, the same as with no check due. A miniature of a window that is readable itself shows nothing new.
+- **Majors 24 and 25** are the harness's and the client's, and go with the hold-class findings.
+
+**Persisted meaning.** Still `mvp-0.69`, no successor (see `algorithm-mvp-0.69.md`). The changed rules:
+- the hold bound to the presentation;
+- the whole-key reveal;
+- charging later candidates;
+- the gap of a lost reply.
+
+They change what an `mvp-0.69` administration and its reveals mean, and no vault holds such rows. No migration: the
+presentation's time is already `plan_presentations.served_at`.
+
+**Assertions changed.**
+- **`test_reader_rd7a_inline_checks.py`:**
+  - every opening sends an `exposureId`;
+  - the host test expects the far reading's unplaced passage to be held;
+  - the lock test now:
+    - begins again with the same request (no reveal);
+    - begins with another request (one unmeasured reveal);
+    - expects the check not cold after not now.
+- **`test_reader_rd7a_inline_checks.py::test_rd7_11`:** abandon still refuses while reserved. A refused answer's
+  release is the submit's, not abandon's.
+- **`checks.test.tsx`:** unchanged assertions, two new tests.
+
+- **DeskShell:** after a begin, the answer box takes the focus itself. The desks held everything while the begin was on
+  its way, so the card can mount inside a subtree the hold has not released yet, and autofocus is lost then. The
+  harness's `checks` run caught it: "the answer box has the focus".
+
+**Commands.** Fail-first: 14 server tests failed 14 of 14 against the branch tip's sources, and the two new client
+tests failed against its controller.
