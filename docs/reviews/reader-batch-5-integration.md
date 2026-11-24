@@ -32,6 +32,16 @@ overshot, and one stale fixture hid its effect in the harness:
   the header went neutral and every quoting verb stopped silently. Now a stopped search shows its own Retry and the
   first answer's verdict stands; only a first answer that fails or carries no verdict fails closed, and a verb pressed
   while the verdict is unknown says how to go on.
+- **BATCH5-10, captures on protected passages.** `check_selection` in `reader.capture` refused every capture of a
+  protected selection, so a plain highlight or margin note on the learner's own exam material (classic Reader and
+  desks) was refused where main stored it. A plain capture queues no model work: it is stored again, and the menu
+  offers Note in margin on protected material without waiting for the verdict. What sends words on stays refused
+  (a preset when its request is sent; Ask, Find, Compare, Show me, Make it practice, Teach me, Carry and Append at
+  their destination). Each downstream reader of stored annotations was checked and already withholds a mark beside
+  protected material: the union read (BATCH5-3), the promoted rows and passage details, the notes corpus behind
+  `notes.search`, `notes.marks`, the workbench search's notes group and the teacher's notes, and pad proposals; the
+  companion's context reads no stored annotation. Tests both ways in `tests/test_menu_protected_material.py`, with a
+  control mark on an open passage that does reach those surfaces.
 - **BATCH5-8, the harness fixture.** The fake finished promoted job carried no verdict, so in the harness every judged
   search failed closed and the promoted rows vanished from the source menu. The server sends the verdict; the fixture
   now does too.
@@ -123,11 +133,6 @@ change from the longer strings.
 
 ## 6. Not reconciled
 
-- **Captures on exam or held-out passages.** The menu branch's `check_selection` in `reader.capture` refuses every
-  capture of a protected selection, plain highlights and annotations included, in the classic Reader as well as the
-  desks (on main they were stored; only the model-backed presets enqueue work). Kept, since a stored quote of exam
-  words can later reach a model, but it is a behaviour change on protected material the owner may want narrowed to
-  the presets that enqueue model work.
 - COPY-5 to COPY-10, COPY-12 and COPY-13 stay open (outside this brief).
 - A few `DeskShell.menu.test.tsx` tests failed once each (0 to 5 ms) when run beside other files while the C edits
   were in progress; they pass alone, repeated, and in both full vitest runs since.

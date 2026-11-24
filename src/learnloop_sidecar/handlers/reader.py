@@ -1214,15 +1214,16 @@ def reader_capture(ctx: SidecarContext, params: ReaderCaptureInput) -> dict[str,
         nodes = [selection, *(node for node in selection.get("nodes") or [] if isinstance(node, dict))]
         refuse_if_withheld(ctx, _vault, repository, params.extraction_id,
                            [node.get("span_id") or node.get("spanId") for node in nodes])
+    # A highlight or margin note on exam or held-out material is stored (the learner marking their own reading): a
+    # plain capture queues no model work, and every reader of stored annotations withholds one beside protected
+    # material. What sends words on is refused where it does (a preset when sent, the menus' verbs at destination).
     try:
-        with repository.atomic():
-            check_selection(_vault, repository, params.extraction_id, params.raw_selection or {}, params.render_view_id)
-            receipt = RC.capture(
-                repository, source_id=params.source_id, revision_id=params.revision_id,
-                extraction_id=params.extraction_id, action=params.action,
-                client_idempotency_key=params.client_idempotency_key, raw_selection=params.raw_selection,
-                render_view_id=params.render_view_id, learner_text=params.learner_text,
-                what_i_think_is_going_on=params.what_i_think_is_going_on, session_id=params.session_id)
+        receipt = RC.capture(
+            repository, source_id=params.source_id, revision_id=params.revision_id,
+            extraction_id=params.extraction_id, action=params.action,
+            client_idempotency_key=params.client_idempotency_key, raw_selection=params.raw_selection,
+            render_view_id=params.render_view_id, learner_text=params.learner_text,
+            what_i_think_is_going_on=params.what_i_think_is_going_on, session_id=params.session_id)
     except (RC.CaptureError, ANN.AnnotationError) as exc:
         raise SidecarError("validation_error", str(exc)) from exc
     return versioned(receipt)

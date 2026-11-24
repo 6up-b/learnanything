@@ -222,9 +222,6 @@ def test_finished_menu_rechecks_origin_and_targets_at_each_poll(protected, unit)
     ("pad.apply", {"clientId": "c", "seq": 2, "padId": "pad_1", "ops": [
         {"op": "insert_block", "kind": "source_piece", "provenance": "source", "positionKey": "a2",
          "blockId": "mix", "bodyMd": HELD_WORDS, "payload": {"extraction_id": BOOK, "span_id": "s_held"}}]}),
-    ("reader.capture", {"sourceId": "src_book", "revisionId": "rev_book", "extractionId": BOOK, "action": "annotate",
-                        "clientIdempotencyKey": "mixed", "learnerText": "note", "rawSelection": {
-                            "nodes": [{"spanId": "s2"}, {"spanId": "s_held", "quote": HELD_WORDS}]}}),
     ("reader.import_exercise", {"extractionId": BOOK, "rawSelection": {"nodes": [{"spanId": "s2"}, {"spanId": "s_held"}]}}),
     ("reader.author_section_question", {"extractionId": BOOK, "sectionId": "u_open", "spanIds": ["s2", "s_held"]}),
     ("figure.request", {"goalText": HELD_WORDS, "anchor": {"extractionId": BOOK, "spanIds": ["s2", "s_held"]}}),
@@ -357,3 +354,74 @@ def test_the_union_read_withholds_stored_quotes_and_questions_on_a_passage_held_
     assert FAR_QUOTE not in json.dumps(union) and "The exam's own words." not in json.dumps(union)
     s1 = next(span for span in union["spans"] if span["spanId"] == "s1")
     assert [link["quote"] for link in s1["passageLinks"]] == ["Here."]
+
+
+HELD_NOTE = "my margin thought on the matrix I keep getting wrong"
+OPEN_NOTE = "my margin thought on kernels and the domain"
+
+
+def _mark(ctx, span_id, key, action, note, quote):
+    """A capture as each surface sends it: the classic Reader's highlight (its nodes, no words of the learner's) and
+    the desks' Note in margin (the passage, its span ids and nodes, the learner's words)."""
+    selection = ({"extractionId": BOOK, "nodes": [{"spanId": span_id, "quote": quote}]} if action == "highlight" else
+                 {"extractionId": BOOK, "spanId": span_id, "spanIds": [span_id], "nodes": [{"spanId": span_id, "quote": quote}]})
+    return call(ctx, "reader.capture", {"sourceId": "src_book", "revisionId": "rev_book", "extractionId": BOOK,
+                                        "action": action, "clientIdempotencyKey": key, "learnerText": note,
+                                        "rawSelection": selection})
+
+
+def _requests(repository):
+    with repository.connection() as connection:
+        return connection.execute("SELECT COUNT(*) FROM reader_background_requests").fetchone()[0]
+
+
+def test_a_highlight_and_a_margin_note_on_held_out_material_are_stored(protected):
+    """The learner marking their own exam material is stored, as before the workbench (proportionate protection): a
+    plain capture queues no model work, so nothing is refused."""
+    ctx = protected.ctx
+    _hold_out(protected.repository)
+    highlight = _mark(ctx, "s_held", "hl-held", "highlight", "", HELD_WORDS)
+    note = _mark(ctx, "s_held", "note-held", "annotate", HELD_NOTE, HELD_WORDS)
+    stored = json.dumps(call(ctx, "reader.source_annotations", {"sourceId": "src_book"}))
+    assert highlight["annotationId"] in stored and note["annotationId"] in stored and HELD_NOTE in stored
+    call(ctx, "reader.drain_outbox", {})
+    assert _requests(protected.repository) == 0
+
+
+def test_a_stored_mark_on_held_out_material_reaches_no_other_surface(protected):
+    """Each later reader of stored annotations withholds a mark beside protected material: the union read, the menus'
+    promoted rows and passage details, the notes (their search, the reading's marks, and the corpus the workbench's
+    search and the teacher read), the pad's proposals. The companion's context reads no stored annotation (the passage
+    and pad blocks only). The same mark on an open passage reaches them (the control)."""
+    from learnloop.source_retrieval import vault_notes as VN
+    from learnloop.vault.loader import load_vault
+    from learnloop_sidecar.errors import SidecarError
+
+    ctx = protected.ctx
+    _mark(ctx, "s_open", "note-open", "annotate", OPEN_NOTE, OPEN_WORDS)
+    _hold_out(protected.repository)
+    _mark(ctx, "s_held", "hl-held", "highlight", "", HELD_WORDS)
+    _mark(ctx, "s_held", "note-held", "annotate", HELD_NOTE, HELD_WORDS)
+
+    union = json.dumps(call(ctx, "passage.union_range", {"extractionId": BOOK, "fromSpanId": "s_open", "toSpanId": "s3"}))
+    assert OPEN_NOTE in union
+    assert HELD_NOTE not in union and HELD_WORDS not in union
+    for span in ("s_open", "s2", "s_held", "s3"):
+        obj = {"objectKind": "passage", "extractionId": BOOK, "spanId": span}
+        reply, done = _menu(ctx, obj)
+        try:
+            knows = call(ctx, "passage.knows", obj)
+        except SidecarError as refused:  # passage details of protected material itself are refused outright
+            assert refused.code == "exam_material" and span in ("s_held", "s3")
+            knows = None
+        seen = json.dumps([reply, done, knows])
+        assert HELD_NOTE not in seen and HELD_WORDS not in seen, span
+
+    corpus = json.dumps([note.full_text for note in VN.notes(load_vault(protected.paths.root), protected.repository)])
+    assert OPEN_NOTE in corpus and HELD_NOTE not in corpus
+    found = json.dumps(call(ctx, "notes.search", {"query": "margin thought", "mode": "words"}))
+    assert OPEN_NOTE in found and HELD_NOTE not in found
+    assert HELD_NOTE not in json.dumps(call(ctx, "notes.marks", {"extractionId": BOOK}))
+    everywhere = json.dumps(call(ctx, "search.everything", {"query": "margin thought", "scopes": ["notes", "pads"]}))
+    assert OPEN_NOTE in everywhere and HELD_NOTE not in everywhere
+    assert HELD_NOTE not in json.dumps(call(ctx, "pad.proposals", {"padId": "pad_1"}))

@@ -116,8 +116,12 @@ export const VERBS: VerbSpec[] = [
 
 /** New verbs need clearance unless they only navigate or read protected metadata. */
 const NAVIGATION_VERBS: readonly VerbId[] = ["open_beside", "knows", "new_desk", "gather", "share_slot", "own_slot"];
+/** A margin note is the learner marking their own reading, stored beside the passage: it sends the words nowhere
+ *  (a plain capture queues no model work, and every reader of stored notes withholds one on protected material), so
+ *  it is offered on exam or held-out material too and never waits for the verdict. */
+const LOCAL_VERBS: readonly VerbId[] = ["note"];
 export function needsClearance(id: VerbId): boolean {
-  return !NAVIGATION_VERBS.includes(id);
+  return !NAVIGATION_VERBS.includes(id) && !LOCAL_VERBS.includes(id);
 }
 
 /** The verbs for an object kind, in their fixed order. */

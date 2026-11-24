@@ -183,7 +183,7 @@ describe("the verb rows and a promoted row's place", () => {
 });
 
 describe("exam or held-out material", () => {
-  it("the verbs that would quote or send its words send nothing and say so; a margin note cannot capture a protected selection", async () => {
+  it("the verbs that would quote or send its words send nothing and say so; a margin note of one's own still goes", async () => {
     const { ctx, toasts } = context({ withheld: async () => true });
     for (const id of ["ask", "find", "compare", "show_me", "make_practice", "append", "carry", "teach_me"] as const) await runVerb(id, passage(), ctx);
     expect(ctx.ask).not.toHaveBeenCalled();
@@ -196,12 +196,12 @@ describe("exam or held-out material", () => {
     expect(ctx.api.passageKnows).not.toHaveBeenCalled();
     expect(new Set(toasts)).toEqual(new Set(["this is exam or held-out material: its words are not sent anywhere from here"]));
     await runVerb("note", passage(), ctx);
-    expect(ctx.api.readerCapture).not.toHaveBeenCalled();
+    expect(ctx.api.readerCapture).toHaveBeenCalled();
   });
 
   it("its menu leaves those verbs out and names the material without quoting it", () => {
     const rows = sourceMenuRows(passage(), context().ctx, "running", true).map((row) => row.id);
-    expect(rows).toEqual(["open_beside", "knows"]);
+    expect(rows).toEqual(["note", "open_beside", "knows"]);
     expect(headerLine(passage(), true)).toBe("a passage · exam or held-out material");
   });
 });

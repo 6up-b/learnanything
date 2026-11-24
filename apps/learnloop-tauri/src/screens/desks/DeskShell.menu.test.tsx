@@ -618,7 +618,7 @@ describe("RD5 fix round: exam or held-out material in the menu", () => {
     await screen.findByText("exam or held-out material: nothing is searched for it");
     expect(menus()[0].querySelector(".mh")?.textContent).toBe("a passage · exam or held-out material");
     const verbs = [...menus()[0].querySelectorAll(":scope > .mi .t")].map((each) => each.firstChild?.textContent);
-    expect(verbs).toEqual(["Open beside", "What this knows"]);
+    expect(verbs).toEqual(["Note in margin", "Open beside", "What this knows"]);
     expect(menus()[0].textContent).not.toContain("the first passage of fx_w_book");
   });
 });
