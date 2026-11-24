@@ -78,6 +78,9 @@ class ShadowRebuildResult:
     #: The follow-up gate's records on ``attempt_surprise`` (what the live gate queued, held back and read), compared
     #: by attempt: :func:`_gate_records_diff`. Replay carries them, never recomputes them.
     followup_gate_records: Mapping[str, Any] = field(default_factory=dict)
+    #: Rows the replay added to a ledger or receipt table, by table (counts only): a replay should derive, never
+    #: append history; the rebuild's own receipt (``derived_state_rebuilds``) and first-run backfills show here.
+    ledger_rows_added: Mapping[str, int] = field(default_factory=dict)
 
     @property
     def live_database_unchanged(self) -> bool:
@@ -97,6 +100,7 @@ class ShadowRebuildResult:
             "rebuild": self.rebuild.as_dict(),
             "learner_state_diff": dict(self.learner_state_diff),
             "followup_gate_records": dict(self.followup_gate_records),
+            "ledger_rows_added": dict(self.ledger_rows_added),
         }
 
 
@@ -309,11 +313,14 @@ def shadow_rebuild(
     observed_after: Any = None
     gate_before: dict[str, tuple[Any, ...]] = {}
     gate_after: dict[str, tuple[Any, ...]] = {}
+    ledgers_before: dict[str, int] = {}
+    ledgers_after: dict[str, int] = {}
     after_hash = before_hash
     try:
         live_repository = Repository.attach(live_path, read_only=True)
         baseline_snapshot = _learner_state_snapshot(live_repository)
         gate_before = _gate_records(live_repository)
+        ledgers_before = _ledger_counts(live_repository)
         if observe is not None:
             observed_before = _observed(observe, vault, live_repository, "the live database")
         candidate_config, applied = build_candidate_config(vault.config, assignments, vault_root=vault.root)
@@ -329,6 +336,7 @@ def shadow_rebuild(
                 )
                 candidate_snapshot = _learner_state_snapshot(scratch_repository)
                 gate_after = _gate_records(scratch_repository)
+                ledgers_after = _ledger_counts(scratch_repository)
                 if observe is not None:
                     observed_after = _observed(observe, candidate_vault, scratch_repository, "the replayed copy")
     finally:
@@ -359,6 +367,8 @@ def shadow_rebuild(
         observed_before=observed_before,
         observed_after=observed_after,
         followup_gate_records=_gate_records_diff(gate_before, gate_after),
+        ledger_rows_added={name: ledgers_after.get(name, 0) - count for name, count in ledgers_before.items()
+                           if ledgers_after.get(name, 0) != count},
     )
 
 
@@ -448,6 +458,18 @@ def _gate_records(repository: Repository) -> dict[str, tuple[Any, ...]]:
             return {}
         return {str(row[0]): tuple(row[1:]) for row in connection.execute(
             f"SELECT attempt_id, {', '.join(GATE_RECORD_COLUMNS)} FROM attempt_surprise")}
+
+
+def _ledger_counts(repository: Repository) -> dict[str, int]:
+    """Rows per ledger and receipt table (``db.table_roles``), the tables a replay must not write history into."""
+
+    from learnloop.db.table_roles import TABLE_ROLES, TableRole
+
+    wanted = {name for name, role in TABLE_ROLES.items() if role in (TableRole.RAW_LEDGER, TableRole.RECEIPT)}
+    with closing(repository.connection()) as connection:
+        present = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
+        return {name: connection.execute(f'SELECT COUNT(*) FROM "{name}"').fetchone()[0]
+                for name in sorted(wanted & present)}
 
 
 def _gate_records_diff(before: Mapping[str, tuple[Any, ...]], after: Mapping[str, tuple[Any, ...]]) -> dict[str, Any]:

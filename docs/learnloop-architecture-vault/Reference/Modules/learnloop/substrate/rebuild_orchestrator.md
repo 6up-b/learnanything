@@ -372,6 +372,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_case2_a_model_grade_regraded_within_its_original_maximum_replays_its_own_maximum`
   - `test_case3_a_lowered_rubric_that_still_fits_never_rescores_the_regrade`
   - `test_case3_lowering_the_rubric_after_a_regrade_never_fails_the_rebuild`
+- [tests/test_replay_keeps_diagnosis_ids.py](../../../../../../tests/test_replay_keeps_diagnosis_ids.py) — direct import
+  - `test_a_promoted_hypothesis_stays_promoted_and_its_receipt_keeps_its_id`
+  - `test_a_rebuild_keeps_every_hypothesis_and_receipt_id`
 - [tests/test_required_method_authority.py](../../../../../../tests/test_required_method_authority.py) — direct import
   - `test_a_live_answer_its_regrade_and_replay_are_graded_under_the_frozen_field`
 - [tests/test_required_method_grading.py](../../../../../../tests/test_required_method_grading.py) — direct import

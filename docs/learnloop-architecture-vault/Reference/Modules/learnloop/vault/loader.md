@@ -2835,6 +2835,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_rebuild_derived_state_replays_attempt_logs`
   - `test_replay_error_attributions_preserve_misconception_fields`
   - `test_replay_preserves_targeted_error_attribution_facets`
+- [tests/test_replay_keeps_diagnosis_ids.py](../../../../../../tests/test_replay_keeps_diagnosis_ids.py) — direct import
+  - `test_a_per_lo_replay_appends_no_version`
+  - `test_a_promoted_hypothesis_stays_promoted_and_its_receipt_keeps_its_id`
+  - `test_a_rebuild_keeps_every_hypothesis_and_receipt_id`
+  - `test_the_shadow_rebuild_reports_no_difference`
 - [tests/test_required_method_authority.py](../../../../../../tests/test_required_method_authority.py) — direct import
   - `test_a_live_answer_its_regrade_and_replay_are_graded_under_the_frozen_field`
   - `test_a_variant_with_no_verdict_or_an_edited_stem_is_not_published`

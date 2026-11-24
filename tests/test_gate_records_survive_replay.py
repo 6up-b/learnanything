@@ -125,12 +125,7 @@ def test_what_history_shows_reads_the_same_after_a_rebuild(tmp_path):
     assert {"practice_item_id": "pi_svd_define_001", "action_type": "intervention_followup"} in before["pending"]
     assert any(before["answered_followup_of"].values())
     rebuild_all_derived_state(vault, repository)
-    after = shown()
-    # The causal overlay is the diagnosis receipt's, not the gate's: it is compared by its own tests.
-    for state in (before, after):
-        for bundle in state["feedback"].values():
-            bundle.pop("causalFeedback", None)
-    assert after == before
+    assert shown() == before
 
 
 def test_the_shadow_rebuild_compares_the_gates_records(tmp_path):
