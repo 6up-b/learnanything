@@ -115,14 +115,16 @@ def test_an_unlearned_probe_is_offered_only_by_the_coin_with_its_exact_propensit
     assert detail["learned"] is False and detail["information"] == 0.0
     assert "mixture" not in detail and detail["probe_coin"]["arm"] == PC.ASK
     assert (decision["chosen_ref"], decision["propensity"]) == (PROBE_REF, pytest.approx(0.2))
-    assert decision["chosen_practice_item_id"] == PROBE_ITEM
+    # The row names the item only through its candidates: an acceptance's pin binds the administration.
+    assert decision["chosen_practice_item_id"] is None
     candidates = {row["ref"]: row for row in json.loads(decision["candidates_json"])}
     assert candidates[NO_PROBE_REF]["propensity"] == pytest.approx(0.8)
     assert detail["served_pi"] == pytest.approx({PROBE_REF: 0.2, NO_PROBE_REF: 0.8})
     (assignment,) = _assignments(case.repository)
     assert (assignment["experiment_id"], assignment["unit_id"], assignment["variant"], assignment["propensity"]) == (
         A.PROBE_COIN, decision["id"], PC.ASK, 0.2)
-    assert assignment["seed"] == PC.seed_for(f"learner_probe:{case.factor}", decision["id"])
+    # Seeded by the factor, so a retry or a concurrent read draws the same.
+    assert assignment["seed"] == PC.seed_for(f"learner_probe:{case.factor}", "learner_probe")
 
 
 def test_the_valuation_prices_the_existing_instruments_channel(tmp_path, monkeypatch):

@@ -85,18 +85,19 @@ def evaluate_completion(
     episode_config = vault.config.probe.episode
     rows = effective_episode_observations(vault, repository, episode.id)
     qualifying = [row for row in rows if row["observation"].eligible_for_completion]
-    from learnloop.diagnosis.probe_authority import router_selected_rows
+    from learnloop.diagnosis.probe_episodes import router_selected_episode
 
     # The probe router's tag: an episode the router's probe belongs to completes on its evidence and its count alone;
-    # action equivalence, the robust gate and value stops are worth decisions the router owns.
-    routed = router_selected_rows(vault, rows)
+    # action equivalence, the robust gate and value stops are worth decisions the router owns. Ownership is the
+    # episode's, read once, whatever its answers' quality.
+    routed = router_selected_episode(vault, repository, episode)
 
     # mvp-0.21 (voi_stopping): the episode's own count is lifted with the
     # session cap (reader spec §18, §20.7); while value decides, an episode
     # keeps asking past it and ends on its value stop instead.
     # observation_budget_exhausted: the episode count cap still binds.
     at_cap = len(qualifying) >= episode.maximum_observations
-    if at_cap and episode_maximum_binds(vault, repository, qualifying):
+    if at_cap and episode_maximum_binds(vault, repository, qualifying, episode=episode):
         return complete("observation_budget_exhausted")
     # At the cap with the cap lifted (value decides), the rule did not apply: it is not listed as passed.
     if not at_cap:
@@ -260,7 +261,7 @@ def voi_probe_site_active(vault: LoadedVault) -> bool:
 
 
 def value_decides_episode(
-    vault: LoadedVault, repository: Repository, qualifying: Sequence[Mapping[str, Any]]
+    vault: LoadedVault, repository: Repository, qualifying: Sequence[Mapping[str, Any]], *, episode: Any = None
 ) -> bool:
     """Does value of information decide this episode's next observation?
 
@@ -271,8 +272,11 @@ def value_decides_episode(
     if not voi_probe_site_active(vault):
         return False
     from learnloop.diagnosis.probe_authority import router_selected_rows
+    from learnloop.diagnosis.probe_episodes import router_selected_episode
 
-    if router_selected_rows(vault, qualifying):
+    # ``episode``: its ownership, read from its presentations; without it, the rows' own pins.
+    if (router_selected_episode(vault, repository, episode) if episode is not None
+            else router_selected_rows(repository, qualifying)):
         # The probe router's tag: no value decision continues or stops an episode the router's probe belongs to; its
         # count bounds it, as wherever value does not decide.
         return False
@@ -316,7 +320,7 @@ def _latest_observation_session(repository: Repository, qualifying: Sequence[Map
 
 
 def episode_maximum_binds(
-    vault: LoadedVault, repository: Repository, qualifying: Sequence[Mapping[str, Any]]
+    vault: LoadedVault, repository: Repository, qualifying: Sequence[Mapping[str, Any]], *, episode: Any = None
 ) -> bool:
     """Does ``probe.episode.maximum_observations`` (stamped on the episode at
     entry) end the episode by count?
@@ -329,7 +333,7 @@ def episode_maximum_binds(
     receipt's counterfactual (``voi_stopping.EPISODE_MAXIMUM_CAP``).
     """
 
-    return not value_decides_episode(vault, repository, qualifying)
+    return not value_decides_episode(vault, repository, qualifying, episode=episode)
 
 
 def _plausible_actions_agree(

@@ -140,6 +140,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f_a_lesson_win_releases_the_hold_and_generates_nothing`
   - `test_f_on_a_plan_the_router_draws_once_over_its_arms_and_a_lesson_at_the_same_boundary`
   - `test_f_with_no_room_to_wait_the_probe_is_forced_unless_a_lesson_contests_it`
+- [tests/test_probe_router_decision_integrity.py](../../../../../tests/test_probe_router_decision_integrity.py) — direct import
+  - `test_r4_a_failed_write_never_turns_a_drawn_lesson_into_the_probe`
 
 ## Modification guidance
 

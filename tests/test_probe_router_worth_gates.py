@@ -80,7 +80,7 @@ def _selected(tmp_path, monkeypatch, *, version: str = LATEST_ALGORITHM_VERSION)
     assert status["routerState"] == "selected"
     offer = call(ctx, "causal_probe_offer_action", {"factorId": case.factor})["offer"]
     assert offer["accepted"] is True
-    case.ctx, case.offer = ctx, offer
+    case.ctx, case.offer, case.decision_id = ctx, offer, status["routerDecisionId"]
     return case
 
 
@@ -111,14 +111,15 @@ def test_a_router_selected_probe_is_served_answered_and_ended_with_every_legacy_
     assert not [d for d in trace.voi_decisions if d["site"] == voi.SITE_PROBE_EPISODE]
     second = call(case.ctx, "get_probe_contract", {"practiceItemId": SECOND, "sessionId": "sess"})
     assert second["active"] is True, second
-    assert router_selected_presentation(case.vault, case.repository.probe_presentation(presentation_id))
+    assert router_selected_presentation(case.repository, case.repository.probe_presentation(presentation_id))
     assert router_selected_episode(case.vault, case.repository, after)
 
 
 def test_the_count_bounds_a_router_selected_episode_and_value_decides_none_of_it(tmp_path, monkeypatch):
     case = _selected(tmp_path, monkeypatch)
-    rows = [{"selection_components": {"causal_probe": {"router_decision_id": "d"}}}]
-    assert router_selected_rows(case.vault, rows)
+    # The rows' pin names the router's decision made at the tag (authority is the decision row's).
+    rows = [{"selection_components": {"causal_probe": {"router_decision_id": case.decision_id}}}]
+    assert router_selected_rows(case.repository, rows)
     assert not probe_completion.value_decides_episode(case.vault, case.repository, rows)
     assert probe_completion.episode_maximum_binds(case.vault, case.repository, rows)
     episode = case.repository.probe_episode(case.offer["episodeId"])
@@ -130,14 +131,15 @@ def test_the_count_bounds_a_router_selected_episode_and_value_decides_none_of_it
 def test_a_probe_of_another_origin_keeps_its_gates(tmp_path, monkeypatch):
     case = _selected(tmp_path, monkeypatch)
     legacy = [{"selection_components": {"causal_probe": {"decision_receipt_id": "r"}}}, {"selection_components": {}}]
-    assert not router_pin(legacy[0]["selection_components"]) and not router_selected_rows(case.vault, legacy)
+    assert not router_pin(legacy[0]["selection_components"]) and not router_selected_rows(case.repository, legacy)
     assert probe_completion.value_decides_episode(case.vault, case.repository, legacy)
 
 
 def test_below_the_tag_a_pinned_router_decision_is_no_dispatch(tmp_path, monkeypatch):
     case = divergent_factor(tmp_path, version=TAG)
+    # A pin naming no decision the router made at its tag (here none at all) dispatches nothing.
     rows = [{"selection_components": {"causal_probe": {"router_decision_id": "d"}}}]
-    assert not router_selected_rows(case.vault, rows)
+    assert not router_selected_rows(case.repository, rows)
     assert probe_completion.value_decides_episode(case.vault, case.repository, rows)
     with pytest.raises(AssertionError):
         _sentinels(monkeypatch)
