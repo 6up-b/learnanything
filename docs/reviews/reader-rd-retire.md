@@ -560,6 +560,13 @@ own files put back to the commit before, the test run, the fix restored). Ledger
 | m26 | Vault-wide drains and inbox reads per mounted book | **Accepted**: performance, revisited once the workbench works (owner, 2026-11-23). | — |
 | m27 | A book with the Reader off for it is missing from the opener | **Accepted, record corrected**: A4's "lists every book" means every book the Reader may open; a book opted out of the reader loop at ingest is not offered on the desks. | — |
 
+**Added at the coordinator's request (RDX-21).** "closing a book forgets it, so the next start opens the shelf" failed
+about half the runs of `App.fixRound5.test.tsx` alone. The product had the race: the app forgot the remembered book only
+after the desks had reported it this session, and the desks' report is held under a check, so a close could come out
+first. The reopened book now counts as remembered from the moment the app reopens it; a deterministic case proves it
+(fails on the base), and the file ran 30 times in a row with no failure. The sketch test's play now waits for the first
+drawn run; 30 runs beside a whole-suite run, no failure.
+
 **Assertions changed.** `app/intentCheck.test.ts` (two) and `app/dailyPlan.test.tsx` (one): the targets carry their
 reading. `model/restore.test.ts`: a saved comparison by id and a figure notebook restore inert, not kept.
 `windows/LibraryPanel.compare.test.tsx` "opened bare asks across the library through the ask box" (was `ask`, now

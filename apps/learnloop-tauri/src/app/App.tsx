@@ -547,6 +547,10 @@ export function App() {
         if (!readerSourceRef.current) {
           setReaderSource({ card, spanId: null });
           setReaderOpenSeq((seq) => seq + 1);
+          // The book the app reopened is this library's remembered book now: the desks saying no book is open (the
+          // learner closed it, even before the desks first reported it, as under a check's hold) forgets it, so the
+          // next start opens the shelf. Ordered by the reports, not by when the first one arrives.
+          rememberedBookRef.current = root ?? null;
         }
       }
     } catch {
