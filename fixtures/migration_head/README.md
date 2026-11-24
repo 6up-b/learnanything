@@ -10,8 +10,9 @@ from, as they were then.
 ## Lesson-weight replay inputs (migration 274), `teacher/te5-consolidation` (L4-2, mvp-0.71), 2026-11-24
 
 Upgraded in place (no rename; base: the probe router's continuation head 273) by the B1 procedure below:
-`274_attempt_grade_curves.sql` (the append-only `attempt_grade_curves` table, its three guard triggers and its primary
-key's autoindex) applied through `learnloop.db.migrate.apply_migrations` on a backup-API copy of the tracked 273 file,
+`274_attempt_grade_curves.sql` (the append-only `attempt_grade_curves` table, its three guard triggers, the replacement
+guard refusing an existing rowid as well as an existing key, and its primary key's autoindex; redone from the 273 file
+after the review fix round changed that guard) applied through `learnloop.db.migrate.apply_migrations` on a backup-API copy of the tracked 273 file,
 outside the checkout, under `upgrade_allowance(UPGRADE_SCRATCH_COPY)`, which applied `[274]` only;
 `wal_checkpoint(TRUNCATE)`, `journal_mode=DELETE` (header bytes 1/1), `integrity_check` ok, `foreign_key_check` empty;
 the tracked file removed and the copy written into its place with `backup_database`, no companion files. Compared with
