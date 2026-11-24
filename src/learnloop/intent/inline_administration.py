@@ -347,7 +347,8 @@ def protect_more(vault: Any, repository: Any, *, token: str, visible: Mapping[st
 
 
 def _text_of(repository: Any, ref: Mapping[str, Any]) -> list[str]:
-    """What an opened veil shows, as the texts measured against the answer keys."""
+    """What an opened veil shows, as the texts measured against the answer keys. A note's words are never read here:
+    a note is never evidence (curriculum C2), so an opened note is recorded unmeasured (``_unmeasured``)."""
 
     from learnloop.db.stores import pad_reads
 
@@ -359,13 +360,12 @@ def _text_of(repository: Any, ref: Mapping[str, Any]) -> list[str]:
         return texts
     block_ids = [str(value) for value in ref.get("pad_block_ids") or ()]
     exchange_ids = [str(value) for value in ref.get("exchange_ids") or ()]
-    note_ids = [str(value) for value in ref.get("note_ids") or ()]
-    if kind == "note" and ref.get("note_id"):
-        note_ids.append(str(ref["note_id"]))
     if kind == "search_row" and ref.get("ref_id"):
         row_kind = ref.get("row_kind")
-        (block_ids if row_kind == "pad" else exchange_ids if row_kind in ("exchange", "thread") else note_ids).append(
-            str(ref["ref_id"]))
+        if row_kind == "pad":
+            block_ids.append(str(ref["ref_id"]))
+        elif row_kind in ("exchange", "thread"):
+            exchange_ids.append(str(ref["ref_id"]))
     with repository.connection() as connection:
         for block_id in block_ids:
             head = pad_reads.head(connection, block_id)
@@ -376,11 +376,18 @@ def _text_of(repository: Any, ref: Mapping[str, Any]) -> list[str]:
                                      (event_id,)).fetchone()
             if row:
                 texts.append(f"{row[0] or ''}\n{row[1] or ''}")
-        for note_id in note_ids:
-            row = connection.execute("SELECT text_md FROM learner_notes WHERE id = ?", (note_id,)).fetchone()
-            if row:
-                texts.append(str(row[0] or ""))
     return texts
+
+
+def _unmeasured(ref: Mapping[str, Any]) -> list[str]:
+    """The notes an opened veil showed and nothing measured (their ids only; C2: a note is never evidence)."""
+
+    ids = [str(value) for value in ref.get("note_ids") or ()]
+    if ref.get("kind") == "note" and ref.get("note_id"):
+        ids.append(str(ref["note_id"]))
+    if ref.get("kind") == "search_row" and ref.get("ref_id") and ref.get("row_kind") not in ("pad", "exchange", "thread", "span"):
+        ids.append(str(ref["ref_id"]))
+    return ids
 
 
 def expose(vault: Any, repository: Any, *, token: str, ref: Mapping[str, Any], kind: str,
@@ -411,7 +418,10 @@ def expose(vault: Any, repository: Any, *, token: str, ref: Mapping[str, Any], k
             record_reveal(repository, practice_item_id=item_id, source_kind="source_review", amount=amount,
                           learning_object_id=item.learning_object_id, basis=OPENED_BASIS, clock=clock)
     now = _now(clock)
-    event = {"kind": kind, "ref": dict(ref), "at": now, "amounts": amounts}
+    event: dict[str, Any] = {"kind": kind, "ref": dict(ref), "at": now, "amounts": amounts}
+    if kind == "opened_veil" and _unmeasured(ref):
+        # The receipt says what was opened and not measured: the notes' words are never read (C2).
+        event["unmeasured_notes"] = _unmeasured(ref)
     with repository.atomic():
         connection = repository.connection()
         current = store.by_token(connection, token)
