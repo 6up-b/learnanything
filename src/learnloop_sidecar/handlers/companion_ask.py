@@ -199,7 +199,8 @@ def companion_ask(ctx: SidecarContext, params: CompanionAskInput) -> dict[str, A
     def check_origin() -> None:
         places = reading_places(params.extraction_id, [params.span_id, *params.selection_span_ids])
         places.extend(block_places(origin_vault, repository, params.pad_block_ids))
-        refuse_protected(origin_vault, repository, places)
+        # The companion asks as the Reader's Ask does: its row (the held-out partition) decides.
+        refuse_protected(origin_vault, repository, places, surface="reader_ask")
 
     check_origin()
     jobs = _jobs(ctx)

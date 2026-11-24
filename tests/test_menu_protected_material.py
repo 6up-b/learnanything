@@ -238,12 +238,14 @@ def test_finished_menu_rechecks_origin_and_targets_at_each_poll(protected, unit)
     ("search.everything", {"query": HELD_WORDS, "selection": {"extractionId": BOOK, "spanIds": ["s2", "s_held"]}}),
 ])
 def test_destination_refuses_mixed_selection_without_menu(protected, rpc, params):
+    """A path that had its own protection refusal before the menu's checks keeps its code (a lesson's
+    ``protected``); every other refuses ``exam_material``."""
     from learnloop_sidecar.errors import SidecarError
 
     _hold_out(protected.repository)
     with pytest.raises(SidecarError) as refused:
         call(protected.ctx, rpc, params)
-    assert refused.value.code == "exam_material"
+    assert refused.value.code == {"lesson.turn": "protected"}.get(rpc, "exam_material")
     assert HELD_WORDS not in json.dumps(call(protected.ctx, "pad.get", {"padId": "pad_1"}))
     assert HELD_WORDS not in json.dumps(call(protected.ctx, "carried.list", {}))
 
@@ -274,7 +276,7 @@ def test_pad_selection_follows_every_lines_payload_and_links(protected):
     ]:
         with pytest.raises(SidecarError) as refused:
             call(ctx, rpc, params)
-        assert refused.value.code == "exam_material", rpc
+        assert refused.value.code == {"lesson.turn": "protected"}.get(rpc, "exam_material"), rpc
 
 
 def test_finished_judged_row_loses_a_newly_marked_target(protected):
@@ -425,3 +427,36 @@ def test_a_stored_mark_on_held_out_material_reaches_no_other_surface(protected):
     everywhere = json.dumps(call(ctx, "search.everything", {"query": "margin thought", "scopes": ["notes", "pads"]}))
     assert OPEN_NOTE in everywhere and HELD_NOTE not in everywhere
     assert HELD_NOTE not in json.dumps(call(ctx, "pad.proposals", {"padId": "pad_1"}))
+
+
+def _exam_now(protected):
+    from learnloop.content.sources.exam_material import exam_withheld, held_out_material
+    from learnloop.vault.loader import load_vault
+
+    vault = load_vault(protected.paths.root)
+    return (exam_withheld(vault, protected.repository, [(BOOK, "s_open")])
+            and not held_out_material(vault, protected.repository).covers(BOOK, "s_open"))
+
+
+@pytest.mark.parametrize("rpc,params", [
+    ("companion.ask", {"requestId": "exam-ok", "surface": "reader", "extractionId": BOOK, "spanId": "s_open",
+                       "selectionSpanIds": ["s_open"], "question": "Why?"}),
+    ("reader.import_exercise", {"extractionId": BOOK, "rawSelection": {"nodes": [{"spanId": "s_open"}]}}),
+    ("reader.author_section_question", {"extractionId": BOOK, "sectionId": "u_open", "spanIds": ["s_open"]}),
+    ("reader.library_ask", {"query": "kernels", "extractionId": BOOK, "spanIds": ["s_open"]}),
+])
+def test_a_shared_destination_keeps_its_own_set_on_exam_material_not_held_out(protected, rpc, params, monkeypatch):
+    """The Reader's Ask, its import and checks and the library's anchor read the held-out partition (their rows of
+    ``SURFACE_SETS``): a practice exam that is not held out stays usable there, as before the workbench. The
+    destination check refuses only what that destination refused."""
+    from learnloop_sidecar.errors import SidecarError
+
+    from learnloop.ai import model_use
+
+    monkeypatch.setattr(model_use, "waiting", lambda *_args, **_kwargs: False)
+    save_unit_selection(protected.repository, BOOK, ["u_open", "u_held"], role_override="exam")
+    assert _exam_now(protected), "the reading is exam material, and not held out"
+    try:
+        call(protected.ctx, rpc, params)
+    except SidecarError as error:  # a later refusal (no AI provider in tests) is not the destination check's
+        assert error.code != "exam_material", (rpc, error.code, error.message)

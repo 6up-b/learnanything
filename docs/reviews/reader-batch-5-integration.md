@@ -42,6 +42,16 @@ overshot, and one stale fixture hid its effect in the harness:
   `notes.search`, `notes.marks`, the workbench search's notes group and the teacher's notes, and pad proposals; the
   companion's context reads no stored annotation. Tests both ways in `tests/test_menu_protected_material.py`, with a
   control mark on an open passage that does reach those surfaces.
+- **BATCH5-11, the destination checks' codes and sets (found by the landing gate).** The branch's checks refused
+  all exam material with `exam_material` on paths that already had their own protection. A comparison whose
+  anchor or pins are protected answered `exam_material` instead of `comparison_withheld`, and a lesson answered
+  `exam_material` instead of `protected`. Paths that read only the held-out partition in `SURFACE_SETS` (the
+  companion's Ask, the Reader's import and checks, the library ask's anchor and the pinned tutor) refused practice
+  exams that are not held out, and the import and quick-check jobs read all exam material, so the protection
+  matrix's world failed to build. Each check now takes its destination's surface and that path's own code and words;
+  the pre-existing refusal wins everywhere.
+- **BATCH5-12, a statement-guard trip of my own.** BATCH5-5's chapter masking called `exam_withheld` inside a
+  handler, which the exercise-statement guard reads as a statement read; it goes through `withheld_places` now.
 - **BATCH5-8, the harness fixture.** The fake finished promoted job carried no verdict, so in the harness every judged
   search failed closed and the promoted rows vanished from the source menu. The server sends the verdict; the fixture
   now does too.
@@ -133,6 +143,11 @@ change from the longer strings.
 
 ## 6. Not reconciled
 
+- The desks' own verdict (`passage.promoted`'s `withheld`) still reads all exam material, so on a desk the menu
+  leaves out Ask, Make it practice and the other sending verbs on a practice exam that is not held out, where the
+  classic Reader's Ask and import allow it. That is the menu's design (WB-DOCS-1), left as it is for the owner.
+- Destinations new with the workbench (pad inserts, carried questions, a desk's compare window, the workbench
+  search's selection) keep the branch's all-exam rule; they had no earlier protection to preserve.
 - COPY-5 to COPY-10, COPY-12 and COPY-13 stay open (outside this brief).
 - A few `DeskShell.menu.test.tsx` tests failed once each (0 to 5 ms) when run beside other files while the C edits
   were in progress; they pass alone, repeated, and in both full vitest runs since.
