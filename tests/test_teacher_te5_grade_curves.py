@@ -18,6 +18,7 @@ from tests.regrade_contract_successor_helpers import _vault
 from tests.grade_curves_migration_helpers import forget_captures
 from tests.teacher_fakes import build_teacher_vault
 from tests.teacher_te1_review_fixes_helpers import _cold, _lesson_with_check, _rows
+from tests.ux_phase1_support import set_config
 
 T = datetime(2026, 11, 1, 9, tzinfo=UTC)
 CURVES = "SELECT * FROM attempt_grade_curves ORDER BY attempt_id, epoch_key"
@@ -252,3 +253,21 @@ def test_an_unapplied_adjudication_before_the_upgrade_is_not_given_the_applied_e
     assert rows[(unapplied.attempt_id, "revision:0")][-1] == "missing_at_upgrade"
     # An epoch the projection did apply keeps its reconstruction.
     assert rows[(applied.attempt_id, "revision:0")][-1] == "reconstructed_at_upgrade"
+
+
+def test_a_rebuild_seeds_measured_difficulty_from_the_recorded_cold_curve(tmp_path):
+    """L42-R13: with measured difficulty on, the item's fitted difficulty starts at the difficulty its first cold
+    grade was applied with. A rebuild after an authored edit seeds it from the recorded curve, not the edited value,
+    so the next grade's curve does not depend on whether a rebuild ran."""
+
+    paths, repository = build_teacher_vault(tmp_path / "vault")
+    set_config(paths.root, {("mastery", "irt", "eb_difficulty_enabled"): True})
+    _cold(paths, repository, "pi_eig_2", T, points=4)
+    live = repository.item_parameter_state("pi_eig_2")
+    vault = load_vault(paths.root)
+    data = vault.practice_items["pi_eig_2"].model_dump(mode="json")
+    data["difficulty"] = 0.93
+    upsert_practice_item(paths.root, data)
+    rebuild_all_derived_state(load_vault(paths.root), repository)
+    rebuilt = repository.item_parameter_state("pi_eig_2")
+    assert (rebuilt.b_mean, rebuilt.b_var) == (live.b_mean, live.b_var)

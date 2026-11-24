@@ -90,7 +90,7 @@ def test_an_update_applied_before_the_outcome_in_its_second_is_in_the_window(tmp
     with repository.atomic():
         LW.write_state(repository, LW.replay_state(vault, repository))
     counts = dict(zip(("fitted_checks", "attempts", "primed", "with_curve", "missing_curve"),
-                      _rows(repository, _owner_copy_window_query())[0]))
+                      _rows(repository, _owner_copy_window_query())[0], strict=True))
     assert counts == {"fitted_checks": 1, "attempts": 3, "primed": 1, "with_curve": 3, "missing_curve": 0}
 
 

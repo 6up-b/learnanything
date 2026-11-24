@@ -83,7 +83,6 @@ from learnloop.learner.mastery import (
     MasteryObservationTrace,
     MasterySeed,
     display_mastery,
-    item_irt_params,
     seed_for_learning_object,
     resolve_item_irt_params,
     update_item_difficulty,
@@ -4888,7 +4887,7 @@ def _belief_update(
     """The learning object's mastery after the observation (the EKF and the breadth floor), the item's fitted
     difficulty, and the surprise the grade carries."""
 
-    item, learning_object, draft = inputs.item, inputs.learning_object, inputs.draft
+    item, draft = inputs.item, inputs.draft
     config, now_iso = inputs.config, inputs.now_iso
     nothing_assessed, held = scope.nothing_assessed, scope.held
     prior_mastery = prior_state.mastery
@@ -4925,11 +4924,13 @@ def _belief_update(
     # memory — they must not move the fitted *cold* difficulty. An attempt
     # with nothing assessed observed nothing about it either.
     if config.mastery.irt.eb_difficulty_enabled and not draft.primed and not nothing_assessed:
-        _authored_a, authored_b = item_irt_params(item, learning_object, config.mastery)
+        # With no fitted difficulty yet the fit starts at the difficulty this grade's mastery update used: live, the
+        # authored value (an unprimed grade without a fitted one reads it); in replay at mvp-0.71, the recorded curve,
+        # so an authored edit since the grade does not reseed it (review L42-R13). Read only while nothing is fitted.
         next_item_parameters = update_item_difficulty(
             prior_state.item_parameter_state,
             practice_item_id=item.id,
-            authored_b=authored_b,
+            authored_b=item_b,
             item_a=item_a,
             learner_mu_posterior=posterior_mastery.logit_mean,
             observation=mastery_observation,
