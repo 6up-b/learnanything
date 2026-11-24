@@ -26,7 +26,9 @@ comment_lines_naming_a_stage_artifact = 2351
 test_files_named_for_a_stage = 184
 # 466: the handwriting reader's tests patch the GLM-OCR client's private opener and probe cache
 # (ingest.extractors.glm_ocr._open, _PROBES) so no test reaches a network or a local OCR server.
-private_patch_sites = 466
+# 467: and inline cold checks' protection-set test patches the inline checks' private section reader
+# (intent.inline_checks._Sections) to give it a fixed book; it sat under the golden on its own branch.
+private_patch_sites = 467
 source_text_assertions = 23
 "src/learnloop/daily_plan/engine.py" = 6777
 # 5833: from mvp-0.66 a grade application reads its required facets through the lifecycle-inputs seam, records a live
