@@ -110,3 +110,83 @@ def test_r2_on_the_policy_arm_the_trace_logs_the_served_probability_not_mu(tmp_p
     mu = trace["trace"]["mixing"]["mu"][decision["chosen_ref"]]
     assert decision["chosen_ref"] == trace["chosen_ref"] and decision["chosen_ref"].startswith("lesson_offer:")
     assert trace["propensity"] == pytest.approx(decision["propensity"]) == pytest.approx(0.8 * mu, abs=1e-6)
+
+
+# -- G2-R3, G2-R6, G2-R13: the selection is its own candidate's, read again at acceptance ------------------------------
+
+
+def _learner(tmp_path, monkeypatch, *, u: float = 0.05):
+    from learnloop.router_objective import probe_coin as PC
+
+    from tests.helpers import append_config_toml
+    from tests.probe_router_authority_helpers import sidecar
+
+    case = divergent_factor(tmp_path, version=HEAD)
+    append_config_toml(case.root, "\n[router_objective]\nstop_coin = 0.2\n")
+    case.vault = load_vault(case.root)
+    monkeypatch.setattr(PC, "draw_uniform", lambda _seed: u)
+    case.ctx = sidecar(case.root)
+    return case
+
+
+def _read(case) -> dict:
+    from tests.probe_router_authority_helpers import call
+
+    return call(case.ctx, "causal_repair_status", {"misconceptionId": case.first})["repairStatus"]
+
+
+def _offer(case) -> dict:
+    from tests.probe_router_authority_helpers import call
+
+    return call(case.ctx, "causal_probe_offer_action", {"factorId": case.factor})["offer"]
+
+
+def test_r3_a_selection_whose_candidate_was_rejected_is_refused_and_never_substituted(tmp_path, monkeypatch):
+    from learnloop.diagnosis.causal_probe_coherence import transition_probe_candidate
+
+    case = _learner(tmp_path, monkeypatch)
+    selected = _read(case)
+    assert selected["routerState"] == "selected"
+    transition_probe_candidate(case.repository, selected["candidateId"], to_status="rejected", reviewer="owner",
+                               clock=CLOCK)
+    # No reviewed instrument is left: the facts say so before the decision is read, and the click is refused.
+    gone = _read(case)
+    assert (gone["routerState"], gone["hardStopReasons"]) == ("unavailable", ["no_executable_instrument"])
+    refused = _offer(case)
+    assert (refused["accepted"], refused["reason"]) == (False, "no_executable_instrument")
+
+
+def test_r3_a_selection_that_can_no_longer_be_administered_is_void_and_the_repair_goes_on(tmp_path, monkeypatch):
+    from learnloop.diagnosis import probe_presentations
+
+    case = _learner(tmp_path, monkeypatch)
+    assert _read(case)["routerState"] == "selected"
+    monkeypatch.setattr(probe_presentations, "routine_display_covers_item", lambda *_a, **_k: True)
+    void = _read(case)
+    assert (void["routerState"], void["status"], void["probeOffered"]) == ("void", "started", False)
+    assert void["hardStopReasons"] == ["probe_item_answer_shown"]
+    refused = _offer(case)
+    assert (refused["accepted"], refused["reason"]) == (False, "probe_item_answer_shown")
+
+
+def test_r6_a_machine_check_queued_after_the_selection_refuses_the_stale_click(tmp_path, monkeypatch):
+    from learnloop.diagnosis import causal_orchestrator
+
+    case = _learner(tmp_path, monkeypatch)
+    assert _read(case)["routerState"] == "selected"
+    monkeypatch.setattr(causal_orchestrator, "pending_machine_checks_for_factor",
+                        lambda *_a, **_k: [{"id": "check_after_selection"}])
+    refused = _offer(case)
+    assert (refused["accepted"], refused["reason"]) == (False, "machine_checks_pending")
+
+
+def test_r13_a_probe_whose_answer_was_shown_is_no_option_and_nothing_is_drawn(tmp_path, monkeypatch):
+    from learnloop.diagnosis import probe_presentations
+
+    case = _learner(tmp_path, monkeypatch)
+    monkeypatch.setattr(probe_presentations, "routine_display_covers_item", lambda *_a, **_k: True)
+    status = _read(case)
+    assert (status["status"], status["routerState"], status["reason"]) == ("started", "unavailable",
+                                                                           "probe_item_answer_shown")
+    with case.repository.connection() as connection:
+        assert connection.execute("SELECT COUNT(*) FROM router_decisions").fetchone()[0] == 0

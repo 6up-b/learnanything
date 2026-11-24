@@ -26,7 +26,6 @@ from learnloop.diagnosis.probe_hard_stops import (
     EPISODE_CONFLICT_REASON,
     _causal_origin,
     episode_conflict_reason,
-    learner_preference,
     record_learner_preference,
 )
 from learnloop.vault.models import LoadedVault
@@ -131,8 +130,10 @@ def router_disposition(repository: Repository, factor_id: str) -> dict[str, Any]
     if decided is None:
         return {"router_state": "pending", "router_decision_id": None}
     selected = str(decided.get("chosen_ref")) == PROBE_REF
+    detail = decided.get("detail") or {}
     return {"router_state": "selected" if selected else "not_selected", "router_decision_id": str(decided["id"]),
-            "learning_object_id": (decided.get("detail") or {}).get("learning_object_id")}
+            "learning_object_id": detail.get("learning_object_id"),
+            "misconception_id": detail.get("misconception_id"), "candidate_id": detail.get("candidate_id")}
 
 
 def accept_routed_probe_offer(
@@ -145,23 +146,26 @@ def accept_routed_probe_offer(
     clock: Clock | None = None,
 ) -> tuple[ProbeOffer, dict[str, Any]]:
     """"Take the quick check" at the probe router's tag: only the router's selection of this factor's probe is
-    accepted, with the learner's hard stops read again at the moment of acceptance (a "Not now" or "Teach me now"
-    recorded after the decision refuses it). A request the router did not select (a stale offer from before the tag,
-    a decision not made yet, or one that did not select the probe) is a typed refusal, never an offer of its own.
-    Returns the offer and the router's disposition."""
-
-    from learnloop.diagnosis.probe_facts import REFUSING_PREFERENCES
+    accepted, and only its own candidate (G2-R3). The status is read again at the moment of acceptance, so every
+    current hard stop applies (G2-R6): a "Not now" or "Teach me now", a machine check, a measuring foreign episode, or
+    a selection made void (its candidate retired or no longer administrable). A request the router did not select
+    (a stale offer from before the tag, a decision not made yet, or one that did not select the probe) is a typed
+    refusal, never an offer of its own. Returns the offer and the router's disposition."""
 
     disposition = router_disposition(repository, factor_id)
     if disposition["router_state"] != "selected":
         return ProbeOffer(accepted=False, reason=ROUTER_DECISION_REQUIRED, factor_id=factor_id), disposition
-    preference = learner_preference(repository, factor_id=factor_id, session_id=session_id,
-                                    learning_object_id=disposition.get("learning_object_id"))
-    if preference in REFUSING_PREFERENCES:
-        return ProbeOffer(accepted=False, reason="learner_preference", factor_id=factor_id), disposition
+    status = causal_repair_status(vault, repository, misconception_id=str(disposition.get("misconception_id") or ""),
+                                  session_id=session_id, start_repair=False, clock=clock)
+    disposition = {**disposition, "router_state": status.router_state,
+                   "hard_stop_reasons": list(status.hard_stop_reasons)}
+    if status.router_state != "selected" or status.factor_id != factor_id:
+        reason = (status.hard_stop_reasons[0] if status.hard_stop_reasons else ROUTER_DECISION_REQUIRED)
+        return ProbeOffer(accepted=False, reason=str(reason), factor_id=factor_id), disposition
     offer = accept_probe_offer(vault, repository, factor_id=factor_id, decision_receipt_id=decision_receipt_id,
                                session_id=session_id, clock=clock,
-                               router_decision_id=disposition["router_decision_id"])
+                               router_decision_id=disposition["router_decision_id"],
+                               candidate_id=str(disposition.get("candidate_id") or "") or None)
     return offer, disposition
 
 

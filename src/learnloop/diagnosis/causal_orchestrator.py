@@ -333,8 +333,9 @@ class RepairStatus:
     reveal_budget: float | None = None
     #: The probe router's tag (``probe_router_on``): the router's disposition of the factor's probe, owned by the
     #: router and only read here: ``pending`` (a probe is executable and no decision exists yet), ``selected``,
-    #: ``not_selected``, or ``unavailable`` (a hard stop or the facts keep the probe out; ``hard_stop_reasons`` says
-    #: which). None below the tag, where the status carries none of these keys.
+    #: ``not_selected``, ``unavailable`` (a hard stop or the facts keep the probe out; ``hard_stop_reasons`` says
+    #: which), or ``void`` (the selected candidate can no longer be administered: the repair goes on and nothing is
+    #: offered in its place). None below the tag, where the status carries none of these keys.
     router_state: str | None = None
     router_decision_id: str | None = None
     hard_stop_reasons: tuple[str, ...] = ()
@@ -1022,6 +1023,7 @@ def _status_for_factor(
     if routed:
         return _routed(
             repository,
+            vault=vault,
             finish=finish,
             reads=reads,
             base_inputs=base_inputs,
@@ -1237,9 +1239,33 @@ def _status_for_factor(
 ROUTER_DECIDES = "router_decides"
 
 
+def candidate_unservable(vault: Any, repository: Repository, candidate: Mapping[str, Any] | None) -> str | None:
+    """Why the quick check on ``candidate`` could not be administered now, or None: the one executability read the
+    router draws on and the offer and the status read back (G2-R3, G2-R13). Its item is in the vault, its answer was
+    not shown, and the learner has never answered it or a near-clone of it (the probe's never-seen rule)."""
+
+    from learnloop.diagnosis.probe_episodes import administered_surface_exclusions
+    from learnloop.diagnosis.probe_presentations import routine_display_covers_item
+    from learnloop.substrate.canonical_projection import surface_group_id
+
+    if candidate is None or not candidate.get("practice_item_id"):
+        return "no_candidate"
+    item_id = str(candidate["practice_item_id"])
+    item = vault.practice_items.get(item_id) if vault is not None else None
+    if item is None:
+        return "probe_item_missing_from_vault"
+    if routine_display_covers_item(repository, item_id):
+        return "probe_item_answer_shown"
+    attempted_ids, attempted_surfaces = administered_surface_exclusions(vault, repository)
+    if item_id in attempted_ids or surface_group_id(item) in attempted_surfaces:
+        return "probe_item_already_answered"
+    return None
+
+
 def _routed(
     repository: Repository,
     *,
+    vault: Any,
     finish: Any,
     reads: ProbeProposalReads,
     base_inputs: Mapping[str, Any],
@@ -1335,6 +1361,12 @@ def _routed(
         decided = learner_probe_decision(connection, factor_id)
     why = "whether the quick check is asked is the router's decision"
     if decided is None:
+        unservable = candidate_unservable(vault, repository, chosen)
+        if unservable is not None:
+            # Nothing to draw over: a probe that cannot be administered is no option (G2-R13).
+            return finish(status="started", reason=unservable, message=STARTED_MESSAGE,
+                          decision="probe_not_executable", decision_reason=unservable, candidate=chosen,
+                          start_episode=True, hard_stop_reasons=("probe_not_executable",), **common)
         if start_repair:
             # The repair entry does not hold a repair on a decision nobody has made (a caller with no router).
             return finish(status="started", reason="no_router_decision", message=STARTED_MESSAGE,
@@ -1345,9 +1377,21 @@ def _routed(
                       candidate=chosen, router_state="pending",
                       proposal=Proposal(chosen=dict(chosen) if chosen is not None else {}, **proposal), **common)
     if str(decided.get("chosen_ref")) == PROBE_REF:
+        # The decision drew over one candidate: only that one is offered (G2-R3). Retired, no longer the active
+        # reviewed one, or no longer administrable, the selection is void and the repair goes on, never a substitute.
+        decided_id = str((decided.get("detail") or {}).get("candidate_id") or "")
+        selected = next((value for value in reads.candidates
+                         if str(value.get("id")) == decided_id and value.get("status") == "active"), None)
+        void = "selected_candidate_unavailable" if selected is None else candidate_unservable(vault, repository,
+                                                                                               selected)
+        if void is not None:
+            return finish(status="started", reason=void, message=STARTED_MESSAGE, decision=ROUTER_DECIDES,
+                          decision_reason=why, candidate=selected or chosen, start_episode=True,
+                          router_state="void", router_decision_id=str(decided["id"]),
+                          hard_stop_reasons=(void,), **common)
         return finish(status="needs_disambiguation", reason="router_selected_probe",
                       message=NEEDS_DISAMBIGUATION_MESSAGE, decision=ROUTER_DECIDES, decision_reason=why,
-                      offered=True, candidate=chosen, router_state="selected",
+                      offered=True, candidate=selected, router_state="selected",
                       router_decision_id=str(decided["id"]), **common)
     return finish(status="started", reason="router_did_not_select_probe", message=STARTED_MESSAGE,
                   decision=ROUTER_DECIDES, decision_reason=why, candidate=chosen, start_episode=True,
@@ -1358,6 +1402,7 @@ __all__ = [
     "CAUSAL_ORCHESTRATOR_POLICY_DEFAULTS",
     "CAUSAL_ORCHESTRATOR_POLICY_SCOPE",
     "ROUTER_DECIDES",
+    "candidate_unservable",
     "EVSI_PROVENANCE",
     "NEEDS_DISAMBIGUATION_MESSAGE",
     "REPAIR_STATUSES",
