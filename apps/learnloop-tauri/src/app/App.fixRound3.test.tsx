@@ -54,7 +54,7 @@ function stub(name: string) {
   return () => <div data-testid={name}>{name}</div>;
 }
 
-vi.mock("../screens/ReaderScreen", () => ({ ReaderScreen: stub("reader-stub") }));
+vi.mock("../screens/desks/DeskShell", async () => ({ DeskShell: (await import("../fixtures/deskShellStub")).DeskShellStub }));
 vi.mock("../screens/LibraryPlace", () => ({ LibraryPlace: stub("library-stub") }));
 vi.mock("../screens/StartScreen", () => ({ StartScreen: stub("start-stub") }));
 vi.mock("../screens/TodayScreen", () => ({ TodayScreen: stub("today-stub") }));

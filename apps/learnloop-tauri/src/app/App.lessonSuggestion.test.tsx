@@ -47,7 +47,7 @@ vi.mock("../screens/LessonScreen", () => ({
     return <div data-testid="lesson-stub" data-entry={JSON.stringify(props.entry)}>lesson</div>;
   }
 }));
-vi.mock("../screens/ReaderScreen", () => ({ ReaderScreen: stub("reader-stub") }));
+vi.mock("../screens/desks/DeskShell", async () => ({ DeskShell: (await import("../fixtures/deskShellStub")).DeskShellStub }));
 vi.mock("../screens/LibraryPlace", () => ({ LibraryPlace: stub("library-stub") }));
 vi.mock("../screens/StartScreen", () => ({ StartScreen: stub("start-stub") }));
 vi.mock("../screens/TodayScreen", () => ({ TodayScreen: stub("today-stub") }));

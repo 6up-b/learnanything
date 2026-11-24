@@ -18,6 +18,9 @@
 //   its notice and starts nothing.
 // - Threads (3.3): resume ▸ opens the problem's book in the Reader and asks
 //   the workbench to resume that problem; open in book ▸ opens the passage.
+//
+// The Reader place is the desks: a stand-in (fixtures/deskShellStub) shows what
+// the app asks them to open, with this file's hand-offs as buttons.
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { clear } from "../api/queryCache";
@@ -28,8 +31,7 @@ const stubs = vi.hoisted(() => ({
   session: null as Record<string, unknown> | null,
   root: "/vault",
   dialogPath: null as string | null,
-  api: {} as Record<string, (...args: unknown[]) => unknown>,
-  reader: [] as Array<Record<string, unknown>>
+  api: {} as Record<string, (...args: unknown[]) => unknown>
 }));
 
 vi.mock("@tauri-apps/api/event", () => ({ listen: vi.fn(async () => () => undefined) }));
@@ -73,32 +75,26 @@ function stub(name: string) {
   return () => <div data-testid={name}>{name}</div>;
 }
 
-vi.mock("../screens/ReaderScreen", () => ({
-  ReaderScreen: (props: Record<string, unknown>) => {
-    stubs.reader.push(props);
-    const initial = props.initialSource as { card: { sourceId: string }; spanId: string | null; reading?: string | null; besideTrail?: { cursor: number } | null } | null;
-    const workbench = props.workbench as { resumeProblem?: { sessionId: string; extractionId?: string | null } | null } | undefined;
-    return (
-      <div
-        data-testid="reader-stub"
-        data-source={initial?.card.sourceId ?? "shelf"}
-        data-span={initial?.spanId ?? ""}
-        data-reading={initial?.reading ?? ""}
-        data-resume={workbench?.resumeProblem?.sessionId ?? ""}
-        data-resume-reading={workbench?.resumeProblem?.extractionId ?? ""}
-        data-beside-trail={initial?.besideTrail ? String(initial.besideTrail.cursor) : ""}
-      >
+// The desks' stand-in (its element shows the app's open request and the workbench's resume), with the reader's
+// hand-offs as buttons: check me on a Probability passage, the same from the second book of a side-by-side pair
+// (the desks hand over their way back, besideTrail), and the desks opening Strang themselves (reported to the app).
+vi.mock("../screens/desks/DeskShell", async () => {
+  const { DeskShellStub } = await import("../fixtures/deskShellStub");
+  return {
+    DeskShell: (props: import("../screens/desks/DeskShell").DeskShellProps) => (
+      <>
+        <DeskShellStub {...props} />
         <button
           type="button"
           onClick={() =>
-            (props.onCheckMe as (request: unknown) => void)({
+            props.reader?.onCheckMe?.({
               practiceItemId: "pi_check",
               spanId: "sp3",
               card: PROB,
               proposalId: null,
               importId: null,
               reading: PROB_READING
-            })
+            } as never)
           }
         >
           check me
@@ -106,7 +102,7 @@ vi.mock("../screens/ReaderScreen", () => ({
         <button
           type="button"
           onClick={() =>
-            (props.onCheckMe as (request: unknown) => void)({
+            props.reader?.onCheckMe?.({
               practiceItemId: "pi_check",
               spanId: "sp3",
               card: PROB,
@@ -114,21 +110,18 @@ vi.mock("../screens/ReaderScreen", () => ({
               importId: null,
               reading: PROB_READING,
               besideTrail: BESIDE_TRAIL
-            })
+            } as never)
           }
         >
           check me beside
         </button>
-        <button
-          type="button"
-          onClick={() => (props.onSourceChange as (source: unknown) => void)({ card: { sourceId: "src_strang", title: "Strang" }, spanId: "st1" })}
-        >
+        <button type="button" onClick={() => props.onReadingChange?.({ sourceId: "src_strang", title: "Strang" })}>
           open Strang
         </button>
-      </div>
-    );
-  }
-}));
+      </>
+    )
+  };
+});
 vi.mock("../screens/LibraryPlace", () => ({ LibraryPlace: stub("library-stub") }));
 vi.mock("../screens/StartScreen", () => ({
   // Reader CA6b fix round 4: the classic shell's Begin, for a check waiting on a session.
@@ -157,6 +150,7 @@ vi.mock("../screens/ReviewScreen", () => ({ ReviewScreen: stub("review-stub") })
 vi.mock("../screens/SettingsScreen", () => ({ SettingsOverlay: stub("settings-stub") }));
 vi.mock("../screens/reader/WrapUpOffer", () => ({ WrapUpOffer: () => null }));
 
+import { lastDeskProps, resetDeskStub } from "../fixtures/deskShellStub";
 import { App } from "./App";
 
 const STARTED = { version: 1, sessionId: "s_new", startedAt: "2026-10-27T18:30:00Z", endedAt: null, energy: null, sleepQuality: null, availableMinutes: 25, notesMdPath: null, checkpoint: null };
@@ -249,7 +243,7 @@ beforeEach(() => {
   stubs.root = "/vault";
   stubs.dialogPath = null;
   stubs.api = {};
-  stubs.reader = [];
+  resetDeskStub();
   store = new Map<string, string>();
   vi.stubGlobal("localStorage", {
     getItem: (key: string) => store.get(key) ?? null,
@@ -723,15 +717,15 @@ describe("CA6b, F8: a check from the book beside opens in that book", () => {
     render(<App />);
     await screen.findByRole("navigation", { name: "Places" });
     await press({ key: "3", altKey: true });
+    // The desks open Strang themselves and report it; the app asks them for nothing.
     fireEvent.click(await screen.findByRole("button", { name: "open Strang" }));
-    await waitFor(() => expect(screen.getByTestId("reader-stub").getAttribute("data-source")).toBe("src_strang"));
+    expect(screen.getByTestId("reader-stub").getAttribute("data-source")).toBe("shelf");
     // The check's card is Probability (the book beside).
     fireEvent.click(screen.getByRole("button", { name: "check me" }));
     await waitFor(() => expect(planLearnerPick).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(screen.getByTestId("reader-stub").getAttribute("data-source")).toBe("src_prob"));
     expect(screen.getByTestId("reader-stub").getAttribute("data-span")).toBe("sp3");
-    const last = stubs.reader[stubs.reader.length - 1];
-    expect((last.workbench as { checkMe?: { sourceId: string; spanId: string } | null }).checkMe).toMatchObject({ sourceId: "src_prob", spanId: "sp3" });
+    expect(lastDeskProps().reader?.workbench?.checkMe).toMatchObject({ sourceId: "src_prob", spanId: "sp3" });
   });
 
   it("a check from the open book keeps the Reader where it is (no reopen)", async () => {
@@ -741,20 +735,21 @@ describe("CA6b, F8: a check from the book beside opens in that book", () => {
     render(<App />);
     await screen.findByRole("navigation", { name: "Places" });
     await press({ key: "3", altKey: true });
-    // The Reader reports Probability open (the check's own book).
+    // The desks report Probability being read (the check's own book).
     const reader = await screen.findByTestId("reader-stub");
     await act(async () => {
-      (stubs.reader[stubs.reader.length - 1].onSourceChange as (source: unknown) => void)({ card: PROB, spanId: "sp1" });
+      lastDeskProps().onReadingChange?.({ sourceId: PROB.sourceId, title: PROB.title });
     });
-    await waitFor(() => expect(screen.getByTestId("reader-stub").getAttribute("data-source")).toBe("src_prob"));
-    const mounts = stubs.reader.length;
+    const seq = reader.getAttribute("data-seq");
     fireEvent.click(screen.getByRole("button", { name: "check me" }));
     await waitFor(() => expect(planLearnerPick).toHaveBeenCalledTimes(1));
     await flush();
-    expect(screen.getByTestId("reader-stub").getAttribute("data-span")).toBe("sp1");
-    // The same Reader (not mounted again on another book).
+    // No open request: the desks stay on the passage they show.
+    expect(screen.getByTestId("reader-stub").getAttribute("data-seq")).toBe(seq);
+    expect(screen.getByTestId("reader-stub").getAttribute("data-source")).toBe("shelf");
+    // The same desks (not mounted again).
     expect(screen.getByTestId("reader-stub")).toBe(reader);
-    expect(stubs.reader.length).toBeGreaterThanOrEqual(mounts);
+    expect(lastDeskProps().reader?.workbench?.checkMe).toMatchObject({ sourceId: "src_prob", spanId: "sp3" });
   });
 });
 
@@ -762,7 +757,8 @@ describe("CA6b, F8: a check from the book beside opens in that book", () => {
 // side by side's second pane goes to the practice screen; back returns to the
 // Reader at its passage WITH the way back to side by side (the Reader's
 // return stack, which the Reader seeds). A check from anywhere else returns
-// as before (no trail).
+// as before (no trail). On the desks the pair is kept by the desks themselves:
+// the app opens the check's book at its passage, a new open for each back.
 describe("CA6b re-review, F8: back from a check begun beside keeps the way back to side by side", () => {
   it("the practice screen's back opens the Reader with the trail; an ordinary check's back has none", async () => {
     stubs.session = { ...STARTED, sessionId: "s1" };
@@ -775,11 +771,15 @@ describe("CA6b re-review, F8: back from a check begun beside keeps the way back 
     const reader = await screen.findByTestId("reader-stub");
     expect(reader.getAttribute("data-source")).toBe("src_prob");
     expect(reader.getAttribute("data-span")).toBe("sp3");
-    expect(reader.getAttribute("data-beside-trail")).toBe("2");
-    // An ordinary check: back is the passage alone.
+    // Retired: the trail handed to the old Reader (data-beside-trail "2", and "" after an ordinary check). The desks
+    // keep side by side's way back themselves: App.desks.test.tsx "back from a check begun in the paired book".
+    const seq = Number(reader.getAttribute("data-seq"));
+    // An ordinary check: back opens the passage again.
     fireEvent.click(screen.getByRole("button", { name: "check me" }));
     fireEvent.click(await screen.findByRole("button", { name: "practice back" }));
-    await waitFor(() => expect(screen.getByTestId("reader-stub").getAttribute("data-beside-trail")).toBe(""));
+    await waitFor(() => expect(Number(screen.getByTestId("reader-stub").getAttribute("data-seq"))).toBeGreaterThan(seq));
+    expect(screen.getByTestId("reader-stub").getAttribute("data-source")).toBe("src_prob");
+    expect(screen.getByTestId("reader-stub").getAttribute("data-span")).toBe("sp3");
   });
 });
 
@@ -796,13 +796,13 @@ describe("CA6b fix round 4, finding 2: a check begun beside that waits on a sess
     await screen.findByTestId("start-stub");
     await press({ key: "9", altKey: true });
     fireEvent.click(await screen.findByRole("button", { name: "open Strang" }));
-    await waitFor(() => expect(screen.getByTestId("reader-stub").getAttribute("data-source")).toBe("src_strang"));
     fireEvent.click(screen.getByRole("button", { name: "check me beside" }));
     fireEvent.click(await screen.findByRole("button", { name: "begin stub" }));
     await waitFor(() => expect(planLearnerPick).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(screen.getByTestId("reader-stub").getAttribute("data-source")).toBe("src_prob"));
     expect(screen.getByTestId("reader-stub").getAttribute("data-span")).toBe("sp3");
-    expect(screen.getByTestId("reader-stub").getAttribute("data-beside-trail")).toBe("2");
+    // Retired: the trail handed to the old Reader (data-beside-trail). The desks keep side by side's way back
+    // themselves: App.desks.test.tsx "back from a check begun in the paired book".
     // Fix round 5 (finding 2): and the check's own reading, carried through the session start.
     expect(screen.getByTestId("reader-stub").getAttribute("data-reading")).toBe("ext_prob");
   });
@@ -814,11 +814,13 @@ describe("CA6b fix round 4, finding 2: a check begun beside that waits on a sess
     await screen.findByRole("navigation", { name: "Places" });
     await press({ key: "3", altKey: true });
     fireEvent.click(await screen.findByRole("button", { name: "open Strang" }));
-    await waitFor(() => expect(screen.getByTestId("reader-stub").getAttribute("data-source")).toBe("src_strang"));
     fireEvent.click(screen.getByRole("button", { name: "check me beside" }));
     await waitFor(() => expect(planLearnerPick).toHaveBeenCalledTimes(1));
     expect(startSession).toHaveBeenCalledTimes(1);
     await waitFor(() => expect(screen.getByTestId("reader-stub").getAttribute("data-source")).toBe("src_prob"));
-    expect(screen.getByTestId("reader-stub").getAttribute("data-beside-trail")).toBe("2");
+    expect(screen.getByTestId("reader-stub").getAttribute("data-span")).toBe("sp3");
+    expect(screen.getByTestId("reader-stub").getAttribute("data-reading")).toBe("ext_prob");
+    // Retired: the trail handed to the old Reader (data-beside-trail). The desks keep side by side's way back
+    // themselves: App.desks.test.tsx "back from a check begun in the paired book".
   });
 });

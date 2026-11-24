@@ -2,13 +2,11 @@
 // App shell itself, with every screen a stub (the demoted screens mount
 // unchanged; only their entry points move). The classic nav's snapshot was
 // recorded on the base shell (c80c54cbb) before any Phase 2 change.
-import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const stubs = vi.hoisted(() => ({
   config: {} as Record<string, unknown>,
-  readerOpensBook: false,
-  readerError: null as string | null,
   mapError: null as { code: string; message: string; retryable: boolean } | null,
   mapRetry: null as (() => void) | null
 }));
@@ -45,30 +43,9 @@ function stub(name: string) {
   return () => <div data-testid={name}>{name}</div>;
 }
 
-vi.mock("../screens/ReaderScreen", async () => {
-  const React = await import("react");
-  return {
-    ReaderScreen: ({
-      onSourceChange,
-      onError,
-      askRequest
-    }: {
-      onSourceChange?: (source: unknown) => void;
-      onError: (message: string) => void;
-      askRequest?: number;
-    }) => {
-      React.useEffect(() => {
-        if (stubs.readerOpensBook) onSourceChange?.({ card: { sourceId: "src_axler", title: "Linear Algebra Done Right" }, spanId: null });
-        if (stubs.readerError) onError(stubs.readerError);
-      }, [onSourceChange, onError]);
-      return (
-        <div data-testid="reader-stub" data-ask-request={askRequest ?? 0}>
-          reader
-        </div>
-      );
-    }
-  };
-});
+// The desks' stand-in: a book window kept from before (deskStub.restored) is reported as the book being read once
+// they are shown, and deskStub.error as their error.
+vi.mock("../screens/desks/DeskShell", async () => ({ DeskShell: (await import("../fixtures/deskShellStub")).DeskShellStub }));
 vi.mock("../screens/LibraryPlace", () => ({ LibraryPlace: stub("library-stub") }));
 vi.mock("../screens/StartScreen", () => ({ StartScreen: stub("start-stub") }));
 vi.mock("../screens/TodayScreen", () => ({ TodayScreen: stub("today-stub") }));
@@ -101,14 +78,16 @@ vi.mock("../screens/ReviewScreen", () => ({
 }));
 vi.mock("../screens/reader/WrapUpOffer", () => ({ WrapUpOffer: () => null }));
 
+import { deskStub, resetDeskStub } from "../fixtures/deskShellStub";
 import { App } from "./App";
+
+const AXLER = { sourceId: "src_axler", title: "Linear Algebra Done Right" };
 
 let store: Map<string, string>;
 
 beforeEach(() => {
   stubs.config = {};
-  stubs.readerOpensBook = false;
-  stubs.readerError = null;
+  resetDeskStub();
   stubs.mapError = null;
   stubs.mapRetry = null;
   store = new Map<string, string>();
@@ -231,15 +210,17 @@ describe("simple (the default)", () => {
   });
 
   it("reopens the book that was open in the Reader", async () => {
-    stubs.readerOpensBook = true;
+    deskStub.restored = AXLER;
     await launch();
     await press({ key: "3", altKey: true });
     await screen.findByTestId("reader-stub");
     expect(store.get("learnloop.place")).toBe("reader");
     cleanup();
-    stubs.readerOpensBook = false;
+    deskStub.restored = null;
     render(<App />);
-    expect(await screen.findByTestId("reader-stub")).toBeTruthy();
+    const reader = await screen.findByTestId("reader-stub");
+    // The app asks the desks for the remembered book.
+    await waitFor(() => expect(reader.getAttribute("data-source")).toBe(AXLER.sourceId));
     expect(Array.from(store.keys()).some((key) => key.startsWith("learnloop.reader.book"))).toBe(true);
   });
 
@@ -253,7 +234,7 @@ describe("simple (the default)", () => {
   });
 
   it("holds a notice while a book is open in the Reader and delivers it at the destination", async () => {
-    stubs.readerOpensBook = true;
+    deskStub.restored = AXLER;
     await launch();
     // A notice raised on the way to the Library (a past exam kept there, UX-5) …
     fireEvent.click(screen.getByRole("button", { name: "+ Add" }));
@@ -279,7 +260,7 @@ describe("simple (the default)", () => {
   // was held in the Reader and came back on Today after the learner had asked
   // there. It is about the place it was said: it goes once the learner moves.
   it("UX-6: 'Nothing here to ask about' is said where it was asked, as a notice, and is gone once the learner moves on", async () => {
-    stubs.readerOpensBook = true;
+    deskStub.restored = AXLER;
     await launch();
     await press({ key: "2", altKey: true });
     await screen.findByTestId("library-stub");
@@ -303,7 +284,7 @@ describe("simple (the default)", () => {
   // Codex review F5: in the Reader the command closed the palette and did
   // nothing visible; it now opens the Reader's own Ask, with no notice.
   it("opens the Reader's Ask when the tutor is asked for with a book open", async () => {
-    stubs.readerOpensBook = true;
+    deskStub.restored = AXLER;
     await launch();
     await press({ key: "3", altKey: true });
     const reader = await screen.findByTestId("reader-stub");
@@ -321,8 +302,8 @@ describe("simple (the default)", () => {
   });
 
   it("shows errors in the Reader, red", async () => {
-    stubs.readerOpensBook = true;
-    stubs.readerError = "Could not load this section.";
+    deskStub.restored = AXLER;
+    deskStub.error = "Could not load this section.";
     await launch();
     await press({ key: "3", altKey: true });
     const alert = await screen.findByRole("alert");

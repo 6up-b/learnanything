@@ -87,7 +87,7 @@ vi.mock("../screens/PracticeScreen", () => ({
   PracticeScreen: (props: { practiceItemId: string }) => <div data-testid={`practice-${props.practiceItemId}`}>question</div>
 }));
 vi.mock("../screens/FeedbackScreen", () => ({ FeedbackScreen: stub("feedback-stub") }));
-vi.mock("../screens/ReaderScreen", () => ({ ReaderScreen: stub("reader-stub") }));
+vi.mock("../screens/desks/DeskShell", async () => ({ DeskShell: (await import("../fixtures/deskShellStub")).DeskShellStub }));
 vi.mock("../screens/LibraryPlace", () => ({ LibraryPlace: stub("library-stub") }));
 vi.mock("../screens/StartScreen", () => ({ StartScreen: stub("start-stub") }));
 vi.mock("../screens/TodayScreen", () => ({ TodayScreen: stub("today-stub") }));

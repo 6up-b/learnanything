@@ -25,6 +25,7 @@ import { CalibrationTool, DataTool, InspectorTool, MistakesTool, SpendTool } fro
 import { InspectorOverlay } from "../components/InspectorOverlay";
 import { SessionFinishHud } from "../components/SessionFinishHud";
 import { EmptyPlaceholder, TerminalFrame, type NavBadgeCounts, type TopTab } from "../components/ui";
+import { COLOR, FONT_MONO } from "../components/term";
 import { CalibrationScreen } from "../screens/CalibrationScreen";
 import { DiagnosticReviewScreen } from "../screens/DiagnosticReviewScreen";
 import { FeedbackScreen } from "../screens/FeedbackScreen";
@@ -43,18 +44,15 @@ import {
   placeOfTab,
   rememberBook,
   rememberPlace,
-  rememberReaderSurface,
   rememberTool,
   rememberedBook,
   rememberedPlace,
-  rememberedReaderSurface,
   rememberedTool,
   tabForPlace,
   uthTool,
   uthToolOfTab,
   visibleUthTools,
   type Place,
-  type ReaderSurface,
   type ShellMode,
   type UthToolId
 } from "./shell";
@@ -115,7 +113,6 @@ type OpenSourceTarget = {
   entityId?: string | null;
 };
 
-const ReaderScreen = lazy(() => import("../screens/ReaderScreen").then((module) => ({ default: module.ReaderScreen })));
 const DeskShell = lazy(() => import("../screens/desks/DeskShell").then((module) => ({ default: module.DeskShell })));
 const LessonScreen = lazy(() => import("../screens/LessonScreen").then((module) => ({ default: module.LessonScreen })));
 const GraphScreen = lazy(() => import("../screens/GraphScreen").then((module) => ({ default: module.GraphScreen })));
@@ -171,17 +168,15 @@ export function App() {
   // The Reader unmounts on every tab switch; the open source is kept here so
   // returning to the tab resumes it (its reads come from the query cache).
   const [readerSource, setReaderSource] = useState<ReaderOpenSource | null>(null);
-  // Reader workbench v2: the desks or the old Reader, remembered on this machine. The old Reader stays the
-  // default until the desks carry everything it does (spec §21.1's parity matrix).
-  const [readerSurface, setReaderSurface] = useState<ReaderSurface>(rememberedReaderSurface);
-  const chooseReaderSurface = useCallback((surface: ReaderSurface) => {
-    rememberReaderSurface(surface);
-    setReaderSurface(surface);
-  }, []);
   // The book open now, for the startup restore (it must not replace a book
   // the learner opened while the library list was loading).
   const readerSourceRef = useRef<ReaderOpenSource | null>(null);
   readerSourceRef.current = readerSource;
+  // The book being read on the desks (their report: the focused book window, else the one focused last), or null with
+  // none open; undefined until the desks first report in this library. Kept while the desks are not shown.
+  const [deskBook, setDeskBook] = useState<{ sourceId: string; title: string } | null | undefined>(undefined);
+  // Before the desks report, the book the app restored at startup (the remembered one) stands for it (RDX-3).
+  const readingBook = deskBook !== undefined ? deskBook : readerSource ? { sourceId: readerSource.card.sourceId, title: readerSource.card.title } : null;
   // Bumped when the shell opens a book on purpose (Add, the shelf's Continue),
   // so a Reader already showing another book remounts on the new one.
   const [readerOpenSeq, setReaderOpenSeq] = useState(0);
@@ -726,20 +721,21 @@ export function App() {
       rememberTool(tool);
     }
   }, [simple, hasSnapshot, tab, uthToolState]);
-  // The book open in the Reader, per library. Closing it (back to the shelf)
+  // The book being read, per library. Closing its last window on the desks
   // forgets it, so the next start does not reopen a book the learner put
   // down (fix round 5); a library switch does not count as closing.
   const rememberedBookRef = useRef<string | null>(null);
   useEffect(() => {
     if (!simple || !vaultRoot) return;
-    if (readerSource) {
-      rememberBook(vaultRoot, readerSource.card.sourceId);
+    if (deskBook === undefined) return;
+    if (deskBook) {
+      rememberBook(vaultRoot, deskBook.sourceId);
       rememberedBookRef.current = vaultRoot;
     } else if (rememberedBookRef.current === vaultRoot) {
       rememberBook(vaultRoot, null);
       rememberedBookRef.current = null;
     }
-  }, [simple, vaultRoot, readerSource]);
+  }, [simple, vaultRoot, deskBook]);
 
   // Record every activated vault (startup load, chip switches, NewVaultWizard —
   // all update snapshot.vault.root) into the nav chip's recents dropdown. Uses
@@ -1070,7 +1066,7 @@ export function App() {
         // Fix round 4 (verify finding 2): the Reader opened again here keeps
         // the way back to side by side (besideTrail), as the practice
         // screen's back does: Alt+← reopens side by side after the session starts.
-        if (options.fromStart || (readerSource !== null && readerSource.card.sourceId !== request.card.sourceId)) {
+        if (options.fromStart || (readingBook !== null && readingBook.sourceId !== request.card.sourceId)) {
           // Fix round 5 (verify finding 2): and the check's own reading, so the
           // Reader opens it (or refuses the check honestly when that reading
           // is no longer the book's), never another reading with its passage.
@@ -1265,6 +1261,9 @@ export function App() {
       return;
     }
     setReaderSource(target);
+    // A new open request: the desks take each request once, so one sent before (a startup restore, a return) must not
+    // stand for this one (RDX-2).
+    setReaderOpenSeq((seq) => seq + 1);
     setTab("reader");
   }
   async function openStudied(restoration: IntentRestorationDto) {
@@ -1421,7 +1420,7 @@ export function App() {
   // Reader workbench RD9a (spec §11.1): with the desks as the current place, a lesson opens in a window on the current
   // desk instead of switching screens; anywhere else it is the lesson screen, as before.
   function openLessonEntry(entry: LessonEntry) {
-    if (tab === "reader" && readerSurface === "desks" && vaultRoot) {
+    if (tab === "reader" && vaultRoot) {
       const vault = vaultRoot;
       setDeskLessonRequest((now) => ({ seq: (now?.seq ?? 0) + 1, entry, vault }));
       return;
@@ -1466,14 +1465,6 @@ export function App() {
   function openBlockReview(blockEnd: ProbeBlockEndDto, learningObjectId: string, learningObjectTitle: string) {
     setBlockReview({ blockEnd, learningObjectId, learningObjectTitle });
     setTodayStage("blockReview");
-  }
-
-  // The Reader's "← Library": the one shelf, Library → Books (spec K5; usability
-  // round 1: the Reader's own list read as a second Library). The open book
-  // stays remembered, so the Reader tab returns to it.
-  function openLibraryShelf() {
-    setLibraryView("books");
-    gotoTab("library");
   }
 
   // TE2 landing ruling R2 (spec_teacher_v1 rev 5 §11.5): a typed goal's leftover, "Look in my library": the lesson
@@ -1847,6 +1838,7 @@ export function App() {
     setIngestJobId(null);
     setProposalFocusPatchId(null);
     setReaderSource(null);
+    setDeskBook(undefined);
     setAddOpen(false);
     setConnectOpen(false);
     answerAiOk(false); // a request refused in the library being left is not sent into the next one
@@ -1976,7 +1968,7 @@ export function App() {
 
   // UX Phase 2 (§7.9): while the Reader has a book open, notices wait (errors show).
   const readerHolding =
-    simple && tab === "reader" && readerSource !== null && !examGoalId && !calibrationSessionId;
+    simple && tab === "reader" && readingBook !== null && !examGoalId && !calibrationSessionId;
 
   // UX Phase 2 (§5.1, §10 2.4): the palette's plain commands, first.
   function paletteCommands(): PaletteCommand[] {
@@ -1986,10 +1978,10 @@ export function App() {
       {
         id: "continue",
         label: "Continue reading",
-        hint: readerSource ? readerSource.card.title : "choose a book on the Library shelf",
+        hint: readingBook ? readingBook.title : "choose a book on the Library shelf",
         keywords: ["reader", "book", "read"],
         run: () => {
-          if (readerSource) {
+          if (readingBook) {
             gotoPlace("reader");
           } else {
             setLibraryView("books");
@@ -2019,10 +2011,9 @@ export function App() {
           const practicing = tab === "today" && todayStage === "practice";
           // On a question the shell already says why it can't (teach-back, checks).
           if (askCurrentContext() || practicing) return;
-          // With a book open, the Reader's own Ask opens, its box focused
-          // (Codex review F5: a notice held while reading did nothing there).
-          // On the desks it summons their companion, a book open in a window or not.
-          if (tab === "reader" && (readerSource || (readerSurface === "desks" && vaultRoot))) {
+          // In the Reader (the desks) it summons their companion, a book open in a window or not (Codex review F5:
+          // a notice held while reading did nothing there).
+          if (tab === "reader" && vaultRoot) {
             setReaderAskRequest((count) => count + 1);
             return;
           }
@@ -2445,17 +2436,17 @@ export function App() {
     }
   }
 
-  /** The Reader place on the desks (the surface the learner chose). */
+  /** The Reader place: the desks (spec §21.1; the old standalone Reader is retired). */
   function renderDesks(root: string) {
     return (
       <DeskShell
         key={root}
         vaultKey={root}
         onError={onError}
-        onLeave={() => chooseReaderSurface("reader")}
         firstSourceId={readerSource?.card.sourceId ?? null}
         // Skim is the mute button on the desks too: leaving them while the book being read is skimmed offers nothing.
         onSkimmingChange={noteReaderSkimming}
+        onReadingChange={setDeskBook}
         {...(simple ? { askRequest: readerAskRequest } : {})}
         // Every way into the Reader (the shelf, Today's threads and citations, a return from feedback, a lesson's
         // "Look in my library") opens its book or search on the desk in view, once per open.
@@ -2469,6 +2460,14 @@ export function App() {
       />
     );
   }
+
+  // The desks are a library's: with none open there is nothing to read (the old Reader's offline demo chapter went with
+  // it; captures there were never kept).
+  const readerWithoutLibrary = (
+    <div style={{ padding: "22px 32px", fontFamily: FONT_MONO, fontSize: 12, color: COLOR.textDim }}>
+      Open a library to read in it.
+    </div>
+  );
 
   function renderRemainingTabs() {
     if (!snapshot) return null;
@@ -2487,15 +2486,12 @@ export function App() {
               }}
               onError={onError}
             />
-            {/* The plan's reading on the desks when they are the Reader: its book opened (or focused) at the section. */}
-            {readerSurface === "desks" && vaultRoot ? renderDesks(vaultRoot) : (
-              <ReaderScreen key={readerOpenSeq} onError={onError} {...(simple ? { askRequest: readerAskRequest } : {})} initialSource={readerSource} onSourceChange={setReaderSource} onOpenLibrary={openLibraryShelf} onOpenToday={() => gotoPlace("today")} shelf={libraryPlace(true)} onCheckMe={checkMeFromReader} onUseExercise={exerciseFromReader} {...(algoConfig().lessons ? { onTeachMe: teachMeFromReader } : {})} onSkimmingChange={noteReaderSkimming} {...(readerWorkbench ? { workbench: readerWorkbench } : {})} {...(readerLibrarySearch?.seq === readerOpenSeq ? { initialLibrarySearch: readerLibrarySearch.phrase } : {})} />
-            )}
+            {/* The plan's reading on the desks: its book opened (or focused) at the section. */}
+            {vaultRoot ? renderDesks(vaultRoot) : readerWithoutLibrary}
           </div>
         );
       }
-      if (readerSurface === "desks" && vaultRoot) return renderDesks(vaultRoot);
-      return <ReaderScreen key={readerOpenSeq} onError={onError} {...(simple ? { askRequest: readerAskRequest } : {})} initialSource={readerSource} onSourceChange={setReaderSource} onOpenLibrary={openLibraryShelf} onOpenToday={() => gotoPlace("today")} shelf={libraryPlace(true)} onCheckMe={checkMeFromReader} onUseExercise={exerciseFromReader} {...(algoConfig().lessons ? { onTeachMe: teachMeFromReader } : {})} onSkimmingChange={noteReaderSkimming} {...(readerWorkbench ? { workbench: readerWorkbench } : {})} {...(readerLibrarySearch?.seq === readerOpenSeq ? { initialLibrarySearch: readerLibrarySearch.phrase } : {})} {...(vaultRoot ? { onOpenDesks: () => chooseReaderSurface("desks") } : {})} />;
+      return vaultRoot ? renderDesks(vaultRoot) : readerWithoutLibrary;
     }
     if (tab === "maintain") {
       return renderMaintain();

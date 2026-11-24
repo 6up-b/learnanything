@@ -12,7 +12,7 @@
 //    no window or document listener sees the key.
 // 3. The remembered book comes back on restart whatever the landing place:
 //    restarting on Progress, Alt+3 and "Continue reading" open it in the
-//    Reader. The Reader stub reports the source it was actually given.
+//    Reader. The desks' stand-in reports the book the app asked them to open.
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { clear } from "../api/queryCache";
@@ -54,13 +54,7 @@ function stub(name: string) {
   return () => <div data-testid={name}>{name}</div>;
 }
 
-vi.mock("../screens/ReaderScreen", () => ({
-  ReaderScreen: ({ initialSource }: { initialSource?: { card: { sourceId: string; title: string } } | null }) => (
-    <div data-testid="reader-stub" data-source={initialSource?.card.sourceId ?? "shelf"} data-title={initialSource?.card.title ?? ""}>
-      reader
-    </div>
-  )
-}));
+vi.mock("../screens/desks/DeskShell", async () => ({ DeskShell: (await import("../fixtures/deskShellStub")).DeskShellStub }));
 vi.mock("../screens/LibraryPlace", () => ({ LibraryPlace: stub("library-stub") }));
 vi.mock("../screens/PracticeScreen", () => ({ PracticeScreen: stub("practice-stub") }));
 vi.mock("../screens/GraphScreen", () => ({ GraphScreen: stub("graph-stub") }));
@@ -72,6 +66,7 @@ vi.mock("../screens/ReviewScreen", () => ({ ReviewScreen: stub("review-stub") })
 vi.mock("../screens/SettingsScreen", () => ({ SettingsOverlay: stub("settings-stub") }));
 vi.mock("../screens/reader/WrapUpOffer", () => ({ WrapUpOffer: () => null }));
 
+import { resetDeskStub } from "../fixtures/deskShellStub";
 import { App } from "./App";
 
 let store: Map<string, string>;
@@ -83,6 +78,7 @@ beforeAll(async () => {
 }, 120_000);
 
 beforeEach(() => {
+  resetDeskStub();
   stubs.config = {};
   stubs.session = null;
   stubs.api = {};
@@ -457,7 +453,7 @@ describe("the remembered book comes back whatever the landing place (item 3)", (
     await press({ key: "3", altKey: true });
     const reader = await screen.findByTestId("reader-stub");
     await waitFor(() => expect(reader.getAttribute("data-source")).toBe(AXLER.sourceId));
-    expect(reader.getAttribute("data-title")).toBe(AXLER.title);
+    // The book's title is no longer handed over: the desks read it from the library (the open request carries the id).
   });
 
   it("restarting on Progress, Continue reading opens the last book", async () => {

@@ -503,8 +503,6 @@ function writeStored(key: string, value: string): void {
 export interface DeskShellProps {
   vaultKey: string;
   onError: (message: string) => void;
-  /** Back to the old Reader (it stays reachable until the parity matrix passes, spec §21.1). */
-  onLeave?: () => void;
   /** First run: the book the learner read last, for the first desk (spec §5.1). */
   firstSourceId?: string | null;
   transport?: DeskTransport;
@@ -557,6 +555,10 @@ export interface DeskShellProps {
   /** Whether the book being read is skimmed (the focused book window, else the book window focused last): the app
    *  offers nothing where the learner lands after leaving the desks while skimming, as after the old Reader. */
   onSkimmingChange?: (muted: boolean) => void;
+  /** The book being read (the focused book window, else the book window focused last, else the first on the desk in
+   *  view), or null when no book is open: the app remembers it for the next start, offers it as "Continue reading" and
+   *  holds its notices while one is open, as it did for the old Reader's open book. */
+  onReadingChange?: (book: { sourceId: string; title: string } | null) => void;
   /** The app's way into the Reader while the desks are the Reader (the shelf, Today's threads and citations, a return
    *  from feedback, a lesson's "Look in my library"): a book (and passage) to open or focus on the desk in view, or
    *  words to search for. Each request is done once, by its sequence number, however often the desks mount again. */
@@ -582,7 +584,6 @@ const doneOpenRequests = new Map<string, number>();
 export function DeskShell({
   vaultKey,
   onError,
-  onLeave,
   firstSourceId = null,
   transport = LIVE_DESK_TRANSPORT,
   reader: readerProp,
@@ -604,6 +605,7 @@ export function DeskShell({
   videoTransport = LIVE_VIDEO_TRANSPORT,
   askRequest = 0,
   onSkimmingChange,
+  onReadingChange,
   openRequest = null,
   checkTransport = LIVE_CHECK_TRANSPORT,
 }: DeskShellProps) {
@@ -997,6 +999,25 @@ export function DeskShell({
     return handler;
   }, [skimmingHandlers, reportSkimming]);
   useEffect(() => reportSkimming(), [focusId, reportSkimming]);
+  // The book being read, for the app (said once per change).
+  const readingReported = useRef<string | undefined>(undefined);
+  const onReadingRef = useRef(onReadingChange);
+  onReadingRef.current = onReadingChange;
+  useEffect(() => {
+    if (!ws || !storeReady) return;
+    const isBook = (id: string | null | undefined) => {
+      const content = id ? ws.windows[id]?.content : null;
+      return content && (content.kind === "source" || content.kind === "video" || content.kind === "preparing") ? content : null;
+    };
+    if (isBook(focusId)) lastBookFocus.current = focusId;
+    const desk = deskById(ws, deskId);
+    const shown = isBook(lastBookFocus.current) ?? isBook(desk?.slots.flat().find((id) => isBook(id)) ?? null);
+    const book = shown ? { sourceId: shown.sourceId, title: library?.find((card) => card.sourceId === shown.sourceId)?.title ?? "" } : null;
+    const key = book ? `${book.sourceId}\u0000${book.title}` : "";
+    if (readingReported.current === key) return;
+    readingReported.current = key;
+    onReadingRef.current?.(book);
+  }, [ws, focusId, deskId, storeReady, library]);
   // Poll owners follow the windows: a paused window's polls wait; a window that closed (gone from the
   // lifecycles) pauses its polls too, and when the shell detaches every owner it knew pauses.
   const knownOwners = useRef(new Set<string>());
@@ -4127,8 +4148,14 @@ export function DeskShell({
         ) : null}
         <button type="button" className="tb" aria-pressed={overview} title="alt+o" onClick={() => toggleOverview()}>o overview</button>
         <button type="button" className="tb" aria-expanded={opener} onClick={() => setOpener((open) => !open)}>+ open beside</button>
-        {onLeave ? <button type="button" className="tb" onClick={onLeave}>old Reader</button> : null}
       </header>
+      {promptContract.data && promptContract.data.readerEnabled === false ? (
+        // The library's reading switch is off: every Reader read refuses, so the windows cannot open their books. Said
+        // once, with the setting (the old Reader's list of books said it the same way).
+        <div className="desk-quiet" role="note" data-desk-reader-off="" style={{ padding: "6px 16px", borderBottom: "1px solid var(--desk-line)" }}>
+          Reading is off in this library: set <code>tutor_qa.reader_enabled = true</code> in learnloop.toml to read and annotate your sources here.
+        </div>
+      ) : null}
       {goalDesk.band}
       <main className={`desk-main${viewportWidth < DESK_SIZES.shelfFoldBelow ? " rail" : ""}`} ref={mainRef}>
         <Shelf
