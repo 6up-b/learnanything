@@ -2219,9 +2219,10 @@ export function DeskShell({
     notebookFrame: lessons?.notebookFrame ?? lessonNotebookFrame,
   }), [lessonDesk, onError, openLesson, lessons?.onQuickCheck, lessons?.onLookInLibrary, lessons?.notebookFrame, lessons?.onProbe]);
 
-  const placeContent = useCallback((content: ContentRefDto, options: { spanId?: string | null; view?: Record<string, unknown>; peek?: boolean } = {}) => {
+  const placeContent = useCallback((content: ContentRefDto, options: { spanId?: string | null; view?: Record<string, unknown>; peek?: boolean; deskId?: string } = {}) => {
     const current = wsRef.current;
-    const id = deskIdRef.current;
+    // The desk the open was asked on (a desk switched to while the book's reading was read keeps its own windows).
+    const id = options.deskId && deskById(current, options.deskId) ? options.deskId : deskIdRef.current;
     if (!id) return;
     if (content.kind === "lesson") {
       // A lesson lands in the desk's stack (spec §11.1), or is focused where it already is.
@@ -2266,17 +2267,23 @@ export function DeskShell({
    *  reading whatever reading the caller named (blocker 1: the reading its Reader renders), and a passage named on an
    *  earlier reading (`spanReading`, else the content's own) is translated onto it, for a new window and for one already
    *  open alike (major 7); with no place there the book opens at the learner's place in it, and says so. */
-  const openContent = useCallback((content: ContentRefDto, options: { spanId?: string | null; spanReading?: string | null; view?: Record<string, unknown>; peek?: boolean } = {}) => {
+  // Each book open is numbered when asked: one asked later supersedes it (major 9: a slow read never takes the focus
+  // back from the book opened after it), and it opens on the desk it was asked on.
+  const openSeq = useRef(0);
+  const openContent = useCallback((content: ContentRefDto, options: { spanId?: string | null; spanReading?: string | null; view?: Record<string, unknown>; peek?: boolean; deskId?: string } = {}) => {
     const { spanReading, ...rest } = options;
+    const seq = ++openSeq.current;
     if (content.kind !== "source" && content.kind !== "video") {
       placeContent(content, rest);
       return;
     }
+    const askedOn = rest.deskId ?? deskIdRef.current ?? undefined;
     void (async () => {
       const current = await transport.resolveExtraction(content.sourceId).catch(() => content.extractionId);
       const named = spanReading ?? content.extractionId;
       const spanId = rest.spanId ? await placeOn(content.sourceId, rest.spanId, named, current) : null;
-      placeContent({ ...content, extractionId: current }, { ...rest, spanId });
+      if (seq !== openSeq.current) return;
+      placeContent({ ...content, extractionId: current }, { ...rest, spanId, ...(askedOn ? { deskId: askedOn } : {}) });
       if (rest.spanId && !spanId) toastNow("that passage was on an earlier reading of this book · it opened at your place in it");
     })();
   }, [placeContent, transport, placeOn, toastNow]);
@@ -2297,28 +2304,45 @@ export function DeskShell({
     return first === windowId ? openRequest.spanId : null;
   };
 
-  // The app's open request: done once the desks, the library and the desk in view are there.
+  // The app's open request: done once the desks, the library and the desk in view are there. The desks' library is
+  // read again once for a request it does not know the book of (major 8: a book just added while the desks were open,
+  // or a first read that failed), before saying the book is gone.
+  const libraryReadFor = useRef<number | null>(null);
   useEffect(() => {
-    if (!openRequest || !storeReady || !deskId || library === null) return;
+    if (!openRequest || !storeReady || !deskId) return;
     if ((doneOpenRequests.get(vaultKey) ?? -1) >= openRequest.seq) return;
-    doneOpenRequests.set(vaultKey, openRequest.seq);
     if (!openRequest.sourceId) {
+      doneOpenRequests.set(vaultKey, openRequest.seq);
       if (openRequest.phrase !== undefined) setSearch({ query: openRequest.phrase });
       return;
     }
-    const card = library.find((entry) => entry.sourceId === openRequest.sourceId);
+    const card = library?.find((entry) => entry.sourceId === openRequest.sourceId) ?? null;
     if (!card) {
+      if (libraryReadFor.current !== openRequest.seq) {
+        libraryReadFor.current = openRequest.seq;
+        void transport.library().then((cards) => setLibrary(cards), () => {
+          doneOpenRequests.set(vaultKey, openRequest.seq);
+          toastNow("couldn't open that book just now");
+        });
+        return;
+      }
+      if (library === null) return;
+      doneOpenRequests.set(vaultKey, openRequest.seq);
       toastNow("that book isn't in your library any more");
       return;
     }
+    doneOpenRequests.set(vaultKey, openRequest.seq);
     if (card.readiness !== "ready") {
       // Its original, its progress, a failure's action and the retry, in a window of its own until the text is ready.
       openContent({ kind: "preparing", sourceId: card.sourceId });
       return;
     }
+    // Accepted on this desk: a book opened meanwhile (another request, a click) supersedes it (major 9).
+    const accepted = { opens: openSeq.current, deskId };
     void transport.resolveExtraction(card.sourceId).then((extractionId) => {
+      if (openSeq.current !== accepted.opens) return;
       // A passage found on an earlier reading of the book is translated onto the reading it has now (openContent).
-      openContent(contentForCard(card, extractionId), { spanId: openRequest.spanId, spanReading: openRequest.reading ?? extractionId });
+      openContent(contentForCard(card, extractionId), { spanId: openRequest.spanId, spanReading: openRequest.reading ?? extractionId, deskId: accepted.deskId });
     }, () => toastNow("couldn't open that book just now"));
   }, [openRequest, storeReady, deskId, library, vaultKey, transport, openContent, toastNow]);
 
