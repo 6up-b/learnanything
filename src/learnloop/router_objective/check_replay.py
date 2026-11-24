@@ -14,7 +14,13 @@ final draw count with the first batch's and the ceiling, the rollout options, th
 versions, and each check's delivery sensors as the offer recorded them. Only numbers, ids and version names: no
 question, answer or title.
 
-A leaf over :mod:`types`, :mod:`memory` and :mod:`ad_link` (the dataclasses it encodes) and the standard library.
+The probe router's learner lane writes the same format for its probe valuation (G2 review R15): the probe action
+carries its diagnostic payload (:mod:`diagnostic_payload`'s dataclasses, a repair's coverage a frozen set), so a
+decision is revalued from its stored row alone (``learner_probe.revalue``). Neither addition changes how a payload
+that holds none of them is written.
+
+A leaf over :mod:`types`, :mod:`memory`, :mod:`ad_link` and :mod:`diagnostic_payload` (the dataclasses it encodes) and
+the standard library.
 """
 
 from __future__ import annotations
@@ -26,6 +32,13 @@ import json
 from typing import Any
 
 from learnloop.router_objective.ad_link import AdLink, LessonCurve
+from learnloop.router_objective.diagnostic_payload import (
+    Channel,
+    DiagnosticProbe,
+    Hypothesis,
+    MissingChannel,
+    RepairOption,
+)
 from learnloop.router_objective.memory import Combiner
 from learnloop.router_objective.types import (
     Action,
@@ -44,7 +57,9 @@ REPLAY_VERSION = "check_credit_replay_v1"
 #: The trace key the payload is written under.
 TRACE_KEY = "check_credit_replay"
 _CLASSES = (Inputs, Action, Topic, DatedUse, Price, Learning, EffectSlope, CauseSplit, CheckCommitment, AdLink,
-            LessonCurve, Combiner)
+            LessonCurve, Combiner, DiagnosticProbe, Hypothesis, Channel, MissingChannel, RepairOption)
+#: A frozen set's tag (a repair's coverage): its members sorted, so the bytes are the set's, not an iteration order.
+_FROZENSET = "frozenset"
 _REGISTRY = {cls.__name__: cls for cls in _CLASSES}
 
 
@@ -55,6 +70,8 @@ def encode(value: Any) -> Any:
         if type(value) not in _CLASSES:
             raise ValueError(f"unsupported numeric type {type(value).__name__}")
         return {"type": type(value).__name__, "fields": {f.name: encode(getattr(value, f.name)) for f in fields(value)}}
+    if isinstance(value, frozenset):
+        return {"type": _FROZENSET, "fields": sorted(encode(item) for item in value)}
     if isinstance(value, Mapping):
         return {str(key): encode(item) for key, item in value.items()}
     if isinstance(value, (tuple, list)):
@@ -66,6 +83,8 @@ def decode(value: Any) -> Any:
     """:func:`encode`'s inverse (lists come back as tuples); a dataclass missing any field is refused."""
 
     if isinstance(value, Mapping):
+        if set(value) == {"type", "fields"} and value["type"] == _FROZENSET:
+            return frozenset(decode(item) for item in value["fields"])
         if set(value) == {"type", "fields"} and value["type"] in _REGISTRY:
             cls = _REGISTRY[value["type"]]
             if set(value["fields"]) != {f.name for f in fields(cls)}:

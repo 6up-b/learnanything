@@ -214,15 +214,36 @@ def value(vault: Any, repository: Any, proposal: Any, *, now_iso: str, seed_iden
     valuation = evaluate_probe(inputs, probe, decisions=OWNER_DECISIONS, draws=draws, seed=seed, wait_feasible=True,
                                **options)
     # Frozen for replay: the whole unrounded inputs and the probe action as valued, the seed, the draw count and the
-    # options.
+    # options; ``replay`` is the lossless payload :func:`revalue` values again from the stored row alone (G2 review
+    # R15), the rest its readable view.
     from dataclasses import asdict
 
+    from learnloop.router_objective import check_replay
+
+    replay = check_replay.record(inputs, (probe,), seed=seed, draws=draws, first_draws=draws, max_draws=draws,
+                                 as_of=now_iso, options=options,
+                                 versions={"policy": valuation.record.get("version"), "lane": POLICY},
+                                 sensors={})
     return valuation, {"status": "valued", "exposure": exposure, "price": {"kappa0": priced.kappa0, "how": priced.how},
                        "topics": len(inputs.topics), "topic_sources": sources.get("topics", {}).get(lo),
                        "frozen": {"inputs": asdict(inputs), "probe_minutes": probe.minutes,
                                   "probe_minutes_log_sd": probe.minutes_log_sd, "payload": payload.summary(),
                                   "seed": seed, "draws": draws, "rollout_options": dict(options),
-                                  "policy_version": valuation.record.get("version")}}
+                                  "policy_version": valuation.record.get("version"), "replay": replay}}
+
+
+def revalue(replay: Mapping[str, Any]) -> Any:
+    """The decision's probe valued again from its stored replay payload alone (``frozen.replay``): the same inputs,
+    probe, seed, draws and options, at the owner's decisions the lane values with. No vault, repository or config is
+    read, so a decision's numbers can be checked after any later recalibration."""
+
+    from learnloop.router_objective import check_replay
+    from learnloop.router_objective.diagnostic_value import evaluate_probe
+
+    body = check_replay.read(replay)
+    (probe,) = body["proposed_actions"]
+    return evaluate_probe(body["inputs"], probe, decisions=OWNER_DECISIONS, draws=int(body["draws"]),
+                          seed=str(body["seed"]), wait_feasible=True, **dict(body["options"]))
 
 
 def information(valuation: Any) -> float:
@@ -352,4 +373,4 @@ def decide_proposal(vault: Any, repository: Any, proposal: Any, *, clock: Clock 
 
 
 __all__ = ["LLM_NOT_ASKED", "OWNER_DECISIONS", "POLICY", "decide", "decide_proposal", "diagnostic_payload", "information",
-           "value"]
+           "revalue", "value"]

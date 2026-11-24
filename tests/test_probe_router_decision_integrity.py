@@ -534,3 +534,17 @@ def test_r17_a_declined_offer_and_no_offer_are_measured_on_the_same_target(tmp_p
         measured[name] = (row["target_learning_object_id"], json.loads(row["detail_json"]).get("r_cold_rule"))
     assert measured["offered"] == measured["declined"]
     assert measured["offered"][0] == LO_ID
+
+
+def test_r15_the_decision_replays_numerically_from_its_frozen_record_alone(tmp_path, monkeypatch):
+    from learnloop.daily_plan import learner_probe
+
+    case = _learner(tmp_path, monkeypatch)
+    _read(case)
+    detail = _decision(case)["detail"]
+    # Nothing but the stored row: no vault, no repository, no config.
+    replayed = learner_probe.revalue(detail["valuation"]["frozen"]["replay"])
+    assert replayed.record["values"] == detail["evaluation"]["values"]
+    assert replayed.choice == detail["evaluation"]["numeric_choice"]
+    assert replayed.record["results"] == detail["evaluation"]["results"]
+    assert replayed.record["decisions"] == detail["evaluation"]["decisions"]
