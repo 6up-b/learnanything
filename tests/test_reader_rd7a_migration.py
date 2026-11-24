@@ -76,7 +76,7 @@ def test_it_adds_its_objects_and_changes_nothing_else(tmp_path):
 def test_one_administration_is_open_at_a_time_and_a_closed_one_is_final(tmp_path):
     with closing(sqlite3.connect(_head_copy(tmp_path), isolation_level=None)) as connection:
         connection.execute(_admin("ad_1"))
-        # A second open row is refused (by 272's guard, before the one-open index would be reached).
+        # A second open row is refused (by 271's guard, before the one-open index would be reached).
         with pytest.raises(sqlite3.IntegrityError, match="UNIQUE|never replaced"):
             connection.execute(_admin("ad_2"))
         connection.execute("UPDATE check_administrations SET exposure_json = '[1]' WHERE administration_token = 'ad_1'")

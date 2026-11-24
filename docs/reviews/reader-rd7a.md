@@ -469,7 +469,7 @@ swapped back to the branch's base, the tests unchanged: 20 of 20 failed). Ledger
   displayed tab's exchanges and not labelling a paragraph as a note are the frontend's.
 - Fix round: **major 23** fixed, RD7-20 (the reply carries the Check once decision's reason at the attempt, `hold`
   included; every added key camelCase, `primedBy`).
-- Fix round: **major 25** fixed, RD7-21 (migration 272's guards).
+- Fix round: **major 25** fixed, RD7-21 (migration 271's guards).
 - Fix round: **major 26, server half** fixed, RD7-9 and RD7-19 (presentation blocks in the card; `selfGrade`).
 - Fix round: **major 27, server half** fixed, RD7-17 (`check_open` at acceptance; pad emission deferred, drained at
   the close).

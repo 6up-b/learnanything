@@ -12,7 +12,7 @@ from typing import Any
 _ADMIN_COLUMNS = (
     "administration_token", "request_id", "commitment_id", "surface", "session_id", "practice_item_id", "contract_hash",
     "cold", "state", "protection_method", "exposure_json", "submission_id", "attempt_id", "opened_at", "closed_at",
-    # Migration 272 (RD7's fix round): what begin froze and what the close promised.
+    # Migration 271 (RD7's fix round): what begin froze and what the close promised.
     "candidates_json", "presentation_json", "pending_before", "outcome_json", "exposure_ids_json",
 )
 
