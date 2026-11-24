@@ -1,9 +1,13 @@
-// The pad's overlays: the pad menu (spec §9.2, all rows but marimo's, which says it arrives with notebooks),
+// The pad's overlays: the pad menu (spec §9.2, its marimo row inserting a cell run in the pad's notebook),
 // the arrange overlay (§10.2), and the sheets for submitting a block (§10.9) and making a line into practice.
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { PadBlockDto, PadBlockKind, PadProvenance } from "../../../api/dto";
+import type { MenuObjectInput } from "../../../api/dto";
 import { screenLeavesKey } from "../../../app/keymap";
 import { useListenerHub, useWindowLifecycle } from "../lifecycle";
+import { ContextMenu, useSheetFocus } from "../menu/ContextMenu";
+import { MARIMO_CELL_INSERT, MARIMO_CELL_ROW } from "../notebook/menuBridge";
+import type { MenuRow } from "../menu/model";
 import type { PadsHost } from "./host";
 import { isLearnersWords, type PadState } from "./model";
 
@@ -13,6 +17,12 @@ export interface MenuRequest {
   text: string;
   x: number;
   y: number;
+  /** Opened from a notebook frame (spec §11.3): the header's label ("the lesson", "your pad") and the insert row's
+   * words; the text is the frame's selection, untrusted notebook text (only ever shown quoted, as text). */
+  label?: string;
+  insertLabel?: string;
+  /** A notebook lesson's menu: its inserts go to the lesson's additions pad, never into the notebook. */
+  lessonId?: string | null;
 }
 
 type InsertBlock = { kind: PadBlockKind; provenance: PadProvenance; bodyMd?: string; payload?: Record<string, unknown> };
@@ -60,7 +70,9 @@ function anchorsOf(state: PadState | null, blockId: string | null): Array<{ extr
   return fromLinks;
 }
 
-export function PadMenu({ request, host, windowId, state, muted, onClose, onInsert, onSubmit, onMute }: {
+/** The pad menu (spec §9.2) in the one context menu: the rows on the line's words, then the inserts, then muting
+ * suggestions; its promoted rows come from passage.promoted for the line (its passages are its own links). */
+export function PadMenu({ request, host, windowId, state, muted, onClose, onInsert, onNote, onSubmit, onMute }: {
   request: MenuRequest;
   windowId: string;
   host: PadsHost;
@@ -68,6 +80,8 @@ export function PadMenu({ request, host, windowId, state, muted, onClose, onInse
   muted: boolean;
   onClose: () => void;
   onInsert: (block: InsertBlock) => void;
+  /** Note in margin on a pad line: a note block attached under it (opened in the editor). */
+  onNote: () => void;
   onSubmit: () => void;
   onMute: () => void;
 }) {
@@ -75,15 +89,27 @@ export function PadMenu({ request, host, windowId, state, muted, onClose, onInse
   const anchors = anchorsOf(state, request.blockId);
   const pieces = useMemo(() => host.sourcePieces(), [host]);
   const [practicing, setPracticing] = useState(false);
+  // A line whose words are about exam or held-out material (its first answer says): nothing sends them on.
+  const [withheld, setWithheld] = useState(false);
+  const hub = useListenerHub();
   const text = request.text.trim();
   const close = (then?: () => void) => () => {
     onClose();
     then?.();
   };
-  const textRows: Row[] = text ? [
+  // A press in another window makes it the active one: the menu goes with the focus.
+  const lifecycle = useWindowLifecycle();
+  useEffect(() => {
+    if (lifecycle.state !== "active") onClose();
+  }, [lifecycle.state, onClose]);
+  const object: MenuObjectInput | null = request.blockId ? { objectKind: "pad_line", blockId: request.blockId, windowId, ...(host.deskId ? { deskId: host.deskId } : {}) } : null;
+  const quoting = new Set(["a", "/", "v", "p", "c", "t"]);
+  const allTextRows: Row[] = text ? [
     { key: "a", glyph: "?", label: "Ask about this", run: close(() => host.askAbout(text, { padId: request.padId, blockId: request.blockId, anchor: anchors[0] ?? null })) },
+    ...(request.blockId ? [{ key: "n", glyph: "›", label: "Note in margin", note: "a note attached under this line", run: close(onNote) }] : []),
     { key: "/", glyph: "⌕", label: "Find in my sources", run: close(() => host.openSearch(text)) },
-    ...(host.showMe ? [{ key: "v", glyph: "◇", label: "Show me", note: "a figure lands below this line", run: close(() => {
+    // A line with no passage has no Show me (the figure is built for a passage).
+    ...(host.showMe && anchors.length ? [{ key: "v", glyph: "◇", label: "Show me", note: "a figure lands below this line", run: close(() => {
       host.toast("◇ making a figure for this line · it lands below it when it's ready");
       // The finished figure goes to the window's waiting figures: written only while the pad is live.
       void host.showMe?.(text, anchors[0] ?? null, windowId).then((figure) => {
@@ -93,14 +119,19 @@ export function PadMenu({ request, host, windowId, state, muted, onClose, onInse
     }) }] : []),
     ...(anchors.length ? [{ key: "p", glyph: "✎", label: "Make it practice", note: "drafts an item from this line for your queue", run: () => setPracticing(true) }] : []),
     { key: "c", glyph: "◌", label: "Carry", run: close(() => host.carry(text, { kind: "block", ref: request.blockId, anchor: anchors[0] ?? null })) },
-    ...(anchors.length && host.teachMe ? [{ key: "t", glyph: "◎", label: "Teach me this", run: close(() => host.teachMe?.(anchors[0].extractionId, anchors.map((each) => each.spanId))) }] : []),
+    // A lesson is on one reading: the line's passages in its first linked reading (span ids repeat across books).
+    ...(anchors.length && host.teachMe ? [{ key: "t", glyph: "◎", label: "Teach me this", run: close(() => host.teachMe?.(anchors[0].extractionId,
+      anchors.filter((each) => each.extractionId === anchors[0].extractionId).map((each) => each.spanId))) }] : []),
     ...(block && isLearnersWords(block) ? [{ key: "s", glyph: "✓", label: "Submit this block as…", run: close(onSubmit) }] : []),
   ] : [];
+  // On exam or held-out material the rows that would send the line's words on (the tutor, a search, a figure,
+  // practice, a carried question, a lesson) are left out, as a protected passage is never copied into a pad.
+  const textRows = withheld ? allTextRows.filter((row) => !quoting.has(row.key)) : allTextRows;
   const insertRows: Row[] = [
     // §9.2 gives this row the letter k, but an open menu's j/k move the selection (§5.4's matrix): moving
     // wins, so the row is chosen with ↑↓ ↵ (or alt+d from the pad) and shows no letter.
     { key: "sketch", glyph: "✎", label: "Sketch cell", note: "pen, line, arrow, box, text · yours", run: close(() => onInsert({ kind: "sketch", provenance: "learner", payload: { width: 480, height: 160, items: [] } })) },
-    { key: "m", glyph: "◆", label: "marimo cell · arrives with notebooks", disabled: true },
+    { ...MARIMO_CELL_ROW, run: close(() => onInsert(MARIMO_CELL_INSERT)) },
     ...pieces.map((piece, index): Row => ({
       key: index === 0 ? "i" : `piece-${index}`,
       glyph: piece.t !== undefined ? "▶" : "§",
@@ -117,72 +148,34 @@ export function PadMenu({ request, host, windowId, state, muted, onClose, onInse
       void insertPiece(host, onInsert, row.ref.extractionId, spanId);
     })) },
   ];
-  const rows = [...textRows, ...insertRows, { key: "u", glyph: "◇", label: muted ? "show LearnLoop's suggestions on this pad" : "mute LearnLoop's suggestions on this pad", run: close(onMute) }];
-  const runnable = rows.filter((row) => !row.disabled);
-  const [index, setIndex] = useState(0);
-  const hub = useListenerHub();
-  // A press in another window makes it the active one: the menu goes with the focus.
-  const lifecycle = useWindowLifecycle();
-  useEffect(() => {
-    if (lifecycle.state !== "active") onClose();
-  }, [lifecycle.state, onClose]);
-
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      // A modal menu: it owns the keyboard while it is open, but never a chord.
-      if (practicing || screenLeavesKey(event, { modal: true }) || event.altKey || event.ctrlKey || event.metaKey) return;
-      if (event.key === "Escape") {
-        event.preventDefault();
-        onClose();
-      } else if (event.key === "ArrowDown" || event.key === "j") {
-        event.preventDefault();
-        setIndex((now) => Math.min(runnable.length - 1, now + 1));
-      } else if (event.key === "ArrowUp" || event.key === "k") {
-        event.preventDefault();
-        setIndex((now) => Math.max(0, now - 1));
-      } else if (event.key === "Enter") {
-        event.preventDefault();
-        runnable[index]?.run?.();
-      } else {
-        const row = runnable.find((each) => each.key === event.key);
-        if (row) {
-          event.preventDefault();
-          row.run?.();
-        }
-      }
-    };
-    const onDown = (event: MouseEvent) => {
-      if (!(event.target as Element).closest?.(".desk-padmenu, .desk-sheet")) onClose();
-    };
-    const offs = [hub.listen("window", "keydown", onKey), hub.listen("window", "mousedown", onDown, true)];
-    return () => offs.forEach((off) => off());
-  }, [hub, index, onClose, practicing, runnable]);
-
-  if (practicing && state && block) {
-    return <PracticeSheet host={host} text={text} anchors={anchors} onClose={onClose} />;
-  }
-  const rowView = (row: Row) => {
-    const selected = runnable[index] === row;
-    return (
-      <button key={row.key} type="button" className={`row${selected ? " sel" : ""}`} disabled={row.disabled} onClick={row.run} onMouseEnter={() => {
-        const at = runnable.indexOf(row);
-        if (at >= 0) setIndex(at);
-      }}>
-        <span className="g">{row.glyph}</span>
-        <span className="l">{row.label}{row.note ? <span className="n"> · {row.note}</span> : null}</span>
-        <span className="k">{row.key.length === 1 ? row.key : ""}</span>
-      </button>
-    );
-  };
+  const tailRows: Row[] = [
+    ...(request.blockId && host.menu ? [{ key: "knows", glyph: "i", label: "What this knows", run: close(() => host.menu?.knows({ objectKind: "pad_line", blockId: request.blockId as string, windowId })) }] : []),
+    ...(request.lessonId ? [] : [{ key: "u", glyph: "◇", label: muted ? "show LearnLoop's suggestions on this pad" : "mute LearnLoop's suggestions on this pad", run: close(onMute) }]),
+  ];
+  const toRow = (section: MenuRow["section"]) => (row: Row): MenuRow => ({
+    id: row.key, glyph: row.glyph, label: row.label, note: row.note, disabled: row.disabled, run: row.run, section,
+    ...(row.key.length === 1 ? { key: row.key } : {}),
+    ...(row.key === "knows" ? { aid: true } : {}),
+  });
+  const rows: MenuRow[] = [...textRows.map(toRow("verb")), ...insertRows.map(toRow("insert")), ...tailRows.map(toRow("tail"))];
   return (
-    <div className="desk-padmenu" role="menu" aria-label="the pad menu" style={{ left: Math.min(request.x, window.innerWidth - 340), top: Math.min(request.y, window.innerHeight - 420) }}>
-      <div className="head">your pad · “{(text || "this line").slice(0, 46)}”</div>
-      {textRows.map(rowView)}
-      <div className="sep">{request.blockId ? "INSERT BELOW THIS LINE" : "INSERT AT THE END OF THIS PAD"}</div>
-      {insertRows.map(rowView)}
-      <div className="sep" />
-      {rowView(rows[rows.length - 1])}
-    </div>
+    <ContextMenu
+      label="the pad menu"
+      header={withheld ? `${request.label ?? "your pad"} · about exam or held-out material` : `${request.label ?? "your pad"} · “${(text || "this line").replace(/\s+/g, " ").slice(0, 46)}${text.length > 46 ? "…" : ""}”`}
+      rows={rows}
+      at={{ x: request.x, y: request.y }}
+      object={object}
+      promoted={host.menu?.promoted ?? null}
+      onPromoted={host.menu?.onPromoted}
+      onWithheld={setWithheld}
+      poller={host.menu?.poller}
+      owner={windowId}
+      insertHeading={request.insertLabel ?? (request.blockId ? "insert below this line" : "insert at the end of this pad")}
+      onClose={onClose}
+      listen={(target, type, handler, capture) => hub.listen(target, type, handler, capture)}
+    >
+      {practicing && state && block ? <PracticeSheet host={host} text={text} anchors={anchors} onClose={onClose} /> : undefined}
+    </ContextMenu>
   );
 }
 
@@ -192,6 +185,12 @@ function PracticeSheet({ host, text, anchors, onClose }: { host: PadsHost; text:
   const [los, setLos] = useState<string[] | null>(null);
   const [lo, setLo] = useState<string | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
+  // One save at a time: a second press while the first is on its way would author a second item.
+  const [saving, setSaving] = useState(false);
+  // One key per sheet, sent with every save of it: a retry after a lost reply returns the same item.
+  const [authoringKey] = useState(() => host.mintId("pi"));
+  const node = useRef<HTMLDivElement | null>(null);
+  useSheetFocus(node, onClose);
   useEffect(() => {
     let live = true;
     const first = anchors[0];
@@ -207,7 +206,7 @@ function PracticeSheet({ host, text, anchors, onClose }: { host: PadsHost; text:
     };
   }, [anchors, host]);
   return (
-    <div className="desk-sheet" role="dialog" aria-label="make it practice">
+    <div ref={node} tabIndex={-1} className="desk-sheet" role="dialog" aria-label="make it practice">
       <div className="head">✎ make it practice · it joins your queue once you save it</div>
       <label>the question<textarea value={prompt} onChange={(event) => setPrompt(event.target.value)} /></label>
       <label>what a right answer says<textarea value={answer} onChange={(event) => setAnswer(event.target.value)} /></label>
@@ -216,13 +215,18 @@ function PracticeSheet({ host, text, anchors, onClose }: { host: PadsHost; text:
       )}
       {failure ? <div className="note err">{failure}</div> : null}
       <div className="acts">
-        <button type="button" disabled={!lo || !prompt.trim() || !answer.trim()} onClick={() => {
-          if (!lo) return;
-          void host.api.authorPracticeItem({ learningObjectId: lo, prompt: prompt.trim(), expectedAnswer: answer.trim() }).then(() => {
+        <button type="button" disabled={saving || !lo || !prompt.trim() || !answer.trim()} onClick={() => {
+          if (!lo || saving) return;
+          setSaving(true);
+          setFailure(null);
+          void host.api.authorPracticeItem({ learningObjectId: lo, prompt: prompt.trim(), expectedAnswer: answer.trim(), clientIdempotencyKey: authoringKey }).then(() => {
             host.toast("added to your queue");
             onClose();
-          }, (error: unknown) => setFailure(messageOf(error)));
-        }}>save to my queue</button>
+          }, (error: unknown) => {
+            setSaving(false);
+            setFailure(messageOf(error));
+          });
+        }}>{saving ? "saving…" : "save to my queue"}</button>
         <button type="button" onClick={onClose}>not now</button>
       </div>
     </div>

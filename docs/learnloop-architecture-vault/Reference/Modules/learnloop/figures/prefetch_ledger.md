@@ -180,6 +180,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_figure_decision_records.py](../../../../../../tests/test_figure_decision_records.py) — direct import
   - `test_the_recorded_seed_redraws_the_pass_exactly`
+- [tests/test_figure_request_records.py](../../../../../../tests/test_figure_request_records.py) — direct import
+  - `test_a_rich_prebuild_holds_for_the_plan_and_the_render_minutes`
+  - `test_a_rich_prebuild_whose_item_became_protected_holds_for_it`
 - [tests/test_figure_wait_estimate.py](../../../../../../tests/test_figure_wait_estimate.py) — direct import
   - `test_a_rich_figures_calls_are_named_by_the_rich_jobs_own_key_and_a_reuse_never_relabels_a_build`
   - `test_at_the_tag_the_rows_say_v2_and_the_records_carry_ws_basis`

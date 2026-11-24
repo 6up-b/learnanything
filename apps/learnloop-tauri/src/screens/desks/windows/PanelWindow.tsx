@@ -61,14 +61,17 @@ export function PathPanel({ extractionId, onJump, onError }: { extractionId: str
 }
 
 /** The library pane in a window: ask across the library and compare; a hit opens beside. With a query
- * (a Compare window), the box starts with it; nothing runs until the learner asks. */
+ * (a Compare window), the box starts with it; nothing runs until the learner asks. A Compare window opened from a
+ * passage keeps its anchor: asking there runs the comparison anchored on that passage (the selection's door). */
 export function LibraryPanel({
   query,
+  anchor = null,
   onOpenHit,
   onClose,
   onError,
 }: {
   query: string | null;
+  anchor?: { extractionId: string; spanIds: string[]; sourceId: string; revisionId: string | null } | null;
   onOpenHit: (hit: Pick<LibraryHitDto, "sourceId" | "extractionId" | "spanId">) => void;
   onClose: () => void;
   onError: (message: string) => void;
@@ -78,8 +81,16 @@ export function LibraryPanel({
   const [compose, setCompose] = useState<string | null>(query ?? "");
   const ask = useCallback((text: string) => {
     setCompose(null);
-    ctl.ask({ query: text, entry: "library_search", extractionId: null, spanIds: [], identity: null });
-  }, [ctl]);
+    if (anchor && ctl.scopeOn) {
+      ctl.compareFrom({ door: "selection", question: text, extractionId: anchor.extractionId, anchorSpanIds: anchor.spanIds,
+        openSourceId: anchor.sourceId, identity: { sourceId: anchor.sourceId, revisionId: anchor.revisionId, extractionId: anchor.extractionId } });
+      return;
+    }
+    ctl.ask(anchor
+      ? { query: text, entry: "library_search", extractionId: anchor.extractionId, spanIds: anchor.spanIds,
+        identity: { sourceId: anchor.sourceId, revisionId: anchor.revisionId, extractionId: anchor.extractionId } }
+      : { query: text, entry: "library_search", extractionId: null, spanIds: [], identity: null });
+  }, [ctl, anchor]);
   if (!contractQuery.data) return <div className="desk-panel desk-quiet">◐ Reading the library settings…</div>;
   if (!ctl.enabled) return <div className="desk-panel desk-quiet">Asking across the library is off in Settings.</div>;
   return (

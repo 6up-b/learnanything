@@ -85,7 +85,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `TranscriptCue`, `detect_transcript_format`, `parse_transcript`; statically calls `TranscriptCue`, `detect_transcript_format`, `parse_transcript`
+- [[Reference/Modules/learnloop/content/pipeline/import_jobs|learnloop.content.pipeline.import_jobs]] — imports `TranscriptCue`, `detect_transcript_format`, `parse_transcript`; statically calls `TranscriptCue`, `detect_transcript_format`, `parse_transcript`
 - [[Reference/Modules/learnloop/ingest/transcription|learnloop.ingest.transcription]] — imports `TranscriptCue`; statically calls `TranscriptCue`
 
 ## Dependencies
@@ -105,7 +105,7 @@ Use this module in context through:
 
 - [[Import Canonical Sources]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]], [[Reference/Modules/learnloop/ingest/transcription|learnloop.ingest.transcription]].
+Static participation evidence comes from [[Reference/Modules/learnloop/content/pipeline/import_jobs|learnloop.content.pipeline.import_jobs]], [[Reference/Modules/learnloop/ingest/transcription|learnloop.ingest.transcription]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

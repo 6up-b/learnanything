@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/companion/Companion.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/companion/Companion.tsx) |
-| Source lines | 627 |
+| Source lines | 628 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/companion/_area|TypeScript/screens/desks/companion]] |
 | Refactor status | `ACTIVE` |
@@ -60,7 +60,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export interface CompanionHandle` — interface, line 34
 - `export interface CompanionProps` — interface, line 41
 - `export const Companion = forwardRef<CompanionHandle, CompanionProps>(function Companion(props, ref)` — const, line 90
-- `export function appendHistory(now: CompanionHistoryDto, page: CompanionHistoryDto): CompanionHistoryDto` — function, line 559
+- `export function appendHistory(now: CompanionHistoryDto, page: CompanionHistoryDto): CompanionHistoryDto` — function, line 560
 
 ## Internal implementation anchors
 
@@ -123,14 +123,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const anchorOrigin = state.mode === "anchored" && state.anchored ? `$` — const, line 325
 - `const tabRect = dockRect(dock, stage)` — const, line 327
 - `const tabLabel = `◇ tutor · $` — const, line 328
-- `const question = draft.trim()` — const, line 419
-- `function ExchangeView(` — function, line 465
-- `let answer: ReactNode` — let, line 473
-- `const days = now.days.map((day)` — const, line 560
-- `const seen = new Set(days.flatMap((day)` — const, line 561
-- `let into = days.find((each)` — let, line 563
-- `let deskInto = into.desks.find((each)` — let, line 569
-- `function HistoryView(` — function, line 584
+- `const question = draft.trim()` — const, line 420
+- `function ExchangeView(` — function, line 466
+- `let answer: ReactNode` — let, line 474
+- `const days = now.days.map((day)` — const, line 561
+- `const seen = new Set(days.flatMap((day)` — const, line 562
+- `let into = days.find((each)` — let, line 564
+- `let deskInto = into.desks.find((each)` — let, line 570
+- `function HistoryView(` — function, line 585
 
 ## Who imports or calls it
 

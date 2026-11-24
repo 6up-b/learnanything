@@ -68,14 +68,14 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 | [[Reference/Modules/learnloop/db/copies|learnloop.db.copies]] | [[Reference/Modules/learnloop/db/copies#^module-purpose|purpose]] | `ACTIVE` | 10 | 53 |
 | [[Reference/Modules/learnloop/db/evidence_cutoff|learnloop.db.evidence_cutoff]] | [[Reference/Modules/learnloop/db/evidence_cutoff#^module-purpose|purpose]] | `ACTIVE` | 8 | 6 |
 | [[Reference/Modules/learnloop/db/mastery_seed_inputs|learnloop.db.mastery_seed_inputs]] | [[Reference/Modules/learnloop/db/mastery_seed_inputs#^module-purpose|purpose]] | `ACTIVE` | 5 | 0 |
-| [[Reference/Modules/learnloop/db/migrate|learnloop.db.migrate]] | [[Reference/Modules/learnloop/db/migrate#^module-purpose|purpose]] | `ACTIVE` | 10 | 101 |
+| [[Reference/Modules/learnloop/db/migrate|learnloop.db.migrate]] | [[Reference/Modules/learnloop/db/migrate#^module-purpose|purpose]] | `ACTIVE` | 10 | 103 |
 | [[Reference/Modules/learnloop/db/prediction_target|learnloop.db.prediction_target]] | [[Reference/Modules/learnloop/db/prediction_target#^module-purpose|purpose]] | `ACTIVE` | 2 | 3 |
 | [[Reference/Modules/learnloop/db/records|learnloop.db.records]] | [[Reference/Modules/learnloop/db/records#^module-purpose|purpose]] | `ACTIVE` | 16 | 0 |
-| [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] | [[Reference/Modules/learnloop/db/repositories#^module-purpose|purpose]] | `ACTIVE` | 415 | 747 |
+| [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] | [[Reference/Modules/learnloop/db/repositories#^module-purpose|purpose]] | `ACTIVE` | 421 | 751 |
 | [[Reference/Modules/learnloop/db/row_serialization|learnloop.db.row_serialization]] | [[Reference/Modules/learnloop/db/row_serialization#^module-purpose|purpose]] | `ACTIVE` | 18 | 0 |
 | [[Reference/Modules/learnloop/db/scopes|learnloop.db.scopes]] | [[Reference/Modules/learnloop/db/scopes#^module-purpose|purpose]] | `ACTIVE` | 16 | 6 |
 | [[Reference/Modules/learnloop/db/storage|learnloop.db.storage]] | [[Reference/Modules/learnloop/db/storage#^module-purpose|purpose]] | `ACTIVE` | 1 | 6 |
-| [[Reference/Modules/learnloop/db/table_roles|learnloop.db.table_roles]] | [[Reference/Modules/learnloop/db/table_roles#^module-purpose|purpose]] | `ACTIVE` | 6 | 84 |
+| [[Reference/Modules/learnloop/db/table_roles|learnloop.db.table_roles]] | [[Reference/Modules/learnloop/db/table_roles#^module-purpose|purpose]] | `ACTIVE` | 6 | 86 |
 
 ## Child package maps
 
@@ -90,7 +90,7 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 
 ### Packages that import this package
 
-- [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 67 static module edges
+- [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 69 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 57 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 38 static module edges
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 28 static module edges
@@ -109,14 +109,14 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/_package|learnloop.diagnosis.text_gaps]] — 16 static module edges
 - [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] — 16 static module edges
 - [[Reference/Modules/learnloop/diagnosis/split/_package|learnloop.diagnosis.split]] — 15 static module edges
+- [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] — 13 static module edges
 - [[Reference/Modules/learnloop/hints/_package|learnloop.hints]] — 13 static module edges
-- [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] — 12 static module edges
+- [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 12 static module edges
 - [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 12 static module edges
-- [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 11 static module edges
+- [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 11 static module edges
 - [[Reference/Modules/learnloop/content/proposals/_package|learnloop.content.proposals]] — 11 static module edges
 - [[Reference/Modules/learnloop/diagnosis/recurrence/_package|learnloop.diagnosis.recurrence]] — 11 static module edges
 - [[Reference/Modules/learnloop/workbench/_package|learnloop.workbench]] — 11 static module edges
-- [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 10 static module edges
 - [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] — 10 static module edges
 - [[Reference/Modules/learnloop/diagnosis/offline_review/_package|learnloop.diagnosis.offline_review]] — 9 static module edges
 - [[Reference/Modules/learnloop/_package|learnloop]] — 8 static module edges
@@ -142,6 +142,7 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 1 static module edge
 - [[Reference/Modules/learnloop/experiments/contextual_embeddings/e1/_package|learnloop.experiments.contextual_embeddings.e1]] — 1 static module edge
 - [[Reference/Modules/learnloop/local_embeddings/_package|learnloop.local_embeddings]] — 1 static module edge
+- [[Reference/Modules/learnloop/pads/_package|learnloop.pads]] — 1 static module edge
 - [[Reference/Modules/learnloop/passage_union/_package|learnloop.passage_union]] — 1 static module edge
 - [[Reference/Modules/learnloop/scheduling/intent/_package|learnloop.scheduling.intent]] — 1 static module edge
 - [[Reference/Modules/learnloop/substrate/compat/_package|learnloop.substrate.compat]] — 1 static module edge
@@ -165,7 +166,7 @@ flowchart LR
     n_learnloop_adaptive_difficulty["learnloop.adaptive_difficulty"]
     n_learnloop_instructional["learnloop.instructional"]
     n_learnloop_scheduling["learnloop.scheduling"]
-    n_learnloop_source_retrieval -->|67| center
+    n_learnloop_source_retrieval -->|69| center
     n_learnloop_db_stores -->|38| center
     center -->|27| n_learnloop_db_stores
     n_learnloop_diagnosis -->|57| center

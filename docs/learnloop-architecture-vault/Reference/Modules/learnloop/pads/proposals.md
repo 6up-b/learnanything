@@ -47,23 +47,23 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/pads/proposals.py](../../../../../../src/learnloop/pads/proposals.py) |
-| Source lines | 177 |
+| Source lines | 191 |
 | Owning package | [[Reference/Modules/learnloop/pads/_package|learnloop.pads]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class ProposalRefused(Exception)` ([source](../../../../../../src/learnloop/pads/proposals.py), line 41)
-  - `__init__(self, code: str, message: str) -> None` (line 42; internal)
-- `propose_for_blocks(repository: Any, block_ids: Iterable[str], *, clock: Any=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/pads/proposals.py), line 83) — After a pad batch: one proposal for each block whose newly committed words have none yet and a candidate.
-- `pad_proposals(repository: Any, pad_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/pads/proposals.py), line 129) — ``pad.proposals``: each standing block's proposal for its current words, with its labels (``shown`` false once dismissed or marked "not this").
-- `label(repository: Any, *, label_id: str, proposal_kind: str, proposal_id: str, label_value: str, clock: Any=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/pads/proposals.py), line 151) — Record one label, idempotent by the client-minted ``label_id``.
+- `class ProposalRefused(Exception)` ([source](../../../../../../src/learnloop/pads/proposals.py), line 36)
+  - `__init__(self, code: str, message: str) -> None` (line 37; internal)
+- `propose_for_blocks(repository: Any, block_ids: Iterable[str], *, vault: Any=None, clock: Any=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/pads/proposals.py), line 80) — After a pad batch: one proposal for each block whose newly committed words have none yet and a candidate (:func:`_findings`).
+- `pad_proposals(repository: Any, pad_id: str, *, vault: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/pads/proposals.py), line 138) — ``pad.proposals``: each standing block's proposal for its current words, with its labels (``shown`` false once dismissed or marked "not this").
+- `label(repository: Any, *, label_id: str, proposal_kind: str, proposal_id: str, label_value: str, clock: Any=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/pads/proposals.py), line 165) — Record one label, idempotent by the client-minted ``label_id``.
 
 ### Module constants
 
-- `LABELS` ([src/learnloop/pads/proposals.py](../../../../../../src/learnloop/pads/proposals.py), line 30)
-- `PASSAGE_LINK` ([src/learnloop/pads/proposals.py](../../../../../../src/learnloop/pads/proposals.py), line 31)
+- `LABELS` ([src/learnloop/pads/proposals.py](../../../../../../src/learnloop/pads/proposals.py), line 29)
+- `PASSAGE_LINK` ([src/learnloop/pads/proposals.py](../../../../../../src/learnloop/pads/proposals.py), line 30)
 - `REASONS` ([src/learnloop/pads/proposals.py](../../../../../../src/learnloop/pads/proposals.py), line 33)
 
 ### Explicit exports
@@ -82,16 +82,18 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_table(connection: Any, name: str) -> bool` ([source](../../../../../../src/learnloop/pads/proposals.py), line 47)
-- `_block_places(connection: Any, head: dict[str, Any]) -> set[tuple[str, str]]` ([source](../../../../../../src/learnloop/pads/proposals.py), line 52)
-- `_candidate(connection: Any, places: set[tuple[str, str]]) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/pads/proposals.py), line 56) — The best passage link to a passage other than ``places`` tied to a problem a link on ``places`` names.
-- `_out(row: dict[str, Any], labels: list[dict[str, Any]], current: bool) -> dict[str, Any]` ([source](../../../../../../src/learnloop/pads/proposals.py), line 121)
+- `_table(connection: Any, name: str) -> bool` ([source](../../../../../../src/learnloop/pads/proposals.py), line 42)
+- `_block_places(connection: Any, head: dict[str, Any]) -> set[tuple[str, str]]` ([source](../../../../../../src/learnloop/pads/proposals.py), line 47)
+- `_findings(vault: Any, repository: Any, connection: Any, head: dict[str, Any]) -> list[Any]` ([source](../../../../../../src/learnloop/pads/proposals.py), line 51) — The candidates for one block, best first: a passage the cue judge tied to the same learner problem (ranked for this learner), else another book's section the coverage judge says treats the same topic, else a passage found for the block's words by keyword ("found by search, not c…
+- `_out(row: dict[str, Any], labels: list[dict[str, Any]], current: bool) -> dict[str, Any]` ([source](../../../../../../src/learnloop/pads/proposals.py), line 110)
+- `_protected(vault: Any, repository: Any, rows: list[dict[str, Any]], origins: dict[str, set[tuple[str, str]]]) -> set[str]` ([source](../../../../../../src/learnloop/pads/proposals.py), line 118) — The proposals that name exam or held-out material now: their target, or a passage their block is about (``origins``, by words version; marked after the proposal was made, or since its words were lifted).
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop_sidecar/handlers/ink|learnloop_sidecar.handlers.ink]] — imports `module`; statically calls `propose_for_blocks`
 - [[Reference/Modules/learnloop_sidecar/handlers/pads|learnloop_sidecar.handlers.pads]] — imports `module`; statically calls `label`, `pad_proposals`, `propose_for_blocks`
 
 ## Dependencies
@@ -104,6 +106,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/db/stores/pad_reads|learnloop.db.stores.pad_reads]] — imports `module`; calls `head`, `heads`, `label`, `labels_for`, `pad`, `proposal`, `proposal_for_version`, `proposals_for_versions`
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
 - [[Reference/Modules/learnloop/pads/emission|learnloop.pads.emission]] — imports `emittable`, `lineage`, `passages_of`, `words_version`; calls `emittable`, `lineage`, `passages_of`, `words_version`
+- [[Reference/Modules/learnloop/passage_union/elsewhere|learnloop.passage_union.elsewhere]] — imports `RELATION_REASONS`, `as_proposal`, `module`, `withheld_places`; calls `as_proposal`, `by_correspondents`, `by_passage_links`, `by_search`, `withheld_places`
 
 ### Platform and third-party dependencies
 
@@ -117,12 +120,14 @@ Use this module in context through:
 - [[Import Canonical Sources]]
 - [[Build a Study Map]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop_sidecar/handlers/pads|learnloop_sidecar.handlers.pads]].
+Static participation evidence comes from [[Reference/Modules/learnloop_sidecar/handlers/ink|learnloop_sidecar.handlers.ink]], [[Reference/Modules/learnloop_sidecar/handlers/pads|learnloop_sidecar.handlers.pads]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
+- [tests/test_menu_elsewhere_and_proposals.py](../../../../../../tests/test_menu_elsewhere_and_proposals.py) — direct import
+  - `test_a_pad_block_with_no_passage_link_gets_a_correspondent_then_a_search_proposal`
 - [tests/test_reader_rd4_carried_and_proposals.py](../../../../../../tests/test_reader_rd4_carried_and_proposals.py) — direct import
   - `test_a_committed_note_under_a_linked_quote_gets_one_proposal_from_the_passage_links`
 

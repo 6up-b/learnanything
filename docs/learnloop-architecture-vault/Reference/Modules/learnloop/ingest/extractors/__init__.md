@@ -105,7 +105,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop/content/pipeline/acquisition_preview|learnloop.content.pipeline.acquisition_preview]] — imports `marker_available`; statically calls `marker_available`
 - [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] — imports `datalab_api_key`, `marker_available`; statically calls `datalab_api_key`, `marker_available`
-- [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `ExtractionFallbackFailed`, `MarkerUnavailableError`, `captions_to_ir`, `document_pdf_config`, `extract_with_fallback`, `fallback_model_versions`, `markdown_to_ir`, `pdf_extractor_for`, `transcript_to_ir`; statically calls `captions_to_ir`, `document_pdf_config`, `extract_with_fallback`, `fallback_model_versions`, `markdown_to_ir`, `pdf_extractor_for`, `transcript_to_ir`
+- [[Reference/Modules/learnloop/content/pipeline/import_jobs|learnloop.content.pipeline.import_jobs]] — imports `ExtractionFallbackFailed`, `MarkerUnavailableError`, `captions_to_ir`, `document_pdf_config`, `extract_with_fallback`, `fallback_model_versions`, `markdown_to_ir`, `pdf_extractor_for`, `transcript_to_ir`; statically calls `captions_to_ir`, `document_pdf_config`, `extract_with_fallback`, `fallback_model_versions`, `markdown_to_ir`, `pdf_extractor_for`, `transcript_to_ir`
 - [[Reference/Modules/learnloop/content/sources/pdf_extraction|learnloop.content.sources.pdf_extraction]] — imports `ExtractionContext`, `pdf_extractor_for`; statically calls `ExtractionContext`, `pdf_extractor_for`
 
 ## Dependencies
@@ -131,7 +131,7 @@ Use this module in context through:
 
 - [[Initialize a Vault]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/content/pipeline/acquisition_preview|learnloop.content.pipeline.acquisition_preview]], [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]], [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]], [[Reference/Modules/learnloop/content/sources/pdf_extraction|learnloop.content.sources.pdf_extraction]].
+Static participation evidence comes from [[Reference/Modules/learnloop/content/pipeline/acquisition_preview|learnloop.content.pipeline.acquisition_preview]], [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]], [[Reference/Modules/learnloop/content/pipeline/import_jobs|learnloop.content.pipeline.import_jobs]], [[Reference/Modules/learnloop/content/sources/pdf_extraction|learnloop.content.sources.pdf_extraction]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

@@ -1,9 +1,9 @@
 // Stands in for @tauri-apps/api/core in the desks' visual harness (vite.desks.config.mjs): every call
 // is answered from the synthetic workspace, and recorded, so the harness can read what each window
 // asked for (reading activity above all). Nothing leaves the page.
-import type { DeskApplyInput, DeskStateDto, PadViewDto } from "../../api/dto";
+import type { DeskApplyInput, DeskStateDto, LessonViewDto, PadViewDto } from "../../api/dto";
 import { FIXTURE_INK_PAD, fixtureInkOwners, fixtureInkPad, fixturePads } from "./pads";
-import { FIXTURE_GUIDES, FIXTURE_LIBRARY, FIXTURE_VIEWS, FIXTURE_WATCH } from "./sources";
+import { FIXTURE_GUIDES, FIXTURE_LIBRARY, FIXTURE_SOURCES, FIXTURE_VIEWS, FIXTURE_WATCH } from "./sources";
 import { FixtureDeskServer, fixtureDeskState } from "./workspace";
 import { FixtureCompanion } from "./companion";
 import { FixtureGoal } from "./goal";
@@ -32,10 +32,6 @@ function harnessDeskState(): DeskStateDto {
     desk.slots.push({ slot: desk.slots.length, windows: [{ windowId: `fx_w_pads_${desk.deskId}`, pane: 0, kind: "pad_stack", active: true, view: {}, stack: [{ kind: "pad", padId }] }] as never });
     state.runningPadIds.push(padId);
   }
-  if (LESSON_PAGE) {
-    const stack = state.desks.find((desk) => desk.deskId === "fx_desk_softmax")?.slots.flatMap((slot) => slot.windows).find((window) => window.windowId === "fx_w_pads");
-    stack?.stack?.push({ kind: "lesson", lessonId: FIXTURE_LESSON_ID });
-  }
   // `?inkpad=1`: the handwritten pad joins the softmax desk's stack (pen and ink, RD8a).
   if (INK_PAD_SHOWN) {
     for (const slot of state.desks[0].slots) {
@@ -43,6 +39,10 @@ function harnessDeskState(): DeskStateDto {
         if (window.windowId === "fx_w_pads") window.stack?.push({ kind: "pad", padId: FIXTURE_INK_PAD });
       }
     }
+  }
+  if (LESSON_PAGE) {
+    const stack = state.desks.find((desk) => desk.deskId === "fx_desk_softmax")?.slots.flatMap((slot) => slot.windows).find((window) => window.windowId === "fx_w_pads");
+    stack?.stack?.push({ kind: "lesson", lessonId: FIXTURE_LESSON_ID });
   }
   return state;
 }
@@ -117,6 +117,22 @@ const CONTRACT = {
     : {}),
 };
 
+// The context menu's promoted rows: a cheap row per passage (the learner's own question there, so rows differ by
+// passage) and a judged job that adds a correspondent found by search, unchecked, on its second read.
+const promotedJobs = new Map<string, { rows: Array<Record<string, unknown>>; reads: number; cancelled: boolean }>();
+let promotedJobCount = 0;
+
+function cheapRows(input: Record<string, unknown>): Array<Record<string, unknown>> {
+  const spanId = typeof input.spanId === "string" ? input.spanId : null;
+  if (!spanId) return [];
+  return [{ rowId: `row_q_${spanId}`, kind: "question", glyph: "?", label: `your question on ${spanId}`, reason: "you asked the tutor about this passage",
+    action: { verb: "open", ref: { kind: "thread", rootExchangeId: `q_${spanId}` } }, learnerAt: "2026-11-22T10:00:00Z", checked: true, judgeRank: 0, basis: "union", extra: {} }];
+}
+
+function emptyUnion(spanId: string): Record<string, unknown> {
+  return { spanId, sectionId: null, annotations: [], padBlocks: [], exchanges: [], adjustments: [], gaps: [], passageLinks: [], figures: [], checksDue: [], notes: [],
+    authoredQuestions: [], carried: [], exposure: { timesShown: 1, lastShownAt: null, withheld: false } };
+}
 /** The pen's writes in this page (RD8a): annotations made by recognized marks and the ink saved with them. */
 const pen: { annotations: Array<{ sourceId: string; annotation: { id: string }; version: { annotationType: string; learnerText: string } }>; inks: Record<string, unknown>[] } = { annotations: [], inks: [] };
 
@@ -224,6 +240,35 @@ function answer(command: string, input: Record<string, unknown>): unknown {
     }
     case "pad_drain":
       return fixtureDrain(String(input.deskId));
+    case "passage_promoted": {
+      const rows = cheapRows(input);
+      const jobId = typeof input.spanId === "string" ? `pj_${++promotedJobCount}` : null;
+      if (jobId) promotedJobs.set(jobId, { rows, reads: 0, cancelled: false });
+      return { version: 1, objectKey: JSON.stringify(input), rows, cap: 4, pendingJob: jobId ? { jobId } : null, paid: false };
+    }
+    case "passage_promoted_job": {
+      const job = promotedJobs.get(String(input.jobId));
+      if (!job) return { version: 1, jobId: input.jobId, status: "expired", done: true, rows: [], error: null };
+      if (job.cancelled) return { version: 1, jobId: input.jobId, status: "cancelled", done: true, rows: [], error: null };
+      job.reads += 1;
+      if (job.reads < 2) return { version: 1, jobId: input.jobId, status: "running", done: false, rows: [], error: null };
+      const paper = FIXTURE_SOURCES.paper;
+      return { version: 1, jobId: input.jobId, status: "done", done: true, error: null, rows: [...job.rows, {
+        rowId: `row_elsewhere_${input.jobId}`, kind: "correspondent", glyph: "§", label: "the same step in another source", reason: "treats the same step",
+        action: { verb: "open", ref: { kind: "source", sourceId: paper.sourceId, extractionId: paper.extractionId, view: "render" }, target: {} },
+        learnerAt: null, checked: false, judgeRank: 1, basis: "judged", extra: {},
+      }] };
+    }
+    case "passage_promoted_cancel": {
+      const job = promotedJobs.get(String(input.jobId));
+      if (job) job.cancelled = true;
+      return { version: 1, jobId: input.jobId, status: "cancelled", done: true, rows: [], error: null };
+    }
+    case "passage_knows": {
+      const spanId = typeof input.spanId === "string" ? input.spanId : null;
+      const extractionId = typeof input.extractionId === "string" ? input.extractionId : null;
+      return { version: 1, objectKey: JSON.stringify(input), sourceIds: [], places: spanId && extractionId ? [{ extractionId, spanId, role: null, knows: emptyUnion(spanId) }] : [] };
+    }
     case "carried_list":
       return { version: 1, carried: carried.filter((question) => question.carried), shelfLimit: 3, cursor: null };
     case "carried_carry": {
@@ -252,6 +297,13 @@ function answer(command: string, input: Record<string, unknown>): unknown {
       return companion.search(input as { query: string });
     case "search_job":
       return companion.searchJob(String(input.jobId));
+    case "notebook_open":
+    case "notebook_status":
+    case "notebook_run_cells":
+    case "notebook_release":
+      // The harness script answers these from a real sandboxed session when it exposes its bridge.
+      if (window.__nbRpc) return window.__nbRpc(command, input);
+      return notebookSession(command, input);
     // The goal lens (RD6): one goal over the book and the note; the desks' default goal is its primary.
     case "goals_list":
       // The goal lens is the harness's `?goal=1` page; without it the desks have no goal, as before.
@@ -275,7 +327,7 @@ function answer(command: string, input: Record<string, unknown>): unknown {
     case "lesson_turn":
       return lessons.turn(input as never);
     case "lesson_view":
-      return lessons.view(input as { lessonId: string });
+      return notebookLesson(lessons.view(input as { lessonId: string }));
     case "lesson_list":
       return lessons.list(input as { lessonIds?: string[] });
     case "lesson_activity":
@@ -298,6 +350,39 @@ function answer(command: string, input: Record<string, unknown>): unknown {
     default:
       throw { code: "not_in_fixture", message: `${command} is not part of the desks' fixture`, retryable: false };
   }
+}
+
+/** The notebook fixture (`?notebook=1`): a real sandboxed session the harness script started (its frame URL in
+ * `window.__notebookHarness`), or a forced state (`?nbstate=`) for the frame's honest states. */
+declare global {
+  interface Window {
+    __notebookHarness?: { frameUrl: string; sessionId: string; padCells?: Array<{ blockId: string; code: string }> };
+    __nbRpc?: (command: string, input: Record<string, unknown>) => Promise<unknown>;
+  }
+}
+
+/** `?nblesson=open|review`: the fixture lesson's medium is a notebook (spec §11.2), open (its commit points
+ * release) or finished (its review); the harness script serves the notebook from a real sandboxed session. */
+function notebookLesson(view: LessonViewDto): LessonViewDto {
+  const mode = typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("nblesson");
+  if (mode !== "open" && mode !== "review") return view;
+  return { ...view, medium: "notebook", notebookPath: `notebooks/lessons/${view.lessonId}.py`, closed: mode === "review",
+    closeReason: mode === "review" ? view.closeReason ?? "learner_stop" : null };
+}
+
+function notebookSession(command: string, input: Record<string, unknown>) {
+  const forced = new URLSearchParams(window.location.search).get("nbstate");
+  const real = window.__notebookHarness;
+  if (forced === "unavailable" || (!real && !forced)) {
+    throw { code: "notebook_runtime_unavailable", message: "Notebooks can't run here: bubblewrap (bwrap) is not installed; notebooks run only inside it.", retryable: false };
+  }
+  const state = forced && forced !== "ready" ? forced : "ready";
+  return {
+    version: 1, sessionId: real?.sessionId ?? "nbs_fixture", owner: (input.owner as string) ?? "lesson:fx", state,
+    stopReason: state === "stopped" ? "idle" : null, error: state === "failed" ? "the notebook server stopped 4 times; it was not started again" : null,
+    restarts: state === "restarting" ? 1 : 0, framesAttached: 0, cells: [], startSeconds: [0.4],
+    frameUrl: real?.frameUrl ?? "http://127.0.0.1:9/s/none/", memoryBytes: null, command,
+  };
 }
 
 export async function invoke<T>(command: string, args: InvokeArgs = {}): Promise<T> {

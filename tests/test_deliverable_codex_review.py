@@ -255,7 +255,7 @@ def test_f6_a_lifted_coverage_admission_refusal_starts_the_coverage_again(tmp_pa
     work = handler._work(ctx)
     with work.lock:  # as a capped coverage run leaves it (the cap since lifted)
         work.covering[goal_id] = {"state": "failed", "reason": "capped", "message": "capped"}
-        work.attempted[goal_id] = {("lo_eigen", DP.coverage_key(load_vault(paths.root), "lo_eigen"))}
+        work.attempted[goal_id] = {("lo_eigen", DP.attempt_keys(load_vault(paths.root), repository, ["lo_eigen"])["lo_eigen"])}
     view = call(ctx, "curriculum.set_depth", {"goal_id": goal_id, "depth": "learn_to_use_it"})
     assert view["status"] == "ready" and view["lines"]
 
@@ -264,7 +264,7 @@ def test_f6_a_lifted_coverage_admission_refusal_starts_the_coverage_again(tmp_pa
 
 
 def test_f7_a_running_job_does_not_swallow_a_new_extraction(tmp_path, monkeypatch):
-    from learnloop.content.pipeline.jobs import queue_coverage_on_extract
+    from learnloop.source_retrieval.jobs import queue_coverage_on_extract
 
     paths, repository = build_deliverable_vault(tmp_path / "vault")
     cover_all(paths, repository, "lo_eigen")

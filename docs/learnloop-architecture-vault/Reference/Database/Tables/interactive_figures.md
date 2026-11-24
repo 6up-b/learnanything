@@ -156,12 +156,12 @@ None found by exact static reference scan.
 - `tests/test_figure_label_wording.py`
 - `tests/test_figure_offers.py`
 - `tests/test_figure_region.py`
+- `tests/test_figure_request_records.py`
 - `tests/test_figure_requests_migration.py`
 - `tests/test_figure_revisions.py`
+- `tests/test_figure_rich_attempt_records.py`
 - `tests/test_figure_rich_job.py`
 - `tests/test_figure_rich_rereview_fixes.py`
-- `tests/test_figure_rich_review_fixes.py`
-- `tests/test_figure_verification.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

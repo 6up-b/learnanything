@@ -87,10 +87,10 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 
 ### Packages that import this package
 
-- [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 8 static module edges
+- [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 8 static module edges
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 8 static module edges
 - [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 7 static module edges
-- [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 6 static module edges
+- [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 6 static module edges
 - [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] — 4 static module edges
 - [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 4 static module edges
 - [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] — 3 static module edges
@@ -113,20 +113,20 @@ flowchart LR
     n_learnloop_ai["learnloop.ai"]
     n_learnloop_db["learnloop.db"]
     n_learnloop_content_authoring["learnloop.content.authoring"]
-    n_learnloop_content_pipeline["learnloop.content.pipeline"]
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
     n_learnloop_cli["learnloop.cli"]
+    n_learnloop_content_pipeline["learnloop.content.pipeline"]
     n_learnloop_ops["learnloop.ops"]
     n_learnloop_content_facet_identity["learnloop.content.facet_identity"]
     center -->|24| n_learnloop_vault
     center -->|20| n_learnloop
     center -->|20| n_learnloop_ai
     center -->|11| n_learnloop_db
-    n_learnloop_content_authoring -->|6| center
+    n_learnloop_content_authoring -->|8| center
     center -->|2| n_learnloop_content_authoring
-    n_learnloop_content_pipeline -->|8| center
     n_learnloop_sidecar_handlers -->|8| center
     n_learnloop_cli -->|7| center
+    n_learnloop_content_pipeline -->|6| center
     n_learnloop_ops -->|4| center
     center -->|2| n_learnloop_ops
     n_learnloop_content_facet_identity -->|2| center

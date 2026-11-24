@@ -203,6 +203,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_reading_that_finished_after_its_words_were_replaced_is_set_aside_by_the_reconcile`
   - `test_the_passages_a_block_is_linked_to_place_its_gap_and_live_equals_rebuild`
   - `test_the_tag_and_the_kind`
+- [tests/test_reader_rd8a_transcribe.py](../../../../../../../tests/test_reader_rd8a_transcribe.py) — direct import
+  - `test_a_linked_ink_lines_gap_is_placed_by_its_passage_and_live_equals_rebuild`
+  - `test_a_transcription_is_learner_text_marked_transcribed_and_a_correction_supersedes_it`
 - [tests/test_reader_rw1b_review.py](../../../../../../../tests/test_reader_rw1b_review.py) — direct import
   - `test_f1_a_formative_gap_brings_no_check_forward`
   - `test_f1_a_formative_gap_is_not_a_weak_prerequisite_signal`

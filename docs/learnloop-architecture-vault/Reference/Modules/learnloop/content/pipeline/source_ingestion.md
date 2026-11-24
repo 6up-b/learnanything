@@ -161,7 +161,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]] — imports `SourceIngestionError`, `ingest_canonical_source`; statically calls `ingest_canonical_source`
-- [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `ingest_canonical_source`, `module`; statically calls `fetch_source`, `ingest_canonical_source`
+- [[Reference/Modules/learnloop/content/pipeline/import_jobs|learnloop.content.pipeline.import_jobs]] — imports `ingest_canonical_source`, `module`; statically calls `fetch_source`, `ingest_canonical_source`
 - [[Reference/Modules/learnloop/reader/source_review|learnloop.reader.source_review]] — imports `SourceChunk`, `caption_chunks_for_time_range`, `child_chunks_for_locator`, `chunks_for_note_body`, `locator_hash_for_ref`, `source_youtube_video_id`; statically calls `caption_chunks_for_time_range`, `child_chunks_for_locator`, `chunks_for_note_body`, `locator_hash_for_ref`, `source_youtube_video_id`
 
 ## Dependencies
@@ -207,7 +207,7 @@ Use this module in context through:
 - [[Import Canonical Sources]]
 - [[Build a Study Map]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]], [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]], [[Reference/Modules/learnloop/reader/source_review|learnloop.reader.source_review]].
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]], [[Reference/Modules/learnloop/content/pipeline/import_jobs|learnloop.content.pipeline.import_jobs]], [[Reference/Modules/learnloop/reader/source_review|learnloop.reader.source_review]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

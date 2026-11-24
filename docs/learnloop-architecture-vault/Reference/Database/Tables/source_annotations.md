@@ -17,13 +17,14 @@ source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/090_source_annotations.sql"
   - "src/learnloop/db/repositories.py"
+  - "src/learnloop/db/stores/ink_strokes.py"
   - "src/learnloop/db/stores/reader.py"
   - "src/learnloop/source_retrieval/vault_notes.py"
   - "src/learnloop_sidecar/handlers/reader.py"
   - "src/learnloop/content/pipeline/reread.py"
   - "src/learnloop/content/sources/source_deletion.py"
+  - "src/learnloop/pads/ink.py"
   - "src/learnloop/passage_union/union.py"
-  - "src/learnloop/reader/annotations.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -83,6 +84,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/ink_strokes.py`
 - `src/learnloop/db/stores/reader.py`
 - `src/learnloop/source_retrieval/vault_notes.py`
 
@@ -96,6 +98,7 @@ Indexes and uniqueness:
 - `src/learnloop/content/pipeline/reread.py`
 - `src/learnloop/content/sources/source_deletion.py`
 - `src/learnloop/db/stores/reader.py`
+- `src/learnloop/pads/ink.py`
 - `src/learnloop/passage_union/union.py`
 - `src/learnloop/reader/annotations.py`
 - `src/learnloop/reader/reader_capture.py`
@@ -122,6 +125,8 @@ Indexes and uniqueness:
 - `tests/test_ad1_reading_opportunities.py`
 - `tests/test_annotations.py`
 - `tests/test_p3_journeys.py`
+- `tests/test_reader_rd8a_ink.py`
+- `tests/test_reader_rd8a_transcribe.py`
 - `tests/test_reread_safety.py`
 - `tests/test_source_deletion.py`
 - `tests/test_ux11_html_extraction.py`

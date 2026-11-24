@@ -399,3 +399,10 @@ README section updated). The backend (§2) and the frontend (§10.3 item 1) keep
 read or emitted.
 
 **What waits.** The help ladder and its ◇ marker (`#pen=ladder`, `#pen=rung2`), `#pen=veil`; the real tablet.
+
+## Owner copies (the orchestrator, 2026-11-23)
+
+Migration 267 was applied to backup-API copies of the owner's three vaults (the floor set, upgraded to mvp-0.68 by
+`learnloop upgrade`), in a gitignored directory, deleted afterwards. On every copy: the upgrade exited 0,
+`integrity_check` is ok, `foreign_key_check` is empty, the migration head is 267, and `ink_strokes` and
+`ink_transcriptions` hold no rows. No live vault was opened.

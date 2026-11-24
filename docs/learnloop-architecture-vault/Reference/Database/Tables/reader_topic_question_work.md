@@ -18,12 +18,12 @@ source_paths:
   - "migrations/257_reader_topic_question_work.sql"
   - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
-  - "src/learnloop/content/pipeline/jobs.py"
+  - "src/learnloop/content/pipeline/add_source.py"
   - "src/learnloop/daily_plan/next_practice.py"
   - "src/learnloop/db/stores/reader.py"
   - "src/learnloop/reader/part_read.py"
   - "src/learnloop/reader/reader_progression.py"
-  - "src/learnloop/content/pipeline/add_source.py"
+  - "src/learnloop/content/authoring/jobs.py"
   - "src/learnloop/db/stores/content.py"
   - "src/learnloop/reader/section_generation.py"
 tags:
@@ -113,8 +113,8 @@ Indexes and uniqueness:
 
 ### Upstream callers of the repository access surface
 
+- `src/learnloop/content/authoring/jobs.py`
 - `src/learnloop/content/pipeline/add_source.py`
-- `src/learnloop/content/pipeline/jobs.py`
 - `src/learnloop/db/stores/content.py`
 - `src/learnloop/reader/part_read.py`
 - `src/learnloop/reader/section_generation.py`

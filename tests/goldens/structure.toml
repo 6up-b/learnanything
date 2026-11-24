@@ -6,7 +6,7 @@
 
 [ratchet]
 largest_import_component = 84
-modules_in_an_import_cycle = 221
+modules_in_an_import_cycle = 219
 # 221: learnloop.scheduling.intent.recall_targets, which joins the diagnosis repair lane's existing cycle (it already
 # imports diagnosis.causal_activity_policy) once diagnosis.remediation reads the plan's effective due from it (mvp-0.64).
 # 47: learnloop.notebook_authoring, the owner-side notebook harness the owner queued on 2026-11-20. It is its own
@@ -14,9 +14,13 @@ modules_in_an_import_cycle = 221
 # 51: the Reader workbench v2's four backend packages (spec_reader_workbench_v2 §3.2): learnloop.desks,
 # learnloop.pads, learnloop.passage_union and learnloop.companion, each its own package so the import fences
 # of its §3.3 can name it (evidence never reads desks or pads; the grader never reads any of the four).
-first_level_packages = 51
-first_level_root_modules = 36
-first_level_root_modules_not_upgrade = 36
+# 52: learnloop.notebook_runtime, the sandboxed marimo servers and their frame proxies, its own package so two
+# import contracts can name it (it reads no evidence or store; nothing that writes evidence reads it).
+first_level_packages = 52
+# 37: learnloop.sandbox_profile, the one hardened bubblewrap profile, moved out of the Manim module so the notebook
+# runtime shares it without importing figure or authoring code (standard library only).
+first_level_root_modules = 37
+first_level_root_modules_not_upgrade = 37
 functions_over_200_lines = 70
 comment_lines_naming_a_stage_artifact = 2351
 test_files_named_for_a_stage = 184
@@ -44,7 +48,12 @@ source_text_assertions = 23
 # golden records the application's new lifecycle_inputs field (292 lines; no existing value moved).
 # 295944: the grade-application golden records the application's new grade_decision field, the records its core
 # returns (L6a): 802 lines, the eleven live applications' records and a null on each replay; no existing value moved.
-golden_json_lines = 295944
+# 295990: the figure goldens record each press's figure_request row and two figure_withheld rows (34 new rows,
+# about 1,040 lines); the existing rows are unchanged but for their trace tokens, a build's records now sharing one.
+# 296669: the rich job golden records each attempt's figure_rich_author row and each stop's figure_rich_stop row
+# (21 new rows), and the build golden's delivery case its delivery's figure_withheld row (it now delivers the job's
+# own result); the existing rows are unchanged.
+golden_json_lines = 296669
 
 [members]
 import_component = [
@@ -164,6 +173,7 @@ root_modules = [
     "refusal_records",
     "reveal_coverage",
     "router_objective_switches",
+    "sandbox_profile",
     "section_map",
     "serve_eligibility",
     "symbolic_view",
@@ -185,8 +195,8 @@ functions_over_200_lines = [
     "src/learnloop/content/authoring/practice_generation.py build_practice_expansion_plan",
     "src/learnloop/content/authoring/rung_variants.py generate_rung_variant",
     "src/learnloop/content/authoring/source_exercise_import.py _import_source_exercise",
-    "src/learnloop/content/pipeline/jobs.py handle_inventory",
     "src/learnloop/content/pipeline/source_ingestion.py ingest_canonical_source",
+    "src/learnloop/content/synthesis/jobs.py handle_inventory",
     "src/learnloop/daily_plan/engine.py _boundary",
     "src/learnloop/daily_plan/engine.py advance_with_context",
     "src/learnloop/daily_plan/objective_chooser.py run_numeric",
@@ -515,7 +525,7 @@ stage_test_files = [
 "src/learnloop/content/facet_identity/plan.py" = 1
 "src/learnloop/content/pipeline/add_source.py" = 25
 "src/learnloop/content/pipeline/ai_contracts.py" = 1
-"src/learnloop/content/pipeline/jobs.py" = 32
+"src/learnloop/content/pipeline/jobs.py" = 13
 "src/learnloop/content/pipeline/quick_add.py" = 1
 "src/learnloop/content/pipeline/reread.py" = 3
 "src/learnloop/content/pipeline/runner.py" = 3

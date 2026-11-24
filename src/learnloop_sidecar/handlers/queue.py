@@ -36,7 +36,7 @@ from learnloop.scheduling.scheduler import (
     explain_practice_item,
 )
 from learnloop_sidecar.context import SidecarContext
-from learnloop.content.pipeline.jobs import APPLYING_JOB_TYPES
+from learnloop.content.pipeline.job_types import applying_job_types
 from learnloop_sidecar.dto import ParamsModel, versioned
 from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.handlers.goals import _nearest_active_goal
@@ -77,14 +77,11 @@ class PracticeItemInput(ParamsModel):
     practice_item_id: str
 
 
-#: Job types whose completion must invalidate the sidecar's in-memory vault.
-#:
-#: This MUST stay in sync with ``pipeline.jobs.APPLYING_JOB_TYPES`` — that tuple
-#: is the authority on which jobs change vault content, and any job listed there
-#: but missing here applies items the Today queue then cannot see, because
-#: ``get_today_queue`` reads the cached snapshot, so the set is derived rather
-#: than restated.
-_QUEUE_RELOAD_JOB_TYPES = frozenset(APPLYING_JOB_TYPES)
+#: Job types whose completion must invalidate the sidecar's in-memory vault: the
+#: rows of ``pipeline.job_types`` that apply vault content. Derived, not restated:
+#: a job that applies items but is missing here leaves them where the Today queue
+#: cannot see them, because ``get_today_queue`` reads the cached snapshot.
+_QUEUE_RELOAD_JOB_TYPES = frozenset(applying_job_types())
 #: How many recent batches each poll looks through for a job to reload after.
 _RELOAD_BATCH_WINDOW = 8
 

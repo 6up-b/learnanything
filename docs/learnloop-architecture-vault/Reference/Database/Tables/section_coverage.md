@@ -19,11 +19,11 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/cli/curriculum.py"
-  - "src/learnloop/content/pipeline/jobs.py"
   - "src/learnloop/content/sources/exam_material.py"
   - "src/learnloop/curriculum/goal_lens.py"
   - "src/learnloop/daily_plan/lesson_suggestion.py"
   - "src/learnloop/data_capture/reading_exposures.py"
+  - "src/learnloop/db/stores/data_capture.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"

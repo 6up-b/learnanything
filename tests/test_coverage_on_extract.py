@@ -25,7 +25,7 @@ def _queue_ctx(repository):
 
 
 def test_an_extraction_queues_the_job_only_while_both_switches_are_on(tmp_path):
-    from learnloop.content.pipeline.jobs import queue_coverage_on_extract
+    from learnloop.source_retrieval.jobs import queue_coverage_on_extract
 
     paths, repository = build_deliverable_vault(tmp_path / "vault")
     ctx, queued = _queue_ctx(repository)
@@ -44,7 +44,7 @@ def test_an_extraction_queues_the_job_only_while_both_switches_are_on(tmp_path):
 
 
 def test_one_live_job_at_a_time(tmp_path, monkeypatch):
-    from learnloop.content.pipeline.jobs import queue_coverage_on_extract
+    from learnloop.source_retrieval.jobs import queue_coverage_on_extract
 
     paths, repository = build_deliverable_vault(tmp_path / "vault")
     cover_all(paths, repository, "lo_eigen")
@@ -101,10 +101,10 @@ def test_the_job_runs_quiet_and_never_offers_openrouter(tmp_path, monkeypatch):
 
 
 def test_the_handler_is_registered_and_known(tmp_path, monkeypatch):
-    from learnloop.content.pipeline import jobs, runner
+    from learnloop.content.pipeline.job_types import job_type, resolve_handler
+    from learnloop.source_retrieval import jobs
 
-    assert jobs.DEFAULT_HANDLERS[SC.ON_EXTRACT_JOB] is jobs.handle_curriculum_coverage_on_extract
-    assert SC.ON_EXTRACT_JOB in runner.KNOWN_JOB_TYPES
+    assert resolve_handler(job_type(SC.ON_EXTRACT_JOB).handler) is jobs.handle_curriculum_coverage_on_extract
     paths, repository = build_deliverable_vault(tmp_path / "vault")
     calls: list[str] = []
     monkeypatch.setattr(SC, "rejudge_on_extract", lambda vault, repo, extraction_id, **kw: calls.append(extraction_id)

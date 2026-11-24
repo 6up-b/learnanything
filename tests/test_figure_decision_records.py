@@ -345,9 +345,13 @@ def test_a_refused_build_leaves_a_refused_record(tmp_path, monkeypatch):
     with provenance.trace_scope("TRACE_REFUSED"), pytest.raises(FQ.FigureRefused):
         FB.build_figure(load_vault(paths.root), repository,
                         FQ.FigureRequest(extraction_id=EXTRACTION, span_ids=["p3"]), author_client=AuthorFake())
-    (record,) = why(paths.root, "TRACE_REFUSED")["records"]
+    records = why(paths.root, "TRACE_REFUSED")["records"]
+    assert sorted(record["kind"] for record in records) == [FR.KIND_AUTHOR, FR.KIND_REQUEST]
+    (record,) = [record for record in records if record["kind"] == FR.KIND_AUTHOR]
     assert (record["kind"], record["status"], record["rule"]) == (FR.KIND_AUTHOR, "refused", "capped")
     assert record["facts"]["attempt"] == 0 and record["facts"]["outcome"] == "capped"
+    (request,) = [record for record in records if record["kind"] == FR.KIND_REQUEST]
+    assert (request["status"], request["rule"]) == ("refused", "capped")
 
 
 # ---------------------------------------------------------------------------
@@ -368,7 +372,7 @@ def _run(tmp_path: Path, monkeypatch: Any, *, broken: bool) -> tuple[Any, list[s
         def boom(*args, **kwargs):
             raise RuntimeError("no record")
 
-        for name in ("prebuild_record", "build_stop_record"):
+        for name in ("prebuild_record", "build_stop_record", "request_record"):
             monkeypatch.setattr(FR, name, boom)
         monkeypatch.setattr(FR.FilterLog, "record", boom)
         monkeypatch.setattr(FR.AuthorAttempts, "records", boom)
@@ -386,7 +390,7 @@ def test_records_that_cannot_be_built_or_written_change_no_decision_build_or_pro
     with_records, prompts = _run(tmp_path / "with", monkeypatch, broken=False)
     without, prompts_without = _run(tmp_path / "without", monkeypatch, broken=True)
     kinds = sorted(record["kind"] for record in records(with_records))
-    assert kinds == [FR.KIND_AUTHOR] * 4 + [FR.KIND_PREBUILD] * 2 + [FR.KIND_FILTER]
+    assert kinds == [FR.KIND_AUTHOR] * 4 + [FR.KIND_PREBUILD] * 2 + [FR.KIND_FILTER] + [FR.KIND_REQUEST] * 2
     ids = ("id", "created_at", "request_id", "outcome_at")
     assert _masked(rows(with_records, "figure_prefetch_decisions"), *ids) == \
         _masked(rows(without, "figure_prefetch_decisions"), *ids)

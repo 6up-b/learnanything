@@ -108,7 +108,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/cli/embeddings|learnloop.cli.embeddings]] — imports `backfill_fallback_run`; statically calls `backfill_fallback_run`
-- [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `FALLBACK_JOB`, `backfill_fallback_vectors`, `fallback_reason`; statically calls `backfill_fallback_vectors`, `fallback_reason`
+- [[Reference/Modules/learnloop/source_retrieval/jobs|learnloop.source_retrieval.jobs]] — imports `FALLBACK_JOB`, `backfill_fallback_vectors`, `fallback_reason`; statically calls `backfill_fallback_vectors`, `fallback_reason`
 - [[Reference/Modules/learnloop/source_retrieval/library|learnloop.source_retrieval.library]] — imports `plan_query`; statically calls `plan_query`
 - [[Reference/Modules/learnloop/source_retrieval/source_vectors|learnloop.source_retrieval.source_vectors]] — imports `coverage`, `fallback_reason`; statically calls `coverage`, `fallback_reason`
 - [[Reference/Modules/learnloop/source_retrieval/spaces|learnloop.source_retrieval.spaces]] — imports `module`; statically calls `fallback_client`, `fallback_reason`, `fallback_space`, `query_vectors`, `window_vectors`
@@ -148,7 +148,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/embeddings|learnloop.cli.embeddings]], [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]], [[Reference/Modules/learnloop/source_retrieval/library|learnloop.source_retrieval.library]], [[Reference/Modules/learnloop/source_retrieval/source_vectors|learnloop.source_retrieval.source_vectors]], [[Reference/Modules/learnloop/source_retrieval/spaces|learnloop.source_retrieval.spaces]].
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/embeddings|learnloop.cli.embeddings]], [[Reference/Modules/learnloop/source_retrieval/jobs|learnloop.source_retrieval.jobs]], [[Reference/Modules/learnloop/source_retrieval/library|learnloop.source_retrieval.library]], [[Reference/Modules/learnloop/source_retrieval/source_vectors|learnloop.source_retrieval.source_vectors]], [[Reference/Modules/learnloop/source_retrieval/spaces|learnloop.source_retrieval.spaces]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

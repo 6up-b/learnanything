@@ -131,6 +131,10 @@ class PolledJob:
             status = self.status
             if self.cancelled:
                 status = CANCELLED
+            elif finished and self.interrupted:
+                # Its vault was switched away from before it finished: whatever its work returned after that is
+                # not delivered when the vault is opened again (a close keeps a sent request's outcome).
+                status = FAILED
             elif finished:
                 status = FAILED if self.error is not None else DONE
             elif self.thread is not None and not self.thread.is_alive():
@@ -372,7 +376,8 @@ class PolledJobs:
                     with _job_scope(job, repository, owner_id, foreground_kind):
                         result = work(job)
                     with job.lock:
-                        job.result = result
+                        # Work that outlived its vault's turn publishes nothing (the poll says interrupted).
+                        job.result = None if job.interrupted else result
                 except BaseException as exc:  # noqa: BLE001 - every failure answers the job, never the loop
                     error = as_job_error(exc, cancelled=job.cancelled)
                     with job.lock:

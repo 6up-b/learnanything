@@ -89,6 +89,7 @@ No non-exported declaration anchor was detected by the static extractor.
 - [[Reference/Desktop/TypeScript/screens/SettingsScreen|src/screens/SettingsScreen.tsx]] — import-or-re-export: `TAG`; references `TAG`
 - [[Reference/Desktop/TypeScript/screens/StartScreen|src/screens/StartScreen.tsx]] — import-or-re-export: `TAG`; references `TAG`
 - [[Reference/Desktop/TypeScript/screens/TodayScreen|src/screens/TodayScreen.tsx]] — import-or-re-export: `TAG`; references `TAG`
+- [[Reference/Desktop/TypeScript/screens/desks/goal/controller|src/screens/desks/goal/controller.ts]] — import-or-re-export: `TAG`; references `TAG`
 - [[Reference/Desktop/TypeScript/screens/reader/guidePlan|src/screens/reader/guidePlan.ts]] — import-or-re-export: `TAG`; references `TAG`
 - [[Reference/Desktop/TypeScript/screens/reader/readerCache|src/screens/reader/readerCache.ts]] — import-or-re-export: `readerTag`; references `readerTag`
 - [[Reference/Desktop/TypeScript/screens/today/TodayPlace|src/screens/today/TodayPlace.tsx]] — import-or-re-export: `TAG`; references `TAG`
@@ -113,6 +114,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 ## Tests that define behavior
 
+- [apps/learnloop-tauri/src/screens/desks/goal/freshness.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/desks/goal/freshness.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/FeedbackScreen.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/FeedbackScreen.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/app/dailyPlan.test.tsx](../../../../../../apps/learnloop-tauri/src/app/dailyPlan.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/app/autoAdvance.test.tsx](../../../../../../apps/learnloop-tauri/src/app/autoAdvance.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).

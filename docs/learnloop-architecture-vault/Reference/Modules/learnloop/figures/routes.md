@@ -212,6 +212,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_figure_region.py](../../../../../../tests/test_figure_region.py) — direct import
   - `test_an_image_request_is_refused_by_a_transport_that_cannot_read_images`
   - `test_the_openai_chat_transport_sends_image_parts_only_for_an_image_profile`
+- [tests/test_figure_request_records.py](../../../../../../tests/test_figure_request_records.py) — direct import
+  - `test_a_route_that_cannot_be_called_refuses_the_request_with_its_code`
+- [tests/test_figure_rich_attempt_records.py](../../../../../../tests/test_figure_rich_attempt_records.py) — direct import
+  - `test_a_stop_waiting_for_the_plan_is_deferred_with_its_attempt`
 - [tests/test_figure_rich_contract.py](../../../../../../tests/test_figure_rich_contract.py) — direct import
   - `test_the_menu_is_neutral_facts_in_order_golden`
   - `test_the_prompt_names_the_rich_tiers_the_menu_offers`
@@ -235,6 +239,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_tier_judgment_has_a_receipt_with_its_reason`
   - `test_with_the_tier_on_a_spec_answer_is_still_a_grammar_figure_with_a_receipt`
   - `test_without_the_engine_the_contract_prompt_and_key_are_rw5bs_byte_for_byte`
+- [tests/test_why_cases.py](../../../../../../tests/test_why_cases.py) — direct import
+  - `test_why_didnt_show_me_work_names_the_refusal_and_the_menu`
 
 ## Modification guidance
 

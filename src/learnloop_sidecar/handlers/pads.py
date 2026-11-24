@@ -97,7 +97,7 @@ def _after_batch(ctx: SidecarContext, vault: Any, repository: Any, block_ids: li
     except Exception:  # noqa: BLE001 - the learner's write already committed
         LOG.warning("could not emit the pad's committed words", exc_info=True)
     try:
-        proposal_core.propose_for_blocks(repository, block_ids)
+        proposal_core.propose_for_blocks(repository, block_ids, vault=vault)
     except Exception:  # noqa: BLE001 - a suggestion never fails the learner's write
         LOG.warning("could not compute the pad's proposals", exc_info=True)
 
@@ -286,9 +286,9 @@ class PadProposalsInput(ParamsModel):
 def pad_proposals_handler(ctx: SidecarContext, params: PadProposalsInput) -> dict[str, Any]:
     """The pad's gutter proposals: one per standing block's current words at most, with its labels."""
 
-    _vault, repository = ctx.require_vault()
+    vault, repository = ctx.require_vault()
     try:
-        out = proposal_core.pad_proposals(repository, params.pad_id)
+        out = proposal_core.pad_proposals(repository, params.pad_id, vault=vault)
     except proposal_core.ProposalRefused as exc:
         raise SidecarError(exc.code, exc.message) from exc
     for row in out["proposals"]:

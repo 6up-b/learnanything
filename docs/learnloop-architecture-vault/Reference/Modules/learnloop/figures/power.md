@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/figures/power.py](../../../../../../src/learnloop/figures/power.py) |
-| Source lines | 317 |
+| Source lines | 319 |
 | Owning package | [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -127,6 +127,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### LearnLoop dependencies
 
+- [[Reference/Modules/learnloop/figure_admission|learnloop.figure_admission]] — imports `hold_reason`; calls `hold_reason`
 - [[Reference/Modules/learnloop/figures/foreground|learnloop.figures.foreground]] — imports `module`; calls `busy`, `wait_idle`
 
 ### Platform and third-party dependencies
@@ -148,6 +149,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/figures_prefetch_helpers.py](../../../../../../tests/figures_prefetch_helpers.py) — direct import
+- [tests/test_figure_request_records.py](../../../../../../tests/test_figure_request_records.py) — direct import
+  - `test_a_prebuild_whose_author_is_not_the_plan_holds_for_the_plan`
+  - `test_a_rich_prebuild_holds_for_the_plan_and_the_render_minutes`
+  - `test_a_rich_prebuild_whose_item_became_protected_holds_for_it`
+  - `test_the_background_hold_names_the_switch_the_power_and_foreground_work`
 - [tests/test_figure_switch_predicates.py](../../../../../../tests/test_figure_switch_predicates.py) — direct import
   - `test_a_pass_and_the_offer_trigger_run_only_with_figures_ahead_of_need_on`
 - [tests/test_figure_wait_estimate.py](../../../../../../tests/test_figure_wait_estimate.py) — direct import

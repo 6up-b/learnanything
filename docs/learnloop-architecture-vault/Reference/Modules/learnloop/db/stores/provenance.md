@@ -88,8 +88,9 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/attempts/grade_records|learnloop.attempts.grade_records]] — imports `module`; statically calls `write_decision`
+- [[Reference/Modules/learnloop/content/authoring/jobs|learnloop.content.authoring.jobs]] — imports `write_decision`; statically calls `write_decision`
 - [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] — imports `write_decision`; statically calls `write_decision`
-- [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `continue_job_trace`, `record_job_enqueued`, `write_decision`; statically calls `continue_job_trace`, `record_job_enqueued`, `write_decision`
+- [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `record_job_enqueued`; statically calls `record_job_enqueued`
 - [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]] — imports `write_decision`; statically calls `write_decision`
 - [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `write_decision`; statically calls `write_decision`
 - [[Reference/Modules/learnloop/daily_plan/router_runtime|learnloop.daily_plan.router_runtime]] — imports `write_decision_without_waiting`; statically calls `write_decision_without_waiting`
@@ -99,6 +100,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/diagnosis/chain_records|learnloop.diagnosis.chain_records]] — imports `module`; statically calls `write_decision`
 - [[Reference/Modules/learnloop/diagnosis/split/jobs|learnloop.diagnosis.split.jobs]] — imports `module`; statically calls `continue_job_trace`
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/jobs|learnloop.diagnosis.text_gaps.jobs]] — imports `module`; statically calls `continue_job_trace`
+- [[Reference/Modules/learnloop/figures/jobs|learnloop.figures.jobs]] — imports `continue_job_trace`; statically calls `continue_job_trace`
 - [[Reference/Modules/learnloop/figures/records|learnloop.figures.records]] — imports `write_decision`; statically calls `write_decision`
 - [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]] — imports `module`; statically calls `continue_job_trace`
 - [[Reference/Modules/learnloop/ops/startup|learnloop.ops.startup]] — imports `prune_old_decision_payloads`; statically calls `prune_old_decision_payloads`
@@ -127,7 +129,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/grade_records|learnloop.attempts.grade_records]], [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]], [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]], [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]], [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] and 15 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/grade_records|learnloop.attempts.grade_records]], [[Reference/Modules/learnloop/content/authoring/jobs|learnloop.content.authoring.jobs]], [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]], [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]], [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]] and 17 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

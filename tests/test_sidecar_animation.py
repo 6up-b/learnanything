@@ -100,7 +100,7 @@ def test_request_rejects_missing_consent_and_missing_manim(tmp_path, monkeypatch
 
 def test_request_generates_and_status_reports_completed(tmp_path, monkeypatch):
     import learnloop.content.authoring.concept_animation as animation_service
-    import learnloop.content.pipeline.jobs as job_module
+    import learnloop.content.authoring.jobs as job_module
 
     monkeypatch.setattr(animation_handlers, "manim_runtime", _fake_manim_available)
 
@@ -224,7 +224,7 @@ def test_video_renderer_runtime_and_request_gate(tmp_path, monkeypatch):
 
 
 def test_video_renderer_request_completes_through_the_queue(tmp_path, monkeypatch):
-    import learnloop.content.pipeline.jobs as job_module
+    import learnloop.content.authoring.jobs as job_module
     from tests.media_fakes import tiny_mp4
     from tests.concept_animation_service_helpers import _FakeStoryboardClient, _FakeVideoClient, _storyboard
 

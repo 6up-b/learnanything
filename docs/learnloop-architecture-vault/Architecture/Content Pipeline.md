@@ -64,6 +64,10 @@ The model never receives authority merely by returning JSON. Feature-owned synth
 - Usage accumulates across attempts instead of being overwritten.
 - Cancellation is observed through progress reporting and optional interrupt capabilities.
 
+## Job types
+
+A job type is one row in `content/pipeline/job_types.py`: its handler and whether it applies vault content (the sidecar reloads its vault after one), bumps Today's queue revision when it completes, runs in the parallel lane, and waits for the learner's one AI OK before it starts, with the AI routes its default clients resolve. The handlers live beside their features: import and extraction in `content/pipeline/import_jobs.py`, inventory and synthesis in `content/synthesis/jobs.py`, Reader and authoring work in `content/authoring/jobs.py`, the rich figure in `figures/jobs.py`, and retrieval's derived indexes in `source_retrieval/jobs.py`. `content/pipeline/jobs.py` is the durable host that runs them all; retrieval's index sweeps stay on it because they need its lease and worker.
+
 ## Extraction choices
 
 Local files, websites, YouTube/captions, Markdown/text, PDFs, and audio follow typed extractors. PDFs honor per-job/vault engine selection. `auto` (the default) prefers GLM-OCR: hosted at z.ai when a key is set, or a self-hosted server when `[ingest.pdf.glm_ocr] backend = "local"` and it answers. Hosted GLM-OCR sends the whole file out and waits for the learner's one-time OK naming z.ai; a plain import reads locally meanwhile (`glm_ocr_needs_upload_ok`). A self-hosted server asks no OK, wherever it runs. Without GLM-OCR, `auto` uses optional Marker, then pypdf, with a visible health flag; an explicit `glm_ocr` or `marker` fails rather than switching. Where the bytes go for each engine is in [[Privacy and Trust Boundaries#Source acquisition egress]] and [[Import Canonical Sources#Choose the PDF engine]]. Audio uses the dedicated transcription route and consent policy from [[AI Architecture#Task routes]].
@@ -77,7 +81,7 @@ The gen-2 source-ingestion implementation remains available through frozen `lega
 ## Modification guidance
 
 - Add acquisition/extraction mechanics under `learnloop.ingest`; keep workflow decisions in `content.pipeline`.
-- Add a job type to the runner vocabulary, handler registry, durable queue tests, serializers, and restart/retry tests.
+- Add a job type as its handler beside its feature and one row in `job_types.py` (`tests/test_job_types.py` fails until the row exists), plus its durable queue, serializer and restart/retry tests.
 - Preserve idempotency identity and checkpoint semantics.
 - Route new model work through [[AI Architecture]], never a local client factory.
 - Keep source revisions immutable; append a new revision or proposal rather than mutating captured bytes.

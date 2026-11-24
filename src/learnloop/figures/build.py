@@ -23,11 +23,12 @@ import json
 import logging
 import sqlite3
 import threading
-from collections.abc import Callable, Iterator, Mapping, Sequence
-from contextlib import closing, contextmanager
-from dataclasses import dataclass
+from collections.abc import Callable, Collection, Iterator, Mapping, Sequence
+from contextlib import closing, contextmanager, nullcontext
+from dataclasses import dataclass, field
 from typing import Any
 
+from learnloop import provenance
 from learnloop.ai.execution import content_key, gate_model_requests
 from learnloop.ai.spend import SpendLimitExceeded
 from learnloop.clock import Clock, utc_now_iso
@@ -35,7 +36,7 @@ from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import figures as store
 from learnloop.db.stores.judgments import append_judgment
-from learnloop.figure_admission import FiguresChanged, FiguresGate, figures_enabled, rich_tiers_enabled
+from learnloop.figure_admission import FiguresChanged, FiguresGate, figures_enabled, hold_reason, rich_tiers_enabled
 from learnloop.figures import author_answer as AA
 from learnloop.figures import records as FR
 from learnloop.figures import rich as RICH
@@ -225,7 +226,7 @@ def request_hash(request: FigureRequest, context: SourceContext, image_digest: s
 
 
 def _reusable(vault: Any, repository: Repository, connection: Any, input_hash: str,
-              other_hash: str | Sequence[str]) -> dict[str, Any] | None:
+              other_hash: str | Sequence[str], recorded: Collection[str] = ()) -> tuple[dict[str, Any], str] | None:
     """The figure a build reuses: this input's under the current prompt
     version, else (Codex review F2) a SHOWN one of the same input under the
     other prompt version when it can be drawn now. RW5a's figures are drawable
@@ -234,17 +235,20 @@ def _reusable(vault: Any, repository: Repository, connection: Any, input_hash: s
     figure already on the page. Another version's "can't draw this yet" is
     never reused: it was that prompt's verdict (the panels may draw it now).
     Nor is a rich figure whose author's learner state was read from something
-    protected now (Codex re-review F2)."""
+    protected now (Codex re-review F2).
+
+    With the figure, which key it was found under (``records.REUSE_MATCHES``; ``recorded`` names the other
+    settings' recorded-inputs keys among ``other_hash``)."""
 
     found = store.reusable(connection, input_hash, SPEC_VERSIONS)
     if found is not None:
-        return found
+        return found, "this_setting"
     # RW5d P2b: a rich figure built with no quick figure is this input's own
     # figure (its fuller version is reached through the quick one instead).
     rich_only = store.reusable(connection, input_hash, RICH_SPEC_VERSIONS) if rich_tiers_enabled(vault) else None
     if (rich_only is not None and not rich_only.get("fuller_of_id") and drawable_now(vault, rich_only)
             and learner_state_withheld(vault, repository, rich_only) is None):
-        return rich_only
+        return rich_only, "rich_only"
     # RW5d P2: the same input under the other settings of the panels and of
     # the sketch tier; only a shown figure that can be drawn now.
     for other_key in ([other_hash] if isinstance(other_hash, str) else list(other_hash)):
@@ -252,7 +256,7 @@ def _reusable(vault: Any, repository: Repository, connection: Any, input_hash: s
         if (other is not None and other["verification"] in store.SHOWN and drawable_now(vault, other)
                 and not source_rejected(vault, repository, other)
                 and not _learner_inputs_unrecorded(other)):  # Codex re-review F5: withheld, never reused
-            return other
+            return other, "recorded_inputs_twin" if other_key in recorded else "other_setting"
     return None
 
 
@@ -347,29 +351,82 @@ def build_figure(vault: Any, repository: Repository, request: FigureRequest, *, 
     before the cancel landed still commits: that figure was paid for and
     finished, and listing it is honest."""
 
-    request = check_request(vault, repository, request)
-    if lesson_hosted(request) and not RICH.rich_on_menu(LESSON_TIERS):
-        # RW5d P4b: a lesson's tiers name no rich one, so no rich job is
-        # started from a lesson, whatever the caller passed.
-        spawn_rich = None
-    request.rich_spawnable = spawn_rich is not None
-    # One gate for the whole request (Codex review F1): grounding's rewrite,
-    # embedding and verification calls, the reuse lookup and the author are
-    # each admitted against the configuration as it is NOW (``live_vault``),
-    # so switching figures or show me off stops the request wherever it is.
-    # RW5d P5: a background build also holds on the switch, mains power and
-    # foreground work, and (Codex review F2) on the figure author's route
-    # being the plan as configured NOW: a prebuild is never metered.
-    hold = _prefetch_build_hold(author_client) if request.origin == "prefetch" else None
-    if cancelled is not None:
-        hold = _cancel_hold(cancelled, hold)
-    gate = FiguresGate(vault, key_for(request), live_vault=live_vault, hold=hold, repository=repository)
+    note = _RequestNote()
+    # A build with no trace of its own (a lesson's, the CLI's) gets one, so its request, gate and author records
+    # read as one request; under an entry point's trace (a press, a job) it keeps that trace and its cause.
+    with provenance.trace_scope() if provenance.current_trace() is None else nullcontext():
+        gate: FiguresGate | None = None
+        try:
+            request = check_request(vault, repository, request)
+            if lesson_hosted(request) and not RICH.rich_on_menu(LESSON_TIERS):
+                # RW5d P4b: a lesson's tiers name no rich one, so no rich job is
+                # started from a lesson, whatever the caller passed.
+                spawn_rich = None
+            request.rich_spawnable = spawn_rich is not None
+            # One gate for the whole request (Codex review F1): grounding's rewrite,
+            # embedding and verification calls, the reuse lookup and the author are
+            # each admitted against the configuration as it is NOW (``live_vault``),
+            # so switching figures or show me off stops the request wherever it is.
+            # RW5d P5: a background build also holds on the switch, mains power and
+            # foreground work, and (Codex review F2) on the figure author's route
+            # being the plan as configured NOW: a prebuild is never metered.
+            hold = _prefetch_build_hold(author_client) if request.origin == "prefetch" else None
+            if cancelled is not None:
+                hold = _cancel_hold(cancelled, hold)
+            gate = FiguresGate(vault, key_for(request), live_vault=live_vault, hold=hold, repository=repository)
+            with gate_model_requests(gate):
+                outcome = _build(vault, repository, request, gate=gate, author_client=author_client, clock=clock,
+                                 find=find, spawn_rich=spawn_rich, note=note)
+        except FiguresChanged as exc:
+            refused = FigureRefused("figures_changed", str(exc))
+            _record_request(repository, request, note, gate=gate, error=refused)
+            raise refused from exc
+        except Exception as exc:
+            _record_request(repository, request, note, gate=gate, error=exc)
+            raise
+        _record_request(repository, request, note, gate=gate, outcome=outcome)
+        return outcome
+
+
+@dataclass
+class _RequestNote:
+    """What a build learns about its request as it runs, for the request's record (noted only: nothing here is read
+    back by the build)."""
+
+    request_id: str | None = None
+    menu: tuple[str, ...] = ()
+    absent: dict[str, str] = field(default_factory=dict)
+    matched: str | None = None
+
+
+def _record_request(repository: Repository, request: FigureRequest, note: _RequestNote, *,
+                    gate: FiguresGate | None, outcome: BuildOutcome | None = None,
+                    error: BaseException | None = None) -> None:
+    """The request's ``figure_request`` record (``records.request_record``), written once the build has ended;
+    never raises, so a record never changes the build it describes."""
+
     try:
-        with gate_model_requests(gate):
-            return _build(vault, repository, request, gate=gate, author_client=author_client, clock=clock, find=find,
-                          spawn_rich=spawn_rich)
-    except FiguresChanged as exc:
-        raise FigureRefused("figures_changed", str(exc)) from exc
+        figure_id = None
+        if error is not None:
+            refusal = getattr(error, "code", None)
+            status, rule = ("refused", str(refusal)) if refusal else ("failed", FR.BUILD_ERROR)
+        else:
+            view = (outcome.view if outcome is not None else None) or {}
+            figure_id = view.get("figure_id") or view.get("figureId") or view.get("id")
+            if figure_id:
+                status, rule = "chosen", FR.REQUEST_REUSED if outcome.reused else FR.REQUEST_BUILT
+            else:
+                status = "deferred"
+                rule = FR.REQUEST_RICH_PENDING if outcome is not None and outcome.reused else FR.REQUEST_RICH_STARTED
+        record = FR.request_record(request, status=status, rule=rule, request_id=note.request_id,
+                                   figure_id=figure_id, menu=note.menu, absent=note.absent,
+                                   matched=note.matched if status == "chosen" and rule == FR.REQUEST_REUSED else None,
+                                   gate=gate if error is not None else None,
+                                   error=error if status == "failed" else None)
+        FR.write_records(repository, FR.in_one_trace([record]))
+    except Exception as exc:  # noqa: BLE001 - the build's result stands without its record
+        _LOG.warning("figure_request record not built (trace %s): %s", provenance.current_trace(),
+                     type(exc).__name__)
 
 
 #: RW5d P5 (Codex review F2): a prebuild whose figure author is not the plan now.
@@ -384,13 +441,13 @@ def _prefetch_build_hold(author_client: Any | None) -> Callable[[Any], str | Non
     def hold(current: Any) -> str | None:
         reason = background_hold(current)
         if reason is None and plan_route(current, R.AUTHOR_TASK, author_client).billing != "subscription":
-            return PREFETCH_AUTHOR_NOT_PLAN
+            return hold_reason(PREFETCH_AUTHOR_NOT_PLAN, "plan")
         return reason
 
     return hold
 
 
-#: The hold's reason for a build whose press was cancelled (prose: the gate's record keeps only "held").
+#: The hold's reason for a build whose press was cancelled (prose: the gate's record keeps its code).
 _BUILD_CANCELLED = "the figure request was cancelled"
 
 
@@ -398,7 +455,7 @@ def _cancel_hold(cancelled: Callable[[], bool],
                  other: Callable[[Any], str | None] | None) -> Callable[[Any], str | None]:
     def hold(current: Any) -> str | None:
         if cancelled():
-            return _BUILD_CANCELLED
+            return hold_reason(_BUILD_CANCELLED, "cancelled")
         return other(current) if other is not None else None
 
     return hold
@@ -406,7 +463,8 @@ def _cancel_hold(cancelled: Callable[[], bool],
 
 def _build(vault: Any, repository: Repository, request: FigureRequest, *, gate: FiguresGate,
            author_client: Any | None, clock: Clock | None, find: FindSources | None,
-           spawn_rich: SpawnRich | None = None) -> BuildOutcome:
+           spawn_rich: SpawnRich | None = None, note: _RequestNote | None = None) -> BuildOutcome:
+    note = note if note is not None else _RequestNote()
     grounding = ground(vault, repository, request, find=find)
     # Rechecked against the live configuration (G-SM2; Codex review F1): the
     # switches as they are now, after grounding's calls.
@@ -442,8 +500,10 @@ def _build(vault: Any, repository: Repository, request: FigureRequest, *, gate: 
     advanced = True
     sketch = sketch_ready(vault)
     # RW5d P2b: the menu (spec §7.2): a rich tier only with a way to start its job.
-    menu = RICH.tiers_allowed(vault, sketch=sketch) if spawn_rich is not None else (
-        ("grammar", "sketch") if sketch else ("grammar",))
+    host = "lesson" if lesson_hosted(request) else "attempt" if attempt_hosted(request) else None
+    menu, note.absent = RICH.tier_menu(RICH.menu_facts(vault, sketch=sketch, spawner=spawn_rich is not None,
+                                                       host=host))
+    note.menu = menu
     request.tiers_allowed = menu
     tiers = menu if R.rich_menu(menu) is not None else None
     runtime = RICH.runtime_digest(vault) if tiers is not None and "manim" in tiers else None
@@ -464,11 +524,13 @@ def _build(vault: Any, repository: Repository, request: FigureRequest, *, gate: 
                   for a, k, t in ((not advanced, sketch, tiers), (advanced, not sketch, None),
                                   (not advanced, not sketch, None), (advanced, sketch, None),
                                   (not advanced, sketch, None)) if (a, k, t) != (advanced, sketch, tiers)]
+    recorded: set[str] = set()
     if learner:
         # Codex final verify F6: a fresh figure built for a marked row with no
         # record sits under that setting's recorded-inputs key, so each other
         # setting's key is followed by its recorded one (``_reusable``'s
         # shown, drawable-now and never-unrecorded checks apply unchanged).
+        recorded = {_recorded_input_key(plain) for plain in other_hash}
         other_hash = [key for plain in other_hash for key in (plain, _recorded_input_key(plain))]
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         if learner and _unrecorded_occupant(vault, connection, input_hash):
@@ -476,10 +538,11 @@ def _build(vault: Any, repository: Repository, request: FigureRequest, *, gate: 
             # input; it is never reused nor given dependencies inferred from
             # this press: a fresh build keeps its own (one hop: it records).
             input_hash = _recorded_input_key(input_hash)
-        reused = _reusable(vault, repository, connection, input_hash, other_hash)
+        reused = _reusable(vault, repository, connection, input_hash, other_hash, recorded)
         seen = store.latest_for_input(connection, input_hash, SPEC_VERSIONS)
     if reused is not None:
-        return _reused(vault, repository, reused, request=request, grounding=grounding, clock=clock, gate=gate)
+        note.matched = reused[1]
+        return _reused(vault, repository, reused[0], request=request, grounding=grounding, clock=clock, gate=gate)
     pending = _rich_pending(vault, repository, request, input_hash)
     if pending is not None:
         # RW5d P2b: this input's rich figure is being built with no quick one:
@@ -501,15 +564,18 @@ def _build(vault: Any, repository: Repository, request: FigureRequest, *, gate: 
             # Reread inside the lock (fix round 2, F7): a build that committed
             # between the reads above left `reused` empty but `seen` naming
             # its row, so only this read can tell its figure is reusable.
-            reused = _reusable(vault, repository, connection, input_hash, other_hash)
+            reused = _reusable(vault, repository, connection, input_hash, other_hash, recorded)
             latest = store.latest_for_input(connection, input_hash, SPEC_VERSIONS)
             # Codex review F7: a stored rich failure (a rich-only build that
             # used both attempts) starts the next generation too, so "try
             # again" asks the author, and then the rich author, afresh.
             generation = store.builds_for_input(connection, input_hash, ALL_SPEC_VERSIONS)
         if reused is not None:
-            return _reused(vault, repository, reused, request=request, grounding=grounding, clock=clock, gate=gate)
+            note.matched = reused[1]
+            return _reused(vault, repository, reused[0], request=request, grounding=grounding, clock=clock,
+                           gate=gate)
         if latest is not None and (seen is None or latest["id"] != seen["id"]):
+            note.matched = "built_meanwhile"
             return _reused(vault, repository, latest, request=request, grounding=grounding, clock=clock, gate=gate)
         # The request's identity is its input and its retry generation, never
         # a fresh id: rerun after a crash between a paid answer and its row,
@@ -517,6 +583,8 @@ def _build(vault: Any, repository: Repository, request: FigureRequest, *, gate: 
         # with no second request; a stored failure starts the next
         # generation, so "try again" asks afresh.
         request_id = content_key({"input_hash": input_hash, "generation": generation})
+        note.request_id = request_id
+        gate.subject = ("figure_request", request_id)
         if previous is not None and rich_row(previous) and not request.different_kind:
             # RW5d P2b (spec §8.5, Codex review F11): "not right?" on an
             # animation goes to the rich author with the note and the earlier

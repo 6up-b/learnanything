@@ -35,10 +35,13 @@ No nested ownership area.
 | Module | Status | Purpose | Imports | Imported by |
 |---|---|---|---:|---:|
 | [[Reference/Desktop/TypeScript/fixtures/desks/companion|companion.ts]] | `ACTIVE` | Exposes deterministic `companion` fixture data for a reproducible desktop scenario. | 3 | 1 |
-| [[Reference/Desktop/TypeScript/fixtures/desks/fakeCore|fakeCore.ts]] | `ACTIVE` | Exposes deterministic `fakeCore` fixture data for a reproducible desktop scenario. | 5 | 0 |
-| [[Reference/Desktop/TypeScript/fixtures/desks/harness|harness.tsx]] | `ACTIVE` | Exposes deterministic `harness` fixture data for a reproducible desktop scenario. | 10 | 0 |
+| [[Reference/Desktop/TypeScript/fixtures/desks/fakeCore|fakeCore.ts]] | `ACTIVE` | Exposes deterministic `fakeCore` fixture data for a reproducible desktop scenario. | 8 | 0 |
+| [[Reference/Desktop/TypeScript/fixtures/desks/goal|goal.ts]] | `ACTIVE` | Exposes deterministic `goal` fixture data for a reproducible desktop scenario. | 2 | 1 |
+| [[Reference/Desktop/TypeScript/fixtures/desks/harness|harness.tsx]] | `ACTIVE` | Exposes deterministic `harness` fixture data for a reproducible desktop scenario. | 13 | 0 |
+| [[Reference/Desktop/TypeScript/fixtures/desks/lessons|lessons.ts]] | `ACTIVE` | Exposes deterministic `lessons` fixture data for a reproducible desktop scenario. | 1 | 1 |
 | [[Reference/Desktop/TypeScript/fixtures/desks/pads|pads.ts]] | `ACTIVE` | Exposes deterministic `pads` fixture data for a reproducible desktop scenario. | 2 | 4 |
-| [[Reference/Desktop/TypeScript/fixtures/desks/sources|sources.ts]] | `ACTIVE` | Exposes deterministic `sources` fixture data for a reproducible desktop scenario. | 1 | 5 |
+| [[Reference/Desktop/TypeScript/fixtures/desks/sources|sources.ts]] | `ACTIVE` | Exposes deterministic `sources` fixture data for a reproducible desktop scenario. | 1 | 7 |
+| [[Reference/Desktop/TypeScript/fixtures/desks/video|video.ts]] | `ACTIVE` | Exposes deterministic `video` fixture data for a reproducible desktop scenario. | 2 | 1 |
 | [[Reference/Desktop/TypeScript/fixtures/desks/workspace|workspace.ts]] | `ACTIVE` | Exposes deterministic `workspace` fixture data for a reproducible desktop scenario. | 5 | 2 |
 
 ## Modification guidance

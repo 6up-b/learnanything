@@ -156,7 +156,7 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - [[Reference/Modules/learnloop/content/facet_identity/dedupe|learnloop.content.facet_identity.dedupe]] — imports `ESTIMATED_ONLY`, `SpendBudget`, `SpendLimitExceeded`; statically calls `SpendBudget`
 - [[Reference/Modules/learnloop/content/facet_identity/judge|learnloop.content.facet_identity.judge]] — imports `ESTIMATED_ONLY`, `SpendBudget`, `SpendCaps`, `SpendEstimate`, `SpendLimitExceeded`, `is_subscription_transport`, `subscription_usage_estimate`; statically calls `SpendBudget`, `SpendCaps`, `SpendEstimate`, `is_subscription_transport`, `subscription_usage_estimate`
 - [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] — imports `MeteredRequestGate`, `SpendBudget`, `SpendCaps`, `SpendEstimate`, `SpendLimitExceeded`, `is_subscription_transport`; statically calls `MeteredRequestGate`, `SpendBudget`, `SpendCaps`, `SpendEstimate`, `is_subscription_transport`
-- [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `SpendCancelled`; statically calls `SpendCancelled`
+- [[Reference/Modules/learnloop/content/pipeline/import_jobs|learnloop.content.pipeline.import_jobs]] — imports `SpendCancelled`; statically calls `SpendCancelled`
 - [[Reference/Modules/learnloop/content/proposals/method_phrasing|learnloop.content.proposals.method_phrasing]] — imports `SpendCaps`, `SpendEstimate`, `SpendLimitExceeded`, `is_subscription_transport`; statically calls `SpendCaps`, `SpendEstimate`, `is_subscription_transport`
 - [[Reference/Modules/learnloop/content/proposals/method_statement_judge|learnloop.content.proposals.method_statement_judge]] — imports `SpendCaps`; statically calls `SpendCaps`
 - [[Reference/Modules/learnloop/content/synthesis/graph_nomination|learnloop.content.synthesis.graph_nomination]] — imports `SpendBudget`, `SpendCaps`, `SpendEstimate`, `SpendLimitExceeded`; statically calls `SpendBudget`, `SpendCaps`, `SpendEstimate`
@@ -209,6 +209,7 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - [[Reference/Modules/learnloop/ops/pf_calls|learnloop.ops.pf_calls]] — imports `ESTIMATED_ONLY`, `SpendBudget`, `SpendCaps`, `SpendEstimate`, `SpendLimitExceeded`, `is_subscription_transport`, `subscription_usage_estimate`; statically calls `SpendBudget`, `SpendEstimate`, `SpendLimitExceeded`, `is_subscription_transport`, `subscription_usage_estimate`
 - [[Reference/Modules/learnloop/ops/pf_generation|learnloop.ops.pf_generation]] — imports `SpendCaps`, `SpendEstimate`, `SpendLimitExceeded`; statically calls `SpendEstimate`
 - [[Reference/Modules/learnloop/ops/pf_reports|learnloop.ops.pf_reports]] — imports `SpendCaps`, `SpendEstimate`, `SpendLimitExceeded`; statically calls `SpendCaps`, `SpendEstimate`
+- [[Reference/Modules/learnloop/pads/ink_transcribe|learnloop.pads.ink_transcribe]] — imports `SpendBudget`, `SpendCaps`, `spend_envelopes`; statically calls `SpendBudget`, `SpendCaps`, `spend_envelopes`
 - [[Reference/Modules/learnloop/practice_index/dossiers|learnloop.practice_index.dossiers]] — imports `SpendBudget`, `SpendCaps`, `SpendLimitExceeded`; statically calls `SpendBudget`
 - [[Reference/Modules/learnloop/practice_index/evaluation|learnloop.practice_index.evaluation]] — imports `SpendBudget`, `SpendCaps`, `SpendEstimate`, `SpendLimitExceeded`; statically calls `SpendBudget`, `SpendEstimate`
 - [[Reference/Modules/learnloop/practice_index/listwise|learnloop.practice_index.listwise]] — imports `SpendBudget`, `SpendCaps`, `SpendEstimate`, `SpendLimitExceeded`; statically calls `SpendBudget`, `SpendCaps`
@@ -238,6 +239,7 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - [[Reference/Modules/learnloop/source_retrieval/source_vectors|learnloop.source_retrieval.source_vectors]] — imports `SpendCaps`; statically calls `SpendCaps`
 - [[Reference/Modules/learnloop/source_retrieval/student_data|learnloop.source_retrieval.student_data]] — imports `SpendBudget`, `SpendCaps`, `SpendLimitExceeded`; statically calls `SpendBudget`, `SpendCaps`
 - [[Reference/Modules/learnloop/source_retrieval/verify|learnloop.source_retrieval.verify]] — imports `SpendBudget`, `SpendCaps`, `SpendEstimate`
+- [[Reference/Modules/learnloop/source_retrieval/video_chapters|learnloop.source_retrieval.video_chapters]] — imports `SpendBudget`, `spend_envelopes`; statically calls `spend_envelopes`
 - [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] — imports `MeteredRequestGate`, `SpendLimitExceeded`, `is_subscription_transport`; statically calls `is_subscription_transport`
 - [[Reference/Modules/learnloop/tutor/tutor_qa|learnloop.tutor.tutor_qa]] — imports `is_subscription_transport`; statically calls `is_subscription_transport`
 - [[Reference/Modules/learnloop/workbench/bridge|learnloop.workbench.bridge]] — imports `SpendLimitExceeded`, `spend_envelopes`; statically calls `spend_envelopes`
@@ -245,6 +247,7 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - [[Reference/Modules/learnloop/workbench/compare_methods|learnloop.workbench.compare_methods]] — imports `SpendLimitExceeded`
 - [[Reference/Modules/learnloop/workbench/route_example|learnloop.workbench.route_example]] — imports `SpendLimitExceeded`, `spend_envelopes`; statically calls `spend_envelopes`
 - [[Reference/Modules/learnloop_sidecar/background_jobs|learnloop_sidecar.background_jobs]] — imports `SpendCancelled`; statically calls `SpendCancelled`
+- [[Reference/Modules/learnloop_sidecar/handlers/ink|learnloop_sidecar.handlers.ink]] — imports `SpendLimitExceeded`
 - [[Reference/Modules/learnloop_sidecar/handlers/tutor_qa|learnloop_sidecar.handlers.tutor_qa]] — imports `is_subscription_transport`; statically calls `is_subscription_transport`
 - [[Reference/Modules/learnloop_sidecar/polled_jobs|learnloop_sidecar.polled_jobs]] — imports `SpendCancelled`; statically calls `SpendCancelled`
 
@@ -267,7 +270,7 @@ Use this module in context through:
 - [[Configure AI Providers]]
 - [[Process Model Output]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/adaptive_difficulty/relatedness|learnloop.adaptive_difficulty.relatedness]] and 118 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/adaptive_difficulty/relatedness|learnloop.adaptive_difficulty.relatedness]] and 121 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -346,6 +349,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_unusable_verdict_without_retry_budget_is_ledgered_and_reasked`
 - [tests/test_field_signal_production_paths.py](../../../../../../tests/test_field_signal_production_paths.py) — direct import
 - [tests/test_figure_build_golden.py](../../../../../../tests/test_figure_build_golden.py) — direct import
+- [tests/test_figure_rich_attempt_records.py](../../../../../../tests/test_figure_rich_attempt_records.py) — direct import
+  - `test_a_second_request_refused_by_the_budget_is_its_own_attempt`
 - [tests/test_figure_rich_job_golden.py](../../../../../../tests/test_figure_rich_job_golden.py) — direct import
 - [tests/test_followups_batch5_lesson.py](../../../../../../tests/test_followups_batch5_lesson.py) — direct import
   - `test_e_the_figures_daily_budget_refusing_a_visual_leaves_the_lesson_open`

@@ -108,7 +108,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/content/facet_identity/actions|learnloop.content.facet_identity.actions]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/content/facet_identity/dedupe|learnloop.content.facet_identity.dedupe]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] — imports `kebab_case`; statically calls `kebab_case`
-- [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `new_ulid`; statically calls `new_ulid`
+- [[Reference/Modules/learnloop/content/pipeline/import_jobs|learnloop.content.pipeline.import_jobs]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/content/pipeline/revision_refresh|learnloop.content.pipeline.revision_refresh]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/content/pipeline/runner|learnloop.content.pipeline.runner]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/content/pipeline/source_ingestion|learnloop.content.pipeline.source_ingestion]] — imports `kebab_case`, `new_ulid`, `snake_case`; statically calls `kebab_case`, `new_ulid`, `snake_case`
@@ -209,6 +209,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/ops/pf_reports|learnloop.ops.pf_reports]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/pads/blocks|learnloop.pads.blocks]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/pads/carried|learnloop.pads.carried]] — imports `new_ulid`; statically calls `new_ulid`
+- [[Reference/Modules/learnloop/pads/ink|learnloop.pads.ink]] — imports `new_ulid`; statically calls `new_ulid`
+- [[Reference/Modules/learnloop/pads/ink_transcribe|learnloop.pads.ink_transcribe]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/pads/proposals|learnloop.pads.proposals]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/placement/decisions|learnloop.placement.decisions]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/placement/field_receipts|learnloop.placement.field_receipts]] — imports `new_ulid`; statically calls `new_ulid`
@@ -269,11 +271,14 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop_sidecar/handlers/feedback|learnloop_sidecar.handlers.feedback]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop_sidecar/handlers/figures|learnloop_sidecar.handlers.figures]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop_sidecar/handlers/hints|learnloop_sidecar.handlers.hints]] — imports `new_ulid`; statically calls `new_ulid`
+- [[Reference/Modules/learnloop_sidecar/handlers/ink|learnloop_sidecar.handlers.ink]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop_sidecar/handlers/library_ask|learnloop_sidecar.handlers.library_ask]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop_sidecar/handlers/pads|learnloop_sidecar.handlers.pads]] — imports `new_ulid`; statically calls `new_ulid`
+- [[Reference/Modules/learnloop_sidecar/handlers/passage_union|learnloop_sidecar.handlers.passage_union]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop_sidecar/handlers/reader_cue_discovery|learnloop_sidecar.handlers.reader_cue_discovery]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop_sidecar/handlers/search|learnloop_sidecar.handlers.search]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop_sidecar/handlers/source_service|learnloop_sidecar.handlers.source_service]] — imports `new_ulid`; statically calls `new_ulid`
+- [[Reference/Modules/learnloop_sidecar/handlers/video|learnloop_sidecar.handlers.video]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop_sidecar/handlers/workbench_help|learnloop_sidecar.handlers.workbench_help]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop_sidecar/post_attempt_worker|learnloop_sidecar.post_attempt_worker]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop_sidecar/server|learnloop_sidecar.server]] — imports `new_ulid`; statically calls `new_ulid`
@@ -296,7 +301,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/repeat_receipts|learnloop.adaptive_difficulty.repeat_receipts]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/calibration_streams|learnloop.attempts.calibration_streams]], [[Reference/Modules/learnloop/attempts/clarification|learnloop.attempts.clarification]], [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]] and 190 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/repeat_receipts|learnloop.adaptive_difficulty.repeat_receipts]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/calibration_streams|learnloop.attempts.calibration_streams]], [[Reference/Modules/learnloop/attempts/clarification|learnloop.attempts.clarification]], [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]] and 195 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

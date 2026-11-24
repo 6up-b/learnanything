@@ -99,7 +99,9 @@ No private top-level function or class definition is declared in this file.
 
 - [[Reference/Modules/learnloop/desks/workspace|learnloop.desks.workspace]] — imports `OpConflict`, `OpRefused`, `apply_batch`, `client_seq_heads`, `run_op`; statically calls `OpConflict`, `OpRefused`, `apply_batch`, `client_seq_heads`, `run_op`
 - [[Reference/Modules/learnloop/pads/blocks|learnloop.pads.blocks]] — imports `OpConflict`, `OpRefused`, `apply_batch`, `run_op`; statically calls `OpConflict`, `OpRefused`, `apply_batch`, `run_op`
+- [[Reference/Modules/learnloop/pads/ink|learnloop.pads.ink]] — imports `OpRefused`, `apply_batch`, `run_op`; statically calls `OpRefused`, `apply_batch`, `run_op`
 - [[Reference/Modules/learnloop_sidecar/handlers/desks|learnloop_sidecar.handlers.desks]] — imports `ProtocolError`
+- [[Reference/Modules/learnloop_sidecar/handlers/ink|learnloop_sidecar.handlers.ink]] — imports `ProtocolError`
 - [[Reference/Modules/learnloop_sidecar/handlers/pads|learnloop_sidecar.handlers.pads]] — imports `ProtocolError`
 
 ## Dependencies
@@ -121,7 +123,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/desks/workspace|learnloop.desks.workspace]], [[Reference/Modules/learnloop/pads/blocks|learnloop.pads.blocks]], [[Reference/Modules/learnloop_sidecar/handlers/desks|learnloop_sidecar.handlers.desks]], [[Reference/Modules/learnloop_sidecar/handlers/pads|learnloop_sidecar.handlers.pads]].
+Static participation evidence comes from [[Reference/Modules/learnloop/desks/workspace|learnloop.desks.workspace]], [[Reference/Modules/learnloop/pads/blocks|learnloop.pads.blocks]], [[Reference/Modules/learnloop/pads/ink|learnloop.pads.ink]], [[Reference/Modules/learnloop_sidecar/handlers/desks|learnloop_sidecar.handlers.desks]], [[Reference/Modules/learnloop_sidecar/handlers/ink|learnloop_sidecar.handlers.ink]] and 1 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -132,6 +134,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_batch_out_of_seq_order_is_refused_and_applies_nothing`
   - `test_batches_replayed_out_of_order_converge_to_the_in_order_state`
   - `test_desk_and_pad_batches_share_one_sequence_per_client`
+- [tests/test_reader_rd8a_ink.py](../../../../../../tests/test_reader_rd8a_ink.py) — direct import
+  - `test_a_retried_batch_returns_its_receipt_and_a_resent_ink_id_is_a_no_op`
+  - `test_ink_shares_the_clients_one_sequence_with_pad_batches`
 
 ## Modification guidance
 

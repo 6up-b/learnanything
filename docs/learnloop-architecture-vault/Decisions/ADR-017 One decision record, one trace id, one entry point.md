@@ -168,14 +168,27 @@ B8 read the remaining boundaries (teacher lessons and checks, Reader retrieval, 
 | Quick check and `find_practice` exclusions (B6) | Why was this item not offered? | Learner-initiated selectors: the quick check's served items are presentations; `find_practice`'s results are on screen with its receipt's signals. The exclusions are the shared predicate the slate record counts per build, and `why item:<id>` re-derives them |
 | The TUI's probe door (B7) | Why no `probe_value`? | The TUI is rebuilt as a frontend after the refactor (C7) |
 | AD generation refusal; the hint ladder's missing client (B7) | Why no generated item? Why the authored hint? | `ingest_jobs` `failed` with `error_json` (`AuthoringRequestRefused`, `ad_models_off`); `help_assists.contract_failures_json.reason` and `chooser_reason`, plus B5's `decider_judgment` |
-| Rich figure jobs' attempts (B4) | What went wrong on attempt 1? | Each attempt's call is a receipt (`metadata.attempt`, status); the stored figure keeps the last failure; a retry refused by the figures' cap is now the envelope record. Per-attempt problem codes are an open item |
+| Rich figure jobs' attempts (B4; closed by K10.12, below) | What went wrong on attempt 1? | Each attempt's call is a receipt (`metadata.attempt`, status), and since K10.12 each attempt is a `figure_rich_author` record with its code and a stop a `figure_rich_stop` record |
 | Learner protection, a per-call read | | Recorded only where it excludes something from a decision (B4, B6), per the strategy |
 
-**Open items from the inventory:** the AI route's fallback on the receipt (a migration); the ingest extractor's primary failure class and per-attempt job history (`ingest_jobs.error_json` is reset when a job is leased again); the Quick Add scope fallback; the teacher brief's swallowed reads; rich figure attempts' problem codes (B4's `AuthorAttempts`, wired through `figures/rich.py`'s several exits).
+**Open items from the inventory:** the AI route's fallback on the receipt (a migration); the ingest extractor's primary failure class and per-attempt job history (`ingest_jobs.error_json` is reset when a job is leased again); the Quick Add scope fallback; the teacher brief's swallowed reads. (Rich figure attempts' problem codes: closed by K10.12, below.)
 
 ## Amended: figure prefetch rule name (2026-11-19)
 
 The `decided_by` example `prefetch_eu_v1` in the record-shape table above is obsolete. The current default is `prefetch_decision_v2` (`src/learnloop/figures/prefetch_model.py`, `MODEL_VERSION`); `src/learnloop/figures/records.py` (`prebuild_record`) copies the decision row's `model_version` into `decided_by`. With the pressed-waits switch off or an algorithm tag outside the supported set, `src/learnloop/figures/prefetch_ledger.py` (`pressed_waits_on`, `load_model`) retains `prefetch_decision_v1`. See [[Concepts/Figures#Prefetch and predictions|Figures: prefetch and predictions]] for the model and [[Concepts/Figures#Cancellation, restart and video traces|Figures: cancellation, restart and video traces]] for the trace boundary.
+
+## Amended: figure requests and rich attempts (2026-11-23)
+
+Four figure kinds joined the record (`src/learnloop/figures/records.py`), each written by its shell once the work has ended and never changing it:
+
+| Kind | Written when | Status and rule | Subject |
+|---|---|---|---|
+| `figure_request` | Every figure request: by the build when it ends (`figures/build.py` `build_figure`), or by the sidecar when the request path refuses it before any build job (`learnloop_sidecar/handlers/figures.py`) | `refused` with the code it was refused with (`exam_material`, `cold_check`, `not_offered`, `validation_error`, `figures_disabled`, `unrouted`, `unpriced`, `not_isolated`, `capped`, `unavailable`, `models_off`, `figures_changed` with the gate's rule and hold code, `storage_busy`); `chosen` with `built` or `reused` (`facts.matched`: `this_setting`, `rich_only`, `other_setting`, `recorded_inputs_twin`, `built_meanwhile`); `deferred` with `rich_job_started` or `rich_job_pending`. `facts.tiers_allowed` and `facts.tiers_absent` give the author's menu and a code per tier left off it (`no_engine`, `lesson_host`, `attempt_host`, `no_spawner`, `rich_off`, `no_opt_in`, `off_linux`, `models_off`, `no_bwrap`, `no_manim`) | `figure:<id>` when a figure resulted, else `figure_request:<request identity>` once the input is hashed |
+| `figure_withheld` | A figure withheld at delivery, a listed chain's pick withheld now, or a stored spec that no longer parses; once per figure, rule and process (the Reader polls its list) | `withdrawn`: `withheld_at_delivery`, `pick_withheld`, `spec_unparsable` | `figure:<id>` |
+| `figure_rich_author` | Each attempt of a rich (video) job, through the same `AuthorAttempts` as `figure_author` | `brief_invalid`, `scene_invalid`, `claim_failed`, `pacing_failed`, `render_failed`, `render_timeout`, `render_repaired`, `model_failed`, `request_refused`, `accepted` | the stored figure, else `job:<id>` |
+| `figure_rich_stop` | A rich job that ended with no row | `refused` with its `RichJobStopped` code; `deferred` for `waiting_for_plan` | `job:<id>` |
+
+The figure gate's `figure_admission` record names its unit (`figure_request:<id>` for a build once hashed, `job:<id>` for a rich job) and, for a hold, why it held (`facts.held`: `learner_state`, `item_protection`, `prefetch_off`, `power`, `foreground`, `plan`, `render_cap`, `cancelled`, or `unclassified`). `figure_request` is a subject kind of `why`. A build with no entry trace opens one, so its request, gate and author records share it; a requeued rich job's first stop survives in its `figure_rich_stop` record, where `ingest_jobs.error_json` is rewritten. The how-to rows are in [[Debug a decision]].
 
 ## Related notes
 

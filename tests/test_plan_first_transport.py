@@ -528,6 +528,11 @@ HTTP_MODULES = {
     "learnloop/ingest/extractors/datalab.py": "Datalab OCR",
     "learnloop/ingest/extractors/glm_ocr.py": "GLM OCR",
     "learnloop/ingest/youtube.py": "YouTube oEmbed title and channel",
+    # The notebook runtime: loopback only, never outbound and never a model request. Every client is built over the
+    # session's own Unix socket (base URL http://127.0.0.1); test_notebook_runtime.py pins it
+    # (test_the_runtimes_http_only_ever_targets_its_sessions_unix_socket).
+    "learnloop/notebook_runtime/proxy.py": "notebook frame proxy: relays to its sandboxed marimo server over the Unix socket",
+    "learnloop/notebook_runtime/supervisor.py": "notebook supervisor: health, token, shutdown and kernel calls over the Unix socket",
 }
 _HTTP_ROOTS = ("urllib", "http.client", "httpx", "requests", "openai", "aiohttp", "openai_codex")
 
@@ -1243,7 +1248,7 @@ def test_rr_f2_a_feature_that_needs_its_own_price_is_not_served_by_another_featu
 
     from types import SimpleNamespace
 
-    from learnloop.content.pipeline import jobs
+    from learnloop.content.authoring import jobs
     from learnloop.content.pipeline.runner import RunnerServices
     from tests.openai_fakes import install_fake_openai
 

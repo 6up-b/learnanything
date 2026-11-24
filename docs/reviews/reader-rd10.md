@@ -88,3 +88,10 @@ None in existing code. While merging `reader/rd8a-pen-ui`, `visual_reference.py`
   YouTube player (the harness's stub reports its time).
 - The vault's generated notes are not regenerated (the validator's counts are updated; its coverage rows and the
   database reference wait for the regeneration after landing).
+
+## Owner copies (the orchestrator, 2026-11-23)
+
+Migration 268 was applied to backup-API copies of the owner's three vaults (the floor set, upgraded by
+`learnloop upgrade`), in a gitignored directory, deleted afterwards. On every copy: the upgrade exited 0,
+`integrity_check` is ok, `foreign_key_check` is empty, the migration head is 268, and `video_chapters` holds no rows.
+No live vault was opened.

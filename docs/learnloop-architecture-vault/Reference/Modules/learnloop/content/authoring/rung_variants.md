@@ -83,7 +83,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `RungVariantError`, `generate_rung_variant`; statically calls `generate_rung_variant`
+- [[Reference/Modules/learnloop/content/authoring/jobs|learnloop.content.authoring.jobs]] — imports `RungVariantError`, `generate_rung_variant`; statically calls `generate_rung_variant`
 - [[Reference/Modules/learnloop_sidecar/handlers/item_authoring|learnloop_sidecar.handlers.item_authoring]] — imports `RungVariantError`, `request_rung_variant`; statically calls `request_rung_variant`
 
 ## Dependencies
@@ -121,7 +121,7 @@ Use this module in context through:
 - [[Import Canonical Sources]]
 - [[Build a Study Map]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]], [[Reference/Modules/learnloop_sidecar/handlers/item_authoring|learnloop_sidecar.handlers.item_authoring]].
+Static participation evidence comes from [[Reference/Modules/learnloop/content/authoring/jobs|learnloop.content.authoring.jobs]], [[Reference/Modules/learnloop_sidecar/handlers/item_authoring|learnloop_sidecar.handlers.item_authoring]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

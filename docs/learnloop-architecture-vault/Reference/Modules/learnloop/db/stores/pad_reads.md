@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/db/stores/pad_reads.py](../../../../../../../src/learnloop/db/stores/pad_reads.py) |
-| Source lines | 289 |
+| Source lines | 302 |
 | Owning package | [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
@@ -58,35 +58,36 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - `pad(connection: sqlite3.Connection, pad_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/pad_reads.py), line 33)
 - `running_pad_ids(connection: sqlite3.Connection, desk_id: str) -> list[str]` ([source](../../../../../../../src/learnloop/db/stores/pad_reads.py), line 38)
 - `list_pads(connection: sqlite3.Connection, *, desk_id: str | None, kept: bool | None, query: str | None, after: tuple[str, str] | None, page_size: int) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/pad_reads.py), line 43) — Pads, most recently changed first; ``query`` matches the title or a standing block's text.
-- `head(connection: sqlite3.Connection, block_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/pad_reads.py), line 67)
-- `heads(connection: sqlite3.Connection, pad_id: str) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/pad_reads.py), line 72) — Every block head of one pad (tombstones included), ordered by position, then block id.
-- `first_versions(connection: sqlite3.Connection, block_ids: Iterable[str]) -> dict[str, str]` ([source](../../../../../../../src/learnloop/db/stores/pad_reads.py), line 79)
-- `chain(connection: sqlite3.Connection, block_id: str) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/pad_reads.py), line 89) — One block's versions, oldest first, by following its supersession links from its first version.
-- `version(connection: sqlite3.Connection, version_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/pad_reads.py), line 103)
-- `lift_stub_for(connection: sqlite3.Connection, block_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/pad_reads.py), line 108) — The stub version a lift-out left in the block a lifted block came from, or None.
-- `block_ids(connection: sqlite3.Connection) -> list[str]` ([source](../../../../../../../src/learnloop/db/stores/pad_reads.py), line 116) — Every block with a version, in a stable order.
-- `version_exists(connection: sqlite3.Connection, version_id: str) -> bool` ([source](../../../../../../../src/learnloop/db/stores/pad_reads.py), line 122)
-- `standing_anchors_for_blocks(connection: sqlite3.Connection, block_ids: Iterable[str]) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/pad_reads.py), line 133) — The links that stand (the latest event per block and passage is a link), in written order.
-- `standing_anchors_for_spans(connection: sqlite3.Connection, extraction_ids: Iterable[str]) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/pad_reads.py), line 144) — Every standing link onto the given readings, each with its block's head (pad and kind).
-- `latest_anchor_event(connection: sqlite3.Connection, block_id: str, extraction_id: str, span_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/pad_reads.py), line 155) — The newest link or unlink event between one block and one passage (the anchor's head), or None.
-- `anchor_event_exists(connection: sqlite3.Connection, event_id: str) -> bool` ([source](../../../../../../../src/learnloop/db/stores/pad_reads.py), line 164)
-- `submission(connection: sqlite3.Connection, submission_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/pad_reads.py), line 176)
-- `submissions_for_blocks(connection: sqlite3.Connection, block_ids: Iterable[str]) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/pad_reads.py), line 181)
-- `carried(connection: sqlite3.Connection, carried_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/pad_reads.py), line 197)
-- `list_carried(connection: sqlite3.Connection, *, states: Iterable[str], desk_id: str | None, after: tuple[str, str] | None, page_size: int) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/pad_reads.py), line 202) — Carried questions in the given states, longest carried first (then by id).
-- `carried_on_readings(connection: sqlite3.Connection, extraction_ids: Iterable[str], states: Iterable[str]) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/pad_reads.py), line 218) — Carried questions in the given states whose anchor is on one of the readings.
-- `carried_event_exists(connection: sqlite3.Connection, event_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/pad_reads.py), line 233)
-- `carried_events(connection: sqlite3.Connection, carried_id: str) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/pad_reads.py), line 238)
-- `proposal(connection: sqlite3.Connection, proposal_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/pad_reads.py), line 249)
-- `proposal_for_version(connection: sqlite3.Connection, version_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/pad_reads.py), line 254)
-- `proposals_for_versions(connection: sqlite3.Connection, version_ids: Iterable[str]) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/pad_reads.py), line 259)
-- `label(connection: sqlite3.Connection, label_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/pad_reads.py), line 269)
-- `labels_for(connection: sqlite3.Connection, proposal_kind: str, proposal_ids: Iterable[str]) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/pad_reads.py), line 274)
+- `lesson_additions_pads(connection: sqlite3.Connection, lesson_ids: Iterable[str]) -> dict[str, str]` ([source](../../../../../../../src/learnloop/db/stores/pad_reads.py), line 67) — Each lesson's additions pad (spec §11.1, "your additions"): the newest unarchived ``lesson_additions`` pad naming it.
+- `head(connection: sqlite3.Connection, block_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/pad_reads.py), line 80)
+- `heads(connection: sqlite3.Connection, pad_id: str) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/pad_reads.py), line 85) — Every block head of one pad (tombstones included), ordered by position, then block id.
+- `first_versions(connection: sqlite3.Connection, block_ids: Iterable[str]) -> dict[str, str]` ([source](../../../../../../../src/learnloop/db/stores/pad_reads.py), line 92)
+- `chain(connection: sqlite3.Connection, block_id: str) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/pad_reads.py), line 102) — One block's versions, oldest first, by following its supersession links from its first version.
+- `version(connection: sqlite3.Connection, version_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/pad_reads.py), line 116)
+- `lift_stub_for(connection: sqlite3.Connection, block_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/pad_reads.py), line 121) — The stub version a lift-out left in the block a lifted block came from, or None.
+- `block_ids(connection: sqlite3.Connection) -> list[str]` ([source](../../../../../../../src/learnloop/db/stores/pad_reads.py), line 129) — Every block with a version, in a stable order.
+- `version_exists(connection: sqlite3.Connection, version_id: str) -> bool` ([source](../../../../../../../src/learnloop/db/stores/pad_reads.py), line 135)
+- `standing_anchors_for_blocks(connection: sqlite3.Connection, block_ids: Iterable[str]) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/pad_reads.py), line 146) — The links that stand (the latest event per block and passage is a link), in written order.
+- `standing_anchors_for_spans(connection: sqlite3.Connection, extraction_ids: Iterable[str]) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/pad_reads.py), line 157) — Every standing link onto the given readings, each with its block's head (pad and kind).
+- `latest_anchor_event(connection: sqlite3.Connection, block_id: str, extraction_id: str, span_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/pad_reads.py), line 168) — The newest link or unlink event between one block and one passage (the anchor's head), or None.
+- `anchor_event_exists(connection: sqlite3.Connection, event_id: str) -> bool` ([source](../../../../../../../src/learnloop/db/stores/pad_reads.py), line 177)
+- `submission(connection: sqlite3.Connection, submission_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/pad_reads.py), line 189)
+- `submissions_for_blocks(connection: sqlite3.Connection, block_ids: Iterable[str]) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/pad_reads.py), line 194)
+- `carried(connection: sqlite3.Connection, carried_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/pad_reads.py), line 210)
+- `list_carried(connection: sqlite3.Connection, *, states: Iterable[str], desk_id: str | None, after: tuple[str, str] | None, page_size: int) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/pad_reads.py), line 215) — Carried questions in the given states, longest carried first (then by id).
+- `carried_on_readings(connection: sqlite3.Connection, extraction_ids: Iterable[str], states: Iterable[str]) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/pad_reads.py), line 231) — Carried questions in the given states whose anchor is on one of the readings.
+- `carried_event_exists(connection: sqlite3.Connection, event_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/pad_reads.py), line 246)
+- `carried_events(connection: sqlite3.Connection, carried_id: str) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/pad_reads.py), line 251)
+- `proposal(connection: sqlite3.Connection, proposal_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/pad_reads.py), line 262)
+- `proposal_for_version(connection: sqlite3.Connection, version_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/pad_reads.py), line 267)
+- `proposals_for_versions(connection: sqlite3.Connection, version_ids: Iterable[str]) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/pad_reads.py), line 272)
+- `label(connection: sqlite3.Connection, label_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/pad_reads.py), line 282)
+- `labels_for(connection: sqlite3.Connection, proposal_kind: str, proposal_ids: Iterable[str]) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/pad_reads.py), line 287)
 
 ### Module constants
 
 - `_HEADS` ([src/learnloop/db/stores/pad_reads.py](../../../../../../../src/learnloop/db/stores/pad_reads.py), line 14)
-- `_STANDING` ([src/learnloop/db/stores/pad_reads.py](../../../../../../../src/learnloop/db/stores/pad_reads.py), line 126)
+- `_STANDING` ([src/learnloop/db/stores/pad_reads.py](../../../../../../../src/learnloop/db/stores/pad_reads.py), line 139)
 
 ### Explicit exports
 
@@ -124,9 +125,9 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 
 - `_rows(connection: sqlite3.Connection, sql: str, params: Iterable[Any]=()) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/pad_reads.py), line 20)
 - `_decoded(row: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/db/stores/pad_reads.py), line 26)
-- `_table(connection: sqlite3.Connection, name: str) -> bool` ([source](../../../../../../../src/learnloop/db/stores/pad_reads.py), line 171)
-- `_carried_out(row: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/db/stores/pad_reads.py), line 190)
-- `_proposal_out(row: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/db/stores/pad_reads.py), line 243)
+- `_table(connection: sqlite3.Connection, name: str) -> bool` ([source](../../../../../../../src/learnloop/db/stores/pad_reads.py), line 184)
+- `_carried_out(row: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/db/stores/pad_reads.py), line 203)
+- `_proposal_out(row: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/db/stores/pad_reads.py), line 256)
 
 ## Who imports or calls it
 
@@ -137,11 +138,16 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/desks/workspace|learnloop.desks.workspace]] — imports `module`; statically calls `pad`, `running_pad_ids`
 - [[Reference/Modules/learnloop/pads/blocks|learnloop.pads.blocks]] — imports `module`; statically calls `anchor_event_exists`, `first_versions`, `head`, `heads`, `latest_anchor_event`, `list_pads`, `pad`, `standing_anchors_for_blocks`, `version`, `version_exists`
 - [[Reference/Modules/learnloop/pads/carried|learnloop.pads.carried]] — imports `module`; statically calls `carried`, `carried_event_exists`, `carried_events`, `list_carried`
+- [[Reference/Modules/learnloop/pads/cells|learnloop.pads.cells]] — imports `module`; statically calls `heads`, `pad`
 - [[Reference/Modules/learnloop/pads/drain|learnloop.pads.drain]] — imports `module`; statically calls `heads`, `list_pads`
 - [[Reference/Modules/learnloop/pads/emission|learnloop.pads.emission]] — imports `module`; statically calls `block_ids`, `chain`, `head`, `heads`, `lift_stub_for`, `pad`, `standing_anchors_for_blocks`
+- [[Reference/Modules/learnloop/pads/ink|learnloop.pads.ink]] — imports `module`; statically calls `head`, `heads`, `pad`
+- [[Reference/Modules/learnloop/pads/ink_transcribe|learnloop.pads.ink_transcribe]] — imports `module`; statically calls `head`
 - [[Reference/Modules/learnloop/pads/proposals|learnloop.pads.proposals]] — imports `module`; statically calls `head`, `heads`, `label`, `labels_for`, `pad`, `proposal`, `proposal_for_version`, `proposals_for_versions`
 - [[Reference/Modules/learnloop/pads/submission|learnloop.pads.submission]] — imports `module`; statically calls `head`, `pad`, `submission`, `submissions_for_blocks`, `version`
 - [[Reference/Modules/learnloop/passage_union/union|learnloop.passage_union.union]] — imports `module`; statically calls `carried_on_readings`, `head`, `standing_anchors_for_spans`
+- [[Reference/Modules/learnloop_sidecar/handlers/lesson|learnloop_sidecar.handlers.lesson]] — imports `module`; statically calls `lesson_additions_pads`
+- [[Reference/Modules/learnloop_sidecar/handlers/passage_union|learnloop_sidecar.handlers.passage_union]] — imports `module`; statically calls `head`, `labels_for`
 
 ## Dependencies
 
@@ -161,24 +167,16 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/companion/asks|learnloop.companion.asks]], [[Reference/Modules/learnloop/desks/workspace|learnloop.desks.workspace]], [[Reference/Modules/learnloop/pads/blocks|learnloop.pads.blocks]], [[Reference/Modules/learnloop/pads/carried|learnloop.pads.carried]], [[Reference/Modules/learnloop/pads/drain|learnloop.pads.drain]] and 4 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/companion/asks|learnloop.companion.asks]], [[Reference/Modules/learnloop/desks/workspace|learnloop.desks.workspace]], [[Reference/Modules/learnloop/pads/blocks|learnloop.pads.blocks]], [[Reference/Modules/learnloop/pads/carried|learnloop.pads.carried]], [[Reference/Modules/learnloop/pads/cells|learnloop.pads.cells]] and 9 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
-No test imports this module directly. These tests exercise a direct production consumer:
-
-- [tests/test_reader_rd3a_companion_ask.py](../../../../../../../tests/test_reader_rd3a_companion_ask.py) — imports consumer [[Reference/Modules/learnloop/companion/asks|learnloop.companion.asks]]
-- [tests/desk_helpers.py](../../../../../../../tests/desk_helpers.py) — imports consumer [[Reference/Modules/learnloop/desks/workspace|learnloop.desks.workspace]]
-- [tests/test_pad_stale_edits_stacks_and_passage_reads.py](../../../../../../../tests/test_pad_stale_edits_stacks_and_passage_reads.py) — imports consumer [[Reference/Modules/learnloop/desks/workspace|learnloop.desks.workspace]]
-- [tests/test_reader_rd0_protocol.py](../../../../../../../tests/test_reader_rd0_protocol.py) — imports consumer [[Reference/Modules/learnloop/desks/workspace|learnloop.desks.workspace]]
-- [tests/test_reader_rd1_model_parity.py](../../../../../../../tests/test_reader_rd1_model_parity.py) — imports consumer [[Reference/Modules/learnloop/desks/workspace|learnloop.desks.workspace]]
-- [tests/test_reader_rd4_emission.py](../../../../../../../tests/test_reader_rd4_emission.py) — imports consumer [[Reference/Modules/learnloop/pads/blocks|learnloop.pads.blocks]]
-- [tests/test_reader_rd4_carried_and_proposals.py](../../../../../../../tests/test_reader_rd4_carried_and_proposals.py) — imports consumer [[Reference/Modules/learnloop/pads/drain|learnloop.pads.drain]]
-- [tests/reader_rd4_helpers.py](../../../../../../../tests/reader_rd4_helpers.py) — imports consumer [[Reference/Modules/learnloop/pads/emission|learnloop.pads.emission]]
-- [tests/test_reader_rd4_submission.py](../../../../../../../tests/test_reader_rd4_submission.py) — imports consumer [[Reference/Modules/learnloop/pads/submission|learnloop.pads.submission]]
-- [tests/test_reader_rd0_reads.py](../../../../../../../tests/test_reader_rd0_reads.py) — imports consumer [[Reference/Modules/learnloop/passage_union/union|learnloop.passage_union.union]]
+- [tests/test_notebook_pad_cells.py](../../../../../../../tests/test_notebook_pad_cells.py) — direct import
+  - `test_a_cells_code_is_never_learner_text`
+  - `test_cells_are_pad_blocks_with_append_only_versions_and_their_provenance`
+- [tests/test_reader_rd8a_transcribe.py](../../../../../../../tests/test_reader_rd8a_transcribe.py) — direct import
 
 ## Modification guidance
 

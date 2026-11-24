@@ -105,6 +105,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 No test imports this module directly. These tests exercise a direct production consumer:
 
 - [tests/test_figure_build_golden.py](../../../../../tests/test_figure_build_golden.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/figures|learnloop_sidecar.handlers.figures]]
+- [tests/test_figure_request_records.py](../../../../../tests/test_figure_request_records.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/figures|learnloop_sidecar.handlers.figures]]
 - [tests/test_figures_codex_review.py](../../../../../tests/test_figures_codex_review.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/figures|learnloop_sidecar.handlers.figures]]
 - [tests/test_figures_help.py](../../../../../tests/test_figures_help.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/figures|learnloop_sidecar.handlers.figures]]
 - [tests/test_figures_help_codex_review.py](../../../../../tests/test_figures_help_codex_review.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/figures|learnloop_sidecar.handlers.figures]]
@@ -115,7 +116,6 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_mobile_allowlist.py](../../../../../tests/test_mobile_allowlist.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/figures|learnloop_sidecar.handlers.figures]]
 - [tests/test_library_ask_review.py](../../../../../tests/test_library_ask_review.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/library_ask|learnloop_sidecar.handlers.library_ask]]
 - [tests/test_plan_first_transport.py](../../../../../tests/test_plan_first_transport.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/library_ask|learnloop_sidecar.handlers.library_ask]]
-- [tests/test_plan_first_transport_offer_grants.py](../../../../../tests/test_plan_first_transport_offer_grants.py) — imports consumer [[Reference/Modules/learnloop_sidecar/handlers/library_ask|learnloop_sidecar.handlers.library_ask]]
 
 ## Modification guidance
 

@@ -111,7 +111,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/pads/proposals|learnloop.pads.proposals]] — imports `emittable`, `lineage`, `passages_of`, `words_version`; statically calls `emittable`, `lineage`, `passages_of`, `words_version`
 - [[Reference/Modules/learnloop/pads/submission|learnloop.pads.submission]] — imports `lineage`, `quotes_of`, `words_version`; statically calls `lineage`, `quotes_of`, `words_version`
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `reconcile`; statically calls `reconcile`
+- [[Reference/Modules/learnloop_sidecar/handlers/ink|learnloop_sidecar.handlers.ink]] — imports `module`; statically calls `settle_blocks`
 - [[Reference/Modules/learnloop_sidecar/handlers/pads|learnloop_sidecar.handlers.pads]] — imports `module`; statically calls `settle_blocks`
+- [[Reference/Modules/learnloop_sidecar/handlers/passage_union|learnloop_sidecar.handlers.passage_union]] — imports `passages_of`; statically calls `passages_of`
 
 ## Dependencies
 
@@ -135,19 +137,23 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/pads/blocks|learnloop.pads.blocks]], [[Reference/Modules/learnloop/pads/proposals|learnloop.pads.proposals]], [[Reference/Modules/learnloop/pads/submission|learnloop.pads.submission]], [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]], [[Reference/Modules/learnloop_sidecar/handlers/pads|learnloop_sidecar.handlers.pads]].
+Static participation evidence comes from [[Reference/Modules/learnloop/pads/blocks|learnloop.pads.blocks]], [[Reference/Modules/learnloop/pads/proposals|learnloop.pads.proposals]], [[Reference/Modules/learnloop/pads/submission|learnloop.pads.submission]], [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]], [[Reference/Modules/learnloop_sidecar/handlers/ink|learnloop_sidecar.handlers.ink]] and 2 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
 - [tests/reader_rd4_helpers.py](../../../../../../tests/reader_rd4_helpers.py) — direct import
+- [tests/test_notebook_pad_cells.py](../../../../../../tests/test_notebook_pad_cells.py) — direct import
+  - `test_a_cells_code_is_never_learner_text`
 - [tests/test_reader_rd4_emission.py](../../../../../../tests/test_reader_rd4_emission.py) — direct import
   - `test_a_committed_text_block_is_queued_once_with_its_snapshot`
   - `test_a_reading_that_finished_after_its_words_were_replaced_is_set_aside_by_the_reconcile`
   - `test_below_the_tag_a_pad_emits_nothing_and_the_upgrade_queues_its_standing_words`
   - `test_switched_off_nothing_is_queued_and_switched_on_the_reconcile_queues_it`
   - `test_the_tag_and_the_kind`
+- [tests/test_reader_rd8a_transcribe.py](../../../../../../tests/test_reader_rd8a_transcribe.py) — direct import
+  - `test_ink_on_a_page_is_never_read_nor_learner_text`
 
 ## Modification guidance
 

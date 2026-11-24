@@ -25,9 +25,9 @@ source_paths:
   - "src/learnloop/daily_plan/next_practice.py"
   - "src/learnloop/daily_plan/reading.py"
   - "src/learnloop/content/pipeline/add_source.py"
-  - "src/learnloop/content/pipeline/jobs.py"
   - "src/learnloop/content/pipeline/reread.py"
   - "src/learnloop/content/sources/source_deletion.py"
+  - "src/learnloop/reader/part_read.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -114,7 +114,6 @@ Indexes and uniqueness:
 ### Upstream callers of the repository access surface
 
 - `src/learnloop/content/pipeline/add_source.py`
-- `src/learnloop/content/pipeline/jobs.py`
 - `src/learnloop/content/pipeline/reread.py`
 - `src/learnloop/content/sources/source_deletion.py`
 - `src/learnloop/daily_plan/reading.py`

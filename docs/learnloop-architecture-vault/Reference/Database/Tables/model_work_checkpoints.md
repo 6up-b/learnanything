@@ -22,7 +22,7 @@ source_paths:
   - "src/learnloop/ai/execution.py"
   - "src/learnloop/ai/spend.py"
   - "src/learnloop/content/facet_identity/judge.py"
-  - "src/learnloop/content/pipeline/jobs.py"
+  - "src/learnloop/content/pipeline/import_jobs.py"
   - "src/learnloop/daily_plan/router_teach_back.py"
   - "src/learnloop/field/classification.py"
   - "src/learnloop/followup_run/contract_job.py"

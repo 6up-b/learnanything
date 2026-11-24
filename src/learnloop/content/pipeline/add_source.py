@@ -52,7 +52,7 @@ from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from functools import partial
 from pathlib import Path
-from typing import Any, Iterable, Mapping, Sequence
+from typing import TYPE_CHECKING, Any, Iterable, Mapping, Sequence
 
 from learnloop.clock import Clock, FrozenClock, SystemClock, utc_now_iso
 from learnloop.content.sources.front_matter import FRONT_MATTER
@@ -62,6 +62,13 @@ from learnloop.ingest.models import UnsupportedSourceError
 from learnloop.ingest.resolution import resolve_source
 from learnloop.ingest.source_kinds import source_kind
 from learnloop.reader import part_read as part_read_rule
+from learnloop.content.pipeline.job_contracts import JobCancelled, JobSpec
+from learnloop.reader import part_read as PART_READ
+from learnloop.reader import reader_progression as RPROG
+from learnloop.reader import section_generation as SG
+
+if TYPE_CHECKING:
+    from learnloop.content.pipeline.runner import JobContext
 
 AUTO_STUDY_MAP_JOB = "auto_study_map"
 ADD_SOURCE_WORKFLOW = "add_source"
@@ -1854,6 +1861,104 @@ def run_auto_study_map(ctx) -> dict[str, Any]:
     return {**outcome, "build_batch_id": build_batch_id}
 
 
+def practice_expansion_payload(learning_object_ids: Sequence[str], reason: str,
+                               source_refs: Sequence[Mapping[str, Any]] | None = None,
+                               topic_keys: Mapping[str, str] | None = None) -> dict[str, Any]:
+    """A practice_expansion job's payload, whoever queues it (the sidecar, or a build that just applied).
+
+    ``topic_keys`` marks topic work (``reader_topic_question_work``): each topic's checkpoint scope. A payload
+    without it is a section job's, keyed by its whole topic list, as every one queued before topic work."""
+
+    payload = {
+        "learning_object_ids": list(learning_object_ids),
+        "reason": reason,
+        "source_refs": [dict(ref) for ref in source_refs or []],
+    }
+    if topic_keys is not None:
+        payload["topic_keys"] = {str(lo): str(key) for lo, key in topic_keys.items()}
+    return payload
+
+
+def start_waiting_sections(ctx: JobContext, source_id: str) -> int:
+    """A build's synthesis finished: start the question writing of every
+    section the learner finished while this book's topics were not in yet,
+    now that they may be, and the first sets of the topics it applied whose
+    every cited passage the learner has seen (``reader.part_read``). Returns
+    how many batches were queued. Best effort.
+
+    A section none of whose topics is in yet stays waiting: the build may
+    have left them for a look, and the next read of the books, once the build
+    has settled, either starts it or settles it as needing nothing. Each claim,
+    its queueing and the batch it names are one transaction, so a section
+    either keeps waiting or has exactly one batch.
+
+    While every earlier build of the book found no topic, a section finished
+    meanwhile was settled as needing nothing with nothing to cite it: it is
+    decided again here, from the topics this build applied (its stamp moves
+    from :data:`~learnloop.reader.section_generation.NONE_NEEDED` to the
+    claim, as a waiting one's does)."""
+
+    from learnloop.ai import plan_fallback
+    from learnloop.content.pipeline.add_source import _completed_extraction, found_no_topics_before
+    from learnloop.vault.loader import load_vault
+
+    queued = 0
+    try:
+        resolved = _completed_extraction(ctx.repo, source_id)
+        if resolved is None:
+            return 0
+        extraction_id = resolved[1]
+        rows = [(SG.WAITING_FOR_BUILD, row)
+                for row in ctx.repo.deferred_section_generations(SG.WAITING_FOR_BUILD, extraction_id=extraction_id)]
+        settled = ctx.repo.deferred_section_generations(SG.NONE_NEEDED, extraction_id=extraction_id)
+        if settled and found_no_topics_before(ctx.repo, source_id, batch_id=ctx.job.get("batch_id")):
+            rows.extend((SG.NONE_NEEDED, row) for row in settled)
+        # The part read: a learner who stopped reading while this build ran gets the first sets of the topics it
+        # applied whose passages they saw, now, not on their next visit.
+        part_read = extraction_id in PART_READ.read_readings(ctx.repo)
+        if not rows and not part_read:
+            return 0
+        vault = load_vault(ctx.vault_root)  # the topics this build just applied
+
+        def enqueue(lo_ids, reason, refs, topic_keys):
+            return ctx.enqueue_batch(
+                "practice_expansion",
+                [JobSpec("practice_expansion", practice_expansion_payload(lo_ids, reason, refs, topic_keys))],
+            )
+
+        for stamp, row in rows:
+            section_id = str(row["section_id"])
+            lo_ids = SG.section_generation_candidates(vault, ctx.repo, extraction_id=extraction_id,
+                                                      section_id=section_id)
+            if not lo_ids:
+                continue
+            refs = RPROG.source_refs_for_section(vault, ctx.repo, extraction_id=extraction_id, section_id=section_id,
+                                                 learning_object_ids=lo_ids)
+            # Reading progress is not a press: the writing asks nothing and carries no grant. The stamp's move,
+            # the topics' claims and the batch are one transaction (a section started elsewhere meanwhile is
+            # left to it).
+            with plan_fallback.quiet():
+                batch_id = SG.claim_section_topics(
+                    ctx.repo, extraction_id=extraction_id, section_id=section_id, lo_ids=lo_ids, refs=refs,
+                    enqueue=enqueue, from_stamp=stamp, source_id=source_id,
+                    requested=SG.section_topic_requests(vault, ctx.repo, lo_ids),
+                )
+            if batch_id is not None:
+                queued += 1
+        if part_read:
+            # The build's own batch is still running here, so its chapter is not "settled" yet by the shared
+            # definition; what it applied is in ``vault`` (topics it left for a look are not, and come in when a
+            # review applies them). Not remembered: this readiness is this hook's alone.
+            with plan_fallback.quiet():
+                queued += len(PART_READ.reconcile_part_read(vault, ctx.repo, extraction_id=extraction_id, enqueue=enqueue,
+                                                  topics_settled=lambda _section_id: (True, None), remember=False))
+    except JobCancelled:
+        pass  # this build was cancelled meanwhile: the sections keep waiting, nothing was queued
+    except Exception:  # noqa: BLE001 - starting a section's writing must never fail the build that applied
+        logging.getLogger(__name__).warning("could not start a waiting section's questions", exc_info=True)
+    return queued
+
+
 def after_auto_build(ctx) -> None:
     """An automatic build's synthesis finished: act on reading progress that
     arrived while it ran (review F7). Best effort.
@@ -1869,8 +1974,6 @@ def after_auto_build(ctx) -> None:
     if not isinstance(auto, Mapping) or not auto.get("source_id"):
         return
     from learnloop.content.pipeline.runner import JobCancelled, JobSpec
-
-    from learnloop.content.pipeline.jobs import start_waiting_sections
 
     start_waiting_sections(ctx, str(auto["source_id"]))
     try:
@@ -3197,8 +3300,8 @@ def _source_status_line(repo, vault, source_id: str | None, *, batch_id: str | N
 
         if state["error_code"] == APPEND_INPUT_OVER_CEILING:
             # Refused before anything was paid, and a retry refuses the same
-            # way (refactor K3.4): no Retry; details name the setting. Building
-            # it in parts arrives with K2.4.
+            # way: no Retry; details name the setting. A larger append is split
+            # into passes, so this is a single section too large on its own.
             return _line(f"Questions for {phrase} are too much to write at once", "problem", None, state["error"])
         if state["status"] == "cancelled" and not vault.config.ingest.auto_build:
             # The owner turned automatic building off while it was queued.

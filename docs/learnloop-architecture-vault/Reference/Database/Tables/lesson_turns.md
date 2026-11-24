@@ -92,6 +92,7 @@ None found by exact static reference scan.
 - `src/learnloop/db/stores/lessons.py`
 - `src/learnloop/diagnosis/text_gaps/sources.py`
 - `src/learnloop/teacher/diagnosed_sources.py`
+- `src/learnloop/teacher/summaries.py`
 
 ### Direct SQL writers
 

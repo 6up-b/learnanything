@@ -496,7 +496,7 @@ def test_a_rich_only_figure_whose_learner_inputs_became_protected_is_never_reuse
     rich = _rich_row(rig.repository)
     assert not rich["fuller_of_id"] and rich["verification_report"]["learner_state_inputs"]["answers"]
     with rig.repository.connection() as connection:
-        assert FB._reusable(rig.vault, rig.repository, connection, rich["input_hash"], [])["id"] == rich["id"]
+        assert FB._reusable(rig.vault, rig.repository, connection, rich["input_hash"], [])[0]["id"] == rich["id"]
     assert [view["figure_id"] for view in rig.listed()] == [rich["id"]]
     _make_exam_material(rig)
     with rig.repository.connection() as connection:

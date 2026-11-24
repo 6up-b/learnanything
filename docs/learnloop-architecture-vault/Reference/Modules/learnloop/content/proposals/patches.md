@@ -114,8 +114,8 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]] — imports `PatchApplicationError`
+- [[Reference/Modules/learnloop/content/authoring/jobs|learnloop.content.authoring.jobs]] — imports `PatchApplicationError`
 - [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] — imports `refuse_while_an_apply_is_outstanding`; statically calls `refuse_while_an_apply_is_outstanding`
-- [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `PatchApplicationError`
 - [[Reference/Modules/learnloop/content/proposals/apply_protocol|learnloop.content.proposals.apply_protocol]] — imports `PatchApplicationError`, `_proposal_apply_order`, `compile_proposal_item`, `recalibrate_applied_content`; statically calls `PatchApplicationError`, `_proposal_apply_order`, `compile_proposal_item`, `recalibrate_applied_content`
 - [[Reference/Modules/learnloop/content/proposals/method_phrasing|learnloop.content.proposals.method_phrasing]] — imports `compute_target_hash`; statically calls `compute_target_hash`
 - [[Reference/Modules/learnloop/content/proposals/proposals|learnloop.content.proposals.proposals]] — imports `PatchApplyResult`, `apply_accepted_items`, `refuse_while_an_apply_is_outstanding`, `refuse_while_an_apply_names_items`, `reject_applied_items`; statically calls `apply_accepted_items`, `refuse_while_an_apply_is_outstanding`, `refuse_while_an_apply_names_items`, `reject_applied_items`
@@ -165,7 +165,7 @@ Use this module in context through:
 - [[Import Canonical Sources]]
 - [[Build a Study Map]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]], [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]], [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]], [[Reference/Modules/learnloop/content/proposals/apply_protocol|learnloop.content.proposals.apply_protocol]], [[Reference/Modules/learnloop/content/proposals/method_phrasing|learnloop.content.proposals.method_phrasing]] and 9 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]], [[Reference/Modules/learnloop/content/authoring/jobs|learnloop.content.authoring.jobs]], [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]], [[Reference/Modules/learnloop/content/proposals/apply_protocol|learnloop.content.proposals.apply_protocol]], [[Reference/Modules/learnloop/content/proposals/method_phrasing|learnloop.content.proposals.method_phrasing]] and 9 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

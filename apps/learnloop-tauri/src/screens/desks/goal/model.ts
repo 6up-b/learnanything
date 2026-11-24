@@ -69,6 +69,28 @@ export function levelsInRange(index: LensIndex | null, spanIds: readonly string[
   return out;
 }
 
+/** Most needed first: what a group of passages spanning sections shows (a transcript paragraph's cues may cross a
+ *  section boundary). A section not dimmed comes before a dimmed one, then by level; a passage no section maps
+ *  counts as unmapped (never skippable). */
+const NEED_RANK: Record<string, number> = { core: 0, supporting: 1, partial: 2, unmapped: 3, later: 4, already_shown: 5, skippable: 6 };
+
+export function mostNeededSpan(index: LensIndex, spanIds: readonly string[]): string | undefined {
+  let best: { spanId: string; rank: number } | undefined;
+  for (const spanId of spanIds) {
+    const section = index.bySpan.get(spanId);
+    const rank = section ? (section.dim ? 10 : 0) + (NEED_RANK[section.level] ?? NEED_RANK.unmapped) : NEED_RANK.unmapped;
+    if (!best || rank < best.rank) best = { spanId, rank };
+  }
+  return best?.spanId;
+}
+
+/** Whether every section is known not to be needed now (mapped, and skippable, later or already shown): only then
+ *  may a whole source, or the rest of it, be called not needed. A partly mapped or unmapped section keeps it open. */
+export function noneNeeded(sections: readonly GoalLensSectionDto[]): boolean {
+  return sections.length > 0 && sections.every((section) => section.mapping === "mapped"
+    && (section.level === "skippable" || section.level === "later" || section.level === "already_shown"));
+}
+
 /** Dimmed while dimming is on: skippable and later, unless the learner chose to read it anyway (the
  *  backend's `dim`). Dimmed text is never hidden. */
 export function isDimmed(section: GoalLensSectionDto | undefined, dimOn: boolean): boolean {
@@ -140,7 +162,9 @@ export function hereLine(index: LensIndex | null, readingSpan: string | null, wh
   if (!section) return { where: place, lo: null, tag: null, loId: null };
   if (section.level === "skippable") return { where: place, lo: null, tag: "not needed for your goal", loId: null };
   if (section.level === "unmapped") return { where: place, lo: null, tag: "not mapped for this goal yet", loId: null };
-  if (section.held) return { where: place, lo: null, tag: "a cold check is due here", loId: null };
+  // A section treating an LO whose check is due names nothing: not the window's own place words (the book's heading
+  // may be the LO's name), only the server's neutral title (D15).
+  if (section.held) return { where: section.title, lo: null, tag: "a cold check is due here", loId: null };
   const lo = section.learningObjects.find((entry) => entry.learningObjectId === section.determiningLoId);
   const dot = band?.learningObjects?.find((each) => each.learningObjectId === section.determiningLoId);
   const tag = section.level === "later" ? "later"
@@ -231,8 +255,9 @@ export function shelfGoal(index: LensIndex | null): ShelfGoal | null {
   if (sections.some((section) => section.reasonKey === "prerequisite")) return { mark: "sup", line: "background your goal builds on", ranges };
   if (sections.some((section) => section.reasonKey === "alternate")) return { mark: "sup", line: "another way", ranges };
   if (sections.some((section) => section.level === "supporting" || section.level === "core")) return { mark: "sup", line: "supporting your goal", ranges };
+  // Nothing on the path: a claim about the whole source holds only if every section is known not needed now.
+  if (!noneNeeded(sections)) return { mark: "partial", line: "partly mapped for this goal", ranges };
   if (sections.some((section) => section.level === "later")) return { mark: "later", line: "needed only deeper", ranges };
   if (sections.some((section) => section.level === "already_shown")) return { mark: "shown", line: "already shown", ranges };
-  if (sections.some((section) => section.level === "partial")) return { mark: "partial", line: "partly mapped for this goal", ranges };
   return { mark: "skip", line: "not needed for your goal", ranges };
 }

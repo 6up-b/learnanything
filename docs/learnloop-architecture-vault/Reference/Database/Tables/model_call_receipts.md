@@ -162,9 +162,9 @@ Indexes and uniqueness:
 - `src/learnloop/content/authoring/source_exercise_import.py`
 - `src/learnloop/content/facet_identity/judge.py`
 - `src/learnloop/content/pipeline/add_source.py`
-- `src/learnloop/content/pipeline/jobs.py`
 - `src/learnloop/content/pipeline/wait_detail.py`
 - `src/learnloop/content/synthesis/graph_nomination.py`
+- `src/learnloop/content/synthesis/jobs.py`
 - `src/learnloop/daily_plan/router_runtime.py`
 - `src/learnloop/decider_judgments.py`
 - `src/learnloop/diagnosis/offline_review/runner.py`

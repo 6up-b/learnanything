@@ -469,7 +469,7 @@
 
 /* -- scratchpads (§10; tab and paper tokens from §10.1, §10.3) ------------------------------------------- */
 
-:where(.desk-pads, .desk-padmenu, .desk-sheet, .desk-arrange, .desk-drain, .desk-pmark, .desk-carried) button {
+:where(.desk-pads, .desk-menu, .desk-sheet, .desk-arrange, .desk-drain, .desk-pmark, .desk-carried) button {
   font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer;
 }
 .desk-pads { position: relative; display: flex; flex-direction: column; min-height: 0; height: 100%; background: #1a1a1c; font: 12px var(--desk-mono); }
@@ -562,26 +562,14 @@
 .desk-sketch .bar button { color: #5a564e; padding: 1px 6px; border-radius: 2px; }
 .desk-sketch .bar button.on { background: #ece4d2; color: #3b3832; }
 .desk-sketch .canvas { display: block; background: #fdfcf8; border: 0; border-radius: 0; touch-action: none; cursor: crosshair; }
-.desk-padmenu, .desk-sheet, .desk-arrange, .desk-drain {
+.desk-sheet, .desk-arrange, .desk-drain {
   position: fixed; z-index: 90; min-width: 320px; max-width: 420px; padding: 6px; background: #181818; color: var(--desk-t);
   border: 1px solid #3a3a3a; border-radius: 4px; box-shadow: 0 24px 70px rgba(0, 0, 0, .6); font: 12px var(--desk-mono);
 }
 .desk-sheet, .desk-arrange, .desk-drain { left: 50%; top: 18%; transform: translateX(-50%); }
-.desk-padmenu .head, .desk-sheet .head, .desk-arrange .head, .desk-drain .head { padding: 4px 8px 6px; color: var(--desk-t3); font-size: 10.5px; border-bottom: 1px solid #2a2a2a; margin-bottom: 4px; }
-.desk-padmenu .row, .desk-sheet .row, .desk-arrange .row { display: flex; width: 100%; gap: 10px; padding: 5px 8px; text-align: left; border-radius: 2px; }
-.desk-padmenu .row.sel, .desk-arrange .row.sel { background: #2a2a2a; }
-/* The pad menu's frame and rows, as the mockup's menu: 360 px, its heading t2 with no rule, rows on a 1.4 line,
-   the selection a dark amber wash with the amber bar. */
-.desk-padmenu { width: 360px; max-width: none; padding: 5px; color: #eee; box-shadow: 0 18px 50px rgba(0, 0, 0, .6); }
-.desk-padmenu .head { padding: 4px 9px 6px; color: #a8a8b8; font-size: 10px; border-bottom: 0; margin-bottom: 0; }
-.desk-padmenu .row { padding: 5px 9px; line-height: 1.4; }
-.desk-padmenu .row.sel { background: #241d12; box-shadow: inset 2px 0 0 var(--desk-amber); }
-.desk-padmenu .row:disabled { color: var(--desk-t3); cursor: default; }
-.desk-padmenu .row .g { width: 12px; color: var(--desk-t3); }
-.desk-padmenu .row .l { flex: 1; }
-.desk-padmenu .row .n { color: var(--desk-t3); font-size: 10.5px; }
-.desk-padmenu .row .k { color: var(--desk-t3); }
-.desk-padmenu .sep { padding: 6px 8px 2px; color: var(--desk-t3); font-size: 9.5px; letter-spacing: .1em; }
+.desk-sheet .head, .desk-arrange .head, .desk-drain .head { padding: 4px 8px 6px; color: var(--desk-t3); font-size: 10.5px; border-bottom: 1px solid #2a2a2a; margin-bottom: 4px; }
+.desk-sheet .row, .desk-arrange .row { display: flex; width: 100%; gap: 10px; padding: 5px 8px; text-align: left; border-radius: 2px; }
+.desk-arrange .row.sel { background: #2a2a2a; }
 .desk-sheet label { display: block; padding: 4px 8px; color: var(--desk-t3); font-size: 10.5px; }
 .desk-sheet textarea { display: block; width: 100%; box-sizing: border-box; min-height: 48px; margin-top: 3px; background: #080808; color: var(--desk-t); border: 1px solid #3a3a3a; border-radius: 2px; font: 12px var(--desk-mono); padding: 6px; }
 .desk-sheet .note, .desk-drain .note { padding: 4px 8px; color: var(--desk-t3); font-size: 11px; }
@@ -640,3 +628,64 @@
 .desk-carried-list .row .s { color: var(--desk-t3); font-size: 10px; }
 .desk-carried-list .row .acts { grid-column: 1 / -1; display: flex; gap: 12px; }
 .desk-carried-list .row .acts button, .desk-carried-list > .acts button { color: #f0c890; background: none; border: 0; font: inherit; cursor: pointer; padding: 0; }
+
+/* -- the context menu (§9.1, §9.2): sizes, colours and faces as the mockup measures them ---------------------- */
+
+.desk-menu {
+  position: fixed; z-index: 95; box-sizing: border-box; width: 360px; max-height: calc(100vh - 54px); overflow-y: auto; padding: 5px;
+  background: #181818; color: #eee; border: 1px solid #3a3a3a; border-radius: 4px; box-shadow: 0 18px 50px #00000099;
+  font: 12px var(--desk-mono);
+}
+.desk-menu.submenu { width: 260px; }
+.desk-menu .mh { padding: 4px 9px 6px; color: var(--desk-t2); font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.desk-menu .mh.sub { padding-top: 6px; color: var(--desk-t3); font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase; }
+.desk-menu .pro { margin-bottom: 5px; padding: 2px 0; background: #141414; border: 1px solid #2a2a2a; border-radius: 2px; }
+.desk-menu .pro .pending { padding: 4px 9px 4px 34px; color: var(--desk-t3); font-size: 10.5px; }
+.desk-menu .mi {
+  display: grid; grid-template-columns: 18px 1fr auto; gap: 7px; align-items: start; box-sizing: border-box; width: 100%;
+  padding: 5px 9px; border-radius: 2px; line-height: 1.4; text-align: left;
+}
+.desk-menu .mi .t { min-width: 0; }
+.desk-menu .mi .why { display: block; color: #b3b3c0; font-size: 11px; line-height: 1.4; }
+.desk-menu .mi .k { color: var(--desk-t3); font-size: 10.5px; line-height: normal; padding-top: 1px; }
+.desk-menu .mi.sel { background: #241d12; color: var(--desk-t); box-shadow: inset 2px 0 0 var(--desk-amber); }
+.desk-menu .mi.sel .why { color: var(--desk-t2); }
+.desk-menu .mi.sel .k { color: var(--desk-amber); }
+.desk-menu .mi.aid { color: #8fd3a0; }
+.desk-menu .mi:disabled { color: var(--desk-t3); cursor: default; }
+.desk-menu .mi .k.pl { display: none; gap: 8px; }
+.desk-menu .mi.sel .k.pl, .desk-menu .mi:hover .k.pl { display: inline-flex; }
+.desk-menu .mi .lb { color: var(--desk-t3); cursor: pointer; }
+.desk-menu .mi .lb:hover { color: var(--desk-t); }
+.desk-menu .sep { height: 1px; margin: 3px 6px; background: rgba(255, 255, 255, .08); }
+.desk-knows { width: 460px; max-width: calc(100vw - 32px); max-height: 70vh; overflow-y: auto; }
+.desk-knows .place { padding: 4px 0; border-top: 1px solid #2a2a2a; }
+.desk-knows .ph { display: block; padding: 4px 8px; color: var(--desk-t); text-align: left; }
+.desk-knows .grp { padding: 2px 8px 4px; }
+.desk-knows .gt { color: var(--desk-t3); font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase; padding: 4px 0 2px; }
+.desk-knows .row { display: block; width: 100%; padding: 2px 0; color: var(--desk-t2); font-size: 11px; line-height: 1.4; text-align: left; }
+.desk-knows button.row:hover { color: var(--desk-t); }
+
+/* -- the shelf's TODAY · RUNNING PAD (§5.6): the running pad's last lines above CARRIED, as the mockup has them -- */
+.desk-today { margin-top: 2px; }
+.desk-today .runmini {
+  display: block; box-sizing: border-box; width: calc(100% - 28px); margin: 0 14px 5px; padding: 0; text-align: left;
+  font: 11px var(--desk-mono); line-height: 1.4; color: var(--desk-t2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  background: none; border: 0; cursor: pointer;
+}
+.desk-today .runmini:hover { color: var(--desk-t); }
+.desk-today .runmini .rm { display: inline-block; min-width: 12px; color: var(--desk-ll); font: 10px var(--desk-mono); }
+
+/* A pad stack's title bar: "Scratchpads ⓘ yours" (§10.11's emission note opens from the circled ⓘ, as the mockup has it). */
+.desk-pane-head .emi { flex: none; box-sizing: border-box; width: 17px; height: 17px; margin-left: 6px; border: 1px solid #3a3a3a; border-radius: 50%; font: 11px var(--desk-mono); line-height: 15px; text-align: center; color: var(--desk-t3); }
+.desk-pane-head .emi:hover { color: var(--desk-t); border-color: var(--desk-t3); }
+/* Opened from the title bar, the note hangs under its ⓘ (20 px left of it, 6 px below). */
+.desk-pads > .pinfo-pop:first-child { left: 94px; right: auto; top: 6px; }
+
+/* Make it practice on an exercise (§9.1 `p`): the exercise's own words in the book's face, then what it made. */
+.desk-exercise { width: 520px; max-width: calc(100vw - 32px); max-height: 70vh; overflow-y: auto; }
+.desk-exercise .words { margin: 4px 8px; padding: 8px 10px; background: var(--desk-paper); color: var(--desk-ink); border-radius: 3px; font: 14px/1.6 var(--desk-book); }
+.desk-exercise .words p { margin: 0 0 6px; }
+.desk-exercise .item { margin: 6px 8px; padding: 6px 0; border-top: 1px solid #2a2a2a; }
+.desk-exercise .item .t { color: var(--desk-t); }
+.desk-exercise .item .p { color: var(--desk-t2); font-size: 11px; margin: 2px 0 4px; }

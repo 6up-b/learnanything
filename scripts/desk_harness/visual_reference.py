@@ -20,7 +20,7 @@ Build the harness page first (apps/learnloop-tauri: `npx vite build --config vit
     uv run --no-project --with playwright==1.65.2 --with pillow==11.3.0 \\
         python scripts/desk_harness/visual_reference.py --ref <the private reference directory> --stage rd4
 
-`--stage` is rd1, rd2, rd3, rd4, rd6, rd8, rd9, rd10 or all; `--state NAME` runs one state; `--viewport design|laptop|both`.
+`--stage` is rd1, rd2, rd3, rd4, rd5, rd6, rd8, rd9, rd10, notebook or all; `--state NAME` runs one state; `--viewport design|laptop|both`.
 Exit status 0 when the run completed (differences are findings, not failures), 2 when the reference is
 missing. `--dump NAME` prints the harness's element tree in that state (for mapping new regions).
 """
@@ -305,11 +305,16 @@ region("pad_lift", ".desk-pads .lift", "none")
 # The mockup pads the stub's block box, the desks the box around the stub.
 region("pad_lifted", ".desk-pads .lifted", "none", ("padding",))
 region("pad_info_pop", ".desk-pads .pinfo-pop", "none")
-region("pad_info_button", ".desk-pads .pinfo .ic", "none")
+# The ⓘ ring: in a pad stack's title bar the button is the ring; a stack mounted alone has its ring inside its bar.
+region("pad_info_button", ".desk-pane-head .pinfo, .desk-pads .pinfo .ic", "none")
 region("pad_card", ".desk-pads .pcard", "size")
-region("pad_menu", ".desk-padmenu", "width")
-region("pad_menu_row", ".desk-padmenu .row:not(.sel)", "height")
-region("pad_menu_head", ".desk-padmenu h5, .desk-padmenu .head", "none")
+# ── the context menu (RD5): one menu for passages, cues, highlights, notes, window headers and pad lines ──
+# Its height follows its rows (the spec's verbs per object kind): the width is compared.
+region("pad_menu", ".desk-menu:not(.submenu)", "width")
+region("pad_menu_row", ".desk-menu > .mi:not(.sel)", "height")
+region("pad_menu_head", ".desk-menu .mh", "none")
+region("auto:div.pro", ".desk-menu .pro", "width")
+region("auto:span.why", ".desk-menu .why", "none")
 region("arrange_panel", ".desk-arrange", "none")
 region("arrange_card", ".desk-pads .desk-arrange .row:not(.sel)", "none")
 region("split_pane", ".desk-pads .split .pane", "none")
@@ -415,7 +420,7 @@ MEASURE_JS = r"""
       filter: cs.filter,
       cursor: cs.cursor,
     };
-    if (e instanceof SVGElement) { out[name].stroke = hex(cs.stroke); out[name].fill = hex(cs.fill); out[name].stroke_width = cs.strokeWidth; }
+    if (e instanceof SVGElement) { out[name].stroke = hex(cs.stroke); out[name].fill = hex(cs.fill); out[name].stroke_width = cs.strokeWidth; out[name].stroke_opacity = cs.strokeOpacity; out[name].stroke_dasharray = cs.strokeDasharray; }
   }
   return out;
 }
@@ -695,7 +700,9 @@ async def d_sketch(page: Page) -> None:
 
 async def d_info(page: Page) -> None:
     await pads_beside_book(page)
-    await page.locator(".desk-pads .pinfo").click()
+    # Its ⓘ sits in the pad stack's title bar ("Scratchpads ⓘ yours").
+    await page.locator(".desk-window:has(.desk-pads) .desk-pane-head .pinfo").click()
+    # The mockup's link opens it without a pointer over the ⓘ: leave its hover state out of the measure.
     await page.mouse.move(5, 5)
     await wait(page, 300)
 
@@ -731,10 +738,30 @@ async def d_backlink(page: Page) -> None:
     await wait(page, 300)
 
 
-async def d_padmenu(page: Page) -> None:
-    await pads_beside_book(page)
-    await page.locator('.desk-pads [data-block="fx_b_r1"]').click(button="right")
-    await wait(page, 300)
+async def menu_settled(page: Page) -> None:
+    # The cheap rows come at once; the judged rows through the job on the poller (two reads, about 3 s).
+    await page.wait_for_selector(".desk-menu")
+    await wait(page, 3600)
+
+
+async def d_menu_cue(page: Page) -> None:
+    # The first desk's video window shows its transcript beside the book.
+    cue = page.locator("[data-transcript-span]:visible").first
+    await cue.click(button="right")
+    await menu_settled(page)
+
+
+async def d_menu_hl(page: Page) -> None:
+    # The fixture's book has no saved highlight: a passage's menu stands for it (the same menu, headed "a passage").
+    await page.locator('[data-desk-window="fx_w_book"] [data-span-id]').nth(2).click(button="right", position={"x": 60, "y": 8})
+    await menu_settled(page)
+
+
+async def d_menu_selection(page: Page) -> None:
+    await select_passage(page, "largest score")
+    target = page.locator('[data-desk-window="fx_w_book"] [data-span-id]').filter(has_text="largest score").first
+    await target.click(button="right", position={"x": 60, "y": 8})
+    await menu_settled(page)
 
 
 async def d_arrange(page: Page) -> None:
@@ -902,7 +929,8 @@ class State:
     init_storage: tuple[tuple[str, str], ...] = ()
     note: str = ""
     geometry: bool = True  # False where the mockup's state is not a resting layout (its self-tests run on)
-    query: str = ""  # the harness page's query string (a fixture shown only for this state; the goal lens is `?goal=1`)
+    # The harness page's query, with its "?" (the goal lens is `?goal=1`; the ink pad's fixture `?inkpad=1`).
+    query: str = ""
     reference: str = ""  # the reference deep link when it is not the state's name (two stages comparing one capture)
 
 
@@ -929,6 +957,7 @@ PADS = ("pad_window_head", "pad_tab_open", "pad_tab", "pad_tab_title", "pad_tab_
         "pad_prose", "pad_quote", "pad_backlink", "pad_tutor", "pad_tutor_who", "pad_submitted", "pad_carry", "pad_jot", "pad_mark_src",
         "pad_mark_ll", "pad_mark_fig")
 
+MENU = ("pad_menu", "pad_menu_row", "pad_menu_head", "auto:div.pro", "auto:span.why")
 FOLLOW = ("follow_chip", "follow_passage")
 CHAPTERS = ("chap_panel", "chap_head", "chap_row", "chap_range", "chap_title", "chap_lo", "chap_accept", "chap_tick")
 
@@ -985,7 +1014,10 @@ STATES: list[State] = [
     State("append", "rd4", d_append, PADS),
     State("markback", "rd4", d_markback, PADS + ("pass_mark_pad", "pad_flash")),
     State("backlink", "rd4", d_backlink, PADS + ("book_prose",)),
-    State("s11=menu", "rd4", d_padmenu, ("pad_menu", "pad_menu_row", "pad_menu_head")),
+    # The mockup's #s11=menu is a selection's menu over the book: RD5's menu (the pad line's menu is the same one).
+    State("s11=menu", "rd5", d_menu_selection, MENU),
+    State("menu=cue", "rd5", d_menu_cue, MENU),
+    State("menuhl", "rd5", d_menu_hl, MENU),
     State("s11=arrange", "rd4", d_arrange, ("arrange_panel", "arrange_card", "pad_window_head")),
     State("s11=split", "rd4", d_split, PADS + ("split_pane",)),
     State("goal=frame", "rd6", d_goal_frame, GOAL_BAND + GOAL_MARKS + GOAL_SHELF + ("goal_callout", "goal_callout_lab"), variant="arxiv_v2_goal", query="?goal=1"),
@@ -1103,6 +1135,10 @@ def diff_region(name: str, mock: dict[str, Any], app: dict[str, Any], geometry: 
     for key in ("radius", "padding"):
         if any(not near(m, a) for m, a in zip(mock[key], app[key], strict=True)):
             add("geometry", key, " ".join(mock[key]), " ".join(app[key]))
+    # An SVG stroke's width, opacity and dashes compare exactly (in the overview's world px).
+    for key in ("stroke_width", "stroke_opacity", "stroke_dasharray"):
+        if key in mock and key in app and not same_numbers(mock[key], app[key]):
+            add("colour" if key == "stroke_opacity" else "geometry", key, mock[key], app[key])
     geom = REGIONS[name].geom
     for k in GEOM_KEYS[geom]:
         if abs(mock["box"][k] - app["box"][k]) > GEOMETRY_TOLERANCE_PX:
@@ -1111,8 +1147,6 @@ def diff_region(name: str, mock: dict[str, Any], app: dict[str, Any], geometry: 
         add("colour", "opacity", mock["opacity_eff"], app["opacity_eff"])
     if name in CURSOR_REGIONS and "cursor" in mock and mock.get("cursor") != app.get("cursor"):
         add("cursor", "cursor", mock.get("cursor"), app.get("cursor"))
-    if "stroke_width" in mock and "stroke_width" in app and mock["stroke_width"] != app["stroke_width"]:
-        add("colour", "stroke_width", mock["stroke_width"], app["stroke_width"])
     return rows
 
 
@@ -1263,18 +1297,31 @@ def summarise(results: list[dict[str, Any]]) -> str:
             kinds[row["kind"]] = kinds.get(row["kind"], 0) + 1
         lines.append(f"{r['state']} [{r['viewport']}]: pixels changed {r['pixel_changed_share']:.1%}; missing {len(r['missing_in_app'])}; "
                      + ", ".join(f"{k} {v}" for k, v in sorted(kinds.items())) + f"; token rows {len(r['tokens'])}")
+    # The count a record quotes: findings__<run>.json's rows per stage (one row per region, property and pair of
+    # values, so a difference with other values at the laptop size is a row of its own).
+    per_stage: dict[str, dict[str, int]] = {}
+    for row in aggregate(results):
+        counts = per_stage.setdefault(row["stage"], {})
+        counts[row["kind"]] = counts.get(row["kind"], 0) + 1
+    for stage, counts in sorted(per_stage.items()):
+        lines.append(f"findings {stage}: {sum(counts.values())} (" + ", ".join(f"{k} {v}" for k, v in sorted(counts.items())) + ")")
     return "\n".join(lines)
 
 
 async def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--ref", type=Path, required=True, help="the private reference directory")
-    parser.add_argument("--stage", default="all", choices=["rd1", "rd2", "rd3", "rd4", "rd6", "rd8", "rd9", "rd10", "all"])
+    parser.add_argument("--stage", default="all", choices=["rd1", "rd2", "rd3", "rd4", "rd5", "rd6", "rd8", "rd9", "rd10", "notebook", "all"])
     parser.add_argument("--state", default=None)
     parser.add_argument("--viewport", default="both", choices=["design", "laptop", "both"])
     parser.add_argument("--out", type=Path, default=None, help="where the comparison goes (default: <ref>/compare)")
     parser.add_argument("--dump", default=None, metavar="STATE")
     args = parser.parse_args()
+    if args.stage == "notebook":
+        # The notebook frame runs a real sandboxed session; its own harness compares the lesson state's frame.
+        import subprocess
+
+        return subprocess.call([sys.executable, str(Path(__file__).with_name("notebook.py")), "--ref", str(args.ref)])
     if not DIST.exists():
         print("build the harness page first: npx vite build --config vite.desks.config.mjs", file=sys.stderr)
         return 2

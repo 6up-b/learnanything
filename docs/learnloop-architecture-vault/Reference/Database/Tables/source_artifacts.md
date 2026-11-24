@@ -26,7 +26,7 @@ source_paths:
   - "src/learnloop/cli/app.py"
   - "src/learnloop/companion/search.py"
   - "src/learnloop/content/pipeline/acquisition_preview.py"
-  - "src/learnloop/content/pipeline/jobs.py"
+  - "src/learnloop/content/pipeline/import_jobs.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -115,7 +115,7 @@ Indexes and uniqueness:
 - `src/learnloop/companion/search.py`
 - `src/learnloop/content/pipeline/acquisition_preview.py`
 - `src/learnloop/content/pipeline/add_source.py`
-- `src/learnloop/content/pipeline/jobs.py`
+- `src/learnloop/content/pipeline/import_jobs.py`
 - `src/learnloop/content/pipeline/quick_add.py`
 - `src/learnloop/content/pipeline/reread.py`
 - `src/learnloop/content/pipeline/source_ingestion.py`
@@ -149,6 +149,7 @@ Indexes and uniqueness:
 - `tests/quick_add_helpers.py`
 - `tests/reader_ca1_as_printed_helpers.py`
 - `tests/reader_fixtures.py`
+- `tests/reader_rd10_helpers.py`
 - `tests/rw5c_fixtures.py`
 - `tests/source_inventory_helpers.py`
 - `tests/source_retrieval_fakes.py`
@@ -156,7 +157,6 @@ Indexes and uniqueness:
 - `tests/test_decider_landing.py`
 - `tests/test_followups_batch6_prefetch_next_section.py`
 - `tests/test_followups_batch7_note_titles.py`
-- `tests/test_glm_ocr.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

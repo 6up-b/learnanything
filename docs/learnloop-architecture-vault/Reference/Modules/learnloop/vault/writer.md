@@ -183,6 +183,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/probe_predictive_eig_helpers.py](../../../../../../tests/probe_predictive_eig_helpers.py) — direct import
 - [tests/protection_matrix_helpers.py](../../../../../../tests/protection_matrix_helpers.py) — direct import
 - [tests/reader_cues_helpers.py](../../../../../../tests/reader_cues_helpers.py) — direct import
+- [tests/reader_rd10_helpers.py](../../../../../../tests/reader_rd10_helpers.py) — direct import
 - [tests/reader_rw3a_landing_helpers.py](../../../../../../tests/reader_rw3a_landing_helpers.py) — direct import
 - [tests/regrade_contract_replay_helpers.py](../../../../../../tests/regrade_contract_replay_helpers.py) — direct import
 - [tests/required_method_authority_helpers.py](../../../../../../tests/required_method_authority_helpers.py) — direct import
@@ -206,6 +207,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_relatedness_proposal_reads_no_learner_or_held_out_data`
 - [tests/test_adaptive_difficulty_ad1.py](../../../../../../tests/test_adaptive_difficulty_ad1.py) — direct import
   - `test_held_out_sentinel_never_reaches_ad_inputs`
+- [tests/test_append_split_passes.py](../../../../../../tests/test_append_split_passes.py) — direct import
 - [tests/test_assessment_enforcement.py](../../../../../../tests/test_assessment_enforcement.py) — direct import
 - [tests/test_attempt_content_state_race.py](../../../../../../tests/test_attempt_content_state_race.py) — direct import
 - [tests/test_build_study_map_routing.py](../../../../../../tests/test_build_study_map_routing.py) — direct import

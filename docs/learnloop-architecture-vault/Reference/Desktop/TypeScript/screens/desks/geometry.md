@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/geometry.ts](../../../../../../../apps/learnloop-tauri/src/screens/desks/geometry.ts) |
-| Source lines | 186 |
+| Source lines | 189 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/_area|TypeScript/screens/desks]] |
 | Refactor status | `ACTIVE` |
@@ -57,47 +57,47 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export const DESK_SIZES =` — const, line 6
 - `export interface Rect` — interface, line 26
 - `export interface Stage` — interface, line 33
-- `export function slotWidth(stage: Stage): number` — function, line 39
-- `export function slotRects(slotCount: number, stage: Stage): Rect[]` — function, line 44
-- `export function paneRects(slot: Rect, panes: number): Rect[]` — function, line 56
-- `export function stripWidth(slotCount: number, stage: Stage): number` — function, line 66
-- `export function rowTop(rowIndex: number, stage: Stage): number` — function, line 74
-- `export function ensureVisible(camX: number, index: number, slotCount: number, stage: Stage, withPrevious = false): number` — function, line 84
-- `export interface SlotVisibility` — interface, line 101
-- `export function slotVisibility(camX: number, slotCount: number, stage: Stage): SlotVisibility[]` — function, line 112
-- `export function slotsInView(camX: number, slotCount: number, stage: Stage): number[]` — function, line 128
-- `export function sliverSlots(camX: number, slotCount: number, stage: Stage):` — function, line 133
-- `export function softCropMask(visibility: SlotVisibility, width: number): string | null` — function, line 143
-- `export const FOCUS_MEASURE: Record<string, number> =` — const, line 158
-- `export const DOC_ZOOM =` — const, line 166
-- `export function focusRect(viewport: Stage): Rect` — function, line 169
-- `export function stepZoom(zoom: number, direction: -1 | 0 | 1): number` — function, line 173
-- `export function stageFor(viewport: Stage): Stage` — function, line 180
+- `export function slotWidth(stage: Stage): number` — function, line 42
+- `export function slotRects(slotCount: number, stage: Stage): Rect[]` — function, line 47
+- `export function paneRects(slot: Rect, panes: number): Rect[]` — function, line 59
+- `export function stripWidth(slotCount: number, stage: Stage): number` — function, line 69
+- `export function rowTop(rowIndex: number, stage: Stage): number` — function, line 77
+- `export function ensureVisible(camX: number, index: number, slotCount: number, stage: Stage, withPrevious = false): number` — function, line 87
+- `export interface SlotVisibility` — interface, line 104
+- `export function slotVisibility(camX: number, slotCount: number, stage: Stage): SlotVisibility[]` — function, line 115
+- `export function slotsInView(camX: number, slotCount: number, stage: Stage): number[]` — function, line 131
+- `export function sliverSlots(camX: number, slotCount: number, stage: Stage):` — function, line 136
+- `export function softCropMask(visibility: SlotVisibility, width: number): string | null` — function, line 146
+- `export const FOCUS_MEASURE: Record<string, number> =` — const, line 161
+- `export const DOC_ZOOM =` — const, line 169
+- `export function focusRect(viewport: Stage): Rect` — function, line 172
+- `export function stepZoom(zoom: number, direction: -1 | 0 | 1): number` — function, line 176
+- `export function stageFor(viewport: Stage): Stage` — function, line 183
 
 ## Internal implementation anchors
 
-- `const w = slotWidth(stage)` — const, line 45
-- `const h = Math.max(0, stage.height - 2 * DESK_SIZES.inset)` — const, line 46
-- `const half = (slot.h - DESK_SIZES.pairDivider) / 2` — const, line 58
-- `const rects = slotRects(slotCount, stage)` — const, line 68
-- `const last = rects[rects.length - 1]` — const, line 69
-- `function clampCam(camX: number, slotCount: number, stage: Stage): number` — function, line 78
-- `const rects = slotRects(slotCount, stage)` — const, line 86
-- `const rect = rects[index]` — const, line 87
-- `const right = stage.width - DESK_SIZES.side` — const, line 88
-- `let next = camX` — let, line 89
-- `const left = rect.x - camX` — const, line 114
-- `const right = left + rect.w` — const, line 115
-- `const shown = slotsInView(camX, slotCount, stage)` — const, line 134
-- `const first = shown[0]` — const, line 136
-- `const last = shown[shown.length - 1]` — const, line 137
-- `const fade = DESK_SIZES.cropFade` — const, line 145
-- `const dim = `rgba(0,0,0,$` — const, line 146
-- `const leftEdge = Math.min(width, visibility.cutLeft)` — const, line 147
-- `const rightEdge = Math.max(0, width - visibility.cutRight)` — const, line 148
-- `const stops: string[] = []` — const, line 149
-- `const next = Math.round((zoom + direction * DOC_ZOOM.step) * 10) / 10` — const, line 175
-- `const shelf = viewport.width < DESK_SIZES.shelfFoldBelow ? DESK_SIZES.shelfRail : DESK_SIZES.shelf` — const, line 181
+- `const w = slotWidth(stage)` — const, line 48
+- `const h = Math.max(0, stage.height - 2 * DESK_SIZES.inset)` — const, line 49
+- `const half = (slot.h - DESK_SIZES.pairDivider) / 2` — const, line 61
+- `const rects = slotRects(slotCount, stage)` — const, line 71
+- `const last = rects[rects.length - 1]` — const, line 72
+- `function clampCam(camX: number, slotCount: number, stage: Stage): number` — function, line 81
+- `const rects = slotRects(slotCount, stage)` — const, line 89
+- `const rect = rects[index]` — const, line 90
+- `const right = stage.width - DESK_SIZES.side` — const, line 91
+- `let next = camX` — let, line 92
+- `const left = rect.x - camX` — const, line 117
+- `const right = left + rect.w` — const, line 118
+- `const shown = slotsInView(camX, slotCount, stage)` — const, line 137
+- `const first = shown[0]` — const, line 139
+- `const last = shown[shown.length - 1]` — const, line 140
+- `const fade = DESK_SIZES.cropFade` — const, line 148
+- `const dim = `rgba(0,0,0,$` — const, line 149
+- `const leftEdge = Math.min(width, visibility.cutLeft)` — const, line 150
+- `const rightEdge = Math.max(0, width - visibility.cutRight)` — const, line 151
+- `const stops: string[] = []` — const, line 152
+- `const next = Math.round((zoom + direction * DOC_ZOOM.step) * 10) / 10` — const, line 178
+- `const shelf = viewport.width < DESK_SIZES.shelfFoldBelow ? DESK_SIZES.shelfRail : DESK_SIZES.shelf` — const, line 184
 
 ## Who imports or calls it
 

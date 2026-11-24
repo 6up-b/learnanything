@@ -133,6 +133,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/learner_pick_proposal_helpers.py](../../../../../../../tests/learner_pick_proposal_helpers.py) — direct import
+- [tests/source_exercise_rpcs_helpers.py](../../../../../../../tests/source_exercise_rpcs_helpers.py) — direct import
 - [tests/test_discriminating_search.py](../../../../../../../tests/test_discriminating_search.py) — direct import
   - `test_a_pick_with_an_unjudged_worked_example_is_served_as_labelled_practice`
 - [tests/test_learner_pick_proposal.py](../../../../../../../tests/test_learner_pick_proposal.py) — direct import
@@ -145,7 +146,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_rejected_answer_stays_on_a_failed_receipt_and_only_the_correction_is_recoverable`
 - [tests/test_router_r2a_serving.py](../../../../../../../tests/test_router_r2a_serving.py) — direct import
   - `test_an_unplanned_proposal_pick_delivers_with_its_blocks_decision`
-- [tests/test_source_exercise_rpcs.py](../../../../../../../tests/test_source_exercise_rpcs.py) — direct import
 - [tests/test_valuation_calibration_fields.py](../../../../../../../tests/test_valuation_calibration_fields.py) — direct import
   - `test_a_studied_worked_example_records_the_seconds_since_exposure`
   - `test_exposure_age_is_measured_at_delivery_not_at_valuation`

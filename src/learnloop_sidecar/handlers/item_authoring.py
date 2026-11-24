@@ -8,6 +8,7 @@ validated cached entity and derived serving rows directly.
 
 from __future__ import annotations
 
+import hashlib
 from typing import Any
 
 from pydantic import Field
@@ -34,6 +35,16 @@ class AuthorPracticeItemInput(ParamsModel):
     expected_answer: str
     practice_mode: str = "short_answer"
     hints: list[str] = Field(default_factory=list)
+    #: A client's name for this one request (a sheet's save): a retry or a second click with the same key returns
+    #: the card the first made and never makes another. Left out of ``model_dump`` so a capture route's request hash
+    #: stays what it was.
+    client_idempotency_key: str | None = Field(default=None, min_length=1, max_length=200, exclude=True)
+
+
+def _keyed_item_id(key: str) -> str:
+    """The card a client's idempotency key names (one key, one card)."""
+
+    return "pi_learner_" + hashlib.sha256(f"author_practice_item:{key}".encode()).hexdigest()[:26]
 
 
 class EditPracticeItemInput(ParamsModel):
@@ -189,7 +200,8 @@ def author_practice_item(ctx: SidecarContext, params: AuthorPracticeItemInput) -
             expected_answer=params.expected_answer,
             practice_mode=params.practice_mode,
             hints=params.hints,
-            **({"item_id": "pi_capture_" + intent["destination_id"].lower()} if intent else {}),
+            **({"item_id": "pi_capture_" + intent["destination_id"].lower()} if intent else
+               {"item_id": _keyed_item_id(params.client_idempotency_key)} if params.client_idempotency_key else {}),
         )
     except ItemAuthoringError as exc:
         raise SidecarError("validation_error", str(exc)) from exc

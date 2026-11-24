@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/pads/host.ts](../../../../../../../../apps/learnloop-tauri/src/screens/desks/pads/host.ts) |
-| Source lines | 152 |
+| Source lines | 173 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/pads/_area|TypeScript/screens/desks/pads]] |
 | Refactor status | `ACTIVE` |
@@ -54,23 +54,23 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export interface PadsApi` — interface, line 21
-- `export interface SourcePiece` — interface, line 41
-- `export interface PadsHost` — interface, line 50
-- `export interface PadStackHandle` — interface, line 83
-- `export interface PendingFigure` — interface, line 99
-- `export class PendingFigures` — class, line 108
-- `export const PadsHostContext = createContext<PadsHost | null>(null)` — const, line 134
-- `export function usePadsHost(): PadsHost | null` — function, line 136
-- `export function localDay(date: Date = new Date()): string` — function, line 141
-- `export function dayHeading(day: string, today: string): string` — function, line 147
+- `export interface PadsApi` — interface, line 26
+- `export interface SourcePiece` — interface, line 46
+- `export interface PadsHost` — interface, line 55
+- `export interface PadStackHandle` — interface, line 98
+- `export interface PendingFigure` — interface, line 120
+- `export class PendingFigures` — class, line 129
+- `export const PadsHostContext = createContext<PadsHost | null>(null)` — const, line 155
+- `export function usePadsHost(): PadsHost | null` — function, line 157
+- `export function localDay(date: Date = new Date()): string` — function, line 162
+- `export function dayHeading(day: string, today: string): string` — function, line 168
 
 ## Internal implementation anchors
 
-- `const waiting = this.byWindow.get(windowId) ?? []` — const, line 128
-- `const pad = (n: number)` — const, line 142
-- `const date = new Date(`$` — const, line 148
-- `const label = date.toLocaleDateString("en-GB",` — const, line 150
+- `const waiting = this.byWindow.get(windowId) ?? []` — const, line 149
+- `const pad = (n: number)` — const, line 163
+- `const date = new Date(`$` — const, line 169
+- `const label = date.toLocaleDateString("en-GB",` — const, line 171
 
 ## Who imports or calls it
 
@@ -79,6 +79,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - [[Reference/Desktop/TypeScript/fixtures/desks/harness|src/fixtures/desks/harness.tsx]] — import-or-re-export: `PadsHost`, `PadsHostContext`, `PendingFigures`; references `PadsHost`, `PadsHostContext`, `PendingFigures`
 - [[Reference/Desktop/TypeScript/screens/desks/DeskShell|src/screens/desks/DeskShell.tsx]] — import-or-re-export: `PadStackHandle`, `PadsApi`, `PadsHost`, `PadsHostContext`, `PendingFigures`, `SourcePiece`, `localDay`; references `PadStackHandle`, `PadsApi`, `PadsHost`, `PadsHostContext`, `PendingFigures`, `SourcePiece`, `localDay`
+- [[Reference/Desktop/TypeScript/screens/desks/notebook/PadCell|src/screens/desks/notebook/PadCell.tsx]] — import-or-re-export: `usePadsHost`; references `usePadsHost`
 - [[Reference/Desktop/TypeScript/screens/desks/pads/PadOverlays|src/screens/desks/pads/PadOverlays.tsx]] — import-or-re-export: `PadsHost`; references `PadsHost`
 - [[Reference/Desktop/TypeScript/screens/desks/pads/PadStackWindow|src/screens/desks/pads/PadStackWindow.tsx]] — import-or-re-export: `PadStackHandle`, `PadsHost`, `dayHeading`, `usePadsHost`; references `PadStackHandle`, `PadsHost`, `dayHeading`, `usePadsHost`
 
@@ -86,7 +87,11 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ### Desktop source modules
 
-- [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `CarriedQuestionDto`, `CarryInput`, `PadProposalsDto`, `PadSubmitBlockDto`, `PadSubmitBlockInput`, `PassageContentDto`, `PassageUnionDto`, `PassageUnionInput`, `ProposalLabelInput`, `SessionSnapshot`, `SubmitTeachBackTurnInput`, `TeachBackTurnResult`
+- [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `CarriedQuestionDto`, `CarryInput`, `MenuObjectInput`, `PadProposalsDto`, `PadSubmitBlockDto`, `PadSubmitBlockInput`, `PassageContentDto`, `PassageUnionDto`, `PassageUnionInput`, `PromotedRowDto`, `ProposalLabelInput`, `SessionSnapshot`, `SubmitTeachBackTurnInput`, `TeachBackTurnResult`
+- [[Reference/Desktop/TypeScript/api/poller|src/api/poller.ts]] — import-or-re-export; imports `Poller`
+- [[Reference/Desktop/TypeScript/screens/desks/lesson/host|src/screens/desks/lesson/host.ts]] — import-or-re-export; imports `LessonsHost`
+- [[Reference/Desktop/TypeScript/screens/desks/menu/ContextMenu|src/screens/desks/menu/ContextMenu.tsx]] — import-or-re-export; imports `PromotedApi`
+- [[Reference/Desktop/TypeScript/screens/desks/notebook/menuBridge|src/screens/desks/notebook/menuBridge.ts]] — import-or-re-export; imports `NotebookMenuRequest`
 - [[Reference/Desktop/TypeScript/screens/desks/search/model|src/screens/desks/search/model.ts]] — import-or-re-export; imports `SearchRow`
 - [[Reference/Desktop/TypeScript/screens/desks/store|src/screens/desks/store.ts]] — import-or-re-export; imports `DeskStore`
 
@@ -102,8 +107,12 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 
 ## Tests that define behavior
 
+- [apps/learnloop-tauri/src/screens/desks/pen/inkPad.test.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/pen/inkPad.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/desks/pads/PadStackWindow.test.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/pads/PadStackWindow.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/desks/notebook/PadCell.test.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/notebook/PadCell.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/desks/lesson/lessonWindows.test.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/lesson/lessonWindows.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/desks/DeskShell.test.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/DeskShell.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/desks/DeskShell.menu.test.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/DeskShell.menu.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 
 ## Modification guidance
 

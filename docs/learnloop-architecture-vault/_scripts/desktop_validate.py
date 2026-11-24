@@ -211,17 +211,22 @@ def main() -> int:
     # Reader workbench v2 RD4b (the scratchpads): screens/desks/pads/ model.ts, stickyTabs.ts, host.ts,
     # PadStackWindow.tsx, PadOverlays.tsx, SketchCanvas.tsx, DrainPanel.tsx, PassageMarks.tsx and
     # screens/desks/fitMath.tsx (entry-reachable through DeskShell); fixtures/desks/pads.ts (vitest-support).
+    # Reader workbench v2 RD5b (the context menu): screens/desks/menu/ model.ts, ContextMenu.tsx, verbs.ts and
+    # KnowsPanel.tsx (entry-reachable through DeskShell).
     # Reader workbench v2 RD6b (the goal lens): screens/desks/goal/ model.ts, controller.ts, GoalBand.tsx, marks.tsx,
     # PathView.tsx and GoalLayer.tsx (entry-reachable through DeskShell); fixtures/desks/goal.ts (vitest-support).
+    # RD8a: the eight screens/desks/pen modules (recognizer, input, geometry, host, live, PenLayer, inkCache, InkLine).
     # Reader workbench v2 RD9a (lesson windows): screens/LessonView.tsx (the lesson screen's content, extracted) and
     # screens/desks/lesson/ model.ts, host.ts, LessonPaper.tsx and PathLessonRow.tsx (entry-reachable);
     # fixtures/desks/lessons.ts (vitest-support).
-    # RD8a: the eight screens/desks/pen modules (recognizer, input, geometry, host, live, PenLayer, inkCache, InkLine).
+    # The notebook frame (NotebookFrame.tsx, bridge.ts), pad cells (PadCell.tsx, padNotebooks.ts, menuBridge.ts) and
+    # notebook lessons (LessonNotebook.tsx).
     # Reader workbench v2 RD10 (video and carried polish): screens/desks/video/ model.ts, desk.ts, ChaptersPanel.tsx,
     # VideoWindow.tsx, FollowChip.tsx and followLens.ts, and screens/desks/carried/related.ts (entry-reachable);
     # fixtures/desks/video.ts (vitest-support).
-    if len(ts_sources) != 407:
-        errors.append(f"source inventory drift: expected 407 TypeScript/TSX files, found {len(ts_sources)}")
+    # RD5's fix round: screens/desks/menu/ExerciseSheet.tsx (Make it practice on an exercise; entry-reachable).
+    if len(ts_sources) != 418:
+        errors.append(f"source inventory drift: expected 418 TypeScript/TSX files, found {len(ts_sources)}")
     if len(rust_sources) != 6:
         errors.append(f"source inventory drift: expected 6 authored Rust modules, found {len(rust_sources)}")
     for path in sorted(expected - actual):
@@ -324,11 +329,14 @@ def main() -> int:
         # RD1: the ten screens/desks modules and api/poller.ts; api/sourceKinds.ts (a source kind is one row).
         # RD2: the five screens/desks/overview modules.
         # RD4b: the seven screens/desks/pads modules and screens/desks/fitMath.tsx.
-        # RD6b: the six screens/desks/goal modules.
-        # RD9a: screens/LessonView.tsx and the four screens/desks/lesson modules.
+        # RD5b: the four screens/desks/menu modules. RD6b: the six screens/desks/goal modules.
         # RD8a: the eight screens/desks/pen modules.
+        # The notebook frame: screens/desks/notebook/NotebookFrame.tsx and bridge.ts. Pad cells: PadCell.tsx,
+        # padNotebooks.ts and menuBridge.ts. Notebook lessons: LessonNotebook.tsx.
+        # RD9a: screens/LessonView.tsx and the four screens/desks/lesson modules.
         # RD10: the six screens/desks/video modules and screens/desks/carried/related.ts.
-        "entry-reachable build graph": 387,
+        # RD5's fix round: screens/desks/menu/ExerciseSheet.tsx.
+        "entry-reachable build graph": 398,
         # RW5d P2 sketch compartment: sketch.worker.ts and sketchWorkerCore.ts, bundled by vite.config.mjs.
         "bundled worker entry": 2,
         "compiler-implicit": 2,
@@ -344,7 +352,7 @@ def main() -> int:
     status_counts: dict[str, int] = defaultdict(int)
     for info in audited_infos.values():
         status_counts[info.refactor_status] += 1
-    if dict(status_counts) != {"ACTIVE": 413}:
+    if dict(status_counts) != {"ACTIVE": 424}:
         errors.append(f"lifecycle classification drift requires review: {dict(status_counts)}")
 
     link_errors, wikilinks, fragments, markdown_links = validate_links(sorted(actual))

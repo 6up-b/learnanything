@@ -120,6 +120,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_figure_decision_records.py](../../../../../../tests/test_figure_decision_records.py) — direct import
   - `test_a_queue_stopped_by_foreground_work_records_what_waits`
+- [tests/test_figure_request_records.py](../../../../../../tests/test_figure_request_records.py) — direct import
+  - `test_the_background_hold_names_the_switch_the_power_and_foreground_work`
 - [tests/test_figures_prefetch.py](../../../../../../tests/test_figures_prefetch.py) — direct import
   - `test_prebuilds_yield_to_foreground_work_and_resume_on_the_next_pass`
 - [tests/test_figures_prefetch_review_fixes.py](../../../../../../tests/test_figures_prefetch_review_fixes.py) — direct import

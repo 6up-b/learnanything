@@ -62,7 +62,7 @@ def test_selection_for_region_spans_whole_blocks(tmp_path):
 
 
 def test_the_reader_job_records_an_import_row_and_leaves_the_item_unchanged(tmp_path, monkeypatch):
-    from learnloop.content.pipeline import jobs
+    from learnloop.content.authoring import jobs
     from learnloop.content.pipeline.runner import JobContext, RunnerServices
 
     paths, repository, spans = build_textbook_vault(tmp_path / "vault")

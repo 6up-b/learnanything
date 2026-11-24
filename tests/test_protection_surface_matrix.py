@@ -838,7 +838,7 @@ def _check(probe: Probe, target: Target, payload: dict[str, Any]) -> str:
 
     from types import SimpleNamespace
 
-    from learnloop.content.pipeline import jobs
+    from learnloop.content.authoring import jobs
 
     world = probe.world(target, own="check")
     extraction, span = _span(target)
@@ -895,7 +895,7 @@ def _preset_once(world: World, target: Target) -> str:
 
 @surface("RI")
 def _reader_import(probe: Probe, target: Target) -> str:
-    from learnloop.content.pipeline import jobs
+    from learnloop.content.authoring import jobs
     from learnloop.content.pipeline.runner import IngestRunnerError, JobContext
     from tests.exercise_authoring_helpers import FakeClient
     from tests.protection_matrix_helpers import reader_import_context
@@ -992,7 +992,7 @@ def _reader_neighbour(probe: Probe, target: Target) -> str:
 
     from unittest import mock
 
-    from learnloop.content.pipeline import jobs
+    from learnloop.content.authoring import jobs
     from learnloop.content.pipeline.runner import JobContext
     from tests.protection_matrix_helpers import reader_import_context
 
@@ -1472,7 +1472,7 @@ def _held_selection_refusal(probe: Probe, spelling: str) -> tuple[tuple[str, str
 
     from unittest import mock
 
-    from learnloop.content.pipeline import jobs
+    from learnloop.content.authoring import jobs
     from learnloop.content.pipeline.runner import IngestRunnerError, JobContext
     from learnloop.reader.source_render_views import resolve_or_create_render_view
     from tests.protection_matrix_helpers import reader_import_context
@@ -1536,7 +1536,7 @@ def test_the_reader_imports_author_keeps_a_safe_neighbour(probe: Probe) -> None:
 
     from unittest import mock
 
-    from learnloop.content.pipeline import jobs
+    from learnloop.content.authoring import jobs
     from learnloop.content.pipeline.runner import JobContext
     from tests.protection_matrix_helpers import reader_import_context
 

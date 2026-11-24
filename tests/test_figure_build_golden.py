@@ -307,7 +307,9 @@ def case_delivery_withheld(tmp_path, monkeypatch, sandbox):
     press = Press(tmp_path / "vault", monkeypatch, [flagship(kind="illustrative")])
     result = build(press.ctx, dict(PRESS))
     _hold_out(monkeypatch, "p4")  # a neighbour the author was sent is held out after the build
-    delivered = FH.deliver_figure(press.ctx, dict(result))
+    # The delivery reads the job's own result (the build's view, snake-cased), not the wire's camelCase copy, so
+    # its check asks about this figure.
+    delivered = FH.deliver_figure(press.ctx, {"figure": {"figure_id": result["figure"]["figureId"]}, "reused": False})
     return press.record(sandbox, result=result, delivered=delivered)
 
 

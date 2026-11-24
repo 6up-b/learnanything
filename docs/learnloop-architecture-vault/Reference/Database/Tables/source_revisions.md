@@ -23,7 +23,7 @@ source_paths:
   - "src/learnloop/content/sources/exam_material.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/held_out_signals.py"
-  - "src/learnloop/db/stores/reading_requests.py"
+  - "src/learnloop/db/stores/ink_strokes.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/companion/search.py"
   - "src/learnloop/content/authoring/source_exercise_import.py"
@@ -106,6 +106,7 @@ Indexes and uniqueness:
 - `src/learnloop/content/sources/exam_material.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/held_out_signals.py`
+- `src/learnloop/db/stores/ink_strokes.py`
 - `src/learnloop/db/stores/reading_requests.py`
 - `src/learnloop/db/stores/source_block_fts.py`
 - `src/learnloop/db/stores/source_documents.py`
@@ -131,6 +132,7 @@ Indexes and uniqueness:
 - `src/learnloop/content/pipeline/add_source.py`
 - `src/learnloop/content/pipeline/build_plan.py`
 - `src/learnloop/content/pipeline/exam_marking.py`
+- `src/learnloop/content/pipeline/import_jobs.py`
 - `src/learnloop/content/pipeline/jobs.py`
 - `src/learnloop/content/pipeline/quick_add.py`
 - `src/learnloop/content/pipeline/reread.py`
@@ -143,7 +145,6 @@ Indexes and uniqueness:
 - `src/learnloop/content/synthesis/source_unit_selection.py`
 - `src/learnloop/daily_plan/reading.py`
 - `src/learnloop/db/stores/reader.py`
-- `src/learnloop/experiments/contextual_embeddings/corpus.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

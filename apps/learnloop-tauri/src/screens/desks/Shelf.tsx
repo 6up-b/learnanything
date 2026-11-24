@@ -34,9 +34,13 @@ export function Shelf({
   carried = [],
   carriedMore = 0,
   onCarriedList,
+  today = null,
   open = false,
   onOpenChange,
 }: {
+  /** TODAY · RUNNING PAD: the running pad's last lines of today (at most three), each marked by where it came
+   * from, and "open" to bring the pad into view. */
+  today?: { lines: Array<{ blockId: string; mark: string; text: string }>; onOpen: () => void } | null;
   rows: ShelfRow[];
   folded: boolean;
   /** Folded, whether the strip is open over the rail (the shell owns it, so esc can close it through its key
@@ -65,7 +69,7 @@ export function Shelf({
   }
   const body = (
     <>
-      <ShelfBody rows={rows} undo={undo} onFocus={(id) => { onFocus(id); if (folded) setOpen(false); }} onReorder={onReorder} onSearch={onSearch ? () => { onSearch(); if (folded) setOpen(false); } : undefined} />
+      <ShelfBody rows={rows} undo={undo} today={today} onFocus={(id) => { onFocus(id); if (folded) setOpen(false); }} onReorder={onReorder} onSearch={onSearch ? () => { onSearch(); if (folded) setOpen(false); } : undefined} />
       {carried.length ? (
         <div className="desk-carried" data-shelf-carried="">
           <h4><span>Carried</span></h4>
@@ -102,12 +106,14 @@ export function Shelf({
 function ShelfBody({
   rows,
   undo,
+  today,
   onFocus,
   onReorder,
   onSearch,
 }: {
   rows: ShelfRow[];
   undo: { title: string; onUndo: () => void } | null;
+  today: { lines: Array<{ blockId: string; mark: string; text: string }>; onOpen: () => void } | null;
   onFocus: (windowId: string) => void;
   onReorder: (windowId: string, toSlot: number) => void;
   onSearch?: () => void;
@@ -199,6 +205,16 @@ function ShelfBody({
       <div className="lower">
         {undo ? (
           <button type="button" className="undo" onClick={undo.onUndo}>↺ undo close {undo.title}</button>
+        ) : null}
+        {today ? (
+          <div className="desk-today" data-shelf-today="">
+            <h4><span>today · running pad</span><span className="grow" /><button type="button" className="switch" onClick={today.onOpen}>open</button></h4>
+            {today.lines.map((line) => (
+              <button key={line.blockId} type="button" className="runmini" title={line.text} onClick={today.onOpen}>
+                <span className="rm">{line.mark}</span> {line.text}
+              </button>
+            ))}
+          </div>
         ) : null}
       </div>
     </>

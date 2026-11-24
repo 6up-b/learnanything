@@ -92,9 +92,9 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 
 - [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `SelectionValidationError`, `save_unit_selection`; statically calls `save_unit_selection`
 - [[Reference/Modules/learnloop/content/facet_identity/authority|learnloop.content.facet_identity.authority]] — imports `effective_unit_spans`; statically calls `effective_unit_spans`
-- [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `effective_scope_groups`; statically calls `effective_scope_groups`
 - [[Reference/Modules/learnloop/content/pipeline/reread|learnloop.content.pipeline.reread]] — imports `reanchor_units`; statically calls `reanchor_units`
 - [[Reference/Modules/learnloop/content/sources/exam_material|learnloop.content.sources.exam_material]] — imports `effective_unit_spans`; statically calls `effective_unit_spans`
+- [[Reference/Modules/learnloop/content/synthesis/jobs|learnloop.content.synthesis.jobs]] — imports `effective_scope_groups`; statically calls `effective_scope_groups`
 - [[Reference/Modules/learnloop/content/synthesis/source_coverage|learnloop.content.synthesis.source_coverage]] — imports `effective_scope_groups`; statically calls `effective_scope_groups`
 - [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|learnloop.content.synthesis.source_set_synthesis]] — imports `compute_effective_units`, `effective_scope_groups`; statically calls `compute_effective_units`, `effective_scope_groups`
 - [[Reference/Modules/learnloop/content/synthesis/source_unit_inventory|learnloop.content.synthesis.source_unit_inventory]] — imports `compute_effective_units`; statically calls `compute_effective_units`
@@ -123,7 +123,7 @@ Use this module in context through:
 - [[Import Canonical Sources]]
 - [[Build a Study Map]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/content/facet_identity/authority|learnloop.content.facet_identity.authority]], [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]], [[Reference/Modules/learnloop/content/pipeline/reread|learnloop.content.pipeline.reread]], [[Reference/Modules/learnloop/content/sources/exam_material|learnloop.content.sources.exam_material]] and 4 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/content/facet_identity/authority|learnloop.content.facet_identity.authority]], [[Reference/Modules/learnloop/content/pipeline/reread|learnloop.content.pipeline.reread]], [[Reference/Modules/learnloop/content/sources/exam_material|learnloop.content.sources.exam_material]], [[Reference/Modules/learnloop/content/synthesis/jobs|learnloop.content.synthesis.jobs]] and 4 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -208,6 +208,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_r4_a_problem_opened_before_its_region_was_held_out_is_not_shown_again`
   - `test_r4_verify_f7_an_exercise_held_out_after_its_card_was_shown_is_never_read_or_opened`
   - `test_the_held_out_sentinel_is_never_offered_by_the_view_the_arm_or_the_fallback`
+- [tests/test_menu_protected_material.py](../../../../../../../tests/test_menu_protected_material.py) — direct import
+  - `test_a_whole_exam_reading_is_protected_the_same_way`
 - [tests/test_plan_follows_path.py](../../../../../../../tests/test_plan_follows_path.py) — direct import
   - `test_the_path_never_opens_a_held_out_section_even_where_dl1s_exact_selection_would`
 - [tests/test_protection_surface_matrix.py](../../../../../../../tests/test_protection_surface_matrix.py) — direct import

@@ -19,13 +19,13 @@ tags:
 # Module Catalog
 
 > [!abstract] Lookup contract
-> This catalog maps all **1348 Python source modules** under `src/learnloop` and `src/learnloop_sidecar` to one generated reference note apiece—including explicit active, compatibility, dormant, and evaluation statuses—and links the **746 TypeScript/TSX/Rust modules** in [[Desktop Module Catalog]]. It also provides **74 Python package maps**. Concepts belong in [[Architecture Overview]], [[Learning System]], [[AI Architecture]], [[State and Persistence]], and [[Configuration]]; workflows belong in their dedicated notes.
+> This catalog maps all **1379 Python source modules** under `src/learnloop` and `src/learnloop_sidecar` to one generated reference note apiece—including explicit active, compatibility, dormant, and evaluation statuses—and links the **816 TypeScript/TSX/Rust modules** in [[Desktop Module Catalog]]. It also provides **75 Python package maps**. Concepts belong in [[Architecture Overview]], [[Learning System]], [[AI Architecture]], [[State and Persistence]], and [[Configuration]]; workflows belong in their dedicated notes.
 
 ## Coverage and status
 
 | Refactor status | Modules | Meaning |
 |---|---:|---|
-| `ACTIVE` | 1327 | Live ownership after the refactor. |
+| `ACTIVE` | 1358 | Live ownership after the refactor. |
 | `COMPAT` | 2 | Live but frozen old-vault compatibility machinery. |
 | `DORMANT` | 1 | Explicitly disabled/descoped modules with no live workflow authority. |
 | `EVALUATION` | 18 | Shadow, audit, or offline evaluation code whose outputs are decision-inert. |
@@ -39,7 +39,7 @@ tags:
 
 | Package | Layer | Status | Direct modules | Responsibility |
 |---|---|---|---:|---|
-| [[Reference/Modules/learnloop/_package|learnloop]] | `coordination` | `ACTIVE` | 38 | Application-level coordinators and dependency-neutral authorities shared across LearnLoop. |
+| [[Reference/Modules/learnloop/_package|learnloop]] | `coordination` | `ACTIVE` | 39 | Application-level coordinators and dependency-neutral authorities shared across LearnLoop. |
 | [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] | `domain` | `ACTIVE` | 49 | Adaptive difficulty: logged reading opportunities and outside forecasters, the readiness model, guarded selection near the target band, and its receipts. |
 | [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] | `infrastructure` | `ACTIVE` | 26 | Provider-neutral structured transport, routing, provider composition, capability checks, and usage accounting. |
 | [[Reference/Modules/learnloop/ai/chatgpt_plan/_package|learnloop.ai.chatgpt_plan]] | `infrastructure` | `ACTIVE` | 7 | Sign in with ChatGPT for the chatgpt_plan provider: the machine-local sign-in store, the PKCE flow, access tokens and plan-usage state, and its requests. |
@@ -50,17 +50,17 @@ tags:
 | [[Reference/Modules/learnloop/companion/_package|learnloop.companion]] | `domain` | `ACTIVE` | 4 | The Reader workbench's companion: the tutor's history by day and desk, and the context each exchange was asked in. Read-only over exchanges. |
 | [[Reference/Modules/learnloop/config/_package|learnloop.config]] | `infrastructure` | `ACTIVE` | 8 | Typed configuration schema, compatibility normalization, loading, and template emission. |
 | [[Reference/Modules/learnloop/content/_package|learnloop.content]] | `domain` | `ACTIVE` | 0 | Source-derived content, authoring, synthesis, proposal, and canonical pipeline ownership. |
-| [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] | `domain` | `ACTIVE` | 19 | Practice-content authoring gates, generation contracts, and authored artifacts. |
+| [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] | `domain` | `ACTIVE` | 20 | Practice-content authoring gates, generation contracts, and authored artifacts. |
 | [[Reference/Modules/learnloop/content/facet_identity/_package|learnloop.content.facet_identity]] | `domain` | `ACTIVE` | 9 | Facet identity at mint time and the dedupe command: embedding shortlists, a judge over each neighbourhood, live merges with exact undo. |
-| [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] | `domain` | `ACTIVE` | 13 | Canonical content extraction and transformation stages. |
+| [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] | `domain` | `ACTIVE` | 16 | Canonical content extraction and transformation stages. |
 | [[Reference/Modules/learnloop/content/proposals/_package|learnloop.content.proposals]] | `domain` | `ACTIVE` | 11 | Reviewable content and graph change proposals and their lifecycle. |
 | [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] | `domain` | `ACTIVE` | 16 | Canonical source-library identity, manifests, and source-set behavior. |
-| [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] | `domain` | `ACTIVE` | 22 | Synthesis of source material into learning structures and AI-owned contracts. |
+| [[Reference/Modules/learnloop/content/synthesis/_package|learnloop.content.synthesis]] | `domain` | `ACTIVE` | 23 | Synthesis of source material into learning structures and AI-owned contracts. |
 | [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] | `domain` | `ACTIVE` | 22 | Commitments, blueprints, depth structures, concept relationships, and golden paths. |
 | [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] | `domain` | `ACTIVE` | 42 | The finite daily plan: remembered minutes split across repair, maintain, new and push, chosen block by block, and the router card. |
 | [[Reference/Modules/learnloop/data_capture/_package|learnloop.data_capture]] | `domain` | `ACTIVE` | 4 | What later evaluation needs, recorded now: its switches, prefilter receipts, and the one read of Reader exposures with the sweep that freezes them. |
 | [[Reference/Modules/learnloop/db/_package|learnloop.db]] | `infrastructure` | `ACTIVE` | 17 | SQLite connections, migrations, repository compatibility, table roles, rebuilds, and persistence infrastructure. |
-| [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] | `infrastructure` | `ACTIVE` | 79 | Table-family persistence owners extracted from the repository facade. |
+| [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] | `infrastructure` | `ACTIVE` | 81 | Table-family persistence owners extracted from the repository facade. |
 | [[Reference/Modules/learnloop/desks/_package|learnloop.desks]] | `domain` | `ACTIVE` | 4 | The Reader workbench's desks: workspace persistence, the write protocol desks and scratchpads share (client sequence, expected heads, stored receipts) and the one content reference. Workflow data, never evidence. |
 | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] | `domain` | `ACTIVE` | 67 | Diagnostic probes, causal attribution, error classification, and remediation decisions. |
 | [[Reference/Modules/learnloop/diagnosis/offline_review/_package|learnloop.diagnosis.offline_review]] | `domain` | `ACTIVE` | 10 | The offline review of blind grading and history-aware diagnosis, run on backup copies with synthetic learners; never changes a live vault. |
@@ -72,7 +72,7 @@ tags:
 | [[Reference/Modules/learnloop/experiments/contextual_embeddings/_package|learnloop.experiments.contextual_embeddings]] | `domain` | `ACTIVE` | 23 | Experiment E0: hosted contextual source embeddings, its bank, labels, arms and report. |
 | [[Reference/Modules/learnloop/experiments/contextual_embeddings/e1/_package|learnloop.experiments.contextual_embeddings.e1]] | `domain` | `ACTIVE` | 12 | Experiment E1: the local pplx v2-context-9b batch pilot over E0's bank and finalists. |
 | [[Reference/Modules/learnloop/field/_package|learnloop.field]] | `domain` | `ACTIVE` | 18 | Replay-only learner-field contracts (the LearnerPredictor contract, signals, outcomes); no serving policy or evidence writes. |
-| [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] | `domain` | `ACTIVE` | 33 | Explorable figures: declarative specs and sketches, their authoring routes, verification, labels, help records and the figure service. |
+| [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] | `domain` | `ACTIVE` | 34 | Explorable figures: declarative specs and sketches, their authoring routes, verification, labels, help records and the figure service. |
 | [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] | `domain` | `ACTIVE` | 11 | FG1's composition, imported only by the sidecar: lanes, the frontier authoring operation, machine admission, the router's itemless decision, what the feedback screen and Next read, and the generation worker. |
 | [[Reference/Modules/learnloop/followup_serve/_package|learnloop.followup_serve]] | `domain` | `ACTIVE` | 6 | FG1's leaf: the kill switch, the durable workflow's record, the generation queue's writes and the generated probe's single-use identity, read by the domain packages. |
 | [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] | `domain` | `ACTIVE` | 19 | Learning goals, forecasts, certification, readiness, and exam workflows. |
@@ -85,11 +85,12 @@ tags:
 | [[Reference/Modules/learnloop/local_embeddings/_package|learnloop.local_embeddings]] | `domain` | `ACTIVE` | 13 | Local contextual source retrieval: the local document space's pins, capped batch worker, GPU meter, locks and owner-run commands. |
 | [[Reference/Modules/learnloop/matching/_package|learnloop.matching]] | `domain` | `ACTIVE` | 5 | The one 'same or different?' step: registered match kinds, embedding shortlists and LLM judges, recorded in the judgment ledger. |
 | [[Reference/Modules/learnloop/notebook_authoring/_package|learnloop.notebook_authoring]] | `domain` | `ACTIVE` | 3 | The owner-side notebook harness, imported by no serving package: a parser adapter over marimo's non-executing loader and the structural check behind `learnloop notebook check`. |
+| [[Reference/Modules/learnloop/notebook_runtime/_package|learnloop.notebook_runtime]] | `domain` | `ACTIVE` | 9 | The notebook runtime: one supervised, sandboxed marimo server per pad or lesson, the frame proxy in front of it, and the one adapter that holds marimo's private interfaces. Serving code; the authoring harness never imports it and it never imports the harness. |
 | [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] | `domain` | `ACTIVE` | 23 | Vault diagnostics, locks, settings, startup, upgrades, and operator-facing maintenance. |
 | [[Reference/Modules/learnloop/ops/contamination/_package|learnloop.ops.contamination]] | `domain` | `ACTIVE` | 7 | Contamination detectors as shadow flags, run offline on the owner's command beside the live lexical floor. |
-| [[Reference/Modules/learnloop/pads/_package|learnloop.pads]] | `domain` | `ACTIVE` | 8 | The Reader workbench's scratchpads: pads, their append-only block versions and anchors. The learner's own writing, never evidence; its exits to learner-text gaps and attempts are explicit. |
+| [[Reference/Modules/learnloop/pads/_package|learnloop.pads]] | `domain` | `ACTIVE` | 12 | The Reader workbench's scratchpads: pads, their append-only block versions and anchors. The learner's own writing, never evidence; its exits to learner-text gaps and attempts are explicit. |
 | [[Reference/Modules/learnloop/params/_package|learnloop.params]] | `domain` | `ACTIVE` | 4 | Algorithm parameter registry, fitted values, and sensitivity certificates. |
-| [[Reference/Modules/learnloop/passage_union/_package|learnloop.passage_union]] | `domain` | `ACTIVE` | 3 | The Reader workbench's per-span union read over a visible range: a read-only projection of what LearnLoop holds for each passage. |
+| [[Reference/Modules/learnloop/passage_union/_package|learnloop.passage_union]] | `domain` | `ACTIVE` | 5 | The Reader workbench's per-span union read over a visible range: a read-only projection of what LearnLoop holds for each passage. |
 | [[Reference/Modules/learnloop/placement/_package|learnloop.placement]] | `domain` | `ACTIVE` | 9 | Placement for new material through the LearnerPredictor contract; writes only its own receipts, never evidence. |
 | [[Reference/Modules/learnloop/practice_index/_package|learnloop.practice_index]] | `domain` | `ACTIVE` | 14 | The practice index: facet dossiers and find_practice (recall by search, an LLM decides, the scheduler admits). |
 | [[Reference/Modules/learnloop/projects/_package|learnloop.projects]] | `domain` | `ACTIVE` | 10 | Project understanding: captured agent-written diffs and delayed comprehension probes on them. |
@@ -101,10 +102,10 @@ tags:
 | [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] | `domain` | `ACTIVE` | 34 | Selection, review timing, progression, controller decisions, and scheduling projections. |
 | [[Reference/Modules/learnloop/scheduling/intent/_package|learnloop.scheduling.intent]] | `domain` | `ACTIVE` | 7 | Intent at serving time: the vocabulary, the most-recent-choice resolution, per-intent recall targets and the per-build view. |
 | [[Reference/Modules/learnloop/sim/_package|learnloop.sim]] | `simulation` | `EVALUATION` | 15 | Offline simulation, benchmark, sweep, synthetic-student, and algorithm evaluation tools. |
-| [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] | `domain` | `ACTIVE` | 44 | Source retrieval and the Reader's sources side: keyword and dense search, section coverage, deliverables and paths, and the learner's notes. |
+| [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] | `domain` | `ACTIVE` | 47 | Source retrieval and the Reader's sources side: keyword and dense search, section coverage, deliverables and paths, and the learner's notes. |
 | [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] | `domain` | `ACTIVE` | 24 | Activity, card, surface, and identity substrate plus canonical projections. |
 | [[Reference/Modules/learnloop/substrate/compat/_package|learnloop.substrate.compat]] | `domain` | `COMPAT` | 2 | Frozen compatibility machinery retained for old vaults. |
-| [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] | `domain` | `ACTIVE` | 19 | Lessons on the latent learner state: the brief, the teacher's turn contract and actions, guards, checks, delayed checks and receipts. |
+| [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] | `domain` | `ACTIVE` | 20 | Lessons on the latent learner state: the brief, the teacher's turn contract and actions, guards, checks, delayed checks and receipts. |
 | [[Reference/Modules/learnloop/tui/_package|learnloop.tui]] | `adapter` | `ACTIVE` | 6 | Textual UI adapter, screens, widgets, state, and presentation behavior. |
 | [[Reference/Modules/learnloop/tui/screens/_package|learnloop.tui.screens]] | `adapter` | `ACTIVE` | 5 | Individual Textual user-interface screens. |
 | [[Reference/Modules/learnloop/tutor/_package|learnloop.tutor]] | `domain` | `ACTIVE` | 10 | Tutoring, hints, teach-back, and tutor question-and-answer workflows. |
@@ -112,11 +113,11 @@ tags:
 | [[Reference/Modules/learnloop/why/_package|learnloop.why]] | `domain` | `ACTIVE` | 4 | Why x and not y: the one reader over decision records, and the labelled reconstruction of decisions older than them (ADR-017). |
 | [[Reference/Modules/learnloop/workbench/_package|learnloop.workbench]] | `domain` | `ACTIVE` | 9 | The Reader workbench's checks and the help ladder's Reader side: Check my work, declared symbolic checks and the ladder. |
 | [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] | `adapter` | `ACTIVE` | 18 | Desktop sidecar process, RPC registry, transport context, DTOs, and server lifecycle. |
-| [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] | `adapter` | `ACTIVE` | 82 | RPC adapters that validate requests and delegate to domain and infrastructure APIs. |
+| [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] | `adapter` | `ACTIVE` | 85 | RPC adapters that validate requests and delegate to domain and infrastructure APIs. |
 
 ## Desktop client modules
 
-The Tauri desktop application has **746 source modules** with one-to-one reference notes in [[Desktop Module Catalog]]. Read [[Desktop Architecture]] first for the React-to-Rust-to-sidecar boundary, then use that catalog for per-file callers, dependencies, tests, and modification guidance.
+The Tauri desktop application has **816 source modules** with one-to-one reference notes in [[Desktop Module Catalog]]. Read [[Desktop Architecture]] first for the React-to-Rust-to-sidecar boundary, then use that catalog for per-file callers, dependencies, tests, and modification guidance.
 
 > [!tip] Choose the catalog by source tree
 > Use this catalog for Python under `src/`; use [[Desktop Module Catalog]] for TypeScript, TSX, and Rust under `apps/learnloop-tauri/`. Both link back to the same concepts and end-to-end workflows.
@@ -168,6 +169,6 @@ SORT file.name ASC
 .venv/bin/python docs/learnloop-architecture-vault/_scripts/module_validate.py
 ```
 
-The current generation discovered 2029 Python test files. Each module note lists direct importing tests or, when absent, one-hop consumer tests.
+The current generation discovered 2060 Python test files. Each module note lists direct importing tests or, when absent, one-hop consumer tests.
 
 Notes carry no commit of their own: the commit they were generated from is `module_generate.py`'s row in [[Reference/_generated|Generated Reference Provenance]], so a regeneration rewrites only the notes whose facts changed.

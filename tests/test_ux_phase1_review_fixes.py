@@ -82,7 +82,7 @@ def _audio_file(tmp_path):
 
 
 def test_f1_sending_a_whole_recording_out_waits_for_its_own_ok(tmp_path, monkeypatch):
-    from learnloop.content.pipeline import jobs as jobs_module
+    from learnloop.content.pipeline import import_jobs as jobs_module
     from learnloop.content.pipeline.runner import IngestRunnerError
 
     sent = []

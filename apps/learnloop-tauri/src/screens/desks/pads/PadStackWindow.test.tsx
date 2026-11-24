@@ -8,7 +8,8 @@ import { FixtureDeskServer } from "../../../fixtures/desks/workspace";
 import { isTypingTarget, type Timers } from "../keys/router";
 import { DIRECT_HUB, WindowScope, type WindowState } from "../lifecycle";
 import { DeskStore } from "../store";
-import { PadsHostContext, PendingFigures, type PadsApi, type PadsHost } from "./host";
+import { objectAt } from "../menu/model";
+import { PadsHostContext, PendingFigures, type PadsApi, type PadsHost, type PadStackHandle } from "./host";
 import { PadStackWindow } from "./PadStackWindow";
 
 class ManualTimers implements Timers {
@@ -76,6 +77,9 @@ let minted = 0;
 const TOASTS = new WeakMap<object, string[]>();
 const toastsOf = (host: PadsHost) => TOASTS.get(host) ?? [];
 
+/** The mounted stack's handle (the desks reach a stack through it). */
+let stackHandleOf: () => PadStackHandle | null = () => null;
+
 function mount(options: { state?: WindowState; server?: FixtureDeskServer; padIds?: string[]; practiceSessionId?: string | null; view?: Record<string, unknown> } = {}) {
   const server = options.server ?? new FixtureDeskServer();
   const timers = new ManualTimers();
@@ -101,16 +105,29 @@ function mount(options: { state?: WindowState; server?: FixtureDeskServer; padId
     toast: (text) => toasts.push(text),
     setView: (_windowId, view) => views.push(view),
     sourcePieces: () => [],
-    register: () => undefined,
+    register: (_windowId, handle) => {
+      stackHandle = handle;
+    },
     carry: vi.fn(),
     figures: new PendingFigures(),
     addToStack: vi.fn(),
   };
   const padIds = options.padIds ?? ["fx_pad_running", "fx_pad_deriving"];
+  let stackHandle: PadStackHandle | null = null;
+  stackHandleOf = () => stackHandle;
+  // The desks' one right-click listener, as the shell has it: a pad line's menu opens in its window.
+  const onContextMenuCapture = (event: React.MouseEvent) => {
+    const object = objectAt(event.target as Element, () => "pad_stack", () => null, { x: event.clientX, y: event.clientY });
+    if (object?.kind !== "pad_line" || !object.padId || !stackHandle) return;
+    event.preventDefault();
+    stackHandle.openMenu(object.padId, object.blockId ?? null, object.at, object.selection);
+  };
   const ui = (state: WindowState) => (
     <WindowScope lifecycle={{ windowId: "w1", state }} hub={DIRECT_HUB}>
       <PadsHostContext.Provider value={host}>
-        <PadStackWindow windowId="w1" stack={padIds.map((padId) => ({ kind: "pad" as const, padId }))} view={options.view ?? {}} />
+        <div data-desk-window="w1" onContextMenuCapture={onContextMenuCapture}>
+          <PadStackWindow windowId="w1" stack={padIds.map((padId) => ({ kind: "pad" as const, padId }))} view={options.view ?? {}} />
+        </div>
       </PadsHostContext.Provider>
     </WindowScope>
   );
@@ -241,18 +258,71 @@ describe("a pad stack window", () => {
     expect(sentOps(server).map((op) => op.op)).toEqual(["lift_out"]);
   });
 
-  it("the pad menu offers submit only on the learner's words, and marimo cells say they arrive with notebooks", async () => {
+  it("the pad menu offers submit only on the learner's words, and its marimo row is live (notebooks are in)", async () => {
     mount();
     await waitFor(() => expect(block("fx_b_r1")).toBeTruthy());
     fireEvent.contextMenu(block("fx_b_r2"));
     let menu = screen.getByRole("menu", { name: "the pad menu" });
     expect(within(menu).queryByText("Submit this block as…")).toBeNull();
-    expect((within(menu).getByText("marimo cell · arrives with notebooks").closest("button") as HTMLButtonElement).disabled).toBe(true);
+    expect((within(menu).getByText("marimo cell").closest("button") as HTMLButtonElement).disabled).toBe(false);
+    expect(within(menu).queryByText(/arrives with notebooks/)).toBeNull();
     fireEvent.keyDown(window, { key: "Escape" });
     expect(screen.queryByRole("menu")).toBeNull();
     fireEvent.contextMenu(block("fx_b_r1"));
     menu = screen.getByRole("menu", { name: "the pad menu" });
     expect(within(menu).getByText("Submit this block as…")).toBeTruthy();
+  });
+
+  it("the marimo row inserts an empty cell of the learner's below the line", async () => {
+    const { store, flush } = mount();
+    await waitFor(() => expect(block("fx_b_r1")).toBeTruthy());
+    fireEvent.contextMenu(block("fx_b_r1"));
+    fireEvent.click(screen.getByText("marimo cell"));
+    await flush();
+    const blocks = store.pads.fx_pad_running.blocks;
+    const at = blocks.findIndex((each) => each.blockId === "fx_b_r1");
+    expect(blocks[at + 1]).toMatchObject({ kind: "cell", provenance: "learner", bodyMd: "" });
+  });
+
+  it("Teach me on a line linked to two readings teaches the first reading's passages only (never its spans under another reading)", async () => {
+    const { store, host, flush } = mount();
+    const teachMe = vi.fn();
+    host.teachMe = teachMe;
+    await waitFor(() => expect(block("fx_b_r2")).toBeTruthy());
+    store.commitPad("fx_pad_running", [
+      { op: "link_anchor", blockId: "fx_b_r2", extractionId: "fx_ext_attention", spanId: "fx_ext_attention_s1_1", eventId: "lnk_other", expectedAnchorHead: null, annotationId: null },
+      { op: "link_anchor", blockId: "fx_b_r2", extractionId: "fx_ext_softmax", spanId: "fx_ext_softmax_s1_4", eventId: "lnk_same", expectedAnchorHead: null, annotationId: null },
+    ]);
+    await flush();
+    fireEvent.contextMenu(block("fx_b_r2"));
+    fireEvent.click(screen.getByText("Teach me this"));
+    expect(teachMe).toHaveBeenCalledWith("fx_ext_softmax", ["fx_ext_softmax_s1_3", "fx_ext_softmax_s1_4"]);
+  });
+
+  it("a notebook frame's right-click opens the pad menu labelled for its owner, the frame's text only ever quoted", async () => {
+    const { store, flush } = mount();
+    await waitFor(() => expect(block("fx_b_r1")).toBeTruthy());
+    act(() => {
+      stackHandleOf()?.openFrameMenu({ owner: "pad:fx_pad_running", padId: "fx_pad_running", lessonId: null, text: "<b>bold</b> words", x: 40, y: 40,
+        label: "your pad", insertLabel: "insert at the end of this pad" });
+    });
+    const menu = screen.getByRole("menu", { name: "the pad menu" });
+    expect(within(menu).getByText("your pad · “<b>bold</b> words”")).toBeTruthy();
+    expect(menu.querySelector("b")).toBeNull();
+    expect(within(menu).getByText("insert at the end of this pad")).toBeTruthy();
+    // A pad's inserts from the frame land at the pad's end.
+    fireEvent.click(within(menu).getByText("marimo cell"));
+    await flush();
+    expect(store.pads.fx_pad_running.blocks.slice(-1)[0]).toMatchObject({ kind: "cell", provenance: "learner" });
+    act(() => {
+      stackHandleOf()?.openFrameMenu({ owner: "lesson:les9", padId: null, lessonId: "les9", text: "a cell's words", x: 40, y: 40,
+        label: "the lesson", insertLabel: "add under this lesson (the notebook stays as the teacher made it)" });
+    });
+    const lesson = screen.getByRole("menu", { name: "the pad menu" });
+    expect(within(lesson).getByText("the lesson · “a cell's words”")).toBeTruthy();
+    expect(within(lesson).getByText("add under this lesson (the notebook stays as the teacher made it)")).toBeTruthy();
+    // Nothing of a pad's own (muting its suggestions) on a lesson's menu.
+    expect(within(lesson).queryByText(/suggestions on this pad/)).toBeNull();
   });
 
   it("a piece of a source inserted from the menu lands below the line, linked to its passage in the same write", async () => {
@@ -369,6 +439,70 @@ describe("the fix round (RD4 review)", () => {
     fireEvent.click(screen.getByText("Submit this block as…"));
     return screen.findByRole("button", { name: /a teach-back of the idea/ });
   }
+
+  it("Make it practice saves once: a second press while the first save is on its way authors nothing more", async () => {
+    const { api } = mount({ server: anchoredRunning() });
+    api.passageUnionRange = (async () => ({ sections: [{ learningObjects: [{ learningObjectId: "lo1" }] }] })) as never;
+    let finish: () => void = () => undefined;
+    const authored: unknown[] = [];
+    api.authorPracticeItem = ((input: unknown) => {
+      authored.push(input);
+      return new Promise((resolve) => { finish = () => resolve({ practiceItemId: "pi1" }); });
+    }) as never;
+    await waitFor(() => expect(block("fx_b_r1")).toBeTruthy());
+    fireEvent.contextMenu(block("fx_b_r1"));
+    fireEvent.click(screen.getByText("Make it practice"));
+    const sheet = await screen.findByRole("dialog", { name: "make it practice" });
+    fireEvent.change(within(sheet).getAllByRole("textbox")[1], { target: { value: "the largest score wins" } });
+    await waitFor(() => expect((within(sheet).getByText("save to my queue") as HTMLButtonElement).disabled).toBe(false));
+    const save = within(sheet).getByText("save to my queue");
+    fireEvent.click(save);
+    fireEvent.click(within(sheet).getByRole("button", { name: "saving…" }));
+    expect(authored).toHaveLength(1);
+    await act(async () => {
+      finish();
+      await Promise.resolve();
+    });
+  });
+
+  it("Make it practice sends one key per sheet with every save of it (a retry after a lost reply reuses it)", async () => {
+    const { api } = mount({ server: anchoredRunning() });
+    api.passageUnionRange = (async () => ({ sections: [{ learningObjects: [{ learningObjectId: "lo1" }] }] })) as never;
+    const authored: Array<{ clientIdempotencyKey?: string }> = [];
+    let lost = true;
+    api.authorPracticeItem = (async (input: { clientIdempotencyKey?: string }) => {
+      authored.push(input);
+      if (lost) {
+        lost = false;
+        throw { code: "sidecar_unavailable", message: "the reply was lost" };
+      }
+      return { practiceItemId: "pi1" };
+    }) as never;
+    await waitFor(() => expect(block("fx_b_r1")).toBeTruthy());
+    fireEvent.contextMenu(block("fx_b_r1"));
+    fireEvent.click(screen.getByText("Make it practice"));
+    const sheet = await screen.findByRole("dialog", { name: "make it practice" });
+    fireEvent.change(within(sheet).getAllByRole("textbox")[1], { target: { value: "the largest score wins" } });
+    await waitFor(() => expect((within(sheet).getByText("save to my queue") as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(within(sheet).getByText("save to my queue"));
+    await waitFor(() => expect((within(sheet).getByText("save to my queue") as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(within(sheet).getByText("save to my queue"));
+    await waitFor(() => expect(authored).toHaveLength(2));
+    expect(authored[0].clientIdempotencyKey).toBeTruthy();
+    expect(authored[1].clientIdempotencyKey).toBe(authored[0].clientIdempotencyKey);
+  });
+
+  it("the Make it practice sheet takes the focus, and escape lets it go", async () => {
+    const { api } = mount({ server: anchoredRunning() });
+    api.passageUnionRange = (async () => ({ sections: [{ learningObjects: [{ learningObjectId: "lo1" }] }] })) as never;
+    await waitFor(() => expect(block("fx_b_r1")).toBeTruthy());
+    fireEvent.contextMenu(block("fx_b_r1"));
+    fireEvent.click(screen.getByText("Make it practice"));
+    const sheet = await screen.findByRole("dialog", { name: "make it practice" });
+    expect(sheet.contains(document.activeElement)).toBe(true);
+    fireEvent.keyDown(document.body, { key: "Escape" });
+    expect(screen.queryByRole("dialog", { name: "make it practice" })).toBeNull();
+  });
 
   it("a submission retried after a lost reply resends the same frozen request: one submission id, one teach-back target", async () => {
     const { api } = mount({ server: anchoredRunning() });

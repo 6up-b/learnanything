@@ -99,6 +99,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop/desks/workspace|learnloop.desks.workspace]] — imports `ContentRef`, `StackEntry`, `WireModel`
 - [[Reference/Modules/learnloop/pads/blocks|learnloop.pads.blocks]] — imports `WireModel`
+- [[Reference/Modules/learnloop/pads/ink|learnloop.pads.ink]] — imports `WireModel`
 
 ## Dependencies
 
@@ -118,7 +119,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/desks/workspace|learnloop.desks.workspace]], [[Reference/Modules/learnloop/pads/blocks|learnloop.pads.blocks]].
+Static participation evidence comes from [[Reference/Modules/learnloop/desks/workspace|learnloop.desks.workspace]], [[Reference/Modules/learnloop/pads/blocks|learnloop.pads.blocks]], [[Reference/Modules/learnloop/pads/ink|learnloop.pads.ink]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -131,6 +132,11 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_reader_rd0_protocol.py](../../../../../../tests/test_reader_rd0_protocol.py) — imports consumer [[Reference/Modules/learnloop/desks/workspace|learnloop.desks.workspace]]
 - [tests/test_reader_rd1_model_parity.py](../../../../../../tests/test_reader_rd1_model_parity.py) — imports consumer [[Reference/Modules/learnloop/desks/workspace|learnloop.desks.workspace]]
 - [tests/test_reader_rd4_emission.py](../../../../../../tests/test_reader_rd4_emission.py) — imports consumer [[Reference/Modules/learnloop/pads/blocks|learnloop.pads.blocks]]
+- [tests/identity_pins_helpers.py](../../../../../../tests/identity_pins_helpers.py) — imports consumer [[Reference/Modules/learnloop/pads/ink|learnloop.pads.ink]]
+- [tests/ink_helpers.py](../../../../../../tests/ink_helpers.py) — imports consumer [[Reference/Modules/learnloop/pads/ink|learnloop.pads.ink]]
+- [tests/test_reader_rd8a_ink.py](../../../../../../tests/test_reader_rd8a_ink.py) — imports consumer [[Reference/Modules/learnloop/pads/ink|learnloop.pads.ink]]
+- [tests/test_reader_rd8a_render.py](../../../../../../tests/test_reader_rd8a_render.py) — imports consumer [[Reference/Modules/learnloop/pads/ink|learnloop.pads.ink]]
+- [tests/test_reader_rd8a_transcribe.py](../../../../../../tests/test_reader_rd8a_transcribe.py) — imports consumer [[Reference/Modules/learnloop/pads/ink|learnloop.pads.ink]]
 
 ## Modification guidance
 

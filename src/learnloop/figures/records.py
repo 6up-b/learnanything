@@ -16,6 +16,15 @@ Four kinds, each a :class:`learnloop.provenance.DecisionRecord` of ids, numbers 
   reasons, as codes).
 * ``figure_author``: one per author attempt, with its typed problem codes, so attempt 1's problems
   survive attempt 2. ``detail`` is the stored ``interactive_figures`` row when there is one.
+* ``figure_request``: one per request (a press, a lesson's, a prebuild's): ``refused`` with the code it was
+  refused with, ``chosen`` with ``built`` or ``reused`` (and which key matched), or ``deferred`` while only a
+  rich job builds it; the author's tier menu and a code for each tier left off it.
+* ``figure_withheld``: a figure that was not shown because it is withheld now (at delivery, or the pick of a
+  listed chain) or its stored spec no longer parses; once per figure, rule and process, not per poll.
+* ``figure_rich_author``: one per attempt of a rich (video) job, the ``figure_author`` record's shape from the
+  same :class:`AuthorAttempts`, with the job's codes (:data:`RICH_ATTEMPT_CODES`).
+* ``figure_rich_stop``: a rich job that ended with no row, with its stop code, so a requeue that rewrites the
+  job's error leaves the reason it first stopped for.
 
 The builders here are pure; the shell writes their records with :func:`write_records`, which
 never raises, so a record can't change the decision it describes.
@@ -27,6 +36,7 @@ import hashlib
 import logging
 import math
 import re
+import threading
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from typing import Any
@@ -40,6 +50,10 @@ KIND_PREBUILD = "figure_prebuild"
 KIND_FILTER = "figure_prefetch_filter"
 KIND_BUILD_STOP = "figure_prebuild_stop"
 KIND_AUTHOR = "figure_author"
+KIND_REQUEST = "figure_request"
+KIND_WITHHELD = "figure_withheld"
+KIND_RICH_AUTHOR = "figure_rich_author"
+KIND_RICH_STOP = "figure_rich_stop"
 
 #: Request keys kept per exclusion rule (the rest are counted).
 MAX_KEYS_PER_RULE = 10
@@ -104,7 +118,44 @@ BUILD_ERROR = "build_error"
 #: An attempt the build never reached a verdict on (the build stopped inside it).
 INTERRUPTED = "interrupted"
 
-_KEPT = frozenset({ACCEPTED, UNSUPPORTED, PREDICTION_DROPPED})
+# -- the rich job's attempt codes --------------------------------------------------------------------------
+#: The rich author's answer refused by its parser (its declared fields, title or narration).
+RICH_BRIEF_INVALID = BRIEF_INVALID
+#: The scene code refused by the sandbox's static check.
+SCENE_INVALID = "scene_invalid"
+#: A declared claim failed its sandboxed check.
+CLAIM_FAILED = "claim_failed"
+#: The scene's pacing is outside the band, and an attempt is left to repair it.
+PACING_FAILED = "pacing_failed"
+#: The render failed (the repair follows when an attempt is left).
+RENDER_FAILED = "render_failed"
+#: The render ran out of its time.
+RENDER_TIMEOUT = "render_timeout"
+#: The repair attempt after a failed render rendered.
+RENDER_REPAIRED = "render_repaired"
+#: The attempt's request was refused by the day's figure budget or an unavailable route.
+REQUEST_REFUSED = "request_refused"
+RICH_ATTEMPT_CODES = (RICH_BRIEF_INVALID, SCENE_INVALID, CLAIM_FAILED, PACING_FAILED, RENDER_FAILED, RENDER_TIMEOUT,
+                      RENDER_REPAIRED, MODEL_FAILED, REQUEST_REFUSED, ACCEPTED)
+
+# -- the request's outcomes ------------------------------------------------------------------------------
+#: A built figure (stored, shown or failed).
+REQUEST_BUILT = "built"
+#: An earlier figure taken (``facts["matched"]`` says which key: :data:`REUSE_MATCHES`).
+REQUEST_REUSED = "reused"
+#: Only a rich job builds it now: one started for this request, or one already pending for this input.
+REQUEST_RICH_STARTED = "rich_job_started"
+REQUEST_RICH_PENDING = "rich_job_pending"
+#: Which key a reused figure was found under: this input under the current settings, its rich-only figure, the
+#: same input under another setting of the panels, the sketch tier or the rich menu, that setting's
+#: recorded-inputs twin, or a row a concurrent build stored while this one waited for it.
+REUSE_MATCHES = ("this_setting", "rich_only", "other_setting", "recorded_inputs_twin", "built_meanwhile")
+#: Why a figure was not shown (``figure_withheld``'s rules).
+WITHHELD_AT_DELIVERY = "withheld_at_delivery"
+WITHHELD_PICK = "pick_withheld"
+SPEC_UNPARSABLE = "spec_unparsable"
+
+_KEPT = frozenset({ACCEPTED, UNSUPPORTED, PREDICTION_DROPPED, RENDER_REPAIRED})
 #: The author statuses a record names; any other status the model wrote is recorded as ``other``.
 _AUTHOR_STATUSES = frozenset({"spec", "sketch", "unsupported", "manim"})
 _PREDICTION_PROBLEM = re.compile(r"^prediction \d+:")
@@ -299,6 +350,10 @@ class AuthorAttempts:
 
     attempts: list[_Attempt] = field(default_factory=list)
     prompt_version: str | None = None
+    #: The records' kind: :data:`KIND_AUTHOR` for a quick build's author, :data:`KIND_RICH_AUTHOR` for a rich job's.
+    kind: str = KIND_AUTHOR
+    #: The model the attempts asked, when the loop names it as it starts (the rich job's route).
+    model: Any = None
 
     def start(self, number: int) -> None:
         self.attempts.append(_Attempt(number))
@@ -327,10 +382,12 @@ class AuthorAttempts:
             self.current.facts.update(facts)
 
     def records(self, *, request: Any, request_id: str | None, model: Any, outcome: Any = None,
-                error: BaseException | None = None) -> list[provenance.DecisionRecord]:
-        """One record per attempt (one for the refusal when the build stopped before any)."""
+                error: BaseException | None = None, job_id: str | None = None) -> list[provenance.DecisionRecord]:
+        """One record per attempt (one for the refusal when the build stopped before any). ``job_id`` names the
+        rich job the attempts belong to (their subject when no figure was stored)."""
 
-        figure_id, job_id, result = _outcome(outcome, error)
+        figure_id, outcome_job_id, result = _outcome(outcome, error)
+        job_id = code(job_id) or outcome_job_id
         for attempt in self.attempts:
             if attempt.facts.get("predictions_dropped") and PREDICTION_DROPPED not in attempt.extra:
                 attempt.extra.append(PREDICTION_DROPPED)
@@ -369,9 +426,9 @@ class AuthorAttempts:
                 facts["author_status"] = author_status if author_status in _AUTHOR_STATUSES else "other"
             chosen = status == "chosen"
             records.append(provenance.DecisionRecord(
-                kind=KIND_AUTHOR, status=status,
+                kind=self.kind, status=status,
                 subject_kind="figure" if figure_id else "job" if job_id else None, subject_id=figure_id or job_id,
-                chosen_ref=(figure_id or job_id) if chosen else None, decided_by="figure_author",
+                chosen_ref=(figure_id or job_id) if chosen else None, decided_by=self.kind,
                 rule=rule, facts=facts, versions=versions,
                 detail_table="interactive_figures" if figure_id else None, detail_id=figure_id,
                 error_type=type(attempt.error).__name__ if attempt.error is not None else None,
@@ -408,6 +465,86 @@ def _outcome(outcome: Any, error: BaseException | None) -> tuple[str | None, str
     return code(figure_id), None, code(verification) or "stored"
 
 
+# ---------------------------------------------------------------------------
+# The request, a figure not shown, a rich job's stop
+# ---------------------------------------------------------------------------
+
+def request_record(request: Any, *, status: str, rule: str, request_id: str | None = None,
+                   figure_id: str | None = None, menu: Sequence[str] = (), absent: Mapping[str, str] | None = None,
+                   matched: str | None = None, gate: Any = None,
+                   error: BaseException | None = None) -> provenance.DecisionRecord:
+    """The ``figure_request`` record of one request: what it came to (``status``, ``rule``), the figure it took or
+    stored, and the author's menu with each absent tier's code. ``gate`` (the build's ``FiguresGate``) adds the
+    gate's rule and hold code when the gate stopped the request. Ids and codes only: never the goal's words."""
+
+    facts: dict[str, Any] = {
+        "origin": code(getattr(request, "origin", None)), "goal_author": code(getattr(request, "goal_author", None)),
+        "anchored": bool(getattr(request, "span_ids", None) or getattr(request, "region", None)),
+        "request_id": code(request_id), "matched": code(matched),
+        "prefetch_decision_id": code(getattr(request, "prefetch_decision_id", None)),
+    }
+    if menu:
+        facts["tiers_allowed"] = [code(tier) for tier in menu]
+    if absent:
+        facts["tiers_absent"] = {str(tier): code(reason) for tier, reason in sorted(absent.items())}
+    if gate is not None and getattr(gate, "rule", None):
+        facts["gate_rule"] = code(gate.rule)
+        facts["held"] = code(getattr(gate, "hold_code", None))
+    figure = code(figure_id)
+    subject_kind = "figure" if figure else "figure_request" if request_id else None
+    return provenance.DecisionRecord(
+        kind=KIND_REQUEST, status=status, subject_kind=subject_kind, subject_id=figure or code(request_id),
+        chosen_ref=figure if status == "chosen" else None, decided_by="figure_request", rule=code(rule) or BUILD_ERROR,
+        facts={name: value for name, value in facts.items() if value is not None},
+        detail_table="interactive_figures" if figure else None, detail_id=figure,
+        error_type=type(error).__name__ if error is not None else None,
+        error_where=provenance.where(error) if error is not None else None,
+    )
+
+
+def withheld_record(figure_id: str, rule: str, *, where: str) -> provenance.DecisionRecord:
+    """A ``figure_withheld`` record: ``figure_id`` was not shown (``rule``), at ``where`` (``delivery``, ``list``)."""
+
+    figure = code(figure_id)
+    return provenance.DecisionRecord(
+        kind=KIND_WITHHELD, status="withdrawn", subject_kind="figure", subject_id=figure,
+        decided_by="figure_protection", rule=rule, facts={"where": code(where)},
+        detail_table="interactive_figures", detail_id=figure,
+    )
+
+
+_WITHHELD_GUARD = threading.Lock()
+_WITHHELD_SEEN: set[tuple[str, str, str]] = set()
+
+
+def write_withheld_once(repository: Any, figure_id: str, rule: str, *, where: str) -> None:
+    """Write :func:`withheld_record` once per vault, figure and rule in this process: the Reader's list is read every
+    few seconds while a video builds, and one record says it as well as a hundred. Never raises."""
+
+    key = (str(getattr(repository, "sqlite_path", "")), str(figure_id), rule)
+    with _WITHHELD_GUARD:
+        if key in _WITHHELD_SEEN:
+            return
+        _WITHHELD_SEEN.add(key)
+    try:
+        write_records(repository, [withheld_record(figure_id, rule, where=where)])
+    except Exception:  # noqa: BLE001 - a record never changes what is shown
+        _LOG.warning("figure_withheld record not written (trace %s)", provenance.current_trace(), exc_info=True)
+
+
+def rich_stop_record(stop_code: str, *, retryable: bool, job_id: str | None, request_id: str | None,
+                     attempts: int) -> provenance.DecisionRecord:
+    """A ``figure_rich_stop`` record: the rich job ``job_id`` ended with no row, for ``stop_code``
+    (``rich.RichJobStopped``'s); ``deferred`` when it waits to be tried again (the plan's wait)."""
+
+    job = code(job_id)
+    return provenance.DecisionRecord(
+        kind=KIND_RICH_STOP, status="deferred" if retryable else "refused", subject_kind="job" if job else None,
+        subject_id=job, decided_by="figure_rich_job", rule=code(stop_code) or BUILD_ERROR,
+        facts={"retryable": bool(retryable), "attempts": int(attempts), "request_id": code(request_id)},
+    )
+
+
 __all__ = [
     "ACCEPTED",
     "AuthorAttempts",
@@ -432,4 +569,14 @@ __all__ = [
     "number",
     "prebuild_record",
     "write_records",
+    "KIND_REQUEST",
+    "KIND_RICH_AUTHOR",
+    "KIND_RICH_STOP",
+    "KIND_WITHHELD",
+    "REUSE_MATCHES",
+    "RICH_ATTEMPT_CODES",
+    "request_record",
+    "rich_stop_record",
+    "withheld_record",
+    "write_withheld_once",
 ]

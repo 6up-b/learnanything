@@ -10,6 +10,7 @@ from learnloop.content.pipeline.jobs import DurableIngestJobs
 from learnloop.instructional.exercises import exercise_candidates
 from learnloop.practice_index.retrieval import find_practice
 from learnloop.practice_index.usage import USAGE_TASK
+from tests.source_exercise_rpcs_helpers import proposal_row
 from tests.source_service_fakes import FakeServiceLLM, build_textbook_vault, call, loaded, service_clients
 
 
@@ -115,19 +116,8 @@ def test_a_harvest_says_why_picked_exercises_were_not_imported(tmp_path):
     assert "failed_unknown" in skipped["reason"]
 
 
-def _proposal_row(repository, *, proposal_id, constraints, intent, exercise, caller="tutor"):
-    from learnloop.db.stores.practice_index import insert_proposal
-
-    with repository.connection() as connection:
-        insert_proposal(connection, id=proposal_id, created_at="2026-10-12T08:59:00Z", origin="rpc",
-                        query_id="q", query_text="eigenvalues", constraints=constraints, path="direct",
-                        path_reason="test", signals={}, reranked=True, rerank_status="reranked",
-                        rerank_model=None, proposed=[{**exercise, "rank": 1}], exclusions={}, manifest={},
-                        algorithm_version="mvp-0.19", caller=caller, caller_ref="qe_1", intent=intent)
-
-
 def _run_import_job(paths, repository, queued, llm):
-    from learnloop.content.pipeline import jobs
+    from learnloop.content.authoring import jobs
     from learnloop.content.pipeline.runner import JobContext, RunnerServices
 
     ctx = JobContext(repo=repository, vault_root=paths.root,
@@ -155,7 +145,7 @@ def test_an_interactive_import_is_validated_against_its_proposal_and_corrected(t
                 "span_ids": [span], "source_id": "src_text", "revision_id": "rev_text", "label": "Exercise 1",
                 "page": 9, "statement": "1. An eigenvalue t satisfies 3t + 5 = 20", "relevance": "relevant",
                 "rationale": "fits", "provisional": {"facets": ["facet_determinant"], "practice_mode": "short_answer"}}
-    _proposal_row(repository, proposal_id="pp_pick", constraints={"facet_ids": ["facet_determinant"]},
+    proposal_row(repository, proposal_id="pp_pick", constraints={"facet_ids": ["facet_determinant"]},
                   intent="practice", exercise=exercise)
     queued = {}
     monkeypatch.setattr(DurableIngestJobs, "enqueue_source_exercise_import",
@@ -193,7 +183,7 @@ def test_an_interactive_import_bounds_the_authored_drafts_own_duration(tmp_path,
                 "span_ids": [span], "source_id": "src_text", "revision_id": "rev_text", "label": "Exercise 1",
                 "page": 9, "statement": "1. An eigenvalue t satisfies 3t + 5 = 20", "relevance": "relevant",
                 "rationale": "fits", "provisional": {"facets": [], "practice_mode": "short_answer"}}
-    _proposal_row(repository, proposal_id="pp_short", constraints={"max_estimated_minutes": 5},
+    proposal_row(repository, proposal_id="pp_short", constraints={"max_estimated_minutes": 5},
                   intent="practice", exercise=exercise)
     queued = {}
     monkeypatch.setattr(DurableIngestJobs, "enqueue_source_exercise_import",
@@ -257,7 +247,7 @@ def test_an_imported_exercise_is_rechecked_for_independence_when_served(tmp_path
                 "span_ids": [span], "source_id": "src_text", "revision_id": "rev_text", "label": "Exercise 1",
                 "page": 9, "statement": "1. An eigenvalue t satisfies 3t + 5 = 20", "relevance": "relevant",
                 "rationale": "fits", "provisional": {}}
-    _proposal_row(repository, proposal_id="pp_disc", constraints={}, intent="discriminate", exercise=exercise)
+    proposal_row(repository, proposal_id="pp_disc", constraints={}, intent="discriminate", exercise=exercise)
     written = SEI.import_source_exercise(paths.root, repository, extraction_id="ext_text", span_ids=[span],
                                          caller="learner", proposal_id="pp_disc", clients=service_clients(FakeServiceLLM()))
     assert written["status"] == "written"

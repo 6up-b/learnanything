@@ -164,6 +164,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_menu_promoted_rows.py](../../../../../../tests/test_menu_promoted_rows.py) — direct import
 - [tests/test_reader_rd0_guards_migration.py](../../../../../../tests/test_reader_rd0_guards_migration.py) — direct import
   - `test_one_exchanges_answer_lookup_uses_the_index`
 - [tests/test_reader_rd0_reads.py](../../../../../../tests/test_reader_rd0_reads.py) — direct import
@@ -181,6 +182,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_exchange_context_is_recorded_and_its_passages_equal_a_rebuild`
 - [tests/test_reader_rd4_emission.py](../../../../../../tests/test_reader_rd4_emission.py) — direct import
   - `test_the_passages_a_block_is_linked_to_place_its_gap_and_live_equals_rebuild`
+- [tests/test_reader_rd8a_transcribe.py](../../../../../../tests/test_reader_rd8a_transcribe.py) — direct import
+  - `test_a_linked_ink_lines_gap_is_placed_by_its_passage_and_live_equals_rebuild`
 
 ## Modification guidance
 

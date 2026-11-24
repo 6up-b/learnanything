@@ -18,8 +18,8 @@ source_paths:
   - "migrations/258_ingest_job_progress.sql"
   - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
-  - "src/learnloop/content/pipeline/jobs.py"
   - "src/learnloop/content/pipeline/wait_detail.py"
+  - "src/learnloop/content/synthesis/jobs.py"
   - "src/learnloop/db/stores/ingest_queue.py"
   - "src/learnloop/content/pipeline/runner.py"
 tags:
@@ -94,9 +94,9 @@ Indexes and uniqueness:
 
 ### Upstream callers of the repository access surface
 
-- `src/learnloop/content/pipeline/jobs.py`
 - `src/learnloop/content/pipeline/runner.py`
 - `src/learnloop/content/pipeline/wait_detail.py`
+- `src/learnloop/content/synthesis/jobs.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

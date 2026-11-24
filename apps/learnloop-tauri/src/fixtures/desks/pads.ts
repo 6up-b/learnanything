@@ -126,3 +126,14 @@ export function fixtureInkOwners(): import("../../api/dto").InkOwnerViewDto[] {
     owner("fx_b_h3", "fx_h3", 3, null),
   ];
 }
+
+/** The notebook harness's pad (`?padcells=1`): a line of the learner's, then the cells the harness script names
+ * (it runs the same cells in a real sandboxed session), in order. */
+export function fixtureCellsPad(cells: Array<{ blockId: string; code: string; provenance?: PadBlockDto["provenance"] }>): PadViewDto {
+  const at = (n: number) => String.fromCharCode(98 + n);
+  const blocks: PadBlockDto[] = [
+    block({ blockId: "fx_c_text", kind: "text", provenance: "learner", positionKey: "a", day: "2026-11-23", bodyMd: "softmax at a temperature, as cells I can run" }),
+    ...cells.map((cell, index) => block({ blockId: cell.blockId, kind: "cell", provenance: cell.provenance ?? "learner", positionKey: at(index), day: "2026-11-23", bodyMd: cell.code })),
+  ];
+  return { version: 1, pad: { padId: "fx_pad_cells", kind: "named", title: "marimo cells", kept: false, homeDeskId: "fx_desk_softmax", workbenchSessionId: null, lessonId: null, version: 1, createdAt: T2, updatedAt: T2 }, blocks, anchors: [] };
+}

@@ -135,7 +135,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/adaptive_difficulty/serve_inputs|learnloop.adaptive_difficulty.serve_inputs]] | [[Reference/Modules/learnloop/adaptive_difficulty/serve_inputs#^module-purpose|purpose]] | `ACTIVE` | 4 | 1 |
 | [[Reference/Modules/learnloop/adaptive_difficulty/serving|learnloop.adaptive_difficulty.serving]] | [[Reference/Modules/learnloop/adaptive_difficulty/serving#^module-purpose|purpose]] | `ACTIVE` | 6 | 2 |
 | [[Reference/Modules/learnloop/adaptive_difficulty/snapshot_parts|learnloop.adaptive_difficulty.snapshot_parts]] | [[Reference/Modules/learnloop/adaptive_difficulty/snapshot_parts#^module-purpose|purpose]] | `ACTIVE` | 3 | 3 |
-| [[Reference/Modules/learnloop/adaptive_difficulty/spend|learnloop.adaptive_difficulty.spend]] | [[Reference/Modules/learnloop/adaptive_difficulty/spend#^module-purpose|purpose]] | `ACTIVE` | 9 | 3 |
+| [[Reference/Modules/learnloop/adaptive_difficulty/spend|learnloop.adaptive_difficulty.spend]] | [[Reference/Modules/learnloop/adaptive_difficulty/spend#^module-purpose|purpose]] | `ACTIVE` | 10 | 3 |
 | [[Reference/Modules/learnloop/adaptive_difficulty/state|learnloop.adaptive_difficulty.state]] | [[Reference/Modules/learnloop/adaptive_difficulty/state#^module-purpose|purpose]] | `ACTIVE` | 5 | 6 |
 | [[Reference/Modules/learnloop/adaptive_difficulty/successor|learnloop.adaptive_difficulty.successor]] | [[Reference/Modules/learnloop/adaptive_difficulty/successor#^module-purpose|purpose]] | `ACTIVE` | 16 | 5 |
 | [[Reference/Modules/learnloop/adaptive_difficulty/switches|learnloop.adaptive_difficulty.switches]] | [[Reference/Modules/learnloop/adaptive_difficulty/switches#^module-purpose|purpose]] | `ACTIVE` | 17 | 3 |
@@ -170,10 +170,10 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/sim/_package|learnloop.sim]] — 16 static module edges
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 11 static module edges
 - [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 10 static module edges
-- [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 3 static module edges
-- [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 3 static module edges
+- [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 6 static module edges
 - [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] — 3 static module edges
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 2 static module edges
+- [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 1 static module edge
 - [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] — 1 static module edge
 - [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] — 1 static module edge
 - [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] — 1 static module edge

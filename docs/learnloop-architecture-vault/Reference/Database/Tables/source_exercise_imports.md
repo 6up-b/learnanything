@@ -16,8 +16,8 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/188_source_exercise_imports.sql"
+  - "src/learnloop/content/authoring/jobs.py"
   - "src/learnloop/content/authoring/source_exercise_import.py"
-  - "src/learnloop/content/pipeline/jobs.py"
   - "src/learnloop/db/stores/source_service.py"
   - "src/learnloop/instructional/exposure.py"
 tags:

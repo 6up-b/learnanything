@@ -10514,9 +10514,12 @@ export interface LessonViewDto {
   te2?: boolean;
   /** Teacher TE2: the quick question, being prepared (with "Teach it anyway") or open (answer it on your own). */
   probe?: LessonProbeDto | null;
-  /** Reader workbench RD9b's seam (spec §11.2): "notebook" when the lesson's medium is a marimo notebook (teacher v2).
-   *  Not sent yet; a lesson window shows the lesson itself whenever it is absent. */
+  /** Reader workbench RD9b (spec §11.2): "notebook" when the lesson's medium is a marimo notebook, sent when the
+   *  vault holds the lesson's notebook (`notebooks/lessons/<lesson id>.py`); nothing writes one yet (NA4's teacher
+   *  half). A lesson window shows the lesson itself whenever it is absent. */
   medium?: "notebook";
+  /** The lesson's notebook, relative to the vault, with `medium`. */
+  notebookPath?: string;
 }
 
 /** Teacher TE2 (spec_teacher_v1 §11.3, §19): a lesson's quick question. Never its answer. */
@@ -10917,6 +10920,80 @@ export interface PadSubmitBlockDto {
   teachBack: { status: "completed" | "ongoing"; conversationId: string; state: Record<string, unknown> | null } | null;
 }
 
+/** RD5: the object a menu was opened on (§9.1): a passage, a cue (its span or a time), a highlight or margin note (its
+ * annotation and the passage it sits on), a window header (the passage in view), or a pad line (its block). */
+export interface MenuObjectInput {
+  objectKind: "passage" | "cue" | "highlight" | "note" | "window" | "pad_line";
+  extractionId?: string;
+  spanId?: string;
+  t?: number;
+  annotationId?: string;
+  blockId?: string;
+  windowId?: string;
+  deskId?: string;
+}
+
+/** passage.promoted's input: the object, and one id per menu opening (reused on a retry: the same job and its work
+ * once; the same id with another object is refused, `request_reused`). passage.knows takes the object alone. */
+export interface PassagePromotedInput extends MenuObjectInput {
+  requestId?: string;
+}
+
+/** One promoted row. `rowId` is stable for its object, kind and target: label it with proposal.label
+ * (proposalKind "promoted_row"); a row dismissed or marked "not this" is left out on that object from then on. */
+export interface PromotedRowDto {
+  rowId: string;
+  kind: "question" | "adjustment" | "gap" | "your_words" | "carried" | "note" | "figure" | "next_step"
+    | "correspondent" | "elsewhere";
+  glyph: string;
+  label: string;
+  reason: string;
+  /** verb: "open" (ref: a ContentRef, target?), "knows" (gapId), "carried" (carriedId), "annotation"
+   * (annotationId), "figure" (figureId). Keys as below, camelCase. */
+  action: { verb: "open" | "knows" | "carried" | "annotation" | "figure"; ref?: Record<string, unknown>;
+    target?: { spanId?: string; blockId?: string; t?: number }; gapId?: string; carriedId?: string;
+    annotationId?: string; figureId?: string };
+  /** When the learner's own act behind the row happened; null for a judge's finding. */
+  learnerAt: string | null;
+  /** Checked by a judge; false means "found by search, not checked"; null for the learner's own rows. */
+  checked: boolean | null;
+  judgeRank: number;
+  basis: "union" | "judged";
+  extra: Record<string, unknown>;
+}
+
+export interface PassagePromotedDto {
+  version: number;
+  objectKey: string;
+  /** The cheap rows, ranked, at most `cap`; the job's rows replace them when it is done. */
+  rows: PromotedRowDto[];
+  cap: number;
+  pendingJob: { jobId: string } | null;
+  /** Whether the job may search by meaning and verify (the learner's OK to use AI, retrieval on). */
+  paid: { searchedByMeaning: boolean; verified: boolean; reason: string | null };
+  /** A passage of the object (for a pad line, one its words are linked to) is exam or held-out material: nothing is
+   * searched or judged for it, and no row leads from or to a protected passage (the learner's own rows stay). */
+  withheld?: boolean;
+}
+
+export interface PromotedJobDto {
+  version: number;
+  jobId: string;
+  status: "queued" | "running" | "done" | "failed" | "cancelled" | "expired";
+  done: boolean;
+  /** When done: every row ranked again, cheap and judged, at most four; [] when cancelled or superseded. */
+  rows: PromotedRowDto[];
+  error: { code: string; message: string; retryable: boolean } | null;
+}
+
+/** passage.knows: What this knows (§9.1 `i`) as one read: each of the object's passages with its union entry. */
+export interface PassageKnowsDto {
+  version: number;
+  objectKey: string;
+  sourceIds: string[];
+  places: { extractionId: string; spanId: string; role: string | null; knows: PassageUnionSpanDto }[];
+}
+
 /** passage.content: one range of a reading as the source has it (a source_piece's words, location and time). */
 export interface PassageContentDto {
   version: number;
@@ -11016,11 +11093,11 @@ export type SpanAlias = "exact" | "needs_reanchor";
 export interface PassageUnionSpanDto {
   spanId: string;
   sectionId: string | null;
-  annotations: { annotationId: string; type: string; learnerText: string; placement: string }[];
+  annotations: { annotationId: string; type: string; learnerText: string; placement: string; createdAt?: string | null }[];
   padBlocks: { blockId: string; padId: string; kind: PadBlockKind; provenance: PadProvenance; eventId: string;
     annotationId: string | null; alias: SpanAlias;
     /** The link sits on a lift-out stub (a lift made before links moved): blockId is the lifted block. */
-    liftedFromBlockId?: string | null }[];
+    liftedFromBlockId?: string | null; createdAt?: string }[];
   exchanges: { questionEventId: string; role: "selection" | "cited" | "context"; quality: AnchorQuality;
     alias: SpanAlias; context: string; questionMd: string; createdAt: string }[];
   adjustments: { questionEventId: string; gapId: string }[];
@@ -11222,6 +11299,76 @@ export interface SearchJobDto {
   error: PolledJobErrorDto | null;
 }
 
+// Notebook runtime: one sandboxed marimo server per owner (a pad's cells or a lesson notebook), shown in a frame
+// whose URL the session carries. A session is process state, never evidence.
+export type NotebookOwner = `pad:${string}` | `lesson:${string}`;
+
+export interface NotebookOpenInput {
+  owner: NotebookOwner;
+  /** The notebook file, relative to the vault root; the session runs a snapshot of its bytes. Left out for a pad
+   * (`pad:<id>`): its notebook is generated from the pad's marimo cells. */
+  path?: string;
+  view?: "app" | "edit";
+}
+
+export type NotebookSessionState = "starting" | "ready" | "restarting" | "stopping" | "stopped" | "failed";
+
+export interface NotebookSessionDto {
+  version: number;
+  sessionId: string;
+  owner: NotebookOwner;
+  state: NotebookSessionState;
+  /** Why a stopped session stopped: closed, idle, make_room, replaced, run_dir_full or vault_switch. */
+  stopReason: string | null;
+  error: string | null;
+  restarts: number;
+  framesAttached: number;
+  /** The cell names marimo reported once a frame connected. */
+  cells: string[];
+  /** Seconds each recent start took to answer on the socket. */
+  startSeconds: number[];
+  /** Load only once state is "ready": `http://127.0.0.1:<port>/s/<secret>/?...`. */
+  frameUrl: string;
+  /** The session's scope memory, when it runs in a scope of its own. */
+  memoryBytes: number | null;
+  /** Per cell name, its last run as marimo reported it. */
+  cellRuns?: Record<string, NotebookCellRunDto>;
+  /** A pad's session (from notebook.open only): each cell block's marimo name. */
+  padCells?: Record<string, string>;
+  /** A lesson's session: its commit points, what was committed and released, and whether it is a review. */
+  lesson?: NotebookLessonDto;
+}
+
+/** A lesson notebook's commit points (spec §11.2). A review (a finished lesson) commits and releases nothing. */
+export interface NotebookLessonDto {
+  review: boolean;
+  released: string[];
+  commitPoints: Array<{ name: string; held: string[]; committed: boolean }>;
+}
+
+export interface NotebookCellRunDto {
+  status: "queued" | "running" | "idle" | "stale" | "disabled-transitively" | null;
+  ms: number | null;
+  error: boolean;
+}
+
+export interface NotebookCellInput {
+  name: string;
+  code: string;
+}
+
+export interface NotebookReleaseDto {
+  version: number;
+  sessionId: string;
+  released: string[];
+}
+
+export interface NotebookRunCellsDto {
+  version: number;
+  sessionId: string;
+  ran: string[];
+}
+
 // -- Reader workbench v2 RD6 (spec §12.2-§12.5, §12.8): the goal band, the goal lens and read it anyway on a
 // section. The typed calls only; no component calls them yet. Display of the real model: nothing here is
 // evidence, and while a cold check is due on an LO its name and purpose text are withheld (`held`, §12.6.1).
@@ -11325,6 +11472,8 @@ export interface GoalBandDto {
   coverage?: { unjudged: string[]; covering: boolean; failure: { reason: string | null; message: string | null } | null };
   /** The path view's rows (curriculum.path's own view). */
   path?: DeliverablePathViewDto | null;
+  /** When the next check not due yet falls due (UTC): the band is read again then, to hide what it covers. */
+  nextCheckDue?: string | null;
 }
 
 export type GoalLensInput =

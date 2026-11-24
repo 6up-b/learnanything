@@ -74,7 +74,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `draft_validator`, `duration_estimator`; statically calls `draft_validator`, `duration_estimator`
+- [[Reference/Modules/learnloop/content/authoring/jobs|learnloop.content.authoring.jobs]] — imports `draft_validator`, `duration_estimator`; statically calls `draft_validator`, `duration_estimator`
 - [[Reference/Modules/learnloop/instructional/validation|learnloop.instructional.validation]] — imports `draft_validator`
 
 ## Dependencies
@@ -95,7 +95,7 @@ Use this module in context through:
 - [[Import Canonical Sources]]
 - [[Build a Study Map]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]], [[Reference/Modules/learnloop/instructional/validation|learnloop.instructional.validation]].
+Static participation evidence comes from [[Reference/Modules/learnloop/content/authoring/jobs|learnloop.content.authoring.jobs]], [[Reference/Modules/learnloop/instructional/validation|learnloop.instructional.validation]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

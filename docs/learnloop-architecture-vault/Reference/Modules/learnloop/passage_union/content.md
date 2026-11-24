@@ -83,7 +83,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop/content/sources/exam_material|learnloop.content.sources.exam_material]] — imports `exam_withheld`; calls `exam_withheld`
 - [[Reference/Modules/learnloop/content/sources/span_aliases|learnloop.content.sources.span_aliases]] — imports `reading_source`; calls `reading_source`
-- [[Reference/Modules/learnloop/passage_union/union|learnloop.passage_union.union]] — imports `UnionError`, `_range`; calls `UnionError`, `_range`
+- [[Reference/Modules/learnloop/passage_union/union|learnloop.passage_union.union]] — imports `UnionError`, `span_range`; calls `UnionError`, `span_range`
 - [[Reference/Modules/learnloop/section_map|learnloop.section_map]] — imports `extraction_sections`; calls `extraction_sections`
 
 ### Platform and third-party dependencies

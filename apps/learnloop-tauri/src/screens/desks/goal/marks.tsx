@@ -6,7 +6,7 @@ import type { GoalBandDto } from "../../../api/dto";
 import type { ReaderLens } from "../../ReaderScreen";
 import type { WatchLens } from "../../reader/YouTubeWatchPanel";
 import type { WhyState } from "./controller";
-import { calloutFor, goalShort, isDimmed, markKind, whyLevelLine, type LensIndex } from "./model";
+import { calloutFor, goalShort, isDimmed, markKind, mostNeededSpan, noneNeeded, whyLevelLine, type LensIndex } from "./model";
 
 /** The why card opens after a 120 ms hover (spec §12.3) and hides 160 ms after leaving (the mockup's). */
 export const WHY_OPEN_MS = 120;
@@ -61,7 +61,7 @@ export function readerLens({ index, dimOn, windowId, handlers, paper = false, op
     return [kind ? `g-${kind}` : "g-none", isDimmed(section, dimOn) && !keep ? "gl-dim" : ""].filter(Boolean).join(" ");
   };
   return {
-    className: (spanId, state) => classFor(spanId, Boolean(state?.annotated || state?.active)),
+    className: (spanId, state) => classFor(spanId, Boolean(state?.annotated || state?.active || state?.reading)),
     mark: (spanId) => markFor(spanId),
     watch: watchLens(index, classFor, markFor),
     before: (spanId) => {
@@ -90,35 +90,50 @@ function clock(seconds: number): string {
   return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, "0")}`;
 }
 
-/** The lens over a video's transcript (§12.3 point 5, §12.4): each passage group by its first cue's section, the
- *  mark in the text column, the path's ranges as segments on the track, and a head saying where the video sits. */
+/** The lens over a video's transcript (§12.3 point 5, §12.4): each passage group by its most needed cue's section
+ *  (a group crossing from a skippable section into a core one is core, never dimmed), the mark in the text column,
+ *  the path's ranges as segments on the track, and a head saying where the video sits. */
 function watchLens(index: LensIndex, classFor: (spanId: string, keep: boolean) => string | undefined,
                    markFor: (spanId: string, extra?: string) => ReturnType<NonNullable<ReaderLens["mark"]>>): WatchLens {
   const onPath = index.sections.filter((section) => section.mapping === "mapped" && (section.level === "core" || section.level === "supporting"));
   return {
     className: (spanIds) => {
-      const classes = spanIds.length ? classFor(spanIds[0], false) : undefined;
+      const spanId = mostNeededSpan(index, spanIds);
+      const classes = spanId ? classFor(spanId, false) : undefined;
       return classes ? `tp ${classes}` : undefined;
     },
-    mark: (spanIds) => (spanIds.length ? markFor(spanIds[0], " gl-tx") : null),
+    mark: (spanIds) => {
+      const spanId = mostNeededSpan(index, spanIds);
+      return spanId ? markFor(spanId, " gl-tx") : null;
+    },
     segments: onPath.map((section) => section.spanIds),
     head: (timeOf) => {
       const first = onPath[0];
+      // "The rest" is called not needed only when every section off the path is known not needed now.
+      const rest = noneNeeded(index.sections.filter((section) => !onPath.includes(section)));
       if (first) {
-        const range = timeOf(first.spanIds);
+        // Every range on the path, not only the first (touching ranges read as one).
+        const ranges: Array<{ start: number; end: number }> = [];
+        for (const range of onPath.map((section) => timeOf(section.spanIds))) {
+          if (!range) continue;
+          const last = ranges[ranges.length - 1];
+          if (last && range.start <= last.end) last.end = Math.max(last.end, range.end);
+          else ranges.push({ ...range });
+        }
+        const times = ranges.map((range) => `${clock(range.start)}–${clock(range.end)}`).join(", ");
         const lo = first.learningObjects.find((entry) => entry.learningObjectId === first.determiningLoId);
         const role = first.reasonKey === "primary" ? "primary for" : first.reasonKey === "alternate" ? "another way for"
           : first.reasonKey === "prerequisite" ? "background for" : "supporting";
         return (
           <div className="gtcall" data-goal-head="">
-            <span className="gg">◎</span> <b>on your path{range ? ` · ${clock(range.start)}–${clock(range.end)}` : ""}</b>
+            <span className="gg">◎</span> <b>on your path{times ? ` · ${times}` : ""}</b>
             {first.held ? ` · ${first.reasonMd}` : ` · ${role}${lo?.title ? ` \u201c${lo.title}\u201d` : ""}: ${first.reasonMd.replace(/\.?\s*$/, "")}.`}
-            {index.sections.some((section) => section.level === "skippable") ? " The rest is not needed for your goal." : ""}
+            {rest && index.sections.some((section) => section.level === "skippable") ? " The rest is not needed for your goal." : ""}
           </div>
         );
       }
       const skippable = index.sections.find((section) => section.level === "skippable" || section.level === "later");
-      if (!skippable) return null;
+      if (!skippable || !rest) return null;
       return (
         <div className="gtcall off" data-goal-head="">
           <span className="gg">◎</span> <b>not needed for your goal</b> · {skippable.reasonMd.replace(/\.?\s*$/, "")}. Read it anyway, if you like.

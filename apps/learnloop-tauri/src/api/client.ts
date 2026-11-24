@@ -33,10 +33,20 @@ import type {
   InkTranscribeJobDto,
   PassageUnionDto,
   PassageContentDto,
+  MenuObjectInput,
+  PassagePromotedInput,
+  PassagePromotedDto,
+  PromotedJobDto,
+  PassageKnowsDto,
   PassageUnionInput,
   SearchEverythingDto,
   SearchEverythingInput,
   SearchJobDto,
+  NotebookOpenInput,
+  NotebookSessionDto,
+  NotebookReleaseDto,
+  NotebookCellInput,
+  NotebookRunCellsDto,
   NoteSearchDto,
   NoteLinkDto,
   HiddenNoteDto,
@@ -1196,7 +1206,8 @@ export const api = {
     })),
   listQuestionQueue: (input?: { resolution?: string | null; limit?: number | null }) =>
     call<QuestionQueueSnapshot>("list_question_queue", { input: input ?? {} }),
-  authorPracticeItem: (input: { captureId?: string; learningObjectId: string; prompt: string; expectedAnswer: string; practiceMode?: string; hints?: string[] }) =>
+  // clientIdempotencyKey: one per sheet, reused on a retry (the same key returns the same item and makes no second).
+  authorPracticeItem: (input: { captureId?: string; learningObjectId: string; prompt: string; expectedAnswer: string; practiceMode?: string; hints?: string[]; clientIdempotencyKey?: string }) =>
     mutating([TAG.queue], call<{ practiceItemId: string }>("author_practice_item", { input })),
   // Learner-initiated re-runging: request an easier/harder sibling variant of
   // an item. Records the evidence package synchronously, authors async.
@@ -1650,6 +1661,12 @@ export const api = {
   passageUnionRange: (input: PassageUnionInput) => call<PassageUnionDto>("passage_union_range", { input }),
   // RD4 fix round: a range of a reading as the source has it, for "a piece of another source" (desktop only).
   passageContent: (input: PassageUnionInput) => call<PassageContentDto>("passage_content", { input }),
+  // RD5 (desktop only): the split menu's promoted rows at once and their judged job (polled through the one poller;
+  // cancel when the menu closes), and What this knows as one read.
+  passagePromoted: (input: PassagePromotedInput) => call<PassagePromotedDto>("passage_promoted", { input }),
+  passagePromotedJob: (input: { jobId: string }) => call<PromotedJobDto>("passage_promoted_job", { input }),
+  passagePromotedCancel: (input: { jobId: string }) => call<PromotedJobDto>("passage_promoted_cancel", { input }),
+  passageKnows: (input: MenuObjectInput) => call<PassageKnowsDto>("passage_knows", { input }),
   companionHistory: (input: { from?: string; to?: string; deskId?: string; query?: string; cursor?: string } = {}) =>
     call<CompanionHistoryDto>("companion_history", { input }),
   checksDueFor: (input: { goalId?: string; learningObjectIds?: string[]; extractionId?: string; spanId?: string } = {}) =>
@@ -1671,6 +1688,15 @@ export const api = {
   goalSectionChoice: (input: GoalSectionChoiceInput) => call<GoalSectionChoiceDto>("goal_section_choice", { input }),
   curriculumPath: (input: { goalId: string; judge?: boolean; retry?: boolean }) =>
     call<DeliverablePathViewDto>("curriculum_path", { input }),
+  // Notebook runtime (desktop only, no component calls them yet): open answers at once with the session starting and
+  // its frame URL; the window loads the frame once status reads ready. Release and run need a frame attached.
+  notebookOpen: (input: NotebookOpenInput) => call<NotebookSessionDto>("notebook_open", { input }),
+  notebookStatus: (input: { sessionId: string }) => call<NotebookSessionDto>("notebook_status", { input }),
+  notebookClose: (input: { sessionId: string }) => call<NotebookSessionDto>("notebook_close", { input }),
+  notebookRelease: (input: { sessionId: string; cells: string[] }) =>
+    call<NotebookReleaseDto>("notebook_release", { input }),
+  notebookRunCells: (input: { sessionId: string; cells: NotebookCellInput[] }) =>
+    call<NotebookRunCellsDto>("notebook_run_cells", { input }),
   // Teacher TE1: a lesson (desktop only). lesson.turn is every model-calling step (one origin action, T1
   // redesign D: a granted OpenRouter offer covers the whole lesson); lesson.view resumes one with no call.
   lessonTurn: (input: LessonTurnInput) => call<LessonViewDto>("lesson_turn", { input }),
