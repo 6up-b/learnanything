@@ -87,8 +87,9 @@ class Visible(ParamsModel):
 class BeginInlineInput(ParamsModel):
     request_id: str = Field(min_length=1, max_length=128)
     commitment_id: str = Field(min_length=1)
-    #: The desks' practice session: the attempt service records the answer on it, as every surface does.
-    session_id: str = Field(min_length=1)
+    #: The desks' practice session: the attempt service records the answer on it, as every surface does. Absent (the
+    #: app has none yet), the most recent open one, else a new one, as a workbench submit resolves it.
+    session_id: str | None = None
     visible: Visible = Field(default_factory=Visible)
 
 
@@ -166,15 +167,23 @@ def _serve(ctx: SidecarContext, session_id: str):
 def check_begin_inline(ctx: SidecarContext, params: BeginInlineInput) -> dict[str, Any]:
     """Open an inline administration; the prompt is in the reply only once the veils are recorded."""
 
+    from learnloop_sidecar.context import session_snapshot
+    from learnloop_sidecar.handlers.workbench import _practice_session
+
     vault, repository = ctx.require_vault()
     try:
+        # Refused checks start no session: the lock and the due rule are read before one is resolved.
+        IA.preflight(vault, repository, request_id=params.request_id, commitment_id=params.commitment_id)
+        session_id = _practice_session(ctx, repository, params.session_id)
         opened = IA.begin(vault, repository, request_id=params.request_id, commitment_id=params.commitment_id,
-                          session_id=params.session_id, visible=params.visible.model_dump(),
-                          serve=_serve(ctx, params.session_id), covered=_covered(vault, repository))
+                          session_id=session_id, visible=params.visible.model_dump(),
+                          serve=_serve(ctx, session_id), covered=_covered(vault, repository))
     except IA.InlineCheckError as exc:
         raise _error(exc) from exc
     admin = opened["administration"]
-    return versioned(_card(admin, opened["served"], IA.veils(repository, admin["administration_token"])))
+    # The session the answer is recorded on, for the app to adopt when it had none (as a workbench submit's).
+    return versioned({**_card(admin, opened["served"], IA.veils(repository, admin["administration_token"])),
+                      "practice_session": session_snapshot(repository, session_id)})
 
 
 @method("check.protect_more", ProtectMoreInput)

@@ -238,6 +238,25 @@ def find(repository: Any, token: str) -> dict[str, Any]:
     return admin
 
 
+def preflight(vault: Any, repository: Any, *, request_id: str, commitment_id: str) -> None:
+    """The refusals ``begin`` gives before it reads the serving view (the tag, another open check, a duty no longer
+    pending), for a caller that would otherwise do work first (start a practice session for a check that cannot open).
+    ``begin`` checks them again."""
+
+    _require_tag(vault)
+    with repository.connection() as connection:
+        known = store.by_request(connection, request_id)
+        current = store.open_administration(connection)
+    if known is not None:
+        return
+    if current is not None:
+        raise InlineCheckError("administration_open", "Another check is open; answer it or say not now first.",
+                               {"administration_token": current["administration_token"],
+                                "commitment_id": current["commitment_id"]})
+    if C.resolve_disposition(repository, commitment_id) != "one_check_pending":
+        raise InlineCheckError(DUE_ONLY, "This check isn't pending any more.")
+
+
 def begin(vault: Any, repository: Any, *, request_id: str, commitment_id: str, session_id: str,
           visible: Mapping[str, Any], serve: Callable[[str], Mapping[str, Any]], covered: Covered,
           clock: Clock | None = None) -> dict[str, Any]:
