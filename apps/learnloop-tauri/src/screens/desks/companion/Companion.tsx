@@ -382,7 +382,7 @@ export const Companion = forwardRef<CompanionHandle, CompanionProps>(function Co
               <button type="button" className="earlier" onClick={() => setTab("history")}>earlier · {earlier.map(dayLabel).join(" · ")} ›</button>
             ) : null}
           </div>
-          <div className="body" ref={bodyRef}>
+          <div className="body" ref={bodyRef} data-companion-body="">
             {/* Show me's figures (spec §13.1), live, above the thread. */}
             {tab === "tutor" ? props.figures ?? null : null}
             {tab === "tutor" ? (

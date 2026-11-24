@@ -54,6 +54,8 @@ PRACTICE_BANNER = (
 #: F15 (R3): the check's item is also measured under a stricter duty (a cold
 #: follow-up, a diagnostic): no help is promised, because none is offered.
 MEASURED_BANNER = "A check on your own: this one is measured on your own, so no help is offered."
+#: mvp-0.69 (spec §12.6.5): the check is open in the Reader; this attempt is practice, the check is answered there.
+BEING_ANSWERED_BANNER = "This check is being answered in the Reader, so this one is practice."
 #: The stricter duties a check's item can carry.
 DUTY_COLD_FOLLOWUP = "cold_followup"
 DUTY_DIAGNOSTIC = "diagnostic"
@@ -178,6 +180,9 @@ def served_check(
     if check is None or not check.due or check.answered_by is not None or practice_item_id not in check.candidates:
         return None
     cold = check.cold(practice_item_id)
+    if check.commitment_id in serving.locked:
+        # mvp-0.69: an open inline administration holds this check; Today says so and serves the item as practice.
+        return {**_view(check, cold=False), "being_answered_in": "reader", "banner": BEING_ANSWERED_BANNER}
     if not cold:
         # F3: practice whatever else the item carries; the measured banner
         # would claim a check this attempt cannot answer.
@@ -241,6 +246,7 @@ def answered_check(vault: Any, repository: Any, attempt_id: str) -> dict[str, An
 
 
 __all__ = [
+    "BEING_ANSWERED_BANNER",
     "COLD_BANNER",
     "DUTY_COLD_FOLLOWUP",
     "DUTY_DIAGNOSTIC",

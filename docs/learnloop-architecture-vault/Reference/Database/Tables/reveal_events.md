@@ -50,7 +50,7 @@ It belongs to the **attempts and measurement** navigation family. The family con
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/154_reveal_ledger.sql`.
-- **Schema touched by:** `154_reveal_ledger.sql`, `155_observation_admissibility.sql`, `179_answer_display_reveal.sql`, `181_router_decisions.sql`, `210_help_assists.sql`.
+- **Schema touched by:** `154_reveal_ledger.sql`, `155_observation_admissibility.sql`, `179_answer_display_reveal.sql`, `181_router_decisions.sql`, `210_help_assists.sql`, `270_reader_workbench_inline_checks.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle

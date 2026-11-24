@@ -2646,6 +2646,16 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_empty_and_thin_states`
   - `test_the_lens_levels_follow_the_real_path_and_coverage`
   - `test_the_replies_are_equal_after_a_rebuild_of_derived_state`
+- [tests/test_reader_rd7a_inline_checks.py](../../../../../../tests/test_reader_rd7a_inline_checks.py) — direct import
+  - `test_a_later_answer_after_today_settled_the_check_is_practice_and_ordinary_evidence`
+  - `test_an_answer_after_a_notes_veil_was_opened_is_practice_and_says_why`
+  - `test_one_administration_at_a_time_and_today_honours_it`
+  - `test_parity_with_check_once_in_today`
+  - `test_the_projection_after_an_inline_answer_equals_a_whole_vault_rebuild`
+  - `test_the_protection_set_veils_covered_passages_and_every_note_bearing_surface`
+- [tests/test_reader_rd7b_cold_followup_parity.py](../../../../../../tests/test_reader_rd7b_cold_followup_parity.py) — direct import
+  - `test_a_due_cold_follow_up_opens_inline_cold_on_the_item_today_would_serve`
+  - `test_rw6bs_gate_holds_the_follow_up_on_both_surfaces`
 - [tests/test_reader_rd9a_fix.py](../../../../../../tests/test_reader_rd9a_fix.py) — direct import
 - [tests/test_reader_rd9a_lesson_windows.py](../../../../../../tests/test_reader_rd9a_lesson_windows.py) — direct import
   - `test_lesson_list_names_each_lesson_with_its_additions_pad`

@@ -99,6 +99,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `ProductionAdmissibility`, `production_admissibility`; statically calls `ProductionAdmissibility`, `production_admissibility`
 - [[Reference/Modules/learnloop/diagnosis/split/card|learnloop.diagnosis.split.card]] — imports `record_repair_display_reveals`; statically calls `record_repair_display_reveals`
 - [[Reference/Modules/learnloop/field/outcomes|learnloop.field.outcomes]] — imports `production_admissibility`; statically calls `production_admissibility`
+- [[Reference/Modules/learnloop/intent/inline_administration|learnloop.intent.inline_administration]] — imports `record_reveal`; statically calls `record_reveal`
 - [[Reference/Modules/learnloop/placement/state|learnloop.placement.state]] — imports `production_admissibility`; statically calls `production_admissibility`
 - [[Reference/Modules/learnloop/source_retrieval/compare|learnloop.source_retrieval.compare]] — imports `record_reveal`; statically calls `record_reveal`
 - [[Reference/Modules/learnloop/source_retrieval/find_sources|learnloop.source_retrieval.find_sources]] — imports `record_reveal`; statically calls `record_reveal`
@@ -137,7 +138,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Inspect Persistent State]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/diagnosis/causal_attribution|learnloop.diagnosis.causal_attribution]], [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]], [[Reference/Modules/learnloop/diagnosis/split/card|learnloop.diagnosis.split.card]], [[Reference/Modules/learnloop/field/outcomes|learnloop.field.outcomes]], [[Reference/Modules/learnloop/placement/state|learnloop.placement.state]] and 13 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/diagnosis/causal_attribution|learnloop.diagnosis.causal_attribution]], [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]], [[Reference/Modules/learnloop/diagnosis/split/card|learnloop.diagnosis.split.card]], [[Reference/Modules/learnloop/field/outcomes|learnloop.field.outcomes]], [[Reference/Modules/learnloop/intent/inline_administration|learnloop.intent.inline_administration]] and 14 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

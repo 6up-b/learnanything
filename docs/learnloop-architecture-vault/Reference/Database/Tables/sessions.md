@@ -105,6 +105,7 @@ Indexes and uniqueness:
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/practice_state.py`
 - `src/learnloop/db/stores/session_ownership.py`
+- `src/learnloop/intent/inline_administration.py`
 - `src/learnloop/router/outcomes.py`
 - `src/learnloop/router_objective/checks.py`
 - `src/learnloop/router_objective/decision_state.py`

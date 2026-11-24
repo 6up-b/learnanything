@@ -1435,6 +1435,13 @@ sidecar_passthrough!(chapters_suggest, "chapters.suggest");
 sidecar_passthrough!(chapters_job, "chapters.job");
 sidecar_passthrough!(chapters_cancel, "chapters.cancel");
 sidecar_passthrough!(chapters_decide, "chapters.decide");
+// Reader workbench RD7: the inline administration of a due check (spec §12.6): desktop only.
+sidecar_passthrough!(check_begin_inline, "check.begin_inline");
+sidecar_passthrough!(check_protect_more, "check.protect_more");
+sidecar_passthrough!(check_expose, "check.expose");
+sidecar_passthrough!(check_submit_inline, "check.submit_inline");
+sidecar_passthrough!(check_abandon_inline, "check.abandon_inline");
+sidecar_passthrough!(check_open_inline, "check.open_inline");
 // Teacher TE1b: Today's lesson suggestion card and the learner's one response to it: desktop only.
 sidecar_passthrough!(lesson_suggestion, "lesson.suggestion");
 sidecar_passthrough!(lesson_suggestion_respond, "lesson.suggestion_respond");

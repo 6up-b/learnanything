@@ -108,7 +108,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop_sidecar/handlers/hints|learnloop_sidecar.handlers.hints]] — imports `ParamsModel`, `versioned`; statically calls `versioned`
 - [[Reference/Modules/learnloop_sidecar/handlers/ingest|learnloop_sidecar.handlers.ingest]] — imports `ParamsModel`, `camel_name`, `versioned`; statically calls `camel_name`, `versioned`
 - [[Reference/Modules/learnloop_sidecar/handlers/ink|learnloop_sidecar.handlers.ink]] — imports `ParamsModel`, `versioned`; statically calls `versioned`
-- [[Reference/Modules/learnloop_sidecar/handlers/inline_checks|learnloop_sidecar.handlers.inline_checks]] — imports `ParamsModel`, `versioned`; statically calls `versioned`
+- [[Reference/Modules/learnloop_sidecar/handlers/inline_checks|learnloop_sidecar.handlers.inline_checks]] — imports `ParamsModel`, `Verbatim`, `versioned`; statically calls `Verbatim`, `versioned`
 - [[Reference/Modules/learnloop_sidecar/handlers/inspector|learnloop_sidecar.handlers.inspector]] — imports `ParamsModel`, `to_camel`, `versioned`; statically calls `to_camel`, `versioned`
 - [[Reference/Modules/learnloop_sidecar/handlers/intent|learnloop_sidecar.handlers.intent]] — imports `ParamsModel`, `versioned`; statically calls `versioned`
 - [[Reference/Modules/learnloop_sidecar/handlers/item_authoring|learnloop_sidecar.handlers.item_authoring]] — imports `ParamsModel`, `versioned`; statically calls `versioned`

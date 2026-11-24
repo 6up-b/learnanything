@@ -201,6 +201,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/instructional/practice|learnloop.instructional.practice]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/instructional/tools|learnloop.instructional.tools]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/intent/control|learnloop.intent.control]] — imports `new_ulid`; statically calls `new_ulid`
+- [[Reference/Modules/learnloop/intent/inline_administration|learnloop.intent.inline_administration]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/ops/contamination/report|learnloop.ops.contamination.report]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/ops/embedding_backfill|learnloop.ops.embedding_backfill]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/ops/embedding_compare|learnloop.ops.embedding_compare]] — imports `new_ulid`; statically calls `new_ulid`
@@ -301,7 +302,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/repeat_receipts|learnloop.adaptive_difficulty.repeat_receipts]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/calibration_streams|learnloop.attempts.calibration_streams]], [[Reference/Modules/learnloop/attempts/clarification|learnloop.attempts.clarification]], [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]] and 195 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/repeat_receipts|learnloop.adaptive_difficulty.repeat_receipts]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/calibration_streams|learnloop.attempts.calibration_streams]], [[Reference/Modules/learnloop/attempts/clarification|learnloop.attempts.clarification]], [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]] and 196 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

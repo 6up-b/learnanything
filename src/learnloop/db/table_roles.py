@@ -756,6 +756,12 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     ("trace_exercised_facets", TableRole.RAW_LEDGER),
     ("unresolved_cause_factors", TableRole.WORKFLOW),
     ("vault_epigraphs", TableRole.RAW_LEDGER),
+    # Reader workbench v2 inline checks (migration 270; spec §12.6, §15): the inline administration of a due "Check
+    # once" and the lock it holds with Today (workflow: in-flight lifecycle state, never rebuilt, read by nothing that
+    # scores or schedules), and what each protection computation veiled and what had been opened (a receipt for
+    # audit, append-only by trigger, never cleared by replay).
+    ("check_administrations", TableRole.WORKFLOW),
+    ("check_veil_sets", TableRole.RECEIPT),
     # Reader workbench v2 suggested video chapters (migration 268; spec §7.9, §15.1): a video's chapters as
     # the chapters judge suggested them and as the learner decided (accepted or "not this", once). Workflow:
     # a proposal, never evidence, never rebuilt.

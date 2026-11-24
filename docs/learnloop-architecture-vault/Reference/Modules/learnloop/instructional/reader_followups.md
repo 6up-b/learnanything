@@ -331,6 +331,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_round8_sols_interleaving_keeps_the_shared_check_live`
 - [tests/test_reader_followups_successor.py](../../../../../../tests/test_reader_followups_successor.py) — direct import
   - `test_planning_and_revaluation_run`
+- [tests/test_reader_rd7b_cold_followup_parity.py](../../../../../../tests/test_reader_rd7b_cold_followup_parity.py) — direct import
+  - `test_a_due_cold_follow_up_opens_inline_cold_on_the_item_today_would_serve`
 - [tests/test_reader_rw6b_landing.py](../../../../../../tests/test_reader_rw6b_landing.py) — direct import
   - `test_i_check_once_commitments_and_follow_ups_coexist_and_the_gate_touches_only_follow_ups`
   - `test_ii_a_rescheduled_fresh_cold_retry_holds_and_retires_an_existing_follow_up`

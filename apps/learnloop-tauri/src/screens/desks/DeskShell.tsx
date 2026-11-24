@@ -152,6 +152,11 @@ import type { LessonViewDto } from "../../api/dto";
 import "../../styles/goal.css";
 import "../../styles/lesson.css";
 import "../../styles/video.css";
+import "../../styles/checks.css";
+import { CheckDesk, LIVE_CHECK_TRANSPORT, type CheckTransport } from "./checks/controller";
+import { CheckCardOverlay, CheckLenses } from "./checks/CheckCard";
+import { VeilLayer } from "./checks/VeilLayer";
+import { visibleNow } from "./checks/model";
 import "../../styles/desk.css";
 // The desks' five fonts ship with the app (SIL OFL 1.1, Fontsource packages pinned in package.json): Vite
 // bundles their files, so nothing is fetched from a font service.
@@ -550,6 +555,8 @@ export interface DeskShellProps {
    *  from feedback, a lesson's "Look in my library"): a book (and passage) to open or focus on the desk in view, or
    *  words to search for. Each request is done once, by its sequence number, however often the desks mount again. */
   openRequest?: DeskOpenRequest | null;
+  /** The inline checks' calls (RD7, spec §12.6); absent, the sidecar's. */
+  checkTransport?: CheckTransport;
 }
 
 export interface DeskOpenRequest {
@@ -591,6 +598,7 @@ export function DeskShell({
   videoTransport = LIVE_VIDEO_TRANSPORT,
   askRequest = 0,
   openRequest = null,
+  checkTransport = LIVE_CHECK_TRANSPORT,
 }: DeskShellProps) {
   // The vault's one desk store (store.ts): it outlives this shell, so leaving and coming back never makes a
   // second outbox for the same client.
@@ -611,6 +619,10 @@ export function DeskShell({
   const videoDesk = useMemo(() => new VideoDesk(videoTransport, (windowId, spanId) => videoFollowed.current(windowId, spanId)), [videoTransport]);
   useSyncExternalStore(videoDesk.subscribe, videoDesk.getVersion);
   const followLenses = useMemo(() => new FollowLenses(), []);
+  // Inline cold checks (RD7, spec §12.6): the due checks' closed markers, the one open administration and its veils.
+  const checkDesk = useMemo(() => new CheckDesk(checkTransport, mintId), [checkTransport, mintId]);
+  useSyncExternalStore(checkDesk.subscribe, checkDesk.getVersion);
+  const checkLenses = useMemo(() => new CheckLenses(), []);
   // `u` and `alt+;` reach the latest render's handlers (set below).
   const videoKeys = useRef<{ follow: () => boolean; timestamp: () => boolean }>({ follow: () => false, timestamp: () => false });
   // Pad changes re-render the shell too (the passages' ✎ links, the companion's pad proposals).
@@ -663,7 +675,7 @@ export function DeskShell({
   const [companionDock, setCompanionDockShown] = useState<CompanionDock>("br");
   const [chip, setChip] = useState<(AskChip & { quote: string }) | null>(null);
   const [avoid, setAvoid] = useState(0);
-  const [search, setSearch] = useState<{ query: string; selection?: { extractionId: string; spanIds: string[] }; blockIds?: string[]; insert?: ((row: SearchRow) => void) | null } | null>(null);
+  const [search, setSearchState] = useState<{ query: string; selection?: { extractionId: string; spanIds: string[] }; blockIds?: string[]; insert?: ((row: SearchRow) => void) | null } | null>(null);
   // Pads (spec §10): the stacks' key handles, the carried questions, and the desk drain while it is open.
   const padHandles = useRef(new Map<string, PadStackHandle>());
   const [carried, setCarried] = useState<{ list: CarriedQuestionDto[]; limit: number; more: boolean }>({ list: [], limit: 3, more: false });
@@ -718,6 +730,15 @@ export function DeskShell({
   const pendingJump = useRef(new Map<string, string>());
 
   const toastNow = useCallback((text: string) => setToast({ text, key: Date.now() }), []);
+  // While an inline check is open, search waits: its results would show what the veils hold (spec §12.6.4).
+  const setSearch = useCallback((next: { query: string; selection?: { extractionId: string; spanIds: string[] }; blockIds?: string[]; insert?: ((row: SearchRow) => void) | null } | null) => {
+    const held = next ? checkDesk.heldReason() : null;
+    if (held) {
+      toastNow(`search waits · ${held}`);
+      return;
+    }
+    setSearchState(next);
+  }, [checkDesk, toastNow]);
   useEffect(() => {
     if (!toast) return;
     const handle = timers.set(() => setToast(null), TOAST_MS);
@@ -1913,6 +1934,12 @@ export function DeskShell({
   /** Every lesson entry on the desks opens a window on the current desk instead of switching screens (spec §11.1):
    * a stored lesson by its id, a new one as an opening tab in the desk's stack, stored once its turn returns. */
   const openLesson = useCallback((entry: LessonEntry) => {
+    // While an inline check is open, a new lesson waits: it would teach what the veils hold (spec §12.6.4).
+    const held = entry.kind === "resume" ? null : checkDesk.heldReason();
+    if (held) {
+      toastNow(`a lesson waits · ${held}`);
+      return;
+    }
     if (entry.kind === "resume") {
       placeLesson(entry.lessonId);
       return;
@@ -1923,7 +1950,7 @@ export function DeskShell({
     if (!stackId) return;
     commit(setFocus(wsRef.current, id, stackId));
     lessonDesk.open(stackId, entry);
-  }, [wsRef, commit, lessonDesk, placeLesson, stackForLessons]);
+  }, [wsRef, commit, lessonDesk, placeLesson, stackForLessons, checkDesk, toastNow]);
   // An opening's lesson joins the stack it was opened in (the focus is left where the learner has it now: the
   // opening turn can take a minute).
   lessonOpened.current = (opening, lessonId) => {
@@ -2622,6 +2649,12 @@ export function DeskShell({
       stepCompanion({ kind: "dock" });
     },
     showMe: async (text: string, anchor: { extractionId: string; spanId: string; spanIds?: string[] } | null, ownerWindowId?: string, blockIds?: string[]) => {
+      // While an inline check is open, Show me waits: a figure would explain what the veils hold (spec §12.6.4).
+      const held = checkDesk.heldReason();
+      if (held) {
+        toastNow(`Show me waits · ${held}`);
+        return null;
+      }
       // The Reader's figure build (RW5d), read through the one poller under the pad window that asked: a paused
       // window's poll waits with it. A figure that is not shown lands nowhere.
       const first = await padsTransport.figureRequest({ goalText: text, origin: "show_me", ...(blockIds ? { blockIds } : {}), anchor: anchor ? { extractionId: anchor.extractionId, spanIds: anchor.spanIds ?? [anchor.spanId] } : null });
@@ -2680,7 +2713,8 @@ export function DeskShell({
     problems: problemHost,
   }), [store, deskId, mintId, padsTransport, reader, openPassage, toastNow, commit, sourcePieces, carryQuestion, stepCompanion, poller, pendingFigures, menuPromoted, lessonsHost, openLesson, problemHost]);
   // Pen and ink (RD8a): what a source window's pen layer and a pad's ink lines reach through.
-  const inkCache = useMemo(() => new InkCache({ api: penApi, poller, settled: () => store.settled(), refreshPad: (padId) => store.refreshPad(padId) }), [penApi, poller, store]);
+  const inkCache = useMemo(() => new InkCache({ api: penApi, poller, settled: () => store.settled(), refreshPad: (padId) => store.refreshPad(padId),
+    held: () => checkDesk.heldReason() }), [penApi, poller, store, checkDesk]);
   const penHost = useMemo<PenHost>(() => ({
     on: penOn,
     simulate: simulatePen,
@@ -2865,6 +2899,58 @@ export function DeskShell({
     if (onDesk || !section.sourceId) openPassage(section.extractionId, section.startSpanId);
     else openContent({ kind: "source", sourceId: section.sourceId, extractionId: section.extractionId, view: "render" }, { spanId: section.startSpanId });
   }, [openPassage, openContent]);
+  // -- inline cold checks (RD7, spec §12.6) -------------------------------------------------------------------------
+  // After a restart the open administration comes back with its veils; the readings on this desk show their markers.
+  useEffect(() => {
+    if (ws) checkDesk.restart();
+    // Once, when the desks open.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ws === null, checkDesk]);
+  const checkReadings = (desk?.slots.flat() ?? []).flatMap((id) => {
+    const content = ws?.windows[id]?.content;
+    return content?.kind === "source" ? [content.extractionId] : [];
+  }).join("\u0000");
+  useEffect(() => {
+    if (checkReadings) checkDesk.readings(checkReadings.split("\u0000"));
+  }, [checkReadings, checkDesk]);
+  /** What is on screen, as the server classifies it: every desk's windows, the companion, the overview's cards. */
+  const visibleForCheck = useCallback(() => {
+    const windows = Object.values(wsRef.current.windows).map((window) => ({ windowId: window.windowId, kind: window.kind,
+      content: window.content as { kind: string; extractionId?: string } | null }));
+    const exchanges = asks.thread(deskIdRef.current).flatMap((exchange) => (exchange.answer?.eventId ? [exchange.answer.eventId] : []));
+    return visibleNow(typeof document === "undefined" ? null : document, windows, {
+      companionOpen: companionStateRef.current.mode !== "hidden", companionExchangeIds: exchanges,
+      previewWindowIds: overviewRef.current ? windows.map((window) => window.windowId) : [],
+    });
+  }, [asks, wsRef]);
+  /** "check now" on a closed marker: the server opens the administration and names the veils before the prompt. */
+  const checkNow = useCallback((commitmentId: string) => {
+    // Search closes first: its rows could show what the check asks, and it stays closed until the answer.
+    setSearchState(null);
+    void checkDesk.begin(commitmentId, reader?.workbench?.practiceSessionId ?? null, visibleForCheck()).then((opened) => {
+      if (checkDesk.notice) toastNow(checkDesk.notice);
+      // The app adopts the session the answer will be recorded on, as after a workbench submit.
+      const session = opened ? checkDesk.open()?.card.practiceSession : null;
+      if (session) reader?.workbench?.onPracticeSession?.(session);
+    });
+  }, [checkDesk, reader, visibleForCheck, toastNow]);
+  // New windows or passages in view while a check is open: the server veils what it must (check.protect_more; a view
+  // unchanged since the last call sends nothing).
+  const protectCheckView = useCallback(() => {
+    if (checkDesk.holding()) void checkDesk.protectMore(visibleForCheck());
+  }, [checkDesk, visibleForCheck]);
+  const checkHolding = checkDesk.holding();
+  useEffect(() => {
+    if (!checkHolding) return;
+    const handle = requestAnimationFrame(() => void checkDesk.protectMore(visibleForCheck()));
+    return () => cancelAnimationFrame(handle);
+  }, [checkHolding, checkDesk, visibleForCheck, ws, currentDeskId, overview, companionState.mode, status, lifecycles]);
+  const openCheck = checkDesk.open();
+  const checkInline = Boolean(openCheck?.host && (desk?.slots.flat() ?? []).some((id) => {
+    const content = ws?.windows[id]?.content;
+    return content?.kind === "source" && content.extractionId === openCheck.host?.extractionId && !isPaused(lifecycles[id]?.state ?? "hidden");
+  }));
+
   const goalDesk = useGoalDesk({
     transport: goalTransport,
     deskGoalId: desk?.goalId,
@@ -3107,6 +3193,8 @@ export function DeskShell({
     } },
     mintId,
     toast: toastNow,
+    // While an inline check is open, the verbs that would reveal or send veiled material wait (spec §12.6.4).
+    heldReason: () => checkDesk.heldReason(),
     ask: (object) => {
       const quote = clipQuote(object.selection || object.text, 400);
       if (object.windowId) setChip({ quote, extractionId: object.extractionId, spanIds: passageIds(object), windowId: object.windowId });
@@ -3700,10 +3788,11 @@ export function DeskShell({
           onWorkOnPad: (handoff) => void workOnPad(handoff),
           onError,
           ...(reader ? { reader } : {}),
-          // A book following a video marks its passage over the goal lens (RD10).
-          lens: content.kind === "source"
+          // A book following a video marks its passage over the goal lens (RD10); a due check's closed marker (or its
+          // open card) sits before its host passage (RD7).
+          lens: checkLenses.lensFor(window.windowId, content.extractionId, content.kind === "source"
             ? followLenses.lensFor(window.windowId, goalDesk.lensFor(window.windowId, content.extractionId), videoDesk.followedSpan(window.windowId))
-            : goalDesk.lensFor(window.windowId, content.extractionId),
+            : goalDesk.lensFor(window.windowId, content.extractionId), checkDesk, checkNow),
         };
         if (content.kind === "video") {
           return <VideoWindow {...props} windowId={window.windowId} desk={videoDesk} transport={videoTransport} poller={poller} />;
@@ -4067,6 +4156,7 @@ export function DeskShell({
                       layout; the zoom scales the box). */}
                   <div
                     className="desk-card"
+                    data-desk-card={id}
                     ref={(node) => {
                       if (node) cardEls.current.set(id, node);
                       else cardEls.current.delete(id);
@@ -4177,6 +4267,8 @@ export function DeskShell({
             />
           ) : null}
           {hud ? <div className="desk-hud" role="status">{hud}</div> : null}
+          {openCheck && !checkInline ? <CheckCardOverlay desk={checkDesk} /> : null}
+          <VeilLayer desk={checkDesk} root={typeof document === "undefined" ? null : document} onChange={protectCheckView} />
           <Companion
             ref={companionRef}
             state={companionState}
@@ -4193,7 +4285,7 @@ export function DeskShell({
             thread={thread}
             proposals={answerProposals}
             chip={chip ? { quote: chip.quote } : null}
-            cannotAsk={grounding.reason}
+            cannotAsk={checkDesk.heldReason() ? `the tutor waits · ${checkDesk.heldReason()}` : grounding.reason}
             avoid={avoid}
             loadHistory={loadHistory}
             deskTitle={deskTitle}

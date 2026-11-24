@@ -260,6 +260,7 @@ Indexes and uniqueness:
 - `src/learnloop/instructional/policy.py`
 - `src/learnloop/instructional/reader_followups.py`
 - `src/learnloop/instructional/valuation.py`
+- `src/learnloop/intent/inline_administration.py`
 - `src/learnloop/learner/lesson_weight.py`
 - `src/learnloop/learner_context.py`
 - `src/learnloop/learner_protection.py`
