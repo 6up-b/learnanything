@@ -27,9 +27,13 @@ export function appSidecar(options: { state?: DeskStateDto; pads?: PadViewDto[];
   const root = `/fixture-vault-${++vaults}`;
   const server = new FixtureDeskServer(options.state ?? fixtureDeskState(), options.pads ?? fixturePads());
   answers.set("desk_state", () => server.state());
-  answers.set("desk_apply", (input) => server.apply(input as never));
+  // This app's desks are this vault's client: an earlier app's desk store (kept per vault while the module lives, as
+  // the app keeps it) may still be sending its outbox, and its writes are not this vault's.
+  const clientId = `client_app_${vaults}`;
+  const mine = (input: Record<string, unknown>) => input.clientId === undefined || input.clientId === clientId;
+  answers.set("desk_apply", (input) => (mine(input) ? server.apply(input as never) : new Promise(() => undefined)));
   answers.set("pad_get", (input) => server.padGet(String(input.padId)));
-  answers.set("pad_apply", (input) => server.applyPad(input as never));
+  answers.set("pad_apply", (input) => (mine(input) ? server.applyPad(input as never) : new Promise(() => undefined)));
   answers.set("load_vault", () => ({
     version: 1,
     vault: { root, subjects: [], subjectTitles: [], counts: { learningObjects: 4, practiceItems: 6 }, algorithmVersion: "fixture" },
@@ -51,5 +55,6 @@ export function appSidecar(options: { state?: DeskStateDto; pads?: PadViewDto[];
   answers.set("get_review_counts", () => ({ version: 1, pendingProposals: 0, openConflicts: 0 }));
   const storage = memoryStorage();
   storage.setItem("learnloop.reader.surface", "desks");
+  storage.setItem(`learnloop.desks.client.${root}`, clientId);
   return { server, storage };
 }

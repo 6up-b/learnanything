@@ -433,3 +433,107 @@ describe("the leave-time offer after the desks", () => {
     expect(screen.getByTestId("wrap-up-offer")).toBeTruthy();
   }, 30_000);
 });
+
+// -- today's plan reading --------------------------------------------------------------------------------------------
+
+describe("today's plan reading on the desks", () => {
+  it("opens the plan's book at its section on the desk in view, under the plan's banner, and back to the plan ends the block", async () => {
+    const reading = { sourceId: paper.sourceId, extractionId: paper.extractionId, sectionId: `${paper.extractionId}_p2`, sectionTitle: "2 Why divide by the square root",
+      wordsLeft: 400, partial: false, startSpanId: `${paper.extractionId}_p2_1` };
+    const app = appSidecar({ state: oneDesk([[BOOK_WINDOW as never]]), session: SESSION, config: { plan: { enabled: true } } });
+    vi.stubGlobal("localStorage", app.storage);
+    answers.set("reader_prompt_contract", () => contract());
+    const block = { id: "blk_r", ordinal: 1, lane: "maintain", action: "reading", subtype: null, chosenBy: "lane_quota", why: "read the next section",
+      whyKind: "computed", fallback: false, estMinutes: 8, status: "current", startedAt: null, endedAt: null, outcome: null, reading,
+      learningObjectTitles: ["Attention"], items: [], displacedCount: 0 };
+    const body = { id: "plan_1", localDate: "2026-11-23", kind: "normal", status: "open", stopReason: null, parentPlanId: null, minutesBudget: 25,
+      rememberedMinutes: 25, minutesSource: "carried", minuteChoices: [10, 15, 25], minutesLeft: 25,
+      split: { rule: "split_v1", line: "25 min", lanesAllowed: ["maintain"], requestedMinutes: 0, lanes: [] },
+      admission: { admittedCount: 0, exemptRequests: 0, stoppedBy: null, floorApplied: false, reviewLoadPerDay: null, ceilingMinutes: null, override: null },
+      blocks: [block], currentBlockId: "blk_r", projected: [], blockCountEstimate: 1, firstBlock: null, nextStep: null,
+      totals: { plannedMinutes: 8, plannedItems: 0, doneItems: 0, skippedItems: 0, displacedItems: 0, readingBlocks: 1, readingBlocksEnded: 0, estMinutesDone: 0, actualMinutes: 0 },
+      reentry: null, source: null, chooser: null };
+    const daily = { version: 1, enabled: true, headlineEnabled: false, localDate: "2026-11-23", plan: body,
+      day: { plans: 1, kinds: ["normal"], complete: false }, streak: { current: 1, activeToday: false, longest: 1 } };
+    answers.set("get_daily_plan", () => daily);
+    answers.set("next_plan_item", () => ({ ...daily, step: { kind: "reading", planId: "plan_1", blockId: "blk_r", blockOrdinal: 1, estMinutes: 8, boundary: false, reading } }));
+    answers.set("plan_reading_ended", () => ({ version: 1 }));
+    render(<App />);
+    await screen.findByRole("navigation", { name: "Places" });
+    await settleDesk(0, 10);
+    await press({ key: "Enter" });
+    await settleDesk(0, 30);
+    const banner = await screen.findByTestId("plan-reading-banner");
+    expect(banner.textContent).toContain("2 Why divide by the square root");
+    // The desks, not the old Reader: the plan's book opened beside the book on the desk in view, focused at the section.
+    await waitFor(() => expect(document.querySelector("[data-desk-shell]")).not.toBeNull());
+    await waitFor(() => expect(paperWindow()).toBeTruthy());
+    expect(focusedWindow()).toBe(paperWindow()!.getAttribute("data-desk-window"));
+    const start = paperWindow()!.querySelector<HTMLElement>(`[data-span-id="${paper.extractionId}_p2_1"]`)!;
+    await waitFor(() => expect(start.style.borderLeft).toContain("var(--amber)"));
+    expect(winOf("w_book")).not.toBeNull();
+    fireEvent.click(within(banner).getByRole("button"));
+    await settleDesk(0, 10);
+    expect(inputsOf("plan_reading_ended")[0]).toMatchObject({ outcome: "left_reader" });
+    expect(screen.queryByTestId("plan-reading-banner")).toBeNull();
+  }, 30_000);
+});
+
+// -- an exercise picked in a book window, with no session yet ----------------------------------------------------------
+
+describe("an exercise used from a book window with no session yet", () => {
+  it("starts the session and the exercise is worked on the desk's problem pad", async () => {
+    const SECOND = `${book.extractionId}_s1_2`;
+    const app = appSidecar({ state: oneDesk([[BOOK_WINDOW as never], [PADS_WINDOW as never]]), session: null, config: WORKBENCH_CONFIG });
+    vi.stubGlobal("localStorage", app.storage);
+    workbenchAnswers("wb_ex");
+    answers.set("reader_prompt_contract", () => contract({ libraryAsk: { expandGraph: false, personalizedDefault: true, compare: true },
+      libraryExercises: { fallback: false } }));
+    answers.set("start_session", () => ({ ...SESSION, sessionId: "ps_new" }));
+    const done = <T,>(result: T, kind: string) => ({ jobId: `ljob_${kind}`, kind, askId: "la_1", state: "done" as const, result });
+    answers.set("reader_library_ask", () => done({ askId: "la_1", query: "softmax", entry: "where_else_explained", status: "ok", policy: "reading",
+      personalized: true, basis: "keyword + meaning", learningObjectIds: [], extractionId: book.extractionId, anchorSpanIds: [FIRST],
+      hits: [{ key: `${paper.extractionId}:${paper.extractionId}_p1_1`, extractionId: paper.extractionId, spanId: `${paper.extractionId}_p1_1`,
+        sourceId: paper.sourceId, sourceTitle: "Attention", section: "1", page: 1, text: "Scores pass through a softmax.", role: "definition",
+        group: "Foundation", expansion: null, learningObjectIds: [], authorship: "source", label: "source-authored" }],
+      groups: { sources: [{ sourceId: paper.sourceId, sourceTitle: "Attention", groups: [{ group: "Foundation", keys: [`${paper.extractionId}:${paper.extractionId}_p1_1`] }] }],
+        expansions: [] }, expansions: [], expandGraph: false, sourceCount: 1, passageCount: 1 }, "ask"));
+    answers.set("reader_library_ask_notes", () => done({ askId: "la_1", status: "judged", notes: [], order: [] }, "notes"));
+    answers.set("record_proposal_impressions", () => ({ recorded: 1 }));
+    answers.set("reader_intent_outcome", () => ({ routingId: "r", recorded: true }));
+    answers.set("find_practice", () => ({ version: 1, status: "ok", proposalId: "pp_1", items: [], sourceExercises: [{
+      kind: "source_exercise", key: "srcex:here", extractionId: book.extractionId, spanIds: [SECOND], sourceId: book.sourceId, revisionId: "rev",
+      sourceTitle: "Softmax", label: "Exercise 1", page: 4, statement: "Show the weights sum to one.", rationale: null,
+      labelLine: "From the book · not yet in your practice" }] }));
+    answers.set("reader_exercise_candidates", () => done({ version: 1, proposalId: "pp_1", withheld: 0, candidates: [{ key: "srcex:here",
+      extractionId: book.extractionId, spanIds: [], sourceId: book.sourceId, revisionId: "rev",
+      exposure: { exposed: false, reasons: [], label: null, note: null, offeredAs: "check_on_your_own", exposureRuleVersion: "reading_exposure_v1" } }] },
+      "exercise_candidates"));
+    await openReaderPlace();
+    const win = winOf("w_book")!;
+    const block = await waitFor(() => {
+      const found = win.querySelector<HTMLElement>(`[data-span-id="${FIRST}"]`);
+      expect(found).toBeTruthy();
+      return found!;
+    });
+    const range = document.createRange();
+    range.selectNodeContents(block);
+    window.getSelection()!.removeAllRanges();
+    window.getSelection()!.addRange(range);
+    fireEvent.mouseUp(block);
+    fireEvent.keyDown(await within(win).findByRole("textbox", { name: "What do you want to do with this?" }), { key: "Tab" });
+    fireEvent.click(within(await within(win).findByRole("group", { name: "what do you want to do?" })).getByRole("button", { name: "where else is this explained?" }));
+    await settleDesk(0, 10);
+    fireEvent.click(await within(win).findByRole("button", { name: /practice this question/ }));
+    await settleDesk(0, 10);
+    const [card] = await within(win).findAllByTestId("exercise-candidate");
+    fireEvent.click(within(card).getByRole("button", { name: /use this one/ }));
+    await settleDesk(0, 20);
+    // The implicit start: one session, then the exercise opens through the workbench and lands on the pad.
+    await waitFor(() => expect(inputsOf("start_session")).toHaveLength(1));
+    await waitFor(() => expect(inputsOf("workbench_open").length).toBeGreaterThan(0), { timeout: 5000 });
+    await waitFor(() => expect(padsEl()?.querySelector('[data-problem-pad="wb_ex"][data-problem-state="open"]')).not.toBeNull(), { timeout: 5000 });
+    expect(winOf("w_book")!.querySelector("[data-workbench-pane]")).toBeNull();
+    expect(document.querySelector("[data-desk-shell]")).not.toBeNull();
+  }, 30_000);
+});
