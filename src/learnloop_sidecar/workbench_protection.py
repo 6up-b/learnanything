@@ -1,6 +1,7 @@
 """Passage provenance checked at the workbench's text-bearing destinations."""
 from __future__ import annotations
 
+import re
 from collections.abc import Iterable, Mapping
 from typing import Any
 
@@ -39,10 +40,45 @@ def payload_places(payload: Mapping[str, Any]) -> list[tuple[str, str]]:
     return reading_places(extraction, [*([span] if span else []), *spans])
 
 
-def check_placed_quote(vault: Any, repository: Any, origins: list[tuple[str, str]]) -> None:
-    # A legacy quote with no source can only be cleared when the protected set is empty.
-    if not origins and not exam_material(vault, repository).material.empty:
-        raise SidecarError("exam_material", "This quote needs a passage before its protection can be checked.")
+#: A run of this many words copied verbatim from a protected passage marks a quote as coming from it; shorter overlaps
+#: are ordinary phrases ("the kernel of a map") that any learner writes.
+QUOTE_RUN_WORDS = 8
+_WORD = re.compile(r"\w+")
+
+
+def _words(text: str) -> list[str]:
+    return _WORD.findall(text.casefold())
+
+
+def repeats_protected_text(vault: Any, repository: Any, text: str) -> bool:
+    """Whether words with no recorded passage repeat exam or held-out material: a run of :data:`QUOTE_RUN_WORDS`
+    words (or, for a shorter quote, all of it) found verbatim in a protected passage. A protected reading that cannot
+    be read counts as repeated (fail closed)."""
+
+    words = _words(text or "")
+    material = exam_material(vault, repository).material
+    if not words or material.empty:
+        return False
+    runs = ({" ".join(words[i:i + QUOTE_RUN_WORDS]) for i in range(len(words) - QUOTE_RUN_WORDS + 1)}
+            if len(words) >= QUOTE_RUN_WORDS else {" ".join(words)})
+    for extraction_id in material.touched:
+        ir = repository.load_document_ir(extraction_id)
+        if ir is None:
+            return True
+        whole = extraction_id in material.extractions
+        for block in ir.blocks:
+            if whole or (extraction_id, str(block.span_id)) in material.spans:
+                held = " ".join(_words(str(block.text or "")))
+                if any(run in held for run in runs):
+                    return True
+    return False
+
+
+def check_placed_quote(vault: Any, repository: Any, origins: list[tuple[str, str]], text: str) -> None:
+    # A quote with no recorded passage (an older pad's) is refused only when its words repeat protected material:
+    # refusing every such quote while anything is protected would stop the learner reusing their own notes.
+    if not origins and repeats_protected_text(vault, repository, text):
+        raise SidecarError("exam_material", REFUSAL)
 
 
 def block_places(vault: Any, repository: Any, block_ids: Iterable[str]) -> list[tuple[str, str]]:
@@ -61,7 +97,7 @@ def block_places(vault: Any, repository: Any, block_ids: Iterable[str]) -> list[
             origins = [(row["extraction_id"], row["span_id"]) for row in links]
             origins.extend(payload_places(payload))
             if head["kind"] in {"source_quote", "source_piece"}:
-                check_placed_quote(vault, repository, origins)
+                check_placed_quote(vault, repository, origins, str(head["body_md"] or ""))
             places.extend(origins)
             for origin in [*blocks, *(payload.get("source_block_ids") or [])]:
                 if origin not in ids:

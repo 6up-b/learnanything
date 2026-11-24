@@ -70,10 +70,23 @@ def span_range(ir: Any, *, from_span_id: str | None, to_span_id: str | None, t0:
 class _Placer:
     """Places a (reading, span) of any reading of the book on this reading's range."""
 
-    def __init__(self, repository: Any, extraction_id: str, wanted: set[str]) -> None:
+    def __init__(self, repository: Any, extraction_id: str, wanted: set[str], with_origins: bool = False) -> None:
         self.extraction_id = extraction_id
         self.wanted = wanted
         self.translator = SpanTranslator(repository, extraction_id)
+        self.with_origins = with_origins
+
+    def origins(self, places: Iterable[tuple[str, str]]) -> dict[str, Any]:
+        """Where a row's words came from, each other reading's span also translated to this reading (what a caller
+        checks against protection), under ``_word_origins``; nothing when the caller did not ask for it."""
+
+        if not self.with_origins:
+            return {}
+        origins = set(places)
+        for reading, span in list(origins):
+            if reading != self.extraction_id and (current := self.translator.resolve(reading, span).span_id):
+                origins.add((self.extraction_id, current))
+        return {"_word_origins": origins}
 
     def place(self, reading: Any, span: Any) -> tuple[str, str] | None:
         if reading is None or span is None:
@@ -106,18 +119,10 @@ def union_range(vault: Any, repository: Any, *, extraction_id: str, from_span_id
     if not out:
         return {"extraction_id": extraction_id, "spans": [], "sections": []}
     wanted = set(out)
-    placer = _Placer(repository, extraction_id, wanted)
+    placer = _Placer(repository, extraction_id, wanted, include_word_origins)
+    word_origins = placer.origins
     readings = [extraction_id, *other_readings(repository, extraction_id)]
     marks, reading_ids = _in(readings)
-
-    def word_origins(places: Iterable[tuple[str, str]]) -> dict[str, Any]:
-        if not include_word_origins:
-            return {}
-        origins = set(places)
-        for reading, span in list(origins):
-            if reading != extraction_id and (current := placer.translator.resolve(reading, span).span_id):
-                origins.add((extraction_id, current))
-        return {"_word_origins": origins}
 
     # The learner's annotations, where each lands on this reading.
     source_id = reading_source(repository, extraction_id)

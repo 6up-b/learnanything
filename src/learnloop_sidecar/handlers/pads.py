@@ -120,7 +120,7 @@ def _check_source_inserts(vault: Any, repository: Any, ops: list[PadOp]) -> None
                 blocks.append(parent)
             origins.extend(block_places(vault, repository, blocks))
         else:
-            check_placed_quote(vault, repository, origins)
+            check_placed_quote(vault, repository, origins, op.body_md)
         places.extend(origins)
     refuse_protected(vault, repository, places)
 

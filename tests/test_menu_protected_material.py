@@ -317,3 +317,43 @@ def test_unplaced_legacy_pad_quote_needs_new_clearance_after_a_mark(protected):
         call(ctx, "carried.carry", {"carriedId": "from-old", "originKind": "block", "originRef": "old",
                                     "text": HELD_WORDS})
     assert error.value.code == "exam_material"
+
+
+def test_the_learners_own_unplaced_quote_stays_usable_when_the_vault_has_held_material(protected):
+    """An unplaced legacy quote is refused only when its words repeat protected text: one in the learner's own words
+    can still be copied into a pad and carried while other material is held out (proportionate protection)."""
+    ctx = protected.ctx
+    _hold_out(protected.repository)
+    own = "my own summary: a kernel is everything the map sends to zero, which I keep forgetting"
+    call(ctx, "pad.apply", {"clientId": "c", "seq": 2, "padId": "pad_1", "ops": [
+        {"op": "insert_block", "blockId": "mine", "kind": "source_quote", "provenance": "source",
+         "positionKey": "a2", "bodyMd": own}]})
+    carried = call(ctx, "carried.carry", {"carriedId": "from-mine", "originKind": "block", "originRef": "mine",
+                                          "text": own})
+    assert carried["created"] is True
+    reply, done = _menu(ctx, {"objectKind": "pad_line", "blockId": "mine"})
+    assert not reply["withheld"] and not done["withheld"]
+
+
+def test_an_unplaced_quote_that_repeats_held_words_is_still_refused(protected):
+    from learnloop_sidecar.errors import SidecarError
+
+    _hold_out(protected.repository)
+    with pytest.raises(SidecarError) as error:
+        call(protected.ctx, "pad.apply", {"clientId": "c", "seq": 2, "padId": "pad_1", "ops": [
+            {"op": "insert_block", "blockId": "copied", "kind": "source_quote", "provenance": "source",
+             "positionKey": "a2", "bodyMd": f"as the book says, {HELD_WORDS.lower()} and more"}]})
+    assert error.value.code == "exam_material"
+
+
+def test_the_union_read_withholds_stored_quotes_and_questions_on_a_passage_held_out_since(protected):
+    """passage.union_range applies the menu's withholding: a passage link's stored quote on a passage held out after
+    it was linked is not returned (its row goes), while the open passage's link stays."""
+    ctx = protected.ctx
+    union = call(ctx, "passage.union_range", {"extractionId": BOOK, "fromSpanId": "s_open", "toSpanId": "s3"})
+    assert FAR_QUOTE in json.dumps(union)
+    _hold_out(protected.repository)
+    union = call(ctx, "passage.union_range", {"extractionId": BOOK, "fromSpanId": "s_open", "toSpanId": "s3"})
+    assert FAR_QUOTE not in json.dumps(union) and "The exam's own words." not in json.dumps(union)
+    s1 = next(span for span in union["spans"] if span["spanId"] == "s1")
+    assert [link["quote"] for link in s1["passageLinks"]] == ["Here."]

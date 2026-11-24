@@ -56,12 +56,16 @@ def passage_union_range_handler(ctx: SidecarContext, params: UnionRangeInput) ->
 
     vault, repository = ctx.require_vault()
     try:
-        return versioned(union_range(vault, repository, extraction_id=params.extraction_id,
-                                     from_span_id=params.from_span_id, to_span_id=params.to_span_id, t0=params.t0,
-                                     t1=params.t1, notes_by_span=_notes_by_span(vault, repository,
-                                                                                params.extraction_id)))
+        union = union_range(vault, repository, extraction_id=params.extraction_id, from_span_id=params.from_span_id,
+                            to_span_id=params.to_span_id, t0=params.t0, t1=params.t1,
+                            notes_by_span=_notes_by_span(vault, repository, params.extraction_id),
+                            include_word_origins=True)
     except UnionError as exc:
         raise SidecarError(exc.code, str(exc)) from exc
+    # A stored quote, authored question or other row whose words came from exam or held-out material is withheld
+    # here as in the menu's reads, whenever the material was marked (the union read stores words, not verdicts).
+    _withhold_rows(vault, repository, union["spans"])
+    return versioned(union)
 
 
 @method("passage.content", UnionRangeInput)
@@ -198,23 +202,34 @@ def _union_entries(vault: Any, repository: Any, places: list[tuple[str, str]],
         except UnionError:
             continue
         out.extend((extraction_id, span_id, entry) for entry in union["spans"])
+    _withhold_rows(vault, repository, [entry for _, _, entry in out], row_origins)
+    return out
+
+
+#: The union read's rows that carry words from a passage (each with its ``_word_origins``).
+_WORD_FIELDS = ("annotations", "carried", "exchanges", "authored_questions", "passage_links")
+
+
+def _withhold_rows(vault: Any, repository: Any, entries: list[dict[str, Any]],
+                   row_origins: dict[str, set[tuple[str, str]]] | None = None) -> None:
+    """Drop every row whose words came from exam or held-out material, in place, and the rows' origins with them
+    (``row_origins`` collects a kept learner row's origins for a later recheck)."""
+
     from learnloop.passage_union.elsewhere import withheld_places
 
-    fields = ("annotations", "carried", "exchanges", "authored_questions", "passage_links")
-    hidden = withheld_places(vault, repository, {place for _, _, entry in out for field in fields
-                                                 for row in entry[field] for place in row["_word_origins"]})
-    for _, _, entry in out:
-        for field in fields:
+    hidden = withheld_places(vault, repository, {place for entry in entries for field in _WORD_FIELDS
+                                                 for row in entry[field] for place in row.get("_word_origins", ())})
+    for entry in entries:
+        for field in _WORD_FIELDS:
             visible = []
             for row in entry[field]:
-                origins = row.pop("_word_origins")
+                origins = row.pop("_word_origins", set())
                 if hidden.isdisjoint(origins):
                     visible.append(row)
                     ident = row.get("annotation_id") or row.get("carried_id")
                     if row_origins is not None and ident:
                         row_origins.setdefault(ident, set()).update(origins)
             entry[field] = visible
-    return out
 
 
 def _dismissed(repository: Any, rows: list[Any]) -> set[str]:
