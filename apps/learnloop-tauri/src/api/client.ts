@@ -6,6 +6,11 @@ import { noteSessionMovedError } from "../app/sessionMoved";
 import { isWaitingForOk, waitForAiOk } from "../app/aiOk";
 import type {
   ChecksDueDto,
+  CheckCardDto,
+  CheckExposureKind,
+  CheckSubmitDto,
+  CheckVeilRefDto,
+  CheckVisibleDto,
   CompanionAskInput,
   CompanionAskJobDto,
   CompanionHistoryDto,
@@ -1720,6 +1725,18 @@ export const api = {
   chaptersCancel: (input: { jobId: string }) => call<ChaptersJobDto>("chapters_cancel", { input }),
   chaptersDecide: (input: { chapterId: string; decision: "accept" | "dismiss" }) =>
     call<{ chapter: VideoChapterDto }>("chapters_decide", { input }),
+  // Reader workbench RD7 (spec §12.6): the inline administration of a due check.
+  checkBeginInline: (input: { requestId: string; commitmentId: string; sessionId: string; visible: CheckVisibleDto }) =>
+    call<CheckCardDto>("check_begin_inline", { input }),
+  checkProtectMore: (input: { administrationToken: string; visible: CheckVisibleDto }) =>
+    call<{ veilAdditions: CheckVeilRefDto[] }>("check_protect_more", { input }),
+  checkExpose: (input: { administrationToken: string; ref: CheckVeilRefDto; kind: CheckExposureKind }) =>
+    call<{ protectionStatus: { exposure: Array<Record<string, unknown>>; coldNow: boolean } }>("check_expose", { input }),
+  checkSubmitInline: (input: { administrationToken: string; submissionId: string; answerMd: string;
+                               latencySeconds?: number; activeSeconds?: number }) =>
+    call<CheckSubmitDto>("check_submit_inline", { input }),
+  checkAbandonInline: (input: { administrationToken: string }) => call<Record<string, never>>("check_abandon_inline", { input }),
+  checkOpenInline: () => call<{ administration: CheckCardDto | null }>("check_open_inline", { input: {} }),
   // Teacher TE1b: Today's suggestion card (no model call; null when there is none) and the learner's one response.
   lessonSuggestion: (input: { sessionId?: string | null } = {}) =>
     call<{ suggestion: LessonSuggestionDto | null }>("lesson_suggestion", { input }),
