@@ -31,7 +31,7 @@ branch before any work on it.
 | The tutor that looks things up | | | pending |
 | Workbench (RW2) | | | pending |
 | Notes rail | | | pending |
-| Margin cues, alt+↓/↑ | | | pending |
+| Margin cues, alt+↓/↑ | Margin marks in each source window, keys unchanged (the Reader's cue hooks through the window's listener hub); new: with no Guide panel on screen the window keeps the Guide footer's marks controls itself, the density at the foot of its reading and what a mark changed (set aside, fewer marks, off for the book) held at the window's foot with its undo | `windows/SourceWindow.cues.test.tsx`: two book windows each draw their own marks, Alt+↓/↑ move between the active window's marks only and follow the active window; not relevant… undone in its window; fewer marks and off for this book undone in the window, the density control at the foot of the reading, the other book untouched. The old screen's cue suites still pass (impressions from an offscreen window: `ReaderScreen.discoveredCues.test.tsx`, windowed) | **Built and demonstrated.** Before: a change made from a mark on a desk had no undo and no way back but Settings (the receipts and density lived in the Guide rail's footer). Fail-first: the two undo cases failed before the build. The harness fixture has no cues, so this is proven in jsdom only |
 | Library ask, compare, keep, roles | | | pending |
 | Exercises from my sources | | | pending |
 | Figures and Show me | | | pending |

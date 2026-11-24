@@ -74,7 +74,7 @@ import { useReaderInquiry } from "./reader/useReaderInquiry";
 import { YouTubeWatchPanel, type VideoExtras, type WatchLens, type WatchPanelHandle } from "./reader/YouTubeWatchPanel";
 import { useReaderCues, type CueCheckMeRequest, type CueRequestOrigin } from "./reader/useReaderCues";
 import { CUE_COPY, type PdfPageLayout } from "./reader/cues";
-import { CueFooter, MarginMark } from "./reader/MarginMark";
+import { CueFooter, CueReceipts, MarginMark } from "./reader/MarginMark";
 import type { PassageTarget, ReaderCueDto } from "../api/dto";
 
 import { type AskAbout, type ReaderExchange } from "./reader/ReaderAskBranches";
@@ -4188,6 +4188,29 @@ export function ReaderScreen({
               </Fragment>
             );
           })}
+          {windowed && !railOnScreen && cueCtl.cues ? (
+            // A desk shows no Guide rail unless a panel is opened for this book, so the window keeps the Guide
+            // footer's marks controls itself: the density at the foot of its reading, and what a mark changed (set
+            // aside, fewer marks, off for the book) held at the window's foot with its undo. Without them a change
+            // made from a mark could not be undone, nor marks turned back on, where the learner reads.
+            <>
+              <div data-window-cue-footer="">
+                <CueFooter
+                  density={cueCtl.cues.density}
+                  bookOff={cueCtl.cues.sourceOff}
+                  receipts={[]}
+                  onDensity={cueCtl.setDensity}
+                  onTurnOnBook={cueCtl.turnOnBook}
+                  discovered={cueCtl.discovered}
+                />
+              </div>
+              {cueCtl.receipts.length ? (
+                <div style={{ position: "sticky", bottom: 0, zIndex: 6, background: COLOR.bg, padding: "6px 0" }}>
+                  <CueReceipts receipts={cueCtl.receipts} />
+                </div>
+              ) : null}
+            </>
+          ) : null}
         </div>
 
         {sbsPanes ? (

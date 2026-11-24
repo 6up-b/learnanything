@@ -406,6 +406,22 @@ export interface CueReceipt {
   onUndo: () => void;
 }
 
+/** What the learner changed from a mark (set aside, fewer marks, off for the book), each with its undo. */
+export function CueReceipts({ receipts }: { receipts: readonly CueReceipt[] }) {
+  if (receipts.length === 0) return null;
+  return (
+    <div data-cue-receipts="" aria-live="polite" style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+      {receipts.map((receipt) => (
+        <MeaningLabel key={receipt.id}>
+          <span data-cue-receipt="">{receipt.label}</span>
+          {receipt.detail ? <span> · {receipt.detail}</span> : null}{" "}
+          <button type="button" onClick={receipt.onUndo} style={{ ...ACTION_STYLE, fontSize: 10, display: "inline" }}>{CUE_COPY.undo}</button>
+        </MeaningLabel>
+      ))}
+    </div>
+  );
+}
+
 /** The Guide's footer: the marks' density, the legend and the receipts, each
  *  with its undo (a mark set aside keeps its own until the learner leaves the
  *  book; a preference's is the latest one). */
@@ -451,13 +467,7 @@ export function CueFooter({
           <button type="button" onClick={onTurnOnBook} style={{ ...ACTION_STYLE, fontSize: 10, display: "inline" }}>{CUE_COPY.turnOn}</button>
         </MeaningLabel>
       ) : null}
-      {receipts.map((receipt) => (
-        <MeaningLabel key={receipt.id}>
-          <span data-cue-receipt="">{receipt.label}</span>
-          {receipt.detail ? <span> · {receipt.detail}</span> : null}{" "}
-          <button type="button" onClick={receipt.onUndo} style={{ ...ACTION_STYLE, fontSize: 10, display: "inline" }}>{CUE_COPY.undo}</button>
-        </MeaningLabel>
-      ))}
+      <CueReceipts receipts={receipts} />
       <button type="button" aria-expanded={legend} onClick={() => setLegend((value) => !value)} style={{ ...ACTION_STYLE, fontSize: 10 }}>
         {CUE_COPY.legendToggle} {legend ? "▾" : "▸"}
       </button>

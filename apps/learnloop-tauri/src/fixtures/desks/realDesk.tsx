@@ -13,6 +13,7 @@
 import { act, render } from "@testing-library/react";
 import type { DeskStateDto, PadViewDto } from "../../api/dto";
 import { Poller } from "../../api/poller";
+import { clear as clearQueryCache } from "../../api/queryCache";
 import { DeskShell, LIVE_DESK_TRANSPORT, type DeskShellProps, type DeskTransport } from "../../screens/desks/DeskShell";
 import { convertFileSrc as fixtureFileSrc, invoke as fixtureInvoke } from "./fakeCore";
 import { fixturePads } from "./pads";
@@ -39,6 +40,8 @@ export const core = { invoke, convertFileSrc: fixtureFileSrc };
 export function resetSidecar(): void {
   sent.length = 0;
   answers.clear();
+  // The app's cached reads (contracts, guide plans, readings) outlive a render: each test starts with none.
+  clearQueryCache();
 }
 
 /** The inputs of every call of one command. */
