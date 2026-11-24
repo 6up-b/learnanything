@@ -1,8 +1,11 @@
-# mvp-0.72: the difficulty label leaves mastery, and surprise reads AD's forecast (arc H, H3)
+# mvp-0.71: the difficulty label leaves mastery, and surprise reads AD's forecast (arc H, H3)
 
-Branch `refactor/h3-difficulty-design`, from origin/main `69b0ec9886` (merged at `8d920e5eaa`, and origin/main `1966a33cbf` at `0d4dea79e1`; latest tag `mvp-0.70`; the G2 fix round may take `mvp-0.71`). The design is `docs/reviews/refactor-h3-h6-design.md` (§2.1 Q1 (iii), §2.2 as
-the owner decided Q18, §2.3 (i)). The tag is provisional: the orchestrator renumbers at landing. Everything here was
-measured on synthetic vaults and fakes; the owner's copies are the orchestrator's (the last section).
+Branch `refactor/h3-difficulty-design`, from origin/main `69b0ec9886`, with origin/main merged at `8d920e5eaa`,
+`0d4dea79e1`, `e66c055d84` and `473005e9c9` (`604f17b706`: G2's second round with migration 273). The tag before it is
+`mvp-0.70` (the probe router). H3 lands first and takes `mvp-0.71`; L4-2 follows as `mvp-0.72` with migration 274 and
+merges onto this branch (its integrator's note is below). The design is `docs/reviews/refactor-h3-h6-design.md`
+(§2.1 Q1 (iii), §2.2 as the owner decided Q18, §2.3 (i)). Everything here was measured on synthetic vaults and fakes;
+the owner's copies are the orchestrator's (the last section, runnable from an `mvp-0.70` copy).
 
 | Commit | What |
 |---|---|
@@ -121,7 +124,7 @@ records the events it actually read (`inputs.events_fingerprint`).
 commits a second answer between the read and the write. The receipt's fingerprint is the read's and differs from AD's
 just before the write; surprise reads the receipt; a rebuild reproduces both.
 
-## One capture point, two records; L4-2 either order
+## For L4-2's integrator (L4-2 merges onto this tag as mvp-0.72)
 
 - **One capture point:** the grade's persist step (`_persist_attempt_application`, the live branch), right after
   `record_attempt_outcome`.
@@ -131,41 +134,30 @@ just before the write; surprise reads the receipt; a rebuild reproduces both.
   mastery's, so it captures mastery's pair: `(discrimination_default, 0)`, or `−priming_b_offset` when primed. It
   never captures AD's `b_scored`.
 
-A trial merge (`git merge-tree`) of this branch with L4-2's tip `937c0b0084` names these conflicts. They are the same
-whichever lands first, since each side's hunks are the other's context.
+A trial merge of L4-2's tip `937c0b0084` onto this branch names the conflicts below; the resolution is the
+orchestrator's (accepted 2026-11-24).
 
 **`src/learnloop/attempts/attempts.py`:**
+- **`GradeEvidence` / reads:** keep both fields, H3's `surprise_forecast: Any = None` and L4-2's
+  `recorded_curve: tuple[float, float] | None = None`.
+- **`_belief_update`:** take L4-2's `recorded_curve` branch, with H3's `algorithm_version=` inside it, and the
+  condition `if reads.recorded_curve is None or retired:`.
+  - Why: H3's upgrade re-derives history with no item term, so the seam rules at and above this tag.
+  - For an epoch graded at the tag, the recorded curve and the seam agree, because the pair no longer depends on
+    content.
+  - L4-2's recorded curves govern vaults below the tag.
 
-- **`GradeEvidence` / reads:** H3's `surprise_forecast: Any = None` beside L4-2's
-  `recorded_curve: tuple[float, float] | None = None`. Keep both fields.
-- **`_belief_update`:** H3 passes `algorithm_version=` to `resolve_item_irt_params` (and its EB gate reads
-  `not retired`); L4-2 wraps the same call in `if reads.recorded_curve is None: … else: item_a, item_b =
-  reads.recorded_curve`. Merge as L4-2's branch structure with H3's `algorithm_version=` inside it.
-- **One semantic call in that merge.** H3's upgrade re-derives history with no item term (§2.3 (i)), while L4-2's
-  recorded curves for epochs graded *before* H3's tag hold the label's `b`. Taking L4-2's branch as is would replay
-  those epochs on the label's curve, so H3's upgrade would no longer drop the item term from history.
-  - My recommendation is `if reads.recorded_curve is None or retired:`, so the seam rules at the tag.
-  - For epochs graded at the tag, the recorded curve and the seam agree, because the pair no longer depends on
-    content (design note §9).
-  - L4-2's freeze then governs vaults below the tag only.
-  - If the owner prefers L4-2's freeze to win for pre-tag epochs, keep L4-2's branch unchanged; history's mastery then
-    keeps the label for those epochs.
+**`src/learnloop/learner/lesson_weight.py` (`recorded_updates`):** take L4-2's deletion of the `item_irt_params(...)`
+lines. It reads the recorded curve, which holds mastery's pair at the tag.
 
-**`src/learnloop/learner/lesson_weight.py` (`recorded_updates`):** L4-2 deletes the `item_irt_params(...)` lines that
-H3 gave `algorithm_version=`. Take L4-2's deletion: it reads the recorded curve, which holds mastery's pair at the tag.
+**The tag:** L4-2's constant follows `LABEL_RETIRED_ALGORITHM_VERSION` in the chain.
+- Bookkeeping: `ops/upgrades.py` and `tests/test_upgrades.py` take one row each after this tag's.
+- The tests that pin the chain's tail shift by one more.
+- Regenerate, never hand-merge: the CLI surface, the effective defaults, the identity pins, and the placement,
+  diagnosis journey and grade application goldens.
 
-**Tag and goldens:**
-
-- **The tag bookkeeping:** `algorithm_versions.py`, the chain and `__all__`; `ops/upgrades.py` and
-  `tests/test_upgrades.py`, one row each.
-- **The tests that pin the chain's tail:** about 60 files; index shifts plus one set member each.
-- **The goldens:** `cli_surface.json`'s default tag, `effective_defaults.toml`, `placement_stored_misses.json`,
-  `diagnosis_journey_golden.json` and `grade_application/history.json`. Regenerate these, never hand-merge them.
-
-Where L4-2's migration lands (main took 271 and 272; G2's second round takes 273 and L4-2 274), its migration tests conflict with main's, not with this branch.
-
-Clean either way: `db/stores/attempts.py` (H3 does not touch `record_attempt_outcome`) and the persist step (H3's call
-follows the outcome; L4-2's capture is inside it).
+Its migration 274 meets main's migration tests, not this branch's. `db/stores/attempts.py` and the persist step merge
+cleanly: H3 does not touch `record_attempt_outcome`, and H3's call follows the outcome.
 
 ## Consequences the gate found (selection readers on "no item term", Q6)
 
@@ -230,7 +222,7 @@ move it.
 
 ## History and replay
 
-- **No AD replay over history:** at the upgrade (`Link(mvp-0.72, whole_vault_rebuild)`) every mastery row is replayed
+- **No AD replay over history:** at the upgrade (`Link(mvp-0.71, whole_vault_rebuild)`) every mastery row is replayed
   with no item term, and every surprise row is rebuilt from its receipt.
 - **Answers graded before the tag** have no grade-time receipt. They read their serve-time receipt where one binds,
   else mastery, marked `prediction_source: "mastery"`.
@@ -306,35 +298,63 @@ The seam guards are in `tests/test_difficulty_kinds_apart.py` and `tests/test_it
 - **Lint:** ruff clean; lint-imports 55 kept, 0 broken.
 - **Not run here:** the whole landing gate and the arc-close gate in one piece, and the durability lane.
 
-## The owner-copy procedure (for the orchestrator; counts only into tracked files)
+## The owner-copy procedure (for the orchestrator, from an mvp-0.70 copy; counts only into tracked files)
 
-Run on backup-API copies (`learnloop.db.copies.copy_tree_with_databases`) of one predecessor backup per vault, through
-the scratch wrapper, with one `--as-of` for every vault. Never on a live vault.
+Per vault, through the scratch wrapper (`env -i`, scratch `HOME`, `CODEX_HOME`, `LEARNLOOP_CONFIG_DIR`, `TMPDIR`), from
+the repository root at this tip. `$BACKUP` is a backup of the vault at `mvp-0.70`; `$WORK` and `$PRIVATE` are outside
+every checkout and every live vault. Use one `$AS_OF` for every vault (for example `2026-11-24T00:00:00Z`). The three
+scripts refuse a path under `~/learnloop-vaults` or `~/learnloop-retired`; each hashes the copy's databases before and
+after it reads, and fails on a change.
 
-1. **On the predecessor copy** (at `mvp-0.70`, or `mvp-0.71` if G2's fix round lands first), record the database
-   hash. Run `scripts/difficulty_receipt_coverage.py "$COPY"` and
-   `scripts/difficulty_four_way.py "$COPY" --out "$PRIVATE/four_way.json" --as-of <one instant>`. Arm (f)
-   (`f_label_off_and_receipt`) is H3 on history exactly: no item term, surprise from a bound serve-time receipt, else
-   mastery. History has no grade-time receipt, so the grade-time tier never appears there. From arm (f) against
-   arm (a), report the three numbers the earlier lane gave:
-   - **mastery movement:** LOs changed of all, mean and max logit-mean shift (vault 2 gave 8 of 21, mean +0.106, max
-     +0.606);
-   - **queue rank correlation:** Spearman and top-10 overlap (vault 2: 0.948 and 9 of 10; vault 3: 0.967);
-   - **surprise direction flips:** rows whose `surprise_direction` changes (0 on every vault), plus rows above the
-     follow-up threshold (vault 2: 3 against 4).
-2. Run `learnloop rebuild --shadow --json` on the predecessor copy. Then `learnloop upgrade --vault "$COPY" --to
-   mvp-0.72`, `learnloop doctor`, and the successor's shadow rebuild. Report counts:
-   - LOs whose mastery changed, which must equal arm (f)'s count from step 1, and the mean and max shift;
-   - surprise rows by `prediction_source` (expected: `serve_receipt` only where a bound serve receipt existed, all
-     others `mastery`), and rows whose direction changed;
-   - stored follow-up actions before and after;
-   - grade-time receipts, which must be 0 (the upgrade replays no AD over history);
-   - subject trace rows carrying `kl_observation` against trained subject rows, which must be equal;
-   - due dates moved, and the queue's Spearman and top-10 overlap against step 1's arm (a);
-   - lesson weight, facet and capability deltas as counts.
-3. Rebuild again. The semantic digests must agree with step 2. Check the original database's hash is unchanged.
-   Report before any live upgrade.
+```sh
+# 0. Two copies of the predecessor (backup API), and the original's hash.
+uv run python -c "import sys; from pathlib import Path; from learnloop.db.copies import copy_tree_with_databases as c; \
+  [c(Path(sys.argv[1]), Path(d)) for d in sys.argv[2:]]" "$BACKUP" "$WORK/a" "$WORK/b"
+sha256sum "$BACKUP"/state.sqlite > "$PRIVATE/original.sha256"
+
+# 1. On copy a (mvp-0.70): coverage, the four-way replay (arm f is this tag on history exactly), the before snapshot.
+uv run python scripts/difficulty_receipt_coverage.py "$WORK/a" --out "$PRIVATE/coverage.json"
+uv run python scripts/difficulty_four_way.py "$WORK/a" --out "$PRIVATE/four_way.json" --as-of "$AS_OF"
+uv run python scripts/label_retirement_counts.py snapshot "$WORK/a" --as-of "$AS_OF" --out "$PRIVATE/before.json"
+uv run learnloop rebuild --shadow --json --vault "$WORK/a" > "$PRIVATE/shadow_a.json"
+
+# 2. Copy b: the upgrade, the doctor, the successor's shadow rebuild, the after snapshot, the comparison.
+uv run learnloop upgrade --vault "$WORK/b" --to mvp-0.71
+uv run learnloop doctor --vault "$WORK/b"
+uv run learnloop rebuild --shadow --json --vault "$WORK/b" > "$PRIVATE/shadow_b1.json"
+uv run python scripts/label_retirement_counts.py snapshot "$WORK/b" --as-of "$AS_OF" --out "$PRIVATE/after.json"
+uv run python scripts/label_retirement_counts.py compare "$PRIVATE/before.json" "$PRIVATE/after.json"
+
+# 3. Rebuild again: the semantic digests agree with step 2; the original is untouched.
+uv run learnloop rebuild --shadow --json --vault "$WORK/b" > "$PRIVATE/shadow_b2.json"
+sha256sum -c "$PRIVATE/original.sha256"
+```
+
+**What to report, counts only:**
+
+1. **From step 1, the four-way's stdout line for `f_label_off_and_receipt`,** set against the three numbers the
+   earlier lane gave for arm (b) (H3's mastery path):
+   - **mastery movement** (`mastery changed n/N`, delta mean and max): vault 2 gave 8 of 21, mean +0.106, max +0.606;
+     vault 1 nothing changed (design note §1 and §10.1 for vault 3);
+   - **queue rank correlation** (`spearman`, `top-10 overlap`): vault 2 gave 0.948 and 9 of 10, vault 3 0.967;
+   - **surprise direction flips** (`direction changed`): 0 on every vault. Also the rows above the follow-up
+     threshold: vault 2 gave 3 against arm (a)'s 4.
+2. **From step 2's `compare`:**
+   - `mastery_changed` and `mastery_delta_logit_mean` must equal arm (f)'s mastery line;
+   - `surprise_direction_changed`, with its transitions;
+   - `due_items_moved`;
+   - `queue_spearman` and `queue_top10_overlap`, against step 1's arm (f).
+3. **From the `after_counts` of step 2's `compare`:**
+   - `surprise_by_source`: `serve_receipt` only where a bound serve receipt existed (0 on the Nov 23 copies), every
+     other row `mastery`;
+   - `grade_time_receipts` must be 0, since the upgrade replays no AD over history;
+   - `ad_rows_with_kl` must equal `ad_trained_subject_rows`;
+   - `attempts_with_gate_records`, against `before.json`'s count. A rebuild keeps them since H-1;
+   - integrity `ok`, and 0 foreign-key violations.
+4. **From the doctor and the shadow rebuilds:** the doctor's issue counts by code. `difficulty:miscalibrated` now
+   reads "plays easier/harder than its learning object", per H-4. Also whether `shadow_b1` and `shadow_b2` report the
+   same digests, and the original's `sha256sum -c` line.
 
 After the live upgrade, the first graded answers show the new tier: their surprise rows read `grade_receipt` (or
-`serve_receipt` from a plan step) and `forecast_receipts` gains one `item_unassisted_success_at_grade` row per live
+`serve_receipt` from a plan step), and `forecast_receipts` gains one `item_unassisted_success_at_grade` row per live
 answer AD can read.

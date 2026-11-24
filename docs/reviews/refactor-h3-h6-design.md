@@ -18,7 +18,7 @@ quantity. It is not touched here, and H1's guard keeps the two apart.
 
 | Step | What changes | Tag | Migration |
 |---|---|---|---|
-| H3 | The IRT seam stops reading the label at the tag, so mastery's `b` loses its item term. Surprise scores the answer against AD's serve-time forecast where the answer's presentation has one, else against a grade-time AD forecast recorded for every graded answer, and falls back to mastery's own prediction where there is neither. Bayesian surprise still describes the mastery update. The EB path is never run at or above the tag. AD's replayer records the KL of its own posterior per trained answer, as a measure. | built as mvp-0.72, provisionally ([algorithm-mvp-0.72.md](algorithm-mvp-0.72.md)) | none (§3.6) |
+| H3 | The IRT seam stops reading the label at the tag, so mastery's `b` loses its item term. Surprise scores the answer against AD's serve-time forecast where the answer's presentation has one, else against a grade-time AD forecast recorded for every graded answer, and falls back to mastery's own prediction where there is neither. Bayesian surprise still describes the mastery update. The EB path is never run at or above the tag. AD's replayer records the KL of its own posterior per trained answer, as a measure. | built as mvp-0.71, provisionally ([algorithm-mvp-0.71.md](algorithm-mvp-0.71.md)) | none (§3.6) |
 | H4 | AD stops reading `z_llm` (the label as a signal), from both frozen serve inputs and historical items. | one, its own | none |
 | H5 | Exam pools stop stratifying by the label. Index filters go. Authoring prompts stop asking for a label and bump their versions. Copies of the label stop. | one, for the exam pools (they decide which items are held-out measurements) | none |
 | H6 | Writers and DTOs stop. The content hash keeps hashing the stored value as written. Config keys and the EB code leave when the version floor passes H3's tag. | none | none; `pf_candidates.difficulty` and `item_parameter_state` join arc J's drop list if the owner approves |
@@ -85,7 +85,7 @@ a grade-time receipt recorded for every graded answer, else mastery's own predic
 grade-time read runs read-only before the grade's write transaction, and the receipt and surprise row are written in
 the grade's own transaction (the orchestrator's option (A) after the timing). The receipt records the AD events it
 read. Built with the AD-native KL as a measure. No AD replay over history: answers before the tag fall back to
-mastery, marked. The build and its timings are in [algorithm-mvp-0.72.md](algorithm-mvp-0.72.md). The table and
+mastery, marked. The build and its timings are in [algorithm-mvp-0.71.md](algorithm-mvp-0.71.md). The table and
 recommendation below are the design as it stood before that decision.
 
 The owner leans to arm (c): the prediction comes from AD's forecast, the formulas stay, and Bayesian surprise keeps
@@ -549,7 +549,7 @@ the grade of a receipt AD already writes.
 As built, H3 and L4-2 share one capture point: the grade's persist step, right after `record_attempt_outcome`. H3
 writes the grade-time receipt there and L4-2 its curve. The conflict lines either landing order meets, and the one
 semantic call in them (whether recorded pre-tag curves or the seam rule replay at the tag), are in
-[algorithm-mvp-0.72.md](algorithm-mvp-0.72.md).
+[algorithm-mvp-0.71.md](algorithm-mvp-0.71.md).
 
 L4-2 (`docs/reviews/algorithm-mvp-0.70.md`, mvp-0.70, being built) captures, per newly applied grade epoch, "the
 effective discrimination and difficulty actually passed to mastery after empirical-difficulty and priming
@@ -670,7 +670,7 @@ falls back to mastery's own prediction, which is arm (b).
 **Decided on 2026-11-24: (a + b), without the historical prefix forecasts** (no AD replay over old answers: they fall
 back to mastery, marked), and with the AD-native KL recorded as a measure. The grade-time read cost 20 to 70 ms on
 synthetic histories of 20 to 158 answers (about 0.4 ms per answer, dominated by loading AD's events). The orchestrator
-chose to read before the grade's write and write in it ([algorithm-mvp-0.72.md](algorithm-mvp-0.72.md)).
+chose to read before the grade's write and write in it ([algorithm-mvp-0.71.md](algorithm-mvp-0.71.md)).
 
 **The recommendation as it stood: decide with the owner before H3 is built.** If the owner wants AD in surprise now, (a + b),
 with the upgrade's historical prefix forecasts, is the version that reads AD on most answers AD can read at all.
@@ -681,7 +681,7 @@ for AD to enter surprise as plan-bound answering grows, (a) as designed. (c) is 
 
 1. Record the original database hash. On the mvp-0.70 copy, run the inspections above and `learnloop rebuild
    --shadow --json`.
-2. `learnloop upgrade --vault "$COPY" --to mvp-0.72` (the build's provisional tag), then `learnloop doctor`, then the successor's shadow rebuild.
+2. `learnloop upgrade --vault "$COPY" --to mvp-0.71` (the build's provisional tag), then `learnloop doctor`, then the successor's shadow rebuild.
    Report mastery, surprise (and the stored follow-up actions, §3.3), facet and capability, lesson weight, due dates
    and queue deltas, plus the receipt/fallback tiers.
 3. Rebuild again. The semantic digests must agree with step 2. Check the original database hash. Report before any
