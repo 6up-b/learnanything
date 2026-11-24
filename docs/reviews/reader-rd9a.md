@@ -99,3 +99,41 @@ without `spans`); they are present at this branch's base and do not come from th
 - The desktop app itself (only the harness's real webview and jsdom); a live lesson turn (fakes only).
 - The vault's generated desktop notes are not regenerated (the validator's counts are updated; its coverage rows wait
   for the regeneration after landing).
+
+## Fix round: the RD9a adversarial review (Codex Astra, 2026-11-23)
+
+Same branch as RD10's fix round. The review had 7 majors and 1 minor. Each was checked against the code here and
+held. Seven are fixed, each with a fail-first test and a ledger row, RD9a-1 upward. One is stopped: it bears on what
+an answer counts as. No migration, algorithm tag, prompt or config key.
+
+| Finding | Ledger | What changed | Fail-first test |
+|---|---|---|---|
+| A desk lesson request replayed after a remount or a vault switch | RD9a-1 | The request carries its vault. DeskShell opens it only in that vault and reports it taken (`lessons.onConsumed`). App forgets it then, and on any vault change | `lesson/deskLessons.test.tsx` |
+| Close and undo during an opening sent a second opening turn | RD9a-2 | `LessonDesk.shareOpening` owns the opening's turn: sent once, shared by later views, and its identity settled with no view mounted | `lesson/lessonWindows.test.tsx` ("an opening closed and brought back…") |
+| A TE2 quick question is not isolated in a window | RD9a-3 | **Stopped** (an answer given with help in reach would be recorded as a cold, unassisted probe). Options: (a) the full lesson screen for a probe; (b) a desk-wide guard; (c) record such answers as assisted (a tag). Details in the ledger row | none |
+| Two additions pads per lesson | RD9a-4 | The sidecar refuses a second pad per lesson inside the batch's transaction. `lesson.list` names the oldest and lists all of them. The desk creates nothing until the summary lands, takes the stored pad, and shows older duplicates' notes | `test_reader_rd9a_fix.py`, `lesson/lessonWindows.test.tsx` (2) |
+| A failed step's recovery reads ignored the lifecycle and unmounting | RD9a-5 | Recovery reads wait for a mounted, live view (`readWhenLive`) | `lesson/lessonWindows.test.tsx` |
+| Folded or scrolled-away papers kept polling | RD9a-6 | Each paper's effective lifecycle (`PausedPart` in `lifecycle.tsx`) pauses it while folded or out of view | `lesson/lessonWindows.test.tsx` |
+| A TE2 review omitted the question and appended its answer after the close | RD9a-7 | One feed in recorded order. The served question (as its item states it) appears once answered, or in a review | `test_reader_rd9a_fix.py`, `lesson/lessonWindows.test.tsx` |
+| A finished lesson's review wrote activity | RD9a-8 | A tracker starts only once the lesson was shown open. A lesson that closes while shown keeps its final flush | `lesson/lessonWindows.test.tsx` |
+
+Judgment calls:
+- The review shows a quick question's text from its item as stored now, not regenerated. A revision of the item since would show the new text: the served turn keeps the revision's identity, but not its words.
+- Older duplicate additions pads are shown under the lesson, not merged into one pad.
+- The desk tells the learner "reading your notes under this lesson" and creates nothing while the summary is unknown.
+
+Assertions changed: none.
+
+Shared files touched (small, additive):
+- `App.tsx`: the request's vault and consumption.
+- `DeskShell.tsx`: honouring them.
+- `lifecycle.tsx`: `PausedPart`.
+- `PadStackWindow.tsx`: additions known, older pads.
+- `pads/blocks.py`: the one-pad rule.
+- `db/stores/pad_reads.py`: every pad listed.
+- `teacher/service.py`: the feed order.
+
+Checked:
+- rd9 visual comparison: unchanged (4 findings before and after, geometry).
+- Desk harness, every run: 152 passed.
+- The whole vitest suite passes.

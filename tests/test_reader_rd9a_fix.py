@@ -1,4 +1,4 @@
-"""RD9a's fix round (backend): one additions pad per lesson, and a finished lesson's review in recorded order. Every
+"""Lesson windows: one additions pad per lesson, and a finished lesson's review in recorded order. Every
 model is a fake."""
 from __future__ import annotations
 
