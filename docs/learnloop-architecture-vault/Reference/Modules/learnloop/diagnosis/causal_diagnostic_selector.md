@@ -74,6 +74,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/daily_plan/learner_probe|learnloop.daily_plan.learner_probe]] — imports `duration_estimates_for_repair_classes`; statically calls `duration_estimates_for_repair_classes`
 - [[Reference/Modules/learnloop/instructional/valuation|learnloop.instructional.valuation]] — imports `build_causal_loss_table`, `likelihood_regime_for_candidate`; statically calls `build_causal_loss_table`, `likelihood_regime_for_candidate`
 
 ## Dependencies
@@ -95,7 +96,7 @@ Use this module in context through:
 
 - [[Process Model Output]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/instructional/valuation|learnloop.instructional.valuation]].
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/learner_probe|learnloop.daily_plan.learner_probe]], [[Reference/Modules/learnloop/instructional/valuation|learnloop.instructional.valuation]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -106,6 +107,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_duration_estimates_carry_honest_provenance`
   - `test_no_action_mapping_is_a_typed_abstention_not_a_fabricated_route`
   - `test_stripping_the_h_other_disposition_demotes_arm_b`
+- [tests/test_probe_router_decision_integrity.py](../../../../../../tests/test_probe_router_decision_integrity.py) — direct import
+  - `test_r16_each_repair_is_priced_at_its_own_minutes`
 
 ## Modification guidance
 

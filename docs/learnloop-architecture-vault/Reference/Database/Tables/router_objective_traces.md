@@ -142,6 +142,7 @@ None found by exact static reference scan.
 - `tests/test_ih2_lessons_compete.py`
 - `tests/test_ih3_phone_host.py`
 - `tests/test_probe_router_authority.py`
+- `tests/test_probe_router_decision_integrity.py`
 - `tests/test_ro4_trace_report.py`
 - `tests/test_ro4_traces_migration.py`
 - `tests/test_ro5_checks.py`

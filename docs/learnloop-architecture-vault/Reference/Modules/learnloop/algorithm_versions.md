@@ -169,13 +169,14 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `LATEST_ALGORITHM_VERSION`
 - [[Reference/Modules/learnloop/cli/grading|learnloop.cli.grading]] — imports `GRADE_CHANNEL_FIX_ALGORITHM_VERSION`
 - [[Reference/Modules/learnloop/config/template|learnloop.config.template]] — imports `LATEST_ALGORITHM_VERSION`
+- [[Reference/Modules/learnloop/daily_plan/learner_probe|learnloop.daily_plan.learner_probe]] — imports `probe_router_on`; statically calls `probe_router_on`
 - [[Reference/Modules/learnloop/daily_plan/lesson_offer|learnloop.daily_plan.lesson_offer]] — imports `FAILURE_SHARE_VERSIONS`, `committed_check_delivery_on`; statically calls `committed_check_delivery_on`
 - [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]] — imports `committed_check_delivery_on`, `probe_router_on`; statically calls `committed_check_delivery_on`, `probe_router_on`
 - [[Reference/Modules/learnloop/db/attempt_order|learnloop.db.attempt_order]] — imports `APPLICATION_ORDER_VERSIONS`, `application_order_on`; statically calls `application_order_on`
 - [[Reference/Modules/learnloop/diagnosis/causal_attribution|learnloop.diagnosis.causal_attribution]] — imports `evidence_reading_fixes_on`; statically calls `evidence_reading_fixes_on`
 - [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] — imports `probe_router_on`; statically calls `probe_router_on`
-- [[Reference/Modules/learnloop/diagnosis/probe_authority|learnloop.diagnosis.probe_authority]] — imports `probe_router_on`; statically calls `probe_router_on`
-- [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `evidence_reading_fixes_on`, `probe_router_on`; statically calls `evidence_reading_fixes_on`, `probe_router_on`
+- [[Reference/Modules/learnloop/diagnosis/probe_authority|learnloop.diagnosis.probe_authority]] — imports `PROBE_ROUTER_VERSIONS`
+- [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `evidence_reading_fixes_on`; statically calls `evidence_reading_fixes_on`
 - [[Reference/Modules/learnloop/diagnosis/probe_evidence|learnloop.diagnosis.probe_evidence]] — imports `evidence_reading_fixes_on`; statically calls `evidence_reading_fixes_on`
 - [[Reference/Modules/learnloop/diagnosis/probe_robust|learnloop.diagnosis.probe_robust]] — imports `ROBUST_GATE_FIX_VERSIONS`
 - [[Reference/Modules/learnloop/diagnosis/recurrence/live|learnloop.diagnosis.recurrence.live]] — imports `RECURRENCE_GROUP_ALGORITHM_VERSION`
@@ -227,7 +228,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/successor|learnloop.adaptive_difficulty.successor]], [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]], [[Reference/Modules/learnloop/attempts/lifecycle_inputs|learnloop.attempts.lifecycle_inputs]], [[Reference/Modules/learnloop/attempts/replay_reading|learnloop.attempts.replay_reading]], [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] and 36 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/successor|learnloop.adaptive_difficulty.successor]], [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]], [[Reference/Modules/learnloop/attempts/lifecycle_inputs|learnloop.attempts.lifecycle_inputs]], [[Reference/Modules/learnloop/attempts/replay_reading|learnloop.attempts.replay_reading]], [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] and 37 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -521,6 +522,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_at_the_tag_the_coin_asks_the_probe_now_with_its_exact_propensity`
   - `test_at_the_tag_the_lane_logs_the_coin_with_its_decision`
   - `test_the_tag_is_the_head_and_its_predicate_reads_the_vault_tag_alone`
+- [tests/test_probe_router_decision_integrity.py](../../../../../tests/test_probe_router_decision_integrity.py) — direct import
 - [tests/test_probe_router_learner_lane.py](../../../../../tests/test_probe_router_learner_lane.py) — direct import
   - `test_the_tag_is_the_head`
 - [tests/test_probe_router_replay.py](../../../../../tests/test_probe_router_replay.py) — direct import

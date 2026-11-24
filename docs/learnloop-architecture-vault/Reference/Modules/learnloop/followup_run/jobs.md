@@ -196,6 +196,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_probe_router.py](../../../../../../tests/test_probe_router.py) — direct import
   - `test_at_the_tag_the_lane_logs_the_coin_with_its_decision`
 - [tests/test_probe_router_authority.py](../../../../../../tests/test_probe_router_authority.py) — direct import
+- [tests/test_probe_router_decision_integrity.py](../../../../../../tests/test_probe_router_decision_integrity.py) — direct import
 
 ## Modification guidance
 

@@ -142,6 +142,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_probe_coin_has_its_own_seed_and_experiment_independent_of_the_stop_coin`
   - `test_the_served_distribution_is_exact_and_sums_to_one`
   - `test_the_share_is_the_stop_coins_rate_read_through_one_function`
+- [tests/test_probe_router_decision_integrity.py](../../../../../../tests/test_probe_router_decision_integrity.py) — direct import
+  - `test_r18_a_retry_draws_the_same_coin_and_a_receipt_never_stands_for_another_status`
 - [tests/test_probe_router_learner_lane.py](../../../../../../tests/test_probe_router_learner_lane.py) — direct import
   - `test_an_unlearned_probe_is_offered_only_by_the_coin_with_its_exact_propensity`
 - [tests/test_probe_router_worth_gates.py](../../../../../../tests/test_probe_router_worth_gates.py) — direct import

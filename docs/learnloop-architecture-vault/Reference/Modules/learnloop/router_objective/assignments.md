@@ -140,6 +140,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_at_the_tag_with_no_plan_the_coin_decides_and_the_decision_is_logged`
   - `test_the_coin_serves_the_probe_below_the_share_and_the_mix_otherwise`
   - `test_the_probe_coin_has_its_own_seed_and_experiment_independent_of_the_stop_coin`
+- [tests/test_probe_router_decision_integrity.py](../../../../../../tests/test_probe_router_decision_integrity.py) — direct import
+  - `test_r4_a_refused_assignment_rolls_the_decision_back_and_no_probe_is_asked`
+  - `test_r4_the_learner_lanes_decision_and_assignment_commit_together`
 - [tests/test_probe_router_learner_lane.py](../../../../../../tests/test_probe_router_learner_lane.py) — direct import
   - `test_an_unlearned_probe_is_offered_only_by_the_coin_with_its_exact_propensity`
 - [tests/test_ro5_checks.py](../../../../../../tests/test_ro5_checks.py) — direct import
