@@ -164,6 +164,30 @@ function emptyUnion(spanId: string): Record<string, unknown> {
     authoredQuestions: [], carried: [], exposure: { timesShown: 1, lastShownAt: null, withheld: false } };
 }
 /** The pen's writes in this page (RD8a): annotations made by recognized marks and the ink saved with them. */
+/** The lines a problem pad's handwriting reads as (`?problem=1&inkhelp=1`), in the order they are written. */
+const INK_HELP_LINES = ["$\\sum_k p_k = \\sum_k e^{h_k} / \\sum_j e^{h_j}$", "$= 1$", "$p_k = -h_k$"];
+const inkHelpRead = new Map<string, number>();
+
+function inkHelpReading(inkId: string): Record<string, unknown> | null {
+  if (typeof window === "undefined" || new URLSearchParams(window.location.search).get("inkhelp") !== "1") return null;
+  const save = pen.inks.find((each) => each.inkId === inkId) as { owner?: { blockId?: string } } | undefined;
+  const blockId = save?.owner?.blockId;
+  if (!blockId) return null;
+  const padId = Object.keys(server.pads).find((id) => server.pads[id].blocks.some((block) => block.blockId === blockId));
+  if (!padId) return null;
+  const index = inkHelpRead.get(blockId) ?? inkHelpRead.size;
+  inkHelpRead.set(blockId, index);
+  const text = INK_HELP_LINES[index % INK_HELP_LINES.length];
+  const state = server.pads[padId];
+  const headVersionId = `fx_ink_read_${blockId}`;
+  server.pads = { ...server.pads, [padId]: { ...state, blocks: state.blocks.map((block) => (block.blockId === blockId
+    ? { ...block, headVersionId, bodyMd: text, provenance: "ink_transcription" as const,
+        payload: { ...block.payload, ink_transcription: { transcription_id: `fx_it_${blockId}`, content_hash: `fx_h_${blockId}`, confidence_label: "may_be_wrong" } } }
+    : block)) } };
+  return { transcriptionId: `fx_it_${blockId}`, ownerKind: "block", ownerId: blockId, contentHash: `fx_h_${blockId}`, latexMd: text,
+    confidenceLabel: "may_be_wrong", model: "glm-ocr-0.9B", createdAt: "2026-11-23T09:00:30Z", applied: true, reason: null, headVersionId };
+}
+
 const pen: { annotations: Array<{ sourceId: string; annotation: { id: string }; version: { annotationType: string; learnerText: string }; [placed: string]: unknown }>; inks: Record<string, unknown>[] } = { annotations: [], inks: [] };
 
 function answer(command: string, input: Record<string, unknown>): unknown {
@@ -238,9 +262,14 @@ function answer(command: string, input: Record<string, unknown>): unknown {
     }
     case "ink_list":
       return { version: 1, padId: input.padId ?? null, sourceId: input.sourceId ?? null, owners: input.padId ? server.inkFor(String(input.padId)) : [] };
-    case "ink_transcribe":
+    case "ink_transcribe": {
+      // `?problem=1&inkhelp=1`: GLM-OCR reads each line of a problem pad as the next of three lines, and the reading
+      // becomes the block's words as the server writes them (provenance ink_transcription); elsewhere it is refused.
+      const read = inkHelpReading(String(input.inkId));
+      if (read) return { version: 1, jobId: null, status: "done", done: true, error: null, result: read };
       return { version: 1, jobId: null, status: "failed", done: true, result: null,
         error: { code: "unavailable", message: "Handwriting can't be read yet: text recognition (GLM-OCR) isn't set up.", retryable: true, details: null } };
+    }
     case "reader_ask_history":
       return { exchanges: [] };
     case "reader_drain_outbox":

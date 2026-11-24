@@ -17,7 +17,8 @@ import { SketchCanvas } from "./SketchCanvas";
 import { InkBlock, InkJot } from "../pen/InkLine";
 import { usePenHost } from "../pen/host";
 import { PadCell } from "../notebook/PadCell";
-import { ProblemPad } from "../problem/ProblemPad";
+import { ProblemPad, type ProblemInk } from "../problem/ProblemPad";
+import { problemOf, problemsVersion, subscribeProblems } from "../problem/problemPads";
 import { activePad, fractionalOpen, mergeAmount, paperMinHeight, scrollTargetFor, tabMargin, type PadGeometry, type TabGrade } from "./stickyTabs";
 import { isLessonItem, lessonOfKey, lessonTabMeta, lessonTabTitle, stackItemKeys } from "../lesson/model";
 import { LessonPaper } from "../lesson/LessonPaper";
@@ -141,6 +142,33 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
   // Ink (RD8a): the pads' ink lines are read once shown; their readings stop when the window closes.
   const pen = usePenHost();
   const [inkView, setInkView] = useState<Record<string, { hidden?: boolean; dotted?: boolean }>>({});
+  // "type what you wrote" asked for a line (a problem pad's ladder offers it for a line it cannot see yet).
+  const [fixRequests, setFixRequests] = useState<Record<string, number>>({});
+  useSyncExternalStore(subscribeProblems, problemsVersion);
+  /** A problem pad whose workbench is shown here: its ink lines with text are its steps, shown in the workbench. */
+  const hostsProblem = (state: PadState): boolean => {
+    const sessionId = state.pad.kind === "problem" ? state.pad.workbenchSessionId : null;
+    const handed = sessionId && host.problems ? problemOf(sessionId) : null;
+    return Boolean(handed && !handed.away);
+  };
+  const problemInk = (state: PadState, padId: string): ProblemInk => {
+    const lines = state.blocks.filter((block) => block.kind === "ink");
+    return {
+      lines: lines.map((block) => {
+        const text = block.bodyMd.trim();
+        return { lineId: block.blockId, text, reading: Boolean(text) && block.provenance === "ink_transcription",
+          refused: pen?.ink.pad(padId).readings[block.blockId]?.status === "cannot" };
+      }),
+      renderLine: (blockId) => {
+        const block = lines.find((each) => each.blockId === blockId);
+        return block ? (
+          <InkBlock padId={padId} block={block} windowId={windowId} paused={paused} showTranscription={!inkView[padId]?.hidden}
+            write={(ops) => write(padId, ops)} fixRequest={fixRequests[blockId]} />
+        ) : null;
+      },
+      typeWhatYouWrote: (blockId) => setFixRequests((now) => ({ ...now, [blockId]: (now[blockId] ?? 0) + 1 })),
+    };
+  };
   const inkPads = pads.filter((state) => state && (state.pad.kind === "ink" || state.blocks.some((block) => block.kind === "ink"))).map((state) => state!.pad.padId).join("|");
   useEffect(() => {
     if (paused || !pen) return;
@@ -588,7 +616,7 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
         break;
       case "ink":
         gutter = <span className="mark pen prov" title="ink">✎</span>;
-        body = <InkBlock padId={padId} block={block} windowId={windowId} paused={paused} showTranscription={!inkView[padId]?.hidden} write={(ops) => write(padId, ops)} />;
+        body = <InkBlock padId={padId} block={block} windowId={windowId} paused={paused} showTranscription={!inkView[padId]?.hidden} write={(ops) => write(padId, ops)} fixRequest={fixRequests[block.blockId]} />;
         break;
       case "cell":
         // A marimo cell edits its own code and runs in the pad's notebook (screens/desks/notebook).
@@ -782,12 +810,15 @@ const PadStackBody = forwardRef<PadStackHandle, PadStackProps & { host: PadsHost
         ) : null}
         {state.pad.kind === "problem" && state.pad.workbenchSessionId && host.problems ? (
           // An RW2 problem's workbench, hosted here (spec §15.2); the pad's own blocks follow it.
-          <ProblemPad sessionId={state.pad.workbenchSessionId} host={host.problems} />
+          <ProblemPad sessionId={state.pad.workbenchSessionId} host={host.problems} ink={problemInk(state, padId)} />
         ) : null}
         {days.map((group, groupIndex) => (
           <div key={`${group.day ?? "all"}:${groupIndex}`}>
             {group.day ? <div className="day">{dayHeading(group.day, today)}</div> : null}
-            {group.blocks.map((block) => renderBlock(state, block))}
+            {group.blocks
+              // A problem's ink lines with text are its steps, shown in its workbench; a line not read yet stays here.
+              .filter((block) => !(block.kind === "ink" && block.bodyMd.trim() && hostsProblem(state)))
+              .map((block) => renderBlock(state, block))}
           </div>
         ))}
         <div className={`pb jot${byHand || pen?.on ? " inkjot" : ""}`} onClick={() => insertAfter(padId, state.blocks[state.blocks.length - 1]?.blockId ?? null, { kind: "text", provenance: "learner" }, true)}>

@@ -40,7 +40,7 @@ from typing import Any
 from playwright.async_api import Page, async_playwright
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from run import DIST, route_outside, serve  # noqa: E402  (a sibling script, not a package)
+from run import DIST, INK_JOT_STROKE_JS, open_problem_from_book, route_outside, serve  # noqa: E402  (a sibling script, not a package)
 
 # The mockup's design viewport and the laptop it folds for (the shelf becomes a rail below 1400 px).
 VIEWPORTS = {"design": {"width": 1440, "height": 900}, "laptop": {"width": 1280, "height": 800}}
@@ -363,6 +363,14 @@ region("ink_read", ".desk-pads .ocrl2", "none")
 region("ink_read_label", ".desk-pads .ocrl2 .ocrt", "height")
 region("ink_read_tex", ".desk-pads .ocrl2 .ocrtex", "none")
 region("ink_hint", ".desk-pads .hint2", "none")
+
+# ── handwritten work on a problem pad (owner decision 2026-11-23; `#pen=ladder`): the ladder is the workbench's own
+# (unchanged), so only what the reference's ladder says of the ink is compared: the open ◇ in the line's gutter
+# (its `.hmk.open`), the quiet line the ladder opens with (its `.lh`, ours the note that help reads LearnLoop's
+# reading) and the line's reading (its `.lread`, ours the line's "read as" under the ink).
+region("auto:button.open", ".desk-pads .hmk[data-ink-help]", "none")
+region("auto:div.lh", ".desk-pads .ink-help-note[data-ink-help-note='reading']", "none")
+region("auto:div.lread", ".desk-pads [data-ink-step] .ocrl2", "none")
 
 # The pointer's cursor is compared on these regions only (pen mode's crosshair on the text).
 CURSOR_REGIONS = frozenset({"pen_text_cursor"})
@@ -911,6 +919,25 @@ PEN_STROKE_JS = r"""
 """
 
 
+async def d_ink_ladder(page: Page) -> None:
+    """A problem worked by hand (`?problem=1&inkhelp=1`): three lines read, checked, the ladder open on the ◇ line."""
+    await wait(page, 1500)
+    await open_problem_from_book(page)
+    await page.locator(".penchip").click()
+    await wait(page, 400)
+    for n in range(3):
+        await page.evaluate(INK_JOT_STROKE_JS, n)
+        await wait(page, 900)
+    read_it = page.locator('.desk-pads [data-pad] button', has_text="read it")
+    if await read_it.count():
+        await read_it.first.click()
+    await wait(page, 1800)
+    await page.locator('.desk-pads [data-problem-pad] [role=group][aria-label="workbench actions"] button', has_text="check my work").first.click()
+    await wait(page, 1200)
+    await page.locator(".desk-pads [data-ink-help]").first.click()
+    await wait(page, 900)
+
+
 async def d_pen_pad(page: Page) -> None:
     """The handwritten pad beside the book, open, in pen mode."""
     await pads_beside_book(page)
@@ -1067,6 +1094,8 @@ STATES: list[State] = [
     State("pen=strike", "rd8", d_pen("strike"), PEN + ("pen_stroke_strike",)),
     State("pen=pad", "rd8", d_pen_pad, ("pen_chip_top", "pen_hint", "ink_pad_paper", "ink_bar", "ink_bar_button", "ink_prov", "ink_read",
                                          "ink_read_label", "ink_read_tex", "ink_hint", "pad_window_head", "pad_tab_open"), query="?inkpad=1"),
+    State("pen=ladder", "rd8", d_ink_ladder, ("auto:button.open", "auto:div.lh", "auto:div.lread"), query="?problem=1&inkhelp=1", geometry=False,
+          note="the ladder itself is the workbench's (unchanged); the ink's mark, the quiet line and the line's reading compared"),
 ]
 
 STATE_BY_NAME = {state.name: state for state in STATES}

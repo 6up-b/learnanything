@@ -450,7 +450,7 @@ describe("RD5 fix round: a pad line's Teach me", () => {
 describe("RD5 fix round: Show me", () => {
   it("shows the figure in the companion; moved to the scratchpad it lands in the running pad of the desk it was asked on, even with another desk shown, and its poll ends", async () => {
     // Spec §13.1: Show me's figure appears in the companion (which reads its history when it shows).
-    (api as unknown as Record<string, unknown>).companionHistory = async () => ({ version: 1, exchanges: [], cursor: null });
+    (api as unknown as Record<string, unknown>).companionHistory = async () => ({ version: 1, days: [], cursor: null });
     let answer: (read: unknown) => void = () => undefined;
     const { server, poller } = mount({ pads: (pads) => {
       pads.transport.figureRequest = (async () => ({ jobId: "fj1", kind: "figure_build", askId: null, state: "pending", result: null })) as never;

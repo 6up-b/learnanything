@@ -1746,6 +1746,89 @@ async def run_problem(page: Page, base: str, results: Results, shots: Path | Non
                   handed == "fx_attempt_wb" and state == "submitted", [handed, state])
 
 
+INK_JOT_STROKE_JS = r"""
+(n) => {
+  const pad = document.querySelector('.desk-pads [data-problem-pad]').closest('[data-pad]');
+  const jot = pad.querySelector('[data-ink-surface][aria-label="write a new line with the pen"]');
+  const r = jot.getBoundingClientRect();
+  const pts = []; for (let t = 0; t <= 1; t += .05) pts.push([r.left + 20 + t * 160, r.top + 24 + Math.sin(t * 9 + n) * 8]);
+  const fire = (type, [x, y], i) => jot.dispatchEvent(new PointerEvent(type, { bubbles: true, cancelable: true, composed: true, pointerId: 9, pointerType: 'pen',
+    isPrimary: true, clientX: x, clientY: y, pressure: type === 'pointerup' ? 0 : .5, button: type === 'pointermove' ? -1 : 0, buttons: type === 'pointerup' ? 0 : 1 }));
+  fire('pointerdown', pts[0], 0); pts.slice(1).forEach((p, i) => fire('pointermove', p, i + 1)); fire('pointerup', pts[pts.length - 1], pts.length);
+  return pts.length;
+}
+"""
+
+
+async def open_problem_from_book(page: Page) -> None:
+    """\"work through this\" on a selection in the book: the problem on its pad in the desk's stack."""
+    await page.locator('[data-desk-window="fx_w_book"]').click(position={"x": 30, "y": 30})
+    await drag_select(page, "largest score")
+    await page.wait_for_selector("[data-intent-box] input", timeout=4000)
+    await page.locator("[data-intent-box] input").click()
+    await page.keyboard.press("Tab")
+    await page.locator('[data-desk-window="fx_w_book"] [role=group][aria-label="what do you want to do?"] button', has_text="work through this").click()
+    await page.wait_for_selector('.desk-pads [data-problem-pad="fx_wb_1"][data-problem-state="open"]', timeout=8000)
+    await settle(page, 800)
+
+
+async def run_inkhelp(page: Page, base: str, results: Results, shots: Path | None) -> None:
+    """Handwritten work on a problem pad (owner decision 2026-11-23) with the fake workbench and GLM-OCR reading
+    (`?problem=1&inkhelp=1`): each line's reading becomes a step of the problem through the workbench's step writer,
+    shown as the line with its reading quiet under it; the check's ◇ opens the ladder on the line, saying once that
+    help reads LearnLoop's reading; the learner's correction under the line replaces the step's text."""
+    await page.goto(f"{base}/desk-harness.html?problem=1&inkhelp=1")
+    await page.wait_for_selector("[data-desk-window]")
+    await settle(page, 1500)
+    await open_problem_from_book(page)
+    # Pen mode by its chip (the problem's first step has the caret, where Alt+p would be typing).
+    await page.locator(".penchip").click()
+    await settle(page, 400)
+    for n in range(3):
+        await page.evaluate(INK_JOT_STROKE_JS, n)
+        await settle(page, 900)
+    read_it = page.locator('.desk-pads [data-pad] button', has_text="read it")
+    if await read_it.count():
+        await read_it.first.click()
+    await settle(page, 1800)
+    saved = await page.evaluate("() => window.__fixtureWorkbench.calls.filter((c) => c.command === 'workbench_save_step' && String(c.input.clientIdempotencyKey).startsWith('ink-step:')).map((c) => [c.input.op, c.input.bodyMd])")
+    inside = await page.evaluate("""() => { const p = document.querySelector('.desk-pads [data-problem-pad]');
+      return { steps: [...p.querySelectorAll('[data-ink-step]')].map((s) => s.querySelector('.ocrl2')?.textContent ?? ''),
+        loose: [...p.closest('[data-pad]').querySelectorAll(':scope [data-ink-block]')].filter((b) => !b.closest('[data-ink-step]')).length }; }""")
+    results.check("each ink line's reading becomes a step of the problem through the workbench, in the order written",
+                  [s[0] for s in saved] == ["add", "add", "add"] and [s[1] for s in saved] == ["$\\sum_k p_k = \\sum_k e^{h_k} / \\sum_j e^{h_j}$", "$= 1$", "$p_k = -h_k$"], saved)
+    results.check("each step shows as its line, its reading quiet under it (may be wrong · fix it); no line shows twice",
+                  len(inside["steps"]) == 3 and all("may be wrong" in s for s in inside["steps"]) and inside["loose"] == 0, inside)
+    await page.locator('.desk-pads [data-problem-pad] [role=group][aria-label="workbench actions"] button', has_text="check my work").first.click()
+    await settle(page, 1200)
+    marks = await page.evaluate("() => [...document.querySelectorAll('.desk-pads [data-ink-help]')].map((m) => m.dataset.inkHelp)")
+    lines = await page.evaluate("() => [...document.querySelectorAll('.desk-pads [data-ink-step]')].map((s) => s.dataset.inkStep)")
+    results.check("the check's first line that doesn't hold carries ◇ in its gutter (the third line)", len(marks) == 1 and marks == lines[2:3], [marks, lines])
+    await page.locator(".desk-pads [data-ink-help]").first.click()
+    await settle(page, 900)
+    note = await page.locator(".desk-pads [data-ink-help-note='reading']").count()
+    ladder = await page.locator('.desk-pads [data-problem-pad] [role=listbox][aria-label="help ladder"]').count()
+    asked = await page.evaluate("() => window.__fixtureWorkbench.calls.some((c) => c.command === 'workbench_suggest_help')")
+    results.check("◇ opens the ladder on that line, saying help reads LearnLoop's reading of it", note == 1 and ladder == 1 and asked, [note, ladder, asked])
+    await shot(page, shots, "inkhelp-ladder")
+    await page.keyboard.press("Escape")
+    await settle(page, 300)
+    third = page.locator(".desk-pads [data-ink-step]").nth(2)
+    await third.locator("button", has_text="fix it").click()
+    await third.locator("textarea[aria-label='what this line says']").fill("$p_k = e^{h_k} / \\sum_j e^{h_j}$")
+    await page.keyboard.press("Enter")
+    await settle(page, 1500)
+    bodies = await page.evaluate("() => window.__fixtureWorkbench.stepBodies()")
+    shown = await third.locator("[data-ink-transcription]").get_attribute("data-ink-transcription")
+    results.check("the learner's correction under the line replaces the step's text (what help and the check read)",
+                  "$p_k = e^{h_k} / \\sum_j e^{h_j}$" in bodies.values() and "$p_k = -h_k$" not in bodies.values() and shown == "yours", [bodies, shown])
+    await page.locator(".desk-pads [data-ink-help]").first.click()
+    await settle(page, 600)
+    again = await page.locator(".desk-pads [data-ink-help-note='reading']").count()
+    results.check("help on the corrected line no longer speaks of LearnLoop's reading", again == 0, again)
+    await page.keyboard.press("Escape")
+
+
 async def run_showme(page: Page, base: str, results: Results, shots: Path | None) -> None:
     """Show me in the companion (spec §13.1, §21.1 "Figures and Show me"): the menu's Show me on a passage puts the
     figure in the companion, live, with view source, move to scratchpad and not useful, and nothing in a pad until
@@ -1808,7 +1891,7 @@ async def run_preview(page: Page, base: str, results: Results) -> None:
 async def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--shots", type=Path, default=None)
-    parser.add_argument("--only", default="", help="comma-separated runs (desks, overview, companion, intent, pads, menus, latex, goal, lesson, video, pairs, preview); all by default")
+    parser.add_argument("--only", default="", help="comma-separated runs (desks, overview, companion, intent, pads, menus, latex, goal, lesson, video, pairs, showme, problem, inkhelp, preview); all by default")
     args = parser.parse_args()
     if not (DIST / "desk-harness.html").exists():
         print("Build the harness page first: cd apps/learnloop-tauri && npx vite build --config vite.desks.config.mjs")
@@ -1824,7 +1907,7 @@ async def main() -> int:
             # Playwright hides scrollbars in headless Chromium; the display-math checks need them drawn, as the
             # app's webview draws them (a wide equation's scroller must show its bar).
             with_bars = await playwright.chromium.launch(headless=True, ignore_default_args=["--hide-scrollbars"])
-            runners = ("desks", "overview", "companion", "intent", "pads", "menus", "latex", "goal", "lesson", "video", "pairs", "showme", "problem", "preview")
+            runners = ("desks", "overview", "companion", "intent", "pads", "menus", "latex", "goal", "lesson", "video", "pairs", "showme", "problem", "inkhelp", "preview")
             chosen = [name for name in args.only.split(",") if name] or list(runners)
             for runner in (name for name in runners if name in chosen):
                 context = await (with_bars if runner in ("pads", "latex", "lesson") else browser).new_context(viewport=VIEWPORT)
@@ -1857,6 +1940,8 @@ async def main() -> int:
                         await run_showme(page, base, results, args.shots)
                     elif runner == "problem":
                         await run_problem(page, base, results, args.shots)
+                    elif runner == "inkhelp":
+                        await run_inkhelp(page, base, results, args.shots)
                     else:
                         await run_preview(page, base, results)
                 except Exception as error:  # noqa: BLE001 - a broken step is a failed check, and the report still prints

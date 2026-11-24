@@ -568,6 +568,77 @@ the desks (56 files, 636 tests); the desk harness, all runs including the LaTeX 
 stage 3 findings, as at the fix-round tip. Not verified: a live GLM-OCR reading of real handwriting, hosted or
 local (no live call was made).
 
+## 14. The help ladder on ink: handwriting as workbench steps (the owner's decision, 2026-11-23)
+
+Branch `reader/ink-help-ladder`, cut from `reader/rd-retire-parity` (the problem pad hosting RW2's workbench), with
+`reader/ink-glm-ocr` merged at `3dd42552a5` (my own branch at its accepted tip; batch 5's reviewed form was not needed:
+nothing here depends on what its review changed). The owner chose §5's option (a): "feed the transcription into the
+existing workbench steps", with this note: "Within the workbench ink UI, we should show to the user their
+transcription output in a subtle way (such as in a margin or similar) of which they can audit and correct."
+
+**What was built (frontend only; no Python, no migration, no prompt, no new label).**
+- **A line's text is a step.** On a problem pad, each ink line (an `ink` block of the pad) with text, LearnLoop's
+  reading or the learner's correction (the block's head, so the correction always wins), is written to
+  `workbench_steps` through the workbench's own step writer (`useWorkbenchSession.bindLine`): the first text adds the
+  step under the key `ink-step:<block id>`, a later text is an edit of it. The service answers a repeated key with the
+  step it already made, so a reopened problem finds its lines' steps again; the copy made for it then gives way to
+  the listed step (one step per line). An empty first step the learner never wrote in gives way to the first line,
+  as it does to "I'm stuck". Help, the check and the assisted fold then read these steps exactly as typed ones: the
+  requests are the workbench's (`surface = 'workbench'`), and nothing else is sent to a model.
+- **Shown as the line, its reading in the margin.** In the problem's workbench a line's step is the line itself
+  (`Workbench`'s `handwritten` prop): the handwriting with "read as … · may be wrong · fix it" quiet under it (or
+  "yours · you corrected the transcription"), in the reference's `.lread` colour on the workbench. "fix it" corrects
+  in place: a new version of the line (provenance `learner_correction`), and the step's next text. A line with text
+  is not shown again as a pad block.
+- **Never a guess.** A line not read yet, or whose reading was refused (GLM-OCR not set up, or no OK for z.ai), is
+  not a step: nothing of it is sent. It stays on the pad with its own status, and the ladder says, above its rungs,
+  "LearnLoop can't see your line N yet: it isn't read yet / it couldn't be read · type what you wrote" (which opens
+  that line's field; the typed words make it a step).
+- **Help on a reading says so, once.** The first time help is opened on a line still read only by LearnLoop, the
+  ladder opens with "help reads LearnLoop's reading of this line, shown under it (it may be wrong) · fix it there and
+  help reads yours"; it stays while that ladder is open and is not said again for the line.
+- **◇ in the gutter.** The check's first step that doesn't hold, when it is a line, carries the reference's ◇ in its
+  gutter (`#pen=ladder`'s open mark); pressing it opens the ladder on that line. The ladder itself is the workbench's
+  (unchanged).
+- Shared files (additive): `screens/workbench/Workbench.tsx` (the `handwritten` prop: binding, the line as the step's
+  body, the ◇, the note above the ladder; no delete on a line's step, erasing the line is that),
+  `screens/workbench/useWorkbenchSession.ts` (`bindLine`, `boundLines`), `screens/desks/pads/PadStackWindow.tsx` (the
+  problem pad's lines handed to it; lines with text not drawn twice), `screens/desks/pen/InkLine.tsx` (`fixRequest`),
+  `screens/desks/problem/ProblemPad.tsx`, `problemPads.ts` (`problemsVersion`), `pen.css`, and the fixtures
+  (`fixtures/desks/workbench.ts`: keys answered as the service answers them, chains, and with `?inkhelp=1` a check
+  marking the newest step; `fakeCore.ts`: with `?inkhelp=1` GLM-OCR reads a problem pad's lines as the server writes a
+  reading).
+
+**Persisted meaning.** The change does not alter persisted meaning: no scoring, scheduling, projection or
+admissibility semantics change, so no `algorithm_version` is added. Steps written from ink are ordinary
+`workbench_steps` rows (the key names the line, an idempotency key the service already keeps); help rows stay
+`surface = 'workbench'`; no reader of either changes.
+
+**Tests.** `screens/desks/problem/ProblemPad.ink.desk.test.tsx` (real desks): a line's reading becomes a step with the
+line's key and shows in the workbench as the line, once; help on it says once that it reads LearnLoop's reading, then
+the correction replaces the step's text; a line not read is never a step, the ladder says it cannot see it, and
+"type what you wrote" makes it one. Each fails on the code before. `screens/workbench/handwritten.test.tsx` (the hook): a
+reopened problem's line finds its step (one step); a later text is an edit, a line with no text is never written.
+`tests/test_workbench_ink_steps.py` (server, fakes): the line's key answers its step again; help reads the correction,
+never the reading it replaced; worked help on an ink step primes the later attempt as on a typed step, and help rows
+are `workbench`. These two pass on the code before too (no server code changed): they pin what the client relies on.
+Harness `inkhelp` run (`?problem=1&inkhelp=1`, headless Chromium): three lines read become three steps in order, shown
+as the lines with their readings under them and no line twice; the check's ◇ on the third; ◇ opens the ladder with
+the reading note; the correction under the line replaces the step's text; help on the corrected line says nothing of
+a reading. Visual stage rd8 gains `pen=ladder` (the ◇, the note as the reference's `.lh`, the line's reading as its
+`.lread`; geometry off: the ladder is the workbench's): no finding, `findings rd8: 3` as before.
+
+**Checks.** Typecheck clean; the whole vitest suite (416 files, 4443 tests, 4 workers) with no unhandled error; the
+desk harness, every run (183 passed); the rd8 visual stage `findings rd8: 3 (colour 2, geometry 1)`, as before; the
+server tests above with `tests/test_workbench_assistance.py` and the layout test; ruff clean. One fix outside ink: the
+vitest suite reported an unhandled rejection from `DeskShell.menu.test.tsx` (on this branch's base too): its fake
+`companionHistory` answered an old shape (`exchanges`) where the companion reads `days`; the fake now answers the
+DTO's shape.
+
+**Left for a follow-up.** `#pen=veil` (inline checks, in the gate on another branch). The ladder's rungs themselves
+keep the workbench's look rather than the reference's dark `.ladder` panel (a design change of the RW2 ladder, not of
+ink).
+
 ## Owner copies (the orchestrator, 2026-11-23)
 
 Migration 267 was applied to backup-API copies of the owner's three vaults (the floor set, upgraded to mvp-0.68 by

@@ -153,16 +153,18 @@ export interface InkBlockProps {
   showTranscription: boolean;
   /** Write ops on the pad through the vault's store (false when refused or paused). */
   write: (ops: PadOpDto[]) => boolean;
+  /** Bumped to open "type what you wrote" on this line (a problem pad's ladder offers it for a line it cannot see). */
+  fixRequest?: number;
 }
 
 /** One ink line: its strokes, and its transcription under it. */
-export function InkBlock({ padId, block, windowId, paused, showTranscription, write }: InkBlockProps) {
+export function InkBlock({ padId, block, windowId, paused, showTranscription, write, fixRequest }: InkBlockProps) {
   const host = usePenHost();
   if (!host) return <div className="desk-ink-none">ink needs the desks</div>;
-  return <InkBlockOn host={host} padId={padId} block={block} windowId={windowId} paused={paused} showTranscription={showTranscription} write={write} />;
+  return <InkBlockOn host={host} padId={padId} block={block} windowId={windowId} paused={paused} showTranscription={showTranscription} write={write} fixRequest={fixRequest} />;
 }
 
-function InkBlockOn({ host, padId, block, windowId, paused, showTranscription, write }: InkBlockProps & { host: PenHost }) {
+function InkBlockOn({ host, padId, block, windowId, paused, showTranscription, write, fixRequest }: InkBlockProps & { host: PenHost }) {
   const cache = host.ink;
   useSyncExternalStore(cache.subscribe, cache.getVersion);
   const pad = cache.pad(padId);
@@ -172,6 +174,11 @@ function InkBlockOn({ host, padId, block, windowId, paused, showTranscription, w
   const strokes = line?.strokes ?? [];
   const words = block.bodyMd.trim();
   const corrected = block.provenance === "learner_correction";
+  const wordsRef = useRef(words);
+  wordsRef.current = words;
+  useEffect(() => {
+    if (fixRequest) setFixing(wordsRef.current);
+  }, [fixRequest]);
 
   const keep = (text: string) => {
     setFixing(null);

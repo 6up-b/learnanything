@@ -4,11 +4,11 @@
 // check, Submit, Leave for now and Abandon, through the workbench services), so a problem opened in a source window
 // is worked on the desk's pad, beside the book rather than over it. Leave and Abandon keep the pad with a way back;
 // a submit goes to feedback as the Reader's did, and the pad then shows the problem as submitted.
-import { useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { api } from "../../../api/client";
 import type { SourceLibraryCard, WorkbenchSessionDto, WorkbenchSubmitDto } from "../../../api/dto";
 import { errorMessage } from "../../../errors";
-import { Workbench } from "../../workbench/Workbench";
+import { Workbench, type HandwrittenWork } from "../../workbench/Workbench";
 import { handOver, noteProblem, problemOf, subscribeProblems } from "./problemPads";
 
 /** What the desks give a problem pad. */
@@ -24,9 +24,63 @@ export interface ProblemHost {
   onError: (message: string) => void;
 }
 
-export function ProblemPad({ sessionId, host }: { sessionId: string; host: ProblemHost }) {
+/** A problem pad's ink lines (pen and ink, owner decision 2026-11-23): each line with text is a step of the problem. */
+export interface ProblemInk {
+  /** Every ink line on the pad, in order. */
+  lines: ReadonlyArray<{
+    lineId: string;
+    /** Its text now (LearnLoop's reading, or the learner's correction); empty while unread or not read. */
+    text: string;
+    /** The text is LearnLoop's reading, not corrected by the learner. */
+    reading: boolean;
+    /** Its reading was refused (text recognition is not set up, or may not send). */
+    refused: boolean;
+  }>;
+  /** A line's step, shown as the line itself (its ink and its text quiet under it, to audit and correct). */
+  renderLine: (lineId: string) => ReactNode;
+  /** Open "type what you wrote" on a line help cannot see yet. */
+  typeWhatYouWrote: (lineId: string) => void;
+}
+
+/** Said once, the first time help is opened on a line still read only by LearnLoop: it stays while that ladder is
+ * open, and is not said again for the line. */
+function ReadingNote({ onGone }: { onGone: () => void }) {
+  const gone = useRef(onGone);
+  gone.current = onGone;
+  useEffect(() => () => gone.current(), []);
+  return (
+    <div className="ink-help-note" data-ink-help-note="reading">
+      help reads LearnLoop's reading of this line, shown under it (it may be wrong) · fix it there and help reads yours
+    </div>
+  );
+}
+
+export function ProblemPad({ sessionId, host, ink }: { sessionId: string; host: ProblemHost; ink?: ProblemInk }) {
   const problem = useSyncExternalStore(subscribeProblems, () => problemOf(sessionId));
   const [busy, setBusy] = useState(false);
+  const told = useRef(new Set<string>());
+  const handwritten: HandwrittenWork | undefined = ink && ink.lines.length
+    ? {
+        lines: ink.lines.map((line) => ({ lineId: line.lineId, text: line.text })),
+        renderLine: ink.renderLine,
+        ladderNote: (lineId) => {
+          // Never a guess: a line LearnLoop cannot see yet is said so, with the way to give it its words.
+          const unseen = ink.lines.map((line, index) => ({ line, number: index + 1 })).filter(({ line }) => !line.text.trim());
+          const here = lineId ? ink.lines.find((line) => line.lineId === lineId) : undefined;
+          return (
+            <>
+              {unseen.map(({ line, number }) => (
+                <div key={line.lineId} className="ink-help-note" data-ink-help-note="unseen">
+                  LearnLoop can't see your line {number} yet: {line.refused ? "it couldn't be read" : "it isn't read yet"} ·{" "}
+                  <button type="button" className="desk-link" onClick={() => ink.typeWhatYouWrote(line.lineId)}>type what you wrote</button>
+                </div>
+              ))}
+              {here?.reading && lineId && !told.current.has(lineId) ? <ReadingNote key={lineId} onGone={() => told.current.add(lineId)} /> : null}
+            </>
+          );
+        },
+      }
+    : undefined;
 
   const resume = async () => {
     setBusy(true);
@@ -93,6 +147,7 @@ export function ProblemPad({ sessionId, host }: { sessionId: string; host: Probl
         }}
         onShowInBook={() => host.showInBook(session)}
         onError={host.onError}
+        {...(handwritten ? { handwritten } : {})}
       />
     </div>
   );

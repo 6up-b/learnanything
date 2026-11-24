@@ -28,9 +28,16 @@ export function problemPadId(sessionId: string): string {
 
 const handed = new Map<string, ProblemHandoff>();
 const listeners = new Set<() => void>();
+let version = 0;
 
 function emit(): void {
+  version += 1;
   for (const listener of listeners) listener();
+}
+
+/** Changes with every hand-over or note (a view that shows several problems re-renders on it). */
+export function problemsVersion(): number {
+  return version;
 }
 
 export function subscribeProblems(listener: () => void): () => void {
