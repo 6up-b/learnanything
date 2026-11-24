@@ -37,13 +37,13 @@ const verbs = (runs: Record<string, () => void> = {}): MenuRow[] => [
 ];
 
 const promoted = (rows: PromotedRowDto[], pendingJob: { jobId: string } | null = null): PassagePromotedDto =>
-  ({ objectKey: "k", rows, cap: 4, pendingJob, paid: false }) as unknown as PassagePromotedDto;
+  ({ objectKey: "k", rows, cap: 4, pendingJob, paid: false, withheld: false }) as unknown as PassagePromotedDto;
 
 describe("the context menu", () => {
   it("shows the cheap promoted rows at once, then the judged rows when the job on the poller is done", async () => {
     const poller = new Poller({ setInterval: () => 1, clearInterval: () => undefined });
     const { api } = promotedApi(promoted([row("r1")], { jobId: "j1" }), [
-      { status: "done", done: true, rows: [row("r1"), row("r2", { checked: false, reason: "treats the same idea" })], error: null } as unknown as PromotedJobDto,
+      { status: "done", done: true, withheld: false, rows: [row("r1"), row("r2", { checked: false, reason: "treats the same idea" })], error: null } as unknown as PromotedJobDto,
     ]);
     render(<ContextMenu header="a passage · “words”" rows={verbs()} at={{ x: 100, y: 100 }} object={{ objectKind: "passage", extractionId: "e", spanId: "s" }} promoted={api} poller={poller} owner="w1" onClose={() => undefined} />);
     await screen.findByText("row r1");
@@ -53,7 +53,7 @@ describe("the context menu", () => {
       await poller.tick();
     });
     await screen.findByText("row r2");
-    expect(screen.getByText("treats the same idea · found by search, not checked")).toBeTruthy();
+    expect(screen.getByText("treats the same idea · possible match from search, not checked by LearnLoop")).toBeTruthy();
     expect(screen.queryByText(/looking for more/)).toBeNull();
   });
 
@@ -99,7 +99,7 @@ describe("the context menu", () => {
     const poller = new Poller({ setInterval: () => 1, clearInterval: () => undefined });
     const told: string[][] = [];
     const { api } = promotedApi(promoted([row("r1")], { jobId: "j5" }), [
-      { status: "done", done: true, rows: [row("r1"), row("r2")], error: null } as unknown as PromotedJobDto,
+      { status: "done", done: true, withheld: false, rows: [row("r1"), row("r2")], error: null } as unknown as PromotedJobDto,
     ]);
     render(<ContextMenu header="h" rows={verbs()} at={{ x: 0, y: 0 }} object={{ objectKind: "passage", extractionId: "e", spanId: "s" }} promoted={api} poller={poller}
       onRows={(rows) => told.push(rows.map((each) => each.rowId))} onClose={() => undefined} />);
@@ -173,7 +173,25 @@ describe("the context menu", () => {
     });
     expect(screen.getByText(/the search for more stopped/)).toBeTruthy();
     expect(screen.queryByText(/looking for more/)).toBeNull();
-    expect(screen.getByText("row r1")).toBeTruthy();
+    expect(screen.queryByText("row r1")).toBeNull();
+    expect(screen.getByRole("button", { name: "Retry" })).toBeTruthy();
+  });
+
+  it("a judged job that fails keeps the first verdict: the menu still says the material is clear, so its verbs stay", async () => {
+    const told: Array<[boolean, boolean | undefined]> = [];
+    const poller = new Poller({ setInterval: () => 1, clearInterval: () => undefined });
+    const { api } = promotedApi(promoted([row("r1")], { jobId: "j9" }), [
+      { status: "failed", done: true, rows: [], error: { code: "plan_unavailable", message: "the model is down", retryable: true } } as unknown as PromotedJobDto,
+    ]);
+    render(<ContextMenu header="h" rows={verbs()} at={{ x: 0, y: 0 }} object={{ objectKind: "passage", extractionId: "e", spanId: "s" }} promoted={api} poller={poller}
+      onWithheld={(withheld, failed) => told.push([withheld, failed])} onClose={() => undefined} />);
+    await screen.findByText("row r1");
+    await act(async () => {
+      await poller.tick();
+    });
+    expect(told).toEqual([[false, undefined]]);
+    expect(screen.queryByText(/Couldn't check this material/)).toBeNull();
+    expect(screen.getByText(/the search for more stopped/)).toBeTruthy();
   });
 
   it("labels a promoted row opened, dismissed or not this by its row id; a dismissed row leaves the menu", async () => {
@@ -186,7 +204,7 @@ describe("the context menu", () => {
     expect(labels).toEqual([["r1", "not_this"]]);
     expect(screen.queryByText("row r1")).toBeNull();
     const second = screen.getByText("row r2").closest("button") as HTMLElement;
-    fireEvent.click(within(second).getByLabelText("dismiss"));
+    fireEvent.click(within(second).getByLabelText("hide this suggestion"));
     expect(labels).toEqual([["r1", "not_this"], ["r2", "dismiss"]]);
     expect(screen.queryByText("row r2")).toBeNull();
     expect(onPromoted).not.toHaveBeenCalled();

@@ -1406,6 +1406,8 @@ sidecar_passthrough!(carried_mark, "carried.mark");
 sidecar_passthrough!(goal_band, "goal.band");
 sidecar_passthrough!(goal_lens, "goal.lens");
 sidecar_passthrough!(goal_section_choice, "goal.section_choice");
+// The desk's goal chooser: each active goal in the learner's words, a held topic's name masked.
+sidecar_passthrough!(goal_choices, "goal.choices");
 sidecar_passthrough!(curriculum_path, "curriculum.path");
 // Reader workbench v2 RD8a: the learner's ink and reading it as a polled job (desktop only; no component calls
 // them yet).

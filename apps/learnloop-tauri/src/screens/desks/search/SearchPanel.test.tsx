@@ -47,7 +47,7 @@ function setup() {
   const view = render(
     <SearchPanel api={api} poller={poller} timers={timers} deskId="d1" open={[]} deskTitle={() => "a desk"} reducedMotion onOpenRow={vi.fn()} onClose={vi.fn()} />,
   );
-  const input = screen.getByLabelText(/search every source/) as HTMLInputElement;
+  const input = screen.getByLabelText("Search your library, pads, and replies") as HTMLInputElement;
   const type = (value: string) => {
     fireEvent.change(input, { target: { value } });
     act(() => timers.fire());
@@ -101,7 +101,7 @@ describe("the meaning pass says why, per group", () => {
     await act(async () => {
       await poller.tick();
     });
-    expect(screen.getByText(/the embedding service is not reachable/)).toBeTruthy();
+    expect(screen.getByText(/Couldn’t finish looking for similar passages/)).toBeTruthy();
   });
 
   it("a group the job could not search, or whose meaning search failed, says why under its name", async () => {

@@ -26,14 +26,14 @@ describe("a pad's notebook", () => {
     expect(cellShape([{ blockId: "a", kind: "cell" }, { blockId: "t", kind: "text" }, { blockId: "b", kind: "cell" }])).toEqual(["a", "b"]);
   });
 
-  it("says kernel not started until the first ⇧↵, then starting, then ran in N ms", () => {
-    expect(cellStateLine(padNotebook("p1"), "a")).toBe("kernel not started");
+  it("says Ready to run until the first ⇧↵, then starting, then Finished", () => {
+    expect(cellStateLine(padNotebook("p1"), "a")).toBe("Ready to run");
     expect(needsOpen(padNotebook("p1"), ["a"])).toBe(true);
     startPadNotebook("p1", ["a"]);
     noteRunPending("p1", "a");
-    expect(cellStateLine(padNotebook("p1"), "a")).toBe("starting kernel…");
+    expect(cellStateLine(padNotebook("p1"), "a")).toBe("Starting Python…");
     notePadSession("p1", session("ready", { padCells: { a: "c_a" }, cellRuns: { c_a: { status: "idle", ms: 41.6, error: false } } }));
-    expect(cellStateLine(padNotebook("p1"), "a")).toBe("ran in 42 ms");
+    expect(cellStateLine(padNotebook("p1"), "a")).toBe("Finished in 42 ms");
     expect(padNotebook("p1").pending).toEqual({});
   });
 
@@ -56,13 +56,13 @@ describe("a pad's notebook", () => {
     expect(padNotebook("p1").generation).toBe(generation + 1);
     notePadSession("p1", session("stopped", { stopReason: "idle" }));
     expect(needsOpen(padNotebook("p1"), ["a", "b"])).toBe(true);
-    expect(cellStateLine(padNotebook("p1"), "a")).toBe("kernel paused · ⇧↵ resumes it");
+    expect(cellStateLine(padNotebook("p1"), "a")).toBe("Python paused · ⇧↵ (Shift+Enter) resumes it");
   });
 
   it("says when a cell raised and when a run could not be sent", () => {
     startPadNotebook("p1", ["a"]);
     notePadSession("p1", session("ready", { padCells: { a: "c_a" }, cellRuns: { c_a: { status: "idle", ms: 3, error: true } } }));
-    expect(cellStateLine(padNotebook("p1"), "a")).toBe("raised an error in 3 ms");
+    expect(cellStateLine(padNotebook("p1"), "a")).toBe("Raised an error in 3 ms. Check your code and run it again.");
     noteRunPending("p1", "a", "couldn't run: no window shows the notebook");
     expect(cellStateLine(padNotebook("p1"), "a")).toBe("couldn't run: no window shows the notebook");
   });
@@ -76,7 +76,7 @@ describe("a pad's notebook", () => {
 describe("the menu's marimo row and the frame's right-click", () => {
   it("inserts an empty cell of the learner's", () => {
     expect(MARIMO_CELL_INSERT).toEqual({ kind: "cell", provenance: "learner", bodyMd: "", payload: {} });
-    expect(MARIMO_CELL_ROW).toMatchObject({ key: "m", glyph: "◆", label: "marimo cell" });
+    expect(MARIMO_CELL_ROW).toMatchObject({ key: "m", glyph: "◆", label: "Python cell" });
   });
 
   it("labels the pad menu for the notebook's owner", () => {

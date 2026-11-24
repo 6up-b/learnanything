@@ -254,7 +254,7 @@ describe("the key router", () => {
     expect(screen.getByText("window left")).toBeTruthy();
     // Built now (the pads, and RD10's timestamp), so on the panel.
     expect(screen.getByText("new pad")).toBeTruthy();
-    expect(screen.getByText("insert ▶ timestamp")).toBeTruthy();
+    expect(screen.getByText("Insert ▶ video time")).toBeTruthy();
     act(() => {
       fireEvent.keyUp(window, { key: "Alt", code: "AltLeft" });
     });
@@ -451,14 +451,14 @@ describe("the overview", () => {
 });
 
 describe("gather", () => {
-  it("alt+g brings the focus's linked windows beside it; ↺ ungather puts the order back", async () => {
+  it("alt+g brings the focus's linked windows beside it; ↺ Undo grouping puts the order back", async () => {
     const { server } = mount();
     await screen.findByTestId("pane-fx_w_book");
     alt("KeyG", "g");
     await flush();
     const order = () => server.state().desks[0].slots.map((slot) => slot.windows[0].windowId);
     expect(order()).toEqual(["fx_w_book", "fx_w_guide", "fx_w_path", "fx_w_video", "fx_w_paper", "fx_w_pads"]);
-    fireEvent.click(screen.getByRole("button", { name: "↺ ungather" }));
+    fireEvent.click(screen.getByRole("button", { name: "↺ Undo grouping" }));
     await flush();
     expect(order()).toEqual(["fx_w_book", "fx_w_video", "fx_w_paper", "fx_w_guide", "fx_w_path", "fx_w_pads"]);
   });
@@ -492,7 +492,7 @@ describe("the wheel", () => {
       stage.dispatchEvent(swipe);
     });
     expect(swipe.defaultPrevented).toBe(true);
-    expect(screen.getByRole("status").textContent).toContain("alt + swipe");
+    expect(screen.getByRole("status").textContent).toContain("Alt + swipe");
     expect(state("fx_w_book")).toBe("active");
     await act(async () => {
       vi.advanceTimersByTime(130);
@@ -1332,7 +1332,7 @@ describe("RD3b: asking (the job contract through the poller)", () => {
     await act(async () => {
       await poller.tick();
     });
-    expect(panel()?.textContent).toContain("2 pieces so far");
+    expect(panel()?.textContent).toContain("Working on an answer…");
     answer();
     await act(async () => {
       await poller.tick();
@@ -1508,7 +1508,7 @@ describe("RD3b: search in context (spec §9.3)", () => {
     const { server, transport } = mountCompanion();
     await screen.findByTestId("pane-fx_w_book");
     press("/", "Slash");
-    const input = screen.getByLabelText("search every source, note, pad, thread and past exchange");
+    const input = screen.getByLabelText("Search your library, pads, and replies");
     fireEvent.change(input, { target: { value: "att" } });
     await act(async () => {
       vi.advanceTimersByTime(200);
@@ -1539,7 +1539,7 @@ describe("RD3b: search in context (spec §9.3)", () => {
       meaning: { status: "unavailable", jobId: null, unavailable: [] },
     } as never);
     press("/", "Slash");
-    const input = screen.getByLabelText("search every source, note, pad, thread and past exchange");
+    const input = screen.getByLabelText("Search your library, pads, and replies");
     fireEvent.change(input, { target: { value: "masks" } });
     await act(async () => {
       vi.advanceTimersByTime(200);
@@ -1569,7 +1569,7 @@ describe("RD3b: search in context (spec §9.3)", () => {
     }
     const search = async (title: string) => {
       press("/", "Slash");
-      const input = screen.getByLabelText("search every source, note, pad, thread and past exchange");
+      const input = screen.getByLabelText("Search your library, pads, and replies");
       fireEvent.change(input, { target: { value: "masks" } });
       await act(async () => {
         vi.advanceTimersByTime(200);
@@ -1599,7 +1599,7 @@ describe("RD3b: search in context (spec §9.3)", () => {
     mountCompanion({ reducedMotion: true });
     await screen.findByTestId("pane-fx_w_book");
     press("/", "Slash");
-    fireEvent.keyDown(screen.getByLabelText("search every source, note, pad, thread and past exchange"), { key: "Escape" });
+    fireEvent.keyDown(screen.getByLabelText("Search your library, pads, and replies"), { key: "Escape" });
     expect(screen.queryByRole("dialog", { name: "search in context" })).toBeNull();
   });
 });
@@ -1774,7 +1774,7 @@ describe("RD4b: pads in the desks", () => {
     const marks = [...document.querySelectorAll<HTMLElement>(".desk-pmark.pad")];
     expect(marks).toHaveLength(2);
     expect(marks.filter((mark) => mark.classList.contains("reanchor"))).toHaveLength(1);
-    expect(marks.find((mark) => mark.classList.contains("reanchor"))?.getAttribute("title")).toMatch(/re-anchor/);
+    expect(marks.find((mark) => mark.classList.contains("reanchor"))?.getAttribute("title")).toBe("From an earlier version of this source. The link may open nearby.");
   });
 
   it("a carried question comes back as a quiet ◌ beside its passage: shown once is logged as surfaced, and it can be let go", async () => {
@@ -1788,7 +1788,7 @@ describe("RD4b: pads in the desks", () => {
     };
     mount(server, { transport: fakes.deskTransport, padsTransport: fakes.transport, renderPane: (input) => <PassagePane input={input} /> });
     await screen.findByTestId("pane-fx_w_book");
-    const mark = await screen.findByRole("button", { name: "a question you carried" });
+    const mark = await screen.findByRole("button", { name: "Open carried question" });
     await flush();
     await flush();
     expect(marks.filter((each) => (each as { event: string }).event === "surfaced")).toHaveLength(1);
@@ -1840,10 +1840,10 @@ describe("RD4b: pads in the desks", () => {
       expect(found).not.toBeNull();
       return found as HTMLElement;
     });
-    expect(diff.textContent).toContain("Add this to your pad");
+    expect(diff.textContent).toContain("Copy the full reply");
     expect(diff.textContent).toContain("+ Because the factor cancels.");
     fireEvent.click(screen.getByRole("button", { name: "accept" }));
-    await waitFor(() => expect(diff.textContent).toContain("accepted"));
+    await waitFor(() => expect(diff.textContent).toContain("Reply queued"));
     await flush();
     const inserted = server.padBatches.flatMap((batch) => batch.ops).find((op) => op.op === "insert_block");
     expect(inserted).toMatchObject({ op: "insert_block", kind: "tutor_quote", provenance: "tutor", bodyMd: "Because the factor cancels." });
@@ -1856,6 +1856,12 @@ describe("RD4 review: asking from a pad line", () => {
     const state = fixtureDeskState();
     return { ...fromDeskState(state), closed: {} };
   })();
+  it("a selection whose source window closed cannot borrow the focused reading", () => {
+    const grounding = groundingFor(ws, { extractionId: "original", spanIds: ["s1"], windowId: "closed" },
+      ws.windows.fx_w_book, {});
+    expect(grounding).toEqual({ reason: "reopen the selected passage to ask about it" });
+  });
+
   it("an anchored pad line grounds the question in its passage, with the pad block named", () => {
     const grounding = groundingFor(ws, { spanIds: [], windowId: "fx_w_pads", pad: { padId: "fx_pad_running", blockId: "fx_b_r2", anchor: { extractionId: "fx_ext_softmax", spanId: "fx_ext_softmax_s1_3" } } }, ws.windows.fx_w_pads, {});
     expect(grounding).toMatchObject({ reason: null, extractionId: "fx_ext_softmax", spanId: "fx_ext_softmax_s1_3", padBlockId: "fx_b_r2" });
@@ -1869,7 +1875,7 @@ describe("RD4 review: asking from a pad line", () => {
   it("an unanchored pad line on a desk with no book or video says why it cannot ask", () => {
     const empty = { ...ws, windows: { fx_w_pads: ws.windows.fx_w_pads } };
     const grounding = groundingFor(empty, { spanIds: [], windowId: "fx_w_pads", pad: { padId: "fx_pad_running", blockId: "fx_b_r1", anchor: null } }, ws.windows.fx_w_pads, {});
-    expect(grounding.reason).toMatch(/linked to no passage/);
+    expect(grounding.reason).toBe("Open a book or video on this desk before asking about this line.");
   });
 });
 

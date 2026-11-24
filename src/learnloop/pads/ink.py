@@ -230,7 +230,7 @@ def erase_in_batch(connection: Any, *, pad_id: str, block_id: str, erase_id: str
     present = {stroke["stroke_id"] for stroke in strokes}
     missing = [stroke_id for stroke_id in stroke_ids if stroke_id not in present]
     if missing:
-        raise OpRefused("stroke_not_found", f"No standing stroke {missing[0]!r} in that block.")
+        raise OpRefused("stroke_not_found", "That mark is already gone.")
     value = sorted(set(stroke_ids))
     store.insert_save(connection, {
         "ink_id": erase_id, "owner_kind": BLOCK, "owner_id": block_id, "kind": ERASE, "encoding": ENCODING,
@@ -269,7 +269,7 @@ def _insert_erase(connection: Any, owner: InkOwner, erase_id: str, stroke_ids: l
     present = {stroke["stroke_id"] for stroke in strokes}
     missing = [stroke_id for stroke_id in stroke_ids if stroke_id not in present]
     if missing:
-        raise OpRefused("stroke_not_found", f"No standing stroke {missing[0]!r} there.")
+        raise OpRefused("stroke_not_found", "That mark is already gone.")
     value = sorted(set(stroke_ids))
     store.insert_save(connection, {
         "ink_id": erase_id, "owner_kind": owner.kind, "owner_id": owner.id, "kind": ERASE, "encoding": ENCODING,
@@ -289,7 +289,7 @@ def erase_ink(repository: Any, *, client_id: str, seq: int, owner: InkOwner, era
     def apply(connection: Any, now: str) -> dict[str, Any]:
         def one() -> dict[str, Any]:
             if owner.kind == BLOCK:
-                raise OpRefused("erase_in_the_pad", "A block's ink is erased in its pad (pad.apply erase_ink).")
+                raise OpRefused("erase_in_the_pad", "Open the pad to erase this mark.")
             existing = store.save(connection, erase_id)
             if existing is not None:
                 if (existing["owner_kind"], existing["owner_id"], existing["kind"], existing["content_hash"]) != (

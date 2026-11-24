@@ -30,7 +30,7 @@ describe("a carried question beside two passages of one window", () => {
     render(<PassageMarks stage={root} windows={[{ windowId: "w", extractionId: "ext_book" }]} links={[]} carried={carried}
       onOpenLink={vi.fn()} onSurfaced={vi.fn()} onMarkCarried={vi.fn()} />);
     await act(async () => { await Promise.resolve(); });
-    const buttons = document.querySelectorAll("button[aria-label='a question you carried']");
+    const buttons = document.querySelectorAll("button[aria-label='Open carried question']");
     expect(buttons).toHaveLength(2);
     fireEvent.click(buttons[0]);
     expect(document.querySelectorAll(".desk-pmark .pop")).toHaveLength(1);

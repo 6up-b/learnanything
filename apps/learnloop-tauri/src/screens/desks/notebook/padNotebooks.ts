@@ -97,17 +97,17 @@ export function cellRun(state: PadNotebook, blockId: string): NotebookCellRunDto
 
 /** The header's state line (spec §11.5): kernel not started, starting kernel…, ran in N ms. */
 export function cellStateLine(state: PadNotebook, blockId: string): string {
-  if (!state.started) return "kernel not started";
+  if (!state.started) return "Ready to run";
   if (state.error) return state.error;
   const session = state.session;
-  if (!session || session.state === "starting" || session.state === "restarting" || !state.names[blockId]) return "starting kernel…";
-  if (session.state === "stopped") return "kernel paused · ⇧↵ resumes it";
-  if (session.state === "failed") return `the kernel couldn't run: ${session.error ?? "it stopped"}`;
+  if (!session || session.state === "starting" || session.state === "restarting" || !state.names[blockId]) return "Starting Python…";
+  if (session.state === "stopped") return "Python paused · ⇧↵ (Shift+Enter) resumes it";
+  if (session.state === "failed") return "Python couldn’t start. Open the notebook again or select Run code.";
   const run = cellRun(state, blockId);
   if (state.pending[blockId] || run?.status === "running" || run?.status === "queued") return "running…";
-  if (run?.error) return run.ms === null ? "raised an error" : `raised an error in ${Math.round(run.ms)} ms`;
-  if (run?.ms !== null && run?.ms !== undefined) return `ran in ${Math.round(run.ms)} ms`;
-  return "ran";
+  const took = run?.ms !== null && run?.ms !== undefined ? ` in ${Math.round(run.ms)} ms` : "";
+  if (run?.error) return `Raised an error${took}. Check your code and run it again.`;
+  return run ? `Finished${took}` : "Ready to run";
 }
 
 /** Tests only: forget every pad. */

@@ -240,7 +240,7 @@ function answer(command: string, input: Record<string, unknown>): unknown {
       return { version: 1, padId: input.padId ?? null, sourceId: input.sourceId ?? null, owners: input.padId ? server.inkFor(String(input.padId)) : [] };
     case "ink_transcribe":
       return { version: 1, jobId: null, status: "failed", done: true, result: null,
-        error: { code: "cannot_read_images", message: "The model routed to read handwriting cannot read images, so nothing was sent.", retryable: false, details: null } };
+        error: { code: "unavailable", message: "Handwriting can't be read yet: text recognition (GLM-OCR) isn't set up.", retryable: true, details: null } };
     case "reader_ask_history":
       return { exchanges: [] };
     case "reader_drain_outbox":
@@ -299,7 +299,7 @@ function answer(command: string, input: Record<string, unknown>): unknown {
       const rows = cheapRows(input);
       const jobId = typeof input.spanId === "string" ? `pj_${++promotedJobCount}` : null;
       if (jobId) promotedJobs.set(jobId, { rows, reads: 0, cancelled: false });
-      return { version: 1, objectKey: JSON.stringify(input), rows, cap: 4, pendingJob: jobId ? { jobId } : null, paid: false };
+      return { version: 1, objectKey: JSON.stringify(input), rows, cap: 4, pendingJob: jobId ? { jobId } : null, withheld: false, paid: { searchedByMeaning: false, verified: false, reason: null } };
     }
     case "passage_promoted_job": {
       const job = promotedJobs.get(String(input.jobId));
@@ -308,7 +308,7 @@ function answer(command: string, input: Record<string, unknown>): unknown {
       job.reads += 1;
       if (job.reads < 2) return { version: 1, jobId: input.jobId, status: "running", done: false, rows: [], error: null };
       const paper = FIXTURE_SOURCES.paper;
-      return { version: 1, jobId: input.jobId, status: "done", done: true, error: null, rows: [...job.rows, {
+      return { version: 1, jobId: input.jobId, status: "done", done: true, error: null, withheld: false, rows: [...job.rows, {
         rowId: `row_elsewhere_${input.jobId}`, kind: "correspondent", glyph: "§", label: "the same step in another source", reason: "treats the same step",
         action: { verb: "open", ref: { kind: "source", sourceId: paper.sourceId, extractionId: paper.extractionId, view: "render" }, target: {} },
         learnerAt: null, checked: false, judgeRank: 1, basis: "judged", extra: {},
@@ -363,6 +363,8 @@ function answer(command: string, input: Record<string, unknown>): unknown {
     case "goals_list":
       // The goal lens is the harness's `?goal=1` page; without it the desks have no goal, as before.
       return typeof window !== "undefined" && new URLSearchParams(window.location.search).get("goal") === "1" ? goal.goals() : { version: 1, goals: [] };
+    case "goal_choices":
+      return goal.goalChoices();
     case "goal_band":
       return goal.band();
     case "goal_lens":

@@ -1025,6 +1025,7 @@ READER_RD6A_RPCS = (
     "goal.band",
     "goal.lens",
     "goal.section_choice",
+    "goal.choices",
 )
 
 

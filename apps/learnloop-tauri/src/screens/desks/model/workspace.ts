@@ -363,7 +363,7 @@ export function applyDeskOp(ws: Workspace, op: DeskOpDto): Workspace {
     case "unpair": {
       const desk = requireDesk(ws, op.deskId);
       const index = requireOpen(desk, op.windowId);
-      if (desk.slots[index].length < PAIR_SIZE) throw new OpRefusal("not_paired", "That window already has its own slot.");
+      if (desk.slots[index].length < PAIR_SIZE) throw new OpRefusal("not_paired", "This window already has its own space.");
       const slots = desk.slots.map((slot) => [...slot]);
       slots[index] = slots[index].filter((id) => id !== op.windowId);
       slots.splice(index + 1, 0, [op.windowId]);

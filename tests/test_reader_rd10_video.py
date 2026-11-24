@@ -158,3 +158,21 @@ def test_the_chapters_are_assembled_from_the_judged_boundaries():
         ("0:00–0:20", 0.0, 40.0, []), ("the end", 40.0, 60.0, ["lo_x"])]
     assert VC.section_at(sections, 25.0).section_id == "b" and VC.section_at(sections, 999).section_id == "c"
     assert chapters[0]["chapter_id"] == VC.chapter_id("ext", 0.0, 40.0, "0:00–0:20")
+
+
+def test_a_saved_chapter_names_nothing_once_its_video_is_marked_exam_material(tmp_path):
+    """Protection is read at every delivery: a chapter judged before its video was marked as exam material keeps its
+    times and ids, its title and tags neutral."""
+    from learnloop.content.synthesis.source_unit_selection import save_unit_selection
+    from learnloop.curriculum import goal_lens as GL
+
+    paths, repository = build_video_vault(tmp_path / "vault")
+    ctx = context(paths.root, video_chapters_client=ChaptersJudgeFake())
+    _wait(ctx, call(ctx, "chapters.suggest", {"extraction_id": VIDEO})["jobId"])
+    listed = call(ctx, "chapters.list", {"extraction_id": VIDEO})["chapters"]
+    assert [chapter["title"] for chapter in listed] == ["introduction", "eigenvalues", "determinants"]
+    save_unit_selection(repository, VIDEO, [], role_override="exam")
+    listed = call(ctx, "chapters.list", {"extraction_id": VIDEO})["chapters"]
+    assert [(chapter["title"], chapter["held"], chapter["t0"]) for chapter in listed] == [
+        (GL.NEUTRAL_SECTION, True, 0.0), (GL.NEUTRAL_SECTION, True, 20.0), (GL.NEUTRAL_SECTION, True, 40.0)]
+    assert all(tag["title"] == GL.NEUTRAL_LO for chapter in listed for tag in chapter["learningObjects"])

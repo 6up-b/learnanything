@@ -45,8 +45,7 @@ LOG = logging.getLogger(__name__)
 #: Every RPC this module registers (pinned desktop-only).
 INK_RPCS: tuple[str, ...] = ("ink.save", "ink.erase", "ink.list", "ink.transcribe", "ink.transcribe_job", "ink.transcribe_cancel")
 KIND = "ink.transcribe"
-NOT_FOUND_MESSAGE = ("This reading isn't running any more (LearnLoop restarted or the vault changed since it was "
-                     "asked). Ask again: strokes already read are not read twice.")
+NOT_FOUND_MESSAGE = "Handwriting conversion stopped. Try again."
 
 
 class InkSaveInput(ParamsModel):
@@ -62,7 +61,7 @@ class InkSaveInput(ParamsModel):
     def _distinct_ids(cls, strokes: list[ink_core.InkStroke]) -> list[ink_core.InkStroke]:
         ids = [stroke.stroke_id for stroke in strokes]
         if len(set(ids)) != len(ids):
-            raise ValueError("each stroke has its own id")
+            raise ValueError("Draw the mark again.")
         return strokes
 
 
@@ -81,7 +80,7 @@ class InkListInput(ParamsModel):
     @model_validator(mode="after")
     def _exactly_one(self) -> "InkListInput":
         if (self.pad_id is None) == (self.source_id is None):
-            raise ValueError("name one pad or one source")
+            raise ValueError("Reopen the pad or source and draw the mark again.")
         return self
 
 
@@ -203,17 +202,23 @@ def _after_reading(ctx: SidecarContext, vault: Any, repository: Any, result: dic
 def _as_sidecar_error(exc: Exception) -> SidecarError:
     from learnloop.ai.errors import AIInterrupted, AIProviderUnavailable
     from learnloop.ai.spend import SpendLimitExceeded
+    from learnloop.ingest.extractors.glm_ocr import GlmOcrConsentRequired, GlmOcrExtractionError
 
     if isinstance(exc, AIInterrupted):
         # A cancellation or a closed context: the polled job says which (``polled_jobs.as_job_error``).
         raise exc
     if isinstance(exc, AIProviderUnavailable):
-        return SidecarError("provider_unavailable", "Couldn't read your handwriting just now. Try again.",
+        return SidecarError("provider_unavailable", "Couldn’t convert your handwriting. Try again.",
                             retryable=True)
     if isinstance(exc, SpendLimitExceeded):
-        return SidecarError("capped", "This reading used its calls.", retryable=False)
+        return SidecarError("capped", "Handwriting conversion reached its limit. Type what you wrote in the pad or note.", retryable=False)
     if isinstance(exc, reading.InkUnavailable):
-        return SidecarError(exc.reason, exc.message, retryable=exc.reason in {"unavailable", "capped"})
+        return SidecarError(exc.reason, exc.message, retryable=True)
+    if isinstance(exc, GlmOcrConsentRequired):
+        return SidecarError("needs_upload_ok", reading.NEEDS_OK_MESSAGE, retryable=True)
+    if isinstance(exc, GlmOcrExtractionError):
+        # GLM-OCR's own words (transport, provider or shape), never the key or the image.
+        return SidecarError("ocr_failed", f"Couldn't read your handwriting just now: {exc}", retryable=True)
     if isinstance(exc, InkTooLarge):
         return SidecarError("ink_too_large", str(exc))
     if isinstance(exc, ink_core.InkError):
@@ -235,7 +240,6 @@ def ink_transcribe(ctx: SidecarContext, params: InkTranscribeInput) -> dict[str,
         return _payload(None, PJ.DONE, finished=True, result=earlier, error=None)
     jobs = _jobs(ctx)
     vault_key = PJ.vault_key(ctx)
-    client = getattr(ctx, "ink_transcription_client", None)
 
     def work(job: PJ.PolledJob, before: PJ.PolledJob | None) -> dict[str, Any]:
         if before is not None:
@@ -247,7 +251,7 @@ def ink_transcribe(ctx: SidecarContext, params: InkTranscribeInput) -> dict[str,
 
                     raise AIInterrupted("the reading was stopped")
         try:
-            result = reading.transcribe(vault, repository, prepared, client=client)
+            result = reading.transcribe(vault, repository, prepared)
         except Exception as exc:  # noqa: BLE001 - mapped to what the poll says; anything else is the job's ``internal``
             raise _as_sidecar_error(exc) from exc
         _after_reading(ctx, vault, repository, result, job.live)

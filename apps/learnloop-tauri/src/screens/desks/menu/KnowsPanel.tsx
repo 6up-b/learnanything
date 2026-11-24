@@ -12,7 +12,7 @@ export interface KnowsActions {
 }
 
 function quality(alias: string): string {
-  return alias === "needs_reanchor" ? " · from another reading, may need re-anchoring" : "";
+  return alias === "needs_reanchor" ? " · from an earlier version of this source; the link may open nearby" : "";
 }
 
 function day(at: string | null | undefined): string {
@@ -33,7 +33,7 @@ export function knowsGroups(place: PassageUnionSpanDto, actions: KnowsActions, a
   const openHere = at ? () => actions.openPassage(at.extractionId, at.spanId) : undefined;
   const groups: Array<{ title: string; rows: Array<{ text: string; open?: () => void }> }> = [
     { title: "your questions to the tutor", rows: place.exchanges.map((each) => ({ text: `? ${each.questionMd} · ${each.quality.replace(/_/g, " ")}${quality(each.alias)}${day(each.createdAt)}`, open: () => actions.openThread(each.questionEventId) })) },
-    { title: "questions that moved what LearnLoop thinks of you", rows: place.adjustments.map((each) => ({ text: "? a question of yours here changed a reading of your words", open: () => actions.openThread(each.questionEventId) })) },
+    { title: "questions that changed what LearnLoop inferred", rows: place.adjustments.map((each) => ({ text: "? a question of yours here changed how LearnLoop read your words", open: () => actions.openThread(each.questionEventId) })) },
     { title: "your pads", rows: place.padBlocks.map((each) => ({ text: `› a ${each.kind.replace(/_/g, " ")} line${quality(each.alias)}${day(each.createdAt)}`, open: () => actions.openPadBlock(each.padId, each.liftedFromBlockId ? each.blockId : each.blockId) })) },
     { title: "your highlights and notes", rows: place.annotations.map((each) => ({ text: `› ${each.type}${each.learnerText ? ` · ${each.learnerText}` : ""}${day(each.createdAt)}`, open: openHere })) },
     { title: "your notes linked here", rows: (place.notes as LinkedNote[]).map((each) => ({ text: `› ${each.line || each.note?.title || "a note of yours"}${each.note?.text ? ` · ${each.note.text.slice(0, 80)}` : ""}` })) },
@@ -67,8 +67,8 @@ export function KnowsPanel({ object, load, actions, onClose }: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   return (
-    <div ref={panel} tabIndex={-1} className="desk-sheet desk-knows" role="dialog" aria-label="what this knows">
-      <div className="head">i · what this knows · everything LearnLoop holds about this passage, with how well it is placed</div>
+    <div ref={panel} tabIndex={-1} className="desk-sheet desk-knows" role="dialog" aria-label="passage details">
+      <div className="head">i · passage details · your notes, questions, related passages and figures tied to this passage</div>
       {failure ? <div className="note err">{failure}</div> : null}
       {found === null && !failure ? <div className="note">◐ reading it…</div> : null}
       {found?.places.length === 0 ? <div className="note">nothing here yet</div> : null}

@@ -949,7 +949,8 @@ class DurableIngestJobs:
         self._ensure_worker()
         return batch_id
 
-    def enqueue_reader_quick_check(self, *, extraction_id: str, section_id: str) -> str:
+    def enqueue_reader_quick_check(self, *, extraction_id: str, section_id: str,
+                                   selection_span_ids: list[str] | None = None) -> str:
         """Enqueue one section's quick-check authoring (reader producer slice).
 
         Interactive priority (quick-add band) so a reader-initiated question
@@ -958,9 +959,12 @@ class DurableIngestJobs:
         model call."""
 
         runner = self._require_runner()
+        payload: dict[str, Any] = {"extraction_id": extraction_id, "section_id": section_id}
+        if selection_span_ids:
+            payload["selection_span_ids"] = selection_span_ids
         batch_id = runner.enqueue_batch(
             "reader_quick_check",
-            [JobSpec("reader_quick_check", {"extraction_id": extraction_id, "section_id": section_id})],
+            [JobSpec("reader_quick_check", payload)],
             priority=QUICK_ADD_PRIORITY,
         )
         self._ensure_worker()

@@ -435,8 +435,8 @@ def test_an_unrun_search_by_meaning_is_said_per_group_never_shown_as_nothing_fou
     done = wait_job(ctx, reply["meaning"]["jobId"], method="search.job")
     groups = {entry["group"]: entry for entry in done["groups"]}
     assert (groups["passages"]["status"], groups["passages"]["reason"]) == (
-        "unavailable", "the embedding route is not ready")
-    assert (groups["notes"]["status"], groups["notes"]["reason"]) == ("unavailable", "the query could not be embedded")
+        "unavailable", "Couldn’t search for similar passages. Try word matches.")
+    assert (groups["notes"]["status"], groups["notes"]["reason"]) == ("unavailable", "Couldn’t search for similar notes. Try word matches.")
     # The groups that never had a meaning search still say why, on the job's poll too.
     assert [entry["group"] for entry in done["unavailable"]] == ["pads"]
 

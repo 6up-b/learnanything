@@ -113,7 +113,7 @@ def lessons_active(vault: Any) -> bool:
 
 def require_active(vault: Any) -> None:
     if not vault.config.teacher.enabled:
-        raise LessonError("teacher_disabled", "Lessons are switched off (teacher.enabled = false).")
+        raise LessonError("teacher_disabled", "Lessons are off for this library. You can keep reading or open Practice.")
 
 
 @dataclass
@@ -194,7 +194,7 @@ def load_state(repository: Any, lesson_id: str) -> LessonState:
     with repository.connection() as connection:
         lesson = store.lesson(connection, lesson_id)
         if lesson is None:
-            raise LessonError("not_found", f"No lesson {lesson_id}.")
+            raise LessonError("not_found", "Couldn’t find this lesson. Open one from Path.")
         turns = store.turns(connection, lesson_id)
         checks = store.checks(connection, lesson_id)
         plans = store.plans(connection, lesson_id)
@@ -338,8 +338,7 @@ def _te2_transcript_entry(entry: Mapping[str, Any]) -> dict[str, Any] | None:
 
 
 #: Why a lesson ended on a protection change, as the learner reads it (ruling R1).
-PROTECTION_CHANGED_NOTICE = ("Some of what this lesson relied on is now kept for your exam or held out, so the lesson "
-                             "ended here. Everything so far is saved; start a fresh lesson to go on.")
+PROTECTION_CHANGED_NOTICE = "This lesson ended. Everything so far is saved; start a new lesson to continue."
 
 
 def protection_changed(vault: Any, repository: Any, state: LessonState) -> bool:
@@ -613,8 +612,7 @@ def _require_metered_settings(vault: Any, client: Any) -> None:
         return
     config = vault.config.teacher
     if config.metered_price_per_million is None or config.max_lesson_cost_usd is None:
-        raise LessonError("plan_unavailable", "A lesson on OpenRouter needs teacher.metered_price_per_million and "
-                                              "teacher.max_lesson_cost_usd set first.")
+        raise LessonError("plan_unavailable", "Lessons through OpenRouter need a spending limit set first. You can keep studying in Practice.")
 
 
 # =============================================================================
@@ -737,11 +735,9 @@ def open_lesson(vault: Any, repository: Any, *, entry: str, learning_object_ids:
         brief["goal"]["typed"] = typed.goal
     protection = protection_state(vault, repository, brief)
     if before is None or protection is None:
-        raise LessonError("protected", "LearnLoop couldn't check your exam material right now, so no lesson "
-                                       "opened. Try again in a moment.")
+        raise LessonError("protected", "The lesson couldn't start. Try again in a moment.")
     if before["vault"] != protection["vault"]:
-        raise LessonError("protection_changed", "Your exam material changed while the lesson was being prepared; "
-                                                "start it again.")
+        raise LessonError("protection_changed", "The lesson couldn't start. Try starting it again.")
     # The route is resolved before anything is written: a route that isn't ready leaves no lesson (the
     # desktop says nothing was saved; followups batch 5, C).
     client = clients.teacher()
@@ -936,7 +932,7 @@ def take_turn(vault: Any, repository: Any, *, lesson_id: str, action: str, paylo
     if (T2.lesson_te2(state) and action in ("reply", "answer_prediction", "answer_check")
             and PR.open_probe(state.turns) is not None):
         # §9.1 cold_attempt: while the probe is open, the teacher is silent and nothing else is asked.
-        raise LessonError("probe_open", "Answer the question first; the teacher is back once it is graded.")
+        raise LessonError("probe_open", "Submit your answer to the quick question to continue the lesson.")
     try:
         with _lesson_spend(vault, repository, state, clock=clock):
             # Before any model call of this action (the teacher's, the grader's, and a recovered turn's
@@ -1047,9 +1043,9 @@ def _answer_check(vault: Any, repository: Any, state: LessonState, payload: Mapp
 
     open_check = state.open_check
     if open_check is None:
-        raise LessonError("validation_error", "There is no open check.")
+        raise LessonError("validation_error", "Reopen the lesson and answer the question it shows.")
     if payload.get("check_ref") and str(payload["check_ref"]) != str(open_check["check_ref"]):
-        raise LessonError("stale_check", "That check is no longer open.")
+        raise LessonError("stale_check", "This question closed. Reopen the lesson to see what’s next.")
     answer = str(payload.get("answer") or "").strip()
     if not answer:
         raise LessonError("validation_error", "Write an answer first.")
@@ -1059,7 +1055,7 @@ def _answer_check(vault: Any, repository: Any, state: LessonState, payload: Mapp
     vault = load_vault(vault.root) if open_check["item_id"] not in vault.practice_items else vault
     item = vault.practice_items.get(open_check["item_id"])
     if item is None:
-        raise LessonError("not_found", "The check's question could not be read.")
+        raise LessonError("not_found", "Couldn’t open the question. Reopen the lesson to try again.")
     attempt_id = new_ulid()
     _append(repository, state, actor="learner", action="check_answer",
             refs={"item": item.id, "attempt": attempt_id},
@@ -1077,8 +1073,7 @@ def _answer_check(vault: Any, repository: Any, state: LessonState, payload: Mapp
             _record_budget_close(repository, state, exc)
             _close(vault, repository, state, reason="budget", recap=None, clock=clock, outcome=outcome)
             return view(vault, repository, state.lesson_id, outcome=outcome)
-        raise LessonError("grading_unavailable", f"Your answer couldn't be graded right now ({type(exc).__name__}). "
-                                                 "Try submitting it again.") from exc
+        raise LessonError("grading_unavailable", "Couldn’t check your answer. Select Submit answer again.") from exc
     max_points = max(int(getattr(vault.rubric_for_item(item), "max_points", 1) or 1), 1)
     correctness = max(0.0, min(1.0, float(grade.rubric_score) / max_points))
     hedges = [row.get("learner_confidence") for row in grade.evidence_rows
@@ -1153,8 +1148,7 @@ def _answer_probe(vault: Any, repository: Any, state: LessonState, payload: Mapp
             _record_budget_close(repository, state, exc)
             _close(vault, repository, state, reason="budget", recap=None, clock=clock, outcome=outcome)
             return view(vault, repository, state.lesson_id, outcome=outcome)
-        raise LessonError("grading_unavailable", f"Your answer couldn't be graded right now ({type(exc).__name__}). "
-                                                 "Try submitting it again.") from exc
+        raise LessonError("grading_unavailable", "Couldn’t check your answer. Select Submit answer again.") from exc
     # No weight-state refresh: the DERIVED weight tables describe the ledgers through the latest answered lesson
     # check (TE1 as built), and a probe is no check; the next check's refresh and every rebuild read it as of then.
     state = load_state(repository, state.lesson_id)
@@ -1259,8 +1253,7 @@ def _teach_loop(vault: Any, repository: Any, state: LessonState, *, client: Any,
                 _close(vault, repository, state, reason=closing, recap=None, clock=clock, outcome=outcome)
                 break
             raise LessonError("plan_unavailable" if unavailable else "teacher_unavailable",
-                              "The teacher isn't available right now; your lesson is saved and resumes when it "
-                              "is.") from exc
+                              "The teacher is unavailable. Your lesson is saved. Select Try again to continue.") from exc
         if parsed is None:
             if state.failures >= MAX_CONTRACT_FAILURES:
                 _close(vault, repository, state, reason="teacher_contract_failure", recap=None, clock=clock,

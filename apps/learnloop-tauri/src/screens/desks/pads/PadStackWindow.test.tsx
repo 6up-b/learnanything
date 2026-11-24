@@ -7,6 +7,7 @@ import type { PadOpDto, PadProposalDto, PadViewDto } from "../../../api/dto";
 import { FixtureDeskServer } from "../../../fixtures/desks/workspace";
 import { isTypingTarget, type Timers } from "../keys/router";
 import { DIRECT_HUB, WindowScope, type WindowState } from "../lifecycle";
+import { Poller } from "../../../api/poller";
 import { DeskStore } from "../store";
 import { objectAt } from "../menu/model";
 import { PadsHostContext, PendingFigures, type PadsApi, type PadsHost, type PadStackHandle } from "./host";
@@ -105,6 +106,12 @@ function mount(options: { state?: WindowState; server?: FixtureDeskServer; padId
     toast: (text) => toasts.push(text),
     setView: (_windowId, view) => views.push(view),
     sourcePieces: () => [],
+    menu: {
+      promoted: { passagePromoted: async () => ({ rows: [], withheld: false }) as never,
+        passagePromotedJob: vi.fn(), passagePromotedCancel: vi.fn(), label: vi.fn() },
+      poller: new Poller({ setInterval: () => 1, clearInterval: () => undefined }),
+      onPromoted: () => false, knows: vi.fn(),
+    },
     register: (_windowId, handle) => {
       stackHandle = handle;
     },
@@ -161,7 +168,7 @@ describe("a pad stack window", () => {
     expect(block("fx_b_r1").getAttribute("data-emits")).toBe("yes");
     for (const id of ["fx_b_r2", "fx_b_r3", "fx_b_r5"]) {
       expect(block(id).getAttribute("data-emits"), id).toBe("no");
-      expect(block(id).getAttribute("title"), id).toBe("quoted, not read as your words");
+      expect(block(id).getAttribute("title"), id).toBe(id === "fx_b_r2" ? "From a source" : "From LearnLoop");
     }
     expect(within(block("fx_b_r4")).getByText("submitted · teach-back")).toBeTruthy();
     expect(within(block("fx_b_r2")).getByRole("button", { name: /Softmax, a short book p\.1 ↩/ })).toBeTruthy();
@@ -175,7 +182,7 @@ describe("a pad stack window", () => {
     await screen.findAllByText(/quotes/);
     for (const element of document.querySelectorAll("[data-block]")) expect(element.getAttribute("data-emits")).toBe("no");
     fireEvent.click(screen.getByRole("button", { name: "where your words go" }));
-    expect(screen.getByText(/nothing on these pads is read as your words yet/)).toBeTruthy();
+    expect(screen.getByText(/These pads have no writing that counts as your own words yet/)).toBeTruthy();
   });
 
   it("the jot line opens a new block in the editor; ↵ keeps it and opens the next; esc takes back a line never written", async () => {
@@ -264,20 +271,20 @@ describe("a pad stack window", () => {
     fireEvent.contextMenu(block("fx_b_r2"));
     let menu = screen.getByRole("menu", { name: "the pad menu" });
     expect(within(menu).queryByText("Submit this block as…")).toBeNull();
-    expect((within(menu).getByText("marimo cell").closest("button") as HTMLButtonElement).disabled).toBe(false);
+    expect((within(menu).getByText("Python cell").closest("button") as HTMLButtonElement).disabled).toBe(false);
     expect(within(menu).queryByText(/arrives with notebooks/)).toBeNull();
     fireEvent.keyDown(window, { key: "Escape" });
     expect(screen.queryByRole("menu")).toBeNull();
     fireEvent.contextMenu(block("fx_b_r1"));
     menu = screen.getByRole("menu", { name: "the pad menu" });
-    expect(within(menu).getByText("Submit this block as…")).toBeTruthy();
+    expect(await within(menu).findByText("Submit this block as…")).toBeTruthy();
   });
 
   it("the marimo row inserts an empty cell of the learner's below the line", async () => {
     const { store, flush } = mount();
     await waitFor(() => expect(block("fx_b_r1")).toBeTruthy());
     fireEvent.contextMenu(block("fx_b_r1"));
-    fireEvent.click(screen.getByText("marimo cell"));
+    fireEvent.click(screen.getByText("Python cell"));
     await flush();
     const blocks = store.pads.fx_pad_running.blocks;
     const at = blocks.findIndex((each) => each.blockId === "fx_b_r1");
@@ -295,11 +302,11 @@ describe("a pad stack window", () => {
     ]);
     await flush();
     fireEvent.contextMenu(block("fx_b_r2"));
-    fireEvent.click(screen.getByText("Teach me this"));
-    expect(teachMe).toHaveBeenCalledWith("fx_ext_softmax", ["fx_ext_softmax_s1_3", "fx_ext_softmax_s1_4"]);
+    fireEvent.click(await screen.findByText("Teach me this"));
+    expect(teachMe).toHaveBeenCalledWith("fx_ext_softmax", ["fx_ext_softmax_s1_3", "fx_ext_softmax_s1_4"], ["fx_b_r2"]);
   });
 
-  it("a notebook frame's right-click opens the pad menu labelled for its owner, the frame's text only ever quoted", async () => {
+  it("a notebook frame's right-click opens the pad menu labelled for its owner, without exposing unplaced frame text", async () => {
     const { store, flush } = mount();
     await waitFor(() => expect(block("fx_b_r1")).toBeTruthy());
     act(() => {
@@ -307,11 +314,12 @@ describe("a pad stack window", () => {
         label: "your pad", insertLabel: "insert at the end of this pad" });
     });
     const menu = screen.getByRole("menu", { name: "the pad menu" });
-    expect(within(menu).getByText("your pad · “<b>bold</b> words”")).toBeTruthy();
+    expect(within(menu).getByText("your pad")).toBeTruthy();
+    expect(menu.textContent).not.toContain("<b>bold</b> words");
     expect(menu.querySelector("b")).toBeNull();
     expect(within(menu).getByText("insert at the end of this pad")).toBeTruthy();
     // A pad's inserts from the frame land at the pad's end.
-    fireEvent.click(within(menu).getByText("marimo cell"));
+    fireEvent.click(within(menu).getByText("Python cell"));
     await flush();
     expect(store.pads.fx_pad_running.blocks.slice(-1)[0]).toMatchObject({ kind: "cell", provenance: "learner" });
     act(() => {
@@ -319,7 +327,8 @@ describe("a pad stack window", () => {
         label: "the lesson", insertLabel: "add under this lesson (the notebook stays as the teacher made it)" });
     });
     const lesson = screen.getByRole("menu", { name: "the pad menu" });
-    expect(within(lesson).getByText("the lesson · “a cell's words”")).toBeTruthy();
+    expect(within(lesson).getByText("the lesson")).toBeTruthy();
+    expect(lesson.textContent).not.toContain("a cell's words");
     expect(within(lesson).getByText("add under this lesson (the notebook stays as the teacher made it)")).toBeTruthy();
     // Nothing of a pad's own (muting its suggestions) on a lesson's menu.
     expect(within(lesson).queryByText(/suggestions on this pad/)).toBeNull();
@@ -352,7 +361,7 @@ describe("a pad stack window", () => {
     const { api } = mount({ server, padIds: ["fx_pad_problem"] });
     await waitFor(() => expect(block("fx_b_p1")).toBeTruthy());
     fireEvent.contextMenu(block("fx_b_p1"));
-    fireEvent.click(screen.getByText("Submit this block as…"));
+    fireEvent.click(await screen.findByText("Submit this block as…"));
     fireEvent.click(await screen.findByRole("button", { name: "my answer to this problem" }));
     await waitFor(() => expect(within(block("fx_b_p1")).getByText(/^submitted · attempt/)).toBeTruthy());
     const submitted = api.calls.find(([name]) => name === "padSubmitBlock")?.[1];
@@ -371,9 +380,9 @@ describe("a pad stack window", () => {
     const { api } = mount({ server, padIds: ["fx_pad_problem"], practiceSessionId: null });
     await waitFor(() => expect(block("fx_b_p1")).toBeTruthy());
     fireEvent.contextMenu(block("fx_b_p1"));
-    fireEvent.click(screen.getByText("Submit this block as…"));
+    fireEvent.click(await screen.findByText("Submit this block as…"));
     fireEvent.click(await screen.findByRole("button", { name: "my answer to this problem" }));
-    expect(await screen.findByText(/start a practice session first/)).toBeTruthy();
+    expect(await screen.findByText(/Open Practice to start a session/)).toBeTruthy();
     expect(api.calls.some(([name]) => name === "padSubmitBlock")).toBe(false);
   });
 
@@ -381,7 +390,7 @@ describe("a pad stack window", () => {
     const { api } = mount();
     await waitFor(() => expect(block("fx_b_r1")).toBeTruthy());
     const mark = await waitFor(() => {
-      const found = within(block("fx_b_r1")).getByRole("button", { name: "proposal mark" });
+      const found = within(block("fx_b_r1")).getByRole("button", { name: "Show suggestion" });
       return found;
     });
     vi.useFakeTimers();
@@ -403,7 +412,7 @@ describe("a pad stack window", () => {
     fireEvent.click(mark);
     fireEvent.click(screen.getByRole("button", { name: "not this" }));
     expect(api.calls.filter(([name]) => name === "proposalLabel").map(([, input]) => (input as { label: string }).label)).toEqual(["ignored", "not_this"]);
-    expect(within(block("fx_b_r1")).queryByRole("button", { name: "proposal mark" })).toBeNull();
+    expect(within(block("fx_b_r1")).queryByRole("button", { name: "Show suggestion" })).toBeNull();
   });
 });
 
@@ -436,7 +445,7 @@ describe("the fix round (RD4 review)", () => {
     api.passageUnionRange = (async () => ({ sections: [{ learningObjects: [{ learningObjectId: "lo1" }] }] })) as never;
     await waitFor(() => expect(block("fx_b_r1")).toBeTruthy());
     fireEvent.contextMenu(block("fx_b_r1"));
-    fireEvent.click(screen.getByText("Submit this block as…"));
+    fireEvent.click(await screen.findByText("Submit this block as…"));
     return screen.findByRole("button", { name: /a teach-back of the idea/ });
   }
 
@@ -451,7 +460,7 @@ describe("the fix round (RD4 review)", () => {
     }) as never;
     await waitFor(() => expect(block("fx_b_r1")).toBeTruthy());
     fireEvent.contextMenu(block("fx_b_r1"));
-    fireEvent.click(screen.getByText("Make it practice"));
+    fireEvent.click(await screen.findByText("Make it practice"));
     const sheet = await screen.findByRole("dialog", { name: "make it practice" });
     fireEvent.change(within(sheet).getAllByRole("textbox")[1], { target: { value: "the largest score wins" } });
     await waitFor(() => expect((within(sheet).getByText("save to my queue") as HTMLButtonElement).disabled).toBe(false));
@@ -480,7 +489,7 @@ describe("the fix round (RD4 review)", () => {
     }) as never;
     await waitFor(() => expect(block("fx_b_r1")).toBeTruthy());
     fireEvent.contextMenu(block("fx_b_r1"));
-    fireEvent.click(screen.getByText("Make it practice"));
+    fireEvent.click(await screen.findByText("Make it practice"));
     const sheet = await screen.findByRole("dialog", { name: "make it practice" });
     fireEvent.change(within(sheet).getAllByRole("textbox")[1], { target: { value: "the largest score wins" } });
     await waitFor(() => expect((within(sheet).getByText("save to my queue") as HTMLButtonElement).disabled).toBe(false));
@@ -497,7 +506,7 @@ describe("the fix round (RD4 review)", () => {
     api.passageUnionRange = (async () => ({ sections: [{ learningObjects: [{ learningObjectId: "lo1" }] }] })) as never;
     await waitFor(() => expect(block("fx_b_r1")).toBeTruthy());
     fireEvent.contextMenu(block("fx_b_r1"));
-    fireEvent.click(screen.getByText("Make it practice"));
+    fireEvent.click(await screen.findByText("Make it practice"));
     const sheet = await screen.findByRole("dialog", { name: "make it practice" });
     expect(sheet.contains(document.activeElement)).toBe(true);
     fireEvent.keyDown(document.body, { key: "Escape" });
@@ -579,7 +588,7 @@ describe("the fix round (RD4 review)", () => {
     host.showMe = (() => new Promise((resolve) => { finish = resolve; })) as never;
     await waitFor(() => expect(block("fx_b_r1")).toBeTruthy());
     fireEvent.contextMenu(block("fx_b_r1"));
-    fireEvent.click(screen.getByText("Show me"));
+    fireEvent.click(await screen.findByText("Show me"));
     const before = store.pads.fx_pad_running.blocks.length;
     rerender("hidden");
     await act(async () => {
@@ -595,7 +604,7 @@ describe("the fix round (RD4 review)", () => {
     mount({ view: { split: { pads: ["fx_pad_running", "fx_pad_deriving"], ratios: [1, 1] } } });
     await waitFor(() => expect(block("fx_b_r2")).toBeTruthy());
     expect(document.querySelector(".desk-pads .split")).not.toBeNull();
-    const mark = within(block("fx_b_r2")).getByRole("button", { name: "source mark" });
+    const mark = within(block("fx_b_r2")).getByRole("button", { name: "Show source details" });
     vi.useFakeTimers();
     fireEvent.mouseEnter(mark);
     act(() => {

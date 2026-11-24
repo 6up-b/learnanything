@@ -7757,6 +7757,8 @@ export interface ReaderRawSelectionNode {
   edited?: boolean;
 }
 export interface ReaderRawSelection {
+  spanId?: string;
+  spanIds?: string[];
   /** Reader CA6b fix round 6: the reading the nodes are passages of. Span ids
    *  repeat across books (an extractor numbers every book s1, s2, ...), so the
    *  selection names its reading; the sidecar refuses one that names another
@@ -9904,6 +9906,7 @@ export interface FigureHostRef {
 }
 
 export interface FigureRequestV1Input {
+  blockIds?: string[];
   goalText?: string | null;
   anchor?: { extractionId: string; spanIds: string[]; region?: { spanId: string; bbox: number[] } | null; spanKeys?: string[] } | null;
   /** RW5d P3: "ask" is the CA2 panel's show me on practice, feedback and the workbench. */
@@ -10415,7 +10418,7 @@ export interface LessonTurnInput {
   /** Teacher TE2: `typed_goal` opens on what the learner typed (`goalText`), with the leftovers they said yes to. */
   entry?: "learning_object" | "reader_selection" | "new_topic" | "typed_goal";
   learningObjectIds?: string[];
-  selection?: { extractionId: string; spanIds: string[] };
+  selection?: { extractionId: string; spanIds: string[]; blockIds?: string[] };
   goalText?: string;
   addTopics?: string[];
   subjectId?: string;
@@ -10939,6 +10942,8 @@ export interface PadSubmitBlockDto {
 /** RD5: the object a menu was opened on (§9.1): a passage, a cue (its span or a time), a highlight or margin note (its
  * annotation and the passage it sits on), a window header (the passage in view), or a pad line (its block). */
 export interface MenuObjectInput {
+  blockIds?: string[];
+  spanIds?: string[];
   objectKind: "passage" | "cue" | "highlight" | "note" | "window" | "pad_line";
   extractionId?: string;
   spanId?: string;
@@ -10989,10 +10994,11 @@ export interface PassagePromotedDto {
   paid: { searchedByMeaning: boolean; verified: boolean; reason: string | null };
   /** A passage of the object (for a pad line, one its words are linked to) is exam or held-out material: nothing is
    * searched or judged for it, and no row leads from or to a protected passage (the learner's own rows stay). */
-  withheld?: boolean;
+  withheld: boolean;
 }
 
 export interface PromotedJobDto {
+  withheld?: boolean;
   version: number;
   jobId: string;
   status: "queued" | "running" | "done" | "failed" | "cancelled" | "expired";
@@ -11077,11 +11083,12 @@ export interface CarriedQuestionDto {
 }
 
 export interface CarryInput {
+  blockIds?: string[];
   carriedId: string;
   text: string;
   originKind: CarriedQuestionDto["originKind"];
   originRef?: string | null;
-  anchor?: { extractionId: string; spanId: string; anchor?: Record<string, unknown> } | null;
+  anchor?: { extractionId: string; spanId: string; spanIds?: string[]; anchor?: Record<string, unknown> } | null;
   deskId?: string | null;
 }
 
@@ -11230,6 +11237,8 @@ export interface CompanionAskJobDto {
 export type SearchScope = "sources" | "passages" | "notes" | "pads" | "threads" | "exchanges";
 
 export interface SearchEverythingInput {
+  selection?: { extractionId: string; spanIds: string[] };
+  blockIds?: string[];
   query: string;
   deskId?: string | null;
   /** The groups to search (all when omitted); "open on this desk" is the client's own group. */
@@ -11456,6 +11465,13 @@ export interface GoalBandLoDto {
   held: boolean;
 }
 
+/** goal.choices: the desk's goal chooser (a held topic's name masked in each label, as the band masks it). */
+export interface GoalChoicesDto {
+  version: number;
+  goals: Array<{ goalId: string; label: string; setAt: string; learnerSet: boolean }>;
+  nextCheckDue: string | null;
+}
+
 export interface GoalBandDto {
   version: number;
   goalId: string;
@@ -11473,7 +11489,7 @@ export interface GoalBandDto {
   /** "N LEARNING OBJECTS · a LIKELY · b UNTESTED": the LOs within the chosen depth. */
   counts?: { learningObjects: number; demonstrated: number; likely: number; untested: number };
   /** The phrases of the goal sentence not in the library yet (curriculum.scope_decide's add it / no). */
-  unmatched?: Array<{ phrase: string; proposedTitle?: string; proposedStatement?: string } & Record<string, unknown>>;
+  unmatched?: Array<{ phrase: string; proposedTitle?: string; proposedStatement?: string; /** It named a topic whose check is due: masked by the server, not offered to add. */ held?: boolean } & Record<string, unknown>>;
   /** No LO is named beside a due check. */
   checks?: { dueToday: number; answeredToday: number;
     first: { commitmentId: string; host: { extractionId: string; sectionId: string | null; spanId: string | null } | null } | null };
@@ -11676,7 +11692,7 @@ export interface InkTranscribeJobDto {
   status: "queued" | "running" | "done" | "failed" | "cancelled" | "expired";
   done: boolean;
   result: InkReadingDto | null;
-  /** e.g. `cannot_read_images`, `models_off`, `unrouted`, `unpriced`, `capped`, `unavailable`,
-   * `provider_unavailable`, `ink_too_large`, `waiting_for_ok`, `cancelled`, `interrupted`. */
+  /** e.g. `unavailable` (text recognition, GLM-OCR, isn't set up), `needs_upload_ok` (hosted GLM-OCR waits for the
+   * OK to send to z.ai), `ocr_failed`, `ink_too_large`, `waiting_for_ok`, `cancelled`, `interrupted`. */
   error: { code: string; message: string; retryable: boolean; details: Record<string, unknown> | null } | null;
 }

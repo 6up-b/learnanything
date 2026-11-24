@@ -15,6 +15,14 @@ export interface InkCacheApi {
   inkTranscribeCancel(input: { jobId: string }): Promise<InkTranscribeJobDto>;
 }
 
+/** What the line says when handwriting could not be sent to text recognition (GLM-OCR, as ingest reads page
+ * images), and how to change that; null for any other outcome. Nothing was sent, and the ink is kept. */
+export function inkRefusal(code: string): string | null {
+  if (code === "unavailable") return "handwriting can't be read yet: text recognition isn't set up · to add it, paste a z.ai API key in Settings, under Ingestion, or run a local GLM-OCR server";
+  if (code === "needs_upload_ok") return "reading handwriting sends a picture of it to z.ai, which needs your OK first: say OK on a book's card in the Library";
+  return null;
+}
+
 export type ReadingStatus = "reading" | "read" | "kept_yours" | "nothing" | "cannot" | "failed" | "cancelled";
 
 export interface LineReading {
@@ -207,7 +215,7 @@ export class InkCache {
       if (stale()) return;
       // The outbox lives in memory (the durable store is the RD-spike's open choice): unsent ink is kept only while the app
       // stays open, and saying "on this device" would promise more.
-      this.setReading(padId, blockId, { status: "failed", jobId: null, result: null, message: "your ink isn't sent yet · it is kept while LearnLoop stays open" });
+      this.setReading(padId, blockId, { status: "failed", jobId: null, result: null, message: "Waiting for your handwriting to save. Keep LearnLoop open, then try again." });
       return;
     }
     if (stale()) return;
@@ -241,7 +249,7 @@ export class InkCache {
         if (codeOf(error) !== "job_not_found") return;
         this.polls.get(blockId)?.();
         this.polls.delete(blockId);
-        this.setReading(padId, blockId, { status: "failed", jobId, result: null, message: "the reading stopped (LearnLoop restarted) · read it again" });
+        this.setReading(padId, blockId, { status: "failed", jobId, result: null, message: "Handwriting conversion stopped. Try again." });
       },
     });
     this.polls.set(blockId, remove);
@@ -285,10 +293,10 @@ export class InkCache {
     const code = job.error?.code ?? job.status;
     if (job.status === "cancelled" || code === "cancelled") {
       this.setReading(padId, blockId, { status: "cancelled", jobId: job.jobId, result: null, message: null });
-    } else if (code === "cannot_read_images") {
-      this.setReading(padId, blockId, { status: "cannot", jobId: job.jobId, result: null, message: job.error?.message ?? null });
+    } else if (inkRefusal(code)) {
+      this.setReading(padId, blockId, { status: "cannot", jobId: job.jobId, result: null, message: inkRefusal(code) });
     } else {
-      this.setReading(padId, blockId, { status: "failed", jobId: job.jobId, result: null, message: job.error?.message ?? code });
+      this.setReading(padId, blockId, { status: "failed", jobId: job.jobId, result: null, message: job.error?.message ?? "Couldn’t convert the handwriting. Try again." });
     }
     return true;
   }

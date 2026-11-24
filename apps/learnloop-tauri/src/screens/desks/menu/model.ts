@@ -25,6 +25,7 @@ export interface MenuObject {
   annotationId?: string;
   padId?: string;
   blockId?: string | null;
+  blockIds?: string[];
   /** The source of the window it sits in (Append, Note, Open beside need it). */
   sourceId?: string;
   /** Where it was opened: the pointer, or the object's own box for a key. */
@@ -38,15 +39,24 @@ export function captureNodes(object: MenuObject): Array<{ spanId: string; quote?
   return ids.map((spanId) => ({ spanId }));
 }
 
+/** The clicked passage and all passages contributing words, even when the click is outside the selection. */
+export function passageIds(object: MenuObject): string[] {
+  return [...new Set([...(object.spanId ? [object.spanId] : []), ...(object.spanIds ?? []),
+    ...(object.slices ?? []).map((slice) => slice.spanId)])];
+}
+
 /** The server's view of the object (passage.promoted, passage.knows). */
 export function objectInput(object: MenuObject, deskId: string | null): MenuObjectInput {
+  const ids = passageIds(object);
   return {
     objectKind: object.kind,
+    ...(ids.length > 1 ? { spanIds: ids } : {}),
     ...(object.extractionId ? { extractionId: object.extractionId } : {}),
     ...(object.spanId ? { spanId: object.spanId } : {}),
     ...(object.t !== undefined ? { t: object.t } : {}),
     ...(object.annotationId ? { annotationId: object.annotationId } : {}),
     ...(object.blockId ? { blockId: object.blockId } : {}),
+    ...(object.blockIds && object.blockIds.length > 1 ? { blockIds: object.blockIds } : {}),
     ...(object.windowId ? { windowId: object.windowId } : {}),
     ...(deskId ? { deskId } : {}),
   };
@@ -54,7 +64,7 @@ export function objectInput(object: MenuObject, deskId: string | null): MenuObje
 
 const KIND_LABEL: Record<MenuObjectKind, string> = {
   passage: "a passage",
-  cue: "a transcript cue",
+  cue: "a caption",
   highlight: "your highlight",
   note: "your margin note",
   window: "a window",
@@ -63,7 +73,8 @@ const KIND_LABEL: Record<MenuObjectKind, string> = {
 
 /** "<a passage | a transcript cue | your margin note | a window> · “<first 46 chars>”" (§9.1, §9.2). Exam or held-out
  * material is named, never quoted. */
-export function headerLine(object: MenuObject, withheld = false): string {
+export function headerLine(object: MenuObject, withheld: boolean | null = null): string {
+  if (withheld === null) return KIND_LABEL[object.kind];
   if (withheld) return `${KIND_LABEL[object.kind]} · exam or held-out material`;
   const words = (object.selection || object.text).replace(/\s+/g, " ").trim();
   const clipped = words.length > 46 ? `${words.slice(0, 46)}…` : words;
@@ -103,9 +114,15 @@ export const VERBS: VerbSpec[] = [
   { id: "knows", glyph: "i", label: "What this knows", key: "i", kinds: ["passage", "cue", "highlight", "note", "window", "pad_line"] },
 ];
 
-/** The verbs that would quote the object's words or send them on (to the tutor, a search, a figure, a lesson, a
- * pad, a carried question): left out on exam or held-out material, as the pads refuse to copy it. */
-export const QUOTING_VERBS: readonly VerbId[] = ["ask", "find", "compare", "show_me", "make_practice", "append", "carry", "teach_me"];
+/** New verbs need clearance unless they only navigate or read protected metadata. */
+const NAVIGATION_VERBS: readonly VerbId[] = ["open_beside", "knows", "new_desk", "gather", "share_slot", "own_slot"];
+/** A margin note is the learner marking their own reading, stored beside the passage: it sends the words nowhere
+ *  (a plain capture queues no model work, and every reader of stored notes withholds one on protected material), so
+ *  it is offered on exam or held-out material too and never waits for the verdict. */
+const LOCAL_VERBS: readonly VerbId[] = ["note"];
+export function needsClearance(id: VerbId): boolean {
+  return !NAVIGATION_VERBS.includes(id) && !LOCAL_VERBS.includes(id);
+}
 
 /** The verbs for an object kind, in their fixed order. */
 export function verbsFor(kind: MenuObjectKind): VerbSpec[] {
@@ -146,7 +163,7 @@ export function shownPromoted(rows: PromotedRowDto[], dismissed: ReadonlySet<str
 
 /** A promoted row's reason as the learner reads it: a judge's unchecked finding says so. */
 export function promotedReason(row: PromotedRowDto): string {
-  if (row.checked === false && !/not checked/.test(row.reason)) return `${row.reason} · found by search, not checked`;
+  if (row.checked === false && !/not checked/.test(row.reason)) return `${row.reason} · possible match from search, not checked by LearnLoop`;
   return row.reason;
 }
 
@@ -173,7 +190,6 @@ export function placeSubmenu(row: { right: number; top: number }, width: number,
 export function objectAt(target: Element, kindOf: (windowId: string) => string | null, sourceOf: (windowId: string) => { sourceId: string; extractionId: string } | null, at: { x: number; y: number }, inView: (windowId: string) => string | null = () => null, doc: Document = document): MenuObject | null {
   const host = target.closest(`[${WINDOW_ATTRIBUTE}]`);
   const windowId = host?.getAttribute(WINDOW_ATTRIBUTE) ?? null;
-  const selection = selectionWithin(host, doc);
   // A window header: the window itself.
   const head = target.closest(".desk-pane-head");
   if (head && windowId) {
@@ -187,9 +203,12 @@ export function objectAt(target: Element, kindOf: (windowId: string) => string |
   const pad = target.closest("[data-pad]");
   if (pad && windowId) {
     const line = target.closest("[data-block]");
+    const selected = selectionWithin(pad, doc, "[data-block]", (element) => element.getAttribute("data-block"));
+    const blockIds = [...new Set([line?.getAttribute("data-block"), ...(selected?.ids ?? [])].filter((id): id is string => !!id))];
+    const selection = selected?.text;
     return {
       kind: "pad_line", windowId, padId: pad.getAttribute("data-pad") ?? undefined, blockId: line?.getAttribute("data-block") ?? null,
-      text: (selection?.text || line?.textContent || "").replace(/\s+/g, " ").trim(), ...(selection ? { selection: selection.text } : {}), at,
+      text: (selection || line?.textContent || "").replace(/\s+/g, " ").trim(), ...(selection ? { selection, blockIds } : {}), at,
     };
   }
   if (!windowId) return null;
@@ -199,6 +218,10 @@ export function objectAt(target: Element, kindOf: (windowId: string) => string |
   const passage = target.closest("[data-span-id], [data-transcript-span]");
   // On the passage it marks, or on its card in the margin (which names its passage).
   const annotationSpan = annotation ? (passage ? spanOf(passage) : annotation.getAttribute("data-annotation-span") || undefined) : undefined;
+  // Only source-tagged text can travel with a source anchor.
+  const selected = selectionWithin(host, doc, "[data-span-id], [data-transcript-span], [data-annotation-span]", spanOf);
+  const selection = selected && { text: selected.text, spanIds: selected.ids,
+    slices: selected.slices.map(({ id, quote }) => ({ spanId: id, quote })) };
   if (annotation && annotationSpan) {
     const isNote = annotation.getAttribute("data-annotation-kind") === "note";
     return {
@@ -207,7 +230,7 @@ export function objectAt(target: Element, kindOf: (windowId: string) => string |
       text: (annotation.textContent || passage?.textContent || "").replace(/\s+/g, " ").trim(), at,
       // A selection inside the marked passage stays the words the verbs act on.
       ...(selection ? { selection: selection.text, slices: selection.slices } : {}),
-      spanIds: selection?.spanIds.length ? selection.spanIds : [annotationSpan],
+      spanIds: [...new Set([annotationSpan, ...annotationSpans(annotation), ...(selection?.spanIds ?? [])])],
     };
   }
   if (!passage) return null;
@@ -225,21 +248,26 @@ export function objectAt(target: Element, kindOf: (windowId: string) => string |
 }
 
 function spanOf(element: Element): string | undefined {
-  return element.getAttribute("data-span-id") ?? element.getAttribute("data-transcript-span") ?? undefined;
+  return element.getAttribute("data-span-id") ?? element.getAttribute("data-transcript-span") ?? element.getAttribute("data-annotation-span") ?? undefined;
 }
 
-function selectionWithin(host: Element | null, doc: Document): { text: string; spanIds: string[]; slices: Array<{ spanId: string; quote: string }> } | null {
+function annotationSpans(element: Element): string[] {
+  const spans = element.getAttribute("data-annotation-spans");
+  return spans ? JSON.parse(spans) : [];
+}
+
+function selectionWithin(host: Element | null, doc: Document, selector: string, idOf: (element: Element) => string | null | undefined) {
   const selection = doc.getSelection?.();
   if (!host || !selection || selection.isCollapsed || selection.rangeCount === 0) return null;
   const range = selection.getRangeAt(0);
   if (!host.contains(range.commonAncestorContainer)) return null;
-  const text = selection.toString().replace(/\s+/g, " ").trim();
+  const text = range.toString().replace(/\s+/g, " ").trim();
   if (!text) return null;
-  const spanIds: string[] = [];
-  const slices: Array<{ spanId: string; quote: string }> = [];
-  for (const element of host.querySelectorAll("[data-span-id], [data-transcript-span]")) {
-    const id = spanOf(element);
-    if (!id || spanIds.includes(id) || !range.intersectsNode(element)) continue;
+  const ids: string[] = [];
+  const slices: Array<{ id: string; quote: string }> = [];
+  for (const element of host.querySelectorAll(selector)) {
+    const id = idOf(element);
+    if (!id || !range.intersectsNode(element)) continue;
     // The part of the selection inside this passage: a passage's capture quotes its own words, never the whole run.
     const part = doc.createRange();
     part.selectNodeContents(element);
@@ -247,8 +275,8 @@ function selectionWithin(host: Element | null, doc: Document): { text: string; s
     if (range.compareBoundaryPoints(Range.END_TO_END, part) < 0) part.setEnd(range.endContainer, range.endOffset);
     const quote = part.toString().replace(/\s+/g, " ").trim();
     if (!quote) continue;
-    spanIds.push(id);
-    slices.push({ spanId: id, quote });
+    ids.push(id, ...annotationSpans(element));
+    slices.push({ id, quote });
   }
-  return { text, spanIds, slices };
+  return slices.length ? { text: slices.map((slice) => slice.quote).join(" "), ids: [...new Set(ids)], slices } : null;
 }

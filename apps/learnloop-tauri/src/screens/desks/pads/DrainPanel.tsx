@@ -85,19 +85,19 @@ export function DrainPanel({ deskTitle, load, actions, onClose, wrapUpHost }: {
   return (
     <div className="desk-drain" role="dialog" aria-label={`closing ${deskTitle}`}>
       <div className="head">Closing “{deskTitle}”</div>
-      <div className="sub">one key each · skipping costs nothing · leave keeps them in the desk's history</div>
-      {failure ? <div className="note">couldn't read today's pads · {failure}</div> : null}
+      <div className="sub">One key each · skipping costs nothing · leave keeps a pad in the desk’s history.</div>
+      {failure ? <div className="note">Couldn’t load today’s pads. Close this panel and reopen it to try again.</div> : null}
       {drain && drain.pads.length === 0 ? <div className="note">nothing written on this desk today</div> : null}
       {drain?.pads.map((pad, index) => (
         <div key={pad.padId} className="pad" data-drain-pad={pad.padId}>
-          <div className="title">{pad.kept ? "⚲ " : ""}{pad.title || (pad.kind === "running" ? "running" : "a pad")}</div>
+          <div className="title" title={pad.kept ? "Pinned" : undefined}>{pad.kept ? "⚲ " : ""}{pad.title || (pad.kind === "running" ? "running" : "a pad")}</div>
           <div className="lines"><span>{pad.firstLine}</span>{pad.lastLine && pad.lastLine !== pad.firstLine ? <span> … {pad.lastLine}</span> : null}</div>
-          {failed[pad.padId] ? <div className="note err">couldn't save that · {failed[pad.padId]}</div> : null}
-          {done[pad.padId] ? <div className="done">{done[pad.padId]}</div> : pendingPad[pad.padId] ? <div className="note">◐ saving…</div> : (
+          {failed[pad.padId] ? <div className="note err">{failed[pad.padId]} Check the pad before trying again.</div> : null}
+          {done[pad.padId] ? <div className="done">{done[pad.padId]}</div> : pendingPad[pad.padId] ? <div className="note">◐ Saving your choice…</div> : (
             <div className="acts">
-              <button type="button" onClick={() => act(pad.padId, "kept", () => actions.keep(pad.padId, pad.version))}><kbd>{index + 1}k</kbd> keep</button>
-              <button type="button" onClick={() => act(pad.padId, "left in the library", () => actions.leave(pad.padId, pad.version))}><kbd>{index + 1}l</kbd> leave</button>
-              {pad.carryCandidate ? <button type="button" onClick={() => act(pad.padId, "carried", () => actions.carry(pad.carryCandidate as string, pad.padId))}><kbd>{index + 1}c</kbd> carry “{pad.carryCandidate.slice(0, 60)}”</button> : null}
+              <button type="button" onClick={() => act(pad.padId, "kept", () => actions.keep(pad.padId, pad.version))}><kbd title={`Press ${index + 1}, then K`}>{index + 1}k</kbd> keep</button>
+              <button type="button" onClick={() => act(pad.padId, "left in the library", () => actions.leave(pad.padId, pad.version))}><kbd title={`Press ${index + 1}, then L`}>{index + 1}l</kbd> leave</button>
+              {pad.carryCandidate ? <button type="button" onClick={() => act(pad.padId, "carried", () => actions.carry(pad.carryCandidate as string, pad.padId))}><kbd title={`Press ${index + 1}, then C`}>{index + 1}c</kbd> carry “{pad.carryCandidate.slice(0, 60)}”</button> : null}
             </div>
           )}
         </div>

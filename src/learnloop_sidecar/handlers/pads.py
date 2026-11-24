@@ -28,6 +28,7 @@ from learnloop_sidecar.dto import ParamsModel, Verbatim, versioned
 from learnloop_sidecar.errors import SidecarError
 from learnloop_sidecar.handlers.desks import protocol_error
 from learnloop_sidecar.registry import method
+from learnloop_sidecar.workbench_protection import block_places, check_placed_quote, payload_places, reading_places, refuse_protected
 
 LOG = logging.getLogger(__name__)
 
@@ -67,7 +68,7 @@ def pad_get_handler(ctx: SidecarContext, params: PadGetInput) -> dict[str, Any]:
     try:
         view = pad_view(repository, params.pad_id)
     except PadNotFound as exc:
-        raise SidecarError("pad_not_found", f"No pad {params.pad_id!r}.") from exc
+        raise SidecarError("pad_not_found", "Couldn’t find this pad. Open it again from the window list.") from exc
     # A block's payload and an anchor's JSON are the client's, returned with their keys as stored.
     for block in view["blocks"]:
         block["payload"] = Verbatim(block["payload"])
@@ -102,6 +103,28 @@ def _after_batch(ctx: SidecarContext, vault: Any, repository: Any, block_ids: li
         LOG.warning("could not compute the pad's proposals", exc_info=True)
 
 
+def _check_source_inserts(vault: Any, repository: Any, ops: list[PadOp]) -> None:
+    # Check the batch before its first op. A refusal on a later link would leave the quote inserted.
+    links: dict[str, list[tuple[str, str]]] = {}
+    for op in ops:
+        if op.op == "link_anchor":
+            links.setdefault(op.block_id, []).append((op.extraction_id, op.span_id))
+    places = []
+    for op in ops:
+        if op.op != "insert_block" or op.kind not in {"source_quote", "source_piece", "figure"}:
+            continue
+        origins = [*payload_places(op.payload), *links.get(op.block_id, [])]
+        if op.kind == "figure":
+            blocks = list(op.payload.get("source_block_ids") or [])
+            if parent := op.payload.get("parent_block_id"):
+                blocks.append(parent)
+            origins.extend(block_places(vault, repository, blocks))
+        else:
+            check_placed_quote(vault, repository, origins, op.body_md)
+        places.extend(origins)
+    refuse_protected(vault, repository, places)
+
+
 @method("pad.apply", PadApplyInput)
 def pad_apply_handler(ctx: SidecarContext, params: PadApplyInput) -> dict[str, Any]:
     """One batch of ops on one pad: ``{applied_seq, results, heads, pads}``."""
@@ -109,7 +132,8 @@ def pad_apply_handler(ctx: SidecarContext, params: PadApplyInput) -> dict[str, A
     vault, repository = ctx.require_vault()
     try:
         reply = apply_pad_ops(repository, client_id=params.client_id, seq=params.seq, pad_id=params.pad_id,
-                              ops=list(params.ops))
+                              ops=list(params.ops),
+                              check_material=lambda: _check_source_inserts(vault, repository, params.ops))
     except ProtocolError as exc:
         raise protocol_error(exc) from exc
     _after_batch(ctx, vault, repository, [str(head["block_id"]) for head in reply.get("heads") or ()])
@@ -160,7 +184,7 @@ def _hand_to_attempt(ctx: SidecarContext, vault: Any, prepared: submission_core.
 
     item = vault.practice_items.get(prepared.practice_item_id)
     if item is None:
-        raise SidecarError("not_found", f"Practice Item {prepared.practice_item_id} was not found.")
+        raise SidecarError("not_found", "Couldn’t find that question. Reopen it from Practice.")
     submission = SubmitAttemptInput(
         session_id=prepared.session_id,
         practice_item_id=prepared.practice_item_id,
@@ -202,7 +226,7 @@ def _teach_back_status(repository: Any, prepared: submission_core.Prepared,
             if conversation_id is not None and state.conversation_id == conversation_id:
                 return "ongoing", state.to_dict(), None
             raise SidecarError("teach_back_in_progress",
-                               "A teach-back of this item is already under way in this session; finish it first.")
+                               "Return to Practice to finish the explanation you started.")
     return "not_started", None, None
 
 
@@ -257,6 +281,7 @@ def pad_submit_block_handler(ctx: SidecarContext, params: PadSubmitBlockInput) -
 
     vault, repository = ctx.require_vault()
     try:
+        refuse_protected(vault, repository, block_places(vault, repository, [params.block_id]))
         prepared = submission_core.prepare(
             repository, submission_id=params.submission_id, block_id=params.block_id, version_id=params.version_id,
             submitted_as=params.submitted_as, practice_item_id=params.target.practice_item_id,
@@ -270,7 +295,7 @@ def pad_submit_block_handler(ctx: SidecarContext, params: PadSubmitBlockInput) -
     entry: dict[str, Any] | None = _hand_to_attempt(ctx, vault, prepared, params.target)
     attempt_id = (entry or {}).get("attemptId")
     if not attempt_id:
-        raise SidecarError("internal", "The attempt entry point recorded no attempt.")
+        raise SidecarError("internal", "Couldn’t record this answer. Open the question in Practice and try again.")
     row = submission_core.record(repository, prepared, attempt_id=attempt_id, teach_back_id=None)
     return _submission_reply(row, duplicate=False, entry=entry)
 
@@ -334,12 +359,14 @@ def pad_drain_handler(ctx: SidecarContext, params: PadDrainInput) -> dict[str, A
 
 
 class CarriedAnchor(ParamsModel):
+    span_ids: list[str] = Field(default_factory=list)
     extraction_id: str = Field(min_length=1)
     span_id: str = Field(min_length=1)
     anchor: dict[str, Any] = Field(default_factory=dict)
 
 
 class CarryInput(ParamsModel):
+    block_ids: list[str] = Field(default_factory=list)
     carried_id: str = Field(min_length=1)
     text: str = Field(min_length=1, max_length=4000)
     origin_kind: Literal["block", "selection", "note", "drain", "typed"]
@@ -360,10 +387,28 @@ def carried_carry_handler(ctx: SidecarContext, params: CarryInput) -> dict[str, 
 
     _vault, repository = ctx.require_vault()
     anchor = params.anchor.model_dump() if params.anchor is not None else None
+    places = []
+    if params.anchor:
+        places = reading_places(params.anchor.extraction_id, [params.anchor.span_id, *params.anchor.span_ids])
+        if not params.anchor.span_ids:
+            anchor.pop("span_ids")  # Existing single-passage receipts compare the full anchor on retry.
+    if params.origin_kind in {"selection", "note"} and not params.anchor:
+        raise SidecarError("validation_error", "A carried selection needs its passage.")
+    block_ids = list(params.block_ids)
+    if params.origin_kind == "block":
+        if not params.origin_ref:
+            raise SidecarError("validation_error", "A carried pad line needs its block.")
+        block_ids.append(params.origin_ref)
     try:
-        row = carried_core.carry(repository, carried_id=params.carried_id, text=params.text,
-                                 origin_kind=params.origin_kind, origin_ref=params.origin_ref, anchor=anchor,
-                                 desk_id=params.desk_id)
+        with repository.atomic():
+            block_origins = block_places(_vault, repository, block_ids)
+            places.extend(block_origins)
+            if block_origins and anchor is not None and params.block_ids:
+                anchor["source_places"] = [list(place) for place in sorted(set(block_origins))]
+            refuse_protected(_vault, repository, places)
+            row = carried_core.carry(repository, carried_id=params.carried_id, text=params.text,
+                                     origin_kind=params.origin_kind, origin_ref=params.origin_ref, anchor=anchor,
+                                     desk_id=params.desk_id)
     except carried_core.CarriedRefused as exc:
         raise SidecarError(exc.code, exc.message, details=exc.details) from exc
     created = row.pop("created")

@@ -53,7 +53,7 @@ export function RailHostPanel({
   if (claimed) {
     return (
       <div className="desk-panel desk-quiet">
-        This book's rail is in another window on this desk. <button type="button" onClick={onClaim}>show it here</button>
+        This book’s sidebar is in another window on this desk. <button type="button" onClick={onClaim}>show it here</button>
       </div>
     );
   }
@@ -148,8 +148,8 @@ export function LibraryPanel({
         identity: { sourceId: anchor.sourceId, revisionId: anchor.revisionId, extractionId: anchor.extractionId } }
       : { query: text, entry: "library_search", extractionId: null, spanIds: [], identity: null });
   }, [ctl, anchor]);
-  if (!contractQuery.data) return <div className="desk-panel desk-quiet">◐ Reading the library settings…</div>;
-  if (!ctl.enabled) return <div className="desk-panel desk-quiet">Asking across the library is off in Settings.</div>;
+  if (!contractQuery.data) return <div className="desk-panel desk-quiet">◐ {contractQuery.error ? "Couldn’t load library settings. Reopen this window to try again." : "Loading library settings…"}</div>;
+  if (!ctl.enabled) return <div className="desk-panel desk-quiet">Asking across the library is off. Open a source to keep reading.</div>;
   return (
     <NotesContext.Provider value={notes.context}>
       <CompareKeepContext.Provider value={kept.context}>

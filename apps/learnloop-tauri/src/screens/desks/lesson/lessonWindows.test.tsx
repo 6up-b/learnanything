@@ -126,7 +126,7 @@ describe("a Teacher lesson as a stack tab", () => {
     const lesson = screen.getByTestId("lesson-view");
     expect(within(lesson).getByTestId("lesson-learner").textContent).toContain("the log-sum-exp goes up by 3");
     expect(within(lesson).getByTestId("lesson-check-result").textContent).toContain("correct");
-    expect(within(lesson).getByTestId("lesson-close").textContent).toContain("Lesson done.");
+    expect(within(lesson).getByTestId("lesson-close").textContent).toContain("Lesson finished.");
     expect(api.lessonView).toHaveBeenCalledWith({ lessonId: FIXTURE_LESSON_ID, frame: "window" });
     expect(api.lessonTurn).not.toHaveBeenCalled();
     // Nothing to answer, reply to or stop.
@@ -137,7 +137,7 @@ describe("a Teacher lesson as a stack tab", () => {
     const modes = screen.getByRole("group", { name: "lesson modes" });
     expect(within(modes).getAllByRole("button").map((button) => button.textContent)).toEqual(["review", "your additions"]);
     expect(within(modes).getByText("review").getAttribute("aria-pressed")).toBe("true");
-    expect(within(modes).getByText("your committed answers and the reveals, as you left them")).toBeTruthy();
+    expect(within(modes).getByText("Your saved answers and lesson feedback")).toBeTruthy();
   });
 
   it("its tab reads “Teacher lesson · <topic>” and “made <date> from your <what>”", async () => {

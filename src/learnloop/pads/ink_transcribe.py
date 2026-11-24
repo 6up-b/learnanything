@@ -1,42 +1,38 @@
-"""Reading the learner's ink (spec §10.10 "Transcription"): one image of an owner's standing strokes, sent to the
-model routed for ``ink_transcription``, read as Markdown with LaTeX.
+"""Reading the learner's ink (spec §10.10 "Transcription"): one image of an owner's standing strokes, read by
+GLM-OCR, the text recognition ingest uses for page images, and kept as GLM-OCR returns it.
 
-**The route.** ``ai.routing.ink_transcription`` (empty: the active provider, the ChatGPT plan), planned and resolved
-like every paid role (``learnloop.practice_index.paid``): a ready plan serves first; with the plan unavailable the
-learner is asked about OpenRouter and only their "Use OpenRouter instead" routes there (``learnloop.ai.plan_fallback``
-enforces it in the planning, server-side); every request is held to the learner's one OK to use AI
-(``learnloop.ai.model_use``, at admission). A route whose model cannot read images is refused before anything is sent
-(``cannot_read_images``). A metered route is held to the workbench's price and daily envelope
-(``workbench.price_per_million``, ``workbench.max_daily_cost_usd``), whose envelope counts these calls with the step
-checks'.
+**The reader** (owner decision, 2026-11-23: "this should get passed to glm-ocr then passed as text directly").
+GLM-OCR runs where ingest would run it for a page image (``ingest.extractors.glm_ocr.selected_backend`` on
+``[ingest.pdf.glm_ocr]``): z.ai's hosted pipeline when a key is set, or the self-hosted server with
+``backend = "local"`` when it answers. The image goes through the extractor's one entry for an image
+(``GlmOcrDocumentExtractor.recognise_image``): the same request, admission, receipt, retries and price
+(``price_per_million_tokens``) as a document page. The text it recognises becomes the reading directly: no model
+rewrites, completes or interprets it.
 
-**Sent:** the image and the instructions, nothing else (an isolated turn: no files, tools, vault or learner history).
-The prompt names the image's sha256, so a paid answer's checkpoint never answers another image.
+**Admission, as ingest admits a page image.** Hosted: the learner's one OK to use AI (``learnloop.ai.model_use``) and
+the separate OK for sending a file to z.ai (``whole_files_zai``, the one a book's card asks for); without it nothing
+is sent and the line says how to give it. Local: the self-hosted server reads it and nothing is asked, as for a page
+image.
+Neither: nothing is sent, and the line says how to turn text recognition on (Settings, under Ingestion).
 
-**Kept:** the reading, once per owner and standing strokes (``ink_transcriptions``, keyed by the strokes' hash): the
-same strokes are never read twice and a retry spends nothing. ``confidence_label`` is ``may_be_wrong`` for every
-reading (the spec's own words, "transcription may be wrong · fix it": a model's reading is never checked, and no
-calibrated confidence exists to grade it by) and ``nothing_read`` when the model read no writing. A block owner's
-reading also becomes the block's next version, provenance ``ink_transcription``, unless the block stands removed or
-its words are the learner's correction of these same strokes (the learner's words are never overwritten); the
-learner's later edit is a version of provenance ``learner_correction`` (``pads.blocks``). A margin note's reading is
-returned and kept; the note's text is the annotation's own (the client writes it through the annotation's edit).
+**Sent:** the image, nothing else. **Kept:** the reading, once per owner and standing strokes
+(``ink_transcriptions``, keyed by the strokes' hash): the same strokes are never read twice and a retry spends
+nothing. ``confidence_label`` is ``may_be_wrong`` for every reading (the spec's "transcription may be wrong · fix
+it": GLM-OCR gives no calibrated confidence) and ``nothing_read`` when it recognised no text. A block owner's reading
+also becomes the block's next version, provenance ``ink_transcription``, while its strokes still stand and unless the
+block stands removed or its words are the learner's correction (``pads.ink.reading_decision``); the learner's later
+edit is a version of provenance ``learner_correction`` (``pads.blocks``). A margin note's reading is returned and
+kept; the note's text is the annotation's own (the client writes it through the annotation's edit).
 
 Help, never evidence: a reading is the learner's own words as LearnLoop read them, emitted as learner text marked as
 transcribed (``pads.emission``), never graded.
 """
 from __future__ import annotations
 
-import hashlib
 from dataclasses import dataclass
 from typing import Any
 
-from pydantic import Field
-
-from learnloop.ai.execution import call_labels
-from learnloop.ai.schemas import WireModel
-from learnloop.ai.spend import SpendBudget, SpendCaps, spend_envelopes
-from learnloop.ai.transport import IMAGE_INPUT, render_structured_prompt
+from learnloop.ai import model_use
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import ink_strokes as store
@@ -45,41 +41,28 @@ from learnloop.db.stores import pads as pad_store
 from learnloop.ids import new_ulid
 from learnloop.pads import ink as ink_core
 from learnloop.pads import ink_render
-from learnloop.practice_index.paid import PaidCalls, PaidRoute, plan_route, resolve_client
-from learnloop.workbench import check as workbench_check
 
-ROUTE_TASK = "ink_transcription"
-OWNER_KIND = "ink_transcription"
-PROMPT_VERSION = "ink_transcription.v1"
+#: The reading's task on its kept row (``ink_transcriptions.task``), whoever reads.
+TASK = "ink_transcription"
 MAY_BE_WRONG, NOTHING_READ = "may_be_wrong", "nothing_read"
 #: The client id on a block version LearnLoop wrote (a reading), never a client's.
 SERVER_CLIENT_ID = "learnloop:ink_transcription"
+#: The upload a hosted reading needs the learner's OK for: z.ai's, the same as a page image's.
+UPLOAD_FLOW = "glm_ocr_upload"
 
-INSTRUCTIONS = (
-    "The attached image is one piece of a learner's handwriting, drawn with a pen on a tablet: a line of a "
-    "derivation, a formula, words, or a mix. Write out exactly what is written, as Markdown with LaTeX math between "
-    "$ signs ($$ for a displayed equation). Keep the learner's own notation, symbols, order and mistakes: never "
-    "correct, complete, simplify or explain the writing. Where a mark cannot be read, write what it most likely is. "
-    "If the image holds no writing, return an empty string."
+TURN_ON_MESSAGE = (
+    "Handwriting can't be read yet: text recognition (GLM-OCR) isn't set up. To add it, paste a z.ai API key in "
+    "Settings, under Ingestion, or run a local GLM-OCR server."
+)
+NEEDS_OK_MESSAGE = (
+    "Reading your handwriting with GLM-OCR sends a picture of it to z.ai, which needs your OK first. Say OK on a "
+    "book's card in the Library (the same OK covers both), or use a local GLM-OCR server (Settings, under Ingestion)."
 )
 
 
-class InkTranscriptionV1(WireModel):
-    #: The writing as Markdown with LaTeX; empty when no writing can be read.
-    latex_md: str = Field(max_length=20_000)
-
-
-def build_prompt(image_sha256: str) -> str:
-    return render_structured_prompt(
-        "Transcribe handwriting", PROMPT_VERSION,
-        # The image's digest goes last (the envelope puts "context" last), after the fixed instructions.
-        {"instructions": INSTRUCTIONS, "context": {"image": {"media_type": ink_render.MEDIA_TYPE, "sha256": image_sha256}}},
-    )
-
-
 class InkUnavailable(Exception):
-    """Nothing was read. ``reason``: ``models_off`` | ``unrouted`` | ``unpriced`` | ``capped`` | ``unavailable`` |
-    ``cannot_read_images``; ``message`` is the learner's line."""
+    """Nothing was read and nothing was sent. ``reason``: ``unavailable`` (no GLM-OCR set up) | ``needs_upload_ok``
+    (hosted, without the learner's OK for z.ai); ``message`` is the learner's line."""
 
     def __init__(self, reason: str, message: str) -> None:
         super().__init__(message)
@@ -133,65 +116,46 @@ def render(prepared: Prepared) -> bytes:
     return ink_render.render_png(list(prepared.strokes), device_pixel_ratio=prepared.device_pixel_ratio, paper=paper)
 
 
-class InkRoute:
-    """The reading's pinned route for one request (the step check's pattern: ``workbench.check.CheckRoute``)."""
+class InkReader:
+    """GLM-OCR as ingest would run it for a page image now: the backend it selects, and its admission."""
 
-    def __init__(self, vault: Any, repository: Repository, *, client: Any | None, envelope: Any, owner_id: str) -> None:
+    def __init__(self, vault: Any) -> None:
+        from learnloop.ingest.extractors.glm_ocr import selected_backend
+
         self.vault = vault
-        self.repository = repository
-        self.injected = client
-        self.envelope = envelope
-        self.owner_id = owner_id
-        self.route: PaidRoute = plan_route(vault, ROUTE_TASK, client)  # type: ignore[arg-type]
-        self.client: Any | None = None
-        self.calls: PaidCalls | None = None
+        self.settings = vault.config.ingest.pdf.glm_ocr.model_dump()
+        self.backend = selected_backend(self.settings)
+        self.extractor: Any | None = None
+
+    def read(self, image: bytes) -> str:
+        """The text GLM-OCR recognises in ``image``, unchanged. Raises ``InkUnavailable`` (nothing sent) when it
+        cannot run or may not send, ``model_use.ModelUseNotAccepted`` before the learner's OK to use AI."""
+
+        from learnloop.content.pipeline.add_source import file_upload_allowed
+        from learnloop.ingest.extractors.glm_ocr import GlmOcrDocumentExtractor
+
+        if self.backend is None:
+            raise InkUnavailable("unavailable", TURN_ON_MESSAGE)
+        upload_allowed = True
+        if self.backend == "api":
+            model_use.require(self.vault.root)
+            upload_allowed = file_upload_allowed(self.vault.config, UPLOAD_FLOW)
+            if not upload_allowed:
+                raise InkUnavailable("needs_upload_ok", NEEDS_OK_MESSAGE)
+        self.extractor = GlmOcrDocumentExtractor(config=self.settings, backend=self.backend)
+        return self.extractor.recognise_image(image, upload_allowed=upload_allowed)
 
     @property
-    def subscription(self) -> bool:
-        return self.route.billing == "subscription"
-
-    def problem(self) -> InkUnavailable | None:
-        section = self.vault.config.workbench
-        if self.injected is None and workbench_check.models_off():
-            return InkUnavailable("models_off", f"{workbench_check.MODELS_ENV}=off: no workbench model is reached.")
-        if self.injected is None and not self.route.available:
-            return InkUnavailable("unrouted", "No provider is routed to read handwriting (ai.routing.ink_transcription).")
-        if not self.subscription and section.price_per_million is None:
-            return InkUnavailable("unpriced", "A metered route needs workbench.price_per_million before it reads ink.")
-        if not self.subscription and self.envelope is not None and self.envelope.remaining() <= 0:
-            return InkUnavailable(
-                "capped", f"Today's workbench budget (${float(section.max_daily_cost_usd):.2f}) is used.")
-        return None
-
-    def ask(self, prompt: str, image: bytes) -> InkTranscriptionV1:
-        problem = self.problem()
-        if problem is not None:
-            raise problem
-        if self.injected is not None:
-            self.client = self.injected
-        else:
-            self.client, message = resolve_client(self.vault, self.route)
-            if self.client is None:
-                raise InkUnavailable("unavailable", message or "the handwriting model is not ready")
-        if not self.client.supports(IMAGE_INPUT):
-            raise InkUnavailable(
-                "cannot_read_images",
-                f"The model routed to read handwriting ({self.route.provider}) cannot read images, so nothing was sent.")
-        budget = SpendBudget(SpendCaps(max_estimated_usd=None, **workbench_check.CALL_CAPS),
-                             subscription=self.subscription)
-        self.calls = PaidCalls(route=self.route, budget=budget, price_per_million=self.vault.config.workbench.price_per_million,
-                               repository=self.repository, owner_kind=OWNER_KIND, owner_id=self.owner_id)
-        with spend_envelopes(self.envelope):
-            return self.calls.call(self.client, purpose=ROUTE_TASK, prompt=prompt, result_model=InkTranscriptionV1,
-                                   output_tokens=self.route.output_tokens,
-                                   metadata={"prompt_version": PROMPT_VERSION},
-                                   images=((ink_render.MEDIA_TYPE, image),), isolated=True)
+    def provider(self) -> str | None:
+        return getattr(self.extractor, "provider_name", None)
 
     @property
-    def model(self) -> str | None:
-        if self.calls is not None and self.calls.last_resolved_model:
-            return self.calls.last_resolved_model
-        return getattr(self.client, "model", None) or self.route.model
+    def version(self) -> str:
+        """What read it, on the kept row (``prompt_version``: a reader's version; no prompt is sent)."""
+
+        from learnloop.ingest.extractors.glm_ocr import LAYOUT_MODEL, RECOGNITION_MODEL
+
+        return f"glm_ocr:{RECOGNITION_MODEL}+{LAYOUT_MODEL}+{self.backend}"
 
 
 def _result(connection: Any, row: dict[str, Any], *, applied: bool | None = None, reason: str | None = None) -> dict[str, Any]:
@@ -231,27 +195,25 @@ def _apply_to_block(connection: Any, row: dict[str, Any], now: str) -> tuple[boo
     return True, None
 
 
-def transcribe(vault: Any, repository: Repository, prepared: Prepared, *, client: Any | None = None,
-               clock: Clock | None = None) -> dict[str, Any]:
+def transcribe(vault: Any, repository: Repository, prepared: Prepared, *, clock: Clock | None = None) -> dict[str, Any]:
     """Read the strokes (or return their reading, spending nothing) and keep it. Raises ``InkUnavailable`` when
-    nothing could be read, ``ink_render.InkTooLarge`` when the strokes cannot be drawn."""
+    nothing could be sent, ``ink_render.InkTooLarge`` when the strokes cannot be drawn, and GLM-OCR's own errors
+    (``GlmOcrExtractionError``) when it could not read them."""
+
+    from learnloop.ingest.extractors.glm_ocr import RECOGNITION_MODEL
 
     earlier = stored(repository, prepared)
     if earlier is not None:
         return earlier
-    image = render(prepared)
-    digest = hashlib.sha256(image).hexdigest()
-    route = InkRoute(vault, repository, client=client, envelope=workbench_check.daily_envelope(vault, repository, clock=clock),
-                     owner_id=f"{prepared.owner_kind}:{prepared.owner_id}:{prepared.content_hash}")
-    with call_labels(judge="llm", question_set_version=PROMPT_VERSION):
-        output = route.ask(build_prompt(digest), image)
-    latex_md = output.latex_md.strip()
+    reader = InkReader(vault)
+    # The recognised text is the reading as it is: never rewritten, trimmed or interpreted here.
+    latex_md = reader.read(render(prepared))
     now = utc_now_iso(clock)
     row = {
         "transcription_id": "it_" + new_ulid(), "owner_kind": prepared.owner_kind, "owner_id": prepared.owner_id,
         "content_hash": prepared.content_hash, "latex_md": latex_md,
-        "confidence_label": MAY_BE_WRONG if latex_md else NOTHING_READ, "task": ROUTE_TASK,
-        "provider": route.route.provider, "model": route.model, "prompt_version": PROMPT_VERSION, "created_at": now,
+        "confidence_label": MAY_BE_WRONG if latex_md.strip() else NOTHING_READ, "task": TASK,
+        "provider": reader.provider, "model": RECOGNITION_MODEL, "prompt_version": reader.version, "created_at": now,
     }
     with repository.atomic():
         connection = repository.connection()
@@ -264,6 +226,5 @@ def transcribe(vault: Any, repository: Repository, prepared: Prepared, *, client
         return _result(connection, row, applied=applied, reason=reason)
 
 
-__all__ = ["INSTRUCTIONS", "InkRoute", "InkTranscriptionV1", "InkUnavailable", "MAY_BE_WRONG", "NOTHING_READ",
-           "OWNER_KIND", "PROMPT_VERSION", "Prepared", "ROUTE_TASK", "build_prompt", "prepare", "render", "stored",
-           "transcribe"]
+__all__ = ["InkReader", "InkUnavailable", "MAY_BE_WRONG", "NEEDS_OK_MESSAGE", "NOTHING_READ", "Prepared", "TASK",
+           "TURN_ON_MESSAGE", "UPLOAD_FLOW", "prepare", "render", "stored", "transcribe"]

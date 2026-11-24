@@ -34,9 +34,13 @@ export function choosePassage(result: FollowAlongDto | null, bookExtractionId: s
   return primary ?? candidates[0] ?? null;
 }
 
+export function chapterLabel(chapter: { title: string; t0: number; held?: boolean }): string {
+  return chapter.held ? `Chapter at ${clockWords(chapter.t0)}` : chapter.title;
+}
+
 /** The chapter a chip names: the accepted chapter the time falls in, else the transcript section's label. */
 export function chapterWords(result: FollowAlongDto | null): string {
-  return result?.chapter?.title ?? result?.section?.title ?? "";
+  return result?.chapter ? chapterLabel(result.chapter) : result?.section?.title ?? "";
 }
 
 export type FollowChipState =
@@ -55,13 +59,13 @@ export function chipText(state: FollowChipState): string {
     case "unlinked":
       return `unlinked · u to follow ▶${state.chapter ? ` ${state.chapter}` : ""}`;
     case "waiting":
-      return `following ▶ ${clockWords(state.t)}`;
+      return `Looking for a passage at ▶ ${clockWords(state.t)}…`;
   }
 }
 
 /** Accepted chapters' ticks on the scrub track (their starts). */
 export function chapterTicks(chapters: readonly VideoChapterDto[]): Array<{ t: number; title: string }> {
-  return chapters.filter((chapter) => chapter.state === "accepted").map((chapter) => ({ t: chapter.t0, title: chapter.title }));
+  return chapters.filter((chapter) => chapter.state === "accepted").map((chapter) => ({ t: chapter.t0, title: chapterLabel(chapter) }));
 }
 
 /** Accepted chapters' ranges on the shelf row's minimap, as fractions of the video's length. */

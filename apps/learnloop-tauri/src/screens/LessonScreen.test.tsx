@@ -123,8 +123,10 @@ it("the close card promises only the checks that were set, and a plan outage kee
              delayedChecks: [{ learningObjectId: "lo_eigen", title: "Eigenvalues", purpose: "retention", due: "2099-01-01" }] }],
   }));
   const card = screen.getByTestId("lesson-close");
-  expect(card.textContent).toContain("Lesson done.");
-  expect(card.textContent).toContain("one question on Eigenvalues, on your own");
+  expect(card.textContent).toContain("Lesson finished.");
+  expect(card.textContent).toContain("A cold check comes in about");
+  expect(card.textContent).toContain("Answer it on your own");
+  expect(card.textContent).not.toContain("Eigenvalues");
   expect(screen.queryByText("Send")).toBeNull();
 });
 
@@ -133,7 +135,7 @@ it("a lesson ended by a protection change offers a fresh lesson with a fresh bri
     closed: true, closeReason: "protection_changed",
     feed: [{ kind: "close", reason: "protection_changed", recap: null, delayedChecks: [] }],
   }));
-  expect(screen.getByTestId("lesson-close").textContent).toContain("now kept for your exam or held out");
+  expect(screen.getByTestId("lesson-close").textContent).toContain("This lesson ended. Everything so far is saved; start a new lesson to continue.");
   expect(screen.queryByText("Send")).toBeNull();
   api.lessonTurn.mockResolvedValueOnce(lesson({ lessonId: "les2" }));
   await act(async () => { fireEvent.click(screen.getByTestId("lesson-start-fresh")); });

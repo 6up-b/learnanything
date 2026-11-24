@@ -153,12 +153,14 @@ def by_search(vault: Any, repository: Any, text: str, *, exclude_sources: Iterab
     scope = Scope("elsewhere", {key: value for key, value in library.extractions.items()
                                 if value.source_id not in excluded_sources and key not in protected.extractions},
                   frozenset(excluded | set(protected.spans)))
-    if not scope.extractions:
+    if not scope.extractions or withheld_places(vault, repository, excluded):
         return []
     search = search_spans(vault, repository, words, scope, deep=deep, embedder=embedder, owner_id=owner_id,
                           consumer="elsewhere")
     hits = [hit for hit in search.hits if scope.allows(*hit.key)]
-    hidden = withheld_places(vault, repository, [hit.key for hit in hits])
+    hidden = withheld_places(vault, repository, excluded | {hit.key for hit in hits})
+    if hidden & excluded:
+        return []
     hits = [hit for hit in hits if hit.key not in hidden]
     if not hits:
         return []

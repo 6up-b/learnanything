@@ -50,11 +50,11 @@ export function ThreadWindow({ rootExchangeId, extractionId, onOpenClaim }: {
   }, [extractionId, rootExchangeId, paused, exchanges]);
 
   if (!extractionId) {
-    return <div className="desk-panel desk-quiet">This thread's reading isn't known on this desk. It is in the companion's history.</div>;
+    return <div className="desk-panel desk-quiet">This conversation can’t open here. Look for it in the companion’s History.</div>;
   }
-  if (failure) return <div className="desk-panel desk-quiet">couldn't read this thread just now · {failure}</div>;
-  if (exchanges === null) return <div className="desk-panel desk-quiet">◐ reading the thread…</div>;
-  if (exchanges.length === 0) return <div className="desk-panel desk-quiet">This thread has no answered exchange in this reading.</div>;
+  if (failure) return <div className="desk-panel desk-quiet">Couldn’t load this conversation. Reopen it or look in the companion’s History.</div>;
+  if (exchanges === null) return <div className="desk-panel desk-quiet">◐ Loading replies…</div>;
+  if (exchanges.length === 0) return <div className="desk-panel desk-quiet">No replies to show here. Look in the companion’s History.</div>;
   return (
     <div className="desk-thread" data-thread-window={rootExchangeId}>
       {exchanges.map((exchange) => (

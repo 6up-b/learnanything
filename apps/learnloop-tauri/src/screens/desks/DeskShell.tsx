@@ -109,7 +109,7 @@ import { PadStackWindow } from "./pads/PadStackWindow";
 import { ContextMenu, useSheetFocus, type PromotedApi } from "./menu/ContextMenu";
 import { KnowsPanel } from "./menu/KnowsPanel";
 import { ExerciseSheet } from "./menu/ExerciseSheet";
-import { captureNodes, hasPassage, headerLine, objectAt, objectInput, type MenuObject } from "./menu/model";
+import { captureNodes, hasPassage, headerLine, objectAt, objectInput, passageIds, type MenuObject } from "./menu/model";
 import { promotedRef, runVerb, sourceMenuRows, type MenuApi, type MenuContext } from "./menu/verbs";
 import { DrainPanel } from "./pads/DrainPanel";
 import { PassageMarks, visibleSpanRange, type PadLink } from "./pads/PassageMarks";
@@ -204,6 +204,7 @@ interface Grounding {
 
 /** A pad line asked about ("Ask about this" in the pad menu or a card): its block and the passage it links to. */
 export interface PadAskContext {
+  blockIds?: string[];
   padId: string;
   blockId: string | null;
   anchor: { extractionId: string; spanId: string } | null;
@@ -211,6 +212,7 @@ export interface PadAskContext {
 
 /** What the chip asks about: a selection in a window, or a pad line. */
 export interface AskChip {
+  extractionId?: string;
   quote?: string;
   spanIds: string[];
   windowId: string;
@@ -233,13 +235,14 @@ export function groundingFor(ws: Workspace, chip: AskChip | null, focus: DeskWin
       // Asked from the pad (its window owns the question's poll), about the book where the learner reads.
       return { reason: null, extractionId: content.extractionId, spanId: span, windowId: chip.windowId, spanWindowId: id, padBlockId };
     }
-    return { reason: "this line is linked to no passage, and no book or video is open on this desk to ask beside" };
+    return { reason: "Open a book or video on this desk before asking about this line." };
   }
   if (chip && chip.spanIds.length) {
     const content = ws.windows[chip.windowId]?.content;
     if (content && (content.kind === "source" || content.kind === "video")) {
-      return { reason: null, extractionId: content.extractionId, spanId: chip.spanIds[0], windowId: chip.windowId };
+      return { reason: null, extractionId: chip.extractionId ?? content.extractionId, spanId: chip.spanIds[0], windowId: chip.windowId };
     }
+    return { reason: "reopen the selected passage to ask about it" };
   }
   const content = focus?.content;
   if (focus && content && (content.kind === "source" || content.kind === "video")) {
@@ -248,7 +251,7 @@ export function groundingFor(ws: Workspace, chip: AskChip | null, focus: DeskWin
     const span = status[focus.windowId]?.readingSpan ?? (typeof focus.view?.spanId === "string" ? (focus.view.spanId as string) : undefined);
     return { reason: null, extractionId: content.extractionId, spanId: span ?? undefined, windowId: focus.windowId };
   }
-  return { reason: "ask from a passage: focus a book or a video, or select a passage, then press c" };
+  return { reason: "Open a book or video, or select a passage, then press C to ask." };
 }
 
 /** A Compare window's passage anchor, kept in its view by the menu's Compare (null when it was opened bare). */
@@ -660,7 +663,7 @@ export function DeskShell({
   const [companionDock, setCompanionDockShown] = useState<CompanionDock>("br");
   const [chip, setChip] = useState<(AskChip & { quote: string }) | null>(null);
   const [avoid, setAvoid] = useState(0);
-  const [search, setSearch] = useState<{ query: string; insert?: ((row: SearchRow) => void) | null } | null>(null);
+  const [search, setSearch] = useState<{ query: string; selection?: { extractionId: string; spanIds: string[] }; blockIds?: string[]; insert?: ((row: SearchRow) => void) | null } | null>(null);
   // Pads (spec §10): the stacks' key handles, the carried questions, and the desk drain while it is open.
   const padHandles = useRef(new Map<string, PadStackHandle>());
   const [carried, setCarried] = useState<{ list: CarriedQuestionDto[]; limit: number; more: boolean }>({ list: [], limit: 3, more: false });
@@ -735,13 +738,13 @@ export function DeskShell({
 
   // What the store could not save, said in one line.
   useEffect(() => store.onNotice((notice) => {
-    if (notice.kind === "rejected") toastNow("that change couldn't be saved, and was undone");
+    if (notice.kind === "rejected") toastNow("That change couldn’t be saved. Check the desk before trying again.");
     else if (notice.kind === "conflict") {
       const total = notice.dropped + notice.lost;
-      if (total > 0) toastNow(`the desk changed elsewhere · ${total} change${total === 1 ? "" : "s"} couldn't be kept`);
+      if (total > 0) toastNow(`the desk changed elsewhere · ${total} change${total === 1 ? "" : "s"} couldn’t be saved. Check the desk before trying again.`);
     } else if (notice.kind === "kept-both") {
-      toastNow(`your words met newer ones written elsewhere · both are kept, yours as ${notice.count === 1 ? "its own block" : "their own blocks"} marked “written over an older version”`);
-    } else if (notice.kind === "offline") toastNow("couldn't save the desk just now · it is kept here until it can be");
+      toastNow(`Your edit overlaps with a newer one. Look for your edit in ${notice.count === 1 ? "a separate line" : "separate lines"} marked “written over an older version”.`);
+    } else if (notice.kind === "offline") toastNow("Still waiting to save your desk changes. Keep LearnLoop open.");
     else onError(notice.message);
   }), [store, toastNow, onError]);
 
@@ -769,8 +772,8 @@ export function DeskShell({
         setLibrary(cards);
         if (state && store.ws.desks.length === 0) store.commit(await firstRun(store.ws, cards));
         if (live) setStoreReady(true);
-      } catch (error) {
-        if (live) onError(error instanceof Error ? error.message : typeof error === "object" && error && "message" in error ? String((error as { message: unknown }).message) : String(error));
+      } catch {
+        if (live) onError("Couldn’t open your desks. Switch away from Reader, then open it again.");
       }
     })();
     // A load that lands after this shell unmounted changes nothing here.
@@ -1271,7 +1274,9 @@ export function DeskShell({
       .filter((relation) => current.windows[relation.windowId]?.deskId === id && current.windows[relation.windowId]?.content?.kind === "thread")
       .map((relation) => relation.windowId);
     const newDeskId = mintId("desk");
-    const title = `new desk · ${shortName(titleOf(current.windows[windowId]))}`;
+    const window = current.windows[windowId];
+    // A comparison's window title can contain the passage used as its query.
+    const title = `new desk · ${window.content?.kind === "compare" ? "comparison" : shortName(titleOf(window))}`;
     let step = createDesk(current, newDeskId, title);
     let after: string | null = null;
     for (const moving of [windowId, ...threads]) {
@@ -1667,7 +1672,7 @@ export function DeskShell({
         const max = Math.max(0, slotRects(each.slots.length, st).reduce((end, rect) => Math.max(end, rect.x + rect.w), 0) + DESK_SIZES.side - st.width);
         setCamX((cams) => ({ ...cams, [id]: Math.max(0, Math.min(max, (cams[id] ?? 0) + travel)) }));
         g.panned = true;
-        setHud("alt + swipe · moving along the strip · lift to snap");
+        setHud("Alt + swipe to move between windows. Lift your fingers to stop.");
         timers.clear(g.timer);
         g.timer = timers.set(endGesture, OVERVIEW.panSnapMs);
         return;
@@ -1691,7 +1696,7 @@ export function DeskShell({
       }
       if (stepped.kind === "target" || stepped.kind === "begin-and-target") {
         const how = g.source === "pinch" ? "pinch" : modifiers.read(event).alt ? "alt + scroll" : "ctrl + scroll";
-        setHud(`${how} · zooming ${dy > 0 ? "out" : "in"} · lift to settle`);
+        setHud(`${how} · zooming ${dy > 0 ? "out" : "in"} · lift your fingers to stop`);
       } else {
         setHud("");
       }
@@ -1741,7 +1746,7 @@ export function DeskShell({
       }
       d.moved = true;
       controller.setTarget(dragProgress(d.base, dy));
-      setHud("ctrl + drag · zooming · let go to settle");
+      setHud("Ctrl + drag to zoom. Let go to stop.");
       return;
     }
     if (d.kind === "pan") {
@@ -1969,6 +1974,10 @@ export function DeskShell({
     });
     keepPrevious.current = !step.existed;
     commit(step);
+    if (step.existed && options.view?.compareAnchor) {
+      const shown = wsRef.current.windows[step.windowId];
+      commit(setView(wsRef.current, id, step.windowId, { ...shown.view, compareAnchor: options.view.compareAnchor }));
+    }
     if (step.existed && options.spanId) {
       // A claim in a window already open is a peek there (its strip shows the way back); else a jump.
       const inquiry = options.peek ? inquiries.current.get(step.windowId) : undefined;
@@ -2258,7 +2267,7 @@ export function DeskShell({
       spanId,
       selectionSpanIds: padLine ? undefined : selected?.spanIds,
       quote: padLine ? null : selected?.quote ?? null,
-      ...(grounding.padBlockId ? { padBlockIds: [grounding.padBlockId] } : {}),
+      ...(grounding.padBlockId ? { padBlockIds: selected?.pad?.blockIds ?? [grounding.padBlockId] } : {}),
       ...personalizedInput(),
     // The sidecar records the desk's focus and windows with the question: the writes queued so far land first.
     }, store.settled());
@@ -2333,7 +2342,7 @@ export function DeskShell({
     }
     const ref = row.ref;
     if (!ref) {
-      toastNow("this result has nothing to open yet");
+      toastNow("Can’t open this result here. Search for its source by title.");
       return;
     }
     // A note opens by its identity: a Reader note or highlight in its book at its passage (the window's view
@@ -2343,7 +2352,7 @@ export function DeskShell({
     if (note.noteKind === "note") {
       const target = row.target ?? {};
       if (note.noteRefKind === "capture" || ref.kind === "panel") {
-        toastNow(`“${(note.title || note.snippet || "this note").slice(0, 60)}” is an inbox note · it opens from Today's inbox`);
+        toastNow(`“${(note.title || note.snippet || "this note").slice(0, 60)}” is an inbox note. Open Today, then Inbox.`);
         return;
       }
       openContent(ref, { spanId: target.spanId ?? null, view: { ...(target.noteKey ? { noteKey: target.noteKey } : {}), ...(target.annotationId ? { annotationId: target.annotationId } : {}) } });
@@ -2459,10 +2468,10 @@ export function DeskShell({
 
 
   /** Carry a question; settles when the sidecar has it (rejecting, with its reason, when it does not). */
-  const carryQuestion = useCallback((text: string, origin: { kind: CarriedQuestionDto["originKind"]; ref?: string | null; anchor?: { extractionId: string; spanId: string } | null }): Promise<void> => {
-    const carried = Promise.resolve().then(() => padsTransport.carriedCarry({ carriedId: mintId("carried"), text, originKind: origin.kind, originRef: origin.ref ?? null, anchor: origin.anchor ?? null, deskId: deskIdRef.current }));
+  const carryQuestion = useCallback((text: string, origin: { blockIds?: string[]; kind: CarriedQuestionDto["originKind"]; ref?: string | null; anchor?: { extractionId: string; spanId: string } | null }): Promise<void> => {
+    const carried = Promise.resolve().then(() => padsTransport.carriedCarry({ carriedId: mintId("carried"), text, originKind: origin.kind, ...(origin.blockIds ? { blockIds: origin.blockIds } : {}), originRef: origin.ref ?? null, anchor: origin.anchor ?? null, deskId: deskIdRef.current }));
     void carried.then(() => {
-      toastNow("carried · it comes back beside a related passage");
+      toastNow("Carried question saved. It may appear beside a related passage.");
       refreshCarried();
     }, (error: unknown) => toastNow(`couldn't carry it · ${errorText(error)}`));
     return carried.then(() => undefined);
@@ -2492,7 +2501,7 @@ export function DeskShell({
       const text = (element?.textContent ?? "").replace(/\s+/g, " ").trim().slice(0, 600);
       if (!text) continue;
       const title = titleOf(window);
-      out.push({ label: `${content.kind === "video" ? "the cue playing now" : "the passage in view"} · ${shortName(title)}`, extractionId: content.extractionId, spanId, text, sourceTitle: title });
+      out.push({ label: `${content.kind === "video" ? "the current caption" : "the passage in view"} · ${shortName(title)}`, extractionId: content.extractionId, spanId, text, sourceTitle: title });
     }
     return out;
   }, [titleOf]);
@@ -2534,7 +2543,7 @@ export function DeskShell({
   const hoveredKeyRef = useRef<(what: "note" | "promoted") => boolean>(() => false);
   /** A figure as a `figure` block in the running pad of the desk Show me was asked on (captured when asked), not the
    * desk shown when it is ready: Show me's interim landing, and the companion figure's "move to scratchpad". */
-  const landFigureBlock = useCallback(async (anchor: { extractionId: string | null; spanId: string | null }, figure: { figureId: string; line: string }, padId: string | null) => {
+  const landFigureBlock = useCallback(async (anchor: { extractionId: string | null; spanId: string | null; spanIds?: string[] }, figure: { figureId: string; line: string }, padId: string | null) => {
     if (padId) await store.loadPad(padId);
     const pad = padId ? store.pads[padId] : null;
     if (!padId || !pad) {
@@ -2542,8 +2551,8 @@ export function DeskShell({
       throw new Error("no running pad");
     }
     store.commitPad(padId, [{ op: "insert_block", blockId: mintId("blk"), versionId: mintId("ver"), kind: "figure", provenance: "learnloop", positionKey: keyAfterLast(pad.blocks), day: localDay(),
-      bodyMd: figure.line, payload: { figure_id: figure.figureId, extraction_id: anchor.extractionId, span_id: anchor.spanId } }]);
-    toastNow("◇ the figure is in your running pad");
+      bodyMd: figure.line, payload: { figure_id: figure.figureId, extraction_id: anchor.extractionId, span_id: anchor.spanId, ...(anchor.spanIds ? { span_ids: anchor.spanIds } : {}) } }]);
+    toastNow("◇ the figure was added to your running pad");
   }, [store, toastNow, mintId]);
   const companionFigureHost = useMemo<CompanionFigureHost>(() => ({
     moveToPad: (entry) => landFigureBlock(entry.anchor, { figureId: entry.figure.figureId, line: entry.figure.demonstrates || entry.figure.goalText || "a figure" }, entry.destination),
@@ -2607,15 +2616,15 @@ export function DeskShell({
     api: padsTransport,
     practiceSessionId: reader?.workbench?.practiceSessionId ?? null,
     openPassage,
-    openSearch: (query, insert) => setSearch({ query, insert: insert ?? null }),
+    openSearch: (query, insert, blockIds) => setSearch({ query, insert: insert ?? null, blockIds }),
     askAbout: (quote, context) => {
       setChip({ quote: clipQuote(quote, 400), spanIds: [], windowId: focusIdRef.current ?? "", ...(context ? { pad: context } : {}) });
       stepCompanion({ kind: "dock" });
     },
-    showMe: async (text: string, anchor: { extractionId: string; spanId: string } | null, ownerWindowId?: string) => {
+    showMe: async (text: string, anchor: { extractionId: string; spanId: string; spanIds?: string[] } | null, ownerWindowId?: string, blockIds?: string[]) => {
       // The Reader's figure build (RW5d), read through the one poller under the pad window that asked: a paused
       // window's poll waits with it. A figure that is not shown lands nowhere.
-      const first = await padsTransport.figureRequest({ goalText: text, origin: "show_me", anchor: anchor ? { extractionId: anchor.extractionId, spanIds: [anchor.spanId] } : null });
+      const first = await padsTransport.figureRequest({ goalText: text, origin: "show_me", ...(blockIds ? { blockIds } : {}), anchor: anchor ? { extractionId: anchor.extractionId, spanIds: anchor.spanIds ?? [anchor.spanId] } : null });
       const job = first.state !== "pending" ? first : await new Promise<typeof first>((resolve, reject) => {
         // The poll ends on every terminal path: a result, a job the sidecar no longer knows, or the window that asked
         // being closed (its paused polls would otherwise wait for ever).
@@ -2651,7 +2660,7 @@ export function DeskShell({
       knows: (object) => setKnows(object),
     },
     // A pad line's Teach me opens a lesson tab in the desk's stack, as the source menu's does (one path).
-    teachMe: (extractionId: string, spanIds: string[]) => openLesson({ kind: "open", entry: "reader_selection", selection: { extractionId, spanIds } }),
+    teachMe: (extractionId: string, spanIds: string[], blockIds?: string[]) => openLesson({ kind: "open", entry: "reader_selection", selection: { extractionId, spanIds, ...(blockIds ? { blockIds } : {}) } }),
     toast: toastNow,
     setView: (windowId, view) => {
       const window = wsRef.current.windows[windowId];
@@ -2695,12 +2704,11 @@ export function DeskShell({
   const newPadBeside = useCallback(() => {
     const id = deskIdRef.current;
     if (!id) return;
-    const selected = focusIdRef.current ? readWindowSelection(focusIdRef.current, stageRef.current) : null;
     const padId = mintId("pad");
-    const title = selected ? `Scratchpad · “${selected.quote.slice(0, 40)}”` : "Scratchpad · new notes";
+    const title = "Scratchpad · new notes";
     const refused = store.commitPad(padId, [{ op: "create_pad", kind: "named", title, homeDeskId: id }]);
     if (refused) {
-      toastNow(`couldn't make a pad · ${refused.message}`);
+      toastNow("Couldn’t make a pad. Reopen this desk and try again.");
       return;
     }
     commit(openStackBeside(wsRef.current, id, [padId], () => mintId("win")));
@@ -2729,8 +2737,8 @@ export function DeskShell({
     const lines = answer.answerMd.split("\n").map((line) => line.trim()).filter(Boolean).slice(0, 6);
     return [{
       id: `${exchange.requestId}:running`,
-      target: (known ? store.pads[known]?.pad.title : "") || "running",
-      label: "Add this to your pad",
+      target: (known ? store.pads[known]?.pad.title : "") || "running pad",
+      label: "Copy the full reply",
       lines,
       onAccept: async () => {
         if (!runningPadOf(exchange.deskId)) await Promise.all(deskPadIds(exchange.deskId).map((padId) => store.loadPad(padId)));
@@ -2904,7 +2912,7 @@ export function DeskShell({
       }
       const books = (deskById(wsRef.current, deskIdRef.current)?.slots.flat() ?? []).filter((id) => videoDesk.chipFor(id));
       if (!books.length) {
-        toastNow("no video on this desk to follow");
+        toastNow("Open a video on this desk to follow it.");
         return true;
       }
       for (const id of books) videoDesk.toggle(id);
@@ -2926,7 +2934,7 @@ export function DeskShell({
       }
       const clock = videoDesk.clockOf(windowId);
       if (!clock?.spanId) {
-        toastNow("the video hasn't reached a caption yet · play it, then alt+;");
+        toastNow("Play the video until a caption appears, then press Alt+; again.");
         return true;
       }
       const title = titleOf(wsRef.current.windows[windowId]);
@@ -2946,7 +2954,7 @@ export function DeskShell({
         }
         const pad = padId ? store.pads[padId] : null;
         if (!padId || !pad) {
-          toastNow("couldn't find this desk's running pad");
+          toastNow("Couldn’t find this desk’s running pad. Open it and try again.");
           return;
         }
         const blockId = mintId("blk");
@@ -2955,7 +2963,7 @@ export function DeskShell({
             day: localDay(), bodyMd: line, payload: { source_title: title, t: Math.floor(clock.t), extraction_id: content.extractionId, span_id: clock.spanId } },
           { op: "link_anchor", blockId, extractionId: content.extractionId, spanId: clock.spanId as string, eventId: mintId("lnk"), expectedAnchorHead: null },
         ]);
-        toastNow(refused ? `couldn't stamp the time · ${refused.message}` : `${line} · in the running pad`);
+        toastNow(refused ? "Couldn’t add the video time. Open the running pad and try again." : `${line} · adding to the running pad…`);
       })();
       return true;
     },
@@ -3019,7 +3027,7 @@ export function DeskShell({
     let target = choice === null ? appendTargetOf(id) : choice;
     if (target === "+") {
       const padId = mintId("pad");
-      const title = `Scratchpad · “${(object.selection || object.text).slice(0, 40)}”`;
+      const title = "Scratchpad";
       const refused = store.commitPad(padId, [{ op: "create_pad", kind: "named", title, homeDeskId: id }]);
       if (refused) {
         toastNow(`couldn't make a pad · ${refused.message}`);
@@ -3048,13 +3056,14 @@ export function DeskShell({
         const receipt = await menuTransport.readerCapture({
           sourceId: who.sourceId, revisionId: who.revisionId, extractionId: object.extractionId, renderViewId: who.renderViewId,
           action: "highlight", clientIdempotencyKey: mintId("hl"),
-          rawSelection: { extractionId: object.extractionId, nodes: captureNodes(object) },
+          rawSelection: { extractionId: object.extractionId, spanId: object.spanId, spanIds: passageIds(object), nodes: captureNodes(object) },
         });
         // A highlight that could not be placed is not linked from the block (the block still links its passages).
-        if (receipt.anchorStatus === "needs_reanchor") toastNow("the highlight's place needs re-anchoring: the line links to the passages without it");
+        if (receipt.anchorStatus === "needs_reanchor") toastNow("couldn’t place the highlight · the pad line still links to the passage");
         else annotationId = receipt.annotationId;
-      } catch {
-        // The block still links to the passage; only the highlight is missing.
+      } catch (error) {
+        toastNow(`couldn't capture that passage · ${errorText(error)}`);
+        return;
       }
     }
     const words = (object.selection || object.text).replace(/\s+/g, " ").trim();
@@ -3064,19 +3073,26 @@ export function DeskShell({
     const refused = store.commitPad(target, [
       { op: "insert_block", blockId, versionId: mintId("ver"), kind: "source_quote", provenance: "source", positionKey: keyAfterLast(pad.blocks),
         day: pad.pad.kind === "running" ? localDay() : null, bodyMd: body,
-        payload: { source_id: object.sourceId ?? null, source_title: titleOf(window), extraction_id: object.extractionId, span_id: object.spanId, ...(object.t !== undefined ? { t: object.t } : {}) } },
+        payload: { source_id: object.sourceId ?? null, source_title: titleOf(window), extraction_id: object.extractionId, span_id: object.spanId, span_ids: passageIds(object), ...(object.t !== undefined ? { t: object.t } : {}) } },
       // Every passage the selection touches links back to the line (each with its own ✎ mark).
       ...captureNodes(object).map((node) => ({ op: "link_anchor" as const, blockId, extractionId: object.extractionId as string, spanId: node.spanId, eventId: mintId("lnk"), expectedAnchorHead: null, annotationId })),
     ]);
-    if (refused) toastNow(`couldn't append it · ${refused.message}`);
-    else toastNow(`appended to “${pad.pad.title || "running"}”`);
+    if (refused) toastNow(`couldn’t add it · ${refused.message}`);
+    else toastNow(`adding to “${pad.pad.title || "running"}”…`);
   }, [appendTargetOf, commit, menuTransport, mintId, rememberAppendTarget, store, titleOf, toastNow]);
 
   // The rows the open source menu shows (Open beside takes its correspondent from them): told by that menu only
   // while it is open on its object, so a closed menu's late answer never lands here.
   const menuPromotedRows = useRef<import("../../api/dto").PromotedRowDto[]>([]);
-  const [menuWithheld, setMenuWithheld] = useState(false);
-  const menuWithheldAnswer = useRef<{ promise: Promise<boolean>; resolve: (withheld: boolean) => void }>({ promise: Promise.resolve(false), resolve: () => undefined });
+  const liveMenu = useRef<MenuObject | null>(null);
+  const closeSourceMenu = () => {
+    liveMenu.current = null;
+    menuWithheldAnswer.current.resolve(null);
+    setMenu(null);
+  };
+  const [menuWithheld, setMenuWithheld] = useState<boolean | null>(null);
+  const menuOpening = useRef(0);
+  const menuWithheldAnswer = useRef<{ promise: Promise<boolean | null>; resolve: (withheld: boolean | null) => void }>({ promise: Promise.resolve(null), resolve: () => undefined });
   const menuContext = useMemo<MenuContext>(() => ({
     deskId,
     // A capture from the menu (a margin note, an append's highlight) is read again by the windows showing its
@@ -3093,12 +3109,12 @@ export function DeskShell({
     toast: toastNow,
     ask: (object) => {
       const quote = clipQuote(object.selection || object.text, 400);
-      if (object.windowId) setChip({ quote, spanIds: object.spanIds ?? (object.spanId ? [object.spanId] : []), windowId: object.windowId });
+      if (object.windowId) setChip({ quote, extractionId: object.extractionId, spanIds: passageIds(object), windowId: object.windowId });
       const box = stageRef.current?.getBoundingClientRect();
       const anchor = box ? { x: object.at.x - box.left, y: object.at.y - box.top, w: 1, h: 1 } : null;
       if (companionStateRef.current.mode === "hidden") stepCompanion({ kind: "c", anchor, stage: stageNow.current });
     },
-    openSearch: (query) => setSearch({ query }),
+    openSearch: (query, selection) => setSearch({ query, selection }),
     openContent: (ref, options) => openContent(ref, options ?? {}),
     carry: (text, origin) => carryQuestion(text, origin),
     append: (object, choice) => void appendTo(object, choice),
@@ -3122,7 +3138,7 @@ export function DeskShell({
       // The figure is in the companion's answer: it is summoned (docked) if it was hidden.
       if (companionStateRef.current.mode === "hidden") stepCompanion({ kind: "dock" });
     },
-    landFigure: (object, figure, padId) => landFigureBlock({ extractionId: object.extractionId ?? null, spanId: object.spanId ?? null }, figure, padId).catch(() => undefined),
+    landFigure: (object, figure, padId) => landFigureBlock({ extractionId: object.extractionId ?? null, spanId: object.spanId ?? null, spanIds: passageIds(object) }, figure, padId).catch(() => undefined),
     windowMove: (kind, windowId) => {
       const id = deskIdRef.current;
       if (!id) return;
@@ -3236,18 +3252,28 @@ export function DeskShell({
   };
   const openMenuOn = (object: MenuObject) => {
     if (object.kind === "pad_line") {
+      closeSourceMenu();
       const handle = object.windowId ? padHandles.current.get(object.windowId) : undefined;
-      if (handle && object.padId) handle.openMenu(object.padId, object.blockId ?? null, object.at, object.selection);
+      if (handle && object.padId) handle.openMenu(object.padId, object.blockId ?? null, object.at, object.selection, object.blockIds);
       return;
     }
+    liveMenu.current = object;
     menuPromotedRows.current = [];
     // The object's protection is known from its first answer; a verb that would send its words waits for it.
-    setMenuWithheld(false);
-    let resolve: (withheld: boolean) => void = () => undefined;
-    menuWithheldAnswer.current = { promise: new Promise<boolean>((done) => { resolve = done; }), resolve: (withheld) => resolve(withheld) };
-    if (!hasPassage(object)) menuWithheldAnswer.current.resolve(false);
+    menuOpening.current++;
+    menuWithheldAnswer.current.resolve(null);
+    setMenuWithheld(null);
+    let resolve: (withheld: boolean | null) => void = () => undefined;
+    menuWithheldAnswer.current = { promise: new Promise<boolean | null>((done) => { resolve = done; }), resolve: (withheld) => resolve(withheld) };
+    if (!hasPassage(object)) menuWithheldAnswer.current.resolve(object.kind !== "window");
     setMenu(object);
   };
+
+  const openMenuContext: MenuContext = { ...menuContext, begin: () => {
+    if (!menu || liveMenu.current !== menu) return false;
+    closeSourceMenu();
+    return true;
+  } };
 
   // The object under the pointer, for `.` and the ContextMenu key (else the focused window's first object).
   const hoverTarget = useRef<Element | null>(null);
@@ -3264,14 +3290,14 @@ export function DeskShell({
       return { x: box.left + 30, y: box.bottom + 2 };
     })(), firstVisibleSpan);
     if (!object || !hasPassage(object)) return false;
-    if (what === "note") {
-      if (object.kind !== "passage" && object.kind !== "cue") return false;
-      void runVerb("note", object, menuContext);
-      return true;
-    }
+    if (what === "note" && object.kind !== "passage" && object.kind !== "cue") return false;
     const input = objectInput(object, deskIdRef.current);
     void menuPromoted.passagePromoted(input).then((found) => {
       if (found.pendingJob) void menuPromoted.passagePromotedCancel({ jobId: found.pendingJob.jobId }).catch(() => undefined);
+      if (what === "note") {
+        void runVerb("note", object, { ...menuContext, withheld: async () => found.withheld !== false });
+        return;
+      }
       const first = found.rows[0];
       if (!first) {
         toastNow("nothing to open from here yet");
@@ -3629,7 +3655,7 @@ export function DeskShell({
       <div className="desk-shell" data-desk-shell="">
         <header className="desk-top"><span className="desk-brand">◇ LearnLoop</span></header>
         <main className="desk-main"><aside className="desk-shelf" /><section className="desk-stage" ref={stageRef} /></main>
-        <footer className="desk-keys"><span className="note">◐ opening your desks…</span></footer>
+        <footer className="desk-keys"><span className="note">◐ Opening your desks…</span></footer>
       </div>
     );
   }
@@ -3643,7 +3669,7 @@ export function DeskShell({
       const stack = window.stack ?? (content?.kind === "pad" ? [{ kind: "pad" as const, padId: content.padId }] : content?.kind === "lesson" ? lessonStack(content) : []);
       return <PadStackWindow windowId={window.windowId} stack={stack} view={window.view ?? {}} info={emissionOpen === window.windowId} onInfo={(open) => setEmissionOpen(open ? window.windowId : null)} />;
     }
-    if (!content) return <div className="desk-panel desk-quiet">This window opens here once its kind is built.</div>;
+    if (!content) return <div className="desk-panel desk-quiet">This window can’t open here. Close it and reopen the source from your library.</div>;
     switch (content.kind) {
       case "source":
       case "video": {
@@ -3726,7 +3752,7 @@ export function DeskShell({
           />
         );
       default:
-        return <div className="desk-panel desk-quiet">This window opens here once its kind is built.</div>;
+        return <div className="desk-panel desk-quiet">This window can’t open here. Close it and reopen the source from your library.</div>;
     }
   };
 
@@ -3810,7 +3836,7 @@ export function DeskShell({
     ? [["h j k l", "select"], ["↵ / click", "open"], ["alt+↵", "open in focus"], ["alt+[ ]", "move"], ["alt+shift+j/k", "to a desk"], ["drag", "move a card"], ["b", "relations"], ["g", "hold: gather"], ["o / esc", "back"]]
     : focusMode
     ? [["alt+↵ / esc", "leave focus"], ["= − 0", "zoom"], ["alt+h/l", "next window"]]
-    : [["alt+h/l", "window"], ["alt+j/k", "pane · desk"], ["alt+[ ]", "move"], ["alt+, .", "share · own slot"], ["alt+↵", "focus"], ["alt+w", "close"], ["c", "tutor here"], ["shift+c", "at its dock"], ["/", "find"]];
+    : [["alt+h/l", "window"], ["alt+j/k", "window · desk"], ["alt+[ ]", "move"], ["alt+, .", "stack · unstack"], ["alt+↵", "focus"], ["alt+w", "close"], ["c", "companion here"], ["shift+c", "dock it"], ["/", "find"]];
 
   return (
     <PadsHostContext.Provider value={padsHost}>
@@ -3987,7 +4013,7 @@ export function DeskShell({
                         className={`desk-pane${paired && window.active ? " active-pane" : ""}`}
                       >
                         <div className="desk-pane-head">
-                          <span className="g">{KIND_GLYPH[window.kind] ?? "§"}</span>
+                          <span className="g" title={window.kind === "pad_stack" || window.kind === "pad" ? "Pad" : KIND_WORD[window.kind] ?? "Window"}>{KIND_GLYPH[window.kind] ?? "§"}</span>
                           <span className="t">{titleOf(window)}</span>
                           {window.kind === "pad_stack" ? (
                             <button type="button" className="emi pinfo" aria-label="where your words go" title="where your words go" aria-expanded={emissionOpen === id}
@@ -3995,7 +4021,7 @@ export function DeskShell({
                           ) : null}
                           {window.kind === "pad_stack" ? <span className="loc">yours</span> : status[id]?.where ? <span className="loc">{status[id]?.where}</span> : null}
                           {window.content?.kind === "source" ? <FollowChip desk={videoDesk} windowId={id} /> : null}
-                          {paired ? <span className="hint">{window.active ? "alt+. gives it its own slot" : "click or alt+j/k"}</span> : null}
+                          {paired ? <span className="hint">{window.active ? "Alt+. gives this window its own space" : "click or alt+j/k"}</span> : null}
                           <button
                             type="button"
                             className="x"
@@ -4203,6 +4229,8 @@ export function DeskShell({
               open={(desk?.slots.flat() ?? []).map((id) => ({ windowId: id, title: titleOf(ws.windows[id]) }))}
               deskTitle={deskTitle}
               initialQuery={search.query}
+              selection={search.selection}
+              blockIds={search.blockIds}
               insert={search.insert ?? null}
               reducedMotion={reduced}
               onOpenRow={openSearchRow}
@@ -4213,16 +4241,16 @@ export function DeskShell({
       </main>
       {goalDesk.overlays}
       <footer className="desk-keys">
-        {goalDesk.hasBand && !overview ? <span className="gk"><kbd>p</kbd> your path</span> : null}
+        {goalDesk.hasBand && !overview ? <span className="gk"><kbd title="Press P to open Path">p</kbd> your path</span> : null}
         {penOn && !overview ? (
           <>
             <span className="penk"><kbd>✎</kbd> pen: underline · bracket · circle · scribble · strike</span>
-            <span><kbd>barrel</kbd> = eraser · menu stays on <kbd>.</kbd> · touch only scrolls</span>
+            <span><kbd>Pen side button</kbd> = eraser · menu stays on <kbd title="Press Period for passage options">.</kbd> · touch only scrolls</span>
           </>
         ) : null}
-        {hints.map(([keys, label]) => <span key={keys}><kbd>{keys}</kbd> {label}</span>)}
+        {hints.map(([keys, label]) => <span key={keys}><kbd title={keys.replace(/↵/g, "Enter").replace("= − 0", "Equals, Minus, Zero")}>{keys}</kbd> {label}</span>)}
         {ungather && ungather.deskId === deskId && !overview ? (
-          <button type="button" style={{ color: "var(--desk-cyan)" }} onClick={() => gather(false)}>↺ ungather</button>
+          <button type="button" style={{ color: "var(--desk-cyan)" }} onClick={() => gather(false)}>↺ Undo grouping</button>
         ) : null}
         {undoShown && viewportWidth < DESK_SIZES.shelfFoldBelow ? (
           // With the shelf folded to its rail, its undo line moves here.
@@ -4236,13 +4264,14 @@ export function DeskShell({
               key={id}
               type="button"
               aria-label={titleOf(ws.windows[id])}
+              title={titleOf(ws.windows[id])}
               className={id === focusId ? "f" : visibility[index]?.inView ? "in" : ""}
               style={focusMode ? (id === focusId ? { width: 46, height: 5 } : { opacity: 0.45 }) : undefined}
               onClick={() => commit(setFocus(wsRef.current, desk.deskId, id))}
             />
           )))}
         </span>
-        <span className="note">hold <kbd>alt</kbd> for navi hints</span>
+        <span className="note">hold <kbd>alt</kbd> for shortcuts</span>
       </footer>
       {opener ? (
         <OpenBeside
@@ -4253,7 +4282,7 @@ export function DeskShell({
           onOpenCard={(card) => {
             void transport.resolveExtraction(card.sourceId)
               .then((extractionId) => openContent(contentForCard(card, extractionId)))
-              .catch(() => toastNow("that source didn't open"));
+              .catch(() => toastNow("Couldn’t open this source. Find it in your library and try again."));
           }}
           onClose={() => setOpener(false)}
         />
@@ -4267,14 +4296,13 @@ export function DeskShell({
       ) : null}
       {menu ? (
         <ContextMenu
+          key={menuOpening.current}
           header={headerLine(menu, menuWithheld)}
-          rows={sourceMenuRows(menu, menuContext, (() => {
+          neutralHeader={headerLine(menu)}
+          rows={sourceMenuRows(menu, openMenuContext, (() => {
             const target = appendTargetOf(deskId);
             return deskPads(deskId).find((pad) => pad.padId === target)?.title ?? "a new pad";
-          })(), menuWithheld).map((row) => ({ ...row, run: () => {
-            setMenu(null);
-            row.run?.();
-          } }))}
+          })(), menuWithheld === true)}
           at={menu.at}
           object={hasPassage(menu) ? objectInput(menu, deskId) : null}
           promoted={menuPromoted}
@@ -4282,22 +4310,21 @@ export function DeskShell({
           onRows={(rows) => {
             menuPromotedRows.current = rows;
           }}
-          onWithheld={(withheld) => {
+          onWithheld={(withheld, failed) => {
+            if (liveMenu.current !== menu) return;
+            const verdict = failed ? null : withheld;
+            menuWithheldAnswer.current.resolve(verdict);
+            menuWithheldAnswer.current.promise = Promise.resolve(verdict);
             setMenuWithheld(withheld);
-            menuWithheldAnswer.current.resolve(withheld);
           }}
           poller={poller}
           owner={menu.windowId}
-          append={menu.kind === "passage" || menu.kind === "cue" || menu.kind === "highlight" ? {
+          append={menuWithheld !== true && (menu.kind === "passage" || menu.kind === "cue" || menu.kind === "highlight") ? {
             pads: deskPads(deskId),
             current: appendTargetOf(deskId),
-            onPick: (padId) => {
-              const object = menu;
-              setMenu(null);
-              void appendTo(object, padId);
-            },
+            onPick: (padId) => void runVerb("append", menu, openMenuContext, padId),
           } : null}
-          onClose={() => setMenu(null)}
+          onClose={closeSourceMenu}
         />
       ) : null}
       {knows ? (
@@ -4326,7 +4353,7 @@ export function DeskShell({
             const who = await menuTransport.readingIdentity(anchor.extractionId);
             return menuTransport.readerImportExercise({
               sourceId: who.sourceId, revisionId: who.revisionId, extractionId: anchor.extractionId, renderViewId: who.renderViewId, clientIdempotencyKey: key,
-              rawSelection: { extractionId: anchor.extractionId, nodes: captureNodes(object) },
+              rawSelection: { extractionId: anchor.extractionId, spanId: anchor.spanId, spanIds: passageIds(object), nodes: captureNodes(object) },
             });
           }}
           readStatus={(batchId) => menuTransport.readerExerciseImportStatus({ batchId })}
@@ -4382,9 +4409,9 @@ export function contentForCard(card: SourceLibraryCard, extractionId: string): C
 
 function Sliver({ side, title, kind, onClick, register }: { side: "l" | "r"; title: string; kind: string; onClick: () => void; register?: (node: HTMLButtonElement | null) => void }) {
   return (
-    <button type="button" ref={register} className={`desk-sliver ${side}`} aria-label={`${side === "l" ? "previous" : "next"} window: ${title}`} onClick={onClick}>
+    <button type="button" ref={register} className={`desk-sliver ${side}`} aria-label={`${side === "l" ? "previous" : "next"} window: ${title}`} title={`${side === "l" ? "Previous" : "Next"} window: ${title}`} onClick={onClick}>
       <span className="sg">{side === "l" ? "‹" : "›"}</span>
-      <span className="sgl">{KIND_GLYPH[kind] ?? "§"}</span>
+      <span className="sgl" title={kind === "pad_stack" || kind === "pad" ? "Pad" : KIND_WORD[kind] ?? "Window"}>{KIND_GLYPH[kind] ?? "§"}</span>
       <span className="st">{title}</span>
     </button>
   );
@@ -4483,7 +4510,7 @@ function OpenBeside({
         {library === null ? <div className="desk-quiet">◐ reading the library…</div> : null}
         {sources.map((card) => (
           <div key={card.sourceId} className="wkr">
-            <span>{isVideoCard(card) ? "▶" : "§"}</span>
+            <span title={isVideoCard(card) ? "Video" : "Book"}>{isVideoCard(card) ? "▶" : "§"}</span>
             <button type="button" style={{ textAlign: "left" }} onClick={() => onOpenCard(card)}>{card.title}</button>
           </div>
         ))}
