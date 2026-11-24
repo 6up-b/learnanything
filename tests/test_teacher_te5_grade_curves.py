@@ -150,6 +150,7 @@ def test_regrade_adds_a_curve_for_only_the_new_epoch(tmp_path):
 
 
 def test_upgrade_labels_superseded_epochs_and_keeps_a_legacy_stamp(tmp_path):
+    from learnloop.attempts.surprise import score_bucket
     from learnloop.db.stores.grade_curves import snapshot_grade_curves
     from tests.regrade_contract_successor_helpers import as_graded_before_contracts
 
@@ -164,8 +165,9 @@ def test_upgrade_labels_superseded_epochs_and_keeps_a_legacy_stamp(tmp_path):
     as_graded_before_contracts(repository, "att_legacy")
     forget_captures(repository)
     with repository.atomic(), repository.connection() as connection:
-        assert snapshot_grade_curves(connection, vault.config.algorithms.algorithm_version)
-        assert not snapshot_grade_curves(connection, vault.config.algorithms.algorithm_version)
+        version = vault.config.algorithms.algorithm_version
+        assert snapshot_grade_curves(connection, version, score_bucket=lambda fraction: score_bucket(fraction, 1))
+        assert not snapshot_grade_curves(connection, version, score_bucket=lambda fraction: score_bucket(fraction, 1))
         current = current_curve(connection, "att_old")
         legacy = current_curve(connection, "att_legacy")
     earlier, = _rows(repository, "SELECT epoch_key, grading_revision, item_a, item_b, provenance "
@@ -212,3 +214,41 @@ def test_pool_only_endpoint_uses_its_snapshot_and_reports_an_unapplied_replaceme
     assert detail["resolving_input"]["epoch_key"] == "revision:1"
     assert detail["resolving_input"]["provenance"] == "missing_capture"
     assert detail["resolving_fallback"] == "forecast_p_a" and detail["p_a"] == detail["p_a_at_forecast"]
+
+
+def _owner_copy_snapshot_query() -> str:
+    """The expected-snapshot query of the record's owner-copy procedure, as the owner runs it on the predecessor."""
+
+    from pathlib import Path
+
+    record = (Path(__file__).resolve().parents[1] / "docs/reviews/algorithm-mvp-0.71.md").read_text()
+    start = record.index('sqlite3 -readonly -json "$PRED_DB" <<\'SQL\' | sha256sum\n')
+    body = record[record.index("\n", start) + 1:]
+    return body[:body.index("\nSQL\n")]
+
+
+def test_an_unapplied_adjudication_before_the_upgrade_is_not_given_the_applied_epochs_curve(tmp_path):
+    """L42-R4: an evidence-only adjudication (the CLI below the grade channel fixes wrote one without replaying)
+    leaves the surprise row describing revision 0 while revision 1 is current. The freeze must not attribute revision
+    0's curve to revision 1: the surprise row's observed score disagrees with the current grade's."""
+
+    from learnloop.attempts.grade_resolution import append_adjudication_evidence_revision
+
+    production = next(link for link in upgrades.UPGRADES if link.tag == TAG)
+    paths, repository = build_teacher_vault(tmp_path / "vault", version=production.predecessor)
+    applied = _cold(paths, repository, "pi_eig_2", T, points=4)
+    unapplied = _cold(paths, repository, "pi_eig_1", T + timedelta(hours=1), points=4)
+    revision = append_adjudication_evidence_revision(
+        repository, attempt_id=unapplied.attempt_id, resolved_fraction=0, adjudication_id="adj_unapplied",
+        adjudicator_source="human", rationale=None, vault=load_vault(paths.root))
+    assert revision["status"] == "revised"
+    forget_captures(repository)
+    expected = _rows(repository, _owner_copy_snapshot_query())
+    assert upgrades.upgrade(paths.root, to=TAG, links=[production]).upgraded
+    # The record's owner-copy query, run on the predecessor, derives exactly what the freeze wrote.
+    assert _rows(repository, CURVES) == expected
+    rows = {(row[0], row[1]): row for row in _rows(repository, CURVES)}
+    assert rows[(unapplied.attempt_id, "revision:1")][-1] == "missing_at_upgrade"
+    assert rows[(unapplied.attempt_id, "revision:0")][-1] == "missing_at_upgrade"
+    # An epoch the projection did apply keeps its reconstruction.
+    assert rows[(applied.attempt_id, "revision:0")][-1] == "reconstructed_at_upgrade"

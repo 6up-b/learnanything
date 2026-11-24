@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import math
 import sqlite3
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import asdict, dataclass
 
 from learnloop.grading_epochs import GradingEpoch, current_epoch, group_epochs
@@ -79,22 +79,40 @@ def _historical_pair(payload: str | None) -> tuple[float | None, float | None]:
     return None, None
 
 
-def snapshot_grade_curves(connection: sqlite3.Connection, predecessor: str) -> bool:
-    """Fill uncovered epochs, returning whether any first snapshots need to commit."""
+def _applied_current(observed_json: str | None, correctness: float | None, score_bucket: Callable[[float], str]) -> bool:
+    """Whether the surprise row can describe the current epoch: its observed score bucket is the current grade's. The
+    surprise row carries no revision, and an evidence-only adjudication (the CLI below the grade channel fixes wrote
+    one without replaying) leaves it describing the epoch before (review L42-R4). An attempt without a resolved score
+    has no grade to disagree with."""
+
+    if correctness is None:
+        return True
+    try:
+        observed = json.loads(observed_json) if observed_json else None
+    except ValueError:
+        return False
+    return isinstance(observed, dict) and observed.get("score_bucket") == score_bucket(float(correctness))
+
+
+def snapshot_grade_curves(connection: sqlite3.Connection, predecessor: str, *,
+                          score_bucket: Callable[[float], str]) -> bool:
+    """Fill uncovered epochs, returning whether any first snapshots need to commit. ``score_bucket``: the surprise
+    row's bucketing of a score fraction (``attempts.surprise.score_bucket``, which this layer cannot import)."""
     inserted = False
-    for attempt_id, payload, version in connection.execute(
-        "SELECT a.id, s.predicted_score_dist_json, s.algorithm_version FROM practice_attempts a "
-        "LEFT JOIN attempt_surprise s ON s.attempt_id = a.id ORDER BY a.id"
+    for attempt_id, payload, version, observed, correctness in connection.execute(
+        "SELECT a.id, s.predicted_score_dist_json, s.algorithm_version, s.observed_joint_bucket_json, a.correctness "
+        "FROM practice_attempts a LEFT JOIN attempt_surprise s ON s.attempt_id = a.id ORDER BY a.id"
     ):
         rows = _epochs(connection, attempt_id)
         current = _key(current_epoch(rows))
         keys = [_key(epoch) for epoch in group_epochs(rows)] or [current]
         existing = {r[0] for r in connection.execute(
             "SELECT epoch_key FROM attempt_grade_curves WHERE attempt_id = ?", (attempt_id,))}
+        applied = _applied_current(observed, correctness, score_bucket)
         for key, revision in keys:
             if key in existing:
                 continue
-            a, b = _historical_pair(payload) if (key, revision) == current else (None, None)
+            a, b = _historical_pair(payload) if (key, revision) == current and applied else (None, None)
             provenance = "missing_at_upgrade" if a is None else "reconstructed_at_upgrade"
             source_version = version if a is not None and version else predecessor
             _insert(connection, attempt_id, key, revision, a, b, source_version, provenance)

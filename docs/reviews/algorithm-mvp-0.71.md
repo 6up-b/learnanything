@@ -150,7 +150,8 @@ WITH evidence AS (
          CASE WHEN grading_revision IS NULL THEN 'legacy:' || created_at
               ELSE 'revision:' || grading_revision END AS epoch_key FROM grading_evidence
 ), epochs AS (
-  SELECT DISTINCT a.id AS attempt_id, coalesce(e.epoch_key,'no_evidence') AS epoch_key, e.grading_revision
+  SELECT DISTINCT a.id AS attempt_id, a.correctness, coalesce(e.epoch_key,'no_evidence') AS epoch_key,
+         e.grading_revision
   FROM practice_attempts a LEFT JOIN evidence e ON e.attempt_id = a.id
 ), live AS (
   SELECT attempt_id, epoch_key, row_number() OVER (
@@ -159,7 +160,12 @@ WITH evidence AS (
 ), sources AS (
   SELECT e.*, s.algorithm_version AS source_version,
     CASE WHEN (e.epoch_key = l.epoch_key OR e.epoch_key = 'no_evidence')
-              AND json_valid(s.predicted_score_dist_json) THEN s.predicted_score_dist_json END AS dist
+              AND json_valid(s.predicted_score_dist_json)
+              AND (e.correctness IS NULL OR (json_valid(s.observed_joint_bucket_json)
+                   AND json_extract(s.observed_joint_bucket_json, '$.score_bucket') IS
+                       CASE WHEN 4.0 * e.correctness <= 1 THEN 'low' WHEN 4.0 * e.correctness <= 3 THEN 'mid'
+                            ELSE 'high' END))
+         THEN s.predicted_score_dist_json END AS dist
   FROM epochs e LEFT JOIN live l ON l.attempt_id = e.attempt_id AND l.position = 1
   LEFT JOIN attempt_surprise s ON s.attempt_id = e.attempt_id
 ), pairs AS (

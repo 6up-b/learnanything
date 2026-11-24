@@ -49,6 +49,7 @@ from learnloop.algorithm_versions import (
     UNTAKEN_EPISODE_END_ALGORITHM_VERSION,
 )
 from learnloop.attempts.lifecycle_inputs import reconstructing_legacy_lifecycle_inputs
+from learnloop.attempts.surprise import score_bucket
 from learnloop.learner.mastery_seed import reconstructing_legacy_mastery_seeds
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.config import load_config
@@ -221,7 +222,8 @@ legacy_mastery_seeds_then_rebuild = Activation(
 
 def _freeze_grade_curves(repository: Repository, predecessor: str) -> bool:
     with repository.connection() as connection:
-        return snapshot_grade_curves(connection, predecessor)
+        return snapshot_grade_curves(connection, predecessor,
+                                     score_bucket=lambda fraction: score_bucket(fraction, 1))
 
 
 frozen_grade_curves_then_rebuild = Activation(
