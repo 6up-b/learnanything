@@ -1549,6 +1549,47 @@ async def run_video(page: Page, base: str, results: Results, shots: Path | None)
                   any(c.get("extractionId") == "fx_ext_softmax" and c.get("sectionId") == "s1" and c.get("searchFallback") is False for c in corr), corr)
 
 
+async def run_showme(page: Page, base: str, results: Results, shots: Path | None) -> None:
+    """Show me in the companion (spec §13.1, §21.1 "Figures and Show me"): the menu's Show me on a passage puts the
+    figure in the companion, live, with view source, move to scratchpad and not useful, and nothing in a pad until
+    it is moved there."""
+    await page.goto(f"{base}/desk-harness.html")
+    await page.wait_for_selector('[data-desk-window="fx_w_book"] [data-span-id]')
+    await settle(page, 1500)
+    figs_before = await page.locator('.desk-pads .mark.fig').count()
+    passage = page.locator('[data-desk-window="fx_w_book"] [data-span-id]').filter(has_text="weight").first
+    await passage.click(button="right", position={"x": 40, "y": 8})
+    await page.wait_for_selector(".desk-menu:not(.submenu)")
+    await page.keyboard.press("v")
+    await page.wait_for_selector("[data-companion-figure]", timeout=10000)
+    await page.evaluate("document.fonts.ready")
+    await settle(page, 600)
+    look = await page.evaluate("""() => { const f = document.querySelector('[data-companion-figure]'); const w = f.querySelector('.cfig-widget');
+        return { head: f.querySelector('.cfig-head').textContent, foot: f.querySelector('.cfig-foot').textContent,
+          buttons: [...f.querySelectorAll('.cfig-actions button')].map((b) => b.textContent),
+          sliders: f.querySelectorAll('input[type=range]').length, svg: f.querySelectorAll('svg').length,
+          headFont: getComputedStyle(f.querySelector('.cfig-head')).fontFamily.split(',')[0],
+          frame: getComputedStyle(w.querySelector('[data-figure]') ?? w).backgroundColor, clipped: w.scrollWidth > w.clientWidth + 1,
+          inCompanion: !!f.closest('[aria-label="the companion"]') }; }""")
+    results.check("Show me's figure appears in the companion, live (sliders and a plot), named for its source and page",
+                  look["inCompanion"] and look["head"].startswith("◇ Show me · a figure for") and look["sliders"] > 0 and look["svg"] > 0, look)
+    results.check("its three buttons and the footer that says it is help, not a check",
+                  look["buttons"] == ["view source", "move to scratchpad", "not useful"] and "it is help, not a check" in look["foot"], look["buttons"])
+    results.check("the companion's text is JetBrains Mono, the widget in its own frame as in a book window, nothing clipped sideways",
+                  "JetBrains Mono" in look["headFont"] and not look["clipped"], look)
+    results.check("nothing lands in a pad by itself", await page.locator('.desk-pads .mark.fig').count() == figs_before)
+    await shot(page, shots, "showme-companion")
+    await page.locator("[data-companion-figure] .cfig-actions button", has_text="view source").click()
+    source = await page.locator("[data-companion-figure] [data-figure-source] pre").inner_text()
+    results.check("view source shows the figure's own source (display tier)", "parameters" in source, source[:80])
+    await page.locator("[data-companion-figure] .cfig-actions button", has_text="move to scratchpad").click()
+    await settle(page, 1200)
+    moved = await page.locator('.desk-pads .mark.fig').count()
+    gone = await page.locator("[data-companion-figure]").count()
+    results.check("move to scratchpad writes the figure block in the running pad and the figure leaves the companion",
+                  moved == figs_before + 1 and gone == 0, [figs_before, moved, gone])
+
+
 async def run_preview(page: Page, base: str, results: Results) -> None:
     """A preview (a card or miniature) logs no reading activity; the same window active does (control)."""
     for state, expect_activity in (("preview", False), ("active", True)):
@@ -1586,7 +1627,7 @@ async def main() -> int:
             # Playwright hides scrollbars in headless Chromium; the display-math checks need them drawn, as the
             # app's webview draws them (a wide equation's scroller must show its bar).
             with_bars = await playwright.chromium.launch(headless=True, ignore_default_args=["--hide-scrollbars"])
-            runners = ("desks", "overview", "companion", "intent", "pads", "menus", "latex", "goal", "lesson", "video", "preview")
+            runners = ("desks", "overview", "companion", "intent", "pads", "menus", "latex", "goal", "lesson", "video", "showme", "preview")
             chosen = [name for name in args.only.split(",") if name] or list(runners)
             for runner in (name for name in runners if name in chosen):
                 context = await (with_bars if runner in ("pads", "latex", "lesson") else browser).new_context(viewport=VIEWPORT)
@@ -1613,6 +1654,8 @@ async def main() -> int:
                         await run_lesson(page, base, results, args.shots)
                     elif runner == "video":
                         await run_video(page, base, results, args.shots)
+                    elif runner == "showme":
+                        await run_showme(page, base, results, args.shots)
                     else:
                         await run_preview(page, base, results)
                 except Exception as error:  # noqa: BLE001 - a broken step is a failed check, and the report still prints

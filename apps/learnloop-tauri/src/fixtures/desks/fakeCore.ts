@@ -9,6 +9,7 @@ import { FixtureCompanion } from "./companion";
 import { FixtureGoal } from "./goal";
 import { FIXTURE_LESSON_ID, FixtureLessons, fixtureAdditionsPad } from "./lessons";
 import { FixtureVideo } from "./video";
+import { fixtureFigure } from "./figures";
 
 export type InvokeArgs = Record<string, unknown>;
 
@@ -195,6 +196,11 @@ function answer(command: string, input: Record<string, unknown>): unknown {
       return { exchanges: [] };
     case "reader_drain_outbox":
       return { drained: [], failed: [] };
+    // Show me (spec §13.1): a figure build answered at its first read, with the fixture figure.
+    case "figure_request":
+      return { jobId: "fx_figure_job", kind: "figure_build", askId: null, state: "pending", result: null, anchor: input.anchor ?? null };
+    case "reader_figure_job":
+      return { jobId: String(input.jobId), kind: "figure_build", askId: null, state: "done", result: { figure: fixtureFigure(`${FIXTURE_SOURCES.book.extractionId}_s1_1`), reused: false } };
     case "reader_log_activity":
       return { recorded: Array.isArray(input.events) ? input.events.length : 0 };
     case "reader_note_reading_progress":

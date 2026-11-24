@@ -226,9 +226,10 @@ def main() -> int:
     # fixtures/desks/video.ts (vitest-support).
     # RD5's fix round: screens/desks/menu/ExerciseSheet.tsx (Make it practice on an exercise; entry-reachable).
     # RD-retire parity (rows 2034, 2039): screens/desks/problem/ problemPads.ts and ProblemPad.tsx,
-    # screens/desks/companion/companionFigures.tsx and screens/reader/figures/sharedParams.ts (entry-reachable).
-    if len(ts_sources) != 423:
-        errors.append(f"source inventory drift: expected 423 TypeScript/TSX files, found {len(ts_sources)}")
+    # screens/desks/companion/companionFigures.tsx and screens/reader/figures/sharedParams.ts (entry-reachable);
+    # fixtures/desks/figures.ts (vitest-support).
+    if len(ts_sources) != 424:
+        errors.append(f"source inventory drift: expected 424 TypeScript/TSX files, found {len(ts_sources)}")
     if len(rust_sources) != 6:
         errors.append(f"source inventory drift: expected 6 authored Rust modules, found {len(rust_sources)}")
     for path in sorted(expected - actual):
@@ -343,8 +344,8 @@ def main() -> int:
         "bundled worker entry": 2,
         "compiler-implicit": 2,
         # RD1: fixtures/desks (sources, workspace, fakeCore, harness). RD4b: fixtures/desks/pads.ts. RD6b: fixtures/desks/goal.ts.
-        # RD9a: fixtures/desks/lessons.ts. RD10: fixtures/desks/video.ts. RD-retire: fixtures/desks/realDesk.tsx.
-        "vitest-support": 17,
+        # RD9a: fixtures/desks/lessons.ts. RD10: fixtures/desks/video.ts. RD-retire: fixtures/desks/realDesk.tsx and figures.ts.
+        "vitest-support": 18,
         "native-entry-reachable": 6,
     }
     if dict(activation_counts) != expected_activation_counts:
@@ -354,7 +355,7 @@ def main() -> int:
     status_counts: dict[str, int] = defaultdict(int)
     for info in audited_infos.values():
         status_counts[info.refactor_status] += 1
-    if dict(status_counts) != {"ACTIVE": 429}:
+    if dict(status_counts) != {"ACTIVE": 430}:
         errors.append(f"lifecycle classification drift requires review: {dict(status_counts)}")
 
     link_errors, wikilinks, fragments, markdown_links = validate_links(sorted(actual))
