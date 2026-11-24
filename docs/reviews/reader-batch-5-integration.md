@@ -150,6 +150,25 @@ tests patch the GLM-OCR client's private opener and probe cache so no test reach
 mockup and app values); none new, none gone. The menu, band, shelf, pads' bars, companion and pen lines show no
 change from the longer strings.
 
+### 5.1 After the first gate (merged with main `e1e074017d`: RD7 inline checks)
+
+The first gate's second landing shard failed broadly (the protection matrix among it): BATCH5-11 to BATCH5-15 fix
+it. Main merged in `9936753473` (RD7's waiting verbs and veils kept beside the menu's protection gate: a verb waits
+while a check is open, then for its own verdict).
+
+| Check | Result |
+|---|---|
+| Every test file under `tests/` naming `exam_material`, `held_out`, `withheld` or `protection` (293 files, with the menu, RD6 and RD10 protection tests, the protection matrix and surface-set tests, identity pins and structure ratchets), the landing gate's selection, in chunks | 7,561 passed, 0 failed (one ratchet rise from the merge, fixed and rerun) |
+| `npm run typecheck` | clean |
+| vitest, 4 workers | 398 files, 4,406 tests, all passed |
+| `cargo check` | clean |
+| desk harness, every run | 173 passed, 0 failed (display math included) |
+| `ruff check`, `lint-imports` | clean; 54 kept, 0 broken |
+| `check_gate_partition.py` | 34,319 = landing 34,253 + arc_close 66 |
+
+`private_patch_sites` 466 → 467: main's RD7 test site beside this branch's GLM-OCR ones (one line, its reason
+beside it).
+
 ## 6. Not reconciled
 
 - Owner option: destinations new with the workbench (pad inserts, carried questions, a desk's compare window, the
