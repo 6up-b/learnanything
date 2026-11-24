@@ -114,7 +114,7 @@ change. No migration, algorithm tag, prompt or config key.
 | Minor: a question let go resurfaced after a failed refresh | RD10-7 | A successful closing mark removes the question from both lists, and no refresh this session brings it back (DeskShell) | `DeskShell.test.tsx` ("a question let go leaves the shelf at once…") |
 | Minor: two placements of one carried question shared a key | RD10-8 | The key includes the passage (PassageMarks) | `pads/passageMarks.test.tsx` |
 | Minor: a judged video could not replay from the ledger once the budget was spent | RD10-9 | A spent budget no longer refuses at admission; the daily envelope refuses the paid request itself | `…::test_a_judged_video_replays_from_the_ledger_with_the_budget_spent_and_an_unjudged_one_is_capped` |
-| Minor: migration 268's replacement hole | RD10-10 | **Stopped** (schema): options in the ledger row. (a) Migration 270: a `BEFORE INSERT … RAISE(IGNORE)` guard. (b) Fold that guard into 269. (c) A test that no writer uses `OR REPLACE` | none |
+| Minor: migration 268's replacement hole | RD10-10 | Guarded by test (the owner's option c): no code in `src/` or `migrations/` writes to `video_chapters` with `INSERT OR REPLACE`, `REPLACE INTO` or a replacing `ON CONFLICT`. The schema guard joins the next migration (SQL below) | `tests/test_video_chapters_no_replace.py` (shown failing with the writer switched to `OR REPLACE`) |
 
 **The D15 sweep.** I checked where else a held LO's name can reach the workbench outside RD6's and this round's fixes.
 Promoted rows and proposals are left to the menus round.
@@ -141,3 +141,23 @@ Checked:
 - rd10 visual comparison: unchanged (no findings before or after).
 - Desk harness, every run: 152 passed.
 - The whole vitest suite passes.
+
+**For the next migration's author (RD10-10).** Paste this trigger. It turns any insert that reuses a decided chapter's id
+into a no-op, so `INSERT OR REPLACE` can no longer delete a decision. A legitimate `INSERT OR IGNORE` duplicate ends the
+same way, and a suggested row is still replaced as before. I checked this against SQLite in memory: without the trigger
+the replacement overwrote an accepted row; with it the accepted row stayed, and a suggested row was still replaced. Add
+the trigger to the migration's added-objects set for the upgrade diffs, as 268's were.
+
+```sql
+-- A decided chapter is never replaced: an insert reusing its id is skipped (recursive triggers are off, so a
+-- REPLACE's implicit delete would not fire video_chapters_keep_decided).
+CREATE TRIGGER video_chapters_no_replace_decided
+BEFORE INSERT ON video_chapters
+WHEN EXISTS (SELECT 1 FROM video_chapters WHERE chapter_id = NEW.chapter_id AND state != 'suggested')
+BEGIN
+  SELECT RAISE(IGNORE);
+END;
+```
+
+Once it lands, `tests/test_video_chapters_no_replace.py` can give way to a migration test that replaces a decided row
+and finds it unchanged.
