@@ -96,6 +96,7 @@ Indexes and uniqueness:
 - `src/learnloop/db/stores/goals.py`
 - `src/learnloop/db/stores/intent_reads.py`
 - `src/learnloop/intent/checks.py`
+- `src/learnloop/intent/inline_administration.py`
 - `src/learnloop/reader/reader_authoring.py`
 - `src/learnloop/reader/recap.py`
 

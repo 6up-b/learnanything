@@ -136,6 +136,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 
 - [[Reference/Modules/learnloop/companion/asks|learnloop.companion.asks]] — imports `module`; statically calls `head`
 - [[Reference/Modules/learnloop/desks/workspace|learnloop.desks.workspace]] — imports `module`; statically calls `pad`, `running_pad_ids`
+- [[Reference/Modules/learnloop/intent/inline_administration|learnloop.intent.inline_administration]] — imports `module`; statically calls `head`
 - [[Reference/Modules/learnloop/pads/blocks|learnloop.pads.blocks]] — imports `module`; statically calls `anchor_event_exists`, `first_versions`, `head`, `heads`, `latest_anchor_event`, `lesson_additions_pads`, `list_pads`, `pad`, `standing_anchors_for_blocks`, `version`, `version_exists`
 - [[Reference/Modules/learnloop/pads/carried|learnloop.pads.carried]] — imports `module`; statically calls `carried`, `carried_event_exists`, `carried_events`, `list_carried`
 - [[Reference/Modules/learnloop/pads/cells|learnloop.pads.cells]] — imports `module`; statically calls `heads`, `pad`
@@ -167,7 +168,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/companion/asks|learnloop.companion.asks]], [[Reference/Modules/learnloop/desks/workspace|learnloop.desks.workspace]], [[Reference/Modules/learnloop/pads/blocks|learnloop.pads.blocks]], [[Reference/Modules/learnloop/pads/carried|learnloop.pads.carried]], [[Reference/Modules/learnloop/pads/cells|learnloop.pads.cells]] and 9 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/companion/asks|learnloop.companion.asks]], [[Reference/Modules/learnloop/desks/workspace|learnloop.desks.workspace]], [[Reference/Modules/learnloop/intent/inline_administration|learnloop.intent.inline_administration]], [[Reference/Modules/learnloop/pads/blocks|learnloop.pads.blocks]], [[Reference/Modules/learnloop/pads/carried|learnloop.pads.carried]] and 10 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
