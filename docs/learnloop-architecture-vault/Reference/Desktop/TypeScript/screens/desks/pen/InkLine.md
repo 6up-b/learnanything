@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/pen/InkLine.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/pen/InkLine.tsx) |
-| Source lines | 292 |
+| Source lines | 299 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/pen/_area|TypeScript/screens/desks/pen]] |
 | Refactor status | `ACTIVE` |
@@ -57,8 +57,8 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export const RULE_PX = 52` — const, line 18
 - `export function surfaceHeight(strokes: ReadonlyArray<` — function, line 33
 - `export interface InkBlockProps` — interface, line 148
-- `export function InkBlock(` — function, line 159
-- `export function InkJot(` — function, line 264
+- `export function InkBlock(` — function, line 161
+- `export function InkJot(` — function, line 271
 
 ## Internal implementation anchors
 
@@ -82,25 +82,26 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const hit = new Set<string>()` — const, line 106
 - `const stroke = input.up(event.nativeEvent as unknown as PointerLike)` — const, line 120
 - `function pointerMeta(pointerType: "pen" | "mouse")` — function, line 144
-- `const host = usePenHost()` — const, line 160
-- `function InkBlockOn(` — function, line 165
-- `const cache = host.ink` — const, line 166
-- `const pad = cache.pad(padId)` — const, line 168
-- `const line = pad.lines[block.blockId]` — const, line 169
-- `const reading = pad.readings[block.blockId]` — const, line 170
-- `const strokes = line?.strokes ?? []` — const, line 172
-- `const words = block.bodyMd.trim()` — const, line 173
-- `const corrected = block.provenance === "learner_correction"` — const, line 174
-- `const keep = (text: string)` — const, line 176
-- `let status: ReactNode = null` — let, line 183
-- `const offered = reading.result.latexMd` — const, line 191
-- `const inkId = host.mintId("ink")` — const, line 209
-- `const all = (cache.pad(padId).lines[block.blockId]?.strokes ?? []).every((stroke)` — const, line 217
-- `const read = block.provenance === "ink_transcription" && (words !== "" || "ink_transcription" in block.payload)` — const, line 218
-- `const op: PadOpDto =` — const, line 219
-- `const host = usePenHost()` — const, line 272
-- `const blockId = newLine()` — const, line 281
-- `const inkId = host.mintId("ink")` — const, line 283
+- `const host = usePenHost()` — const, line 162
+- `function InkBlockOn(` — function, line 167
+- `const cache = host.ink` — const, line 168
+- `const pad = cache.pad(padId)` — const, line 170
+- `const line = pad.lines[block.blockId]` — const, line 171
+- `const reading = pad.readings[block.blockId]` — const, line 172
+- `const strokes = line?.strokes ?? []` — const, line 174
+- `const words = block.bodyMd.trim()` — const, line 175
+- `const corrected = block.provenance === "learner_correction"` — const, line 176
+- `const wordsRef = useRef(words)` — const, line 177
+- `const keep = (text: string)` — const, line 183
+- `let status: ReactNode = null` — let, line 190
+- `const offered = reading.result.latexMd` — const, line 198
+- `const inkId = host.mintId("ink")` — const, line 216
+- `const all = (cache.pad(padId).lines[block.blockId]?.strokes ?? []).every((stroke)` — const, line 224
+- `const read = block.provenance === "ink_transcription" && (words !== "" || "ink_transcription" in block.payload)` — const, line 225
+- `const op: PadOpDto =` — const, line 226
+- `const host = usePenHost()` — const, line 279
+- `const blockId = newLine()` — const, line 288
+- `const inkId = host.mintId("ink")` — const, line 290
 
 ## Who imports or calls it
 

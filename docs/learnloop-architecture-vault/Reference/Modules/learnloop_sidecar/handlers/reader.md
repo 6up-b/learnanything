@@ -56,7 +56,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `class ReaderAskInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 94)
 - `class ReaderAskCall` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 142) — One Reader Ask, gated and with its context built.
 - `prepare_reader_ask(ctx: SidecarContext, params: ReaderAskInput) -> ReaderAskCall` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 161) — Gate one Reader Ask and build its context, before any model call (refusals raise here).
-- `generate_reader_answer(call: ReaderAskCall, *, on_question_recorded: Any=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 214) — The model call and the exchange it records (``reader_dialogue.ask``), its failures as sidecar errors.
+- `generate_reader_answer(call: ReaderAskCall, *, on_question_recorded: Any=None, goal_in_view: Any=None) -> dict` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 214) — The model call and the exchange it records (``reader_dialogue.ask``), its failures as sidecar errors.
 - `reader_ask_reply(ctx: SidecarContext, call: ReaderAskCall, result: dict[str, Any], *, live: Any=None) -> dict` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 265) — The Ask's reply (before ``versioned``).
 - `reader_ask(ctx: SidecarContext, params: ReaderAskInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 343)
 - `class ReaderAskHistoryInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/reader.py), line 354)
@@ -388,6 +388,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_asking_for_a_held_out_sections_check_is_refused_before_anything_is_queued`
 - [tests/test_rw4_kill_switches.py](../../../../../../tests/test_rw4_kill_switches.py) — direct import
   - `test_the_readers_tutor_spans_are_unchanged`
+- [tests/test_tutor_goal_in_view.py](../../../../../../tests/test_tutor_goal_in_view.py) — direct import
 - [tests/test_ux_phase1_landing.py](../../../../../../tests/test_ux_phase1_landing.py) — direct import
   - `test_a_book_with_the_retired_keep_local_gets_its_passage_check_when_asked`
 

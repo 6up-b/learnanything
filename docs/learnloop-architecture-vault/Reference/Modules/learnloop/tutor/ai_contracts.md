@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py) |
-| Source lines | 794 |
+| Source lines | 819 |
 | Owning package | [[Reference/Modules/learnloop/tutor/_package|learnloop.tutor]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -55,84 +55,87 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 ## Public API
 
 - `class TutorQAContext` ([source](../../../../../../src/learnloop/tutor/ai_contracts.py), line 21)
-- `tutor_context_payload(context: 'TutorQAContext') -> dict` ([source](../../../../../../src/learnloop/tutor/ai_contracts.py), line 50) — The context as rendered and hashed; an absent confidence block or learner state is omitted.
-- `reader_learner_state_on(context: 'TutorQAContext') -> bool` ([source](../../../../../../src/learnloop/tutor/ai_contracts.py), line 61) — Whether a Reader context carries the learner state (its own prompt version suffix and task wording; every other context renders as before).
-- `class ReaderTutorQAContext(TutorQAContext)` ([source](../../../../../../src/learnloop/tutor/ai_contracts.py), line 69) — Reader workbench RW1c: the Reader context of a tutor that looks things up.
-- `class ReaderTutorExplorableQAContext(ReaderTutorQAContext)` ([source](../../../../../../src/learnloop/tutor/ai_contracts.py), line 85) — RW5b: :class:`ReaderTutorQAContext` while figure offers are on (no new fields; the prompt adds the ``explorable`` judgment and carries its own version, and each delivered equation or figure block carries ``block``: Codex review F7).
-- `class ReaderTutorShowMeQAContext(ReaderTutorQAContext)` ([source](../../../../../../src/learnloop/tutor/ai_contracts.py), line 93) — Reader RW5d P1 ("show me", with RW5b's offers): the Reader context whose answer may carry an optional ``figure_goal`` (no new fields; its own prompt version).
-- `class ReaderTutorExplorableShowMeQAContext(ReaderTutorExplorableQAContext)` ([source](../../../../../../src/learnloop/tutor/ai_contracts.py), line 101) — RW5d P1: RW5b's explorable context with the optional ``figure_goal``.
-- `class TeachBackQuestionContext` ([source](../../../../../../src/learnloop/tutor/ai_contracts.py), line 106)
-- `class TeachBackAuthoringContext` ([source](../../../../../../src/learnloop/tutor/ai_contracts.py), line 121)
-- `class PromotionAnalysisContext` ([source](../../../../../../src/learnloop/tutor/ai_contracts.py), line 135)
-- `class TutorCitation(WireModel)` ([source](../../../../../../src/learnloop/tutor/ai_contracts.py), line 145)
-- `class LearnerGap(WireModel)` ([source](../../../../../../src/learnloop/tutor/ai_contracts.py), line 155) — What a learner's own text reveals, NAMED before it is classified.
-- `class TutorAnswer(WireModel)` ([source](../../../../../../src/learnloop/tutor/ai_contracts.py), line 186)
-- `class TutorAnswerWithTools(TutorAnswer)` ([source](../../../../../../src/learnloop/tutor/ai_contracts.py), line 201) — The tutor's answer with typed source-tool requests (canonical sources S4, §10.3).
-- `class ReaderExcerpt(WireModel)` ([source](../../../../../../src/learnloop/tutor/ai_contracts.py), line 210) — RW1c's "From your books": a verbatim piece of one provided passage.
-- `class ReaderTutorAnswer(TutorAnswer)` ([source](../../../../../../src/learnloop/tutor/ai_contracts.py), line 218) — The Reader tutor's answer in up to three labelled parts (RW1c, spec §4.6): ``excerpt`` ("From your books", quote-verified in code), ``answer_md`` (LearnLoop's grounded explanation) and ``bridge_md`` (connecting it to the learner's work, only when that work is in context).
-- `class ReaderTutorAnswerWithTools(TutorAnswerWithTools)` ([source](../../../../../../src/learnloop/tutor/ai_contracts.py), line 228) — :class:`ReaderTutorAnswer` with S4's tool requests (``source_service.tutor_tools`` on).
-- `class ExplorableCitation(WireModel)` ([source](../../../../../../src/learnloop/tutor/ai_contracts.py), line 235) — RW5b: whether one cited equation or figure block could become an explorable figure (the tutor's judgment, in the call that answers).
-  - `_tolerate(cls, data: Any) -> Any` (line 246; internal)
-- `class ReaderTutorExplorableAnswer(ReaderTutorAnswer)` ([source](../../../../../../src/learnloop/tutor/ai_contracts.py), line 252) — RW5b (figure offers, with ``figures.enabled``): :class:`ReaderTutorAnswer` with ``explorable`` on each cited equation or figure block; an output without the field reads as no offers.
-- `class ReaderTutorExplorableAnswerWithTools(ReaderTutorAnswerWithTools)` ([source](../../../../../../src/learnloop/tutor/ai_contracts.py), line 260)
-- `class ReaderTutorShowMeAnswer(ReaderTutorAnswer, _FigureGoal)` ([source](../../../../../../src/learnloop/tutor/ai_contracts.py), line 275) — RW5d P1 ("show me"): :class:`ReaderTutorAnswer` with the optional ``figure_goal``; an output without it reads as no goal.
-- `class ReaderTutorShowMeAnswerWithTools(ReaderTutorAnswerWithTools, _FigureGoal)` ([source](../../../../../../src/learnloop/tutor/ai_contracts.py), line 280)
-- `class ReaderTutorExplorableShowMeAnswer(ReaderTutorExplorableAnswer, _FigureGoal)` ([source](../../../../../../src/learnloop/tutor/ai_contracts.py), line 284)
-- `class ReaderTutorExplorableShowMeAnswerWithTools(ReaderTutorExplorableAnswerWithTools, _FigureGoal)` ([source](../../../../../../src/learnloop/tutor/ai_contracts.py), line 288)
-- `class TeachBackQuestion(WireModel)` ([source](../../../../../../src/learnloop/tutor/ai_contracts.py), line 292)
-- `class TeachBackCriterionDraft(WireModel)` ([source](../../../../../../src/learnloop/tutor/ai_contracts.py), line 296)
-- `class TeachBackAuthoring(WireModel)` ([source](../../../../../../src/learnloop/tutor/ai_contracts.py), line 305)
-- `class PromotionAnalysis(WireModel)` ([source](../../../../../../src/learnloop/tutor/ai_contracts.py), line 315)
-- `tutor_qa_prompt(context: TutorQAContext, *, tools: bool=False) -> str` ([source](../../../../../../src/learnloop/tutor/ai_contracts.py), line 723)
-- `teach_back_question_prompt(context: TeachBackQuestionContext) -> str` ([source](../../../../../../src/learnloop/tutor/ai_contracts.py), line 773)
-- `teach_back_authoring_prompt(context: TeachBackAuthoringContext) -> str` ([source](../../../../../../src/learnloop/tutor/ai_contracts.py), line 781)
-- `promotion_analysis_prompt(context: PromotionAnalysisContext) -> str` ([source](../../../../../../src/learnloop/tutor/ai_contracts.py), line 789)
+- `tutor_context_payload(context: 'TutorQAContext') -> dict` ([source](../../../../../../src/learnloop/tutor/ai_contracts.py), line 55) — The context as rendered and hashed; an absent confidence block, learner state or goal is omitted.
+- `reader_learner_state_on(context: 'TutorQAContext') -> bool` ([source](../../../../../../src/learnloop/tutor/ai_contracts.py), line 66) — Whether a Reader context carries the learner state (its own prompt version suffix and task wording; every other context renders as before).
+- `reader_goal_on(context: 'TutorQAContext') -> bool` ([source](../../../../../../src/learnloop/tutor/ai_contracts.py), line 73) — Whether a Reader context carries the goal in view (its own prompt version suffix and one task sentence; without it the prompt is byte for byte what it was).
+- `class ReaderTutorQAContext(TutorQAContext)` ([source](../../../../../../src/learnloop/tutor/ai_contracts.py), line 81) — Reader workbench RW1c: the Reader context of a tutor that looks things up.
+- `class ReaderTutorExplorableQAContext(ReaderTutorQAContext)` ([source](../../../../../../src/learnloop/tutor/ai_contracts.py), line 97) — RW5b: :class:`ReaderTutorQAContext` while figure offers are on (no new fields; the prompt adds the ``explorable`` judgment and carries its own version, and each delivered equation or figure block carries ``block``: Codex review F7).
+- `class ReaderTutorShowMeQAContext(ReaderTutorQAContext)` ([source](../../../../../../src/learnloop/tutor/ai_contracts.py), line 105) — Reader RW5d P1 ("show me", with RW5b's offers): the Reader context whose answer may carry an optional ``figure_goal`` (no new fields; its own prompt version).
+- `class ReaderTutorExplorableShowMeQAContext(ReaderTutorExplorableQAContext)` ([source](../../../../../../src/learnloop/tutor/ai_contracts.py), line 113) — RW5d P1: RW5b's explorable context with the optional ``figure_goal``.
+- `class TeachBackQuestionContext` ([source](../../../../../../src/learnloop/tutor/ai_contracts.py), line 118)
+- `class TeachBackAuthoringContext` ([source](../../../../../../src/learnloop/tutor/ai_contracts.py), line 133)
+- `class PromotionAnalysisContext` ([source](../../../../../../src/learnloop/tutor/ai_contracts.py), line 147)
+- `class TutorCitation(WireModel)` ([source](../../../../../../src/learnloop/tutor/ai_contracts.py), line 157)
+- `class LearnerGap(WireModel)` ([source](../../../../../../src/learnloop/tutor/ai_contracts.py), line 167) — What a learner's own text reveals, NAMED before it is classified.
+- `class TutorAnswer(WireModel)` ([source](../../../../../../src/learnloop/tutor/ai_contracts.py), line 198)
+- `class TutorAnswerWithTools(TutorAnswer)` ([source](../../../../../../src/learnloop/tutor/ai_contracts.py), line 213) — The tutor's answer with typed source-tool requests (canonical sources S4, §10.3).
+- `class ReaderExcerpt(WireModel)` ([source](../../../../../../src/learnloop/tutor/ai_contracts.py), line 222) — RW1c's "From your books": a verbatim piece of one provided passage.
+- `class ReaderTutorAnswer(TutorAnswer)` ([source](../../../../../../src/learnloop/tutor/ai_contracts.py), line 230) — The Reader tutor's answer in up to three labelled parts (RW1c, spec §4.6): ``excerpt`` ("From your books", quote-verified in code), ``answer_md`` (LearnLoop's grounded explanation) and ``bridge_md`` (connecting it to the learner's work, only when that work is in context).
+- `class ReaderTutorAnswerWithTools(TutorAnswerWithTools)` ([source](../../../../../../src/learnloop/tutor/ai_contracts.py), line 240) — :class:`ReaderTutorAnswer` with S4's tool requests (``source_service.tutor_tools`` on).
+- `class ExplorableCitation(WireModel)` ([source](../../../../../../src/learnloop/tutor/ai_contracts.py), line 247) — RW5b: whether one cited equation or figure block could become an explorable figure (the tutor's judgment, in the call that answers).
+  - `_tolerate(cls, data: Any) -> Any` (line 258; internal)
+- `class ReaderTutorExplorableAnswer(ReaderTutorAnswer)` ([source](../../../../../../src/learnloop/tutor/ai_contracts.py), line 264) — RW5b (figure offers, with ``figures.enabled``): :class:`ReaderTutorAnswer` with ``explorable`` on each cited equation or figure block; an output without the field reads as no offers.
+- `class ReaderTutorExplorableAnswerWithTools(ReaderTutorAnswerWithTools)` ([source](../../../../../../src/learnloop/tutor/ai_contracts.py), line 272)
+- `class ReaderTutorShowMeAnswer(ReaderTutorAnswer, _FigureGoal)` ([source](../../../../../../src/learnloop/tutor/ai_contracts.py), line 287) — RW5d P1 ("show me"): :class:`ReaderTutorAnswer` with the optional ``figure_goal``; an output without it reads as no goal.
+- `class ReaderTutorShowMeAnswerWithTools(ReaderTutorAnswerWithTools, _FigureGoal)` ([source](../../../../../../src/learnloop/tutor/ai_contracts.py), line 292)
+- `class ReaderTutorExplorableShowMeAnswer(ReaderTutorExplorableAnswer, _FigureGoal)` ([source](../../../../../../src/learnloop/tutor/ai_contracts.py), line 296)
+- `class ReaderTutorExplorableShowMeAnswerWithTools(ReaderTutorExplorableAnswerWithTools, _FigureGoal)` ([source](../../../../../../src/learnloop/tutor/ai_contracts.py), line 300)
+- `class TeachBackQuestion(WireModel)` ([source](../../../../../../src/learnloop/tutor/ai_contracts.py), line 304)
+- `class TeachBackCriterionDraft(WireModel)` ([source](../../../../../../src/learnloop/tutor/ai_contracts.py), line 308)
+- `class TeachBackAuthoring(WireModel)` ([source](../../../../../../src/learnloop/tutor/ai_contracts.py), line 317)
+- `class PromotionAnalysis(WireModel)` ([source](../../../../../../src/learnloop/tutor/ai_contracts.py), line 327)
+- `tutor_qa_prompt(context: TutorQAContext, *, tools: bool=False) -> str` ([source](../../../../../../src/learnloop/tutor/ai_contracts.py), line 744)
+- `teach_back_question_prompt(context: TeachBackQuestionContext) -> str` ([source](../../../../../../src/learnloop/tutor/ai_contracts.py), line 798)
+- `teach_back_authoring_prompt(context: TeachBackAuthoringContext) -> str` ([source](../../../../../../src/learnloop/tutor/ai_contracts.py), line 806)
+- `promotion_analysis_prompt(context: PromotionAnalysisContext) -> str` ([source](../../../../../../src/learnloop/tutor/ai_contracts.py), line 814)
 
 ### Module constants
 
-- `LEARNER_GAP_KINDS` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 152)
-- `FIGURE_GOAL_CHARS` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 265)
-- `TUTOR_QA_PROMPT_VERSION` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 322)
-- `LEARNER_GAP_RULES_VERSION` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 324)
-- `TUTOR_QA_TOOLS_PROMPT_VERSION` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 329)
-- `READER_TUTOR_PROMPT_VERSION` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 333)
-- `READER_TUTOR_TOOLS_PROMPT_VERSION` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 334)
-- `READER_TUTOR_EXPLORABLE_PROMPT_VERSION` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 337)
-- `READER_TUTOR_EXPLORABLE_TOOLS_PROMPT_VERSION` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 338)
-- `SHOW_ME_PROMPT_SUFFIX` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 341)
-- `READER_TUTOR_SHOW_ME_PROMPT_VERSION` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 342)
-- `READER_TUTOR_SHOW_ME_TOOLS_PROMPT_VERSION` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 343)
-- `READER_TUTOR_EXPLORABLE_SHOW_ME_PROMPT_VERSION` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 344)
-- `READER_TUTOR_EXPLORABLE_SHOW_ME_TOOLS_PROMPT_VERSION` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 345)
-- `READER_LEARNER_STATE_SUFFIX` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 348)
-- `TEACH_BACK_PROMPT_VERSION` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 349)
-- `TEACH_BACK_AUTHORING_PROMPT_VERSION` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 350)
-- `PROMOTION_ANALYSIS_PROMPT_VERSION` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 351)
-- `TUTOR_PROMOTION_PROMPT_VERSION` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 352)
-- `PROMOTION_ANALYSIS_PROMPT` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 354)
-- `TUTOR_PROMOTION_PROMPT` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 379)
-- `TUTOR_PROMOTION_PROMPT` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 429)
-- `_TUTOR_QA_LEARNER_EXTRACTION` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 435)
-- `LEARNER_GAP_RULES` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 453)
-- `_TUTOR_QA_SHARED` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 468)
-- `_READER_BLIND_SENTENCE` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 493)
-- `_TUTOR_QA_CONTEXT_TASKS` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 497)
-- `_TUTOR_QA_READER_LEARNER_STATE_SENTENCE` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 530)
-- `_TUTOR_QA_READER_MODE_TASKS` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 539)
-- `_TUTOR_QA_PRACTICE_MODE_TASKS` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 558)
-- `TUTOR_QA_ANSWER_MODE_SUFFIX` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 575)
-- `_TEACH_BACK_TASK` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 577)
-- `_TEACH_BACK_AUTHORING_TASK` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 597)
-- `_TUTOR_QA_DIAGNOSTIC_DECISION_TASK` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 635)
-- `_TUTOR_QA_OPENING_SHARED` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 652)
-- `_TUTOR_QA_TOOLS_TASK` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 666)
-- `_TUTOR_QA_READER_LOOKUP_TASK` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 679)
-- `_TUTOR_QA_READER_EXPLORABLE_TASK` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 703)
-- `_TUTOR_QA_READER_SHOW_ME_TASK` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 714)
+- `LEARNER_GAP_KINDS` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 164)
+- `FIGURE_GOAL_CHARS` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 277)
+- `TUTOR_QA_PROMPT_VERSION` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 334)
+- `LEARNER_GAP_RULES_VERSION` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 336)
+- `TUTOR_QA_TOOLS_PROMPT_VERSION` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 341)
+- `READER_TUTOR_PROMPT_VERSION` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 345)
+- `READER_TUTOR_TOOLS_PROMPT_VERSION` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 346)
+- `READER_TUTOR_EXPLORABLE_PROMPT_VERSION` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 349)
+- `READER_TUTOR_EXPLORABLE_TOOLS_PROMPT_VERSION` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 350)
+- `SHOW_ME_PROMPT_SUFFIX` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 353)
+- `READER_TUTOR_SHOW_ME_PROMPT_VERSION` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 354)
+- `READER_TUTOR_SHOW_ME_TOOLS_PROMPT_VERSION` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 355)
+- `READER_TUTOR_EXPLORABLE_SHOW_ME_PROMPT_VERSION` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 356)
+- `READER_TUTOR_EXPLORABLE_SHOW_ME_TOOLS_PROMPT_VERSION` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 357)
+- `READER_LEARNER_STATE_SUFFIX` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 360)
+- `READER_GOAL_SUFFIX` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 361)
+- `TEACH_BACK_PROMPT_VERSION` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 362)
+- `TEACH_BACK_AUTHORING_PROMPT_VERSION` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 363)
+- `PROMOTION_ANALYSIS_PROMPT_VERSION` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 364)
+- `TUTOR_PROMOTION_PROMPT_VERSION` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 365)
+- `PROMOTION_ANALYSIS_PROMPT` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 367)
+- `TUTOR_PROMOTION_PROMPT` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 392)
+- `TUTOR_PROMOTION_PROMPT` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 442)
+- `_TUTOR_QA_LEARNER_EXTRACTION` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 448)
+- `LEARNER_GAP_RULES` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 466)
+- `_TUTOR_QA_SHARED` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 481)
+- `_READER_BLIND_SENTENCE` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 506)
+- `_TUTOR_QA_CONTEXT_TASKS` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 510)
+- `_TUTOR_QA_READER_GOAL_SENTENCE` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 542)
+- `_TUTOR_QA_READER_LEARNER_STATE_SENTENCE` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 551)
+- `_TUTOR_QA_READER_MODE_TASKS` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 560)
+- `_TUTOR_QA_PRACTICE_MODE_TASKS` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 579)
+- `TUTOR_QA_ANSWER_MODE_SUFFIX` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 596)
+- `_TEACH_BACK_TASK` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 598)
+- `_TEACH_BACK_AUTHORING_TASK` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 618)
+- `_TUTOR_QA_DIAGNOSTIC_DECISION_TASK` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 656)
+- `_TUTOR_QA_OPENING_SHARED` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 673)
+- `_TUTOR_QA_TOOLS_TASK` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 687)
+- `_TUTOR_QA_READER_LOOKUP_TASK` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 700)
+- `_TUTOR_QA_READER_EXPLORABLE_TASK` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 724)
+- `_TUTOR_QA_READER_SHOW_ME_TASK` ([src/learnloop/tutor/ai_contracts.py](../../../../../../src/learnloop/tutor/ai_contracts.py), line 735)
 
 ## Internal implementation anchors
 
-- `class _FigureGoal(WireModel)` ([source](../../../../../../src/learnloop/tutor/ai_contracts.py), line 268)
+- `class _FigureGoal(WireModel)` ([source](../../../../../../src/learnloop/tutor/ai_contracts.py), line 280)
 
 ## Who imports or calls it
 
@@ -147,7 +150,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - [[Reference/Modules/learnloop/tutor/promotions|learnloop.tutor.promotions]] — imports `PromotionAnalysis`, `PromotionAnalysisContext`, `TUTOR_PROMOTION_PROMPT`, `promotion_analysis_prompt`; statically calls `PromotionAnalysis`, `PromotionAnalysisContext`, `promotion_analysis_prompt`
 - [[Reference/Modules/learnloop/tutor/reader_modes|learnloop.tutor.reader_modes]] — imports `FIGURE_GOAL_CHARS`
 - [[Reference/Modules/learnloop/tutor/teach_back|learnloop.tutor.teach_back]] — imports `TeachBackAuthoring`, `TeachBackAuthoringContext`, `TeachBackCriterionDraft`, `TeachBackQuestion`, `TeachBackQuestionContext`, `teach_back_authoring_prompt`, `teach_back_question_prompt`; statically calls `TeachBackAuthoring`, `TeachBackAuthoringContext`, `TeachBackCriterionDraft`, `TeachBackQuestionContext`, `teach_back_authoring_prompt`, `teach_back_question_prompt`
-- [[Reference/Modules/learnloop/tutor/tutor_qa|learnloop.tutor.tutor_qa]] — imports `READER_LEARNER_STATE_SUFFIX`, `READER_TUTOR_EXPLORABLE_PROMPT_VERSION`, `READER_TUTOR_EXPLORABLE_SHOW_ME_PROMPT_VERSION`, `READER_TUTOR_EXPLORABLE_SHOW_ME_TOOLS_PROMPT_VERSION`, `READER_TUTOR_EXPLORABLE_TOOLS_PROMPT_VERSION`, `READER_TUTOR_PROMPT_VERSION`, `READER_TUTOR_SHOW_ME_PROMPT_VERSION`, `READER_TUTOR_SHOW_ME_TOOLS_PROMPT_VERSION`, `READER_TUTOR_TOOLS_PROMPT_VERSION`, `ReaderTutorAnswer`, `ReaderTutorAnswerWithTools`, `ReaderTutorExplorableAnswer`, `ReaderTutorExplorableAnswerWithTools`, `ReaderTutorExplorableQAContext`, `ReaderTutorExplorableShowMeAnswer`, `ReaderTutorExplorableShowMeAnswerWithTools`, `ReaderTutorExplorableShowMeQAContext`, `ReaderTutorQAContext`, `ReaderTutorShowMeAnswer`, `ReaderTutorShowMeAnswerWithTools`, `ReaderTutorShowMeQAContext`, `TUTOR_QA_ANSWER_MODE_SUFFIX`, `TUTOR_QA_PROMPT_VERSION`, `TUTOR_QA_TOOLS_PROMPT_VERSION`, `TutorAnswer`, `TutorAnswerWithTools`, `TutorQAContext`, `reader_learner_state_on`, `tutor_context_payload`, `tutor_qa_prompt`; statically calls `TutorQAContext`, `reader_learner_state_on`, `tutor_context_payload`, `tutor_qa_prompt`
+- [[Reference/Modules/learnloop/tutor/tutor_qa|learnloop.tutor.tutor_qa]] — imports `READER_GOAL_SUFFIX`, `READER_LEARNER_STATE_SUFFIX`, `READER_TUTOR_EXPLORABLE_PROMPT_VERSION`, `READER_TUTOR_EXPLORABLE_SHOW_ME_PROMPT_VERSION`, `READER_TUTOR_EXPLORABLE_SHOW_ME_TOOLS_PROMPT_VERSION`, `READER_TUTOR_EXPLORABLE_TOOLS_PROMPT_VERSION`, `READER_TUTOR_PROMPT_VERSION`, `READER_TUTOR_SHOW_ME_PROMPT_VERSION`, `READER_TUTOR_SHOW_ME_TOOLS_PROMPT_VERSION`, `READER_TUTOR_TOOLS_PROMPT_VERSION`, `ReaderTutorAnswer`, `ReaderTutorAnswerWithTools`, `ReaderTutorExplorableAnswer`, `ReaderTutorExplorableAnswerWithTools`, `ReaderTutorExplorableQAContext`, `ReaderTutorExplorableShowMeAnswer`, `ReaderTutorExplorableShowMeAnswerWithTools`, `ReaderTutorExplorableShowMeQAContext`, `ReaderTutorQAContext`, `ReaderTutorShowMeAnswer`, `ReaderTutorShowMeAnswerWithTools`, `ReaderTutorShowMeQAContext`, `TUTOR_QA_ANSWER_MODE_SUFFIX`, `TUTOR_QA_PROMPT_VERSION`, `TUTOR_QA_TOOLS_PROMPT_VERSION`, `TutorAnswer`, `TutorAnswerWithTools`, `TutorQAContext`, `reader_goal_on`, `reader_learner_state_on`, `tutor_context_payload`, `tutor_qa_prompt`; statically calls `TutorQAContext`, `reader_goal_on`, `reader_learner_state_on`, `tutor_context_payload`, `tutor_qa_prompt`
 
 ## Dependencies
 
@@ -291,6 +294,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_no_links_degrades_to_no_citations`
 - [tests/test_tutor_delivery_fixes.py](../../../../../../tests/test_tutor_delivery_fixes.py) — direct import
   - `test_a_referenced_theorem_is_citable`
+- [tests/test_tutor_goal_in_view.py](../../../../../../tests/test_tutor_goal_in_view.py) — direct import
+  - `test_a_goal_naming_a_topic_whose_cold_check_is_due_is_withheld_whole`
+  - `test_the_goal_in_view_reaches_the_tutor_as_its_sentence_and_depth`
+  - `test_with_no_goal_in_view_the_tutors_prompt_is_the_reader_asks_byte_for_byte`
 - [tests/test_tutor_promotion_service.py](../../../../../../tests/test_tutor_promotion_service.py) — direct import
   - `test_accepting_reviewed_promotion_makes_original_request_schedulable`
   - `test_attach_to_existing_with_grounding_auto_applies`

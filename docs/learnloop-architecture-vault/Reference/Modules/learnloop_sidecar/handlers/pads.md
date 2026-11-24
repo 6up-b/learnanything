@@ -50,7 +50,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/pads.py](../../../../../../src/learnloop_sidecar/handlers/pads.py) |
-| Source lines | 455 |
+| Source lines | 458 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
@@ -66,19 +66,19 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `class SubmitTarget(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/pads.py), line 146) — Where the block's text goes: the practice session and item the existing entry point records it on (the item a problem pad or check cell answers, or a teach-back item for the block's LO from ``request_teach_back``).
 - `class PadSubmitBlockInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/pads.py), line 158)
 - `pad_submit_block_handler(ctx: SidecarContext, params: PadSubmitBlockInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/pads.py), line 277) — Submit one block version as an attempt or a teach-back (an explicit act): ``{submission_id, block_id, version_id, as, attempt_id?, teach_back_id?, duplicate, entry?, teach_back?}``.
-- `class PadProposalsInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/pads.py), line 306)
-- `pad_proposals_handler(ctx: SidecarContext, params: PadProposalsInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/pads.py), line 311) — The pad's gutter proposals: one per standing block's current words at most, with its labels.
-- `class ProposalLabelInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/pads.py), line 324)
-- `proposal_label_handler(ctx: SidecarContext, params: ProposalLabelInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/pads.py), line 332) — What the learner did with a proposal ("not this" means wrong, "dismiss" means not now), once per id.
-- `class PadDrainInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/pads.py), line 347)
-- `pad_drain_handler(ctx: SidecarContext, params: PadDrainInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/pads.py), line 354) — Closing a desk: the pads it worked on that day, what each holds, and a carry offer when the last line asks.
-- `class CarriedAnchor(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/pads.py), line 361)
-- `class CarryInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/pads.py), line 368)
-- `carried_carry_handler(ctx: SidecarContext, params: CarryInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/pads.py), line 385) — Carry a question (idempotent by ``carried_id``): ``{carried: {...}, created}``.
-- `class CarriedListInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/pads.py), line 418)
-- `carried_list_handler(ctx: SidecarContext, params: CarriedListInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/pads.py), line 425) — Carried questions, longest carried first, a page at a time, with the shelf's display limit.
-- `class CarriedMarkInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/pads.py), line 434)
-- `carried_mark_handler(ctx: SidecarContext, params: CarriedMarkInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/pads.py), line 445) — A label or a notice on a carried question (idempotent by ``event_id``): ``{carried, applied, conflict}``.
+- `class PadProposalsInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/pads.py), line 308)
+- `pad_proposals_handler(ctx: SidecarContext, params: PadProposalsInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/pads.py), line 313) — The pad's gutter proposals: one per standing block's current words at most, with its labels.
+- `class ProposalLabelInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/pads.py), line 326)
+- `proposal_label_handler(ctx: SidecarContext, params: ProposalLabelInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/pads.py), line 334) — What the learner did with a proposal ("not this" means wrong, "dismiss" means not now), once per id.
+- `class PadDrainInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/pads.py), line 349)
+- `pad_drain_handler(ctx: SidecarContext, params: PadDrainInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/pads.py), line 356) — Closing a desk: the pads it worked on that day, what each holds, and a carry offer when the last line asks.
+- `class CarriedAnchor(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/pads.py), line 363)
+- `class CarryInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/pads.py), line 370)
+- `carried_carry_handler(ctx: SidecarContext, params: CarryInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/pads.py), line 387) — Carry a question (idempotent by ``carried_id``): ``{carried: {...}, created}``.
+- `class CarriedListInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/pads.py), line 421)
+- `carried_list_handler(ctx: SidecarContext, params: CarriedListInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/pads.py), line 428) — Carried questions, longest carried first, a page at a time, with the shelf's display limit.
+- `class CarriedMarkInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/pads.py), line 437)
+- `carried_mark_handler(ctx: SidecarContext, params: CarriedMarkInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/pads.py), line 448) — A label or a notice on a carried question (idempotent by ``event_id``): ``{carried, applied, conflict}``.
 
 ### Module constants
 
@@ -95,7 +95,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_teach_back_status(repository: Any, prepared: submission_core.Prepared, conversation_id: str | None) -> tuple[str, dict[str, Any] | None, str | None]` ([source](../../../../../../src/learnloop_sidecar/handlers/pads.py), line 206) — Where the conversation ``conversation_id`` stands, found by its id alone (never by its words, which another submission may share): ``completed`` (its attempt, whose evidence carries the id as its agent run), ``ongoing`` (the session's checkpointed state), or ``not_started``.
 - `_hand_to_teach_back(ctx: SidecarContext, prepared: submission_core.Prepared, target: SubmitTarget, conversation_id: str) -> tuple[dict[str, Any], str | None]` ([source](../../../../../../src/learnloop_sidecar/handlers/pads.py), line 233) — The block's words as the opening of the conversation ``conversation_id`` (reserved before this call).
 - `_submit_teach_back(ctx: SidecarContext, repository: Any, prepared: submission_core.Prepared, target: SubmitTarget) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/pads.py), line 248) — A teach-back submission, reserved before its hand-off so a crash anywhere after it is recoverable.
-- `_carried_wire(row: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/pads.py), line 378)
+- `_carried_wire(row: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/pads.py), line 380)
 
 ## Who imports or calls it
 
@@ -112,7 +112,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/desks/protocol|learnloop.desks.protocol]] — imports `ProtocolError`
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
 - [[Reference/Modules/learnloop/pads/blocks|learnloop.pads.blocks]] — imports `PadNotFound`, `PadOp`, `apply_pad_ops`, `pad_list`, `pad_view`; calls `apply_pad_ops`, `pad_list`, `pad_view`
-- [[Reference/Modules/learnloop/pads/carried|learnloop.pads.carried]] — imports `module`; calls `carry`, `listing`, `mark`
+- [[Reference/Modules/learnloop/pads/carried|learnloop.pads.carried]] — imports `module`; calls `carry`, `check_question`, `listing`, `mark`
 - [[Reference/Modules/learnloop/pads/drain|learnloop.pads.drain]] — imports `desk_drain`; calls `desk_drain`
 - [[Reference/Modules/learnloop/pads/emission|learnloop.pads.emission]] — imports `module`; calls `settle_blocks`
 - [[Reference/Modules/learnloop/pads/proposals|learnloop.pads.proposals]] — imports `module`; calls `label`, `pad_proposals`, `propose_for_blocks`

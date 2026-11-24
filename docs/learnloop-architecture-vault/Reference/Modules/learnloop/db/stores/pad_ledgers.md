@@ -113,6 +113,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 No test imports this module directly. These tests exercise a direct production consumer:
 
 - [tests/test_pad_stale_edits_stacks_and_passage_reads.py](../../../../../../../tests/test_pad_stale_edits_stacks_and_passage_reads.py) — imports consumer [[Reference/Modules/learnloop/pads/carried|learnloop.pads.carried]]
+- [tests/test_teacher_carried_questions.py](../../../../../../../tests/test_teacher_carried_questions.py) — imports consumer [[Reference/Modules/learnloop/pads/carried|learnloop.pads.carried]]
 - [tests/test_menu_elsewhere_and_proposals.py](../../../../../../../tests/test_menu_elsewhere_and_proposals.py) — imports consumer [[Reference/Modules/learnloop/pads/proposals|learnloop.pads.proposals]]
 - [tests/test_reader_rd4_carried_and_proposals.py](../../../../../../../tests/test_reader_rd4_carried_and_proposals.py) — imports consumer [[Reference/Modules/learnloop/pads/proposals|learnloop.pads.proposals]]
 - [tests/test_reader_rd4_submission.py](../../../../../../../tests/test_reader_rd4_submission.py) — imports consumer [[Reference/Modules/learnloop/pads/submission|learnloop.pads.submission]]

@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/menu/verbs.ts](../../../../../../../../apps/learnloop-tauri/src/screens/desks/menu/verbs.ts) |
-| Source lines | 248 |
+| Source lines | 279 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/menu/_area|TypeScript/screens/desks/menu]] |
 | Refactor status | `ACTIVE` |
@@ -54,38 +54,42 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export interface MenuApi` — interface, line 19
-- `export interface MenuContext` — interface, line 30
-- `export const CHECK_HELD_VERBS: readonly VerbId[] = ["ask", "find", "compare", "show_me", "make_practice", "teach_me", "knows", "open_beside"]` — const, line 69
-- `export function promotedRef(row: PromotedRowDto):` — function, line 80
-- `export async function runVerb(id: VerbId, object: MenuObject, ctx: MenuContext): Promise<void>` — function, line 98
-- `export function sourceMenuRows(object: MenuObject, ctx: MenuContext, appendTarget: string, withheld = false): MenuRow[]` — function, line 233
+- `export interface MenuApi` — interface, line 20
+- `export interface MenuContext` — interface, line 31
+- `export const CHECK_HELD_VERBS: readonly VerbId[] = ["ask", "find", "compare", "show_me", "make_practice", "teach_me", "knows", "open_beside"]` — const, line 79
+- `export function promotedRef(row: PromotedRowDto):` — function, line 92
+- `export async function runVerb(id: VerbId, object: MenuObject, ctx: MenuContext, appendTarget: string | null = null): Promise<void>` — function, line 111
+- `export function sourceMenuRows(object: MenuObject, ctx: MenuContext, appendTarget: string, withheld: boolean | ((id: VerbId)` — function, line 262
 
 ## Internal implementation anchors
 
-- `function errorText(error: unknown): string` — function, line 71
-- `function anchorOf(object: MenuObject):` — function, line 75
-- `const ref = row.action.ref as Record<string, unknown> | undefined` — const, line 81
-- `const camel: Record<string, unknown> =` — const, line 83
-- `const target = row.action.target ??` — const, line 85
-- `async function sectionOf(object: MenuObject, ctx: MenuContext): Promise<` — function, line 91
-- `const knows = await ctx.api.passageKnows(objectInput(object, ctx.deskId))` — const, line 92
-- `const place = knows.places.find((each)` — const, line 93
-- `const anchor = anchorOf(object)` — const, line 99
-- `const words = (object.selection || object.text).trim()` — const, line 100
-- `const held = CHECK_HELD_VERBS.includes(id) ? ctx.heldReason?.() ?? null : null` — const, line 102
-- `const note = await ctx.askNote(object)` — const, line 128
-- `const who = await ctx.api.readingIdentity(anchor.extractionId)` — const, line 130
-- `const receipt = await ctx.api.readerCapture(` — const, line 131
-- `const row = ctx.promotedRows().find((each)` — const, line 142
-- `const place = row ? promotedRef(row) : null` — const, line 143
-- `const found = await ctx.api.readerCorrespondents(` — const, line 154
-- `const section = found.learningObjects.flatMap((lo)` — const, line 155
-- `const who = await ctx.api.readingIdentity(anchor.extractionId)` — const, line 172
-- `const destination = ctx.figureDestination()` — const, line 181
-- `const figure = await ctx.showMe(words.slice(0, 300), anchor, object.windowId)` — const, line 184
-- `const drafted = await ctx.api.readerAuthorSectionQuestion(` — const, line 205
-- `const held = ctx.heldReason?.() ?? null` — const, line 236
+- `function errorText(error: unknown): string` — function, line 81
+- `function anchorOf(object: MenuObject)` — function, line 85
+- `const ids = passageIds(object)` — const, line 86
+- `const ref = row.action.ref as Record<string, unknown> | undefined` — const, line 93
+- `const camel: Record<string, unknown> =` — const, line 95
+- `const target = row.action.target ??` — const, line 97
+- `async function sectionOf(object: MenuObject, ctx: MenuContext, forVerb?: "make_practice"): Promise<` — function, line 103
+- `const knows = await ctx.api.passageKnows(` — const, line 105
+- `const place = knows.places.find((each)` — const, line 106
+- `const anchor = anchorOf(object)` — const, line 112
+- `const words = (object.selection || object.text).trim()` — const, line 113
+- `const held = CHECK_HELD_VERBS.includes(id) ? ctx.heldReason?.() ?? null : null` — const, line 115
+- `const withheld = await ctx.withheld(id)` — const, line 123
+- `const note = await ctx.askNote(object)` — const, line 147
+- `const who = await ctx.api.readingIdentity(anchor.extractionId)` — const, line 149
+- `const receipt = await ctx.api.readerCapture(` — const, line 150
+- `const row = ctx.promotedRows().find((each)` — const, line 161
+- `const place = row ? promotedRef(row) : null` — const, line 162
+- `const found = await ctx.api.readerCorrespondents(` — const, line 173
+- `const section = found.learningObjects.flatMap((lo)` — const, line 174
+- `const who = await ctx.api.readingIdentity(anchor.extractionId)` — const, line 188
+- `const destination = ctx.figureDestination()` — const, line 197
+- `const figure = await ctx.showMe(words.slice(0, 300), anchor, object.windowId)` — const, line 201
+- `const choice = await ctx.confirm("✎ make it practice · a question for this section", "LearnLoop drafts a question from this section` — const, line 226
+- `const drafted = await ctx.api.readerAuthorSectionQuestion(` — const, line 234
+- `const isWithheld = (id: VerbId)` — const, line 264
+- `const held = ctx.heldReason?.() ?? null` — const, line 267
 
 ## Who imports or calls it
 
@@ -98,9 +102,9 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ### Desktop source modules
 
-- [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `ContentRefDto`, `CorrespondentsDto`, `MenuObjectInput`, `PassageKnowsDto`, `PromotedRowDto`, `ReaderAuthorSectionQuestionDto`, `ReaderCaptureInput`, `ReaderCaptureReceiptDto`, `ReaderExerciseImportReceiptDto`, `ReaderImportExerciseInput`
+- [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `ContentRefDto`, `CorrespondentsDto`, `FigureViewDto`, `MenuObjectInput`, `PassageKnowsDto`, `PromotedRowDto`, `ReaderAuthorSectionQuestionDto`, `ReaderCaptureInput`, `ReaderCaptureReceiptDto`, `ReaderExerciseImportReceiptDto`, `ReaderImportExerciseInput`
 - [[Reference/Desktop/TypeScript/screens/LessonView|src/screens/LessonView.tsx]] — import-or-re-export; imports `LessonEntry`
-- [[Reference/Desktop/TypeScript/screens/desks/menu/model|src/screens/desks/menu/model.ts]] — import-or-re-export; imports `MenuObject`, `MenuRow`, `QUOTING_VERBS`, `VerbId`, `captureNodes`, `hasPassage`, `objectInput`, `verbsFor`
+- [[Reference/Desktop/TypeScript/screens/desks/menu/model|src/screens/desks/menu/model.ts]] — import-or-re-export; imports `MenuObject`, `MenuRow`, `VerbId`, `captureNodes`, `hasPassage`, `needsClearance`, `objectInput`, `passageIds`, `verbsFor`
 
 ### Assets, platform, and third-party dependencies
 

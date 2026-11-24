@@ -50,7 +50,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/passage_union.py](../../../../../../src/learnloop_sidecar/handlers/passage_union.py) |
-| Source lines | 413 |
+| Source lines | 441 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
@@ -60,34 +60,36 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `class UnionRangeInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/passage_union.py), line 36)
   - `_one_range(self) -> UnionRangeInput` (line 44; internal)
 - `passage_union_range_handler(ctx: SidecarContext, params: UnionRangeInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/passage_union.py), line 54) — ``{extraction_id, spans: [{span_id, …everything tied to it}], sections}``.
-- `passage_content_handler(ctx: SidecarContext, params: UnionRangeInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/passage_union.py), line 72) — One range of a reading as the source has it: ``{extraction_id, source_id, title, withheld, spans: [{span_id, text, page, t0, t1, section_id, section_label, withheld}]}`` (a ``source_piece``'s words, location and time).
-- `class MenuObjectInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/passage_union.py), line 93) — The object a menu was opened on (§9.1 "invocation"): a passage, a transcript cue (its span or a time), a highlight or margin note (its annotation and the passage it sits on), a window header (the passage in view), or a pad line (its block).
-  - `_names_its_object(self) -> MenuObjectInput` (line 110; internal)
-- `class PromotedInput(MenuObjectInput)` ([source](../../../../../../src/learnloop_sidecar/handlers/passage_union.py), line 121) — The menu's object and, from a client that may retry, its request id: a repeat answers with the job the first request started (its work runs once); the same id for another object is refused.
-- `passage_knows_handler(ctx: SidecarContext, params: MenuObjectInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/passage_union.py), line 244) — What this knows (§9.1 ``i``), as one read: the object's passages, each with everything the union read ties to it (each row with its anchor quality and alias).
-- `passage_promoted_handler(ctx: SidecarContext, params: PromotedInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/passage_union.py), line 265) — The menu's promoted rows at once (the cheap ones, ranked, at most four) and the job finding the judged ones: ``{object_key, rows, cap, withheld, pending_job: {job_id} | null, paid: {searched_by_meaning, verified, reason}}``.
-- `class PromotedJobInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/passage_union.py), line 334)
-- `passage_promoted_job_handler(ctx: SidecarContext, params: PromotedJobInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/passage_union.py), line 396) — The judged rows' job at once (never a wait): when done, every row ranked again, cheap and judged, at most four.
-- `passage_promoted_cancel_handler(ctx: SidecarContext, params: PromotedJobInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/passage_union.py), line 405) — Cancel the judged rows' job (the menu closed): its next paid request is refused; a finished job keeps its outcome.
+- `class PassageContentInput(UnionRangeInput)` ([source](../../../../../../src/learnloop_sidecar/handlers/passage_union.py), line 71)
+- `passage_content_handler(ctx: SidecarContext, params: PassageContentInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/passage_union.py), line 78) — One range of a reading as the source has it: ``{extraction_id, source_id, title, withheld, spans: [{span_id, text, page, t0, t1, section_id, section_label, withheld}]}`` (a ``source_piece``'s words, location and time).
+- `class MenuObjectInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/passage_union.py), line 100) — The object a menu was opened on (§9.1 "invocation"): a passage, a transcript cue (its span or a time), a highlight or margin note (its annotation and the passage it sits on), a window header (the passage in view), or a pad line (its block).
+  - `_names_its_object(self) -> MenuObjectInput` (line 120; internal)
+- `class PromotedInput(MenuObjectInput)` ([source](../../../../../../src/learnloop_sidecar/handlers/passage_union.py), line 131) — The menu's object and, from a client that may retry, its request id: a repeat answers with the job the first request started (its work runs once); the same id for another object is refused.
+- `passage_knows_handler(ctx: SidecarContext, params: MenuObjectInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/passage_union.py), line 254) — What this knows (§9.1 ``i``), as one read: the object's passages, each with everything the union read ties to it (each row with its anchor quality and alias).
+- `passage_promoted_handler(ctx: SidecarContext, params: PromotedInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/passage_union.py), line 277) — The menu's promoted rows at once (the cheap ones, ranked, at most four) and the job finding the judged ones: ``{object_key, rows, cap, withheld, pending_job: {job_id} | null, paid: {searched_by_meaning, verified, reason}}``.
+- `class PromotedJobInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/passage_union.py), line 349)
+- `passage_promoted_job_handler(ctx: SidecarContext, params: PromotedJobInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/passage_union.py), line 424) — The judged rows' job at once (never a wait): when done, every row ranked again, cheap and judged, at most four.
+- `passage_promoted_cancel_handler(ctx: SidecarContext, params: PromotedJobInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/passage_union.py), line 433) — Cancel the judged rows' job (the menu closed): its next paid request is refused; a finished job keeps its outcome.
 
 ### Module constants
 
 - `PASSAGE_UNION_RPCS` ([src/learnloop_sidecar/handlers/passage_union.py](../../../../../../src/learnloop_sidecar/handlers/passage_union.py), line 22)
 - `PASSAGE_CONTENT_RPCS` ([src/learnloop_sidecar/handlers/passage_union.py](../../../../../../src/learnloop_sidecar/handlers/passage_union.py), line 24)
-- `MENU_RPCS` ([src/learnloop_sidecar/handlers/passage_union.py](../../../../../../src/learnloop_sidecar/handlers/passage_union.py), line 88)
-- `PROMOTED_KIND` ([src/learnloop_sidecar/handlers/passage_union.py](../../../../../../src/learnloop_sidecar/handlers/passage_union.py), line 89)
-- `_PROMOTED_REGISTRY` ([src/learnloop_sidecar/handlers/passage_union.py](../../../../../../src/learnloop_sidecar/handlers/passage_union.py), line 90)
-- `_WORD_FIELDS` ([src/learnloop_sidecar/handlers/passage_union.py](../../../../../../src/learnloop_sidecar/handlers/passage_union.py), line 210)
+- `MENU_RPCS` ([src/learnloop_sidecar/handlers/passage_union.py](../../../../../../src/learnloop_sidecar/handlers/passage_union.py), line 95)
+- `PROMOTED_KIND` ([src/learnloop_sidecar/handlers/passage_union.py](../../../../../../src/learnloop_sidecar/handlers/passage_union.py), line 96)
+- `_PROMOTED_REGISTRY` ([src/learnloop_sidecar/handlers/passage_union.py](../../../../../../src/learnloop_sidecar/handlers/passage_union.py), line 97)
+- `_WORD_FIELDS` ([src/learnloop_sidecar/handlers/passage_union.py](../../../../../../src/learnloop_sidecar/handlers/passage_union.py), line 220)
 
 ## Internal implementation anchors
 
 - `_notes_by_span(vault: Any, repository: Any, extraction_id: str) -> dict[str, list[dict[str, Any]]]` ([source](../../../../../../src/learnloop_sidecar/handlers/passage_union.py), line 27) — The notes linked beside each passage of a reading (curriculum C2's marks, while notes.enabled): the sidecar reads the notes' code, so the union read below it never does.
-- `_menu_places(vault: Any, repository: Any, params: MenuObjectInput) -> tuple[str, list[tuple[str, str]], str, list[str], bool]` ([source](../../../../../../src/learnloop_sidecar/handlers/passage_union.py), line 128) — The object's key, its passages, the words to search by, the sources it sits in, and whether any of its passages is exam or held-out material.
-- `_union_entries(vault: Any, repository: Any, places: list[tuple[str, str]], row_origins: dict[str, set[tuple[str, str]]] | None=None) -> list[tuple[str, str, dict]]` ([source](../../../../../../src/learnloop_sidecar/handlers/passage_union.py), line 192)
-- `_withhold_rows(vault: Any, repository: Any, entries: list[dict[str, Any]], row_origins: dict[str, set[tuple[str, str]]] | None=None) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/passage_union.py), line 213) — Drop every row whose words came from exam or held-out material, in place, and the rows' origins with them (``row_origins`` collects a kept learner row's origins for a later recheck).
-- `_dismissed(repository: Any, rows: list[Any]) -> set[str]` ([source](../../../../../../src/learnloop_sidecar/handlers/passage_union.py), line 235)
-- `_deliver_rows(ctx: SidecarContext, result: dict[str, Any]) -> tuple[list[dict[str, Any]], bool]` ([source](../../../../../../src/learnloop_sidecar/handlers/passage_union.py), line 338)
-- `_promoted_job_payload(ctx: SidecarContext, job_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/passage_union.py), line 367)
+- `_menu_places(vault: Any, repository: Any, params: MenuObjectInput) -> tuple[str, list[tuple[str, str]], str, list[str], bool]` ([source](../../../../../../src/learnloop_sidecar/handlers/passage_union.py), line 138) — The object's key, its passages, the words to search by, the sources it sits in, and whether any of its passages is exam or held-out material.
+- `_union_entries(vault: Any, repository: Any, places: list[tuple[str, str]], row_origins: dict[str, set[tuple[str, str]]] | None=None) -> list[tuple[str, str, dict]]` ([source](../../../../../../src/learnloop_sidecar/handlers/passage_union.py), line 202)
+- `_withhold_rows(vault: Any, repository: Any, entries: list[dict[str, Any]], row_origins: dict[str, set[tuple[str, str]]] | None=None) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/passage_union.py), line 223) — Drop every row whose words came from exam or held-out material, in place, and the rows' origins with them (``row_origins`` collects a kept learner row's origins for a later recheck).
+- `_dismissed(repository: Any, rows: list[Any]) -> set[str]` ([source](../../../../../../src/learnloop_sidecar/handlers/passage_union.py), line 245)
+- `_deliver_rows(ctx: SidecarContext, result: dict[str, Any]) -> tuple[list[dict[str, Any]], bool]` ([source](../../../../../../src/learnloop_sidecar/handlers/passage_union.py), line 353)
+- `_verbs_now(ctx: SidecarContext, result: dict[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop_sidecar/handlers/passage_union.py), line 382) — The per-verb verdict at a delivery, read again from the object's origins (a mark made since counts); a pad line that cannot be read withholds every verb.
+- `_promoted_job_payload(ctx: SidecarContext, job_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/passage_union.py), line 394)
 
 ## Who imports or calls it
 
@@ -117,7 +119,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop_sidecar/errors|learnloop_sidecar.errors]] — imports `SidecarError`; calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/polled_jobs|learnloop_sidecar.polled_jobs]] — imports `module`; calls `registry`, `vault_key`
 - [[Reference/Modules/learnloop_sidecar/registry|learnloop_sidecar.registry]] — imports `method`; calls `method`
-- [[Reference/Modules/learnloop_sidecar/workbench_protection|learnloop_sidecar.workbench_protection]] — imports `block_places`; calls `block_places`
+- [[Reference/Modules/learnloop_sidecar/workbench_protection|learnloop_sidecar.workbench_protection]] — imports `VERB_SURFACES`, `block_places`, `withheld_verbs`; calls `block_places`, `withheld_verbs`
 
 ### Platform and third-party dependencies
 

@@ -117,6 +117,7 @@ None found by exact static reference scan.
 - `tests/test_reader_rd7b_check_session.py`
 - `tests/test_reader_rd8a_ink.py`
 - `tests/test_reader_rd9a_fix.py`
+- `tests/test_workbench_nouns.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

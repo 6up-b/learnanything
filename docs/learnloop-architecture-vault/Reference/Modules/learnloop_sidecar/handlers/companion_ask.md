@@ -50,27 +50,28 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/companion_ask.py](../../../../../../src/learnloop_sidecar/handlers/companion_ask.py) |
-| Source lines | 265 |
+| Source lines | 303 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class CompanionAskInput(ReaderAskInput)` ([source](../../../../../../src/learnloop_sidecar/handlers/companion_ask.py), line 73)
-- `class CompanionAskJobInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/companion_ask.py), line 82)
-- `companion_ask(ctx: SidecarContext, params: CompanionAskInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/companion_ask.py), line 194) — Ask the companion; answers at once with the job (see the module docstring).
-- `companion_ask_job(ctx: SidecarContext, params: CompanionAskJobInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/companion_ask.py), line 249) — The job's state, at once (never a wait on the request path).
-- `companion_ask_cancel(ctx: SidecarContext, params: CompanionAskJobInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/companion_ask.py), line 256) — Cancel the job: its next model request is refused; a finished job keeps its outcome.
+- `class CompanionAskInput(ReaderAskInput)` ([source](../../../../../../src/learnloop_sidecar/handlers/companion_ask.py), line 74)
+- `class CompanionAskJobInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/companion_ask.py), line 86)
+- `goal_in_view(vault: Any, repository: Any, goal_id: str) -> tuple[dict[str, Any] | None, str]` ([source](../../../../../../src/learnloop_sidecar/handlers/companion_ask.py), line 131) — The goal in view as the tutor sees it, and whether it is ``given`` or ``withheld``.
+- `companion_ask(ctx: SidecarContext, params: CompanionAskInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/companion_ask.py), line 227) — Ask the companion; answers at once with the job (see the module docstring).
+- `companion_ask_job(ctx: SidecarContext, params: CompanionAskJobInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/companion_ask.py), line 287) — The job's state, at once (never a wait on the request path).
+- `companion_ask_cancel(ctx: SidecarContext, params: CompanionAskJobInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/companion_ask.py), line 294) — Cancel the job: its next model request is refused; a finished job keeps its outcome.
 
 ### Module constants
 
-- `LOG` ([src/learnloop_sidecar/handlers/companion_ask.py](../../../../../../src/learnloop_sidecar/handlers/companion_ask.py), line 61)
-- `COMPANION_ASK_RPCS` ([src/learnloop_sidecar/handlers/companion_ask.py](../../../../../../src/learnloop_sidecar/handlers/companion_ask.py), line 64)
-- `KIND` ([src/learnloop_sidecar/handlers/companion_ask.py](../../../../../../src/learnloop_sidecar/handlers/companion_ask.py), line 65)
-- `_REGISTRY` ([src/learnloop_sidecar/handlers/companion_ask.py](../../../../../../src/learnloop_sidecar/handlers/companion_ask.py), line 66)
-- `MAX_RUNNING_ASKS` ([src/learnloop_sidecar/handlers/companion_ask.py](../../../../../../src/learnloop_sidecar/handlers/companion_ask.py), line 68)
-- `NOT_FOUND_MESSAGE` ([src/learnloop_sidecar/handlers/companion_ask.py](../../../../../../src/learnloop_sidecar/handlers/companion_ask.py), line 69)
+- `LOG` ([src/learnloop_sidecar/handlers/companion_ask.py](../../../../../../src/learnloop_sidecar/handlers/companion_ask.py), line 62)
+- `COMPANION_ASK_RPCS` ([src/learnloop_sidecar/handlers/companion_ask.py](../../../../../../src/learnloop_sidecar/handlers/companion_ask.py), line 65)
+- `KIND` ([src/learnloop_sidecar/handlers/companion_ask.py](../../../../../../src/learnloop_sidecar/handlers/companion_ask.py), line 66)
+- `_REGISTRY` ([src/learnloop_sidecar/handlers/companion_ask.py](../../../../../../src/learnloop_sidecar/handlers/companion_ask.py), line 67)
+- `MAX_RUNNING_ASKS` ([src/learnloop_sidecar/handlers/companion_ask.py](../../../../../../src/learnloop_sidecar/handlers/companion_ask.py), line 69)
+- `NOT_FOUND_MESSAGE` ([src/learnloop_sidecar/handlers/companion_ask.py](../../../../../../src/learnloop_sidecar/handlers/companion_ask.py), line 70)
 
 ### Explicit exports
 
@@ -81,15 +82,15 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `class _ContextWriter` ([source](../../../../../../src/learnloop_sidecar/handlers/companion_ask.py), line 86) — Records where one question was asked, once, as soon as the question exists; a failed write is kept for a retry (at the job's end, then on each poll) and said, never swallowed.
-- `_jobs(ctx: SidecarContext) -> PJ.PolledJobs` ([source](../../../../../../src/learnloop_sidecar/handlers/companion_ask.py), line 127)
-- `_request_key(params: CompanionAskInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/companion_ask.py), line 131) — What a repeat of the request id must ask again to be the same request (compared in memory only).
-- `_reader_params(params: CompanionAskInput) -> ReaderAskInput` ([source](../../../../../../src/learnloop_sidecar/handlers/companion_ask.py), line 137)
-- `_payload(request_id: str, state: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/companion_ask.py), line 141)
-- `_job_payload(job: PJ.PolledJob) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/companion_ask.py), line 167)
-- `_receipt_payload(receipt: PJ.Receipt) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/companion_ask.py), line 182)
-- `_known_payload(known: PJ.PolledJob | PJ.Receipt) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/companion_ask.py), line 189)
-- `_require_known(ctx: SidecarContext, request_id: str) -> PJ.PolledJob | PJ.Receipt` ([source](../../../../../../src/learnloop_sidecar/handlers/companion_ask.py), line 240)
+- `class _ContextWriter` ([source](../../../../../../src/learnloop_sidecar/handlers/companion_ask.py), line 90) — Records where one question was asked, once, as soon as the question exists; a failed write is kept for a retry (at the job's end, then on each poll) and said, never swallowed.
+- `_jobs(ctx: SidecarContext) -> PJ.PolledJobs` ([source](../../../../../../src/learnloop_sidecar/handlers/companion_ask.py), line 157)
+- `_request_key(params: CompanionAskInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/companion_ask.py), line 161) — What a repeat of the request id must ask again to be the same request (compared in memory only).
+- `_reader_params(params: CompanionAskInput) -> ReaderAskInput` ([source](../../../../../../src/learnloop_sidecar/handlers/companion_ask.py), line 167)
+- `_payload(request_id: str, state: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/companion_ask.py), line 171)
+- `_job_payload(job: PJ.PolledJob) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/companion_ask.py), line 200)
+- `_receipt_payload(receipt: PJ.Receipt) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/companion_ask.py), line 215)
+- `_known_payload(known: PJ.PolledJob | PJ.Receipt) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/companion_ask.py), line 222)
+- `_require_known(ctx: SidecarContext, request_id: str) -> PJ.PolledJob | PJ.Receipt` ([source](../../../../../../src/learnloop_sidecar/handlers/companion_ask.py), line 278)
 
 ## Who imports or calls it
 
@@ -105,9 +106,12 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/ai/plan_fallback|learnloop.ai.plan_fallback]] — imports `module`; calls `relay_job_offer`
 - [[Reference/Modules/learnloop/companion/asks|learnloop.companion.asks]] — imports `AskContext`, `CompanionAskError`, `MAX_PAD_BLOCKS`, `ask_context`; calls `ask_context`
 - [[Reference/Modules/learnloop/companion/history|learnloop.companion.history]] — imports `record_exchange_context`; calls `record_exchange_context`
+- [[Reference/Modules/learnloop/source_retrieval/deliverables|learnloop.source_retrieval.deliverables]] — imports `module`; calls `depth_of`
+- [[Reference/Modules/learnloop/source_retrieval/reading_paths|learnloop.source_retrieval.reading_paths]] — imports `DEPTH_LABELS`, `DEPTH_MEANS`
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `SidecarContext`
 - [[Reference/Modules/learnloop_sidecar/dto|learnloop_sidecar.dto]] — imports `ParamsModel`, `versioned`; calls `versioned`
 - [[Reference/Modules/learnloop_sidecar/errors|learnloop_sidecar.errors]] — imports `SidecarError`; calls `SidecarError`
+- [[Reference/Modules/learnloop_sidecar/handlers/goal_lens|learnloop_sidecar.handlers.goal_lens]] — imports `protection_now`; calls `protection_now`
 - [[Reference/Modules/learnloop_sidecar/handlers/reader|learnloop_sidecar.handlers.reader]] — imports `ReaderAskInput`, `generate_reader_answer`, `prepare_reader_ask`, `reader_ask_reply`; calls `generate_reader_answer`, `prepare_reader_ask`, `reader_ask_reply`
 - [[Reference/Modules/learnloop_sidecar/polled_jobs|learnloop_sidecar.polled_jobs]] — imports `module`; calls `registry`, `vault_key`
 - [[Reference/Modules/learnloop_sidecar/registry|learnloop_sidecar.registry]] — imports `method`; calls `method`
@@ -115,7 +119,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `logging`, `threading`, `typing`
+- Standard library: `__future__`, `dataclasses`, `logging`, `threading`, `typing`
 - Third party: `pydantic`
 
 ## Larger workflow participation

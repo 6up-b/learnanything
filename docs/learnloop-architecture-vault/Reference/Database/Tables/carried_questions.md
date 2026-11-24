@@ -18,6 +18,8 @@ source_paths:
   - "migrations/266_reader_workbench_pads.sql"
   - "src/learnloop/db/stores/pad_ledgers.py"
   - "src/learnloop/db/stores/pad_reads.py"
+  - "src/learnloop/teacher/brief.py"
+  - "src/learnloop/teacher/carried.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -97,8 +99,10 @@ None found by exact static reference scan.
 
 ## Tests that define behavior
 
+- `tests/identity_pins_helpers.py`
 - `tests/reader_rd4_migration_helpers.py`
 - `tests/test_reader_rd4_migration.py`
+- `tests/test_teacher_carried_questions.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

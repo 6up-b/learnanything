@@ -46,18 +46,18 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/reader/reader_inquiry.py](../../../../../../src/learnloop/reader/reader_inquiry.py) |
-| Source lines | 464 |
+| Source lines | 466 |
 | Owning package | [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class InquiryError(ValueError)` ([source](../../../../../../src/learnloop/reader/reader_inquiry.py), line 182) — A refused inquiry or activity request (nothing was written).
-- `resolve_inquiry_root(repository: Repository, *, extraction_id: str, exchange_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_inquiry.py), line 190) — The root exchange of the inquiry ``exchange_id`` belongs to.
-- `set_inquiry_status(repository: Repository, *, extraction_id: str, exchange_id: str, resolution: str, trigger: str, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_inquiry.py), line 217) — Set an inquiry's status on its root question (open | resolved | dismissed).
-- `answer_reconnect(repository: Repository, *, extraction_id: str, exchange_id: str, answer: str, via: str, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_inquiry.py), line 268) — Record the learner's answer to the reconnect line.
-- `record_activity(repository: Repository, events: Sequence[Mapping[str, Any]], *, clock: Clock | None=None, config: Any=None, device_surface: str | None=None) -> list[str]` ([source](../../../../../../src/learnloop/reader/reader_inquiry.py), line 377) — Record a batch of Reader activity events; all-or-nothing validation.
+- `class InquiryError(ValueError)` ([source](../../../../../../src/learnloop/reader/reader_inquiry.py), line 184) — A refused inquiry or activity request (nothing was written).
+- `resolve_inquiry_root(repository: Repository, *, extraction_id: str, exchange_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_inquiry.py), line 192) — The root exchange of the inquiry ``exchange_id`` belongs to.
+- `set_inquiry_status(repository: Repository, *, extraction_id: str, exchange_id: str, resolution: str, trigger: str, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_inquiry.py), line 219) — Set an inquiry's status on its root question (open | resolved | dismissed).
+- `answer_reconnect(repository: Repository, *, extraction_id: str, exchange_id: str, answer: str, via: str, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_inquiry.py), line 270) — Record the learner's answer to the reconnect line.
+- `record_activity(repository: Repository, events: Sequence[Mapping[str, Any]], *, clock: Clock | None=None, config: Any=None, device_surface: str | None=None) -> list[str]` ([source](../../../../../../src/learnloop/reader/reader_inquiry.py), line 379) — Record a batch of Reader activity events; all-or-nothing validation.
 
 ### Module constants
 
@@ -66,19 +66,19 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `RECONNECT_ANSWERS` ([src/learnloop/reader/reader_inquiry.py](../../../../../../src/learnloop/reader/reader_inquiry.py), line 44)
 - `RECONNECT_PLACEMENTS` ([src/learnloop/reader/reader_inquiry.py](../../../../../../src/learnloop/reader/reader_inquiry.py), line 45)
 - `CLIENT_ACTION_EVENTS` ([src/learnloop/reader/reader_inquiry.py](../../../../../../src/learnloop/reader/reader_inquiry.py), line 49)
-- `SERVER_ACTION_EVENTS` ([src/learnloop/reader/reader_inquiry.py](../../../../../../src/learnloop/reader/reader_inquiry.py), line 84)
-- `RW1B_SERVER_EVENTS` ([src/learnloop/reader/reader_inquiry.py](../../../../../../src/learnloop/reader/reader_inquiry.py), line 92)
-- `RW4A_SERVER_EVENTS` ([src/learnloop/reader/reader_inquiry.py](../../../../../../src/learnloop/reader/reader_inquiry.py), line 103)
-- `RW5A_SERVER_EVENTS` ([src/learnloop/reader/reader_inquiry.py](../../../../../../src/learnloop/reader/reader_inquiry.py), line 113)
-- `RW5D_SERVER_EVENTS` ([src/learnloop/reader/reader_inquiry.py](../../../../../../src/learnloop/reader/reader_inquiry.py), line 123)
-- `INQUIRY_EVENTS` ([src/learnloop/reader/reader_inquiry.py](../../../../../../src/learnloop/reader/reader_inquiry.py), line 132)
-- `CLIENT_ACTIVITY_KINDS` ([src/learnloop/reader/reader_inquiry.py](../../../../../../src/learnloop/reader/reader_inquiry.py), line 135)
-- `ACTIVITY_FIELDS` ([src/learnloop/reader/reader_inquiry.py](../../../../../../src/learnloop/reader/reader_inquiry.py), line 146)
-- `OBJECTIVE_ACTIVITY_FIELDS` ([src/learnloop/reader/reader_inquiry.py](../../../../../../src/learnloop/reader/reader_inquiry.py), line 176)
-- `WAIT_ACTIVITY_FIELDS` ([src/learnloop/reader/reader_inquiry.py](../../../../../../src/learnloop/reader/reader_inquiry.py), line 177)
-- `MAX_FIELD_CHARS` ([src/learnloop/reader/reader_inquiry.py](../../../../../../src/learnloop/reader/reader_inquiry.py), line 178)
-- `MAX_EVENTS_PER_CALL` ([src/learnloop/reader/reader_inquiry.py](../../../../../../src/learnloop/reader/reader_inquiry.py), line 179)
-- `_CAMEL` ([src/learnloop/reader/reader_inquiry.py](../../../../../../src/learnloop/reader/reader_inquiry.py), line 324)
+- `SERVER_ACTION_EVENTS` ([src/learnloop/reader/reader_inquiry.py](../../../../../../src/learnloop/reader/reader_inquiry.py), line 86)
+- `RW1B_SERVER_EVENTS` ([src/learnloop/reader/reader_inquiry.py](../../../../../../src/learnloop/reader/reader_inquiry.py), line 94)
+- `RW4A_SERVER_EVENTS` ([src/learnloop/reader/reader_inquiry.py](../../../../../../src/learnloop/reader/reader_inquiry.py), line 105)
+- `RW5A_SERVER_EVENTS` ([src/learnloop/reader/reader_inquiry.py](../../../../../../src/learnloop/reader/reader_inquiry.py), line 115)
+- `RW5D_SERVER_EVENTS` ([src/learnloop/reader/reader_inquiry.py](../../../../../../src/learnloop/reader/reader_inquiry.py), line 125)
+- `INQUIRY_EVENTS` ([src/learnloop/reader/reader_inquiry.py](../../../../../../src/learnloop/reader/reader_inquiry.py), line 134)
+- `CLIENT_ACTIVITY_KINDS` ([src/learnloop/reader/reader_inquiry.py](../../../../../../src/learnloop/reader/reader_inquiry.py), line 137)
+- `ACTIVITY_FIELDS` ([src/learnloop/reader/reader_inquiry.py](../../../../../../src/learnloop/reader/reader_inquiry.py), line 148)
+- `OBJECTIVE_ACTIVITY_FIELDS` ([src/learnloop/reader/reader_inquiry.py](../../../../../../src/learnloop/reader/reader_inquiry.py), line 178)
+- `WAIT_ACTIVITY_FIELDS` ([src/learnloop/reader/reader_inquiry.py](../../../../../../src/learnloop/reader/reader_inquiry.py), line 179)
+- `MAX_FIELD_CHARS` ([src/learnloop/reader/reader_inquiry.py](../../../../../../src/learnloop/reader/reader_inquiry.py), line 180)
+- `MAX_EVENTS_PER_CALL` ([src/learnloop/reader/reader_inquiry.py](../../../../../../src/learnloop/reader/reader_inquiry.py), line 181)
+- `_CAMEL` ([src/learnloop/reader/reader_inquiry.py](../../../../../../src/learnloop/reader/reader_inquiry.py), line 326)
 
 ### Explicit exports
 
@@ -102,11 +102,11 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ## Internal implementation anchors
 
-- `_snake(key: str) -> str` ([source](../../../../../../src/learnloop/reader/reader_inquiry.py), line 327)
-- `_clean_value(value: Any) -> Any` ([source](../../../../../../src/learnloop/reader/reader_inquiry.py), line 331)
-- `_clean_payload(payload: Mapping[str, Any] | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_inquiry.py), line 341)
-- `_validate(entry: Mapping[str, Any]) -> tuple[str, str | None, dict[str, Any]]` ([source](../../../../../../src/learnloop/reader/reader_inquiry.py), line 360)
-- `_event_times(entry: Mapping[str, Any], clock: Clock | None) -> dict[str, str | None]` ([source](../../../../../../src/learnloop/reader/reader_inquiry.py), line 436) — RO0 row 5: the client's stamp, if it is a time at all, and when the server had it.
+- `_snake(key: str) -> str` ([source](../../../../../../src/learnloop/reader/reader_inquiry.py), line 329)
+- `_clean_value(value: Any) -> Any` ([source](../../../../../../src/learnloop/reader/reader_inquiry.py), line 333)
+- `_clean_payload(payload: Mapping[str, Any] | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_inquiry.py), line 343)
+- `_validate(entry: Mapping[str, Any]) -> tuple[str, str | None, dict[str, Any]]` ([source](../../../../../../src/learnloop/reader/reader_inquiry.py), line 362)
+- `_event_times(entry: Mapping[str, Any], clock: Clock | None) -> dict[str, str | None]` ([source](../../../../../../src/learnloop/reader/reader_inquiry.py), line 438) — RO0 row 5: the client's stamp, if it is a time at all, and when the server had it.
 
 ## Who imports or calls it
 

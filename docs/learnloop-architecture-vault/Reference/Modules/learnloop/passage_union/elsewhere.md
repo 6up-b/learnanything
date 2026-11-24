@@ -91,6 +91,7 @@ No private top-level function or class definition is declared in this file.
 
 - [[Reference/Modules/learnloop/pads/proposals|learnloop.pads.proposals]] — imports `RELATION_REASONS`, `as_proposal`, `module`, `withheld_places`; statically calls `as_proposal`, `by_correspondents`, `by_passage_links`, `by_search`, `withheld_places`
 - [[Reference/Modules/learnloop_sidecar/handlers/passage_union|learnloop_sidecar.handlers.passage_union]] — imports `module`, `withheld_places`; statically calls `by_correspondents`, `by_passage_links`, `by_search`, `withheld_places`
+- [[Reference/Modules/learnloop_sidecar/handlers/video|learnloop_sidecar.handlers.video]] — imports `withheld_places`; statically calls `withheld_places`
 
 ## Dependencies
 
@@ -117,7 +118,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/pads/proposals|learnloop.pads.proposals]], [[Reference/Modules/learnloop_sidecar/handlers/passage_union|learnloop_sidecar.handlers.passage_union]].
+Static participation evidence comes from [[Reference/Modules/learnloop/pads/proposals|learnloop.pads.proposals]], [[Reference/Modules/learnloop_sidecar/handlers/passage_union|learnloop_sidecar.handlers.passage_union]], [[Reference/Modules/learnloop_sidecar/handlers/video|learnloop_sidecar.handlers.video]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

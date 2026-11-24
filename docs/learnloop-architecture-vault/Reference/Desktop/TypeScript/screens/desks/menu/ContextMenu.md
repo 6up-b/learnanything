@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/menu/ContextMenu.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/menu/ContextMenu.tsx) |
-| Source lines | 394 |
+| Source lines | 398 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/menu/_area|TypeScript/screens/desks/menu]] |
 | Refactor status | `ACTIVE` |
@@ -57,60 +57,61 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export interface PromotedApi` — interface, line 13
 - `export interface AppendTargets` — interface, line 20
 - `export interface ContextMenuProps` — interface, line 26
-- `export function useSheetFocus(ref:` — function, line 69
-- `export function ContextMenu(` — function, line 94
+- `export function useSheetFocus(ref:` — function, line 71
+- `export function ContextMenu(` — function, line 96
 
 ## Internal implementation anchors
 
-- `function newRequestId(): string` — function, line 57
-- `const random = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `$` — const, line 58
-- `const PAGE_LISTEN = (target: "window", type: string, handler: (event: Event)` — const, line 62
-- `const escape = useRef(onEscape)` — const, line 70
-- `const before = document.activeElement as HTMLElement | null` — const, line 73
-- `const node = ref.current` — const, line 74
-- `const field = node.querySelector<HTMLElement>("textarea, input, select")` — const, line 76
-- `const onKey = (event: KeyboardEvent)` — const, line 79
-- `const menuRef = useRef<HTMLDivElement | null>(null)` — const, line 110
-- `const appendRef = useRef<HTMLButtonElement | null>(null)` — const, line 111
-- `const before = document.activeElement as HTMLElement | null` — const, line 114
-- `const objectKey = object ? JSON.stringify(object) : ""` — const, line 122
-- `const promotedNow = useRef(promoted)` — const, line 125
-- `const onRowsNow = useRef(onRows)` — const, line 127
-- `const onWithheldNow = useRef(onWithheld)` — const, line 129
-- `const request = useRef<` — const, line 131
-- `const hasPromoted = promoted !== null` — const, line 132
-- `const report = onWithheldNow.current` — const, line 134
-- `const promoted = promotedNow.current` — const, line 135
-- `let live = true` — let, line 137
-- `let jobId: string | null = null` — let, line 138
-- `let finished = false` — let, line 139
-- `let stop: (()` — let, line 140
-- `const opening = request.current` — const, line 143
-- `const ask = (): Promise<PassagePromotedDto>` — const, line 144
-- `const code = error && typeof error === "object" ? (error as` — const, line 145
-- `const failRead = ()` — const, line 154
-- `const blocked = found.withheld || job.withheld` — const, line 196
-- `const promotedRows: MenuRow[] = shownPromoted(cheap, dismissed).map((row)` — const, line 233
-- `const all = [...promotedRows, ...rows]` — const, line 241
-- `const runnable = all.filter((row)` — const, line 242
-- `const menu = menuRef.current` — const, line 246
-- `const box = menu.getBoundingClientRect()` — const, line 248
-- `const openSubmenu = ()` — const, line 252
-- `const row = appendRef.current?.getBoundingClientRect()` — const, line 253
-- `const dismiss = (row: PromotedRowDto, label: "dismiss" | "not_this")` — const, line 260
-- `const onKey = (event: KeyboardEvent)` — const, line 267
-- `const current = runnable[Math.min(index, runnable.length - 1)]` — const, line 270
-- `const count = append.pads.length + 1` — const, line 273
-- `const row = runnable.find((each)` — const, line 293
-- `const onDown = (event: MouseEvent)` — const, line 301
-- `const offs = [listen("window", "keydown", onKey as (event: Event)` — const, line 304
-- `const rowView = (row: MenuRow)` — const, line 310
-- `const at = runnable.indexOf(row)` — const, line 311
-- `const selected = at >= 0 && at === Math.min(index, runnable.length - 1)` — const, line 312
-- `const shownHeader = readFailed ? neutralHeader ?? "Material" : header` — const, line 344
-- `const verbs = rows.filter((row)` — const, line 345
-- `const inserts = rows.filter((row)` — const, line 346
-- `const tail = rows.filter((row)` — const, line 347
+- `function newRequestId(): string` — function, line 59
+- `const random = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `$` — const, line 60
+- `const PAGE_LISTEN = (target: "window", type: string, handler: (event: Event)` — const, line 64
+- `const escape = useRef(onEscape)` — const, line 72
+- `const before = document.activeElement as HTMLElement | null` — const, line 75
+- `const node = ref.current` — const, line 76
+- `const field = node.querySelector<HTMLElement>("textarea, input, select")` — const, line 78
+- `const onKey = (event: KeyboardEvent)` — const, line 81
+- `const menuRef = useRef<HTMLDivElement | null>(null)` — const, line 112
+- `const appendRef = useRef<HTMLButtonElement | null>(null)` — const, line 113
+- `const before = document.activeElement as HTMLElement | null` — const, line 116
+- `const objectKey = object ? JSON.stringify(object) : ""` — const, line 124
+- `const promotedNow = useRef(promoted)` — const, line 127
+- `const onRowsNow = useRef(onRows)` — const, line 129
+- `const onWithheldNow = useRef(onWithheld)` — const, line 131
+- `const request = useRef<` — const, line 133
+- `const hasPromoted = promoted !== null` — const, line 134
+- `const report = onWithheldNow.current` — const, line 136
+- `const promoted = promotedNow.current` — const, line 137
+- `let live = true` — let, line 139
+- `let jobId: string | null = null` — let, line 140
+- `let finished = false` — let, line 141
+- `let stop: (()` — let, line 142
+- `const opening = request.current` — const, line 145
+- `const ask = (): Promise<PassagePromotedDto>` — const, line 146
+- `const code = error && typeof error === "object" ? (error as` — const, line 147
+- `const failRead = ()` — const, line 156
+- `const blocked = found.withheld || job.withheld` — const, line 198
+- `const verbs = found.withheldVerbs && job.withheldVerbs ? [...new Set([...found.withheldVerbs, ...job.withheldVerbs])] : undefined` — const, line 203
+- `const promotedRows: MenuRow[] = shownPromoted(cheap, dismissed).map((row)` — const, line 237
+- `const all = [...promotedRows, ...rows]` — const, line 245
+- `const runnable = all.filter((row)` — const, line 246
+- `const menu = menuRef.current` — const, line 250
+- `const box = menu.getBoundingClientRect()` — const, line 252
+- `const openSubmenu = ()` — const, line 256
+- `const row = appendRef.current?.getBoundingClientRect()` — const, line 257
+- `const dismiss = (row: PromotedRowDto, label: "dismiss" | "not_this")` — const, line 264
+- `const onKey = (event: KeyboardEvent)` — const, line 271
+- `const current = runnable[Math.min(index, runnable.length - 1)]` — const, line 274
+- `const count = append.pads.length + 1` — const, line 277
+- `const row = runnable.find((each)` — const, line 297
+- `const onDown = (event: MouseEvent)` — const, line 305
+- `const offs = [listen("window", "keydown", onKey as (event: Event)` — const, line 308
+- `const rowView = (row: MenuRow)` — const, line 314
+- `const at = runnable.indexOf(row)` — const, line 315
+- `const selected = at >= 0 && at === Math.min(index, runnable.length - 1)` — const, line 316
+- `const shownHeader = readFailed ? neutralHeader ?? "Material" : header` — const, line 348
+- `const verbs = rows.filter((row)` — const, line 349
+- `const inserts = rows.filter((row)` — const, line 350
+- `const tail = rows.filter((row)` — const, line 351
 
 ## Who imports or calls it
 

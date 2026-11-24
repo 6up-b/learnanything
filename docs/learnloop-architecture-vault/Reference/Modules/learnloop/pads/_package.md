@@ -55,7 +55,7 @@ For system intent, use [[Architecture Overview]].
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/pads/__init__|learnloop.pads]] | [[Reference/Modules/learnloop/pads/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
 | [[Reference/Modules/learnloop/pads/blocks|learnloop.pads.blocks]] | [[Reference/Modules/learnloop/pads/blocks#^module-purpose|purpose]] | `ACTIVE` | 1 | 4 |
-| [[Reference/Modules/learnloop/pads/carried|learnloop.pads.carried]] | [[Reference/Modules/learnloop/pads/carried#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
+| [[Reference/Modules/learnloop/pads/carried|learnloop.pads.carried]] | [[Reference/Modules/learnloop/pads/carried#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
 | [[Reference/Modules/learnloop/pads/cells|learnloop.pads.cells]] | [[Reference/Modules/learnloop/pads/cells#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/pads/drain|learnloop.pads.drain]] | [[Reference/Modules/learnloop/pads/drain#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/pads/emission|learnloop.pads.emission]] | [[Reference/Modules/learnloop/pads/emission#^module-purpose|purpose]] | `ACTIVE` | 7 | 5 |
