@@ -274,7 +274,6 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 - [[Reference/Modules/learnloop/local_embeddings/_package|learnloop.local_embeddings]] — 1 static module edge
 - [[Reference/Modules/learnloop/recognition/_package|learnloop.recognition]] — 1 static module edge
 - [[Reference/Modules/learnloop/remote/_package|learnloop.remote]] — 1 static module edge
-- [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] — 1 static module edge
 
 ### Dependency neighborhood
 

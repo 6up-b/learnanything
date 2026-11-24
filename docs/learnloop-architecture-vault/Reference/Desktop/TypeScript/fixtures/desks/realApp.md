@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/fixtures/desks/realApp.tsx](../../../../../../../apps/learnloop-tauri/src/fixtures/desks/realApp.tsx) |
-| Source lines | 60 |
+| Source lines | 61 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/fixtures/desks/_area|TypeScript/fixtures/desks]] |
 | Refactor status | `ACTIVE` |
@@ -55,16 +55,16 @@ The system-level behavior stays authoritative in the linked architecture, concep
 ## Public API
 
 - `export interface AppSidecar` — interface, line 14
-- `export function appSidecar(options:` — function, line 22
+- `export function appSidecar(options:` — function, line 24
 
 ## Internal implementation anchors
 
 - `let vaults = 0` — let, line 12
-- `const root = `/fixture-vault-$` — const, line 27
-- `const server = new FixtureDeskServer(options.state ?? fixtureDeskState(), options.pads ?? fixturePads())` — const, line 28
-- `const clientId = `client_app_$` — const, line 32
-- `const mine = (input: Record<string, unknown>)` — const, line 33
-- `const storage = memoryStorage()` — const, line 56
+- `const root = `/fixture-vault-$` — const, line 29
+- `const server = new FixtureDeskServer(options.state ?? fixtureDeskState(), options.pads ?? fixturePads())` — const, line 30
+- `const clientId = `client_app_$` — const, line 34
+- `const mine = (input: Record<string, unknown>)` — const, line 35
+- `const storage = memoryStorage()` — const, line 58
 
 ## Who imports or calls it
 

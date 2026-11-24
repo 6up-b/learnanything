@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/checks/model.ts](../../../../../../../../apps/learnloop-tauri/src/screens/desks/checks/model.ts) |
-| Source lines | 204 |
+| Source lines | 207 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/checks/_area|TypeScript/screens/desks/checks]] |
 | Refactor status | `ACTIVE` |
@@ -60,39 +60,39 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export const SHOW_UNMEASURED_COST = "LearnLoop can't tell what this shows against the answer, so opening it makes this answer count as practice, and the check stays due."` — const, line 20
 - `export function costOf(ref: CheckVeilRefDto | null): string` — function, line 24
 - `export const WINDOW_VEIL_DECISIONS: Record<DeskWindowKind, "passages" | "whole"> =` — const, line 34
-- `export function passagesCanShow(kind: string): boolean` — function, line 47
-- `export const PRIMED_BY_NOTE_WORDS = "counts as practice · you opened one of your notes during this check` — const, line 52
-- `export function veilIsNote(ref: CheckVeilRefDto): boolean` — function, line 57
-- `export function refKey(ref: Record<string, unknown>): string` — function, line 64
-- `export function veilSelector(ref: CheckVeilRefDto): string | null` — function, line 75
-- `export function groupsLine(veiled: readonly CheckVeilRefDto[]): string` — function, line 105
-- `export type CheckReason = "on_your_own" | "primed" | "with_help" | "seen_before" | "already_answered" | "practice"` — type, line 111
-- `export const REASON_WORDS: Record<CheckReason, string> =` — const, line 114
-- `export const PRIMED_UNMEASURED_WORDS = "counts as practice · you opened something during this check that LearnLoop can't measure against the answer, so this one counts as practice"` — const, line 124
-- `export function eligibilityWords(eligibility: string | null): string` — function, line 134
-- `export function answeredHead(cold: boolean): string` — function, line 139
-- `export function lookedLine(groups: readonly string[], coldNow: boolean | null): string | null` — function, line 144
-- `export function windowKind(window:` — function, line 152
-- `export function visibleNow(stage: ParentNode | null, windows: ReadonlyArray<` — function, line 164
-- `export function visibleKey(visible: CheckVisibleDto): string` — function, line 202
+- `export function passagesCanShow(kind: string): boolean` — function, line 50
+- `export const PRIMED_BY_NOTE_WORDS = "counts as practice · you opened one of your notes during this check` — const, line 55
+- `export function veilIsNote(ref: CheckVeilRefDto): boolean` — function, line 60
+- `export function refKey(ref: Record<string, unknown>): string` — function, line 67
+- `export function veilSelector(ref: CheckVeilRefDto): string | null` — function, line 78
+- `export function groupsLine(veiled: readonly CheckVeilRefDto[]): string` — function, line 108
+- `export type CheckReason = "on_your_own" | "primed" | "with_help" | "seen_before" | "already_answered" | "practice"` — type, line 114
+- `export const REASON_WORDS: Record<CheckReason, string> =` — const, line 117
+- `export const PRIMED_UNMEASURED_WORDS = "counts as practice · you opened something during this check that LearnLoop can't measure against the answer, so this one counts as practice"` — const, line 127
+- `export function eligibilityWords(eligibility: string | null): string` — function, line 137
+- `export function answeredHead(cold: boolean): string` — function, line 142
+- `export function lookedLine(groups: readonly string[], coldNow: boolean | null): string | null` — function, line 147
+- `export function windowKind(window:` — function, line 155
+- `export function visibleNow(stage: ParentNode | null, windows: ReadonlyArray<` — function, line 167
+- `export function visibleKey(visible: CheckVisibleDto): string` — function, line 205
 
 ## Internal implementation anchors
 
-- `const keys = Object.keys(ref).filter((key)` — const, line 65
-- `function quoted(value: string): string` — function, line 69
-- `const window = typeof ref.window_id === "string" ? `[data-desk-window="$` — const, line 76
-- `const counts = new Map<string, number>()` — const, line 106
-- `const ELIGIBILITY_WORDS: Record<string, string> =` — const, line 128
-- `const what = [...new Set(groups)].join(" · ")` — const, line 146
-- `const content = window.content?.kind` — const, line 153
-- `const unique = (values: Iterable<string | null | undefined>): string[]` — const, line 160
-- `const out: CheckVisibleDto["windows"] = []` — const, line 166
-- `const kind = windowKind(window)` — const, line 168
-- `const host = stage?.querySelector(`[data-desk-window="$` — const, line 169
-- `const entry: CheckVisibleDto["windows"][number] =` — const, line 170
-- `const extractionId = window.content?.extractionId` — const, line 172
-- `const spans = [...host.querySelectorAll("[data-span-id], [data-transcript-span]")]` — const, line 177
-- `const blocks = unique([...host.querySelectorAll("[data-block]")].map((element)` — const, line 188
+- `const keys = Object.keys(ref).filter((key)` — const, line 68
+- `function quoted(value: string): string` — function, line 72
+- `const window = typeof ref.window_id === "string" ? `[data-desk-window="$` — const, line 79
+- `const counts = new Map<string, number>()` — const, line 109
+- `const ELIGIBILITY_WORDS: Record<string, string> =` — const, line 131
+- `const what = [...new Set(groups)].join(" · ")` — const, line 149
+- `const content = window.content?.kind` — const, line 156
+- `const unique = (values: Iterable<string | null | undefined>): string[]` — const, line 163
+- `const out: CheckVisibleDto["windows"] = []` — const, line 169
+- `const kind = windowKind(window)` — const, line 171
+- `const host = stage?.querySelector(`[data-desk-window="$` — const, line 172
+- `const entry: CheckVisibleDto["windows"][number] =` — const, line 173
+- `const extractionId = window.content?.extractionId` — const, line 175
+- `const spans = [...host.querySelectorAll("[data-span-id], [data-transcript-span]")]` — const, line 180
+- `const blocks = unique([...host.querySelectorAll("[data-block]")].map((element)` — const, line 191
 
 ## Who imports or calls it
 

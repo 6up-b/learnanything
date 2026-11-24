@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/fixtures/deskShellStub.tsx](../../../../../../apps/learnloop-tauri/src/fixtures/deskShellStub.tsx) |
-| Source lines | 71 |
+| Source lines | 85 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/fixtures/_area|TypeScript/fixtures]] |
 | Refactor status | `ACTIVE` |
@@ -55,15 +55,15 @@ The system-level behavior stays authoritative in the linked architecture, concep
 ## Public API
 
 - `export const deskStub:` — const, line 10
-- `export function resetDeskStub(): void` — function, line 24
-- `export function lastDeskProps(): DeskShellProps` — function, line 32
-- `export function DeskShellStub(props: DeskShellProps)` — function, line 38
+- `export function resetDeskStub(): void` — function, line 28
+- `export function lastDeskProps(): DeskShellProps` — function, line 38
+- `export function DeskShellStub(props: DeskShellProps)` — function, line 44
 
 ## Internal implementation anchors
 
-- `const last = deskStub.props[deskStub.props.length - 1]` — const, line 33
-- `const request = props.openRequest ?? null` — const, line 40
-- `const resume = props.reader?.workbench?.resumeProblem ?? null` — const, line 53
+- `const last = deskStub.props[deskStub.props.length - 1]` — const, line 39
+- `const request = props.openRequest ?? null` — const, line 46
+- `const resume = props.reader?.workbench?.resumeProblem ?? null` — const, line 67
 
 ## Who imports or calls it
 
