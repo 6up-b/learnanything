@@ -278,7 +278,7 @@ Open specs, claims, back-links, search results, promoted rows and path rows all 
 | `pad.apply` | `{client_id, seq, pad_id, ops:[{op, block_id?, expected_head?, …}]}` | `{applied_seq, results, heads}` | The ops are `create_pad` (carries the client-minted `pad_id`, so retries are safe), `insert_block` (a client-minted `block_id`), `edit_block` (`expected_head` required), `remove_block` (a tombstone version), `move_block` (a new `position_key`), `lift_out` (an insert plus a stub in one op), `set_title`, `keep`, `unkeep`, `link_anchor`, `unlink_anchor`, `erase_ink` (a tombstone over stroke ids) |
 | `pad.submit_block` | `{submission_id (client-minted), block_id, version_id, as: "attempt"\|"teach_back", target}` | `{attempt_id?\|teach_back_id?}` | Idempotent by `submission_id`; hands off to existing entry points (§10.9) |
 | `ink.save` | `{client_id, seq, owner:{block_id\|annotation_id}, ink_id (client-minted), strokes}` | `{ink_id}` | |
-| `ink.transcribe` / `ink.transcribe_job` | `{ink_id}` | job → `{latex_md, confidence_label}` | A paid route through the plan transport (§10.10) |
+| `ink.transcribe` / `ink.transcribe_job` | `{ink_id}` | job → `{latex_md, confidence_label}` | GLM-OCR, as ingest reads a page image (hosted on z.ai with its OK, or the local server); its text is the reading (§10.10) |
 | `passage.union_range` | `{extraction_id, from_span_id, to_span_id}` or `{extraction_id, t0, t1}` | `{extraction_id, spans:[{span_id, …union}], sections}` | Goal-independent (§7.6). **Batched per visible range,** never per span on hover |
 | `passage.promoted` | `{extraction_id, span_id\|t, object_kind, desk_id}` | `{rows, pending_job?}` | Cheap rows inline; judged rows through a job (§9.1) |
 | `companion.history` | `{from?, to?, desk_id?, query?, cursor?}` | `{days:[{date, desks:[{desk_id, exchanges:[…]}]}], cursor}` | §8.5 |
@@ -1291,9 +1291,9 @@ The thresholds are recognizer geometry, from the mockup, tuned in RD8a's review 
 - The bar reads "✎ by hand · dotted · hide/show transcription".
 - Each ink line is an `ink` block holding its strokes and its transcription ("read as $LaTeX$", toggleable).
 
-**Transcription.** `ink.transcribe` renders the strokes to an image and sends it through the plan transport's vision-capable route; OpenRouter is used only after the learner's one-time OK. It returns Markdown with LaTeX. The learner edits the transcription freely, and each edit is a new version labelled "you corrected the transcription".
+**Transcription.** `ink.transcribe` renders the strokes to an image and sends it to GLM-OCR, the text recognition ingest uses for page images (owner decision, 2026-11-23: "this should get passed to glm-ocr then passed as text directly"). GLM-OCR runs where ingest would run it, with the same admission and price: z.ai's hosted pipeline when a key is set in Settings, under Ingestion, after the learner's OK for sending a file to z.ai; or the self-hosted server (`[ingest.pdf.glm_ocr] backend = "local"`), where nothing is asked. The Markdown with LaTeX it recognises is the transcription as it is: no model rewrites or interprets it. GLM-OCR gives no calibrated confidence, so every transcription reads "transcription may be wrong · fix it". Without GLM-OCR set up, nothing is sent and the line says how to turn it on, keeps the ink and lets the learner type what they wrote. The learner edits the transcription freely, and each edit is a new version labelled "you corrected the transcription".
 
-The Pocket Notes OCR pipeline is a candidate route if it beats the plan route on the owner's handwriting (decision D8).
+The Pocket Notes OCR pipeline stays a candidate (decision D8) if it reads the owner's handwriting better than GLM-OCR.
 
 **The tutor reads ink unobtrusively (review F12).** The ladder needs a target. Today's hint service is item-bound (`HintRequestV1` requires `practice_item_id`, `session_id` and `submission_id`; `hints/service.py:136`), so RD8 ships it in two steps.
 

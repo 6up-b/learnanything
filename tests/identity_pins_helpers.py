@@ -1789,15 +1789,11 @@ IDENTITY_SITES: tuple[IdentitySite, ...] = (
         "misreads them",
         {"keys": lambda: repeat_receipt_pin(), "inputs": lambda: repeat_receipt_pin(inputs=True)}),
     IdentitySite(
-        "RD8a", "an ink owner's standing strokes hash, the reading's prompt and its result schema",
-        ("src/learnloop/pads/ink.py::strokes_hash", "src/learnloop/pads/ink.py::content_hash",
-         "src/learnloop/pads/ink_transcribe.py::build_prompt"),
-        "ink_transcriptions' unique (owner, content_hash), which answers a repeated reading without a request; the "
-        "reading's paid checkpoint and receipt (keyed by the prompt, which names the image's digest, and the schema)",
-        "strokes already read are read again (paid): every kept reading misses its strokes, every checkpoint its "
-        "prompt",
-        {"strokes_hash": lambda: ink_strokes_hash_pin(), "prompt": lambda: ink_prompt_pin(),
-         "schema": _schema("learnloop.pads.ink_transcribe:InkTranscriptionV1")}),
+        "RD8a", "an ink owner's standing strokes hash",
+        ("src/learnloop/pads/ink.py::strokes_hash", "src/learnloop/pads/ink.py::content_hash"),
+        "ink_transcriptions' unique (owner, content_hash), which answers a repeated reading without a request",
+        "strokes already read are read again (paid when GLM-OCR is hosted): every kept reading misses its strokes",
+        {"strokes_hash": lambda: ink_strokes_hash_pin()}),
     IdentitySite(
         "RD10", "the video chapters judge's prompt, its result schema and a chapter's id",
         ("src/learnloop/source_retrieval/video_chapters.py::build_prompt",
@@ -1837,12 +1833,6 @@ def ink_strokes_hash_pin() -> str:
     strokes = [InkStroke.model_validate({"stroke_id": "s1", "points": [[10, 30, 0, 0.5, 0, 0], [16.5, 40, 8, 0.6, 1, -2]]}),
                InkStroke.model_validate({"stroke_id": "s2", "points": [[80, 40, 0, 1, 0, 0]]})]
     return strokes_hash([{"stroke_id": s.stroke_id, "points": [list(point) for point in s.points]} for s in strokes])
-
-
-def ink_prompt_pin() -> str:
-    from learnloop.pads.ink_transcribe import build_prompt
-
-    return build_prompt("a" * 64)
 
 
 def repeat_receipt_pin(*, inputs: bool = False) -> dict[str, Any]:

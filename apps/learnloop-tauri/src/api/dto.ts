@@ -11676,7 +11676,7 @@ export interface InkTranscribeJobDto {
   status: "queued" | "running" | "done" | "failed" | "cancelled" | "expired";
   done: boolean;
   result: InkReadingDto | null;
-  /** e.g. `cannot_read_images`, `models_off`, `unrouted`, `unpriced`, `capped`, `unavailable`,
-   * `provider_unavailable`, `ink_too_large`, `waiting_for_ok`, `cancelled`, `interrupted`. */
+  /** e.g. `unavailable` (text recognition, GLM-OCR, isn't set up), `needs_upload_ok` (hosted GLM-OCR waits for the
+   * OK to send to z.ai), `ocr_failed`, `ink_too_large`, `waiting_for_ok`, `cancelled`, `interrupted`. */
   error: { code: string; message: string; retryable: boolean; details: Record<string, unknown> | null } | null;
 }

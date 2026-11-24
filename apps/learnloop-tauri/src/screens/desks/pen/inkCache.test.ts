@@ -76,6 +76,19 @@ describe("the ink cache's readings", () => {
     expect(cache.pad("p").readings.b1.status).toBe("cancelled");
   });
 
+  it("handwriting text recognition cannot read says why and how to change it, for each refusal", async () => {
+    for (const [code, line] of [
+      ["unavailable", "handwriting can't be read yet: text recognition isn't set up · to add it, paste a z.ai API key in Settings, under Ingestion, or run a local GLM-OCR server"],
+      ["needs_upload_ok", "reading handwriting sends a picture of it to z.ai, which needs your OK first: say OK on a book's card in the Library"],
+    ] as const) {
+      const { cache } = setup({ inkTranscribe: vi.fn(async () => ({ version: 1, jobId: null, status: "failed" as const, done: true, result: null,
+        error: { code, message: "server words", retryable: true, details: null } })) });
+      cache.addStrokes("p", "b1", "ink_1", [stroke("s1")]);
+      await cache.read("p", "b1", null);
+      expect(cache.pad("p").readings.b1).toMatchObject({ status: "cannot", message: line });
+    }
+  });
+
   it("unsent ink is said to be kept while the app stays open, not on this device", async () => {
     const { cache } = setup({}, async () => "unsaved");
     cache.addStrokes("p", "b1", "ink_1", [stroke("s1")]);

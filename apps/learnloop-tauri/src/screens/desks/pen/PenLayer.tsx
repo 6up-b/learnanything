@@ -19,6 +19,7 @@ import type { InkTranscribeJobDto, ReaderRawSelectionNode } from "../../../api/d
 import type { PenSurface } from "../../ReaderScreen";
 import { useWindowLifecycle, useWindowPaused } from "../lifecycle";
 import { usePenHost, type PenHost } from "./host";
+import { inkRefusal } from "./inkCache";
 import { PenInput, type PointerLike, type Sample } from "./input";
 import { RECOGNIZED_AS, RECOGNIZER, boxOf, recognize, type Box, type Point, type StrokeKind } from "./recognizer";
 import {
@@ -468,8 +469,9 @@ function PenLayerOn({ host, surface }: { host: PenHost; surface: PenSurface }) {
             readingLabel: nothing ? "nothing read · write your note here" : "transcribed · may be wrong · fix it" } };
         }
         const code = job.error?.code ?? job.status;
-        if (code === "cannot_read_images") {
-          return { ...mark, note: { ...note, reading: "cannot", readingLabel: "handwriting can't be read yet · your ink is kept" } };
+        const refusal = inkRefusal(code);
+        if (refusal) {
+          return { ...mark, note: { ...note, reading: "cannot", readingLabel: `${refusal} · your ink is kept` } };
         }
         return { ...mark, note: { ...note, reading: "failed", readingLabel: `not read (${job.error?.message ?? code}) · your ink is kept` } };
       });

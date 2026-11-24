@@ -3,8 +3,9 @@
 // the pad's last row; the transcription shows under the line as "read as …", labelled as what it is: LearnLoop's
 // reading, which may be wrong, until the learner fixes it (a new version, "you corrected the transcription").
 //
-// Today's default route reads no images: the line then says plainly that handwriting can't be read yet, keeps the
-// ink, and lets the learner type what they wrote.
+// Handwriting is read by text recognition (GLM-OCR), set up where ingest's is: without it (or without the OK it
+// needs to send to z.ai) the line says so and how to change it, keeps the ink, and lets the learner type what they
+// wrote.
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import type { InkStrokeDto, PadBlockDto, PadOpDto } from "../../../api/dto";
 import { MarkdownMath } from "../../../render/MarkdownMath";
@@ -183,7 +184,7 @@ function InkBlockOn({ host, padId, block, windowId, paused, showTranscription, w
   if (reading?.status === "reading") {
     status = <span className="ocrs">reading your handwriting… <button type="button" onClick={() => cache.cancel(padId, block.blockId)}>cancel</button></span>;
   } else if (reading?.status === "cannot") {
-    status = <span className="ocrs" data-ink-refused="">handwriting can't be read yet · your ink is kept · <button type="button" onClick={() => setFixing(words)}>type what you wrote</button></span>;
+    status = <span className="ocrs" data-ink-refused="">{reading.message} · your ink is kept · <button type="button" onClick={() => setFixing(words)}>type what you wrote</button></span>;
   } else if (reading?.status === "failed") {
     status = <span className="ocrs">not read ({reading.message}) · your ink is kept · <button type="button" onClick={() => void cache.read(padId, block.blockId, windowId)}>read it again</button></span>;
   } else if (reading?.status === "kept_yours" && reading.result) {
