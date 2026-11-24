@@ -1073,19 +1073,32 @@ export function DeskShell({
   // Skimming, per book window (each window's own way of reading): the app hears the book being read, the focused book
   // window, else the book window focused last.
   const skimming = useRef(new Map<string, boolean>());
-  const lastBookFocus = useRef<string | null>(null);
+  // The book being read on each desk (review fix round, major 12): the focused book window, else the one focused last
+  // on that desk while it is still there, else the first on the desk, or none. The app's book and the skim that holds
+  // its notices are both that window's.
+  const lastBookOn = useRef(new Map<string, string>());
+  const bookInView = useCallback((current: Workspace, onDeskId: string | null, focused: string | null): string | null => {
+    const desk = deskById(current, onDeskId);
+    if (!desk) return null;
+    const here = desk.slots.flat();
+    const isBook = (id: string | null | undefined): id is string => {
+      const content = id && here.includes(id) ? current.windows[id]?.content : null;
+      return Boolean(content && (content.kind === "source" || content.kind === "video" || content.kind === "preparing"));
+    };
+    if (isBook(focused)) lastBookOn.current.set(desk.deskId, focused);
+    const last = lastBookOn.current.get(desk.deskId);
+    return isBook(last) ? last : here.find(isBook) ?? null;
+  }, []);
   const skimmingReported = useRef<boolean | null>(null);
   const onSkimmingRef = useRef(onSkimmingChange);
   onSkimmingRef.current = onSkimmingChange;
   const reportSkimming = useCallback(() => {
-    const focused = focusIdRef.current;
-    const content = focused ? wsRef.current.windows[focused]?.content : undefined;
-    if (focused && content && (content.kind === "source" || content.kind === "video")) lastBookFocus.current = focused;
-    const muted = Boolean(lastBookFocus.current && skimming.current.get(lastBookFocus.current));
+    const book = bookInView(wsRef.current, deskIdRef.current, focusIdRef.current);
+    const muted = Boolean(book && skimming.current.get(book));
     if (skimmingReported.current === muted) return;
     skimmingReported.current = muted;
     onSkimmingRef.current?.(muted);
-  }, [wsRef]);
+  }, [wsRef, bookInView]);
   const skimmingHandlers = useMemo(() => new Map<string, (muted: boolean) => void>(), []);
   const skimmingFor = useCallback((windowId: string) => {
     let handler = skimmingHandlers.get(windowId);
@@ -1098,7 +1111,7 @@ export function DeskShell({
     }
     return handler;
   }, [skimmingHandlers, reportSkimming]);
-  useEffect(() => reportSkimming(), [focusId, reportSkimming]);
+  useEffect(() => reportSkimming(), [focusId, deskId, ws, reportSkimming]);
   // The book being read, for the app (said once per change). Never while a check holds the desks: the windows' heads
   // show neutral titles then, and the app must not learn the check's book from this either; the change is said once
   // the check is answered or set aside.
@@ -1108,19 +1121,15 @@ export function DeskShell({
   const holdingReading = checkDesk.holding();
   useEffect(() => {
     if (!ws || !storeReady || holdingReading) return;
-    const isBook = (id: string | null | undefined) => {
-      const content = id ? ws.windows[id]?.content : null;
-      return content && (content.kind === "source" || content.kind === "video" || content.kind === "preparing") ? content : null;
-    };
-    if (isBook(focusId)) lastBookFocus.current = focusId;
-    const desk = deskById(ws, deskId);
-    const shown = isBook(lastBookFocus.current) ?? isBook(desk?.slots.flat().find((id) => isBook(id)) ?? null);
+    const selected = bookInView(ws, deskId, focusId);
+    const content = selected ? ws.windows[selected]?.content : null;
+    const shown = content && (content.kind === "source" || content.kind === "video" || content.kind === "preparing") ? content : null;
     const book = shown ? { sourceId: shown.sourceId, title: library?.find((card) => card.sourceId === shown.sourceId)?.title ?? "" } : null;
     const key = book ? `${book.sourceId}\u0000${book.title}` : "";
     if (readingReported.current === key) return;
     readingReported.current = key;
     onReadingRef.current?.(book);
-  }, [ws, focusId, deskId, storeReady, library, holdingReading]);
+  }, [ws, focusId, deskId, storeReady, library, holdingReading, bookInView]);
   // Poll owners follow the windows: a paused window's polls wait; a window that closed (gone from the
   // lifecycles) pauses its polls too, and when the shell detaches every owner it knew pauses.
   const knownOwners = useRef(new Set<string>());

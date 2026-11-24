@@ -5,7 +5,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { CheckCardDto } from "../../api/dto";
-import { FixtureDeskServer } from "../../fixtures/desks/workspace";
+import { FixtureDeskServer, fixtureDeskState } from "../../fixtures/desks/workspace";
 import { FIXTURE_LIBRARY, FIXTURE_SOURCES } from "../../fixtures/desks/sources";
 import { DeskShell, type CompanionTransport, type DeskTransport, type PadsTransport } from "./DeskShell";
 import type { GoalTransport } from "./goal/controller";
@@ -58,8 +58,7 @@ function cardFor(over: Partial<CheckCardDto> = {}): CheckCardDto {
 let mintCount = 0;
 const mint = (prefix: string) => `${prefix}_${++mintCount}`;
 
-function mount(over: Partial<CheckTransport> = {}, onPracticeSession = vi.fn(), onReadingChange = vi.fn()) {
-  const server = new FixtureDeskServer();
+function mount(over: Partial<CheckTransport> = {}, onPracticeSession = vi.fn(), onReadingChange = vi.fn(), server = new FixtureDeskServer()) {
   const checkTransport: CheckTransport = {
     dueFor: vi.fn(async (input: { extractionId: string }) => ({ version: 1, checks: input.extractionId === book.extractionId
       ? [{ commitmentId: "cm_1", loId: "lo_1", due: "2026-11-22T00:00:00Z", host: { extractionId: book.extractionId, sectionId: "s1", spanId: "fx_ext_softmax_s1_1" }, provenance: {} }]
@@ -107,5 +106,26 @@ describe("the book being read, while a check is open", () => {
     await waitFor(() => expect(document.querySelector("[data-check-card]")).toBeNull());
     await waitFor(() => expect(onReadingChange).toHaveBeenCalled());
     expect(onReadingChange.mock.calls[onReadingChange.mock.calls.length - 1]?.[0]).toMatchObject({ sourceId: book.sourceId });
+  });
+
+  // The Reader's retirement, review fix round (major 12, ledger RDX-14): the book being read is the desk in view's.
+  // Read the softmax book on its desk, then switch to a desk whose focus is a pad and which holds the paper: the app
+  // is told the paper (the first book on that desk), never the softmax book from the desk left.
+  it("is the book on the desk in view, not the one focused last on another desk", async () => {
+    const onReadingChange = vi.fn();
+    const state = fixtureDeskState();
+    const attention = state.desks.find((desk) => desk.deskId === "fx_desk_attention")!;
+    const paper2 = attention.slots.flatMap((slot) => slot.windows).find((window) => window.windowId === "fx_w_paper2")!;
+    attention.slots = [
+      { slot: 0, windows: [{ windowId: "w_pad_here", pane: 0, kind: "pad_stack", active: true, view: {}, stack: [{ kind: "pad", padId: "fx_pad_running" }] }] as never },
+      { slot: 1, windows: [paper2] },
+    ];
+    attention.focusWindowId = "w_pad_here";
+    mount({}, vi.fn(), onReadingChange, new FixtureDeskServer(state));
+    await waitFor(() => expect(onReadingChange).toHaveBeenCalled());
+    expect(onReadingChange.mock.calls[onReadingChange.mock.calls.length - 1]?.[0]).toMatchObject({ sourceId: book.sourceId });
+    await act(async () => { fireEvent.keyDown(window, { key: "j", code: "KeyJ", altKey: true }); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(200); });
+    await waitFor(() => expect(onReadingChange.mock.calls[onReadingChange.mock.calls.length - 1]?.[0]).toMatchObject({ sourceId: FIXTURE_SOURCES.paper.sourceId }));
   });
 });
