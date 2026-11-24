@@ -1020,12 +1020,15 @@ export function DeskShell({
     return handler;
   }, [skimmingHandlers, reportSkimming]);
   useEffect(() => reportSkimming(), [focusId, reportSkimming]);
-  // The book being read, for the app (said once per change).
+  // The book being read, for the app (said once per change). Never while a check holds the desks: the windows' heads
+  // show neutral titles then, and the app must not learn the check's book from this either; the change is said once
+  // the check is answered or set aside.
   const readingReported = useRef<string | undefined>(undefined);
   const onReadingRef = useRef(onReadingChange);
   onReadingRef.current = onReadingChange;
+  const holdingReading = checkDesk.holding();
   useEffect(() => {
-    if (!ws || !storeReady) return;
+    if (!ws || !storeReady || holdingReading) return;
     const isBook = (id: string | null | undefined) => {
       const content = id ? ws.windows[id]?.content : null;
       return content && (content.kind === "source" || content.kind === "video" || content.kind === "preparing") ? content : null;
@@ -1038,7 +1041,7 @@ export function DeskShell({
     if (readingReported.current === key) return;
     readingReported.current = key;
     onReadingRef.current?.(book);
-  }, [ws, focusId, deskId, storeReady, library]);
+  }, [ws, focusId, deskId, storeReady, library, holdingReading]);
   // Poll owners follow the windows: a paused window's polls wait; a window that closed (gone from the
   // lifecycles) pauses its polls too, and when the shell detaches every owner it knew pauses.
   const knownOwners = useRef(new Set<string>());
@@ -4249,7 +4252,8 @@ export function DeskShell({
       {promptContract.data && promptContract.data.readerEnabled === false ? (
         // The library's reading switch is off: every Reader read refuses, so the windows cannot open their books. Said
         // once, with the setting (the old Reader's list of books said it the same way).
-        <div className="desk-quiet" role="note" data-desk-reader-off="" style={{ padding: "6px 16px", borderBottom: "1px solid var(--desk-line)" }}>
+        // Safe while a check is open: one fixed line about a setting, no study material.
+        <div className="desk-quiet" role="note" data-desk-reader-off="" {...{ [SAFE_ATTR]: "" }} style={{ padding: "6px 16px", borderBottom: "1px solid var(--desk-line)" }}>
           Reading is off in this library: set <code>tutor_qa.reader_enabled = true</code> in learnloop.toml to read and annotate your sources here.
         </div>
       ) : null}

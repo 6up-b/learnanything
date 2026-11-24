@@ -2141,9 +2141,13 @@ async def run_veilsweep(page: Page, base: str, results: Results, shots: Path | N
     labelled panel, an image, a page canvas painted with the key). At each, nothing of the covered passages, the pads
     or the key is visible, titled, labelled or painted; the canvas's pixels are compared with the page without it.
     The other direction too: the question is readable, the answer box takes typing, and an uncovered passage reads."""
-    await page.goto(f"{base}/desk-harness.html?checks=1")
+    # `preparing=1`: a book still being prepared has its window on the desk (the Reader's retirement, phase 2 step 2).
+    await page.goto(f"{base}/desk-harness.html?checks=1&preparing=1")
     await page.wait_for_selector(f"{BOOK} [data-check-marker]", timeout=8000)
+    await page.wait_for_selector("[data-desk-window='fx_w_prep'] [role='status']", timeout=8000)
     phrases = await page.evaluate(PHRASES_JS)
+    # The preparing window's progress line: held whole while the check is open, like every part of that window.
+    phrases.append(["preparing line", "reading the scanned pages"])
     phrases.append(["answer key", ANSWER_KEY])
     phrases.append(["answer key", "p_k - [k = y]"])
     results.check("veil walk: the phrases to look for (the covered passages and the pads' lines) are read from the page first",
@@ -2163,17 +2167,21 @@ async def run_veilsweep(page: Page, base: str, results: Results, shots: Path | N
     results.check("veil walk: the question is readable, the answer box takes typing, an uncovered passage's words are not held",
                   "true class" in card and typed == "typed while held" and bool(uncovered) and not uncovered["held"] and uncovered["color"] != "rgba(0, 0, 0, 0)", [card[:80], typed, uncovered])
     # Every window of the desk, one by one (alt+l walks the strip; the focus leaves the answer box first).
-    for step in range(6):
+    for step in range(7):
         if step == 0:
             await page.click(f"{BOOK} .desk-pane-head .t")
         await page.keyboard.press("Alt+l")
         focused = await page.evaluate("() => document.querySelector('.desk-window.focus [data-desk-window]')?.getAttribute('data-desk-window') ?? null")
         await sweep_point(page, results, phrases, f"the desk's window {focused}")
+    prep = await page.evaluate("""() => { const body = document.querySelector("[data-desk-window='fx_w_prep']")?.closest('.desk-window')?.querySelector('[data-desk-pane-body]');
+      const status = document.querySelector("[data-desk-window='fx_w_prep'] [role='status']");
+      return body ? { veiled: body.classList.contains('veiled') || Boolean(body.closest('.ck-held, .ck-veiled')), inert: Boolean(status && status.closest('[inert]')) } : null; }""")
+    results.check("veil walk: a book still being prepared is held whole in its window (its pages and progress)", bool(prep) and prep["veiled"] and prep["inert"], prep)
     player = await page.evaluate("""() => [...document.querySelectorAll("[data-desk-window='fx_w_video'] iframe")].map((f) => getComputedStyle(f).visibility)""")
     results.check("veil walk: the video's player is not painted (its frame hidden) while the check is open", bool(player) and all(v == "hidden" for v in player), player)
     await shot(page, shots, "sweep-pads")
     # Back to the book, then the companion: its tutor tab, then its history tab.
-    for _ in range(6):
+    for _ in range(7):
         await page.keyboard.press("Alt+h")
     await settle(page, 600)
     await page.click(f"{BOOK} .desk-pane-head .t")

@@ -19,7 +19,11 @@ export const deskStub: {
   /** Reported as the book being read once mounted, when set: a book window the desks kept from before (their own
    *  layout), open without any request from the app. */
   restored: { sourceId: string; title: string } | null;
-} = { props: [], titles: {}, skim: undefined, error: null, restored: null };
+  /** The requests already done and the book the stand-in has open, as the real desks keep them for the app's run (a
+   *  remount neither redoes a request nor forgets a closed book). */
+  done: number;
+  reading: { sourceId: string; title: string } | null | undefined;
+} = { props: [], titles: {}, skim: undefined, error: null, restored: null, done: -1, reading: undefined };
 
 export function resetDeskStub(): void {
   deskStub.props.length = 0;
@@ -27,6 +31,8 @@ export function resetDeskStub(): void {
   deskStub.skim = undefined;
   deskStub.error = null;
   deskStub.restored = null;
+  deskStub.done = -1;
+  deskStub.reading = undefined;
 }
 
 export function lastDeskProps(): DeskShellProps {
@@ -40,12 +46,20 @@ export function DeskShellStub(props: DeskShellProps) {
   const request = props.openRequest ?? null;
   const { onReadingChange, onSkimmingChange, onError } = props;
   useEffect(() => {
-    // The desks open (or focus) the book asked for, which becomes the book being read.
-    if (request?.sourceId) onReadingChange?.({ sourceId: request.sourceId, title: deskStub.titles[request.sourceId] ?? "" });
+    // The desks open (or focus) the book asked for, once per request, which becomes the book being read; shown again,
+    // they report the book they have open (a closed one stays closed).
+    if (request?.sourceId && request.seq > deskStub.done) {
+      deskStub.done = request.seq;
+      deskStub.reading = { sourceId: request.sourceId, title: deskStub.titles[request.sourceId] ?? "" };
+    }
+    if (deskStub.reading !== undefined) onReadingChange?.(deskStub.reading);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [request?.seq, request?.sourceId]);
   useEffect(() => {
-    if (deskStub.restored && !request?.sourceId) onReadingChange?.(deskStub.restored);
+    if (deskStub.restored && !request?.sourceId && deskStub.reading === undefined) {
+      deskStub.reading = deskStub.restored;
+      onReadingChange?.(deskStub.restored);
+    }
     if (deskStub.skim !== undefined) onSkimmingChange?.(deskStub.skim);
     if (deskStub.error) onError(deskStub.error);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -65,7 +79,7 @@ export function DeskShellStub(props: DeskShellProps) {
     >
       reader
       {/* Closing the last book window on the desks: no book is being read. */}
-      <button type="button" onClick={() => onReadingChange?.(null)}>close book</button>
+      <button type="button" onClick={() => { deskStub.reading = null; onReadingChange?.(null); }}>close book</button>
     </div>
   );
 }
