@@ -261,6 +261,7 @@ that part not about this".
   import contracts.
 
 **Not done here.**
-- The visual reference's `rd10` stage was not re-run. The panel's new line moves the rows down under its heading,
-  which the reference does not have.
+- The visual reference's `rd10` stage, design viewport: the one finding is the chapters panel's height (`chap_panel`,
+  157 px against the reference's 127 px), which is the new line. The reference has no such line, because the mockup
+  never fed coverage.
 - No owner vault was opened.
