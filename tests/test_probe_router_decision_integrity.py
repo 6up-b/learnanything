@@ -1,9 +1,10 @@
-"""G2's fix round (``docs/reviews/algorithm-probe-router.md``, "Fix round"): each test failed on main before its fix.
+"""The probe router's decisions hold together (``docs/reviews/algorithm-probe-router.md``): each test failed on main
+before its fix.
 
-G2-R1: authority comes from the decision itself. A probe pinned by a router decision made below the probe router's
+Authority comes from the decision itself. A probe pinned by a router decision made below the probe router's
 tag keeps its predecessor treatment after the vault is upgraded, mid-episode and in replay; only a decision the row
 says was made at the tag, and that asked the probe, owns its presentation.
-G2-R7: a pin that no longer stands (ended unanswered, or under a lock the episode no longer holds) owns nothing.
+A pin that no longer stands (ended unanswered) owns nothing.
 """
 
 from __future__ import annotations
@@ -61,7 +62,7 @@ def test_r7_a_pin_ended_unanswered_owns_nothing(tmp_path):
     assert not router_selected_episode(case.vault, case.repository, episode)
 
 
-# -- G2-R2: one decision, one served arm, everywhere it is logged ------------------------------------------------------
+# -- one decision, one served arm, everywhere it is logged ------------------------------------------------------
 
 
 def _lane(tmp_path, monkeypatch, draw, u: float):
@@ -112,7 +113,7 @@ def test_r2_on_the_policy_arm_the_trace_logs_the_served_probability_not_mu(tmp_p
     assert trace["propensity"] == pytest.approx(decision["propensity"]) == pytest.approx(0.8 * mu, abs=1e-6)
 
 
-# -- G2-R3, G2-R6, G2-R13: the selection is its own candidate's, read again at acceptance ------------------------------
+# -- the selection is its own candidate's, read again at acceptance ------------------------------
 
 
 def _learner(tmp_path, monkeypatch, *, u: float = 0.05):
@@ -127,6 +128,16 @@ def _learner(tmp_path, monkeypatch, *, u: float = 0.05):
     monkeypatch.setattr(PC, "draw_uniform", lambda _seed: u)
     case.ctx = sidecar(case.root)
     return case
+
+
+def _answered_elsewhere(monkeypatch) -> None:
+    """The probe's item already answered in another administration (the never-seen rule's exclusion)."""
+
+    from learnloop.diagnosis import probe_episodes
+
+    from tests.probe_router_authority_helpers import PROBE_ITEM
+
+    monkeypatch.setattr(probe_episodes, "administered_surface_exclusions", lambda *_a, **_k: ({PROBE_ITEM}, set()))
 
 
 def _read(case) -> dict:
@@ -157,16 +168,14 @@ def test_r3_a_selection_whose_candidate_was_rejected_is_refused_and_never_substi
 
 
 def test_r3_a_selection_that_can_no_longer_be_administered_is_void_and_the_repair_goes_on(tmp_path, monkeypatch):
-    from learnloop.diagnosis import probe_presentations
-
     case = _learner(tmp_path, monkeypatch)
     assert _read(case)["routerState"] == "selected"
-    monkeypatch.setattr(probe_presentations, "routine_display_covers_item", lambda *_a, **_k: True)
+    _answered_elsewhere(monkeypatch)
     void = _read(case)
     assert (void["routerState"], void["status"], void["probeOffered"]) == ("void", "started", False)
-    assert void["hardStopReasons"] == ["probe_item_answer_shown"]
+    assert void["hardStopReasons"] == ["probe_item_already_answered"]
     refused = _offer(case)
-    assert (refused["accepted"], refused["reason"]) == (False, "probe_item_answer_shown")
+    assert (refused["accepted"], refused["reason"]) == (False, "probe_item_already_answered")
 
 
 def test_r6_a_machine_check_queued_after_the_selection_refuses_the_stale_click(tmp_path, monkeypatch):
@@ -180,19 +189,17 @@ def test_r6_a_machine_check_queued_after_the_selection_refuses_the_stale_click(t
     assert (refused["accepted"], refused["reason"]) == (False, "machine_checks_pending")
 
 
-def test_r13_a_probe_whose_answer_was_shown_is_no_option_and_nothing_is_drawn(tmp_path, monkeypatch):
-    from learnloop.diagnosis import probe_presentations
-
+def test_r13_a_probe_already_answered_is_no_option_and_nothing_is_drawn(tmp_path, monkeypatch):
     case = _learner(tmp_path, monkeypatch)
-    monkeypatch.setattr(probe_presentations, "routine_display_covers_item", lambda *_a, **_k: True)
+    _answered_elsewhere(monkeypatch)
     status = _read(case)
     assert (status["status"], status["routerState"], status["reason"]) == ("started", "unavailable",
-                                                                           "probe_item_answer_shown")
+                                                                           "probe_item_already_answered")
     with case.repository.connection() as connection:
         assert connection.execute("SELECT COUNT(*) FROM router_decisions").fetchone()[0] == 0
 
 
-# -- G2-R4: no arm is served without its committed decision and assignment --------------------------------------------
+# -- no arm is served without its committed decision and assignment --------------------------------------------
 
 
 def _automatic(tmp_path, monkeypatch, draw, *, u: float, toml: str = "", prefer=None):
@@ -265,3 +272,68 @@ def test_r5_with_the_objective_off_the_old_gate_never_draws_the_unwritten_probe(
 
     after, decisions = _automatic(tmp_path, monkeypatch, draw, u=0.9, toml="enabled = false\n", prefer=(INSERT_NOW,))
     assert after["chosen_ref"] == NO_INTERVENTION and decisions == 1
+
+
+# -- the learner lane's record --------------------------------------------------
+
+
+def _decision(case) -> dict:
+    import json
+
+    with case.repository.connection() as connection:
+        row = dict(connection.execute(
+            "SELECT * FROM router_decisions WHERE surface = 'causal_repair'").fetchone())
+    row["detail"] = json.loads(row["detail_json"])
+    return row
+
+
+def test_r15_the_valuation_runs_under_the_choosers_options_and_freezes_what_it_valued(tmp_path, monkeypatch):
+    from learnloop.daily_plan import objective_chooser as OC
+
+    case = _learner(tmp_path, monkeypatch)
+    _read(case)
+    frozen = _decision(case)["detail"]["valuation"]["frozen"]
+    assert frozen["rollout_options"] == OC.rollout_options(case.vault.config)
+    assert frozen["inputs"]["topics"] and frozen["seed"] and frozen["draws"] >= 1
+    assert frozen["payload"]["channel"]["status"] == "complete"
+
+
+def test_r16_each_repair_is_priced_at_its_own_minutes(tmp_path, monkeypatch):
+    from learnloop.diagnosis import causal_diagnostic_selector as CDS
+
+    monkeypatch.setattr(CDS, "duration_estimates_for_repair_classes", lambda _repository, classes: {
+        cls: {"minutes": 2.0 if cls == "repair:recall" else 20.0, "source": "authored_prior"} for cls in classes})
+    case = _learner(tmp_path, monkeypatch)
+    _read(case)
+    repairs = {r["ref"]: r for r in _decision(case)["detail"]["valuation"]["frozen"]["payload"]["repairs"]}
+    assert repairs["repair:recall"]["minutes"] == 2.0 and repairs["repair:method"]["minutes"] == 20.0
+    assert "authored_prior" in repairs["repair:recall"]["source"]
+
+
+def test_r17_a_selected_row_binds_no_item_before_an_acceptance(tmp_path, monkeypatch):
+    case = _learner(tmp_path, monkeypatch)
+    _read(case)
+    assert _decision(case)["chosen_practice_item_id"] is None
+
+
+def test_r18_a_retry_draws_the_same_coin_and_a_receipt_never_stands_for_another_status(tmp_path, monkeypatch):
+    from learnloop.router_objective import probe_coin as PC
+
+    case = _learner(tmp_path, monkeypatch)
+    seeds = []
+    real = PC.seed_for
+    monkeypatch.setattr(PC, "seed_for", lambda key, unit: seeds.append(real(key, unit)) or seeds[-1])
+    status = _read(case)
+    assert len(set(seeds)) == 1 and seeds[0] == real(f"learner_probe:{case.factor}", "learner_probe")
+    from tests.probe_router_authority_helpers import receipts
+
+    (receipt,) = [r for r in receipts(case.repository, case.factor) if r["id"] == status["decisionReceiptId"]]
+    assert receipt["repair_status"] == status["status"]
+
+
+def test_r20_a_tiny_share_is_still_an_exact_propensity():
+    from learnloop.router.plan_log import NO_PROBE_REF, build_learner_probe_decision
+
+    row = build_learner_probe_decision({"factor_id": "f", "chosen_ref": NO_PROBE_REF, "propensity": 1 - 5e-13,
+                                        "served_pi": {PROBE_REF: 5e-13, NO_PROBE_REF: 1 - 5e-13}, "detail": {}})
+    assert row["propensity_kind"] == "exact" and row["propensity"] < 1.0

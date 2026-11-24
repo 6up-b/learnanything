@@ -146,8 +146,8 @@ def accept_routed_probe_offer(
     clock: Clock | None = None,
 ) -> tuple[ProbeOffer, dict[str, Any]]:
     """"Take the quick check" at the probe router's tag: only the router's selection of this factor's probe is
-    accepted, and only its own candidate (G2-R3). The status is read again at the moment of acceptance, so every
-    current hard stop applies (G2-R6): a "Not now" or "Teach me now", a machine check, a measuring foreign episode, or
+    accepted, and only its own candidate. The status is read again at the moment of acceptance, so every
+    current hard stop applies: a "Not now" or "Teach me now", a machine check, a measuring foreign episode, or
     a selection made void (its candidate retired or no longer administrable). A request the router did not select
     (a stale offer from before the tag, a decision not made yet, or one that did not select the probe) is a typed
     refusal, never an offer of its own. Returns the offer and the router's disposition."""

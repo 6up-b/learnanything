@@ -189,7 +189,7 @@ def _plan_context(vault: Any, repository: Repository, row: Mapping[str, Any], *,
     from learnloop.daily_plan.router_chooser import FollowupGate
     if probe_router_on(vault.config) and not objective_active(vault):
         # The probe router's tag with the objective off: FG1's old gate would draw the unwritten probe as an option;
-        # the router's logged fallback (the probe coin alone) decides instead (G2-R5).
+        # the router's logged fallback (the probe coin alone) decides instead.
         return env, record, None
     gate_class: Any = FollowupGate
     if objective_active(vault):
@@ -329,7 +329,7 @@ def _gate_record(row: Mapping[str, Any], decision: FollowupDecision, *, logged: 
 
 class _Unlogged(Exception):
     """The probe router's tag: the decision or its coin's assignment could not be committed; nothing it chose is
-    served (G2-R4)."""
+    served."""
 
 
 def record_decision(vault: Any, repository: Repository, row: Mapping[str, Any], decision: FollowupDecision, *,
@@ -398,11 +398,11 @@ def record_decision(vault: Any, repository: Repository, row: Mapping[str, Any], 
                                        local_date=str(decision.local_date or ""), session_id=row.get("session_id"),
                                        at=now)
             if probe_router and decision_id is None:
-                # The probe router's tag: no arm is served without its committed decision (G2-R4).
+                # The probe router's tag: no arm is served without its committed decision.
                 raise _Unlogged("the decision was not logged")
             if decision_id is not None and (decision.record or {}).get("ro5_assignments"):
                 # The probe router's tag: the probe coin's assignment, with the decision it belongs to; both commit or
-                # neither does (G2-R4).
+                # neither does.
                 from learnloop.router_objective import assignments as ro5_assignments
 
                 pending = decision.record["ro5_assignments"]
@@ -441,7 +441,7 @@ def record_decision(vault: Any, repository: Repository, row: Mapping[str, Any], 
         LOG.warning("follow-up decision not logged for %s", row["id"], exc_info=True)
     if probe_router and not decision.refused:
         # The probe router's tag: an unlogged decision serves the predecessor-safe arm, no intervention: never a probe
-        # asked without its decision and assignment, and never another arm in a drawn lesson's place (G2-R4).
+        # asked without its decision and assignment, and never another arm in a drawn lesson's place.
         decision = replace(decision, chosen_ref=NO_INTERVENTION, offer_placement=None, propensity=1.0)
     elif decision.lesson_offer:
         # IH2: with no receipt there is no offer to answer, so the rules' pick, the follow-up, stands.

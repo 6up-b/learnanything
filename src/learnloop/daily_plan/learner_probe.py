@@ -56,11 +56,16 @@ def decide(vault: Any, repository: Any, *, misconception_id: str, session_id: st
 
     from learnloop.diagnosis.causal_orchestrator import causal_repair_status
 
+    from learnloop.algorithm_versions import probe_router_on
+
+    if not probe_router_on(vault.config):
+        return causal_repair_status(vault, repository, misconception_id=misconception_id, session_id=session_id,
+                                    start_repair=False, clock=clock)
+    # The router's own read records no receipt: the status it serves after deciding records its facts once.
     status = causal_repair_status(vault, repository, misconception_id=misconception_id, session_id=session_id,
-                                  start_repair=False, clock=clock)
-    if status.router_state != "pending" or status.proposal is None:
-        return status
-    decide_proposal(vault, repository, status.proposal, clock=clock)
+                                  start_repair=False, clock=clock, record_receipt=False)
+    if status.router_state == "pending" and status.proposal is not None:
+        decide_proposal(vault, repository, status.proposal, clock=clock)
     return causal_repair_status(vault, repository, misconception_id=misconception_id, session_id=session_id,
                                 start_repair=False, clock=clock)
 
@@ -125,14 +130,23 @@ def diagnostic_payload(vault: Any, repository: Any, proposal: Any) -> DP.Diagnos
     if sum(h.prior for h in hypotheses) <= 0.0:
         return "locked_prior_without_mass"
     classes = sorted({str(value) for value in proposal.repair_class_by_hypothesis.values() if value})
+    # Each repair's own minutes, with their source (authored, pooled latency, else the seeded default), never one
+    # fallback for every class.
+    from learnloop.diagnosis.causal_diagnostic_selector import duration_estimates_for_repair_classes
+
+    durations = duration_estimates_for_repair_classes(repository, classes)
     repairs = []
     for repair_class in classes:
         covers = frozenset(h for h, value in proposal.repair_class_by_hypothesis.items()
                            if value == repair_class and h in labels)
         if not covers:
             continue
-        action = OT.Action(ref=repair_class, kind=OT.REPAIR, item_los=(lo,), minutes=float(proposal.repair_minutes))
-        repairs.append(DP.RepairOption(repair_class, action, covers, source="cause_set_repair_class"))
+        estimate = durations.get(repair_class) or {}
+        minutes = float(estimate.get("minutes") or proposal.repair_minutes)
+        action = OT.Action(ref=repair_class, kind=OT.REPAIR, item_los=(lo,), minutes=minutes)
+        repairs.append(DP.RepairOption(repair_class, action, covers,
+                                       source=f"cause_set_repair_class; minutes: "
+                                              f"{estimate.get('source') or 'orchestrator_default'}"))
     return DP.DiagnosticProbe(
         topic=lo,
         hypotheses=hypotheses,
@@ -182,10 +196,21 @@ def value(vault: Any, repository: Any, proposal: Any, *, now_iso: str, seed_iden
                                              for option in payload.repairs))
     probe = OT.Action(ref=PROBE_ACTION_REF, kind=OT.PROBE, item_los=(lo,),
                       minutes=float(proposal.reads.probe_burden_minutes), minutes_log_sd=spread, diagnostic=payload)
-    valuation = evaluate_probe(inputs, probe, decisions=OWNER_DECISIONS, draws=int(section.rollout_theta_draws),
-                               seed=seed, wait_feasible=True)
+    # The chooser's own rollout options, for the probe's valuation as for the day's price.
+    options = OC.rollout_options(config)
+    draws = int(section.rollout_theta_draws)
+    valuation = evaluate_probe(inputs, probe, decisions=OWNER_DECISIONS, draws=draws, seed=seed, wait_feasible=True,
+                               **options)
+    # Frozen for replay: the whole unrounded inputs and the probe action as valued, the seed, the draw count and the
+    # options.
+    from dataclasses import asdict
+
     return valuation, {"status": "valued", "price": {"kappa0": priced.kappa0, "how": priced.how},
-                       "topics": len(inputs.topics), "topic_sources": sources.get("topics", {}).get(lo)}
+                       "topics": len(inputs.topics), "topic_sources": sources.get("topics", {}).get(lo),
+                       "frozen": {"inputs": asdict(inputs), "probe_minutes": probe.minutes,
+                                  "probe_minutes_log_sd": probe.minutes_log_sd, "payload": payload.summary(),
+                                  "seed": seed, "draws": draws, "rollout_options": dict(options),
+                                  "policy_version": valuation.record.get("version")}}
 
 
 def information(valuation: Any) -> float:
@@ -230,7 +255,7 @@ def decide_proposal(vault: Any, repository: Any, proposal: Any, *, clock: Clock 
     }
     if valuation is not None:
         detail["evaluation"] = {key_: valuation.record.get(key_) for key_ in
-                                ("version", "decisions", "values", "choice", "results", "prior_choice",
+                                ("version", "decisions", "given", "values", "choice", "results", "prior_choice",
                                  "policy_changes_with_result", "channel_use", "excluded", "cost")}
         detail["evaluation"]["numeric_choice"] = valuation.choice
     pending: list[dict[str, Any]] = []
@@ -239,7 +264,9 @@ def decide_proposal(vault: Any, repository: Any, proposal: Any, *, clock: Clock 
         numeric = PROBE_REF if valuation.choice == PROBE_ACTION_REF else NO_PROBE_REF
         w, weight_record = OC.current_weight(repository, config, at=now_iso)
         to_other = failure_share_to_other_policy_on(config)
-        seed = mix.seed_for(key, decision_id)
+        # Seeded by the factor, not the decision's id: a retry after a crash, or a concurrent read, draws the same
+        #.
+        seed = mix.seed_for(key, "learner_probe")
         epsilon = float(config.router.epsilon_min)
         choice = C.post_miss_choice(C.PostMissInputs(
             support=(NO_PROBE_REF, PROBE_REF), staged_ref=NO_PROBE_REF, wait_ref=NO_PROBE_REF, per_option=True,
@@ -262,7 +289,7 @@ def decide_proposal(vault: Any, repository: Any, proposal: Any, *, clock: Clock 
         rate = PC.share(config)
         served, propensity, served_pi = NO_PROBE_REF, 1.0, dict(mu)
         if PC.applies(rate):
-            coin_seed = PC.seed_for(key, decision_id)
+            coin_seed = PC.seed_for(key, "learner_probe")
             coin = PC.flip(coin_seed, rate, probe_ref=PROBE_REF, mu=mu, drawn=NO_PROBE_REF, boundary_key=key)
             served, propensity = coin.served, coin.served_propensity
             served_pi = PC.served_distribution(mu, rate, probe_ref=PROBE_REF)
@@ -284,7 +311,7 @@ def decide_proposal(vault: Any, repository: Any, proposal: Any, *, clock: Clock 
 
                 written = ro5_assignments.record_pending(connection, pending, unit_id=decision_id, at=now_iso)
                 if len(written) != len(pending):
-                    # The decision and its coin's assignment commit together or not at all (G2-R4).
+                    # The decision and its coin's assignment commit together or not at all.
                     raise RuntimeError("the probe coin's assignment was not written")
     except Exception:  # noqa: BLE001 - an unrecorded decision offers nothing: the status stays pending
         LOG.warning("probe router: the learner lane's decision was not recorded for factor %s", proposal.factor_id,

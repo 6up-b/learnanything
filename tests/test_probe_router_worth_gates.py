@@ -117,7 +117,7 @@ def test_a_router_selected_probe_is_served_answered_and_ended_with_every_legacy_
 
 def test_the_count_bounds_a_router_selected_episode_and_value_decides_none_of_it(tmp_path, monkeypatch):
     case = _selected(tmp_path, monkeypatch)
-    # The rows' pin names the router's decision made at the tag (authority is the decision row's, G2-R1).
+    # The rows' pin names the router's decision made at the tag (authority is the decision row's).
     rows = [{"selection_components": {"causal_probe": {"router_decision_id": case.decision_id}}}]
     assert router_selected_rows(case.repository, rows)
     assert not probe_completion.value_decides_episode(case.vault, case.repository, rows)

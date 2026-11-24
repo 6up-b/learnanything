@@ -1629,7 +1629,7 @@ class ObjectiveFollowupGate(ObjectiveRestraintGate, FollowupGate):
         trace = base.get("objective_trace")
         if isinstance(trace, dict) and isinstance(trace.get("mixing"), dict):
             # The trace is the same decision's: what was served and its exact probability under the coin and the mix
-            # together, written after the coin, with the mix's own draw and μ beside it (G2-R2). Frozen before the
+            # together, written after the coin, with the mix's own draw and μ beside it. Frozen before the
             # coin it said a lesson at μ where the ledger said the probe at r.
             trace["mixing"].update(drawn_chosen=drawn, chosen=coin.served, propensity=coin.served_propensity,
                                    served_pi=dict(served_pi))
