@@ -29,6 +29,8 @@ vi.mock("../components/InboxStrip", () => ({ InboxStrip: () => null }));
 
 vi.mock("../api/client", () => {
   const base: Record<string, unknown> = {
+    // No inline check is open on the desks (the app reads it before showing any place).
+    checkOpenInline: vi.fn(async () => ({ administration: null })),
     loadVault: vi.fn(async () => ({
       vault: { root: "/vault", subjects: [], subjectTitles: [], counts: { learningObjects: 1, practiceItems: 2 }, algorithmVersion: "mvp-0.29" },
       health: { ai: { ready: false, settingsReady: false, manualGrading: false, activeProvider: null }, codex: { ready: false } },

@@ -4662,7 +4662,14 @@ export function ReaderScreen({
                   ) : null}
                   {block.sanitized ? <Faint style={{ fontSize: 10 }}>sanitized</Faint> : null}
                 </div>
-                <MarkdownMath value={block.markdown} />
+                {/* On the desks, the source's own words are marked: what an open inline check may leave readable
+                    (everything else in the passage, its marks and notes, is held). The old Reader is never shown
+                    while a check is open. */}
+                {windowed ? (
+                  <div data-passage-text="">
+                    <MarkdownMath value={block.markdown} />
+                  </div>
+                ) : <MarkdownMath value={block.markdown} />}
                 {block.health.status === "failed" ? (
                   pdfView && !offline && block.spanId ? (
                     <button

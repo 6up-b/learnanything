@@ -11200,6 +11200,18 @@ export interface CheckVisibleDto {
 /** One veiled thing, as the server named it (its keys are the server's own, snake_case: a ref is sent back as is). */
 export type CheckVeilRefDto = Record<string, unknown> & { group: string; kind: string };
 
+/** The question as a cold check presents it (an allowlisted presentation: never the expected answer, a hint, the
+ *  rubric, an earlier attempt or a source locator). Frozen at begin and returned unchanged on recovery. */
+export interface CheckPromptDto {
+  practiceItemId?: string;
+  prompt?: string;
+  /** The learner-facing blocks, rendered with Today's presentation component. */
+  presentation?: ItemPresentationDto | null;
+  practiceMode?: string | null;
+  answerFormat?: string | null;
+  intentCheck?: IntentCheckDto | null;
+}
+
 export interface CheckCardDto {
   version?: number;
   administrationToken: string;
@@ -11211,19 +11223,40 @@ export interface CheckCardDto {
   state: "open" | "submitted" | "abandoned" | "superseded";
   protection: { veilSetId: string | null; method: string | null; veiled: CheckVeilRefDto[]; opened: CheckVeilRefDto[];
     groups: string[] };
-  /** Today's own serve of the item (the practice item detail, its check view hiding locators). */
-  prompt: Record<string, unknown>;
+  prompt: CheckPromptDto;
   /** The practice session the answer is recorded on (opened when the app had none), for the app to adopt. */
   practiceSession?: SessionSnapshot | null;
+  /** The submission already reserved on this administration (reused by a retry after a restart), or null. */
+  submissionId?: string | null;
+  /** Why the item opens not cold (`seen_before`, `primed`, `hold`, …), else null: the card is worded from it. */
+  eligibility?: string | null;
+  /** The veil sets' sequence number (as `check.protect_more` returns it). */
+  revision?: number;
+  /** A second begin for a commitment whose administration is open returns that administration's card. */
+  replayed?: boolean;
 }
 
-export type CheckExposureKind = "opened_veil" | "navigated" | "help";
+/** check.protect_more: what this request added, every ref veiled now and not opened, and the veil sets' sequence. */
+export interface CheckProtectReplyDto {
+  veilAdditions: CheckVeilRefDto[];
+  standing?: CheckVeilRefDto[];
+  revision?: number;
+}
+
+/** check.expose: what was recorded; a refusal or failure records nothing. */
+export interface CheckExposeReplyDto {
+  protectionStatus: { exposure: Array<Record<string, unknown>>; coldNow: boolean; measured?: boolean; eligibility?: string | null };
+}
+
+export type CheckExposureKind = "opened_veil" | "navigated" | "help" | "left";
 
 /** check.submit_inline: the attempt's own reply, plus whether it answered the check. */
 export type CheckSubmitDto = Record<string, unknown> & { attemptId?: string; administrationToken: string; cold: boolean;
   reason: "on_your_own" | "primed" | "with_help" | "seen_before" | "already_answered" | "practice";
   /** Why it is primed when nothing measured it: one of the learner's notes was opened (a note's words are never read). */
-  primedBy?: "unmeasured_note" };
+  primedBy?: string | null;
+  /** The serve-time reason when the item did not open cold. */
+  eligibility?: string | null };
 
 // -- Reader workbench v2 RD3 (spec §3.4, §8.6, §9.3): the companion's ask as a polled job, search in context.
 // The typed calls only; no component calls them yet.

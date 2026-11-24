@@ -31,13 +31,42 @@ function windowGroup(kind: string): string {
   return "windows";
 }
 
+/** What opening a ref shows can be measured against the answer key (a passage, a pad's text, a thread's exchanges);
+ *  a note, a figure, a lesson, a history with no exchanges or a region the checks do not describe cannot. */
+function measured(ref: CheckVeilRefDto): boolean {
+  if (ref.kind === "span") return true;
+  if (ref.kind === "window") return ref.window_kind === "pad_stack" || ref.window_kind === "pad";
+  if (ref.kind === "companion") return Array.isArray(ref.exchange_ids) && ref.exchange_ids.length > 0;
+  return false;
+}
+
+interface Open {
+  token: string;
+  commitmentId: string;
+  requestId: string | null;
+  veiled: CheckVeilRefDto[];
+  opened: CheckVeilRefDto[];
+  exposures: Map<string, { coldNow: boolean; measured: boolean }>;
+  unmeasured: boolean;
+  submissionId: string | null;
+}
+
 export class FixtureChecks {
-  private open: { token: string; commitmentId: string; veiled: CheckVeilRefDto[]; opened: CheckVeilRefDto[] } | null = null;
+  private open: Open | null = null;
   private answered = new Set<string>();
+  /** Closed administrations by their begin request (a late retry is refused with what became of it). */
+  private closed = new Map<string, { state: string; outcome: string | null }>();
+  /** Saved outcomes by submission id (a retry returns the first). */
+  private outcomes = new Map<string, Record<string, unknown>>();
   private count = 0;
+  private revision = 0;
 
   constructor(private readonly mode: "off" | "due" | "open") {
-    if (mode === "open") this.open = { token: "fx_cad_open", commitmentId: PAPER_CHECK.commitmentId, veiled: [], opened: [] };
+    if (mode === "open") this.open = this.fresh("fx_cad_open", PAPER_CHECK.commitmentId, null);
+  }
+
+  private fresh(token: string, commitmentId: string, requestId: string | null): Open {
+    return { token, commitmentId, requestId, veiled: [], opened: [], exposures: new Map(), unmeasured: false, submissionId: null };
   }
 
   dueFor(input: { extractionId: string }): ChecksDueDto {
@@ -55,80 +84,124 @@ export class FixtureChecks {
   private protection(commitmentId: string, visible: CheckVisibleDto): CheckVeilRefDto[] {
     const covered = this.covered(commitmentId);
     const veiled: CheckVeilRefDto[] = [];
+    const add = (ref: CheckVeilRefDto) => veiled.push({ ...ref, measured: measured(ref) });
     for (const window of visible.windows ?? []) {
       if (window.kind === "source" || window.kind === "video") {
         const protectedSpan = (spanId: string | null | undefined) => Boolean(spanId && window.extractionId === covered.extractionId && spanId.startsWith(covered.prefix));
         for (const spanId of window.spanIds ?? []) {
-          if (protectedSpan(spanId)) veiled.push({ group: "source passages", kind: "span", window_id: window.windowId, extraction_id: window.extractionId, span_id: spanId });
+          if (protectedSpan(spanId)) add({ group: "source passages", kind: "span", window_id: window.windowId, extraction_id: window.extractionId, span_id: spanId });
         }
         for (const figure of window.figures ?? []) {
-          if (protectedSpan(figure.spanId)) veiled.push({ group: "figures", kind: "figure", window_id: window.windowId, figure_id: figure.figureId });
+          if (protectedSpan(figure.spanId)) add({ group: "figures", kind: "figure", window_id: window.windowId, figure_id: figure.figureId });
         }
-        for (const noteId of window.noteIds ?? []) veiled.push({ group: "notes", kind: "note", window_id: window.windowId, note_id: noteId });
+        for (const noteId of window.noteIds ?? []) add({ group: "notes", kind: "note", window_id: window.windowId, note_id: noteId });
         continue;
       }
-      veiled.push({ group: windowGroup(window.kind), kind: "window", window_id: window.windowId, window_kind: window.kind,
+      add({ group: windowGroup(window.kind), kind: "window", window_id: window.windowId, window_kind: window.kind,
         ...(window.padBlockIds?.length ? { pad_block_ids: window.padBlockIds } : {}) });
     }
-    if (visible.companionOpen) veiled.push({ group: "the companion", kind: "companion", exchange_ids: [...(visible.companionExchangeIds ?? [])] });
+    if (visible.companionOpen) add({ group: "the companion", kind: "companion", exchange_ids: [...(visible.companionExchangeIds ?? [])] });
     return veiled;
   }
 
-  private card(commitmentId: string, token: string): CheckCardDto {
-    const open = this.open;
+  private standing(open: Open): CheckVeilRefDto[] {
+    const opened = new Set(open.opened.map((ref) => JSON.stringify(ref)));
+    return open.veiled.filter((ref) => !opened.has(JSON.stringify(ref)));
+  }
+
+  private card(open: Open, replayed = false): CheckCardDto {
     return {
-      version: 1, administrationToken: token, commitmentId, itemRef: `fx_pi_${commitmentId}`, contractHash: "fx_contract", cold: true, state: "open",
-      protection: { veilSetId: `fx_cvs_${this.count}`, method: "structural+notes_by_default", veiled: open?.veiled ?? [], opened: open?.opened ?? [],
-        groups: [...new Set((open?.veiled ?? []).map((ref) => ref.group))] },
-      prompt: { prompt: PROMPTS[commitmentId] ?? "" },
+      version: 1, administrationToken: open.token, commitmentId: open.commitmentId, itemRef: `fx_pi_${open.commitmentId}`, contractHash: "fx_contract", cold: true, state: "open",
+      protection: { veilSetId: `fx_cvs_${this.count}`, method: "structural+notes_by_default", veiled: this.standing(open), opened: open.opened,
+        groups: [...new Set(open.veiled.map((ref) => ref.group))] },
+      prompt: { practiceItemId: `fx_pi_${open.commitmentId}`, prompt: PROMPTS[open.commitmentId] ?? "",
+        presentation: { practiceItemId: `fx_pi_${open.commitmentId}`, blocks: [{ kind: "prompt", markdown: PROMPTS[open.commitmentId] ?? "", label: null }] } },
       practiceSession: { sessionId: "fx_ps_1" } as never,
+      submissionId: open.submissionId, eligibility: null, revision: this.revision, ...(replayed ? { replayed: true } : {}),
     };
   }
 
-  begin(input: { commitmentId: string; visible: CheckVisibleDto }): CheckCardDto {
-    if (this.open) throw { code: "administration_open", message: "Another check is open; answer it or say not now first.", retryable: false };
-    this.count += 1;
-    this.open = { token: `fx_cad_${this.count}`, commitmentId: input.commitmentId, veiled: this.protection(input.commitmentId, input.visible), opened: [] };
-    return this.card(input.commitmentId, this.open.token);
+  private closedError(): never {
+    throw { code: "administration_closed", message: "That check is closed.", retryable: false };
   }
 
-  protectMore(input: { administrationToken: string; visible: CheckVisibleDto }): { veilAdditions: CheckVeilRefDto[] } {
+  begin(input: { requestId?: string; commitmentId: string; visible: CheckVisibleDto }): CheckCardDto {
+    const done = input.requestId ? this.closed.get(input.requestId) : undefined;
+    if (done) throw { code: "administration_closed", message: "That check is closed.", retryable: false, details: done };
+    if (this.open) {
+      // A lost reply's retry (or another click) for the same commitment gets its card back.
+      if (this.open.commitmentId === input.commitmentId) return this.card(this.open, true);
+      throw { code: "administration_open", message: "Another check is open; answer it or say not now first.", retryable: false,
+        details: { administrationToken: this.open.token, commitmentId: this.open.commitmentId } };
+    }
+    this.count += 1;
+    this.revision += 1;
+    this.open = this.fresh(`fx_cad_${this.count}`, input.commitmentId, input.requestId ?? null);
+    this.open.veiled = this.protection(input.commitmentId, input.visible);
+    return this.card(this.open);
+  }
+
+  protectMore(input: { administrationToken: string; visible: CheckVisibleDto }): { veilAdditions: CheckVeilRefDto[]; standing: CheckVeilRefDto[]; revision: number } {
     const open = this.open;
-    if (!open || open.token !== input.administrationToken) throw { code: "administration_closed", message: "That check is closed.", retryable: false };
+    if (!open || open.token !== input.administrationToken) this.closedError();
     const known = new Set(open.veiled.map((ref) => JSON.stringify(ref)));
     const additions = this.protection(open.commitmentId, input.visible).filter((ref) => !known.has(JSON.stringify(ref)));
     open.veiled.push(...additions);
-    return { veilAdditions: additions };
+    if (additions.length) this.revision += 1;
+    return { veilAdditions: additions, standing: this.standing(open), revision: this.revision };
   }
 
-  expose(input: { administrationToken: string; ref: CheckVeilRefDto }): { protectionStatus: { exposure: unknown[]; coldNow: boolean } } {
+  expose(input: { administrationToken: string; ref: CheckVeilRefDto; kind?: string; exposureId?: string }) {
     const open = this.open;
-    if (!open || open.token !== input.administrationToken) throw { code: "administration_closed", message: "That check is closed.", retryable: false };
-    open.opened.push(input.ref);
-    // A covered passage states what the answer says (the overlap primes the item); anything else says nothing of it.
-    const primes = open.opened.some((ref) => ref.kind === "span");
-    return { protectionStatus: { exposure: open.opened.map((ref) => ({ kind: "opened_veil", ref })), coldNow: !primes } };
+    if (!open || open.token !== input.administrationToken) this.closedError();
+    if (open.submissionId && this.outcomes.has(open.submissionId)) throw { code: "submission_in_flight", message: "The answer is on its way.", retryable: false };
+    const again = input.exposureId ? open.exposures.get(input.exposureId) : undefined;
+    if (!again) {
+      const unmeasured = input.kind === "left" || input.ref.measured === false || input.ref.kind === "surface";
+      if (input.kind !== "left") open.opened.push(input.ref);
+      if (unmeasured) open.unmeasured = true;
+      // A covered passage states what the answer says (the overlap primes the item); an unmeasured opening always
+      // counts as practice; anything else measured says nothing of it.
+      const coldNow = !open.unmeasured && !open.opened.some((ref) => ref.kind === "span");
+      if (input.exposureId) open.exposures.set(input.exposureId, { coldNow, measured: !unmeasured });
+    }
+    const status = input.exposureId ? open.exposures.get(input.exposureId)! : { coldNow: !open.unmeasured, measured: true };
+    return { protectionStatus: { exposure: open.opened.map((ref) => ({ kind: "opened_veil", ref })), coldNow: status.coldNow, measured: status.measured, eligibility: null } };
   }
 
-  submit(input: { administrationToken: string; submissionId: string; answerMd: string }) {
+  submit(input: { administrationToken: string; submissionId: string; answerMd: string; veilsRevision?: number }) {
+    const saved = this.outcomes.get(input.submissionId);
+    if (saved) return saved;
     const open = this.open;
-    if (!open || open.token !== input.administrationToken) throw { code: "administration_closed", message: "That check is closed.", retryable: false };
-    const cold = !open.opened.some((ref) => ref.kind === "span");
+    if (!open || open.token !== input.administrationToken) this.closedError();
+    if (typeof input.veilsRevision === "number" && input.veilsRevision < this.revision) {
+      throw { code: "veils_stale", message: "New veils were added; apply them and send again.", retryable: true };
+    }
+    const primedBySpan = open.opened.some((ref) => ref.kind === "span");
+    const byNote = open.opened.some((ref) => ref.kind === "note");
+    const cold = !primedBySpan && !open.unmeasured;
     this.answered.add(open.commitmentId);
     const commitmentId = open.commitmentId;
+    if (open.requestId) this.closed.set(open.requestId, { state: "submitted", outcome: cold ? "on_your_own" : "primed" });
     this.open = null;
-    return { version: 1, administrationToken: input.administrationToken, attemptId: `fx_at_${this.count}`, cold, reason: cold ? "on_your_own" : "primed",
+    const outcome = { version: 1, administrationToken: input.administrationToken, attemptId: `fx_at_${this.count}`, cold, reason: cold ? "on_your_own" : "primed",
+      ...(!cold && !primedBySpan ? { primedBy: byNote ? "unmeasured_note" : "unmeasured" } : {}), eligibility: null,
       feedbackMd: FEEDBACK[commitmentId] ?? "" };
+    this.outcomes.set(input.submissionId, outcome);
+    return outcome;
   }
 
   abandon(input: { administrationToken: string }): Record<string, never> {
-    if (this.open?.token === input.administrationToken) this.open = null;
+    if (this.open?.token === input.administrationToken) {
+      if (this.open.requestId) this.closed.set(this.open.requestId, { state: "abandoned", outcome: null });
+      this.open = null;
+    }
     return {};
   }
 
   openInline(): { administration: CheckCardDto | null } {
     if (!this.open) return { administration: null };
-    if (!this.open.veiled.length) this.open.veiled = [{ group: "pads", kind: "window", window_id: "fx_w_pads", window_kind: "pad_stack" }];
-    return { administration: this.card(this.open.commitmentId, this.open.token) };
+    if (!this.open.veiled.length) this.open.veiled = [{ group: "pads", kind: "window", window_id: "fx_w_pads", window_kind: "pad_stack", measured: true }];
+    return { administration: this.card(this.open) };
   }
 }

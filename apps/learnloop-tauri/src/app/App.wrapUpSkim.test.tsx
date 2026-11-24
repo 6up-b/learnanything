@@ -20,7 +20,7 @@ vi.mock("../api/client", () => {
     streak: null,
   };
   // Every other call stays pending: nothing else in the shell matters here.
-  const api = new Proxy({ loadVault: vi.fn(async () => snapshot) } as Record<string, unknown>, {
+  const api = new Proxy({ checkOpenInline: vi.fn(async () => ({ administration: null })), loadVault: vi.fn(async () => snapshot) } as Record<string, unknown>, {
     get: (target, name: string) => (name in target ? target[name] : () => new Promise(() => undefined)),
   });
   return { api };

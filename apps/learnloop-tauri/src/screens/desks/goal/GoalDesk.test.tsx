@@ -10,7 +10,8 @@ import { FixtureGoal } from "../../../fixtures/desks/goal";
 import { DeskShell, type CompanionTransport, type DeskTransport, type PaneRenderInput } from "../DeskShell";
 import type { GoalTransport } from "./controller";
 
-vi.mock("../../../api/client", () => ({ api: {} }));
+// No inline check is open (the desks read it before showing anything).
+vi.mock("../../../api/client", () => ({ api: { checkOpenInline: async () => ({ administration: null }) } }));
 vi.mock("../windows/SourceWindow", () => ({ SourceWindow: () => null }));
 vi.mock("../windows/PanelWindow", () => ({ PANEL_TITLES: { guide: "Guide", notes: "Notes", path: "Reading path", library: "Library" }, LibraryPanel: () => null, PathPanel: () => null, RailHostPanel: () => null }));
 

@@ -5,7 +5,17 @@
 /* -- veils: nothing moves; text turns transparent behind an 11 px blur, images 6 px; no input -- */
 .desk-shell .veiled { position: relative; pointer-events: none; user-select: none; filter: none !important; }
 .desk-shell .veiled, .desk-shell .veiled * { color: transparent !important; text-shadow: 0 0 11px rgba(70, 64, 52, .85) !important; border-color: transparent !important; transition: none !important; }
-.desk-shell .veiled svg, .desk-shell .veiled img, .desk-shell .veiled canvas, .desk-shell .veiled iframe { filter: blur(6px); }
+.desk-shell .veiled svg, .desk-shell .veiled img { filter: blur(6px); }
+/* A canvas, a player or a frame under a veil is not painted at all: a blur leaves a page's large type readable. */
+.ck-veiled canvas, .ck-veiled video, .ck-veiled iframe, canvas.ck-veiled, video.ck-veiled, iframe.ck-veiled { visibility: hidden !important; }
+
+/* -- held by default (everything an open check did not list as safe): the same look, nothing moves, no input -- */
+.ck-held { pointer-events: none !important; user-select: none !important; }
+.ck-held, .ck-held * { color: transparent !important; caret-color: transparent !important; text-shadow: 0 0 11px var(--ck-held-blur, rgba(150, 144, 132, .6)) !important;
+  border-color: transparent !important; transition: none !important; }
+.ck-held ::placeholder { color: transparent !important; }
+.ck-held canvas, .ck-held video, .ck-held iframe, .ck-held img, .ck-held svg, .ck-held picture, .ck-held object, .ck-held embed,
+canvas.ck-held, video.ck-held, iframe.ck-held, img.ck-held, svg.ck-held { visibility: hidden !important; }
 .desk-shell [data-companion-body].veiled, .desk-shell [data-companion-body].veiled * { text-shadow: 0 0 11px rgba(200, 200, 210, .55) !important; }
 .desk-shell .veiled > .gm { opacity: .5; }
 .desk-shell .unveil { animation: ck-unveil .6s ease; }

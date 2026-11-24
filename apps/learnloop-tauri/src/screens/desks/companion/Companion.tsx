@@ -354,6 +354,7 @@ export const Companion = forwardRef<CompanionHandle, CompanionProps>(function Co
           data-desk-companion=""
           data-companion-mode={state.mode}
           data-companion-dock={dock}
+          data-check-region="the companion"
           role="complementary"
           aria-label="the companion"
           style={{
@@ -382,7 +383,8 @@ export const Companion = forwardRef<CompanionHandle, CompanionProps>(function Co
               <button type="button" className="earlier" onClick={() => setTab("history")}>earlier · {earlier.map(dayLabel).join(" · ")} ›</button>
             ) : null}
           </div>
-          <div className="body" ref={bodyRef} data-companion-body="">
+          {/* What the body shows (its tab and exchanges): an inline check's opening covers only this. */}
+          <div className="body" ref={bodyRef} data-companion-body="" data-check-content={tab === "tutor" ? `tutor:${props.thread.map((exchange) => exchange.requestId).join(",")}` : `history:${historyQuery}:${(history?.days ?? []).flatMap((day) => day.desks.flatMap((desk) => desk.exchanges.map((exchange) => exchange.questionEventId))).join(",")}`}>
             {/* Show me's figures (spec §13.1), live, above the thread. */}
             {tab === "tutor" ? props.figures ?? null : null}
             {tab === "tutor" ? (
@@ -422,7 +424,8 @@ export const Companion = forwardRef<CompanionHandle, CompanionProps>(function Co
             </div>
           ) : null}
           <div className="cin">
-            {props.cannotAsk ? <div className="cannot">{props.cannotAsk}</div> : null}
+            {/* Why the ask waits says nothing of the content: it stays readable while a check holds the page. */}
+            {props.cannotAsk ? <div className="cannot" data-check-safe="">{props.cannotAsk}</div> : null}
             {props.tutor?.personalized ? (
               // What the tutor may read of the learner's own work when it looks things up (RW1c): sent with every ask.
               <button
