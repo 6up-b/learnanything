@@ -15,6 +15,11 @@ The arms (``docs/specs/spec_router_objective_v1.md`` §11, ``docs/specs/refactor
 * ``c_surprise_from_ad``: today's mastery; the surprise row reads adaptive difficulty's predictive success for the
   item (below) instead of the label's ``b``.
 * ``d_both``: (b)'s config and (c)'s surprise.
+* ``e_surprise_from_receipt``: today's mastery; the surprise row reads the forecast adaptive difficulty recorded when
+  it served the item (the attempt's plan presentation's ``ad_threshold@subject`` or ``ad_threshold_repeat@subject``
+  receipt), and mastery's own prediction where no receipt applies (H3's design,
+  ``docs/reviews/refactor-h3-h6-design.md`` §2.2).
+* ``f_label_off_and_receipt``: (b)'s config and (e)'s surprise: H3 as designed.
 
 Each arm is reported against (a): mastery, surprise, stored due dates, the due queue at ``--as-of``, and once
 (it does not depend on the arm) adaptive difficulty's prequential scoring with and without ``z_llm``. The JSON
@@ -40,23 +45,35 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-REPORT_VERSION = "difficulty_four_way_v1"
+REPORT_VERSION = "difficulty_four_way_v2"
 LABEL_OFF = "mastery.irt.difficulty_from_prior=false"
+
+
+#: Where an arm's surprise reads its prediction: the mastery path's own (None), AD's prediction replayed up to the
+#: attempt (``ad_prefix``), or AD's forecast recorded at the serve (``receipt``).
+AD_PREFIX, RECEIPT = "ad_prefix", "receipt"
 
 
 @dataclass(frozen=True)
 class Arm:
     name: str
     assignments: tuple[str, ...]
-    surprise_from_ad: bool
+    surprise_source: str | None
     description: str
+
+    @property
+    def surprise_from_ad(self) -> bool:
+        return self.surprise_source is not None
 
 
 ARMS: tuple[Arm, ...] = (
-    Arm("a_today", (), False, "today: the vault's own config"),
-    Arm("b_label_off_mastery", (LABEL_OFF,), False, "the label off the mastery path (b = difficulty_default)"),
-    Arm("c_surprise_from_ad", (), True, "surprise from adaptive difficulty's item-conditioned predictive"),
-    Arm("d_both", (LABEL_OFF,), True, "both: (b)'s config and (c)'s surprise"),
+    Arm("a_today", (), None, "today: the vault's own config"),
+    Arm("b_label_off_mastery", (LABEL_OFF,), None, "the label off the mastery path (b = difficulty_default)"),
+    Arm("c_surprise_from_ad", (), AD_PREFIX, "surprise from adaptive difficulty's item-conditioned predictive"),
+    Arm("d_both", (LABEL_OFF,), AD_PREFIX, "both: (b)'s config and (c)'s surprise"),
+    Arm("e_surprise_from_receipt", (), RECEIPT,
+        "surprise from AD's serve-time receipt, mastery's own prediction where none applies"),
+    Arm("f_label_off_and_receipt", (LABEL_OFF,), RECEIPT, "H3 as designed: (b)'s config and (e)'s surprise"),
 )
 BASELINE = ARMS[0].name
 
@@ -212,7 +229,95 @@ def _scores(rows: Sequence[tuple[float, float, bool]]) -> dict[str, Any]:
             "base_rate": round(sum(y for _, y, _ in rows) / len(rows), 6)}
 
 
-# -- arm (c)'s surprise, inside the scratch replay only ----------------------------------------------------------
+# -- AD's serve-time forecast receipts, per attempt (arms e and f) ------------------------------------------------
+
+#: The receipts H3's surprise reads: the subject view's forecast, as AD served the item.
+RECEIPT_FORECASTERS = ("ad_threshold@subject", "ad_threshold_repeat@subject")
+
+
+def _has_table(connection: Any, name: str) -> bool:
+    return connection.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
+                              (name,)).fetchone() is not None
+
+
+def receipt_predictions(connection: Any) -> dict[str, Predictive]:
+    """For every attempt, the serve-time receipt H3's surprise would read, or why none applies.
+
+    The rule (``docs/reviews/refactor-h3-h6-design.md`` §2.2): the attempt's plan presentation
+    (``practice_attempts.plan_presentation_id``); only the first attempt bound to it, on the presentation's item;
+    an ``item_unassisted_success`` receipt of the subject view (:data:`RECEIPT_FORECASTERS`) bound to that
+    presentation, with status ``ok``, a probability, and inputs no later than the serve (AD1's validity rule). Tier
+    ``receipt`` carries the receipt's ``p``; tier ``fallback`` carries the reason: ``unbound``,
+    ``not_first_on_presentation``, ``no_presentation``, ``item_mismatch``, ``no_receipt``, ``receipt_not_ok``,
+    ``receipt_without_p`` or ``receipt_after_serve``."""
+
+    from learnloop.scheduling.forecast_receipts import valid_for_serve
+
+    if not _has_table(connection, "practice_attempts"):
+        return {}
+    columns = {row[1] for row in connection.execute("PRAGMA table_info(practice_attempts)")}
+    bound = "plan_presentation_id" in columns
+    attempts = connection.execute(
+        "SELECT id, practice_item_id, " + ("plan_presentation_id" if bound else "NULL")
+        + ", created_at FROM practice_attempts ORDER BY created_at, id").fetchall()
+    presentations: dict[str, tuple[str, str]] = {}
+    if _has_table(connection, "plan_presentations"):
+        presentations = {str(r[0]): (str(r[1]), str(r[2])) for r in connection.execute(
+            "SELECT id, practice_item_id, served_at FROM plan_presentations")}
+    receipts: dict[str, list[dict[str, Any]]] = {}
+    if _has_table(connection, "forecast_receipts"):
+        marks = ", ".join("?" for _ in RECEIPT_FORECASTERS)
+        for r in connection.execute(
+                "SELECT plan_presentation_id, practice_item_id, forecaster, status, p, inputs_as_of "
+                f"FROM forecast_receipts WHERE kind = 'item_unassisted_success' AND forecaster IN ({marks}) "
+                "AND plan_presentation_id IS NOT NULL ORDER BY forecaster, created_at, id", RECEIPT_FORECASTERS):
+            receipts.setdefault(str(r[0]), []).append(
+                {"practice_item_id": r[1], "forecaster": r[2], "status": r[3], "p": r[4], "inputs_as_of": r[5]})
+    out: dict[str, Predictive] = {}
+    first: set[str] = set()
+    for attempt_id, item_id, presentation_id, _created in attempts:
+        attempt_id = str(attempt_id)
+        if not presentation_id:
+            out[attempt_id] = Predictive(None, "fallback", "unbound")
+            continue
+        presentation_id = str(presentation_id)
+        if presentation_id in first:
+            out[attempt_id] = Predictive(None, "fallback", "not_first_on_presentation")
+            continue
+        first.add(presentation_id)
+        presentation = presentations.get(presentation_id)
+        if presentation is None:
+            out[attempt_id] = Predictive(None, "fallback", "no_presentation")
+            continue
+        if presentation[0] != str(item_id):
+            out[attempt_id] = Predictive(None, "fallback", "item_mismatch")
+            continue
+        found = [r for r in receipts.get(presentation_id, []) if str(r["practice_item_id"] or item_id) == str(item_id)]
+        if not found:
+            out[attempt_id] = Predictive(None, "fallback", "no_receipt")
+            continue
+        receipt = found[0]  # ``@subject`` sorts before ``_repeat@subject``; a presentation holds one or the other
+        if receipt["status"] != "ok":
+            out[attempt_id] = Predictive(None, "fallback", "receipt_not_ok")
+        elif receipt["p"] is None:
+            out[attempt_id] = Predictive(None, "fallback", "receipt_without_p")
+        elif not valid_for_serve(receipt, presentation[1]):
+            out[attempt_id] = Predictive(None, "fallback", "receipt_after_serve")
+        else:
+            out[attempt_id] = Predictive(float(receipt["p"]), "receipt", str(receipt["forecaster"]))
+    return out
+
+
+def receipt_against_prefix(receipts: Mapping[str, Predictive], prefix: Mapping[str, Predictive]) -> dict[str, Any]:
+    """How far AD's forecast at the serve is from AD's prediction replayed up to the attempt, where both exist."""
+
+    pairs = [(receipts[k].p, prefix[k].p) for k in receipts
+             if receipts[k].p is not None and k in prefix and prefix[k].p is not None]
+    return {"both": len(pairs), "abs_p_difference": _summary([abs(a - b) for a, b in pairs]),
+            "p_difference": _summary([a - b for a, b in pairs])}
+
+
+# -- the surprise patch (arms c to f), inside the scratch replay only ------------------------------------------------
 
 _GRADE_INPUTS: ContextVar[Any] = ContextVar("difficulty_four_way_grade_inputs", default=None)
 
@@ -224,7 +329,7 @@ class SurprisePatchLog:
 
 
 @contextmanager
-def surprise_from_ad(predictive: Mapping[str, Predictive]) -> Iterator[SurprisePatchLog]:
+def surprise_from_ad(predictive: Mapping[str, Predictive], *, fallback: str = "default") -> Iterator[SurprisePatchLog]:
     """FIREWALL CROSSING, SCRATCH REPLAY ONLY. Adaptive difficulty may not feed a stored surprise row today (the
     firewall's A2 and A12); arm (c) is the experiment the owner rules on, so it exists only here, around one
     shadow rebuild of a discarded scratch copy, and is undone on exit.
@@ -233,7 +338,9 @@ def surprise_from_ad(predictive: Mapping[str, Predictive]) -> Iterator[SurpriseP
     reads AD's predictive ``p̄`` for the attempt: it is handed ``b' = μ_prior - logit(p̄)/a``, the ``b`` at which
     the 2PL link at the prior mean equals ``p̄``, so its innovation, variance and interval factor are the usual
     formulae around AD's prediction. Mastery keeps its own ``b``. A primed attempt takes the same priming offset
-    the label's ``b`` takes. Where AD has no prediction for the attempt, ``b' = difficulty_default``."""
+    the label's ``b`` takes. Where AD has no prediction for the attempt: ``fallback="default"`` (arms c, d) reads
+    ``b' = difficulty_default``; ``fallback="mastery"`` (arms e, f, H3's design) leaves the surprise on the mastery
+    path's own ``b`` (priming already applied by the grade)."""
 
     from learnloop.attempts import attempts as grade_module
 
@@ -255,6 +362,9 @@ def surprise_from_ad(predictive: Mapping[str, Predictive]) -> Iterator[SurpriseP
             return original_surprise(prior=prior, config=config, item_a=item_a, item_b=item_b, **kwargs)
         irt = config.mastery.irt
         entry = predictive.get(str(inputs.attempt_id))
+        if (entry is None or entry.p is None) and fallback == "mastery":
+            log.tiers["fallback"] += 1
+            return original_surprise(prior=prior, config=config, item_a=item_a, item_b=item_b, **kwargs)
         if entry is None or entry.p is None:
             log.tiers["default"] += 1
             b = float(irt.difficulty_default)
@@ -347,7 +457,16 @@ def compare_mastery(base: Mapping[str, Any], arm: Mapping[str, Any]) -> dict[str
     }
 
 
-def compare_surprise(base: Mapping[str, Any], arm: Mapping[str, Any]) -> dict[str, Any]:
+def _negative(rows: Mapping[str, Any], tau: float | None) -> dict[str, Any]:
+    """Negative-direction rows, and those whose Bayesian surprise is above the follow-up gate's static threshold
+    (``scheduler.followup.tau_followup_nats``; the live gate also scores and learns, so this is an indication)."""
+
+    negative = [v for v in rows.values() if v["surprise_direction"] == "negative"]
+    above = None if tau is None else sum(1 for v in negative if (v["bayesian_surprise"] or 0.0) > tau)
+    return {"negative": len(negative), "negative_above_tau": above}
+
+
+def compare_surprise(base: Mapping[str, Any], arm: Mapping[str, Any], tau: float | None = None) -> dict[str, Any]:
     common = sorted(set(base) & set(arm))
     fields = ("predictive_surprise", "bayesian_surprise", "surprise_direction", "fsrs_interval_factor")
     changed = [k for k in common if any(base[k][f] != arm[k][f] for f in fields)]
@@ -357,6 +476,7 @@ def compare_surprise(base: Mapping[str, Any], arm: Mapping[str, Any]) -> dict[st
         "rows": len(arm), "rows_baseline": len(base), "changed": len(changed),
         "direction_changed": sum(transitions.values()), "direction_transitions": dict(sorted(transitions.items())),
         "directions": dict(sorted(Counter(str(v["surprise_direction"]) for v in arm.values()).items())),
+        "gate_rule": _negative(arm, tau), "gate_rule_baseline": _negative(base, tau),
         "interval_factor_changed": sum(1 for k in common
                                        if base[k]["fsrs_interval_factor"] != arm[k]["fsrs_interval_factor"]),
         "predictive_surprise": _summary([v["predictive_surprise"] for v in arm.values()]),
@@ -500,6 +620,11 @@ def run_four_way(
         copy_tree_with_databases(vault_copy, root)
         vault = load_vault(root, load_environment=False)
         live_path = VaultPaths(vault.root, vault.config).sqlite_path.resolve()
+        from learnloop.db.connection import connect
+
+        with closing(connect(live_path, read_only=True)) as connection:
+            receipts = receipt_predictions(connection)
+        tau = float(vault.config.scheduler.followup.tau_followup_nats)
         shared: dict[str, Any] = {}
         states: dict[str, Any] = {}
         meta: dict[str, Any] = {}
@@ -521,8 +646,10 @@ def run_four_way(
                     shared["ad_summary"] = dict(events.summary)
                 return {"state": read_replayed(loaded, repository, as_of=as_of), "ad_events": fingerprint}
 
-            if arm.surprise_from_ad:
-                with surprise_from_ad(shared["predictive"]) as log:
+            if arm.surprise_source is not None:
+                source, fallback = ((receipts, "mastery") if arm.surprise_source == RECEIPT
+                                    else (shared["predictive"], "default"))
+                with surprise_from_ad(source, fallback=fallback) as log:
                     result = shadow_rebuild(vault, assignments=arm.assignments, observe=observe)
                 patch = {"tiers": dict(sorted(log.tiers.items())), "outside_grade": log.outside_grade}
             else:
@@ -534,7 +661,8 @@ def run_four_way(
                 on_arm(arm.name, result)
             states[arm.name] = result.observed_after["state"]
             meta[arm.name] = {"description": arm.description, "applied_overrides": dict(result.applied_overrides),
-                              "surprise_from_ad": arm.surprise_from_ad, "surprise_patch": patch,
+                              "surprise_from_ad": arm.surprise_from_ad, "surprise_source": arm.surprise_source,
+                              "surprise_patch": patch,
                               "ad_events_fingerprint": result.observed_after["ad_events"],
                               "replayed_attempts": result.rebuild.replayed_attempts}
         algorithm_version = vault.config.algorithms.algorithm_version
@@ -550,7 +678,7 @@ def run_four_way(
         state = states[arm.name]
         comparisons[arm.name] = {
             "mastery": compare_mastery(base["mastery"], state["mastery"]),
-            "surprise": compare_surprise(base["surprise"], state["surprise"]),
+            "surprise": compare_surprise(base["surprise"], state["surprise"], tau),
             "due": compare_due(base["due"], state["due"]),
             "queue": compare_queue(base["queue"], state["queue"], top_k),
         }
@@ -573,6 +701,14 @@ def run_four_way(
             "queue_error": base["queue_error"],
         },
         "comparisons": comparisons,
+        "receipts": {
+            "tiers": dict(sorted(Counter(r.tier for r in receipts.values()).items())),
+            "fallback_reasons": dict(sorted(Counter(r.reason for r in receipts.values()
+                                                    if r.tier != "receipt").items())),
+            "forecasters": dict(sorted(Counter(r.reason for r in receipts.values() if r.tier == "receipt").items())),
+            "against_prefix": receipt_against_prefix(receipts, predictive),
+            "per_attempt": {k: {"p": v.p, "tier": v.tier, "reason": v.reason} for k, v in sorted(receipts.items())},
+        },
         "ad": {
             "enabled": shared.get("ad_enabled"),
             "events_identical_across_arms": len(fingerprints) == 1,
@@ -627,9 +763,20 @@ def summary_lines(report: Mapping[str, Any]) -> list[str]:
                          f"{q['left']}, {tops}, spearman {q['spearman_common']}, kendall {q['kendall_common']}")
         else:
             lines.append("  queue: unavailable")
+        gate = s.get("gate_rule") or {}
+        base_gate = s.get("gate_rule_baseline") or {}
+        lines.append(f"  negative direction {gate.get('negative')} (a: {base_gate.get('negative')}); above the "
+                     f"follow-up threshold {gate.get('negative_above_tau')} (a: {base_gate.get('negative_above_tau')})")
         patch = report["arms"][name]["surprise_patch"]
         if patch is not None:
             lines.append(f"  surprise source tiers {patch['tiers']}")
+    receipts = report.get("receipts") or {}
+    if receipts:
+        against = receipts["against_prefix"]
+        lines.append(f"receipts: tiers {receipts['tiers']}, fallback reasons {receipts['fallback_reasons']}, "
+                     f"forecasters {receipts['forecasters']}")
+        lines.append(f"  receipt p against AD replayed to the attempt: both {against['both']}, "
+                     f"|difference| {_fmt(against['abs_p_difference'])}")
     ad = report["ad"]
     lines.append(f"AD: enabled {ad['enabled']}, events identical across arms {ad['events_identical_across_arms']}, "
                  f"predictive tiers {ad['predictive_tiers']}")
