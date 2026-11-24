@@ -25,7 +25,9 @@
 
 The gate's five design changes are all in: the hosts file (two lines of our own, bound read-only at `/etc/hosts`),
 the guarded launcher, `OOMPolicy=continue` on the scope, the proxy's skew-token rewrite, and the frame's narrow
-API allowlist with full edit rights only for the sidecar over the socket.
+API allowlist with full edit rights only for the sidecar over the socket. (Fix round: that holds against the frame,
+not against the notebook's own code. That code runs in marimo's kernel beside the server, in the same sandbox as the
+same user, so it can read the token and enable or run any of its own cells; see NBF-16.)
 
 ## The contract as built
 
@@ -46,7 +48,8 @@ recorded UI values replayed into the next page's instantiate). A new revision re
 **`notebook.status {sessionId}`**, **`notebook.close {sessionId}`** (graceful, then forced, then forgotten).
 
 **`notebook.release {sessionId, cells}`.** Releases held cells, which a notebook ships with `@app.cell(disabled=True)`
-so marimo never runs them or anything below them; marimo runs a released cell at once. It needs a frame attached
+so marimo never runs them or anything below them; marimo runs a released cell at once. A held cell hides output
+from the frame, not from the notebook's own code: held cells are display gating, not a security boundary (NBF-16). It needs a frame attached
 (marimo routes the request to the frame's own connection); without one it answers `notebook_not_connected`.
 
 **`notebook.run_cells {sessionId, cells: [{name, code}]}`.** Runs named cells with the given code, for a pad cell's
@@ -192,3 +195,4 @@ therefore does not list these defaults either.
 | Close could cancel a stop before its server was killed | NBF-10 | `NotebookRuntime._kill_left`: after the bounded graceful stop (`CLOSE_SECONDS`), every listed session's process group still alive gets SIGKILL from the calling thread, on `close` and `switch_vault` | A server that stalls `shutdown` and ignores SIGTERM is killed by `close` within its deadline |
 | The writable host directory had no storage cap; `/tmp` was unsized | NBF-11 | Nothing on the host is writable by the sandbox (NBF-5). Its `/tmp` is a tmpfs at the scratch size, like `/scratch`. The run-directory size sweep, its setting and its `run_dir_full` stop reason are gone (the test that wrote a filler into the run directory went with them) | A notebook writing 80 MiB to `/tmp` and to `/scratch` (64 MiB caps) gets "no space" in both; the launch argv pins the sized `/tmp` |
 | The fallback without a user manager lost every aggregate cap (or ran uncapped) | NBF-12 | Notebooks need `systemd-run --user --scope`; without it `missing_requirements` says so and the frame shows the runtime unavailable. The real-sandbox tests now run inside a scope too (they ran unscoped under a test wrapper that strips the session bus) | `missing_requirements` lists the user manager when the probe fails; `scope_prefix(scoped=False)` raises `RuntimeUnavailable` |
+| Notebook Python holds the marimo credential and can release its own held cells (STOPPED with options) | NBF-16 | Verified: the token is mounted read-only into the sandbox (the server needs it), and the kernel that runs the notebook's cells shares the sandbox, user and process tree with the server, so cell code can read the token and change its own cells' configuration in the kernel. Held cells gate what the frame shows; they never protected anything from the notebook. Records corrected (here and in the B7 record). Options: **(a)** accept as display gating and keep protected values out of notebooks (NA §10.5 already keeps keys and cold-eligible masked values out of the notebook and the kernel); **(b)** host-owned reveals, the reveal kept by the sidecar and sent into the kernel only after a frozen commit (NA §6.3; changes the authoring format, so it belongs with NA's commit gate); **(c)** server and kernel in separate sandboxes with a narrow channel, which closes token reading but not (b)'s gap by itself. Recommendation: (a) now, (b) with NA's commit gate | — |
