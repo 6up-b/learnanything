@@ -53097,7 +53097,7 @@
 "forecaster": "ad_threshold@grade",
 "forecaster_version": "ad-threshold-grade-v1:ad_priors_v1:ad_hyper_v1",
 "hypothesis_ref": null,
-"id": "<id:52>",
+"id": "0000000000ZEYJEPDEN04TEESR",
 "inputs_as_of": "2026-05-19T12:00:00Z",
 "inputs_hash": "655dcbc8429718e4468aa3228c78b6eb23f4502bc6ea7353c893459cf23a33da",
 "inputs_json": {
@@ -53430,7 +53430,7 @@
 "grading_source": "ai",
 "observed_outcome": null
 },
-"id": "<id:53>",
+"id": "<id:52>",
 "independent_evidence_discount": 0.0,
 "posterior_after_json": {
 "other_or_unknown": 0.1,
@@ -53785,7 +53785,7 @@
 "evidence": "adjudicated:adj_probe",
 "grader_tier": 4,
 "grading_revision": 1,
-"id": "<id:54>",
+"id": "<id:53>",
 "learner_confidence": null,
 "local_grader_id": "adjudication:human_owner",
 "notes": "valid route",
@@ -53821,7 +53821,7 @@
 "points_awarded": 0.0,
 "recipe_id": null,
 "superseded_at": "2026-05-19T13:00:00Z",
-"superseded_by_evidence_id": "<id:54>"
+"superseded_by_evidence_id": "<id:53>"
 },
 "before": {
 "agent_run_id": null,
@@ -53958,7 +53958,7 @@
 "changed": [
 {
 "after": {
-"active_state_segment_id": "<id:55>",
+"active_state_segment_id": "<id:54>",
 "algorithm_version": "mvp-0.72",
 "calibration_model_hash": "be48744f511b11d9b4a6377eec76b74f",
 "calibration_model_id": "01GCM0000098AA8E311D619BBB",
@@ -54020,7 +54020,7 @@
 "added": [
 {
 "created_at": "2026-05-19T12:00:00Z",
-"id": "<id:55>",
+"id": "<id:54>",
 "learning_object_id": "lo_svd_definition",
 "opened_by_attempt_id": null,
 "probe_episode_id": "<id:35>",

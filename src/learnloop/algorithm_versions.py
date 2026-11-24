@@ -1053,14 +1053,15 @@ INLINE_CHECK_ALGORITHM_VERSION = "mvp-0.69"
 # constant: renumbering the tag is this line (the chain, the sets and the predicate follow it).
 PROBE_ROUTER_ALGORITHM_VERSION = "mvp-0.70"
 
-# The difficulty label leaves mastery and surprise (docs/reviews/algorithm-mvp-0.72.md), on top of the probe router, mvp-0.70. The IRT seam stops reading an item's or a
-# learning object's authored or estimated difficulty label (and the dormant empirical-Bayes difficulty): mastery's
-# prediction has no item term, the priming offset kept. Surprise scores the answer against adaptive difficulty's
-# forecast made before it, from the serve-time receipt of the answer's plan presentation, else the grade-time receipt
-# every graded answer now records (``adaptive_difficulty.grade_forecast``), else mastery's own prediction; the row says
-# which. Bayesian surprise still describes the mastery update; FSRS never reads AD. History is re-derived by a
-# whole-vault rebuild: old answers have no grade-time receipt and fall back to mastery, marked. No kill switch (owner
-# rule 2026-11-16). ONE constant, provisional until the orchestrator numbers it at landing.
+# The difficulty label leaves mastery and surprise (docs/reviews/algorithm-mvp-0.72.md), on top of the probe
+# router, mvp-0.70. The IRT seam stops reading an item's or a learning object's authored or estimated difficulty
+# label (and the dormant empirical-Bayes difficulty): mastery's prediction has no item term, the priming offset kept.
+# Surprise scores the answer against adaptive difficulty's forecast made before it, from the serve-time receipt of
+# the answer's plan presentation, else the grade-time receipt every graded answer now records
+# (``adaptive_difficulty.grade_forecast``), else mastery's own prediction; the row says which. Bayesian surprise still
+# describes the mastery update; FSRS never reads AD. History is re-derived by a whole-vault rebuild: old answers have
+# no grade-time receipt and fall back to mastery, marked. No kill switch (owner rule 2026-11-16). One constant: the
+# tag is provisional, and renumbering it is this line.
 LABEL_RETIRED_ALGORITHM_VERSION = "mvp-0.72"
 
 # The linear successor chain on the mvp-0.8 projection namespace, oldest

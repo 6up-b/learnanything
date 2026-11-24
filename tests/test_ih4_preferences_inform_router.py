@@ -18,7 +18,7 @@ from typing import Any
 
 import pytest
 
-from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION, PHONE_PROBES_ALGORITHM_VERSION, PROBE_ROUTER_ALGORITHM_VERSION
+from learnloop.algorithm_versions import PHONE_PROBES_ALGORITHM_VERSION, PROBE_ROUTER_ALGORITHM_VERSION
 from learnloop.config.schema import LearnLoopConfig
 from learnloop.daily_plan import learner_action as LA
 from learnloop.daily_plan import lesson_offer as LO

@@ -5,8 +5,11 @@
 
 
 [ratchet]
-largest_import_component = 84
-modules_in_an_import_cycle = 219
+# 86 and 221: adaptive_difficulty.surprise_forecast and grade_forecast, the grade's read of AD's forecast of the answer
+# (the difficulty label's retirement), join the component attempts.attempts and AD's serving were already in; the
+# package edge attempts.attempts -> adaptive_difficulty.surprise_forecast is frozen in the import contract.
+largest_import_component = 86
+modules_in_an_import_cycle = 221
 # 221: learnloop.scheduling.intent.recall_targets, which joins the diagnosis repair lane's existing cycle (it already
 # imports diagnosis.causal_activity_policy) once diagnosis.remediation reads the plan's effective due from it (mvp-0.64).
 # 47: learnloop.notebook_authoring, the owner-side notebook harness the owner queued on 2026-11-20. It is its own
@@ -61,7 +64,10 @@ source_text_assertions = 23
 # 296669: the rich job golden records each attempt's figure_rich_author row and each stop's figure_rich_stop row
 # (21 new rows), and the build golden's delivery case its delivery's figure_withheld row (it now delivers the job's
 # own result); the existing rows are unchanged.
-golden_json_lines = 302194
+# 304438: the difficulty label's retirement regenerates the due queue's fourteen goldens (the label-free priorities),
+# the grade application and diagnosis journey goldens (the surprise rows' source, the grade-time receipts) and the
+# joint grading builder's (ids renumbered around those receipts).
+golden_json_lines = 304438
 
 [members]
 import_component = [
