@@ -179,7 +179,152 @@ veils opened by then).
 5. **`kind: help`** goes through the existing hint path (`hints_used`), which the activity policy already counts.
 6. **`check.open_inline`** (a read, for crash recovery): one RPC beyond §3.4's five.
 
-## 2. Stopped here
+## 2. The owner's answers (2026-11-23), and what changed in the design
 
-Q1–Q3 decide what evidence an inline answer becomes (Q2 above all: as specified, most inline answers while the Decider
-waits would be practice). Nothing is built until the owner answers them.
+- **Q1 = (a), the existing overlap rule.** Opening a veil writes a `source_review` reveal sized by the opened text's
+  overlap with the answer key. The answer is practice only if that primes the item. Built on each of the check's
+  candidates (each its own key), so an abandoned administration followed by another candidate in Today is decided by
+  the same record. Spec §12.6.4's "from then on the answer is assisted" is corrected to say this.
+- **Q2, the owner's words: "I would err on veiling notes by default".** Every note-bearing surface on every desk is
+  veiled when an inline check opens, not only what structure ties to the answer:
+  - all pads (running, named, handwritten, lesson additions) and lessons;
+  - threads and the companion's history;
+  - margin notes on open sources;
+  - every window but a source's text, whole.
+
+  Any veil can be opened, and opening follows Q1. There is no separate "counts as practice" rule for notes that were
+  on screen before the veils dropped: §12.6.3's uncertain-protection rule is replaced, and the spec text corrected.
+  The seam for the Decider is `inline_administration.narrow`: its judgment may only un-veil what it judges
+  irrelevant; it never widens an evidence rule.
+- **Q3 = (a), the existing rule.** A later answer on the other surface is labelled practice, answers nothing and stays
+  ordinary evidence (`reason: already_answered`). §12.6.5 corrected.
+- **The other defaults (§1.7) stand.**
+- **The migration is 270** (269 is the pen fix round's guard). It also carries RD10-10's `video_chapters` guard
+  trigger (ledger row fixed).
+- **The tag is `mvp-0.69`.**
+
+## 3. What was built
+
+- **Migration 270 and its fixture**, each in its own commit. `check_administrations` (WORKFLOW) has a partial unique
+  index (one administration open at a time) and triggers (a closed administration is final and kept).
+  `check_veil_sets` (RECEIPT) is append-only by triggers, a replacing insert included. `video_chapters_no_replace_decided`
+  is added. Roles are set, the architecture test registers the one SQL owner (`db/stores/check_administrations.py`),
+  and the earlier migrations' diffs subtract 270's objects.
+- **The tag** (`docs/reviews/algorithm-mvp-0.69.md`): one constant, the chain, `INLINE_CHECK_VERSIONS`,
+  `inline_checks_on`, `Link(mvp-0.69, idempotent_projection)`, its test row, and the mechanical moves.
+- **The protocol** (`learnloop.intent.inline_administration`), with its RPCs in `learnloop_sidecar.handlers.inline_checks`
+  (versioned, `extra="forbid"`, desktop-only, pinned):
+  - `check.begin_inline {request_id, commitment_id, session_id, visible}`. It picks the check's first servable
+    candidate (held candidates are never servable; an exposed-only check is served as practice, as in Today). It serves
+    it through Today's own session serve (`get_practice_item`), which freezes the contract and shows the check's view.
+    It then computes the protection, writes the administration and the first veil set in one transaction, and only
+    then returns the card with the prompt. Retried with the same `request_id`, it returns the same administration.
+  - `check.protect_more`: a veil set of the additions only.
+  - `check.expose {ref, kind}`: `opened_veil` writes its reveals at once (Q1) and a veil set naming what was opened;
+    `navigated` and `help` are recorded only (help is the hint path's). The reply says whether the item is still cold.
+  - `check.submit_inline`:
+    - it names the submission on the administration first (a crash after the attempt is found by it);
+    - it records the attempt through `submit_attempt_on` with surface `reader_inline`, the frozen contract and the
+      server's help fold;
+    - it closes the administration and settles (`settle_answered_checks`);
+    - it returns the attempt's reply with `{cold, reason}`;
+    - a duplicate returns the first result, and another submission is refused.
+  - `check.abandon_inline`: closed with no attempt, plus a closing veil set; the duty stays pending.
+  - `check.open_inline` (the restart read):
+    - it returns the open card with its veils and prompt;
+    - an administration whose submission reached the attempt service is closed with that attempt and settled;
+    - one whose check was settled or stopped elsewhere is closed `superseded`.
+- **The lock shared with Today**:
+  - `IntentServing.locked` holds the open administrations' commitments (at the tag).
+  - `pick_checks` serves none of a locked check's items as the check.
+  - `served_check` says "being answered in the Reader" and serves the item as practice.
+  - `checks.due_for` rows carry `being_answered`.
+  - The Reader side refuses a check whose item has an answer being written in an open Today session.
+- **Rust passthroughs and typed client calls** for the six RPCs (`CheckCardDto`, `CheckVisibleDto`, `CheckSubmitDto`).
+  No component calls them yet; the card and veils are RD7's frontend half.
+- **The spec corrections** (§12.6.3, §12.6.4, §12.6.5) and the G2 design renumbered to `mvp-0.70` in its proposal
+  lines.
+
+## 4. Judgment calls
+
+1. **`check.begin_inline` takes the desks' practice `session_id`** (not in §3.4's row). The attempt service records
+   every answer on a session, as the pad and workbench submissions do.
+2. **The served view is Today's own serve**, called by the handler (`get_practice_item` with the session). The item,
+   contract and check view are Today's by construction, which is what the parity test checks. The serve's own writes
+   (the content-addressed contract snapshot, the diagnosis serve count) come before the administration's transaction.
+   A crash between them leaves a snapshot and no administration, so no prompt was shown.
+3. **Which windows are veiled whole.** Every window kind but `source` and `video` is veiled whole, failing closed for
+   kinds the client may add later. Within a source window, the check's covered passages and figures on them, plus
+   every margin note, are veiled. When coverage cannot be read, every visible source passage is veiled
+   (`structural`'s fallback method `whole_sources+notes_by_default`).
+4. **An opened veil debits every candidate of the check**, each by its own key's overlap, rather than only the served
+   item. An abandoned administration is then honest for whichever candidate Today serves next.
+5. **The reply's `reason`** is one of `on_your_own`, `primed`, `with_help`, `seen_before`, `already_answered` or
+   `practice`, read from the attempt and the settlement after the fact. It never decides anything.
+6. **`check.expose` has no idempotency key** (§3.4's row has none). A retried exposure writes its reveal again, which
+   errs towards practice. Recorded as a limitation.
+7. **Today-side lock detection** reads open sessions' checkpoints with an answer being typed (§1.5's read, narrowed).
+   A Today serve with nothing typed does not hold the check, so a stale checkpoint never blocks the Reader for long.
+8. **Coverage reads are injected** by the sidecar (`covered`), because `intent` must not import `source_retrieval`
+   (the import contract's acyclic rule).
+
+## 5. Tests
+
+- `tests/test_reader_rd7a_inline_checks.py` (19):
+  - the RPCs desktop-only and strict;
+  - below the tag;
+  - the prompt only after the veils;
+  - the protection set;
+  - `protect_more`;
+  - the lock with Today;
+  - the Today-side refusal;
+  - Q1 both ways;
+  - an idempotent submit;
+  - Q3;
+  - parity with Check once;
+  - abandon;
+  - the restart read;
+  - a crash after the attempt;
+  - a crash before it;
+  - supersession;
+  - the live projection equal to a whole-vault rebuild.
+- `tests/test_reader_rd7a_migration.py` (7).
+- **Fail-first.** Before the behaviour commit the protocol file did not collect (the module was absent). With the
+  behaviour in place, each rule's line removed made its test fail, then restored:
+  - the lock in `intent_serving`;
+  - the reveal in `expose`;
+  - the settlement in `finish_submit`;
+  - the submission branch of `reopen`;
+  - supersession in `reopen`;
+  - the Today-side refusal.
+- **Assertions changed:**
+  - `test_reader_rd0_reads.py`: a due row's `being_answered: False`.
+  - `test_reader_rd0_rpcs.py`: RD0's inline check RPC is `checks.due_for`, the first of `INLINE_CHECK_RPCS`.
+  - `test_mobile_allowlist.py`: RD0's pin minus RD7's six, which are pinned on their own.
+  - The tag's mechanical moves (`algorithm-mvp-0.69.md`).
+
+## 6. RD9a-3: what would let a lesson's quick question back into a desk window
+
+RD9a-3's interim stays until RD7's frontend half exists: a lesson's quick question is asked on the full lesson screen
+and never in a desk window. Under this guard, a probe could return to a window when all of these hold:
+
+- **The frontend half renders the veils.** Every note-bearing surface on every desk is veiled with nothing moved,
+  `check.protect_more` runs before new content renders, and "show it anyway" calls `check.expose`.
+- **The probe holds the same lock and veils.** A lesson probe is not a commitment. It needs its own administration on
+  the same lock, opened when the probe is served:
+  - a surface value beside `reader_inline` (a schema change, since 270's CHECK names one surface);
+  - or a probe-keyed administration in a later migration.
+- **The lesson's own teaching above the probe is veiled too**, as a note-bearing surface, with its exposure written by
+  the same overlap rule. The probe's cold/assisted decision then reads the reveal ledger, as the Check once decision
+  does.
+- **The probe's existing first-serve claim** (`PR.serve`) is made only when the veils are recorded, not when a window
+  reads the lesson. RD9a-3's `frame: "window"` hold already keeps a window's read from serving it.
+
+## 7. Not verified
+
+- No owner copy was opened. The procedure and the read-only script are in `algorithm-mvp-0.69.md`, for the
+  orchestrator.
+- There is no frontend card or veils yet (RD7's frontend half), so nothing rendered was checked: no visual comparison
+  or harness run beyond the existing suite.
+- The module catalog notes for the two new modules (`intent/inline_administration.py`,
+  `db/stores/check_administrations.py`) are not generated here (references are regenerated at integration).

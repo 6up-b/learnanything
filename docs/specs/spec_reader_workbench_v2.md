@@ -1621,11 +1621,11 @@ The veils are applied, and only then is the prompt returned and shown.
 - the open companion thread;
 - figures for those spans.
 
-**Unanchored learner content cannot be placed by structure.** That is pad blocks with no anchors, and threads with no citations. While a check is open, **every pad and thread window on screen is veiled whole** unless the Decider judgment (below) clears it.
+**Notes are veiled by default** (owner decision 2026-11-23: "I would err on veiling notes by default"). While a check is open, **every note-bearing surface on every desk is veiled**, not only what structure ties to the answer: all pads (running, named, handwritten, lesson additions) and lessons, threads and the companion's history, margin notes on open sources, and every window whose content structure cannot place (any window but a source's text) whole. The learner can open any veil ("show it anyway"); opening one is exposure (§12.6.4).
 
-**Decider judgment** (once reveal adjudication ships): the shared reveal judgment narrows the whole-window veils to the blocks that actually state the answer, and adds any answer-bearing passage that structure missed, with the quote.
+**Decider judgment** (once reveal adjudication ships): the shared reveal judgment may **un-veil** what it judges states nothing of the answer, with the quote. It narrows the veiled set only; it never widens an evidence rule.
 
-**Cold credit is not granted by veiling.** Masking is a courtesy that keeps the page usable. Cold eligibility is decided by the exposure record. If the protection is uncertain (the Decider judgment is unavailable and something unanchored was visible before the veil applied), the answer is accepted, graded and labelled "answered with your pads open · counts as practice". The cold duty stays pending, and Today serves it again.
+**Cold credit is not granted by veiling.** Masking is a courtesy that keeps the page usable. Cold eligibility is decided by the exposure record alone (the reveal ledger, as for Check once). There is no separate rule for notes that were on screen before the veils dropped: the veils drop before the prompt, and what the learner opens afterwards is recorded as it is opened.
 
 **What a veil looks like:**
 - text turns transparent behind an 11 px blur;
@@ -1638,7 +1638,7 @@ The veils are applied, and only then is the prompt returned and shown.
 #### 12.6.4 During the administration
 **New content.** Navigating, opening a window, switching desks or searching calls `check.protect_more` before the new content renders. New content is veiled on arrival if it is protected.
 
-**Exposure.** Opening a veil ("show it anyway" on the pill) or taking help calls `check.expose` at once, persisted through the canonical exposure machinery (`source_exposure_events` and the administration's exposure state), not held for submission. From then on the answer is assisted, and the card says so: "you looked at <group> first · this answer counts as practice".
+**Exposure.** Opening a veil ("show it anyway" on the pill) or taking help calls `check.expose` at once, persisted through the canonical exposure machinery, not held for submission (owner decision 2026-11-23, the existing overlap rule): opening a veil writes a `source_review` reveal on each of the check's candidates, sized by the opened text's overlap with that candidate's answer key (`span_answer_overlap`, as the Reader tutor debits a passage it shows), and the administration's exposure state records it. The answer counts as practice only if that reveal primes the item (the Check once decision over the reveal ledger); opened text that says nothing of the answer leaves it cold. The card says which: "you looked at <group> first · this answer counts as practice" when the item is primed, and the outcome is stated at submit. Taking help goes through the hint path, which already makes an attempt assisted.
 
 **The card:**
 - the question;
@@ -1654,7 +1654,7 @@ Only one administration is open at a time. Without a host in view, the same card
 
 **Settling.** It then runs as for any qualifying attempt: `intent/checks.py:settle_answered_checks` recognizes it and changes the commitment's disposition. This path never grades by itself.
 
-**Competing surfaces.** Today and the Reader share the administration lock: a commitment with an open administration on one surface shows "being answered in the Reader" on the other. The first *settling* submission wins. A later one on the other surface is recorded as practice.
+**Competing surfaces.** Today and the Reader share the administration lock: a commitment with an open administration on one surface shows "being answered in the Reader" on the other. The first *settling* submission wins. A later one on the other surface is labelled practice: it answers nothing and stays ordinary evidence (owner decision 2026-11-23, the existing rule).
 
 **"Not now"** (`check.abandon_inline`) closes the administration with no attempt. The duty stays pending, and anything the learner saw is in the exposure record.
 
