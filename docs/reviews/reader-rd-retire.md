@@ -518,4 +518,4 @@ tracked fixtures, upgrades, table roles, identity pins, effective-defaults golde
 test layout, desktop RPC contract, mobile allowlist, the nouns scan, the RD7 files, the RD0/RD1/RD4 desk tests, public
 tip guards, the frontend-path guards): 1,465 passed; ruff clean; lint-imports 55 kept, 0 broken;
 `check_gate_partition.py`: 34,595 collected (landing 34,529 + arc_close 66). References regenerated after the last
-code commit; the four validators below.
+code commit (desktop_validate's counts: 436 TypeScript files, ACTIVE 442, 409 entry-reachable); the four validators pass.
