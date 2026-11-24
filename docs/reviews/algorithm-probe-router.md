@@ -171,9 +171,9 @@ records for them. So a tag: `mvp-0.70`, the immediate successor of `mvp-0.69`, w
   - a second rebuild at the tag repeats the first;
   - `learnloop upgrade` activates with no derived row changed.
 - `tests/test_upgrades.py`'s `EXPECTED_ACTIVATIONS` gained the row (slice 1).
-- **A vault upgraded mid-episode:** a probe pinned with a router decision before the upgrade (the automatic lane's,
-  which pinned one below the tag too) is router-selected from the upgrade on, so its episode's continuation leaves the
-  value gates.
+- **A vault upgraded mid-episode** (corrected in the fix round, G2-R1): a probe pinned by a decision made below the
+  tag keeps its predecessor gates after the upgrade. Authority is the pinned decision row's own: its
+  `algorithm_version`, frozen when it was drawn, and a probe arm.
 
 ## Tests, pins and goldens
 
@@ -336,6 +336,52 @@ own config. Measured on the synthetic journey only (below).
 - A selected probe whose instrument becomes unservable after the decision (its answer shown, its surface used) is still
   `selected`; acceptance refuses it with the predecessor's typed reason, and the status keeps offering it.
 - An offer request names a factor; with two divergent factors on one miss each has its own decision.
+
+## Fix round (the adversarial review of 2026-11-24)
+
+Codex's review of the landed `1293ec6f96` found 4 blockers, 15 majors and 1 minor. Every finding was checked against
+the code first. Each fixed one has a fail-first test in `tests/test_probe_router_decision_integrity.py` (shown failing
+against main's files before the fix) and a ledger row G2-R1 to G2-R20 (`refactor-bug-ledger.md`).
+
+**The tag.** The fixes ride on `mvp-0.70`; no successor is needed. The playbook mints a tag for a change to persisted
+meaning so that a vault's history stays interpretable. No vault holds an `mvp-0.70` decision yet: the owner-copy run
+showed the upgrade decides nothing, and no owner vault is upgraded. The precedent is the recorded `mvp-0.59`
+amendments, made while every live vault was below the tag. A decision recorded at `mvp-0.70` before these fixes
+exists only in test vaults. **If an owner vault is upgraded to `mvp-0.70` before this lands, these fixes become
+`mvp-0.71` instead**, a renumber with an upgrade row (`idempotent_projection`; the replay test still holds).
+No migration is needed.
+
+| Finding | Disposition |
+|---|---|
+| 1 blocker: an upgrade changed an old pin's meaning | Fixed. `probe_authority.decision_owns` reads the pinned decision's row: its algorithm_version must be the probe router's and its arm a probe. The "vault upgraded mid-episode" paragraph above is corrected. |
+| 2 blocker: the trace said lesson, the ledger said probe | Fixed. The follow-up gate's objective trace is written after the coin, with the served arm and its exact probability; the mix's draw (`drawn_chosen`) and `mu` sit beside them. |
+| 3 blocker: another instrument under the original propensity | Fixed. The selected status and the acceptance use the decision's own candidate. A selection that can no longer be served is `void`, with no substitute. |
+| 4 blocker: a probe served without its decision or assignment | Fixed on both lanes. Decision, assignment and binding commit together. On failure the automatic lane serves no intervention, never the probe and never in place of a drawn lesson. |
+| 5: the old gate with the objective off | Fixed. The tag dispatches first, to the probe coin's logged fallback. |
+| 6: a stale click past a hard stop | Fixed at acceptance (the whole status is read again). **Open:** retiring a pin whose learner refused after pinning, at the first display door. |
+| 7: an abandoned pin's authority | Fixed for ownership (only a pin that still stands). **Open:** reserving an accepted learner pin against a scheduler refresh. |
+| 8, 9: zero-EIG admission and the missing continuation decision | **Open, one fix:** one router decision per next observation (stop among its options), consumed by block release, scheduler and item-open and pinned on the next presentation; eligibility carried apart from EIG in admission and precommit. Until then, a router-owned episode's continuation is the scheduler's EIG ranking within the count (judgment call 7). |
+| 10: completion lost its stops | Fixed (ownership read once from the episode). The second part, a stable breadth-short episode returning with an empty pool, is the predecessor's own path for every origin, so not a G2 defect. |
+| 11: two opportunities on one factor | **Open:** the learner lane should read the automatic lane's decision on the same factor and reuse it. Common repair is still decided per lane (judgment call 1). |
+| 12: the feedback screen sends no factor | **Open:** carry the factor through status, decision and Teach me now (frontend and RPC). |
+| 13: an unservable candidate drawn over | Fixed. `candidate_unservable` (the item is in the vault, its surface was never answered) is checked before any draw and again on reread. An answer shown on a routine display stays the acceptance's own refusal. |
+| 14: exposure always false | **Open:** compute known exposure at the decision with the answer admission's own scope. |
+| 15: the valuation could not be replayed | Fixed. The chooser's rollout options are used, and the unrounded inputs, payload, seed, draws and options are frozen on the decision. A replay from the record alone is not yet tested. |
+| 16: one fallback duration for every repair | Fixed. Each class uses its own estimate, with its source. |
+| 17: an outcome credited to a declined offer | Fixed in part: a learner row names no item until an acceptance's pin binds one. A common outcome target for both arms is open. |
+| 18: one stored decision, two draws | Fixed. Seeds come from the factor. A receipt is reused only for the same status and candidate. The router's read before it decides records no receipt. |
+| 19: valuation on the serial request loop | **Open:** a resumable per-factor job, with the status pending while it runs. |
+| 20 minor: a tiny share logged as deterministic | Fixed. |
+
+Assertions changed (each by a fix):
+
+- The learner lane's coin seed is the factor's (R18).
+- A selected row's `chosen_practice_item_id` is None (R17).
+- The sentinel tests' predicates take the repository and a real decision id (R1).
+
+The diagnosis journey golden moved for the two `router_learner_*` journeys only. The reasons are the frozen inputs,
+the repairs' minutes and sources, the seeds, the `started` receipt of a not-selected read, and no item on the row.
+That raises `golden_json_lines` by 944.
 
 ## Owner copies (run by the orchestrator)
 
