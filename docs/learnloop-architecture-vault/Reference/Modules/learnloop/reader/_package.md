@@ -78,7 +78,7 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/reader/__init__|learnloop.reader]] | [[Reference/Modules/learnloop/reader/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
 | [[Reference/Modules/learnloop/reader/active_reading|learnloop.reader.active_reading]] | [[Reference/Modules/learnloop/reader/active_reading#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
 | [[Reference/Modules/learnloop/reader/ai_contracts|learnloop.reader.ai_contracts]] | [[Reference/Modules/learnloop/reader/ai_contracts#^module-purpose|purpose]] | `ACTIVE` | 2 | 12 |
-| [[Reference/Modules/learnloop/reader/annotations|learnloop.reader.annotations]] | [[Reference/Modules/learnloop/reader/annotations#^module-purpose|purpose]] | `ACTIVE` | 6 | 12 |
+| [[Reference/Modules/learnloop/reader/annotations|learnloop.reader.annotations]] | [[Reference/Modules/learnloop/reader/annotations#^module-purpose|purpose]] | `ACTIVE` | 7 | 12 |
 | [[Reference/Modules/learnloop/reader/as_printed|learnloop.reader.as_printed]] | [[Reference/Modules/learnloop/reader/as_printed#^module-purpose|purpose]] | `ACTIVE` | 2 | 7 |
 | [[Reference/Modules/learnloop/reader/part_read|learnloop.reader.part_read]] | [[Reference/Modules/learnloop/reader/part_read#^module-purpose|purpose]] | `ACTIVE` | 4 | 2 |
 | [[Reference/Modules/learnloop/reader/phone_media|learnloop.reader.phone_media]] | [[Reference/Modules/learnloop/reader/phone_media#^module-purpose|purpose]] | `ACTIVE` | 2 | 4 |
@@ -100,7 +100,7 @@ For system intent, use [[Learning System]].
 | [[Reference/Modules/learnloop/reader/section_end|learnloop.reader.section_end]] | [[Reference/Modules/learnloop/reader/section_end#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/reader/section_generation|learnloop.reader.section_generation]] | [[Reference/Modules/learnloop/reader/section_generation#^module-purpose|purpose]] | `ACTIVE` | 5 | 6 |
 | [[Reference/Modules/learnloop/reader/seen_passages|learnloop.reader.seen_passages]] | [[Reference/Modules/learnloop/reader/seen_passages#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
-| [[Reference/Modules/learnloop/reader/source_identity|learnloop.reader.source_identity]] | [[Reference/Modules/learnloop/reader/source_identity#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
+| [[Reference/Modules/learnloop/reader/source_identity|learnloop.reader.source_identity]] | [[Reference/Modules/learnloop/reader/source_identity#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |
 | [[Reference/Modules/learnloop/reader/source_macros|learnloop.reader.source_macros]] | [[Reference/Modules/learnloop/reader/source_macros#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
 | [[Reference/Modules/learnloop/reader/source_objects|learnloop.reader.source_objects]] | [[Reference/Modules/learnloop/reader/source_objects#^module-purpose|purpose]] | `ACTIVE` | 6 | 10 |
 | [[Reference/Modules/learnloop/reader/source_render_views|learnloop.reader.source_render_views]] | [[Reference/Modules/learnloop/reader/source_render_views#^module-purpose|purpose]] | `ACTIVE` | 3 | 5 |
@@ -137,11 +137,11 @@ For system intent, use [[Learning System]].
 
 ### Packages that import this package
 
-- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 57 static module edges
+- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 58 static module edges
 - [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 28 static module edges
+- [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] — 8 static module edges
 - [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 7 static module edges
 - [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] — 7 static module edges
-- [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] — 7 static module edges
 - [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 6 static module edges
 - [[Reference/Modules/learnloop/instructional/_package|learnloop.instructional]] — 6 static module edges
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 4 static module edges
@@ -172,7 +172,7 @@ flowchart LR
     n_learnloop_vault["learnloop.vault"]
     n_learnloop_ingest["learnloop.ingest"]
     n_learnloop_substrate["learnloop.substrate"]
-    n_learnloop_sidecar_handlers -->|57| center
+    n_learnloop_sidecar_handlers -->|58| center
     center -->|29| n_learnloop
     n_learnloop_source_retrieval -->|28| center
     center -->|22| n_learnloop_content_sources

@@ -81,6 +81,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const name = state.names[blockId]` — const, line 94
 - `const session = state.session` — const, line 102
 - `const run = cellRun(state, blockId)` — const, line 106
+- `const took = run?.ms !== null && run?.ms !== undefined ? ` in $` — const, line 108
 
 ## Who imports or calls it
 

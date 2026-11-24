@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/passage_union/union.py](../../../../../../src/learnloop/passage_union/union.py) |
-| Source lines | 278 |
+| Source lines | 306 |
 | Owning package | [[Reference/Modules/learnloop/passage_union/_package|learnloop.passage_union]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -57,7 +57,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `class UnionError(ValueError)` ([source](../../../../../../src/learnloop/passage_union/union.py), line 37)
   - `__init__(self, code: str, message: str) -> None` (line 38; internal)
 - `span_range(ir: Any, *, from_span_id: str | None, to_span_id: str | None, t0: float | None, t1: float | None) -> list[str]` ([source](../../../../../../src/learnloop/passage_union/union.py), line 62)
-- `union_range(vault: Any, repository: Any, *, extraction_id: str, from_span_id: str | None=None, to_span_id: str | None=None, t0: float | None=None, t1: float | None=None, notes_by_span: Mapping[str, list[dict[str, Any]]] | None=None, clock: Any=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/passage_union/union.py), line 93) — ``notes_by_span``: the notes linked beside each passage of this reading, handed in by the caller (the sidecar, which reaches the notes' code; nothing in learnloop below it does).
+- `union_range(vault: Any, repository: Any, *, extraction_id: str, from_span_id: str | None=None, to_span_id: str | None=None, t0: float | None=None, t1: float | None=None, notes_by_span: Mapping[str, list[dict[str, Any]]] | None=None, clock: Any=None, include_word_origins: bool=False) -> dict[str, Any]` ([source](../../../../../../src/learnloop/passage_union/union.py), line 106) — ``notes_by_span``: the notes linked beside each passage of this reading, handed in by the caller (the sidecar, which reaches the notes' code; nothing in learnloop below it does).
 
 ### Module constants
 
@@ -77,7 +77,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_rows(connection: Any, sql: str, params: Iterable[Any]=()) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/passage_union/union.py), line 51)
 - `_in(values: Iterable[str]) -> tuple[str, list[str]]` ([source](../../../../../../src/learnloop/passage_union/union.py), line 57)
 - `class _Placer` ([source](../../../../../../src/learnloop/passage_union/union.py), line 70) — Places a (reading, span) of any reading of the book on this reading's range.
-- `_empty(span_id: str, section_id: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/passage_union/union.py), line 87)
+- `_empty(span_id: str, section_id: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/passage_union/union.py), line 100)
 
 ## Who imports or calls it
 

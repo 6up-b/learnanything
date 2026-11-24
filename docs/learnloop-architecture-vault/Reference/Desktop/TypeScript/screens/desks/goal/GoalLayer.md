@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/goal/GoalLayer.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/goal/GoalLayer.tsx) |
-| Source lines | 292 |
+| Source lines | 293 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/goal/_area|TypeScript/screens/desks/goal]] |
 | Refactor status | `ACTIVE` |
@@ -103,20 +103,20 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const section = indexFor(anchor.extractionId)?.bySpan.get(anchor.spanId)` — const, line 214
 - `const lo = section.learningObjects.find((entry)` — const, line 219
 - `const kind = markKind(section.level)` — const, line 220
-- `const text = section.held ? "a cold check is due on what these pads link to" : section.level === "skippable" ? `not needed for your goal · $` — const, line 221
+- `const text = section.held ? "Details are hidden while a cold check is due." : section.level === "skippable" ? `Not needed for your goal · $` — const, line 221
 - `const hasBand = Boolean(band)` — const, line 232
 - `const bandNode = band ? ( <GoalBand band=` — const, line 233
-- `const topChip = !goal.goalId && goal.goals !== null ? <GoalTopChip goals=` — const, line 248
-- `const overlays = ( <>` — const, line 249
-- `const rowGoal = useCallback((extractionId: string | null, padIds: readonly string[]): ShelfGoal | null` — const, line 269
-- `const wanted = new Set(padIds)` — const, line 273
-- `const rank = ["core", "supporting", "later", "already_shown", "partial", "skippable", "unmapped"]` — const, line 274
-- `let best: ReturnType<LensIndex["bySpan"]["get"]> = undefined` — let, line 275
-- `const section = indexFor(anchor.extractionId)?.bySpan.get(anchor.spanId)` — const, line 278
-- `const lo = best.learningObjects.find((entry)` — const, line 282
-- `const mark = markKind(best.level)` — const, line 283
-- `const primaryFor = useCallback((learningObjectId: string)` — const, line 287
-- `const primary = band?.learningObjects?.find((dot)` — const, line 288
+- `const topChip = !goal.goalId && goal.goals !== null ? <GoalTopChip goals=` — const, line 249
+- `const overlays = ( <>` — const, line 250
+- `const rowGoal = useCallback((extractionId: string | null, padIds: readonly string[]): ShelfGoal | null` — const, line 270
+- `const wanted = new Set(padIds)` — const, line 274
+- `const rank = ["core", "supporting", "later", "already_shown", "partial", "skippable", "unmapped"]` — const, line 275
+- `let best: ReturnType<LensIndex["bySpan"]["get"]> = undefined` — let, line 276
+- `const section = indexFor(anchor.extractionId)?.bySpan.get(anchor.spanId)` — const, line 279
+- `const lo = best.learningObjects.find((entry)` — const, line 283
+- `const mark = markKind(best.level)` — const, line 284
+- `const primaryFor = useCallback((learningObjectId: string)` — const, line 288
+- `const primary = band?.learningObjects?.find((dot)` — const, line 289
 
 ## Who imports or calls it
 

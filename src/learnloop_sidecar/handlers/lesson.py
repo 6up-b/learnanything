@@ -52,6 +52,7 @@ from typing import Any, Literal
 from pydantic import Field
 
 from learnloop.teacher import probes as PR
+from learnloop.teacher.brief import PROTECTED_SELECTION
 from learnloop.teacher import service as S
 from learnloop_sidecar.context import SidecarContext
 from learnloop_sidecar.dto import ParamsModel, versioned
@@ -242,7 +243,8 @@ def lesson_turn(ctx: SidecarContext, params: LessonTurnInput) -> dict[str, Any]:
             selection = params.selection
             places = reading_places(selection.extraction_id, selection.span_ids)
             places.extend(block_places(vault, repository, selection.block_ids))
-            refuse_protected(vault, repository, places)
+            # The lesson's own refusal of protected material (``protected``, the brief's words) stays the contract.
+            refuse_protected(vault, repository, places, code="protected", message=PROTECTED_SELECTION)
         clients = _clients(ctx, vault)
         if clients.figures is None:
             # Reader RW5d P4b: the teacher's visuals are built here, inline.

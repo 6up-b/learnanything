@@ -42,6 +42,25 @@ overshot, and one stale fixture hid its effect in the harness:
   `notes.search`, `notes.marks`, the workbench search's notes group and the teacher's notes, and pad proposals; the
   companion's context reads no stored annotation. Tests both ways in `tests/test_menu_protected_material.py`, with a
   control mark on an open passage that does reach those surfaces.
+- **BATCH5-11, the destination checks' codes and sets (found by the landing gate).** The branch's checks refused
+  all exam material with `exam_material` on paths that already had their own protection. A comparison whose
+  anchor or pins are protected answered `exam_material` instead of `comparison_withheld`, and a lesson answered
+  `exam_material` instead of `protected`. Paths that read only the held-out partition in `SURFACE_SETS` (the
+  companion's Ask, the Reader's import and checks, the library ask's anchor and the pinned tutor) refused practice
+  exams that are not held out, and the import and quick-check jobs read all exam material, so the protection
+  matrix's world failed to build. Each check now takes its destination's surface and that path's own code and words;
+  the pre-existing refusal wins everywhere.
+- **BATCH5-12, a statement-guard trip of my own.** BATCH5-5's chapter masking called `exam_withheld` inside a
+  handler, which the exercise-statement guard reads as a statement read; it goes through `withheld_places` now.
+- **BATCH5-13, refusal order.** `pad.submit_block` and `carried.carry` ran the protection check before their own
+  refusals, so `not_learners_words` and `empty_question` came back as `exam_material` on a protected origin; their own
+  checks now run first (nothing is written before both pass).
+- **BATCH5-14, the menu's verdict per verb.** The desk menu's one verdict read all exam material, so it hid Ask and
+  Make it practice on a practice exam the classic Reader lets the learner ask about and import. The verdict is per
+  verb now, each by its destination's row of `SURFACE_SETS` (one table, `VERB_SURFACES`). The header rule: the
+  header quotes the passage when the Reader's own Ask may read it (`reader_ask`, the held-out partition), else it
+  names the material. A test walks the same passage, a practice exam and a held-out one, through every verb's
+  destination and the Reader's protection read and requires them to agree.
 - **BATCH5-8, the harness fixture.** The fake finished promoted job carried no verdict, so in the harness every judged
   search failed closed and the promoted rows vanished from the source menu. The server sends the verdict; the fixture
   now does too.
@@ -131,8 +150,30 @@ tests patch the GLM-OCR client's private opener and probe cache so no test reach
 mockup and app values); none new, none gone. The menu, band, shelf, pads' bars, companion and pen lines show no
 change from the longer strings.
 
+### 5.1 After the first gate (merged with main `e1e074017d`: RD7 inline checks)
+
+The first gate's second landing shard failed broadly (the protection matrix among it): BATCH5-11 to BATCH5-15 fix
+it. Main merged in `9936753473` (RD7's waiting verbs and veils kept beside the menu's protection gate: a verb waits
+while a check is open, then for its own verdict).
+
+| Check | Result |
+|---|---|
+| Every test file under `tests/` naming `exam_material`, `held_out`, `withheld` or `protection` (293 files, with the menu, RD6 and RD10 protection tests, the protection matrix and surface-set tests, identity pins and structure ratchets), the landing gate's selection, in chunks | 7,561 passed, 0 failed (one ratchet rise from the merge, fixed and rerun) |
+| `npm run typecheck` | clean |
+| vitest, 4 workers | 398 files, 4,406 tests, all passed |
+| `cargo check` | clean |
+| desk harness, every run | 173 passed, 0 failed (display math included) |
+| `ruff check`, `lint-imports` | clean; 54 kept, 0 broken |
+| `check_gate_partition.py` | 34,319 = landing 34,253 + arc_close 66 |
+
+`private_patch_sites` 466 → 467: main's RD7 test site beside this branch's GLM-OCR ones (one line, its reason
+beside it).
+
 ## 6. Not reconciled
 
+- Owner option: destinations new with the workbench (pad inserts, carried questions, a desk's compare window, the
+  workbench search's selection) keep all exam material as their set; they had no earlier protection to preserve,
+  and a row in `SURFACE_SETS` would move them.
 - COPY-5 to COPY-10, COPY-12 and COPY-13 stay open (outside this brief).
 - A few `DeskShell.menu.test.tsx` tests failed once each (0 to 5 ms) when run beside other files while the C edits
   were in progress; they pass alone, repeated, and in both full vitest runs since.

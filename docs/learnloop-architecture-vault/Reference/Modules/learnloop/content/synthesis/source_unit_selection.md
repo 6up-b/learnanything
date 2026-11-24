@@ -210,12 +210,15 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_held_out_sentinel_is_never_offered_by_the_view_the_arm_or_the_fallback`
 - [tests/test_menu_protected_material.py](../../../../../../../tests/test_menu_protected_material.py) — direct import
   - `test_a_whole_exam_reading_is_protected_the_same_way`
+  - `test_finished_judged_row_loses_a_newly_marked_target`
 - [tests/test_plan_follows_path.py](../../../../../../../tests/test_plan_follows_path.py) — direct import
   - `test_the_path_never_opens_a_held_out_section_even_where_dl1s_exact_selection_would`
 - [tests/test_protection_surface_matrix.py](../../../../../../../tests/test_protection_surface_matrix.py) — direct import
 - [tests/test_reader_cues.py](../../../../../../../tests/test_reader_cues.py) — direct import
   - `test_a_cue_on_held_out_material_cannot_be_tapped`
   - `test_a_held_out_section_never_carries_a_cue_though_the_rail_still_lists_it`
+- [tests/test_reader_rd10_video.py](../../../../../../../tests/test_reader_rd10_video.py) — direct import
+  - `test_a_saved_chapter_names_nothing_once_its_video_is_marked_exam_material`
 - [tests/test_reader_rw3b_protection.py](../../../../../../../tests/test_reader_rw3b_protection.py) — direct import
 - [tests/test_reader_rw5d_p4a_figures_follow.py](../../../../../../../tests/test_reader_rw5d_p4a_figures_follow.py) — direct import
   - `test_protection_is_read_again_on_both_sides`

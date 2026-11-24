@@ -3,11 +3,12 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterable, Mapping
+from types import MappingProxyType
 from typing import Any
 
 from pydantic import Field
 
-from learnloop.content.sources.exam_material import exam_material, exam_withheld
+from learnloop.content.sources.exam_material import SURFACE_SETS, exam_material, exam_withheld, surface_material
 from learnloop.db.stores import pad_reads
 from learnloop.pads.emission import context_blocks
 from learnloop.reader.source_identity import selection_span_ids
@@ -105,13 +106,62 @@ def block_places(vault: Any, repository: Any, block_ids: Iterable[str]) -> list[
     return list(dict.fromkeys(places))
 
 
-def refuse_protected(vault: Any, repository: Any, places: Iterable[tuple[str, str]]) -> None:
-    if exam_withheld(vault, repository, places):
-        raise SidecarError("exam_material", REFUSAL)
+def withheld_at(vault: Any, repository: Any, places: Iterable[tuple[str, str]], surface: str | None = None) -> bool:
+    """Whether any place is withheld: all exam material, or (``surface``) that surface's own row of
+    ``exam_material.SURFACE_SETS`` (the Reader's ask, checks and import read the held-out partition only)."""
+
+    places = [(str(e), str(s)) for e, s in places]
+    if not places:
+        return False
+    if surface is None:
+        return bool(exam_withheld(vault, repository, places))
+    material = surface_material(vault, repository, surface)
+    return any(material.covers(e, s) for e, s in places)
+
+
+#: Each menu verb's destination and the row of ``exam_material.SURFACE_SETS`` it withholds by, the one table the
+#: menu's per-verb verdict reads (None: a destination new with the workbench, which withholds all exam material). A
+#: verb is withheld exactly when its destination's own check would refuse, so on a practice exam that is not held out
+#: the menu offers what the classic Reader offers (its Ask, import and checks read the held-out partition).
+VERB_SURFACES: Mapping[str, tuple[str | None, ...]] = MappingProxyType({
+    "ask": ("reader_ask",),                         # companion.ask, as the Reader's Ask
+    "make_practice": ("reader_import", "reader_checks"),  # reader.import_exercise, reader.author_section_question
+    "compare": ("compare",),                        # a desk's compare window, then reader.library_compare
+    "show_me": ("figures",),                        # figure.request
+    "teach_me": ("teaching",),                      # lesson.turn
+    "find": (None,),                                # search.everything with the selection
+    "carry": (None,),                               # carried.carry
+    "append": (None,),                              # a pad's source quote or piece
+})
+
+
+def withheld_verbs(vault: Any, repository: Any, places: Iterable[tuple[str, str]]) -> list[str]:
+    """The menu verbs whose destination withholds any of ``places`` (each set is read once)."""
+
+    places = [(str(e), str(s)) for e, s in places]
+    by_set: dict[str, bool] = {}
+
+    def held(surface: str | None) -> bool:
+        kind = SURFACE_SETS[surface] if surface is not None else "default"
+        if kind not in by_set:
+            by_set[kind] = withheld_at(vault, repository, places, surface)
+        return by_set[kind]
+
+    return sorted(verb for verb, surfaces in VERB_SURFACES.items() if any(held(surface) for surface in surfaces))
+
+
+def refuse_protected(vault: Any, repository: Any, places: Iterable[tuple[str, str]], *, surface: str | None = None,
+                     code: str = "exam_material", message: str = REFUSAL) -> None:
+    """Refuse when any place is withheld. A destination that had its own protection before the workbench passes
+    its surface (the set it withholds) and its own refusal's code and words, so this check never changes what
+    that path refuses or the contract its callers read."""
+
+    if withheld_at(vault, repository, places, surface):
+        raise SidecarError(code, message)
 
 
 def check_selection(vault: Any, repository: Any, extraction_id: str, raw: Mapping[str, Any],
-                    render_view_id: str | None) -> None:
+                    render_view_id: str | None, *, surface: str | None = None) -> None:
     spans = selection_span_ids(raw)
     spans.extend(span for _, span in payload_places({**raw, "extraction_id": extraction_id}))
     unresolved = not spans and not raw.get("nodes")
@@ -129,6 +179,7 @@ def check_selection(vault: Any, repository: Any, extraction_id: str, raw: Mappin
             spans.append(span)
         else:
             unresolved = True
-    if unresolved and extraction_id in exam_material(vault, repository).material.touched:
+    material = exam_material(vault, repository).material if surface is None else surface_material(vault, repository, surface)
+    if unresolved and extraction_id in material.touched:
         raise SidecarError("exam_material", REFUSAL)
-    refuse_protected(vault, repository, reading_places(extraction_id, spans))
+    refuse_protected(vault, repository, reading_places(extraction_id, spans), surface=surface)

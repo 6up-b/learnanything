@@ -109,7 +109,7 @@ import { PadStackWindow } from "./pads/PadStackWindow";
 import { ContextMenu, useSheetFocus, type PromotedApi } from "./menu/ContextMenu";
 import { KnowsPanel } from "./menu/KnowsPanel";
 import { ExerciseSheet } from "./menu/ExerciseSheet";
-import { captureNodes, hasPassage, headerLine, objectAt, objectInput, passageIds, type MenuObject } from "./menu/model";
+import { captureNodes, hasPassage, headerLine, objectAt, objectInput, passageIds, verdictFor, type MenuObject, type MenuVerdict } from "./menu/model";
 import { promotedRef, runVerb, sourceMenuRows, type MenuApi, type MenuContext } from "./menu/verbs";
 import { DrainPanel } from "./pads/DrainPanel";
 import { PassageMarks, visibleSpanRange, type PadLink } from "./pads/PassageMarks";
@@ -194,6 +194,15 @@ export const LIVE_DESK_TRANSPORT: DeskTransport = {
 
 /** The companion's hand-off waits this long after an anchored summon before a scroll counts (spec §8.3). */
 const COMPANION_SIZES_HANDOFF_MS = 250;
+
+/** The desk's open search: its words, the passages or pad lines they came from (checked at the destination), and
+ *  where a chosen row is inserted. */
+interface SearchState {
+  query: string;
+  selection?: { extractionId: string; spanIds: string[] };
+  blockIds?: string[];
+  insert?: ((row: SearchRow) => void) | null;
+}
 
 /** What a companion question is grounded in, or why there is nothing to ground it in. */
 interface Grounding {
@@ -679,7 +688,7 @@ export function DeskShell({
   const [companionDock, setCompanionDockShown] = useState<CompanionDock>("br");
   const [chip, setChip] = useState<(AskChip & { quote: string }) | null>(null);
   const [avoid, setAvoid] = useState(0);
-  const [search, setSearchState] = useState<{ query: string; selection?: { extractionId: string; spanIds: string[] }; blockIds?: string[]; insert?: ((row: SearchRow) => void) | null } | null>(null);
+  const [search, setSearchState] = useState<SearchState | null>(null);
   // Pads (spec §10): the stacks' key handles, the carried questions, and the desk drain while it is open.
   const padHandles = useRef(new Map<string, PadStackHandle>());
   const [carried, setCarried] = useState<{ list: CarriedQuestionDto[]; limit: number; more: boolean }>({ list: [], limit: 3, more: false });
@@ -735,7 +744,7 @@ export function DeskShell({
 
   const toastNow = useCallback((text: string) => setToast({ text, key: Date.now() }), []);
   // While an inline check is open, search waits: its results would show what the veils hold (spec §12.6.4).
-  const setSearch = useCallback((next: { query: string; selection?: { extractionId: string; spanIds: string[] }; blockIds?: string[]; insert?: ((row: SearchRow) => void) | null } | null) => {
+  const setSearch = useCallback((next: SearchState | null) => {
     const held = next ? checkDesk.heldReason() : null;
     if (held) {
       toastNow(`search waits · ${held}`);
@@ -3232,9 +3241,9 @@ export function DeskShell({
     menuWithheldAnswer.current.resolve(null);
     setMenu(null);
   };
-  const [menuWithheld, setMenuWithheld] = useState<boolean | null>(null);
+  const [menuWithheld, setMenuWithheld] = useState<MenuVerdict | null>(null);
   const menuOpening = useRef(0);
-  const menuWithheldAnswer = useRef<{ promise: Promise<boolean | null>; resolve: (withheld: boolean | null) => void }>({ promise: Promise.resolve(null), resolve: () => undefined });
+  const menuWithheldAnswer = useRef<{ promise: Promise<MenuVerdict | null>; resolve: (verdict: MenuVerdict | null) => void }>({ promise: Promise.resolve(null), resolve: () => undefined });
   const menuContext = useMemo<MenuContext>(() => ({
     deskId,
     // A capture from the menu (a margin note, an append's highlight) is read again by the windows showing its
@@ -3300,7 +3309,7 @@ export function DeskShell({
     // One import key per sheet: a resent import of the same exercise is the same import.
     reviewExercise: (object, anchor) => setExerciseSheet({ object, anchor, key: mintId("import") }),
     promotedRows: () => menuPromotedRows.current,
-    withheld: () => menuWithheldAnswer.current.promise,
+    withheld: (verb) => menuWithheldAnswer.current.promise.then((verdict) => (verdict === null ? null : verdictFor(verdict, verb))),
   }), [deskId, menuTransport, mintId, toastNow, stepCompanion, openContent, carryQuestion, appendTo, padsHost, runningPadOf, store, commit, openLesson, newDeskFrom, vaultKey, titleOf, landFigureBlock]);
 
   // A right-click inside a notebook frame (spec §11.3) opens the pad menu in the stack window that shows the
@@ -3407,9 +3416,9 @@ export function DeskShell({
     menuOpening.current++;
     menuWithheldAnswer.current.resolve(null);
     setMenuWithheld(null);
-    let resolve: (withheld: boolean | null) => void = () => undefined;
-    menuWithheldAnswer.current = { promise: new Promise<boolean | null>((done) => { resolve = done; }), resolve: (withheld) => resolve(withheld) };
-    if (!hasPassage(object)) menuWithheldAnswer.current.resolve(object.kind !== "window");
+    let resolve: (verdict: MenuVerdict | null) => void = () => undefined;
+    menuWithheldAnswer.current = { promise: new Promise<MenuVerdict | null>((done) => { resolve = done; }), resolve: (verdict) => resolve(verdict) };
+    if (!hasPassage(object)) menuWithheldAnswer.current.resolve({ all: object.kind !== "window" });
     setMenu(object);
   };
 
@@ -4452,12 +4461,15 @@ export function DeskShell({
       {menu ? (
         <ContextMenu
           key={menuOpening.current}
-          header={headerLine(menu, menuWithheld)}
+          // The header quotes the passage when the Reader's own Ask may read it (its row, reader_ask: the held-out
+          // partition), so a practice exam that is not held out is quoted as the Reader's composer quotes it; held-out
+          // material is named, never quoted.
+          header={headerLine(menu, menuWithheld === null ? null : verdictFor(menuWithheld, "ask"))}
           neutralHeader={headerLine(menu)}
           rows={sourceMenuRows(menu, openMenuContext, (() => {
             const target = appendTargetOf(deskId);
             return deskPads(deskId).find((pad) => pad.padId === target)?.title ?? "a new pad";
-          })(), menuWithheld === true)}
+          })(), (id) => menuWithheld !== null && verdictFor(menuWithheld, id))}
           at={menu.at}
           object={hasPassage(menu) ? objectInput(menu, deskId) : null}
           promoted={menuPromoted}
@@ -4465,16 +4477,17 @@ export function DeskShell({
           onRows={(rows) => {
             menuPromotedRows.current = rows;
           }}
-          onWithheld={(withheld, failed) => {
+          onWithheld={(withheld, failed, verbs) => {
             if (liveMenu.current !== menu) return;
-            const verdict = failed ? null : withheld;
+            const shown: MenuVerdict = { all: withheld, ...(verbs && !failed ? { verbs: new Set(verbs) } : {}) };
+            const verdict = failed ? null : shown;
             menuWithheldAnswer.current.resolve(verdict);
             menuWithheldAnswer.current.promise = Promise.resolve(verdict);
-            setMenuWithheld(withheld);
+            setMenuWithheld(shown);
           }}
           poller={poller}
           owner={menu.windowId}
-          append={menuWithheld !== true && (menu.kind === "passage" || menu.kind === "cue" || menu.kind === "highlight") ? {
+          append={!(menuWithheld && verdictFor(menuWithheld, "append")) && (menu.kind === "passage" || menu.kind === "cue" || menu.kind === "highlight") ? {
             pads: deskPads(deskId),
             current: appendTargetOf(deskId),
             onPick: (padId) => void runVerb("append", menu, openMenuContext, padId),
@@ -4501,7 +4514,7 @@ export function DeskShell({
         <ExerciseSheet
           readWords={() => {
             const ids = captureNodes(exerciseSheet.object).map((node) => node.spanId);
-            return padsTransport.passageContent({ extractionId: exerciseSheet.anchor.extractionId, fromSpanId: ids[0] ?? exerciseSheet.anchor.spanId, toSpanId: ids[ids.length - 1] ?? exerciseSheet.anchor.spanId });
+            return padsTransport.passageContent({ extractionId: exerciseSheet.anchor.extractionId, fromSpanId: ids[0] ?? exerciseSheet.anchor.spanId, toSpanId: ids[ids.length - 1] ?? exerciseSheet.anchor.spanId, forVerb: "make_practice" });
           }}
           startImport={async () => {
             const { object, anchor, key } = exerciseSheet;

@@ -281,11 +281,13 @@ def pad_submit_block_handler(ctx: SidecarContext, params: PadSubmitBlockInput) -
 
     vault, repository = ctx.require_vault()
     try:
-        refuse_protected(vault, repository, block_places(vault, repository, [params.block_id]))
+        # The submission's own refusals (not_learners_words, stale_version, …) first, then protection's: prepare
+        # only reads and freezes, nothing is written before both pass.
         prepared = submission_core.prepare(
             repository, submission_id=params.submission_id, block_id=params.block_id, version_id=params.version_id,
             submitted_as=params.submitted_as, practice_item_id=params.target.practice_item_id,
             session_id=params.target.session_id)
+        refuse_protected(vault, repository, block_places(vault, repository, [params.block_id]))
     except submission_core.SubmissionRefused as exc:
         raise SidecarError(exc.code, exc.message, details=exc.details) from exc
     if params.submitted_as == submission_core.TEACH_BACK:
@@ -400,6 +402,7 @@ def carried_carry_handler(ctx: SidecarContext, params: CarryInput) -> dict[str, 
             raise SidecarError("validation_error", "A question saved from a pad line needs its line.")
         block_ids.append(params.origin_ref)
     try:
+        carried_core.check_question(params.text, anchor)  # its own refusals keep their codes, before protection's
         with repository.atomic():
             block_origins = block_places(_vault, repository, block_ids)
             places.extend(block_origins)

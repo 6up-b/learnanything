@@ -47,15 +47,23 @@ def _out(row: dict[str, Any]) -> dict[str, Any]:
             "updated_at": row["updated_at"]}
 
 
-def carry(repository: Any, *, carried_id: str, text: str, origin_kind: str, origin_ref: str | None,
-          anchor: dict[str, Any] | None, desk_id: str | None, clock: Any = None) -> dict[str, Any]:
-    """Carry one question; returns it (``created`` false on a retry)."""
+def check_question(text: str, anchor: dict[str, Any] | None) -> str:
+    """The question's words, or its own refusal (``empty_question``, ``bad_anchor``): checked before anything else
+    about it (a caller's protection check comes after these, so they keep their codes)."""
 
     words = " ".join(str(text or "").split())
     if not words:
         raise CarriedRefused("empty_question", "Write a question before saving it for later.")
     if anchor is not None and not (anchor.get("extraction_id") and anchor.get("span_id")):
         raise CarriedRefused("bad_anchor", "Select the passage again before saving this question for later.")
+    return words
+
+
+def carry(repository: Any, *, carried_id: str, text: str, origin_kind: str, origin_ref: str | None,
+          anchor: dict[str, Any] | None, desk_id: str | None, clock: Any = None) -> dict[str, Any]:
+    """Carry one question; returns it (``created`` false on a retry)."""
+
+    words = check_question(text, anchor)
     with repository.atomic():
         connection = repository.connection()
         existing = reads.carried(connection, carried_id)
@@ -127,5 +135,5 @@ def history(repository: Any, carried_id: str) -> list[dict[str, Any]]:
 
 __all__ = [
     "CLOSED_STATES", "CarriedRefused", "LABELS", "NOTICES", "OPEN_STATES", "ORIGINS", "PAGE_SIZE", "SHELF_LIMIT",
-    "carry", "history", "listing", "mark",
+    "carry", "check_question", "history", "listing", "mark",
 ]
