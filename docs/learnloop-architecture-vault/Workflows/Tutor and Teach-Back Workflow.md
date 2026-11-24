@@ -5,10 +5,10 @@ aliases:
   - Teach-Back Conversation Workflow
 status: active
 doc_version: 1.0.0
-implementation_version: mvp-0.9
-last_reviewed: 2026-08-17
-source_commit: 62fd1f6404cc3a3007c6f214ba9429c45ef0114f
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
+implementation_version: mvp-0.68
+last_reviewed: 2026-11-23
+source_commit: 86f29b0d390ed2ecdbb0347d98ccb1175ac52728
+source_commit_timestamp: "2026-11-23T23:12:28-05:00"
 source_paths:
   - src/learnloop/tutor/tutor_qa.py
   - src/learnloop/tutor/durable_promotion.py
@@ -90,7 +90,7 @@ Manual mode cannot grade a teach-back transcript. Items requiring teach-back are
 
 Each learner answer is checkpointed before the provider asks the next question. On finish, the complete transcript is recorded as one `attempt_type = teach_back` attempt; the conversation envelope is cleared from `session_checkpoints` after the attempt is committed.
 
-The finish is a model grade. The grading call is recorded in `agent_runs`, and the attempt is applied with the grading provider's source (`ai`, or `codex` for Codex providers), so `attempt_feedback_metadata` names that source and run and the grade takes the same observation lane as a model-graded practice attempt. Replay reads the source back from that metadata.
+The finish grades the requested criteria. If no follow-up criterion was asked, it grades the opening explanation against the core criteria. A current model grade uses `ai`; `agent_runs` records the provider and `attempt_feedback_metadata` holds the grading source and run. Replay also reads historical source labels.
 
 A conversation opened from a queue offer sends the offer's `scheduler_candidate_id` on `start_teach_back` and `submit_teach_back_turn`. A newly carried offer is checked with the practice rule (a returned, unconsumed offer of the same item in the same session; anything else is a `validation_error`), the first one is kept in the checkpointed conversation state, and the finished attempt is linked to it. See [[Collection and Dataset Contract#Offers and scheduler decisions]].
 

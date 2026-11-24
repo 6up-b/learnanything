@@ -2,10 +2,10 @@
 title: Adapter Architecture
 status: active
 doc_version: 1.0.0
-implementation_version: mvp-0.9
-last_reviewed: 2026-08-17
-source_commit: 62fd1f6404cc3a3007c6f214ba9429c45ef0114f
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
+implementation_version: mvp-0.68
+last_reviewed: 2026-11-23
+source_commit: 86f29b0d390ed2ecdbb0347d98ccb1175ac52728
+source_commit_timestamp: "2026-11-23T23:12:28-05:00"
 source_paths:
   - src/learnloop/cli
   - src/learnloop/tui
@@ -70,7 +70,7 @@ The former 8,000-line `cli.py` is a package split by command family. `cli.app` c
 
 ## Tests
 
-- `tests/test_cli_help_snapshot.py` — 168 recursive help surfaces.
+- `tests/test_cli_help_snapshot.py` — recursive help checked against `tests/cli_surface.json`.
 - `tests/test_cli_json.py` and command-family tests.
 - `tests/test_sidecar_contract.py` and handler suites.
 - `tests/test_sidecar_serializer_snapshot.py` — queue/practice/reader golden JSON.

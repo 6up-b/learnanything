@@ -895,3 +895,9 @@ Tests use synthetic vaults and fake transports.
 | TE5-2 | Consolidation import gate | The initial schema selector imported the visual service into the contract module. Check minting and delayed checks then depended transitively on figure storage. | `lint-imports --no-cache` reported the figure/certification contract broken. | Select the provider schema in the teacher service. Shared contracts only import data models. | Fixed |
 | TE5-3 | Interrupted C0b topic write | A retry finding the YAML already published returned before SQLite synchronization. A learner could have a topic on disk and no matching mastery row. | `test_resume_after_yaml_publication_finishes_consent_once` interrupts before sync, then resumes twice. | Journal the decision before creation. The existing creation service now synchronizes both new and already-published objects, then the lesson records one completion and episode. | Fixed |
 | TE5-4 | Topic-offer provider identity | Caching the dynamic schema by the calling convention allocated two Python classes for the same capabilities when one caller passed a flag by keyword. | Episode and visual provider-model identity assertions in the TE5 run. | Cache the extension by the selected V1 model itself. | Fixed |
+
+## Documentation rewrite observations
+
+| Id | Found in | Bug | Fail-first test | Fix | Status |
+|---|---|---|---|---|---|
+| DOC-1 | Architecture vault audit | `learnloop synthesize --help` and `learnloop synthesize-repair --help` still say `--apply` requires mvp-0.7. The shared opener refuses versions below mvp-0.58, and neither synthesis apply path checks for mvp-0.7. | Inspect the two `--apply` declarations in `src/learnloop/cli/app.py` and compare with the apply paths and `OLDEST_SUPPORTED`. | Update CLI help and its snapshot in a source change. | open |

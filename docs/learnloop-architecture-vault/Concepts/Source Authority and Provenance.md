@@ -4,10 +4,10 @@ aliases:
   - Source Model
 status: active
 doc_version: 1.0.0
-implementation_version: mvp-0.9
-last_reviewed: 2026-08-17
-source_commit: 62fd1f6404cc3a3007c6f214ba9429c45ef0114f
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
+implementation_version: mvp-0.68
+last_reviewed: 2026-11-23
+source_commit: 86f29b0d390ed2ecdbb0347d98ccb1175ac52728
+source_commit_timestamp: "2026-11-23T23:12:28-05:00"
 source_paths:
   - src/learnloop/content/sources
   - src/learnloop/content/synthesis
@@ -55,7 +55,7 @@ Document IR retains blocks/anchors and health flags. Outline/unit selection and 
 
 ## Model output
 
-Inventory and synthesis output are typed proposals. Stable IDs, source refs, manifests, merge/reconciliation rules, validation gates, and reviewed application control canonical mutation. See [[Process Model Output]] and [[AI Architecture#Output trust boundary]].
+Inventory stores validated source-unit data. Synthesis stages typed proposals for canonical content. Stable IDs, source refs, manifests, merge/reconciliation rules, validation gates, and reviewed application control canonical mutation. See [[Process Model Output]] and [[AI Architecture#Output trust boundary]].
 
 ## Reader citations
 
@@ -64,7 +64,7 @@ Reader/tutor manifests expose bounded source spans and citation IDs. Answers are
 ## Modification guidance
 
 - Preserve asset/revision/extraction identity boundaries.
-- Add source kinds through acquisition + typed IR, health, and provenance tests.
+- Register source kinds in [[Reference/Modules/learnloop/ingest/source_kinds|the source-kind table]]. Extend the extractor, typed IR, health and provenance tests.
 - Add synthesis fields to feature-owned contracts and manifests before applying them.
 - Keep source role/scope on collection membership, not the global asset.
 - Verify citations, append reconciliation, and deletion semantics.
