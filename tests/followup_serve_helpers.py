@@ -17,8 +17,10 @@ from learnloop.vault.yaml_io import read_yaml, write_yaml
 from tests.diagnosis_fakes import ReviewFakeClient
 from tests.helpers import append_config_toml, set_algorithm_version, set_config_switch
 from tests.causal_p2_acceptance_helpers import CLOCK, _acceptance_vault, _divergent_failure
+from tests.probe_router_helpers import BEFORE_PROBE_ROUTER
 
-TAG = LATEST_ALGORITHM_VERSION
+#: The tag FG1's tests build at: the probe router's predecessor (``probe_router_helpers``).
+TAG = BEFORE_PROBE_ROUTER
 OFF = "\n[followup]\ngenerate_and_serve = false\n"
 
 

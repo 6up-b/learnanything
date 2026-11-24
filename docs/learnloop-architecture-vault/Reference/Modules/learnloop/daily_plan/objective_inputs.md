@@ -119,6 +119,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `_PROBE_MODES`, `module`; statically calls `check_eligible_items`, `check_sensors`, `population`
+- [[Reference/Modules/learnloop/daily_plan/learner_probe|learnloop.daily_plan.learner_probe]] — imports `module`; statically calls `build`
 - [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]] — imports `module`; statically calls `_lessons_on`, `build`
 
 ### Repository tooling consumers
@@ -172,7 +173,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]].
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/learner_probe|learnloop.daily_plan.learner_probe]], [[Reference/Modules/learnloop/daily_plan/objective_chooser|learnloop.daily_plan.objective_chooser]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

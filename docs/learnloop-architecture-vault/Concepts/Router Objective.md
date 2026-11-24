@@ -5,10 +5,10 @@ aliases:
   - Numeric Policy Objective
 status: active
 doc_version: 1.0.0
-implementation_version: mvp-0.60
-last_reviewed: 2026-11-18
-source_commit: a016539ec01a722c265b16c80a96eb4a75c68a69
-source_commit_timestamp: "2026-11-18T09:12:00-05:00"
+implementation_version: mvp-0.68
+last_reviewed: 2026-11-23
+source_commit: 86f29b0d390ed2ecdbb0347d98ccb1175ac52728
+source_commit_timestamp: "2026-11-23T23:12:28-05:00"
 source_paths:
   - src/learnloop/router_objective/objective.py
   - src/learnloop/router_objective/rollouts.py
@@ -59,6 +59,8 @@ The ledger also keeps `unmeasured`: the share of the undated rewards from topics
 - **`router_objective/ad_link.py`**: adaptive difficulty's predictive (`AdLink`) and its lesson dose curve (`LessonCurve`), as the decision read them.
 - **`router_objective/types.py`**: the plain types all of them share: the action kinds, `Action`, `Inputs` and its parts. `daily_plan/objective_inputs.py` builds them from the vault.
 
+Serving switches live in [[Reference/Modules/learnloop/router_objective_switches|the objective switch module]]. Receipt availability has its own [[Reference/Modules/learnloop/db/attempt_availability|attempt availability rule]], and rebuild receipts use [[Reference/Modules/learnloop/substrate/projection_switches|projection switches]].
+
 ## Changing a term
 
 - **A term's sign, weight or inclusion in `q`**, or what the trace reports of it: `objective.py` and `tests/test_objective_terms.py`.
@@ -76,7 +78,7 @@ The four places marked † still need an edit when the new kind has its own effe
 5. † Write `build` in the offer's builder module in `daily_plan`. Give the candidate its `reversible` and `reason_code` annotations and its card. Define what the value reads in `action_inputs`.
 6. † Wire the builder in `daily_plan/policy.py`'s `policy_for`. † Call it at the boundary through `PlanPolicy` and `_boundary` in `daily_plan/engine.py`.
 7. Build its `Action` in `daily_plan/objective_inputs.py`'s `action_for`. In `build`, set up any declined branch and leave the offer out of the tail's block.
-8. Put the option in the support in `daily_plan/objective_chooser.py`'s `ObjectiveChooser.choose`. Give it an LLM option row in `_start_objective` and describe it in `router/requests.py`, as `lesson_offer_description` does.
+8. Put the option in the support in `daily_plan/objective_chooser.py`'s `ObjectiveChooser.choose`. Give it an LLM option row in the chooser's `_start_objective` and describe it in `router/requests.py`. The chooser hands the prepared request material to [[Reference/Modules/learnloop/daily_plan/objective_job|job control]], which owns dispatch and deadlines.
 9. Give the option its kind and label in `router_objective/trace_assembly.py`'s `option_kind` and `option_label`. Add its trace section in `candidate_row` if it has one.
 
 Once the kind is in `KINDS`, the guard in `tests/test_action_kinds_complete.py` fails until it has a rollout effect, a learned-tail group and a plan candidate that `action_for` dispatches to it, with its trace label (or, like stop and a sequence, a rollout test of its own).

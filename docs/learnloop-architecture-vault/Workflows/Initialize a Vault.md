@@ -5,10 +5,10 @@ aliases:
   - Vault Creation Workflow
 status: active
 doc_version: 1.0.0
-implementation_version: mvp-0.9
-last_reviewed: 2026-08-17
-source_commit: 62fd1f6404cc3a3007c6f214ba9429c45ef0114f
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
+implementation_version: mvp-0.68
+last_reviewed: 2026-11-23
+source_commit: 86f29b0d390ed2ecdbb0347d98ccb1175ac52728
+source_commit_timestamp: "2026-11-23T23:12:28-05:00"
 source_paths:
   - README.md
   - pyproject.toml
@@ -28,7 +28,7 @@ tags:
 
 # Initialize a Vault
 
-This workflow installs the development build, creates an mvp-0.9 vault, and verifies the result before any source or learner history is added. For what a vault owns over its lifetime, see [[Vault Lifecycle]]; for each configuration field, see [[Configuration]].
+This workflow installs the development build, creates a vault at the current algorithm tag, and verifies the result before any source or learner history is added. For what a vault owns over its lifetime, see [[Vault Lifecycle]]; for each configuration field, see [[Configuration]].
 
 ## Prerequisites
 
@@ -94,7 +94,7 @@ subjects/linear-algebra/subject.md
 It also creates empty `rubrics/`, `subjects/linear-algebra/learning-objects/`, `notes/`, and `practice-items/` directories. The migration coordinator creates `.learnloop/vault.lock` as the advisory lock target and leaves it unlocked/empty after initialization. `profile/learner.yaml` records the starting-level claim; the same claim is inserted into the SQLite evidence ledger with a deliberately weak prior.
 
 > [!important] Fresh-version invariant
-> A new vault already has the latest `algorithm_version` (`LATEST_ALGORITHM_VERSION`, `mvp-0.12` today). Do not run `upgrade` as a routine initialization step. `upgrade` exists for older vaults and only accepts the immediate successor; see [[Doctor Migrations and Recovery#Algorithm upgrades are separate]].
+> A new vault already has the latest `algorithm_version` (`LATEST_ALGORITHM_VERSION`, in [[Reference/Modules/learnloop/algorithm_versions|the algorithm version module]]). `upgrade` walks the successor links for older supported vaults; see [[Doctor Migrations and Recovery#Algorithm upgrades are separate]].
 
 ## 4. Verify config and schema health
 
@@ -103,7 +103,7 @@ uv run learnloop config effective --only-overrides --json --vault "$VAULT"
 uv run learnloop doctor --json --vault "$VAULT"
 ```
 
-On a clean vault, `doctor` reports `clean: true`, no errors or warnings, and all current SQL migrations through migration head `156`. Migration numbers have intentional gaps, so a migration-row count is not expected to equal 156.
+On a clean vault, `doctor` reports `clean: true`, no errors or warnings, and all current SQL migrations through the head shown in the [[Database Catalog]]. Compare the maximum version with the catalog because migration numbers have gaps.
 
 To inspect rather than mutate the database:
 
@@ -122,7 +122,7 @@ sqlite3 -readonly "$VAULT/state.sqlite" \
 
 | Area | Created or changed |
 |---|---|
-| configuration | `learnloop.toml` with schema v2 and mvp-0.9 defaults |
+| configuration | `learnloop.toml` with schema v2 and the current algorithm tag |
 | identity/profile | learner claim plus optional first subject |
 | durable state | `state.sqlite`, SQL migration receipts, initialization evidence |
 | knowledge files | empty concept/facet/error/rubric and subject structures |

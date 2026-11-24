@@ -151,6 +151,7 @@ from learnloop.diagnosis.machine_checks import (
     close_satisfied_backfills,
     pending_machine_checks_for_factor,
 )
+from learnloop.algorithm_versions import probe_router_on
 from learnloop.params.fitted_params import resolve_bounded_knobs
 from learnloop.vault.models import LoadedVault
 
@@ -215,6 +216,10 @@ BLOCKED_PENDING_REVIEW_MESSAGE = (
     "different help, and the check that would tell them apart isn't ready yet."
 )
 STARTED_MESSAGE = "Starting the targeted repair."
+#: The probe router's tag, before the router has decided whether to offer the quick check.
+ROUTER_PENDING_MESSAGE = (
+    "Two explanations would need different help; whether a quick check comes first is still being decided."
+)
 
 TAKE_QUICK_CHECK = ("take_quick_check", "Take the quick check")
 TEACH_ME_NOW = ("teach_me_now", "Teach me now")
@@ -326,6 +331,16 @@ class RepairStatus:
     #: repair has cost the measurement at the end of it.
     reveal_spend: float | None = None
     reveal_budget: float | None = None
+    #: The probe router's tag (``probe_router_on``): the router's disposition of the factor's probe, owned by the
+    #: router and only read here: ``pending`` (a probe is executable and no decision exists yet), ``selected``,
+    #: ``not_selected``, or ``unavailable`` (a hard stop or the facts keep the probe out; ``hard_stop_reasons`` says
+    #: which). None below the tag, where the status carries none of these keys.
+    router_state: str | None = None
+    router_decision_id: str | None = None
+    hard_stop_reasons: tuple[str, ...] = ()
+    #: What the router reads to decide (``learner_probe_proposal.Proposal``) when ``router_state`` is ``pending``;
+    #: never serialized.
+    proposal: Any = field(default=None, compare=False, repr=False)
 
     def __post_init__(self) -> None:
         assert self.status in REPAIR_STATUSES, self.status
@@ -369,6 +384,8 @@ class RepairStatus:
             "reveal_budget": self.reveal_budget,
             "decision_policy_version": CAUSAL_DECISION_POLICY_VERSION,
             "formula_version": CAUSAL_ORCHESTRATOR_FORMULA_VERSION,
+            **({"router_state": self.router_state, "router_decision_id": self.router_decision_id,
+                "hard_stop_reasons": list(self.hard_stop_reasons)} if self.router_state is not None else {}),
         }
 
 
@@ -798,7 +815,13 @@ def _status_for_factor(
     """Map a factor to repair status after machine checks and probe valuation.
 
     Record the decision, then offer a ready instrument or withhold branch repair.
+
+    At the probe router's tag (``probe_router_on``) this is a read of facts: no
+    worth verdict is formed here, a reread of the same facts writes no new
+    receipt, and whether the quick check is offered is the router's decision,
+    read back (``_routed``).
     """
+    routed = vault is not None and probe_router_on(vault.config)
     factor_id = str(factor["id"])
     attempt_id = str(factor.get("attempt_id") or "") or None
     hypothesis = repository.causal_hypothesis(misconception_id)
@@ -835,7 +858,14 @@ def _status_for_factor(
         common_repair_class_id: str | None = None,
         preference: str = "allow",
         start_episode: bool = False,
+        router_state: str | None = None,
+        router_decision_id: str | None = None,
+        hard_stop_reasons: Sequence[str] = (),
+        proposal: Any = None,
     ) -> RepairStatus:
+        if routed and router_state is None:
+            # The facts settle this factor before any probe could be asked (its classes, a machine-owed mapping).
+            router_state, hard_stop_reasons = "unavailable", (hard_stop_reasons or (reason,))
         receipt = repository.insert_causal_probe_decision_receipt(
             factor_id=factor_id,
             decision=decision,
@@ -859,6 +889,7 @@ def _status_for_factor(
             misconception_id=misconception_id,
             candidate_id=str(candidate["id"]) if candidate is not None else None,
             clock=clock,
+            once=routed,
         )
         episode = (
             _episode_for(
@@ -905,6 +936,10 @@ def _status_for_factor(
                     "probe_policy": probe_parameters.manifest(),
                 },
                 evsi_provenance=dict(inputs.get("evsi_provenance") or {}),
+                router_state=router_state,
+                router_decision_id=router_decision_id,
+                hard_stop_reasons=tuple(hard_stop_reasons),
+                proposal=proposal,
             ),
         )
 
@@ -983,6 +1018,27 @@ def _status_for_factor(
     chosen = reads.chosen
     instrument_available = reads.instrument_available
     preference = reads.learner_preference
+
+    if routed:
+        return _routed(
+            repository,
+            finish=finish,
+            reads=reads,
+            base_inputs=base_inputs,
+            session_budget_minutes=session_budget_minutes,
+            start_repair=start_repair,
+            proposal=dict(
+                factor_id=factor_id,
+                misconception_id=misconception_id,
+                learning_object_id=learning_object_id,
+                attempt_id=attempt_id,
+                session_id=session_id,
+                repair_class_by_hypothesis=dict(repair_class_by_hypothesis),
+                hypothesis_ids=tuple(hypothesis_ids),
+                repair_minutes=parameters["repair_class_expected_minutes_default"],
+                reads=reads,
+            ),
+        )
 
     decision: ProbeDecision = decide_probe(
         repair_class_ids=list(targeting.repair_class_ids),
@@ -1176,10 +1232,132 @@ def _status_for_factor(
 
 
 
+#: The probe router's tag: the receipt of a factor whose probe the router decides. It records the facts, never a
+#: verdict on them.
+ROUTER_DECIDES = "router_decides"
+
+
+def _routed(
+    repository: Repository,
+    *,
+    finish: Any,
+    reads: ProbeProposalReads,
+    base_inputs: Mapping[str, Any],
+    session_budget_minutes: float | None,
+    start_repair: bool,
+    proposal: Mapping[str, Any],
+) -> RepairStatus:
+    """The probe router's tag: the facts settle what they settle, and whether the quick check is offered is the
+    router's decision, read back here (``plan_log.learner_probe_decision``), never formed here.
+
+    The facts that keep the probe out, in the order the predecessor read them: one repair covers the causes, or every
+    cause needs the same repair (no repair choice is left for an answer to change); pending machine checks; the
+    learner's "Not now" or "Teach me now"; no reviewed executable instrument; another episode already measuring on the
+    learning object. Each is a status of its own, as before, with ``router_state`` ``unavailable``. The predecessor's
+    worth arms (the information and action-change thresholds, avoided minutes against the burden, the recent
+    diagnostic count and the session budget) are gone: their inputs stay on the receipt as facts. Otherwise the router
+    decides once per factor: ``pending`` until it has, then ``selected`` (the offer) or ``not_selected`` (the repair
+    goes on without the check)."""
+
+    from learnloop.diagnosis.learner_probe_proposal import Proposal
+    from learnloop.diagnosis.probe_facts import REFUSING_PREFERENCES, settled_by_repair_classes
+    from learnloop.router.plan_log import PROBE_REF, learner_probe_decision
+
+    facts = reads.facts(session_budget_minutes=session_budget_minutes)
+    chosen = reads.chosen
+    preference = reads.learner_preference
+    inputs = {
+        **base_inputs,
+        "common_repair_covers": reads.common_repair_covers,
+        "expected_information_gain": reads.expected_information_gain,
+        "probability_information_changes_repair": reads.probability_information_changes_repair,
+        "separable_pairs": reads.separable_pairs,
+        "inseparable_pairs": reads.inseparable_pairs,
+        "probe_burden_minutes": reads.probe_burden_minutes,
+        "avoided_overteaching_minutes": reads.avoided_overteaching_minutes,
+        "pending_machine_checks": list(reads.pending_machine_check_ids),
+        "session_budget_minutes": session_budget_minutes,
+        "learner_preference": preference,
+        "recent_diagnostic_burden": reads.recent_diagnostic_burden,
+        "candidate_statuses": sorted(str(value.get("status")) for value in reads.candidates),
+        "instrument_available": reads.instrument_available,
+        "probe_episode_conflict": reads.episode_conflict,
+        "channel_status": reads.channel_status,
+        "prior_basis": reads.prior_basis,
+        "likelihood_completeness": dict(reads.likelihood_completeness),
+        "decided_by": "probe_router",
+    }
+    common = dict(inputs=inputs, preference=preference)
+
+    settled = settled_by_repair_classes(common_repair_covers=facts.common_repair_covers,
+                                        different_repairs=facts.different_repairs)
+    if settled is not None:
+        verb, why = settled
+        if verb == "skip_common_repair":
+            return finish(status="safe_common_repair_available", reason="common_repair_cover",
+                          message=SAFE_COMMON_REPAIR_MESSAGE, decision=verb, decision_reason=why,
+                          candidate=chosen if reads.instrument_available else None,
+                          common_repair_class_id=reads.common_repair_class_id, start_episode=True,
+                          hard_stop_reasons=("common_repair_covers",), **common)
+        return finish(status="started", reason="action_equivalent_causes", message=STARTED_MESSAGE, decision=verb,
+                      decision_reason=why, start_episode=True, hard_stop_reasons=("same_repair_class",), **common)
+    if reads.pending_machine_check_ids:
+        return finish(status="deferred_machine_checks", reason="pending_machine_checks",
+                      message=DEFERRED_MACHINE_CHECKS_MESSAGE, decision="defer_machine_checks",
+                      decision_reason="machine-side checks must resolve their uncertainty first",
+                      machine_check_ids=list(reads.pending_machine_check_ids),
+                      hard_stop_reasons=("machine_checks_pending",), **common)
+    if preference in REFUSING_PREFERENCES:
+        why = "learner preference does not permit another probe now"
+        if preference == "teach_now":
+            return finish(status="started", reason="learner_requested_teaching_without_probe",
+                          message=STARTED_MESSAGE, decision="defer_learner_preference", decision_reason=why,
+                          candidate=chosen if reads.instrument_available else None, start_episode=True,
+                          hard_stop_reasons=("learner_preference",), **common)
+        return finish(status="needs_disambiguation", reason="defer_learner_preference",
+                      message=DEFERRED_OFFER_MESSAGE, decision="defer_learner_preference", decision_reason=why,
+                      candidate=chosen if reads.instrument_available else None,
+                      hard_stop_reasons=("learner_preference",), **common)
+    if not reads.instrument_available:
+        return finish(status="blocked_pending_review",
+                      reason="unreviewed_probe_candidate" if reads.candidates else "no_discriminating_instrument",
+                      message=BLOCKED_PENDING_REVIEW_MESSAGE, decision="no_executable_instrument",
+                      decision_reason="no reviewed instrument can be served for this cause set",
+                      candidate=chosen, hard_stop_reasons=("no_executable_instrument",), **common)
+    if reads.episode_conflict is not None:
+        return finish(status="blocked_pending_review", reason=reads.episode_conflict,
+                      message=EPISODE_CONFLICT_MESSAGE, decision="episode_conflict",
+                      decision_reason="another episode on this learning object has already measured",
+                      candidate=chosen, hard_stop_reasons=("episode_conflict",), **common)
+
+    factor_id = str(proposal["factor_id"])
+    with repository.connection() as connection:
+        decided = learner_probe_decision(connection, factor_id)
+    why = "whether the quick check is asked is the router's decision"
+    if decided is None:
+        if start_repair:
+            # The repair entry does not hold a repair on a decision nobody has made (a caller with no router).
+            return finish(status="started", reason="no_router_decision", message=STARTED_MESSAGE,
+                          decision=ROUTER_DECIDES, decision_reason=why, candidate=chosen, start_episode=True,
+                          router_state="pending", **common)
+        return finish(status="needs_disambiguation", reason="router_decision_pending",
+                      message=ROUTER_PENDING_MESSAGE, decision=ROUTER_DECIDES, decision_reason=why,
+                      candidate=chosen, router_state="pending",
+                      proposal=Proposal(chosen=dict(chosen) if chosen is not None else {}, **proposal), **common)
+    if str(decided.get("chosen_ref")) == PROBE_REF:
+        return finish(status="needs_disambiguation", reason="router_selected_probe",
+                      message=NEEDS_DISAMBIGUATION_MESSAGE, decision=ROUTER_DECIDES, decision_reason=why,
+                      offered=True, candidate=chosen, router_state="selected",
+                      router_decision_id=str(decided["id"]), **common)
+    return finish(status="started", reason="router_did_not_select_probe", message=STARTED_MESSAGE,
+                  decision=ROUTER_DECIDES, decision_reason=why, candidate=chosen, start_episode=True,
+                  router_state="not_selected", router_decision_id=str(decided["id"]), **common)
+
 
 __all__ = [
     "CAUSAL_ORCHESTRATOR_POLICY_DEFAULTS",
     "CAUSAL_ORCHESTRATOR_POLICY_SCOPE",
+    "ROUTER_DECIDES",
     "EVSI_PROVENANCE",
     "NEEDS_DISAMBIGUATION_MESSAGE",
     "REPAIR_STATUSES",

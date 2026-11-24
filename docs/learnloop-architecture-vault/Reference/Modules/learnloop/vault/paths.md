@@ -346,6 +346,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_primed_sibling_clock.py](../../../../../../tests/test_primed_sibling_clock.py) — direct import
   - `test_a_sibling_answered_minutes_ago_by_the_given_clock_ranks_last`
 - [tests/test_probe_orchestration_remainder.py](../../../../../../tests/test_probe_orchestration_remainder.py) — direct import
+- [tests/test_probe_router_replay.py](../../../../../../tests/test_probe_router_replay.py) — direct import
 - [tests/test_re0_capture.py](../../../../../../tests/test_re0_capture.py) — direct import
   - `test_migration_252_adds_one_nullable_checked_column_to_a_ledger_table`
 - [tests/test_reader_dialogue.py](../../../../../../tests/test_reader_dialogue.py) — direct import

@@ -940,6 +940,13 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_path_never_opens_a_held_out_section_even_where_dl1s_exact_selection_would`
   - `test_the_plan_follows_a_path_only_with_the_guide_and_the_plan_on`
   - `test_the_reading_block_opens_the_next_core_or_prerequisite_section_and_the_receipt_has_the_old_one`
+- [tests/test_probe_router.py](../../../../../../tests/test_probe_router.py) — direct import
+  - `test_at_the_tag_a_lesson_is_drawn_against_no_intervention_and_the_probe_only_by_the_coin`
+  - `test_at_the_tag_a_zero_share_never_asks_and_writes_no_assignment`
+  - `test_at_the_tag_an_unwritten_probe_is_not_an_option_of_either_policy`
+  - `test_at_the_tag_no_room_to_wait_no_longer_forces_the_probe`
+  - `test_at_the_tag_the_coin_asks_the_probe_now_with_its_exact_propensity`
+  - `test_below_the_tag_the_plan_keeps_the_predecessors_three_arms_and_forced_probe`
 - [tests/test_probe_router_authority.py](../../../../../../tests/test_probe_router_authority.py) — direct import
   - `test_f_the_mid_block_restraint_forces_now_with_no_room_and_draws_two_arms_otherwise`
   - `test_f_with_no_room_to_wait_the_probe_is_forced_unless_a_lesson_contests_it`

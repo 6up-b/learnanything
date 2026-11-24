@@ -195,6 +195,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_mobile_v2_landing_fixes.py](../../../../../../tests/test_mobile_v2_landing_fixes.py) — direct import
   - `test_r2_done_for_today_on_a_pending_stop_records_that_stop_accepted`
   - `test_r2_keep_going_after_done_on_a_pending_stop_is_the_overridden_response`
+- [tests/test_probe_router.py](../../../../../../tests/test_probe_router.py) — direct import
+  - `test_the_probe_coin_has_its_own_seed_and_experiment_independent_of_the_stop_coin`
 - [tests/test_ro5_codex_rereview.py](../../../../../../tests/test_ro5_codex_rereview.py) — direct import
   - `test_f3_a_busy_and_a_free_session_carry_no_return_benefit`
   - `test_f8_a_strong_instrument_far_from_the_prior_keeps_its_resolution`

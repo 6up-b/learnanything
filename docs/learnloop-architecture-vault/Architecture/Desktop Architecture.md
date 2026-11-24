@@ -5,10 +5,10 @@ aliases:
   - React Desktop Client
 status: active
 doc_version: 1.0.0
-implementation_version: mvp-0.9
-last_reviewed: 2026-11-11
-source_commit: 0622ea164f76ad7e1d62a00afda51473dbcd992e
-source_commit_timestamp: "2026-09-23T13:06:55-04:00"
+implementation_version: mvp-0.68
+last_reviewed: 2026-11-23
+source_commit: 86f29b0d390ed2ecdbb0347d98ccb1175ac52728
+source_commit_timestamp: "2026-11-23T23:12:28-05:00"
 source_paths:
   - apps/learnloop-tauri/package.json
   - apps/learnloop-tauri/vitest.config.mjs
@@ -93,7 +93,7 @@ The UI keeps ephemeral interaction state—open overlays, current tab, local dra
 
 `SidecarManager` launches the Python server with piped stdin/stdout, sends `rpc.ping`, initializes it against a selected vault, and preserves that vault across a transport restart. Typed application errors keep the client alive; broken pipes, malformed protocol boundaries, or timeouts invalidate it so the next request starts a clean process.
 
-The primary process is serialized behind a mutex for interactive calls. Only `run_cli_command` uses `call_isolated`, a fresh sidecar initialized against the selected vault and reaped after the one call, so a long CLI command cannot occupy the interactive client's mutex. Every other command runs on the primary client (each Tauri command hands its blocking call to `spawn_blocking`); long model work is queued as durable jobs that the sidecar's own job workers execute, so the RPC returns once the work is queued (for example `generate_commissioning_practice`). A timed-out mutation is reported as outcome unknown; the shell does not guess that retry is safe.
+The primary process is serialized behind a mutex for interactive calls. Only `run_cli_command` uses `call_isolated`, a fresh sidecar initialized against the selected vault and reaped after the one call, so a long CLI command cannot occupy the interactive client's mutex. Every other command runs on the primary client (each Tauri command hands its blocking call to `spawn_blocking`); long work can run in a durable job or behind a request-started background or polled job. The RPC for a queued operation returns while the worker takes over. A timed-out mutation is reported as outcome unknown; the shell does not guess that retry is safe.
 
 Two typed errors come from the manager rather than from Python:
 

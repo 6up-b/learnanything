@@ -5,10 +5,10 @@ aliases:
   - Causal Learning Loop
 status: active
 doc_version: 1.0.0
-implementation_version: mvp-0.61
-last_reviewed: 2026-11-17
-source_commit: 62fd1f6404cc3a3007c6f214ba9429c45ef0114f
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
+implementation_version: mvp-0.68
+last_reviewed: 2026-11-23
+source_commit: 86f29b0d390ed2ecdbb0347d98ccb1175ac52728
+source_commit_timestamp: "2026-11-23T23:12:28-05:00"
 source_paths:
   - src/learnloop/diagnosis
   - src/learnloop/attempts/attempts.py
@@ -47,6 +47,8 @@ A probe episode measures against a locked set of hypotheses; the causal repair l
 Grading and diagnosis have separate roles: see [[ADR-016 Learner-blind grading with an asynchronous diagnoser]].
 
 A passed cold check confirms the repair, including after other practice on the same facets. A failed cold check escalates it. Both verdicts require a final receipt qualifying the retrieval as cold and recording a passing administration window. A repair that showed more of the answer than its budget allows gets neither verdict. Without those facts, feedback gives the measured result and leaves the repair effect unestablished. The research receipt also checks for intervening retrieval when attributing the effect to the repair.
+
+From `mvp-0.64`, the remediation sweep ends an untaken primed repair episode when the missed item's next ordinary review comes due or an ordinary review has already happened. A cold check that was taken stays on its own path. This is a repair workflow transition. Probe measurement has the separate lifecycle below. See [[Reference/Modules/learnloop/diagnosis/remediation|remediation]].
 
 ## Episode lifecycle
 
@@ -137,7 +139,7 @@ They are not reconciled today.
 | Timing and writers | `probe_evidence.record_episode_evidence` records the presented observation inside the attempt transaction, replays the posterior and persists misconception marginals with `probe_completion.persist_episode_beliefs`. | Live grade-keyed hooks call the classifier after the attempt commits, or during deferred block settlement. The observation writer resolves an open factor on an admitted `matched_single`; admitted open-set evidence does not resolve it. |
 | Storage | `probe_observations` stores before/after values; reads replay the posterior. `learner_state_beliefs` holds registry-misconception marginals. | `causal_discriminating_observations` stores support, admission and `resolved_factor`; `unresolved_cause_factors` stores status and resolution observation ids. |
 | Readers | Scheduler, episode completion, instructional valuation and passage cues. Valuation renormalizes over concrete labels; passage cues use the label's raw mass. | Scoreboard, causal health, calibration reports, factor deferral, router outcome joins, capture reports and hypothesis marks read the observations. Repair decisions also read factor state. |
-| Later grade changes | A presented answer's outcome stays the submission's; regrades update grade interpretation, not that observation. Releasing a held observation does not change its false `updates_belief` flag. | An existing observation prevents automatic reclassification. |
+| Later grade changes | A presented answer's outcome stays the submission's; regrades update grade interpretation, not that observation. Releasing a held observation does not change its false `updates_belief` flag. | A repeat of the same classification is silent. An existing observation for another or unknown attempt gives `already_observed`. |
 
 Different priors and evidence rules can leave a factor resolved while the episode posterior still spreads its probability (from `mvp-0.61` the two lanes share the independence rule).
 

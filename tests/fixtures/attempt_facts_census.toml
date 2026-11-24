@@ -650,7 +650,7 @@ evidence = "a probe attempt's class: repair_activity when primed, instructional_
 why = "the causal class, not an assistance yes-or-no; equal to the policy's class rule"
 
 [[reader]]
-caller = "src/learnloop/diagnosis/probe_episodes.py::episode_posterior"
+caller = "src/learnloop/diagnosis/probe_episodes.py::_gather_episode_evidence"
 reads = "hints_used"
 purpose = "assisted"
 predicate = ""

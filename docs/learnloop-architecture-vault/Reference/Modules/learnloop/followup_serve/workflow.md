@@ -417,6 +417,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_without_phone_probes_the_phone_is_v2s`
 - [tests/test_plan_refs.py](../../../../../../tests/test_plan_refs.py) — direct import
   - `test_the_strings_keep_their_bytes_and_every_layer_reads_the_leafs`
+- [tests/test_probe_router.py](../../../../../../tests/test_probe_router.py) — direct import
+  - `test_at_the_tag_with_no_plan_the_coin_can_ask_and_the_probe_is_written`
+  - `test_at_the_tag_with_no_plan_the_coin_decides_and_the_decision_is_logged`
+  - `test_below_the_tag_with_no_plan_the_probe_is_asked_now_with_no_draw`
 - [tests/test_probe_router_authority.py](../../../../../../tests/test_probe_router_authority.py) — direct import
   - `test_a_the_practice_lane_settles_the_workflow_and_hands_the_miss_to_the_general_followup`
   - `test_d_a_not_now_while_the_question_is_written_refuses_after_authoring`

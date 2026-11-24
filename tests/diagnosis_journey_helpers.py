@@ -74,8 +74,13 @@ class Journey:
         self.before = after
 
 
+#: The probe router's valuation cost record (``diagnostic_value``'s ``cost``): wall-clock milliseconds.
+VALUATION_MS_KEYS = frozenset({"ms", "ms_act_now", "ms_probe"})
+
+
 def _wall(value, root, key=None):
-    if key in DURATION_KEYS | {"latency_seconds", "waited_ms", "fit_ms"} and isinstance(value, (int, float)):
+    if key in DURATION_KEYS | VALUATION_MS_KEYS | {"latency_seconds", "waited_ms", "fit_ms"} and isinstance(
+            value, (int, float)):
         return "<ms>"
     if isinstance(value, dict):
         return {str(k): _wall(v, root, str(k)) for k, v in sorted(value.items())}
@@ -488,6 +493,52 @@ def reread_and_request_case(root):
     return journey
 
 
+def router_learner_case(kind, root, patch):
+    """The probe router's learner lane at its tag (G2): the status read decides the factor's probe once (the probe
+    coin fixed to ask or not), a reread draws nothing, the repair entry reads the same decision, and the quick check is
+    accepted (when selected) or refused as needing the router's selection (when not)."""
+
+    from tests.causal_orchestrator_helpers import _vault, _seed_factor, _activate_probe_candidate, PROBE_ITEM
+    from tests.helpers import append_config_toml
+    from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
+    from learnloop.daily_plan import learner_probe
+    from learnloop.diagnosis.remediation import RemediationBlocked, start_remediation_episode
+    from learnloop.router_objective import probe_coin
+    from learnloop.vault.loader import load_vault
+
+    vault, repo, vault_root = _vault(root, with_probe_item=True, version=LATEST_ALGORITHM_VERSION)
+    append_config_toml(vault_root, "\n[router_objective]\nstop_coin = 0.2\n")
+    vault = load_vault(vault_root)
+    patch.setattr(probe_coin, "draw_uniform", lambda _seed: 0.05 if kind == "offered" else 0.9)
+    journey = Journey(repo)
+    factor, a, b = _seed_factor(repo)
+    admit_probe_instrument_card(repo, items=(PROBE_ITEM,))
+    _activate_probe_candidate(repo, factor, a, b)
+    journey.capture("factor_and_instrument")
+    for stage in ("status_read", "status_reread"):
+        status = learner_probe.decide(vault, repo, misconception_id=a, clock=CLOCK)
+        assert status.router_state == ("selected" if kind == "offered" else "not_selected")
+        journey.capture(stage)
+    if kind == "offered":
+        try:
+            start_remediation_episode(repo, a, vault=vault, clock=CLOCK)
+        except RemediationBlocked as held:
+            assert held.repair_status.router_state == "selected"
+        else:
+            raise AssertionError("the repair request was not held on the router's selection")
+        journey.capture("repair_request_held")
+        offer, _disposition = probe_offer.accept_routed_probe_offer(vault, repo, factor_id=factor, clock=CLOCK)
+        assert offer.accepted and offer.reason == "probe_pinned"
+        journey.capture("accepted")
+    else:
+        assert start_remediation_episode(repo, a, vault=vault, clock=CLOCK) is not None
+        journey.capture("repair_started")
+        offer, _disposition = probe_offer.accept_routed_probe_offer(vault, repo, factor_id=factor, clock=CLOCK)
+        assert not offer.accepted and offer.reason == probe_offer.ROUTER_DECISION_REQUIRED
+        journey.capture("stale_offer_refused")
+    return journey
+
+
 def gap_case(root):
     from tests.learner_text_gaps_helpers import _vault, _ask, _run
     from tests.text_gap_fakes import GapTutor, GapLLMFake, always, seed_proposal
@@ -538,10 +589,14 @@ CASES = (
     "text_prerequisite", "recurrence_judge", "deterministic_classification",
     # The probe router's doors (G2's characterization): FG1's hard refusals and the learner lane's rereads and requests.
     "fg1_refused_before_authoring", "fg1_refused_while_authoring", "causal_reread_and_request",
+    # The probe router's learner lane at its tag: the router's one decision, offered or not.
+    "router_learner_offered", "router_learner_not_selected",
 )
 
 
 def run_case(case, root, patch):
+    if case.startswith("router_learner_"):
+        return router_learner_case(case.removeprefix("router_learner_"), root, patch)
     if case == "causal_reread_and_request":
         return reread_and_request_case(root)
     if case.startswith("fg1_refused_"):

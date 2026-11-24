@@ -1,13 +1,14 @@
 """RO5 §9: each arm's assignment in ``policy_experiment_assignments`` (migration 098), the one place policy
 experimentation lives, through its existing ``experiment_id`` (``daily_plan/measurement.py``'s
 ``experiment_id`` and ``scheduling/randomization_layer.py``'s are the same integration point). Not a generic
-experiment framework: three experiment ids, each with its own unit and exact probability.
+experiment framework: four experiment ids, each with its own unit and exact probability.
 
 | Experiment | Unit (``unit_kind``, ``unit_id``) | Variant | Probability |
 |---|---|---|---|
 | :data:`STOP_COIN` | ``decision``, the ``plan_block`` router decision | ``offer_stop``, ``present_next``, ``policy`` | ``p``, ``p``, ``1 − 2p`` |
 | :data:`CHECK` | ``decision``, ``check-day:<local date>:<slot>`` | the drawn topic | ``1/N_d`` (or the rate) |
 | :data:`PICK` | ``decision``, the misconception pick's report | ``open``, ``resolve`` | the share, ``1 − share`` |
+| :data:`PROBE_COIN` | ``decision``, the ``plan_interrupt`` router decision | ``ask_probe``, ``policy`` | ``r``, ``1 − r`` (``r`` the stop coin's rate) |
 
 ``decision_id`` (a foreign key to the P4 controller's decisions) stays NULL: the unit id names the router
 decision, the check day or the report. ``design`` is ``mrt_reversible`` (each is a reversible, randomized
@@ -33,7 +34,9 @@ LOG = logging.getLogger(__name__)
 STOP_COIN = "ro5_stop_coin:v1"
 CHECK = "ro5_randomized_check:v1"
 PICK = "ro5_open_pick:v1"
-EXPERIMENTS: tuple[str, ...] = (STOP_COIN, CHECK, PICK)
+#: G2's probe coin (``probe_coin``): its own experiment, never the stop coin's, though it reads the same rate.
+PROBE_COIN = "g2_probe_coin:v1"
+EXPERIMENTS: tuple[str, ...] = (STOP_COIN, CHECK, PICK, PROBE_COIN)
 DESIGN = "mrt_reversible"
 TABLE = "policy_experiment_assignments"
 

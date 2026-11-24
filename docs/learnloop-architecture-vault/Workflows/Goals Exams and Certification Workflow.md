@@ -5,10 +5,10 @@ aliases:
   - Certification Workflow
 status: active
 doc_version: 1.0.0
-implementation_version: mvp-0.9
-last_reviewed: 2026-08-18
-source_commit: 62fd1f6404cc3a3007c6f214ba9429c45ef0114f
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
+implementation_version: mvp-0.68
+last_reviewed: 2026-11-23
+source_commit: 86f29b0d390ed2ecdbb0347d98ccb1175ac52728
+source_commit_timestamp: "2026-11-23T23:12:28-05:00"
 source_paths:
   - src/learnloop/cli/app.py
   - src/learnloop/content/authoring/practice_generation.py
@@ -39,7 +39,7 @@ A goal defines intended scope, target recall, and timing. **Ready** is a current
 - active learning objects/facets for the goal scope
 - a ready authoring provider if generating missing practice
 - a ready grading provider for held-out exam answers
-- a healthy mvp-0.9 vault
+- a healthy vault at a supported tag
 
 ## 1. Create the goal in the desktop wizard
 
@@ -108,7 +108,6 @@ Save the returned session id and ordered item ids. Reserved items enter `exam_po
 uv run learnloop exam answer <exam-item-id> \
   --session <exam-session-id> \
   --answer "Your answer here" \
-  --ai-provider codex \
   --json --vault "$VAULT"
 ```
 

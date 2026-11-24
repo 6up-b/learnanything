@@ -5,10 +5,10 @@ aliases:
   - Structured AI
 status: active
 doc_version: 1.0.1
-implementation_version: mvp-0.9
-last_reviewed: 2026-11-19
-source_commit: e6314fc0df008db528d657cbf3f80fe8dedd0982
-source_commit_timestamp: "2026-11-18T23:18:17-05:00"
+implementation_version: mvp-0.68
+last_reviewed: 2026-11-23
+source_commit: 86f29b0d390ed2ecdbb0347d98ccb1175ac52728
+source_commit_timestamp: "2026-11-23T23:12:28-05:00"
 source_paths:
   - src/learnloop/ai/transport.py
   - src/learnloop/ai/routing.py
@@ -44,7 +44,7 @@ flowchart LR
     SC --> V[feature-owned Pydantic result]
 ```
 
-`ResolvedClient` preserves requested selection, actual provider, fallback source, runtime report, and the first-class `manual` outcome. Named profiles such as `codex_low` remain in provenance even when profiles share a provider type.
+`ResolvedClient` preserves requested selection, actual provider, fallback source, runtime report, and the first-class `manual` outcome. Named profiles such as `chatgpt_low` remain in provenance even when profiles share a provider type.
 
 ^resolution-path
 
@@ -133,7 +133,7 @@ Validated inventory windows and synthesis passes are cached in [[model_work_chec
 
 ## Modification guidance
 
-- **New operation:** define contract/prompt/result in the owning domain, map it to a semantic route, add the 23-operation parity table row, and add domain validation tests.
+- **New operation:** define contract/prompt/result in the owning domain, map it to a semantic route, add an operation to the structured transport parity cases, and add domain validation tests.
 - **New structured provider:** implement `complete`, identity, usage, and capabilities; do not add feature methods.
 - **New optional media ability:** add a capability constant and explicit branch; do not use `getattr` probing.
 - **New configuration type:** add a discriminated profile schema and factory; preserve one-way legacy normalization.

@@ -228,6 +228,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_probe_router_authority.py](../../../../../../tests/test_probe_router_authority.py) — direct import
   - `test_c_a_manual_teach_me_now_starts_the_repair_without_the_probe`
   - `test_c_a_repair_request_is_held_by_the_gates_verdict_and_the_hold_is_a_result`
+- [tests/test_probe_router_learner_lane.py](../../../../../../tests/test_probe_router_learner_lane.py) — direct import
+  - `test_a_repair_entry_with_no_router_behind_it_starts_the_repair`
+  - `test_below_the_tag_the_repair_entry_is_held_by_the_verdict`
 - [tests/test_reader_ca2_one_ask.py](../../../../../../tests/test_reader_ca2_one_ask.py) — direct import
   - `test_an_assisted_attempt_is_recognised`
 - [tests/test_reader_rw6b_landing.py](../../../../../../tests/test_reader_rw6b_landing.py) — direct import

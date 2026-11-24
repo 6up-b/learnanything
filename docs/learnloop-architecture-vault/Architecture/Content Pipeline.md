@@ -5,10 +5,10 @@ aliases:
   - Ingest Architecture
 status: active
 doc_version: 1.0.0
-implementation_version: mvp-0.9
-last_reviewed: 2026-08-17
-source_commit: 62fd1f6404cc3a3007c6f214ba9429c45ef0114f
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
+implementation_version: mvp-0.68
+last_reviewed: 2026-11-23
+source_commit: 86f29b0d390ed2ecdbb0347d98ccb1175ac52728
+source_commit_timestamp: "2026-11-23T23:12:28-05:00"
 source_paths:
   - src/learnloop/content/pipeline/runner.py
   - src/learnloop/content/pipeline/jobs.py
@@ -23,77 +23,32 @@ tags:
 
 # Content Pipeline
 
-The content pipeline turns trusted external material into immutable source records, structured Document IR, reviewed source-set membership, and canonical learning content. Acquisition/extraction mechanics live in infrastructure `learnloop.ingest`; workflow and synthesis ownership live in `learnloop.content`.
-
-The authority/provenance meaning of each artifact lives in [[Source Authority and Provenance]].
+The content pipeline turns captured material into immutable revisions, structured passages, unit inventories and proposed study content. Acquisition and extraction live in `learnloop.ingest`. The durable host and content decisions live in `learnloop.content`. [[Source Authority and Provenance]] explains which artifact owns each fact.
 
 ## Durable checkpoint ladder
 
-```mermaid
-flowchart LR
-    A[acquired] --> R[registered]
-    R --> E[extracted]
-    E --> I[inventoried]
-    I --> S[synthesized]
-    S --> P[proposed]
-    P --> AP[applied]
-```
-
-Each stage is independently resumable. Batches, jobs, and dependencies live in SQLite. A queued job runs only when all dependencies completed; failed/blocked/cancelled prerequisites block downstream work rather than misreporting it as failed.
+Import registers an asset and a revision, then extracts Document IR with blocks, anchors and health flags. A source set pins a revision and records the subject, role and selected units. Inventory validates the units and their proposed concepts. Synthesis reads the pinned scope and the chosen inventories, validates the candidate, and stages a proposal. A revision can be pinned before inventory. Durable jobs run as their recorded dependencies complete, and a failed or cancelled prerequisite blocks dependents.
 
 ^checkpoint-ladder
 
-## Stages and authorities
-
-1. **Acquire:** fetch local bytes or remote content under explicit source/consent policy.
-2. **Register:** content-address the asset and immutable revision; repeated bytes reuse identity.
-3. **Extract:** produce Document IR with blocks, anchors, metadata, and health flags.
-4. **Inventory:** use deterministic structure plus a routed structured provider to identify units/concepts when configured.
-5. **Source-set assembly:** pin a revision and record role, authority, scope, and selection.
-6. **Synthesize:** bootstrap a new map or reconcile an append against existing canonical content.
-7. **Propose/apply:** validate authored output and persist canonical files/receipts. An accept is one write-ahead intent: the intent (each target's pre-image hash and new content) commits first, the files are renamed into place, then state sync, database effects and recalibration run, and the intent is marked applied last. The sidecar finishes an intent a crash left `pending` at its next bind, never writing over a file changed since (that intent becomes `conflicted` and waits for the owner), and no accept runs while one is pending or conflicted. See [[Doctor Migrations and Recovery#Proposal apply recovery]].
-
-The model never receives authority merely by returning JSON. Feature-owned synthesis contracts validate shape; domain gates validate references, coverage, provenance, and allowed mutations before application.
+The source-kind table owns recognition and capabilities. The desktop reads ingest eligibility, role choices, retry and reuse from the sidecar. [[Reference/Modules/learnloop/ingest/source_kinds|Source kinds]] and [[Import Canonical Sources]] are the extension point and operator procedure.
 
 ## Durable runner semantics
 
-- One vault-writing worker holds a lease; bounded DB-only work may use a compatible parallel lane.
-- `waiting_for_input` holds no lease, so consent/unit/budget questions do not stop unrelated jobs.
-- Each claim is owned by `worker_id` plus `attempt_count`. A heartbeat thread renews the lease beside the handler; expired leases of attempts not running in the current process become `failed(interrupted)`, and every database write and vault-file publication of a job first checks that its attempt still owns the job, so a superseded worker raises `JobOwnershipLost` instead of publishing. See [[Import Canonical Sources#Worker ownership and lease recovery]].
-- Retry identity is stage-specific and reuses completed revisions/extractions rather than duplicating them.
-- Usage accumulates across attempts instead of being overwritten.
-- Cancellation is observed through progress reporting and optional interrupt capabilities.
+The host claims a job with a worker ID and attempt number. The handler renews the lease and checks ownership before publishing. A replaced attempt cannot publish new vault files or canonical state. Its own started model receipt and a valid paid checkpoint may still be finished under the late-record allowance. A job waiting for learner input releases its lease. Cancellation is checked at progress and work boundaries. A stale lease can become an interrupted failure that can be resumed.
 
-## Job types
-
-A job type is one row in `content/pipeline/job_types.py`: its handler and whether it applies vault content (the sidecar reloads its vault after one), bumps Today's queue revision when it completes, runs in the parallel lane, and waits for the learner's one AI OK before it starts, with the AI routes its default clients resolve. The handlers live beside their features: import and extraction in `content/pipeline/import_jobs.py`, inventory and synthesis in `content/synthesis/jobs.py`, Reader and authoring work in `content/authoring/jobs.py`, the rich figure in `figures/jobs.py`, and retrieval's derived indexes in `source_retrieval/jobs.py`. `content/pipeline/jobs.py` is the durable host that runs them all; retrieval's index sweeps stay on it because they need its lease and worker.
+Each job type declares its handler and host policy in [[Reference/Modules/learnloop/content/pipeline/job_types|the job type table]]. Handlers live beside their features. The host uses the row for lane selection, AI admission and vault reload. For jobs that can affect practice, it compares the practice snapshot and publishes a changed queue revision with the terminal state, including lease recovery. The watcher and runner share the published snapshot. The compatibility names `legacy_ingest` and `exam_ingest` still have handlers. See [[Import Canonical Sources#Worker ownership and lease recovery|worker ownership and lease recovery]] for retry and lease details.
 
 ## Extraction choices
 
-Local files, websites, YouTube/captions, Markdown/text, PDFs, and audio follow typed extractors. PDFs honor per-job/vault engine selection. `auto` (the default) prefers GLM-OCR: hosted at z.ai when a key is set, or a self-hosted server when `[ingest.pdf.glm_ocr] backend = "local"` and it answers. Hosted GLM-OCR sends the whole file out and waits for the learner's one-time OK naming z.ai; a plain import reads locally meanwhile (`glm_ocr_needs_upload_ok`). A self-hosted server asks no OK, wherever it runs. Without GLM-OCR, `auto` uses optional Marker, then pypdf, with a visible health flag; an explicit `glm_ocr` or `marker` fails rather than switching. Where the bytes go for each engine is in [[Privacy and Trust Boundaries#Source acquisition egress]] and [[Import Canonical Sources#Choose the PDF engine]]. Audio uses the dedicated transcription route and consent policy from [[AI Architecture#Task routes]].
+The extractor registry chooses the PDF engine and its consent requirement. `auto` can use hosted GLM-OCR with consent or a configured self-hosted GLM-OCR server. Without an available GLM-OCR route, the local path can use Marker then pypdf. An explicit engine can fail instead of switching. A native PDF or audio route sends the file to the configured canonical ingest provider when readiness and consent allow it. The shared modality check supplies the same readiness reason to import and Settings. Read [[Privacy and Trust Boundaries#Source acquisition egress]] before selecting an engine. [[AI Architecture#Task routes]] explains the separate transcription route.
 
-Each media modality has one native authority (`[ingest.pdf] engine = "native"`, `[ingest.audio] mode = "native"`): the file goes to the `canonical_ingest` chat provider as a content part. One pure readiness judgement (`learnloop.ai.native_media`) is shared by extraction identity, extraction, the sidecar settings payload, and enqueue-time checks. A native choice whose route cannot take the modality fails closed with a typed, non-retryable error (`native_pdf_unavailable`, `native_audio_unavailable`) unless `[ingest.native] fallback_when_unavailable` is on, in which case the non-native path runs and both the identity and the IR carry a `native_*_fallback_*` marker.
+## Synthesis and apply
 
-## Legacy compatibility
+Bootstrap reads the brief's scope. Append selects new inputs and a bounded neighborhood of the current map. Both use the shared run setup, checkpointed shard runner, normalization, gate and proposal stages, with mode-specific rules. [[Build a Study Map]] gives the operating choices. [[Synthesis Identity and Caches]] explains how a validated answer is reused and why the manifest remains a record of the inputs.
 
-The gen-2 source-ingestion implementation remains available through frozen `legacy_ingest` and `exam_ingest` queue aliases. The durable runner presents corrected effective status for known historical result/status mismatches while preserving raw audit records.
+Application commits a write-ahead intent with the target pre-images and new contents. It publishes the files, reconciles state and marks the intent applied. Recovery finishes a compatible pending intent and preserves a newer file when it conflicts. Pending or conflicted work blocks another accept. See [[Doctor Migrations and Recovery#Proposal apply recovery]].
 
 ## Modification guidance
 
-- Add acquisition/extraction mechanics under `learnloop.ingest`; keep workflow decisions in `content.pipeline`.
-- Add a job type as its handler beside its feature and one row in `job_types.py` (`tests/test_job_types.py` fails until the row exists), plus its durable queue, serializer and restart/retry tests.
-- Preserve idempotency identity and checkpoint semantics.
-- Route new model work through [[AI Architecture]], never a local client factory.
-- Keep source revisions immutable; append a new revision or proposal rather than mutating captured bytes.
-
-## Workflows and tests
-
-- [[Import Canonical Sources]]
-- [[Build a Study Map]]
-- [[Doctor Migrations and Recovery]]
-- `tests/test_ingest_runner.py`
-- `tests/test_ingest_jobs.py`
-- `tests/test_ingest_queue_store.py`
-- `tests/test_ingest_m3.py`
-- `tests/test_inventory_merge_parallel.py`
-- source extraction/transcript tests
+Add acquisition and extraction to the source-kind and extractor authorities. Put a new durable handler beside its feature and register its host policy in the job table. Preserve lease fencing, stable revision identity and per-request checkpointing. Keep routing in [[AI Architecture]], and accept model output only through the feature's gates. To inspect the planner's scope, inventory and auto-apply records, use [[Debug a decision]].

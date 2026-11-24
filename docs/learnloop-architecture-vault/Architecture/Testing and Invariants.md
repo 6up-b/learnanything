@@ -4,10 +4,10 @@ aliases:
   - Verification Architecture
 status: active
 doc_version: 1.0.0
-implementation_version: mvp-0.9
-last_reviewed: 2026-09-23
-source_commit: 0622ea164f76ad7e1d62a00afda51473dbcd992e
-source_commit_timestamp: "2026-09-23T13:06:55-04:00"
+implementation_version: mvp-0.68
+last_reviewed: 2026-11-23
+source_commit: 86f29b0d390ed2ecdbb0347d98ccb1175ac52728
+source_commit_timestamp: "2026-11-23T23:12:28-05:00"
 source_paths:
   - tests
   - pyproject.toml
@@ -31,12 +31,12 @@ Tests are part of the architecture. LearnLoop uses example tests for local rules
 | import-linter contracts | layer direction, primitive purity, adapter independence, frozen cycles |
 | AST architecture scans | private imports, function-local edges, SQL owners, dynamic references |
 | provider matrix | identical selection/manual/fallback behavior through six production entry paths |
-| structured transport parity | every feature operation works through SDK/chat; HTTP supports exact subset |
+| structured transport parity | registered feature operations use the structured chat transport; the retirement tests verify Codex refusal |
 | attempt write-order instrumentation | receipt → grade → evidence → state → post-attempt sequence |
 | table-role exactness | migration-head schema and registry match bidirectionally |
-| rebuild golden | every derived column reproduces, stale rows clear, all attempts accounted, one receipt |
+| rebuild golden | the pinned history reproduces its derived rows, stale rows clear, all attempts are accounted for, and live rebuild records one receipt |
 | shadow isolation | semantic diff on copy; live DB hash unchanged |
-| CLI help snapshot | 171 root/group/command surfaces |
+| CLI help snapshot | recursive command surface in `tests/cli_surface.json` |
 | sidecar JSON snapshot | protocol output for queue/practice/reader |
 | migration process tests | two-process serialization, death rollback, FK restoration |
 | attempt completion recovery | a committed grade keeps its provenance through recovery, and concurrent recoveries normalize an attempt once (`tests/test_attempt_completion.py`) |
@@ -72,7 +72,7 @@ These commands define the current verification procedure. A dated CI/release art
 - A test of a predecessor that a kill switch still serves runs on the head vault with that switch off (`helpers.set_config_switch(root, "table.key", False)`), not on an old tag, so it goes with the switch (D7) and never holds back the oldest supported tag. Only a behaviour gated by a tag alone (no switch) pins an old tag.
 - The plan builders `create_daily_plan_vault` and `create_placement_vault` default to the head tag too (refactor step D2b part 2a, `docs/reviews/refactor-d2b2.md`). On a head plan vault the router objective decides one block at a time and RO5's arms act: the day's first boundary places a randomized cold check of an unseen item as its own block, and each boundary's mix may draw `stop_for_today` or a lesson offer, seeded on fresh ids. A test whose subject is not the arm takes it at its declared zero (`helpers.RANDOMIZED_CHECKS_OFF`, `stop_coin = 0.0`) or pins the draw (`tests/ih2_lessons_compete_helpers.draw`), never a looser assertion. The objective's choices also follow its rollouts' deadline, so a journey that needs a definite block order and is not about the chooser runs on the staged frame (`router.mode = "staged"`, the objective's failure fallback), as the phone host's `plan_world` does.
 - On a head vault a reader of facet belief reads the canonical cache: seed it with `tests/canonical_facet_helpers.seed_canonical_facet_recall`, which writes through the projection's own writer (anything that re-projects, such as an attempt, rewrites it, so seed after). An end-to-end test whose model is the in-process HTTP server and grades on the head calls `tests.http_provider_double.serve_structured(monkeypatch)`, so the double can be the learner-blind grader.
-- A refactor test should compare observable outcomes, not merely new import paths.
+- Compare observable outcomes in refactor tests. `tests/test_identity_pins.py` pins compared identities through production paths. Replay tests for the D8 capture migrations distinguish captured inputs from older reconstructions. See [[Rebuild and Shadow Compare]].
 
 ## When changing algorithms
 

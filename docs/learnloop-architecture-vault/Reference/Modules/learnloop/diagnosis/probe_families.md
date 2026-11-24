@@ -129,6 +129,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/attempts/grader_calibration|learnloop.attempts.grader_calibration]] — imports `GRADER_CHANNEL_RELIABILITY`
+- [[Reference/Modules/learnloop/daily_plan/learner_probe|learnloop.daily_plan.learner_probe]] — imports `instrument_conditionals`; statically calls `instrument_conditionals`
 - [[Reference/Modules/learnloop/diagnosis/probe_audit|learnloop.diagnosis.probe_audit]] — imports `CompiledInstrument`, `classify_outcome`; statically calls `classify_outcome`
 - [[Reference/Modules/learnloop/diagnosis/probe_coverage|learnloop.diagnosis.probe_coverage]] — imports `InstrumentCard`, `ProbeFamilyTemplate`, `knowledge_type_tokens`, `map_episode_labels_to_slots`, `validate_and_compile_card`; statically calls `knowledge_type_tokens`, `map_episode_labels_to_slots`, `validate_and_compile_card`
 - [[Reference/Modules/learnloop/diagnosis/probe_dialogue|learnloop.diagnosis.probe_dialogue]] — imports `DIALOGUE_MICROPROBE_V1`, `map_episode_labels_to_slots`, `real_calibration_counts`, `validate_and_compile_card`; statically calls `map_episode_labels_to_slots`, `real_calibration_counts`, `validate_and_compile_card`
@@ -172,7 +173,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/grader_calibration|learnloop.attempts.grader_calibration]], [[Reference/Modules/learnloop/diagnosis/probe_audit|learnloop.diagnosis.probe_audit]], [[Reference/Modules/learnloop/diagnosis/probe_coverage|learnloop.diagnosis.probe_coverage]], [[Reference/Modules/learnloop/diagnosis/probe_dialogue|learnloop.diagnosis.probe_dialogue]], [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] and 14 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/grader_calibration|learnloop.attempts.grader_calibration]], [[Reference/Modules/learnloop/daily_plan/learner_probe|learnloop.daily_plan.learner_probe]], [[Reference/Modules/learnloop/diagnosis/probe_audit|learnloop.diagnosis.probe_audit]], [[Reference/Modules/learnloop/diagnosis/probe_coverage|learnloop.diagnosis.probe_coverage]], [[Reference/Modules/learnloop/diagnosis/probe_dialogue|learnloop.diagnosis.probe_dialogue]] and 15 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
