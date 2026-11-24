@@ -154,6 +154,8 @@ export interface WindowAsk {
   quote: string | null;
   /** The exchange a follow-up branches from (null: the companion's own choice). */
   parentExchangeId?: string | null;
+  /** The answer mode the ask was routed to (the intent box's "ask · help me reason"). */
+  answerMode?: ReaderAnswerMode;
 }
 
 export interface ReaderInquiryInput {

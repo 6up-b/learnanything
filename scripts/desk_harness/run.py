@@ -1194,6 +1194,32 @@ async def run_intent(page: Page, base: str, results: Results, shots: Path | None
     results.check("ctrl+drag boxes over a book window's text commit their words as one selection there (its intent box), and the desks neither zoom nor take the chord",
                   box_before == 0 and marquee["box"] and marquee["overview"] == "off" and not marquee["zooming"], [box_before, marquee])
 
+    # A claim of the open book in the companion's answer peeks in the book's window (spec §21.1): its detour strip
+    # shows where the learner was, in the desk's dark tokens on the window's dark, and alt+← walks back to it.
+    await page.goto(f"{base}/desk-harness.html")
+    await page.wait_for_selector("[data-desk-window]")
+    await settle(page, 1500)
+    await page.evaluate("""() => { const p = [...document.querySelectorAll('[data-desk-window="fx_w_book"] [data-span-id]')].find((e) => e.textContent.includes("Adding the same constant"));
+      const sc = p.closest('.ll-scroll'); sc.scrollTop += p.getBoundingClientRect().top - sc.getBoundingClientRect().top - 300; }""")
+    await settle(page, 300)
+    await select_passage(page, "Adding the same constant")
+    await page.keyboard.press("c")
+    await settle(page, 400)
+    await page.locator('[aria-label="ask about this"]').fill("why does the constant cancel?")
+    await page.keyboard.press("Enter")
+    await page.wait_for_selector("button.claim", timeout=5000)
+    await page.locator("button.claim").first.click()
+    await settle(page, 800)
+    strip = await page.evaluate("""() => { const n = document.querySelector('[data-desk-window="fx_w_book"] nav[aria-label="Detour"]'); if (!n) return null;
+      const link = n.querySelector('button'); return { text: n.textContent, color: getComputedStyle(n).color, link: link ? getComputedStyle(link).color : null }; }""")
+    await shot(page, shots, "claim-peek")
+    results.check("a claim of the open book peeks in its window: the detour strip shows the way back, in the desk's dark tokens",
+                  bool(strip) and "alt+← back" in strip["text"] and strip["color"] == "rgb(139, 139, 157)" and strip["link"] == "rgb(227, 160, 99)", strip)
+    await page.keyboard.press("Alt+ArrowLeft")
+    await settle(page, 600)
+    restored = await calls(page, "reader_restore_source")
+    results.check("alt+← in that window walks back to where the learner was", len(restored) == 1, restored)
+
 
 GOAL_BOOK = "[data-desk-window='fx_w_book']"
 GOAL_PAPER = "[data-desk-window='fx_w_paper']"

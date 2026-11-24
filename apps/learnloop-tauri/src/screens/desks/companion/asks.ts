@@ -62,6 +62,12 @@ export interface AskRequest {
   /** The exchange this follow-up branches from, when the asker names it (a reconnect's "still unclear" branches
    *  from its question); absent, the thread's last answer about the same reading. */
   parentExchangeId?: string | null;
+  /** The answer mode the ask was routed to (a source window's intent box). */
+  answerMode?: CompanionAskInput["answerMode"];
+  /** RW1c: "another way" (alternative) and "that didn't help" (remediate) under an answer. */
+  retrievalIntent?: CompanionAskInput["retrievalIntent"];
+  /** RW1c: the personalized chip (absent while the tutor does not look things up). */
+  personalized?: boolean;
 }
 
 function errorOf(error: unknown): { code: string; message: string; retryable: boolean } {
@@ -158,6 +164,9 @@ export class CompanionAsks {
       ...(request.selectionSpanIds?.length ? { selectionSpanIds: request.selectionSpanIds } : {}),
       ...(request.quote ? { selectionQuote: request.quote } : {}),
       ...(request.padBlockIds?.length ? { padBlockIds: request.padBlockIds } : {}),
+      ...(request.answerMode ? { answerMode: request.answerMode } : {}),
+      ...(request.retrievalIntent ? { retrievalIntent: request.retrievalIntent } : {}),
+      ...(request.personalized !== undefined ? { personalized: request.personalized } : {}),
     };
     return this.send(input, request.windowId, request.quote ?? null, ready);
   }

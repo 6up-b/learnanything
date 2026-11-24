@@ -16,6 +16,7 @@ import type { Rect, Stage } from "../geometry";
 import type { Timers } from "../keys/router";
 import type { CompanionExchange } from "./asks";
 import { DiffProposal, type ProposedDiff } from "./DiffProposal";
+import { TUTOR_COPY } from "../../reader/TutorAnswer";
 import { dockRect, nearestDock, pillRect, type CompanionState } from "./model";
 
 /** Transition lengths (spec §4.3). */
@@ -70,6 +71,19 @@ export interface CompanionProps {
   onPill: () => void;
   /** Typing in its input, for the latency trace (a keystroke's render time). */
   onEdit?: () => void;
+  /** The tutor that looks things up (RW1c), while the contract offers it: the personalized chip sent with every
+   *  ask, and under an answer that looked things up "another way" and "that didn't help…". Absent while off. */
+  tutor?: CompanionTutor | null;
+}
+
+export interface CompanionTutor {
+  personalized: { on: boolean; onToggle: (on: boolean) => void } | null;
+  /** "another way" and "that didn't help…" (retrieval and branches on). */
+  anotherWay: boolean;
+  onAnotherWay: (exchange: CompanionExchange) => void;
+  onDidntHelp: (exchange: CompanionExchange, text: string) => void;
+  /** The excerpt's passage, where it is (this book peeks; another opens beside). */
+  onOpenPassage: (passage: { extractionId: string; spanId: string; sourceId: string | null }) => void;
 }
 
 function timeOf(ms: number): string {
@@ -380,6 +394,7 @@ export const Companion = forwardRef<CompanionHandle, CompanionProps>(function Co
                     onRetry={props.onRetry}
                     onOpenClaim={props.onOpenClaim}
                     onOpenThread={props.onOpenThread}
+                    tutor={props.tutor ?? null}
                   />
                 ))
               )
@@ -404,6 +419,19 @@ export const Companion = forwardRef<CompanionHandle, CompanionProps>(function Co
           ) : null}
           <div className="cin">
             {props.cannotAsk ? <div className="cannot">{props.cannotAsk}</div> : null}
+            {props.tutor?.personalized ? (
+              // What the tutor may read of the learner's own work when it looks things up (RW1c): sent with every ask.
+              <button
+                type="button"
+                className="personal"
+                data-companion-personalized=""
+                aria-pressed={props.tutor.personalized.on}
+                title="whether the tutor may use your own work and questions when it looks things up"
+                onClick={() => props.tutor?.personalized?.onToggle(!props.tutor.personalized.on)}
+              >
+                {props.tutor.personalized.on ? "personalized ●" : "personalized ○"}
+              </button>
+            ) : null}
             <input
               className="input"
               value={draft}
@@ -463,13 +491,77 @@ export const Companion = forwardRef<CompanionHandle, CompanionProps>(function Co
   );
 });
 
-function ExchangeView({ exchange, proposals, onCancel, onRetry, onOpenClaim, onOpenThread }: {
+/** An answer that looked in the learner's books (RW1c): the abstention line, the verbatim excerpt with its way to
+ *  the passage, the bridge to the learner's work, and "another way · that didn't help…". */
+function LookedUp({ exchange, tutor, part }: { exchange: CompanionExchange; tutor: CompanionTutor; part: "before" | "after" }) {
+  const view = exchange.answer?.tutor ?? null;
+  const [unclearOpen, setUnclearOpen] = useState(false);
+  const [unclear, setUnclear] = useState("");
+  if (!view) return null;
+  if (part === "before") {
+    return view.abstained && view.abstentionLine ? <p className="abstained" data-abstention="">{view.abstentionLine}</p> : null;
+  }
+  const excerpt = view.excerpt;
+  const send = () => {
+    tutor.onDidntHelp(exchange, unclear.trim());
+    setUnclearOpen(false);
+    setUnclear("");
+  };
+  return (
+    <>
+      {excerpt ? (
+        <div className="excerpt" data-excerpt="">
+          <span className="who">§ {TUTOR_COPY.fromYourBooks}{excerpt.label ? ` · ${excerpt.label}` : ""}</span>
+          <blockquote><FitMath className="md"><MarkdownMath value={excerpt.quote} /></FitMath></blockquote>
+          <button type="button" className="claim" onClick={() => tutor.onOpenPassage({ extractionId: excerpt.extractionId, spanId: excerpt.spanId, sourceId: excerpt.sourceId ?? null })}>
+            {TUTOR_COPY.openPassage} ▸
+          </button>
+        </div>
+      ) : null}
+      {view.bridgeMd ? (
+        <div className="bridge" data-bridge="">
+          <span className="who">◇ {TUTOR_COPY.bridge}</span>
+          <FitMath className="md"><MarkdownMath value={view.bridgeMd} /></FitMath>
+        </div>
+      ) : null}
+      {tutor.anotherWay ? (
+        <div className="again">
+          <button type="button" className="claim" onClick={() => tutor.onAnotherWay(exchange)}>{TUTOR_COPY.anotherWay}</button>
+          <button type="button" className="claim" aria-expanded={unclearOpen} onClick={() => setUnclearOpen((open) => !open)}>{TUTOR_COPY.didntHelp}</button>
+        </div>
+      ) : null}
+      {unclearOpen ? (
+        <div className="unclear" data-still-unclear="">
+          <span className="who">{TUTOR_COPY.unclearPrompt}</span>
+          <textarea
+            value={unclear}
+            placeholder={TUTOR_COPY.unclearPlaceholder}
+            onChange={(event) => setUnclear(event.target.value)}
+            onKeyDown={(event) => {
+              if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+                event.preventDefault();
+                send();
+              }
+            }}
+          />
+          <span>
+            <button type="button" className="claim" onClick={send}>{TUTOR_COPY.send} · ctrl+↵</button>{" "}
+            <button type="button" className="claim" onClick={() => { setUnclearOpen(false); setUnclear(""); }}>{TUTOR_COPY.cancel}</button>
+          </span>
+        </div>
+      ) : null}
+    </>
+  );
+}
+
+function ExchangeView({ exchange, proposals, onCancel, onRetry, onOpenClaim, onOpenThread, tutor = null }: {
   exchange: CompanionExchange;
   proposals: ProposedDiff[];
   onCancel: (requestId: string) => void;
   onRetry: (requestId: string) => void;
   onOpenClaim: (citation: TutorCitationDto) => void;
   onOpenThread: (exchange: CompanionExchange) => void;
+  tutor?: CompanionTutor | null;
 }) {
   let answer: ReactNode;
   switch (exchange.status) {
@@ -499,7 +591,9 @@ function ExchangeView({ exchange, proposals, onCancel, onRetry, onOpenClaim, onO
       answer = (
         <div className="bub ai" data-exchange-status="answered">
           <span className="who">◇ LearnLoop{exchange.answer?.citations.length ? " · claims link to the passage" : ""}</span>
+          {tutor ? <LookedUp exchange={exchange} tutor={tutor} part="before" /> : null}
           <FitMath className="md"><MarkdownMath value={exchange.answer?.answerMd ?? ""} /></FitMath>
+          {tutor ? <LookedUp exchange={exchange} tutor={tutor} part="after" /> : null}
           {exchange.answer?.citations.length ? (
             <div className="claims">
               {exchange.answer.citations.map((citation, index) => (

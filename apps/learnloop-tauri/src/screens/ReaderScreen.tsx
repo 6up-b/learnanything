@@ -298,6 +298,8 @@ export interface ReaderWindowing {
   onInquiryReady?: (inquiry: WindowInquiry | null) => void;
   /** Asks go to the desk's companion (a routed ask, a reconnect's "still unclear"), not to a rail the desk hides. */
   onAsk?: (ask: WindowAsk) => void;
+  /** "what matters here?": the desk's path for this reading (the goal's path view, else the reading's path). */
+  onOpenPath?: () => void;
 }
 
 /** What a desk does in a source window's inquiry. */
@@ -3481,6 +3483,18 @@ export function ReaderScreen({
           }
           return;
         }
+        if (windowed?.onAsk) {
+          // On a desk the companion is the Ask (spec §8): asked there at once with the box's words, on the selection,
+          // in the routed answer mode; an empty Enter opens it on the selection to ask.
+          const spanId = pane.spanIds[0] ?? activeSpan ?? readingSpan;
+          if (!spanId) return;
+          logReaderAction("action_invoked", { ...visitPayload(), action_kind: text ? "ask" : "ask_opened", ...meta });
+          windowed.onAsk({
+            question: text, spanId, selectionSpanIds: pane.spanIds, quote: pane.words.trim() || null,
+            ...("answerMode" in effect && effect.answerMode ? { answerMode: effect.answerMode } : {}),
+          });
+          return;
+        }
         // A routed Ask opens the Ask tab, because the learner asked (D41).
         setRailCollapsed(false);
         setRailTab("ask");
@@ -3590,6 +3604,11 @@ export function ReaderScreen({
         }
         // RW7a: Orient's "what matters here?" opens the Guide's reading path.
         logReaderAction("action_invoked", { ...visitPayload(), action_kind: "what_matters_here", ...meta });
+        if (windowed?.onOpenPath) {
+          // On a desk the Guide is not on screen: the desk's own path for this reading.
+          windowed.onOpenPath();
+          return;
+        }
         setRailCollapsed(false);
         setRailTab("guide");
         setPathFocus((value) => value + 1);
@@ -3790,6 +3809,15 @@ export function ReaderScreen({
     );
   };
   const overDesk = (menu: ReactNode): ReactNode => (windowed ? createPortal(menu, document.body) : menu);
+  // The active-reading card is the Notes rail's header; a desk shows the rail only beside a Notes panel, so without
+  // one the card shows in the window, under the last passage it is about (the fold, if any, follows it).
+  const windowActiveCard = windowed && activeReadingOn && (activeCtl.active || activeCtl.another) && !(railOnScreen && railTab === "notes") ? (
+    <div data-window-active-reading="" style={{ margin: "4px 0 8px", paddingLeft: 12, borderLeft: `2px solid ${COLOR.border}` }}>
+      <ActiveReadingCard ctl={activeCtl} sourceTitle={sourceTitle} onShowPassage={jumpToSpan} />
+    </div>
+  ) : null;
+  const windowActiveSpans = activeCtl.another ? activeCtl.another.spanIds : activeCtl.active?.anchorSpanIds ?? [];
+  const windowActiveSpan = windowActiveCard ? windowActiveSpans[windowActiveSpans.length - 1] ?? null : null;
 
   // The book's own TeX macros, for every formula the Reader shows of it (its blocks, the Ask chip, answers about
   // it): the extraction keeps \vvec but not the page's definition of it.
@@ -4056,12 +4084,13 @@ export function ReaderScreen({
               onPageLayout={setPdfLayout}
               {...(activeCtl.folded.size ? { coveredSpans: activeCtl.folded } : {})}
               {...(figuresCtl.enabled ? {
-                inlineNotes: [...new Set([...figuresCtl.figures.map((f) => f.anchorSpanId), ...figuresCtl.pending.map((p) => p.anchorSpanId),
+                inlineNotes: [...[...new Set([...figuresCtl.figures.map((f) => f.anchorSpanId), ...figuresCtl.pending.map((p) => p.anchorSpanId),
                   ...figuresCtl.followed.map((entry) => entry.figure.anchorSpanId)])]
                   .filter((spanId): spanId is string => Boolean(spanId))
                   .map((spanId) => ({ spanId, node: <FiguresUnder ctl={figuresCtl} spanId={spanId} /> })),
+                  ...(windowActiveCard && windowActiveSpan ? [{ spanId: windowActiveSpan, node: windowActiveCard }] : [])],
                 regionSelection: Boolean(contract?.figures?.region),
-              } : {})}
+              } : windowActiveCard && windowActiveSpan ? { inlineNotes: [{ spanId: windowActiveSpan, node: windowActiveCard }] } : {})}
             />
           ) : null}
           {removed ? (
@@ -4192,6 +4221,7 @@ export function ReaderScreen({
                 </>)}
               </div>
               {inlineReconnect && reconnect && block.spanId === reconnect.spanId ? inlineReconnect : null}
+              {windowActiveCard && block.spanId && block.spanId === windowActiveSpan ? windowActiveCard : null}
               {figuresCtl.enabled ? <FiguresUnder ctl={figuresCtl} spanId={block.spanId} /> : null}
               {offerSection ? (
                 <SectionBoundaryOffer

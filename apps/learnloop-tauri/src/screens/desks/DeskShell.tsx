@@ -7,6 +7,9 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ComponentProps, type CSSProperties, type ReactNode } from "react";
 import { flushSync } from "react-dom";
 import { api } from "../../api/client";
+import { useCachedQuery } from "../../api/useCachedQuery";
+import { TAG } from "../../api/queryTags";
+import { TUTOR_COPY } from "../reader/TutorAnswer";
 import { cachedSourceRead } from "../reader/readerCache";
 import { poller as appPoller, type Poller } from "../../api/poller";
 import type { CarriedQuestionDto, CompanionDock, CompanionHistoryDto, ContentRefDto, PadDrainDto, DeskApplyDto, DeskApplyInput, DeskStateDto, SourceLibraryCard, TutorCitationDto } from "../../api/dto";
@@ -2159,6 +2162,20 @@ export function DeskShell({
     return () => document.removeEventListener("selectionchange", onSelection);
   }, []);
 
+  // The tutor that looks things up (RW1c), as the Reader's contract offers it: its personalized chip is sent with
+  // every ask while it is on (at the vault's default until the learner switches it), and an answer that looked
+  // things up can be asked again "another way" or as "that didn't help".
+  const promptContract = useCachedQuery(["reader_prompt_contract"], () => Promise.resolve().then(() => api.readerPromptContract()), {
+    tags: [TAG.reader, TAG.settings],
+    staleAfterMs: Infinity,
+  });
+  const readerTutor = promptContract.data?.readerTutor ?? null;
+  const [personalizedChoice, setPersonalizedChoice] = useState<boolean | null>(null);
+  const personalizedOn = personalizedChoice ?? readerTutor?.personalizedDefault ?? true;
+  const personalizedRef = useRef<boolean | null>(null);
+  personalizedRef.current = readerTutor?.retrieval ? personalizedOn : null;
+  const personalizedInput = () => (personalizedRef.current !== null ? { personalized: personalizedRef.current } : {});
+
   const askCompanion = useCallback((question: string) => {
     const grounding = groundingRef.current;
     if (grounding.reason !== null || !grounding.extractionId) return;
@@ -2184,10 +2201,23 @@ export function DeskShell({
       selectionSpanIds: padLine ? undefined : selected?.spanIds,
       quote: padLine ? null : selected?.quote ?? null,
       ...(grounding.padBlockId ? { padBlockIds: [grounding.padBlockId] } : {}),
+      ...personalizedInput(),
     // The sidecar records the desk's focus and windows with the question: the writes queued so far land first.
     }, store.settled());
     setChip(null);
   }, [asks, store, toastNow]);
+
+  /** "another way" or "that didn't help…" under an answer: a branch of it, on the same reading and passage. */
+  const askAgain = (exchange: CompanionExchange, question: string, retrievalIntent: "alternative" | "remediate") => {
+    const parent = exchange.answer ? exchange.answer.readerAnswerEventId || exchange.answer.eventId : null;
+    if (!parent) return;
+    asks.ask({
+      deskId: deskIdRef.current, windowId: exchange.windowId, surface: exchange.request.surface, question,
+      extractionId: exchange.extractionId, spanId: exchange.spanId,
+      ...(exchange.request.selectionSpanIds?.length ? { selectionSpanIds: exchange.request.selectionSpanIds } : {}),
+      quote: exchange.request.selectionQuote ?? null, parentExchangeId: parent, retrievalIntent, ...personalizedInput(),
+    }, store.settled());
+  };
 
   const loadHistory = useCallback((query: string, cursor?: string) => companionTransport.companionHistory({ ...(query ? { query } : {}), ...(cursor ? { cursor } : {}) }), [companionTransport]);
 
@@ -3261,6 +3291,8 @@ export function DeskShell({
         deskId: deskIdRef.current, windowId, surface: "desk", question: ask.question.trim(), extractionId: content.extractionId,
         spanId: ask.spanId, selectionSpanIds: ask.selectionSpanIds, quote: ask.quote,
         ...(ask.parentExchangeId !== undefined ? { parentExchangeId: ask.parentExchangeId } : {}),
+        ...(ask.answerMode ? { answerMode: ask.answerMode } : {}),
+        ...personalizedInput(),
       }, store.settled());
     } else if (ask.quote) {
       setChip({ quote: clipQuote(ask.quote, 400), spanIds: ask.selectionSpanIds, windowId });
@@ -3278,6 +3310,27 @@ export function DeskShell({
     }
     return handler;
   }, [askFor]);
+
+  // "what matters here?" in a window: the goal's path view when the desk has a goal band, else the reading's path
+  // beside the window (the path panel, until the per-reading path has its own home).
+  const windowOpenPath = (windowId: string) => {
+    const content = wsRef.current.windows[windowId]?.content;
+    if (!content || (content.kind !== "source" && content.kind !== "video")) return;
+    if (goalPathRef.current.open) return;
+    if (goalPathRef.current.toggle()) return;
+    openContent({ kind: "panel", panel: "path", extractionId: content.extractionId } as ContentRefDto);
+  };
+  const windowOpenPathRef = useRef(windowOpenPath);
+  windowOpenPathRef.current = windowOpenPath;
+  const openPathFor = useMemo(() => new Map<string, () => void>(), []);
+  const onOpenPathFor = useCallback((windowId: string) => {
+    let handler = openPathFor.get(windowId);
+    if (!handler) {
+      handler = () => windowOpenPathRef.current(windowId);
+      openPathFor.set(windowId, handler);
+    }
+    return handler;
+  }, [openPathFor]);
 
   // A companion answer that lands while the desks are shown is told to the window it was asked from (else the first
   // window on the desk showing its reading): a follow-up joins that window's detours with its parent, so walking back
@@ -3411,6 +3464,7 @@ export function DeskShell({
           onMediaReady: onMediaReadyFor(window.windowId),
           onInquiryReady: onInquiryReadyFor(window.windowId),
           onAsk: onAskFor(window.windowId),
+          onOpenPath: onOpenPathFor(window.windowId),
           onError,
           ...(reader ? { reader } : {}),
           // A book following a video marks its passage over the goal lens (RD10).
@@ -3917,6 +3971,13 @@ export function DeskShell({
             onOpenClaim={openClaim}
             onOpenAnchor={(anchor) => openClaim({ extractionId: anchor.extractionId, spanId: anchor.spanId })}
             onOpenThread={openThread}
+            tutor={readerTutor?.retrieval ? {
+              personalized: { on: personalizedOn, onToggle: setPersonalizedChoice },
+              anotherWay: readerTutor.anotherWay,
+              onAnotherWay: (exchange) => askAgain(exchange, TUTOR_COPY.anotherWayQuestion, "alternative"),
+              onDidntHelp: (exchange, text) => askAgain(exchange, text || TUTOR_COPY.didntHelpDefault, "remediate"),
+              onOpenPassage: (passage) => openClaim(passage),
+            } : null}
             onHide={() => stepCompanion({ kind: "hide" })}
             onDock={() => stepCompanion({ kind: "dock" })}
             onSnap={snapCompanion}

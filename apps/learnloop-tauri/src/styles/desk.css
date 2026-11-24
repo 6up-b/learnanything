@@ -100,6 +100,19 @@
   background: var(--desk-paper);
   color: var(--desk-ink);
 }
+/* A source window's own lines above its sheet (the view switch, the detour strip and its way back, side by side's
+   notice) sit on the window's dark, not on the paper: they take the desk's dark tokens, so the crumbs read. */
+.desk-pane[data-window-kind="source"] [data-window-source-bar],
+.desk-pane[data-window-kind="source"] nav[aria-label="Detour"],
+.desk-pane[data-window-kind="source"] [data-sbs-notice] {
+  color-scheme: dark;
+  --text: var(--desk-t);
+  --dim: var(--desk-t3);
+  --faint: var(--desk-t3);
+  --amber: var(--desk-amber);
+  --amber-link: var(--desk-amber);
+  --border: var(--desk-line);
+}
 .desk-pane[data-window-kind="source"] [data-span-id],
 .desk-pane[data-window-kind="video"] [data-transcript-span] {
   font-family: var(--desk-book) !important;
@@ -374,6 +387,18 @@
 .desk-companion .claims, .desk-thread .claims { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 .desk-companion .claim, .desk-thread .claim { color: #f0b878; border: 1px solid #5a4630; border-radius: 2px; padding: 1px 6px; font-size: 11px; }
 .desk-companion .act { margin-top: 6px; color: #f0c890; border: 1px solid #9a6f3a; border-radius: 2px; padding: 4px 10px; font-size: 11.5px; }
+/* An answer that looked in the learner's books (RW1c): the book's words set as the book's, LearnLoop's bridge in its
+   own voice, and the two ways to ask again as claims. */
+.desk-companion .bub .abstained, .desk-thread .bub .abstained { color: var(--desk-t3); font-size: 11px; }
+.desk-companion .bub .excerpt, .desk-companion .bub .bridge { margin-top: 8px; }
+.desk-companion .bub .excerpt blockquote { margin: 4px 0; padding-left: 9px; border-left: 2px solid #5a4630; color: var(--desk-t); font: 13px/1.55 var(--desk-book); }
+.desk-companion .bub .excerpt .who { color: #f0b878; }
+.desk-companion .bub .bridge .who { color: var(--desk-ll); }
+.desk-companion .bub .again { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.desk-companion .bub .unclear { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+.desk-companion .bub .unclear textarea { min-height: 46px; background: var(--desk-shell2); border: 1px solid var(--desk-line2); color: var(--desk-t); font: 12px var(--desk-ui); padding: 5px 7px; resize: vertical; }
+.desk-companion .cin .personal { margin: 0 0 6px; color: var(--desk-t2); font-size: 10.5px; }
+.desk-companion .cin .personal[aria-pressed="true"] { color: var(--desk-ll); }
 .desk-companion .chip { flex: none; margin: 0 12px 6px; padding: 3px 0 3px 8px; border-left: 1px solid #3a3a3a; color: var(--desk-t); font-size: 10.5px; display: flex; gap: 7px; align-items: baseline; }
 .desk-companion .chip .g { color: var(--desk-t2); }
 .desk-companion .chip .lab { color: var(--desk-t3); white-space: nowrap; }
