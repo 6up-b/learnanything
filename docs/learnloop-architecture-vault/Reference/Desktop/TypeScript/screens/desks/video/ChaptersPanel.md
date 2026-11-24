@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/video/ChaptersPanel.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/video/ChaptersPanel.tsx) |
-| Source lines | 145 |
+| Source lines | 152 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/video/_area|TypeScript/screens/desks/video]] |
 | Refactor status | `ACTIVE` |
@@ -54,26 +54,27 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export interface ChaptersState` — interface, line 12
-- `export function useVideoChapters(` — function, line 18
+- `export const ACCEPT_LINE = "accepting counts this stretch as teaching its topic for your goal · it stays` — const, line 16
+- `export interface ChaptersState` — interface, line 18
+- `export function useVideoChapters(` — function, line 24
 
 ## Internal implementation anchors
 
-- `const current = useRef<VideoChapterDto[]>([])` — const, line 30
-- `const whenLive = useWhenLive()` — const, line 33
-- `const onChaptersRef = useRef(onChapters)` — const, line 35
-- `const onDecidedRef = useRef(onDecided)` — const, line 37
-- `const show = useCallback((next: VideoChapterDto[])` — const, line 39
-- `let live = true` — let, line 48
-- `let timer: number | undefined` — let, line 49
-- `const due = out.nextCheckDue ? Date.parse(out.nextCheckDue) : NaN` — const, line 54
-- `const settle = useCallback((out: ChaptersJobDto)` — const, line 62
-- `const suggest = useCallback(()` — const, line 87
-- `const cancel = useCallback(()` — const, line 95
-- `const decide = useCallback((chapter: VideoChapterDto, decision: "accept" | "dismiss")` — const, line 100
-- `const list = useMemo(()` — const, line 114
-- `const side = useMemo(()` — const, line 116
-- `const lo = chapter.learningObjects?.[0]?.title ?? null` — const, line 120
+- `const current = useRef<VideoChapterDto[]>([])` — const, line 36
+- `const whenLive = useWhenLive()` — const, line 39
+- `const onChaptersRef = useRef(onChapters)` — const, line 41
+- `const onDecidedRef = useRef(onDecided)` — const, line 43
+- `const show = useCallback((next: VideoChapterDto[])` — const, line 45
+- `let live = true` — let, line 54
+- `let timer: number | undefined` — let, line 55
+- `const due = out.nextCheckDue ? Date.parse(out.nextCheckDue) : NaN` — const, line 60
+- `const settle = useCallback((out: ChaptersJobDto)` — const, line 68
+- `const suggest = useCallback(()` — const, line 93
+- `const cancel = useCallback(()` — const, line 101
+- `const decide = useCallback((chapter: VideoChapterDto, decision: "accept" | "dismiss")` — const, line 106
+- `const list = useMemo(()` — const, line 120
+- `const side = useMemo(()` — const, line 122
+- `const lo = chapter.learningObjects?.[0]?.title ?? null` — const, line 127
 
 ## Who imports or calls it
 

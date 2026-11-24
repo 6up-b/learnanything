@@ -137,6 +137,7 @@ Indexes and uniqueness:
 - `tests/test_reader_dialogue.py`
 - `tests/test_rebuild_history_appends.py`
 - `tests/test_rebuild_orchestrator.py`
+- `tests/test_replay_writes_no_ledger.py`
 - `tests/test_teacher_te2_landing_r1.py`
 - `tests/certain_grade_helpers.py`
 - `tests/test_deferred_regrade.py`
@@ -149,7 +150,6 @@ Indexes and uniqueness:
 - `tests/test_held_grade_evidence.py`
 - `tests/test_p0_projection_cutover.py`
 - `tests/test_probe_robust_cutover.py`
-- `tests/test_projection_timeline_agreement.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

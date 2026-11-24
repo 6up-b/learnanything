@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/db/stores/attempts.py](../../../../../../../src/learnloop/db/stores/attempts.py) |
-| Source lines | 2647 |
+| Source lines | 2682 |
 | Owning package | [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
@@ -103,53 +103,55 @@ The authoritative system-level explanation remains in [[State and Persistence]],
   - `insert_attempt_surprise(self, surprise: Mapping[str, Any]) -> None` (line 1238; public)
   - `latest_attempt_surprise(self, attempt_id: str) -> dict[str, Any] | None` (line 1243; public)
   - `attempt_innovation_samples(self) -> list[dict[str, Any]]` (line 1251; public) — Per-attempt rows for the difficulty-miscalibration monitor (spec §7.4).
-  - `update_attempt_surprise_actions(self, attempt_id: str, *, triggered_actions: list[str] | None=None, suppressed_actions: list[str] | None=None, gate_diagnostics: Mapping[str, Any] | None=None) -> bool` (line 1274; public)
-  - `record_attempt_outcome(self, *, attempt: Mapping[str, Any], evidence_rows: Iterable[Mapping[str, Any]], error_events: Iterable[Mapping[str, Any]], surprise: Mapping[str, Any], practice_item_state: PracticeItemState, mastery_state: MasteryState, facet_uncertainty_states: Iterable[Mapping[str, Any]]=(), quality_state: Mapping[str, Any] | None=None, ability_transition: Mapping[str, Any] | None=None, attempt_debug_payload: Mapping[str, Any] | None=None, item_parameter_state: ItemParameterState | None=None, lifecycle_inputs: LifecycleInputs | None=None, mastery_seed_inputs: MasterySeedInputs | None=None) -> None` (line 1304; public) — The live attempt's write.
-  - `insert_regrade_evidence(self, *, attempt_id: str, new_evidence_rows: Iterable[Mapping[str, Any]], superseded_by_evidence_id: str, supersede_tiers: tuple[int, ...]=(1,), clock: Clock | None=None) -> None` (line 1377; public)
-  - `attempt_debug_payload(self, attempt_id: str) -> dict[str, Any] | None` (line 1406; public)
-  - `learning_outcome_labels_for_source(self, attempt_id: str) -> list[dict[str, Any]]` (line 1414; public)
-  - `list_all_attempts(self) -> list[dict[str, Any]]` (line 1426; public) — Every practice attempt ordered for per-item replay (fitting jobs).
-  - `attempt_count_for_learning_objects(self, learning_object_ids: list[str]) -> int` (line 1435; public)
-  - `daily_qualifying_attempt_counts_for_learning_objects(self, learning_object_ids: list[str], *, days: int=14, not_before: str | None=None, clock: Clock | None=None) -> dict[date, int]` (line 1446; public) — Zero-filled, goal-scoped certification-capable attempts by local day.
-  - `practice_attempt_outcomes_for_items(self, item_ids: list[str]) -> list[dict[str, Any]]` (line 1507; public) — Time-ordered attempt outcomes for a set of practice items.
-  - `grading_correction_count_between(self, started_at: str, ended_at: str) -> int` (line 1540; public) — Count grading epochs after the original grade in a time window.
-  - `attempt_count(self) -> int` (line 1568; public) — Every attempt ever served — the "questions served" denominator.
-  - `ensure_assessment_contract_version(self, *, practice_item_id: str, contract_hash: str, contract_json: str, schema_version: int, clock: Clock | None=None) -> str` (line 1582; public) — Content-addressed assessment-contract snapshot (§5.2), idempotent.
-  - `fetch_assessment_contract_version(self, version_id: str) -> dict[str, Any] | None` (line 1629; public)
-  - `fetch_assessment_contract_versions(self, version_ids: Iterable[str]) -> dict[str, dict[str, Any]]` (line 1641; public) — Bulk-load content-addressed assessment contracts by id.
-  - `assessment_contract_versions_for_practice_item(self, practice_item_id: str) -> list[dict[str, Any]]` (line 1662; public) — Immutable contract snapshots ever presented for one PracticeItem.
-  - `append_measurement_contract_corrections(self, *, correction_set_id: str, source_practice_item_id: str, source_contract_version_ids: Iterable[str], corrected_practice_item_id: str, corrected_contract_version_id: str, consuming_projection_version: str, historical_evidence_policy: str, reason: str, correction: Mapping[str, Any] | None=None, clock: Clock | None=None) -> list[str]` (line 1683; public) — Append one immutable correction edge per historical contract version.
-  - `measurement_contract_corrections(self, *, source_practice_item_id: str | None=None, correction_set_id: str | None=None) -> list[dict[str, Any]]` (line 1743; public)
-  - `effective_assessment_contract_version(self, source_version_id: str, *, projection_version: str) -> dict[str, Any] | None` (line 1770; public) — Resolve the contract a named projection is authorized to consume.
-  - `effective_assessment_contract_versions(self, source_version_ids: Iterable[str], *, projection_version: str) -> dict[str, dict[str, Any]]` (line 1803; public) — Bulk form of :meth:`effective_assessment_contract_version`.
-  - `superseded_measurement_item_ids(self) -> set[str]` (line 1826; public) — Attempted item files superseded by an accepted correction set.
-  - `list_all_assessment_contract_versions(self) -> list[dict[str, Any]]` (line 1838; public)
-  - `insert_causal_cold_verification(self, *, verification_id: str, source_attempt_id: str, cold_attempt_id: str, repair_class_id: str, hypothesis_ids: Sequence[str], source_surface_family: str, cold_surface_family: str, avoided_affordances: Sequence[str], success: bool, capability_update: Mapping[str, Any], diagnosis_support_update: Mapping[str, Any], repair_effect_support: Mapping[str, Any], clock: Clock | None=None) -> dict[str, Any]` (line 1845; public)
-  - `causal_cold_verification_for_attempt(self, cold_attempt_id: str) -> dict[str, Any] | None` (line 1912; public)
-  - `insert_causal_cold_outcome(self, *, outcome_id: str, outcome: str, followup_task_id: str | None, remediation_episode_id: str | None, case_kind: str | None, case_ref: str | None, source_attempt_id: str | None, cold_attempt_id: str | None, repair_class_id: str | None, hypothesis_ids: Sequence[str], cold_verification_id: str | None, servable_opportunity: bool, duration_state: str | None, detail: Mapping[str, Any], store_version: str, scheduled_not_before: str | None, scheduled_expires_at: str | None, clock: Clock | None=None) -> dict[str, Any] | None` (line 1943; public)
-  - `_decode_causal_cold_outcome(row: Any) -> dict[str, Any]` (line 2003; internal)
-  - `causal_cold_outcome(self, outcome_id: str) -> dict[str, Any] | None` (line 2010; public)
-  - `causal_cold_outcome_for_task(self, followup_task_id: str) -> dict[str, Any] | None` (line 2018; public)
-  - `causal_cold_outcomes(self, *, outcome: str | None=None, remediation_episode_id: str | None=None) -> list[dict[str, Any]]` (line 2028; public)
-  - `insert_coldness_receipt(self, *, receipt_id: str, lane: str, stage: str, measurement_opportunity_id: str | None=None, followup_task_id: str | None, remediation_episode_id: str | None, source_attempt_id: str | None, cold_attempt_id: str | None, cold_verification_id: str | None, dimensions: Mapping[str, Any], derived: Mapping[str, Any], telemetry_coverage: Mapping[str, Any], receipt_version: str, clock: Clock | None=None) -> dict[str, Any] | None` (line 2057; public)
-  - `_decode_coldness_receipt(row: Any) -> dict[str, Any]` (line 2116; internal)
-  - `coldness_receipt(self, receipt_id: str) -> dict[str, Any] | None` (line 2125; public)
-  - `coldness_receipt_for_task_stage(self, followup_task_id: str, stage: str) -> dict[str, Any] | None` (line 2132; public)
-  - `coldness_receipt_for_opportunity_stage(self, measurement_opportunity_id: str, stage: str) -> dict[str, Any] | None` (line 2145; public)
-  - `coldness_receipts_for_task(self, followup_task_id: str) -> list[dict[str, Any]]` (line 2158; public)
-  - `coldness_receipt_for_verification(self, cold_verification_id: str) -> dict[str, Any] | None` (line 2172; public)
-  - `practice_attempts_between(self, *, after: str | None, before: str | None) -> list[dict[str, Any]]` (line 2182; public) — Attempts in an open interval, oldest first — the exposure-scan read.
-  - `practice_attempts_for_items_before(self, practice_item_ids: Sequence[str], *, before: str) -> list[dict[str, Any]]` (line 2212; public) — Prior administrations for a bounded candidate surface family.
-  - `insert_certification_cold_probe_outcome(self, *, outcome_id: str, certificate_id: str, learning_object_id: str, blueprint_id: str, recipe_id: str, certificate_receipt: Mapping[str, Any], certified_at: str | None, followup_task_id: str, scheduled_not_before: str, scheduled_expires_at: str | None, horizon_days: float, window_days: float, probe_practice_item_id: str, probe_attempt_id: str, probe_surface_group: str, excluded_surface_groups: Sequence[str], held_out_basis: str, avoided_affordances: Sequence[str], verdict: str, indeterminate_reason: str | None, success: bool | None, correctness: float | None, success_threshold: float, assisted: bool, certificate_state_at_probe: str, store_version: str, policy_version: str, certification_algorithm_version: str | None, parameters: Mapping[str, Any], grading_source: str | None=None, grading_prompt_version: str | None=None, grader_model: str | None=None, grader_provider: str | None=None, grader_provider_revision: str | None=None, grading_agent_run_id: str | None=None, clock: Clock | None=None) -> dict[str, Any] | None` (line 2247; public)
-  - `certification_cold_probe_outcome_for_attempt(self, probe_attempt_id: str) -> dict[str, Any] | None` (line 2350; public)
-  - `certification_cold_probe_outcomes(self) -> list[dict[str, Any]]` (line 2363; public)
-  - `_insert_grading_evidence(self, connection: sqlite3.Connection, attempt_id: str, row: Mapping[str, Any]) -> None` (line 2373; internal)
-  - `_insert_attempt_surprise(self, connection: sqlite3.Connection, surprise: Mapping[str, Any]) -> None` (line 2415; internal)
-  - `_insert_learning_outcome_labels(self, connection: sqlite3.Connection, attempt: Mapping[str, Any], *, algorithm_version: str, max_sources: int=20) -> None` (line 2445; internal)
-  - `attempted_practice_item_ids(self) -> set[str]` (line 2539; public) — Practice item ids that have at least one recorded attempt.
-  - `_grading_epoch_transitions(self, rows: list[sqlite3.Row]) -> dict[str, list[dict[str, Any]]]` (line 2557; internal) — Group ordered ``grading_evidence`` rows into per-attempt epochs and return, per attempt, the ordered old→new transitions (each grading epoch after the first).
-  - `regrade_epoch_transitions(self) -> list[dict[str, Any]]` (line 2603; public) — Every post-original grading epoch across all attempts, as an old→new transition with the attempt's item/LO references and the epoch time.
-  - `attempt_regrade_marker(self, attempt_id: str) -> dict[str, Any] | None` (line 2626; public) — The most recent regrade (old→new score) persisted for one attempt, or ``None`` when the attempt has only its original grading epoch.
+  - `attempt_surprise_gate_records(self, attempt_ids: Iterable[str] | None=None) -> dict[str, tuple[Any, Any, Any]]` (line 1274; public) — The follow-up gate's records on these attempts' surprise rows (every row with ``None``), as stored (``triggered_actions_json``, ``suppressed_actions_json``, ``gate_diagnostics_json``): what replay carries, since it never runs the gate.
+  - `restore_attempt_surprise_gate_record(self, attempt_id: str, record: Sequence[Any]) -> bool` (line 1296; public) — Put a carried gate record back on the replayed surprise row, byte for byte.
+  - `update_attempt_surprise_actions(self, attempt_id: str, *, triggered_actions: list[str] | None=None, suppressed_actions: list[str] | None=None, gate_diagnostics: Mapping[str, Any] | None=None) -> bool` (line 1309; public)
+  - `record_attempt_outcome(self, *, attempt: Mapping[str, Any], evidence_rows: Iterable[Mapping[str, Any]], error_events: Iterable[Mapping[str, Any]], surprise: Mapping[str, Any], practice_item_state: PracticeItemState, mastery_state: MasteryState, facet_uncertainty_states: Iterable[Mapping[str, Any]]=(), quality_state: Mapping[str, Any] | None=None, ability_transition: Mapping[str, Any] | None=None, attempt_debug_payload: Mapping[str, Any] | None=None, item_parameter_state: ItemParameterState | None=None, lifecycle_inputs: LifecycleInputs | None=None, mastery_seed_inputs: MasterySeedInputs | None=None) -> None` (line 1339; public) — The live attempt's write.
+  - `insert_regrade_evidence(self, *, attempt_id: str, new_evidence_rows: Iterable[Mapping[str, Any]], superseded_by_evidence_id: str, supersede_tiers: tuple[int, ...]=(1,), clock: Clock | None=None) -> None` (line 1412; public)
+  - `attempt_debug_payload(self, attempt_id: str) -> dict[str, Any] | None` (line 1441; public)
+  - `learning_outcome_labels_for_source(self, attempt_id: str) -> list[dict[str, Any]]` (line 1449; public)
+  - `list_all_attempts(self) -> list[dict[str, Any]]` (line 1461; public) — Every practice attempt ordered for per-item replay (fitting jobs).
+  - `attempt_count_for_learning_objects(self, learning_object_ids: list[str]) -> int` (line 1470; public)
+  - `daily_qualifying_attempt_counts_for_learning_objects(self, learning_object_ids: list[str], *, days: int=14, not_before: str | None=None, clock: Clock | None=None) -> dict[date, int]` (line 1481; public) — Zero-filled, goal-scoped certification-capable attempts by local day.
+  - `practice_attempt_outcomes_for_items(self, item_ids: list[str]) -> list[dict[str, Any]]` (line 1542; public) — Time-ordered attempt outcomes for a set of practice items.
+  - `grading_correction_count_between(self, started_at: str, ended_at: str) -> int` (line 1575; public) — Count grading epochs after the original grade in a time window.
+  - `attempt_count(self) -> int` (line 1603; public) — Every attempt ever served — the "questions served" denominator.
+  - `ensure_assessment_contract_version(self, *, practice_item_id: str, contract_hash: str, contract_json: str, schema_version: int, clock: Clock | None=None) -> str` (line 1617; public) — Content-addressed assessment-contract snapshot (§5.2), idempotent.
+  - `fetch_assessment_contract_version(self, version_id: str) -> dict[str, Any] | None` (line 1664; public)
+  - `fetch_assessment_contract_versions(self, version_ids: Iterable[str]) -> dict[str, dict[str, Any]]` (line 1676; public) — Bulk-load content-addressed assessment contracts by id.
+  - `assessment_contract_versions_for_practice_item(self, practice_item_id: str) -> list[dict[str, Any]]` (line 1697; public) — Immutable contract snapshots ever presented for one PracticeItem.
+  - `append_measurement_contract_corrections(self, *, correction_set_id: str, source_practice_item_id: str, source_contract_version_ids: Iterable[str], corrected_practice_item_id: str, corrected_contract_version_id: str, consuming_projection_version: str, historical_evidence_policy: str, reason: str, correction: Mapping[str, Any] | None=None, clock: Clock | None=None) -> list[str]` (line 1718; public) — Append one immutable correction edge per historical contract version.
+  - `measurement_contract_corrections(self, *, source_practice_item_id: str | None=None, correction_set_id: str | None=None) -> list[dict[str, Any]]` (line 1778; public)
+  - `effective_assessment_contract_version(self, source_version_id: str, *, projection_version: str) -> dict[str, Any] | None` (line 1805; public) — Resolve the contract a named projection is authorized to consume.
+  - `effective_assessment_contract_versions(self, source_version_ids: Iterable[str], *, projection_version: str) -> dict[str, dict[str, Any]]` (line 1838; public) — Bulk form of :meth:`effective_assessment_contract_version`.
+  - `superseded_measurement_item_ids(self) -> set[str]` (line 1861; public) — Attempted item files superseded by an accepted correction set.
+  - `list_all_assessment_contract_versions(self) -> list[dict[str, Any]]` (line 1873; public)
+  - `insert_causal_cold_verification(self, *, verification_id: str, source_attempt_id: str, cold_attempt_id: str, repair_class_id: str, hypothesis_ids: Sequence[str], source_surface_family: str, cold_surface_family: str, avoided_affordances: Sequence[str], success: bool, capability_update: Mapping[str, Any], diagnosis_support_update: Mapping[str, Any], repair_effect_support: Mapping[str, Any], clock: Clock | None=None) -> dict[str, Any]` (line 1880; public)
+  - `causal_cold_verification_for_attempt(self, cold_attempt_id: str) -> dict[str, Any] | None` (line 1947; public)
+  - `insert_causal_cold_outcome(self, *, outcome_id: str, outcome: str, followup_task_id: str | None, remediation_episode_id: str | None, case_kind: str | None, case_ref: str | None, source_attempt_id: str | None, cold_attempt_id: str | None, repair_class_id: str | None, hypothesis_ids: Sequence[str], cold_verification_id: str | None, servable_opportunity: bool, duration_state: str | None, detail: Mapping[str, Any], store_version: str, scheduled_not_before: str | None, scheduled_expires_at: str | None, clock: Clock | None=None) -> dict[str, Any] | None` (line 1978; public)
+  - `_decode_causal_cold_outcome(row: Any) -> dict[str, Any]` (line 2038; internal)
+  - `causal_cold_outcome(self, outcome_id: str) -> dict[str, Any] | None` (line 2045; public)
+  - `causal_cold_outcome_for_task(self, followup_task_id: str) -> dict[str, Any] | None` (line 2053; public)
+  - `causal_cold_outcomes(self, *, outcome: str | None=None, remediation_episode_id: str | None=None) -> list[dict[str, Any]]` (line 2063; public)
+  - `insert_coldness_receipt(self, *, receipt_id: str, lane: str, stage: str, measurement_opportunity_id: str | None=None, followup_task_id: str | None, remediation_episode_id: str | None, source_attempt_id: str | None, cold_attempt_id: str | None, cold_verification_id: str | None, dimensions: Mapping[str, Any], derived: Mapping[str, Any], telemetry_coverage: Mapping[str, Any], receipt_version: str, clock: Clock | None=None) -> dict[str, Any] | None` (line 2092; public)
+  - `_decode_coldness_receipt(row: Any) -> dict[str, Any]` (line 2151; internal)
+  - `coldness_receipt(self, receipt_id: str) -> dict[str, Any] | None` (line 2160; public)
+  - `coldness_receipt_for_task_stage(self, followup_task_id: str, stage: str) -> dict[str, Any] | None` (line 2167; public)
+  - `coldness_receipt_for_opportunity_stage(self, measurement_opportunity_id: str, stage: str) -> dict[str, Any] | None` (line 2180; public)
+  - `coldness_receipts_for_task(self, followup_task_id: str) -> list[dict[str, Any]]` (line 2193; public)
+  - `coldness_receipt_for_verification(self, cold_verification_id: str) -> dict[str, Any] | None` (line 2207; public)
+  - `practice_attempts_between(self, *, after: str | None, before: str | None) -> list[dict[str, Any]]` (line 2217; public) — Attempts in an open interval, oldest first — the exposure-scan read.
+  - `practice_attempts_for_items_before(self, practice_item_ids: Sequence[str], *, before: str) -> list[dict[str, Any]]` (line 2247; public) — Prior administrations for a bounded candidate surface family.
+  - `insert_certification_cold_probe_outcome(self, *, outcome_id: str, certificate_id: str, learning_object_id: str, blueprint_id: str, recipe_id: str, certificate_receipt: Mapping[str, Any], certified_at: str | None, followup_task_id: str, scheduled_not_before: str, scheduled_expires_at: str | None, horizon_days: float, window_days: float, probe_practice_item_id: str, probe_attempt_id: str, probe_surface_group: str, excluded_surface_groups: Sequence[str], held_out_basis: str, avoided_affordances: Sequence[str], verdict: str, indeterminate_reason: str | None, success: bool | None, correctness: float | None, success_threshold: float, assisted: bool, certificate_state_at_probe: str, store_version: str, policy_version: str, certification_algorithm_version: str | None, parameters: Mapping[str, Any], grading_source: str | None=None, grading_prompt_version: str | None=None, grader_model: str | None=None, grader_provider: str | None=None, grader_provider_revision: str | None=None, grading_agent_run_id: str | None=None, clock: Clock | None=None) -> dict[str, Any] | None` (line 2282; public)
+  - `certification_cold_probe_outcome_for_attempt(self, probe_attempt_id: str) -> dict[str, Any] | None` (line 2385; public)
+  - `certification_cold_probe_outcomes(self) -> list[dict[str, Any]]` (line 2398; public)
+  - `_insert_grading_evidence(self, connection: sqlite3.Connection, attempt_id: str, row: Mapping[str, Any]) -> None` (line 2408; internal)
+  - `_insert_attempt_surprise(self, connection: sqlite3.Connection, surprise: Mapping[str, Any]) -> None` (line 2450; internal)
+  - `_insert_learning_outcome_labels(self, connection: sqlite3.Connection, attempt: Mapping[str, Any], *, algorithm_version: str, max_sources: int=20) -> None` (line 2480; internal)
+  - `attempted_practice_item_ids(self) -> set[str]` (line 2574; public) — Practice item ids that have at least one recorded attempt.
+  - `_grading_epoch_transitions(self, rows: list[sqlite3.Row]) -> dict[str, list[dict[str, Any]]]` (line 2592; internal) — Group ordered ``grading_evidence`` rows into per-attempt epochs and return, per attempt, the ordered old→new transitions (each grading epoch after the first).
+  - `regrade_epoch_transitions(self) -> list[dict[str, Any]]` (line 2638; public) — Every post-original grading epoch across all attempts, as an old→new transition with the attempt's item/LO references and the epoch time.
+  - `attempt_regrade_marker(self, attempt_id: str) -> dict[str, Any] | None` (line 2661; public) — The most recent regrade (old→new score) persisted for one attempt, or ``None`` when the attempt has only its original grading epoch.
 
 ### Module constants
 
