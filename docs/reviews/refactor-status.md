@@ -109,7 +109,7 @@ The orchestrator updates this file in each landing commit. This snapshot is the 
 | E7 | Build the shared view of evidence once | waiting on | — | — | The [evidence packet spec](../specs/spec_evidence_packets_v1.md) |
 | E7b | Move shared learner signals ahead of E7 | dropped | — | [Nov 16 audit](refactor-strategy-v3-audit-2026-11-16.md#3-additions) | Folded into E7 by the Nov 17 decision |
 | E8 | Remove performance switches from learned model identity | deferred | — | — | Goes with F2 (owner, Nov 17: F2 only if Next after feedback is slow) |
-| E9 | Rename misleading modules and move feature-owned files | not started | — | — | E1–E7 |
+| E9 | Rename misleading modules and move feature-owned files | closed (no eligible move) | this commit | [refactor-e9.md](refactor-e9.md) | Step 0 measured every root module's importers: 35 of 37 are imported by more than one production package, and the two single-package cases (`reader_learner_state` into `reader`, `app_launch` into `cli`) would each break an import contract. Nothing moves; the root keeps its modules. Done by a Codex worker |
 
 ## Arc F and RE2
 
