@@ -13,6 +13,7 @@ source_paths:
   - "src/learnloop/db/stores/approach_maps.py"
   - "src/learnloop/db/stores/attempts.py"
   - "src/learnloop/db/stores/causal.py"
+  - "src/learnloop/db/stores/check_administrations.py"
   - "src/learnloop/db/stores/collection.py"
   - "src/learnloop/db/stores/completion.py"
   - "src/learnloop/db/stores/content.py"
@@ -131,6 +132,7 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 | [[Reference/Modules/learnloop/db/stores/approach_maps|learnloop.db.stores.approach_maps]] | [[Reference/Modules/learnloop/db/stores/approach_maps#^module-purpose|purpose]] | `ACTIVE` | 4 | 2 |
 | [[Reference/Modules/learnloop/db/stores/attempts|learnloop.db.stores.attempts]] | [[Reference/Modules/learnloop/db/stores/attempts#^module-purpose|purpose]] | `ACTIVE` | 5 | 4 |
 | [[Reference/Modules/learnloop/db/stores/causal|learnloop.db.stores.causal]] | [[Reference/Modules/learnloop/db/stores/causal#^module-purpose|purpose]] | `ACTIVE` | 2 | 0 |
+| [[Reference/Modules/learnloop/db/stores/check_administrations|learnloop.db.stores.check_administrations]] | [[Reference/Modules/learnloop/db/stores/check_administrations#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/db/stores/collection|learnloop.db.stores.collection]] | [[Reference/Modules/learnloop/db/stores/collection#^module-purpose|purpose]] | `ACTIVE` | 1 | 3 |
 | [[Reference/Modules/learnloop/db/stores/completion|learnloop.db.stores.completion]] | [[Reference/Modules/learnloop/db/stores/completion#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/db/stores/content|learnloop.db.stores.content]] | [[Reference/Modules/learnloop/db/stores/content#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
@@ -170,7 +172,7 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 | [[Reference/Modules/learnloop/db/stores/model_calls|learnloop.db.stores.model_calls]] | [[Reference/Modules/learnloop/db/stores/model_calls#^module-purpose|purpose]] | `ACTIVE` | 4 | 4 |
 | [[Reference/Modules/learnloop/db/stores/observation_ledger|learnloop.db.stores.observation_ledger]] | [[Reference/Modules/learnloop/db/stores/observation_ledger#^module-purpose|purpose]] | `ACTIVE` | 4 | 5 |
 | [[Reference/Modules/learnloop/db/stores/pad_ledgers|learnloop.db.stores.pad_ledgers]] | [[Reference/Modules/learnloop/db/stores/pad_ledgers#^module-purpose|purpose]] | `ACTIVE` | 3 | 0 |
-| [[Reference/Modules/learnloop/db/stores/pad_reads|learnloop.db.stores.pad_reads]] | [[Reference/Modules/learnloop/db/stores/pad_reads#^module-purpose|purpose]] | `ACTIVE` | 15 | 4 |
+| [[Reference/Modules/learnloop/db/stores/pad_reads|learnloop.db.stores.pad_reads]] | [[Reference/Modules/learnloop/db/stores/pad_reads#^module-purpose|purpose]] | `ACTIVE` | 15 | 3 |
 | [[Reference/Modules/learnloop/db/stores/pads|learnloop.db.stores.pads]] | [[Reference/Modules/learnloop/db/stores/pads#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |
 | [[Reference/Modules/learnloop/db/stores/passage_link_reads|learnloop.db.stores.passage_link_reads]] | [[Reference/Modules/learnloop/db/stores/passage_link_reads#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/db/stores/pf|learnloop.db.stores.pf]] | [[Reference/Modules/learnloop/db/stores/pf#^module-purpose|purpose]] | `ACTIVE` | 6 | 7 |
@@ -179,7 +181,7 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 | [[Reference/Modules/learnloop/db/stores/practice_index|learnloop.db.stores.practice_index]] | [[Reference/Modules/learnloop/db/stores/practice_index#^module-purpose|purpose]] | `ACTIVE` | 17 | 10 |
 | [[Reference/Modules/learnloop/db/stores/practice_state|learnloop.db.stores.practice_state]] | [[Reference/Modules/learnloop/db/stores/practice_state#^module-purpose|purpose]] | `ACTIVE` | 6 | 0 |
 | [[Reference/Modules/learnloop/db/stores/probes|learnloop.db.stores.probes]] | [[Reference/Modules/learnloop/db/stores/probes#^module-purpose|purpose]] | `ACTIVE` | 9 | 0 |
-| [[Reference/Modules/learnloop/db/stores/provenance|learnloop.db.stores.provenance]] | [[Reference/Modules/learnloop/db/stores/provenance#^module-purpose|purpose]] | `ACTIVE` | 22 | 7 |
+| [[Reference/Modules/learnloop/db/stores/provenance|learnloop.db.stores.provenance]] | [[Reference/Modules/learnloop/db/stores/provenance#^module-purpose|purpose]] | `ACTIVE` | 24 | 7 |
 | [[Reference/Modules/learnloop/db/stores/questions|learnloop.db.stores.questions]] | [[Reference/Modules/learnloop/db/stores/questions#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
 | [[Reference/Modules/learnloop/db/stores/reader|learnloop.db.stores.reader]] | [[Reference/Modules/learnloop/db/stores/reader#^module-purpose|purpose]] | `ACTIVE` | 6 | 0 |
 | [[Reference/Modules/learnloop/db/stores/reader_cue_links|learnloop.db.stores.reader_cue_links]] | [[Reference/Modules/learnloop/db/stores/reader_cue_links#^module-purpose|purpose]] | `ACTIVE` | 2 | 11 |
@@ -196,7 +198,7 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 | [[Reference/Modules/learnloop/db/stores/session_ownership|learnloop.db.stores.session_ownership]] | [[Reference/Modules/learnloop/db/stores/session_ownership#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/db/stores/source_block_fts|learnloop.db.stores.source_block_fts]] | [[Reference/Modules/learnloop/db/stores/source_block_fts#^module-purpose|purpose]] | `ACTIVE` | 39 | 10 |
 | [[Reference/Modules/learnloop/db/stores/source_documents|learnloop.db.stores.source_documents]] | [[Reference/Modules/learnloop/db/stores/source_documents#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
-| [[Reference/Modules/learnloop/db/stores/source_service|learnloop.db.stores.source_service]] | [[Reference/Modules/learnloop/db/stores/source_service#^module-purpose|purpose]] | `ACTIVE` | 34 | 52 |
+| [[Reference/Modules/learnloop/db/stores/source_service|learnloop.db.stores.source_service]] | [[Reference/Modules/learnloop/db/stores/source_service#^module-purpose|purpose]] | `ACTIVE` | 34 | 53 |
 | [[Reference/Modules/learnloop/db/stores/span_projection_reads|learnloop.db.stores.span_projection_reads]] | [[Reference/Modules/learnloop/db/stores/span_projection_reads#^module-purpose|purpose]] | `ACTIVE` | 3 | 1 |
 | [[Reference/Modules/learnloop/db/stores/span_projections|learnloop.db.stores.span_projections]] | [[Reference/Modules/learnloop/db/stores/span_projections#^module-purpose|purpose]] | `ACTIVE` | 2 | 0 |
 | [[Reference/Modules/learnloop/db/stores/task_blueprints|learnloop.db.stores.task_blueprints]] | [[Reference/Modules/learnloop/db/stores/task_blueprints#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
@@ -221,8 +223,8 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 - [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 28 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 27 static module edges
 - [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 25 static module edges
+- [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] — 23 static module edges
 - [[Reference/Modules/learnloop/instructional/_package|learnloop.instructional]] — 23 static module edges
-- [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] — 22 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 20 static module edges
 - [[Reference/Modules/learnloop/pads/_package|learnloop.pads]] — 19 static module edges
 - [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] — 17 static module edges
@@ -236,9 +238,9 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 - [[Reference/Modules/learnloop/workbench/_package|learnloop.workbench]] — 12 static module edges
 - [[Reference/Modules/learnloop/practice_index/_package|learnloop.practice_index]] — 11 static module edges
 - [[Reference/Modules/learnloop/_package|learnloop]] — 9 static module edges
+- [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 9 static module edges
 - [[Reference/Modules/learnloop/field/_package|learnloop.field]] — 9 static module edges
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 9 static module edges
-- [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 8 static module edges
 - [[Reference/Modules/learnloop/followup_run/_package|learnloop.followup_run]] — 8 static module edges
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 8 static module edges
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 7 static module edges
@@ -246,12 +248,12 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 - [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 6 static module edges
 - [[Reference/Modules/learnloop/diagnosis/offline_review/_package|learnloop.diagnosis.offline_review]] — 6 static module edges
 - [[Reference/Modules/learnloop/diagnosis/recurrence/_package|learnloop.diagnosis.recurrence]] — 6 static module edges
+- [[Reference/Modules/learnloop/scheduling/intent/_package|learnloop.scheduling.intent]] — 6 static module edges
 - [[Reference/Modules/learnloop/companion/_package|learnloop.companion]] — 5 static module edges
 - [[Reference/Modules/learnloop/desks/_package|learnloop.desks]] — 5 static module edges
 - [[Reference/Modules/learnloop/evsi_calibration/_package|learnloop.evsi_calibration]] — 5 static module edges
 - [[Reference/Modules/learnloop/followup_serve/_package|learnloop.followup_serve]] — 5 static module edges
 - [[Reference/Modules/learnloop/placement/_package|learnloop.placement]] — 5 static module edges
-- [[Reference/Modules/learnloop/scheduling/intent/_package|learnloop.scheduling.intent]] — 5 static module edges
 - [[Reference/Modules/learnloop/content/facet_identity/_package|learnloop.content.facet_identity]] — 4 static module edges
 - [[Reference/Modules/learnloop/content/proposals/_package|learnloop.content.proposals]] — 4 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 4 static module edges
@@ -266,11 +268,11 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 - [[Reference/Modules/learnloop/ops/contamination/_package|learnloop.ops.contamination]] — 3 static module edges
 - [[Reference/Modules/learnloop/passage_union/_package|learnloop.passage_union]] — 3 static module edges
 - [[Reference/Modules/learnloop/why/_package|learnloop.why]] — 3 static module edges
+- [[Reference/Modules/learnloop/intent/_package|learnloop.intent]] — 2 static module edges
 - [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] — 1 static module edge
 - [[Reference/Modules/learnloop/local_embeddings/_package|learnloop.local_embeddings]] — 1 static module edge
 - [[Reference/Modules/learnloop/recognition/_package|learnloop.recognition]] — 1 static module edge
 - [[Reference/Modules/learnloop/remote/_package|learnloop.remote]] — 1 static module edge
-- [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] — 1 static module edge
 
 ### Dependency neighborhood
 
@@ -285,8 +287,8 @@ flowchart LR
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
     n_learnloop_adaptive_difficulty["learnloop.adaptive_difficulty"]
     n_learnloop_daily_plan["learnloop.daily_plan"]
-    n_learnloop_instructional["learnloop.instructional"]
     n_learnloop_figures["learnloop.figures"]
+    n_learnloop_instructional["learnloop.instructional"]
     n_learnloop_diagnosis["learnloop.diagnosis"]
     n_learnloop_pads["learnloop.pads"]
     n_learnloop -->|9| center
@@ -297,8 +299,8 @@ flowchart LR
     n_learnloop_sidecar_handlers -->|30| center
     n_learnloop_adaptive_difficulty -->|28| center
     n_learnloop_daily_plan -->|25| center
+    n_learnloop_figures -->|23| center
     n_learnloop_instructional -->|23| center
-    n_learnloop_figures -->|22| center
     n_learnloop_diagnosis -->|20| center
     n_learnloop_pads -->|19| center
 ```

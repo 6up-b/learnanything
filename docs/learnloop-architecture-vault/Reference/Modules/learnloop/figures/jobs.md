@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/figures/jobs.py](../../../../../../src/learnloop/figures/jobs.py) |
-| Source lines | 49 |
+| Source lines | 48 |
 | Owning package | [[Reference/Modules/learnloop/figures/_package|learnloop.figures]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |

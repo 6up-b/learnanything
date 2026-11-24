@@ -109,6 +109,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop_sidecar/handlers/hints|learnloop_sidecar.handlers.hints]] — imports `SidecarError`; statically calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/handlers/ingest|learnloop_sidecar.handlers.ingest]] — imports `SidecarError`, `require_ai_ok`; statically calls `SidecarError`, `require_ai_ok`
 - [[Reference/Modules/learnloop_sidecar/handlers/ink|learnloop_sidecar.handlers.ink]] — imports `SidecarError`; statically calls `SidecarError`
+- [[Reference/Modules/learnloop_sidecar/handlers/inline_checks|learnloop_sidecar.handlers.inline_checks]] — imports `SidecarError`; statically calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/handlers/intent|learnloop_sidecar.handlers.intent]] — imports `SidecarError`; statically calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/handlers/item_authoring|learnloop_sidecar.handlers.item_authoring]] — imports `SidecarError`; statically calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/handlers/kept_comparisons|learnloop_sidecar.handlers.kept_comparisons]] — imports `SidecarError`; statically calls `SidecarError`
@@ -558,6 +559,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_read_it_anyway_on_a_dimmed_section_is_stored_idempotent_and_clearable`
   - `test_switched_off_every_rpc_refuses_and_nothing_is_called_or_written`
   - `test_the_empty_and_thin_states`
+- [tests/test_reader_rd7a_inline_checks.py](../../../../../tests/test_reader_rd7a_inline_checks.py) — direct import
+  - `test_a_check_with_an_answer_being_written_in_today_is_not_opened_here`
+  - `test_below_the_tag_every_check_rpc_refuses_and_today_ignores_the_lock`
+  - `test_not_now_closes_with_no_attempt_and_the_duty_stays`
+  - `test_one_administration_at_a_time_and_today_honours_it`
+  - `test_submit_records_one_attempt_on_the_reader_surface_settles_and_is_idempotent`
 - [tests/test_reader_rd8a_rpcs.py](../../../../../tests/test_reader_rd8a_rpcs.py) — direct import
   - `test_a_failed_reading_says_why`
   - `test_a_reading_belongs_to_its_vault`

@@ -553,6 +553,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_model_usage_report.py](../../../../../../tests/test_model_usage_report.py) — direct import
 - [tests/test_notebook_check.py](../../../../../../tests/test_notebook_check.py) — direct import
   - `test_out_is_required`
+- [tests/test_notebook_contract.py](../../../../../../tests/test_notebook_contract.py) — direct import
+  - `test_contract_cli_never_imports_key_or_client`
+  - `test_contract_cli_writes_revision_bound_reports`
 - [tests/test_patch_applier.py](../../../../../../tests/test_patch_applier.py) — direct import
   - `test_accept_cli_all_flag_applies_every_pending_item`
   - `test_accept_cli_applies_and_show_proposal_includes_items`

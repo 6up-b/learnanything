@@ -317,6 +317,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reader_ca2_one_ask.py](../../../../../../tests/test_reader_ca2_one_ask.py) — direct import
 - [tests/test_reader_quick_check_failed.py](../../../../../../tests/test_reader_quick_check_failed.py) — direct import
 - [tests/test_reader_rd10_video.py](../../../../../../tests/test_reader_rd10_video.py) — direct import
+- [tests/test_reader_rd7a_inline_checks.py](../../../../../../tests/test_reader_rd7a_inline_checks.py) — direct import
 - [tests/test_reader_rd9a_lesson_windows.py](../../../../../../tests/test_reader_rd9a_lesson_windows.py) — direct import
 - [tests/test_reader_rw3a_landing.py](../../../../../../tests/test_reader_rw3a_landing.py) — direct import
 - [tests/test_reader_seen_passages.py](../../../../../../tests/test_reader_seen_passages.py) — direct import

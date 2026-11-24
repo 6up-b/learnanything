@@ -7,6 +7,7 @@ version: "1.0.0"
 source_paths:
   - "src/learnloop/content/synthesis/__init__.py"
   - "src/learnloop/content/synthesis/ai_contracts.py"
+  - "src/learnloop/content/synthesis/append_budget.py"
   - "src/learnloop/content/synthesis/append_neighborhood.py"
   - "src/learnloop/content/synthesis/brief.py"
   - "src/learnloop/content/synthesis/coverage_rollup.py"
@@ -66,7 +67,8 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 | Module | Purpose | Status | Direct importers | Direct test files |
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/content/synthesis/__init__|learnloop.content.synthesis]] | [[Reference/Modules/learnloop/content/synthesis/__init__#^module-purpose|purpose]] | `ACTIVE` | 0 | 0 |
-| [[Reference/Modules/learnloop/content/synthesis/ai_contracts|learnloop.content.synthesis.ai_contracts]] | [[Reference/Modules/learnloop/content/synthesis/ai_contracts#^module-purpose|purpose]] | `ACTIVE` | 5 | 47 |
+| [[Reference/Modules/learnloop/content/synthesis/ai_contracts|learnloop.content.synthesis.ai_contracts]] | [[Reference/Modules/learnloop/content/synthesis/ai_contracts#^module-purpose|purpose]] | `ACTIVE` | 7 | 47 |
+| [[Reference/Modules/learnloop/content/synthesis/append_budget|learnloop.content.synthesis.append_budget]] | [[Reference/Modules/learnloop/content/synthesis/append_budget#^module-purpose|purpose]] | `ACTIVE` | 2 | 0 |
 | [[Reference/Modules/learnloop/content/synthesis/append_neighborhood|learnloop.content.synthesis.append_neighborhood]] | [[Reference/Modules/learnloop/content/synthesis/append_neighborhood#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
 | [[Reference/Modules/learnloop/content/synthesis/brief|learnloop.content.synthesis.brief]] | [[Reference/Modules/learnloop/content/synthesis/brief#^module-purpose|purpose]] | `ACTIVE` | 7 | 1 |
 | [[Reference/Modules/learnloop/content/synthesis/coverage_rollup|learnloop.content.synthesis.coverage_rollup]] | [[Reference/Modules/learnloop/content/synthesis/coverage_rollup#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
@@ -74,7 +76,7 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 | [[Reference/Modules/learnloop/content/synthesis/facet_candidates|learnloop.content.synthesis.facet_candidates]] | [[Reference/Modules/learnloop/content/synthesis/facet_candidates#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
 | [[Reference/Modules/learnloop/content/synthesis/facet_doctor|learnloop.content.synthesis.facet_doctor]] | [[Reference/Modules/learnloop/content/synthesis/facet_doctor#^module-purpose|purpose]] | `ACTIVE` | 4 | 2 |
 | [[Reference/Modules/learnloop/content/synthesis/facet_mint_gate|learnloop.content.synthesis.facet_mint_gate]] | [[Reference/Modules/learnloop/content/synthesis/facet_mint_gate#^module-purpose|purpose]] | `ACTIVE` | 5 | 2 |
-| [[Reference/Modules/learnloop/content/synthesis/graph_nomination|learnloop.content.synthesis.graph_nomination]] | [[Reference/Modules/learnloop/content/synthesis/graph_nomination#^module-purpose|purpose]] | `ACTIVE` | 10 | 3 |
+| [[Reference/Modules/learnloop/content/synthesis/graph_nomination|learnloop.content.synthesis.graph_nomination]] | [[Reference/Modules/learnloop/content/synthesis/graph_nomination#^module-purpose|purpose]] | `ACTIVE` | 10 | 4 |
 | [[Reference/Modules/learnloop/content/synthesis/jobs|learnloop.content.synthesis.jobs]] | [[Reference/Modules/learnloop/content/synthesis/jobs#^module-purpose|purpose]] | `ACTIVE` | 1 | 7 |
 | [[Reference/Modules/learnloop/content/synthesis/normalize|learnloop.content.synthesis.normalize]] | [[Reference/Modules/learnloop/content/synthesis/normalize#^module-purpose|purpose]] | `ACTIVE` | 2 | 5 |
 | [[Reference/Modules/learnloop/content/synthesis/proposal_match|learnloop.content.synthesis.proposal_match]] | [[Reference/Modules/learnloop/content/synthesis/proposal_match#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
@@ -113,8 +115,8 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 
 - [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 12 static module edges
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 9 static module edges
+- [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 7 static module edges
 - [[Reference/Modules/learnloop/content/facet_identity/_package|learnloop.content.facet_identity]] — 6 static module edges
-- [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 5 static module edges
 - [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 4 static module edges
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 2 static module edges
 - [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 2 static module edges
@@ -149,7 +151,7 @@ flowchart LR
     n_learnloop_cli -->|12| center
     n_learnloop_content_sources -->|2| center
     center -->|10| n_learnloop_content_sources
-    n_learnloop_content_pipeline -->|5| center
+    n_learnloop_content_pipeline -->|7| center
     center -->|4| n_learnloop_content_pipeline
     n_learnloop_sidecar_handlers -->|9| center
     center -->|4| n_learnloop_ingest

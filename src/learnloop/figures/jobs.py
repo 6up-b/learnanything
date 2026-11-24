@@ -38,7 +38,6 @@ def handle_figure_rich(ctx: JobContext) -> dict[str, Any]:
         vault = load_vault(ctx.vault_root)
         factory = ctx.services.figure_rich_client_factory
         client = factory(ctx) if factory is not None else None
-        ctx.report("writing", message="writing an animation for this passage")
         try:
             return run_rich_job(
                 vault, ctx.repo, ctx.payload, client=client,

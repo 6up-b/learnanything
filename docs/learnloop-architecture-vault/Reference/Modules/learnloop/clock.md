@@ -333,6 +333,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/intent/checks|learnloop.intent.checks]] — imports `Clock`, `SystemClock`; statically calls `SystemClock`
 - [[Reference/Modules/learnloop/intent/control|learnloop.intent.control]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/intent/deadline|learnloop.intent.deadline]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/intent/inline_administration|learnloop.intent.inline_administration]] — imports `Clock`, `SystemClock`, `utc_now_iso`; statically calls `SystemClock`, `utc_now_iso`
 - [[Reference/Modules/learnloop/intent/inline_checks|learnloop.intent.inline_checks]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/learner/assessment_contracts|learnloop.learner.assessment_contracts]] — imports `Clock`
 - [[Reference/Modules/learnloop/learner/facet_diagnostics|learnloop.learner.facet_diagnostics]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
@@ -545,7 +546,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/claims|learnloop.adaptive_difficulty.claims]], [[Reference/Modules/learnloop/adaptive_difficulty/dose|learnloop.adaptive_difficulty.dose]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_audit|learnloop.adaptive_difficulty.history_audit]] and 443 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/claims|learnloop.adaptive_difficulty.claims]], [[Reference/Modules/learnloop/adaptive_difficulty/dose|learnloop.adaptive_difficulty.dose]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_audit|learnloop.adaptive_difficulty.history_audit]] and 444 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -1772,6 +1773,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reader_rd0_spans.py](../../../../../tests/test_reader_rd0_spans.py) — direct import
   - `test_a_practice_question_is_projected_as_the_tutor_records_it`
   - `test_the_umbrella_rebuild_runs_both_replayers`
+- [tests/test_reader_rd7a_inline_checks.py](../../../../../tests/test_reader_rd7a_inline_checks.py) — direct import
+  - `test_one_administration_at_a_time_and_today_honours_it`
+- [tests/test_reader_rd7b_cold_followup_parity.py](../../../../../tests/test_reader_rd7b_cold_followup_parity.py) — direct import
 - [tests/test_reader_recap.py](../../../../../tests/test_reader_recap.py) — direct import
   - `test_claims_needing_an_independent_check_are_assisted_only_facets`
 - [tests/test_reader_recap_review.py](../../../../../tests/test_reader_recap_review.py) — direct import

@@ -233,12 +233,12 @@ def test_switch_off_keeps_the_lesson_without_the_episode_paragraph(tmp_path):
     lesson.act("reply", {"text": "done"}, turns=[close_turn()])
     fake = lesson.fake
     # TE1's schema and prompt with TE2's paragraph alone (every lesson opens under TE2) on every call.
-    assert fake.result_models and set(fake.result_models) == {T2.turn_model(TeacherTurnV1, True)}
+    assert fake.result_models and set(fake.result_models) == {T2.turn_model(TeacherTurnV1, True, goal_topics=True)}
     for purpose, prompt in fake.prompts:
         if purpose != "teacher_turn":
             continue
-        rebuilt = render_structured_prompt("LearnLoop lesson: you are the teacher", T2.prompt_version(PROMPT_VERSION, True),
-                                           {"instructions": T2.instructions(doctrine_text(), True),
+        rebuilt = render_structured_prompt("LearnLoop lesson: you are the teacher", T2.prompt_version(PROMPT_VERSION, True, goal_topics=True),
+                                           {"instructions": T2.instructions(doctrine_text(), True, goal_topics=True),
                                             "context": context_of(prompt)},
                                            context_tail_fields=("transcript",))
         assert prompt == rebuilt and "note_detour" not in prompt and "p_held" not in prompt
@@ -251,7 +251,7 @@ def test_switch_off_keeps_the_lesson_without_the_episode_paragraph(tmp_path):
     assert _rows(lesson.repository, "SELECT COUNT(*) FROM lesson_activity_intervals") == [(0,)]
     payloads = [json.loads(row[0]) for row in _rows(lesson.repository, "SELECT payload_json FROM lesson_turn_payloads")]
     assert all("episodes" not in p for p in payloads)
-    assert all(fam == S._family_of("fake-teacher-model", te2=True) for (fam,) in _rows(
+    assert all(fam == S._family_of("fake-teacher-model", te2=True, goal_topics=True) for (fam,) in _rows(
         lesson.repository, "SELECT forecaster_version FROM forecast_receipts WHERE kind LIKE 'lesson_%'"))
     receipt = json.loads(_rows(lesson.repository, "SELECT receipt_json FROM lesson_receipts")[0][0])
     assert "episodes" not in receipt and "minutes" not in receipt
@@ -263,19 +263,19 @@ def test_switch_on_offers_the_paragraph_the_schema_and_its_own_forecaster(tmp_pa
 
     lesson = _Lesson(tmp_path, [plan_turn, landed_turn()])
     lesson.act("reply", {"text": "Go."})
-    assert set(lesson.fake.result_models) == {T2.turn_model(TeacherTurnEpisodesV1, True)}
+    assert set(lesson.fake.result_models) == {T2.turn_model(TeacherTurnEpisodesV1, True, goal_topics=True)}
     _purpose, prompt = lesson.fake.prompts[0]
     assert f"{PROMPT_VERSION}{E.PROMPT_SUFFIX}" in prompt and "Keep a log of your detours" in prompt
-    version = T2.prompt_version(f"{PROMPT_VERSION}{E.PROMPT_SUFFIX}", True)
+    version = T2.prompt_version(f"{PROMPT_VERSION}{E.PROMPT_SUFFIX}", True, goal_topics=True)
     rebuilt = render_structured_prompt("LearnLoop lesson: you are the teacher", version,
-                                       {"instructions": T2.instructions(E.instructions(doctrine_text(), True), True),
+                                       {"instructions": T2.instructions(E.instructions(doctrine_text(), True), True, goal_topics=True),
                                         "context": context_of(prompt)}, context_tail_fields=("transcript",))
     assert prompt == rebuilt
     # §12.2: a new doctrine version is a new forecaster family, so its λ starts from the seeded prior.
     (family,) = {row[0] for row in _rows(lesson.repository, "SELECT forecaster_version FROM forecast_receipts "
                                                              "WHERE kind = 'lesson_step_retained'")}
-    assert family == (f"{S.DOCTRINE_VERSION}+{E.EPISODES_VERSION}+{T2.TE2_VERSION}:fake-teacher-model"
-                      ) != S._family_of("fake-teacher-model", te2=True)
+    assert family == (f"{S.DOCTRINE_VERSION}+{E.EPISODES_VERSION}+{T2.TE2_VERSION}+{T2.GOAL_VERSION}:fake-teacher-model"
+                      ) != S._family_of("fake-teacher-model", te2=True, goal_topics=True)
     from learnloop.learner import lesson_weight as LW
 
     state = LW.replay_state(load_vault(lesson.paths.root), lesson.repository)

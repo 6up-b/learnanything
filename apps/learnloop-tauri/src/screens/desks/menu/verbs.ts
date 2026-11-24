@@ -62,7 +62,13 @@ export interface MenuContext {
   withheld: () => Promise<boolean | null>;
   /** Claim the open menu once, after a pending key or click clears protection. */
   begin?: () => boolean;
+  /** Why the verbs that would reveal or send veiled material wait now (an inline check is open), or null. */
+  heldReason?: () => string | null;
 }
+
+/** The verbs that would reveal veiled material or send it to a model while an inline check is open (spec §12.6.4):
+ * each waits until the check is answered, its row disabled with the reason (the record lists the call per verb). */
+export const CHECK_HELD_VERBS: readonly VerbId[] = ["ask", "find", "compare", "show_me", "make_practice", "teach_me", "knows", "open_beside"];
 
 function errorText(error: unknown): string {
   return error && typeof error === "object" && "message" in error ? String((error as { message: unknown }).message) : String(error);
@@ -97,6 +103,11 @@ export async function runVerb(id: VerbId, object: MenuObject, ctx: MenuContext, 
   const anchor = anchorOf(object);
   const words = (object.selection || object.text).trim();
   try {
+    const held = CHECK_HELD_VERBS.includes(id) ? ctx.heldReason?.() ?? null : null;
+    if (held) {
+      ctx.toast(`this waits · ${held}`);
+      return;
+    }
     // A verb that would quote or send the words waits for the object's protection: exam or held-out material is
     // never sent anywhere from the menu (a key pressed before the menu's first answer waits for it too).
     if (needsClearance(id)) {
@@ -229,12 +240,14 @@ export async function runVerb(id: VerbId, object: MenuObject, ctx: MenuContext, 
 export function sourceMenuRows(object: MenuObject, ctx: MenuContext, appendTarget: string, withheld = false): MenuRow[] {
   // What this knows reads a passage: a window with none in view (a panel, a thread) offers only its moves; on exam or
   // held-out material the verbs that would quote or send its words are left out.
+  const held = ctx.heldReason?.() ?? null;
   return verbsFor(object.kind).filter((verb) => (verb.id !== "knows" || hasPassage(object)) && !(withheld && needsClearance(verb.id))).map((verb) => ({
     id: verb.id,
     glyph: verb.glyph,
     label: verb.id === "append" ? `Append to “${appendTarget}”  ▸` : verb.label,
     key: verb.key,
     section: "verb" as const,
+    ...(held && CHECK_HELD_VERBS.includes(verb.id) ? { disabled: true, note: held } : {}),
     aid: verb.id === "knows",
     submenu: verb.id === "append",
     run: () => void runVerb(verb.id, object, ctx),

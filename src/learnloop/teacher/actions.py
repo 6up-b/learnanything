@@ -27,7 +27,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from learnloop.teacher.contracts import ActionRequestV1
+from learnloop.teacher.contracts import ActionRequestV1, CreateGoalLo
 
 #: How many passages one search result carries back (the dispatcher's own bound applies first).
 _HISTORY_TEXT_CHARS = 4000
@@ -37,6 +37,29 @@ class ActionRefused(ValueError):
     def __init__(self, code: str, message: str) -> None:
         super().__init__(message)
         self.code = code
+
+
+def resolve_offer(vault: Any, repository: Any, state: Any, request: CreateGoalLo, *,
+                  client: Any, clock: Any) -> dict[str, Any]:
+    """Resolve before offering. Persist only the teacher's guarded wording and delivered passage references."""
+    from learnloop.source_retrieval.deliverables import typed_goal_subject
+    from learnloop.teacher.topics import TopicsRefused, resolve
+
+    try:
+        resolved = resolve(vault, repository, request.phrase, client=client, clock=clock)
+    except TopicsRefused:
+        return {"status": "protected"}
+    if resolved["status"] not in ("fresh", "ready"):
+        return {"status": "unavailable"}
+    phrase = " ".join(request.phrase.split())
+    if not any(" ".join(entry["phrase"].split()).casefold() == phrase.casefold() for entry in resolved["unmatched"]):
+        return {"status": "matched" if resolved["topics"] and not resolved["unmatched"] else "unresolved",
+                "learning_object_ids": [topic["learning_object_id"] for topic in resolved["topics"]]}
+    subject = resolved["subject_id"] or typed_goal_subject(vault, [{"learning_object_id": lo} for lo in state.los])
+    if not subject:
+        return {"status": "no_subject"}
+    return {"status": "pending", "phrase": phrase, "title": request.title, "statement": request.statement,
+            "anchors": request.anchors, "subject_id": subject}
 
 
 def caller_for(state: Any) -> Any:

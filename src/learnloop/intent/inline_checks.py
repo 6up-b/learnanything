@@ -157,6 +157,8 @@ def due_checks(vault: Any, repository: Any, *, goal_id: str | None = None,
                     "commitment_id": check.commitment_id, "lo_id": lo_id,
                     "due": check.date.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"), "host": host,
                     "provenance": _provenance(check.provenance),
+                    # mvp-0.69: an open inline administration holds it (Today shows "being answered in the Reader").
+                    "being_answered": check.commitment_id in view.locked,
                 })
     return out
 

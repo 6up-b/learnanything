@@ -70,7 +70,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/instructional/policy|learnloop.instructional.policy]] | [[Reference/Modules/learnloop/instructional/policy#^module-purpose|purpose]] | `ACTIVE` | 14 | 18 |
 | [[Reference/Modules/learnloop/instructional/practice|learnloop.instructional.practice]] | [[Reference/Modules/learnloop/instructional/practice#^module-purpose|purpose]] | `ACTIVE` | 8 | 10 |
 | [[Reference/Modules/learnloop/instructional/reader_digest|learnloop.instructional.reader_digest]] | [[Reference/Modules/learnloop/instructional/reader_digest#^module-purpose|purpose]] | `ACTIVE` | 2 | 6 |
-| [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]] | [[Reference/Modules/learnloop/instructional/reader_followups#^module-purpose|purpose]] | `ACTIVE` | 2 | 19 |
+| [[Reference/Modules/learnloop/instructional/reader_followups|learnloop.instructional.reader_followups]] | [[Reference/Modules/learnloop/instructional/reader_followups#^module-purpose|purpose]] | `ACTIVE` | 2 | 20 |
 | [[Reference/Modules/learnloop/instructional/screen|learnloop.instructional.screen]] | [[Reference/Modules/learnloop/instructional/screen#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |
 | [[Reference/Modules/learnloop/instructional/sources|learnloop.instructional.sources]] | [[Reference/Modules/learnloop/instructional/sources#^module-purpose|purpose]] | `ACTIVE` | 9 | 26 |
 | [[Reference/Modules/learnloop/instructional/tools|learnloop.instructional.tools]] | [[Reference/Modules/learnloop/instructional/tools#^module-purpose|purpose]] | `ACTIVE` | 5 | 16 |

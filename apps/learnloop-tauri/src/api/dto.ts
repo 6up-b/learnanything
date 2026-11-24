@@ -1162,6 +1162,8 @@ export interface IntentCheckDto {
    * measured banner and no help header: the duty's own safeguards apply.
    */
   duty?: "cold_followup" | "diagnostic";
+  /** mvp-0.69: an inline administration holds the check in the Reader; the banner says so and this is practice. */
+  beingAnsweredIn?: "reader";
   restoration: IntentRestorationDto | null;
 }
 
@@ -11176,8 +11178,51 @@ export interface ChecksDueDto {
   version: number;
   checks: { commitmentId: string; loId: string; due: string;
     host: { extractionId: string; sectionId: string | null; spanId: string | null } | null;
-    provenance: Record<string, string> }[];
+    provenance: Record<string, string>;
+    /** mvp-0.69: an open inline administration holds it (Today shows "being answered in the Reader"). */
+    beingAnswered?: boolean }[];
 }
+
+// -- Reader workbench v2 RD7 (spec §3.4, §12.6; mvp-0.69): the inline administration of a due check. The typed calls
+// only; the desks' card arrives with RD7's frontend half.
+
+/** What is on screen, on every desk, when a check opens or new content arrives (the server classifies it). */
+export interface CheckVisibleDto {
+  windows: Array<{ windowId: string; kind: string; extractionId?: string; spanIds?: string[]; noteIds?: string[];
+    figures?: Array<{ figureId: string; spanId?: string | null }>; padBlockIds?: string[]; exchangeIds?: string[] }>;
+  companionOpen?: boolean;
+  companionExchangeIds?: string[];
+  previewWindowIds?: string[];
+  searchRows?: Array<{ kind: string; extractionId?: string; spanId?: string; refId?: string }>;
+}
+
+/** One veiled thing, as the server named it (its keys are the server's own, snake_case: a ref is sent back as is). */
+export type CheckVeilRefDto = Record<string, unknown> & { group: string; kind: string };
+
+export interface CheckCardDto {
+  version?: number;
+  administrationToken: string;
+  commitmentId: string;
+  itemRef: string;
+  contractHash: string | null;
+  /** Whether the item could be answered cold when it was served (else practice from the start). */
+  cold: boolean;
+  state: "open" | "submitted" | "abandoned" | "superseded";
+  protection: { veilSetId: string | null; method: string | null; veiled: CheckVeilRefDto[]; opened: CheckVeilRefDto[];
+    groups: string[] };
+  /** Today's own serve of the item (the practice item detail, its check view hiding locators). */
+  prompt: Record<string, unknown>;
+  /** The practice session the answer is recorded on (opened when the app had none), for the app to adopt. */
+  practiceSession?: SessionSnapshot | null;
+}
+
+export type CheckExposureKind = "opened_veil" | "navigated" | "help";
+
+/** check.submit_inline: the attempt's own reply, plus whether it answered the check. */
+export type CheckSubmitDto = Record<string, unknown> & { attemptId?: string; administrationToken: string; cold: boolean;
+  reason: "on_your_own" | "primed" | "with_help" | "seen_before" | "already_answered" | "practice";
+  /** Why it is primed when nothing measured it: one of the learner's notes was opened (a note's words are never read). */
+  primedBy?: "unmeasured_note" };
 
 // -- Reader workbench v2 RD3 (spec §3.4, §8.6, §9.3): the companion's ask as a polled job, search in context.
 // The typed calls only; no component calls them yet.

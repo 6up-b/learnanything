@@ -181,6 +181,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/identity_pins_helpers.py](../../../../../../tests/identity_pins_helpers.py) — direct import
 - [tests/test_attempt_predicate_characterization.py](../../../../../../tests/test_attempt_predicate_characterization.py) — direct import
 - [tests/test_data_capture_a6_delayed_pick.py](../../../../../../tests/test_data_capture_a6_delayed_pick.py) — direct import
   - `test_the_same_lo_has_a_different_prediction_per_item`
@@ -209,6 +210,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_protection_check_matches_the_lessons_opening`
 - [tests/test_teacher_te1b_suggestions.py](../../../../../../tests/test_teacher_te1b_suggestions.py) — direct import
   - `test_the_shell_reads_lessons_and_room_to_learn_as_the_teacher_does`
+- [tests/test_teacher_te5_contracts.py](../../../../../../tests/test_teacher_te5_contracts.py) — direct import
+  - `test_predecessor_prompt_bytes`
 
 ## Modification guidance
 

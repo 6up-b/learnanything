@@ -74,10 +74,17 @@ from learnloop.teacher import exposure as X
 from learnloop.teacher import guards as G
 from learnloop.teacher import probes as PR
 from learnloop.teacher import te2 as T2
+from learnloop.teacher import topics as TP
 from learnloop.teacher import visuals as V
 from learnloop.teacher.brief import LessonRefused, SourceBook, build_brief, resolve_goal
 from learnloop.teacher.contracts import (
+    CreateGoalLo,
+    Capabilities,
     READ_ACTIONS,
+    TeacherTurnV2,
+    capabilities,
+    lesson_capabilities,
+    parse_turn,
     RECEIPT_VERSION,
     TURN_VERSION,
     ActionRequestV1,
@@ -166,12 +173,18 @@ class LessonState:
         return str(self.lesson["id"])
 
     @property
+    def capabilities(self) -> Capabilities:
+        return lesson_capabilities(self.lesson, self.turns)
+
+    @property
     def closed(self) -> bool:
         return self.lesson.get("closed_at") is not None
 
     @property
     def los(self) -> list[str]:
-        return [node["id"] for node in self.brief.get("nodes") or []]
+        los = [node["id"] for node in self.brief.get("nodes") or []]
+        added = (row["payload"]["learning_object_id"] for row in self.turns if row["action"] == "topic_accepted")
+        return list(dict.fromkeys([*los, *added]))
 
     def node_lo(self, node_id: str | None, *,
                 outline: Sequence[Mapping[str, Any]] | None = None) -> str | None:
@@ -331,6 +344,12 @@ def _te2_transcript_entry(entry: Mapping[str, Any]) -> dict[str, Any] | None:
         return probe
     if action == "propose_gap":
         return {"by": "code", "gap_filed": {k: data.get(k) for k in ("ref", "gap_kind", "filed")}}
+    if action == "topic_offer":
+        return {"by": "code", "topic_offer": data}
+    if action == "topic_refused":
+        return {"by": "code", "topic_refused": data["reason"]}
+    if action == "topic_declined":
+        return {"by": "learner", "declined_topic": data["phrase"]}
     if action == "goal_lo":
         return {"by": "code", "topic_added": {k: data.get(k) for k in ("learning_object_id", "title", "phrase",
                                                                      "label")}}
@@ -371,7 +390,8 @@ def _end_for_protection(vault: Any, repository: Any, state: LessonState, *, cloc
 
 
 def _prompt(state: LessonState, *, results: Sequence[Mapping[str, Any]], help_reply: bool,
-            visuals: bool = False, episodes: bool = False, te2: bool = False) -> str:
+            visuals: bool = False, episodes: bool = False, te2: bool = False,
+            goal_topics: bool = False) -> str:
     # Sent only while the protection state is the brief's (:func:`protection_changed`, checked before
     # every call): what the lesson saved was safe when saved, and still is.
     context = {
@@ -387,26 +407,20 @@ def _prompt(state: LessonState, *, results: Sequence[Mapping[str, Any]], help_re
     # episode paragraph and its suffix only while teacher.episode_log is on (both off: TE1's prompt byte for byte).
     # Teacher TE2: its paragraph and suffix only while TE2 serves the lesson (off: TE1's and TE2-log's prompt).
     return render_structured_prompt(
-        "LearnLoop lesson: you are the teacher", _prompt_version(visuals, episodes, te2),
-        {"instructions": T2.instructions(E.instructions(V.instructions(doctrine_text(), visuals), episodes), te2),
+        "LearnLoop lesson: you are the teacher", _prompt_version(visuals, episodes, te2, goal_topics),
+        {"instructions": T2.instructions(E.instructions(V.instructions(doctrine_text(), visuals), episodes), te2, goal_topics),
          "context": context},
         context_tail_fields=("transcript",))
 
 
-def _prompt_version(visuals: bool, episodes: bool, te2: bool) -> str:
-    return T2.prompt_version(E.prompt_version(V.prompt_version(visuals), episodes), te2)
+def _prompt_version(visuals: bool, episodes: bool, te2: bool, goal_topics: bool = False) -> str:
+    return T2.prompt_version(E.prompt_version(V.prompt_version(visuals), episodes), te2, goal_topics)
 
 
 def _te2_now(vault: Any, state: LessonState) -> bool:
     """TE2 serves this lesson now: it was opened under TE2 (its brief) and lessons are on now."""
 
     return T2.lesson_te2(state) and T2.on(vault)
-
-
-def _te2_turn(vault: Any, turn_entry: Mapping[str, Any] | None) -> bool:
-    """TE2 writes for this turn: it was written under the TE2 paragraph and lessons are on now."""
-
-    return bool(((turn_entry or {}).get("payload") or {}).get("te2")) and T2.on(vault)
 
 
 # =============================================================================
@@ -441,14 +455,15 @@ def _model_name(client: Any) -> str | None:
     return getattr(client, "model", None)
 
 
-def _family_of(model: str | None, *, visuals: bool = False, episodes: bool = False, te2: bool = False) -> str:
+def _family_of(model: str | None, *, visuals: bool = False, episodes: bool = False, te2: bool = False,
+               goal_topics: bool = False) -> str:
     """The forecaster of §12.2's pool: the doctrine version and the teacher model. A turn written under
     the visuals paragraph (Reader RW5d P4b), the episode paragraph (TE2-log) or TE2's paragraph is a new doctrine
     version, so its forecasts start their own posterior from the seeded prior (Codex review F3); TE1's family
     exactly when all are off."""
 
     doctrine = f"{DOCTRINE_VERSION}+{V.VISUALS_VERSION}" if visuals else DOCTRINE_VERSION
-    return f"{T2.doctrine_family(E.doctrine_family(doctrine, episodes), te2)}:{model or 'unknown'}"
+    return f"{T2.doctrine_family(E.doctrine_family(doctrine, episodes), te2, goal_topics)}:{model or 'unknown'}"
 
 
 def _turn_flags(turn_entry: Mapping[str, Any] | None) -> dict[str, bool]:
@@ -456,7 +471,33 @@ def _turn_flags(turn_entry: Mapping[str, Any] | None) -> dict[str, bool]:
 
     payload = (turn_entry or {}).get("payload") or {}
     return {"visuals": bool(payload.get("visuals")), "episodes": bool(payload.get("episodes")),
-            "te2": bool(payload.get("te2"))}
+            "te2": bool(payload.get("te2")), "goal_topics": bool(payload.get("goal_topics"))}
+
+
+def wire_model(allowed: Capabilities) -> type[TeacherTurnV1]:
+    """The provider schema whose identity the recorded lesson capabilities select."""
+    return T2.turn_model(E.turn_model(V.turn_model("visuals" in allowed), "episodes" in allowed),
+                         "probes" in allowed, "goal_topics" in allowed)
+
+
+def _stored_turn(entry: Mapping[str, Any]) -> TeacherTurnV2:
+    payload = entry.get("payload") or {}
+    allowed = capabilities(visuals=bool(payload.get("visuals")), episodes=bool(payload.get("episodes")),
+                           probes=bool(payload.get("te2")))
+    if payload.get("goal_topics"):
+        allowed = allowed | {"goal_topics"}
+    return parse_turn(payload.get("turn") or {}, allowed)
+
+
+def _recovery_turn(entry: Mapping[str, Any]) -> TeacherTurnV2:
+    # Validate the submitted fields with the capabilities that admitted this turn.
+    parsed = _stored_turn(entry)
+    if entry["payload"].get("goal_topics"):
+        return parsed
+    # The original recovery reader filled the defaults of its widest V1 model.
+    # Those fields enter recovered read records and plans, including the next prompt.
+    saved = T2.stored_turn(entry["payload"]["turn"])
+    return parse_turn(saved.model_dump(), capabilities(visuals=True, episodes=True, probes=True))
 
 
 def _family(client: Any) -> str:
@@ -682,7 +723,6 @@ def open_lesson(vault: Any, repository: Any, *, entry: str, learning_object_ids:
     # Teacher TE2 (§11.5): a typed goal resolves to topics before the brief is built.
     typed = None
     if entry == "typed_goal":
-        from learnloop.teacher import topics as TP
         from learnloop.vault.loader import load_vault
 
         lesson_id = f"les_{new_ulid().lower()}"
@@ -746,7 +786,9 @@ def open_lesson(vault: Any, repository: Any, *, entry: str, learning_object_ids:
         connection = repository.connection()
         store.insert_lesson(connection, {
             "id": lesson_id, "driver": driver, "origin": origin, "origin_ref": origin_ref, "entry": entry,
-            "goal_text": text, "goal": brief["goal"], "learning_object_ids": los,
+            "goal_text": text, "goal": {**brief["goal"], "capabilities": sorted(capabilities(
+                visuals=V.on(vault, clients.figures), episodes=E.on(vault), probes=T2.on(vault)) | {"goal_topics"})},
+            "learning_object_ids": los,
             "doctrine_version": DOCTRINE_VERSION, "brief_version": brief["version"],
             "route": getattr(client, "provider_name", None), "model": _model_name(client),
             "algorithm_version": vault.config.algorithms.algorithm_version, "opened_at": now})
@@ -780,7 +822,7 @@ def _record_goal_los(vault: Any, repository: Any, lesson_id: str, created: Seque
         with repository.atomic():
             entry = _append(repository, lesson_state, actor="code", action="goal_lo",
                             refs={"learning_object": topic["learning_object_id"]}, payload=dict(topic), clock=clock)
-            if E.on(vault):
+            if "episodes" in lesson_state.capabilities:
                 E.open_episode(repository, lesson=lesson_state.lesson, brief=lesson_state.brief, kind="goal_lo",
                                opened_by=str(entry["id"]), opened_at=now, node_id=None,
                                learning_object_id=str(topic["learning_object_id"]),
@@ -793,7 +835,7 @@ def _record_goal_los(vault: Any, repository: Any, lesson_id: str, created: Seque
 
 
 def recover(vault: Any, repository: Any, state: LessonState, *, clock: Clock | None = None,
-            reads: bool = True, builder: V.Builder | None = None) -> "_Outcome | None":
+            reads: bool = True, builder: V.Builder | None = None, resolver: Callable[[], Any] | None = None) -> "_Outcome | None":
     """Run what an interrupted action left of its last accepted teacher turn (review F9): each effect
     the ledger does not mark done, idempotently, with its reads' results riding with the next call.
     No teacher call. ``reads=False`` (``lesson.view``, which makes no model call at all) leaves the
@@ -803,14 +845,14 @@ def recover(vault: Any, repository: Any, state: LessonState, *, clock: Clock | N
     if entry is None or state.closed:
         return None
     data = entry.get("payload") or {}
-    turn_obj = T2.stored_turn(data.get("turn"))
+    turn_obj = _recovery_turn(entry)
     outcome = _Outcome()
     done = state.effects_done.setdefault(str(entry["id"]), set())
     # A turn's visual builds a figure (a model call): like its reads, only on an action's own recovery,
     # never on ``lesson.view`` (Reader RW5d P4b).
     _execute(vault, repository, state, turn_obj, turn_entry=entry, model=state.lesson.get("model"), deferred=True,
              outcome=outcome, clock=clock, help_reply=bool(data.get("help_reply")), done=done, reads=reads,
-             builder=builder if reads else None)
+             builder=builder if reads else None, resolver=resolver)
     if str(entry["id"]) in state.executed:
         state.unexecuted = None
     return outcome
@@ -888,7 +930,7 @@ def _owes_followup(state: LessonState, accepted: Mapping[str, Any]) -> bool:
     """Whether ``accepted`` is the first accepted turn of its action, asked for reads, and they ran: its
     reads' results are owed one further call (the structural bound of :func:`_teach_loop`)."""
 
-    turn = T2.stored_turn((accepted.get("payload") or {}).get("turn"))
+    turn = _stored_turn(accepted)
     if not any(request.action in READ_ACTIONS for request in turn.requests):
         return False
     if not any(entry["action"] in READ_ACTIONS and (entry.get("refs") or {}).get("turn") == str(accepted["id"])
@@ -941,7 +983,7 @@ def take_turn(vault: Any, repository: Any, *, lesson_id: str, action: str, paylo
             changed = protection_changed(vault, repository, state)
             try:
                 recovered = recover(vault, repository, state, clock=clock, reads=not changed,
-                                    builder=None if changed else clients.figures)
+                                    builder=None if changed else clients.figures, resolver=clients.resolver)
             except Exception as exc:
                 if not _refused_by_budget(state, exc):
                     raise
@@ -957,7 +999,16 @@ def take_turn(vault: Any, repository: Any, *, lesson_id: str, action: str, paylo
                 outcome = _Outcome()
                 _end_for_protection(vault, repository, state, clock=clock, outcome=outcome)
                 return view(vault, repository, lesson_id, outcome=outcome)
-            return _learner_action(vault, repository, state, action, payload, clients=clients, clock=clock)
+            finished_topic = _finish_topic_requests(vault, repository, state, clock=clock)
+            if finished_topic:
+                from learnloop.vault.loader import load_vault
+
+                vault = load_vault(vault.root)
+                state.turns = load_state(repository, lesson_id).turns
+            result = _learner_action(vault, repository, state, action, payload, clients=clients, clock=clock)
+            if finished_topic:
+                result["vault_changed"] = True
+            return result
     except LessonError as exc:
         exc.details.setdefault("lesson_id", lesson_id)
         raise
@@ -999,6 +1050,10 @@ def _learner_action(vault: Any, repository: Any, state: LessonState, action: str
         text = str(payload.get("text") or "").strip()
         if not text:
             raise LessonError("validation_error", "Write something first.")
+        decision = TP.offer_decision(state.turns, text)
+        if decision is not None:
+            verb, offer = decision
+            return _topic_decision(vault, repository, state, verb, offer, clients=clients, clock=clock)
         help_request = state.open_check is not None
         _append(repository, state, actor="learner", action="learner_reply", payload={"text": text, "help": help_request},
                 clock=clock)
@@ -1017,6 +1072,88 @@ def _learner_action(vault: Any, repository: Any, state: LessonState, action: str
         return _teach(vault, repository, state, clients=clients, client=client, help_reply=False, clock=clock)
     # answer_check
     return _answer_check(vault, repository, state, payload, clients=clients, clock=clock)
+
+
+def _topic_decision(vault: Any, repository: Any, state: LessonState, verb: str, offer: Mapping[str, Any], *,
+                    clients: Clients, clock: Clock | None) -> dict[str, Any]:
+    from learnloop.vault.loader import load_vault
+
+    refs = {"offer": offer["id"]}
+    data = offer["payload"]
+    def settled(current: LessonState) -> bool:
+        return any(row["action"] in ("topic_requested", "topic_declined", "topic_refused") and
+                   row["refs"].get("offer") == offer["id"] for row in current.turns)
+
+    if settled(state):
+        return view(vault, repository, state.lesson_id)
+    if verb == "library":
+        lookup = ActionRequestV1(action="find_sources", query=data["phrase"], intent="explain")
+        result = _read_action(vault, repository, state, lookup, model=state.lesson.get("model"))
+        with repository.atomic():
+            _append(repository, state, actor="learner", action="learner_reply", refs=refs,
+                    payload={"text": f"Look in my library for {data['phrase']}", "help": bool(state.open_check)},
+                    clock=clock)
+            if state.open_check:
+                _record_help(repository, state, f"Look in my library for {data['phrase']}", clock=clock)
+            entry = _append(repository, state, actor="code", action="find_sources", refs=refs,
+                            payload={"request": lookup.model_dump(), "result": result, "deferred": True}, clock=clock)
+        state.pending_results.append({"turn_id": entry["id"], "action": "find_sources", "result": _model_result(result)})
+        return _teach(vault, repository, state, clients=clients, client=clients.teacher(),
+                      help_reply=bool(state.open_check), clock=clock)
+    if verb == "add":
+        # C0b reuses its resolution when the catalog is unchanged. A topic added since the offer may now match.
+        from learnloop.teacher.actions import resolve_offer
+
+        request = CreateGoalLo(action="create_goal_lo", **{k: data[k] for k in ("phrase", "title", "statement", "anchors")})
+        checked = resolve_offer(vault, repository, state, request, client=clients.resolver() if clients.resolver else None,
+                                clock=clock)
+        if checked["status"] == "unavailable":
+            raise LessonError("plan_unavailable", "LearnLoop could not check the current topics. Try again.")
+    with repository.atomic():
+        current = load_state(repository, state.lesson_id)
+        if current.closed or settled(current):
+            return view(vault, repository, state.lesson_id)
+        if verb == "add" and checked != data:
+            _append(repository, current, actor="code", action="topic_refused", refs=refs,
+                    payload={"reason": checked["status"], "message": "The topic resolution changed. Ask the teacher "
+                                                                     "to check the topic again."}, clock=clock)
+            return view(vault, repository, state.lesson_id)
+        _append(repository, current, actor="learner", action="topic_declined" if verb == "skip" else "topic_requested",
+                refs=refs, payload={"phrase": data["phrase"]}, clock=clock)
+    outcome = _Outcome()
+    if verb == "add":
+        outcome.vault_changed = _finish_topic_requests(vault, repository, current, clock=clock)
+    return view(load_vault(vault.root) if outcome.vault_changed else vault, repository, state.lesson_id, outcome=outcome)
+
+
+def _finish_topic_requests(vault: Any, repository: Any, state: LessonState, *, clock: Clock | None) -> bool:
+    """Finish durable learner decisions. Retrying the same C0b request names the same vault object."""
+    completed = {row["refs"]["offer"] for row in state.turns if row["action"] in ("topic_accepted", "topic_refused")}
+    wanted = {row["refs"]["offer"] for row in state.turns if row["action"] == "topic_requested"} - completed
+    if not wanted:
+        return False
+    changed = False
+    for offer in list(state.turns):
+        if offer["id"] not in wanted:
+            continue
+        refs = {"offer": offer["id"]}
+        try:
+            topic = TP.create_offered_topic(vault, repository, state, offer, clock=clock)
+        except TP.TopicsRefused as exc:
+            _append(repository, state, actor="code", action="topic_refused", refs=refs,
+                    payload={"reason": exc.code, "message": str(exc)}, clock=clock)
+            continue
+        changed = True
+        with repository.atomic():
+            current = load_state(repository, state.lesson_id)
+            if any(row["action"] == "topic_accepted" and row["refs"].get("offer") == offer["id"] for row in current.turns):
+                continue
+            _append(repository, current, actor="code", action="topic_accepted", refs=refs,
+                    payload={"learning_object_id": topic["learning_object_id"]}, clock=clock)
+            if not any(row["action"] == "goal_lo" and row["payload"]["learning_object_id"] == topic["learning_object_id"]
+                       for row in current.turns):
+                _record_goal_los(vault, repository, current.lesson_id, [topic], clock=clock)
+    return changed
 
 
 def _record_help(repository: Any, state: LessonState, text: str, *, clock: Clock | None) -> None:
@@ -1101,7 +1238,7 @@ def _answer_check(vault: Any, repository: Any, state: LessonState, payload: Mapp
         grading_source=clients.grading_source, tap=tap, mass=mass, created_at=as_of,
         forecast_correct_key=(correct_forecast or {}).get("key"), forecast_retained_key=(retained or {}).get("key"),
         clock=clock)
-    if E.on(vault):
+    if "episodes" in state.capabilities:
         # TE2-log: a detour on this node closes at its re-check (its own savepoint; never blocks the answer).
         E.close_episodes(repository, state.lesson_id, closed_at=as_of, reason="rechecked", node_id=node_id,
                          kind="detour", outcome={"recheck_attempt_id": attempt_id, "outcome_correctness": correctness})
@@ -1197,7 +1334,7 @@ def _teach(vault: Any, repository: Any, state: LessonState, *, clients: Clients,
     outcome = _Outcome()
     try:
         _teach_loop(vault, repository, state, client=client, help_reply=help_reply, clock=clock, closing=closing,
-                    outcome=outcome, followup=followup, followup_results=results, builder=clients.figures)
+                    outcome=outcome, followup=followup, followup_results=results, builder=clients.figures, resolver=clients.resolver)
     except Exception as exc:
         if not _refused_by_budget(state, exc):
             raise
@@ -1213,7 +1350,8 @@ def _teach(vault: Any, repository: Any, state: LessonState, *, clients: Clients,
 
 def _teach_loop(vault: Any, repository: Any, state: LessonState, *, client: Any, help_reply: bool,
                 clock: Clock | None, closing: str | None, outcome: "_Outcome", followup: bool = False,
-                followup_results: Sequence[Mapping[str, Any]] = (), builder: V.Builder | None = None) -> None:
+                followup_results: Sequence[Mapping[str, Any]] = (), builder: V.Builder | None = None,
+                resolver: Callable[[], Any] | None = None) -> None:
     # Deferred read results ride with this call; they are marked delivered only with the accepted
     # turn that consumed them (review F10), so an outage keeps them pending.
     results = list(state.pending_results)
@@ -1236,11 +1374,9 @@ def _teach_loop(vault: Any, repository: Any, state: LessonState, *, client: Any,
             # TE2 (§9.1 cold_attempt): a served probe is open, so the teacher is not called until its grade is back.
             break
         try:
-            # Reader RW5d P4b: visuals as configured NOW, before each call; TE2-log: the episode log likewise;
-            # TE2: its actions while it serves the lesson (all off: TE1's prompt and schema).
             parsed = _call_teacher(vault, repository, state, client, results=results, help_reply=help_reply,
                                    outcome=outcome, clock=clock, deliver=undelivered,
-                                   visuals=V.on(vault, builder), episodes=E.on(vault), te2=_te2_now(vault, state))
+                                   allowed=state.capabilities)
         except LessonError:
             raise
         except Exception as exc:  # noqa: BLE001 - the plan is down or the route refused: the lesson waits
@@ -1267,7 +1403,7 @@ def _teach_loop(vault: Any, repository: Any, state: LessonState, *, client: Any,
         accepted += 1
         new_results = _execute(vault, repository, state, turn_obj, turn_entry=turn_entry, model=_model_name(client),
                                deferred=deferred, outcome=outcome, clock=clock, help_reply=help_reply,
-                               builder=builder)
+                               builder=builder, resolver=resolver)
         if state.closed:
             break
         if outcome.protection_changed:
@@ -1306,6 +1442,8 @@ def _displayed(turn_obj: TeacherTurnV1) -> list[tuple[str, str]]:
     for request in turn_obj.requests:
         if request.action == "write_plan":
             out.extend(("plan", str(node.statement or "")) for node in request.plan)
+        elif isinstance(request, CreateGoalLo):
+            out.append(("topic", TP.proposal_text(request)))
         elif request.action == "close" and request.recap:
             out.append(("recap", str(request.recap)))
     # Reader RW5d P4b: a visual's goal is quoted on its figure's line (none in TE1's turn).
@@ -1329,6 +1467,8 @@ def _logged(state: LessonState, turn_obj: TeacherTurnV1) -> list[tuple[str, str]
     if turn_obj.prediction is not None:
         out.append(("prediction.node", str(turn_obj.prediction.node or "")))
     for index, request in enumerate(turn_obj.requests):
+        if isinstance(request, CreateGoalLo):
+            out.extend((f"requests[{index}].{key}", getattr(request, key)) for key in ("phrase", "title", "statement"))
         if request.action == "forecast":
             out.append((f"requests[{index}].node", str(request.node or "")))
             out.append((f"requests[{index}].node's lo_id", str(_forecast_lo(state, turn_obj, index, request) or "")))
@@ -1354,7 +1494,7 @@ def _outline_at(state: LessonState, turn_obj: TeacherTurnV1, index: int) -> list
     outline = state.plans[-1]["outline"] if state.plans else []
     for request in turn_obj.requests[:index]:
         if request.action == "write_plan":
-            outline = [node.model_dump() for node in request.plan]
+            outline = [node.model_dump(exclude_unset=True) for node in request.plan]
     return list(outline)
 
 
@@ -1513,8 +1653,7 @@ def _request_teacher_turn(vault: Any, repository: Any, state: LessonState, clien
 
 def _call_teacher(vault: Any, repository: Any, state: LessonState, client: Any, *, results: Sequence[Mapping[str, Any]],
                   help_reply: bool, outcome: _Outcome, clock: Clock | None,
-                  deliver: Sequence[str] = (), visuals: bool = False,
-                  episodes: bool = False, te2: bool = False) -> tuple[TeacherTurnV1, dict[str, Any]] | None:
+                  allowed: Capabilities, deliver: Sequence[str] = ()) -> tuple[TeacherTurnV2, dict[str, Any]] | None:
     """One teacher call: validated, guarded, recorded. None when refused (a correctable error).
     ``visuals`` (Reader RW5d P4b): the visuals paragraph and the turn's ``visual`` field; ``episodes``
     (TE2-log): the episode paragraph, ``note_detour`` and ``p_held``; ``te2`` (TE2): its paragraph,
@@ -1522,8 +1661,10 @@ def _call_teacher(vault: Any, repository: Any, state: LessonState, client: Any, 
 
     from learnloop.ai.errors import AIInvalidOutput
 
-    prompt = _prompt(state, results=results, help_reply=help_reply, visuals=visuals, episodes=episodes, te2=te2)
-    model = T2.turn_model(E.turn_model(V.turn_model(visuals), episodes), te2)
+    visuals, episodes, te2 = "visuals" in allowed, "episodes" in allowed, "probes" in allowed
+    prompt = _prompt(state, results=results, help_reply=help_reply, visuals=visuals, episodes=episodes, te2=te2,
+                     goal_topics="goal_topics" in allowed)
+    model = wire_model(allowed)
     try:
         raw = _request_teacher_turn(vault, repository, state, client, prompt=prompt, model=model,
                                     outcome=outcome, clock=clock)
@@ -1537,8 +1678,10 @@ def _call_teacher(vault: Any, repository: Any, state: LessonState, client: Any, 
                 payload={"reason": "schema", "detail": _schema_detail(exc, model)}, clock=clock)
         return None
     try:
-        turn_obj = raw if type(raw) is model else model.model_validate(
+        wire = raw if type(raw) is model else model.model_validate(
             raw.model_dump() if isinstance(raw, TeacherTurnV1) else raw)
+        wire_data = wire.model_dump()
+        turn_obj = parse_turn(wire_data, allowed)
     except ValidationError as exc:
         _append(repository, state, actor="teacher", action="teacher_turn", validation="invalid",
                 payload={"reason": "schema", "detail": _schema_detail(exc, model)}, clock=clock)
@@ -1546,7 +1689,7 @@ def _call_teacher(vault: Any, repository: Any, state: LessonState, client: Any, 
     problem = _contract_problem(state, turn_obj, vault=vault if te2 else None)
     if problem is not None:
         _append(repository, state, actor="teacher", action="teacher_turn", validation="invalid",
-                payload={"reason": "contract", "detail": problem, "turn": turn_obj.model_dump()}, clock=clock)
+                payload={"reason": "contract", "detail": problem, "turn": wire_data}, clock=clock)
         return None
     exempt = list(state.minted.values())
     if te2:
@@ -1568,7 +1711,7 @@ def _call_teacher(vault: Any, repository: Any, state: LessonState, client: Any, 
         if not verdict.ok:
             _append(repository, state, actor="teacher", action="teacher_turn", validation="withheld",
                     payload={"reason": verdict.reason, "detail": f"{name}: {verdict.detail}",
-                             "turn": turn_obj.model_dump()}, clock=clock)
+                             "turn": wire_data}, clock=clock)
             return None
     # The turn as the learner reads it (Codex review F2): a reserved question split across fields (its setup in the
     # message, its ask in the check), each half shorter than the matcher's span, is screened whole. The per-field
@@ -1578,7 +1721,7 @@ def _call_teacher(vault: Any, repository: Any, state: LessonState, client: Any, 
     if not verdict.ok:
         _append(repository, state, actor="teacher", action="teacher_turn", validation="withheld",
                 payload={"reason": verdict.reason, "detail": f"turn: {verdict.detail}",
-                         "turn": turn_obj.model_dump()}, clock=clock)
+                         "turn": wire_data}, clock=clock)
         return None
     # The ids a row or a receipt copies (and, TE2-log, a detour's hypothesis) are never shown, but they pass the same
     # guards before they are stored (spec §11.9: exam or held-out material is never in a hypothesis), and the
@@ -1591,7 +1734,7 @@ def _call_teacher(vault: Any, repository: Any, state: LessonState, client: Any, 
         if not verdict.ok:
             _append(repository, state, actor="teacher", action="teacher_turn", validation="withheld",
                     payload={"reason": verdict.reason, "detail": f"{name}: {verdict.detail}",
-                             "turn": turn_obj.model_dump()}, clock=clock)
+                             "turn": wire_data}, clock=clock)
             return None
     # The posed check's solution and rubric are shown by no field, but they become its vault item: the grader's
     # feedback after the answer reads them (and "LearnLoop's answer" quotes the solution), and an ordinary item's
@@ -1602,7 +1745,7 @@ def _call_teacher(vault: Any, repository: Any, state: LessonState, client: Any, 
         if not verdict.ok:
             _append(repository, state, actor="teacher", action="teacher_turn", validation="withheld",
                     payload={"reason": verdict.reason, "detail": f"{name}: {verdict.detail}",
-                             "turn": turn_obj.model_dump()}, clock=clock)
+                             "turn": wire_data}, clock=clock)
             return None
     # One transaction: the delivered results, the accepted turn and its exposure (reveal rows from every
     # displayed field), so an interruption leaves all of it or none.
@@ -1610,11 +1753,13 @@ def _call_teacher(vault: Any, repository: Any, state: LessonState, client: Any, 
         if deliver:
             _append(repository, state, actor="code", action="results_delivered", payload={"turn_ids": list(deliver)},
                     clock=clock)
-        payload = {"turn": turn_obj.model_dump(), "turn_version": TURN_VERSION, "help_reply": bool(help_reply)}
+        payload = {"turn": wire_data, "turn_version": TURN_VERSION, "help_reply": bool(help_reply)}
         if visuals:
             payload["visuals"] = V.VISUALS_VERSION
         if episodes:
             payload["episodes"] = E.EPISODES_VERSION
+        if "goal_topics" in allowed:
+            payload["goal_topics"] = T2.GOAL_VERSION
         if te2:
             payload["te2"] = T2.TE2_VERSION
         # Landing ruling R1: what this turn exposes, frozen on the turn's own record as it is shown.
@@ -1627,6 +1772,8 @@ def _call_teacher(vault: Any, repository: Any, state: LessonState, client: Any, 
         state.pending_results = [r for r in state.pending_results if str(r.get("turn_id")) not in delivered]
     if turn_obj.message:
         outcome.shown.append({"kind": "message", "text": turn_obj.message, "choices": list(turn_obj.choices)})
+    outcome.shown.extend({"kind": "notice", "text": TP.proposal_text(request)} for request in turn_obj.requests
+                         if isinstance(request, CreateGoalLo))
     return turn_obj, entry
 
 
@@ -1666,6 +1813,12 @@ def _contract_problem(state: LessonState, turn_obj: TeacherTurnV1, *, vault: Any
             return f"{located('check.anchors', unknown)}: never delivered to you; anchor only to the aliases you were given"
     for index, request in enumerate(turn_obj.requests):
         at = f"requests[{index}]"
+        if isinstance(request, CreateGoalLo):
+            if any(not text.strip() for text in (request.phrase, request.title, request.statement)):
+                return f"{at}: a topic needs a phrase, title and statement"
+            unknown = [k for k, alias in enumerate(request.anchors) if not state.book.available(alias)]
+            if unknown:
+                return f"{located(f'{at}.anchors', unknown)}: use delivered passage aliases"
         if request.action == "write_plan":
             for position, node in enumerate(request.plan):
                 unknown = [k for k, alias in enumerate(node.anchors)
@@ -1767,10 +1920,10 @@ def _withdraw(vault: Any, repository: Any, state: LessonState, *, overlap: float
 # =============================================================================
 
 
-def _execute(vault: Any, repository: Any, state: LessonState, turn_obj: TeacherTurnV1, *,
+def _execute(vault: Any, repository: Any, state: LessonState, turn_obj: TeacherTurnV2, *,
              turn_entry: Mapping[str, Any], model: str | None, deferred: bool, outcome: _Outcome,
              clock: Clock | None, help_reply: bool, done: set[str] | frozenset[str] = frozenset(),
-             reads: bool = True, builder: V.Builder | None = None) -> list[dict[str, Any]]:
+             reads: bool = True, builder: V.Builder | None = None, resolver: Callable[[], Any] | None = None) -> list[dict[str, Any]]:
     """An accepted turn's effects, in order, each marked with the turn and its name (``refs.effect``) in
     the transaction that makes it, then a ``turn_executed`` marker: recovery runs only what is unmarked
     (``done``), so an interrupted action resumes idempotently (review F9)."""
@@ -1800,10 +1953,10 @@ def _execute(vault: Any, repository: Any, state: LessonState, turn_obj: TeacherT
         outcome.shown.append({"kind": "prediction", **data})
     if turn_obj.check is not None and "check" not in done:
         _pose_check(vault, repository, state, turn_obj.check, outcome=outcome, clock=clock, turn_entry=turn_entry)
-    if getattr(turn_obj, "visual", None) is not None and "visual" not in done and V.active(vault):
+    if turn_obj.visual is not None and "visual" not in done:
         # Reader RW5d P4b: the step's figure, built by the host's figure service (a model call, outside
         # any ledger transaction). With no builder now (``lesson.view``), it waits for the next action.
-        if builder is None:
+        if not reads:
             skipped = True
         else:
             _visual(vault, repository, state, turn_obj, builder=builder, outcome=outcome, clock=clock,
@@ -1812,53 +1965,44 @@ def _execute(vault: Any, repository: Any, state: LessonState, turn_obj: TeacherT
         effect = f"request:{index}"
         if effect in done:
             continue
-        if request.action in READ_ACTIONS and not reads:
+        if (request.action in READ_ACTIONS or isinstance(request, CreateGoalLo)) and not reads:
             skipped = True
             continue
-        if request.action in READ_ACTIONS:
-            result = _read_action(vault, repository, state, request, model=model)
-            extra = {"tool_call": result.get("tool_call_id")} if result.get("tool_call_id") else None
-            entry = _append(repository, state, actor="code", action=request.action,
-                            refs=_effect_refs(turn_entry, effect, extra),
-                            payload={"request": request.model_dump(), "result": result, "deferred": deferred},
-                            clock=clock)
-            if deferred:
-                state.pending_results.append({"turn_id": entry["id"], "action": request.action,
-                                              "result": _model_result(result)})
-            else:
-                results.append({"action": request.action, "result": _model_result(result)})
-        elif request.action == "write_plan":
-            outline = [node.model_dump() for node in request.plan]
-            previous = state.plans[-1]["outline"] if state.plans else None
-            with repository.atomic():
-                version = store.insert_plan(repository.connection(), lesson_id=state.lesson_id, outline=outline,
-                                            created_at=utc_now_iso(clock))
-                entry = _append(repository, state, actor="code", action="write_plan",
-                                refs=_effect_refs(turn_entry, effect), payload={"version": version}, clock=clock)
-                if _episodes_turn(vault, turn_entry):
-                    # TE2-log, in their own savepoints: the nodes' p_held forecasts, and an unlogged detour when
-                    # the plan inserts a foundation with no note_detour in this turn (§11.3, §11.7).
-                    _plan_episodes(vault, repository, state, turn_obj, outline, previous, version=version,
-                                   entry=entry, model=model, turn_entry=turn_entry, clock=clock)
-            state.plans.append({"version": version, "outline": outline})
-        elif request.action == "forecast":
-            _forecast(vault, repository, state, request, model=model, clock=clock, turn_entry=turn_entry,
-                      effect=effect)
-        elif request.action == "note_detour":
-            if _episodes_turn(vault, turn_entry):
+        match request.action:
+            case action if action in READ_ACTIONS:
+                result = _record_read(vault, repository, state, request, model=model, clock=clock,
+                                      turn_entry=turn_entry, effect=effect, deferred=deferred)
+                if not deferred:
+                    results.append(result)
+            case "write_plan":
+                _write_plan(vault, repository, state, turn_obj, request, model=model, clock=clock,
+                            turn_entry=turn_entry, effect=effect)
+            case "forecast":
+                _forecast(vault, repository, state, request, model=model, clock=clock, turn_entry=turn_entry,
+                          effect=effect)
+            case "note_detour":
                 _note_detour(vault, repository, state, turn_obj, request, turn_entry=turn_entry, effect=effect,
                              clock=clock)
-        elif request.action == PR.REQUEST:
-            if _te2_turn(vault, turn_entry):
+            case "create_goal_lo":
+                if protection_changed(vault, repository, state):
+                    outcome.protection_changed = True
+                    return results
+                from learnloop.teacher.actions import resolve_offer
+
+                offer = resolve_offer(vault, repository, state, request, client=resolver() if resolver else None,
+                                         clock=clock)
+                entry = _append(repository, state, actor="code", action="topic_offer", refs=_effect_refs(turn_entry, effect),
+                                payload=offer, clock=clock)
+                outcome.shown.append({"kind": "notice", "text": TP.offer_text(entry)})
+            case PR.REQUEST:
                 _serve_probe(vault, repository, state, turn_obj, request, turn_entry=turn_entry, effect=effect,
                              model=model, outcome=outcome, clock=clock)
-        elif request.action == "propose_gap":
-            if _te2_turn(vault, turn_entry):
+            case "propose_gap":
                 _propose_gap(vault, repository, state, request, turn_entry=turn_entry, effect=effect, clock=clock)
-        elif request.action == "close":
-            _close(vault, repository, state, reason=str(request.close_reason), recap=request.recap, clock=clock,
-                   outcome=outcome, turn_entry=turn_entry, effect=effect)
-            break
+            case "close":
+                _close(vault, repository, state, reason=str(request.close_reason), recap=request.recap, clock=clock,
+                       outcome=outcome, turn_entry=turn_entry, effect=effect)
+                break
     if skipped:
         return results
     _append(repository, state, actor="code", action="turn_executed", payload={"turn_id": str(turn_entry["id"])},
@@ -1867,10 +2011,32 @@ def _execute(vault: Any, repository: Any, state: LessonState, turn_obj: TeacherT
     return results
 
 
-def _episodes_turn(vault: Any, turn_entry: Mapping[str, Any] | None) -> bool:
-    """TE2-log writes for this turn: it was written under the episode paragraph and the switch is on now."""
+def _record_read(vault: Any, repository: Any, state: LessonState, request: ActionRequestV1, *, model: str | None,
+                 clock: Clock | None, turn_entry: Mapping[str, Any], effect: str, deferred: bool) -> dict[str, Any]:
+    result = _read_action(vault, repository, state, request, model=model)
+    extra = {"tool_call": result.get("tool_call_id")} if result.get("tool_call_id") else None
+    entry = _append(repository, state, actor="code", action=request.action, refs=_effect_refs(turn_entry, effect, extra),
+                    payload={"request": request.model_dump(exclude_unset=True), "result": result, "deferred": deferred},
+                    clock=clock)
+    delivery = {"action": request.action, "result": _model_result(result)}
+    if deferred:
+        state.pending_results.append({"turn_id": entry["id"], **delivery})
+    return delivery
 
-    return bool(((turn_entry or {}).get("payload") or {}).get("episodes")) and E.on(vault)
+
+def _write_plan(vault: Any, repository: Any, state: LessonState, turn_obj: TeacherTurnV2, request: ActionRequestV1,
+                *, model: str | None, clock: Clock | None, turn_entry: Mapping[str, Any], effect: str) -> None:
+    outline = [node.model_dump(exclude_unset=True) for node in request.plan]
+    previous = state.plans[-1]["outline"] if state.plans else None
+    with repository.atomic():
+        version = store.insert_plan(repository.connection(), lesson_id=state.lesson_id, outline=outline,
+                                    created_at=utc_now_iso(clock))
+        entry = _append(repository, state, actor="code", action="write_plan", refs=_effect_refs(turn_entry, effect),
+                        payload={"version": version}, clock=clock)
+        if _turn_flags(turn_entry)["episodes"]:
+            _plan_episodes(vault, repository, state, turn_obj, outline, previous, version=version,
+                           entry=entry, model=model, turn_entry=turn_entry, clock=clock)
+    state.plans.append({"version": version, "outline": outline})
 
 
 def _note_detour(vault: Any, repository: Any, state: LessonState, turn_obj: TeacherTurnV1, request: ActionRequestV1,
@@ -1907,7 +2073,7 @@ def _serve_probe(vault: Any, repository: Any, state: LessonState, turn_obj: Teac
 
     flags = _turn_flags(turn_entry)
     family = _family_of(model, **flags)
-    prompt = _prompt_version(flags["visuals"], flags["episodes"], flags["te2"])
+    prompt = _prompt_version(**flags)
 
     def append(*, actor: str, action: str, refs: Mapping[str, Any] | None, payload: Any) -> dict[str, Any]:
         return _append(repository, state, actor=actor, action=action, refs=refs, payload=payload, clock=clock)
@@ -1973,13 +2139,13 @@ def _propose_gap(vault: Any, repository: Any, state: LessonState, request: Actio
     data = {"ref": str(request.ref), "learner_turn_id": str(learner["id"]),
             "gap_kind": request.gap_kind, "gap": " ".join(str(request.gap).split()),
             "learning_object_id": lo, "filed": pipeline_enabled(vault),
-            "prompt": _prompt_version(flags["visuals"], flags["episodes"], flags["te2"])}
+            "prompt": _prompt_version(**flags)}
     now = utc_now_iso(clock)
     with repository.atomic():
         entry = _append(repository, state, actor="teacher", action="propose_gap",
                         refs=_effect_refs(turn_entry, effect), payload=data, clock=clock)
         job_id = enqueue_lesson_gap(vault, repository, str(entry["id"]), clock=clock)
-        if E.on(vault):
+        if "episodes" in state.capabilities:
             E.open_episode(repository, lesson=state.lesson, brief=state.brief, kind="gap", opened_by=str(entry["id"]),
                            opened_at=now, node_id=None, learning_object_id=lo, hypotheses=[data["gap"]],
                            hypothesis_payload_id=str(entry["id"]), repair_class=data["gap_kind"],
@@ -1997,12 +2163,11 @@ def _plan_episodes(vault: Any, repository: Any, state: LessonState, turn_obj: Te
 
     from learnloop.scheduling.forecast_receipts import record_receipts
 
-    visuals = bool(((turn_entry or {}).get("payload") or {}).get("visuals"))
-    te2 = bool(((turn_entry or {}).get("payload") or {}).get("te2"))
+    flags = _turn_flags(turn_entry)
     now = utc_now_iso(clock)
     receipts = E.node_held_receipts(state, outline, learning_objects=vault.learning_objects, version=version,
-                                    family=_family_of(model, visuals=visuals, episodes=True, te2=te2),
-                                    prompt=_prompt_version(visuals, True, te2), doctrine=DOCTRINE_VERSION,
+                                    family=_family_of(model, **flags),
+                                    prompt=_prompt_version(**flags), doctrine=DOCTRINE_VERSION,
                                     now=now)
     for receipt in receipts:
         record_receipts(repository, [receipt], vault=vault, clock=clock, created_at=now)
@@ -2022,7 +2187,7 @@ _FIGURE_WITHHELD = {
 }
 
 
-def _visual(vault: Any, repository: Any, state: LessonState, turn_obj: TeacherTurnV1, *, builder: V.Builder,
+def _visual(vault: Any, repository: Any, state: LessonState, turn_obj: TeacherTurnV1, *, builder: V.Builder | None,
             outcome: _Outcome, clock: Clock | None, turn_entry: Mapping[str, Any]) -> None:
     """Reader RW5d P4b: build the turn's visual and record it. A shown figure's words pass the lesson's
     guards (a vault item's key; the open check's solution, a check posed in this turn included) and are
@@ -2128,13 +2293,8 @@ def _forecast(vault: Any, repository: Any, state: LessonState, request: ActionRe
 
     kind = str(request.forecast_kind)
     node = str(request.node)
-    # The doctrine the forecasting turn was written under (Reader RW5d P4b: with the visuals paragraph or not).
-    visuals = bool(((turn_entry or {}).get("payload") or {}).get("visuals"))
-    # TE2-log: a turn under the episode paragraph forecasts as its own family (§12.2).
-    episodes = bool(((turn_entry or {}).get("payload") or {}).get("episodes"))
-    # TE2: a turn under its paragraph forecasts as its own family too.
-    te2 = bool(((turn_entry or {}).get("payload") or {}).get("te2"))
-    family = _family_of(model, visuals=visuals, episodes=episodes, te2=te2)
+    flags = _turn_flags(turn_entry)
+    family = _family_of(model, **flags)
     now = utc_now_iso(clock)
     if kind == "lesson_check_correct":
         ref = state.open_check["check_ref"] if state.open_check is not None else node
@@ -2174,9 +2334,10 @@ def _forecast(vault: Any, repository: Any, state: LessonState, request: ActionRe
         versions={"doctrine": DOCTRINE_VERSION,
                   # The prompt the forecasting turn was written under (Reader RW5d P4b: with the visuals paragraph;
                   # TE2-log: with the episode paragraph).
-                  "prompt": _prompt_version(visuals, episodes, te2),
-                  **({"episodes": E.EPISODES_VERSION} if episodes else {}),
-                  **({"te2": T2.TE2_VERSION} if te2 else {})},
+                  "prompt": _prompt_version(**flags),
+                  **({"episodes": E.EPISODES_VERSION} if flags["episodes"] else {}),
+                  **({"goal_topics": T2.GOAL_VERSION} if flags["goal_topics"] else {}),
+                  **({"te2": T2.TE2_VERSION} if flags["te2"] else {})},
         inputs_as_of=now, p=float(request.p),
         columns={"decision_ref": state.lesson_id, "learning_object_id": lo})
     data = {"key": key, "kind": kind, "node": node, "p": float(request.p), "learning_object_id": lo,
@@ -2237,7 +2398,7 @@ def _close(vault: Any, repository: Any, state: LessonState, *, reason: str, reca
             # TE2: an unanswered probe is retired unused with its lesson (its job skipped, its item never served);
             # a gap's and an added topic's episodes close with their outcome.
             _close_te2(vault, repository, state, closed_at=now, clock=clock)
-        if E.on(vault):
+        if "episodes" in state.capabilities:
             # TE2-log: every episode still open closes with the lesson (its own savepoint).
             E.close_episodes(repository, state.lesson_id, closed_at=now, reason="lesson_closed")
         receipt = _receipt(loaded, repository, state, reason=reason, recap=recap, delayed_checks=delayed_checks,
@@ -2266,7 +2427,7 @@ def _close_te2(vault: Any, repository: Any, state: LessonState, *, closed_at: st
     for probe in PR.probes(turns):
         if probe.unanswered:
             PR.retire(vault, repository, state.lesson, turns, probe, reason="lesson_closed", clock=clock)
-    if not E.on(vault):
+    if "episodes" not in state.capabilities:
         return
     from learnloop.vault.loader import load_vault
 
@@ -2337,7 +2498,7 @@ def displayed_texts(state: LessonState, *, extra: Sequence[str] = ()) -> list[st
         if entry["action"] == "teacher_turn" and entry["validation"] == "ok":
             turn = (entry.get("payload") or {}).get("turn")
             if turn:
-                out.extend(text for _name, text in _displayed(T2.stored_turn(turn)))
+                out.extend(text for _name, text in _displayed(_stored_turn(entry)))
         elif entry["action"] == "visual" and (entry.get("payload") or {}).get("shown_text"):
             # Reader RW5d P4b: a shown figure's words are displayed text too.
             out.append(str(entry["payload"]["shown_text"]))
@@ -2392,7 +2553,8 @@ def _receipt(vault: Any, repository: Any, state: LessonState, *, reason: str, re
         "driver": state.lesson["driver"],
         "model": state.lesson.get("model"),
         "route": state.lesson.get("route"),
-        "doctrine": doctrine_identity(),
+        "doctrine": {**doctrine_identity(),
+                     **({"goal_topics": T2.GOAL_VERSION} if "goal_topics" in state.capabilities else {})},
         "goal": state.brief.get("goal"),
         "learning_object_ids": state.lesson.get("learning_object_ids"),
         "close_reason": reason,
@@ -2467,7 +2629,7 @@ def _receipt_episode_fields(vault: Any, repository: Any, state: LessonState, *,
     """§8.3's ``episodes`` (the lesson's episode ids by kind) and ``minutes`` (active and elapsed, and their source;
     never blended), and the ``lesson_node_held`` receipt keys; ``{}`` while ``teacher.episode_log`` is off."""
 
-    if not E.on(vault):
+    if "episodes" not in state.capabilities:
         return {}
     episodes = E.receipt_episodes(repository, state.lesson_id)
     with repository.connection() as connection:
@@ -2535,6 +2697,7 @@ def view(vault: Any, repository: Any, lesson_id: str, *, outcome: _Outcome | Non
                 if entry["action"] in (PR.ANSWER, PR.RESULT)}
     feed: list[dict[str, Any]] = []
     visuals_shown = V.active(vault)
+    decided_offers = {row["refs"]["offer"] for row in state.turns if row["action"] in ("topic_declined", "topic_requested", "topic_refused")}
     for entry in state.turns:
         data = entry.get("payload") or {}
         action = entry["action"]
@@ -2544,10 +2707,20 @@ def view(vault: Any, repository: Any, lesson_id: str, *, outcome: _Outcome | Non
             shown = _te2_feed_entry(vault, action, data, answered=answered, closed=state.closed)
             if shown is not None:
                 feed.append(shown)
+        elif action == "topic_offer":
+            feed.append({"kind": "notice", "text": TP.offer_text(entry, active=not state.closed and
+                                                              entry["id"] not in decided_offers)})
+        elif action == "topic_refused":
+            feed.append({"kind": "notice", "text": data["message"]})
+        elif action == "topic_declined":
+            feed.append({"kind": "notice", "text": "Topic declined."})
         elif action == "teacher_turn" and entry["validation"] == "ok":
             turn_data = data.get("turn") or {}
             if turn_data.get("message"):
                 feed.append({"kind": "message", "text": turn_data["message"], "choices": turn_data.get("choices") or []})
+            if data.get("goal_topics"):
+                feed.extend({"kind": "notice", "text": TP.proposal_text(request)} for request in _stored_turn(entry).requests
+                            if isinstance(request, CreateGoalLo))
         elif action == "pose_prediction":
             feed.append({"kind": "prediction", **{k: data.get(k) for k in ("node", "prompt", "choices")}})
         elif action == "pose_check":
@@ -2603,7 +2776,7 @@ def view(vault: Any, repository: Any, lesson_id: str, *, outcome: _Outcome | Non
         out["shown_now"] = outcome.shown
         out["notices"] = outcome.notices
         out["vault_changed"] = outcome.vault_changed
-    if E.on(vault):
+    if "episodes" in state.capabilities:
         # TE2-log: the screen reports its activity intervals (lesson.activity) only while this is set (after the
         # close its last interval still arrives; the minutes clip every interval to the lesson's own span).
         out["activity_log"] = True

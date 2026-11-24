@@ -57,7 +57,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/ingest/block_roles|learnloop.ingest.block_roles]] | [[Reference/Modules/learnloop/ingest/block_roles#^module-purpose|purpose]] | `ACTIVE` | 11 | 6 |
 | [[Reference/Modules/learnloop/ingest/hashing|learnloop.ingest.hashing]] | [[Reference/Modules/learnloop/ingest/hashing#^module-purpose|purpose]] | `ACTIVE` | 11 | 22 |
 | [[Reference/Modules/learnloop/ingest/ir|learnloop.ingest.ir]] | [[Reference/Modules/learnloop/ingest/ir#^module-purpose|purpose]] | `ACTIVE` | 18 | 74 |
-| [[Reference/Modules/learnloop/ingest/locators|learnloop.ingest.locators]] | [[Reference/Modules/learnloop/ingest/locators#^module-purpose|purpose]] | `ACTIVE` | 28 | 12 |
+| [[Reference/Modules/learnloop/ingest/locators|learnloop.ingest.locators]] | [[Reference/Modules/learnloop/ingest/locators#^module-purpose|purpose]] | `ACTIVE` | 29 | 12 |
 | [[Reference/Modules/learnloop/ingest/models|learnloop.ingest.models]] | [[Reference/Modules/learnloop/ingest/models#^module-purpose|purpose]] | `ACTIVE` | 8 | 2 |
 | [[Reference/Modules/learnloop/ingest/originals|learnloop.ingest.originals]] | [[Reference/Modules/learnloop/ingest/originals#^module-purpose|purpose]] | `ACTIVE` | 12 | 23 |
 | [[Reference/Modules/learnloop/ingest/reanchor|learnloop.ingest.reanchor]] | [[Reference/Modules/learnloop/ingest/reanchor#^module-purpose|purpose]] | `ACTIVE` | 6 | 1 |
@@ -91,6 +91,7 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 2 static module edges
 - [[Reference/Modules/learnloop/instructional/_package|learnloop.instructional]] — 2 static module edges
 - [[Reference/Modules/learnloop/projects/_package|learnloop.projects]] — 2 static module edges
+- [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] — 2 static module edges
 - [[Reference/Modules/learnloop/_package|learnloop]] — 1 static module edge
 - [[Reference/Modules/learnloop/capture/_package|learnloop.capture]] — 1 static module edge
 - [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 1 static module edge
@@ -101,7 +102,6 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 1 static module edge
 - [[Reference/Modules/learnloop/practice_index/_package|learnloop.practice_index]] — 1 static module edge
 - [[Reference/Modules/learnloop/remote/_package|learnloop.remote]] — 1 static module edge
-- [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] — 1 static module edge
 - [[Reference/Modules/learnloop/tutor/_package|learnloop.tutor]] — 1 static module edge
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 1 static module edge
 - [[Reference/Modules/learnloop/workbench/_package|learnloop.workbench]] — 1 static module edge

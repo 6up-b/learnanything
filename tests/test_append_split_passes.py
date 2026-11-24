@@ -204,9 +204,9 @@ def test_a_split_appends_answers_merge_once_per_concept_and_restructure():
     from learnloop.content.synthesis import source_append as SA
     from learnloop.content.synthesis.ai_contracts import AppendRestructure, SynthConcept
 
-    first = AppendReconciliation(summary="part", concepts=[SynthConcept(client_item_id="c1", title="Symmetric matrix")],
+    first = AppendReconciliation(summary="part", concepts=[SynthConcept(client_item_id="c1", id="symmetric", title="Symmetric matrix")],
                                  restructures=[AppendRestructure(client_item_id="r1", target_entity_id="lo_a")])
-    second = AppendReconciliation(summary="part", concepts=[SynthConcept(client_item_id="c2",
+    second = AppendReconciliation(summary="part", concepts=[SynthConcept(client_item_id="c2", id="symmetric",
                                                                          title="Symmetric Matrix")],
                                   restructures=[AppendRestructure(client_item_id="r2", target_entity_id="lo_a"),
                                                 AppendRestructure(client_item_id="r3", target_entity_id="lo_b")])
@@ -238,3 +238,174 @@ def test_every_pass_shares_its_prompt_through_the_neighbourhood_so_providers_can
     shared = prompts[0][:prompts[0].index('"new_inventories"')]
     assert '"neighborhood"' in shared and all(prompt.startswith(shared) for prompt in prompts)
     assert len(shared) > len(prompts[0]) // 2  # most of each request is the shared part
+
+
+def test_completed_receipt_survives_crash_before_pass_checkpoint(tmp_path, monkeypatch):
+    from learnloop.ai.execution import ModelCheckpoint, observe_model_calls
+
+    root, repo = _three_new_units(tmp_path)
+    budget = _split_budget(root, repo)
+    paid = FakeAppendClient(builder=_links)
+
+    def crash(*args):
+        raise RuntimeError("crash before checkpoint")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(ModelCheckpoint, "save", crash)
+        with observe_model_calls(lambda action, event: repo.record_model_event(
+                action, event, owner_kind="ingest_job", owner_id="append")), pytest.raises(RuntimeError, match="crash"):
+            append_source(root, "set_la", client=paid, new_revision_ids=["rev_alt"], repository=repo,
+                          clock=_CLOCK, budget_overrides=budget)
+    resumed = FakeAppendClient(builder=_links)
+    append_source(root, "set_la", client=resumed, new_revision_ids=["rev_alt"], repository=repo,
+                  clock=_CLOCK, budget_overrides=budget)
+    assert [ctx.new_inventories[0]["unit_id"] for ctx in paid.calls + resumed.calls] == list(UNITS)
+    assert len(_applied(repo)) == len(UNITS)
+
+
+def test_span_round_with_no_room_keeps_the_base_answer(tmp_path):
+    from learnloop.content.synthesis.ai_contracts import SynthSpanRequest
+
+    root, repo = _three_new_units(tmp_path)
+    from learnloop.ai.execution import observe_model_calls
+
+    sizes = []
+    def measure(action, event):
+        if action == "start" and event["purpose"] == "append_reconciliation":
+            sizes.append((len(event["input_text"]) + len(event["schema_json"])) // 4)
+    with observe_model_calls(measure):
+        _whole_request(root, repo)
+    (ceiling,) = sizes
+
+    def needs_span(context, n):
+        answer = _links(context, n)
+        span = answer.provenance_links[0].span
+        answer.span_requests = [SynthSpanRequest(extraction_id=span.extraction_id, unit_id=span.unit_id,
+                                                 span_id=span.span_id, purpose="inspect")]
+        return answer
+
+    client = FakeAppendClient(builder=needs_span)
+    append_source(root, "set_la", client=client, new_revision_ids=["rev_alt"], repository=repo,
+                  clock=_CLOCK, budget_overrides={"append_input_ceiling": ceiling})
+    assert len(client.calls) == 1
+    assert len(_applied(repo)) == len(UNITS)
+
+
+def test_singleton_lower_bound_checked_before_neighborhood_nomination(tmp_path, monkeypatch):
+    from learnloop.content.synthesis import source_append as SA
+
+    root, repo = _three_new_units(tmp_path)
+    calls = []
+
+    def nominate(*args, **kwargs):
+        calls.append(kwargs["nominator"])
+        pytest.fail("neighborhood nomination reached before singleton preflight")
+
+    from learnloop.content.synthesis.graph_nomination import GraphNominator
+    # A configured nominator can spend before reconciliation.
+    monkeypatch.setattr(GraphNominator, "for_ingest", lambda *args, **kwargs: object())
+    monkeypatch.setattr(SA, "select_neighborhood", nominate)
+    with pytest.raises(StudyMapError) as refused:
+        append_source(root, "set_la", client=FakeAppendClient(builder=_links), new_revision_ids=["rev_alt"],
+                      repository=repo, clock=_CLOCK, budget_overrides={"append_input_ceiling": 1000})
+    assert refused.value.code == "append_input_over_ceiling"
+    assert calls == []
+
+
+@pytest.mark.parametrize(("second_id", "second_type"), [("normal_form", "concept"), ("normalization", "procedure")])
+def test_split_preserves_distinct_concepts_with_the_same_title(second_id, second_type):
+    from types import SimpleNamespace
+
+    from learnloop.content.synthesis import source_append as SA
+    from learnloop.content.synthesis.ai_contracts import SynthConcept
+
+    concepts = [
+        SynthConcept(client_item_id="chapter_a", id="normalization", title="Normalization", description="A property"),
+        SynthConcept(client_item_id="chapter_b", id=second_id, title="Normalization", type=second_type,
+                     description="A sequence of operations"),
+    ]
+    answer, _, _ = SA._within_the_brief(SimpleNamespace(brief={}), AppendReconciliation(concepts=concepts),
+                                         shard_count=2)
+    assert answer.concepts == concepts
+
+
+def test_folded_facets_parent_resolves_through_the_surviving_concept():
+    from learnloop.content.synthesis.ai_contracts import SynthConcept, SynthFacet
+    from learnloop.content.synthesis.source_set_synthesis import _apply_concept_merges
+
+    original = AppendReconciliation(
+        concepts=[SynthConcept(client_item_id="shard_1__c", id="canonical"), SynthConcept(client_item_id="shard_2__c",
+                                                                                            id="duplicate")],
+        facets=[SynthFacet(client_item_id="f", concept_id="duplicate")])
+    facet = _apply_concept_merges(original, {"shard_2__c": "shard_1__c"}).facets[0]
+    assert dict((c.client_item_id, c.id) for c in original.concepts).get(facet.concept_client_id,
+                                                                         facet.concept_id) == "canonical"
+
+
+def test_split_conflict_and_other_pass_disposition_have_distinct_local_names():
+    from learnloop.content.synthesis.ai_contracts import AppendConflict
+    from learnloop.content.synthesis.source_append import _merge_append
+    from learnloop.content.synthesis.source_set_synthesis import _namespace_synthesis_shard
+
+    conflict = AppendReconciliation(conflicts=[AppendConflict(client_item_id="c")], conflict_candidates=["c"])
+    disposed = AppendReconciliation(conflict_candidates=["c"], non_conflict_dispositions=["c"])
+    result = _merge_append(_namespace_synthesis_shard(conflict, 0), _namespace_synthesis_shard(disposed, 1))
+    assert result.conflict_candidates == [result.conflicts[0].client_item_id, *result.non_conflict_dispositions]
+    assert len(set(result.conflict_candidates)) == 2
+
+
+def test_later_cited_reword_survives_invalid_first_edit(tmp_path):
+    from tests.facet_reword_paths_helpers import _facet_restructure
+
+    root, repo = _three_new_units(tmp_path)
+
+    def edits(context, n):
+        ref = _links(context, n).provenance_links[0]
+        answer = _facet_restructure("deactivate" if n == 1 else "update", ref.target_entity_id,
+                                    citations=[ref.span.model_dump()])(context, n)
+        if n == 3:
+            answer.restructures[0].facet_wording.claim = "Third chapter's proposed wording"
+        return answer
+
+    result = append_source(root, "set_la", client=FakeAppendClient(builder=edits), new_revision_ids=["rev_alt"],
+                           repository=repo, clock=_CLOCK, budget_overrides=_split_budget(root, repo))
+    rows = [row for row in repo.proposal_items(result.proposal_id) if row["operation"] == "update"]
+    assert len(rows) == 1
+    alternatives = json.dumps(result.gate_diagnostics)
+    assert "Third chapter's proposed wording" in alternatives and "s3" in alternatives
+
+
+def test_split_summary_remembers_distinct_original_multiline_summaries():
+    from learnloop.content.synthesis.source_append import _merge_append
+
+    first, second = (AppendReconciliation(summary=text) for text in ("A\nB", "B"))
+    assert _merge_append(_merge_append(first, second), first).summary == "A\nB\nB"
+
+
+def test_completed_append_job_counts_each_reconciliation_pass(tmp_path):
+    from learnloop.content.pipeline.runner import IngestRunner, JobSpec, RunnerServices
+
+    root, repo = _three_new_units(tmp_path)
+    client = FakeAppendClient(builder=_links)
+    runner = IngestRunner(repo, vault_root=root, worker_id="w", clock=_CLOCK, services=RunnerServices(
+        synthesis_client_factory=lambda _ctx: client))
+    batch = runner.enqueue_batch("update_study_map", [JobSpec("append_synthesis", {
+        "source_set_id": "set_la", "new_revision_ids": ["rev_alt"], "synthesis_budgets": _split_budget(root, repo)})])
+    runner.drain()
+    (job,) = repo.ingest_jobs_for_batch(batch)
+    assert job["status"] == "completed", job.get("error")
+    assert job["usage"]["calls"] == len(client.calls) == len(UNITS)
+
+
+def test_update_preview_prices_split_passes_and_their_possible_span_calls():
+    from learnloop.config import LearnLoopConfig
+    from learnloop.content.pipeline.build_plan import _stage_estimates
+
+    budgets = LearnLoopConfig().ingest.budgets
+    unit_tokens = [budgets.append_input_ceiling] * len(UNITS)
+    stages = _stage_estimates(unit_tokens=unit_tokens, cached_token_pool=0, budgets=budgets, routing="update",
+                              provider_context=None)
+    append = next(stage for stage in stages if stage.stage == "append")
+    assert append.calls >= len(UNITS)
+    assert append.max_output_tokens >= 2 * len(UNITS) * budgets.append_output_tokens
+    assert append.ceiling == budgets.append_input_ceiling

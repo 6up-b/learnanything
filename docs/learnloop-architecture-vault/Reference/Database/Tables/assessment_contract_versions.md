@@ -142,11 +142,11 @@ Indexes and uniqueness:
 - `tests/test_mcp_c1a_review.py`
 - `tests/test_mcp_runtime.py`
 - `tests/test_re0_capture.py`
+- `tests/test_reader_rd7a_inline_checks.py`
 - `tests/test_reader_workbench_rw2a.py`
 - `tests/test_regrade_contract_successor.py`
 - `tests/test_required_method_round3_final_verify.py`
 - `tests/test_voi_forecasts.py`
-- `tests/joint_grading_helpers.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

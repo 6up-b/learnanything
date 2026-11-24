@@ -2555,6 +2555,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_queue_revision_after_applying_jobs.py](../../../../../../tests/test_queue_revision_after_applying_jobs.py) — direct import
   - `test_a_legacy_ingest_that_applies_practice_moves_the_revision`
   - `test_a_picked_source_exercise_written_as_practice_moves_the_revision`
+  - `test_cancellation_after_the_legacy_write_publishes_the_new_practice`
 - [tests/test_quick_add.py](../../../../../../tests/test_quick_add.py) — direct import
   - `test_exam_prep_quick_add_ends_with_an_applied_map_and_its_goal`
   - `test_narrow_adjunct_preset_uses_reference_role_and_small_upfront_brief`
@@ -2647,6 +2648,16 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_empty_and_thin_states`
   - `test_the_lens_levels_follow_the_real_path_and_coverage`
   - `test_the_replies_are_equal_after_a_rebuild_of_derived_state`
+- [tests/test_reader_rd7a_inline_checks.py](../../../../../../tests/test_reader_rd7a_inline_checks.py) — direct import
+  - `test_a_later_answer_after_today_settled_the_check_is_practice_and_ordinary_evidence`
+  - `test_an_answer_after_a_notes_veil_was_opened_is_practice_and_says_why`
+  - `test_one_administration_at_a_time_and_today_honours_it`
+  - `test_parity_with_check_once_in_today`
+  - `test_the_projection_after_an_inline_answer_equals_a_whole_vault_rebuild`
+  - `test_the_protection_set_veils_covered_passages_and_every_note_bearing_surface`
+- [tests/test_reader_rd7b_cold_followup_parity.py](../../../../../../tests/test_reader_rd7b_cold_followup_parity.py) — direct import
+  - `test_a_due_cold_follow_up_opens_inline_cold_on_the_item_today_would_serve`
+  - `test_rw6bs_gate_holds_the_follow_up_on_both_surfaces`
 - [tests/test_reader_rd9a_fix.py](../../../../../../tests/test_reader_rd9a_fix.py) — direct import
 - [tests/test_reader_rd9a_lesson_windows.py](../../../../../../tests/test_reader_rd9a_lesson_windows.py) — direct import
   - `test_lesson_list_names_each_lesson_with_its_additions_pad`
@@ -3490,6 +3501,14 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_randomized_checks_are_scored_apart_with_their_r`
   - `test_the_pool_weights_trajectory_per_forecaster`
   - `test_the_report_on_a_synthetic_lesson`
+- [tests/test_teacher_te5_contracts.py](../../../../../../tests/test_teacher_te5_contracts.py) — direct import
+  - `test_a_lesson_uses_the_capabilities_recorded_at_open`
+- [tests/test_teacher_te5_goal_topics.py](../../../../../../tests/test_teacher_te5_goal_topics.py) — direct import
+  - `test_consent_rechecks_a_changed_catalog`
+  - `test_decline_then_stale_consent_never_creates`
+  - `test_existing_topic_never_offers_creation`
+  - `test_lookup_consent_replay_and_receipt`
+  - `test_resume_after_yaml_publication_finishes_consent_once`
 - [tests/test_tier1_decider.py](../../../../../../tests/test_tier1_decider.py) — direct import
   - `test_a_decider_cancellation_in_misconception_matching_never_reaches_the_llm`
   - `test_a_review_resume_refuses_a_changed_decider_profile`

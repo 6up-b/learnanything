@@ -36,7 +36,7 @@ Up: [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] · Root: 
 
 ## Why this module exists
 
-`learnloop.teacher.contracts` exists within [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] to own the behavior summarized by its module contract: The lesson contracts (spec_teacher_v1 §8): the brief, the teacher's turn, the receipt, and the actions.
+`learnloop.teacher.contracts` exists within [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] to own the behavior summarized by its module contract: Public lesson contracts.
 
 The authoritative system-level explanation remains in [[Architecture Overview]]; this note records where this source module participates rather than restating those concepts.
 
@@ -47,105 +47,44 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/teacher/contracts.py](../../../../../../src/learnloop/teacher/contracts.py) |
-| Source lines | 325 |
+| Source lines | 178 |
 | Owning package | [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class CriterionV1(WireModel)` ([source](../../../../../../src/learnloop/teacher/contracts.py), line 58) — One rubric criterion, named by the fact it establishes (owner rule 2026-10-13).
-- `class PredictionV1(WireModel)` ([source](../../../../../../src/learnloop/teacher/contracts.py), line 66) — A nudge before a step (§10 item 7): it arrives open and need not be answerable.
-- `class CheckV1(WireModel)` ([source](../../../../../../src/learnloop/teacher/contracts.py), line 74) — A check after a step (§8.2): answerable from the lesson, applied, its solution committed first.
-- `class PlanNodeV1(WireModel)` ([source](../../../../../../src/learnloop/teacher/contracts.py), line 87)
-- `class ActionRequestV1(WireModel)` ([source](../../../../../../src/learnloop/teacher/contracts.py), line 95) — One requested action (§9).
-- `class TeacherTurnV1(WireModel)` ([source](../../../../../../src/learnloop/teacher/contracts.py), line 122) — One model turn (§8.2).
-- `class PlannedVisualV1(WireModel)` ([source](../../../../../../src/learnloop/teacher/contracts.py), line 139) — A plan node's planned visual (spec §10.4): the goal written from the brief (which quantity the learner gets to move, which stays fixed, what to watch) and the delivered passages it rests on.
-- `class TeacherVisualV1(WireModel)` ([source](../../../../../../src/learnloop/teacher/contracts.py), line 147) — A turn's visual (spec §6.5): either ``planned_node`` (the node whose planned visual this step shows, so it is the identical request), or a ``goal`` with the passages it rests on.
-- `class PlanNodeVisualsV1(PlanNodeV1)` ([source](../../../../../../src/learnloop/teacher/contracts.py), line 156)
-- `class ActionRequestVisualsV1(ActionRequestV1)` ([source](../../../../../../src/learnloop/teacher/contracts.py), line 160)
-- `class TeacherTurnVisualsV1(TeacherTurnV1)` ([source](../../../../../../src/learnloop/teacher/contracts.py), line 164) — One model turn with ``teacher.visuals`` on: TE1's turn plus the optional ``visual``.
-- `class PlanNodeEpisodesV1(PlanNodeV1)` ([source](../../../../../../src/learnloop/teacher/contracts.py), line 183)
-- `class ActionRequestEpisodesV1(ActionRequestV1)` ([source](../../../../../../src/learnloop/teacher/contracts.py), line 188) — TE1's request plus ``note_detour`` (§11.7): its node is ``node``, its belief in the hypothesis ``p``.
-- `class TeacherTurnEpisodesV1(TeacherTurnV1)` ([source](../../../../../../src/learnloop/teacher/contracts.py), line 199) — One model turn with ``teacher.episode_log`` on: TE1's turn plus ``note_detour`` and ``p_held``.
-- `class PlanNodeVisualsEpisodesV1(PlanNodeVisualsV1)` ([source](../../../../../../src/learnloop/teacher/contracts.py), line 205)
-- `class ActionRequestVisualsEpisodesV1(ActionRequestVisualsV1)` ([source](../../../../../../src/learnloop/teacher/contracts.py), line 209)
-- `class TeacherTurnVisualsEpisodesV1(TeacherTurnVisualsV1)` ([source](../../../../../../src/learnloop/teacher/contracts.py), line 216) — Both switches on: the visuals turn plus ``note_detour`` and ``p_held`` (the widest stored shape).
-- `class ActionRequestTE2V1(_TE2Fields, ActionRequestV1)` ([source](../../../../../../src/learnloop/teacher/contracts.py), line 250)
-- `class TeacherTurnTE2V1(TeacherTurnV1)` ([source](../../../../../../src/learnloop/teacher/contracts.py), line 254)
-- `class ActionRequestTE2EpisodesV1(_TE2Fields, ActionRequestEpisodesV1)` ([source](../../../../../../src/learnloop/teacher/contracts.py), line 258)
-- `class TeacherTurnTE2EpisodesV1(TeacherTurnV1)` ([source](../../../../../../src/learnloop/teacher/contracts.py), line 262)
-- `class ActionRequestTE2VisualsV1(_TE2Fields, ActionRequestVisualsV1)` ([source](../../../../../../src/learnloop/teacher/contracts.py), line 266)
-- `class TeacherTurnTE2VisualsV1(TeacherTurnVisualsV1)` ([source](../../../../../../src/learnloop/teacher/contracts.py), line 270)
-- `class ActionRequestTE2VisualsEpisodesV1(_TE2Fields, ActionRequestVisualsEpisodesV1)` ([source](../../../../../../src/learnloop/teacher/contracts.py), line 274)
-- `class TeacherTurnTE2VisualsEpisodesV1(TeacherTurnVisualsV1)` ([source](../../../../../../src/learnloop/teacher/contracts.py), line 278) — Every switch on: the widest stored shape.
-
-### Module constants
-
-- `BRIEF_VERSION` ([src/learnloop/teacher/contracts.py](../../../../../../src/learnloop/teacher/contracts.py), line 37)
-- `TURN_VERSION` ([src/learnloop/teacher/contracts.py](../../../../../../src/learnloop/teacher/contracts.py), line 38)
-- `RECEIPT_VERSION` ([src/learnloop/teacher/contracts.py](../../../../../../src/learnloop/teacher/contracts.py), line 39)
-- `PROMPT_VERSION` ([src/learnloop/teacher/contracts.py](../../../../../../src/learnloop/teacher/contracts.py), line 41)
-- `ACTIONS` ([src/learnloop/teacher/contracts.py](../../../../../../src/learnloop/teacher/contracts.py), line 43)
-- `READ_ACTIONS` ([src/learnloop/teacher/contracts.py](../../../../../../src/learnloop/teacher/contracts.py), line 47)
-- `CLOSE_REASONS` ([src/learnloop/teacher/contracts.py](../../../../../../src/learnloop/teacher/contracts.py), line 48)
-- `TEACHER_CLOSE_REASONS` ([src/learnloop/teacher/contracts.py](../../../../../../src/learnloop/teacher/contracts.py), line 54)
-- `FORECAST_KINDS` ([src/learnloop/teacher/contracts.py](../../../../../../src/learnloop/teacher/contracts.py), line 55)
-- `VISUAL_ANCHORS` ([src/learnloop/teacher/contracts.py](../../../../../../src/learnloop/teacher/contracts.py), line 136)
-- `DETOUR_REPAIRS` ([src/learnloop/teacher/contracts.py](../../../../../../src/learnloop/teacher/contracts.py), line 174)
-- `EPISODE_ACTIONS` ([src/learnloop/teacher/contracts.py](../../../../../../src/learnloop/teacher/contracts.py), line 176)
-- `TE2_ACTIONS` ([src/learnloop/teacher/contracts.py](../../../../../../src/learnloop/teacher/contracts.py), line 226)
-- `GAP_KINDS` ([src/learnloop/teacher/contracts.py](../../../../../../src/learnloop/teacher/contracts.py), line 227)
-- `MAX_READINGS` ([src/learnloop/teacher/contracts.py](../../../../../../src/learnloop/teacher/contracts.py), line 229)
+- `capabilities(*, visuals: bool, episodes: bool, probes: bool) -> Capabilities` ([source](../../../../../../src/learnloop/teacher/contracts.py), line 60)
+- `lesson_capabilities(lesson: Mapping[str, Any], turns: Sequence[Mapping[str, Any]]) -> Capabilities` ([source](../../../../../../src/learnloop/teacher/contracts.py), line 71)
+- `class ReadSource(ActionRequestTE2VisualsEpisodesV1)` ([source](../../../../../../src/learnloop/teacher/contracts.py), line 83)
+- `class FindSources(ActionRequestTE2VisualsEpisodesV1)` ([source](../../../../../../src/learnloop/teacher/contracts.py), line 87)
+- `class FindPractice(ActionRequestTE2VisualsEpisodesV1)` ([source](../../../../../../src/learnloop/teacher/contracts.py), line 91)
+- `class ReadHistory(ActionRequestTE2VisualsEpisodesV1)` ([source](../../../../../../src/learnloop/teacher/contracts.py), line 95)
+- `class ReadNote(ActionRequestTE2VisualsEpisodesV1)` ([source](../../../../../../src/learnloop/teacher/contracts.py), line 99)
+- `class WritePlan(ActionRequestTE2VisualsEpisodesV1)` ([source](../../../../../../src/learnloop/teacher/contracts.py), line 103)
+- `class Forecast(ActionRequestTE2VisualsEpisodesV1)` ([source](../../../../../../src/learnloop/teacher/contracts.py), line 107)
+- `class Close(ActionRequestTE2VisualsEpisodesV1)` ([source](../../../../../../src/learnloop/teacher/contracts.py), line 111)
+- `class NoteDetour(ActionRequestTE2VisualsEpisodesV1)` ([source](../../../../../../src/learnloop/teacher/contracts.py), line 115)
+- `class ServeProbe(ActionRequestTE2VisualsEpisodesV1)` ([source](../../../../../../src/learnloop/teacher/contracts.py), line 119)
+- `class ProposeGap(ActionRequestTE2VisualsEpisodesV1)` ([source](../../../../../../src/learnloop/teacher/contracts.py), line 123)
+- `class CreateGoalLo(WireModel)` ([source](../../../../../../src/learnloop/teacher/contracts.py), line 127) — Offer a topic for a phrase the learner wants to study.
+- `class TeacherTurnV2(TeacherTurnVisualsV1)` ([source](../../../../../../src/learnloop/teacher/contracts.py), line 143) — The execution contract shared by live turns and interrupted turns.
+  - `admitted(self, info: ValidationInfo) -> 'TeacherTurnV2'` (line 149; public)
+- `parse_turn(data: Mapping[str, Any], allowed: Capabilities) -> TeacherTurnV2` ([source](../../../../../../src/learnloop/teacher/contracts.py), line 172)
 
 ### Explicit exports
 
 `__all__` declares:
 
-- `ACTIONS`
-- `ActionRequestTE2EpisodesV1`
-- `ActionRequestTE2V1`
-- `ActionRequestTE2VisualsEpisodesV1`
-- `ActionRequestTE2VisualsV1`
-- `GAP_KINDS`
-- `MAX_READINGS`
-- `TE2_ACTIONS`
-- `TeacherTurnTE2EpisodesV1`
-- `TeacherTurnTE2V1`
-- `TeacherTurnTE2VisualsEpisodesV1`
-- `TeacherTurnTE2VisualsV1`
-- `ActionRequestEpisodesV1`
-- `ActionRequestVisualsEpisodesV1`
-- `BRIEF_VERSION`
-- `CLOSE_REASONS`
-- `DETOUR_REPAIRS`
-- `EPISODE_ACTIONS`
-- `FORECAST_KINDS`
-- `PlanNodeEpisodesV1`
-- `PlanNodeVisualsEpisodesV1`
-- `TeacherTurnEpisodesV1`
-- `TeacherTurnVisualsEpisodesV1`
-- `PROMPT_VERSION`
-- `READ_ACTIONS`
-- `RECEIPT_VERSION`
-- `TEACHER_CLOSE_REASONS`
-- `TURN_VERSION`
-- `ActionRequestV1`
-- `ActionRequestVisualsV1`
-- `CheckV1`
-- `CriterionV1`
-- `PlanNodeV1`
-- `PlanNodeVisualsV1`
-- `PlannedVisualV1`
-- `PredictionV1`
-- `TeacherTurnV1`
-- `TeacherTurnVisualsV1`
-- `TeacherVisualV1`
-- `VISUAL_ANCHORS`
+- `Capabilities`
+- `TeacherTurnV2`
+- `capabilities`
+- `lesson_capabilities`
+- `parse_turn`
 
 ## Internal implementation anchors
 
-- `class _TE2Fields(WireModel)` ([source](../../../../../../src/learnloop/teacher/contracts.py), line 240) — ``serve_probe {node, readings, p}`` (``p``: the teacher's forecast of a right answer) and ``propose_gap {ref, gap_kind, gap}`` (``ref``: the learner's turn, as the transcript names it).
+No private top-level function or class definition is declared in this file.
 
 ## Who imports or calls it
 
@@ -153,12 +92,12 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] — imports `PlannedVisualV1`
-- [[Reference/Modules/learnloop/teacher/actions|learnloop.teacher.actions]] — imports `ActionRequestV1`
+- [[Reference/Modules/learnloop/teacher/actions|learnloop.teacher.actions]] — imports `ActionRequestV1`, `CreateGoalLo`
 - [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]] — imports `READ_ACTIONS`
 - [[Reference/Modules/learnloop/teacher/checks|learnloop.teacher.checks]] — imports `CheckV1`
-- [[Reference/Modules/learnloop/teacher/episodes|learnloop.teacher.episodes]] — imports `TeacherTurnEpisodesV1`, `TeacherTurnV1`, `TeacherTurnVisualsEpisodesV1`
-- [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] — imports `ActionRequestV1`, `CheckV1`, `READ_ACTIONS`, `RECEIPT_VERSION`, `TURN_VERSION`, `TeacherTurnV1`
-- [[Reference/Modules/learnloop/teacher/te2|learnloop.teacher.te2]] — imports `TeacherTurnEpisodesV1`, `TeacherTurnTE2EpisodesV1`, `TeacherTurnTE2V1`, `TeacherTurnTE2VisualsEpisodesV1`, `TeacherTurnTE2VisualsV1`, `TeacherTurnV1`, `TeacherTurnVisualsEpisodesV1`, `TeacherTurnVisualsV1`
+- [[Reference/Modules/learnloop/teacher/episodes|learnloop.teacher.episodes]] — imports `TeacherTurnEpisodesV1`, `TeacherTurnV1`, `TeacherTurnVisualsEpisodesV1`, `lesson_capabilities`; statically calls `lesson_capabilities`
+- [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] — imports `ActionRequestV1`, `Capabilities`, `CheckV1`, `CreateGoalLo`, `READ_ACTIONS`, `RECEIPT_VERSION`, `TURN_VERSION`, `TeacherTurnV1`, `TeacherTurnV2`, `capabilities`, `lesson_capabilities`, `parse_turn`; statically calls `ActionRequestV1`, `CreateGoalLo`, `capabilities`, `lesson_capabilities`, `parse_turn`
+- [[Reference/Modules/learnloop/teacher/te2|learnloop.teacher.te2]] — imports `CreateGoalLo`, `TeacherTurnEpisodesV1`, `TeacherTurnTE2EpisodesV1`, `TeacherTurnTE2V1`, `TeacherTurnTE2VisualsEpisodesV1`, `TeacherTurnTE2VisualsV1`, `TeacherTurnV1`, `TeacherTurnVisualsEpisodesV1`, `TeacherTurnVisualsV1`
 - [[Reference/Modules/learnloop/teacher/visuals|learnloop.teacher.visuals]] — imports `PROMPT_VERSION`, `PlannedVisualV1`, `TeacherTurnV1`, `TeacherTurnVisualsEpisodesV1`, `TeacherTurnVisualsV1`
 
 ## Dependencies
@@ -166,10 +105,11 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/ai/schemas|learnloop.ai.schemas]] — imports `WireModel`
+- [[Reference/Modules/learnloop/teacher/legacy_turns|learnloop.teacher.legacy_turns]] — imports `ACTIONS`, `ActionRequestEpisodesV1`, `ActionRequestTE2EpisodesV1`, `ActionRequestTE2V1`, `ActionRequestTE2VisualsEpisodesV1`, `ActionRequestTE2VisualsV1`, `ActionRequestV1`, `ActionRequestVisualsEpisodesV1`, `ActionRequestVisualsV1`, `BRIEF_VERSION`, `CLOSE_REASONS`, `CheckV1`, `CriterionV1`, `DETOUR_REPAIRS`, `EPISODE_ACTIONS`, `FORECAST_KINDS`, `GAP_KINDS`, `MAX_READINGS`, `PROMPT_VERSION`, `PlanNodeEpisodesV1`, `PlanNodeV1`, `PlanNodeVisualsEpisodesV1`, `PlanNodeVisualsV1`, `PlannedVisualV1`, `PredictionV1`, `READ_ACTIONS`, `RECEIPT_VERSION`, `TE2_ACTIONS`, `TEACHER_CLOSE_REASONS`, `TURN_VERSION`, `TeacherTurnEpisodesV1`, `TeacherTurnTE2EpisodesV1`, `TeacherTurnTE2V1`, `TeacherTurnTE2VisualsEpisodesV1`, `TeacherTurnTE2VisualsV1`, `TeacherTurnV1`, `TeacherTurnVisualsEpisodesV1`, `TeacherTurnVisualsV1`, `TeacherVisualV1`, `VISUAL_ANCHORS`, `__all__`
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `typing`
+- Standard library: `__future__`, `collections`, `typing`
 - Third party: `pydantic`
 
 ## Larger workflow participation
@@ -185,15 +125,24 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/identity_pins_helpers.py](../../../../../../tests/identity_pins_helpers.py) — direct import
 - [tests/teacher_fakes.py](../../../../../../tests/teacher_fakes.py) — direct import
 - [tests/test_reader_rw5d_p4b_teacher_visuals.py](../../../../../../tests/test_reader_rw5d_p4b_teacher_visuals.py) — direct import
   - `test_switch_off_keeps_the_lessons_prompt_and_turn_schema_without_the_visuals_paragraph`
+- [tests/test_teacher_structured_contracts.py](../../../../../../tests/test_teacher_structured_contracts.py) — direct import
+  - `test_all_eight_turn_variants_check_inside_receipt`
 - [tests/test_teacher_te2log_episodes.py](../../../../../../tests/test_teacher_te2log_episodes.py) — direct import
   - `test_a_schema_refusal_names_fields_by_location_never_by_their_input`
   - `test_switch_off_keeps_the_lesson_without_the_episode_paragraph`
   - `test_switch_on_offers_the_paragraph_the_schema_and_its_own_forecaster`
 - [tests/test_teacher_te2log_node_held.py](../../../../../../tests/test_teacher_te2log_node_held.py) — direct import
   - `test_switch_off_has_no_p_held_and_writes_no_forecast`
+- [tests/test_teacher_te5_contracts.py](../../../../../../tests/test_teacher_te5_contracts.py) — direct import
+  - `test_legacy_open_uses_its_journal_and_brief`
+  - `test_recovery_keeps_the_predecessors_plan_and_read_payloads`
+  - `test_wire_and_union_admit_the_same_inputs`
+- [tests/test_teacher_te5_goal_topics.py](../../../../../../tests/test_teacher_te5_goal_topics.py) — direct import
+  - `test_pre_offer_schema_and_executor_refuse_new_action`
 
 ## Modification guidance
 

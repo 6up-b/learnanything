@@ -224,7 +224,7 @@ def request(vault: Any, repository: Any, state: Any, turn_obj: Any, req: Any, *,
             "attempt_id": attempt_id, "forecast_key": key if written else None, "generation_job_id": job_id,
             "model": model}
     entry = append(actor="teacher", action=REQUEST, refs=effect_refs, payload=data)
-    if E.on(vault):
+    if "episodes" in state.capabilities:
         E.open_episode(repository, lesson=state.lesson, brief=state.brief, kind="probe", opened_by=str(entry["id"]),
                        opened_at=now, node_id=node, learning_object_id=lo, hypotheses=readings,
                        hypothesis_payload_id=str(entry["id"]), teacher_p=p,
@@ -278,8 +278,6 @@ def record_refused(vault: Any, repository: Any, *, lesson_id: str, node_id: str,
     """No question passed: the ``probe_refused`` entry and its episode closed ``refused`` with the reason. The
     teacher is told "couldn't prepare that question"."""
 
-    from learnloop.teacher import episodes as E
-
     reason = reason if reason in REFUSAL_REASONS else "not_admitted"
     now = utc_now_iso(clock)
     with repository.atomic():
@@ -289,9 +287,8 @@ def record_refused(vault: Any, repository: Any, *, lesson_id: str, node_id: str,
             return False
         store.append_turn(connection, lesson_id=lesson_id, actor="code", action=REFUSED, validation="ok", refs={},
                           payload={"probe_ref": probe.ref, "reason": reason}, created_at=now)
-        if E.on(vault):
-            _close_episode(repository, lesson_id, probe, closed_at=now, reason="refused",
-                           outcome={"refusal_reason": reason})
+        _close_episode(repository, lesson_id, probe, closed_at=now, reason="refused",
+                       outcome={"refusal_reason": reason})
     return True
 
 
@@ -359,7 +356,6 @@ def retire(vault: Any, repository: Any, lesson: Mapping[str, Any], turns: Sequen
     episode closed ``retired``."""
 
     from learnloop.followup_serve import identity, queue
-    from learnloop.teacher import episodes as E
 
     if not probe.unanswered:
         return
@@ -372,8 +368,7 @@ def retire(vault: Any, repository: Any, lesson: Mapping[str, Any], turns: Sequen
         store.append_turn(repository.connection(), lesson_id=lesson_id, actor="code", action=RETIRED, validation="ok",
                           refs={"item": probe.item_id} if probe.item_id else {},
                           payload={"probe_ref": probe.ref, "reason": reason}, created_at=now)
-    if E.on(vault):
-        _close_episode(repository, lesson_id, probe, closed_at=now, reason="retired", outcome={})
+    _close_episode(repository, lesson_id, probe, closed_at=now, reason="retired", outcome={})
 
 
 def _current(connection: Any, lesson_id: str, ref: str) -> Probe | None:
@@ -409,7 +404,6 @@ def record_answer(vault: Any, repository: Any, lesson: Mapping[str, Any], probe:
     from learnloop.attempts.reveal_ledger import production_admissibility
     from learnloop.followup_serve import identity
     from learnloop.teacher import checks as CK
-    from learnloop.teacher import episodes as E
     from learnloop.teacher import guards as G
     from learnloop.vault.loader import load_vault
 
@@ -470,9 +464,8 @@ def record_answer(vault: Any, repository: Any, lesson: Mapping[str, Any], probe:
         store.append_turn(repository.connection(), lesson_id=lesson_id, actor="code", action=RESULT,
                           validation="ok", refs={"attempt": probe.attempt_id, "item": item.id}, payload=result,
                           created_at=now)
-        if E.on(vault):
-            _close_episode(repository, lesson_id, probe, closed_at=now, reason="answered",
-                           outcome={"outcome_attempt_id": probe.attempt_id, "outcome_correctness": correctness})
+        _close_episode(repository, lesson_id, probe, closed_at=now, reason="answered",
+                       outcome={"outcome_attempt_id": probe.attempt_id, "outcome_correctness": correctness})
     return result
 
 

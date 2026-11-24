@@ -136,6 +136,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 
 - [[Reference/Modules/learnloop/companion/asks|learnloop.companion.asks]] — imports `module`; statically calls `head`
 - [[Reference/Modules/learnloop/desks/workspace|learnloop.desks.workspace]] — imports `module`; statically calls `pad`, `running_pad_ids`
+- [[Reference/Modules/learnloop/intent/inline_administration|learnloop.intent.inline_administration]] — imports `module`; statically calls `head`
 - [[Reference/Modules/learnloop/pads/blocks|learnloop.pads.blocks]] — imports `module`; statically calls `anchor_event_exists`, `first_versions`, `head`, `heads`, `latest_anchor_event`, `lesson_additions_pads`, `list_pads`, `pad`, `standing_anchors_for_blocks`, `version`, `version_exists`
 - [[Reference/Modules/learnloop/pads/carried|learnloop.pads.carried]] — imports `module`; statically calls `carried`, `carried_event_exists`, `carried_events`, `list_carried`
 - [[Reference/Modules/learnloop/pads/cells|learnloop.pads.cells]] — imports `module`; statically calls `heads`, `pad`
@@ -148,7 +149,6 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/passage_union/union|learnloop.passage_union.union]] — imports `module`; statically calls `carried_on_readings`, `head`, `standing_anchors_for_spans`
 - [[Reference/Modules/learnloop_sidecar/handlers/lesson|learnloop_sidecar.handlers.lesson]] — imports `module`; statically calls `lesson_additions_pads`
 - [[Reference/Modules/learnloop_sidecar/handlers/passage_union|learnloop_sidecar.handlers.passage_union]] — imports `module`; statically calls `head`, `labels_for`
-- [[Reference/Modules/learnloop_sidecar/workbench_protection|learnloop_sidecar.workbench_protection]] — imports `module`; statically calls `head`, `standing_anchors_for_blocks`
 
 ## Dependencies
 
@@ -168,7 +168,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/companion/asks|learnloop.companion.asks]], [[Reference/Modules/learnloop/desks/workspace|learnloop.desks.workspace]], [[Reference/Modules/learnloop/pads/blocks|learnloop.pads.blocks]], [[Reference/Modules/learnloop/pads/carried|learnloop.pads.carried]], [[Reference/Modules/learnloop/pads/cells|learnloop.pads.cells]] and 10 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/companion/asks|learnloop.companion.asks]], [[Reference/Modules/learnloop/desks/workspace|learnloop.desks.workspace]], [[Reference/Modules/learnloop/intent/inline_administration|learnloop.intent.inline_administration]], [[Reference/Modules/learnloop/pads/blocks|learnloop.pads.blocks]], [[Reference/Modules/learnloop/pads/carried|learnloop.pads.carried]] and 10 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -177,8 +177,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_notebook_pad_cells.py](../../../../../../../tests/test_notebook_pad_cells.py) — direct import
   - `test_a_cells_code_is_never_learner_text`
   - `test_cells_are_pad_blocks_with_append_only_versions_and_their_provenance`
-- [tests/test_reader_ink_glm_ocr.py](../../../../../../../tests/test_reader_ink_glm_ocr.py) — direct import
-  - `test_the_reading_is_the_text_glm_ocr_recognised_unchanged`
 - [tests/test_reader_rd8a_fix.py](../../../../../../../tests/test_reader_rd8a_fix.py) — direct import
 - [tests/test_reader_rd8a_transcribe.py](../../../../../../../tests/test_reader_rd8a_transcribe.py) — direct import
 

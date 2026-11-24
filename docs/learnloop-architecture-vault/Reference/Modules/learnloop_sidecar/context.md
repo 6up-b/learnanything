@@ -50,76 +50,76 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/context.py](../../../../../src/learnloop_sidecar/context.py) |
-| Source lines | 1557 |
+| Source lines | 1564 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `unservable_error(refused: Unservable) -> SidecarError` ([source](../../../../../src/learnloop_sidecar/context.py), line 60) — The desktop's error for an unservable vault: its message names what to run.
-- `class LoadedVaultProvider` ([source](../../../../../src/learnloop_sidecar/context.py), line 73) — A context's loaded vault (called) and its reload generation (AD1 fix round 5, V1).
-  - `__init__(self, context: 'SidecarContext') -> None` (line 76; internal)
-  - `__call__(self) -> LoadedVault | None` (line 79; internal)
-  - `generation(self) -> int` (line 82; public)
-  - `snapshot(self) -> tuple[LoadedVault | None, int]` (line 85; public) — ``(vault, generation)``, read together under the publication lock (fix round 6, V1-a).
-  - `admit(self, generation: Any) -> bool` (line 91; public) — Whether the snapshot ``generation`` is still the published one.
-- `class SidecarContext` ([source](../../../../../src/learnloop_sidecar/context.py), line 105)
-  - `origin_device_id(self) -> str | None` (line 175; public) — The device a session-scoped request comes from; None is the desktop.
-  - `acting_as(self, origin: RequestOrigin | None) -> Iterator[None]` (line 181; public) — The one way a host sets the origin: around one call, restored after it.
-  - `__setattr__(self, name: str, value: Any) -> None` (line 193; internal)
-  - `load(self, vault_path: str | Path, *, maintenance: bool=True) -> None` (line 206; public)
-  - `load_secondary(self, vault_path: str | Path, *, bind_ingest: bool=False) -> None` (line 348; public) — Attach to a vault another process is primary for, writing nothing while attaching.
-  - `refresh_if_content_changed(self, *, now: float | None=None) -> bool` (line 429; public) — Reload a secondary context when another process changed the vault's files.
-  - `reconcile_hint_work(self) -> None` (line 455; public) — Adaptive hints H2b, at a vault's open (review F4, F5): queue the replies to hints and discriminating answers whose learner-text job never committed, and start, in the background, the outcome placements of hinted attempts that never got one (a process that ended before scheduling…
-  - `prepare_new_revisions(self, previous: LoadedVault | None, item_ids: list[str] | None=None) -> None` (line 497; public) — Adaptive difficulty AD1 (spec §7.2, §8.2; Codex review F10): the feature audit and ``llm_v1:item`` of item revisions published, imported or edited since the last load (or the watcher's changed items), in the background on the vault's build registry.
-  - `loaded_vault(self) -> 'LoadedVaultProvider'` (line 529; public) — The provider of the vault loaded now (adaptive difficulty AD1, fix rounds 4 and 5, V1): a background job checks its requests against this vault's held-out predicate at each check, not the one it was started with, so a same-vault reload's source-set or exam-scope edit is seen; it…
-  - `close_background_builds(self) -> bool` (line 538; public) — Drain the approach-map builds (shutdown and EOF; bounded, never hangs).
-  - `close(self) -> None` (line 543; public) — Stop every background thread this context owns (the ``shutdown`` RPC, EOF, and whoever else ends a context: a test's teardown, a host that drops it).
-  - `_stop_notebooks(self, vault_key: str | None, *, closing: bool=False) -> None` (line 576; internal) — Stop the notebook sessions of every vault but ``vault_key`` (all of them, and the runtime's thread, when the context closes).
-  - `_stop_carried_valuations(self) -> None` (line 588; internal) — The router's deferred carried valuations of this vault (``objective_job.stop_carries``): stopped, taken off the registry and joined for a bounded time.
-  - `_prefetch_gaps(self) -> None` (line 604; internal)
-  - `_settle_pad_text(self) -> None` (line 612; internal)
-  - `_worker_target(self) -> tuple[LoadedVault, Path] | None` (line 622; internal)
-  - `recover_import_key_checks(self) -> None` (line 627; public) — Resume the key checks of imported exercises a dead process left incomplete.
-  - `settle_followup_workflows_when_off(self) -> None` (line 671; public)
-  - `resume_post_attempt_jobs(self) -> None` (line 683; public) — Wake the worker when the durable queue holds unfinished jobs.
-  - `reload(self, *, maintenance: bool=True) -> None` (line 703; public)
-  - `refresh_vault_files(self, relative_paths: list[str], *, expected_root: str | Path | None=None) -> dict[str, Any]` (line 713; public) — Incrementally refresh watcher-reported Practice Item files.
-  - `_full_refresh(self) -> dict[str, Any]` (line 868; internal)
-  - `require_vault(self) -> tuple[LoadedVault, Repository]` (line 880; public) — The bound vault and its repository, for a handler; refused while the vault is unservable.
-  - `serving(self) -> bool` (line 889; public) — Whether the bound vault may be served: no refusal holds, and no activation journal stands beside its database (one ``stat``).
-  - `_stop_serving(self, refused: Unservable) -> None` (line 904; internal)
-  - `_stop_bound_runners(self) -> None` (line 913; internal) — The runners bound with the repository at load, stopped at the refusal: they never ask ``serving()`` themselves.
-  - `_stops_serving_when_refused(self, target: Path) -> Iterator[None]` (line 926; internal) — Around a load: a refusal of the vault already bound here stops serving it (the cached vault is the one refused); the refusal propagates either way.
-  - `app_snapshot(self) -> dict[str, Any]` (line 938; public)
-- `subjects_practised_first(vault: LoadedVault) -> list[str]` ([source](../../../../../src/learnloop_sidecar/context.py), line 1039) — Subject ids, the ones the learner practises most first, then by name.
-- `vault_summary(vault: LoadedVault) -> dict[str, Any]` ([source](../../../../../src/learnloop_sidecar/context.py), line 1062)
-- `config_dto(vault: LoadedVault) -> dict[str, Any]` ([source](../../../../../src/learnloop_sidecar/context.py), line 1123)
-- `available_grading_providers(vault: LoadedVault) -> list[str]` ([source](../../../../../src/learnloop_sidecar/context.py), line 1254) — Selectable grading backends: configured AI providers, manual.
-- `runtime_health(vault: LoadedVault, repository: Repository, grading_override: str | None=None) -> dict[str, Any]` ([source](../../../../../src/learnloop_sidecar/context.py), line 1274)
-- `session_snapshot(repository: Repository, session_id: str) -> dict[str, Any] | None` ([source](../../../../../src/learnloop_sidecar/context.py), line 1407)
-- `checkpoint_dto(row: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../src/learnloop_sidecar/context.py), line 1438)
-- `teach_back_envelope(current_answer: Any) -> dict[str, Any] | None` ([source](../../../../../src/learnloop_sidecar/context.py), line 1515) — Parse a teach-back conversation envelope from checkpoint current_answer.
-- `mastery_dto(repository: Repository, learning_object_id: str, vault: LoadedVault | None=None) -> dict[str, Any] | None` ([source](../../../../../src/learnloop_sidecar/context.py), line 1539)
+- `unservable_error(refused: Unservable) -> SidecarError` ([source](../../../../../src/learnloop_sidecar/context.py), line 61) — The desktop's error for an unservable vault: its message names what to run.
+- `class LoadedVaultProvider` ([source](../../../../../src/learnloop_sidecar/context.py), line 74) — A context's loaded vault (called) and its reload generation (AD1 fix round 5, V1).
+  - `__init__(self, context: 'SidecarContext') -> None` (line 77; internal)
+  - `__call__(self) -> LoadedVault | None` (line 80; internal)
+  - `generation(self) -> int` (line 83; public)
+  - `snapshot(self) -> tuple[LoadedVault | None, int]` (line 86; public) — ``(vault, generation)``, read together under the publication lock (fix round 6, V1-a).
+  - `admit(self, generation: Any) -> bool` (line 92; public) — Whether the snapshot ``generation`` is still the published one.
+- `class SidecarContext` ([source](../../../../../src/learnloop_sidecar/context.py), line 106)
+  - `origin_device_id(self) -> str | None` (line 177; public) — The device a session-scoped request comes from; None is the desktop.
+  - `acting_as(self, origin: RequestOrigin | None) -> Iterator[None]` (line 183; public) — The one way a host sets the origin: around one call, restored after it.
+  - `__setattr__(self, name: str, value: Any) -> None` (line 195; internal)
+  - `load(self, vault_path: str | Path, *, maintenance: bool=True) -> None` (line 208; public)
+  - `load_secondary(self, vault_path: str | Path, *, bind_ingest: bool=False) -> None` (line 350; public) — Attach to a vault another process is primary for, writing nothing while attaching.
+  - `refresh_if_content_changed(self, *, now: float | None=None) -> bool` (line 433; public) — Reload a secondary context when another process changed the vault's files.
+  - `reconcile_hint_work(self) -> None` (line 462; public) — Adaptive hints H2b, at a vault's open (review F4, F5): queue the replies to hints and discriminating answers whose learner-text job never committed, and start, in the background, the outcome placements of hinted attempts that never got one (a process that ended before scheduling…
+  - `prepare_new_revisions(self, previous: LoadedVault | None, item_ids: list[str] | None=None) -> None` (line 504; public) — Adaptive difficulty AD1 (spec §7.2, §8.2; Codex review F10): the feature audit and ``llm_v1:item`` of item revisions published, imported or edited since the last load (or the watcher's changed items), in the background on the vault's build registry.
+  - `loaded_vault(self) -> 'LoadedVaultProvider'` (line 536; public) — The provider of the vault loaded now (adaptive difficulty AD1, fix rounds 4 and 5, V1): a background job checks its requests against this vault's held-out predicate at each check, not the one it was started with, so a same-vault reload's source-set or exam-scope edit is seen; it…
+  - `close_background_builds(self) -> bool` (line 545; public) — Drain the approach-map builds (shutdown and EOF; bounded, never hangs).
+  - `close(self) -> None` (line 550; public) — Stop every background thread this context owns (the ``shutdown`` RPC, EOF, and whoever else ends a context: a test's teardown, a host that drops it).
+  - `_stop_notebooks(self, vault_key: str | None, *, closing: bool=False) -> None` (line 583; internal) — Stop the notebook sessions of every vault but ``vault_key`` (all of them, and the runtime's thread, when the context closes).
+  - `_stop_carried_valuations(self) -> None` (line 595; internal) — The router's deferred carried valuations of this vault (``objective_job.stop_carries``): stopped, taken off the registry and joined for a bounded time.
+  - `_prefetch_gaps(self) -> None` (line 611; internal)
+  - `_settle_pad_text(self) -> None` (line 619; internal)
+  - `_worker_target(self) -> tuple[LoadedVault, Path] | None` (line 629; internal)
+  - `recover_import_key_checks(self) -> None` (line 634; public) — Resume the key checks of imported exercises a dead process left incomplete.
+  - `settle_followup_workflows_when_off(self) -> None` (line 678; public)
+  - `resume_post_attempt_jobs(self) -> None` (line 690; public) — Wake the worker when the durable queue holds unfinished jobs.
+  - `reload(self, *, maintenance: bool=True) -> None` (line 710; public)
+  - `refresh_vault_files(self, relative_paths: list[str], *, expected_root: str | Path | None=None) -> dict[str, Any]` (line 720; public) — Incrementally refresh watcher-reported Practice Item files.
+  - `_full_refresh(self, *, practice: bool=False) -> dict[str, Any]` (line 875; internal)
+  - `require_vault(self) -> tuple[LoadedVault, Repository]` (line 887; public) — The bound vault and its repository, for a handler; refused while the vault is unservable.
+  - `serving(self) -> bool` (line 896; public) — Whether the bound vault may be served: no refusal holds, and no activation journal stands beside its database (one ``stat``).
+  - `_stop_serving(self, refused: Unservable) -> None` (line 911; internal)
+  - `_stop_bound_runners(self) -> None` (line 920; internal) — The runners bound with the repository at load, stopped at the refusal: they never ask ``serving()`` themselves.
+  - `_stops_serving_when_refused(self, target: Path) -> Iterator[None]` (line 933; internal) — Around a load: a refusal of the vault already bound here stops serving it (the cached vault is the one refused); the refusal propagates either way.
+  - `app_snapshot(self) -> dict[str, Any]` (line 945; public)
+- `subjects_practised_first(vault: LoadedVault) -> list[str]` ([source](../../../../../src/learnloop_sidecar/context.py), line 1046) — Subject ids, the ones the learner practises most first, then by name.
+- `vault_summary(vault: LoadedVault) -> dict[str, Any]` ([source](../../../../../src/learnloop_sidecar/context.py), line 1069)
+- `config_dto(vault: LoadedVault) -> dict[str, Any]` ([source](../../../../../src/learnloop_sidecar/context.py), line 1130)
+- `available_grading_providers(vault: LoadedVault) -> list[str]` ([source](../../../../../src/learnloop_sidecar/context.py), line 1261) — Selectable grading backends: configured AI providers, manual.
+- `runtime_health(vault: LoadedVault, repository: Repository, grading_override: str | None=None) -> dict[str, Any]` ([source](../../../../../src/learnloop_sidecar/context.py), line 1281)
+- `session_snapshot(repository: Repository, session_id: str) -> dict[str, Any] | None` ([source](../../../../../src/learnloop_sidecar/context.py), line 1414)
+- `checkpoint_dto(row: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../src/learnloop_sidecar/context.py), line 1445)
+- `teach_back_envelope(current_answer: Any) -> dict[str, Any] | None` ([source](../../../../../src/learnloop_sidecar/context.py), line 1522) — Parse a teach-back conversation envelope from checkpoint current_answer.
+- `mastery_dto(repository: Repository, learning_object_id: str, vault: LoadedVault | None=None) -> dict[str, Any] | None` ([source](../../../../../src/learnloop_sidecar/context.py), line 1546)
 
 ### Module constants
 
-- `_LOGGER` ([src/learnloop_sidecar/context.py](../../../../../src/learnloop_sidecar/context.py), line 53)
+- `_LOGGER` ([src/learnloop_sidecar/context.py](../../../../../src/learnloop_sidecar/context.py), line 54)
 
 ## Internal implementation anchors
 
-- `_forget_reading_choice() -> None` ([source](../../../../../src/learnloop_sidecar/context.py), line 955) — Curriculum C1 (fix round 4): drop the plan's memoized reading choice and close its database watcher when a context loads, attaches, switches or closes, so a database restored at the same path is never watched through the old file.
-- `_complete_interrupted_activation(vault_root: Path) -> None` ([source](../../../../../src/learnloop_sidecar/context.py), line 965) — Complete an activation a dead upgrade left journalled.
-- `_recover_facet_identity_actions(vault_root: Path, repository: Repository) -> bool` ([source](../../../../../src/learnloop_sidecar/context.py), line 980) — Finish interrupted facet merges/undos; True when the vault files may have changed.
-- `_recover_apply_intents(vault_root: Path, repository: Repository) -> bool` ([source](../../../../../src/learnloop_sidecar/context.py), line 1002) — Finish proposal applies left mid-flight (K3.5); True when the vault files may have changed.
-- `_adopt_reference_questions(vault: LoadedVault, repository: Repository) -> bool` ([source](../../../../../src/learnloop_sidecar/context.py), line 1029) — Run the reader's reference-question adoption sweep; never block a load.
-- `_adaptive_difficulty_dto(config: Any) -> dict[str, Any]` ([source](../../../../../src/learnloop_sidecar/context.py), line 1088)
-- `_figures_help(vault: LoadedVault) -> bool` ([source](../../../../../src/learnloop_sidecar/context.py), line 1097)
-- `_lessons_active(vault: LoadedVault) -> bool` ([source](../../../../../src/learnloop_sidecar/context.py), line 1103)
-- `_teacher_dto(vault: LoadedVault) -> dict[str, Any]` ([source](../../../../../src/learnloop_sidecar/context.py), line 1109) — TE1's ``lessons`` while lessons may open; TE1b's ``suggestions`` while Today may suggest one; TE2's ``te2`` (lessons may open on a typed goal and Today offers "Continue your lesson") with ``lessons``, which the desktop still reads (absent otherwise).
-- `_settings_ready(vault: LoadedVault) -> bool` ([source](../../../../../src/learnloop_sidecar/context.py), line 1307) — Whether every distinct provider the app routes to is configured/ready.
-- `_ai_health(vault: LoadedVault, grading_override: str | None) -> dict[str, Any]` ([source](../../../../../src/learnloop_sidecar/context.py), line 1357) — The health.ai dto, honoring the runtime grading override.
+- `_forget_reading_choice() -> None` ([source](../../../../../src/learnloop_sidecar/context.py), line 962) — Curriculum C1 (fix round 4): drop the plan's memoized reading choice and close its database watcher when a context loads, attaches, switches or closes, so a database restored at the same path is never watched through the old file.
+- `_complete_interrupted_activation(vault_root: Path) -> None` ([source](../../../../../src/learnloop_sidecar/context.py), line 972) — Complete an activation a dead upgrade left journalled.
+- `_recover_facet_identity_actions(vault_root: Path, repository: Repository) -> bool` ([source](../../../../../src/learnloop_sidecar/context.py), line 987) — Finish interrupted facet merges/undos; True when the vault files may have changed.
+- `_recover_apply_intents(vault_root: Path, repository: Repository) -> bool` ([source](../../../../../src/learnloop_sidecar/context.py), line 1009) — Finish proposal applies left mid-flight (K3.5); True when the vault files may have changed.
+- `_adopt_reference_questions(vault: LoadedVault, repository: Repository) -> bool` ([source](../../../../../src/learnloop_sidecar/context.py), line 1036) — Run the reader's reference-question adoption sweep; never block a load.
+- `_adaptive_difficulty_dto(config: Any) -> dict[str, Any]` ([source](../../../../../src/learnloop_sidecar/context.py), line 1095)
+- `_figures_help(vault: LoadedVault) -> bool` ([source](../../../../../src/learnloop_sidecar/context.py), line 1104)
+- `_lessons_active(vault: LoadedVault) -> bool` ([source](../../../../../src/learnloop_sidecar/context.py), line 1110)
+- `_teacher_dto(vault: LoadedVault) -> dict[str, Any]` ([source](../../../../../src/learnloop_sidecar/context.py), line 1116) — TE1's ``lessons`` while lessons may open; TE1b's ``suggestions`` while Today may suggest one; TE2's ``te2`` (lessons may open on a typed goal and Today offers "Continue your lesson") with ``lessons``, which the desktop still reads (absent otherwise).
+- `_settings_ready(vault: LoadedVault) -> bool` ([source](../../../../../src/learnloop_sidecar/context.py), line 1314) — Whether every distinct provider the app routes to is configured/ready.
+- `_ai_health(vault: LoadedVault, grading_override: str | None) -> dict[str, Any]` ([source](../../../../../src/learnloop_sidecar/context.py), line 1364) — The health.ai dto, honoring the runtime grading override.
 
 ## Who imports or calls it
 
@@ -160,7 +160,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop_sidecar/handlers/hints|learnloop_sidecar.handlers.hints]] — imports `SidecarContext`
 - [[Reference/Modules/learnloop_sidecar/handlers/ingest|learnloop_sidecar.handlers.ingest]] — imports `SidecarContext`
 - [[Reference/Modules/learnloop_sidecar/handlers/ink|learnloop_sidecar.handlers.ink]] — imports `SidecarContext`
-- [[Reference/Modules/learnloop_sidecar/handlers/inline_checks|learnloop_sidecar.handlers.inline_checks]] — imports `SidecarContext`
+- [[Reference/Modules/learnloop_sidecar/handlers/inline_checks|learnloop_sidecar.handlers.inline_checks]] — imports `SidecarContext`, `session_snapshot`; statically calls `session_snapshot`
 - [[Reference/Modules/learnloop_sidecar/handlers/inspector|learnloop_sidecar.handlers.inspector]] — imports `SidecarContext`
 - [[Reference/Modules/learnloop_sidecar/handlers/intent|learnloop_sidecar.handlers.intent]] — imports `SidecarContext`
 - [[Reference/Modules/learnloop_sidecar/handlers/item_authoring|learnloop_sidecar.handlers.item_authoring]] — imports `SidecarContext`
@@ -228,6 +228,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/content/facet_identity/actions|learnloop.content.facet_identity.actions]] — imports `recover_interrupted_actions`; calls `recover_interrupted_actions`
 - [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] — imports `reconcile_reading_builds`; calls `reconcile_reading_builds`
 - [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `IngestJobManager`
+- [[Reference/Modules/learnloop/content/pipeline/practice_publication|learnloop.content.pipeline.practice_publication]] — imports `publish_watched_practice`; calls `publish_watched_practice`
 - [[Reference/Modules/learnloop/content/proposals/apply_protocol|learnloop.content.proposals.apply_protocol]] — imports `recover_apply_intents`; calls `recover_apply_intents`
 - [[Reference/Modules/learnloop/daily_plan/lesson_suggestion|learnloop.daily_plan.lesson_suggestion]] — imports `suggestions_enabled`; calls `suggestions_enabled`
 - [[Reference/Modules/learnloop/daily_plan/policy|learnloop.daily_plan.policy]] — imports `mixture_active`; calls `mixture_active`
@@ -556,6 +557,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_protection_surface_matrix.py](../../../../../tests/test_protection_surface_matrix.py) — direct import
 - [tests/test_provenance.py](../../../../../tests/test_provenance.py) — direct import
   - `test_each_sidecar_rpc_runs_under_a_trace_of_its_own`
+- [tests/test_queue_revision_after_applying_jobs.py](../../../../../tests/test_queue_revision_after_applying_jobs.py) — direct import
+  - `test_watcher_and_job_publish_the_same_new_practice_once`
 - [tests/test_re0_capture.py](../../../../../tests/test_re0_capture.py) — direct import
   - `test_the_sidecar_carries_active_seconds_into_the_attempt_beside_its_latency`
 - [tests/test_reader_ca1_as_printed.py](../../../../../tests/test_reader_ca1_as_printed.py) — direct import
@@ -579,6 +582,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reader_quick_check_failed.py](../../../../../tests/test_reader_quick_check_failed.py) — direct import
 - [tests/test_reader_rd4_carried_and_proposals.py](../../../../../tests/test_reader_rd4_carried_and_proposals.py) — direct import
 - [tests/test_reader_rd4_submission.py](../../../../../tests/test_reader_rd4_submission.py) — direct import
+- [tests/test_reader_rd7a_inline_checks.py](../../../../../tests/test_reader_rd7a_inline_checks.py) — direct import
+  - `test_a_crash_after_the_attempt_and_before_the_close_is_recovered_with_that_attempt`
+  - `test_a_restart_reopens_the_open_card_with_its_veils`
+- [tests/test_reader_rd7b_check_session.py](../../../../../tests/test_reader_rd7b_check_session.py) — direct import
 - [tests/test_reader_recap.py](../../../../../tests/test_reader_recap.py) — direct import
   - `test_switched_off_opening_writes_nothing_and_the_recap_rpcs_refuse`
   - `test_the_kill_switches_default_on_and_the_config_dto_names_them`
@@ -638,6 +645,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_source_sets_rewrite_during_the_load_never_publishes_empty_protection`
   - `test_content_fingerprint_reload_within_the_freshness_bound`
   - `test_load_secondary_writes_nothing_where_load_writes`
+  - `test_queue_revision_invalidates_a_recent_secondary_snapshot`
   - `test_reload_and_switch_of_a_secondary_stay_secondary`
   - `test_retargeting_a_directory_link_between_two_fingerprinted_directories_reloads`
   - `test_secondary_handlers_still_write`
