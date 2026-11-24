@@ -177,6 +177,23 @@ describe("the context menu", () => {
     expect(screen.getByRole("button", { name: "Retry" })).toBeTruthy();
   });
 
+  it("a judged job that fails keeps the first verdict: the menu still says the material is clear, so its verbs stay", async () => {
+    const told: Array<[boolean, boolean | undefined]> = [];
+    const poller = new Poller({ setInterval: () => 1, clearInterval: () => undefined });
+    const { api } = promotedApi(promoted([row("r1")], { jobId: "j9" }), [
+      { status: "failed", done: true, rows: [], error: { code: "plan_unavailable", message: "the model is down", retryable: true } } as unknown as PromotedJobDto,
+    ]);
+    render(<ContextMenu header="h" rows={verbs()} at={{ x: 0, y: 0 }} object={{ objectKind: "passage", extractionId: "e", spanId: "s" }} promoted={api} poller={poller}
+      onWithheld={(withheld, failed) => told.push([withheld, failed])} onClose={() => undefined} />);
+    await screen.findByText("row r1");
+    await act(async () => {
+      await poller.tick();
+    });
+    expect(told).toEqual([[false, undefined]]);
+    expect(screen.queryByText(/Couldn't check this material/)).toBeNull();
+    expect(screen.getByText(/the search for more stopped/)).toBeTruthy();
+  });
+
   it("labels a promoted row opened, dismissed or not this by its row id; a dismissed row leaves the menu", async () => {
     const onPromoted = vi.fn();
     const onClose = vi.fn();

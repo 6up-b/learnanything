@@ -102,7 +102,9 @@ export async function runVerb(id: VerbId, object: MenuObject, ctx: MenuContext, 
     if (needsClearance(id)) {
       const withheld = await ctx.withheld();
       if (withheld !== false) {
-        if (withheld) ctx.toast("this is exam or held-out material: its words are not sent anywhere from here");
+        // Unknown (the check could not be read) is refused too, but says how to go on rather than nothing.
+        ctx.toast(withheld ? "this is exam or held-out material: its words are not sent anywhere from here"
+          : "Couldn’t check this passage. Reopen the menu and try again.");
         return;
       }
     }

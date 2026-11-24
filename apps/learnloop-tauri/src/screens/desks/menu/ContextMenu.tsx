@@ -202,14 +202,22 @@ export function ContextMenu({ header, neutralHeader, label, rows, at, object = n
                 onRowsNow.current?.(job.rows);
               } else {
                 // Interrupted (another vault opened) or failed: no rows of it show; the menu opened again asks anew.
+                // The first answer's verdict stands: a judged search that stopped (a model down, a budget spent) says
+                // nothing new about protection, so the verbs stay as they were.
                 request.current = null;
-                failRead();
+                setCheap([]);
+                onRowsNow.current?.([]);
                 setJudgedStopped(true);
               }
             }
             return { done: job.done };
           },
-          onError: failRead,
+          onError: () => {
+            // The poll could not reach the job: as a stopped search, the first verdict stands.
+            if (!live) return;
+            setJudgedPending(false);
+            setJudgedStopped(true);
+          },
         });
       }
     }).catch(failRead);
@@ -350,7 +358,10 @@ export function ContextMenu({ header, neutralHeader, label, rows, at, object = n
             {promotedRows.map(rowView)}
             {judgedPending ? <div className="pending">◐ looking for more · the four most useful show</div> : null}
             {withheld ? <div className="pending" data-menu-withheld="">exam or held-out material: nothing is searched for it</div> : null}
-            {judgedStopped ? <div className="pending">the search for more stopped · open the menu again to look again</div> : null}
+            {judgedStopped ? <div className="pending">the search for more stopped · <button type="button" onKeyDown={(event) => event.stopPropagation()} onClick={() => {
+              setJudgedStopped(false);
+              setAttempt((value) => value + 1);
+            }}>Retry</button></div> : null}
           </div>
         ) : null}
         {verbs.filter((row) => !row.aid).map(rowView)}
