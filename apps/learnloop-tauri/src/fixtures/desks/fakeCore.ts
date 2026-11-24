@@ -9,6 +9,7 @@ import { FixtureCompanion } from "./companion";
 import { FixtureGoal } from "./goal";
 import { FIXTURE_LESSON_ID, FixtureLessons, fixtureAdditionsPad } from "./lessons";
 import { FixtureVideo } from "./video";
+import { FixtureChecks } from "./checks";
 
 export type InvokeArgs = Record<string, unknown>;
 
@@ -62,6 +63,10 @@ const goal = new FixtureGoal();
 const lessons = new FixtureLessons();
 // `?video=1`: the video's chapters already suggested, the second accepted (RD10), as the reference shows them.
 const videoFixture = new FixtureVideo(typeof window !== "undefined" && new URLSearchParams(window.location.search).get("video") === "1");
+// `?checks=1`: one inline check due before the book's fifth section; `?checks=open`: also an administration open on a
+// check whose host is not on the desks (RD7). Without it no check is due.
+const checksMode = typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("checks");
+const checks = new FixtureChecks(checksMode === "open" ? "open" : checksMode === "1" ? "due" : "off");
 // One carried question beside the book's third passage (project-authored).
 const carried: Array<{ carriedId: string; text: string; carried: boolean; version: number; state: string; anchor: unknown; since: string }> = [
   { carriedId: "fx_carried1", text: "does the temperature trick work for any base?", originKind: "typed", originRef: null,
@@ -93,10 +98,10 @@ const calls: HarnessCall[] = [];
 
 declare global {
   interface Window {
-    __deskHarness?: { calls: HarnessCall[]; server: FixtureDeskServer; companion: FixtureCompanion; goal: FixtureGoal; lessons: FixtureLessons; video: FixtureVideo };
+    __deskHarness?: { calls: HarnessCall[]; server: FixtureDeskServer; companion: FixtureCompanion; goal: FixtureGoal; lessons: FixtureLessons; video: FixtureVideo; checks: FixtureChecks };
   }
 }
-window.__deskHarness = { calls, server, companion, goal, lessons, video: videoFixture };
+window.__deskHarness = { calls, server, companion, goal, lessons, video: videoFixture, checks };
 
 function viewFor(id: string) {
   return FIXTURE_VIEWS[id] ?? Object.values(FIXTURE_VIEWS).find((view) => view.extractionId === id) ?? null;
@@ -347,6 +352,20 @@ function answer(command: string, input: Record<string, unknown>): unknown {
       return videoFixture.decide(input as never);
     case "reader_correspondents":
       return videoFixture.correspondents(input as never);
+    case "checks_due_for":
+      return checks.dueFor(input as never);
+    case "check_begin_inline":
+      return checks.begin(input as never);
+    case "check_protect_more":
+      return checks.protectMore(input as never);
+    case "check_expose":
+      return checks.expose(input as never);
+    case "check_submit_inline":
+      return checks.submit(input as never);
+    case "check_abandon_inline":
+      return checks.abandon(input as never);
+    case "check_open_inline":
+      return checks.openInline();
     default:
       throw { code: "not_in_fixture", message: `${command} is not part of the desks' fixture`, retryable: false };
   }

@@ -9,7 +9,7 @@ import { useState } from "react";
 import type { CheckCardDto, CheckVeilRefDto } from "../../../api/dto";
 import { CheckDesk, type CheckTransport } from "./controller";
 import { CheckCardInline, CheckCardOverlay, CheckMarker } from "./CheckCard";
-import { REASON_WORDS, SHOW_ANYWAY_COST, VEIL_LABEL, answeredHead, groupsLine, lookedLine, refKey, veilSelector, visibleNow } from "./model";
+import { PRIMED_BY_NOTE_WORDS, REASON_WORDS, SHOW_ANYWAY_COST, SHOW_NOTE_COST, VEIL_LABEL, answeredHead, groupsLine, lookedLine, refKey, veilIsNote, veilSelector, visibleNow } from "./model";
 import { VeilLayer, applyVeils } from "./VeilLayer";
 
 vi.mock("../../../api/client", () => ({ api: {} }));
@@ -301,5 +301,38 @@ describe("what comes into view during a check", () => {
     desk.readings(["ext_book"]);
     await flush();
     expect(desk.open()?.host).toEqual({ extractionId: "ext_book", sectionId: "sec_1", spanId: "s1" });
+  });
+});
+
+describe("opening one of your notes", () => {
+  const NOTE: CheckVeilRefDto = { group: "notes", kind: "note", window_id: "w_book", note_id: "ann_1" };
+
+  it("says before it opens that a note always makes the answer practice (its words are never read)", async () => {
+    const { desk } = fake({ begin: vi.fn(async () => card({ protection: { veilSetId: "v", method: "m", veiled: [NOTE, SPAN], opened: [], groups: ["notes"] } })) });
+    await desk.begin("cm_1", "s_1", { windows: [] });
+    document.body.innerHTML = `<div data-desk-window="w_book"><span data-annotation-id="ann_1">n</span><p data-span-id="s2">the answer</p></div>`;
+    render(<VeilLayer desk={desk} root={document} />);
+    await flush();
+    const pills = screen.getAllByText(VEIL_LABEL);
+    fireEvent.click(pills[0]);
+    expect(screen.getByRole("dialog", { name: "show it anyway?" }).textContent).toContain(SHOW_NOTE_COST);
+    fireEvent.click(screen.getByText("keep it hidden"));
+    fireEvent.click(screen.getAllByText(VEIL_LABEL)[1]);
+    expect(screen.getByRole("dialog", { name: "show it anyway?" }).textContent).toContain(SHOW_ANYWAY_COST);
+    expect(veilIsNote(NOTE)).toBe(true);
+    expect(veilIsNote({ group: "pads", kind: "window", window_id: "w_pad" })).toBe(false);
+    expect(veilIsNote({ group: "search results", kind: "search_row", row_kind: "note", ref_id: "n1" })).toBe(true);
+  });
+
+  it("the answered card says why in plain words when a note was opened", async () => {
+    const { desk } = fake({ submit: vi.fn(async () => ({ administrationToken: "cad_1", attemptId: "at_1", cold: false, reason: "primed" as const, primedBy: "unmeasured_note" as const })) });
+    await desk.begin("cm_1", "s_1", { windows: [] });
+    render(<CheckCardInline desk={desk} />);
+    fireEvent.change(screen.getByLabelText("your answer"), { target: { value: "p_k" } });
+    fireEvent.keyDown(screen.getByLabelText("your answer"), { key: "Enter" });
+    await flush();
+    const line = document.querySelector('[data-check-reason="primed"]')!;
+    expect(line.getAttribute("data-check-primed-by")).toBe("unmeasured_note");
+    expect(line.textContent).toBe(PRIMED_BY_NOTE_WORDS);
   });
 });

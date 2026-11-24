@@ -11213,7 +11213,9 @@ export type CheckExposureKind = "opened_veil" | "navigated" | "help";
 
 /** check.submit_inline: the attempt's own reply, plus whether it answered the check. */
 export type CheckSubmitDto = Record<string, unknown> & { attemptId?: string; administrationToken: string; cold: boolean;
-  reason: "on_your_own" | "primed" | "with_help" | "seen_before" | "already_answered" | "practice" };
+  reason: "on_your_own" | "primed" | "with_help" | "seen_before" | "already_answered" | "practice";
+  /** Why it is primed when nothing measured it: one of the learner's notes was opened (a note's words are never read). */
+  primedBy?: "unmeasured_note" };
 
 // -- Reader workbench v2 RD3 (spec §3.4, §8.6, §9.3): the companion's ask as a polled job, search in context.
 // The typed calls only; no component calls them yet.

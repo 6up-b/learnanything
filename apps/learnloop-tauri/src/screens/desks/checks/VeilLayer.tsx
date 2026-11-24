@@ -8,7 +8,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { CheckVeilRefDto } from "../../../api/dto";
 import type { CheckDesk } from "./controller";
-import { SHOW_ANYWAY_COST, VEIL_LABEL, refKey, veilSelector } from "./model";
+import { SHOW_ANYWAY_COST, SHOW_NOTE_COST, VEIL_LABEL, refKey, veilIsNote, veilSelector } from "./model";
 
 const MARK = "ck-veiled";
 const UNVEIL_MS = 700;
@@ -20,9 +20,33 @@ interface Pill {
   top: number;
 }
 
-function placeOf(element: Element): { left: number; top: number } {
+/** What can cover a veiled element from above (the companion, the card centred near the top, search). */
+const OCCLUDERS = "[data-companion-dock], [data-check-card='overlay'], [data-desk-search]";
+
+/** Where a veil's pill goes: the middle of the part of the element that shows (inside its window and the viewport, at
+ *  most 120 px down), or nowhere when none of it shows (a hidden desk, scrolled away, under the companion). */
+function placeOf(element: Element, root: ParentNode): { left: number; top: number } | null {
   const box = element.getBoundingClientRect();
-  return { left: box.left + box.width / 2, top: box.top + Math.min(box.height / 2, 120) };
+  if (!box.width || !box.height) return null;
+  const frame = element.closest("[data-desk-window]")?.getBoundingClientRect() ?? null;
+  const view = typeof window === "undefined" ? null : { left: 0, top: 0, right: window.innerWidth, bottom: window.innerHeight };
+  const left = Math.max(box.left, frame?.left ?? -Infinity, view?.left ?? -Infinity);
+  const right = Math.min(box.right, frame?.right ?? Infinity, view?.right ?? Infinity);
+  const top = Math.max(box.top, frame?.top ?? -Infinity, view?.top ?? -Infinity);
+  const bottom = Math.min(box.bottom, frame?.bottom ?? Infinity, view?.bottom ?? Infinity);
+  if (right - left < 1 || bottom - top < 1) return null;
+  const at = { left: (left + right) / 2, top: top + Math.min((bottom - top) / 2, 120) };
+  for (const cover of root.querySelectorAll(OCCLUDERS)) {
+    if (cover.contains(element)) continue;
+    const r = cover.getBoundingClientRect();
+    if (at.left >= r.left && at.left <= r.right && at.top >= r.top && at.top <= r.bottom) return null;
+  }
+  return at;
+}
+
+function element0(wanted: Map<Element, CheckVeilRefDto>): Element | null {
+  for (const element of wanted.keys()) return element;
+  return null;
 }
 
 /** Mark what the veils cover and say where their pills go (one per covered element). */
@@ -41,10 +65,13 @@ export function applyVeils(root: ParentNode, veils: readonly CheckVeilRefDto[]):
     setTimeout(() => element.classList.remove("unveil"), UNVEIL_MS);
   }
   const pills: Pill[] = [];
+  const laidOut = (element0(wanted)?.ownerDocument.documentElement.getBoundingClientRect().width ?? 0) > 0;
   for (const [element, ref] of wanted) {
     if (!element.classList.contains(MARK)) element.classList.add(MARK, "veiled");
     if (element.getAttribute("data-veil") !== VEIL_LABEL) element.setAttribute("data-veil", VEIL_LABEL);
-    pills.push({ key: `${refKey(ref)}#${pills.length}`, ref, ...placeOf(element) });
+    // A page with no layout at all (jsdom) gives every covered element its pill at the origin.
+    const at = laidOut ? placeOf(element, root) : { left: 0, top: 0 };
+    if (at) pills.push({ key: `${refKey(ref)}#${pills.length}`, ref, ...at });
   }
   return pills;
 }
@@ -115,7 +142,7 @@ export function VeilLayer({ desk, root, onChange }: { desk: CheckDesk; root: Par
       {asking ? (
         <div className="ck-ask" role="dialog" aria-label="show it anyway?" style={{ left: asking.left, top: asking.top + 18 }}>
           <b>show it anyway?</b> <span className="faint">{asking.ref.group}</span>
-          <p>{SHOW_ANYWAY_COST}</p>
+          <p>{veilIsNote(asking.ref) ? SHOW_NOTE_COST : SHOW_ANYWAY_COST}</p>
           <div className="ck-ask-b">
             <button type="button" className="act" onClick={() => setAsking(null)}>keep it hidden</button>
             <button type="button" className="act pri" onClick={() => { const ref = asking.ref; setAsking(null); void desk.expose(ref); }}>show it</button>

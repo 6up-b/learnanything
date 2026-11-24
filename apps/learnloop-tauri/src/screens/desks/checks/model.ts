@@ -12,6 +12,20 @@ export const VEIL_LABEL = "hidden during this check · back when you answer";
 /** What opening a veil can cost, said before it is opened (the owner's overlap rule: it may, not always). */
 export const SHOW_ANYWAY_COST =
   "If it shows what the answer says, this answer counts as practice and the check stays due. If it doesn't, nothing changes.";
+/** Before a note's veil opens: a note's words are never read, so opening one always makes the answer practice. */
+export const SHOW_NOTE_COST =
+  "This is one of your notes. LearnLoop doesn't read your notes, so it can't tell whether this one gives the answer away: opening it makes this answer count as practice, and the check stays due.";
+/** The answered card's line when a note was opened (the reply's primedBy). */
+export const PRIMED_BY_NOTE_WORDS =
+  "counts as practice · you opened one of your notes during this check; LearnLoop cannot tell whether it gave the answer away, so this one counts as practice";
+
+/** Whether a veil covers the learner's notes (what the server records unmeasured: a margin note, a window's notes, a
+ *  note's search row). */
+export function veilIsNote(ref: CheckVeilRefDto): boolean {
+  if (ref.kind === "note") return true;
+  if (Array.isArray(ref.note_ids) && ref.note_ids.length) return true;
+  return ref.kind === "search_row" && Boolean(ref.ref_id) && !["pad", "exchange", "thread", "span"].includes(String(ref.row_kind ?? ""));
+}
 
 /** A veil ref's identity (its keys are the server's, snake_case), the same however it was sent. */
 export function refKey(ref: Record<string, unknown>): string {

@@ -7,7 +7,7 @@ import { MarkdownMath } from "../../../render/MarkdownMath";
 import type { ReaderLens } from "../../ReaderScreen";
 import { FitMath } from "../fitMath";
 import type { CheckDesk, DueCheck, OpenCheck } from "./controller";
-import { REASON_WORDS, answeredHead, groupsLine, lookedLine, type CheckReason } from "./model";
+import { PRIMED_BY_NOTE_WORDS, REASON_WORDS, answeredHead, groupsLine, lookedLine, type CheckReason } from "./model";
 
 /** "◇ a check is due before this page · on your own" with "check now" and "later" (folded: a quiet line). */
 export function CheckMarker({ checks, desk, onCheckNow }: { checks: DueCheck[]; desk: CheckDesk; onCheckNow: (commitmentId: string) => void }) {
@@ -61,7 +61,8 @@ function answerKeys(desk: CheckDesk) {
 function ReasonLine({ open }: { open: OpenCheck }) {
   const reason = (open.reply?.reason ?? null) as CheckReason | null;
   if (!reason) return null;
-  return <div className="ck-reason" data-check-reason={reason}>{REASON_WORDS[reason]}</div>;
+  const byNote = reason === "primed" && open.reply?.primedBy === "unmeasured_note";
+  return <div className="ck-reason" data-check-reason={reason} {...(byNote ? { "data-check-primed-by": "unmeasured_note" } : {})}>{byNote ? PRIMED_BY_NOTE_WORDS : REASON_WORDS[reason]}</div>;
 }
 
 /** The open (or answered) card at the host passage: the goal lens's own callout, opened. */
@@ -112,7 +113,7 @@ export function CheckCardOverlay({ desk }: { desk: CheckDesk }) {
   const looked = lookedLine(open.looked, open.coldNow);
   return (
     <div className="ovl coldcheck" role="dialog" aria-label="a check on your own" data-check-card="overlay" data-check-phase={open.phase}>
-      <div className="cch"><span>◇ LearnLoop · a check on your own</span><span className="grow" /><span>{open.phase === "answered" ? "answered" : "veiled while you answer"}</span></div>
+      <div className="cch"><span>◇ LearnLoop</span><span className="grow" /><span>{open.phase === "answered" ? "a check on your own · answered" : "a check on your own"}</span></div>
       <div className="ccq"><FitMath><MarkdownMath value={question(open)} /></FitMath></div>
       <div className="cca">
         {open.phase === "answered" ? (
