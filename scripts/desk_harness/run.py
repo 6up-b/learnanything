@@ -1278,6 +1278,26 @@ async def run_intent(page: Page, base: str, results: Results, shots: Path | None
     closed = await page.locator('[data-desk-window="fx_w_book"] [data-window-path]').count()
     results.check("esc closes the reading path", closed == 0, closed)
 
+    # A quick check placed before a section (`?checks=1`) shows in the book's window under the section's opening.
+    await page.goto(f"{base}/desk-harness.html?checks=1")
+    await page.wait_for_selector("[data-desk-window]")
+    await settle(page, 1800)
+    # The book opens following the video, past its first section: a check left behind is offered once the learner
+    # reads on in this visit, so the learner scrolls back up to it.
+    box = await page.locator('[data-desk-window="fx_w_book"] .ll-scroll').first.bounding_box()
+    await page.mouse.move(box["x"] + box["width"] / 2, box["y"] + 200)
+    for _ in range(6):
+        await page.mouse.wheel(0, -400)
+        await settle(page, 150)
+    await settle(page, 600)
+    check = await page.evaluate("""() => { const c = document.querySelector('[data-desk-window="fx_w_book"] [data-quick-check]'); if (!c) return null;
+      const next = document.querySelector('[data-desk-window="fx_w_book"] [data-span-id="fx_ext_softmax_s2_h"]');
+      return { text: c.textContent.slice(0, 160), beforeNext: !!(c.compareDocumentPosition(next) & 4), width: Math.round(c.getBoundingClientRect().width) }; }""")
+    await page.locator('[data-desk-window="fx_w_book"] [data-quick-check]').first.scroll_into_view_if_needed()
+    await settle(page, 300)
+    await shot(page, shots, "window-check")
+    results.check("a quick check placed before a section shows in the book's window, in that section", bool(check) and "what should weights" in check["text"] and check["beforeNext"], check)
+
 
 GOAL_BOOK = "[data-desk-window='fx_w_book']"
 GOAL_PAPER = "[data-desk-window='fx_w_paper']"

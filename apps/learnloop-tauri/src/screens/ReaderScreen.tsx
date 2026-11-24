@@ -91,7 +91,7 @@ import {
 import { besideTrail, goTo as stackGoTo, type ReturnStack } from "./reader/returnStack";
 import { AskRail } from "./reader/AskRail";
 import { createTutorOfferStore } from "./reader/TutorOffers";
-import { GuideRail, SectionBoundaryOffer } from "./reader/GuideRail";
+import { GuideRail, QuickChecks, SectionBoundaryOffer } from "./reader/GuideRail";
 import { ReadingPathCard } from "./reader/ReadingPathCard";
 import { GuidePathSlot } from "./reader/DeliverableSliceCard";
 import { readingPathRefreshKey } from "./reader/readingPath";
@@ -3982,12 +3982,45 @@ export function ReaderScreen({
   const windowActiveSpans = activeCtl.another ? activeCtl.another.spanIds : activeCtl.active?.anchorSpanIds ?? [];
   const windowActiveSpan = windowActiveCard ? windowActiveSpans[windowActiveSpans.length - 1] ?? null : null;
   // On the original PDF the window's cards sit under their passages as the pane's inline notes.
+  // The Guide shows its open quick checks first; a desk shows no Guide unless a panel is opened for the book, so a
+  // window without one shows each section's check under that section (its opening for a check placed before it,
+  // else its end), kept mounted so what a closed check showed stays there.
+  const windowChecksOn = Boolean(windowed) && !guideOnScreen && boundaryChecksAvailable && !working;
+  const openCheckIds = new Set(openQuestionSections.map((section) => section.id));
+  const windowCheckAt = new Map<string, ReaderGuideSectionDto>();
+  if (windowChecksOn) {
+    for (const section of guidePlan?.sections ?? []) {
+      if (!section.question) continue;
+      windowCheckAt.set(section.question.readingPhase === "before_section" ? section.startSpanId : section.endSpanId, section);
+    }
+  }
+  const windowChecks = (spanId: string | null | undefined): ReactNode => {
+    const section = spanId ? windowCheckAt.get(spanId) : undefined;
+    if (!section || !render) return null;
+    return (
+      <QuickChecks
+        key={`checks-${section.id}`}
+        extractionId={render.extractionId}
+        available
+        sections={openCheckIds.has(section.id) ? [section] : []}
+        focusQuickCheck={focusQuickCheck}
+        onJump={peekPassage}
+        setDismissedSections={setDismissedSections}
+        setAnsweredSections={setAnsweredSections}
+        completeSection={completeSection}
+        revealSection={revealSection}
+        onError={onError}
+      />
+    );
+  };
   // The window's own top holds the reading's path and the recap card (and a Wrap up opened with w).
   const windowPathShown = Boolean(windowed && windowPathOpen && readingPathsOn && render && !working);
   const windowTopShown = windowPathShown || Boolean(recapInWindow && !working && ((recapCtl.wrapUpOpen && !drainHost) || (recapCtl.recap && !muted)));
   const windowInlineNotes = [
     ...(windowActiveCard && windowActiveSpan ? [{ spanId: windowActiveSpan, node: windowActiveCard }] : []),
     ...(windowNotesCard && windowNotesSpan ? [{ spanId: windowNotesSpan, node: windowNotesCard }] : []),
+    // On the original PDF, an open check sits under its passage as an inline note.
+    ...[...windowCheckAt.entries()].filter(([, section]) => openCheckIds.has(section.id)).map(([spanId]) => ({ spanId, node: windowChecks(spanId) })),
   ];
 
   // The book's own TeX macros, for every formula the Reader shows of it (its blocks, the Ask chip, answers about
@@ -4436,6 +4469,7 @@ export function ReaderScreen({
               {inlineReconnect && reconnect && block.spanId === reconnect.spanId ? inlineReconnect : null}
               {windowActiveCard && block.spanId && block.spanId === windowActiveSpan ? windowActiveCard : null}
               {windowNotesCard && block.spanId && block.spanId === windowNotesSpan ? windowNotesCard : null}
+              {windowChecks(block.spanId)}
               {figuresCtl.enabled ? <FiguresUnder ctl={figuresCtl} spanId={block.spanId} /> : null}
               {offerSection ? (
                 <SectionBoundaryOffer

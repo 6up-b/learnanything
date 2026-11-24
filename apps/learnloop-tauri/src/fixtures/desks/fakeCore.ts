@@ -154,6 +154,13 @@ function answer(command: string, input: Record<string, unknown>): unknown {
     case "reader_guide_plan": {
       const guide = FIXTURE_GUIDES[String(input.extractionId)];
       const view = viewFor(String(input.extractionId));
+      // `?checks=1`: the book's first section has a question placed before it (project-authored).
+      if (guide && typeof window !== "undefined" && new URLSearchParams(window.location.search).get("checks") === "1") {
+        return { ...guide, sections: guide.sections.map((section, index) => (index === 0 && guide.extractionId === FIXTURE_SOURCES.book.extractionId ? {
+          ...section, question: { placement: "owner_reviewed", practiceItemId: "fx_pi_weights", prompt: "Before you read: what should weights from scores add up to?",
+            reason: "a question placed before this section", readingPhase: "before_section", placementEventId: "fx_pe_1", learningObjectId: "fx_lo_1" },
+        } : section)) };
+      }
       return guide ?? { sourceId: view?.sourceId ?? "", extractionId: String(input.extractionId), personalized: false, selectionBasis: "fixture", goalContext: null, sections: [] };
     }
     case "reader_get_progress":
