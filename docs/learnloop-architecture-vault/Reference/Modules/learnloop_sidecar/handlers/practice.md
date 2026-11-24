@@ -284,6 +284,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reader_rd4_submission.py](../../../../../../tests/test_reader_rd4_submission.py) — direct import
 - [tests/test_reader_rd7a_inline_checks.py](../../../../../../tests/test_reader_rd7a_inline_checks.py) — direct import
   - `test_a_crash_after_the_submission_was_named_and_before_the_attempt_retries_to_one_attempt`
+- [tests/test_reader_rd7b_check_session.py](../../../../../../tests/test_reader_rd7b_check_session.py) — direct import
 - [tests/test_reader_rw2b_fix10.py](../../../../../../tests/test_reader_rw2b_fix10.py) — direct import
   - `test_item3_the_refold_never_drops_an_assist_it_already_counted`
 - [tests/test_reader_rw2b_fix11.py](../../../../../../tests/test_reader_rw2b_fix11.py) — direct import

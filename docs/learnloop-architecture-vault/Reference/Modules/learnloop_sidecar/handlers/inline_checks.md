@@ -50,7 +50,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/inline_checks.py](../../../../../../src/learnloop_sidecar/handlers/inline_checks.py) |
-| Source lines | 282 |
+| Source lines | 294 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
@@ -64,17 +64,17 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `class VisibleSearchRow(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/inline_checks.py), line 68)
 - `class Visible(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/inline_checks.py), line 76) — What is on screen, on every desk: the windows (with what each shows), the companion, overview previews and search results.
 - `class BeginInlineInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/inline_checks.py), line 87)
-- `class TokenInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/inline_checks.py), line 95)
-- `class ProtectMoreInput(TokenInput)` ([source](../../../../../../src/learnloop_sidecar/handlers/inline_checks.py), line 99)
-- `class ExposeInput(TokenInput)` ([source](../../../../../../src/learnloop_sidecar/handlers/inline_checks.py), line 103)
-- `class SubmitInlineInput(TokenInput)` ([source](../../../../../../src/learnloop_sidecar/handlers/inline_checks.py), line 109)
-- `check_begin_inline(ctx: SidecarContext, params: BeginInlineInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/inline_checks.py), line 166) — Open an inline administration; the prompt is in the reply only once the veils are recorded.
-- `check_protect_more(ctx: SidecarContext, params: ProtectMoreInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/inline_checks.py), line 181) — Veil what came into view during the administration: ``{veil_additions}``.
-- `check_expose(ctx: SidecarContext, params: ExposeInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/inline_checks.py), line 194) — Record an exposure at once: ``{protection_status: {exposure, cold_now}}``.
-- `check_submit_inline(ctx: SidecarContext, params: SubmitInlineInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/inline_checks.py), line 208) — The attempt through the one attempt service for the frozen item and contract, then settlement: the attempt's own reply plus ``{cold, reason}``.
-- `check_abandon_inline(ctx: SidecarContext, params: TokenInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/inline_checks.py), line 243) — "Not now": closed with no attempt; the duty stays pending.
-- `class OpenInlineInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/inline_checks.py), line 254)
-- `check_open_inline(ctx: SidecarContext, params: OpenInlineInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/inline_checks.py), line 259) — The restart read: the open administration with its veils and prompt, or ``administration: null``.
+- `class TokenInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/inline_checks.py), line 96)
+- `class ProtectMoreInput(TokenInput)` ([source](../../../../../../src/learnloop_sidecar/handlers/inline_checks.py), line 100)
+- `class ExposeInput(TokenInput)` ([source](../../../../../../src/learnloop_sidecar/handlers/inline_checks.py), line 104)
+- `class SubmitInlineInput(TokenInput)` ([source](../../../../../../src/learnloop_sidecar/handlers/inline_checks.py), line 110)
+- `check_begin_inline(ctx: SidecarContext, params: BeginInlineInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/inline_checks.py), line 167) — Open an inline administration; the prompt is in the reply only once the veils are recorded.
+- `check_protect_more(ctx: SidecarContext, params: ProtectMoreInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/inline_checks.py), line 190) — Veil what came into view during the administration: ``{veil_additions}``.
+- `check_expose(ctx: SidecarContext, params: ExposeInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/inline_checks.py), line 203) — Record an exposure at once: ``{protection_status: {exposure, cold_now}}``.
+- `check_submit_inline(ctx: SidecarContext, params: SubmitInlineInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/inline_checks.py), line 217) — The attempt through the one attempt service for the frozen item and contract, then settlement: the attempt's own reply plus ``{cold, reason}``.
+- `check_abandon_inline(ctx: SidecarContext, params: TokenInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/inline_checks.py), line 255) — "Not now": closed with no attempt; the duty stays pending.
+- `class OpenInlineInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/inline_checks.py), line 266)
+- `check_open_inline(ctx: SidecarContext, params: OpenInlineInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/inline_checks.py), line 271) — The restart read: the open administration with its veils and prompt, or ``administration: null``.
 
 ### Module constants
 
@@ -88,10 +88,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_covered(vault: Any, repository: Any) -> IA.Covered` ([source](../../../../../../src/learnloop_sidecar/handlers/inline_checks.py), line 116) — The sections that treat the check's LOs (judged coverage about them, as the goal lens reads it), or None when coverage cannot be read (every visible source passage is then veiled).
-- `_error(exc: IA.InlineCheckError) -> SidecarError` ([source](../../../../../../src/learnloop_sidecar/handlers/inline_checks.py), line 137)
-- `_card(admin: dict[str, Any], served: dict[str, Any] | None, veils: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/inline_checks.py), line 141)
-- `_serve(ctx: SidecarContext, session_id: str)` ([source](../../../../../../src/learnloop_sidecar/handlers/inline_checks.py), line 153)
+- `_covered(vault: Any, repository: Any) -> IA.Covered` ([source](../../../../../../src/learnloop_sidecar/handlers/inline_checks.py), line 117) — The sections that treat the check's LOs (judged coverage about them, as the goal lens reads it), or None when coverage cannot be read (every visible source passage is then veiled).
+- `_error(exc: IA.InlineCheckError) -> SidecarError` ([source](../../../../../../src/learnloop_sidecar/handlers/inline_checks.py), line 138)
+- `_card(admin: dict[str, Any], served: dict[str, Any] | None, veils: dict[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/inline_checks.py), line 142)
+- `_serve(ctx: SidecarContext, session_id: str)` ([source](../../../../../../src/learnloop_sidecar/handlers/inline_checks.py), line 154)
 
 ## Who imports or calls it
 
@@ -105,14 +105,15 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/attempts/stuck|learnloop.attempts.stuck]] — imports `stuck_attempt_type`; calls `stuck_attempt_type`
-- [[Reference/Modules/learnloop/intent/inline_administration|learnloop.intent.inline_administration]] — imports `module`; calls `abandon`, `attempt_submission_key`, `begin`, `expose`, `finish_submit`, `outcome`, `prepare_submit`, `protect_more`, `reopen`, `veils`
+- [[Reference/Modules/learnloop/intent/inline_administration|learnloop.intent.inline_administration]] — imports `module`; calls `abandon`, `attempt_submission_key`, `begin`, `expose`, `finish_submit`, `notes_opened`, `outcome`, `preflight`, `prepare_submit`, `protect_more`, `reopen`, `veils`
 - [[Reference/Modules/learnloop/intent/inline_checks|learnloop.intent.inline_checks]] — imports `due_checks`; calls `due_checks`
 - [[Reference/Modules/learnloop/source_retrieval/section_coverage|learnloop.source_retrieval.section_coverage]] — imports `module`; calls `Library`, `standing`
-- [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `SidecarContext`
+- [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `SidecarContext`, `session_snapshot`; calls `session_snapshot`
 - [[Reference/Modules/learnloop_sidecar/dto|learnloop_sidecar.dto]] — imports `ParamsModel`, `Verbatim`, `versioned`; calls `Verbatim`, `versioned`
 - [[Reference/Modules/learnloop_sidecar/errors|learnloop_sidecar.errors]] — imports `SidecarError`; calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/handlers/practice|learnloop_sidecar.handlers.practice]] — imports `ServePracticeItemInput`, `SubmitAttemptInput`, `get_practice_item`, `submit_attempt_on`; calls `ServePracticeItemInput`, `SubmitAttemptInput`, `get_practice_item`, `submit_attempt_on`
 - [[Reference/Modules/learnloop_sidecar/handlers/serializers|learnloop_sidecar.handlers.serializers]] — imports `practice_item_detail`; calls `practice_item_detail`
+- [[Reference/Modules/learnloop_sidecar/handlers/workbench|learnloop_sidecar.handlers.workbench]] — imports `_practice_session`; calls `_practice_session`
 - [[Reference/Modules/learnloop_sidecar/registry|learnloop_sidecar.registry]] — imports `method`; calls `method`
 - [[Reference/Modules/learnloop_sidecar/request_origin|learnloop_sidecar.request_origin]] — imports `host_mutation`
 

@@ -287,10 +287,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reader_rd7a_inline_checks.py](../../../../../../tests/test_reader_rd7a_inline_checks.py) — direct import
   - `test_a_check_settled_elsewhere_while_open_is_closed_superseded_on_the_next_read`
   - `test_a_crash_after_the_attempt_and_before_the_close_is_recovered_with_that_attempt`
+  - `test_an_answer_after_a_notes_veil_was_opened_is_practice_and_says_why`
   - `test_not_now_closes_with_no_attempt_and_the_duty_stays`
   - `test_opening_a_veil_that_says_nothing_of_the_answer_leaves_it_cold`
   - `test_opening_a_veil_that_states_the_answer_primes_the_item_and_the_answer_is_practice`
   - `test_parity_with_check_once_in_today`
+- [tests/test_reader_rd7b_check_session.py](../../../../../../tests/test_reader_rd7b_check_session.py) — direct import
 - [tests/test_reader_reconstruct.py](../../../../../../tests/test_reader_reconstruct.py) — direct import
   - `test_reconstruct_makes_one_item_and_one_test_me_later_commitment`
   - `test_undo_retires_the_commitment_and_the_item`

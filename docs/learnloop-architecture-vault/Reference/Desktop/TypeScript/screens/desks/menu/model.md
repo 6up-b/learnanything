@@ -141,6 +141,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 - [apps/learnloop-tauri/src/screens/desks/menu/verbs.test.ts](../../../../../../../../apps/learnloop-tauri/src/screens/desks/menu/verbs.test.ts) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/desks/menu/model.test.ts](../../../../../../../../apps/learnloop-tauri/src/screens/desks/menu/model.test.ts) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/desks/menu/ContextMenu.test.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/menu/ContextMenu.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/desks/checks/gates.test.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/checks/gates.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 
 ## Modification guidance
 

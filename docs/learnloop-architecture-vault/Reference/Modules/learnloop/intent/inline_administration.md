@@ -47,42 +47,45 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/intent/inline_administration.py](../../../../../../src/learnloop/intent/inline_administration.py) |
-| Source lines | 558 |
+| Source lines | 602 |
 | Owning package | [[Reference/Modules/learnloop/intent/_package|learnloop.intent]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class InlineCheckError(Exception)` ([source](../../../../../../src/learnloop/intent/inline_administration.py), line 58)
-  - `__init__(self, code: str, message: str, details: Mapping[str, Any] | None=None) -> None` (line 59; internal)
-- `class Opened` ([source](../../../../../../src/learnloop/intent/inline_administration.py), line 67) — A check's commitment and what begin found about it.
-- `protection(vault: Any, repository: Any, opened: Opened, visible: Mapping[str, Any], covered: Covered) -> tuple[str, list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/intent/inline_administration.py), line 99) — What is veiled of ``visible`` while this check is open, and how it was decided.
-- `narrow(veiled: list[dict[str, Any]], judgment: Any | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/intent/inline_administration.py), line 174) — The Decider's seam (spec §12.6.3): once the reveal adjudication judgment exists it may un-veil what it judges states nothing of the answer.
-- `being_answered(repository: Any) -> frozenset[str]` ([source](../../../../../../src/learnloop/intent/inline_administration.py), line 213) — The commitments an open inline administration holds (the lock Today honours).
-- `union(veil_sets: Sequence[Mapping[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/intent/inline_administration.py), line 220) — Everything veiled by an administration's veil sets (deduplicated, in order) and what was opened by the last.
-- `find(repository: Any, token: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/intent/inline_administration.py), line 233)
-- `begin(vault: Any, repository: Any, *, request_id: str, commitment_id: str, session_id: str, visible: Mapping[str, Any], serve: Callable[[str], Mapping[str, Any]], covered: Covered, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/intent/inline_administration.py), line 241) — Open an inline administration: the item, the frozen contract (``serve``: Today's own session serve of the item, which freezes it), the protection and its first veil set, all before the prompt is returned.
-- `veils(repository: Any, token: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/intent/inline_administration.py), line 293)
-- `protect_more(vault: Any, repository: Any, *, token: str, visible: Mapping[str, Any], covered: Covered, clock: Clock | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/intent/inline_administration.py), line 322) — Veil what came into view (navigation, a new window, a search): a veil set of the additions only.
-- `expose(vault: Any, repository: Any, *, token: str, ref: Mapping[str, Any], kind: str, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/intent/inline_administration.py), line 386) — Record what the learner did that is exposure, at once.
-- `cold_now(vault: Any, repository: Any, admin: Mapping[str, Any], *, clock: Clock | None=None) -> bool` ([source](../../../../../../src/learnloop/intent/inline_administration.py), line 429) — Whether the check's item could still be answered cold now (the Check once decision over the reveal ledger).
-- `prepare_submit(vault: Any, repository: Any, *, token: str, submission_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/intent/inline_administration.py), line 436) — Before the attempt: name the submission on the administration (a crash after the attempt is found by it).
-- `attempt_submission_key(submission_id: str) -> str` ([source](../../../../../../src/learnloop/intent/inline_administration.py), line 455) — The attempt service's own idempotency key for an inline submission.
-- `finish_submit(vault: Any, repository: Any, *, token: str, attempt_id: str, pending_before: bool, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/intent/inline_administration.py), line 461) — After the attempt: close the administration with it, then settle as for any qualifying attempt (the check is answered only if this attempt is its first on-your-own, cold one).
-- `outcome(vault: Any, repository: Any, *, token: str, pending_before: bool | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/intent/inline_administration.py), line 477) — Whether the administration's attempt answered its check, and why not when it did not.
-- `abandon(vault: Any, repository: Any, *, token: str, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/intent/inline_administration.py), line 508) — "Not now": closed with no attempt; the duty stays pending and what was opened stays in the reveal ledger.
-- `reopen(vault: Any, repository: Any, *, attempt_for: Callable[[str, str], str | None], clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/intent/inline_administration.py), line 523) — The restart read: the open administration, or None.
+- `class InlineCheckError(Exception)` ([source](../../../../../../src/learnloop/intent/inline_administration.py), line 60)
+  - `__init__(self, code: str, message: str, details: Mapping[str, Any] | None=None) -> None` (line 61; internal)
+- `class Opened` ([source](../../../../../../src/learnloop/intent/inline_administration.py), line 69) — A check's commitment and what begin found about it.
+- `protection(vault: Any, repository: Any, opened: Opened, visible: Mapping[str, Any], covered: Covered) -> tuple[str, list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/intent/inline_administration.py), line 101) — What is veiled of ``visible`` while this check is open, and how it was decided.
+- `narrow(veiled: list[dict[str, Any]], judgment: Any | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/intent/inline_administration.py), line 176) — The Decider's seam (spec §12.6.3): once the reveal adjudication judgment exists it may un-veil what it judges states nothing of the answer.
+- `being_answered(repository: Any) -> frozenset[str]` ([source](../../../../../../src/learnloop/intent/inline_administration.py), line 215) — The commitments an open inline administration holds (the lock Today honours).
+- `union(veil_sets: Sequence[Mapping[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/intent/inline_administration.py), line 222) — Everything veiled by an administration's veil sets (deduplicated, in order) and what was opened by the last.
+- `find(repository: Any, token: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/intent/inline_administration.py), line 235)
+- `preflight(vault: Any, repository: Any, *, request_id: str, commitment_id: str) -> None` ([source](../../../../../../src/learnloop/intent/inline_administration.py), line 243) — The refusals ``begin`` gives before it reads the serving view (the tag, another open check, a duty no longer pending), for a caller that would otherwise do work first (start a practice session for a check that cannot open).
+- `begin(vault: Any, repository: Any, *, request_id: str, commitment_id: str, session_id: str, visible: Mapping[str, Any], serve: Callable[[str], Mapping[str, Any]], covered: Covered, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/intent/inline_administration.py), line 262) — Open an inline administration: the item, the frozen contract (``serve``: Today's own session serve of the item, which freezes it), the protection and its first veil set, all before the prompt is returned.
+- `veils(repository: Any, token: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/intent/inline_administration.py), line 314)
+- `protect_more(vault: Any, repository: Any, *, token: str, visible: Mapping[str, Any], covered: Covered, clock: Clock | None=None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/intent/inline_administration.py), line 343) — Veil what came into view (navigation, a new window, a search): a veil set of the additions only.
+- `expose(vault: Any, repository: Any, *, token: str, ref: Mapping[str, Any], kind: str, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/intent/inline_administration.py), line 414) — Record what the learner did that is exposure, at once.
+- `cold_now(vault: Any, repository: Any, admin: Mapping[str, Any], *, clock: Clock | None=None) -> bool` ([source](../../../../../../src/learnloop/intent/inline_administration.py), line 460) — Whether the check's item could still be answered cold now (the Check once decision over the reveal ledger).
+- `prepare_submit(vault: Any, repository: Any, *, token: str, submission_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/intent/inline_administration.py), line 470) — Before the attempt: name the submission on the administration (a crash after the attempt is found by it).
+- `notes_opened(admin: Mapping[str, Any]) -> bool` ([source](../../../../../../src/learnloop/intent/inline_administration.py), line 489) — Whether the learner opened a note's veil during this administration (an exposure event with unmeasured notes).
+- `attempt_submission_key(submission_id: str) -> str` ([source](../../../../../../src/learnloop/intent/inline_administration.py), line 498) — The attempt service's own idempotency key for an inline submission.
+- `finish_submit(vault: Any, repository: Any, *, token: str, attempt_id: str, pending_before: bool, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/intent/inline_administration.py), line 504) — After the attempt: close the administration with it, then settle as for any qualifying attempt (the check is answered only if this attempt is its first on-your-own, cold one).
+- `outcome(vault: Any, repository: Any, *, token: str, pending_before: bool | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/intent/inline_administration.py), line 520) — Whether the administration's attempt answered its check, and why not when it did not.
+- `abandon(vault: Any, repository: Any, *, token: str, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/intent/inline_administration.py), line 552) — "Not now": closed with no attempt; the duty stays pending and what was opened stays in the reveal ledger.
+- `reopen(vault: Any, repository: Any, *, attempt_for: Callable[[str, str], str | None], clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/intent/inline_administration.py), line 567) — The restart read: the open administration, or None.
 
 ### Module constants
 
 - `SURFACE` ([src/learnloop/intent/inline_administration.py](../../../../../../src/learnloop/intent/inline_administration.py), line 42)
 - `METHOD` ([src/learnloop/intent/inline_administration.py](../../../../../../src/learnloop/intent/inline_administration.py), line 45)
-- `METHOD_WHOLE_SOURCES` ([src/learnloop/intent/inline_administration.py](../../../../../../src/learnloop/intent/inline_administration.py), line 47)
-- `PLACED_KINDS` ([src/learnloop/intent/inline_administration.py](../../../../../../src/learnloop/intent/inline_administration.py), line 50)
-- `OPENED_BASIS` ([src/learnloop/intent/inline_administration.py](../../../../../../src/learnloop/intent/inline_administration.py), line 52)
-- `DUE_ONLY` ([src/learnloop/intent/inline_administration.py](../../../../../../src/learnloop/intent/inline_administration.py), line 54)
-- `BELOW_TAG` ([src/learnloop/intent/inline_administration.py](../../../../../../src/learnloop/intent/inline_administration.py), line 55)
+- `PRIMED_BY_NOTE` ([src/learnloop/intent/inline_administration.py](../../../../../../src/learnloop/intent/inline_administration.py), line 47)
+- `METHOD_WHOLE_SOURCES` ([src/learnloop/intent/inline_administration.py](../../../../../../src/learnloop/intent/inline_administration.py), line 49)
+- `PLACED_KINDS` ([src/learnloop/intent/inline_administration.py](../../../../../../src/learnloop/intent/inline_administration.py), line 52)
+- `OPENED_BASIS` ([src/learnloop/intent/inline_administration.py](../../../../../../src/learnloop/intent/inline_administration.py), line 54)
+- `DUE_ONLY` ([src/learnloop/intent/inline_administration.py](../../../../../../src/learnloop/intent/inline_administration.py), line 56)
+- `BELOW_TAG` ([src/learnloop/intent/inline_administration.py](../../../../../../src/learnloop/intent/inline_administration.py), line 57)
 
 ### Explicit exports
 
@@ -116,24 +119,25 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_now(clock: Clock | None) -> str` ([source](../../../../../../src/learnloop/intent/inline_administration.py), line 78)
-- `_require_tag(vault: Any) -> None` ([source](../../../../../../src/learnloop/intent/inline_administration.py), line 82)
-- `_ref_key(ref: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/intent/inline_administration.py), line 89)
-- `_window_group(kind: str) -> str` ([source](../../../../../../src/learnloop/intent/inline_administration.py), line 164)
-- `_check(vault: Any, repository: Any, commitment_id: str, *, clock: Clock | None) -> Any` ([source](../../../../../../src/learnloop/intent/inline_administration.py), line 184)
-- `_learning_objects(vault: Any, repository: Any, commitment_id: str, candidates: Iterable[str]) -> tuple[str, ...]` ([source](../../../../../../src/learnloop/intent/inline_administration.py), line 191)
-- `_open_in_today(repository: Any, candidates: Iterable[str]) -> bool` ([source](../../../../../../src/learnloop/intent/inline_administration.py), line 202) — A Today session shows one of the check's items with an answer being written: the check is being answered there.
-- `_require_open(admin: Mapping[str, Any]) -> None` ([source](../../../../../../src/learnloop/intent/inline_administration.py), line 301)
-- `_opened_for(admin: Mapping[str, Any], repository: Any) -> Opened` ([source](../../../../../../src/learnloop/intent/inline_administration.py), line 306)
-- `_text_of(repository: Any, ref: Mapping[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/intent/inline_administration.py), line 349) — What an opened veil shows, as the texts measured against the answer keys.
-- `_close_veils(connection: Any, token: str, now: str) -> None` ([source](../../../../../../src/learnloop/intent/inline_administration.py), line 501)
+- `_now(clock: Clock | None) -> str` ([source](../../../../../../src/learnloop/intent/inline_administration.py), line 80)
+- `_require_tag(vault: Any) -> None` ([source](../../../../../../src/learnloop/intent/inline_administration.py), line 84)
+- `_ref_key(ref: Mapping[str, Any]) -> str` ([source](../../../../../../src/learnloop/intent/inline_administration.py), line 91)
+- `_window_group(kind: str) -> str` ([source](../../../../../../src/learnloop/intent/inline_administration.py), line 166)
+- `_check(vault: Any, repository: Any, commitment_id: str, *, clock: Clock | None) -> Any` ([source](../../../../../../src/learnloop/intent/inline_administration.py), line 186)
+- `_learning_objects(vault: Any, repository: Any, commitment_id: str, candidates: Iterable[str]) -> tuple[str, ...]` ([source](../../../../../../src/learnloop/intent/inline_administration.py), line 193)
+- `_open_in_today(repository: Any, candidates: Iterable[str]) -> bool` ([source](../../../../../../src/learnloop/intent/inline_administration.py), line 204) — A Today session shows one of the check's items with an answer being written: the check is being answered there.
+- `_require_open(admin: Mapping[str, Any]) -> None` ([source](../../../../../../src/learnloop/intent/inline_administration.py), line 322)
+- `_opened_for(admin: Mapping[str, Any], repository: Any) -> Opened` ([source](../../../../../../src/learnloop/intent/inline_administration.py), line 327)
+- `_text_of(repository: Any, ref: Mapping[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/intent/inline_administration.py), line 370) — What an opened veil shows, as the texts measured against the answer keys.
+- `_unmeasured(ref: Mapping[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/intent/inline_administration.py), line 403) — The notes an opened veil showed and nothing measured (their ids only; C2: a note is never evidence).
+- `_close_veils(connection: Any, token: str, now: str) -> None` ([source](../../../../../../src/learnloop/intent/inline_administration.py), line 545)
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop_sidecar/handlers/inline_checks|learnloop_sidecar.handlers.inline_checks]] — imports `module`; statically calls `abandon`, `attempt_submission_key`, `begin`, `expose`, `finish_submit`, `outcome`, `prepare_submit`, `protect_more`, `reopen`, `veils`
+- [[Reference/Modules/learnloop_sidecar/handlers/inline_checks|learnloop_sidecar.handlers.inline_checks]] — imports `module`; statically calls `abandon`, `attempt_submission_key`, `begin`, `expose`, `finish_submit`, `notes_opened`, `outcome`, `preflight`, `prepare_submit`, `protect_more`, `reopen`, `veils`
 
 ## Dependencies
 
@@ -177,6 +181,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_opening_a_veil_that_states_the_answer_primes_the_item_and_the_answer_is_practice`
   - `test_submit_records_one_attempt_on_the_reader_surface_settles_and_is_idempotent`
   - `test_the_protection_set_veils_covered_passages_and_every_note_bearing_surface`
+- [tests/test_reader_rd7b_cold_followup_parity.py](../../../../../../tests/test_reader_rd7b_cold_followup_parity.py) — direct import
+  - `test_rw6bs_gate_holds_the_follow_up_on_both_surfaces`
 
 ## Modification guidance
 

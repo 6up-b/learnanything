@@ -190,6 +190,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reader_followups_successor.py](../../../../../../tests/test_reader_followups_successor.py) — direct import
   - `test_replay_plans_nothing_and_a_shadow_rebuild_is_zero`
 - [tests/test_reader_rd7a_inline_checks.py](../../../../../../tests/test_reader_rd7a_inline_checks.py) — direct import
+  - `test_an_answer_after_a_notes_veil_was_opened_is_practice_and_says_why`
   - `test_the_projection_after_an_inline_answer_equals_a_whole_vault_rebuild`
 - [tests/test_rebuild_equivalence.py](../../../../../../tests/test_rebuild_equivalence.py) — direct import
   - `test_replay_still_closes_an_administered_diagnostic_probe_left_active`

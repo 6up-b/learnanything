@@ -344,6 +344,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reader_ca1_astra_rereview.py](../../../../../../../tests/test_reader_ca1_astra_rereview.py) — direct import
 - [tests/test_reader_followups_rereview.py](../../../../../../../tests/test_reader_followups_rereview.py) — direct import
 - [tests/test_reader_followups_review.py](../../../../../../../tests/test_reader_followups_review.py) — direct import
+- [tests/test_reader_rd7b_cold_followup_parity.py](../../../../../../../tests/test_reader_rd7b_cold_followup_parity.py) — direct import
 - [tests/test_reader_rw3a_landing.py](../../../../../../../tests/test_reader_rw3a_landing.py) — direct import
   - `test_check_me_goes_through_the_plan_path_and_is_logged_once`
 - [tests/test_reader_rw6b_landing.py](../../../../../../../tests/test_reader_rw6b_landing.py) — direct import

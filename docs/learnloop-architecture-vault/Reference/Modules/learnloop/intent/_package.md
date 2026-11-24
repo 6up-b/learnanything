@@ -52,7 +52,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/intent/checks|learnloop.intent.checks]] | [[Reference/Modules/learnloop/intent/checks#^module-purpose|purpose]] | `ACTIVE` | 7 | 16 |
 | [[Reference/Modules/learnloop/intent/control|learnloop.intent.control]] | [[Reference/Modules/learnloop/intent/control#^module-purpose|purpose]] | `ACTIVE` | 4 | 15 |
 | [[Reference/Modules/learnloop/intent/deadline|learnloop.intent.deadline]] | [[Reference/Modules/learnloop/intent/deadline#^module-purpose|purpose]] | `ACTIVE` | 1 | 3 |
-| [[Reference/Modules/learnloop/intent/inline_administration|learnloop.intent.inline_administration]] | [[Reference/Modules/learnloop/intent/inline_administration#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
+| [[Reference/Modules/learnloop/intent/inline_administration|learnloop.intent.inline_administration]] | [[Reference/Modules/learnloop/intent/inline_administration#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
 | [[Reference/Modules/learnloop/intent/inline_checks|learnloop.intent.inline_checks]] | [[Reference/Modules/learnloop/intent/inline_checks#^module-purpose|purpose]] | `ACTIVE` | 4 | 2 |
 | [[Reference/Modules/learnloop/intent/report|learnloop.intent.report]] | [[Reference/Modules/learnloop/intent/report#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 

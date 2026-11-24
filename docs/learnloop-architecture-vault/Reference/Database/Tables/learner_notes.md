@@ -19,10 +19,10 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/db/stores/learner_notes.py"
-  - "src/learnloop/intent/inline_administration.py"
   - "src/learnloop/source_retrieval/note_gaps.py"
   - "src/learnloop/source_retrieval/note_links.py"
   - "src/learnloop/substrate/passage_spans.py"
+  - "src/learnloop/teacher/notes.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -95,7 +95,6 @@ None found by exact static reference scan.
 ### Direct SQL readers
 
 - `src/learnloop/db/stores/learner_notes.py`
-- `src/learnloop/intent/inline_administration.py`
 - `src/learnloop/substrate/passage_spans.py`
 
 ### Direct SQL writers

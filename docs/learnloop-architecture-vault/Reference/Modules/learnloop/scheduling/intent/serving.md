@@ -208,6 +208,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f2_an_automatic_follow_up_never_lands_in_a_scope_the_learner_chose`
 - [tests/test_reader_rd7a_inline_checks.py](../../../../../../../tests/test_reader_rd7a_inline_checks.py) — direct import
   - `test_one_administration_at_a_time_and_today_honours_it`
+- [tests/test_reader_rd7b_cold_followup_parity.py](../../../../../../../tests/test_reader_rd7b_cold_followup_parity.py) — direct import
+  - `test_a_due_cold_follow_up_opens_inline_cold_on_the_item_today_would_serve`
+  - `test_rw6bs_gate_holds_the_follow_up_on_both_surfaces`
 - [tests/test_reader_rw6b_landing.py](../../../../../../../tests/test_reader_rw6b_landing.py) — direct import
 - [tests/test_untaken_repair_episode.py](../../../../../../../tests/test_untaken_repair_episode.py) — direct import
   - `test_the_sweeps_due_read_is_the_plans`
