@@ -548,6 +548,7 @@ so 273 sits on 272.
 | `45110c257f` | Merge `origin/main` |
 | `cff2bd743e` | Migration 273 (`probe_episodes.completion_reason` gains `router_stop`), the migration-head fixture upgraded in place, its test |
 | `f49a3f43dc` | The continuation decision, its doors and tests |
+| `89be3a4726` | The stop option renamed (`CONTINUATION_STOP_REF`); 273 in the earlier migrations' upgrade diffs |
 
 **The decision** (`daily_plan.probe_continuation`). An episode is router-owned when a probe the router selected at its
 tag was administered in it (`probe_authority`). Such an episode can be left in progress with no presentation standing
@@ -648,8 +649,18 @@ decides its next observation.
   and refuses (`router_decision_pending`); the job runs; then the door serves the router's pin, and the test checks
   that pin is router-owned. It asserted that the door committed the instrument directly. The four tests' shared setup
   moved to `tests/probe_router_owned_helpers.py`, unchanged.
-- The database reference notes were regenerated after the commit (`db_generate_reference.py`, then
-  `db_validate_reference.py`).
+- The database and module reference notes were regenerated after the commits (`db_generate_reference.py` and
+  `db_validate_reference.py`, `module_generate.py` and `module_validate.py`, the last a PASS).
+- **The whole suite** (every `tests/test_*.py`, `-m "not arc_close"`) ran, because the migration and the head fixture
+  make every test depend on the change. It ran in 42 chunks of 40 at `-n 1`, three chunks at a time, each in its own
+  3 GB scope. It found two things, both fixed and the failing files rerun green:
+  - **A bug of this build.** The continuation's stop option was first named `STOP_REF` in `plan_log`, which rebound
+    the plan block decisions' `stop_for_today`. That broke the plan's stop and the stop coin, the offer and objective
+    tests and the plan-refs leaf test (36 tests). It is now `plan_log.CONTINUATION_STOP_REF`.
+  - **The earlier migrations' "nothing else changed" upgrade diffs** (16 test files) now set aside
+    `ROUTER_STOP_ALTERED_TABLES` (`tests/probe_router_stop_migration_helpers.py`: `probe_episodes`, rebuilt by 273),
+    as they set aside every earlier rebuild. These are assertion changes by the migration, the established way.
+  - Every other file passed. The module catalog test passes after the regeneration.
 
 ## Owner copies (run by the orchestrator)
 
