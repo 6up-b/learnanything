@@ -4,7 +4,6 @@ import json
 from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
 
-from learnloop.algorithm_versions import LESSON_WEIGHT_CURVE_VERSIONS
 from learnloop.db.stores.grade_curves import capture_grade_curve
 from learnloop.clock import Clock, FrozenClock, parse_utc, utc_now_iso
 from learnloop.db.attempt_order import attempt_order_for
@@ -334,8 +333,9 @@ def replay_learning_object(
             clock=clock,
             gate_records=gate_records,
         )
-        if applying_grade_to is not None and vault.config.algorithms.algorithm_version in LESSON_WEIGHT_CURVE_VERSIONS:
-            # Only the replacement grade was applied here. Its neighbours were replayed.
+        if applying_grade_to is not None:
+            # Only the replacement grade was applied here. Its neighbours were replayed. Recorded whatever tag this
+            # process loaded, as a first grade's curve is (``record_attempt``).
             if applying_grade_to not in result.attempt_ids:
                 raise ValueError(f"replacement grade for {applying_grade_to} was not applied on {learning_object_id}")
             surprise = repository.latest_attempt_surprise(applying_grade_to)

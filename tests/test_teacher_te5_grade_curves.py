@@ -15,6 +15,7 @@ from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_practice_item
 from tests.regrade_contract_replay_helpers import ITEM, _regrade, _self_graded_apply
 from tests.regrade_contract_successor_helpers import _vault
+from tests.grade_curves_migration_helpers import forget_captures
 from tests.teacher_fakes import build_teacher_vault
 from tests.teacher_te1_review_fixes_helpers import _cold, _lesson_with_check, _rows
 
@@ -43,6 +44,8 @@ def test_upgrade_freezes_once_then_refits_and_rebuilds_twice(tmp_path, monkeypat
     _lesson_with_check(paths, repository, at=T + timedelta(days=3))
     vault = load_vault(paths.root)
     receipts = _rows(repository, "SELECT * FROM lesson_checks ORDER BY id")
+    # The history an owner's vault holds: written by code that recorded no curve (every grade records one now).
+    forget_captures(repository)
     assert not _rows(repository, CURVES)
     # The predecessor reads authored parameters despite this post-grade edit.
     old = LW._state_rows(LW.replay_state(vault, repository))
@@ -159,6 +162,7 @@ def test_upgrade_labels_superseded_epochs_and_keeps_a_legacy_stamp(tmp_path):
     _regrade(vault, repository, "att_old", {"setup": 2, "result": 2}, when=T + timedelta(days=1))
     _self_graded_apply(vault, repository, ITEM, {"setup": 2, "result": 2}, attempt_id="att_legacy", when=T)
     as_graded_before_contracts(repository, "att_legacy")
+    forget_captures(repository)
     with repository.atomic(), repository.connection() as connection:
         assert snapshot_grade_curves(connection, vault.config.algorithms.algorithm_version)
         assert not snapshot_grade_curves(connection, vault.config.algorithms.algorithm_version)
@@ -189,6 +193,7 @@ def test_pool_only_endpoint_uses_its_snapshot_and_reports_an_unapplied_replaceme
     assert not _rows(repository, "SELECT id FROM lesson_checks")
     receipts = _rows(repository, "SELECT * FROM lesson_receipts ORDER BY lesson_id")
     assert len(receipts) == 1
+    forget_captures(repository)
     assert upgrades.upgrade(paths.root, to=TAG, links=[link]).upgraded
     vault = load_vault(paths.root)
     pool, = LW.replay_state(vault, repository).trace

@@ -18,6 +18,9 @@ CREATE TRIGGER attempt_grade_curves_no_update BEFORE UPDATE ON attempt_grade_cur
 BEGIN SELECT RAISE(ABORT, 'attempt_grade_curves is append-only'); END;
 CREATE TRIGGER attempt_grade_curves_no_delete BEFORE DELETE ON attempt_grade_curves
 BEGIN SELECT RAISE(ABORT, 'attempt_grade_curves is append-only'); END;
+-- An insert naming an existing rowid is refused too: a replacing insert under another key would otherwise delete the
+-- row holding that rowid through SQLite's implicit replacement, which no delete trigger sees.
 CREATE TRIGGER attempt_grade_curves_no_replace BEFORE INSERT ON attempt_grade_curves
 WHEN EXISTS (SELECT 1 FROM attempt_grade_curves WHERE attempt_id = NEW.attempt_id AND epoch_key = NEW.epoch_key)
+  OR EXISTS (SELECT 1 FROM attempt_grade_curves WHERE rowid = NEW.rowid)
 BEGIN SELECT RAISE(ABORT, 'attempt_grade_curves is append-only'); END;

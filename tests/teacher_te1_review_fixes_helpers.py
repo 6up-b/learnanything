@@ -87,11 +87,13 @@ def _lesson_with_check(paths, repository, *, at, retained: float | None = None):
 
 
 def _cold(paths, repository, item_id, at, *, points: int = 4, confidence: int | None = 4, hints: int = 0,
-          primed: bool = False):
+          primed: bool = False, vault=None):
+    """``vault``: a config the grading process loaded earlier (default: the vault as it is now)."""
+
     from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
 
     return complete_self_graded_attempt(
-        load_vault(paths.root), repository,
+        vault if vault is not None else load_vault(paths.root), repository,
         AttemptDraft(practice_item_id=item_id, learner_answer_md="cold answer",
                      attempt_type="hinted_attempt" if hints else "independent_attempt", hints_used=hints,
                      answer_confidence=confidence, primed=primed),

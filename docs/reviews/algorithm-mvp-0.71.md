@@ -52,6 +52,34 @@ is a merge of origin/main into `teacher/te5-consolidation`:
   then the migration tests that read the head fixture apply 274 on top of it and fail; they are named in the
   integration report. `tests/test_grade_curves_migration.py` applies 274 on the fixture at 272 and passes.
 
+## Review fix round (the adversarial review of 2026-11-24)
+
+The review of `7e5c3dcb2e` found 1 blocker, 10 majors and 2 minors, plus a second "blocker" (273 missing, the fixture
+at 272) that the merge of G2 round 2 and the fixture step had already fixed. Every finding was checked against the
+code. Ledger rows are L42-R1 to L42-R14.
+
+| Finding | Disposition |
+|---|---|
+| Blocker: a grader holding the predecessor's config commits after another process completed the activation; its epoch stays uncaptured for good | **Fixed (L42-R1)**: every applied grade now records its curve, whatever tag the writing process loaded (`record_attempt`; the replacement grade's capture in `replay_learning_object` likewise). The decision no longer reads a config at all. Below the tag nothing reads these rows, and the activation freezes only the epochs no grade recorded. Fail-first: `tests/test_grade_curves_capture_integrity.py` (a predecessor-config grade; a grade committed by a stale process after another upgraded). The TE5 upgrade tests now build an owner's history as the old code wrote it (`forget_captures`). |
+| The same stale-config class elsewhere on the grade path | **Recorded, not fixed (L42-R2):** every successor gate on the grade path reads the writing process's loaded `vault.config`. This is a wider, pre-existing class: the tag lives in `learnloop.toml`, not in the database, so a process that loaded an older config applies that tag's rules until it reloads. Its fix is one seam: the tag stored in SQLite by the activation and read under the writer lock. It needs a schema change and touches every gate, so it is not this step's. |
+| 273 missing, fixture at 272 | Already fixed: G2 round 2 merged, fixture at 274. |
+| Major: a replacing insert naming an existing rowid deletes a capture past the guards | **Fixed (L42-R3)** in migration 274 itself (not landed): the replacement guard also refuses an existing rowid. `WITHOUT ROWID` was tried and set aside, because every row-snapshot helper in the test goldens keys rows by rowid. The head fixture was redone from the 273 file. Fail-first: `test_no_replacing_insert_can_remove_a_capture`. |
+| Major: the evidence-only adjudication writer before the upgrade; the snapshot attributes revision 0's pair to revision 1 | **Open (L42-R4):** the snapshot must establish that the projection applied the current revision. The surprise row carries no revision. Plan: compare the surprise row's observed score bucket with the current epoch's score, and write `missing_at_upgrade` when they disagree. |
+| Major: a concurrent regrade between the fit's reads | **Open (L42-R5):** read the scores, holds, epochs and curves in one snapshot transaction. |
+| Major: same-second ordering by id | **Open (L42-R6):** use `attempt_order_for(vault.config)` for the trajectory's bounds and first use, and in the owner-copy window query. |
+| Major: the coverage variance floor | **Open (L42-R7):** recover the noise from the pre-floor update and apply the recorded floor per step. |
+| Major: a regraded pre-check attempt or a re-anchoring claim inside the window | **Open (L42-R8):** start from the check's replayed pre-update state, or mark the trajectory unavailable. |
+| Major: a calibration import changes replayed interpretation variance | **Open (L42-R9):** bind the applied interpretation variance to the epoch. |
+| Major: `mastery.irt.enabled=false` reads a full-credit check as zero | **Open (L42-R10):** pass the recorded score and maximum through the fit. |
+| Major: the derived lesson state is stale after a replacement grade | **Open (L42-R11):** refresh or invalidate the lesson state in the replacement transaction. |
+| Major (TE5 B): the forecast drops the current prompt's estimate | **Open (L42-R12):** add the known current input before the output allowance. |
+| Major: empirical difficulty reseeded from an edited authored value | **Open (L42-R13):** seed the first replayed update from the recorded cold difficulty. |
+| Minor: a flat response (a = 0) records almost no mass | **Open (L42-R14):** detect a flat inverse and keep the learned mass. |
+| Minor: the window query counted an overflowed pair as available | **Fixed:** the query above uses the finite-pair predicate. |
+
+**For the owner-copy run:** a copy opened by this code before its upgrade records `graded` rows for any grade made
+meanwhile. The expected-snapshot digest below assumes no such rows, so run it on copies no newer code has graded.
+
 ## Owner-copy procedure
 
 Use consistent SQLite backup-API copies. The following inspection is for the orchestrator. Supply the path of a **copy database** in `COPY_DB`. Both commands open their input read-only. The first reports coverage among the attempts between each recorded lesson check and its resolving outcome, including both endpoints. Resolving attempts for pool-only updates are included. Each attempt counts once across overlapping windows. These counts describe fitted windows through the last answered lesson check. Activation also covers every attempt outside these windows, including unresolved histories. Run this window inspection before the upgrade. A successor surprise row has already been replayed.
@@ -79,7 +107,9 @@ WITH windows AS (
   SELECT m.primed,
     CASE WHEN json_valid(s.predicted_score_dist_json) THEN
       json_type(s.predicted_score_dist_json, '$.a') IN ('integer','real') AND
-      json_type(s.predicted_score_dist_json, '$.b') IN ('integer','real')
+      json_type(s.predicted_score_dist_json, '$.b') IN ('integer','real') AND
+      abs(json_extract(s.predicted_score_dist_json, '$.a')) < 1e999 AND
+      abs(json_extract(s.predicted_score_dist_json, '$.b')) < 1e999
     END AS available
   FROM members m LEFT JOIN attempt_surprise s ON s.attempt_id = m.id
 )
