@@ -53,7 +53,7 @@ source_text_assertions = 23
 # 296669: the rich job golden records each attempt's figure_rich_author row and each stop's figure_rich_stop row
 # (21 new rows), and the build golden's delivery case its delivery's figure_withheld row (it now delivers the job's
 # own result); the existing rows are unchanged.
-golden_json_lines = 296669
+golden_json_lines = 301250
 
 [members]
 import_component = [

@@ -856,11 +856,117 @@ def log_followup_decision(connection: Any, decision: Mapping[str, Any]) -> str |
     return str(row["id"])
 
 
+# -- The probe router's learner lane: whether the quick check is offered after a miss ----------------------------------
+
+#: The learner lane's decision surface: the feedback screen's repair status, not a plan.
+LEARNER_PROBE_SURFACE = "causal_repair"
+#: The learner lane's two served options: offer the quick check, or not (the repair lane then goes on without it).
+PROBE_REF = "probe"
+NO_PROBE_REF = "no_probe"
+
+
+def learner_probe_receipt_key(factor_id: str) -> str:
+    """One decision per factor: a remounted panel, a second status read and the repair entry all read it back."""
+
+    return f"{INTERRUPT_KIND}:learner_probe:{factor_id}"
+
+
+def build_learner_probe_decision(decision: Mapping[str, Any]) -> dict[str, Any]:
+    """The learner lane's ``plan_interrupt`` row (pure): the factor's probe offered or not, each option's logged
+    probability its served one (``served_pi``), and the facts and valuation it was drawn on in ``detail``."""
+
+    served: Mapping[str, Any] = decision.get("served_pi") or {}
+    chosen_ref = str(decision["chosen_ref"])
+    raw = _probability(decision.get("propensity"))
+    if raw is None or raw >= 1.0 - _DETERMINISTIC_TOLERANCE:
+        propensity, propensity_kind = 1.0, "deterministic"
+    else:
+        propensity, propensity_kind = raw, "exact"
+    item_id = decision.get("practice_item_id")
+    candidates = [
+        {"ref": PROBE_REF, "kind": "probe", "item_ids": [item_id] if item_id else [], "feasible": True,
+         "propensity": propensity if chosen_ref == PROBE_REF else float(served.get(PROBE_REF, 0.0))},
+        {"ref": NO_PROBE_REF, "kind": "repair", "item_ids": [], "feasible": True,
+         "propensity": propensity if chosen_ref == NO_PROBE_REF else float(served.get(NO_PROBE_REF, 0.0))},
+    ]
+    config = decision.get("config")
+    algorithms = getattr(config, "algorithms", None)
+    algorithm_version = str(getattr(algorithms, "algorithm_version", None) or "unknown")
+    detail: dict[str, Any] = dict(decision.get("detail") or {})
+    mixture: Mapping[str, Any] = detail.get("mixture") or {}
+    sampled = bool(mixture) and propensity_kind == "exact"
+    inputs = {"factor_id": decision["factor_id"], "candidates": candidates, "algorithm_version": algorithm_version}
+    return {
+        "id": str(decision.get("decision_id") or new_ulid()),
+        "receipt_key": learner_probe_receipt_key(str(decision["factor_id"])),
+        "decision_kind": INTERRUPT_KIND,
+        "surface": LEARNER_PROBE_SURFACE,
+        "mode": str(decision.get("mode") or "probe_router"),
+        "policy": str(decision.get("policy") or "probe_router"),
+        "algorithm_version": algorithm_version,
+        "log_version": ROUTER_LOG_VERSION,
+        "session_id": decision.get("session_id"),
+        "parent_decision_id": None,
+        "scheduler_slate_id": None,
+        "controller_decision_id": None,
+        "snapshot_hash": _hash(inputs),
+        "design": mixture.get("design") if sampled else None,
+        "seed": mixture.get("seed") if sampled else None,
+        "candidates_json": _dumps(candidates),
+        "exclusions_json": _dumps({}),
+        "candidate_count": len(candidates),
+        "chosen_ref": chosen_ref,
+        "chosen_practice_item_id": item_id if chosen_ref == PROBE_REF else None,
+        "chosen_learning_object_id": decision.get("learning_object_id") if chosen_ref == PROBE_REF else None,
+        "chosen_scheduler_candidate_id": None,
+        "propensity": propensity,
+        "propensity_kind": propensity_kind,
+        "learner_pick": 0,
+        "fallback": mixture.get("fallback"),
+        "detail_json": _dumps(detail),
+        "created_at": decision.get("decided_at") or utc_now_iso(),
+    }
+
+
+def learner_probe_decision(connection: Any, factor_id: str) -> dict[str, Any] | None:
+    """The learner lane's decision on this factor's probe, or None: ``id``, ``chosen_ref``, ``propensity``,
+    ``chosen_practice_item_id`` and the ``detail`` it was drawn on."""
+
+    if not _ledger_present(connection):
+        return None
+    row = connection.execute(
+        "SELECT id, chosen_ref, propensity, chosen_practice_item_id, detail_json FROM router_decisions "
+        "WHERE receipt_key = ?", (learner_probe_receipt_key(factor_id),)).fetchone()
+    if row is None:
+        return None
+    out = dict(row)
+    out["detail"] = json.loads(out.pop("detail_json") or "{}")
+    return out
+
+
+def log_learner_probe_decision(connection: Any, decision: Mapping[str, Any]) -> str | None:
+    """Write the learner lane's row on the caller's transaction. Returns the factor's decision on record: this one, or
+    the one a concurrent read wrote first (the receipt key is the factor's, so the later row is a no-op)."""
+
+    if not _ledger_present(connection):
+        return None
+    append_router_decision(connection, build_learner_probe_decision(decision))
+    found = learner_probe_decision(connection, str(decision["factor_id"]))
+    return str(found["id"]) if found is not None else None
+
+
 __all__ = [
     "DECISION_KIND",
     "DECLINE_REF",
     "INSERT_REF",
     "INTERRUPT_KIND",
+    "LEARNER_PROBE_SURFACE",
+    "NO_PROBE_REF",
+    "PROBE_REF",
+    "build_learner_probe_decision",
+    "learner_probe_decision",
+    "learner_probe_receipt_key",
+    "log_learner_probe_decision",
     "MODEL_PAYLOAD_KINDS",
     "NO_INTERVENTION_REF",
     "build_followup_decision",

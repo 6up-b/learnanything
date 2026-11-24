@@ -1998,6 +1998,7 @@ class CausalStoreMixin:
         misconception_id: str | None = None,
         candidate_id: str | None = None,
         clock: Clock | None = None,
+        once: bool = False,
     ) -> dict[str, Any]:
         """Append one probe decision.
 
@@ -2005,6 +2006,10 @@ class CausalStoreMixin:
         observation, and its frequency is exactly what the P4 training records
         need.  ``decision_fingerprint`` carries the content hash so a caller can
         still group identical decisions without losing the counts.
+
+        ``once`` (the probe router's facts read): a receipt of facts, not a
+        verdict, so rereading the same facts is no new observation; the factor's
+        latest receipt is returned when its fingerprint is this one's.
         """
 
         import hashlib
@@ -2021,6 +2026,17 @@ class CausalStoreMixin:
                 }
             ).encode("utf-8")
         ).hexdigest()[:32]
+        if once:
+            with self.connection() as connection:
+                latest = connection.execute(
+                    "SELECT id, decision_fingerprint FROM causal_probe_decision_receipts "
+                    "WHERE factor_id = ? ORDER BY created_at DESC, id DESC LIMIT 1",
+                    (factor_id,),
+                ).fetchone()
+            if latest is not None and latest["decision_fingerprint"] == fingerprint:
+                found = self.causal_probe_decision_receipt(str(latest["id"]))
+                assert found is not None
+                return found
         receipt_id = new_ulid()
         with self.connection() as connection:
             connection.execute(
