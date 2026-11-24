@@ -1631,6 +1631,30 @@ async def run_pairs(page: Page, base: str, results: Results, shots: Path | None)
     await settle(page, 400)
     second = [w["id"] for w in await pair_windows(page) if w["focused"]]
     results.check("F6 moves the focus to the other window of the pair, and back", first == [paper["id"]] and second == [PAIR_BOOK], [first, second])
+    # The app's round trip (a check begun in the paired book, its practice screen and feedback, back): the desks unmount
+    # and mount again with the way back to the paper's passage. The pair is still one, the paper focused at the passage.
+    target = "fx_ext_attention_p2_2"
+    await page.evaluate("() => window.__deskAway()")
+    await page.wait_for_selector("[data-desks-away]")
+    await settle(page, 300)
+    await page.evaluate("([source, span]) => window.__deskReturn(source, span)", ["fx_src_attention", target])
+    await page.wait_for_selector(f"[data-desk-window='{paper['id']}'] [data-span-id='{target}']", timeout=8000)
+    await settle(page, 1500)
+    back = await pair_windows(page)
+    book_back = next((w for w in back if w["id"] == PAIR_BOOK), None)
+    paper_back = next((w for w in back if w["id"] == paper["id"]), None)
+    still_paired = bool(book_back and paper_back) and abs(book_back["slot"]["x"] - paper_back["slot"]["x"]) < 0.5 and book_back["pane"]["y"] < paper_back["pane"]["y"]
+    seen = await page.evaluate(f"""() => {{ const p = document.querySelector("[data-desk-window='{paper['id']}'] [data-span-id='{target}']");
+      const body = p && p.closest('[data-desk-window]').querySelector('[data-desk-pane-body]'); if (!p || !body) return null;
+      const r = p.getBoundingClientRect(), b = body.getBoundingClientRect(); return {{ inView: r.top >= b.top && r.top < b.bottom, bar: getComputedStyle(p).borderLeftColor }}; }}""")
+    results.check("back from a check begun in the paired book: the pair as it was, the paper focused, its passage in view",
+                  still_paired and bool(paper_back and paper_back["focused"]) and bool(seen and seen["inView"]),
+                  [[(w["id"], round(w["slot"]["x"]), round(w["pane"]["y"]), w["focused"]) for w in back], seen])
+    await page.keyboard.press("F6")
+    await settle(page, 400)
+    after_back = [w["id"] for w in await pair_windows(page) if w["focused"]]
+    results.check("and it is still a pair: F6 goes to the book", after_back == [PAIR_BOOK], after_back)
+    await shot(page, shots, "pairs-back")
 
 
 async def run_video(page: Page, base: str, results: Results, shots: Path | None) -> None:

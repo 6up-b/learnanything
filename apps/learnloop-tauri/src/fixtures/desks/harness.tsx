@@ -5,7 +5,7 @@
 import React, { useEffect, useState } from "react";
 import type { LessonEntry } from "../../screens/LessonView";
 import ReactDOM from "react-dom/client";
-import { DeskShell, type DeskDebugHandle } from "../../screens/desks/DeskShell";
+import { DeskShell, type DeskDebugHandle, type DeskOpenRequest } from "../../screens/desks/DeskShell";
 import { setAlgoConfig } from "../../app/algoConfig";
 import { DIRECT_HUB, WindowScope, type WindowState } from "../../screens/desks/lifecycle";
 import { SourceWindow } from "../../screens/desks/windows/SourceWindow";
@@ -29,6 +29,10 @@ declare global {
     __deskDebug?: DeskDebugHandle;
     /** `?lesson=1`: ask the desks for a lesson as the app does while they are its place (RD9a). */
     __deskLessonAsk?: (entry: LessonEntry) => void;
+    /** The Reader place left, as for a check's practice screen and its feedback: the desks unmount. */
+    __deskAway?: () => void;
+    /** Back to the Reader place with the app's way back: the desks mount again and open (or focus) a book at a passage. */
+    __deskReturn?: (sourceId: string, spanId: string | null) => void;
   }
 }
 window.__deskHarnessErrors = errors;
@@ -203,9 +207,21 @@ function HarnessShell({ lessonsOn, problemOn }: { lessonsOn: boolean; problemOn:
     if (!lessonsOn) return;
     window.__deskLessonAsk = (entry) => setRequest((now) => ({ seq: (now?.seq ?? 0) + 1, entry }));
   }, [lessonsOn]);
+  // The app's round trip away from the desks and back (a check or a problem, its feedback, "back to the book").
+  const [shown, setShown] = useState(true);
+  const [openRequest, setOpenRequest] = useState<DeskOpenRequest | null>(null);
+  useEffect(() => {
+    window.__deskAway = () => setShown(false);
+    window.__deskReturn = (sourceId, spanId) => {
+      setOpenRequest((now) => ({ seq: (now?.seq ?? 0) + 1, sourceId, spanId, reading: null }));
+      setShown(true);
+    };
+  }, []);
+  if (!shown) return <div data-desks-away="" style={{ position: "fixed", inset: 0, background: "#111" }} />;
   return (
     <div style={{ position: "fixed", inset: 0, display: "flex" }}>
       <DeskShell
+        openRequest={openRequest}
         vaultKey="desk-fixture"
         // `?lesson=1`: lessons are on (the Reader's Teach me opens a lesson window; RD9a).
         {...(lessonsOn ? { reader: { onTeachMe: () => undefined }, lessons: { request } } : {})}

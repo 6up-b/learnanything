@@ -2052,6 +2052,22 @@ export function DeskShell({
     setOpener(false);
   }, [commit, mintId, timers, placeLesson]);
 
+  /** The passage a window opens at for the app's open request still to be done: the book's window on the desk in view
+   *  that the request would focus (the one `openBeside` finds), on the request's reading. */
+  const openingAt = (windowId: string, windowDeskId: string, content: { kind: string; sourceId?: string; extractionId?: string }): string | null => {
+    if (!openRequest?.spanId || !openRequest.sourceId || !ws || !deskId || windowDeskId !== deskId) return null;
+    if ((doneOpenRequests.get(vaultKey) ?? -1) >= openRequest.seq) return null;
+    if (content.kind !== "source" || content.sourceId !== openRequest.sourceId) return null;
+    if (openRequest.reading && openRequest.reading !== content.extractionId) return null;
+    const desk = deskById(ws, deskId);
+    if (!desk) return null;
+    const first = desk.slots.flat().find((id) => {
+      const other = ws.windows[id]?.content;
+      return other?.kind === "source" && other.sourceId === openRequest.sourceId;
+    });
+    return first === windowId ? openRequest.spanId : null;
+  };
+
   // The app's open request: done once the desks, the library and the desk in view are there.
   useEffect(() => {
     if (!openRequest || !storeReady || !deskId || library === null) return;
@@ -3778,7 +3794,11 @@ export function DeskShell({
           content,
           card,
           libraryLoaded: library !== null,
-          startSpan: typeof window.view?.spanId === "string" ? (window.view.spanId as string) : null,
+          // The app's way back to this book (a check's or a problem's return, the plan's reading) not done yet: the window
+          // opens at that passage. Its Reader places itself once it opens, asynchronously (a saved place, its reading
+          // history), so a jump made before that would be undone; a window that opens at the passage is not.
+          startSpan: openingAt(window.windowId, window.deskId, content)
+            ?? (typeof window.view?.spanId === "string" ? (window.view.spanId as string) : null),
           railHost: railNode && railPanel ? { node: railNode, tab: railTab, lifecycle: lifecycles[railPanel] ?? { windowId: railPanel, state: "hidden" }, hub: hubFor(railPanel), claims: claimsFor(railPanel) } : null,
           onStatus: onStatusFor(window.windowId),
           onJumpReady: onJumpReadyFor(window.windowId),
