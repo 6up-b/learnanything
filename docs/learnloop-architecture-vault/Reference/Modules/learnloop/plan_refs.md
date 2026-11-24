@@ -133,6 +133,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_plan_refs.py](../../../../../tests/test_plan_refs.py) — direct import
   - `test_the_strings_keep_their_bytes_and_every_layer_reads_the_leafs`
   - `test_the_subtype_predicate_takes_a_subtype_and_refuses_a_candidate`
+- [tests/test_probe_router.py](../../../../../tests/test_probe_router.py) — direct import
+  - `test_at_the_tag_a_lesson_is_drawn_against_no_intervention_and_the_probe_only_by_the_coin`
 - [tests/test_probe_router_authority.py](../../../../../tests/test_probe_router_authority.py) — direct import
   - `test_d_a_retry_keeps_the_first_draw_and_asks_only_the_hard_refusals_again`
   - `test_f_a_lesson_win_releases_the_hold_and_generates_nothing`

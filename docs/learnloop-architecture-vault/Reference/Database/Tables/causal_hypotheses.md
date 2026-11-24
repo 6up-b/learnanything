@@ -26,7 +26,7 @@ source_paths:
   - "src/learnloop/db/stores/hypothesis_marks.py"
   - "src/learnloop/attempts/coldness_receipt.py"
   - "src/learnloop/cli/app.py"
-  - "src/learnloop/db/stores/learner_model.py"
+  - "src/learnloop/daily_plan/learner_probe.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -157,6 +157,7 @@ Database triggers:
 
 - `src/learnloop/attempts/coldness_receipt.py`
 - `src/learnloop/cli/app.py`
+- `src/learnloop/daily_plan/learner_probe.py`
 - `src/learnloop/db/repositories.py`
 - `src/learnloop/db/stores/causal.py`
 - `src/learnloop/db/stores/learner_model.py`
@@ -174,7 +175,6 @@ Database triggers:
 - `src/learnloop/diagnosis/probe_targeting.py`
 - `src/learnloop/diagnosis/recurrence/kind.py`
 - `src/learnloop/diagnosis/recurrence/live.py`
-- `src/learnloop/diagnosis/recurrence/report.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

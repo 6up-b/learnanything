@@ -21,10 +21,10 @@ source_paths:
   - "src/learnloop/diagnosis/probes.py"
   - "src/learnloop/ops/debug_time.py"
   - "src/learnloop/cli/app.py"
+  - "src/learnloop/daily_plan/learner_probe.py"
   - "src/learnloop/diagnosis/causal_attribution.py"
   - "src/learnloop/diagnosis/causal_orchestrator.py"
   - "src/learnloop/diagnosis/causal_probe_coherence.py"
-  - "src/learnloop/diagnosis/probe_episodes.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -94,6 +94,7 @@ Indexes and uniqueness:
 ### Upstream callers of the repository access surface
 
 - `src/learnloop/cli/app.py`
+- `src/learnloop/daily_plan/learner_probe.py`
 - `src/learnloop/diagnosis/causal_attribution.py`
 - `src/learnloop/diagnosis/causal_orchestrator.py`
 - `src/learnloop/diagnosis/causal_probe_coherence.py`
@@ -112,6 +113,7 @@ Indexes and uniqueness:
 
 - `tests/test_collection_dataset.py`
 - `tests/test_migrations.py`
+- `tests/test_probe_router_replay.py`
 - `tests/test_probe_router_report.py`
 - `tests/test_table_roles.py`
 - `tests/test_agent_runs.py`
@@ -129,7 +131,6 @@ Indexes and uniqueness:
 - `tests/test_self_attributed_misconceptions.py`
 - `tests/test_show.py`
 - `tests/test_source_first_needs.py`
-- `tests/test_source_ingestion.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

@@ -4,10 +4,10 @@ aliases:
   - System Architecture
 status: active
 doc_version: 1.0.0
-implementation_version: mvp-0.9
-last_reviewed: 2026-11-11
-source_commit: 62fd1f6404cc3a3007c6f214ba9429c45ef0114f
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
+implementation_version: mvp-0.68
+last_reviewed: 2026-11-23
+source_commit: 86f29b0d390ed2ecdbb0347d98ccb1175ac52728
+source_commit_timestamp: "2026-11-23T23:12:28-05:00"
 source_paths:
   - docs/specs/ARCHITECTURE.md
   - src/learnloop/bootstrap.py
@@ -25,7 +25,7 @@ LearnLoop is a local-first learning application built around explicit authoritie
 1. Markdown/YAML and immutable source revisions describe what may be learned.
 2. SQLite ledgers record what was presented, answered, graded, revealed, or decided.
 3. Versioned algorithms project those observations into learner and scheduling state.
-4. A deterministic controller chooses the next eligible action.
+4. The routine queue ranks eligible items. Today's block router can choose with a seeded mixture over eligible options.
 5. Optional AI performs bounded structured operations; it does not own persistence or policy.
 
 The intent of the algorithm is owned by [[Learning System]]. This note owns the software shape.
@@ -101,7 +101,7 @@ See [[Design Decision Index]] for alternatives and consequences.
 
 ## Current refactor status
 
-The old generic `services/`, provider-specific `codex/`, monolithic `cli.py`, and monolithic `config.py` structures have been removed. `Repository` remains a compatibility facade while store extraction proceeds incrementally; new write ownership cannot expand the monolith. Frozen cross-domain cycles remain as a ratcheted inventory rather than being hidden.
+The old generic `services/`, provider-specific `codex/`, monolithic `cli.py`, and monolithic `config.py` structures have been removed. `Repository` composes the extracted store and transaction mixins. The [[Reference/Modules/learnloop/db/repositories|repository module]] is the public facade. Frozen cross-domain cycles remain as a ratcheted inventory rather than being hidden.
 
 > [!important] Supported versus ideal
 > “Current” means executable and tested, not that every internal dependency is ideal. The frozen cycle list and compatibility facade are explicit technical debt with no permission to grow.

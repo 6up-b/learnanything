@@ -5,10 +5,10 @@ aliases:
   - Database Architecture
 status: active
 doc_version: 1.0.0
-implementation_version: mvp-0.9
-last_reviewed: 2026-09-23
-source_commit: e1153c01d0c6e29e6c4f97f1f4fa1e5214914f73
-source_commit_timestamp: "2026-09-23T18:50:00-04:00"
+implementation_version: mvp-0.68
+last_reviewed: 2026-11-23
+source_commit: 86f29b0d390ed2ecdbb0347d98ccb1175ac52728
+source_commit_timestamp: "2026-11-23T23:12:28-05:00"
 source_paths:
   - src/learnloop/db
   - src/learnloop/db/copies.py
@@ -49,7 +49,7 @@ See [[Data and State Map#^authority-map]] and [[Vault Lifecycle]].
 | WORKFLOW | mutable queue/session/lease state preserved across replay |
 | COMPAT | frozen historical seam |
 
-Only ten tables are currently `DERIVED`; every one has a real clear-and-replay source. Captured calibration, reviewed rows, debug evidence, and mixed-authority tables remain raw rather than pretending preservation is a rebuild.
+The [[Database Catalog#DERIVED tables|Database Catalog]] lists the clearable set. Each table has one replayer that owns its reconstruction. Captured calibration, reviewed rows, debug evidence, and mixed-authority tables remain raw rather than pretending preservation is a rebuild.
 
 ## Write ownership
 
@@ -115,13 +115,15 @@ flowchart LR
 
 The exact order is instrumented by `tests/test_attempt_write_order.py`. Post-attempt work may schedule cold probes, persist feedback metadata, or mint intervention needs, but cannot precede accepted evidence.
 
-The attempt transaction ends by writing `attempt_completion_work` (WORKFLOW role): the applied result and, while the row is `pending`, the probe episode the attempt was applied under. Post-attempt completion marks the row `completed` with the frozen learner route in the same transaction as the follow-up writes. A pending row is therefore an interrupted completion, which a retry of the same submission id resumes from the saved result without regrading; see [[Continue a Learning Cycle#After a lost submission response]].
+Current tags also record the attempt's application order and lifecycle inputs and capture the initial mastery seed at its first persistence. The capture tags and older input bases are in [[Rebuild and Shadow Compare]].
+
+The attempt transaction writes `attempt_completion_work` (WORKFLOW role): the applied result and, while the row is `pending`, the probe episode the attempt was applied under. Post-attempt completion marks the row `completed` with the frozen learner route in the same transaction as the follow-up writes. A pending row has work left to settle. If interrupted, a retry of the same submission id resumes from the saved result without regrading; see [[Continue a Learning Cycle#After a lost submission response]].
 
 ^attempt-write-order
 
 ## Replay and rebuild
 
-The umbrella rebuild validates that every `DERIVED` table has exactly one owner, orders owners by dependencies, accounts for every raw attempt, clears each owned family, reconstructs it, and appends one rebuild receipt. Current true projection families are learning state, canonical projection, and identifiability; activity substrate backfill is a prerequisite but owns no derived table.
+The umbrella rebuild validates that every `DERIVED` table has exactly one owner, orders owners by dependencies, accounts for every raw attempt, clears each owned family, reconstructs it, and appends one rebuild receipt. The [[Reference/Modules/learnloop/substrate/rebuild_orchestrator|replayer registry]] owns the full list, including recurrence, the learning-state fold and its downstream canonical and identifiability projections, router outcomes and the source text index. Activity substrate backfill is a prerequisite and owns no derived table.
 
 The golden oracle plants stale rows in every derived family, freezes the clock, rebuilds once, and compares every column to the expected projection. A second run proves idempotence.
 

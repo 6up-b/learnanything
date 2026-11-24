@@ -5,10 +5,10 @@ aliases:
   - Reader Learning Workflow
 status: active
 doc_version: 1.0.0
-implementation_version: mvp-0.9
-last_reviewed: 2026-08-17
-source_commit: 62fd1f6404cc3a3007c6f214ba9429c45ef0114f
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
+implementation_version: mvp-0.68
+last_reviewed: 2026-11-23
+source_commit: 86f29b0d390ed2ecdbb0347d98ccb1175ac52728
+source_commit_timestamp: "2026-11-23T23:12:28-05:00"
 source_paths:
   - src/learnloop/reader/source_render_views.py
   - src/learnloop/reader/reader_capture.py
@@ -34,7 +34,7 @@ tags:
 The Reader turns an already imported, revisioned source into grounded reading, notes, quick checks, and reviewed practice proposals. It does not replace canonical import or silently convert every highlight into learner evidence. Source/revision semantics remain in [[Canonical Knowledge Model]]; generated practice follows [[Learning System]].
 
 > [!info] Surface availability
-> Reader is a desktop workflow backed by sidecar handlers. There is no equivalent `learnloop reader` CLI command in mvp-0.9.
+> Interactive reading uses the desktop and sidecar. The `learnloop reader` command group has inspection and maintenance commands, including `reader report`.
 
 Section completion uses `learnloop.reader.section_generation.section_generation_candidates` to identify learning objects that need practice.
 

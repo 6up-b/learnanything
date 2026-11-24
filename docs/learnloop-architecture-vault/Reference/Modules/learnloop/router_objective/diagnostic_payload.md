@@ -116,6 +116,7 @@ No private top-level function or class definition is declared in this file.
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/daily_plan/learner_probe|learnloop.daily_plan.learner_probe]] — imports `module`; statically calls `Channel`, `DiagnosticProbe`, `Hypothesis`, `MissingChannel`, `RepairOption`
 - [[Reference/Modules/learnloop/router_objective/diagnostic_value|learnloop.router_objective.diagnostic_value]] — imports `module`; statically calls `effect_key`, `posterior_table`
 - [[Reference/Modules/learnloop/router_objective/types|learnloop.router_objective.types]] — imports `DiagnosticProbe`
 
@@ -141,7 +142,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/router_objective/diagnostic_value|learnloop.router_objective.diagnostic_value]], [[Reference/Modules/learnloop/router_objective/types|learnloop.router_objective.types]].
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/learner_probe|learnloop.daily_plan.learner_probe]], [[Reference/Modules/learnloop/router_objective/diagnostic_value|learnloop.router_objective.diagnostic_value]], [[Reference/Modules/learnloop/router_objective/types|learnloop.router_objective.types]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

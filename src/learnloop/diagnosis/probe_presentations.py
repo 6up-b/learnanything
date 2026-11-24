@@ -449,6 +449,11 @@ def probe_value_block_reason(
 
     if cap_lifted or not voi.voi_stopping_active(vault.config, voi.SITE_PROBE_EPISODE):
         return None, None
+    from learnloop.diagnosis.probe_episodes import router_selected_episode
+
+    if router_selected_episode(vault, repository, episode):
+        # The probe router's tag: the router selected this episode's probe; no value decision vetoes it again.
+        return None, None
     hypothesis_set = episode_hypothesis_set(repository, episode)
     if hypothesis_set is None:
         return None, None

@@ -89,6 +89,12 @@ def block_complete(
         # FG1 §3: a generated follow-up probe is one question: its answer closes the
         # block, so the held feedback and the repair follow at once.
         return True
+    from learnloop.diagnosis.probe_authority import router_selected_presentation
+
+    if router_selected_presentation(vault, presentation):
+        # The probe router's tag: the router decided one question; whether another is asked is not this block's
+        # value decision.
+        return True
 
     rows = effective_episode_observations(vault, repository, episode.id)
     qualifying_rows = [row for row in rows if row["observation"].eligible_for_completion]

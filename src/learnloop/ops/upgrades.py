@@ -41,6 +41,7 @@ from learnloop.algorithm_versions import (
     MASTERY_SEED_ALGORITHM_VERSION,
     PAD_TEXT_ALGORITHM_VERSION,
     INLINE_CHECK_ALGORITHM_VERSION,
+    PROBE_ROUTER_ALGORITHM_VERSION,
     SECTION_END_ALGORITHM_VERSION,
     SUCCESSOR_CHAIN,
     UNTAKEN_EPISODE_END_ALGORITHM_VERSION,
@@ -260,6 +261,9 @@ UPGRADES: tuple[Link, ...] = (
     # Inline checks: only administrations from the upgrade on behave differently (none exists before migration 270),
     # and every effect on evidence is an ordinary attempt or reveal row, which the projection already reads.
     Link(INLINE_CHECK_ALGORITHM_VERSION, idempotent_projection),
+    # The router decides the automatic lane's probe: only decisions made after the upgrade behave differently (no
+    # recorded decision, probe, observation or episode is reinterpreted, and replay runs no decision policy).
+    Link(PROBE_ROUTER_ALGORITHM_VERSION, idempotent_projection),
 )
 
 

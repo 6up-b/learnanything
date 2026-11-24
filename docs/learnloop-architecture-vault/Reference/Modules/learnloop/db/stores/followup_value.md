@@ -114,6 +114,7 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_due_queue_golden.py](../../../../../../../tests/test_due_queue_golden.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/voi_stopping|learnloop.diagnosis.voi_stopping]]
 - [tests/test_frozen_intent_view.py](../../../../../../../tests/test_frozen_intent_view.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/voi_stopping|learnloop.diagnosis.voi_stopping]]
 - [tests/test_probe_router_authority.py](../../../../../../../tests/test_probe_router_authority.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/voi_stopping|learnloop.diagnosis.voi_stopping]]
+- [tests/test_probe_router_worth_gates.py](../../../../../../../tests/test_probe_router_worth_gates.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/voi_stopping|learnloop.diagnosis.voi_stopping]]
 - [tests/test_voi_merge_composition.py](../../../../../../../tests/test_voi_merge_composition.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/voi_stopping|learnloop.diagnosis.voi_stopping]]
 - [tests/test_voi_stopping.py](../../../../../../../tests/test_voi_stopping.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/voi_stopping|learnloop.diagnosis.voi_stopping]]
 - [tests/test_voi_v2.py](../../../../../../../tests/test_voi_v2.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/voi_stopping|learnloop.diagnosis.voi_stopping]]

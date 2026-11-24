@@ -5,10 +5,10 @@ aliases:
   - Study Map Synthesis
 status: active
 doc_version: 1.0.0
-implementation_version: mvp-0.9
-last_reviewed: 2026-08-17
-source_commit: 62fd1f6404cc3a3007c6f214ba9429c45ef0114f
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
+implementation_version: mvp-0.68
+last_reviewed: 2026-11-23
+source_commit: 86f29b0d390ed2ecdbb0347d98ccb1175ac52728
+source_commit_timestamp: "2026-11-23T23:12:28-05:00"
 source_paths:
   - src/learnloop/cli/app.py
   - src/learnloop/content/synthesis/source_set_synthesis.py
@@ -28,120 +28,61 @@ tags:
 
 # Build a Study Map
 
-This workflow converts a pinned source set into proposed learning objects, facets, dependencies, rubrics, and practice items, validates the whole candidate, then optionally applies it. The semantics belong to [[Learning System]] and [[Canonical Knowledge Model]]; the steps here describe the operator boundary.
+A Study Map build proposes learning objects, facets, dependencies, rubrics and practice items from a pinned source set. The [[Canonical Knowledge Model]] defines those objects. [[Learning System]] explains how they become evidence targets. Start with a vault at a [[ADR-019 The oldest supported tag|supported tag]] and a set prepared through [[Import Canonical Sources]].
 
-## Prerequisites
-
-- a subject-scoped source set with pinned revisions from [[Import Canonical Sources]]
-- `source-coverage <set-id>` reports ready, or its flags have been intentionally resolved
-- the `canonical_ingest` route is ready; see [[Configure AI Providers]]
-- the vault opens (its `algorithm_version` is at or above the oldest supported tag, [[ADR-019 The oldest supported tag]]); applying a learnable map has no further version requirement
-
-## 1. Inspect coverage
+## Inspect coverage
 
 ```bash
-VAULT="$HOME/LearnLoop/linear-algebra"
 SET_ID=learning-science
-
-uv run learnloop source-coverage "$SET_ID" --json --vault "$VAULT"
+learnloop source-coverage "$SET_ID" --json --vault "$VAULT"
 ```
 
-Review selected units, revision pins, roles, and readiness flags. Fix source membership rather than asking synthesis to infer missing material.
+Review the pinned revisions, selected units, roles and readiness flags. Fix the source set when it is missing material. The build uses the `canonical_ingest` route unless you select another profile with `--ai-provider`. See [[Configure AI Providers]].
 
-## 2. Generate a staged candidate
+## Pick the build mode
+
+| Mode | What it sends | What happens on success |
+|---|---|---|
+| Bootstrap | The brief's scoped inventories, divided into shards and combined into a graph. | A proposal. `--apply` accepts it after the gates pass. |
+| Append | Newly inventoried units and a bounded neighborhood of the current map. | One proposal across the passes. Routine links that pass the auto-apply conditions can be applied immediately. Other items wait for review. |
+
+CLI `--mode auto` chooses append when the loaded vault already has evidence facets, including facets in another subject. The desktop chooses per subject. Use an explicit mode when that difference matters.
 
 ```bash
-uv run learnloop synthesize "$SET_ID" \
-  --mode auto \
-  --json \
-  --vault "$VAULT"
+learnloop synthesize "$SET_ID" --mode bootstrap --json --vault "$VAULT"
+learnloop synthesize "$SET_ID" --mode append --json --vault "$VAULT"
+learnloop proposals --json --vault "$VAULT"
 ```
 
-The model comes from the `canonical_ingest` route in `[ai.routing]` (the ChatGPT plan's `chatgpt_medium` profile by default); `--ai-provider <profile>` picks another profile for this run (see [[Configure AI Providers]]).
+By default an append selects units that no kept synthesis of this set has sent. A completed run whose proposal was wholly rejected does not count as kept. If there are no new units, the CLI returns before resolving a provider. Use `--new-revision` to send an explicitly named revision whole.
 
-Without `--apply`, the result remains a proposal. The CLI's `--mode auto` chooses `append` when the vault already has evidence facets (in any subject) and `bootstrap` otherwise; the desktop's builds (a collection's build batch, and a bootstrap job queued with `auto`) decide per subject: `append` once a learning object is scoped to the source set's subject (`subject_has_applied_study_map`). An append sends the existing map only as the bounded neighbourhood around its new material (capped by `append_neighborhood_input_tokens`), and holds each request to `append_input_ceiling`: new material too large for one request is split, in reading order, into passes of whole unit inventories that each fit with room for a span round, each sent with the run's one neighbourhood and saved under its own checkpoint (so a stop or crash resumes at the next pass and pays for none twice), and the passes' answers are merged into one proposal, applied once; only a single inventory over the ceiling on its own is refused before paying. An append sends as new only the set's units that no kept synthesis of it has sent (a completed run whose proposal was not wholly rejected, read from the runs' manifests): a wholly new member whole, a partly sent one narrowed to its unsent units. If nothing is new it sends nothing and says so; `--new-revision <id>` sends the named revisions whole instead.
-
-The response identifies the proposal/run, item counts, reuse state, gate diagnostics, and identifiability generation needs. Inspect pending proposals:
-
-```bash
-uv run learnloop proposals --json --vault "$VAULT"
-```
-
-> [!important] Gate invariant
-> A candidate is applied only after referential, source-grounding, rubric, dependency, and identifiability gates accept it. Model output is a proposal; validators own acceptance.
-
-### One head, one tail, two modes
-
-Both modes open their run in one function, `open_synthesis_run` in `content/synthesis/source_set_synthesis.py`: it finds the source set, resolves the brief (with the learner's declared level), reads the set's inputs, lets the mode decide its scope, then persists the manifest that records all of it and opens the agent run and the synthesis run. An unknown source set (and, for bootstrap, a mode other than `auto` or `bootstrap`) is refused before anything is written. The mode's scope step is its own: bootstrap records the brief's scope and reads every scope unit; an append selects its new inventories and the neighbourhood around them, whose record (with each entity's match reasons, names tried in sorted order) the manifest keeps and whose context the request reads.
-
-Everything after the head is one function too, `finish_synthesis_run`, beside it. It asks the model through one shard runner (`_run_synthesis`) for both modes: the run's input in units, each a base pass and at most one span round, every request answered by its checkpoint when the same request was paid before, held to the mode's budgets before it is sent and saved before its output is checked. Bootstrap's units are shards of the whole scope's inventories (each filed as a shard result, its ids made local, merged, then structured into a graph); an append's is one unit, its new inventories with the neighbourhood as context. Then it plans facet identity, normalizes (`normalize` in `content/synthesis/normalize.py`: one state object and one function per stage, in an order that is part of the output because ids are minted in call order: registry and answer concepts, facet candidates, facet-identity retirements, the D2 mint gate, retired candidates' references and aliases, identity actions, learning objects, blueprints, practice items, concept edges), runs the synthesis gates and the instrument gates, compares the rows with the set's earlier proposals (an equal waiting proposal is the result; an equal wholly rejected one is paid for again, once), persists, finalizes the run rows, applies, and writes epigraphs. What the two modes decide differently is one record with a row each, `SynthesisMode` (`BOOTSTRAP`, and `APPEND` in `source_append.py`):
-
-- the agent run's purpose, prompt template, output schema and prompt version, the mode the synthesis run records, and which budgets the manifest's `token_budget` names;
-- the call (`SynthesisCall`): the request and its checkpoint key, the units, the pass context, and the budget rule: bootstrap's shard and total ceilings, or the append's `append_input_ceiling` for each request alone (its new inventories split into passes when they do not fit one request; a single inventory over it refused typed, before paying) and `append_output_tokens` for each answer;
-- the append's normalizer runs the bootstrap normalizer over its new coverage, then adds its own item kinds (provenance links, notation mappings, conflicts, restructures, one function each) and the client ids §10.3 auto-applies; the gates judge the append vocabulary;
-- bootstrap keeps its candidate on the run for the zero-call repair below; append has none;
-- what is applied: bootstrap the whole proposal (and the exam goal) when asked; append its routine links, then the study-map diff and the facet doctor;
-- the gate-failure code (`synthesis_gate_failed` or `append_gate_failed`), the proposal's purpose and the epigraph digest.
-
-A few differences are kept as they were until one rule is chosen: an append runs no identifiability analysis (so the invariant above holds for bootstrap only), has no typed client-id collision check, records its run's usage only with a new proposal and then without the call's record, records no resolved span hashes, declares no budgets on its receipts, drains its client's usage at the end of the run, and names the answers it dropped after a rejected match again at a later drop. The refactor bug ledger lists them (K2-9 to K2-15, K2-17).
+An append that needs several requests groups whole inventories in reading order. Each group uses the run's bounded neighborhood and has a base request with at most one span round. A span round without room can leave the base answer as the result. A single inventory over the ceiling is refused. Completed, valid checkpoints let a retry reuse paid answers. The merged candidate passes through one downstream validation and proposal path. Each physical request remains subject to the applicable spend admission. See [[Reference/Modules/learnloop/content/synthesis/source_append|append mode]] and [[Synthesis Identity and Caches]].
 
 ## Apply deliberately
 
-For a new run that should apply on success:
+Review the proposal and its gate findings. For a bootstrap you intend to accept on success, run `synthesize` with `--mode bootstrap --apply`. On an append, read the result's applied and waiting items even if you omitted `--apply`. The append path applies routine links through its own gate.
 
 ```bash
-uv run learnloop synthesize "$SET_ID" \
-  --mode auto --apply --json --vault "$VAULT"
+learnloop accept "$PATCH_ID" --all --vault "$VAULT"
 ```
 
-For a separately reviewed patch, use the proposal id and its item selection:
+Acceptance publishes files under the vault mutation lock and records the apply intent. Use [[Content Pipeline]] for that write boundary and [[Database Catalog]] for table roles.
+
+## Repair a preserved failed candidate
+
+A bootstrap that failed hard gates can leave its merged candidate on the run. Inspect it before requesting another build.
 
 ```bash
-uv run learnloop accept <patch-id> --all --vault "$VAULT"
+learnloop synthesize-repair "$RUN_ID" --dry-run --json --vault "$VAULT"
+learnloop synthesize-repair "$RUN_ID" --json --vault "$VAULT"
 ```
 
-Application occurs under the vault mutation lock. Afterward, observe subject files such as learning objects/practice items plus proposal and synthesis receipts in SQLite. Use [[Database Catalog]] for exact table ownership.
+The repair derives mechanical fixes and can take a JSON `--ops-file` with `drop_dependency` or `remap_dependency` operations. It revalidates the saved candidate without a model call. `--apply` accepts a passing result. Append has no preserved-candidate repair. See [[Reference/Modules/learnloop/content/synthesis/source_set_synthesis|the shared run and bootstrap repair reference]].
 
-## 4. Repair a preserved failed candidate
+## Confirm the learning surface
 
-Hard gate failures preserve the expensive merged candidate. First inspect the dry run:
-
-```bash
-uv run learnloop synthesize-repair <run-id> \
-  --dry-run --json --vault "$VAULT"
-```
-
-Then apply mechanically safe repairs and revalidate without another model call:
-
-```bash
-uv run learnloop synthesize-repair <run-id> \
-  --apply --json --vault "$VAULT"
-```
-
-An explicit JSON operations file can contain typed `drop_dependency` or `remap_dependency` operations. Use it only after reviewing the stored diagnostics.
-
-> [!info] Zero-call recovery
-> Repair works from the preserved candidate and checkpoints. It is not a second synthesis run and should retain provenance to the original source set and agent run.
-
-## 5. Confirm the learning surface
-
-```bash
-uv run learnloop doctor --json --vault "$VAULT"
-uv run learnloop review --limit 5 --json --vault "$VAULT"
-```
-
-The first command checks structural references and state health. The second proves eligible practice can be selected without starting a UI session. Continue with [[Start a Learning Cycle]].
+Run `learnloop doctor --json --vault "$VAULT"` after applying. Use `learnloop review --limit 5 --json --vault "$VAULT"` to see what the serving queue selects. Use [[Start a Learning Cycle]] to practice, and [[Debug a decision]] to inspect the scope, selected inventories and auto-apply decisions on a planner trace.
 
 ## Modification note
 
-- change source selection and unit policy in the source-set/inventory layer;
-- change proposal generation in `content/synthesis` AI contracts and synthesis services;
-- change acceptance rules in synthesis gates, with gate tests;
-- do not weaken application validation in a CLI/desktop adapter.
-
-## Related notes
-
-- [[Learning System]]
-- [[Canonical Knowledge Model]]
-- [[Content Pipeline]]
-- [[Start a Learning Cycle]]
+The shared run reads the source set and records its manifest. Mode definitions provide scope, budgets and application policy. The shared shard runner manages request checkpoints. Normalization and gates own the candidate's meaning and acceptance. Change those rules in the synthesis domain, with its gate and repair tests.

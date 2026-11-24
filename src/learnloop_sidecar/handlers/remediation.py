@@ -111,9 +111,30 @@ def _episode_case_payload(repository, episode: dict[str, Any]) -> dict[str, Any]
     )
 
 
+def _route_first(vault: Any, repository: Any, misconception_id: str, session_id: str | None = None) -> None:
+    """The probe router's tag: the router decides the factor's probe before the repair entry reads its status, so
+    the entry holds the repair only on the router's selection. A durable misconception has no probe to decide and a
+    case that is not one is the entry's own error to report; neither is read here."""
+
+    from learnloop.algorithm_versions import probe_router_on
+
+    if not probe_router_on(vault.config):
+        return
+    durable = repository.misconception(misconception_id)
+    if durable is not None and durable.status in {"active", "resolving"}:
+        return
+    from learnloop.daily_plan import learner_probe
+
+    try:
+        learner_probe.decide(vault, repository, misconception_id=misconception_id, session_id=session_id)
+    except CausalRepairError:
+        return
+
+
 @method("start_remediation", MisconceptionInput)
 def start_remediation_handler(ctx: SidecarContext, params: MisconceptionInput) -> dict[str, Any]:
     vault, repository = ctx.require_vault()
+    _route_first(vault, repository, params.misconception_id)
     try:
         episode = start_remediation_episode(
             repository, params.misconception_id, vault=vault
@@ -165,19 +186,31 @@ def causal_repair_status_handler(
     One service call, not one RPC per low-level function: it resolves the open
     factor, discharges/queues machine checks, records the probe decision, and
     starts the repair when the causal state permits it.
+
+    At the probe router's tag it reads the facts and the router's decision on
+    the factor's probe, which the router makes here once if none exists
+    (``daily_plan.learner_probe.decide``); a reread draws nothing again.
     """
+
+    from learnloop.algorithm_versions import probe_router_on
 
     vault, repository = ctx.require_vault()
     try:
-        status = causal_repair_status(
-            vault,
-            repository,
-            misconception_id=params.misconception_id,
-            session_id=params.session_id,
-            # A status read must not mint a remediation episode; the decision
-            # receipt is still recorded.
-            start_repair=False,
-        )
+        if probe_router_on(vault.config):
+            from learnloop.daily_plan import learner_probe
+
+            status = learner_probe.decide(vault, repository, misconception_id=params.misconception_id,
+                                          session_id=params.session_id)
+        else:
+            status = causal_repair_status(
+                vault,
+                repository,
+                misconception_id=params.misconception_id,
+                session_id=params.session_id,
+                # A status read must not mint a remediation episode; the decision
+                # receipt is still recorded.
+                start_repair=False,
+            )
     except CausalRepairError as exc:
         raise SidecarError("invalid_request", str(exc)) from exc
     return versioned({"repair_status": status.as_dict()})
@@ -187,9 +220,23 @@ def causal_repair_status_handler(
 def causal_probe_offer_action_handler(
     ctx: SidecarContext, params: ProbeOfferInput
 ) -> dict[str, Any]:
-    """"Take the quick check" — enter the factor-aware episode and pin the probe."""
+    """"Take the quick check" — enter the factor-aware episode and pin the probe.
+
+    At the probe router's tag only the router's selection of the factor's probe
+    is accepted; any other request is a typed refusal
+    (``reason: router_decision_required``) with the router's disposition.
+    """
+
+    from learnloop.algorithm_versions import probe_router_on
 
     vault, repository = ctx.require_vault()
+    if probe_router_on(vault.config):
+        from learnloop.diagnosis.probe_offer import accept_routed_probe_offer
+
+        routed, disposition = accept_routed_probe_offer(
+            vault, repository, factor_id=params.factor_id, decision_receipt_id=params.decision_receipt_id,
+            session_id=params.session_id)
+        return versioned({"offer": routed.as_dict(), "router": disposition})
     offer = accept_probe_offer(
         vault,
         repository,

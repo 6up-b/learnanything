@@ -127,6 +127,7 @@ Database triggers:
 - `tests/test_causal_shadow_selection.py`
 - `tests/test_common_repair_delivery.py`
 - `tests/test_probe_block_end.py`
+- `tests/test_probe_router_replay.py`
 - `tests/test_probe_router_report.py`
 - `tests/test_scoreboard.py`
 - `tests/test_exam_protection.py`

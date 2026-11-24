@@ -5,10 +5,10 @@ aliases:
   - Show me
 status: active
 doc_version: 1.0.0
-implementation_version: mvp-0.60
-last_reviewed: 2026-11-19
-source_commit: e6314fc0df008db528d657cbf3f80fe8dedd0982
-source_commit_timestamp: "2026-11-18T23:18:17-05:00"
+implementation_version: mvp-0.68
+last_reviewed: 2026-11-23
+source_commit: 86f29b0d390ed2ecdbb0347d98ccb1175ac52728
+source_commit_timestamp: "2026-11-23T23:12:28-05:00"
 source_paths:
   - src/learnloop/figures
   - src/learnloop/figure_admission.py
@@ -139,7 +139,7 @@ Rich video work is durable. `src/learnloop/figures/build.py` (`_RichSpawn`, `ens
 
 `src/learnloop_sidecar/handlers/figures.py` (`figure_rich_cancel`) cancels the ingest job. `handle_figure_rich` passes `JobCancelled` into the rich runner; progress reports notice cancellation, including after a render, before storage. A model request already sent finishes. A plan-unavailable job can be requeued on later learner activity (`src/learnloop/figures/prefetch.py`, `retry_plan_waits`; `src/learnloop_sidecar/handlers/figures.py`, `retry_plan_wait`).
 
-The trace answers which author calls ran and which quick attempts failed, plus prefetch choices, filters, build guards and gate refusals. `src/learnloop/figures/records.py` (`AuthorAttempts.write`, `prebuild_record`, `FilterLog.record`, `build_stop_record`) and `src/learnloop/refusal_records.py` (`figure_gate_record`) write those records; `src/learnloop/why/reader.py` (`answer`) reads them. Request-level refusals/reuses and excluded-tier reasons are not recorded as a complete request decision; rich attempts retain call receipts and the last failure rather than quick-author-style per-attempt problem records (`src/learnloop/figures/build.py`, `_reused`, `_author_and_store`; `src/learnloop/figures/rich.py`, `_run`, `_store`).
+The trace records request refusals, reuse and deferred rich jobs, plus prefetch choices, filters, build guards and gate holds. A rich execution records its attempt verdicts as it runs, and records a stop when it ends without a figure row. Requeue keeps that earlier stop. Delivery and listing can also record a withheld figure. A rejected RPC schema records the validation code without including the rejected parameters. `src/learnloop/figures/records.py` (`AuthorAttempts.write`, `prebuild_record`, `FilterLog.record`, `build_stop_record`) and `src/learnloop/refusal_records.py` (`figure_gate_record`) write those records; `src/learnloop/why/reader.py` (`answer`) reads them. Request-level refusals/reuses and excluded-tier reasons are not recorded as a complete request decision; rich attempts retain call receipts and the last failure rather than quick-author-style per-attempt problem records (`src/learnloop/figures/build.py`, `_reused`, `_author_and_store`; `src/learnloop/figures/rich.py`, `_run`, `_store`).
 
 ## Persistence, identity and replay
 

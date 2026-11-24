@@ -21,6 +21,7 @@ from learnloop.router_objective import mix
 
 from tests.daily_plan_fakes import record_attempt, scheduled
 from tests.followup_serve_helpers import AuthorFake
+from tests.probe_router_helpers import BEFORE_PROBE_ROUTER
 from tests.router_mixture_helpers import mixture_env, rows
 from tests.router_model_fakes import fake_runtime
 from tests.daily_plan_build_helpers import _wide_items
@@ -171,7 +172,10 @@ def _answer(env, *, questions_left: bool = True) -> dict[str, Any]:
     raise AssertionError("no block held a second question")
 
 
-def _miss_env(tmp_path, *, version: str = TAG, toml: str = NO_CHECKS, questions_left: bool = False):
+def _miss_env(tmp_path, *, version: str = BEFORE_PROBE_ROUTER, toml: str = NO_CHECKS, questions_left: bool = False):
+    """A miss mid-plan with its FG1 workflow pending: at the probe router's predecessor unless ``version`` says otherwise
+    (the lesson's contest with the asked probe is that tag's; ``tests/test_probe_router.py`` passes the head)."""
+
     env = mixture_env(tmp_path, fake_runtime(), version=version, toml=toml, items=lambda: list(_wide_items()))
     step = _answer(env, questions_left=questions_left)
     with env.repository.connection() as connection:
