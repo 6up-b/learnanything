@@ -31,9 +31,12 @@ import logging
 from typing import Any
 
 from learnloop.clock import Clock, utc_now_iso
+from learnloop.diagnosis.learner_probe_proposal import CHANNEL_SOURCE
 from learnloop.ids import new_ulid
 from learnloop.router.plan_log import NO_PROBE_REF, PROBE_REF, log_learner_probe_decision
 from learnloop.router_objective import diagnostic_payload as DP
+from learnloop.router_objective import types as OT
+from learnloop.router_objective.miss_cause import CLASSES
 
 LOG = logging.getLogger(__name__)
 
@@ -62,6 +65,87 @@ def decide(vault: Any, repository: Any, *, misconception_id: str, session_id: st
                                 start_repair=False, clock=clock)
 
 
+def _cause_class(repository: Any, hypothesis_id: str) -> str:
+    row = repository.causal_hypothesis(hypothesis_id)
+    scope = str((row or {}).get("cause_scope") or "")
+    return scope if scope in CLASSES else DP.UNKNOWN
+
+
+def _channel(vault: Any, repository: Any, item: Any, hypothesis_set: Any, labels: list[str]) -> DP.Channel | DP.MissingChannel:
+    from learnloop.diagnosis.probe_episodes import resolve_instrument
+    from learnloop.diagnosis.probe_families import instrument_conditionals
+    from learnloop.diagnosis.voi_stopping import label_conditionals
+
+    resolved = resolve_instrument(vault, repository, item, hypothesis_set)
+    if resolved is None:
+        return DP.MissingChannel("no_instrument_binding")
+    instrument, slot_map = resolved
+    rows = label_conditionals(instrument_conditionals(instrument), slot_map, labels)
+    if any(label not in rows for label in labels):
+        return DP.MissingChannel("hypothesis_without_row")
+    results = tuple(dict.fromkeys(str(outcome) for label in labels for outcome in rows[label]))
+    table = []
+    for label in labels:
+        row = {str(outcome): float(p) for outcome, p in rows[label].items()}
+        total = sum(row.values())
+        if total <= 0.0:
+            return DP.MissingChannel("row_without_mass")
+        # The composed rows are distributions up to float rounding; dividing by the sum keeps them so exactly.
+        table.append((label, tuple(row.get(result, 0.0) / total for result in results)))
+    version = ":".join(str(part) for part in (instrument.card_id, instrument.card_version,
+                                              instrument.family_template_id, instrument.family_template_version,
+                                              instrument.compiled_likelihood_hash()))
+    return DP.Channel(results=results, rows=tuple(table), version=version,
+                      source=f"{CHANNEL_SOURCE}:{instrument.provenance}")
+
+
+def diagnostic_payload(vault: Any, repository: Any, proposal: Any) -> DP.DiagnosticProbe | str:
+    """The probe's diagnostic payload, or why none can be built (a string): the locked set's hypotheses at its prior,
+    each with its cause class; the instrument's channel or its typed absence; one repair option per repair class,
+    covering the hypotheses mapped to it. The repairs' and the probe's durations are set by the router, which reads
+    the vault's duration spread."""
+
+    from learnloop.diagnosis.probes import HypothesisSet
+
+    chosen = proposal.chosen
+    lo = proposal.learning_object_id
+    if not lo or not chosen.get("hypothesis_set_id") or not proposal.practice_item_id:
+        return "no_locked_set_or_item"
+    record = repository.fetch_hypothesis_set(str(chosen["hypothesis_set_id"]))
+    if record is None:
+        return "locked_set_missing"
+    hypothesis_set = HypothesisSet.from_record(record)
+    item = vault.practice_items.get(proposal.practice_item_id)
+    if item is None:
+        return "probe_item_missing_from_vault"
+    labels = [str(h.label) for h in hypothesis_set.hypotheses]
+    prior = {str(key): float(value) for key, value in hypothesis_set.prior.items()}
+    hypotheses = tuple(DP.Hypothesis(label, max(prior.get(label, 0.0), 0.0), _cause_class(repository, label))
+                       for label in labels)
+    if sum(h.prior for h in hypotheses) <= 0.0:
+        return "locked_prior_without_mass"
+    classes = sorted({str(value) for value in proposal.repair_class_by_hypothesis.values() if value})
+    repairs = []
+    for repair_class in classes:
+        covers = frozenset(h for h, value in proposal.repair_class_by_hypothesis.items()
+                           if value == repair_class and h in labels)
+        if not covers:
+            continue
+        action = OT.Action(ref=repair_class, kind=OT.REPAIR, item_los=(lo,), minutes=float(proposal.repair_minutes))
+        repairs.append(DP.RepairOption(repair_class, action, covers, source="cause_set_repair_class"))
+    return DP.DiagnosticProbe(
+        topic=lo,
+        hypotheses=hypotheses,
+        prior_basis=proposal.reads.prior_basis or "locked_set_prior",
+        channel=_channel(vault, repository, item, hypothesis_set, labels),
+        repairs=tuple(repairs),
+        source=(("attempt", str(proposal.attempt_id or "")), ("factor", proposal.factor_id),
+                ("candidate", str(chosen.get("id") or "")), ("item", proposal.practice_item_id),
+                ("origin", "learner_lane")),
+        facts=tuple(sorted(proposal.facts().items())),
+    )
+
+
 def value(vault: Any, repository: Any, proposal: Any, *, now_iso: str, seed_identity: Mapping[str, Any]
           ) -> tuple[Any, dict[str, Any]]:
     """``(valuation, record)``: :func:`evaluate_probe`'s valuation of the proposal's probe against repairing now, or
@@ -70,8 +154,7 @@ def value(vault: Any, repository: Any, proposal: Any, *, now_iso: str, seed_iden
     from learnloop.daily_plan import objective_chooser as OC
     from learnloop.daily_plan import objective_inputs as OI
     from learnloop.daily_plan.types import BlockCandidate, PlanState
-    from learnloop.diagnosis.learner_probe_proposal import PROBE_ACTION_REF, diagnostic_payload
-    from learnloop.router_objective import types as OT
+    from learnloop.diagnosis.learner_probe_proposal import PROBE_ACTION_REF
     from learnloop.router_objective.diagnostic_value import evaluate_probe
 
     payload = diagnostic_payload(vault, repository, proposal)
@@ -200,4 +283,5 @@ def decide_proposal(vault: Any, repository: Any, proposal: Any, *, clock: Clock 
     return recorded
 
 
-__all__ = ["LLM_NOT_ASKED", "OWNER_DECISIONS", "POLICY", "decide", "decide_proposal", "information", "value"]
+__all__ = ["LLM_NOT_ASKED", "OWNER_DECISIONS", "POLICY", "decide", "decide_proposal", "diagnostic_payload", "information",
+           "value"]

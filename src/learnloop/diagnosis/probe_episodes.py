@@ -785,6 +785,19 @@ def _record_generation_need(
     )
 
 
+def router_selected_episode(vault: LoadedVault, repository: Repository, episode: Any) -> bool:
+    """At the probe router's tag, whether any presentation of this episode is a probe the router selected
+    (``probe_authority``): its continuation and completion are then no worth gate's."""
+
+    from learnloop.algorithm_versions import probe_router_on
+    from learnloop.diagnosis.probe_authority import router_pin
+
+    if episode is None or not probe_router_on(vault.config):
+        return False
+    return any(router_pin(presentation.selection_components or {})
+               for presentation in repository.probe_presentations_for_episode(str(episode.id)))
+
+
 def episode_hypothesis_set(
     repository: Repository, episode: ProbeEpisodeRecord
 ) -> HypothesisSet | None:

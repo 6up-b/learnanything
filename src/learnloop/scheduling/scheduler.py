@@ -3422,7 +3422,7 @@ def _episode_probe_reads(
     channels: dict[str, Any] = {}
     session_qualifying: Any = None
     voi_loaded = False
-    from learnloop.diagnosis.probe_authority import router_selected_episode
+    from learnloop.diagnosis.probe_episodes import router_selected_episode
 
     router_owned = frozenset(str(episode.id) for episode in episodes
                              if router_selected_episode(vault, repository, episode))

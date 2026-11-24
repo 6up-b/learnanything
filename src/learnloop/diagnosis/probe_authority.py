@@ -9,7 +9,8 @@ episode is bounded by its count instead (the episode's ``maximum_observations``,
 and its block is the one question the router decided. A probe of any other origin keeps every gate it had, and below
 the tag nothing here applies.
 
-Plain reads of stored pins; nothing here writes.
+Plain reads of stored pins; nothing here writes. The episode-level read is ``probe_episodes.router_selected_episode``
+(where the scheduler already reads its episodes).
 """
 
 from __future__ import annotations
@@ -47,15 +48,4 @@ def router_selected_rows(vault: Any, rows: Iterable[Mapping[str, Any]]) -> bool:
     return any(router_pin(row.get("selection_components") or {}) for row in rows)
 
 
-def router_selected_episode(vault: Any, repository: Any, episode: Any) -> bool:
-    """At the tag, whether any presentation of this episode is a probe the router selected: the episode's
-    continuation and completion are then no worth gate's."""
-
-    if episode is None or not probe_router_on(vault.config):
-        return False
-    return any(router_pin(presentation.selection_components or {})
-               for presentation in repository.probe_presentations_for_episode(str(episode.id)))
-
-
-__all__ = ["ROUTER_DECISION_KEY", "router_pin", "router_selected_episode", "router_selected_presentation",
-           "router_selected_rows"]
+__all__ = ["ROUTER_DECISION_KEY", "router_pin", "router_selected_presentation", "router_selected_rows"]

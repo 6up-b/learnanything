@@ -23,10 +23,10 @@ from learnloop.diagnosis import probe_facts
 from learnloop.diagnosis import voi_stopping as voi
 from learnloop.diagnosis.probe_authority import (
     router_pin,
-    router_selected_episode,
     router_selected_presentation,
     router_selected_rows,
 )
+from learnloop.diagnosis.probe_episodes import router_selected_episode
 from learnloop.router_objective import probe_coin as PC
 
 from tests.helpers import append_config_toml

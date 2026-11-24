@@ -113,7 +113,7 @@ At the tag:
   - The row is a `plan_interrupt` on the `causal_repair` surface, receipt key `plan_interrupt:learner_probe:<factor>`.
     Every later read, the repair entry and the offer read it back. Nothing is redrawn.
   - The probe is priced by `diagnostic_value.evaluate_probe` with the existing instrument's channel
-    (`learner_probe_proposal.diagnostic_payload`). The channel is the instrument's composed `P(outcome | hypothesis)`
+    (`learner_probe.diagnostic_payload`). The channel is the instrument's composed `P(outcome | hypothesis)`
     through the slot mapping the episode's own valuation reads. Every locked hypothesis keeps its row, the open arm
     included; a hypothesis without a row makes the channel missing.
   - The valuation reads the vault's frozen objective inputs (`objective_inputs.build`) with no plan, and the day's
