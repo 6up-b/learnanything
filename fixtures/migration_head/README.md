@@ -7,6 +7,19 @@ through `MIGRATION_HEAD_FIXTURE` in `tests/helpers.py`; `tests/test_migrations.p
 file in `migrations/` and stays in rollback mode. Older sections below name the numbered directories it was renamed
 from, as they were then.
 
+## Lesson-weight replay inputs (migration 274), `teacher/te5-consolidation` (L4-2, mvp-0.71), 2026-11-24
+
+Upgraded in place (no rename; base: the probe router's continuation head 273) by the B1 procedure below:
+`274_attempt_grade_curves.sql` (the append-only `attempt_grade_curves` table, its three guard triggers and its primary
+key's autoindex) applied through `learnloop.db.migrate.apply_migrations` on a backup-API copy of the tracked 273 file,
+outside the checkout, under `upgrade_allowance(UPGRADE_SCRATCH_COPY)`, which applied `[274]` only;
+`wal_checkpoint(TRUNCATE)`, `journal_mode=DELETE` (header bytes 1/1), `integrity_check` ok, `foreign_key_check` empty;
+the tracked file removed and the copy written into its place with `backup_database`, no companion files. Compared with
+the 273 file: five objects added (the table, `attempt_grade_curves_no_delete`, `_no_replace`, `_no_update` and
+`sqlite_autoindex_attempt_grade_curves_1`), nothing removed or redefined, and the only table whose rows changed is
+`schema_migrations` (gains 274). The new table is empty: the curves of history are frozen by the upgrade's activation,
+never by the migration. The file is 7,913,472 bytes.
+
 ## The probe router's continuation (migration 273), `refactor/g2-fix-2`, 2026-11-24
 
 Upgraded in place (no rename; base: the Reader's retirement head 272) by the B1 procedure below:
