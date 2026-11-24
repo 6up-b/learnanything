@@ -2249,6 +2249,14 @@ export function DeskShell({
       const shown = wsRef.current.windows[step.windowId];
       commit(setView(wsRef.current, id, step.windowId, { ...shown.view, compareAnchor: options.view.compareAnchor }));
     }
+    if (step.existed && typeof options.view?.annotationId === "string") {
+      // A note opened in a window already open (a search result's): the window opens it, again if it is the same note
+      // (major 18; a new request each time).
+      const shown = wsRef.current.windows[step.windowId];
+      const request = (typeof shown.view?.annotationRequest === "number" ? (shown.view.annotationRequest as number) : 0) + 1;
+      commit(setView(wsRef.current, id, step.windowId, { ...shown.view, annotationId: options.view.annotationId,
+        ...(typeof options.view.noteKey === "string" ? { noteKey: options.view.noteKey } : {}), annotationRequest: request }));
+    }
     if (step.existed && options.spanId) {
       // A claim in a window already open is a peek there (its strip shows the way back); else a jump.
       const inquiry = options.peek ? inquiries.current.get(step.windowId) : undefined;
@@ -4193,6 +4201,7 @@ export function DeskShell({
           onOpenPath: onOpenPathFor(window.windowId),
           // A note a search result opened the window for (its identity in the window's view).
           openNote: typeof window.view?.annotationId === "string" ? (window.view.annotationId as string) : null,
+          openNoteRequest: typeof window.view?.annotationRequest === "number" ? (window.view.annotationRequest as number) : 0,
           drainHost: draining && window.deskId === deskId ? drainWrapHost : null,
           onOpenBeside: openHit,
           onOpenPair: pairHandlersFor(window.windowId).open,

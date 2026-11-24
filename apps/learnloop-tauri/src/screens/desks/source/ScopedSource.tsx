@@ -1272,13 +1272,15 @@ export function ScopedSource({
   const windowNotesOnRef = useRef(false);
   // A note the window was opened for opens once it is listed (again when the window is opened for another).
   const windowOpenNote = windowed?.openNote ?? null;
+  const windowOpenNoteRequest = windowed?.openNoteRequest ?? 0;
   const openedNote = useRef<string | null>(null);
   useEffect(() => {
-    if (!windowOpenNote || openedNote.current === windowOpenNote) return;
+    const asked = windowOpenNote ? `${windowOpenNote}\u0000${windowOpenNoteRequest}` : null;
+    if (!windowOpenNote || !asked || openedNote.current === asked) return;
     if (!annotations.some((a) => a.annotationId === windowOpenNote)) return;
-    openedNote.current = windowOpenNote;
+    openedNote.current = asked;
     openAnnotationNote(windowOpenNote);
-  }, [windowOpenNote, annotations, openAnnotationNote]);
+  }, [windowOpenNote, windowOpenNoteRequest, annotations, openAnnotationNote]);
 
   // Split the live selection into one sub-quote per covered [data-span-id]
   // block, in document order. Anchoring works per block, so a quote must never

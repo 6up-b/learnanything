@@ -64,6 +64,8 @@ export interface ReaderWindowing {
   onOpenPath?: () => void;
   /** A note the window was opened for (a search result names it): its card opens, being edited, once it is listed. */
   openNote?: string | null;
+  /** Asked again (a search result opening the same note in the window already open): the note opens once more. */
+  openNoteRequest?: number;
   /** While the desk's day closes (the drain): where this reading's Wrap up is shown. */
   drainHost?: HTMLElement | null;
   /** Another book's passage (a library hit, a textbook exercise in another book) opens in a window beside this one,
