@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/daily_plan/learner_probe.py](../../../../../../src/learnloop/daily_plan/learner_probe.py) |
-| Source lines | 454 |
+| Source lines | 474 |
 | Owning package | [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -61,8 +61,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `value(vault: Any, repository: Any, proposal: Any, *, now_iso: str, seed_identity: Mapping[str, Any]) -> tuple[Any, dict[str, Any]]` ([source](../../../../../../src/learnloop/daily_plan/learner_probe.py), line 227) — ``(valuation, record)``: :func:`evaluate_probe`'s valuation of the proposal's probe against repairing now, or ``(None, record)`` with the reason none could be made (no topic, no payload, an error).
 - `revalue(replay: Mapping[str, Any]) -> Any` ([source](../../../../../../src/learnloop/daily_plan/learner_probe.py), line 296) — The decision's probe valued again from its stored replay payload alone (``frozen.replay``): the same inputs, probe, seed, draws and options, at the owner's decisions the lane values with.
 - `information(valuation: Any) -> float` ([source](../../../../../../src/learnloop/daily_plan/learner_probe.py), line 310) — The probe's information value at the learned slopes: the policy after its answer against the prior's choice after the same probe (``evaluate_probe``'s ``values.information``; 0 when no result changes the choice).
-- `draw(vault: Any, repository: Any, *, key: str, unit: str, valuation: Any, now_iso: str, probe_ref: str, other_ref: str) -> tuple[str, float, dict[str, float], dict[str, Any], list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/daily_plan/learner_probe.py), line 319) — The router's draw between asking a probe (``probe_ref``) and not (``other_ref``) at the boundary ``key``: ``(served, its propensity, the served distribution, the record's draw fields, pending assignments)``.
-- `decide_proposal(vault: Any, repository: Any, proposal: Any, *, clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/daily_plan/learner_probe.py), line 375) — Decide the proposal's probe once and record it; returns the factor's decision id (an earlier one when a concurrent read recorded it first).
+- `instrument_items(vault: Any, repository: Any, learning_object_id: str | None, factor_id: str | None=None) -> set[str]` ([source](../../../../../../src/learnloop/daily_plan/learner_probe.py), line 319) — The items on the learning object a probe may administer (bound to an instrument card, a diagnostic surface, or a probe candidate of the factor): the measurement a router decision arranges never takes one of them as its check, which would hold the probe's own instrument back as a…
+- `draw(vault: Any, repository: Any, *, key: str, unit: str, valuation: Any, now_iso: str, probe_ref: str, other_ref: str) -> tuple[str, float, dict[str, float], dict[str, Any], list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/daily_plan/learner_probe.py), line 337) — The router's draw between asking a probe (``probe_ref``) and not (``other_ref``) at the boundary ``key``: ``(served, its propensity, the served distribution, the record's draw fields, pending assignments)``.
+- `decide_proposal(vault: Any, repository: Any, proposal: Any, *, clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/daily_plan/learner_probe.py), line 393) — Decide the proposal's probe once and record it; returns the factor's decision id (an earlier one when a concurrent read recorded it first).
 
 ### Module constants
 
@@ -83,6 +84,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `diagnostic_payload`
 - `draw`
 - `information`
+- `instrument_items`
 - `requested`
 - `revalue`
 - `run_pending`
@@ -98,7 +100,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/daily_plan/probe_continuation|learnloop.daily_plan.probe_continuation]] — imports `module`; statically calls `draw`, `information`, `value`
+- [[Reference/Modules/learnloop/daily_plan/probe_continuation|learnloop.daily_plan.probe_continuation]] — imports `module`; statically calls `draw`, `information`, `instrument_items`, `value`
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `requested`; statically calls `requested`
 - [[Reference/Modules/learnloop_sidecar/post_attempt_worker|learnloop_sidecar.post_attempt_worker]] — imports `run_pending`; statically calls `run_pending`
 

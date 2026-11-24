@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/daily_plan/probe_continuation.py](../../../../../../src/learnloop/daily_plan/probe_continuation.py) |
-| Source lines | 271 |
+| Source lines | 272 |
 | Owning package | [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -61,7 +61,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `requested(vault: Any, repository: Any) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/daily_plan/probe_continuation.py), line 108) — The router-owned episodes waiting on a continuation decision, oldest first.
 - `proposal(vault: Any, repository: Any, episode: Any) -> tuple[ContinuationProposal | None, Any, str | None]` ([source](../../../../../../src/learnloop/daily_plan/probe_continuation.py), line 129) — ``(proposal, the next eligible instrument, why none)`` for the episode's next observation: its top eligible instrument, on its posterior.
 - `decide(vault: Any, repository: Any, request: Mapping[str, Any], *, clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/daily_plan/probe_continuation.py), line 164) — Decide one waiting episode's next observation and record it with what it serves (the pinned next presentation, or the episode's stop), all in one transaction.
-- `run_pending(vault: Any, repository: Any, *, clock: Clock | None=None, max_jobs: int=100) -> list[str]` ([source](../../../../../../src/learnloop/daily_plan/probe_continuation.py), line 257) — The continuation job: decide each waiting episode once.
+- `run_pending(vault: Any, repository: Any, *, clock: Clock | None=None, max_jobs: int=100) -> list[str]` ([source](../../../../../../src/learnloop/daily_plan/probe_continuation.py), line 258) — The continuation job: decide each waiting episode once.
 
 ### Module constants
 
@@ -101,7 +101,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `probe_router_on`; calls `probe_router_on`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `utc_now_iso`; calls `utc_now_iso`
-- [[Reference/Modules/learnloop/daily_plan/learner_probe|learnloop.daily_plan.learner_probe]] — imports `module`; calls `draw`, `information`, `value`
+- [[Reference/Modules/learnloop/daily_plan/learner_probe|learnloop.daily_plan.learner_probe]] — imports `module`; calls `draw`, `information`, `instrument_items`, `value`
 - [[Reference/Modules/learnloop/daily_plan/measurement|learnloop.daily_plan.measurement]] — imports `module`; calls `freeze_followup`, `record`
 - [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] — imports `repair_classes_for_factor`, `resolve_orchestrator_parameters`; calls `repair_classes_for_factor`, `resolve_orchestrator_parameters`
 - [[Reference/Modules/learnloop/diagnosis/causal_reads|learnloop.diagnosis.causal_reads]] — imports `probe_burden_minutes`; calls `probe_burden_minutes`

@@ -21,10 +21,10 @@ source_paths:
   - "src/learnloop/diagnosis/causal_probe_coherence.py"
   - "src/learnloop/diagnosis/causal_probe_commissioning.py"
   - "src/learnloop_sidecar/handlers/app.py"
+  - "src/learnloop/daily_plan/learner_probe.py"
   - "src/learnloop/diagnosis/causal_cold_verification.py"
   - "src/learnloop/diagnosis/causal_discrimination.py"
   - "src/learnloop/diagnosis/causal_health.py"
-  - "src/learnloop/diagnosis/causal_orchestrator.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -107,6 +107,7 @@ Indexes and uniqueness:
 
 ### Upstream callers of the repository access surface
 
+- `src/learnloop/daily_plan/learner_probe.py`
 - `src/learnloop/db/stores/causal.py`
 - `src/learnloop/diagnosis/causal_cold_verification.py`
 - `src/learnloop/diagnosis/causal_discrimination.py`

@@ -3563,6 +3563,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_branchs_earlier_answer_from_a_now_held_out_passage_never_reaches_the_tutor`
   - `test_the_expanded_delivery_kill_switch_restores_the_predecessors_reader_window`
   - `test_the_reader_manifest_records_what_the_tutor_was_given`
+- [tests/test_tutor_goal_in_view.py](../../../../../../tests/test_tutor_goal_in_view.py) — direct import
+  - `test_a_goal_naming_a_topic_whose_cold_check_is_due_is_given_and_withheld_whole_once_the_check_is_begun`
 - [tests/test_tutor_promotion_service.py](../../../../../../tests/test_tutor_promotion_service.py) — direct import
   - `test_attach_to_existing_with_grounding_auto_applies`
   - `test_reader_promotion_honors_persisted_learning_object_target`
