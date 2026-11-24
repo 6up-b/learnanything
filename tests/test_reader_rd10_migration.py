@@ -56,7 +56,12 @@ def test_it_adds_its_objects_and_changes_nothing_else(tmp_path):
     assert set(after) - set(before) == RD10_ADDED_OBJECTS
     assert set(before) - set(after) == set()
     assert {name for name in before if before[name] != after[name]} == set()
-    with closing(sqlite3.connect(f"file:{HEAD}?mode=ro", uri=True)) as head:
+    # The head as 268 left it: 270 later added a replacement guard on its table.
+    as_268 = tmp_path / "as_268.sqlite"
+    with closing(sqlite3.connect(HEAD)) as source, closing(sqlite3.connect(as_268)) as target:
+        source.backup(target)
+    with closing(sqlite3.connect(as_268)) as head:
+        head.execute("DROP TRIGGER IF EXISTS video_chapters_no_replace_decided")
         expected = {row[0]: row[1] for row in head.execute("SELECT name, sql FROM sqlite_master")}
     assert after == expected
 

@@ -28,7 +28,7 @@ Area: [[Reference/Desktop/TypeScript/screens/desks/menu/_area|TypeScript/screens
 
 ## Why this module exists
 
-Provides `MenuApi`, `MenuContext`, `promotedRef`, `runVerb` and related exports within the desktop's TypeScript/screens/desks/menu ownership area.
+Provides `MenuApi`, `MenuContext`, `CHECK_HELD_VERBS`, `promotedRef` and related exports within the desktop's TypeScript/screens/desks/menu ownership area.
 
 The system-level behavior stays authoritative in the linked architecture, concept, and workflow notes; this note owns only source-level lookup facts.
 
@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/menu/verbs.ts](../../../../../../../../apps/learnloop-tauri/src/screens/desks/menu/verbs.ts) |
-| Source lines | 235 |
+| Source lines | 248 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/menu/_area|TypeScript/screens/desks/menu]] |
 | Refactor status | `ACTIVE` |
@@ -56,33 +56,36 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - `export interface MenuApi` — interface, line 19
 - `export interface MenuContext` — interface, line 30
-- `export function promotedRef(row: PromotedRowDto):` — function, line 74
-- `export async function runVerb(id: VerbId, object: MenuObject, ctx: MenuContext): Promise<void>` — function, line 92
-- `export function sourceMenuRows(object: MenuObject, ctx: MenuContext, appendTarget: string, withheld = false): MenuRow[]` — function, line 222
+- `export const CHECK_HELD_VERBS: readonly VerbId[] = ["ask", "find", "compare", "show_me", "make_practice", "teach_me", "knows", "open_beside"]` — const, line 69
+- `export function promotedRef(row: PromotedRowDto):` — function, line 80
+- `export async function runVerb(id: VerbId, object: MenuObject, ctx: MenuContext): Promise<void>` — function, line 98
+- `export function sourceMenuRows(object: MenuObject, ctx: MenuContext, appendTarget: string, withheld = false): MenuRow[]` — function, line 233
 
 ## Internal implementation anchors
 
-- `function errorText(error: unknown): string` — function, line 65
-- `function anchorOf(object: MenuObject):` — function, line 69
-- `const ref = row.action.ref as Record<string, unknown> | undefined` — const, line 75
-- `const camel: Record<string, unknown> =` — const, line 77
-- `const target = row.action.target ??` — const, line 79
-- `async function sectionOf(object: MenuObject, ctx: MenuContext): Promise<` — function, line 85
-- `const knows = await ctx.api.passageKnows(objectInput(object, ctx.deskId))` — const, line 86
-- `const place = knows.places.find((each)` — const, line 87
-- `const anchor = anchorOf(object)` — const, line 93
-- `const words = (object.selection || object.text).trim()` — const, line 94
-- `const note = await ctx.askNote(object)` — const, line 117
-- `const who = await ctx.api.readingIdentity(anchor.extractionId)` — const, line 119
-- `const receipt = await ctx.api.readerCapture(` — const, line 120
-- `const row = ctx.promotedRows().find((each)` — const, line 131
-- `const place = row ? promotedRef(row) : null` — const, line 132
-- `const found = await ctx.api.readerCorrespondents(` — const, line 143
-- `const section = found.learningObjects.flatMap((lo)` — const, line 144
-- `const who = await ctx.api.readingIdentity(anchor.extractionId)` — const, line 161
-- `const destination = ctx.figureDestination()` — const, line 170
-- `const figure = await ctx.showMe(words.slice(0, 300), anchor, object.windowId)` — const, line 173
-- `const drafted = await ctx.api.readerAuthorSectionQuestion(` — const, line 194
+- `function errorText(error: unknown): string` — function, line 71
+- `function anchorOf(object: MenuObject):` — function, line 75
+- `const ref = row.action.ref as Record<string, unknown> | undefined` — const, line 81
+- `const camel: Record<string, unknown> =` — const, line 83
+- `const target = row.action.target ??` — const, line 85
+- `async function sectionOf(object: MenuObject, ctx: MenuContext): Promise<` — function, line 91
+- `const knows = await ctx.api.passageKnows(objectInput(object, ctx.deskId))` — const, line 92
+- `const place = knows.places.find((each)` — const, line 93
+- `const anchor = anchorOf(object)` — const, line 99
+- `const words = (object.selection || object.text).trim()` — const, line 100
+- `const held = CHECK_HELD_VERBS.includes(id) ? ctx.heldReason?.() ?? null : null` — const, line 102
+- `const note = await ctx.askNote(object)` — const, line 128
+- `const who = await ctx.api.readingIdentity(anchor.extractionId)` — const, line 130
+- `const receipt = await ctx.api.readerCapture(` — const, line 131
+- `const row = ctx.promotedRows().find((each)` — const, line 142
+- `const place = row ? promotedRef(row) : null` — const, line 143
+- `const found = await ctx.api.readerCorrespondents(` — const, line 154
+- `const section = found.learningObjects.flatMap((lo)` — const, line 155
+- `const who = await ctx.api.readingIdentity(anchor.extractionId)` — const, line 172
+- `const destination = ctx.figureDestination()` — const, line 181
+- `const figure = await ctx.showMe(words.slice(0, 300), anchor, object.windowId)` — const, line 184
+- `const drafted = await ctx.api.readerAuthorSectionQuestion(` — const, line 205
+- `const held = ctx.heldReason?.() ?? null` — const, line 236
 
 ## Who imports or calls it
 
@@ -112,6 +115,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 ## Tests that define behavior
 
 - [apps/learnloop-tauri/src/screens/desks/menu/verbs.test.ts](../../../../../../../../apps/learnloop-tauri/src/screens/desks/menu/verbs.test.ts) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/desks/checks/gates.test.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/checks/gates.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 
 ## Modification guidance
 

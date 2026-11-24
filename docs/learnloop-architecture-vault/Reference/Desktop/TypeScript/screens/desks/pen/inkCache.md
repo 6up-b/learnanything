@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/pen/inkCache.ts](../../../../../../../../apps/learnloop-tauri/src/screens/desks/pen/inkCache.ts) |
-| Source lines | 295 |
+| Source lines | 302 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/pen/_area|TypeScript/screens/desks/pen]] |
 | Refactor status | `ACTIVE` |
@@ -60,42 +60,43 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export interface InkLine` — interface, line 27
 - `export interface PadInk` — interface, line 40
 - `export interface InkCacheDeps` — interface, line 49
-- `export class InkCache` — class, line 66
+- `export class InkCache` — class, line 68
 
 ## Internal implementation anchors
 
 - `const EMPTY: PadInk =` — const, line 47
-- `function codeOf(error: unknown): string` — function, line 58
-- `function messageOf(error: unknown): string` — function, line 62
-- `const known = this.loads.get(padId)` — const, line 102
-- `const read = this.deps.api.inkList(` — const, line 104
-- `const lines: Record<string, InkLine> =` — const, line 107
-- `const local = pad.lines[owner.ownerId]` — const, line 110
-- `const pending = line.strokes.filter((s)` — const, line 116
-- `const server = lines[blockId]` — const, line 117
-- `const readings =` — const, line 125
-- `const kept = owner.transcription` — const, line 127
-- `const line = pad.lines[blockId] ??` — const, line 149
-- `const from = this.pad(fromPadId)` — const, line 165
-- `const line = from.lines[blockId]` — const, line 166
-- `const reading = from.readings[blockId]` — const, line 168
-- `const before = this.writing.get(padId)` — const, line 176
-- `const line = pad.lines[blockId]` — const, line 184
-- `const line = this.pad(padId).lines[blockId]` — const, line 196
-- `const last = line?.strokes[line.strokes.length - 1]` — const, line 197
-- `const current = this.pad(padId).readings[blockId]` — const, line 199
-- `const attempt = (this.attempts.get(blockId) ?? 0) + 1` — const, line 201
-- `const stale = ()` — const, line 203
-- `const revision = line.revision` — const, line 204
-- `let first: InkTranscribeJobDto` — let, line 215
-- `const jobId = first.jobId` — const, line 229
-- `const remove = this.deps.poller.register<InkTranscribeJobDto>(` — const, line 231
-- `const done = this.settle(padId, blockId, job, revision)` — const, line 236
-- `const reading = this.pad(padId).readings[blockId]` — const, line 252
-- `const result = job.result` — const, line 271
-- `const status: ReadingStatus = result.confidenceLabel === "nothing_read" ? "nothing" : result.applied ? "read" : result.reason === "kept_your_correction" ? "kept_yours" : "read"` — const, line 272
-- `const line = pad.lines[blockId]` — const, line 275
-- `const code = job.error?.code ?? job.status` — const, line 285
+- `function codeOf(error: unknown): string` — function, line 60
+- `function messageOf(error: unknown): string` — function, line 64
+- `const known = this.loads.get(padId)` — const, line 104
+- `const read = this.deps.api.inkList(` — const, line 106
+- `const lines: Record<string, InkLine> =` — const, line 109
+- `const local = pad.lines[owner.ownerId]` — const, line 112
+- `const pending = line.strokes.filter((s)` — const, line 118
+- `const server = lines[blockId]` — const, line 119
+- `const readings =` — const, line 127
+- `const kept = owner.transcription` — const, line 129
+- `const line = pad.lines[blockId] ??` — const, line 151
+- `const from = this.pad(fromPadId)` — const, line 167
+- `const line = from.lines[blockId]` — const, line 168
+- `const reading = from.readings[blockId]` — const, line 170
+- `const before = this.writing.get(padId)` — const, line 178
+- `const line = pad.lines[blockId]` — const, line 186
+- `const line = this.pad(padId).lines[blockId]` — const, line 198
+- `const last = line?.strokes[line.strokes.length - 1]` — const, line 199
+- `const current = this.pad(padId).readings[blockId]` — const, line 201
+- `const held = this.deps.held?.() ?? null` — const, line 203
+- `const attempt = (this.attempts.get(blockId) ?? 0) + 1` — const, line 208
+- `const stale = ()` — const, line 210
+- `const revision = line.revision` — const, line 211
+- `let first: InkTranscribeJobDto` — let, line 222
+- `const jobId = first.jobId` — const, line 236
+- `const remove = this.deps.poller.register<InkTranscribeJobDto>(` — const, line 238
+- `const done = this.settle(padId, blockId, job, revision)` — const, line 243
+- `const reading = this.pad(padId).readings[blockId]` — const, line 259
+- `const result = job.result` — const, line 278
+- `const status: ReadingStatus = result.confidenceLabel === "nothing_read" ? "nothing" : result.applied ? "read" : result.reason === "kept_your_correction" ? "kept_yours" : "read"` — const, line 279
+- `const line = pad.lines[blockId]` — const, line 282
+- `const code = job.error?.code ?? job.status` — const, line 292
 
 ## Who imports or calls it
 
@@ -127,6 +128,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 - [apps/learnloop-tauri/src/screens/desks/pen/inkPad.test.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/pen/inkPad.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/desks/pen/inkCache.test.ts](../../../../../../../../apps/learnloop-tauri/src/screens/desks/pen/inkCache.test.ts) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/desks/pen/PenLayer.test.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/pen/PenLayer.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/desks/checks/gates.test.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/checks/gates.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 
 ## Modification guidance
 

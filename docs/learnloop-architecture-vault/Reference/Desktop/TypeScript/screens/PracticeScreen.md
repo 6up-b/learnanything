@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/PracticeScreen.tsx](../../../../../../apps/learnloop-tauri/src/screens/PracticeScreen.tsx) |
-| Source lines | 3169 |
+| Source lines | 3170 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/_area|TypeScript/screens]] |
 | Refactor status | `ACTIVE` |
@@ -55,7 +55,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 ## Public API
 
 - `export function PracticeScreen(` — function, line 135
-- `export function helpRecordLine(` — function, line 3058
+- `export function helpRecordLine(` — function, line 3059
 
 ## Internal implementation anchors
 
@@ -229,67 +229,67 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const loadError = itemLoadError ?? probeLoadError` — const, line 1502
 - `const diagnostic = committedRecovery.attemptType === "diagnostic_probe" || probeActive` — const, line 1528
 - `const dockedPanel = dockedAsk && panelOn && !stepsMode ? ( <AskOverlay variant="docked" target=` — const, line 1618
-- `const on = answerConfidence === level` — const, line 2333
-- `const locked = submitting || selfGradeVisible` — const, line 2334
-- `function TeachBackConversation(` — function, line 2452
-- `const startedRef = useRef(false)` — const, line 2481
-- `const transcriptRef = useRef<HTMLDivElement | null>(null)` — const, line 2482
-- `const activeClock = useAttemptClock()` — const, line 2485
-- `const clockKey = `teach_back:$` — const, line 2486
-- `const lastRole = turns.length > 0 ? turns[turns.length - 1].role : null` — const, line 2491
-- `const needsText = turns.length === 0 || lastRole === "ai"` — const, line 2495
-- `const start = useCallback(()` — const, line 2497
-- `const node = transcriptRef.current` — const, line 2527
-- `async function send(finish = false)` — function, line 2531
-- `const text = input.trim()` — const, line 2533
-- `const result = await api.submitTeachBackTurn(` — const, line 2539
-- `const onKey = (event: KeyboardEvent)` — const, line 2567
-- `const submitLabel = turns.length === 0 ? "Start teaching" : lastRole === "learner" ? "Continue" : "Send answer"` — const, line 2578
-- `const questionsAnswered = asked > 0 && lastRole === "learner"` — const, line 2580
-- `function gradeFromParts( item: PracticeItemDetail, base: SelfGradeInputDto, got: (criterionId: string)` — function, line 2697
-- `function PlainSelfGrade(` — function, line 2716
-- `const criteria = item.rubric?.criteria ?? []` — const, line 2753
-- `const fullAnswer = expectedAnswerText(item.expectedAnswer).trim()` — const, line 2754
-- `const exposure = useAnswerExposure(exposureKey, showFullAnswer && Boolean(fullAnswer), recordDisplay)` — const, line 2759
-- `function SelfGradePanel(` — function, line 2815
-- `const awarded = value.criterionPoints[criterion.id] ?? 0` — const, line 2846
-- `const docked = awarded < criterion.points` — const, line 2847
-- `const points = Number(event.target.value)` — const, line 2863
-- `const stillDocked = points < criterion.points` — const, line 2864
-- `function CriterionErrorPicker(` — function, line 2928
-- `const selected = new Set( (value.errorAttributions ?? []).filter((a)` — const, line 2939
-- `const toggle = (errorType: string)` — const, line 2942
-- `const list = value.errorAttributions ?? []` — const, line 2943
-- `const exists = list.some((a)` — const, line 2944
-- `const relevant = candidates.filter((c)` — const, line 2952
-- `const others = candidates.filter((c)` — const, line 2953
-- `const chip = (c: CandidateErrorTypeDto)` — const, line 2954
-- `function prunedAttributions(item: PracticeItemDetail, grade: SelfGradeInputDto): SelfGradeErrorAttributionDto[]` — function, line 2991
-- `const docked = new Set( (item.rubric?.criteria ?? []) .filter((criterion)` — const, line 2992
-- `const NON_RECORDING_ATTEMPT_TYPES: ReadonlySet<AttemptType> = new Set(["guided_walkthrough", "skip"])` — const, line 3003
-- `function defaultAttemptType(allowed: readonly AttemptType[]): AttemptType` — function, line 3005
-- `function RedoWhatToFix(` — function, line 3018
-- `function composeRedoAnswer(prefix: string, redoText: string): string` — function, line 3036
-- `const suffix = redoText.replace(/^[ \t]+/, "")` — const, line 3037
-- `function recordHintReveal(input: Parameters<typeof api.recordHintReveal>[0]): void` — function, line 3046
-- `const parts: string[] = []` — const, line 3072
-- `const worked = (entries ?? []).filter((entry)` — const, line 3077
-- `const plain = Math.max(0, hints - worked.length)` — const, line 3078
-- `let clientOnly: number` — let, line 3091
-- `let clientWorked: number[] = []` — let, line 3092
-- `const listedIds = new Set(server.items.map((entry)` — const, line 3097
-- `const unlisted = entries.filter((entry)` — const, line 3098
-- `const serverHints = server.items.filter((entry)` — const, line 3102
-- `const listed = new Set<string>()` — const, line 3106
-- `function chooseAttemptType(allowed: readonly AttemptType[], hintsUsed: number): AttemptType` — function, line 3137
-- `const allows = (type: AttemptType)` — const, line 3138
-- `function validateSelfGrade( item: PracticeItemDetail, value: SelfGradeInputDto, required: boolean ): Record<string, string>` — function, line 3143
-- `const errors: Record<string, string> =` — const, line 3149
-- `const points = value.criterionPoints[criterion.id]` — const, line 3151
-- `function answerBoxCap(slot: HTMLElement, below: number): number` — function, line 3164
-- `const scroller = slot.closest(".screen-scroll") as HTMLElement | null` — const, line 3165
-- `const keybar = (document.querySelector(".keybar") as HTMLElement | null)?.offsetHeight ?? 36` — const, line 3166
-- `const visible = scroller && scroller.clientHeight > 0 ? scroller.clientHeight : window.innerHeight - keybar` — const, line 3167
+- `const on = answerConfidence === level` — const, line 2334
+- `const locked = submitting || selfGradeVisible` — const, line 2335
+- `function TeachBackConversation(` — function, line 2453
+- `const startedRef = useRef(false)` — const, line 2482
+- `const transcriptRef = useRef<HTMLDivElement | null>(null)` — const, line 2483
+- `const activeClock = useAttemptClock()` — const, line 2486
+- `const clockKey = `teach_back:$` — const, line 2487
+- `const lastRole = turns.length > 0 ? turns[turns.length - 1].role : null` — const, line 2492
+- `const needsText = turns.length === 0 || lastRole === "ai"` — const, line 2496
+- `const start = useCallback(()` — const, line 2498
+- `const node = transcriptRef.current` — const, line 2528
+- `async function send(finish = false)` — function, line 2532
+- `const text = input.trim()` — const, line 2534
+- `const result = await api.submitTeachBackTurn(` — const, line 2540
+- `const onKey = (event: KeyboardEvent)` — const, line 2568
+- `const submitLabel = turns.length === 0 ? "Start teaching" : lastRole === "learner" ? "Continue" : "Send answer"` — const, line 2579
+- `const questionsAnswered = asked > 0 && lastRole === "learner"` — const, line 2581
+- `function gradeFromParts( item: PracticeItemDetail, base: SelfGradeInputDto, got: (criterionId: string)` — function, line 2698
+- `function PlainSelfGrade(` — function, line 2717
+- `const criteria = item.rubric?.criteria ?? []` — const, line 2754
+- `const fullAnswer = expectedAnswerText(item.expectedAnswer).trim()` — const, line 2755
+- `const exposure = useAnswerExposure(exposureKey, showFullAnswer && Boolean(fullAnswer), recordDisplay)` — const, line 2760
+- `function SelfGradePanel(` — function, line 2816
+- `const awarded = value.criterionPoints[criterion.id] ?? 0` — const, line 2847
+- `const docked = awarded < criterion.points` — const, line 2848
+- `const points = Number(event.target.value)` — const, line 2864
+- `const stillDocked = points < criterion.points` — const, line 2865
+- `function CriterionErrorPicker(` — function, line 2929
+- `const selected = new Set( (value.errorAttributions ?? []).filter((a)` — const, line 2940
+- `const toggle = (errorType: string)` — const, line 2943
+- `const list = value.errorAttributions ?? []` — const, line 2944
+- `const exists = list.some((a)` — const, line 2945
+- `const relevant = candidates.filter((c)` — const, line 2953
+- `const others = candidates.filter((c)` — const, line 2954
+- `const chip = (c: CandidateErrorTypeDto)` — const, line 2955
+- `function prunedAttributions(item: PracticeItemDetail, grade: SelfGradeInputDto): SelfGradeErrorAttributionDto[]` — function, line 2992
+- `const docked = new Set( (item.rubric?.criteria ?? []) .filter((criterion)` — const, line 2993
+- `const NON_RECORDING_ATTEMPT_TYPES: ReadonlySet<AttemptType> = new Set(["guided_walkthrough", "skip"])` — const, line 3004
+- `function defaultAttemptType(allowed: readonly AttemptType[]): AttemptType` — function, line 3006
+- `function RedoWhatToFix(` — function, line 3019
+- `function composeRedoAnswer(prefix: string, redoText: string): string` — function, line 3037
+- `const suffix = redoText.replace(/^[ \t]+/, "")` — const, line 3038
+- `function recordHintReveal(input: Parameters<typeof api.recordHintReveal>[0]): void` — function, line 3047
+- `const parts: string[] = []` — const, line 3073
+- `const worked = (entries ?? []).filter((entry)` — const, line 3078
+- `const plain = Math.max(0, hints - worked.length)` — const, line 3079
+- `let clientOnly: number` — let, line 3092
+- `let clientWorked: number[] = []` — let, line 3093
+- `const listedIds = new Set(server.items.map((entry)` — const, line 3098
+- `const unlisted = entries.filter((entry)` — const, line 3099
+- `const serverHints = server.items.filter((entry)` — const, line 3103
+- `const listed = new Set<string>()` — const, line 3107
+- `function chooseAttemptType(allowed: readonly AttemptType[], hintsUsed: number): AttemptType` — function, line 3138
+- `const allows = (type: AttemptType)` — const, line 3139
+- `function validateSelfGrade( item: PracticeItemDetail, value: SelfGradeInputDto, required: boolean ): Record<string, string>` — function, line 3144
+- `const errors: Record<string, string> =` — const, line 3150
+- `const points = value.criterionPoints[criterion.id]` — const, line 3152
+- `function answerBoxCap(slot: HTMLElement, below: number): number` — function, line 3165
+- `const scroller = slot.closest(".screen-scroll") as HTMLElement | null` — const, line 3166
+- `const keybar = (document.querySelector(".keybar") as HTMLElement | null)?.offsetHeight ?? 36` — const, line 3167
+- `const visible = scroller && scroller.clientHeight > 0 ? scroller.clientHeight : window.innerHeight - keybar` — const, line 3168
 
 ## Who imports or calls it
 
