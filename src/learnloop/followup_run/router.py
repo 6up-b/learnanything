@@ -28,6 +28,7 @@ import logging
 from typing import Any
 
 from learnloop import refusal_records
+from learnloop.algorithm_versions import probe_router_on
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.db.repositories import Repository
 from learnloop.db.stores import followup_serve as store
@@ -200,6 +201,45 @@ def _plan_context(vault: Any, repository: Repository, row: Mapping[str, Any], *,
     return env, record, gate
 
 
+#: At the probe router's tag, who decided where no plan's router could: the probe coin alone (no plan, or the router
+#: switched off). The decision is logged, as every other decision of the router.
+PROBE_COIN_NO_PLAN = "probe_coin_no_plan"
+PROBE_COIN_ROUTER_OFF = "probe_coin_router_off"
+
+
+def _coin_decision(vault: Any, row: Mapping[str, Any], *, decided_by: str, observational: dict[str, Any],
+                   value_check_error: BaseException | None, **plan_fields: Any) -> FollowupDecision:
+    """The probe router's tag with no plan or no router to draw: the probe is not written yet, so no policy can value it
+    (G2 design decision 1); no intervention, unless the probe coin asks it now (``probe_coin``), with its exact
+    propensity and its own assignment row. Below the tag the probe is asked now, deterministically."""
+
+    from learnloop.ids import new_ulid
+    from learnloop.router_objective import probe_coin as PC
+
+    support = [ASK_NOW, NO_INTERVENTION]
+    # The coin's boundary: this workflow's decision of this kind (the coin's seed adds the decision's own id).
+    key = f"{decided_by}:{row.get('id')}"
+    decision_id = new_ulid()
+    record: dict[str, Any] = {"mode": "probe_router", "policy": PC.VERSION, "decided_by": decided_by,
+                              "decision_id": decision_id, "mix_support": [NO_INTERVENTION],
+                              "objective_followup": {"support": support, "mix_support": [NO_INTERVENTION],
+                                                     "workflow_id": row.get("id"), "version": PC.VERSION,
+                                                     "probe": "unwritten_no_information_credit"}}
+    rate = PC.share(vault.config)
+    if not PC.applies(rate):
+        record["served_pi"] = {NO_INTERVENTION: 1.0}
+        return FollowupDecision(NO_INTERVENTION, decided_by, decided_by, decision_id=decision_id, record=record,
+                                observational=observational, value_check_error=value_check_error, **plan_fields)
+    seed = PC.seed_for(key, decision_id)
+    coin = PC.flip(seed, rate, probe_ref=ASK_NOW, mu={NO_INTERVENTION: 1.0}, drawn=NO_INTERVENTION, boundary_key=key)
+    record.update(probe_coin=coin.as_dict(),
+                  served_pi=PC.served_distribution({NO_INTERVENTION: 1.0}, rate, probe_ref=ASK_NOW),
+                  ro5_assignments=[PC.pending_assignment(coin, seed=seed, support=support)])
+    return FollowupDecision(coin.served, decided_by, decided_by, propensity=coin.served_propensity,
+                            decision_id=decision_id, record=record, observational=observational,
+                            value_check_error=value_check_error, **plan_fields)
+
+
 def decide(vault: Any, repository: Repository, row: Mapping[str, Any], *, choice: Any, clients: Any,
            clock: Clock | None) -> FollowupDecision:
     factor_id = str(choice.factor_id)
@@ -209,7 +249,11 @@ def decide(vault: Any, repository: Repository, row: Mapping[str, Any], *, choice
         return FollowupDecision(DECLINE, refusal, "refused", refusals=({"reason": refusal, "constraint_key": refusal},),
                                 observational=seen, value_check_error=seen_error)
     context = _plan_context(vault, repository, row, clients=clients, clock=clock)
+    probe_router = probe_router_on(vault.config)
     if context is None:
+        if probe_router:
+            return _coin_decision(vault, row, decided_by=PROBE_COIN_NO_PLAN, observational=seen,
+                                  value_check_error=seen_error)
         return FollowupDecision(ASK_NOW, "no_plan", "no_plan", observational=seen, value_check_error=seen_error)
     env, record, gate = context
     current = record.current_block()
@@ -219,6 +263,9 @@ def decide(vault: Any, repository: Repository, row: Mapping[str, Any], *, choice
         "block_id": block.id if block is not None else None,
     }
     if gate is None:
+        if probe_router:
+            return _coin_decision(vault, row, decided_by=PROBE_COIN_ROUTER_OFF, observational=seen,
+                                  value_check_error=seen_error, **plan_fields)
         return FollowupDecision(ASK_NOW, "router_off", "staged", observational=seen, value_check_error=seen_error,
                                 **plan_fields)
     # Waiting is a choice only when there is a block to finish and room after it (Codex review F8's rule).
@@ -340,6 +387,12 @@ def record_decision(vault: Any, repository: Repository, row: Mapping[str, Any], 
                                        router_record=decision.record, config=vault.config,
                                        local_date=str(decision.local_date or ""), session_id=row.get("session_id"),
                                        at=now)
+            if decision_id is not None and (decision.record or {}).get("ro5_assignments"):
+                # The probe router's tag: the probe coin's assignment, with the decision it belongs to.
+                from learnloop.router_objective import assignments as ro5_assignments
+
+                ro5_assignments.record_pending(connection, decision.record["ro5_assignments"], unit_id=decision_id,
+                                               at=now)
             if decision_id is not None and decision.offer_placement is not None:
                 from learnloop.daily_plan.engine import place_interrupt_offer
 

@@ -199,9 +199,12 @@ def test_at_the_tag_the_lane_logs_the_coin_with_its_decision(tmp_path, monkeypat
                          clients=clients, clock=env.clock)
     (decision,) = _router_rows(env.repository)
     assert decision["chosen_ref"] == INSERT_NOW and decision["propensity"] == pytest.approx(0.2)
-    candidates = {c["ref"]: c for c in json.loads(decision["inputs_json"])["candidates"]}
+    candidates = {c["ref"]: c for c in json.loads(decision["candidates_json"])}
     assert candidates[INSERT_NOW]["propensity"] == pytest.approx(0.2)
-    assert candidates[NO_INTERVENTION]["propensity"] == pytest.approx(0.8)
+    # The rest of the served distribution is the mix's μ (here with the lesson the boundary offers), times 1 − r.
+    mu = decision["detail_json"]["mixture"]["mix_pi"]
+    assert candidates[NO_INTERVENTION]["propensity"] == pytest.approx(0.8 * mu[NO_INTERVENTION])
+    assert sum(c["propensity"] for c in candidates.values()) == pytest.approx(1.0)
     assert candidates[CONTINUE_CURRENT]["feasible"] is False
     (assignment,) = [a for a in _assignments(env.repository) if a["experiment_id"] == A.PROBE_COIN]
     assert (assignment["unit_id"], assignment["variant"], assignment["propensity"]) == (decision["id"], PC.ASK, 0.2)

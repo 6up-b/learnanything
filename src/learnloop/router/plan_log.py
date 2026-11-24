@@ -723,7 +723,9 @@ def build_followup_decision(decision: Mapping[str, Any]) -> dict[str, Any]:
 
     record: Mapping[str, Any] = decision.get("router_record") or {}
     mixture: Mapping[str, Any] = record.get("mixture") or {}
-    pi: Mapping[str, Any] = mixture.get("pi") or {}
+    # The probe router's tag: a decision the probe coin served with no mix (no lesson to draw against) logs the coin's
+    # served distribution; one with a mix logs it as the mixture's ``pi``.
+    pi: Mapping[str, Any] = mixture.get("pi") or record.get("served_pi") or {}
     workflow: Mapping[str, Any] = decision["workflow"]
     chosen_ref = str(decision["chosen_ref"])
     raw = _probability(decision.get("propensity"))
@@ -738,6 +740,7 @@ def build_followup_decision(decision: Mapping[str, Any]) -> dict[str, Any]:
     # three arms stand.
     offered: Mapping[str, Any] = record.get("objective_followup") or {}
     no_intervention_offered = not offered or NO_INTERVENTION_REF in (offered.get("support") or ())
+    continue_offered = not offered or CONTINUE_REF in (offered.get("support") or ())
 
     def candidate_propensity(ref: str) -> float:
         if ref == chosen_ref:
@@ -747,7 +750,7 @@ def build_followup_decision(decision: Mapping[str, Any]) -> dict[str, Any]:
     candidates = [
         {"ref": INSERT_REF, "kind": "insert", "item_ids": [], "feasible": not refused,
          "propensity": candidate_propensity(INSERT_REF)},
-        {"ref": CONTINUE_REF, "kind": "continue", "item_ids": [], "feasible": not refused and wait_feasible,
+        {"ref": CONTINUE_REF, "kind": "continue", "item_ids": [], "feasible": not refused and wait_feasible and continue_offered,
          "propensity": candidate_propensity(CONTINUE_REF)},
         {"ref": NO_INTERVENTION_REF, "kind": "no_intervention", "item_ids": [],
          "feasible": not refused and no_intervention_offered,
@@ -778,6 +781,7 @@ def build_followup_decision(decision: Mapping[str, Any]) -> dict[str, Any]:
         **({} if wait_feasible or refused else {"wait": {"feasible": False, "reason": "no_room_after_block"}}),
         "refused": [dict(reason) for reason in refused.get("reasons") or ()],
         **({"mixture": {key: value for key, value in mixture.items() if key != "pi"}} if mixture else {}),
+        **({"probe_coin": dict(record["probe_coin"])} if record.get("probe_coin") else {}),
         **_offer_detail(decision, record, chosen_ref),
     }
     sampled = bool(mixture) and propensity_kind == "exact"
