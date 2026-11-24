@@ -223,3 +223,16 @@ def test_the_decision_revalues_from_its_stored_row_alone(tmp_path, monkeypatch, 
     replayed = learner_probe.revalue(decision["detail"]["valuation"]["frozen"]["replay"])
     assert replayed.record["values"] == decision["detail"]["evaluation"]["values"]
     grading_ready(monkeypatch)
+
+
+def test_no_router_decisions_measurement_takes_a_probe_instrument_as_its_check(tmp_path, monkeypatch):
+    from tests.causal_orchestrator_helpers import PROBE_ITEM
+
+    case = _answered(tmp_path, monkeypatch, u=0.0)
+    _job(case)
+    with case.repository.connection() as connection:
+        checks = {row[0] for row in connection.execute(
+            "SELECT practice_item_id FROM decision_objectives WHERE practice_item_id IS NOT NULL")}
+    # The learner lane's decision and the continuation each arranged a "Check once" on the learning object; neither
+    # took an item a probe administers, so neither holds the router's next instrument back.
+    assert not checks & {PROBE_ITEM, SECOND}

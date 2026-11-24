@@ -89488,7 +89488,7 @@ null
 "role": "required",
 "salience": null,
 "target_kind": "legacy_practice_item",
-"target_ref": "pi_causal_probe_001"
+"target_ref": "pi_svd_define_001"
 }
 ]
 },
@@ -89516,25 +89516,20 @@ null
 "learning_object_id": "lo_svd_definition",
 "pick": {
 "band_middle": 0.75,
-"chosen": "pi_causal_probe_001",
+"chosen": "pi_svd_define_001",
 "considered": [
-{
-"item_id": "pi_causal_probe_001",
-"p": 0.4578
-},
 {
 "item_id": "pi_svd_define_001",
 "p": 0.4578
 }
 ],
-"draw": 0.11924168301386795,
-"n": 2,
+"draw": null,
+"n": 1,
 "pool": "unseen",
 "predictor": "mastery_ekf_item",
-"propensity": 0.5,
-"seed": "0819586d20a7d43bffe018025251a0f942ce5f4c6b2633502d8e1fbf00438bee",
+"propensity": 1.0,
+"seed": null,
 "tied": [
-"pi_causal_probe_001",
 "pi_svd_define_001"
 ],
 "version": "delayed_pick_v2"
@@ -89542,7 +89537,7 @@ null
 "via": "measurement"
 },
 "reason": "decision_measurement",
-"target_set_hash": "73273a84141e569558008eb91d2dd6d2",
+"target_set_hash": "d7f5b663bb7f0ebaa48365a6eb7e81e4",
 "version": 1,
 "version_hash": "<id:23>"
 }
@@ -89583,30 +89578,25 @@ null
 "objective_version": "decision_objective_v1",
 "pick_json": {
 "band_middle": 0.75,
-"chosen": "pi_causal_probe_001",
+"chosen": "pi_svd_define_001",
 "considered": [
-{
-"item_id": "pi_causal_probe_001",
-"p": 0.4578
-},
 {
 "item_id": "pi_svd_define_001",
 "p": 0.4578
 }
 ],
-"draw": 0.11924168301386795,
-"n": 2,
+"draw": null,
+"n": 1,
 "pool": "unseen",
 "predictor": "mastery_ekf_item",
-"propensity": 0.5,
-"seed": "0819586d20a7d43bffe018025251a0f942ce5f4c6b2633502d8e1fbf00438bee",
+"propensity": 1.0,
+"seed": null,
 "tied": [
-"pi_causal_probe_001",
 "pi_svd_define_001"
 ],
 "version": "delayed_pick_v2"
 },
-"practice_item_id": "pi_causal_probe_001",
+"practice_item_id": "pi_svd_define_001",
 "scope_json": [
 {
 "learning_object_ids": [
@@ -91609,22 +91599,17 @@ null
 "chosen": "pi_svd_define_001",
 "considered": [
 {
-"item_id": "pi_causal_probe_001",
-"p": 0.4578
-},
-{
 "item_id": "pi_svd_define_001",
 "p": 0.4578
 }
 ],
-"draw": 0.8457990734927973,
-"n": 2,
+"draw": null,
+"n": 1,
 "pool": "unseen",
 "predictor": "mastery_ekf_item",
-"propensity": 0.5,
-"seed": "497c7f98ea7efa46ec29bf68a0488bde100fe07a3857b24ff6c9adc3dd404d17",
+"propensity": 1.0,
+"seed": null,
 "tied": [
-"pi_causal_probe_001",
 "pi_svd_define_001"
 ],
 "version": "delayed_pick_v2"
@@ -91676,22 +91661,17 @@ null
 "chosen": "pi_svd_define_001",
 "considered": [
 {
-"item_id": "pi_causal_probe_001",
-"p": 0.4578
-},
-{
 "item_id": "pi_svd_define_001",
 "p": 0.4578
 }
 ],
-"draw": 0.8457990734927973,
-"n": 2,
+"draw": null,
+"n": 1,
 "pool": "unseen",
 "predictor": "mastery_ekf_item",
-"propensity": 0.5,
-"seed": "497c7f98ea7efa46ec29bf68a0488bde100fe07a3857b24ff6c9adc3dd404d17",
+"propensity": 1.0,
+"seed": null,
 "tied": [
-"pi_causal_probe_001",
 "pi_svd_define_001"
 ],
 "version": "delayed_pick_v2"

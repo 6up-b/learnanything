@@ -316,6 +316,24 @@ def information(valuation: Any) -> float:
     return float((valuation.record.get("values") or {}).get("information") or 0.0)
 
 
+def instrument_items(vault: Any, repository: Any, learning_object_id: str | None,
+                     factor_id: str | None = None) -> set[str]:
+    """The items on the learning object a probe may administer (bound to an instrument card, a diagnostic surface, or a
+    probe candidate of the factor): the measurement a router decision arranges never takes one of them as its check,
+    which would hold the probe's own instrument back as an ordinary question."""
+
+    items: set[str] = set()
+    if factor_id:
+        items |= {str(row.get("practice_item_id")) for row in repository.causal_probe_candidates_for_factor(factor_id)
+                  if row.get("practice_item_id")}
+    for item in getattr(vault, "practice_items", {}).values():
+        if learning_object_id is None or getattr(item, "learning_object_id", None) != learning_object_id:
+            continue
+        if getattr(item, "practice_mode", None) == "diagnostic_probe" or repository.probe_item_family_links(item.id):
+            items.add(str(item.id))
+    return items
+
+
 def draw(vault: Any, repository: Any, *, key: str, unit: str, valuation: Any, now_iso: str, probe_ref: str,
          other_ref: str) -> tuple[str, float, dict[str, float], dict[str, Any], list[dict[str, Any]]]:
     """The router's draw between asking a probe (``probe_ref``) and not (``other_ref``) at the boundary ``key``:
@@ -441,7 +459,9 @@ def decide_proposal(vault: Any, repository: Any, proposal: Any, *, clock: Clock 
                 objectives.record(vault, repository, connection, decision_id=decision_id, decision_kind="plan_interrupt",
                                   frozen=objectives.freeze_followup(str(proposal.learning_object_id), support=support),
                                   arm=objectives.ARM_INSERT if served == PROBE_REF else objectives.ARM_NO_INTERVENTION,
-                                  clock=clock, exclude=set())
+                                  clock=clock, exclude=instrument_items(vault, repository,
+                                                                        proposal.learning_object_id,
+                                                                        proposal.factor_id))
     except Exception:  # noqa: BLE001 - an unrecorded decision offers nothing: the status stays pending
         LOG.warning("probe router: the learner lane's decision was not recorded for factor %s", proposal.factor_id,
                     exc_info=True)
@@ -450,5 +470,5 @@ def decide_proposal(vault: Any, repository: Any, proposal: Any, *, clock: Clock 
 
 
 __all__ = ["LLM_NOT_ASKED", "OWNER_DECISIONS", "POLICY", "decide", "decide_proposal", "diagnostic_payload", "draw",
-           "information",
+           "information", "instrument_items",
            "requested", "revalue", "run_pending", "value"]

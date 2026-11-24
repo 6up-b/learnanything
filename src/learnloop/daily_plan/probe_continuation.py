@@ -234,7 +234,8 @@ def decide(vault: Any, repository: Any, request: Mapping[str, Any], *, clock: Cl
             objectives.record(vault, repository, connection, decision_id=decision_id, decision_kind="plan_interrupt",
                               frozen=objectives.freeze_followup(built.learning_object_id, support=support),
                               arm=objectives.ARM_INSERT if served == PROBE_REF else objectives.ARM_STOP,
-                              clock=clock, exclude=set())
+                              clock=clock, exclude=LP.instrument_items(vault, repository, built.learning_object_id,
+                                                                       built.factor_id or None))
             if served == PROBE_REF:
                 # The decision's own instrument, pinned: the doors serve this presentation and nothing else.
                 commit_presentation(vault, repository, episode, instrument, extra_selection_components={
