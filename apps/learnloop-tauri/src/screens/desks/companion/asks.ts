@@ -59,6 +59,9 @@ export interface AskRequest {
   quote?: string | null;
   /** Pad blocks asked about (recorded with the exchange). */
   padBlockIds?: string[];
+  /** The exchange this follow-up branches from, when the asker names it (a reconnect's "still unclear" branches
+   *  from its question); absent, the thread's last answer about the same reading. */
+  parentExchangeId?: string | null;
 }
 
 function errorOf(error: unknown): { code: string; message: string; retryable: boolean } {
@@ -144,7 +147,7 @@ export class CompanionAsks {
   /** Ask: the question shows at once, waiting while `ready` (the desk writes it depends on) settles, then
    * asking as it follows its job. Returns the request id. */
   ask(request: AskRequest, ready?: Promise<DeskWritesSettled>): string {
-    const parent = this.parentFor(request);
+    const parent = request.parentExchangeId !== undefined ? request.parentExchangeId : this.parentFor(request);
     const input: Omit<CompanionAskInput, "requestId"> = {
       surface: request.surface,
       deskId: request.deskId,

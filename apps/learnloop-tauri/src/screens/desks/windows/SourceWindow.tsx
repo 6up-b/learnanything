@@ -5,7 +5,8 @@
 // logs reading activity only while it is active or visible (desks/lifecycle.tsx).
 import { useCallback, useMemo, useState, type ComponentProps } from "react";
 import type { ContentRefDto, SourceLibraryCard } from "../../../api/dto";
-import { ReaderScreen, type PenSurface, type ReaderLens, type ReaderWindowing } from "../../ReaderScreen";
+import { ReaderScreen, type PenSurface, type ReaderLens, type ReaderWindowing, type WindowInquiry } from "../../ReaderScreen";
+import type { WindowAsk } from "../../reader/useReaderInquiry";
 import { PenLayer } from "../pen/PenLayer";
 import type { VideoExtras } from "../../reader/YouTubeWatchPanel";
 
@@ -31,6 +32,8 @@ export function SourceWindow({
   reader,
   lens = null,
   video = null,
+  onInquiryReady,
+  onAsk,
 }: {
   content: Extract<ContentRefDto, { kind: "source" | "video" }>;
   card: SourceLibraryCard | null;
@@ -47,6 +50,10 @@ export function SourceWindow({
   lens?: ReaderLens | null;
   /** A video window's extras (RD10: chapters, ticks, the player's clock), or none. */
   video?: VideoExtras | null;
+  /** The desk's way into the window's detours and reconnect (a claim peeks; a companion answer joins them). */
+  onInquiryReady?: (inquiry: WindowInquiry | null) => void;
+  /** The window's asks, to the desk's companion. */
+  onAsk?: (ask: WindowAsk) => void;
 }) {
   const onTitle = useCallback((title: string) => onStatus({ title }), [onStatus]);
   const onReaderStatus = useCallback(
@@ -56,8 +63,8 @@ export function SourceWindow({
   // Pen mode's way onto the text (RD8a): the pen layer mounts on the surface the Reader hands over.
   const [penSurface, setPenSurface] = useState<PenSurface | null>(null);
   const windowing = useMemo<ReaderWindowing>(
-    () => ({ railHost, onTitle, onJumpReady, onMediaReady, onStatus: onReaderStatus, lens, video, onPenSurface: setPenSurface }),
-    [railHost, onTitle, onJumpReady, onMediaReady, onReaderStatus, lens, video],
+    () => ({ railHost, onTitle, onJumpReady, onMediaReady, onStatus: onReaderStatus, lens, video, onPenSurface: setPenSurface, onInquiryReady, onAsk }),
+    [railHost, onTitle, onJumpReady, onMediaReady, onReaderStatus, lens, video, onInquiryReady, onAsk],
   );
   // The Reader opens its first source once, on mount: a window opens one book for its life.
   const initialSource = useMemo(

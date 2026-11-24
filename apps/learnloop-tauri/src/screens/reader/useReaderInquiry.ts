@@ -132,6 +132,30 @@ export interface InquiryCheckState {
   failure?: string | null;
 }
 
+/** A companion exchange about this reading, as a source window on a desk is told of it (spec §8, §21.1): the
+ *  companion holds the thread; the window keeps the detours and the reconnect it answers. */
+export interface WindowExchange {
+  /** The Reader exchange's id (its answer event): the one reconnect and status answers name. */
+  id: string;
+  parentExchangeId: string | null;
+  extractionId: string;
+  spanId: string;
+  question: string;
+  answerMd?: string;
+  createdAt?: string | null;
+}
+
+/** An ask a source window on a desk sends to the desk's companion instead of its own Ask rail. */
+export interface WindowAsk {
+  /** The question (empty: summon the companion on the passage, its words as the chip, asking nothing). */
+  question: string;
+  spanId: string;
+  selectionSpanIds: string[];
+  quote: string | null;
+  /** The exchange a follow-up branches from (null: the companion's own choice). */
+  parentExchangeId?: string | null;
+}
+
 export interface ReaderInquiryInput {
   render: ReaderRenderViewDto | null;
   offline: boolean;
@@ -174,6 +198,8 @@ export interface ReaderInquiryInput {
   /** Reader CA6b: an empty Enter in side by side's second pane: the composer's
    *  next new question is anchored there (null: the open book, as before). */
   composerAnchorRef?: MutableRefObject<AskAnchor | null>;
+  /** On a desk: asks go to the desk's companion (a reconnect's "still unclear" branches there). */
+  askElsewhere?: ((ask: WindowAsk) => void) | null;
   /** The screen's openSource (a restore may reopen the source a detour left). */
   openSourceRef: MutableRefObject<
     ((card: SourceLibraryCard, jumpSpan?: string,
@@ -254,6 +280,9 @@ export interface ReaderInquiry {
   snapshotSideBySide: (label: string, target: PaneTarget) => boolean;
   /** Reader CA6: the learner closed side by side; its crumb goes if it is the current entry (nothing moves). */
   dropDetour: (entryId: string) => void;
+  /** On a desk: a companion answer about this reading landed. It joins the history (so its reconnect and status
+   *  name it) and, as a follow-up, joins the detours with its parent, as a branch in the Ask rail does. */
+  noteCompanionAnswer: (exchange: WindowExchange, parent: WindowExchange | null) => void;
 }
 
 export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
@@ -262,6 +291,7 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
     activeSpan, railTab, setRailTab, answerMode, setBusy, onError, annotations, refreshAnnotations, setArc,
     visit, readingSpan, guideSectionBySpan, jumpToSpan, onReadingScroll, jumpGuardRef, bodyRef,
     askComposerRef, openSourceRef, onRestored, workbenchSessionRef, personalizedRef, composerAnchorRef,
+    askElsewhere = null,
   } = input;
   const { visitPayload, touchVisit, noteBackToReading, noteUsableResult } = visit;
   const [question, setQuestion] = useState("");
@@ -1208,11 +1238,16 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
       // it is asked now; without, the composer opens on the root.
       const root = history.find((item) => item.id === line.rootId) ?? null;
       if (!root) return;
+      if (askElsewhere) {
+        // On a desk the companion is the Ask: the branch is asked there, from the root.
+        askElsewhere({ question: text, spanId: root.spanId, selectionSpanIds: root.selectionSpanIds, quote: root.selectionQuoteMd, parentExchangeId: root.id });
+        return;
+      }
       setParentExchange(root);
       setRailTab("ask");
       if (text) void submitAsk(text, root);
     }
-  }, [reconnect, render, offline, railTab, startQuickCheck, updateExchange, onError, history, submitAsk, setRailTab, extractionOf]);
+  }, [reconnect, render, offline, railTab, startQuickCheck, updateExchange, onError, history, submitAsk, setRailTab, extractionOf, askElsewhere]);
 
   // The passage check is written by a durable job: poll its cheap read and
   // the job's own state until it lands, fails (said in place: capped, the
@@ -1359,6 +1394,28 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
     return hub.listen("window", "keydown", onFind, true);
   }, [railTab, askFindOpen, hub]);
 
+  const noteCompanionAnswer = useCallback((exchange: WindowExchange, parent: WindowExchange | null) => {
+    if (!render || exchange.extractionId !== render.extractionId) return;
+    const asExchange = (each: WindowExchange): ReaderExchange => ({
+      id: each.id, parentExchangeId: each.parentExchangeId, extractionId: each.extractionId, spanId: each.spanId,
+      selectionSpanIds: [], selectionQuoteMd: null, question: each.question, answerMd: each.answerMd ?? "",
+      answerMode: "answer_directly", citations: [], createdAt: each.createdAt ?? null, resolution: "open",
+    });
+    const known = new Set(historyRef.current.map((item) => item.id));
+    const added = [exchange, ...(parent ? [parent] : [])].filter((each) => !known.has(each.id)).map(asExchange);
+    if (added.length) setHistory((items) => [...added, ...items.filter((item) => !added.some((each) => each.id === item.id))]);
+    if (!inquiry || !parent) return;
+    const branchEntry = (target: WindowExchange): ReturnEntry => ({
+      id: newActivityId(), kind: "branch", sourceId: render.sourceId, sourceTitle,
+      extractionId: render.extractionId, spanId: target.spanId, selection: null, railTab: "ask",
+      exchangeId: target.id, label: clip(target.question, 48), openedAt: Date.now(),
+    });
+    const pushes: ReturnEntry[] = [];
+    if (!returnStackRef.current.entries.some((entry) => entry.exchangeId === parent.id)) pushes.push(branchEntry(parent));
+    pushes.push(branchEntry(exchange));
+    pushDetours(pushes);
+  }, [render, inquiry, sourceTitle, pushDetours]);
+
   return {
     question, setQuestion, askComposerVersion, parentExchange, setParentExchange, history, visibleAskHistory,
     normalizedAskFind, collapsedAskIds, setCollapsedAskIds, askFindOpen, setAskFindOpen, askFindQuery,
@@ -1368,5 +1425,6 @@ export function useReaderInquiry(input: ReaderInquiryInput): ReaderInquiry {
     commitInquiry, committedFor, openInquiry, startQuickCheck, cancelQuickCheck, dismissInquiryCheck, answerReconnect,
     inquiryCheckAction, escalateInquiryCheck, passageLabel, peekPassage, restoreEntry, onBodyScroll,
     noteSourceOpened, rememberLeftSource, resetInquiryState, pushSideBySide, replaceSideBySide, snapshotSideBySide, dropDetour,
+    noteCompanionAnswer,
   };
 }

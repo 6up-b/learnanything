@@ -95,6 +95,8 @@ import { clientIdFor, type OutboxTransport } from "./outbox";
 import { deskStoreFor } from "./store";
 import { CarriedList, Shelf, type ShelfRow } from "./Shelf";
 import { SourceWindow, type ReaderPassThrough, type SourceStatus } from "./windows/SourceWindow";
+import type { WindowInquiry } from "../ReaderScreen";
+import type { WindowAsk, WindowExchange } from "../reader/useReaderInquiry";
 import { ThreadWindow } from "./windows/ThreadWindow";
 import { PadStackWindow } from "./pads/PadStackWindow";
 import { ContextMenu, useSheetFocus, type PromotedApi } from "./menu/ContextMenu";
@@ -526,6 +528,9 @@ export interface DeskShellProps {
   lessonsTransport?: LessonsTransport;
   /** Follow-along and the suggested chapters' calls (RD10); absent, the sidecar's. */
   videoTransport?: VideoTransport;
+  /** The app's "Ask the tutor about this" while the desks are the Reader: each new count summons the companion on
+   *  what is in view (it never dismisses it). */
+  askRequest?: number;
 }
 
 export function DeskShell({
@@ -551,6 +556,7 @@ export function DeskShell({
   lessons,
   lessonsTransport = LIVE_LESSONS_TRANSPORT,
   videoTransport = LIVE_VIDEO_TRANSPORT,
+  askRequest = 0,
 }: DeskShellProps) {
   // The vault's one desk store (store.ts): it outlives this shell, so leaving and coming back never makes a
   // second outbox for the same client.
@@ -669,6 +675,9 @@ export function DeskShell({
   const onEndRef = useRef<(goal: 0 | 1, base: 0 | 1) => void>(() => undefined);
   const controller = useMemo(() => new ZoomController(frameClock, (goal, base) => onEndRef.current(goal, base)), [frameClock]);
   const jumps = useRef(new Map<string, (spanId: string) => void>());
+  // Each source window's inquiry (its detours and reconnect): a claim of its reading peeks there, and a companion
+  // answer about it joins its detours (spec §21.1).
+  const inquiries = useRef(new Map<string, WindowInquiry>());
   const media = useRef(new Map<string, () => void>());
   const pendingJump = useRef(new Map<string, string>());
 
@@ -1909,7 +1918,7 @@ export function DeskShell({
     notebookFrame: lessons?.notebookFrame ?? lessonNotebookFrame,
   }), [lessonDesk, onError, openLesson, lessons?.onQuickCheck, lessons?.onLookInLibrary, lessons?.notebookFrame, lessons?.onProbe]);
 
-  const openContent = useCallback((content: ContentRefDto, options: { spanId?: string | null; view?: Record<string, unknown> } = {}) => {
+  const openContent = useCallback((content: ContentRefDto, options: { spanId?: string | null; view?: Record<string, unknown>; peek?: boolean } = {}) => {
     const current = wsRef.current;
     const id = deskIdRef.current;
     if (!id) return;
@@ -1926,8 +1935,11 @@ export function DeskShell({
     keepPrevious.current = !step.existed;
     commit(step);
     if (step.existed && options.spanId) {
+      // A claim in a window already open is a peek there (its strip shows the way back); else a jump.
+      const inquiry = options.peek ? inquiries.current.get(step.windowId) : undefined;
       const jump = jumps.current.get(step.windowId);
-      if (jump) jump(options.spanId);
+      if (inquiry) inquiry.peek(options.spanId);
+      else if (jump) jump(options.spanId);
       else pendingJump.current.set(step.windowId, options.spanId);
     }
     if (!step.existed) {
@@ -2040,6 +2052,13 @@ export function DeskShell({
   };
   const companionKeyRef = useRef(companionKey);
   companionKeyRef.current = companionKey;
+  // The palette's Ask: the companion on the focused window's reading (its selection as the chip), or left shown.
+  const askRequestSeen = useRef(askRequest);
+  useEffect(() => {
+    if (askRequest === askRequestSeen.current) return;
+    askRequestSeen.current = askRequest;
+    if (companionStateRef.current.mode === "hidden") companionKeyRef.current(false);
+  }, [askRequest]);
 
   /** A notebook frame's bridge (spec §11.3): `c` summons the companion at the frame's selection with its text as
    * the chip (untrusted notebook text, quoted), `shift` docks it, escape dissolves an anchored companion, and a
@@ -2193,7 +2212,7 @@ export function DeskShell({
       const card = library?.find((entry) => entry.sourceId === found);
       const shown = card && isVideoCard(card) ? "video" : known;
       const ref = { kind: shown, sourceId: found, extractionId: citation.extractionId, ...(shown === "video" && citation.t !== undefined ? { t: citation.t } : {}) } as ContentRefDto;
-      openContent(ref, { spanId: citation.spanId });
+      openContent(ref, { spanId: citation.spanId, peek: true });
     };
     if (sourceId) {
       open(sourceId, kind);
@@ -3218,6 +3237,85 @@ export function DeskShell({
     return handler;
   }, [jumpReadyFor]);
 
+  const inquiryReadyFor = useMemo(() => new Map<string, (inquiry: WindowInquiry | null) => void>(), []);
+  const onInquiryReadyFor = useCallback((windowId: string) => {
+    let handler = inquiryReadyFor.get(windowId);
+    if (!handler) {
+      handler = (inquiry) => {
+        if (inquiry) inquiries.current.set(windowId, inquiry);
+        else inquiries.current.delete(windowId);
+      };
+      inquiryReadyFor.set(windowId, handler);
+    }
+    return handler;
+  }, [inquiryReadyFor]);
+
+  // A source window's ask goes to the companion (its rail is not on the desk): with words it is asked now, on the
+  // window's reading and passage (a named parent makes it a branch of that question); without, the companion opens
+  // on the passage with its words as the chip, for the learner to ask.
+  const windowAsk = (windowId: string, ask: WindowAsk) => {
+    const content = wsRef.current.windows[windowId]?.content;
+    if (!content || (content.kind !== "source" && content.kind !== "video")) return;
+    if (ask.question.trim()) {
+      asks.ask({
+        deskId: deskIdRef.current, windowId, surface: "desk", question: ask.question.trim(), extractionId: content.extractionId,
+        spanId: ask.spanId, selectionSpanIds: ask.selectionSpanIds, quote: ask.quote,
+        ...(ask.parentExchangeId !== undefined ? { parentExchangeId: ask.parentExchangeId } : {}),
+      }, store.settled());
+    } else if (ask.quote) {
+      setChip({ quote: clipQuote(ask.quote, 400), spanIds: ask.selectionSpanIds, windowId });
+    }
+    if (companionStateRef.current.mode === "hidden") stepCompanion({ kind: "c", anchor: null, stage: stageNow.current });
+  };
+  const windowAskRef = useRef(windowAsk);
+  windowAskRef.current = windowAsk;
+  const askFor = useMemo(() => new Map<string, (ask: WindowAsk) => void>(), []);
+  const onAskFor = useCallback((windowId: string) => {
+    let handler = askFor.get(windowId);
+    if (!handler) {
+      handler = (ask) => windowAskRef.current(windowId, ask);
+      askFor.set(windowId, handler);
+    }
+    return handler;
+  }, [askFor]);
+
+  // A companion answer that lands while the desks are shown is told to the window it was asked from (else the first
+  // window on the desk showing its reading): a follow-up joins that window's detours with its parent, so walking back
+  // to where the learner was asks "does this make sense now?" there. Answers already in the thread when the desks
+  // open were told before, or belong to a visit that has ended.
+  const toldAnswers = useRef<Set<string> | null>(null);
+  const companionVersion = asks.getVersion();
+  useEffect(() => {
+    const answerId = (exchange: CompanionExchange) => (exchange.answer ? exchange.answer.readerAnswerEventId || exchange.answer.eventId : null);
+    const thread = asks.thread(deskId);
+    if (toldAnswers.current === null) {
+      toldAnswers.current = new Set(thread.map(answerId).filter((id): id is string => Boolean(id)));
+      return;
+    }
+    const told = toldAnswers.current;
+    const asExchange = (exchange: CompanionExchange, id: string): WindowExchange => ({
+      id, parentExchangeId: exchange.answer?.parentExchangeId ?? exchange.request.parentExchangeId ?? null,
+      extractionId: exchange.extractionId, spanId: exchange.spanId, question: exchange.question, answerMd: exchange.answer?.answerMd ?? "",
+    });
+    for (const exchange of thread) {
+      const id = answerId(exchange);
+      if (exchange.status !== "answered" || !id || told.has(id)) continue;
+      told.add(id);
+      const current = wsRef.current;
+      const shows = (windowId: string | null) => {
+        const content = windowId ? current.windows[windowId]?.content : null;
+        return Boolean(content && (content.kind === "source" || content.kind === "video") && content.extractionId === exchange.extractionId);
+      };
+      const desk = deskId ? deskById(current, deskId) : null;
+      const windowId = shows(exchange.windowId) ? exchange.windowId : (desk?.slots.flat().find((each) => shows(each)) ?? null);
+      const inquiry = windowId ? inquiries.current.get(windowId) : undefined;
+      if (!inquiry) continue;
+      const me = asExchange(exchange, id);
+      const parent = me.parentExchangeId ? thread.find((each) => answerId(each) === me.parentExchangeId) : undefined;
+      inquiry.noteAnswer(me, parent ? asExchange(parent, me.parentExchangeId as string) : null);
+    }
+  }, [asks, deskId, companionVersion]);
+
   const mediaReadyFor = useMemo(() => new Map<string, (toggle: (() => void) | null) => void>(), []);
   const onMediaReadyFor = useCallback((windowId: string) => {
     let handler = mediaReadyFor.get(windowId);
@@ -3311,6 +3409,8 @@ export function DeskShell({
           onStatus: onStatusFor(window.windowId),
           onJumpReady: onJumpReadyFor(window.windowId),
           onMediaReady: onMediaReadyFor(window.windowId),
+          onInquiryReady: onInquiryReadyFor(window.windowId),
+          onAsk: onAskFor(window.windowId),
           onError,
           ...(reader ? { reader } : {}),
           // A book following a video marks its passage over the goal lens (RD10).

@@ -26,7 +26,7 @@ branch before any work on it.
 |---|---|---|---|
 | Source pane: render view, PDF pane, selection (drag, ctrl+drag, alt+drag), capture, health flags | The Reader's source pane in each source window (§7.1), unchanged; on a desk its capture runs from the intent box over a selection (highlight, note, the presets) and the menu's Note in margin and Append | `windows/SourceWindow.desk.test.tsx`: text selection captured with exact nodes and offsets and drawn at once; PDF selection sent as the pane sent it and drawn from its placement; held-out material offers no model action; a removed highlight's undo by button and Ctrl+Z in its window; a failed block's health line and its way to the original. Harness `intent` run: ctrl+drag boxes over a book window's text commit one selection there, with no desk zoom | **Demonstrated.** Alt+drag is the PDF pane's own paragraph gesture (`usePdfSelection`), mounted unchanged and covered by the pane's tests; the harness has no PDF to drag on. See §3 for two notes (plain highlight with the intent switch off; ranged windows) |
 | Guide rail: cues, reading-path card, deliverable slice | | | pending |
-| Ask rail, branches, detour strip, reconnect, docked Ask and overlay | | | pending |
+| Ask rail, branches, detour strip, reconnect, docked Ask and overlay | The companion (§8) asks; its answers now act on the book's window as the Ask rail's did: a claim of a reading already open peeks there (`openClaim` → the window's inquiry), a companion follow-up joins the window's detours with its parent, walking back (Alt+← or a crumb) shows the inline reconnect under where the learner was, and its "still unclear" asks again in the companion as a branch of that question (`askElsewhere`; `CompanionAsks.ask` takes a named parent). The palette's "Ask the tutor about this" summons the companion while the desks are the Reader (`askRequest`) | `windows/SourceWindow.inquiry.test.tsx`: a claim peeks with the strip and Alt+← back (the restore names the origin passage); a follow-up's branch crumbs, the reconnect inline under the origin and its "yes" naming the root; "still unclear" with words asked in the companion with `parentExchangeId` the root; the palette's Ask summons and never dismisses. The old screen's inquiry suites still pass | **Built and demonstrated.** Before: a claim jumped with no way back, a companion follow-up left the window's strip empty, no reconnect ever showed on a desk, and the palette's Ask did nothing there. Fail-first: the first three cases and the palette case failed before the build. RD3b's choice stands: Practice and Today keep their own Ask hosts (`docs/reviews/reader-rd3b.md`) |
 | Intent box, active reading | | | pending |
 | The tutor that looks things up | | | pending |
 | Workbench (RW2) | | | pending |
@@ -55,6 +55,13 @@ branch before any work on it.
   is outside the parity matrix; recorded for the coordinator.
 
 ## 4. Entry points that still open the old Reader
+
+Routed to the workbench on this branch:
+
+- **The palette's "Ask the tutor about this" while reading** (`app/App.tsx`): on the desks it now summons their
+  companion (`DeskShell` `askRequest`), with or without a book in a window; on the old screen it is unchanged.
+
+Still listed (each waits on its row or on phase 2's targeted open):
 
 (filled as rows close)
 

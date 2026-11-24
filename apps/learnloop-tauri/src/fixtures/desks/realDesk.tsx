@@ -88,10 +88,13 @@ export function mountRealDesk(options: { state?: DeskStateDto; pads?: PadViewDto
     applyPad: async (input: Parameters<FixtureDeskServer["applyPad"]>[0]) => server.applyPad(input),
     padGet: async ({ padId }: { padId: string }) => server.padGet(padId),
   };
-  const view = render(
-    <DeskShell vaultKey={vaultKey} onError={onError} transport={transport} poller={poller} initialViewport={{ width: 1600, height: 960 }} {...options.props} />,
+  const ui = (props: Partial<DeskShellProps> = {}) => (
+    <DeskShell vaultKey={vaultKey} onError={onError} transport={transport} poller={poller} initialViewport={{ width: 1600, height: 960 }} {...options.props} {...props} />
   );
-  return { server, poller, errors, view };
+  const view = render(ui());
+  /** The desks rendered again by their parent, with these props changed (as the app does). */
+  const rerender = (props: Partial<DeskShellProps>) => view.rerender(ui(props));
+  return { server, poller, errors, view, rerender };
 }
 
 /** Lets the desks' and the Reader's reads land (fake timers advanced a little at a time). */

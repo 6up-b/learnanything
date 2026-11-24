@@ -160,7 +160,7 @@ it("fewer marks and marks off for this book are undone in the window, and the de
   const footer = within(winEl("w_book")).getByRole("group", { name: "margin marks" });
   expect(within(footer).getByRole("button", { name: "●fewer" })).toBeTruthy();
   fireEvent.click(within(within(winEl("w_book")).getByText("Margin marks: fewer.").closest("[data-cue-receipts]") as HTMLElement).getByRole("button", { name: "undo" }));
-  await waitFor(() => expect(inputsOf("reader_set_cue_preferences").at(-1)).toMatchObject({ density: "normal", via: "undo" }));
+  await waitFor(() => expect(inputsOf("reader_set_cue_preferences").slice(-1)[0]).toMatchObject({ density: "normal", via: "undo" }));
   await waitFor(() => expect(marksIn("w_book").length).toBe(2));
 
   fireEvent.click(marksIn("w_book")[0]);

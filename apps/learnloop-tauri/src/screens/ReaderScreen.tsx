@@ -130,7 +130,7 @@ import { SideBySidePane } from "./reader/SideBySidePane";
 import { SIDE_BY_SIDE_COPY, SIDE_BY_SIDE_SCROLL_KEYS, useSideBySide } from "./reader/useSideBySide";
 import { clampSplit, crumbLabel, readSplit, targetOf as sideBySideTarget, writeSplit } from "./reader/sideBySide";
 import { inSidePane, useSidePane, type PaneCaptureTarget, type SidePane } from "./reader/useSidePane";
-import type { AskAnchor } from "./reader/useReaderInquiry";
+import type { AskAnchor, WindowAsk, WindowExchange } from "./reader/useReaderInquiry";
 import { ALSO_COPY, AlsoInBooks, type AlsoPeekCrumb } from "./reader/AlsoInBooks";
 import { WORKBENCH_COPY, problemTitle } from "./workbench/stepModel";
 import { screenLeavesKey } from "../app/keymap";
@@ -293,6 +293,19 @@ export interface ReaderWindowing {
   /** Pen mode's way onto this source (RD8a): the text surface, the open reading's identity and the selection
    * model for a range the pen marked (null while no text reading is shown). */
   onPenSurface?: (surface: PenSurface | null) => void;
+  /** The desk's way into this window's inquiry (spec §21.1: the companion holds the thread; the detour strip and
+   *  alt+← stay in the window): a claim of this reading peeks, and a companion answer joins its detours. */
+  onInquiryReady?: (inquiry: WindowInquiry | null) => void;
+  /** Asks go to the desk's companion (a routed ask, a reconnect's "still unclear"), not to a rail the desk hides. */
+  onAsk?: (ask: WindowAsk) => void;
+}
+
+/** What a desk does in a source window's inquiry. */
+export interface WindowInquiry {
+  /** A claim of this reading opened from outside: a peek, so the strip shows the way back and alt+← walks it. */
+  peek: (spanId: string) => void;
+  /** A companion answer about this reading landed (a follow-up, with its parent). */
+  noteAnswer: (exchange: WindowExchange, parent: WindowExchange | null) => void;
 }
 
 /** The desks' goal lens, laid over a reading's passages by span id (the text itself is never changed). */
@@ -744,7 +757,7 @@ export function ReaderScreen({
     setInquiryStatus, markBranchDone, commitInquiry,
     committedFor, openInquiry, startQuickCheck, cancelQuickCheck, dismissInquiryCheck, answerReconnect, inquiryCheckAction,
     escalateInquiryCheck, peekPassage, restoreEntry, onBodyScroll, noteSourceOpened, rememberLeftSource,
-    resetInquiryState, pushSideBySide, replaceSideBySide, snapshotSideBySide, dropDetour,
+    resetInquiryState, pushSideBySide, replaceSideBySide, snapshotSideBySide, dropDetour, noteCompanionAnswer,
   } = useReaderInquiry({
     render, offline, inquiry, muted, library, sourceTitle, selection, setSelection, setSelectionActions,
     activeSpan, railTab, setRailTab, answerMode, setBusy, onError, annotations, refreshAnnotations, setArc,
@@ -755,6 +768,7 @@ export function ReaderScreen({
     workbenchSessionRef: askWorkbenchSessionRef,
     personalizedRef: askPersonalizedRef,
     composerAnchorRef: askComposerAnchorRef,
+    askElsewhere: windowed?.onAsk ?? null,
   });
 
   // RW3a: margin cues from the Guide's own citations (screens/reader/useReaderCues).
@@ -2268,6 +2282,12 @@ export function ReaderScreen({
     onWindowJumpReady(render ? (spanId: string) => jumpToSpan(spanId, "start") : null);
     return () => onWindowJumpReady(null);
   }, [onWindowJumpReady, render, jumpToSpan]);
+  const onWindowInquiryReady = windowed?.onInquiryReady;
+  useEffect(() => {
+    if (!onWindowInquiryReady) return;
+    onWindowInquiryReady(render ? { peek: peekPassage, noteAnswer: noteCompanionAnswer } : null);
+    return () => onWindowInquiryReady(null);
+  }, [onWindowInquiryReady, render, peekPassage, noteCompanionAnswer]);
   const onWindowPenSurface = windowed?.onPenSurface;
   const penTextShown = Boolean(render) && !(pdfView && surface === "pdf");
   useEffect(() => {

@@ -2019,7 +2019,8 @@ export function App() {
           if (askCurrentContext() || practicing) return;
           // With a book open, the Reader's own Ask opens, its box focused
           // (Codex review F5: a notice held while reading did nothing there).
-          if (tab === "reader" && readerSource) {
+          // On the desks it summons their companion, a book open in a window or not.
+          if (tab === "reader" && (readerSource || (readerSurface === "desks" && vaultRoot && !planReading))) {
             setReaderAskRequest((count) => count + 1);
             return;
           }
@@ -2471,6 +2472,7 @@ export function App() {
             onError={onError}
             onLeave={() => chooseReaderSurface("reader")}
             firstSourceId={readerSource?.card.sourceId ?? null}
+            {...(simple ? { askRequest: readerAskRequest } : {})}
             reader={{ onCheckMe: checkMeFromReader, onUseExercise: exerciseFromReader, ...(algoConfig().lessons ? { onTeachMe: teachMeFromReader } : {}), ...(readerWorkbench ? { workbench: readerWorkbench } : {}) }}
             {...(algoConfig().lessons ? { lessons: { request: deskLessonRequest, onProbe: openProbeScreen, onConsumed: (seq: number) => setDeskLessonRequest((now) => (now?.seq === seq ? null : now)), onQuickCheck: (ids: string[]) => void startQuickCheck(ids), onLookInLibrary: lookInLibrary } } : {})}
           />
