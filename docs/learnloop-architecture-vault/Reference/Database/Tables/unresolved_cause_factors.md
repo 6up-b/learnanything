@@ -155,13 +155,13 @@ Indexes and uniqueness:
 - `tests/test_rebuild_equivalence.py`
 - `tests/test_rebuild_equivalence_review.py`
 - `tests/test_recurrence_live.py`
+- `tests/test_replay_keeps_diagnosis_ids.py`
 - `tests/test_sg_slip_vs_gap.py`
 - `tests/test_stuck_prompt.py`
 - `tests/test_stuck_prompt_replay.py`
 - `tests/test_voi_forecasts.py`
 - `tests/causal_factor_deferral_helpers.py`
 - `tests/causal_orchestrator_helpers.py`
-- `tests/causal_p2_acceptance_helpers.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

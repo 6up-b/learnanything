@@ -121,6 +121,24 @@ ROWS = [
      ("supporting", "mapped", "mentions", "lo_c", False, None)),
     ("multi-LO: equal need goes to path order", cov(("lo_c", "mentions"), ("lo_a", "mentions")), {}, (), (),
      None, ("supporting", "mapped", "mentions", "lo_a", False, None)),
+    # -- coverage from an accepted video chapter (owner decision 2026-11-23): a place the topic is taught, never more
+    ("chapter, mapped: an accepted chapter's range is a place the topic is taught", cov(("lo_c", "chapter")), {}, (),
+     (), None, ("supporting", "mapped", "chapter_about", "lo_c", False, None)),
+    ("chapter: never core, even where the path places the LO", cov(("lo_a", "chapter")), {"lo_a": place("lo_a")},
+     ("lo_a",), (), None, ("supporting", "mapped", "chapter_about", "lo_a", False, None)),
+    ("chapter, partial: an unchecked topic could still raise it", cov(("lo_a", "chapter")), {}, (), ("lo_c",), None,
+     ("partial", "partial", "partial_unsettled", None, False, "supporting")),
+    ("chapter beside a judge's not about another goal LO: still needed", cov(("lo_c", "not_about"), ("lo_a", "chapter")),
+     {}, (), (), None, ("supporting", "mapped", "chapter_about", "lo_a", False, None)),
+    ("chapter on an off-goal topic beside a goal LO's primary: core stays", cov(("lo_other", "chapter"), ("lo_a", "develops")),
+     {"lo_a": place("lo_a")}, ("lo_a",), (), None, ("core", "mapped", "primary", "lo_a", False, None)),
+    ("chapter on an off-goal topic with a goal topic unchecked: partial, never skippable", cov(("lo_other", "chapter")),
+     {}, (), ("lo_c",), None, ("partial", "partial", "partial_unsettled", None, False, None)),
+    ("chapter on an off-goal topic, every goal topic settled: skippable by the existing rule", cov(("lo_other", "chapter")),
+     {}, (), (), None, ("skippable", "mapped", "out_of_scope", None, True, None)),
+    ("chapter on an LO the learner skipped: skippable only by the learner's skip", cov(("lo_a", "chapter")),
+     {"lo_a": place("lo_a", effective="skipped", override="skip")}, ("lo_a",), (), None,
+     ("skippable", "mapped", "you_skipped", "lo_a", True, None)),
 ]
 
 
@@ -160,6 +178,43 @@ def test_a_held_lo_hides_the_purpose_text_of_every_section_it_is_in():
     assert "Traces" not in str(view)
 
 
+def test_a_chapters_row_stale_after_the_transcript_changed_leaves_the_section_partial():
+    # The chapter's row was written against the transcript as it was; once the section changed it no longer stands,
+    # and what it said is unknown, never "not about": partial, not skippable.
+    goal = GL.GoalReads("g", "fluency", "fluency", LOS, {})
+    section = GL.SectionReads(HERE, "Here", (), (), None, None, stale=("lo_a",))
+    level = GL.section_level(section, goal)
+    assert (level.level, level.mapping, level.reason_key, level.dim) == ("partial", "partial", "partial_unsettled", False)
+
+
+def test_a_held_lo_from_an_accepted_chapter_is_masked_as_any_held_lo():
+    goal = GL.GoalReads("g", "fluency", "fluency", LOS, {})
+    section = GL.SectionReads(HERE, "Here", cov(("lo_held", "chapter")))
+    level = GL.section_level(section, goal)
+    view = GL.level_view(level, section, goal)
+    assert level.level == "supporting" and level.held
+    assert view["reason_md"] == GL.HELD_REASON and view["coverage_line"] is None and "Traces" not in str(view)
+
+
+@pytest.mark.parametrize("rule, coverage, path, placed, unsettled, choice, expected", ROWS,
+                         ids=[row[0] for row in ROWS])
+def test_adding_a_chapters_row_never_lowers_a_sections_need(rule, coverage, path, placed, unsettled, choice, expected):
+    # The costly error (review F6): an accepted chapter must never make a section that needs reading read as needing
+    # less. For every rule above and every LO a chapter could be tagged with, adding its row keeps a needed section at
+    # least as needed and never makes a section skippable that was not.
+    goal = GL.GoalReads("my midterm", "learn_to_use_it", "learn to use it", LOS, path, frozenset(unsettled))
+    before = GL.section_level(GL.SectionReads(HERE, "Here", coverage, placed, None, choice), goal)
+    for lo_id in [*LOS, "lo_other"]:
+        if any(row.learning_object_id == lo_id for row in coverage):
+            continue
+        after = GL.section_level(GL.SectionReads(HERE, "Here", (*coverage, GL.Coverage(lo_id, GL.CHAPTER_ABOUT)),
+                                                 placed, None, choice), goal)
+        if before.level != "skippable" and before.mapping != "unmapped":
+            assert after.level != "skippable", (rule, lo_id)
+        if before.level in GL.NEED_ORDER and after.level in GL.NEED_ORDER:
+            assert GL.NEED_ORDER.index(after.level) <= GL.NEED_ORDER.index(before.level), (rule, lo_id)
+
+
 def test_reason_text_is_the_paths_own_line_on_the_path_and_assembled_off_it():
     goal = GL.GoalReads("g", "get_the_idea", "get the idea", LOS,
                         {"lo_a": place("lo_a", reason="Strang's chapter is the clearest for you."),
@@ -193,6 +248,15 @@ def test_the_learner_line_names_their_choice_or_todays_answer():
 def test_the_cores_vocabulary_is_coverages():
     assert GL.TREATMENTS == SC.TREATMENTS
     assert set(GL.TREATMENT_VERBS) == set(SC.ABOUT)
+
+
+def test_a_chapters_words():
+    goal = GL.GoalReads("g", "fluency", "fluency", LOS, {})
+    section = GL.SectionReads(HERE, "Here", cov(("lo_c", "chapter")))
+    level = GL.section_level(section, goal)
+    assert GL.reason_text(level, section, goal) == "A chapter you accepted here is about “Bases”, a topic of your goal."
+    assert GL.coverage_line(level, section, goal) == (
+        "A chapter you accepted is about “Bases” · goal topic · outside your current path")
 
 
 def test_the_band_counts_within_the_depth_and_hides_held_names():

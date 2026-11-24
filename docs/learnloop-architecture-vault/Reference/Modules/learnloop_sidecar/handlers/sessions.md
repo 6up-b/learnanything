@@ -174,6 +174,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_gate_records_survive_replay.py](../../../../../../tests/test_gate_records_survive_replay.py) — direct import
+  - `test_what_history_shows_reads_the_same_after_a_rebuild`
 - [tests/test_session_ownership.py](../../../../../../tests/test_session_ownership.py) — direct import
   - `test_a_skip_never_clears_the_draft_of_a_device_that_adopted_while_the_queue_was_built`
   - `test_a_skip_refuses_a_session_that_moved_and_came_back_while_the_queue_was_built`

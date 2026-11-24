@@ -3207,7 +3207,7 @@ def _apply_attempt_in_transaction(
             attempt_id=application.result.attempt_id,
             repair_suggestions=list(repair_suggestions),
             generation_agent_run_id=generation_agent_run_id,
-            clock=clock,
+            clock=clock, replay=bool(attempt.replace_existing),
         )
         persisted_debug = repository.attempt_debug_payload(
             application.result.attempt_id

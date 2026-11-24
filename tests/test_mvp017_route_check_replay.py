@@ -155,10 +155,11 @@ SINGLE_ATTEMPT_LO = "lo_transpose"
 
 
 def test_the_bounded_replay_corrects_the_copy_in_one_rebuild_and_then_changes_nothing(tmp_path):
-    """F3: the first rebuild completes what it starts. Its learner replay
-    appends a causal-hypothesis version (a recurrence input), and the rebuild
-    reconciles the recurrence projection itself, so the rebuild right after it
-    changes no derived row, no hypothesis and no ledger row. At the fixture's
+    """F3: the first rebuild completes what it starts, so the rebuild right
+    after it changes no derived row, no hypothesis and no ledger row. Its
+    learner replay appends no causal-hypothesis version: the version live
+    materialization made is reused (an identical one exists), so the recurrence
+    projection has nothing to restamp. At the fixture's
     own tag: the bounded replay and the regrade-contract reading apply at every
     tag a vault opens at, and the copy keeps every serving gate D5 and D6 have
     not yet removed at mvp-0.17's branch."""
@@ -168,12 +169,8 @@ def test_the_bounded_replay_corrects_the_copy_in_one_rebuild_and_then_changes_no
     rebuild_all_derived_state(vault, repository, clock=CLOCK)
     first = _audited(repository)
     changed = sorted(table for table in before if before[table] != first[table])
-    # The appended hypothesis version restamps the recurrence fingerprint in
-    # the same rebuild (the group map, empty here, is unchanged); the attempt
-    # rows change only by UNRECORDED's reason.
-    assert changed == sorted(
-        [*REPLAY_CORRECTED_TABLES, "causal_hypotheses", "hypothesis_recurrence_state", "practice_attempts"]
-    )
+    # The attempt rows change only by UNRECORDED's reason.
+    assert changed == sorted([*REPLAY_CORRECTED_TABLES, "practice_attempts"])
     single = [row for row in before["learning_object_mastery"] if row[0] == SINGLE_ATTEMPT_LO]
     assert single and single == [row for row in first["learning_object_mastery"] if row[0] == SINGLE_ATTEMPT_LO]
     _assert_grades(repository)
