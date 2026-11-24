@@ -49,6 +49,7 @@ Exit status: 0 when every check passes, 1 otherwise. Screenshots go to --shots w
 from __future__ import annotations
 
 import argparse
+import datetime
 import asyncio
 import functools
 import http.server
@@ -117,6 +118,9 @@ def serve(directory: Path) -> tuple[http.server.ThreadingHTTPServer, int]:
 
 OUTSIDE: list[str] = []
 
+
+#: The fixtures' day (fixtures/desks/*.ts date their pads, lessons and checks 2026-11-23), at local noon.
+FIXTURE_NOW = datetime.datetime(2026, 11, 23, 12, 0, 0)
 
 async def route_outside(route: Route) -> None:
     url = route.request.url
@@ -1674,6 +1678,9 @@ async def main() -> int:
                 context = await (with_bars if runner in ("pads", "latex", "lesson") else browser).new_context(viewport=VIEWPORT)
                 await context.route(lambda url: not url.startswith(base), route_outside)
                 page = await context.new_page()
+                # The fixtures are dated 2026-11-23 (the running pad's days, lessons, checks): the page's clock reads
+                # that day, so "today" in the app matches them whatever day the harness runs (timers still run).
+                await page.clock.set_system_time(FIXTURE_NOW)
                 try:
                     if runner == "desks":
                         await run_desks(page, base, results, args.shots)
