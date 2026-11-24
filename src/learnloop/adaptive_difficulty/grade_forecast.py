@@ -1,4 +1,4 @@
-"""AD's forecast of a graded answer, as AD stood before it (``docs/reviews/algorithm-mvp-0.72.md``).
+"""AD's forecast of a graded answer, as AD stood before it (``docs/reviews/algorithm-mvp-0.71.md``).
 
 The serve hook records AD's forecast for an answer served through the plan. Every other graded answer (a Reader
 check, the tutor's, the phone's, practice opened outside the plan, a probe) has none, so the grade records one: the

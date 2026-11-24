@@ -1,5 +1,5 @@
 """What an answer's surprise is scored against, from the difficulty label's retirement on
-(``docs/reviews/algorithm-mvp-0.72.md``).
+(``docs/reviews/algorithm-mvp-0.71.md``).
 
 Adaptive difficulty's forecast made before the answer, in this order:
 

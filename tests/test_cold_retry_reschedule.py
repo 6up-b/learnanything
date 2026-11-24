@@ -338,4 +338,4 @@ def test_mvp038_is_one_constant_after_mvp037():
     # Reader RW6b's mvp-0.39 and curriculum C1's mvp-0.40 (the latest) follow it (and keep it).
     assert SUCCESSOR_CHAIN[-36:-33] == (SUPERSEDED_CLAIMS_ALGORITHM_VERSION, PREDECESSOR, COLD_RETRY_RESCHEDULE_ALGORITHM_VERSION) == (
         "mvp-0.36", "mvp-0.37", "mvp-0.38")
-    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.72"
+    assert SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.71"

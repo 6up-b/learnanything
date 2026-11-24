@@ -29,7 +29,7 @@ OLD = LESSON_OFFERS_ALGORITHM_VERSION
 def test_the_successor_is_one_constant_after_te3b_and_the_latest():
     assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1] == OLD == "mvp-0.53"
     # IH5's successor (mvp-0.55) follows it and keeps it, then the placement hole's (mvp-0.56) and slip or gap's (mvp-0.57).
-    assert TAG == "mvp-0.54" == SUCCESSOR_CHAIN[-18] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.72"
+    assert TAG == "mvp-0.54" == SUCCESSOR_CHAIN[-18] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.71"
 
 
 def test_the_switch_is_the_hosts_and_defaults_on():

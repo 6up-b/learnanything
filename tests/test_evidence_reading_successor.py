@@ -78,7 +78,7 @@ CLOCK = FrozenClock(NOW)
 
 def test_the_successor_is_one_constant_after_the_grade_channel_fixes():
     assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1] == BELOW == "mvp-0.60"
-    assert TAG == "mvp-0.61" == SUCCESSOR_CHAIN[-11] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.72"
+    assert TAG == "mvp-0.61" == SUCCESSOR_CHAIN[-11] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.71"
     assert not evidence_reading_fixes_on(_Config(BELOW)) and evidence_reading_fixes_on(_Config(TAG))
 
 
