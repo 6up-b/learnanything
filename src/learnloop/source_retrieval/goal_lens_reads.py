@@ -237,6 +237,7 @@ def reading_sections(vault: Any, repository: Repository, model: GoalModel, extra
             entry = standing.get(lo_id, {}).get((extraction_id, section_id))
             if entry is not None:
                 coverage.append(GL.Coverage(lo_id, entry.treatment if entry.treatment is not None
+                                            else GL.CHAPTER_ABOUT if entry.chapter_id is not None
                                             else GL.LEARNER_ABOUT))
         placed = tuple(lo for lo in dict.fromkeys(model.placed.get(ref, ())) if model.reads and lo in model.reads.los)
         # A goal LO whose rows here were all written against an earlier version of the section (no standing row
