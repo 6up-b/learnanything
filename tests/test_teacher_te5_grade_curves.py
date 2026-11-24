@@ -32,11 +32,10 @@ def _projection(repository):
 
 @pytest.mark.parametrize("missing", [True, False])
 def test_upgrade_freezes_once_then_refits_and_rebuilds_twice(tmp_path, monkeypatch, missing):
-    # Exercise the activation on the previous tag present in this checkout. The production row
-    # can publish only from the Reader's tag, including when these lanes are built separately.
+    # The production row: the lesson-weight curves follow the probe router.
     production = next(link for link in upgrades.UPGRADES if link.tag == TAG)
-    assert production.predecessor == "mvp-0.69"
-    link = upgrades.Link(TAG, production.activate)
+    assert production.predecessor == "mvp-0.70"
+    link = production
     paths, repository = build_teacher_vault(tmp_path / "vault", version=link.predecessor)
     _lesson_with_check(paths, repository, at=T, retained=0.8)
     middle = _cold(paths, repository, "pi_eig_1", T + timedelta(days=1), primed=True)

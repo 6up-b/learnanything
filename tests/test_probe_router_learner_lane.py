@@ -78,8 +78,10 @@ def _assignments(repository) -> list[dict]:
 # -- the facts read and the one decision ------------------------------------------------------------------------------
 
 
-def test_the_tag_is_the_head():
-    assert HEAD == PROBE_ROUTER_ALGORITHM_VERSION
+def test_the_head_keeps_the_tag():
+    from learnloop.algorithm_versions import PROBE_ROUTER_VERSIONS
+
+    assert HEAD in PROBE_ROUTER_VERSIONS and PROBE_ROUTER_ALGORITHM_VERSION in PROBE_ROUTER_VERSIONS
 
 
 def test_a_status_read_decides_once_and_a_reread_draws_nothing_and_writes_no_receipt(tmp_path, monkeypatch):
