@@ -197,3 +197,89 @@ app's own ways back), and the leave-time offer shows only whether the app mounte
 
 **Phase 2's**: the surface default and switches, and the saved panels' identities (rows above). The preparing view
 needs a content kind for an original first. The phone keeps its own Reader.
+
+## Phase 2, step 1: the scoped source extracted (`reader/rd-retire-extraction`)
+
+A move, no deletion: the standalone screen and a source window both mount the same extracted source, so step 2 can
+delete the standalone shell alone.
+
+### What moved where
+
+| Before | After | Lines |
+|---|---|---|
+| `screens/ReaderScreen.tsx`, the whole `ReaderScreen` function and every module-level definition | `screens/desks/source/ScopedSource.tsx`: the function as `ScopedSource`, the module's helpers, `RailScope` (the live portal stays) and `SIDE_PATH_COPY` | 5,359 → 4,884 (4,880 at the move; 4 more with RDX-1's fix) |
+| The seven exported contracts (`ReaderOpenSource`, `ReaderWindowing`, `WindowInquiry`, `ReaderLens`, `PenSurface`, `ReaderCheckMeRequest`, `ReaderExerciseRequest`) | `screens/desks/source/types.ts`, with `StandaloneShell` and its four contexts | 216 |
+| The standalone-only branches: the opening view and the list of books with its search, shelf, reader-off and demo views; the old header; the collapsed rail's handle; the key bar | `screens/ReaderScreen.tsx`: four functions (`unopened`, `header`, `collapsedRail`, `keyBar`) the source calls through its one new prop, `standalone`; `ReaderScreen` mounts `ScopedSource` with them | 332 |
+
+`SourceWindow` mounts `ScopedSource` (no `standalone`), and every type importer (`App.tsx`, `DeskShell.tsx`,
+`CheckCard.tsx`, `GoalLayer.tsx`, `goal/marks.tsx`, `PenLayer.tsx`, `video/followLens.ts` and two tests) reads
+`screens/desks/source/types`. The only change to a moved statement: `READER_MODE_OPTIONS` is exported, because the old
+header reads it. Each standalone function takes exactly the source's locals it read (24, 16, 9 and 10 names), typed in
+`types.ts`.
+
+**Not split (and why).** No hook moved out of the source. The standalone-only state stays in it until step 2 deletes it
+with the screen: the list's search (its query, depth, results, busy and error state and the effect that runs it), the
+offline demo, `backToLibrary`, the `shelf`, `initialLibrarySearch`, `onOpenLibrary` and `onOpenDesks` props, and the
+collapsed rail's preference with its `\` key. These read and write the source's own state (`render`, `sidecarDown`,
+`openSource`, the inquiry), so taking them out would change which component owns a hook; the four functions read them
+through their contexts instead. `railCollapsed` is also read by shared code (the recap's visibility, the cue layout
+key), so step 2 keeps it at its window value (never collapsed) rather than deleting it outright.
+
+### The proof
+
+- `scripts/rd_retire/check.mjs` (TypeScript's compiler API, run against the original file): every module-level
+  definition (28) is the same AST, comments and layout aside, in `ScopedSource.tsx` or `types.ts`; the function is the
+  same (3,426 printed lines) but for its name, the `standalone` prop and the four calls; each of the 11,604 names in it
+  resolves to the same declaration as before (an import's target module and name, a module definition, or the same
+  local, by its declaration's order); each standalone function is the original branch's text with each of its names
+  resolving as before (555, 208, 34 and 34 names), and each call passes exactly the names its function reads, each the
+  local it read before. The check fails on a changed literal in the source and on a renamed context name in a slot
+  (both tried). `scripts/rd_retire/generate.mjs` made the move (it rewrites the three files from the original: a record,
+  not a tool to run again).
+- Every `screens/ReaderScreen.*.test.tsx` (23 files) passes unchanged against the standalone screen, as do the 64 other
+  test files that mount it; every real-desk test passes against the window.
+- The tests about the shared source are ported to mount `ScopedSource` (`screens/desks/source/ScopedSource.*.test.tsx`,
+  22 files, 154 cases, made by `scripts/rd_retire/port_tests.mjs`; `cuesSwitchOff`'s snapshot is the original's, byte for
+  byte, run with `CI=true` so nothing new was written). The 28 cases that reach the source only through the standalone
+  branches are left out of the copies and kept in the originals: 13 leave the book by "← Library"; 9 use the list of
+  books (its search box 4, opening a book from it 2, the opening view, the shelf and the reader-off notice 1 each); 5
+  read or set the header's "I want to" (4) or read its re-read note (1); 1 reads the key bar's wrap up. Each is named in
+  its copy's header and in `scripts/rd_retire/standalone_only_cases.json`.
+- Source-path guards read the moved file: the capture-listener pin (`app/shellChrome.test.ts`), the classic gate's
+  evidence for the palette's ask (`app/classicIsBase.test.ts`) and the block policy's page check
+  (`tests/test_rw5c_block_policy.py`).
+- Typecheck; the whole vitest suite; every desk harness run (206 passed); the visual stages: every state's numbers are
+  the last run's (pairs 1, rd1 36, rd2 21, rd3 7, rd4 19, rd5 2, rd6 7, rd7 30, rd8 3, rd9 4). The one state whose pixel
+  share moved (`s11=lift` at laptop size, 25.9% or 48.9%) takes either value from run to run on the tree before the move
+  as well; built before and after the move, its two runs in the same mode are pixel-identical.
+- `desktop_validate` counts recomputed with the generator: 434 TypeScript files, 409 entry-reachable, 21 vitest-support,
+  440 active; `screens/desks/source` has its area line.
+- Found on the way: RDX-1 in the ledger (a hosted rail showed the Guide's name for a render in a Notes window), fixed in
+  its own commit after the move.
+
+### What step 2 deletes, in order
+
+1. Port the 28 left-out cases to a source window's own controls (leaving a book is closing or switching its window;
+   search hits come through the desk's search or the Library panel; "I want to" is the window's source bar; wrap up is
+   the window's `w`), and port the 64 other standalone-mount test files the same way (or retire the ones that test only
+   the old frame), as the 23 originals were ported here.
+2. The app-to-desk hand-offs (the audit's §4, order 3): every entry that opens the standalone screen opens a desk, and a
+   stored desk's panel windows of the old kinds are mapped on restore (below).
+3. Remove `App.tsx`'s lazy `ReaderScreen` and its two mounts, `app/shell.ts`'s Reader surface switch, `DeskShell`'s
+   `onLeave` back to the old surface, then `screens/ReaderScreen.tsx` itself.
+4. In `ScopedSource`: the `standalone` prop and its four calls (each `null` without it), the standalone-only state
+   listed above, and the props only the screen passes; in `types.ts`, `StandaloneShell` and its four contexts. Then
+   `screens/reader/readerKeys.ts` and `searchBasis.ts` (their last caller is the old key bar and list) and the original
+   `screens/ReaderScreen.*.test.tsx` (the ported copies keep their cases).
+5. Later, with the rows that move the Guide, Notes, Ask, checks and recap out of the portal: `railHost` and `RailScope`.
+
+### What still blocks deletion
+
+- **The surface default and switches**: the app's Reader place still defaults to and can switch back to the standalone
+  screen (the surface choice and the desks' way back); the owner's default and the switch's removal come first.
+- **Saved panels' identities**: stored desks hold panel windows of kind `guide`, `path`, `library` and `notes` (and a
+  separate `compare`); each must be mapped to its new home on restore, keeping its book, place, focus and a saved
+  Compare's anchor, and tried on an already-populated workspace.
+- **The preparing view's content kind**: a book still being prepared opens on its original in the standalone screen
+  (`PreparingView`, the shared branch above the window's own opening line); a desk has no content kind for an original
+  yet, so a source window cannot name or restore that view.
