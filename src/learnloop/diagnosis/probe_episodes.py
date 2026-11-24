@@ -786,16 +786,26 @@ def _record_generation_need(
 
 
 def router_selected_episode(vault: LoadedVault, repository: Repository, episode: Any) -> bool:
-    """At the probe router's tag, whether any presentation of this episode is a probe the router selected
-    (``probe_authority``): its continuation and completion are then no worth gate's."""
+    """Whether this episode's probe is the probe router's (``probe_authority``): a presentation that still stands
+    (committed, served or answered; never one ended unanswered), pinning a decision
+    the router made at its tag and that asked the probe. Its continuation and completion are then no worth gate's.
+    Ownership is the presentation's, not its answer's: an exposed or held answer does not change it."""
 
-    from learnloop.algorithm_versions import probe_router_on
-    from learnloop.diagnosis.probe_authority import router_pin
+    from learnloop.diagnosis.probe_authority import LIVE_STATUSES, ROUTER_DECISION_KEY, decision_owns
 
-    if episode is None or not probe_router_on(vault.config):
+    if episode is None:
         return False
-    return any(router_pin(presentation.selection_components or {})
-               for presentation in repository.probe_presentations_for_episode(str(episode.id)))
+    for presentation in repository.probe_presentations_for_episode(str(episode.id)):
+        pin = (presentation.selection_components or {}).get("causal_probe")
+        if not isinstance(pin, Mapping) or not pin.get(ROUTER_DECISION_KEY):
+            continue
+        # Retargeting an unanswered episode onto another lock ends its old pin (``invalidated``): an ended,
+        # unanswered pin stands for nothing.
+        if presentation.status not in LIVE_STATUSES:
+            continue
+        if decision_owns(repository, pin.get(ROUTER_DECISION_KEY)):
+            return True
+    return False
 
 
 def episode_hypothesis_set(
