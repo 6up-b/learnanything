@@ -1,8 +1,8 @@
 """Shared setups for ``tests/test_probe_router_authority.py``: the sites that answer "should a probe be asked after
 this miss?" and the rows each one writes, on the automatic follow-up lane and on the learner's repair lane.
 
-``TAG`` is the head these tests characterize. Every site here answers at it today; the probe router's successor
-changes who answers above it, so a test that should keep its predecessor's answer pins ``TAG`` rather than the head.
+``TAG`` is the tag these tests characterize: the probe router's predecessor (``probe_router_helpers``), where every
+site here answers as it did before the router became the decider.
 """
 
 from __future__ import annotations
@@ -10,13 +10,13 @@ from __future__ import annotations
 from types import SimpleNamespace
 from typing import Any
 
-from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
 from learnloop.db.repositories import Repository
 
 from tests.causal_orchestrator_helpers import CLOCK, PROBE_ITEM, _activate_probe_candidate, _seed_factor, _vault
 from tests.helpers import admit_probe_instrument_card
+from tests.probe_router_helpers import BEFORE_PROBE_ROUTER
 
-TAG = LATEST_ALGORITHM_VERSION
+TAG = BEFORE_PROBE_ROUTER
 
 
 def count(repository: Repository, table: str, where: str = "", args: tuple[Any, ...] = ()) -> int:

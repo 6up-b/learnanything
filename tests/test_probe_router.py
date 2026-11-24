@@ -35,9 +35,10 @@ from learnloop.router_objective import stop_coin as SC
 
 from tests.followup_serve_helpers import AuthorFake, author_clients, miss_with_rivals, rival_causes_vault, run_jobs
 from tests.ih2_lessons_compete_helpers import _author_refuses, _miss_env, draw  # noqa: F401 - ``draw`` is a fixture
+from tests.probe_router_helpers import BEFORE_PROBE_ROUTER
 
 #: The tag just below the probe router's: the predecessor whose answers stay below it.
-BEFORE = SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(PROBE_ROUTER_ALGORITHM_VERSION) - 1]
+BEFORE = BEFORE_PROBE_ROUTER
 #: A plan whose stop coin (and so the probe coin) is at 0.2, with no randomized checks in the way.
 COINS = '[router_objective]\nstop_coin = 0.2\ncheck_rate = "off"\n'
 
@@ -133,7 +134,7 @@ def test_the_probe_coin_has_its_own_seed_and_experiment_independent_of_the_stop_
 
 
 def test_at_the_tag_an_unwritten_probe_is_not_an_option_of_either_policy(tmp_path, monkeypatch):
-    env, row = _miss_env(tmp_path, toml=COINS)
+    env, row = _miss_env(tmp_path, version=LATEST_ALGORITHM_VERSION, toml=COINS)
     assert probe_router_on(env.vault.config)
     _arm(monkeypatch, 0.9)
     outcome = _gate(env).decide_followup(E.latest_today(env), None, row, wait_feasible=True)
@@ -148,7 +149,7 @@ def test_at_the_tag_an_unwritten_probe_is_not_an_option_of_either_policy(tmp_pat
 
 
 def test_at_the_tag_the_coin_asks_the_probe_now_with_its_exact_propensity(tmp_path, monkeypatch):
-    env, row = _miss_env(tmp_path, toml=COINS)
+    env, row = _miss_env(tmp_path, version=LATEST_ALGORITHM_VERSION, toml=COINS)
     _arm(monkeypatch, 0.05)
     outcome = _gate(env).decide_followup(E.latest_today(env), None, row, wait_feasible=True)
     assert (outcome.chosen_ref, outcome.propensity) == (INSERT_NOW, pytest.approx(0.2))
@@ -157,7 +158,7 @@ def test_at_the_tag_the_coin_asks_the_probe_now_with_its_exact_propensity(tmp_pa
 
 
 def test_at_the_tag_no_room_to_wait_no_longer_forces_the_probe(tmp_path, monkeypatch):
-    env, row = _miss_env(tmp_path, toml=COINS)
+    env, row = _miss_env(tmp_path, version=LATEST_ALGORITHM_VERSION, toml=COINS)
     _arm(monkeypatch, 0.9)
     outcome = _gate(env).decide_followup(E.latest_today(env), None, row, wait_feasible=False)
     assert outcome.chosen_ref == NO_INTERVENTION and outcome.record["decided_by"] != "no_room_to_wait"
@@ -165,7 +166,7 @@ def test_at_the_tag_no_room_to_wait_no_longer_forces_the_probe(tmp_path, monkeyp
 
 
 def test_at_the_tag_a_lesson_is_drawn_against_no_intervention_and_the_probe_only_by_the_coin(tmp_path, monkeypatch, draw):
-    env, row = _miss_env(tmp_path, toml=COINS)
+    env, row = _miss_env(tmp_path, version=LATEST_ALGORITHM_VERSION, toml=COINS)
     record = E.latest_today(env)
     offer = E.interrupt_offer(env, record, None)
     assert offer.candidate is not None
@@ -183,7 +184,7 @@ def test_at_the_tag_a_lesson_is_drawn_against_no_intervention_and_the_probe_only
 
 
 def test_at_the_tag_a_zero_share_never_asks_and_writes_no_assignment(tmp_path, monkeypatch):
-    env, row = _miss_env(tmp_path)  # the helper's plan: stop_coin = 0
+    env, row = _miss_env(tmp_path, version=LATEST_ALGORITHM_VERSION)  # the helper's plan: stop_coin = 0
     _arm(monkeypatch, 0.0)
     outcome = _gate(env).decide_followup(E.latest_today(env), None, row, wait_feasible=True)
     assert (outcome.chosen_ref, outcome.propensity) == (NO_INTERVENTION, 1.0)
@@ -191,7 +192,7 @@ def test_at_the_tag_a_zero_share_never_asks_and_writes_no_assignment(tmp_path, m
 
 
 def test_at_the_tag_the_lane_logs_the_coin_with_its_decision(tmp_path, monkeypatch):
-    env, row = _miss_env(tmp_path, toml=COINS)
+    env, row = _miss_env(tmp_path, version=LATEST_ALGORITHM_VERSION, toml=COINS)
     _author_refuses(monkeypatch)
     _arm(monkeypatch, 0.05)
     clients = SimpleNamespace(author=AuthorFake(), authoring=None, runtime=env.policy.restraint.runtime)

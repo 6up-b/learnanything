@@ -4126,7 +4126,10 @@ class RouterObjectiveConfig(BaseModel):
     #: The arms (from mvp-0.48). Each probability is a declared price for information, not a
     #: statistical fact; the report shows what each costs in minutes. ``stop_coin``: at a reversible block
     #: boundary, the chance of offering stop and, separately, of presenting the next block instead of a
-    #: drawn stop (so 0.05 each way); 0 draws no coin.
+    #: drawn stop (so 0.05 each way); 0 draws no coin. **This one field prices two arms:** from the probe router's
+    #: tag it is also the probe coin's share (``router_objective.probe_coin.share``: the share of eligible misses on
+    #: which a probe the router cannot value yet is asked, by the owner's 2026-11-23 ruling that the share derives
+    #: from an existing arm's rate). Changing it moves the probe share with it; 0 turns both coins off.
     stop_coin: float = Field(default=0.05, ge=0.0, le=0.45)
     #: ``"embedded"`` (default) replaces one ordinary question of the day's first session with
     #: ``embedded_checks_per_day`` randomized cold checks; a number selects extra checks at that rate per
