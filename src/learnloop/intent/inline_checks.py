@@ -209,6 +209,13 @@ _HANDLE_KEY = secrets.token_bytes(32)
 HANDLE_PREFIX = "chk_"
 
 
+def new_handle_key() -> None:
+    """Draw a new key, as a sidecar's start does: every handle minted before is dead (``check_unknown``)."""
+
+    global _HANDLE_KEY
+    _HANDLE_KEY = secrets.token_bytes(32)
+
+
 def handle_of(commitment_id: str, administrations: int) -> str:
     digest = hmac.new(_HANDLE_KEY, f"{commitment_id}\x00{administrations}".encode(), hashlib.sha256).hexdigest()
     return HANDLE_PREFIX + digest[:32]
@@ -251,5 +258,5 @@ def resolve_handle(vault: Any, repository: Any, handle: str, *, clock: Clock | N
     return None
 
 
-__all__ = ["answered_checks", "due_checks", "due_handles", "handle_of", "next_check_due", "resolve_handle",
-           "serving_view"]
+__all__ = ["answered_checks", "due_checks", "due_handles", "handle_of", "new_handle_key", "next_check_due",
+           "resolve_handle", "serving_view"]

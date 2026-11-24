@@ -109,12 +109,12 @@ def test_begin_resolves_the_handle_and_a_spent_stale_or_guessed_one_is_refused(t
     assert call(ctx, "check.begin_inline", {"requestId": "r3", "handle": fresh["handle"], "visible": {}})["commitmentId"] == commitment
 
 
-def test_a_handle_dies_with_the_sidecar_and_a_new_read_recovers(tmp_path, monkeypatch):
+def test_a_handle_dies_with_the_sidecar_and_a_new_read_recovers(tmp_path):
     import learnloop.intent.inline_checks as IC
 
     _paths, ctx, _repository, commitment = _vault(tmp_path)
     [check] = call(ctx, "checks.due_for", {})["checks"]
-    monkeypatch.setattr(IC, "_HANDLE_KEY", b"another sidecar run's key" + b"\0" * 7)
+    IC.new_handle_key()  # what a sidecar restart does
     with pytest.raises(SidecarError) as dead:
         call(ctx, "check.begin_inline", {"requestId": "r1", "handle": check["handle"], "visible": {}})
     assert dead.value.code == "check_unknown"
