@@ -7,7 +7,9 @@
 //   new section, the other moves once, to the first of its book's judged correspondents for that section, at its
 //   jump locator; a search hit never moves a window, and with none the other window stays put and says so;
 // * a window moved by following is never answered back: its own crossing that the move caused moves nothing;
-// * the leader is whichever window the learner moved last (each crossing it makes is its own).
+// * the leader is whichever window the learner moved last (each crossing it makes is its own);
+// * every crossing takes a ticket: an answer for an earlier crossing (a newer one since, a toggle, or the learner's
+//   hand on the window it would move) moves nothing, so a window the learner is reading is never pulled away.
 //
 // Records: follow_along_moved (salience only), as the second pane recorded it.
 import type { CorrespondentsDto } from "../../../api/dto";
@@ -16,8 +18,11 @@ import { firstJudgedIn, targetOf } from "../../reader/sideBySide";
 interface Pair {
   windows: [string, string];
   follow: boolean;
-  /** A move asked for: a later crossing (of either window) supersedes it. */
+  /** The ticket of the move asked for: a later crossing (of either window), a toggle, or the learner touching the
+   *  window it would move takes a new one, and the earlier answer is dropped. */
   seq: number;
+  /** The window the pending move would move (null: none pending). */
+  pending: string | null;
   /** The section a following window was moved to: its crossing there is the move's, not the learner's. */
   moved: Map<string, string>;
 }
@@ -54,7 +59,7 @@ export class DeskPairs {
   pair(first: string, second: string): void {
     this.drop(first);
     this.drop(second);
-    const pair: Pair = { windows: [first, second], follow: true, seq: 0, moved: new Map() };
+    const pair: Pair = { windows: [first, second], follow: true, seq: 0, pending: null, moved: new Map() };
     this.byWindow.set(first, pair);
     this.byWindow.set(second, pair);
   }
@@ -78,6 +83,18 @@ export class DeskPairs {
     this.deps.notice(pair.follow ? PAIR_COPY.followOn : PAIR_COPY.followOff);
   }
 
+  /** The learner's hand on a window (a scroll, a click, a touch): a move pending for it is dropped, and what it does
+   *  next is the learner's, not a follow's. */
+  touched(windowId: string): void {
+    const pair = this.live(windowId);
+    if (!pair) return;
+    pair.moved.delete(windowId);
+    if (pair.pending === windowId) {
+      pair.seq += 1;
+      pair.pending = null;
+    }
+  }
+
   /** A window's section in view moved: the other window of its pair follows, once. */
   async crossed(windowId: string, section: { extractionId: string; sectionId: string } | null): Promise<void> {
     const before = this.sections.get(windowId);
@@ -94,14 +111,17 @@ export class DeskPairs {
     const book = partner ? this.deps.windowOf(partner) : null;
     if (!partner || !book) return;
     const mine = ++pair.seq;
+    pair.pending = partner;
     let view: CorrespondentsDto;
     try {
       view = await this.deps.correspondents({ extractionId: section.extractionId, sectionId: section.sectionId, searchFallback: false });
     } catch {
       return;
     }
-    // A later crossing, a toggle, or the pair gone: this answer no longer applies.
+    // A later crossing, a toggle, the learner's hand on the other window, or the pair gone: this answer no longer
+    // applies.
     if (mine !== pair.seq || this.live(windowId) !== pair || !pair.follow) return;
+    pair.pending = null;
     const hit = firstJudgedIn(view, book.sourceId);
     if (!hit) {
       this.deps.notice(PAIR_COPY.staysPut);

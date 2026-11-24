@@ -3356,7 +3356,9 @@ export function DeskShell({
     const id = deskIdRef.current;
     const current = wsRef.current;
     if (!id || !current.windows[windowId]) return;
-    const step = openPaired(current, id, windowId, { kind: "source", sourceId: target.sourceId, extractionId: target.extractionId } as ContentRefDto,
+    const card = library?.find((entry) => entry.sourceId === target.sourceId);
+    const kind = card && isVideoCard(card) ? "video" : "source";
+    const step = openPaired(current, id, windowId, { kind, sourceId: target.sourceId, extractionId: target.extractionId } as ContentRefDto,
       () => mintId("win"), { spanId: target.spanId, view: target.spanId ? { spanId: target.spanId } : {} });
     commit(step);
     if (step.windowId !== windowId) pairs.pair(windowId, step.windowId);
@@ -3368,13 +3370,14 @@ export function DeskShell({
   };
   const windowOpenPairRef = useRef(windowOpenPair);
   windowOpenPairRef.current = windowOpenPair;
-  const pairHandlers = useMemo(() => new Map<string, { open: (target: PaneTarget) => void; section: (section: { extractionId: string; sectionId: string } | null) => void; key: (key: "follow" | "other") => void }>(), []);
+  const pairHandlers = useMemo(() => new Map<string, { open: (target: PaneTarget) => void; section: (section: { extractionId: string; sectionId: string } | null) => void; key: (key: "follow" | "other") => void; touched: () => void }>(), []);
   const pairHandlersFor = useCallback((windowId: string) => {
     let handlers = pairHandlers.get(windowId);
     if (!handlers) {
       handlers = {
         open: (target) => windowOpenPairRef.current(windowId, target),
         section: (section) => void pairs.crossed(windowId, section),
+        touched: () => pairs.touched(windowId),
         key: (key) => {
           if (key === "follow") {
             pairs.toggleFollow(windowId);
@@ -3527,6 +3530,7 @@ export function DeskShell({
           onOpenPair: pairHandlersFor(window.windowId).open,
           onSection: pairHandlersFor(window.windowId).section,
           onPairKey: pairHandlersFor(window.windowId).key,
+          onTouched: pairHandlersFor(window.windowId).touched,
           onError,
           ...(reader ? { reader } : {}),
           // A book following a video marks its passage over the goal lens (RD10).

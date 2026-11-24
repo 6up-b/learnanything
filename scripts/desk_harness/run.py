@@ -1472,6 +1472,84 @@ async def chip_text(page: Page, window: str) -> str | None:
     return await page.evaluate(f"() => document.querySelector(\"{window} .desk-pane-head .fchip\")?.textContent ?? null")
 
 
+PAIR_BOOK = "fx_w_book_range"
+
+
+async def pair_windows(page: Page) -> list[dict[str, Any]]:
+    """The windows of the desk shown (another desk's are hidden), each with what its frame says and the reading it holds."""
+    shown = [w for w in await windows(page) if w["state"] != "hidden"]
+    extra = await page.evaluate("""(ids) => Object.fromEntries(ids.map((id) => { const pane = document.querySelector(`[data-desk-window="${id}"]`);
+      return [id, { head: pane?.querySelector('.desk-pane-head')?.textContent ?? '', paper: Boolean(pane?.querySelector("[data-span-id^='fx_ext_attention_']")),
+        focused: Boolean(pane?.closest('.desk-window.focus')) && pane?.getAttribute('data-window-state') === 'active' }]; }))""", [w["id"] for w in shown])
+    return [{**w, **extra[w["id"]]} for w in shown]
+
+
+async def scroll_reading(page: Page, window_id: str, span_id: str) -> None:
+    """The learner's own scroll in a window until `span_id` is under the reading marker (70% down the reading)."""
+    await page.evaluate("""([id, span]) => { const el = document.querySelector(`[data-desk-window="${id}"] [data-span-id="${span}"]`);
+      const scroller = el.closest('.ll-scroll'); scroller.dispatchEvent(new WheelEvent('wheel', { bubbles: true, deltaY: 1 }));
+      const s = scroller.getBoundingClientRect(), r = el.getBoundingClientRect();
+      scroller.scrollTop += r.top - (s.top + s.height * 0.7) + 6; }""", [window_id, span_id])
+
+
+async def run_pairs(page: Page, base: str, results: Results, shots: Path | None) -> None:
+    """Side by side as paired windows (spec §21.1 "Two windows in view, or a pair", §5.2) on the fixture with
+    correspondents (`?pairs=1`), on the backprop desk (its book alone): Ctrl+\\ opens the first correspondent paired,
+    the learner's scroll across a section moves the other window once, Ctrl+Shift+L stops following, F6 moves the
+    focus."""
+    await page.goto(f"{base}/desk-harness.html?pairs=1")
+    await page.wait_for_selector("[data-desk-window]")
+    await page.get_by_role("button", name="backprop", exact=True).click()
+    await page.wait_for_selector(f"[data-desk-window='{PAIR_BOOK}'] [data-span-id]")
+    await settle(page, 1200)
+    await page.click(f"[data-desk-window='{PAIR_BOOK}'] .desk-pane-head .t")
+    await page.keyboard.press("Control+Backslash")
+    await page.wait_for_function("() => [...document.querySelectorAll('[data-desk-window]')].some((p) => p.getAttribute('data-window-state') !== 'hidden' && p.querySelector(\"[data-span-id^='fx_ext_attention_']\"))", timeout=8000)
+    await settle(page, 1200)
+    shown = await pair_windows(page)
+    book = next(w for w in shown if w["id"] == PAIR_BOOK)
+    paper = next((w for w in shown if w["paper"]), None)
+    stacked = bool(paper) and abs(book["slot"]["x"] - paper["slot"]["x"]) < 0.5 and book["pane"]["y"] < paper["pane"]["y"] and abs(book["pane"]["h"] - paper["pane"]["h"]) <= 1
+    results.check("Ctrl+\\ opens the section's first correspondent in a window paired with the book (one slot, two equal panes)", stacked,
+                  [(w["id"], w["slot"], w["pane"]) for w in shown])
+    results.check("the paired window opens at the correspondent's section", bool(paper) and "1 Attention as a weighted average" in paper["head"], paper and paper["head"])
+    await shot(page, shots, "pairs-open")
+    if not paper:
+        return
+    asked_before = len(await calls(page, "reader_correspondents"))
+    # The learner scrolls the book across into its next section: the paper moves once, and asks nothing back.
+    await settle(page, 1800)
+    await scroll_reading(page, PAIR_BOOK, "fx_ext_softmax_s5_1")
+    await settle(page, 1800)
+    moved = await pair_windows(page)
+    paper_now = next(w for w in moved if w["id"] == paper["id"])
+    follows = [c["input"] for c in (await calls(page, "reader_correspondents"))[asked_before:]]
+    results.check("scrolling the book across a section moves its pair once, to the correspondent (and the moved window asks nothing back)",
+                  "2 Why divide by the square root" in paper_now["head"] and [(f["extractionId"], f["sectionId"]) for f in follows] == [("fx_ext_softmax", "fx_ext_softmax_s5")],
+                  [paper_now["head"], follows])
+    await shot(page, shots, "pairs-followed")
+    # Ctrl+Shift+L: following off for the pair; scrolling back moves nothing.
+    await page.click(f"[data-desk-window='{PAIR_BOOK}'] .desk-pane-head .t")
+    await page.keyboard.press("Control+Shift+L")
+    await settle(page, 400)
+    toast = await page.locator(".desk-toast").inner_text() if await page.locator(".desk-toast").count() else ""
+    asked_before = len(await calls(page, "reader_correspondents"))
+    await scroll_reading(page, PAIR_BOOK, "fx_ext_softmax_s4_1")
+    await settle(page, 1800)
+    still = next(w for w in await pair_windows(page) if w["id"] == paper["id"])
+    after = (await calls(page, "reader_correspondents"))[asked_before:]
+    results.check("Ctrl+Shift+L stops following for the pair (it says so; the other window stays)",
+                  "off" in toast and "2 Why divide by the square root" in still["head"] and after == [], [toast, still["head"], after])
+    # F6: the focus to the other window of the pair, and back.
+    await page.keyboard.press("F6")
+    await settle(page, 400)
+    first = [w["id"] for w in await pair_windows(page) if w["focused"]]
+    await page.keyboard.press("F6")
+    await settle(page, 400)
+    second = [w["id"] for w in await pair_windows(page) if w["focused"]]
+    results.check("F6 moves the focus to the other window of the pair, and back", first == [paper["id"]] and second == [PAIR_BOOK], [first, second])
+
+
 async def run_video(page: Page, base: str, results: Results, shots: Path | None) -> None:
     """Video and carried polish (RD10, spec §7.4, §7.5, §7.9, §10.12) on the fixture with coverage (`?video=1`): the
     following chip, the followed passage and the scroll, `u`, the suggested chapters and their ticks, `alt+;`, and a
@@ -1570,7 +1648,7 @@ async def run_preview(page: Page, base: str, results: Results) -> None:
 async def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--shots", type=Path, default=None)
-    parser.add_argument("--only", default="", help="comma-separated runs (desks, overview, companion, intent, pads, menus, latex, goal, lesson, video, preview); all by default")
+    parser.add_argument("--only", default="", help="comma-separated runs (desks, overview, companion, intent, pads, menus, latex, goal, lesson, video, pairs, preview); all by default")
     args = parser.parse_args()
     if not (DIST / "desk-harness.html").exists():
         print("Build the harness page first: cd apps/learnloop-tauri && npx vite build --config vite.desks.config.mjs")
@@ -1586,7 +1664,7 @@ async def main() -> int:
             # Playwright hides scrollbars in headless Chromium; the display-math checks need them drawn, as the
             # app's webview draws them (a wide equation's scroller must show its bar).
             with_bars = await playwright.chromium.launch(headless=True, ignore_default_args=["--hide-scrollbars"])
-            runners = ("desks", "overview", "companion", "intent", "pads", "menus", "latex", "goal", "lesson", "video", "preview")
+            runners = ("desks", "overview", "companion", "intent", "pads", "menus", "latex", "goal", "lesson", "video", "pairs", "preview")
             chosen = [name for name in args.only.split(",") if name] or list(runners)
             for runner in (name for name in runners if name in chosen):
                 context = await (with_bars if runner in ("pads", "latex", "lesson") else browser).new_context(viewport=VIEWPORT)
@@ -1613,6 +1691,8 @@ async def main() -> int:
                         await run_lesson(page, base, results, args.shots)
                     elif runner == "video":
                         await run_video(page, base, results, args.shots)
+                    elif runner == "pairs":
+                        await run_pairs(page, base, results, args.shots)
                     else:
                         await run_preview(page, base, results)
                 except Exception as error:  # noqa: BLE001 - a broken step is a failed check, and the report still prints

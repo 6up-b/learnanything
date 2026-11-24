@@ -310,6 +310,8 @@ export interface ReaderWindowing {
   onSection?: (section: { extractionId: string; sectionId: string } | null) => void;
   /** Side by side's keys on the desks, for the pair this window is in: Ctrl+Shift+L follow along, F6 the other one. */
   onPairKey?: (key: "follow" | "other") => void;
+  /** The learner's hand on this window (a scroll, a click, a touch), for the pair it is in. */
+  onTouched?: () => void;
 }
 
 /** What a desk does in a source window's inquiry. */
@@ -1851,7 +1853,11 @@ export function ReaderScreen({
   // The main pane leads once the learner's hand is on it (scroll, click, select).
   const touchMain = () => {
     if (sbsRef.current.panes) sbsRef.current.touch("main");
+    // On the desks the learner's hand on this window is told to its pair (a follow pending for it is dropped).
+    touchedRef.current?.();
   };
+  const touchedRef = useRef(windowed?.onTouched);
+  touchedRef.current = windowed?.onTouched;
   const pairKeyRef = useRef(windowed?.onPairKey);
   pairKeyRef.current = windowed?.onPairKey;
   // Side by side's keys (§6.4): Ctrl+\ opens the first correspondent of the

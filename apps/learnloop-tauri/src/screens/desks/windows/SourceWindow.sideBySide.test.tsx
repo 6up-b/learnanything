@@ -26,7 +26,9 @@ const BOX = "What do you want to do with this?";
 const BOOK_WINDOW = { windowId: "w_book", pane: 0, kind: "source", active: true, view: {}, content: { kind: "source", sourceId: book.sourceId, extractionId: book.extractionId, view: "render" } };
 
 /** The book's sections and the paper's judged correspondent for each. */
-const CORRESPONDENT: Record<string, string> = { [`${book.extractionId}_s1`]: "p1", [`${book.extractionId}_s2`]: "p2" };
+const CORRESPONDENT: Record<string, string> = { [`${book.extractionId}_s1`]: "p1", [`${book.extractionId}_s2`]: "p2", [`${book.extractionId}_s3`]: "p3" };
+/** Sections whose correspondents answer only when the test releases them (a slow answer). */
+const held = new Map<string, () => void>();
 
 
 beforeEach(() => {
@@ -40,7 +42,9 @@ beforeEach(() => {
     exposureOnCommit: "none", inquiryEnabled: true, intent: readerIntentContractFixture, activeReading: { foldBlocks: 3 },
     sideBySide: { enabled: true },
   }));
-  answers.set("reader_correspondents", (input) => {
+  held.clear();
+  answers.set("reader_correspondents", async (input) => {
+    if (held.has(String(input.sectionId))) await new Promise<void>((release) => held.set(String(input.sectionId), release));
     const section = CORRESPONDENT[String(input.sectionId)];
     const sections = section ? [{
       extractionId: paper.extractionId, sectionId: `${paper.extractionId}_${section}`, title: `${section} Attention`, sourceId: paper.sourceId,
@@ -130,6 +134,28 @@ it("follow along moves the pair once when the book crosses into a new section; t
   // Asked once for the book's new section (judged only); never for the paper's section the move put in view.
   expect(correspondentsAsked()).toEqual([`${book.extractionId}_s1 (search)`, `${book.extractionId}_s2`]);
 });
+
+it("a late answer for an earlier crossing never moves a window the learner has scrolled, nor overrides a newer crossing", async () => {
+  const { bookWin, paper: paperWin } = await openPair();
+  // The learner's own hand on the paper while the book's crossing is being answered: the answer moves nothing.
+  held.set(`${book.extractionId}_s2`, () => undefined);
+  await scrollTo(bookWin, BOOK_S2_FIRST);
+  expect(correspondentsAsked()).toContain(`${book.extractionId}_s2`);
+  fireEvent.wheel(paperWin.querySelector<HTMLElement>(".ll-scroll")!);
+  held.get(`${book.extractionId}_s2`)!();
+  await settleDesk(0, 20);
+  expect(headOf(paperWin)).toContain("1 Attention as a weighted average");
+  // A newer crossing (into section 3) answered first: the earlier one's late answer does not take the paper back.
+  held.set(`${book.extractionId}_s2`, () => undefined);
+  await scrollTo(bookWin, `${book.extractionId}_s1_1`);
+  await scrollTo(bookWin, BOOK_S2_FIRST);
+  await scrollTo(bookWin, `${book.extractionId}_s3_1`);
+  await waitFor(() => expect(headOf(paperWin)).toContain("3 "));
+  held.get(`${book.extractionId}_s2`)!();
+  await settleDesk(0, 20);
+  expect(headOf(paperWin)).not.toContain("2 Why divide by the square root");
+  expect(headOf(paperWin)).toContain("3 ");
+}, 20_000);
 
 it("Ctrl+Shift+L turns following off for the pair, and F6 moves the focus to the other window", async () => {
   const { bookWin, paper: paperWin } = await openPair();
