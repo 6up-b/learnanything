@@ -219,16 +219,16 @@ For system intent, use [[Architecture Overview]].
 
 ### This package imports
 
-- [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] — 373 static module edges
+- [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] — 383 static module edges
+- [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 58 static module edges
 - [[Reference/Modules/learnloop/_package|learnloop]] — 57 static module edges
-- [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 57 static module edges
-- [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 53 static module edges
+- [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 54 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 48 static module edges
 - [[Reference/Modules/learnloop/instructional/_package|learnloop.instructional]] — 39 static module edges
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 33 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 31 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 30 static module edges
-- [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 28 static module edges
+- [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 29 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 28 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 27 static module edges
 - [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] — 23 static module edges
@@ -239,9 +239,9 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 15 static module edges
 - [[Reference/Modules/learnloop/tutor/_package|learnloop.tutor]] — 15 static module edges
 - [[Reference/Modules/learnloop/followup_serve/_package|learnloop.followup_serve]] — 13 static module edges
-- [[Reference/Modules/learnloop/pads/_package|learnloop.pads]] — 13 static module edges
 - [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] — 13 static module edges
 - [[Reference/Modules/learnloop/workbench/_package|learnloop.workbench]] — 13 static module edges
+- [[Reference/Modules/learnloop/pads/_package|learnloop.pads]] — 12 static module edges
 - [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 11 static module edges
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 11 static module edges
 - [[Reference/Modules/learnloop/hints/_package|learnloop.hints]] — 11 static module edges
@@ -264,9 +264,9 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/companion/_package|learnloop.companion]] — 4 static module edges
 - [[Reference/Modules/learnloop/content/facet_identity/_package|learnloop.content.facet_identity]] — 4 static module edges
 - [[Reference/Modules/learnloop/desks/_package|learnloop.desks]] — 4 static module edges
+- [[Reference/Modules/learnloop/ingest/extractors/_package|learnloop.ingest.extractors]] — 4 static module edges
 - [[Reference/Modules/learnloop/passage_union/_package|learnloop.passage_union]] — 4 static module edges
 - [[Reference/Modules/learnloop/practice_index/_package|learnloop.practice_index]] — 4 static module edges
-- [[Reference/Modules/learnloop/ingest/extractors/_package|learnloop.ingest.extractors]] — 3 static module edges
 - [[Reference/Modules/learnloop/ai/providers/_package|learnloop.ai.providers]] — 2 static module edges
 - [[Reference/Modules/learnloop/data_capture/_package|learnloop.data_capture]] — 2 static module edges
 - [[Reference/Modules/learnloop/diagnosis/recurrence/_package|learnloop.diagnosis.recurrence]] — 2 static module edges
@@ -288,8 +288,8 @@ This diagram compresses package-level static imports; edge labels are distinct m
 flowchart LR
     center["learnloop_sidecar.handlers"]
     n_learnloop_sidecar["learnloop_sidecar"]
-    n_learnloop["learnloop"]
     n_learnloop_reader["learnloop.reader"]
+    n_learnloop["learnloop"]
     n_learnloop_source_retrieval["learnloop.source_retrieval"]
     n_learnloop_ai["learnloop.ai"]
     n_learnloop_instructional["learnloop.instructional"]
@@ -298,16 +298,16 @@ flowchart LR
     n_learnloop_db_stores["learnloop.db.stores"]
     n_learnloop_content_sources["learnloop.content.sources"]
     n_learnloop_sidecar -->|5| center
-    center -->|373| n_learnloop_sidecar
+    center -->|383| n_learnloop_sidecar
+    center -->|58| n_learnloop_reader
     center -->|57| n_learnloop
-    center -->|57| n_learnloop_reader
-    center -->|53| n_learnloop_source_retrieval
+    center -->|54| n_learnloop_source_retrieval
     center -->|48| n_learnloop_ai
     center -->|39| n_learnloop_instructional
     center -->|33| n_learnloop_diagnosis
     center -->|31| n_learnloop_attempts
     center -->|30| n_learnloop_db_stores
-    center -->|28| n_learnloop_content_sources
+    center -->|29| n_learnloop_content_sources
 ```
 
 Interpretation: arrow direction is static import direction and the label is the number of distinct module-to-module edges. It shows coupling pressure, not runtime call frequency or ownership permission.

@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/fixtures/desks/fakeCore.ts](../../../../../../../apps/learnloop-tauri/src/fixtures/desks/fakeCore.ts) |
-| Source lines | 396 |
+| Source lines | 398 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/fixtures/desks/_area|TypeScript/fixtures/desks]] |
 | Refactor status | `ACTIVE` |
@@ -56,8 +56,8 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - `export type InvokeArgs = Record<string, unknown>` — type, line 13
 - `export interface HarnessCall` — interface, line 15
-- `export async function invoke<T>(command: string, args: InvokeArgs =` — function, line 388
-- `export function convertFileSrc(filePath: string, protocol = "asset"): string` — function, line 394
+- `export async function invoke<T>(command: string, args: InvokeArgs =` — function, line 390
+- `export function convertFileSrc(filePath: string, protocol = "asset"): string` — function, line 396
 
 ## Internal implementation anchors
 
@@ -116,14 +116,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const extractionId = typeof input.extractionId === "string" ? input.extractionId : null` — const, line 269
 - `const question =` — const, line 275
 - `const question = carried.find((each)` — const, line 282
-- `interface Window` — interface, line 358
-- `function notebookLesson(view: LessonViewDto): LessonViewDto` — function, line 366
-- `const mode = typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("nblesson")` — const, line 367
-- `function notebookSession(command: string, input: Record<string, unknown>)` — function, line 373
-- `const forced = new URLSearchParams(window.location.search).get("nbstate")` — const, line 374
-- `const real = window.__notebookHarness` — const, line 375
-- `const state = forced && forced !== "ready" ? forced : "ready"` — const, line 379
-- `const input = (args.input as Record<string, unknown> | undefined) ?? args` — const, line 389
+- `interface Window` — interface, line 360
+- `function notebookLesson(view: LessonViewDto): LessonViewDto` — function, line 368
+- `const mode = typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("nblesson")` — const, line 369
+- `function notebookSession(command: string, input: Record<string, unknown>)` — function, line 375
+- `const forced = new URLSearchParams(window.location.search).get("nbstate")` — const, line 376
+- `const real = window.__notebookHarness` — const, line 377
+- `const state = forced && forced !== "ready" ? forced : "ready"` — const, line 381
+- `const input = (args.input as Record<string, unknown> | undefined) ?? args` — const, line 391
 
 ## Who imports or calls it
 

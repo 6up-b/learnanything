@@ -131,6 +131,7 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_reader_rd8a_ink.py](../../../../../../../tests/test_reader_rd8a_ink.py) — imports consumer [[Reference/Modules/learnloop/pads/ink|learnloop.pads.ink]]
 - [tests/test_reader_rd8a_render.py](../../../../../../../tests/test_reader_rd8a_render.py) — imports consumer [[Reference/Modules/learnloop/pads/ink|learnloop.pads.ink]]
 - [tests/test_reader_rd8a_transcribe.py](../../../../../../../tests/test_reader_rd8a_transcribe.py) — imports consumer [[Reference/Modules/learnloop/pads/ink|learnloop.pads.ink]]
+- [tests/test_reader_ink_glm_ocr.py](../../../../../../../tests/test_reader_ink_glm_ocr.py) — imports consumer [[Reference/Modules/learnloop/pads/ink_transcribe|learnloop.pads.ink_transcribe]]
 
 ## Modification guidance
 

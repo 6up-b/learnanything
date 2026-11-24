@@ -329,6 +329,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - [[Reference/Modules/learnloop/content/pipeline/runner|learnloop.content.pipeline.runner]] — imports `default_authoring_route`; statically calls `default_authoring_route`
 - [[Reference/Modules/learnloop/content/pipeline/source_ingestion|learnloop.content.pipeline.source_ingestion]] — imports `file_upload_allowed`; statically calls `file_upload_allowed`
 - [[Reference/Modules/learnloop/content/synthesis/jobs|learnloop.content.synthesis.jobs]] — imports `AutoApplyGate`, `admit_auto_build_job`, `after_auto_build`; statically calls `AutoApplyGate`, `admit_auto_build_job`, `after_auto_build`
+- [[Reference/Modules/learnloop/pads/ink_transcribe|learnloop.pads.ink_transcribe]] — imports `file_upload_allowed`; statically calls `file_upload_allowed`
 - [[Reference/Modules/learnloop/remote/sources|learnloop.remote.sources]] — imports `learner_title`; statically calls `learner_title`
 - [[Reference/Modules/learnloop/remote/views|learnloop.remote.views]] — imports `learner_title`, `source_kind_noun`, `source_status_line`; statically calls `learner_title`, `source_kind_noun`, `source_status_line`
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `reconcile_reading_builds`; statically calls `reconcile_reading_builds`
@@ -399,12 +400,13 @@ Use this module in context through:
 - [[Import Canonical Sources]]
 - [[Build a Study Map]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/ingest_batches|learnloop.cli.ingest_batches]], [[Reference/Modules/learnloop/cli/sources|learnloop.cli.sources]], [[Reference/Modules/learnloop/content/pipeline/acquisition_preview|learnloop.content.pipeline.acquisition_preview]], [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]], [[Reference/Modules/learnloop/content/pipeline/import_jobs|learnloop.content.pipeline.import_jobs]] and 13 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/ingest_batches|learnloop.cli.ingest_batches]], [[Reference/Modules/learnloop/cli/sources|learnloop.cli.sources]], [[Reference/Modules/learnloop/content/pipeline/acquisition_preview|learnloop.content.pipeline.acquisition_preview]], [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]], [[Reference/Modules/learnloop/content/pipeline/import_jobs|learnloop.content.pipeline.import_jobs]] and 14 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
+- [tests/ink_helpers.py](../../../../../../../tests/ink_helpers.py) — direct import
 - [tests/reading_request_sweep_helpers.py](../../../../../../../tests/reading_request_sweep_helpers.py) — direct import
 - [tests/reread_safety_helpers.py](../../../../../../../tests/reread_safety_helpers.py) — direct import
 - [tests/test_auto_build_spend_report.py](../../../../../../../tests/test_auto_build_spend_report.py) — direct import

@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/pads/PadStackWindow.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/pads/PadStackWindow.tsx) |
-| Source lines | 1027 |
+| Source lines | 1032 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/pads/_area|TypeScript/screens/desks/pads]] |
 | Refactor status | `ACTIVE` |
@@ -61,8 +61,8 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export function backLink(block: PadBlockDto, anchors: PadAnchorDto[] = []):` — function, line 73
 - `export interface PadStackProps` — interface, line 95
 - `export const PadStackWindow = forwardRef<PadStackHandle, PadStackProps>(function PadStackWindow(` — const, line 105
-- `export function readSplit(view: Record<string, unknown>, padIds: string[]):` — function, line 991
-- `export function moveDivider(ratios: number[], index: number, dy: number, total = 600): number[]` — function, line 1001
+- `export function readSplit(view: Record<string, unknown>, padIds: string[]):` — function, line 996
+- `export function moveDivider(ratios: number[], index: number, dy: number, total = 600): number[]` — function, line 1006
 
 ## Internal implementation anchors
 
@@ -112,156 +112,157 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const editorRef = useRef<HTMLDivElement | null>(null)` — const, line 163
 - `const frame = editorRef.current` — const, line 165
 - `const cardTimer = useRef<ReturnType<typeof setTimeout> | null>(null)` — const, line 169
-- `const info = infoProp ?? infoOwn` — const, line 174
-- `const setInfo = (next: boolean | ((now: boolean)` — const, line 175
-- `const value = typeof next === "function" ? next(info) : next` — const, line 176
-- `const hovered = useRef<` — const, line 182
-- `const split = readSplit(view, padIds)` — const, line 183
-- `const muted = Array.isArray(view.mutedPads) ? (view.mutedPads as string[]) : []` — const, line 185
-- `const geometry = useCallback((): PadGeometry[]` — const, line 192
-- `const scroller = scrollerRef.current` — const, line 193
-- `const base = scroller.getBoundingClientRect().top - scroller.scrollTop` — const, line 195
-- `const tab = tabEls.current.get(padId)` — const, line 197
-- `const paper = paperEls.current.get(padId)` — const, line 198
-- `const paperTop = paper ? paper.getBoundingClientRect().top - base : 0` — const, line 200
-- `const height = paper?.offsetHeight ?? 0` — const, line 201
-- `const layoutTabs = useCallback(()` — const, line 206
-- `const scroller = scrollerRef.current` — const, line 207
-- `const geo = geometry()` — const, line 209
-- `const top = scroller.scrollTop` — const, line 210
-- `const h = scroller.clientHeight` — const, line 211
-- `const now = activePad(geo, top, h, scroller.scrollHeight)` — const, line 212
-- `const open = fractionalOpen(geo, top, h, scroller.scrollHeight)` — const, line 213
-- `const tab = tabEls.current.get(padId)` — const, line 215
-- `const paper = paperEls.current.get(padId)` — const, line 216
-- `const m = mergeAmount(i, geo, top, h)` — const, line 217
-- `const margin = tabMargin(grade, i, open)` — const, line 218
-- `const scroller = scrollerRef.current` — const, line 238
-- `let frame = 0` — let, line 240
-- `const onScroll = ()` — const, line 241
-- `const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(()` — const, line 249
-- `const scrollToPad = useCallback((index: number)` — const, line 258
-- `const scroller = scrollerRef.current` — const, line 259
-- `const target = scrollTargetFor(index, geometry())` — const, line 261
-- `const ownLessons = stack.filter((entry)` — const, line 268
-- `const key = lessons.desk.takeReveal(windowId, padIds)` — const, line 276
-- `const proposalsFor = useCallback((padId: string)` — const, line 281
-- `const loadedKey = pads.map((pad)` — const, line 288
-- `const write = useCallback((padId: string, ops: Parameters<typeof store.commitPad>[1]): boolean` — const, line 297
-- `const refused = store.commitPad(padId, ops)` — const, line 301
-- `const insertAfter = useCallback((padId: string, after: string | null, block:` — const, line 309
-- `const state = store.pads[padId]` — const, line 310
-- `const blockId = host.mintId("blk")` — const, line 312
-- `const p = block.payload ??` — const, line 314
-- `const link = block.kind === "source_piece" && typeof p.extraction_id === "string" && typeof p.span_id === "string" ? [` — const, line 315
-- `const ok = write(padId, [` — const, line 318
-- `const commitEdit = useCallback((next?:` — const, line 326
-- `const current = next ?? editing` — const, line 327
-- `const block = store.pads[current.padId]?.blocks.find((each)` — const, line 329
-- `const openEditor = (padId: string, block: PadBlockDto)` — const, line 337
-- `const editableNeighbour = (padId: string, blockId: string, direction: -1 | 1): PadBlockDto | null` — const, line 347
-- `const blocks = store.pads[padId]?.blocks ?? []` — const, line 348
-- `const index = blocks.findIndex((each)` — const, line 349
-- `const onEditorKey = (event: React.KeyboardEvent<HTMLTextAreaElement>, info:` — const, line 356
-- `const textarea = event.currentTarget` — const, line 358
-- `const block = store.pads[editing.padId]?.blocks.find((each)` — const, line 369
-- `const block = store.pads[editing.padId]?.blocks.find((each)` — const, line 374
-- `const previous = editableNeighbour(editing.padId, editing.blockId, -1)` — const, line 375
-- `const neighbour = editableNeighbour(editing.padId, editing.blockId, event.key === "ArrowUp" ? -1 : 1)` — const, line 380
-- `const scheduleCard = (next: Card | null)` — const, line 389
-- `const cardFor = (padId: string, blockId: string, kind: Card["kind"], mark: HTMLElement)` — const, line 394
-- `const scroller = rootRef.current` — const, line 395
-- `const box = mark.getBoundingClientRect()` — const, line 397
-- `const frame = scroller.getBoundingClientRect()` — const, line 398
-- `const below = box.bottom - frame.top + 6` — const, line 399
-- `const above = below + 180 > frame.height` — const, line 400
-- `const shownProposal = useRef<` — const, line 408
-- `const open = card ? (proposals[card.padId] ?? []).find((each)` — const, line 410
-- `const was = shownProposal.current` — const, line 411
-- `const labelProposal = (proposal: PadProposalDto, label: "opened" | "not_this" | "dismiss" | "ignored")` — const, line 420
-- `const lastPad = padIds.length - 1` — const, line 428
-- `const impl = useRef<PadStackHandle | null>(null)` — const, line 429
-- `const next = paneFocus + direction` — const, line 440
-- `const next = active + direction` — const, line 445
-- `const padId = host.mintId("pad")` — const, line 451
-- `const byHand = Boolean(pen?.on)` — const, line 453
-- `const name = byHand ? "Scratchpad · ✎ by hand" : `Scratchpad · $` — const, line 454
-- `const padId = padIds[split ? split.pads[paneFocus] ? padIds.indexOf(split.pads[paneFocus]) : active : active]` — const, line 460
-- `const state = padId ? store.pads[padId] : null` — const, line 461
-- `const at = hovered.current` — const, line 469
-- `const index = padIds.indexOf(padId)` — const, line 475
-- `const padId = request.lessonId ? lessons?.desk.additionsFor(request.lessonId) ?? `lesson:$` — const, line 481
-- `const block = blockId ? store.pads[padId]?.blocks.find((each)` — const, line 486
-- `const proxy = useMemo<PadStackHandle>(()` — const, line 491
-- `const figureVersion = useSyncExternalStore(host.figures.subscribe, host.figures.getVersion)` — const, line 509
-- `const element = blockEls.current.get(event.detail.blockId)` — const, line 522
-- `const blockId = event.detail.blockId` — const, line 524
-- `const renderBlock = (state: PadState, block: PadBlockDto): ReactNode` — const, line 531
-- `const padId = state.pad.padId` — const, line 532
-- `const isEditing = editing?.blockId === block.blockId` — const, line 533
-- `const proposal = muted.includes(padId) ? null : (proposals[padId] ?? []).find((each)` — const, line 534
-- `const editable = EDITABLE_KINDS.has(block.kind) && block.kind !== "sketch" && block.kind !== "cell"` — const, line 535
-- `const submission = block.submissions.find((each)` — const, line 536
-- `let gutter: ReactNode = null` — let, line 537
-- `let body: ReactNode` — let, line 538
-- `const markEnter = (kind: Card["kind"])` — const, line 539
-- `const markLeave = ()` — const, line 540
-- `const markTap = (kind: Card["kind"])` — const, line 541
-- `const markEl = event.currentTarget` — const, line 544
-- `const next = cardFor(padId, block.blockId, kind, markEl)` — const, line 545
-- `const mark = (kind: Card["kind"], glyph: string, className: string)` — const, line 549
-- `const link = backLink(block, state.anchors)` — const, line 555
-- `const to = String((block.payload as Record<string, unknown>).lifted_to_pad_id ?? "")` — const, line 606
-- `const title = store.pads[to]?.pad.title || "its own pad"` — const, line 607
-- `const question = block.kind === "text" && block.provenance === "learner" && block.bodyMd.trim().endsWith("?")` — const, line 645
-- `const newPadId = host.mintId("pad")` — const, line 680
-- `const newBlockId = host.mintId("blk")` — const, line 681
-- `const title = firstLine(block.bodyMd).slice(0, 48) || "lifted"` — const, line 682
-- `const writeUnderLesson = (lessonId: string, block: Parameters<typeof insertAfter>[2] =` — const, line 696
-- `let padId = lessons.desk.additionsFor(lessonId)` — let, line 698
-- `const summary = lessons.desk.summary(lessonId)` — const, line 710
-- `const topic = summary?.held ? null : summary?.title` — const, line 711
-- `const state = store.pads[padId]` — const, line 715
-- `const renderLesson = (key: string, index: number, minHeight: number): ReactNode` — const, line 719
-- `const lessonId = lessonOfKey(key)` — const, line 720
-- `const entry = lessons?.desk.entryFor(key) ?? null` — const, line 721
-- `const additionsId = lessonId ? lessons?.desk.additionsFor(lessonId) ?? null : null` — const, line 722
-- `const additions = additionsId ? store.pads[additionsId] ?? null : null` — const, line 723
-- `const renderPaper = (state: PadState | null, padId: string, index: number, minHeight: number): ReactNode` — const, line 752
-- `const failure = store.padFailure(padId)` — const, line 755
-- `const days: Array<` — const, line 758
-- `const day = state.pad.kind === "running" ? block.day ?? block.createdAt.slice(0, 10) : null` — const, line 760
-- `const last = days[days.length - 1]` — const, line 761
-- `const byHand = state.pad.kind === "ink"` — const, line 765
-- `const look = inkView[padId] ??` — const, line 766
-- `const newLine = ()` — const, line 767
-- `const tabLabel = (state: PadState | null, padId: string, index: number): ReactNode` — const, line 804
-- `const lessonId = lessonOfKey(padId)` — const, line 807
-- `const summary = lessonId ? lessons?.desk.summary(lessonId) ?? null : null` — const, line 808
-- `const title = state?.pad.title || (state?.pad.kind === "running" ? "running" : "a pad")` — const, line 829
-- `const first = state ? plainLine(state.blocks.find((block)` — const, line 830
-- `const minHeight = paperMinHeight(viewport, padIds.length)` — const, line 853
-- `const learnerWords = pads.some((state)` — const, line 854
-- `const cardBlock = card ? store.pads[card.padId]?.blocks.find((block)` — const, line 855
-- `const cardProposal = card ? (proposals[card.padId] ?? []).find((each)` — const, line 856
-- `const state = store.pads[padId] ?? null` — const, line 870
-- `const link = backLink(cardBlock, store.pads[card.padId]?.anchors ?? [])` — const, line 898
-- `const target = cardProposal.target as` — const, line 921
-- `const extractionId = target.content?.extraction_id ?? target.content?.extractionId` — const, line 922
-- `function padContext(padId: string, block: PadBlockDto, anchors: Array<` — function, line 977
-- `const p = block.payload as Record<string, unknown>` — const, line 978
-- `const own = anchors.find((anchor)` — const, line 979
-- `const anchor = own ?` — const, line 980
-- `function setRef(map: Map<string, HTMLElement>, key: string, node: HTMLElement | null)` — function, line 985
-- `const raw = view.split as` — const, line 992
-- `const pads = (raw.pads as unknown[]).filter((id): id is string` — const, line 994
-- `const ratios = Array.isArray(raw.ratios) && raw.ratios.length === pads.length ? (raw.ratios as number[]).map((r)` — const, line 996
-- `const sum = ratios.reduce((a, b)` — const, line 1002
-- `const px = ratios.map((r)` — const, line 1003
-- `const min = 60` — const, line 1004
-- `const move = Math.max(min - px[index], Math.min(px[index + 1] - min, dy))` — const, line 1005
-- `function Divider(` — function, line 1011
-- `const start = useRef<number | null>(null)` — const, line 1012
+- `const menuOpening = useRef(0)` — const, line 171
+- `const info = infoProp ?? infoOwn` — const, line 175
+- `const setInfo = (next: boolean | ((now: boolean)` — const, line 176
+- `const value = typeof next === "function" ? next(info) : next` — const, line 177
+- `const hovered = useRef<` — const, line 183
+- `const split = readSplit(view, padIds)` — const, line 184
+- `const muted = Array.isArray(view.mutedPads) ? (view.mutedPads as string[]) : []` — const, line 186
+- `const geometry = useCallback((): PadGeometry[]` — const, line 193
+- `const scroller = scrollerRef.current` — const, line 194
+- `const base = scroller.getBoundingClientRect().top - scroller.scrollTop` — const, line 196
+- `const tab = tabEls.current.get(padId)` — const, line 198
+- `const paper = paperEls.current.get(padId)` — const, line 199
+- `const paperTop = paper ? paper.getBoundingClientRect().top - base : 0` — const, line 201
+- `const height = paper?.offsetHeight ?? 0` — const, line 202
+- `const layoutTabs = useCallback(()` — const, line 207
+- `const scroller = scrollerRef.current` — const, line 208
+- `const geo = geometry()` — const, line 210
+- `const top = scroller.scrollTop` — const, line 211
+- `const h = scroller.clientHeight` — const, line 212
+- `const now = activePad(geo, top, h, scroller.scrollHeight)` — const, line 213
+- `const open = fractionalOpen(geo, top, h, scroller.scrollHeight)` — const, line 214
+- `const tab = tabEls.current.get(padId)` — const, line 216
+- `const paper = paperEls.current.get(padId)` — const, line 217
+- `const m = mergeAmount(i, geo, top, h)` — const, line 218
+- `const margin = tabMargin(grade, i, open)` — const, line 219
+- `const scroller = scrollerRef.current` — const, line 239
+- `let frame = 0` — let, line 241
+- `const onScroll = ()` — const, line 242
+- `const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(()` — const, line 250
+- `const scrollToPad = useCallback((index: number)` — const, line 259
+- `const scroller = scrollerRef.current` — const, line 260
+- `const target = scrollTargetFor(index, geometry())` — const, line 262
+- `const ownLessons = stack.filter((entry)` — const, line 269
+- `const key = lessons.desk.takeReveal(windowId, padIds)` — const, line 277
+- `const proposalsFor = useCallback((padId: string)` — const, line 282
+- `const loadedKey = pads.map((pad)` — const, line 289
+- `const write = useCallback((padId: string, ops: Parameters<typeof store.commitPad>[1]): boolean` — const, line 298
+- `const refused = store.commitPad(padId, ops)` — const, line 302
+- `const insertAfter = useCallback((padId: string, after: string | null, block:` — const, line 310
+- `const state = store.pads[padId]` — const, line 311
+- `const blockId = host.mintId("blk")` — const, line 313
+- `const p = block.payload ??` — const, line 315
+- `const link = block.kind === "source_piece" && typeof p.extraction_id === "string" && typeof p.span_id === "string" ? [` — const, line 316
+- `const ok = write(padId, [` — const, line 319
+- `const commitEdit = useCallback((next?:` — const, line 327
+- `const current = next ?? editing` — const, line 328
+- `const block = store.pads[current.padId]?.blocks.find((each)` — const, line 330
+- `const openEditor = (padId: string, block: PadBlockDto)` — const, line 338
+- `const editableNeighbour = (padId: string, blockId: string, direction: -1 | 1): PadBlockDto | null` — const, line 348
+- `const blocks = store.pads[padId]?.blocks ?? []` — const, line 349
+- `const index = blocks.findIndex((each)` — const, line 350
+- `const onEditorKey = (event: React.KeyboardEvent<HTMLTextAreaElement>, info:` — const, line 357
+- `const textarea = event.currentTarget` — const, line 359
+- `const block = store.pads[editing.padId]?.blocks.find((each)` — const, line 370
+- `const block = store.pads[editing.padId]?.blocks.find((each)` — const, line 375
+- `const previous = editableNeighbour(editing.padId, editing.blockId, -1)` — const, line 376
+- `const neighbour = editableNeighbour(editing.padId, editing.blockId, event.key === "ArrowUp" ? -1 : 1)` — const, line 381
+- `const scheduleCard = (next: Card | null)` — const, line 390
+- `const cardFor = (padId: string, blockId: string, kind: Card["kind"], mark: HTMLElement)` — const, line 395
+- `const scroller = rootRef.current` — const, line 396
+- `const box = mark.getBoundingClientRect()` — const, line 398
+- `const frame = scroller.getBoundingClientRect()` — const, line 399
+- `const below = box.bottom - frame.top + 6` — const, line 400
+- `const above = below + 180 > frame.height` — const, line 401
+- `const shownProposal = useRef<` — const, line 409
+- `const open = card ? (proposals[card.padId] ?? []).find((each)` — const, line 411
+- `const was = shownProposal.current` — const, line 412
+- `const labelProposal = (proposal: PadProposalDto, label: "opened" | "not_this" | "dismiss" | "ignored")` — const, line 421
+- `const lastPad = padIds.length - 1` — const, line 429
+- `const impl = useRef<PadStackHandle | null>(null)` — const, line 430
+- `const next = paneFocus + direction` — const, line 441
+- `const next = active + direction` — const, line 446
+- `const padId = host.mintId("pad")` — const, line 452
+- `const byHand = Boolean(pen?.on)` — const, line 454
+- `const name = byHand ? "Scratchpad · ✎ by hand" : `Scratchpad · $` — const, line 455
+- `const padId = padIds[split ? split.pads[paneFocus] ? padIds.indexOf(split.pads[paneFocus]) : active : active]` — const, line 461
+- `const state = padId ? store.pads[padId] : null` — const, line 462
+- `const at = hovered.current` — const, line 470
+- `const index = padIds.indexOf(padId)` — const, line 477
+- `const padId = request.lessonId ? lessons?.desk.additionsFor(request.lessonId) ?? `lesson:$` — const, line 483
+- `const block = blockId ? store.pads[padId]?.blocks.find((each)` — const, line 489
+- `const proxy = useMemo<PadStackHandle>(()` — const, line 495
+- `const figureVersion = useSyncExternalStore(host.figures.subscribe, host.figures.getVersion)` — const, line 513
+- `const element = blockEls.current.get(event.detail.blockId)` — const, line 526
+- `const blockId = event.detail.blockId` — const, line 528
+- `const renderBlock = (state: PadState, block: PadBlockDto): ReactNode` — const, line 535
+- `const padId = state.pad.padId` — const, line 536
+- `const isEditing = editing?.blockId === block.blockId` — const, line 537
+- `const proposal = muted.includes(padId) ? null : (proposals[padId] ?? []).find((each)` — const, line 538
+- `const editable = EDITABLE_KINDS.has(block.kind) && block.kind !== "sketch" && block.kind !== "cell"` — const, line 539
+- `const submission = block.submissions.find((each)` — const, line 540
+- `let gutter: ReactNode = null` — let, line 541
+- `let body: ReactNode` — let, line 542
+- `const markEnter = (kind: Card["kind"])` — const, line 543
+- `const markLeave = ()` — const, line 544
+- `const markTap = (kind: Card["kind"])` — const, line 545
+- `const markEl = event.currentTarget` — const, line 548
+- `const next = cardFor(padId, block.blockId, kind, markEl)` — const, line 549
+- `const mark = (kind: Card["kind"], glyph: string, className: string)` — const, line 553
+- `const link = backLink(block, state.anchors)` — const, line 559
+- `const to = String((block.payload as Record<string, unknown>).lifted_to_pad_id ?? "")` — const, line 610
+- `const title = store.pads[to]?.pad.title || "its own pad"` — const, line 611
+- `const question = block.kind === "text" && block.provenance === "learner" && block.bodyMd.trim().endsWith("?")` — const, line 649
+- `const newPadId = host.mintId("pad")` — const, line 684
+- `const newBlockId = host.mintId("blk")` — const, line 685
+- `const title = firstLine(block.bodyMd).slice(0, 48) || "lifted"` — const, line 686
+- `const writeUnderLesson = (lessonId: string, block: Parameters<typeof insertAfter>[2] =` — const, line 700
+- `let padId = lessons.desk.additionsFor(lessonId)` — let, line 702
+- `const summary = lessons.desk.summary(lessonId)` — const, line 714
+- `const topic = summary?.held ? null : summary?.title` — const, line 715
+- `const state = store.pads[padId]` — const, line 719
+- `const renderLesson = (key: string, index: number, minHeight: number): ReactNode` — const, line 723
+- `const lessonId = lessonOfKey(key)` — const, line 724
+- `const entry = lessons?.desk.entryFor(key) ?? null` — const, line 725
+- `const additionsId = lessonId ? lessons?.desk.additionsFor(lessonId) ?? null : null` — const, line 726
+- `const additions = additionsId ? store.pads[additionsId] ?? null : null` — const, line 727
+- `const renderPaper = (state: PadState | null, padId: string, index: number, minHeight: number): ReactNode` — const, line 756
+- `const failure = store.padFailure(padId)` — const, line 759
+- `const days: Array<` — const, line 762
+- `const day = state.pad.kind === "running" ? block.day ?? block.createdAt.slice(0, 10) : null` — const, line 764
+- `const last = days[days.length - 1]` — const, line 765
+- `const byHand = state.pad.kind === "ink"` — const, line 769
+- `const look = inkView[padId] ??` — const, line 770
+- `const newLine = ()` — const, line 771
+- `const tabLabel = (state: PadState | null, padId: string, index: number): ReactNode` — const, line 808
+- `const lessonId = lessonOfKey(padId)` — const, line 811
+- `const summary = lessonId ? lessons?.desk.summary(lessonId) ?? null : null` — const, line 812
+- `const title = state?.pad.title || (state?.pad.kind === "running" ? "running" : "a pad")` — const, line 833
+- `const first = state ? plainLine(state.blocks.find((block)` — const, line 834
+- `const minHeight = paperMinHeight(viewport, padIds.length)` — const, line 857
+- `const learnerWords = pads.some((state)` — const, line 858
+- `const cardBlock = card ? store.pads[card.padId]?.blocks.find((block)` — const, line 859
+- `const cardProposal = card ? (proposals[card.padId] ?? []).find((each)` — const, line 860
+- `const state = store.pads[padId] ?? null` — const, line 874
+- `const link = backLink(cardBlock, store.pads[card.padId]?.anchors ?? [])` — const, line 902
+- `const target = cardProposal.target as` — const, line 925
+- `const extractionId = target.content?.extraction_id ?? target.content?.extractionId` — const, line 926
+- `function padContext(padId: string, block: PadBlockDto, anchors: Array<` — function, line 982
+- `const p = block.payload as Record<string, unknown>` — const, line 983
+- `const own = anchors.find((anchor)` — const, line 984
+- `const anchor = own ?` — const, line 985
+- `function setRef(map: Map<string, HTMLElement>, key: string, node: HTMLElement | null)` — function, line 990
+- `const raw = view.split as` — const, line 997
+- `const pads = (raw.pads as unknown[]).filter((id): id is string` — const, line 999
+- `const ratios = Array.isArray(raw.ratios) && raw.ratios.length === pads.length ? (raw.ratios as number[]).map((r)` — const, line 1001
+- `const sum = ratios.reduce((a, b)` — const, line 1007
+- `const px = ratios.map((r)` — const, line 1008
+- `const min = 60` — const, line 1009
+- `const move = Math.max(min - px[index], Math.min(px[index + 1] - min, dy))` — const, line 1010
+- `function Divider(` — function, line 1016
+- `const start = useRef<number | null>(null)` — const, line 1017
 
 ## Who imports or calls it
 

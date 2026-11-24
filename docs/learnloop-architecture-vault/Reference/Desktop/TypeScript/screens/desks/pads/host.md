@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/pads/host.ts](../../../../../../../../apps/learnloop-tauri/src/screens/desks/pads/host.ts) |
-| Source lines | 173 |
+| Source lines | 174 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/pads/_area|TypeScript/screens/desks/pads]] |
 | Refactor status | `ACTIVE` |
@@ -59,18 +59,18 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export interface PadsHost` — interface, line 55
 - `export interface PadStackHandle` — interface, line 98
 - `export interface PendingFigure` — interface, line 120
-- `export class PendingFigures` — class, line 129
-- `export const PadsHostContext = createContext<PadsHost | null>(null)` — const, line 155
-- `export function usePadsHost(): PadsHost | null` — function, line 157
-- `export function localDay(date: Date = new Date()): string` — function, line 162
-- `export function dayHeading(day: string, today: string): string` — function, line 168
+- `export class PendingFigures` — class, line 130
+- `export const PadsHostContext = createContext<PadsHost | null>(null)` — const, line 156
+- `export function usePadsHost(): PadsHost | null` — function, line 158
+- `export function localDay(date: Date = new Date()): string` — function, line 163
+- `export function dayHeading(day: string, today: string): string` — function, line 169
 
 ## Internal implementation anchors
 
-- `const waiting = this.byWindow.get(windowId) ?? []` — const, line 149
-- `const pad = (n: number)` — const, line 163
-- `const date = new Date(`$` — const, line 169
-- `const label = date.toLocaleDateString("en-GB",` — const, line 171
+- `const waiting = this.byWindow.get(windowId) ?? []` — const, line 150
+- `const pad = (n: number)` — const, line 164
+- `const date = new Date(`$` — const, line 170
+- `const label = date.toLocaleDateString("en-GB",` — const, line 172
 
 ## Who imports or calls it
 

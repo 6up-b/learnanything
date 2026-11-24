@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src-tauri/src/commands.rs](../../../../../apps/learnloop-tauri/src-tauri/src/commands.rs) |
-| Source lines | 1531 |
+| Source lines | 1533 |
 | Language | `Rust` |
 | Area | [[Reference/Desktop/Rust/_area|Rust]] |
 | Refactor status | `ACTIVE` |
@@ -460,70 +460,71 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `pub async fn goal_band(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1406; macro-expanded
 - `pub async fn goal_lens(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1407; macro-expanded
 - `pub async fn goal_section_choice(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1408; macro-expanded
-- `pub async fn curriculum_path(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1409; macro-expanded
-- `pub async fn ink_save(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1412; macro-expanded
-- `pub async fn ink_erase(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1413; macro-expanded
-- `pub async fn ink_list(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1414; macro-expanded
-- `pub async fn ink_transcribe(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1415; macro-expanded
-- `pub async fn ink_transcribe_job(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1416; macro-expanded
-- `pub async fn ink_transcribe_cancel(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1417; macro-expanded
-- `pub async fn lesson_turn(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1419; macro-expanded
-- `pub async fn lesson_view(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1420; macro-expanded
-- `pub async fn lesson_activity(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1422; macro-expanded
-- `pub async fn lesson_goal(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1424; macro-expanded
-- `pub async fn lesson_open_lessons(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1425; macro-expanded
-- `pub async fn lesson_list(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1427; macro-expanded
-- `pub async fn reader_follow_along(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1430; macro-expanded
-- `pub async fn chapters_list(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1431; macro-expanded
-- `pub async fn chapters_suggest(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1432; macro-expanded
-- `pub async fn chapters_job(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1433; macro-expanded
-- `pub async fn chapters_cancel(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1434; macro-expanded
-- `pub async fn chapters_decide(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1435; macro-expanded
-- `pub async fn lesson_suggestion(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1437; macro-expanded
-- `pub async fn lesson_suggestion_respond(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1438; macro-expanded
-- `pub async fn reader_side_by_side_section(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1440; macro-expanded
-- `pub async fn reader_figure_request(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1443; macro-expanded
-- `pub async fn figure_request(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1445; macro-expanded
-- `pub async fn figure_rich_cancel(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1447; macro-expanded
-- `pub async fn figure_rich_retry(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1449; macro-expanded
-- `pub async fn figure_manim_opt_in(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1450; macro-expanded
-- `pub async fn figure_take_step(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1453; macro-expanded
-- `pub async fn figure_open(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1454; macro-expanded
-- `pub async fn reader_figure_revise(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1455; macro-expanded
-- `pub async fn reader_figure_recheck(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1456; macro-expanded
-- `pub async fn reader_figure_job(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1457; macro-expanded
-- `pub async fn reader_figure_job_cancel(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1458; macro-expanded
-- `pub async fn reader_figures(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1459; macro-expanded
-- `pub async fn reader_figure_predict(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1460; macro-expanded
-- `pub async fn reader_figure_explain(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1461; macro-expanded
-- `pub async fn reader_dose_offer(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1464; macro-expanded
-- `pub async fn reader_dose_offer_event(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1465; macro-expanded
-- `pub async fn adaptive_difficulty_readiness(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1466; macro-expanded
-- `pub async fn adaptive_difficulty_why_item(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1467; macro-expanded
-- `pub async fn reader_block_original_region(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1468; macro-expanded
-- `pub async fn practice_as_printed(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1471; macro-expanded
-- `pub async fn practice_report_transcription(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1472; macro-expanded
-- `pub async fn reader_capture(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1473; macro-expanded
-- `pub async fn reader_edit_annotation(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1474; macro-expanded
-- `pub async fn reader_delete_intent_annotation(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1475; macro-expanded
-- `pub async fn reader_restore_annotation(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1480; macro-expanded
-- `pub async fn reader_reanchor(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1481; macro-expanded
-- `pub async fn reader_source_annotations(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1482; macro-expanded
-- `pub async fn reader_drain_outbox(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1483; macro-expanded
-- `pub async fn reader_invoke_preset(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1485; macro-expanded
-- `pub async fn reader_set_mode(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1486; macro-expanded
-- `pub async fn reader_question_control(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1487; macro-expanded
-- `pub async fn reader_retry_request(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1488; macro-expanded
-- `pub async fn reader_source_requests(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1489; macro-expanded
-- `pub async fn reader_source_objects(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1490; macro-expanded
-- `pub async fn reader_proposal_inbox(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1491; macro-expanded
-- `pub async fn reader_accept_proposal(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1492; macro-expanded
-- `pub async fn reader_reject_proposal(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1493; macro-expanded
-- `pub async fn reader_author_qa(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1495; macro-expanded
-- `pub async fn reader_coach_lint(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1496; macro-expanded
-- `pub async fn reader_arc(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1497; macro-expanded
-- `pub async fn reader_set_depth_policy(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1498; macro-expanded
-- `pub async fn reader_pause_arc(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1499; macro-expanded
+- `pub async fn goal_choices(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1410; macro-expanded
+- `pub async fn curriculum_path(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1411; macro-expanded
+- `pub async fn ink_save(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1414; macro-expanded
+- `pub async fn ink_erase(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1415; macro-expanded
+- `pub async fn ink_list(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1416; macro-expanded
+- `pub async fn ink_transcribe(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1417; macro-expanded
+- `pub async fn ink_transcribe_job(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1418; macro-expanded
+- `pub async fn ink_transcribe_cancel(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1419; macro-expanded
+- `pub async fn lesson_turn(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1421; macro-expanded
+- `pub async fn lesson_view(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1422; macro-expanded
+- `pub async fn lesson_activity(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1424; macro-expanded
+- `pub async fn lesson_goal(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1426; macro-expanded
+- `pub async fn lesson_open_lessons(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1427; macro-expanded
+- `pub async fn lesson_list(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1429; macro-expanded
+- `pub async fn reader_follow_along(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1432; macro-expanded
+- `pub async fn chapters_list(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1433; macro-expanded
+- `pub async fn chapters_suggest(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1434; macro-expanded
+- `pub async fn chapters_job(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1435; macro-expanded
+- `pub async fn chapters_cancel(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1436; macro-expanded
+- `pub async fn chapters_decide(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1437; macro-expanded
+- `pub async fn lesson_suggestion(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1439; macro-expanded
+- `pub async fn lesson_suggestion_respond(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1440; macro-expanded
+- `pub async fn reader_side_by_side_section(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1442; macro-expanded
+- `pub async fn reader_figure_request(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1445; macro-expanded
+- `pub async fn figure_request(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1447; macro-expanded
+- `pub async fn figure_rich_cancel(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1449; macro-expanded
+- `pub async fn figure_rich_retry(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1451; macro-expanded
+- `pub async fn figure_manim_opt_in(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1452; macro-expanded
+- `pub async fn figure_take_step(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1455; macro-expanded
+- `pub async fn figure_open(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1456; macro-expanded
+- `pub async fn reader_figure_revise(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1457; macro-expanded
+- `pub async fn reader_figure_recheck(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1458; macro-expanded
+- `pub async fn reader_figure_job(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1459; macro-expanded
+- `pub async fn reader_figure_job_cancel(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1460; macro-expanded
+- `pub async fn reader_figures(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1461; macro-expanded
+- `pub async fn reader_figure_predict(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1462; macro-expanded
+- `pub async fn reader_figure_explain(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1463; macro-expanded
+- `pub async fn reader_dose_offer(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1466; macro-expanded
+- `pub async fn reader_dose_offer_event(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1467; macro-expanded
+- `pub async fn adaptive_difficulty_readiness(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1468; macro-expanded
+- `pub async fn adaptive_difficulty_why_item(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1469; macro-expanded
+- `pub async fn reader_block_original_region(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1470; macro-expanded
+- `pub async fn practice_as_printed(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1473; macro-expanded
+- `pub async fn practice_report_transcription(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1474; macro-expanded
+- `pub async fn reader_capture(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1475; macro-expanded
+- `pub async fn reader_edit_annotation(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1476; macro-expanded
+- `pub async fn reader_delete_intent_annotation(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1477; macro-expanded
+- `pub async fn reader_restore_annotation(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1482; macro-expanded
+- `pub async fn reader_reanchor(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1483; macro-expanded
+- `pub async fn reader_source_annotations(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1484; macro-expanded
+- `pub async fn reader_drain_outbox(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1485; macro-expanded
+- `pub async fn reader_invoke_preset(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1487; macro-expanded
+- `pub async fn reader_set_mode(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1488; macro-expanded
+- `pub async fn reader_question_control(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1489; macro-expanded
+- `pub async fn reader_retry_request(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1490; macro-expanded
+- `pub async fn reader_source_requests(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1491; macro-expanded
+- `pub async fn reader_source_objects(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1492; macro-expanded
+- `pub async fn reader_proposal_inbox(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1493; macro-expanded
+- `pub async fn reader_accept_proposal(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1494; macro-expanded
+- `pub async fn reader_reject_proposal(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1495; macro-expanded
+- `pub async fn reader_author_qa(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1497; macro-expanded
+- `pub async fn reader_coach_lint(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1498; macro-expanded
+- `pub async fn reader_arc(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1499; macro-expanded
+- `pub async fn reader_set_depth_policy(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1500; macro-expanded
+- `pub async fn reader_pause_arc(input, sidecar) [expanded by sidecar_passthrough!]` — fn, line 1501; macro-expanded
 
 ## Internal implementation anchors
 
@@ -533,9 +534,9 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `async fn blocking_isolated_cli_call( sidecar: State<'_, SidecarManager>, input: Value, ) -> Result<Value, CommandError>` — fn, line 32
 - `fn is_populate_goal_command(input: &Value) -> bool` — fn, line 49
 - `fn cli_command_succeeded(result: &Value) -> bool` — fn, line 61
-- `fn populate_goal_cli_calls_are_classified_as_isolated()` — fn, line 1507
-- `fn other_cli_calls_stay_on_the_primary_sidecar()` — fn, line 1517
-- `fn successful_cli_results_are_detected_from_the_camel_case_contract()` — fn, line 1526
+- `fn populate_goal_cli_calls_are_classified_as_isolated()` — fn, line 1509
+- `fn other_cli_calls_stay_on_the_primary_sidecar()` — fn, line 1519
+- `fn successful_cli_results_are_detected_from_the_camel_case_contract()` — fn, line 1528
 
 ## Who imports or calls it
 

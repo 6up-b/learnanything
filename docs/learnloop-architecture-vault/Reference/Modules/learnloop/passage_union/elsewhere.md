@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/passage_union/elsewhere.py](../../../../../../src/learnloop/passage_union/elsewhere.py) |
-| Source lines | 187 |
+| Source lines | 189 |
 | Owning package | [[Reference/Modules/learnloop/passage_union/_package|learnloop.passage_union]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -60,7 +60,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `by_passage_links(vault: Any, repository: Any, connection: Any, places: Iterable[tuple[str, str]]) -> list[Finding]` ([source](../../../../../../src/learnloop/passage_union/elsewhere.py), line 76) — The other passages a link ties to the same learner problem as ``places``; none from or to protected material.
 - `by_correspondents(vault: Any, repository: Any, places: Iterable[tuple[str, str]], *, search_fallback: bool, embedder: Any | None=None, cache: Any | None=None) -> list[Finding]` ([source](../../../../../../src/learnloop/passage_union/elsewhere.py), line 99) — Each passage's section's correspondents in the other books, judged first; the search fallback's hits (keyword, no model) only when asked and when no judged one exists.
 - `by_search(vault: Any, repository: Any, text: str, *, exclude_sources: Iterable[str]=(), exclude_places: Iterable[tuple[str, str]]=(), deep: bool, verify: bool, embedder: Any | None=None, verify_client: Any | None=None, owner_id: str='', pick_at_most: int) -> list[Finding]` ([source](../../../../../../src/learnloop/passage_union/elsewhere.py), line 137) — Passages found for ``text`` in the other sources; with ``verify``, the judge's picks are checked and the rest dropped (a judge that looked at a hit and did not pick it said it does not say this); without a judgment, every hit is unchecked.
-- `as_proposal(finding: Finding) -> Mapping[str, Any]` ([source](../../../../../../src/learnloop/passage_union/elsewhere.py), line 179) — A finding as a ``pad_proposals`` row's content (the caller adds the ids and the time).
+- `as_proposal(finding: Finding) -> Mapping[str, Any]` ([source](../../../../../../src/learnloop/passage_union/elsewhere.py), line 181) — A finding as a ``pad_proposals`` row's content (the caller adds the ids and the time).
 
 ### Module constants
 

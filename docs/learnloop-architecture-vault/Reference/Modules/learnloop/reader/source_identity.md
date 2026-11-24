@@ -97,6 +97,7 @@ No private top-level function or class definition is declared in this file.
 
 - [[Reference/Modules/learnloop_sidecar/handlers/workbench|learnloop_sidecar.handlers.workbench]] — imports `MISMATCH_CODE`
 - [[Reference/Modules/learnloop_sidecar/source_identity|learnloop_sidecar.source_identity]] — imports `module`; statically calls `require_annotation_source`, `require_exchange_in_extraction`, `require_reading_span_keys`, `require_selection_provenance`, `require_source_identity`, `require_span_keys`, `selection_span_ids`, `subject_span_id`
+- [[Reference/Modules/learnloop_sidecar/workbench_protection|learnloop_sidecar.workbench_protection]] — imports `selection_span_ids`; statically calls `selection_span_ids`
 
 ## Dependencies
 
@@ -115,7 +116,7 @@ Use this module in context through:
 
 - [[Reader to Practice Workflow]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop_sidecar/handlers/workbench|learnloop_sidecar.handlers.workbench]], [[Reference/Modules/learnloop_sidecar/source_identity|learnloop_sidecar.source_identity]].
+Static participation evidence comes from [[Reference/Modules/learnloop_sidecar/handlers/workbench|learnloop_sidecar.handlers.workbench]], [[Reference/Modules/learnloop_sidecar/source_identity|learnloop_sidecar.source_identity]], [[Reference/Modules/learnloop_sidecar/workbench_protection|learnloop_sidecar.workbench_protection]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

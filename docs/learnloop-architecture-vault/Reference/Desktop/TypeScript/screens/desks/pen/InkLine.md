@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/pen/InkLine.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/pen/InkLine.tsx) |
-| Source lines | 291 |
+| Source lines | 292 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/pen/_area|TypeScript/screens/desks/pen]] |
 | Refactor status | `ACTIVE` |
@@ -54,53 +54,53 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export const RULE_PX = 52` — const, line 17
-- `export function surfaceHeight(strokes: ReadonlyArray<` — function, line 32
-- `export interface InkBlockProps` — interface, line 147
-- `export function InkBlock(` — function, line 158
-- `export function InkJot(` — function, line 263
+- `export const RULE_PX = 52` — const, line 18
+- `export function surfaceHeight(strokes: ReadonlyArray<` — function, line 33
+- `export interface InkBlockProps` — interface, line 148
+- `export function InkBlock(` — function, line 159
+- `export function InkJot(` — function, line 264
 
 ## Internal implementation anchors
 
-- `const PEN_WIDTH = 2.2` — const, line 19
-- `type Point6 = [number, number, number, number, number, number]` — type, line 21
-- `function round(value: number): number` — function, line 23
-- `function pathOf(points: ReadonlyArray<readonly number[]>): string` — function, line 27
-- `const bottom = Math.max(0, ...strokes.flatMap((stroke)` — const, line 33
-- `interface SurfaceProps` — interface, line 37
-- `function InkSurface(` — function, line 50
-- `const hostRef = useRef(host)` — const, line 51
-- `const input = useMemo(()` — const, line 53
-- `const ref = useRef<HTMLDivElement | null>(null)` — const, line 54
-- `const drew = useRef(false)` — const, line 57
-- `const erased = useRef(new Set<string>())` — const, line 60
-- `const local = (samples: Sample[]): Point6[]` — const, line 61
-- `const box = ref.current?.getBoundingClientRect() ??` — const, line 62
-- `const height = surfaceHeight([...strokes, ...(live ? [` — const, line 72
-- `const outcome = input.down(event.nativeEvent as unknown as PointerLike, hostRef.current.on)` — const, line 82
-- `const samples = input.move(event.nativeEvent as unknown as PointerLike)` — const, line 102
-- `const hit = new Set<string>()` — const, line 105
-- `const stroke = input.up(event.nativeEvent as unknown as PointerLike)` — const, line 119
-- `function pointerMeta(pointerType: "pen" | "mouse")` — function, line 143
-- `const host = usePenHost()` — const, line 159
-- `function InkBlockOn(` — function, line 164
-- `const cache = host.ink` — const, line 165
-- `const pad = cache.pad(padId)` — const, line 167
-- `const line = pad.lines[block.blockId]` — const, line 168
-- `const reading = pad.readings[block.blockId]` — const, line 169
-- `const strokes = line?.strokes ?? []` — const, line 171
-- `const words = block.bodyMd.trim()` — const, line 172
-- `const corrected = block.provenance === "learner_correction"` — const, line 173
-- `const keep = (text: string)` — const, line 175
-- `let status: ReactNode = null` — let, line 182
-- `const offered = reading.result.latexMd` — const, line 190
-- `const inkId = host.mintId("ink")` — const, line 208
-- `const all = (cache.pad(padId).lines[block.blockId]?.strokes ?? []).every((stroke)` — const, line 216
-- `const read = block.provenance === "ink_transcription" && (words !== "" || "ink_transcription" in block.payload)` — const, line 217
-- `const op: PadOpDto =` — const, line 218
-- `const host = usePenHost()` — const, line 271
-- `const blockId = newLine()` — const, line 280
-- `const inkId = host.mintId("ink")` — const, line 282
+- `const PEN_WIDTH = 2.2` — const, line 20
+- `type Point6 = [number, number, number, number, number, number]` — type, line 22
+- `function round(value: number): number` — function, line 24
+- `function pathOf(points: ReadonlyArray<readonly number[]>): string` — function, line 28
+- `const bottom = Math.max(0, ...strokes.flatMap((stroke)` — const, line 34
+- `interface SurfaceProps` — interface, line 38
+- `function InkSurface(` — function, line 51
+- `const hostRef = useRef(host)` — const, line 52
+- `const input = useMemo(()` — const, line 54
+- `const ref = useRef<HTMLDivElement | null>(null)` — const, line 55
+- `const drew = useRef(false)` — const, line 58
+- `const erased = useRef(new Set<string>())` — const, line 61
+- `const local = (samples: Sample[]): Point6[]` — const, line 62
+- `const box = ref.current?.getBoundingClientRect() ??` — const, line 63
+- `const height = surfaceHeight([...strokes, ...(live ? [` — const, line 73
+- `const outcome = input.down(event.nativeEvent as unknown as PointerLike, hostRef.current.on)` — const, line 83
+- `const samples = input.move(event.nativeEvent as unknown as PointerLike)` — const, line 103
+- `const hit = new Set<string>()` — const, line 106
+- `const stroke = input.up(event.nativeEvent as unknown as PointerLike)` — const, line 120
+- `function pointerMeta(pointerType: "pen" | "mouse")` — function, line 144
+- `const host = usePenHost()` — const, line 160
+- `function InkBlockOn(` — function, line 165
+- `const cache = host.ink` — const, line 166
+- `const pad = cache.pad(padId)` — const, line 168
+- `const line = pad.lines[block.blockId]` — const, line 169
+- `const reading = pad.readings[block.blockId]` — const, line 170
+- `const strokes = line?.strokes ?? []` — const, line 172
+- `const words = block.bodyMd.trim()` — const, line 173
+- `const corrected = block.provenance === "learner_correction"` — const, line 174
+- `const keep = (text: string)` — const, line 176
+- `let status: ReactNode = null` — let, line 183
+- `const offered = reading.result.latexMd` — const, line 191
+- `const inkId = host.mintId("ink")` — const, line 209
+- `const all = (cache.pad(padId).lines[block.blockId]?.strokes ?? []).every((stroke)` — const, line 217
+- `const read = block.provenance === "ink_transcription" && (words !== "" || "ink_transcription" in block.payload)` — const, line 218
+- `const op: PadOpDto =` — const, line 219
+- `const host = usePenHost()` — const, line 272
+- `const blockId = newLine()` — const, line 281
+- `const inkId = host.mintId("ink")` — const, line 283
 
 ## Who imports or calls it
 

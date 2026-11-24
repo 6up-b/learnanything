@@ -53,7 +53,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/ingest/extractors/__init__|learnloop.ingest.extractors]] | [[Reference/Modules/learnloop/ingest/extractors/__init__#^module-purpose|purpose]] | `ACTIVE` | 4 | 6 |
 | [[Reference/Modules/learnloop/ingest/extractors/base|learnloop.ingest.extractors.base]] | [[Reference/Modules/learnloop/ingest/extractors/base#^module-purpose|purpose]] | `ACTIVE` | 6 | 3 |
 | [[Reference/Modules/learnloop/ingest/extractors/datalab|learnloop.ingest.extractors.datalab]] | [[Reference/Modules/learnloop/ingest/extractors/datalab#^module-purpose|purpose]] | `ACTIVE` | 1 | 0 |
-| [[Reference/Modules/learnloop/ingest/extractors/glm_ocr|learnloop.ingest.extractors.glm_ocr]] | [[Reference/Modules/learnloop/ingest/extractors/glm_ocr#^module-purpose|purpose]] | `ACTIVE` | 9 | 7 |
+| [[Reference/Modules/learnloop/ingest/extractors/glm_ocr|learnloop.ingest.extractors.glm_ocr]] | [[Reference/Modules/learnloop/ingest/extractors/glm_ocr#^module-purpose|purpose]] | `ACTIVE` | 11 | 11 |
 | [[Reference/Modules/learnloop/ingest/extractors/glm_text_layer|learnloop.ingest.extractors.glm_text_layer]] | [[Reference/Modules/learnloop/ingest/extractors/glm_text_layer#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/ingest/extractors/marker|learnloop.ingest.extractors.marker]] | [[Reference/Modules/learnloop/ingest/extractors/marker#^module-purpose|purpose]] | `ACTIVE` | 3 | 4 |
 | [[Reference/Modules/learnloop/ingest/extractors/marker_worker|learnloop.ingest.extractors.marker_worker]] | [[Reference/Modules/learnloop/ingest/extractors/marker_worker#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
@@ -72,8 +72,9 @@ For system intent, use [[Architecture Overview]].
 ### Packages that import this package
 
 - [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 11 static module edges
+- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 4 static module edges
 - [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 3 static module edges
-- [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 3 static module edges
+- [[Reference/Modules/learnloop/pads/_package|learnloop.pads]] — 1 static module edge
 
 ### Dependency neighborhood
 
@@ -84,16 +85,18 @@ flowchart LR
     center["learnloop.ingest.extractors"]
     n_learnloop_ingest["learnloop.ingest"]
     n_learnloop_content_pipeline["learnloop.content.pipeline"]
+    n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
     n_learnloop_ai["learnloop.ai"]
     n_learnloop_content_sources["learnloop.content.sources"]
-    n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
     n_learnloop_config["learnloop.config"]
+    n_learnloop_pads["learnloop.pads"]
     center -->|12| n_learnloop_ingest
     n_learnloop_content_pipeline -->|11| center
+    n_learnloop_sidecar_handlers -->|4| center
     center -->|3| n_learnloop_ai
     n_learnloop_content_sources -->|3| center
-    n_learnloop_sidecar_handlers -->|3| center
     center -->|1| n_learnloop_config
+    n_learnloop_pads -->|1| center
 ```
 
 Interpretation: arrow direction is static import direction and the label is the number of distinct module-to-module edges. It shows coupling pressure, not runtime call frequency or ownership permission.

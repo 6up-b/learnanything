@@ -2148,6 +2148,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_measurement_state_labels.py](../../../../../../tests/test_measurement_state_labels.py) — direct import
 - [tests/test_menu_promoted_rows.py](../../../../../../tests/test_menu_promoted_rows.py) — direct import
 - [tests/test_menu_protected_material.py](../../../../../../tests/test_menu_protected_material.py) — direct import
+  - `test_a_stored_mark_on_held_out_material_reaches_no_other_surface`
   - `test_search_elsewhere_never_finds_or_judges_protected_material`
 - [tests/test_method_explicit_landing.py](../../../../../../tests/test_method_explicit_landing.py) — direct import
   - `test_a_plan_rows_preview_keeps_the_sentence_whole`

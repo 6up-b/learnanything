@@ -430,6 +430,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_provider_resolution_config_matrix_is_uniform`
 - [tests/test_reader_dialogue.py](../../../../../../tests/test_reader_dialogue.py) — direct import
   - `test_reader_enabled_by_default`
+- [tests/test_reader_ink_glm_ocr.py](../../../../../../tests/test_reader_ink_glm_ocr.py) — direct import
+  - `test_the_retired_vision_route_keeps_whole_config_bytes`
 - [tests/test_recall_calibration.py](../../../../../../tests/test_recall_calibration.py) — direct import
   - `test_recall_calibration_examples_are_config_backed`
 - [tests/test_registry_audit.py](../../../../../../tests/test_registry_audit.py) — direct import

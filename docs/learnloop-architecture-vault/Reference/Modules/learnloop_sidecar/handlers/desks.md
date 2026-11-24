@@ -50,21 +50,21 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/desks.py](../../../../../../src/learnloop_sidecar/handlers/desks.py) |
-| Source lines | 58 |
+| Source lines | 70 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `protocol_error(exc: ProtocolError) -> SidecarError` ([source](../../../../../../src/learnloop_sidecar/handlers/desks.py), line 24)
-- `class DeskApplyInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/desks.py), line 28)
-- `desk_state_handler(ctx: SidecarContext, params: EmptyParams) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/desks.py), line 35) — Every open desk with its slots (authoritative: a pair is two windows sharing a slot), the running pads, and each client's last applied batch.
-- `desk_apply_handler(ctx: SidecarContext, params: DeskApplyInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/desks.py), line 50) — One batch of desk ops: ``{applied_seq, results: [ok | conflict{current} | refused{code}], versions}``.
+- `protocol_error(exc: ProtocolError) -> SidecarError` ([source](../../../../../../src/learnloop_sidecar/handlers/desks.py), line 25)
+- `class DeskApplyInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/desks.py), line 29)
+- `desk_state_handler(ctx: SidecarContext, params: EmptyParams) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/desks.py), line 36) — Every open desk with its slots (authoritative: a pair is two windows sharing a slot), the running pads, and each client's last applied batch.
+- `desk_apply_handler(ctx: SidecarContext, params: DeskApplyInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/desks.py), line 51) — One batch of desk ops: ``{applied_seq, results: [ok | conflict{current} | refused{code}], versions}``.
 
 ### Module constants
 
-- `DESK_RPCS` ([src/learnloop_sidecar/handlers/desks.py](../../../../../../src/learnloop_sidecar/handlers/desks.py), line 21)
+- `DESK_RPCS` ([src/learnloop_sidecar/handlers/desks.py](../../../../../../src/learnloop_sidecar/handlers/desks.py), line 22)
 
 ## Internal implementation anchors
 
@@ -89,6 +89,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop_sidecar/dto|learnloop_sidecar.dto]] — imports `EmptyParams`, `ParamsModel`, `Verbatim`, `versioned`; calls `Verbatim`, `versioned`
 - [[Reference/Modules/learnloop_sidecar/errors|learnloop_sidecar.errors]] — imports `SidecarError`; calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/registry|learnloop_sidecar.registry]] — imports `method`; calls `method`
+- [[Reference/Modules/learnloop_sidecar/workbench_protection|learnloop_sidecar.workbench_protection]] — imports `payload_places`, `refuse_protected`; calls `payload_places`, `refuse_protected`
 
 ### Platform and third-party dependencies
 

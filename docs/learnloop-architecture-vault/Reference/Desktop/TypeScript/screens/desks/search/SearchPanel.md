@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/search/SearchPanel.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/search/SearchPanel.tsx) |
-| Source lines | 236 |
+| Source lines | 238 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/search/_area|TypeScript/screens/desks/search]] |
 | Refactor status | `ACTIVE` |
@@ -58,30 +58,30 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export const SEARCH_DEBOUNCE_MS = 120` — const, line 19
 - `export const SEARCH_CLOSE_MS = 140` — const, line 21
 - `export interface SearchPanelProps` — interface, line 23
-- `export function SearchPanel(` — function, line 38
+- `export function SearchPanel(` — function, line 40
 
 ## Internal implementation anchors
 
-- `const inputRef = useRef<HTMLInputElement | null>(null)` — const, line 50
-- `const searchSeq = useRef(0)` — const, line 51
-- `const stopMeaning = useRef<(()` — const, line 52
-- `const trimmed = query.trim()` — const, line 61
-- `const seq = ++searchSeq.current` — const, line 62
-- `const handle = timers.set(()` — const, line 76
-- `const jobId = found.meaning.jobId` — const, line 84
-- `const groups = useMemo( ()` — const, line 121
-- `const rows = useMemo(()` — const, line 125
-- `const current = rows[Math.min(selected, rows.length - 1)] ?? null` — const, line 126
-- `const rowEls = useRef(new Map<string, HTMLElement>())` — const, line 129
-- `const listRef = useRef<HTMLDivElement | null>(null)` — const, line 130
-- `const element = current ? rowEls.current.get(current.key) : null` — const, line 133
-- `const close = ()` — const, line 142
-- `const choose = (row: SearchRow | null)` — const, line 152
-- `const onKeyDown = (event: React.KeyboardEvent)` — const, line 159
-- `const group = groups.find((each)` — const, line 175
-- `const note = meaningNote(words, meaningUnavailable)` — const, line 180
-- `const motion = reducedMotion ? " still" : ""` — const, line 181
-- `const index = rows.findIndex((each)` — const, line 213
+- `const inputRef = useRef<HTMLInputElement | null>(null)` — const, line 52
+- `const searchSeq = useRef(0)` — const, line 53
+- `const stopMeaning = useRef<(()` — const, line 54
+- `const trimmed = query.trim()` — const, line 63
+- `const seq = ++searchSeq.current` — const, line 64
+- `const handle = timers.set(()` — const, line 78
+- `const jobId = found.meaning.jobId` — const, line 86
+- `const groups = useMemo( ()` — const, line 123
+- `const rows = useMemo(()` — const, line 127
+- `const current = rows[Math.min(selected, rows.length - 1)] ?? null` — const, line 128
+- `const rowEls = useRef(new Map<string, HTMLElement>())` — const, line 131
+- `const listRef = useRef<HTMLDivElement | null>(null)` — const, line 132
+- `const element = current ? rowEls.current.get(current.key) : null` — const, line 135
+- `const close = ()` — const, line 144
+- `const choose = (row: SearchRow | null)` — const, line 154
+- `const onKeyDown = (event: React.KeyboardEvent)` — const, line 161
+- `const group = groups.find((each)` — const, line 177
+- `const note = meaningNote(words, meaningUnavailable)` — const, line 182
+- `const motion = reducedMotion ? " still" : ""` — const, line 183
+- `const index = rows.findIndex((each)` — const, line 215
 
 ## Who imports or calls it
 
