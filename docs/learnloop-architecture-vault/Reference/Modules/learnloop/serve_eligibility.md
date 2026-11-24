@@ -191,6 +191,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/diagnosis/probe_presentations|learnloop.diagnosis.probe_presentations]] — imports `module`; statically calls `decide`, `gather`, `log_decision`
 - [[Reference/Modules/learnloop/diagnosis/quick_check|learnloop.diagnosis.quick_check]] — imports `module`; statically calls `decide`, `gather`, `log_decision`
 - [[Reference/Modules/learnloop/diagnosis/remediation|learnloop.diagnosis.remediation]] — imports `COLD_CHECK_HELP_TAKEN`
+- [[Reference/Modules/learnloop/intent/inline_administration|learnloop.intent.inline_administration]] — imports `AUTO_PRIME_REVEAL_THRESHOLD`, `module`; statically calls `check_once_at_attempt`, `decide`, `gather`
 - [[Reference/Modules/learnloop/learner_protection|learnloop.learner_protection]] — imports `COLD_FOLLOWUP_TASK_KINDS`
 - [[Reference/Modules/learnloop/scheduling/intent/followup_gate|learnloop.scheduling.intent.followup_gate]] — imports `COLD_RETRIEVAL_DELAY`
 - [[Reference/Modules/learnloop/scheduling/intent/serving|learnloop.scheduling.intent.serving]] — imports `module`; statically calls `check_once_at_attempt`, `decide`, `gather`
@@ -218,7 +219,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/serve_inputs|learnloop.adaptive_difficulty.serve_inputs]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/reveal_ledger|learnloop.attempts.reveal_ledger]], [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] and 14 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/serve_inputs|learnloop.adaptive_difficulty.serve_inputs]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/reveal_ledger|learnloop.attempts.reveal_ledger]], [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] and 15 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -242,6 +243,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reader_ca2_one_ask.py](../../../../../tests/test_reader_ca2_one_ask.py) — direct import
   - `test_a_hinted_cold_check_converts`
   - `test_without_help_the_cold_rules_are_unchanged`
+- [tests/test_reader_rd7a_inline_checks.py](../../../../../tests/test_reader_rd7a_inline_checks.py) — direct import
+  - `test_opening_a_notes_veil_reads_no_note_and_says_so_in_the_receipt`
+  - `test_rd7_20_a_subthreshold_opening_holds_the_check_and_the_reply_says_so`
+  - `test_rd7_3_leaving_for_an_unveiled_surface_is_an_unmeasured_opening`
+  - `test_rd7_7_an_opening_nothing_can_measure_is_charged_and_says_so_before`
 - [tests/test_reader_workbench_rw2a.py](../../../../../tests/test_reader_workbench_rw2a.py) — direct import
   - `test_a_workbench_submit_asks_the_same_eligibility_decision_as_every_submit`
 - [tests/test_serve_eligibility.py](../../../../../tests/test_serve_eligibility.py) — direct import

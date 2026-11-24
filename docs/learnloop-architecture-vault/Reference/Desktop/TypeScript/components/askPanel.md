@@ -79,7 +79,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - [[Reference/Desktop/TypeScript/components/AskOverlay|src/components/AskOverlay.tsx]] — import-or-re-export: `ANSWER_MODE_LABEL`, `ASK_COPY`, `ONE_QUESTION_MODES`, `STYLE_ANSWER_MODE`, `StoredHelpStyle`, `answerCountLabel`, `shortDate`, `useStoredHelpStyle`; references `ANSWER_MODE_LABEL`, `ASK_COPY`, `ONE_QUESTION_MODES`, `STYLE_ANSWER_MODE`, `StoredHelpStyle`, `answerCountLabel`, `shortDate`, `useStoredHelpStyle`
 - [[Reference/Desktop/TypeScript/screens/PracticeScreen|src/screens/PracticeScreen.tsx]] — import-or-re-export: `ASK_COPY`; references `ASK_COPY`
-- [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] — import-or-re-export: `STYLE_ANSWER_MODE`, `StoredHelpStyle`, `useStoredHelpStyle`; references `STYLE_ANSWER_MODE`, `StoredHelpStyle`, `useStoredHelpStyle`
+- [[Reference/Desktop/TypeScript/screens/desks/source/ScopedSource|src/screens/desks/source/ScopedSource.tsx]] — import-or-re-export: `STYLE_ANSWER_MODE`, `StoredHelpStyle`, `useStoredHelpStyle`; references `STYLE_ANSWER_MODE`, `StoredHelpStyle`, `useStoredHelpStyle`
 
 ## Dependencies
 

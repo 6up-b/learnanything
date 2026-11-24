@@ -6,7 +6,7 @@ import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { InkTranscribeJobDto } from "../../../api/dto";
 import { Poller } from "../../../api/poller";
-import type { PenSurface } from "../../ReaderScreen";
+import type { PenSurface } from "../source/types";
 import { WindowLifecycleContext, type WindowState } from "../lifecycle";
 import { PenHostContext, type PenApi, type PenHost } from "./host";
 import { InkCache } from "./inkCache";

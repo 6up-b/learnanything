@@ -227,7 +227,6 @@ function HarnessShell({ lessonsOn, problemOn }: { lessonsOn: boolean; problemOn:
         {...(lessonsOn ? { reader: { onTeachMe: () => undefined }, lessons: { request } } : {})}
         {...(problemOn ? { reader: { workbench: { practiceSessionId: null, onSubmitted: (result) => { window.__problemSubmitted = result.attempt.attemptId; } } } } : {})}
         onError={(message) => errors.push(message)}
-        onLeave={() => errors.push("left for the old Reader")}
         onDebugHandle={(handle) => {
           window.__deskDebug = handle;
         }}

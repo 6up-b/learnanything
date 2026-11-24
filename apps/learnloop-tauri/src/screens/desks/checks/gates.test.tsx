@@ -48,6 +48,29 @@ describe("the menu while a check is open", () => {
   });
 });
 
+describe("the open check and a verb's own verdict compose", () => {
+  it("a held verb waits for the check first and never asks for its verdict; after the check, the verdict (per verb) decides", async () => {
+    const { ctx, toasts } = context(HELD);
+    const withheld = vi.fn(async (verb?: string) => verb === "ask");
+    (ctx as { withheld: unknown }).withheld = withheld;
+    await runVerb("ask", passage, ctx);
+    expect(withheld).not.toHaveBeenCalled();
+    expect(toasts).toEqual([`this waits · ${HELD}`]);
+    // The check answered: the same verb now waits for its own verdict, which refuses it; another verb's verdict lets it run.
+    (ctx as { heldReason: () => string | null }).heldReason = () => null;
+    await runVerb("ask", passage, ctx);
+    expect(withheld).toHaveBeenCalledWith("ask");
+    expect(ctx.ask).not.toHaveBeenCalled();
+    expect(toasts[1]).toBe("this is exam or held-out material: its words are not sent anywhere from here");
+    // A verb the check never held (carry) runs during the check only once its own verdict clears it.
+    const during = context(HELD);
+    const verdict = vi.fn(async () => false);
+    (during.ctx as { withheld: unknown }).withheld = verdict;
+    await runVerb("carry", passage, during.ctx);
+    expect(during.ctx.carry).toHaveBeenCalled();
+  });
+});
+
 describe("a pen reading while a check is open", () => {
   it("waits with the reason and sends nothing", async () => {
     const inkTranscribe = vi.fn();

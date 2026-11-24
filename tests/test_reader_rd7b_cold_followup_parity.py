@@ -36,7 +36,7 @@ def _impression(repo, item_id: str, moment: datetime) -> None:
 def _begin(root, repo, commitment_id: str, moment: datetime) -> dict:
     return IA.begin(load_vault(root), repo, request_id=f"req_{moment.timestamp():.0f}", commitment_id=commitment_id,
                     session_id="ps_1", visible={}, serve=lambda item_id: {"practiceItemId": item_id},
-                    covered=lambda learning_object_ids: set(), clock=FrozenClock(moment))
+                    covered=lambda learning_object_ids: {}, clock=FrozenClock(moment))
 
 
 def _planned(tmp_path):

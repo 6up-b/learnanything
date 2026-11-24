@@ -1,7 +1,7 @@
 // Follow-along's mark on a book window (spec §7.5; RD10): the followed passage in cyan, laid over whatever lens the
 // window already has (the goal lens). One composed lens per window, made again only when either part changes, so the
 // Reader re-renders only for a new passage.
-import type { ReaderLens } from "../../ReaderScreen";
+import type { ReaderLens } from "../source/types";
 
 export class FollowLenses {
   private made = new Map<string, { base: ReaderLens | null; spanId: string | null; lens: ReaderLens | null }>();

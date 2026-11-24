@@ -12,7 +12,7 @@
 //   nothing from the learner's books says so in the code-owned badge.
 import { act, cleanup, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { ReaderScreen } from "../../ReaderScreen";
+import { ScopedSource } from "../../desks/source/ScopedSource";
 import { setAlgoConfig } from "../../../app/algoConfig";
 import { readerRenderViewFixture as view } from "../../../fixtures/readerRenderView";
 import type { FigureViewDto, SourceLibraryCard } from "../../../api/dto";
@@ -97,7 +97,7 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals(); setAlgoConfig(undefined); wi
 
 it("the Ask rail's show me sends the words as a goal and the thread line opens the figure", async () => {
   contract.value = { readerEnabled: true, inquiryEnabled: true, readerTutor: TUTOR, figures: FIGURES };
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   const block = await screen.findByText(view.blocks[1].markdown);
   fireEvent.click(screen.getByRole("button", { name: "ask" }));
   select(block);
@@ -122,7 +122,7 @@ it("the Ask rail's show me sends the words as a goal and the thread line opens t
 
 it("off, the Ask rail has no show me and Alt+Enter sends nothing", async () => {
   contract.value = { readerEnabled: true, inquiryEnabled: true, readerTutor: TUTOR, figures: { ...FIGURES, showMe: undefined } };
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   const block = await screen.findByText(view.blocks[1].markdown);
   fireEvent.click(screen.getByRole("button", { name: "ask" }));
   select(block);
@@ -136,7 +136,7 @@ it("off, the Ask rail has no show me and Alt+Enter sends nothing", async () => {
 
 it("the tutor's figure goal is a button the learner presses, sent with the answer's question event", async () => {
   contract.value = { readerEnabled: true, inquiryEnabled: true, readerTutor: TUTOR, figures: FIGURES };
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   const block = await screen.findByText(view.blocks[1].markdown);
   fireEvent.click(screen.getByRole("button", { name: "ask" }));
   select(block);
@@ -215,7 +215,7 @@ it("the figure line quotes the goal in its author's voice and the badge is code-
 
 async function landShowMe(landed: FigureViewDto): Promise<void> {
   api.figureRequest.mockResolvedValue({ jobId: "j1", kind: "figure_build", askId: null, state: "done", result: { figure: landed, reused: false } });
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   const block = await screen.findByText(view.blocks[1].markdown);
   fireEvent.click(screen.getByRole("button", { name: "ask" }));
   select(block);

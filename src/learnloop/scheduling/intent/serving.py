@@ -481,7 +481,8 @@ class IntentServing:
             check = self.check_for(item_id)
             if check is None or item_id not in check.servable:
                 continue
-            if check.commitment_id in claimed:
+            # Held in the Reader (mvp-0.69): its item is not this check here, wherever the pool was gathered.
+            if check.commitment_id in self.locked or check.commitment_id in claimed:
                 continue
             claimed.add(check.commitment_id)
             found[item_id] = check
@@ -511,6 +512,7 @@ def build_checks(
     default_days: int,
     attempts_since: Any,
     cold_at: Any = None,
+    held_at: Any = None,
 ) -> tuple[dict[str, CheckState], Resolution]:
     """Every pending "Check once" with its date and the items it decides;
     answered ones are folded to ``satisfied`` in the returned resolution.
@@ -556,6 +558,11 @@ def build_checks(
                 continue
             if at > now:
                 break
+            if held_at is not None and held_at(snapshot.id, row):
+                # mvp-0.69 (RD7's fix round): answered on another surface while an inline administration held this
+                # check: it was served as practice ("being answered in the Reader"), so it answers nothing and leaves
+                # the date as it was (the held answer decides).
+                continue
             if on_your_own(row) and (cold_at is None or cold_at(row, snapshot.created_at) == _SERVE):
                 answer = row
                 break
@@ -662,6 +669,29 @@ def split_check(check: CheckState, *, eligibility: Any = None, feasibility: Any 
     )
 
 
+def _held_at(vault: Any, repository: Any) -> Any:
+    """mvp-0.69 (RD7's fix round): ``held_at(commitment_id, attempt_row)``: the attempt was made on another surface
+    while an inline administration held this commitment (from its opening to its close). Below the tag, None."""
+
+    from learnloop.algorithm_versions import inline_checks_on
+    from learnloop.db.stores import check_administrations as admin_store
+
+    if not inline_checks_on(vault.config):
+        return None
+    with repository.connection() as connection:
+        windows = admin_store.held_windows(connection)
+    if not windows:
+        return None
+
+    def held_at(commitment_id: str, row: Mapping[str, Any]) -> bool:
+        if str(row.get("entry_surface") or "") == "reader_inline":
+            return False
+        at = str(row.get("created_at") or "")
+        return any(opened <= at and (closed is None or at <= closed) for opened, closed in windows.get(commitment_id, ()))
+
+    return held_at
+
+
 def _inline_locks(vault: Any, repository: Any) -> frozenset[str]:
     """The commitments an open inline administration holds (mvp-0.69); below the tag, none (Today ignores the lock)."""
 
@@ -753,6 +783,7 @@ def intent_serving(
         default_days=int(config.capture.test_me_later_days),
         attempts_since=attempts_since,
         cold_at=cold_at,
+        held_at=_held_at(vault, repository),
     )
 
     def anchors() -> dict[str, tuple[str, str]]:

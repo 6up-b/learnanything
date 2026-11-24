@@ -5,7 +5,7 @@
 // build that is not running. The harness is libraryExercisesReader.test.tsx's.
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { ReaderScreen } from "../../ReaderScreen";
+import { ScopedSource } from "../../desks/source/ScopedSource";
 import { setAlgoConfig } from "../../../app/algoConfig";
 import { readerRenderViewFixture as view } from "../../../fixtures/readerRenderView";
 import { readerIntentContractFixture as intent } from "../../../fixtures/readerIntentContract";
@@ -108,7 +108,7 @@ function select(block: HTMLElement): void {
 
 /** The library pane's answer, its notes landed, with both offers showing. */
 async function libraryAnswer(onError = vi.fn()) {
-  const page = render(<ReaderScreen initialSource={source} onError={onError} />);
+  const page = render(<ScopedSource initialSource={source} onError={onError} />);
   const block = await screen.findByText(view.blocks[1].markdown);
   select(block);
   await screen.findByRole("textbox", { name: BOX });
@@ -117,7 +117,7 @@ async function libraryAnswer(onError = vi.fn()) {
   fireEvent.click(within(palette).getByRole("button", { name: "where else is this explained?" }));
   const pane = await screen.findByRole("region", { name: "ask your library" });
   await within(pane).findByText("gives the transpose definition");
-  return Object.assign(pane, { rerenderPage: () => page.rerender(<ReaderScreen initialSource={source} onError={onError} />) });
+  return Object.assign(pane, { rerenderPage: () => page.rerender(<ScopedSource initialSource={source} onError={onError} />) });
 }
 
 function press(pane: HTMLElement, key: string): void {

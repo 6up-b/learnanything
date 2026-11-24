@@ -40,7 +40,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `receipt` — Historical audit/decision receipt. It is preserved and never rebuilt.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/270_reader_workbench_inline_checks.sql`.
-- **Schema touched by:** `270_reader_workbench_inline_checks.sql`.
+- **Schema touched by:** `270_reader_workbench_inline_checks.sql`, `271_reader_workbench_inline_checks_fix.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -100,6 +100,7 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/reader_rd7a_migration_helpers.py`
+- `tests/test_reader_rd7_fix_migration.py`
 - `tests/test_reader_rd7a_inline_checks.py`
 - `tests/test_reader_rd7a_migration.py`
 

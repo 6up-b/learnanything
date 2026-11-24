@@ -19,6 +19,7 @@ source_paths:
   - "src/learnloop/db/stores/check_administrations.py"
   - "src/learnloop/intent/inline_administration.py"
   - "src/learnloop/scheduling/intent/serving.py"
+  - "src/learnloop_sidecar/check_hold.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -42,7 +43,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `workflow` — Mutable queue, session, lease, or other in-flight workflow state. It is preserved across rebuilds.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/270_reader_workbench_inline_checks.sql`.
-- **Schema touched by:** `270_reader_workbench_inline_checks.sql`.
+- **Schema touched by:** `270_reader_workbench_inline_checks.sql`, `271_reader_workbench_inline_checks_fix.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -66,6 +67,11 @@ For the distinction between SQLite state and human-authored vault files, see [[S
 | `attempt_id` | `TEXT` | no | — | — | Application-validated soft reference |
 | `opened_at` | `TEXT` | yes | — | — | Timestamp (ISO-8601 UTC text) |
 | `closed_at` | `TEXT` | no | — | — | Timestamp (ISO-8601 UTC text) |
+| `candidates_json` | `TEXT` | yes | `'[]'` | — | JSON-encoded structured payload |
+| `presentation_json` | `TEXT` | no | — | — | JSON-encoded structured payload |
+| `pending_before` | `INTEGER` | no | — | — | Stored value |
+| `outcome_json` | `TEXT` | no | — | — | JSON-encoded structured payload |
+| `exposure_ids_json` | `TEXT` | yes | `'[]'` | — | JSON-encoded structured payload |
 
 ## Relationships and access paths
 
@@ -83,6 +89,7 @@ Database triggers:
 
 - `check_administrations_closed_final` — schema-enforced lifecycle or immutability constraint.
 - `check_administrations_kept` — schema-enforced lifecycle or immutability constraint.
+- `check_administrations_no_replace` — schema-enforced lifecycle or immutability constraint.
 
 ## Who calls it
 
@@ -109,6 +116,7 @@ None found by exact static reference scan.
 
 - `tests/reader_rd7a_migration_helpers.py`
 - `tests/test_architecture.py`
+- `tests/test_reader_rd7_fix_migration.py`
 - `tests/test_reader_rd7a_inline_checks.py`
 - `tests/test_reader_rd7a_migration.py`
 
@@ -142,7 +150,7 @@ CREATE TABLE check_administrations (
   submission_id TEXT UNIQUE,
   attempt_id TEXT,
   opened_at TEXT NOT NULL,
-  closed_at TEXT,
+  closed_at TEXT, candidates_json TEXT NOT NULL DEFAULT '[]', presentation_json TEXT, pending_before INTEGER CHECK (pending_before IS NULL OR pending_before IN (0, 1)), outcome_json TEXT, exposure_ids_json TEXT NOT NULL DEFAULT '[]',
   CHECK ((state = 'open') = (closed_at IS NULL)),
   CHECK (state != 'submitted' OR (submission_id IS NOT NULL AND attempt_id IS NOT NULL))
 );

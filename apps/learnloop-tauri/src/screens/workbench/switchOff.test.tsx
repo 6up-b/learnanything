@@ -4,11 +4,13 @@
 // __snapshots__/switchOff.test.tsx.snap were written on the base commit
 // (9cdaefb9e), before any RW2a frontend code existed; a workbench call would
 // throw here, because the api mocks name only the calls the base code made.
+// The Reader's retirement (phase 2 step 2): the snapshots now carry the scoped source's source bar in place of the
+// old screen's header and key bar; nothing else in them moved (scripts/rd_retire/snapshot_frames.mjs, entry by entry).
 import type { ComponentProps } from "react";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { PracticeScreen } from "../PracticeScreen";
-import { ReaderScreen } from "../ReaderScreen";
+import { ScopedSource } from "../desks/source/ScopedSource";
 import { setAlgoConfig } from "../../app/algoConfig";
 import { readerRenderViewFixture as view } from "../../fixtures/readerRenderView";
 import type { SourceLibraryCard } from "../../api/dto";
@@ -88,7 +90,7 @@ it.each(OFF_CONFIGS)("the practice screen is byte-identical with %s", async (_la
 
 it.each(OFF_CONFIGS)("the Reader and its notes rail are byte-identical with %s", async (_label, config) => {
   setAlgoConfig(config);
-  const view = render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  const view = render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   await screen.findAllByText(/symmetric/i);
   expect(markup(view.container)).toMatchSnapshot("reader, switched off");
   fireEvent.click(screen.getByRole("button", { name: "notes" }));

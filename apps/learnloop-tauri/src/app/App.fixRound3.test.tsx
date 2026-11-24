@@ -28,6 +28,8 @@ vi.mock("../components/useSourceFileDrop", () => ({ useSourceFileDrop: () => fal
 
 vi.mock("../api/client", () => {
   const base: Record<string, unknown> = {
+    // No inline check is open on the desks (the app reads it before showing any place).
+    checkOpenInline: vi.fn(async () => ({ administration: null })),
     loadVault: vi.fn(async () => {
       if (stubs.loadGate) await stubs.loadGate;
       if (stubs.loadFails) throw { code: "vault_unavailable", message: "The library could not be opened.", retryable: false };
@@ -54,7 +56,7 @@ function stub(name: string) {
   return () => <div data-testid={name}>{name}</div>;
 }
 
-vi.mock("../screens/ReaderScreen", () => ({ ReaderScreen: stub("reader-stub") }));
+vi.mock("../screens/desks/DeskShell", async () => ({ DeskShell: (await import("../fixtures/deskShellStub")).DeskShellStub }));
 vi.mock("../screens/LibraryPlace", () => ({ LibraryPlace: stub("library-stub") }));
 vi.mock("../screens/StartScreen", () => ({ StartScreen: stub("start-stub") }));
 vi.mock("../screens/TodayScreen", () => ({ TodayScreen: stub("today-stub") }));

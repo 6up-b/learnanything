@@ -12,6 +12,8 @@ from typing import Any
 _ADMIN_COLUMNS = (
     "administration_token", "request_id", "commitment_id", "surface", "session_id", "practice_item_id", "contract_hash",
     "cold", "state", "protection_method", "exposure_json", "submission_id", "attempt_id", "opened_at", "closed_at",
+    # Migration 271 (RD7's fix round): what begin froze and what the close promised.
+    "candidates_json", "presentation_json", "pending_before", "outcome_json", "exposure_ids_json",
 )
 
 
@@ -26,6 +28,13 @@ def _admin(row: sqlite3.Row | Sequence[Any] | None) -> dict[str, Any] | None:
     out = dict(zip(_ADMIN_COLUMNS, tuple(row), strict=True))
     out["cold"] = bool(out["cold"])
     out["exposure"] = json.loads(out.pop("exposure_json") or "[]")
+    out["candidates"] = json.loads(out.pop("candidates_json") or "[]")
+    presentation = out.pop("presentation_json")
+    out["presentation"] = json.loads(presentation) if presentation else None
+    out["pending_before"] = None if out["pending_before"] is None else bool(out["pending_before"])
+    outcome = out.pop("outcome_json")
+    out["outcome"] = json.loads(outcome) if outcome else None
+    out["exposure_ids"] = json.loads(out.pop("exposure_ids_json") or "[]")
     return out
 
 
@@ -35,11 +44,12 @@ _SELECT = f"SELECT {', '.join(_ADMIN_COLUMNS)} FROM check_administrations"
 def insert_administration(connection: sqlite3.Connection, row: Mapping[str, Any]) -> None:
     connection.execute(
         "INSERT INTO check_administrations (administration_token, request_id, commitment_id, surface, session_id, "
-        "practice_item_id, contract_hash, cold, state, protection_method, exposure_json, opened_at) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, '[]', ?)",
+        "practice_item_id, contract_hash, cold, state, protection_method, exposure_json, opened_at, candidates_json, "
+        "presentation_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, '[]', ?, ?, ?)",
         (row["administration_token"], row["request_id"], row["commitment_id"], row["surface"], row["session_id"],
          row["practice_item_id"], row.get("contract_hash"), int(bool(row["cold"])), row["protection_method"],
-         row["opened_at"]),
+         row["opened_at"], json.dumps(list(row.get("candidates") or ()), sort_keys=True),
+         json.dumps(row["presentation"], sort_keys=True) if row.get("presentation") is not None else None),
     )
 
 
@@ -66,22 +76,60 @@ def open_commitments(connection: sqlite3.Connection) -> frozenset[str]:
         "SELECT commitment_id FROM check_administrations WHERE state = 'open'"))
 
 
-def set_exposure(connection: sqlite3.Connection, token: str, exposure: Sequence[Mapping[str, Any]]) -> None:
-    connection.execute("UPDATE check_administrations SET exposure_json = ? WHERE administration_token = ? "
-                       "AND state = 'open'", (json.dumps(list(exposure), sort_keys=True), token))
+def held_windows(connection: sqlite3.Connection) -> dict[str, list[tuple[str, str | None]]]:
+    """Per commitment, every inline administration's (opened_at, closed_at): the times it held the check."""
+
+    if not table_present(connection):
+        return {}
+    out: dict[str, list[tuple[str, str | None]]] = {}
+    for commitment_id, opened_at, closed_at in connection.execute(
+            "SELECT commitment_id, opened_at, closed_at FROM check_administrations ORDER BY opened_at"):
+        out.setdefault(str(commitment_id), []).append((str(opened_at), None if closed_at is None else str(closed_at)))
+    return out
 
 
-def set_submission(connection: sqlite3.Connection, token: str, submission_id: str) -> None:
-    """Name the submission before the attempt is recorded: a crash between the attempt and the close is found by it."""
+def set_exposure(connection: sqlite3.Connection, token: str, exposure: Sequence[Mapping[str, Any]],
+                 exposure_ids: Sequence[str] | None = None) -> bool:
+    """Record the exposure (and the client's ids of the openings recorded); False when the row is not open, or a
+    submission is reserved on it (the caller then refuses: nothing is recorded)."""
 
-    connection.execute("UPDATE check_administrations SET submission_id = ? WHERE administration_token = ? "
-                       "AND state = 'open' AND submission_id IS NULL", (submission_id, token))
+    if exposure_ids is None:
+        cursor = connection.execute(
+            "UPDATE check_administrations SET exposure_json = ? WHERE administration_token = ? AND state = 'open' "
+            "AND submission_id IS NULL", (json.dumps(list(exposure), sort_keys=True), token))
+    else:
+        cursor = connection.execute(
+            "UPDATE check_administrations SET exposure_json = ?, exposure_ids_json = ? WHERE administration_token = ? "
+            "AND state = 'open' AND submission_id IS NULL",
+            (json.dumps(list(exposure), sort_keys=True), json.dumps(list(exposure_ids)), token))
+    return cursor.rowcount == 1
 
 
-def close(connection: sqlite3.Connection, token: str, *, state: str, now: str, attempt_id: str | None = None) -> bool:
+def set_submission(connection: sqlite3.Connection, token: str, submission_id: str, *, pending_before: bool) -> bool:
+    """Name the submission before the attempt is recorded (a crash between the attempt and the close is found by it),
+    with whether the check was pending then. True when this call reserved it, or it was already this submission's."""
+
     cursor = connection.execute(
-        "UPDATE check_administrations SET state = ?, closed_at = ?, attempt_id = COALESCE(?, attempt_id) "
-        "WHERE administration_token = ? AND state = 'open'", (state, now, attempt_id, token))
+        "UPDATE check_administrations SET submission_id = ?, pending_before = ? WHERE administration_token = ? "
+        "AND state = 'open' AND submission_id IS NULL", (submission_id, int(pending_before), token))
+    if cursor.rowcount == 1:
+        return True
+    row = connection.execute("SELECT submission_id FROM check_administrations WHERE administration_token = ?",
+                             (token,)).fetchone()
+    return row is not None and row[0] == submission_id
+
+
+def close(connection: sqlite3.Connection, token: str, *, state: str, now: str, attempt_id: str | None = None,
+          outcome: Mapping[str, Any] | None = None, unreserved: bool = False) -> bool:
+    """Close an open administration (with its attempt and the outcome it promised). ``unreserved``: only while no
+    submission is reserved on it (not now, while an answer is in flight, closes nothing). True when this call closed
+    it."""
+
+    cursor = connection.execute(
+        "UPDATE check_administrations SET state = ?, closed_at = ?, attempt_id = COALESCE(?, attempt_id), "
+        "outcome_json = COALESCE(?, outcome_json) WHERE administration_token = ? AND state = 'open'"
+        + (" AND submission_id IS NULL" if unreserved else ""),
+        (state, now, attempt_id, json.dumps(dict(outcome), sort_keys=True) if outcome is not None else None, token))
     return cursor.rowcount == 1
 
 

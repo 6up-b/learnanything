@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/app/shell.ts](../../../../../../apps/learnloop-tauri/src/app/shell.ts) |
-| Source lines | 185 |
+| Source lines | 176 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/app/_area|TypeScript/app]] |
 | Refactor status | `ACTIVE` |
@@ -68,15 +68,12 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export function isTabTool(tool: UthToolId): tool is "ingest" | "proposals" | "registry" | "maintain"` — function, line 109
 - `export function uthTool(id: UthToolId): UthTool` — function, line 113
 - `export function uthToolOfTab(tab: TopTab, current: UthToolId): UthToolId` — function, line 119
-- `export type ReaderSurface = "reader" | "desks"` — type, line 147
-- `export function rememberedReaderSurface(): ReaderSurface` — function, line 150
-- `export function rememberReaderSurface(surface: ReaderSurface): void` — function, line 154
-- `export function rememberPlace(place: Place | "underhood"): void` — function, line 158
-- `export function rememberedPlace(): Place | "underhood" | null` — function, line 162
-- `export function rememberTool(tool: UthToolId): void` — function, line 167
-- `export function rememberedTool(): UthToolId` — function, line 171
-- `export function rememberBook(vaultRoot: string, sourceId: string | null): void` — function, line 178
-- `export function rememberedBook(vaultRoot: string): string | null` — function, line 182
+- `export function rememberPlace(place: Place | "underhood"): void` — function, line 149
+- `export function rememberedPlace(): Place | "underhood" | null` — function, line 153
+- `export function rememberTool(tool: UthToolId): void` — function, line 158
+- `export function rememberedTool(): UthToolId` — function, line 162
+- `export function rememberBook(vaultRoot: string, sourceId: string | null): void` — function, line 169
+- `export function rememberedBook(vaultRoot: string): string | null` — function, line 173
 
 ## Internal implementation anchors
 
@@ -87,18 +84,17 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const BOOK_KEY_PREFIX = "learnloop.reader.book:"` — const, line 128
 - `function read(key: string): string | null` — function, line 130
 - `function write(key: string, value: string): void` — function, line 138
-- `const READER_SURFACE_KEY = "learnloop.reader.surface"` — const, line 148
-- `const value = read(PLACE_KEY)` — const, line 163
-- `const value = read(TOOL_KEY)` — const, line 172
-- `const tool = visibleUthTools().find((candidate)` — const, line 173
-- `const value = read(BOOK_KEY_PREFIX + vaultRoot)` — const, line 183
+- `const value = read(PLACE_KEY)` — const, line 154
+- `const value = read(TOOL_KEY)` — const, line 163
+- `const tool = visibleUthTools().find((candidate)` — const, line 164
+- `const value = read(BOOK_KEY_PREFIX + vaultRoot)` — const, line 174
 
 ## Who imports or calls it
 
 > [!note] Static-evidence boundary
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
-- [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] — import-or-re-export: `Place`, `ReaderSurface`, `ShellMode`, `UthToolId`, `isTabTool`, `placeOfTab`, `rememberBook`, `rememberPlace`, `rememberReaderSurface`, `rememberTool`, `rememberedBook`, `rememberedPlace`, `rememberedReaderSurface`, `rememberedTool`, `tabForPlace`, `uthTool`, `uthToolOfTab`, `visibleUthTools`; references `Place`, `ReaderSurface`, `ShellMode`, `UthToolId`, `isTabTool`, `placeOfTab`, `rememberBook`, `rememberPlace`, `rememberReaderSurface`, `rememberTool`, `rememberedBook`, `rememberedPlace`, `rememberedReaderSurface`, `rememberedTool`, `tabForPlace`, `uthTool`, `uthToolOfTab`, `visibleUthTools`
+- [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] — import-or-re-export: `Place`, `ShellMode`, `UthToolId`, `isTabTool`, `placeOfTab`, `rememberBook`, `rememberPlace`, `rememberTool`, `rememberedBook`, `rememberedPlace`, `rememberedTool`, `tabForPlace`, `uthTool`, `uthToolOfTab`, `visibleUthTools`; references `Place`, `ShellMode`, `UthToolId`, `isTabTool`, `placeOfTab`, `rememberBook`, `rememberPlace`, `rememberTool`, `rememberedBook`, `rememberedPlace`, `rememberedTool`, `tabForPlace`, `uthTool`, `uthToolOfTab`, `visibleUthTools`
 - [[Reference/Desktop/TypeScript/app/keymap|src/app/keymap.ts]] — import-or-re-export: `Place`, `ShellMode`, `UthToolId`; references `Place`, `ShellMode`, `UthToolId`
 - [[Reference/Desktop/TypeScript/components/CommandPalette|src/components/CommandPalette.tsx]] — import-or-re-export: `ShellMode`; references `ShellMode`
 - [[Reference/Desktop/TypeScript/components/KeyboardHelp|src/components/KeyboardHelp.tsx]] — import-or-re-export: `ShellMode`; references `ShellMode`

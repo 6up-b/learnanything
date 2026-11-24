@@ -123,6 +123,7 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/test_reader_followups.py`
+- `tests/test_reader_rd7a_inline_checks.py`
 - `tests/intent_fakes.py`
 - `tests/test_commitment_arcs.py`
 - `tests/test_commitments.py`

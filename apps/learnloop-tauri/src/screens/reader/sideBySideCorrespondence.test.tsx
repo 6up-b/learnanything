@@ -8,7 +8,7 @@
 // per action (CA5's correspondenceEvents.ts and CA6's records never both fire).
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { ReaderScreen } from "../ReaderScreen";
+import { ScopedSource } from "../desks/source/ScopedSource";
 import { setAlgoConfig } from "../../app/algoConfig";
 import { readerRenderViewFixture as view } from "../../fixtures/readerRenderView";
 import type { CorrespondentsDto, SideBySideSectionDto, SourceLibraryCard } from "../../api/dto";
@@ -133,21 +133,20 @@ function events(): Array<{ event?: string; payload: Record<string, unknown> }> {
     .filter((e: { kind: string }) => e.kind === "reader_action_invoked");
 }
 const named = (name: string) => events().filter((e) => e.event === name);
-// The Reader's key bar offers `x` from the same state its `x` handler reads (the also line's
-// availability reaches the Reader through an effect, one React task after the line is drawn).
-const xOffered = () => [...document.querySelectorAll("span")]
-  .some((span) => span.textContent === "x" && span.nextElementSibling?.textContent === "also in your books");
 
 async function openAlso() {
   api.readerCorrespondents.mockResolvedValue(ALSO);
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   await waitFor(() => expect(alsoLine()).toBeTruthy());
-  // Follow-ups batch 6 (B): pressing `x` as soon as the line was drawn raced that effect. When
-  // React's scheduler yields between the commit and its effects (a loaded machine: a whole vitest
-  // run beside other work), the press landed before the Reader knew the line was there and was
-  // dropped, so the focus wait below timed out. Wait for the Reader's own readiness instead.
-  await waitFor(() => expect(xOffered()).toBe(true));
-  fireEvent.keyDown(document.body, { key: "x" });
+  // Follow-ups batch 6 (B): pressing `x` as soon as the line was drawn raced the effect that tells the Reader the
+  // line is there (one React task after it is drawn). When React's scheduler yields between the commit and its
+  // effects (a loaded machine: a whole vitest run beside other work), the press landed before the Reader knew the
+  // line was there and was dropped. The old key bar's offer of `x` was the readiness signal; the key bar was the
+  // standalone frame's and goes with it, so the press is retried until it acts (the list opens).
+  await waitFor(() => {
+    fireEvent.keyDown(document.body, { key: "x" });
+    expect(document.querySelector("[data-also-expanded]")).toBeTruthy();
+  });
   await waitFor(() => expect(document.activeElement?.hasAttribute("data-also-title")).toBe(true));
   return document.activeElement as HTMLElement;
 }
@@ -169,7 +168,9 @@ it("(i) `s` on a line of the expanded also-in-your-books list opens side by side
   expect(opened[0].payload).toMatchObject({ via: "also_list", by: "judged", target_section_id: "ax7a" });
 });
 
-it("(i) with side by side off, `s` on the also list does nothing and the key bar does not offer it", async () => {
+// Renamed from "... and the key bar does not offer it": what it reads is the list's own key line, not the
+// standalone frame's key bar.
+it("(i) with side by side off, `s` on the also list does nothing and the list's key line does not offer it", async () => {
   state.contract = { ...ON, sideBySide: undefined };
   const title = await openAlso();
   expect(document.querySelector("[data-also-expanded]")!.textContent).not.toContain(ALSO_COPY.keys.side);
@@ -201,7 +202,7 @@ it("(ii) side by side from an also-list peek replaces the peek crumb; Alt+â†/â†
 });
 
 it("(ii) side by side from a find-list peek replaces the peek crumb too", async () => {
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   fireEvent.click(await screen.findByRole("button", { name: FIND_COPY.action }));
   fireEvent.click(await screen.findByRole("button", { name: "peek at Axler 5.A Invariant subspaces" }));
   await waitFor(() => expect(peekCrumb()).toBeTruthy());
@@ -247,7 +248,7 @@ it("(ii) in a narrow window side by side from a peek is the sheet: no crumb of e
 it("(iii) correspondence off, side by side on: no also line or find action; Ctrl+\\ still opens side by side", async () => {
   state.contract = { ...ON, correspondence: undefined };
   api.readerCorrespondents.mockImplementation(async (input: { searchFallback?: boolean }) => (input.searchFallback ? ALSO : QUIET));
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   await screen.findAllByText("6.1 Symmetric matrices");
   expect(alsoLine()).toBeNull();
   expect(screen.queryByRole("button", { name: FIND_COPY.action })).toBeNull();
@@ -257,7 +258,7 @@ it("(iii) correspondence off, side by side on: no also line or find action; Ctrl
 
 it("(iii) also-in-your-books off (CA5a's find on), side by side on: the find list keeps `s`", async () => {
   state.contract = { ...ON, correspondence: { enabled: true, findSection: true } };
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   fireEvent.click(await screen.findByRole("button", { name: FIND_COPY.action }));
   await screen.findByRole("button", { name: "side by side with Axler 5.A Invariant subspaces" });
   expect(alsoLine()).toBeNull();
@@ -265,7 +266,7 @@ it("(iii) also-in-your-books off (CA5a's find on), side by side on: the find lis
 
 it("(iii) all off: no also line, no find action, no side by side, Ctrl+\\ and x read nothing", async () => {
   state.contract = { readerEnabled: true, inquiryEnabled: true, libraryAsk: LIBRARY };
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   await screen.findAllByText("6.1 Symmetric matrices");
   await act(async () => { fireEvent.keyDown(document.body, { key: "\\", ctrlKey: true }); });
   fireEvent.keyDown(document.body, { key: "x" });

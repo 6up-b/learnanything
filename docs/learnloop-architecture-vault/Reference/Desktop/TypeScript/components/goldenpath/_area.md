@@ -34,7 +34,7 @@ No nested ownership area.
 
 | Module | Status | Purpose | Imports | Imported by |
 |---|---|---|---:|---:|
-| [[Reference/Desktop/TypeScript/components/goldenpath/shared|shared.tsx]] | `ACTIVE` | Provides the reusable `shared` interaction surface used by one or more desktop workflows. | 2 | 8 |
+| [[Reference/Desktop/TypeScript/components/goldenpath/shared|shared.tsx]] | `ACTIVE` | Provides the reusable `shared` interaction surface used by one or more desktop workflows. | 2 | 7 |
 
 ## Modification guidance
 

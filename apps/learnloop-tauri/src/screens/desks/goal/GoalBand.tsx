@@ -38,7 +38,7 @@ export function GoalBand({ band, goals, labels = null, here, dimOn, onToggleDim,
   const next = nextLine(band);
   const active = (goals ?? []).filter((goal) => goal.status === "active");
   return (
-    <div className="desk-goalband goalband" role="region" aria-label="your goal" data-goal-status={band.status}>
+    <div className="desk-goalband goalband" role="region" aria-label="your goal" data-goal-status={band.status} data-check-region="the goal band">
       <div className="gb-goal">
         <div className="gb-lab">{goalLabel(band)} <span className="gb-prov">your words, {formatDay(band.goal.setAt)}</span></div>
         {/* The learner's sentence as the server gives it: a held topic's name is masked there, nothing else. */}

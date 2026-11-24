@@ -10,8 +10,8 @@ area: "TypeScript/fixtures"
 source_path: "apps/learnloop-tauri/src/fixtures/readerRenderView.ts"
 source_paths:
   - "apps/learnloop-tauri/src/fixtures/readerRenderView.ts"
-activation_kind: "entry-reachable build graph"
-activation_evidence: "Imported through a current Reader screen reachable from src/main.tsx."
+activation_kind: "vitest-support"
+activation_evidence: "Outside the Vite build graph: test support imported only by vitest files, directly or through other test support; it runs under `npm test` and is never in the app bundle."
 generated: true
 generated_at: "2026-08-18"
 tags:
@@ -39,22 +39,22 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/fixtures/readerRenderView.ts](../../../../../../apps/learnloop-tauri/src/fixtures/readerRenderView.ts) |
-| Source lines | 61 |
+| Source lines | 60 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/fixtures/_area|TypeScript/fixtures]] |
 | Refactor status | `ACTIVE` |
-| Activation kind | `entry-reachable build graph` |
+| Activation kind | `vitest-support` |
 
 ## Activation and status evidence
 
 > [!success] ACTIVE
-> Imported through a current Reader screen reachable from src/main.tsx.
+> Outside the Vite build graph: test support imported only by vitest files, directly or through other test support; it runs under `npm test` and is never in the app bundle.
 >
-> Build/entry chain: [[Reference/Desktop/TypeScript/main|src/main.tsx]] → [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] → [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] → [[Reference/Desktop/TypeScript/fixtures/readerRenderView|src/fixtures/readerRenderView.ts]]
+> Test-import chain (from a vitest file): [[Reference/Desktop/TypeScript/fixtures/readerRenderView|src/fixtures/readerRenderView.ts]]
 
 ## Public API
 
-- `export const readerRenderViewFixture: ReaderRenderViewDto =` — const, line 10
+- `export const readerRenderViewFixture: ReaderRenderViewDto =` — const, line 9
 
 ## Internal implementation anchors
 
@@ -65,7 +65,7 @@ No non-exported declaration anchor was detected by the static extractor.
 > [!note] Static-evidence boundary
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
-- [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] — import-or-re-export: `readerRenderViewFixture`; references `readerRenderViewFixture`
+No live desktop source file directly imports this module. Do not infer dormancy: it can still be an implicit entry, worker, ambient declaration, fixture, or runtime-dispatched surface.
 
 ## Dependencies
 

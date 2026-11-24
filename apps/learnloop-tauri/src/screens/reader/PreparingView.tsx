@@ -30,7 +30,8 @@ export function PreparingView({
   onError
 }: {
   card: SourceLibraryCard;
-  onBack: () => void;
+  /** The way back to the Library, where there is one (a desk window's way out is closing it). */
+  onBack?: () => void;
   /** The text is ready: open the full Reader on this (refreshed) card, at
    *  the page and place the learner has scrolled to (review F8). */
   onReady: (card: SourceLibraryCard, position: ReadingPosition | null) => void;
@@ -114,13 +115,15 @@ export function PreparingView({
     <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
       <div style={{ flexShrink: 0, borderBottom: `1px solid ${COLOR.border}`, padding: "16px 32px", display: "flex", flexDirection: "column", gap: 6 }}>
         <div style={{ display: "flex", alignItems: "baseline", gap: 14, flexWrap: "wrap" }}>
-          <button
-            type="button"
-            onClick={onBack}
-            style={{ background: "none", border: "none", padding: 0, color: COLOR.amberLink, fontFamily: FONT_MONO, fontSize: 11, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}
-          >
-            ← Library
-          </button>
+          {onBack ? (
+            <button
+              type="button"
+              onClick={onBack}
+              style={{ background: "none", border: "none", padding: 0, color: COLOR.amberLink, fontFamily: FONT_MONO, fontSize: 11, cursor: "pointer", textDecoration: "underline", textUnderlineOffset: 2 }}
+            >
+              ← Library
+            </button>
+          ) : null}
           <span style={{ fontFamily: FONT_MONO, fontSize: 13, color: COLOR.text }}>{readableTitle(card.title)}</span>
         </div>
         {working || !statusLine ? (

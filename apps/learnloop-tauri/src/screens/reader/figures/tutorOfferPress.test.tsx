@@ -6,7 +6,7 @@
 // tutorReader.test.tsx's.
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { ReaderScreen } from "../../ReaderScreen";
+import { ScopedSource } from "../../desks/source/ScopedSource";
 import { setAlgoConfig } from "../../../app/algoConfig";
 import { readerRenderViewFixture as view } from "../../../fixtures/readerRenderView";
 import type { SourceLibraryCard } from "../../../api/dto";
@@ -86,7 +86,7 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals(); setAlgoConfig(undefined); wi
 
 it("pressing the tutor's offer builds with the answer's question event as the offer, not its interaction event", async () => {
   contract.value = { readerEnabled: true, inquiryEnabled: true, readerTutor: TUTOR, figures: FIGURES };
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   const block = await screen.findByText(view.blocks[1].markdown);
   fireEvent.click(screen.getByRole("button", { name: "ask" }));
   select(block);

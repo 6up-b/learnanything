@@ -1,0 +1,134 @@
+{
+ "branches": [
+  {
+   "name": "does not attach an in-flight answer after leaving and reopening a source",
+   "why": "its way out is the header's \"← Library\""
+  }
+ ],
+ "followsLearner": [
+  {
+   "name": "← Library goes to the Library, and the demo chapter is not on the main path",
+   "why": "its way out is the header's \"← Library\""
+  },
+  {
+   "name": "the Reader's own book list offers no demo chapter while LearnLoop is running",
+   "why": "it opens a book from the list of books"
+  },
+  {
+   "name": "opening a book shows that book opening, not a second list of books",
+   "why": "it reads the standalone opening view"
+  },
+  {
+   "name": "with no book open, the Reader shows the Library's own shelf, not a second list (spec K5)",
+   "why": "it reads the Library shelf shown with no book open"
+  },
+  {
+   "name": "a lesson's 'Look in my library' opens the library search on the leftover's words (TE2 landing ruling R2)",
+   "why": "it searches with the book list's search box"
+  },
+  {
+   "name": "F3: leaving a book inside the Reader saves what was just read, before the gathering moment ends",
+   "why": "its way out is the header's \"← Library\""
+  },
+  {
+   "name": "F7: a retry still waiting when the learner leaves the book saves the newest count, not the one that failed first",
+   "why": "its way out is the header's \"← Library\""
+  },
+  {
+   "name": "F7: the newest count of a book left behind is still sent when the Reader closes",
+   "why": "its way out is the header's \"← Library\""
+  }
+ ],
+ "guide": [
+  {
+   "name": "a place saved on the reading before a re-read is translated, and an approximate one says so",
+   "why": "it reads the old header's re-read note"
+  },
+  {
+   "name": "F8: a search hit found on a reading the book was read again since is translated, not opened as is",
+   "why": "it searches with the book list's search box"
+  },
+  {
+   "name": "F8: a search hit on the reading the book opens on lands there with no translation",
+   "why": "it searches with the book list's search box"
+  },
+  {
+   "name": "F10: a translation that lands on a reading other than the open one is never applied to it",
+   "why": "it searches with the book list's search box"
+  }
+ ],
+ "marginMarks": [
+  {
+   "name": "G14: skim mutes every mark; reading closely brings them back",
+   "why": "it reads or sets the header's \"I want to\" choice"
+  },
+  {
+   "name": "discovery off: a sighting the webview buffered before the mark unmounted still counts, as in RW3a (F23)",
+   "why": "it reads or sets the header's \"I want to\" choice"
+  }
+ ],
+ "marginMarksReview": [
+  {
+   "name": "F3: a check me answered after the learner opened another book is dropped -- no practice, the book stays",
+   "why": "its way out is the header's \"← Library\""
+  },
+  {
+   "name": "F3: a plan re-read for the book the learner left never replaces the open book's plan",
+   "why": "its way out is the header's \"← Library\""
+  },
+  {
+   "name": "F4: not relevant keeps its undo through the density and another mark set aside, until the learner leaves the book",
+   "why": "its way out is the header's \"← Library\""
+  }
+ ],
+ "pdfSelection": [
+  {
+   "name": "Ctrl+Z in another book opened within the undo's time does nothing there",
+   "why": "its way out is the header's \"← Library\""
+  },
+  {
+   "name": "a delete that answers after another book opened leaves that book's list and offers no undo",
+   "why": "its way out is the header's \"← Library\""
+  }
+ ],
+ "preparing": [
+  {
+   "name": "lists a book that is not ready yet on the picker, openable",
+   "why": "it opens a book from the list of books"
+  },
+  {
+   "name": "still says so when the reader really is off",
+   "why": "it reads the list view's reader-off notice"
+  }
+ ],
+ "recap": [
+  {
+   "name": "the rail footer offers Wrap up after activity and opens the three lists in the rail",
+   "why": "it reads the key bar's \"w wrap up\""
+  }
+ ],
+ "recapReview": [
+  {
+   "name": "F9: skim mutes the card and the rail's offer; w still opens Wrap up on request",
+   "why": "it reads or sets the header's \"I want to\" choice"
+  }
+ ],
+ "review": [
+  {
+   "name": "with the switch off, a search into another passage of a source left earlier lands and is saved there",
+   "why": "its way out is the header's \"← Library\""
+  },
+  {
+   "name": "opening a search hit sends the result's receipt only when the search carried one",
+   "why": "its way out is the header's \"← Library\""
+  },
+  {
+   "name": "opening another book from its library card after leaving one leaves a way back",
+   "why": "its way out is the header's \"← Library\""
+  },
+  {
+   "name": "choosing skim after the reconnect line appeared hides it in both places",
+   "why": "it sets the header's \"I want to\" choice"
+  }
+ ]
+}

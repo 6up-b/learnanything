@@ -139,7 +139,7 @@ def attempts_since(connection: sqlite3.Connection, item_ids: list[str], since: s
             dict(row)
             for row in connection.execute(
                 f"""
-                SELECT id, practice_item_id, created_at, attempt_type, primed, hints_used
+                SELECT id, practice_item_id, created_at, attempt_type, primed, hints_used, entry_surface
                 FROM practice_attempts
                 WHERE practice_item_id IN ({_in_clause(chunk)}) AND created_at >= ?
                 ORDER BY created_at, id

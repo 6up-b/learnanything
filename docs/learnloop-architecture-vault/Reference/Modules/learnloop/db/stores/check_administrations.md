@@ -48,29 +48,30 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/db/stores/check_administrations.py](../../../../../../../src/learnloop/db/stores/check_administrations.py) |
-| Source lines | 114 |
+| Source lines | 162 |
 | Owning package | [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `table_present(connection: sqlite3.Connection) -> bool` ([source](../../../../../../../src/learnloop/db/stores/check_administrations.py), line 18)
-- `insert_administration(connection: sqlite3.Connection, row: Mapping[str, Any]) -> None` ([source](../../../../../../../src/learnloop/db/stores/check_administrations.py), line 35)
-- `by_token(connection: sqlite3.Connection, token: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/check_administrations.py), line 46)
-- `by_request(connection: sqlite3.Connection, request_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/check_administrations.py), line 50)
-- `open_administration(connection: sqlite3.Connection) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/check_administrations.py), line 54) — The one open administration, if any (the partial unique index allows no second).
-- `open_commitments(connection: sqlite3.Connection) -> frozenset[str]` ([source](../../../../../../../src/learnloop/db/stores/check_administrations.py), line 60) — The commitments an open administration holds (the lock Today reads).
-- `set_exposure(connection: sqlite3.Connection, token: str, exposure: Sequence[Mapping[str, Any]]) -> None` ([source](../../../../../../../src/learnloop/db/stores/check_administrations.py), line 69)
-- `set_submission(connection: sqlite3.Connection, token: str, submission_id: str) -> None` ([source](../../../../../../../src/learnloop/db/stores/check_administrations.py), line 74) — Name the submission before the attempt is recorded: a crash between the attempt and the close is found by it.
-- `close(connection: sqlite3.Connection, token: str, *, state: str, now: str, attempt_id: str | None=None) -> bool` ([source](../../../../../../../src/learnloop/db/stores/check_administrations.py), line 81)
-- `insert_veil_set(connection: sqlite3.Connection, *, veil_set_id: str, token: str, commitment_id: str, kind: str, method: str, veiled: Iterable[Mapping[str, Any]], opened: Iterable[Mapping[str, Any]], now: str) -> int` ([source](../../../../../../../src/learnloop/db/stores/check_administrations.py), line 88)
-- `veil_sets(connection: sqlite3.Connection, token: str) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/check_administrations.py), line 102)
+- `table_present(connection: sqlite3.Connection) -> bool` ([source](../../../../../../../src/learnloop/db/stores/check_administrations.py), line 20)
+- `insert_administration(connection: sqlite3.Connection, row: Mapping[str, Any]) -> None` ([source](../../../../../../../src/learnloop/db/stores/check_administrations.py), line 44)
+- `by_token(connection: sqlite3.Connection, token: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/check_administrations.py), line 56)
+- `by_request(connection: sqlite3.Connection, request_id: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/check_administrations.py), line 60)
+- `open_administration(connection: sqlite3.Connection) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/check_administrations.py), line 64) — The one open administration, if any (the partial unique index allows no second).
+- `open_commitments(connection: sqlite3.Connection) -> frozenset[str]` ([source](../../../../../../../src/learnloop/db/stores/check_administrations.py), line 70) — The commitments an open administration holds (the lock Today reads).
+- `held_windows(connection: sqlite3.Connection) -> dict[str, list[tuple[str, str | None]]]` ([source](../../../../../../../src/learnloop/db/stores/check_administrations.py), line 79) — Per commitment, every inline administration's (opened_at, closed_at): the times it held the check.
+- `set_exposure(connection: sqlite3.Connection, token: str, exposure: Sequence[Mapping[str, Any]], exposure_ids: Sequence[str] | None=None) -> bool` ([source](../../../../../../../src/learnloop/db/stores/check_administrations.py), line 91) — Record the exposure (and the client's ids of the openings recorded); False when the row is not open, or a submission is reserved on it (the caller then refuses: nothing is recorded).
+- `set_submission(connection: sqlite3.Connection, token: str, submission_id: str, *, pending_before: bool) -> bool` ([source](../../../../../../../src/learnloop/db/stores/check_administrations.py), line 108) — Name the submission before the attempt is recorded (a crash between the attempt and the close is found by it), with whether the check was pending then.
+- `close(connection: sqlite3.Connection, token: str, *, state: str, now: str, attempt_id: str | None=None, outcome: Mapping[str, Any] | None=None, unreserved: bool=False) -> bool` ([source](../../../../../../../src/learnloop/db/stores/check_administrations.py), line 122) — Close an open administration (with its attempt and the outcome it promised).
+- `insert_veil_set(connection: sqlite3.Connection, *, veil_set_id: str, token: str, commitment_id: str, kind: str, method: str, veiled: Iterable[Mapping[str, Any]], opened: Iterable[Mapping[str, Any]], now: str) -> int` ([source](../../../../../../../src/learnloop/db/stores/check_administrations.py), line 136)
+- `veil_sets(connection: sqlite3.Connection, token: str) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/check_administrations.py), line 150)
 
 ### Module constants
 
 - `_ADMIN_COLUMNS` ([src/learnloop/db/stores/check_administrations.py](../../../../../../../src/learnloop/db/stores/check_administrations.py), line 12)
-- `_SELECT` ([src/learnloop/db/stores/check_administrations.py](../../../../../../../src/learnloop/db/stores/check_administrations.py), line 32)
+- `_SELECT` ([src/learnloop/db/stores/check_administrations.py](../../../../../../../src/learnloop/db/stores/check_administrations.py), line 41)
 
 ### Explicit exports
 
@@ -90,7 +91,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 
 ## Internal implementation anchors
 
-- `_admin(row: sqlite3.Row | Sequence[Any] | None) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/check_administrations.py), line 23)
+- `_admin(row: sqlite3.Row | Sequence[Any] | None) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/check_administrations.py), line 25)
 
 ## Who imports or calls it
 
@@ -98,7 +99,8 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/intent/inline_administration|learnloop.intent.inline_administration]] — imports `module`; statically calls `by_request`, `by_token`, `close`, `insert_administration`, `insert_veil_set`, `open_administration`, `open_commitments`, `set_exposure`, `set_submission`, `veil_sets`
-- [[Reference/Modules/learnloop/scheduling/intent/serving|learnloop.scheduling.intent.serving]] — imports `open_commitments`; statically calls `open_commitments`
+- [[Reference/Modules/learnloop/scheduling/intent/serving|learnloop.scheduling.intent.serving]] — imports `module`, `open_commitments`; statically calls `held_windows`, `open_commitments`
+- [[Reference/Modules/learnloop_sidecar/check_hold|learnloop_sidecar.check_hold]] — imports `module`; statically calls `open_administration`, `table_present`
 
 ## Dependencies
 
@@ -118,7 +120,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/intent/inline_administration|learnloop.intent.inline_administration]], [[Reference/Modules/learnloop/scheduling/intent/serving|learnloop.scheduling.intent.serving]].
+Static participation evidence comes from [[Reference/Modules/learnloop/intent/inline_administration|learnloop.intent.inline_administration]], [[Reference/Modules/learnloop/scheduling/intent/serving|learnloop.scheduling.intent.serving]], [[Reference/Modules/learnloop_sidecar/check_hold|learnloop_sidecar.check_hold]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
