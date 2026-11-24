@@ -150,7 +150,9 @@ it("a margin note written from the desks' n shows its › in the window at once,
   await waitFor(() => expect(winEl().querySelector(`[data-span-id="${SECOND}"]`)).toBeTruthy());
   fireEvent.mouseOver(winEl().querySelector(`[data-span-id="${SECOND}"]`)!);
   fireEvent.keyDown(window, { key: "n" });
-  const sheet = await waitFor(() => document.querySelector<HTMLElement>('[role="dialog"][aria-label="› note in margin"]')!);
+  // The note waits for the passage's protection (its first promoted read) before the sheet opens.
+  await waitFor(() => expect(document.querySelector('[role="dialog"][aria-label="› note in margin"]')).not.toBeNull());
+  const sheet = document.querySelector<HTMLElement>('[role="dialog"][aria-label="› note in margin"]')!;
   fireEvent.change(within(sheet).getByRole("textbox", { name: "your note" }), { target: { value: "weights, not votes" } });
   fireEvent.click(within(sheet).getByText("keep it"));
   await settleDesk(0, 6);
