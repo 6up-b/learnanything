@@ -320,6 +320,21 @@ and never in a desk window. Under this guard, a probe could return to a window w
 - **The probe's existing first-serve claim** (`PR.serve`) is made only when the veils are recorded, not when a window
   reads the lesson. RD9a-3's `frame: "window"` hold already keeps a window's read from serving it.
 
+## 6a. Opened notes: unmeasured, and the answer counts as practice (orchestrator interim)
+
+A note's words are never read (curriculum C2's fence: a note is never evidence). The veil set names the notes the
+client showed by id only, and opening a note's veil (a margin note or any `learner_notes`-backed surface) writes no
+reveal: the exposure event lists it under `unmeasured_notes`. Because whether an unread note gave the answer away
+cannot be told, the answer errs toward practice: `check.submit_inline` submits it with the attempt's declared `primed`
+flag (`inline_administration.notes_opened`), and the reply says `reason: primed` with `primed_by: unmeasured_note`. The
+flag a rebuild reads is the attempt row's own `practice_attempts.primed` (raw), written at submit; replay equality is
+tested (`test_an_answer_after_a_notes_veil_was_opened_is_practice_and_says_why`). Measured surfaces (pads, companion
+exchanges, source passages) keep the overlap rule exactly as built.
+
+**An owner decision still to confirm.** This is an orchestrator interim that errs toward practice, the side the owner
+leaned to ("I would err on veiling notes by default"). The alternative: an unmeasured opening costs nothing (the
+answer stays cold unless something measured primes it).
+
 ## 7. Not verified
 
 - No owner copy was opened. The procedure and the read-only script are in `algorithm-mvp-0.69.md`, for the
