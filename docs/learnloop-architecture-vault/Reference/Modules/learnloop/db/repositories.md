@@ -1281,6 +1281,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_deliverable_scope.py](../../../../../../tests/test_deliverable_scope.py) — direct import
   - `test_ux7_add_it_in_a_library_with_no_subject_yet_files_the_topic_under_a_first_subject`
 - [tests/test_depth_transition.py](../../../../../../tests/test_depth_transition.py) — direct import
+- [tests/test_desk_state_damaged_rows.py](../../../../../../tests/test_desk_state_damaged_rows.py) — direct import
 - [tests/test_device_eligibility.py](../../../../../../tests/test_device_eligibility.py) — direct import
   - `test_a_follow_up_naming_an_ineligible_item_cannot_come_back_at_the_top`
 - [tests/test_diagnose_review.py](../../../../../../tests/test_diagnose_review.py) — direct import

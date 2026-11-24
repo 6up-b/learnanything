@@ -121,6 +121,7 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_reader_rd0_protocol.py](../../../../../../../tests/test_reader_rd0_protocol.py) — imports consumer [[Reference/Modules/learnloop/desks/protocol|learnloop.desks.protocol]]
 - [tests/test_reader_rd8a_ink.py](../../../../../../../tests/test_reader_rd8a_ink.py) — imports consumer [[Reference/Modules/learnloop/desks/protocol|learnloop.desks.protocol]]
 - [tests/desk_helpers.py](../../../../../../../tests/desk_helpers.py) — imports consumer [[Reference/Modules/learnloop/desks/workspace|learnloop.desks.workspace]]
+- [tests/test_desk_state_damaged_rows.py](../../../../../../../tests/test_desk_state_damaged_rows.py) — imports consumer [[Reference/Modules/learnloop/desks/workspace|learnloop.desks.workspace]]
 - [tests/test_pad_stale_edits_stacks_and_passage_reads.py](../../../../../../../tests/test_pad_stale_edits_stacks_and_passage_reads.py) — imports consumer [[Reference/Modules/learnloop/desks/workspace|learnloop.desks.workspace]]
 - [tests/test_reader_rd1_model_parity.py](../../../../../../../tests/test_reader_rd1_model_parity.py) — imports consumer [[Reference/Modules/learnloop/desks/workspace|learnloop.desks.workspace]]
 - [tests/test_reader_rd_retire_migration.py](../../../../../../../tests/test_reader_rd_retire_migration.py) — imports consumer [[Reference/Modules/learnloop/desks/workspace|learnloop.desks.workspace]]
@@ -129,7 +130,6 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/ink_helpers.py](../../../../../../../tests/ink_helpers.py) — imports consumer [[Reference/Modules/learnloop/pads/ink|learnloop.pads.ink]]
 - [tests/test_reader_rd8a_fix.py](../../../../../../../tests/test_reader_rd8a_fix.py) — imports consumer [[Reference/Modules/learnloop/pads/ink|learnloop.pads.ink]]
 - [tests/test_reader_rd8a_fix_rpcs.py](../../../../../../../tests/test_reader_rd8a_fix_rpcs.py) — imports consumer [[Reference/Modules/learnloop/pads/ink|learnloop.pads.ink]]
-- [tests/test_reader_rd8a_render.py](../../../../../../../tests/test_reader_rd8a_render.py) — imports consumer [[Reference/Modules/learnloop/pads/ink|learnloop.pads.ink]]
 
 ## Modification guidance
 

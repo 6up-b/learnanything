@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/windows/PanelWindow.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/windows/PanelWindow.tsx) |
-| Source lines | 163 |
+| Source lines | 166 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/windows/_area|TypeScript/screens/desks/windows]] |
 | Refactor status | `ACTIVE` |

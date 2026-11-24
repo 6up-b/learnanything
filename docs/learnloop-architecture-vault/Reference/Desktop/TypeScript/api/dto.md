@@ -1284,6 +1284,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/screens/reader/readerShared|src/screens/reader/readerShared.ts]] — import-or-re-export: `ReaderAnnotationPlacementDto`, `ReaderProtectionDto`; references `ReaderAnnotationPlacementDto`, `ReaderProtectionDto`
 - [[Reference/Desktop/TypeScript/screens/reader/readingPath|src/screens/reader/readingPath.ts]] — import-or-re-export: `ReadingPathDto`, `ReadingPathSectionDto`; references `ReadingPathDto`, `ReadingPathSectionDto`
 - [[Reference/Desktop/TypeScript/screens/reader/readingPosition|src/screens/reader/readingPosition.ts]] — import-or-re-export: `ReaderPdfBlockDto`; references `ReaderPdfBlockDto`
+- [[Reference/Desktop/TypeScript/screens/reader/readingReports|src/screens/reader/readingReports.ts]] — import-or-re-export: `ReaderMarkProgressResultDto`; references `ReaderMarkProgressResultDto`
 - [[Reference/Desktop/TypeScript/screens/reader/recapCopy|src/screens/reader/recapCopy.ts]] — import-or-re-export: `ReaderObservationKind`; references `ReaderObservationKind`
 - [[Reference/Desktop/TypeScript/screens/reader/roleLabel|src/screens/reader/roleLabel.ts]] — import-or-re-export: `LibraryHitDto`; references `LibraryHitDto`
 - [[Reference/Desktop/TypeScript/screens/reader/sideBySide|src/screens/reader/sideBySide.ts]] — import-or-re-export: `CorrespondentSectionDto`, `CorrespondentsDto`; references `CorrespondentSectionDto`, `CorrespondentsDto`

@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/source/types.ts](../../../../../../../../apps/learnloop-tauri/src/screens/desks/source/types.ts) |
-| Source lines | 133 |
+| Source lines | 135 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/source/_area|TypeScript/screens/desks/source]] |
 | Refactor status | `ACTIVE` |
@@ -56,11 +56,11 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - `export interface ReaderOpenSource` — interface, line 17
 - `export interface ReaderWindowing` — interface, line 36
-- `export interface WindowInquiry` — interface, line 86
-- `export interface ReaderLens` — interface, line 100
-- `export interface PenSurface` — interface, line 112
-- `export interface ReaderCheckMeRequest extends CueCheckMeRequest` — interface, line 121
-- `export type ReaderExerciseRequest = ReaderWorkbenchExercise &` — type, line 133
+- `export interface WindowInquiry` — interface, line 88
+- `export interface ReaderLens` — interface, line 102
+- `export interface PenSurface` — interface, line 114
+- `export interface ReaderCheckMeRequest extends CueCheckMeRequest` — interface, line 123
+- `export type ReaderExerciseRequest = ReaderWorkbenchExercise &` — type, line 135
 
 ## Internal implementation anchors
 
