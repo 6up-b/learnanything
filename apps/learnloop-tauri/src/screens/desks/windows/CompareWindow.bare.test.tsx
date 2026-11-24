@@ -238,3 +238,19 @@ it("with no book open both exercise actions open the exercise's book (F1)", asyn
   await waitFor(() => expect(holding(PAPER_SPAN)).toHaveLength(1));
   expect(second.desk.errors).toEqual([]);
 });
+
+// The Reader's retirement, review fix round (major 19, ledger RDX-16): typed words in the bare Compare window are the
+// ask box's, as on the old library page: with named-book routing on, books named in them are read first.
+it("typed words with named-book routing on are read for the books they name first, as the old library page's ask box", async () => {
+  contract.extra = { libraryAsk: { expandGraph: false, personalizedDefault: true, compare: true, compareScope: true } };
+  answers.set("reader_compare_scope", () => ({ status: "read", intent: "ask", sourceIds: [], topic: null, unmatched: null, judgmentId: null, library: [] }));
+  mountRealDesk({ state: oneDesk([[COMPARE_WINDOW as never]]) });
+  await settleDesk(0, 20);
+  const compare = document.querySelector<HTMLElement>('[data-desk-window="w_compare"]')!;
+  const box = await within(compare).findByRole("textbox", { name: "ask your library" });
+  fireEvent.change(box, { target: { value: "Compare the softmax book and the attention paper on scaling" } });
+  fireEvent.submit(box.closest("form")!);
+  await settleDesk(0, 10);
+  await waitFor(() => expect(inputsOf("reader_compare_scope")).toHaveLength(1));
+  expect(inputsOf("reader_compare_scope")[0]).toMatchObject({ text: "Compare the softmax book and the attention paper on scaling", mode: "ask" });
+});

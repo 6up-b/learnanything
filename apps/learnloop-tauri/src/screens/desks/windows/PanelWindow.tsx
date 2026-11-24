@@ -134,7 +134,9 @@ export function LibraryPanel({
         openSourceId: anchor.sourceId, identity: { sourceId: anchor.sourceId, revisionId: anchor.revisionId, extractionId: anchor.extractionId } });
       return;
     }
-    ctl.ask(anchor
+    // Typed words are the ask box's (review fix round, major 19): books named in them are read first ("Compare A and B
+    // on X"), as the old library page and a book's own ask box do.
+    void ctl.askBox(anchor
       ? { query: text, entry: "library_search", extractionId: anchor.extractionId, spanIds: anchor.spanIds,
         identity: { sourceId: anchor.sourceId, revisionId: anchor.revisionId, extractionId: anchor.extractionId } }
       : { query: text, entry: "library_search", extractionId: null, spanIds: [], identity: null });
@@ -150,6 +152,7 @@ export function LibraryPanel({
             compose={compose}
             onCompose={setCompose}
             onAsk={ask}
+            onReword={ctl.scopeOn ? (words) => { ctl.close(); setCompose(words); } : null}
             onOpenHit={onOpenHit}
             onPracticePick={reader?.onCheckMe ? pickPractice : null}
             onClose={onClose}
