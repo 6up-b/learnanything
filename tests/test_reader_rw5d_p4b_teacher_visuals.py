@@ -52,7 +52,7 @@ def test_a_visual_turn_builds_a_teacher_figure_shown_inline_with_its_predictions
     from learnloop.teacher import episodes as E
     from learnloop.teacher import te2 as T2
 
-    assert fake.result_models == [T2.turn_model(E.turn_model(V.turn_model(True), True), True)]
+    assert fake.result_models == [T2.turn_model(E.turn_model(V.turn_model(True), True), True, goal_topics=True)]
     prompt = fake.prompts[0][1]
     assert f"prompt_version: {V.VISUALS_PROMPT_VERSION}" in prompt and "Instruments over description" in prompt
     # One author call: the teacher's goal, written by the teacher, grounded in the delivered passage.
@@ -237,10 +237,10 @@ def test_switch_off_keeps_the_lessons_prompt_and_turn_schema_without_the_visuals
     for index, (config, builder) in enumerate(cases):
         paths, repository, fake, author, view, _ = _open(tmp_path / f"case{index}", [plan_turn],
                                                          config=config, builder=builder)
-        assert fake.result_models == [T2.turn_model(TeacherTurnV1, True)], config
+        assert fake.result_models == [T2.turn_model(TeacherTurnV1, True, goal_topics=True)], config
         purpose, prompt = fake.prompts[0]
-        rebuilt = render_structured_prompt("LearnLoop lesson: you are the teacher", T2.prompt_version(PROMPT_VERSION, True),
-                                           {"instructions": T2.instructions(doctrine_text(), True),
+        rebuilt = render_structured_prompt("LearnLoop lesson: you are the teacher", T2.prompt_version(PROMPT_VERSION, True, goal_topics=True),
+                                           {"instructions": T2.instructions(doctrine_text(), True, goal_topics=True),
                                             "context": context_of(prompt)},
                                            context_tail_fields=("transcript",))
         assert prompt == rebuilt, config
@@ -583,8 +583,8 @@ def test_review_f3_a_visuals_lesson_forecasts_under_its_own_family(tmp_path):
     on = lesson(build, t0 + timedelta(hours=1))
     from learnloop.teacher import te2 as T2
 
-    plain = S._family_of("fake-teacher-model", te2=True)
-    assert plain == f"{S.DOCTRINE_VERSION}+{T2.TE2_VERSION}:fake-teacher-model"
+    plain = S._family_of("fake-teacher-model", te2=True, goal_topics=True)
+    assert plain == f"{S.DOCTRINE_VERSION}+{T2.TE2_VERSION}+{T2.GOAL_VERSION}:fake-teacher-model"
     families = {lesson_id: {f["family"] for f in _turn_payloads_for(repository, lesson_id, "forecast")}
                 for lesson_id in (off, on)}
     assert families[off] == {plain}

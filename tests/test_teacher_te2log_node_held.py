@@ -47,7 +47,7 @@ def test_each_p_held_is_a_lesson_node_held_forecast_on_its_lo(tmp_path):
     rows = _rows(repository, "SELECT receipt_key, forecaster, forecaster_version, scope, binding_kind, event, p, "
                              "learning_object_id, decision_ref, inputs_json, versions_json FROM forecast_receipts "
                              "WHERE kind = ? ORDER BY receipt_key", (LESSON_NODE_HELD,))
-    family = f"{S.DOCTRINE_VERSION}+{E.EPISODES_VERSION}+{T2.TE2_VERSION}:fake-teacher-model"
+    family = f"{S.DOCTRINE_VERSION}+{E.EPISODES_VERSION}+{T2.TE2_VERSION}+{T2.GOAL_VERSION}:fake-teacher-model"
     assert [(r[0].rsplit(":", 1)[-1], r[6], r[7]) for r in rows] == [("n0", 0.8, "lo_det"), ("n1", 0.35, "lo_eigen")]
     for row in rows:
         assert row[1:6] == ("teacher", family, "lesson_node", LESSON_COLD_OUTCOME, "cold_success")
@@ -87,9 +87,9 @@ def test_the_forecast_report_resolves_it_on_the_first_cold_outcome(tmp_path):
 def test_switch_off_has_no_p_held_and_writes_no_forecast(tmp_path):
     from learnloop.teacher import te2 as T2
 
-    assert "p_held" not in json.dumps(T2.turn_model(TeacherTurnV1, True).model_json_schema())
+    assert "p_held" not in json.dumps(T2.turn_model(TeacherTurnV1, True, goal_topics=True).model_json_schema())
     paths, repository, fake, _view = _open(tmp_path, [plan_turn], config={("teacher", "episode_log"): False})
-    assert fake.result_models == [T2.turn_model(TeacherTurnV1, True)]
+    assert fake.result_models == [T2.turn_model(TeacherTurnV1, True, goal_topics=True)]
     assert _rows(repository, "SELECT COUNT(*) FROM forecast_receipts WHERE kind = ?", (LESSON_NODE_HELD,)) == [(0,)]
     outline = json.loads(_rows(repository, "SELECT outline_json FROM lesson_plans")[0][0])
     assert all("p_held" not in node for node in outline)

@@ -42,6 +42,7 @@ from learnloop.clock import parse_utc
 from learnloop.db.stores import lessons as store
 from learnloop.ids import new_ulid
 from learnloop.teacher.contracts import (
+    lesson_capabilities,
     TeacherTurnEpisodesV1,
     TeacherTurnV1,
     TeacherTurnVisualsEpisodesV1,
@@ -387,13 +388,17 @@ def record_intervals(vault: Any, repository: Any, *, lesson_id: str, intervals: 
     """Append the screen's intervals (one row per (lesson, screen session, seq); a resend writes nothing), each in
     its own savepoint. Off, or before the tables exist, nothing is written. Never evidence, never a decision."""
 
-    if not on(vault):
-        return {"recorded": 0, "enabled": False}
     with repository.connection() as connection:
         if not store.episode_tables_present(connection):
             return {"recorded": 0, "enabled": False}
-        if store.lesson(connection, lesson_id) is None:
+        lesson = store.lesson(connection, lesson_id)
+        if lesson is None:
+            if not on(vault):
+                return {"recorded": 0, "enabled": False}
             raise ActivityRefused("not_found", f"No lesson {lesson_id}.")
+        turns = () if "capabilities" in lesson["goal"] else store.turns(connection, lesson_id)
+        if "episodes" not in lesson_capabilities(lesson, turns):
+            return {"recorded": 0, "enabled": False}
     reported = str(occurred_at or received_at)
     recorded = 0
     refused = 0
@@ -462,8 +467,8 @@ def node_held_receipts(state: Any, outline: Sequence[Mapping[str, Any]], *, lear
 def turn_plans(turn_obj: Any) -> list[list[dict[str, Any]]]:
     """The outlines a turn's ``write_plan`` requests write, in request order."""
 
-    return [[node.model_dump() for node in request.plan] for request in getattr(turn_obj, "requests", None) or []
-            if request.action == "write_plan"]
+    return [[node.model_dump(exclude_unset=True) for node in request.plan]
+            for request in turn_obj.requests if request.action == "write_plan"]
 
 
 def logged_fields(turn_obj: Any) -> list[tuple[str, str]]:

@@ -113,6 +113,15 @@ def create_goal_lo(root: Path | str, repository: Any, request: GoalLoRequest, *,
     """Create the concept and the LO (idempotent per request). Returns ``{"learning_object_id",
     "concept_id", "created"}``; ``created`` is False when an earlier attempt wrote it already."""
 
+    root = Path(root)
+    with vault_mutation_lock(root, purpose="create_goal_lo"):
+        made = _write_goal_lo(root, repository, request, clock=clock)
+    # A retry can find the YAML after the first call died before its database writes committed.
+    sync_vault_state(load_vault(root), repository, clock=clock)
+    return made
+
+
+def _write_goal_lo(root: Path, repository: Any, request: GoalLoRequest, *, clock: Clock | None) -> dict[str, Any]:
     from learnloop.vault.writer import upsert_concept, upsert_learning_object
 
     title = " ".join(request.title.split())[:TITLE_CHARS]
@@ -121,35 +130,32 @@ def create_goal_lo(root: Path | str, repository: Any, request: GoalLoRequest, *,
         raise GoalLoError("validation_error", "A new topic needs a title, a statement and your phrase.")
     if request.mechanism not in MECHANISMS:
         raise GoalLoError("validation_error", f"unknown mechanism {request.mechanism!r}")
-    root = Path(root)
     concept_id, learning_object_id = creation_ids(request)
     now = utc_now_iso(clock)
-    with vault_mutation_lock(root, purpose="create_goal_lo"):
-        vault = load_vault(root)
-        if request.subject_id not in vault.subjects:
-            raise GoalLoError("no_subject", "That subject is not in your vault.")
-        existing = vault.learning_objects.get(learning_object_id)
-        if existing is not None and existing.status == "active":
-            return {"learning_object_id": learning_object_id, "concept_id": concept_id, "created": False}
-        if existing is None and creations_today(vault, repository, now_iso=now) >= cap(vault):
-            raise GoalLoError("capped", "LearnLoop has added as many new topics as it adds in a day. "
-                                        "Try again tomorrow, or name one your books already have.")
-        provenance = {"origin": "codex_proposal", "source_refs": [dict(anchor) for anchor in request.anchors],
-                      "mechanism": request.mechanism, "goal_id": request.goal_id,
-                      "learner_text": request.phrase.strip()[:TITLE_CHARS]}
-        if concept_id not in vault.concepts:
-            upsert_concept(root, concept_id, {
-                "title": title, "type": "concept", "aliases": [], "description": statement,
-                "tags": [request.mechanism], "created_at": now, "updated_at": now,
-            }, clock=clock)
-        upsert_learning_object(root, {
-            "id": learning_object_id, "title": title, "subjects": [request.subject_id], "concept": concept_id,
-            "knowledge_type": request.knowledge_type, "status": "active", "summary": statement,
-            "prerequisites": [], "confusables": [], "tags": [request.mechanism], "provenance": provenance,
-            "created_at": now if existing is None else str(getattr(existing, "created_at", now) or now),
-            "updated_at": now,
+    vault = load_vault(root)
+    if request.subject_id not in vault.subjects:
+        raise GoalLoError("no_subject", "That subject is not in your vault.")
+    existing = vault.learning_objects.get(learning_object_id)
+    if existing is not None and existing.status == "active":
+        return {"learning_object_id": learning_object_id, "concept_id": concept_id, "created": False}
+    if existing is None and creations_today(vault, repository, now_iso=now) >= cap(vault):
+        raise GoalLoError("capped", "LearnLoop has added as many new topics as it adds in a day. "
+                                    "Try again tomorrow, or name one your books already have.")
+    provenance = {"origin": "codex_proposal", "source_refs": [dict(anchor) for anchor in request.anchors],
+                  "mechanism": request.mechanism, "goal_id": request.goal_id,
+                  "learner_text": request.phrase.strip()[:TITLE_CHARS]}
+    if concept_id not in vault.concepts:
+        upsert_concept(root, concept_id, {
+            "title": title, "type": "concept", "aliases": [], "description": statement,
+            "tags": [request.mechanism], "created_at": now, "updated_at": now,
         }, clock=clock)
-    sync_vault_state(load_vault(root), repository, clock=clock)
+    upsert_learning_object(root, {
+        "id": learning_object_id, "title": title, "subjects": [request.subject_id], "concept": concept_id,
+        "knowledge_type": request.knowledge_type, "status": "active", "summary": statement,
+        "prerequisites": [], "confusables": [], "tags": [request.mechanism], "provenance": provenance,
+        "created_at": now if existing is None else str(getattr(existing, "created_at", now) or now),
+        "updated_at": now,
+    }, clock=clock)
     return {"learning_object_id": learning_object_id, "concept_id": concept_id, "created": True}
 
 
