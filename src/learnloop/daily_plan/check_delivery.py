@@ -302,21 +302,29 @@ def _answer(repository: Any, connection: Any, snapshot: Any, *, item_id: str, le
     check's effective date then."""
 
     from learnloop.clock import parse_utc
-    from learnloop.scheduling.intent.serving import check_date, on_your_own
+    from learnloop.db.stores import check_administrations as admin_store
+    from learnloop.scheduling.intent.serving import check_date, held_by_inline, on_your_own
     from learnloop.serve_eligibility import check_once_at_attempt
 
     when, _source = check_date(snapshot, default_days=default_days)
     cutoff = parse_utc(as_of)
     rows = [dict(row) for row in connection.execute(
-        "SELECT id, practice_item_id, created_at, attempt_type, primed, hints_used, correctness "
-        f"FROM practice_attempts WHERE practice_item_id = ? AND {known} <= ? ORDER BY created_at, id",
+        "SELECT a.id, a.practice_item_id, a.created_at, a.attempt_type, a.primed, a.hints_used, a.correctness, "
+        "a.entry_surface, p.served_at AS presented_at "
+        f"FROM (SELECT * FROM practice_attempts WHERE practice_item_id = ? AND {known} <= ?) a "
+        "LEFT JOIN plan_presentations p ON p.id = a.plan_presentation_id ORDER BY a.created_at, a.id",
         (item_id, as_of))]
+    # The same qualifying-attempt rule as settlement (serving's build_checks): an answer on another surface while an
+    # inline administration held the check answers nothing and leaves its date (mvp-0.69).
+    windows = admin_store.held_windows(connection).get(snapshot.id, ())
     for row in rows:
         at = parse_utc(str(row["created_at"]))
         if at is None or at < when:
             continue
         if cutoff is not None and at > cutoff:
             break
+        if windows and held_by_inline(windows, row):
+            continue
         verdict = check_once_at_attempt(repository, practice_item_id=item_id, learning_object_id=learning_object_id,
                                         attempt_id=str(row["id"]), attempt_at=str(row["created_at"]),
                                         check_created_at=snapshot.created_at).verdict

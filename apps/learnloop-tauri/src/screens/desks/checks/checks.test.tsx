@@ -308,6 +308,50 @@ describe("the cards", () => {
     expect(markerWords(2)).toBe("2 cold checks are due on this desk");
   });
 
+  it("a lost begin reply holds the desks until the restart read says, and a retry sends the same request", async () => {
+    let reachable = false;
+    const { desk, calls } = fake({
+      begin: vi.fn(async (input: { requestId: string }) => {
+        (calls.beginSent ??= []).push(input.requestId);
+        throw new Error("the connection dropped");
+      }),
+      openInline: vi.fn(async () => {
+        if (!reachable) throw new Error("still unreachable");
+        return { administration: card({ administrationToken: "cad_lost" }) };
+      }),
+    });
+    const begun = desk.begin("chk_1", "s_1", { windows: [] });
+    expect(desk.holding()).toBe(true);
+    expect(desk.openingNow()).toBe(true);
+    expect(await desk.begin("chk_1", "s_1", { windows: [] })).toBe(false);
+    expect(await begun).toBe(false);
+    // Unknown whether the server opened it: everything stays held.
+    expect(desk.holding()).toBe(true);
+    expect(desk.openingNow()).toBe(false);
+    await desk.begin("chk_1", "s_1", { windows: [] });
+    expect(calls.beginSent).toEqual(["creq_1", "creq_1"]);
+    reachable = true;
+    await desk.begin("chk_1", "s_1", { windows: [] });
+    expect(desk.open()?.card.administrationToken).toBe("cad_lost");
+    expect(calls.beginSent).toEqual(["creq_1", "creq_1", "creq_1"]);
+  });
+
+  it("reads the due checks again when the next one falls due", async () => {
+    vi.useFakeTimers();
+    try {
+      const at = new Date(Date.now() + 60_000).toISOString();
+      let reads = 0;
+      const { desk } = fake({ dueFor: vi.fn(async () => ({ version: 1, checks: reads++ === 0 ? [] : [{ handle: "chk_new" }], nextDue: reads === 1 ? at : null })) });
+      desk.readDue();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(desk.dueChecks()).toEqual([]);
+      await vi.advanceTimersByTimeAsync(62_000);
+      expect(desk.dueChecks()).toEqual([{ handle: "chk_new" }]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("a dead handle (the sidecar restarted) is read again once and the check now due is opened", async () => {
     let reads = 0;
     const { desk, calls } = fake({

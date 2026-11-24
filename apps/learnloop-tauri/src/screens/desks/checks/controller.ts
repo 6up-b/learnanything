@@ -123,6 +123,11 @@ export class CheckDesk {
   private due: DueCheck[] = [];
   private dueRead: "none" | "asking" | "known" = "none";
   private later = false;
+  /** When the next check falls due: the due checks are read again then. */
+  private nextDueTimer: ReturnType<typeof setTimeout> | null = null;
+  /** A begin sent and not settled: the desks hold everything meanwhile (the server may have opened the check while the
+   *  reply is lost), and a retry sends the same request (the server returns that administration, recording nothing). */
+  private opening: { requestId: string; inFlight: boolean } | null = null;
   private current: OpenCheck | null = null;
   private lastVisible: string | null = null;
   /** The passages the server has judged for the open check, per window and reading (a reply covered the request that
@@ -168,7 +173,12 @@ export class CheckDesk {
 
   /** Whether a check holds the desks now (open or being submitted; an answered card lifts the veils). */
   holding(): boolean {
-    return this.current !== null && this.current.phase !== "answered";
+    return this.opening !== null || (this.current !== null && this.current.phase !== "answered");
+  }
+
+  /** Whether "check now" was sent and has no answer yet. */
+  openingNow(): boolean {
+    return Boolean(this.opening?.inFlight);
   }
 
   /** Why a verb that would reveal or send veiled material waits, or null when no check is open. */
@@ -224,10 +234,25 @@ export class CheckDesk {
     void Promise.resolve().then(() => this.transport.dueFor()).then((out) => {
       this.due = out.checks;
       this.dueRead = "known";
+      this.scheduleNextDue(out.nextDue ?? null);
       this.emit();
     }, () => {
       this.dueRead = "none";
     });
+  }
+
+  /** A check that falls due while the desks stay open is offered then: the due checks are read again at that time. */
+  private scheduleNextDue(at: string | null): void {
+    if (this.nextDueTimer !== null) clearTimeout(this.nextDueTimer);
+    this.nextDueTimer = null;
+    const when = at ? Date.parse(at) : Number.NaN;
+    if (Number.isNaN(when)) return;
+    // setTimeout's longest delay; a later boundary is read on the next mount or close.
+    const wait = Math.min(Math.max(when - Date.now(), 0) + 1000, 2_147_000_000);
+    this.nextDueTimer = setTimeout(() => {
+      this.nextDueTimer = null;
+      this.readDue();
+    }, wait);
   }
 
   /** The checks due now that the desk's marker offers (none is named: a handle each, in the server's order). */
@@ -308,6 +333,23 @@ export class CheckDesk {
     this.exposureIds = new Map();
   }
 
+  /** A begin with no answer: the restart read decides. An open administration is adopted (veils judged anew); none
+   *  releases the desks; no answer either keeps them held, and "check now" sends the same request again. */
+  private async settleOpening(requestId: string, why: string): Promise<void> {
+    try {
+      const out = await this.transport.openInline();
+      this.opening = null;
+      if (out.administration) {
+        this.adopt(out.administration, out.administration.host ?? null);
+        return;
+      }
+      this.notice = `couldn't open the check · ${why}`;
+    } catch {
+      this.opening = { requestId, inFlight: false };
+      this.notice = "couldn't reach LearnLoop · everything stays hidden until the check is known · check now again";
+    }
+  }
+
   private judge(visible: CheckVisibleDto): void {
     for (const window of visible.windows) {
       if (!window.spanIds?.length) continue;
@@ -324,13 +366,18 @@ export class CheckDesk {
    *  marker never named which check it was, so the learner is not stranded on a stale one. */
   async begin(handle: string | null, sessionId: string | null, visible: CheckVisibleDto): Promise<boolean> {
     this.notice = null;
-    if (this.holding()) {
+    if (this.opening?.inFlight) return false;
+    if (this.current && this.holding()) {
       this.notice = REFUSED.administration_open;
       this.emit();
       return false;
     }
     let chosen = handle ?? this.dueChecks()[0]?.handle ?? null;
-    const open = (each: string) => this.transport.begin({ requestId: this.mintId("creq"), handle: each, ...(sessionId ? { sessionId } : {}), visible });
+    // The same request until it is settled: a retry after a lost reply gets the administration it opened.
+    const requestId = this.opening?.requestId ?? this.mintId("creq");
+    this.opening = { requestId, inFlight: true };
+    this.emit();
+    const open = (each: string) => this.transport.begin({ requestId, handle: each, ...(sessionId ? { sessionId } : {}), visible });
     try {
       if (!chosen) throw Object.assign(new Error("no cold check is due"), { code: "check_unknown" });
       let card: CheckCardDto;
@@ -347,9 +394,17 @@ export class CheckDesk {
       }
       // A replayed card's veils were judged on an earlier view: this view's passages wait for a protect request.
       this.adopt(card, card.host ?? null, card.replayed ? null : visible);
+      this.opening = null;
       this.later = false;
     } catch (error) {
       const code = codeOf(error);
+      if (!code) {
+        // No answer: the server may have opened the check. The desks stay held until the restart read says.
+        await this.settleOpening(requestId, messageOf(error));
+        this.emit();
+        return this.holding() && this.current !== null;
+      }
+      this.opening = null;
       this.notice = REFUSED[code ?? ""] ?? `couldn't open the check · ${messageOf(error)}`;
       // Another commitment's administration is open and the desks did not know it: adopt it (its card says so).
       if (code === "administration_open" && !this.current) {

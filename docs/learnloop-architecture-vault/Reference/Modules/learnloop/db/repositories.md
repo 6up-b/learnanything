@@ -2085,6 +2085,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_reader_rd7a_inline_checks.py](../../../../../../tests/test_reader_rd7a_inline_checks.py) — direct import
   - `test_rd7_4_every_candidate_of_an_lo_check_is_charged_from_the_set_begin_froze`
   - `test_rd7_5_an_opening_and_its_reveals_commit_together_and_a_retry_charges_nothing_again`
+  - `test_rd7_65_an_opening_is_charged_to_a_candidate_made_after_begin`
+  - `test_rd7_74_a_check_not_due_yet_is_refused_before_a_session_starts`
 - [tests/test_reader_rd7b_check_session.py](../../../../../../tests/test_reader_rd7b_check_session.py) — direct import
 - [tests/test_reader_rd_retire_migration.py](../../../../../../tests/test_reader_rd_retire_migration.py) — direct import
   - `test_a_preparing_window_names_its_source_alone`

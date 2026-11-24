@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/checks/controller.ts](../../../../../../../../apps/learnloop-tauri/src/screens/desks/checks/controller.ts) |
-| Source lines | 557 |
+| Source lines | 612 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/checks/_area|TypeScript/screens/desks/checks]] |
 | Refactor status | `ACTIVE` |
@@ -73,50 +73,54 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const REFUSED: Record<string, string> =` — const, line 77
 - `const inWindow = region.startsWith("window:")` — const, line 91
 - `const DRAFT_PREFIX = "learnloop.checks.draft."` — const, line 102
-- `const open = this.current` — const, line 181
-- `const opened = new Set(open.opened)` — const, line 183
-- `const draft = this.drafts.get(card.administrationToken) ?? ""` — const, line 289
-- `const seen = new Set<string>()` — const, line 290
-- `const veiled = [...card.protection.veiled, ...card.protection.opened].filter((ref)` — const, line 292
-- `const key = refKey(ref)` — const, line 293
-- `const key = `$` — const, line 314
-- `const spans = this.judged.get(key) ?? new Set<string>()` — const, line 315
-- `let chosen = handle ?? this.dueChecks()[0]?.handle ?? null` — let, line 332
-- `const open = (each: string)` — const, line 333
-- `let card: CheckCardDto` — let, line 336
-- `const code = codeOf(error)` — const, line 352
-- `const open = this.current` — const, line 367
-- `const key = visibleKey(visible)` — const, line 369
-- `const out = await this.transport.protectMore(` — const, line 375
-- `const now = this.current` — const, line 376
-- `const revision = typeof out.revision === "number" ? out.revision : this.revision` — const, line 378
-- `const opened = new Set(now.opened)` — const, line 380
-- `const openedRefs = now.veiled.filter((ref)` — const, line 381
-- `const standing = out.standing ?? [...now.veiled.filter((ref)` — const, line 382
-- `const seen = new Set<string>()` — const, line 383
-- `const veiled = [...openedRefs, ...standing].filter((ref)` — const, line 384
-- `const each = refKey(ref)` — const, line 385
-- `const reveiled = standing.map(refKey).filter((each)` — const, line 391
-- `const key = refKey(ref)` — const, line 410
-- `const ok = await this.record(key, ref, "opened_veil")` — const, line 411
-- `const now = this.current` — const, line 412
-- `const ref = regionRef(region, windowId)` — const, line 424
-- `const ok = await this.record(`region:$` — const, line 425
-- `const now = this.current` — const, line 426
-- `const open = this.current` — const, line 441
-- `const opened = new Set(open.opened)` — const, line 443
-- `let changed = this.regions.delete(key)` — let, line 449
-- `const open = this.current` — const, line 458
-- `const exposureId = this.exposureIds.get(key) ?? this.mintId("cexp")` — const, line 460
-- `const out = await this.transport.expose(` — const, line 463
-- `const now = this.current` — const, line 464
-- `const now = this.current` — const, line 470
-- `const open = this.current` — const, line 490
-- `const send = ()` — const, line 494
-- `let reply: CheckSubmitDto` — let, line 497
-- `const now = this.current ?? open` — const, line 510
-- `const visible = this.visibleSource?.()` — const, line 518
-- `const open = this.current` — const, line 529
+- `const open = this.current` — const, line 191
+- `const opened = new Set(open.opened)` — const, line 193
+- `const when = at ? Date.parse(at) : Number.NaN` — const, line 248
+- `const wait = Math.min(Math.max(when - Date.now(), 0) + 1000, 2_147_000_000)` — const, line 251
+- `const draft = this.drafts.get(card.administrationToken) ?? ""` — const, line 314
+- `const seen = new Set<string>()` — const, line 315
+- `const veiled = [...card.protection.veiled, ...card.protection.opened].filter((ref)` — const, line 317
+- `const key = refKey(ref)` — const, line 318
+- `const out = await this.transport.openInline()` — const, line 340
+- `const key = `$` — const, line 356
+- `const spans = this.judged.get(key) ?? new Set<string>()` — const, line 357
+- `let chosen = handle ?? this.dueChecks()[0]?.handle ?? null` — let, line 375
+- `const requestId = this.opening?.requestId ?? this.mintId("creq")` — const, line 377
+- `const open = (each: string)` — const, line 380
+- `let card: CheckCardDto` — let, line 383
+- `const code = codeOf(error)` — const, line 400
+- `const open = this.current` — const, line 422
+- `const key = visibleKey(visible)` — const, line 424
+- `const out = await this.transport.protectMore(` — const, line 430
+- `const now = this.current` — const, line 431
+- `const revision = typeof out.revision === "number" ? out.revision : this.revision` — const, line 433
+- `const opened = new Set(now.opened)` — const, line 435
+- `const openedRefs = now.veiled.filter((ref)` — const, line 436
+- `const standing = out.standing ?? [...now.veiled.filter((ref)` — const, line 437
+- `const seen = new Set<string>()` — const, line 438
+- `const veiled = [...openedRefs, ...standing].filter((ref)` — const, line 439
+- `const each = refKey(ref)` — const, line 440
+- `const reveiled = standing.map(refKey).filter((each)` — const, line 446
+- `const key = refKey(ref)` — const, line 465
+- `const ok = await this.record(key, ref, "opened_veil")` — const, line 466
+- `const now = this.current` — const, line 467
+- `const ref = regionRef(region, windowId)` — const, line 479
+- `const ok = await this.record(`region:$` — const, line 480
+- `const now = this.current` — const, line 481
+- `const open = this.current` — const, line 496
+- `const opened = new Set(open.opened)` — const, line 498
+- `let changed = this.regions.delete(key)` — let, line 504
+- `const open = this.current` — const, line 513
+- `const exposureId = this.exposureIds.get(key) ?? this.mintId("cexp")` — const, line 515
+- `const out = await this.transport.expose(` — const, line 518
+- `const now = this.current` — const, line 519
+- `const now = this.current` — const, line 525
+- `const open = this.current` — const, line 545
+- `const send = ()` — const, line 549
+- `let reply: CheckSubmitDto` — let, line 552
+- `const now = this.current ?? open` — const, line 565
+- `const visible = this.visibleSource?.()` — const, line 573
+- `const open = this.current` — const, line 584
 
 ## Who imports or calls it
 

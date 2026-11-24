@@ -247,6 +247,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_opening_a_notes_veil_reads_no_note_and_says_so_in_the_receipt`
   - `test_rd7_20_a_subthreshold_opening_holds_the_check_and_the_reply_says_so`
   - `test_rd7_3_leaving_for_an_unveiled_surface_is_an_unmeasured_opening`
+  - `test_rd7_62_another_request_adopting_the_open_check_records_the_gap_and_the_same_request_does_not`
+  - `test_rd7_65_an_opening_is_charged_to_a_candidate_made_after_begin`
   - `test_rd7_7_an_opening_nothing_can_measure_is_charged_and_says_so_before`
 - [tests/test_reader_workbench_rw2a.py](../../../../../tests/test_reader_workbench_rw2a.py) — direct import
   - `test_a_workbench_submit_asks_the_same_eligibility_decision_as_every_submit`

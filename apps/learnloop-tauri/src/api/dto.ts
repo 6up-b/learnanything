@@ -11218,6 +11218,8 @@ export interface ChecksDueDto {
   checks: { handle: string;
     /** mvp-0.69: an open inline administration holds it (Today shows "being answered in the Reader"). */
     beingAnswered?: boolean }[];
+  /** When the next check not due yet falls due (a time, nothing of it), or null: the desks read again then. */
+  nextDue?: string | null;
 }
 
 // -- Reader workbench v2 RD7 (spec §3.4, §12.6; mvp-0.69): the inline administration of a due check. The typed calls
