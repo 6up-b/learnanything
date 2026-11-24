@@ -120,7 +120,7 @@ import { NotebookBridgeContext, type NotebookBridgeHost } from "./notebook/Noteb
 import type { BridgeMessage } from "./notebook/bridge";
 import { notebookMenuRequest, openNotebookMenu, setNotebookMenuOpener } from "./notebook/menuBridge";
 import { lessonNotebookFrame } from "./notebook/LessonNotebook";
-import { handOver, type ProblemHandoff } from "./problem/problemPads";
+import { handOver, problemPadId, type ProblemHandoff } from "./problem/problemPads";
 import { CompanionFigures, showInCompanion, useCompanionFigures, type CompanionFigureHost } from "./companion/companionFigures";
 import type { ProblemHost } from "./problem/ProblemPad";
 import { problemTitle } from "../workbench/stepModel";
@@ -2499,14 +2499,17 @@ export function DeskShell({
 
   // RW2 on a desk (spec §15.2): a problem a source window opens is worked on a problem pad in the desk's stack (the
   // pad of its workbench session when one is loaded, else a new one), brought into view; the window keeps reading.
-  const workOnPad = useCallback((handoff: ProblemHandoff) => {
+  const workOnPad = useCallback(async (handoff: ProblemHandoff) => {
     handOver(handoff);
     const id = deskIdRef.current;
     if (!id) return;
     const sessionId = handoff.session.sessionId;
-    let padId = Object.values(store.pads).find((pad) => pad.pad.workbenchSessionId === sessionId)?.pad.padId ?? null;
-    if (!padId) {
-      padId = mintId("pad");
+    // One pad per problem: its id is the session's, so the pad of a session made earlier (in another view of the
+    // desks, not loaded now) is read from the server before any is made. The pads store has no read by session
+    // (pad.list neither filters nor indexes by it), so the id carries the binding.
+    const padId = problemPadId(sessionId);
+    if (!store.pads[padId]) await store.loadPad(padId);
+    if (!store.pads[padId]) {
       const title = problemTitle(handoff.session.stemMd);
       const refused = store.commitPad(padId, [{ op: "create_pad", kind: "problem", title: title === "this problem" ? "a problem" : title, homeDeskId: id, workbenchSessionId: sessionId }]);
       if (refused) {
@@ -2514,16 +2517,24 @@ export function DeskShell({
         return;
       }
     }
-    const stackWindow = Object.values(wsRef.current.windows).find((window) => window.deskId === id && window.kind === "pad_stack");
+    // The pad lives where it is: a stack already holding it (on this desk or another) is where it is shown, that
+    // desk becoming the current one; else it joins this desk's stack.
+    const holding = Object.values(wsRef.current.windows).find((window) => window.kind === "pad_stack" && (window.stack ?? []).some((entry) => entry.kind === "pad" && entry.padId === padId));
+    if (holding && holding.deskId !== id) {
+      setCurrentDeskId(holding.deskId);
+      const desk = wsRef.current.desks.find((each) => each.deskId === holding.deskId);
+      toastNow(`✎ this problem is on the desk “${desk?.title ?? "another desk"}” · shown there`);
+    }
+    const deskOf = holding?.deskId ?? id;
+    const stackWindow = holding ?? Object.values(wsRef.current.windows).find((window) => window.deskId === id && window.kind === "pad_stack");
     if (!stackWindow) {
       commit(openStackBeside(wsRef.current, id, [padId], () => mintId("win")));
       return;
     }
-    if (!(stackWindow.stack ?? []).some((entry) => entry.kind === "pad" && entry.padId === padId)) commit(addToStack(wsRef.current, id, stackWindow.windowId, padId));
-    commit(setFocus(wsRef.current, id, stackWindow.windowId));
-    const shown = padId;
-    requestAnimationFrame(() => padHandles.current.get(stackWindow.windowId)?.showPad(shown));
-  }, [store, mintId, toastNow, commit]);
+    if (!holding) commit(addToStack(wsRef.current, deskOf, stackWindow.windowId, padId));
+    commit(setFocus(wsRef.current, deskOf, stackWindow.windowId));
+    requestAnimationFrame(() => padHandles.current.get(stackWindow.windowId)?.showPad(padId));
+  }, [store, mintId, toastNow, commit, setCurrentDeskId]);
   const problemHost = useMemo<ProblemHost>(() => ({
     practiceSessionId: reader?.workbench?.practiceSessionId ?? null,
     ...(reader?.workbench?.onSubmitted ? { onSubmitted: reader.workbench.onSubmitted } : {}),
@@ -3523,7 +3534,7 @@ export function DeskShell({
           onInquiryReady: onInquiryReadyFor(window.windowId),
           onAsk: onAskFor(window.windowId),
           onOpenPath: onOpenPathFor(window.windowId),
-          onWorkOnPad: workOnPad,
+          onWorkOnPad: (handoff) => void workOnPad(handoff),
           onError,
           ...(reader ? { reader } : {}),
           // A book following a video marks its passage over the goal lens (RD10).

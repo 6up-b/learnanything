@@ -21,6 +21,11 @@ export interface ProblemHandoff {
   away?: "left" | "abandoned" | null;
 }
 
+/** A problem's pad id, from its workbench session: one pad per problem, found again from any view of the desks. */
+export function problemPadId(sessionId: string): string {
+  return `pad_wb_${sessionId}`;
+}
+
 const handed = new Map<string, ProblemHandoff>();
 const listeners = new Set<() => void>();
 

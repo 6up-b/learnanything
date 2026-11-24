@@ -81,11 +81,18 @@ afterEach(() => {
 const bookEl = () => document.querySelector<HTMLElement>('[data-desk-window="w_book"]')!;
 const padsEl = () => document.querySelector<HTMLElement>('[data-desk-window="w_pads"]')!;
 
-async function workThrough(onSubmitted = vi.fn()) {
-  const desk = mountRealDesk({ state: oneDesk([[BOOK_WINDOW as never], [STACK_WINDOW as never]]), props: { reader: { workbench: { practiceSessionId: null, onSubmitted } } } });
-  await settleDesk(0, 20);
+function twoDeskState() {
+  const state = oneDesk([[BOOK_WINDOW as never], [STACK_WINDOW as never]]);
+  const BOOK2 = { ...BOOK_WINDOW, windowId: "w_book2" };
+  const STACK2 = { ...STACK_WINDOW, windowId: "w_pads2", stack: [] };
+  return { ...state, desks: [state.desks[0], { ...state.desks[0], deskId: "d_two", title: "two", position: "b", focusWindowId: "w_book2",
+    slots: [{ slot: 0, windows: [BOOK2] }, { slot: 1, windows: [STACK2] }] }] } as never;
+}
+
+async function openFrom(windowId: string) {
+  const win = () => document.querySelector<HTMLElement>(`[data-desk-window="${windowId}"]`)!;
   const block = await waitFor(() => {
-    const found = bookEl().querySelector<HTMLElement>(`[data-span-id="${FIRST}"]`);
+    const found = win()?.querySelector<HTMLElement>(`[data-span-id="${FIRST}"]`);
     if (!found) throw new Error("not yet");
     return found;
   });
@@ -94,16 +101,26 @@ async function workThrough(onSubmitted = vi.fn()) {
   window.getSelection()!.removeAllRanges();
   window.getSelection()!.addRange(range);
   fireEvent.mouseUp(block);
-  const box = await within(bookEl()).findByRole("textbox", { name: BOX });
+  const box = await within(win()).findByRole("textbox", { name: BOX });
   fireEvent.keyDown(box, { key: "Tab" });
-  const palette = await within(bookEl()).findByRole("group", { name: "what do you want to do?" });
+  const palette = await within(win()).findByRole("group", { name: "what do you want to do?" });
   fireEvent.click(within(palette).getByRole("button", { name: "work through this" }));
   await settleDesk(0, 12);
-  return desk;
+}
+
+async function workThrough(onSubmitted = vi.fn(), options: { pads?: never; twoDesks?: boolean } = {}) {
+  const desk = mountRealDesk({
+    state: options.twoDesks ? twoDeskState() : oneDesk([[BOOK_WINDOW as never], [STACK_WINDOW as never]]),
+    ...(options.pads ? { pads: options.pads } : {}),
+    props: { reader: { workbench: { practiceSessionId: null, onSubmitted } } },
+  });
+  await settleDesk(0, 20);
+  await openFrom("w_book");
+  return { desk };
 }
 
 it("work through this opens the problem on a problem pad in the desk's stack, not over the book", async () => {
-  const desk = await workThrough();
+  const { desk } = await workThrough();
   expect(inputsOf("workbench_open")[0]).toMatchObject({ origin: "reader", entry: "work_through", extractionId: book.extractionId });
   // No working posture in the book's window: it keeps reading.
   expect(bookEl().querySelector("[data-workbench-pane]")).toBeNull();
@@ -158,4 +175,49 @@ it("leave for now keeps the pad with a way back, and resume reopens the same pro
   await settleDesk(0, 8);
   expect(inputsOf("workbench_open").slice(-1)[0]).toMatchObject({ entry: "resume", sessionId: "wb_desk" });
   await waitFor(() => expect(padsEl().querySelector('[data-problem-pad="wb_desk"][data-problem-state="open"]')).not.toBeNull());
+});
+
+// -- one pad per problem -----------------------------------------------------------------------------------------
+
+function problemPadsOn(server: { pads: Record<string, { pad: { padId: string; kind: string; workbenchSessionId: string | null; homeDeskId: string | null } }> }) {
+  return Object.values(server.pads).filter((each) => each.pad.kind === "problem" && each.pad.workbenchSessionId === "wb_desk");
+}
+
+it("opening the same problem again in a fresh desk view, its pad not loaded, finds that pad: one pad, never two", async () => {
+  const first = await workThrough();
+  await waitFor(() => expect(problemPadsOn(first.desk.server as never)).toHaveLength(1), { timeout: 4000 });
+  // The server's pads as a new view finds them (the fixture's own and the problem's), as views.
+  const server = first.desk.server as unknown as { padGet: (padId: string) => unknown; pads: Record<string, unknown> };
+  const pads = Object.keys(server.pads).map((padId) => server.padGet(padId));
+  cleanup();
+  resetProblemsForTests();
+  // A fresh view of the desks over the same server: the problem pad exists there, in no stack, not loaded.
+  const again = await workThrough(vi.fn(), { pads: pads as never });
+  // Long enough for the desks' outbox to have sent any pad it made (it flushes on a timer).
+  await settleDesk(0, 10);
+  await new Promise((resolve) => setTimeout(resolve, 2500));
+  await settleDesk(0, 4);
+  expect(problemPadsOn(again.desk.server as never)).toHaveLength(1);
+  await waitFor(() => expect(padsEl().querySelector('[data-problem-pad="wb_desk"]')).not.toBeNull());
+});
+
+it("opened from another desk, the problem is shown on the desk its pad lives on", async () => {
+  const { desk } = await workThrough(vi.fn(), { twoDesks: true });
+  await waitFor(() => expect(problemPadsOn(desk.server as never)).toHaveLength(1), { timeout: 4000 });
+  const home = problemPadsOn(desk.server as never)[0].pad.homeDeskId;
+  // Switch to the second desk and open the same problem from its book window.
+  fireEvent.click(within(document.body).getByRole("button", { name: "two", exact: true } as never));
+  await settleDesk(0, 10);
+  await openFrom("w_book2");
+  await settleDesk(0, 12);
+  await new Promise((resolve) => setTimeout(resolve, 2500));
+  await settleDesk(0, 4);
+  expect(problemPadsOn(desk.server as never)).toHaveLength(1);
+  // Back on the desk the pad lives on (the current desk again), its stack showing the problem; the second desk's
+  // stack never took it.
+  expect(home).not.toBe("d_two");
+  await waitFor(() => expect(within(document.body).getByRole("button", { name: "two", exact: true } as never).getAttribute("aria-current")).toBe("false"));
+  expect(document.querySelector('[data-desk-window="w_pads"] [data-problem-pad="wb_desk"]')).not.toBeNull();
+  expect(desk.server.state().desks.find((each) => each.deskId === "d_two")!.slots.flatMap((slot) => slot.windows).flatMap((window) => window.stack ?? [])
+    .some((entry) => entry.kind === "pad" && entry.padId === problemPadsOn(desk.server as never)[0].pad.padId)).toBe(false);
 });
