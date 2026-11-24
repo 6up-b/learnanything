@@ -295,7 +295,7 @@ SQL query.
 
 `min_difficulty` and `max_difficulty` filter on the label. **Remove the parameters.** Accepting and ignoring them
 would answer a different question than the one asked. This is a contract change for the agent tool and the RPC. No
-CLI parameter names them, so `tests/cli_surface.json` is unaffected (to confirm).
+CLI parameter names them, so `tests/cli_surface.json` is unaffected (checked).
 
 ### 5.3 Authoring
 
@@ -600,7 +600,6 @@ H4 repeats steps 1 to 3 with AD's scoring report. H5's pools add the pools-with-
 - What the whole-vault rebuild does to the follow-up actions stored on `attempt_surprise` (§3.3).
 - Whether any CHECK constrains a new receipt `kind` (only needed for Q2 b).
 - Whether `field_llm_probability` still reuses C2p's key.
-- Whether `tests/cli_surface.json` names the index filters.
 - The grade-application, mastery-seed and placement goldens' behaviour under H3.
 - Receipt coverage on any vault, and how the receipt `p̄` differs from H2's prefix `p̄`. Both are §10's job.
 
