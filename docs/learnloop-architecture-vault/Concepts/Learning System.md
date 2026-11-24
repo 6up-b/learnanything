@@ -5,10 +5,10 @@ aliases:
   - Adaptive Learning Loop
 status: active
 doc_version: 1.0.0
-implementation_version: mvp-0.9
-last_reviewed: 2026-09-23
-source_commit: 0622ea164f76ad7e1d62a00afda51473dbcd992e
-source_commit_timestamp: "2026-09-23T13:06:55-04:00"
+implementation_version: mvp-0.68
+last_reviewed: 2026-11-23
+source_commit: 86f29b0d390ed2ecdbb0347d98ccb1175ac52728
+source_commit_timestamp: "2026-11-23T23:12:28-05:00"
 source_paths:
   - docs/specs/documentation.md
   - src/learnloop/attempts/attempts.py
@@ -25,7 +25,7 @@ tags:
 
 LearnLoop's algorithm is designed to answer a disciplined question: **given what was actually observed, what action is most likely to improve or clarify the learner's ability without pretending uncertain, assisted, repeated, or contaminated evidence is stronger than it is?**
 
-It is not a single mastery score. It is a loop of authored contracts, presentations, validated observations, distinct belief projections, deterministic selection, and targeted diagnosis.
+It is not a single mastery score. It is a loop of authored contracts, presentations, validated observations, distinct belief projections, eligible action selection, and targeted diagnosis.
 
 ## The feedback loop
 
@@ -61,6 +61,8 @@ Failures produce hypotheses, not permanent labels. Diagnostic probes are chosen 
 ### Optimize action, not a scalar score
 
 The live scheduler applies hard eligibility, per-item reward intent, staged-controller ownership, and deterministic session constraints; it does not reduce the next action to one mastery/priority scalar. Learner requests, held-out exam quarantine, single-use probes, short sessions, source exposure, and active commitments can dominate a naïve score. A separate six-way “choose session intent first” planner is currently **shadow-only**: it logs what it would have selected but never reorders the live queue. See [[Scheduling and Selection#Intent-first session planning is shadow-only]].
+
+Today's block router makes a separate boundary choice. Its policy can draw from a seeded mixture after feasible options have been assembled. See [[Scheduling and Selection#The daily plan's block router]].
 
 ### Make every interpretation replayable
 
@@ -149,7 +151,7 @@ Every saved slate persists explanations, candidate components and decision-time 
 
 ## Reader and tutor
 
-[[Reader Tutor and Teach-Back]] distinguishes instruction from assessment. Source-grounded reader dialogue can warm familiarity but cannot update ability. Teach-back is a real attempt only over the criteria actually asked and answered.
+[[Reader Tutor and Teach-Back]] distinguishes instruction from assessment. Source-grounded reader dialogue can warm familiarity but cannot update ability. The graded teach-back transcript becomes one attempt.
 
 ## What AI does—and does not do
 

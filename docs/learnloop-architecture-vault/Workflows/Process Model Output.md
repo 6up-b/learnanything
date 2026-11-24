@@ -5,10 +5,10 @@ aliases:
   - Attempt Output Processing
 status: active
 doc_version: 1.0.0
-implementation_version: mvp-0.9
-last_reviewed: 2026-09-23
-source_commit: 0622ea164f76ad7e1d62a00afda51473dbcd992e
-source_commit_timestamp: "2026-09-23T13:06:55-04:00"
+implementation_version: mvp-0.68
+last_reviewed: 2026-11-23
+source_commit: 86f29b0d390ed2ecdbb0347d98ccb1175ac52728
+source_commit_timestamp: "2026-11-23T23:12:28-05:00"
 source_paths:
   - src/learnloop/attempts/attempts.py
   - src/learnloop/attempts/grading.py
@@ -91,7 +91,7 @@ The model's total is retained for audit, but it does not override the sum of val
 
 ## Apply the resolved grade transactionally
 
-`apply_attempt` runs in one repository transaction. `AttemptApplication` materializes the receipt, grade, evidence/error records and derived state inputs before repository persistence. The write order is as follows (`tests/test_attempt_write_order.py` asserts steps 1–4 before post-attempt completion):
+`apply_attempt` runs in one repository transaction. The application shell gathers inputs and reads for the pure grade core. The resulting `AttemptApplication` holds the grade, evidence and derived state updates for persistence. The writer also records application order and lifecycle inputs from their capture tags. See [[Attempt Processing]] and [[Rebuild and Shadow Compare]]. The write order is as follows (`tests/test_attempt_write_order.py` asserts steps 1–4 before post-attempt completion):
 
 1. receipt;
 2. grade;
@@ -100,7 +100,7 @@ The model's total is retained for audit, but it does not override the sum of val
 5. the grade's `attempt_feedback_metadata` row (grading source, fallback reason, grading run, repair suggestions), written before causal materialization and episode accounting because a block this attempt closes normalizes the whole block inside the same transaction and reads the grading run from that row;
 6. the attempt's `attempt_completion_work` row, which saves the result and the probe episode the attempt was applied under.
 
-Doors with no completion phase (exam seeding, simulators, recall calibration, observation imports, rung-variant requests) set `awaits_completion=False`; their completion row is written `completed` at apply time, so a `pending` row always means an interrupted completion.
+Doors with no completion phase (exam seeding, simulators, recall calibration, observation imports, rung-variant requests) set `awaits_completion=False`; their completion row is written `completed` at apply time, so a `pending` row belongs to a door whose completion still has work to settle.
 
 ## Post-attempt completion
 

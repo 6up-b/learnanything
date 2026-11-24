@@ -6,12 +6,12 @@ aliases:
   - Why x and not y
 status: active
 doc_version: 1.0.1
-implementation_version: mvp-0.59
+implementation_version: mvp-0.68
 decision_date: 2026-11-10
 decision_status: accepted
-last_reviewed: 2026-11-19
-source_commit: e6314fc0df008db528d657cbf3f80fe8dedd0982
-source_commit_timestamp: "2026-11-18T23:18:17-05:00"
+last_reviewed: 2026-11-23
+source_commit: 86f29b0d390ed2ecdbb0347d98ccb1175ac52728
+source_commit_timestamp: "2026-11-23T23:12:28-05:00"
 source_paths:
   - docs/specs/refactor_strategy_v3.md
   - src/learnloop/provenance.py
@@ -61,7 +61,7 @@ The architecture map (`docs/reviews/architecture-map-2026-11-08.md` §4.3, §4.6
 | `status` | One of `chosen`, `fallback`, `excluded`, `withdrawn`, `timeout`, `discarded`, `failed`, `refused`, `deferred` (a CHECK) |
 | `subject_kind`, `subject_id` | `attempt`, `item`, `block`, `offer`, `figure`, `job`: how a learner-visible thing finds its records |
 | `chosen_ref` | What won, or null |
-| `decided_by` | The rule, policy or route (`lane_quota`, `mixture`, `router_llm`, `prefetch_eu_v1`) |
+| `decided_by` | The rule, policy or route (`lane_quota`, `mixture`, `router_llm`, `prefetch_decision_v2`) |
 | `rule` | Why, as a named code (`chooser_error`, `forced_items`, `no_measured_latency`) |
 | `alternatives_json` | `[{ref, p, score, lost_by}]`, capped at 50 with an overflow count per rule |
 | `facts_json` | The inputs as of then, as numbers, ids and codes |
@@ -112,7 +112,7 @@ Rows are small: ids, numbers and capped lists, exclusions aggregated by rule. Th
 
 ## Consequences
 
-- One `why` answers from new rows once each boundary writes its record (arc B, B2-B8, in order of debugging value). B1 writes none; it builds the table, the trace and the reader.
+- The shared `why` reader answers from decision and model receipts at the recorded boundaries. [[Debug a decision]] shows what each of those answers looks like.
 - Every receipt from a traced action carries its trace, so "which calls belong to this decision" is a join on one column, and "which calls finished after the decision" is a comparison of times (S4, S5 derive at read, with no new write).
 - A writer inside an AD operation must write outside the operation or add the table to `AD_WRITABLE` (write only): the guard would otherwise poison the operation, which would change what is served.
 - `decision_records` is never the system of record: ledgers and receipts stay immutable and authoritative, and nothing replays from it.
@@ -120,7 +120,7 @@ Rows are small: ids, numbers and capped lists, exclusions aggregated by rule. Th
 ## What it replaces
 
 - **Kept:** `router_decisions` and payloads, `router_objective_traces`, `ad_selections` (the model for the shape), `judgment_ledger`, `plan_presentations`, the causal receipts.
-- **Gone:** the manual JSON join from decision to receipt (for new rows), `why`'s writes, and, as B2-B9 land, free-text `owner_id` as the join and per-subsystem entry points as separate code.
+- **Gone:** the manual JSON join from decision to receipt (for new rows), `why`'s writes, and the free-text `owner_id` join for recorded decisions. Old rows still use that join during labelled reconstruction.
 - **Kept beside the records:** AD's JSONL denial log (`ad_guard_denials.jsonl`). `learnloop ad report` counts it and a successful `learnloop upgrade` archives it, so B3 left it in place and added the `ad_slot` record (the incumbent's fallback, naming what the guard refused as verb, table and reader). The plan writes that record after every AD operation has closed, in its own transaction, so the guard never sees it and `decision_records` stays out of `AD_WRITABLE`.
 - **Not done:** trace spans or OpenTelemetry (a dependency and a concept for a single-user app), a record at every function or per protection read, prompts or free text in records, and renaming "decision" elsewhere (`router_decisions` stays).
 
@@ -171,11 +171,11 @@ B8 read the remaining boundaries (teacher lessons and checks, Reader retrieval, 
 | Rich figure jobs' attempts (B4; closed by K10.12, below) | What went wrong on attempt 1? | Each attempt's call is a receipt (`metadata.attempt`, status), and since K10.12 each attempt is a `figure_rich_author` record with its code and a stop a `figure_rich_stop` record |
 | Learner protection, a per-call read | | Recorded only where it excludes something from a decision (B4, B6), per the strategy |
 
-**Open items from the inventory:** the AI route's fallback on the receipt (a migration); the ingest extractor's primary failure class and per-attempt job history (`ingest_jobs.error_json` is reset when a job is leased again); the Quick Add scope fallback; the teacher brief's swallowed reads. (Rich figure attempts' problem codes: closed by K10.12, below.)
+**Open items from the inventory:** the AI route's fallback on the receipt (a migration); the ingest extractor's primary failure class and per-attempt job history (`ingest_jobs.error_json` is reset when a job is leased again); the teacher brief's swallowed reads. Quick Add's planner now records the scope, inventory choice and auto-apply at their respective boundaries. (Rich figure attempts' problem codes: closed by K10.12, below.)
 
 ## Amended: figure prefetch rule name (2026-11-19)
 
-The `decided_by` example `prefetch_eu_v1` in the record-shape table above is obsolete. The current default is `prefetch_decision_v2` (`src/learnloop/figures/prefetch_model.py`, `MODEL_VERSION`); `src/learnloop/figures/records.py` (`prebuild_record`) copies the decision row's `model_version` into `decided_by`. With the pressed-waits switch off or an algorithm tag outside the supported set, `src/learnloop/figures/prefetch_ledger.py` (`pressed_waits_on`, `load_model`) retains `prefetch_decision_v1`. See [[Concepts/Figures#Prefetch and predictions|Figures: prefetch and predictions]] for the model and [[Concepts/Figures#Cancellation, restart and video traces|Figures: cancellation, restart and video traces]] for the trace boundary.
+The historic `prefetch_eu_v1` label is retained on old rows. The current default is `prefetch_decision_v2` (`src/learnloop/figures/prefetch_model.py`, `MODEL_VERSION`); `src/learnloop/figures/records.py` (`prebuild_record`) copies the decision row's `model_version` into `decided_by`. With the pressed-waits switch off or an algorithm tag outside the supported set, `src/learnloop/figures/prefetch_ledger.py` (`pressed_waits_on`, `load_model`) retains `prefetch_decision_v1`. See [[Concepts/Figures#Prefetch and predictions|Figures: prefetch and predictions]] for the model and [[Concepts/Figures#Cancellation, restart and video traces|Figures: cancellation, restart and video traces]] for the trace boundary.
 
 ## Amended: figure requests and rich attempts (2026-11-23)
 
@@ -183,7 +183,7 @@ Four figure kinds joined the record (`src/learnloop/figures/records.py`), each w
 
 | Kind | Written when | Status and rule | Subject |
 |---|---|---|---|
-| `figure_request` | Every figure request: by the build when it ends (`figures/build.py` `build_figure`), or by the sidecar when the request path refuses it before any build job (`learnloop_sidecar/handlers/figures.py`) | `refused` with the code it was refused with (`exam_material`, `cold_check`, `not_offered`, `validation_error`, `figures_disabled`, `unrouted`, `unpriced`, `not_isolated`, `capped`, `unavailable`, `models_off`, `figures_changed` with the gate's rule and hold code, `storage_busy`); `chosen` with `built` or `reused` (`facts.matched`: `this_setting`, `rich_only`, `other_setting`, `recorded_inputs_twin`, `built_meanwhile`); `deferred` with `rich_job_started` or `rich_job_pending`. `facts.tiers_allowed` and `facts.tiers_absent` give the author's menu and a code per tier left off it (`no_engine`, `lesson_host`, `attempt_host`, `no_spawner`, `rich_off`, `no_opt_in`, `off_linux`, `models_off`, `no_bwrap`, `no_manim`) | `figure:<id>` when a figure resulted, else `figure_request:<request identity>` once the input is hashed |
+| `figure_request` | At the build boundary or for an early RPC refusal. | A refusal has its code. A built or reused figure is `chosen`, and reuse carries its match. A rich-only request can be `deferred` with the request/job link. | Stored figure or request ID when known. |
 | `figure_withheld` | A figure withheld at delivery, a listed chain's pick withheld now, or a stored spec that no longer parses; once per figure, rule and process (the Reader polls its list) | `withdrawn`: `withheld_at_delivery`, `pick_withheld`, `spec_unparsable` | `figure:<id>` |
 | `figure_rich_author` | Each attempt of a rich (video) job, through the same `AuthorAttempts` as `figure_author` | `brief_invalid`, `scene_invalid`, `claim_failed`, `pacing_failed`, `render_failed`, `render_timeout`, `render_repaired`, `model_failed`, `request_refused`, `accepted` | the stored figure, else `job:<id>` |
 | `figure_rich_stop` | A rich job that ended with no row | `refused` with its `RichJobStopped` code; `deferred` for `waiting_for_plan` | `job:<id>` |

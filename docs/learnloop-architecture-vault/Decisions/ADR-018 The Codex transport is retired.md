@@ -5,13 +5,13 @@ aliases:
   - Codex transport retired
 status: active
 doc_version: 1.0.0
-implementation_version: mvp-0.58
+implementation_version: mvp-0.68
 decision_date: 2026-10-21
 decision_status: accepted
 supersedes: ADR-011 Retain legacy HTTP as a narrow capability
-last_reviewed: 2026-11-10
-source_commit: 88607cb3fe54de8670458338c0d199e0076e662f
-source_commit_timestamp: "2026-11-10T19:50:49-05:00"
+last_reviewed: 2026-11-23
+source_commit: 86f29b0d390ed2ecdbb0347d98ccb1175ac52728
+source_commit_timestamp: "2026-11-23T23:12:28-05:00"
 source_paths:
   - src/learnloop/ai/agent_harness.py
   - src/learnloop/ai/client.py
@@ -43,7 +43,7 @@ What stays is what old data and old configs need:
 - The `codex_sdk` and `http` profile types and the code-default `codex`, `codex_low`, `codex_medium` and `codex_luna` profiles, so an old `learnloop.toml` that names one still loads and reads as the refusal of `learnloop.ai.agent_harness` (client factory, readiness, routing, the desktop's provider list), never as "not configured". A Codex profile is never a fallback.
 - `learnloop doctor` reports every setting that pins a Codex profile and `doctor --fix` moves it to the plan profile of the same tier.
 - An old top-level `[codex]` table still loads to the same profile.
-- Stored rows keep their labels: `grading_source = "codex"` is the label of model grading for every transport, and replay reads it, never the provider; receipts and agent runs that name a Codex provider still read and display.
+- Stored rows keep their labels: `grading_source = "codex"` is a historical model-grade label. Current serving providers use `ai`. Replay preserves stored labels; receipts and agent runs that name a Codex provider still read and display.
 
 ## Consequences
 

@@ -5,10 +5,10 @@ aliases:
   - Exams and Certification
 status: active
 doc_version: 1.0.0
-implementation_version: mvp-0.9
-last_reviewed: 2026-08-17
-source_commit: 62fd1f6404cc3a3007c6f214ba9429c45ef0114f
-source_commit_timestamp: "2026-08-17T12:05:21-04:00"
+implementation_version: mvp-0.68
+last_reviewed: 2026-11-23
+source_commit: 86f29b0d390ed2ecdbb0347d98ccb1175ac52728
+source_commit_timestamp: "2026-11-23T23:12:28-05:00"
 source_paths:
   - src/learnloop/goals
   - src/learnloop/learner/capability_grid.py
@@ -38,7 +38,7 @@ Exam pools reserve held-out items and quarantine them from ordinary practice. Ex
 
 ## Cold probes
 
-Certification may schedule a delayed cold probe on a fresh surface. It detects false certification after spacing and prevents immediate familiarity from being mistaken for durable ability. If the answer/surface has been revealed before administration, the task is deferred. From `mvp-0.61` (verdict policy `certification_cold_probe_policy_v2`, stamped on the outcome row) an answer whose every criterion is unassessed abstains (`indeterminate`, `grade_unavailable`, no correctness) and stays out of `false_certification_rate`; below the tag it scored its scheduling-only correctness as `held`. The scheduling stamps keep `v1`, and stored outcomes keep their verdicts.
+Certification may schedule a delayed cold probe on a fresh surface. It detects false certification after spacing and prevents immediate familiarity from being mistaken for durable ability. The shared serving eligibility rule can defer a time-bounded hold. When a scheduled probe can no longer measure cold, the serving path withdraws it and can offer the item as ordinary practice. From `mvp-0.61` (verdict policy `certification_cold_probe_policy_v2`, stamped on the outcome row) an answer whose every criterion is unassessed abstains (`indeterminate`, `grade_unavailable`, no correctness) and stays out of `false_certification_rate`; below the tag it scored its scheduling-only correctness as `held`. The scheduling stamps keep `v1`, and stored outcomes keep their verdicts.
 
 ## Goal series
 
