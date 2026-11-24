@@ -210,9 +210,8 @@ def prepare_reader_ask(ctx: SidecarContext, params: ReaderAskInput) -> ReaderAsk
                          phone=ctx.request_origin is not None)
 
 
-def generate_reader_answer(call: ReaderAskCall, *, on_question_recorded: Any = None) -> dict[str, Any]:
+def generate_reader_answer(call: ReaderAskCall, *, on_question_recorded: Any = None, goal_in_view: Any = None) -> dict:
     """The model call and the exchange it records (``reader_dialogue.ask``), its failures as sidecar errors."""
-
     vault, params, lookup, binding = call.vault, call.params, call.lookup, call.binding
     restricted, learner_state, destination = call.restricted, call.learner_state, call.destination
     try:
@@ -244,6 +243,7 @@ def generate_reader_answer(call: ReaderAskCall, *, on_question_recorded: Any = N
             **({"learner_state": learner_state} if learner_state is not None else {}),
             **({"context_withheld": destination} if destination is not None else {}),
             **({"on_question_recorded": on_question_recorded} if on_question_recorded is not None else {}),
+            **({"goal_in_view": goal_in_view} if goal_in_view is not None else {}),
         )
     except QuestionLimitReached as exc:
         raise SidecarError(

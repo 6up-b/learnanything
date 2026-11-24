@@ -59,6 +59,8 @@ export interface AskRequest {
   quote?: string | null;
   /** Pad blocks asked about (recorded with the exchange). */
   padBlockIds?: string[];
+  /** The goal in view on the desk: the tutor is given its sentence and depth. */
+  goalId?: string | null;
 }
 
 function errorOf(error: unknown): { code: string; message: string; retryable: boolean } {
@@ -155,6 +157,7 @@ export class CompanionAsks {
       ...(request.selectionSpanIds?.length ? { selectionSpanIds: request.selectionSpanIds } : {}),
       ...(request.quote ? { selectionQuote: request.quote } : {}),
       ...(request.padBlockIds?.length ? { padBlockIds: request.padBlockIds } : {}),
+      ...(request.goalId ? { goalId: request.goalId } : {}),
     };
     return this.send(input, request.windowId, request.quote ?? null, ready);
   }

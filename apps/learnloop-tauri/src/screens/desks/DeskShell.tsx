@@ -1985,6 +1985,8 @@ export function DeskShell({
   stripOpenRef.current = stripOpen && viewportWidth < DESK_SIZES.shelfFoldBelow;
   // The goal lens's path view: `p` toggles it, and while it is open its keys are its own (a menu scope).
   const goalPathRef = useRef<{ open: boolean; toggle: () => boolean }>({ open: false, toggle: () => false });
+  /** The lens's goal while its band shows (set where the goal desk is read, below; asked under by the companion). */
+  const goalIdRef = useRef<string | null>(null);
   const anchoredAt = useRef(0);
   const groundingRef = useRef<Grounding>({ reason: "" });
 
@@ -2165,6 +2167,8 @@ export function DeskShell({
       selectionSpanIds: padLine ? undefined : selected?.spanIds,
       quote: padLine ? null : selected?.quote ?? null,
       ...(grounding.padBlockId ? { padBlockIds: [grounding.padBlockId] } : {}),
+      // The goal in view (the lens's), so the tutor's answer can aim at it.
+      ...(goalIdRef.current ? { goalId: goalIdRef.current } : {}),
     // The sidecar records the desk's focus and windows with the question: the writes queued so far land first.
     }, store.settled());
     setChip(null);
@@ -2701,6 +2705,7 @@ export function DeskShell({
     ),
   });
   goalPathRef.current = { open: goalDesk.pathOpen, toggle: goalDesk.togglePath };
+  goalIdRef.current = goalDesk.goalId;
 
   // -- videos (RD10): follow-along, the timestamp key ----------------------------------------------------
 

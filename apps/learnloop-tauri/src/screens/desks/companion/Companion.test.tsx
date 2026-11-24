@@ -87,12 +87,12 @@ describe("the thread's states", () => {
     expect(screen.getByText(/ask from a passage/)).toBeTruthy();
   });
 
-  it("the context line follows the focused window and says the goal is in view, never that the tutor answers with it", () => {
+  it("the context line follows the focused window and says the goal is in view (the tutor is given it now)", () => {
     render(<Companion {...props()} />);
     expect(screen.getByText("following § A book")).toBeTruthy();
-    // The tutor's prompt does not receive the goal (the desk context is recorded, not sent): the badge claims no more.
+    // The goal in view goes with each question to the tutor (owner, 2026-11-23): the note that it did not is gone.
     const badge = screen.getByText("◎ goal in view");
-    expect(badge.getAttribute("title")).toBe("your goal's lens is on this desk; the tutor's answers don't take it into account yet");
+    expect(badge.getAttribute("title")).toBe("your goal's lens is on this desk");
     expect(document.body.textContent).not.toContain("goal in context");
   });
 });
