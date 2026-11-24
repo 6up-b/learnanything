@@ -134,10 +134,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_near_tie_is_no_tie`
   - `test_an_exact_tie_is_a_logged_uniform_draw_with_probability_one_over_n`
   - `test_commit_checks_carry_the_delayed_check_receipt_fields`
+  - `test_from_the_label_retirement_an_los_items_tie_and_the_pick_draws`
   - `test_the_lessons_forecast_reference_is_the_item_the_check_would_commit`
   - `test_the_pick_is_the_item_nearest_the_band_not_the_smallest_id`
 - [tests/test_difficulty_kinds_apart.py](../../../../../../tests/test_difficulty_kinds_apart.py) — direct import
-  - `test_switch_off_literal_caller_values`
 - [tests/test_teacher_te1_review_fixes.py](../../../../../../tests/test_teacher_te1_review_fixes.py) — direct import
   - `test_f8_a_downstream_edge_alone_is_not_transfer`
   - `test_f8_a_downstream_item_whose_rubric_measures_a_taught_facet_is_transfer`

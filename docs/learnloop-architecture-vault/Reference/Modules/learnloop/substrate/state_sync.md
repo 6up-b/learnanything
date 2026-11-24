@@ -137,6 +137,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/certification_cold_probe_helpers.py](../../../../../../tests/certification_cold_probe_helpers.py) — direct import
 - [tests/daily_loop_reader_authored_practice_helpers.py](../../../../../../tests/daily_loop_reader_authored_practice_helpers.py) — direct import
 - [tests/diagnostic_probe_single_use_helpers.py](../../../../../../tests/diagnostic_probe_single_use_helpers.py) — direct import
+- [tests/difficulty_replay_helpers.py](../../../../../../tests/difficulty_replay_helpers.py) — direct import
 - [tests/due_queue_helpers.py](../../../../../../tests/due_queue_helpers.py) — direct import
 - [tests/facet_identity_actions_helpers.py](../../../../../../tests/facet_identity_actions_helpers.py) — direct import
 - [tests/followup_serve_helpers.py](../../../../../../tests/followup_serve_helpers.py) — direct import
@@ -235,7 +236,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_fresh_replacement_surface_resolves_the_pending_need`
 - [tests/test_diagnostic_probe_single_use.py](../../../../../../tests/test_diagnostic_probe_single_use.py) — direct import
   - `test_vault_sync_does_not_reactivate_an_administered_diagnostic_probe`
-- [tests/test_difficulty_four_way.py](../../../../../../tests/test_difficulty_four_way.py) — direct import
 - [tests/test_discrimination_profiles.py](../../../../../../tests/test_discrimination_profiles.py) — direct import
 - [tests/test_doctor.py](../../../../../../tests/test_doctor.py) — direct import
   - `test_doctor_warns_when_attempt_log_needs_explicit_rebuild_marker`

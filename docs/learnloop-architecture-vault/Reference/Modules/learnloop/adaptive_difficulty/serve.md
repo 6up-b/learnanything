@@ -120,6 +120,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/difficulty_replay_helpers.py](../../../../../../tests/difficulty_replay_helpers.py) — direct import
 - [tests/epp_repeat_helpers.py](../../../../../../tests/epp_repeat_helpers.py) — direct import
 - [tests/test_ad23_fix_review.py](../../../../../../tests/test_ad23_fix_review.py) — direct import
 - [tests/test_ad_guard.py](../../../../../../tests/test_ad_guard.py) — direct import

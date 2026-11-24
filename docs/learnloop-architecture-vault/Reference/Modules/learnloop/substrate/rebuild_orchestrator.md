@@ -428,6 +428,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_stuck_vault_rebuilds_to_a_fixed_point_with_no_model_call`
   - `test_an_attempt_an_older_tag_wrote_replays_with_no_stuck_declaration_at_the_head`
   - `test_historical_dont_know_rows_replay_unchanged_under_the_successor`
+- [tests/test_surprise_reads_ad_forecast.py](../../../../../../tests/test_surprise_reads_ad_forecast.py) — direct import
+  - `test_a_rebuild_reproduces_every_surprise_row_and_writes_no_receipt`
+  - `test_a_writer_committing_between_the_read_and_the_write_leaves_the_recorded_forecast_standing`
+  - `test_ads_trace_records_the_kl_of_its_posterior_from_the_tag_on`
+  - `test_history_before_the_tag_falls_back_to_mastery_marked`
+  - `test_the_label_does_not_move_mastery`
 - [tests/test_teacher_te1_successor.py](../../../../../../tests/test_teacher_te1_successor.py) — direct import
   - `test_a_shadow_rebuild_after_a_lesson_has_zero_projection_deltas`
   - `test_the_whole_rebuild_owns_the_lesson_weight_tables_and_reproduces_them`

@@ -46,7 +46,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/adaptive_difficulty/forecasters.py](../../../../../../src/learnloop/adaptive_difficulty/forecasters.py) |
-| Source lines | 168 |
+| Source lines | 169 |
 | Owning package | [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -54,7 +54,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ## Public API
 
 - `receipt_key(presentation_kind: str, presentation_id: str, forecaster: str) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/forecasters.py), line 47)
-- `in_process_receipts(vault: Any, repository: Any, connection: Any, item: Any, *, presentation_kind: str, presentation_id: str, served_at: str, view: Any, served: Any=None) -> list[ForecastReceipt]` ([source](../../../../../../src/learnloop/adaptive_difficulty/forecasters.py), line 118) — The two in-process forecasts of one presentation (each skipped alone on failure).
+- `in_process_receipts(vault: Any, repository: Any, connection: Any, item: Any, *, presentation_kind: str, presentation_id: str, served_at: str, view: Any, served: Any=None) -> list[ForecastReceipt]` ([source](../../../../../../src/learnloop/adaptive_difficulty/forecasters.py), line 119) — The two in-process forecasts of one presentation (each skipped alone on failure).
 
 ### Module constants
 
@@ -80,13 +80,14 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_digest(value: Any) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/forecasters.py), line 43)
 - `_incumbent(vault: Any, repository: Any, item: Any, served_at: str) -> tuple[float, dict[str, Any], str]` ([source](../../../../../../src/learnloop/adaptive_difficulty/forecasters.py), line 51)
 - `_features(vault: Any, item: Any, served_at: str) -> Any` ([source](../../../../../../src/learnloop/adaptive_difficulty/forecasters.py), line 70)
-- `_challenger(vault: Any, connection: Any, item: Any, served_at: str, *, view: Any) -> tuple[float, dict[str, Any], str]` ([source](../../../../../../src/learnloop/adaptive_difficulty/forecasters.py), line 93)
+- `_challenger(vault: Any, connection: Any, item: Any, served_at: str, *, view: Any) -> tuple[float, dict[str, Any], str]` ([source](../../../../../../src/learnloop/adaptive_difficulty/forecasters.py), line 94)
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/adaptive_difficulty/grade_forecast|learnloop.adaptive_difficulty.grade_forecast]] — imports `EVENT`
 - [[Reference/Modules/learnloop/adaptive_difficulty/history_audit|learnloop.adaptive_difficulty.history_audit]] — imports `INCUMBENT`, `receipt_key`; statically calls `receipt_key`
 - [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]] — imports `EVENT`
 - [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]] — imports `EVENT`, `INCUMBENT`, `receipt_key`; statically calls `receipt_key`
@@ -119,7 +120,7 @@ Use this module in context through:
 
 - [[Goals Exams and Certification Workflow]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/history_audit|learnloop.adaptive_difficulty.history_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/adaptive_difficulty/repeat_receipts|learnloop.adaptive_difficulty.repeat_receipts]], [[Reference/Modules/learnloop/adaptive_difficulty/serve|learnloop.adaptive_difficulty.serve]] and 1 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/grade_forecast|learnloop.adaptive_difficulty.grade_forecast]], [[Reference/Modules/learnloop/adaptive_difficulty/history_audit|learnloop.adaptive_difficulty.history_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/adaptive_difficulty/repeat_receipts|learnloop.adaptive_difficulty.repeat_receipts]] and 2 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -127,6 +128,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 No test imports this module directly. These tests exercise a direct production consumer:
 
+- [tests/test_surprise_reads_ad_forecast.py](../../../../../../tests/test_surprise_reads_ad_forecast.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/grade_forecast|learnloop.adaptive_difficulty.grade_forecast]]
 - [tests/test_ro2_history_resolve.py](../../../../../../tests/test_ro2_history_resolve.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/history_audit|learnloop.adaptive_difficulty.history_audit]]
 - [tests/diagnosis_journey_helpers.py](../../../../../../tests/diagnosis_journey_helpers.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]]
 - [tests/test_ro2_history_forecaster.py](../../../../../../tests/test_ro2_history_forecaster.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]]
@@ -138,7 +140,6 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_ad1_fix_round4.py](../../../../../../tests/test_ad1_fix_round4.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]]
 - [tests/test_ad1_fix_round5.py](../../../../../../tests/test_ad1_fix_round5.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]]
 - [tests/test_ad1_fix_round6.py](../../../../../../tests/test_ad1_fix_round6.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]]
-- [tests/test_ad1_fix_round7.py](../../../../../../tests/test_ad1_fix_round7.py) — imports consumer [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]]
 
 ## Modification guidance
 

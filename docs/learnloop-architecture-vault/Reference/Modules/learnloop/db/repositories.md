@@ -655,6 +655,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/desk_helpers.py](../../../../../../tests/desk_helpers.py) — direct import
 - [tests/diagnosis_split_helpers.py](../../../../../../tests/diagnosis_split_helpers.py) — direct import
 - [tests/diagnostic_probe_single_use_helpers.py](../../../../../../tests/diagnostic_probe_single_use_helpers.py) — direct import
+- [tests/difficulty_replay_helpers.py](../../../../../../tests/difficulty_replay_helpers.py) — direct import
 - [tests/e0_fakes.py](../../../../../../tests/e0_fakes.py) — direct import
 - [tests/epp_repeat_helpers.py](../../../../../../tests/epp_repeat_helpers.py) — direct import
 - [tests/epp_snapshot_helpers.py](../../../../../../tests/epp_snapshot_helpers.py) — direct import
@@ -2511,6 +2512,13 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_surface_mint.py](../../../../../../tests/test_surface_mint.py) — direct import
 - [tests/test_surfaced_belief_corrections.py](../../../../../../tests/test_surfaced_belief_corrections.py) — direct import
 - [tests/test_surprise.py](../../../../../../tests/test_surprise.py) — direct import
+- [tests/test_surprise_reads_ad_forecast.py](../../../../../../tests/test_surprise_reads_ad_forecast.py) — direct import
+  - `test_a_rebuild_reproduces_every_surprise_row_and_writes_no_receipt`
+  - `test_a_regrade_rereads_the_answers_first_forecast`
+  - `test_a_writer_committing_between_the_read_and_the_write_leaves_the_recorded_forecast_standing`
+  - `test_ads_trace_records_the_kl_of_its_posterior_from_the_tag_on`
+  - `test_history_before_the_tag_falls_back_to_mastery_marked`
+  - `test_the_label_does_not_move_mastery`
 - [tests/test_synthesis_answer_reuse.py](../../../../../../tests/test_synthesis_answer_reuse.py) — direct import
   - `test_a_checkpoint_discard_keeps_an_answer_saved_after_the_one_judged`
   - `test_a_completed_shard_does_not_answer_a_changed_span_round_request`

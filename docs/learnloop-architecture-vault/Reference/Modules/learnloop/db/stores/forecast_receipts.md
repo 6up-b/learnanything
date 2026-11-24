@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/db/stores/forecast_receipts.py](../../../../../../../src/learnloop/db/stores/forecast_receipts.py) |
-| Source lines | 128 |
+| Source lines | 156 |
 | Owning package | [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
@@ -57,6 +57,8 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - `has_table(connection: sqlite3.Connection) -> bool` ([source](../../../../../../../src/learnloop/db/stores/forecast_receipts.py), line 38)
 - `insert_receipt(connection: sqlite3.Connection, *, receipt_key: str, kind: str, forecaster: str, forecaster_version: str, scope: str, decision_kind: str, binding_kind: str, event: str, forecast: Mapping[str, Any], inputs: Mapping[str, Any], inputs_hash: str, inputs_as_of: str, parameters: Any, versions: Mapping[str, Any], created_at: str, status: str='ok', receipt_id: str | None=None, **columns: Any) -> str | None` ([source](../../../../../../../src/learnloop/db/stores/forecast_receipts.py), line 44) — Append one receipt; None when its receipt key already exists.
 - `list_receipts(connection: sqlite3.Connection, *, since: str | None=None, kind: str | None=None) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/forecast_receipts.py), line 103) — Every receipt (decoded), oldest first; ``[]`` on a database without the table.
+- `presentation_forecasts(connection: sqlite3.Connection, presentation_id: str, *, kind: str, forecasters: tuple[str, ...]) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/db/stores/forecast_receipts.py), line 128) — A plan presentation's receipts of ``kind`` by these forecasters (raw columns), in the order they are named, then oldest first; ``[]`` without the table.
+- `attempt_forecast(connection: sqlite3.Connection, attempt_id: str, *, kind: str) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/db/stores/forecast_receipts.py), line 144) — The first receipt of ``kind`` about ``attempt_id`` (``source_attempt_id``), raw columns; None without one.
 
 ### Module constants
 
@@ -71,9 +73,11 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - `COLUMNS`
 - `OPTIONAL_COLUMNS`
 - `TABLE`
+- `attempt_forecast`
 - `has_table`
 - `insert_receipt`
 - `list_receipts`
+- `presentation_forecasts`
 
 ## Internal implementation anchors
 
@@ -85,6 +89,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]] — imports `module`; statically calls `list_receipts`
+- [[Reference/Modules/learnloop/adaptive_difficulty/surprise_forecast|learnloop.adaptive_difficulty.surprise_forecast]] — imports `module`; statically calls `attempt_forecast`, `presentation_forecasts`
 - [[Reference/Modules/learnloop/evsi_calibration/forecast_report|learnloop.evsi_calibration.forecast_report]] — imports `module`; statically calls `has_table`, `list_receipts`
 - [[Reference/Modules/learnloop/scheduling/forecast_receipts|learnloop.scheduling.forecast_receipts]] — imports `module`; statically calls `has_table`, `insert_receipt`
 
@@ -106,7 +111,7 @@ Use this module in context through:
 
 - [[Goals Exams and Certification Workflow]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]], [[Reference/Modules/learnloop/evsi_calibration/forecast_report|learnloop.evsi_calibration.forecast_report]], [[Reference/Modules/learnloop/scheduling/forecast_receipts|learnloop.scheduling.forecast_receipts]].
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]], [[Reference/Modules/learnloop/adaptive_difficulty/surprise_forecast|learnloop.adaptive_difficulty.surprise_forecast]], [[Reference/Modules/learnloop/evsi_calibration/forecast_report|learnloop.evsi_calibration.forecast_report]], [[Reference/Modules/learnloop/scheduling/forecast_receipts|learnloop.scheduling.forecast_receipts]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

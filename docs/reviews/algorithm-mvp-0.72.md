@@ -1,7 +1,6 @@
 # mvp-0.72: the difficulty label leaves mastery, and surprise reads AD's forecast (arc H, H3)
 
-Branch `refactor/h3-difficulty-design`, from origin/main `69b0ec9886` (merged at `8d920e5eaa`; latest tag `mvp-0.70`,
-the G2 fix round may take `mvp-0.71`). The design is `docs/reviews/refactor-h3-h6-design.md` (§2.1 Q1 (iii), §2.2 as
+Branch `refactor/h3-difficulty-design`, from origin/main `69b0ec9886` (merged at `8d920e5eaa`, and origin/main `1966a33cbf` at `0d4dea79e1`; latest tag `mvp-0.70`; the G2 fix round may take `mvp-0.71`). The design is `docs/reviews/refactor-h3-h6-design.md` (§2.1 Q1 (iii), §2.2 as
 the owner decided Q18, §2.3 (i)). The tag is provisional: the orchestrator renumbers at landing. Everything here was
 measured on synthetic vaults and fakes; the owner's copies are the orchestrator's (the last section).
 
@@ -9,7 +8,11 @@ measured on synthetic vaults and fakes; the owner's copies are the orchestrator'
 |---|---|
 | `113490dcfb` | The tag: one constant, the chain entry, its set and predicate, one upgrade row, one test row; the seam, surprise, the grade-time receipt, the KL measure; their tests; the structure ratchet raised for the two files that grew |
 | `7d8b7e619e` | Tests that pin the chain's tail moved by one; identity pins and goldens regenerated (what moved: below) |
-| (this record) | This record, the design note's decision, the status row; one more test (a writer between the read and the write) |
+| `072488b416` | The grade-time receipt's id keyed by its attempt; the test of a writer between the read and the write |
+| `30751316f1` | Tests whose subject relied on the label run at the tag before; two tests of what the retirement does there |
+| `42be2d8a8c` | This record, the design note's decision, the status rows, ledger H-4 |
+| `0d4dea79e1` | origin/main merged (`1966a33cbf`) |
+| later | The remaining receipt counts, the joint grading golden, IH4's twins (ledger H-5); the merged diagnosis journey golden and the raised ratchets; the vault's generated references |
 
 No migration, no config key, no kill switch (owner rule 2026-11-16), no made-up constant (the forecast is AD's own
 prediction, the priming shift is mastery's existing `priming_b_offset`), no prompt changed.
@@ -159,7 +162,7 @@ H3 gave `algorithm_version=`. Take L4-2's deletion: it reads the recorded curve,
 - **The goldens:** `cli_surface.json`'s default tag, `effective_defaults.toml`, `placement_stored_misses.json`,
   `diagnosis_journey_golden.json` and `grade_application/history.json`. Regenerate these, never hand-merge them.
 
-Where L4-2's migration lands (main took 271 and 272), its migration tests conflict with main's, not with this branch.
+Where L4-2's migration lands (main took 271 and 272; G2's second round takes 273 and L4-2 274), its migration tests conflict with main's, not with this branch.
 
 Clean either way: `db/stores/attempts.py` (H3 does not touch `record_attempt_outcome`) and the persist step (H3's call
 follows the outcome; L4-2's capture is inside it).
@@ -243,11 +246,22 @@ The seam guards are in `tests/test_difficulty_kinds_apart.py` and `tests/test_it
 
 ## Proof
 
-- **The affected set by import:** `scripts/affected_tests.py --files` over the branch's source and test changes, 1108
-  files, run in eight chunks with `-m "not arc_close"`. The result is in the status row.
-- **The guards:** the replay guards (`test_replay_writes_no_ledger.py`, `test_gate_records_survive_replay.py`,
-  `test_replay_keeps_diagnosis_ids.py`), the architecture test and the structure ratchets.
+- **The affected set by import:** `scripts/affected_tests.py --files` over the branch's source and test changes
+  selected 1108 files. They ran in eight chunks with `-m "not arc_close"`: 27,825 passed and 61 failed in the first
+  pass.
+  - Every failure was read. Each is a consequence named above, a test pinned to the latest tag as "its own tag", a
+    count of every receipt or AD prediction, or a grade-time receipt id drawn from a per-process stream (now keyed).
+  - All are fixed in `072488b416`, `30751316f1` and the commits after them.
+  - One is open and pinned to the tag before: IH4's twin claims (ledger H-5).
+- **After merging origin/main (`1966a33cbf`):**
+  - the 25 failing files, plus every test file the merge changed: 680 passed;
+  - the pins, ratchets, architecture, layout, upgrade, CLI surface, the replay guards
+    (`test_replay_writes_no_ledger.py`, `test_gate_records_survive_replay.py`, `test_replay_keeps_diagnosis_ids.py`),
+    every golden this tag moved, the seam guards and the migrations test: 1220 passed. The diagnosis journey golden
+    and two ratchets were then regenerated or raised with reasons, and pass;
+  - the two gates collect every test once (34716: landing 34650 and arc close 66).
 - **Lint:** ruff clean; lint-imports 55 kept, 0 broken.
+- **Not run here:** the whole landing gate and the arc-close gate in one piece, and the durability lane.
 
 ## The owner-copy procedure (for the orchestrator; counts only into tracked files)
 

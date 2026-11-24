@@ -152,6 +152,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/deliverable_fixtures.py](../../../../../../tests/deliverable_fixtures.py) — direct import
 - [tests/diagnosis_split_helpers.py](../../../../../../tests/diagnosis_split_helpers.py) — direct import
 - [tests/diagnostic_probe_single_use_helpers.py](../../../../../../tests/diagnostic_probe_single_use_helpers.py) — direct import
+- [tests/difficulty_replay_helpers.py](../../../../../../tests/difficulty_replay_helpers.py) — direct import
 - [tests/due_queue_helpers.py](../../../../../../tests/due_queue_helpers.py) — direct import
 - [tests/exam_protection_review_helpers.py](../../../../../../tests/exam_protection_review_helpers.py) — direct import
 - [tests/exam_scope_fixtures.py](../../../../../../tests/exam_scope_fixtures.py) — direct import
@@ -270,7 +271,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_rereview_f2_the_drafter_checks_its_anchor_and_prerequisite_names`
 - [tests/test_diagnosis_input_provenance_landing.py](../../../../../../tests/test_diagnosis_input_provenance_landing.py) — direct import
   - `test_a_method_explicit_question_records_the_contract_it_was_presented_with`
-- [tests/test_difficulty_four_way.py](../../../../../../tests/test_difficulty_four_way.py) — direct import
 - [tests/test_discrimination_profiles.py](../../../../../../tests/test_discrimination_profiles.py) — direct import
 - [tests/test_doctor.py](../../../../../../tests/test_doctor.py) — direct import
   - `test_doctor_does_not_merge_opposite_registered_facet_contracts`
@@ -516,6 +516,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_state_sync_enters_probe_for_new_active_learning_object_without_goal`
   - `test_state_sync_enters_probe_when_practice_item_arrives_after_learning_object`
 - [tests/test_stuck_prompt.py](../../../../../../tests/test_stuck_prompt.py) — direct import
+- [tests/test_surprise_reads_ad_forecast.py](../../../../../../tests/test_surprise_reads_ad_forecast.py) — direct import
+  - `test_the_label_does_not_move_mastery`
 - [tests/test_synthesis_criterion_dependencies.py](../../../../../../tests/test_synthesis_criterion_dependencies.py) — direct import
   - `test_doctor_fix_content_cli_reports_self_dependencies_it_leaves`
   - `test_fix_content_keeps_a_self_dependency_because_removing_it_changes_failure_attribution`

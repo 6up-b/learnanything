@@ -109,6 +109,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 
 - [scripts/benchmark_sqlite_concurrency.py](../../../../../../scripts/benchmark_sqlite_concurrency.py); calls `copy_tree_with_databases`
 - [scripts/difficulty_four_way.py](../../../../../../scripts/difficulty_four_way.py); calls `copy_tree_with_databases`, `is_companion_file_name`, `is_database_file_name`
+- [scripts/difficulty_receipt_coverage.py](../../../../../../scripts/difficulty_receipt_coverage.py); calls `is_companion_file_name`, `is_database_file_name`
 - [scripts/s0_landing.py](../../../../../../scripts/s0_landing.py); calls `copy_tree_with_databases`
 - [scripts/sanitize_migration_head_fixture.py](../../../../../../scripts/sanitize_migration_head_fixture.py); calls `copy_tree_with_databases`
 
@@ -174,6 +175,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_joint_fixture_rebuild_is_identical_at_the_previous_version`
   - `test_joint_reads_are_untouched_by_the_overlay`
 - [tests/test_difficulty_four_way.py](../../../../../../tests/test_difficulty_four_way.py) — direct import
+- [tests/test_difficulty_receipt_arms.py](../../../../../../tests/test_difficulty_receipt_arms.py) — direct import
+  - `test_stdout_reports_the_receipt_counts_and_no_id`
+  - `test_without_any_receipt_the_arms_are_the_mastery_paths_own`
+- [tests/test_difficulty_receipt_coverage.py](../../../../../../tests/test_difficulty_receipt_coverage.py) — direct import
+  - `test_stdout_is_counts_only_and_a_live_vault_or_an_out_inside_is_refused`
 - [tests/test_embedding_store.py](../../../../../../tests/test_embedding_store.py) — direct import
   - `test_replay_preserves_paid_inputs_without_models`
 - [tests/test_exam_protection_review.py](../../../../../../tests/test_exam_protection_review.py) — direct import
@@ -240,6 +246,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_tree_copy_backs_up_databases_and_never_copies_companions`
   - `test_tree_copy_without_databases_leaves_out_configured_names`
   - `test_wal_stays_bounded_across_twenty_queue_builds_on_a_fixture_copy`
+- [tests/test_surprise_reads_ad_forecast.py](../../../../../../tests/test_surprise_reads_ad_forecast.py) — direct import
+  - `test_a_rebuild_reproduces_every_surprise_row_and_writes_no_receipt`
+  - `test_a_regrade_rereads_the_answers_first_forecast`
+  - `test_a_writer_committing_between_the_read_and_the_write_leaves_the_recorded_forecast_standing`
 - [tests/test_teacher_te1_migration.py](../../../../../../tests/test_teacher_te1_migration.py) — direct import
   - `test_234_keeps_every_source_tool_call_row`
 - [tests/test_tracked_fixture_databases.py](../../../../../../tests/test_tracked_fixture_databases.py) — direct import

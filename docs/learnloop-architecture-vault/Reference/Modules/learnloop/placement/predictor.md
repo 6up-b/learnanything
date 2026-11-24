@@ -47,33 +47,33 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/placement/predictor.py](../../../../../../src/learnloop/placement/predictor.py) |
-| Source lines | 183 |
+| Source lines | 188 |
 | Owning package | [[Reference/Modules/learnloop/placement/_package|learnloop.placement]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class PredictorNotActivatable(ValueError)` ([source](../../../../../../src/learnloop/placement/predictor.py), line 29) — The configured active predictor has no live adapter (needs Phase 4).
-- `class LiveMasteryPredictor` ([source](../../../../../../src/learnloop/placement/predictor.py), line 38) — ``mastery_ekf`` served from the persisted per-LO posterior.
-  - `__init__(self, vault: LoadedVault, repository: Repository, *, mastery_states: Mapping[str, MasteryState] | None=None, now_iso: str='1970-01-01T00:00:00Z') -> None` (line 46; internal)
-  - `_state(self, learning_object_id: str) -> tuple[MasteryState, bool]` (line 70; internal) — (posterior or claim-anchored prior, untested).
-  - `_item(self, item: ItemFeatures | str) -> tuple[str, float, float]` (line 84; internal)
-  - `predict(self, features: ItemFeatures) -> float` (line 98; public)
-  - `predict_item(self, item: ItemFeatures | str) -> ItemPrediction` (line 101; public)
-  - `region_estimates(self, scope: Iterable[str] | None=None) -> dict[str, RegionEstimate]` (line 109; public)
-  - `conditional_gain(self, item: ItemFeatures | str, chosen: Iterable[ItemFeatures | str], weights: Mapping[str, float]) -> float` (line 124; public) — Expected posterior-variance reduction, weighted by region.
-  - `observe(self, row: Any) -> None` (line 160; public)
-  - `rebuild(self, rows: Iterable[Any]) -> None` (line 163; public)
-- `active_predictor(vault: LoadedVault, repository: Repository, *, mastery_states: Mapping[str, MasteryState] | None=None, now_iso: str='1970-01-01T00:00:00Z') -> LearnerPredictor` ([source](../../../../../../src/learnloop/placement/predictor.py), line 167) — The configured ``field.active_predictor``, served live.
+- `class PredictorNotActivatable(ValueError)` ([source](../../../../../../src/learnloop/placement/predictor.py), line 30) — The configured active predictor has no live adapter (needs Phase 4).
+- `class LiveMasteryPredictor` ([source](../../../../../../src/learnloop/placement/predictor.py), line 39) — ``mastery_ekf`` served from the persisted per-LO posterior.
+  - `__init__(self, vault: LoadedVault, repository: Repository, *, mastery_states: Mapping[str, MasteryState] | None=None, now_iso: str='1970-01-01T00:00:00Z') -> None` (line 47; internal)
+  - `_state(self, learning_object_id: str) -> tuple[MasteryState, bool]` (line 74; internal) — (posterior or claim-anchored prior, untested).
+  - `_item(self, item: ItemFeatures | str) -> tuple[str, float, float]` (line 88; internal)
+  - `predict(self, features: ItemFeatures) -> float` (line 103; public)
+  - `predict_item(self, item: ItemFeatures | str) -> ItemPrediction` (line 106; public)
+  - `region_estimates(self, scope: Iterable[str] | None=None) -> dict[str, RegionEstimate]` (line 114; public)
+  - `conditional_gain(self, item: ItemFeatures | str, chosen: Iterable[ItemFeatures | str], weights: Mapping[str, float]) -> float` (line 129; public) — Expected posterior-variance reduction, weighted by region.
+  - `observe(self, row: Any) -> None` (line 165; public)
+  - `rebuild(self, rows: Iterable[Any]) -> None` (line 168; public)
+- `active_predictor(vault: LoadedVault, repository: Repository, *, mastery_states: Mapping[str, MasteryState] | None=None, now_iso: str='1970-01-01T00:00:00Z') -> LearnerPredictor` ([source](../../../../../../src/learnloop/placement/predictor.py), line 172) — The configured ``field.active_predictor``, served live.
 
 ### Module constants
 
-- `LIVE_INCUMBENT_VERSION` ([src/learnloop/placement/predictor.py](../../../../../../src/learnloop/placement/predictor.py), line 26)
+- `LIVE_INCUMBENT_VERSION` ([src/learnloop/placement/predictor.py](../../../../../../src/learnloop/placement/predictor.py), line 27)
 
 ## Internal implementation anchors
 
-- `_sigmoid(value: float) -> float` ([source](../../../../../../src/learnloop/placement/predictor.py), line 33)
+- `_sigmoid(value: float) -> float` ([source](../../../../../../src/learnloop/placement/predictor.py), line 34)
 
 ## Who imports or calls it
 
@@ -93,6 +93,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### LearnLoop dependencies
 
+- [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `label_retired`; calls `label_retired`
 - [[Reference/Modules/learnloop/config/retired|learnloop.config.retired]] — imports `identity_dump`; calls `identity_dump`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `MasteryState`, `Repository`
 - [[Reference/Modules/learnloop/field/types|learnloop.field.types]] — imports `ItemFeatures`, `ItemPrediction`, `LearnerPredictor`, `RegionEstimate`; calls `ItemPrediction`, `RegionEstimate`

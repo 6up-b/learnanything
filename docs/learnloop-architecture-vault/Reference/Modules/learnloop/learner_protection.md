@@ -233,7 +233,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_diagnosis_input_provenance_landing.py](../../../../../tests/test_diagnosis_input_provenance_landing.py) — direct import
   - `test_rule_4_and_identity_bound_marks_reach_rule_c_through_learner_protection`
 - [tests/test_difficulty_kinds_apart.py](../../../../../tests/test_difficulty_kinds_apart.py) — direct import
-  - `test_switch_off_literal_caller_values`
 - [tests/test_figures_prefetch_review_fixes.py](../../../../../tests/test_figures_prefetch_review_fixes.py) — direct import
   - `test_f1_rereview_a_builds_protection_is_read_on_the_vault_loaded_now`
   - `test_f4_a_build_rechecks_the_protection_before_it_starts`

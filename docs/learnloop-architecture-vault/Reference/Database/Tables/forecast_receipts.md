@@ -21,9 +21,9 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/data_check.py"
   - "src/learnloop/adaptive_difficulty/forecasters.py"
+  - "src/learnloop/adaptive_difficulty/grade_forecast.py"
   - "src/learnloop/adaptive_difficulty/history_audit.py"
   - "src/learnloop/adaptive_difficulty/history_forecast.py"
-  - "src/learnloop/adaptive_difficulty/history_resolve.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"

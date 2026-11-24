@@ -113,6 +113,7 @@ Indexes and uniqueness:
 
 - `tests/ad23_contract_helpers.py`
 - `tests/test_attempt_completion.py`
+- `tests/test_epp_repeat_receipts.py`
 - `tests/test_mobile_jobs.py`
 - `tests/test_sidecar_contract.py`
 - `tests/test_followup_codex_review.py`

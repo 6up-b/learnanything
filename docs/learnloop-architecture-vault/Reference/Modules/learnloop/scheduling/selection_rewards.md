@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/scheduling/selection_rewards.py](../../../../../../src/learnloop/scheduling/selection_rewards.py) |
-| Source lines | 626 |
+| Source lines | 627 |
 | Owning package | [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -66,8 +66,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `ability_vector(learning_object_id: str, mastery: MasteryState | None, facet_states: list[FacetRecallState], active_errors: list[ActiveErrorEvent], *, facet_aliases: dict[str, str] | None=None) -> LearnerAbilityVector` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 272)
 - `probe_information_gain_components(ability: LearnerAbilityVector, demand: ItemDemandVector, *, hypothesis_eig: float, independent_evidence_discount: float=1.0) -> dict[str, object]` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 300) — MVP entropy-reduction decomposition for probe reward.
 - `item_demand_vector(vault: LoadedVault, item: PracticeItem, learning_object: LearningObject, quality_state: PracticeItemQualityState | None) -> ItemDemandVector` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 396)
-- `predicted_correctness_from_vectors(ability: LearnerAbilityVector, demand: ItemDemandVector, facet_blend_evidence_count: float) -> float` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 462)
-- `predicted_facet_recall(mastery_logit_mean: float | None, mastery_evidence_count: int, facet_mean: float | None, facet_mass: float, blend_evidence_count: float) -> float` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 478) — Facet-level predicted recall: LO-mastery backbone, facet evidence overlay.
+- `predicted_correctness_from_vectors(ability: LearnerAbilityVector, demand: ItemDemandVector, facet_blend_evidence_count: float) -> float` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 463)
+- `predicted_facet_recall(mastery_logit_mean: float | None, mastery_evidence_count: int, facet_mean: float | None, facet_mass: float, blend_evidence_count: float) -> float` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 479) — Facet-level predicted recall: LO-mastery backbone, facet evidence overlay.
 
 ### Module constants
 
@@ -78,19 +78,19 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 - `_item_shape(vault: LoadedVault, item: PracticeItem) -> ItemShape` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 125)
 - `_aggregate_facet_states(facet_states: list[FacetRecallState], facet_aliases: dict[str, str]) -> dict[str, dict[str, float]]` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 363)
-- `_predicted_correctness(vault: LoadedVault, item: PracticeItem, learning_object: LearningObject, ability: LearnerAbilityVector, demand: ItemDemandVector, mastery: MasteryState | None) -> float` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 421) — Item predicted correctness — blueprint likelihood, else the flat blend.
-- `_gradient_fit(predicted_correctness: float, intent: SchedulerIntent) -> float` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 518)
-- `_facet_weakness(ability: LearnerAbilityVector, demand: ItemDemandVector) -> float` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 530)
-- `_facet_uncertainty(ability: LearnerAbilityVector, demand: ItemDemandVector) -> float` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 535)
-- `_targeted_boundary_fit(ability: LearnerAbilityVector, demand: ItemDemandVector, gradient_fit: float) -> float` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 539)
-- `_repair_value(demand: ItemDemandVector, ability: LearnerAbilityVector, active_errors: list[ActiveErrorEvent]) -> float` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 562)
-- `_overload_penalty(predicted_correctness: float, intent: SchedulerIntent) -> float` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 576)
-- `_weighted_facet_value(values: dict[str, float], weights: dict[str, float], *, default: float) -> float` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 584)
-- `_mode_retrieval_demand(practice_mode: str) -> float` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 592)
-- `_inferred_scaffold_level(item: PracticeItem) -> float` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 604)
-- `_default_attempt_type_for_reward(item: PracticeItem, intent: SchedulerIntent) -> str` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 610)
-- `_sigmoid(value: float) -> float` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 616)
-- `_logit(value: float) -> float` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 624)
+- `_predicted_correctness(vault: LoadedVault, item: PracticeItem, learning_object: LearningObject, ability: LearnerAbilityVector, demand: ItemDemandVector, mastery: MasteryState | None) -> float` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 422) — Item predicted correctness — blueprint likelihood, else the flat blend.
+- `_gradient_fit(predicted_correctness: float, intent: SchedulerIntent) -> float` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 519)
+- `_facet_weakness(ability: LearnerAbilityVector, demand: ItemDemandVector) -> float` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 531)
+- `_facet_uncertainty(ability: LearnerAbilityVector, demand: ItemDemandVector) -> float` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 536)
+- `_targeted_boundary_fit(ability: LearnerAbilityVector, demand: ItemDemandVector, gradient_fit: float) -> float` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 540)
+- `_repair_value(demand: ItemDemandVector, ability: LearnerAbilityVector, active_errors: list[ActiveErrorEvent]) -> float` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 563)
+- `_overload_penalty(predicted_correctness: float, intent: SchedulerIntent) -> float` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 577)
+- `_weighted_facet_value(values: dict[str, float], weights: dict[str, float], *, default: float) -> float` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 585)
+- `_mode_retrieval_demand(practice_mode: str) -> float` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 593)
+- `_inferred_scaffold_level(item: PracticeItem) -> float` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 605)
+- `_default_attempt_type_for_reward(item: PracticeItem, intent: SchedulerIntent) -> str` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 611)
+- `_sigmoid(value: float) -> float` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 617)
+- `_logit(value: float) -> float` ([source](../../../../../../src/learnloop/scheduling/selection_rewards.py), line 625)
 
 ## Who imports or calls it
 
@@ -139,7 +139,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_collection_dataset.py](../../../../../../tests/test_collection_dataset.py) — direct import
   - `test_selection_decision_features_reference_the_item_and_stay_compact`
 - [tests/test_difficulty_kinds_apart.py](../../../../../../tests/test_difficulty_kinds_apart.py) — direct import
-  - `test_switch_off_literal_caller_values`
 - [tests/test_goal_frontier.py](../../../../../../tests/test_goal_frontier.py) — direct import
   - `test_repair_reward_includes_goal_frontier_term`
 - [tests/test_measurement_state_labels.py](../../../../../../tests/test_measurement_state_labels.py) — direct import

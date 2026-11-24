@@ -89,6 +89,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/adaptive_difficulty/report|learnloop.adaptive_difficulty.report]] — imports `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/adaptive_difficulty/serve_inputs|learnloop.adaptive_difficulty.serve_inputs]] — imports `parse_utc`; statically calls `parse_utc`
 - [[Reference/Modules/learnloop/adaptive_difficulty/spend|learnloop.adaptive_difficulty.spend]] — imports `Clock`
+- [[Reference/Modules/learnloop/adaptive_difficulty/surprise_forecast|learnloop.adaptive_difficulty.surprise_forecast]] — imports `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/ai/runs|learnloop.ai.runs]] — imports `Clock`
 - [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `Clock`, `SystemClock`, `parse_utc`, `utc_now_iso`; statically calls `SystemClock`, `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/attempts/calibration_streams|learnloop.attempts.calibration_streams]] — imports `Clock`
@@ -547,7 +548,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/claims|learnloop.adaptive_difficulty.claims]], [[Reference/Modules/learnloop/adaptive_difficulty/dose|learnloop.adaptive_difficulty.dose]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_audit|learnloop.adaptive_difficulty.history_audit]] and 445 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/claims|learnloop.adaptive_difficulty.claims]], [[Reference/Modules/learnloop/adaptive_difficulty/dose|learnloop.adaptive_difficulty.dose]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_audit|learnloop.adaptive_difficulty.history_audit]] and 446 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -575,6 +576,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/diagnosis_journey_helpers.py](../../../../../tests/diagnosis_journey_helpers.py) — direct import
 - [tests/diagnosis_split_helpers.py](../../../../../tests/diagnosis_split_helpers.py) — direct import
 - [tests/diagnostic_probe_single_use_helpers.py](../../../../../tests/diagnostic_probe_single_use_helpers.py) — direct import
+- [tests/difficulty_replay_helpers.py](../../../../../tests/difficulty_replay_helpers.py) — direct import
 - [tests/due_queue_helpers.py](../../../../../tests/due_queue_helpers.py) — direct import
 - [tests/durable_promotion_arms_helpers.py](../../../../../tests/durable_promotion_arms_helpers.py) — direct import
 - [tests/exam_pool_helpers.py](../../../../../tests/exam_pool_helpers.py) — direct import
@@ -1061,7 +1063,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_answering_the_question_first_leaves_the_one_tap_card_open`
   - `test_embedded_prediction_is_idempotent_per_question`
   - `test_submit_eliciting_response_records_a_factor_response`
-- [tests/test_difficulty_four_way.py](../../../../../tests/test_difficulty_four_way.py) — direct import
 - [tests/test_discrimination_profiles.py](../../../../../tests/test_discrimination_profiles.py) — direct import
 - [tests/test_dl2_rw4b_keyed_pick_check.py](../../../../../tests/test_dl2_rw4b_keyed_pick_check.py) — direct import
   - `test_a_keyed_pick_of_a_due_check_the_plan_does_not_hold_is_a_one_item_block_and_answers_it`
@@ -2179,6 +2180,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_surfacing_after_the_withdrawal_does_not_retroactively_owe_an_apology`
   - `test_withdrawal_drops_the_belief_from_working_hypotheses`
   - `test_withdrawals_interleave_reverse_chronologically`
+- [tests/test_surprise_reads_ad_forecast.py](../../../../../tests/test_surprise_reads_ad_forecast.py) — direct import
+  - `test_a_writer_committing_between_the_read_and_the_write_leaves_the_recorded_forecast_standing`
+  - `test_the_grade_does_not_wait_on_a_second_clock`
 - [tests/test_synthesis_criterion_dependencies.py](../../../../../tests/test_synthesis_criterion_dependencies.py) — direct import
 - [tests/test_synthesis_runs_repo.py](../../../../../tests/test_synthesis_runs_repo.py) — direct import
   - `test_finalize_stale_synthesis_runs_spares_recent_rows`

@@ -111,6 +111,7 @@ None found by exact static reference scan.
 - `tests/test_epp_prediction_snapshots.py`
 - `tests/test_epp_repeat_receipts.py`
 - `tests/test_rebuild_orchestrator.py`
+- `tests/test_surprise_reads_ad_forecast.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

@@ -47,19 +47,19 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/attempts/surprise.py](../../../../../../src/learnloop/attempts/surprise.py) |
-| Source lines | 163 |
+| Source lines | 191 |
 | Owning package | [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class SurpriseResult` ([source](../../../../../../src/learnloop/attempts/surprise.py), line 22)
-  - `as_record(self, attempt_id: str, algorithm_version: str, created_at: str) -> dict[str, object]` (line 32; public)
-- `compute_observation_variance(observation: MasteryObservation, config: LearnLoopConfig) -> float` ([source](../../../../../../src/learnloop/attempts/surprise.py), line 50) — Legacy logit-space observation variance (used when IRT is disabled).
-- `compute_surprise(*, prior: MasteryState, posterior: MasteryState, observation: MasteryObservation, observed_error_type: str | None, prior_active_errors: list[ActiveErrorEvent], config: LearnLoopConfig, item_a: float=1.0, item_b: float=0.0) -> SurpriseResult` ([source](../../../../../../src/learnloop/attempts/surprise.py), line 56)
-- `predicted_error_type_distribution(prior_active_errors: list[ActiveErrorEvent], *, observed_at: datetime) -> dict[str, float]` ([source](../../../../../../src/learnloop/attempts/surprise.py), line 138)
-- `score_bucket(rubric_score: int, max_points: int=4) -> str` ([source](../../../../../../src/learnloop/attempts/surprise.py), line 157)
+- `class SurpriseResult` ([source](../../../../../../src/learnloop/attempts/surprise.py), line 23)
+  - `as_record(self, attempt_id: str, algorithm_version: str, created_at: str) -> dict[str, object]` (line 33; public)
+- `compute_observation_variance(observation: MasteryObservation, config: LearnLoopConfig) -> float` ([source](../../../../../../src/learnloop/attempts/surprise.py), line 51) — Legacy logit-space observation variance (used when IRT is disabled).
+- `compute_surprise(*, prior: MasteryState, posterior: MasteryState, observation: MasteryObservation, observed_error_type: str | None, prior_active_errors: list[ActiveErrorEvent], config: LearnLoopConfig, item_a: float=1.0, item_b: float=0.0, forecast: Any=None, priming_offset: float=0.0, record_source: bool=False) -> SurpriseResult` ([source](../../../../../../src/learnloop/attempts/surprise.py), line 57) — ``forecast`` (a :class:`~learnloop.attempts.surprise_forecast.SurpriseForecast`, from the label's retirement): adaptive difficulty's ``p̄`` made before the answer, which the predictive part is scored against (its innovation, variance and direction around ``b' = μ_prior − logit(p…
+- `predicted_error_type_distribution(prior_active_errors: list[ActiveErrorEvent], *, observed_at: datetime) -> dict[str, float]` ([source](../../../../../../src/learnloop/attempts/surprise.py), line 166)
+- `score_bucket(rubric_score: int, max_points: int=4) -> str` ([source](../../../../../../src/learnloop/attempts/surprise.py), line 185)
 
 ## Internal implementation anchors
 
@@ -85,7 +85,7 @@ No private top-level function or class definition is declared in this file.
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `dataclasses`, `datetime`, `math`
+- Standard library: `__future__`, `dataclasses`, `datetime`, `math`, `typing`
 - Third party: none imported directly
 
 ## Larger workflow participation

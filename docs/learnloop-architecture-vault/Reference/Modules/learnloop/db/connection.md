@@ -95,6 +95,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/adaptive_difficulty/data_check|learnloop.adaptive_difficulty.data_check]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop/adaptive_difficulty/generation|learnloop.adaptive_difficulty.generation]] — imports `connect`; statically calls `connect`
+- [[Reference/Modules/learnloop/adaptive_difficulty/grade_forecast|learnloop.adaptive_difficulty.grade_forecast]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop/adaptive_difficulty/history_audit|learnloop.adaptive_difficulty.history_audit]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop/adaptive_difficulty/history_forecast|learnloop.adaptive_difficulty.history_forecast]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]] — imports `connect`; statically calls `connect`
@@ -306,7 +307,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/background|learnloop.adaptive_difficulty.background]], [[Reference/Modules/learnloop/adaptive_difficulty/data_check|learnloop.adaptive_difficulty.data_check]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/generation|learnloop.adaptive_difficulty.generation]] and 187 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/background|learnloop.adaptive_difficulty.background]], [[Reference/Modules/learnloop/adaptive_difficulty/data_check|learnloop.adaptive_difficulty.data_check]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/generation|learnloop.adaptive_difficulty.generation]] and 188 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -515,6 +516,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f5_replay_never_reads_the_switch_or_the_records`
 - [tests/test_diagnosis_replay.py](../../../../../../tests/test_diagnosis_replay.py) — direct import
   - `test_joint_reads_are_untouched_by_the_overlay`
+- [tests/test_difficulty_receipt_arms.py](../../../../../../tests/test_difficulty_receipt_arms.py) — direct import
+  - `test_the_receipt_rule_picks_the_first_bound_attempt_with_a_valid_subject_view_receipt`
 - [tests/test_dl2_rw4b_keyed_pick_check.py](../../../../../../tests/test_dl2_rw4b_keyed_pick_check.py) — direct import
 - [tests/test_e0_corpus.py](../../../../../../tests/test_e0_corpus.py) — direct import
   - `test_prepare_copies_uses_the_backup_api_under_fixtures_local_only`
@@ -1000,6 +1003,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_loader_reads_phase_5a_skeletons_keyed_by_item_id`
   - `test_loader_uses_the_seen_text_and_never_substitutes_current_vectors`
   - `test_seen_stem_records_follow_the_seen_revision_and_scored_rows`
+- [tests/test_surprise_reads_ad_forecast.py](../../../../../../tests/test_surprise_reads_ad_forecast.py) — direct import
+  - `test_ads_trace_records_the_kl_of_its_posterior_from_the_tag_on`
+  - `test_the_grade_does_not_wait_on_a_second_clock`
+  - `test_the_label_does_not_move_mastery`
 - [tests/test_t6_followup_review.py](../../../../../../tests/test_t6_followup_review.py) — direct import
   - `test_paid_calls_reserve_and_record_the_real_increased_limit`
 - [tests/test_table_roles.py](../../../../../../tests/test_table_roles.py) — direct import
