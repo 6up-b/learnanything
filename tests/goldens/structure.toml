@@ -63,7 +63,9 @@ source_text_assertions = 23
 # 302592: the diagnosis journey golden's two router_learner journeys record what the probe router's fix round 2
 # adds to a learner-lane decision: its frozen exposure and lossless replay payload, the session on its facts receipt,
 # and the outcome target it freezes (the decision objective and the "Check once" measurement it arranges); 398 lines.
-golden_json_lines = 302592
+# 302693: L4-2 (mvp-0.71): the journeys that grade (held_release, mid_check, recurrence_judge, regrade) record
+# their attempt_grade_curves rows; 101 lines.
+golden_json_lines = 302693
 
 [members]
 import_component = [
