@@ -519,3 +519,9 @@ test layout, desktop RPC contract, mobile allowlist, the nouns scan, the RD7 fil
 tip guards, the frontend-path guards): 1,465 passed; ruff clean; lint-imports 55 kept, 0 broken;
 `check_gate_partition.py`: 34,595 collected (landing 34,529 + arc_close 66). References regenerated after the last
 code commit (desktop_validate's counts: 436 TypeScript files, ACTIVE 442, 409 entry-reachable); the four validators pass.
+
+## Owner copies, migrations 271 and 272 (run by the orchestrator, 2026-11-24)
+
+On backup-API copies of the three floor-set vaults (never a live vault), `learnloop upgrade` to the head: every copy
+upgraded, `integrity_check` ok, `foreign_key_check` empty, head 272, and `desk_windows`, `check_administrations` and
+`check_veil_sets` hold no rows (no copy has used the desks or an inline check). The copies were deleted afterwards.
