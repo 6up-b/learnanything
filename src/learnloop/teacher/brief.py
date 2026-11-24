@@ -925,6 +925,13 @@ def build_brief(vault: Any, repository: Any, *, learning_object_ids: Sequence[st
     left_off = T2.where_you_left_off(vault, repository, learning_object_ids, exclude=lesson_id, notes_check=notes_check)
     if left_off is not None:
         brief["where_you_left_off"] = left_off
+    # The learner's open carried questions (owner decision 2026-11-23): absent when none is open, so such a
+    # lesson's brief is byte for byte what it was.
+    from learnloop.teacher import carried as CQ
+
+    carried = CQ.for_brief(repository, library)
+    if carried is not None:
+        brief["carried_questions"] = carried
     return brief, book
 
 

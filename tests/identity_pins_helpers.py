@@ -1281,7 +1281,12 @@ def _rich_build_key(**figures: Any) -> Callable[[], Any]:
     return compute
 
 
-def _teacher_goal_contract(visuals: bool, episodes: bool, *, prompt: bool) -> Callable[[], Any]:
+#: A brief carrying one open carried question (owner decision 2026-11-23), for the prompt's carried variant.
+CARRIED_BRIEF = {"carried_questions": {"version": "carried_questions_v1", "about": "pin", "questions": [
+    {"text": "why do eigenvalues multiply to the determinant?", "since": "2026-11-20T09:00:00Z", "beside": None}]}}
+
+
+def _teacher_goal_contract(visuals: bool, episodes: bool, *, prompt: bool, carried: bool = False) -> Callable[[], Any]:
     def compute() -> Any:
         from learnloop.teacher import service as teacher
         from learnloop.teacher.brief import SourceBook
@@ -1290,7 +1295,8 @@ def _teacher_goal_contract(visuals: bool, episodes: bool, *, prompt: bool) -> Ca
         allowed = capabilities(visuals=visuals, episodes=episodes, probes=True) | {"goal_topics"}
         if not prompt:
             return teacher.wire_model(allowed).model_json_schema()
-        state = teacher.LessonState(lesson={}, brief={}, book=SourceBook(), turns=[], checks=[], plans=[])
+        brief = dict(CARRIED_BRIEF) if carried else {}
+        state = teacher.LessonState(lesson={}, brief=brief, book=SourceBook(), turns=[], checks=[], plans=[])
         return teacher._prompt(state, results=[], help_reply=False, visuals=visuals, episodes=episodes,
                                te2=True, goal_topics=True)
     return compute
@@ -1301,9 +1307,11 @@ IDENTITY_SITES: tuple[IdentitySite, ...] = (
         "TE5", "teacher topic offer prompt and provider schema",
         ("src/learnloop/teacher/service.py::_prompt", "src/learnloop/teacher/service.py::wire_model"),
         "teacher structured request identity", "new requests use a distinct schema and prompt family",
-        {f"{kind}.{variant}": _teacher_goal_contract(visuals, episodes, prompt=kind == "prompt")
-         for kind in ("prompt", "schema") for visuals, episodes, variant in (
-             (False, False, "plain"), (True, False, "visuals"), (False, True, "episodes"), (True, True, "both"))}),
+        {**{f"{kind}.{variant}": _teacher_goal_contract(visuals, episodes, prompt=kind == "prompt")
+            for kind in ("prompt", "schema") for visuals, episodes, variant in (
+                (False, False, "plain"), (True, False, "visuals"), (False, True, "episodes"), (True, True, "both"))},
+         # The learner's carried questions in the brief: their paragraph and prompt-version suffix.
+         "prompt.carried": _teacher_goal_contract(False, False, prompt=True, carried=True)}),
     IdentitySite(
         "K9.5m", "pattern, card, reversal and pack-card ledger identities",
         ("src/learnloop/diagnosis/split/jobs.py::record_pattern_verdicts",
