@@ -457,6 +457,9 @@ _reg_const("lesson_weight:_IMPLIED_ETA_BOUND", "numerical", kind="structural", o
                      "sigma(+-12) is within 1e-5 of the link's bounds).")
 _reg_const("lesson_weight:_BISECTION_STEPS", "numerical", kind="structural", owner="lesson_weight",
            rationale="keep: bisection steps of that search (numerical resolution).")
+_reg_const("lesson_weight:_REPRODUCTION_TOLERANCE", "numerical", kind="structural", owner="lesson_weight",
+           rationale="keep: how closely the fit's recomputation at the recorded mass must reproduce each recorded "
+                     "mastery update (numerical resolution: float rounding; the mass equivalence guard reads it too).")
 _reg_const("teacher_brief:STEM_CHARS", "display", kind="structural", owner="teacher_brief",
            rationale="keep: how much of a long prompt a brief header shows (a size bound; text comes through "
                      "the actions).")

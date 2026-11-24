@@ -134,6 +134,9 @@ LESSON_CHECK_ATTEMPT_TYPE = "reconstruction_after_walkthrough"
 #: within 1e-5 of the link's bounds, which the mass approaches but never reaches).
 _IMPLIED_ETA_BOUND = 12.0
 _BISECTION_STEPS = 60
+#: How closely the fit's recomputation at the recorded mass must reproduce each recorded mastery update (numerical
+#: resolution: float rounding of the recovered noise and the update; :func:`mass_mismatches` reads the same).
+_REPRODUCTION_TOLERANCE = 1e-9
 
 #: The rules a check's mass was applied under (recorded on its row). A row may also say ``fixed`` (the type's
 #: configured mass, written while that rule could be switched on); no weight update reads such a row.
@@ -396,6 +399,10 @@ class RecordedUpdate:
     attempt_type: str
     applied: bool
     varied: bool = False
+    #: At mvp-0.71: the variance floor mastery applied after this update (review L42-R7), and, on the check's own
+    #: update, the replayed state it started from (review L42-R8). None below the tag.
+    variance_floor: float | None = None
+    prior: tuple[float, float] | None = None
 
 
 def _interpretation_variance(mu: float, variance: float, last: str | None, at: str, *, a: float, b: float,
@@ -459,6 +466,7 @@ def recorded_trajectory(connection: Any, vault: Any, mastery_config: Any, check:
     sensitivity = check["inputs"].get("sensitivity") or {}
     last = sensitivity.get("last_evidence_at")
     out: list[RecordedUpdate] = []
+    recorded: list[tuple[float, float, float, float]] = []
     complete = True
     for attempt_id, item_id, at, correctness, primed, attempt_type, delta_json, debug_json in rows:
         curve = current_curve(connection, attempt_id) if frozen else None
@@ -491,44 +499,123 @@ def recorded_trajectory(connection: Any, vault: Any, mastery_config: Any, check:
         mu1, var1 = float(delta["mu_after"]), float(delta["P_after"])
         applied = correctness is not None and str(attempt_id) not in held and (mu0 != mu1 or var0 != var1)
         weight = float(debug["observation_weight"])
+        varied = str(attempt_id) == str(check["attempt_id"])
+        floor = debug.get("mastery_variance_floor") if frozen else None
+        if frozen and applied and floor is not None and var1 == float(floor):
+            # The floor bound: the update's own variance step is not on record, so its noise is not recoverable.
+            if inputs_trace is not None:
+                inputs_trace[-1]["variance_floor_bound"] = True
+            complete = False
         variance = (_interpretation_variance(mu0, var0, last, str(at), a=float(a), b=float(b), weight=weight,
                                              variance_after=var1, config=mastery_config) if applied else 0.0)
         out.append(RecordedUpdate(
             attempt_id=str(attempt_id), at=str(at), y=float(correctness or 0.0), item_a=float(a), item_b=float(b),
             weight=weight, interpretation_variance=variance, primed=bool(primed), attempt_type=str(attempt_type),
-            applied=applied, varied=str(attempt_id) == str(check["attempt_id"])))
+            applied=applied, varied=varied, variance_floor=None if floor is None else float(floor),
+            prior=(mu0, var0) if frozen and varied else None))
+        recorded.append((mu0, var0, mu1, var1))
         if applied and not primed:
             last = str(at)
+    if frozen and complete and out:
+        failed = _unreproduced(connection, check, outcome, out, recorded, mastery_config)
+        if failed is not None:
+            index, reason = failed
+            if inputs_trace is not None:
+                inputs_trace[index][reason] = True
+            complete = False
     return out if complete else None
+
+
+def _close(value: float, recorded: float) -> bool:
+    return math.isclose(value, recorded, rel_tol=_REPRODUCTION_TOLERANCE, abs_tol=_REPRODUCTION_TOLERANCE)
+
+
+def _unreproduced(connection: Any, check: Mapping[str, Any], outcome: Mapping[str, Any],
+                  updates: Sequence[RecordedUpdate], recorded: Sequence[tuple[float, float, float, float]],
+                  mastery_config: Any) -> tuple[int, str] | None:
+    """Where the recomputation at the recorded mass leaves what mastery recorded (review L42-R7, L42-R8), as
+    ``(update index, reason)``; None when every update and the outcome's prior are reproduced. A transition the
+    attempt updates do not carry (a re-anchoring claim, another writer of the state) or an evidence clock other than
+    the recorded one shows here, and the fit then uses its first-order form, labelled."""
+
+    sensitivity = CheckSensitivity.from_dict(check["inputs"]["sensitivity"])
+    mass = float(check.get("mass_applied") or 0.0)
+    states = _trajectory_states(sensitivity, updates, mass=mass, recorded_mass=mass, mastery_config=mastery_config,
+                                frozen=True)
+    previous = None
+    for index, (state_before, state_after) in enumerate(states):
+        mu0, var0, mu1, var1 = recorded[index]
+        if not (_close(state_before.logit_mean, mu0) and _close(state_before.logit_variance, var0)):
+            return index, "prior_not_reproduced"
+        if not (_close(state_after.logit_mean, mu1) and _close(state_after.logit_variance, var1)):
+            return index, "update_not_reproduced"
+        previous = state_after
+    row = connection.execute("SELECT posterior_delta_json FROM attempt_surprise WHERE attempt_id = ?",
+                             (str(outcome["id"]),)).fetchone()
+    try:
+        delta = json.loads(row[0]) if row and row[0] else None
+    except ValueError:
+        delta = None
+    if previous is not None and isinstance(delta, dict) and delta.get("mu_before") is not None \
+            and delta.get("P_before") is not None:
+        if not (_close(previous.logit_mean, float(delta["mu_before"]))
+                and _close(previous.logit_variance, float(delta["P_before"]))):
+            return len(updates) - 1, "outcome_prior_not_reproduced"
+    return None
 
 
 def trajectory_state(sensitivity: "CheckSensitivity", updates: Sequence[RecordedUpdate], *, mass: float,
                      recorded_mass: float, mastery_config: Any, frozen: bool = False) -> Any:
     """The LO's mastery state just before the outcome, recomputed from the check's recorded prior with
-    the check entered at ``mass`` and every other update as recorded."""
+    the check entered at ``mass`` and every other update as recorded. At mvp-0.71 (``frozen``) it starts from the
+    state the check's update replayed from (review L42-R8) and applies each update's recorded variance floor (review
+    L42-R7)."""
 
     from learnloop.db.repositories import MasteryState
-    from learnloop.learner.mastery import MasteryObservation, update_mastery
 
     state = MasteryState(
         learning_object_id="lesson_check", logit_mean=sensitivity.mu, logit_variance=sensitivity.variance,
         evidence_count=0, last_evidence_at=sensitivity.last_evidence_at, algorithm_version="lesson_weight",
         updated_at=sensitivity.observed_at)
-    for update in updates:
-        if not update.applied:
-            continue
-        weight = update.weight * (float(mass) / float(recorded_mass)) if update.varied and recorded_mass > 0 \
-            else update.weight
-        observed = parse_utc(update.at)
-        assert observed is not None
-        observation = MasteryObservation(
-            evidence_coverage=1.0, hint_dampening=1.0, grader_confidence=1.0,
-            attempt_type=update.attempt_type, observed_at=observed, observation_weight_override=weight,
-            interpretation_variance=update.interpretation_variance, primed=update.primed,
-            **_scored(update.y, frozen))
-        state = update_mastery(state, observation, mastery_config, "lesson_weight", item_a=update.item_a,
-                               item_b=update.item_b)
+    for _before, after in _trajectory_states(sensitivity, updates, mass=mass, recorded_mass=recorded_mass,
+                                             mastery_config=mastery_config, frozen=frozen):
+        state = after
     return state
+
+
+def _trajectory_states(sensitivity: "CheckSensitivity", updates: Sequence[RecordedUpdate], *, mass: float,
+                       recorded_mass: float, mastery_config: Any, frozen: bool) -> Iterable[tuple[Any, Any]]:
+    """Each update's ``(state before, state after)`` in order (unchanged across an update that applied nothing)."""
+
+    from dataclasses import replace
+
+    from learnloop.db.repositories import MasteryState
+    from learnloop.learner.mastery import MasteryObservation, update_mastery
+
+    start = (sensitivity.mu, sensitivity.variance)
+    if frozen and updates and updates[0].prior is not None:
+        start = updates[0].prior
+    state = MasteryState(
+        learning_object_id="lesson_check", logit_mean=start[0], logit_variance=start[1],
+        evidence_count=0, last_evidence_at=sensitivity.last_evidence_at, algorithm_version="lesson_weight",
+        updated_at=sensitivity.observed_at)
+    for update in updates:
+        before = state
+        if update.applied:
+            weight = update.weight * (float(mass) / float(recorded_mass)) if update.varied and recorded_mass > 0 \
+                else update.weight
+            observed = parse_utc(update.at)
+            assert observed is not None
+            observation = MasteryObservation(
+                evidence_coverage=1.0, hint_dampening=1.0, grader_confidence=1.0,
+                attempt_type=update.attempt_type, observed_at=observed, observation_weight_override=weight,
+                interpretation_variance=update.interpretation_variance, primed=update.primed,
+                **_scored(update.y, frozen))
+            state = update_mastery(state, observation, mastery_config, "lesson_weight", item_a=update.item_a,
+                                   item_b=update.item_b)
+            if update.variance_floor is not None and state.logit_variance < update.variance_floor:
+                state = replace(state, logit_variance=update.variance_floor)
+        yield before, state
 
 
 def trajectory_success(state: Any, *, a: float, b: float, at: str, mastery_config: Any) -> float:
@@ -1103,8 +1190,8 @@ def mass_mismatches(state: WeightState) -> list[dict[str, Any]]:
             continue
         detail = entry["detail"]
         if detail.get("rule") in (RULE_LEARNED, RULE_POOL) and detail.get("recomputed") is not None:
-            if (abs(float(detail["recomputed"]) - float(detail["mass_learned"])) > 1e-9
-                    or abs(float(detail["recomputed_z_c"]) - float(detail["z_c"])) > 1e-9):
+            if (abs(float(detail["recomputed"]) - float(detail["mass_learned"])) > _REPRODUCTION_TOLERANCE
+                    or abs(float(detail["recomputed_z_c"]) - float(detail["z_c"])) > _REPRODUCTION_TOLERANCE):
                 out.append(entry)
     return out
 
