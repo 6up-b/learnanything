@@ -6,7 +6,7 @@
 // path).
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { ReaderScreen } from "../ReaderScreen";
+import { ScopedSource } from "../desks/source/ScopedSource";
 import { setAlgoConfig } from "../../app/algoConfig";
 import { readerRenderViewFixture as view } from "../../fixtures/readerRenderView";
 import { readerIntentContractFixture as intent } from "../../fixtures/readerIntentContract";
@@ -106,7 +106,7 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); setAlgoConfig(undefined); window.getSelection()?.removeAllRanges(); });
 
 it("a figure stays inline under its passage in a section the path labels core", async () => {
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   expect(await screen.findByText(PATH.next!.text)).toBeTruthy();
   expect(api.readerReadingPath).toHaveBeenCalledWith({ extractionId: view.extractionId });
   await waitFor(() => expect(api.readerFigures).toHaveBeenCalledWith({ extractionId: view.extractionId }));
@@ -121,7 +121,7 @@ it("a figure stays inline under its passage in a section the path labels core", 
 
 it("the palette carries both actions and each reaches only its own RPCs", async () => {
   api.readerFigureRequest.mockResolvedValue({ jobId: "ljob_1", kind: "figure_build", askId: null, state: "done", result: { reused: true, figure: figure() } });
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   await screen.findByText(PATH.next!.text);
   fireEvent.click(screen.getByRole("button", { name: "ask" }));
   let palette = await openPalette();

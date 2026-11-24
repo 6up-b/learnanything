@@ -5,7 +5,7 @@
 // must not change; nothing here asks for kept comparisons or their marks.
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { ReaderScreen } from "../ReaderScreen";
+import { ScopedSource } from "../desks/source/ScopedSource";
 import { setAlgoConfig } from "../../app/algoConfig";
 import { readerRenderViewFixture as view } from "../../fixtures/readerRenderView";
 import { readerIntentContractFixture as intent } from "../../fixtures/readerIntentContract";
@@ -126,7 +126,7 @@ function rw4dNeverCalled() {
 }
 
 it("keep off: the compare table in the comparing posture is RW4a's, byte for byte", async () => {
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} onCheckMe={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} onCheckMe={vi.fn()} />);
   const block = await screen.findByText(view.blocks[1].markdown);
   select(block);
   await screen.findByRole("textbox", { name: BOX });

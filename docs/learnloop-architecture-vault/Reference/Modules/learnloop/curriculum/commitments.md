@@ -288,10 +288,14 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_check_settled_elsewhere_while_open_is_closed_superseded_on_the_next_read`
   - `test_a_crash_after_the_attempt_and_before_the_close_is_recovered_with_that_attempt`
   - `test_an_answer_after_a_notes_veil_was_opened_is_practice_and_says_why`
+  - `test_an_answer_on_another_surface_while_the_reader_holds_the_check_answers_nothing`
   - `test_not_now_closes_with_no_attempt_and_the_duty_stays`
   - `test_opening_a_veil_that_says_nothing_of_the_answer_leaves_it_cold`
   - `test_opening_a_veil_that_states_the_answer_primes_the_item_and_the_answer_is_practice`
   - `test_parity_with_check_once_in_today`
+  - `test_rd7_20_a_subthreshold_opening_holds_the_check_and_the_reply_says_so`
+  - `test_rd7_3_an_opened_note_outlives_not_now_the_next_attempt_anywhere_is_not_cold`
+  - `test_rd7_4_every_candidate_of_an_lo_check_is_charged_from_the_set_begin_froze`
 - [tests/test_reader_rd7b_check_session.py](../../../../../../tests/test_reader_rd7b_check_session.py) — direct import
 - [tests/test_reader_reconstruct.py](../../../../../../tests/test_reader_reconstruct.py) — direct import
   - `test_reconstruct_makes_one_item_and_one_test_me_later_commitment`

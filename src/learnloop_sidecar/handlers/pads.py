@@ -92,8 +92,12 @@ def _after_batch(ctx: SidecarContext, vault: Any, repository: Any, block_ids: li
 
     if not block_ids:
         return
+    from learnloop_sidecar.check_hold import open_check
+
     try:
-        if emission.settle_blocks(vault, repository, block_ids).queued:
+        # While an inline check is open the pad's words wait for its close (they would reach learner-text gaps, a
+        # model's input); the close reconciles every pad (``drain_after_check``), as a vault's open does.
+        if open_check(repository) is None and emission.settle_blocks(vault, repository, block_ids).queued:
             ctx.post_attempt_worker.notify()
     except Exception:  # noqa: BLE001 - the learner's write already committed
         LOG.warning("could not emit the pad's committed words", exc_info=True)

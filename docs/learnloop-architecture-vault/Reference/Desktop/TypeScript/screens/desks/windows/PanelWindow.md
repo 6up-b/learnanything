@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/windows/PanelWindow.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/windows/PanelWindow.tsx) |
-| Source lines | 172 |
+| Source lines | 163 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/windows/_area|TypeScript/screens/desks/windows]] |
 | Refactor status | `ACTIVE` |
@@ -56,35 +56,34 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - `export const PANEL_TITLES: Record<PanelContent["panel"], string> =` — const, line 27
 - `export function RailHostPanel(` — function, line 35
-- `export function PathPanel(` — function, line 63
-- `export function LibraryPanel(` — function, line 75
+- `export function LibraryPanel(` — function, line 66
 
 ## Internal implementation anchors
 
 - `type PanelContent = Extract<ContentRefDto,` — type, line 25
-- `const contractQuery = useCachedQuery(["reader_prompt_contract"], ()` — const, line 94
-- `const contract = contractQuery.data ?? null` — const, line 95
-- `const ctl = useLibraryAsk(` — const, line 96
-- `const kept = useKeptComparisons(` — const, line 99
-- `const notes = useNoteMarks(` — const, line 100
-- `const cardOf = (sourceId: string | null | undefined)` — const, line 101
-- `const pickPractice = (item: ProposedItemDto, proposalId: string | null)` — const, line 104
-- `const asked = ctl.state?.request` — const, line 105
-- `const hit = ctl.state?.ask.value?.hits[0]` — const, line 106
-- `const at = asked?.identity ?` — const, line 107
-- `const card = cardOf(at?.sourceId)` — const, line 110
-- `const useExercise = (candidate: ExerciseCandidate)` — const, line 119
-- `const card = cardOf(candidate.sourceId)` — const, line 120
-- `const exerciseSettings = ctl.enabled ? contract?.libraryExercises ?? null : null` — const, line 127
-- `const exercises: LibraryExercisesProps | null = exerciseSettings ?` — const, line 128
-- `const ask = useCallback((text: string)` — const, line 139
+- `const contractQuery = useCachedQuery(["reader_prompt_contract"], ()` — const, line 85
+- `const contract = contractQuery.data ?? null` — const, line 86
+- `const ctl = useLibraryAsk(` — const, line 87
+- `const kept = useKeptComparisons(` — const, line 90
+- `const notes = useNoteMarks(` — const, line 91
+- `const cardOf = (sourceId: string | null | undefined)` — const, line 92
+- `const pickPractice = (item: ProposedItemDto, proposalId: string | null)` — const, line 95
+- `const asked = ctl.state?.request` — const, line 96
+- `const hit = ctl.state?.ask.value?.hits[0]` — const, line 97
+- `const at = asked?.identity ?` — const, line 98
+- `const card = cardOf(at?.sourceId)` — const, line 101
+- `const useExercise = (candidate: ExerciseCandidate)` — const, line 110
+- `const card = cardOf(candidate.sourceId)` — const, line 111
+- `const exerciseSettings = ctl.enabled ? contract?.libraryExercises ?? null : null` — const, line 118
+- `const exercises: LibraryExercisesProps | null = exerciseSettings ?` — const, line 119
+- `const ask = useCallback((text: string)` — const, line 130
 
 ## Who imports or calls it
 
 > [!note] Static-evidence boundary
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
-- [[Reference/Desktop/TypeScript/screens/desks/DeskShell|src/screens/desks/DeskShell.tsx]] — import-or-re-export: `LibraryPanel`, `PANEL_TITLES`, `PathPanel`, `RailHostPanel`; references `LibraryPanel`, `PANEL_TITLES`, `PathPanel`, `RailHostPanel`
+- [[Reference/Desktop/TypeScript/screens/desks/DeskShell|src/screens/desks/DeskShell.tsx]] — import-or-re-export: `LibraryPanel`, `PANEL_TITLES`, `RailHostPanel`; references `LibraryPanel`, `PANEL_TITLES`, `RailHostPanel`
 
 ## Dependencies
 
@@ -98,7 +97,6 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - [[Reference/Desktop/TypeScript/screens/reader/LibraryPane|src/screens/reader/LibraryPane.tsx]] — import-or-re-export; imports `LibraryPane`
 - [[Reference/Desktop/TypeScript/screens/reader/ProposalExercises|src/screens/reader/ProposalExercises.tsx]] — import-or-re-export; imports `LibraryExercisesProps`
 - [[Reference/Desktop/TypeScript/screens/reader/ReaderNotes|src/screens/reader/ReaderNotes.tsx]] — import-or-re-export; imports `useNoteMarks`
-- [[Reference/Desktop/TypeScript/screens/reader/ReadingPathCard|src/screens/reader/ReadingPathCard.tsx]] — import-or-re-export; imports `ReadingPathCard`
 - [[Reference/Desktop/TypeScript/screens/reader/compareKeepContext|src/screens/reader/compareKeepContext.ts]] — import-or-re-export; imports `CompareKeepContext`
 - [[Reference/Desktop/TypeScript/screens/reader/exerciseCandidates (ts)|src/screens/reader/exerciseCandidates.ts]] — import-or-re-export; imports `ExerciseCandidate`, `exerciseOpenRequest`
 - [[Reference/Desktop/TypeScript/screens/reader/notesContext|src/screens/reader/notesContext.ts]] — import-or-re-export; imports `NotesContext`

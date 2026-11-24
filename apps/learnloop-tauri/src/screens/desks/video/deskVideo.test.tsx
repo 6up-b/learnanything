@@ -12,7 +12,8 @@ import type { GoalTransport } from "../goal/controller";
 import type { VideoTransport } from "./desk";
 
 const jumped: Array<[string, string]> = [];
-vi.mock("../../../api/client", () => ({ api: {} }));
+// No inline check is open (the desks read it before showing anything).
+vi.mock("../../../api/client", () => ({ api: { checkOpenInline: async () => ({ administration: null }) } }));
 // A source window stands in as its title and the props the desks hand it: a video's clock is told through a button,
 // and a book's jump is recorded.
 vi.mock("../windows/SourceWindow", async () => {

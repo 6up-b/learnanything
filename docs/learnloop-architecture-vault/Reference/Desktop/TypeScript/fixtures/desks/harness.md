@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/fixtures/desks/harness.tsx](../../../../../../../apps/learnloop-tauri/src/fixtures/desks/harness.tsx) |
-| Source lines | 247 |
+| Source lines | 246 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/fixtures/desks/_area|TypeScript/fixtures/desks]] |
 | Refactor status | `ACTIVE` |
@@ -56,7 +56,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - `export const LATEX_WIDTHS = [640, 430, 300] as const` — const, line 68
 - `export function Harness(` — function, line 190
-- `export function mountHarness(root: HTMLElement): void` — function, line 239
+- `export function mountHarness(root: HTMLElement): void` — function, line 238
 
 ## Internal implementation anchors
 

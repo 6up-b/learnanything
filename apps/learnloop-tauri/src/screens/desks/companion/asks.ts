@@ -75,6 +75,9 @@ export interface AskRequest {
 function errorOf(error: unknown): { code: string; message: string; retryable: boolean } {
   if (error && typeof error === "object") {
     const record = error as { code?: unknown; message?: unknown; retryable?: unknown };
+    // The server holds the tutor while an inline check is open (whatever this desk knew): plain words, and a retry
+    // after the check is the learner's.
+    if (record.code === "check_open") return { code: "check_open", message: "the companion waits · finish or set aside the check first", retryable: true };
     return {
       code: typeof record.code === "string" ? record.code : "error",
       message: typeof record.message === "string" ? record.message : String(error),

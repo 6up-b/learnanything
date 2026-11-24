@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/companion/Companion.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/companion/Companion.tsx) |
-| Source lines | 726 |
+| Source lines | 729 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/companion/_area|TypeScript/screens/desks/companion]] |
 | Refactor status | `ACTIVE` |
@@ -61,7 +61,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export interface CompanionProps` — interface, line 42
 - `export interface CompanionTutor` — interface, line 81
 - `export const Companion = forwardRef<CompanionHandle, CompanionProps>(function Companion(props, ref)` — const, line 106
-- `export function appendHistory(now: CompanionHistoryDto, page: CompanionHistoryDto): CompanionHistoryDto` — function, line 658
+- `export function appendHistory(now: CompanionHistoryDto, page: CompanionHistoryDto): CompanionHistoryDto` — function, line 661
 
 ## Internal implementation anchors
 
@@ -124,18 +124,18 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const anchorOrigin = state.mode === "anchored" && state.anchored ? `$` — const, line 341
 - `const tabRect = dockRect(dock, stage)` — const, line 343
 - `const tabLabel = `◇ companion · $` — const, line 344
-- `const question = draft.trim()` — const, line 452
-- `function LookedUp(` — function, line 500
-- `const view = exchange.answer?.tutor ?? null` — const, line 501
-- `const excerpt = view.excerpt` — const, line 508
-- `const send = ()` — const, line 509
-- `function ExchangeView(` — function, line 561
-- `let answer: ReactNode` — let, line 570
-- `const days = now.days.map((day)` — const, line 659
-- `const seen = new Set(days.flatMap((day)` — const, line 660
-- `let into = days.find((each)` — let, line 662
-- `let deskInto = into.desks.find((each)` — let, line 668
-- `function HistoryView(` — function, line 683
+- `const question = draft.trim()` — const, line 455
+- `function LookedUp(` — function, line 503
+- `const view = exchange.answer?.tutor ?? null` — const, line 504
+- `const excerpt = view.excerpt` — const, line 511
+- `const send = ()` — const, line 512
+- `function ExchangeView(` — function, line 564
+- `let answer: ReactNode` — let, line 573
+- `const days = now.days.map((day)` — const, line 662
+- `const seen = new Set(days.flatMap((day)` — const, line 663
+- `let into = days.find((each)` — let, line 665
+- `let deskInto = into.desks.find((each)` — let, line 671
+- `function HistoryView(` — function, line 686
 
 ## Who imports or calls it
 

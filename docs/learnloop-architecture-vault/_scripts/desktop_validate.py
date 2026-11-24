@@ -233,8 +233,11 @@ def main() -> int:
     # Reader workbench v2 RD7 (inline cold checks): screens/desks/checks/ model.ts, controller.ts, CheckCard.tsx and
     # VeilLayer.tsx (entry-reachable); fixtures/desks/checks.ts (vitest-support).
     # RD-retire's loose ends: fixtures/desks/realApp.tsx (the whole app over the real desks; vitest-support).
-    if len(ts_sources) != 432:
-        errors.append(f"source inventory drift: expected 432 TypeScript/TSX files, found {len(ts_sources)}")
+    # RD-retire phase 2, step 1: screens/desks/source/ScopedSource.tsx and types.ts (entry-reachable).
+    # RD-retire phase 2, step 2: screens/ReaderScreen.tsx, screens/reader/readerKeys.ts and searchBasis.ts deleted;
+    # screens/desks/model/restore.ts (entry-reachable) and fixtures/deskShellStub.tsx (vitest-support) added.
+    if len(ts_sources) != 436:
+        errors.append(f"source inventory drift: expected 436 TypeScript/TSX files, found {len(ts_sources)}")
     if len(rust_sources) != 6:
         errors.append(f"source inventory drift: expected 6 authored Rust modules, found {len(rust_sources)}")
     for path in sorted(expected - actual):
@@ -345,15 +348,20 @@ def main() -> int:
         # RD10: the six screens/desks/video modules and screens/desks/carried/related.ts.
         # RD5's fix round: screens/desks/menu/ExerciseSheet.tsx.
         # RD-retire parity (side by side): screens/desks/sideBySide/pairs.ts. Rows 2034, 2039: problemPads.ts,
-        # ProblemPad.tsx, companionFigures.tsx and sharedParams.ts. RD7: the four screens/desks/checks modules.
-        "entry-reachable build graph": 407,
+        # ProblemPad.tsx, companionFigures.tsx and sharedParams.ts. RD7: the four screens/desks/checks modules. RD7's fix round: checks/hold.ts,
+        # checks/holdContext.ts and app/checkGate.tsx.
+        # RD-retire phase 2, step 1: screens/desks/source/ScopedSource.tsx and types.ts.
+        # RD-retire phase 2, step 2: ReaderScreen.tsx, readerKeys.ts and searchBasis.ts deleted, model/restore.ts added,
+        # and fixtures/readerRenderView.ts read by tests alone now (the old screen's offline demo went with it).
+        "entry-reachable build graph": 409,
         # RW5d P2 sketch compartment: sketch.worker.ts and sketchWorkerCore.ts, bundled by vite.config.mjs.
         "bundled worker entry": 2,
         "compiler-implicit": 2,
         # RD1: fixtures/desks (sources, workspace, fakeCore, harness). RD4b: fixtures/desks/pads.ts. RD6b: fixtures/desks/goal.ts.
         # RD9a: fixtures/desks/lessons.ts. RD10: fixtures/desks/video.ts. RD-retire: fixtures/desks/realDesk.tsx, figures.ts and workbench.ts. RD7: fixtures/desks/checks.ts.
-        # RD-retire's loose ends: fixtures/desks/realApp.tsx.
-        "vitest-support": 21,
+        # RD-retire's loose ends: fixtures/desks/realApp.tsx. RD-retire phase 2, step 2: fixtures/deskShellStub.tsx and
+        # fixtures/readerRenderView.ts.
+        "vitest-support": 23,
         "native-entry-reachable": 6,
     }
     if dict(activation_counts) != expected_activation_counts:
@@ -363,7 +371,7 @@ def main() -> int:
     status_counts: dict[str, int] = defaultdict(int)
     for info in audited_infos.values():
         status_counts[info.refactor_status] += 1
-    if dict(status_counts) != {"ACTIVE": 438}:
+    if dict(status_counts) != {"ACTIVE": 442}:
         errors.append(f"lifecycle classification drift requires review: {dict(status_counts)}")
 
     link_errors, wikilinks, fragments, markdown_links = validate_links(sorted(actual))

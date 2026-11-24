@@ -226,12 +226,23 @@ export class InkCache {
       return;
     }
     if (stale()) return;
+    // A check may have opened while the ink was saving: the reading waits for it then too.
+    const heldNow = this.deps.held?.() ?? null;
+    if (heldNow) {
+      this.setReading(padId, blockId, { status: "failed", jobId: null, result: null, message: `read it ${heldNow}` });
+      return;
+    }
     this.pendingInk.clear();
     let first: InkTranscribeJobDto;
     try {
       first = await this.deps.api.inkTranscribe({ inkId: last.inkId });
     } catch (error) {
       if (stale()) return;
+      if (codeOf(error) === "check_open") {
+        // The server holds model calls while a check is open (whatever this desk knew): a plain word, no error.
+        this.setReading(padId, blockId, { status: "failed", jobId: null, result: null, message: "read it after your check · finish or set aside the check first" });
+        return;
+      }
       this.settle(padId, blockId, { version: 1, jobId: null, status: "failed", done: true, result: null, error: { code: codeOf(error), message: messageOf(error), retryable: true, details: null } }, revision);
       return;
     }

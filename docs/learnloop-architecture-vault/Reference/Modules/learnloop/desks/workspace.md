@@ -163,6 +163,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_windows_open_beside_pair_at_most_two_and_unpair`
 - [tests/test_reader_rd1_model_parity.py](../../../../../../tests/test_reader_rd1_model_parity.py) — direct import
   - `test_the_sidecar_gives_the_scripts_results_and_final_state`
+- [tests/test_reader_rd_retire_migration.py](../../../../../../tests/test_reader_rd_retire_migration.py) — direct import
+  - `test_a_preparing_window_names_its_source_alone`
 
 ## Modification guidance
 

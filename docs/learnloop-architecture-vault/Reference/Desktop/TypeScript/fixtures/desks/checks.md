@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/fixtures/desks/checks.ts](../../../../../../../apps/learnloop-tauri/src/fixtures/desks/checks.ts) |
-| Source lines | 134 |
+| Source lines | 207 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/fixtures/desks/_area|TypeScript/fixtures/desks]] |
 | Refactor status | `ACTIVE` |
@@ -54,7 +54,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ## Public API
 
-- `export class FixtureChecks` — class, line 34
+- `export class FixtureChecks` — class, line 54
 
 ## Internal implementation anchors
 
@@ -63,20 +63,31 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const PROMPTS: Record<string, string> =` — const, line 18
 - `const FEEDBACK: Record<string, string> =` — const, line 22
 - `function windowGroup(kind: string): string` — function, line 27
-- `const rows = [BOOK_CHECK, PAPER_CHECK].filter((check)` — const, line 45
-- `const check = commitmentId === PAPER_CHECK.commitmentId ? PAPER_CHECK : BOOK_CHECK` — const, line 51
-- `const covered = this.covered(commitmentId)` — const, line 56
-- `const veiled: CheckVeilRefDto[] = []` — const, line 57
-- `const protectedSpan = (spanId: string | null | undefined)` — const, line 60
-- `const open = this.open` — const, line 78
-- `const open = this.open` — const, line 96
-- `const known = new Set(open.veiled.map((ref)` — const, line 98
-- `const additions = this.protection(open.commitmentId, input.visible).filter((ref)` — const, line 99
-- `const open = this.open` — const, line 105
-- `const primes = open.opened.some((ref)` — const, line 109
-- `const open = this.open` — const, line 114
-- `const cold = !open.opened.some((ref)` — const, line 116
-- `const commitmentId = open.commitmentId` — const, line 118
+- `function measured(ref: CheckVeilRefDto): boolean` — function, line 36
+- `interface Open` — interface, line 43
+- `const rows = [BOOK_CHECK, PAPER_CHECK].filter((check)` — const, line 74
+- `const check = commitmentId === PAPER_CHECK.commitmentId ? PAPER_CHECK : BOOK_CHECK` — const, line 80
+- `const covered = this.covered(commitmentId)` — const, line 85
+- `const veiled: CheckVeilRefDto[] = []` — const, line 86
+- `const add = (ref: CheckVeilRefDto)` — const, line 87
+- `const protectedSpan = (spanId: string | null | undefined)` — const, line 90
+- `const opened = new Set(open.opened.map((ref)` — const, line 108
+- `const done = input.requestId ? this.closed.get(input.requestId) : undefined` — const, line 129
+- `const open = this.open` — const, line 145
+- `const known = new Set(open.veiled.map((ref)` — const, line 147
+- `const additions = this.protection(open.commitmentId, input.visible).filter((ref)` — const, line 148
+- `const open = this.open` — const, line 155
+- `const again = input.exposureId ? open.exposures.get(input.exposureId) : undefined` — const, line 158
+- `const unmeasured = input.kind === "left" || input.ref.measured === false || input.ref.kind === "surface"` — const, line 160
+- `const coldNow = !open.unmeasured && !open.opened.some((ref)` — const, line 165
+- `const status = input.exposureId ? open.exposures.get(input.exposureId)! :` — const, line 168
+- `const saved = this.outcomes.get(input.submissionId)` — const, line 173
+- `const open = this.open` — const, line 175
+- `const primedBySpan = open.opened.some((ref)` — const, line 180
+- `const byNote = open.opened.some((ref)` — const, line 181
+- `const cold = !primedBySpan && !open.unmeasured` — const, line 182
+- `const commitmentId = open.commitmentId` — const, line 184
+- `const outcome =` — const, line 187
 
 ## Who imports or calls it
 

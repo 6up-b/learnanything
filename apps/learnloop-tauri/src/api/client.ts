@@ -9,6 +9,8 @@ import type {
   CheckCardDto,
   CheckExposureKind,
   CheckSubmitDto,
+  CheckExposeReplyDto,
+  CheckProtectReplyDto,
   CheckVeilRefDto,
   CheckVisibleDto,
   CompanionAskInput,
@@ -1749,10 +1751,10 @@ export const api = {
   checkBeginInline: (input: { requestId: string; commitmentId: string; sessionId?: string; visible: CheckVisibleDto }) =>
     call<CheckCardDto>("check_begin_inline", { input }),
   checkProtectMore: (input: { administrationToken: string; visible: CheckVisibleDto }) =>
-    call<{ veilAdditions: CheckVeilRefDto[] }>("check_protect_more", { input }),
-  checkExpose: (input: { administrationToken: string; ref: CheckVeilRefDto; kind: CheckExposureKind }) =>
-    call<{ protectionStatus: { exposure: Array<Record<string, unknown>>; coldNow: boolean } }>("check_expose", { input }),
-  checkSubmitInline: (input: { administrationToken: string; submissionId: string; answerMd: string;
+    call<CheckProtectReplyDto>("check_protect_more", { input }),
+  checkExpose: (input: { administrationToken: string; ref: CheckVeilRefDto; kind: CheckExposureKind; exposureId: string }) =>
+    call<CheckExposeReplyDto>("check_expose", { input }),
+  checkSubmitInline: (input: { administrationToken: string; submissionId: string; answerMd: string; veilsRevision: number;
                                latencySeconds?: number; activeSeconds?: number }) =>
     call<CheckSubmitDto>("check_submit_inline", { input }),
   checkAbandonInline: (input: { administrationToken: string }) => call<Record<string, never>>("check_abandon_inline", { input }),

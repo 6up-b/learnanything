@@ -14,7 +14,8 @@ import { useListenerHub, useScopeClaim, type ClaimedScope } from "./lifecycle";
 import { usePadsHost } from "./pads/host";
 import { useBareAltClear } from "../reader/bareAlt";
 
-vi.mock("../../api/client", () => ({ api: {} }));
+// No inline check is open (the desks read it before showing anything).
+vi.mock("../../api/client", () => ({ api: { checkOpenInline: async () => ({ administration: null }) } }));
 const sourceWindows = vi.hoisted(() => new Map<string, { onStatus: (next: { readingSpan?: string | null }) => void }>());
 vi.mock("./windows/SourceWindow", () => ({
   SourceWindow: (props: { content: { extractionId: string }; onStatus: (next: { readingSpan?: string | null }) => void }) => {
@@ -139,7 +140,7 @@ describe("the desks on screen", () => {
     await flush();
     const desk = server.state().desks[0];
     expect(desk.slots.map((slot) => slot.windows.map((window) => window.windowId))).toEqual([
-      ["fx_w_book"], ["fx_w_paper"], ["fx_w_video", "fx_w_guide"], ["fx_w_path"], ["fx_w_pads"],
+      ["fx_w_book"], ["fx_w_paper"], ["fx_w_video", "fx_w_guide"], ["fx_w_notes"], ["fx_w_pads"],
     ]);
     // One batch per change, numbered in order; each op expects the version the one before it left.
     expect(server.batches.map((batch) => batch.seq)).toEqual([1, 2, 3]);
@@ -457,10 +458,10 @@ describe("gather", () => {
     alt("KeyG", "g");
     await flush();
     const order = () => server.state().desks[0].slots.map((slot) => slot.windows[0].windowId);
-    expect(order()).toEqual(["fx_w_book", "fx_w_guide", "fx_w_path", "fx_w_video", "fx_w_paper", "fx_w_pads"]);
+    expect(order()).toEqual(["fx_w_book", "fx_w_guide", "fx_w_notes", "fx_w_video", "fx_w_paper", "fx_w_pads"]);
     fireEvent.click(screen.getByRole("button", { name: "↺ Undo grouping" }));
     await flush();
-    expect(order()).toEqual(["fx_w_book", "fx_w_video", "fx_w_paper", "fx_w_guide", "fx_w_path", "fx_w_pads"]);
+    expect(order()).toEqual(["fx_w_book", "fx_w_video", "fx_w_paper", "fx_w_guide", "fx_w_notes", "fx_w_pads"]);
   });
 
   it("alt+shift+g moves the focus and its linked windows to a new desk", async () => {
@@ -475,7 +476,7 @@ describe("gather", () => {
     await flush();
     const gathered = server.state().desks.find((desk) => desk.title.startsWith("gathered · "));
     // The gathered windows, then the new desk's running pad in its stack (every desk has one).
-    expect(gathered?.slots.slice(0, 3).map((slot) => slot.windows[0].windowId)).toEqual(["fx_w_book", "fx_w_guide", "fx_w_path"]);
+    expect(gathered?.slots.slice(0, 3).map((slot) => slot.windows[0].windowId)).toEqual(["fx_w_book", "fx_w_guide", "fx_w_notes"]);
     expect(gathered?.slots[3]?.windows[0].kind).toBe("pad_stack");
     expect(gathered?.focusWindowId).toBe("fx_w_book");
     expect(server.state().desks[0].slots.map((slot) => slot.windows[0].windowId)).toEqual(["fx_w_video", "fx_w_paper", "fx_w_pads"]);

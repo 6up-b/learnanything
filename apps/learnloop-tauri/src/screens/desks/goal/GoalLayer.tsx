@@ -5,7 +5,7 @@
 // its own (a menu scope).
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { DeliverableSectionDto } from "../../../api/dto";
-import type { ReaderLens } from "../../ReaderScreen";
+import type { ReaderLens } from "../source/types";
 import type { ListenerHub } from "../lifecycle";
 import { WINDOW_ATTRIBUTE } from "../keys/listeners";
 import type { Timers } from "../keys/router";

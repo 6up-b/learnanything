@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/desks/content_ref.py](../../../../../../src/learnloop/desks/content_ref.py) |
-| Source lines | 113 |
+| Source lines | 122 |
 | Owning package | [[Reference/Modules/learnloop/desks/_package|learnloop.desks]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -66,8 +66,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
   - `_one_of(self) -> CompareRef` (line 71; internal)
 - `class PanelRef(WireModel)` ([source](../../../../../../src/learnloop/desks/content_ref.py), line 77)
 - `class FigureNotebookRef(WireModel)` ([source](../../../../../../src/learnloop/desks/content_ref.py), line 83)
-- `class Target(WireModel)` ([source](../../../../../../src/learnloop/desks/content_ref.py), line 97) — Where inside a content reference to land: a passage, a time or a block.
-- `class TargetedRef(WireModel)` ([source](../../../../../../src/learnloop/desks/content_ref.py), line 105)
+- `class PreparingRef(WireModel)` ([source](../../../../../../src/learnloop/desks/content_ref.py), line 88) — A book still being prepared: it has no reading yet, so it is named by its source alone.
+- `class Target(WireModel)` ([source](../../../../../../src/learnloop/desks/content_ref.py), line 105) — Where inside a content reference to land: a passage, a time or a block.
+- `class TargetedRef(WireModel)` ([source](../../../../../../src/learnloop/desks/content_ref.py), line 113)
 
 ### Explicit exports
 
@@ -79,6 +80,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `LessonRef`
 - `PadRef`
 - `PanelRef`
+- `PreparingRef`
 - `SourceRef`
 - `SpanRange`
 - `StackEntry`
@@ -125,20 +127,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
-No test imports this module directly. These tests exercise a direct production consumer:
-
-- [tests/desk_helpers.py](../../../../../../tests/desk_helpers.py) — imports consumer [[Reference/Modules/learnloop/desks/workspace|learnloop.desks.workspace]]
-- [tests/test_pad_stale_edits_stacks_and_passage_reads.py](../../../../../../tests/test_pad_stale_edits_stacks_and_passage_reads.py) — imports consumer [[Reference/Modules/learnloop/desks/workspace|learnloop.desks.workspace]]
-- [tests/test_reader_rd0_protocol.py](../../../../../../tests/test_reader_rd0_protocol.py) — imports consumer [[Reference/Modules/learnloop/desks/workspace|learnloop.desks.workspace]]
-- [tests/test_reader_rd1_model_parity.py](../../../../../../tests/test_reader_rd1_model_parity.py) — imports consumer [[Reference/Modules/learnloop/desks/workspace|learnloop.desks.workspace]]
-- [tests/test_reader_rd4_emission.py](../../../../../../tests/test_reader_rd4_emission.py) — imports consumer [[Reference/Modules/learnloop/pads/blocks|learnloop.pads.blocks]]
-- [tests/identity_pins_helpers.py](../../../../../../tests/identity_pins_helpers.py) — imports consumer [[Reference/Modules/learnloop/pads/ink|learnloop.pads.ink]]
-- [tests/ink_helpers.py](../../../../../../tests/ink_helpers.py) — imports consumer [[Reference/Modules/learnloop/pads/ink|learnloop.pads.ink]]
-- [tests/test_reader_rd8a_fix.py](../../../../../../tests/test_reader_rd8a_fix.py) — imports consumer [[Reference/Modules/learnloop/pads/ink|learnloop.pads.ink]]
-- [tests/test_reader_rd8a_fix_rpcs.py](../../../../../../tests/test_reader_rd8a_fix_rpcs.py) — imports consumer [[Reference/Modules/learnloop/pads/ink|learnloop.pads.ink]]
-- [tests/test_reader_rd8a_ink.py](../../../../../../tests/test_reader_rd8a_ink.py) — imports consumer [[Reference/Modules/learnloop/pads/ink|learnloop.pads.ink]]
-- [tests/test_reader_rd8a_render.py](../../../../../../tests/test_reader_rd8a_render.py) — imports consumer [[Reference/Modules/learnloop/pads/ink|learnloop.pads.ink]]
-- [tests/test_reader_rd8a_transcribe.py](../../../../../../tests/test_reader_rd8a_transcribe.py) — imports consumer [[Reference/Modules/learnloop/pads/ink|learnloop.pads.ink]]
+- [tests/test_reader_rd_retire_migration.py](../../../../../../tests/test_reader_rd_retire_migration.py) — direct import
+  - `test_a_preparing_window_names_its_source_alone`
 
 ## Modification guidance
 

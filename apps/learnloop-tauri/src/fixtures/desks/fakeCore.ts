@@ -1,7 +1,7 @@
 // Stands in for @tauri-apps/api/core in the desks' visual harness (vite.desks.config.mjs): every call
 // is answered from the synthetic workspace, and recorded, so the harness can read what each window
 // asked for (reading activity above all). Nothing leaves the page.
-import type { DeskApplyInput, DeskStateDto, LessonViewDto, PadViewDto } from "../../api/dto";
+import type { DeskApplyInput, DeskStateDto, LessonViewDto, PadViewDto, SourceLibraryCard } from "../../api/dto";
 import { FIXTURE_INK_PAD, fixtureInkPad, fixturePads } from "./pads";
 import { FIXTURE_GUIDES, FIXTURE_LIBRARY, FIXTURE_SOURCES, FIXTURE_VIEWS, FIXTURE_WATCH } from "./sources";
 import { FixtureDeskServer, fixtureDeskState } from "./workspace";
@@ -26,8 +26,21 @@ const LESSON_PAGE = typeof window !== "undefined" && new URLSearchParams(window.
 
 /** The harness's workspace: the fixture's, with every desk's running pad in a stack (as the desks ensure it), so a
  * first visit to a desk changes no layout under the overview's transitions. */
+// `?preparing=1`: a book still being prepared (a scanned chapter) is in the library, and its preparing window is the
+// softmax desk's last (the Reader's retirement, phase 2 step 2; the veil walk holds it whole).
+const PREPARING_PAGE = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("preparing") === "1";
+export const FIXTURE_PREPARING_CARD = {
+  ...FIXTURE_LIBRARY[0], sourceId: "fx_src_scan", title: "A scanned chapter on the softmax", currentRevisionId: "rev_fx_src_scan",
+  readiness: "processing" as const, unitCount: 0, blockCount: 0, extractionStatus: "running",
+  statusLine: { text: "Reading the scanned pages · 3 of 12", tone: "working", action: null },
+} as SourceLibraryCard;
+
 function harnessDeskState(): DeskStateDto {
   const state = fixtureDeskState();
+  if (PREPARING_PAGE) {
+    state.desks[0].slots.push({ slot: state.desks[0].slots.length, windows: [{ windowId: "fx_w_prep", pane: 0, kind: "preparing", active: true, view: {},
+      content: { kind: "preparing", sourceId: FIXTURE_PREPARING_CARD.sourceId } }] as never });
+  }
   const extra: Record<string, string> = { fx_desk_attention: "fx_pad_running_attention", fx_desk_backprop: "fx_pad_running_backprop" };
   for (const desk of state.desks) {
     const padId = extra[desk.deskId];
@@ -204,7 +217,7 @@ function answer(command: string, input: Record<string, unknown>): unknown {
     case "desk_apply":
       return server.apply(input as unknown as DeskApplyInput);
     case "get_source_library":
-      return { version: 1, sources: FIXTURE_LIBRARY };
+      return { version: 1, sources: PREPARING_PAGE ? [...FIXTURE_LIBRARY, FIXTURE_PREPARING_CARD] : FIXTURE_LIBRARY };
     case "reader_prompt_contract":
       return CONTRACT;
     case "reader_render_view": {

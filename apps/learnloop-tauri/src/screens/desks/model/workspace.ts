@@ -125,6 +125,9 @@ export function contentKey(content: ContentRefDto | null, stack?: PadStackEntryD
     case "video":
       // The same source in its text, PDF or web view is the same source.
       return `${content.kind === "video" ? "video" : "source"}:${content.sourceId}`;
+    case "preparing":
+      // A book still being prepared is that book: opening it again focuses its window.
+      return `source:${content.sourceId}`;
     case "pad":
       return `pad:${content.padId}`;
     case "lesson":
@@ -581,6 +584,41 @@ export function closeWindow(ws: Workspace, deskId: string, windowId: string): St
     if (next) step = push(step, { op: "set_focus", deskId, windowId: next });
   }
   return step;
+}
+
+/** A window shown as another content in its place (spec §5.2's no-duplicate rule kept): a book still being prepared
+ * becomes the book's window once it is ready, and a stored window of a retired kind becomes its workbench home
+ * (`model/restore.ts`). The new window opens right after the old one, which closes; the focus follows when the old one
+ * had it. When the desk already shows that content in another window, the old one closes and that window is the
+ * one meant. The old window is not offered back by "undo close": it was replaced, not closed by the learner. */
+export function replaceWindow(
+  ws: Workspace,
+  deskId: string,
+  windowId: string,
+  content: ContentRefDto,
+  mintId: () => string,
+): Step & { windowId: string } {
+  const desk = requireDesk(ws, deskId);
+  if (slotIndexOf(desk, windowId) < 0) return { ...start(ws), windowId };
+  const wasFocus = focusedWindowId(ws, desk) === windowId;
+  const others = { ...desk, slots: desk.slots.map((slot) => slot.filter((id) => id !== windowId)).filter((slot) => slot.length > 0) };
+  const duplicate = findDuplicate(ws, others, content);
+  const opened = duplicate ?? mintId();
+  let step = start(ws);
+  if (!duplicate) {
+    const relation = ws.windows[windowId]?.view?.openedBeside;
+    step = push(step, {
+      op: "open_window", deskId, windowId: opened, content,
+      view: typeof relation === "string" ? { openedBeside: relation } : {}, afterWindowId: windowId,
+    });
+  }
+  step = push(step, { op: "close_window", deskId, windowId });
+  if (wasFocus) {
+    const focused = setFocus(step.ws, deskId, opened);
+    step = { ws: focused.ws, ops: [...step.ops, ...focused.ops] };
+  }
+  const closed = (step.ws.closed[deskId] ?? []).filter((entry) => entry.window.windowId !== windowId);
+  return { ...step, ws: { ...step.ws, closed: { ...step.ws.closed, [deskId]: closed } }, windowId: opened };
 }
 
 /** Undo the newest close on this desk: the window comes back in its slot and takes the focus. */

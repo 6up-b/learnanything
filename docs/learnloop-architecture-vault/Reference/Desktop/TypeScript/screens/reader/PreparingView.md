@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/reader/PreparingView.tsx](../../../../../../../apps/learnloop-tauri/src/screens/reader/PreparingView.tsx) |
-| Source lines | 173 |
+| Source lines | 176 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/reader/_area|TypeScript/screens/reader]] |
 | Refactor status | `ACTIVE` |
@@ -50,7 +50,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 > [!success] ACTIVE
 > A static TypeScript import path reaches this file from the Vite entry src/main.tsx.
 >
-> Build/entry chain: [[Reference/Desktop/TypeScript/main|src/main.tsx]] → [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] → [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] → [[Reference/Desktop/TypeScript/screens/reader/PreparingView|src/screens/reader/PreparingView.tsx]]
+> Build/entry chain: [[Reference/Desktop/TypeScript/main|src/main.tsx]] → [[Reference/Desktop/TypeScript/app/App|src/app/App.tsx]] → [[Reference/Desktop/TypeScript/screens/desks/DeskShell|src/screens/desks/DeskShell.tsx]] → [[Reference/Desktop/TypeScript/screens/reader/PreparingView|src/screens/reader/PreparingView.tsx]]
 
 ## Public API
 
@@ -61,29 +61,30 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const POLL_MS = 3000` — const, line 18
 - `const NO_SPANS = new Set<string>()` — const, line 19
 - `const BOOK_ACTIONS: ReadonlySet<SourceActionKind> = new Set<SourceActionKind>([ "retry", "text_recognition", "allow_upload", "build_now", "restore_reading", "mark_exam_material" ])` — const, line 22
-- `const readyRef = useRef(onReady)` — const, line 42
-- `const scrollRef = useRef<HTMLDivElement | null>(null)` — const, line 44
-- `let alive = true` — let, line 47
-- `const paused = useWindowPaused()` — const, line 65
-- `let alive = true` — let, line 68
-- `const check = ()` — const, line 69
-- `const next = library.sources.find((entry)` — const, line 74
-- `const timer = window.setInterval(check, POLL_MS)` — const, line 81
-- `const noun = current.kindNoun ?? card.kindNoun ?? "book"` — const, line 88
-- `const line = current.statusLine?.text ?? `Getting this $` — const, line 89
-- `const working = !current.statusLine || current.statusLine.tone === "working"` — const, line 92
-- `const statusLine = current.statusLine` — const, line 93
-- `const runAction = (kind: SourceActionKind)` — const, line 94
-- `const ask = (result: SourceActionResultDto): Promise<unknown> | undefined` — const, line 100
-- `const confirmation = result.needsConfirmation ? result.confirmation : undefined` — const, line 101
-- `const binding = confirmation.proposalHash ?` — const, line 103
+- `const readyRef = useRef(onReady)` — const, line 43
+- `const scrollRef = useRef<HTMLDivElement | null>(null)` — const, line 45
+- `let alive = true` — let, line 48
+- `const paused = useWindowPaused()` — const, line 66
+- `let alive = true` — let, line 69
+- `const check = ()` — const, line 70
+- `const next = library.sources.find((entry)` — const, line 75
+- `const timer = window.setInterval(check, POLL_MS)` — const, line 82
+- `const noun = current.kindNoun ?? card.kindNoun ?? "book"` — const, line 89
+- `const line = current.statusLine?.text ?? `Getting this $` — const, line 90
+- `const working = !current.statusLine || current.statusLine.tone === "working"` — const, line 93
+- `const statusLine = current.statusLine` — const, line 94
+- `const runAction = (kind: SourceActionKind)` — const, line 95
+- `const ask = (result: SourceActionResultDto): Promise<unknown> | undefined` — const, line 101
+- `const confirmation = result.needsConfirmation ? result.confirmation : undefined` — const, line 102
+- `const binding = confirmation.proposalHash ?` — const, line 104
 
 ## Who imports or calls it
 
 > [!note] Static-evidence boundary
 > “Calls” here means an import/module edge plus a source reference to the imported name. React render callbacks, props, Tauri string dispatch, macro expansion, browser/Cargo entry points, and data-driven routing can add runtime consumers that static text cannot prove.
 
-- [[Reference/Desktop/TypeScript/screens/ReaderScreen|src/screens/ReaderScreen.tsx]] — import-or-re-export: `PreparingView`; references `PreparingView`
+- [[Reference/Desktop/TypeScript/screens/desks/DeskShell|src/screens/desks/DeskShell.tsx]] — dynamic import: dynamic import; no named call claim
+- [[Reference/Desktop/TypeScript/screens/desks/source/ScopedSource|src/screens/desks/source/ScopedSource.tsx]] — import-or-re-export: `PreparingView`; references `PreparingView`
 
 ## Dependencies
 

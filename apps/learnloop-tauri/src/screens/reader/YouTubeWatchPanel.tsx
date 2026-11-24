@@ -8,6 +8,7 @@ import type { TagMenuRequest } from "../../components/PdfReaderPane";
 import { SEEN_SETTLE_MS } from "./useReadingProgress";
 import { screenLeavesKey } from "../../app/keymap";
 import { useListenerHub, useWindowPaused } from "../desks/lifecycle";
+import { useCheckHeld } from "../desks/checks/holdContext";
 
 // The playing cue is the one with the latest start at most this far ahead of
 // the player's time.
@@ -263,7 +264,12 @@ export const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
     if (heard) onClockRef.current?.({ t: currentTime, playing: playingNow, spanId: activeCue?.block.spanId ?? null, duration });
   }, [heard, currentTime, playingNow, activeCue, duration]);
 
+  // While an inline check holds the desks the player is hidden and must not be heard either: it never starts.
+  const checkHeld = useCheckHeld();
+  const checkHeldRef = useRef(checkHeld);
+  checkHeldRef.current = checkHeld;
   const post = useCallback((func: string, args: unknown[] = []) => {
+    if (func === "playVideo" && checkHeldRef.current) return;
     iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ event: "command", func, args }), YT_ORIGIN);
   }, []);
 
@@ -315,7 +321,7 @@ export const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
 
   // A window that leaves the view (offscreen, another desk, a preview) stops its player: media plays only
   // where the learner can see it.
-  const paused = useWindowPaused();
+  const paused = useWindowPaused() || checkHeld;
   useEffect(() => {
     if (paused && playerReady) post("pauseVideo");
   }, [paused, playerReady, post]);
@@ -614,6 +620,7 @@ export const YouTubeWatchPanel = forwardRef<WatchPanelHandle, {
                         <span
                           data-span-id={spanId}
                           data-transcript-span={spanId}
+                          data-passage-text=""
                           data-t={cue.start}
                           className={lens && (cueAnnotated || cueActive) ? "gl-keep" : undefined}
                           onClick={() => seekToCue(cue)}

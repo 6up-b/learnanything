@@ -127,7 +127,10 @@ describe("an inline check on the desks", () => {
     // The companion's ask waits, with the reason (shift+c brings it to its dock).
     fireEvent.keyDown(window, { key: "C", shiftKey: true });
     await waitFor(() => expect(document.body.textContent).toContain("the companion waits · after your check"));
-    expect((screen.getByLabelText("ask about this") as HTMLInputElement).disabled).toBe(true);
+    // The ask box is disabled, and held (its label is off while the check is open).
+    const askBox = document.querySelector<HTMLInputElement>("[data-companion-dock] input.input")!;
+    expect(askBox.disabled).toBe(true);
+    expect(askBox.closest("[inert]")).toBeTruthy();
     // Answered: the veils lift and the card says so.
     fireEvent.change(screen.getByLabelText("your answer"), { target: { value: "p - onehot" } });
     fireEvent.click(screen.getByRole("button", { name: "answer ↵" }));

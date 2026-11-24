@@ -16,7 +16,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import type { InkTranscribeJobDto, ReaderRawSelectionNode } from "../../../api/dto";
-import type { PenSurface } from "../../ReaderScreen";
+import type { PenSurface } from "../source/types";
 import { useWindowLifecycle, useWindowPaused } from "../lifecycle";
 import { usePenHost, type PenHost } from "./host";
 import { inkRefusal } from "./inkCache";
@@ -786,7 +786,7 @@ function PenLayerOn({ host, surface }: { host: PenHost; surface: PenSurface }) {
       ))}
     </>
   );
-  return createPortal(<div className="desk-pen-layer" data-pen-layer="" data-pen-on={host.on ? "on" : "off"}>{layer}</div>, body);
+  return createPortal(<div className="desk-pen-layer" data-pen-layer="" data-pen-on={host.on ? "on" : "off"} data-check-region="your ink">{layer}</div>, body);
 }
 
 /** A recognition's chip at the mockup's place beside its stroke, moved left as far as it must be to stay inside the

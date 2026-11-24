@@ -10,7 +10,7 @@ afterEach(cleanup);
 
 // The Reader's component sources, read raw for the two lints below.
 const READER_SOURCES: Record<string, string> = import.meta.glob(
-  ["../ReaderScreen.tsx", "./*.tsx", "!./*.test.tsx"],
+  ["../desks/source/ScopedSource.tsx", "./*.tsx", "!./*.test.tsx"],
   { query: "?raw", import: "default", eager: true },
 );
 

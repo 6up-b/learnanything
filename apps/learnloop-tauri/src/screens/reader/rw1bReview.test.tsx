@@ -7,7 +7,7 @@
 // one gets a fate; F13 an answered question can be added to practice.
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { ReaderScreen } from "../ReaderScreen";
+import { ScopedSource } from "../desks/source/ScopedSource";
 import { setAlgoConfig } from "../../app/algoConfig";
 import { readerRenderViewFixture as view } from "../../fixtures/readerRenderView";
 import { readerIntentContractFixture as intent } from "../../fixtures/readerIntentContract";
@@ -70,7 +70,7 @@ function select(block: HTMLElement): void {
 }
 
 async function openBox() {
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   const block = await screen.findByText(SELECTED.markdown);
   select(block);
   const box = await screen.findByRole("textbox", { name: BOX });
@@ -299,7 +299,7 @@ it("F9: a video transcript folds the next step while the learner tries it", asyn
   api.readerActiveQuestion.mockResolvedValue({
     style: "next_step", anchorSpanIds: ["t1"], foldedSpanIds: ["t2"], status: "queued", batchId: "batch_1", message: null, question: null,
   });
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   const cue = await screen.findByText("A mixture picks a component, then samples from it.");
   expect(cue.closest("[data-transcript-scroller]")).not.toBeNull();
   select(cue);

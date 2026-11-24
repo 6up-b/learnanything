@@ -1,9 +1,8 @@
 // P3 reader render-view offline fixture (spec_tauri_ui §4/§5, U-031).
 //
-// Every new screen must render offline from a fixture state with no jobs / no AI.
-// ReaderScreen fetches `reader.render_view` from the sidecar; when the sidecar is
-// unavailable (or the reader is owner-disabled) it renders this deterministic
-// marker-markdown chapter instead. Shape matches ReaderRenderViewDto verbatim.
+// A deterministic marker-markdown chapter for tests (and the desk harness) that need a reading
+// without a sidecar. The old Reader screen also showed it as its offline demo; that went with the
+// screen (the Reader's retirement, phase 2). Shape matches ReaderRenderViewDto verbatim.
 
 import type { ReaderRenderViewDto } from "../api/dto";
 

@@ -16,7 +16,7 @@
 //   still corrects the ask box's.
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { ReaderScreen } from "../ReaderScreen";
+import { ScopedSource } from "../desks/source/ScopedSource";
 import { setAlgoConfig } from "../../app/algoConfig";
 import { readerRenderViewFixture as view } from "../../fixtures/readerRenderView";
 import { readerIntentContractFixture as intent } from "../../fixtures/readerIntentContract";
@@ -183,7 +183,7 @@ function select(block: HTMLElement): void {
 }
 
 async function openAskBox(words: string) {
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   await screen.findByText(view.blocks[1].markdown);
   fireEvent.keyDown(window, { key: "F", ctrlKey: true, shiftKey: true });
   const box = await screen.findByRole("textbox", { name: "ask your library" });
@@ -209,7 +209,7 @@ it("F1: the payload names the bound workbench session, for every door", () => {
 
 it("F1: the selection verb while working runs nothing until the learner leaves the problem", async () => {
   setAlgoConfig({ workbench: { enabled: true, openSessionDays: 30 } });
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   const block = await screen.findByText(PROSE);
   select(block);
   await screen.findByText(/^selected ·/);
@@ -253,7 +253,7 @@ it("F2: removing the last book stops the comparison and keeps the picker, never 
 });
 
 it("F5: compare these books has refine, previous and the tutor over the compared passages, whatever is pinned", async () => {
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   select(await screen.findByText(PROSE));
   await screen.findByRole("textbox", { name: BOX });
   fireEvent.keyDown(window, { key: "Tab" });
@@ -290,7 +290,7 @@ it("F5: a comparison's tutor uses every block of an anchor of several blocks", a
     rows: [{ ...table().rows[0], sourceId: view.sourceId, sourceTitle: "Matrices", isOpenSource: true, key: "ext_m:m1", spanKeys: ["ext_m:m1", "ext_m:m2"] }, table().rows[1]],
     scope: { door: "selection", question: "q", sourceIds: [], anchorKeys: ["ext_m:m1", "ext_m:m2"] },
   })));
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   select(await screen.findByText(PROSE));
   await screen.findByRole("textbox", { name: BOX });
   fireEvent.keyDown(window, { key: "Tab" });
@@ -391,7 +391,7 @@ it("re-review F10: a stored comparison of any size reaches the tutor by its id, 
     rows: [{ ...table().rows[0], sourceId: view.sourceId, sourceTitle: "Matrices", isOpenSource: true, key: blocks[0], spanKeys: blocks }, table().rows[1]],
     scope: { door: "selection", question: "q", sourceIds: [], anchorKeys: blocks },
   })));
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   select(await screen.findByText(PROSE));
   await screen.findByRole("textbox", { name: BOX });
   fireEvent.keyDown(window, { key: "Tab" });
@@ -423,7 +423,7 @@ it("final verify F10: a comparison not stored, of more passages than any request
       { ...table().rows[1], contributes: [] }],
     scope: { door: "selection", question: "q", sourceIds: [], anchorKeys: blocks },
   })));
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   select(await screen.findByText(PROSE));
   await screen.findByRole("textbox", { name: BOX });
   fireEvent.keyDown(window, { key: "Tab" });
@@ -457,7 +457,7 @@ it("re-review F11: the focused comparison region takes / and Ctrl+Enter", async 
 });
 
 it("re-review F11: in a library answer the shared controls are focusable and carry the shortcuts", async () => {
-  render(<ReaderScreen initialSource={source} onError={vi.fn()} />);
+  render(<ScopedSource initialSource={source} onError={vi.fn()} />);
   select(await screen.findByText(PROSE));
   await screen.findByRole("textbox", { name: BOX });
   fireEvent.keyDown(window, { key: "Tab" });

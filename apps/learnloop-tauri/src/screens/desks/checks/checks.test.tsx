@@ -10,7 +10,8 @@ import type { CheckCardDto, CheckVeilRefDto } from "../../../api/dto";
 import { CheckDesk, type CheckTransport } from "./controller";
 import { CheckCardInline, CheckCardOverlay, CheckMarker } from "./CheckCard";
 import { PRIMED_BY_NOTE_WORDS, REASON_WORDS, SHOW_ANYWAY_COST, SHOW_NOTE_COST, VEIL_LABEL, answeredHead, groupsLine, lookedLine, refKey, veilIsNote, veilSelector, visibleNow } from "./model";
-import { VeilLayer, applyVeils } from "./VeilLayer";
+import { VeilLayer, dialogPlace } from "./VeilLayer";
+import { Holder, type HoldInput } from "./hold";
 
 vi.mock("../../../api/client", () => ({ api: {} }));
 vi.mock("../../../render/MarkdownMath", () => ({ MarkdownMath: ({ value }: { value: string }) => <span>{value}</span> }));
@@ -53,7 +54,7 @@ describe("the pure rules", () => {
   it("land each veil where the server named it, keep the window's head, and say the groups once", () => {
     expect(veilSelector(PAD)).toBe('[data-desk-window="w_pad"] [data-desk-pane-body]');
     expect(veilSelector(SPAN)).toContain('[data-desk-window="w_book"] [data-span-id="s2"]');
-    expect(veilSelector({ group: "notes", kind: "note", window_id: "w_book", note_id: "ann_1" })).toBe('[data-desk-window="w_book"] [data-annotation-id="ann_1"]');
+    expect(veilSelector({ group: "notes", kind: "note", window_id: "w_book", note_id: "ann_1" })).toBe('[data-desk-window="w_book"] [data-annotation-id="ann_1"]:not([data-span-id]):not([data-transcript-span])');
     expect(veilSelector({ group: "figures", kind: "figure", window_id: "w_book", figure_id: "f1" })).toBe('[data-desk-window="w_book"] [data-figure="f1"]');
     expect(veilSelector(COMPANION)).toBe("[data-companion-dock] [data-companion-body]");
     expect(veilSelector({ group: "previews", kind: "preview", window_id: "w_pad" })).toBe('[data-desk-card="w_pad"]');
@@ -92,6 +93,15 @@ describe("the pure rules", () => {
     ]);
     expect(visible.companionOpen).toBe(true);
   });
+
+  it("a passage that carries a note's id as its anchor is not the note: its veil and its inventory name the note's own surface", () => {
+    const root = document.createElement("div");
+    root.innerHTML = `<div data-desk-window="w_book"><div data-span-id="s1" data-annotation-id="ann_1" data-annotation-kind="note">the book's words</div></div>`;
+    const visible = visibleNow(root, [{ windowId: "w_book", kind: "source", content: { kind: "source", extractionId: "ext_book" } }],
+      { companionOpen: false, companionExchangeIds: [], previewWindowIds: [] });
+    expect(visible.windows[0].noteIds).toEqual([]);
+    expect(root.querySelector(veilSelector({ group: "notes", kind: "note", window_id: "w_book", note_id: "ann_1" })!)).toBeNull();
+  });
 });
 
 describe("the store", () => {
@@ -128,7 +138,7 @@ describe("the store", () => {
     expect(calls.protectMore).toHaveLength(1);
     expect(desk.veils().map((ref) => ref.kind)).toEqual(["window", "span", "companion"]);
     await desk.expose(PAD);
-    expect(calls.expose).toEqual([{ administrationToken: "cad_1", ref: PAD, kind: "opened_veil" }]);
+    expect(calls.expose).toEqual([{ administrationToken: "cad_1", ref: PAD, kind: "opened_veil", exposureId: "cexp_3" }]);
     expect(desk.veils().map((ref) => ref.kind)).toEqual(["span", "companion"]);
     expect(desk.open()?.looked).toEqual(["pads"]);
     expect(desk.open()?.coldNow).toBe(false);
@@ -172,40 +182,51 @@ describe("the store", () => {
   });
 });
 
+const WINDOWS: HoldInput["windows"] = new Map([["w_pad", { kind: "pad_stack", extractionId: null }], ["w_book", { kind: "source", extractionId: "ext_book" }]]);
+
+function holdInput(named: CheckVeilRefDto[], judged: string[] = ["s1", "s2"], over: Partial<HoldInput> = {}): HoldInput {
+  return { named, opened: [], openedRegions: new Map(), windows: WINDOWS, passageJudged: (_w, _e, spanId) => judged.includes(spanId), ...over };
+}
+
 describe("the veils in the page", () => {
   function page() {
     const root = document.createElement("div");
-    root.innerHTML = `<div data-desk-window="w_pad"><div class="desk-pane-head">pad</div><div data-desk-pane-body="" class="desk-pane-body">p_k − 1</div></div>
-      <div data-desk-window="w_book"><p data-span-id="s1">plain</p><p data-span-id="s2" class="p">the answer</p></div>`;
+    root.innerHTML = `<div data-desk-window="w_pad"><div class="desk-pane-head" data-check-safe="">pad</div><div data-desk-pane-body="" class="desk-pane-body">p_k − 1</div></div>
+      <div data-desk-window="w_book"><div class="desk-pane-head" data-check-safe="">book</div><div data-desk-pane-body="">
+        <div data-span-id="s1"><div data-passage-text="">plain</div></div><div data-span-id="s2" class="p"><div data-passage-text="">the answer</div></div></div></div>`;
     document.body.appendChild(root);
     return root;
   }
 
-  it("mark exactly what is named (not the head), say where each pill goes, and lift what is no longer veiled", () => {
+  it("mark exactly what is named (not the head, not a judged passage it does not name), and lift what is no longer veiled", () => {
     const root = page();
-    const pills = applyVeils(root, [PAD, SPAN]);
-    expect(pills.map((pill) => pill.ref.kind)).toEqual(["window", "span"]);
+    const holder = new Holder();
+    const result = holder.apply(root, holdInput([PAD, SPAN]));
+    expect(result.named.map((each) => each.ref.kind)).toEqual(["window", "span"]);
     const body = root.querySelector("[data-desk-pane-body]")!;
     expect(body.className).toContain("veiled");
     expect(body.getAttribute("data-veil")).toBe(VEIL_LABEL);
     expect(root.querySelector(".desk-pane-head")!.className).not.toContain("veiled");
     expect(root.querySelector('[data-span-id="s1"]')!.className).toBe("");
-    applyVeils(root, [SPAN]);
+    // Opened through show it anyway: the pad's body shows (it is not held by default either).
+    holder.apply(root, holdInput([SPAN], ["s1", "s2"], { opened: [{ ref: PAD, print: "" }] }));
     expect(body.className).not.toContain("veiled");
+    expect(body.className).not.toContain("ck-held");
     expect(body.className).toContain("unveil");
+    holder.releaseAll();
     root.remove();
   });
 
   it("marks again an element a re-render rewrote, and opens a veil only after saying what it can cost", async () => {
     const { desk, transport } = fake();
-    await desk.begin("cm_1", "s_1", { windows: [] });
+    await desk.begin("cm_1", "s_1", { windows: [{ windowId: "w_book", kind: "source", extractionId: "ext_book", spanIds: ["s2"] }] });
     function Page() {
       const [n, setN] = useState(0);
       return (
         <div>
-          <div data-desk-window="w_book"><p data-span-id="s2" className={`p n${n}`}>the answer</p></div>
-          <button type="button" onClick={() => setN((value) => value + 1)}>rerender</button>
-          <VeilLayer desk={desk} root={document} />
+          <div data-desk-window="w_book"><div data-check-safe="">book</div><div data-span-id="s2" className={`p n${n}`}><div data-passage-text="">the answer</div></div></div>
+          <button type="button" data-check-safe="" onClick={() => setN((value) => value + 1)}>rerender</button>
+          <VeilLayer desk={desk} root={document.body} windows={WINDOWS} />
         </div>
       );
     }
@@ -226,8 +247,44 @@ describe("the veils in the page", () => {
     fireEvent.click(screen.getAllByText(VEIL_LABEL)[0]);
     fireEvent.click(screen.getByText("show it"));
     await flush();
-    expect(transport.expose).toHaveBeenCalledWith({ administrationToken: "cad_1", ref: SPAN, kind: "opened_veil" });
+    expect(transport.expose).toHaveBeenCalledWith({ administrationToken: "cad_1", ref: SPAN, kind: "opened_veil", exposureId: expect.stringMatching(/^cexp_/) });
     expect(span.className).not.toContain("veiled");
+  });
+});
+
+describe("an opening covers only what it showed", () => {
+  it("the companion opened on its tutor tab is held again when it shows its history", () => {
+    const root = document.createElement("div");
+    root.innerHTML = `<div data-companion-dock="br" data-check-region="the companion"><div data-check-safe="">tabs</div>
+      <div data-companion-body="" data-check-content="tutor:r1">an exchange</div></div>`;
+    document.body.appendChild(root);
+    const holder = new Holder();
+    const opened = [{ ref: COMPANION, print: "tutor:r1" }];
+    let result = holder.apply(root, holdInput([], [], { opened }));
+    expect(result.changed).toEqual([]);
+    expect(root.querySelector("[data-companion-body]")!.closest("[inert]")).toBeNull();
+    root.querySelector("[data-companion-body]")!.setAttribute("data-check-content", "history:q1");
+    result = holder.apply(root, holdInput([], [], { opened }));
+    expect(result.changed).toEqual([refKey(COMPANION)]);
+    expect(root.querySelector("[data-companion-body]")!.closest("[inert]")).toBeTruthy();
+    holder.releaseAll();
+    root.remove();
+  });
+});
+
+describe("the layer's dialogs stay inside the viewport", () => {
+  it("below its pill when it fits, above it when not, never past an edge, at any size", () => {
+    const size = { width: 300, height: 150 };
+    expect(dialogPlace({ left: 800, top: 100 }, size, { width: 1600, height: 960 })).toEqual({ left: 800, top: 118 });
+    // Near the bottom: above its pill.
+    expect(dialogPlace({ left: 800, top: 900 }, size, { width: 1600, height: 960 })).toEqual({ left: 800, top: 732 });
+    // Near the right edge: its centre moves in so all of it shows.
+    expect(dialogPlace({ left: 1590, top: 100 }, size, { width: 1600, height: 960 }).left).toBe(1600 - 8 - 150);
+    // A viewport too short for either side: against the bottom edge, its top still inside.
+    const tiny = dialogPlace({ left: 100, top: 120 }, size, { width: 400, height: 260 });
+    expect(tiny.top).toBeGreaterThanOrEqual(8);
+    expect(tiny.top + size.height).toBeLessThanOrEqual(260 - 8);
+    expect(tiny.left - size.width / 2).toBeGreaterThanOrEqual(8);
   });
 });
 
@@ -257,7 +314,7 @@ describe("the cards", () => {
     fireEvent.change(box, { target: { value: "p_k" } });
     fireEvent.keyDown(box, { key: "Enter" });
     await flush();
-    expect(transport.submit).toHaveBeenCalledWith({ administrationToken: "cad_1", submissionId: "csub_2", answerMd: "p_k" });
+    expect(transport.submit).toHaveBeenCalledWith({ administrationToken: "cad_1", submissionId: "csub_2", answerMd: "p_k", veilsRevision: 0 });
     const answered = document.querySelector('[data-check-phase="answered"]')!;
     expect(answered.textContent).toContain("› your answer · just now · counts as practice");
     expect(document.querySelector('[data-check-reason="already_answered"]')!.textContent).toBe(REASON_WORDS.already_answered);
@@ -277,20 +334,19 @@ describe("the cards", () => {
 });
 
 describe("what comes into view during a check", () => {
-  it("a window that opens is veiled whole at once, not openable, until the server has judged it", async () => {
-    let answer!: (value: { veilAdditions: CheckVeilRefDto[] }) => void;
-    const { desk } = fake({ protectMore: vi.fn(() => new Promise<{ veilAdditions: CheckVeilRefDto[] }>((resolve) => { answer = resolve; })) });
-    await desk.begin("cm_1", "s_1", { windows: [{ windowId: "w_book", kind: "source", extractionId: "ext_book" }] });
-    const asked = desk.protectMore({ windows: [{ windowId: "w_book", kind: "source", extractionId: "ext_book" }, { windowId: "w_new", kind: "lesson" }] });
-    const arriving = desk.veils().find((ref) => ref.window_id === "w_new")!;
-    expect(arriving).toMatchObject({ kind: "window", group: "just opened" });
-    expect(desk.arrivingVeil(arriving)).toBe(true);
-    answer({ veilAdditions: [{ group: "lessons", kind: "window", window_id: "w_new" }] });
+  it("a passage that comes into view is held until a reply covers the request that listed it; another reading in its place is judged again", async () => {
+    let answer!: (value: { veilAdditions: CheckVeilRefDto[]; standing: CheckVeilRefDto[]; revision: number }) => void;
+    const { desk } = fake({ protectMore: vi.fn(() => new Promise<{ veilAdditions: CheckVeilRefDto[]; standing: CheckVeilRefDto[]; revision: number }>((resolve) => { answer = resolve; })) });
+    await desk.begin("cm_1", "s_1", { windows: [{ windowId: "w_book", kind: "source", extractionId: "ext_book", spanIds: ["s1"] }] });
+    expect(desk.passageJudged("w_book", "ext_book", "s1")).toBe(true);
+    const asked = desk.protectMore({ windows: [{ windowId: "w_book", kind: "source", extractionId: "ext_book", spanIds: ["s1", "s3"] }] });
+    expect(desk.judging()).toBe(true);
+    expect(desk.passageJudged("w_book", "ext_book", "s3")).toBe(false);
+    answer({ veilAdditions: [], standing: [PAD, SPAN], revision: 2 });
     await asked;
-    expect(desk.veils().filter((ref) => ref.window_id === "w_new").map((ref) => ref.group)).toEqual(["lessons"]);
-    // The same window showing another reading is judged again.
-    void desk.protectMore({ windows: [{ windowId: "w_book", kind: "source", extractionId: "ext_other" }, { windowId: "w_new", kind: "lesson" }] });
-    expect(desk.veils().some((ref) => ref.window_id === "w_book" && ref.group === "just opened")).toBe(true);
+    expect(desk.passageJudged("w_book", "ext_book", "s3")).toBe(true);
+    expect(desk.judging()).toBe(false);
+    expect(desk.passageJudged("w_book", "ext_other", "s1")).toBe(false);
   });
 
   it("after a restart the card finds its host passage once the reading's due checks name it", async () => {
@@ -310,8 +366,8 @@ describe("opening one of your notes", () => {
   it("says before it opens that a note always makes the answer practice (its words are never read)", async () => {
     const { desk } = fake({ begin: vi.fn(async () => card({ protection: { veilSetId: "v", method: "m", veiled: [NOTE, SPAN], opened: [], groups: ["notes"] } })) });
     await desk.begin("cm_1", "s_1", { windows: [] });
-    document.body.innerHTML = `<div data-desk-window="w_book"><span data-annotation-id="ann_1">n</span><p data-span-id="s2">the answer</p></div>`;
-    render(<VeilLayer desk={desk} root={document} />);
+    document.body.innerHTML = `<div data-desk-window="w_book"><div data-check-safe="">book</div><span data-annotation-id="ann_1">n</span><p data-span-id="s2">the answer</p></div>`;
+    render(<VeilLayer desk={desk} root={document.body} windows={WINDOWS} />);
     await flush();
     const pills = screen.getAllByText(VEIL_LABEL);
     fireEvent.click(pills[0]);
@@ -325,7 +381,7 @@ describe("opening one of your notes", () => {
   });
 
   it("the answered card says why in plain words when a note was opened", async () => {
-    const { desk } = fake({ submit: vi.fn(async () => ({ administrationToken: "cad_1", attemptId: "at_1", cold: false, reason: "primed" as const, primedBy: "unmeasured_note" as const })) });
+    const { desk } = fake({ submit: vi.fn(async () => ({ administrationToken: "cad_1", attemptId: "at_1", cold: false, reason: "primed" as const, primedBy: "unmeasured_note" })) });
     await desk.begin("cm_1", "s_1", { windows: [] });
     render(<CheckCardInline desk={desk} />);
     fireEvent.change(screen.getByLabelText("your answer"), { target: { value: "p_k" } });
