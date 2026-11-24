@@ -46,7 +46,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/goals/goal_lo.py](../../../../../../src/learnloop/goals/goal_lo.py) |
-| Source lines | 190 |
+| Source lines | 196 |
 | Owning package | [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -62,7 +62,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `creations_today(vault: Any, repository: Any, *, now_iso: str) -> int` ([source](../../../../../../src/learnloop/goals/goal_lo.py), line 101) — The cap's count: text-gap creations kept today plus the goal LOs created today.
 - `cap(vault: Any) -> int` ([source](../../../../../../src/learnloop/goals/goal_lo.py), line 107)
 - `create_goal_lo(root: Path | str, repository: Any, request: GoalLoRequest, *, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/goals/goal_lo.py), line 111) — Create the concept and the LO (idempotent per request).
-- `undo_goal_lo(root: Path | str, repository: Any, learning_object_id: str, *, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/goals/goal_lo.py), line 156) — The created LO goes dormant (its items are no longer served), as a text-gap creation's undo.
+- `undo_goal_lo(root: Path | str, repository: Any, learning_object_id: str, *, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/goals/goal_lo.py), line 162) — The created LO goes dormant (its items are no longer served), as a text-gap creation's undo.
 
 ### Module constants
 
@@ -92,7 +92,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ## Internal implementation anchors
 
-No private top-level function or class definition is declared in this file.
+- `_write_goal_lo(root: Path, repository: Any, request: GoalLoRequest, *, clock: Clock | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/goals/goal_lo.py), line 124)
 
 ## Who imports or calls it
 
@@ -132,6 +132,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_deliverable_scope.py](../../../../../../tests/test_deliverable_scope.py) — direct import
   - `test_add_it_creates_the_lo_through_create_goal_lo_and_joins_the_scope`
   - `test_create_goal_lo_keeps_the_text_gap_cap_plus_one_and_undoes_to_dormant`
+- [tests/test_teacher_te5_goal_topics.py](../../../../../../tests/test_teacher_te5_goal_topics.py) — direct import
+  - `test_resume_after_yaml_publication_finishes_consent_once`
 
 ## Modification guidance
 

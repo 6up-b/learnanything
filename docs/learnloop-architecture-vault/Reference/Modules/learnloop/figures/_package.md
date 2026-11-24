@@ -30,6 +30,7 @@ source_paths:
   - "src/learnloop/figures/records.py"
   - "src/learnloop/figures/request.py"
   - "src/learnloop/figures/rich.py"
+  - "src/learnloop/figures/rich_attempts.py"
   - "src/learnloop/figures/routes.py"
   - "src/learnloop/figures/sketch.py"
   - "src/learnloop/figures/sketch_engine.py"
@@ -97,9 +98,10 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/figures/prefetch_ledger|learnloop.figures.prefetch_ledger]] | [[Reference/Modules/learnloop/figures/prefetch_ledger#^module-purpose|purpose]] | `ACTIVE` | 4 | 8 |
 | [[Reference/Modules/learnloop/figures/prefetch_model|learnloop.figures.prefetch_model]] | [[Reference/Modules/learnloop/figures/prefetch_model#^module-purpose|purpose]] | `ACTIVE` | 3 | 6 |
 | [[Reference/Modules/learnloop/figures/protection|learnloop.figures.protection]] | [[Reference/Modules/learnloop/figures/protection#^module-purpose|purpose]] | `ACTIVE` | 12 | 5 |
-| [[Reference/Modules/learnloop/figures/records|learnloop.figures.records]] | [[Reference/Modules/learnloop/figures/records#^module-purpose|purpose]] | `ACTIVE` | 6 | 8 |
+| [[Reference/Modules/learnloop/figures/records|learnloop.figures.records]] | [[Reference/Modules/learnloop/figures/records#^module-purpose|purpose]] | `ACTIVE` | 8 | 8 |
 | [[Reference/Modules/learnloop/figures/request|learnloop.figures.request]] | [[Reference/Modules/learnloop/figures/request#^module-purpose|purpose]] | `ACTIVE` | 7 | 27 |
 | [[Reference/Modules/learnloop/figures/rich|learnloop.figures.rich]] | [[Reference/Modules/learnloop/figures/rich#^module-purpose|purpose]] | `ACTIVE` | 8 | 21 |
+| [[Reference/Modules/learnloop/figures/rich_attempts|learnloop.figures.rich_attempts]] | [[Reference/Modules/learnloop/figures/rich_attempts#^module-purpose|purpose]] | `ACTIVE` | 1 | 1 |
 | [[Reference/Modules/learnloop/figures/routes|learnloop.figures.routes]] | [[Reference/Modules/learnloop/figures/routes#^module-purpose|purpose]] | `ACTIVE` | 5 | 19 |
 | [[Reference/Modules/learnloop/figures/sketch|learnloop.figures.sketch]] | [[Reference/Modules/learnloop/figures/sketch#^module-purpose|purpose]] | `ACTIVE` | 10 | 8 |
 | [[Reference/Modules/learnloop/figures/sketch_engine|learnloop.figures.sketch_engine]] | [[Reference/Modules/learnloop/figures/sketch_engine#^module-purpose|purpose]] | `ACTIVE` | 6 | 11 |
@@ -114,9 +116,9 @@ For system intent, use [[Architecture Overview]].
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/_package|learnloop]] — 36 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 37 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 23 static module edges
-- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 22 static module edges
+- [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 23 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 17 static module edges
 - [[Reference/Modules/learnloop/source_retrieval/_package|learnloop.source_retrieval]] — 11 static module edges
 - [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 7 static module edges
@@ -134,8 +136,8 @@ For system intent, use [[Architecture Overview]].
 ### Packages that import this package
 
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 17 static module edges
+- [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] — 5 static module edges
 - [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] — 4 static module edges
-- [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] — 4 static module edges
 - [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 3 static module edges
 
 ### Dependency neighborhood
@@ -155,9 +157,9 @@ flowchart LR
     n_learnloop_teacher["learnloop.teacher"]
     n_learnloop_practice_index["learnloop.practice_index"]
     n_learnloop_content_authoring["learnloop.content.authoring"]
-    center -->|36| n_learnloop
+    center -->|37| n_learnloop
     center -->|23| n_learnloop_db
-    center -->|22| n_learnloop_db_stores
+    center -->|23| n_learnloop_db_stores
     center -->|17| n_learnloop_ai
     n_learnloop_sidecar_handlers -->|17| center
     center -->|11| n_learnloop_source_retrieval

@@ -207,6 +207,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ai_tool_isolation.py](../../../../../../tests/test_ai_tool_isolation.py) — direct import
   - `test_project_routes_give_a_confinable_agent_the_vault_and_repos_as_hidden`
   - `test_project_routes_mark_an_unconfinable_agent_not_ready`
+- [tests/test_append_split_passes.py](../../../../../../tests/test_append_split_passes.py) — direct import
+  - `test_update_preview_prices_split_passes_and_their_possible_span_calls`
 - [tests/test_blueprint_projection.py](../../../../../../tests/test_blueprint_projection.py) — direct import
 - [tests/test_characterization_mastery_reliability.py](../../../../../../tests/test_characterization_mastery_reliability.py) — direct import
   - `test_error_impact_turns_reliability_into_observation_weight`

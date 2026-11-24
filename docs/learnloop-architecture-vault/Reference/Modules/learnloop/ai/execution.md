@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/ai/execution.py](../../../../../../src/learnloop/ai/execution.py) |
-| Source lines | 639 |
+| Source lines | 644 |
 | Owning package | [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
@@ -109,9 +109,9 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 
 ## Internal implementation anchors
 
-- `_observed_call(client: Any, *, purpose: str, prompt: Any, schema: Any, budget: int | None, collect_usage: bool=False)` ([source](../../../../../../src/learnloop/ai/execution.py), line 567)
-- `_failure_status(exc: BaseException) -> str` ([source](../../../../../../src/learnloop/ai/execution.py), line 620)
-- `_record_finish(observer: Callable[[str, dict[str, Any]], Any], call_id: str, metadata: dict[str, Any]) -> None` ([source](../../../../../../src/learnloop/ai/execution.py), line 628) — Best-effort: the durable start is the safety guarantee, the finish is telemetry.
+- `_observed_call(client: Any, *, purpose: str, prompt: Any, schema: Any, budget: int | None, collect_usage: bool=False, reservation_ref: str | None=None)` ([source](../../../../../../src/learnloop/ai/execution.py), line 568)
+- `_failure_status(exc: BaseException) -> str` ([source](../../../../../../src/learnloop/ai/execution.py), line 625)
+- `_record_finish(observer: Callable[[str, dict[str, Any]], Any], call_id: str, metadata: dict[str, Any]) -> None` ([source](../../../../../../src/learnloop/ai/execution.py), line 633) — Best-effort: the durable start is the safety guarantee, the finish is telemetry.
 
 ## Who imports or calls it
 
@@ -337,7 +337,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_openai_single_request_disables_retry_and_repair_only_in_scope`
   - `test_single_request_is_nested_context_local_and_restored_after_failure`
 - [tests/test_append_split_passes.py](../../../../../../tests/test_append_split_passes.py) — direct import
+  - `test_completed_receipt_survives_crash_before_pass_checkpoint`
   - `test_each_pass_is_its_own_paid_request_under_the_appends_limits`
+  - `test_span_round_with_no_room_keeps_the_base_answer`
 - [tests/test_arcb_close_fixes.py](../../../../../../tests/test_arcb_close_fixes.py) — direct import
 - [tests/test_build_wait_detail.py](../../../../../../tests/test_build_wait_detail.py) — direct import
   - `test_a_transport_that_does_not_stream_reports_no_output`
@@ -397,6 +399,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_explicit_revision_invalidates_alias_cache_but_reports_resolved_model`
 - [tests/test_figure_cancel.py](../../../../../../tests/test_figure_cancel.py) — direct import
 - [tests/test_figure_offers.py](../../../../../../tests/test_figure_offers.py) — direct import
+- [tests/test_figure_rich_attempt_records.py](../../../../../../tests/test_figure_rich_attempt_records.py) — direct import
+  - `test_attempts_record_the_model_each_receipt_resolved`
 - [tests/test_figure_rich_job.py](../../../../../../tests/test_figure_rich_job.py) — direct import
   - `test_the_rich_job_continues_the_press_trace`
 - [tests/test_figure_rich_rereview_fixes.py](../../../../../../tests/test_figure_rich_rereview_fixes.py) — direct import
@@ -537,6 +541,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f2_rereview_a_transport_retry_is_refused_when_the_failed_attempt_used_the_room`
   - `test_f2_rereview_append_reconciliation_calls_are_admitted_one_by_one`
   - `test_f2_rereview_every_physical_attempt_is_admitted_retries_and_repairs_included`
+  - `test_request_gate_counts_another_operations_receipt_after_job_admission`
 - [tests/text_gap_fakes.py](../../../../../../tests/text_gap_fakes.py) — direct import
 - [tests/workbench_help_fakes.py](../../../../../../tests/workbench_help_fakes.py) — direct import
 

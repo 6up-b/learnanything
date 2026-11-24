@@ -48,39 +48,39 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/content/pipeline/build_plan.py](../../../../../../../src/learnloop/content/pipeline/build_plan.py) |
-| Source lines | 380 |
+| Source lines | 403 |
 | Owning package | [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class StageEstimate` ([source](../../../../../../../src/learnloop/content/pipeline/build_plan.py), line 27)
-  - `as_dict(self) -> dict` (line 36; public)
-- `class PlannedSource` ([source](../../../../../../../src/learnloop/content/pipeline/build_plan.py), line 49)
-  - `as_dict(self) -> dict` (line 62; public)
-- `class BuildPlan` ([source](../../../../../../../src/learnloop/content/pipeline/build_plan.py), line 79)
-  - `selected_unit_count(self) -> int` (line 90; public)
-  - `total_input_tokens(self) -> int` (line 94; public)
-  - `total_max_output_tokens(self) -> int` (line 98; public)
-  - `total_calls(self) -> int` (line 102; public)
-  - `cache_savings_tokens(self) -> int` (line 106; public)
-  - `as_dict(self) -> dict` (line 109; public)
-  - `snapshot_payload(self) -> dict` (line 134; public) — The estimate snapshot stored in a batch/job payload when it starts.
-- `subject_has_study_map(vault, subject_id: str | None) -> bool` ([source](../../../../../../../src/learnloop/content/pipeline/build_plan.py), line 140) — True when the subject already has an applied study map (any learning object).
-- `route_create_or_update(vault, subject_id: str | None) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/build_plan.py), line 154)
-- `build_build_plan(repo: Repository, config: LearnLoopConfig, vault, *, subject_id: str | None, selections: list[Mapping[str, object]], budget_overrides: Mapping[str, int] | None=None) -> BuildPlan` ([source](../../../../../../../src/learnloop/content/pipeline/build_plan.py), line 158) — Assemble the deterministic build plan for a set of selected extractions.
+- `class StageEstimate` ([source](../../../../../../../src/learnloop/content/pipeline/build_plan.py), line 29)
+  - `as_dict(self) -> dict` (line 39; public)
+- `class PlannedSource` ([source](../../../../../../../src/learnloop/content/pipeline/build_plan.py), line 52)
+  - `as_dict(self) -> dict` (line 65; public)
+- `class BuildPlan` ([source](../../../../../../../src/learnloop/content/pipeline/build_plan.py), line 82)
+  - `selected_unit_count(self) -> int` (line 93; public)
+  - `total_input_tokens(self) -> int` (line 97; public)
+  - `total_max_output_tokens(self) -> int` (line 101; public)
+  - `total_calls(self) -> int` (line 105; public)
+  - `cache_savings_tokens(self) -> int` (line 109; public)
+  - `as_dict(self) -> dict` (line 112; public)
+  - `snapshot_payload(self) -> dict` (line 137; public) — The estimate snapshot stored in a batch/job payload when it starts.
+- `subject_has_study_map(vault, subject_id: str | None) -> bool` ([source](../../../../../../../src/learnloop/content/pipeline/build_plan.py), line 143) — True when the subject already has an applied study map (any learning object).
+- `route_create_or_update(vault, subject_id: str | None) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/build_plan.py), line 157)
+- `build_build_plan(repo: Repository, config: LearnLoopConfig, vault, *, subject_id: str | None, selections: list[Mapping[str, object]], budget_overrides: Mapping[str, int] | None=None) -> BuildPlan` ([source](../../../../../../../src/learnloop/content/pipeline/build_plan.py), line 161) — Assemble the deterministic build plan for a set of selected extractions.
 
 ## Internal implementation anchors
 
-- `_selected_units(units: list[OutlineUnit], requested: list[str]) -> list[OutlineUnit]` ([source](../../../../../../../src/learnloop/content/pipeline/build_plan.py), line 242)
-- `_source_warnings(outline, units: list[OutlineUnit]) -> list[str]` ([source](../../../../../../../src/learnloop/content/pipeline/build_plan.py), line 249)
-- `_stage_estimates(*, unit_tokens: list[int], cached_token_pool: int, budgets, routing: str, provider_context: int | None) -> list[StageEstimate]` ([source](../../../../../../../src/learnloop/content/pipeline/build_plan.py), line 259)
-- `_shard(unit_tokens: list[int], ceiling: int) -> list[list[int]]` ([source](../../../../../../../src/learnloop/content/pipeline/build_plan.py), line 323)
-- `_exceeds(unit_tokens: list[int], ceiling: int, provider_context: int | None) -> bool` ([source](../../../../../../../src/learnloop/content/pipeline/build_plan.py), line 339)
-- `_over_context(inputs: list[int], provider_context: int | None) -> bool` ([source](../../../../../../../src/learnloop/content/pipeline/build_plan.py), line 348)
-- `_provider_warnings(stages: list[StageEstimate], provider: str, provider_context: int | None) -> list[str]` ([source](../../../../../../../src/learnloop/content/pipeline/build_plan.py), line 354)
-- `_dedupe(values: list[str]) -> list[str]` ([source](../../../../../../../src/learnloop/content/pipeline/build_plan.py), line 373)
+- `_selected_units(units: list[OutlineUnit], requested: list[str]) -> list[OutlineUnit]` ([source](../../../../../../../src/learnloop/content/pipeline/build_plan.py), line 248)
+- `_source_warnings(outline, units: list[OutlineUnit]) -> list[str]` ([source](../../../../../../../src/learnloop/content/pipeline/build_plan.py), line 255)
+- `_stage_estimates(*, unit_tokens: list[int], cached_token_pool: int, budgets, routing: str, provider_context: int | None, append_units: list[int] | None=None, one_facet_per_skill: bool=False) -> list[StageEstimate]` ([source](../../../../../../../src/learnloop/content/pipeline/build_plan.py), line 265)
+- `_shard(unit_tokens: list[int], ceiling: int) -> list[list[int]]` ([source](../../../../../../../src/learnloop/content/pipeline/build_plan.py), line 345)
+- `_exceeds(unit_tokens: list[int], ceiling: int, provider_context: int | None) -> bool` ([source](../../../../../../../src/learnloop/content/pipeline/build_plan.py), line 361)
+- `_over_context(inputs: list[int], provider_context: int | None) -> bool` ([source](../../../../../../../src/learnloop/content/pipeline/build_plan.py), line 370)
+- `_provider_warnings(stages: list[StageEstimate], provider: str, provider_context: int | None) -> list[str]` ([source](../../../../../../../src/learnloop/content/pipeline/build_plan.py), line 376)
+- `_dedupe(values: list[str]) -> list[str]` ([source](../../../../../../../src/learnloop/content/pipeline/build_plan.py), line 396)
 
 ## Who imports or calls it
 
@@ -98,6 +98,8 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 
 - [[Reference/Modules/learnloop/config/__init__|learnloop.config]] — imports `LearnLoopConfig`
 - [[Reference/Modules/learnloop/content/sources/source_outline|learnloop.content.sources.source_outline]] — imports `OutlineUnit`, `build_source_outline`; calls `build_source_outline`
+- [[Reference/Modules/learnloop/content/synthesis/ai_contracts|learnloop.content.synthesis.ai_contracts]] — imports `AppendReconciliationContext`; calls `AppendReconciliationContext`
+- [[Reference/Modules/learnloop/content/synthesis/append_budget|learnloop.content.synthesis.append_budget]] — imports `append_groups`, `append_input_tokens`; calls `append_groups`, `append_input_tokens`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 
 ### Platform and third-party dependencies
@@ -118,6 +120,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_append_split_passes.py](../../../../../../../tests/test_append_split_passes.py) — direct import
+  - `test_update_preview_prices_split_passes_and_their_possible_span_calls`
 - [tests/test_first_questions_arrive.py](../../../../../../../tests/test_first_questions_arrive.py) — direct import
   - `test_the_build_estimate_charts_what_a_build_may_now_write`
 - [tests/test_ingest_m3.py](../../../../../../../tests/test_ingest_m3.py) — direct import

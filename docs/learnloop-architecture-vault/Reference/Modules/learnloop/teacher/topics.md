@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/teacher/topics.py](../../../../../../src/learnloop/teacher/topics.py) |
-| Source lines | 136 |
+| Source lines | 190 |
 | Owning package | [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -58,8 +58,12 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
   - `__init__(self, code: str, message: str) -> None` (line 28; internal)
 - `protected(vault: Any, repository: Any, text: str) -> bool` ([source](../../../../../../src/learnloop/teacher/topics.py), line 33) — The typed words reproduce a question still reserved or withheld (fail closed: unreadable protection is protected).
 - `resolve(vault: Any, repository: Any, text: str, *, client: Any | None=None, clock: Any=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/topics.py), line 49) — The typed goal resolved (``lesson.goal``): ``{"status", "goal_key", "topics": [{learning_object_id, title, phrase}], "unmatched": [{phrase, proposed_title, proposed_statement}], "subject_id", "subjects", "message"}``.
-- `class OpenPlan` ([source](../../../../../../src/learnloop/teacher/topics.py), line 80)
-- `plan_open(vault: Any, repository: Any, *, text: str, lesson_id: str, add_topics: Sequence[str], subject_id: str | None, client: Any | None=None, clock: Any=None) -> OpenPlan` ([source](../../../../../../src/learnloop/teacher/topics.py), line 87) — Resolve the typed goal again (the stored resolution: no call when nothing changed), create each accepted leftover through ``create_goal_lo`` (``teacher_goal_v1``) and return the lesson's LOs.
+- `proposal_text(request: Any) -> str` ([source](../../../../../../src/learnloop/teacher/topics.py), line 79)
+- `offer_text(entry: Mapping[str, Any], *, active: bool=True) -> str` ([source](../../../../../../src/learnloop/teacher/topics.py), line 83)
+- `offer_decision(turns: Sequence[Mapping[str, Any]], text: str) -> tuple[str, Mapping[str, Any]] | None` ([source](../../../../../../src/learnloop/teacher/topics.py), line 96) — Only an explicit learner reply naming a recorded offer can authorize the write.
+- `create_offered_topic(vault: Any, repository: Any, state: Any, offer: Mapping[str, Any], *, clock: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/topics.py), line 108)
+- `class OpenPlan` ([source](../../../../../../src/learnloop/teacher/topics.py), line 134)
+- `plan_open(vault: Any, repository: Any, *, text: str, lesson_id: str, add_topics: Sequence[str], subject_id: str | None, client: Any | None=None, clock: Any=None) -> OpenPlan` ([source](../../../../../../src/learnloop/teacher/topics.py), line 141) — Resolve the typed goal again (the stored resolution: no call when nothing changed), create each accepted leftover through ``create_goal_lo`` (``teacher_goal_v1``) and return the lesson's LOs.
 
 ### Module constants
 
@@ -87,7 +91,8 @@ No private top-level function or class definition is declared in this file.
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] — imports `module`; statically calls `plan_open`
+- [[Reference/Modules/learnloop/teacher/actions|learnloop.teacher.actions]] — imports `TopicsRefused`, `resolve`; statically calls `resolve`
+- [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] — imports `module`; statically calls `create_offered_topic`, `offer_decision`, `offer_text`, `plan_open`, `proposal_text`
 - [[Reference/Modules/learnloop_sidecar/handlers/lesson|learnloop_sidecar.handlers.lesson]] — imports `module`; statically calls `resolve`
 
 ## Dependencies
@@ -95,6 +100,7 @@ No private top-level function or class definition is declared in this file.
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/content/authoring/practice_leakage|learnloop.content.authoring.practice_leakage]] — imports `reserved_findings`, `reserved_questions`; calls `reserved_findings`, `reserved_questions`
+- [[Reference/Modules/learnloop/ingest/locators|learnloop.ingest.locators]] — imports `BLOCK_SPAN_V1`, `format_block_span`; calls `format_block_span`
 - [[Reference/Modules/learnloop/learner_protection|learnloop.learner_protection]] — imports `withheld_items`; calls `withheld_items`
 - [[Reference/Modules/learnloop/source_retrieval/deliverables|learnloop.source_retrieval.deliverables]] — imports `module`; calls `create_lesson_topic`, `resolve_typed_goal`, `typed_goal_key`, `typed_goal_subject`
 - [[Reference/Modules/learnloop/vault/loader|learnloop.vault.loader]] — imports `load_vault`; calls `load_vault`
@@ -111,7 +117,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]], [[Reference/Modules/learnloop_sidecar/handlers/lesson|learnloop_sidecar.handlers.lesson]].
+Static participation evidence comes from [[Reference/Modules/learnloop/teacher/actions|learnloop.teacher.actions]], [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]], [[Reference/Modules/learnloop_sidecar/handlers/lesson|learnloop_sidecar.handlers.lesson]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

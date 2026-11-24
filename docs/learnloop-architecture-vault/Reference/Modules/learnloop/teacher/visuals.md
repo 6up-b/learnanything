@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/teacher/visuals.py](../../../../../../src/learnloop/teacher/visuals.py) |
-| Source lines | 379 |
+| Source lines | 381 |
 | Owning package | [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -66,11 +66,11 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `displayed(turn_obj: TeacherTurnV1) -> list[tuple[str, str]]` ([source](../../../../../../src/learnloop/teacher/visuals.py), line 185) — The visual goals a turn may show the learner (the figure's line quotes its goal): the turn's own and every planned one, so each passes the lesson's guards before it is stored.
 - `figure_request(state: Any, resolved: Mapping[str, Any], *, caller: Any) -> Any` ([source](../../../../../../src/learnloop/teacher/visuals.py), line 202) — The ``FigureRequestV1`` code completes from the teacher's words (module docstring).
 - `not_built_for_protection(resolved: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/visuals.py), line 240) — The record of a visual not built because the lesson's protection state changed since its brief (Codex review F1): its saved goal may carry words of a passage that is now exam or held-out material, which the figure service's check of the visual's own anchors cannot see, so nothin…
-- `build(vault: Any, repository: Any, state: Any, resolved: Mapping[str, Any], builder: Builder, *, caller: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/visuals.py), line 249) — Build the step's figure: ``{status, figure_id?, reason?, code?}`` (never raises a refusal; a spend refusal of the lesson's envelope propagates, so the lesson closes with ``budget``).
-- `figure_row(repository: Any, figure_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/teacher/visuals.py), line 285)
-- `figure_text(row: Mapping[str, Any] | None) -> str` ([source](../../../../../../src/learnloop/teacher/visuals.py), line 295) — The figure's words and displayed values as the lesson shows it (P3's reveal text over the stored spec or program **without its predictions**: a lesson suppresses them, :func:`lesson_view`), so a hidden prediction's prompt is neither exposure nor a reason to withhold the figure (…
-- `summary(row: Mapping[str, Any] | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/teacher/visuals.py), line 314) — What the teacher is told a shown figure is: its tier, what it demonstrates and what the learner can move (names, labels, ranges and defaults), read from the stored spec or program.
-- `lesson_view(vault: Any, repository: Any, figure_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/teacher/visuals.py), line 329) — A lesson figure as the lesson shows it NOW, or None (gone, held out since, switched off): the figure service's view with **no predictions** (suppressed in a lesson) and no fuller version (a lesson host is grammar and sketch only).
+- `build(vault: Any, repository: Any, state: Any, resolved: Mapping[str, Any], builder: Builder | None, *, caller: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/visuals.py), line 249) — Build the step's figure: ``{status, figure_id?, reason?, code?}`` (never raises a refusal; a spend refusal of the lesson's envelope propagates, so the lesson closes with ``budget``).
+- `figure_row(repository: Any, figure_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/teacher/visuals.py), line 287)
+- `figure_text(row: Mapping[str, Any] | None) -> str` ([source](../../../../../../src/learnloop/teacher/visuals.py), line 297) — The figure's words and displayed values as the lesson shows it (P3's reveal text over the stored spec or program **without its predictions**: a lesson suppresses them, :func:`lesson_view`), so a hidden prediction's prompt is neither exposure nor a reason to withhold the figure (…
+- `summary(row: Mapping[str, Any] | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/teacher/visuals.py), line 316) — What the teacher is told a shown figure is: its tier, what it demonstrates and what the learner can move (names, labels, ranges and defaults), read from the stored spec or program.
+- `lesson_view(vault: Any, repository: Any, figure_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/teacher/visuals.py), line 331) — A lesson figure as the lesson shows it NOW, or None (gone, held out since, switched off): the figure service's view with **no predictions** (suppressed in a lesson) and no fuller version (a lesson host is grammar and sketch only).
 
 ### Module constants
 
