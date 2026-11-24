@@ -52,6 +52,17 @@ describe("asking", () => {
     expect(poller.size).toBe(0);
   });
 
+  it("asks under the goal in view, and a retry keeps it", async () => {
+    const { asks, asked } = setup();
+    asks.ask({ ...REQUEST, goalId: "goal_1" });
+    asks.ask(REQUEST);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(asked[0]).toMatchObject({ goalId: "goal_1" });
+    expect("goalId" in asked[1]).toBe(false);
+    expect(asks.thread("d1")[0].request).toMatchObject({ goalId: "goal_1" });
+  });
+
   it("a follow-up about the same reading branches from the last answer", async () => {
     const { asks, poller, asked, setNext } = setup();
     setNext((id) => job(id, { status: "done", done: true, answer: ANSWER }));

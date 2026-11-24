@@ -68,6 +68,8 @@ export interface AskRequest {
   retrievalIntent?: CompanionAskInput["retrievalIntent"];
   /** RW1c: the personalized chip (absent while the tutor does not look things up). */
   personalized?: boolean;
+  /** The goal in view on the desk: the tutor is given its sentence and depth. */
+  goalId?: string | null;
 }
 
 function errorOf(error: unknown): { code: string; message: string; retryable: boolean } {
@@ -167,6 +169,7 @@ export class CompanionAsks {
       ...(request.answerMode ? { answerMode: request.answerMode } : {}),
       ...(request.retrievalIntent ? { retrievalIntent: request.retrievalIntent } : {}),
       ...(request.personalized !== undefined ? { personalized: request.personalized } : {}),
+      ...(request.goalId ? { goalId: request.goalId } : {}),
     };
     return this.send(input, request.windowId, request.quote ?? null, ready);
   }

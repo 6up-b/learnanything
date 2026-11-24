@@ -11241,6 +11241,8 @@ export interface CompanionAskInput extends ReaderAskInput {
   padBlockIds?: string[];
   /** Required in a notebook. */
   notebookRef?: string | null;
+  /** The goal in view on the desk (the goal lens's goal): the tutor is given its sentence and depth. */
+  goalId?: string | null;
 }
 
 export type CompanionAskStatus = "queued" | "running" | "done" | "failed" | "cancelled" | "expired";
@@ -11274,6 +11276,9 @@ export interface CompanionAskJobDto {
   contextRecorded?: boolean | null;
   /** Cancelled, and its answer was recorded anyway (it is in the history, not delivered). */
   kept: boolean;
+  /** The goal in view: given to the tutor, withheld (its words name a topic whose cold check is due), or null when
+   *  no goal was in view. */
+  goalInView?: "given" | "withheld" | null;
   /** reader.ask's reply, when done. */
   answer: ReaderAnswerDto | null;
   error: PolledJobErrorDto | null;

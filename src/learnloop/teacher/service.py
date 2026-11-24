@@ -68,6 +68,7 @@ from learnloop.ai.transport import execute_structured_operation, render_structur
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.db.stores import lessons as store
 from learnloop.ids import new_ulid
+from learnloop.teacher import carried as CQ
 from learnloop.teacher import checks as CK
 from learnloop.teacher import episodes as E
 from learnloop.teacher import exposure as X
@@ -406,9 +407,11 @@ def _prompt(state: LessonState, *, results: Sequence[Mapping[str, Any]], help_re
     # Reader RW5d P4b: the visuals paragraph and its prompt version only while visuals are on; TE2-log: the
     # episode paragraph and its suffix only while teacher.episode_log is on (both off: TE1's prompt byte for byte).
     # Teacher TE2: its paragraph and suffix only while TE2 serves the lesson (off: TE1's and TE2-log's prompt).
+    # The learner's carried questions: their paragraph and suffix only while the brief carries some.
+    carried = CQ.in_brief(state.brief)
     return render_structured_prompt(
-        "LearnLoop lesson: you are the teacher", _prompt_version(visuals, episodes, te2, goal_topics),
-        {"instructions": T2.instructions(E.instructions(V.instructions(doctrine_text(), visuals), episodes), te2, goal_topics),
+        "LearnLoop lesson: you are the teacher", CQ.prompt_version(_prompt_version(visuals, episodes, te2, goal_topics), carried),
+        {"instructions": CQ.instructions(T2.instructions(E.instructions(V.instructions(doctrine_text(), visuals), episodes), te2, goal_topics), carried),
          "context": context},
         context_tail_fields=("transcript",))
 

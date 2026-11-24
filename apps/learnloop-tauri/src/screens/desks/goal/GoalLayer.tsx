@@ -58,6 +58,9 @@ export interface GoalDesk {
   /** The top bar's "◎ set a goal", when the desk has no goal. */
   topChip: ReactNode;
   hasBand: boolean;
+  /** The lens's goal while its band shows (the desk's goal, else the vault's primary one): the companion asks
+   * under it, so the tutor's answers aim at it. */
+  goalId: string | null;
   lensFor: (windowId: string, extractionId: string) => ReaderLens | null;
   /** "◎ for your goal · …" over a pad stack, from its pads' anchors. */
   padLine: (padIds: readonly string[]) => ReactNode;
@@ -289,5 +292,5 @@ export function useGoalDesk({ transport, deskGoalId, offKey, onSetGoal, readings
     const primary = band?.learningObjects?.find((dot) => dot.learningObjectId === learningObjectId)?.primary;
     return primary ? { extractionId: primary.extractionId, sectionId: primary.sectionId } : null;
   }, [band]);
-  return { band: bandNode, topChip, hasBand, lensFor, padLine, overlays, rowGoal, pathOpen: goal.pathOpen, togglePath, primaryFor };
+  return { band: bandNode, topChip, hasBand, goalId: hasBand ? goal.goalId : null, lensFor, padLine, overlays, rowGoal, pathOpen: goal.pathOpen, togglePath, primaryFor };
 }
