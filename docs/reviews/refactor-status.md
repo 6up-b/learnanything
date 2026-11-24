@@ -164,6 +164,7 @@ The orchestrator updates this file in each landing commit. This snapshot is the 
 |---|---|---|---|---|---|
 | Z1 | Write and verify the modelling paper | waiting on | — | — | E5, arc G's belief decision and arc H |
 | Z2 | Measure the refactor and report the savings | waiting on | — | — | Refactor close |
+| Documentation rewrite, part 1 | The hand-written vault notes of the finished arcs (A, B, C, I, most of D, E and K) checked against the code and rewritten: 61 notes checked, 94 stale claims, 44 rewritten, 1 marked superseded | landed | this commit | [docs-rewrite-audit.md](docs-rewrite-audit.md) | Started early by the owner (2026-11-23). Arcs G and H and the modelling paper follow at the close. Written by a Codex worker |
 | Z3 | Archive superseded and abandoned specs after documentation | waiting on | — | — | Documentation rewrite and owner's archive review |
 
 ## Arc K: identity and protection
@@ -235,11 +236,11 @@ The orchestrator updates this file in each landing commit. This snapshot is the 
 | K9.10 | Extract presentations and delete dead block planning | landed | `f104eabe79` | [refactor-k9.10.md](refactor-k9.10.md) | — |
 | K9.11 | Extract probe evidence and learner controls | landed | `753b68eac4` | [refactor-k9.11.md](refactor-k9.11.md) | — |
 | K9.12 | Record declined probe answers and failed hooks | landed | `8311e90261` | [refactor-k9.12.md](refactor-k9.12.md) | — |
-| K9.13 | Separate episode posterior reads from its fold | waiting on | — | — | Owner decided on 2026-11-20: folded into G4 if G4 runs |
+| K9.13 | Separate episode posterior reads from its fold | landed | this commit | [refactor-k9.13-k9.17.md](refactor-k9.13-k9.17.md) | G4 is closed, so this ran alone: the posterior's gather and its pure fold are separate; 30 comparisons returned equal posteriors and the same SQL in the same order. Built by a Codex worker |
 | K9.14 | Update the Diagnosis note to match code | landed | `1d3edadcfe` | [Diagnosis and Remediation](../learnloop-architecture-vault/Concepts/Diagnosis%20and%20Remediation.md) | — |
 | K9.15 | Remove failure triage and its registry entries | landed | `be3cb2ac11` | [refactor-k9.15.md](refactor-k9.15.md) | — |
 | K9.16 | Remove EVSI shadow selection and its panel | landed | `1fad9526bd` | [refactor-k9.16.md](refactor-k9.16.md) | — |
-| K9.17 | Feed released holds and regrades into belief | waiting on | — | [ledger K9-3](refactor-bug-ledger.md) | Owner decided on 2026-11-20: folded into G4 if G4 runs |
+| K9.17 | Feed released holds and regrades into belief | designed | — | [refactor-k9.13-k9.17.md](refactor-k9.13-k9.17.md) | A persisted-meaning change (released holds and regrades change the posterior and the stored misconception marginals): it needs its own algorithm tag after the ones in flight |
 
 ## Arc K: figures
 
