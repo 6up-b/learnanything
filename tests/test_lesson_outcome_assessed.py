@@ -117,3 +117,69 @@ def test_a_malformed_application_record_is_a_labelled_gap(tmp_path, malformation
                  if entry["kind"] == "weight_update"]
     assert update["detail"]["likelihood"] == "first_order"
     assert update["detail"]["trajectory_inputs"][-1]["outcome_record_missing"] is True
+
+
+def _unapplied_record(attempt_id: str, at: str) -> str:
+    """A well-formed mastery record of an answer mastery did not apply (the shape ``mastery_application_facts``
+    writes)."""
+
+    state = {"mu": 0.0, "P": 1.0, "last_evidence_at": None}
+    return json.dumps({"mastery_application": {
+        "applied": False, "observed_at": at, "prior": state, "posterior": state, "score": None, "item_a": 1.0,
+        "item_b": 0.0, "observation_weight": 0.0, "interpretation_variance": 0.0, "primed": False,
+        "variance_floor": None}})
+
+
+@pytest.mark.parametrize(("version", "expected"), [
+    (OUTCOME_FIXES_ALGORITHM_VERSION, ("att_assessed", 0.0)),
+    (LESSON_WEIGHT_FACTS_ALGORITHM_VERSION, ("att_unapplied", 1.0)),  # below the tag: the unapplied answer resolves
+])
+def test_the_routers_miss_cause_learning_credits_no_lesson_with_an_unapplied_answer(tmp_path, version, expected):
+    """FR3-4, end to end on the router: a router-offered lesson, then a first cold answer mastery did not apply
+    (correctness 1) and, a day later, an assessed miss on another item. From the tag the offer's outcome is the miss,
+    so the lesson is not credited with a success (below it the unapplied answer resolved the offer as a success)."""
+
+    from learnloop.db.repositories import Repository
+    from learnloop.router_objective import miss_cause as MC
+
+    from tests.daily_plan_fakes import NOW as CLOCK_NOW
+    from tests.daily_plan_fakes import iso
+    from tests.helpers import create_basic_vault
+
+    paths = create_basic_vault(tmp_path / "vault")
+    set_algorithm_version(paths, version)
+    vault = load_vault(paths.root)
+    repository = Repository(paths.sqlite_path)
+
+    def at(days, minutes=0.0):
+        return iso(CLOCK_NOW - timedelta(days=days) + timedelta(minutes=minutes))
+
+    frozen = {"status": "diagnosed", "p_gap": 0.0, "p_slip": 1.0, "p_unknown": 0.0}
+    detail = {"lesson_offer": {"learning_object_id": "lo_a", "miss_cause": frozen, "mass": {"mean": 0.5},
+                               "card": {"candidates": [{"predicted_success": 0.4}]}}}
+    with repository.connection() as connection:
+        connection.execute(
+            "INSERT INTO router_decisions (id, receipt_key, decision_kind, surface, mode, policy, algorithm_version, "
+            "log_version, snapshot_hash, candidates_json, exclusions_json, candidate_count, chosen_ref, propensity, "
+            "propensity_kind, detail_json, created_at) VALUES ('rd1', 'k', 'plan_block', 'desktop', 'live', 'p', ?, "
+            "'v1', 'h', '[]', '[]', 0, 'lesson_offer:lo_a', 0.5, 'exact', ?, ?)", (version, json.dumps(detail), at(4)))
+        connection.execute(
+            "INSERT INTO lessons (id, driver, origin, origin_ref, entry, goal_text, learning_object_ids_json, "
+            "doctrine_version, brief_version, algorithm_version, opened_at, closed_at, goal_json, close_reason) VALUES "
+            "('les1', 'desktop', 'router', 'rd1', 'learning_object', 'g', '[\"lo_a\"]', 'd', 'b', ?, ?, ?, '{}', "
+            "'learner_stop')", (version, at(4, 1), at(4, 20)))
+        for sequence, (attempt_id, item_id, correctness, when) in enumerate(
+                (("att_unapplied", "pi_new", 1.0, at(3)), ("att_assessed", "pi_other", 0.0, at(2))), start=1):
+            connection.execute(
+                "INSERT INTO practice_attempts(id, practice_item_id, learning_object_id, practice_mode, attempt_type, "
+                "correctness, primed, hints_used, created_at) VALUES (?, ?, 'lo_a', 'short_answer', "
+                "'independent_attempt', ?, 0, 0, ?)", (attempt_id, item_id, correctness, when))
+            connection.execute("INSERT INTO attempt_application_order(sequence, attempt_id, basis, algorithm_version, "
+                               "recorded_at) VALUES (?, ?, 'applied', ?, ?)", (sequence, attempt_id, version, when))
+        connection.execute("INSERT INTO attempt_debug_payloads(attempt_id, payload_json, algorithm_version, created_at) "
+                           "VALUES (?, ?, ?, ?)", ("att_unapplied", _unapplied_record("att_unapplied", at(3)), version,
+                                                   at(3)))
+        connection.commit()
+    with repository.connection() as connection:
+        (row,) = MC._offer_rows(connection, vault.config, iso(CLOCK_NOW))
+    assert (row["outcome_attempt_id"], row["y"]) == expected
