@@ -181,7 +181,7 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 - [[Reference/Modules/learnloop/tutor/promotions|learnloop.tutor.promotions]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/vault/embedding_recipes|learnloop.vault.embedding_recipes]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/vault/loader|learnloop.vault.loader]] — imports `VaultPaths`, `find_vault_root`; statically calls `VaultPaths`, `find_vault_root`
-- [[Reference/Modules/learnloop/vault/repository|learnloop.vault.repository]] — imports `VaultPaths`
+- [[Reference/Modules/learnloop/vault/repository|learnloop.vault.repository]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/vault/writer|learnloop.vault.writer]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop_sidecar/handlers/goals|learnloop_sidecar.handlers.goals]] — imports `VaultPaths`; statically calls `VaultPaths`
@@ -422,6 +422,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_followup_outcome_needs_the_frozen_facet_map`
 - [tests/test_why_reader.py](../../../../../../tests/test_why_reader.py) — direct import
 - [tests/test_why_real_cases.py](../../../../../../tests/test_why_real_cases.py) — direct import
+- [tests/test_writer_fence_scopes.py](../../../../../../tests/test_writer_fence_scopes.py) — direct import
+  - `test_a_repository_opened_for_a_stale_vault_is_refused_after_another_thread_reloaded`
 - [tests/ux_phase1_support.py](../../../../../../tests/ux_phase1_support.py) — direct import
 
 ## Modification guidance

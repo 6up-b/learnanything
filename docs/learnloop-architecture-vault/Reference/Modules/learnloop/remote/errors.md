@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/remote/errors.py](../../../../../../src/learnloop/remote/errors.py) |
-| Source lines | 44 |
+| Source lines | 48 |
 | Owning package | [[Reference/Modules/learnloop/remote/_package|learnloop.remote]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -58,12 +58,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
   - `__init__(self, message: str, *, code: str | None=None) -> None` (line 17; internal)
 - `class NotFound(RemoteRequestError)` ([source](../../../../../../src/learnloop/remote/errors.py), line 23)
 - `class InvalidRequest(RemoteRequestError)` ([source](../../../../../../src/learnloop/remote/errors.py), line 27)
-- `upgraded_while_open(error: BaseException) -> RemoteRequestError | None` ([source](../../../../../../src/learnloop/remote/errors.py), line 31) — The refusal to show for a write the writer fence refused (``learnloop.db.writer_fence``): the vault was upgraded after this request loaded it, nothing was saved, and the next request loads it again.
+- `upgraded_while_open(error: BaseException) -> RemoteRequestError | None` ([source](../../../../../../src/learnloop/remote/errors.py), line 35) — The refusal to show for a write the writer fence refused (``learnloop.db.writer_fence``): the vault was upgraded after this request loaded it, nothing was saved, and the next request loads it again.
 
 ### Explicit exports
 
 `__all__` declares:
 
+- `FenceRefusal`
 - `InvalidRequest`
 - `NotFound`
 - `RemoteRequestError`

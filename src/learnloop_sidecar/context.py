@@ -41,7 +41,7 @@ from learnloop.vault.loader import (
 )
 from learnloop.vault.models import LoadedVault
 from learnloop.vault.paths import VaultPaths
-from learnloop.vault.repository import open_vault_repository
+from learnloop.vault.repository import bind_vault_writes, open_vault_repository, vault_writes
 from learnloop.version_floor import BelowOldestSupported
 from learnloop_sidecar.dto import to_camel, versioned
 from learnloop_sidecar.background_jobs import BackgroundJobs
@@ -172,6 +172,9 @@ class SidecarContext:
     # still cached here is the one the refusal is about (a journal that goes away has changed the database under
     # it). ``require_vault``, the worker's supplier and the loaded-vault provider's admission all refuse on it.
     refusal: Unservable | None = field(default=None, repr=False)
+    # The writer fence: how many refusals of this vault's writes this process had met at this context's last
+    # request; a new one makes the next request compare the vault's tag with the database's (server).
+    fence_refusals_seen: int = field(default=0, repr=False)
 
     @property
     def origin_device_id(self) -> str | None:
@@ -204,6 +207,9 @@ class SidecarContext:
         with lock:
             object.__setattr__(self, name, value)
             object.__setattr__(self, "vault_generation", self.__dict__.get("vault_generation", 0) + 1)
+        if value is not None:
+            # A vault published in the middle of a request (a reload): the rest of the request writes under it.
+            bind_vault_writes(value)
 
     def load(self, vault_path: str | Path, *, maintenance: bool = True) -> None:
         target = Path(vault_path).resolve()
@@ -240,7 +246,8 @@ class SidecarContext:
             # journal; the opener completes that activation before anything
             # serves or re-projects the vault, or raises InterruptedActivation,
             # and then nothing of this vault is bound or served.
-            repository = open_vault_repository(vault.root, VaultPaths(vault.root, vault.config).sqlite_path)
+            with vault_writes(vault):  # the writer fence: the repository writes under the vault just loaded
+                repository = open_vault_repository(vault.root, VaultPaths(vault.root, vault.config).sqlite_path)
         self.vault_root = target
         self.vault = vault
         self.repository = repository
@@ -414,7 +421,7 @@ class SidecarContext:
             from learnloop.ai import plan_fallback
 
             plan_fallback.revoke_all()
-        with self._stops_serving_when_refused(target):
+        with self._stops_serving_when_refused(target), vault_writes(vault):
             repository = Repository.attach(sqlite_path, read_only=False)
         self.vault_root = target
         self.repository = repository

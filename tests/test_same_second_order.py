@@ -283,6 +283,8 @@ def test_the_upgrade_ranks_legacy_attempts_in_id_order_then_new_ones_follow_in_a
     result = upgrade(paths.root, to=AT)
     assert result.upgraded, result.problems
     vault = load_vault(paths.root)
+    # The writer fence: the repository opened for the predecessor's vault stays bound to it; the reload reopens it.
+    repository = Repository(paths.sqlite_path)
     # The real order (B then A) was never recorded: the legacy rank is the predecessor's (A, B), labelled unknown,
     # and the rebuild under the tag reads it, so the live row the predecessor left is normalized to it.
     assert _sequences(repository) == [

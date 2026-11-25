@@ -85,7 +85,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/bootstrap|learnloop.bootstrap]] — imports `global_ai_defaults_path`, `load_config`; statically calls `global_ai_defaults_path`, `load_config`
 - [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `load_config`; statically calls `load_config`
 - [[Reference/Modules/learnloop/cli/project|learnloop.cli.project]] — imports `LearnLoopConfig`, `load_config`; statically calls `load_config`
-- [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]] — imports `CODEX_PROVIDER_NAMES`, `ConfigLoadError`
+- [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]] — imports `CODEX_PROVIDER_NAMES`, `ConfigLoadError`, `load_config`; statically calls `load_config`
 - [[Reference/Modules/learnloop/cli/success_head|learnloop.cli.success_head]] — imports `MasteryConfig`
 - [[Reference/Modules/learnloop/content/pipeline/acquisition_preview|learnloop.content.pipeline.acquisition_preview]] — imports `LearnLoopConfig`
 - [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] — imports `CODEX_PROVIDER_NAMES`

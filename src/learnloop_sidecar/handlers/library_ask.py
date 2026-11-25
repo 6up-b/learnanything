@@ -36,6 +36,8 @@ from typing import Any, Callable, Literal
 
 from pydantic import Field
 
+from learnloop.db import writer_fence
+from learnloop_sidecar.errors import upgraded_while_open_error
 from learnloop.router_objective import exposure
 from learnloop.source_retrieval import kept_comparisons as KC
 from learnloop.source_retrieval import library_ask as LA
@@ -197,6 +199,8 @@ class _Job:
 def _as_sidecar_error(exc: BaseException) -> SidecarError:
     if isinstance(exc, SidecarError):
         return exc
+    if writer_fence.is_refusal(exc):
+        return upgraded_while_open_error()
     if isinstance(exc, (LA.LibraryAskError, PolicyRefused)):
         return SidecarError(exc.code, str(exc))
     LOG.warning("library ask job failed: %s", type(exc).__name__, exc_info=exc)

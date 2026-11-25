@@ -46,28 +46,28 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/prefetch_runtime.py](../../../../../src/learnloop_sidecar/prefetch_runtime.py) |
-| Source lines | 201 |
+| Source lines | 202 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class PrefetchRuntime` ([source](../../../../../src/learnloop_sidecar/prefetch_runtime.py), line 38) — One context's trigger queue and its single drain thread.
-  - `__init__(self) -> None` (line 41; internal)
-  - `running(self) -> bool` (line 51; public) — A pass is draining the queue now (Codex re-review F18: the Reader's ``prefetchPending``).
-  - `submit(self, ctx: Any, trigger: Any) -> None` (line 57; public)
-  - `_drain(self, ctx: Any, epoch: int | None) -> None` (line 72; internal)
-- `environment(ctx: Any, epoch: int | None) -> Any` ([source](../../../../../src/learnloop_sidecar/prefetch_runtime.py), line 96) — The pass's environment from the context as loaded now (None: no vault, or switched off).
-- `runs_here(ctx: Any) -> bool` ([source](../../../../../src/learnloop_sidecar/prefetch_runtime.py), line 136) — Whether prefetch runs in this context now (the desktop sidecar, the switch on, the env).
-- `pass_running(ctx: Any) -> bool` ([source](../../../../../src/learnloop_sidecar/prefetch_runtime.py), line 148) — Whether this context's prefetch pass is running now (never creates the runtime).
-- `notify(ctx: Any, kind: str, ref: str='', **fields: Any) -> bool` ([source](../../../../../src/learnloop_sidecar/prefetch_runtime.py), line 155) — Queue one trigger (spec §10b.2); False when prefetch does not run here (switched off, a phone or MCP host, no vault).
-- `notify_offer(ctx: Any, origin: str, offer_ref: str | None) -> bool` ([source](../../../../../src/learnloop_sidecar/prefetch_runtime.py), line 174) — RW5b's offers (spec §10b.2): the blocks the tutor's answer or the library organizer's notes said were explorable, confirmed by their ledger rows (the press's own check), queued once per offer as an ``offer`` trigger.
+- `class PrefetchRuntime` ([source](../../../../../src/learnloop_sidecar/prefetch_runtime.py), line 39) — One context's trigger queue and its single drain thread.
+  - `__init__(self) -> None` (line 42; internal)
+  - `running(self) -> bool` (line 52; public) — A pass is draining the queue now (Codex re-review F18: the Reader's ``prefetchPending``).
+  - `submit(self, ctx: Any, trigger: Any) -> None` (line 58; public)
+  - `_drain(self, ctx: Any, epoch: int | None) -> None` (line 73; internal)
+- `environment(ctx: Any, epoch: int | None) -> Any` ([source](../../../../../src/learnloop_sidecar/prefetch_runtime.py), line 97) — The pass's environment from the context as loaded now (None: no vault, or switched off).
+- `runs_here(ctx: Any) -> bool` ([source](../../../../../src/learnloop_sidecar/prefetch_runtime.py), line 137) — Whether prefetch runs in this context now (the desktop sidecar, the switch on, the env).
+- `pass_running(ctx: Any) -> bool` ([source](../../../../../src/learnloop_sidecar/prefetch_runtime.py), line 149) — Whether this context's prefetch pass is running now (never creates the runtime).
+- `notify(ctx: Any, kind: str, ref: str='', **fields: Any) -> bool` ([source](../../../../../src/learnloop_sidecar/prefetch_runtime.py), line 156) — Queue one trigger (spec §10b.2); False when prefetch does not run here (switched off, a phone or MCP host, no vault).
+- `notify_offer(ctx: Any, origin: str, offer_ref: str | None) -> bool` ([source](../../../../../src/learnloop_sidecar/prefetch_runtime.py), line 175) — RW5b's offers (spec §10b.2): the blocks the tutor's answer or the library organizer's notes said were explorable, confirmed by their ledger rows (the press's own check), queued once per offer as an ``offer`` trigger.
 
 ### Module constants
 
-- `_LOG` ([src/learnloop_sidecar/prefetch_runtime.py](../../../../../src/learnloop_sidecar/prefetch_runtime.py), line 35)
-- `PREFETCH_ENV` ([src/learnloop_sidecar/prefetch_runtime.py](../../../../../src/learnloop_sidecar/prefetch_runtime.py), line 133)
+- `_LOG` ([src/learnloop_sidecar/prefetch_runtime.py](../../../../../src/learnloop_sidecar/prefetch_runtime.py), line 36)
+- `PREFETCH_ENV` ([src/learnloop_sidecar/prefetch_runtime.py](../../../../../src/learnloop_sidecar/prefetch_runtime.py), line 134)
 
 ### Explicit exports
 
@@ -83,7 +83,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_runtime(ctx: Any) -> PrefetchRuntime` ([source](../../../../../src/learnloop_sidecar/prefetch_runtime.py), line 122)
+- `_runtime(ctx: Any) -> PrefetchRuntime` ([source](../../../../../src/learnloop_sidecar/prefetch_runtime.py), line 123)
 
 ## Who imports or calls it
 
@@ -101,6 +101,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### LearnLoop dependencies
 
+- [[Reference/Modules/learnloop/db/writer_fence|learnloop.db.writer_fence]] — imports `module`
 - [[Reference/Modules/learnloop/figure_admission|learnloop.figure_admission]] — imports `figures_enabled`, `rich_tiers_enabled`; calls `figures_enabled`, `rich_tiers_enabled`
 - [[Reference/Modules/learnloop/figures/power|learnloop.figures.power]] — imports `module`; calls `prefetch_switch`
 - [[Reference/Modules/learnloop/figures/prefetch|learnloop.figures.prefetch]] — imports `Trigger`, `module`; calls `PrefetchEnv`, `Trigger`, `enabled`, `run_trigger`

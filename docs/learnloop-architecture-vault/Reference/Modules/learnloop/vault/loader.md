@@ -2131,6 +2131,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_lesson_outcome_assessed.py](../../../../../../tests/test_lesson_outcome_assessed.py) — direct import
   - `test_a_malformed_application_record_is_a_labelled_gap`
   - `test_an_unapplied_answer_resolves_no_lesson_check_from_the_tag`
+  - `test_the_routers_miss_cause_learning_credits_no_lesson_with_an_unapplied_answer`
 - [tests/test_lesson_weight_facts.py](../../../../../../tests/test_lesson_weight_facts.py) — direct import
   - `test_a_check_is_stamped_under_the_writer_lock`
   - `test_a_floor_bound_update_at_the_cap_with_equal_numbers_is_applied`
@@ -3776,6 +3777,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_stale_writer_of_this_code_is_refused_and_proceeds_after_a_reload`
   - `test_a_vault_no_fence_aware_activation_touched_is_not_fenced`
   - `test_every_link_from_the_curves_moves_the_fence_and_a_reloaded_grade_writes_under_it`
+- [tests/test_writer_fence_scopes.py](../../../../../../tests/test_writer_fence_scopes.py) — direct import
+  - `test_a_cli_command_writes_under_the_vault_it_loaded_first`
+  - `test_a_repository_opened_for_a_stale_vault_is_refused_after_another_thread_reloaded`
 - [tests/tutor_citations_helpers.py](../../../../../../tests/tutor_citations_helpers.py) — direct import
 - [tests/ux_phase1_landing_helpers.py](../../../../../../tests/ux_phase1_landing_helpers.py) — direct import
 - [tests/ux_phase1_review_fixes_helpers.py](../../../../../../tests/ux_phase1_review_fixes_helpers.py) — direct import
@@ -3783,6 +3787,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/voi_restore_scenarios.py](../../../../../../tests/voi_restore_scenarios.py) — direct import
 - [tests/voi_stopping_helpers.py](../../../../../../tests/voi_stopping_helpers.py) — direct import
 - [tests/why_cases_helpers.py](../../../../../../tests/why_cases_helpers.py) — direct import
+- [tests/writer_fence_helpers.py](../../../../../../tests/writer_fence_helpers.py) — direct import
 
 ## Modification guidance
 

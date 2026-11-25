@@ -276,6 +276,27 @@ describe("the Reader's intents (mobile v2 V4, §3.4, §5.4)", () => {
     expect(await listReaderIntents()).toEqual([]);
   });
 
+  it("an upgrade while the desktop had the vault open keeps it under its id when the host can retry (WF-R11)", async () => {
+    await addReaderIntent(progress("01A", 1));
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ ok: false, error: {
+      code: "vault_upgraded_while_open", message: "The vault has been reloaded: try again.", retryable: true } }), { status: 503 }));
+    await expect(flushOutbox()).resolves.toEqual({ reason: "offline" });
+    expect((await listReaderIntents())[0].problem ?? null).toBeNull();
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ ok: true, result: {} }), { status: 200 }));
+    await expect(flushOutbox()).resolves.toEqual({ reason: "drained" });
+    expect(sentBodies().map((body) => body.request_id)).toEqual(["01A", "01A"]);
+    expect(await listReaderIntents()).toEqual([]);
+  });
+
+  it("an upgrade the host cannot retry past is flagged with its words (WF-R11)", async () => {
+    await addReaderIntent(progress("01A", 1));
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ ok: false, error: {
+      code: "vault_upgraded_while_open", message: "Run `learnloop upgrade` once.", retryable: false } }), { status: 503 }));
+    await expect(flushOutbox()).resolves.toEqual({ reason: "drained" });
+    const [kept] = await listReaderIntents();
+    expect(kept.problem).toEqual({ kind: "conflict", message: "Run `learnloop upgrade` once." });
+  });
+
   it("a busy host keeps it; a conflict on its key is flagged, never sent again", async () => {
     await addReaderIntent(progress("01A", 1));
     fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ ok: false, error: { code: "host_busy", message: "busy", retryable: true } }), { status: 503 }));

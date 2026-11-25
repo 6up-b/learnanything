@@ -101,6 +101,7 @@ None found by exact static reference scan.
 - `tests/attempt_application_order_migration_helpers.py`
 - `tests/test_attempt_application_order_migration.py`
 - `tests/test_attempt_order.py`
+- `tests/test_lesson_outcome_assessed.py`
 - `tests/test_lesson_weight_facts_integration.py`
 - `tests/test_one_instant_per_grade.py`
 - `tests/test_same_second_order.py`

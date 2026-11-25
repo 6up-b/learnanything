@@ -86,7 +86,7 @@ For system intent, use [[Learning System]], [[AI Architecture]].
 - [[Reference/Modules/learnloop/_package|learnloop]] — 20 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 14 static module edges
 - [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 13 static module edges
-- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 11 static module edges
+- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 12 static module edges
 - [[Reference/Modules/learnloop/ingest/extractors/_package|learnloop.ingest.extractors]] — 11 static module edges
 - [[Reference/Modules/learnloop/config/_package|learnloop.config]] — 9 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 9 static module edges
@@ -128,8 +128,8 @@ flowchart LR
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
     n_learnloop_vault["learnloop.vault"]
     n_learnloop_content_sources["learnloop.content.sources"]
-    n_learnloop_content_synthesis["learnloop.content.synthesis"]
     n_learnloop_db["learnloop.db"]
+    n_learnloop_content_synthesis["learnloop.content.synthesis"]
     n_learnloop_ingest_extractors["learnloop.ingest.extractors"]
     n_learnloop_config["learnloop.config"]
     center -->|25| n_learnloop_ai
@@ -138,9 +138,9 @@ flowchart LR
     n_learnloop_sidecar_handlers -->|15| center
     center -->|14| n_learnloop_vault
     center -->|13| n_learnloop_content_sources
+    center -->|12| n_learnloop_db
     n_learnloop_content_synthesis -->|4| center
     center -->|7| n_learnloop_content_synthesis
-    center -->|11| n_learnloop_db
     center -->|11| n_learnloop_ingest_extractors
     center -->|9| n_learnloop_config
 ```

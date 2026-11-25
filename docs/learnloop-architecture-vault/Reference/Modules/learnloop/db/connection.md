@@ -37,7 +37,7 @@ Up: [[Reference/Modules/learnloop/db/_package|learnloop.db]] · Root: [[Module C
 
 ## Why this module exists
 
-This module keeps connection behavior inside its owning package, [[Reference/Modules/learnloop/db/_package|learnloop.db]]. Its public surface centers on `UnsupportedSQLiteVersion`, `require_supported_sqlite`, `linked_sqlite_version`, `wal_reset_bug_fixed`, `wal_unavailable_reason`, `connect`, `writer_fence_key`, `reused_connections`.
+This module keeps connection behavior inside its owning package, [[Reference/Modules/learnloop/db/_package|learnloop.db]]. Its public surface centers on `UnsupportedSQLiteVersion`, `require_supported_sqlite`, `linked_sqlite_version`, `wal_reset_bug_fixed`, `wal_unavailable_reason`, `connect`, `reused_connections`.
 
 The authoritative system-level explanation remains in [[State and Persistence]], [[Architecture Overview]]; this note records where this source module participates rather than restating those concepts.
 
@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/db/connection.py](../../../../../../src/learnloop/db/connection.py) |
-| Source lines | 399 |
+| Source lines | 403 |
 | Owning package | [[Reference/Modules/learnloop/db/_package|learnloop.db]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
@@ -61,8 +61,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - `wal_reset_bug_fixed(version: tuple[int, int, int] | None=None) -> bool` ([source](../../../../../../src/learnloop/db/connection.py), line 61) — Whether ``version`` (default: the linked SQLite) has the WAL-reset fix.
 - `wal_unavailable_reason(version: tuple[int, int, int] | None=None) -> str | None` ([source](../../../../../../src/learnloop/db/connection.py), line 74) — Why WAL must not be enabled with ``version``, or ``None`` when it may be.
 - `connect(sqlite_path: Path, *, read_only: bool=False) -> sqlite3.Connection` ([source](../../../../../../src/learnloop/db/connection.py), line 90) — Open a configured SQLite connection.
-- `writer_fence_key(sqlite_path: Path) -> tuple[str, ...]` ([source](../../../../../../src/learnloop/db/connection.py), line 135) — The binding a writable connection opened now would carry: part of a pool's key (``reused_connections``).
-- `reused_connections() -> Iterator[None]` ([source](../../../../../../src/learnloop/db/connection.py), line 148) — Router speed stage 2, item 4: inside, every :func:`connect` made **on the thread that opened the scope** hands out a connection of this scope's pool instead of opening one (SQLite parses the whole schema at a connection's first statement: about 2 ms here, hundreds of times in on…
+- `reused_connections() -> Iterator[None]` ([source](../../../../../../src/learnloop/db/connection.py), line 151) — Router speed stage 2, item 4: inside, every :func:`connect` made **on the thread that opened the scope** hands out a connection of this scope's pool instead of opening one (SQLite parses the whole schema at a connection's first statement: about 2 ms here, hundreds of times in on…
 
 ### Module constants
 
@@ -72,19 +71,19 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - `WAL_RESET_FIXED_VERSIONS_TEXT` ([src/learnloop/db/connection.py](../../../../../../src/learnloop/db/connection.py), line 33)
 - `WAL_RESET_ADVISORY_URL` ([src/learnloop/db/connection.py](../../../../../../src/learnloop/db/connection.py), line 34)
 - `_READ_ONLY_OPEN_FAILURES` ([src/learnloop/db/connection.py](../../../../../../src/learnloop/db/connection.py), line 38)
-- `_REUSED` ([src/learnloop/db/connection.py](../../../../../../src/learnloop/db/connection.py), line 144)
-- `_READ_ACTIONS` ([src/learnloop/db/connection.py](../../../../../../src/learnloop/db/connection.py), line 310)
-- `_RESET_ATTRIBUTES` ([src/learnloop/db/connection.py](../../../../../../src/learnloop/db/connection.py), line 313)
-- `_CONNECTION_STATE_CALLS` ([src/learnloop/db/connection.py](../../../../../../src/learnloop/db/connection.py), line 315)
+- `_REUSED` ([src/learnloop/db/connection.py](../../../../../../src/learnloop/db/connection.py), line 147)
+- `_READ_ACTIONS` ([src/learnloop/db/connection.py](../../../../../../src/learnloop/db/connection.py), line 314)
+- `_RESET_ATTRIBUTES` ([src/learnloop/db/connection.py](../../../../../../src/learnloop/db/connection.py), line 317)
+- `_CONNECTION_STATE_CALLS` ([src/learnloop/db/connection.py](../../../../../../src/learnloop/db/connection.py), line 319)
 
 ## Internal implementation anchors
 
-- `_open_writable(sqlite_path: Path, *, factory: type[sqlite3.Connection]=sqlite3.Connection) -> sqlite3.Connection` ([source](../../../../../../src/learnloop/db/connection.py), line 124)
-- `class _ConnectionPool` ([source](../../../../../../src/learnloop/db/connection.py), line 175) — One scope's idle connections, by database and mode, for its own thread only.
-- `class _ReusedConnection` ([source](../../../../../../src/learnloop/db/connection.py), line 228) — A pooled connection as its user sees it: a raw connection's methods, whose ``close()`` gives it back to the pool reset (:func:`reused_connections`).
-- `class _PooledSqlite(sqlite3.Connection)` ([source](../../../../../../src/learnloop/db/connection.py), line 320) — A pooled connection's SQLite connection (router speed stage 2, landing ruling R4: Codex's verify N1).
-- `_configure(connection: sqlite3.Connection) -> None` ([source](../../../../../../src/learnloop/db/connection.py), line 364)
-- `_open_read_only(sqlite_path: Path, *, factory: type[sqlite3.Connection]=sqlite3.Connection) -> sqlite3.Connection` ([source](../../../../../../src/learnloop/db/connection.py), line 370) — Open with ``mode=ro`` and surface a WAL open failure here (``factory``: a pooled connection's class).
+- `_open_writable(sqlite_path: Path, *, factory: type[sqlite3.Connection]=writer_fence.FencedConnection, writer_tags: frozenset[str] | None=None) -> sqlite3.Connection` ([source](../../../../../../src/learnloop/db/connection.py), line 127)
+- `class _ConnectionPool` ([source](../../../../../../src/learnloop/db/connection.py), line 178) — One scope's idle connections, by database and mode, for its own thread only.
+- `class _ReusedConnection` ([source](../../../../../../src/learnloop/db/connection.py), line 232) — A pooled connection as its user sees it: a raw connection's methods, whose ``close()`` gives it back to the pool reset (:func:`reused_connections`).
+- `class _PooledSqlite(writer_fence.FencedConnection)` ([source](../../../../../../src/learnloop/db/connection.py), line 324) — A pooled connection's SQLite connection (router speed stage 2, landing ruling R4: Codex's verify N1).
+- `_configure(connection: sqlite3.Connection) -> None` ([source](../../../../../../src/learnloop/db/connection.py), line 368)
+- `_open_read_only(sqlite_path: Path, *, factory: type[sqlite3.Connection]=sqlite3.Connection) -> sqlite3.Connection` ([source](../../../../../../src/learnloop/db/connection.py), line 374) — Open with ``mode=ro`` and surface a WAL open failure here (``factory``: a pooled connection's class).
 
 ## Who imports or calls it
 
@@ -212,6 +211,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/ops/embedding_backfill|learnloop.ops.embedding_backfill]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop/ops/family_proposals|learnloop.ops.family_proposals]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop/ops/graph_nomination_report|learnloop.ops.graph_nomination_report]] — imports `connect`; statically calls `connect`
+- [[Reference/Modules/learnloop/ops/upgrades|learnloop.ops.upgrades]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop/passage_union/union|learnloop.passage_union.union]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop/practice_index/dossiers|learnloop.practice_index.dossiers]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop/practice_index/evaluation|learnloop.practice_index.evaluation]] — imports `connect`; statically calls `connect`
@@ -263,6 +263,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/teacher/visuals|learnloop.teacher.visuals]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop/tutor/context_delivery|learnloop.tutor.context_delivery]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop/vault/embedding_recipes|learnloop.vault.embedding_recipes]] — imports `connect`; statically calls `connect`
+- [[Reference/Modules/learnloop/vault/repository|learnloop.vault.repository]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop/vault/writer|learnloop.vault.writer]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop/workbench/bridge|learnloop.workbench.bridge]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop/workbench/check|learnloop.workbench.check]] — imports `connect`; statically calls `connect`
@@ -285,6 +286,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop_sidecar/handlers/workbench|learnloop_sidecar.handlers.workbench]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop_sidecar/handlers/workbench_help|learnloop_sidecar.handlers.workbench_help]] — imports `connect`; statically calls `connect`
 - [[Reference/Modules/learnloop_sidecar/handlers/workbench_rw2c|learnloop_sidecar.handlers.workbench_rw2c]] — imports `connect`; statically calls `connect`
+- [[Reference/Modules/learnloop_sidecar/server|learnloop_sidecar.server]] — imports `connect`; statically calls `connect`
 
 ### Repository tooling consumers
 
@@ -311,7 +313,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Doctor Migrations and Recovery]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/background|learnloop.adaptive_difficulty.background]], [[Reference/Modules/learnloop/adaptive_difficulty/data_check|learnloop.adaptive_difficulty.data_check]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/generation|learnloop.adaptive_difficulty.generation]] and 189 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/background|learnloop.adaptive_difficulty.background]], [[Reference/Modules/learnloop/adaptive_difficulty/data_check|learnloop.adaptive_difficulty.data_check]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/generation|learnloop.adaptive_difficulty.generation]] and 192 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -1070,6 +1072,13 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_pool_never_hands_a_connection_to_another_binding`
   - `test_a_wal_reader_from_before_the_activation_cannot_commit_after_it`
   - `test_every_fenced_write_refuses_a_writer_bound_to_another_tag`
+- [tests/test_writer_fence_scopes.py](../../../../../../tests/test_writer_fence_scopes.py) — direct import
+  - `test_a_pool_checkout_reads_its_binding_once`
+  - `test_a_refusal_on_a_connection_this_code_opened_is_the_fences_own_exception`
+  - `test_a_sidecar_request_writes_under_its_own_contexts_vault`
+  - `test_a_stale_reader_cannot_first_complete_a_section_but_still_records_progress`
+  - `test_a_stale_serve_presentation_probe_pin_or_adjudication_is_refused`
+  - `test_an_activation_refuses_a_database_at_another_tag_than_its_predecessor`
 
 ## Modification guidance
 

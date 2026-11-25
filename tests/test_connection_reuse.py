@@ -14,6 +14,7 @@ import sqlite3
 
 import pytest
 
+from learnloop.db import writer_fence
 from learnloop.db import connection as DBC
 from learnloop.db.connection import connect
 from learnloop.db.copies import backup_database
@@ -235,7 +236,7 @@ def test_another_thread_opens_its_own_and_the_pool_closes_with_the_test(tmp_path
     thread = threading.Thread(target=read)
     thread.start()
     thread.join()
-    assert types == [sqlite3.Connection]
+    assert types == [writer_fence.FencedConnection]  # production's own writable connection, not a pooled one
 
 
 def test_a_test_that_forbids_opening_a_connection_is_not_satisfied_by_an_idle_one(tmp_path, monkeypatch):
@@ -265,7 +266,7 @@ def test_the_marker_opens_real_connections(tmp_path):
     database = _database(tmp_path)
     assert DBC._REUSED.get() is None
     with closing(connect(database)) as connection:
-        assert type(connection) is sqlite3.Connection
+        assert type(connection) is writer_fence.FencedConnection  # production's writable connection, unpooled
 
 
 @pytest.mark.durability
@@ -275,7 +276,7 @@ def test_the_durability_lane_runs_production_connections_copies_and_fsync(tmp_pa
     assert DBC._REUSED.get() is None
     database = Path(create_basic_vault(tmp_path / "vault").sqlite_path)
     with closing(connect(database)) as connection:
-        assert type(connection) is sqlite3.Connection
+        assert type(connection) is writer_fence.FencedConnection  # production's writable connection, unpooled
         assert connection.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
         assert connection.execute("PRAGMA synchronous").fetchone()[0] == 2  # FULL
     synced: list[int] = []

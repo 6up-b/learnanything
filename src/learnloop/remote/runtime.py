@@ -33,6 +33,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from learnloop.vault.repository import vault_writes
 from learnloop import activation_journal
 from learnloop.config.loader import load_config
 from learnloop.db.migrate import schema_is_current
@@ -153,6 +154,9 @@ class RemoteRuntime:
                 if self._vault is None or fingerprint != self._fingerprint:
                     try:
                         self._vault, self._fingerprint = self._settled_load(files, fingerprint)
+                        # The writer fence: the repository writes under the vault just loaded.
+                        with vault_writes(self._vault):
+                            self.repository = Repository.attach(self.sqlite_path, read_only=False)
                     except BaseException as failure:
                         # The cached vault is the one the failed load was replacing: keeping it, or advancing the
                         # window, would serve it to the next requests while the change stands.
@@ -165,6 +169,18 @@ class RemoteRuntime:
                 else:
                     self._checked_at = now
             return self._vault
+
+    def forget_vault(self) -> None:
+        """Drop the cached vault (the writer fence refused a write computed from it, WF-R12): the next request
+        loads the vault again at once, not after the fingerprint's window."""
+
+        with self._lock:
+            self._vault, self._fingerprint, self._checked_at = None, None, float("-inf")
+
+    def writes(self):
+        """The writer fence's scope for one request: its writes are bound to the vault it loads now."""
+
+        return vault_writes(self.vault())
 
     def _settled_load(self, files: dict[str, tuple[int, int]], fingerprint: str) -> tuple[LoadedVault, str | None]:
         """A load whose files did not change while it ran, with its fingerprint;

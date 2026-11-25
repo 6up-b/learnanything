@@ -226,6 +226,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_one_refused_node_forecast_leaves_its_siblings`
   - `test_switch_off_has_no_p_held_and_writes_no_forecast`
   - `test_the_forecast_report_resolves_it_on_the_first_cold_outcome`
+- [tests/test_writer_fence_scopes.py](../../../../../../tests/test_writer_fence_scopes.py) — direct import
+  - `test_the_forecast_receipt_writer_does_not_swallow_a_refusal`
 
 ## Modification guidance
 

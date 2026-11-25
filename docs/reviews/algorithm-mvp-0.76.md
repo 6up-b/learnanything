@@ -15,7 +15,8 @@ The successor of mvp-0.75 for the review-round-3 fixes that change what is deriv
   `mastery_applications(...).applied` and drops it; all three readers take the next assessed cold answer. An answer
   without a record (below the facts' tag, or a malformed one) is read as before. Test:
   `tests/test_lesson_outcome_assessed.py::test_an_unapplied_answer_resolves_no_lesson_check_from_the_tag` (both sides
-  of the tag).
+  of the tag). The router's miss-cause learning end to end:
+  `test_the_routers_miss_cause_learning_credits_no_lesson_with_an_unapplied_answer` (both sides of the tag).
 - FR3-16 (class 8): without mastery's IRT link, the forecast surprise is scored against is clipped by the configured
   `mastery.irt.p_clip` once, after a primed answer's shift (`forecast_clipped_after_shift`), and the residual and
   `p_scored` read that one probability, as the IRT link already did. Up to mvp-0.75 an interior forecast outside the

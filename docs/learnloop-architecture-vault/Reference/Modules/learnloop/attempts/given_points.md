@@ -47,19 +47,19 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/attempts/given_points.py](../../../../../../src/learnloop/attempts/given_points.py) |
-| Source lines | 43 |
+| Source lines | 42 |
 | Owning package | [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `given_points_as_evidence(attempt: Any, now_iso: str) -> Any` ([source](../../../../../../src/learnloop/attempts/given_points.py), line 17) — A live grade that reaches the door with criterion points and no evidence rows gets the given points recorded as its rows.
+- `given_points_as_evidence(attempt: Any, now_iso: str) -> Any` ([source](../../../../../../src/learnloop/attempts/given_points.py), line 15) — A live grade that reaches the door with criterion points and no evidence rows gets the given points recorded as its rows.
 
 ### Module constants
 
-- `GIVEN_POINTS_LOCAL_GRADER_ID` ([src/learnloop/attempts/given_points.py](../../../../../../src/learnloop/attempts/given_points.py), line 13)
-- `GIVEN_POINTS_GRADER_TIER` ([src/learnloop/attempts/given_points.py](../../../../../../src/learnloop/attempts/given_points.py), line 14)
+- `GIVEN_POINTS_LOCAL_GRADER_ID` ([src/learnloop/attempts/given_points.py](../../../../../../src/learnloop/attempts/given_points.py), line 11)
+- `GIVEN_POINTS_GRADER_TIER` ([src/learnloop/attempts/given_points.py](../../../../../../src/learnloop/attempts/given_points.py), line 12)
 
 ## Internal implementation anchors
 
@@ -76,7 +76,7 @@ No private top-level function or class definition is declared in this file.
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
+No internal Python dependency was found by static analysis.
 
 ### Platform and third-party dependencies
 

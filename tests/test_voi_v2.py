@@ -28,6 +28,7 @@ branch's before the study, exactly (``tests/voi_restore_golden.json``).
 from __future__ import annotations
 
 import json
+import os
 
 import pytest
 
@@ -401,13 +402,28 @@ def test_at_their_restore_values_the_switches_reproduce_the_branchs_decisions_ex
     """robust_gate_with_value = true, lookahead_max_checks = 1 and
     robust_quantile = 0.10 give the decisions the branch took before the
     study (pinned at 1b094b73): every pure scenario and the real probe vault's
-    builds, episodes and completions, the robust gate's included."""
+    builds, episodes and completions, the robust gate's included.
+
+    The integration half is re-pinned (review round 3, FR3-23): the scenario's
+    probe answers give criterion points without evidence rows, which the attempt
+    door now records as the grade's rows, so the answers take production's
+    evidence path (grading evidence, contract snapshot, facet evidence) and the
+    robust channel's numbers and the build's best reference move. The pin at
+    1b094b73 recorded the same scenario with answers that carried no evidence
+    rows. The pure half is unchanged. ``VOI_RESTORE_WRITE_GOLDEN=1`` rewrites the
+    integration half from this run."""
 
     from tests import voi_restore_scenarios as S
 
     golden = S.load_golden()
     assert S.pure_decisions(_restore_config()) == golden["pure"]
-    assert S.integration_decisions(tmp_path, monkeypatch, toml=_RESTORE_TOML) == golden["integration"]
+    integration = S.integration_decisions(tmp_path, monkeypatch, toml=_RESTORE_TOML)
+    if os.environ.get("VOI_RESTORE_WRITE_GOLDEN") == "1":
+        golden["integration"] = integration
+        golden["written_by"] = ("pure: serving/voi-stopping at 1b094b73 (before the multi-family study's switches); "
+                                "integration: re-pinned when probe answers took production's evidence path (FR3-23)")
+        S.GOLDEN_PATH.write_text(json.dumps(golden, indent=1, sort_keys=True) + "\n", encoding="utf-8")
+    assert integration == golden["integration"]
 
 
 @pytest.mark.parametrize(
@@ -537,6 +553,14 @@ def test_a_value_continue_past_the_gate_carries_its_verdict_on_the_committed_rec
     _minutes(monkeypatch, 0.0001)
     episode = _answer_probe(vault, repository, score=0)
     assert episode.status == "in_progress"
+    # The answered surface is out of this serve (its item state inactive), so the next serve is the episode's next
+    # probe rather than a repeat of that surface as ordinary practice. Re-pinned setup (FR3-23): with the probe
+    # answer's points recorded as evidence rows, as production's grader records them, the repeat out-ranked the
+    # probes it competed with; before, the answer carried no evidence and the probes led.
+    state = repository.practice_item_state("pi_svd_define_001")
+    repository.upsert_practice_item_state(
+        "pi_svd_define_001", difficulty=state.difficulty, stability=state.stability, due_at=state.due_at,
+        last_attempt_at=state.last_attempt_at, active=False, clock=CLOCK)
     session_id = repository.create_session(energy=None, sleep_quality=None, available_minutes=30, notes_md_path=None)
     S.serve_due_queue(vault, repository, clock=CLOCK, session=S.SchedulerSession(session_id=session_id))
     presentation = repository.active_probe_presentation_for_session(session_id)

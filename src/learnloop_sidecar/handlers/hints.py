@@ -43,6 +43,8 @@ from typing import Any, Callable, Literal
 
 from pydantic import Field
 
+from learnloop.db import writer_fence
+from learnloop_sidecar.errors import upgraded_while_open_error
 from learnloop.ai import plan_fallback
 from learnloop.hints import service as hint_service
 from learnloop.hints.map_builder import schedule_merge_after_hint
@@ -160,6 +162,8 @@ class HintJobs:
 def _as_sidecar_error(exc: BaseException) -> SidecarError:
     if isinstance(exc, SidecarError):
         return exc
+    if writer_fence.is_refusal(exc):
+        return upgraded_while_open_error()
     if isinstance(exc, HintRequestError):
         return SidecarError(exc.code, str(exc), details={"field": exc.field} if exc.field else None)
     LOG.warning("hint job failed: %s", type(exc).__name__, exc_info=exc)

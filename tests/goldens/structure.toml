@@ -56,7 +56,9 @@ source_text_assertions = 23
 # 5889: review round 3 (FR3-23, owner decision b): the door records points given without evidence rows as the grade's
 # rows (the import, the call and its comment; the rows are built in attempts/given_points.py).
 "src/learnloop/attempts/attempts.py" = 5889
-"src/learnloop/db/repositories.py" = 3025
+# 3034: the writer fence's review fix round (WF-R1): a repository keeps the binding it was made with (the field, the
+# connection helper and its three call sites, the import).
+"src/learnloop/db/repositories.py" = 3034
 # 4468: the probe router's continuation (G2 R8): a router-owned episode's one candidate is the item its standing pin
 # names, admitted by that decision whatever its EIG and placed first (the episode reads, the probe gate's admission, the
 # lazy reads' field, the front placement).
@@ -87,7 +89,10 @@ source_text_assertions = 23
 # attempt_grade_curves row (23 rows) and the tag; no other value moved.
 # 307812: from mvp-0.75 each graded attempt's payload records mastery's application facts (the grade-application
 # golden's 88 and the diagnosis journey golden's 18 payloads) and the tag; no other value moved.
-golden_json_lines = 307812
+# 308712: review round 3 (FR3-23, option i): the diagnosis journey golden's answers gave points without evidence rows;
+# the door records them as rows, so the journey takes production's evidence path (grade evidence and contract
+# snapshots, the grade channel, facet evidence and the probe state that reads it).
+golden_json_lines = 308712
 
 [members]
 import_component = [

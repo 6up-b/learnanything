@@ -113,12 +113,14 @@ def predecessor_binary():
     """Connections opened inside are what code from before the fence opens: no fence function on them."""
 
     with pytest.MonkeyPatch.context() as patch:
-        patch.setattr(writer_fence, "register", lambda connection, sqlite_path: frozenset())
+        patch.setattr(writer_fence, "register", lambda connection, sqlite_path, tags: frozenset())
+        # Nor the fence's own exception: an older binary meets the trigger's IntegrityError as it is.
+        patch.setattr(writer_fence, "raise_refusal", lambda cursor, error: None)
         yield
 
 
 def _refused(error: BaseException) -> bool:
-    return isinstance(error, sqlite3.IntegrityError) and writer_fence.REFUSAL in str(error)
+    return writer_fence.is_refusal(error)
 
 
 # -- the schema ------------------------------------------------------------------------------------------------------
@@ -233,14 +235,15 @@ def test_a_stale_writer_of_this_code_is_refused_and_proceeds_after_a_reload(tmp_
     assert writer_fence.binding(paths.sqlite_path) == {PREDECESSOR}
     attempts = _count(paths, "practice_attempts")
 
-    with pytest.raises(sqlite3.IntegrityError) as refused:
+    with pytest.raises(writer_fence.WriterFenceRefusal) as refused:
         _grade(stale, repository, minutes=2)
     assert _refused(refused.value) and writer_fence.is_refusal(refused.value)
     assert _count(paths, "practice_attempts") == attempts and _surprise_without_curve(paths) == 0
 
     fresh = load_vault(paths.root)  # the reload: the process now writes under the vault's tag
     assert fresh.config.algorithms.algorithm_version == TARGET
-    result = _grade(fresh, repository, minutes=2)
+    # The repository opened for the stale vault stays bound to it (WF-R1): the reload opens the vault's repository again.
+    result = _grade(fresh, Repository(paths.sqlite_path), minutes=2)
     with closing(sqlite3.connect(paths.sqlite_path)) as connection:
         curve = connection.execute(
             "SELECT algorithm_version, provenance FROM attempt_grade_curves WHERE attempt_id = ?", (result.attempt_id,)
@@ -248,7 +251,9 @@ def test_a_stale_writer_of_this_code_is_refused_and_proceeds_after_a_reload(tmp_
     assert curve == (TARGET, "graded")
 
 
-@pytest.mark.parametrize(("table", "event"), writer_fence.GUARDED, ids=lambda value: str(value))
+# A fenced pair with a condition (a Reader section's first completion) has its own test in test_writer_fence_scopes.py.
+@pytest.mark.parametrize(("table", "event"), [pair for pair in writer_fence.GUARDED if pair not in writer_fence.GUARD_CONDITIONS],
+                         ids=lambda value: str(value))
 def test_every_fenced_write_refuses_a_writer_bound_to_another_tag(tmp_path, table, event):
     paths = _vault_at(tmp_path, PREDECESSOR)
     assert upgrade(paths.root, to=TARGET).upgraded
@@ -258,7 +263,7 @@ def test_every_fenced_write_refuses_a_writer_bound_to_another_tag(tmp_path, tabl
         assert _count(paths, table) > 0
     with writer_fence.writing_under(paths.sqlite_path, PREDECESSOR):
         with closing(connect(paths.sqlite_path)) as connection:
-            with pytest.raises(sqlite3.IntegrityError) as refused:
+            with pytest.raises(writer_fence.WriterFenceRefusal) as refused:
                 connection.execute(statement)
             assert _refused(refused.value)
     with writer_fence.writing_under(paths.sqlite_path, TARGET):
@@ -280,7 +285,7 @@ def test_a_pool_never_hands_a_connection_to_another_binding(tmp_path):
             current.close()
         with writer_fence.writing_under(paths.sqlite_path, PREDECESSOR):
             stale = connect(paths.sqlite_path)
-            with pytest.raises(sqlite3.IntegrityError) as refused:
+            with pytest.raises(writer_fence.WriterFenceRefusal) as refused:
                 stale.execute("INSERT INTO lesson_checks DEFAULT VALUES")
             assert _refused(refused.value)
             stale.close()
@@ -320,7 +325,7 @@ def test_a_death_between_the_activation_and_the_publication_leaves_the_predecess
     _grade(load_vault(paths.root), repository, minutes=2)
     with writer_fence.writing_under(paths.sqlite_path, TARGET):
         with closing(connect(paths.sqlite_path)) as connection:
-            with pytest.raises(sqlite3.IntegrityError) as refused:
+            with pytest.raises(writer_fence.WriterFenceRefusal) as refused:
                 connection.execute("INSERT INTO lesson_checks DEFAULT VALUES")
             assert _refused(refused.value)
 
@@ -338,7 +343,7 @@ def test_a_death_after_the_publication_keeps_the_database_tag_until_the_completi
     # A writer of the successor would put successor rows into the predecessor's database: refused.
     with writer_fence.writing_under(paths.sqlite_path, TARGET):
         with closing(connect(paths.sqlite_path)) as connection:
-            with pytest.raises(sqlite3.IntegrityError) as refused:
+            with pytest.raises(writer_fence.WriterFenceRefusal) as refused:
                 connection.execute("INSERT INTO lesson_checks DEFAULT VALUES")
             assert _refused(refused.value)
     # A predecessor's write in the window is predecessor history, and the completion freezes its curve with the rest.
@@ -352,7 +357,7 @@ def test_a_death_after_the_publication_keeps_the_database_tag_until_the_completi
         ).fetchone()
     assert curve == (PREDECESSOR,)
     with writer_fence.writing_under(paths.sqlite_path, PREDECESSOR):
-        with pytest.raises(sqlite3.IntegrityError) as refused:
+        with pytest.raises(writer_fence.WriterFenceRefusal) as refused:
             _grade(stale, Repository(paths.sqlite_path), minutes=3)
     assert _refused(refused.value)
 
@@ -379,7 +384,7 @@ def test_a_wal_reader_from_before_the_activation_cannot_commit_after_it(tmp_path
         assert "locked" in str(stale_snapshot.value) or _refused(stale_snapshot.value)
         snapshot.rollback()
         lock_first.execute("BEGIN IMMEDIATE")
-        with pytest.raises(sqlite3.IntegrityError) as refused:
+        with pytest.raises(writer_fence.WriterFenceRefusal) as refused:
             _copy_last_row(lock_first, "practice_attempts", "id", "pa_stale_writer")
         assert _refused(refused.value)
         lock_first.rollback()

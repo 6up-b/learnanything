@@ -2392,6 +2392,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/ux_phase4_feedback_helpers.py](../../../../../tests/ux_phase4_feedback_helpers.py) — direct import
 - [tests/voi_stopping_helpers.py](../../../../../tests/voi_stopping_helpers.py) — direct import
 - [tests/why_cases_helpers.py](../../../../../tests/why_cases_helpers.py) — direct import
+- [tests/writer_fence_helpers.py](../../../../../tests/writer_fence_helpers.py) — direct import
 
 ## Modification guidance
 

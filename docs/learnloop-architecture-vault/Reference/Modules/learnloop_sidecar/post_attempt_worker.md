@@ -47,39 +47,40 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/post_attempt_worker.py](../../../../../src/learnloop_sidecar/post_attempt_worker.py) |
-| Source lines | 330 |
+| Source lines | 339 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class PostAttemptWorker` ([source](../../../../../src/learnloop_sidecar/post_attempt_worker.py), line 53)
-  - `__init__(self, *, autostart: bool=True) -> None` (line 54; internal)
-  - `note_wait(self, session_id: str, seconds: float) -> None` (line 84; public)
-  - `take_wait(self, session_id: str) -> float` (line 88; public)
-  - `bind(self, supplier: VaultSupplier) -> None` (line 92; public) — ``supplier`` returns the CURRENT (vault, sqlite path) or None.
-  - `notify(self) -> None` (line 100; public) — A job may be runnable: wake both slots (start them on first use).
-  - `request_probe_router(self) -> None` (line 121; public) — A status read left a factor waiting on the router's decision (or a start found one): run the decision slot once.
-  - `_take_probe_router_due(self) -> bool` (line 129; internal)
-  - `running(self) -> bool` (line 135; public)
-  - `shutdown(self, timeout: float=2.0) -> None` (line 139; public) — Stop the slots: each wakes and returns, and a job in flight stops before its next paid request.
-  - `_repository(self, sqlite_path: Any) -> Any` (line 156; internal)
-  - `run_pending(self, kind: str='diagnose', *, max_jobs: int=100, clock: Any=None) -> list[Any]` (line 162; public) — Synchronously run runnable jobs of ``kind`` (tests and drains).
-  - `_run_gaps(self, vault: Any, repository: Any, *, max_jobs: int, clock: Any) -> list[Any]` (line 212; internal)
-  - `_run_followup(self, vault: Any, repository: Any, *, max_jobs: int, clock: Any) -> list[Any]` (line 242; internal) — FG1: the generation slot, apart from the strictly ordered diagnosis slot, so a later diagnosis is never delayed by a question being written (spec §5 item 1).
-  - `_run_probe_router(self, vault: Any, repository: Any, *, max_jobs: int, clock: Any) -> list[Any]` (line 263; internal) — The probe router's decisions, off the request loop: the learner lane's a status read left waiting, then the continuations router-owned episodes wait on.
-  - `_with_busy_retry(self, work: Callable[[], Any]) -> Any` (line 278; internal)
-  - `_loop(self, kind: str) -> None` (line 293; internal)
-  - `wait_for(self, pending: Callable[[], list[str]], timeout: float) -> tuple[list[str], float]` (line 308; public) — Wait until ``pending()`` is empty or ``timeout`` passes.
+- `class PostAttemptWorker` ([source](../../../../../src/learnloop_sidecar/post_attempt_worker.py), line 55)
+  - `__init__(self, *, autostart: bool=True) -> None` (line 56; internal)
+  - `note_wait(self, session_id: str, seconds: float) -> None` (line 86; public)
+  - `take_wait(self, session_id: str) -> float` (line 90; public)
+  - `bind(self, supplier: VaultSupplier) -> None` (line 94; public) — ``supplier`` returns the CURRENT (vault, sqlite path) or None.
+  - `notify(self) -> None` (line 102; public) — A job may be runnable: wake both slots (start them on first use).
+  - `request_probe_router(self) -> None` (line 123; public) — A status read left a factor waiting on the router's decision (or a start found one): run the decision slot once.
+  - `_take_probe_router_due(self) -> bool` (line 131; internal)
+  - `running(self) -> bool` (line 137; public)
+  - `shutdown(self, timeout: float=2.0) -> None` (line 141; public) — Stop the slots: each wakes and returns, and a job in flight stops before its next paid request.
+  - `_repository(self, sqlite_path: Any) -> Any` (line 158; internal)
+  - `run_pending(self, kind: str='diagnose', *, max_jobs: int=100, clock: Any=None) -> list[Any]` (line 164; public) — Synchronously run runnable jobs of ``kind`` (tests and drains).
+  - `_run_supplied(self, kind: str, vault: Any, sqlite_path: Any, *, max_jobs: int, clock: Any) -> list[Any]` (line 175; internal)
+  - `_run_gaps(self, vault: Any, repository: Any, *, max_jobs: int, clock: Any) -> list[Any]` (line 219; internal)
+  - `_run_followup(self, vault: Any, repository: Any, *, max_jobs: int, clock: Any) -> list[Any]` (line 249; internal) — FG1: the generation slot, apart from the strictly ordered diagnosis slot, so a later diagnosis is never delayed by a question being written (spec §5 item 1).
+  - `_run_probe_router(self, vault: Any, repository: Any, *, max_jobs: int, clock: Any) -> list[Any]` (line 270; internal) — The probe router's decisions, off the request loop: the learner lane's a status read left waiting, then the continuations router-owned episodes wait on.
+  - `_with_busy_retry(self, work: Callable[[], Any]) -> Any` (line 285; internal)
+  - `_loop(self, kind: str) -> None` (line 300; internal)
+  - `wait_for(self, pending: Callable[[], list[str]], timeout: float) -> tuple[list[str], float]` (line 317; public) — Wait until ``pending()`` is empty or ``timeout`` passes.
 
 ### Module constants
 
-- `LOG` ([src/learnloop_sidecar/post_attempt_worker.py](../../../../../src/learnloop_sidecar/post_attempt_worker.py), line 33)
-- `IDLE_POLL_SECONDS` ([src/learnloop_sidecar/post_attempt_worker.py](../../../../../src/learnloop_sidecar/post_attempt_worker.py), line 37)
-- `BUSY_RETRIES` ([src/learnloop_sidecar/post_attempt_worker.py](../../../../../src/learnloop_sidecar/post_attempt_worker.py), line 40)
-- `BUSY_BACKOFF_SECONDS` ([src/learnloop_sidecar/post_attempt_worker.py](../../../../../src/learnloop_sidecar/post_attempt_worker.py), line 41)
-- `KINDS` ([src/learnloop_sidecar/post_attempt_worker.py](../../../../../src/learnloop_sidecar/post_attempt_worker.py), line 42)
+- `LOG` ([src/learnloop_sidecar/post_attempt_worker.py](../../../../../src/learnloop_sidecar/post_attempt_worker.py), line 35)
+- `IDLE_POLL_SECONDS` ([src/learnloop_sidecar/post_attempt_worker.py](../../../../../src/learnloop_sidecar/post_attempt_worker.py), line 39)
+- `BUSY_RETRIES` ([src/learnloop_sidecar/post_attempt_worker.py](../../../../../src/learnloop_sidecar/post_attempt_worker.py), line 42)
+- `BUSY_BACKOFF_SECONDS` ([src/learnloop_sidecar/post_attempt_worker.py](../../../../../src/learnloop_sidecar/post_attempt_worker.py), line 43)
+- `KINDS` ([src/learnloop_sidecar/post_attempt_worker.py](../../../../../src/learnloop_sidecar/post_attempt_worker.py), line 44)
 
 ### Explicit exports
 
@@ -89,7 +90,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_is_busy(exc: BaseException) -> bool` ([source](../../../../../src/learnloop_sidecar/post_attempt_worker.py), line 47)
+- `_is_busy(exc: BaseException) -> bool` ([source](../../../../../src/learnloop_sidecar/post_attempt_worker.py), line 49)
 
 ## Who imports or calls it
 
@@ -105,11 +106,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/daily_plan/learner_probe|learnloop.daily_plan.learner_probe]] — imports `run_pending`; calls `run_pending`
 - [[Reference/Modules/learnloop/daily_plan/probe_continuation|learnloop.daily_plan.probe_continuation]] — imports `run_pending`; calls `run_pending`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
+- [[Reference/Modules/learnloop/db/writer_fence|learnloop.db.writer_fence]] — imports `module`
 - [[Reference/Modules/learnloop/diagnosis/split/jobs|learnloop.diagnosis.split.jobs]] — imports `process_next_job`; calls `process_next_job`
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/jobs|learnloop.diagnosis.text_gaps.jobs]] — imports `process_next_gap_job`; calls `process_next_gap_job`
 - [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]] — imports `process_next_job`; calls `process_next_job`
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
 - [[Reference/Modules/learnloop/provenance|learnloop.provenance]] — imports `module`; calls `trace_scope`
+- [[Reference/Modules/learnloop/vault/repository|learnloop.vault.repository]] — imports `vault_writes`; calls `vault_writes`
 
 ### Platform and third-party dependencies
 

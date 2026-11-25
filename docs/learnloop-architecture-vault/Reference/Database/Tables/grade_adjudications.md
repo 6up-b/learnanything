@@ -22,6 +22,7 @@ source_paths:
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/grading.py"
   - "src/learnloop/db/stores/observation_ledger.py"
+  - "src/learnloop/db/writer_fence.py"
   - "src/learnloop/attempts/grade_resolution.py"
 tags:
   - "learnloop/database/table"
@@ -49,7 +50,7 @@ It belongs to the **attempts and measurement** navigation family. The family con
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/066_grader_channel.sql`.
-- **Schema touched by:** `066_grader_channel.sql`, `126_diagnosis_adjudication.sql`, `156_projection_ledger_indexes.sql`.
+- **Schema touched by:** `066_grader_channel.sql`, `126_diagnosis_adjudication.sql`, `156_projection_ledger_indexes.sql`, `276_writer_fence_more_writes.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -87,6 +88,10 @@ Indexes and uniqueness:
 - `idx_gadj_admin` on `administration_id`.
 - `sqlite_autoindex_grade_adjudications_1` on `id` (unique).
 
+Database triggers:
+
+- `writer_fence_grade_adjudications_insert` — schema-enforced lifecycle or immutability constraint.
+
 ## Who calls it
 
 ### Repository access surface
@@ -115,6 +120,7 @@ Indexes and uniqueness:
 
 - `tests/test_grade_resolution_pipeline.py`
 - `tests/test_rebuild_history_appends.py`
+- `tests/test_writer_fence_scopes.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

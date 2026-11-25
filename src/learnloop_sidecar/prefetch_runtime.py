@@ -28,6 +28,7 @@ import threading
 from collections import deque
 from typing import Any
 
+from learnloop.db import writer_fence
 from learnloop import provenance
 from learnloop.figure_admission import figures_enabled, rich_tiers_enabled
 from learnloop.figures import power as P
@@ -85,7 +86,7 @@ class PrefetchRuntime:
                 try:
                     with provenance.trace_scope(trace):
                         self.results.append(PF.run_trigger(env, trigger))
-                except Exception:  # noqa: BLE001 - background work never fails the sidecar
+                except (Exception, writer_fence.WriterFenceRefusal):  # noqa: BLE001 - background work never fails the sidecar
                     _LOG.warning("a figure prefetch pass failed", exc_info=True)
         except BaseException:
             with self._lock:

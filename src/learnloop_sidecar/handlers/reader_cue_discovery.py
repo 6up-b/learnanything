@@ -57,6 +57,8 @@ from typing import Any
 
 from pydantic import Field
 
+from learnloop.db import writer_fence
+from learnloop_sidecar.errors import upgraded_while_open_error
 from learnloop.content.sources.source_outline import resolve_extraction_id
 from learnloop.reader import reader_cues as RCU
 from learnloop.source_retrieval import passage_cues as PC
@@ -345,8 +347,8 @@ class CueDiscoveryJobs:
                                                  embedder=embedder, cancelled=cancelled, budget=opened.budget)
                 except BaseException as exc:  # noqa: BLE001 - every failure answers the job, never the loop
                     LOG.warning("cue discovery failed: %s", type(exc).__name__, exc_info=exc)
-                    job.error = SidecarError("internal_error", "LearnLoop couldn't look for margin notes just now.",
-                                             retryable=True)
+                    job.error = upgraded_while_open_error() if writer_fence.is_refusal(exc) else SidecarError(
+                        "internal_error", "LearnLoop couldn't look for margin notes just now.", retryable=True)
                 finally:
                     job.fallback_offer = offers.hint()
                     job.done.set()

@@ -12,6 +12,7 @@ from pydantic import ValidationError
 import learnloop_sidecar.handlers  # noqa: F401
 from learnloop import provenance
 from learnloop.db import writer_fence
+from learnloop.vault.repository import config_behind_database, vault_writes
 from learnloop.ai import plan_fallback
 from learnloop.ai.execution import record_model_calls
 from learnloop.ai.model_use import ModelUseNotAccepted
@@ -100,10 +101,14 @@ def _handle_request(ctx: SidecarContext, request: Any) -> dict[str, Any] | None:
         # action ``method_name``. A grant names the action that asked, so it
         # counts here only when this method's own offer was answered; the
         # work this request creates belongs to it and is listed on its offer.
+        _reload_after_a_refusal_elsewhere(ctx)
+        # The writer fence: everything this request writes is bound to the vault it computes from, the
+        # context's, whatever another context or thread of this process loaded since.
         with plan_fallback.request(getattr(ctx, "vault_root", None), method_name), \
                 plan_fallback.collecting(origin=method_name) as offers, \
                 _observed_model_calls(ctx, method_name, params), \
-                _foreground(method_name):
+                _foreground(method_name), \
+                vault_writes(getattr(ctx, "vault", None)):
             try:
                 result = spec.handler(ctx, params)
                 # Round 5, Medium 3: a response that reports a batch shows that
@@ -162,7 +167,7 @@ def _handle_request(ctx: SidecarContext, request: Any) -> dict[str, Any] | None:
         log_event("rpc.error", method=method_name, id=request_id, code=waiting.code,
                   duration_ms=_elapsed_ms(started))
         return {"jsonrpc": "2.0", "id": request_id, "error": sidecar_error(waiting)}
-    except sqlite3.IntegrityError as exc:
+    except (sqlite3.IntegrityError, writer_fence.WriterFenceRefusal) as exc:
         if not writer_fence.is_refusal(exc):
             return _internal_error(request_id, method_name, started, offer=offer)
         refusal = _fenced_write_error(ctx)
@@ -287,11 +292,48 @@ def _fenced_write_error(ctx: SidecarContext) -> SidecarError:
     except Exception:  # noqa: BLE001 - the refusal is the answer; the next request's own load reports what failed
         LOG.warning("reload after a fenced write failed", exc_info=True)
         reloaded = False
+    behind = _config_behind(ctx) if reloaded else None
+    if behind is not None:
+        # the config itself disagrees with the database; reloading it again would refuse again.
+        return SidecarError("vault_upgraded_while_open", behind, retryable=False)
     message = (
         "LearnLoop was upgraded while this vault was open, so that change was not saved. "
         + ("The vault has been reloaded: try again." if reloaded else "Restart LearnLoop, then try again.")
     )
     return SidecarError("vault_upgraded_while_open", message, retryable=reloaded)
+
+
+def _config_behind(ctx: SidecarContext) -> str | None:
+    try:
+        return None if ctx.vault is None else config_behind_database(ctx.vault)
+    except Exception:  # noqa: BLE001 - a diagnosis only; the refusal stands
+        LOG.warning("could not compare the config with the database's tag", exc_info=True)
+        return None
+
+
+def _reload_after_a_refusal_elsewhere(ctx: SidecarContext) -> None:
+    """Background work of this process met the fence since this context's last request (a job, a worker): reload the
+    vault now if its tag is no longer the database's, so this request computes under the database's tag."""
+
+    repository = getattr(ctx, "repository", None)
+    vault = getattr(ctx, "vault", None)
+    if repository is None or vault is None:
+        return
+    seen = writer_fence.refusals(repository.sqlite_path)
+    if seen == getattr(ctx, "fence_refusals_seen", 0):
+        return
+    ctx.fence_refusals_seen = seen
+    try:
+        from contextlib import closing
+
+        from learnloop.db.connection import connect
+
+        with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+            recorded = writer_fence.recorded_tag(connection)
+        if recorded is not None and recorded != vault.config.algorithms.algorithm_version:
+            ctx.reload(maintenance=False)
+    except Exception:  # noqa: BLE001 - the request itself meets the fence and reports it
+        LOG.warning("reload after a refusal elsewhere failed", exc_info=True)
 
 
 def _busy_error(exc: Exception) -> SidecarError | None:
