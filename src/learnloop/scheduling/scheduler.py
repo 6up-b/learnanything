@@ -33,6 +33,7 @@ from learnloop.diagnosis.probe_episodes import (
     session_qualifying_total,
 )
 from learnloop.diagnosis.probe_presentations import (
+    EpisodeOwned,
     RoutineDisplayCovered,
     presentation_commit_payload,
     probe_serving_block_reason,
@@ -1421,7 +1422,7 @@ def _head_probe_presentation(
                             extra_selection_components=extra_components,
                             clock=clock,
                         )
-                    except RoutineDisplayCovered:
+                    except (RoutineDisplayCovered, EpisodeOwned):
                         # UX Phase 4 round 7: its answer was just shown on
                         # a routine display. No presentation is committed;
                         # the slate still records and the item is served

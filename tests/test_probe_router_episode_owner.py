@@ -136,3 +136,66 @@ def test_a_rejected_teach_me_now_records_no_consent_on_any_factor(tmp_path):
     assert refused.value.code == "invalid_request"
     assert (count(repository, "router_learner_preferences"),
             count(repository, "causal_probe_preference_events")) == before
+
+
+# --- one owner at presentation commit and retarget (G2-R27) --------------------------------------------------------
+
+
+def _eligible(case, item_id):
+    from learnloop.diagnosis.probe_episodes import EligibleInstrument, episode_hypothesis_set, resolve_instrument
+
+    episode = case.repository.probe_episode(case.offer["episodeId"])
+    item = case.vault.practice_items[item_id]
+    instrument, slot_map = resolve_instrument(case.vault, case.repository, item,
+                                              episode_hypothesis_set(case.repository, episode))
+    return episode, EligibleInstrument(item=item, instrument=instrument, slot_map=slot_map,
+                                       expected_information_gain=0.0, selection_objective="dialogue_block")
+
+
+def test_a_dialogue_turn_never_supersedes_the_accepted_pin(tmp_path, monkeypatch):
+    """The dialogue builds its instrument itself and commits with ``supersede_active``: the commit refuses while the
+    learner's accepted question stands, and the pin stays."""
+
+    from learnloop.diagnosis.probe_presentations import EPISODE_RESERVED, EpisodeOwned, commit_presentation
+    from tests.probe_router_owned_helpers import SECOND
+
+    case = selected(tmp_path, monkeypatch)
+    episode, turn = _eligible(case, SECOND)
+    with pytest.raises(EpisodeOwned) as owned:
+        commit_presentation(case.vault, case.repository, episode, turn,
+                            extra_selection_components={"dialogue_block_id": "blk"})
+    assert owned.value.reason == EPISODE_RESERVED
+    standing = case.repository.active_probe_presentation(episode.id)
+    assert standing is not None and standing.id == case.offer["presentationId"]
+
+
+def test_between_blocks_only_the_router_supplies_a_router_owned_episodes_next_question(tmp_path, monkeypatch):
+    from learnloop.diagnosis.probe_presentations import EpisodeOwned, commit_presentation
+    from tests.probe_router_owned_helpers import SECOND
+
+    case = _answered(tmp_path, monkeypatch, u=0.0)
+    episode, turn = _eligible(case, SECOND)
+    with pytest.raises(EpisodeOwned) as owned:
+        commit_presentation(case.vault, case.repository, episode, turn,
+                            extra_selection_components={"dialogue_block_id": "blk"})
+    assert owned.value.reason == "router_decision_pending"
+    assert case.repository.active_probe_presentation(episode.id) is None
+    assert [r["episode_id"] for r in PCN.requested(case.vault, case.repository)] == [episode.id]
+
+
+def test_a_second_factors_acceptance_never_relocks_the_episode_under_the_first_factors_standing_question(
+        tmp_path, monkeypatch):
+    from learnloop.diagnosis.probe_hard_stops import EPISODE_CONFLICT_REASON
+    from learnloop.diagnosis.probe_offer import accept_probe_offer
+
+    from tests.causal_orchestrator_helpers import _activate_probe_candidate, _seed_factor
+
+    case = selected(tmp_path, monkeypatch)
+    factor_b, b1, b2 = _seed_factor(case.repository, attempt_id="att_second_miss")
+    _activate_probe_candidate(case.repository, factor_b, b1, b2)
+    episode_before = case.repository.probe_episode(case.offer["episodeId"])
+    offer = accept_probe_offer(case.vault, case.repository, factor_id=factor_b)
+    assert (offer.accepted, offer.reason) == (False, EPISODE_CONFLICT_REASON)
+    assert case.repository.probe_episode(episode_before.id) == episode_before
+    standing = case.repository.active_probe_presentation(episode_before.id)
+    assert standing is not None and standing.id == case.offer["presentationId"]

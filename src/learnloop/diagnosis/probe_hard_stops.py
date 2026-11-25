@@ -131,6 +131,23 @@ def episode_conflict_reason(
         return None
     if episode_has_observations(repository, episode.id):
         return EPISODE_CONFLICT_REASON
+    if standing_owned_pin(repository, episode.id) is not None:
+        # Another decision's question stands in it, accepted and unanswered: relocking would abandon it.
+        return EPISODE_CONFLICT_REASON
+    return None
+
+
+def standing_owned_pin(repository: Repository, episode_id: str) -> Any:
+    """The episode's standing presentation when a decision owns it (a follow-up workflow's pin, or a router
+    decision's: an accepted learner-lane offer, a continuation), else None. Only that decision's answer, the learner's
+    refusal at its door, its expiry or the episode's end lets it go: no other door supersedes or relocks it."""
+
+    standing = repository.active_probe_presentation(episode_id)
+    if standing is None:
+        return None
+    pin = dict(standing.selection_components or {}).get("causal_probe")
+    if isinstance(pin, dict) and (pin.get("followup_workflow_id") or pin.get("router_decision_id")):
+        return standing
     return None
 
 

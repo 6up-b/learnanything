@@ -35,6 +35,7 @@ from learnloop.diagnosis.probe_episodes import (
     episode_hypothesis_set,
 )
 from learnloop.diagnosis.probe_presentations import (
+    EpisodeOwned,
     ProtectedInstrument,
     RoutineDisplayCovered,
     commit_presentation,
@@ -329,9 +330,10 @@ def next_dialogue_turn(
             clock=clock,
         )
         serve_presentation(repository, presentation.id, vault=vault, clock=clock)
-    except (RoutineDisplayCovered, ProtectedInstrument):
+    except (RoutineDisplayCovered, ProtectedInstrument, EpisodeOwned):
         # UX Phase 4 rounds 6 and 7 (a turn's instance is new, so in practice never); a protected turn item is ended
-        # unshown.
+        # unshown; an episode another decision owns (a standing accepted pin, or the router between blocks) takes no
+        # dialogue turn.
         return state, None
     turn = DialogueTurn(
         kind=kind,

@@ -272,6 +272,7 @@ def _accept_probe_offer(
         retarget_episode_to_causal_factor,
     )
     from learnloop.diagnosis.probe_presentations import (
+        EpisodeOwned,
         RoutineDisplayCovered,
         commit_presentation,
     )
@@ -353,6 +354,15 @@ def _accept_probe_offer(
                 },
                 clock=clock,
             )
+        except EpisodeOwned as owned:
+            # Another decision's accepted question stands in the episode: nothing is pinned, and a retarget made in
+            # this offer is rolled back with it.
+            raise _OfferRefusedAtCommit(ProbeOffer(
+                accepted=False,
+                reason=owned.reason,
+                factor_id=factor_id,
+                candidate_id=str(candidate["id"]),
+            ))
         except RoutineDisplayCovered:
             # Its answer was shown after the check above (UX Phase 4 rounds 6
             # and 7): no probe is administered for it until that coverage ends,

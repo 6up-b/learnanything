@@ -134,6 +134,45 @@ def refuse_routine_display_covered(
         raise RoutineDisplayCovered(practice_item_id, decision=decision)
 
 
+#: Why a presentation was not committed: another decision's accepted question stands in the episode.
+EPISODE_RESERVED = "episode_reserved_for_pin"
+
+
+class EpisodeOwned(Exception):
+    """A presentation refused at commit: its episode belongs to a decision that did not supply it (a standing pin of
+    another decision, or a router-owned episode between blocks, whose next observation only the router decides)."""
+
+    def __init__(self, episode_id: str, reason: str) -> None:
+        super().__init__(f"{episode_id}: {reason}")
+        self.episode_id = episode_id
+        self.reason = reason
+
+
+def ownership_refusal(vault: LoadedVault, repository: Repository, episode: ProbeEpisodeRecord,
+                      extra_selection_components: Mapping[str, Any] | None) -> str | None:
+    """Why this commit may not supply the episode's next presentation, or None. One owner: a standing pin (a
+    follow-up workflow's or a router decision's) is superseded only by its own decision's presentation, and a
+    router-owned episode with none standing takes only a router decision's (``router_decision_pending``). Every door
+    commits through :func:`commit_presentation`, so the dialogue, a routine selection and a second factor's offer meet
+    the same rule."""
+
+    from learnloop.diagnosis.probe_episodes import router_selected_episode
+    from learnloop.diagnosis.probe_hard_stops import standing_owned_pin
+
+    new_pin = dict((extra_selection_components or {}).get("causal_probe") or {})
+    standing = standing_owned_pin(repository, episode.id)
+    if standing is not None:
+        pin = dict((standing.selection_components or {}).get("causal_probe") or {})
+        same = any(pin.get(key) and pin.get(key) == new_pin.get(key)
+                   for key in ("router_decision_id", "followup_workflow_id"))
+        return None if same else EPISODE_RESERVED
+    if new_pin.get("router_decision_id") or new_pin.get("followup_workflow_id"):
+        return None
+    if router_selected_episode(vault, repository, episode):
+        return "router_decision_pending"
+    return None
+
+
 def commit_presentation(
     vault: LoadedVault,
     repository: Repository,
@@ -264,6 +303,10 @@ def presentation_commit_payload(
     Phase 4 round 7): an item whose answer a routine display still covers
     raises :class:`RoutineDisplayCovered` before any row exists.
     """
+
+    refusal = ownership_refusal(vault, repository, episode, extra_selection_components)
+    if refusal is not None:
+        raise EpisodeOwned(episode.id, refusal)
 
     refuse_routine_display_covered(repository, eligible.item.id, clock=clock)
     if episode.status != "in_progress":
@@ -588,9 +631,10 @@ def commit_item_presentation(
             clock=clock,
         )
         serve_presentation(repository, presentation.id, vault=vault, clock=clock)
-    except (RoutineDisplayCovered, ProtectedInstrument):
+    except (RoutineDisplayCovered, ProtectedInstrument, EpisodeOwned):
         # Its answer was just shown: ordinary practice, not a probe (rounds 6, 7). Protected exam material is never
-        # selected (``item_refusals``); one protected between the selection and the serve is ended unshown.
+        # selected (``item_refusals``); one protected between the selection and the serve is ended unshown. An
+        # episode another decision owns takes no presentation from this door.
         return None
     return presentation
 
