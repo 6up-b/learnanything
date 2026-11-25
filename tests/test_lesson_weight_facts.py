@@ -276,3 +276,61 @@ def test_a_reanchoring_claim_breaks_the_chain_on_both_sides_of_the_tag(tmp_path,
     label = "outcome_prior_not_reproduced" if version == FORECAST_SCORING_ALGORITHM_VERSION else "outcome_chain_broken"
     assert update["detail"]["likelihood"] == "first_order"
     assert update["detail"]["trajectory_inputs"][-1][label] is True
+
+
+def _rows(repository, sql):
+    with repository.connection() as connection:
+        return [tuple(row) for row in connection.execute(sql).fetchall()]
+
+
+def test_the_window_query_counts_what_the_freeze_will_not_reconstruct(tmp_path):
+    """L42-R25: the owner-copy window query counted a finite pair as available although the freeze rejects it (the
+    surprise row's score bucket is not the current grade's), so its coverage overstated the fitted windows'."""
+
+    from learnloop.attempts.grade_resolution import append_adjudication_evidence_revision
+    from learnloop.ops import upgrades
+
+    from tests.grade_curves_migration_helpers import forget_captures
+    from tests.lesson_weight_fit_helpers import owner_copy_window_query
+
+    production = next(link for link in upgrades.UPGRADES if link.tag == "mvp-0.72")
+    paths, repository = build_teacher_vault(tmp_path / "vault", version=production.predecessor)
+    _lesson_with_check(paths, repository, at=T)
+    # The resolving answer; an evidence-only ruling then leaves its surprise row describing the first grade.
+    middle = _cold(paths, repository, "pi_eig_1", T + timedelta(days=1), points=4)
+    append_adjudication_evidence_revision(
+        repository, attempt_id=middle.attempt_id, resolved_fraction=0, adjudication_id="adj_window",
+        adjudicator_source="human", rationale=None, vault=load_vault(paths.root))
+    vault = load_vault(paths.root)
+    with repository.atomic():
+        LW.write_state(repository, LW.replay_state(vault, repository))
+    # The window: the check's attempt and the resolving answer, whose pair the freeze will not reconstruct.
+    ((checks, attempts, _primed, with_curve, missing),) = _rows(repository, owner_copy_window_query())
+    assert (checks, attempts, with_curve, missing) == (1, 2, 1, 1)
+    forget_captures(repository)
+    assert upgrades.upgrade(paths.root, to=production.tag, links=[production]).upgraded
+    assert _rows(repository, "SELECT provenance FROM attempt_grade_curves WHERE attempt_id = '%s' "
+                             "AND epoch_key = 'revision:1'" % middle.attempt_id) == [("missing_at_upgrade",)]
+
+
+@pytest.mark.parametrize(("version", "record", "marker"), [
+    (FORECAST_SCORING_ALGORITHM_VERSION, "algorithm-mvp-0.72.md", "The successor's likelihoods, first-order labels"),
+    (LATEST_ALGORITHM_VERSION, "algorithm-mvp-0.75.md", "The likelihoods, the labels"),
+])
+def test_the_label_report_counts_a_window_sent_to_first_order_by_a_missing_curve(tmp_path, version, record, marker):
+    """L42-R26: the label report counted the trajectory labels but not the missing curve's provenance values, so a
+    first-order fit caused only by a missing curve was in the likelihood count and in no cause count."""
+
+    from tests.grade_curves_migration_helpers import forget_captures
+    from tests.lesson_weight_fit_helpers import owner_copy_label_queries
+
+    paths, repository = build_teacher_vault(tmp_path / "vault", version=version)
+    _lesson_with_check(paths, repository, at=T)
+    _cold(paths, repository, "pi_eig_2", T + timedelta(days=2), points=4)
+    forget_captures(repository)
+    vault = load_vault(paths.root)
+    with repository.atomic():
+        LW.write_state(repository, LW.replay_state(vault, repository))
+    likelihoods, labels, _fallbacks = owner_copy_label_queries(record, marker)
+    assert _rows(repository, likelihoods) == [("first_order", 1)]
+    assert _rows(repository, labels) == [("missing_capture", 1)]

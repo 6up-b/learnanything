@@ -35,3 +35,28 @@ def apply_with_id(paths, repository, item_id, points, *, attempt_id, when, prime
             error_attributions=[], grader_confidence=1.0, confidence=3, manual_review_reason=None,
             feedback_md="self-graded"),
         grading_source="self"), clock=FrozenClock(when))
+
+
+def record_text(name: str) -> str:
+    """A review record under ``docs/reviews`` (the owner-copy queries the tests run are read from it)."""
+
+    from pathlib import Path
+
+    return (Path(__file__).resolve().parents[1] / "docs/reviews" / name).read_text()
+
+
+def owner_copy_window_query(record: str = "algorithm-mvp-0.72.md") -> str:
+    """The first query of a record's owner-copy procedure (the fitted windows' coverage)."""
+
+    body = record_text(record)
+    body = body[body.index("PRAGMA query_only = ON;\n") + len("PRAGMA query_only = ON;\n"):]
+    return body[:body.index("SELECT count(*) AS foreign_key_violations")]
+
+
+def owner_copy_label_queries(record: str, marker: str) -> list[str]:
+    """A record's owner-copy label query (several statements), the first ``<<'SQL'`` block after ``marker``."""
+
+    text = record_text(record)
+    start = text.index(marker)
+    body = text[text.index("<<'SQL'\n", start) + len("<<'SQL'\n"):]
+    return [statement.strip() for statement in body[:body.index("\nSQL\n")].split(";") if statement.strip()]
