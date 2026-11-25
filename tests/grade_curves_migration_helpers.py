@@ -7,7 +7,7 @@ GRADE_CURVE_OBJECTS = {
 
 
 def forget_captures(repository) -> None:
-    """The ledger as code before the capture left it: no curve rows (an owner's history, graded before mvp-0.71's code
+    """The ledger as code before the capture left it: no curve rows (an owner's history, graded before mvp-0.72's code
     recorded a curve on every grade). Its append-only guard is set aside for the deletion and put back as it was."""
 
     with repository.connection() as connection:

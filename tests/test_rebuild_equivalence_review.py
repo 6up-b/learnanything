@@ -17,7 +17,7 @@ from __future__ import annotations
 import pytest
 
 from learnloop.algorithm_versions import REPLAY_LEDGER_ALGORITHM_VERSION
-from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
+from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION, PROBE_ROUTER_ALGORITHM_VERSION
 from learnloop.clock import FrozenClock
 from learnloop.content.authoring.item_authoring import retire_item
 from learnloop.db.connection import connect
@@ -220,7 +220,8 @@ def test_a_live_write_is_the_same_below_and_at_the_tag(tmp_path):
     from tests.rebuild_equivalence_helpers import _mastery
 
     _paths, _vault, below = _two_attempt_history(tmp_path, "below", version=PREDECESSOR)
-    _paths, _vault, at = _two_attempt_history(tmp_path, "at", version=TAG)
+    # At the newest tag before the difficulty label's retirement, which moves mastery on its own.
+    _paths, _vault, at = _two_attempt_history(tmp_path, "at", version=PROBE_ROUTER_ALGORITHM_VERSION)
     assert _mastery(below) == _mastery(at)
 
 

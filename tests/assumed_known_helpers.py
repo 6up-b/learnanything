@@ -6,7 +6,7 @@ from __future__ import annotations
 from datetime import timedelta
 import sqlite3
 
-from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
+from learnloop.algorithm_versions import PROBE_ROUTER_ALGORITHM_VERSION
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
@@ -32,7 +32,12 @@ EVIDENCE_TABLES = (
 )
 
 
-def _setup(tmp_path, *, version=LATEST_ALGORITHM_VERSION, placement_toml=None, name="vault"):
+# The placement vault's authored labels order its items' predicted success, which these tests rely on; from the
+# difficulty label's retirement the incumbent reads no label, so they run at the newest tag before it.
+LABEL_READ_VERSION = PROBE_ROUTER_ALGORITHM_VERSION
+
+
+def _setup(tmp_path, *, version=LABEL_READ_VERSION, placement_toml=None, name="vault"):
     paths = create_placement_vault(tmp_path / name, version=version, placement_toml=placement_toml)
     vault = load_vault(paths.root)
     repository = Repository(paths.sqlite_path)

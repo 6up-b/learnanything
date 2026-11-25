@@ -244,6 +244,8 @@ def test_threshold_receipts_store_categories_whose_category_two_is_the_binary_va
         return result
 
     monkeypatch.setattr(PR, "category_mixture", recording)
+    # The grade's own forecast of each answer (one more prediction per answer) is not this test's subject.
+    monkeypatch.setattr("learnloop.adaptive_difficulty.surprise_forecast.safe_grade_receipt", lambda *_a, **_k: None)
     checked: list = []
 
     def check(paths, step):

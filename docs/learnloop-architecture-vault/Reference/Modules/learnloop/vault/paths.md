@@ -193,6 +193,8 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 
 - [scripts/benchmark_sqlite_concurrency.py](../../../../../../scripts/benchmark_sqlite_concurrency.py); calls `VaultPaths`
 - [scripts/difficulty_four_way.py](../../../../../../scripts/difficulty_four_way.py); calls `VaultPaths`
+- [scripts/difficulty_receipt_coverage.py](../../../../../../scripts/difficulty_receipt_coverage.py); calls `VaultPaths`
+- [scripts/label_retirement_counts.py](../../../../../../scripts/label_retirement_counts.py); calls `VaultPaths`
 - [scripts/voi_cap_report.py](../../../../../../scripts/voi_cap_report.py); calls `VaultPaths`
 
 ## Dependencies
@@ -225,6 +227,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/daily_plan_fakes.py](../../../../../../tests/daily_plan_fakes.py) — direct import
 - [tests/deliverable_fixtures.py](../../../../../../tests/deliverable_fixtures.py) — direct import
 - [tests/diagnosis_split_helpers.py](../../../../../../tests/diagnosis_split_helpers.py) — direct import
+- [tests/difficulty_replay_helpers.py](../../../../../../tests/difficulty_replay_helpers.py) — direct import
 - [tests/due_queue_helpers.py](../../../../../../tests/due_queue_helpers.py) — direct import
 - [tests/e0_fakes.py](../../../../../../tests/e0_fakes.py) — direct import
 - [tests/exam_protection_review_helpers.py](../../../../../../tests/exam_protection_review_helpers.py) — direct import

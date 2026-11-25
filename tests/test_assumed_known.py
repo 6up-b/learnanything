@@ -358,6 +358,22 @@ def test_check_item_choice_is_deterministic(tmp_path):
     assert picks == {("pi_eig_mid",)}
 
 
+def test_from_the_label_retirement_the_check_choice_reads_no_label(tmp_path):
+    """The incumbent predicts every never-attempted item of one LO alike once it reads no label, so the median of the
+    predicted success falls to the item ids (still deterministic). AD for selection is a later question."""
+
+    from learnloop.algorithm_versions import LABEL_RETIRED_ALGORITHM_VERSION
+
+    paths, vault, repository = _setup(tmp_path, version=LABEL_RETIRED_ALGORITHM_VERSION)
+    record_self_report(vault, repository, learning_object_ids=["lo_eigen_basics"], report="know_this", clock=_at(1))
+    minutes = 14 * 24 * 60 + 5
+    picks = {
+        tuple(s.practice_item_id for s in _queue(vault, repository, minutes, persist=False) if s.components.get("assumed_check"))
+        for _ in range(3)
+    }
+    assert picks == {("pi_eig_hard",)}
+
+
 def test_session_queue_runs_fast_track_before_serving(tmp_path):
     paths, vault, repository = _setup(tmp_path, placement_toml=LOW_Q)
     session_id = repository.create_session(available_minutes=25, clock=_at(0))

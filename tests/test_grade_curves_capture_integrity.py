@@ -1,4 +1,4 @@
-"""L4-2's review fix round (``docs/reviews/algorithm-mvp-0.71.md``, "Review fix round"): each test failed before its fix.
+"""L4-2's review fix round (``docs/reviews/algorithm-mvp-0.72.md``, "Review fix round"): each test failed before its fix.
 
 A grade records its curve whatever tag the writing process loaded. A process holding the predecessor's config (the
 desktop sidecar, the phone host, a CLI grade, a background job) can commit after another process completed the

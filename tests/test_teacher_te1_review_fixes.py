@@ -409,10 +409,10 @@ def test_f6_the_trajectory_at_the_recorded_mass_reproduces_the_outcomes_recorded
     _cold(paths, repository, "pi_eig_1", T0 + timedelta(days=2), points=4, hints=1)
     vault = load_vault(paths.root)
     item = vault.practice_items["pi_eig_1"]
-    _, authored = item_irt_params(item, vault.learning_objects[item.learning_object_id], vault.config.mastery)
-    before_priming = repository.item_parameter_state(item.id).b_mean if measured else authored
-    if measured:
-        assert before_priming != pytest.approx(authored)
+    _, before_priming = item_irt_params(item, vault.learning_objects[item.learning_object_id], vault.config.mastery,
+                                        algorithm_version=vault.config.algorithms.algorithm_version)
+    # From the label's retirement mastery's pair has no item term and measured difficulty does not run.
+    assert repository.item_parameter_state(item.id) is None
     primed = _cold(paths, repository, item.id, T0 + timedelta(days=3), points=0, primed=True)
     outcome = _cold(paths, repository, "pi_eig_2", T0 + timedelta(days=4), points=4)
     live = LW._state_rows(LW.replay_state(vault, repository))

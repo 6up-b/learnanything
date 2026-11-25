@@ -36,7 +36,7 @@ def _projection(repository):
 def test_upgrade_freezes_once_then_refits_and_rebuilds_twice(tmp_path, monkeypatch, missing):
     # The production row: the lesson-weight curves follow the probe router.
     production = next(link for link in upgrades.UPGRADES if link.tag == TAG)
-    assert production.predecessor == "mvp-0.70"
+    assert production.predecessor == "mvp-0.71"
     link = production
     paths, repository = build_teacher_vault(tmp_path / "vault", version=link.predecessor)
     _lesson_with_check(paths, repository, at=T, retained=0.8)
@@ -48,12 +48,12 @@ def test_upgrade_freezes_once_then_refits_and_rebuilds_twice(tmp_path, monkeypat
     # The history an owner's vault holds: written by code that recorded no curve (every grade records one now).
     forget_captures(repository)
     assert not _rows(repository, CURVES)
-    # The predecessor reads authored parameters despite this post-grade edit.
+    # The predecessor (the label's retirement) reads no authored difficulty: this post-grade edit moves nothing.
     old = LW._state_rows(LW.replay_state(vault, repository))
     data = vault.practice_items["pi_eig_2"].model_dump(mode="json")
     data["difficulty"] = 0.93
     upsert_practice_item(paths.root, data)
-    assert LW._state_rows(LW.replay_state(load_vault(paths.root), repository)) != old
+    assert LW._state_rows(LW.replay_state(load_vault(paths.root), repository)) == old
     if missing:
         with repository.connection() as connection:
             connection.execute("DELETE FROM attempt_surprise WHERE attempt_id = ?", (middle.attempt_id,))
@@ -145,7 +145,8 @@ def test_regrade_adds_a_curve_for_only_the_new_epoch(tmp_path):
         "revision:1", 1, "graded", TAG)
     dist = repository.latest_attempt_surprise("att_0")["predicted_score_dist"]
     assert (curve.item_a, curve.item_b) == (dist["a"], dist["b"])
-    assert curve.item_b != added[0][4]
+    # From the label's retirement the pair has no item term: the authored edit leaves the new epoch's curve as it was.
+    assert (curve.item_a, curve.item_b) == added[0][3:5]
     rebuild_all_derived_state(vault, repository)
     assert _rows(repository, CURVES) == after
 
@@ -222,7 +223,7 @@ def _owner_copy_snapshot_query() -> str:
 
     from pathlib import Path
 
-    record = (Path(__file__).resolve().parents[1] / "docs/reviews/algorithm-mvp-0.71.md").read_text()
+    record = (Path(__file__).resolve().parents[1] / "docs/reviews/algorithm-mvp-0.72.md").read_text()
     start = record.index('sqlite3 -readonly -json "$PRED_DB" <<\'SQL\' | sha256sum\n')
     body = record[record.index("\n", start) + 1:]
     return body[:body.index("\nSQL\n")]
@@ -255,19 +256,53 @@ def test_an_unapplied_adjudication_before_the_upgrade_is_not_given_the_applied_e
     assert rows[(applied.attempt_id, "revision:0")][-1] == "reconstructed_at_upgrade"
 
 
-def test_a_rebuild_seeds_measured_difficulty_from_the_recorded_cold_curve(tmp_path):
-    """L42-R13: with measured difficulty on, the item's fitted difficulty starts at the difficulty its first cold
-    grade was applied with. A rebuild after an authored edit seeds it from the recorded curve, not the edited value,
-    so the next grade's curve does not depend on whether a rebuild ran."""
+def test_measured_difficulty_stays_off_at_the_curves_tag_and_an_edit_moves_no_curve(tmp_path):
+    """L42-R13, superseded by the label's retirement (mvp-0.71): measured difficulty no longer runs, so nothing reseeds
+    it; an authored edit and a rebuild leave the next grade's captured curve as before."""
 
     paths, repository = build_teacher_vault(tmp_path / "vault")
     set_config(paths.root, {("mastery", "irt", "eb_difficulty_enabled"): True})
-    _cold(paths, repository, "pi_eig_2", T, points=4)
-    live = repository.item_parameter_state("pi_eig_2")
+    first = _cold(paths, repository, "pi_eig_2", T, points=4)
+    assert repository.item_parameter_state("pi_eig_2") is None
     vault = load_vault(paths.root)
     data = vault.practice_items["pi_eig_2"].model_dump(mode="json")
     data["difficulty"] = 0.93
     upsert_practice_item(paths.root, data)
     rebuild_all_derived_state(load_vault(paths.root), repository)
-    rebuilt = repository.item_parameter_state("pi_eig_2")
-    assert (rebuilt.b_mean, rebuilt.b_var) == (live.b_mean, live.b_var)
+    assert repository.item_parameter_state("pi_eig_2") is None
+    second = _cold(paths, repository, "pi_eig_2", T + timedelta(days=1), points=4)
+    with repository.connection() as connection:
+        curves = [current_curve(connection, attempt.attempt_id) for attempt in (first, second)]
+    assert (curves[0].item_a, curves[0].item_b) == (curves[1].item_a, curves[1].item_b)
+
+
+def test_a_copy_graded_with_the_label_freezes_the_label_free_curve_after_the_walk(tmp_path):
+    """L4-2 on the label's retirement: an owner's copy graded before mvp-0.71 walks through the retirement's
+    whole-vault rebuild first, so the freeze reads surprise rows re-derived without the label. The frozen pair is the
+    one mastery's replay applies at the curves' tag (no item term), never the label's."""
+
+    from learnloop.algorithm_versions import LABEL_RETIRED_ALGORITHM_VERSION, SUCCESSOR_CHAIN
+
+    before = SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(LABEL_RETIRED_ALGORITHM_VERSION) - 1]
+    paths, repository = build_teacher_vault(tmp_path / "vault", version=before)
+    data = load_vault(paths.root).practice_items["pi_eig_2"].model_dump(mode="json")
+    data["difficulty"] = 0.93  # a label the predecessor's mastery reads
+    upsert_practice_item(paths.root, data)
+    graded = _cold(paths, repository, "pi_eig_2", T, points=4)
+    primed = _cold(paths, repository, "pi_eig_2", T + timedelta(days=1), points=0, primed=True)
+    labelled = repository.latest_attempt_surprise(graded.attempt_id)["predicted_score_dist"]
+    assert labelled["b"] != 0.0
+    forget_captures(repository)
+    assert upgrades.upgrade(paths.root, to=TAG).upgraded
+    vault = load_vault(paths.root)
+    mastery = vault.config.mastery
+    with repository.connection() as connection:
+        curves = {attempt.attempt_id: current_curve(connection, attempt.attempt_id) for attempt in (graded, primed)}
+    assert {(c.provenance, c.algorithm_version) for c in curves.values()} == {
+        ("reconstructed_at_upgrade", LABEL_RETIRED_ALGORITHM_VERSION)}
+    assert (curves[graded.attempt_id].item_a, curves[graded.attempt_id].item_b) == (mastery.irt.discrimination_default, 0.0)
+    assert curves[primed.attempt_id].item_b == -mastery.irt.priming_b_offset
+    # What the curves' tag replays for those answers is that pair too.
+    for attempt_id, curve in curves.items():
+        dist = repository.latest_attempt_surprise(attempt_id)["predicted_score_dist"]
+        assert (dist["a"], dist["b"]) == (curve.item_a, curve.item_b)

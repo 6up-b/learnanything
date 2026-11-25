@@ -113,13 +113,17 @@ class ReplaySettings:
     #: Teacher TE3a (spec_teacher_v1 §14.2): lesson opportunities are read and applied (off: none is loaded, so the
     #: replay is its predecessor's exactly: no transition, no warmth, no fingerprint change).
     lessons: bool = False
+    #: From the label's retirement: each trained answer's trace row records the KL of the subject view's
+    #: posterior from before the answer (:func:`observation_kl`), a measure only. Off, the trace is as before.
+    kl_measure: bool = False
 
     def key(self) -> str:
         return json.dumps({"coupling": self.coupling, "reading": self.reading, "verdicts": self.verdicts,
                            "hyper": self.hyper, "fixed": self.fixed_point.key() if self.fixed_point else None,
                            "rating": self.rating, "timing": self.timing, "outside": self.outside,
                            "updates": self.updates, "prior_means": [list(p) for p in self.prior_means],
-                           **({"lessons": True} if self.lessons else {})},
+                           **({"lessons": True} if self.lessons else {}),
+                           **({"kl_measure": True} if self.kl_measure else {})},
                           sort_keys=True)
 
     @classmethod
@@ -132,7 +136,11 @@ class ReplaySettings:
         coupling = bool(getattr(section, "learned_coupling", True))
         reading = bool(getattr(section, "reading_opportunities", True))
         verdicts = reading and bool(getattr(section, "reading_self_check", True))
-        return cls(coupling=coupling, reading=reading, verdicts=verdicts, lessons=lesson_opportunities_on(config))
+        from learnloop.algorithm_versions import label_retired
+
+        algorithms = getattr(config, "algorithms", None)
+        return cls(coupling=coupling, reading=reading, verdicts=verdicts, lessons=lesson_opportunities_on(config),
+                   kl_measure=label_retired(getattr(algorithms, "algorithm_version", None)))
 
 
 # -- events -------------------------------------------------------------------------------
@@ -706,6 +714,25 @@ def _mixture(view: View, record: M.UpdateRecord) -> dict[str, Any]:
     return out
 
 
+def observation_kl(view: View, record: M.UpdateRecord) -> dict[str, float]:
+    """The KL of the view's posterior after one answer's observation from its posterior before it (from the
+    label's retirement on: a measure recorded beside surprise, deciding nothing). The bank is a mixture over its
+    grid points, each a Gaussian the observation updates along one projection, so the joint KL is exact by the
+    chain rule: the KL of the posterior grid weights from the prior ones (``w_k ∝ w'_k / z_k``), plus the
+    posterior-weighted KL of each point's Gaussian, which for a rank-one update equals the one-dimensional KL along
+    the projection (the record's ``information``). Nats."""
+
+    posterior = view.bank.weights()[0]
+    z = np.exp(np.asarray(record.log_z, dtype=np.float64))
+    prior = posterior / np.where(z > 0, z, 1.0)
+    prior = prior / prior.sum()
+    mask = posterior > 0
+    weights_kl = float(np.sum(posterior[mask] * np.log(posterior[mask] / prior[mask])))
+    states_kl = float(np.dot(posterior, record.information))
+    return {"total": round(weights_kl + states_kl, 12), "weights": round(weights_kl, 12),
+            "states": round(states_kl, 12)}
+
+
 @dataclass(frozen=True)
 class Context:
     """What a prequential observer knows about an attempt before its update (the harness, §10.4)."""
@@ -813,7 +840,9 @@ def run(events: Events, settings: ReplaySettings = ReplaySettings(), *, trace: b
                              "input_status": attempt.input_status, "category": attempt.category,
                              **_mixture(subject, record), "points": points,
                              "detail": {"warmth": round(attempt.warmth, 12), "cell": list(spec.cell()),
-                                        "served_at": attempt.served_at}})
+                                        "served_at": attempt.served_at,
+                                        **({"kl_observation": observation_kl(subject, record)}
+                                           if settings.kl_measure else {})}})
             if trace and lo_record is not None:
                 rows.append({"attempt_id": attempt.attempt_id, "view": lo_view_name(attempt.learning_object_id),
                              "input_status": attempt.input_status, "category": attempt.category,

@@ -3051,7 +3051,8 @@ def _practice_information(item, learning_object, mastery, config: LearnLoopConfi
     from learnloop.attempts.evidence import attempt_evidence_mass
     from learnloop.learner.mastery import resolve_item_irt_params
 
-    a, b = resolve_item_irt_params(item, learning_object, config.mastery)
+    a, b = resolve_item_irt_params(item, learning_object, config.mastery,
+                                   algorithm_version=config.algorithms.algorithm_version)
     theta = mastery.logit_mean if mastery is not None else 0.0
     p = 1.0 / (1.0 + exp(-a * (theta - b)))
     mass = attempt_evidence_mass(DEFAULT_ATTEMPT_TYPE, config.evidence)

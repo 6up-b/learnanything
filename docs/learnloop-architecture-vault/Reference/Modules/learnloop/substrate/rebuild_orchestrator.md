@@ -275,12 +275,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_vault_without_families_has_no_fingerprint_rows`
   - `test_rebuild_recomputes_fingerprints_without_any_model_or_generator`
   - `test_skeletons_from_one_model_at_two_prompt_versions_rebuild_without_a_key_collision`
+- [tests/test_label_retirement_counts.py](../../../../../../tests/test_label_retirement_counts.py) — direct import
+  - `test_the_counts_before_and_after_the_upgrade_and_their_comparison`
 - [tests/test_learner_report_superseded.py](../../../../../../tests/test_learner_report_superseded.py) — direct import
   - `test_a_new_starting_level_keeps_the_old_one_for_an_lo_first_practised_under_it`
   - `test_random_attempts_and_learner_reports_rebuild_to_live`
   - `test_two_rung_requests_on_a_cold_lo_then_an_attempt_rebuild_to_live`
-- [tests/test_lesson_weight_fit_reads.py](../../../../../../tests/test_lesson_weight_fit_reads.py) — direct import
-  - `test_a_regrade_leaves_the_lesson_weight_tables_as_a_rebuild_would`
 - [tests/test_lp_claim_fixes.py](../../../../../../tests/test_lp_claim_fixes.py) — direct import
   - `test_off_is_the_predecessor_on_a_tracked_fixture_copy`
   - `test_owner_copies_off_is_the_predecessor_and_on_reports_the_mastery_deltas`
@@ -432,8 +432,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_stuck_vault_rebuilds_to_a_fixed_point_with_no_model_call`
   - `test_an_attempt_an_older_tag_wrote_replays_with_no_stuck_declaration_at_the_head`
   - `test_historical_dont_know_rows_replay_unchanged_under_the_successor`
-- [tests/test_teacher_te1_review_fixes.py](../../../../../../tests/test_teacher_te1_review_fixes.py) — direct import
-  - `test_f6_the_trajectory_at_the_recorded_mass_reproduces_the_outcomes_recorded_prior`
+- [tests/test_surprise_reads_ad_forecast.py](../../../../../../tests/test_surprise_reads_ad_forecast.py) — direct import
+  - `test_a_rebuild_reproduces_every_surprise_row_and_writes_no_receipt`
+  - `test_a_writer_committing_between_the_read_and_the_write_leaves_the_recorded_forecast_standing`
+  - `test_ads_trace_records_the_kl_of_its_posterior_from_the_tag_on`
+  - `test_history_before_the_tag_falls_back_to_mastery_marked`
+  - `test_the_label_does_not_move_mastery`
 - [tests/test_teacher_te1_successor.py](../../../../../../tests/test_teacher_te1_successor.py) — direct import
   - `test_a_shadow_rebuild_after_a_lesson_has_zero_projection_deltas`
   - `test_the_whole_rebuild_owns_the_lesson_weight_tables_and_reproduces_them`
@@ -449,10 +453,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_teacher_te2_review_fixes.py](../../../../../../tests/test_teacher_te2_review_fixes.py) — direct import
   - `test_f1_a_probe_answer_carries_reliable_canonical_mass_live_and_after_a_rebuild`
   - `test_f7_a_blind_lesson_probe_grade_keeps_the_blind_calibration_identity`
-- [tests/test_teacher_te5_grade_curves.py](../../../../../../tests/test_teacher_te5_grade_curves.py) — direct import
-  - `test_a_rebuild_seeds_measured_difficulty_from_the_recorded_cold_curve`
-  - `test_regrade_adds_a_curve_for_only_the_new_epoch`
-  - `test_upgrade_freezes_once_then_refits_and_rebuilds_twice`
 - [tests/test_upgrades.py](../../../../../../tests/test_upgrades.py) — direct import
 - [tests/test_voi_stopping.py](../../../../../../tests/test_voi_stopping.py) — direct import
 - [tests/test_workbench_assistance.py](../../../../../../tests/test_workbench_assistance.py) — direct import

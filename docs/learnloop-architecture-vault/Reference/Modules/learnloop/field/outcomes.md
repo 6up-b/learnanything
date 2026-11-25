@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/field/outcomes.py](../../../../../../src/learnloop/field/outcomes.py) |
-| Source lines | 903 |
+| Source lines | 904 |
 | Owning package | [[Reference/Modules/learnloop/field/_package|learnloop.field]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -60,13 +60,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `unverified_criterion_ids(evidence) -> set[str]` ([source](../../../../../../src/learnloop/field/outcomes.py), line 265) — PF-c: the criteria of the current grade the valid-alternative gate recorded unverified.
 - `wholly_unassessed(evidence) -> bool` ([source](../../../../../../src/learnloop/field/outcomes.py), line 270) — PF-c: every criterion of the current grade is unverified, so the attempt measures nothing (owner decision 2026-10-12), whatever its scheduling grade.
 - `measurement_masses(connection, vault: LoadedVault, ledger) -> dict[str, float]` ([source](../../../../../../src/learnloop/field/outcomes.py), line 277) — Per attempt, its effective mass before the item-dependent (familiarity) and assistance discounts: the attempt type's mass (an independent attempt's for a hinted one, as ``mass_without_assistance``), quarantine, an unassessable type and the grade's reliability.
-- `load_attempt_rows(connection, vault: LoadedVault, *, legacy_fallback=None, as_of=None, retrieval=False, attempt_rows=None) -> tuple[AttemptRow, ...]` ([source](../../../../../../src/learnloop/field/outcomes.py), line 700) — Immutable attempt rows, including zero-mass exclusions for accounting.
-- `load_replay_rows(connection, vault: LoadedVault, *, legacy_fallback=None)` ([source](../../../../../../src/learnloop/field/outcomes.py), line 716) — Attempt and facet rows for one prequential replay, read in one pass.
-- `fsrs_predicted_retrievability(connection, vault: LoadedVault, repository: Repository, *, held_attempt_ids=frozenset()) -> dict[str, float]` ([source](../../../../../../src/learnloop/field/outcomes.py), line 721) — FSRS-predicted retrievability at each graded attempt, from the ledger.
-- `load_effective_replay_rows(connection, vault: LoadedVault, *, legacy_fallback=None, include_workbench=True)` ([source](../../../../../../src/learnloop/field/outcomes.py), line 764) — ``(attempts, facets, signals)`` with the complete coldness derivation.
-- `load_facet_rows(connection, vault: LoadedVault, *, legacy_fallback=None, as_of=None) -> tuple[FacetRow, ...]` ([source](../../../../../../src/learnloop/field/outcomes.py), line 779)
-- `rebuild_outcome_view(connection, vault: LoadedVault, *, legacy_fallback=None) -> int` ([source](../../../../../../src/learnloop/field/outcomes.py), line 783) — Replace only the outcome cache; transaction ownership stays with caller.
-- `data_check(connection, vault: LoadedVault, *, legacy_fallback=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/field/outcomes.py), line 796) — Aggregate-only diagnostic; no learner answers, prompts or debug text.
+- `load_attempt_rows(connection, vault: LoadedVault, *, legacy_fallback=None, as_of=None, retrieval=False, attempt_rows=None) -> tuple[AttemptRow, ...]` ([source](../../../../../../src/learnloop/field/outcomes.py), line 701) — Immutable attempt rows, including zero-mass exclusions for accounting.
+- `load_replay_rows(connection, vault: LoadedVault, *, legacy_fallback=None)` ([source](../../../../../../src/learnloop/field/outcomes.py), line 717) — Attempt and facet rows for one prequential replay, read in one pass.
+- `fsrs_predicted_retrievability(connection, vault: LoadedVault, repository: Repository, *, held_attempt_ids=frozenset()) -> dict[str, float]` ([source](../../../../../../src/learnloop/field/outcomes.py), line 722) — FSRS-predicted retrievability at each graded attempt, from the ledger.
+- `load_effective_replay_rows(connection, vault: LoadedVault, *, legacy_fallback=None, include_workbench=True)` ([source](../../../../../../src/learnloop/field/outcomes.py), line 765) — ``(attempts, facets, signals)`` with the complete coldness derivation.
+- `load_facet_rows(connection, vault: LoadedVault, *, legacy_fallback=None, as_of=None) -> tuple[FacetRow, ...]` ([source](../../../../../../src/learnloop/field/outcomes.py), line 780)
+- `rebuild_outcome_view(connection, vault: LoadedVault, *, legacy_fallback=None) -> int` ([source](../../../../../../src/learnloop/field/outcomes.py), line 784) — Replace only the outcome cache; transaction ownership stays with caller.
+- `data_check(connection, vault: LoadedVault, *, legacy_fallback=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/field/outcomes.py), line 797) — Aggregate-only diagnostic; no learner answers, prompts or debug text.
 
 ### Module constants
 

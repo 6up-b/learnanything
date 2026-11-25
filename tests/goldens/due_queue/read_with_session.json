@@ -52,7 +52,7 @@
     "conjunctive_fit": 0.0,
     "conjunctive_strength": 0.0,
     "duplicate_probe_penalty": 0.0,
-    "expected_skill_gain": 0.05792706,
+    "expected_skill_gain": 0.05544,
     "facet_weakness": 0.5,
     "forgetting_risk": 0.0,
     "goal_frontier": 0.8,
@@ -60,8 +60,8 @@
     "gradient_fit": 1.0,
     "legacy_priority": 0.2000000003,
     "overload_penalty": 0.0,
-    "practice_information": 0.246,
-    "predicted_correctness": 0.5518234991,
+    "practice_information": 0.25,
+    "predicted_correctness": 0.614,
     "probe_eig": 0.0,
     "probe_eig_facet_recall": 0.3465735903,
     "probe_eig_hypothesis": 0.0,
@@ -70,7 +70,7 @@
     "recent_error": 6e-10,
     "repair_value": 0.0,
     "repetition_fatigue": 0.0,
-    "selection_reward": 0.492408825,
+    "selection_reward": 0.4893,
     "targeted_boundary_fit": 0.0,
     "voi_cost_minutes": 1.53125,
     "voi_stop": 1.0,
@@ -91,7 +91,7 @@
      "applied_to_belief_counts": false,
      "applied_to_facet_recall": false,
      "applied_to_mastery": false,
-     "expected_skill_gain": 0.05792706,
+     "expected_skill_gain": 0.05544,
      "reason": "feedback_after_gap",
      "target_facets": [
       "recall"
@@ -113,7 +113,7 @@
      "conjunctive_fit": 0.0,
      "conjunctive_strength": 0.0,
      "duplicate_probe_penalty": 0.0,
-     "expected_skill_gain": 0.05792706,
+     "expected_skill_gain": 0.05544,
      "facet_weakness": 0.5,
      "gradient_fit": 1.0,
      "overload_penalty": 0.0,
@@ -128,7 +128,7 @@
     "intent": "practice",
     "item_demand_vector": {
      "bad_item_suspicion": 0.0,
-     "difficulty_b": 0.25,
+     "difficulty_b": 0.0,
      "discrimination_a": 1.0,
      "evidence_weights": {
       "recall": 1.0
@@ -145,7 +145,7 @@
      "surface_family": null,
      "transfer_distance": 0.0
     },
-    "predicted_correctness": 0.5518234991,
+    "predicted_correctness": 0.614,
     "probe_eig": {
      "facet_recall": {
       "expected_posterior_entropy": -1.0397207708,
@@ -167,7 +167,7 @@
      "normalized_total": 0.1873216828,
      "total_reduction": 0.5619650483
     },
-    "selection_reward": 0.492408825
+    "selection_reward": 0.4893
    },
    "scheduler_candidate_id": null,
    "scheduler_slate_id": null,
@@ -180,8 +180,6 @@
     "conjunctive_strength": 0.0,
     "duplicate_probe_penalty": 0.0,
     "expected_skill_gain": 0.01228,
-    "exploration_rate": 0.5,
-    "exploration_selected": 1.0,
     "facet_weakness": 0.5,
     "forgetting_risk": 0.0,
     "goal_frontier": 0.28,
@@ -206,7 +204,6 @@
    "learning_object_id": "lo_a",
    "plain_english": [
     "requested: you asked to chase this",
-    "seeded exploration",
     "goal frontier weight 0.28",
     "selection reward 0.36"
    ],
@@ -302,7 +299,130 @@
     "conjunctive_fit": 0.0,
     "conjunctive_strength": 0.0,
     "duplicate_probe_penalty": 0.0,
-    "expected_skill_gain": 0.06275706,
+    "expected_skill_gain": 0.01228,
+    "exploration_rate": 0.5,
+    "exploration_selected": 1.0,
+    "facet_weakness": 0.5,
+    "forgetting_risk": 0.1541153549,
+    "goal_frontier": 0.28,
+    "goal_frontier_exposure_discount": 0.35,
+    "gradient_fit": 1.0,
+    "legacy_priority": 0.2241153549,
+    "overload_penalty": 0.0,
+    "practice_information": 0.25,
+    "predicted_correctness": 0.614,
+    "probe_eig": 0.0,
+    "probe_eig_facet_recall": 0.3465735903,
+    "probe_eig_hypothesis": 0.0,
+    "probe_eig_lo_mastery": 0.215391458,
+    "probe_eig_total": 0.5619650483,
+    "recent_error": 0.0,
+    "repair_value": 0.0,
+    "repetition_fatigue": 0.0,
+    "selection_reward": 0.388173071,
+    "targeted_boundary_fit": 0.0
+   },
+   "followup_kind": null,
+   "learning_object_id": "lo_c",
+   "plain_english": [
+    "seeded exploration",
+    "forgetting risk 0.15",
+    "goal frontier weight 0.28",
+    "selection reward 0.39"
+   ],
+   "practice_item_id": "pi_c1",
+   "priority": 0.2241153549,
+   "readiness_factor": null,
+   "reward_debug": {
+    "ability_transition": {
+     "applied_to_belief_counts": false,
+     "applied_to_facet_recall": false,
+     "applied_to_mastery": false,
+     "expected_skill_gain": 0.01228,
+     "reason": "successful_practice_reinforcement",
+     "target_facets": [
+      "recall"
+     ],
+     "transition_type": "expected_skill_gain"
+    },
+    "ability_vector": {
+     "facet_independent_evidence_mass_by_facet": {},
+     "facet_recall_mean_by_facet": {},
+     "facet_recall_variance_by_facet": {},
+     "learning_object_id": "lo_c",
+     "lo_mastery": 0.5,
+     "lo_mastery_variance": 1.0,
+     "misconception_posterior_by_error_type": {}
+    },
+    "components": {
+     "conjunctive_fit": 0.0,
+     "conjunctive_strength": 0.0,
+     "duplicate_probe_penalty": 0.0,
+     "expected_skill_gain": 0.01228,
+     "facet_weakness": 0.5,
+     "gradient_fit": 1.0,
+     "overload_penalty": 0.0,
+     "probe_eig_facet_recall": 0.3465735903,
+     "probe_eig_hypothesis": 0.0,
+     "probe_eig_lo_mastery": 0.215391458,
+     "probe_eig_total": 0.5619650483,
+     "repair_value": 0.0,
+     "repetition_fatigue": 0.0,
+     "targeted_boundary_fit": 0.0
+    },
+    "intent": "practice",
+    "item_demand_vector": {
+     "bad_item_suspicion": 0.0,
+     "difficulty_b": 0.0,
+     "discrimination_a": 1.0,
+     "evidence_weights": {
+      "recall": 1.0
+     },
+     "learning_object_id": "lo_c",
+     "misconception_targets": [],
+     "repair_targets": [
+      "recall"
+     ],
+     "retrieval_demand": 0.8,
+     "scaffold_level": 1.0,
+     "surface_family": null,
+     "transfer_distance": 0.0
+    },
+    "predicted_correctness": 0.614,
+    "probe_eig": {
+     "facet_recall": {
+      "expected_posterior_entropy": -1.0397207708,
+      "prior_entropy": -0.6931471806,
+      "reduction": 0.3465735903
+     },
+     "hypothesis": {
+      "expected_posterior_entropy": null,
+      "prior_entropy": null,
+      "raw_reduction": 0.0,
+      "reduction": 0.0
+     },
+     "independent_evidence_discount": 1.0,
+     "lo_mastery": {
+      "expected_posterior_entropy": -0.215391458,
+      "prior_entropy": 0.0,
+      "reduction": 0.215391458
+     },
+     "normalized_total": 0.1873216828,
+     "total_reduction": 0.5619650483
+    },
+    "selection_reward": 0.388173071
+   },
+   "scheduler_candidate_id": null,
+   "scheduler_slate_id": null,
+   "selected_mode": "short_answer"
+  },
+  {
+   "components": {
+    "boundary_target": 0.0,
+    "conjunctive_fit": 0.0,
+    "conjunctive_strength": 0.0,
+    "duplicate_probe_penalty": 0.0,
+    "expected_skill_gain": 0.06027,
     "facet_weakness": 0.5,
     "forgetting_risk": 0.0,
     "goal_frontier": 0.8,
@@ -310,8 +430,8 @@
     "gradient_fit": 1.0,
     "legacy_priority": 0.2000000003,
     "overload_penalty": 0.0,
-    "practice_information": 0.246,
-    "predicted_correctness": 0.4310734991,
+    "practice_information": 0.25,
+    "predicted_correctness": 0.49325,
     "probe_eig": 0.0,
     "probe_eig_facet_recall": 1.0397207708,
     "probe_eig_hypothesis": 0.0,
@@ -338,7 +458,7 @@
      "applied_to_belief_counts": false,
      "applied_to_facet_recall": false,
      "applied_to_mastery": false,
-     "expected_skill_gain": 0.06275706,
+     "expected_skill_gain": 0.06027,
      "reason": "feedback_after_gap",
      "target_facets": [
       "definition",
@@ -362,7 +482,7 @@
      "conjunctive_fit": 0.0,
      "conjunctive_strength": 0.0,
      "duplicate_probe_penalty": 0.0,
-     "expected_skill_gain": 0.06275706,
+     "expected_skill_gain": 0.06027,
      "facet_weakness": 0.5,
      "gradient_fit": 1.0,
      "overload_penalty": 0.0,
@@ -377,7 +497,7 @@
     "intent": "probe",
     "item_demand_vector": {
      "bad_item_suspicion": 0.0,
-     "difficulty_b": 0.25,
+     "difficulty_b": 0.0,
      "discrimination_a": 1.0,
      "evidence_weights": {
       "definition": 1.0,
@@ -396,7 +516,7 @@
      "surface_family": null,
      "transfer_distance": 0.0
     },
-    "predicted_correctness": 0.4310734991,
+    "predicted_correctness": 0.49325,
     "probe_eig": {
      "facet_recall": {
       "expected_posterior_entropy": -3.1191623125,
@@ -423,6 +543,131 @@
    "scheduler_candidate_id": null,
    "scheduler_slate_id": null,
    "selected_mode": "teach_back"
+  },
+  {
+   "components": {
+    "boundary_target": 0.0,
+    "conjunctive_fit": 0.0,
+    "conjunctive_strength": 0.0,
+    "duplicate_probe_penalty": 0.0,
+    "expected_skill_gain": 0.06024,
+    "facet_weakness": 0.5,
+    "forgetting_risk": 0.0,
+    "goal_frontier": 0.8,
+    "goal_frontier_exposure_discount": 1.0,
+    "gradient_fit": 0.86,
+    "legacy_priority": 0.2000000003,
+    "overload_penalty": 0.0,
+    "practice_information": 0.25,
+    "predicted_correctness": 0.494,
+    "probe_eig": 0.0,
+    "probe_eig_facet_recall": 0.3465735903,
+    "probe_eig_hypothesis": 0.0,
+    "probe_eig_lo_mastery": 0.215391458,
+    "probe_eig_total": 0.5619650483,
+    "recent_error": 6e-10,
+    "repair_value": 0.0,
+    "repetition_fatigue": 0.0,
+    "selection_reward": 0.4673,
+    "targeted_boundary_fit": 0.0,
+    "voi_cost_minutes": 1.53125,
+    "voi_stop": 1.0,
+    "voi_value_minutes": 1.5012988666
+   },
+   "followup_kind": null,
+   "learning_object_id": "lo_svd_definition",
+   "plain_english": [
+    "goal frontier weight 0.80",
+    "recent error boost 0.00",
+    "selection reward 0.47"
+   ],
+   "practice_item_id": "pi_svd_define_002",
+   "priority": 0.2000000003,
+   "readiness_factor": null,
+   "reward_debug": {
+    "ability_transition": {
+     "applied_to_belief_counts": false,
+     "applied_to_facet_recall": false,
+     "applied_to_mastery": false,
+     "expected_skill_gain": 0.06024,
+     "reason": "feedback_after_gap",
+     "target_facets": [
+      "recall"
+     ],
+     "transition_type": "expected_skill_gain"
+    },
+    "ability_vector": {
+     "facet_independent_evidence_mass_by_facet": {},
+     "facet_recall_mean_by_facet": {},
+     "facet_recall_variance_by_facet": {},
+     "learning_object_id": "lo_svd_definition",
+     "lo_mastery": 0.5,
+     "lo_mastery_variance": 1.0,
+     "misconception_posterior_by_error_type": {
+      "conceptual_slip": 1.0
+     }
+    },
+    "components": {
+     "conjunctive_fit": 0.0,
+     "conjunctive_strength": 0.0,
+     "duplicate_probe_penalty": 0.0,
+     "expected_skill_gain": 0.06024,
+     "facet_weakness": 0.5,
+     "gradient_fit": 0.86,
+     "overload_penalty": 0.0,
+     "probe_eig_facet_recall": 0.3465735903,
+     "probe_eig_hypothesis": 0.0,
+     "probe_eig_lo_mastery": 0.215391458,
+     "probe_eig_total": 0.5619650483,
+     "repair_value": 0.0,
+     "repetition_fatigue": 0.0,
+     "targeted_boundary_fit": 0.0
+    },
+    "intent": "practice",
+    "item_demand_vector": {
+     "bad_item_suspicion": 0.0,
+     "difficulty_b": 0.0,
+     "discrimination_a": 1.0,
+     "evidence_weights": {
+      "recall": 1.0
+     },
+     "learning_object_id": "lo_svd_definition",
+     "misconception_targets": [],
+     "repair_targets": [
+      "recall"
+     ],
+     "retrieval_demand": 0.8,
+     "scaffold_level": 0.0,
+     "surface_family": null,
+     "transfer_distance": 0.0
+    },
+    "predicted_correctness": 0.494,
+    "probe_eig": {
+     "facet_recall": {
+      "expected_posterior_entropy": -1.0397207708,
+      "prior_entropy": -0.6931471806,
+      "reduction": 0.3465735903
+     },
+     "hypothesis": {
+      "expected_posterior_entropy": null,
+      "prior_entropy": null,
+      "raw_reduction": 0.0,
+      "reduction": 0.0
+     },
+     "independent_evidence_discount": 1.0,
+     "lo_mastery": {
+      "expected_posterior_entropy": -0.215391458,
+      "prior_entropy": 0.0,
+      "reduction": 0.215391458
+     },
+     "normalized_total": 0.1873216828,
+     "total_reduction": 0.5619650483
+    },
+    "selection_reward": 0.4673
+   },
+   "scheduler_candidate_id": null,
+   "scheduler_slate_id": null,
+   "selected_mode": "short_answer"
   },
   {
    "components": {
@@ -550,49 +795,46 @@
     "conjunctive_fit": 0.0,
     "conjunctive_strength": 0.0,
     "duplicate_probe_penalty": 0.0,
-    "expected_skill_gain": 0.06272706,
+    "expected_skill_gain": 0.009865,
     "facet_weakness": 0.5,
-    "forgetting_risk": 0.0,
+    "forgetting_risk": 0.1541153549,
     "goal_frontier": 0.8,
     "goal_frontier_exposure_discount": 1.0,
-    "gradient_fit": 0.7045587478,
-    "legacy_priority": 0.2000000003,
-    "overload_penalty": 0.0403922242,
-    "practice_information": 0.246,
-    "predicted_correctness": 0.4318234991,
+    "gradient_fit": 0.858125,
+    "legacy_priority": 0.3541153549,
+    "overload_penalty": 0.0,
+    "practice_information": 0.25,
+    "predicted_correctness": 0.49325,
     "probe_eig": 0.0,
     "probe_eig_facet_recall": 0.3465735903,
     "probe_eig_hypothesis": 0.0,
     "probe_eig_lo_mastery": 0.215391458,
     "probe_eig_total": 0.5619650483,
-    "recent_error": 6e-10,
+    "recent_error": 0.0,
     "repair_value": 0.0,
     "repetition_fatigue": 0.0,
-    "selection_reward": 0.3989283504,
-    "targeted_boundary_fit": 0.0,
-    "voi_cost_minutes": 1.53125,
-    "voi_stop": 1.0,
-    "voi_value_minutes": 1.5012988666
+    "selection_reward": 0.434779321,
+    "targeted_boundary_fit": 0.0
    },
    "followup_kind": null,
-   "learning_object_id": "lo_svd_definition",
+   "learning_object_id": "lo_c",
    "plain_english": [
+    "forgetting risk 0.15",
     "goal frontier weight 0.80",
-    "recent error boost 0.00",
-    "selection reward 0.40"
+    "selection reward 0.43"
    ],
-   "practice_item_id": "pi_svd_define_002",
-   "priority": 0.2000000003,
+   "practice_item_id": "pi_pair_second",
+   "priority": 0.3541153549,
    "readiness_factor": null,
    "reward_debug": {
     "ability_transition": {
      "applied_to_belief_counts": false,
      "applied_to_facet_recall": false,
      "applied_to_mastery": false,
-     "expected_skill_gain": 0.06272706,
-     "reason": "feedback_after_gap",
+     "expected_skill_gain": 0.009865,
+     "reason": "successful_practice_reinforcement",
      "target_facets": [
-      "recall"
+      "f_applicability"
      ],
      "transition_type": "expected_skill_gain"
     },
@@ -600,21 +842,19 @@
      "facet_independent_evidence_mass_by_facet": {},
      "facet_recall_mean_by_facet": {},
      "facet_recall_variance_by_facet": {},
-     "learning_object_id": "lo_svd_definition",
+     "learning_object_id": "lo_c",
      "lo_mastery": 0.5,
      "lo_mastery_variance": 1.0,
-     "misconception_posterior_by_error_type": {
-      "conceptual_slip": 1.0
-     }
+     "misconception_posterior_by_error_type": {}
     },
     "components": {
      "conjunctive_fit": 0.0,
      "conjunctive_strength": 0.0,
      "duplicate_probe_penalty": 0.0,
-     "expected_skill_gain": 0.06272706,
+     "expected_skill_gain": 0.009865,
      "facet_weakness": 0.5,
-     "gradient_fit": 0.7045587478,
-     "overload_penalty": 0.0403922242,
+     "gradient_fit": 0.858125,
+     "overload_penalty": 0.0,
      "probe_eig_facet_recall": 0.3465735903,
      "probe_eig_hypothesis": 0.0,
      "probe_eig_lo_mastery": 0.215391458,
@@ -626,22 +866,22 @@
     "intent": "practice",
     "item_demand_vector": {
      "bad_item_suspicion": 0.0,
-     "difficulty_b": 0.25,
+     "difficulty_b": 0.0,
      "discrimination_a": 1.0,
      "evidence_weights": {
-      "recall": 1.0
+      "f_applicability": 1.0
      },
-     "learning_object_id": "lo_svd_definition",
+     "learning_object_id": "lo_c",
      "misconception_targets": [],
      "repair_targets": [
-      "recall"
+      "f_applicability"
      ],
-     "retrieval_demand": 0.8,
+     "retrieval_demand": 0.9,
      "scaffold_level": 0.0,
-     "surface_family": null,
+     "surface_family": "matrix_verbal",
      "transfer_distance": 0.0
     },
-    "predicted_correctness": 0.4318234991,
+    "predicted_correctness": 0.49325,
     "probe_eig": {
      "facet_recall": {
       "expected_posterior_entropy": -1.0397207708,
@@ -663,11 +903,11 @@
      "normalized_total": 0.1873216828,
      "total_reduction": 0.5619650483
     },
-    "selection_reward": 0.3989283504
+    "selection_reward": 0.434779321
    },
    "scheduler_candidate_id": null,
    "scheduler_slate_id": null,
-   "selected_mode": "short_answer"
+   "selected_mode": "constructed_response"
   },
   {
    "components": {
@@ -752,126 +992,6 @@
       "recall": 1.0
      },
      "learning_object_id": "lo_b",
-     "misconception_targets": [],
-     "repair_targets": [
-      "recall"
-     ],
-     "retrieval_demand": 0.8,
-     "scaffold_level": 1.0,
-     "surface_family": null,
-     "transfer_distance": 0.0
-    },
-    "predicted_correctness": 0.614,
-    "probe_eig": {
-     "facet_recall": {
-      "expected_posterior_entropy": -1.0397207708,
-      "prior_entropy": -0.6931471806,
-      "reduction": 0.3465735903
-     },
-     "hypothesis": {
-      "expected_posterior_entropy": null,
-      "prior_entropy": null,
-      "raw_reduction": 0.0,
-      "reduction": 0.0
-     },
-     "independent_evidence_discount": 1.0,
-     "lo_mastery": {
-      "expected_posterior_entropy": -0.215391458,
-      "prior_entropy": 0.0,
-      "reduction": 0.215391458
-     },
-     "normalized_total": 0.1873216828,
-     "total_reduction": 0.5619650483
-    },
-    "selection_reward": 0.388173071
-   },
-   "scheduler_candidate_id": null,
-   "scheduler_slate_id": null,
-   "selected_mode": "short_answer"
-  },
-  {
-   "components": {
-    "boundary_target": 0.0,
-    "conjunctive_fit": 0.0,
-    "conjunctive_strength": 0.0,
-    "duplicate_probe_penalty": 0.0,
-    "expected_skill_gain": 0.01228,
-    "facet_weakness": 0.5,
-    "forgetting_risk": 0.1541153549,
-    "goal_frontier": 0.28,
-    "goal_frontier_exposure_discount": 0.35,
-    "gradient_fit": 1.0,
-    "legacy_priority": 0.2241153549,
-    "overload_penalty": 0.0,
-    "practice_information": 0.25,
-    "predicted_correctness": 0.614,
-    "probe_eig": 0.0,
-    "probe_eig_facet_recall": 0.3465735903,
-    "probe_eig_hypothesis": 0.0,
-    "probe_eig_lo_mastery": 0.215391458,
-    "probe_eig_total": 0.5619650483,
-    "recent_error": 0.0,
-    "repair_value": 0.0,
-    "repetition_fatigue": 0.0,
-    "selection_reward": 0.388173071,
-    "targeted_boundary_fit": 0.0
-   },
-   "followup_kind": null,
-   "learning_object_id": "lo_c",
-   "plain_english": [
-    "forgetting risk 0.15",
-    "goal frontier weight 0.28",
-    "selection reward 0.39"
-   ],
-   "practice_item_id": "pi_c1",
-   "priority": 0.2241153549,
-   "readiness_factor": null,
-   "reward_debug": {
-    "ability_transition": {
-     "applied_to_belief_counts": false,
-     "applied_to_facet_recall": false,
-     "applied_to_mastery": false,
-     "expected_skill_gain": 0.01228,
-     "reason": "successful_practice_reinforcement",
-     "target_facets": [
-      "recall"
-     ],
-     "transition_type": "expected_skill_gain"
-    },
-    "ability_vector": {
-     "facet_independent_evidence_mass_by_facet": {},
-     "facet_recall_mean_by_facet": {},
-     "facet_recall_variance_by_facet": {},
-     "learning_object_id": "lo_c",
-     "lo_mastery": 0.5,
-     "lo_mastery_variance": 1.0,
-     "misconception_posterior_by_error_type": {}
-    },
-    "components": {
-     "conjunctive_fit": 0.0,
-     "conjunctive_strength": 0.0,
-     "duplicate_probe_penalty": 0.0,
-     "expected_skill_gain": 0.01228,
-     "facet_weakness": 0.5,
-     "gradient_fit": 1.0,
-     "overload_penalty": 0.0,
-     "probe_eig_facet_recall": 0.3465735903,
-     "probe_eig_hypothesis": 0.0,
-     "probe_eig_lo_mastery": 0.215391458,
-     "probe_eig_total": 0.5619650483,
-     "repair_value": 0.0,
-     "repetition_fatigue": 0.0,
-     "targeted_boundary_fit": 0.0
-    },
-    "intent": "practice",
-    "item_demand_vector": {
-     "bad_item_suspicion": 0.0,
-     "difficulty_b": 0.0,
-     "discrimination_a": 1.0,
-     "evidence_weights": {
-      "recall": 1.0
-     },
-     "learning_object_id": "lo_c",
      "misconception_targets": [],
      "repair_targets": [
       "recall"
@@ -1035,138 +1155,18 @@
     "conjunctive_fit": 0.0,
     "conjunctive_strength": 0.0,
     "duplicate_probe_penalty": 0.0,
-    "expected_skill_gain": 0.00862147,
-    "facet_weakness": 0.5,
-    "forgetting_risk": 0.1541153549,
-    "goal_frontier": 0.8,
-    "goal_frontier_exposure_discount": 1.0,
-    "gradient_fit": 0.7026837478,
-    "legacy_priority": 0.3541153549,
-    "overload_penalty": 0.0420588909,
-    "practice_information": 0.246,
-    "predicted_correctness": 0.4310734991,
-    "probe_eig": 0.0,
-    "probe_eig_facet_recall": 0.3465735903,
-    "probe_eig_hypothesis": 0.0,
-    "probe_eig_lo_mastery": 0.215391458,
-    "probe_eig_total": 0.5619650483,
-    "recent_error": 0.0,
-    "repair_value": 0.0,
-    "repetition_fatigue": 0.0,
-    "selection_reward": 0.3600777671,
-    "targeted_boundary_fit": 0.0
-   },
-   "followup_kind": null,
-   "learning_object_id": "lo_c",
-   "plain_english": [
-    "forgetting risk 0.15",
-    "goal frontier weight 0.80",
-    "selection reward 0.36"
-   ],
-   "practice_item_id": "pi_pair_second",
-   "priority": 0.3541153549,
-   "readiness_factor": null,
-   "reward_debug": {
-    "ability_transition": {
-     "applied_to_belief_counts": false,
-     "applied_to_facet_recall": false,
-     "applied_to_mastery": false,
-     "expected_skill_gain": 0.00862147,
-     "reason": "successful_practice_reinforcement",
-     "target_facets": [
-      "f_applicability"
-     ],
-     "transition_type": "expected_skill_gain"
-    },
-    "ability_vector": {
-     "facet_independent_evidence_mass_by_facet": {},
-     "facet_recall_mean_by_facet": {},
-     "facet_recall_variance_by_facet": {},
-     "learning_object_id": "lo_c",
-     "lo_mastery": 0.5,
-     "lo_mastery_variance": 1.0,
-     "misconception_posterior_by_error_type": {}
-    },
-    "components": {
-     "conjunctive_fit": 0.0,
-     "conjunctive_strength": 0.0,
-     "duplicate_probe_penalty": 0.0,
-     "expected_skill_gain": 0.00862147,
-     "facet_weakness": 0.5,
-     "gradient_fit": 0.7026837478,
-     "overload_penalty": 0.0420588909,
-     "probe_eig_facet_recall": 0.3465735903,
-     "probe_eig_hypothesis": 0.0,
-     "probe_eig_lo_mastery": 0.215391458,
-     "probe_eig_total": 0.5619650483,
-     "repair_value": 0.0,
-     "repetition_fatigue": 0.0,
-     "targeted_boundary_fit": 0.0
-    },
-    "intent": "practice",
-    "item_demand_vector": {
-     "bad_item_suspicion": 0.0,
-     "difficulty_b": 0.25,
-     "discrimination_a": 1.0,
-     "evidence_weights": {
-      "f_applicability": 1.0
-     },
-     "learning_object_id": "lo_c",
-     "misconception_targets": [],
-     "repair_targets": [
-      "f_applicability"
-     ],
-     "retrieval_demand": 0.9,
-     "scaffold_level": 0.0,
-     "surface_family": "matrix_verbal",
-     "transfer_distance": 0.0
-    },
-    "predicted_correctness": 0.4310734991,
-    "probe_eig": {
-     "facet_recall": {
-      "expected_posterior_entropy": -1.0397207708,
-      "prior_entropy": -0.6931471806,
-      "reduction": 0.3465735903
-     },
-     "hypothesis": {
-      "expected_posterior_entropy": null,
-      "prior_entropy": null,
-      "raw_reduction": 0.0,
-      "reduction": 0.0
-     },
-     "independent_evidence_discount": 1.0,
-     "lo_mastery": {
-      "expected_posterior_entropy": -0.215391458,
-      "prior_entropy": 0.0,
-      "reduction": 0.215391458
-     },
-     "normalized_total": 0.1873216828,
-     "total_reduction": 0.5619650483
-    },
-    "selection_reward": 0.3600777671
-   },
-   "scheduler_candidate_id": null,
-   "scheduler_slate_id": null,
-   "selected_mode": "constructed_response"
-  },
-  {
-   "components": {
-    "boundary_target": 0.0,
-    "conjunctive_fit": 0.0,
-    "conjunctive_strength": 0.0,
-    "duplicate_probe_penalty": 0.0,
-    "expected_skill_gain": 0.0186314895,
+    "expected_skill_gain": 0.01228,
     "facet_weakness": 0.5,
     "forgetting_risk": 0.0,
     "goal_frontier": 0.0,
-    "gradient_fit": 0.5460638095,
+    "gradient_fit": 1.0,
     "legacy_priority": 0.0,
     "new_material": 1.0,
     "overload_penalty": 0.0,
     "placement_layer": 0.0,
-    "placement_predicted_success": 0.8175744762,
-    "practice_information": 0.149,
-    "predicted_correctness": 0.9315744762,
+    "placement_predicted_success": 0.5,
+    "practice_information": 0.25,
+    "predicted_correctness": 0.614,
     "probe_eig": 0.0,
     "probe_eig_facet_recall": 0.3465735903,
     "probe_eig_hypothesis": 0.0,
@@ -1175,129 +1175,7 @@
     "recent_error": 0.0,
     "repair_value": 0.0,
     "repetition_fatigue": 0.0,
-    "selection_reward": 0.2325021238,
-    "targeted_boundary_fit": 0.0,
-    "taught_first": 0.0
-   },
-   "followup_kind": null,
-   "learning_object_id": "lo_eigen_basics",
-   "plain_english": [
-    "new material: starts as learning, no opening probe",
-    "selection reward 0.23"
-   ],
-   "practice_item_id": "pi_eig_easy",
-   "priority": 0.05,
-   "readiness_factor": null,
-   "reward_debug": {
-    "ability_transition": {
-     "applied_to_belief_counts": false,
-     "applied_to_facet_recall": false,
-     "applied_to_mastery": false,
-     "expected_skill_gain": 0.0186314895,
-     "reason": "successful_practice_reinforcement",
-     "target_facets": [
-      "recall"
-     ],
-     "transition_type": "expected_skill_gain"
-    },
-    "ability_vector": {
-     "facet_independent_evidence_mass_by_facet": {},
-     "facet_recall_mean_by_facet": {},
-     "facet_recall_variance_by_facet": {},
-     "learning_object_id": "lo_eigen_basics",
-     "lo_mastery": 0.5,
-     "lo_mastery_variance": 1.0,
-     "misconception_posterior_by_error_type": {}
-    },
-    "components": {
-     "conjunctive_fit": 0.0,
-     "conjunctive_strength": 0.0,
-     "duplicate_probe_penalty": 0.0,
-     "expected_skill_gain": 0.0186314895,
-     "facet_weakness": 0.5,
-     "gradient_fit": 0.5460638095,
-     "overload_penalty": 0.0,
-     "probe_eig_facet_recall": 0.3465735903,
-     "probe_eig_hypothesis": 0.0,
-     "probe_eig_lo_mastery": 0.215391458,
-     "probe_eig_total": 0.5619650483,
-     "repair_value": 0.0,
-     "repetition_fatigue": 0.0,
-     "targeted_boundary_fit": 0.0
-    },
-    "intent": "practice",
-    "item_demand_vector": {
-     "bad_item_suspicion": 0.0,
-     "difficulty_b": -1.5,
-     "discrimination_a": 1.0,
-     "evidence_weights": {
-      "recall": 1.0
-     },
-     "learning_object_id": "lo_eigen_basics",
-     "misconception_targets": [],
-     "repair_targets": [
-      "recall"
-     ],
-     "retrieval_demand": 0.8,
-     "scaffold_level": 1.0,
-     "surface_family": null,
-     "transfer_distance": 0.0
-    },
-    "predicted_correctness": 0.9315744762,
-    "probe_eig": {
-     "facet_recall": {
-      "expected_posterior_entropy": -1.0397207708,
-      "prior_entropy": -0.6931471806,
-      "reduction": 0.3465735903
-     },
-     "hypothesis": {
-      "expected_posterior_entropy": null,
-      "prior_entropy": null,
-      "raw_reduction": 0.0,
-      "reduction": 0.0
-     },
-     "independent_evidence_discount": 1.0,
-     "lo_mastery": {
-      "expected_posterior_entropy": -0.215391458,
-      "prior_entropy": 0.0,
-      "reduction": 0.215391458
-     },
-     "normalized_total": 0.1873216828,
-     "total_reduction": 0.5619650483
-    },
-    "selection_reward": 0.2325021238
-   },
-   "scheduler_candidate_id": null,
-   "scheduler_slate_id": null,
-   "selected_mode": "short_answer"
-  },
-  {
-   "components": {
-    "boundary_target": 0.0,
-    "conjunctive_fit": 0.0,
-    "conjunctive_strength": 0.0,
-    "duplicate_probe_penalty": 0.0,
-    "expected_skill_gain": 0.0178259972,
-    "facet_weakness": 0.5,
-    "forgetting_risk": 0.0,
-    "goal_frontier": 0.0,
-    "gradient_fit": 0.6467503471,
-    "legacy_priority": 0.0,
-    "new_material": 1.0,
-    "overload_penalty": 0.0,
-    "placement_layer": 0.0,
-    "placement_predicted_success": 0.7772998612,
-    "practice_information": 0.173,
-    "predicted_correctness": 0.8912998612,
-    "probe_eig": 0.0,
-    "probe_eig_facet_recall": 0.3465735903,
-    "probe_eig_hypothesis": 0.0,
-    "probe_eig_lo_mastery": 0.215391458,
-    "probe_eig_total": 0.5619650483,
-    "recent_error": 0.0,
-    "repair_value": 0.0,
-    "repetition_fatigue": 0.0,
-    "selection_reward": 0.2516325659,
+    "selection_reward": 0.31535,
     "targeted_boundary_fit": 0.0,
     "taught_first": 0.0
    },
@@ -1305,7 +1183,7 @@
    "learning_object_id": "lo_diag",
    "plain_english": [
     "new material: starts as learning, no opening probe",
-    "selection reward 0.25"
+    "selection reward 0.32"
    ],
    "practice_item_id": "pi_diag_easy",
    "priority": 0.05,
@@ -1315,7 +1193,7 @@
      "applied_to_belief_counts": false,
      "applied_to_facet_recall": false,
      "applied_to_mastery": false,
-     "expected_skill_gain": 0.0178259972,
+     "expected_skill_gain": 0.01228,
      "reason": "successful_practice_reinforcement",
      "target_facets": [
       "recall"
@@ -1335,9 +1213,9 @@
      "conjunctive_fit": 0.0,
      "conjunctive_strength": 0.0,
      "duplicate_probe_penalty": 0.0,
-     "expected_skill_gain": 0.0178259972,
+     "expected_skill_gain": 0.01228,
      "facet_weakness": 0.5,
-     "gradient_fit": 0.6467503471,
+     "gradient_fit": 1.0,
      "overload_penalty": 0.0,
      "probe_eig_facet_recall": 0.3465735903,
      "probe_eig_hypothesis": 0.0,
@@ -1350,7 +1228,7 @@
     "intent": "practice",
     "item_demand_vector": {
      "bad_item_suspicion": 0.0,
-     "difficulty_b": -1.25,
+     "difficulty_b": 0.0,
      "discrimination_a": 1.0,
      "evidence_weights": {
       "recall": 1.0
@@ -1365,7 +1243,7 @@
      "surface_family": null,
      "transfer_distance": 0.0
     },
-    "predicted_correctness": 0.8912998612,
+    "predicted_correctness": 0.614,
     "probe_eig": {
      "facet_recall": {
       "expected_posterior_entropy": -1.0397207708,
@@ -1387,7 +1265,7 @@
      "normalized_total": 0.1873216828,
      "total_reduction": 0.5619650483
     },
-    "selection_reward": 0.2516325659
+    "selection_reward": 0.31535
    },
    "scheduler_candidate_id": null,
    "scheduler_slate_id": null,
@@ -1399,7 +1277,7 @@
     "conjunctive_fit": 0.0,
     "conjunctive_strength": 0.0,
     "duplicate_probe_penalty": 0.0,
-    "expected_skill_gain": 0.01352353,
+    "expected_skill_gain": 0.01228,
     "facet_weakness": 0.5,
     "forgetting_risk": 0.0,
     "goal_frontier": 0.0,
@@ -1408,9 +1286,9 @@
     "new_material": 1.0,
     "overload_penalty": 0.0,
     "placement_layer": 0.0,
-    "placement_predicted_success": 0.5621765009,
-    "practice_information": 0.246,
-    "predicted_correctness": 0.6761765009,
+    "placement_predicted_success": 0.5,
+    "practice_information": 0.25,
+    "predicted_correctness": 0.614,
     "probe_eig": 0.0,
     "probe_eig_facet_recall": 0.3465735903,
     "probe_eig_hypothesis": 0.0,
@@ -1419,7 +1297,129 @@
     "recent_error": 0.0,
     "repair_value": 0.0,
     "repetition_fatigue": 0.0,
-    "selection_reward": 0.3169044125,
+    "selection_reward": 0.31535,
+    "targeted_boundary_fit": 0.0,
+    "taught_first": 0.0
+   },
+   "followup_kind": null,
+   "learning_object_id": "lo_diag",
+   "plain_english": [
+    "new material: starts as learning, no opening probe",
+    "selection reward 0.32"
+   ],
+   "practice_item_id": "pi_diag_hard",
+   "priority": 0.05,
+   "readiness_factor": null,
+   "reward_debug": {
+    "ability_transition": {
+     "applied_to_belief_counts": false,
+     "applied_to_facet_recall": false,
+     "applied_to_mastery": false,
+     "expected_skill_gain": 0.01228,
+     "reason": "successful_practice_reinforcement",
+     "target_facets": [
+      "recall"
+     ],
+     "transition_type": "expected_skill_gain"
+    },
+    "ability_vector": {
+     "facet_independent_evidence_mass_by_facet": {},
+     "facet_recall_mean_by_facet": {},
+     "facet_recall_variance_by_facet": {},
+     "learning_object_id": "lo_diag",
+     "lo_mastery": 0.5,
+     "lo_mastery_variance": 1.0,
+     "misconception_posterior_by_error_type": {}
+    },
+    "components": {
+     "conjunctive_fit": 0.0,
+     "conjunctive_strength": 0.0,
+     "duplicate_probe_penalty": 0.0,
+     "expected_skill_gain": 0.01228,
+     "facet_weakness": 0.5,
+     "gradient_fit": 1.0,
+     "overload_penalty": 0.0,
+     "probe_eig_facet_recall": 0.3465735903,
+     "probe_eig_hypothesis": 0.0,
+     "probe_eig_lo_mastery": 0.215391458,
+     "probe_eig_total": 0.5619650483,
+     "repair_value": 0.0,
+     "repetition_fatigue": 0.0,
+     "targeted_boundary_fit": 0.0
+    },
+    "intent": "practice",
+    "item_demand_vector": {
+     "bad_item_suspicion": 0.0,
+     "difficulty_b": 0.0,
+     "discrimination_a": 1.0,
+     "evidence_weights": {
+      "recall": 1.0
+     },
+     "learning_object_id": "lo_diag",
+     "misconception_targets": [],
+     "repair_targets": [
+      "recall"
+     ],
+     "retrieval_demand": 0.8,
+     "scaffold_level": 1.0,
+     "surface_family": null,
+     "transfer_distance": 0.0
+    },
+    "predicted_correctness": 0.614,
+    "probe_eig": {
+     "facet_recall": {
+      "expected_posterior_entropy": -1.0397207708,
+      "prior_entropy": -0.6931471806,
+      "reduction": 0.3465735903
+     },
+     "hypothesis": {
+      "expected_posterior_entropy": null,
+      "prior_entropy": null,
+      "raw_reduction": 0.0,
+      "reduction": 0.0
+     },
+     "independent_evidence_discount": 1.0,
+     "lo_mastery": {
+      "expected_posterior_entropy": -0.215391458,
+      "prior_entropy": 0.0,
+      "reduction": 0.215391458
+     },
+     "normalized_total": 0.1873216828,
+     "total_reduction": 0.5619650483
+    },
+    "selection_reward": 0.31535
+   },
+   "scheduler_candidate_id": null,
+   "scheduler_slate_id": null,
+   "selected_mode": "short_answer"
+  },
+  {
+   "components": {
+    "boundary_target": 0.0,
+    "conjunctive_fit": 0.0,
+    "conjunctive_strength": 0.0,
+    "duplicate_probe_penalty": 0.0,
+    "expected_skill_gain": 0.01228,
+    "facet_weakness": 0.5,
+    "forgetting_risk": 0.0,
+    "goal_frontier": 0.0,
+    "gradient_fit": 1.0,
+    "legacy_priority": 0.0,
+    "new_material": 1.0,
+    "overload_penalty": 0.0,
+    "placement_layer": 0.0,
+    "placement_predicted_success": 0.5,
+    "practice_information": 0.25,
+    "predicted_correctness": 0.614,
+    "probe_eig": 0.0,
+    "probe_eig_facet_recall": 0.3465735903,
+    "probe_eig_hypothesis": 0.0,
+    "probe_eig_lo_mastery": 0.215391458,
+    "probe_eig_total": 0.5619650483,
+    "recent_error": 0.0,
+    "repair_value": 0.0,
+    "repetition_fatigue": 0.0,
+    "selection_reward": 0.31535,
     "targeted_boundary_fit": 0.0,
     "taught_first": 0.0
    },
@@ -1437,7 +1437,7 @@
      "applied_to_belief_counts": false,
      "applied_to_facet_recall": false,
      "applied_to_mastery": false,
-     "expected_skill_gain": 0.01352353,
+     "expected_skill_gain": 0.01228,
      "reason": "successful_practice_reinforcement",
      "target_facets": [
       "recall"
@@ -1457,7 +1457,7 @@
      "conjunctive_fit": 0.0,
      "conjunctive_strength": 0.0,
      "duplicate_probe_penalty": 0.0,
-     "expected_skill_gain": 0.01352353,
+     "expected_skill_gain": 0.01228,
      "facet_weakness": 0.5,
      "gradient_fit": 1.0,
      "overload_penalty": 0.0,
@@ -1472,7 +1472,7 @@
     "intent": "practice",
     "item_demand_vector": {
      "bad_item_suspicion": 0.0,
-     "difficulty_b": -0.25,
+     "difficulty_b": 0.0,
      "discrimination_a": 1.0,
      "evidence_weights": {
       "recall": 1.0
@@ -1487,7 +1487,7 @@
      "surface_family": null,
      "transfer_distance": 0.0
     },
-    "predicted_correctness": 0.6761765009,
+    "predicted_correctness": 0.614,
     "probe_eig": {
      "facet_recall": {
       "expected_posterior_entropy": -1.0397207708,
@@ -1509,7 +1509,251 @@
      "normalized_total": 0.1873216828,
      "total_reduction": 0.5619650483
     },
-    "selection_reward": 0.3169044125
+    "selection_reward": 0.31535
+   },
+   "scheduler_candidate_id": null,
+   "scheduler_slate_id": null,
+   "selected_mode": "short_answer"
+  },
+  {
+   "components": {
+    "boundary_target": 0.0,
+    "conjunctive_fit": 0.0,
+    "conjunctive_strength": 0.0,
+    "duplicate_probe_penalty": 0.0,
+    "expected_skill_gain": 0.01228,
+    "facet_weakness": 0.5,
+    "forgetting_risk": 0.0,
+    "goal_frontier": 0.0,
+    "gradient_fit": 1.0,
+    "legacy_priority": 0.0,
+    "new_material": 1.0,
+    "overload_penalty": 0.0,
+    "placement_layer": 0.0,
+    "placement_predicted_success": 0.5,
+    "practice_information": 0.25,
+    "predicted_correctness": 0.614,
+    "probe_eig": 0.0,
+    "probe_eig_facet_recall": 0.3465735903,
+    "probe_eig_hypothesis": 0.0,
+    "probe_eig_lo_mastery": 0.215391458,
+    "probe_eig_total": 0.5619650483,
+    "recent_error": 0.0,
+    "repair_value": 0.0,
+    "repetition_fatigue": 0.0,
+    "selection_reward": 0.31535,
+    "targeted_boundary_fit": 0.0,
+    "taught_first": 0.0
+   },
+   "followup_kind": null,
+   "learning_object_id": "lo_eigen_basics",
+   "plain_english": [
+    "new material: starts as learning, no opening probe",
+    "selection reward 0.32"
+   ],
+   "practice_item_id": "pi_eig_easy",
+   "priority": 0.05,
+   "readiness_factor": null,
+   "reward_debug": {
+    "ability_transition": {
+     "applied_to_belief_counts": false,
+     "applied_to_facet_recall": false,
+     "applied_to_mastery": false,
+     "expected_skill_gain": 0.01228,
+     "reason": "successful_practice_reinforcement",
+     "target_facets": [
+      "recall"
+     ],
+     "transition_type": "expected_skill_gain"
+    },
+    "ability_vector": {
+     "facet_independent_evidence_mass_by_facet": {},
+     "facet_recall_mean_by_facet": {},
+     "facet_recall_variance_by_facet": {},
+     "learning_object_id": "lo_eigen_basics",
+     "lo_mastery": 0.5,
+     "lo_mastery_variance": 1.0,
+     "misconception_posterior_by_error_type": {}
+    },
+    "components": {
+     "conjunctive_fit": 0.0,
+     "conjunctive_strength": 0.0,
+     "duplicate_probe_penalty": 0.0,
+     "expected_skill_gain": 0.01228,
+     "facet_weakness": 0.5,
+     "gradient_fit": 1.0,
+     "overload_penalty": 0.0,
+     "probe_eig_facet_recall": 0.3465735903,
+     "probe_eig_hypothesis": 0.0,
+     "probe_eig_lo_mastery": 0.215391458,
+     "probe_eig_total": 0.5619650483,
+     "repair_value": 0.0,
+     "repetition_fatigue": 0.0,
+     "targeted_boundary_fit": 0.0
+    },
+    "intent": "practice",
+    "item_demand_vector": {
+     "bad_item_suspicion": 0.0,
+     "difficulty_b": 0.0,
+     "discrimination_a": 1.0,
+     "evidence_weights": {
+      "recall": 1.0
+     },
+     "learning_object_id": "lo_eigen_basics",
+     "misconception_targets": [],
+     "repair_targets": [
+      "recall"
+     ],
+     "retrieval_demand": 0.8,
+     "scaffold_level": 1.0,
+     "surface_family": null,
+     "transfer_distance": 0.0
+    },
+    "predicted_correctness": 0.614,
+    "probe_eig": {
+     "facet_recall": {
+      "expected_posterior_entropy": -1.0397207708,
+      "prior_entropy": -0.6931471806,
+      "reduction": 0.3465735903
+     },
+     "hypothesis": {
+      "expected_posterior_entropy": null,
+      "prior_entropy": null,
+      "raw_reduction": 0.0,
+      "reduction": 0.0
+     },
+     "independent_evidence_discount": 1.0,
+     "lo_mastery": {
+      "expected_posterior_entropy": -0.215391458,
+      "prior_entropy": 0.0,
+      "reduction": 0.215391458
+     },
+     "normalized_total": 0.1873216828,
+     "total_reduction": 0.5619650483
+    },
+    "selection_reward": 0.31535
+   },
+   "scheduler_candidate_id": null,
+   "scheduler_slate_id": null,
+   "selected_mode": "short_answer"
+  },
+  {
+   "components": {
+    "boundary_target": 0.0,
+    "conjunctive_fit": 0.0,
+    "conjunctive_strength": 0.0,
+    "duplicate_probe_penalty": 0.0,
+    "expected_skill_gain": 0.01228,
+    "facet_weakness": 0.5,
+    "forgetting_risk": 0.0,
+    "goal_frontier": 0.0,
+    "gradient_fit": 1.0,
+    "legacy_priority": 0.0,
+    "new_material": 1.0,
+    "overload_penalty": 0.0,
+    "placement_layer": 0.0,
+    "placement_predicted_success": 0.5,
+    "practice_information": 0.25,
+    "predicted_correctness": 0.614,
+    "probe_eig": 0.0,
+    "probe_eig_facet_recall": 0.3465735903,
+    "probe_eig_hypothesis": 0.0,
+    "probe_eig_lo_mastery": 0.215391458,
+    "probe_eig_total": 0.5619650483,
+    "recent_error": 0.0,
+    "repair_value": 0.0,
+    "repetition_fatigue": 0.0,
+    "selection_reward": 0.31535,
+    "targeted_boundary_fit": 0.0,
+    "taught_first": 0.0
+   },
+   "followup_kind": null,
+   "learning_object_id": "lo_eigen_basics",
+   "plain_english": [
+    "new material: starts as learning, no opening probe",
+    "selection reward 0.32"
+   ],
+   "practice_item_id": "pi_eig_hard",
+   "priority": 0.05,
+   "readiness_factor": null,
+   "reward_debug": {
+    "ability_transition": {
+     "applied_to_belief_counts": false,
+     "applied_to_facet_recall": false,
+     "applied_to_mastery": false,
+     "expected_skill_gain": 0.01228,
+     "reason": "successful_practice_reinforcement",
+     "target_facets": [
+      "recall"
+     ],
+     "transition_type": "expected_skill_gain"
+    },
+    "ability_vector": {
+     "facet_independent_evidence_mass_by_facet": {},
+     "facet_recall_mean_by_facet": {},
+     "facet_recall_variance_by_facet": {},
+     "learning_object_id": "lo_eigen_basics",
+     "lo_mastery": 0.5,
+     "lo_mastery_variance": 1.0,
+     "misconception_posterior_by_error_type": {}
+    },
+    "components": {
+     "conjunctive_fit": 0.0,
+     "conjunctive_strength": 0.0,
+     "duplicate_probe_penalty": 0.0,
+     "expected_skill_gain": 0.01228,
+     "facet_weakness": 0.5,
+     "gradient_fit": 1.0,
+     "overload_penalty": 0.0,
+     "probe_eig_facet_recall": 0.3465735903,
+     "probe_eig_hypothesis": 0.0,
+     "probe_eig_lo_mastery": 0.215391458,
+     "probe_eig_total": 0.5619650483,
+     "repair_value": 0.0,
+     "repetition_fatigue": 0.0,
+     "targeted_boundary_fit": 0.0
+    },
+    "intent": "practice",
+    "item_demand_vector": {
+     "bad_item_suspicion": 0.0,
+     "difficulty_b": 0.0,
+     "discrimination_a": 1.0,
+     "evidence_weights": {
+      "recall": 1.0
+     },
+     "learning_object_id": "lo_eigen_basics",
+     "misconception_targets": [],
+     "repair_targets": [
+      "recall"
+     ],
+     "retrieval_demand": 0.8,
+     "scaffold_level": 1.0,
+     "surface_family": null,
+     "transfer_distance": 0.0
+    },
+    "predicted_correctness": 0.614,
+    "probe_eig": {
+     "facet_recall": {
+      "expected_posterior_entropy": -1.0397207708,
+      "prior_entropy": -0.6931471806,
+      "reduction": 0.3465735903
+     },
+     "hypothesis": {
+      "expected_posterior_entropy": null,
+      "prior_entropy": null,
+      "raw_reduction": 0.0,
+      "reduction": 0.0
+     },
+     "independent_evidence_discount": 1.0,
+     "lo_mastery": {
+      "expected_posterior_entropy": -0.215391458,
+      "prior_entropy": 0.0,
+      "reduction": 0.215391458
+     },
+     "normalized_total": 0.1873216828,
+     "total_reduction": 0.5619650483
+    },
+    "selection_reward": 0.31535
    },
    "scheduler_candidate_id": null,
    "scheduler_slate_id": null,
@@ -1643,260 +1887,18 @@
     "conjunctive_fit": 0.0,
     "conjunctive_strength": 0.0,
     "duplicate_probe_penalty": 0.0,
-    "expected_skill_gain": 0.0067340028,
+    "expected_skill_gain": 0.01228,
     "facet_weakness": 0.5,
     "forgetting_risk": 0.0,
     "goal_frontier": 0.0,
-    "gradient_fit": 0.4667503471,
-    "legacy_priority": 0.0,
-    "new_material": 1.0,
-    "overload_penalty": 0.2517774693,
-    "placement_layer": 0.0,
-    "placement_predicted_success": 0.2227001388,
-    "practice_information": 0.173,
-    "predicted_correctness": 0.3367001388,
-    "probe_eig": 0.0,
-    "probe_eig_facet_recall": 0.3465735903,
-    "probe_eig_hypothesis": 0.0,
-    "probe_eig_lo_mastery": 0.215391458,
-    "probe_eig_total": 0.5619650483,
-    "recent_error": 0.0,
-    "repair_value": 0.0,
-    "repetition_fatigue": 0.0,
-    "selection_reward": -0.0500098964,
-    "targeted_boundary_fit": 0.0,
-    "taught_first": 0.0
-   },
-   "followup_kind": null,
-   "learning_object_id": "lo_diag",
-   "plain_english": [
-    "new material: starts as learning, no opening probe"
-   ],
-   "practice_item_id": "pi_diag_hard",
-   "priority": 0.05,
-   "readiness_factor": null,
-   "reward_debug": {
-    "ability_transition": {
-     "applied_to_belief_counts": false,
-     "applied_to_facet_recall": false,
-     "applied_to_mastery": false,
-     "expected_skill_gain": 0.0067340028,
-     "reason": "successful_practice_reinforcement",
-     "target_facets": [
-      "recall"
-     ],
-     "transition_type": "expected_skill_gain"
-    },
-    "ability_vector": {
-     "facet_independent_evidence_mass_by_facet": {},
-     "facet_recall_mean_by_facet": {},
-     "facet_recall_variance_by_facet": {},
-     "learning_object_id": "lo_diag",
-     "lo_mastery": 0.5,
-     "lo_mastery_variance": 1.0,
-     "misconception_posterior_by_error_type": {}
-    },
-    "components": {
-     "conjunctive_fit": 0.0,
-     "conjunctive_strength": 0.0,
-     "duplicate_probe_penalty": 0.0,
-     "expected_skill_gain": 0.0067340028,
-     "facet_weakness": 0.5,
-     "gradient_fit": 0.4667503471,
-     "overload_penalty": 0.2517774693,
-     "probe_eig_facet_recall": 0.3465735903,
-     "probe_eig_hypothesis": 0.0,
-     "probe_eig_lo_mastery": 0.215391458,
-     "probe_eig_total": 0.5619650483,
-     "repair_value": 0.0,
-     "repetition_fatigue": 0.0,
-     "targeted_boundary_fit": 0.0
-    },
-    "intent": "practice",
-    "item_demand_vector": {
-     "bad_item_suspicion": 0.0,
-     "difficulty_b": 1.25,
-     "discrimination_a": 1.0,
-     "evidence_weights": {
-      "recall": 1.0
-     },
-     "learning_object_id": "lo_diag",
-     "misconception_targets": [],
-     "repair_targets": [
-      "recall"
-     ],
-     "retrieval_demand": 0.8,
-     "scaffold_level": 1.0,
-     "surface_family": null,
-     "transfer_distance": 0.0
-    },
-    "predicted_correctness": 0.3367001388,
-    "probe_eig": {
-     "facet_recall": {
-      "expected_posterior_entropy": -1.0397207708,
-      "prior_entropy": -0.6931471806,
-      "reduction": 0.3465735903
-     },
-     "hypothesis": {
-      "expected_posterior_entropy": null,
-      "prior_entropy": null,
-      "raw_reduction": 0.0,
-      "reduction": 0.0
-     },
-     "independent_evidence_discount": 1.0,
-     "lo_mastery": {
-      "expected_posterior_entropy": -0.215391458,
-      "prior_entropy": 0.0,
-      "reduction": 0.215391458
-     },
-     "normalized_total": 0.1873216828,
-     "total_reduction": 0.5619650483
-    },
-    "selection_reward": -0.0500098964
-   },
-   "scheduler_candidate_id": null,
-   "scheduler_slate_id": null,
-   "selected_mode": "short_answer"
-  },
-  {
-   "components": {
-    "boundary_target": 0.0,
-    "conjunctive_fit": 0.0,
-    "conjunctive_strength": 0.0,
-    "duplicate_probe_penalty": 0.0,
-    "expected_skill_gain": 0.0059285105,
-    "facet_weakness": 0.5,
-    "forgetting_risk": 0.0,
-    "goal_frontier": 0.0,
-    "gradient_fit": 0.3660638095,
-    "legacy_priority": 0.0,
-    "new_material": 1.0,
-    "overload_penalty": 0.3412766138,
-    "placement_layer": 0.0,
-    "placement_predicted_success": 0.1824255238,
-    "practice_information": 0.149,
-    "predicted_correctness": 0.2964255238,
-    "probe_eig": 0.0,
-    "probe_eig_facet_recall": 0.3465735903,
-    "probe_eig_hypothesis": 0.0,
-    "probe_eig_lo_mastery": 0.215391458,
-    "probe_eig_total": 0.5619650483,
-    "recent_error": 0.0,
-    "repair_value": 0.0,
-    "repetition_fatigue": 0.0,
-    "selection_reward": -0.1606532138,
-    "targeted_boundary_fit": 0.0,
-    "taught_first": 0.0
-   },
-   "followup_kind": null,
-   "learning_object_id": "lo_eigen_basics",
-   "plain_english": [
-    "new material: starts as learning, no opening probe"
-   ],
-   "practice_item_id": "pi_eig_hard",
-   "priority": 0.05,
-   "readiness_factor": null,
-   "reward_debug": {
-    "ability_transition": {
-     "applied_to_belief_counts": false,
-     "applied_to_facet_recall": false,
-     "applied_to_mastery": false,
-     "expected_skill_gain": 0.0059285105,
-     "reason": "successful_practice_reinforcement",
-     "target_facets": [
-      "recall"
-     ],
-     "transition_type": "expected_skill_gain"
-    },
-    "ability_vector": {
-     "facet_independent_evidence_mass_by_facet": {},
-     "facet_recall_mean_by_facet": {},
-     "facet_recall_variance_by_facet": {},
-     "learning_object_id": "lo_eigen_basics",
-     "lo_mastery": 0.5,
-     "lo_mastery_variance": 1.0,
-     "misconception_posterior_by_error_type": {}
-    },
-    "components": {
-     "conjunctive_fit": 0.0,
-     "conjunctive_strength": 0.0,
-     "duplicate_probe_penalty": 0.0,
-     "expected_skill_gain": 0.0059285105,
-     "facet_weakness": 0.5,
-     "gradient_fit": 0.3660638095,
-     "overload_penalty": 0.3412766138,
-     "probe_eig_facet_recall": 0.3465735903,
-     "probe_eig_hypothesis": 0.0,
-     "probe_eig_lo_mastery": 0.215391458,
-     "probe_eig_total": 0.5619650483,
-     "repair_value": 0.0,
-     "repetition_fatigue": 0.0,
-     "targeted_boundary_fit": 0.0
-    },
-    "intent": "practice",
-    "item_demand_vector": {
-     "bad_item_suspicion": 0.0,
-     "difficulty_b": 1.5,
-     "discrimination_a": 1.0,
-     "evidence_weights": {
-      "recall": 1.0
-     },
-     "learning_object_id": "lo_eigen_basics",
-     "misconception_targets": [],
-     "repair_targets": [
-      "recall"
-     ],
-     "retrieval_demand": 0.8,
-     "scaffold_level": 1.0,
-     "surface_family": null,
-     "transfer_distance": 0.0
-    },
-    "predicted_correctness": 0.2964255238,
-    "probe_eig": {
-     "facet_recall": {
-      "expected_posterior_entropy": -1.0397207708,
-      "prior_entropy": -0.6931471806,
-      "reduction": 0.3465735903
-     },
-     "hypothesis": {
-      "expected_posterior_entropy": null,
-      "prior_entropy": null,
-      "raw_reduction": 0.0,
-      "reduction": 0.0
-     },
-     "independent_evidence_discount": 1.0,
-     "lo_mastery": {
-      "expected_posterior_entropy": -0.215391458,
-      "prior_entropy": 0.0,
-      "reduction": 0.215391458
-     },
-     "normalized_total": 0.1873216828,
-     "total_reduction": 0.5619650483
-    },
-    "selection_reward": -0.1606532138
-   },
-   "scheduler_candidate_id": null,
-   "scheduler_slate_id": null,
-   "selected_mode": "short_answer"
-  },
-  {
-   "components": {
-    "boundary_target": 0.0,
-    "conjunctive_fit": 0.0,
-    "conjunctive_strength": 0.0,
-    "duplicate_probe_penalty": 0.0,
-    "expected_skill_gain": 0.0169011716,
-    "facet_weakness": 0.5,
-    "forgetting_risk": 0.0,
-    "goal_frontier": 0.0,
-    "gradient_fit": 0.7623535534,
+    "gradient_fit": 1.0,
     "legacy_priority": 0.0,
     "new_material": 1.0,
     "overload_penalty": 0.0,
     "placement_layer": 1.0,
-    "placement_predicted_success": 0.7310585786,
-    "practice_information": 0.197,
-    "predicted_correctness": 0.8450585786,
+    "placement_predicted_success": 0.5,
+    "practice_information": 0.25,
+    "predicted_correctness": 0.614,
     "probe_eig": 0.0,
     "probe_eig_facet_recall": 0.3465735903,
     "probe_eig_hypothesis": 0.0,
@@ -1905,7 +1907,7 @@
     "recent_error": 0.0,
     "repair_value": 0.0,
     "repetition_fatigue": 0.0,
-    "selection_reward": 0.2735971752,
+    "selection_reward": 0.31535,
     "targeted_boundary_fit": 0.0,
     "taught_first": 0.0
    },
@@ -1913,7 +1915,7 @@
    "learning_object_id": "lo_spectral",
    "plain_english": [
     "new material: starts as learning, no opening probe",
-    "selection reward 0.27"
+    "selection reward 0.32"
    ],
    "practice_item_id": "pi_spec_easy",
    "priority": 0.05,
@@ -1923,7 +1925,7 @@
      "applied_to_belief_counts": false,
      "applied_to_facet_recall": false,
      "applied_to_mastery": false,
-     "expected_skill_gain": 0.0169011716,
+     "expected_skill_gain": 0.01228,
      "reason": "successful_practice_reinforcement",
      "target_facets": [
       "recall"
@@ -1943,9 +1945,9 @@
      "conjunctive_fit": 0.0,
      "conjunctive_strength": 0.0,
      "duplicate_probe_penalty": 0.0,
-     "expected_skill_gain": 0.0169011716,
+     "expected_skill_gain": 0.01228,
      "facet_weakness": 0.5,
-     "gradient_fit": 0.7623535534,
+     "gradient_fit": 1.0,
      "overload_penalty": 0.0,
      "probe_eig_facet_recall": 0.3465735903,
      "probe_eig_hypothesis": 0.0,
@@ -1958,7 +1960,7 @@
     "intent": "practice",
     "item_demand_vector": {
      "bad_item_suspicion": 0.0,
-     "difficulty_b": -1.0,
+     "difficulty_b": 0.0,
      "discrimination_a": 1.0,
      "evidence_weights": {
       "recall": 1.0
@@ -1973,7 +1975,7 @@
      "surface_family": null,
      "transfer_distance": 0.0
     },
-    "predicted_correctness": 0.8450585786,
+    "predicted_correctness": 0.614,
     "probe_eig": {
      "facet_recall": {
       "expected_posterior_entropy": -1.0397207708,
@@ -1995,7 +1997,7 @@
      "normalized_total": 0.1873216828,
      "total_reduction": 0.5619650483
     },
-    "selection_reward": 0.2735971752
+    "selection_reward": 0.31535
    },
    "scheduler_candidate_id": null,
    "scheduler_slate_id": null,
@@ -2007,18 +2009,18 @@
     "conjunctive_fit": 0.0,
     "conjunctive_strength": 0.0,
     "duplicate_probe_penalty": 0.0,
-    "expected_skill_gain": 0.0076588284,
+    "expected_skill_gain": 0.01228,
     "facet_weakness": 0.5,
     "forgetting_risk": 0.0,
     "goal_frontier": 0.0,
-    "gradient_fit": 0.5823535534,
+    "gradient_fit": 1.0,
     "legacy_priority": 0.0,
     "new_material": 1.0,
-    "overload_penalty": 0.1490190636,
+    "overload_penalty": 0.0,
     "placement_layer": 1.0,
-    "placement_predicted_success": 0.2689414214,
-    "practice_information": 0.197,
-    "predicted_correctness": 0.3829414214,
+    "placement_predicted_success": 0.5,
+    "practice_information": 0.25,
+    "predicted_correctness": 0.614,
     "probe_eig": 0.0,
     "probe_eig_facet_recall": 0.3465735903,
     "probe_eig_hypothesis": 0.0,
@@ -2027,7 +2029,7 @@
     "recent_error": 0.0,
     "repair_value": 0.0,
     "repetition_fatigue": 0.0,
-    "selection_reward": 0.0770251826,
+    "selection_reward": 0.31535,
     "targeted_boundary_fit": 0.0,
     "taught_first": 0.0
    },
@@ -2035,7 +2037,7 @@
    "learning_object_id": "lo_spectral",
    "plain_english": [
     "new material: starts as learning, no opening probe",
-    "selection reward 0.08"
+    "selection reward 0.32"
    ],
    "practice_item_id": "pi_spec_hard",
    "priority": 0.05,
@@ -2045,7 +2047,7 @@
      "applied_to_belief_counts": false,
      "applied_to_facet_recall": false,
      "applied_to_mastery": false,
-     "expected_skill_gain": 0.0076588284,
+     "expected_skill_gain": 0.01228,
      "reason": "successful_practice_reinforcement",
      "target_facets": [
       "recall"
@@ -2065,10 +2067,10 @@
      "conjunctive_fit": 0.0,
      "conjunctive_strength": 0.0,
      "duplicate_probe_penalty": 0.0,
-     "expected_skill_gain": 0.0076588284,
+     "expected_skill_gain": 0.01228,
      "facet_weakness": 0.5,
-     "gradient_fit": 0.5823535534,
-     "overload_penalty": 0.1490190636,
+     "gradient_fit": 1.0,
+     "overload_penalty": 0.0,
      "probe_eig_facet_recall": 0.3465735903,
      "probe_eig_hypothesis": 0.0,
      "probe_eig_lo_mastery": 0.215391458,
@@ -2080,7 +2082,7 @@
     "intent": "practice",
     "item_demand_vector": {
      "bad_item_suspicion": 0.0,
-     "difficulty_b": 1.0,
+     "difficulty_b": 0.0,
      "discrimination_a": 1.0,
      "evidence_weights": {
       "recall": 1.0
@@ -2095,7 +2097,7 @@
      "surface_family": null,
      "transfer_distance": 0.0
     },
-    "predicted_correctness": 0.3829414214,
+    "predicted_correctness": 0.614,
     "probe_eig": {
      "facet_recall": {
       "expected_posterior_entropy": -1.0397207708,
@@ -2117,7 +2119,7 @@
      "normalized_total": 0.1873216828,
      "total_reduction": 0.5619650483
     },
-    "selection_reward": 0.0770251826
+    "selection_reward": 0.31535
    },
    "scheduler_candidate_id": null,
    "scheduler_slate_id": null,
@@ -2126,22 +2128,22 @@
  ],
  "trace": {
   "base_propensity": {
-   "pi_a1": 0.0357142857,
-   "pi_b1": 0.0357142857,
-   "pi_c1": 0.0357142857,
-   "pi_c2": 0.0357142857,
-   "pi_diag_easy": 0.0357142857,
-   "pi_diag_hard": 0.0,
-   "pi_diag_mid": 0.0357142857,
-   "pi_eig_easy": 0.0357142857,
-   "pi_eig_hard": 0.0,
-   "pi_eig_mid": 0.0357142857,
-   "pi_pair_first": 0.0357142857,
-   "pi_pair_second": 0.0357142857,
-   "pi_spec_easy": 0.0357142857,
-   "pi_spec_hard": 0.0357142857,
-   "pi_svd_define_001": 0.0357142857,
-   "pi_svd_define_002": 0.0357142857,
+   "pi_a1": 0.03125,
+   "pi_b1": 0.03125,
+   "pi_c1": 0.03125,
+   "pi_c2": 0.03125,
+   "pi_diag_easy": 0.03125,
+   "pi_diag_hard": 0.03125,
+   "pi_diag_mid": 0.03125,
+   "pi_eig_easy": 0.03125,
+   "pi_eig_hard": 0.03125,
+   "pi_eig_mid": 0.03125,
+   "pi_pair_first": 0.03125,
+   "pi_pair_second": 0.03125,
+   "pi_spec_easy": 0.03125,
+   "pi_spec_hard": 0.03125,
+   "pi_svd_define_001": 0.03125,
+   "pi_svd_define_002": 0.03125,
    "pi_svd_teach_due": 0.5
   },
   "cold_deferrals": [
@@ -2167,19 +2169,19 @@
   "considered_item_ids": [
    "pi_svd_define_001",
    "pi_a1",
-   "pi_svd_teach_due",
-   "pi_pair_first",
-   "pi_svd_define_002",
-   "pi_b1",
    "pi_c1",
-   "pi_c2",
+   "pi_svd_teach_due",
+   "pi_svd_define_002",
+   "pi_pair_first",
    "pi_pair_second",
-   "pi_eig_easy",
+   "pi_b1",
+   "pi_c2",
    "pi_diag_easy",
-   "pi_diag_mid",
-   "pi_eig_mid",
    "pi_diag_hard",
+   "pi_diag_mid",
+   "pi_eig_easy",
    "pi_eig_hard",
+   "pi_eig_mid",
    "pi_spec_easy",
    "pi_spec_hard"
   ],
@@ -2187,26 +2189,28 @@
   "exploration": {
    "alternative_item_ids": [
     "pi_svd_define_001",
-    "pi_pair_first",
     "pi_svd_define_002",
+    "pi_pair_first",
+    "pi_pair_second",
     "pi_b1",
     "pi_c1",
     "pi_c2",
-    "pi_pair_second",
     "pi_a1",
-    "pi_eig_easy",
     "pi_diag_easy",
+    "pi_diag_hard",
     "pi_diag_mid",
+    "pi_eig_easy",
+    "pi_eig_hard",
     "pi_eig_mid",
     "pi_spec_easy",
     "pi_spec_hard"
    ],
    "best_item_id": "pi_svd_teach_due",
-   "choice": 0.5252273705,
+   "choice": 0.3731174919,
    "mechanism": "scheduler_seeded_exploration",
    "probe_ties_admitted": true,
    "rate": 0.5,
-   "realized_item_id": "pi_a1",
+   "realized_item_id": "pi_c1",
    "reward_window": 1.0,
    "roll": 0.1740421245,
    "seed": "67185cef0e4f3d97618222bcc5b955ab"
@@ -2214,19 +2218,19 @@
   "greedy_item_ids": [
    "pi_svd_teach_due",
    "pi_svd_define_001",
-   "pi_pair_first",
    "pi_svd_define_002",
+   "pi_pair_first",
+   "pi_pair_second",
    "pi_b1",
    "pi_c1",
    "pi_c2",
-   "pi_pair_second",
    "pi_a1",
-   "pi_eig_easy",
    "pi_diag_easy",
-   "pi_diag_mid",
-   "pi_eig_mid",
    "pi_diag_hard",
+   "pi_diag_mid",
+   "pi_eig_easy",
    "pi_eig_hard",
+   "pi_eig_mid",
    "pi_spec_easy",
    "pi_spec_hard"
   ],
@@ -2236,18 +2240,18 @@
      "pi_svd_define_001",
      "pi_a1",
      "pi_svd_teach_due",
-     "pi_pair_first",
      "pi_svd_define_002",
+     "pi_pair_first",
+     "pi_pair_second",
      "pi_b1",
      "pi_c1",
      "pi_c2",
-     "pi_pair_second",
-     "pi_eig_easy",
      "pi_diag_easy",
-     "pi_diag_mid",
-     "pi_eig_mid",
      "pi_diag_hard",
+     "pi_diag_mid",
+     "pi_eig_easy",
      "pi_eig_hard",
+     "pi_eig_mid",
      "pi_spec_easy",
      "pi_spec_hard"
     ],
@@ -2259,46 +2263,23 @@
      "pi_svd_define_001",
      "pi_a1",
      "pi_svd_teach_due",
-     "pi_pair_first",
      "pi_svd_define_002",
+     "pi_pair_first",
+     "pi_pair_second",
      "pi_b1",
      "pi_c1",
      "pi_c2",
-     "pi_pair_second",
-     "pi_eig_easy",
      "pi_diag_easy",
-     "pi_diag_mid",
-     "pi_eig_mid",
      "pi_diag_hard",
+     "pi_diag_mid",
+     "pi_eig_easy",
      "pi_eig_hard",
+     "pi_eig_mid",
      "pi_spec_easy",
      "pi_spec_hard"
     ],
     "explored_item_id": "pi_svd_define_001",
-    "probability": 0.0357142857
-   },
-   {
-    "composed": [
-     "pi_svd_define_001",
-     "pi_a1",
-     "pi_pair_first",
-     "pi_svd_teach_due",
-     "pi_svd_define_002",
-     "pi_b1",
-     "pi_c1",
-     "pi_c2",
-     "pi_pair_second",
-     "pi_eig_easy",
-     "pi_diag_easy",
-     "pi_diag_mid",
-     "pi_eig_mid",
-     "pi_diag_hard",
-     "pi_eig_hard",
-     "pi_spec_easy",
-     "pi_spec_hard"
-    ],
-    "explored_item_id": "pi_pair_first",
-    "probability": 0.0357142857
+    "probability": 0.03125
    },
    {
     "composed": [
@@ -2307,90 +2288,44 @@
      "pi_svd_define_002",
      "pi_svd_teach_due",
      "pi_pair_first",
+     "pi_pair_second",
      "pi_b1",
      "pi_c1",
      "pi_c2",
-     "pi_pair_second",
-     "pi_eig_easy",
      "pi_diag_easy",
-     "pi_diag_mid",
-     "pi_eig_mid",
      "pi_diag_hard",
+     "pi_diag_mid",
+     "pi_eig_easy",
      "pi_eig_hard",
+     "pi_eig_mid",
      "pi_spec_easy",
      "pi_spec_hard"
     ],
     "explored_item_id": "pi_svd_define_002",
-    "probability": 0.0357142857
+    "probability": 0.03125
    },
    {
     "composed": [
      "pi_svd_define_001",
      "pi_a1",
-     "pi_b1",
-     "pi_svd_teach_due",
      "pi_pair_first",
+     "pi_svd_teach_due",
      "pi_svd_define_002",
+     "pi_pair_second",
+     "pi_b1",
      "pi_c1",
      "pi_c2",
-     "pi_pair_second",
-     "pi_eig_easy",
      "pi_diag_easy",
-     "pi_diag_mid",
-     "pi_eig_mid",
      "pi_diag_hard",
+     "pi_diag_mid",
+     "pi_eig_easy",
      "pi_eig_hard",
+     "pi_eig_mid",
      "pi_spec_easy",
      "pi_spec_hard"
     ],
-    "explored_item_id": "pi_b1",
-    "probability": 0.0357142857
-   },
-   {
-    "composed": [
-     "pi_svd_define_001",
-     "pi_a1",
-     "pi_c1",
-     "pi_svd_teach_due",
-     "pi_pair_first",
-     "pi_svd_define_002",
-     "pi_b1",
-     "pi_c2",
-     "pi_pair_second",
-     "pi_eig_easy",
-     "pi_diag_easy",
-     "pi_diag_mid",
-     "pi_eig_mid",
-     "pi_diag_hard",
-     "pi_eig_hard",
-     "pi_spec_easy",
-     "pi_spec_hard"
-    ],
-    "explored_item_id": "pi_c1",
-    "probability": 0.0357142857
-   },
-   {
-    "composed": [
-     "pi_svd_define_001",
-     "pi_a1",
-     "pi_c2",
-     "pi_svd_teach_due",
-     "pi_pair_first",
-     "pi_svd_define_002",
-     "pi_b1",
-     "pi_c1",
-     "pi_pair_second",
-     "pi_eig_easy",
-     "pi_diag_easy",
-     "pi_diag_mid",
-     "pi_eig_mid",
-     "pi_diag_hard",
-     "pi_eig_hard",
-     "pi_spec_easy",
-     "pi_spec_hard"
-    ],
-    "explored_item_id": "pi_c2",
-    "probability": 0.0357142857
+    "explored_item_id": "pi_pair_first",
+    "probability": 0.03125
    },
    {
     "composed": [
@@ -2398,68 +2333,114 @@
      "pi_a1",
      "pi_pair_first",
      "pi_svd_teach_due",
-     "pi_pair_second",
      "pi_svd_define_002",
+     "pi_pair_second",
      "pi_b1",
      "pi_c1",
      "pi_c2",
-     "pi_eig_easy",
      "pi_diag_easy",
-     "pi_diag_mid",
-     "pi_eig_mid",
      "pi_diag_hard",
+     "pi_diag_mid",
+     "pi_eig_easy",
      "pi_eig_hard",
+     "pi_eig_mid",
      "pi_spec_easy",
      "pi_spec_hard"
     ],
     "explored_item_id": "pi_pair_second",
-    "probability": 0.0357142857
+    "probability": 0.03125
+   },
+   {
+    "composed": [
+     "pi_svd_define_001",
+     "pi_a1",
+     "pi_b1",
+     "pi_svd_teach_due",
+     "pi_svd_define_002",
+     "pi_pair_first",
+     "pi_pair_second",
+     "pi_c1",
+     "pi_c2",
+     "pi_diag_easy",
+     "pi_diag_hard",
+     "pi_diag_mid",
+     "pi_eig_easy",
+     "pi_eig_hard",
+     "pi_eig_mid",
+     "pi_spec_easy",
+     "pi_spec_hard"
+    ],
+    "explored_item_id": "pi_b1",
+    "probability": 0.03125
+   },
+   {
+    "composed": [
+     "pi_svd_define_001",
+     "pi_a1",
+     "pi_c1",
+     "pi_svd_teach_due",
+     "pi_svd_define_002",
+     "pi_pair_first",
+     "pi_pair_second",
+     "pi_b1",
+     "pi_c2",
+     "pi_diag_easy",
+     "pi_diag_hard",
+     "pi_diag_mid",
+     "pi_eig_easy",
+     "pi_eig_hard",
+     "pi_eig_mid",
+     "pi_spec_easy",
+     "pi_spec_hard"
+    ],
+    "explored_item_id": "pi_c1",
+    "probability": 0.03125
+   },
+   {
+    "composed": [
+     "pi_svd_define_001",
+     "pi_a1",
+     "pi_c2",
+     "pi_svd_teach_due",
+     "pi_svd_define_002",
+     "pi_pair_first",
+     "pi_pair_second",
+     "pi_b1",
+     "pi_c1",
+     "pi_diag_easy",
+     "pi_diag_hard",
+     "pi_diag_mid",
+     "pi_eig_easy",
+     "pi_eig_hard",
+     "pi_eig_mid",
+     "pi_spec_easy",
+     "pi_spec_hard"
+    ],
+    "explored_item_id": "pi_c2",
+    "probability": 0.03125
    },
    {
     "composed": [
      "pi_svd_define_001",
      "pi_a1",
      "pi_svd_teach_due",
-     "pi_pair_first",
      "pi_svd_define_002",
+     "pi_pair_first",
+     "pi_pair_second",
      "pi_b1",
      "pi_c1",
      "pi_c2",
-     "pi_pair_second",
-     "pi_eig_easy",
      "pi_diag_easy",
-     "pi_diag_mid",
-     "pi_eig_mid",
      "pi_diag_hard",
+     "pi_diag_mid",
+     "pi_eig_easy",
      "pi_eig_hard",
+     "pi_eig_mid",
      "pi_spec_easy",
      "pi_spec_hard"
     ],
     "explored_item_id": "pi_a1",
-    "probability": 0.0357142857
-   },
-   {
-    "composed": [
-     "pi_svd_define_001",
-     "pi_a1",
-     "pi_svd_teach_due",
-     "pi_eig_easy",
-     "pi_pair_first",
-     "pi_svd_define_002",
-     "pi_b1",
-     "pi_c1",
-     "pi_c2",
-     "pi_pair_second",
-     "pi_diag_easy",
-     "pi_diag_mid",
-     "pi_eig_mid",
-     "pi_diag_hard",
-     "pi_eig_hard",
-     "pi_spec_easy",
-     "pi_spec_hard"
-    ],
-    "explored_item_id": "pi_eig_easy",
-    "probability": 0.0357142857
+    "probability": 0.03125
    },
    {
     "composed": [
@@ -2467,22 +2448,45 @@
      "pi_a1",
      "pi_svd_teach_due",
      "pi_diag_easy",
-     "pi_pair_first",
      "pi_svd_define_002",
+     "pi_pair_first",
+     "pi_pair_second",
      "pi_b1",
      "pi_c1",
      "pi_c2",
-     "pi_pair_second",
-     "pi_eig_easy",
-     "pi_diag_mid",
-     "pi_eig_mid",
      "pi_diag_hard",
+     "pi_diag_mid",
+     "pi_eig_easy",
      "pi_eig_hard",
+     "pi_eig_mid",
      "pi_spec_easy",
      "pi_spec_hard"
     ],
     "explored_item_id": "pi_diag_easy",
-    "probability": 0.0357142857
+    "probability": 0.03125
+   },
+   {
+    "composed": [
+     "pi_svd_define_001",
+     "pi_a1",
+     "pi_svd_teach_due",
+     "pi_diag_hard",
+     "pi_svd_define_002",
+     "pi_pair_first",
+     "pi_pair_second",
+     "pi_b1",
+     "pi_c1",
+     "pi_c2",
+     "pi_diag_easy",
+     "pi_diag_mid",
+     "pi_eig_easy",
+     "pi_eig_hard",
+     "pi_eig_mid",
+     "pi_spec_easy",
+     "pi_spec_hard"
+    ],
+    "explored_item_id": "pi_diag_hard",
+    "probability": 0.03125
    },
    {
     "composed": [
@@ -2490,22 +2494,68 @@
      "pi_a1",
      "pi_svd_teach_due",
      "pi_diag_mid",
-     "pi_pair_first",
      "pi_svd_define_002",
+     "pi_pair_first",
+     "pi_pair_second",
      "pi_b1",
      "pi_c1",
      "pi_c2",
-     "pi_pair_second",
-     "pi_eig_easy",
      "pi_diag_easy",
-     "pi_eig_mid",
      "pi_diag_hard",
+     "pi_eig_easy",
      "pi_eig_hard",
+     "pi_eig_mid",
      "pi_spec_easy",
      "pi_spec_hard"
     ],
     "explored_item_id": "pi_diag_mid",
-    "probability": 0.0357142857
+    "probability": 0.03125
+   },
+   {
+    "composed": [
+     "pi_svd_define_001",
+     "pi_a1",
+     "pi_svd_teach_due",
+     "pi_eig_easy",
+     "pi_svd_define_002",
+     "pi_pair_first",
+     "pi_pair_second",
+     "pi_b1",
+     "pi_c1",
+     "pi_c2",
+     "pi_diag_easy",
+     "pi_diag_hard",
+     "pi_diag_mid",
+     "pi_eig_hard",
+     "pi_eig_mid",
+     "pi_spec_easy",
+     "pi_spec_hard"
+    ],
+    "explored_item_id": "pi_eig_easy",
+    "probability": 0.03125
+   },
+   {
+    "composed": [
+     "pi_svd_define_001",
+     "pi_a1",
+     "pi_svd_teach_due",
+     "pi_eig_hard",
+     "pi_svd_define_002",
+     "pi_pair_first",
+     "pi_pair_second",
+     "pi_b1",
+     "pi_c1",
+     "pi_c2",
+     "pi_diag_easy",
+     "pi_diag_hard",
+     "pi_diag_mid",
+     "pi_eig_easy",
+     "pi_eig_mid",
+     "pi_spec_easy",
+     "pi_spec_hard"
+    ],
+    "explored_item_id": "pi_eig_hard",
+    "probability": 0.03125
    },
    {
     "composed": [
@@ -2513,22 +2563,22 @@
      "pi_a1",
      "pi_svd_teach_due",
      "pi_eig_mid",
-     "pi_pair_first",
      "pi_svd_define_002",
+     "pi_pair_first",
+     "pi_pair_second",
      "pi_b1",
      "pi_c1",
      "pi_c2",
-     "pi_pair_second",
-     "pi_eig_easy",
      "pi_diag_easy",
-     "pi_diag_mid",
      "pi_diag_hard",
+     "pi_diag_mid",
+     "pi_eig_easy",
      "pi_eig_hard",
      "pi_spec_easy",
      "pi_spec_hard"
     ],
     "explored_item_id": "pi_eig_mid",
-    "probability": 0.0357142857
+    "probability": 0.03125
    },
    {
     "composed": [
@@ -2536,22 +2586,22 @@
      "pi_a1",
      "pi_svd_teach_due",
      "pi_spec_easy",
-     "pi_pair_first",
      "pi_svd_define_002",
+     "pi_pair_first",
+     "pi_pair_second",
      "pi_b1",
      "pi_c1",
      "pi_c2",
-     "pi_pair_second",
-     "pi_eig_easy",
      "pi_diag_easy",
-     "pi_diag_mid",
-     "pi_eig_mid",
      "pi_diag_hard",
+     "pi_diag_mid",
+     "pi_eig_easy",
      "pi_eig_hard",
+     "pi_eig_mid",
      "pi_spec_hard"
     ],
     "explored_item_id": "pi_spec_easy",
-    "probability": 0.0357142857
+    "probability": 0.03125
    },
    {
     "composed": [
@@ -2559,28 +2609,28 @@
      "pi_a1",
      "pi_svd_teach_due",
      "pi_spec_hard",
-     "pi_pair_first",
      "pi_svd_define_002",
+     "pi_pair_first",
+     "pi_pair_second",
      "pi_b1",
      "pi_c1",
      "pi_c2",
-     "pi_pair_second",
-     "pi_eig_easy",
      "pi_diag_easy",
-     "pi_diag_mid",
-     "pi_eig_mid",
      "pi_diag_hard",
+     "pi_diag_mid",
+     "pi_eig_easy",
      "pi_eig_hard",
+     "pi_eig_mid",
      "pi_spec_easy"
     ],
     "explored_item_id": "pi_spec_hard",
-    "probability": 0.0357142857
+    "probability": 0.03125
    }
   ],
   "pinned_item_id": "pi_svd_define_001",
   "placement_active": true,
   "probe_block_reason": null,
-  "realized": 8,
+  "realized": 6,
   "slate_id": null,
   "teach_back_exclusion_reason": "teach_back_value_below_minutes_cost",
   "voi_decisions": [
@@ -2938,8 +2988,8 @@
       "hypothesis_conditioning": "none",
       "learning_object_id": "lo_svd_definition",
       "predicted_outcomes": {
-       "correct": 0.4310735,
-       "incorrect": 0.5689265
+       "correct": 0.49325,
+       "incorrect": 0.50675
       },
       "unconditioned_eig_nats": 7.94747605
      },
@@ -2953,8 +3003,8 @@
       "eig_nats": 7.94747605,
       "p_action_change": null,
       "predicted_outcomes": {
-       "correct": 0.4310735,
-       "incorrect": 0.5689265
+       "correct": 0.49325,
+       "incorrect": 0.50675
       }
      },
      "member_eig_nats": 0.0,
@@ -3073,8 +3123,8 @@
       "hypothesis_conditioning": "none",
       "learning_object_id": "lo_svd_definition",
       "predicted_outcomes": {
-       "correct": 0.4310735,
-       "incorrect": 0.5689265
+       "correct": 0.49325,
+       "incorrect": 0.50675
       },
       "unconditioned_eig_nats": 7.94747605
      },
@@ -3088,8 +3138,8 @@
       "eig_nats": 7.94747605,
       "p_action_change": null,
       "predicted_outcomes": {
-       "correct": 0.4310735,
-       "incorrect": 0.5689265
+       "correct": 0.49325,
+       "incorrect": 0.50675
       }
      },
      "member_eig_nats": 0.0,

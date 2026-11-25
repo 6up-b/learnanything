@@ -8,7 +8,7 @@ from types import SimpleNamespace as NS
 
 import pytest
 
-from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
+from learnloop.algorithm_versions import LABEL_RETIRED_ALGORITHM_VERSION, PROBE_ROUTER_ALGORITHM_VERSION
 from learnloop.config import EvidenceConfig, MasteryConfig, ProbeConfig
 from learnloop.daily_plan.lesson_suggestion import _predicted
 from learnloop.delayed_checks import predicted_item_success
@@ -20,7 +20,11 @@ from learnloop.teacher import checks, delayed
 from learnloop.teacher.brief import lo_prediction
 
 
-def _literal_inputs(scalar_difficulty, lo_scalar_difficulty):
+#: The tag before the label's retirement: the literal values below are the predecessor's.
+BEFORE_RETIREMENT = PROBE_ROUTER_ALGORITHM_VERSION
+
+
+def _literal_inputs(scalar_difficulty, lo_scalar_difficulty, algorithm_version=BEFORE_RETIREMENT):
     mastery = MasteryConfig()
     assert mastery.irt.eb_difficulty_enabled is False
     item = NS(id="pi", learning_object_id="lo", difficulty=scalar_difficulty,
@@ -29,7 +33,7 @@ def _literal_inputs(scalar_difficulty, lo_scalar_difficulty):
     lo = NS(id="lo", difficulty_prior=lo_scalar_difficulty)
     vault = NS(config=NS(mastery=mastery, probe=ProbeConfig(), evidence=EvidenceConfig(),
                          adaptive_difficulty=NS(practice_band=(0.7, 0.8)),
-                         algorithms=NS(algorithm_version=LATEST_ALGORITHM_VERSION)),
+                         algorithms=NS(algorithm_version=algorithm_version)),
                practice_items={"pi": item}, learning_objects={"lo": lo},
                learning_object_for_item=lambda _: lo, rubric_for_item=lambda _: None)
     state = NS(logit_mean=0.4, logit_variance=0.3, last_evidence_at="2026-11-01T00:00:00Z")
@@ -120,11 +124,7 @@ EXPECTED = [{'probe': (1.0, 1.5000000000000002),
   'seam': (1.0, 0.0)}]
 
 
-@pytest.mark.parametrize("case", range(3), ids=["item_scalar", "lo_scalar", "default"])
-@pytest.mark.parametrize("caller", tuple(EXPECTED[0]))
-def test_switch_off_literal_caller_values(monkeypatch, case, caller):
-    scalar_difficulty, lo_scalar_difficulty = [(0.8, 0.2), (None, 0.2), (None, None)][case]
-    vault, repository, item, lo = _literal_inputs(scalar_difficulty, lo_scalar_difficulty)
+def _caller_values(monkeypatch, vault, repository, item, lo) -> dict:
     monkeypatch.setattr(LW, "replay_state", lambda *args, **kwargs: LW.WeightState())
     import learnloop.learner_protection as protection
 
@@ -139,7 +139,7 @@ def test_switch_off_literal_caller_values(monkeypatch, case, caller):
                              p_teacher_retained=0.65, family="family")
     reference = checks.cold_reference(vault, repository, "lo", lesson_id="lesson", exclude=[], lesson_item_ids=[])
     demand = item_demand_vector(vault, item, lo, None)
-    values = {
+    return {
         "probe": resolve_item_irt(vault, item)[:2],
         "suggestion": _predicted(vault, repository, "lo", "2026-11-02T00:00:00Z"),
         "demand": (demand.discrimination_a, demand.difficulty_b),
@@ -148,9 +148,29 @@ def test_switch_off_literal_caller_values(monkeypatch, case, caller):
         "check": {"a": mass["sensitivity"]["item_a"], "b": mass["sensitivity"]["item_b"],
                   "learned": mass["mass_learned"], "applied": mass["mass_applied"], "pool": mass["pool"]},
         "delayed": predicted_item_success(vault, repository, item),
-        "seam": resolve_item_irt_params(item, lo, vault.config.mastery, repository.item_parameter_state("pi")),
+        "seam": resolve_item_irt_params(item, lo, vault.config.mastery, repository.item_parameter_state("pi"),
+                                        algorithm_version=vault.config.algorithms.algorithm_version),
     }
-    assert values[caller] == EXPECTED[case][caller]
+
+
+@pytest.mark.parametrize("case", range(3), ids=["item_scalar", "lo_scalar", "default"])
+@pytest.mark.parametrize("caller", tuple(EXPECTED[0]))
+def test_switch_off_literal_caller_values(monkeypatch, case, caller):
+    scalar_difficulty, lo_scalar_difficulty = [(0.8, 0.2), (None, 0.2), (None, None)][case]
+    vault, repository, item, lo = _literal_inputs(scalar_difficulty, lo_scalar_difficulty)
+    assert _caller_values(monkeypatch, vault, repository, item, lo)[caller] == EXPECTED[case][caller]
+
+
+@pytest.mark.parametrize("case", range(3), ids=["item_scalar", "lo_scalar", "default"])
+@pytest.mark.parametrize("caller", tuple(EXPECTED[0]))
+def test_from_the_label_retirement_every_caller_reads_no_label(monkeypatch, case, caller):
+    """At the retirement's tag the label (and the empirical-Bayes posterior the repository offers, b = -3) is read
+    by no caller: every case gives the predecessor's no-label values exactly."""
+
+    scalar_difficulty, lo_scalar_difficulty = [(0.8, 0.2), (None, 0.2), (None, None)][case]
+    vault, repository, item, lo = _literal_inputs(scalar_difficulty, lo_scalar_difficulty,
+                                                  algorithm_version=LABEL_RETIRED_ALGORITHM_VERSION)
+    assert _caller_values(monkeypatch, vault, repository, item, lo)[caller] == EXPECTED[2][caller]
 
 
 @pytest.mark.xfail(strict=True, raises=AssertionError,
@@ -178,7 +198,7 @@ AUDITED_READERS = {
     'src/learnloop/adaptive_difficulty/forecasters.py': (
         'scalar/IRT: incumbent features, omitting LLM-estimated labels',
         {
-            '_features: resolve_item_irt_params(None if llm_estimate else item, None, vault.config.mastery)': 1,
+            '_features: resolve_item_irt_params(None if llm_estimate else item, None, vault.config.mastery, algorithm_version=vault.config.algorithms.algorithm_version)': 1,
         },
     ),
     'src/learnloop/adaptive_difficulty/replay.py': (
@@ -200,10 +220,11 @@ AUDITED_READERS = {
     'src/learnloop/attempts/attempts.py': (
         'separate: scalar/IRT mastery (the EB prior starts at its b); FSRS review, summary and state conversion',
         {
+            '_belief_update: item_irt_params(item, learning_object, config.mastery, algorithm_version=config.algorithms.algorithm_version)': 1,
             "_fsrs_review_summary: 'difficulty'": 3,
             "_fsrs_review_summary: getattr(next_memory, 'difficulty', None)": 1,
             "_fsrs_review_summary: getattr(previous_state, 'difficulty', None)": 1,
-            '_grade_evidence: resolve_item_irt_params(item, learning_object, config.mastery, prior_state.item_parameter_state)': 1,
+            '_grade_evidence: resolve_item_irt_params(item, learning_object, config.mastery, prior_state.item_parameter_state, algorithm_version=config.algorithms.algorithm_version)': 1,
             '_memory_state: state.difficulty': 2,
             'grade_application: next_memory.difficulty': 1,
         },
@@ -258,7 +279,7 @@ AUDITED_READERS = {
     'src/learnloop/daily_plan/lesson_suggestion.py': (
         'scalar/IRT: LO prediction, no item posterior',
         {
-            '_predicted: resolve_item_irt_params(None, learning_object, vault.config.mastery)': 1,
+            '_predicted: resolve_item_irt_params(None, learning_object, vault.config.mastery, algorithm_version=vault.config.algorithms.algorithm_version)': 1,
         },
     ),
     'src/learnloop/daily_plan/objective_inputs.py': (
@@ -285,7 +306,7 @@ AUDITED_READERS = {
     'src/learnloop/delayed_checks.py': (
         'scalar/IRT: item prediction with the EB item-parameter posterior',
         {
-            'predicted_item_success: resolve_item_irt_params(item, learning_object, vault.config.mastery, repository.item_parameter_state(item.id))': 1,
+            'predicted_item_success: resolve_item_irt_params(item, learning_object, vault.config.mastery, repository.item_parameter_state(item.id), algorithm_version=vault.config.algorithms.algorithm_version)': 1,
         },
     ),
     'src/learnloop/diagnosis/causal_probe_coherence.py': (
@@ -317,7 +338,7 @@ AUDITED_READERS = {
     'src/learnloop/diagnosis/probes.py': (
         'scalar/IRT: probe response curve, no item posterior',
         {
-            'resolve_item_irt: resolve_item_irt_params(item, learning_object, vault.config.mastery)': 1,
+            'resolve_item_irt: resolve_item_irt_params(item, learning_object, vault.config.mastery, algorithm_version=vault.config.algorithms.algorithm_version)': 1,
         },
     ),
     'src/learnloop/field/item_content.py': (
@@ -330,7 +351,7 @@ AUDITED_READERS = {
         'scalar/IRT: historical features and uncertainty flag, omitting LLM-estimated labels',
         {
             '_load: item.difficulty': 1,
-            '_load: resolve_item_irt_params(None if llm_estimate else item, None, vault.config.mastery)': 1,
+            '_load: resolve_item_irt_params(None if llm_estimate else item, None, vault.config.mastery, algorithm_version=vault.config.algorithms.algorithm_version)': 1,
         },
     ),
     'src/learnloop/field/probability_states.py': (
@@ -373,8 +394,8 @@ AUDITED_READERS = {
     'src/learnloop/learner/lesson_weight.py': (
         'scalar/IRT: current-content reconstruction; retain L4-2 until recorded inputs exist',
         {
-            '_outcome_item_params: item_irt_params(item, learning_object, mastery_config)': 1,
-            'recorded_trajectory: item_irt_params(item, vault.learning_objects.get(lo), mastery_config)': 1,
+            '_outcome_item_params: item_irt_params(item, learning_object, mastery_config, algorithm_version=vault.config.algorithms.algorithm_version)': 1,
+            'recorded_trajectory: item_irt_params(item, vault.learning_objects.get(lo), mastery_config, algorithm_version=vault.config.algorithms.algorithm_version)': 1,
         },
     ),
     'src/learnloop/learner/mastery.py': (
@@ -384,7 +405,7 @@ AUDITED_READERS = {
             "item_irt_params: 'difficulty_prior'": 1,
             "item_irt_params: getattr(item, 'difficulty', None)": 1,
             "item_irt_params: getattr(learning_object, 'difficulty_prior', None)": 1,
-            'resolve_item_irt_params: item_irt_params(item, learning_object, config)': 1,
+            'resolve_item_irt_params: item_irt_params(item, learning_object, config, algorithm_version=algorithm_version)': 1,
         },
     ),
     'src/learnloop/learner/recall_calibration.py': (
@@ -418,7 +439,7 @@ AUDITED_READERS = {
     'src/learnloop/placement/predictor.py': (
         'scalar/IRT: resolve placement item parameters, including EB state',
         {
-            '_item: resolve_item_irt_params(practice_item, learning_object, self._vault.config.mastery, self._item_params.get(item))': 1,
+            '_item: resolve_item_irt_params(practice_item, learning_object, self._vault.config.mastery, self._item_params.get(item), algorithm_version=self._vault.config.algorithms.algorithm_version)': 1,
         },
     ),
     'src/learnloop/practice_index/retrieval.py': (
@@ -457,13 +478,13 @@ AUDITED_READERS = {
     'src/learnloop/scheduling/scheduler.py': (
         'scalar/IRT: information prediction with authored fallback',
         {
-            '_practice_information: resolve_item_irt_params(item, learning_object, config.mastery)': 1,
+            '_practice_information: resolve_item_irt_params(item, learning_object, config.mastery, algorithm_version=config.algorithms.algorithm_version)': 1,
         },
     ),
     'src/learnloop/scheduling/selection_rewards.py': (
         'scalar/IRT: demand vector, no item posterior',
         {
-            'item_demand_vector: resolve_item_irt_params(item, learning_object, vault.config.mastery)': 1,
+            'item_demand_vector: resolve_item_irt_params(item, learning_object, vault.config.mastery, algorithm_version=vault.config.algorithms.algorithm_version)': 1,
         },
     ),
     'src/learnloop/substrate/card_lineage.py': (
@@ -503,14 +524,14 @@ AUDITED_READERS = {
     'src/learnloop/teacher/brief.py': (
         'scalar/IRT: LO success prediction and interval, no item posterior',
         {
-            'lo_prediction: resolve_item_irt_params(None, learning_object, vault.config.mastery)': 1,
+            'lo_prediction: resolve_item_irt_params(None, learning_object, vault.config.mastery, algorithm_version=vault.config.algorithms.algorithm_version)': 1,
         },
     ),
     'src/learnloop/teacher/checks.py': (
         'scalar/IRT: retention reference and check sensitivity, no item posterior',
         {
-            'check_mass: resolve_item_irt_params(item, learning_object, vault.config.mastery)': 1,
-            'cold_reference: resolve_item_irt_params(found, vault.learning_objects.get(learning_object_id), vault.config.mastery)': 1,
+            'check_mass: resolve_item_irt_params(item, learning_object, vault.config.mastery, algorithm_version=vault.config.algorithms.algorithm_version)': 1,
+            'cold_reference: resolve_item_irt_params(found, vault.learning_objects.get(learning_object_id), vault.config.mastery, algorithm_version=vault.config.algorithms.algorithm_version)': 1,
         },
     ),
     'src/learnloop/tui/screens/practice.py': (

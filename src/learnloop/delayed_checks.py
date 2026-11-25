@@ -103,7 +103,8 @@ def predicted_item_success(vault: Any, repository: Any, item: Any) -> float | No
     from learnloop.learner.mastery import initial_mastery_state_for_learning_object, resolve_item_irt_params
 
     learning_object = vault.learning_objects.get(item.learning_object_id)
-    a, b = resolve_item_irt_params(item, learning_object, vault.config.mastery, repository.item_parameter_state(item.id))
+    a, b = resolve_item_irt_params(item, learning_object, vault.config.mastery, repository.item_parameter_state(item.id),
+                                   algorithm_version=vault.config.algorithms.algorithm_version)
     state = repository.mastery_state(item.learning_object_id)
     if state is None and learning_object is not None:
         state = initial_mastery_state_for_learning_object(vault, repository, item.learning_object_id, utc_now_iso())
@@ -122,6 +123,13 @@ def _uniform(seed: str) -> float:
 
     digest = hashlib.sha256(f"{seed}:delayed_pick".encode("utf-8")).digest()
     return (int.from_bytes(digest[:8], "big") >> 11) / float(1 << 53)
+
+
+def seed_for(seed_key: str) -> str:
+    """The seed of a tie's draw: a function of the decision the pick serves (``seed_key``, a persisted id), never of
+    the candidates or the run, and recorded on the pick's receipt with the draw it gives."""
+
+    return hashlib.sha256(f"{PICK_VERSION}|{seed_key}".encode()).hexdigest()
 
 
 def pick_with_receipt(vault: Any, repository: Any, items: Sequence[Any], *, seed_key: str = "") -> tuple[Any | None, dict[str, Any]]:
@@ -147,7 +155,7 @@ def pick_with_receipt(vault: Any, repository: Any, items: Sequence[Any], *, seed
     seed, draw = None, None
     chosen = tied[0]
     if len(tied) > 1:
-        seed = hashlib.sha256(f"{PICK_VERSION}|{seed_key}".encode()).hexdigest()
+        seed = seed_for(seed_key)
         draw = _uniform(seed)
         chosen = tied[min(int(draw * len(tied)), len(tied) - 1)]
     receipt.update(tied=tied, n=len(tied), propensity=1.0 / len(tied), seed=seed, draw=draw, chosen=chosen)
@@ -177,4 +185,4 @@ def due_days(vault: Any, repository: Any, *, purpose: str, lesson_item_ids: Sequ
 
 
 __all__ = ["PICK_VERSION", "attempted_items", "candidates", "check_available", "due_days", "lineage",
-           "pick_with_receipt", "predicted_item_success", "revealed_items"]
+           "pick_with_receipt", "predicted_item_success", "revealed_items", "seed_for"]

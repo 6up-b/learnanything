@@ -19,6 +19,7 @@ from learnloop.algorithm_versions import UNEVIDENCED_RETURN_ALGORITHM_VERSION
 from learnloop.algorithm_versions import (
     FAILURE_SHARE_ALGORITHM_VERSION,
     LATEST_ALGORITHM_VERSION,
+    PROBE_ROUTER_ALGORITHM_VERSION,
     SUCCESSOR_CHAIN,
 )
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
@@ -44,7 +45,9 @@ from tests.helpers import (
     set_config_switch,
 )
 
-TAG = LATEST_ALGORITHM_VERSION
+# The newest tag whose switch-off queue is still the predecessor's: from the difficulty label's retirement on, the
+# queue's predictions carry no item term, which moves every priority on its own (its record, not this switch's).
+TAG = PROBE_ROUTER_ALGORITHM_VERSION
 OLD = FAILURE_SHARE_ALGORITHM_VERSION
 ITEM, LO, SIBLING = "pi_spec_easy", "lo_spectral", "pi_spec_hard"
 OFF = "[placement]\nunevidenced_return = false\n"

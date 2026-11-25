@@ -292,7 +292,8 @@ def lo_prediction(vault: Any, repository: Any, learning_object_id: str) -> dict[
     from learnloop.learner.mastery import resolve_item_irt_params
 
     learning_object = vault.learning_objects.get(learning_object_id)
-    a, b = resolve_item_irt_params(None, learning_object, vault.config.mastery)
+    a, b = resolve_item_irt_params(None, learning_object, vault.config.mastery,
+                                   algorithm_version=vault.config.algorithms.algorithm_version)
     state = repository.mastery_state(learning_object_id)
     if state is None and learning_object is not None:
         # No evidence yet: the model's own prior for the LO (what its first update would start from).

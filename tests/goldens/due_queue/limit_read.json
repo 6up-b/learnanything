@@ -172,7 +172,7 @@
     "conjunctive_fit": 0.0,
     "conjunctive_strength": 0.0,
     "duplicate_probe_penalty": 0.0,
-    "expected_skill_gain": 0.06275706,
+    "expected_skill_gain": 0.06027,
     "facet_weakness": 0.5,
     "forgetting_risk": 0.0,
     "goal_frontier": 0.8,
@@ -180,8 +180,8 @@
     "gradient_fit": 1.0,
     "legacy_priority": 0.2000000003,
     "overload_penalty": 0.0,
-    "practice_information": 0.246,
-    "predicted_correctness": 0.4310734991,
+    "practice_information": 0.25,
+    "predicted_correctness": 0.49325,
     "probe_eig": 0.0,
     "probe_eig_facet_recall": 1.0397207708,
     "probe_eig_hypothesis": 0.0,
@@ -208,7 +208,7 @@
      "applied_to_belief_counts": false,
      "applied_to_facet_recall": false,
      "applied_to_mastery": false,
-     "expected_skill_gain": 0.06275706,
+     "expected_skill_gain": 0.06027,
      "reason": "feedback_after_gap",
      "target_facets": [
       "definition",
@@ -232,7 +232,7 @@
      "conjunctive_fit": 0.0,
      "conjunctive_strength": 0.0,
      "duplicate_probe_penalty": 0.0,
-     "expected_skill_gain": 0.06275706,
+     "expected_skill_gain": 0.06027,
      "facet_weakness": 0.5,
      "gradient_fit": 1.0,
      "overload_penalty": 0.0,
@@ -247,7 +247,7 @@
     "intent": "probe",
     "item_demand_vector": {
      "bad_item_suspicion": 0.0,
-     "difficulty_b": 0.25,
+     "difficulty_b": 0.0,
      "discrimination_a": 1.0,
      "evidence_weights": {
       "definition": 1.0,
@@ -266,7 +266,7 @@
      "surface_family": null,
      "transfer_distance": 0.0
     },
-    "predicted_correctness": 0.4310734991,
+    "predicted_correctness": 0.49325,
     "probe_eig": {
      "facet_recall": {
       "expected_posterior_entropy": -3.1191623125,
@@ -300,7 +300,7 @@
     "conjunctive_fit": 0.0,
     "conjunctive_strength": 0.0,
     "duplicate_probe_penalty": 0.0,
-    "expected_skill_gain": 0.05792706,
+    "expected_skill_gain": 0.05544,
     "facet_weakness": 0.5,
     "forgetting_risk": 0.0,
     "goal_frontier": 0.8,
@@ -308,8 +308,8 @@
     "gradient_fit": 1.0,
     "legacy_priority": 0.2000000003,
     "overload_penalty": 0.0,
-    "practice_information": 0.246,
-    "predicted_correctness": 0.5518234991,
+    "practice_information": 0.25,
+    "predicted_correctness": 0.614,
     "probe_eig": 0.0,
     "probe_eig_facet_recall": 0.3465735903,
     "probe_eig_hypothesis": 0.0,
@@ -318,7 +318,7 @@
     "recent_error": 6e-10,
     "repair_value": 0.0,
     "repetition_fatigue": 0.0,
-    "selection_reward": 0.492408825,
+    "selection_reward": 0.4893,
     "targeted_boundary_fit": 0.0,
     "voi_cost_minutes": 1.53125,
     "voi_stop": 1.0,
@@ -339,7 +339,7 @@
      "applied_to_belief_counts": false,
      "applied_to_facet_recall": false,
      "applied_to_mastery": false,
-     "expected_skill_gain": 0.05792706,
+     "expected_skill_gain": 0.05544,
      "reason": "feedback_after_gap",
      "target_facets": [
       "recall"
@@ -361,7 +361,7 @@
      "conjunctive_fit": 0.0,
      "conjunctive_strength": 0.0,
      "duplicate_probe_penalty": 0.0,
-     "expected_skill_gain": 0.05792706,
+     "expected_skill_gain": 0.05544,
      "facet_weakness": 0.5,
      "gradient_fit": 1.0,
      "overload_penalty": 0.0,
@@ -376,7 +376,7 @@
     "intent": "practice",
     "item_demand_vector": {
      "bad_item_suspicion": 0.0,
-     "difficulty_b": 0.25,
+     "difficulty_b": 0.0,
      "discrimination_a": 1.0,
      "evidence_weights": {
       "recall": 1.0
@@ -393,7 +393,7 @@
      "surface_family": null,
      "transfer_distance": 0.0
     },
-    "predicted_correctness": 0.5518234991,
+    "predicted_correctness": 0.614,
     "probe_eig": {
      "facet_recall": {
       "expected_posterior_entropy": -1.0397207708,
@@ -415,7 +415,7 @@
      "normalized_total": 0.1873216828,
      "total_reduction": 0.5619650483
     },
-    "selection_reward": 0.492408825
+    "selection_reward": 0.4893
    },
    "scheduler_candidate_id": null,
    "scheduler_slate_id": null,
@@ -466,18 +466,18 @@
    "pi_a1",
    "pi_svd_teach_due",
    "pi_svd_define_001",
-   "pi_pair_first",
    "pi_svd_define_002",
+   "pi_pair_first",
+   "pi_pair_second",
    "pi_b1",
    "pi_c1",
    "pi_c2",
-   "pi_pair_second",
-   "pi_eig_easy",
    "pi_diag_easy",
-   "pi_diag_mid",
-   "pi_eig_mid",
    "pi_diag_hard",
+   "pi_diag_mid",
+   "pi_eig_easy",
    "pi_eig_hard",
+   "pi_eig_mid",
    "pi_spec_easy",
    "pi_spec_hard"
   ],
@@ -494,19 +494,19 @@
   "greedy_item_ids": [
    "pi_svd_teach_due",
    "pi_svd_define_001",
-   "pi_pair_first",
    "pi_svd_define_002",
+   "pi_pair_first",
+   "pi_pair_second",
    "pi_b1",
    "pi_c1",
    "pi_c2",
-   "pi_pair_second",
    "pi_a1",
-   "pi_eig_easy",
    "pi_diag_easy",
-   "pi_diag_mid",
-   "pi_eig_mid",
    "pi_diag_hard",
+   "pi_diag_mid",
+   "pi_eig_easy",
    "pi_eig_hard",
+   "pi_eig_mid",
    "pi_spec_easy",
    "pi_spec_hard"
   ],
@@ -516,18 +516,18 @@
      "pi_a1",
      "pi_svd_teach_due",
      "pi_svd_define_001",
-     "pi_pair_first",
      "pi_svd_define_002",
+     "pi_pair_first",
+     "pi_pair_second",
      "pi_b1",
      "pi_c1",
      "pi_c2",
-     "pi_pair_second",
-     "pi_eig_easy",
      "pi_diag_easy",
-     "pi_diag_mid",
-     "pi_eig_mid",
      "pi_diag_hard",
+     "pi_diag_mid",
+     "pi_eig_easy",
      "pi_eig_hard",
+     "pi_eig_mid",
      "pi_spec_easy",
      "pi_spec_hard"
     ],
@@ -896,8 +896,8 @@
       "hypothesis_conditioning": "none",
       "learning_object_id": "lo_svd_definition",
       "predicted_outcomes": {
-       "correct": 0.4310735,
-       "incorrect": 0.5689265
+       "correct": 0.49325,
+       "incorrect": 0.50675
       },
       "unconditioned_eig_nats": 7.94747605
      },
@@ -911,8 +911,8 @@
       "eig_nats": 7.94747605,
       "p_action_change": null,
       "predicted_outcomes": {
-       "correct": 0.4310735,
-       "incorrect": 0.5689265
+       "correct": 0.49325,
+       "incorrect": 0.50675
       }
      },
      "member_eig_nats": 0.0,
@@ -1031,8 +1031,8 @@
       "hypothesis_conditioning": "none",
       "learning_object_id": "lo_svd_definition",
       "predicted_outcomes": {
-       "correct": 0.4310735,
-       "incorrect": 0.5689265
+       "correct": 0.49325,
+       "incorrect": 0.50675
       },
       "unconditioned_eig_nats": 7.94747605
      },
@@ -1046,8 +1046,8 @@
       "eig_nats": 7.94747605,
       "p_action_change": null,
       "predicted_outcomes": {
-       "correct": 0.4310735,
-       "incorrect": 0.5689265
+       "correct": 0.49325,
+       "incorrect": 0.50675
       }
      },
      "member_eig_nats": 0.0,

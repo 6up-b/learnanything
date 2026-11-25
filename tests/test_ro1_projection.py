@@ -22,7 +22,7 @@ from datetime import timedelta
 import pytest
 
 from learnloop.algorithm_versions import INTERVAL_FACTOR_ALGORITHM_VERSION
-from learnloop.algorithm_versions import FOLLOWUP_SERVE_ALGORITHM_VERSION, LATEST_ALGORITHM_VERSION
+from learnloop.algorithm_versions import FOLLOWUP_SERVE_ALGORITHM_VERSION, PROBE_ROUTER_ALGORITHM_VERSION
 from learnloop.clock import FrozenClock
 from learnloop.db.copies import copy_tree_with_databases
 from learnloop.db.repositories import Repository
@@ -43,7 +43,8 @@ from tests.helpers import NOW, append_config_toml, set_algorithm_version
 from tests.ro1_interval_factor_helpers import HISTORY, _due, _play, _vault
 from tests.ro1_self_report_helpers import picked  # noqa: F401 - the module fixture
 
-TAG = LATEST_ALGORITHM_VERSION
+# The newest tag before the difficulty label's retirement, which moves mastery and surprise on its own.
+TAG = PROBE_ROUTER_ALGORITHM_VERSION
 PREDECESSOR = FOLLOWUP_SERVE_ALGORITHM_VERSION
 SWITCH_TOML = {
     "factor": ("scheduler.surprise", "remove_interval_factor"),

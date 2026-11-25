@@ -43,7 +43,9 @@ def test_on_the_brief_is_v2_and_the_turn_carries_te2s_actions(tmp_path):
     assert all(T2.PROMPT_SUFFIX in prompt for purpose, prompt in lesson.fake.prompts if purpose == "teacher_turn")
     assert lesson.fake.result_models[0].__name__ == "TeacherTurnTE2VisualsEpisodesV1" or \
         lesson.fake.result_models[0].__name__.startswith("TeacherTurnTE2")
-    families = {row[0] for row in lesson.rows("SELECT forecaster_version FROM forecast_receipts")}
+    # The teacher's receipts (AD's grade-time forecast of each answer is its own kind).
+    families = {row[0] for row in lesson.rows(
+        "SELECT forecaster_version FROM forecast_receipts WHERE kind != 'item_unassisted_success_at_grade'")}
     assert families and all(T2.TE2_VERSION in family for family in families)
 
 

@@ -46,7 +46,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/adaptive_difficulty/replay.py](../../../../../../src/learnloop/adaptive_difficulty/replay.py) |
-| Source lines | 1006 |
+| Source lines | 1035 |
 | Owning package | [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -56,26 +56,27 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `lo_view_name(learning_object_id: str) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 80)
 - `days(value: Any) -> float` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 84)
 - `class ReplaySettings` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 99) — Which parts of the subject view run (the switches, and the harness arms of §10.4).
-  - `key(self) -> str` (line 117; public)
-  - `from_config(cls, config: Any) -> 'ReplaySettings'` (line 126; public)
-- `class AttemptEvent` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 141)
-- `class ClaimEvent` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 167)
-- `class OpportunityEvent` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 177)
-- `class Events` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 189)
-  - `ordered(self) -> list[tuple[str, Any]]` (line 201; public)
-- `surface_group(item: Any) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 273) — The item's surface group (mirrors ``substrate.canonical_projection.surface_group_id``, pinned equal by a test): a shared stimulus, source-example or solution-template family, else the legacy surface family, else the item.
-- `forced_failure(attempt: Mapping[str, Any]) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 286) — §5.3's "an empty 'I'm stuck'" row (Codex review F2): only an empty stuck submission, or a historical "I don't know" answer, is a fail whatever its grade.
-- `load_events(connection: Any, vault: Any, repository: Any, *, as_of: str | None=None, settings: ReplaySettings=ReplaySettings(), view: Any=None) -> Events` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 341) — Read every replay input (no model call; current content only for ``reconstructed_current``).
-- `class Snapshot` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 604) — The replay's result: the subject view, each LO's view, the traces.
-  - `state_hash(self) -> str` (line 617; public)
-  - `lo_view(self, learning_object_id: str) -> View` (line 624; public) — The LO's view (a fresh prior view when it has no eligible row yet).
-- `class Context` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 710) — What a prequential observer knows about an attempt before its update (the harness, §10.4).
-- `run(events: Events, settings: ReplaySettings=ReplaySettings(), *, trace: bool=True, observer: Any=None) -> Snapshot` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 725) — Replay the events into both views (§5.6), in fixed order, float64.
-- `events_fingerprint(events: Events) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 862) — The digest of everything the replay reads (attempts with their frozen inputs, claims, reading opportunities, the relatedness structure and the vault maps).
-- `snapshot(vault: Any, repository: Any, *, settings: ReplaySettings | None=None, connection: Any=None, as_of: str | None=None, view: Any=None) -> Snapshot` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 890) — The current state (cached per database, vault and settings while the replay's events are unchanged).
-- `clear_cache() -> None` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 925)
-- `state_rows(snap: Snapshot, *, as_of: str | None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 949)
-- `rebuild(vault: Any, repository: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 961) — The AD replayer (``ad_state``, ``ad_attempt_trace``): clear and rebuild, zero model calls.
+  - `key(self) -> str` (line 120; public)
+  - `from_config(cls, config: Any) -> 'ReplaySettings'` (line 130; public)
+- `class AttemptEvent` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 149)
+- `class ClaimEvent` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 175)
+- `class OpportunityEvent` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 185)
+- `class Events` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 197)
+  - `ordered(self) -> list[tuple[str, Any]]` (line 209; public)
+- `surface_group(item: Any) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 281) — The item's surface group (mirrors ``substrate.canonical_projection.surface_group_id``, pinned equal by a test): a shared stimulus, source-example or solution-template family, else the legacy surface family, else the item.
+- `forced_failure(attempt: Mapping[str, Any]) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 294) — §5.3's "an empty 'I'm stuck'" row (Codex review F2): only an empty stuck submission, or a historical "I don't know" answer, is a fail whatever its grade.
+- `load_events(connection: Any, vault: Any, repository: Any, *, as_of: str | None=None, settings: ReplaySettings=ReplaySettings(), view: Any=None) -> Events` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 349) — Read every replay input (no model call; current content only for ``reconstructed_current``).
+- `class Snapshot` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 612) — The replay's result: the subject view, each LO's view, the traces.
+  - `state_hash(self) -> str` (line 625; public)
+  - `lo_view(self, learning_object_id: str) -> View` (line 632; public) — The LO's view (a fresh prior view when it has no eligible row yet).
+- `observation_kl(view: View, record: M.UpdateRecord) -> dict[str, float]` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 717) — The KL of the view's posterior after one answer's observation from its posterior before it (from the label's retirement on: a measure recorded beside surprise, deciding nothing).
+- `class Context` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 737) — What a prequential observer knows about an attempt before its update (the harness, §10.4).
+- `run(events: Events, settings: ReplaySettings=ReplaySettings(), *, trace: bool=True, observer: Any=None) -> Snapshot` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 752) — Replay the events into both views (§5.6), in fixed order, float64.
+- `events_fingerprint(events: Events) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 891) — The digest of everything the replay reads (attempts with their frozen inputs, claims, reading opportunities, the relatedness structure and the vault maps).
+- `snapshot(vault: Any, repository: Any, *, settings: ReplaySettings | None=None, connection: Any=None, as_of: str | None=None, view: Any=None) -> Snapshot` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 919) — The current state (cached per database, vault and settings while the replay's events are unchanged).
+- `clear_cache() -> None` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 954)
+- `state_rows(snap: Snapshot, *, as_of: str | None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 978)
+- `rebuild(vault: Any, repository: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 990) — The AD replayer (``ad_state``, ``ad_attempt_trace``): clear and rebuild, zero model calls.
 
 ### Module constants
 
@@ -84,8 +85,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `VIEW_SUBJECT` ([src/learnloop/adaptive_difficulty/replay.py](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 75)
 - `CLAIM_SOURCES` ([src/learnloop/adaptive_difficulty/replay.py](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 76)
 - `WARMTH_SOURCES` ([src/learnloop/adaptive_difficulty/replay.py](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 77)
-- `_CACHE` ([src/learnloop/adaptive_difficulty/replay.py](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 846)
-- `_CACHE_LOCK` ([src/learnloop/adaptive_difficulty/replay.py](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 847)
+- `_CACHE` ([src/learnloop/adaptive_difficulty/replay.py](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 875)
+- `_CACHE_LOCK` ([src/learnloop/adaptive_difficulty/replay.py](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 876)
 
 ### Explicit exports
 
@@ -113,25 +114,25 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ## Internal implementation anchors
 
 - `_logit(p: float) -> float` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 91)
-- `_capability(item: Any) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 215)
-- `_guess(vault: Any, item: Any) -> float` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 228)
-- `_facet_weights(vault: Any, item: Any) -> dict[str, float]` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 237)
-- `_historical_signals(item: Any) -> dict[str, float]` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 246)
-- `_frozen_signals(row: Mapping[str, Any]) -> dict[str, float]` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 254)
-- `_audited(connection: Any, item: Any, content_hash: str | None, as_of: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 262)
-- `_type_mass(vault: Any, attempt_type: str) -> float` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 296)
-- `_exposures(connection: Any, view: Any) -> dict[str, list[float]]` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 301) — Each LO's exposure times (attempts and reveals) for warmth, read through the material view: an attempt or reveal on a withheld item warms nothing (Codex verify F20).
-- `_warmth(exposures: Mapping[str, Sequence[float]], lo: str, served: float, own: float | None) -> float` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 316) — ``w_t = exp(-Δh / h_w)`` with ``Δh`` the hours since the last exposure to the LO before the serve.
-- `_current_grade_unassessed(evidence: Sequence[Mapping[str, Any]], wholly_unassessed: Any) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 328) — PF-c over the attempt's current grading epoch (``grading_epochs.current_epoch``), never a per-criterion merge of every live epoch (Codex re-review F1): a historical regrade that dropped a verified criterion and left its own criteria unverified measures nothing, though the droppe…
-- `_grid(settings: ReplaySettings) -> tuple[P.HyperPoint, ...]` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 634)
-- `_override(bank: M.Bank, settings: ReplaySettings) -> M.Bank` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 641)
-- `_new_subject_view(settings: ReplaySettings, structure: M.Structure) -> View` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 648)
-- `_new_lo_view(settings: ReplaySettings) -> View` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 656)
-- `_apply_claim(view: View, claim: ClaimEvent, events: Events, *, observed_subjects: set[str], observed_facets: set[str], los: Iterable[str] | None=None) -> None` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 662)
-- `_apply_claims_for_lo(view: View, events: Events, lo: str, *, upto: float) -> None` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 688)
-- `_mixture(view: View, record: M.UpdateRecord) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 694)
-- `_plain(value: Any) -> Any` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 850)
-- `_summary_payload(view: View, *, uniform_mask: np.ndarray | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 932)
+- `_capability(item: Any) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 223)
+- `_guess(vault: Any, item: Any) -> float` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 236)
+- `_facet_weights(vault: Any, item: Any) -> dict[str, float]` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 245)
+- `_historical_signals(item: Any) -> dict[str, float]` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 254)
+- `_frozen_signals(row: Mapping[str, Any]) -> dict[str, float]` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 262)
+- `_audited(connection: Any, item: Any, content_hash: str | None, as_of: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 270)
+- `_type_mass(vault: Any, attempt_type: str) -> float` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 304)
+- `_exposures(connection: Any, view: Any) -> dict[str, list[float]]` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 309) — Each LO's exposure times (attempts and reveals) for warmth, read through the material view: an attempt or reveal on a withheld item warms nothing (Codex verify F20).
+- `_warmth(exposures: Mapping[str, Sequence[float]], lo: str, served: float, own: float | None) -> float` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 324) — ``w_t = exp(-Δh / h_w)`` with ``Δh`` the hours since the last exposure to the LO before the serve.
+- `_current_grade_unassessed(evidence: Sequence[Mapping[str, Any]], wholly_unassessed: Any) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 336) — PF-c over the attempt's current grading epoch (``grading_epochs.current_epoch``), never a per-criterion merge of every live epoch (Codex re-review F1): a historical regrade that dropped a verified criterion and left its own criteria unverified measures nothing, though the droppe…
+- `_grid(settings: ReplaySettings) -> tuple[P.HyperPoint, ...]` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 642)
+- `_override(bank: M.Bank, settings: ReplaySettings) -> M.Bank` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 649)
+- `_new_subject_view(settings: ReplaySettings, structure: M.Structure) -> View` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 656)
+- `_new_lo_view(settings: ReplaySettings) -> View` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 664)
+- `_apply_claim(view: View, claim: ClaimEvent, events: Events, *, observed_subjects: set[str], observed_facets: set[str], los: Iterable[str] | None=None) -> None` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 670)
+- `_apply_claims_for_lo(view: View, events: Events, lo: str, *, upto: float) -> None` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 696)
+- `_mixture(view: View, record: M.UpdateRecord) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 702)
+- `_plain(value: Any) -> Any` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 879)
+- `_summary_payload(view: View, *, uniform_mask: np.ndarray | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/replay.py), line 961)
 
 ## Who imports or calls it
 
@@ -141,6 +142,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/adaptive_difficulty/arms|learnloop.adaptive_difficulty.arms]] — imports `module`; statically calls `load_events`, `run`
 - [[Reference/Modules/learnloop/adaptive_difficulty/dose|learnloop.adaptive_difficulty.dose]] — imports `module`; statically calls `snapshot`
 - [[Reference/Modules/learnloop/adaptive_difficulty/generation|learnloop.adaptive_difficulty.generation]] — imports `module`; statically calls `days`, `snapshot`
+- [[Reference/Modules/learnloop/adaptive_difficulty/grade_forecast|learnloop.adaptive_difficulty.grade_forecast]] — imports `module`; statically calls `events_fingerprint`, `snapshot`
 - [[Reference/Modules/learnloop/adaptive_difficulty/history_resolve|learnloop.adaptive_difficulty.history_resolve]] — imports `module`; statically calls `load_events`
 - [[Reference/Modules/learnloop/adaptive_difficulty/readiness|learnloop.adaptive_difficulty.readiness]] — imports `module`; statically calls `snapshot`
 - [[Reference/Modules/learnloop/adaptive_difficulty/relatedness|learnloop.adaptive_difficulty.relatedness]] — imports `module`; statically calls `load_events`, `run`
@@ -168,6 +170,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/adaptive_difficulty/relatedness|learnloop.adaptive_difficulty.relatedness]] — imports `module`; calls `live_judgments`, `lo_subject`, `load_structure`
 - [[Reference/Modules/learnloop/adaptive_difficulty/state|learnloop.adaptive_difficulty.state]] — imports `ItemSpec`, `View`, `normalized_weights`; calls `ItemSpec`, `View`, `normalized_weights`
 - [[Reference/Modules/learnloop/adaptive_difficulty/successor|learnloop.adaptive_difficulty.successor]] — imports `history_fallback`, `lesson_opportunities_on`, `successor_active`; calls `history_fallback`, `lesson_opportunities_on`, `successor_active`
+- [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `label_retired`; calls `label_retired`
 - [[Reference/Modules/learnloop/attempts/salience_firewall|learnloop.attempts.salience_firewall]] — imports `learning_opportunity_events`; calls `learning_opportunity_events`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `parse_utc`; calls `parse_utc`
 - [[Reference/Modules/learnloop/db/attempt_order|learnloop.db.attempt_order]] — imports `UNBOUND_SEQUENCE`, `attempt_order_for`; calls `attempt_order_for`
@@ -191,7 +194,7 @@ Use this module in context through:
 
 - [[Rebuild and Shadow Compare]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/arms|learnloop.adaptive_difficulty.arms]], [[Reference/Modules/learnloop/adaptive_difficulty/dose|learnloop.adaptive_difficulty.dose]], [[Reference/Modules/learnloop/adaptive_difficulty/generation|learnloop.adaptive_difficulty.generation]], [[Reference/Modules/learnloop/adaptive_difficulty/history_resolve|learnloop.adaptive_difficulty.history_resolve]], [[Reference/Modules/learnloop/adaptive_difficulty/readiness|learnloop.adaptive_difficulty.readiness]] and 7 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/arms|learnloop.adaptive_difficulty.arms]], [[Reference/Modules/learnloop/adaptive_difficulty/dose|learnloop.adaptive_difficulty.dose]], [[Reference/Modules/learnloop/adaptive_difficulty/generation|learnloop.adaptive_difficulty.generation]], [[Reference/Modules/learnloop/adaptive_difficulty/grade_forecast|learnloop.adaptive_difficulty.grade_forecast]], [[Reference/Modules/learnloop/adaptive_difficulty/history_resolve|learnloop.adaptive_difficulty.history_resolve]] and 8 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

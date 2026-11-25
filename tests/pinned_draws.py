@@ -37,6 +37,8 @@ SEED_SOURCES: tuple[tuple[str, str, str], ...] = (
     ("check", "learnloop.router_objective.checks", "day_seed"),
     ("lesson", "learnloop.router.lesson_suggestions", "seed_for"),
     ("probe_coin", "learnloop.router_objective.probe_coin", "seed_for"),
+    # A delayed check's pick among tied items: seeded on the decision it serves, whose id is minted at run time.
+    ("delayed_pick", "learnloop.delayed_checks", "seed_for"),
 )
 #: The numeric policy's entry: its ``keep_going`` is what lets the wall clock decide how many draws it makes.
 NUMERIC_POLICY = ("learnloop.daily_plan.objective_chooser", "run_numeric")

@@ -1,4 +1,4 @@
-"""L4-2's review fix round (``docs/reviews/algorithm-mvp-0.71.md``, "Review fix round"): the lesson-weight fit's
+"""L4-2's review fix round (``docs/reviews/algorithm-mvp-0.72.md``, "Review fix round"): the lesson-weight fit's
 reads. Each test failed before its fix.
 
 Two grades of one learning object applied within one second can carry ids in the opposite order from their
@@ -99,7 +99,7 @@ def _owner_copy_window_query() -> str:
 
     from pathlib import Path
 
-    record = (Path(__file__).resolve().parents[1] / "docs/reviews/algorithm-mvp-0.71.md").read_text()
+    record = (Path(__file__).resolve().parents[1] / "docs/reviews/algorithm-mvp-0.72.md").read_text()
     body = record[record.index("PRAGMA query_only = ON;\n") + len("PRAGMA query_only = ON;\n"):]
     return body[:body.index("SELECT count(*) AS foreign_key_violations")]
 

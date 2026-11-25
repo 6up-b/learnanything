@@ -181,7 +181,8 @@ def test_no_reservation_keeps_the_existing_certified_vault_queue_byte_identical(
     assert not _tasks(repository)
     rows = [asdict(item) for item in read_due_queue(vault, repository, clock=FrozenClock(NOW))]
     encoded = json.dumps(rows, sort_keys=True, separators=(",", ":")).encode()
-    assert hashlib.sha256(encoded).hexdigest() == "e25f79090b29aa2d0feeefe18eef007d09db6b4cf96e9ed085fa22bb9f395c30"
+    # Moved once on purpose: the difficulty label's retirement takes the item term out of the queue's predictions.
+    assert hashlib.sha256(encoded).hexdigest() == "88bd908153b6db36335a9be46104ac6c9467fbe526853d07b0f1ec965f7a7c95"
 
 
 @pytest.mark.parametrize("served", [False, True])

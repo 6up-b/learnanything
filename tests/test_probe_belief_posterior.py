@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pytest
 
+from learnloop.algorithm_versions import PROBE_ROUTER_ALGORITHM_VERSION
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import Repository
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
@@ -21,7 +22,7 @@ from learnloop.diagnosis.probes import (
 from learnloop.vault.loader import load_vault
 from learnloop.vault.models import PracticeItem, Rubric, RubricFatalError
 
-from tests.helpers import NOW, NOW_ISO, create_basic_vault
+from tests.helpers import NOW, NOW_ISO, create_basic_vault, set_algorithm_version
 
 
 def _insert_misconception_error(repository: Repository) -> None:
@@ -232,6 +233,8 @@ def test_decisive_high_score_converges_early_on_hypothesis_family(tmp_path):
 def test_scheduler_eig_uses_live_posterior(tmp_path):
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)
+    # The item's label tilts the graded model; from the difficulty label's retirement it does not.
+    set_algorithm_version(paths, PROBE_ROUTER_ALGORITHM_VERSION)
     repository = Repository(paths.sqlite_path)
     loaded = load_vault(vault_root)
     enter_probe(loaded, repository, "lo_svd_definition", clock=FrozenClock(NOW))

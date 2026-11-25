@@ -1,4 +1,4 @@
-"""L4-2's review fix round (``docs/reviews/algorithm-mvp-0.71.md``, "Review fix round"): what the lesson-weight fit's
+"""L4-2's review fix round (``docs/reviews/algorithm-mvp-0.72.md``, "Review fix round"): what the lesson-weight fit's
 recomputation of mastery reads. Each test failed before its fix.
 
 With ``mastery.irt.enabled = false`` mastery's logit-space update reads the score from the rubric fraction; the fit
@@ -92,7 +92,7 @@ def _owner_copy_label_queries() -> list[str]:
 
     from pathlib import Path
 
-    record = (Path(__file__).resolve().parents[1] / "docs/reviews/algorithm-mvp-0.71.md").read_text()
+    record = (Path(__file__).resolve().parents[1] / "docs/reviews/algorithm-mvp-0.72.md").read_text()
     start = record.index("The successor's likelihoods and first-order labels")
     body = record[record.index("<<'SQL'\n", start) + len("<<'SQL'\n"):]
     return [statement.strip() for statement in body[:body.index("\nSQL\n")].split(";") if statement.strip()]

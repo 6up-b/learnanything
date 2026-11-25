@@ -127,7 +127,8 @@ def cold_reference(vault: Any, repository: Any, learning_object_id: str, *, less
         vault, repository, learning_object_id, exclude=exclude, withheld=withheld_items(vault, repository),
         attempted=D._attempted(repository), revealed=D._revealed(repository, lesson_id), excluded_lineage=lineage),
         seed_key=D.retention_seed_key(lesson_id, learning_object_id))
-    a, b = resolve_item_irt_params(found, vault.learning_objects.get(learning_object_id), vault.config.mastery)
+    a, b = resolve_item_irt_params(found, vault.learning_objects.get(learning_object_id), vault.config.mastery,
+                                   algorithm_version=vault.config.algorithms.algorithm_version)
     days, basis = D.due_days(vault, repository, purpose="retention", lesson_item_ids=list(lesson_item_ids))
     return {"item_id": found.id if found is not None else None, "a": float(a), "b": float(b),
             "days": float(days), "dated_by": basis}
@@ -152,7 +153,8 @@ def check_mass(vault: Any, repository: Any, *, learning_object_id: str, tap: int
     z_p = LW.prediction_term(prediction.get("p"), band)
     learned = state.learned_mass(learning_object_id, z_c, z_p)
     learning_object = vault.learning_objects.get(learning_object_id)
-    a, b = resolve_item_irt_params(item, learning_object, vault.config.mastery)
+    a, b = resolve_item_irt_params(item, learning_object, vault.config.mastery,
+                                   algorithm_version=vault.config.algorithms.algorithm_version)
     state_row = repository.mastery_state(learning_object_id)
     if state_row is not None:
         mu, var, last = float(state_row.logit_mean), float(state_row.logit_variance), state_row.last_evidence_at

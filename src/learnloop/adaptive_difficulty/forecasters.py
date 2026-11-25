@@ -74,7 +74,8 @@ def _features(vault: Any, item: Any, served_at: str) -> Any:
     llm_estimate = getattr(item, "difficulty_source", None) == "llm_estimate"
     # As the field replays history: an LLM-estimated difficulty is never a
     # point value (field §4.3), so it falls back to the default b.
-    a, b = resolve_item_irt_params(None if llm_estimate else item, None, vault.config.mastery)
+    a, b = resolve_item_irt_params(None if llm_estimate else item, None, vault.config.mastery,
+                                   algorithm_version=vault.config.algorithms.algorithm_version)
     subjects = vault.subjects_for_item(item)
     families = getattr(vault, "activity_families", {}) or {}
     family_id = getattr(item, "family_id", None)

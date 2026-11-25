@@ -154,6 +154,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_fast_track_default_threshold_is_not_met_by_two_answers`
   - `test_fast_track_needs_min_clean_answers_and_the_threshold`
   - `test_fast_track_receipt_recomputes_its_decision`
+  - `test_from_the_label_retirement_the_check_choice_reads_no_label`
   - `test_i_dont_know_this_after_a_pass_returns_the_lo_to_learning`
   - `test_i_dont_know_this_on_a_practised_unassumed_lo_admits_its_new_items`
   - `test_i_dont_know_this_returns_an_assumed_lo_to_learning_immediately`

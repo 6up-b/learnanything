@@ -20,6 +20,7 @@ from typing import Any
 from learnloop.config.retired import identity_dump
 from learnloop.db.repositories import MasteryState, Repository
 from learnloop.field.types import ItemFeatures, ItemPrediction, LearnerPredictor, RegionEstimate
+from learnloop.algorithm_versions import label_retired
 from learnloop.learner.mastery import initial_mastery_state_for_learning_object, resolve_item_irt_params
 from learnloop.vault.models import LoadedVault
 
@@ -60,8 +61,11 @@ class LiveMasteryPredictor:
         # With the fields arc C retired: the version (a forecast's label, a VOI
         # receipt's key through the valuation state) stays the one recorded before.
         mastery = identity_dump(vault.config.mastery)
+        # From the label's retirement the same config predicts without an item term: another predictor.
+        retired = label_retired(vault.config.algorithms.algorithm_version)
         self.version_hash = sha256(
-            json.dumps({"implementation": LIVE_INCUMBENT_VERSION, "mastery": mastery},
+            json.dumps({"implementation": LIVE_INCUMBENT_VERSION, "mastery": mastery,
+                        **({"item_term": "none"} if retired else {})},
                        sort_keys=True, separators=(",", ":")).encode()
         ).hexdigest()
 
@@ -90,6 +94,7 @@ class LiveMasteryPredictor:
         learning_object = self._vault.learning_object_for_item(practice_item)
         a, b = resolve_item_irt_params(
             practice_item, learning_object, self._vault.config.mastery, self._item_params.get(item),
+            algorithm_version=self._vault.config.algorithms.algorithm_version,
         )
         return str(practice_item.learning_object_id), float(a), float(b)
 

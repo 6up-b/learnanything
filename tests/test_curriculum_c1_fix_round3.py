@@ -20,6 +20,7 @@ from __future__ import annotations
 import sqlite3
 from datetime import timedelta
 
+from learnloop.algorithm_versions import PROBE_ROUTER_ALGORITHM_VERSION
 from learnloop.clock import FrozenClock, parse_utc, utc_now_iso
 from learnloop.daily_plan import engine as E
 from learnloop.daily_plan import reading_choice as RC
@@ -43,7 +44,9 @@ def _pause_notes(ctx) -> None:
 
 
 def test_m1_an_unread_c1_reading_on_a_paused_source_moves_to_the_fresh_choice(tmp_path, monkeypatch):
-    c1 = _c1(tmp_path, monkeypatch)
+    # The next step weighs this vault's labelled items against the reading; from the difficulty label's retirement
+    # they are valued without their labels and the item wins, so the move is checked at the newest tag before it.
+    c1 = _c1(tmp_path, monkeypatch, version=PROBE_ROUTER_ALGORITHM_VERSION)
     ctx = context(c1.paths.root)
     _no_refresh(ctx)
     session_id = call(ctx, "start_session", {"availableMinutes": 25})["sessionId"]

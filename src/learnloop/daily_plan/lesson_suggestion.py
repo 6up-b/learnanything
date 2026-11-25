@@ -177,7 +177,8 @@ def _predicted(vault: Any, repository: Any, learning_object_id: str, now_iso: st
     learning_object = vault.learning_objects.get(learning_object_id)
     if learning_object is None:
         return None
-    a, b = resolve_item_irt_params(None, learning_object, vault.config.mastery)
+    a, b = resolve_item_irt_params(None, learning_object, vault.config.mastery,
+                                   algorithm_version=vault.config.algorithms.algorithm_version)
     state = repository.mastery_state(learning_object_id)
     if state is None:
         state = initial_mastery_state_for_learning_object(vault, repository, learning_object_id, now_iso)

@@ -2,11 +2,13 @@
 
 Exercises Bayesian surprise, probe-EIG/posterior convergence, latent mastery
 updates, and FSRS scheduling together on items of differing authored difficulty,
-to confirm the difficulty-aware channels cooperate as the spec intends.
+to confirm the difficulty-aware channels cooperate as the spec intends. These are the label's channels: from the
+difficulty label's retirement mastery reads no label, so they run at the newest tag before it.
 """
 
 from __future__ import annotations
 
+from learnloop.algorithm_versions import PROBE_ROUTER_ALGORITHM_VERSION
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import MasteryState, Repository
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
@@ -14,7 +16,7 @@ from learnloop.diagnosis.probes import enter_probe, probe_posterior
 from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_practice_item
 
-from tests.helpers import NOW, NOW_ISO, append_config_toml, create_basic_vault
+from tests.helpers import NOW, NOW_ISO, append_config_toml, create_basic_vault, set_algorithm_version
 
 EASY_DIFFICULTY = 0.05    # b ~ -2.25
 HARD_DIFFICULTY = 0.95    # b ~ +2.25
@@ -48,6 +50,7 @@ def _add_item(vault_root, item_id: str, difficulty: float) -> None:
 def _setup(tmp_path, *, prior_mean: float = 0.0, interval_factor: bool = False):
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)
+    set_algorithm_version(paths, PROBE_ROUTER_ALGORITHM_VERSION)
     if interval_factor:
         append_config_toml(vault_root, "[scheduler.surprise]\nremove_interval_factor = false")
     _add_item(vault_root, "pi_easy", EASY_DIFFICULTY)

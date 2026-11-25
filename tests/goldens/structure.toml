@@ -5,8 +5,11 @@
 
 
 [ratchet]
-largest_import_component = 84
-modules_in_an_import_cycle = 219
+# 86 and 221: adaptive_difficulty.surprise_forecast and grade_forecast, the grade's read of AD's forecast of the answer
+# (the difficulty label's retirement), join the component attempts.attempts and AD's serving were already in; the
+# package edge attempts.attempts -> adaptive_difficulty.surprise_forecast is frozen in the import contract.
+largest_import_component = 86
+modules_in_an_import_cycle = 221
 # 221: learnloop.scheduling.intent.recall_targets, which joins the diagnosis repair lane's existing cycle (it already
 # imports diagnosis.causal_activity_policy) once diagnosis.remediation reads the plan's effective due from it (mvp-0.64).
 # 47: learnloop.notebook_authoring, the owner-side notebook harness the owner queued on 2026-11-20. It is its own
@@ -39,12 +42,16 @@ source_text_assertions = 23
 # persistence keyword; the logic lives in learner/mastery_seed.py).
 # 5831: the grade's decision records come from the core with its result (L6a), and the attempt step's record builder
 # went with them.
-"src/learnloop/attempts/attempts.py" = 5842
+# 5853: the difficulty label's retirement threads adaptive difficulty's forecast of the answer through the grade (the
+# input, the reads, the evidence, the surprise call and the receipt write; the logic lives in
+# adaptive_difficulty/surprise_forecast.py and grade_forecast.py) and passes the vault's tag to the IRT seam.
+"src/learnloop/attempts/attempts.py" = 5853
 "src/learnloop/db/repositories.py" = 3025
 # 4468: the probe router's continuation (G2 R8): a router-owned episode's one candidate is the item its standing pin
 # names, admitted by that decision whatever its EIG and placed first (the episode reads, the probe gate's admission, the
 # lazy reads' field, the front placement).
-"src/learnloop/scheduling/scheduler.py" = 4468
+# 4469: the IRT seam takes the vault's tag (the difficulty label's retirement), one more line in one call.
+"src/learnloop/scheduling/scheduler.py" = 4469
 "src/learnloop_sidecar/handlers/reader.py" = 3026
 # 269250 + I2b's two intent goldens: the diagnosis journey and grade-application goldens record every persisted row, and from mvp-0.65 each
 # applied attempt also writes its row in attempt_application_order (115 lines; no existing value moved).
@@ -63,10 +70,10 @@ source_text_assertions = 23
 # 302592: the diagnosis journey golden's two router_learner journeys record what the probe router's fix round 2
 # adds to a learner-lane decision: its frozen exposure and lossless replay payload, the session on its facts receipt,
 # and the outcome target it freezes (the decision objective and the "Check once" measurement it arranges); 398 lines.
-# 302693: L4-2 (mvp-0.71): the journeys that grade (held_release, mid_check, recurrence_judge, regrade) record
-# their attempt_grade_curves rows; 101 lines. 302888: every applied grade records its curve whatever tag the process
-# loaded (the review fix round's first finding), so the journeys graded below the tag record theirs too; 195 lines.
-golden_json_lines = 302888
+# 304816: the difficulty label's retirement regenerates the due queue's fourteen goldens (the label-free priorities),
+# the grade application and diagnosis journey goldens (the surprise rows' source, the grade-time receipts) and the
+# joint grading builder's (ids renumbered around those receipts).
+golden_json_lines = 304816
 
 [members]
 import_component = [

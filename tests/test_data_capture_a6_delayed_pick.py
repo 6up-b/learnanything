@@ -13,7 +13,11 @@ import json
 
 import pytest
 
-from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION, DATA_CAPTURE_ALGORITHM_VERSION
+from learnloop.algorithm_versions import (
+    DATA_CAPTURE_ALGORITHM_VERSION,
+    LABEL_RETIRED_ALGORITHM_VERSION,
+    PROBE_ROUTER_ALGORITHM_VERSION,
+)
 from learnloop import delayed_checks as DC
 from learnloop.clock import FrozenClock, parse_utc
 from learnloop.teacher import brief as B
@@ -33,7 +37,12 @@ def _with_difficulties(paths, **difficulties):
         write_yaml(paths.practice_item_path("linear-algebra", item_id), payload)
 
 
-def _vault(tmp_path, *, version=LATEST_ALGORITHM_VERSION, config="", **difficulties):
+# The pick's per-item predictions come from the items' labels; from the difficulty label's retirement mastery reads
+# none, so these tests run at the newest tag before it (the retirement's own case is the last test).
+LABEL_READ_VERSION = PROBE_ROUTER_ALGORITHM_VERSION
+
+
+def _vault(tmp_path, *, version=LABEL_READ_VERSION, config="", **difficulties):
     paths, repository = build_teacher_vault(tmp_path / "vault", reserved=False, version=version, config=config)
     _with_difficulties(paths, **difficulties)
     return paths, repository, load_vault(paths.root)
@@ -121,3 +130,15 @@ def test_the_lessons_forecast_reference_is_the_item_the_check_would_commit(tmp_p
                                      goal_learning_object_ids=[], lesson_items_by_lo={}, shown_items=[],
                                      clock=FrozenClock(parse_utc(NOW)))
     assert next(check for check in out if check["purpose"] == "retention")["item_id"] == reference["item_id"]
+
+
+def test_from_the_label_retirement_an_los_items_tie_and_the_pick_draws(tmp_path):
+    """Mastery predicts every item of one LO alike once it reads no label, so the nearest-the-band rule finds a tie
+    among them and the pick draws, its receipt recording the draw. AD for selection is a later question."""
+
+    _paths, repository, vault = _vault(tmp_path, version=LABEL_RETIRED_ALGORITHM_VERSION, pi_a=0.1, pi_b=0.9)
+    items = _candidates(vault, ["pi_a", "pi_b"])
+    predictions = {item.id: DC.predicted_item_success(vault, repository, item) for item in items}
+    assert predictions["pi_a"] == predictions["pi_b"]
+    _item_chosen, receipt = D.pick_with_receipt(vault, repository, items, seed_key="k")
+    assert receipt["n"] == 2 and receipt["draw"] is not None

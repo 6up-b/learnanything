@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/learner/mastery.py](../../../../../../src/learnloop/learner/mastery.py) |
-| Source lines | 1100 |
+| Source lines | 1111 |
 | Owning package | [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -78,12 +78,12 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `learning_objects_with_covering_claims(vault, repository, learning_object_ids) -> list[str]` ([source](../../../../../../src/learnloop/learner/mastery.py), line 691) — The given LOs that at least one learner claim covers, sorted.
 - `observation_weight(observation: MasteryObservation) -> float` ([source](../../../../../../src/learnloop/learner/mastery.py), line 771) — Reliability weight of an observation (spec §4.1).
 - `predicted_logit_variance(prior: MasteryState, observation: MasteryObservation, config: MasteryConfig) -> float` ([source](../../../../../../src/learnloop/learner/mastery.py), line 792) — ``P_pred = min(P + sigma2_drift * days_since, p_max)`` — prior variance grown by drift.
-- `item_irt_params(item: 'PracticeItem | None', learning_object: 'LearningObject | None', config: MasteryConfig) -> tuple[float, float]` ([source](../../../../../../src/learnloop/learner/mastery.py), line 806) — Resolve ``(a, b)`` from the **static** authored/LLM scalar (spec §4.3).
-- `resolve_item_irt_params(item: 'PracticeItem | None', learning_object: 'LearningObject | None', config: MasteryConfig, item_state: 'ItemParameterState | None'=None) -> tuple[float, float]` ([source](../../../../../../src/learnloop/learner/mastery.py), line 831) — ``(a, b)`` with the EB scalar/IRT posterior b when enabled, else authored.
-- `update_item_difficulty(prior: 'ItemParameterState | None', *, practice_item_id: str, authored_b: float, item_a: float, learner_mu_posterior: float, observation: MasteryObservation, config: MasteryConfig, algorithm_version: str, updated_at: str) -> 'ItemParameterState'` ([source](../../../../../../src/learnloop/learner/mastery.py), line 851) — Alternating conditional EKF step on scalar/IRT item difficulty b.
-- `irt_observation(item_a: float, item_b: float, prior: MasteryState, observation: MasteryObservation, config: MasteryConfig) -> IrtObservation` ([source](../../../../../../src/learnloop/learner/mastery.py), line 901) — Linearize the 2PL link at the prior mean (spec §4.1).
-- `update_mastery(prior: MasteryState, observation: MasteryObservation, config: MasteryConfig, algorithm_version: str, *, item_a: float=1.0, item_b: float=0.0) -> MasteryState` ([source](../../../../../../src/learnloop/learner/mastery.py), line 937)
-- `update_mastery_traced(prior: MasteryState, observation: MasteryObservation, config: MasteryConfig, algorithm_version: str, *, item_a: float=1.0, item_b: float=0.0, item_id: str='') -> tuple[MasteryState, MasteryObservationTrace]` ([source](../../../../../../src/learnloop/learner/mastery.py), line 952) — Difficulty-aware mastery update returning the posterior plus an IRT trace.
+- `item_irt_params(item: 'PracticeItem | None', learning_object: 'LearningObject | None', config: MasteryConfig, *, algorithm_version: str | None) -> tuple[float, float]` ([source](../../../../../../src/learnloop/learner/mastery.py), line 806) — Resolve ``(a, b)`` from the **static** authored/LLM scalar (spec §4.3).
+- `resolve_item_irt_params(item: 'PracticeItem | None', learning_object: 'LearningObject | None', config: MasteryConfig, item_state: 'ItemParameterState | None'=None, *, algorithm_version: str | None) -> tuple[float, float]` ([source](../../../../../../src/learnloop/learner/mastery.py), line 839) — ``(a, b)`` with the EB scalar/IRT posterior b when enabled, else authored.
+- `update_item_difficulty(prior: 'ItemParameterState | None', *, practice_item_id: str, authored_b: float, item_a: float, learner_mu_posterior: float, observation: MasteryObservation, config: MasteryConfig, algorithm_version: str, updated_at: str) -> 'ItemParameterState'` ([source](../../../../../../src/learnloop/learner/mastery.py), line 862) — Alternating conditional EKF step on scalar/IRT item difficulty b.
+- `irt_observation(item_a: float, item_b: float, prior: MasteryState, observation: MasteryObservation, config: MasteryConfig) -> IrtObservation` ([source](../../../../../../src/learnloop/learner/mastery.py), line 912) — Linearize the 2PL link at the prior mean (spec §4.1).
+- `update_mastery(prior: MasteryState, observation: MasteryObservation, config: MasteryConfig, algorithm_version: str, *, item_a: float=1.0, item_b: float=0.0) -> MasteryState` ([source](../../../../../../src/learnloop/learner/mastery.py), line 948)
+- `update_mastery_traced(prior: MasteryState, observation: MasteryObservation, config: MasteryConfig, algorithm_version: str, *, item_a: float=1.0, item_b: float=0.0, item_id: str='') -> tuple[MasteryState, MasteryObservationTrace]` ([source](../../../../../../src/learnloop/learner/mastery.py), line 963) — Difficulty-aware mastery update returning the posterior plus an IRT trace.
 
 ### Module constants
 
@@ -104,8 +104,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `_parse_instant(value: Any) -> datetime | None` ([source](../../../../../../src/learnloop/learner/mastery.py), line 742)
 - `_claim_rank_by_recency(claim: dict[str, Any]) -> tuple[int, float, float, str]` ([source](../../../../../../src/learnloop/learner/mastery.py), line 749) — The claim-fixes successor's order: specificity, recency, pseudo-count.
 - `_iso(value: datetime) -> str` ([source](../../../../../../src/learnloop/learner/mastery.py), line 767)
-- `_ekf_update_mastery(prior: MasteryState, observation: MasteryObservation, config: MasteryConfig, algorithm_version: str, item_a: float, item_b: float, item_id: str) -> tuple[MasteryState, MasteryObservationTrace]` ([source](../../../../../../src/learnloop/learner/mastery.py), line 973)
-- `_legacy_update_mastery(prior: MasteryState, observation: MasteryObservation, config: MasteryConfig, algorithm_version: str, item_a: float, item_b: float, item_id: str) -> tuple[MasteryState, MasteryObservationTrace]` ([source](../../../../../../src/learnloop/learner/mastery.py), line 1048) — The pre-IRT logit-space Kalman update, reproduced bit-for-bit (spec §6.2).
+- `_ekf_update_mastery(prior: MasteryState, observation: MasteryObservation, config: MasteryConfig, algorithm_version: str, item_a: float, item_b: float, item_id: str) -> tuple[MasteryState, MasteryObservationTrace]` ([source](../../../../../../src/learnloop/learner/mastery.py), line 984)
+- `_legacy_update_mastery(prior: MasteryState, observation: MasteryObservation, config: MasteryConfig, algorithm_version: str, item_a: float, item_b: float, item_id: str) -> tuple[MasteryState, MasteryObservationTrace]` ([source](../../../../../../src/learnloop/learner/mastery.py), line 1059) — The pre-IRT logit-space Kalman update, reproduced bit-for-bit (spec §6.2).
 
 ## Who imports or calls it
 
@@ -159,7 +159,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `mastery_seed_on`; calls `mastery_seed_on`
+- [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `label_retired`, `mastery_seed_on`; calls `label_retired`, `mastery_seed_on`
 - [[Reference/Modules/learnloop/attempts/evidence|learnloop.attempts.evidence]] — imports `attempt_evidence_mass`; calls `attempt_evidence_mass`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `parse_utc`, `utc_now_iso`; calls `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/config/__init__|learnloop.config]] — imports `MasteryConfig`
@@ -196,7 +196,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_soft_score_replaces_raw_fraction`
   - `test_zero_evidence_state_gets_full_merge_weight`
 - [tests/test_difficulty_kinds_apart.py](../../../../../../tests/test_difficulty_kinds_apart.py) — direct import
-  - `test_switch_off_literal_caller_values`
 - [tests/test_evidence_config.py](../../../../../../tests/test_evidence_config.py) — direct import
   - `test_override_flows_through_resolvers`
 - [tests/test_grade_application_core.py](../../../../../../tests/test_grade_application_core.py) — direct import

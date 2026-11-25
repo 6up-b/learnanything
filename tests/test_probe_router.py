@@ -85,8 +85,9 @@ def _router_rows(repository) -> list[dict]:
 
 
 def test_the_tag_is_in_the_chain_the_head_keeps_it_and_its_predicate_reads_the_vault_tag_alone():
-    # The lesson-weight curves (mvp-0.71) followed it; the head keeps it.
+    # Later tags (the label's retirement, the lesson-weight curves) followed it; the head keeps it.
     assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(PROBE_ROUTER_ALGORITHM_VERSION) - 1] == BEFORE
+    assert LATEST_ALGORITHM_VERSION == SUCCESSOR_CHAIN[-1]
     assert probe_router_on(SimpleNamespace(algorithms=SimpleNamespace(algorithm_version=LATEST_ALGORITHM_VERSION)))
     assert probe_router_on(SimpleNamespace(algorithms=SimpleNamespace(algorithm_version=PROBE_ROUTER_ALGORITHM_VERSION)))
     assert not probe_router_on(SimpleNamespace(algorithms=SimpleNamespace(algorithm_version=BEFORE)))

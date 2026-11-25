@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 
+from learnloop.algorithm_versions import LABEL_RETIRED_ALGORITHM_VERSION, PROBE_ROUTER_ALGORITHM_VERSION
 from learnloop.clock import FrozenClock
 from learnloop.db.repositories import MasteryState, Repository
 from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
@@ -12,7 +13,7 @@ from learnloop.ops.doctor import run_doctor
 from learnloop.vault.loader import load_vault
 from learnloop.vault.writer import upsert_practice_item
 
-from tests.helpers import NOW, NOW_ISO, create_basic_vault
+from tests.helpers import NOW, NOW_ISO, create_basic_vault, set_algorithm_version
 
 
 class _StubRepo:
@@ -37,9 +38,11 @@ def _sample(item_id: str, score: int, expected: float | None, lo: str = "lo_svd_
     }
 
 
-def _vault(tmp_path):
+def _vault(tmp_path, version: str = PROBE_ROUTER_ALGORITHM_VERSION):
+    """Below the label's retirement by default, where the flag names the label's ``b``."""
+
     vault_root = tmp_path / "vault"
-    create_basic_vault(vault_root)
+    set_algorithm_version(create_basic_vault(vault_root), version)
     return load_vault(vault_root)
 
 
@@ -107,9 +110,13 @@ def test_threshold_and_min_attempts_are_configurable(tmp_path):
 # --- integration: through the real attempt pipeline + doctor -----------------
 
 
-def _ace_repeatedly(tmp_path, difficulty: float, count: int):
+def _ace_repeatedly(tmp_path, difficulty: float, count: int, *, version: str = PROBE_ROUTER_ALGORITHM_VERSION,
+                    prior_mean: float = 0.0):
+    """Below the label's retirement by default: the label's own check (the curve reads the label)."""
+
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)
+    set_algorithm_version(paths, version)
     upsert_practice_item(
         vault_root,
         {
@@ -133,7 +140,7 @@ def _ace_repeatedly(tmp_path, difficulty: float, count: int):
     )
     repository = Repository(paths.sqlite_path)
     repository.upsert_mastery_state(
-        MasteryState("lo_svd_definition", 0.0, 1.0, 1, NOW_ISO, "mvp-0.1", NOW_ISO)
+        MasteryState("lo_svd_definition", prior_mean, 1.0, 1, NOW_ISO, "mvp-0.1", NOW_ISO)
     )
     loaded = load_vault(vault_root)
     for _ in range(count):
@@ -154,6 +161,17 @@ def test_pipeline_flags_an_item_rated_too_hard(tmp_path):
     item_flags = {flag.practice_item_id: flag for flag in flags}
     assert "pi_mislabeled" in item_flags
     assert item_flags["pi_mislabeled"].direction == "too_hard"
+
+
+def test_from_the_label_retirement_the_flag_names_how_the_item_plays_against_its_lo_and_no_label(tmp_path):
+    root, loaded, repository = _ace_repeatedly(tmp_path, difficulty=0.95, count=6,
+                                               version=LABEL_RETIRED_ALGORITHM_VERSION, prior_mean=-2.0)
+    [flag] = difficulty_miscalibration_flags(loaded, repository)
+    assert flag.practice_item_id == "pi_mislabeled" and flag.direction == "too_hard" and not flag.label_read
+    assert "plays easier than its learning object" in flag.message and "no difficulty label is read" in flag.message
+    assert " b " not in flag.message and "(b " not in flag.message
+    issues = {(issue.code, issue.entity_id): issue.message for issue in run_doctor(root).issues}
+    assert issues[("difficulty:miscalibrated", "pi_mislabeled")] == flag.message
 
 
 def test_doctor_surfaces_miscalibration_warning(tmp_path):

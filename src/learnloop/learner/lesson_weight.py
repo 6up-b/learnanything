@@ -332,7 +332,7 @@ class CheckSensitivity:
 
 def _scored(y: float, frozen: bool) -> dict[str, Any]:
     """The observation's score fields. Mastery's logit-space update (``mastery.irt.enabled = false``) reads the rubric
-    fraction and ignores the override, so at mvp-0.71 the fraction carries the score too: the
+    fraction and ignores the override, so at mvp-0.72 the fraction carries the score too: the
     attempt step's ``rubric_score / max_points`` is the recorded correctness exactly. Below the tag, as the
     predecessor read it."""
 
@@ -341,7 +341,7 @@ def _scored(y: float, frozen: bool) -> dict[str, Any]:
 
 def posterior_after(sensitivity: CheckSensitivity, mass: float, mastery_config: Any, *,
                     frozen: bool = False) -> tuple[float, float]:
-    """``(μ, P)`` after the check entered at ``mass`` (the mastery model's own update). ``frozen``: at mvp-0.71."""
+    """``(μ, P)`` after the check entered at ``mass`` (the mastery model's own update). ``frozen``: at mvp-0.72."""
 
     from learnloop.db.repositories import MasteryState
     from learnloop.learner.mastery import MasteryObservation, update_mastery
@@ -399,7 +399,7 @@ class RecordedUpdate:
     attempt_type: str
     applied: bool
     varied: bool = False
-    #: At mvp-0.71: the variance floor mastery applied after this update, and, on the check's own
+    #: At mvp-0.72: the variance floor mastery applied after this update, and, on the check's own
     #: update, the replayed state it started from. None below the tag.
     variance_floor: float | None = None
     prior: tuple[float, float] | None = None
@@ -498,7 +498,8 @@ def recorded_trajectory(connection: Any, vault: Any, mastery_config: Any, check:
             if not delta or not debug or debug.get("observation_weight") is None:
                 return None
             item = vault.practice_items.get(str(item_id))
-            a, b = item_irt_params(item, vault.learning_objects.get(lo), mastery_config)
+            a, b = item_irt_params(item, vault.learning_objects.get(lo), mastery_config,
+                                  algorithm_version=vault.config.algorithms.algorithm_version)
         mu0, var0 = float(delta["mu_before"]), float(delta["P_before"])
         mu1, var1 = float(delta["mu_after"]), float(delta["P_after"])
         applied = correctness is not None and str(attempt_id) not in held and (mu0 != mu1 or var0 != var1)
@@ -571,7 +572,7 @@ def _unreproduced(connection: Any, check: Mapping[str, Any], outcome: Mapping[st
 def trajectory_state(sensitivity: "CheckSensitivity", updates: Sequence[RecordedUpdate], *, mass: float,
                      recorded_mass: float, mastery_config: Any, frozen: bool = False) -> Any:
     """The LO's mastery state just before the outcome, recomputed from the check's recorded prior with
-    the check entered at ``mass`` and every other update as recorded. At mvp-0.71 (``frozen``) it starts from the
+    the check entered at ``mass`` and every other update as recorded. At mvp-0.72 (``frozen``) it starts from the
     state the check's update replayed from and applies each update's recorded variance floor."""
 
     from learnloop.db.repositories import MasteryState
@@ -641,7 +642,7 @@ def pool_implied_mass(sensitivity: CheckSensitivity, target: float, mastery_conf
 
     A one-dimensional search on the logit scale (the mass lies in (0, 1) by the link); the
     predicted success is monotone in the mass for a fixed grade, so bisection finds it, or the
-    end of the search interval nearest it when it is out of reach. At mvp-0.71 (``frozen``) a flat response (every
+    end of the search interval nearest it when it is out of reach. At mvp-0.72 (``frozen``) a flat response (every
     mass predicts the same success: an item with no discrimination) identifies no mass, and the result is None
    ."""
 
@@ -869,7 +870,7 @@ def qualifying_outcomes(connection: Any, learning_object_ids: Iterable[str], aft
     attempt, with no reveal row on the item before it, and not a lesson probe answered after its lesson showed
     text on the topic (teacher TE2, Codex review F2: that answer is not independent, so it resolves nothing; only
     TE2 writes the exposed source, so nothing recorded before it reads differently). ``order``: the ledger order an
-    item's first use and the result follow (the fit at mvp-0.71 passes the vault's)."""
+    item's first use and the result follow (the fit at mvp-0.72 passes the vault's)."""
 
     from learnloop.causal_activity_policy import LESSON_PROBE_EXPOSED_SOURCE
 
@@ -936,7 +937,8 @@ def _outcome_item_params(vault: Any, mastery_config: Any, outcome: Mapping[str, 
 
     item = vault.practice_items.get(str(outcome["practice_item_id"]))
     learning_object = vault.learning_objects.get(str(outcome["learning_object_id"]))
-    a, b = item_irt_params(item, learning_object, mastery_config)
+    a, b = item_irt_params(item, learning_object, mastery_config,
+                           algorithm_version=vault.config.algorithms.algorithm_version)
     return {"item_a": float(a), "item_b": float(b)}
 
 
@@ -974,7 +976,7 @@ def _replay_in_snapshot(state: WeightState, vault: Any, connection: Any, mastery
     checks = [c for c in _checks(connection) if as_of is None or str(c["created_at"]) < as_of]
     forecasts = [f for f in _forecasts(connection) if as_of is None or str(f["created_at"]) < as_of]
     hedges = read_hedges(connection)
-    # At mvp-0.71 the ledger folds in the order mastery applied it; below, as the predecessor did.
+    # At mvp-0.72 the ledger folds in the order mastery applied it; below, as the predecessor did.
     order = attempt_order_for(vault.config) if frozen else LEGACY_ORDER
     calibration = _calibration_attempts(connection, hedges, as_of, order)
     los = {str(c["learning_object_id"]) for c in checks} | {f["learning_object_id"] for f in forecasts}

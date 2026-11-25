@@ -44,6 +44,7 @@ from learnloop.algorithm_versions import (
     PAD_TEXT_ALGORITHM_VERSION,
     INLINE_CHECK_ALGORITHM_VERSION,
     PROBE_ROUTER_ALGORITHM_VERSION,
+    LABEL_RETIRED_ALGORITHM_VERSION,
     SECTION_END_ALGORITHM_VERSION,
     SUCCESSOR_CHAIN,
     UNTAKEN_EPISODE_END_ALGORITHM_VERSION,
@@ -282,8 +283,13 @@ UPGRADES: tuple[Link, ...] = (
     # The router decides the automatic lane's probe: only decisions made after the upgrade behave differently (no
     # recorded decision, probe, observation or episode is reinterpreted, and replay runs no decision policy).
     Link(PROBE_ROUTER_ALGORITHM_VERSION, idempotent_projection),
-    # The lesson-weight fit reads the curve the grader used: the predecessor's curves and missing markers are frozen
-    # before any projection is cleared, then the whole vault is rebuilt (the fit refits on them).
+    # The difficulty label leaves mastery and surprise: what is derived from every past answer moves (mastery without
+    # the item term; surprise scored against AD's recorded forecast, else mastery's own, marked), so the vault is
+    # rebuilt under the tag. No past answer has a grade-time receipt: none is made up, they fall back to mastery.
+    Link(LABEL_RETIRED_ALGORITHM_VERSION, whole_vault_rebuild),
+    # The lesson-weight fit reads the curve the grader used: the predecessor's curves (label-free from the retirement)
+    # and missing markers are frozen before any projection is cleared, then the whole vault is rebuilt (the fit refits
+    # on them).
     Link(LESSON_WEIGHT_CURVES_ALGORITHM_VERSION, frozen_grade_curves_then_rebuild),
 )
 

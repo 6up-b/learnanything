@@ -616,6 +616,7 @@ def _load(connection, vault, *, legacy_fallback=None, as_of=None, retrieval=Fals
         llm_estimate = difficulty_source == "llm_estimate"
         a, b = resolve_item_irt_params(
             None if llm_estimate else item, None, vault.config.mastery,
+            algorithm_version=vault.config.algorithms.algorithm_version,
         )
         demand = {}
         if status == "exact":

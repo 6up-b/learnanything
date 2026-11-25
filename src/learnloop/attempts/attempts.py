@@ -83,6 +83,7 @@ from learnloop.learner.mastery import (
     MasteryObservationTrace,
     MasterySeed,
     display_mastery,
+    item_irt_params,
     seed_for_learning_object,
     resolve_item_irt_params,
     update_item_difficulty,
@@ -139,6 +140,10 @@ from learnloop.learner.recall_coverage import (
     target_criterion_facet_weights,
 )
 from learnloop.attempts.surprise import SurpriseResult, compute_surprise
+from learnloop.adaptive_difficulty.surprise_forecast import (
+    read_surprise_forecast, record_grade_forecast, with_grade_forecast,
+)
+from learnloop.algorithm_versions import label_retired
 from learnloop.vault.hashes import practice_item_hash
 from learnloop.vault.models import LearningObject, LoadedVault, PracticeItem, Rubric
 
@@ -530,6 +535,7 @@ class ApplyAttemptInput:
     diagnostic_exposure: str | None = None
     # Replay and regrade only (mvp-0.66): the attempt's recorded required facets, read instead of today's lifecycle.
     recorded_lifecycle_inputs: LifecycleInputs | None = None
+    grade_forecast: Any = None  # live: AD's forecast of this answer, read before the write transaction
 
 
 @dataclass(frozen=True)
@@ -2951,6 +2957,7 @@ def apply_attempt(
     from learnloop.attempts.salience_firewall import reject_salience
 
     reject_salience(attempt, context="apply_attempt")
+    attempt = with_grade_forecast(vault, repository, attempt, clock=clock)  # read-only, before the write
 
     with repository.atomic():
         if not attempt.replace_existing and attempt_order_for(vault.config).by_sequence:
@@ -3068,6 +3075,7 @@ def _apply_attempt_in_transaction(
         application,
         replace_existing=attempt.replace_existing,
         write_facet_uncertainty=canonical_facet_uncertainty_on(vault),
+        grade_forecast=attempt.grade_forecast,
     )
     _dual_write_grade_channel(vault, repository, attempt, application, clock=clock)
     # Teacher TE2: a lesson probe's class and interpretation, before the projection below reads them.
@@ -3423,6 +3431,7 @@ def compute_attempt_application(
         unrecorded_correctness=attempt.unrecorded_correctness,
         ledger_position=attempt.replay_ledger_position,
         recorded_lifecycle_inputs=attempt.recorded_lifecycle_inputs,
+        grade_forecast=attempt.grade_forecast,
     )
 
 
@@ -3645,6 +3654,7 @@ def _persist_attempt_application(
     *,
     replace_existing: bool,
     write_facet_uncertainty: bool = False,
+    grade_forecast: Any = None,
 ) -> None:
     # The per-LO facet recall updates are computed (surprise/breadth/debug read
     # them in memory) but never persisted: the canonical projection owns facet
@@ -3680,6 +3690,7 @@ def _persist_attempt_application(
             attempt_debug_payload=application.attempt_debug_payload,
             item_parameter_state=application.item_parameter_state,
         )
+        record_grade_forecast(repository, grade_forecast)  # with the attempt, AD's forecast of it
 
 
 def _discrimination_profile_telemetry(match) -> dict[str, Any]:
@@ -4128,6 +4139,7 @@ class GradeReads:
     error_event_ids: list[str]
     grading_evidence: Any = None
     recorded_curve: tuple[float, float] | None = None
+    surprise_forecast: Any = None  # AD's forecast the surprise is scored against (None: mastery's own prediction)
 
 
 def _compute_resolved_grade_application(
@@ -4153,6 +4165,7 @@ def _compute_resolved_grade_application(
     reveal_window_bounded: bool = False,
     ledger_position: tuple[str, str] | None = None,
     recorded_lifecycle_inputs: LifecycleInputs | None = None,
+    grade_forecast: Any = None,
 ) -> AttemptApplication:
     """What a resolved grade does to the learner's state, computed and not written.
 
@@ -4245,6 +4258,8 @@ def _compute_resolved_grade_application(
         reference_status=reference_status,
         error_event_ids=error_event_ids,
         grading_evidence=grading_evidence,
+        surprise_forecast=read_surprise_forecast(vault, repository, draft, attempt_id=attempt_id,
+                                                 live_receipt=grade_forecast, replay=replay),
     )
     seed = attempt_seed_capture(vault, learning_object.id, prior_state.mastery_seed, replay=replay, now_iso=now_iso)
     return replace(grade_application(inputs, scope, reads), lifecycle_inputs=lifecycle_inputs, mastery_seed_inputs=seed)
@@ -4423,6 +4438,7 @@ class GradeEvidence:
     breadth_trace: dict[str, Any]
     error_impact: ErrorImpactResult
     observation: MasteryObservation
+    surprise_forecast: Any = None
 
 
 @dataclass(frozen=True)
@@ -4625,11 +4641,19 @@ def _grade_evidence(inputs: GradeInputs, scope: GradeScope, reads: GradeReads) -
     prior_state = reads.prior_state
     prior_mastery = prior_state.mastery
     grade_attributions, repair_suggestions, attribution_audit_events = _kept_attributions(inputs, scope)
-    if reads.recorded_curve is None:
+    # Mastery's replay applies a recorded curve only where the seam could differ from it: before the label's
+    # retirement. The curves' tag follows the retirement, so wherever curves are read the label-free seam rules here
+    # (it re-derives each epoch's pair with no item term); the lesson-weight fit reads the frozen pair itself.
+    if reads.recorded_curve is None or label_retired(config.algorithms.algorithm_version):
         item_a, item_b = resolve_item_irt_params(
-            item, learning_object, config.mastery, prior_state.item_parameter_state
+            item, learning_object, config.mastery, prior_state.item_parameter_state,
+            algorithm_version=config.algorithms.algorithm_version,
         )
         if draft.primed:
+            # Source just re-read: the item is effectively easier. Shifting b (rather
+            # than dampening the observation weight) keeps the evidence asymmetric —
+            # a primed success barely moves mu, a primed failure moves it strongly.
+            # Prediction and surprise read the same shifted b, staying consistent.
             item_b -= config.mastery.irt.priming_b_offset
     else:
         # Regenerating the posterior delta with a different curve corrupts the fit's recovered noise.
@@ -4803,6 +4827,7 @@ def _grade_evidence(inputs: GradeInputs, scope: GradeScope, reads: GradeReads) -
         breadth_trace=breadth_trace,
         error_impact=error_impact,
         observation=mastery_observation,
+        surprise_forecast=reads.surprise_forecast,
     )
 
 
@@ -4887,7 +4912,7 @@ def _belief_update(
     """The learning object's mastery after the observation (the EKF and the breadth floor), the item's fitted
     difficulty, and the surprise the grade carries."""
 
-    item, draft = inputs.item, inputs.draft
+    item, learning_object, draft = inputs.item, inputs.learning_object, inputs.draft
     config, now_iso = inputs.config, inputs.now_iso
     nothing_assessed, held = scope.nothing_assessed, scope.held
     prior_mastery = prior_state.mastery
@@ -4923,12 +4948,14 @@ def _belief_update(
     # Primed outcomes are conditioned on the source being fresh in working
     # memory — they must not move the fitted *cold* difficulty. An attempt
     # with nothing assessed observed nothing about it either.
-    if config.mastery.irt.eb_difficulty_enabled and not draft.primed and not nothing_assessed:
-        # Unfitted, b starts at this update's: authored live, the recorded curve in replay (an edit never reseeds it).
+    retired = label_retired(config.algorithms.algorithm_version)
+    if config.mastery.irt.eb_difficulty_enabled and not retired and not draft.primed and not nothing_assessed:
+        _authored_a, authored_b = item_irt_params(item, learning_object, config.mastery,
+                                                  algorithm_version=config.algorithms.algorithm_version)
         next_item_parameters = update_item_difficulty(
             prior_state.item_parameter_state,
             practice_item_id=item.id,
-            authored_b=item_b,
+            authored_b=authored_b,
             item_a=item_a,
             learner_mu_posterior=posterior_mastery.logit_mean,
             observation=mastery_observation,
@@ -4945,6 +4972,9 @@ def _belief_update(
         config=config,
         item_a=item_a,
         item_b=item_b,
+        forecast=evidence.surprise_forecast,
+        priming_offset=config.mastery.irt.priming_b_offset if draft.primed else 0.0,
+        record_source=retired,
     )
     if held:
         # A held grade rests on mark-downs nobody located: it is no

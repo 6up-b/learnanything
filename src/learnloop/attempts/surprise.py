@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from math import exp, log, pi, sqrt
+from typing import Any
 
 from learnloop.clock import parse_utc
 from learnloop.config import LearnLoopConfig
@@ -63,9 +64,21 @@ def compute_surprise(
     config: LearnLoopConfig,
     item_a: float = 1.0,
     item_b: float = 0.0,
+    forecast: Any = None,
+    priming_offset: float = 0.0,
+    record_source: bool = False,
 ) -> SurpriseResult:
+    """``forecast`` (a :class:`~learnloop.attempts.surprise_forecast.SurpriseForecast`, from the label's
+    retirement): adaptive difficulty's ``p̄`` made before the answer, which the predictive part is scored against
+    (its innovation, variance and direction around ``b' = μ_prior − logit(p̄)/a``, the ``b`` at which the 2PL link
+    at the prior mean equals ``p̄``; a primed answer takes the same ``priming_offset`` mastery's ``b`` took).
+    Mastery's own ``(a, b)``, its prediction (``expected_correctness``) and the Bayesian surprise (the mastery
+    update's KL) are unchanged, and the interval factor always reads mastery's residual, so FSRS never reads AD.
+    ``record_source``: the row records which prediction it was scored against (from the retirement's tag)."""
+
     prior_variance = max(prior.logit_variance, 1e-9)
     posterior_variance = max(posterior.logit_variance, 1e-9)
+    scored: dict[str, Any] = {}
     if config.mastery.irt.enabled:
         # Probability-space standardized innovation: (y - p) / sqrt(H^2 P + R_y).
         obs = irt_observation(item_a, item_b, prior, observation, config.mastery)
@@ -73,11 +86,25 @@ def compute_surprise(
         expected_correctness = obs.p
         predictive_variance = max(obs.innovation_variance, 1e-9)
         residual = (y - obs.p) / sqrt(predictive_variance)
+        mastery_residual = residual
+        if forecast is not None:
+            clip = config.mastery.irt.p_clip
+            p_effective = sigmoid(logit(clamp(float(forecast.p), clip, 1.0 - clip)) + item_a * priming_offset)
+            b_scored = prior.logit_mean - logit(clamp(p_effective, clip, 1.0 - clip)) / item_a
+            scored_obs = irt_observation(item_a, b_scored, prior, observation, config.mastery)
+            predictive_variance = max(scored_obs.innovation_variance, 1e-9)
+            residual = (y - scored_obs.p) / sqrt(predictive_variance)
+            scored = {"prediction_source": forecast.source, "receipt_key": forecast.receipt_key,
+                      "forecaster": forecast.forecaster, "p_ad": float(forecast.p),
+                      "p_scored": scored_obs.p, "b_scored": b_scored}
+        elif record_source:
+            scored = {"prediction_source": "mastery", "p_scored": obs.p}
     else:
         observation_variance = compute_observation_variance(observation, config)
         z_obs = logit(clamp(observation.rubric_score / max(observation.max_points, 1), 0.02, 0.98))
         predictive_variance = max(prior_variance + observation_variance, 1e-9)
         residual = (z_obs - prior.logit_mean) / sqrt(predictive_variance)
+        mastery_residual = residual
         expected_correctness = sigmoid(prior.logit_mean)
 
     predictive_surprise = 0.5 * (residual**2 + log(2 * pi * predictive_variance))
@@ -88,7 +115,7 @@ def compute_surprise(
         - 1
     )
     fsrs_interval_factor = clamp(
-        exp(config.scheduler.surprise.alpha_interval * residual),
+        exp(config.scheduler.surprise.alpha_interval * mastery_residual),
         config.scheduler.surprise.f_min,
         config.scheduler.surprise.f_max,
     )
@@ -119,6 +146,7 @@ def compute_surprise(
             "b": item_b,
             "a": item_a,
             "expected_correctness": expected_correctness,
+            **scored,
         },
         predicted_error_type_dist=predicted_error_dist,
         observed_joint_bucket=observed,

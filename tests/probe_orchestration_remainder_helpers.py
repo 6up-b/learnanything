@@ -9,7 +9,7 @@ from learnloop.ids import new_ulid
 from learnloop.attempts.attempts import ApplyAttemptInput, AttemptDraft, ResolvedGrade, apply_attempt
 from learnloop.vault.loader import load_vault
 
-from tests.helpers import NOW, admit_probe_instrument_card, create_basic_vault
+from tests.helpers import NOW, admit_probe_instrument_card, create_basic_vault, set_algorithm_version
 
 
 LO_ID = "lo_svd_definition"
@@ -17,9 +17,11 @@ ITEM_ID = "pi_svd_define_001"
 CLOCK = FrozenClock(NOW)
 
 
-def _setup(tmp_path, *, with_card: bool = True):
+def _setup(tmp_path, *, with_card: bool = True, version: str | None = None):
     vault_root = tmp_path / "vault"
     paths = create_basic_vault(vault_root)
+    if version is not None:
+        set_algorithm_version(paths, version)
     loaded = load_vault(vault_root)
     repository = Repository(paths.sqlite_path)
     if with_card:

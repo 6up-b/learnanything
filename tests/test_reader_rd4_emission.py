@@ -229,7 +229,7 @@ def test_ink_transcriptions_and_corrections_are_emitted_as_transcribed(tmp_path)
 
 def test_below_the_tag_a_pad_emits_nothing_and_the_upgrade_queues_its_standing_words(tmp_path):
     paths, repository, batches = pad_vault(tmp_path)
-    set_algorithm_version(paths, SUCCESSOR_CHAIN[-5])
+    set_algorithm_version(paths, SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(PAD_TEXT_ALGORITHM_VERSION) - 1])
     create_pad(batches)
     reply = apply_and_settle(paths, repository, batches, PAD, insert("b1", "old words", version_id="v1"))
     apply_and_settle(paths, repository, batches, PAD, edit("b1", head_of(reply, "b1"), "standing words", "v2"))

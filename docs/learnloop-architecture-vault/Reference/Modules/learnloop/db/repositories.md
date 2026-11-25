@@ -560,6 +560,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 
 - [scripts/benchmark_sqlite_concurrency.py](../../../../../../scripts/benchmark_sqlite_concurrency.py)
 - [scripts/check_credit_report.py](../../../../../../scripts/check_credit_report.py)
+- [scripts/label_retirement_counts.py](../../../../../../scripts/label_retirement_counts.py)
 
 ## Dependencies
 
@@ -655,6 +656,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/desk_helpers.py](../../../../../../tests/desk_helpers.py) — direct import
 - [tests/diagnosis_split_helpers.py](../../../../../../tests/diagnosis_split_helpers.py) — direct import
 - [tests/diagnostic_probe_single_use_helpers.py](../../../../../../tests/diagnostic_probe_single_use_helpers.py) — direct import
+- [tests/difficulty_replay_helpers.py](../../../../../../tests/difficulty_replay_helpers.py) — direct import
 - [tests/e0_fakes.py](../../../../../../tests/e0_fakes.py) — direct import
 - [tests/epp_repeat_helpers.py](../../../../../../tests/epp_repeat_helpers.py) — direct import
 - [tests/epp_snapshot_helpers.py](../../../../../../tests/epp_snapshot_helpers.py) — direct import
@@ -1693,6 +1695,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_km5_sim_gates.py](../../../../../../tests/test_km5_sim_gates.py) — direct import
   - `test_residual_activation_improves_capability_mae_without_parent_inflation`
   - `test_shadow_intent_logs_practice_integration_at_the_right_moment`
+- [tests/test_label_retirement_counts.py](../../../../../../tests/test_label_retirement_counts.py) — direct import
+  - `test_the_counts_before_and_after_the_upgrade_and_their_comparison`
 - [tests/test_laddered_stems.py](../../../../../../tests/test_laddered_stems.py) — direct import
 - [tests/test_large_practice_flow.py](../../../../../../tests/test_large_practice_flow.py) — direct import
   - `test_many_open_text_practice_items_schedule_and_record_attempt`
@@ -2348,6 +2352,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_refused_cli_attempt_writes_nothing`
   - `test_the_cli_attempt_records_a_primed_cold_check_as_practice`
   - `test_the_tui_open_serves_a_cold_check_submit_would_prime_as_practice`
+- [tests/test_serve_tie_breaks.py](../../../../../../tests/test_serve_tie_breaks.py) — direct import
+  - `test_a_delayed_picks_tie_is_one_answer_in_any_candidate_order_and_replays_from_its_receipt`
 - [tests/test_session_attempt_attribution.py](../../../../../../tests/test_session_attempt_attribution.py) — direct import
   - `test_overlapping_sessions_attribute_attempts_by_session_id`
   - `test_time_window_fallback_applies_only_to_legacy_null_session_rows`
@@ -2516,6 +2522,13 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_surface_mint.py](../../../../../../tests/test_surface_mint.py) — direct import
 - [tests/test_surfaced_belief_corrections.py](../../../../../../tests/test_surfaced_belief_corrections.py) — direct import
 - [tests/test_surprise.py](../../../../../../tests/test_surprise.py) — direct import
+- [tests/test_surprise_reads_ad_forecast.py](../../../../../../tests/test_surprise_reads_ad_forecast.py) — direct import
+  - `test_a_rebuild_reproduces_every_surprise_row_and_writes_no_receipt`
+  - `test_a_regrade_rereads_the_answers_first_forecast`
+  - `test_a_writer_committing_between_the_read_and_the_write_leaves_the_recorded_forecast_standing`
+  - `test_ads_trace_records_the_kl_of_its_posterior_from_the_tag_on`
+  - `test_history_before_the_tag_falls_back_to_mastery_marked`
+  - `test_the_label_does_not_move_mastery`
 - [tests/test_synthesis_answer_reuse.py](../../../../../../tests/test_synthesis_answer_reuse.py) — direct import
   - `test_a_checkpoint_discard_keeps_an_answer_saved_after_the_one_judged`
   - `test_a_completed_shard_does_not_answer_a_changed_span_round_request`

@@ -1,214 +1,395 @@
-# mvp-0.71 · Lesson-weight replay inputs
+# mvp-0.71: the difficulty label leaves mastery, and surprise reads AD's forecast (arc H, H3)
 
-**Owner decision, 2026-11-23. Option 2.** Freeze the historical reconstruction at upgrade and refit the lesson weights and forecast pools. Future grades capture the curve used by mastery. Measured item difficulty (`mastery.irt.eb_difficulty_enabled`) stays off by default. The tag has no kill switch.
+Branch `refactor/h3-difficulty-design`, from origin/main `69b0ec9886`, with origin/main merged at `8d920e5eaa`,
+`0d4dea79e1`, `e66c055d84` and `473005e9c9` (`604f17b706`: G2's second round with migration 273). The tag before it is
+`mvp-0.70` (the probe router). H3 lands first and takes `mvp-0.71`; L4-2 follows as `mvp-0.72` with migration 274 and
+merges onto this branch (its integrator's note is below). The design is `docs/reviews/refactor-h3-h6-design.md`
+(§2.1 Q1 (iii), §2.2 as the owner decided Q18, §2.3 (i)). Everything here was measured on synthetic vaults and fakes;
+the owner's copies are the orchestrator's (the last section, runnable from an `mvp-0.70` copy).
 
-## What ships
-
-Migration 274 creates `attempt_grade_curves`, an append-only RAW_LEDGER table. Each row identifies its attempt, epoch key, nullable grading revision, effective discrimination and difficulty, source algorithm version and provenance. Update, delete and duplicate-key replacement are refused. Adaptive difficulty has no read access. The replayer registry has no clearing owner for a raw ledger.
-
-- **Grading.** In the grade transaction the writer records the exact `a` and `b` shared by mastery and surprise, after any empirical difficulty lookup and priming offset. A replacement grade applies at its historical position during the LO replay. Only the newly applied regrade or adjudication receives a `graded` capture. The other epochs keep their rows.
-- **Activation.** Before clearing any projection, freeze all practice attempts, including unresolved checks and pool-only outcomes. Use the canonical grading-epoch rules. A revisioned grade has key `revision:N`, an older unstamped grade has `legacy:<write stamp>`, and an attempt without criterion rows has `no_evidence`. The one predecessor surprise row can supply a finite JSON-number pair for the current epoch. Its provenance is `reconstructed_at_upgrade` even when it coincides with the original grade. Superseded epochs and absent or unusable pairs get `missing_at_upgrade` with both values NULL. A numeric row names the surprise row's algorithm version. A missing marker names the predecessor at the freeze.
-- **Retry and publication.** The snapshot transaction commits before replay. The activation rechecks coverage under the SQLite writer lock, committing any newly uncovered epochs before it clears anything. A retry leaves all prior snapshots and missing markers intact. A vault born at the successor has its grade captures. The whole-vault rebuild, its receipt and config publication use the existing journal and commit protocol.
-- **Fit.** Select the current epoch for each check, intervening answer and resolving answer. Join its frozen curve to the recorded observation weight and posterior delta. Mastery replay uses an available frozen pair when it regenerates those deltas, including the priming adjustment exactly once. Where a curve is unavailable, mastery can still rebuild its ordinary projection. The lesson fit records that gap independently of any regenerated surprise pair.
-- **Missing data.** A missing trajectory input selects the existing first-order calculation. An unavailable resolving curve selects the check's stored sensitivity for the weight and forecast-time `p_a` for the pool. Each update trace records the resolving input, and a weight update also records its trajectory inputs. They name the attempt, epoch, version, provenance and values. An absent row is labelled `missing_capture`. The trace names the fallback. Below the tag the fit still uses the predecessor's authored-parameter lookup and trace format.
-
-The historical refit can change weight and pool posteriors and hence future check masses. The check ledger retains every `mass_applied`. Option 1, starting capture only at the upgrade, was considered and declined because fitting old windows would continue to depend on content edits.
-
-## Integration and tests
-
-**Integrated on main as `mvp-0.71` and migration 274** (it was built as `mvp-0.70` and 271 on an older main; see "Integration on main" below).
-
-The extended F6 reproduction in `tests/test_teacher_te1_review_fixes.py` runs with measured difficulty off and on. It checks the empirical update, primed repeat, authored edits to an intervening item and the endpoint, each grade's effective curve, and the prior mean and variance at the recorded mass. `tests/test_teacher_te5_grade_curves.py` covers complete and missing predecessor inputs, failed preparation and retry after the source changes, current and superseded epochs, old-version fitting, replacement grades and repeated rebuilds. The local activation exercise uses the previous tag available in the test tree. `tests/test_grading_cli.py` checks adjudication capture and rollback. `tests/test_grade_curves_migration.py` applies 274 on a backup-API copy and checks the exact schema addition, existing attempts, immutability, constraints and integrity. The review fix round adds `tests/test_grade_curves_capture_integrity.py`, `tests/test_lesson_weight_fit_reads.py` and `tests/test_lesson_weight_fit_trajectory.py`, and runs the owner-copy queries below in tests.
-
-## Integration on main
-
-L4-2 was built on main as of `60e21faadf` (latest tag `mvp-0.68`, migration head 269), proposing `mvp-0.70` and
-migration 271. Main has since taken the inline checks (`mvp-0.69`, migrations 270 and 271), the probe router
-(`mvp-0.70`, with its fix rounds) and the Reader's retirement (272). G2's second fix round takes 273. The integration
-is a merge of origin/main into `teacher/te5-consolidation`:
-
-- **The tag is `mvp-0.71`**: one constant (`LESSON_WEIGHT_CURVES_ALGORITHM_VERSION`), the chain entry after
-  `PROBE_ROUTER_ALGORITHM_VERSION`, one upgrade row and one test row.
-- **The migration is 274** (`274_attempt_grade_curves.sql`). Its table keeps its role: `attempt_grade_curves` is
-  RAW_LEDGER. Each row is a fact captured when its grade is applied. Replay reads it and never writes it
-  (`tests/test_replay_writes_no_ledger.py` passes). The one capture made from the replay module is the live
-  application of a replacement grade (`applying_grade_to`), which a rebuild never passes.
-- **A Codex defect, removed.** To publish from `mvp-0.69` on a chain that did not have it yet, the build added
-  `Link.after` (a predecessor override) and a predecessor check in the upgrade walk. On main the chain is whole, so the
-  override and the check are gone: the row's predecessor is the chain's, `mvp-0.70`. Kept, the override could have
-  let an upgrade skip a tag's activation.
-- **The activation, re-checked against what main gained:**
-  - Before any projection is cleared, the snapshot freezes every practice attempt's grading epochs. This covers
-    attempts the inline checks administer (ordinary attempts through the one attempt service) and the grade channel's
-    epochs (the canonical grading-epoch rules).
-  - The probe router's records are raw ledgers that the whole-vault rebuild does not clear: its decisions, its coin's
-    assignments, its traces with their replay payloads. Nothing in the snapshot reads them.
-  - The rebuild-history fixes still hold. Replay carries the follow-up gate records and reuses stored hypothesis
-    versions; L4-2's replay change reads the frozen curve and touches neither.
-  - The missing markers and the owner-copy query below name the predecessor `mvp-0.70`.
-- **H3** (lands after this): the capture point stays where it was built. `if reads.recorded_curve is None:` in
-  `attempts.py` takes an `or retired` clause there.
-- **The head fixture.** `fixtures/migration_head` is at 274, redone from the tracked 273 file after the fix round's
-  change to 274's replacement guard (its README section names it).
-
-## Review fix round (the adversarial review of 2026-11-24)
-
-The review of `7e5c3dcb2e` found 1 blocker, 10 majors and 2 minors, plus a second "blocker" (273 missing, the fixture
-at 272) that the merge of G2 round 2 and the fixture step had already fixed. Every finding was checked against the
-code. Ledger rows are L42-R1 to L42-R14.
-
-| Finding | Disposition |
+| Commit | What |
 |---|---|
-| Blocker: a grader holding the predecessor's config commits after another process completed the activation; its epoch stays uncaptured for good | **Fixed (L42-R1)**: every applied grade now records its curve, whatever tag the writing process loaded (`record_attempt`; the replacement grade's capture in `replay_learning_object` likewise). The decision no longer reads a config at all. Below the tag nothing reads these rows, and the activation freezes only the epochs no grade recorded. Fail-first: `tests/test_grade_curves_capture_integrity.py` (a predecessor-config grade; a grade committed by a stale process after another upgraded). The TE5 upgrade tests now build an owner's history as the old code wrote it (`forget_captures`). |
-| The same stale-config class elsewhere on the grade path | **Recorded, not fixed (L42-R2):** every successor gate on the grade path reads the writing process's loaded `vault.config`. This is a wider, pre-existing class: the tag lives in `learnloop.toml`, not in the database, so a process that loaded an older config applies that tag's rules until it reloads. Its fix is one seam: the tag stored in SQLite by the activation and read under the writer lock. It needs a schema change and touches every gate, so it is not this step's. |
-| 273 missing, fixture at 272 | Already fixed: G2 round 2 merged, fixture at 274. |
-| Major: a replacing insert naming an existing rowid deletes a capture past the guards | **Fixed (L42-R3)** in migration 274 itself (not landed): the replacement guard also refuses an existing rowid. `WITHOUT ROWID` was tried and set aside, because every row-snapshot helper in the test goldens keys rows by rowid. The head fixture was redone from the 273 file. Fail-first: `test_no_replacing_insert_can_remove_a_capture`. |
-| Major: the evidence-only adjudication writer before the upgrade; the snapshot attributes revision 0's pair to revision 1 | **Fixed (L42-R4).** Verified: the CLI below the grade channel fixes (`mvp-0.60`) appends the revision without replaying, and the surprise row carries no revision. The freeze now attributes the surprise row's pair to the current epoch only when its observed score bucket is the current grade's (`attempts.surprise.score_bucket` of the attempt's correctness, passed in because the store layer cannot import it); otherwise `missing_at_upgrade`. An adjudication writes one of the coarse response schema's fractions (0, 1/2, 1) rounded to the rubric's points; any two distinct resulting scores lie in different buckets, so an adjudication that changed the score is always detected. Accepted residual: a held grade released at the same score keeps the reconstruction, whose pair is the same item's curve at grade time. The owner-copy expected-snapshot query applies the same rule. Fail-first: `test_an_unapplied_adjudication_before_the_upgrade_is_not_given_the_applied_epochs_curve`, which also runs the record's query on the predecessor and compares it with what the freeze wrote. |
-| Major: a concurrent regrade between the fit's reads | **Fixed (L42-R5).** Verified: each `repository.connection()` in `replay_state` opened its own connection, so its reads spanned commits; the live check read the prior, weighed the check and applied it in three transactions. `replay_state` now reads in one snapshot (one pinned connection, `read_snapshot`); the live check weighs, records and applies the check in one `BEGIN IMMEDIATE` transaction. Fail-first: `tests/test_lesson_weight_fit_reads.py` (a regrade committed from another thread mid-fit, in the durability lane's WAL; another process's grade committed between the weighing and the check's application). |
-| Major: same-second ordering by id | **Fixed (L42-R6)** at `mvp-0.71` only (below it the predecessor's order stands): the trajectory's window and order, an item's first use in `qualifying_outcomes`, and same-instant outcome and calibration events follow `attempt_order_for(vault.config)`. The owner-copy window query orders by application sequence too. Fail-first: `test_an_update_applied_before_the_outcome_in_its_second_is_in_the_window` (also runs the record's window query) and `test_an_items_first_use_is_the_attempt_applied_first_in_its_second`. |
-| Major: the coverage variance floor | **Fixed (L42-R7).** Each recorded update carries its debug payload's `mastery_variance_floor`, and the recomputation applies it after the update. An update whose variance the floor set has no recorded variance step, so its noise is not recoverable: the trajectory input says `variance_floor_bound` and the fit takes the first-order form. Fail-first: `tests/test_lesson_weight_fit_trajectory.py` (floor bound; floor applied at another mass). |
-| Major: a regraded pre-check attempt or a re-anchoring claim inside the window | **Fixed (L42-R8).** The recomputation starts from the state the check's own update replayed from (its recorded `mu_before`, `P_before`) with the recorded evidence clock. At the recorded mass it must then reproduce every recorded update and the outcome's recorded prior to numerical resolution (`_REPRODUCTION_TOLERANCE`, 1e-9, registered; the mass guard reads it too). A transition the attempt updates do not carry (a re-anchoring claim, another writer of the state, a changed evidence clock) fails that check: the input says `prior_not_reproduced`, `update_not_reproduced` or `outcome_prior_not_reproduced`, and the first-order form runs. Fail-first: the regraded-earlier-answer and the claim-inside-the-window tests in the same file. |
-| Major: a calibration import changes replayed interpretation variance | **Not this step's (L42-R9, open as a wider class).** Verified: replay recomputes the interpretation variance from the latest matching calibration model (`resolve_calibration_model`, latest-wins by design: a retuned or imported model re-interprets past grades), so a rebuild after an import changes mastery itself, not only the fit; an import triggers no rebuild, so mastery's stored state is as stale as the fit's. The fit reads mastery's replayed deltas and stays consistent with it: two rebuilds agree, and the recomputation reproduces each replayed update. Binding the noise to the epoch would change the calibration channel's retroactive design for mastery; that is an owner call, recorded in the ledger. |
-| Major: `mastery.irt.enabled=false` reads a full-credit check as zero | **Fixed (L42-R10)** at `mvp-0.71`: the fit's observations carry the recorded score as the rubric fraction (`rubric_score / max_points` is the recorded correctness exactly), which the logit-space update reads. Fail-first: `test_with_irt_off_the_recomputed_trajectory_reads_full_and_partial_credit`. |
-| Major: the derived lesson state is stale after a replacement grade | **Fixed (L42-R11):** a replacement grade (`applying_grade_to`: a regrade, a CLI adjudication that revised) refreshes the lesson-weight tables in its own transaction with the replayer's function, whatever the tag (they are DERIVED and keep their meaning). Fail-first: `test_a_regrade_leaves_the_lesson_weight_tables_as_a_rebuild_would`. |
-| Major (TE5 B): the forecast drops the current prompt's estimate | **Fixed (L42-R12).** The current prompt is already rendered. With a measured last send the current input is that send's measured count plus the estimated growth of its prompt since (the root receipt's `input_text`, estimated by the request gate's own estimator, so only the difference is estimated); with that text withheld, the count alone; with no measured send, the estimate. The forecast is the larger of the learned need and the current input plus the most this lesson's answers have needed (the output allowance before any is measured). The decision's facts add `current_input`, `current_input_basis` and `output_need`. Fail-first: `test_a_long_current_reply_after_short_measured_sends_is_forecast`. |
-| Major: empirical difficulty reseeded from an edited authored value | **Fixed (L42-R13):** with no fitted difficulty yet, its first update starts at the difficulty the grade's mastery update used. Live that is the authored value (an unprimed grade with nothing fitted reads it), so live is unchanged; in replay at `mvp-0.71` it is the recorded curve. Fail-first: `test_a_rebuild_seeds_measured_difficulty_from_the_recorded_cold_curve`. |
-| Minor: a flat response (a = 0) records almost no mass | **Fixed (L42-R14)** at `mvp-0.71`: when every mass predicts the same success the pool identifies no mass; the check keeps its learned mass and its pool record says `implied: flat_response`. Fail-first: `test_a_flat_response_keeps_the_learned_mass`. |
-| Minor: the window query counted an overflowed pair as available | **Fixed:** the query above uses the finite-pair predicate. |
-| Found by the fix round's affected-set run: the scoreboard's certification replay pruned a scratch copy without dropping its append-only delete guards, so a captured curve failed every prefix | **Fixed (L42-R15):** the copy drops them with goal history's function first. Test: `test_certification_replay_prunes_past_an_adjudicated_attempt` (failed on the branch before). Also found there, tag-only: `tests/goldens/placement_stored_misses.json` still said `mvp-0.70` (an integration miss); regenerated, the tag its only change. |
-| Found by the same run, pre-existing on the branch: the H2 four-way replay's label-off arm is inert where mastery's replay reads a recorded curve (`tests/test_difficulty_four_way.py`, two tests, fail with or without this round) | **Open (L42-R16), for the H3 merge:** H3 retires the label from the mastery path and lands first; mastery's replay then takes the recorded curve only below H3's tag, while the fit's read of the frozen pair stays as it is. |
+| `113490dcfb` | The tag: one constant, the chain entry, its set and predicate, one upgrade row, one test row; the seam, surprise, the grade-time receipt, the KL measure; their tests; the structure ratchet raised for the two files that grew |
+| `7d8b7e619e` | Tests that pin the chain's tail moved by one; identity pins and goldens regenerated (what moved: below) |
+| `072488b416` | The grade-time receipt's id keyed by its attempt; the test of a writer between the read and the write |
+| `30751316f1` | Tests whose subject relied on the label run at the tag before; two tests of what the retirement does there |
+| `42be2d8a8c` | This record, the design note's decision, the status rows, ledger H-4 |
+| `0d4dea79e1` | origin/main merged (`1966a33cbf`) |
+| later | The remaining receipt counts, the joint grading golden, IH4's twins (ledger H-5); the merged diagnosis journey golden and the raised ratchets; the vault's generated references |
 
-Each fail-first test was run on the source before its fix and failed there (the R7/R8 tests on the commit before theirs). All fit changes except R5's snapshot, R11's refresh and R13's seed are gated on `mvp-0.71`; those three change no predecessor output (one snapshot reads the same rows; the refreshed tables are what a rebuild writes; the live seed is the authored value it was).
+No migration, no config key, no kill switch (owner rule 2026-11-16), no made-up constant (the forecast is AD's own
+prediction, the priming shift is mastery's existing `priming_b_offset`), no prompt changed.
 
-**For the owner-copy run:** a copy opened by this code before its upgrade records `graded` rows for any grade made
-meanwhile. The expected-snapshot digest below assumes no such rows, so run it on copies no newer code has graded.
+## The owner's decision (Q18, 2026-11-24)
 
-## Owner-copy procedure
+**(a + b):** surprise's prediction comes from AD's serve-time receipt when the answer's presentation has one, and a
+grade-time AD forecast receipt is recorded for every graded answer (Reader checks, the tutor, the phone, anything not
+served through the plan). Built with the **AD-native KL** (the KL of AD's own posterior after the answer from before
+it), recorded as a measure beside the existing surprise: it decides nothing, and it joins the gated-experiments
+follow-up for later comparison. History: no AD replay over old answers; they fall back to mastery, marked.
 
-Use consistent SQLite backup-API copies. The following inspection is for the orchestrator. Supply the path of a **copy database** in `COPY_DB`. Both commands open their input read-only. The first reports coverage among the attempts between each recorded lesson check and its resolving outcome, including both endpoints. Resolving attempts for pool-only updates are included. Each attempt counts once across overlapping windows. These counts describe fitted windows through the last answered lesson check. Activation also covers every attempt outside these windows, including unresolved histories. Run this window inspection before the upgrade. A successor surprise row has already been replayed.
+On timing, the orchestrator chose **(A)**: the AD read is read-only and runs before the grade's write transaction; the
+receipt and the surprise row are written in the grade's own transaction.
+
+## What changes at the tag
+
+1. **Mastery's IRT seam reads no label.** `item_irt_params` and `resolve_item_irt_params` (`learner/mastery.py`) return
+   `(a, 0.0)` at the tag, for every caller (mastery, surprise's mastery curve, the scheduler, selection rewards,
+   probes, placement's predictor, the field's outcomes, the teacher's brief and checks, lesson suggestions, lesson
+   weight, delayed checks, AD's forecasters). The EB path never runs at the tag. A primed answer keeps its shift
+   (`b = −priming_b_offset`), applied by the callers as before. Every caller now passes the vault's tag; the guard
+   (`tests/test_difficulty_kinds_apart.py`) checks each caller's expression and that every caller reads no label at
+   the tag. Placement's predictor version names the absent item term, so its identity moves deliberately (C1).
+2. **Surprise is scored against AD's forecast made before the answer**
+   (`adaptive_difficulty/surprise_forecast.py`), in this order:
+   - the **serve-time receipt** (`ad_threshold@subject`, or `ad_threshold_repeat@subject` for a repeat) of the
+     answer's plan presentation, when the answer binds it by the attempt door's own rule (`bindable_presentation`),
+     the receipt is `ok`, has a `p`, is the item's, and read nothing after the serve (`valid_for_serve`);
+   - else the **grade-time receipt** (below);
+   - else **mastery's own prediction** (no item term), as before.
+
+   The scored curve is `b' = μ − logit(p̄_eff)/a` with `p̄_eff = σ(logit p̄ + a·offset)` for a primed answer: the
+   shift mastery applies. The surprise row's `predicted_score_dist` keeps mastery's `a`, `b` and
+   `expected_correctness`. Those are the keys `lesson_weight.py` and L4-2's capture read. It adds
+   `prediction_source` (`serve_receipt`, `grade_receipt` or `mastery`), `receipt_key`, `forecaster`, `p_ad`,
+   `p_scored` and `b_scored`. Bayesian surprise still describes the mastery update. The FSRS interval factor still
+   reads mastery's residual. AD reaches neither mastery nor scheduling.
+3. **The grade-time receipt** (`adaptive_difficulty/grade_forecast.py`) is a new kind,
+   `item_unassisted_success_at_grade`: scope `attempt`, decision kind `grade`, binding kind `graded_attempt`,
+   forecaster `ad_threshold@grade`, version `ad-threshold-grade-v1`. Its key is `kind:graded_attempt:<attempt>:<forecaster>`.
+   - **What it holds:** AD's subject-view `p̄`, the three category probabilities and `p_band`. Its inputs are the
+     state hash, warmth, features, signals, loadings and `events_fingerprint`, the fingerprint of the AD events the
+     forecast read. `source_attempt_id`, `practice_item_id` and `learning_object_id` are columns, and
+     `inputs_as_of = created_at =` the grade's instant.
+   - **When it is written:** only for a live answer (not on replay, not on a regrade) and only when AD's successor and
+     its receipts are on.
+   - **When it is not written:** a withheld (A8) or covered item gets none, as at a serve.
+   - **No migration:** `forecast_receipts` constrains `kind`, `scope`, `binding_kind` and `decision_kind` only in code
+     (`scheduling/forecast_receipts.py`). The DB CHECKs are on status, the `p` range,
+     binding ⇔ censor reason, and `inputs_as_of ≤ created_at`.
+   - **Its id** is a function of its attempt (`ids.keyed_ulid`: the attempt id's time, and randomness from the
+     receipt key's digest). Drawn from `ids.new_ulid` it would shift every id the grade mints after it. Drawn from a
+     stream of its own it would differ between two runs of one history, which the comparison tests (AD's protection
+     contract, the receipt repairs, the prediction snapshots) caught.
+   - **A failure never costs the grade:** `safe_grade_receipt` logs and returns none, and surprise falls back.
+4. **The AD-native KL.** From the tag, AD's replayer adds `kl_observation` to the detail of each trained answer's
+   subject-view trace row: `{"total", "weights", "states"}` in nats (`ad_attempt_trace.detail_json`, a DERIVED table;
+   no schema change).
+   - **What it computes:** `observation_kl` in `adaptive_difficulty/replay.py`. The bank is a mixture over its grid
+     points, so the KL is exact by the chain rule. It is the KL of the posterior grid weights from the prior ones
+     (`w_k ∝ w'_k / z_k`), plus the posterior-weighted KL of each point's Gaussian. For a rank-one update that is the
+     update record's `information`.
+   - **When it appears:** AD's replayer writes it, so a live answer's KL appears with AD's next derived rebuild, as
+     every trace row does.
+   - **Where it is absent:** a repeat (no AD update) and an answer AD does not train on carry none. Below the tag the
+     trace is byte-identical (the setting enters AD's settings key only when on).
+   - **What reads it:** nothing.
+
+## Timing (the orchestrator's first ask)
+
+The AD read was timed on synthetic vaults through the real grade (`complete_self_graded_attempt`), at -n 1 on this
+desktop. The miss and hit columns are the grade with the forecast read; the self-grade column is the grade without
+it.
+
+| History | Snapshot miss | Snapshot hit | Self-grade without the read |
+|---|---|---|---|
+| broad, about 20 answers | 20 ms | 18 ms | 14 ms |
+| served, 18 answers | 25 ms | 22 ms | 13 ms |
+| scaled, 158 answers | 72 ms (max 119) | 67 ms | 20 ms |
+
+- **The cost is linear in history.** It is about 0.4 ms per answer, and loading AD's events dominates it: the
+  fingerprint cache saves the replay but not the load, so a hit costs nearly what a miss does.
+- **Why (A):** 20 to 70 ms on a self-grade is not perceptible, and one consistent row with one write path is worth
+  more than the milliseconds.
+- **Follow-up (C), not in this landing:** a per-vault change stamp for AD's events load (status file).
+
+## The read and the write are two snapshots
+
+**The ordering.** The forecast is read before the grade's write transaction (`with_grade_forecast`, called in
+`apply_attempt` before `repository.atomic()`), so another writer (a background job, the phone) can commit in between.
+The forecast is still "AD before this answer": this answer is not written until the transaction, and the receipt
+records the events it actually read (`inputs.events_fingerprint`).
+
+**When they differ:** another answer or reading event committed after the read and before the write.
+
+- The recorded forecast stands. It is AD as of the read, which is before this answer, and it lacks only the
+  concurrent event.
+- The grade scores against it in the same transaction.
+- Replay and a regrade read the receipt (`attempt_forecast`, by `source_attempt_id`) and never recompute it, so the
+  row is reproduced exactly whatever AD has become.
+- The fingerprint lets an audit tell such a receipt from one whose events are exactly AD's events before the
+  attempt. Nothing decides on it.
+
+`tests/test_surprise_reads_ad_forecast.py::test_a_writer_committing_between_the_read_and_the_write_leaves_the_recorded_forecast_standing`
+commits a second answer between the read and the write. The receipt's fingerprint is the read's and differs from AD's
+just before the write; surprise reads the receipt; a rebuild reproduces both.
+
+## For L4-2's integrator (L4-2 merges onto this tag as mvp-0.72)
+
+- **One capture point:** the grade's persist step (`_persist_attempt_application`, the live branch), right after
+  `record_attempt_outcome`.
+- **H3's record there:** the grade-time receipt.
+- **L4-2's record there:** `capture_grade_curve(connection, attempt_id, surprise["predicted_score_dist"], version)`
+  into its own table. It reads `a` and `b` from the surprise row's `predicted_score_dist`, which H3 keeps as
+  mastery's, so it captures mastery's pair: `(discrimination_default, 0)`, or `−priming_b_offset` when primed. It
+  never captures AD's `b_scored`.
+
+A trial merge of L4-2's tip `937c0b0084` onto this branch names the conflicts below; the resolution is the
+orchestrator's (accepted 2026-11-24).
+
+**`src/learnloop/attempts/attempts.py`:**
+- **`GradeEvidence` / reads:** keep both fields, H3's `surprise_forecast: Any = None` and L4-2's
+  `recorded_curve: tuple[float, float] | None = None`.
+- **`_belief_update`:** take L4-2's `recorded_curve` branch, with H3's `algorithm_version=` inside it, and the
+  condition `if reads.recorded_curve is None or retired:`.
+  - Why: H3's upgrade re-derives history with no item term, so the seam rules at and above this tag.
+  - For an epoch graded at the tag, the recorded curve and the seam agree, because the pair no longer depends on
+    content.
+  - L4-2's recorded curves govern vaults below the tag.
+
+**`src/learnloop/learner/lesson_weight.py` (`recorded_updates`):** take L4-2's deletion of the `item_irt_params(...)`
+lines. It reads the recorded curve, which holds mastery's pair at the tag.
+
+**The tag:** L4-2's constant follows `LABEL_RETIRED_ALGORITHM_VERSION` in the chain.
+- Bookkeeping: `ops/upgrades.py` and `tests/test_upgrades.py` take one row each after this tag's.
+- The tests that pin the chain's tail shift by one more.
+- Regenerate, never hand-merge: the CLI surface, the effective defaults, the identity pins, and the placement,
+  diagnosis journey and grade application goldens.
+
+Its migration 274 meets main's migration tests, not this branch's. `db/stores/attempts.py` and the persist step merge
+cleanly: H3 does not touch `record_attempt_outcome`, and H3's call follows the outcome.
+
+## Consequences the gate found (selection readers on "no item term", Q6)
+
+The design kept every selection reader on the seam with no item term (Q6). The affected set shows what that costs
+where a feature relied on the label telling items of one LO apart. These are not defects: they are the label's
+absence, and AD's `p̄` for selection is a later question, item by item.
+
+- **Placement's first-review check** (`placement/state.py`, `choose_check_items`, "the median predicted success"):
+  every never-attempted item of the LO now predicts alike, so the median falls to the item ids. It is still
+  deterministic. Test: `test_assumed_known.py::test_from_the_label_retirement_the_check_choice_reads_no_label`.
+- **The delayed check's pick** (`delayed_checks.py`, the item nearest the practice band, from the data-capture tag):
+  items of one LO tie, so the pick is the uniform draw its receipt records. That draw is seeded, logged and
+  replayable:
+  - **seeded:** `delayed_checks.seed_for(seed_key)`, where the key names a persisted decision (`decision:<id>` for a
+    measurement, the lesson and LO for a teacher's retention check, `dry:<lo>` for a read). It is never the
+    candidates or the run;
+  - **logged:** the receipt carries the considered items with their predictions, the tied set (sorted by item id),
+    `n`, the propensity `1/n`, the seed, the draw and the choice, and the commitment's provenance stores it;
+  - **replayable:** `tied[int(draw·n)]` from the receipt alone. `test_serve_tie_breaks.py` checks this in every
+    candidate order.
+
+  Test: `test_data_capture_a6_delayed_pick.py::test_from_the_label_retirement_an_los_items_tie_and_the_pick_draws`.
+- **The label-miscalibration check** (`learner/calibration.py`, doctor's `difficulty:miscalibrated`): it compares the
+  answers with mastery's curve, which no longer reads the label. So from the tag it flags items that play easier or
+  harder than their LO, and its message now says that and that no difficulty label is read (ledger H-4, fixed).
+- **The plan's next step** weighs labelled items differently. One C1 journey now takes an item where it took the
+  fresh reading. That test is checked at the tag before.
+- **Readers of the surprise row's direction** (the re-probe on repeated prediction errors, the follow-up gate)
+  now see surprise against AD's forecast wherever AD made one. A mastery state set by hand, as one probe test does,
+  no longer makes failures surprising; that test runs at the tag before.
+- **Fast-track placement:** the assumed-known tests' fixture states that "items carry authored difficulties so the
+  incumbent's predicted success orders them". Those tests now run at the tag before (`assumed_known_helpers`).
+
+## Ties on the serve path (ledger H-5)
+
+**What failed.** At the tag IH4's twin tests split in most runs: one twin ended a block early and served one more
+block. They split with fixed hash seeds too.
+
+**The read that differed.** The decision's measurement (`daily_plan/measurement.py`) reserves a delayed check on the
+decided LO through the pick above. With the label retired, the LO's items tie, so the seeded draw decides. Its seed
+names the decision, and each twin's decision id is a fresh ULID. So the twins reserved different items, and the
+reserved item is withheld from the open block (`intent_check_waiting`).
+
+**Production is not nondeterministic.** Given the persisted decision, the pick is fixed and replays from its receipt.
+What was missing was the tests' pin: the router's other seeded draws are pinned by default (`tests/pinned_draws.py`),
+and this one was not.
+
+**The fix:**
+- the seed is one module function, `delayed_checks.seed_for`;
+- `pinned_draws` pins it as the `delayed_pick` family;
+- IH4's twin pin gives both twins production's seed of one pinned decision;
+- IH4's file is back at the head; it passed 5 of 5 runs, where it failed 5 of 6 before.
+
+**The guard.** `test_serve_tie_breaks.py` serves one day at the head in three processes: hash seed 0, hash seed 1,
+and hash seed 0 with SQLite's `reverse_unordered_selects` on every connection. All three must give the same staged
+picks, served steps and measurement picks, and the day must meet a tie. With the draw unpinned it fails (negative
+control run); pinned, it passes.
+
+**The staged pick's own last tie-break** (`LaneQuotaChooser`: lane share, lane rank, planner value, then the
+candidate's position in the feasible list) depends on the list's build order. The guard's reversed row order does not
+move it.
+
+## History and replay
+
+- **No AD replay over history:** at the upgrade (`Link(mvp-0.71, whole_vault_rebuild)`) every mastery row is replayed
+  with no item term, and every surprise row is rebuilt from its receipt.
+- **Answers graded before the tag** have no grade-time receipt. They read their serve-time receipt where one binds,
+  else mastery, marked `prediction_source: "mastery"`.
+- **The rebuild writes no receipt.** The replay guard (`tests/test_replay_writes_no_ledger.py`) passes at the tag, and
+  `test_a_rebuild_reproduces_every_surprise_row_and_writes_no_receipt` rebuilds twice and compares every surprise row
+  and every grade-time receipt.
+- **Below the tag** (a vault at mvp-0.70) the predecessor runs unchanged: label, EB if switched on, mastery-only
+  surprise with no source keys.
+
+## Pins, goldens and tests that moved
+
+- **Identity pins** (`tests/goldens/identities.toml`):
+  - `A1-A4.manifest_hash.init`, `C3.boundary.init`, `C3.boundary_offer.init`, `C3b.chooser`, `C3b.chooser_offer`,
+    `C3b.start_key`, `C3b.start_key_offer`, `C5.init` and `C6.init` hash the vault's tag.
+  - `C1.init` moves because placement's predictor version names the absent item term: another predictor from the
+    same config.
+- **Effective defaults:** the tag line only.
+- **`due_queue` (14 goldens):** predicted correctness, expected skill gain, practice information, gradient fit,
+  placement's predicted success and the selection reward lose the item term (`item_demand_vector.difficulty_b` is 0).
+  The order changed in 10 of 14.
+- **`grade_application/history`:** the surprise rows gain their source, `p_ad`, `p_scored` and `b_scored`, and their
+  predictive surprise and `sigma_z` move. 11 grade-time receipts are added, and ulid placeholders renumber around them.
+  Mastery's `expected_correctness` is unchanged: that vault's items carry no label that moved the seam.
+- **`diagnosis_journey`:** the tag string, the surprise rows' source fields, the grade-time receipts, and mastery,
+  predicted correctness and the conceptual-slip bonus where an item had a label.
+- **`mastery_seed_replay`:** `lo_svd_definition`'s mean and variance in two scenarios.
+- **`placement_stored_misses`:** the tag in its manifest.
+- **Structure ratchet:** `attempts.py` 5831 → 5853 (the forecast threaded through the grade's input, reads, evidence,
+  surprise call and receipt write; the logic lives in AD's two new modules) and `scheduler.py` 4442 → 4443.
+- **Import contract:** one frozen edge, `attempts.attempts -> adaptive_difficulty.surprise_forecast`, with its
+  reason. AD reads attempts only through `salience_firewall`, already frozen, and its guard refuses `attempt_surprise`,
+  an unclassified table, inside its operations.
+- **Two tests now pin the tag before the retirement:** `test_placement_unevidenced_return.py` and
+  `test_rebuild_equivalence_review.py::test_a_live_write_is_the_same_below_and_at_the_tag` used the latest tag to mean
+  "the switch's own tag". The retirement moves the queue and mastery on its own, so they now compare at
+  `PROBE_ROUTER_ALGORITHM_VERSION`, the newest tag before it.
+
+New tests are in `tests/test_surprise_reads_ad_forecast.py` (8):
+
+- the source per answer;
+- a rebuild reproduces the rows and writes no receipt;
+- a regrade re-reads the first forecast;
+- history falls back to mastery, marked;
+- the label does not move mastery;
+- the KL from the tag on, none below;
+- the receipt is stamped at the grade's instant;
+- a writer between the read and the write.
+
+The seam guards are in `tests/test_difficulty_kinds_apart.py` and `tests/test_item_parameters.py`.
+
+## Proof
+
+- **The affected set by import:** `scripts/affected_tests.py --files` over the branch's source and test changes
+  selected 1108 files. They ran in eight chunks with `-m "not arc_close"`: 27,825 passed and 61 failed in the first
+  pass.
+  - Every failure was read. Each is a consequence named above, a test pinned to the latest tag as "its own tag", a
+    count of every receipt or AD prediction, or a grade-time receipt id drawn from a per-process stream (now keyed).
+  - All are fixed in `072488b416`, `30751316f1` and the commits after them.
+  - IH4's twin claims were the last; their root cause and fix are in "Ties on the serve path" (ledger H-5).
+- **After merging origin/main (`1966a33cbf`):**
+  - the 25 failing files, plus every test file the merge changed: 680 passed;
+  - the pins, ratchets, architecture, layout, upgrade, CLI surface, the replay guards
+    (`test_replay_writes_no_ledger.py`, `test_gate_records_survive_replay.py`, `test_replay_keeps_diagnosis_ids.py`),
+    every golden this tag moved, the seam guards and the migrations test: 1220 passed. The diagnosis journey golden
+    and two ratchets were then regenerated or raised with reasons, and pass;
+  - the two gates collect every test once (34716: landing 34650 and arc close 66).
+- **After H-5's fix, H-4 and merging origin/main `88c0a42823` (`e66c055d84`):**
+  - the affected set by import over the branch's source and tests (1111 files), plus every test file that reaches the
+    daily plan, the objective, measurement, the teacher or the pinned draws: 1196 files in eight chunks, 29,290 passed
+    and 0 failed;
+  - pins, ratchets, architecture, layout, pinned draws and migrations: 438 passed;
+  - the two gates collect every test once (34733: landing 34667 and arc close 66).
+- **On the merged, renumbered tip (origin/main `604f17b706` at `473005e9c9`, the tag mvp-0.71):**
+  - the affected set by import over the branch's source and tests (1511 files), plus every test file that reaches the
+    daily plan, the objective, measurement, the teacher or the pinned draws, plus the upgrades, CLI surface, replay
+    guards, migrations, tie guard, pins, ratchets, architecture, layout and owner-copy counts tests: 1528 files in
+    eleven chunks, 32,867 passed;
+  - the one failure: `test_coordinated_migrations.py` refused the counts script's `Repository(path)`. The script now
+    attaches read only, without migrating; that file and the counts test then passed, 22 of 22;
+  - the two gates collect every test once (34769: landing 34703 and arc close 66).
+- **Lint:** ruff clean; lint-imports 55 kept, 0 broken.
+- **Not run here:** the whole landing gate and the arc-close gate in one piece, and the durability lane.
+
+## The owner-copy procedure (for the orchestrator, from an mvp-0.70 copy; counts only into tracked files)
+
+Per vault, through the scratch wrapper (`env -i`, scratch `HOME`, `CODEX_HOME`, `LEARNLOOP_CONFIG_DIR`, `TMPDIR`), from
+the repository root at this tip. `$BACKUP` is a backup of the vault at `mvp-0.70`; `$WORK` and `$PRIVATE` are outside
+every checkout and every live vault. Use one `$AS_OF` for every vault (for example `2026-11-24T00:00:00Z`). The three
+scripts refuse a path under `~/learnloop-vaults` or `~/learnloop-retired`; each hashes the copy's databases before and
+after it reads, and fails on a change.
 
 ```sh
-sqlite3 -readonly -header "$COPY_DB" <<'SQL'
-PRAGMA query_only = ON;
-WITH ordered AS (
-  SELECT a.id, a.primed, a.created_at, a.learning_object_id,
-         coalesce(q.sequence, 9223372036854775807) AS seq
-  FROM practice_attempts a LEFT JOIN attempt_application_order q ON q.attempt_id = a.id
-), windows AS (
-  SELECT p.created_at AS starts, p.seq AS start_seq, p.id AS start_id,
-         o.created_at AS ends, o.seq AS end_seq, o.id AS end_id, c.learning_object_id AS lo
-  FROM lesson_weight_trace t
-  JOIN lesson_checks c ON c.id = t.lesson_check_id
-  JOIN ordered p ON p.id = c.attempt_id
-  JOIN ordered o ON o.id = t.resolving_attempt_id
-  WHERE t.kind = 'weight_update'
-), members AS (
-  SELECT a.id, a.primed
-  FROM windows w JOIN ordered a ON a.learning_object_id = w.lo
-    AND (a.created_at, a.seq, a.id) >= (w.starts, w.start_seq, w.start_id)
-    AND (a.created_at, a.seq, a.id) <= (w.ends, w.end_seq, w.end_id)
-  UNION
-  SELECT a.id, a.primed FROM lesson_weight_trace t
-  JOIN practice_attempts a ON a.id = t.resolving_attempt_id WHERE t.kind = 'pool_update'
-), curves AS (
-  SELECT m.primed,
-    CASE WHEN json_valid(s.predicted_score_dist_json) THEN
-      json_type(s.predicted_score_dist_json, '$.a') IN ('integer','real') AND
-      json_type(s.predicted_score_dist_json, '$.b') IN ('integer','real') AND
-      abs(json_extract(s.predicted_score_dist_json, '$.a')) < 1e999 AND
-      abs(json_extract(s.predicted_score_dist_json, '$.b')) < 1e999
-    END AS available
-  FROM members m LEFT JOIN attempt_surprise s ON s.attempt_id = m.id
-)
-SELECT (SELECT count(*) FROM windows) AS fitted_checks, count(*) AS attempts,
-       count(*) FILTER (WHERE primed) AS primed,
-       count(*) FILTER (WHERE available IS 1) AS with_curve,
-       count(*) FILTER (WHERE available IS NOT 1) AS missing_curve FROM curves;
-SELECT count(*) AS foreign_key_violations FROM pragma_foreign_key_check;
-PRAGMA integrity_check;
-SQL
+# 0. Two copies of the predecessor (backup API), and the original's hash.
+uv run python -c "import sys; from pathlib import Path; from learnloop.db.copies import copy_tree_with_databases as c; \
+  [c(Path(sys.argv[1]), Path(d)) for d in sys.argv[2:]]" "$BACKUP" "$WORK/a" "$WORK/b"
+sha256sum "$BACKUP"/state.sqlite > "$PRIVATE/original.sha256"
+
+# 1. On copy a (mvp-0.70): coverage, the four-way replay (arm f is this tag on history exactly), the before snapshot.
+uv run python scripts/difficulty_receipt_coverage.py "$WORK/a" --out "$PRIVATE/coverage.json"
+uv run python scripts/difficulty_four_way.py "$WORK/a" --out "$PRIVATE/four_way.json" --as-of "$AS_OF"
+uv run python scripts/label_retirement_counts.py snapshot "$WORK/a" --as-of "$AS_OF" --out "$PRIVATE/before.json"
+uv run learnloop rebuild --shadow --json --vault "$WORK/a" > "$PRIVATE/shadow_a.json"
+
+# 2. Copy b: the upgrade, the doctor, the successor's shadow rebuild, the after snapshot, the comparison.
+uv run learnloop upgrade --vault "$WORK/b" --to mvp-0.71
+uv run learnloop doctor --vault "$WORK/b"
+uv run learnloop rebuild --shadow --json --vault "$WORK/b" > "$PRIVATE/shadow_b1.json"
+uv run python scripts/label_retirement_counts.py snapshot "$WORK/b" --as-of "$AS_OF" --out "$PRIVATE/after.json"
+uv run python scripts/label_retirement_counts.py compare "$PRIVATE/before.json" "$PRIVATE/after.json"
+
+# 3. Rebuild again: the semantic digests agree with step 2; the original is untouched.
+uv run learnloop rebuild --shadow --json --vault "$WORK/b" > "$PRIVATE/shadow_b2.json"
+sha256sum -c "$PRIVATE/original.sha256"
 ```
 
-For each inspection point, fingerprint the semantic state including the trace, excluding its surrogate row ID. Capture the raw check receipt digest separately. Publish counts and digests only.
+**What to report, counts only:**
 
-```sh
-set -o pipefail
-sqlite3 -readonly -json "$COPY_DB" 'SELECT * FROM lesson_checks ORDER BY id' | sha256sum
-sqlite3 -readonly -json "$COPY_DB" 'SELECT * FROM lesson_receipts ORDER BY lesson_id' | sha256sum
-sqlite3 -readonly -json "$COPY_DB" "SELECT * FROM forecast_receipts WHERE kind LIKE 'lesson_%' ORDER BY id" | sha256sum
-sqlite3 -readonly -json "$COPY_DB" 'SELECT * FROM lesson_weight_state ORDER BY family' | sha256sum
-sqlite3 -readonly -json "$COPY_DB" 'SELECT seq,kind,lesson_check_id,resolving_attempt_id,learning_object_id,at,detail_json FROM lesson_weight_trace ORDER BY seq' | sha256sum
-```
+1. **From step 1, the four-way's stdout line for `f_label_off_and_receipt`,** set against the three numbers the
+   earlier lane gave for arm (b) (H3's mastery path):
+   - **mastery movement** (`mastery changed n/N`, delta mean and max): vault 2 gave 8 of 21, mean +0.106, max +0.606;
+     vault 1 nothing changed (design note §1 and §10.1 for vault 3);
+   - **queue rank correlation** (`spearman`, `top-10 overlap`): vault 2 gave 0.948 and 9 of 10, vault 3 0.967;
+   - **surprise direction flips** (`direction changed`): 0 on every vault. Also the rows above the follow-up
+     threshold: vault 2 gave 3 against arm (a)'s 4.
+2. **From step 2's `compare`:**
+   - `mastery_changed` and `mastery_delta_logit_mean` must equal arm (f)'s mastery line;
+   - `surprise_direction_changed`, with its transitions;
+   - `due_items_moved`;
+   - `queue_spearman` and `queue_top10_overlap`, against step 1's arm (f).
+3. **From the `after_counts` of step 2's `compare`:**
+   - `surprise_by_source`: `serve_receipt` only where a bound serve receipt existed (0 on the Nov 23 copies), every
+     other row `mastery`;
+   - `grade_time_receipts` must be 0, since the upgrade replays no AD over history;
+   - `ad_rows_with_kl` must equal `ad_trained_subject_rows`;
+   - `attempts_with_gate_records`, against `before.json`'s count. A rebuild keeps them since H-1;
+   - integrity `ok`, and 0 foreign-key violations.
+4. **From the doctor and the shadow rebuilds:** the doctor's issue counts by code. `difficulty:miscalibrated` now
+   reads "plays easier/harder than its learning object", per H-4. Also whether `shadow_b1` and `shadow_b2` report the
+   same digests, and the original's `sha256sum -c` line.
 
-On disposable copies of the same quiescent predecessor backup, with identical authored content and effective settings, use the following sequence. Keep the original and its WAL hash for the final comparison.
+After the live upgrade, the first graded answers show the new tier: their surprise rows read `grade_receipt` (or
+`serve_receipt` from a plan step), and `forecast_receipts` gains one `item_unassisted_success_at_grade` row per live
+answer AD can read.
 
-1. With the predecessor binary, record the checks, raw receipts, semantic state and trace digests above. Record the total expected epoch count using the query below. Save `learnloop rebuild --vault "$COPY" --shadow --json`. Use a second untouched backup for the upgrade. A shadow run with a version override alone does not run the activation snapshot.
-2. On the second copy use the rebased binary and run `learnloop upgrade --vault "$COPY" --to mvp-0.71` (from an `mvp-0.69` copy the walk passes through `mvp-0.70`'s idempotent projection first), then `learnloop doctor --vault "$COPY"`. Record the version, schema head, integrity, foreign keys and the same digests. Run the successor-only queries below. The number of reconstructed rows plus missing markers must equal the predecessor epoch count. Every pre-upgrade epoch must have a row. At this point the graded count must be zero.
-3. Compare each changed weight or pool update against its predecessor by kind, check/forecast and resolving attempt. Use `detail_json.trajectory_inputs`, `resolving_input`, `likelihood` and `resolving_fallback` to account for the difference. Count the successor's likelihoods and the labels that sent a trajectory to the first-order form (the label query below). Compare mastery means/variances, facets, due dates and queue counts across copies, and run the successor shadow report. Keep tag-only differences separate from value changes. The check, lesson receipt and forecast receipt digests must match across copies.
-4. On the upgraded copy run `learnloop rebuild-derived-state --vault "$COPY" --json` twice, taking all successor digests after each run. Both rebuilds must match activation for the curves, lesson weights, pools, trace and raw receipts. Verify the shadow reports' input hashes and the original database/WAL hash. Report counts, digests and explained deltas for review before any live upgrade.
+## The owner-copy run (Nov 24 2026, orchestrator; counts only)
 
-Before the upgrade, derive the expected snapshot digest directly from the unmodified predecessor database. The one live epoch is selected by the grade ledger's ordering, including older unstamped regrades. SQL casts integer JSON numbers to the REAL type used in the capture. The last check excludes infinite values from overflowed JSON exponents. Set `PRED_DB` to the predecessor backup and `COPY_DB` to the upgraded copy.
+The procedure above, on backup-API copies of the three floor-set vaults upgraded to `mvp-0.70` with this tip, each
+step through the scratch wrapper. The copies were deleted afterwards; every original's `sha256sum -c` read OK.
 
-```sh
-set -o pipefail
-sqlite3 -readonly -json "$PRED_DB" <<'SQL' | sha256sum
-WITH evidence AS (
-  SELECT attempt_id, id, superseded_at, created_at, grading_revision,
-         CASE WHEN grading_revision IS NULL THEN 'legacy:' || created_at
-              ELSE 'revision:' || grading_revision END AS epoch_key FROM grading_evidence
-), epochs AS (
-  SELECT DISTINCT a.id AS attempt_id, a.correctness, coalesce(e.epoch_key,'no_evidence') AS epoch_key,
-         e.grading_revision
-  FROM practice_attempts a LEFT JOIN evidence e ON e.attempt_id = a.id
-), live AS (
-  SELECT attempt_id, epoch_key, row_number() OVER (
-    PARTITION BY attempt_id ORDER BY (grading_revision IS NULL) DESC, grading_revision DESC, created_at DESC, id DESC
-  ) AS position FROM evidence WHERE superseded_at IS NULL
-), sources AS (
-  SELECT e.*, s.algorithm_version AS source_version,
-    CASE WHEN (e.epoch_key = l.epoch_key OR e.epoch_key = 'no_evidence')
-              AND json_valid(s.predicted_score_dist_json)
-              AND (e.correctness IS NULL OR (json_valid(s.observed_joint_bucket_json)
-                   AND json_extract(s.observed_joint_bucket_json, '$.score_bucket') IS
-                       CASE WHEN 4.0 * e.correctness <= 1 THEN 'low' WHEN 4.0 * e.correctness <= 3 THEN 'mid'
-                            ELSE 'high' END))
-         THEN s.predicted_score_dist_json END AS dist
-  FROM epochs e LEFT JOIN live l ON l.attempt_id = e.attempt_id AND l.position = 1
-  LEFT JOIN attempt_surprise s ON s.attempt_id = e.attempt_id
-), pairs AS (
-  SELECT *, CAST(json_extract(dist,'$.a') AS REAL) AS a, CAST(json_extract(dist,'$.b') AS REAL) AS b,
-    json_type(dist,'$.a') IN ('real','integer') AND json_type(dist,'$.b') IN ('real','integer') AS numeric
-  FROM sources
-), checked AS (
-  SELECT *, numeric AND abs(a) < 1e999 AND abs(b) < 1e999 AS available FROM pairs
-)
-SELECT attempt_id, epoch_key, grading_revision, CASE WHEN available THEN a END AS item_a,
-       CASE WHEN available THEN b END AS item_b,
-       CASE WHEN available THEN coalesce(nullif(source_version,''),'mvp-0.70') ELSE 'mvp-0.70' END AS algorithm_version,
-       CASE WHEN available THEN 'reconstructed_at_upgrade' ELSE 'missing_at_upgrade' END AS provenance
-FROM checked ORDER BY attempt_id,epoch_key;
-SQL
-sqlite3 -readonly -json "$COPY_DB" 'SELECT * FROM attempt_grade_curves ORDER BY attempt_id,epoch_key' | sha256sum
-sqlite3 -readonly -header "$COPY_DB" 'SELECT provenance,algorithm_version,count(*) AS epochs FROM attempt_grade_curves GROUP BY provenance,algorithm_version ORDER BY 1,2'
-sqlite3 -readonly "$COPY_DB" 'PRAGMA integrity_check; PRAGMA foreign_key_check;'
-```
+| | vault 1 | vault 2 | vault 3 |
+|---|---|---|---|
+| attempts (bound serve receipts used) | 3 (0) | 70 (0) | 3 (0; one bound row falls back, `no_receipt`) |
+| arm (f) mastery changed | 0 of 34 | 8 of 21, mean +0.106, max +0.606 | 0 of 18 |
+| arm (f) queue: Spearman, top-10 overlap | 1.0, 10 | 0.948, 9 | 0.967, 10 |
+| arm (f) direction flips; above the follow-up threshold (arm a) | 0; 0 (0) | 0; 3 (4) | 0; 0 (0) |
+| `compare`: mastery changed, mean, max | 0 of 34 | 8 of 21, +0.106, +0.606 | 0 of 18 |
+| `compare`: queue Spearman, top-10 overlap | 1.0, 10 | 0.948, 9 | 0.967, 10 |
+| `compare`: surprise direction changed; due items moved | 0; 0 of 32 | 0; 0 of 99 | 0; 0 of 77 |
+| after: surprise by source | mastery 3 | mastery 70 | mastery 3 |
+| after: grade-time receipts | 0 | 0 | 0 |
+| after: AD rows with KL / trained subject rows | 0 / 0 | 28 / 28 | 1 / 1 |
+| after: integrity, foreign-key violations | ok, 0 | ok, 0 | ok, 0 |
+| upgrade exit; shadow rebuild twice | 0; same | 0; same | 0; same |
 
-The successor's likelihoods and first-order labels (counts only; run on the upgraded copy after each rebuild):
-
-```sh
-sqlite3 -readonly -header "$COPY_DB" <<'SQL'
-SELECT json_extract(detail_json, '$.likelihood') AS likelihood, count(*) AS updates
-FROM lesson_weight_trace WHERE kind = 'weight_update' GROUP BY 1 ORDER BY 1;
-SELECT j.key AS label, count(DISTINCT t.seq) AS updates
-FROM lesson_weight_trace t, json_each(t.detail_json, '$.trajectory_inputs') i, json_each(i.value) j
-WHERE t.kind = 'weight_update' AND j.key IN ('missing_observation_or_delta', 'variance_floor_bound',
-  'prior_not_reproduced', 'update_not_reproduced', 'outcome_prior_not_reproduced')
-GROUP BY 1 ORDER BY 1;
-SQL
-```
-
-The first two digests must agree immediately after activation. For the independent count in steps 1 and 2, run the predecessor query with `SELECT count(*) AS epochs FROM epochs` in place of its final SELECT. Group `checked` by `available IS 1` to reconcile the numeric and missing counts.
-
-Owner-copy results are pending. A numeric historical row describes the predecessor projection at the freeze. Only a successor grade transaction establishes grade-time provenance.
-
-The pre-rebase identity gate found nine tag-dependent differences and 362 passes. The predecessor-label control reproduced all nine existing digests. The worker stopped at that gate and left the identity goldens for review on the merged tree. The exact sites and test results are in [the TE5 verification record](teacher-te5.md#part-d-verification).
+- Every number equals the earlier lane's and arm (f)'s own line, as the record expected.
+- The two shadow rebuilds after the upgrade differ only in the marker id and the as-of time.
+- `attempts_with_gate_records` reads 0 before and after on every vault; the coverage script counts 3, 70 and 3 gate
+  record rows, none with diagnostics.
+- The doctor exits 1 on each copy, on content errors that predate this tag (`criterion:unknown_dependency` 46 on
+  vaults 1 and 3, `layout:missing_directory` on 1 and 2, `yaml:invalid` 2 on vault 3); no `difficulty:` code appears.

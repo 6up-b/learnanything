@@ -34,6 +34,18 @@ uv run python scripts/difficulty_four_way.py <vault copy> --out <private.json> [
 | `c_surprise_from_ad` | the vault's own | adaptive difficulty's predictive for the item (below) |
 | `d_both` | as (b) | as (c) |
 
+Added for H3 (`docs/reviews/refactor-h3-h6-design.md` §2.2, §10; report version `difficulty_four_way_v2`):
+
+| Arm | Config | Surprise reads |
+|---|---|---|
+| `e_surprise_from_receipt` | the vault's own | the forecast AD recorded when it served the item (the attempt's plan presentation's `ad_threshold@subject` or `ad_threshold_repeat@subject` receipt, `receipt_predictions`), and the mastery path's own `b` where no receipt applies |
+| `f_label_off_and_receipt` | as (b) | as (e): H3 as designed |
+
+The report gains the receipt tiers and fallback reasons, the receipt `p` against the prefix replay's `p̄`, and per
+arm the negative-direction rows and those above the follow-up gate's static threshold. Its tests are
+`tests/test_difficulty_receipt_arms.py`, on the synthetic vault answered from served plan presentations
+(`tests/difficulty_replay_helpers.py`).
+
 Every arm is reported against (a), not against the stored state: the stored rows carry history (older tags,
 older code) that a replay at today's code does not reproduce, and that difference is not the label's.
 
