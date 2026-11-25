@@ -61,7 +61,8 @@ def _evidence_after(events: Any, at: str) -> bool:
 
 @entry(read_only=True)
 def grade_receipt(vault: Any, repository: Any, *, practice_item_id: str, attempt_id: str, at: str,
-                  answered_item: Any = None, answered_revision: str | None = None, view: Any = None) -> ForecastReceipt | None:
+                  answered_item: Any = None, answered_revision: str | None = None, view: Any = None,
+                  answered: Any = None) -> ForecastReceipt | None:
     """AD's subject-view forecast for the answer ``attempt_id`` to ``practice_item_id`` at ``at``, from AD's state
     over everything recorded before it; None when AD is off, the item is protected or unknown to AD's view."""
 
@@ -89,6 +90,11 @@ def grade_receipt(vault: Any, repository: Any, *, practice_item_id: str, attempt
                 if item is not None and answered_revision and item_revision(item)[0] != answered_revision:
                     item = None
             if item is None or item.id != practice_item_id or view.covers(item):
+                return None
+            # Every stored fact naming what the answer was shown (its contract, its plan presentation, its selection):
+            # one withheld revision among them and there is no forecast, so no receipt, snapshot or hash is written.
+            if view.answer_withheld(connection, practice_item_id, contract_revision=answered_revision, at=at,
+                                    **dict(answered or {})):
                 return None
             snapshot = RP.snapshot(vault, repository, connection=connection, view=view)
             if _evidence_after(snapshot.events, at):

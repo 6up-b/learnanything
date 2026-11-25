@@ -78,8 +78,11 @@ def with_grade_forecast(vault: Any, repository: Any, attempt: Any, *, clock: Any
             kwargs["answered_revision"] = revision
         else:
             kwargs["answered_item"] = vault.practice_items.get(draft.practice_item_id)
+    draft = attempt.draft
+    answered = {"plan_presentation_id": draft.plan_presentation_id, "scheduler_candidate_id": draft.scheduler_candidate_id}
     return replace(attempt, grade_forecast=safe_grade_receipt(
-        vault, repository, practice_item_id=attempt.draft.practice_item_id, attempt_id=attempt.attempt_id, at=at, **kwargs))
+        vault, repository, practice_item_id=draft.practice_item_id, attempt_id=attempt.attempt_id, at=at,
+        answered=answered, **kwargs))
 
 
 def _contract_revision(repository: Any, version_id: str) -> str | None:

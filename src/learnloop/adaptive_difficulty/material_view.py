@@ -1039,6 +1039,19 @@ class MaterialView:
             out.append((item, str(content_hash)))
         return out, len(skipped)
 
+    def answer_withheld(self, connection: Any, practice_item_id: Any, *, contract_revision: str | None = None,
+                        plan_presentation_id: Any = None, scheduler_candidate_id: Any = None, at: Any = None) -> bool:
+        """Whether an answer not yet stored is to withheld material: its item is withheld, or any revision a stored
+        fact says it was shown is (``db.stores.answered_revision``: its contract's, its plan presentation's, its
+        selection's). The grade-time forecaster asks before it forecasts (FR3-2)."""
+
+        from learnloop.db.stores.answered_revision import draft_revisions
+
+        named = (contract_revision, *draft_revisions(connection, plan_presentation_id=plan_presentation_id,
+                                                     scheduler_candidate_id=scheduler_candidate_id, answered_at=at))
+        return self.withheld(practice_item_id) or any(
+            self.revision_withheld(connection, revision, practice_item_id) for revision in named if revision)
+
     def revision_withheld(self, connection: Any, content_hash: str | None, practice_item_id: Any = None) -> bool:
         """Whether a revision named by hash (and its item id, when known) is withheld now."""
 
@@ -1066,11 +1079,14 @@ class MaterialView:
         return self._frozen
 
     def _answered_revisions(self, connection: Any) -> dict[str, tuple[str, ...]]:
-        """Each attempt's answered revision(s): the presentation's frozen revision and the revision
-        field's own resolution reads (``load_attempt_rows``' ``item_snapshot_hash``). Resolved on the
-        raw table once per view, only to decide what is withheld; nothing derived here is used."""
+        """Each attempt's answered revision(s): every stored fact naming what it answered
+        (``db.stores.answered_revision``: the presentation's contract, the plan presentation's frozen revision,
+        the selection's, the grade receipt's; FR3-1) and the revision field's own resolution reads
+        (``load_attempt_rows``' ``item_snapshot_hash``). Resolved on the raw table once per view, only to decide
+        what is withheld; nothing derived here is used."""
 
         if self._answered is None:
+            from learnloop.db.stores.answered_revision import all_answered_revisions
             from learnloop.field.outcomes import load_attempt_rows
 
             answered: dict[str, set[str]] = {}
@@ -1079,6 +1095,8 @@ class MaterialView:
                     "/* ad-rules */ SELECT id, plan_presentation_id FROM practice_attempts"):
                 if presentation_id and str(presentation_id) in frozen:
                     answered.setdefault(str(attempt_id), set()).add(frozen[str(presentation_id)])
+            for attempt_id, revisions in all_answered_revisions(connection).items():
+                answered.setdefault(attempt_id, set()).update(revisions)
             try:
                 for row in load_attempt_rows(connection, self.vault):
                     if row.item_snapshot_hash:

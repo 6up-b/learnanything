@@ -652,7 +652,8 @@ def pin_exact_revision(paths, loaded, attempt_id, item_id):
     from learnloop.learner.assessment_contracts import snapshot_for_presentation
 
     item = loaded.practice_items[item_id]
-    contract_id = snapshot_for_presentation(Repository(paths.sqlite_path), loaded, item)
+    # The contract the grade cites (a grade's freeze: it saves no revision; the selection snapshot below does).
+    contract_id = snapshot_for_presentation(Repository(paths.sqlite_path), loaded, item, save_revision=False)
     raw = json.dumps(item.model_dump(mode="json"), sort_keys=True, separators=(",", ":"), ensure_ascii=False)
     digest = hashlib.sha256(raw.encode()).hexdigest()
     candidate = f"candidate-{attempt_id}"

@@ -1648,6 +1648,14 @@ class AttemptStoreMixin:
         """
 
         with self.connection() as connection:
+            if forecast_item_snapshot is not None:
+                # A presentation saves the revision it showed whether or not the contract is new: a grade may have
+                # frozen the same contract first, citing the revision without saving it.
+                from learnloop.db.stores.ad_receipts import insert_item_snapshot
+
+                revision, item_json = forecast_item_snapshot
+                insert_item_snapshot(connection, content_hash_value=revision, practice_item_id=practice_item_id,
+                                     item_json=item_json, created_at=utc_now_iso(clock))
             existing = connection.execute(
                 """
                 SELECT id FROM assessment_contract_versions
@@ -1656,13 +1664,9 @@ class AttemptStoreMixin:
                 (practice_item_id, contract_hash),
             ).fetchone()
             if existing is not None:
+                if forecast_item_snapshot is not None:
+                    connection.commit()
                 return existing["id"]
-            if forecast_item_snapshot is not None:
-                from learnloop.db.stores.ad_receipts import insert_item_snapshot
-
-                revision, item_json = forecast_item_snapshot
-                insert_item_snapshot(connection, content_hash_value=revision, practice_item_id=practice_item_id,
-                                     item_json=item_json, created_at=utc_now_iso(clock))
             version_id = new_ulid()
             connection.execute(
                 """

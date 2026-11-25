@@ -684,10 +684,12 @@ def test_the_lifecycle_writes_only_workbench_rows_and_salience_only_events(tmp_p
     after = table_counts(repository)
     changed = {name for name in after if after[name] != before.get(name)}
     # Besides its own rows and salience-only events, a session writes only
-    # what a serve writes: the contract it shows (review F1) and the book's
-    # exposure of its spans (review F11). Neither is evidence.
+    # what a serve writes: the contract it shows (review F1), the revision it
+    # shows (mvp-0.74, review round 3: a presentation saves it even when a
+    # grade froze the contract first) and the book's exposure of its spans
+    # (review F11). None is evidence.
     assert changed <= set(WORKBENCH_TABLES) | {
-        "interaction_events", "assessment_contract_versions", "source_exposure_events",
+        "interaction_events", "assessment_contract_versions", "practice_item_snapshots", "source_exposure_events",
     }
 
 

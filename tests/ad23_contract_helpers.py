@@ -624,6 +624,7 @@ def _protect_r11(paths, *, hist_attempt: str) -> None:
         extraction_id=EXT, link_id="esl_held_r11", created_at=_iso(T0 - timedelta(days=4)))
     _protect_r13(paths)
     _protect_r14(paths)
+    _protect_fr3(paths)
 
 
 def _protect_r14(paths) -> None:
@@ -656,6 +657,31 @@ def _protect_r14(paths) -> None:
             "forecast_p": None, "detail": {}, "created_at": at})
         ad_serving.insert_dose_row(connection, {"protection_epoch": SEEDED, "row_kind": "delivered", "draw_id": draw, "created_at": at})
         connection.commit()
+
+
+def _protect_fr3(paths) -> None:
+    """Review round 3's protected material (protected copy only): ``pi_p4`` opened OUTSIDE the plan at an earlier
+    revision cut from held-out material (``h6``), its contract frozen at the presentation (the revision saved), then
+    the item replaced by its public revision and the answer graded against that contract: no plan presentation, no
+    scheduler selection, only the contract names what the learner answered (FR3-1)."""
+
+    from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
+    from learnloop.clock import FrozenClock
+    from learnloop.learner.assessment_contracts import snapshot_for_presentation
+    from learnloop.vault.models import CanonicalExercise
+
+    opened = load_vault(paths.root)
+    repository = Repository(paths.sqlite_path)
+    opened.practice_items[P4] = opened.practice_items[P4].model_copy(update={
+        "prompt": "SENTINEL_P4C_AX9: the held-out revision opened outside the plan.",
+        "canonical_exercise": CanonicalExercise(source_id="src_r9", extraction_id=EXT, span_ids=["h6"])})
+    contract = snapshot_for_presentation(repository, opened, opened.practice_items[P4],
+                                         clock=FrozenClock(T0 - timedelta(minutes=22)))
+    draft = AttemptDraft(practice_item_id=P4, learner_answer_md="An answer.", latency_seconds=45000,
+                         session_id=None, assessment_contract_version_id=contract)
+    complete_self_graded_attempt(load_vault(paths.root), repository, draft,
+                                 SelfGradeInput(criterion_points={"correctness": 4.0}, confidence=4),
+                                 clock=FrozenClock(T0 - timedelta(minutes=20)))
 
 
 def _protect_r13(paths) -> None:
