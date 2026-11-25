@@ -193,11 +193,19 @@ def only_grade(rows: Iterable[Any]) -> bool:
     return len(runs) <= 1
 
 
+def graded_more_than_once(rows: Sequence[Any]) -> bool:
+    """A second write replaced the attempt's first grade (``rows``: every row of the attempt, superseded included;
+    :func:`only_grade` says why one epoch key is not enough). No rows: no grade."""
+
+    return bool(rows) and not only_grade(rows)
+
+
 __all__ = [
     "GradingEpoch",
     "current_epoch",
     "epoch_contract_version_id",
     "epoch_key",
+    "graded_more_than_once",
     "group_epochs",
     "next_grading_revision",
     "only_grade",

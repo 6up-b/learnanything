@@ -14,6 +14,7 @@ rows are deliberately classified outside ``DERIVED`` in
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from typing import Any, Mapping, Sequence
 
@@ -319,11 +320,23 @@ def _run_activity_substrate(
 ) -> ReplayerResult:
     """Backfill the authoritative activity ledger before learner replay."""
 
-    from learnloop.substrate.compat.activity_backfill import backfill_activity_substrate
+    from learnloop.substrate.compat.activity_backfill import (
+        answers_without_grade_record,
+        backfill_activity_substrate,
+    )
 
     report = backfill_activity_substrate(
         context.vault, context.repository, clock=context.clock
     )
+    # FR3-6: what the rebuild left unrecorded, by name; `learnloop doctor` reports it and its repair records it.
+    unrecorded = answers_without_grade_record(context.vault, context.repository)
+    if unrecorded:
+        logging.getLogger(__name__).warning(
+            "%d answers were saved without their grade record; a rebuild does not create one "
+            "(run `learnloop doctor --fix-state`): %s",
+            len(unrecorded),
+            ", ".join(entry["attempt_id"] for entry in unrecorded),
+        )
     attempts = context.repository.list_all_attempts()
     accounted = tuple(
         sorted(
@@ -337,7 +350,7 @@ def _run_activity_substrate(
         (),
         rows_processed=int(report.attempts_replayed),
         accounted_attempt_ids=accounted,
-        details=report.as_dict(),
+        details={**report.as_dict(), "answers_without_grade_record": unrecorded},
     )
 
 

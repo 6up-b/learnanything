@@ -292,6 +292,7 @@ def replay_learning_object(
     applying_grade_to: str | None = None,
     clock: Clock | None = None,
     gate_records: Mapping[str, Sequence[Any]] | None = None,
+    repairing_grade_records: frozenset[str] = frozenset(),
 ) -> ReplayResult:
     """Rebuild attempt-derived state for one learning object from persisted grades.
 
@@ -316,6 +317,11 @@ def replay_learning_object(
     ``clock`` stamps what the closing whole-ledger projection writes (each
     attempt's own writes carry the attempt's time).
 
+    Replay derives: it writes an answer's missing grade record (no observation, or one with no grade) only for
+    history from before the activity substrate, for the answer a regrade is applying (``applying_grade_to``) and
+    for the answers an explicit repair names (``repairing_grade_records``, ``learnloop doctor --fix-state``);
+    any other is left unrecorded and reported (review round 3, FR3-6).
+
     The follow-up gate's records on each surprise row (what it queued, held
     back and read) were written live after the grade; replay never runs the
     gate, so it carries them across by attempt id. ``gate_records``: the
@@ -333,6 +339,8 @@ def replay_learning_object(
             project_canonical_state=project_canonical_state,
             clock=clock,
             gate_records=gate_records,
+            recording_grades_of=repairing_grade_records | (
+                {applying_grade_to} if applying_grade_to is not None else set()),
         )
         if applying_grade_to is not None:
             # Only the replacement grade was applied here. Its neighbours were replayed. Recorded whatever tag this
@@ -361,7 +369,11 @@ def _replay_learning_object(
     project_canonical_state: bool,
     clock: Clock | None,
     gate_records: Mapping[str, Sequence[Any]] | None = None,
+    recording_grades_of: frozenset[str] = frozenset(),
 ) -> ReplayResult:
+    from learnloop.substrate.compat.activity_backfill import predates_substrate, substrate_began_at
+
+    substrate_began = substrate_began_at(repository)
     # The order the attempts were applied in (mvp-0.65: a tie inside one second by its application sequence).
     attempts = repository.list_attempts_by_learning_object(learning_object_id, order=attempt_order_for(vault.config))
     existing_error_events = {
@@ -421,6 +433,10 @@ def _replay_learning_object(
             error_event_ids=None if override_attributions is not None else [event["id"] for event in event_snapshot],
             error_events=event_snapshot,
             error_attributions=override_attributions,
+            may_record_missing_grade=(
+                str(attempt["id"]) in recording_grades_of
+                or predates_substrate(attempt.get("created_at"), substrate_began)
+            ),
             **(
                 {"grader_identity": grader_identity_overrides[attempt["id"]]}
                 if grader_identity_overrides and attempt["id"] in grader_identity_overrides

@@ -1,12 +1,16 @@
-"""A replay derives; it never writes history. A vault's first rebuild adds only the backfill of rows the vault never
-recorded (:data:`FIRST_REBUILD_BACKFILL`), and every further whole-vault rebuild and every per-LO replay adds no row to
-a table whose role is ``RAW_LEDGER`` or ``RECEIPT`` (``db.table_roles``), over every synthetic diagnosis journey and
-the broad graded history of the grade-application golden.
+"""A replay derives; it never writes history. A vault's first rebuild adds only the catalog backfill of rows the vault
+never recorded (:data:`FIRST_REBUILD_BACKFILL`: cards, surfaces and families for items nobody answered, the outcome
+schemas, the mastery seeds), plus, for history recorded before the activity substrate existed and only for it, the
+backfill's administrations, exposures and observations and the grade chain on them (:data:`PRE_SUBSTRATE_BACKFILL`;
+review round 3, FR3-6). Every further whole-vault rebuild and every per-LO replay adds no row to a table whose role is
+``RAW_LEDGER`` or ``RECEIPT`` (``db.table_roles``), over every synthetic diagnosis journey and the broad graded history
+of the grade-application golden.
 
 Two named exceptions, each the code's own rule: a whole-vault rebuild appends its one receipt
 (``derived_state_rebuilds``); and a vault below the grade channel fixes (mvp-0.60; the tests' older journeys run at
 older tags) re-mints each answer's grade chain at every rebuild, as that predecessor does
-(``tests/test_rebuild_history_appends.py`` pins it).
+(``tests/test_rebuild_history_appends.py`` pins it). A later answer with no grade record is never given one by a
+rebuild (``tests/test_rebuild_writes_no_grade_record.py``).
 """
 
 from __future__ import annotations
@@ -17,6 +21,7 @@ import pytest
 
 from learnloop.attempts.grade_resolution import grade_channel_fixes_on
 from learnloop.db.table_roles import TABLE_ROLES, TableRole
+from learnloop.substrate.compat.activity_backfill import predates_substrate, substrate_began_at
 from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
 from learnloop.substrate.replay import replay_learning_object
 from learnloop.vault.loader import load_vault
@@ -28,14 +33,15 @@ REBUILD_RECEIPT = "derived_state_rebuilds"
 #: What the predecessor of the grade channel fixes re-mints per graded answer at every rebuild.
 GRADE_CHAIN = frozenset({"activity_observations", "raw_grade_events", "grade_interpretations", "measurement_events",
                          "activity_administrations"})
-#: What a vault's first rebuild may add, once: the activity substrate's backfill of cards, surfaces and families for
-#: items nobody answered, of administrations, exposures and observations for answers recorded without them, the
-#: outcome schemas and the mastery seeds a vault never recorded, and the grade channel's one reconciliation of a grade
-#: the ledger lags (a regrade, an adjudication). A second rebuild adds none of them.
+#: What a vault's first rebuild may add, once: the activity substrate's catalog backfill of cards, surfaces and families
+#: for items nobody answered, and the outcome schemas and mastery seeds a vault never recorded. A second adds none.
 FIRST_REBUILD_BACKFILL = frozenset({
     "activity_cards", "activity_card_versions", "activity_families", "activity_family_versions", "activity_surfaces",
-    "outcome_schemas", "outcome_schema_versions", "mastery_seed_inputs", "activity_exposure_events", REBUILD_RECEIPT,
-}) | GRADE_CHAIN
+    "outcome_schemas", "outcome_schema_versions", "mastery_seed_inputs", REBUILD_RECEIPT,
+})
+#: What the first rebuild adds, once, for history recorded before the activity substrate existed (and only for it):
+#: the presentations' and answers' administrations, exposures and observations, and the grade chain on them.
+PRE_SUBSTRATE_BACKFILL = frozenset({"activity_exposure_events"}) | GRADE_CHAIN
 LEDGERS = sorted(name for name, role in TABLE_ROLES.items() if role in (TableRole.RAW_LEDGER, TableRole.RECEIPT))
 
 
@@ -66,12 +72,26 @@ def _journey(case: str, root: Path):
     return load_vault(vault_root), repository
 
 
-def _assert_replays_add_no_ledger_row(vault, repository) -> None:
+def _holds_pre_substrate_history(repository) -> bool:
+    began = substrate_began_at(repository)
+    recorded = [attempt.get("created_at") for attempt in repository.list_all_attempts()] + [
+        presentation.get("served_at") or presentation.get("created_at")
+        for presentation in repository.list_all_probe_presentations()
+    ]
+    return any(predates_substrate(at, began) for at in recorded)
+
+
+def _assert_replays_add_no_ledger_row(vault, repository, *, pre_substrate: bool = False,
+                                      first_rebuild_lag: frozenset[str] = frozenset()) -> None:
     allowed_chain = set() if grade_channel_fixes_on(vault.config) else set(GRADE_CHAIN)
-    # The first may backfill what the vault never recorded, and nothing else.
+    assert _holds_pre_substrate_history(repository) is pre_substrate
+    # The first may backfill the catalog the vault never recorded, and evidence for history from before the
+    # substrate only.
+    first = FIRST_REBUILD_BACKFILL | allowed_chain | (PRE_SUBSTRATE_BACKFILL if pre_substrate else set())
     before = _counts(repository)
     rebuild_all_derived_state(vault, repository)
-    assert set(_added(before, _counts(repository))) <= FIRST_REBUILD_BACKFILL, _added(before, _counts(repository))
+    added = _added(before, _counts(repository))
+    assert set(added) <= first | first_rebuild_lag, added
     for _ in range(2):
         before = _counts(repository)
         rebuild_all_derived_state(vault, repository)
@@ -92,10 +112,55 @@ def test_rebuilds_and_replays_add_no_ledger_row(case, tmp_path):
     _assert_replays_add_no_ledger_row(vault, repository)
 
 
+#: The grade chain's interpretation and its measurement events for one answer whose grade the channel lags.
+_ONE_LAGGING_GRADE = frozenset({"raw_grade_events", "grade_interpretations", "measurement_events"})
+
+
 def test_the_broad_graded_history_at_the_head_adds_no_ledger_row(tmp_path):
     from tests.grade_application_golden_helpers import build_graded_vault, play_history
 
     _paths, vault, repository = build_graded_vault(tmp_path)
     play_history(vault, repository)
     assert grade_channel_fixes_on(vault.config)
-    _assert_replays_add_no_ledger_row(vault, repository)
+    graded = _graded_answers(repository)
+    # `play_history` writes its adjudication's evidence revision directly (`append_adjudication_evidence_revision`),
+    # without the ruling the adjudication door writes first, so the channel lags that one grade and the first rebuild
+    # reconciles it: one raw grade, for that answer alone. The door itself leaves no lag (its ruling is the head).
+    _assert_replays_add_no_ledger_row(vault, repository, first_rebuild_lag=_ONE_LAGGING_GRADE)
+    reconciled = _graded_answers(repository) - graded
+    assert {attempt_id for attempt_id, _event in reconciled} == {"att_i1_self"}, reconciled
+    assert len(reconciled) == 1
+
+
+def _graded_answers(repository) -> set[tuple[str, str]]:
+    with repository.connection() as connection:
+        return {tuple(row) for row in connection.execute(
+            "SELECT o.attempt_id, r.id FROM raw_grade_events r JOIN activity_observations o ON o.id = r.observation_id")}
+
+
+def test_history_from_before_the_substrate_is_backfilled_once(tmp_path):
+    """An answer recorded before the vault's first live administration (an older vault's first answer, from before
+    the substrate wrote anything) has its administration, exposures, observation and grade chain backfilled by the
+    first rebuild, and by no later one."""
+
+    from tests.grade_application_golden_helpers import build_graded_vault, play_history
+
+    _paths, vault, repository = build_graded_vault(tmp_path)
+    play_history(vault, repository)
+    rebuild_all_derived_state(vault, repository)  # the history's own lag reconciled (see above)
+    earliest = min(repository.list_all_attempts(), key=lambda attempt: (str(attempt["created_at"]), attempt["id"]))
+    with repository.connection() as connection:
+        # The substrate's rows for the earliest answer are removed, as if it had been recorded before the substrate.
+        connection.execute("PRAGMA foreign_keys = OFF")
+        administrations = [row[0] for row in connection.execute(
+            "SELECT administration_id FROM activity_observations WHERE attempt_id = ?", (earliest["id"],))]
+        marks = ", ".join("?" for _ in administrations)
+        for table in ("measurement_events", "grade_interpretations", "raw_grade_events", "activity_observations",
+                      "activity_exposure_events"):
+            connection.execute(f"DELETE FROM {table} WHERE administration_id IN ({marks})", administrations)
+        connection.execute(f"DELETE FROM activity_administrations WHERE id IN ({marks})", administrations)
+        connection.commit()
+    assert administrations and repository.observation_by_attempt(earliest["id"]) is None
+    assert predates_substrate(earliest["created_at"], substrate_began_at(repository))
+    _assert_replays_add_no_ledger_row(vault, repository, pre_substrate=True)
+    assert repository.observation_by_attempt(earliest["id"]) is not None

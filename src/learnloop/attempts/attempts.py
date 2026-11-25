@@ -538,6 +538,11 @@ class ApplyAttemptInput:
     # Replay and regrade only (mvp-0.66): the attempt's recorded required facets, read instead of today's lifecycle.
     recorded_lifecycle_inputs: LifecycleInputs | None = None
     grade_forecast: Any = None  # live: AD's forecast of this answer, read before the write transaction
+    # Replay only (review round 3, FR3-6): whether replay may write this answer's grade record when it has none
+    # (no observation, or an observation without a raw grade). A rebuild derives and never writes evidence the live
+    # write should have recorded; the caller allows it for history from before the activity substrate, a regrade's
+    # own answer (an explicit grade revision) and the answers `learnloop doctor --fix-state` repairs.
+    may_record_missing_grade: bool = False
 
 
 @dataclass(frozen=True)
@@ -1344,6 +1349,7 @@ def replay_existing_attempt(
     error_events: list[dict[str, Any]] | None = None,
     error_attributions: list[GradeAttribution] | None = None,
     grader_identity: Any = _REPLAY_IDENTITY_FROM_LEDGER,
+    may_record_missing_grade: bool = False,
 ) -> AttemptResult:
     """Recompute derived state for a persisted attempt without re-grading it.
 
@@ -1467,6 +1473,7 @@ def replay_existing_attempt(
                 else None
             ),
             recorded_lifecycle_inputs=recorded_for_replay(vault, repository, str(attempt["id"])),
+            may_record_missing_grade=may_record_missing_grade,
         ),
         clock=clock,
     )
@@ -2722,6 +2729,14 @@ def _dual_write_grade_channel(
             # A rebuild re-applies every answer: the observation the ledger
             # reads is kept, and only what changed is appended to it.
             observation = repository.observation_by_attempt(application.result.attempt_id)
+            if observation is None and not attempt.may_record_missing_grade:
+                # FR3-6: the live write left no grade record (its dual write failed); a rebuild derives and does
+                # not create one. `learnloop doctor` names the answer and its repair records it.
+                logging.getLogger(__name__).warning(
+                    "answer %s has no grade record; the rebuild leaves it unrecorded (run `learnloop doctor`)",
+                    application.result.attempt_id,
+                )
+                return
         grade_channel = dict(
             item=item,
             purpose=purpose,
@@ -2746,15 +2761,24 @@ def _dual_write_grade_channel(
             clock=clock,
         )
         if observation is not None:
-            record_replayed_grade(vault, repository, observation=observation, **grade_channel)
-        else:
-            record_grade_dual_write(vault, repository, **grade_channel)
+            record_replayed_grade(vault, repository, observation=observation,
+                                  may_record_missing=attempt.may_record_missing_grade, **grade_channel)
+        elif record_grade_dual_write(vault, repository, **grade_channel) is None and not attempt.replace_existing:
+            # FR3-6: visible where it happens. The answer is saved without its grade record; `learnloop doctor`
+            # reports it and `doctor --fix-state` records it (a rebuild never does).
+            logging.getLogger(__name__).warning(
+                "answer %s was saved without its grade record (the grade channel's write failed); "
+                "`learnloop doctor` reports it and `learnloop doctor --fix-state` records it",
+                application.result.attempt_id,
+            )
     except Exception:  # noqa: BLE001 - fail-safe dual-write (§7.3)
         # record_grade_dual_write anchors its own degradation telemetry; this outer
         # guard only catches failures BEFORE it is reached (item/rubric lookup).
         # Never silent: degradation is visible, recoverable debt (audit B2).
         logging.getLogger(__name__).warning(
-            "grade dual-write channel degraded before resolution for attempt %s",
+            "grade dual-write channel degraded before resolution for answer %s (item %s); "
+            "`learnloop doctor` reports it and `learnloop doctor --fix-state` records it",
+            getattr(attempt, "attempt_id", None),
             getattr(getattr(attempt, "draft", None), "practice_item_id", None),
             exc_info=True,
         )

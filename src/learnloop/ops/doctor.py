@@ -240,6 +240,9 @@ def run_doctor(root: Path, *, fix_state: bool = False, ai: bool = False, ai_prov
     )
     if repository is not None:
         _check_database_state(vault, repository, database_tables, issues)
+        if _has_tables(database_tables, "practice_attempts", "activity_administrations", "activity_observations",
+                       "raw_grade_events"):
+            _check_answers_without_grade_record(vault, repository, issues, fix_state=fix_state)
         if _has_tables(database_tables, "source_artifacts", "source_revisions", "source_extraction_runs"):
             _check_reread_state(vault, repository, database_tables, issues, fix_state=fix_state)
     _check_criterion_facet_maps(vault, issues)
@@ -460,6 +463,39 @@ def _check_database_state(
         _check_post_attempt_jobs(repository, issues)
     if _has_tables(database_tables, "source_block_fts", "source_document_blocks"):
         _check_source_block_fts(repository, issues)
+
+
+def _check_answers_without_grade_record(
+    vault: LoadedVault, repository: Repository, issues: list[HealthIssue], *, fix_state: bool
+) -> None:
+    """Review round 3, FR3-6: answers saved without their grade record (the grade channel's write failed when they
+    were saved). A rebuild derives and leaves them so; ``--fix-state`` is the explicit repair that records them,
+    replaying their topics with those answers named."""
+
+    from learnloop.substrate.compat.activity_backfill import answers_without_grade_record
+
+    missing = answers_without_grade_record(vault, repository)
+    if missing and fix_state:
+        from learnloop.substrate.replay import replay_learning_object
+
+        by_topic: dict[str, set[str]] = {}
+        for entry in missing:
+            by_topic.setdefault(str(entry["learning_object_id"]), set()).add(str(entry["attempt_id"]))
+        for learning_object_id, attempt_ids in sorted(by_topic.items()):
+            replay_learning_object(vault, repository, learning_object_id,
+                                   repairing_grade_records=frozenset(attempt_ids))
+        missing = answers_without_grade_record(vault, repository)
+    if not missing:
+        return
+    issues.append(_issue(
+        "warning",
+        "answers:grade_record_missing",
+        f"{len(missing)} answer{'s were' if len(missing) != 1 else ' was'} saved without a grade record (saving "
+        "that record failed at the time); a rebuild leaves it as it is. Run `learnloop doctor --fix-state` to "
+        "record it.",
+        repository.sqlite_path,
+        details={"answers": missing},
+    ))
 
 
 def _book_title(repository: Repository, source_id: str) -> str:

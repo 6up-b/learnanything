@@ -1281,6 +1281,35 @@ class ActivityStoreMixin:
             ).fetchone()
         return dict(row) if row is not None else None
 
+    def first_live_administration_at(self) -> str | None:
+        """When the vault first wrote an activity administration itself (not one the §7.1 backfill reconstructed):
+        the stored fact that the activity substrate existed from then on. None when it never wrote one."""
+
+        with self.connection() as connection:
+            row = connection.execute(
+                "SELECT MIN(created_at) FROM activity_administrations WHERE legacy_backfilled = 0"
+            ).fetchone()
+        return str(row[0]) if row is not None and row[0] is not None else None
+
+    def answer_grade_records(self) -> list[dict[str, Any]]:
+        """Every answer with its newest observation (``observation_id``, None without one) and whether that
+        observation holds a raw grade (``graded``): what an answer's grade record is, read in one query."""
+
+        with self.connection() as connection:
+            rows = connection.execute(
+                """
+                SELECT a.id, a.attempt_type, a.learning_object_id, a.created_at,
+                       o.id AS observation_id,
+                       EXISTS(SELECT 1 FROM raw_grade_events r WHERE r.observation_id = o.id) AS graded
+                  FROM practice_attempts a
+                  LEFT JOIN activity_observations o ON o.id = (
+                       SELECT o2.id FROM activity_observations o2 WHERE o2.attempt_id = a.id
+                        ORDER BY o2.created_at DESC, o2.id DESC LIMIT 1)
+                 ORDER BY a.created_at, a.id
+                """
+            ).fetchall()
+        return [dict(row) for row in rows]
+
     def observation_attempt_id(self, observation_id: str) -> str | None:
         """Reverse of :meth:`observation_by_attempt` — the practice attempt an
         activity observation was minted for (ruling A: the grade-points

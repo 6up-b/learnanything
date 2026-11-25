@@ -126,10 +126,9 @@ def _graded_more_than_once(repository: Any, attempt_id: str) -> bool:
     ``legacy:<created_at>``, so a regrade written in its original's second falls under the original's key;
     ``grading_epochs.only_grade`` also reads a superseded row or a second run as a second write. No rows: no grade."""
 
-    from learnloop.grading_epochs import only_grade
+    from learnloop.grading_epochs import graded_more_than_once
 
-    rows = repository.fetch_grading_evidence(attempt_id, include_superseded=True)
-    return bool(rows) and not only_grade(rows)
+    return graded_more_than_once(repository.fetch_grading_evidence(attempt_id, include_superseded=True))
 
 
 __all__ = [

@@ -756,22 +756,32 @@ def test_backfill_converts_probe_presentations_idempotently(env):
     from learnloop.substrate.compat.activity_backfill import backfill_activity_substrate
 
     vault, repo = env
+    # Review round 3, FR3-6: the backfill converts history from before the substrate, i.e. before the vault's first
+    # live administration (here a grade the day after the first presentation); a later presentation is left as its
+    # live write left it.
+    resolve_grade(
+        vault, repo, item=vault.practice_items[ITEM], purpose="practice",
+        grading_source="codex", attempt_id="att_substrate", response_text="answer",
+        rubric_score=4, max_points=4, grader_confidence=0.7, clock=CLOCK,
+    )
     with connect(repo.sqlite_path) as connection:
         connection.execute("PRAGMA foreign_keys = OFF")
-        connection.execute(
-            """
-            INSERT INTO probe_presentations(
-              id, probe_episode_id, practice_item_id, state_segment_id, status,
-              served_at, created_at, updated_at
-            ) VALUES ('pres_1', 'ep_1', ?, 'seg_1', 'submitted',
-                      '2026-05-18T09:00:00Z', '2026-05-18T09:00:00Z', '2026-05-18T09:00:00Z')
-            """,
-            (ITEM,),
-        )
+        for presentation_id, served_at in (("pres_1", "2026-05-18T09:00:00Z"), ("pres_2", "2026-05-20T09:00:00Z")):
+            connection.execute(
+                """
+                INSERT INTO probe_presentations(
+                  id, probe_episode_id, practice_item_id, state_segment_id, status,
+                  served_at, created_at, updated_at
+                ) VALUES (?, 'ep_1', ?, 'seg_1', 'submitted', ?, ?, ?)
+                """,
+                (presentation_id, ITEM, served_at, served_at, served_at),
+            )
         connection.commit()
 
     report = backfill_activity_substrate(vault, repo, clock=CLOCK)
     assert report.presentations_replayed == 1
+    assert report.presentations_after_substrate == 1
+    assert repo.administration_by_legacy_presentation("pres_2") is None
     admin = repo.administration_by_legacy_presentation("pres_1")
     assert admin is not None
     assert admin["purpose"] == "diagnostic"
@@ -780,6 +790,7 @@ def test_backfill_converts_probe_presentations_idempotently(env):
     second = backfill_activity_substrate(vault, repo, clock=CLOCK)
     assert second.presentations_replayed == 0
     assert second.presentations_skipped_existing == 1
+    assert repo.administration_by_legacy_presentation("pres_2") is None
 
 
 def test_quarantine_appends_new_head_without_mutating_prior(env):

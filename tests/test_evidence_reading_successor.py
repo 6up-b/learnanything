@@ -52,7 +52,9 @@ from learnloop.goals.certification_cold_probe import (
 )
 from learnloop.goals.exam_seeding import seed_exam_attempts
 from learnloop.ops import upgrades
+from learnloop.ops.doctor import run_doctor
 from learnloop.ops.upgrades import upgrade
+from learnloop.substrate.compat.activity_backfill import answers_without_grade_record
 from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
@@ -377,6 +379,15 @@ def test_r5_a_same_second_legacy_regrade_of_an_exam_answer_reaches_the_exam_chan
     _rebuild(paths)
     _rebuild(paths)
 
+    # Review round 3, FR3-6 (owner decision b): a rebuild, an upgrade's included, derives and never writes the grade
+    # record a live write did not (the regrade, below the tag, wrote none). At the tag the answer is the channel's, so
+    # `learnloop doctor` reports it and its explicit repair records the replacement on the exam channel, once.
+    assert _exam_channel(paths, attempt_id) == []
+    vault = load_vault(paths.root)
+    missing = answers_without_grade_record(vault, Repository(paths.sqlite_path))
+    assert [entry["attempt_id"] for entry in missing] == ([attempt_id] if tag == TAG else [])
+    run_doctor(paths.root, fix_state=True)
+    _rebuild(paths)
     assert _exam_channel(paths, attempt_id) == ([("assessment", "ai", 4)] if tag == TAG else [])
 
 

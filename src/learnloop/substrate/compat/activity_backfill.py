@@ -19,6 +19,13 @@ Substrate slice of §7.1 (steps 1-4):
    at its recorded time; surfaces reconstructed from a missing item are marked
    ``legacy_surface_unverifiable`` (replay preserved, no new pristine credit).
 
+Historical means recorded before the substrate existed (review round 3, FR3-6): before the vault's first
+administration written live (:func:`substrate_began_at`, a stored fact). A rebuild derives, so it never writes
+evidence the live write should have recorded: a later answer with no observation (a grade whose grade-channel write
+failed) is left as it is and reported (:func:`answers_without_grade_record`); ``learnloop doctor`` names it and only
+its explicit repair (``doctor --fix-state``) records it. A later probe presentation keeps the rows its live write
+made, and none are added.
+
 Steps 5-7 (raw-grade/interpretation conversion, exam-pool reservation
 conversion, calibration seeding + registry) belong to the grading/calibration
 packages and are out of P0.1 scope; the substrate columns they need already exist.
@@ -28,6 +35,8 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
 from typing import Any
+
+from datetime import datetime
 
 from learnloop.clock import Clock, FrozenClock, parse_utc
 from learnloop.db.repositories import Repository
@@ -53,6 +62,10 @@ class BackfillReport:
     presentations_skipped_existing: int = 0
     attempts_replayed: int = 0
     attempts_skipped_existing: int = 0
+    #: Rows recorded after the substrate existed that have no backfilled counterpart, left as they are: the
+    #: presentations their live write already accounts for, and answers missing their observation (reported).
+    presentations_after_substrate: int = 0
+    attempts_after_substrate_without_observation: int = 0
     surfaces_unverifiable: int = 0
     families: set[str] = field(default_factory=set)
     surfaces: set[str] = field(default_factory=set)
@@ -74,6 +87,61 @@ def _purpose_for_attempt_type(attempt_type: str) -> str:
     return "practice"
 
 
+def substrate_began_at(repository: Repository) -> datetime | None:
+    """The instant the activity substrate existed from: the vault's first administration written live (the
+    backfill's own are marked ``legacy_backfilled``), in the clock the vault's own rows are dated by. None when the
+    vault never wrote one."""
+
+    return parse_utc(repository.first_live_administration_at())
+
+
+def predates_substrate(recorded_at: str | None, began: datetime | None) -> bool:
+    """Whether a row recorded at ``recorded_at`` is history from before the substrate (see :func:`substrate_began_at`).
+
+    A vault that never wrote an administration live has no history to backfill: what it holds was recorded by code
+    that writes the substrate wherever it writes at all (a probe presentation, a presentationless probe answer), and
+    every supported vault older than the substrate had its earlier answers backfilled by the whole-vault rebuilds of
+    its upgrades. Should one not have been, its answers are reported as missing their grade record and the repair
+    records them: visible, never invented by a rebuild."""
+
+    if began is None:
+        return False
+    instant = parse_utc(recorded_at)
+    return instant is not None and instant < began
+
+
+def answers_without_grade_record(vault: LoadedVault, repository: Repository) -> list[dict[str, Any]]:
+    """Answers recorded after the substrate existed whose grade record (the one ``apply_attempt``'s grade channel
+    writes) is incomplete: no observation, or an observation with no raw grade (the write failed after it minted the
+    identity). A rebuild never writes these (it derives; FR3-6); ``learnloop doctor`` reports them and
+    ``doctor --fix-state`` records them, through that same channel.
+
+    Answers that channel never records are left out: a diagnostic probe (its own paths record a grade when a
+    presentation or a lesson asked the question; a presentationless probe records none by design) and an exam answer
+    graded once (the sitting records it; an import records none). An exam answer regraded is the channel's from the
+    evidence reading fixes (K5-11, the rule of ``attempts.replay_reading.replaced_exam_purpose``)."""
+
+    from learnloop.algorithm_versions import evidence_reading_fixes_on
+    from learnloop.grading_epochs import graded_more_than_once
+
+    regraded_exams_recorded = evidence_reading_fixes_on(vault.config)
+    began = substrate_began_at(repository)
+    missing: list[dict[str, Any]] = []
+    for row in repository.answer_grade_records():
+        if row["attempt_type"] == "diagnostic_probe" or predates_substrate(row["created_at"], began):
+            continue
+        if "exam" in str(row["attempt_type"]) and not (regraded_exams_recorded and graded_more_than_once(
+                repository.fetch_grading_evidence(row["id"], include_superseded=True))):
+            continue
+        if row["observation_id"] is None:
+            missing.append({"attempt_id": row["id"], "learning_object_id": row["learning_object_id"],
+                            "missing": "observation"})
+        elif not row["graded"]:
+            missing.append({"attempt_id": row["id"], "learning_object_id": row["learning_object_id"],
+                            "missing": "grade"})
+    return missing
+
+
 def _clock_at(iso: str | None) -> Clock:
     instant = parse_utc(iso)
     if instant is None:  # pragma: no cover - defensive; attempts always carry a time
@@ -92,6 +160,8 @@ def backfill_activity_substrate(
     report = BackfillReport()
     items: dict[str, PracticeItem] = dict(vault.practice_items)
     attempts = repository.list_all_attempts()
+    # Read before this run writes anything (its own rows are marked backfilled and never move it).
+    began = substrate_began_at(repository)
 
     # Which items were used for a probe / exam (adapter minting, step 1 tail).
     diagnostic_items: set[str] = set()
@@ -217,6 +287,9 @@ def backfill_activity_substrate(
         if item is None:
             continue
         created_at = presentation.get("served_at") or presentation["created_at"]
+        if not predates_substrate(created_at, began):
+            report.presentations_after_substrate += 1
+            continue
         pres_clock = _clock_at(created_at)
         resolved = resolve_legacy_item(
             vault, repository, item, purpose="diagnostic", clock=pres_clock
@@ -259,6 +332,10 @@ def backfill_activity_substrate(
     for attempt in attempts:
         if repository.observation_by_attempt(attempt["id"]) is not None:
             report.attempts_skipped_existing += 1
+            continue
+        if not predates_substrate(attempt.get("created_at"), began):
+            # Its live write should have recorded the observation; a rebuild does not invent it (FR3-6).
+            report.attempts_after_substrate_without_observation += 1
             continue
         purpose = _purpose_for_attempt_type(attempt["attempt_type"])
         item = items.get(attempt["practice_item_id"])

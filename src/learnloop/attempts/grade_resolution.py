@@ -542,6 +542,7 @@ def record_replayed_grade(
     repository: Repository,
     *,
     observation: Mapping[str, Any],
+    may_record_missing: bool = True,
     **kwargs: Any,
 ) -> None:
     """Replay's grade channel for an answer that already has an observation
@@ -561,6 +562,10 @@ def record_replayed_grade(
       the same grade must not undo;
     - nothing else, and measurement events only beside an append.
 
+    An observation holding no raw grade at all is an answer whose live write failed after it minted the identity:
+    a rebuild leaves it so (FR3-6) unless ``may_record_missing`` (history from before the substrate, a regrade's own
+    answer, an explicit repair).
+
     An adjudication that flipped the answer's direction also revised its grade,
     so its own revision is not taken for a regrade of the grade it settled.
     The review flag is the response's own, as on a fresh observation: the
@@ -569,7 +574,7 @@ def record_replayed_grade(
 
     administration_id = str(observation["administration_id"])
     try:
-        _replay_grade(vault, repository, observation=observation, **kwargs)
+        _replay_grade(vault, repository, observation=observation, may_record_missing=may_record_missing, **kwargs)
     except Exception as exc:  # noqa: BLE001 - fail-safe by design (§7.3)
         _record_dual_write_degradation(repository, {**kwargs, "administration_id": administration_id}, exc)
 
@@ -580,13 +585,13 @@ def _replay_grade(
     *,
     observation: Mapping[str, Any],
     item: PracticeItem,
+    may_record_missing: bool = True,
     clock: Clock | None = None,
     **kwargs: Any,
 ) -> None:
     del vault, item  # the observation names the administration and surface already
     for key in ("administration_id", "observation_id", "surface_id", "feedback_condition"):
         kwargs.pop(key, None)
-    reading = read_grade(repository, clock=clock, **kwargs)
     observation_id = str(observation["id"])
     administration_id = str(observation["administration_id"])
     head = repository.active_interpretation_for_observation(observation_id)
@@ -595,6 +600,13 @@ def _replay_grade(
     else:
         events = repository.raw_grade_events_for_observation(observation_id)
         basis = events[-1] if events else None
+    if basis is None and not may_record_missing:
+        _LOGGER.warning(
+            "answer %s has an observation but no grade; the rebuild leaves it unrecorded (run `learnloop doctor`)",
+            kwargs.get("attempt_id"),
+        )
+        return
+    reading = read_grade(repository, clock=clock, **kwargs)
     review = repository.grade_head_review(observation_id, str(head["id"])) if head is not None else None
     regraded = basis is None or not _same_columns(basis, reading.raw_values, _RAW_GRADE_COLUMNS)
     if regraded and review is not None and review.get("adjudication_id") is not None:
