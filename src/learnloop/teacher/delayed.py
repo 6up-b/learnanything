@@ -134,10 +134,21 @@ def pick(vault: Any, repository: Any, items: Sequence[Any], *, seed_key: str = "
     return pick_with_receipt(vault, repository, items, seed_key=seed_key)[0] if items else None
 
 
-def retention_seed_key(lesson_id: str, learning_object_id: str) -> str:
-    """The retention check's draw: its commit and the lesson forecast about it share it (§12.2)."""
+def retention_seed_key(lesson_id: str, learning_object_id: str, node_id: str | None = None) -> str:
+    """The retention check's draw: its commit and the lesson forecast about it share it (§12.2). From the fix round's
+    tag each landed node's check has its own (``node_id``): two nodes on one LO sharing one draw would make the
+    second pick a function of the first, its recorded propensity not its real one."""
 
-    return f"lesson:{lesson_id}:retention:{learning_object_id}"
+    base = f"lesson:{lesson_id}:retention:{learning_object_id}"
+    return base if node_id is None else f"{base}:node:{node_id}"
+
+
+def node_seed(vault: Any, node_id: Any) -> str | None:
+    """The node's identity in its retention seed from the fix round's tag; None below it."""
+
+    from learnloop.algorithm_versions import forecast_scoring_fixed
+
+    return str(node_id) if forecast_scoring_fixed(vault.config.algorithms.algorithm_version) else None
 
 
 def commit_checks(vault: Any, repository: Any, *, lesson_id: str, landed: Sequence[Mapping[str, Any]],
@@ -180,7 +191,7 @@ def commit_checks(vault: Any, repository: Any, *, lesson_id: str, landed: Sequen
         landed_los.append(str(lo))
         item = picked_for(candidates(vault, repository, str(lo), exclude=used, withheld=withheld,
                                      attempted=attempted, revealed=revealed, excluded_lineage=shown_lineage),
-                          retention_seed_key(lesson_id, str(lo)))
+                          retention_seed_key(lesson_id, str(lo), node_seed(vault, node.get("id"))))
         if item is None:
             warnings.append(f"no unseen question for a cold check on {lo}")
             plan.append(("retention", str(node.get("id")), str(lo), None))
@@ -244,4 +255,4 @@ def commit_checks(vault: Any, repository: Any, *, lesson_id: str, landed: Sequen
 
 
 __all__ = ["PICK_VERSION", "PURPOSES", "candidates", "commit_checks", "due_days", "lineage", "measures_facet", "pick",
-           "pick_with_receipt", "presentation", "retention_seed_key", "shown_vault_items", "taught_facets"]
+           "node_seed", "pick_with_receipt", "presentation", "retention_seed_key", "shown_vault_items", "taught_facets"]

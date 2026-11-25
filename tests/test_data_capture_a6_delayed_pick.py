@@ -14,6 +14,8 @@ import json
 import pytest
 
 from learnloop.algorithm_versions import (
+    FORECAST_SCORING_ALGORITHM_VERSION,
+    LESSON_WEIGHT_CURVES_ALGORITHM_VERSION,
     DATA_CAPTURE_ALGORITHM_VERSION,
     LABEL_RETIRED_ALGORITHM_VERSION,
     PROBE_ROUTER_ALGORITHM_VERSION,
@@ -142,3 +144,18 @@ def test_from_the_label_retirement_an_los_items_tie_and_the_pick_draws(tmp_path)
     assert predictions["pi_a"] == predictions["pi_b"]
     _item_chosen, receipt = D.pick_with_receipt(vault, repository, items, seed_key="k")
     assert receipt["n"] == 2 and receipt["draw"] is not None
+
+
+@pytest.mark.parametrize("version", [LESSON_WEIGHT_CURVES_ALGORITHM_VERSION, FORECAST_SCORING_ALGORITHM_VERSION])
+def test_two_landed_nodes_on_one_lo_draw_their_checks_from_their_own_seeds(tmp_path, version):
+    """From the fix round's tag each landed node's retention check is seeded on its node: two nodes on one LO no
+    longer share one uniform draw, which made the second pick a function of the first (its recorded 1/2 really 1).
+    Below the tag, one seed per lesson and LO, as it was."""
+
+    paths, repository, vault = _vault(tmp_path, version=version, pi_a=0.5, pi_b=0.5, pi_mid=0.5)
+    out, _warnings = D.commit_checks(
+        vault, repository, lesson_id="les_two", landed=[{"id": "n1", "lo_id": "lo_eigen"}, {"id": "n2", "lo_id": "lo_eigen"}],
+        goal_learning_object_ids=["lo_eigen"], lesson_items_by_lo={}, shown_items=[], clock=FrozenClock(parse_utc(NOW)))
+    seeds = [check["pick"]["seed"] for check in out if check["purpose"] == "retention"]
+    assert len(seeds) == 2 and all(seeds)
+    assert (seeds[0] != seeds[1]) is (version == FORECAST_SCORING_ALGORITHM_VERSION)

@@ -922,8 +922,20 @@ def irt_observation(
     ``K`` and the gain stays well-defined as ``p -> 0/1``.
     """
 
+    return irt_observation_at(sigmoid(item_a * (prior.logit_mean - item_b)), item_a, prior, observation, config)
+
+
+def irt_observation_at(
+    p_raw: float,
+    item_a: float,
+    prior: MasteryState,
+    observation: MasteryObservation,
+    config: MasteryConfig,
+) -> IrtObservation:
+    """:func:`irt_observation` around a predicted success ``p_raw`` given directly (a forecast's), clipped once by the
+    configured ``p_clip``: the same sensitivity ``a·p(1−p)``, noise and innovation variance."""
+
     irt = config.irt
-    p_raw = sigmoid(item_a * (prior.logit_mean - item_b))
     p = clamp(p_raw, irt.p_clip, 1.0 - irt.p_clip)
     pq = p * (1.0 - p)
     sensitivity_h = item_a * pq

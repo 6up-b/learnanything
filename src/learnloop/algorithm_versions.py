@@ -1065,6 +1065,12 @@ LABEL_RETIRED_ALGORITHM_VERSION = "mvp-0.71"
 # Effective mastery curves for the lesson-weight fit (L4-2; docs/reviews/algorithm-mvp-0.72.md), on top of the
 # difficulty label's retirement, mvp-0.71.
 LESSON_WEIGHT_CURVES_ALGORITHM_VERSION = "mvp-0.72"
+# The difficulty label retirement's fix round (docs/reviews/algorithm-mvp-0.73.md), on top of the lesson-weight
+# curves, mvp-0.72: surprise against AD's forecast is scored from the forecast's probability itself (the configured
+# clip once, no inverse through ``b`` and no division by the discrimination), also where mastery's IRT link is off,
+# and every surprise row names its source; a delayed check's draw among tied items is seeded per decision node. One
+# constant: renumbering the tag is this line.
+FORECAST_SCORING_ALGORITHM_VERSION = "mvp-0.73"
 
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
 # first. Each successor means its predecessor's semantics PLUS its own, so
@@ -1136,6 +1142,7 @@ SUCCESSOR_CHAIN: tuple[str, ...] = (
     PROBE_ROUTER_ALGORITHM_VERSION,
     LABEL_RETIRED_ALGORITHM_VERSION,
     LESSON_WEIGHT_CURVES_ALGORITHM_VERSION,
+    FORECAST_SCORING_ALGORITHM_VERSION,
 )
 
 
@@ -1326,6 +1333,18 @@ def label_retired(algorithm_version: str | None) -> bool:
     section of the config)."""
 
     return algorithm_version in LABEL_RETIRED_VERSIONS
+
+
+# Versions where surprise is scored from AD's forecast probability directly and a delayed check's tie draw is seeded
+# per decision node. Gates read it through :func:`forecast_scoring_fixed`.
+FORECAST_SCORING_VERSIONS: frozenset[str] = successors_from(FORECAST_SCORING_ALGORITHM_VERSION)
+
+
+def forecast_scoring_fixed(algorithm_version: str | None) -> bool:
+    """The label retirement's fix round (its tag): below it mvp-0.72's surprise scoring and delayed-check seeds exactly.
+    Takes the vault's tag."""
+
+    return algorithm_version in FORECAST_SCORING_VERSIONS
 
 
 def probe_router_on(config: object) -> bool:

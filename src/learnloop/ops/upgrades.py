@@ -38,6 +38,7 @@ from learnloop.algorithm_versions import (
     FACET_BELIEF_FIX_ALGORITHM_VERSION,
     GRADE_CHANNEL_FIX_ALGORITHM_VERSION,
     LATEST_ALGORITHM_VERSION,
+    FORECAST_SCORING_ALGORITHM_VERSION,
     LESSON_WEIGHT_CURVES_ALGORITHM_VERSION,
     LIFECYCLE_INPUTS_ALGORITHM_VERSION,
     MASTERY_SEED_ALGORITHM_VERSION,
@@ -291,6 +292,7 @@ UPGRADES: tuple[Link, ...] = (
     # and missing markers are frozen before any projection is cleared, then the whole vault is rebuilt (the fit refits
     # on them).
     Link(LESSON_WEIGHT_CURVES_ALGORITHM_VERSION, frozen_grade_curves_then_rebuild),
+    Link(FORECAST_SCORING_ALGORITHM_VERSION, whole_vault_rebuild),
 )
 
 

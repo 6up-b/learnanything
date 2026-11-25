@@ -111,7 +111,7 @@ def lesson_item(item: Any) -> bool:
 
 
 def cold_reference(vault: Any, repository: Any, learning_object_id: str, *, lesson_id: str,
-                   exclude: Sequence[str], lesson_item_ids: Sequence[str]) -> dict[str, Any]:
+                   exclude: Sequence[str], lesson_item_ids: Sequence[str], node_id: str | None = None) -> dict[str, Any]:
     """The committed cold item a node's retention forecast is about, as of now (§12.2; review F5): the
     item the delayed retention check would commit (``teacher.delayed``'s candidate rule and picker,
     excluding the lesson's own and shown items and their lineage), its IRT parameters (the LO's when no
@@ -126,7 +126,7 @@ def cold_reference(vault: Any, repository: Any, learning_object_id: str, *, less
     found = D.pick(vault, repository, D.candidates(
         vault, repository, learning_object_id, exclude=exclude, withheld=withheld_items(vault, repository),
         attempted=D._attempted(repository), revealed=D._revealed(repository, lesson_id), excluded_lineage=lineage),
-        seed_key=D.retention_seed_key(lesson_id, learning_object_id))
+        seed_key=D.retention_seed_key(lesson_id, learning_object_id, D.node_seed(vault, node_id)))
     a, b = resolve_item_irt_params(found, vault.learning_objects.get(learning_object_id), vault.config.mastery,
                                    algorithm_version=vault.config.algorithms.algorithm_version)
     days, basis = D.due_days(vault, repository, purpose="retention", lesson_item_ids=list(lesson_item_ids))

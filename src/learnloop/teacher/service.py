@@ -1259,7 +1259,7 @@ def _answer_check(vault: Any, repository: Any, state: LessonState, payload: Mapp
     with repository.atomic():
         reference = None
         if retained is not None:
-            reference = CK.cold_reference(vault, repository, lo, lesson_id=state.lesson_id,
+            reference = CK.cold_reference(vault, repository, lo, lesson_id=state.lesson_id, node_id=node_id,
                                           exclude=_lesson_shown(vault, state),
                                           lesson_item_ids=[c["minted_item_id"] for c in state.checks
                                                            if c.get("minted_item_id")])
@@ -2352,7 +2352,7 @@ def _forecast(vault: Any, repository: Any, state: LessonState, request: ActionRe
             # the state rides with the receipt so the pool scores p_A for the item that resolves it.
             from learnloop.learner.lesson_weight import predicted_success
 
-            reference = CK.cold_reference(vault, repository, lo, lesson_id=state.lesson_id,
+            reference = CK.cold_reference(vault, repository, lo, lesson_id=state.lesson_id, node_id=node,
                                           exclude=_lesson_shown(vault, state),
                                           lesson_item_ids=[c["minted_item_id"] for c in state.checks
                                                            if c.get("minted_item_id")])

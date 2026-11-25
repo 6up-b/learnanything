@@ -143,7 +143,7 @@ from learnloop.attempts.surprise import SurpriseResult, compute_surprise
 from learnloop.adaptive_difficulty.surprise_forecast import (
     read_surprise_forecast, record_grade_forecast, with_grade_forecast,
 )
-from learnloop.algorithm_versions import label_retired
+from learnloop.algorithm_versions import forecast_scoring_fixed, label_retired
 from learnloop.vault.hashes import practice_item_hash
 from learnloop.vault.models import LearningObject, LoadedVault, PracticeItem, Rubric
 
@@ -4969,7 +4969,7 @@ def _belief_update(
         item_b=item_b,
         forecast=evidence.surprise_forecast,
         priming_offset=config.mastery.irt.priming_b_offset if draft.primed else 0.0,
-        record_source=retired,
+        record_source=retired, direct=forecast_scoring_fixed(config.algorithms.algorithm_version),
     )
     if held:
         # A held grade rests on mark-downs nobody located: it is no
