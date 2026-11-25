@@ -347,6 +347,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/surprise_reads_ad_forecast_helpers.py](../../../../../../tests/surprise_reads_ad_forecast_helpers.py) — direct import
 - [tests/teacher_te0_confidence_events_helpers.py](../../../../../../tests/teacher_te0_confidence_events_helpers.py) — direct import
 - [tests/test_activity_backfill.py](../../../../../../tests/test_activity_backfill.py) — direct import
+  - `test_an_answer_whose_writer_never_recorded_live_is_reported_with_unknown_provenance`
   - `test_backfill_marks_unverifiable_for_missing_item`
   - `test_backfill_populates_substrate_from_fixture`
   - `test_backfill_render_once_per_shared_surface`
@@ -451,6 +452,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_later_held_out_grade_does_not_change_an_unrelated_public_answers_forecast`
   - `test_a_plan_answer_to_a_held_out_served_revision_writes_no_grade_receipt`
   - `test_a_presentation_after_a_grade_froze_its_contract_saves_the_revision_it_showed`
+  - `test_an_answer_to_a_repeat_presentation_that_froze_no_revision_writes_no_grade_receipt`
+  - `test_an_answer_whose_contract_cites_an_unsaved_held_revision_is_withheld`
 - [tests/test_approach_map_boundaries.py](../../../../../../tests/test_approach_map_boundaries.py) — direct import
   - `test_grading_prompts_never_carry_or_read_a_stored_map`
 - [tests/test_approach_map_replay.py](../../../../../../tests/test_approach_map_replay.py) — direct import
