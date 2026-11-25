@@ -2055,19 +2055,48 @@ class CausalStoreMixin:
             ).encode("utf-8")
         ).hexdigest()[:32]
         if once:
-            with self.connection() as connection:
-                latest = connection.execute(
-                    "SELECT id, decision_fingerprint, repair_status, candidate_id FROM causal_probe_decision_receipts "
-                    "WHERE factor_id = ? ORDER BY created_at DESC, id DESC LIMIT 1",
-                    (factor_id,),
-                ).fetchone()
-            # The same facts under the same status and candidate: a receipt never stands for a status it
-            # did not record.
-            if (latest is not None and latest["decision_fingerprint"] == fingerprint
-                    and latest["repair_status"] == repair_status and latest["candidate_id"] == candidate_id):
-                found = self.causal_probe_decision_receipt(str(latest["id"]))
-                assert found is not None
-                return found
+            # The lookup and the insertion are one write transaction (G2-R18's residue): two identical reads at once
+            # cannot both miss the latest receipt and append two pending receipts.
+            with self.atomic():
+                with self.connection() as connection:
+                    latest = connection.execute(
+                        "SELECT id, decision_fingerprint, repair_status, candidate_id FROM causal_probe_decision_receipts "
+                        "WHERE factor_id = ? ORDER BY created_at DESC, id DESC LIMIT 1",
+                        (factor_id,),
+                    ).fetchone()
+                # The same facts under the same status and candidate: a receipt never stands for a status it
+                # did not record.
+                if (latest is not None and latest["decision_fingerprint"] == fingerprint
+                        and latest["repair_status"] == repair_status and latest["candidate_id"] == candidate_id):
+                    receipt_id = str(latest["id"])
+                else:
+                    receipt_id = self._append_causal_probe_decision_receipt(
+                        fingerprint=fingerprint, factor_id=factor_id, learning_object_id=learning_object_id,
+                        attempt_id=attempt_id, misconception_id=misconception_id, decision=decision, reason=reason,
+                        repair_status=repair_status, decision_policy_version=decision_policy_version,
+                        formula_version=formula_version, inputs=inputs, parameters=parameters,
+                        hypothesis_ids=hypothesis_ids, repair_class_ids=repair_class_ids, candidate_id=candidate_id,
+                        blind_bundle_ids=blind_bundle_ids, machine_check_ids=machine_check_ids, now=now)
+            found = self.causal_probe_decision_receipt(receipt_id)
+            assert found is not None
+            return found
+        receipt_id = self._append_causal_probe_decision_receipt(
+            fingerprint=fingerprint, factor_id=factor_id, learning_object_id=learning_object_id, attempt_id=attempt_id,
+            misconception_id=misconception_id, decision=decision, reason=reason, repair_status=repair_status,
+            decision_policy_version=decision_policy_version, formula_version=formula_version, inputs=inputs,
+            parameters=parameters, hypothesis_ids=hypothesis_ids, repair_class_ids=repair_class_ids,
+            candidate_id=candidate_id, blind_bundle_ids=blind_bundle_ids, machine_check_ids=machine_check_ids, now=now)
+        receipt = self.causal_probe_decision_receipt(receipt_id)
+        assert receipt is not None
+        return receipt
+
+    def _append_causal_probe_decision_receipt(
+        self, *, fingerprint: str, factor_id: str, learning_object_id: str | None, attempt_id: str | None,
+        misconception_id: str | None, decision: str, reason: str, repair_status: str, decision_policy_version: str,
+        formula_version: str, inputs: Mapping[str, Any], parameters: Mapping[str, Any], hypothesis_ids: Sequence[str],
+        repair_class_ids: Sequence[str], candidate_id: str | None, blind_bundle_ids: Sequence[str],
+        machine_check_ids: Sequence[str], now: str,
+    ) -> str:
         receipt_id = new_ulid()
         with self.connection() as connection:
             connection.execute(
@@ -2105,9 +2134,7 @@ class CausalStoreMixin:
                 ),
             )
             connection.commit()
-        receipt = self.causal_probe_decision_receipt(receipt_id)
-        assert receipt is not None
-        return receipt
+        return receipt_id
 
     def _decode_causal_probe_decision_receipt(
         self, row: sqlite3.Row

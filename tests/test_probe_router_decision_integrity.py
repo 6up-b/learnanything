@@ -661,3 +661,49 @@ def test_r19_the_repair_entry_holds_while_the_router_decides(tmp_path, monkeypat
     valued = _counting_valuations(monkeypatch)
     held = call(case.ctx, "start_remediation", {"misconceptionId": case.first})
     assert held["episode"] is None and held["repairStatus"]["routerState"] == "pending" and valued == []
+
+
+def test_r18_two_identical_reads_at_once_append_one_pending_receipt(tmp_path, monkeypatch):
+    """G2-R18's residue: the lookup and the insertion of a facts receipt are one write transaction, so two identical
+    reads that both look before either inserts cannot append two receipts."""
+
+    import threading
+
+    from learnloop.db.repositories import Repository
+    from learnloop.db.stores import causal as causal_store
+
+    case = learner_case(tmp_path, monkeypatch)
+    path = case.repository.sqlite_path
+    real = causal_store.new_ulid
+    barrier = threading.Barrier(2)
+
+    def after_the_lookup():
+        # Both reads have looked (or one waits on the other's write transaction): then each inserts.
+        try:
+            barrier.wait(timeout=1.0)
+        except threading.BrokenBarrierError:
+            pass
+        return real()
+
+    monkeypatch.setattr(causal_store, "new_ulid", after_the_lookup)
+    facts = dict(factor_id=case.factor, decision="facts", reason="router_facts", repair_status="needs_disambiguation",
+                 decision_policy_version="test", formula_version="test", inputs={"a": 1}, parameters={},
+                 once=True)
+    results: list[str] = []
+    errors: list[BaseException] = []
+
+    def read():
+        try:
+            results.append(str(Repository(path).insert_causal_probe_decision_receipt(**facts)["id"]))
+        except BaseException as error:  # noqa: BLE001 - reported below
+            errors.append(error)
+
+    threads = [threading.Thread(target=read) for _ in range(2)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    assert not errors and len(results) == 2 and results[0] == results[1]
+    with case.repository.connection() as connection:
+        assert connection.execute("SELECT COUNT(*) FROM causal_probe_decision_receipts WHERE factor_id = ? AND "
+                                  "decision = 'facts'", (case.factor,)).fetchone()[0] == 1

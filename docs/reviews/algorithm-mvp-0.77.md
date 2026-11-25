@@ -62,6 +62,9 @@ mvp-0.76's. Owner rule: a logged propensity is exactly the served distribution.
   again (`measurement.decision_exclusions`) and carries them through sharing, this settlement's fresh checks and the
   new pick. Tests: `tests/test_probe_router_continuation.py::test_a_probe_decisions_measurement_never_shares_a_check_on_its_instrument`,
   `::test_a_replacement_check_keeps_the_decisions_instrument_exclusions`.
+- G2-R18's residue: a facts receipt's lookup and insertion are one write transaction
+  (`insert_causal_probe_decision_receipt(once=True)`), so two identical status reads at once append one receipt.
+  Test: `tests/test_probe_router_decision_integrity.py::test_r18_two_identical_reads_at_once_append_one_pending_receipt`.
 
 ## Pins and goldens
 
