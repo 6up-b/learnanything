@@ -122,10 +122,10 @@ case: every opener that may write completes it, which flips the row.
   `algorithm_version` stamp, and the derived ones are rebuilt. Fencing another write is one `GUARDED` entry and one
   trigger in a migration. `tests/test_writer_fence.py` checks that every entry has its trigger at the head, so a later
   table-rebuilding migration that drops one fails.
-- **A stale vault object inside a process that has itself reloaded.** An example is a background thread in the
-  sidecar that captured the vault before the sidecar reloaded to the new tag and writes after the reload. It writes
-  under the process's newest binding and is not caught. The `writing_under` scope can bind such work to its own
-  vault. No background job uses it yet: the desktop's background work is bounded, and the main thread reloads.
+- **A stale vault object inside a process that has itself reloaded** is covered since the review fix round (below),
+  wherever the work runs in a scope or through a repository made for its vault. It is not covered on a thread
+  that starts outside every scope and opens connections by path, holding a vault object it loaded before its own
+  process reloaded. Such a thread writes under the newest load. None is known in the hosts; the scope is the seam.
 - **Code older than the fence after the first fence-aware activation** is refused at every fenced write, at any tag.
   This includes running pre-fence code on a vault that fence-aware code upgraded. The undo is the playbook's: restore
   a copy taken before the upgrade. Before that first activation there is no row, so an older binary keeps working.
@@ -175,3 +175,98 @@ Fail-first: two scratch copies of the core scenarios ran on the base commit `b88
 The real `a17cba6132` grader was also run against this branch's upgrade. It graded before the upgrade, then was
 refused after it, with nothing written and no surprise row without a curve. Against the base commit's upgrade, the
 same run graded after the upgrade and left one surprise row without a curve.
+
+## Review fix round (2026-11-25, ledger WF-R1 to WF-R12)
+
+The adversarial review of `81f18a6221` found that the binding was the process's, that refusals could be swallowed,
+that an upgrade could move the database's tag backwards, and that more stale writes lose a fact. The fixes are by
+class. Migration 276 adds triggers; no tag is added.
+
+**A. The binding belongs to the vault the write was computed from (WF-R1, WF-R10).**
+
+- **Repositories.** A `Repository` keeps the binding in force when it was made. `vault_repository` makes it under the
+  tag of its paths' own config, and an entry point makes it right after it loads the vault.
+- **Hosts.**
+  - The desktop sidecar and the phone host scope each request to their context's vault. The phone host runs the
+    sidecar's handlers, so its RPC worker and job worker each write under their own context's vault.
+  - A request that publishes a reloaded vault rebinds the rest of the request to it.
+  - A background job runs under the scope of the request that started it.
+  - The post-attempt worker scopes each pass to the vault it was handed.
+  - The MCP host scopes each request to the vault it loaded, and remakes its repository under each newly loaded vault.
+  - The CLI's repository no longer reloads the vault. The repository writes under the command's first load, the vault
+    the command computes from.
+- **Fallback.** The process's newest load applies only to a connection outside every scope and every bound
+  repository.
+- **One read per checkout.** `connect()` reads the binding once and passes it to both the pool's key and the
+  registration. The test pool does the same.
+
+**B. A refusal is never swallowed (WF-R2, WF-R12, the lesson probe's conversion).**
+
+- **The exception.** On every writable connection this code opens (`FencedConnection` and `FencedCursor`), the trigger's
+  refusal is raised as `WriterFenceRefusal`.
+- **Why a `BaseException`.** No `except Exception` can take it. That covers the forecast receipts' best-effort
+  handler, AD's logging savepoints and the lesson probe's `grading_unavailable`. The enclosing serve or grade
+  therefore rolls back whole, and the host answers.
+- **Boundaries.** Only `except BaseException` and a bare `except` can catch it.
+  - Each such handler in `src` re-raises or is a registered boundary (`writer_fence.REFUSAL_BOUNDARIES`). A boundary
+    hands the refusal to a waiter, or answers a job with `vault_upgraded_while_open`.
+  - Every keep-alive worker loop takes the refusal and continues (post-attempt worker, ingest drains, figure prefetch),
+    or is registered as writing no fenced table (leases, heartbeats, the notebook runtime).
+  - Two AST tests enforce both rules.
+- **Reloads.**
+  - Each refusal is counted per database, and a sidecar context compares that count at its next request. If the vault's
+    tag is no longer the database's, it reloads first.
+  - When the config itself disagrees with the database, the sidecar says to run `learnloop upgrade` and does not offer a
+    retry.
+  - The MCP host drops its cached vault on a refusal.
+- **Forecast receipts.** `scheduling/forecast_receipts.py` needed no change.
+
+**C. The database's tag never moves backwards (WF-R4).**
+
+- `learnloop upgrade` starts from the row when it has one.
+- A config that disagrees with the row is set back to the database's tag before the walk, and the result notes it. A
+  config disagrees when it was restored from an older copy or edited by hand, and no journal stands.
+- A database tag this code does not know is refused in plain words.
+- `writer_fence.advance` moves the row only from the link's predecessor, under the activation's lock. An empty row
+  (before the first fence-aware activation, or before migration 275) counts as the predecessor.
+
+**D. More stale writes that lose or corrupt a fact (WF-R2, WF-R6, WF-R8, WF-R9; migration 276).**
+
+| Fenced write | Why it is permanent or learner-visible |
+|---|---|
+| `plan_presentations` insert | The serve-time forecast is recorded only by the serve that inserts it. |
+| `probe_presentations` insert | A probe pinned for the learner. |
+| `grade_adjudications` insert | It moves an interpretation's head even without new evidence. |
+| `reader_section_progress` insert and update, only where `completed_at` first appears | The first completion and its cause are kept for good. |
+
+The proportionate bar is the review's. A stamped, rebuilt row is not fenced; a stale reader's scroll progress still
+records.
+
+**E. The phone and the desktop (WF-R11).**
+
+- **Phone adapter.** It leaves `vault_upgraded_while_open`'s retryability to the host's flag, so an explicit "restart"
+  stays non-retryable.
+- **Phone outbox.** It keeps a retryable refusal queued under its id, so a later flush sends it again. It flags one the
+  host cannot retry, with the host's words.
+- **Desktop.** No change was needed: it already shows the sidecar's message and offers Try again for a retryable error
+  (`apps/learnloop-tauri/src/app/notices.ts`, `src/errors.ts`).
+
+**Refuted or owned elsewhere.**
+
+- **WF-R3 (exam finish):** fixed on main by `74ab78be7e` before this round.
+- **WF-R5 (exam seeding's replay set) and the early-committed lesson turn of WF-R7:** these sit in files the parallel
+  score fix round owns (`goals/exam_seeding.py`, `teacher/service.py`).
+
+**Not enforced after this round.**
+
+- **Unscoped stale threads:** the thread case named above.
+- **Unfenced tag-dependent rows:** a stale writer's stamped or rebuilt rows outside the fenced writes.
+- **Pre-fence code:** older code before the vault's first fence-aware activation.
+- **Not a security boundary:** a client that drops the triggers can still write.
+- **One-shot threads:** a one-shot background thread that is neither a registered boundary nor a keep-alive loop ends
+  on a refusal, with its traceback in the log. Its writes rolled back, and the host reloads at its next request.
+
+**Tests.** `tests/test_writer_fence_scopes.py` holds one or more tests per finding. Its 18 tests failed on
+`a45e3c1b1c`. The outbox test's retryable case failed on the old outbox. The round-one fence tests now expect the
+fence's own exception on this code's connections.
+
