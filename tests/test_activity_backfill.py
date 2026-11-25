@@ -208,18 +208,54 @@ def test_backfill_logs_attempt_duration_interaction_events(tmp_path):
     event is logged (§3.8, 'log now, model later')."""
 
     vault_root = _copy_fixture(tmp_path)
-    vault = load_vault(vault_root)
-    repo = open_vault_repository(vault_root, vault_root / "state.sqlite")
-    # Give one attempt a recorded latency so the duration path is exercised. It must be legacy (no observation yet),
-    # and the owner's copies no longer hold one since practice began writing observations, so one is made legacy here.
+    _assert_backfill_logs_the_duration(load_vault(vault_root),
+                                       open_vault_repository(vault_root, vault_root / "state.sqlite"))
+
+
+def test_backfill_logs_attempt_duration_for_a_pre_substrate_attempt_of_a_live_vault(tmp_path):
+    """The owner-vault test's shape on a synthetic vault (FR3-6's boundary): every attempt here was written live, so
+    one is made history from before the substrate by the stored facts the boundary reads. Deleting its observation
+    alone (the earlier setup) left its live administration, so it was after the substrate began and the backfill,
+    rightly, logged nothing for it."""
+
+    from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
+    from learnloop.substrate.state_sync import sync_vault_state
+    from datetime import timedelta
+
+    from tests.helpers import create_placement_vault
+
+    paths = create_placement_vault(tmp_path / "vault")
+    vault, repo = load_vault(paths.root), Repository(paths.sqlite_path)
+    sync_vault_state(vault, repo, clock=CLOCK)
+    for minutes, item in zip((0, 10), sorted(vault.practice_items)[:2], strict=True):
+        complete_self_graded_attempt(vault, repo, AttemptDraft(item, "An answer."),
+                                     SelfGradeInput({"correctness": 3}, 3),
+                                     clock=FrozenClock(NOW + timedelta(minutes=minutes)))
+    _assert_backfill_logs_the_duration(vault, repo)
+
+
+def _assert_backfill_logs_the_duration(vault, repo) -> None:
+    # Give one attempt a recorded latency so the duration path is exercised. It must be history from before the
+    # substrate, and these vaults hold none (every answer since the substrate writes its administration and
+    # observation live), so the earliest one is made so by the stored facts the backfill's boundary reads
+    # (``activity_backfill.substrate_began_at``: the first administration written live, ``legacy_backfilled = 0``):
+    # its observation and its own duration event go, and every administration written live at or before it (its
+    # own included, which later answers to the same open item can share, so none is deleted) is marked as the
+    # backfill marks what it reconstructs. Before (FR3-6), deleting its observation alone left its live
+    # administration, so it was after the substrate began and the backfill rightly logged nothing for it.
+    from learnloop.substrate.compat.activity_backfill import predates_substrate, substrate_began_at
+
     with connect(repo.sqlite_path) as connection:
-        target = connection.execute("SELECT id FROM practice_attempts ORDER BY id LIMIT 1").fetchone()["id"]
+        target, created_at = connection.execute(
+            "SELECT id, created_at FROM practice_attempts ORDER BY created_at, id LIMIT 1").fetchone()
         connection.execute("PRAGMA foreign_keys = OFF")  # this copy only: later rows name the observation
         connection.execute("DELETE FROM activity_observations WHERE attempt_id = ?", (target,))
-        connection.execute(
-            "UPDATE practice_attempts SET latency_seconds = 37 WHERE id = ?", (target,)
-        )
+        connection.execute("DELETE FROM interaction_events WHERE attempt_id = ?", (target,))
+        connection.execute("UPDATE activity_administrations SET legacy_backfilled = 1 "
+                           "WHERE legacy_backfilled = 0 AND created_at <= ?", (created_at,))
+        connection.execute("UPDATE practice_attempts SET latency_seconds = 37 WHERE id = ?", (target,))
         connection.commit()
+    assert predates_substrate(created_at, substrate_began_at(repo))
 
     backfill_activity_substrate(vault, repo, clock=CLOCK)
 
