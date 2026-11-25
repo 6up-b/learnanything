@@ -23,6 +23,7 @@ from learnloop.vault.loader import load_vault
 
 from tests.regrade_contract_replay_helpers import _regrade
 from tests.teacher_fakes import build_teacher_vault
+from tests.lesson_weight_fit_helpers import apply_with_id as _apply
 from tests.teacher_te1_review_fixes_helpers import _cold, _lesson_with_check
 
 T = datetime(2026, 11, 1, 9, tzinfo=UTC)
@@ -30,37 +31,6 @@ T = datetime(2026, 11, 1, 9, tzinfo=UTC)
 
 #: Ids minted in this order (A before B) and applied in the other (B, then A).
 A_ID, B_ID = "01ZZZZZZZZZZZZZZZZZZZZZZZA", "01ZZZZZZZZZZZZZZZZZZZZZZZB"
-
-
-def _apply(paths, repository, item_id, points, *, attempt_id, when, primed=False):
-    """A self-graded answer with a chosen id, through the shared attempt step."""
-
-    from learnloop.attempts.attempts import (
-        ApplyAttemptInput,
-        AttemptDraft,
-        ResolvedGrade,
-        apply_attempt,
-        calculate_rubric_score,
-    )
-    from learnloop.attempts.grading import resolved_rubric
-    from learnloop.clock import FrozenClock
-
-    vault = load_vault(paths.root)
-    rubric = resolved_rubric(vault, vault.practice_items[item_id])
-    criterion = {"correctness": float(points)}
-    stamp = when.isoformat().replace("+00:00", "Z")
-    return apply_attempt(vault, repository, ApplyAttemptInput(
-        draft=AttemptDraft(practice_item_id=item_id, learner_answer_md="an answer", attempt_type="independent_attempt",
-                           primed=primed),
-        attempt_id=attempt_id,
-        grade=ResolvedGrade(
-            rubric_score=calculate_rubric_score(rubric, criterion, []), criterion_points=criterion,
-            evidence_rows=[{"id": f"ge_{attempt_id}", "criterion_id": "correctness", "points_awarded": float(points),
-                            "evidence": "self", "notes": None, "local_grader_id": "self", "grader_tier": 1,
-                            "created_at": stamp}],
-            error_attributions=[], grader_confidence=1.0, confidence=3, manual_review_reason=None,
-            feedback_md="self-graded"),
-        grading_source="self"), clock=FrozenClock(when))
 
 
 def test_an_update_applied_before_the_outcome_in_its_second_is_in_the_window(tmp_path):

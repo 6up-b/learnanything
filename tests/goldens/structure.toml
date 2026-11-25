@@ -47,7 +47,9 @@ source_text_assertions = 23
 # adaptive_difficulty/surprise_forecast.py and grade_forecast.py) and passes the vault's tag to the IRT seam.
 # 5871: the lesson-weight curves (mvp-0.72) read an epoch's recorded curve in replay and keep it beside the label-free
 # seam in the grade's evidence (one field, the read, the branch), the capture itself living in db/stores/grade_curves.
-"src/learnloop/attempts/attempts.py" = 5871
+# 5873: from mvp-0.75 a live grade observes at the whole second replay observes at, and the grade's payload records
+# mastery's application facts (the gate and the call; the builder lives in learner/mastery.py).
+"src/learnloop/attempts/attempts.py" = 5873
 "src/learnloop/db/repositories.py" = 3025
 # 4468: the probe router's continuation (G2 R8): a router-owned episode's one candidate is the item its standing pin
 # names, admitted by that decision whatever its EIG and placed first (the episode reads, the probe gate's admission, the
@@ -77,7 +79,9 @@ source_text_assertions = 23
 # joint grading builder's (ids renumbered around those receipts).
 # 305132: the lesson-weight curves (mvp-0.72): the diagnosis journey golden records each graded attempt's
 # attempt_grade_curves row (23 rows) and the tag; no other value moved.
-golden_json_lines = 305132
+# 307358: from mvp-0.75 each graded attempt's payload records mastery's application facts (the grade-application golden's
+# 88 and the diagnosis journey golden's 18 payloads) and the tag; no other value moved.
+golden_json_lines = 307358
 
 [members]
 import_component = [

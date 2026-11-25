@@ -83,8 +83,8 @@ from learnloop.adf_numeric import (
     normalized_log_weights,
     sigmoid,
 )
-from learnloop.algorithm_versions import LESSON_WEIGHT_CURVE_VERSIONS
-from learnloop.db.attempt_order import LEGACY_ORDER, AttemptOrder, attempt_order_for
+from learnloop.algorithm_versions import LESSON_WEIGHT_CURVE_VERSIONS, mastery_facts_recorded
+from learnloop.db.attempt_order import LEGACY_ORDER, AttemptOrder, attempt_order_for, attempt_order_for_version
 from learnloop.db.stores.grade_curves import current_curve
 from learnloop.db.stores.write_provenance import read_snapshot
 from learnloop.clock import parse_utc
@@ -403,6 +403,73 @@ class RecordedUpdate:
     #: update, the replayed state it started from. None below the tag.
     variance_floor: float | None = None
     prior: tuple[float, float] | None = None
+    #: From the facts' tag, on the check's own update: the evidence clock of the state it started from, as mastery
+    #: recorded it (``prior`` then carries the recorded mean and variance too).
+    prior_clock: str | None = None
+    prior_clock_recorded: bool = False
+
+
+@dataclass(frozen=True)
+class MasteryApplication:
+    """What mastery did with one attempt's current grade, as it recorded it (``mastery.mastery_application_facts``,
+    from the facts' tag): every application, live or replayed, rewrites it, so it describes mastery's current
+    projection. Nothing here is inferred from the state's numbers."""
+
+    attempt_id: str
+    applied: bool
+    observed_at: str
+    prior: tuple[float, float, str | None]
+    posterior: tuple[float, float, str | None]
+    score: float | None
+    item_a: float
+    item_b: float
+    weight: float
+    interpretation_variance: float
+    primed: bool
+    variance_floor: float | None
+
+
+def _state_fact(value: Any) -> tuple[float, float, str | None]:
+    return float(value["mu"]), float(value["P"]), value.get("last_evidence_at")
+
+
+def mastery_applications(connection: Any, attempt_ids: Iterable[str]) -> dict[str, MasteryApplication | None]:
+    """The one reader of mastery's application facts: each attempt's record, None where it has none (no payload, a
+    payload written below the facts' tag or by a writer that did not record them, or a malformed one)."""
+
+    ids = [str(value) for value in attempt_ids]
+    out: dict[str, MasteryApplication | None] = {attempt_id: None for attempt_id in ids}
+    for start in range(0, len(ids), 500):
+        chunk = ids[start:start + 500]
+        marks = ",".join("?" for _ in chunk)
+        for attempt_id, payload in connection.execute(
+                f"SELECT attempt_id, payload_json FROM attempt_debug_payloads WHERE attempt_id IN ({marks})", chunk):
+            try:
+                fact = (json.loads(payload) if payload else {}).get("mastery_application")
+                if not isinstance(fact, dict):
+                    continue
+                out[str(attempt_id)] = MasteryApplication(
+                    attempt_id=str(attempt_id), applied=bool(fact["applied"]), observed_at=str(fact["observed_at"]),
+                    prior=_state_fact(fact["prior"]), posterior=_state_fact(fact["posterior"]),
+                    score=None if fact.get("score") is None else float(fact["score"]),
+                    item_a=float(fact["item_a"]), item_b=float(fact["item_b"]),
+                    weight=float(fact["observation_weight"]),
+                    interpretation_variance=float(fact["interpretation_variance"]), primed=bool(fact["primed"]),
+                    variance_floor=None if fact.get("variance_floor") is None else float(fact["variance_floor"]))
+            except (ValueError, KeyError, TypeError, AttributeError):
+                continue
+    return out
+
+
+def outcome_order(algorithm_version: str | None, *, fit: bool) -> AttemptOrder:
+    """The one order a lesson outcome is defined in (an item's first use, which answer of a second resolves): the
+    order mastery applied the ledger in. The fit (``fit``) took it from mvp-0.72; the retained-forecast report and
+    the router's miss-cause learning kept the legacy ``(created_at, id)`` until the facts' tag, from which every
+    reader takes the same one, so one answer is never learned as one outcome and reported as another."""
+
+    if algorithm_version in LESSON_WEIGHT_CURVE_VERSIONS and (fit or mastery_facts_recorded(algorithm_version)):
+        return attempt_order_for_version(algorithm_version)
+    return LEGACY_ORDER
 
 
 def _interpretation_variance(mu: float, variance: float, last: str | None, at: str, *, a: float, b: float,
@@ -439,6 +506,9 @@ def recorded_trajectory(connection: Any, vault: Any, mastery_config: Any, check:
     if anchor is None:
         return None
     frozen = vault.config.algorithms.algorithm_version in LESSON_WEIGHT_CURVE_VERSIONS
+    if mastery_facts_recorded(vault.config.algorithms.algorithm_version):
+        return _trajectory_from_facts(connection, vault, mastery_config, check, outcome, str(anchor[0]),
+                                      inputs_trace=inputs_trace)
     select = ("SELECT a.id, a.practice_item_id, a.created_at, a.correctness, a.primed, a.attempt_type, "
               "s.posterior_delta_json, d.payload_json FROM practice_attempts a "
               "LEFT JOIN attempt_surprise s ON s.attempt_id = a.id "
@@ -531,6 +601,118 @@ def recorded_trajectory(connection: Any, vault: Any, mastery_config: Any, check:
     return out if complete else None
 
 
+def _window_ids(connection: Any, vault: Any, check: Mapping[str, Any], outcome: Mapping[str, Any],
+                anchor_at: str) -> list[str]:
+    """The LO's attempts from the check's own (inclusive) to the outcome (exclusive), in the order mastery applied
+    them."""
+
+    order = outcome_order(vault.config.algorithms.algorithm_version, fit=True)
+    before_check, check_params = order.before_sql((anchor_at, str(check["attempt_id"])),
+                                                  created_at="a.created_at", attempt_id="a.id")
+    before_outcome, outcome_params = order.before_sql((str(outcome["created_at"]), str(outcome["id"])),
+                                                      created_at="a.created_at", attempt_id="a.id")
+    return [str(row[0]) for row in connection.execute(
+        f"SELECT a.id FROM practice_attempts a WHERE a.learning_object_id = ? AND NOT {before_check} "
+        f"AND {before_outcome} ORDER BY {order.order_sql(created_at='a.created_at', attempt_id='a.id')}",
+        (str(check["learning_object_id"]), *check_params, *outcome_params))]
+
+
+def _trajectory_from_facts(connection: Any, vault: Any, mastery_config: Any, check: Mapping[str, Any],
+                           outcome: Mapping[str, Any], anchor_at: str, *,
+                           inputs_trace: list[dict] | None) -> list[RecordedUpdate] | None:
+    """From the facts' tag: the window's updates as mastery recorded them (:func:`mastery_applications`), each with
+    the epoch's frozen curve. Nothing is inferred: whether an update applied, its noise, instant, floor and evidence
+    clock are read. The recorded states must chain (each update's prior is the previous one's posterior, the
+    outcome's prior the last one's, to the bit, clock included); a break is a transition no attempt carried (a
+    re-anchoring claim, another writer). Each gap is labelled on its input and the fit takes the first-order form:
+    no application record (``missing_application_record``; the outcome's: ``outcome_record_missing``), a frozen curve
+    other than the one mastery applied (``curve_differs_from_applied``), a broken chain (``chain_broken``,
+    ``outcome_chain_broken``), and, at the recorded mass, an update the recomputation does not reproduce
+    (``update_not_reproduced``: the mastery configuration changed since the facts were recorded)."""
+
+    ids = _window_ids(connection, vault, check, outcome, anchor_at)
+    if not ids or ids[0] != str(check["attempt_id"]):
+        return None
+    facts = mastery_applications(connection, [*ids, str(outcome["id"])])
+    out: list[RecordedUpdate] = []
+    complete = True
+    previous: MasteryApplication | None = None
+    for attempt_id in ids:
+        curve = current_curve(connection, attempt_id)
+        entry = curve.trace()
+        if inputs_trace is not None:
+            inputs_trace.append(entry)
+        fact = facts[attempt_id]
+        if curve.item_a is None or curve.item_b is None:
+            complete = False
+        if fact is None:
+            entry["missing_application_record"] = True
+            complete = False
+            previous = None
+            continue
+        if fact.applied and curve.item_a is not None and (curve.item_a, curve.item_b) != (fact.item_a, fact.item_b):
+            entry["curve_differs_from_applied"] = [fact.item_a, fact.item_b]
+            complete = False
+        if previous is not None and fact.prior != previous.posterior:
+            entry["chain_broken"] = True
+            complete = False
+        varied = attempt_id == str(check["attempt_id"])
+        out.append(RecordedUpdate(
+            attempt_id=attempt_id, at=fact.observed_at, y=float(fact.score or 0.0),
+            item_a=float(curve.item_a if curve.item_a is not None else fact.item_a),
+            item_b=float(curve.item_b if curve.item_b is not None else fact.item_b),
+            weight=fact.weight, interpretation_variance=fact.interpretation_variance, primed=fact.primed,
+            attempt_type="", applied=fact.applied, varied=varied, variance_floor=fact.variance_floor,
+            prior=(fact.prior[0], fact.prior[1]) if varied else None,
+            prior_clock=fact.prior[2] if varied else None, prior_clock_recorded=varied))
+        previous = fact
+    ending = facts[str(outcome["id"])]
+    gap = ("outcome_record_missing" if ending is None
+           else "outcome_chain_broken" if previous is not None and ending.prior != previous.posterior else None)
+    if gap is not None:
+        complete = False
+        if inputs_trace:
+            inputs_trace[-1][gap] = True
+    if complete and out:
+        mass = float(check.get("mass_applied") or 0.0)
+        sensitivity = CheckSensitivity.from_dict(check["inputs"]["sensitivity"])
+        states = _trajectory_states(sensitivity, out, mass=mass, recorded_mass=mass, mastery_config=mastery_config,
+                                    frozen=True)
+        for index, (_before, after) in enumerate(states):
+            fact = facts[ids[index]]
+            assert fact is not None
+            if not (_close(after.logit_mean, fact.posterior[0]) and _close(after.logit_variance, fact.posterior[1])
+                    and after.last_evidence_at == fact.posterior[2]):
+                if inputs_trace is not None:
+                    inputs_trace[index]["update_not_reproduced"] = True
+                complete = False
+                break
+    return out if complete else None
+
+
+def check_application(connection: Any, check: Mapping[str, Any]) -> "CheckSensitivity":
+    """From the facts' tag, the first-order form's inputs for a check: the state its own update replayed from and the
+    instant, as mastery recorded them, the current grade of its current epoch, and its epoch's frozen curve (else the
+    curve mastery applied); the check's stored sensitivity where its record is missing. A regraded or replayed check
+    is scored as it now stands, never with the grade it was first given."""
+
+    stored = CheckSensitivity.from_dict(check["inputs"]["sensitivity"])
+    attempt_id = str(check.get("attempt_id") or "")
+    fact = mastery_applications(connection, [attempt_id]).get(attempt_id) if attempt_id else None
+    correctness = check.get("current_correctness")
+    score = stored.correctness if correctness is None else float(correctness)
+    curve = current_curve(connection, attempt_id) if attempt_id else None
+    if fact is None:
+        a, b = ((curve.item_a, curve.item_b) if curve is not None and curve.item_a is not None
+                else (stored.item_a, stored.item_b))
+        return CheckSensitivity(mu=stored.mu, variance=stored.variance, last_evidence_at=stored.last_evidence_at,
+                                item_a=float(a), item_b=float(b), correctness=score, observed_at=stored.observed_at)
+    a, b = ((curve.item_a, curve.item_b) if curve is not None and curve.item_a is not None
+            else (fact.item_a, fact.item_b))
+    return CheckSensitivity(mu=fact.prior[0], variance=fact.prior[1], last_evidence_at=fact.prior[2],
+                            item_a=float(a), item_b=float(b), correctness=score, observed_at=fact.observed_at)
+
+
 def _close(value: float, recorded: float) -> bool:
     return math.isclose(value, recorded, rel_tol=_REPRODUCTION_TOLERANCE, abs_tol=_REPRODUCTION_TOLERANCE)
 
@@ -597,11 +779,14 @@ def _trajectory_states(sensitivity: "CheckSensitivity", updates: Sequence[Record
     from learnloop.learner.mastery import MasteryObservation, update_mastery
 
     start = (sensitivity.mu, sensitivity.variance)
+    clock = sensitivity.last_evidence_at
     if frozen and updates and updates[0].prior is not None:
         start = updates[0].prior
+    if frozen and updates and updates[0].prior_clock_recorded:
+        clock = updates[0].prior_clock
     state = MasteryState(
         learning_object_id="lesson_check", logit_mean=start[0], logit_variance=start[1],
-        evidence_count=0, last_evidence_at=sensitivity.last_evidence_at, algorithm_version="lesson_weight",
+        evidence_count=0, last_evidence_at=clock, algorithm_version="lesson_weight",
         updated_at=sensitivity.observed_at)
     for update in updates:
         before = state
@@ -682,33 +867,37 @@ def _soft_log_lik(p: np.ndarray, y: float) -> np.ndarray:
 
 def _resolve_check(state: WeightState, check: Mapping[str, Any], outcome: Mapping[str, Any], share: float,
                    mastery_config: Any, trajectory: Sequence[RecordedUpdate] | None = None,
-                   frozen: bool = False) -> dict[str, Any]:
+                   frozen: bool = False, first_order: "CheckSensitivity | None" = None) -> dict[str, Any]:
     """One check's factor from its resolving outcome, at power ``share``.
 
     With the LO's recorded ``trajectory`` (:func:`recorded_trajectory`), the likelihood recomputes the
     LO's updates from the check's recorded prior with only the check's mass varied: the check keeps its
     own recorded observation factors, and every intervening update is re-applied as recorded (§12.1).
     Without one (an attempt left no record), the first-order form: the check alone at full reliability,
-    then the drift to the outcome."""
+    then the drift to the outcome. ``first_order`` (from the facts' tag, :func:`check_application`): that form's
+    inputs as the check now stands, in place of the sensitivity stored when it was answered."""
 
     inputs = check["inputs"]
     sensitivity = CheckSensitivity.from_dict(inputs["sensitivity"])
     lo = str(check["learning_object_id"])
     z_c, z_p = float(inputs.get("z_c") or 0.0), float(inputs.get("z_p") or 0.0)
     y = float(outcome["correctness"])
-    days = _days(sensitivity.observed_at, str(outcome["created_at"]))
+    outcome_at = str(outcome.get("observed_at") or outcome["created_at"])
+    exact = trajectory is not None and float(check.get("mass_applied") or 0.0) > 0.0
+    if first_order is not None and not exact:
+        sensitivity = first_order
+    days = _days(sensitivity.observed_at, outcome_at)
     drift = float(getattr(mastery_config, "sigma2_drift", 0.0))
     outcome_a = float(outcome.get("item_a", sensitivity.item_a))
     outcome_b = float(outcome.get("item_b", sensitivity.item_b))
     recorded_mass = float(check.get("mass_applied") or 0.0)
-    exact = trajectory is not None and recorded_mass > 0.0
 
     def p_at_mass(mass: float) -> float:
         if exact:
             assert trajectory is not None
             final = trajectory_state(sensitivity, trajectory, mass=mass, recorded_mass=recorded_mass,
                                      mastery_config=mastery_config, frozen=frozen)
-            return trajectory_success(final, a=outcome_a, b=outcome_b, at=str(outcome["created_at"]),
+            return trajectory_success(final, a=outcome_a, b=outcome_b, at=outcome_at,
                                       mastery_config=mastery_config)
         mu, var = posterior_after(sensitivity, mass, mastery_config, frozen=frozen)
         return predicted_success(mu, var, a=outcome_a, b=outcome_b, drift=drift, days=days)
@@ -735,7 +924,13 @@ def _resolve_check(state: WeightState, check: Mapping[str, Any], outcome: Mappin
         assert h[index] == 1.0
         bank.mean, bank.cov, record = adf_update(bank.mean, bank.cov, h, log_lik)
         bank.log_w += record.log_z
-    return {"z_c": z_c, "z_p": z_p, "y": y, "share": share, "days": round(days, 6),
+    detail: dict[str, Any] = {}
+    if first_order is not None and not exact:
+        detail["first_order_inputs"] = {"mu": sensitivity.mu, "variance": sensitivity.variance,
+                                        "last_evidence_at": sensitivity.last_evidence_at,
+                                        "item_a": sensitivity.item_a, "item_b": sensitivity.item_b,
+                                        "correctness": sensitivity.correctness, "observed_at": sensitivity.observed_at}
+    return {**detail, "z_c": z_c, "z_p": z_p, "y": y, "share": share, "days": round(days, 6),
             "likelihood": "recorded_trajectory" if exact else "first_order",
             "intervening": (sum(1 for u in trajectory if not u.varied and u.applied) if exact and trajectory else 0),
             "mass_before": round(learned_before, 10), "mass_after": round(state.learned_mass(lo, z_c, z_p), 10),
@@ -829,9 +1024,10 @@ def read_hedges(connection: Any) -> dict[str, str]:
 
 def _checks(connection: Any) -> list[dict[str, Any]]:
     rows = connection.execute(
-        "SELECT id, lesson_id, node_id, learning_object_id, attempt_id, correctness, tap, hedge, "
-        "mass_learned, mass_applied, weight_inputs_json, created_at FROM lesson_checks "
-        "WHERE status = 'answered' ORDER BY created_at, id").fetchall()
+        "SELECT c.id, c.lesson_id, c.node_id, c.learning_object_id, c.attempt_id, c.correctness, c.tap, c.hedge, "
+        "c.mass_learned, c.mass_applied, c.weight_inputs_json, c.created_at, a.correctness, a.created_at "
+        "FROM lesson_checks c LEFT JOIN practice_attempts a ON a.id = c.attempt_id "
+        "WHERE c.status = 'answered' ORDER BY c.created_at, c.id").fetchall()
     # A check whose own grade is held moved nothing (the attempt step takes no evidence from it): it has
     # no factor to resolve until its grade is released.
     held = held_for_review_attempts(connection, [row[4] for row in rows if row[4]]) if rows else frozenset()
@@ -843,7 +1039,10 @@ def _checks(connection: Any) -> list[dict[str, Any]]:
             "id": row[0], "lesson_id": row[1], "node_id": row[2], "learning_object_id": row[3],
             "attempt_id": row[4], "correctness": row[5], "tap": row[6], "hedge": row[7],
             "mass_learned": row[8], "mass_applied": row[9], "inputs": json.loads(row[10] or "{}"),
-            "created_at": row[11]})
+            "created_at": row[11], "current_correctness": row[12],
+            # The check's place in the ledger: its own attempt's instant when that is later than its row's (a check
+            # stamped before it took the writer lock); only an outcome after it can resolve it (from the facts' tag).
+            "applied_at": max(str(row[11]), str(row[13])) if row[13] is not None else str(row[11])})
     return out
 
 
@@ -864,13 +1063,14 @@ def _forecasts(connection: Any) -> list[dict[str, Any]]:
 
 
 def qualifying_outcomes(connection: Any, learning_object_ids: Iterable[str], after: str | None,
-                        *, until: str | None = None, order: AttemptOrder = LEGACY_ORDER) -> list[dict[str, Any]]:
+                        *, order: AttemptOrder, until: str | None = None) -> list[dict[str, Any]]:
     """Graded attempts that can resolve a lesson check (§12.1), in order: on one of the LOs, after
     ``after``, of a cold type (:data:`COLD_ATTEMPT_TYPES`), unprimed, with no hint, the item's first
     attempt, with no reveal row on the item before it, and not a lesson probe answered after its lesson showed
     text on the topic (teacher TE2, Codex review F2: that answer is not independent, so it resolves nothing; only
     TE2 writes the exposed source, so nothing recorded before it reads differently). ``order``: the ledger order an
-    item's first use and the result follow (the fit at mvp-0.72 passes the vault's)."""
+    item's first use and the result follow, always :func:`outcome_order` for the reader's tag (required: a default
+    let two readers define one outcome two ways)."""
 
     from learnloop.causal_activity_policy import LESSON_PROBE_EXPOSED_SOURCE
 
@@ -977,7 +1177,8 @@ def _replay_in_snapshot(state: WeightState, vault: Any, connection: Any, mastery
     forecasts = [f for f in _forecasts(connection) if as_of is None or str(f["created_at"]) < as_of]
     hedges = read_hedges(connection)
     # At mvp-0.72 the ledger folds in the order mastery applied it; below, as the predecessor did.
-    order = attempt_order_for(vault.config) if frozen else LEGACY_ORDER
+    order = outcome_order(vault.config.algorithms.algorithm_version, fit=True)
+    facts = mastery_facts_recorded(vault.config.algorithms.algorithm_version)
     calibration = _calibration_attempts(connection, hedges, as_of, order)
     los = {str(c["learning_object_id"]) for c in checks} | {f["learning_object_id"] for f in forecasts}
     first = min([str(c["created_at"]) for c in checks] + [str(f["created_at"]) for f in forecasts], default=None)
@@ -1016,14 +1217,28 @@ def _replay_in_snapshot(state: WeightState, vault: Any, connection: Any, mastery
             open_forecasts.setdefault(str(payload["learning_object_id"]), []).append(payload)
         else:
             lo = str(payload["learning_object_id"])
-            pending = [c for c in open_checks.get(lo, []) if str(c["created_at"]) < at]
-            open_checks[lo] = [c for c in open_checks.get(lo, []) if str(c["created_at"]) >= at]
+            # From the facts' tag a check is placed at its own attempt: an answer applied before it never resolves it.
+            placed = "applied_at" if facts else "created_at"
+            pending = [c for c in open_checks.get(lo, []) if str(c[placed]) < at]
+            open_checks[lo] = [c for c in open_checks.get(lo, []) if str(c[placed]) >= at]
             resolving_curve = None
+            resolving_pair: dict[str, Any] = {}
             if frozen:
                 resolving_curve = current_curve(connection, str(payload["id"]))
                 enriched = dict(payload)
                 if resolving_curve.item_a is not None:
                     enriched.update(item_a=resolving_curve.item_a, item_b=resolving_curve.item_b)
+                if facts:
+                    # The likelihood keeps the frozen pair (the owner's choice); where mastery applied another to this
+                    # outcome, both are on the trace.
+                    applied = mastery_applications(connection, [str(payload["id"])])[str(payload["id"])]
+                    if applied is not None:
+                        enriched["observed_at"] = applied.observed_at
+                        if (resolving_curve.item_a is not None
+                                and (applied.item_a, applied.item_b) != (resolving_curve.item_a, resolving_curve.item_b)):
+                            resolving_pair = {"resolving_pair_differs_from_applied": [applied.item_a, applied.item_b]}
+                    else:
+                        resolving_pair = {"resolving_application_record": "missing"}
             else:
                 enriched = {**payload, **_outcome_item_params(vault, mastery_config, payload)}
             for check in pending:
@@ -1031,9 +1246,11 @@ def _replay_in_snapshot(state: WeightState, vault: Any, connection: Any, mastery
                 trajectory = recorded_trajectory(connection, vault, mastery_config, check, payload,
                                                  inputs_trace=inputs_trace)
                 detail = _resolve_check(state, check, enriched, 1.0 / len(pending), mastery_config,
-                                        trajectory=trajectory, frozen=frozen)
+                                        trajectory=trajectory, frozen=frozen,
+                                        first_order=check_application(connection, check) if facts else None)
                 if resolving_curve is not None:
-                    detail.update(trajectory_inputs=inputs_trace, resolving_input=resolving_curve.trace())
+                    detail.update(trajectory_inputs=inputs_trace, resolving_input=resolving_curve.trace(),
+                                  **resolving_pair)
                     if resolving_curve.item_a is None:
                         detail["resolving_fallback"] = "check_sensitivity"
                 state.updates += 1
@@ -1047,6 +1264,7 @@ def _replay_in_snapshot(state: WeightState, vault: Any, connection: Any, mastery
                 detail = _resolve_forecast(state, forecast, enriched, 1.0 / len(waiting), mastery_config)
                 if resolving_curve is not None:
                     detail["resolving_input"] = resolving_curve.trace()
+                    detail.update(resolving_pair)
                     forecast_state = forecast.get("state") or {}
                     if (resolving_curve.item_a is None or forecast_state.get("mu") is None
                             or forecast_state.get("variance") is None):
@@ -1264,6 +1482,10 @@ __all__ = [
     "predicted_success",
     "prediction_term",
     "qualifying_outcomes",
+    "outcome_order",
+    "mastery_applications",
+    "MasteryApplication",
+    "check_application",
     "read_hedges",
     "rebuild_lesson_weight_state",
     "recorded_trajectory",

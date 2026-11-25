@@ -47,7 +47,8 @@ def forecast(repository: Any, lesson_id: str, client: Any, *, prefix: int, estim
                 SELECT c.id, s.prefix, s.root FROM sends s JOIN model_call_receipts c ON c.parent_call_id=s.id
             )
             SELECT r.provider, r.model, s.prefix, r.input_tokens, r.output_tokens, r.id,
-                   (SELECT t.input_text FROM model_call_receipts t WHERE t.id=s.root)
+                   (SELECT t.input_text FROM model_call_receipts t WHERE t.id=s.root),
+                   (SELECT json_extract(t.budget_json, '$.input_estimate') FROM model_call_receipts t WHERE t.id=s.root)
             FROM sends s JOIN model_call_receipts r ON r.id=s.id
             WHERE NOT EXISTS (SELECT 1 FROM model_call_receipts c WHERE c.parent_call_id=r.id)
             ORDER BY r.rowid
@@ -57,7 +58,7 @@ def forecast(repository: Any, lesson_id: str, client: Any, *, prefix: int, estim
     answers: list[int] = []
     previous = None
     for row in rows:
-        route, name, cut, inputs, outputs, _, _text = row
+        route, name, cut, inputs, outputs, _, _text, _estimate = row
         if (route, name) != (provider, model) or inputs is None or outputs is None:
             previous = None
             continue
@@ -82,11 +83,15 @@ def forecast(repository: Any, lesson_id: str, client: Any, *, prefix: int, estim
     # The current prompt is already rendered: its input is known before any allowance. Measured, the
     # last send's count plus the estimated growth of its prompt since (the estimator only measures the difference);
     # without the last prompt's text (withheld), the count alone. The answer needs at most what this lesson's answers
-    # have needed (the output allowance before the first measured one).
+    # have needed (the output allowance before the first measured one). The last prompt's own estimate is recorded at
+    # its request start (also for a nested or withheld prompt, whose text is not kept); a receipt from before that
+    # with no text bounds the current input by the current estimate at least.
     if last is None:
         known, known_basis = estimated_input, "estimated"
+    elif last[7] is not None:
+        known, known_basis = last[3] + estimated_input - int(last[7]), "measured_plus_recorded_growth"
     elif last[6] is None:
-        known, known_basis = last[3], "measured_last_send"
+        known, known_basis = max(last[3], estimated_input), "measured_or_current_estimate"
     else:
         known, known_basis = last[3] + estimated_input - estimate(last[6]), "measured_plus_estimated_growth"
     output_need = max(answers) if answers else output_budget
@@ -111,8 +116,10 @@ def latest(repository: Any, lesson_id: str) -> Projection:
     return Projection(row[0], json.loads(row[1])) if row else Projection()
 
 
-def record_requests(repository: Any, lesson_id: str, projection: Projection):
-    """Publish the boundary and its decision together at receipt start, before the teacher can send."""
+def record_requests(repository: Any, lesson_id: str, projection: Projection, input_estimate: int | None = None):
+    """Publish the boundary and its decision together at receipt start, before the teacher can send.
+    ``input_estimate``: the request gate's estimate of the prompt being sent, kept on its receipt so the next
+    forecast measures growth from it even when the prompt's text is not kept (a nested or withheld call)."""
     owned: set[str] = set()
     pending = projection.decision
     operation = None
@@ -136,6 +143,8 @@ def record_requests(repository: Any, lesson_id: str, projection: Projection):
             if event["purpose"] != "teacher_turn" or operation is not None:
                 return
             notes = {"teacher_lesson_id": lesson_id, "transcript_prefix": projection.prefix}
+            if input_estimate is not None:
+                notes["input_estimate"] = int(input_estimate)
             if projection.summary is not None:
                 notes["summary_version"] = projection.summary["version"]
             if pending is not None:

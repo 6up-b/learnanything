@@ -5,6 +5,7 @@ import json
 import pytest
 
 from learnloop.ai.execution import model_call, record_model_calls
+from learnloop.ai.spend import _CHARS_PER_TOKEN
 from learnloop.db.stores import lessons as store
 from learnloop.teacher import compaction as C, delayed, service as S
 from learnloop.vault.loader import load_vault
@@ -87,8 +88,10 @@ def test_live_boundary_and_predecessor_bytes(tmp_path, limit, compact):
             assert conn.execute("SELECT detail_table FROM decision_records WHERE detail_id=?",
                                 (detail,)).fetchone()[0] == "model_call_receipts"
         assert (owner, purpose) == ("sidecar_rpc", "teacher_turn")
+        # The sent prompt's estimate is kept for the next forecast (L42-R24): the request gate's, of that prompt.
         assert json.loads(notes) == {"teacher_lesson_id": lesson, "transcript_prefix": 1,
-                                     "summary_version": C.VERSION, "context_summary": projected[0]["summary"]}
+                                     "summary_version": C.VERSION, "context_summary": projected[0]["summary"],
+                                     "input_estimate": -(-len(fake.prompts[-1][1]) // _CHARS_PER_TOKEN)}
         encode = json.JSONEncoder(sort_keys=True, ensure_ascii=False).encode
         assert fake.prompts[-1][1] == full.replace(encode(history), encode(projected), 1)
     else:
@@ -284,12 +287,49 @@ def test_a_long_current_reply_after_short_measured_sends_is_forecast(tmp_path):
     take((vault, repo, lesson), fake)
 
     def estimate(text):
-        return 600  # the last send's prompt, as the request gate would estimate it
+        raise AssertionError("the last prompt's estimate is on its receipt (L42-R24)")
 
-    short = C.forecast(repo, lesson, fake, prefix=0, estimated_input=620, output_budget=250, estimate=estimate)
+    sent = _last_root_estimate(repo, lesson)
+    short = C.forecast(repo, lesson, fake, prefix=0, estimated_input=sent + 20, output_budget=250, estimate=estimate)
     assert (short["growth_samples"], short["predicted_tokens"]) == (1, 1100 + 150)
-    long = C.forecast(repo, lesson, fake, prefix=0, estimated_input=5000, output_budget=250, estimate=estimate)
+    long = C.forecast(repo, lesson, fake, prefix=0, estimated_input=sent + 4400, output_budget=250, estimate=estimate)
     # 1100 measured, 4400 estimated since, then the most this lesson's answers have needed (50 tokens).
     assert long["predicted_tokens"] == 1100 + 4400 + 50
     assert (long["current_input"], long["current_input_basis"], long["output_need"]) == (
-        5500, "measured_plus_estimated_growth", 50)
+        5500, "measured_plus_recorded_growth", 50)
+
+
+def _last_root_estimate(repo, lesson):
+    with repo.connection() as conn:
+        (value,) = conn.execute(
+            "SELECT json_extract(budget_json, '$.input_estimate') FROM model_call_receipts WHERE purpose='teacher_turn' "
+            "AND json_extract(budget_json, '$.teacher_lesson_id')=? ORDER BY rowid DESC LIMIT 1", (lesson,)).fetchone()
+    assert isinstance(value, int)
+    return value
+
+
+def test_a_long_current_reply_after_short_nested_sends_is_forecast(tmp_path):
+    """L42-R24: a teacher call nested under another model receipt keeps no prompt text, so the forecast had only the
+    last measured count and a pasted reply estimated at 5,000 tokens still forecast the short sends' need. The
+    prompt's own estimate is recorded at its request start, nested or not."""
+
+    fake = CountedTeacher([opening, {"message": "More."}, {"message": "Again."}], [(1000, 30), (1100, 50)])
+    vault, repo, lesson = open_case(tmp_path, 20_000, fake)
+    with record_model_calls(repo, owner_kind="sidecar_rpc", owner_id="outer"):
+        with model_call(fake, purpose="outer_operation", wrapper=True):
+            S.take_turn(vault, repo, lesson_id=lesson, action="reply", payload={"text": "Go on."},
+                        clients=clients(fake))
+    with repo.connection() as conn:
+        assert conn.execute("SELECT input_text FROM model_call_receipts WHERE purpose='teacher_turn' "
+                            "ORDER BY rowid DESC LIMIT 1").fetchone()[0] is None
+    sent = _last_root_estimate(repo, lesson)
+    long = C.forecast(repo, lesson, fake, prefix=0, estimated_input=sent + 3900, output_budget=250,
+                      estimate=lambda text: 0)
+    assert long["predicted_tokens"] == 1100 + 3900 + 50 > 2000
+    # A receipt from before the estimate was kept, with no text either: the current estimate bounds it at least.
+    with repo.connection() as conn:
+        conn.execute("UPDATE model_call_receipts SET budget_json = json_remove(budget_json, '$.input_estimate')")
+        conn.commit()
+    older = C.forecast(repo, lesson, fake, prefix=0, estimated_input=5000, output_budget=250, estimate=lambda text: 0)
+    assert (older["current_input"], older["current_input_basis"]) == (5000, "measured_or_current_estimate")
+    assert older["predicted_tokens"] == 5000 + 50

@@ -101,7 +101,8 @@ def _class(lesson, attempt_id):
 
 def _qualifying(lesson):
     with lesson.repository.connection() as connection:
-        return [row["id"] for row in LW.qualifying_outcomes(connection, ["lo_eigen"], "2000-01-01T00:00:00Z")]
+        return [row["id"] for row in LW.qualifying_outcomes(connection, ["lo_eigen"], "2000-01-01T00:00:00Z",
+                                                                        order=LW.LEGACY_ORDER)]
 
 
 def test_f2_an_answer_after_teaching_on_its_topic_is_instructional_and_no_cold_outcome(tmp_path):

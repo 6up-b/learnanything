@@ -55,8 +55,12 @@ def _weighted(rows: list[tuple[Mapping[str, Any], float | None]]) -> dict[str, A
             for name in MC.CLASSES}
 
 
-def section(connection: Any) -> dict[str, Any]:
-    from learnloop.learner.lesson_weight import qualifying_outcomes
+def section(connection: Any, config: Any = None) -> dict[str, Any]:
+    """``config``: the vault's, whose tag picks the order a later cold result is found in (``outcome_order``)."""
+
+    from learnloop.learner.lesson_weight import outcome_order, qualifying_outcomes
+
+    order = outcome_order(getattr(getattr(config, "algorithms", None), "algorithm_version", None), fit=False)
 
     if connection.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='router_decisions'").fetchone() is None:
         return {"version": VERSION, "available": False, "reason": "no router decisions table"}
@@ -83,7 +87,7 @@ def section(connection: Any) -> dict[str, Any]:
         if sensor.get("status") != MC.DIAGNOSED:
             continue
         lo = str(offer.get("learning_object_id") or "")
-        outcomes = qualifying_outcomes(connection, [lo], str(created)) if lo else []
+        outcomes = qualifying_outcomes(connection, [lo], str(created), order=order) if lo else []
         outcome = float(outcomes[0]["correctness"]) if outcomes else None
         every.append((sensor, outcome))
         if str(chosen or "").startswith(OFFER_PREFIX):

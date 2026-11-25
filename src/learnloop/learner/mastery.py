@@ -789,6 +789,34 @@ def observation_weight(observation: MasteryObservation) -> float:
     )
 
 
+def mastery_application_facts(prior: MasteryState, posterior: MasteryState, observation: MasteryObservation,
+                              trace: "MasteryObservationTrace | None", *, item_a: float, item_b: float,
+                              variance_floor: float | None) -> dict[str, Any]:
+    """What one mastery application did, as facts (from the facts' tag, ``mastery_facts_recorded``): whether the
+    update applied (``trace`` None: nothing assessed, the state passed through), the state it started from, the
+    instant, score, curve, weight and interpretation noise it was given, the coverage floor and the state it left.
+    The attempt step records them in the attempt's payload on every application, live or replayed, and the
+    lesson-weight fit reads them (``lesson_weight.mastery_applications``) instead of inferring them from the numbers."""
+
+    def state(value: MasteryState) -> dict[str, Any]:
+        return {"mu": float(value.logit_mean), "P": float(value.logit_variance),
+                "last_evidence_at": value.last_evidence_at}
+
+    return {
+        "applied": trace is not None,
+        "observed_at": observation.observed_at.isoformat().replace("+00:00", "Z"),
+        "prior": state(prior),
+        "score": float(trace.observed_y) if trace is not None else None,
+        "item_a": float(item_a),
+        "item_b": float(item_b),
+        "observation_weight": float(observation_weight(observation)),
+        "interpretation_variance": float(observation.interpretation_variance),
+        "primed": bool(observation.primed),
+        "variance_floor": None if variance_floor is None else float(variance_floor),
+        "posterior": state(posterior),
+    }
+
+
 def predicted_logit_variance(
     prior: MasteryState,
     observation: MasteryObservation,

@@ -530,7 +530,7 @@ def build_report(connection: sqlite3.Connection, vault: Any, repository: Any, *,
         # cold results by class (observational), and where beta and the cause slopes stand.
         from learnloop.router_objective import miss_cause_report
 
-        extra["miss_causes"] = miss_cause_report.section(connection)
+        extra["miss_causes"] = miss_cause_report.section(connection, vault.config)
     return {**{
         "report_version": REPORT_VERSION,
         "as_of": as_of,

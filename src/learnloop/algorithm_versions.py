@@ -1071,6 +1071,12 @@ LESSON_WEIGHT_CURVES_ALGORITHM_VERSION = "mvp-0.72"
 # and every surprise row names its source; a delayed check's draw among tied items is seeded per decision node. One
 # constant: renumbering the tag is this line.
 FORECAST_SCORING_ALGORITHM_VERSION = "mvp-0.73"
+# The lesson-weight fit reads what mastery recorded instead of inferring it (docs/reviews/algorithm-mvp-0.75.md;
+# design: docs/reviews/refactor-l42-fit-redesign.md): each mastery application records its facts (applied or not,
+# prior, instant, score, curve, weight, interpretation noise, floor, posterior) in the attempt's payload, observed at
+# whole seconds live as in replay; the fit chains those facts, and every reader of a lesson outcome takes one order.
+# One constant: renumbering the tag is this line.
+LESSON_WEIGHT_FACTS_ALGORITHM_VERSION = "mvp-0.75"
 
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
 # first. Each successor means its predecessor's semantics PLUS its own, so
@@ -1143,6 +1149,7 @@ SUCCESSOR_CHAIN: tuple[str, ...] = (
     LABEL_RETIRED_ALGORITHM_VERSION,
     LESSON_WEIGHT_CURVES_ALGORITHM_VERSION,
     FORECAST_SCORING_ALGORITHM_VERSION,
+    LESSON_WEIGHT_FACTS_ALGORITHM_VERSION,
 )
 
 
@@ -1356,6 +1363,17 @@ def probe_router_on(config: object) -> bool:
     return getattr(algorithms, "algorithm_version", None) in PROBE_ROUTER_VERSIONS
 
 LESSON_WEIGHT_CURVE_VERSIONS = successors_from(LESSON_WEIGHT_CURVES_ALGORITHM_VERSION)
+# Versions where mastery records its application facts and the lesson-weight fit reads them (gates read it through
+# :func:`mastery_facts_recorded`).
+LESSON_WEIGHT_FACT_VERSIONS = successors_from(LESSON_WEIGHT_FACTS_ALGORITHM_VERSION)
+
+
+def mastery_facts_recorded(algorithm_version: str | None) -> bool:
+    """Mastery records each application's facts, observed at whole seconds, and the lesson-weight fit and every
+    reader of a lesson outcome read them in one order (the facts' tag); below it mvp-0.73's exactly. Takes the
+    vault's tag."""
+
+    return algorithm_version in LESSON_WEIGHT_FACT_VERSIONS
 
 
 # The newest successor: the last tag in the chain. ``learnloop upgrade`` with

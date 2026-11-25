@@ -65,7 +65,7 @@ from learnloop.ai.structured_contracts import (
     ContractFailure, ContractRejected, Predicate, RecoveryAllowance, checked_structured_call,
 )
 from learnloop.ai.transport import execute_structured_operation, render_structured_prompt
-from learnloop.clock import Clock, utc_now_iso
+from learnloop.clock import Clock, FrozenClock, parse_utc as _parse_utc, utc_now_iso
 from learnloop.db.stores import lessons as store
 from learnloop.ids import new_ulid
 from learnloop.teacher import carried as CQ
@@ -422,30 +422,35 @@ def _prompt_version(visuals: bool, episodes: bool, te2: bool, goal_topics: bool 
 
 
 def _limited_prompt(vault: Any, repository: Any, state: LessonState, client: Any, limit: int,
-                    fields: Mapping[str, Any]) -> tuple[str, C.Projection]:
+                    fields: Mapping[str, Any]) -> tuple[str, C.Projection, int | None]:
+    """The prompt to send, its projection, and the request gate's estimate of the prompt sent (recorded on its
+    receipt for the next forecast)."""
+
     from learnloop.ai.execution import generation_ceiling
     from learnloop.ai.output_budget import output_budget
 
     history = transcript(state)
     previous = C.latest(repository, state.lesson_id)
     prompt = _prompt(state, history=previous.apply(history), **fields)
-    cut = C.recent_start(history)
-    if cut <= previous.prefix:
-        return prompt, previous
-    output = generation_ceiling() or output_budget(vault.config, "teacher", provider=client.provider_name)
+
     def estimate(text: str) -> int:
         return state.gate.estimate_tokens(client, prompt=text, budget=0)
 
-    facts = C.forecast(repository, state.lesson_id, client, prefix=previous.prefix, estimated_input=estimate(prompt),
+    cut = C.recent_start(history)
+    if cut <= previous.prefix:
+        return prompt, previous, (estimate(prompt) if state.gate is not None else None)
+    current = estimate(prompt)
+    output = generation_ceiling() or output_budget(vault.config, "teacher", provider=client.provider_name)
+    facts = C.forecast(repository, state.lesson_id, client, prefix=previous.prefix, estimated_input=current,
                        output_budget=output, estimate=estimate)
     if facts["predicted_tokens"] < limit:
-        return prompt, previous
+        return prompt, previous, current
     summary = C.summarize(repository, state)
     projection = C.Projection(cut, summary, C.decision(state, cut, summary, facts, limit, len(history)))
     shorter = _prompt(state, history=projection.apply(history), **fields)
     if len(shorter.encode()) >= len(prompt.encode()):
-        return prompt, previous
-    return shorter, projection
+        return prompt, previous, current
+    return shorter, projection, estimate(shorter)
 
 
 def _te2_now(vault: Any, state: LessonState) -> bool:
@@ -1247,7 +1252,6 @@ def _answer_check(vault: Any, repository: Any, state: LessonState, payload: Mapp
     hedges = [row.get("learner_confidence") for row in grade.evidence_rows
               if row.get("learner_confidence") in ("hedged", "confident")]
     hedge = None if not hedges else ("hedged" if "hedged" in hedges else "confident")
-    as_of = utc_now_iso(clock)
     node_id = str(open_check["check"]["node"])
     lo = str(item.learning_object_id)
     retained = _latest_forecast(state, "lesson_step_retained", node_id)
@@ -1256,7 +1260,10 @@ def _answer_check(vault: Any, repository: Any, state: LessonState, payload: Mapp
     correct_forecast = _latest_forecast(state, "lesson_check_correct", open_check["check_ref"])
     # The weighing, its recorded prior and the check's own application read one state: another
     # process's grade on this learning object commits wholly before the weighing or after the check is recorded.
+    # The check's instant is read under the writer lock and is its attempt's too: an answer another process applied
+    # while this one waited for the lock is before the check, by its stamp as by the state the check read.
     with repository.atomic():
+        as_of = utc_now_iso(clock)
         reference = None
         if retained is not None:
             reference = CK.cold_reference(vault, repository, lo, lesson_id=state.lesson_id, node_id=node_id,
@@ -1271,7 +1278,7 @@ def _answer_check(vault: Any, repository: Any, state: LessonState, payload: Mapp
             item=item, attempt_id=attempt_id, answer=answer, grade=grade, grading_run_id=run_id,
             grading_source=clients.grading_source, tap=tap, mass=mass, created_at=as_of,
             forecast_correct_key=(correct_forecast or {}).get("key"),
-            forecast_retained_key=(retained or {}).get("key"), clock=clock)
+            forecast_retained_key=(retained or {}).get("key"), clock=FrozenClock(_parse_utc(as_of)))
     if "episodes" in state.capabilities:
         # TE2-log: a detour on this node closes at its re-check (its own savepoint; never blocks the answer).
         E.close_episodes(repository, state.lesson_id, closed_at=as_of, reason="rechecked", node_id=node_id,
@@ -1705,8 +1712,8 @@ def _call_teacher(vault: Any, repository: Any, state: LessonState, client: Any, 
             if limit is None:
                 prompt = _prompt(state, **fields)
             else:
-                prompt, projection = _limited_prompt(vault, repository, state, client, limit, fields)
-                stack.enter_context(C.record_requests(repository, state.lesson_id, projection))
+                prompt, projection, sent_estimate = _limited_prompt(vault, repository, state, client, limit, fields)
+                stack.enter_context(C.record_requests(repository, state.lesson_id, projection, sent_estimate))
             raw = _request_teacher_turn(vault, repository, state, client, prompt=prompt, model=model,
                                         outcome=outcome, clock=clock)
     except _BlankTeacherTurn:

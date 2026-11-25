@@ -338,7 +338,8 @@ def test_f2_a_held_cold_grade_resolves_nothing_until_released(tmp_path):
     held = LW.replay_state(vault, repository)
     assert held.updates == 0 and not held.pool_updates
     with repository.connection() as connection:
-        assert all(o["id"] != cold.attempt_id for o in LW.qualifying_outcomes(connection, ["lo_eigen"], "2026-01-01"))
+        assert all(o["id"] != cold.attempt_id for o in LW.qualifying_outcomes(connection, ["lo_eigen"], "2026-01-01",
+                                                                         order=LW.LEGACY_ORDER))
         calibration = LW._calibration_attempts(connection, LW.read_hedges(connection), None)
     assert cold.attempt_id not in {row["id"] for row in calibration}
     append_adjudication_evidence_revision(

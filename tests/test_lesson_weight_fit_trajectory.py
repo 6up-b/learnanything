@@ -19,6 +19,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
+from learnloop.algorithm_versions import FORECAST_SCORING_ALGORITHM_VERSION
 from learnloop.learner import lesson_weight as LW
 from learnloop.vault.loader import load_vault
 
@@ -70,7 +71,8 @@ def _floors(paths, value):
 
 
 def test_an_update_whose_variance_the_floor_set_is_labelled_not_recomputed(tmp_path):
-    paths, repository = build_teacher_vault(tmp_path / "vault")
+    # Below mvp-0.75 (from it the noise is recorded and the update recomputed: ``test_lesson_weight_facts.py``).
+    paths, repository = build_teacher_vault(tmp_path / "vault", version=FORECAST_SCORING_ALGORITHM_VERSION)
     _floors(paths, 2.5)  # above every posterior variance below: the floor sets each one
     _lesson_with_check(paths, repository, at=T)
     _cold(paths, repository, "pi_eig_2", T + timedelta(days=2), points=4)
@@ -140,7 +142,8 @@ def test_a_regraded_answer_before_the_check_moves_the_recomputations_start(tmp_p
 def test_a_reanchoring_claim_inside_the_window_is_labelled_not_recomputed(tmp_path):
     from learnloop.learner.mastery import reanchor_mastery_from_claim
 
-    paths, repository = build_teacher_vault(tmp_path / "vault")
+    # Below mvp-0.75 (from it the chain of recorded states breaks: ``test_lesson_weight_facts.py``).
+    paths, repository = build_teacher_vault(tmp_path / "vault", version=FORECAST_SCORING_ALGORITHM_VERSION)
     _lesson_with_check(paths, repository, at=T)
     stamp = (T + timedelta(days=1)).isoformat().replace("+00:00", "Z")
     claim_id = repository.insert_learner_claim({

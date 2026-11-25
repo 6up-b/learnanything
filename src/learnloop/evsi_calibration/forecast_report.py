@@ -644,13 +644,14 @@ def resolve_lesson_step(ledgers: _Ledgers, receipt: Mapping[str, Any]) -> dict[s
     the forecast (``learner.lesson_weight.qualifying_outcomes``: the outcome the pool weight learns
     from, held grades left out until released); pending until one exists."""
 
-    from learnloop.learner.lesson_weight import qualifying_outcomes
+    from learnloop.learner.lesson_weight import outcome_order, qualifying_outcomes
 
     inputs = receipt.get("inputs") or {}
     lo = inputs.get("learning_object_id")
     if not lo:
         return _resolution(CENSORED, "no_learning_object")
-    outcomes = qualifying_outcomes(ledgers.connection, [str(lo)], str(receipt.get("created_at")))
+    outcomes = qualifying_outcomes(ledgers.connection, [str(lo)], str(receipt.get("created_at")),
+                                   order=outcome_order(ledgers.vault.config.algorithms.algorithm_version, fit=False))
     if not outcomes:
         return _resolution(PENDING, "awaiting_cold_outcome")
     first = outcomes[0]

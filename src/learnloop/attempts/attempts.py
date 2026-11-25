@@ -84,6 +84,7 @@ from learnloop.learner.mastery import (
     MasterySeed,
     display_mastery,
     item_irt_params,
+    mastery_application_facts,
     seed_for_learning_object,
     resolve_item_irt_params,
     update_item_difficulty,
@@ -143,7 +144,7 @@ from learnloop.attempts.surprise import SurpriseResult, compute_surprise
 from learnloop.adaptive_difficulty.surprise_forecast import (
     read_surprise_forecast, record_grade_forecast, with_grade_forecast,
 )
-from learnloop.algorithm_versions import forecast_scoring_fixed, label_retired
+from learnloop.algorithm_versions import forecast_scoring_fixed, label_retired, mastery_facts_recorded
 from learnloop.vault.hashes import practice_item_hash
 from learnloop.vault.models import LearningObject, LoadedVault, PracticeItem, Rubric
 
@@ -4177,6 +4178,8 @@ def _compute_resolved_grade_application(
         vault, repository, draft, replay=replay, clock=clock, window_bounded=reveal_window_bounded,
     )
     observed_at = (clock or SystemClock()).now().astimezone(UTC)
+    if mastery_facts_recorded(vault.config.algorithms.algorithm_version):  # the whole second replay observes at
+        observed_at = observed_at.replace(microsecond=0)
     now_iso = utc_now_iso(clock)
     subjects = vault.subjects_for_item(item)
     inputs = GradeInputs(
@@ -4535,6 +4538,10 @@ def grade_application(inputs: GradeInputs, scope: GradeScope, reads: GradeReads)
         facet_uncertainty_updates=facet_uncertainty_updates,
         facet_uncertainty_trace=facet_uncertainty_trace,
     )
+    if mastery_facts_recorded(config.algorithms.algorithm_version):
+        debug_payload["mastery_application"] = mastery_application_facts(
+            prior_state.mastery, belief.posterior_mastery, evidence.observation, belief.mastery_trace,
+            item_a=evidence.item_a, item_b=evidence.item_b, variance_floor=belief.mastery_variance_floor)
     next_memory, due_at, surprise = review.next_memory, review.due_at, belief.surprise
     practice_state = PracticeItemState(
         practice_item_id=item.id,
