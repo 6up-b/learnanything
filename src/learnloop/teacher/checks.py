@@ -216,42 +216,71 @@ def check_mass(vault: Any, repository: Any, *, learning_object_id: str, tap: int
 # --- grading ---------------------------------------------------------------------
 
 
+def _validated(proposal: Any, *, attempt_id: str, item: Any, vault: Any, answer: str) -> Any:
+    from learnloop.attempts.attempts import AttemptValidationError
+    from learnloop.attempts.grading import GradingValidationError, validate_codex_grading_proposal
+
+    try:
+        return validate_codex_grading_proposal(proposal, attempt_id=attempt_id, item=item, vault=vault,
+                                               learner_answer_md=answer)
+    except GradingValidationError as exc:
+        raise AttemptValidationError(str(exc)) from exc
+
+
+#: The checkpoint purpose of a lesson answer's grader proposal (TE5-R4).
+GRADE_CHECKPOINT_PURPOSE = "lesson_answer_grade"
+
+
+def grade_checkpoint_key(attempt_id: str, item_id: str, answer: str) -> str:
+    return f"{GRADE_CHECKPOINT_PURPOSE}:{attempt_id}:{content_key({'item': str(item_id), 'answer': answer})}"
+
+
 def grade_answer(vault: Any, repository: Any, client: Any, *, item: Any, attempt_id: str, answer: str,
                  runtime: Any = None, clock: Clock | None = None) -> tuple[Any, str]:
     """The blind grader's validated grade of ``answer`` (the answer only), as a ResolvedGrade, and its run id."""
 
     from learnloop.ai.runs import finish_agent_run
-    from learnloop.attempts.attempts import (
-        AttemptValidationError,
-        GradeAttribution,
-        ResolvedGrade,
-        agent_run_provider_fields,
-    )
+    from learnloop.attempts.attempts import GradeAttribution, ResolvedGrade, agent_run_provider_fields
     from learnloop.attempts.grading import (
-        GradingValidationError,
         build_grading_context,
         request_vault_grading_proposal,
-        validate_codex_grading_proposal,
         vault_grading_run_identity,
     )
 
-    context = build_grading_context(vault, item, attempt_id=attempt_id, learner_answer_md=answer)
-    run_id = repository.insert_agent_run({
-        "id": new_ulid(), "purpose": "grading", **agent_run_provider_fields(client, runtime),
-        "prompt_template": "grading", **vault_grading_run_identity(context),
-        "started_at": utc_now_iso(clock), "status": "running",
-    })
-    try:
-        proposal = request_vault_grading_proposal(vault, client, context)
+    from learnloop.attempts.ai_contracts import GradingProposal
+
+    # TE5-R4: the grade is saved under the answer's identity (the attempt id it is graded for, the item, the exact
+    # text) the moment it is validated, before the answer's write: a crash between the two reuses it, so one answer is
+    # graded (and paid for) once. Another text is another identity, graded on its own.
+    key = grade_checkpoint_key(attempt_id, item.id, answer)
+    saved = repository.model_checkpoint(key)
+    proposal = None
+    if saved is not None:
         try:
-            validated = validate_codex_grading_proposal(
-                proposal, attempt_id=attempt_id, item=item, vault=vault, learner_answer_md=answer)
-        except GradingValidationError as exc:
-            raise AttemptValidationError(str(exc)) from exc
-    except Exception as exc:
-        finish_agent_run(repository, run_id, client, status="failed", error_message=str(exc), clock=clock)
-        raise
-    finish_agent_run(repository, run_id, client, clock=clock)
+            proposal = GradingProposal.model_validate(saved["result"]["proposal"])
+            run_id = str(saved["result"]["run_id"])
+        except (ValueError, KeyError, TypeError):
+            repository.discard_model_checkpoint(key, result=saved["result"])
+            proposal = None
+    if proposal is None:
+        context = build_grading_context(vault, item, attempt_id=attempt_id, learner_answer_md=answer)
+        run_id = repository.insert_agent_run({
+            "id": new_ulid(), "purpose": "grading", **agent_run_provider_fields(client, runtime),
+            "prompt_template": "grading", **vault_grading_run_identity(context),
+            "started_at": utc_now_iso(clock), "status": "running",
+        })
+        try:
+            proposal = request_vault_grading_proposal(vault, client, context)
+            validated = _validated(proposal, attempt_id=attempt_id, item=item, vault=vault, answer=answer)
+        except Exception as exc:
+            finish_agent_run(repository, run_id, client, status="failed", error_message=str(exc), clock=clock)
+            raise
+        finish_agent_run(repository, run_id, client, clock=clock)
+        repository.save_model_checkpoint(key, purpose=GRADE_CHECKPOINT_PURPOSE,
+                                         result={"proposal": proposal.model_dump(mode="json"), "run_id": run_id})
+    else:
+        # Validation is pure: the saved proposal is validated again exactly as it was when it returned.
+        validated = _validated(proposal, attempt_id=attempt_id, item=item, vault=vault, answer=answer)
     now = utc_now_iso(clock)
     criterion_points = {evidence.criterion_id: evidence.points_awarded for evidence in validated.criterion_evidence}
     grade = ResolvedGrade(
