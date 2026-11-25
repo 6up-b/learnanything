@@ -218,6 +218,10 @@ _UPPER_BOUND = re.compile(
 #: Reads that keep occurrence time (spec §5.3: outcomes, FSRS, mastery and reports; and write paths,
 #: which label the attempt being written), each with its reason. ``(module, function)``.
 OCCURRENCE_TIME_READS: dict[tuple[str, str], str] = {
+    ("learnloop/db/stores/answered_revision.py", "all_answered_revisions"):
+        "review round 3 (FR3-1): a scheduler selection names an attempt's answered revision only when it was recorded "
+        "no later than the answer (the field's own revision rule); a protection fact about the answer, never a "
+        "decision-time read",
     ("learnloop/router_objective/price.py", "activity_spans"):
         "router objective RO4 (§8.6): the attention price's session minutes are active minutes when they happened "
         "(RO0's clock, two clocks never blended); an imported exam row carries no session latency. RO5's realized "
