@@ -45,8 +45,8 @@ BELIEF = LearnerGap(kind="misconception", prerequisite_name=None, prerequisite_l
 
 
 def test_the_tag_and_the_kind():
-    assert PAD_TEXT_ALGORITHM_VERSION == "mvp-0.68" == SUCCESSOR_CHAIN[-5]
-    for version, on in ((SUCCESSOR_CHAIN[-6], False), (PAD_TEXT_ALGORITHM_VERSION, True)):
+    assert PAD_TEXT_ALGORITHM_VERSION == "mvp-0.68" == SUCCESSOR_CHAIN[-6]
+    for version, on in ((SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(PAD_TEXT_ALGORITHM_VERSION) - 1], False), (PAD_TEXT_ALGORITHM_VERSION, True)):
         config = type("C", (), {"algorithms": type("A", (), {"algorithm_version": version})()})()
         assert pad_text_on(config) is on
     assert "pad_text" in SOURCE_KINDS and "pad_text" in READABLE_SOURCE_KINDS

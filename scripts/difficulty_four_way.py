@@ -582,6 +582,37 @@ def _database_digests(root: Path) -> dict[str, str]:
     return digests
 
 
+def check_private_output(out: Path, *, inputs: Sequence[Path]) -> None:
+    """Refuse a private report's path before anything is read: it must be a new regular file (no existing file,
+    symlink or hard link is ever written through), outside every input copy, and not a device, a pipe or a stdout
+    alias (``/dev``, ``/proc``), so values and ids never reach a terminal or an input database."""
+
+    if out.is_symlink() or out.exists():
+        raise SystemExit(f"--out {out} exists: a private report is written only to a new file")
+    resolved = out.parent.resolve() / out.name
+    if any(str(resolved).startswith(prefix) for prefix in ("/dev/", "/proc/", "/sys/")):
+        raise SystemExit(f"--out {out} is not a regular file path")
+    for root in inputs:
+        try:
+            resolved.relative_to(Path(root).resolve())
+        except ValueError:
+            continue
+        raise SystemExit(f"--out {out} is inside the input copy {root}: the input is never written")
+
+
+def write_private_output(out: Path, text: str, *, inputs: Sequence[Path]) -> None:
+    """Write a private report to a new file created exclusively (``O_EXCL``, not following a symlink), after
+    :func:`check_private_output` again (the path may have appeared meanwhile)."""
+
+    import os
+
+    check_private_output(out, inputs=inputs)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    descriptor = os.open(out, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0), 0o600)
+    with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+        handle.write(text)
+
+
 def _refuse_live_vault(root: Path) -> None:
     home = Path.home()
     for name in ("learnloop-vaults", "learnloop-retired"):
@@ -811,17 +842,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--ad-without-z-llm", action="store_true",
                         help="arms c and d read AD's predictive with z_llm dropped")
     args = parser.parse_args(argv)
-    out = args.out.resolve()
-    try:
-        out.relative_to(args.vault_copy.resolve())
-    except ValueError:
-        pass
-    else:
-        raise SystemExit("--out must be outside the vault copy: the input is never written")
+    check_private_output(args.out, inputs=(args.vault_copy,))
     report = run_four_way(args.vault_copy, as_of=_as_of(args.as_of), top_k=tuple(args.top_k or (10,)),
                           scratch_root=args.scratch, ad_without_z_llm=args.ad_without_z_llm)
-    out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(json.dumps(report, indent=1, sort_keys=True, default=str) + "\n", encoding="utf-8")
+    write_private_output(args.out, json.dumps(report, indent=1, sort_keys=True, default=str) + "\n",
+                         inputs=(args.vault_copy,))
     for line in summary_lines(report):
         print(line)
     return 0
