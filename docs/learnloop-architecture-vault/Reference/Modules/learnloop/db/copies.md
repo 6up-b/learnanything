@@ -202,6 +202,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_author_then_write_writes_what_import_exercises_writes`
 - [tests/test_intent_recall_targets.py](../../../../../../tests/test_intent_recall_targets.py) — direct import
   - `test_the_anchor_reproduces_every_stored_due_at_on_fixture_copies`
+- [tests/test_label_retirement_counts.py](../../../../../../tests/test_label_retirement_counts.py) — direct import
+  - `test_the_counts_before_and_after_the_upgrade_and_their_comparison`
 - [tests/test_learner_notes_migration.py](../../../../../../tests/test_learner_notes_migration.py) — direct import
   - `test_229_on_the_durability_lane`
 - [tests/test_lp_claim_fixes.py](../../../../../../tests/test_lp_claim_fixes.py) — direct import

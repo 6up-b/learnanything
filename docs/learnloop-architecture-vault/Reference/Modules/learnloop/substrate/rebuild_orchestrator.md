@@ -275,6 +275,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_vault_without_families_has_no_fingerprint_rows`
   - `test_rebuild_recomputes_fingerprints_without_any_model_or_generator`
   - `test_skeletons_from_one_model_at_two_prompt_versions_rebuild_without_a_key_collision`
+- [tests/test_label_retirement_counts.py](../../../../../../tests/test_label_retirement_counts.py) — direct import
+  - `test_the_counts_before_and_after_the_upgrade_and_their_comparison`
 - [tests/test_learner_report_superseded.py](../../../../../../tests/test_learner_report_superseded.py) — direct import
   - `test_a_new_starting_level_keeps_the_old_one_for_an_lo_first_practised_under_it`
   - `test_random_attempts_and_learner_reports_rebuild_to_live`

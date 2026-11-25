@@ -211,6 +211,7 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 - [scripts/check_credit_report.py](../../../../../../scripts/check_credit_report.py); calls `load_vault`
 - [scripts/difficulty_four_way.py](../../../../../../scripts/difficulty_four_way.py); calls `load_vault`
 - [scripts/difficulty_receipt_coverage.py](../../../../../../scripts/difficulty_receipt_coverage.py); calls `load_vault`
+- [scripts/label_retirement_counts.py](../../../../../../scripts/label_retirement_counts.py); calls `load_vault`
 - [scripts/voi_cap_report.py](../../../../../../scripts/voi_cap_report.py); calls `load_vault`
 
 ## Dependencies
@@ -2023,6 +2024,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_missing_and_stale_stems_degrade_per_item`
   - `test_other_task_prefixes_are_ignored`
   - `test_render_never_calls_a_model_or_writes`
+- [tests/test_label_retirement_counts.py](../../../../../../tests/test_label_retirement_counts.py) — direct import
+  - `test_the_counts_before_and_after_the_upgrade_and_their_comparison`
 - [tests/test_laddered_stems.py](../../../../../../tests/test_laddered_stems.py) — direct import
 - [tests/test_large_practice_flow.py](../../../../../../tests/test_large_practice_flow.py) — direct import
   - `test_many_open_text_practice_items_schedule_and_record_attempt`

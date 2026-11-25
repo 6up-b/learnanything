@@ -35,7 +35,7 @@ Up: [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptiv
 
 ## Why this module exists
 
-`learnloop.adaptive_difficulty.grade_forecast` exists within [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] to own the behavior summarized by its module contract: AD's forecast of a graded answer, as AD stood before it (``docs/reviews/algorithm-mvp-0.72.md``).
+`learnloop.adaptive_difficulty.grade_forecast` exists within [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] to own the behavior summarized by its module contract: AD's forecast of a graded answer, as AD stood before it (``docs/reviews/algorithm-mvp-0.71.md``).
 
 The authoritative system-level explanation remains in [[Architecture Overview]]; this note records where this source module participates rather than restating those concepts.
 

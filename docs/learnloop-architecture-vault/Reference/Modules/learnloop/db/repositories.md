@@ -560,6 +560,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 
 - [scripts/benchmark_sqlite_concurrency.py](../../../../../../scripts/benchmark_sqlite_concurrency.py)
 - [scripts/check_credit_report.py](../../../../../../scripts/check_credit_report.py)
+- [scripts/label_retirement_counts.py](../../../../../../scripts/label_retirement_counts.py)
 
 ## Dependencies
 
@@ -1694,6 +1695,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_km5_sim_gates.py](../../../../../../tests/test_km5_sim_gates.py) — direct import
   - `test_residual_activation_improves_capability_mae_without_parent_inflation`
   - `test_shadow_intent_logs_practice_integration_at_the_right_moment`
+- [tests/test_label_retirement_counts.py](../../../../../../tests/test_label_retirement_counts.py) — direct import
+  - `test_the_counts_before_and_after_the_upgrade_and_their_comparison`
 - [tests/test_laddered_stems.py](../../../../../../tests/test_laddered_stems.py) — direct import
 - [tests/test_large_practice_flow.py](../../../../../../tests/test_large_practice_flow.py) — direct import
   - `test_many_open_text_practice_items_schedule_and_record_attempt`

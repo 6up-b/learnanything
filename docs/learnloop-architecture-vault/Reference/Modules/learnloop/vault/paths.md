@@ -194,6 +194,7 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 - [scripts/benchmark_sqlite_concurrency.py](../../../../../../scripts/benchmark_sqlite_concurrency.py); calls `VaultPaths`
 - [scripts/difficulty_four_way.py](../../../../../../scripts/difficulty_four_way.py); calls `VaultPaths`
 - [scripts/difficulty_receipt_coverage.py](../../../../../../scripts/difficulty_receipt_coverage.py); calls `VaultPaths`
+- [scripts/label_retirement_counts.py](../../../../../../scripts/label_retirement_counts.py); calls `VaultPaths`
 - [scripts/voi_cap_report.py](../../../../../../scripts/voi_cap_report.py); calls `VaultPaths`
 
 ## Dependencies
