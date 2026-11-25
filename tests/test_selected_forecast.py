@@ -253,3 +253,43 @@ def test_a_bound_answer_without_a_grade_receipt_reads_mastery_live_and_after_a_r
     assert live[result.attempt_id]["dist"]["prediction_source"] == "mastery"
     rebuild_all_derived_state(vault, repo)
     assert _surprise(repo) == live
+
+
+@pytest.mark.parametrize("version", ["mvp-0.75", "mvp-0.76"])
+def test_a_regrade_does_not_make_an_old_inline_forecast_eligible(tmp_path, version):
+    """FR3-11: an inline check answered at mvp-0.73 froze a contract with no full revision and recorded a grade
+    receipt of the item current at the grade; from mvp-0.74 its surprise reads mastery. A regrade after an edit
+    snapshots the current item, so its epoch's contract has a revision. From mvp-0.76 the inline guard reads the
+    original grade's contract (the one reader of what an attempt answered), so the source stays mastery after the
+    regrade and after a rebuild; below the tag the epoch's contract opened it."""
+
+    from learnloop.learner.assessment_contracts import snapshot_for_presentation
+    from tests.helpers import set_algorithm_version
+    from tests.regrade_contract_replay_helpers import _regrade
+
+    paths = create_placement_vault(tmp_path / "vault", version="mvp-0.73")
+    vault, repo = load_vault(paths.root), Repository(paths.sqlite_path)
+    sync_vault_state(vault, repo, clock=FrozenClock(NOW))
+    item = vault.practice_items["pi_eig_mid"]
+    opened = snapshot_for_presentation(repo, vault, item)
+    assert not repo.fetch_assessment_contract_version(opened)["contract"].get("forecast_item_revision")
+    answered = complete_self_graded_attempt(vault, repo, AttemptDraft(
+        item.id, "answer", assessment_contract_version_id=opened, submission_id="inline:check-1"),
+        SelfGradeInput({"correctness": 3}, 3), clock=FrozenClock(NOW))
+    with repo.connection() as conn:
+        assert conn.execute("SELECT 1 FROM forecast_receipts WHERE source_attempt_id = ?",
+                            (answered.attempt_id,)).fetchone() is not None
+    set_algorithm_version(paths, version)
+    vault = load_vault(paths.root)
+    rebuild_all_derived_state(vault, repo)
+    assert _surprise(repo)[answered.attempt_id]["dist"]["prediction_source"] == "mastery"
+    vault.practice_items[item.id] = item.model_copy(update={"prompt": "An edited prompt."})
+    _regrade(vault, repo, answered.attempt_id, {"correctness": 4.0}, when=NOW + timedelta(days=1))
+    epoch = next(row.assessment_contract_version_id for row in repo.fetch_grading_evidence(answered.attempt_id)
+                 if row.assessment_contract_version_id and row.grading_revision)
+    assert repo.fetch_assessment_contract_version(epoch)["contract"]["forecast_item_revision"]
+    expected = "mastery" if version == "mvp-0.76" else "grade_receipt"
+    live = _surprise(repo)
+    assert live[answered.attempt_id]["dist"]["prediction_source"] == expected
+    rebuild_all_derived_state(vault, repo)
+    assert _surprise(repo) == live

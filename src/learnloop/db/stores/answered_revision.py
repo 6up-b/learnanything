@@ -39,6 +39,17 @@ def contract_revision(connection: sqlite3.Connection, contract_version_id: Any) 
     return str(row[0]) if row and row[0] else None
 
 
+def first_grade_contract(connection: sqlite3.Connection, attempt_id: Any) -> tuple[bool, str | None]:
+    """Whether the attempt's first grade is stored, and the contract its rows cite (fact 1's contract): the one frozen
+    when the item was presented, never a regrade's or an adjudication's, which cite the contract THEY graded."""
+
+    if not attempt_id or not _table(connection, "grading_evidence"):
+        return False, None
+    rows = connection.execute("SELECT assessment_contract_version_id FROM grading_evidence WHERE attempt_id = ? "
+                              "AND COALESCE(grading_revision, 0) = 0 ORDER BY rowid", (str(attempt_id),)).fetchall()
+    return bool(rows), next((str(row[0]) for row in rows if row[0]), None)
+
+
 def presentation_revision(connection: sqlite3.Connection, plan_presentation_id: Any) -> str | None:
     """The revision a plan presentation froze when it was served, or None."""
 
@@ -120,5 +131,5 @@ def all_answered_revisions(connection: sqlite3.Connection) -> dict[str, tuple[st
     return {key: tuple(values) for key, values in facts.items()}
 
 
-__all__ = ["all_answered_revisions", "contract_revision", "draft_revisions", "presentation_revision",
-           "selection_revision"]
+__all__ = ["all_answered_revisions", "contract_revision", "draft_revisions", "first_grade_contract",
+           "presentation_revision", "selection_revision"]

@@ -23,6 +23,13 @@ The successor of mvp-0.75 for the review-round-3 fixes that change what is deriv
   `mastery.irt.enabled = false` and a forecast beyond the clip. Test:
   `tests/test_surprise_forecast_scoring.py::test_without_the_irt_link_the_configured_clip_holds_after_the_priming_shift_from_the_tag`
   (both sides of the tag).
+- FR3-11 (class 8): an inline answer's forecast eligibility reads the contract its original grade cites
+  (`answered_revision.first_grade_contract`), never a regrade epoch's (`inline_guard_reads_first_grade`). Up to
+  mvp-0.75 a regrade of an mvp-0.73 inline check (open-time contract without a revision) snapshotted the current item
+  and its epoch's contract made the old grade receipt eligible, live at the regrade and on every later rebuild. Changes
+  stored surprise only for a regraded inline answer whose original contract froze no revision: it reads mastery.
+  Test: `tests/test_selected_forecast.py::test_a_regrade_does_not_make_an_old_inline_forecast_eligible` (both sides
+  of the tag).
 
 ## Fixed without the tag
 

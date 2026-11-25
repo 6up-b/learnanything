@@ -1395,6 +1395,13 @@ def forecast_clipped_after_shift(algorithm_version: str | None) -> bool:
     return algorithm_version in OUTCOME_FIXES_VERSIONS
 
 
+def inline_guard_reads_first_grade(algorithm_version: str | None) -> bool:
+    """An inline answer's forecast eligibility reads the contract its original grade cites, never a regrade epoch's
+    (mvp-0.76, FR3-11); below it the current epoch's contract, mvp-0.74's exactly. Takes the vault's tag."""
+
+    return algorithm_version in OUTCOME_FIXES_VERSIONS
+
+
 def mastery_facts_recorded(algorithm_version: str | None) -> bool:
     """Mastery records each application's facts, observed at whole seconds, and the lesson-weight fit and every
     reader of a lesson outcome read them in one order (the facts' tag); below it mvp-0.73's exactly. Takes the

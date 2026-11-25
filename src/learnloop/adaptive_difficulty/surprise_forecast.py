@@ -22,10 +22,13 @@ from typing import Any
 
 from learnloop.adaptive_difficulty.grade_forecast import receipt_id, safe_grade_receipt
 from learnloop.adaptive_difficulty.grade_forecast import receipt_key as grade_receipt_key
-from learnloop.algorithm_versions import SELECTED_FORECAST_VERSIONS, label_retired
+from learnloop.algorithm_versions import (
+    SELECTED_FORECAST_VERSIONS, inline_guard_reads_first_grade, label_retired,
+)
 from learnloop.clock import utc_now_iso
 from learnloop.db.connection import connect
 from learnloop.db.stores import forecast_receipts as receipts
+from learnloop.db.stores.answered_revision import first_grade_contract
 from learnloop.db.stores.plan_presentations import bindable_presentation, presentation_by_id
 from learnloop.scheduling.forecast_receipts import (
     ITEM_UNASSISTED_SUCCESS,
@@ -88,6 +91,20 @@ def with_grade_forecast(vault: Any, repository: Any, attempt: Any, *, clock: Any
 def _contract_revision(repository: Any, version_id: str) -> str | None:
     stored = repository.fetch_assessment_contract_version(version_id)
     return ((stored or {}).get("contract") or {}).get("forecast_item_revision")
+
+
+def _inline_contract_revision(vault: Any, repository: Any, connection: Any, draft: Any, attempt_id: str) -> str | None:
+    """The full revision the inline answer's presentation froze. From the outcome fixes' tag (FR3-11) it is read from
+    the original grade's stored contract (``answered_revision.first_grade_contract``), so a regrade, whose epoch
+    snapshots the current item, never makes an old forecast eligible; the draft's contract only before the first grade
+    is stored. Below the tag the draft's (on replay, the current epoch's) contract."""
+
+    contract = draft.assessment_contract_version_id
+    if inline_guard_reads_first_grade(vault.config.algorithms.algorithm_version):
+        stored, first = first_grade_contract(connection, attempt_id)
+        if stored:
+            contract = first
+    return _contract_revision(repository, contract) if contract else None
 
 
 def _revised_after(repository: Any, at: str) -> bool:
@@ -225,7 +242,7 @@ def read_surprise_forecast(vault: Any, repository: Any, draft: Any, *, attempt_i
     From the selected-forecast tag the answered revision is the one the answer's grade receipt names, a row stored
     before the grade (live, in its transaction) and read the same way on replay: an answer without one reads mastery on
     both sides (H3-R28). An inline answer whose contract froze no revision reads mastery: its grade receipt may describe
-    a later edit."""
+    a later edit. From the outcome fixes' tag that contract is the original grade's, never a regrade epoch's (FR3-11)."""
 
     if not label_retired(vault.config.algorithms.algorithm_version):
         return None
@@ -235,9 +252,8 @@ def read_surprise_forecast(vault: Any, repository: Any, draft: Any, *, attempt_i
         grade = receipts.attempt_forecast(connection, attempt_id, kind=ITEM_UNASSISTED_SUCCESS_AT_GRADE,
                                           receipt_key=grade_receipt_key(attempt_id))
         answered_revision = _receipt_revision(grade)
-        if selected and (draft.submission_id or "").startswith("inline:") and not (
-                draft.assessment_contract_version_id
-                and _contract_revision(repository, draft.assessment_contract_version_id)):
+        if selected and (draft.submission_id or "").startswith("inline:") and not _inline_contract_revision(
+                vault, repository, connection, draft, attempt_id):
             return None
         bound, _why = bindable_presentation(connection, plan_presentation_id, practice_item_id=practice_item_id,
                                             attempt_id=attempt_id)
