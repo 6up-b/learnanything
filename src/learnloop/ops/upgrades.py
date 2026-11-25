@@ -42,6 +42,7 @@ from learnloop.algorithm_versions import (
     SELECTED_FORECAST_ALGORITHM_VERSION,
     LESSON_WEIGHT_CURVES_ALGORITHM_VERSION,
     LESSON_WEIGHT_FACTS_ALGORITHM_VERSION,
+    OUTCOME_FIXES_ALGORITHM_VERSION,
     LIFECYCLE_INPUTS_ALGORITHM_VERSION,
     MASTERY_SEED_ALGORITHM_VERSION,
     PAD_TEXT_ALGORITHM_VERSION,
@@ -299,6 +300,9 @@ UPGRADES: tuple[Link, ...] = (
     Link(SELECTED_FORECAST_ALGORITHM_VERSION, whole_vault_rebuild),
     # Mastery records each application's facts and the fit reads them: the rebuild rewrites every attempt's record.
     Link(LESSON_WEIGHT_FACTS_ALGORITHM_VERSION, whole_vault_rebuild),
+    # An answer mastery did not apply resolves no lesson check: the rebuild refits the lesson weight on the outcomes
+    # that remain (no stored row is rewritten by hand).
+    Link(OUTCOME_FIXES_ALGORITHM_VERSION, whole_vault_rebuild),
 )
 
 

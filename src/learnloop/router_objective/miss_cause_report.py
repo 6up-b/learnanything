@@ -60,7 +60,8 @@ def section(connection: Any, config: Any = None) -> dict[str, Any]:
 
     from learnloop.learner.lesson_weight import outcome_order, qualifying_outcomes
 
-    order = outcome_order(getattr(getattr(config, "algorithms", None), "algorithm_version", None), fit=False)
+    version = getattr(getattr(config, "algorithms", None), "algorithm_version", None)
+    order = outcome_order(version, fit=False)
 
     if connection.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='router_decisions'").fetchone() is None:
         return {"version": VERSION, "available": False, "reason": "no router decisions table"}
@@ -87,7 +88,7 @@ def section(connection: Any, config: Any = None) -> dict[str, Any]:
         if sensor.get("status") != MC.DIAGNOSED:
             continue
         lo = str(offer.get("learning_object_id") or "")
-        outcomes = qualifying_outcomes(connection, [lo], str(created), order=order) if lo else []
+        outcomes = qualifying_outcomes(connection, [lo], str(created), order=order, algorithm_version=version) if lo else []
         outcome = float(outcomes[0]["correctness"]) if outcomes else None
         every.append((sensor, outcome))
         if str(chosen or "").startswith(OFFER_PREFIX):

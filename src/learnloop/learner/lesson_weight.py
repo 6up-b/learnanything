@@ -83,7 +83,11 @@ from learnloop.adf_numeric import (
     normalized_log_weights,
     sigmoid,
 )
-from learnloop.algorithm_versions import LESSON_WEIGHT_CURVE_VERSIONS, mastery_facts_recorded
+from learnloop.algorithm_versions import (
+    LESSON_WEIGHT_CURVE_VERSIONS,
+    mastery_facts_recorded,
+    unapplied_answers_resolve_nothing,
+)
 from learnloop.db.attempt_order import LEGACY_ORDER, AttemptOrder, attempt_order_for, attempt_order_for_version
 from learnloop.db.stores.grade_curves import current_curve
 from learnloop.db.stores.write_provenance import read_snapshot
@@ -429,8 +433,37 @@ class MasteryApplication:
     variance_floor: float | None
 
 
+def _finite(value: Any) -> float:
+    """A recorded number: a real, finite JSON number (a bool, a string or a non-finite value is malformed)."""
+
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(float(value)):
+        raise ValueError("not a finite number")
+    return float(value)
+
+
+def _instant(value: Any) -> str:
+    """A recorded instant: a string ``parse_utc`` reads (a null or missing instant is malformed)."""
+
+    if not isinstance(value, str):
+        raise ValueError("not an instant")
+    parse_utc(value)
+    return value
+
+
+def _flag(value: Any) -> bool:
+    if not isinstance(value, bool):
+        raise ValueError("not a boolean")
+    return value
+
+
 def _state_fact(value: Any) -> tuple[float, float, str | None]:
-    return float(value["mu"]), float(value["P"]), value.get("last_evidence_at")
+    """A recorded state: its mean, variance and evidence clock. The clock key must be present (a recorded null clock is
+    a state with no evidence yet; a missing key is a malformed record, never read as that null)."""
+
+    if not isinstance(value, dict) or "last_evidence_at" not in value:
+        raise KeyError("last_evidence_at")
+    clock = value["last_evidence_at"]
+    return _finite(value["mu"]), _finite(value["P"]), None if clock is None else _instant(clock)
 
 
 def mastery_applications(connection: Any, attempt_ids: Iterable[str]) -> dict[str, MasteryApplication | None]:
@@ -448,14 +481,16 @@ def mastery_applications(connection: Any, attempt_ids: Iterable[str]) -> dict[st
                 fact = (json.loads(payload) if payload else {}).get("mastery_application")
                 if not isinstance(fact, dict):
                     continue
+                # Every field is checked for its type; a malformed or incomplete record is
+                # no record (the fit's labelled first-order path), never an exception or a silently accepted chain.
                 out[str(attempt_id)] = MasteryApplication(
-                    attempt_id=str(attempt_id), applied=bool(fact["applied"]), observed_at=str(fact["observed_at"]),
+                    attempt_id=str(attempt_id), applied=_flag(fact["applied"]), observed_at=_instant(fact["observed_at"]),
                     prior=_state_fact(fact["prior"]), posterior=_state_fact(fact["posterior"]),
-                    score=None if fact.get("score") is None else float(fact["score"]),
-                    item_a=float(fact["item_a"]), item_b=float(fact["item_b"]),
-                    weight=float(fact["observation_weight"]),
-                    interpretation_variance=float(fact["interpretation_variance"]), primed=bool(fact["primed"]),
-                    variance_floor=None if fact.get("variance_floor") is None else float(fact["variance_floor"]))
+                    score=None if fact.get("score") is None else _finite(fact["score"]),
+                    item_a=_finite(fact["item_a"]), item_b=_finite(fact["item_b"]),
+                    weight=_finite(fact["observation_weight"]),
+                    interpretation_variance=_finite(fact["interpretation_variance"]), primed=_flag(fact["primed"]),
+                    variance_floor=None if fact.get("variance_floor") is None else _finite(fact["variance_floor"]))
             except (ValueError, KeyError, TypeError, AttributeError):
                 continue
     return out
@@ -1063,14 +1098,17 @@ def _forecasts(connection: Any) -> list[dict[str, Any]]:
 
 
 def qualifying_outcomes(connection: Any, learning_object_ids: Iterable[str], after: str | None,
-                        *, order: AttemptOrder, until: str | None = None) -> list[dict[str, Any]]:
+                        *, order: AttemptOrder, algorithm_version: str | None,
+                        until: str | None = None) -> list[dict[str, Any]]:
     """Graded attempts that can resolve a lesson check (§12.1), in order: on one of the LOs, after
     ``after``, of a cold type (:data:`COLD_ATTEMPT_TYPES`), unprimed, with no hint, the item's first
     attempt, with no reveal row on the item before it, and not a lesson probe answered after its lesson showed
     text on the topic (teacher TE2, Codex review F2: that answer is not independent, so it resolves nothing; only
     TE2 writes the exposed source, so nothing recorded before it reads differently). ``order``: the ledger order an
     item's first use and the result follow, always :func:`outcome_order` for the reader's tag (required: a default
-    let two readers define one outcome two ways)."""
+    let two readers define one outcome two ways). From mvp-0.76 (``algorithm_version``, the reader's tag) an answer
+    whose recorded mastery application says it was not applied (a verified alternative with nothing assessed) is no
+    outcome either: mastery learned nothing from it."""
 
     from learnloop.causal_activity_policy import LESSON_PROBE_EXPOSED_SOURCE
 
@@ -1105,6 +1143,9 @@ def qualifying_outcomes(connection: Any, learning_object_ids: Iterable[str], aft
     # A grade held for review is the grader's provisional score: no outcome anywhere (held_grades, the
     # canonical predicate; review F2). Released, it qualifies again on the next replay.
     held = held_for_review_attempts(connection, [row[0] for row in rows]) if rows else frozenset()
+    if rows and unapplied_answers_resolve_nothing(algorithm_version):
+        records = mastery_applications(connection, [row[0] for row in rows])
+        held = held | {key for key, record in records.items() if record is not None and not record.applied}  # no outcome
     return [{"id": row[0], "learning_object_id": row[1], "practice_item_id": row[2], "correctness": float(row[3]),
              "created_at": row[4], "attempt_type": row[5]} for row in rows if str(row[0]) not in held]
 
@@ -1182,7 +1223,8 @@ def _replay_in_snapshot(state: WeightState, vault: Any, connection: Any, mastery
     calibration = _calibration_attempts(connection, hedges, as_of, order)
     los = {str(c["learning_object_id"]) for c in checks} | {f["learning_object_id"] for f in forecasts}
     first = min([str(c["created_at"]) for c in checks] + [str(f["created_at"]) for f in forecasts], default=None)
-    outcomes = qualifying_outcomes(connection, los, first, order=order)
+    outcomes = qualifying_outcomes(connection, los, first, order=order,
+                                   algorithm_version=vault.config.algorithms.algorithm_version)
     if as_of is not None:
         outcomes = [o for o in outcomes if str(o["created_at"]) < as_of]
     # Events in time order. A check (and a forecast) sees only what happened strictly before its

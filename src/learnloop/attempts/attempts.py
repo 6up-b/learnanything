@@ -2974,7 +2974,7 @@ def apply_attempt(
             # observation and its application-order key are this value, so a clock crossing a second between reads
             # never dates them apart (replay reads the stored created_at).
             clock = FrozenClock((clock or SystemClock()).now())
-            # FR3-23 (owner decision b): points given without evidence rows are recorded as the grade's rows.
+            # Points given without evidence rows are recorded as the grade's rows, so replay reads what live applied.
             attempt = given_points_as_evidence(attempt, utc_now_iso(clock))
         if not attempt.replace_existing and attempt_order_for(vault.config).by_sequence:
             # mvp-0.65: the attempt's place among the grades applied in its second, taken under this transaction's

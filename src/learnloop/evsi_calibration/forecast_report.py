@@ -651,7 +651,8 @@ def resolve_lesson_step(ledgers: _Ledgers, receipt: Mapping[str, Any]) -> dict[s
     if not lo:
         return _resolution(CENSORED, "no_learning_object")
     outcomes = qualifying_outcomes(ledgers.connection, [str(lo)], str(receipt.get("created_at")),
-                                   order=outcome_order(ledgers.vault.config.algorithms.algorithm_version, fit=False))
+                                   order=outcome_order(ledgers.vault.config.algorithms.algorithm_version, fit=False),
+                                   algorithm_version=ledgers.vault.config.algorithms.algorithm_version)
     if not outcomes:
         return _resolution(PENDING, "awaiting_cold_outcome")
     first = outcomes[0]

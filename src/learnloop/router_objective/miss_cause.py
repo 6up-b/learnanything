@@ -680,7 +680,8 @@ def _offer_rows(connection: Any, config: Any, now_iso: str) -> list[dict[str, An
         return []
     known = attempt_time_sql(config, alias="a")
     # The order the fit defines a lesson outcome in (from the facts' tag; below it, the legacy order as built).
-    order = outcome_order(getattr(getattr(config, "algorithms", None), "algorithm_version", None), fit=False)
+    version = getattr(getattr(config, "algorithms", None), "algorithm_version", None)
+    order = outcome_order(version, fit=False)
     out: list[dict[str, Any]] = []
     for lesson_id, origin_ref, raw, closed in connection.execute(
             "SELECT id, origin_ref, learning_object_ids_json, closed_at FROM lessons WHERE origin = 'router' "
@@ -701,7 +702,8 @@ def _offer_rows(connection: Any, config: Any, now_iso: str) -> list[dict[str, An
         mass = (offer.get("mass") or {}).get("mean")
         if predicted is None or mass is None or not 0.0 < float(predicted) < 1.0:
             continue
-        outcomes = [row for row in qualifying_outcomes(connection, [lo], str(closed), until=now_iso, order=order)]
+        outcomes = [row for row in qualifying_outcomes(connection, [lo], str(closed), until=now_iso, order=order,
+                                                          algorithm_version=version)]
         if not outcomes:
             continue
         seen = connection.execute(f"SELECT {known} FROM practice_attempts a WHERE a.id = ?",

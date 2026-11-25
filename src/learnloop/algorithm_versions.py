@@ -1079,6 +1079,10 @@ SELECTED_FORECAST_ALGORITHM_VERSION = "mvp-0.74"
 # whole seconds live as in replay; the fit chains those facts, and every reader of a lesson outcome takes one order.
 # One constant: renumbering the tag is this line.
 LESSON_WEIGHT_FACTS_ALGORITHM_VERSION = "mvp-0.75"
+# An answer mastery did not apply (its recorded application says so, e.g. a verified alternative with every criterion
+# unassessed) resolves no lesson check in any outcome reader (docs/reviews/algorithm-mvp-0.76.md).
+# One constant: renumbering the tag is this line.
+OUTCOME_FIXES_ALGORITHM_VERSION = "mvp-0.76"
 
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
 # first. Each successor means its predecessor's semantics PLUS its own, so
@@ -1153,6 +1157,7 @@ SUCCESSOR_CHAIN: tuple[str, ...] = (
     FORECAST_SCORING_ALGORITHM_VERSION,
     SELECTED_FORECAST_ALGORITHM_VERSION,
     LESSON_WEIGHT_FACTS_ALGORITHM_VERSION,
+    OUTCOME_FIXES_ALGORITHM_VERSION,
 )
 
 
@@ -1370,6 +1375,16 @@ LESSON_WEIGHT_CURVE_VERSIONS = successors_from(LESSON_WEIGHT_CURVES_ALGORITHM_VE
 # Versions where mastery records its application facts and the lesson-weight fit reads them (gates read it through
 # :func:`mastery_facts_recorded`).
 LESSON_WEIGHT_FACT_VERSIONS = successors_from(LESSON_WEIGHT_FACTS_ALGORITHM_VERSION)
+
+
+OUTCOME_FIXES_VERSIONS = successors_from(OUTCOME_FIXES_ALGORITHM_VERSION)
+
+
+def unapplied_answers_resolve_nothing(algorithm_version: str | None) -> bool:
+    """An answer whose recorded mastery application says it was not applied is no lesson outcome (mvp-0.76); below it
+    every outcome reader is mvp-0.75's. Takes the vault's tag."""
+
+    return algorithm_version in OUTCOME_FIXES_VERSIONS
 
 
 def mastery_facts_recorded(algorithm_version: str | None) -> bool:
