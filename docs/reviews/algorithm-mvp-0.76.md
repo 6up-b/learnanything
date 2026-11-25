@@ -74,6 +74,9 @@ The successor of mvp-0.75 for the review-round-3 fixes that change what is deriv
   grade on its own connection, and a copy with protected material differed from one without). Test:
   `tests/test_answered_revision_protection.py::test_a_later_held_out_grade_does_not_change_an_unrelated_public_answers_forecast`
   (mvp-0.75 and 0.76, against the absent copy).
+- FR3-24 and FR3-25 (two flakes, fixed at their source): the reading-opportunity test reads values instead of
+  searching the dump for digits a hash can spell; a post-attempt slot's busy backoff waits on the stop, so shutdown
+  ends it, and the phone journeys close the desktops they open and wait for their slots.
 
 ## Pins and goldens
 
