@@ -9,10 +9,7 @@ subprocess here); "another thread reloaded" is a second ``load_vault`` in this p
 from __future__ import annotations
 
 import ast
-import os
 import sqlite3
-import subprocess
-import sys
 from contextlib import closing
 from dataclasses import replace
 from pathlib import Path
