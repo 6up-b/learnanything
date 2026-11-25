@@ -387,3 +387,30 @@ def test_a_wal_reader_from_before_the_activation_cannot_commit_after_it(tmp_path
         snapshot.close()
         lock_first.close()
     assert _count(paths, "practice_attempts") == attempts and _recorded(paths) == TARGET
+
+
+#: Every link from the first the fence's re-review named through the head: 0.72 (the curves) to the newest tag.
+CHAIN_FROM_CURVES = UPGRADES[UPGRADES.index(CURVES):]
+
+
+@pytest.mark.parametrize("link", CHAIN_FROM_CURVES, ids=lambda link: link.tag)
+def test_every_link_from_the_curves_moves_the_fence_and_a_reloaded_grade_writes_under_it(tmp_path, link):
+    """Each activation through the head (0.74 and 0.75 among them) runs inside the fence's binding: the row moves to
+    the link's tag, a writer without the fence is refused at either tag, and a grade by this code after the reload
+    (its grade receipt, its surprise and the rest) writes on a connection bound to the new tag."""
+
+    paths = _vault_at(tmp_path, link.predecessor)
+    assert upgrade(paths.root, to=link.tag).upgraded
+    assert _recorded(paths) == link.tag
+    with predecessor_binary(), closing(sqlite3.connect(paths.sqlite_path)) as connection:
+        for tag in (link.predecessor, link.tag):
+            with pytest.raises(sqlite3.IntegrityError) as refused:
+                connection.execute(
+                    "INSERT INTO derived_state_rebuilds(id, scope, learning_object_ids_json, algorithm_version, "
+                    "rebuilt_learning_objects, replayed_attempts, created_at) "
+                    "VALUES (?, 'test', '[]', ?, 0, 0, '2026-05-16T12:00:00Z')", (f"dsr_old_{tag}", tag))
+            assert _refused(refused.value)
+    before = _count(paths, "attempt_surprise")
+    vault = load_vault(paths.root)
+    _grade(vault, Repository(paths.sqlite_path), minutes=30)
+    assert _count(paths, "attempt_surprise") == before + 1
