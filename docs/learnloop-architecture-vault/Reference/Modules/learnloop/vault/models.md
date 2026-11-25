@@ -437,6 +437,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/vault/hashes|learnloop.vault.hashes]] — imports `ActivityFamily`, `PracticeItem`
 - [[Reference/Modules/learnloop/vault/lifecycle|learnloop.vault.lifecycle]] — imports `LoadedVault`, `PracticeItem`
 - [[Reference/Modules/learnloop/vault/loader|learnloop.vault.loader]] — imports `ActivityFamily`, `ConceptGraph`, `ConceptsFile`, `DefaultRubric`, `DoctorIssue`, `ErrorTypesFile`, `EvidenceFacetsFile`, `GoalsFile`, `LearningObject`, `LoadedVault`, `Note`, `PracticeItem`, `RelationsFile`, `SourceSetsFile`, `Subject`, `SubjectMetadata`, `recipe_components`; statically calls `ConceptGraph`, `DoctorIssue`, `LoadedVault`, `Subject`, `recipe_components`
+- [[Reference/Modules/learnloop/vault/repository|learnloop.vault.repository]] — imports `LoadedVault`
 - [[Reference/Modules/learnloop/vault/writer|learnloop.vault.writer]] — imports `ActivityFamily`, `Concept`, `ConceptEdge`, `ErrorType`, `EvidenceFacet`, `LearningObject`, `LoadedVault`, `PracticeItem`, `SourceSet`
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `LoadedVault`
 - [[Reference/Modules/learnloop_sidecar/handlers/facet_detail|learnloop_sidecar.handlers.facet_detail]] — imports `LearningObject`, `recipe_components`; statically calls `recipe_components`
@@ -464,7 +465,7 @@ Use this module in context through:
 
 - [[Initialize a Vault]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]], [[Reference/Modules/learnloop/attempts/ability_transition|learnloop.attempts.ability_transition]], [[Reference/Modules/learnloop/attempts/attempt_trace|learnloop.attempts.attempt_trace]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/blind_grading|learnloop.attempts.blind_grading]] and 301 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]], [[Reference/Modules/learnloop/attempts/ability_transition|learnloop.attempts.ability_transition]], [[Reference/Modules/learnloop/attempts/attempt_trace|learnloop.attempts.attempt_trace]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/blind_grading|learnloop.attempts.blind_grading]] and 302 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

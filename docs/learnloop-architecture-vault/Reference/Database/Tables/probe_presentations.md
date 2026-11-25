@@ -54,7 +54,7 @@ It belongs to the **diagnosis** navigation family. The family context lives in [
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/028_probe_episodes.sql`.
-- **Schema touched by:** `028_probe_episodes.sql`, `029_probe_selection_and_calibration.sql`, `071_probe_robust_cutover.sql`, `123_causal_prior_basis.sql`, `273_probe_episode_router_stop.sql`.
+- **Schema touched by:** `028_probe_episodes.sql`, `029_probe_selection_and_calibration.sql`, `071_probe_robust_cutover.sql`, `123_causal_prior_basis.sql`, `273_probe_episode_router_stop.sql`, `276_writer_fence_more_writes.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -100,6 +100,10 @@ Indexes and uniqueness:
 - `idx_probe_presentations_item` on `practice_item_id`, `created_at`.
 - `idx_probe_presentations_episode` on `probe_episode_id`, `created_at`.
 - `sqlite_autoindex_probe_presentations_1` on `id` (unique).
+
+Database triggers:
+
+- `writer_fence_probe_presentations_insert` — schema-enforced lifecycle or immutability constraint.
 
 ## Who calls it
 

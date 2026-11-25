@@ -46,28 +46,35 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/vault/repository.py](../../../../../../src/learnloop/vault/repository.py) |
-| Source lines | 103 |
+| Source lines | 166 |
 | Owning package | [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `open_vault_repository(vault_root: Path, sqlite_path: Path, *, migrations_dir: Path | None=None, clock: Clock | None=None, timeout_s: float=DEFAULT_TIMEOUT_S) -> Repository` ([source](../../../../../../src/learnloop/vault/repository.py), line 37) — Migrate and attach a repository under the vault mutation lock.
-- `complete_interrupted_activation(vault_root: Path, sqlite_path: Path) -> None` ([source](../../../../../../src/learnloop/vault/repository.py), line 63) — Complete an activation a dead process left journalled, or raise (LP-min (a), re-review F2).
-- `vault_repository(paths: VaultPaths) -> Repository` ([source](../../../../../../src/learnloop/vault/repository.py), line 81) — The vault's repository for code below an entry point.
+- `open_vault_repository(vault_root: Path, sqlite_path: Path, *, migrations_dir: Path | None=None, clock: Clock | None=None, timeout_s: float=DEFAULT_TIMEOUT_S) -> Repository` ([source](../../../../../../src/learnloop/vault/repository.py), line 43) — Migrate and attach a repository under the vault mutation lock.
+- `complete_interrupted_activation(vault_root: Path, sqlite_path: Path) -> None` ([source](../../../../../../src/learnloop/vault/repository.py), line 69) — Complete an activation a dead process left journalled, or raise (LP-min (a), re-review F2).
+- `vault_repository(paths: VaultPaths) -> Repository` ([source](../../../../../../src/learnloop/vault/repository.py), line 87) — The vault's repository for code below an entry point.
+- `vault_writes(vault: LoadedVault | None)` ([source](../../../../../../src/learnloop/vault/repository.py), line 122) — The writer fence's scope for work computed from ``vault``: every connection to its database opened inside (and every repository made inside) writes under ``vault``'s tag, whatever the process loaded since.
+- `config_behind_database(vault: LoadedVault) -> str | None` ([source](../../../../../../src/learnloop/vault/repository.py), line 132) — Plain words for a config that disagrees with the database's tag (restored from an older copy, or edited by hand), or None.
+- `bind_vault_writes(vault: LoadedVault) -> None` ([source](../../../../../../src/learnloop/vault/repository.py), line 155) — Rebind the current scope to a vault a host just published in the middle of a request (a reload): the rest of the request writes under its tag.
 
 ### Explicit exports
 
 `__all__` declares:
 
+- `bind_vault_writes`
 - `complete_interrupted_activation`
+- `config_behind_database`
 - `open_vault_repository`
 - `vault_repository`
+- `vault_writes`
 
 ## Internal implementation anchors
 
-No private top-level function or class definition is declared in this file.
+- `_paths_scope(paths: VaultPaths)` ([source](../../../../../../src/learnloop/vault/repository.py), line 112)
+- `_tag(config) -> str | None` ([source](../../../../../../src/learnloop/vault/repository.py), line 118)
 
 ## Who imports or calls it
 
@@ -116,12 +123,15 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/ops/pf_reports|learnloop.ops.pf_reports]] — imports `vault_repository`; statically calls `vault_repository`
 - [[Reference/Modules/learnloop/ops/upgrades|learnloop.ops.upgrades]] — imports `open_vault_repository`; statically calls `open_vault_repository`
 - [[Reference/Modules/learnloop/practice_index/paid|learnloop.practice_index.paid]] — imports `vault_repository`; statically calls `vault_repository`
+- [[Reference/Modules/learnloop/remote/runtime|learnloop.remote.runtime]] — imports `vault_writes`; statically calls `vault_writes`
 - [[Reference/Modules/learnloop/sim/diagnostic_validation|learnloop.sim.diagnostic_validation]] — imports `vault_repository`; statically calls `vault_repository`
 - [[Reference/Modules/learnloop/sim/runner|learnloop.sim.runner]] — imports `vault_repository`; statically calls `vault_repository`
 - [[Reference/Modules/learnloop/source_retrieval/source_vectors|learnloop.source_retrieval.source_vectors]] — imports `vault_repository`; statically calls `vault_repository`
 - [[Reference/Modules/learnloop/tui/state|learnloop.tui.state]] — imports `open_vault_repository`; statically calls `open_vault_repository`
 - [[Reference/Modules/learnloop/tutor/promotions|learnloop.tutor.promotions]] — imports `vault_repository`; statically calls `vault_repository`
-- [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `open_vault_repository`; statically calls `open_vault_repository`
+- [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `bind_vault_writes`, `open_vault_repository`, `vault_writes`; statically calls `bind_vault_writes`, `open_vault_repository`, `vault_writes`
+- [[Reference/Modules/learnloop_sidecar/post_attempt_worker|learnloop_sidecar.post_attempt_worker]] — imports `vault_writes`; statically calls `vault_writes`
+- [[Reference/Modules/learnloop_sidecar/server|learnloop_sidecar.server]] — imports `config_behind_database`, `vault_writes`; statically calls `config_behind_database`, `vault_writes`
 
 ### Repository tooling consumers
 
@@ -134,15 +144,18 @@ No private top-level function or class definition is declared in this file.
 
 - [[Reference/Modules/learnloop/activation_journal|learnloop.activation_journal]] — imports `module`; calls `complete`, `completing`, `pending`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`
+- [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] — imports `connect`; calls `connect`
 - [[Reference/Modules/learnloop/db/migrate|learnloop.db.migrate]] — imports `UncoordinatedMigrationError`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`; calls `Repository`
+- [[Reference/Modules/learnloop/db/writer_fence|learnloop.db.writer_fence]] — imports `module`; calls `bind_scope`, `recorded_tag`, `scoped`, `writing_under`
 - [[Reference/Modules/learnloop/migration_coordinator|learnloop.migration_coordinator]] — imports `migrate_vault`; calls `migrate_vault`
-- [[Reference/Modules/learnloop/vault/paths|learnloop.vault.paths]] — imports `VaultPaths`
+- [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LoadedVault`
+- [[Reference/Modules/learnloop/vault/paths|learnloop.vault.paths]] — imports `VaultPaths`; calls `VaultPaths`
 - [[Reference/Modules/learnloop/vault_lock|learnloop.vault_lock]] — imports `DEFAULT_TIMEOUT_S`
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `pathlib`
+- Standard library: `__future__`, `contextlib`, `pathlib`, `typing`
 - Third party: none imported directly
 
 ## Larger workflow participation
@@ -151,7 +164,7 @@ Use this module in context through:
 
 - [[Initialize a Vault]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/bootstrap|learnloop.bootstrap]], [[Reference/Modules/learnloop/cli/ai|learnloop.cli.ai]], [[Reference/Modules/learnloop/cli/curriculum|learnloop.cli.curriculum]], [[Reference/Modules/learnloop/cli/data|learnloop.cli.data]], [[Reference/Modules/learnloop/cli/diagnose|learnloop.cli.diagnose]] and 43 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/bootstrap|learnloop.bootstrap]], [[Reference/Modules/learnloop/cli/ai|learnloop.cli.ai]], [[Reference/Modules/learnloop/cli/curriculum|learnloop.cli.curriculum]], [[Reference/Modules/learnloop/cli/data|learnloop.cli.data]], [[Reference/Modules/learnloop/cli/diagnose|learnloop.cli.diagnose]] and 46 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -223,6 +236,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_writer_fence.py](../../../../../../tests/test_writer_fence.py) — direct import
   - `test_a_death_after_the_publication_keeps_the_database_tag_until_the_completion`
   - `test_a_death_between_the_activation_and_the_publication_leaves_the_predecessor_in_force`
+- [tests/test_writer_fence_scopes.py](../../../../../../tests/test_writer_fence_scopes.py) — direct import
+  - `test_a_repository_opened_for_a_stale_vault_is_refused_after_another_thread_reloaded`
 
 ## Modification guidance
 

@@ -46,41 +46,41 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/reader_cue_discovery.py](../../../../../../src/learnloop_sidecar/handlers/reader_cue_discovery.py) |
-| Source lines | 621 |
+| Source lines | 623 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `remember(ctx: SidecarContext, extraction_id: str, cues: dict[str, Any], *, vault: Any, repository: Any) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_cue_discovery.py), line 142) — The guide plan's merged cues, kept per source so a tap or an impression is resolved by id without rebuilding the plan (RW3a friction note 5).
-- `class CueDiscoveryJobs` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_cue_discovery.py), line 247) — Discovery jobs in flight and just finished (in memory), one per source, and the call budget of each source open.
-  - `__init__(self) -> None` (line 251; internal)
-  - `_source_lock(self, sqlite_path: Any, extraction_id: str) -> threading.Lock` (line 259; internal)
-  - `_open(self, source_open_id: str, extraction_id: str, vault: Any) -> _OpenBudget` (line 263; internal)
-  - `running(self, extraction_id: str) -> _Job | None` (line 276; public)
-  - `start(self, ctx: SidecarContext, extraction_id: str, source_open_id: str) -> _Job` (line 281; public)
-  - `get(self, job_id: str) -> _Job | None` (line 360; public)
-- `class CueDiscoveryInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_cue_discovery.py), line 391)
-- `reader_cue_discovery(ctx: SidecarContext, params: CueDiscoveryInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_cue_discovery.py), line 399) — Look for the open source's missing cue links in the background, within the open's one call budget.
-- `class CueDiscoveryJobInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_cue_discovery.py), line 409)
-- `reader_cue_discovery_job(ctx: SidecarContext, params: CueDiscoveryJobInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_cue_discovery.py), line 414) — A discovery job's state, at once (never a wait on the request path).
-- `class CueImpressionEntry(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_cue_discovery.py), line 452)
-- `class CueImpressionsInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_cue_discovery.py), line 463)
-- `reader_cue_impressions(ctx: SidecarContext, params: CueImpressionsInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_cue_discovery.py), line 472) — Record impressions (once per visit and cue; the first one stands), each resolved against the plan it was seen on: its arm, density, suppression, seed and propensity as that plan was served (F17).
-- `class CueTapInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_cue_discovery.py), line 528)
-- `reader_cue_tap(ctx: SidecarContext, params: CueTapInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_cue_discovery.py), line 540) — A tap on a Guide or discovered cue while discovery is on.
+- `remember(ctx: SidecarContext, extraction_id: str, cues: dict[str, Any], *, vault: Any, repository: Any) -> None` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_cue_discovery.py), line 144) — The guide plan's merged cues, kept per source so a tap or an impression is resolved by id without rebuilding the plan (RW3a friction note 5).
+- `class CueDiscoveryJobs` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_cue_discovery.py), line 249) — Discovery jobs in flight and just finished (in memory), one per source, and the call budget of each source open.
+  - `__init__(self) -> None` (line 253; internal)
+  - `_source_lock(self, sqlite_path: Any, extraction_id: str) -> threading.Lock` (line 261; internal)
+  - `_open(self, source_open_id: str, extraction_id: str, vault: Any) -> _OpenBudget` (line 265; internal)
+  - `running(self, extraction_id: str) -> _Job | None` (line 278; public)
+  - `start(self, ctx: SidecarContext, extraction_id: str, source_open_id: str) -> _Job` (line 283; public)
+  - `get(self, job_id: str) -> _Job | None` (line 362; public)
+- `class CueDiscoveryInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_cue_discovery.py), line 393)
+- `reader_cue_discovery(ctx: SidecarContext, params: CueDiscoveryInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_cue_discovery.py), line 401) — Look for the open source's missing cue links in the background, within the open's one call budget.
+- `class CueDiscoveryJobInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_cue_discovery.py), line 411)
+- `reader_cue_discovery_job(ctx: SidecarContext, params: CueDiscoveryJobInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_cue_discovery.py), line 416) — A discovery job's state, at once (never a wait on the request path).
+- `class CueImpressionEntry(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_cue_discovery.py), line 454)
+- `class CueImpressionsInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_cue_discovery.py), line 465)
+- `reader_cue_impressions(ctx: SidecarContext, params: CueImpressionsInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_cue_discovery.py), line 474) — Record impressions (once per visit and cue; the first one stands), each resolved against the plan it was seen on: its arm, density, suppression, seed and propensity as that plan was served (F17).
+- `class CueTapInput(ParamsModel)` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_cue_discovery.py), line 530)
+- `reader_cue_tap(ctx: SidecarContext, params: CueTapInput) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_cue_discovery.py), line 542) — A tap on a Guide or discovered cue while discovery is on.
 
 ### Module constants
 
-- `LOG` ([src/learnloop_sidecar/handlers/reader_cue_discovery.py](../../../../../../src/learnloop_sidecar/handlers/reader_cue_discovery.py), line 69)
-- `CUE_DISCOVERY_RPCS` ([src/learnloop_sidecar/handlers/reader_cue_discovery.py](../../../../../../src/learnloop_sidecar/handlers/reader_cue_discovery.py), line 72)
-- `MAX_KEPT_JOBS` ([src/learnloop_sidecar/handlers/reader_cue_discovery.py](../../../../../../src/learnloop_sidecar/handlers/reader_cue_discovery.py), line 78)
-- `MAX_KEPT_PLANS` ([src/learnloop_sidecar/handlers/reader_cue_discovery.py](../../../../../../src/learnloop_sidecar/handlers/reader_cue_discovery.py), line 80)
-- `PLAN_TTL_SECS` ([src/learnloop_sidecar/handlers/reader_cue_discovery.py](../../../../../../src/learnloop_sidecar/handlers/reader_cue_discovery.py), line 82)
-- `MAX_KEPT_OPENS` ([src/learnloop_sidecar/handlers/reader_cue_discovery.py](../../../../../../src/learnloop_sidecar/handlers/reader_cue_discovery.py), line 84)
-- `CLIENT_REASONS` ([src/learnloop_sidecar/handlers/reader_cue_discovery.py](../../../../../../src/learnloop_sidecar/handlers/reader_cue_discovery.py), line 86)
-- `MAX_NOT_RELEVANT_CHARS` ([src/learnloop_sidecar/handlers/reader_cue_discovery.py](../../../../../../src/learnloop_sidecar/handlers/reader_cue_discovery.py), line 87)
+- `LOG` ([src/learnloop_sidecar/handlers/reader_cue_discovery.py](../../../../../../src/learnloop_sidecar/handlers/reader_cue_discovery.py), line 71)
+- `CUE_DISCOVERY_RPCS` ([src/learnloop_sidecar/handlers/reader_cue_discovery.py](../../../../../../src/learnloop_sidecar/handlers/reader_cue_discovery.py), line 74)
+- `MAX_KEPT_JOBS` ([src/learnloop_sidecar/handlers/reader_cue_discovery.py](../../../../../../src/learnloop_sidecar/handlers/reader_cue_discovery.py), line 80)
+- `MAX_KEPT_PLANS` ([src/learnloop_sidecar/handlers/reader_cue_discovery.py](../../../../../../src/learnloop_sidecar/handlers/reader_cue_discovery.py), line 82)
+- `PLAN_TTL_SECS` ([src/learnloop_sidecar/handlers/reader_cue_discovery.py](../../../../../../src/learnloop_sidecar/handlers/reader_cue_discovery.py), line 84)
+- `MAX_KEPT_OPENS` ([src/learnloop_sidecar/handlers/reader_cue_discovery.py](../../../../../../src/learnloop_sidecar/handlers/reader_cue_discovery.py), line 86)
+- `CLIENT_REASONS` ([src/learnloop_sidecar/handlers/reader_cue_discovery.py](../../../../../../src/learnloop_sidecar/handlers/reader_cue_discovery.py), line 88)
+- `MAX_NOT_RELEVANT_CHARS` ([src/learnloop_sidecar/handlers/reader_cue_discovery.py](../../../../../../src/learnloop_sidecar/handlers/reader_cue_discovery.py), line 89)
 
 ### Explicit exports
 
@@ -91,21 +91,21 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_require(ctx: SidecarContext)` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_cue_discovery.py), line 90)
-- `_resolve(repository: Any, extraction_id: str) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_cue_discovery.py), line 98)
-- `_cache(ctx: SidecarContext) -> dict[str, tuple[Any, dict[str, Any]]]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_cue_discovery.py), line 109)
-- `class _KeptPlan` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_cue_discovery.py), line 118) — One cue plan as it was served: what its impressions are resolved by.
-- `_plans(ctx: SidecarContext) -> 'OrderedDict[str, _KeptPlan]'` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_cue_discovery.py), line 130)
-- `_clock() -> float` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_cue_discovery.py), line 138)
-- `_kept_plan(ctx: SidecarContext, plan_id: str, *, extraction_id: str, repository: Any) -> _KeptPlan` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_cue_discovery.py), line 170) — The plan an impression was seen on, or a refusal: unknown (never served, dropped as one of the oldest, or another vault's), expired, or another source's.
-- `_cues_now(ctx: SidecarContext, vault: Any, repository: Any, extraction_id: str, *, fresh: bool=False) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_cue_discovery.py), line 185)
-- `_index(cues: dict[str, Any]) -> dict[str, tuple[str, dict[str, Any]]]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_cue_discovery.py), line 198) — Every cue of a payload by id: shown, held out or cut by the density budget.
-- `class _Job` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_cue_discovery.py), line 217)
-- `class _OpenBudget` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_cue_discovery.py), line 233) — The one judge call budget of one source open (Codex verify F16).
-- `_jobs(ctx: SidecarContext) -> CueDiscoveryJobs` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_cue_discovery.py), line 365)
-- `_job_payload(job: _Job) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_cue_discovery.py), line 373)
-- `_text_hash(text: str | None) -> str | None` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_cue_discovery.py), line 430)
-- `_impression_row(cue: dict[str, Any], *, extraction_id: str, visit_id: str, density: str, shown: bool, reason: str | None, now: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_cue_discovery.py), line 435)
+- `_require(ctx: SidecarContext)` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_cue_discovery.py), line 92)
+- `_resolve(repository: Any, extraction_id: str) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_cue_discovery.py), line 100)
+- `_cache(ctx: SidecarContext) -> dict[str, tuple[Any, dict[str, Any]]]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_cue_discovery.py), line 111)
+- `class _KeptPlan` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_cue_discovery.py), line 120) — One cue plan as it was served: what its impressions are resolved by.
+- `_plans(ctx: SidecarContext) -> 'OrderedDict[str, _KeptPlan]'` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_cue_discovery.py), line 132)
+- `_clock() -> float` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_cue_discovery.py), line 140)
+- `_kept_plan(ctx: SidecarContext, plan_id: str, *, extraction_id: str, repository: Any) -> _KeptPlan` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_cue_discovery.py), line 172) — The plan an impression was seen on, or a refusal: unknown (never served, dropped as one of the oldest, or another vault's), expired, or another source's.
+- `_cues_now(ctx: SidecarContext, vault: Any, repository: Any, extraction_id: str, *, fresh: bool=False) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_cue_discovery.py), line 187)
+- `_index(cues: dict[str, Any]) -> dict[str, tuple[str, dict[str, Any]]]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_cue_discovery.py), line 200) — Every cue of a payload by id: shown, held out or cut by the density budget.
+- `class _Job` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_cue_discovery.py), line 219)
+- `class _OpenBudget` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_cue_discovery.py), line 235) — The one judge call budget of one source open (Codex verify F16).
+- `_jobs(ctx: SidecarContext) -> CueDiscoveryJobs` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_cue_discovery.py), line 367)
+- `_job_payload(job: _Job) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_cue_discovery.py), line 375)
+- `_text_hash(text: str | None) -> str | None` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_cue_discovery.py), line 432)
+- `_impression_row(cue: dict[str, Any], *, extraction_id: str, visit_id: str, density: str, shown: bool, reason: str | None, now: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/reader_cue_discovery.py), line 437)
 
 ## Who imports or calls it
 
@@ -125,6 +125,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/content/sources/source_outline|learnloop.content.sources.source_outline]] — imports `resolve_extraction_id`; calls `resolve_extraction_id`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/db/stores/reader_cue_links|learnloop.db.stores.reader_cue_links]] — imports `module`; calls `impression_for`, `insert_impression`, `record_response`
+- [[Reference/Modules/learnloop/db/writer_fence|learnloop.db.writer_fence]] — imports `module`; calls `is_refusal`
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
 - [[Reference/Modules/learnloop/reader/reader_cues|learnloop.reader.reader_cues]] — imports `module`; calls `cue_density`, `find_cue`, `record_cue_tap`
 - [[Reference/Modules/learnloop/reader/reader_guidance|learnloop.reader.reader_guidance]] — imports `module`; calls `build_guide_plan`
@@ -132,7 +133,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop_sidecar/background_jobs|learnloop_sidecar.background_jobs]] — imports `background_jobs`; calls `background_jobs`
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `SidecarContext`
 - [[Reference/Modules/learnloop_sidecar/dto|learnloop_sidecar.dto]] — imports `ParamsModel`, `versioned`; calls `versioned`
-- [[Reference/Modules/learnloop_sidecar/errors|learnloop_sidecar.errors]] — imports `SidecarError`; calls `SidecarError`
+- [[Reference/Modules/learnloop_sidecar/errors|learnloop_sidecar.errors]] — imports `SidecarError`, `upgraded_while_open_error`; calls `SidecarError`, `upgraded_while_open_error`
 - [[Reference/Modules/learnloop_sidecar/handlers/reader|learnloop_sidecar.handlers.reader]] — imports `check_me_proposal`; calls `check_me_proposal`
 - [[Reference/Modules/learnloop_sidecar/registry|learnloop_sidecar.registry]] — imports `method`; calls `method`
 

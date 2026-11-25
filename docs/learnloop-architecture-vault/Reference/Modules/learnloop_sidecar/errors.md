@@ -39,7 +39,7 @@ Up: [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] · Root: 
 
 ## Why this module exists
 
-This module keeps errors behavior inside its owning package, [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]]. Its public surface centers on `SidecarError`, `json_rpc_error`, `sidecar_error`, `waiting_for_ok_error`, `require_ai_ok`.
+This module keeps errors behavior inside its owning package, [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]]. Its public surface centers on `SidecarError`, `json_rpc_error`, `sidecar_error`, `waiting_for_ok_error`, `upgraded_while_open_error`, `require_ai_ok`.
 
 The authoritative system-level explanation remains in [[Architecture Overview]]; this note records where this source module participates rather than restating those concepts.
 
@@ -50,7 +50,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/errors.py](../../../../../src/learnloop_sidecar/errors.py) |
-| Source lines | 73 |
+| Source lines | 84 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
@@ -62,7 +62,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `json_rpc_error(code: int, message: str, *, stable_code: str | None=None, retryable: bool=False, details: dict[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../src/learnloop_sidecar/errors.py), line 24)
 - `sidecar_error(exc: SidecarError) -> dict[str, Any]` ([source](../../../../../src/learnloop_sidecar/errors.py), line 41)
 - `waiting_for_ok_error() -> SidecarError` ([source](../../../../../src/learnloop_sidecar/errors.py), line 62) — No OK to use AI yet: nothing was sent.
-- `require_ai_ok(vault_root: Path | str | None, client: Any | None=None) -> None` ([source](../../../../../src/learnloop_sidecar/errors.py), line 69) — Before an RPC starts model work: refuse it, and store nothing, while the OK is missing.
+- `upgraded_while_open_error() -> SidecarError` ([source](../../../../../src/learnloop_sidecar/errors.py), line 69) — A job's or a request's write was refused by the writer fence (``learnloop.db.writer_fence``): the vault was upgraded after the work's vault was loaded.
+- `require_ai_ok(vault_root: Path | str | None, client: Any | None=None) -> None` ([source](../../../../../src/learnloop_sidecar/errors.py), line 80) — Before an RPC starts model work: refuse it, and store nothing, while the OK is missing.
 
 ### Module constants
 
@@ -107,7 +108,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop_sidecar/handlers/goal_lens|learnloop_sidecar.handlers.goal_lens]] — imports `SidecarError`; statically calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/handlers/goals|learnloop_sidecar.handlers.goals]] — imports `SidecarError`; statically calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/handlers/graph_edit|learnloop_sidecar.handlers.graph_edit]] — imports `SidecarError`; statically calls `SidecarError`
-- [[Reference/Modules/learnloop_sidecar/handlers/hints|learnloop_sidecar.handlers.hints]] — imports `SidecarError`; statically calls `SidecarError`
+- [[Reference/Modules/learnloop_sidecar/handlers/hints|learnloop_sidecar.handlers.hints]] — imports `SidecarError`, `upgraded_while_open_error`; statically calls `SidecarError`, `upgraded_while_open_error`
 - [[Reference/Modules/learnloop_sidecar/handlers/ingest|learnloop_sidecar.handlers.ingest]] — imports `SidecarError`, `require_ai_ok`; statically calls `SidecarError`, `require_ai_ok`
 - [[Reference/Modules/learnloop_sidecar/handlers/ink|learnloop_sidecar.handlers.ink]] — imports `SidecarError`; statically calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/handlers/inline_checks|learnloop_sidecar.handlers.inline_checks]] — imports `SidecarError`; statically calls `SidecarError`
@@ -119,7 +120,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop_sidecar/handlers/learner_gaps|learnloop_sidecar.handlers.learner_gaps]] — imports `SidecarError`; statically calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/handlers/lesson|learnloop_sidecar.handlers.lesson]] — imports `SidecarError`; statically calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/handlers/library|learnloop_sidecar.handlers.library]] — imports `SidecarError`; statically calls `SidecarError`
-- [[Reference/Modules/learnloop_sidecar/handlers/library_ask|learnloop_sidecar.handlers.library_ask]] — imports `SidecarError`; statically calls `SidecarError`
+- [[Reference/Modules/learnloop_sidecar/handlers/library_ask|learnloop_sidecar.handlers.library_ask]] — imports `SidecarError`, `upgraded_while_open_error`; statically calls `SidecarError`, `upgraded_while_open_error`
 - [[Reference/Modules/learnloop_sidecar/handlers/library_exercises|learnloop_sidecar.handlers.library_exercises]] — imports `SidecarError`; statically calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/handlers/measurement|learnloop_sidecar.handlers.measurement]] — imports `SidecarError`; statically calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/handlers/notebooks|learnloop_sidecar.handlers.notebooks]] — imports `SidecarError`; statically calls `SidecarError`
@@ -133,7 +134,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop_sidecar/handlers/provenance|learnloop_sidecar.handlers.provenance]] — imports `SidecarError`; statically calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/handlers/queue|learnloop_sidecar.handlers.queue]] — imports `SidecarError`; statically calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/handlers/reader|learnloop_sidecar.handlers.reader]] — imports `SidecarError`, `require_ai_ok`; statically calls `SidecarError`, `require_ai_ok`
-- [[Reference/Modules/learnloop_sidecar/handlers/reader_cue_discovery|learnloop_sidecar.handlers.reader_cue_discovery]] — imports `SidecarError`; statically calls `SidecarError`
+- [[Reference/Modules/learnloop_sidecar/handlers/reader_cue_discovery|learnloop_sidecar.handlers.reader_cue_discovery]] — imports `SidecarError`, `upgraded_while_open_error`; statically calls `SidecarError`, `upgraded_while_open_error`
 - [[Reference/Modules/learnloop_sidecar/handlers/reader_followups|learnloop_sidecar.handlers.reader_followups]] — imports `SidecarError`; statically calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/handlers/reader_intent|learnloop_sidecar.handlers.reader_intent]] — imports `SidecarError`; statically calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/handlers/reader_tutor|learnloop_sidecar.handlers.reader_tutor]] — imports `SidecarError`; statically calls `SidecarError`
@@ -158,7 +159,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop_sidecar/handlers/workbench_help|learnloop_sidecar.handlers.workbench_help]] — imports `SidecarError`; statically calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/handlers/workbench_rw2c|learnloop_sidecar.handlers.workbench_rw2c]] — imports `SidecarError`; statically calls `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/phone_reader|learnloop_sidecar.phone_reader]] — imports `SidecarError`; statically calls `SidecarError`
-- [[Reference/Modules/learnloop_sidecar/polled_jobs|learnloop_sidecar.polled_jobs]] — imports `SidecarError`, `waiting_for_ok_error`; statically calls `SidecarError`, `waiting_for_ok_error`
+- [[Reference/Modules/learnloop_sidecar/polled_jobs|learnloop_sidecar.polled_jobs]] — imports `SidecarError`, `upgraded_while_open_error`, `waiting_for_ok_error`; statically calls `SidecarError`, `upgraded_while_open_error`, `waiting_for_ok_error`
 - [[Reference/Modules/learnloop_sidecar/request_origin|learnloop_sidecar.request_origin]] — imports `SidecarError`
 - [[Reference/Modules/learnloop_sidecar/server|learnloop_sidecar.server]] — imports `SidecarError`, `json_rpc_error`, `sidecar_error`, `waiting_for_ok_error`; statically calls `SidecarError`, `json_rpc_error`, `sidecar_error`, `waiting_for_ok_error`
 - [[Reference/Modules/learnloop_sidecar/serving|learnloop_sidecar.serving]] — imports `SidecarError`; statically calls `SidecarError`

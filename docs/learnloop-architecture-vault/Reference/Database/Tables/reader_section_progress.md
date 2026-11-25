@@ -54,7 +54,7 @@ It belongs to the **reader** navigation family. The family context lives in [[Da
 - **Role:** `workflow` — Mutable queue, session, lease, or other in-flight workflow state. It is preserved across rebuilds.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/106_reader_section_progress.sql`.
-- **Schema touched by:** `106_reader_section_progress.sql`, `256_reader_seen_spans.sql`, `257_reader_topic_question_work.sql`, `259_reader_section_completion_cause.sql`.
+- **Schema touched by:** `106_reader_section_progress.sql`, `256_reader_seen_spans.sql`, `257_reader_topic_question_work.sql`, `259_reader_section_completion_cause.sql`, `276_writer_fence_more_writes.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -81,6 +81,11 @@ No SQLite foreign key is declared. Identifier-looking columns are application-va
 Indexes and uniqueness:
 
 - `sqlite_autoindex_reader_section_progress_1` on `extraction_id`, `section_id` (unique).
+
+Database triggers:
+
+- `writer_fence_reader_section_progress_insert` — schema-enforced lifecycle or immutability constraint.
+- `writer_fence_reader_section_progress_update` — schema-enforced lifecycle or immutability constraint.
 
 ## Who calls it
 

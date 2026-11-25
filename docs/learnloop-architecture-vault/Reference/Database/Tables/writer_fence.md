@@ -16,12 +16,14 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/275_writer_fence.sql"
+  - "src/learnloop/content/pipeline/jobs.py"
   - "src/learnloop/db/connection.py"
+  - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/writer_fence.py"
   - "src/learnloop/ops/upgrades.py"
   - "src/learnloop/remote/errors.py"
   - "src/learnloop/vault/loader.py"
-  - "src/learnloop_sidecar/server.py"
+  - "src/learnloop/projects/experiment_store.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -45,7 +47,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `workflow` — Mutable queue, session, lease, or other in-flight workflow state. It is preserved across rebuilds.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/275_writer_fence.sql`.
-- **Schema touched by:** `275_writer_fence.sql`.
+- **Schema touched by:** `275_writer_fence.sql`, `276_writer_fence_more_writes.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -74,7 +76,8 @@ Database triggers:
 
 ### Repository access surface
 
-None found by exact static reference scan.
+- `Repository._connect()`
+- `Repository._initialize()`
 
 ### Direct SQL readers
 
@@ -86,18 +89,23 @@ None found by exact static reference scan.
 
 ### Upstream callers of the repository access surface
 
-None found by exact static reference scan.
+- `src/learnloop/db/repositories.py`
+- `src/learnloop/projects/experiment_store.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
 
 ## Tests that define behavior
 
+- `tests/connection_reuse.py`
 - `tests/helpers.py`
 - `tests/test_architecture.py`
+- `tests/test_connection_reuse.py`
 - `tests/test_mcp_tools.py`
 - `tests/test_sidecar_contract.py`
 - `tests/test_writer_fence.py`
+- `tests/test_writer_fence_scopes.py`
+- `tests/writer_fence_helpers.py`
 - `tests/writer_fence_migration_helpers.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
