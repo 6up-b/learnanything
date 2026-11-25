@@ -133,3 +133,83 @@ def test_a_later_held_out_grade_does_not_change_an_unrelated_public_answers_fore
     absent = run(tmp_path / "absent", protected=False)
     assert absent[1] == "grade_receipt" and len(absent[0]) == 1
     assert run(tmp_path / "protected", protected=True) == absent
+
+
+def _held_hist_on_record(paths, *, prompt: str, span: str) -> str:
+    """``pi_hist``'s held-out revision saved (protected material on record for the item); its hash."""
+
+    from learnloop.adaptive_difficulty.feature_audit import item_revision
+    from learnloop.vault.models import CanonicalExercise
+
+    held = load_vault(paths.root).practice_items["pi_hist"].model_copy(update={
+        "prompt": prompt, "canonical_exercise": CanonicalExercise(source_id="src_r9", extraction_id=EXT,
+                                                                  span_ids=[span])})
+    content_hash, item_json = item_revision(held)
+    with closing(connect(paths.sqlite_path)) as connection:
+        connection.execute("INSERT INTO practice_item_snapshots(content_hash, practice_item_id, item_json, created_at) "
+                           "VALUES (?, 'pi_hist', ?, ?)", (content_hash, item_json, _iso(T0 - timedelta(hours=3))))
+        connection.commit()
+    return content_hash
+
+
+def test_an_answer_to_a_repeat_presentation_that_froze_no_revision_writes_no_grade_receipt(tmp_path, monkeypatch):
+    """Review round 4, R4-S7 (FR3-2's residue): a repeat presentation of ``pi_hist`` froze no revision (no serve-input
+    row, no selection) while the item, which has held-out material on record, was held out; the item was then replaced
+    by its public revision. The answer naming that presentation gets no forecast (failed before: the public item was
+    forecast). A public item never protected still gets its receipt through the same door."""
+
+    paths = _base(tmp_path)
+    _hold_out(monkeypatch)
+    _held_hist_on_record(paths, prompt="SENTINEL_HIST_R4: held out earlier.", span="h3")
+    with closing(connect(paths.sqlite_path)) as connection:
+        (block_id,) = connection.execute("SELECT id FROM attention_blocks ORDER BY rowid LIMIT 1").fetchone()
+        for presentation, item in (("pp_r4_hist", "pi_hist"), ("pp_r4_public", "pi_p1")):
+            connection.execute("INSERT INTO plan_presentations(id, block_id, practice_item_id, origin, served_at) "
+                               "VALUES (?, ?, ?, 'chooser', ?)", (presentation, block_id, item,
+                                                                  _iso(T0 - timedelta(hours=1))))
+        connection.commit()
+    held = _attempt(paths, "pi_hist", at=T0 - timedelta(minutes=50), latency=90, presentation_id="pp_r4_hist")
+    assert _grade_receipts(paths, held) == []
+    public = _attempt(paths, "pi_p1", at=T0 - timedelta(minutes=40), latency=90, presentation_id="pp_r4_public")
+    assert len(_grade_receipts(paths, public)) == 1
+
+
+def test_an_answer_whose_contract_cites_an_unsaved_held_revision_is_withheld(tmp_path, monkeypatch):
+    """Review round 4, R4-S7 (FR3-1's residue): a grade-frozen contract cites a held-out revision of ``pi_hist`` whose
+    snapshot was never saved, and the item was replaced by its public revision. The unknown hash cannot be shown
+    public (the item has held-out material on record), so the answer is out of adaptive difficulty's history (failed
+    before: an unknown hash passed). An unsaved hash of an item never protected stays visible."""
+
+    from learnloop.adaptive_difficulty.material_view import detached_view
+    from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
+    from learnloop.clock import FrozenClock
+    from learnloop.learner.assessment_contracts import snapshot_for_presentation
+    from learnloop.vault.models import CanonicalExercise
+
+    paths = _base(tmp_path)
+    _hold_out(monkeypatch)
+    _held_hist_on_record(paths, prompt="SENTINEL_HIST_R4: held out earlier.", span="h3")
+    repository = Repository(paths.sqlite_path)
+    answered = {}
+    for item_id, span in (("pi_hist", "h4"), ("pi_p1", None)):
+        opened = load_vault(paths.root)
+        if span:
+            opened.practice_items[item_id] = opened.practice_items[item_id].model_copy(update={
+                "prompt": "SENTINEL_HIST_R4U: an unsaved held-out revision.",
+                "canonical_exercise": CanonicalExercise(source_id="src_r9", extraction_id=EXT, span_ids=[span])})
+        else:
+            opened.practice_items[item_id] = opened.practice_items[item_id].model_copy(update={
+                "prompt": "An earlier public wording, never saved."})
+        contract = snapshot_for_presentation(repository, opened, opened.practice_items[item_id], save_revision=False,
+                                             clock=FrozenClock(T0 - timedelta(minutes=30)))
+        answered[item_id] = complete_self_graded_attempt(
+            load_vault(paths.root), repository,
+            AttemptDraft(practice_item_id=item_id, learner_answer_md="An answer.", latency_seconds=60,
+                         session_id=None, assessment_contract_version_id=contract),
+            SelfGradeInput(criterion_points={"correctness": 4.0}, confidence=4),
+            clock=FrozenClock(T0 - timedelta(minutes=29))).attempt_id
+    view = detached_view(load_vault(paths.root), repository)
+    with closing(connect(paths.sqlite_path, read_only=True)) as connection:
+        visible = {str(row["id"]) for row in view.attempts(connection)}
+    assert answered["pi_hist"] not in visible
+    assert answered["pi_p1"] in visible

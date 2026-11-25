@@ -682,6 +682,56 @@ def _protect_fr3(paths) -> None:
     complete_self_graded_attempt(load_vault(paths.root), repository, draft,
                                  SelfGradeInput(criterion_points={"correctness": 4.0}, confidence=4),
                                  clock=FrozenClock(T0 - timedelta(minutes=20)))
+    _protect_r4(paths)
+
+
+def _protect_r4(paths) -> None:
+    """Review round 4's protected material (protected copy only), answers to a revision of ``pi_p4`` nothing saved
+    (R4-S7; the item has protected material on record, its held-out revision ``h6``, so neither can be shown public):
+
+    * a grade-frozen contract citing a held-out revision whose snapshot was never saved (an mvp-0.74/0.75 contract
+      frozen at the grade), the item since replaced by its public revision (FR3-1's unknown hash);
+    * a repeat plan presentation that froze no revision (no serve-input row, no selection), answered (FR3-2's
+      repeat)."""
+
+    from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
+    from learnloop.clock import FrozenClock
+    from learnloop.learner.assessment_contracts import snapshot_for_presentation
+    from learnloop.vault.models import CanonicalExercise
+
+    opened = load_vault(paths.root)
+    repository = Repository(paths.sqlite_path)
+    opened.practice_items[P4] = opened.practice_items[P4].model_copy(update={
+        "prompt": "SENTINEL_P4U_AX9: a held-out revision whose snapshot was never saved.",
+        "canonical_exercise": CanonicalExercise(source_id="src_r9", extraction_id=EXT, span_ids=["h6"])})
+    contract = snapshot_for_presentation(repository, opened, opened.practice_items[P4], save_revision=False,
+                                         clock=FrozenClock(T0 - timedelta(minutes=19)))
+    complete_self_graded_attempt(load_vault(paths.root), repository,
+                                 AttemptDraft(practice_item_id=P4, learner_answer_md="An answer.",
+                                              latency_seconds=46000, session_id=None,
+                                              assessment_contract_version_id=contract),
+                                 SelfGradeInput(criterion_points={"correctness": 4.0}, confidence=4),
+                                 clock=FrozenClock(T0 - timedelta(minutes=18)))
+    with closing(connect(paths.sqlite_path)) as connection:
+        connection.execute("INSERT INTO attention_blocks(id, action, budget_minutes, content_hash, created_at) "
+                           "VALUES ('blk_r4', 'practice', 10, 'h', ?)", (_iso(T0 - timedelta(minutes=17)),))
+        connection.execute("INSERT INTO plan_presentations(id, block_id, practice_item_id, origin, served_at) "
+                           "VALUES ('pp_p4_r4', 'blk_r4', ?, 'chooser', ?)", (P4, _iso(T0 - timedelta(minutes=17))))
+        connection.commit()
+    # Answered and graded while the held-out revision was the item (the grade-time forecaster declined it, so no
+    # receipt): its grade-frozen contract cites that revision, unsaved.
+    import pytest
+
+    from learnloop.adaptive_difficulty import surprise_forecast
+
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(surprise_forecast, "safe_grade_receipt", lambda *args, **kwargs: None)
+        complete_self_graded_attempt(opened, repository,
+                                     AttemptDraft(practice_item_id=P4, learner_answer_md="An answer.",
+                                                  latency_seconds=47000, session_id=None,
+                                                  plan_presentation_id="pp_p4_r4"),
+                                     SelfGradeInput(criterion_points={"correctness": 0.0}, confidence=4),
+                                     clock=FrozenClock(T0 - timedelta(minutes=16)))
 
 
 def _protect_r13(paths) -> None:

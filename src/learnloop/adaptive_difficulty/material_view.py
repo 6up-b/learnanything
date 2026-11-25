@@ -253,6 +253,10 @@ class MaterialView:
         self._universe: set[str] | None = None
         self._answered: dict[str, tuple[str, ...]] | None = None
         self._frozen: dict[str, str] | None = None
+        #: Per item: whether it has protected material on record (now, or in a saved revision; R4-S7).
+        self._ever_protected: dict[str, bool] = {}
+        #: Each attempt's revisions named by stored facts alone (``answered_revision.all_answered_revisions``).
+        self._stored_answered: dict[str, tuple[str, ...]] = {}
         self._protected_only: dict[bool, set[str]] = {}
         self._memo: dict[Any, Any] | None = None
         self._projected: Any = None
@@ -1049,8 +1053,13 @@ class MaterialView:
 
         named = (contract_revision, *draft_revisions(connection, plan_presentation_id=plan_presentation_id,
                                                      scheduler_candidate_id=scheduler_candidate_id, answered_at=at))
-        return self.withheld(practice_item_id) or any(
-            self.revision_withheld(connection, revision, practice_item_id) for revision in named if revision)
+        if self.withheld(practice_item_id):
+            return True
+        if not any(named) and (plan_presentation_id or scheduler_candidate_id):
+            # Shown by a presentation (a repeat) or a selection that froze no revision: what was shown is unknown, so
+            # it is public only when its item has no protected material on record (R4-S7).
+            return self.unknown_revision_withheld(connection, practice_item_id)
+        return any(self.revision_withheld(connection, revision, practice_item_id) for revision in named if revision)
 
     def grade_known_after(self, connection: Any, attempt_ids: Iterable[Any], at: Any) -> bool:
         """Whether a grade of any of these visible attempts became known after ``at`` (FR3-5): its current grading
@@ -1106,7 +1115,9 @@ class MaterialView:
         return False
 
     def revision_withheld(self, connection: Any, content_hash: str | None, practice_item_id: Any = None) -> bool:
-        """Whether a revision named by hash (and its item id, when known) is withheld now."""
+        """Whether a revision named by hash (and its item id, when known) is withheld now. A revision with no saved
+        snapshot cannot be judged by its own sources: it is withheld unless shown public
+        (:meth:`unknown_revision_withheld`, R4-S7)."""
 
         if not self.available or (practice_item_id is not None and self.withheld(practice_item_id)):
             return True
@@ -1114,7 +1125,32 @@ class MaterialView:
             return False
         found = connection.execute("/* ad-rules */ SELECT 1 FROM practice_item_snapshots WHERE content_hash = ?",
                                    (content_hash,)).fetchone()
-        return found is not None and self.revision(connection, content_hash) is None
+        if found is None:
+            current = self.item(practice_item_id)
+            if current is not None:
+                from learnloop.vault.hashes import item_revision
+
+                if item_revision(current)[0] == content_hash:
+                    # Unsaved, but the item's current revision: judged by its own sources.
+                    return self.covers(current)
+            return self.unknown_revision_withheld(connection, practice_item_id)
+        return self.revision(connection, content_hash) is None
+
+    def unknown_revision_withheld(self, connection: Any, practice_item_id: Any) -> bool:
+        """Whether an answer to an unknown revision of an item (a hash with no saved snapshot, or a presentation that
+        froze none) is withheld (R4-S7): yes unless the item has no protected material on record, neither now nor in
+        any saved revision. Ordinary public history (an item never protected) stays visible; an item that has been
+        protected keeps such an answer out, as a copy without its protected material never had it. An unknown item
+        is withheld."""
+
+        if practice_item_id is None or not self.available:
+            return True
+        key = str(practice_item_id)
+        if key not in self._ever_protected:
+            hashes = [row[0] for row in connection.execute(
+                "/* ad-rules */ SELECT content_hash FROM practice_item_snapshots WHERE practice_item_id = ?", (key,))]
+            self._ever_protected[key] = self.withheld(key) or any(self.revision(connection, h) is None for h in hashes)
+        return self._ever_protected[key]
 
     # -- attempts --------------------------------------------------------------------------------
 
@@ -1148,7 +1184,9 @@ class MaterialView:
                     "/* ad-rules */ SELECT id, plan_presentation_id FROM practice_attempts"):
                 if presentation_id and str(presentation_id) in frozen:
                     answered.setdefault(str(attempt_id), set()).add(frozen[str(presentation_id)])
-            for attempt_id, revisions in all_answered_revisions(connection).items():
+            stored = all_answered_revisions(connection)
+            self._stored_answered = {key: tuple(values) for key, values in stored.items()}
+            for attempt_id, revisions in stored.items():
                 answered.setdefault(attempt_id, set()).update(revisions)
             try:
                 for row in load_attempt_rows(connection, self.vault):
@@ -1187,8 +1225,15 @@ class MaterialView:
 
         if self.withheld(row.get("practice_item_id")):
             return True
-        return any(self.revision_withheld(connection, content_hash)
-                   for content_hash in self._answered_revisions(connection).get(str(row["id"]), ()))
+        revisions = self._answered_revisions(connection).get(str(row["id"]), ())
+        presentation = row.get("plan_presentation_id")
+        if (presentation and str(presentation) not in self._frozen_revisions(connection)
+                and not self._stored_answered.get(str(row["id"]))):
+            # A presentation (a repeat) that froze no revision and no other stored fact naming what was shown: the
+            # revision field's own resolution is an inference, so the answer is to an unknown revision (R4-S7).
+            return self.unknown_revision_withheld(connection, row.get("practice_item_id"))
+        return any(self.revision_withheld(connection, content_hash, row.get("practice_item_id"))
+                   for content_hash in revisions)
 
     def attempts(self, connection: Any) -> list[dict[str, Any]]:
         """Every visible ``practice_attempts`` row (all columns, latency included), oldest first.
@@ -1416,7 +1461,11 @@ class MaterialView:
 
         if self.withheld(row.get("practice_item_id")):
             return True
-        return self.revision_withheld(connection, self._frozen_revisions(connection).get(str(row["id"])))
+        frozen = self._frozen_revisions(connection).get(str(row["id"]))
+        if frozen is None:
+            # It froze no revision (a repeat): what it showed is unknown (R4-S7).
+            return self.unknown_revision_withheld(connection, row.get("practice_item_id"))
+        return self.revision_withheld(connection, frozen, row.get("practice_item_id"))
 
     def presentations(self, connection: Any) -> dict[str, dict[str, Any]]:
         """Plan presentations of visible items and revisions, by id."""

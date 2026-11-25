@@ -471,7 +471,7 @@ def load_events(connection: Any, vault: Any, repository: Any, *, as_of: str | No
             status = "reconstructed_current" if item is not None else "excluded"
         else:
             item, content_hash, status = None, row.item_snapshot_hash, "excluded"
-        if content_hash and view.revision_withheld(connection, content_hash):
+        if content_hash and view.revision_withheld(connection, content_hash, attempt["practice_item_id"]):
             # The answered revision's own sources are held out now (a revision of a deleted item, or
             # one whose provenance differed): the attempt is invisible, as its item would be.
             summary["attempts"] -= 1

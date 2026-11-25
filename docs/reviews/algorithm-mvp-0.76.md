@@ -125,6 +125,11 @@ The successor of mvp-0.75 for the review-round-3 fixes that change what is deriv
   (`ids.new_ulid_after`) inside the transaction, re-keying its forecast receipt; (c) accept it: it reaches only a
   vault left below mvp-0.65, and live sequences rule from the tag on. Recommendation: (c), since every owner vault
   is upgraded past mvp-0.65 and no write below it records a sequence to correct.
+- R4-S7 (FR3-1, FR3-2 and FR3-5's protection residue, every tag): an unknown answered revision (no saved snapshot
+  and not the item's current revision, or a presentation or selection that froze none) is withheld unless its item has
+  no protected material on record (`MaterialView.unknown_revision_withheld`); a presentation that froze no revision
+  follows the same rule. Tests: `tests/test_answered_revision_protection.py` (two cases) and both shapes in the
+  absent-copy contract (`tests/ad23_contract_helpers._protect_r4`).
 
 ## Pins and goldens
 
