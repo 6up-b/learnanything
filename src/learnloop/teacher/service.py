@@ -104,6 +104,8 @@ LEARNER_ACTIONS = ("reply", "answer_prediction", "answer_check", "stop", "resume
 TE2_LEARNER_ACTIONS = ("answer_probe", "teach_anyway", "close")
 #: The learner's steps whose words a ``propose_gap`` may name (``ref: t<seq>`` in a TE2 lesson's transcript).
 LEARNER_TEXT_ACTIONS = ("learner_reply", "prediction_answer", "check_answer", PR.ANSWER)
+#: TE5-R12: "Library tN" pressed on a topic offer: a learner's action, not their words (never a gap's evidence).
+LIBRARY_LOOKUP = "library_lookup"
 
 
 class LessonError(ValueError):
@@ -352,6 +354,8 @@ def _te2_transcript_entry(entry: Mapping[str, Any]) -> dict[str, Any] | None:
         return {"by": "code", "topic_refused": data["reason"]}
     if action == "topic_declined":
         return {"by": "learner", "declined_topic": data["phrase"]}
+    if action == LIBRARY_LOOKUP:
+        return {"by": "learner", "asked_library_lookup": {"command": data.get("command"), "query": data.get("query")}}
     if action == "goal_lo":
         return {"by": "code", "topic_added": {k: data.get(k) for k in ("learning_object_id", "title", "phrase",
                                                                      "label")}}
@@ -1021,7 +1025,7 @@ def _turn_model(state: LessonState, entry: Mapping[str, Any]) -> str | None:
 #: The steps that wait for a teacher call (the learner's, or code's after a check). A step written as an
 #: accepted turn's effect (``refs.turn``: a withdrawn check is one) is part of that turn's action, never a
 #: boundary (TE1 F16, followups batch 5 D: resume after a completed help action made one more call).
-_CALLS_TEACHER = ("open", "learner_reply", "prediction_answer", "check_result", "check_withdrawn")
+_CALLS_TEACHER = ("open", "learner_reply", "prediction_answer", "check_result", "check_withdrawn", LIBRARY_LOOKUP)
 #: Teacher TE2 (Codex review F4): a probe's result and the learner's "Teach it anyway" wait for the teacher too. A
 #: probe retired otherwise (the lesson's close, an unservable item) owes no call: the lesson goes on at the
 #: learner's next step.
@@ -1074,7 +1078,7 @@ def _pending_call(state: LessonState) -> _PendingCall | None:
             return _PendingCall(closing="learner_stop")
         else:
             data = entry.get("payload") or {}
-            return _PendingCall(help_reply=action == "learner_reply" and bool(data.get("help")))
+            return _PendingCall(help_reply=action in ("learner_reply", LIBRARY_LOOKUP) and bool(data.get("help")))
     if accepted is None:
         return _PendingCall() if refused else None
     if _owes_followup(state, accepted):
@@ -1242,7 +1246,7 @@ def _learner_action(vault: Any, repository: Any, state: LessonState, action: str
         decision = TP.offer_decision(state.turns, text)
         if decision is not None:
             verb, offer = decision
-            return _topic_decision(vault, repository, state, verb, offer, clients=clients, clock=clock)
+            return _topic_decision(vault, repository, state, verb, offer, clients=clients, clock=clock, command=text)
         help_request = state.open_check is not None
         _append(repository, state, actor="learner", action="learner_reply", payload={"text": text, "help": help_request},
                 clock=clock)
@@ -1264,7 +1268,7 @@ def _learner_action(vault: Any, repository: Any, state: LessonState, action: str
 
 
 def _topic_decision(vault: Any, repository: Any, state: LessonState, verb: str, offer: Mapping[str, Any], *,
-                    clients: Clients, clock: Clock | None) -> dict[str, Any]:
+                    clients: Clients, clock: Clock | None, command: str = "") -> dict[str, Any]:
     from learnloop.vault.loader import load_vault
 
     refs = {"offer": offer["id"]}
@@ -1279,11 +1283,14 @@ def _topic_decision(vault: Any, repository: Any, state: LessonState, verb: str, 
         lookup = ActionRequestV1(action="find_sources", query=data["phrase"], intent="explain")
         result = _read_action(vault, repository, state, lookup, model=state.lesson.get("model"))
         with repository.atomic():
-            _append(repository, state, actor="learner", action="learner_reply", refs=refs,
-                    payload={"text": f"Look in my library for {data['phrase']}", "help": bool(state.open_check)},
+            # TE5-R12: the learner pressed a command, not words of their own: the exact command and the offer it names
+            # are journaled as an action. The query is the teacher's offered phrase (code data), never cited as the
+            # learner's text (``LEARNER_TEXT_ACTIONS`` leaves this action out).
+            _append(repository, state, actor="learner", action=LIBRARY_LOOKUP, refs=refs,
+                    payload={"command": command, "query": data["phrase"], "help": bool(state.open_check)},
                     clock=clock)
             if state.open_check:
-                _record_help(repository, state, f"Look in my library for {data['phrase']}", clock=clock)
+                _record_help(repository, state, command, clock=clock)
             entry = _append(repository, state, actor="code", action="find_sources", refs=refs,
                             payload={"request": lookup.model_dump(), "result": result, "deferred": True}, clock=clock)
         state.pending_results.append({"turn_id": entry["id"], "action": "find_sources", "result": _model_result(result)})
@@ -3154,6 +3161,8 @@ def view(vault: Any, repository: Any, lesson_id: str, *, outcome: _Outcome | Non
         elif action in ("learner_reply", "prediction_answer", "check_answer"):
             feed.append({"kind": "learner", "text": data.get("text") or data.get("answer"),
                          "check_ref": data.get("check_ref")})
+        elif action == LIBRARY_LOOKUP:
+            feed.append({"kind": "learner", "text": data.get("command"), "check_ref": None})
         elif action == "check_result":
             feed.append({"kind": "check_result", **{k: data.get(k) for k in (
                 "check_ref", "result", "grader_feedback", "unanchored")},

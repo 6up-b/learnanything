@@ -331,3 +331,37 @@ def test_an_open_lesson_is_read_listed_and_closed_with_lessons_off(tmp_path):
     assert lesson in (viewed.get("lesson_id"), viewed.get("lessonId"))
     closed = H.lesson_turn(_Ctx(), H.LessonTurnInput(action="close", lesson_id=lesson))
     assert closed["closed"] and "learner_stop" in (closed.get("close_reason"), closed.get("closeReason"))
+
+
+# --- TE5-R12: a library lookup is the learner's action, never their words -------------------------------------------
+
+
+def test_a_library_lookup_is_journaled_as_an_action_and_cannot_be_cited_as_learner_text(tmp_path):
+    from tests.deliverable_fixtures import DeliverableFake
+
+    paths, repository = build_teacher_vault(tmp_path / "vault")
+    fake = TeacherFake([_proposal])
+    providers = clients(fake)
+    providers.resolver = lambda: DeliverableFake(unmatched=(PHRASE,))
+    lesson = S.open_lesson(load_vault(paths.root), repository, entry="learning_object",
+                           learning_object_ids=["lo_eigen"], clients=providers)["lesson_id"]
+    offer, = [row for row in S.load_state(repository, lesson).turns if row["action"] == "topic_offer"]
+    command = f"Library t{offer['seq']}"
+
+    def cites_the_lookup(context):
+        entry = next(part for part in context["transcript"] if "asked_library_lookup" in part)
+        assert "ref" not in entry and entry["asked_library_lookup"]["command"] == command
+        lookup_seq = next(row["seq"] for row in S.load_state(repository, lesson).turns
+                          if row["action"] == S.LIBRARY_LOOKUP)
+        return {"message": "Noted.", "requests": [{"action": "propose_gap", "ref": f"t{lookup_seq}",
+                                                   "gap_kind": "misconception", "gap": PHRASE}]}
+
+    fake.turns = [cites_the_lookup, {"message": "Fine."}]
+    view = S.take_turn(load_vault(paths.root), repository, lesson_id=lesson, action="reply",
+                       payload={"text": command}, clients=providers)
+    state = S.load_state(repository, lesson)
+    lookup, = [row for row in state.turns if row["action"] == S.LIBRARY_LOOKUP]
+    assert lookup["payload"]["command"] == command and lookup["payload"]["query"] == PHRASE
+    assert not [row for row in state.turns if row["action"] == "learner_reply"]
+    assert not [row for row in state.turns if row["action"] == "propose_gap"]  # the citation was refused
+    assert any(entry.get("kind") == "learner" and entry.get("text") == command for entry in view["feed"])
