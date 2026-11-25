@@ -84,8 +84,8 @@ def compute_surprise(
     Mastery's own ``(a, b)``, its prediction (``expected_correctness``) and the Bayesian surprise (the mastery
     update's KL) are unchanged, and the interval factor always reads mastery's residual, so FSRS never reads AD.
     ``record_source``: the row records which prediction it was scored against (from the retirement's tag).
-    ``direct`` (from the fix round's tag): the forecast's probability is scored directly (:func:`_open_logit`, the
-    configured clip once), also without the IRT link, and every row names its source."""
+    ``direct`` (from the corrections' tag, mvp-0.73): the forecast's probability is scored directly
+    (:func:`_open_logit`, the configured clip once), also without the IRT link, and every row names its source."""
 
     prior_variance = max(prior.logit_variance, 1e-9)
     posterior_variance = max(posterior.logit_variance, 1e-9)

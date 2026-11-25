@@ -1065,7 +1065,7 @@ LABEL_RETIRED_ALGORITHM_VERSION = "mvp-0.71"
 # Effective mastery curves for the lesson-weight fit (L4-2; docs/reviews/algorithm-mvp-0.72.md), on top of the
 # difficulty label's retirement, mvp-0.71.
 LESSON_WEIGHT_CURVES_ALGORITHM_VERSION = "mvp-0.72"
-# The difficulty label retirement's fix round (docs/reviews/algorithm-mvp-0.73.md), on top of the lesson-weight
+# The difficulty label retirement's corrections (docs/reviews/algorithm-mvp-0.73.md), on top of the lesson-weight
 # curves, mvp-0.72: surprise against AD's forecast is scored from the forecast's probability itself (the configured
 # clip once, no inverse through ``b`` and no division by the discrimination), also where mastery's IRT link is off,
 # and every surprise row names its source; a delayed check's draw among tied items is seeded per decision node. One
@@ -1341,8 +1341,8 @@ FORECAST_SCORING_VERSIONS: frozenset[str] = successors_from(FORECAST_SCORING_ALG
 
 
 def forecast_scoring_fixed(algorithm_version: str | None) -> bool:
-    """The label retirement's fix round (its tag): below it mvp-0.72's surprise scoring and delayed-check seeds exactly.
-    Takes the vault's tag."""
+    """The label retirement's corrections (their tag): below it mvp-0.72's surprise scoring and delayed-check seeds
+    exactly. Takes the vault's tag."""
 
     return algorithm_version in FORECAST_SCORING_VERSIONS
 

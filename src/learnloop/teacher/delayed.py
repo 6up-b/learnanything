@@ -135,8 +135,8 @@ def pick(vault: Any, repository: Any, items: Sequence[Any], *, seed_key: str = "
 
 
 def retention_seed_key(lesson_id: str, learning_object_id: str, node_id: str | None = None) -> str:
-    """The retention check's draw: its commit and the lesson forecast about it share it (§12.2). From the fix round's
-    tag each landed node's check has its own (``node_id``): two nodes on one LO sharing one draw would make the
+    """The retention check's draw: its commit and the lesson forecast about it share it (§12.2). From the corrections'
+    tag (mvp-0.73) each landed node's check has its own (``node_id``): two nodes on one LO sharing one draw would make the
     second pick a function of the first, its recorded propensity not its real one."""
 
     base = f"lesson:{lesson_id}:retention:{learning_object_id}"
@@ -144,7 +144,7 @@ def retention_seed_key(lesson_id: str, learning_object_id: str, node_id: str | N
 
 
 def node_seed(vault: Any, node_id: Any) -> str | None:
-    """The node's identity in its retention seed from the fix round's tag; None below it."""
+    """The node's identity in its retention seed from the corrections' tag (mvp-0.73); None below it."""
 
     from learnloop.algorithm_versions import forecast_scoring_fixed
 
