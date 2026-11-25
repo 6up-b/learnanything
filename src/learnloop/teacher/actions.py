@@ -78,12 +78,20 @@ def run_read(vault: Any, repository: Any, state: Any, request: ActionRequestV1, 
         return read_source(vault, repository, state, request.refs)
     if request.action in ("find_sources", "find_practice"):
         return find(vault, repository, state, request, model=model)
-    if request.action == "read_history":
-        return read_history(vault, repository, state, request.refs)
-    if request.action == "read_note":
+    if request.action in ("read_history", "read_note"):
+        # TE5-R1: the learner's history and notes are the learner's words, but a model never reads one that repeats a
+        # question kept for an exam (the brief's screen; a passage keeps exam material's own, by span).
+        from learnloop.teacher.guards import reserved_book, screen_context
+
+        reserved = reserved_book(vault, repository)
+        if reserved.unreadable:
+            return {"refused": "protection_unavailable",
+                    "message": "the questions kept for an exam could not be read, so nothing was read"}
+        if request.action == "read_history":
+            return screen_context(read_history(vault, repository, state, request.refs), reserved)
         from learnloop.teacher.notes import read_note
 
-        return read_note(vault, repository, state, request.refs)
+        return screen_context(read_note(vault, repository, state, request.refs), reserved)
     raise ActionRefused("unknown_action", f"{request.action} is not a read action")
 
 

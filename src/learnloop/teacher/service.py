@@ -835,6 +835,12 @@ def open_lesson(vault: Any, repository: Any, *, entry: str, learning_object_ids:
                               opens_at=utc_now_iso(clock) if preference_id else None, from_check=check_entry)
     if typed is not None:
         brief["goal"]["typed"] = typed.goal
+    # TE5-R1: no word of the brief (a topic's statement, a misconception, a recap, the goal) quotes a question kept
+    # for an exam, whatever topic it is about; the delivered passages keep exam material's own (span) protection.
+    reserved = G.reserved_book(vault, repository)
+    if reserved.unreadable:
+        raise LessonError("protected", "The lesson couldn't start. Try again in a moment.")
+    brief = G.screen_context(brief, reserved, skip=frozenset({"sources", "doctrine"}))
     protection = protection_state(vault, repository, brief)
     if before is None or protection is None:
         raise LessonError("protected", "The lesson couldn't start. Try again in a moment.")

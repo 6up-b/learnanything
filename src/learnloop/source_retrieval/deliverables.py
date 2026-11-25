@@ -58,7 +58,7 @@ from __future__ import annotations
 
 import json
 import os
-from collections.abc import Callable, Iterable, Mapping, Sequence
+from collections.abc import Callable, Collection, Iterable, Mapping, Sequence
 from contextlib import ExitStack
 from dataclasses import dataclass
 from datetime import date
@@ -825,8 +825,11 @@ _ALSO_ABOUT = (
 )
 
 
-def topic_records(vault: Any, *, statement_chars: int = STATEMENT_CHARS) -> list[dict[str, Any]]:
-    """The vault's active LOs as compact records (§5.3): never their items."""
+def topic_records(vault: Any, *, statement_chars: int = STATEMENT_CHARS,
+                  withheld: Callable[[str], bool] | None = None) -> list[dict[str, Any]]:
+    """The vault's active LOs as compact records (§5.3): never their items. ``withheld``: the catalog screen
+    (:func:`catalog_screen`); a record whose words it withholds is left out whole, so it can be neither read nor
+    chosen."""
 
     out = []
     for lo_id in sorted(vault.learning_objects):
@@ -842,8 +845,29 @@ def topic_records(vault: Any, *, statement_chars: int = STATEMENT_CHARS) -> list
         }
         if statement_chars:
             record["statement"] = _one_line(learning_object.summary, statement_chars)
+        if withheld is not None and withheld(json.dumps(record, ensure_ascii=False)):
+            continue
         out.append(record)
     return out
+
+
+#: The catalog screen could not read which questions are kept for an exam (fail closed: nothing is sent).
+PROTECTION_UNAVAILABLE = ("LearnLoop couldn't check which questions are kept for your exams, so it didn't read your "
+                          "topics. Try again.")
+
+
+def catalog_screen(vault: Any, repository: Repository) -> Callable[[str], bool]:
+    """The topic catalog's screen (TE5 review fix round, TE5-R1): a record whose words reproduce a question kept for
+    an exam or held out (``learner_protection.quotes_reserved``, the one predicate the lesson's guards and display
+    read) never reaches the resolver, whichever topic the request is about. Unreadable protection raises
+    ``DeliverableError("protection_unavailable")`` (fail closed)."""
+
+    from learnloop.learner_protection import quotes_reserved, reserved_book
+
+    book = reserved_book(vault, repository)
+    if book.unreadable:
+        raise DeliverableError("protection_unavailable", PROTECTION_UNAVAILABLE)
+    return lambda text: quotes_reserved(text, book)
 
 
 @dataclass(frozen=True)
@@ -860,14 +884,17 @@ class ScopePrompt:
     #: C2b (option A): with the subject ambiguous, the groups sent, ``(subject id, ids)`` each;
     #: the guard reads every group again for its own subject.
     past_paper_groups: tuple[tuple[str, tuple[str, ...]], ...] = ()
+    #: The topics the catalog sent (TE5-R1): only these can be chosen.
+    topic_ids: frozenset[str] = frozenset()
 
 
-def _bounded_topics(vault: Any, budget_chars: int) -> list[dict[str, Any]]:
+def _bounded_topics(vault: Any, budget_chars: int, withheld: Callable[[str], bool]) -> list[dict[str, Any]]:
     """Every active LO's record within the prompt bound: statements are clipped, then
-    dropped, before an LO is ever left out (an LO left out could not be chosen)."""
+    dropped, before an LO is ever left out (an LO left out could not be chosen). Every record passes the catalog
+    screen (``withheld``, :func:`catalog_screen`) as it is sent."""
 
     for chars in (STATEMENT_CHARS, 120, 0):
-        records = topic_records(vault, statement_chars=chars)
+        records = topic_records(vault, statement_chars=chars, withheld=withheld)
         if len(json.dumps(records)) <= budget_chars:
             return records
     raise DeliverableError("too_large", "Your vault has more topics than LearnLoop can read in one call "
@@ -1084,7 +1111,7 @@ def build_scope_prompt(vault: Any, repository: Repository, goal: Any,
             subjects = frozenset()
     grouped = [{"subject": _subject_name(vault, subject_id), "topics": ids} for subject_id, ids in groups]
     used = len(json.dumps(sent)) + (len(json.dumps(past)) if past else 0) + (len(json.dumps(grouped)) if grouped else 0)
-    topics = _bounded_topics(vault, max(0, budget - used))
+    topics = _bounded_topics(vault, max(0, budget - used), catalog_screen(vault, repository))
     context: dict[str, Any] = {
         "deliverable": {"sentence": goal.intent_sentence or goal.title, "deadline": (goal.due_at or "")[:10],
                         "exam": bool(getattr(goal.exam, "enabled", False))},
@@ -1102,20 +1129,23 @@ def build_scope_prompt(vault: Any, repository: Repository, goal: Any,
     sent_ids = tuple(past) if past else tuple(dict.fromkeys(lo for _subject, ids in groups for lo in ids))
     return ScopePrompt(text=text, input_ids=tuple(str(row["id"]) for row in inputs),
                        state_key=content_key({"prompt_version": version, "prompt": text}), version=version,
+                       topic_ids=frozenset(str(record["id"]) for record in topics),
                        past_papers=sent_ids, subjects=subjects if past else frozenset(),
                        past_paper_groups=tuple((subject_id, tuple(ids)) for subject_id, ids in groups))
 
 
-def validate_resolution(vault: Any, output: ScopeResolutionV1) -> tuple[list[dict[str, str]], list[dict[str, Any]]]:
-    """``(needs, unmatched)``: every id an active LO, each once (first phrase kept); every
-    unmatched phrase with a title and a statement, each once."""
+def validate_resolution(vault: Any, output: ScopeResolutionV1, *, sent: Collection[str] | None = None
+                        ) -> tuple[list[dict[str, str]], list[dict[str, Any]]]:
+    """``(needs, unmatched)``: every id an active LO the catalog sent (``sent``, TE5-R1), each once (first phrase
+    kept); every unmatched phrase with a title and a statement, each once."""
 
     needs: list[dict[str, str]] = []
     seen: set[str] = set()
     for entry in output.needs:
         lo_id = str(entry.learning_object_id).strip()
         learning_object = vault.learning_objects.get(lo_id)
-        if learning_object is None or learning_object.status != "active" or lo_id in seen:
+        if (learning_object is None or learning_object.status != "active" or lo_id in seen
+                or (sent is not None and lo_id not in sent)):
             continue
         seen.add(lo_id)
         needs.append({"learning_object_id": lo_id, "phrase": _one_line(entry.phrase)})
@@ -1268,7 +1298,7 @@ def resolve(vault: Any, repository: Repository, goal_id: str, *, client: Any | N
             return ScopeResult("unavailable", reason=exc.reason, message=exc.message)
         except SC.ProtectionChanged:
             return ScopeResult("unavailable", reason="protection_changed", message=SC.STALE_MESSAGE)
-        needs, unmatched = validate_resolution(vault, output)
+        needs, unmatched = validate_resolution(vault, output, sent=prompt.topic_ids)
         model = route.model
     else:  # resolved before, then decided on: the resolver's answer is read again, no call
         needs, unmatched, model = list(cached["learning_objects"]), list(cached["unmatched"]), str(cached["model"])
@@ -1433,9 +1463,9 @@ def also_about(vault: Any, repository: Repository, extraction_id: str, section_i
     if section is None:
         raise DeliverableError("validation_error", "That section is not in your library's readable sections.")
     budget = int(vault.config.curriculum.max_prompt_tokens) * _CHARS_PER_TOKEN - _OVERHEAD_CHARS
+    topics = _bounded_topics(vault, max(0, budget - len(words) - 400), catalog_screen(vault, repository))
     context = {"section": {"title": section.title, "book": section.source_title},
-               "inputs": [{"n": 1, "kind": "correction", "text": words}],
-               "topics": _bounded_topics(vault, max(0, budget - len(words) - 400))}
+               "inputs": [{"n": 1, "kind": "correction", "text": words}], "topics": topics}
     prompt = render_structured_prompt("Deliverable scope", SCOPE_PROMPT_VERSION,
                                       {"instructions": _ALSO_ABOUT, "context": context})
     route = ChatRoute(vault, repository, SCOPE_ROUTE, client=client,
@@ -1449,7 +1479,7 @@ def also_about(vault: Any, repository: Repository, extraction_id: str, section_i
         return {"status": "unavailable", "reason": exc.reason, "message": exc.message}
     except SC.ProtectionChanged:
         return {"status": "unavailable", "reason": "protection_changed", "message": SC.STALE_MESSAGE}
-    needs, unmatched = validate_resolution(vault, output)
+    needs, unmatched = validate_resolution(vault, output, sent={str(record["id"]) for record in topics})
     now = utc_now_iso(clock)
     lo_id = needs[0]["learning_object_id"] if needs else None
     try:
@@ -1560,9 +1590,12 @@ def resolve_typed_goal(vault: Any, repository: Repository, text: str, *, client:
         return ScopeResult("no_inputs", message="Say what you want to learn first.")
     key = typed_goal_key(words)
     budget = int(vault.config.curriculum.max_prompt_tokens) * _CHARS_PER_TOKEN - _OVERHEAD_CHARS
+    try:
+        topics = _bounded_topics(vault, max(0, budget - len(words) - 400), catalog_screen(vault, repository))
+    except DeliverableError as exc:
+        return ScopeResult("unavailable", reason=exc.code, message=str(exc))
     context = {"deliverable": {"sentence": words, "deadline": "", "exam": False},
-               "inputs": [{"n": 1, "kind": "text", "text": words}],
-               "topics": _bounded_topics(vault, max(0, budget - len(words) - 400))}
+               "inputs": [{"n": 1, "kind": "text", "text": words}], "topics": topics}
     prompt = render_structured_prompt("Deliverable scope", SCOPE_PROMPT_VERSION,
                                       {"instructions": _INSTRUCTIONS, "context": context})
     state_key = content_key({"prompt_version": SCOPE_PROMPT_VERSION, "prompt": prompt})
@@ -1579,7 +1612,7 @@ def resolve_typed_goal(vault: Any, repository: Repository, text: str, *, client:
                            prompt_version=SCOPE_PROMPT_VERSION)
     except RouteUnavailable as exc:
         return ScopeResult("unavailable", reason=exc.reason, message=exc.message)
-    needs, unmatched = validate_resolution(vault, output)
+    needs, unmatched = validate_resolution(vault, output, sent={str(record["id"]) for record in topics})
     now = utc_now_iso(clock)
     row = {"id": "dsr_" + new_ulid(), "goal_id": key, "origin": "resolver", "input_ids_json": "[]",
            "learning_objects_json": json.dumps(needs), "unmatched_json": json.dumps(unmatched),
@@ -1643,6 +1676,7 @@ __all__ = [
     "admission_problem",
     "also_about",
     "build_scope_prompt",
+    "catalog_screen",
     "create_deliverable",
     "decide_unmatched",
     "deliverable_goals",
