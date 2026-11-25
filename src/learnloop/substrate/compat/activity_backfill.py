@@ -19,7 +19,7 @@ Substrate slice of §7.1 (steps 1-4):
    at its recorded time; surfaces reconstructed from a missing item are marked
    ``legacy_surface_unverifiable`` (replay preserved, no new pristine credit).
 
-Historical means recorded before the substrate existed (review round 3, FR3-6): before the vault's first
+Historical means recorded before the substrate existed: before the vault's first
 administration written live (:func:`substrate_began_at`, a stored fact). A rebuild derives, so it never writes
 evidence the live write should have recorded: a later answer with no observation (a grade whose grade-channel write
 failed) is left as it is and reported (:func:`answers_without_grade_record`); ``learnloop doctor`` names it and only
@@ -113,7 +113,7 @@ def predates_substrate(recorded_at: str | None, began: datetime | None) -> bool:
 def answers_without_grade_record(vault: LoadedVault, repository: Repository) -> list[dict[str, Any]]:
     """Answers recorded after the substrate existed whose grade record (the one ``apply_attempt``'s grade channel
     writes) is incomplete: no observation, or an observation with no raw grade (the write failed after it minted the
-    identity). A rebuild never writes these (it derives; FR3-6); ``learnloop doctor`` reports them and
+    identity). A rebuild never writes these (it derives); ``learnloop doctor`` reports them and
     ``doctor --fix-state`` records them, through that same channel.
 
     Answers that channel never records are left out: a diagnostic probe (its own paths record a grade when a
@@ -334,7 +334,7 @@ def backfill_activity_substrate(
             report.attempts_skipped_existing += 1
             continue
         if not predates_substrate(attempt.get("created_at"), began):
-            # Its live write should have recorded the observation; a rebuild does not invent it (FR3-6).
+            # Its live write should have recorded the observation; a rebuild does not invent it.
             report.attempts_after_substrate_without_observation += 1
             continue
         purpose = _purpose_for_attempt_type(attempt["attempt_type"])

@@ -328,7 +328,7 @@ def _run_activity_substrate(
     report = backfill_activity_substrate(
         context.vault, context.repository, clock=context.clock
     )
-    # FR3-6: what the rebuild left unrecorded, by name; `learnloop doctor` reports it and its repair records it.
+    # What the rebuild left unrecorded, by name; `learnloop doctor` reports it and its repair records it.
     unrecorded = answers_without_grade_record(context.vault, context.repository)
     if unrecorded:
         logging.getLogger(__name__).warning(

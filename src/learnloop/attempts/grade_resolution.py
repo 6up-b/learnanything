@@ -563,7 +563,7 @@ def record_replayed_grade(
     - nothing else, and measurement events only beside an append.
 
     An observation holding no raw grade at all is an answer whose live write failed after it minted the identity:
-    a rebuild leaves it so (FR3-6) unless ``may_record_missing`` (history from before the substrate, a regrade's own
+    a rebuild leaves it so unless ``may_record_missing`` (history from before the substrate, a regrade's own
     answer, an explicit repair).
 
     An adjudication that flipped the answer's direction also revised its grade,

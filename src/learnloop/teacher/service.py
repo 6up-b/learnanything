@@ -1230,7 +1230,7 @@ def _answer_check(vault: Any, repository: Any, state: LessonState, payload: Mapp
     if item is None:
         raise LessonError("not_found", "Couldn’t open the question. Reopen the lesson to try again.")
     attempt_id = new_ulid()
-    # The learner's answer turn commits with its grade, below (review round 3, FR3-22): a grade that fails leaves no
+    # The learner's answer turn commits with its grade, below: a grade that fails leaves no
     # turn, so *Submit answer* again records one answer, not a second beside a stranded first.
     # The blind grader sees the answer only: never the thinking note, the lesson or the learner's history.
     grading_client = clients.grading()
@@ -1324,8 +1324,8 @@ def _answer_probe(vault: Any, repository: Any, state: LessonState, payload: Mapp
     tap = payload.get("tap")
     tap = int(tap) if tap is not None and int(tap) in (1, 2, 3, 4, 5) else None
     try:
-        # The learner's answer turn commits with the grade, inside ``record_answer``'s one transaction (review round
-        # 3, FR3-22): a grade that fails leaves no turn, and the retry records one.
+        # The learner's answer turn commits with the grade, inside ``record_answer``'s one transaction: a grade that
+        # fails leaves no turn, and the retry records one.
         PR.record_answer(vault, repository, state.lesson, probe, answer=answer, tap=tap,
                          grading_client=clients.grading(), grading_source=clients.grading_source, clock=clock)
     except PR.StaleProbe as exc:

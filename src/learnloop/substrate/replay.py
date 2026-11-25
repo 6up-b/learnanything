@@ -320,7 +320,7 @@ def replay_learning_object(
     Replay derives: it writes an answer's missing grade record (no observation, or one with no grade) only for
     history from before the activity substrate, for the answer a regrade is applying (``applying_grade_to``) and
     for the answers an explicit repair names (``repairing_grade_records``, ``learnloop doctor --fix-state``);
-    any other is left unrecorded and reported (review round 3, FR3-6).
+    any other is left unrecorded and reported.
 
     The follow-up gate's records on each surprise row (what it queued, held
     back and read) were written live after the grade; replay never runs the

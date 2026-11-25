@@ -470,7 +470,7 @@ def _check_database_state(
 def _check_answers_without_grade_record(
     vault: LoadedVault, repository: Repository, issues: list[HealthIssue], *, fix_state: bool
 ) -> None:
-    """Review round 3, FR3-6: answers saved without their grade record (the grade channel's write failed when they
+    """Answers saved without their grade record (the grade channel's write failed when they
     were saved). A rebuild derives and leaves them so; ``--fix-state`` is the explicit repair that records them,
     replaying their topics with those answers named."""
 

@@ -401,7 +401,7 @@ def run_exam_sitting_pipeline(
         ),
     )
     outcomes: list[PostAttemptOutcome] = []
-    # Review round 3, FR3-13: a retried finish starts from the slots its earlier tries used, read from what those
+    # A retried finish starts from the slots its earlier tries used, read from what those
     # completed attempts durably inserted (a queued follow-up, a minted need, an opened workflow); a completed attempt
     # returns no insertion of its own, so counting from zero let a retry insert past the cap.
     inserted = sum(1 for result in ranked if _completed_with_insertion(repository, result.attempt_id))

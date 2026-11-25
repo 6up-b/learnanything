@@ -339,7 +339,7 @@ def queue_exam_answer(
     The ungraded row is the durable background-work receipt. Repeating the same
     submission is idempotent; replacing it is forbidden because exam answers
     are final once the learner advances. Admission is checked in the write
-    transaction that stores the answer (review round 3, FR3-3).
+    transaction that stores the answer.
     """
 
     with repository.atomic():
@@ -419,7 +419,7 @@ def record_exam_answer(
     if item is None:
         raise ExamSessionError(f"Unknown practice item {practice_item_id}")
     with repository.atomic():
-        # Admission is checked in the write transaction that stores the answer (review round 3, FR3-3): a finish
+        # Admission is checked in the write transaction that stores the answer: a finish
         # that publishes the sitting's completion commits wholly before this check or after this answer, which it
         # then applies.
         return _record_exam_answer(vault, repository, session_id, practice_item_id, item=item, answer_md=answer_md,
@@ -555,7 +555,7 @@ def finish_exam(
     if session is None:
         raise ExamSessionError(f"Unknown exam session {session_id}")
     if session["status"] == "completed" and session.get("report") is not None:
-        # Review round 3, FR3-13: completion work an earlier finish left pending (a per-attempt failure) resumes.
+        # Completion work an earlier finish left pending (a per-attempt failure) resumes.
         _resume_pending_completions(vault, repository, session_id, followup_surface=followup_surface, clock=clock)
         return session["report"]
     if session["status"] == "abandoned":
@@ -667,7 +667,7 @@ def _apply_and_complete(vault: LoadedVault, repository: Repository, session: dic
             # report still publishes and the next finish of this sitting resumes it (above and in ``finish_exam``).
             run_exam_sitting_pipeline(vault, repository, results=results, followup_surface=followup_surface, clock=clock)
         with repository.atomic():
-            # Review round 3, FR3-3: completion publishes only with every accepted answer applied and linked, read
+            # Completion publishes only with every accepted answer applied and linked, read
             # in the transaction that publishes it (an answer's admission is checked in its own write transaction).
             if any(not answer.get("attempt_id") for answer in repository.exam_answers(session_id)):
                 return None

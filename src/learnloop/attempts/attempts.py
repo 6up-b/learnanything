@@ -538,10 +538,8 @@ class ApplyAttemptInput:
     # Replay and regrade only (mvp-0.66): the attempt's recorded required facets, read instead of today's lifecycle.
     recorded_lifecycle_inputs: LifecycleInputs | None = None
     grade_forecast: Any = None  # live: AD's forecast of this answer, read before the write transaction
-    # Replay only (review round 3, FR3-6): whether replay may write this answer's grade record when it has none
-    # (no observation, or an observation without a raw grade). A rebuild derives and never writes evidence the live
-    # write should have recorded; the caller allows it for history from before the activity substrate, a regrade's
-    # own answer (an explicit grade revision) and the answers `learnloop doctor --fix-state` repairs.
+    # Replay only: may it write this answer's missing grade record (a rebuild never does; pre-substrate history, a
+    # regrade's own answer and `learnloop doctor --fix-state`'s repair may).
     may_record_missing_grade: bool = False
 
 
@@ -2730,12 +2728,9 @@ def _dual_write_grade_channel(
             # reads is kept, and only what changed is appended to it.
             observation = repository.observation_by_attempt(application.result.attempt_id)
             if observation is None and not attempt.may_record_missing_grade:
-                # FR3-6: the live write left no grade record (its dual write failed); a rebuild derives and does
-                # not create one. `learnloop doctor` names the answer and its repair records it.
-                logging.getLogger(__name__).warning(
-                    "answer %s has no grade record; the rebuild leaves it unrecorded (run `learnloop doctor`)",
-                    application.result.attempt_id,
-                )
+                # The live write left no grade record; a rebuild derives and does not create one (doctor repairs).
+                logging.getLogger(__name__).warning("answer %s has no grade record; the rebuild leaves it unrecorded "
+                                                    "(run `learnloop doctor`)", application.result.attempt_id)
                 return
         grade_channel = dict(
             item=item,
@@ -2764,13 +2759,10 @@ def _dual_write_grade_channel(
             record_replayed_grade(vault, repository, observation=observation,
                                   may_record_missing=attempt.may_record_missing_grade, **grade_channel)
         elif record_grade_dual_write(vault, repository, **grade_channel) is None and not attempt.replace_existing:
-            # FR3-6: visible where it happens. The answer is saved without its grade record; `learnloop doctor`
-            # reports it and `doctor --fix-state` records it (a rebuild never does).
-            logging.getLogger(__name__).warning(
-                "answer %s was saved without its grade record (the grade channel's write failed); "
-                "`learnloop doctor` reports it and `learnloop doctor --fix-state` records it",
-                application.result.attempt_id,
-            )
+            # Visible where it happens; `learnloop doctor` reports it and its repair records it (a rebuild never does).
+            logging.getLogger(__name__).warning("answer %s was saved without its grade record (the grade channel's "
+                                                "write failed); run `learnloop doctor --fix-state` to record it",
+                                                application.result.attempt_id)
     except Exception:  # noqa: BLE001 - fail-safe dual-write (§7.3)
         # record_grade_dual_write anchors its own degradation telemetry; this outer
         # guard only catches failures BEFORE it is reached (item/rubric lookup).
