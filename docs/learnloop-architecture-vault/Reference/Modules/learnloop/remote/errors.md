@@ -47,17 +47,18 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/remote/errors.py](../../../../../../src/learnloop/remote/errors.py) |
-| Source lines | 29 |
+| Source lines | 44 |
 | Owning package | [[Reference/Modules/learnloop/remote/_package|learnloop.remote]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class RemoteRequestError(Exception)` ([source](../../../../../../src/learnloop/remote/errors.py), line 10) — A request LearnLoop refuses, with a learner-readable reason.
-  - `__init__(self, message: str, *, code: str | None=None) -> None` (line 15; internal)
-- `class NotFound(RemoteRequestError)` ([source](../../../../../../src/learnloop/remote/errors.py), line 21)
-- `class InvalidRequest(RemoteRequestError)` ([source](../../../../../../src/learnloop/remote/errors.py), line 25)
+- `class RemoteRequestError(Exception)` ([source](../../../../../../src/learnloop/remote/errors.py), line 12) — A request LearnLoop refuses, with a learner-readable reason.
+  - `__init__(self, message: str, *, code: str | None=None) -> None` (line 17; internal)
+- `class NotFound(RemoteRequestError)` ([source](../../../../../../src/learnloop/remote/errors.py), line 23)
+- `class InvalidRequest(RemoteRequestError)` ([source](../../../../../../src/learnloop/remote/errors.py), line 27)
+- `upgraded_while_open(error: BaseException) -> RemoteRequestError | None` ([source](../../../../../../src/learnloop/remote/errors.py), line 31) — The refusal to show for a write the writer fence refused (``learnloop.db.writer_fence``): the vault was upgraded after this request loaded it, nothing was saved, and the next request loads it again.
 
 ### Explicit exports
 
@@ -66,6 +67,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `InvalidRequest`
 - `NotFound`
 - `RemoteRequestError`
+- `upgraded_while_open`
 
 ## Internal implementation anchors
 
@@ -83,7 +85,7 @@ No private top-level function or class definition is declared in this file.
 
 ### LearnLoop dependencies
 
-No internal Python dependency was found by static analysis.
+- [[Reference/Modules/learnloop/db/writer_fence|learnloop.db.writer_fence]] — imports `module`; calls `is_refusal`
 
 ### Platform and third-party dependencies
 

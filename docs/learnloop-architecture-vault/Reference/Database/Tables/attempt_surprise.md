@@ -51,7 +51,7 @@ It belongs to the **attempts and measurement** navigation family. The family con
 - **Role:** `derived` — Clearable projection reconstructed by exactly one registered replayer.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/001_initial.sql`.
-- **Schema touched by:** `001_initial.sql`, `015_followup_gate_trace.sql`, `017_followup_ratings.sql`, `201_followup_value_decisions.sql`.
+- **Schema touched by:** `001_initial.sql`, `015_followup_gate_trace.sql`, `017_followup_ratings.sql`, `201_followup_value_decisions.sql`, `275_writer_fence.sql`.
 - **Rebuild owner:** `learning_state`
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -84,6 +84,11 @@ Declared SQLite foreign keys:
 Indexes and uniqueness:
 
 - `sqlite_autoindex_attempt_surprise_1` on `attempt_id` (unique).
+
+Database triggers:
+
+- `writer_fence_attempt_surprise_insert` — schema-enforced lifecycle or immutability constraint.
+- `writer_fence_attempt_surprise_update` — schema-enforced lifecycle or immutability constraint.
 
 ## Who calls it
 
@@ -171,10 +176,10 @@ Indexes and uniqueness:
 - `tests/test_teacher_te5_grade_curves.py`
 - `tests/test_voi_forecasts.py`
 - `tests/test_voi_merge_composition.py`
+- `tests/test_writer_fence.py`
 - `tests/ro1_interval_factor_helpers.py`
 - `tests/test_agent_runs.py`
 - `tests/test_attempt_ai_flow.py`
-- `tests/test_attempt_completion.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

@@ -220,6 +220,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_journal_from_the_floor_is_still_completed_by_an_opener`
   - `test_a_journal_naming_a_link_below_the_floor_is_refused`
   - `test_a_journal_naming_a_link_this_code_does_not_know_is_refused`
+- [tests/test_writer_fence.py](../../../../../../tests/test_writer_fence.py) — direct import
+  - `test_a_death_after_the_publication_keeps_the_database_tag_until_the_completion`
+  - `test_a_death_between_the_activation_and_the_publication_leaves_the_predecessor_in_force`
 
 ## Modification guidance
 

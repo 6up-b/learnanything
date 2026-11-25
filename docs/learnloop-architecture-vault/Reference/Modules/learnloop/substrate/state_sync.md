@@ -463,6 +463,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_voi_stopping.py](../../../../../../tests/test_voi_stopping.py) — direct import
   - `test_a_served_probe_records_its_probability_over_the_composed_queue`
 - [tests/test_voi_v2.py](../../../../../../tests/test_voi_v2.py) — direct import
+- [tests/test_writer_fence.py](../../../../../../tests/test_writer_fence.py) — direct import
 - [tests/voi_restore_scenarios.py](../../../../../../tests/voi_restore_scenarios.py) — direct import
 - [tests/voi_stopping_helpers.py](../../../../../../tests/voi_stopping_helpers.py) — direct import
 - [tests/why_cases_helpers.py](../../../../../../tests/why_cases_helpers.py) — direct import

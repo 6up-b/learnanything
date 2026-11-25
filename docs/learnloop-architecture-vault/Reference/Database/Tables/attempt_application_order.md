@@ -21,6 +21,7 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/replay.py"
   - "src/learnloop/algorithm_versions.py"
   - "src/learnloop/db/attempt_order.py"
+  - "src/learnloop/db/writer_fence.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -44,7 +45,7 @@ It belongs to the **attempts and measurement** navigation family. The family con
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/261_attempt_application_order.sql`.
-- **Schema touched by:** `261_attempt_application_order.sql`.
+- **Schema touched by:** `261_attempt_application_order.sql`, `275_writer_fence.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -68,6 +69,10 @@ Declared SQLite foreign keys:
 Indexes and uniqueness:
 
 - `sqlite_autoindex_attempt_application_order_1` on `attempt_id` (unique).
+
+Database triggers:
+
+- `writer_fence_attempt_application_order_insert` — schema-enforced lifecycle or immutability constraint.
 
 ## Who calls it
 

@@ -169,6 +169,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/followup_contract_baseline_helpers.py](../../../../../../tests/followup_contract_baseline_helpers.py) — direct import
+- [tests/helpers.py](../../../../../../tests/helpers.py) — direct import
 - [tests/live_dialogue_contract_helpers.py](../../../../../../tests/live_dialogue_contract_helpers.py) — direct import
 - [tests/plan_first_transport_offer_grants_helpers.py](../../../../../../tests/plan_first_transport_offer_grants_helpers.py) — direct import
 - [tests/test_ad23_successor.py](../../../../../../tests/test_ad23_successor.py) — direct import

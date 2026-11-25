@@ -2685,6 +2685,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_workbench_trace.py](../../../../../../tests/test_workbench_trace.py) — direct import
   - `test_a_workbench_attempt_carries_its_trace_under_the_suffix_and_never_a_map`
   - `test_every_other_attempt_renders_exactly_as_before`
+- [tests/test_writer_fence.py](../../../../../../tests/test_writer_fence.py) — direct import
+  - `test_a_death_after_the_publication_keeps_the_database_tag_until_the_completion`
+  - `test_a_predecessor_binary_cannot_grade_or_regrade_after_the_activation`
+  - `test_a_stale_writer_of_this_code_is_refused_and_proceeds_after_a_reload`
+  - `test_a_vault_no_fence_aware_activation_touched_is_not_fenced`
 - [tests/tutor_delivery_fixes_helpers.py](../../../../../../tests/tutor_delivery_fixes_helpers.py) — direct import
 - [tests/tutor_promotion_service_helpers.py](../../../../../../tests/tutor_promotion_service_helpers.py) — direct import
 - [tests/ux_phase1_landing_helpers.py](../../../../../../tests/ux_phase1_landing_helpers.py) — direct import

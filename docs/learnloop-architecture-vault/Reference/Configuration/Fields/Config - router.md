@@ -38,8 +38,8 @@ source_paths:
   - "tests/check_credit_report_helpers.py"
   - "tests/compare_sources_keep_helpers.py"
   - "tests/conftest.py"
-  - "tests/connection_reuse.py"
   - "tests/curriculum_c1_plan_follows_path_helpers.py"
+  - "tests/daily_plan_reading_helpers.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/router"
@@ -100,8 +100,8 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/check_credit_report_helpers.py`
 - `tests/compare_sources_keep_helpers.py`
 - `tests/conftest.py`
-- `tests/connection_reuse.py`
 - `tests/curriculum_c1_plan_follows_path_helpers.py`
+- `tests/daily_plan_reading_helpers.py`
 
 ## Extension and modification guidance
 

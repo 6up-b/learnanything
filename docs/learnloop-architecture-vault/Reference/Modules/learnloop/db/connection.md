@@ -37,7 +37,7 @@ Up: [[Reference/Modules/learnloop/db/_package|learnloop.db]] · Root: [[Module C
 
 ## Why this module exists
 
-This module keeps connection behavior inside its owning package, [[Reference/Modules/learnloop/db/_package|learnloop.db]]. Its public surface centers on `UnsupportedSQLiteVersion`, `require_supported_sqlite`, `linked_sqlite_version`, `wal_reset_bug_fixed`, `wal_unavailable_reason`, `connect`, `reused_connections`.
+This module keeps connection behavior inside its owning package, [[Reference/Modules/learnloop/db/_package|learnloop.db]]. Its public surface centers on `UnsupportedSQLiteVersion`, `require_supported_sqlite`, `linked_sqlite_version`, `wal_reset_bug_fixed`, `wal_unavailable_reason`, `connect`, `writer_fence_key`, `reused_connections`.
 
 The authoritative system-level explanation remains in [[State and Persistence]], [[Architecture Overview]]; this note records where this source module participates rather than restating those concepts.
 
@@ -48,42 +48,43 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/db/connection.py](../../../../../../src/learnloop/db/connection.py) |
-| Source lines | 387 |
+| Source lines | 399 |
 | Owning package | [[Reference/Modules/learnloop/db/_package|learnloop.db]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class UnsupportedSQLiteVersion(RuntimeError)` ([source](../../../../../../src/learnloop/db/connection.py), line 39) — The SQLite library linked into Python is too old for WAL vaults.
-- `require_supported_sqlite() -> None` ([source](../../../../../../src/learnloop/db/connection.py), line 44) — Fail once, clearly, when the runtime SQLite cannot open WAL vaults.
-- `linked_sqlite_version() -> tuple[int, int, int]` ([source](../../../../../../src/learnloop/db/connection.py), line 55)
-- `wal_reset_bug_fixed(version: tuple[int, int, int] | None=None) -> bool` ([source](../../../../../../src/learnloop/db/connection.py), line 59) — Whether ``version`` (default: the linked SQLite) has the WAL-reset fix.
-- `wal_unavailable_reason(version: tuple[int, int, int] | None=None) -> str | None` ([source](../../../../../../src/learnloop/db/connection.py), line 72) — Why WAL must not be enabled with ``version``, or ``None`` when it may be.
-- `connect(sqlite_path: Path, *, read_only: bool=False) -> sqlite3.Connection` ([source](../../../../../../src/learnloop/db/connection.py), line 88) — Open a configured SQLite connection.
-- `reused_connections() -> Iterator[None]` ([source](../../../../../../src/learnloop/db/connection.py), line 136) — Router speed stage 2, item 4: inside, every :func:`connect` made **on the thread that opened the scope** hands out a connection of this scope's pool instead of opening one (SQLite parses the whole schema at a connection's first statement: about 2 ms here, hundreds of times in on…
+- `class UnsupportedSQLiteVersion(RuntimeError)` ([source](../../../../../../src/learnloop/db/connection.py), line 41) — The SQLite library linked into Python is too old for WAL vaults.
+- `require_supported_sqlite() -> None` ([source](../../../../../../src/learnloop/db/connection.py), line 46) — Fail once, clearly, when the runtime SQLite cannot open WAL vaults.
+- `linked_sqlite_version() -> tuple[int, int, int]` ([source](../../../../../../src/learnloop/db/connection.py), line 57)
+- `wal_reset_bug_fixed(version: tuple[int, int, int] | None=None) -> bool` ([source](../../../../../../src/learnloop/db/connection.py), line 61) — Whether ``version`` (default: the linked SQLite) has the WAL-reset fix.
+- `wal_unavailable_reason(version: tuple[int, int, int] | None=None) -> str | None` ([source](../../../../../../src/learnloop/db/connection.py), line 74) — Why WAL must not be enabled with ``version``, or ``None`` when it may be.
+- `connect(sqlite_path: Path, *, read_only: bool=False) -> sqlite3.Connection` ([source](../../../../../../src/learnloop/db/connection.py), line 90) — Open a configured SQLite connection.
+- `writer_fence_key(sqlite_path: Path) -> tuple[str, ...]` ([source](../../../../../../src/learnloop/db/connection.py), line 135) — The binding a writable connection opened now would carry: part of a pool's key (``reused_connections``).
+- `reused_connections() -> Iterator[None]` ([source](../../../../../../src/learnloop/db/connection.py), line 148) — Router speed stage 2, item 4: inside, every :func:`connect` made **on the thread that opened the scope** hands out a connection of this scope's pool instead of opening one (SQLite parses the whole schema at a connection's first statement: about 2 ms here, hundreds of times in on…
 
 ### Module constants
 
-- `MINIMUM_SQLITE_VERSION` ([src/learnloop/db/connection.py](../../../../../../src/learnloop/db/connection.py), line 17)
-- `BUSY_TIMEOUT_MS` ([src/learnloop/db/connection.py](../../../../../../src/learnloop/db/connection.py), line 18)
-- `WAL_RESET_FIX_RELEASES` ([src/learnloop/db/connection.py](../../../../../../src/learnloop/db/connection.py), line 26)
-- `WAL_RESET_FIXED_VERSIONS_TEXT` ([src/learnloop/db/connection.py](../../../../../../src/learnloop/db/connection.py), line 31)
-- `WAL_RESET_ADVISORY_URL` ([src/learnloop/db/connection.py](../../../../../../src/learnloop/db/connection.py), line 32)
-- `_READ_ONLY_OPEN_FAILURES` ([src/learnloop/db/connection.py](../../../../../../src/learnloop/db/connection.py), line 36)
-- `_REUSED` ([src/learnloop/db/connection.py](../../../../../../src/learnloop/db/connection.py), line 132)
-- `_READ_ACTIONS` ([src/learnloop/db/connection.py](../../../../../../src/learnloop/db/connection.py), line 298)
-- `_RESET_ATTRIBUTES` ([src/learnloop/db/connection.py](../../../../../../src/learnloop/db/connection.py), line 301)
-- `_CONNECTION_STATE_CALLS` ([src/learnloop/db/connection.py](../../../../../../src/learnloop/db/connection.py), line 303)
+- `MINIMUM_SQLITE_VERSION` ([src/learnloop/db/connection.py](../../../../../../src/learnloop/db/connection.py), line 19)
+- `BUSY_TIMEOUT_MS` ([src/learnloop/db/connection.py](../../../../../../src/learnloop/db/connection.py), line 20)
+- `WAL_RESET_FIX_RELEASES` ([src/learnloop/db/connection.py](../../../../../../src/learnloop/db/connection.py), line 28)
+- `WAL_RESET_FIXED_VERSIONS_TEXT` ([src/learnloop/db/connection.py](../../../../../../src/learnloop/db/connection.py), line 33)
+- `WAL_RESET_ADVISORY_URL` ([src/learnloop/db/connection.py](../../../../../../src/learnloop/db/connection.py), line 34)
+- `_READ_ONLY_OPEN_FAILURES` ([src/learnloop/db/connection.py](../../../../../../src/learnloop/db/connection.py), line 38)
+- `_REUSED` ([src/learnloop/db/connection.py](../../../../../../src/learnloop/db/connection.py), line 144)
+- `_READ_ACTIONS` ([src/learnloop/db/connection.py](../../../../../../src/learnloop/db/connection.py), line 310)
+- `_RESET_ATTRIBUTES` ([src/learnloop/db/connection.py](../../../../../../src/learnloop/db/connection.py), line 313)
+- `_CONNECTION_STATE_CALLS` ([src/learnloop/db/connection.py](../../../../../../src/learnloop/db/connection.py), line 315)
 
 ## Internal implementation anchors
 
-- `_open_writable(sqlite_path: Path, *, factory: type[sqlite3.Connection]=sqlite3.Connection) -> sqlite3.Connection` ([source](../../../../../../src/learnloop/db/connection.py), line 122)
-- `class _ConnectionPool` ([source](../../../../../../src/learnloop/db/connection.py), line 163) — One scope's idle connections, by database and mode, for its own thread only.
-- `class _ReusedConnection` ([source](../../../../../../src/learnloop/db/connection.py), line 216) — A pooled connection as its user sees it: a raw connection's methods, whose ``close()`` gives it back to the pool reset (:func:`reused_connections`).
-- `class _PooledSqlite(sqlite3.Connection)` ([source](../../../../../../src/learnloop/db/connection.py), line 308) — A pooled connection's SQLite connection (router speed stage 2, landing ruling R4: Codex's verify N1).
-- `_configure(connection: sqlite3.Connection) -> None` ([source](../../../../../../src/learnloop/db/connection.py), line 352)
-- `_open_read_only(sqlite_path: Path, *, factory: type[sqlite3.Connection]=sqlite3.Connection) -> sqlite3.Connection` ([source](../../../../../../src/learnloop/db/connection.py), line 358) — Open with ``mode=ro`` and surface a WAL open failure here (``factory``: a pooled connection's class).
+- `_open_writable(sqlite_path: Path, *, factory: type[sqlite3.Connection]=sqlite3.Connection) -> sqlite3.Connection` ([source](../../../../../../src/learnloop/db/connection.py), line 124)
+- `class _ConnectionPool` ([source](../../../../../../src/learnloop/db/connection.py), line 175) — One scope's idle connections, by database and mode, for its own thread only.
+- `class _ReusedConnection` ([source](../../../../../../src/learnloop/db/connection.py), line 228) — A pooled connection as its user sees it: a raw connection's methods, whose ``close()`` gives it back to the pool reset (:func:`reused_connections`).
+- `class _PooledSqlite(sqlite3.Connection)` ([source](../../../../../../src/learnloop/db/connection.py), line 320) — A pooled connection's SQLite connection (router speed stage 2, landing ruling R4: Codex's verify N1).
+- `_configure(connection: sqlite3.Connection) -> None` ([source](../../../../../../src/learnloop/db/connection.py), line 364)
+- `_open_read_only(sqlite_path: Path, *, factory: type[sqlite3.Connection]=sqlite3.Connection) -> sqlite3.Connection` ([source](../../../../../../src/learnloop/db/connection.py), line 370) — Open with ``mode=ro`` and surface a WAL open failure here (``factory``: a pooled connection's class).
 
 ## Who imports or calls it
 
@@ -296,6 +297,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/db/scopes|learnloop.db.scopes]] — imports `apply_connection_hook`, `current_ingest_job_id`, `guarded_connection`; calls `apply_connection_hook`, `current_ingest_job_id`, `guarded_connection`
+- [[Reference/Modules/learnloop/db/writer_fence|learnloop.db.writer_fence]] — imports `module`; calls `binding`, `register`
 
 ### Platform and third-party dependencies
 
@@ -1051,6 +1053,13 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_why_get_returns_ids_numbers_and_codes_and_never_a_payload`
   - `test_why_is_still_a_pure_read_with_the_new_options`
   - `test_why_resolves_goal_and_lesson_subjects`
+- [tests/test_writer_fence.py](../../../../../../tests/test_writer_fence.py) — direct import
+  - `test_a_death_after_the_publication_keeps_the_database_tag_until_the_completion`
+  - `test_a_death_between_the_activation_and_the_publication_leaves_the_predecessor_in_force`
+  - `test_a_fenced_writer_bound_to_no_tag_is_not_refused`
+  - `test_a_pool_never_hands_a_connection_to_another_binding`
+  - `test_a_wal_reader_from_before_the_activation_cannot_commit_after_it`
+  - `test_every_fenced_write_refuses_a_writer_bound_to_another_tag`
 
 ## Modification guidance
 

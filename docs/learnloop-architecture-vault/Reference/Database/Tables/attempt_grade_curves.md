@@ -19,6 +19,7 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/db/stores/grade_curves.py"
+  - "src/learnloop/db/writer_fence.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -45,7 +46,7 @@ It belongs to the **attempts and measurement** navigation family. The family con
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/274_attempt_grade_curves.sql`.
-- **Schema touched by:** `274_attempt_grade_curves.sql`.
+- **Schema touched by:** `274_attempt_grade_curves.sql`, `275_writer_fence.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -77,6 +78,7 @@ Database triggers:
 - `attempt_grade_curves_no_delete` — schema-enforced lifecycle or immutability constraint.
 - `attempt_grade_curves_no_replace` — schema-enforced lifecycle or immutability constraint.
 - `attempt_grade_curves_no_update` — schema-enforced lifecycle or immutability constraint.
+- `writer_fence_attempt_grade_curves_insert` — schema-enforced lifecycle or immutability constraint.
 
 ## Who calls it
 
@@ -106,6 +108,7 @@ None found by exact static reference scan.
 - `tests/test_grade_curves_migration.py`
 - `tests/test_grading_cli.py`
 - `tests/test_teacher_te5_grade_curves.py`
+- `tests/test_writer_fence.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

@@ -20,9 +20,9 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/algorithm_versions.py"
   - "src/learnloop/db/stores/lessons.py"
+  - "src/learnloop/db/writer_fence.py"
   - "src/learnloop/evsi_calibration/forecast_report.py"
   - "src/learnloop/learner/lesson_weight.py"
-  - "src/learnloop/router_objective/cold_timing.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"
@@ -46,7 +46,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `receipt` — Historical audit/decision receipt. It is preserved and never rebuilt.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/234_teacher_lessons.sql`.
-- **Schema touched by:** `234_teacher_lessons.sql`.
+- **Schema touched by:** `234_teacher_lessons.sql`, `275_writer_fence.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -92,6 +92,7 @@ Database triggers:
 
 - `lesson_checks_no_delete` — schema-enforced lifecycle or immutability constraint.
 - `lesson_checks_no_update` — schema-enforced lifecycle or immutability constraint.
+- `writer_fence_lesson_checks_insert` — schema-enforced lifecycle or immutability constraint.
 
 ## Who calls it
 
@@ -127,6 +128,7 @@ None found by exact static reference scan.
 - `tests/test_teacher_te1_weight.py`
 - `tests/test_teacher_te2log_episodes.py`
 - `tests/test_teacher_te5_grade_curves.py`
+- `tests/test_writer_fence.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

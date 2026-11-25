@@ -145,6 +145,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_journal_naming_a_link_below_the_floor_is_refused`
   - `test_a_journal_naming_a_link_this_code_does_not_know_is_refused`
   - `test_the_upgrade_command_refuses_a_journal_from_below_the_floor_with_the_route`
+- [tests/test_writer_fence.py](../../../../../tests/test_writer_fence.py) — direct import
+  - `test_a_death_after_the_publication_keeps_the_database_tag_until_the_completion`
 
 ## Modification guidance
 
