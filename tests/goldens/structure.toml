@@ -55,7 +55,10 @@ source_text_assertions = 23
 # logged where it happens, naming the answer and the repair (the rule lives in substrate/compat/activity_backfill.py).
 # 5889: review round 3 (FR3-23, owner decision b): the door records points given without evidence rows as the grade's
 # rows (the import, the call and its comment; the rows are built in attempts/given_points.py).
-"src/learnloop/attempts/attempts.py" = 5889
+# 5963: review round 4 (doctor's repair of a missing grade record): the live grade channel's inputs read back from
+# durable facts (recover_grade_channel, its dataclass and refusal) next to replay_grader_identity, which it extends,
+# and replay's keyword applying them to an explicitly repaired answer.
+"src/learnloop/attempts/attempts.py" = 5963
 # 3034: the writer fence's review fix round (WF-R1): a repository keeps the binding it was made with (the field, the
 # connection helper and its three call sites, the import).
 "src/learnloop/db/repositories.py" = 3034

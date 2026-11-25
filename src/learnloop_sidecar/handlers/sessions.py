@@ -420,7 +420,7 @@ def _patch_checkpoint_locked(
         focus = _with_earlier_opened(focus, earlier_opened)
 
     current_item = _merged_value(existing, params, fields, "current_practice_item_id")
-    # The draft's presentation belongs to the item and retry key it was saved with (R4-S4): a patch that changes
+    # The draft's presentation belongs to the item and retry key it was saved with: a patch that changes
     # either without naming the replacement drops it, so a later submit never binds an abandoned presentation.
     focus = _bound_plan_presentation(focus, current_item, supplied=plan_presentation_id is not _KEEP,
                                      before=existing)
@@ -902,7 +902,7 @@ def draft_plan_presentation(checkpoint: dict[str, Any] | None, *, practice_item_
                             submission_id: str | None) -> str | None:
     """The presentation a saved draft named, when ``submission_id`` is that
     draft's retry key on ``practice_item_id`` (router R2a, review F5) and the
-    presentation was saved for that item and key (R4-S4), else None."""
+    presentation was saved for that item and key, else None."""
 
     if not checkpoint or not submission_id or checkpoint.get("current_practice_item_id") != practice_item_id:
         return None

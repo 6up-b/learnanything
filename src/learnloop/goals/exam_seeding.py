@@ -367,10 +367,8 @@ def seed_exam_attempts(
         imported = _imported_exam_attempt(repository, item.id, outcomes.exam_date)
         if imported is not None:
             skipped += 1
-            # The answer already imported is the durable marker of an import that may
-            # have stopped before its chronological replay (a crash, a fence refusal), so a retry replays its object
-            # too: the one the answer was written under, which the item may have left since. The replay is derived
-            # and idempotent; one that already ran changes nothing.
+            # The imported answer marks an import that may have stopped before its replay (a crash, a fence refusal):
+            # a retry replays the object that answer was written under (derived, idempotent).
             written_under = str(imported.get("learning_object_id") or item.learning_object_id)
             if not dry_run and written_under not in affected_learning_objects:
                 affected_learning_objects.append(written_under)

@@ -253,7 +253,7 @@ class MaterialView:
         self._universe: set[str] | None = None
         self._answered: dict[str, tuple[str, ...]] | None = None
         self._frozen: dict[str, str] | None = None
-        #: Per item: whether it has protected material on record (now, or in a saved revision; R4-S7).
+        #: Per item: whether it has protected material on record (now, or in a saved revision).
         self._ever_protected: dict[str, bool] = {}
         #: Each attempt's revisions named by stored facts alone (``answered_revision.all_answered_revisions``).
         self._stored_answered: dict[str, tuple[str, ...]] = {}
@@ -1057,7 +1057,7 @@ class MaterialView:
             return True
         if not any(named) and (plan_presentation_id or scheduler_candidate_id):
             # Shown by a presentation (a repeat) or a selection that froze no revision: what was shown is unknown, so
-            # it is public only when its item has no protected material on record (R4-S7).
+            # it is public only when its item has no protected material on record.
             return self.unknown_revision_withheld(connection, practice_item_id)
         return any(self.revision_withheld(connection, revision, practice_item_id) for revision in named if revision)
 
@@ -1117,7 +1117,7 @@ class MaterialView:
     def revision_withheld(self, connection: Any, content_hash: str | None, practice_item_id: Any = None) -> bool:
         """Whether a revision named by hash (and its item id, when known) is withheld now. A revision with no saved
         snapshot cannot be judged by its own sources: it is withheld unless shown public
-        (:meth:`unknown_revision_withheld`, R4-S7)."""
+        (:meth:`unknown_revision_withheld`)."""
 
         if not self.available or (practice_item_id is not None and self.withheld(practice_item_id)):
             return True
@@ -1138,7 +1138,7 @@ class MaterialView:
 
     def unknown_revision_withheld(self, connection: Any, practice_item_id: Any) -> bool:
         """Whether an answer to an unknown revision of an item (a hash with no saved snapshot, or a presentation that
-        froze none) is withheld (R4-S7): yes unless the item has no protected material on record, neither now nor in
+        froze none) is withheld: yes unless the item has no protected material on record, neither now nor in
         any saved revision. Ordinary public history (an item never protected) stays visible; an item that has been
         protected keeps such an answer out, as a copy without its protected material never had it. An unknown item
         is withheld."""
@@ -1230,7 +1230,7 @@ class MaterialView:
         if (presentation and str(presentation) not in self._frozen_revisions(connection)
                 and not self._stored_answered.get(str(row["id"]))):
             # A presentation (a repeat) that froze no revision and no other stored fact naming what was shown: the
-            # revision field's own resolution is an inference, so the answer is to an unknown revision (R4-S7).
+            # revision field's own resolution is an inference, so the answer is to an unknown revision.
             return self.unknown_revision_withheld(connection, row.get("practice_item_id"))
         return any(self.revision_withheld(connection, content_hash, row.get("practice_item_id"))
                    for content_hash in revisions)
@@ -1463,7 +1463,7 @@ class MaterialView:
             return True
         frozen = self._frozen_revisions(connection).get(str(row["id"]))
         if frozen is None:
-            # It froze no revision (a repeat): what it showed is unknown (R4-S7).
+            # It froze no revision (a repeat): what it showed is unknown.
             return self.unknown_revision_withheld(connection, row.get("practice_item_id"))
         return self.revision_withheld(connection, frozen, row.get("practice_item_id"))
 
