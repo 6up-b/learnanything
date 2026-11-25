@@ -94,3 +94,107 @@ def test_exam_finish_dates_no_answer_ahead_of_now_and_replay_orders_them_as_appl
     live = _facts(repository, ordinary.attempt_id)
     rebuild_all_derived_state(vault, repository)
     assert _facts(repository, ordinary.attempt_id) == live
+
+
+# -- Review round 4, R4-S5: a sitting's live order is its replay order below mvp-0.65 --------------------------------
+
+LEGACY_TAG = "mvp-0.61"  # below the application order's tag (mvp-0.65): replay breaks a same-second tie by id
+
+
+class _Ticking:
+    """A clock one second further on at every read."""
+
+    def __init__(self, start: datetime) -> None:
+        self.at = start
+
+    def now(self) -> datetime:
+        self.at = self.at + timedelta(seconds=1)
+        return self.at
+
+
+def _legacy_sitting(tmp_path):
+    from pathlib import Path
+
+    from tests.exam_session_helpers import _reserved_and_started
+    from tests.helpers import _set_algorithm_version_at
+
+    vault, repository, session = _reserved_and_started(tmp_path)
+    root = next(p for p in Path(repository.sqlite_path).resolve().parents if (p / "learnloop.toml").exists())
+    _set_algorithm_version_at(root, LEGACY_TAG)
+    return load_vault(root), repository, session
+
+
+def _applied_order(monkeypatch):
+    from learnloop.goals import exam_session
+
+    order: list[str] = []
+    real = exam_session.apply_attempt
+
+    def spy(vault, repository, attempt, **kwargs):
+        order.append(attempt.attempt_id)
+        return real(vault, repository, attempt, **kwargs)
+
+    monkeypatch.setattr(exam_session, "apply_attempt", spy)
+    return order
+
+
+def _replay_order(vault, repository) -> list[str]:
+    from learnloop.db.attempt_order import attempt_order_for
+
+    assert not attempt_order_for(vault.config).by_sequence
+    attempts = repository.list_all_attempts()
+    return [a["id"] for a in sorted(attempts, key=lambda a: (str(a["created_at"]), str(a["id"])))]
+
+
+def test_a_legacy_sitting_answered_in_reverse_applies_in_its_replay_order(tmp_path, monkeypatch):
+    """B is submitted before A; the sitting's item order is A, B; both are applied in one second. Below mvp-0.65 replay
+    breaks that tie by attempt id, whose time is the staged answer's, so B first: live applied A first (failed
+    before)."""
+
+    from learnloop.goals.exam_session import finish_exam, record_exam_answer
+
+    from tests.exam_session_helpers import _grade
+
+    vault, repository, session = _legacy_sitting(tmp_path)
+    session_id = session["session_id"]
+    assert session["item_order"].index("pi_exam_a") < session["item_order"].index("pi_exam_b")
+    record_exam_answer(vault, repository, session_id, "pi_exam_b", answer_md="B", resolved_grade=_grade(1))
+    record_exam_answer(vault, repository, session_id, "pi_exam_a", answer_md="A", resolved_grade=_grade(4))
+    applied = _applied_order(monkeypatch)
+    finish_exam(vault, repository, session_id, clock=FrozenClock(NOW))
+    assert len(applied) == 2
+    assert applied == _replay_order(vault, repository)
+
+
+def test_an_ordinary_grade_interleaved_with_a_legacy_finish_replays_where_it_was_applied(tmp_path, monkeypatch):
+    """An ordinary grade commits while finish prepares the sitting's second answer. That answer's instant is read
+    inside its own write transaction, so it is dated after the ordinary grade it followed (failed before: it was read
+    before the forecast and the lock, so it replayed before the ordinary grade)."""
+
+    from learnloop.goals import exam_session
+    from learnloop.goals.exam_session import finish_exam, record_exam_answer
+
+    from tests.exam_session_helpers import _grade
+
+    vault, repository, session = _legacy_sitting(tmp_path)
+    session_id = session["session_id"]
+    record_exam_answer(vault, repository, session_id, "pi_exam_a", answer_md="A", resolved_grade=_grade(4))
+    record_exam_answer(vault, repository, session_id, "pi_exam_b", answer_md="B", resolved_grade=_grade(1))
+    clock = _Ticking(NOW)
+    applied = _applied_order(monkeypatch)
+    real = exam_session.with_grade_forecast
+    calls = {"n": 0}
+
+    def forecast(*args, **kwargs):
+        calls["n"] += 1
+        if calls["n"] == 2:
+            ordinary = complete_self_graded_attempt(vault, repository, AttemptDraft("pi_exam_a", "again"),
+                                                    SelfGradeInput({"correctness": 0}, 3),
+                                                    clock=FrozenClock(clock.now()))
+            applied.append(ordinary.attempt_id)
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(exam_session, "with_grade_forecast", forecast)
+    finish_exam(vault, repository, session_id, clock=clock)
+    assert len(applied) == 3
+    assert applied == _replay_order(vault, repository)

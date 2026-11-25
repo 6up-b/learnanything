@@ -106,6 +106,17 @@ The successor of mvp-0.75 for the review-round-3 fixes that change what is deriv
   (`planPresentationFor` in the practice envelope); a checkpoint patch that changes either without naming the
   replacement drops it, so a submit never binds an abandoned presentation. Test:
   `tests/test_answer_door_sessions.py::test_a_key_only_checkpoint_patch_drops_the_drafts_old_presentation`.
+- R4-S5 (and FR3-8's residue): an exam sitting answer's instant is read inside its own write transaction; below
+  mvp-0.65 (where replay breaks a same-second tie by attempt id) the sitting applies its answers in attempt-id order.
+  Tests: `tests/test_one_instant_per_grade.py` (reverse submission below 0.65; an ordinary grade interleaved with
+  finish). Residue, stopped for a call (changing it touches either the legacy replay rule or the exam attempt's id):
+  below mvp-0.65 an ordinary grade committed in the same second just before a sitting answer replays after it,
+  because the sitting answer's id carries its staged time. Options: (a) at legacy tags only, wait inside the write
+  transaction for the next second when the current one already holds a later-sorting attempt (no future time; up to
+  one second's stall); (b) at legacy tags, mint the sitting answer's id after the newest stored id
+  (`ids.new_ulid_after`) inside the transaction, re-keying its forecast receipt; (c) accept it: it reaches only a
+  vault left below mvp-0.65, and live sequences rule from the tag on. Recommendation: (c), since every owner vault
+  is upgraded past mvp-0.65 and no write below it records a sequence to correct.
 
 ## Pins and goldens
 

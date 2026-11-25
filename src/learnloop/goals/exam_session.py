@@ -24,6 +24,7 @@ from datetime import UTC, timedelta
 from typing import Any
 
 from learnloop.clock import Clock, FrozenClock, SystemClock, parse_utc, utc_now_iso
+from learnloop.db.attempt_order import attempt_order_for
 from learnloop.db.repositories import Repository
 from learnloop.ids import keyed_ulid, new_ulid
 from learnloop.attempts.attempts import (
@@ -482,6 +483,12 @@ def _record_exam_answer(vault: LoadedVault, repository: Repository, session_id: 
     }
 
 
+def _exam_attempt_id(answer: dict[str, Any]) -> str:
+    """The attempt a staged exam answer is applied under: a function of the answer (a retried finish re-derives it)."""
+
+    return keyed_ulid(answer["id"], f"exam_answer:{answer['id']}")
+
+
 def _dual_write_exam_grade(
     vault: LoadedVault,
     repository: Repository,
@@ -602,15 +609,20 @@ def _apply_and_complete(vault: LoadedVault, repository: Repository, session: dic
     # answers restart their items' forgetting clocks and get their reviews: a
     # staged answer writes no item state, so a sitting left unfinished moves no
     # clock, and anchoring at submission instead would change review timing.
-    # Each answer is dated by one read of the clock as it is applied, never
-    # ahead of now: its live application order against any other answer is
-    # the replay order (the instant, then the application sequence within a
-    # second). Spaced future seconds let an ordinary answer committed meanwhile
-    # sort before an exam answer it followed.
+    # Each answer is dated by one read of the clock inside its own write
+    # transaction, never ahead of now, so an answer committed meanwhile by
+    # another writer is before it by its instant as by the state it read: its
+    # live application order against any other answer is the replay order (the
+    # instant, then the application sequence within a second). Below mvp-0.65
+    # replay breaks a same-second tie by attempt id, whose time is the staged
+    # answer's, so there the sitting applies its answers in that order.
+    if not attempt_order_for(vault.config).by_sequence:
+        answers = sorted(answers, key=_exam_attempt_id)
     for answer in answers:
         if answer.get("attempt_id"):
             continue
         item_id = answer["practice_item_id"]
+        # The forecast's read instant (before the lock); the answer's own is read under it, below.
         attempt_clock = FrozenClock(clock.now().astimezone(UTC).replace(microsecond=0))
         grade = _grade_from_dict(answer["grade"])
         answer_md = answer.get("answer_md") or ""
@@ -622,12 +634,13 @@ def _apply_and_complete(vault: LoadedVault, repository: Repository, session: dic
             attempt_type="exam_attempt",
             hints_used=0,
         )
-        attempt_id = keyed_ulid(answer["id"], f"exam_answer:{answer['id']}")
+        attempt_id = _exam_attempt_id(answer)
         prepared = with_grade_forecast(vault, repository, ApplyAttemptInput(
             draft=draft, attempt_id=attempt_id, grade=grade, reveal_window_bounded=True), clock=attempt_clock)
         with repository.atomic():
             if repository.exam_answer(session_id, item_id)["attempt_id"]:
                 continue
+            attempt_clock = FrozenClock(max(clock.now().astimezone(UTC).replace(microsecond=0), attempt_clock.now()))
             # Dual-write BEFORE applying: ``apply_attempt`` ends by running the
             # canonical projection, which joins the grade interpretation to the
             # attempt by attempt id. An interpretation written afterwards — or under
