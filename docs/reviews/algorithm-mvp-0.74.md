@@ -48,19 +48,29 @@ round, by class:
 
 None of these needed a tag: they are protection fixes and live writes; replay of stored rows is unchanged.
 
-Stopped (FR3-6, a rebuild writing raw evidence for a degraded live grade). The missing observation is not created by
-replay's dual-write branch but, before replay, by the activity backfill (`substrate/compat/activity_backfill.py`, step
-4), which `tests/test_replay_writes_no_ledger.py` admits once as the first rebuild's backfill (`FIRST_REBUILD_BACKFILL`
-includes the grade chain). Options: (a) keep the documented backfill and record the degraded grade's reconstruction as
-such (a labelled `backfill` basis on the observation); (b) restrict the backfill to answers recorded before the activity
-substrate existed and, for a later answer with no observation, report and label it and create nothing, leaving
-creation to an explicit repair command (`learnloop doctor`); (c) as (b), with the repair run by the upgrade only after
-the owner confirms. Recommendation: (b), the stated rule (a rebuild never creates evidence), with the repair command.
+Continued (the second worker of the round):
 
-Remaining (not started in this round): FR3-3, FR3-9, FR3-13, FR3-20 to FR3-22 (atomic doors), FR3-4 (outcomes that are
-not outcomes), FR3-5 (cutoff guard), FR3-10 (no accidental switch), FR3-11, FR3-12, FR3-15 to FR3-18. Found while
-testing FR3-8 and not yet investigated: a rebuild does not reproduce the live mastery of a finished two-answer
-sitting (`lo_svd_definition`'s evidence count 3 live, 4 rebuilt), with the spaced or the new instants alike.
+- A rebuild derives (FR3-6, owner decision b): the activity backfill creates administrations, exposures and
+  observations only for history recorded before the substrate existed, i.e. before the vault's first administration
+  written live (`legacy_backfilled = 0`, a stored fact; a vault that never wrote one has nothing to backfill). A later
+  answer whose grade-channel write failed (no observation, or an observation without a raw grade) is never given one
+  by a rebuild or an upgrade: replay writes a missing grade record only for pre-substrate history, a regrade's own
+  answer and an explicit repair. The rebuild names it (the activity replayer's details and a warning), `learnloop
+  doctor` reports `answers:grade_record_missing` in plain words, and `doctor --fix-state` records it through the same
+  channel. The ordinary grade's dual-write failure is logged where it happens. One consequence by the decision: an
+  exam answer regraded below mvp-0.61 and upgraded past it is recorded on the exam channel by the repair, not by the
+  upgrade's rebuild. No tag: no stored row changes meaning; a rebuild stops writing rows no live write recorded (a
+  vault with complete records rebuilds exactly as before).
+- Atomic doors: a retried exam import replays the object it already wrote (FR3-9, FR3-21); exam finish applies an
+  answer accepted while it runs before publishing completion, keeps the sitting open while such an answer is pending,
+  and admission is checked in the answer's own write transaction (FR3-3); a retried finish counts the intervention
+  slots earlier tries used and resumes an attempt's failed completion work (FR3-13); the lesson check's and lesson
+  probe's answer turn commits with its grade (FR3-22). FR3-20 was verified fixed by `74ab78be7e`.
+- FR3-23 (a rebuild after a two-answer sitting): caused by two test inputs no door produces (a hand-written mastery
+  row; criterion points without evidence rows); stopped for an owner decision (ledger).
+
+Remaining: FR3-4 (outcomes that are not outcomes), FR3-5 (cutoff guard), FR3-10 (no accidental switch), FR3-11,
+FR3-12, FR3-15 to FR3-18.
 
 ## Owner-copy verification
 
