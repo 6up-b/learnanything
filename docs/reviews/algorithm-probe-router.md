@@ -773,3 +773,18 @@ copy's source refs (the remint) and the request row (the variant) carry the prov
 refuses, hidden by a best-effort wrapper) is closed in two places: the wrappers left around
 `append_interaction_event` re-raise `sqlite3.IntegrityError`, and `tests/test_interaction_event_kinds.py` checks every
 kind the source can pass to it against the vocabulary of the newest migration defining the CHECK.
+
+**Merged with main `1ecbc19f01`** (teacher TE5 parts A and C fix round). Two overlaps checked, nothing changed:
+
+- `tests/test_teacher_te2_landing_r1.py`: main left it untouched since the merge base, so this round's `vault=` on its
+  `serve_presentation` call stands; no test main added calls `serve_presentation`.
+- The two protection reads answer different questions, and neither should call the other.
+  `exam_material.serve_refusals` asks whether an *item* may be put in front of the learner on a surface (the session
+  serve's verdict: the unreleased exam pool, and held-out material under `goals.held_out_selection`, so a past exam
+  that is not held out stays servable). `reserved_text.quotes_reserved` over `reserved_book` asks whether a *text* a
+  lesson sends to a model or shows reproduces a question no model context may see: `learner_protection.withheld_items`,
+  a wider set (every exam member and unit whatever the selection, live assessment reservations, open cold checks and
+  repair retries, diagnostic probes) matched by the leakage matcher's span rule, unreadable failing closed. Every item
+  the serve verdict refuses is in that wider set, so the two cannot disagree in the harmful direction; routing the text
+  screen through the serve verdict would narrow it (an open probe or cold check would become quotable), and routing
+  the serve through the text set would refuse servable past exams.
