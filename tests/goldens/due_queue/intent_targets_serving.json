@@ -1423,6 +1423,7 @@
         "predictive_information_rate": 0.0039144615,
         "predictive_prior_entropy": 1.6400123309,
         "predictive_target_count": 1,
+        "ranking_basis": "expected_information_over_observed_posterior",
         "redundancy_penalty": 1.0,
         "selection_objective": "hypothesis_eig",
         "shadow_rankings": {
@@ -1590,6 +1591,7 @@
         "predictive_information_rate": 0.0039144615,
         "predictive_prior_entropy": 1.6400123309,
         "predictive_target_count": 1,
+        "ranking_basis": "expected_information_over_observed_posterior",
         "redundancy_penalty": 1.0,
         "selection_objective": "hypothesis_eig",
         "shadow_rankings": {

@@ -91,7 +91,11 @@ G2-R33 moved, by their writers: `tests/goldens/effective_defaults.toml` (the ret
 `probe.block.family_redundancy_penalty` line goes), `tests/fixtures/diagnosis_journey_golden.json` (the selected
 presentations carry `ranking_basis`, two observed-family presentations log `redundancy_penalty` 1.0 instead of 0.6,
 the probe selection forecasts drop the multiplier parameter and their config hash moves with it; no selected item
-changes). Identity pins unchanged (the retired field keeps the bytes).
+changes). Identity pins unchanged (the retired field keeps the bytes). `tests/goldens/due_queue/admission_empty.json` and
+`intent_targets_serving.json` (`DUE_QUEUE_GOLDEN_WRITE=1`): the selected probe presentations carry `ranking_basis`.
+
+G2-R31 moved `tests/fixtures/diagnosis_journey_golden.json` (`router_learner_offered`): the accepted offer adds no
+fresh `hypothesis_sets` row (the episode binds the candidate's valued lock), so the later surrogate ids renumber by one.
 
 ## The owner-copy procedure (for the orchestrator, from an mvp-0.76 copy; counts and digests only)
 
