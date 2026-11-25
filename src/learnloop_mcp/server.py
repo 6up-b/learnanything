@@ -33,6 +33,7 @@ from mcp.types import ToolAnnotations
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from learnloop import provenance
+from learnloop.db import writer_fence
 from learnloop.clock import Clock, utc_now_iso
 from learnloop.ids import new_ulid
 from learnloop.learner_context import ContextLimits, learning_context
@@ -410,9 +411,15 @@ class ToolCalls:
         except SourceSetsUnreadable as exc:
             _LOG.warning("tool %s: source sets unreadable (%s)", tool, "; ".join(exc.reasons))
             error_code, message = exc.code, str(exc)
-        except Exception:  # noqa: BLE001 - no internal text reaches the host
-            _LOG.exception("tool %s failed", tool)
-            error_code, message = "failed", "LearnLoop could not answer this request; nothing was changed."
+        except Exception as exc:  # noqa: BLE001 - no internal text reaches the host
+            if writer_fence.is_refusal(exc):
+                # The vault was upgraded after this request loaded it: nothing was saved, and the next request loads
+                # the vault again (each one does), so a retry runs under the new tag.
+                error_code, message = "vault_upgraded_while_open", (
+                    "LearnLoop was upgraded while this request ran, so nothing was saved. Try again.")
+            else:
+                _LOG.exception("tool %s failed", tool)
+                error_code, message = "failed", "LearnLoop could not answer this request; nothing was changed."
         try:
             self._record(call_id=call_id, tool=tool, origin=origin, arguments=arguments, outcome=outcome,
                          error_code=error_code, started=started, started_at=started_at)

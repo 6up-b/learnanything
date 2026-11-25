@@ -32,11 +32,15 @@ _STATUS_BY_CODE: Mapping[str, int] = {
     # the phone waits, and the desktop or the next request repairs it.
     "vault_unsettled": 503,
     "schema_mismatch": 503,
+    # The writer fence refused a write: the vault was upgraded after this host loaded it. Nothing was saved; the host
+    # reloaded the vault, so the phone tries again.
+    "vault_upgraded_while_open": 503,
     "grading_fallback_required": 409,
     "internal": 500,
 }
 _RETRYABLE = frozenset({
     "database_busy", "completion_busy", "host_busy", "vault_unsettled", "schema_mismatch", "grading_fallback_required",
+    "vault_upgraded_while_open",
 })
 _CONFLICT = 409
 

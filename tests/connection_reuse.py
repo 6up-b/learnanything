@@ -174,7 +174,9 @@ class TestLanePool(_db_connection._ConnectionPool):
             self._forget_all()
             return None
         resolved = str(sqlite_path.resolve())
-        key = (resolved, bool(read_only))
+        # The writer fence's binding is part of the key, as in production's pool: a kept connection never writes under
+        # a binding it was not opened with.
+        key = (resolved, bool(read_only), () if read_only else _db_connection.writer_fence_key(sqlite_path))
         if resolved in self._file_at_release and _signature(resolved) != self._file_at_release[resolved]:
             self._forget(resolved)
         idle = self.idle.get(key)
@@ -198,7 +200,7 @@ class TestLanePool(_db_connection._ConnectionPool):
         raw._proxy = weakref.ref(proxy)
         return proxy
 
-    def give(self, key: tuple[str, bool], raw: sqlite3.Connection) -> None:
+    def give(self, key: tuple[str, bool, tuple[str, ...]], raw: sqlite3.Connection) -> None:
         if not self.closed and raw.execute("PRAGMA journal_mode").fetchone()[0] == "wal":
             raw.close()
             return
@@ -207,13 +209,13 @@ class TestLanePool(_db_connection._ConnectionPool):
             self._file_at_release[key[0]] = _signature(key[0])
 
     def _forget_all(self) -> None:
-        for resolved, _mode in list(self.idle):
-            self.idle[(resolved, _mode)], closing = [], self.idle[(resolved, _mode)]
+        for key in list(self.idle):
+            self.idle[key], closing = [], self.idle[key]
             for raw in closing:
                 raw.close()
 
     def _forget(self, resolved: str) -> None:
-        for mode in (False, True):
-            for raw in self.idle.pop((resolved, mode), []):
+        for key in [key for key in self.idle if key[0] == resolved]:
+            for raw in self.idle.pop(key, []):
                 raw.close()
         del self._file_at_release[resolved]

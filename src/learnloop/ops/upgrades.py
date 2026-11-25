@@ -58,6 +58,7 @@ from learnloop.config import load_config
 from learnloop.db.stores.attempts import rank_legacy_attempts
 from learnloop.db.stores.grade_curves import snapshot_grade_curves
 from learnloop.db.stores.practice_state import record_legacy_mastery_seeds
+from learnloop.db import writer_fence
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.attempts import record_legacy_lifecycle_inputs
 from learnloop.ops.settings_store import updated_config_text
@@ -437,7 +438,15 @@ def _activate(root: Path, link: Link, *, publish: bool, clock: Clock | None) -> 
     does nothing (returning False) once one has."""
 
     with activation_journal.completing_activation():
-        return _activate_as_writer(root, link, publish=publish, clock=clock)
+        root = Path(root).resolve()
+        sqlite_path = VaultPaths(root, load_config(root / "learnloop.toml", load_environment=False)).sqlite_path
+        # The writer fence: the activation's connections write under both tags, the predecessor's for what it
+        # freezes before the database's tag moves and the successor's for what it derives after.
+        with writer_fence.writing_under(sqlite_path, link.predecessor, link.tag):
+            activated = _activate_as_writer(root, link, publish=publish, clock=clock)
+        # Committed (or already committed): this process now writes under the successor's tag.
+        writer_fence.observe(sqlite_path, link.tag)
+        return activated
 
 
 @contextmanager
@@ -473,6 +482,10 @@ def _activate_as_writer(root: Path, link: Link, *, publish: bool, clock: Clock |
             # The predecessor's manifest, frozen from its own config (only the version line differs).
             vault.config.algorithms.algorithm_version = predecessor
             registry_service.freeze_manifest(vault, repository, algorithm_version=predecessor, clock=clock)
+            # The database's tag moves here, inside the transaction: it commits with the successor's state and
+            # never before it, so a writer still at the predecessor is refused from the commit on.
+            with repository.connection() as connection:
+                writer_fence.activate(connection, target=target, recorded_at=utc_now_iso(clock))
             vault.config.algorithms.algorithm_version = target
             link.activate.run(vault, repository, predecessor, clock)
             registry_service.refresh(vault, repository, clock=clock)

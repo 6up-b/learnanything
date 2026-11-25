@@ -778,6 +778,10 @@ _TABLE_ROLE_ITEMS: tuple[tuple[str, TableRole], ...] = (
     # replayed: the submitted attempt carries the evidence.
     ("workbench_sessions", TableRole.WORKFLOW),
     ("workbench_steps", TableRole.RAW_LEDGER),
+    # The writer fence (migration 275; learnloop.db.writer_fence): one row, the algorithm tag a tag-dependent write may
+    # commit under, set by each activation inside its own transaction. Live state overwritten in place, never
+    # replayed, and never cleared by a rebuild (a rebuild runs under it).
+    ("writer_fence", TableRole.WORKFLOW),
 )
 
 

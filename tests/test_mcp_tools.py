@@ -301,6 +301,25 @@ def test_a_failed_call_is_recorded_and_an_unrecordable_one_returns_nothing(world
     assert unrecorded.structured_content is None
 
 
+def test_a_write_the_writer_fence_refused_is_recorded_and_says_try_again(world, server, monkeypatch):
+    """The vault was upgraded after this request loaded it (``learnloop.db.writer_fence``): nothing was saved, and
+    the next request loads the vault again."""
+
+    import sqlite3
+
+    import learnloop_mcp.server as server_module
+    from learnloop.db import writer_fence
+
+    def fenced(*_args, **_kwargs):
+        raise sqlite3.IntegrityError(writer_fence.REFUSAL)
+
+    monkeypatch.setattr(server_module.views, "status", fenced)
+    (refused,) = _call_all(server, [("status", {})])
+    assert refused.is_error and "Try again" in str(refused.content)
+    (event,) = _events(world.repository)
+    assert event["payload"]["error_code"] == "vault_upgraded_while_open"
+
+
 def test_verification_runs_only_through_the_services_own_paid_route(world, server, paid_routes):
     (result,) = _call_all(server, [("find_sources", {"query": "the determinant changes sign when two rows are swapped", "verify": True})])
     found = result.structured_content

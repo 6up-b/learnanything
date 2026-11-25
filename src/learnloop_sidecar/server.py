@@ -11,6 +11,7 @@ from pydantic import ValidationError
 
 import learnloop_sidecar.handlers  # noqa: F401
 from learnloop import provenance
+from learnloop.db import writer_fence
 from learnloop.ai import plan_fallback
 from learnloop.ai.execution import record_model_calls
 from learnloop.ai.model_use import ModelUseNotAccepted
@@ -161,6 +162,13 @@ def _handle_request(ctx: SidecarContext, request: Any) -> dict[str, Any] | None:
         log_event("rpc.error", method=method_name, id=request_id, code=waiting.code,
                   duration_ms=_elapsed_ms(started))
         return {"jsonrpc": "2.0", "id": request_id, "error": sidecar_error(waiting)}
+    except sqlite3.IntegrityError as exc:
+        if not writer_fence.is_refusal(exc):
+            return _internal_error(request_id, method_name, started, offer=offer)
+        refusal = _fenced_write_error(ctx)
+        log_event("rpc.error", method=method_name, id=request_id, code=refusal.code,
+                  message=refusal.message, duration_ms=_elapsed_ms(started))
+        return {"jsonrpc": "2.0", "id": request_id, "error": sidecar_error(refusal)}
     except (sqlite3.OperationalError, AttemptCompletionBusy) as exc:
         busy = _busy_error(exc)
         if busy is None:
@@ -267,6 +275,23 @@ def _observed_model_calls(ctx: SidecarContext, method_name: str, params: Any):
     owner_kind = "submission" if submission_id else "sidecar_rpc"
     owner_id = submission_id or f"{method_name}:{new_ulid()}"
     return record_model_calls(repository, owner_kind=owner_kind, owner_id=owner_id)
+
+
+def _fenced_write_error(ctx: SidecarContext) -> SidecarError:
+    """The writer fence refused a write (``learnloop.db.writer_fence``): the vault was upgraded after this process
+    loaded it. Nothing of the write was saved; the context reloads the vault, so a retry runs under the new tag."""
+
+    reloaded = True
+    try:
+        ctx.reload(maintenance=False)
+    except Exception:  # noqa: BLE001 - the refusal is the answer; the next request's own load reports what failed
+        LOG.warning("reload after a fenced write failed", exc_info=True)
+        reloaded = False
+    message = (
+        "LearnLoop was upgraded while this vault was open, so that change was not saved. "
+        + ("The vault has been reloaded: try again." if reloaded else "Restart LearnLoop, then try again.")
+    )
+    return SidecarError("vault_upgraded_while_open", message, retryable=reloaded)
 
 
 def _busy_error(exc: Exception) -> SidecarError | None:

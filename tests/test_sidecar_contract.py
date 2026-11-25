@@ -956,6 +956,45 @@ def test_database_lock_contention_is_a_retryable_error(tmp_path, monkeypatch):
     assert other["data"]["code"] == "internal" and other["data"]["retryable"] is False
 
 
+def test_a_write_the_writer_fence_refused_reloads_the_vault_and_is_a_retryable_error(tmp_path, monkeypatch):
+    """The vault was upgraded after this sidecar loaded it (``learnloop.db.writer_fence``): nothing was saved, the
+    context reloads the vault and says to try again. Any other integrity error stays internal."""
+
+    import sqlite3
+    from dataclasses import replace
+
+    from learnloop.db import writer_fence
+    from learnloop_sidecar.registry import METHOD_REGISTRY
+
+    root = tmp_path / "vault"
+    create_basic_vault(root)
+    sidecar = _InProcessSidecar(root)
+    reloads = []
+    real_reload = type(sidecar.ctx).reload
+
+    def counting_reload(ctx, **kwargs):
+        reloads.append(kwargs)
+        return real_reload(ctx, **kwargs)
+
+    monkeypatch.setattr(type(sidecar.ctx), "reload", counting_reload)
+
+    def fenced(_ctx, _params):
+        raise sqlite3.IntegrityError(writer_fence.REFUSAL)
+
+    def constraint(_ctx, _params):
+        raise sqlite3.IntegrityError("UNIQUE constraint failed: practice_attempts.id")
+
+    spec = METHOD_REGISTRY["get_queue_revision"]
+    monkeypatch.setitem(METHOD_REGISTRY, "get_queue_revision", replace(spec, handler=fenced))
+    refused = sidecar.call("get_queue_revision")["error"]
+    assert refused["data"] == {"code": "vault_upgraded_while_open", "retryable": True}
+    assert "try again" in refused["message"] and reloads == [{"maintenance": False}]
+
+    monkeypatch.setitem(METHOD_REGISTRY, "get_queue_revision", replace(spec, handler=constraint))
+    other = sidecar.call("get_queue_revision")["error"]
+    assert other["data"]["code"] == "internal" and other["data"]["retryable"] is False
+
+
 def test_model_call_receipts_are_owned_by_the_normalized_submission_key(tmp_path, monkeypatch):
     from contextlib import contextmanager
     from dataclasses import replace

@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import re
+import sqlite3
 import textwrap
 import tomllib
+from contextlib import closing
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -484,12 +486,28 @@ def _set_algorithm_version_at(root: Path, version: str) -> None:
     if count == 0:
         raise AssertionError("algorithm_version line not found in learnloop.toml")
     toml_path.write_text(updated, encoding="utf-8")
+    _set_writer_fence_at(root, version)
     if is_below_floor(version):
         allow_below_floor(root)
     # The successors after ``version`` whose tag halves are gone: their switches serve that tag (D6 part 2).
     from tests.successor_switches import serve_as_at
 
     serve_as_at(root, version)
+
+
+def _set_writer_fence_at(root: Path, version: str) -> None:
+    """A vault put at ``version`` is at it in its database too, once a fence-aware activation has given it a tag
+    (``learnloop.db.writer_fence``); before that it has none, and the config alone is its tag."""
+
+    from learnloop.config import load_config
+
+    database = VaultPaths(root, load_config(root / "learnloop.toml", load_environment=False)).sqlite_path
+    if not database.exists():
+        return
+    with closing(sqlite3.connect(database)) as connection:
+        if connection.execute("SELECT 1 FROM sqlite_master WHERE name = 'writer_fence'").fetchone() is not None:
+            connection.execute("UPDATE writer_fence SET algorithm_version = ? WHERE id = 1", (version,))
+            connection.commit()
 
 
 def allow_below_floor(root: Path) -> None:
