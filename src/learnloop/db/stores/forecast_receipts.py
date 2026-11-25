@@ -141,15 +141,19 @@ def presentation_forecasts(connection: sqlite3.Connection, presentation_id: str,
     return sorted((dict(row) for row in rows), key=lambda row: order[str(row["forecaster"])])
 
 
-def attempt_forecast(connection: sqlite3.Connection, attempt_id: str, *, kind: str) -> dict[str, Any] | None:
-    """The first receipt of ``kind`` about ``attempt_id`` (``source_attempt_id``), raw columns; None without one."""
+def attempt_forecast(connection: sqlite3.Connection, attempt_id: str, *, kind: str,
+                     receipt_key: str) -> dict[str, Any] | None:
+    """The receipt ``receipt_key`` (its unique index) when it is of ``kind`` and about ``attempt_id``
+    (``source_attempt_id``), raw columns; None otherwise or without the table."""
 
     if not has_table(connection):
         return None
     row = connection.execute(
-        f"SELECT receipt_key, forecaster, status, p, practice_item_id, inputs_as_of FROM {TABLE} "
-        "WHERE source_attempt_id = ? AND kind = ? ORDER BY created_at, id LIMIT 1", (attempt_id, kind)).fetchone()
-    return dict(row) if row is not None else None
+        f"SELECT receipt_key, forecaster, status, p, practice_item_id, inputs_as_of, kind, source_attempt_id "
+        f"FROM {TABLE} WHERE receipt_key = ?", (receipt_key,)).fetchone()
+    if row is None or row["kind"] != kind or str(row["source_attempt_id"]) != str(attempt_id):
+        return None
+    return dict(row)
 
 
 __all__ = ["COLUMNS", "OPTIONAL_COLUMNS", "TABLE", "attempt_forecast", "has_table", "insert_receipt",

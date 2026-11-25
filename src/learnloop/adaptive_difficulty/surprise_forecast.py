@@ -24,6 +24,7 @@ from dataclasses import dataclass, replace
 from typing import Any
 
 from learnloop.adaptive_difficulty.grade_forecast import receipt_id, safe_grade_receipt
+from learnloop.adaptive_difficulty.grade_forecast import receipt_key as grade_receipt_key
 from learnloop.algorithm_versions import label_retired
 from learnloop.clock import utc_now_iso
 from learnloop.db.stores import forecast_receipts as receipts
@@ -71,20 +72,23 @@ def with_grade_forecast(vault: Any, repository: Any, attempt: Any, *, clock: Any
         at=utc_now_iso(clock)))
 
 
-def record_grade_forecast(repository: Any, receipt: Any) -> None:
-    """Append the live forecast with its attempt, in the grade's transaction (a savepoint: a failed receipt rolls back
-    alone). Its id is a function of its attempt, so the grade's other ids are unchanged."""
+def record_grade_forecast(vault: Any, repository: Any, receipt: Any) -> None:
+    """Append the live forecast in the grade's transaction, before the grade is computed, so the grade scores against
+    the stored row exactly as a replay will (a savepoint: a failed receipt rolls back alone, and the grade then reads
+    none and records mastery's prediction as its source). Its id is a function of its attempt, so the grade's other ids
+    are unchanged; it carries the vault's tag as every receipt writer does."""
 
     if receipt is None:
         return
     attempt_id = str(receipt.columns["source_attempt_id"])
-    record_receipts(repository, [receipt], created_at=receipt.inputs_as_of, new_id=lambda: receipt_id(attempt_id))
+    record_receipts(repository, [receipt], vault=vault, created_at=receipt.inputs_as_of,
+                    new_id=lambda: receipt_id(attempt_id))
 
 
-def read_surprise_forecast(vault: Any, repository: Any, draft: Any, *, attempt_id: str, live_receipt: Any = None,
-                           replay: bool) -> SurpriseForecast | None:
+def read_surprise_forecast(vault: Any, repository: Any, draft: Any, *, attempt_id: str) -> SurpriseForecast | None:
     """The forecast this answer's surprise is scored against, or None (mastery's own prediction). Below the label's
-    retirement always None: the predecessor's surprise exactly."""
+    retirement always None: the predecessor's surprise exactly. It reads only stored receipts, live, on a regrade and on
+    replay alike."""
 
     if not label_retired(vault.config.algorithms.algorithm_version):
         return None
@@ -99,17 +103,11 @@ def read_surprise_forecast(vault: Any, repository: Any, draft: Any, *, attempt_i
                 if _usable(row, practice_item_id) and valid_for_serve(row, served_at):
                     return SurpriseForecast(float(row["p"]), SERVE_RECEIPT, str(row["receipt_key"]),
                                             str(row["forecaster"]))
-        if replay or live_receipt is None:
-            # A regrade or a replay re-reads the forecast recorded when the answer was first graded.
-            row = receipts.attempt_forecast(connection, attempt_id, kind=ITEM_UNASSISTED_SUCCESS_AT_GRADE)
-            if _usable(row, practice_item_id):
-                return SurpriseForecast(float(row["p"]), GRADE_RECEIPT, str(row["receipt_key"]),
-                                        str(row["forecaster"]))
-            return None
-    if live_receipt.p is None:
-        return None
-    return SurpriseForecast(float(live_receipt.p), GRADE_RECEIPT, str(live_receipt.receipt_key),
-                            str(live_receipt.forecaster))
+        row = receipts.attempt_forecast(connection, attempt_id, kind=ITEM_UNASSISTED_SUCCESS_AT_GRADE,
+                                        receipt_key=grade_receipt_key(attempt_id))
+    if _usable(row, practice_item_id):
+        return SurpriseForecast(float(row["p"]), GRADE_RECEIPT, str(row["receipt_key"]), str(row["forecaster"]))
+    return None
 
 
 __all__ = ["GRADE_RECEIPT", "MASTERY", "SERVE_FORECASTERS", "SERVE_RECEIPT", "SurpriseForecast",

@@ -227,3 +227,34 @@ def test_a_writer_committing_between_the_read_and_the_write_leaves_the_recorded_
     live, receipts = _surprise(repository), _grade_receipts(repository)
     rebuild_all_derived_state(vault, repository)
     assert _surprise(repository) == live and _grade_receipts(repository) == receipts
+
+
+def test_a_grade_receipt_that_fails_to_write_leaves_the_mastery_fallback_and_its_source(served, tmp_path, monkeypatch):
+    """The grade scores against the stored receipt: when the receipt's insert fails, the row says mastery, as a
+    rebuild will."""
+
+    from learnloop.db.copies import copy_tree_with_databases
+    from learnloop.db.stores import forecast_receipts as store
+
+    paths, _vault, _repository = served
+    root = tmp_path / "failing"
+    copy_tree_with_databases(paths.root, root)
+    vault = load_vault(root)
+    repository = Repository(vault.root / paths.sqlite_path.relative_to(paths.root))
+    real = store.insert_receipt
+
+    def failing(connection, **kwargs):
+        if kwargs.get("kind") == ITEM_UNASSISTED_SUCCESS_AT_GRADE:
+            raise RuntimeError("the receipt's insert fails")
+        return real(connection, **kwargs)
+
+    monkeypatch.setattr(store, "insert_receipt", failing)
+    result = complete_self_graded_attempt(vault, repository, AttemptDraft(
+        practice_item_id="pi_eig_mid", learner_answer_md="Again.", attempt_type="independent_attempt"),
+        SelfGradeInput(criterion_points={"correctness": 3}, confidence=3), clock=FrozenClock(NOW + timedelta(days=90)))
+    monkeypatch.undo()
+    assert result.attempt_id not in _grade_receipts(repository)
+    live = _surprise(repository)
+    assert live[result.attempt_id]["dist"]["prediction_source"] == "mastery"
+    rebuild_all_derived_state(vault, repository)
+    assert _surprise(repository) == live

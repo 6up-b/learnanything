@@ -2973,6 +2973,7 @@ def apply_attempt(
                     recorded_at=utc_now_iso(clock),
                 )
         attempt = _refold_server_hints(vault, repository, attempt)
+        record_grade_forecast(vault, repository, attempt.grade_forecast)  # stored first: the grade reads the row
         result = _apply_attempt_in_transaction(vault, repository, attempt, clock=clock)
         if not attempt.replace_existing:
             # Round 3b: a keyless attempt takes the hint rows it counted, so
@@ -3075,7 +3076,6 @@ def _apply_attempt_in_transaction(
         application,
         replace_existing=attempt.replace_existing,
         write_facet_uncertainty=canonical_facet_uncertainty_on(vault),
-        grade_forecast=attempt.grade_forecast,
     )
     _dual_write_grade_channel(vault, repository, attempt, application, clock=clock)
     # Teacher TE2: a lesson probe's class and interpretation, before the projection below reads them.
@@ -3431,7 +3431,6 @@ def compute_attempt_application(
         unrecorded_correctness=attempt.unrecorded_correctness,
         ledger_position=attempt.replay_ledger_position,
         recorded_lifecycle_inputs=attempt.recorded_lifecycle_inputs,
-        grade_forecast=attempt.grade_forecast,
     )
 
 
@@ -3654,7 +3653,6 @@ def _persist_attempt_application(
     *,
     replace_existing: bool,
     write_facet_uncertainty: bool = False,
-    grade_forecast: Any = None,
 ) -> None:
     # The per-LO facet recall updates are computed (surprise/breadth/debug read
     # them in memory) but never persisted: the canonical projection owns facet
@@ -3690,7 +3688,6 @@ def _persist_attempt_application(
             attempt_debug_payload=application.attempt_debug_payload,
             item_parameter_state=application.item_parameter_state,
         )
-        record_grade_forecast(repository, grade_forecast)  # with the attempt, AD's forecast of it
 
 
 def _discrimination_profile_telemetry(match) -> dict[str, Any]:
@@ -4165,7 +4162,6 @@ def _compute_resolved_grade_application(
     reveal_window_bounded: bool = False,
     ledger_position: tuple[str, str] | None = None,
     recorded_lifecycle_inputs: LifecycleInputs | None = None,
-    grade_forecast: Any = None,
 ) -> AttemptApplication:
     """What a resolved grade does to the learner's state, computed and not written.
 
@@ -4258,8 +4254,7 @@ def _compute_resolved_grade_application(
         reference_status=reference_status,
         error_event_ids=error_event_ids,
         grading_evidence=grading_evidence,
-        surprise_forecast=read_surprise_forecast(vault, repository, draft, attempt_id=attempt_id,
-                                                 live_receipt=grade_forecast, replay=replay),
+        surprise_forecast=read_surprise_forecast(vault, repository, draft, attempt_id=attempt_id),
     )
     seed = attempt_seed_capture(vault, learning_object.id, prior_state.mastery_seed, replay=replay, now_iso=now_iso)
     return replace(grade_application(inputs, scope, reads), lifecycle_inputs=lifecycle_inputs, mastery_seed_inputs=seed)
