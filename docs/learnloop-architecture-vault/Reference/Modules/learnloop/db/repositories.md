@@ -1393,6 +1393,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_ad_replay_and_field_rows_admit_an_attempt_at_exactly_as_of`
 - [tests/test_evidence_reading_successor.py](../../../../../../tests/test_evidence_reading_successor.py) — direct import
   - `test_k5_8_a_quarantined_answer_kept_its_review_live_and_keeps_it_on_replay`
+  - `test_r5_a_same_second_legacy_regrade_of_an_exam_answer_reaches_the_exam_channel`
   - `test_the_upgrade_moves_every_case_once_and_a_second_rebuild_moves_nothing`
 - [tests/test_exam_protection.py](../../../../../../tests/test_exam_protection.py) — direct import
   - `test_a_held_out_textbook_unit_never_feeds_synthesis_as_teaching`

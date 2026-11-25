@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/grading_epochs.py](../../../../../src/learnloop/grading_epochs.py) |
-| Source lines | 205 |
+| Source lines | 213 |
 | Owning package | [[Reference/Modules/learnloop/_package|learnloop]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -68,6 +68,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `ordered_epochs(rows: Iterable[Any]) -> list[GradingEpoch]` ([source](../../../../../src/learnloop/grading_epochs.py), line 137) — Every epoch of ``rows`` (superseded ones included) in written order, the current epoch last.
 - `next_grading_revision(rows: Iterable[Any]) -> int` ([source](../../../../../src/learnloop/grading_epochs.py), line 161) — The grading revision the attempt's next epoch takes: 0 for its first grade (no rows at all), else one more than the greatest revision any of its rows carries (superseded included), and never below 1.
 - `only_grade(rows: Iterable[Any]) -> bool` ([source](../../../../../src/learnloop/grading_epochs.py), line 173) — Is ``rows`` (every row of the attempt, superseded included) one write: the attempt's first grade and nothing after it?
+- `graded_more_than_once(rows: Sequence[Any]) -> bool` ([source](../../../../../src/learnloop/grading_epochs.py), line 196) — A second write replaced the attempt's first grade (``rows``: every row of the attempt, superseded included; :func:`only_grade` says why one epoch key is not enough).
 
 ### Explicit exports
 
@@ -77,6 +78,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `current_epoch`
 - `epoch_contract_version_id`
 - `epoch_key`
+- `graded_more_than_once`
 - `group_epochs`
 - `next_grading_revision`
 - `only_grade`
@@ -96,11 +98,12 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `current_epoch`, `only_grade`; statically calls `current_epoch`, `only_grade`
 - [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]] — imports `current_epoch`, `epoch_contract_version_id`, `next_grading_revision`; statically calls `current_epoch`, `epoch_contract_version_id`, `next_grading_revision`
 - [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]] — imports `next_grading_revision`; statically calls `next_grading_revision`
-- [[Reference/Modules/learnloop/attempts/replay_reading|learnloop.attempts.replay_reading]] — imports `only_grade`; statically calls `only_grade`
+- [[Reference/Modules/learnloop/attempts/replay_reading|learnloop.attempts.replay_reading]] — imports `graded_more_than_once`; statically calls `graded_more_than_once`
 - [[Reference/Modules/learnloop/db/stores/grade_curves|learnloop.db.stores.grade_curves]] — imports `GradingEpoch`, `current_epoch`, `group_epochs`; statically calls `current_epoch`, `group_epochs`
 - [[Reference/Modules/learnloop/learner/facet_evidence_timeline|learnloop.learner.facet_evidence_timeline]] — imports `current_epoch`, `only_grade`, `ordered_epochs`; statically calls `current_epoch`, `only_grade`, `ordered_epochs`
 - [[Reference/Modules/learnloop/router_objective/checks|learnloop.router_objective.checks]] — imports `current_epoch`; statically calls `current_epoch`
 - [[Reference/Modules/learnloop/substrate/canonical_projection|learnloop.substrate.canonical_projection]] — imports `current_epoch`; statically calls `current_epoch`
+- [[Reference/Modules/learnloop/substrate/compat/activity_backfill|learnloop.substrate.compat.activity_backfill]] — imports `graded_more_than_once`; statically calls `graded_more_than_once`
 - [[Reference/Modules/learnloop/workbench/help_outcomes|learnloop.workbench.help_outcomes]] — imports `current_epoch`; statically calls `current_epoch`
 - [[Reference/Modules/learnloop_sidecar/handlers/serializers|learnloop_sidecar.handlers.serializers]] — imports `ordered_epochs`; statically calls `ordered_epochs`
 
@@ -122,7 +125,7 @@ Use this module in context through:
 - [[Process Model Output]]
 - [[Inspect Persistent State]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/replay|learnloop.adaptive_difficulty.replay]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]], [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]], [[Reference/Modules/learnloop/attempts/replay_reading|learnloop.attempts.replay_reading]] and 6 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/replay|learnloop.adaptive_difficulty.replay]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]], [[Reference/Modules/learnloop/attempts/regrade|learnloop.attempts.regrade]], [[Reference/Modules/learnloop/attempts/replay_reading|learnloop.attempts.replay_reading]] and 7 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

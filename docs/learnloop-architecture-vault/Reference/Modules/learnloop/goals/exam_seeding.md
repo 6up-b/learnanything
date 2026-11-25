@@ -46,7 +46,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/goals/exam_seeding.py](../../../../../../src/learnloop/goals/exam_seeding.py) |
-| Source lines | 494 |
+| Source lines | 499 |
 | Owning package | [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -128,6 +128,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_startup_regrades_real_answers_but_leaves_score_only_exam_import`
 - [tests/test_evidence_reading_successor.py](../../../../../../tests/test_evidence_reading_successor.py) — direct import
 - [tests/test_exam_seeding.py](../../../../../../tests/test_exam_seeding.py) — direct import
+  - `test_a_retried_import_replays_the_object_it_already_wrote`
   - `test_dry_run_writes_nothing`
   - `test_exam_date_required_when_absent_everywhere`
   - `test_exam_item_without_outcome_warns_and_skips`

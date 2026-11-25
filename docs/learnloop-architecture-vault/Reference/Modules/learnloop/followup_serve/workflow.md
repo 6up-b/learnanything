@@ -170,7 +170,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/attempts/post_attempt|learnloop.attempts.post_attempt]] — imports `WORKFLOW_OWNS_REASON`, `open_for_attempt`, `probe_answered`; statically calls `open_for_attempt`, `probe_answered`
+- [[Reference/Modules/learnloop/attempts/post_attempt|learnloop.attempts.post_attempt]] — imports `WORKFLOW_OWNS_REASON`, `attempt_workflow`, `open_for_attempt`, `probe_answered`; statically calls `attempt_workflow`, `open_for_attempt`, `probe_answered`
 - [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `module`; statically calls `lesson_taken`, `lose_to_lesson`, `lost_offer_decision`, `lost_to`, `lost_to_lesson`, `move`, `reopen_after_lesson`, `retire_waiting`, `session_rows`, `waiting_still_valid`, `workflow_of_item`
 - [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `probe_answer_exposed`; statically calls `probe_answer_exposed`
 - [[Reference/Modules/learnloop/diagnosis/split/jobs|learnloop.diagnosis.split.jobs]] — imports `diagnosis_ended`; statically calls `diagnosis_ended`
@@ -417,6 +417,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_without_phone_probes_the_phone_is_v2s`
 - [tests/test_plan_refs.py](../../../../../../tests/test_plan_refs.py) — direct import
   - `test_the_strings_keep_their_bytes_and_every_layer_reads_the_leafs`
+- [tests/test_post_attempt_pipeline.py](../../../../../../tests/test_post_attempt_pipeline.py) — direct import
+  - `test_a_retried_sitting_counts_the_slots_its_earlier_try_used`
 - [tests/test_probe_router.py](../../../../../../tests/test_probe_router.py) — direct import
   - `test_at_the_tag_with_no_plan_the_coin_can_ask_and_the_probe_is_written`
   - `test_at_the_tag_with_no_plan_the_coin_decides_and_the_decision_is_logged`

@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/substrate/compat/activity_backfill.py](../../../../../../../src/learnloop/substrate/compat/activity_backfill.py) |
-| Source lines | 387 |
+| Source lines | 464 |
 | Owning package | [[Reference/Modules/learnloop/substrate/compat/_package|learnloop.substrate.compat]] |
 | Architecture layer | `domain` |
 | Refactor status | `COMPAT` |
@@ -58,35 +58,42 @@ The authoritative system-level explanation remains in [[Learning System]], [[Sta
 
 ## Public API
 
-- `class BackfillReport` ([source](../../../../../../../src/learnloop/substrate/compat/activity_backfill.py), line 46)
-  - `as_dict(self) -> dict[str, Any]` (line 60; public)
-- `backfill_activity_substrate(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None) -> BackfillReport` ([source](../../../../../../../src/learnloop/substrate/compat/activity_backfill.py), line 84) — Backfill migration-065 tables from the vault + legacy SQL (§7.1 steps 1-4).
+- `class BackfillReport` ([source](../../../../../../../src/learnloop/substrate/compat/activity_backfill.py), line 55)
+  - `as_dict(self) -> dict[str, Any]` (line 73; public)
+- `substrate_began_at(repository: Repository) -> datetime | None` ([source](../../../../../../../src/learnloop/substrate/compat/activity_backfill.py), line 90) — The instant the activity substrate existed from: the vault's first administration written live (the backfill's own are marked ``legacy_backfilled``), in the clock the vault's own rows are dated by.
+- `predates_substrate(recorded_at: str | None, began: datetime | None) -> bool` ([source](../../../../../../../src/learnloop/substrate/compat/activity_backfill.py), line 98) — Whether a row recorded at ``recorded_at`` is history from before the substrate (see :func:`substrate_began_at`).
+- `answers_without_grade_record(vault: LoadedVault, repository: Repository) -> list[dict[str, Any]]` ([source](../../../../../../../src/learnloop/substrate/compat/activity_backfill.py), line 113) — Answers recorded after the substrate existed whose grade record (the one ``apply_attempt``'s grade channel writes) is incomplete: no observation, or an observation with no raw grade (the write failed after it minted the identity).
+- `backfill_activity_substrate(vault: LoadedVault, repository: Repository, *, clock: Clock | None=None) -> BackfillReport` ([source](../../../../../../../src/learnloop/substrate/compat/activity_backfill.py), line 152) — Backfill migration-065 tables from the vault + legacy SQL (§7.1 steps 1-4).
 
 ## Internal implementation anchors
 
-- `_purpose_for_attempt_type(attempt_type: str) -> str` ([source](../../../../../../../src/learnloop/substrate/compat/activity_backfill.py), line 69)
-- `_clock_at(iso: str | None) -> Clock` ([source](../../../../../../../src/learnloop/substrate/compat/activity_backfill.py), line 77)
+- `_purpose_for_attempt_type(attempt_type: str) -> str` ([source](../../../../../../../src/learnloop/substrate/compat/activity_backfill.py), line 82)
+- `_clock_at(iso: str | None) -> Clock` ([source](../../../../../../../src/learnloop/substrate/compat/activity_backfill.py), line 145)
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/substrate/rebuild_orchestrator|learnloop.substrate.rebuild_orchestrator]] — imports `backfill_activity_substrate`; statically calls `backfill_activity_substrate`
+- [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]] — imports `answers_without_grade_record`; statically calls `answers_without_grade_record`
+- [[Reference/Modules/learnloop/substrate/rebuild_orchestrator|learnloop.substrate.rebuild_orchestrator]] — imports `answers_without_grade_record`, `backfill_activity_substrate`; statically calls `answers_without_grade_record`, `backfill_activity_substrate`
+- [[Reference/Modules/learnloop/substrate/replay|learnloop.substrate.replay]] — imports `predates_substrate`, `substrate_began_at`; statically calls `predates_substrate`, `substrate_began_at`
 
 ## Dependencies
 
 ### LearnLoop dependencies
 
+- [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `evidence_reading_fixes_on`; calls `evidence_reading_fixes_on`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `FrozenClock`, `parse_utc`; calls `FrozenClock`, `parse_utc`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
+- [[Reference/Modules/learnloop/grading_epochs|learnloop.grading_epochs]] — imports `graded_more_than_once`; calls `graded_more_than_once`
 - [[Reference/Modules/learnloop/learner/assessment_contracts|learnloop.learner.assessment_contracts]] — imports `compile_assessment_contract`; calls `compile_assessment_contract`
 - [[Reference/Modules/learnloop/substrate/activities|learnloop.substrate.activities]] — imports `_CONSUMING_PURPOSES`, `_PURPOSE_TO_LEGACY_KIND`, `administration_snapshot_hash`, `canonical_hash`, `canonical_json`, `card_contract_hash`, `card_semantic_payload`, `fingerprint_of`, `resolve_legacy_item`, `surface_hash`, `surface_payload`; calls `administration_snapshot_hash`, `canonical_hash`, `canonical_json`, `card_contract_hash`, `card_semantic_payload`, `fingerprint_of`, `resolve_legacy_item`, `surface_hash`, `surface_payload`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LoadedVault`, `PracticeItem`
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `dataclasses`, `typing`
+- Standard library: `__future__`, `dataclasses`, `datetime`, `typing`
 - Third party: none imported directly
 
 ## Larger workflow participation
@@ -96,7 +103,7 @@ Use this module in context through:
 - [[Inspect Persistent State]]
 - [[Rebuild and Shadow Compare]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/substrate/rebuild_orchestrator|learnloop.substrate.rebuild_orchestrator]].
+Static participation evidence comes from [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]], [[Reference/Modules/learnloop/substrate/rebuild_orchestrator|learnloop.substrate.rebuild_orchestrator]], [[Reference/Modules/learnloop/substrate/replay|learnloop.substrate.replay]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -109,8 +116,15 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_backfill_populates_substrate_from_fixture`
   - `test_backfill_render_once_per_shared_surface`
   - `test_diagnostic_probe_attempts_reuse_shared_surface_hash`
+- [tests/test_evidence_reading_successor.py](../../../../../../../tests/test_evidence_reading_successor.py) — direct import
+  - `test_r5_a_same_second_legacy_regrade_of_an_exam_answer_reaches_the_exam_channel`
 - [tests/test_grade_resolution_pipeline.py](../../../../../../../tests/test_grade_resolution_pipeline.py) — direct import
   - `test_backfill_converts_probe_presentations_idempotently`
+- [tests/test_rebuild_writes_no_grade_record.py](../../../../../../../tests/test_rebuild_writes_no_grade_record.py) — direct import
+  - `test_a_rebuild_leaves_a_degraded_grade_unrecorded_and_doctor_repairs_it`
+  - `test_a_regrade_is_an_explicit_revision_and_records_the_missing_grade`
+- [tests/test_replay_writes_no_ledger.py](../../../../../../../tests/test_replay_writes_no_ledger.py) — direct import
+  - `test_history_from_before_the_substrate_is_backfilled_once`
 
 ## Modification guidance
 

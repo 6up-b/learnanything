@@ -26,6 +26,7 @@ source_paths:
   - "src/learnloop/cli/grading.py"
   - "src/learnloop/attempts/effective_observation.py"
   - "src/learnloop/attempts/grade_resolution.py"
+  - "src/learnloop/substrate/compat/activity_backfill.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -106,6 +107,7 @@ Indexes and uniqueness:
 
 ### Repository access surface
 
+- `Repository.answer_grade_records()`
 - `Repository.insert_raw_grade_event()`
 - `Repository.latest_raw_grade_identity()`
 - `Repository.raw_grade_event()`
@@ -115,6 +117,7 @@ Indexes and uniqueness:
 ### Direct SQL readers
 
 - `src/learnloop/adaptive_difficulty/surprise_forecast.py`
+- `src/learnloop/db/stores/activity.py`
 - `src/learnloop/db/stores/grading.py`
 - `src/learnloop/field/outcomes.py`
 
@@ -128,6 +131,7 @@ Indexes and uniqueness:
 - `src/learnloop/attempts/effective_observation.py`
 - `src/learnloop/attempts/grade_resolution.py`
 - `src/learnloop/cli/grading.py`
+- `src/learnloop/substrate/compat/activity_backfill.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.
@@ -144,6 +148,7 @@ Indexes and uniqueness:
 - `tests/test_joint_grading_builder.py`
 - `tests/test_mvp017_route_check_replay.py`
 - `tests/test_rebuild_history_appends.py`
+- `tests/test_rebuild_writes_no_grade_record.py`
 - `tests/test_regrade_contract_successor.py`
 - `tests/test_replay_writes_no_ledger.py`
 - `tests/test_teach_back.py`
@@ -153,7 +158,6 @@ Indexes and uniqueness:
 - `tests/test_observation_ledger_bulk.py`
 - `tests/test_p0_projection_cutover.py`
 - `tests/test_probe_robust_cutover.py`
-- `tests/test_projection_timeline_agreement.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

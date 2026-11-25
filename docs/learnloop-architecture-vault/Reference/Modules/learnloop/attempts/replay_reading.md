@@ -46,7 +46,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/attempts/replay_reading.py](../../../../../../src/learnloop/attempts/replay_reading.py) |
-| Source lines | 144 |
+| Source lines | 143 |
 | Owning package | [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -96,7 +96,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `evidence_reading_fixes_on`; calls `evidence_reading_fixes_on`
 - [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]] — imports `EXAM_GRADE_PURPOSE`
 - [[Reference/Modules/learnloop/config/schema|learnloop.config.schema]] — imports `CODEX_PROVIDER_NAMES`
-- [[Reference/Modules/learnloop/grading_epochs|learnloop.grading_epochs]] — imports `only_grade`; calls `only_grade`
+- [[Reference/Modules/learnloop/grading_epochs|learnloop.grading_epochs]] — imports `graded_more_than_once`; calls `graded_more_than_once`
 
 ### Platform and third-party dependencies
 

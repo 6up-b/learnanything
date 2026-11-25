@@ -46,7 +46,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/goals/exam_session.py](../../../../../../src/learnloop/goals/exam_session.py) |
-| Source lines | 922 |
+| Source lines | 976 |
 | Owning package | [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -60,17 +60,17 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `refuse_withdrawn_answer(vault: LoadedVault, repository: Repository, session_id: str, practice_item_id: str) -> None` ([source](../../../../../../src/learnloop/goals/exam_session.py), line 124) — Raise :class:`ExamItemWithdrawnError` before a caller grades a new answer the sitting would refuse (the CLI grades before it records, so a refused answer would otherwise cost a grading call).
 - `start_exam(vault: LoadedVault, repository: Repository, goal_id: str, *, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/goals/exam_session.py), line 212) — Open an exam session for a goal, freezing predictions first.
 - `queue_exam_answer(vault: LoadedVault, repository: Repository, session_id: str, practice_item_id: str, *, answer_md: str, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/goals/exam_session.py), line 328) — Persist a final learner answer before its grade exists.
-- `record_exam_answer(vault: LoadedVault, repository: Repository, session_id: str, practice_item_id: str, *, answer_md: str, resolved_grade: ResolvedGrade, grader_identity: tuple[str, str] | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/goals/exam_session.py), line 393) — Store one graded answer on the session (no mastery writes yet).
-- `finish_exam(vault: LoadedVault, repository: Repository, session_id: str, *, followup_surface: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/goals/exam_session.py), line 521) — Apply every answered item as an ``exam_attempt`` and persist the report.
-- `exam_report(vault: LoadedVault, repository: Repository, session_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/goals/exam_session.py), line 723) — Return the persisted report (completed), the persisted closure report (a sitting closed because every item was set aside), or a live progress view.
-- `exam_availability(vault: LoadedVault, repository: Repository, goal: Goal, *, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/goals/exam_session.py), line 756) — Policy data for whether a goal's exam is "due" — not enforced.
+- `record_exam_answer(vault: LoadedVault, repository: Repository, session_id: str, practice_item_id: str, *, answer_md: str, resolved_grade: ResolvedGrade, grader_identity: tuple[str, str] | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/goals/exam_session.py), line 400) — Store one graded answer on the session (no mastery writes yet).
+- `finish_exam(vault: LoadedVault, repository: Repository, session_id: str, *, followup_surface: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/goals/exam_session.py), line 539) — Apply every answered item as an ``exam_attempt`` and persist the report.
+- `exam_report(vault: LoadedVault, repository: Repository, session_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/goals/exam_session.py), line 777) — Return the persisted report (completed), the persisted closure report (a sitting closed because every item was set aside), or a live progress view.
+- `exam_availability(vault: LoadedVault, repository: Repository, goal: Goal, *, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/goals/exam_session.py), line 810) — Policy data for whether a goal's exam is "due" — not enforced.
 
 ### Module constants
 
 - `_WINDOW_DAYS` ([src/learnloop/goals/exam_session.py](../../../../../../src/learnloop/goals/exam_session.py), line 56)
 - `WITHDRAWN_ITEM_REFUSAL` ([src/learnloop/goals/exam_session.py](../../../../../../src/learnloop/goals/exam_session.py), line 64)
 - `SITTING_CLOSED` ([src/learnloop/goals/exam_session.py](../../../../../../src/learnloop/goals/exam_session.py), line 69)
-- `_ATTRIBUTION_FIELD_NAMES` ([src/learnloop/goals/exam_session.py](../../../../../../src/learnloop/goals/exam_session.py), line 863)
+- `_ATTRIBUTION_FIELD_NAMES` ([src/learnloop/goals/exam_session.py](../../../../../../src/learnloop/goals/exam_session.py), line 917)
 
 ## Internal implementation anchors
 
@@ -79,13 +79,17 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `_goal(vault: LoadedVault, goal_id: str) -> Goal` ([source](../../../../../../src/learnloop/goals/exam_session.py), line 165)
 - `_predicted_correctness_for_item(vault: LoadedVault, repository: Repository, item) -> float` ([source](../../../../../../src/learnloop/goals/exam_session.py), line 177)
 - `_facet_projection_snapshot(vault, item, projection_by_key, scope, target_recall) -> dict[str, Any]` ([source](../../../../../../src/learnloop/goals/exam_session.py), line 195)
-- `_dual_write_exam_grade(vault: LoadedVault, repository: Repository, *, item: Any, rubric: Any, max_points: int, answer_md: str, resolved_grade: ResolvedGrade, attempt_id: str, grader_identity: tuple[str, str] | None=None, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/goals/exam_session.py), line 467) — P0.2 dual-write for exam answers (§4.1, §7.2).
-- `_compute_report(vault: LoadedVault, repository: Repository, session, goal, *, withdrawn: Sequence[dict[str, Any]]=()) -> dict[str, Any]` ([source](../../../../../../src/learnloop/goals/exam_session.py), line 641)
-- `_session_view(repository: Repository, session_id: str, *, already_started: bool, withdrawn: Sequence[dict[str, Any]]=()) -> dict[str, Any]` ([source](../../../../../../src/learnloop/goals/exam_session.py), line 801) — The sitting as served: ``item_order`` is the frozen order less the items set aside since (``session_withdrawn_items``); the stored order and every frozen prediction are unchanged.
-- `_grade_to_dict(grade: ResolvedGrade) -> dict[str, Any]` ([source](../../../../../../src/learnloop/goals/exam_session.py), line 827) — Serialize a resolved grade LOSSLESSLY into ``exam_answers.grade_json``.
-- `_attribution_from_dict(payload: dict[str, Any]) -> GradeAttribution` ([source](../../../../../../src/learnloop/goals/exam_session.py), line 868) — Rebuild one attribution, tolerating legacy six-field rows.
-- `_stored_grader_identity(payload: dict[str, Any]) -> tuple[str, str] | None` ([source](../../../../../../src/learnloop/goals/exam_session.py), line 891) — The calibration identity stored with an exam grade (None: the joint grader's).
-- `_grade_from_dict(payload: dict[str, Any]) -> ResolvedGrade` ([source](../../../../../../src/learnloop/goals/exam_session.py), line 900)
+- `_queue_exam_answer(vault: LoadedVault, repository: Repository, session_id: str, practice_item_id: str, *, answer_md: str, clock: Clock | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/goals/exam_session.py), line 349)
+- `_record_exam_answer(vault: LoadedVault, repository: Repository, session_id: str, practice_item_id: str, *, item: Any, answer_md: str, resolved_grade: ResolvedGrade, grader_identity: tuple[str, str] | None, clock: Clock | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/goals/exam_session.py), line 429)
+- `_dual_write_exam_grade(vault: LoadedVault, repository: Repository, *, item: Any, rubric: Any, max_points: int, answer_md: str, resolved_grade: ResolvedGrade, attempt_id: str, grader_identity: tuple[str, str] | None=None, clock: Clock | None=None) -> None` ([source](../../../../../../src/learnloop/goals/exam_session.py), line 485) — P0.2 dual-write for exam answers (§4.1, §7.2).
+- `_apply_and_complete(vault: LoadedVault, repository: Repository, session: dict[str, Any], session_id: str, goal: Goal, *, withdrawn: Any, followup_surface: str | None, clock: Clock) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/goals/exam_session.py), line 576) — Apply the sitting's answers, run their completion work and publish the report; None when an answer was accepted after this pass read the answers (the caller applies it in another pass).
+- `_resume_pending_completions(vault: LoadedVault, repository: Repository, session_id: str, *, followup_surface: str | None, clock: Clock) -> None` ([source](../../../../../../src/learnloop/goals/exam_session.py), line 681)
+- `_compute_report(vault: LoadedVault, repository: Repository, session, goal, *, withdrawn: Sequence[dict[str, Any]]=()) -> dict[str, Any]` ([source](../../../../../../src/learnloop/goals/exam_session.py), line 695)
+- `_session_view(repository: Repository, session_id: str, *, already_started: bool, withdrawn: Sequence[dict[str, Any]]=()) -> dict[str, Any]` ([source](../../../../../../src/learnloop/goals/exam_session.py), line 855) — The sitting as served: ``item_order`` is the frozen order less the items set aside since (``session_withdrawn_items``); the stored order and every frozen prediction are unchanged.
+- `_grade_to_dict(grade: ResolvedGrade) -> dict[str, Any]` ([source](../../../../../../src/learnloop/goals/exam_session.py), line 881) — Serialize a resolved grade LOSSLESSLY into ``exam_answers.grade_json``.
+- `_attribution_from_dict(payload: dict[str, Any]) -> GradeAttribution` ([source](../../../../../../src/learnloop/goals/exam_session.py), line 922) — Rebuild one attribution, tolerating legacy six-field rows.
+- `_stored_grader_identity(payload: dict[str, Any]) -> tuple[str, str] | None` ([source](../../../../../../src/learnloop/goals/exam_session.py), line 945) — The calibration identity stored with an exam grade (None: the joint grader's).
+- `_grade_from_dict(payload: dict[str, Any]) -> ResolvedGrade` ([source](../../../../../../src/learnloop/goals/exam_session.py), line 954)
 
 ## Who imports or calls it
 
@@ -138,6 +142,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_predictions_frozen_at_start_with_snapshot_fields`
 - [tests/test_daily_loop_lo_lifecycle_serving.py](../../../../../../tests/test_daily_loop_lo_lifecycle_serving.py) — direct import
   - `test_exam_start_does_not_administer_items_of_an_lo_put_away_after_reservation`
+- [tests/test_exam_finish_doors.py](../../../../../../tests/test_exam_finish_doors.py) — direct import
+  - `test_a_pending_answer_accepted_while_finish_runs_keeps_the_sitting_open`
+  - `test_an_answer_accepted_while_finish_runs_is_applied_before_the_sitting_completes`
+  - `test_an_answers_failed_completion_work_is_resumed_by_the_next_finish`
 - [tests/test_exam_protection_review.py](../../../../../../tests/test_exam_protection_review.py) — direct import
   - `test_a_sitting_every_unanswered_item_of_which_was_exposed_is_closed_and_its_pool_released`
   - `test_an_exam_answer_given_before_its_item_was_exposed_stands`

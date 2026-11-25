@@ -117,6 +117,7 @@ Indexes and uniqueness:
 - `tests/test_epp_repeat_receipts.py`
 - `tests/test_mobile_jobs.py`
 - `tests/test_sidecar_contract.py`
+- `tests/test_exam_finish_doors.py`
 - `tests/test_exam_session.py`
 - `tests/test_followup_codex_review.py`
 - `tests/test_placement_opening_probes.py`

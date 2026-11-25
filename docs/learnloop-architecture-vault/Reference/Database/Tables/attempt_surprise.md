@@ -25,6 +25,7 @@ source_paths:
   - "src/learnloop/db/stores/learner_model.py"
   - "src/learnloop/db/stores/practice_state.py"
   - "src/learnloop/attempts/attempts.py"
+  - "src/learnloop/attempts/post_attempt.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/content/proposals/proposals.py"
   - "src/learnloop/substrate/rebuild_orchestrator.py"
@@ -135,6 +136,7 @@ Database triggers:
 ### Upstream callers of the repository access surface
 
 - `src/learnloop/attempts/attempts.py`
+- `src/learnloop/attempts/post_attempt.py`
 - `src/learnloop/cli/app.py`
 - `src/learnloop/content/proposals/proposals.py`
 - `src/learnloop/db/repositories.py`
@@ -153,7 +155,6 @@ Database triggers:
 - `src/learnloop/scheduling/evaluation.py`
 - `src/learnloop/scheduling/scheduler.py`
 - `src/learnloop/substrate/rebuild_orchestrator.py`
-- `src/learnloop/substrate/replay.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

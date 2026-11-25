@@ -106,6 +106,7 @@ Indexes and uniqueness:
 
 - `tests/test_required_method_round3_review.py`
 - `tests/test_exam_calibration.py`
+- `tests/test_exam_finish_doors.py`
 - `tests/test_exam_protection_review.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

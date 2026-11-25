@@ -1283,6 +1283,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_r1_an_answers_own_feedback_in_its_second_never_exposes_it`
   - `test_r1_causes_shown_in_the_answers_own_second_expose_it`
   - `test_r2_the_router_reads_an_exposed_answer_as_no_update`
+  - `test_r5_a_same_second_legacy_regrade_of_an_exam_answer_reaches_the_exam_channel`
   - `test_the_upgrade_moves_every_case_once_and_a_second_rebuild_moves_nothing`
 - [tests/test_evsi_router_composition.py](../../../../../../tests/test_evsi_router_composition.py) — direct import
 - [tests/test_exam_calibration.py](../../../../../../tests/test_exam_calibration.py) — direct import
@@ -2121,6 +2122,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f5_a_match_on_the_items_own_lo_is_no_prerequisite_target`
   - `test_f6_a_question_retargeted_by_a_later_reading_is_observed_at_the_reading`
   - `test_f8_a_diagnosis_no_longer_scans_stuck_answers`
+- [tests/test_lesson_answer_turns.py](../../../../../../tests/test_lesson_answer_turns.py) — direct import
+  - `test_a_lesson_check_answer_turn_commits_with_its_grade`
 - [tests/test_lesson_grade_forecast.py](../../../../../../tests/test_lesson_grade_forecast.py) — direct import
   - `test_lesson_forecast_is_prepared_once_outside_the_writer`
   - `test_withdrawal_during_preparation_discards_the_losing_grade`

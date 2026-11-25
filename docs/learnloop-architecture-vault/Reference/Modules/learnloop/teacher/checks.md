@@ -145,6 +145,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_data_capture_a6_delayed_pick.py](../../../../../../tests/test_data_capture_a6_delayed_pick.py) — direct import
   - `test_the_lessons_forecast_reference_is_the_item_the_check_would_commit`
 - [tests/test_difficulty_kinds_apart.py](../../../../../../tests/test_difficulty_kinds_apart.py) — direct import
+- [tests/test_lesson_answer_turns.py](../../../../../../tests/test_lesson_answer_turns.py) — direct import
 - [tests/test_lesson_weight_fit_reads.py](../../../../../../tests/test_lesson_weight_fit_reads.py) — direct import
   - `test_a_grade_committing_while_a_check_is_weighed_waits_for_the_check`
 - [tests/test_lesson_weight_fit_trajectory.py](../../../../../../tests/test_lesson_weight_fit_trajectory.py) — direct import

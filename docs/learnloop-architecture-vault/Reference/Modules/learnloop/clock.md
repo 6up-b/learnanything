@@ -1102,6 +1102,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_r1_a_stored_answer_reads_the_same_at_any_reading_time`
   - `test_the_upgrade_moves_every_case_once_and_a_second_rebuild_moves_nothing`
 - [tests/test_evsi_router_composition.py](../../../../../tests/test_evsi_router_composition.py) — direct import
+- [tests/test_exam_finish_doors.py](../../../../../tests/test_exam_finish_doors.py) — direct import
+  - `test_a_pending_answer_accepted_while_finish_runs_keeps_the_sitting_open`
+  - `test_an_answer_accepted_while_finish_runs_is_applied_before_the_sitting_completes`
+  - `test_an_answers_failed_completion_work_is_resumed_by_the_next_finish`
 - [tests/test_exam_pool.py](../../../../../tests/test_exam_pool.py) — direct import
   - `test_item_in_at_most_one_unreleased_pool`
   - `test_only_never_attempted_items_are_reservable`
@@ -1132,6 +1136,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_with_the_switch_off_the_cold_retry_is_the_predecessor_s`
 - [tests/test_exam_readiness_and_conflict.py](../../../../../tests/test_exam_readiness_and_conflict.py) — direct import
 - [tests/test_exam_seeding.py](../../../../../tests/test_exam_seeding.py) — direct import
+  - `test_a_retried_import_replays_the_object_it_already_wrote`
   - `test_ingest_exam_instructions_reach_context_and_tags_apply`
   - `test_seeded_exam_interleaves_before_later_live_attempt`
 - [tests/test_exam_session.py](../../../../../tests/test_exam_session.py) — direct import
@@ -1521,6 +1526,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_learner_text_gaps_review.py](../../../../../tests/test_learner_text_gaps_review.py) — direct import
   - `test_f13_the_pipeline_switched_off_queues_exactly_as_the_predecessor_version`
   - `test_f4_without_a_grounded_subject_only_the_anchors_are_judged_and_nothing_is_created`
+- [tests/test_lesson_answer_turns.py](../../../../../tests/test_lesson_answer_turns.py) — direct import
+  - `test_a_lesson_check_answer_turn_commits_with_its_grade`
 - [tests/test_lesson_weight_facts.py](../../../../../tests/test_lesson_weight_facts.py) — direct import
   - `test_a_check_is_stamped_under_the_writer_lock`
 - [tests/test_lesson_weight_facts_integration.py](../../../../../tests/test_lesson_weight_facts_integration.py) — direct import

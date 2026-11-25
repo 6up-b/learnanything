@@ -132,6 +132,7 @@ Database triggers:
 - `Repository._link_attempt_to_scheduler_candidate()`
 - `Repository._projected_causal_candidates()`
 - `Repository.answer_confidence_presence()`
+- `Repository.answer_grade_records()`
 - `Repository.attempt_count()`
 - `Repository.attempt_count_for_learning_objects()`
 - `Repository.attempt_innovation_samples()`
@@ -213,6 +214,7 @@ Database triggers:
 - `src/learnloop/daily_plan/router_retrieval.py`
 - `src/learnloop/daily_plan/router_teach_back.py`
 - `src/learnloop/db/repositories.py`
+- `src/learnloop/db/stores/activity.py`
 - `src/learnloop/db/stores/answered_revision.py`
 - `src/learnloop/db/stores/attempts.py`
 - `src/learnloop/db/stores/causal.py`

@@ -114,6 +114,7 @@ None found by exact static reference scan.
 - `tests/test_followups_batch5_recap_dependencies.py`
 - `tests/test_followups_batch5_recap_protection.py`
 - `tests/test_ih7_lesson_sources_follow_diagnosis.py`
+- `tests/test_lesson_answer_turns.py`
 - `tests/test_live_dialogue_contract_baseline.py`
 - `tests/test_reader_rd9a_fix.py`
 - `tests/test_reader_rw5d_p4b_teacher_visuals.py`
@@ -126,7 +127,6 @@ None found by exact static reference scan.
 - `tests/test_teacher_te2_lessons.py`
 - `tests/test_teacher_te2_probes.py`
 - `tests/test_teacher_te2_review_fixes.py`
-- `tests/test_teacher_te2log_episodes.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

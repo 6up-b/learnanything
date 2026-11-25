@@ -129,6 +129,7 @@ Indexes and uniqueness:
 - `tests/test_cross_seam_exposure.py`
 - `tests/test_proposal_impressions.py`
 - `tests/test_reader_tutor_retrieval.py`
+- `tests/test_rebuild_writes_no_grade_record.py`
 - `tests/test_replay_writes_no_ledger.py`
 - `tests/test_administration_adapters.py`
 - `tests/test_assessment_enforcement.py`

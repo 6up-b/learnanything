@@ -107,6 +107,7 @@ Indexes and uniqueness:
 
 ## Tests that define behavior
 
+- `tests/test_exam_finish_doors.py`
 - `tests/test_exam_session.py`
 - `tests/test_followup_reserved_only.py`
 - `tests/test_grade_resolution_pipeline.py`

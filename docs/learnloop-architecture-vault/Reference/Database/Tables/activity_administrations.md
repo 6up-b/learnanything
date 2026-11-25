@@ -108,6 +108,7 @@ Indexes and uniqueness:
 - `Repository.consumer_pins_for_versions()`
 - `Repository.fetch_administration()`
 - `Repository.first_cold_observation_for_target()`
+- `Repository.first_live_administration_at()`
 - `Repository.insert_legacy_administration()`
 - `Repository.open_administration_atomic()`
 - `Repository.set_administration_context()`
@@ -144,6 +145,7 @@ Indexes and uniqueness:
 - `tests/test_goal_contracts.py`
 - `tests/test_reader_branches.py`
 - `tests/test_reader_dialogue.py`
+- `tests/test_rebuild_writes_no_grade_record.py`
 - `tests/test_replay_writes_no_ledger.py`
 - `tests/test_administration_adapters.py`
 - `tests/test_grade_resolution_pipeline.py`

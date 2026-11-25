@@ -134,6 +134,7 @@ Indexes and uniqueness:
 - `tests/test_grade_resolution_pipeline.py`
 - `tests/test_observation_ledger_bulk.py`
 - `tests/test_rebuild_history_appends.py`
+- `tests/test_rebuild_writes_no_grade_record.py`
 - `tests/test_replay_writes_no_ledger.py`
 - `tests/test_teacher_te2_landing_r1.py`
 - `tests/test_teacher_te2_review_fixes.py`

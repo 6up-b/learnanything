@@ -45,13 +45,13 @@ For system intent, use [[Learning System]], [[State and Persistence]].
 | Module | Purpose | Status | Direct importers | Direct test files |
 |---|---|---:|---:|---:|
 | [[Reference/Modules/learnloop/substrate/compat/__init__|learnloop.substrate.compat]] | [[Reference/Modules/learnloop/substrate/compat/__init__#^module-purpose|purpose]] | `COMPAT` | 0 | 0 |
-| [[Reference/Modules/learnloop/substrate/compat/activity_backfill|learnloop.substrate.compat.activity_backfill]] | [[Reference/Modules/learnloop/substrate/compat/activity_backfill#^module-purpose|purpose]] | `COMPAT` | 1 | 2 |
+| [[Reference/Modules/learnloop/substrate/compat/activity_backfill|learnloop.substrate.compat.activity_backfill]] | [[Reference/Modules/learnloop/substrate/compat/activity_backfill#^module-purpose|purpose]] | `COMPAT` | 3 | 5 |
 
 ## Cross-package dependencies
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/_package|learnloop]] — 1 static module edge
+- [[Reference/Modules/learnloop/_package|learnloop]] — 3 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 1 static module edge
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 1 static module edge
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 1 static module edge
@@ -59,7 +59,8 @@ For system intent, use [[Learning System]], [[State and Persistence]].
 
 ### Packages that import this package
 
-- [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 1 static module edge
+- [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 2 static module edges
+- [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 1 static module edge
 
 ### Dependency neighborhood
 
@@ -68,16 +69,18 @@ This diagram compresses package-level static imports; edge labels are distinct m
 ```mermaid
 flowchart LR
     center["learnloop.substrate.compat"]
-    n_learnloop_substrate["learnloop.substrate"]
     n_learnloop["learnloop"]
+    n_learnloop_substrate["learnloop.substrate"]
     n_learnloop_db["learnloop.db"]
     n_learnloop_learner["learnloop.learner"]
+    n_learnloop_ops["learnloop.ops"]
     n_learnloop_vault["learnloop.vault"]
-    n_learnloop_substrate -->|1| center
+    center -->|3| n_learnloop
+    n_learnloop_substrate -->|2| center
     center -->|1| n_learnloop_substrate
-    center -->|1| n_learnloop
     center -->|1| n_learnloop_db
     center -->|1| n_learnloop_learner
+    n_learnloop_ops -->|1| center
     center -->|1| n_learnloop_vault
 ```
 
