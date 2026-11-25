@@ -50,7 +50,7 @@ It belongs to the **operations** navigation family. The family context lives in 
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/202_router_staged_frame.sql`.
-- **Schema touched by:** `202_router_staged_frame.sql`, `214_adaptive_difficulty_serving.sql`, `236_router_lesson_suggestions.sql`, `243_router_objective_receipts.sql`.
+- **Schema touched by:** `202_router_staged_frame.sql`, `214_adaptive_difficulty_serving.sql`, `236_router_lesson_suggestions.sql`, `243_router_objective_receipts.sql`, `276_writer_fence_more_writes.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -91,6 +91,7 @@ Database triggers:
 
 - `plan_presentations_no_delete` — schema-enforced lifecycle or immutability constraint.
 - `plan_presentations_no_update` — schema-enforced lifecycle or immutability constraint.
+- `writer_fence_plan_presentations_insert` — schema-enforced lifecycle or immutability constraint.
 
 ## Who calls it
 

@@ -84,11 +84,11 @@ For system intent, use [[Learning System]], [[State and Persistence]].
 | [[Reference/Modules/learnloop/substrate/p0_projection|learnloop.substrate.p0_projection]] | [[Reference/Modules/learnloop/substrate/p0_projection#^module-purpose|purpose]] | `ACTIVE` | 2 | 2 |
 | [[Reference/Modules/learnloop/substrate/passage_spans|learnloop.substrate.passage_spans]] | [[Reference/Modules/learnloop/substrate/passage_spans#^module-purpose|purpose]] | `ACTIVE` | 7 | 7 |
 | [[Reference/Modules/learnloop/substrate/projection_switches|learnloop.substrate.projection_switches]] | [[Reference/Modules/learnloop/substrate/projection_switches#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |
-| [[Reference/Modules/learnloop/substrate/rebuild_orchestrator|learnloop.substrate.rebuild_orchestrator]] | [[Reference/Modules/learnloop/substrate/rebuild_orchestrator#^module-purpose|purpose]] | `ACTIVE` | 3 | 108 |
+| [[Reference/Modules/learnloop/substrate/rebuild_orchestrator|learnloop.substrate.rebuild_orchestrator]] | [[Reference/Modules/learnloop/substrate/rebuild_orchestrator#^module-purpose|purpose]] | `ACTIVE` | 3 | 106 |
 | [[Reference/Modules/learnloop/substrate/recurrence_groups|learnloop.substrate.recurrence_groups]] | [[Reference/Modules/learnloop/substrate/recurrence_groups#^module-purpose|purpose]] | `ACTIVE` | 11 | 8 |
-| [[Reference/Modules/learnloop/substrate/replay|learnloop.substrate.replay]] | [[Reference/Modules/learnloop/substrate/replay#^module-purpose|purpose]] | `ACTIVE` | 10 | 49 |
+| [[Reference/Modules/learnloop/substrate/replay|learnloop.substrate.replay]] | [[Reference/Modules/learnloop/substrate/replay#^module-purpose|purpose]] | `ACTIVE` | 9 | 48 |
 | [[Reference/Modules/learnloop/substrate/shadow_rebuild|learnloop.substrate.shadow_rebuild]] | [[Reference/Modules/learnloop/substrate/shadow_rebuild#^module-purpose|purpose]] | `ACTIVE` | 1 | 29 |
-| [[Reference/Modules/learnloop/substrate/state_sync|learnloop.substrate.state_sync]] | [[Reference/Modules/learnloop/substrate/state_sync#^module-purpose|purpose]] | `ACTIVE` | 17 | 175 |
+| [[Reference/Modules/learnloop/substrate/state_sync|learnloop.substrate.state_sync]] | [[Reference/Modules/learnloop/substrate/state_sync#^module-purpose|purpose]] | `ACTIVE` | 17 | 174 |
 | [[Reference/Modules/learnloop/substrate/surface_mint|learnloop.substrate.surface_mint]] | [[Reference/Modules/learnloop/substrate/surface_mint#^module-purpose|purpose]] | `ACTIVE` | 1 | 2 |
 
 ## Child package maps
@@ -111,7 +111,6 @@ For system intent, use [[Learning System]], [[State and Persistence]].
 - [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 2 static module edges
 - [[Reference/Modules/learnloop/followup_serve/_package|learnloop.followup_serve]] — 2 static module edges
 - [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] — 2 static module edges
-- [[Reference/Modules/learnloop/substrate/compat/_package|learnloop.substrate.compat]] — 2 static module edges
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 1 static module edge
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 1 static module edge
 - [[Reference/Modules/learnloop/data_capture/_package|learnloop.data_capture]] — 1 static module edge
@@ -121,6 +120,7 @@ For system intent, use [[Learning System]], [[State and Persistence]].
 - [[Reference/Modules/learnloop/params/_package|learnloop.params]] — 1 static module edge
 - [[Reference/Modules/learnloop/placement/_package|learnloop.placement]] — 1 static module edge
 - [[Reference/Modules/learnloop/router/_package|learnloop.router]] — 1 static module edge
+- [[Reference/Modules/learnloop/substrate/compat/_package|learnloop.substrate.compat]] — 1 static module edge
 
 ### Packages that import this package
 
@@ -128,7 +128,7 @@ For system intent, use [[Learning System]], [[State and Persistence]].
 - [[Reference/Modules/learnloop/curriculum/_package|learnloop.curriculum]] — 17 static module edges
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 15 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 14 static module edges
-- [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 14 static module edges
+- [[Reference/Modules/learnloop/ops/_package|learnloop.ops]] — 13 static module edges
 - [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 11 static module edges
 - [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] — 11 static module edges
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 10 static module edges
@@ -188,7 +188,7 @@ flowchart LR
     center -->|4| n_learnloop_scheduling
     center -->|19| n_learnloop_vault
     n_learnloop_curriculum -->|17| center
-    n_learnloop_ops -->|14| center
+    n_learnloop_ops -->|13| center
     n_learnloop_cli -->|11| center
 ```
 

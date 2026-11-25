@@ -314,7 +314,9 @@ def test_the_upgrade_freezes_the_predecessors_seeds_then_new_claims_seed_nothing
     assert _mastery(repository) != predecessor_live
     assert _shadow_summary(paths)["summary"] == ZERO
 
-    # Frozen: a later starting level seeds nothing already materialized, live or rebuilt.
+    # Frozen: a later starting level seeds nothing already materialized, live or rebuilt. (The writer fence: the
+    # repository opened for the predecessor's vault stays bound to it, so the reloaded vault's is opened again.)
+    repository = Repository(paths.sqlite_path)
     seed_global_learner_claim(repository, "comfortable", clock=_at(3))
     _answer(load_vault(paths.root), repository, ITEM, minutes=60, points=3.0)
     _rebuilds_to_live(paths, repository)

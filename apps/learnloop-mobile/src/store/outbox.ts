@@ -200,11 +200,18 @@ export const READER_INTENT: IntentKind<ReaderIntentRecord> = {
       // intent stays and goes again under its key: the host answers the job's end, or runs a retryable failure again.
       return new Response(null, { status: outcome?.kind === "accepted" ? 202 : 200 });
     } catch (error) {
-      const command = error as { code?: string; message?: string };
+      const command = error as { code?: string; message?: string; retryable?: boolean };
       // No answer at all: the desktop is away (the flush stops and tries again later).
       if (!command || typeof command.code !== "string" || command.code === "desktop_offline") throw error;
-      // The reader's switch off: kept, and sent again later (a 5xx stops the flush).
-      const status = command.code === "phone_reader_off" ? 503 : STATUS_BY_CODE[command.code] ?? 409;
+      // The reader's switch off: kept, and sent again later (a 5xx stops the flush). The writer fence's refusal
+      // (the vault was upgraded while the desktop had it open): the host says whether a retry can succeed; when it
+      // can, the intent stays under its id and goes again, when it cannot (its config needs `learnloop upgrade`) it is
+      // flagged with the host's words (WF-R11).
+      const status = command.code === "phone_reader_off"
+        ? 503
+        : command.code === "vault_upgraded_while_open"
+          ? (command.retryable === false ? 409 : 503)
+          : STATUS_BY_CODE[command.code] ?? 409;
       return new Response(JSON.stringify({ ok: false, error: { code: command.code, message: command.message ?? command.code } }), {
         status
       });

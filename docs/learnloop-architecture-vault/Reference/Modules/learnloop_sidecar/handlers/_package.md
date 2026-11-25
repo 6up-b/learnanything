@@ -228,9 +228,9 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] — 33 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 32 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 32 static module edges
+- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 30 static module edges
 - [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 28 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 28 static module edges
-- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 27 static module edges
 - [[Reference/Modules/learnloop/goals/_package|learnloop.goals]] — 23 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 21 static module edges
 - [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] — 19 static module edges
@@ -296,7 +296,7 @@ flowchart LR
     n_learnloop_diagnosis["learnloop.diagnosis"]
     n_learnloop_attempts["learnloop.attempts"]
     n_learnloop_db_stores["learnloop.db.stores"]
-    n_learnloop_content_sources["learnloop.content.sources"]
+    n_learnloop_db["learnloop.db"]
     n_learnloop_sidecar -->|5| center
     center -->|391| n_learnloop_sidecar
     center -->|58| n_learnloop
@@ -307,7 +307,7 @@ flowchart LR
     center -->|33| n_learnloop_diagnosis
     center -->|32| n_learnloop_attempts
     center -->|32| n_learnloop_db_stores
-    center -->|28| n_learnloop_content_sources
+    center -->|30| n_learnloop_db
 ```
 
 Interpretation: arrow direction is static import direction and the label is the number of distinct module-to-module edges. It shows coupling pressure, not runtime call frequency or ownership permission.

@@ -48,86 +48,87 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/db/repositories.py](../../../../../../src/learnloop/db/repositories.py) |
-| Source lines | 3025 |
+| Source lines | 3034 |
 | Owning package | [[Reference/Modules/learnloop/db/_package|learnloop.db]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class BlueprintNotReviewed(Exception)` ([source](../../../../../../src/learnloop/db/repositories.py), line 99) — A golden-path confirmation named a blueprint version that is not reviewed/active (spec_p2 §3.1 step 1).
-  - `__init__(self, blueprint_version_id: str, *, status: str | None)` (line 103; internal)
-- `class GoalAlreadyConfirmed(Exception)` ([source](../../../../../../src/learnloop/db/repositories.py), line 111) — The goal already has a confirmed contract head whose content differs from the v1 this confirmation would mint (spec_p2 §1.2 invariant 2).
-  - `__init__(self, goal_id: str, *, head_version_id: str | None)` (line 116; internal)
-- `class Repository(IngestQueueStoreMixin, AttemptCompletionStoreMixin, ModelCallStoreMixin, CollectionStoreMixin, DiagnosisStoreMixin, RecurrenceStoreMixin, SessionOwnershipStoreMixin, ReadingRequestStoreMixin, ActivityStoreMixin, SourceDocumentStoreMixin, ReaderStoreMixin, GoalStoreMixin, TaskBlueprintStoreMixin, AttemptStoreMixin, GradingStoreMixin, CausalStoreMixin, ProbeStoreMixin, LearnerModelStoreMixin, RemediationStoreMixin, ContentStoreMixin, QuestionStoreMixin, PracticeStateStoreMixin, FacetProjectionStoreMixin, MaintenanceStoreMixin)` ([source](../../../../../../src/learnloop/db/repositories.py), line 289)
-  - `__init__(self, sqlite_path: Path)` (line 315; internal) — Create the database, or attach to one at this code's migrations.
-  - `attach(cls, sqlite_path: Path, *, read_only: bool=False) -> Repository` (line 330; public) — Attach to an existing database without applying migrations.
-  - `_initialize(self, sqlite_path: Path, *, read_only: bool) -> None` (line 348; internal)
-  - `connection(self) -> sqlite3.Connection` (line 357; public)
-  - `in_atomic(self) -> bool` (line 365; public) — This thread is inside an ``atomic()`` block (a new one would be a savepoint of it).
-  - `atomic(self) -> Iterator[None]` (line 373; public) — Commit a local operation once, including its nested store writes.
-  - `pinned(self) -> Iterator[None]` (line 417; public) — Reuse one connection for the block, on this thread only.
-  - `deactivate_practice_item_serving(self, practice_item_id: str, *, clock: Clock | None=None) -> dict[str, int]` (line 448; public) — Atomically close every serving door for one terminal item.
-  - `record_deferred_regrade(self, *, attempt_id: str, new_evidence_rows: Iterable[Mapping[str, Any]], superseded_by_evidence_id: str, mastery_state: MasteryState, attempt_update: Mapping[str, Any], content_events: Iterable[Mapping[str, Any]]=(), clock: Clock | None=None) -> None` (line 494; public)
-  - `_projected_causal_candidates(self, learning_object_id: str, *, statement_normalized: str | None=None) -> list[dict[str, Any]]` (line 567; internal) — Compatibility projection over P1's single hypothesis owner.
-  - `misconception_candidate_by_normalized(self, learning_object_id: str, statement_normalized: str) -> dict[str, Any] | None` (line 737; public) — The open candidate for one normalized statement on an LO, if any.
-  - `misconception_candidates_for_learning_object(self, learning_object_id: str, statuses: Iterable[str]=('candidate',)) -> list[dict[str, Any]]` (line 776; public)
-  - `update_misconception_candidate(self, candidate_id: str, *, severity: float | None=None, occurrence_count: int | None=None, append_source_error_event_ids: Iterable[str] | None=None, add_surface_families: Iterable[str] | None=None, add_item_ids: Iterable[str] | None=None, signature: str | None=None, mechanism: str | None=None, target_facet: str | None=None, confused_with_facet: str | None=None, status: str | None=None, promoted_misconception_id: str | None=None, promotion_reason: str | None=None, clock: Clock | None=None) -> dict[str, Any] | None` (line 807; public)
-  - `calibration_duel_pairs(self) -> list[dict[str, Any]]` (line 957; public) — Matched pre-outcome learner/model predictions on ordinary cold attempts.
-  - `gate_training_rows(self) -> list[dict[str, Any]]` (line 984; public) — Every persisted gate evaluation LEFT JOINed to its usefulness rating (via gate_attempt_id) — the gate fitter's raw input, oldest first.
-  - `requested_practice_item_ids(self, *, skip_commitment_ids: Sequence[str]=()) -> list[str]` (line 1010; public) — Practice items with a learner request not yet consumed by a later attempt.
-  - `record_learner_claim_application(self, claim_id: str, learning_object_id: str) -> int` (line 1084; public) — Record how many of the LO's attempts were applied when the claim was; that count.
-  - `reset_learning_object_derived_state(self, learning_object_id: str) -> None` (line 1102; public)
-  - `clear_derived_projection_tables(self, table_names: Iterable[str]) -> dict[str, int]` (line 1155; public) — Atomically clear explicitly registered DERIVED projection tables.
-  - `replace_attempt_derived_outcome(self, *, attempt: Mapping[str, Any], error_events: Iterable[Mapping[str, Any]], surprise: Mapping[str, Any], practice_item_state: PracticeItemState, mastery_state: MasteryState, facet_uncertainty_states: Iterable[Mapping[str, Any]]=(), quality_state: Mapping[str, Any] | None=None, ability_transition: Mapping[str, Any] | None=None, attempt_debug_payload: Mapping[str, Any] | None=None, item_parameter_state: ItemParameterState | None=None) -> None` (line 1185; public)
-  - `rebuild_stamp_snapshot(self, tables: Iterable[str]) -> dict[str, dict[tuple[Any, ...], dict[str, Any]]]` (line 1314; public) — The cells of these derived tables as a rebuild found them (see :meth:`keep_unchanged_rebuild_stamps`).
-  - `keep_unchanged_rebuild_stamps(self, snapshot: Mapping[str, Mapping[tuple[Any, ...], Mapping[str, Any]]]) -> int` (line 1329; public) — Give each cell a rebuild left as it found it the stamps it had then.
-  - `chosen_candidate_outcomes(self) -> list[dict[str, Any]]` (line 1364; public) — Slate candidates joined to their realized attempts (`learnloop eval` prediction-calibration input), oldest first.
-  - `active_probe_presentation_for_session(self, session_id: str) -> ProbePresentationRecord | None` (line 1383; public) — The scheduler-backed assignment currently owned by one session.
-  - `qualifying_probe_observation_count_for_session(self, session_id: str) -> int` (line 1403; public) — Qualifying diagnostic observations recorded in one session (§5.9 cap).
-  - `probe_observations_for_episode(self, probe_episode_id: str, *, as_recorded: bool=False) -> list[dict[str, Any]]` (line 1427; public) — Observations joined through attempt → presentation → episode (§5.1).
-  - `record_scheduler_slate(self, explanations: Iterable[dict[str, Any]], *, session_id: str | None, algorithm_version: str, requested_limit: int | None=None, session_context: Mapping[str, Any] | None=None, config_snapshot: Mapping[str, Any] | None=None, selection_policy: str='selection_reward_v1', probe_presentation: Mapping[str, Any] | None=None, clock: Clock | None=None) -> str` (line 1475; public)
-  - `most_recent_ended_at(self, *, stale_open_before: str | None=None) -> str | None` (line 1657; public) — When the learner was last really active outside an open session, or None.
-  - `end_open_sessions_except(self, session_id: str, *, clock: Clock | None=None) -> int` (line 1700; public) — End every other open (stale) session at its own last activity.
-  - `session_attempt_counts(self, session_id: str) -> dict[str, int] | None` (line 1728; public)
-  - `session_attempt_rows(self, session_id: str) -> list[dict[str, Any]]` (line 1753; public) — The session's attempts, oldest first, with what the session finish reads (the same session window as :meth:`session_attempt_counts`).
-  - `review_session_rows(self) -> list[dict[str, Any]]` (line 1779; public) — Reverse-chronological session spine for the Review surface.
-  - `consumer_pins_for_versions(self, version_ids: Sequence[str]) -> list[dict[str, Any]]` (line 1811; public) — UNION projection (§1.5) of every consumer pin whose ``target_contract_version_id`` is in ``version_ids``: probe episodes, assessment reservations, and administrations.
-  - `capture_local_transaction(self, *, source_id: str, client_idempotency_key: str, annotation: Mapping[str, Any] | None, anchor: Mapping[str, Any] | None, interaction_event: Mapping[str, Any], outbox: Mapping[str, Any], clock: Clock | None=None) -> dict[str, Any]` (line 1848; public) — The one local-first capture transaction (§5.3): create annotation + version + anchor + segments, append the typed interaction event, and write ONE durable outbox row -- all in a SINGLE SQLite transaction.
-  - `ensure_outcome_schema(self, *, slug: str, kind: str, clock: Clock | None=None) -> str` (line 1980; public)
-  - `insert_calibration_model(self, *, model: Mapping[str, Any], alphas: Mapping[str, Mapping[str, float]], clock: Clock | None=None) -> str` (line 1997; public) — Insert one immutable model version + its per-Z Dirichlet alpha rows.
-  - `active_interpretation_for_observation(self, observation_id: str) -> dict[str, Any] | None` (line 2075; public)
-  - `grade_head_review(self, observation_id: str, interpretation_id: str) -> dict[str, Any] | None` (line 2087; public) — How a review made this interpretation the observation's head, or None when the grade pipeline wrote it: ``{"kind": "adjudication", "adjudication_id": ...}`` for an adjudication's result, ``{"kind": "quarantine"}`` for a quarantined head, ``{"kind": "review_flag"}`` for a head a…
-  - `pending_grade_reviews(self) -> list[dict[str, Any]]` (line 2115; public) — Active-head grade interpretations flagged for review or quarantined (§4.4, §5).
-  - `causal_hypotheses_for_learning_object(self, learning_object_id: str, *, statuses: Iterable[str]=('candidate',), latest_only: bool=True, statement_normalized: str | None=None, groups: Mapping[str, str] | None=None) -> list[dict[str, Any]]` (line 2152; public) — Hypothesis heads on an LO; ``statement_normalized`` is a recurrence key.
-  - `expired_cold_retry_tasks_without_outcome(self) -> list[dict[str, Any]]` (line 2204; public) — Expired repair-lane retries whose terminal disposition is unrecorded.
-  - `find_record(self, identifier: str) -> tuple[str, dict[str, Any]] | None` (line 2224; public)
-  - `_insert_practice_attempt(self, connection: sqlite3.Connection, attempt: Mapping[str, Any]) -> None` (line 2262; internal)
-  - `_link_attempt_to_scheduler_candidate(self, connection: sqlite3.Connection, attempt: Mapping[str, Any]) -> None` (line 2352; internal)
-  - `source_auto_build_state(self, source_id: str) -> dict[str, Any]` (line 2402; public) — The book's automatic-build generation and pending reading position (generation 0 and nothing pending when the book has no row yet).
-  - `advance_source_auto_build_generation(self, source_id: str, *, clock: Clock | None=None) -> int` (line 2418; public) — Undo: start a new generation (older builds never apply) and drop any pending reading position.
-  - `delete_source_artifact(self, source_id: str) -> dict[str, int]` (line 2447; public) — Remove a source artifact and everything derived from it, atomically.
-  - `record_depth_transition_atomic(self, *, commitment_id: str, milestone_slug: str, milestone_detail_json: str | None, transition_detail_json: str | None, receipt_key: str, fork_spec: Mapping[str, Any] | None=None, clock: Clock | None=None) -> dict[str, Any]` (line 2598; public) — B4: append the step-7 ``depth_milestone_reached`` + ``depth_transition_committed`` events AND (when supplied) the step-6 fork lineage/edge/state in ONE transaction.
-  - `confirm_golden_path_atomic(self, *, receipt_key: str, blueprint_version_id: str, goal_id: str, goal_contract: Mapping[str, Any], commitment: Mapping[str, Any], run: Mapping[str, Any], reservation: Mapping[str, Any] | None=None, fault_hook: Any=None, clock: Clock | None=None) -> dict[str, Any]` (line 2733; public) — The ONE atomic confirmation (spec_p2 §3.1).
-  - `failure_triage_routes(self, *, active_only: bool=True) -> list[dict[str, Any]]` (line 2991; public)
-  - `failure_triage_route_for_reason(self, reason: str) -> dict[str, Any] | None` (line 3003; public)
-  - `failure_triage_events_for(self, run_id: str) -> list[dict[str, Any]]` (line 3012; public)
+- `class BlueprintNotReviewed(Exception)` ([source](../../../../../../src/learnloop/db/repositories.py), line 100) — A golden-path confirmation named a blueprint version that is not reviewed/active (spec_p2 §3.1 step 1).
+  - `__init__(self, blueprint_version_id: str, *, status: str | None)` (line 104; internal)
+- `class GoalAlreadyConfirmed(Exception)` ([source](../../../../../../src/learnloop/db/repositories.py), line 112) — The goal already has a confirmed contract head whose content differs from the v1 this confirmation would mint (spec_p2 §1.2 invariant 2).
+  - `__init__(self, goal_id: str, *, head_version_id: str | None)` (line 117; internal)
+- `class Repository(IngestQueueStoreMixin, AttemptCompletionStoreMixin, ModelCallStoreMixin, CollectionStoreMixin, DiagnosisStoreMixin, RecurrenceStoreMixin, SessionOwnershipStoreMixin, ReadingRequestStoreMixin, ActivityStoreMixin, SourceDocumentStoreMixin, ReaderStoreMixin, GoalStoreMixin, TaskBlueprintStoreMixin, AttemptStoreMixin, GradingStoreMixin, CausalStoreMixin, ProbeStoreMixin, LearnerModelStoreMixin, RemediationStoreMixin, ContentStoreMixin, QuestionStoreMixin, PracticeStateStoreMixin, FacetProjectionStoreMixin, MaintenanceStoreMixin)` ([source](../../../../../../src/learnloop/db/repositories.py), line 290)
+  - `__init__(self, sqlite_path: Path)` (line 316; internal) — Create the database, or attach to one at this code's migrations.
+  - `attach(cls, sqlite_path: Path, *, read_only: bool=False) -> Repository` (line 331; public) — Attach to an existing database without applying migrations.
+  - `_initialize(self, sqlite_path: Path, *, read_only: bool) -> None` (line 349; internal)
+  - `_connect(self) -> sqlite3.Connection` (line 360; internal)
+  - `connection(self) -> sqlite3.Connection` (line 366; public)
+  - `in_atomic(self) -> bool` (line 374; public) — This thread is inside an ``atomic()`` block (a new one would be a savepoint of it).
+  - `atomic(self) -> Iterator[None]` (line 382; public) — Commit a local operation once, including its nested store writes.
+  - `pinned(self) -> Iterator[None]` (line 426; public) — Reuse one connection for the block, on this thread only.
+  - `deactivate_practice_item_serving(self, practice_item_id: str, *, clock: Clock | None=None) -> dict[str, int]` (line 457; public) — Atomically close every serving door for one terminal item.
+  - `record_deferred_regrade(self, *, attempt_id: str, new_evidence_rows: Iterable[Mapping[str, Any]], superseded_by_evidence_id: str, mastery_state: MasteryState, attempt_update: Mapping[str, Any], content_events: Iterable[Mapping[str, Any]]=(), clock: Clock | None=None) -> None` (line 503; public)
+  - `_projected_causal_candidates(self, learning_object_id: str, *, statement_normalized: str | None=None) -> list[dict[str, Any]]` (line 576; internal) — Compatibility projection over P1's single hypothesis owner.
+  - `misconception_candidate_by_normalized(self, learning_object_id: str, statement_normalized: str) -> dict[str, Any] | None` (line 746; public) — The open candidate for one normalized statement on an LO, if any.
+  - `misconception_candidates_for_learning_object(self, learning_object_id: str, statuses: Iterable[str]=('candidate',)) -> list[dict[str, Any]]` (line 785; public)
+  - `update_misconception_candidate(self, candidate_id: str, *, severity: float | None=None, occurrence_count: int | None=None, append_source_error_event_ids: Iterable[str] | None=None, add_surface_families: Iterable[str] | None=None, add_item_ids: Iterable[str] | None=None, signature: str | None=None, mechanism: str | None=None, target_facet: str | None=None, confused_with_facet: str | None=None, status: str | None=None, promoted_misconception_id: str | None=None, promotion_reason: str | None=None, clock: Clock | None=None) -> dict[str, Any] | None` (line 816; public)
+  - `calibration_duel_pairs(self) -> list[dict[str, Any]]` (line 966; public) — Matched pre-outcome learner/model predictions on ordinary cold attempts.
+  - `gate_training_rows(self) -> list[dict[str, Any]]` (line 993; public) — Every persisted gate evaluation LEFT JOINed to its usefulness rating (via gate_attempt_id) — the gate fitter's raw input, oldest first.
+  - `requested_practice_item_ids(self, *, skip_commitment_ids: Sequence[str]=()) -> list[str]` (line 1019; public) — Practice items with a learner request not yet consumed by a later attempt.
+  - `record_learner_claim_application(self, claim_id: str, learning_object_id: str) -> int` (line 1093; public) — Record how many of the LO's attempts were applied when the claim was; that count.
+  - `reset_learning_object_derived_state(self, learning_object_id: str) -> None` (line 1111; public)
+  - `clear_derived_projection_tables(self, table_names: Iterable[str]) -> dict[str, int]` (line 1164; public) — Atomically clear explicitly registered DERIVED projection tables.
+  - `replace_attempt_derived_outcome(self, *, attempt: Mapping[str, Any], error_events: Iterable[Mapping[str, Any]], surprise: Mapping[str, Any], practice_item_state: PracticeItemState, mastery_state: MasteryState, facet_uncertainty_states: Iterable[Mapping[str, Any]]=(), quality_state: Mapping[str, Any] | None=None, ability_transition: Mapping[str, Any] | None=None, attempt_debug_payload: Mapping[str, Any] | None=None, item_parameter_state: ItemParameterState | None=None) -> None` (line 1194; public)
+  - `rebuild_stamp_snapshot(self, tables: Iterable[str]) -> dict[str, dict[tuple[Any, ...], dict[str, Any]]]` (line 1323; public) — The cells of these derived tables as a rebuild found them (see :meth:`keep_unchanged_rebuild_stamps`).
+  - `keep_unchanged_rebuild_stamps(self, snapshot: Mapping[str, Mapping[tuple[Any, ...], Mapping[str, Any]]]) -> int` (line 1338; public) — Give each cell a rebuild left as it found it the stamps it had then.
+  - `chosen_candidate_outcomes(self) -> list[dict[str, Any]]` (line 1373; public) — Slate candidates joined to their realized attempts (`learnloop eval` prediction-calibration input), oldest first.
+  - `active_probe_presentation_for_session(self, session_id: str) -> ProbePresentationRecord | None` (line 1392; public) — The scheduler-backed assignment currently owned by one session.
+  - `qualifying_probe_observation_count_for_session(self, session_id: str) -> int` (line 1412; public) — Qualifying diagnostic observations recorded in one session (§5.9 cap).
+  - `probe_observations_for_episode(self, probe_episode_id: str, *, as_recorded: bool=False) -> list[dict[str, Any]]` (line 1436; public) — Observations joined through attempt → presentation → episode (§5.1).
+  - `record_scheduler_slate(self, explanations: Iterable[dict[str, Any]], *, session_id: str | None, algorithm_version: str, requested_limit: int | None=None, session_context: Mapping[str, Any] | None=None, config_snapshot: Mapping[str, Any] | None=None, selection_policy: str='selection_reward_v1', probe_presentation: Mapping[str, Any] | None=None, clock: Clock | None=None) -> str` (line 1484; public)
+  - `most_recent_ended_at(self, *, stale_open_before: str | None=None) -> str | None` (line 1666; public) — When the learner was last really active outside an open session, or None.
+  - `end_open_sessions_except(self, session_id: str, *, clock: Clock | None=None) -> int` (line 1709; public) — End every other open (stale) session at its own last activity.
+  - `session_attempt_counts(self, session_id: str) -> dict[str, int] | None` (line 1737; public)
+  - `session_attempt_rows(self, session_id: str) -> list[dict[str, Any]]` (line 1762; public) — The session's attempts, oldest first, with what the session finish reads (the same session window as :meth:`session_attempt_counts`).
+  - `review_session_rows(self) -> list[dict[str, Any]]` (line 1788; public) — Reverse-chronological session spine for the Review surface.
+  - `consumer_pins_for_versions(self, version_ids: Sequence[str]) -> list[dict[str, Any]]` (line 1820; public) — UNION projection (§1.5) of every consumer pin whose ``target_contract_version_id`` is in ``version_ids``: probe episodes, assessment reservations, and administrations.
+  - `capture_local_transaction(self, *, source_id: str, client_idempotency_key: str, annotation: Mapping[str, Any] | None, anchor: Mapping[str, Any] | None, interaction_event: Mapping[str, Any], outbox: Mapping[str, Any], clock: Clock | None=None) -> dict[str, Any]` (line 1857; public) — The one local-first capture transaction (§5.3): create annotation + version + anchor + segments, append the typed interaction event, and write ONE durable outbox row -- all in a SINGLE SQLite transaction.
+  - `ensure_outcome_schema(self, *, slug: str, kind: str, clock: Clock | None=None) -> str` (line 1989; public)
+  - `insert_calibration_model(self, *, model: Mapping[str, Any], alphas: Mapping[str, Mapping[str, float]], clock: Clock | None=None) -> str` (line 2006; public) — Insert one immutable model version + its per-Z Dirichlet alpha rows.
+  - `active_interpretation_for_observation(self, observation_id: str) -> dict[str, Any] | None` (line 2084; public)
+  - `grade_head_review(self, observation_id: str, interpretation_id: str) -> dict[str, Any] | None` (line 2096; public) — How a review made this interpretation the observation's head, or None when the grade pipeline wrote it: ``{"kind": "adjudication", "adjudication_id": ...}`` for an adjudication's result, ``{"kind": "quarantine"}`` for a quarantined head, ``{"kind": "review_flag"}`` for a head a…
+  - `pending_grade_reviews(self) -> list[dict[str, Any]]` (line 2124; public) — Active-head grade interpretations flagged for review or quarantined (§4.4, §5).
+  - `causal_hypotheses_for_learning_object(self, learning_object_id: str, *, statuses: Iterable[str]=('candidate',), latest_only: bool=True, statement_normalized: str | None=None, groups: Mapping[str, str] | None=None) -> list[dict[str, Any]]` (line 2161; public) — Hypothesis heads on an LO; ``statement_normalized`` is a recurrence key.
+  - `expired_cold_retry_tasks_without_outcome(self) -> list[dict[str, Any]]` (line 2213; public) — Expired repair-lane retries whose terminal disposition is unrecorded.
+  - `find_record(self, identifier: str) -> tuple[str, dict[str, Any]] | None` (line 2233; public)
+  - `_insert_practice_attempt(self, connection: sqlite3.Connection, attempt: Mapping[str, Any]) -> None` (line 2271; internal)
+  - `_link_attempt_to_scheduler_candidate(self, connection: sqlite3.Connection, attempt: Mapping[str, Any]) -> None` (line 2361; internal)
+  - `source_auto_build_state(self, source_id: str) -> dict[str, Any]` (line 2411; public) — The book's automatic-build generation and pending reading position (generation 0 and nothing pending when the book has no row yet).
+  - `advance_source_auto_build_generation(self, source_id: str, *, clock: Clock | None=None) -> int` (line 2427; public) — Undo: start a new generation (older builds never apply) and drop any pending reading position.
+  - `delete_source_artifact(self, source_id: str) -> dict[str, int]` (line 2456; public) — Remove a source artifact and everything derived from it, atomically.
+  - `record_depth_transition_atomic(self, *, commitment_id: str, milestone_slug: str, milestone_detail_json: str | None, transition_detail_json: str | None, receipt_key: str, fork_spec: Mapping[str, Any] | None=None, clock: Clock | None=None) -> dict[str, Any]` (line 2607; public) — B4: append the step-7 ``depth_milestone_reached`` + ``depth_transition_committed`` events AND (when supplied) the step-6 fork lineage/edge/state in ONE transaction.
+  - `confirm_golden_path_atomic(self, *, receipt_key: str, blueprint_version_id: str, goal_id: str, goal_contract: Mapping[str, Any], commitment: Mapping[str, Any], run: Mapping[str, Any], reservation: Mapping[str, Any] | None=None, fault_hook: Any=None, clock: Clock | None=None) -> dict[str, Any]` (line 2742; public) — The ONE atomic confirmation (spec_p2 §3.1).
+  - `failure_triage_routes(self, *, active_only: bool=True) -> list[dict[str, Any]]` (line 3000; public)
+  - `failure_triage_route_for_reason(self, reason: str) -> dict[str, Any] | None` (line 3012; public)
+  - `failure_triage_events_for(self, run_id: str) -> list[dict[str, Any]]` (line 3021; public)
 
 ### Module constants
 
-- `OBSERVATION_CHANNEL_LEARNER_QUESTION` ([src/learnloop/db/repositories.py](../../../../../../src/learnloop/db/repositories.py), line 90)
-- `ITEM_WINDOW_QUESTION_CONTEXTS` ([src/learnloop/db/repositories.py](../../../../../../src/learnloop/db/repositories.py), line 96)
-- `_REBUILD_STAMPED_TABLES` ([src/learnloop/db/repositories.py](../../../../../../src/learnloop/db/repositories.py), line 138)
-- `CANONICAL_STAMPED_TABLES` ([src/learnloop/db/repositories.py](../../../../../../src/learnloop/db/repositories.py), line 154)
-- `REBUILD_STAMPED_TABLES` ([src/learnloop/db/repositories.py](../../../../../../src/learnloop/db/repositories.py), line 158)
+- `OBSERVATION_CHANNEL_LEARNER_QUESTION` ([src/learnloop/db/repositories.py](../../../../../../src/learnloop/db/repositories.py), line 91)
+- `ITEM_WINDOW_QUESTION_CONTEXTS` ([src/learnloop/db/repositories.py](../../../../../../src/learnloop/db/repositories.py), line 97)
+- `_REBUILD_STAMPED_TABLES` ([src/learnloop/db/repositories.py](../../../../../../src/learnloop/db/repositories.py), line 139)
+- `CANONICAL_STAMPED_TABLES` ([src/learnloop/db/repositories.py](../../../../../../src/learnloop/db/repositories.py), line 155)
+- `REBUILD_STAMPED_TABLES` ([src/learnloop/db/repositories.py](../../../../../../src/learnloop/db/repositories.py), line 159)
 
 ## Internal implementation anchors
 
-- `class _RebuildStamps` ([source](../../../../../../src/learnloop/db/repositories.py), line 126) — A derived table whose stamps a rebuild keeps on the cells it leaves as they were: ``compared`` says what a cell is (a projected stamp included), ``stamps`` say when it last changed.
-- `_roll_back_after(connection: sqlite3.Connection, failure: BaseException) -> bool` ([source](../../../../../../src/learnloop/db/repositories.py), line 161) — Roll back after ``failure`` without replacing it; report success.
-- `class _PinnedConnection` ([source](../../../../../../src/learnloop/db/repositories.py), line 184) — Proxy that hands the same SQLite connection to every repository call.
-- `_bindable_plan_presentation(connection: sqlite3.Connection, attempt: Mapping[str, Any]) -> str | None` ([source](../../../../../../src/learnloop/db/repositories.py), line 263) — Router R2a: the ``plan_presentation_id`` an attempt may record, or None.
-- `_learning_object_id_from_target_scope(target_scope: Any) -> str | None` ([source](../../../../../../src/learnloop/db/repositories.py), line 3021)
+- `class _RebuildStamps` ([source](../../../../../../src/learnloop/db/repositories.py), line 127) — A derived table whose stamps a rebuild keeps on the cells it leaves as they were: ``compared`` says what a cell is (a projected stamp included), ``stamps`` say when it last changed.
+- `_roll_back_after(connection: sqlite3.Connection, failure: BaseException) -> bool` ([source](../../../../../../src/learnloop/db/repositories.py), line 162) — Roll back after ``failure`` without replacing it; report success.
+- `class _PinnedConnection` ([source](../../../../../../src/learnloop/db/repositories.py), line 185) — Proxy that hands the same SQLite connection to every repository call.
+- `_bindable_plan_presentation(connection: sqlite3.Connection, attempt: Mapping[str, Any]) -> str | None` ([source](../../../../../../src/learnloop/db/repositories.py), line 264) — Router R2a: the ``plan_presentation_id`` an attempt may record, or None.
+- `_learning_object_id_from_target_scope(target_scope: Any) -> str | None` ([source](../../../../../../src/learnloop/db/repositories.py), line 3030)
 
 ## Who imports or calls it
 
@@ -600,6 +601,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/db/stores/source_documents|learnloop.db.stores.source_documents]] — imports `SourceDocumentStoreMixin`
 - [[Reference/Modules/learnloop/db/stores/task_blueprints|learnloop.db.stores.task_blueprints]] — imports `TaskBlueprintStoreMixin`
 - [[Reference/Modules/learnloop/db/table_roles|learnloop.db.table_roles]] — imports `TableRole`, `tables_for_role`; calls `tables_for_role`
+- [[Reference/Modules/learnloop/db/writer_fence|learnloop.db.writer_fence]] — imports `module`; calls `binding`, `bound`, `writing_under`
 - [[Reference/Modules/learnloop/held_grades|learnloop.held_grades]] — imports `effective_probe_observation_rows`, `held_for_review_attempts`; calls `effective_probe_observation_rows`, `held_for_review_attempts`
 - [[Reference/Modules/learnloop/hint_window|learnloop.hint_window]] — imports `module`
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
@@ -1712,6 +1714,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_predicted_correctness_with_one_shared_reader_is_byte_identical`
   - `test_read_model_opens_one_connection_per_call`
 - [tests/test_learner_report_superseded.py](../../../../../../tests/test_learner_report_superseded.py) — direct import
+  - `test_a_global_claim_made_after_materialization_rebuilds_to_live`
   - `test_a_new_starting_level_keeps_the_old_one_for_an_lo_first_practised_under_it`
   - `test_two_writers_on_one_warm_lo_apply_their_reports_in_the_order_replay_reads`
 - [tests/test_learner_review_system_entries.py](../../../../../../tests/test_learner_review_system_entries.py) — direct import
@@ -1732,6 +1735,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_mastery.py](../../../../../../tests/test_mastery.py) — direct import
 - [tests/test_mastery_seed_replay.py](../../../../../../tests/test_mastery_seed_replay.py) — direct import
   - `test_an_interrupted_materialization_leaves_neither_the_row_nor_its_record`
+  - `test_the_upgrade_freezes_the_predecessors_seeds_then_new_claims_seed_nothing`
 - [tests/test_matching.py](../../../../../../tests/test_matching.py) — direct import
 - [tests/test_measurement_corrections.py](../../../../../../tests/test_measurement_corrections.py) — direct import
   - `test_attempted_item_correction_is_append_only_and_projection_versioned`
@@ -2169,6 +2173,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_sweep_ends_with_a_host_nobody_uses`
 - [tests/test_reading_step_switch.py](../../../../../../tests/test_reading_step_switch.py) — direct import
   - `test_replay_never_reads_the_switch`
+- [tests/test_rebuild_closed_row_answer.py](../../../../../../tests/test_rebuild_closed_row_answer.py) — direct import
+  - `test_the_upgrade_freezes_the_predecessors_reading_then_new_answers_capture_their_own`
 - [tests/test_rebuild_equivalence.py](../../../../../../tests/test_rebuild_equivalence.py) — direct import
   - `test_a_second_learner_report_on_an_lo_after_an_attempt_rebuilds_to_live`
 - [tests/test_rebuild_equivalence_review.py](../../../../../../tests/test_rebuild_equivalence_review.py) — direct import
@@ -2317,6 +2323,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_backfill_is_held_to_its_money_cap`
 - [tests/test_rw2c_fix_round2.py](../../../../../../tests/test_rw2c_fix_round2.py) — direct import
 - [tests/test_same_second_order.py](../../../../../../tests/test_same_second_order.py) — direct import
+  - `test_the_upgrade_ranks_legacy_attempts_in_id_order_then_new_ones_follow_in_application_order`
   - `test_two_connections_with_reversed_allocation_and_completion_rebuild_to_live`
 - [tests/test_scheduler.py](../../../../../../tests/test_scheduler.py) — direct import
   - `test_ordinary_due_pick_carries_no_followup_kind`
@@ -2712,6 +2719,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_stale_writer_of_this_code_is_refused_and_proceeds_after_a_reload`
   - `test_a_vault_no_fence_aware_activation_touched_is_not_fenced`
   - `test_every_link_from_the_curves_moves_the_fence_and_a_reloaded_grade_writes_under_it`
+- [tests/test_writer_fence_scopes.py](../../../../../../tests/test_writer_fence_scopes.py) — direct import
+  - `test_the_forecast_receipt_writer_does_not_swallow_a_refusal`
 - [tests/tutor_delivery_fixes_helpers.py](../../../../../../tests/tutor_delivery_fixes_helpers.py) — direct import
 - [tests/tutor_promotion_service_helpers.py](../../../../../../tests/tutor_promotion_service_helpers.py) — direct import
 - [tests/ux_phase1_landing_helpers.py](../../../../../../tests/ux_phase1_landing_helpers.py) — direct import
@@ -2721,6 +2730,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/voi_restore_scenarios.py](../../../../../../tests/voi_restore_scenarios.py) — direct import
 - [tests/voi_stopping_helpers.py](../../../../../../tests/voi_stopping_helpers.py) — direct import
 - [tests/why_cases_helpers.py](../../../../../../tests/why_cases_helpers.py) — direct import
+- [tests/writer_fence_helpers.py](../../../../../../tests/writer_fence_helpers.py) — direct import
 
 ## Modification guidance
 

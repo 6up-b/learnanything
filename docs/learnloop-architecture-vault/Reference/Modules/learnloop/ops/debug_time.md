@@ -103,6 +103,7 @@ No test imports this module directly. These tests exercise a direct production c
 
 - [tests/test_model_call_receipt_owners.py](../../../../../../tests/test_model_call_receipt_owners.py) — imports consumer [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]]
 - [tests/test_provider_resolution_parity.py](../../../../../../tests/test_provider_resolution_parity.py) — imports consumer [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]]
+- [tests/test_writer_fence_scopes.py](../../../../../../tests/test_writer_fence_scopes.py) — imports consumer [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]]
 
 ## Modification guidance
 

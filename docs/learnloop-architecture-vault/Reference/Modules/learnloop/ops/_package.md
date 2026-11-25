@@ -86,7 +86,7 @@ For system intent, use [[State and Persistence]], [[Configuration]].
 | [[Reference/Modules/learnloop/ops/plan_transport|learnloop.ops.plan_transport]] | [[Reference/Modules/learnloop/ops/plan_transport#^module-purpose|purpose]] | `ACTIVE` | 2 | 1 |
 | [[Reference/Modules/learnloop/ops/settings_store|learnloop.ops.settings_store]] | [[Reference/Modules/learnloop/ops/settings_store#^module-purpose|purpose]] | `ACTIVE` | 10 | 19 |
 | [[Reference/Modules/learnloop/ops/startup|learnloop.ops.startup]] | [[Reference/Modules/learnloop/ops/startup#^module-purpose|purpose]] | `ACTIVE` | 3 | 4 |
-| [[Reference/Modules/learnloop/ops/upgrades|learnloop.ops.upgrades]] | [[Reference/Modules/learnloop/ops/upgrades#^module-purpose|purpose]] | `ACTIVE` | 3 | 19 |
+| [[Reference/Modules/learnloop/ops/upgrades|learnloop.ops.upgrades]] | [[Reference/Modules/learnloop/ops/upgrades#^module-purpose|purpose]] | `ACTIVE` | 3 | 21 |
 | [[Reference/Modules/learnloop/ops/vault_lock|learnloop.ops.vault_lock]] | [[Reference/Modules/learnloop/ops/vault_lock#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |
 
 ## Child package maps
@@ -100,7 +100,7 @@ For system intent, use [[State and Persistence]], [[Configuration]].
 - [[Reference/Modules/learnloop/ai/_package|learnloop.ai]] — 42 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 41 static module edges
 - [[Reference/Modules/learnloop/_package|learnloop]] — 25 static module edges
-- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 20 static module edges
+- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 21 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 17 static module edges
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 14 static module edges
 - [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] — 10 static module edges
@@ -163,7 +163,7 @@ flowchart LR
     center -->|41| n_learnloop_vault
     n_learnloop -->|1| center
     center -->|25| n_learnloop
-    center -->|20| n_learnloop_db
+    center -->|21| n_learnloop_db
     n_learnloop_cli -->|18| center
     center -->|17| n_learnloop_db_stores
     center -->|14| n_learnloop_substrate

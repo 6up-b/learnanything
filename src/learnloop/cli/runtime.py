@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Annotated, Any, Callable, Mapping, TextIO
 import typer
 from pydantic import BaseModel
+from learnloop.config import load_config
 from learnloop import activation_journal
 from learnloop.attempt_types import default_attempt_type
 from learnloop.clock import utc_now_iso
@@ -140,11 +141,12 @@ activation_journal.install_completer(_complete_interrupted_activation)
 
 
 def _repository(vault_root: Path) -> Repository:
-    loaded = load_vault(vault_root)
-    repository = open_vault_repository(
-        loaded.root,
-        VaultPaths(loaded.root, loaded.config).sqlite_path,
-    )
+    # The database's path from the config alone: loading the vault again here would move this process's writer-fence
+    # binding to whatever the file names now, while the command goes on computing from the vault it loaded first.
+    # The repository writes under that first load's tag.
+    root = Path(vault_root).resolve()
+    config = load_config(root / "learnloop.toml", load_environment=False)
+    repository = open_vault_repository(root, VaultPaths(root, config).sqlite_path)
     bind_command_repository(repository)
     return repository
 

@@ -162,7 +162,7 @@ def test_validation_errors_never_echo_the_learners_text(world):
     ("current_item_desktop_only", 409, False), ("submission_conflict", 409, False), ("capture_conflict", 409, False),
     ("desktop_only", 409, False), ("database_busy", 503, True), ("completion_busy", 503, True),
     ("host_busy", 503, True), ("grading_fallback_required", 409, True), ("internal", 500, False),
-    ("vault_upgraded_while_open", 503, True),
+    ("vault_upgraded_while_open", 503, False),  # the host says whether to retry (WF-R11): its flag, not the code
     ("item_retired", 409, False),
 ])
 def test_the_status_table(code, status, retryable):

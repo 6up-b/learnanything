@@ -1,11 +1,23 @@
 # Migration-head fixture
 
-**Holds migration 275 (`275_writer_fence.sql`), the head.** The directory's name carries no number (since
+**Holds migration 276 (`276_writer_fence_more_writes.sql`), the head.** The directory's name carries no number (since
 refactor A2): a new migration upgrades `state.sqlite` here in place, in rollback mode, and adds a section below naming
 the new head; no test or script changes for the number (`CLAUDE.md`, "Adding a migration"). Tests reach it
 through `MIGRATION_HEAD_FIXTURE` in `tests/helpers.py`; `tests/test_migrations.py` checks that it holds the newest
 file in `migrations/` and stays in rollback mode. Older sections below name the numbered directories it was renamed
 from, as they were then.
+
+## The writer fence's further writes (migration 276), `refactor/writer-fence-round-2` (ledger WF-R2, WF-R6, WF-R8, WF-R9), 2026-11-25
+
+Upgraded in place (no rename; base: the writer fence's head 275) by the B1 procedure below:
+`276_writer_fence_more_writes.sql` (five `writer_fence_<table>_<event>` triggers: `plan_presentations`,
+`probe_presentations` and `grade_adjudications` inserts, and a Reader section's first completion on
+`reader_section_progress`, insert and update) applied through `learnloop.db.migrate.apply_migrations` on a backup-API
+copy of the tracked 275 file, outside the checkout, under `upgrade_allowance(UPGRADE_SCRATCH_COPY)`, which applied
+`[276]` only; `wal_checkpoint(TRUNCATE)` (0, 0, 0), `journal_mode=DELETE` (header bytes 1/1), `integrity_check` ok,
+`foreign_key_check` empty; the tracked file removed and the copy written into its place with `backup_database`, no
+companion files. Compared with the 275 file: five triggers added, nothing removed or redefined, and the only table
+whose rows changed is `schema_migrations` (gains 276). The file is 7,929,856 bytes.
 
 ## The writer fence (migration 275), `refactor/writer-fence` (ledger L42-R2), 2026-11-25
 

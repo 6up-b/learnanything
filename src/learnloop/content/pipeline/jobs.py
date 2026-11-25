@@ -25,6 +25,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Literal, Mapping, Sequence
 
+from learnloop.db import writer_fence
 from learnloop.clock import Clock, SystemClock, parse_utc, utc_now_iso
 from learnloop.db.repositories import Repository
 from learnloop.reader import reader_quick_check as RQC
@@ -1726,11 +1727,11 @@ class DurableIngestJobs:
                     ),
                     compatible_running_job_types=parallel_job_types(),
                 )
-            except Exception:  # noqa: BLE001 — the drain thread must never die silently on one bad job
+            except (Exception, writer_fence.WriterFenceRefusal):  # noqa: BLE001 — the drain thread must never die silently on one bad job
                 ran = 0
             try:
                 ran += self._drain_reader_requests(runner)
-            except Exception:  # noqa: BLE001 — reader synthesis must never kill the ingest drain
+            except (Exception, writer_fence.WriterFenceRefusal):  # noqa: BLE001 — reader synthesis must never kill the ingest drain
                 pass
             if ran:
                 # Work finished: a book's reading request waiting on it may be
@@ -1774,7 +1775,7 @@ class DurableIngestJobs:
                     allow_parallel=True,
                     max_parallel=_QUICK_CHECK_WORKERS,
                 )
-            except Exception:  # noqa: BLE001 — one worker must not kill the lane
+            except (Exception, writer_fence.WriterFenceRefusal):  # noqa: BLE001 — one worker must not kill the lane
                 ran = 0
             idle_rounds = idle_rounds + 1 if ran == 0 else 0
             active = runner.repo.ingest_jobs_by_types(parallel_job_types())

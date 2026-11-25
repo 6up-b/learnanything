@@ -31,6 +31,7 @@ import json
 
 import pytest
 
+from learnloop.db.repositories import Repository
 from learnloop.algorithm_versions import (
     LATEST_ALGORITHM_VERSION,
     APPLICATION_ORDER_ALGORITHM_VERSION,
@@ -348,8 +349,10 @@ def test_the_upgrade_freezes_the_predecessors_reading_then_new_answers_capture_t
     assert _shadow_summary(paths)["summary"] == ZERO
 
     # Frozen: reopening the sibling later reaches no reconstructed attempt, and a new answer records what it read.
-    repository.set_practice_item_active(APPLY_ITEM, active=True, clock=_at(63))
+    # (The writer fence: the repository opened for the predecessor's vault stays bound to it; the reload reopens it.)
     vault = load_vault(paths.root)
+    repository = Repository(paths.sqlite_path)
+    repository.set_practice_item_active(APPLY_ITEM, active=True, clock=_at(63))
     third = _answer(vault, repository, DEFINE_ITEM, minutes=60 * 24).attempt_id
     assert _lifecycle_rows(repository)[third][1:3] == (BOTH, "captured_at_application")
     live = _mastery(repository)

@@ -147,6 +147,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_upgrade_command_refuses_a_journal_from_below_the_floor_with_the_route`
 - [tests/test_writer_fence.py](../../../../../tests/test_writer_fence.py) — direct import
   - `test_a_death_after_the_publication_keeps_the_database_tag_until_the_completion`
+- [tests/writer_fence_helpers.py](../../../../../tests/writer_fence_helpers.py) — direct import
 
 ## Modification guidance
 

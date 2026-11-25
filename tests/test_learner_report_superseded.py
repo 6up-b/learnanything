@@ -163,6 +163,8 @@ def test_a_global_claim_made_after_materialization_rebuilds_to_live(tmp_path, bo
     if not born:
         assert upgrade(paths.root, to=MASTERY_SEED_ALGORITHM_VERSION).upgraded
         vault = load_vault(paths.root)
+        # The writer fence: a repository writes under the vault it was opened for, so the reload opens it again.
+        repository = Repository(paths.sqlite_path)
     seed_global_learner_claim(repository, "some_exposure", clock=_at(1))
     _answer(vault, repository, "pi_svd_define_001", minutes=2, points=2.0)
     assert _shadow_summary(paths)["summary"] == ZERO

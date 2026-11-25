@@ -989,6 +989,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_predictive_information_matches_the_probe_episodes_own_objective`
 - [tests/test_writer_fence.py](../../../../../tests/test_writer_fence.py) — direct import
 - [tests/why_cases_helpers.py](../../../../../tests/why_cases_helpers.py) — direct import
+- [tests/writer_fence_helpers.py](../../../../../tests/writer_fence_helpers.py) — direct import
 
 ## Modification guidance
 
