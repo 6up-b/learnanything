@@ -141,7 +141,7 @@ For system intent, use [[Architecture Overview]].
 | [[Reference/Modules/learnloop/adaptive_difficulty/spend|learnloop.adaptive_difficulty.spend]] | [[Reference/Modules/learnloop/adaptive_difficulty/spend#^module-purpose|purpose]] | `ACTIVE` | 10 | 3 |
 | [[Reference/Modules/learnloop/adaptive_difficulty/state|learnloop.adaptive_difficulty.state]] | [[Reference/Modules/learnloop/adaptive_difficulty/state#^module-purpose|purpose]] | `ACTIVE` | 5 | 6 |
 | [[Reference/Modules/learnloop/adaptive_difficulty/successor|learnloop.adaptive_difficulty.successor]] | [[Reference/Modules/learnloop/adaptive_difficulty/successor#^module-purpose|purpose]] | `ACTIVE` | 17 | 5 |
-| [[Reference/Modules/learnloop/adaptive_difficulty/surprise_forecast|learnloop.adaptive_difficulty.surprise_forecast]] | [[Reference/Modules/learnloop/adaptive_difficulty/surprise_forecast#^module-purpose|purpose]] | `ACTIVE` | 1 | 3 |
+| [[Reference/Modules/learnloop/adaptive_difficulty/surprise_forecast|learnloop.adaptive_difficulty.surprise_forecast]] | [[Reference/Modules/learnloop/adaptive_difficulty/surprise_forecast#^module-purpose|purpose]] | `ACTIVE` | 1 | 4 |
 | [[Reference/Modules/learnloop/adaptive_difficulty/switches|learnloop.adaptive_difficulty.switches]] | [[Reference/Modules/learnloop/adaptive_difficulty/switches#^module-purpose|purpose]] | `ACTIVE` | 18 | 3 |
 
 ## Cross-package dependencies
@@ -155,9 +155,9 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 18 static module edges
 - [[Reference/Modules/learnloop/field/_package|learnloop.field]] — 7 static module edges
 - [[Reference/Modules/learnloop/practice_index/_package|learnloop.practice_index]] — 7 static module edges
-- [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 6 static module edges
 - [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 5 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 5 static module edges
+- [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 5 static module edges
 - [[Reference/Modules/learnloop/ingest/_package|learnloop.ingest]] — 3 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 2 static module edges
 - [[Reference/Modules/learnloop/hints/_package|learnloop.hints]] — 2 static module edges

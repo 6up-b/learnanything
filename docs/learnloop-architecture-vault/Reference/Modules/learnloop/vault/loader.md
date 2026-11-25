@@ -619,6 +619,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_shell_env_wins_over_global_settings_file`
 - [tests/test_anchor_resolution.py](../../../../../../tests/test_anchor_resolution.py) — direct import
 - [tests/test_answer_calibration_duel.py](../../../../../../tests/test_answer_calibration_duel.py) — direct import
+- [tests/test_answer_door_sessions.py](../../../../../../tests/test_answer_door_sessions.py) — direct import
 - [tests/test_answer_signal_arms.py](../../../../../../tests/test_answer_signal_arms.py) — direct import
   - `test_the_loader_reads_the_tap_and_the_graders_tone_reading`
 - [tests/test_anti_double_count.py](../../../../../../tests/test_anti_double_count.py) — direct import
@@ -3220,6 +3221,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_invalid_fifth_topic_does_not_stop_the_rest_and_try_again_only_asks_it`
   - `test_queue_revision_reload_sees_each_part_before_the_job_finishes`
 - [tests/test_selected_forecast.py](../../../../../../tests/test_selected_forecast.py) — direct import
+  - `test_a_bound_answer_without_a_grade_receipt_reads_mastery_live_and_after_a_rebuild`
   - `test_a_grade_saves_no_item_revision_and_an_answer_on_its_contract_is_still_forecast`
   - `test_an_answer_to_its_own_presentation_after_an_edit_keeps_the_link_and_reads_mastery`
   - `test_another_sessions_presentation_is_left_for_its_answer`
@@ -3757,6 +3759,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_predecessor_binary_cannot_grade_or_regrade_after_the_activation`
   - `test_a_stale_writer_of_this_code_is_refused_and_proceeds_after_a_reload`
   - `test_a_vault_no_fence_aware_activation_touched_is_not_fenced`
+  - `test_every_link_from_the_curves_moves_the_fence_and_a_reloaded_grade_writes_under_it`
 - [tests/tutor_citations_helpers.py](../../../../../../tests/tutor_citations_helpers.py) — direct import
 - [tests/ux_phase1_landing_helpers.py](../../../../../../tests/ux_phase1_landing_helpers.py) — direct import
 - [tests/ux_phase1_review_fixes_helpers.py](../../../../../../tests/ux_phase1_review_fixes_helpers.py) — direct import

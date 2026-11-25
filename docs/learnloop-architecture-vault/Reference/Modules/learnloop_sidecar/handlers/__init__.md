@@ -212,6 +212,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ad2_serving.py](../../../../../../tests/test_ad2_serving.py) — direct import
 - [tests/test_ad3_dose_arm.py](../../../../../../tests/test_ad3_dose_arm.py) — direct import
 - [tests/test_add_source_same_content.py](../../../../../../tests/test_add_source_same_content.py) — direct import
+- [tests/test_answer_door_sessions.py](../../../../../../tests/test_answer_door_sessions.py) — direct import
 - [tests/test_approach_map_replay.py](../../../../../../tests/test_approach_map_replay.py) — direct import
 - [tests/test_approach_maps.py](../../../../../../tests/test_approach_maps.py) — direct import
 - [tests/test_arcb_close_fixes.py](../../../../../../tests/test_arcb_close_fixes.py) — direct import

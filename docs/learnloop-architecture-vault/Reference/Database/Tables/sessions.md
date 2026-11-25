@@ -16,6 +16,7 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/001_initial.sql"
+  - "src/learnloop/adaptive_difficulty/surprise_forecast.py"
   - "src/learnloop/ai/chatgpt_plan/oauth.py"
   - "src/learnloop/ai/isolation.py"
   - "src/learnloop/capture/report.py"
@@ -23,8 +24,8 @@ source_paths:
   - "src/learnloop/config/schema.py"
   - "src/learnloop/curriculum/ai_contracts.py"
   - "src/learnloop/curriculum/depth_edge_authoring.py"
-  - "src/learnloop/daily_plan/engine.py"
   - "src/learnloop/cli/app.py"
+  - "src/learnloop/daily_plan/engine.py"
   - "src/learnloop/daily_plan/reentry.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/session_ownership.py"
@@ -100,6 +101,7 @@ Indexes and uniqueness:
 
 ### Direct SQL readers
 
+- `src/learnloop/adaptive_difficulty/surprise_forecast.py`
 - `src/learnloop/capture/report.py`
 - `src/learnloop/daily_plan/objective_inputs.py`
 - `src/learnloop/db/repositories.py`

@@ -20,10 +20,10 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/material_view.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/adaptive_difficulty/serving.py"
+  - "src/learnloop/adaptive_difficulty/surprise_forecast.py"
   - "src/learnloop/content/authoring/jobs.py"
   - "src/learnloop/daily_plan/ad_slot.py"
   - "src/learnloop/daily_plan/engine.py"
-  - "src/learnloop/db/stores/ad_serving.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -111,7 +111,7 @@ None found by exact static reference scan.
 
 ### Direct SQL readers
 
-None found by exact static reference scan.
+- `src/learnloop/adaptive_difficulty/surprise_forecast.py`
 
 ### Direct SQL writers
 

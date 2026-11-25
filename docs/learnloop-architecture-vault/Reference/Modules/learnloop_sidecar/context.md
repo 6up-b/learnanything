@@ -362,6 +362,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_switch_off_is_todays_reader_exactly`
 - [tests/test_adaptive_difficulty_ad1.py](../../../../../tests/test_adaptive_difficulty_ad1.py) — direct import
   - `test_ad1_switches_restore_predecessor`
+- [tests/test_answer_door_sessions.py](../../../../../tests/test_answer_door_sessions.py) — direct import
 - [tests/test_approach_map_replay.py](../../../../../tests/test_approach_map_replay.py) — direct import
 - [tests/test_approach_maps.py](../../../../../tests/test_approach_maps.py) — direct import
 - [tests/test_arcb_close_fixes.py](../../../../../tests/test_arcb_close_fixes.py) — direct import

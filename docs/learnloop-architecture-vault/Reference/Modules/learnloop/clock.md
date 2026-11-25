@@ -712,6 +712,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_answer_calibration_duel.py](../../../../../tests/test_answer_calibration_duel.py) — direct import
   - `test_answer_confidence_must_be_a_1_to_5_committed_tap`
   - `test_post_reveal_confidence_tap_cannot_land_on_a_graded_attempt`
+- [tests/test_answer_door_sessions.py](../../../../../tests/test_answer_door_sessions.py) — direct import
+  - `test_a_draft_naming_no_session_binds_an_unused_presentation`
+  - `test_another_sessions_presentation_binds_only_once_that_session_has_ended`
 - [tests/test_answer_signal_arms.py](../../../../../tests/test_answer_signal_arms.py) — direct import
   - `test_the_loader_reads_the_tap_and_the_graders_tone_reading`
 - [tests/test_anti_double_count.py](../../../../../tests/test_anti_double_count.py) — direct import
@@ -2024,6 +2027,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_first_of_eight_topics_is_served_while_the_second_is_being_written`
   - `test_invalid_fifth_topic_does_not_stop_the_rest_and_try_again_only_asks_it`
 - [tests/test_selected_forecast.py](../../../../../tests/test_selected_forecast.py) — direct import
+  - `test_a_bound_answer_without_a_grade_receipt_reads_mastery_live_and_after_a_rebuild`
   - `test_a_grade_saves_no_item_revision_and_an_answer_on_its_contract_is_still_forecast`
   - `test_an_answer_to_its_own_presentation_after_an_edit_keeps_the_link_and_reads_mastery`
   - `test_another_sessions_presentation_is_left_for_its_answer`

@@ -220,6 +220,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_unchanged_input_makes_no_call_and_a_change_reproposes_only_what_it_touches`
 - [tests/test_lesson_weight_facts_integration.py](../../../../../../../tests/test_lesson_weight_facts_integration.py) — direct import
 - [tests/test_selected_forecast.py](../../../../../../../tests/test_selected_forecast.py) — direct import
+  - `test_a_bound_answer_without_a_grade_receipt_reads_mastery_live_and_after_a_rebuild`
   - `test_an_answer_to_its_own_presentation_after_an_edit_keeps_the_link_and_reads_mastery`
   - `test_selection_view_and_missing_selection_live_and_rebuilt`
   - `test_upgrade_rejects_a_historical_serve_at_a_different_revision`

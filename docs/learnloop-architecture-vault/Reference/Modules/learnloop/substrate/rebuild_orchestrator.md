@@ -198,6 +198,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ad_guard_reachable_reads.py](../../../../../../tests/test_ad_guard_reachable_reads.py) — direct import
 - [tests/test_adaptive_difficulty_ad1.py](../../../../../../tests/test_adaptive_difficulty_ad1.py) — direct import
   - `test_replay_reads_receipts_zero_model_calls`
+- [tests/test_answer_door_sessions.py](../../../../../../tests/test_answer_door_sessions.py) — direct import
+  - `test_another_sessions_presentation_binds_only_once_that_session_has_ended`
 - [tests/test_approach_map_replay.py](../../../../../../tests/test_approach_map_replay.py) — direct import
   - `test_rebuild_and_replay_call_no_model_and_never_read_approach_maps`
 - [tests/test_assumed_known.py](../../../../../../tests/test_assumed_known.py) — direct import
@@ -426,6 +428,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_section_end.py](../../../../../../tests/test_section_end.py) — direct import
   - `test_the_upgrade_finishes_nothing_recorded_before_it_and_a_new_end_finishes_once`
 - [tests/test_selected_forecast.py](../../../../../../tests/test_selected_forecast.py) — direct import
+  - `test_a_bound_answer_without_a_grade_receipt_reads_mastery_live_and_after_a_rebuild`
   - `test_an_answer_to_its_own_presentation_after_an_edit_keeps_the_link_and_reads_mastery`
   - `test_another_sessions_presentation_is_left_for_its_answer`
   - `test_selection_view_and_missing_selection_live_and_rebuilt`

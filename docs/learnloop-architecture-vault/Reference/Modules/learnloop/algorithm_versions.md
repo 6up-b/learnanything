@@ -178,7 +178,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/adaptive_difficulty/replay|learnloop.adaptive_difficulty.replay]] — imports `label_retired`; statically calls `label_retired`
 - [[Reference/Modules/learnloop/adaptive_difficulty/successor|learnloop.adaptive_difficulty.successor]] — imports `ADAPTIVE_DIFFICULTY_ALGORITHM_VERSION`
 - [[Reference/Modules/learnloop/adaptive_difficulty/surprise_forecast|learnloop.adaptive_difficulty.surprise_forecast]] — imports `SELECTED_FORECAST_VERSIONS`, `label_retired`; statically calls `label_retired`
-- [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `LESSON_WEIGHT_CURVE_VERSIONS`, `SELECTED_FORECAST_VERSIONS`, `forecast_scoring_fixed`, `label_retired`, `mastery_facts_recorded`; statically calls `forecast_scoring_fixed`, `label_retired`, `mastery_facts_recorded`
+- [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `LESSON_WEIGHT_CURVE_VERSIONS`, `forecast_scoring_fixed`, `label_retired`, `mastery_facts_recorded`; statically calls `forecast_scoring_fixed`, `label_retired`, `mastery_facts_recorded`
 - [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]] — imports `GRADE_CHANNEL_FIX_VERSIONS`
 - [[Reference/Modules/learnloop/attempts/lifecycle_inputs|learnloop.attempts.lifecycle_inputs]] — imports `LIFECYCLE_INPUTS_VERSIONS`, `lifecycle_inputs_on`; statically calls `lifecycle_inputs_on`
 - [[Reference/Modules/learnloop/attempts/replay_reading|learnloop.attempts.replay_reading]] — imports `evidence_reading_fixes_on`; statically calls `evidence_reading_fixes_on`
@@ -332,6 +332,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ai_config.py](../../../../../tests/test_ai_config.py) — direct import
   - `test_default_config_contains_ai_codex_profile`
   - `test_in_memory_defaults_match_persisted_algorithm_and_codex_profile`
+- [tests/test_answer_door_sessions.py](../../../../../tests/test_answer_door_sessions.py) — direct import
+  - `test_phone_submit_in_the_adopted_session_binds`
 - [tests/test_architecture.py](../../../../../tests/test_architecture.py) — direct import
   - `test_assessment_service_reexports_neutral_algorithm_versions`
 - [tests/test_assessment_contracts.py](../../../../../tests/test_assessment_contracts.py) — direct import

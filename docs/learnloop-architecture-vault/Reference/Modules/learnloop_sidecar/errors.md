@@ -195,6 +195,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/mobile_v3_probes_helpers.py](../../../../../tests/mobile_v3_probes_helpers.py) — direct import
 - [tests/plan_first_transport_offer_grants_helpers.py](../../../../../tests/plan_first_transport_offer_grants_helpers.py) — direct import
 - [tests/reader_source_identity_guard_helpers.py](../../../../../tests/reader_source_identity_guard_helpers.py) — direct import
+- [tests/test_answer_door_sessions.py](../../../../../tests/test_answer_door_sessions.py) — direct import
+  - `test_outbox_retry_binds_once_and_an_ended_sessions_retry_is_refused_by_the_door`
 - [tests/test_apply_recovery.py](../../../../../tests/test_apply_recovery.py) — direct import
   - `test_the_book_cards_undo_is_refused_before_it_changes_anything`
 - [tests/test_build_study_map_routing.py](../../../../../tests/test_build_study_map_routing.py) — direct import

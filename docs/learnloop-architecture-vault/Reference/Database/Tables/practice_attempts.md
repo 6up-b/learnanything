@@ -22,9 +22,10 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/material_view.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/adaptive_difficulty/scoring.py"
+  - "src/learnloop/adaptive_difficulty/surprise_forecast.py"
   - "src/learnloop/algorithm_versions.py"
-  - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/attempts/attempt_trace.py"
+  - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/attempts/calibration_streams.py"
   - "src/learnloop/attempts/clarification.py"
   - "src/learnloop/attempts/coldness_receipt.py"
@@ -195,6 +196,7 @@ Database triggers:
 
 - `src/learnloop/adaptive_difficulty/data_check.py`
 - `src/learnloop/adaptive_difficulty/material_view.py`
+- `src/learnloop/adaptive_difficulty/surprise_forecast.py`
 - `src/learnloop/attempts/stuck.py`
 - `src/learnloop/capture/report.py`
 - `src/learnloop/confidence_events.py`

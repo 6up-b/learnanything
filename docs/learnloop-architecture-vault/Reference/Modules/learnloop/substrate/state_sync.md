@@ -154,6 +154,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ad_guard.py](../../../../../../tests/test_ad_guard.py) — direct import
   - `test_incumbent_maintenance_and_vault_loads_never_run_inside_an_operation`
 - [tests/test_agent_run_tokens.py](../../../../../../tests/test_agent_run_tokens.py) — direct import
+- [tests/test_answer_door_sessions.py](../../../../../../tests/test_answer_door_sessions.py) — direct import
 - [tests/test_anti_double_count.py](../../../../../../tests/test_anti_double_count.py) — direct import
 - [tests/test_assessment_contracts.py](../../../../../../tests/test_assessment_contracts.py) — direct import
   - `test_mvp07_attempt_stamps_observation_lineage`
@@ -416,6 +417,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_same_second_order.py](../../../../../../tests/test_same_second_order.py) — direct import
 - [tests/test_scoreboard.py](../../../../../../tests/test_scoreboard.py) — direct import
 - [tests/test_selected_forecast.py](../../../../../../tests/test_selected_forecast.py) — direct import
+  - `test_a_bound_answer_without_a_grade_receipt_reads_mastery_live_and_after_a_rebuild`
   - `test_a_grade_saves_no_item_revision_and_an_answer_on_its_contract_is_still_forecast`
   - `test_an_answer_to_its_own_presentation_after_an_edit_keeps_the_link_and_reads_mastery`
   - `test_another_sessions_presentation_is_left_for_its_answer`
