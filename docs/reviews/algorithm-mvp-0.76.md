@@ -39,15 +39,12 @@ The successor of mvp-0.75 for the review-round-3 fixes that change what is deriv
   the recorded mass. Test:
   `tests/test_data_capture_a6_delayed_pick.py::test_each_landed_nodes_retention_forecast_targets_the_item_it_is_committed`
   (both sides of the tag).
-- FR3-5 (class 6, the cutoff guard): the grade-time forecast's later-evidence guard runs in the forecast's own read
-  snapshot and through adaptive difficulty's view (`MaterialView.grade_known_after`, `cutoff_reads_the_view`): only
-  the visible answers the forecast read count, by the time their grade became known (their current grading rows'
-  and latest adjudication's recording time). Up to mvp-0.75 the caller read the newest raw grade event of any item,
-  held-out ones included, on its own connection: a later held-out grade withheld an unrelated public answer's
-  forecast (a copy with protected material differed from one without), and a regrade's replacement event, dated at
-  the regraded answer's time, let the corrected score into an earlier-dated forecast. A live forecast decision (which
-  answers get a grade-time receipt); replay reads the stored receipts. Tests:
-  `tests/test_answered_revision_protection.py::test_a_later_held_out_grade_does_not_change_an_unrelated_public_answers_forecast`,
+- FR3-5's timing half (class 6, the cutoff guard): from the tag the grade-time forecast's later-evidence guard counts
+  only the visible answers the forecast read, by the time their grade became known (their current grading rows' and
+  latest adjudication's recording time; `MaterialView.grade_known_after`, `cutoff_reads_the_view`). Up to mvp-0.75 it
+  compares the time each raw grade event carries, so a regrade's replacement event, dated at the regraded answer's
+  time, let the corrected score into an earlier-dated forecast. A live forecast decision (which answers get a
+  grade-time receipt); replay reads the stored receipts. Test:
   `tests/test_surprise_reads_ad_forecast.py::test_a_later_regrade_never_enters_an_earlier_forecast` (both sides of the
   tag).
 
@@ -71,6 +68,12 @@ The successor of mvp-0.75 for the review-round-3 fixes that change what is deriv
   not an older one the restored client sends (the older one is never consumed). The attempt stores the presentation
   it bound and replay reads it, so the decision is the live one on both sides. Test:
   `tests/test_answer_door_sessions.py::test_a_restored_drafts_checkpoint_wins_over_an_older_presentation_it_sends`.
+- FR3-5's protection half, at every tag: the guard runs in the forecast's own read snapshot, through adaptive
+  difficulty's view, so a held-out answer's grade never withholds a public answer's forecast (below the tag
+  `MaterialView.raw_grade_after` reads the raw grade events of visible attempts only; before, the caller read every raw
+  grade on its own connection, and a copy with protected material differed from one without). Test:
+  `tests/test_answered_revision_protection.py::test_a_later_held_out_grade_does_not_change_an_unrelated_public_answers_forecast`
+  (mvp-0.75 and 0.76, against the absent copy).
 
 ## Pins and goldens
 

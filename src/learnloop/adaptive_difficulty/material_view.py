@@ -1087,6 +1087,24 @@ class MaterialView:
                 return True
         return False
 
+    def raw_grade_after(self, connection: Any, at: Any) -> bool:
+        """Whether a raw grade event of a visible attempt carries a time after ``at`` (below the outcome fixes' tag the
+        grade-time forecast's later-evidence guard, by the time the event carries). Only visible attempts are read, at
+        every tag (FR3-5's protection half): a held-out answer's grade never withholds a public answer's forecast, so a
+        copy with protected material answers as one without."""
+
+        if not self.available or not _has_table(connection, "raw_grade_events"):
+            return False
+        visible = sorted({str(row["id"]) for row in self.attempts(connection)})
+        for start in range(0, len(visible), 500):
+            chunk = visible[start:start + 500]
+            marks = ",".join("?" for _ in chunk)
+            (latest,) = connection.execute(f"/* ad-rules */ SELECT MAX(created_at) FROM raw_grade_events "
+                                           f"WHERE attempt_id IN ({marks})", chunk).fetchone()
+            if latest is not None and str(latest) > str(at):
+                return True
+        return False
+
     def revision_withheld(self, connection: Any, content_hash: str | None, practice_item_id: Any = None) -> bool:
         """Whether a revision named by hash (and its item id, when known) is withheld now."""
 

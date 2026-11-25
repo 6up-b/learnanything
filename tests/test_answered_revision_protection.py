@@ -7,6 +7,8 @@ import json
 from contextlib import closing
 from datetime import timedelta
 
+import pytest
+
 from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.vault.loader import load_vault
@@ -100,16 +102,20 @@ def test_a_presentation_after_a_grade_froze_its_contract_saves_the_revision_it_s
     assert receipt is not None and receipt[0] == shown and alone_receipt == receipt
 
 
-def test_a_later_held_out_grade_does_not_change_an_unrelated_public_answers_forecast(tmp_path, monkeypatch):
-    """FR3-5: the grade-time forecast's later-evidence guard reads only what adaptive difficulty may see. A held-out
-    item's answer recorded after a public answer's time (its grade is newer than every public one) leaves the public
-    answer's grade-time forecast exactly as in a copy without the held-out answer (failed before: the guard read the
-    newest raw grade of any item, held-out included, so the public answer got no forecast and read mastery)."""
+@pytest.mark.parametrize("tag", ["mvp-0.75", "mvp-0.76"])
+def test_a_later_held_out_grade_does_not_change_an_unrelated_public_answers_forecast(tmp_path, monkeypatch, tag):
+    """FR3-5's protection half, at every tag: the grade-time forecast's later-evidence guard reads only what adaptive
+    difficulty may see. A held-out item's answer recorded after a public answer's time (its grade is newer than every
+    public one) leaves the public answer's grade-time forecast exactly as in a copy without the held-out answer
+    (failed before: the guard read the newest raw grade of any item, held-out included, so the public answer got no
+    forecast and read mastery)."""
 
     from tests.ad23_contract_helpers import _copy_item
+    from tests.helpers import set_algorithm_version
 
     def run(root, *, protected: bool):
         paths = _base(root)
+        set_algorithm_version(paths, tag)
         _copy_item(paths, "pi_p1", "pi_held_fr3", canonical_exercise={
             "source_id": "src_r9", "extraction_id": EXT, "span_ids": ["h1"]})
         if protected:
