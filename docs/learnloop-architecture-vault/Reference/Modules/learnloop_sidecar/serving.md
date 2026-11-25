@@ -50,35 +50,35 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/serving.py](../../../../../src/learnloop_sidecar/serving.py) |
-| Source lines | 278 |
+| Source lines | 273 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `device_policy(vault: Any, origin: RequestOrigin | None=None) -> str` ([source](../../../../../src/learnloop_sidecar/serving.py), line 65) — The rules a phone request is served under, for the router's inputs: a new rule set is a new name, so a phone whose host has its Reader on (mobile v2 §2.3, V4) names ``device_eligibility_v2``.
-- `origin_ineligibility(origin: RequestOrigin | None, vault: Any, item: Any) -> str | None` ([source](../../../../../src/learnloop_sidecar/serving.py), line 74) — Why the request's device cannot answer ``item``; never asked for the desktop.
-- `device_filter(origin: RequestOrigin | None, vault: Any, repository: Any=None, session_id: str | None=None) -> DeviceFilter | None` ([source](../../../../../src/learnloop_sidecar/serving.py), line 94) — What a queue build holds back for the request's device (§6.4, D6).
-- `refuse_device_ineligible_item(origin: RequestOrigin | None, vault: Any, item: Any) -> None` ([source](../../../../../src/learnloop_sidecar/serving.py), line 116) — A by-id door (§6.4): a stale list, a deep link or a restored session cannot bring the phone an item it cannot show.
-- `refuse_inactive_learning_object(vault: LoadedVault, learning_object_id: str | None) -> None` ([source](../../../../../src/learnloop_sidecar/serving.py), line 129)
-- `refuse_generated_probe_door(ctx_origin: RequestOrigin | None, repository: Any, item: PracticeItem, *, serve: bool, phone_probes: bool=False, owned: Callable[[], None] | None=None) -> None` ([source](../../../../../src/learnloop_sidecar/serving.py), line 151) — FG1 §4.2: every serve door for a generated probe, before its text leaves.
-- `refuse_unservable_item(vault: LoadedVault, item: PracticeItem) -> None` ([source](../../../../../src/learnloop_sidecar/serving.py), line 245) — The item-level door: its LO's refusal, then the adoption kill switch.
-- `refuse_held_out_item(vault: LoadedVault, repository: Any, item: PracticeItem) -> None` ([source](../../../../../src/learnloop_sidecar/serving.py), line 259) — A session serve of an item reserved for a goal's held-out exam, or made from held-out material, is refused.
+- `device_policy(vault: Any, origin: RequestOrigin | None=None) -> str` ([source](../../../../../src/learnloop_sidecar/serving.py), line 59) — The rules a phone request is served under, for the router's inputs: a new rule set is a new name, so a phone whose host has its Reader on (mobile v2 §2.3, V4) names ``device_eligibility_v2``.
+- `origin_ineligibility(origin: RequestOrigin | None, vault: Any, item: Any) -> str | None` ([source](../../../../../src/learnloop_sidecar/serving.py), line 68) — Why the request's device cannot answer ``item``; never asked for the desktop.
+- `device_filter(origin: RequestOrigin | None, vault: Any, repository: Any=None, session_id: str | None=None) -> DeviceFilter | None` ([source](../../../../../src/learnloop_sidecar/serving.py), line 88) — What a queue build holds back for the request's device (§6.4, D6).
+- `refuse_device_ineligible_item(origin: RequestOrigin | None, vault: Any, item: Any) -> None` ([source](../../../../../src/learnloop_sidecar/serving.py), line 110) — A by-id door (§6.4): a stale list, a deep link or a restored session cannot bring the phone an item it cannot show.
+- `refuse_inactive_learning_object(vault: LoadedVault, learning_object_id: str | None) -> None` ([source](../../../../../src/learnloop_sidecar/serving.py), line 123)
+- `refuse_generated_probe_door(ctx_origin: RequestOrigin | None, repository: Any, item: PracticeItem, *, serve: bool, phone_probes: bool=False, owned: Callable[[], None] | None=None) -> None` ([source](../../../../../src/learnloop_sidecar/serving.py), line 145) — FG1 §4.2: every serve door for a generated probe, before its text leaves.
+- `refuse_unservable_item(vault: LoadedVault, item: PracticeItem) -> None` ([source](../../../../../src/learnloop_sidecar/serving.py), line 239) — The item-level door: its LO's refusal, then the adoption kill switch.
+- `refuse_held_out_item(vault: LoadedVault, repository: Any, item: PracticeItem) -> None` ([source](../../../../../src/learnloop_sidecar/serving.py), line 253) — A session serve of an item reserved for a goal's held-out exam, or made from held-out material, is refused.
 
 ### Module constants
 
-- `DESKTOP_ONLY_ERROR_CODE` ([src/learnloop_sidecar/serving.py](../../../../../src/learnloop_sidecar/serving.py), line 55)
-- `INACTIVE_LEARNING_OBJECT_ERROR_CODE` ([src/learnloop_sidecar/serving.py](../../../../../src/learnloop_sidecar/serving.py), line 56)
-- `HELD_OUT_MATERIAL_ERROR_CODE` ([src/learnloop_sidecar/serving.py](../../../../../src/learnloop_sidecar/serving.py), line 57)
-- `EXAM_RESERVED_ERROR_CODE` ([src/learnloop_sidecar/serving.py](../../../../../src/learnloop_sidecar/serving.py), line 58)
+- `DESKTOP_ONLY_ERROR_CODE` ([src/learnloop_sidecar/serving.py](../../../../../src/learnloop_sidecar/serving.py), line 49)
+- `INACTIVE_LEARNING_OBJECT_ERROR_CODE` ([src/learnloop_sidecar/serving.py](../../../../../src/learnloop_sidecar/serving.py), line 50)
+- `HELD_OUT_MATERIAL_ERROR_CODE` ([src/learnloop_sidecar/serving.py](../../../../../src/learnloop_sidecar/serving.py), line 51)
+- `EXAM_RESERVED_ERROR_CODE` ([src/learnloop_sidecar/serving.py](../../../../../src/learnloop_sidecar/serving.py), line 52)
 
 ## Internal implementation anchors
 
-- `_device_rules_on(vault: Any) -> bool` ([source](../../../../../src/learnloop_sidecar/serving.py), line 61)
-- `_media_served(origin: RequestOrigin | None, vault: Any, repository: Any=None) -> Any` ([source](../../../../../src/learnloop_sidecar/serving.py), line 83) — Mobile v2 V4 (Codex review F10): the host's own page and asset predicate, which the phone's media lift asks, so an item is admitted only with a stimulus the host then serves.
-- `_claim_refusal(repository: Any, practice_item_id: str, row: Any, *, surface: str, owned: Callable[[], None] | None=None) -> str | None` ([source](../../../../../src/learnloop_sidecar/serving.py), line 218) — The atomic claim, against the presentation actually open for this item, not the id a caller or a workflow row remembers (it may have ended, and an absent one is no wildcard).
-- `_claim(repository: Any, practice_item_id: str, row: Any, *, surface: str) -> str | None` ([source](../../../../../src/learnloop_sidecar/serving.py), line 233)
+- `_device_rules_on(vault: Any) -> bool` ([source](../../../../../src/learnloop_sidecar/serving.py), line 55)
+- `_media_served(origin: RequestOrigin | None, vault: Any, repository: Any=None) -> Any` ([source](../../../../../src/learnloop_sidecar/serving.py), line 77) — Mobile v2 V4 (Codex review F10): the host's own page and asset predicate, which the phone's media lift asks, so an item is admitted only with a stimulus the host then serves.
+- `_claim_refusal(repository: Any, practice_item_id: str, row: Any, *, surface: str, owned: Callable[[], None] | None=None) -> str | None` ([source](../../../../../src/learnloop_sidecar/serving.py), line 212) — The atomic claim, against the presentation actually open for this item, not the id a caller or a workflow row remembers (it may have ended, and an absent one is no wildcard).
+- `_claim(repository: Any, practice_item_id: str, row: Any, *, surface: str) -> str | None` ([source](../../../../../src/learnloop_sidecar/serving.py), line 227)
 
 ## Who imports or calls it
 
@@ -95,7 +95,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/content/sources/exam_material|learnloop.content.sources.exam_material]] — imports `HELD_OUT_ITEM_REFUSAL`, `exam_reserved`, `held_out_item_ids`, `held_out_selection_active`, `surface_material`; calls `exam_reserved`, `held_out_item_ids`, `held_out_selection_active`, `surface_material`
+- [[Reference/Modules/learnloop/content/sources/exam_material|learnloop.content.sources.exam_material]] — imports `EXAM_RESERVED`, `HELD_OUT_ITEM_REFUSAL`, `serve_refusals`; calls `serve_refusals`
 - [[Reference/Modules/learnloop/followup_serve/gates|learnloop.followup_serve.gates]] — imports `PHONE_SURFACE`, `SERVING_SURFACE`
 - [[Reference/Modules/learnloop/followup_serve/identity|learnloop.followup_serve.identity]] — imports `module`; calls `claim_serve`, `closed_probe_ids`, `door_refusal`, `is_generated_probe`
 - [[Reference/Modules/learnloop/followup_serve/workflow|learnloop.followup_serve.workflow]] — imports `module`; calls `retire_waiting`, `waiting_still_valid`, `workflow_of_item`

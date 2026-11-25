@@ -115,6 +115,7 @@ None found by exact static reference scan.
 - `tests/test_ih3_phone_host.py`
 - `tests/test_ih4_preferences_inform_router.py`
 - `tests/test_ih7_lesson_sources_follow_diagnosis.py`
+- `tests/test_probe_router_episode_owner.py`
 - `tests/test_reader_rd4_carried_and_proposals.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

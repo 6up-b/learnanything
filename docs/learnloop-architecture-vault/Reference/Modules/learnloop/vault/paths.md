@@ -179,6 +179,7 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 - [[Reference/Modules/learnloop/substrate/shadow_rebuild|learnloop.substrate.shadow_rebuild]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/tui/state|learnloop.tui.state]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/tutor/promotions|learnloop.tutor.promotions]] — imports `VaultPaths`; statically calls `VaultPaths`
+- [[Reference/Modules/learnloop/vault/copy_locators|learnloop.vault.copy_locators]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/vault/embedding_recipes|learnloop.vault.embedding_recipes]] — imports `VaultPaths`; statically calls `VaultPaths`
 - [[Reference/Modules/learnloop/vault/loader|learnloop.vault.loader]] — imports `VaultPaths`, `find_vault_root`; statically calls `VaultPaths`, `find_vault_root`
 - [[Reference/Modules/learnloop/vault/repository|learnloop.vault.repository]] — imports `VaultPaths`; statically calls `VaultPaths`
@@ -215,7 +216,7 @@ Use this module in context through:
 
 - [[Initialize a Vault]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/bootstrap|learnloop.bootstrap]], [[Reference/Modules/learnloop/cli/ad|learnloop.cli.ad]], [[Reference/Modules/learnloop/cli/ai|learnloop.cli.ai]], [[Reference/Modules/learnloop/cli/ai_compare|learnloop.cli.ai_compare]], [[Reference/Modules/learnloop/cli/curriculum|learnloop.cli.curriculum]] and 94 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/bootstrap|learnloop.bootstrap]], [[Reference/Modules/learnloop/cli/ad|learnloop.cli.ad]], [[Reference/Modules/learnloop/cli/ai|learnloop.cli.ai]], [[Reference/Modules/learnloop/cli/ai_compare|learnloop.cli.ai_compare]], [[Reference/Modules/learnloop/cli/curriculum|learnloop.cli.curriculum]] and 95 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

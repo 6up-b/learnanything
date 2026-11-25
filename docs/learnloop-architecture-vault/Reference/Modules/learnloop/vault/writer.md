@@ -119,6 +119,7 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 - [[Reference/Modules/learnloop/reader/reader_quick_check|learnloop.reader.reader_quick_check]] — imports `upsert_practice_item`; statically calls `upsert_practice_item`
 - [[Reference/Modules/learnloop/teacher/checks|learnloop.teacher.checks]] — imports `upsert_practice_item`; statically calls `upsert_practice_item`
 - [[Reference/Modules/learnloop/tutor/teach_back|learnloop.tutor.teach_back]] — imports `upsert_practice_item`; statically calls `upsert_practice_item`
+- [[Reference/Modules/learnloop/vault/copy_locators|learnloop.vault.copy_locators]] — imports `upsert_practice_item`; statically calls `upsert_practice_item`
 - [[Reference/Modules/learnloop_sidecar/handlers/ingest|learnloop_sidecar.handlers.ingest]] — imports `upsert_source_set`; statically calls `upsert_source_set`
 
 ## Dependencies
@@ -148,7 +149,7 @@ Use this module in context through:
 
 - [[Initialize a Vault]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]], [[Reference/Modules/learnloop/cli/source_set|learnloop.cli.source_set]], [[Reference/Modules/learnloop/content/authoring/exercise_authoring|learnloop.content.authoring.exercise_authoring]], [[Reference/Modules/learnloop/content/authoring/item_authoring|learnloop.content.authoring.item_authoring]], [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] and 18 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]], [[Reference/Modules/learnloop/cli/source_set|learnloop.cli.source_set]], [[Reference/Modules/learnloop/content/authoring/exercise_authoring|learnloop.content.authoring.exercise_authoring]], [[Reference/Modules/learnloop/content/authoring/item_authoring|learnloop.content.authoring.item_authoring]], [[Reference/Modules/learnloop/content/pipeline/add_source|learnloop.content.pipeline.add_source]] and 19 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -345,6 +346,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_session_cap_blocks_further_probe_serving`
 - [tests/test_probe_pool_empty.py](../../../../../../tests/test_probe_pool_empty.py) — direct import
 - [tests/test_probe_remint.py](../../../../../../tests/test_probe_remint.py) — direct import
+- [tests/test_probe_router_protection.py](../../../../../../tests/test_probe_router_protection.py) — direct import
+  - `test_a_copy_kept_before_the_fix_is_named_by_doctor_and_repaired_by_fix_state`
 - [tests/test_probe_surface_mint.py](../../../../../../tests/test_probe_surface_mint.py) — direct import
   - `test_mint_refuses_a_surface_group_the_learner_has_seen`
 - [tests/test_projection_timeline_agreement.py](../../../../../../tests/test_projection_timeline_agreement.py) — direct import

@@ -215,6 +215,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_menus_verbs_agree_with_their_destinations_and_the_classic_reader`
 - [tests/test_plan_follows_path.py](../../../../../../../tests/test_plan_follows_path.py) — direct import
   - `test_the_path_never_opens_a_held_out_section_even_where_dl1s_exact_selection_would`
+- [tests/test_probe_router_protection.py](../../../../../../../tests/test_probe_router_protection.py) — direct import
+  - `test_a_copy_kept_before_the_fix_is_named_by_doctor_and_repaired_by_fix_state`
+  - `test_a_kept_copy_is_protected_when_its_passage_is_held_out_later`
+  - `test_a_probe_made_from_held_out_material_is_not_kept_as_practice`
 - [tests/test_protection_surface_matrix.py](../../../../../../../tests/test_protection_surface_matrix.py) — direct import
 - [tests/test_reader_cues.py](../../../../../../../tests/test_reader_cues.py) — direct import
   - `test_a_cue_on_held_out_material_cannot_be_tapped`

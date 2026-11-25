@@ -463,6 +463,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_sidecar_rpcs`
 - [tests/test_probe_router_decision_integrity.py](../../../../../tests/test_probe_router_decision_integrity.py) — direct import
   - `test_r12_a_factor_that_is_not_the_causes_is_refused`
+- [tests/test_probe_router_episode_owner.py](../../../../../tests/test_probe_router_episode_owner.py) — direct import
+  - `test_a_rejected_teach_me_now_records_no_consent_on_any_factor`
+- [tests/test_probe_router_protection.py](../../../../../tests/test_probe_router_protection.py) — direct import
+  - `test_a_pin_held_out_after_it_was_accepted_is_never_marked_served_by_the_contract_request`
 - [tests/test_protection_surface_matrix.py](../../../../../tests/test_protection_surface_matrix.py) — direct import
   - `test_a_completed_pinned_answer_is_refused_once_its_passage_is_held_out`
   - `test_a_completed_pinned_answer_is_refused_when_protection_cannot_be_read`

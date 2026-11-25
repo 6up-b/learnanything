@@ -18,11 +18,11 @@ source_paths:
   - "migrations/275_writer_fence.sql"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/content/pipeline/jobs.py"
+  - "src/learnloop/daily_plan/probe_continuation.py"
   - "src/learnloop/db/connection.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/writer_fence.py"
-  - "src/learnloop/ops/upgrades.py"
-  - "src/learnloop/remote/errors.py"
+  - "src/learnloop/diagnosis/probe_offer.py"
   - "src/learnloop/projects/experiment_store.py"
 tags:
   - "learnloop/database/table"
@@ -102,6 +102,7 @@ None found by exact static reference scan.
 - `tests/test_architecture.py`
 - `tests/test_connection_reuse.py`
 - `tests/test_mcp_tools.py`
+- `tests/test_probe_router_episode_owner.py`
 - `tests/test_sidecar_contract.py`
 - `tests/test_writer_fence.py`
 - `tests/test_writer_fence_recovery.py`

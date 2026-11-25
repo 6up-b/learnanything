@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/causal_orchestrator.py](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py) |
-| Source lines | 1468 |
+| Source lines | 1484 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -65,9 +65,10 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
   - `repair_permitted(self) -> bool` (line 350; public) — True when the causal state allows the targeted repair to run.
   - `as_dict(self) -> dict[str, Any]` (line 360; public)
 - `causal_repair_status(vault: LoadedVault | None, repository: Repository, *, misconception_id: str, session_id: str | None=None, session_budget_minutes: float | None=None, start_repair: bool=True, clock: Clock | None=None, record_receipt: bool=True, factor_id: str | None=None, attempt_id: str | None=None) -> RepairStatus` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 472) — Resolve — and where safe, START — the repair for one cause.
-- `repair_classes_for_factor(repository: Repository, factor_id: str) -> dict[str, str]` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 674) — Each hypothesis's repair class on the factor's classified cause set, as the repair status reads it (empty for a factor that is not open or names no repair class).
-- `gather_probe_reads(repository: Repository, *, factor_id: str, attempt_id: str | None, learning_object_id: str | None, session_id: str | None, targeting: Any, repair_class_by_hypothesis: Mapping[str, str], parameters: OrchestratorParameters) -> ProbeProposalReads` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 686) — What the repair status reads about the factor's possible probe, after its mapping checks are settled.
-- `candidate_unservable(vault: Any, repository: Repository, candidate: Mapping[str, Any] | None) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 1287) — Why the quick check on ``candidate`` could not be administered now, or None: the executability read the router draws on and the status reads back.
+- `validate_shown_factor(repository: Repository, *, misconception_id: str, factor_id: str) -> None` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 651) — Raise :class:`CausalRepairError` unless ``factor_id`` is the factor the status of ``misconception_id`` can show: the durable misconception's case factor, or one of the provisional cause's open factors (``_requested_factor``).
+- `repair_classes_for_factor(repository: Repository, factor_id: str) -> dict[str, str]` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 691) — Each hypothesis's repair class on the factor's classified cause set, as the repair status reads it (empty for a factor that is not open or names no repair class).
+- `gather_probe_reads(repository: Repository, *, factor_id: str, attempt_id: str | None, learning_object_id: str | None, session_id: str | None, targeting: Any, repair_class_by_hypothesis: Mapping[str, str], parameters: OrchestratorParameters) -> ProbeProposalReads` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 703) — What the repair status reads about the factor's possible probe, after its mapping checks are settled.
+- `candidate_unservable(vault: Any, repository: Repository, candidate: Mapping[str, Any] | None) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 1304) — Why the quick check on ``candidate`` could not be administered now, or None: the executability read the router draws on, the status reads back and acceptance asks again.
 
 ### Module constants
 
@@ -88,7 +89,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `CAUSAL_ORCHESTRATOR_POLICY_DEFAULTS` ([src/learnloop/diagnosis/causal_orchestrator.py](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 232)
 - `_ORCHESTRATOR_POLICY_BOUNDS` ([src/learnloop/diagnosis/causal_orchestrator.py](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 243)
 - `_UNCOMMITTED_REPAIR_STATES` ([src/learnloop/diagnosis/causal_orchestrator.py](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 424)
-- `ROUTER_DECIDES` ([src/learnloop/diagnosis/causal_orchestrator.py](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 1284)
+- `ROUTER_DECIDES` ([src/learnloop/diagnosis/causal_orchestrator.py](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 1301)
 
 ### Explicit exports
 
@@ -113,9 +114,9 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `_with_reveal_spend(repository: Repository, status: RepairStatus) -> RepairStatus` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 393) — Stamp the episode's reveal spend and the budget it is measured against.
 - `_episode_for(repository: Repository, *, case_kind: str, case_ref: str, clock: Clock | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 427) — The repair episode for this case — reused, not re-minted.
 - `_actions(status: str, *, offered: bool) -> tuple[RepairAction, ...]` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 458)
-- `_requested_factor(factors: Sequence[Mapping[str, Any]], *, factor_id: str | None, attempt_id: str | None) -> Mapping[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 651) — The open factor the caller shows.
-- `_status_for_factor(repository: Repository, *, misconception_id: str, factor: Mapping[str, Any], session_id: str | None, session_budget_minutes: float | None, start_repair: bool, clock: Clock | None, vault: LoadedVault | None=None, record_receipt: bool=True) -> RepairStatus` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 847) — Map a factor to repair status after machine checks and probe valuation.
-- `_routed(repository: Repository, *, vault: Any, finish: Any, reads: ProbeProposalReads, base_inputs: Mapping[str, Any], session_budget_minutes: float | None, start_repair: bool, proposal: Mapping[str, Any]) -> RepairStatus` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 1307) — The probe router's tag: the facts settle what they settle, and whether the quick check is offered is the router's decision, read back here (``plan_log.learner_probe_decision``), never formed here.
+- `_requested_factor(factors: Sequence[Mapping[str, Any]], *, factor_id: str | None, attempt_id: str | None) -> Mapping[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 668) — The open factor the caller shows.
+- `_status_for_factor(repository: Repository, *, misconception_id: str, factor: Mapping[str, Any], session_id: str | None, session_budget_minutes: float | None, start_repair: bool, clock: Clock | None, vault: LoadedVault | None=None, record_receipt: bool=True) -> RepairStatus` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 864) — Map a factor to repair status after machine checks and probe valuation.
+- `_routed(repository: Repository, *, vault: Any, finish: Any, reads: ProbeProposalReads, base_inputs: Mapping[str, Any], session_budget_minutes: float | None, start_repair: bool, proposal: Mapping[str, Any]) -> RepairStatus` ([source](../../../../../../src/learnloop/diagnosis/causal_orchestrator.py), line 1323) — The probe router's tag: the facts settle what they settle, and whether the quick check is offered is the router's decision, read back here (``plan_log.learner_probe_decision``), never formed here.
 
 ## Who imports or calls it
 
@@ -125,7 +126,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/daily_plan/learner_probe|learnloop.daily_plan.learner_probe]] — imports `ROUTER_DECIDES`, `causal_repair_status`; statically calls `causal_repair_status`
 - [[Reference/Modules/learnloop/daily_plan/probe_continuation|learnloop.daily_plan.probe_continuation]] — imports `repair_classes_for_factor`, `resolve_orchestrator_parameters`; statically calls `repair_classes_for_factor`, `resolve_orchestrator_parameters`
 - [[Reference/Modules/learnloop/diagnosis/followups|learnloop.diagnosis.followups]] — imports `SAFE_COMMON_REPAIR_MESSAGE`, `causal_repair_status`; statically calls `causal_repair_status`
-- [[Reference/Modules/learnloop/diagnosis/probe_offer|learnloop.diagnosis.probe_offer]] — imports `RepairStatus`, `causal_repair_status`; statically calls `causal_repair_status`
+- [[Reference/Modules/learnloop/diagnosis/probe_offer|learnloop.diagnosis.probe_offer]] — imports `RepairStatus`, `causal_repair_status`, `validate_shown_factor`; statically calls `causal_repair_status`, `validate_shown_factor`
 - [[Reference/Modules/learnloop/diagnosis/remediation|learnloop.diagnosis.remediation]] — imports `causal_repair_status`; statically calls `causal_repair_status`
 - [[Reference/Modules/learnloop_sidecar/handlers/remediation|learnloop_sidecar.handlers.remediation]] — imports `causal_repair_status`; statically calls `causal_repair_status`
 
@@ -141,7 +142,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/diagnosis/causal_reads|learnloop.diagnosis.causal_reads]] — imports `CAUSAL_ORCHESTRATOR_FORMULA_VERSION`, `CausalRepairError`, `_avoided_overteaching_minutes`, `_case_repair_class_id`, `_discrimination_inputs`, `_durable_case_factor`, `_probe_burden_minutes`, `_recent_diagnostic_burden`, `_repair_class_by_hypothesis`, `_unmapped_case_obligation`, `diagnosis_receipt`, `open_factors_for_hypothesis`; calls `CausalRepairError`, `_avoided_overteaching_minutes`, `_case_repair_class_id`, `_discrimination_inputs`, `_durable_case_factor`, `_probe_burden_minutes`, `_recent_diagnostic_burden`, `_repair_class_by_hypothesis`, `_unmapped_case_obligation`, `diagnosis_receipt`, `open_factors_for_hypothesis`
 - [[Reference/Modules/learnloop/diagnosis/learner_probe_proposal|learnloop.diagnosis.learner_probe_proposal]] — imports `Proposal`; calls `Proposal`
 - [[Reference/Modules/learnloop/diagnosis/machine_checks|learnloop.diagnosis.machine_checks]] — imports `backfill_obligation`, `close_satisfied_backfills`, `enqueue_backfill_obligation`, `pending_machine_checks_for_factor`; calls `backfill_obligation`, `close_satisfied_backfills`, `enqueue_backfill_obligation`, `pending_machine_checks_for_factor`
-- [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `module`; calls `administered_surface_exclusions`, `surface_group_id`
+- [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `module`; calls `item_refusals`
 - [[Reference/Modules/learnloop/diagnosis/probe_facts|learnloop.diagnosis.probe_facts]] — imports `ProbeProposalReads`, `REFUSING_PREFERENCES`, `channel_status`, `settled_by_repair_classes`; calls `ProbeProposalReads`, `channel_status`, `settled_by_repair_classes`
 - [[Reference/Modules/learnloop/diagnosis/probe_hard_stops|learnloop.diagnosis.probe_hard_stops]] — imports `EPISODE_CONFLICT_MESSAGE`, `learner_preference`, `probe_episode_conflict`; calls `learner_preference`, `probe_episode_conflict`
 - [[Reference/Modules/learnloop/diagnosis/probe_targeting|learnloop.diagnosis.probe_targeting]] — imports `CAUSE_SET_INCOMPLETE_MAPPING`, `MAPPING_BASIS_LEGACY_FACET`, `classify_cause_set`; calls `classify_cause_set`
@@ -204,6 +205,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_probe_router_learner_lane.py](../../../../../../tests/test_probe_router_learner_lane.py) — direct import
   - `test_a_status_read_decides_once_and_a_reread_draws_nothing_and_writes_no_receipt`
   - `test_one_repair_for_both_causes_settles_the_status_with_no_probe_to_decide`
+- [tests/test_probe_router_protection.py](../../../../../../tests/test_probe_router_protection.py) — direct import
+  - `test_the_learner_lanes_offer_never_names_a_protected_instrument`
 - [tests/test_probe_router_replay.py](../../../../../../tests/test_probe_router_replay.py) — direct import
 - [tests/test_remediation_cold_retry.py](../../../../../../tests/test_remediation_cold_retry.py) — direct import
   - `test_repair_status_reports_episode_reveal_spend_against_the_budget`

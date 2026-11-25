@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/daily_plan/probe_continuation.py](../../../../../../src/learnloop/daily_plan/probe_continuation.py) |
-| Source lines | 272 |
+| Source lines | 305 |
 | Owning package | [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -61,7 +61,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `requested(vault: Any, repository: Any) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/daily_plan/probe_continuation.py), line 108) — The router-owned episodes waiting on a continuation decision, oldest first.
 - `proposal(vault: Any, repository: Any, episode: Any) -> tuple[ContinuationProposal | None, Any, str | None]` ([source](../../../../../../src/learnloop/daily_plan/probe_continuation.py), line 129) — ``(proposal, the next eligible instrument, why none)`` for the episode's next observation: its top eligible instrument, on its posterior.
 - `decide(vault: Any, repository: Any, request: Mapping[str, Any], *, clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/daily_plan/probe_continuation.py), line 164) — Decide one waiting episode's next observation and record it with what it serves (the pinned next presentation, or the episode's stop), all in one transaction.
-- `run_pending(vault: Any, repository: Any, *, clock: Clock | None=None, max_jobs: int=100) -> list[str]` ([source](../../../../../../src/learnloop/daily_plan/probe_continuation.py), line 258) — The continuation job: decide each waiting episode once.
+- `run_pending(vault: Any, repository: Any, *, clock: Clock | None=None, max_jobs: int=100) -> list[str]` ([source](../../../../../../src/learnloop/daily_plan/probe_continuation.py), line 291) — The continuation job: decide each waiting episode once.
 
 ### Module constants
 
@@ -86,6 +86,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - `_observations(repository: Any, episode_id: str) -> int` ([source](../../../../../../src/learnloop/daily_plan/probe_continuation.py), line 73)
 - `_pins_of(repository: Any, episode_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/daily_plan/probe_continuation.py), line 77) — The episode's presentations by the router decision their pin names.
+- `_still_waiting(repository: Any, valued: Any, at: tuple[int, int]) -> Any` ([source](../../../../../../src/learnloop/daily_plan/probe_continuation.py), line 277) — The episode as it stands now when it is still the boundary that was valued (in progress, the same state segment, no presentation standing, the same observation count and redraw), else None.
 
 ## Who imports or calls it
 
@@ -103,10 +104,12 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `utc_now_iso`; calls `utc_now_iso`
 - [[Reference/Modules/learnloop/daily_plan/learner_probe|learnloop.daily_plan.learner_probe]] — imports `module`; calls `draw`, `information`, `instrument_items`, `value`
 - [[Reference/Modules/learnloop/daily_plan/measurement|learnloop.daily_plan.measurement]] — imports `module`; calls `freeze_followup`, `record`
+- [[Reference/Modules/learnloop/db/writer_fence|learnloop.db.writer_fence]] — imports `require_current`; calls `require_current`
 - [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] — imports `repair_classes_for_factor`, `resolve_orchestrator_parameters`; calls `repair_classes_for_factor`, `resolve_orchestrator_parameters`
 - [[Reference/Modules/learnloop/diagnosis/causal_reads|learnloop.diagnosis.causal_reads]] — imports `probe_burden_minutes`; calls `probe_burden_minutes`
 - [[Reference/Modules/learnloop/diagnosis/probe_blocks|learnloop.diagnosis.probe_blocks]] — imports `stop_on_router_decision`; calls `stop_on_router_decision`
-- [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `eligible_instruments`, `episode_posterior`, `router_selected_episode`; calls `eligible_instruments`, `episode_posterior`, `router_selected_episode`
+- [[Reference/Modules/learnloop/diagnosis/probe_completion|learnloop.diagnosis.probe_completion]] — imports `park_without_supply`; calls `park_without_supply`
+- [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `eligible_instruments`, `episode_hypothesis_set`, `episode_posterior`, `router_selected_episode`; calls `eligible_instruments`, `episode_hypothesis_set`, `episode_posterior`, `router_selected_episode`
 - [[Reference/Modules/learnloop/diagnosis/probe_hard_stops|learnloop.diagnosis.probe_hard_stops]] — imports `causal_origin_factor`; calls `causal_origin_factor`
 - [[Reference/Modules/learnloop/diagnosis/probe_presentations|learnloop.diagnosis.probe_presentations]] — imports `commit_presentation`; calls `commit_presentation`
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
@@ -134,7 +137,13 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_probe_router_continuation.py](../../../../../../tests/test_probe_router_continuation.py) — direct import
   - `test_a_pin_that_ended_unanswered_opens_a_new_boundary`
   - `test_below_the_tag_no_episode_waits_on_the_router`
+  - `test_the_continuation_answer_closes_its_block_by_its_pin_and_no_legacy_worth_gate_is_asked`
   - `test_the_router_decides_the_next_observation_once_with_its_exact_served_distribution`
+- [tests/test_probe_router_episode_owner.py](../../../../../../tests/test_probe_router_episode_owner.py) — direct import
+  - `test_a_stale_worker_commits_neither_arm_of_the_continuation`
+  - `test_an_exposed_answer_on_the_last_instrument_parks_the_episode_with_one_supply_request`
+  - `test_between_blocks_only_the_router_supplies_a_router_owned_episodes_next_question`
+  - `test_the_job_never_overwrites_the_learners_stop_made_while_it_valued`
 
 ## Modification guidance
 

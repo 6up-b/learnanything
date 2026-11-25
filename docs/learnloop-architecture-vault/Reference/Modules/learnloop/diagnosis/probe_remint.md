@@ -47,31 +47,30 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/probe_remint.py](../../../../../../src/learnloop/diagnosis/probe_remint.py) |
-| Source lines | 326 |
+| Source lines | 341 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class ProbeRemintError(ValueError)` ([source](../../../../../../src/learnloop/diagnosis/probe_remint.py), line 78) — Invalid remint request, with a stable code for the sidecar boundary.
-  - `__init__(self, code: str, message: str, *, details: dict[str, Any] | None=None)` (line 81; internal)
-- `remint_practice_mode(item: PracticeItem) -> str` ([source](../../../../../../src/learnloop/diagnosis/probe_remint.py), line 87) — Deterministic ordinary mode from the probe's shape.
-- `remint_attempt_types(item: PracticeItem) -> list[str]` ([source](../../../../../../src/learnloop/diagnosis/probe_remint.py), line 106) — The ordinary attempt-type set: the probe's own set minus the diagnostic administration type, with a real answering type guaranteed.
-- `existing_remint(vault: LoadedVault, source_practice_item_id: str) -> PracticeItem | None` ([source](../../../../../../src/learnloop/diagnosis/probe_remint.py), line 121) — The already-minted remint of this probe, if any (provenance query).
-- `remint_probe_as_practice_item(root: Path, vault: LoadedVault, repository: Repository, *, attempt_id: str, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/probe_remint.py), line 225) — Mint the ordinary practice-item copy of one administered probe.
+- `class ProbeRemintError(ValueError)` ([source](../../../../../../src/learnloop/diagnosis/probe_remint.py), line 79) — Invalid remint request, with a stable code for the sidecar boundary.
+  - `__init__(self, code: str, message: str, *, details: dict[str, Any] | None=None)` (line 82; internal)
+- `remint_practice_mode(item: PracticeItem) -> str` ([source](../../../../../../src/learnloop/diagnosis/probe_remint.py), line 88) — Deterministic ordinary mode from the probe's shape.
+- `remint_attempt_types(item: PracticeItem) -> list[str]` ([source](../../../../../../src/learnloop/diagnosis/probe_remint.py), line 107) — The ordinary attempt-type set: the probe's own set minus the diagnostic administration type, with a real answering type guaranteed.
+- `existing_remint(vault: LoadedVault, source_practice_item_id: str) -> PracticeItem | None` ([source](../../../../../../src/learnloop/diagnosis/probe_remint.py), line 122) — The already-minted remint of this probe, if any (provenance query).
+- `remint_probe_as_practice_item(root: Path, vault: LoadedVault, repository: Repository, *, attempt_id: str, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/probe_remint.py), line 230) — Mint the ordinary practice-item copy of one administered probe.
 
 ### Module constants
 
-- `_LOGGER` ([src/learnloop/diagnosis/probe_remint.py](../../../../../../src/learnloop/diagnosis/probe_remint.py), line 62)
-- `REMINT_ORIGIN` ([src/learnloop/diagnosis/probe_remint.py](../../../../../../src/learnloop/diagnosis/probe_remint.py), line 65)
-- `REMINT_TAG` ([src/learnloop/diagnosis/probe_remint.py](../../../../../../src/learnloop/diagnosis/probe_remint.py), line 68)
-- `DIAGNOSTIC_ONLY_TAGS` ([src/learnloop/diagnosis/probe_remint.py](../../../../../../src/learnloop/diagnosis/probe_remint.py), line 71)
-- `_NON_ANSWERING_ATTEMPT_TYPES` ([src/learnloop/diagnosis/probe_remint.py](../../../../../../src/learnloop/diagnosis/probe_remint.py), line 75)
+- `_LOGGER` ([src/learnloop/diagnosis/probe_remint.py](../../../../../../src/learnloop/diagnosis/probe_remint.py), line 64)
+- `REMINT_TAG` ([src/learnloop/diagnosis/probe_remint.py](../../../../../../src/learnloop/diagnosis/probe_remint.py), line 69)
+- `DIAGNOSTIC_ONLY_TAGS` ([src/learnloop/diagnosis/probe_remint.py](../../../../../../src/learnloop/diagnosis/probe_remint.py), line 72)
+- `_NON_ANSWERING_ATTEMPT_TYPES` ([src/learnloop/diagnosis/probe_remint.py](../../../../../../src/learnloop/diagnosis/probe_remint.py), line 76)
 
 ## Internal implementation anchors
 
-- `_remint_payload(source: PracticeItem, *, new_id: str, attempt_id: str, now_iso: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/probe_remint.py), line 140) — Mechanical copy of the probe's content + measurement contract.
+- `_remint_payload(source: PracticeItem, *, new_id: str, attempt_id: str, now_iso: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/probe_remint.py), line 141) — Mechanical copy of the probe's content + measurement contract.
 
 ## Who imports or calls it
 
@@ -85,10 +84,12 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 ### LearnLoop dependencies
 
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `utc_now_iso`; calls `utc_now_iso`
+- [[Reference/Modules/learnloop/content/sources/exam_material|learnloop.content.sources.exam_material]] — imports `serve_refusals`; calls `serve_refusals`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/followup_serve/identity|learnloop.followup_serve.identity]] — imports `is_generated_probe`; calls `is_generated_probe`
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
 - [[Reference/Modules/learnloop/substrate/canonical_projection|learnloop.substrate.canonical_projection]] — imports `surface_group_id`; calls `surface_group_id`
+- [[Reference/Modules/learnloop/vault/copy_locators|learnloop.vault.copy_locators]] — imports `REMINT_ORIGIN`, `source_locators`; calls `source_locators`
 - [[Reference/Modules/learnloop/vault/hashes|learnloop.vault.hashes]] — imports `practice_item_hash`; calls `practice_item_hash`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LoadedVault`, `PracticeItem`
 - [[Reference/Modules/learnloop/vault/writer|learnloop.vault.writer]] — imports `upsert_practice_item`; calls `upsert_practice_item`
@@ -116,6 +117,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_probe_remint.py](../../../../../../tests/test_probe_remint.py) — direct import
   - `test_remint_guards`
   - `test_remint_is_idempotent_and_points_at_the_existing_remint`
+- [tests/test_probe_router_protection.py](../../../../../../tests/test_probe_router_protection.py) — direct import
+  - `test_a_copy_kept_before_the_fix_is_named_by_doctor_and_repaired_by_fix_state`
+  - `test_a_kept_copy_is_protected_when_its_passage_is_held_out_later`
+  - `test_a_probe_made_from_held_out_material_is_not_kept_as_practice`
 - [tests/test_teacher_te2_probes.py](../../../../../../tests/test_teacher_te2_probes.py) — direct import
   - `test_a_probe_is_generated_once_served_cold_and_never_again`
 

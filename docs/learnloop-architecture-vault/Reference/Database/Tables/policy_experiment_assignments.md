@@ -113,6 +113,7 @@ None found by exact static reference scan.
 
 - `tests/test_probe_router.py`
 - `tests/test_probe_router_continuation.py`
+- `tests/test_probe_router_episode_owner.py`
 - `tests/test_probe_router_learner_lane.py`
 - `tests/test_randomization_layer.py`
 - `tests/test_ro5_landing.py`

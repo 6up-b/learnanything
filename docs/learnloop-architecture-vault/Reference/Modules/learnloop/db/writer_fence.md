@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/db/writer_fence.py](../../../../../../src/learnloop/db/writer_fence.py) |
-| Source lines | 390 |
+| Source lines | 421 |
 | Owning package | [[Reference/Modules/learnloop/db/_package|learnloop.db]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
@@ -78,7 +78,8 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - `register(connection: sqlite3.Connection, sqlite_path: Path | str, tags: frozenset[str]) -> frozenset[str]` ([source](../../../../../../src/learnloop/db/writer_fence.py), line 315) — Register the marker and ``tags`` (the checkout's one read of :func:`binding`) on a writable connection.
 - `recorded_tag(connection: sqlite3.Connection) -> str | None` ([source](../../../../../../src/learnloop/db/writer_fence.py), line 328) — The database's tag, or None while no fence-aware activation has set it (or before migration 275).
 - `advance(connection: sqlite3.Connection, *, predecessor: str, target: str, recorded_at: str) -> None` ([source](../../../../../../src/learnloop/db/writer_fence.py), line 338) — Move the database's tag from ``predecessor`` to ``target`` inside the activation's transaction (it commits with the activation's state and never before it), or raise :class:`FenceMismatch` when the database is at any other tag: a vault no fence-aware activation touched has no ro…
-- `is_refusal(error: BaseException) -> bool` ([source](../../../../../../src/learnloop/db/writer_fence.py), line 357) — Whether ``error`` is the fence's refusal of a write (nothing of the write was saved; a retry after the process reloads the vault runs under the vault's tag).
+- `require_current(connection: sqlite3.Connection) -> None` ([source](../../../../../../src/learnloop/db/writer_fence.py), line 368) — Refuse with :class:`WriterFenceRefusal` when the fence would refuse a write on this connection now: the triggers' own rule, asked as a statement.
+- `is_refusal(error: BaseException) -> bool` ([source](../../../../../../src/learnloop/db/writer_fence.py), line 387) — Whether ``error`` is the fence's refusal of a write (nothing of the write was saved; a retry after the process reloads the vault runs under the vault's tag).
 
 ### Module constants
 
@@ -93,6 +94,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - `_WRITING_UNDER` ([src/learnloop/db/writer_fence.py](../../../../../../src/learnloop/db/writer_fence.py), line 219)
 - `_OBSERVED` ([src/learnloop/db/writer_fence.py](../../../../../../src/learnloop/db/writer_fence.py), line 224)
 - `_OBSERVED_LOCK` ([src/learnloop/db/writer_fence.py](../../../../../../src/learnloop/db/writer_fence.py), line 225)
+- `_REFUSES` ([src/learnloop/db/writer_fence.py](../../../../../../src/learnloop/db/writer_fence.py), line 359)
 
 ### Explicit exports
 
@@ -120,6 +122,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - `recorded_tag`
 - `refusals`
 - `register`
+- `require_current`
 - `restored_scope`
 - `scoped`
 - `writing_under`
@@ -137,8 +140,10 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 
 - [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `module`
 - [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `module`
+- [[Reference/Modules/learnloop/daily_plan/probe_continuation|learnloop.daily_plan.probe_continuation]] — imports `require_current`; statically calls `require_current`
 - [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] — imports `module`; statically calls `binding`, `register`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `module`; statically calls `binding`, `bound`
+- [[Reference/Modules/learnloop/diagnosis/probe_offer|learnloop.diagnosis.probe_offer]] — imports `require_current`; statically calls `require_current`
 - [[Reference/Modules/learnloop/ops/upgrades|learnloop.ops.upgrades]] — imports `module`; statically calls `advance`, `observe`, `recorded_tag`, `writing_under`
 - [[Reference/Modules/learnloop/remote/errors|learnloop.remote.errors]] — imports `module`; statically calls `is_refusal`
 - [[Reference/Modules/learnloop/remote/runtime|learnloop.remote.runtime]] — imports `module`
@@ -170,7 +175,7 @@ Use this module in context through:
 
 - [[Initialize a Vault]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]], [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]], [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]], [[Reference/Modules/learnloop/ops/upgrades|learnloop.ops.upgrades]] and 12 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]], [[Reference/Modules/learnloop/daily_plan/probe_continuation|learnloop.daily_plan.probe_continuation]], [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]], [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] and 14 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -183,6 +188,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_marker_opens_real_connections`
 - [tests/test_mcp_tools.py](../../../../../../tests/test_mcp_tools.py) — direct import
   - `test_a_write_the_writer_fence_refused_is_recorded_and_says_try_again`
+- [tests/test_probe_router_episode_owner.py](../../../../../../tests/test_probe_router_episode_owner.py) — direct import
+  - `test_a_stale_first_acceptance_writes_no_episode_lock_or_segment`
+  - `test_a_stale_worker_commits_neither_arm_of_the_continuation`
 - [tests/test_sidecar_contract.py](../../../../../../tests/test_sidecar_contract.py) — direct import
   - `test_a_write_the_writer_fence_refused_reloads_the_vault_and_is_a_retryable_error`
 - [tests/test_writer_fence.py](../../../../../../tests/test_writer_fence.py) — direct import

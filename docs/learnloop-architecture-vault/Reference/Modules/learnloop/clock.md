@@ -496,6 +496,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/tutor/question_signal|learnloop.tutor.question_signal]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/tutor/teach_back|learnloop.tutor.teach_back]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/tutor/tutor_qa|learnloop.tutor.tutor_qa]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
+- [[Reference/Modules/learnloop/vault/copy_locators|learnloop.vault.copy_locators]] — imports `Clock`
 - [[Reference/Modules/learnloop/vault/loader|learnloop.vault.loader]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/vault/repository|learnloop.vault.repository]] — imports `Clock`
 - [[Reference/Modules/learnloop/vault/writer|learnloop.vault.writer]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
@@ -549,7 +550,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/claims|learnloop.adaptive_difficulty.claims]], [[Reference/Modules/learnloop/adaptive_difficulty/dose|learnloop.adaptive_difficulty.dose]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_audit|learnloop.adaptive_difficulty.history_audit]] and 447 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/backfill|learnloop.adaptive_difficulty.backfill]], [[Reference/Modules/learnloop/adaptive_difficulty/claims|learnloop.adaptive_difficulty.claims]], [[Reference/Modules/learnloop/adaptive_difficulty/dose|learnloop.adaptive_difficulty.dose]], [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/history_audit|learnloop.adaptive_difficulty.history_audit]] and 448 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -1719,6 +1720,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_stale_uncertainty_respects_variance_floor`
 - [tests/test_probe_pool_empty.py](../../../../../tests/test_probe_pool_empty.py) — direct import
 - [tests/test_probe_remint.py](../../../../../tests/test_probe_remint.py) — direct import
+- [tests/test_probe_router_episode_owner.py](../../../../../tests/test_probe_router_episode_owner.py) — direct import
+  - `test_an_exposed_answer_on_the_last_instrument_parks_the_episode_with_one_supply_request`
 - [tests/test_probe_surface_mint.py](../../../../../tests/test_probe_surface_mint.py) — direct import
 - [tests/test_probe_targeting.py](../../../../../tests/test_probe_targeting.py) — direct import
   - `test_cause_set_diagnostic_selects_discriminating_instrument`

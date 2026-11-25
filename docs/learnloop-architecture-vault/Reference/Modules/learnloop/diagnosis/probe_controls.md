@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/probe_controls.py](../../../../../../src/learnloop/diagnosis/probe_controls.py) |
-| Source lines | 185 |
+| Source lines | 192 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -56,8 +56,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 - `class StoppedCheck` ([source](../../../../../../src/learnloop/diagnosis/probe_controls.py), line 47) — What `Stop diagnosing and teach me` did: the typed transition decision it persisted, and the block's committed answers' feedback it released.
 - `stop_diagnosing_and_teach(vault: LoadedVault, repository: Repository, learning_object_id: str, *, clock: Clock | None=None) -> StoppedCheck | None` ([source](../../../../../../src/learnloop/diagnosis/probe_controls.py), line 55) — `Stop diagnosing and teach me`: settle the block's committed answers, end measurement, open a post-intervention state segment, and persist a typed transition decision (§12.1).
-- `episode_contract(vault: LoadedVault, repository: Repository, learning_object_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/probe_controls.py), line 106) — The probe UX contract for one LO, or None when no episode is active.
-- `next_probe_item(vault: LoadedVault, repository: Repository, learning_object_id: str) -> EligibleInstrument | None` ([source](../../../../../../src/learnloop/diagnosis/probe_controls.py), line 141) — The item that would be served next for this LO's open episode, or None.
+- `episode_contract(vault: LoadedVault, repository: Repository, learning_object_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/probe_controls.py), line 113) — The probe UX contract for one LO, or None when no episode is active.
+- `next_probe_item(vault: LoadedVault, repository: Repository, learning_object_id: str) -> EligibleInstrument | None` ([source](../../../../../../src/learnloop/diagnosis/probe_controls.py), line 148) — The item that would be served next for this LO's open episode, or None.
 
 ### Module constants
 
@@ -115,6 +115,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_probe_episodes.py](../../../../../../tests/test_probe_episodes.py) — direct import
   - `test_next_probe_item_peeks_the_unused_surface_without_committing`
   - `test_stop_and_teach_ends_measurement_and_segments_evidence`
+- [tests/test_probe_router_episode_owner.py](../../../../../../tests/test_probe_router_episode_owner.py) — direct import
+  - `test_the_job_never_overwrites_the_learners_stop_made_while_it_valued`
 - [tests/test_teach_handoff_stop_settles.py](../../../../../../tests/test_teach_handoff_stop_settles.py) — direct import
   - `test_a_mid_check_stop_normalizes_joint_answers_and_releases_their_feedback`
   - `test_a_mid_check_stop_queues_the_blind_answers_diagnosis`

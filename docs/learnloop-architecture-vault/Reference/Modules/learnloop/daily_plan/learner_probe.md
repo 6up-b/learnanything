@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/daily_plan/learner_probe.py](../../../../../../src/learnloop/daily_plan/learner_probe.py) |
-| Source lines | 474 |
+| Source lines | 489 |
 | Owning package | [[Reference/Modules/learnloop/daily_plan/_package|learnloop.daily_plan]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -94,6 +94,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 - `_cause_class(repository: Any, hypothesis_id: str) -> str` ([source](../../../../../../src/learnloop/daily_plan/learner_probe.py), line 134)
 - `_channel(vault: Any, repository: Any, item: Any, hypothesis_set: Any, labels: list[str]) -> DP.Channel | DP.MissingChannel` ([source](../../../../../../src/learnloop/daily_plan/learner_probe.py), line 140)
+- `class _DecidedElsewhere(Exception)` ([source](../../../../../../src/learnloop/daily_plan/learner_probe.py), line 479) — The automatic lane committed the factor's probe decision first: this lane's draw rolls back and reads it.
 
 ## Who imports or calls it
 
@@ -158,6 +159,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_decision_revalues_from_its_stored_row_alone`
 - [tests/test_probe_router_decision_integrity.py](../../../../../../tests/test_probe_router_decision_integrity.py) — direct import
   - `test_r15_the_decision_replays_numerically_from_its_frozen_record_alone`
+- [tests/test_probe_router_episode_owner.py](../../../../../../tests/test_probe_router_episode_owner.py) — direct import
+  - `test_an_automatic_decision_committed_while_the_learner_lane_values_is_the_factors_one_decision`
+  - `test_the_job_never_overwrites_the_learners_stop_made_while_it_valued`
 - [tests/test_probe_router_learner_lane.py](../../../../../../tests/test_probe_router_learner_lane.py) — direct import
   - `test_a_learned_probe_is_an_option_of_the_mix_and_no_coin_is_flipped`
   - `test_the_valuation_prices_the_existing_instruments_channel`

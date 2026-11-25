@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/probe_hard_stops.py](../../../../../../src/learnloop/diagnosis/probe_hard_stops.py) |
-| Source lines | 155 |
+| Source lines | 172 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -59,7 +59,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `causal_origin(factor_id: str) -> str` ([source](../../../../../../src/learnloop/diagnosis/probe_hard_stops.py), line 98) — An episode's origin string for a factor.
 - `causal_origin_factor(origin: str) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/probe_hard_stops.py), line 104) — The factor a causal episode's origin names, or None (:func:`_causal_origin`).
 - `episode_conflict_reason(repository: Repository, episode: ProbeEpisodeRecord | None) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/probe_hard_stops.py), line 111) — Why an already-open probe episode cannot host this causal probe.
-- `probe_episode_conflict(repository: Repository, *, factor_id: str, learning_object_id: str | None) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/probe_hard_stops.py), line 137) — The conflict that would make ``accept_probe_offer`` refuse, if any.
+- `standing_owned_pin(repository: Repository, episode_id: str) -> Any` ([source](../../../../../../src/learnloop/diagnosis/probe_hard_stops.py), line 140) — The episode's standing presentation when a decision owns it (a follow-up workflow's pin, or a router decision's: an accepted learner-lane offer, a continuation), else None.
+- `probe_episode_conflict(repository: Repository, *, factor_id: str, learning_object_id: str | None) -> str | None` ([source](../../../../../../src/learnloop/diagnosis/probe_hard_stops.py), line 154) — The conflict that would make ``accept_probe_offer`` refuse, if any.
 
 ### Module constants
 
@@ -79,7 +80,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/daily_plan/probe_continuation|learnloop.daily_plan.probe_continuation]] — imports `causal_origin_factor`; statically calls `causal_origin_factor`
 - [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] — imports `EPISODE_CONFLICT_MESSAGE`, `learner_preference`, `probe_episode_conflict`; statically calls `learner_preference`, `probe_episode_conflict`
 - [[Reference/Modules/learnloop/diagnosis/probe_offer|learnloop.diagnosis.probe_offer]] — imports `EPISODE_CONFLICT_REASON`, `_causal_origin`, `episode_conflict_reason`, `record_learner_preference`; statically calls `_causal_origin`, `episode_conflict_reason`, `record_learner_preference`
-- [[Reference/Modules/learnloop/diagnosis/probe_presentations|learnloop.diagnosis.probe_presentations]] — imports `learner_preference`; statically calls `learner_preference`
+- [[Reference/Modules/learnloop/diagnosis/probe_presentations|learnloop.diagnosis.probe_presentations]] — imports `learner_preference`, `standing_owned_pin`; statically calls `learner_preference`, `standing_owned_pin`
 - [[Reference/Modules/learnloop/followup_run/jobs|learnloop.followup_run.jobs]] — imports `causal_origin_factor`; statically calls `causal_origin_factor`
 - [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]] — imports `learner_preference`, `probe_episode_conflict`; statically calls `learner_preference`, `probe_episode_conflict`
 - [[Reference/Modules/learnloop/followup_run/serving|learnloop.followup_run.serving]] — imports `record_learner_preference`; statically calls `record_learner_preference`
@@ -126,6 +127,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_follow_up_router_asks_the_same_check`
 - [tests/test_probe_router_authority.py](../../../../../../tests/test_probe_router_authority.py) — direct import
   - `test_d_the_refusals_ask_preference_then_machine_checks_then_the_shared_episode_check`
+- [tests/test_probe_router_episode_owner.py](../../../../../../tests/test_probe_router_episode_owner.py) — direct import
+  - `test_a_second_factors_acceptance_never_relocks_the_episode_under_the_first_factors_standing_question`
 
 ## Modification guidance
 

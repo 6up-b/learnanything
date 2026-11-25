@@ -143,6 +143,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/followup_router_helpers.py](../../../../../../../tests/followup_router_helpers.py) — direct import
 - [tests/ih2_lessons_compete_helpers.py](../../../../../../../tests/ih2_lessons_compete_helpers.py) — direct import
+- [tests/probe_router_lanes_helpers.py](../../../../../../../tests/probe_router_lanes_helpers.py) — direct import
 - [tests/test_followup_authoring_retry.py](../../../../../../../tests/test_followup_authoring_retry.py) — direct import
 - [tests/test_followup_codex_review.py](../../../../../../../tests/test_followup_codex_review.py) — direct import
   - `test_f2_another_decisions_card_is_held_too_since_cards_list_open_problems`
@@ -179,7 +180,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_ih2_offer_ceiling_and_unseen.py](../../../../../../../tests/test_ih2_offer_ceiling_and_unseen.py) — direct import
 - [tests/test_ih2_one_open_offer.py](../../../../../../../tests/test_ih2_one_open_offer.py) — direct import
   - `test_an_unwritten_workflow_waits_on_the_offer_that_replaced_the_one_it_lost_to`
-- [tests/test_probe_router_decision_integrity.py](../../../../../../../tests/test_probe_router_decision_integrity.py) — direct import
+- [tests/test_probe_router_episode_owner.py](../../../../../../../tests/test_probe_router_episode_owner.py) — direct import
+  - `test_the_automatic_lane_refuses_a_draw_on_a_factor_the_learner_lane_decided`
 
 ## Modification guidance
 

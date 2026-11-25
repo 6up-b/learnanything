@@ -113,6 +113,7 @@ Indexes and uniqueness:
 - `tests/test_probe_block_end.py`
 - `tests/test_probe_episodes.py`
 - `tests/test_probe_pool_empty.py`
+- `tests/test_probe_router_episode_owner.py`
 - `tests/test_probe_surface_mint.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

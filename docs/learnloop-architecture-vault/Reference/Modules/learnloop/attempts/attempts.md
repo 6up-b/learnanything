@@ -712,6 +712,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_block_settlement_decline_precedes_grade_and_is_reachable`
   - `test_grade_hook_failure_completes_the_attempt`
 - [tests/test_probe_remint.py](../../../../../../tests/test_probe_remint.py) — direct import
+- [tests/test_probe_router_protection.py](../../../../../../tests/test_probe_router_protection.py) — direct import
 - [tests/test_probe_surface_mint.py](../../../../../../tests/test_probe_surface_mint.py) — direct import
 - [tests/test_projection_evidence_polarity.py](../../../../../../tests/test_projection_evidence_polarity.py) — direct import
 - [tests/test_projection_timeline_agreement.py](../../../../../../tests/test_projection_timeline_agreement.py) — direct import

@@ -303,6 +303,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/plan_follows_path_helpers.py](../../../../../tests/plan_follows_path_helpers.py) — direct import
 - [tests/probe_robust_cutover_helpers.py](../../../../../tests/probe_robust_cutover_helpers.py) — direct import
 - [tests/probe_router_helpers.py](../../../../../tests/probe_router_helpers.py) — direct import
+- [tests/probe_router_lanes_helpers.py](../../../../../tests/probe_router_lanes_helpers.py) — direct import
 - [tests/probe_router_owned_helpers.py](../../../../../tests/probe_router_owned_helpers.py) — direct import
 - [tests/protection_matrix_helpers.py](../../../../../tests/protection_matrix_helpers.py) — direct import
 - [tests/reader_ca2_codex_rereview_helpers.py](../../../../../tests/reader_ca2_codex_rereview_helpers.py) — direct import
@@ -603,6 +604,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_at_the_tag_the_lane_logs_the_coin_with_its_decision`
   - `test_the_tag_is_in_the_chain_the_head_keeps_it_and_its_predicate_reads_the_vault_tag_alone`
 - [tests/test_probe_router_decision_integrity.py](../../../../../tests/test_probe_router_decision_integrity.py) — direct import
+- [tests/test_probe_router_episode_owner.py](../../../../../tests/test_probe_router_episode_owner.py) — direct import
+  - `test_a_rejected_teach_me_now_records_no_consent_on_any_factor`
+  - `test_a_stale_first_acceptance_writes_no_episode_lock_or_segment`
 - [tests/test_probe_router_learner_lane.py](../../../../../tests/test_probe_router_learner_lane.py) — direct import
   - `test_the_head_keeps_the_tag`
 - [tests/test_probe_router_replay.py](../../../../../tests/test_probe_router_replay.py) — direct import

@@ -112,6 +112,7 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/diagnosis_journey_helpers.py](../../../../../../tests/diagnosis_journey_helpers.py) — imports consumer [[Reference/Modules/learnloop/daily_plan/learner_probe|learnloop.daily_plan.learner_probe]]
 - [tests/test_probe_router_continuation.py](../../../../../../tests/test_probe_router_continuation.py) — imports consumer [[Reference/Modules/learnloop/daily_plan/learner_probe|learnloop.daily_plan.learner_probe]]
 - [tests/test_probe_router_decision_integrity.py](../../../../../../tests/test_probe_router_decision_integrity.py) — imports consumer [[Reference/Modules/learnloop/daily_plan/learner_probe|learnloop.daily_plan.learner_probe]]
+- [tests/test_probe_router_episode_owner.py](../../../../../../tests/test_probe_router_episode_owner.py) — imports consumer [[Reference/Modules/learnloop/daily_plan/learner_probe|learnloop.daily_plan.learner_probe]]
 - [tests/test_probe_router_learner_lane.py](../../../../../../tests/test_probe_router_learner_lane.py) — imports consumer [[Reference/Modules/learnloop/daily_plan/learner_probe|learnloop.daily_plan.learner_probe]]
 - [tests/causal_p2_acceptance_helpers.py](../../../../../../tests/causal_p2_acceptance_helpers.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]]
 - [tests/probe_router_owned_helpers.py](../../../../../../tests/probe_router_owned_helpers.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]]
@@ -120,7 +121,6 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_causal_shadow_selection.py](../../../../../../tests/test_causal_shadow_selection.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]]
 - [tests/test_common_repair_delivery.py](../../../../../../tests/test_common_repair_delivery.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]]
 - [tests/test_pfc_unassessed_readers.py](../../../../../../tests/test_pfc_unassessed_readers.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]]
-- [tests/test_probe_proposal_reads.py](../../../../../../tests/test_probe_proposal_reads.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]]
 
 ## Modification guidance
 

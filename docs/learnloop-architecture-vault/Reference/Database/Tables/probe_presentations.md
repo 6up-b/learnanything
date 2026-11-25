@@ -156,6 +156,7 @@ Database triggers:
 - `src/learnloop/diagnosis/probe_dialogue.py`
 - `src/learnloop/diagnosis/probe_episodes.py`
 - `src/learnloop/diagnosis/probe_evidence.py`
+- `src/learnloop/diagnosis/probe_hard_stops.py`
 - `src/learnloop/diagnosis/probe_offer.py`
 - `src/learnloop/diagnosis/probe_presentations.py`
 - `src/learnloop/followup_run/serving.py`
@@ -164,7 +165,6 @@ Database triggers:
 - `src/learnloop/scheduling/scheduler.py`
 - `src/learnloop/substrate/compat/activity_backfill.py`
 - `src/learnloop_sidecar/handlers/as_printed.py`
-- `src/learnloop_sidecar/handlers/knowledge_map.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

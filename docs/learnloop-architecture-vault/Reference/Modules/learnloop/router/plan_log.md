@@ -156,7 +156,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/daily_plan/router_chooser|learnloop.daily_plan.router_chooser]] — imports `module`
 - [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] — imports `INSERT_REF`, `PROBE_REF`, `automatic_probe_decision`, `learner_probe_decision`; statically calls `automatic_probe_decision`, `learner_probe_decision`
 - [[Reference/Modules/learnloop/diagnosis/probe_offer|learnloop.diagnosis.probe_offer]] — imports `PROBE_REF`, `automatic_probe_decision`, `learner_probe_decision`; statically calls `automatic_probe_decision`, `learner_probe_decision`
-- [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]] — imports `existing_followup_decision`, `log_followup_decision`; statically calls `existing_followup_decision`, `log_followup_decision`
+- [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]] — imports `existing_followup_decision`, `learner_probe_decision`, `log_followup_decision`; statically calls `existing_followup_decision`, `learner_probe_decision`, `log_followup_decision`
 - [[Reference/Modules/learnloop/router/outcomes|learnloop.router.outcomes]] — imports `LEARNER_PROBE_SURFACE`, `PROBE_CONTINUATION_SURFACE`
 
 ## Dependencies
@@ -188,6 +188,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/probe_router_lanes_helpers.py](../../../../../../tests/probe_router_lanes_helpers.py) — direct import
 - [tests/test_daily_plan_owner_decisions.py](../../../../../../tests/test_daily_plan_owner_decisions.py) — direct import
   - `test_router_r1_logs_plan_block_decisions_through_the_boundary_hook`
 - [tests/test_data_capture_a5_not_ready_floor.py](../../../../../../tests/test_data_capture_a5_not_ready_floor.py) — direct import
@@ -205,6 +206,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_r17_both_arms_freeze_one_outcome_target_the_factors_learning_object`
   - `test_r20_a_tiny_share_is_still_an_exact_propensity`
   - `test_r4_a_failed_write_never_turns_a_drawn_lesson_into_the_probe`
+- [tests/test_probe_router_episode_owner.py](../../../../../../tests/test_probe_router_episode_owner.py) — direct import
+  - `test_an_automatic_decision_committed_while_the_learner_lane_values_is_the_factors_one_decision`
 - [tests/test_probe_router_learner_lane.py](../../../../../../tests/test_probe_router_learner_lane.py) — direct import
   - `test_a_learned_probe_is_an_option_of_the_mix_and_no_coin_is_flipped`
   - `test_a_status_read_decides_once_and_a_reread_draws_nothing_and_writes_no_receipt`

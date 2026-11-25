@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/content/sources/exam_material.py](../../../../../../../src/learnloop/content/sources/exam_material.py) |
-| Source lines | 1767 |
+| Source lines | 1789 |
 | Owning package | [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -92,24 +92,25 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - `spans_withheld(vault_or_sets: Any, repository: Any, extraction_id: str, span_ids: Iterable[str | None]) -> str | None` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1220) — The refusal when any of ``span_ids`` on ``extraction_id`` (or the whole reading) is exam or held-out material now (:func:`exam_material`'s ``covers`` and ``withheld``), else None.
 - `held_out_material(vault_or_sets: Any, repository: Any) -> Material` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1238) — The held-out partition (:func:`held_out_partition`, every subject): what the Reader's model contexts refuse and a Reader import never turns into practice.
 - `held_out_among(material: Material, extraction_id: str | None, span_ids: Iterable[str | None]) -> list[str]` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1249) — The span ids among ``span_ids`` (in order, each once) that ``material`` covers.
-- `surface_material(vault_or_sets: Any, repository: Any, surface: str) -> Material` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1332) — The material ``surface`` withholds: its row of :data:`SURFACE_SETS`, read by that set's one reader.
-- `surface_exam_material(vault_or_sets: Any, repository: Any, surface: str) -> ExamMaterial` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1340) — All exam material with its verdicts and held-out part, for a surface whose row reads all exam material; any other row raises, so a surface's call and its row cannot disagree.
-- `class HeldOutSpan` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1353) — One held-out span: its identity and block text.
-  - `key(self) -> str` (line 1361; public)
-- `held_out_partition(vault_or_sets: Any, repository: Any, *, subject_ids: Iterable[str] | None=None) -> Material` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1365) — The held-out partition: every held-out unit (rule 3, any role, on the extraction that marks it), every reading held back until protection is marked on it exactly (rule 4, whole), plus the held-out assessment signals on the marked reading their model run read.
-- `held_out_spans(vault_or_sets: Any, repository: Any, *, subject_ids: Iterable[str] | None=None) -> list[HeldOutSpan]` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1386) — Every held-out span with its text, in a deterministic order (a span listed once).
-- `class ItemExamStatus` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1424) — Why an item is exam material: reserved for a held-out exam, or made from exam material.
-  - `as_dict(self) -> dict[str, Any]` (line 1432; public)
-- `source_ref_keys(ref: Any) -> tuple[set[SpanKey], set[str]]` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1444) — One source ref's location, normalized: ``(block keys, extractions it names without a block)``.
-- `reference_keys(value: Any, *, extraction_id: str | None=None) -> tuple[set[SpanKey], set[str]]` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1476) — Every source location a reference of any shape names, placed through :func:`source_ref_keys` (the AD23 redesign round 4: one key function for every shape): ``(block keys, extractions named without a block)``.
-- `item_source_keys(item: Any) -> tuple[set[SpanKey], set[str]]` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1541) — The item's own source: ``(block keys, whole extractions)`` its canonical exercise and its provenance source refs name (:func:`source_ref_keys`).
-- `source_ref_protected(material: ExamMaterial, ref: Any, repository: Any) -> bool` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1558) — Whether a source ref's text (its quote) may be exam or held-out material, so a model context must not carry it (PF's parent quotes; Codex review F4).
-- `held_out_item_ids(items: Iterable[Any], held_out: Material) -> frozenset[str]` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1591) — The items whose own source (:func:`item_source_keys`: the canonical exercise, block-level provenance refs, an extraction named whole) lies in ``held_out`` material (Codex review F1: an item imported before its unit was marked held out).
-- `held_out_items(vault: Any, repository: Any) -> frozenset[str]` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1608) — The vault's practice items made from held-out material (:func:`held_out_material`).
-- `held_out_selection_active(vault: Any) -> bool` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1617) — ``goals.held_out_selection``: the kill switch of the serving rules (Codex review F6).
-- `exposed_items(vault: Any, repository: Any, items: Iterable[Any], *, with_held_out: bool=False) -> dict[str, list[str]]` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1637) — ``{item id: reasons}`` for the items among ``items`` that are no longer an independent check: the learner has been shown their own material (``db.stores.source_service.shown_items``: ``revealed``, ``source_exposed``, ``seen_in_proposal``) and, with ``with_held_out``, items made…
-- `item_exam_status(item: Any, *, material: ExamMaterial | None=None, reserved: Iterable[str]=()) -> ItemExamStatus | None` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1667) — Whether a practice item is exam material, or None.
-- `exam_reserved(repository: Any, item_id: str | None) -> bool` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1694) — Whether the item is reserved for a goal's held-out exam (an unreleased exam-pool row).
+- `surface_material(vault_or_sets: Any, repository: Any, surface: str) -> Material` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1334) — The material ``surface`` withholds: its row of :data:`SURFACE_SETS`, read by that set's one reader.
+- `surface_exam_material(vault_or_sets: Any, repository: Any, surface: str) -> ExamMaterial` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1342) — All exam material with its verdicts and held-out part, for a surface whose row reads all exam material; any other row raises, so a surface's call and its row cannot disagree.
+- `class HeldOutSpan` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1355) — One held-out span: its identity and block text.
+  - `key(self) -> str` (line 1363; public)
+- `held_out_partition(vault_or_sets: Any, repository: Any, *, subject_ids: Iterable[str] | None=None) -> Material` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1367) — The held-out partition: every held-out unit (rule 3, any role, on the extraction that marks it), every reading held back until protection is marked on it exactly (rule 4, whole), plus the held-out assessment signals on the marked reading their model run read.
+- `held_out_spans(vault_or_sets: Any, repository: Any, *, subject_ids: Iterable[str] | None=None) -> list[HeldOutSpan]` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1388) — Every held-out span with its text, in a deterministic order (a span listed once).
+- `class ItemExamStatus` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1426) — Why an item is exam material: reserved for a held-out exam, or made from exam material.
+  - `as_dict(self) -> dict[str, Any]` (line 1434; public)
+- `source_ref_keys(ref: Any) -> tuple[set[SpanKey], set[str]]` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1446) — One source ref's location, normalized: ``(block keys, extractions it names without a block)``.
+- `reference_keys(value: Any, *, extraction_id: str | None=None) -> tuple[set[SpanKey], set[str]]` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1478) — Every source location a reference of any shape names, placed through :func:`source_ref_keys` (the AD23 redesign round 4: one key function for every shape): ``(block keys, extractions named without a block)``.
+- `item_source_keys(item: Any) -> tuple[set[SpanKey], set[str]]` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1543) — The item's own source: ``(block keys, whole extractions)`` its canonical exercise and its provenance source refs name (:func:`source_ref_keys`).
+- `source_ref_protected(material: ExamMaterial, ref: Any, repository: Any) -> bool` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1560) — Whether a source ref's text (its quote) may be exam or held-out material, so a model context must not carry it (PF's parent quotes; Codex review F4).
+- `held_out_item_ids(items: Iterable[Any], held_out: Material) -> frozenset[str]` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1593) — The items whose own source (:func:`item_source_keys`: the canonical exercise, block-level provenance refs, an extraction named whole) lies in ``held_out`` material (Codex review F1: an item imported before its unit was marked held out).
+- `held_out_items(vault: Any, repository: Any) -> frozenset[str]` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1610) — The vault's practice items made from held-out material (:func:`held_out_material`).
+- `held_out_selection_active(vault: Any) -> bool` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1619) — ``goals.held_out_selection``: the kill switch of the serving rules (Codex review F6).
+- `exposed_items(vault: Any, repository: Any, items: Iterable[Any], *, with_held_out: bool=False) -> dict[str, list[str]]` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1639) — ``{item id: reasons}`` for the items among ``items`` that are no longer an independent check: the learner has been shown their own material (``db.stores.source_service.shown_items``: ``revealed``, ``source_exposed``, ``seen_in_proposal``) and, with ``with_held_out``, items made…
+- `item_exam_status(item: Any, *, material: ExamMaterial | None=None, reserved: Iterable[str]=()) -> ItemExamStatus | None` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1669) — Whether a practice item is exam material, or None.
+- `serve_refusals(vault: Any, repository: Any, items: Iterable[Any], *, surface: str) -> dict[str, str]` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1696) — ``{item id: why}`` for the items among ``items`` a serve on ``surface`` refuses: reserved for a goal's held-out exam (:data:`EXAM_RESERVED`, whatever ``goals.held_out_selection`` says), or made from the material the surface's row of :data:`SURFACE_SETS` withholds (:data:`HELD_OU…
+- `exam_reserved(repository: Any, item_id: str | None) -> bool` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1715) — Whether the item is reserved for a goal's held-out exam (an unreleased exam-pool row).
 
 ### Module constants
 
@@ -142,9 +143,9 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - `HELD_OUT` ([src/learnloop/content/sources/exam_material.py](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1264)
 - `NO_EXAM_SET` ([src/learnloop/content/sources/exam_material.py](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1267)
 - `SURFACE_SETS` ([src/learnloop/content/sources/exam_material.py](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1282)
-- `_LOCATOR_FIELDS` ([src/learnloop/content/sources/exam_material.py](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1473)
-- `HELD_OUT_MATERIAL` ([src/learnloop/content/sources/exam_material.py](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1634)
-- `HELD_OUT_ITEM_REFUSAL` ([src/learnloop/content/sources/exam_material.py](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1663)
+- `_LOCATOR_FIELDS` ([src/learnloop/content/sources/exam_material.py](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1475)
+- `HELD_OUT_MATERIAL` ([src/learnloop/content/sources/exam_material.py](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1636)
+- `HELD_OUT_ITEM_REFUSAL` ([src/learnloop/content/sources/exam_material.py](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1665)
 
 ### Explicit exports
 
@@ -208,6 +209,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - `scope_only_material`
 - `scope_reading_of`
 - `selection_marks_exact`
+- `serve_refusals`
 - `source_marks`
 - `reference_keys`
 - `source_ref_keys`
@@ -241,7 +243,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - `_runs(connection: Any, extraction_ids: Iterable[str]) -> dict[str, tuple[str | None, str | None]]` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 931)
 - `_source_sets(vault_or_sets: Any) -> list[Any]` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1008)
 - `_require_readable(vault_or_sets: Any) -> None` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1013) — Refuse (fail closed) a vault whose source sets did not load: without them rules 1 and 2 vanish and exam material reads as teaching.
-- `_parse_block_span(locator: str) -> SpanKey | None` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1437)
+- `_parse_block_span(locator: str) -> SpanKey | None` ([source](../../../../../../../src/learnloop/content/sources/exam_material.py), line 1439)
 
 ## Who imports or calls it
 
@@ -266,6 +268,8 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - [[Reference/Modules/learnloop/content/synthesis/source_unit_selection|learnloop.content.synthesis.source_unit_selection]] — imports `HELD_OUT_EVALUATION`, `MARKS_MADE_ON_KEY`, `PROTECTION_MARK_KEY`, `marks_made_on`; statically calls `marks_made_on`
 - [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `held_out_selection_active`; statically calls `held_out_selection_active`
 - [[Reference/Modules/learnloop/daily_plan/router_reader|learnloop.daily_plan.router_reader]] — imports `module`; statically calls `exam_withheld`
+- [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `serve_refusals`; statically calls `serve_refusals`
+- [[Reference/Modules/learnloop/diagnosis/probe_remint|learnloop.diagnosis.probe_remint]] — imports `serve_refusals`; statically calls `serve_refusals`
 - [[Reference/Modules/learnloop/diagnosis/remediation|learnloop.diagnosis.remediation]] — imports `exam_material`, `exposed_items`; statically calls `exam_material`, `exposed_items`
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/provenance|learnloop.diagnosis.text_gaps.provenance]] — imports `source_ref_keys`; statically calls `source_ref_keys`
 - [[Reference/Modules/learnloop/diagnosis/text_gaps/sources|learnloop.diagnosis.text_gaps.sources]] — imports `spans_withheld`; statically calls `spans_withheld`
@@ -280,7 +284,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - [[Reference/Modules/learnloop/instructional/practice|learnloop.instructional.practice]] — imports `HELD_OUT_ITEM_REFUSAL`, `exam_reserved`, `held_out_item_ids`, `held_out_selection_active`, `surface_material`; statically calls `exam_reserved`, `held_out_item_ids`, `held_out_selection_active`, `surface_material`
 - [[Reference/Modules/learnloop/instructional/reader_digest|learnloop.instructional.reader_digest]] — imports `module`; statically calls `exam_withheld`
 - [[Reference/Modules/learnloop/learner_protection|learnloop.learner_protection]] — imports `SNAPSHOT_UNSETTLED`, `module`, `protection_issues`, `source_ref_protected`; statically calls `held_out_items`, `item_exam_status`, `protection_issues`, `source_ref_protected`, `surface_exam_material`
-- [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]] — imports `protection_issues`; statically calls `protection_issues`
+- [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]] — imports `protection_issues`, `serve_refusals`; statically calls `protection_issues`, `serve_refusals`
 - [[Reference/Modules/learnloop/ops/pf_generation|learnloop.ops.pf_generation]] — imports `exam_material`, `source_ref_protected`; statically calls `exam_material`, `source_ref_protected`
 - [[Reference/Modules/learnloop/passage_union/content|learnloop.passage_union.content]] — imports `exam_withheld`, `surface_material`; statically calls `exam_withheld`, `surface_material`
 - [[Reference/Modules/learnloop/passage_union/elsewhere|learnloop.passage_union.elsewhere]] — imports `exam_withheld`; statically calls `exam_withheld`
@@ -316,7 +320,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - [[Reference/Modules/learnloop_sidecar/handlers/reader|learnloop_sidecar.handlers.reader]] — imports `HELD_BACK_REFUSAL`, `HELD_OUT_REFUSAL`, `item_source_keys`, `reading_held_back`, `reference_keys`; statically calls `item_source_keys`, `reading_held_back`, `reference_keys`
 - [[Reference/Modules/learnloop_sidecar/phone_reader|learnloop_sidecar.phone_reader]] — imports `HELD_OUT_REFUSAL`, `surface_material`; statically calls `surface_material`
 - [[Reference/Modules/learnloop_sidecar/server|learnloop_sidecar.server]] — imports `SourceSetsUnreadable`
-- [[Reference/Modules/learnloop_sidecar/serving|learnloop_sidecar.serving]] — imports `HELD_OUT_ITEM_REFUSAL`, `exam_reserved`, `held_out_item_ids`, `held_out_selection_active`, `surface_material`; statically calls `exam_reserved`, `held_out_item_ids`, `held_out_selection_active`, `surface_material`
+- [[Reference/Modules/learnloop_sidecar/serving|learnloop_sidecar.serving]] — imports `EXAM_RESERVED`, `HELD_OUT_ITEM_REFUSAL`, `serve_refusals`; statically calls `serve_refusals`
 - [[Reference/Modules/learnloop_sidecar/workbench_protection|learnloop_sidecar.workbench_protection]] — imports `SURFACE_SETS`, `exam_material`, `exam_withheld`, `surface_material`; statically calls `exam_material`, `exam_withheld`, `surface_material`
 
 ## Dependencies
@@ -343,7 +347,7 @@ Use this module in context through:
 
 - [[Goals Exams and Certification Workflow]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/data_check|learnloop.adaptive_difficulty.data_check]], [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/adaptive_difficulty/protection|learnloop.adaptive_difficulty.protection]], [[Reference/Modules/learnloop/content/authoring/exercise_authoring|learnloop.content.authoring.exercise_authoring]] and 65 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/data_check|learnloop.adaptive_difficulty.data_check]], [[Reference/Modules/learnloop/adaptive_difficulty/material_view|learnloop.adaptive_difficulty.material_view]], [[Reference/Modules/learnloop/adaptive_difficulty/outside|learnloop.adaptive_difficulty.outside]], [[Reference/Modules/learnloop/adaptive_difficulty/protection|learnloop.adaptive_difficulty.protection]], [[Reference/Modules/learnloop/content/authoring/exercise_authoring|learnloop.content.authoring.exercise_authoring]] and 67 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -449,6 +453,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_intent_fix_round6.py](../../../../../../../tests/test_intent_fix_round6.py) — direct import
 - [tests/test_intent_fix_round7.py](../../../../../../../tests/test_intent_fix_round7.py) — direct import
   - `test_f22_a_protected_set_error_names_its_input`
+- [tests/test_k1_serve_door_reservation.py](../../../../../../../tests/test_k1_serve_door_reservation.py) — direct import
+  - `test_the_reservation_refusal_does_not_follow_the_held_out_selection_switch`
 - [tests/test_k1_source_sets_gate.py](../../../../../../../tests/test_k1_source_sets_gate.py) — direct import
   - `test_a_snapshot_loaded_from_an_empty_file_stays_unreadable_after_the_file_is_restored`
   - `test_a_valid_file_still_reads_the_exam_member_as_exam_material`
@@ -471,6 +477,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_menu_protected_material.py](../../../../../../../tests/test_menu_protected_material.py) — direct import
 - [tests/test_plan_follows_path.py](../../../../../../../tests/test_plan_follows_path.py) — direct import
   - `test_an_exam_reading_plans_nothing_through_its_path`
+- [tests/test_probe_router_protection.py](../../../../../../../tests/test_probe_router_protection.py) — direct import
+  - `test_a_copy_kept_before_the_fix_is_named_by_doctor_and_repaired_by_fix_state`
+  - `test_a_kept_copy_is_protected_when_its_passage_is_held_out_later`
 - [tests/test_protection_surface_matrix.py](../../../../../../../tests/test_protection_surface_matrix.py) — direct import
   - `test_a_quotes_reference_in_every_form`
   - `test_the_shared_author_refuses_a_protected_selected_segment_before_any_call`
