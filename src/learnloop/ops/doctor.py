@@ -60,6 +60,8 @@ from learnloop.substrate.projection_switches import (
     INTERVAL_FACTOR_SNAPSHOT_KEY,
     projection_switches,
 )
+from learnloop.substrate.compat.activity_backfill import answers_without_grade_record
+from learnloop.substrate.replay import replay_learning_object
 from learnloop.substrate.state_sync import StateSyncResult, sync_vault_state
 from learnloop.vault.loader import load_vault
 from learnloop.vault.models import (
@@ -472,12 +474,8 @@ def _check_answers_without_grade_record(
     were saved). A rebuild derives and leaves them so; ``--fix-state`` is the explicit repair that records them,
     replaying their topics with those answers named."""
 
-    from learnloop.substrate.compat.activity_backfill import answers_without_grade_record
-
     missing = answers_without_grade_record(vault, repository)
     if missing and fix_state:
-        from learnloop.substrate.replay import replay_learning_object
-
         by_topic: dict[str, set[str]] = {}
         for entry in missing:
             by_topic.setdefault(str(entry["learning_object_id"]), set()).add(str(entry["attempt_id"]))

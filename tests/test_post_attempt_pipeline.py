@@ -273,6 +273,23 @@ class _StubResult:
     correctness: float | None
 
 
+class _Completions:
+    """The stored completions the sitting's pipeline reads (FR3-13): none, unless named completed with the
+    follow-up gate's record."""
+
+    def __init__(self, completed: dict[str, list[str]] | None = None):
+        self.completed = completed or {}
+
+    def attempt_completion(self, attempt_id):
+        return {"status": "completed"} if attempt_id in self.completed else None
+
+    def attempt_surprise_gate_records(self, attempt_ids):
+        import json
+
+        return {attempt_id: (json.dumps(self.completed[attempt_id]), "[]", "{}")
+                for attempt_id in attempt_ids if attempt_id in self.completed}
+
+
 def _inserted_outcome(attempt_id: str) -> PostAttemptOutcome:
     decision = FollowupDecision(
         triggered=True,
@@ -306,7 +323,7 @@ def test_exam_sitting_cap_processes_worst_first_and_suppresses_the_rest(monkeypa
         _StubResult("e_low", 0.1),
     ]
     outcomes = run_exam_sitting_pipeline(
-        object(), object(), results=results, intervention_cap=3
+        object(), _Completions(), results=results, intervention_cap=3
     )
 
     # Worst-first: ascending correctness, id as the deterministic tiebreak.
@@ -329,9 +346,33 @@ def test_exam_sitting_pipeline_survives_a_failing_attempt(monkeypatch):
     monkeypatch.setattr(post_attempt, "run_post_attempt_pipeline", exploding_pipeline)
     outcomes = run_exam_sitting_pipeline(
         object(),
-        object(),
+        _Completions(),
         results=[_StubResult("boom", 0.0), _StubResult("fine", 0.5)],
     )
     by_id = {outcome.attempt_id: outcome for outcome in outcomes}
     assert by_id["boom"].notes == ("pipeline_failed",)
     assert by_id["fine"].inserted
+
+
+def test_a_retried_sitting_counts_the_slots_its_earlier_try_used(monkeypatch):
+    """Review round 3, FR3-13: a finish that stopped after one attempt's completion inserted a follow-up is retried;
+    that attempt returns no insertion of its own (already completed), and the retry still counts its slot from the
+    durable gate record (failed before: the count restarted at zero and the retry inserted past the cap)."""
+
+    from learnloop.followup_serve import workflow
+
+    calls: list[tuple[str, str | None]] = []
+
+    def pipeline(vault, repository, *, result, purpose, suppress_insertion_reason, clock):
+        calls.append((result.attempt_id, suppress_insertion_reason))
+        if result.attempt_id == "done":
+            return PostAttemptOutcome(attempt_id="done", followup=None, notes=("already_completed",))
+        return _inserted_outcome(result.attempt_id) if suppress_insertion_reason is None else PostAttemptOutcome(
+            attempt_id=result.attempt_id, followup=None, notes=(suppress_insertion_reason,))
+
+    monkeypatch.setattr(post_attempt, "run_post_attempt_pipeline", pipeline)
+    monkeypatch.setattr(workflow, "attempt_workflow", lambda repository, attempt_id: None)
+    repository = _Completions({"done": ["intervention_followup:queued:pi_next"]})
+    run_exam_sitting_pipeline(object(), repository, intervention_cap=2,
+                              results=[_StubResult("done", 0.0), _StubResult("new_1", 0.1), _StubResult("new_2", 0.2)])
+    assert calls == [("done", None), ("new_1", None), ("new_2", EXAM_SITTING_CAP_REASON)]

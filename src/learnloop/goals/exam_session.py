@@ -338,9 +338,16 @@ def queue_exam_answer(
 
     The ungraded row is the durable background-work receipt. Repeating the same
     submission is idempotent; replacing it is forbidden because exam answers
-    are final once the learner advances.
+    are final once the learner advances. Admission is checked in the write
+    transaction that stores the answer (review round 3, FR3-3).
     """
 
+    with repository.atomic():
+        return _queue_exam_answer(vault, repository, session_id, practice_item_id, answer_md=answer_md, clock=clock)
+
+
+def _queue_exam_answer(vault: LoadedVault, repository: Repository, session_id: str, practice_item_id: str, *,
+                       answer_md: str, clock: Clock | None) -> dict[str, Any]:
     session = repository.exam_session(session_id)
     if session is None:
         raise ExamSessionError(f"Unknown exam session {session_id}")
@@ -408,6 +415,20 @@ def record_exam_answer(
     grader. It travels with the stored grade to ``finish_exam``'s raw grade.
     """
 
+    item = vault.practice_items.get(practice_item_id)
+    if item is None:
+        raise ExamSessionError(f"Unknown practice item {practice_item_id}")
+    with repository.atomic():
+        # Admission is checked in the write transaction that stores the answer (review round 3, FR3-3): a finish
+        # that publishes the sitting's completion commits wholly before this check or after this answer, which it
+        # then applies.
+        return _record_exam_answer(vault, repository, session_id, practice_item_id, item=item, answer_md=answer_md,
+                                   resolved_grade=resolved_grade, grader_identity=grader_identity, clock=clock)
+
+
+def _record_exam_answer(vault: LoadedVault, repository: Repository, session_id: str, practice_item_id: str, *,
+                        item: Any, answer_md: str, resolved_grade: ResolvedGrade,
+                        grader_identity: tuple[str, str] | None, clock: Clock | None) -> dict[str, Any]:
     session = repository.exam_session(session_id)
     if session is None:
         raise ExamSessionError(f"Unknown exam session {session_id}")
@@ -415,9 +436,6 @@ def record_exam_answer(
         raise ExamSessionError(f"Exam session {session_id} is {session['status']}, not in_progress")
     if practice_item_id not in session["item_order"]:
         raise ExamSessionError(f"{practice_item_id} is not in exam session {session_id}")
-    item = vault.practice_items.get(practice_item_id)
-    if item is None:
-        raise ExamSessionError(f"Unknown practice item {practice_item_id}")
     existing = repository.exam_answer(session_id, practice_item_id)
     if (
         existing is not None
@@ -537,6 +555,8 @@ def finish_exam(
     if session is None:
         raise ExamSessionError(f"Unknown exam session {session_id}")
     if session["status"] == "completed" and session.get("report") is not None:
+        # Review round 3, FR3-13: completion work an earlier finish left pending (a per-attempt failure) resumes.
+        _resume_pending_completions(vault, repository, session_id, followup_surface=followup_surface, clock=clock)
         return session["report"]
     if session["status"] == "abandoned":
         raise ExamSessionError(f"Exam session {session_id} was closed: none of its items was left to answer")
@@ -545,6 +565,20 @@ def finish_exam(
     # Codex re-review F5: the unanswered items set aside during the sitting,
     # read before the session completes, are named on the report.
     withdrawn = session_withdrawn_items(vault, repository, session)
+    while True:
+        report = _apply_and_complete(vault, repository, session, session_id, goal, withdrawn=withdrawn,
+                                     followup_surface=followup_surface, clock=clock)
+        if report is not None:
+            return report
+        # An answer was accepted while this finish ran (another device): it is applied before completion.
+
+
+def _apply_and_complete(vault: LoadedVault, repository: Repository, session: dict[str, Any], session_id: str,
+                        goal: Goal, *, withdrawn: Any, followup_surface: str | None,
+                        clock: Clock) -> dict[str, Any] | None:
+    """Apply the sitting's answers, run their completion work and publish the report; None when an answer was
+    accepted after this pass read the answers (the caller applies it in another pass)."""
+
     submitted = repository.exam_answers(session_id)
     submitted_by_item = {
         answer["practice_item_id"]: answer for answer in submitted
@@ -629,13 +663,33 @@ def finish_exam(
             if work and work.get("result"):
                 results.append(AttemptResult.from_dict(work["result"]))
         if results:
+            # A per-attempt failure leaves that attempt's completion work pending (never marked completed); the
+            # report still publishes and the next finish of this sitting resumes it (above and in ``finish_exam``).
             run_exam_sitting_pipeline(vault, repository, results=results, followup_surface=followup_surface, clock=clock)
         with repository.atomic():
+            # Review round 3, FR3-3: completion publishes only with every accepted answer applied and linked, read
+            # in the transaction that publishes it (an answer's admission is checked in its own write transaction).
+            if any(not answer.get("attempt_id") for answer in repository.exam_answers(session_id)):
+                return None
             report = _compute_report(vault, repository, session, goal, withdrawn=withdrawn)
             repository.update_exam_session(session_id, status="completed", report=report,
                                            completed_at=utc_now_iso(clock), clock=clock)
             release_exam_pool(repository, session["goal_id"], clock=clock)
         return report
+
+
+def _resume_pending_completions(vault: LoadedVault, repository: Repository, session_id: str, *,
+                                followup_surface: str | None, clock: Clock) -> None:
+    from learnloop.attempts.post_attempt import attempt_completion_lock, run_exam_sitting_pipeline
+
+    with attempt_completion_lock(repository.sqlite_path):
+        works = [work for answer in repository.exam_answers(session_id) if answer.get("attempt_id")
+                 for work in [repository.attempt_completion(answer["attempt_id"])] if work and work.get("result")]
+        # Every completed one too: they return at once, and the sitting's allowance counts what they inserted.
+        results = [AttemptResult.from_dict(work["result"]) for work in works]
+        if any(work.get("status") != "completed" for work in works):
+            run_exam_sitting_pipeline(vault, repository, results=results, followup_surface=followup_surface,
+                                      clock=clock)
 
 
 def _compute_report(vault: LoadedVault, repository: Repository, session, goal, *,

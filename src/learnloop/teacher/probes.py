@@ -452,6 +452,13 @@ def record_answer(vault: Any, repository: Any, lesson: Mapping[str, Any], probe:
         independence = production_admissibility(repository, practice_item_id=item.id,
                                                  learning_object_id=item.learning_object_id,
                                                  produced_at=produced_at, clock=clock)
+        if answer is not None and not any(
+                turn["action"] == ANSWER and (turn.get("payload") or {}).get("probe_ref") == probe.ref
+                for turn in store.turns(connection, lesson_id)):
+            # The learner's answer turn, with the grade it is graded by (FR3-22); one per probe, a retry's included.
+            store.append_turn(connection, lesson_id=lesson_id, actor="learner", action=ANSWER, validation="ok",
+                              refs={"item": probe.item_id},
+                              payload={"probe_ref": probe.ref, "answer": answer, "tap": tap}, created_at=now)
         if stored is None:
             assert grade is not None
             correctness = max(0.0, min(1.0, float(grade.rubric_score) / max_points))

@@ -37,6 +37,7 @@ from learnloop.attempts.completion_lock import attempt_completion_lock
 from learnloop.clock import Clock
 from learnloop.db.repositories import Repository
 from learnloop.diagnosis.followups import (
+    INTERVENTION_ACTION,
     FollowupDecision,
     attempt_followup_grade,
     enqueue_post_attempt_diagnosis,
@@ -400,7 +401,10 @@ def run_exam_sitting_pipeline(
         ),
     )
     outcomes: list[PostAttemptOutcome] = []
-    inserted = 0
+    # Review round 3, FR3-13: a retried finish starts from the slots its earlier tries used, read from what those
+    # completed attempts durably inserted (a queued follow-up, a minted need, an opened workflow); a completed attempt
+    # returns no insertion of its own, so counting from zero let a retry insert past the cap.
+    inserted = sum(1 for result in ranked if _completed_with_insertion(repository, result.attempt_id))
     for result in ranked:
         reason = EXAM_SITTING_CAP_REASON if inserted >= intervention_cap else None
         try:
@@ -431,6 +435,29 @@ def run_exam_sitting_pipeline(
             inserted += 1
         outcomes.append(outcome)
     return outcomes
+
+
+def _completed_with_insertion(repository: Repository, attempt_id: str) -> bool:
+    """Whether an attempt whose completion already committed used an intervention slot: the follow-up gate's stored
+    record on its surprise row names a queued follow-up or a need it minted, or a follow-up workflow owns it (the
+    facts :attr:`PostAttemptOutcome.inserted` reads from a live decision)."""
+
+    import json
+
+    from learnloop.followup_serve.workflow import attempt_workflow
+
+    work = repository.attempt_completion(attempt_id)
+    if work is None or work.get("status") != "completed":
+        return False
+    if attempt_workflow(repository, attempt_id) is not None:
+        return True
+    record = repository.attempt_surprise_gate_records([attempt_id]).get(attempt_id)
+    if record is None:
+        return False
+    triggered = json.loads(record[0] or "[]")
+    suppressed = json.loads(record[1] or "[]")
+    return (any(str(action).startswith(f"{INTERVENTION_ACTION}:queued:") for action in triggered)
+            or any(str(action).startswith(f"{INTERVENTION_ACTION}:no_suitable_item:") for action in suppressed))
 
 
 def committed_submission_result(repository: Repository, submission_id: str | None) -> Any:

@@ -1230,10 +1230,8 @@ def _answer_check(vault: Any, repository: Any, state: LessonState, payload: Mapp
     if item is None:
         raise LessonError("not_found", "Couldn’t open the question. Reopen the lesson to try again.")
     attempt_id = new_ulid()
-    _append(repository, state, actor="learner", action="check_answer",
-            refs={"item": item.id, "attempt": attempt_id},
-            payload={"check_ref": open_check["check_ref"], "answer": answer, "thinking": thinking, "tap": tap},
-            clock=clock)
+    # The learner's answer turn commits with its grade, below (review round 3, FR3-22): a grade that fails leaves no
+    # turn, so *Submit answer* again records one answer, not a second beside a stranded first.
     # The blind grader sees the answer only: never the thinking note, the lesson or the learner's history.
     grading_client = clients.grading()
     try:
@@ -1261,6 +1259,9 @@ def _answer_check(vault: Any, repository: Any, state: LessonState, payload: Mapp
     prepared = CK.prepare_check_attempt(vault, repository, item=item, attempt_id=attempt_id, answer=answer,
                                         grade=grade, grading_source=clients.grading_source, grading_run_id=run_id,
                                         tap=tap, clock=clock)
+    # The inline grader's feedback is shown (and read by the teacher) only when it quotes no question kept for an
+    # exam or held out (teacher exam-question guard); the grade stands either way. Read before the write lock.
+    feedback = G.shown_feedback(grade.feedback_md, G.reserved_book(vault, repository))
     # The weighing, its recorded prior and the check's own application read one state: another
     # process's grade on this learning object commits wholly before the weighing or after the check is recorded.
     # The check's instant is read under the writer lock and is its attempt's too: an answer another process applied
@@ -1271,6 +1272,10 @@ def _answer_check(vault: Any, repository: Any, state: LessonState, payload: Mapp
                 or repository.fetch_practice_attempt(attempt_id) is not None):
             raise LessonError("stale_check", "This question closed. Reopen the lesson to see what’s next.")
         as_of = utc_now_iso(clock)
+        _append(repository, state, actor="learner", action="check_answer",
+                refs={"item": item.id, "attempt": attempt_id},
+                payload={"check_ref": open_check["check_ref"], "answer": answer, "thinking": thinking, "tap": tap},
+                clock=clock)
         reference = None
         if retained is not None:
             reference = CK.cold_reference(vault, repository, lo, lesson_id=state.lesson_id, node_id=node_id,
@@ -1285,20 +1290,19 @@ def _answer_check(vault: Any, repository: Any, state: LessonState, payload: Mapp
             item=item, prepared=prepared, tap=tap, mass=mass, created_at=as_of,
             forecast_correct_key=(correct_forecast or {}).get("key"),
             forecast_retained_key=(retained or {}).get("key"), clock=FrozenClock(_parse_utc(as_of)))
+        # The result closes the check in the same transaction: a stop after the grade cannot leave the check open
+        # for a second grade of the same answer.
+        result = {"check_ref": open_check["check_ref"], "correctness": correctness,
+                  "result": "right" if correctness >= 1.0 else ("wrong" if correctness <= 0.0 else "partly right"),
+                  "grader_feedback": feedback, "hedge": hedge, "mass_applied": mass["mass_applied"],
+                  "attempt_id": attempt_id, "unanchored": not bool(open_check["check"].get("anchors"))}
+        _append(repository, state, actor="code", action="check_result", refs={"attempt": attempt_id, "item": item.id},
+                payload=result, clock=clock)
     if "episodes" in state.capabilities:
         # TE2-log: a detour on this node closes at its re-check (its own savepoint; never blocks the answer).
         E.close_episodes(repository, state.lesson_id, closed_at=as_of, reason="rechecked", node_id=node_id,
                          kind="detour", outcome={"recheck_attempt_id": attempt_id, "outcome_correctness": correctness})
     _update_weight_state(vault, repository)
-    # The inline grader's feedback is shown (and read by the teacher) only when it quotes no question kept for an
-    # exam or held out (teacher exam-question guard); the grade stands either way.
-    feedback = G.shown_feedback(grade.feedback_md, G.reserved_book(vault, repository))
-    result = {"check_ref": open_check["check_ref"], "correctness": correctness,
-              "result": "right" if correctness >= 1.0 else ("wrong" if correctness <= 0.0 else "partly right"),
-              "grader_feedback": feedback, "hedge": hedge, "mass_applied": mass["mass_applied"],
-              "attempt_id": attempt_id, "unanchored": not bool(open_check["check"].get("anchors"))}
-    _append(repository, state, actor="code", action="check_result", refs={"attempt": attempt_id, "item": item.id},
-            payload=result, clock=clock)
     state.open_check = None
     state.checks.append({"check_ref": result["check_ref"], "status": "answered", "minted_item_id": item.id})
     return _teach(vault, repository, state, clients=clients, client=clients.teacher(), help_reply=False, clock=clock)
@@ -1319,9 +1323,9 @@ def _answer_probe(vault: Any, repository: Any, state: LessonState, payload: Mapp
         raise LessonError("validation_error", "Write an answer first (what you can is fine).")
     tap = payload.get("tap")
     tap = int(tap) if tap is not None and int(tap) in (1, 2, 3, 4, 5) else None
-    _append(repository, state, actor="learner", action=PR.ANSWER, refs={"item": probe.item_id},
-            payload={"probe_ref": probe.ref, "answer": answer, "tap": tap}, clock=clock)
     try:
+        # The learner's answer turn commits with the grade, inside ``record_answer``'s one transaction (review round
+        # 3, FR3-22): a grade that fails leaves no turn, and the retry records one.
         PR.record_answer(vault, repository, state.lesson, probe, answer=answer, tap=tap,
                          grading_client=clients.grading(), grading_source=clients.grading_source, clock=clock)
     except PR.StaleProbe as exc:
