@@ -1,8 +1,7 @@
 # mvp-0.75: the lesson-weight fit reads mastery's recorded facts
 
 Branch `teacher/l42-fix-round-2`, from `b887fc9b4a`: main `bc70e26255` (mvp-0.72, migration head 274) plus H3's fix round
-(mvp-0.73). The tag is reserved after mvp-0.74, which is another worker's. The chain lists it after whichever tag
-comes last at the merge. The findings come from L4-2's second adversarial review (2026-11-25), ledger rows L42-R17
+(mvp-0.73), then merged with `refactor/h3-fix-round-2` (`d7da9bbc26`, mvp-0.74). The chain is 0.73, 0.74, 0.75. The findings come from L4-2's second adversarial review (2026-11-25), ledger rows L42-R17
 to L42-R27. The design and the choice between three options are in
 [refactor-l42-fit-redesign.md](refactor-l42-fit-redesign.md). All measurements were taken on synthetic vaults with
 fakes.
@@ -62,7 +61,7 @@ It adds no migration (276 is not taken), no config key, no kill switch and no ne
 - **A check is placed at its attempt (L42-R18).** From the tag, only an outcome after the later of the check row's
   instant and its attempt's instant can resolve the check. This applies to history as well.
 
-Below the tag every one of these behaves exactly as at mvp-0.73. Tests cover both sides, in
+Below the tag every one of these behaves exactly as at mvp-0.74. Tests cover both sides, in
 `tests/test_lesson_weight_facts.py` and the pinned predecessor cases in `tests/test_lesson_weight_fit_trajectory.py`.
 
 ## Fixed without the tag (they change live writes, not what a stored row means)
@@ -82,18 +81,40 @@ Below the tag every one of these behaves exactly as at mvp-0.73. Tests cover bot
 No "unknown at upgrade" marker is needed for the mastery facts. Mastery's replay already observes at whole seconds,
 so the rebuild moves no mastery value. The frozen curves and their missing markers are unchanged.
 
+## On top of mvp-0.74 (the merge)
+
+- **The live check.** Both properties hold. The grade forecast is prepared before the writer lock (0.74). Under the
+  lock the unanswered attempt is rechecked, then the check's instant is read (L42-R18), and its attempt is applied at
+  that instant.
+- **The mastery record and the forecast that scored surprise.** The record holds mastery's own application. That is
+  the same whether surprise was scored against the selected view's serve receipt, a grade-time receipt prepared
+  before the transaction, or mastery itself. It is also the same after two rebuilds
+  (`test_lesson_weight_facts_integration.py`, case i).
+- **Exam finish under one attempt id.** The sitting applies each answer at a whole-second instant of its own, so the
+  record's instant is the attempt's stored one, including after a failed link is retried under the same id. Two
+  rebuilds agree (case ii). The exam fixture seeds mastery directly, which is why a rebuild starts that learning
+  object from its cold seed. That predates this tag and does not involve it.
+- **The four-way script's arm (f) at 0.75.** It runs through production replay and equals today's arm (mastery and
+  surprise) on scratch copies, with the input unchanged (case iii).
+- **The shadow report's forecast digests.** Two runs at 0.75 agree. Surprise and grade receipts are unchanged by a
+  rebuild (case iv). The subject KL digest of `difficulty_replay_helpers.build_vault`'s live database differs from the
+  rebuilt one at 0.74 too (the live history wrote no subject KL rows), so that difference is not this tag's.
+- **The router's miss-cause learning, end to end (L42-R19).** A router lesson on a diagnosed miss is followed by two
+  first answers in one second. From 0.75 `_offer_rows` and `cause_slopes` take the answer mastery applied first. Below
+  the tag they take the legacy id order.
+
 ## Pins and goldens
 
-- **Identity pins.** The nine pins that hash the vault's tag were regenerated: `A1-A4.manifest_hash.init`,
+- **Identity pins.** After the merge, 0.74's side was taken, then regenerated with the writers. The nine pins that hash the vault's tag were regenerated: `A1-A4.manifest_hash.init`,
   `C3.boundary(.init, _offer.init)`, `C3b.chooser(_offer)`, `C3b.start_key(_offer)`, `C5.init` and `C6.init`.
 - **Effective defaults and the CLI surface:** the tag line, and `upgrade --to`'s default. Only that one value of the
   CLI snapshot changed.
 - **Goldens.** The grade application golden (88 payloads) and the diagnosis journey golden (18) each gain the block
   and the tag. A parsed comparison, with nested JSON strings decoded, found no other value changed.
-- **Structure ratchets.** `attempts.py` rose to 5,873 lines (+2: the gate and the call), and golden JSON lines rose to
-  307,358 (+2,226). The reasons are recorded in `structure.toml`.
+- **Structure ratchets.** After the merge, `attempts.py` stays at 5,871: 0.74 freed the lines that the gate and the
+  call use. Golden JSON lines rose to 307,812 (+2,226 over 0.74's figure). The reasons are recorded in `structure.toml`.
 
-## The owner-copy procedure (for the orchestrator, from an mvp-0.74 or mvp-0.73 copy; counts and digests only)
+## The owner-copy procedure (for the orchestrator, from an mvp-0.74 copy; counts and digests only)
 
 Make backup-API copies. Run [algorithm-mvp-0.72.md](algorithm-mvp-0.72.md)'s digests for the checks, the lesson and
 forecast receipts and `attempt_grade_curves` on the predecessor. Then run `learnloop upgrade --vault "$COPY" --to
