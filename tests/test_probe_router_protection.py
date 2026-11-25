@@ -188,3 +188,24 @@ def test_a_copy_kept_before_the_fix_is_named_by_doctor_and_repaired_by_fix_state
     run_doctor(case.root, fix_state=True)
     assert "pi_remint_old" in EM.held_out_items(load_vault(case.root), case.repository)
     assert not [issue for issue in run_doctor(case.root).issues if issue.code == "remint:missing_source_locators"]
+
+
+# --- one eligibility read for offer, reread and acceptance (G2-R30) -------------------------------------------------
+
+
+def test_a_selected_quick_check_whose_item_state_went_inactive_is_void_and_never_offered_again(tmp_path, monkeypatch):
+    """The offer, its reread and acceptance read the same item-level eligibility (``probe_episodes.item_refusals``):
+    an inactive practice-item state voids the selection and releases the repair, instead of an offer acceptance
+    refuses as ``probe_item_not_eligible`` on every click."""
+
+    from tests.probe_router_authority_helpers import read_status
+    from tests.probe_router_lanes_helpers import learner_case
+
+    case = learner_case(tmp_path, monkeypatch)
+    assert read_status(case.ctx, {"misconceptionId": case.first})["routerState"] == "selected"
+    case.repository.upsert_practice_item_state(PROBE_ITEM, active=False)
+    status = read_status(case.ctx, {"misconceptionId": case.first})
+    assert (status["routerState"], status["hardStopReasons"], status["probeOffered"]) == (
+        "void", ["probe_item_inactive"], False)
+    offer = call(case.ctx, "causal_probe_offer_action", {"factorId": case.factor})["offer"]
+    assert (offer["accepted"], offer["reason"]) == (False, "probe_item_inactive")
