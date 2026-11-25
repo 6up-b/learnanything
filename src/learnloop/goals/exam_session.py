@@ -564,17 +564,20 @@ def finish_exam(
         if item_id in submitted_by_item
     ]
 
-    # Apply answered items as exam_attempts, spaced seconds apart at finish time
-    # (same deterministic backdating shape exam_seeding uses). This is when the
+    # Apply answered items as exam_attempts at finish time. This is when the
     # answers restart their items' forgetting clocks and get their reviews: a
     # staged answer writes no item state, so a sitting left unfinished moves no
     # clock, and anchoring at submission instead would change review timing.
-    base_instant = clock.now().astimezone(UTC).replace(microsecond=0)
-    for index, answer in enumerate(answers):
+    # Each answer is dated by one read of the clock as it is applied, never
+    # ahead of now: its live application order against any other answer is
+    # the replay order (the instant, then the application sequence within a
+    # second). Spaced future seconds let an ordinary answer committed meanwhile
+    # sort before an exam answer it followed.
+    for answer in answers:
         if answer.get("attempt_id"):
             continue
         item_id = answer["practice_item_id"]
-        attempt_clock = FrozenClock(base_instant + timedelta(seconds=index))
+        attempt_clock = FrozenClock(clock.now().astimezone(UTC).replace(microsecond=0))
         grade = _grade_from_dict(answer["grade"])
         answer_md = answer.get("answer_md") or ""
         draft = AttemptDraft(

@@ -11,7 +11,7 @@ from typing import Any, Callable, Iterable, Mapping, Sequence
 from learnloop.attempt_types import NON_RECORDING_ATTEMPT_TYPES, SUPPORTED_ATTEMPT_TYPES, unsupported_attempt_types
 from learnloop.ai.client import AIProviderClient
 from learnloop.ai.runtime import AIRuntimeReport, legacy_codex_status
-from learnloop.clock import Clock, SystemClock, parse_utc, utc_now_iso
+from learnloop.clock import Clock, FrozenClock, SystemClock, parse_utc, utc_now_iso
 from learnloop.attempts.replay_reading import replaced_exam_purpose, replayed_grader_confidence, replayed_grading_source
 from learnloop.attempts.replay_reading import withholds_review_as_variant_request
 from learnloop.config import LearnLoopConfig
@@ -2952,6 +2952,11 @@ def apply_attempt(
         attempt = with_grade_forecast(vault, repository, attempt, clock=clock)
 
     with repository.atomic():
+        if not attempt.replace_existing:
+            # One instant per grade, read once under the write lock: the attempt's created_at, its mastery
+            # observation and its application-order key are this value, so a clock crossing a second between reads
+            # never dates them apart (replay reads the stored created_at).
+            clock = FrozenClock((clock or SystemClock()).now())
         if not attempt.replace_existing and attempt_order_for(vault.config).by_sequence:
             # mvp-0.65: the attempt's place among the grades applied in its second, taken under this transaction's
             # write lock before anything is computed. Its id was minted when grading started, so it cannot say
