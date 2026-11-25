@@ -141,9 +141,11 @@ def register(connection: sqlite3.Connection, sqlite_path: Path | str) -> frozens
     """Register the marker and this context's binding on a writable connection; the binding registered."""
 
     tags = binding(sqlite_path)
-    connection.create_function(MARKER_FUNCTION, 0, _present)
+    # Through the base class: the registration is part of the open, not a change a pool's subclass should count as
+    # a user's (a pool keys its connections by this binding instead).
+    sqlite3.Connection.create_function(connection, MARKER_FUNCTION, 0, _present)
     for tag in sorted(tags):
-        connection.create_function(TAG_FUNCTION_PREFIX + tag, 0, _present)
+        sqlite3.Connection.create_function(connection, TAG_FUNCTION_PREFIX + tag, 0, _present)
     return tags
 
 

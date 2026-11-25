@@ -49,10 +49,13 @@ ITEM_ID = "pi_svd_define_001"
 
 
 @pytest.fixture(autouse=True)
-def _cli_process(monkeypatch):
-    """This process as the CLI is: the table's completion is installed."""
+def _cli_process():
+    """This process as the CLI is: the table's completion is installed (and removed after)."""
 
-    monkeypatch.setattr(activation_journal, "_COMPLETER", upgrades.complete_interrupted_activation)
+    previous = activation_journal._COMPLETER
+    activation_journal.install_completer(upgrades.complete_interrupted_activation)
+    yield
+    activation_journal.install_completer(previous)
 
 
 def _grade(vault, repository, *, minutes: int, answer: str = "SVD factors a matrix as U Sigma V transpose."):
@@ -118,7 +121,7 @@ def _refused(error: BaseException) -> bool:
     return isinstance(error, sqlite3.IntegrityError) and writer_fence.REFUSAL in str(error)
 
 
-# -- the schema --------------------------------------------------------------------------------------------------
+# -- the schema ------------------------------------------------------------------------------------------------------
 
 
 def test_every_fenced_write_has_its_trigger_at_the_head(tmp_path):
@@ -138,7 +141,7 @@ def test_every_fenced_write_has_its_trigger_at_the_head(tmp_path):
         assert writer_fence.recorded_tag(connection) is None
 
 
-# -- R1: a binary from before the fence ---------------------------------------------------------------------------
+# -- a binary from before the fence ----------------------------------------------------------------------------------
 
 
 def test_a_predecessor_binary_cannot_grade_or_regrade_after_the_activation(tmp_path):
@@ -211,7 +214,7 @@ def test_a_vault_no_fence_aware_activation_touched_is_not_fenced(tmp_path):
     assert _count(paths, "practice_attempts") == 3
 
 
-# -- R2: a writer of this code with a stale config -----------------------------------------------------------------
+# -- a writer of this code with a stale config -----------------------------------------------------------------------
 
 
 def test_a_stale_writer_of_this_code_is_refused_and_proceeds_after_a_reload(tmp_path):
@@ -283,7 +286,7 @@ def test_a_pool_never_hands_a_connection_to_another_binding(tmp_path):
             stale.close()
 
 
-# -- deaths around the activation ---------------------------------------------------------------------------------
+# -- deaths around the activation ------------------------------------------------------------------------------------
 
 
 def _die(root, tag, before_publication):
@@ -354,7 +357,7 @@ def test_a_death_after_the_publication_keeps_the_database_tag_until_the_completi
     assert _refused(refused.value)
 
 
-# -- the durability lane: WAL ------------------------------------------------------------------------------------
+# -- the durability lane: WAL ----------------------------------------------------------------------------------------
 
 
 @pytest.mark.durability
