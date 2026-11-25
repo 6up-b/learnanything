@@ -222,6 +222,13 @@ move it.
 
 ## History and replay
 
+**What the upgrade keeps and what it rebuilds** (the owner's design, Q3 (i); ledger H3-R3):
+- Immutable receipts and raw ledgers stand exactly as recorded: answers, grades, serve-time and other receipts. The
+  upgrade writes none of them.
+- Projections are rebuilt under the tag from those records: mastery, surprise, facet and capability, and due dates.
+  So recorded historical projections are not preserved. An old answer is re-scored under mvp-0.71: mastery without
+  the item term, and surprise against a bound serve receipt if one exists.
+
 - **No AD replay over history:** at the upgrade (`Link(mvp-0.71, whole_vault_rebuild)`) every mastery row is replayed
   with no item term, and every surprise row is rebuilt from its receipt.
 - **Answers graded before the tag** have no grade-time receipt. They read their serve-time receipt where one binds,
@@ -393,3 +400,53 @@ step through the scratch wrapper. The copies were deleted afterwards; every orig
   record rows, none with diagnostics.
 - The doctor exits 1 on each copy, on content errors that predate this tag (`criterion:unknown_dependency` 46 on
   vaults 1 and 3, `layout:missing_directory` on 1 and 2, `yaml:invalid` 2 on vault 3); no `difficulty:` code appears.
+
+## Review fix round (2026-11-24)
+
+The adversarial review of H3 found 23 items, ledger H3-R1 to H3-R23. Every one was checked against the code on main
+at `bc70e26255`, which has L4-2 merged on top. The fixes that change persisted meaning sit under one new tag,
+mvp-0.73 ([algorithm-mvp-0.73.md](algorithm-mvp-0.73.md)): H3-R9, H3-R10 and H3-R12.
+
+**Fixed without a tag:**
+- **H3-R2:** the grade scores against its stored grade-time receipt, written first in its transaction. If the
+  receipt fails to write, the grade records mastery as its source, as a rebuild does.
+- **H3-R22:** the stored receipt is read by its key.
+- **H3-R4 and H3-R5:**
+  - A grade-time forecast never reads evidence dated after the answer, and it reads one snapshot.
+  - The receipt's `inputs_as_of` and `created_at` are the forecast's read instant, its cutoff. That instant is
+    before the grade's application time and is not claimed to equal it.
+- **H3-R17:** the receipt's `algorithm_version` is stamped. The rest of R17 is open.
+- **H3-R19:** a joint update's KL is reported as unmeasured.
+- **H3-R23:** the retired empirical difficulty is not read.
+- **H3-R1, H3-R14, H3-R15:** the owner-copy scripts' outputs.
+- **H3-R21:** a gate's diagnostics are counted. The rest of R21 is open.
+
+**By decision:** H3-R3. History is rebuilt under the tag (above).
+
+**Stopped for the owner:**
+- **H3-R6: which forecast binds when `promoted_predictor = false`.** The serve's selection uses the LO view, and the
+  `ad_selections` row records that `view`. Options:
+  - (a) surprise reads the receipt of the view the selection recorded (`@lo` or `@subject`), live and on replay,
+    for repeats too;
+  - (b) keep the subject view always, and say so on the row;
+  - (c) fall back to mastery whenever the selecting view is not the subject view.
+
+  Recommendation: (a). The surprise is then against the prediction that served the item.
+- **H3-R11: the field's comparator inputs.** Field replay restores `decision_features.difficulty_b` after the gated
+  seam, an LLM label still adds observation noise, and the V1 payload sends the scalar. Options:
+  - (a) from a tag, build the field's model features with no item term and no label noise. The historical
+    `difficulty_b` stays as provenance, the V1 payload names the absent item term, and the comparator's inputs are
+    versioned;
+  - (b) leave the field to H4 and H5, which retire AD's `z_llm` and the label's other readers.
+
+  Recommendation: (a), under its own tag (one more whole-vault rebuild of the field's DERIVED rows).
+
+**Open after this round:**
+- H3-R7: presentation session and revision binding.
+- H3-R8: exam finish idempotency.
+- H3-R13: four-way arm (f) through the successor.
+- H3-R16: the forecast under the lesson's outer transaction.
+- The rest of H3-R17: a grade-specific snapshot.
+- H3-R18: with H-6.
+- H3-R20: historical displays.
+- The rest of H3-R21: shadow digests of the H3 outputs.
