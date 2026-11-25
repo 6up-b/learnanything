@@ -71,7 +71,7 @@ def _handle(ctx: SidecarContext, request: Any, *, trace_id: str | None = None) -
         except writer_fence.WriterFenceRefusal:
             # The last boundary of every request, on every host that dispatches here (the desktop's stdio loop, the
             # phone host's workers): a refusal raised while another failure was being answered (a recovery's
-            # reload, an error handler's own record) is answered too, and the host keeps serving (round 4, R4-F1).
+            # reload, an error handler's own record) is answered too, and the host keeps serving.
             return _refused_again(request)
 
 
@@ -292,7 +292,7 @@ def _fenced_write_error(ctx: SidecarContext) -> SidecarError:
 
     reloaded = True
     try:
-        # The load compares the config's tag with the database's before it writes anything (R4-F1).
+        # The load compares the config's tag with the database's before it writes anything.
         ctx.reload(maintenance=False)
     except ConfigBehindDatabase as behind:
         # the config itself disagrees with the database; reloading it again would refuse again.

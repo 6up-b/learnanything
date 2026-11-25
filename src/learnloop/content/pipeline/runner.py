@@ -561,7 +561,7 @@ class IngestRunner:
 
     def retire(self) -> None:
         """Claim nothing more: the host bound a successor runner to the same vault under another writer-fence binding
-        (a reload after an upgrade, R4-F2). A claim in flight finishes here as it began, its interrupt handle with it;
+        (a reload after an upgrade). A claim in flight finishes here as it began, its interrupt handle with it;
         unlike :meth:`halt`, nothing is interrupted or fenced."""
 
         self.retired.set()

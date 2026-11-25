@@ -157,7 +157,7 @@ class DurableIngestJobs:
 
     def __init__(self) -> None:
         self._runner: IngestRunner | None = None
-        #: Runners a same-vault rebind under another writer-fence binding replaced (R4-F2), kept while a claim of
+        #: Runners a same-vault rebind under another writer-fence binding replaced, kept while a claim of
         #: theirs runs: its interrupt handle stays reachable (``interrupt_codex``) and a halt reaches it.
         self._retired_runners: list[IngestRunner] = []
         self._lock = threading.RLock()
@@ -254,7 +254,7 @@ class DurableIngestJobs:
             ).resolve()
             self._retired_runners = [old for old in self._retired_runners if old.busy]
             if same_vault and self._runner is not None and self._runner.repo.writer_tags != repository.writer_tags:
-                # The writer fence (R4-F2): the reload follows an upgrade, so the kept runner's repository writes
+                # The writer fence: the reload follows an upgrade, so the kept runner's repository writes
                 # under the predecessor's tag and every new claim would be refused until a restart. New claims go to
                 # a runner bound to the successor's repository; the old one finishes only the claim it holds, with
                 # its interrupt handle (kept reachable through ``_retired_runners``).
@@ -1652,7 +1652,7 @@ class DurableIngestJobs:
         current = self._require_runner()
         with self._lock:
             runners = [current, *self._retired_runners]
-        # A claim a retired runner still holds (R4-F2) is interrupted through the runner that holds its handle.
+        # A claim a retired runner still holds is interrupted through the runner that holds its handle.
         active: list[dict[str, Any]] = []
         owners: dict[str, IngestRunner] = {}
         for owner in runners:

@@ -273,7 +273,7 @@ class HostRuntime:
             except SidecarError as error:
                 return {"jsonrpc": "2.0", "id": request_id, "error": sidecar_error(error)}
             except UNSERVABLE as refused:
-                # A reload refused (a config that names another tag than the database, R4-F1; below the floor; an
+                # A reload refused (a config that names another tag than the database; below the floor; an
                 # unfinished upgrade): the phone gets the words that name the command to run.
                 return {"jsonrpc": "2.0", "id": request_id, "error": sidecar_error(unservable_error(refused))}
             with context.acting_as(origin):
@@ -411,7 +411,7 @@ class HostRuntime:
                 job_id=job_id,
             )
             response = self._dispatch(worker, job["method"], job["params"], origin)
-        except (Exception, writer_fence.WriterFenceRefusal):  # the job is answered and finished either way (R4-F1)
+        except (Exception, writer_fence.WriterFenceRefusal):  # the job is answered and finished either way
             LOG.exception("job %s failed", job_id)
             response = {"error": {"message": "This request stopped unexpectedly.", "data": {"code": "internal"}}}
         error = flat_error(response)
@@ -644,7 +644,7 @@ class HostRuntime:
                      params: Mapping[str, Any], origin: Any) -> None:
         try:
             response = self._dispatch(worker, "recover_practice_submission", params, origin)
-        except (Exception, writer_fence.WriterFenceRefusal):  # answered either way (R4-F1)
+        except (Exception, writer_fence.WriterFenceRefusal):  # answered either way
             LOG.exception("recovery of submission %s stopped", submission_id)
             response = {"error": {"message": "This request stopped unexpectedly.", "data": {"code": "internal"}}}
         error = flat_error(response)

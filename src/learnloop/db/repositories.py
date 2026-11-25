@@ -357,12 +357,8 @@ class Repository(
         # The writer fence: it writes under the binding in force when it was made (the vault it was opened for).
         self._writer_tags = None if self._read_only else (writer_fence.binding(self.sqlite_path) or None)
 
-    @property
-    def writer_tags(self) -> frozenset[str] | None:
-        """The writer fence's binding this repository writes under (None: unbound, or read-only)."""
-
-        return self._writer_tags
-
+    #: The writer fence's binding this repository writes under (None: unbound, or read-only).
+    writer_tags = property(lambda self: self._writer_tags)
     def _connect(self) -> sqlite3.Connection:
         with writer_fence.bound(self.sqlite_path, self._writer_tags):
             return connect(self.sqlite_path, read_only=self._read_only)

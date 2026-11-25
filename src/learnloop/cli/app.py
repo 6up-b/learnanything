@@ -25,8 +25,8 @@ def _ready_provider_for_task(*args, **kwargs):
 
 class _LearnLoopApp(typer.Typer):
     """The CLI's entry point (``learnloop = "learnloop.cli:app"``): a command the writer fence stopped (the vault was
-    upgraded while it ran) ends with the refusal's own words and exit status 1, never with a traceback (round 4,
-    R4-F1). The refusal is a ``BaseException``, so no command's ``except Exception`` takes it first."""
+    upgraded while it ran) ends with the refusal's own words and exit status 1, never with a traceback. The
+    refusal is a ``BaseException``, so no command's ``except Exception`` takes it first."""
 
     def __call__(self, *args: Any, **kwargs: Any) -> Any:
         try:

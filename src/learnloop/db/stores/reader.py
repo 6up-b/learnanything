@@ -97,7 +97,7 @@ def settle_reviewed_topic_work(connection: sqlite3.Connection, patch_id: str, *,
 
 def _completed_sections(connection: sqlite3.Connection, extraction_id: str, section_ids: Sequence[str]) -> set[str]:
     """The sections among ``section_ids`` whose progress row already holds a completion. A completion never clears,
-    so a writer that read one here can leave it out of its upsert whatever commits in between (R4-F4)."""
+    so a writer that read one here can leave it out of its upsert whatever commits in between."""
 
     wanted = list(dict.fromkeys(section_ids))
     if not wanted:
@@ -1226,7 +1226,7 @@ class ReaderStoreMixin:
                         "VALUES (?, ?, ?, ?, ?) ON CONFLICT(extraction_id, section_id) DO NOTHING",
                         (extraction_id, section_id, end_span_id, now, observed_by),
                     )
-            # A completion the row already holds is not sent again (R4-F4): it would be kept anyway, and the writer
+            # A completion the row already holds is not sent again: it would be kept anyway, and the writer
             # fence's insert trigger (migration 276) fires before the conflict turns the insert into an update.
             stamps = completed and section_id not in _completed_sections(connection, extraction_id, [section_id])
             connection.execute(
@@ -1340,7 +1340,7 @@ class ReaderStoreMixin:
         if not rows:
             return 0
         with self.connection() as connection:
-            # As in upsert_reader_section_progress (R4-F4): a completion the row already holds is not sent again.
+            # As in upsert_reader_section_progress: a completion the row already holds is not sent again.
             complete = _completed_sections(connection, extraction_id, [str(row["section_id"]) for row in rows])
             values = []
             for row in rows:

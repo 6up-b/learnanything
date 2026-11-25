@@ -155,7 +155,7 @@ def config_behind_database(vault: LoadedVault) -> str | None:
 class ConfigBehindDatabase(RuntimeError):
     """A vault whose ``learnloop.toml`` names another tag than its database (restored from an older copy, or edited
     by hand): nothing computed from it may be written, so a host refuses to serve it before it writes anything, and
-    the message names the command that repairs it (round 4, R4-F1)."""
+    the message names the command that repairs it."""
 
 
 def refuse_config_behind_database(vault: LoadedVault) -> None:

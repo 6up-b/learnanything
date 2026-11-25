@@ -368,7 +368,7 @@ def _start_from_the_database(root: Path, sqlite_path: Path, named: str) -> tuple
     file would move the database's tag back or sideways, and answering "already" would leave the file behind it.
 
     A vault with no database yet (its content only) has no recorded tag: the walk goes on, and the repository opener
-    creates the database as it always did (R4-F3). An existing database that cannot be read still stops the walk."""
+    creates the database as it always did. An existing database that cannot be read still stops the walk."""
 
     if not sqlite_path.exists():
         return named, [], None

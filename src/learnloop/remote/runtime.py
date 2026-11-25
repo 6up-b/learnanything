@@ -183,7 +183,7 @@ class RemoteRuntime:
 
     def config_behind(self) -> str | None:
         """Plain words for a config that names another tag than the database (``learnloop upgrade`` repairs it), or
-        None: what a refused request says instead of "try again", which would only be refused again (R4-F1)."""
+        None: what a refused request says instead of "try again", which would only be refused again."""
 
         try:
             return config_behind_database(self.vault())

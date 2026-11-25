@@ -61,7 +61,7 @@ _LOGGER = logging.getLogger(__name__)
 
 #: What makes a vault unservable once it is bound: it was refused below the oldest supported tag, an upgrade's
 #: activation journal stands beside its database, or its config names another tag than its database (the writer
-#: fence would refuse every write computed from it; round 4, R4-F1).
+#: fence would refuse every write computed from it).
 Unservable = BelowOldestSupported | activation_journal.InterruptedActivation | ConfigBehindDatabase
 #: The same, for an ``except`` clause.
 UNSERVABLE: tuple[type[Exception], ...] = (
@@ -262,7 +262,7 @@ class SidecarContext:
             # and then nothing of this vault is bound or served.
             with vault_writes(vault):  # the writer fence: the repository writes under the vault just loaded
                 repository = open_vault_repository(vault.root, VaultPaths(vault.root, vault.config).sqlite_path)
-            # The writer fence (R4-F1): a config that names another tag than the database is refused here, before
+            # The writer fence: a config that names another tag than the database is refused here, before
             # anything below writes (state sync, recoveries), so a reload recovering from a refused write never
             # meets a second refusal; the message names `learnloop upgrade`, which repairs the config.
             refuse_config_behind_database(vault)
@@ -440,7 +440,7 @@ class SidecarContext:
 
             plan_fallback.revoke_all()
         with self._stops_serving_when_refused(target):
-            refuse_config_behind_database(vault)  # the writer fence (R4-F1): as in load(), before anything writes
+            refuse_config_behind_database(vault)  # the writer fence: as in load(), before anything writes
             with vault_writes(vault):
                 repository = Repository.attach(sqlite_path, read_only=False)
         self.vault_root = target
