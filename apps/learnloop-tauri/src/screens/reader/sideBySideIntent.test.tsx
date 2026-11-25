@@ -23,7 +23,7 @@ import { ScopedSource } from "../desks/source/ScopedSource";
 import { setAlgoConfig } from "../../app/algoConfig";
 import { readerRenderViewFixture as view } from "../../fixtures/readerRenderView";
 import { readerIntentContractFixture as intent } from "../../fixtures/readerIntentContract";
-import type { CorrespondentsDto, ReaderCueDto, ReaderCuesDto, SideBySideSectionDto, SourceLibraryCard } from "../../api/dto";
+import type { CorrespondentsDto, FigureViewDto, ReaderCueDto, ReaderCuesDto, SideBySideSectionDto, SourceLibraryCard } from "../../api/dto";
 import { resetReaderActivityForTests } from "./activity";
 import { CUE_COPY } from "./cues";
 import { SIDE_PANE_COPY } from "./SideBySidePane";
@@ -185,6 +185,23 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); setAlgoConfig(undefined); window.getSelection()?.removeAllRanges(); });
 
 const pane = () => document.querySelector<HTMLElement>("[data-side-by-side-pane]");
+
+/** A figure build that has ended: the figure could not be drawn, and its line lands under
+ *  the passage. A test that presses for a figure waits for its build to end (ledger R4-G1:
+ *  a build left running outlived its test and set state after the environment was gone). */
+function endedBuild(extractionId: string, spanIds: string[], anchorSpanId: string, goalText: string | null = null) {
+  const figure: FigureViewDto = {
+    figureId: "fig_built", extractionId, spanIds, anchorSpanId, region: null, origin: goalText ? "show_me" : "selection",
+    verification: "unsupported", shown: false, kind: null, labelCode: "unsupported", label: "can't draw this yet", reason: null,
+    unsupportedKind: null, supersedesId: null, revisionNote: null, versions: 1, createdAt: "2026-11-25T00:00:00Z",
+    specJson: null, demonstrates: null, assumptions: [], predictions: [], goalText,
+  };
+  return { jobId: "fj1", kind: "figure_build", askId: null, state: "done", result: { figure, reused: false } };
+}
+async function buildEnded(): Promise<void> {
+  await waitFor(() => expect(document.querySelector("[data-figure='fig_built']")).toBeTruthy());
+  expect(document.querySelector("[data-figure-pending]")).toBeNull();
+}
 const sideBody = () => pane()!.querySelector<HTMLElement>("[data-sbs-body]")!;
 const sideBlock = (spanId = "ax7a_1") => pane()!.querySelector<HTMLElement>(`[data-sbs-span="${spanId}"]`)!;
 
@@ -324,10 +341,12 @@ it("active reading and another way run on the second pane's reading; the card sh
 });
 
 it("make this explorable builds a figure on the second pane's reading", async () => {
+  api.readerFigureRequest.mockResolvedValue(endedBuild("ext_axler", ["ax7a_1"], "ax7a_1"));
   await openSideBySide();
   await route("make_explorable", "explore it");
   await waitFor(() => expect(api.readerFigureRequest).toHaveBeenCalled());
   expect(api.readerFigureRequest).toHaveBeenCalledWith({ extractionId: "ext_axler", spanIds: ["ax7a_1"], region: null, spanKeys: ["ext_axler:ax7a_1"] });
+  await buildEnded();
 });
 
 it("the second pane's palette is the main pane's: work through this and what matters here? are offered there too (re-review F7)", async () => {
@@ -1241,9 +1260,8 @@ function sideAnswerWithOffers() {
 async function askSideWithOffers(): Promise<void> {
   state.contract = { ...ON, readerTutor: TUTOR_ON, figures: FIGURES_ON };
   api.readerAsk.mockResolvedValue(sideAnswerWithOffers());
-  api.readerFigureRequest.mockResolvedValue({ jobId: "fj1", kind: "figure_build", askId: null, state: "pending", result: null });
-  api.figureRequest.mockResolvedValue({ jobId: "fj1", kind: "figure_build", askId: null, state: "pending", result: null });
-  api.readerFigureJob.mockResolvedValue({ jobId: "fj1", kind: "figure_build", askId: null, state: "pending", result: null });
+  api.readerFigureRequest.mockResolvedValue(endedBuild("ext_axler", ["ax7a_3"], "ax7a_3"));
+  api.figureRequest.mockResolvedValue(endedBuild("ext_axler", [], "ax7a_1", "the eigenvalues on a line"));
   api.readerLibraryCompare.mockResolvedValue({ jobId: "ljob_compare", kind: "compare", askId: "la_c", state: "pending", result: null });
   await openSideBySide();
   await route("ask_help_me_reason");
@@ -1261,6 +1279,7 @@ it("audit: the tutor's offers on an answer about the second book act on that boo
   expect(api.figureRequest.mock.calls[0][0]).toMatchObject({
     goalText: "the eigenvalues on a line", origin: "tutor", offerRef: "qe_side", readingAt: { extractionId: "ext_axler", spanId: "ax7a_1" },
   });
+  await buildEnded();
   // "how do your books treat this?": the comparison anchored there leads with that book.
   fireEvent.click(screen.getByRole("button", { name: /how do your books treat this\?/ }));
   await waitFor(() => expect(api.readerLibraryCompare).toHaveBeenCalledTimes(1));
@@ -1274,6 +1293,7 @@ it("audit: make this explorable on an answer about the second book builds it on 
   await waitFor(() => expect(api.readerRenderView).toHaveBeenCalledWith({ extractionId: "src_axler" }));
   await waitFor(() => expect(api.readerFigureRequest).toHaveBeenCalledTimes(1));
   expect(api.readerFigureRequest.mock.calls[0][0]).toMatchObject({ extractionId: "ext_axler", spanIds: ["ax7a_3"], origin: "tutor" });
+  await buildEnded();
 });
 
 it("audit: try the next step on an answer about the second book, with side by side closed, takes that book to the main pane and asks there", async () => {
@@ -1289,7 +1309,7 @@ it("audit: try the next step on an answer about the second book, with side by si
 
 it("audit: show me from the Ask rail on a thread about the second book builds the figure on that book", async () => {
   state.contract = { ...ON, figures: FIGURES_ON };
-  api.figureRequest.mockResolvedValue({ jobId: "fj1", kind: "figure_build", askId: null, state: "pending", result: null });
+  api.figureRequest.mockResolvedValue(endedBuild("ext_axler", [], "ax7a_1", "draw the eigenvalues"));
   await openSideBySide();
   await route("ask_help_me_reason");
   await screen.findByText("Side answer");
@@ -1300,6 +1320,7 @@ it("audit: show me from the Ask rail on a thread about the second book builds th
   expect(api.figureRequest.mock.calls[0][0]).toMatchObject({
     goalText: "draw the eigenvalues", origin: "show_me", readingAt: { extractionId: "ext_axler", spanId: "ax7a_1" },
   });
+  await buildEnded();
 });
 
 it("audit: a reconnect answer on a thread about the second book names that book's reading", async () => {
