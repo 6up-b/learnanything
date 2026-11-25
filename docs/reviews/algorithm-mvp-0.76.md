@@ -102,6 +102,10 @@ The successor of mvp-0.75 for the review-round-3 fixes that change what is deriv
   only; an answer whose inputs are not on record, and a once-graded exam sitting answer (now reported), stay listed
   with `unrecoverable`. Tests: `tests/test_rebuild_writes_no_grade_record.py` (three cases). Stopped for a call:
   R4-S3b (replay drops fatal errors, a rule from mvp-0.60).
+- R4-S4 (FR3-12's residue): a draft's saved plan presentation is bound to the item and retry key it was saved for
+  (`planPresentationFor` in the practice envelope); a checkpoint patch that changes either without naming the
+  replacement drops it, so a submit never binds an abandoned presentation. Test:
+  `tests/test_answer_door_sessions.py::test_a_key_only_checkpoint_patch_drops_the_drafts_old_presentation`.
 
 ## Pins and goldens
 

@@ -222,3 +222,29 @@ def test_only_the_practice_and_workbench_submits_name_a_plan_presentation():
                     found.add(path.relative_to(root).as_posix())
     assert found == {"learnloop/attempts/attempts.py", "learnloop_sidecar/handlers/practice.py",
                      "learnloop_sidecar/handlers/workbench.py"}
+
+
+def test_a_key_only_checkpoint_patch_drops_the_drafts_old_presentation(tmp_path, monkeypatch):
+    """Review round 4, R4-S4: the draft saved retry key K1 with presentation P1; the same item was served again as P2;
+    a checkpoint patch then changed the key to K2 without naming a presentation. P1 was kept under K2, and a submit of
+    K2 with the explicit P2 bound (and consumed) the abandoned P1. The presentation now belongs to the item and key it
+    was saved with: a patch that changes either drops it unless it names the replacement."""
+
+    paths, ctx = _desktop(tmp_path, monkeypatch)
+    session = _call(ctx, "start_session", {"availableMinutes": 25})["sessionId"]
+    with sqlite3.connect(paths.sqlite_path) as connection:
+        for presentation in ("pres_p1", "pres_p2"):
+            block = f"blk_{presentation}"
+            connection.execute("INSERT INTO attention_blocks(id, action, budget_minutes, content_hash, created_at) "
+                               "VALUES (?, 'practice', 10, 'h', ?)", (block, _iso(NOW)))
+            connection.execute("INSERT INTO plan_presentations(id, block_id, practice_item_id, position, origin, "
+                               "served_at, session_id) VALUES (?, ?, 'pi_extra_1', 1, 'chooser', ?, ?)",
+                               (presentation, block, _iso(NOW), session))
+    _call(ctx, "save_practice_draft", {"sessionId": session, "practiceItemId": "pi_extra_1", "answerMd": "half",
+                                       "submissionId": "key-1", "hintsUsed": 0, "planPresentationId": "pres_p1"})
+    _call(ctx, "update_session_checkpoint", {"sessionId": session, "submissionId": "key-2"})
+    result = _submit(ctx, session, "pi_extra_1", "pres_p2", submissionId="key-2")
+    assert _bound(paths.sqlite_path, result["attemptId"]) == "pres_p2"  # failed before: pres_p1
+    with sqlite3.connect(paths.sqlite_path) as connection:
+        assert connection.execute("SELECT count(*) FROM practice_attempts WHERE plan_presentation_id = 'pres_p1'"
+                                  ).fetchone()[0] == 0

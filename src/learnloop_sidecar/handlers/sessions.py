@@ -420,6 +420,10 @@ def _patch_checkpoint_locked(
         focus = _with_earlier_opened(focus, earlier_opened)
 
     current_item = _merged_value(existing, params, fields, "current_practice_item_id")
+    # The draft's presentation belongs to the item and retry key it was saved with (R4-S4): a patch that changes
+    # either without naming the replacement drops it, so a later submit never binds an abandoned presentation.
+    focus = _bound_plan_presentation(focus, current_item, supplied=plan_presentation_id is not _KEEP,
+                                     before=existing)
     if self_grade_disclosure is not _KEEP:
         focus = with_self_grade_disclosure(focus, self_grade_disclosure)
     focus = _kept_disclosure(focus, current_item)
@@ -859,10 +863,46 @@ def draft_first_hint_progress(practice: dict[str, Any] | None, submission_id: st
     return value if value in ("no_draft", "draft_started") else None
 
 
+#: The practice envelope's record of the draft (item, retry key) its ``planPresentationId`` was saved for.
+_PRESENTATION_FOR_KEY = "planPresentationFor"
+
+
+def _draft_key(practice: dict[str, Any]) -> str | None:
+    key = practice.get("submissionId") or practice.get("submission_id")
+    return key.strip() if isinstance(key, str) and key.strip() else None
+
+
+def _bound_plan_presentation(focus: dict[str, Any] | None, current_item: Any, *, supplied: bool,
+                             before: dict[str, Any]) -> dict[str, Any] | None:
+    """The envelope with its plan presentation bound to the draft it was saved for: recorded with the item and retry
+    key when this patch supplies it; dropped when this patch leaves it but the item or key it belongs to changed (its
+    record's, or for an envelope saved before the record, the checkpoint's before this patch)."""
+
+    practice = focus.get("practice") if isinstance(focus, dict) else None
+    if not isinstance(practice, dict) or not practice.get("planPresentationId"):
+        if isinstance(practice, dict) and _PRESENTATION_FOR_KEY in practice:
+            practice = {k: v for k, v in practice.items() if k != _PRESENTATION_FOR_KEY}
+            return {**focus, "practice": practice}
+        return focus
+    owner = {"practiceItemId": current_item, "submissionId": _draft_key(practice)}
+    if not supplied:
+        recorded = practice.get(_PRESENTATION_FOR_KEY)
+        if not isinstance(recorded, dict):
+            old_focus = before.get("focus_block_state")
+            old_practice = old_focus.get("practice") if isinstance(old_focus, dict) else None
+            recorded = {"practiceItemId": before.get("current_practice_item_id"),
+                        "submissionId": _draft_key(old_practice) if isinstance(old_practice, dict) else None}
+        if recorded != owner:
+            practice = {k: v for k, v in practice.items() if k not in ("planPresentationId", _PRESENTATION_FOR_KEY)}
+            return {**focus, "practice": practice}
+    return {**focus, "practice": {**practice, _PRESENTATION_FOR_KEY: owner}}
+
+
 def draft_plan_presentation(checkpoint: dict[str, Any] | None, *, practice_item_id: str,
                             submission_id: str | None) -> str | None:
     """The presentation a saved draft named, when ``submission_id`` is that
-    draft's retry key on ``practice_item_id`` (router R2a, review F5), else None."""
+    draft's retry key on ``practice_item_id`` (router R2a, review F5) and the
+    presentation was saved for that item and key (R4-S4), else None."""
 
     if not checkpoint or not submission_id or checkpoint.get("current_practice_item_id") != practice_item_id:
         return None
@@ -870,8 +910,11 @@ def draft_plan_presentation(checkpoint: dict[str, Any] | None, *, practice_item_
     practice = focus.get("practice") if isinstance(focus, dict) else None
     if not isinstance(practice, dict):
         return None
-    key = practice.get("submissionId") or practice.get("submission_id")
-    if not isinstance(key, str) or key.strip() != submission_id.strip():
+    key = _draft_key(practice)
+    if key is None or key != submission_id.strip():
+        return None
+    recorded = practice.get(_PRESENTATION_FOR_KEY)
+    if isinstance(recorded, dict) and recorded != {"practiceItemId": practice_item_id, "submissionId": key}:
         return None
     value = practice.get("planPresentationId")
     return value if isinstance(value, str) and value.strip() else None
