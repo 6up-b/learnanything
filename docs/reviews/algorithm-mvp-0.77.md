@@ -92,3 +92,35 @@ G2-R33 moved, by their writers: `tests/goldens/effective_defaults.toml` (the ret
 presentations carry `ranking_basis`, two observed-family presentations log `redundancy_penalty` 1.0 instead of 0.6,
 the probe selection forecasts drop the multiplier parameter and their config hash moves with it; no selected item
 changes). Identity pins unchanged (the retired field keeps the bytes).
+
+## The owner-copy procedure (for the orchestrator, from an mvp-0.76 copy; counts and digests only)
+
+Make a backup-API copy of an mvp-0.76 vault for `COPY` (`COPY_DB` its `state.sqlite`). Run the 0.76 record's payload,
+mastery and trace digests on it, then `learnloop upgrade --vault "$COPY" --to mvp-0.77`, the same digests again and
+the queries below (before and after the upgrade; they must print the same counts, since the row is an idempotent
+projection and nothing recorded is rewritten). Expected: every digest differs only in `algorithm_version`, and
+`learnloop rebuild-derived-state --vault "$COPY" --json` run twice leaves the digests equal after each run.
+
+```sh
+sqlite3 -readonly -header "$COPY_DB" <<'SQL'
+-- Decisions a 1e-12 rounding logged as 1 while another option kept mass (G2-R34 would log them exact from the tag).
+SELECT count(*) AS rounded_draws
+FROM router_decisions d, json_each(d.candidates_json) c
+WHERE d.propensity = 1.0 AND json_extract(c.value, '$.ref') <> d.chosen_ref
+  AND json_extract(c.value, '$.propensity') > 0;
+-- Today offers published without a decision (head mismatches; refused from the tag).
+SELECT count(*) AS head_mismatch_records FROM decision_records
+WHERE kind = 'today_offer' AND status = 'failed' AND rule = 'head_mismatch';
+-- Probe presentations ranked with the family multiplier below 1 (G2-R33's predecessor rule; history, unchanged).
+SELECT count(*) AS family_penalized_presentations FROM probe_presentations
+WHERE json_extract(selection_components_json, '$.redundancy_penalty') < 1.0;
+-- Router-owned episodes whose lock is not their offer's (G2-R31's predecessor; history, unchanged).
+SELECT count(*) AS episodes_off_their_valued_lock
+FROM probe_presentations p JOIN probe_episodes e ON e.id = p.probe_episode_id
+WHERE json_extract(p.selection_components_json, '$.causal_probe.router_decision_id') IS NOT NULL
+  AND json_extract(p.selection_components_json, '$.causal_probe.hypothesis_set_id') <> e.hypothesis_set_id;
+SQL
+```
+
+The four counts describe history the tag does not rewrite; they bound how often the
+predecessor's rules acted.
