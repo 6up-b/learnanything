@@ -25,6 +25,7 @@ from learnloop.adaptive_difficulty.logs import warn_failure
 from learnloop.adaptive_difficulty.material_view import material_view
 from learnloop.adaptive_difficulty.operation import entry
 from learnloop.adaptive_difficulty.successor import successor_active
+from learnloop.algorithm_versions import cutoff_reads_the_view
 from learnloop.ids import keyed_ulid
 from learnloop.scheduling.forecast_receipts import ITEM_UNASSISTED_SUCCESS_AT_GRADE, ForecastReceipt
 from learnloop.vault.hashes import item_revision
@@ -52,8 +53,9 @@ def _evidence_after(events: Any, at: str) -> bool:
     """Whether AD's evidence holds anything dated after the answer's cutoff ``at`` (an attempt, a claim or a reading
     opportunity). Such a forecast would read evidence the learner gave after answering (a retrospective import dated
     before practice already recorded), and AD's state as it stood then cannot be rebuilt here, so the answer gets
-    none and its surprise reads mastery, marked. Grade revisions written after the cutoff are checked by the caller,
-    outside AD's operation (its guard refuses the grade ledger)."""
+    none and its surprise reads mastery, marked. Grade revisions written after the cutoff are checked through the
+    view in the same read (``MaterialView.grade_known_after``, from the outcome fixes' tag); below it by the caller,
+    outside AD's operation."""
 
     limit = RP.days(at)
     return any(event.at > limit for group in (events.attempts, events.claims, events.opportunities) for event in group)
@@ -98,6 +100,12 @@ def grade_receipt(vault: Any, repository: Any, *, practice_item_id: str, attempt
                 return None
             snapshot = RP.snapshot(vault, repository, connection=connection, view=view)
             if _evidence_after(snapshot.events, at):
+                return None
+            # From the outcome fixes' tag (FR3-5) a grade revised after the cutoff is judged here, in the forecast's
+            # own read snapshot and through the view: only the visible answers this forecast read, by the time their
+            # grade became known. Below it the caller reads every raw grade's time (``surprise_forecast``).
+            if cutoff_reads_the_view(vault.config.algorithms.algorithm_version) and view.grade_known_after(
+                    connection, (event.attempt_id for event in snapshot.events.attempts), at):
                 return None
             spec = _spec(vault, connection, snapshot, item, at, view)
             warmth = _warmth(connection, view, str(item.learning_object_id), at)

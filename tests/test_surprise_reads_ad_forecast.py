@@ -331,3 +331,33 @@ def test_the_diagnosis_receipt_switch_does_not_discard_the_grade_time_forecast(s
     dist = _surprise(repository)[result.attempt_id]["dist"]
     assert dist["prediction_source"] == "grade_receipt"
     assert dist["p_ad"] == pytest.approx(stored[result.attempt_id]["p"])
+
+
+@pytest.mark.parametrize(("tag", "regraded"), [("mvp-0.76", False), ("mvp-0.76", True), ("mvp-0.75", True)])
+def test_a_later_regrade_never_enters_an_earlier_forecast(served, tmp_path, tag, regraded):
+    """FR3-5: an answer recorded after the history but dated before a regrade of an earlier answer (the regrade is
+    known on day 60, the answer is dated day 30) cannot be forecast from AD's state, which holds the corrected score;
+    from mvp-0.76 it gets no grade-time receipt and its surprise reads mastery. Without the regrade the same answer is
+    forecast. Below the tag (failed before at the tag): the regrade's replacement grade event carries the regraded
+    answer's own time, so the guard, which read the latest grade event's time, let the corrected score in."""
+
+    from learnloop.db.copies import copy_tree_with_databases
+    from tests.regrade_contract_replay_helpers import _regrade
+
+    paths, _vault, _repository = served
+    root = tmp_path / "regrade_cutoff"
+    copy_tree_with_databases(paths.root, root)
+    set_algorithm_version(VaultPaths(root=root, config=paths.config), tag)
+    vault = load_vault(root)
+    repository = Repository(vault.root / paths.sqlite_path.relative_to(paths.root))
+    if regraded:
+        _regrade(vault, repository, _attempt_ids(repository)[UNBOUND[0]], {"correctness": 4.0},
+                 when=NOW + timedelta(days=60))
+        vault = load_vault(root)
+    result = complete_self_graded_attempt(vault, repository, AttemptDraft(
+        practice_item_id="pi_eig_mid", learner_answer_md="Between.", attempt_type="independent_attempt"),
+        SelfGradeInput(criterion_points={"correctness": 3}, confidence=3), clock=FrozenClock(NOW + timedelta(days=30)))
+    suppressed = regraded and tag == "mvp-0.76"
+    assert (result.attempt_id in _grade_receipts(repository)) is not suppressed
+    assert _surprise(repository)[result.attempt_id]["dist"]["prediction_source"] == (
+        "mastery" if suppressed else "grade_receipt")

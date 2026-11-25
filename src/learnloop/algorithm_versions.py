@@ -1410,6 +1410,14 @@ def retention_forecast_shares_allocation(algorithm_version: str | None) -> bool:
     return algorithm_version in OUTCOME_FIXES_VERSIONS
 
 
+def cutoff_reads_the_view(algorithm_version: str | None) -> bool:
+    """The grade-time forecast's later-evidence guard reads, in the forecast's own read and through AD's view, only
+    the visible answers the forecast read, by the time their grade became known (mvp-0.76, FR3-5); below it every raw
+    grade's recorded time on a separate read, mvp-0.71's exactly. Takes the vault's tag."""
+
+    return algorithm_version in OUTCOME_FIXES_VERSIONS
+
+
 def mastery_facts_recorded(algorithm_version: str | None) -> bool:
     """Mastery records each application's facts, observed at whole seconds, and the lesson-weight fit and every
     reader of a lesson outcome read them in one order (the facts' tag); below it mvp-0.73's exactly. Takes the

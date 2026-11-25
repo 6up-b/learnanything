@@ -98,3 +98,32 @@ def test_a_presentation_after_a_grade_froze_its_contract_saves_the_revision_it_s
     alone_shown, alone_saved, alone_receipt = run(tmp_path / "alone", graded_first=False)
     assert shown == alone_shown and saved == alone_saved and [row[0] for row in saved] == [shown]
     assert receipt is not None and receipt[0] == shown and alone_receipt == receipt
+
+
+def test_a_later_held_out_grade_does_not_change_an_unrelated_public_answers_forecast(tmp_path, monkeypatch):
+    """FR3-5: the grade-time forecast's later-evidence guard reads only what adaptive difficulty may see. A held-out
+    item's answer recorded after a public answer's time (its grade is newer than every public one) leaves the public
+    answer's grade-time forecast exactly as in a copy without the held-out answer (failed before: the guard read the
+    newest raw grade of any item, held-out included, so the public answer got no forecast and read mastery)."""
+
+    from tests.ad23_contract_helpers import _copy_item
+
+    def run(root, *, protected: bool):
+        paths = _base(root)
+        _copy_item(paths, "pi_p1", "pi_held_fr3", canonical_exercise={
+            "source_id": "src_r9", "extraction_id": EXT, "span_ids": ["h1"]})
+        if protected:
+            _attempt(paths, "pi_held_fr3", at=T0 + timedelta(hours=1), latency=90)
+        public = _attempt(paths, "pi_p1", at=T0 - timedelta(minutes=40), latency=90)
+        rows = _grade_receipts(paths, public)
+        with closing(connect(paths.sqlite_path, read_only=True)) as connection:
+            (dist,) = connection.execute("SELECT predicted_score_dist_json FROM attempt_surprise WHERE attempt_id = ?",
+                                         (public,)).fetchone()
+        dist = json.loads(dist)
+        return ([(json.loads(versions)["snapshot"] is not None, content_hash) for _key, content_hash, versions in rows],
+                dist["prediction_source"], dist.get("p_ad"))
+
+    _hold_out(monkeypatch)
+    absent = run(tmp_path / "absent", protected=False)
+    assert absent[1] == "grade_receipt" and len(absent[0]) == 1
+    assert run(tmp_path / "protected", protected=True) == absent

@@ -23,7 +23,7 @@ from typing import Any
 from learnloop.adaptive_difficulty.grade_forecast import receipt_id, safe_grade_receipt
 from learnloop.adaptive_difficulty.grade_forecast import receipt_key as grade_receipt_key
 from learnloop.algorithm_versions import (
-    SELECTED_FORECAST_VERSIONS, inline_guard_reads_first_grade, label_retired,
+    SELECTED_FORECAST_VERSIONS, cutoff_reads_the_view, inline_guard_reads_first_grade, label_retired,
 )
 from learnloop.clock import utc_now_iso
 from learnloop.db.connection import connect
@@ -69,7 +69,7 @@ def with_grade_forecast(vault: Any, repository: Any, attempt: Any, *, clock: Any
     if attempt.replace_existing or not label_retired(vault.config.algorithms.algorithm_version):
         return attempt
     at = utc_now_iso(clock)
-    if _revised_after(repository, at):
+    if not cutoff_reads_the_view(vault.config.algorithms.algorithm_version) and _revised_after(repository, at):
         return attempt
     kwargs = {}
     if vault.config.algorithms.algorithm_version in SELECTED_FORECAST_VERSIONS:
@@ -109,7 +109,10 @@ def _inline_contract_revision(vault: Any, repository: Any, connection: Any, draf
 
 def _revised_after(repository: Any, at: str) -> bool:
     """Whether a grade was recorded or revised after the answer's cutoff ``at``: AD's evidence then holds a grade the
-    learner's answer could not have been forecast with (a retrospective import), so the answer gets no forecast."""
+    learner's answer could not have been forecast with (a retrospective import), so the answer gets no forecast.
+    Below the outcome fixes' tag only: it reads every raw grade, a held-out one included, by the time it carries (a
+    regrade's replacement carries the regraded answer's); from the tag the forecaster asks its view
+    (``grade_forecast``, FR3-5)."""
 
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         if connection.execute("SELECT 1 FROM sqlite_master WHERE name = 'raw_grade_events'").fetchone() is None:

@@ -1052,6 +1052,41 @@ class MaterialView:
         return self.withheld(practice_item_id) or any(
             self.revision_withheld(connection, revision, practice_item_id) for revision in named if revision)
 
+    def grade_known_after(self, connection: Any, attempt_ids: Iterable[Any], at: Any) -> bool:
+        """Whether a grade of any of these visible attempts became known after ``at`` (FR3-5): its current grading
+        rows (a regrade's, a repair's) or its latest adjudication were recorded after the cutoff, so AD's evidence
+        holds a score nobody had at ``at``, though the answer is dated before it. Only visible attempts are asked (a
+        withheld answer's grade is never read, so a copy without it answers the same) and the recording time is
+        compared, never the answer's own time (a regrade's replacement grade event carries that). An unreadable time
+        answers yes (no forecast)."""
+
+        from learnloop.adaptive_difficulty.replay import days
+
+        if not self.available:
+            return False
+        visible = {str(row["id"]) for row in self.attempts(connection)}
+        wanted = sorted(visible & {str(value) for value in attempt_ids})
+        limit = days(str(at))
+        recorded: list[Any] = []
+        for start in range(0, len(wanted), 500):
+            chunk = wanted[start:start + 500]
+            marks = ",".join("?" for _ in chunk)
+            if _has_table(connection, "grading_evidence"):
+                recorded += [row[0] for row in connection.execute(
+                    f"/* ad-rules */ SELECT created_at FROM grading_evidence WHERE superseded_at IS NULL "
+                    f"AND attempt_id IN ({marks})", chunk)]
+            if _has_table(connection, "grade_adjudications") and _has_table(connection, "activity_observations"):
+                recorded += [row[0] for row in connection.execute(
+                    f"/* ad-rules */ SELECT ga.created_at FROM grade_adjudications ga JOIN activity_observations o "
+                    f"ON o.id = ga.observation_id WHERE o.attempt_id IN ({marks})", chunk)]
+        for value in recorded:
+            try:
+                if value is not None and days(str(value)) > limit:
+                    return True
+            except ValueError:
+                return True
+        return False
+
     def revision_withheld(self, connection: Any, content_hash: str | None, practice_item_id: Any = None) -> bool:
         """Whether a revision named by hash (and its item id, when known) is withheld now."""
 
