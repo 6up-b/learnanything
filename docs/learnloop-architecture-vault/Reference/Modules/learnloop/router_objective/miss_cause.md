@@ -209,6 +209,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/test_evidence_reading_successor.py](../../../../../../tests/test_evidence_reading_successor.py) — direct import
+- [tests/test_lesson_outcome_assessed.py](../../../../../../tests/test_lesson_outcome_assessed.py) — direct import
+  - `test_the_routers_miss_cause_learning_credits_no_lesson_with_an_unapplied_answer`
 - [tests/test_lesson_weight_facts_integration.py](../../../../../../tests/test_lesson_weight_facts_integration.py) — direct import
   - `test_the_routers_miss_cause_learning_reads_the_outcome_the_fit_reads`
 - [tests/test_sg_slip_vs_gap.py](../../../../../../tests/test_sg_slip_vs_gap.py) — direct import

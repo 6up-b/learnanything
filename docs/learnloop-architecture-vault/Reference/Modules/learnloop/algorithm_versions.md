@@ -527,6 +527,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f1_a_failed_pair_on_the_true_match_never_creates_and_the_retry_matches`
 - [tests/test_lesson_outcome_assessed.py](../../../../../tests/test_lesson_outcome_assessed.py) — direct import
   - `test_an_unapplied_answer_resolves_no_lesson_check_from_the_tag`
+  - `test_the_routers_miss_cause_learning_credits_no_lesson_with_an_unapplied_answer`
 - [tests/test_lesson_weight_facts.py](../../../../../tests/test_lesson_weight_facts.py) — direct import
   - `test_a_reanchoring_claim_breaks_the_chain_on_both_sides_of_the_tag`
   - `test_every_reader_of_a_lesson_outcome_takes_the_fits_order`

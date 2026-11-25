@@ -2130,6 +2130,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_lesson_outcome_assessed.py](../../../../../../tests/test_lesson_outcome_assessed.py) — direct import
   - `test_a_malformed_application_record_is_a_labelled_gap`
   - `test_an_unapplied_answer_resolves_no_lesson_check_from_the_tag`
+  - `test_the_routers_miss_cause_learning_credits_no_lesson_with_an_unapplied_answer`
 - [tests/test_lesson_weight_facts.py](../../../../../../tests/test_lesson_weight_facts.py) — direct import
   - `test_a_check_is_stamped_under_the_writer_lock`
   - `test_a_floor_bound_update_at_the_cap_with_equal_numbers_is_applied`
