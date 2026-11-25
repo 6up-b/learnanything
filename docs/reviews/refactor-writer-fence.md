@@ -299,3 +299,17 @@ two new fence defects. No migration and no tag: nothing stored changes meaning. 
   building the answer, handing the refusal on. The AST test follows calls into functions of the handler's own module
   and a short list of answer builders elsewhere. Anything else must run inside a `try` that itself takes the refusal.
   A second test requires the hosts' last boundaries.
+
+**R4-F2: a same-vault reload left new ingest work fenced out (WF-R1's residue).**
+
+- **The failure.** The host's reload binds the ingest jobs again with the successor's repository. The manager kept
+  its runner, so that a live call's interrupt handle survives a reload, and the runner kept the predecessor's
+  repository. After an upgrade every new claim wrote under the old tag and was refused until the host restarted. A
+  reread's carried-over completion meets migration 276 this way.
+- **The fix.** A same-vault rebind whose repository writes under another binding (`Repository.writer_tags`) binds a
+  new runner for new claims. The new runner takes the old one's clock, services and handlers.
+  - The old runner is retired (`IngestRunner.retire`). It claims nothing more and finishes only the claim it holds.
+  - It is kept while busy, so `interrupt_codex` still reaches its live call and a halt still stops it.
+  - A reload at the same tag keeps the runner, as before.
+- **A narrow race.** A claim the old runner takes just as it is retired meets the fence at its first fenced write.
+  The drain loop takes the refusal; the job's lease expires and the successor's runner requeues it.

@@ -193,3 +193,63 @@ def test_a_cli_command_stops_on_a_refusal_with_its_words(monkeypatch, capsys):
     assert stopped.value.code == 1
     assert writer_fence.REFUSAL in capsys.readouterr().err
     assert typer  # the app is a Typer application
+
+
+# -- R4-F2: a same-vault reload hands new ingest claims to the successor's repository --------------------------------
+
+
+def _bound_repository(paths):
+    from learnloop.vault.loader import load_vault
+    from learnloop.vault.repository import open_vault_repository, vault_writes
+
+    vault = load_vault(paths.root)
+    with vault_writes(vault):
+        return open_vault_repository(vault.root, VaultPaths(vault.root, vault.config).sqlite_path)
+
+
+def test_a_same_vault_reload_after_an_upgrade_gives_new_ingest_claims_the_successors_repository(tmp_path):
+    """The host's reload binds the ingest jobs again with the successor's repository. The runner used to stay the
+    predecessor's (kept for its interrupt handle), so every new claim wrote under the old tag and was refused (a
+    reread's carried-over completion, migration 276) until the host restarted. Now a new claim runs on a runner bound
+    to the successor; the predecessor's runner claims nothing more (it would only finish a claim it holds)."""
+
+    from learnloop.content.pipeline.job_contracts import JobSpec
+    from learnloop.content.pipeline.jobs import IngestJobManager
+
+    paths = fenced_at_predecessor(tmp_path)
+    jobs = IngestJobManager()
+    jobs.bind(_bound_repository(paths), paths.root, background=False)
+    predecessor_runner = jobs._require_runner()
+    upgrade_elsewhere(paths)
+    jobs.bind(_bound_repository(paths), paths.root, background=False)  # SidecarContext.reload's bind
+    outcomes: list[str] = []
+
+    def fenced_write(ctx):
+        try:
+            with ctx.repo.atomic():
+                ctx.repo.connection().execute("INSERT INTO lesson_checks DEFAULT VALUES")
+        except sqlite3.IntegrityError:
+            outcomes.append("admitted")  # past the fence; the empty row breaks the table's own NOT NULL
+        except writer_fence.WriterFenceRefusal:
+            outcomes.append("refused")
+        return {"ok": True}
+
+    runner = jobs._require_runner()
+    runner.handlers["fence_probe"] = fenced_write
+    runner.enqueue_batch("import", [JobSpec("fence_probe")])
+    jobs.drain_foreground()
+    assert outcomes == ["admitted"]
+    assert runner is not predecessor_runner and predecessor_runner.run_next() is False
+
+
+def test_a_same_tag_reload_keeps_the_ingest_runner(tmp_path):
+    """A reload that does not change the tag keeps the runner, and with it a live call's interrupt handle."""
+
+    from learnloop.content.pipeline.jobs import IngestJobManager
+
+    paths = fenced_at_predecessor(tmp_path)
+    jobs = IngestJobManager()
+    jobs.bind(_bound_repository(paths), paths.root, background=False)
+    first = jobs._require_runner()
+    jobs.bind(_bound_repository(paths), paths.root, background=False)
+    assert jobs._require_runner() is first
