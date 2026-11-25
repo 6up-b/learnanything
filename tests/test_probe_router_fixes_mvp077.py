@@ -70,3 +70,87 @@ def test_r34_a_draw_logs_1_only_when_no_other_option_has_mass():
                    u2=0.5)
     assert lone.logged_propensity(True) == 1.0 and lone.logged_propensity(False) == 1.0
     assert near.logged_propensity(True) == 1 - 5e-13 and near.logged_propensity(False) == 1.0
+
+
+# -- G2-R25 (finding 5): a head a standing router pin forces is logged with probability 1 -----------------------------
+
+
+def _pinned_continuation(tmp_path, monkeypatch, tag: str):
+    """A router-owned episode whose continuation pinned the second instrument (the probe coin asks), and a Today
+    session beside it."""
+
+    from learnloop.router_objective import probe_coin as PC
+
+    from tests.probe_router_owned_helpers import SECOND, answer_the_pin, selected
+
+    case = selected(tmp_path, monkeypatch, version=tag)
+    answer_the_pin(case, monkeypatch)
+    monkeypatch.setattr(PC, "draw_uniform", lambda _seed: 0.0)
+    case.ctx.post_attempt_worker.run_pending("probe_router")
+    standing = case.repository.active_probe_presentation(case.offer["episodeId"])
+    assert standing is not None and standing.practice_item_id == SECOND
+    case.session_id = case.repository.create_session(energy=None, sleep_quality=None, available_minutes=20,
+                                                      notes_md_path=None)
+    return case
+
+
+def _near_ties(monkeypatch, *, explored: bool) -> None:
+    """Every other candidate is a near-tie of the greedy head at rate 0.5; the seeded roll explores or not. Today
+    serves the list's head (as with the plan off, or on a phone)."""
+
+    from learnloop.scheduling import scheduler
+    from learnloop_sidecar.handlers import queue as queue_handler
+
+    monkeypatch.setattr(queue_handler, "today_head_served", lambda _vault: True)
+
+    def support(queue, session, config):
+        if session.session_id is None or len(queue) < 2:
+            return None
+        return 0.5, list(queue[1:])
+
+    monkeypatch.setattr(scheduler, "_exploration_support", support)
+    monkeypatch.setattr(scheduler, "_exploration_draws", lambda *_args: (0.1 if explored else 0.9, 0.0))
+
+
+def _today_offer(repository) -> dict | None:
+    with repository.connection() as connection:
+        row = connection.execute("SELECT * FROM router_decisions WHERE decision_kind = 'today_offer' "
+                                 "ORDER BY created_at DESC, id DESC").fetchone()
+    return dict(row) if row is not None else None
+
+
+@pytest.mark.parametrize("explored", [False, True], ids=["greedy", "explored"])
+def test_r25_a_forced_head_is_published_with_its_decision_and_probability_1_from_the_tag(tmp_path, monkeypatch,
+                                                                                         explored):
+    from tests.probe_router_authority_helpers import call
+    from tests.probe_router_owned_helpers import SECOND
+
+    case = _pinned_continuation(tmp_path, monkeypatch, AT)
+    _near_ties(monkeypatch, explored=explored)
+    queue = call(case.ctx, "get_today_queue", {"sessionId": case.session_id})
+    served = [item["practiceItemId"] for section in queue["sections"] for item in section["items"]]
+    assert served[0] == SECOND
+    decision = _today_offer(case.repository)
+    assert decision is not None, "the offer is published with its decision"
+    assert decision["chosen_practice_item_id"] == SECOND
+    assert (decision["propensity"], decision["propensity_kind"]) == (1.0, "deterministic")
+
+
+@pytest.mark.parametrize("explored", [False, True], ids=["greedy", "explored"])
+def test_r25_below_the_tag_the_forced_head_was_recomposed_without_its_pin(tmp_path, monkeypatch, explored):
+    """mvp-0.76's: the probability calculation recomposed each near-tie outcome without the pin's promotion, so the
+    forced head either logged less than 1 or mismatched and went out without a decision."""
+
+    from tests.probe_router_authority_helpers import call
+    from tests.probe_router_owned_helpers import SECOND
+
+    case = _pinned_continuation(tmp_path, monkeypatch, BEFORE)
+    _near_ties(monkeypatch, explored=explored)
+    queue = call(case.ctx, "get_today_queue", {"sessionId": case.session_id})
+    served = [item["practiceItemId"] for section in queue["sections"] for item in section["items"]]
+    assert served[0] == SECOND
+    decision = _today_offer(case.repository)
+    if explored:
+        assert decision is None  # the recomposed head was the explored one: published without a decision
+    else:
+        assert decision["chosen_practice_item_id"] == SECOND and decision["propensity"] == 0.5

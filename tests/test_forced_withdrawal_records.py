@@ -348,16 +348,31 @@ def test_a_cold_check_served_as_practice_or_displaced_leaves_a_record(tmp_path, 
 # -- S12: a Today offer published unlogged -----------------------------------------------------------------------------
 
 
-def test_a_head_mismatch_publishes_the_offer_and_records_both_heads(tmp_path, monkeypatch):
+@pytest.mark.parametrize("tag", ["mvp-0.76", "mvp-0.77"])
+def test_a_head_mismatch_records_both_heads_and_from_mvp_077_refuses_the_offer(tmp_path, monkeypatch, tag):
+    """Below mvp-0.77 the offer is published unlogged; from it (G2-R25) it is refused, never published without its
+    decision. Either way the record names both heads."""
+
+    from learnloop_sidecar.errors import SidecarError
     from learnloop_sidecar.handlers import queue as queue_handler
 
-    from tests.router_offer_log_helpers import _call, _decisions, _served, _two_due_items
+    from tests.helpers import set_algorithm_version
+    from tests.router_offer_log_helpers import _call, _context, _decisions, _served, _two_due_items
 
-    paths, repository, ctx, session_id = _two_due_items(tmp_path)
+    paths, repository, _ctx, session_id = _two_due_items(tmp_path)
+    set_algorithm_version(paths, tag)
+    ctx = _context(paths.root)
     monkeypatch.setattr(queue_handler, "_served_head", lambda dtos: "pi_not_the_head")
-    queue = _call(ctx, "get_today_queue", {"sessionId": session_id})
-    assert _served(queue), "the offer is published"
-    assert _decisions(repository) == []  # unlogged, as before
+    if tag == "mvp-0.76":
+        queue = _call(ctx, "get_today_queue", {"sessionId": session_id})
+        assert _served(queue), "the offer is published"
+    else:
+        with pytest.raises(SidecarError) as refused:
+            _call(ctx, "get_today_queue", {"sessionId": session_id})
+        assert refused.value.code == "offer_not_decided"
+        with repository.connection() as connection:
+            assert connection.execute("SELECT COUNT(*) FROM scheduler_offer_receipts").fetchone()[0] == 0
+    assert _decisions(repository) == []  # no decision, either side
     payload = _why(paths.root, "latest", "--kind", "today_offer")
     [record] = _by_kind(payload, "today_offer")
     assert (record["status"], record["rule"]) == ("failed", "head_mismatch")

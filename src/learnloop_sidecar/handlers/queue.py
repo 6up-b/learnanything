@@ -21,7 +21,9 @@ from learnloop.daily_plan import measurement as objectives
 from learnloop.intent.checks import settle_answered_checks
 from learnloop.projects.capture import auto_sweep
 from learnloop.scheduling.reentry_summary import reentry_session_cap
+from learnloop.algorithm_versions import probe_router_fixes_on
 from learnloop.router.decisions import (
+    OfferHeadMismatch,
     build_today_offer_decision,
     logging_enabled,
     record_decision,
@@ -683,6 +685,14 @@ def publish_offer(
             )
             decision = None
             unlogged = exc
+    if isinstance(unlogged, OfferHeadMismatch) and probe_router_fixes_on(vault.config.algorithms.algorithm_version):
+        # mvp-0.77 (G2-R25): a logged propensity is exactly the served distribution, so an offer whose recomposition
+        # does not reproduce the head it would show is refused, never published without its decision; the record
+        # names both heads. Below the tag it was published unlogged (mvp-0.76's).
+        _record_unlogged_offer(repository, unlogged, slate_id=trace.slate_id if trace else None,
+                               surface=offer_surface(ctx.request_origin))
+        raise SidecarError("offer_not_decided", "Today's list could not be put together. Please try again.",
+                           retryable=True)
     receipt = _offer_prefilter(vault, repository, decision, trace, queue) if decision is not None else None
     with repository.atomic() if alongside is not None else nullcontext():
         if alongside is not None:

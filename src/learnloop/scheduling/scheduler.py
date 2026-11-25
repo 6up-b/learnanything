@@ -10,6 +10,7 @@ from functools import cached_property
 from math import exp, log
 from typing import Any, Mapping, Sequence
 
+from learnloop.algorithm_versions import probe_router_fixes_on
 from learnloop.clock import Clock, SystemClock, parse_utc, utc_now_iso
 from learnloop.config import LearnLoopConfig
 from learnloop.db.repositories import MasteryState, PracticeItemState, Repository
@@ -790,6 +791,10 @@ def rank_due(vault: LoadedVault, admission: "_BuildAdmission", inputs: RankInput
 
     # The contrast pairs' drawn order of the live composition, recorded by the persist step.
     live_contrast_decisions: list[Any] = []
+    # mvp-0.77 (G2-R25): the probe router's standing pin heads the queue inside the composition every probability
+    # calculation recomposes, so a head the pin forces is logged with probability 1; below the tag it was promoted
+    # after the composition, which the counterfactual outcomes never saw (mvp-0.76's).
+    pin_in_composition = probe_router_fixes_on(config.algorithms.algorithm_version)
 
     def compose(composed: list[ScheduledItem], *, record: bool) -> list[ScheduledItem]:
         # The deterministic composition after the exploration draw. One function
@@ -825,13 +830,13 @@ def rank_due(vault: LoadedVault, admission: "_BuildAdmission", inputs: RankInput
         composed, decisions = _apply_contrast_pair_order(vault, composed, session)
         if record:
             live_contrast_decisions[:] = decisions
+        if pin_in_composition:
+            composed = _router_pin_first(composed)
         return composed
 
     queue = compose(queue, record=True)
-    # The probe router's standing pin is a durable assignment as a session's presentation is: first.
-    pinned = [item for item in queue if item.components.get("router_pinned_probe")]
-    if pinned:
-        queue = pinned + [item for item in queue if item not in pinned]
+    if not pin_in_composition:
+        queue = _router_pin_first(queue)
     active_session_presentation = inputs.active_session_presentation
     # The session's committed presentation this build ends ("invalidated"), by the persist step.
     invalidated_presentation_id: str | None = None
@@ -1484,6 +1489,15 @@ def _explore_to_front(
         for item in queue
         if item.practice_item_id != selected.practice_item_id
     ]
+
+
+def _router_pin_first(queue: list[ScheduledItem]) -> list[ScheduledItem]:
+    """The probe router's standing pin is a durable assignment as a session's presentation is: first."""
+
+    pinned = [item for item in queue if item.components.get("router_pinned_probe")]
+    if not pinned:
+        return queue
+    return pinned + [item for item in queue if item not in pinned]
 
 
 def _pin_presentation(

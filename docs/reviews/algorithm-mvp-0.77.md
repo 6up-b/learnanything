@@ -10,6 +10,17 @@ mvp-0.76's. Owner rule: a logged propensity is exactly the served distribution.
 
 ## What changes at the tag
 
+- G2-R25 (finding 5): a head a standing router pin forces is logged with probability 1 and its decision recorded.
+  Up to mvp-0.76 the live queue promoted the probe router's pin after the composition, and the offer's probability
+  calculation (`_support_outcomes`, `_composed_head_probability`) recomposed each near-tie outcome without that
+  promotion: when the recomposed heads agreed by chance the forced head logged its sampled share (0.5 in the test),
+  and when they differed `OfferHeadMismatch` was caught and the offer went out without a decision. From the tag the
+  promotion (`scheduler._router_pin_first`) runs inside `compose`, the one composition live service and every
+  probability calculation share, and a head mismatch refuses the offer (`offer_not_decided`, retryable; the
+  `today_offer` record names both heads). Tests: `tests/test_probe_router_fixes_mvp077.py::test_r25_*` (both
+  near-tie outcomes through offer publication, both sides of the tag) and
+  `tests/test_forced_withdrawal_records.py::test_a_head_mismatch_records_both_heads_and_from_mvp_077_refuses_the_offer`.
+
 - G2-R34 (finding 14): a learned draw logs its served option's exact share. The chooser rounded any share within
   1e-12 of 1 to 1 (`router.mixture.Draw.deterministic`), read as `1.0 if drawn.deterministic else drawn.propensity`
   at five sites (the objective chooser's boundary and post-miss choice, the router chooser's block, restraint and
