@@ -857,12 +857,12 @@ PROTECTION_UNAVAILABLE = ("LearnLoop couldn't check which questions are kept for
 
 
 def catalog_screen(vault: Any, repository: Repository) -> Callable[[str], bool]:
-    """The topic catalog's screen (TE5 review fix round, TE5-R1): a record whose words reproduce a question kept for
-    an exam or held out (``learner_protection.quotes_reserved``, the one predicate the lesson's guards and display
+    """The topic catalog's screen: a record whose words reproduce a question kept for
+    an exam or held out (``reserved_text.quotes_reserved``, the one predicate the lesson's guards and display
     read) never reaches the resolver, whichever topic the request is about. Unreadable protection raises
     ``DeliverableError("protection_unavailable")`` (fail closed)."""
 
-    from learnloop.learner_protection import quotes_reserved, reserved_book
+    from learnloop.content.authoring.reserved_text import quotes_reserved, reserved_book
 
     book = reserved_book(vault, repository)
     if book.unreadable:
@@ -884,7 +884,7 @@ class ScopePrompt:
     #: C2b (option A): with the subject ambiguous, the groups sent, ``(subject id, ids)`` each;
     #: the guard reads every group again for its own subject.
     past_paper_groups: tuple[tuple[str, tuple[str, ...]], ...] = ()
-    #: The topics the catalog sent (TE5-R1): only these can be chosen.
+    #: The topics the catalog sent: only these can be chosen.
     topic_ids: frozenset[str] = frozenset()
 
 
@@ -1136,7 +1136,7 @@ def build_scope_prompt(vault: Any, repository: Repository, goal: Any,
 
 def validate_resolution(vault: Any, output: ScopeResolutionV1, *, sent: Collection[str] | None = None
                         ) -> tuple[list[dict[str, str]], list[dict[str, Any]]]:
-    """``(needs, unmatched)``: every id an active LO the catalog sent (``sent``, TE5-R1), each once (first phrase
+    """``(needs, unmatched)``: every id an active LO the catalog sent (``sent``), each once (first phrase
     kept); every unmatched phrase with a title and a statement, each once."""
 
     needs: list[dict[str, str]] = []

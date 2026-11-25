@@ -1451,7 +1451,7 @@ def rebuild_lesson_weight_state(vault: Any, repository: Any) -> dict[str, Any]:
                 connection.execute(f"DELETE FROM {table}")
     through = tables_through(repository)
     if through is None:
-        # TE5-R14: the live path writes these tables only after an ANSWERED check, so a vault whose checks were all
+        # The live path writes these tables only after an ANSWERED check, so a vault whose checks were all
         # withdrawn (or none recorded) keeps them empty on rebuild too: the same condition on both sides.
         return {"rows": 0, "checks": 0}
     state = replay_state(vault, repository, through=through)

@@ -50,7 +50,7 @@ def resolve_offer(vault: Any, repository: Any, state: Any, request: CreateGoalLo
     except TopicsRefused:
         return {"status": "protected"}
     if resolved["status"] not in ("fresh", "ready"):
-        # TE5-R9: a catalog too large for the resolver's bound is a settled answer (it will not fit on a retry), so
+        # A catalog too large for the resolver's bound is a settled answer (it will not fit on a retry), so
         # the offer is recorded as such and the lesson goes on; an outage stays retryable.
         return {"status": "unavailable", **({"reason": "too_large"} if resolved.get("reason") == "too_large" else {})}
     phrase = " ".join(request.phrase.split())
@@ -81,7 +81,7 @@ def run_read(vault: Any, repository: Any, state: Any, request: ActionRequestV1, 
     if request.action in ("find_sources", "find_practice"):
         return find(vault, repository, state, request, model=model)
     if request.action in ("read_history", "read_note"):
-        # TE5-R1: the learner's history and notes are the learner's words, but a model never reads one that repeats a
+        # The learner's history and notes are the learner's words, but a model never reads one that repeats a
         # question kept for an exam (the brief's screen; a passage keeps exam material's own, by span).
         from learnloop.teacher.guards import reserved_book, screen_context
 

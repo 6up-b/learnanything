@@ -47,19 +47,19 @@ def test_a_teacher_turn_returned_before_a_crash_is_not_bought_again(tmp_path, mo
     fake = TeacherFake([{"message": "Hello."}])
     lesson = S.open_lesson(load_vault(paths.root), repository, entry="learning_object",
                            learning_object_ids=["lo_eigen"], clients=clients(fake))["lesson_id"]
-    real = S._record_reveals
+    from learnloop.attempts import reveal_ledger
 
     def crash(*_args, **_kwargs):
         raise RuntimeError("the process stopped after the teacher answered")
 
     fake.turns = [{"message": "A capybara walks two steps."}, {"message": "never bought"}]
     with monkeypatch.context() as patch:
-        patch.setattr(S, "_record_reveals", crash)
+        # The accepted turn's exposure rows are written in its transaction: failing them stops before it commits.
+        patch.setattr(reveal_ledger, "record_reveal_strict", crash)
         with pytest.raises(S.LessonError):
             S.take_turn(load_vault(paths.root), repository, lesson_id=lesson, action="reply",
                         payload={"text": "go on"}, clients=clients(fake))
     calls = _teacher_calls(fake)
-    assert S._record_reveals is real
     resumed = S.take_turn(load_vault(paths.root), repository, lesson_id=lesson, action="resume", payload={},
                           clients=clients(fake))
     assert _teacher_calls(fake) == calls  # the saved answer, not a second purchase
@@ -220,7 +220,7 @@ def test_an_oversized_catalog_is_noted_and_close_always_works(tmp_path, monkeypa
     providers = clients(fake)
     providers.resolver = lambda: resolver
     with monkeypatch.context() as patch:
-        patch.setattr(DL, "_bounded_topics", too_large)
+        patch.setattr(DL, "catalog_screen", too_large)
         opened = S.open_lesson(load_vault(paths.root), repository, entry="learning_object",
                                learning_object_ids=["lo_eigen"], clients=providers)
     lesson = opened["lesson_id"]
@@ -256,8 +256,11 @@ def test_a_recovered_forecast_names_the_model_that_produced_its_turn(tmp_path, m
     lesson = S.open_lesson(load_vault(paths.root), repository, entry="learning_object",
                            learning_object_ids=["lo_eigen"], clients=clients(first))["lesson_id"]
     second = Second([landed_turn()])
+    from learnloop.scheduling import forecast_receipts
+
     with monkeypatch.context() as patch:
-        patch.setattr(S, "_forecast", lambda *_a, **_k: (_ for _ in ()).throw(RuntimeError("stopped")))
+        patch.setattr(forecast_receipts, "record_receipts",
+                      lambda *_a, **_k: (_ for _ in ()).throw(RuntimeError("stopped")))
         with pytest.raises(RuntimeError):
             S.take_turn(load_vault(paths.root), repository, lesson_id=lesson, action="reply",
                         payload={"text": "go"}, clients=clients(second))
@@ -270,8 +273,8 @@ def test_a_recovered_forecast_names_the_model_that_produced_its_turn(tmp_path, m
 
 
 def test_consent_interrupted_before_publication_rechecks_the_catalog(tmp_path, monkeypatch):
-    from learnloop.goals import goal_lo
     from learnloop.source_retrieval.deliverables import create_lesson_topic
+    from learnloop.vault import writer
     from tests.deliverable_fixtures import DeliverableFake
 
     paths, repository = build_teacher_vault(tmp_path / "vault")
@@ -283,7 +286,8 @@ def test_consent_interrupted_before_publication_rechecks_the_catalog(tmp_path, m
                            learning_object_ids=["lo_eigen"], clients=providers)["lesson_id"]
     offer, = [row for row in S.load_state(repository, lesson).turns if row["action"] == "topic_offer"]
     with monkeypatch.context() as patch:
-        patch.setattr(goal_lo, "_write_goal_lo", lambda *_a, **_k: (_ for _ in ()).throw(RuntimeError("stopped")))
+        patch.setattr(writer, "upsert_learning_object",
+                      lambda *_a, **_k: (_ for _ in ()).throw(RuntimeError("stopped")))
         with pytest.raises(RuntimeError):
             S.take_turn(load_vault(paths.root), repository, lesson_id=lesson, action="reply",
                         payload={"text": f"Add t{offer['seq']}"}, clients=providers)

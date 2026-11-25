@@ -55,7 +55,7 @@ def test_catalog_never_sends_another_topics_protected_summary(tmp_path):
 
 def test_typed_goal_catalog_is_screened_and_fails_closed(tmp_path, monkeypatch):
     from learnloop.source_retrieval import deliverables as DL
-    from learnloop import learner_protection as LP
+    from learnloop.content.authoring import reserved_text as LP
 
     paths, repo = build_teacher_vault(tmp_path / "vault")
     _summary(paths, "lo_det", f"Determinants. Worked example: {RESERVED_SENTINEL}: compute it.")

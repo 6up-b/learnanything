@@ -227,7 +227,7 @@ def _validated(proposal: Any, *, attempt_id: str, item: Any, vault: Any, answer:
         raise AttemptValidationError(str(exc)) from exc
 
 
-#: The checkpoint purpose of a lesson answer's grader proposal (TE5-R4).
+#: The checkpoint purpose of a lesson answer's grader proposal.
 GRADE_CHECKPOINT_PURPOSE = "lesson_answer_grade"
 
 
@@ -249,7 +249,7 @@ def grade_answer(vault: Any, repository: Any, client: Any, *, item: Any, attempt
 
     from learnloop.attempts.ai_contracts import GradingProposal
 
-    # TE5-R4: the grade is saved under the answer's identity (the attempt id it is graded for, the item, the exact
+    # The grade is saved under the answer's identity (the attempt id it is graded for, the item, the exact
     # text) the moment it is validated, before the answer's write: a crash between the two reuses it, so one answer is
     # graded (and paid for) once. Another text is another identity, graded on its own.
     key = grade_checkpoint_key(attempt_id, item.id, answer)

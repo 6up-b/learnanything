@@ -446,7 +446,7 @@ def record_answer(vault: Any, repository: Any, lesson: Mapping[str, Any], probe:
         stored = repository.fetch_practice_attempt(probe.attempt_id)
         now = utc_now_iso(clock)
         if stored is None and taught:
-            # TE5-R6: the lesson's reveal rows are measured against the items that existed when its words were shown,
+            # The lesson's reveal rows are measured against the items that existed when its words were shown,
             # so a question generated afterwards (on a topic with no item yet, or on one whose items the words did
             # not touch) had none. Its own answer is measured against everything the lesson showed, before the
             # topic-wide check reads the ledger: teaching that gave this answer away is exposure.
@@ -468,7 +468,7 @@ def record_answer(vault: Any, repository: Any, lesson: Mapping[str, Any], probe:
                 and (turn.get("payload") or {}).get("answer") == answer
                 for turn in store.turns(connection, lesson_id)):
             # The learner's answer turn, with the grade it is graded by; one per probe and text, a retry's included
-            # (TE5-R7: an answer edited after a stranded one is journaled as the revision that was graded).
+            # (an answer edited after a stranded one is journaled as the revision that was graded).
             store.append_turn(connection, lesson_id=lesson_id, actor="learner", action=ANSWER, validation="ok",
                               refs={"item": probe.item_id},
                               payload={"probe_ref": probe.ref, "answer": answer, "tap": tap}, created_at=now)

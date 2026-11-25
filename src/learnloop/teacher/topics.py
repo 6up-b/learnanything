@@ -22,7 +22,7 @@ from typing import Any
 #: The one plain line for a goal that names protected material (§7 step 1).
 PROTECTED_LINE = "That's kept for your exam, so I won't teach it. Try another way of putting what you want to learn."
 FROM_MODEL = "from LearnLoop's model"
-#: TE5-R9: the catalog cannot be read in one call (the resolver's prompt bound), so no topic is offered.
+#: The catalog cannot be read in one call (the resolver's prompt bound), so no topic is offered.
 TOO_LARGE_LINE = ("Your library has more topics than LearnLoop can read at once, so it couldn't check this topic. "
                   "The lesson goes on without it.")
 

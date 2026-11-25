@@ -10507,7 +10507,7 @@ export type LessonFeedEntryDto =
   | { kind: "prediction"; node: string; prompt: string; choices: string[] }
   | { kind: "check"; checkRef: string; node: string; question: string; form: "choices" | "free"; choices: string[];
       unanchored: boolean }
-  /** `note` (TE5-R18): "Saved. This answer wasn't graded." beside an answer the spending limit left ungraded. */
+  /** `note`: "Saved. This answer wasn't graded." beside an answer the spending limit left ungraded. */
   | { kind: "learner"; text: string; checkRef?: string | null; note?: string | null }
   | { kind: "check_result"; checkRef: string; result: string; graderFeedback?: string | null; unanchored?: boolean;
       answerLabel?: string | null }
@@ -10540,7 +10540,7 @@ export interface LessonViewDto {
   shownNow?: unknown[];
   notices?: string[];
   vaultChanged?: boolean;
-  /** TE5-R8: a recorded step (a reply saved before a restart) still waits for the teacher; Continue resumes it. */
+  /** A recorded step (a reply saved before a restart) still waits for the teacher; Continue resumes it. */
   awaitingTeacher?: boolean;
   /** Teacher TE2-log: set while the episode log is on; the screen then reports its activity intervals. */
   activityLog?: boolean;

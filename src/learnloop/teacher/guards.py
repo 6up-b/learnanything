@@ -32,8 +32,8 @@ from typing import Any
 
 # The reserved-question predicate (its matcher, span rule and fail-closed read) is learner_protection's: every
 # reader that must not show or send a question kept for an exam (these guards, the topic resolver's catalog, the
-# lesson's display) asks that one helper (TE5 review fix round, TE5-R1/R2). Re-exported here.
-from learnloop.learner_protection import RESERVED_SPAN_KINDS, ReservedBook, quotes_reserved, reserved_book
+# lesson's display) asks that one helper. Re-exported here.
+from learnloop.content.authoring.reserved_text import RESERVED_SPAN_KINDS, ReservedBook, quotes_reserved, reserved_book
 from learnloop.teacher.brief import SourceBook
 
 CITATION = re.compile(r"\[(S\d+)\]")
@@ -128,8 +128,8 @@ def reserved_guard(text: str, reserved: ReservedBook) -> GuardVerdict:
     return GuardVerdict(True)
 
 
-#: What stands in a model's context where saved words quote a question kept for an exam (TE5 review fix round,
-#: TE5-R1). It names no words of the question.
+#: What stands in a model's context where saved words quote a question kept for an exam. It names no words of the
+#: question.
 LEFT_OUT_OF_CONTEXT = "[left out: these words repeat a question kept for an exam]"
 
 

@@ -234,7 +234,7 @@ export function LessonView({
         // succeeds (codex review F2): its retry repeats the (idempotent) open.
         const lessonId = typeof saved === "string" && saved ? saved : input.action === "open" ? undefined : input.lessonId;
         if (lessonId) {
-          // The sidecar says what Try again does (TE5-R8): `repeat` when nothing of the failed step was recorded (an
+          // The sidecar says what Try again does: `repeat` when nothing of the failed step was recorded (an
           // Add whose topic check failed), so the same step is sent again; otherwise the recorded step is resumed.
           setRetry(details.retry === "repeat" && input.action !== "open" ? input : { action: "resume", lessonId });
           readWhenLive(lessonId);
@@ -276,7 +276,7 @@ export function LessonView({
       void api.lessonView({ lessonId: entry.lessonId, ...framed }).then((next) => {
         if (cancelled) return;
         setView(next);
-        // TE5-R8: a reply saved before a restart still waits for the teacher: Continue answers it.
+        // A reply saved before a restart still waits for the teacher: Continue answers it.
         if (next.awaitingTeacher && !next.closed) void run({ action: "resume", lessonId: entry.lessonId });
       }).catch((error: unknown) => onError(getCommandError(error)?.message ?? String(error)));
     } else {
@@ -799,7 +799,7 @@ function FeedEntry({ item, openCheckRef, checkOpen, onOpenCheck, windowed }: {
         <div data-testid="lesson-learner" style={{ margin: "10px 0 10px 40px", padding: "8px 12px", border: `1px solid ${COLOR.border}`,
                                                   fontFamily: FONT_MONO, fontSize: 12 }}>
           {item.text}
-          {/* TE5-R18: an answer kept when the lesson's spending limit stopped its grading says it didn't count. */}
+          {/* An answer kept when the lesson's spending limit stopped its grading says it didn't count. */}
           {item.note ? <div data-testid="lesson-learner-note" style={{ color: COLOR.textDim, marginTop: 4 }}>{item.note}</div> : null}
         </div>
       );
