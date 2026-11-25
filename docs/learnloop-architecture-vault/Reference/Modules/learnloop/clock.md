@@ -489,7 +489,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/teacher/diagnosed_sources|learnloop.teacher.diagnosed_sources]] — imports `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/teacher/episodes|learnloop.teacher.episodes]] — imports `parse_utc`; statically calls `parse_utc`
 - [[Reference/Modules/learnloop/teacher/probes|learnloop.teacher.probes]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
-- [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] — imports `Clock`, `FrozenClock`, `parse_utc`, `utc_now_iso`; statically calls `FrozenClock`, `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/tui/minutes_memory|learnloop.tui.minutes_memory]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/tutor/durable_promotion|learnloop.tutor.durable_promotion]] — imports `Clock`
 - [[Reference/Modules/learnloop/tutor/promotions|learnloop.tutor.promotions]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
@@ -610,6 +610,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/learner_text_gaps_flow_helpers.py](../../../../../tests/learner_text_gaps_flow_helpers.py) — direct import
 - [tests/learner_text_gaps_helpers.py](../../../../../tests/learner_text_gaps_helpers.py) — direct import
 - [tests/learner_text_gaps_review_helpers.py](../../../../../tests/learner_text_gaps_review_helpers.py) — direct import
+- [tests/lesson_weight_fit_helpers.py](../../../../../tests/lesson_weight_fit_helpers.py) — direct import
 - [tests/lp_claim_fixes_review_helpers.py](../../../../../tests/lp_claim_fixes_review_helpers.py) — direct import
 - [tests/mobile_v2_plan_helpers.py](../../../../../tests/mobile_v2_plan_helpers.py) — direct import
 - [tests/next_practice_helpers.py](../../../../../tests/next_practice_helpers.py) — direct import
@@ -1511,7 +1512,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_learner_text_gaps_review.py](../../../../../tests/test_learner_text_gaps_review.py) — direct import
   - `test_f13_the_pipeline_switched_off_queues_exactly_as_the_predecessor_version`
   - `test_f4_without_a_grounded_subject_only_the_anchors_are_judged_and_nothing_is_created`
-- [tests/test_lesson_weight_fit_reads.py](../../../../../tests/test_lesson_weight_fit_reads.py) — direct import
+- [tests/test_lesson_weight_facts.py](../../../../../tests/test_lesson_weight_facts.py) — direct import
+  - `test_a_check_is_stamped_under_the_writer_lock`
 - [tests/test_library_ask_review.py](../../../../../tests/test_library_ask_review.py) — direct import
   - `test_the_pinned_tutor_burns_a_reserve_it_reproduces_and_joins_history_and_gaps`
 - [tests/test_lp_claim_fixes.py](../../../../../tests/test_lp_claim_fixes.py) — direct import

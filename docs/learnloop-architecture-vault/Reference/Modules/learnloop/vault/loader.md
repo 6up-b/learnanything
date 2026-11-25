@@ -316,6 +316,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/learner_text_gaps_flow_helpers.py](../../../../../../tests/learner_text_gaps_flow_helpers.py) — direct import
 - [tests/learner_text_gaps_helpers.py](../../../../../../tests/learner_text_gaps_helpers.py) — direct import
 - [tests/learner_text_gaps_review_helpers.py](../../../../../../tests/learner_text_gaps_review_helpers.py) — direct import
+- [tests/lesson_weight_fit_helpers.py](../../../../../../tests/lesson_weight_fit_helpers.py) — direct import
 - [tests/live_dialogue_contract_helpers.py](../../../../../../tests/live_dialogue_contract_helpers.py) — direct import
 - [tests/lp_claim_fixes_review_helpers.py](../../../../../../tests/lp_claim_fixes_review_helpers.py) — direct import
 - [tests/mcp_world.py](../../../../../../tests/mcp_world.py) — direct import
@@ -2113,6 +2114,18 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f5_a_match_on_the_items_own_lo_is_no_prerequisite_target`
   - `test_f6_a_question_retargeted_by_a_later_reading_is_observed_at_the_reading`
   - `test_f8_a_diagnosis_no_longer_scans_stuck_answers`
+- [tests/test_lesson_weight_facts.py](../../../../../../tests/test_lesson_weight_facts.py) — direct import
+  - `test_a_check_is_stamped_under_the_writer_lock`
+  - `test_a_floor_bound_update_at_the_cap_with_equal_numbers_is_applied`
+  - `test_a_floor_bound_update_is_recomputed_from_its_recorded_noise`
+  - `test_a_grade_at_a_fractional_second_reads_the_same_live_and_after_a_rebuild`
+  - `test_a_reanchoring_claim_breaks_the_chain_on_both_sides_of_the_tag`
+  - `test_a_regraded_check_is_scored_with_its_current_grade_in_the_first_order_form`
+  - `test_a_resolver_whose_frozen_pair_differs_from_masterys_is_on_the_trace`
+  - `test_an_outcome_without_its_record_fails_closed`
+  - `test_every_reader_of_a_lesson_outcome_takes_the_fits_order`
+  - `test_the_label_report_counts_a_window_sent_to_first_order_by_a_missing_curve`
+  - `test_the_window_query_counts_what_the_freeze_will_not_reconstruct`
 - [tests/test_lesson_weight_fit_reads.py](../../../../../../tests/test_lesson_weight_fit_reads.py) — direct import
   - `test_a_regrade_committing_while_the_fit_reads_does_not_reach_it`
   - `test_a_regrade_leaves_the_lesson_weight_tables_as_a_rebuild_would`

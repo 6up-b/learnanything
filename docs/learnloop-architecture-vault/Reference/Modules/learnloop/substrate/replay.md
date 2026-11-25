@@ -185,6 +185,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_replay_identity_after_bridge_removal`
 - [tests/test_learner_report_superseded.py](../../../../../../tests/test_learner_report_superseded.py) — direct import
   - `test_a_report_chain_longer_than_the_recursion_limit_replays_and_seeds`
+- [tests/test_lesson_weight_facts.py](../../../../../../tests/test_lesson_weight_facts.py) — direct import
 - [tests/test_misconception_resolution.py](../../../../../../tests/test_misconception_resolution.py) — direct import
   - `test_replay_reproduces_auto_resolution`
 - [tests/test_reader_digest_narrative.py](../../../../../../tests/test_reader_digest_narrative.py) — direct import

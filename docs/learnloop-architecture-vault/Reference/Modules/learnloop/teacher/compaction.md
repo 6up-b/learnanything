@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/teacher/compaction.py](../../../../../../src/learnloop/teacher/compaction.py) |
-| Source lines | 201 |
+| Source lines | 210 |
 | Owning package | [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -58,12 +58,12 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
   - `apply(self, history: list[dict[str, Any]]) -> list[dict[str, Any]]` (line 25; public)
 - `context_limit(config: Any, client: Any) -> int | None` ([source](../../../../../../src/learnloop/teacher/compaction.py), line 31)
 - `forecast(repository: Any, lesson_id: str, client: Any, *, prefix: int, estimated_input: int, output_budget: int, estimate: Callable[[str], int]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/compaction.py), line 36) — Take one sample per physical send.
-- `latest(repository: Any, lesson_id: str) -> Projection` ([source](../../../../../../src/learnloop/teacher/compaction.py), line 100)
-- `record_requests(repository: Any, lesson_id: str, projection: Projection)` ([source](../../../../../../src/learnloop/teacher/compaction.py), line 114) — Publish the boundary and its decision together at receipt start, before the teacher can send.
-- `recent_start(history: Sequence[Mapping[str, Any]]) -> int` ([source](../../../../../../src/learnloop/teacher/compaction.py), line 154) — Preserve the last accepted teacher turn and everything since the one before it.
-- `selected(row: Mapping[str, Any], fields: Sequence[str]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/compaction.py), line 160)
-- `summarize(repository: Any, state: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/compaction.py), line 164)
-- `decision(state: Any, prefix: int, summary: Mapping[str, Any], facts: Mapping[str, Any], limit: int, entries: int) -> provenance.DecisionRecord` ([source](../../../../../../src/learnloop/teacher/compaction.py), line 189)
+- `latest(repository: Any, lesson_id: str) -> Projection` ([source](../../../../../../src/learnloop/teacher/compaction.py), line 105)
+- `record_requests(repository: Any, lesson_id: str, projection: Projection, input_estimate: int | None=None)` ([source](../../../../../../src/learnloop/teacher/compaction.py), line 119) — Publish the boundary and its decision together at receipt start, before the teacher can send.
+- `recent_start(history: Sequence[Mapping[str, Any]]) -> int` ([source](../../../../../../src/learnloop/teacher/compaction.py), line 163) — Preserve the last accepted teacher turn and everything since the one before it.
+- `selected(row: Mapping[str, Any], fields: Sequence[str]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/compaction.py), line 169)
+- `summarize(repository: Any, state: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/compaction.py), line 173)
+- `decision(state: Any, prefix: int, summary: Mapping[str, Any], facts: Mapping[str, Any], limit: int, entries: int) -> provenance.DecisionRecord` ([source](../../../../../../src/learnloop/teacher/compaction.py), line 198)
 
 ### Module constants
 
@@ -110,6 +110,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_teacher_te5_compaction.py](../../../../../../tests/test_teacher_te5_compaction.py) — direct import
   - `test_a_long_current_reply_after_short_measured_sends_is_forecast`
+  - `test_a_long_current_reply_after_short_nested_sends_is_forecast`
   - `test_compacted_correction_records_one_boundary`
   - `test_decision_write_failure_retries_before_any_compacted_send`
   - `test_growth_spread_and_cold_start_are_lesson_local`

@@ -112,7 +112,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/db/stores/observation_ledger|learnloop.db.stores.observation_ledger]] — imports `AttemptOrder`, `LEGACY_ORDER`
 - [[Reference/Modules/learnloop/field/outcomes|learnloop.field.outcomes]] — imports `attempt_order_for`; statically calls `attempt_order_for`
 - [[Reference/Modules/learnloop/learner/facet_evidence_timeline|learnloop.learner.facet_evidence_timeline]] — imports `AttemptOrder`, `LEGACY_ORDER`, `application_sequences`, `attempt_order_for_version`; statically calls `application_sequences`, `attempt_order_for_version`
-- [[Reference/Modules/learnloop/learner/lesson_weight|learnloop.learner.lesson_weight]] — imports `AttemptOrder`, `LEGACY_ORDER`, `attempt_order_for`; statically calls `attempt_order_for`
+- [[Reference/Modules/learnloop/learner/lesson_weight|learnloop.learner.lesson_weight]] — imports `AttemptOrder`, `LEGACY_ORDER`, `attempt_order_for`, `attempt_order_for_version`; statically calls `attempt_order_for`, `attempt_order_for_version`
 - [[Reference/Modules/learnloop/substrate/canonical_projection|learnloop.substrate.canonical_projection]] — imports `AttemptOrder`, `LEGACY_ORDER`, `application_sequences`, `attempt_order_for_version`; statically calls `application_sequences`, `attempt_order_for_version`
 - [[Reference/Modules/learnloop/substrate/family_memory|learnloop.substrate.family_memory]] — imports `AttemptOrder`, `application_sequences`, `attempt_order_for`; statically calls `application_sequences`, `attempt_order_for`
 - [[Reference/Modules/learnloop/substrate/replay|learnloop.substrate.replay]] — imports `attempt_order_for`; statically calls `attempt_order_for`

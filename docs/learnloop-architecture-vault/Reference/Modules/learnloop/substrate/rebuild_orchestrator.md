@@ -281,6 +281,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_new_starting_level_keeps_the_old_one_for_an_lo_first_practised_under_it`
   - `test_random_attempts_and_learner_reports_rebuild_to_live`
   - `test_two_rung_requests_on_a_cold_lo_then_an_attempt_rebuild_to_live`
+- [tests/test_lesson_weight_facts.py](../../../../../../tests/test_lesson_weight_facts.py) — direct import
+  - `test_a_grade_at_a_fractional_second_reads_the_same_live_and_after_a_rebuild`
+  - `test_a_regraded_check_is_scored_with_its_current_grade_in_the_first_order_form`
 - [tests/test_lesson_weight_fit_reads.py](../../../../../../tests/test_lesson_weight_fit_reads.py) — direct import
   - `test_a_regrade_leaves_the_lesson_weight_tables_as_a_rebuild_would`
 - [tests/test_lp_claim_fixes.py](../../../../../../tests/test_lp_claim_fixes.py) — direct import

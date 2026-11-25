@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router_objective/miss_cause.py](../../../../../../src/learnloop/router_objective/miss_cause.py) |
-| Source lines | 817 |
+| Source lines | 819 |
 | Owning package | [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -72,9 +72,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `beta_fit(connection: Any, config: Any, now_iso: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/miss_cause.py), line 601) — ``β``'s Laplace posterior: ``P(the next cold check is missed) = σ(logit p_gap + β·s)`` with the prior :data:`BETA_PRIOR`, by Newton's method (the log posterior is concave).
 - `fit_beta(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/miss_cause.py), line 609) — :func:`beta_fit`'s arithmetic on its rows (each ``p_gap`` in (0, 1), ``s``, ``missed_again``): pure.
 - `calibrated(record: Mapping[str, Any], beta: float, s: float) -> tuple[float, float, float]` ([source](../../../../../../src/learnloop/router_objective/miss_cause.py), line 656) — ``(p̃_gap, p̃_slip, p̃_unknown)``: ``logit p̃_gap = logit p_gap + β·s``, the rest of the mass split between slip and unknown in the diagnosis's own proportion.
-- `cause_slopes(connection: Any, gamma: tuple[float, float], now_iso: str, config: Any=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/miss_cause.py), line 716) — ``(γ_gap, γ_slip)``'s posterior.
-- `value_inputs(connection: Any, config: Any, records: Mapping[str, Mapping[str, Any]], gamma: tuple[float, float], now_iso: str) -> tuple[dict[str, tuple[float, float, float]], dict[str, Any]]` ([source](../../../../../../src/learnloop/router_objective/miss_cause.py), line 749) — SG2: each diagnosed topic's calibrated ``(p_gap, p_slip, p_unknown)`` and the record of how (``β``'s fit, each topic's ``s``, the cause slopes).
-- `card_entry(record: Mapping[str, Any], *, topic: str, days_before: float | None, reference: Sequence[float]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/miss_cause.py), line 778) — What the LLM policy's card shows of one topic's sensor: the cause class probabilities, the surprise in words and the status.
+- `cause_slopes(connection: Any, gamma: tuple[float, float], now_iso: str, config: Any=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/miss_cause.py), line 718) — ``(γ_gap, γ_slip)``'s posterior.
+- `value_inputs(connection: Any, config: Any, records: Mapping[str, Mapping[str, Any]], gamma: tuple[float, float], now_iso: str) -> tuple[dict[str, tuple[float, float, float]], dict[str, Any]]` ([source](../../../../../../src/learnloop/router_objective/miss_cause.py), line 751) — SG2: each diagnosed topic's calibrated ``(p_gap, p_slip, p_unknown)`` and the record of how (``β``'s fit, each topic's ``s``, the cause slopes).
+- `card_entry(record: Mapping[str, Any], *, topic: str, days_before: float | None, reference: Sequence[float]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/miss_cause.py), line 780) — What the LLM policy's card shows of one topic's sensor: the cause class probabilities, the surprise in words and the status.
 
 ### Module constants
 
@@ -100,7 +100,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `SELF_SELECTED` ([src/learnloop/router_objective/miss_cause.py](../../../../../../src/learnloop/router_objective/miss_cause.py), line 86)
 - `OBSERVATIONAL` ([src/learnloop/router_objective/miss_cause.py](../../../../../../src/learnloop/router_objective/miss_cause.py), line 89)
 - `_DIRECTION_WORDS` ([src/learnloop/router_objective/miss_cause.py](../../../../../../src/learnloop/router_objective/miss_cause.py), line 500)
-- `CARD_NOTE` ([src/learnloop/router_objective/miss_cause.py](../../../../../../src/learnloop/router_objective/miss_cause.py), line 803)
+- `CARD_NOTE` ([src/learnloop/router_objective/miss_cause.py](../../../../../../src/learnloop/router_objective/miss_cause.py), line 805)
 
 ### Explicit exports
 
@@ -188,7 +188,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/db/stores/hypothesis_marks|learnloop.db.stores.hypothesis_marks]] — imports `module`; calls `marks_for_attempt`, `present`
 - [[Reference/Modules/learnloop/db/stores/router_suggestions|learnloop.db.stores.router_suggestions]] — imports `module`; calls `attempts_classified_by`
 - [[Reference/Modules/learnloop/followup_serve/marks|learnloop.followup_serve.marks]] — imports `module`; calls `latest_marks`
-- [[Reference/Modules/learnloop/learner/lesson_weight|learnloop.learner.lesson_weight]] — imports `COLD_ATTEMPT_TYPES`, `qualifying_outcomes`; calls `qualifying_outcomes`
+- [[Reference/Modules/learnloop/learner/lesson_weight|learnloop.learner.lesson_weight]] — imports `COLD_ATTEMPT_TYPES`, `outcome_order`, `qualifying_outcomes`; calls `outcome_order`, `qualifying_outcomes`
 
 ### Platform and third-party dependencies
 

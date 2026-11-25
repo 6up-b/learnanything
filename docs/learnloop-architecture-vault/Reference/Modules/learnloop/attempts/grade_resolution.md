@@ -174,6 +174,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_owner_confirms_current_class`
   - `test_review_f1_the_ledger_reads_the_evidence_as_the_attempt_step_does`
   - `test_review_f2_a_scored_cold_probe_regraded_into_a_hold_abstains`
+- [tests/test_lesson_weight_facts.py](../../../../../../tests/test_lesson_weight_facts.py) — direct import
+  - `test_the_window_query_counts_what_the_freeze_will_not_reconstruct`
 - [tests/test_p0_projection_cutover.py](../../../../../../tests/test_p0_projection_cutover.py) — direct import
   - `test_adjudicating_up_raises_credit_and_unchanged_direction_keeps_the_grade`
   - `test_adjudication_reverses_projection_and_preserves_history`

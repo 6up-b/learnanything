@@ -119,6 +119,7 @@ None found by exact static reference scan.
 ## Tests that define behavior
 
 - `tests/teacher_te1_migration_helpers.py`
+- `tests/test_lesson_weight_facts.py`
 - `tests/test_reader_rw5d_p4b_teacher_visuals.py`
 - `tests/test_salience_firewall.py`
 - `tests/test_te3a_lesson_opportunity.py`

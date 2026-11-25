@@ -47,15 +47,15 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router_objective/miss_cause_report.py](../../../../../../src/learnloop/router_objective/miss_cause_report.py) |
-| Source lines | 129 |
+| Source lines | 133 |
 | Owning package | [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `section(connection: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/miss_cause_report.py), line 58)
-- `lines(report: Mapping[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/router_objective/miss_cause_report.py), line 106)
+- `section(connection: Any, config: Any=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/miss_cause_report.py), line 58) — ``config``: the vault's, whose tag picks the order a later cold result is found in (``outcome_order``).
+- `lines(report: Mapping[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/router_objective/miss_cause_report.py), line 110)
 
 ### Module constants
 
@@ -86,7 +86,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/learner/lesson_weight|learnloop.learner.lesson_weight]] — imports `qualifying_outcomes`; calls `qualifying_outcomes`
+- [[Reference/Modules/learnloop/learner/lesson_weight|learnloop.learner.lesson_weight]] — imports `outcome_order`, `qualifying_outcomes`; calls `outcome_order`, `qualifying_outcomes`
 - [[Reference/Modules/learnloop/plan_refs|learnloop.plan_refs]] — imports `LESSON_OFFER_PREFIX`
 - [[Reference/Modules/learnloop/router_objective/miss_cause|learnloop.router_objective.miss_cause]] — imports `module`
 

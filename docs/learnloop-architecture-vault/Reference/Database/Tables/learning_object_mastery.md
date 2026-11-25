@@ -138,6 +138,7 @@ Indexes and uniqueness:
 - `tests/test_evidence_reading_successor.py`
 - `tests/test_facet_outcome_view.py`
 - `tests/test_learner_text_gaps.py`
+- `tests/test_lesson_weight_facts.py`
 - `tests/test_lp_claim_fixes.py`
 - `tests/test_lp_claim_fixes_review.py`
 - `tests/test_mastery_seed_inputs_migration.py`
@@ -148,7 +149,6 @@ Indexes and uniqueness:
 - `tests/test_reader_rw3b_protection.py`
 - `tests/test_rebuild_equivalence.py`
 - `tests/test_rebuild_equivalence_review.py`
-- `tests/test_rebuild_orchestrator.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

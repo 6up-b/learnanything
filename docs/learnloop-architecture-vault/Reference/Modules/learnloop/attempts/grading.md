@@ -181,6 +181,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/grade_application_golden_helpers.py](../../../../../../tests/grade_application_golden_helpers.py) — direct import
 - [tests/held_grade_evidence_helpers.py](../../../../../../tests/held_grade_evidence_helpers.py) — direct import
 - [tests/joint_grading_helpers.py](../../../../../../tests/joint_grading_helpers.py) — direct import
+- [tests/lesson_weight_fit_helpers.py](../../../../../../tests/lesson_weight_fit_helpers.py) — direct import
 - [tests/regrade_contract_replay_helpers.py](../../../../../../tests/regrade_contract_replay_helpers.py) — direct import
 - [tests/required_method_rereview_helpers.py](../../../../../../tests/required_method_rereview_helpers.py) — direct import
 - [tests/test_agent_run_tokens.py](../../../../../../tests/test_agent_run_tokens.py) — direct import
@@ -261,7 +262,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_grader_taxonomy_emits_mechanism_vocabulary`
 - [tests/test_learner_blindness_relax.py](../../../../../../tests/test_learner_blindness_relax.py) — direct import
   - `test_the_blind_graders_context_is_byte_identical_in_every_arm_and_switch_setting`
-- [tests/test_lesson_weight_fit_reads.py](../../../../../../tests/test_lesson_weight_fit_reads.py) — direct import
 - [tests/test_openai_chat_client.py](../../../../../../tests/test_openai_chat_client.py) — direct import
   - `test_chat_does_not_retry_non_retryable_errors`
   - `test_chat_gives_up_when_retry_after_outlasts_the_deadline`
