@@ -7,7 +7,7 @@ through `MIGRATION_HEAD_FIXTURE` in `tests/helpers.py`; `tests/test_migrations.p
 file in `migrations/` and stays in rollback mode. Older sections below name the numbered directories it was renamed
 from, as they were then.
 
-## Lesson-weight replay inputs (migration 274), `teacher/te5-consolidation` (L4-2, mvp-0.71), 2026-11-24
+## Lesson-weight replay inputs (migration 274), `teacher/te5-consolidation` (L4-2, built as mvp-0.71, now mvp-0.72), 2026-11-24
 
 Upgraded in place (no rename; base: the probe router's continuation head 273) by the B1 procedure below:
 `274_attempt_grade_curves.sql` (the append-only `attempt_grade_curves` table, its three guard triggers, the replacement
