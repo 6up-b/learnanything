@@ -95,6 +95,38 @@ def test_outbox_retry_binds_once_and_an_ended_sessions_retry_is_refused_by_the_d
         _submit(ctx, first, served["practiceItemId"], served["presentationId"], submissionId="outbox-2")
 
 
+def test_a_restored_drafts_checkpoint_wins_over_an_older_presentation_it_sends(tmp_path, monkeypatch):
+    """FR3-12: the same item served twice (P1, then P2); the session's checkpoint saved the draft under retry key K
+    with P2. A restored client sends K with the older, unused P1: the checkpoint's presentation is bound, P1 stays
+    unused, and a rebuild reproduces the live surprise. Failed before: the explicit P1 won and was consumed."""
+
+    from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
+
+    from tests.surprise_reads_ad_forecast_helpers import _surprise
+
+    paths, ctx = _desktop(tmp_path, monkeypatch)
+    session = _call(ctx, "start_session", {"availableMinutes": 25})["sessionId"]
+    with sqlite3.connect(paths.sqlite_path) as connection:
+        for presentation in ("pres_p1", "pres_p2"):
+            block = f"blk_{presentation}"
+            connection.execute("INSERT INTO attention_blocks(id, action, budget_minutes, content_hash, created_at) "
+                               "VALUES (?, 'practice', 10, 'h', ?)", (block, _iso(NOW)))
+            connection.execute("INSERT INTO plan_presentations(id, block_id, practice_item_id, position, origin, "
+                               "served_at, session_id) VALUES (?, ?, 'pi_extra_1', 1, 'chooser', ?, ?)",
+                               (presentation, block, _iso(NOW), session))
+    _call(ctx, "save_practice_draft", {"sessionId": session, "practiceItemId": "pi_extra_1", "answerMd": "half",
+                                       "submissionId": "key-k", "hintsUsed": 0, "planPresentationId": "pres_p2"})
+    result = _submit(ctx, session, "pi_extra_1", "pres_p1", submissionId="key-k")
+    assert _bound(paths.sqlite_path, result["attemptId"]) == "pres_p2"
+    with sqlite3.connect(paths.sqlite_path) as connection:
+        assert connection.execute("SELECT count(*) FROM practice_attempts WHERE plan_presentation_id = 'pres_p1'"
+                                  ).fetchone()[0] == 0
+    repository = Repository(paths.sqlite_path)
+    live = _surprise(repository)
+    rebuild_all_derived_state(load_vault(paths.root), repository)
+    assert _surprise(repository) == live
+
+
 def test_phone_submit_in_the_adopted_session_binds(tmp_path, monkeypatch):
     """The phone adopts the desktop's open session (its id kept) and answers the step the desktop served."""
 

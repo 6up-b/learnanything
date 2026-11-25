@@ -47,6 +47,10 @@ The successor of mvp-0.75 for the review-round-3 fixes that change what is deriv
   prompt with the correction appended), not the first send's, so the next context-compaction forecast measures growth
   from the prompt that was actually sent. A receipt note; nothing replays it. Test:
   `tests/test_teacher_te5_compaction.py::test_a_correction_receipt_records_its_own_prompt_estimate`.
+- FR3-12: a submit whose retry key has a saved draft naming a presentation of the same item binds that presentation,
+  not an older one the restored client sends (the older one is never consumed). The attempt stores the presentation
+  it bound and replay reads it, so the decision is the live one on both sides. Test:
+  `tests/test_answer_door_sessions.py::test_a_restored_drafts_checkpoint_wins_over_an_older_presentation_it_sends`.
 
 ## Pins and goldens
 

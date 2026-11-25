@@ -1134,22 +1134,25 @@ def _changed_after_disclosure(repository, session_id: str, practice_item_id: str
 
 
 def _plan_presentation(repository, params: Any) -> str | None:
-    """The plan presentation an answer binds to: the one it sends, else the one
-    its saved draft named under the same retry key (router R2a, review F5: a
-    draft resumed after a restart). Binding is validated at the attempt
-    insert, which drops a wrong or used id without failing the submit."""
+    """The plan presentation an answer binds to: the one its saved draft named
+    under the same retry key (router R2a, review F5: a draft resumed after a
+    restart), else the one it sends. The checkpoint wins a conflict (FR3-12): a
+    restored client can send an older presentation of the same item than the
+    one its draft was last saved under, and that older one is never consumed.
+    Binding is validated at the attempt insert, which drops a wrong or used id
+    without failing the submit; the attempt stores the id it bound, so replay
+    reads the live decision."""
 
-    if params.plan_presentation_id:
-        return params.plan_presentation_id
-    if not getattr(params, "submission_id", None):
-        return None
-    try:
-        checkpoint = repository.fetch_session_checkpoint(params.session_id)
-    except Exception:  # noqa: BLE001 - a receipt never fails a submit
-        return None
-    return draft_plan_presentation(
-        checkpoint, practice_item_id=params.practice_item_id, submission_id=params.submission_id,
-    )
+    saved = None
+    if getattr(params, "submission_id", None):
+        try:
+            checkpoint = repository.fetch_session_checkpoint(params.session_id)
+        except Exception:  # noqa: BLE001 - a receipt never fails a submit
+            checkpoint = None
+        saved = draft_plan_presentation(
+            checkpoint, practice_item_id=params.practice_item_id, submission_id=params.submission_id,
+        )
+    return saved or params.plan_presentation_id or None
 
 
 def _held_assistance(repository, item, hints_used: int, attempt_type: str, *,
