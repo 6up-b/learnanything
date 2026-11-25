@@ -14,7 +14,8 @@ tag (ADR-019) comes here the same way: an identity that dumped its section keeps
 ``learnloop.toml`` still sets the key loads as before (the key is read by nothing).
 
 The models do not get the fields back: nothing reads them, an old config's value changes no behaviour, and only an
-identity dump shows them. Never list a field here that something should read. A stored payload or a provenance-only
+identity dump shows them. Never list a field here that something should read, except a predecessor tag's rule below
+the tag that retired the field (:func:`retired_value`). A stored payload or a provenance-only
 hash (a report's ``config_hash``, a plan row, a receipt) dumps the live model and does not come here.
 """
 
@@ -97,6 +98,9 @@ RETIRED_FIELDS: tuple[RetiredField, ...] = (
     # The vision-model route for reading ink, replaced by GLM-OCR (owner decision 2026-11-23); it was left out of a
     # dump while unset.
     RetiredField("AIRoutingConfig", ("ink_transcription",), str | None, None, "ink-glm-ocr", omit_at_default=True),
+    # The probe ranking's hand-set family multiplier (G2-R33, owner decision 2026-11-26: rank on expected information
+    # over the observed posterior). Read below mvp-0.77 only, through :func:`retired_value`.
+    RetiredField("ProbeBlockConfig", ("family_redundancy_penalty",), float, 0.6, "G2-R33"),
 )
 
 _BY_MODEL: dict[str, tuple[RetiredField, ...]] = {}
@@ -173,6 +177,17 @@ def remembering(model: _Model, **values: Any) -> _Model:
     return model
 
 
+def retired_value(model: BaseModel, name: str) -> Any:
+    """A retired field's value as the model's input gave it (else its recorded default), for a predecessor tag's rule
+    that still reads it below the tag that retired it: ``probe.block.family_redundancy_penalty`` below mvp-0.77 (the
+    only such field). Nothing at or above that tag reads it."""
+
+    fields = {field.path: field for field in _BY_MODEL.get(type(model).__name__, ())}
+    field = fields[(name,)]
+    remembered = model._retired_values if isinstance(model, KeepsRetiredFields) else {}
+    return remembered.get(field.path, field.default)
+
+
 def identity_dump(model: BaseModel) -> dict[str, Any]:
     """``model.model_dump(mode="json")`` with every retired field under it put back, for a hash that is compared.
 
@@ -234,4 +249,5 @@ def _descend(value: Any, node: Any) -> None:
             _descend(child, child_node)
 
 
-__all__ = ["RETIRED_FIELDS", "KeepsRetiredFields", "RetiredField", "identity_dump", "identity_view", "remembering"]
+__all__ = ["RETIRED_FIELDS", "KeepsRetiredFields", "RetiredField", "identity_dump", "identity_view", "remembering",
+           "retired_value"]

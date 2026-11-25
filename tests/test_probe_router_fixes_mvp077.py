@@ -154,3 +154,64 @@ def test_r25_below_the_tag_the_forced_head_was_recomposed_without_its_pin(tmp_pa
         assert decision is None  # the recomposed head was the explored one: published without a decision
     else:
         assert decision["chosen_practice_item_id"] == SECOND and decision["propensity"] == 0.5
+
+
+# -- G2-R33 (finding 13, decided: option (a)): the probe ranking reads expected information over the observed posterior
+
+
+@pytest.mark.parametrize("tag", [BEFORE, AT])
+def test_r33_an_observed_family_is_ranked_on_its_information_not_a_hand_set_multiplier(tmp_path, monkeypatch, tag):
+    """After one observation of family F, the hypothesis-information fallback values F's next instrument at 0.40 and
+    another family's at 0.30. Below the tag the 0.6 multiplier made 0.40 rank as 0.24 and lose; from it the ranking
+    is the information itself (computed over the observed posterior) and its basis is recorded with the instrument."""
+
+    from dataclasses import replace
+
+    from learnloop.diagnosis import probe_episodes as PE
+    from learnloop.diagnosis.probe_episodes import OBSERVED_POSTERIOR_RANKING, enter_episode, eligible_instruments
+    from learnloop.diagnosis.probe_presentations import commit_presentation, serve_presentation
+    from learnloop.vault.loader import load_vault
+    from learnloop.vault.paths import VaultPaths
+
+    from tests.helpers import set_algorithm_version
+    from tests.probe_block_end_helpers import _submit
+    from tests.probe_policy_helpers import CLOCK, ITEM_2, ITEM_3, ITEM_ID, LO_ID, _setup
+
+    loaded, repository = _setup(tmp_path, items=(ITEM_ID, ITEM_2, ITEM_3))
+    set_algorithm_version(VaultPaths(loaded.root, loaded.config), tag)
+    loaded = load_vault(loaded.root)
+    real_resolve = PE.resolve_instrument
+    item_of: dict[int, str] = {}
+
+    def resolve(vault, repository_, item, hypothesis_set):
+        resolved = real_resolve(vault, repository_, item, hypothesis_set)
+        if resolved is None:
+            return None
+        instrument, slot_map = resolved
+        if item.id == ITEM_3:
+            instrument = replace(instrument, family_template_id="another_family")
+        item_of[id(instrument)] = item.id
+        return instrument, slot_map
+
+    information = {ITEM_ID: 0.5, ITEM_2: 0.40, ITEM_3: 0.30}
+    monkeypatch.setattr(PE, "resolve_instrument", resolve)
+    monkeypatch.setattr(PE, "instrument_expected_information_gain",
+                        lambda _belief, instrument, _slot_map: information[item_of[id(instrument)]])
+    # The hypothesis-information fallback: no adequate predictive target set.
+    monkeypatch.setattr(PE, "instrument_predictive_information_gain", lambda *_args: SimpleNamespace(
+        eig_nats=0.0, prior_predictive_entropy=0.0, target_count=0))
+    episode = enter_episode(loaded, repository, LO_ID, clock=CLOCK)
+    first = next(entry for entry in eligible_instruments(loaded, repository, episode) if entry.item.id == ITEM_ID)
+    presentation = commit_presentation(loaded, repository, episode, first, clock=CLOCK)
+    serve_presentation(repository, presentation.id, vault=loaded, clock=CLOCK)
+    _submit(loaded, repository, item_id=ITEM_ID, presentation_id=presentation.id, score=2)
+    after = eligible_instruments(loaded, repository, repository.probe_episode(episode.id))
+    assert [entry.selection_objective for entry in after] == ["hypothesis_eig", "hypothesis_eig"]
+    ranked = [entry.item.id for entry in after]
+    if tag == AT:
+        assert ranked == [ITEM_2, ITEM_3]
+        assert all(entry.redundancy_penalty == 1.0 for entry in after)
+        assert after[0].selection_components()["ranking_basis"] == OBSERVED_POSTERIOR_RANKING
+    else:
+        assert ranked == [ITEM_3, ITEM_2]
+        assert "ranking_basis" not in after[0].selection_components()

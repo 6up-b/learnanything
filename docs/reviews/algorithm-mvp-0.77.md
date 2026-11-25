@@ -29,6 +29,21 @@ mvp-0.76's. Owner rule: a logged propensity is exactly the served distribution.
   1 only when no other option has mass (`Draw.sole_option`). Tests:
   `tests/test_probe_router_fixes_mvp077.py::test_r34_*` (through the persisted learner-lane row, both sides of the tag).
 
+- G2-R33 (finding 13, owner decision: option (a)): the probe instrument ranks on the selection objective's expected
+  information over the observed posterior, with no family multiplier. Up to mvp-0.76 an instrument whose family had
+  already produced an observation this episode had its ranking score multiplied by the hand-set
+  `probe.block.family_redundancy_penalty` (0.6) per observation, so on the hypothesis-information fallback 0.40 ranked
+  as 0.24 and lost to 0.30, and the continuation (which takes the first item) never valued the displaced question. The
+  posterior the information is computed over already conditions on what that observation showed. From the tag
+  `redundancy_penalty` is 1 and `ranking_basis` (`expected_information_over_observed_posterior`) is recorded in the
+  selected instrument's selection components; the probe selection forecast no longer lists the multiplier as a
+  parameter. The config field is retired (`config/retired.py` `RETIRED_FIELDS`: identity dumps keep their bytes, and
+  a `learnloop.toml` that still sets it loads); below the tag its remembered value still ranks
+  (`config.retired.retired_value`). Test: `tests/test_probe_router_fixes_mvp077.py::test_r33_*` (both sides of the
+  tag). Not done here, to the gated-experiments follow-up: valuing every feasible instrument for router-owned
+  episodes (the continuation still values the first-ranked one), and a family discount learned from outcomes with a
+  seeded prior.
+
 ## Pins and goldens
 
 `tests/cli_surface.json`: only the `upgrade --to` default moves to mvp-0.77. Chain-pinned tests shift mechanically.
@@ -37,3 +52,9 @@ identities carry the tag), `tests/goldens/effective_defaults.toml` (the `algorit
 `tests/fixtures/diagnosis_journey_golden.json` (`algorithm_version` and `projection_algorithm_version` only),
 `tests/goldens/placement_stored_misses.json` (the tag in the report). The VOI restore golden, written twice, is
 byte-identical and unchanged; the grade application golden is unchanged.
+
+G2-R33 moved, by their writers: `tests/goldens/effective_defaults.toml` (the retired
+`probe.block.family_redundancy_penalty` line goes), `tests/fixtures/diagnosis_journey_golden.json` (the selected
+presentations carry `ranking_basis`, two observed-family presentations log `redundancy_penalty` 1.0 instead of 0.6,
+the probe selection forecasts drop the multiplier parameter and their config hash moves with it; no selected item
+changes). Identity pins unchanged (the retired field keeps the bytes).

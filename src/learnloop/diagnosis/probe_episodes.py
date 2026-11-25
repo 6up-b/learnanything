@@ -18,7 +18,9 @@ from typing import Any, Iterable, Mapping
 from learnloop.followup_serve.gates import generate_and_serve_on
 from learnloop.followup_serve.queue import enqueue_entry
 from learnloop.attempts.reveal_ledger import ProductionAdmissibility, production_admissibility
+from learnloop.algorithm_versions import probe_router_fixes_on
 from learnloop.clock import Clock, parse_utc, utc_now_iso
+from learnloop.config.retired import retired_value
 from learnloop.content.sources.exam_material import serve_refusals
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.probes import ProbeEpisodeRecord
@@ -93,11 +95,14 @@ class EligibleInstrument:
     # lookahead batch holds at most one check per group (voi_stopping, Codex
     # review of voi-v2 F13). Not logged.
     surface_group: str | None = field(default=None, compare=False, repr=False)
+    # mvp-0.77 (G2-R33): what the ranking read, recorded with the selected instrument
+    # (:data:`OBSERVED_POSTERIOR_RANKING`); None below the tag, whose ranking multiplied the family penalty in.
+    ranking_basis: str | None = None
 
     def selection_components(self) -> dict[str, Any]:
         """§7.3 separately-inspectable utility components for telemetry."""
 
-        return {
+        components = {
             "actual_hypothesis_eig": self.expected_information_gain,
             "predictive_eig": self.predictive_eig,
             "predictive_prior_entropy": self.predictive_prior_entropy,
@@ -107,6 +112,15 @@ class EligibleInstrument:
             "selection_objective": self.selection_objective,
             "redundancy_penalty": self.redundancy_penalty,
         }
+        if self.ranking_basis is not None:
+            components["ranking_basis"] = self.ranking_basis
+        return components
+
+
+#: mvp-0.77's probe ranking basis: the selection objective's own expected information, computed over the episode's
+#: observed posterior (which already conditions on what an earlier observation of the same family showed), with no
+#: family multiplier.
+OBSERVED_POSTERIOR_RANKING = "expected_information_over_observed_posterior"
 
 
 @dataclass(frozen=True)
@@ -1028,6 +1042,9 @@ def eligible_instruments(
         (instrument, slot_map) for _item, instrument, slot_map in resolved
     ][: episode_config.predictive_target_cap + 1]
 
+    observed_ranking = probe_router_fixes_on(vault.config.algorithms.algorithm_version)
+    family_penalty = None if observed_ranking else float(retired_value(vault.config.probe.block,
+                                                                       "family_redundancy_penalty"))
     results: list[EligibleInstrument] = []
     for item, instrument, slot_map in resolved:
         eig = instrument_expected_information_gain(belief, instrument, slot_map)
@@ -1046,13 +1063,13 @@ def eligible_instruments(
             instrument.expected_seconds,
             overhead_seconds=episode_config.selection_overhead_seconds,
         )
-        # Checkpoint 5.2: a family that already produced an observation this
-        # episode is likely redundant with what was measured; each prior
-        # observation multiplies the ranking score by the configured penalty.
-        # Logged as its own component — the EIG values stay unpenalized.
+        # Below mvp-0.77 (Checkpoint 5.2): a family that already produced an observation this episode multiplied
+        # the ranking score by a hand-set penalty per prior observation, logged as its own component. From the tag
+        # (G2-R33) the ranking is the expected information over the observed posterior alone, which already
+        # conditions on what that observation showed; the basis is recorded with the selected instrument.
         family_id = instrument.family_template_id
         prior_observations = observed_family_counts.get(str(family_id), 0) if family_id else 0
-        penalty = vault.config.probe.block.family_redundancy_penalty ** prior_observations
+        penalty = 1.0 if observed_ranking else family_penalty ** prior_observations
         results.append(
             EligibleInstrument(
                 item=item,
@@ -1067,6 +1084,7 @@ def eligible_instruments(
                 redundancy_penalty=penalty,
                 predictive_targets=tuple((target, dict(target_map)) for target, target_map in targets),
                 surface_group=surface_group_id(item),
+                ranking_basis=OBSERVED_POSTERIOR_RANKING if observed_ranking else None,
             )
         )
     # §7.5: within the feasible set, predictive candidates rank by information

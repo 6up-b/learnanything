@@ -361,17 +361,18 @@ class ProbeShadowConfig(BaseModel):
     top_k: int = Field(default=3, ge=1, le=10)
 
 
-class ProbeBlockConfig(BaseModel):
+class ProbeBlockConfig(KeepsRetiredFields):
     """Precommitted diagnostic blocks.
 
-    ``family_redundancy_penalty`` demotes candidates whose family already
-    produced an observation this episode (a separate ranking component, never
-    folded into the EIG label). Joint greedy conditional EIG applies only to
-    blocks committed before answers are observed; sequential selection keeps
-    conditioning on the live posterior.
+    Joint greedy conditional EIG applies only to blocks committed before answers
+    are observed; sequential selection keeps conditioning on the live posterior.
+    ``family_redundancy_penalty`` (a hand-set 0.6 multiplier on a family that
+    already produced an observation) is retired at mvp-0.77 (G2-R33): the
+    ranking is the expected information over the observed posterior, which
+    already conditions on what the family's observation showed. Below the tag
+    its remembered value still ranks (``config.retired.retired_value``).
     """
 
-    family_redundancy_penalty: float = Field(default=0.6, gt=0.0, le=1.0)
     max_block_size: int = Field(default=4, ge=2, le=8)
     # Default diagnostic block: sequential (non-dialogue,
     # non-precommitted) probes run the block-end hook after this many

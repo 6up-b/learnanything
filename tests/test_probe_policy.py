@@ -58,8 +58,18 @@ def _submit(loaded, repository, *, item_id, presentation_id, score=4):
 # --- Redundancy penalty (Checkpoint 5.2) -----------------------------------------------
 
 
-def test_family_redundancy_penalty_after_observation(tmp_path):
+def test_family_redundancy_penalty_after_observation_below_mvp_077(tmp_path):
+    """mvp-0.76's ranking (G2-R33 retired it at mvp-0.77): the retired field's remembered value multiplies."""
+
+    from learnloop.config.retired import retired_value
+    from learnloop.vault.loader import load_vault
+    from learnloop.vault.paths import VaultPaths
+
+    from tests.helpers import set_algorithm_version
+
     loaded, repository = _setup(tmp_path)
+    set_algorithm_version(VaultPaths(loaded.root, loaded.config), "mvp-0.76")
+    loaded = load_vault(loaded.root)
     episode = enter_episode(loaded, repository, LO_ID, clock=CLOCK)
 
     before = eligible_instruments(loaded, repository, episode)
@@ -77,7 +87,8 @@ def test_family_redundancy_penalty_after_observation(tmp_path):
     after = eligible_instruments(loaded, repository, episode, hypothesis_set=hypothesis_set)
     # The remaining candidate shares the observed family: penalized once, and
     # the penalty is a separate component — the EIG value itself is unpenalized.
-    penalty = loaded.config.probe.block.family_redundancy_penalty
+    penalty = retired_value(loaded.config.probe.block, "family_redundancy_penalty")
+    assert penalty == 0.6
     for entry in after:
         assert entry.redundancy_penalty == pytest.approx(penalty)
         assert entry.selection_components()["redundancy_penalty"] == pytest.approx(penalty)

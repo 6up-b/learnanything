@@ -45645,7 +45645,7 @@
 "versions": {
 "algorithm": "mvp-0.69",
 "code": "<code-version>",
-"config": "f2f922b538d911217bf039be53909b9533921cc0919b2df4d6cf94d1db2989f0",
+"config": "a29e77bbeb0782e57edfc94ce2701579a4215058f0e569abbb163b772e9ee5bb",
 "fsrs_weights": "a00444e09ca114a3ce9704158c2abb90200f9aa76e4892ef87fe7d4c79b85f56"
 }
 }
@@ -47300,7 +47300,7 @@
 "versions": {
 "algorithm": "mvp-0.69",
 "code": "<code-version>",
-"config": "f2f922b538d911217bf039be53909b9533921cc0919b2df4d6cf94d1db2989f0",
+"config": "a29e77bbeb0782e57edfc94ce2701579a4215058f0e569abbb163b772e9ee5bb",
 "fsrs_weights": "a00444e09ca114a3ce9704158c2abb90200f9aa76e4892ef87fe7d4c79b85f56"
 }
 }
@@ -52936,6 +52936,7 @@
 "predictive_information_rate": 0.0039144614625511425,
 "predictive_prior_entropy": 1.640012330866553,
 "predictive_target_count": 1,
+"ranking_basis": "expected_information_over_observed_posterior",
 "redundancy_penalty": 1.0,
 "selection_objective": "hypothesis_eig",
 "shadow_rankings": {
@@ -53133,12 +53134,6 @@
 "provenance": "heuristic",
 "source": "config",
 "value": 10.0
-},
-{
-"name": "probe.block.family_redundancy_penalty",
-"provenance": "heuristic",
-"source": "config",
-"value": 0.6
 },
 {
 "name": "probe.episode.posterior_stop_threshold",
@@ -54497,6 +54492,7 @@
 "predictive_information_rate": 0.0039144614625511425,
 "predictive_prior_entropy": 1.640012330866553,
 "predictive_target_count": 1,
+"ranking_basis": "expected_information_over_observed_posterior",
 "redundancy_penalty": 1.0,
 "selection_objective": "hypothesis_eig",
 "shadow_rankings": {
@@ -54653,6 +54649,7 @@
 "predictive_information_rate": 0.0039144614625511425,
 "predictive_prior_entropy": 1.640012330866553,
 "predictive_target_count": 1,
+"ranking_basis": "expected_information_over_observed_posterior",
 "redundancy_penalty": 1.0,
 "selection_objective": "hypothesis_eig",
 "shadow_rankings": {
@@ -58723,6 +58720,7 @@
 "predictive_information_rate": 0.0039144614625511425,
 "predictive_prior_entropy": 1.640012330866553,
 "predictive_target_count": 1,
+"ranking_basis": "expected_information_over_observed_posterior",
 "redundancy_penalty": 1.0,
 "selection_objective": "hypothesis_eig"
 },
@@ -58997,12 +58995,6 @@
 "provenance": "heuristic",
 "source": "config",
 "value": 10.0
-},
-{
-"name": "probe.block.family_redundancy_penalty",
-"provenance": "heuristic",
-"source": "config",
-"value": 0.6
 },
 {
 "name": "probe.episode.posterior_stop_threshold",
@@ -61692,7 +61684,8 @@
 "predictive_information_rate": 0.0,
 "predictive_prior_entropy": 0.0,
 "predictive_target_count": 0,
-"redundancy_penalty": 0.6,
+"ranking_basis": "expected_information_over_observed_posterior",
+"redundancy_penalty": 1.0,
 "selection_objective": "hypothesis_eig"
 },
 "selection_policy_version": "probe_episode_v2",
@@ -61908,7 +61901,7 @@
 "expected_seconds": 45.0,
 "predictive_eig": 0.0,
 "predictive_information_rate": 0.0,
-"redundancy_penalty": 0.6,
+"redundancy_penalty": 1.0,
 "selection_objective": "hypothesis_eig"
 }
 },
@@ -61953,12 +61946,6 @@
 "provenance": "heuristic",
 "source": "config",
 "value": 10.0
-},
-{
-"name": "probe.block.family_redundancy_penalty",
-"provenance": "heuristic",
-"source": "config",
-"value": 0.6
 },
 {
 "name": "probe.episode.posterior_stop_threshold",
@@ -86544,6 +86531,7 @@
 "predictive_information_rate": 0.0039144614625511425,
 "predictive_prior_entropy": 1.640012330866553,
 "predictive_target_count": 1,
+"ranking_basis": "expected_information_over_observed_posterior",
 "redundancy_penalty": 1.0,
 "selection_objective": "hypothesis_eig",
 "shadow_rankings": {
@@ -86741,12 +86729,6 @@
 "provenance": "heuristic",
 "source": "config",
 "value": 10.0
-},
-{
-"name": "probe.block.family_redundancy_penalty",
-"provenance": "heuristic",
-"source": "config",
-"value": 0.6
 },
 {
 "name": "probe.episode.posterior_stop_threshold",
@@ -89308,6 +89290,7 @@
 "predictive_information_rate": 0.0039144614625511425,
 "predictive_prior_entropy": 1.640012330866553,
 "predictive_target_count": 1,
+"ranking_basis": "expected_information_over_observed_posterior",
 "redundancy_penalty": 1.0,
 "selection_objective": "hypothesis_eig",
 "shadow_rankings": {
@@ -89464,6 +89447,7 @@
 "predictive_information_rate": 0.0039144614625511425,
 "predictive_prior_entropy": 1.640012330866553,
 "predictive_target_count": 1,
+"ranking_basis": "expected_information_over_observed_posterior",
 "redundancy_penalty": 1.0,
 "selection_objective": "hypothesis_eig",
 "shadow_rankings": {
@@ -97586,6 +97570,7 @@
 "predictive_information_rate": 0.0,
 "predictive_prior_entropy": 0.0,
 "predictive_target_count": 0,
+"ranking_basis": "expected_information_over_observed_posterior",
 "redundancy_penalty": 1.0,
 "selection_objective": "hypothesis_eig"
 },
@@ -97760,12 +97745,6 @@
 "provenance": "heuristic",
 "source": "config",
 "value": 10.0
-},
-{
-"name": "probe.block.family_redundancy_penalty",
-"provenance": "heuristic",
-"source": "config",
-"value": 0.6
 },
 {
 "name": "probe.episode.posterior_stop_threshold",

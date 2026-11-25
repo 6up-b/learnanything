@@ -34,7 +34,9 @@ import json
 import logging
 from typing import Any, Callable, Mapping, Sequence
 
+from learnloop.algorithm_versions import probe_router_fixes_on
 from learnloop.clock import Clock
+from learnloop.config.retired import retired_value
 from learnloop.db.repositories import Repository
 from learnloop.diagnosis import robust_composition as rc
 from learnloop.diagnosis.probes import facet_conditional_distribution, resolve_item_irt
@@ -145,12 +147,15 @@ def record_probe_presentation_forecast(
             body["channel_pin"] = components["channel_pin"]
         body["presentation_eig_nats"] = presentation.expected_information_gain
         probe = vault.config.probe
+        # The family multiplier is a parameter of the ranking below mvp-0.77 only (G2-R33).
+        family_penalty = ([] if probe_router_fixes_on(vault.config.algorithms.algorithm_version) else [
+            VF.parameter("probe.block.family_redundancy_penalty",
+                         retired_value(probe.block, "family_redundancy_penalty"), "heuristic", source="config")])
         parameters = [
             *_vocabulary_parameters(instrument),
             VF.parameter("probe.episode.selection_overhead_seconds",
                          probe.episode.selection_overhead_seconds, "heuristic", source="config"),
-            VF.parameter("probe.block.family_redundancy_penalty",
-                         probe.block.family_redundancy_penalty, "heuristic", source="config"),
+            *family_penalty,
             VF.parameter("probe.episode.posterior_stop_threshold",
                          probe.episode.posterior_stop_threshold, "heuristic", source="config"),
             VF.parameter("probe.episode.maximum_observations",
