@@ -47,25 +47,26 @@ The authoritative system-level explanation remains in [[Configuration]], [[Archi
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/config/retired.py](../../../../../../src/learnloop/config/retired.py) |
-| Source lines | 237 |
+| Source lines | 253 |
 | Owning package | [[Reference/Modules/learnloop/config/_package|learnloop.config]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class RetiredField` ([source](../../../../../../src/learnloop/config/retired.py), line 32) — A removed field: the model class it lived on, its path there (two names for a leaf of a removed section), its type and default there, and the arc C step that removed it.
-- `class KeepsRetiredFields(BaseModel)` ([source](../../../../../../src/learnloop/config/retired.py), line 133) — A config model some of whose fields arc C retired (:data:`RETIRED_FIELDS`).
-  - `_remember_retired_values(cls, data: Any, handler: Any) -> Any` (line 144; internal)
-- `remembering(model: _Model, **values: Any) -> _Model` ([source](../../../../../../src/learnloop/config/retired.py), line 165) — ``model``, remembering ``values`` for its retired fields as if its input had set them: a built-in default that set one at construction before arc C (the ``recall_failure`` impact's ``lo_mastery_delta``).
-- `identity_dump(model: BaseModel) -> dict[str, Any]` ([source](../../../../../../src/learnloop/config/retired.py), line 176) — ``model.model_dump(mode="json")`` with every retired field under it put back, for a hash that is compared.
-- `identity_view(model: BaseModel, fields: tuple[str, ...]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/config/retired.py), line 188) — The named ``fields`` of :func:`identity_dump`: an explicit identity view of a flat config section.
+- `class RetiredField` ([source](../../../../../../src/learnloop/config/retired.py), line 33) — A removed field: the model class it lived on, its path there (two names for a leaf of a removed section), its type and default there, and the arc C step that removed it.
+- `class KeepsRetiredFields(BaseModel)` ([source](../../../../../../src/learnloop/config/retired.py), line 137) — A config model some of whose fields arc C retired (:data:`RETIRED_FIELDS`).
+  - `_remember_retired_values(cls, data: Any, handler: Any) -> Any` (line 148; internal)
+- `remembering(model: _Model, **values: Any) -> _Model` ([source](../../../../../../src/learnloop/config/retired.py), line 169) — ``model``, remembering ``values`` for its retired fields as if its input had set them: a built-in default that set one at construction before arc C (the ``recall_failure`` impact's ``lo_mastery_delta``).
+- `retired_value(model: BaseModel, name: str) -> Any` ([source](../../../../../../src/learnloop/config/retired.py), line 180) — A retired field's value as the model's input gave it (else its recorded default), for a predecessor tag's rule that still reads it below the tag that retired it: ``probe.block.family_redundancy_penalty`` below mvp-0.77 (the only such field).
+- `identity_dump(model: BaseModel) -> dict[str, Any]` ([source](../../../../../../src/learnloop/config/retired.py), line 191) — ``model.model_dump(mode="json")`` with every retired field under it put back, for a hash that is compared.
+- `identity_view(model: BaseModel, fields: tuple[str, ...]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/config/retired.py), line 203) — The named ``fields`` of :func:`identity_dump`: an explicit identity view of a flat config section.
 
 ### Module constants
 
-- `RETIRED_FIELDS` ([src/learnloop/config/retired.py](../../../../../../src/learnloop/config/retired.py), line 48)
-- `_BY_MODEL` ([src/learnloop/config/retired.py](../../../../../../src/learnloop/config/retired.py), line 102)
-- `_MISSING` ([src/learnloop/config/retired.py](../../../../../../src/learnloop/config/retired.py), line 106)
+- `RETIRED_FIELDS` ([src/learnloop/config/retired.py](../../../../../../src/learnloop/config/retired.py), line 49)
+- `_BY_MODEL` ([src/learnloop/config/retired.py](../../../../../../src/learnloop/config/retired.py), line 106)
+- `_MISSING` ([src/learnloop/config/retired.py](../../../../../../src/learnloop/config/retired.py), line 110)
 
 ### Explicit exports
 
@@ -77,15 +78,16 @@ The authoritative system-level explanation remains in [[Configuration]], [[Archi
 - `identity_dump`
 - `identity_view`
 - `remembering`
+- `retired_value`
 
 ## Internal implementation anchors
 
-- `_adapter(annotation: Any) -> TypeAdapter[Any]` ([source](../../../../../../src/learnloop/config/retired.py), line 111)
-- `_coerce(field: RetiredField, raw: Any) -> Any` ([source](../../../../../../src/learnloop/config/retired.py), line 115) — ``raw`` as the removed field read it (lax pydantic validation of its old type), JSON-safe.
-- `_given(data: Any, path: tuple[str, ...]) -> Any` ([source](../../../../../../src/learnloop/config/retired.py), line 125)
-- `_without_retired_keys(cls: type[BaseModel], data: Any) -> Any` ([source](../../../../../../src/learnloop/config/retired.py), line 154) — ``data`` without this model's retired keys where the model refuses unknown keys: there a vault that still sets a retired key would no longer load.
-- `_put_back(model: BaseModel, dump: dict[str, Any]) -> None` ([source](../../../../../../src/learnloop/config/retired.py), line 205)
-- `_descend(value: Any, node: Any) -> None` ([source](../../../../../../src/learnloop/config/retired.py), line 225)
+- `_adapter(annotation: Any) -> TypeAdapter[Any]` ([source](../../../../../../src/learnloop/config/retired.py), line 115)
+- `_coerce(field: RetiredField, raw: Any) -> Any` ([source](../../../../../../src/learnloop/config/retired.py), line 119) — ``raw`` as the removed field read it (lax pydantic validation of its old type), JSON-safe.
+- `_given(data: Any, path: tuple[str, ...]) -> Any` ([source](../../../../../../src/learnloop/config/retired.py), line 129)
+- `_without_retired_keys(cls: type[BaseModel], data: Any) -> Any` ([source](../../../../../../src/learnloop/config/retired.py), line 158) — ``data`` without this model's retired keys where the model refuses unknown keys: there a vault that still sets a retired key would no longer load.
+- `_put_back(model: BaseModel, dump: dict[str, Any]) -> None` ([source](../../../../../../src/learnloop/config/retired.py), line 220)
+- `_descend(value: Any, node: Any) -> None` ([source](../../../../../../src/learnloop/config/retired.py), line 240)
 
 ## Who imports or calls it
 
@@ -97,6 +99,8 @@ The authoritative system-level explanation remains in [[Configuration]], [[Archi
 - [[Reference/Modules/learnloop/config/schema|learnloop.config.schema]] — imports `KeepsRetiredFields`, `remembering`; statically calls `remembering`
 - [[Reference/Modules/learnloop/content/facet_identity/judge|learnloop.content.facet_identity.judge]] — imports `identity_view`; statically calls `identity_view`
 - [[Reference/Modules/learnloop/content/synthesis/graph_nomination|learnloop.content.synthesis.graph_nomination]] — imports `identity_view`; statically calls `identity_view`
+- [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `retired_value`; statically calls `retired_value`
+- [[Reference/Modules/learnloop/diagnosis/voi_forecasting|learnloop.diagnosis.voi_forecasting]] — imports `retired_value`; statically calls `retired_value`
 - [[Reference/Modules/learnloop/field/predictors|learnloop.field.predictors]] — imports `identity_dump`; statically calls `identity_dump`
 - [[Reference/Modules/learnloop/ops/embedding_compare|learnloop.ops.embedding_compare]] — imports `identity_dump`; statically calls `identity_dump`
 - [[Reference/Modules/learnloop/placement/predictor|learnloop.placement.predictor]] — imports `identity_dump`; statically calls `identity_dump`
@@ -118,7 +122,7 @@ Use this module in context through:
 
 - [[Initialize a Vault]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/cli/field|learnloop.cli.field]], [[Reference/Modules/learnloop/cli/success_head|learnloop.cli.success_head]], [[Reference/Modules/learnloop/config/schema|learnloop.config.schema]], [[Reference/Modules/learnloop/content/facet_identity/judge|learnloop.content.facet_identity.judge]], [[Reference/Modules/learnloop/content/synthesis/graph_nomination|learnloop.content.synthesis.graph_nomination]] and 3 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/field|learnloop.cli.field]], [[Reference/Modules/learnloop/cli/success_head|learnloop.cli.success_head]], [[Reference/Modules/learnloop/config/schema|learnloop.config.schema]], [[Reference/Modules/learnloop/content/facet_identity/judge|learnloop.content.facet_identity.judge]], [[Reference/Modules/learnloop/content/synthesis/graph_nomination|learnloop.content.synthesis.graph_nomination]] and 5 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -129,6 +133,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_ceiling_at_its_default_leaves_every_whole_config_hash_as_it_was`
 - [tests/test_identity_pins.py](../../../../../../tests/test_identity_pins.py) — direct import
   - `test_an_identity_view_leaves_out_an_added_field_and_refuses_a_removed_one`
+- [tests/test_probe_policy.py](../../../../../../tests/test_probe_policy.py) — direct import
+  - `test_family_redundancy_penalty_after_observation_below_mvp_077`
 - [tests/test_reader_ink_glm_ocr.py](../../../../../../tests/test_reader_ink_glm_ocr.py) — direct import
   - `test_the_retired_vision_route_keeps_whole_config_bytes`
 - [tests/test_retired_config_identities.py](../../../../../../tests/test_retired_config_identities.py) — direct import

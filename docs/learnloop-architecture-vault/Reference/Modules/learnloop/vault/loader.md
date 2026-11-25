@@ -2557,6 +2557,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_legacy_probe_history_replays_identically_after_migration`
 - [tests/test_probe_orchestration_remainder.py](../../../../../../tests/test_probe_orchestration_remainder.py) — direct import
   - `test_session_cap_blocks_further_probe_serving`
+- [tests/test_probe_policy.py](../../../../../../tests/test_probe_policy.py) — direct import
+  - `test_family_redundancy_penalty_after_observation_below_mvp_077`
 - [tests/test_probe_pool_empty.py](../../../../../../tests/test_probe_pool_empty.py) — direct import
   - `test_maintenance_feed_sustains_and_auto_resolves_the_notice`
   - `test_never_authored_pool_is_distinguished_from_excluded_as_seen`
@@ -2581,12 +2583,16 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_probe_router_continuation.py](../../../../../../tests/test_probe_router_continuation.py) — direct import
   - `test_a_rebuild_after_a_router_stop_reproduces_the_live_rows_and_writes_no_ledger`
 - [tests/test_probe_router_decision_integrity.py](../../../../../../tests/test_probe_router_decision_integrity.py) — direct import
+- [tests/test_probe_router_fixes_mvp077.py](../../../../../../tests/test_probe_router_fixes_mvp077.py) — direct import
+  - `test_r31_the_episode_administers_the_support_weighted_lock_its_offer_was_valued_on`
+  - `test_r33_an_observed_family_is_ranked_on_its_information_not_a_hand_set_multiplier`
 - [tests/test_probe_router_learner_lane.py](../../../../../../tests/test_probe_router_learner_lane.py) — direct import
 - [tests/test_probe_router_protection.py](../../../../../../tests/test_probe_router_protection.py) — direct import
   - `test_a_copy_kept_before_the_fix_is_named_by_doctor_and_repaired_by_fix_state`
   - `test_a_kept_copy_is_protected_when_its_passage_is_held_out_later`
   - `test_a_probe_made_from_held_out_material_is_not_kept_as_practice`
 - [tests/test_probe_router_replay.py](../../../../../../tests/test_probe_router_replay.py) — direct import
+  - `test_a_predecessor_decisions_pin_answered_after_activation_rebuilds_to_the_live_rows`
 - [tests/test_probe_surface_mint.py](../../../../../../tests/test_probe_surface_mint.py) — direct import
   - `test_mint_refuses_a_surface_group_the_learner_has_seen`
   - `test_minted_surface_serves_through_the_probe_branch_and_is_single_use`

@@ -47,30 +47,30 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/probe_remint.py](../../../../../../src/learnloop/diagnosis/probe_remint.py) |
-| Source lines | 341 |
+| Source lines | 319 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class ProbeRemintError(ValueError)` ([source](../../../../../../src/learnloop/diagnosis/probe_remint.py), line 79) — Invalid remint request, with a stable code for the sidecar boundary.
-  - `__init__(self, code: str, message: str, *, details: dict[str, Any] | None=None)` (line 82; internal)
-- `remint_practice_mode(item: PracticeItem) -> str` ([source](../../../../../../src/learnloop/diagnosis/probe_remint.py), line 88) — Deterministic ordinary mode from the probe's shape.
-- `remint_attempt_types(item: PracticeItem) -> list[str]` ([source](../../../../../../src/learnloop/diagnosis/probe_remint.py), line 107) — The ordinary attempt-type set: the probe's own set minus the diagnostic administration type, with a real answering type guaranteed.
-- `existing_remint(vault: LoadedVault, source_practice_item_id: str) -> PracticeItem | None` ([source](../../../../../../src/learnloop/diagnosis/probe_remint.py), line 122) — The already-minted remint of this probe, if any (provenance query).
-- `remint_probe_as_practice_item(root: Path, vault: LoadedVault, repository: Repository, *, attempt_id: str, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/probe_remint.py), line 230) — Mint the ordinary practice-item copy of one administered probe.
+- `class ProbeRemintError(ValueError)` ([source](../../../../../../src/learnloop/diagnosis/probe_remint.py), line 78) — Invalid remint request, with a stable code for the sidecar boundary.
+  - `__init__(self, code: str, message: str, *, details: dict[str, Any] | None=None)` (line 81; internal)
+- `remint_practice_mode(item: PracticeItem) -> str` ([source](../../../../../../src/learnloop/diagnosis/probe_remint.py), line 87) — Deterministic ordinary mode from the probe's shape.
+- `remint_attempt_types(item: PracticeItem) -> list[str]` ([source](../../../../../../src/learnloop/diagnosis/probe_remint.py), line 106) — The ordinary attempt-type set: the probe's own set minus the diagnostic administration type, with a real answering type guaranteed.
+- `existing_remint(vault: LoadedVault, source_practice_item_id: str) -> PracticeItem | None` ([source](../../../../../../src/learnloop/diagnosis/probe_remint.py), line 121) — The already-minted remint of this probe, if any (provenance query).
+- `remint_probe_as_practice_item(root: Path, vault: LoadedVault, repository: Repository, *, attempt_id: str, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/probe_remint.py), line 229) — Mint the ordinary practice-item copy of one administered probe.
 
 ### Module constants
 
-- `_LOGGER` ([src/learnloop/diagnosis/probe_remint.py](../../../../../../src/learnloop/diagnosis/probe_remint.py), line 64)
-- `REMINT_TAG` ([src/learnloop/diagnosis/probe_remint.py](../../../../../../src/learnloop/diagnosis/probe_remint.py), line 69)
-- `DIAGNOSTIC_ONLY_TAGS` ([src/learnloop/diagnosis/probe_remint.py](../../../../../../src/learnloop/diagnosis/probe_remint.py), line 72)
-- `_NON_ANSWERING_ATTEMPT_TYPES` ([src/learnloop/diagnosis/probe_remint.py](../../../../../../src/learnloop/diagnosis/probe_remint.py), line 76)
+- `_LOGGER` ([src/learnloop/diagnosis/probe_remint.py](../../../../../../src/learnloop/diagnosis/probe_remint.py), line 63)
+- `REMINT_TAG` ([src/learnloop/diagnosis/probe_remint.py](../../../../../../src/learnloop/diagnosis/probe_remint.py), line 68)
+- `DIAGNOSTIC_ONLY_TAGS` ([src/learnloop/diagnosis/probe_remint.py](../../../../../../src/learnloop/diagnosis/probe_remint.py), line 71)
+- `_NON_ANSWERING_ATTEMPT_TYPES` ([src/learnloop/diagnosis/probe_remint.py](../../../../../../src/learnloop/diagnosis/probe_remint.py), line 75)
 
 ## Internal implementation anchors
 
-- `_remint_payload(source: PracticeItem, *, new_id: str, attempt_id: str, now_iso: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/probe_remint.py), line 141) — Mechanical copy of the probe's content + measurement contract.
+- `_remint_payload(source: PracticeItem, *, new_id: str, attempt_id: str, now_iso: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/diagnosis/probe_remint.py), line 140) — Mechanical copy of the probe's content + measurement contract.
 
 ## Who imports or calls it
 
@@ -96,7 +96,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `json`, `logging`, `pathlib`, `typing`
+- Standard library: `__future__`, `logging`, `pathlib`, `typing`
 - Third party: none imported directly
 
 ## Larger workflow participation

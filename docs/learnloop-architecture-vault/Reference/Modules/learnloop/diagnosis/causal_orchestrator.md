@@ -208,6 +208,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_probe_router_protection.py](../../../../../../tests/test_probe_router_protection.py) — direct import
   - `test_the_learner_lanes_offer_never_names_a_protected_instrument`
 - [tests/test_probe_router_replay.py](../../../../../../tests/test_probe_router_replay.py) — direct import
+  - `test_a_predecessor_decisions_pin_answered_after_activation_rebuilds_to_the_live_rows`
 - [tests/test_remediation_cold_retry.py](../../../../../../tests/test_remediation_cold_retry.py) — direct import
   - `test_repair_status_reports_episode_reveal_spend_against_the_budget`
 

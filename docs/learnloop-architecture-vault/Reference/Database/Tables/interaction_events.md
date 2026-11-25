@@ -26,9 +26,9 @@ source_paths:
   - "src/learnloop/cli/surfaces.py"
   - "src/learnloop/content/authoring/exercise_authoring.py"
   - "src/learnloop/content/authoring/item_authoring.py"
-  - "src/learnloop/content/authoring/rung_variants.py"
   - "src/learnloop/content/sources/source_deletion.py"
-  - "src/learnloop/diagnosis/probe_remint.py"
+  - "src/learnloop/reader/reader_capture.py"
+  - "src/learnloop/reader/reader_dialogue.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -154,9 +154,7 @@ Indexes and uniqueness:
 
 - `src/learnloop/content/authoring/exercise_authoring.py`
 - `src/learnloop/content/authoring/item_authoring.py`
-- `src/learnloop/content/authoring/rung_variants.py`
 - `src/learnloop/content/sources/source_deletion.py`
-- `src/learnloop/diagnosis/probe_remint.py`
 - `src/learnloop/reader/reader_capture.py`
 - `src/learnloop/reader/reader_dialogue.py`
 - `src/learnloop/reader/reader_guidance.py`

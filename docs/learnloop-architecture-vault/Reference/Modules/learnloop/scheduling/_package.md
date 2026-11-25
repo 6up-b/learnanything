@@ -117,7 +117,7 @@ For system intent, use [[Learning System]].
 
 ### This package imports
 
-- [[Reference/Modules/learnloop/_package|learnloop]] — 39 static module edges
+- [[Reference/Modules/learnloop/_package|learnloop]] — 40 static module edges
 - [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 24 static module edges
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 15 static module edges
 - [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 12 static module edges
@@ -185,7 +185,7 @@ flowchart LR
     n_learnloop_evsi_calibration["learnloop.evsi_calibration"]
     n_learnloop_cli["learnloop.cli"]
     n_learnloop -->|2| center
-    center -->|39| n_learnloop
+    center -->|40| n_learnloop
     center -->|24| n_learnloop_db
     n_learnloop_diagnosis -->|9| center
     center -->|11| n_learnloop_diagnosis

@@ -110,7 +110,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop_sidecar/handlers/queue|learnloop_sidecar.handlers.queue]] — imports `build_today_offer_decision`, `logging_enabled`, `offer_failure_record`, `record_decision`; statically calls `build_today_offer_decision`, `logging_enabled`, `offer_failure_record`, `record_decision`
+- [[Reference/Modules/learnloop_sidecar/handlers/queue|learnloop_sidecar.handlers.queue]] — imports `OfferHeadMismatch`, `build_today_offer_decision`, `logging_enabled`, `offer_failure_record`, `record_decision`; statically calls `build_today_offer_decision`, `logging_enabled`, `offer_failure_record`, `record_decision`
 
 ## Dependencies
 

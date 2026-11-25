@@ -59,8 +59,6 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export function probeOfferCopy(reason: string): string` — function, line 375
 - `export function CausalRepairStatusPanel(` — function, line 379
 - `export function useCausalRepairActions(` — function, line 498
-- `export const ROUTER_DECISION_POLL_FIRST_MS = 500` — const, line 580
-- `export const ROUTER_DECISION_POLL_TRIES = 6` — const, line 581
 - `export function useRouterDecisionPoll( status: CausalRepairStatusDto | null, reread: ()` — function, line 587
 - `export function CausalFeedbackPanel(` — function, line 607
 - `export function CausalEpisodeInspector(` — function, line 948
@@ -165,6 +163,9 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 - [[Reference/Desktop/TypeScript/api/client|src/api/client.ts]] — import-or-re-export; imports `api`
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `CausalDivergenceAnchorDto`, `CausalEpisodeDto`, `CausalFeedbackDto`, `CausalHypothesisDto`, `CausalProbeOfferDto`, `CausalRepairActionId`, `CausalRepairStatusDto`, `CausalRepairStatusState`, `CausalTargetRefDto`, `RepairedTraceDto`, `UnresolvedCauseSelfReportResponse`
+- [[Reference/Desktop/TypeScript/app/routerDecisionPoll|src/app/routerDecisionPoll.ts]] — import-or-re-export; imports `ROUTER_DECISION_POLL_FIRST_MS`, `ROUTER_DECISION_POLL_TRIES`, `function`, `if (!ref) return "no typed target";
+  if (ref.kind === "facet_capability") {
+    return [ref.facetId`, `ref.capability].filter(Boolean).join(" · ") || "facet capability";`
 - [[Reference/Desktop/TypeScript/components/RepairTrace|src/components/RepairTrace.tsx]] — import-or-re-export; imports `RepairTraceBlocks`
 - [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `BlockBar`, `COLOR`, `Dim`, `FONT_MONO`, `Faint`, `Pill`, `PlainEnglishPanel`, `SectionHeader`
 - [[Reference/Desktop/TypeScript/render/MarkdownMath|src/render/MarkdownMath.tsx]] — import-or-re-export; imports `MarkdownMath`

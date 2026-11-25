@@ -326,6 +326,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_probe_router_continuation.py](../../../../../../tests/test_probe_router_continuation.py) — direct import
   - `test_a_rebuild_after_a_router_stop_reproduces_the_live_rows_and_writes_no_ledger`
 - [tests/test_probe_router_replay.py](../../../../../../tests/test_probe_router_replay.py) — direct import
+  - `test_a_predecessor_decisions_pin_answered_after_activation_rebuilds_to_the_live_rows`
 - [tests/test_projection_timeline_agreement.py](../../../../../../tests/test_projection_timeline_agreement.py) — direct import
   - `test_a_held_regrade_that_kept_its_marks_takes_its_credit_off_the_curve`
   - `test_a_measurement_correction_that_reinterprets_history_reaches_the_curve`

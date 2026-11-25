@@ -247,6 +247,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f_the_mid_block_restraint_forces_now_with_no_room_and_draws_two_arms_otherwise`
 - [tests/test_probe_router_decision_integrity.py](../../../../../../tests/test_probe_router_decision_integrity.py) — direct import
   - `test_r15_the_valuation_runs_under_the_choosers_options_and_freezes_what_it_valued`
+- [tests/test_probe_router_fixes_mvp077.py](../../../../../../tests/test_probe_router_fixes_mvp077.py) — direct import
+  - `test_r34_a_learned_draw_with_a_tiny_floor_logs_the_exact_share_through_the_persisted_row`
 - [tests/test_ro4_codex_review.py](../../../../../../tests/test_ro4_codex_review.py) — direct import
   - `test_f1_the_numeric_answer_is_published_before_any_wait_on_the_llm`
   - `test_f5_mid_block_alternatives_are_ordered_sequences_of_their_own_blocks`

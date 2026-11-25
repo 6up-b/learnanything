@@ -100,7 +100,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - [[Reference/Modules/learnloop/diagnosis/probe_offer|learnloop.diagnosis.probe_offer]] — imports `EpisodeOwned`, `RoutineDisplayCovered`, `commit_presentation`, `routine_display_covers_item`; statically calls `commit_presentation`, `routine_display_covers_item`
 - [[Reference/Modules/learnloop/scheduling/scheduler|learnloop.scheduling.scheduler]] — imports `EpisodeOwned`, `RoutineDisplayCovered`, `presentation_commit_payload`, `probe_serving_block_reason`, `record_presentation_forecast`; statically calls `presentation_commit_payload`, `probe_serving_block_reason`, `record_presentation_forecast`
 - [[Reference/Modules/learnloop/sim/diagnostic_validation|learnloop.sim.diagnostic_validation]] — imports `RoutineDisplayCovered`, `commit_presentation`, `serve_presentation`; statically calls `commit_presentation`, `serve_presentation`
-- [[Reference/Modules/learnloop/tui/screens/practice|learnloop.tui.screens.practice]] — imports `commit_item_presentation`, `probe_serving_block_reason`, `probe_value_block_reason`; statically calls `commit_item_presentation`, `probe_serving_block_reason`, `probe_value_block_reason`
+- [[Reference/Modules/learnloop/tui/screens/practice|learnloop.tui.screens.practice]] — imports `LearnerRefusedPin`, `ProtectedInstrument`, `RoutineDisplayCovered`, `commit_item_presentation`, `probe_serving_block_reason`, `probe_value_block_reason`, `serve_presentation`; statically calls `commit_item_presentation`, `probe_serving_block_reason`, `probe_value_block_reason`, `serve_presentation`
 - [[Reference/Modules/learnloop_sidecar/handlers/practice|learnloop_sidecar.handlers.practice]] — imports `LEARNER_REFUSED_PROBE`, `LearnerRefusedPin`, `PROBE_ITEM_ANSWER_SHOWN`, `ProtectedInstrument`, `RoutineDisplayCovered`, `commit_item_presentation`, `probe_serving_block_reason`, `probe_value_block_reason`, `routine_display_covers_item`, `serve_presentation`, `validate_presentation_for_submission`; statically calls `commit_item_presentation`, `probe_serving_block_reason`, `probe_value_block_reason`, `routine_display_covers_item`, `serve_presentation`, `validate_presentation_for_submission`
 
 ## Dependencies
@@ -165,7 +165,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_planner_shadow_report_summarizes_logged_components`
   - `test_session_cap_blocks_further_probe_serving`
 - [tests/test_probe_policy.py](../../../../../../tests/test_probe_policy.py) — direct import
-  - `test_family_redundancy_penalty_after_observation`
+  - `test_family_redundancy_penalty_after_observation_below_mvp_077`
   - `test_sequential_selection_conditions_on_observed_posterior`
 - [tests/test_probe_predictive_eig.py](../../../../../../tests/test_probe_predictive_eig.py) — direct import
   - `test_predictive_objective_is_default_and_persisted`
@@ -174,6 +174,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_probe_router_episode_owner.py](../../../../../../tests/test_probe_router_episode_owner.py) — direct import
   - `test_a_dialogue_turn_never_supersedes_the_accepted_pin`
   - `test_between_blocks_only_the_router_supplies_a_router_owned_episodes_next_question`
+- [tests/test_probe_router_fixes_mvp077.py](../../../../../../tests/test_probe_router_fixes_mvp077.py) — direct import
+  - `test_r33_an_observed_family_is_ranked_on_its_information_not_a_hand_set_multiplier`
 - [tests/test_serve_eligibility.py](../../../../../../tests/test_serve_eligibility.py) — direct import
   - `test_no_probe_is_committed_for_an_item_submit_would_prime`
 - [tests/test_serve_eligibility_review.py](../../../../../../tests/test_serve_eligibility_review.py) — direct import

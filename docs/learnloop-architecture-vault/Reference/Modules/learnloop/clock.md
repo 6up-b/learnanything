@@ -121,7 +121,7 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/content/authoring/jobs|learnloop.content.authoring.jobs]] — imports `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/content/authoring/persona_realism|learnloop.content.authoring.persona_realism]] — imports `Clock`
 - [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]] — imports `Clock`, `SystemClock`, `parse_utc`, `utc_now_iso`; statically calls `SystemClock`, `parse_utc`, `utc_now_iso`
-- [[Reference/Modules/learnloop/content/authoring/rung_variants|learnloop.content.authoring.rung_variants]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
+- [[Reference/Modules/learnloop/content/authoring/rung_variants|learnloop.content.authoring.rung_variants]] — imports `Clock`
 - [[Reference/Modules/learnloop/content/authoring/source_exercise_import|learnloop.content.authoring.source_exercise_import]] — imports `Clock`, `parse_utc`, `utc_now_iso`; statically calls `parse_utc`, `utc_now_iso`
 - [[Reference/Modules/learnloop/content/facet_identity/actions|learnloop.content.facet_identity.actions]] — imports `Clock`, `utc_now_iso`; statically calls `utc_now_iso`
 - [[Reference/Modules/learnloop/content/facet_identity/dedupe|learnloop.content.facet_identity.dedupe]] — imports `Clock`
@@ -1459,6 +1459,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_consequence_line_names_what_it_replaces`
   - `test_the_projected_cost_follows_the_recall_target`
 - [tests/test_intent_rpc.py](../../../../../tests/test_intent_rpc.py) — direct import
+- [tests/test_interaction_event_kinds.py](../../../../../tests/test_interaction_event_kinds.py) — direct import
+  - `test_a_best_effort_provenance_write_still_raises_a_refused_kind`
 - [tests/test_intervention_outcomes_replayer.py](../../../../../tests/test_intervention_outcomes_replayer.py) — direct import
   - `test_the_replayer_reads_persisted_exposure`
 - [tests/test_inventory_choice.py](../../../../../tests/test_inventory_choice.py) — direct import
@@ -1720,8 +1722,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_stale_uncertainty_respects_variance_floor`
 - [tests/test_probe_pool_empty.py](../../../../../tests/test_probe_pool_empty.py) — direct import
 - [tests/test_probe_remint.py](../../../../../tests/test_probe_remint.py) — direct import
+- [tests/test_probe_router_continuation.py](../../../../../tests/test_probe_router_continuation.py) — direct import
+  - `test_a_replacement_check_keeps_the_decisions_instrument_exclusions`
 - [tests/test_probe_router_episode_owner.py](../../../../../tests/test_probe_router_episode_owner.py) — direct import
   - `test_an_exposed_answer_on_the_last_instrument_parks_the_episode_with_one_supply_request`
+- [tests/test_probe_router_replay.py](../../../../../tests/test_probe_router_replay.py) — direct import
 - [tests/test_probe_surface_mint.py](../../../../../tests/test_probe_surface_mint.py) — direct import
 - [tests/test_probe_targeting.py](../../../../../tests/test_probe_targeting.py) — direct import
   - `test_cause_set_diagnostic_selects_discriminating_instrument`

@@ -237,6 +237,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_source_locator_only_commitment_covers_no_item`
   - `test_retired_commitments_drop_out`
   - `test_satisfying_a_check_does_not_move_its_choice_time`
+- [tests/test_probe_router_continuation.py](../../../../../../tests/test_probe_router_continuation.py) — direct import
+  - `test_a_probe_decisions_measurement_never_shares_a_check_on_its_instrument`
 - [tests/test_reader_adoption_ownership.py](../../../../../../tests/test_reader_adoption_ownership.py) — direct import
   - `test_crash_before_the_link_reuses_the_commitments_own_card`
   - `test_retiring_a_question_keeps_a_card_another_commitment_still_requests`

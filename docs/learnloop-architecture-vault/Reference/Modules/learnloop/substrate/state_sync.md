@@ -360,6 +360,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_remint_starts_with_fresh_fsrs_state`
   - `test_remint_surface_group_stays_probe_ineligible`
 - [tests/test_probe_router_protection.py](../../../../../../tests/test_probe_router_protection.py) — direct import
+- [tests/test_probe_router_replay.py](../../../../../../tests/test_probe_router_replay.py) — direct import
+  - `test_a_predecessor_decisions_pin_answered_after_activation_rebuilds_to_the_live_rows`
 - [tests/test_probe_surface_mint.py](../../../../../../tests/test_probe_surface_mint.py) — direct import
   - `test_mint_refuses_a_surface_group_the_learner_has_seen`
   - `test_minted_surface_serves_through_the_probe_branch_and_is_single_use`

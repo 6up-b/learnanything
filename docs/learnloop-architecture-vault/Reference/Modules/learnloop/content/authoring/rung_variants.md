@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/content/authoring/rung_variants.py](../../../../../../../src/learnloop/content/authoring/rung_variants.py) |
-| Source lines | 903 |
+| Source lines | 882 |
 | Owning package | [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -61,7 +61,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - `audit_variant_manipulation_contract(repository: Repository, source_item: PracticeItem, candidate_payload: dict[str, Any], *, adversarial_review: dict[str, Any] | None, generation_agent_run_id: str | None=None, reviewer_agent_run_id: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/authoring/rung_variants.py), line 244) — P2 shared diff audit for harder/easier/rung-shift siblings.
 - `resolve_item_waypoint(vault: LoadedVault, repository: Repository, item: PracticeItem) -> str` ([source](../../../../../../../src/learnloop/content/authoring/rung_variants.py), line 302) — The default-trajectory waypoint this item most plausibly sits at.
 - `request_rung_variant(vault: LoadedVault, repository: Repository, *, practice_item_id: str, direction: str, session_id: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/authoring/rung_variants.py), line 366) — Record a re-rung request and write its evidence package.
-- `generate_rung_variant(root, client: Any, *, request_id: str, repository: Repository | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/authoring/rung_variants.py), line 571) — Author the requested variant: one grounded sibling item at the target waypoint, rung-gated, with deterministic facet/fingerprint/capability stamping.
+- `generate_rung_variant(root, client: Any, *, request_id: str, repository: Repository | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/authoring/rung_variants.py), line 550) — Author the requested variant: one grounded sibling item at the target waypoint, rung-gated, with deterministic facet/fingerprint/capability stamping.
 
 ### Module constants
 
@@ -73,10 +73,10 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 ## Internal implementation anchors
 
 - `_variant_kind(source_item: PracticeItem, rung: RungTarget, direction: str) -> str` ([source](../../../../../../../src/learnloop/content/authoring/rung_variants.py), line 277) — A rung whose demanded point moves against direction is a trajectory shift.
-- `_target_rung(vault: LoadedVault, repository: Repository, item: PracticeItem, source_slug: str, direction: str) -> RungTarget` ([source](../../../../../../../src/learnloop/content/authoring/rung_variants.py), line 518)
-- `_rebuild_rung(repository: Repository, request: dict[str, Any]) -> RungTarget` ([source](../../../../../../../src/learnloop/content/authoring/rung_variants.py), line 804)
-- `_variant_instructions(plan: Any, source_item: PracticeItem, rung: RungTarget, request: dict[str, Any], extra: str | None) -> str` ([source](../../../../../../../src/learnloop/content/authoring/rung_variants.py), line 826)
-- `_created_item_row(repository: Repository, patch_id: str) -> tuple[str, str] | None` ([source](../../../../../../../src/learnloop/content/authoring/rung_variants.py), line 894) — (proposal_row_id, practice_item_id) of the created variant, or None.
+- `_target_rung(vault: LoadedVault, repository: Repository, item: PracticeItem, source_slug: str, direction: str) -> RungTarget` ([source](../../../../../../../src/learnloop/content/authoring/rung_variants.py), line 497)
+- `_rebuild_rung(repository: Repository, request: dict[str, Any]) -> RungTarget` ([source](../../../../../../../src/learnloop/content/authoring/rung_variants.py), line 783)
+- `_variant_instructions(plan: Any, source_item: PracticeItem, rung: RungTarget, request: dict[str, Any], extra: str | None) -> str` ([source](../../../../../../../src/learnloop/content/authoring/rung_variants.py), line 805)
+- `_created_item_row(repository: Repository, patch_id: str) -> tuple[str, str] | None` ([source](../../../../../../../src/learnloop/content/authoring/rung_variants.py), line 873) — (proposal_row_id, practice_item_id) of the created variant, or None.
 
 ## Who imports or calls it
 
@@ -92,7 +92,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 
 - [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `AttemptDraft`, `SelfGradeInput`, `complete_self_graded_attempt`; calls `AttemptDraft`, `SelfGradeInput`, `complete_self_graded_attempt`
 - [[Reference/Modules/learnloop/attempts/grading|learnloop.attempts.grading]] — imports `resolved_rubric`; calls `resolved_rubric`
-- [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `utc_now_iso`; calls `utc_now_iso`
+- [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`
 - [[Reference/Modules/learnloop/content/authoring/authoring_gates|learnloop.content.authoring.authoring_gates]] — imports `build_instrument_gates`; calls `build_instrument_gates`
 - [[Reference/Modules/learnloop/content/authoring/practice_generation|learnloop.content.authoring.practice_generation]] — imports `PracticeExpansionError`, `PracticeExpansionPlan`, `_RungGate`, `build_practice_expansion_plan`; calls `PracticeExpansionPlan`, `_RungGate`, `build_practice_expansion_plan`
 - [[Reference/Modules/learnloop/content/proposals/proposals|learnloop.content.proposals.proposals]] — imports `accept_items`, `generate_authoring_proposal`; calls `accept_items`, `generate_authoring_proposal`

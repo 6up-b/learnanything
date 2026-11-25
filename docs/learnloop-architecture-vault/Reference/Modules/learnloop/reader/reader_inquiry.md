@@ -154,6 +154,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_figures_show_me.py](../../../../../../tests/test_figures_show_me.py) — direct import
   - `test_show_me_requested_is_a_salience_only_event_without_the_words`
   - `test_the_intent_boxs_figure_action_is_show_me_while_on`
+- [tests/test_interaction_event_kinds.py](../../../../../../tests/test_interaction_event_kinds.py) — direct import
 - [tests/test_library_ask.py](../../../../../../tests/test_library_ask.py) — direct import
   - `test_every_rw4a_event_is_salience_only_refused_as_evidence_and_never_client_recorded`
 - [tests/test_reader_activity.py](../../../../../../tests/test_reader_activity.py) — direct import

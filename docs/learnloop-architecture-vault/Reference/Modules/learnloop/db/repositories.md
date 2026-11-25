@@ -1948,11 +1948,13 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_predictive_objective_is_default_and_persisted`
 - [tests/test_probe_remint.py](../../../../../../tests/test_probe_remint.py) — direct import
 - [tests/test_probe_router_decision_integrity.py](../../../../../../tests/test_probe_router_decision_integrity.py) — direct import
+  - `test_r18_two_identical_reads_at_once_append_one_pending_receipt`
   - `test_r3_a_candidate_ranking_ahead_at_acceptance_is_never_served_under_the_decision`
 - [tests/test_probe_router_protection.py](../../../../../../tests/test_probe_router_protection.py) — direct import
   - `test_an_item_reserved_for_a_held_out_exam_is_never_served_as_a_probe`
   - `test_the_learner_lanes_offer_never_names_a_protected_instrument`
 - [tests/test_probe_router_replay.py](../../../../../../tests/test_probe_router_replay.py) — direct import
+  - `test_a_predecessor_decisions_pin_answered_after_activation_rebuilds_to_the_live_rows`
 - [tests/test_probe_surface_mint.py](../../../../../../tests/test_probe_surface_mint.py) — direct import
 - [tests/test_probe_targeting.py](../../../../../../tests/test_probe_targeting.py) — direct import
   - `test_cause_set_diagnostic_selects_discriminating_instrument`

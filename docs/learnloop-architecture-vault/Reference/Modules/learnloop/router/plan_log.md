@@ -152,6 +152,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]] — imports `CONTINUE_REF`, `INSERT_REF`, `drawn_lesson_on`, `held_a_lesson`, `log_plan_block_decision`, `log_plan_interrupt_decision`; statically calls `drawn_lesson_on`, `held_a_lesson`, `log_plan_interrupt_decision`
 - [[Reference/Modules/learnloop/daily_plan/learner_action|learnloop.daily_plan.learner_action]] — imports `module`; statically calls `_dumps`, `_hash`, `_surface`
 - [[Reference/Modules/learnloop/daily_plan/learner_probe|learnloop.daily_plan.learner_probe]] — imports `NO_PROBE_REF`, `PROBE_REF`, `automatic_probe_decision`, `learner_probe_decision`, `log_learner_probe_decision`; statically calls `automatic_probe_decision`, `learner_probe_decision`, `log_learner_probe_decision`
+- [[Reference/Modules/learnloop/daily_plan/measurement|learnloop.daily_plan.measurement]] — imports `LEARNER_PROBE_SURFACE`, `PROBE_CONTINUATION_SURFACE`
 - [[Reference/Modules/learnloop/daily_plan/probe_continuation|learnloop.daily_plan.probe_continuation]] — imports `CONTINUATION_STOP_REF`, `PROBE_REF`, `log_probe_continuation_decision`, `probe_continuation_decisions`, `probe_continuation_receipt_key`; statically calls `log_probe_continuation_decision`, `probe_continuation_decisions`, `probe_continuation_receipt_key`
 - [[Reference/Modules/learnloop/daily_plan/router_chooser|learnloop.daily_plan.router_chooser]] — imports `module`
 - [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] — imports `INSERT_REF`, `PROBE_REF`, `automatic_probe_decision`, `learner_probe_decision`; statically calls `automatic_probe_decision`, `learner_probe_decision`
@@ -182,7 +183,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/learner_action|learnloop.daily_plan.learner_action]], [[Reference/Modules/learnloop/daily_plan/learner_probe|learnloop.daily_plan.learner_probe]], [[Reference/Modules/learnloop/daily_plan/probe_continuation|learnloop.daily_plan.probe_continuation]], [[Reference/Modules/learnloop/daily_plan/router_chooser|learnloop.daily_plan.router_chooser]] and 4 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/engine|learnloop.daily_plan.engine]], [[Reference/Modules/learnloop/daily_plan/learner_action|learnloop.daily_plan.learner_action]], [[Reference/Modules/learnloop/daily_plan/learner_probe|learnloop.daily_plan.learner_probe]], [[Reference/Modules/learnloop/daily_plan/measurement|learnloop.daily_plan.measurement]], [[Reference/Modules/learnloop/daily_plan/probe_continuation|learnloop.daily_plan.probe_continuation]] and 5 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -197,6 +198,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_strings_keep_their_bytes_and_every_layer_reads_the_leafs`
 - [tests/test_probe_router_continuation.py](../../../../../../tests/test_probe_router_continuation.py) — direct import
   - `test_a_flat_instrument_the_router_asks_is_admitted_and_served_first_whatever_its_eig`
+  - `test_a_replacement_check_keeps_the_decisions_instrument_exclusions`
   - `test_a_router_stop_completes_the_episode_with_its_own_reason`
   - `test_the_router_decides_the_next_observation_once_with_its_exact_served_distribution`
 - [tests/test_probe_router_decision_integrity.py](../../../../../../tests/test_probe_router_decision_integrity.py) — direct import
@@ -208,11 +210,15 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_r4_a_failed_write_never_turns_a_drawn_lesson_into_the_probe`
 - [tests/test_probe_router_episode_owner.py](../../../../../../tests/test_probe_router_episode_owner.py) — direct import
   - `test_an_automatic_decision_committed_while_the_learner_lane_values_is_the_factors_one_decision`
+- [tests/test_probe_router_fixes_mvp077.py](../../../../../../tests/test_probe_router_fixes_mvp077.py) — direct import
+  - `test_r34_a_learned_draw_with_a_tiny_floor_logs_the_exact_share_through_the_persisted_row`
 - [tests/test_probe_router_learner_lane.py](../../../../../../tests/test_probe_router_learner_lane.py) — direct import
   - `test_a_learned_probe_is_an_option_of_the_mix_and_no_coin_is_flipped`
   - `test_a_status_read_decides_once_and_a_reread_draws_nothing_and_writes_no_receipt`
   - `test_a_zero_share_never_offers_an_unlearned_probe_and_writes_no_assignment`
   - `test_an_unlearned_probe_is_offered_only_by_the_coin_with_its_exact_propensity`
+- [tests/test_probe_router_replay.py](../../../../../../tests/test_probe_router_replay.py) — direct import
+  - `test_a_predecessor_decisions_pin_answered_after_activation_rebuilds_to_the_live_rows`
 
 ## Modification guidance
 

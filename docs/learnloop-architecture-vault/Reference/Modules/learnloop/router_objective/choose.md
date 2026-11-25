@@ -47,33 +47,33 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router_objective/choose.py](../../../../../../src/learnloop/router_objective/choose.py) |
-| Source lines | 348 |
+| Source lines | 352 |
 | Owning package | [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class OptionFacts` ([source](../../../../../../src/learnloop/router_objective/choose.py), line 51) — What the rule sentence reads of one option in the support: the reason code the staged frame (or the boundary, for an offer or IH2's contest) gave it, and the topic or section its sentence names.
-- `class ChoiceInputs` ([source](../../../../../../src/learnloop/router_objective/choose.py), line 61) — Everything one boundary's choice depends on, as read before it.
-- `class Choice` ([source](../../../../../../src/learnloop/router_objective/choose.py), line 102) — What :func:`choose` decided, as the router logs it.
-- `coin_reads_minutes(stop_rate: float, support: tuple[str, ...] | list[str]) -> bool` ([source](../../../../../../src/learnloop/router_objective/choose.py), line 139) — Whether the coin could apply, so the session's minutes are read for it: a positive rate and stop offered.
-- `coin_applies(stop_rate: float, support: tuple[str, ...] | list[str], session_minutes: float | None) -> bool` ([source](../../../../../../src/learnloop/router_objective/choose.py), line 145) — Whether the coin is flipped (and its availability read first): a positive rate at a boundary where stop sits beside a block once the session holds active minutes (``stop_coin.eligible``).
-- `choose(inputs: ChoiceInputs) -> Choice` ([source](../../../../../../src/learnloop/router_objective/choose.py), line 152) — The boundary's choice: the mix of the two policies over the support, the stop coin on its own uniform, the rule sentence of what is served and the why the learner sees.
-- `class PostMissInputs` ([source](../../../../../../src/learnloop/router_objective/choose.py), line 213) — What one post-miss decision's mix depends on, as read before it (``objective_chooser``'s restraint gate: a follow-up asked now, later, or not at all, and any lesson offered beside it).
-- `class PostMissChoice` ([source](../../../../../../src/learnloop/router_objective/choose.py), line 242) — What :func:`post_miss_choice` decided: each policy's usable answer, the mix they leave and its draw.
-- `post_miss_choice(inputs: PostMissInputs) -> PostMissChoice` ([source](../../../../../../src/learnloop/router_objective/choose.py), line 258) — The post-miss decision's mix: which policies answered usably, the weights a failure leaves, each live component's distribution, and one draw from the seed.
-- `decision_record(choice: Choice, inputs: ChoiceInputs, *, question_set_version: Any) -> DecisionRecord` ([source](../../../../../../src/learnloop/router_objective/choose.py), line 307) — The decision's own ``plan_block`` record: chosen, its rule, the support's other options with their logged probabilities, and the draw's facts and versions (``question_set_version``: the LLM policy's request's, as the router's record names it).
+- `class OptionFacts` ([source](../../../../../../src/learnloop/router_objective/choose.py), line 52) — What the rule sentence reads of one option in the support: the reason code the staged frame (or the boundary, for an offer or IH2's contest) gave it, and the topic or section its sentence names.
+- `class ChoiceInputs` ([source](../../../../../../src/learnloop/router_objective/choose.py), line 62) — Everything one boundary's choice depends on, as read before it.
+- `class Choice` ([source](../../../../../../src/learnloop/router_objective/choose.py), line 103) — What :func:`choose` decided, as the router logs it.
+- `coin_reads_minutes(stop_rate: float, support: tuple[str, ...] | list[str]) -> bool` ([source](../../../../../../src/learnloop/router_objective/choose.py), line 140) — Whether the coin could apply, so the session's minutes are read for it: a positive rate and stop offered.
+- `coin_applies(stop_rate: float, support: tuple[str, ...] | list[str], session_minutes: float | None) -> bool` ([source](../../../../../../src/learnloop/router_objective/choose.py), line 146) — Whether the coin is flipped (and its availability read first): a positive rate at a boundary where stop sits beside a block once the session holds active minutes (``stop_coin.eligible``).
+- `choose(inputs: ChoiceInputs) -> Choice` ([source](../../../../../../src/learnloop/router_objective/choose.py), line 153) — The boundary's choice: the mix of the two policies over the support, the stop coin on its own uniform, the rule sentence of what is served and the why the learner sees.
+- `class PostMissInputs` ([source](../../../../../../src/learnloop/router_objective/choose.py), line 214) — What one post-miss decision's mix depends on, as read before it (``objective_chooser``'s restraint gate: a follow-up asked now, later, or not at all, and any lesson offered beside it).
+- `class PostMissChoice` ([source](../../../../../../src/learnloop/router_objective/choose.py), line 245) — What :func:`post_miss_choice` decided: each policy's usable answer, the mix they leave and its draw.
+- `post_miss_choice(inputs: PostMissInputs) -> PostMissChoice` ([source](../../../../../../src/learnloop/router_objective/choose.py), line 262) — The post-miss decision's mix: which policies answered usably, the weights a failure leaves, each live component's distribution, and one draw from the seed.
+- `decision_record(choice: Choice, inputs: ChoiceInputs, *, question_set_version: Any) -> DecisionRecord` ([source](../../../../../../src/learnloop/router_objective/choose.py), line 311) — The decision's own ``plan_block`` record: chosen, its rule, the support's other options with their logged probabilities, and the draw's facts and versions (``question_set_version``: the LLM policy's request's, as the router's record names it).
 
 ### Module constants
 
-- `MODE` ([src/learnloop/router_objective/choose.py](../../../../../../src/learnloop/router_objective/choose.py), line 38)
-- `NO_MODELS` ([src/learnloop/router_objective/choose.py](../../../../../../src/learnloop/router_objective/choose.py), line 39)
-- `WHY_VERSION` ([src/learnloop/router_objective/choose.py](../../../../../../src/learnloop/router_objective/choose.py), line 41)
-- `ANSWERED` ([src/learnloop/router_objective/choose.py](../../../../../../src/learnloop/router_objective/choose.py), line 43)
-- `NOT_READY` ([src/learnloop/router_objective/choose.py](../../../../../../src/learnloop/router_objective/choose.py), line 44)
-- `STOP_OFFER` ([src/learnloop/router_objective/choose.py](../../../../../../src/learnloop/router_objective/choose.py), line 46)
-- `PLAN_BLOCK` ([src/learnloop/router_objective/choose.py](../../../../../../src/learnloop/router_objective/choose.py), line 47)
+- `MODE` ([src/learnloop/router_objective/choose.py](../../../../../../src/learnloop/router_objective/choose.py), line 39)
+- `NO_MODELS` ([src/learnloop/router_objective/choose.py](../../../../../../src/learnloop/router_objective/choose.py), line 40)
+- `WHY_VERSION` ([src/learnloop/router_objective/choose.py](../../../../../../src/learnloop/router_objective/choose.py), line 42)
+- `ANSWERED` ([src/learnloop/router_objective/choose.py](../../../../../../src/learnloop/router_objective/choose.py), line 44)
+- `NOT_READY` ([src/learnloop/router_objective/choose.py](../../../../../../src/learnloop/router_objective/choose.py), line 45)
+- `STOP_OFFER` ([src/learnloop/router_objective/choose.py](../../../../../../src/learnloop/router_objective/choose.py), line 47)
+- `PLAN_BLOCK` ([src/learnloop/router_objective/choose.py](../../../../../../src/learnloop/router_objective/choose.py), line 48)
 
 ### Explicit exports
 
@@ -98,9 +98,9 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_code(value: Any) -> str | None` ([source](../../../../../../src/learnloop/router_objective/choose.py), line 293)
-- `_number(value: Any) -> float | int | None` ([source](../../../../../../src/learnloop/router_objective/choose.py), line 297)
-- `_compact(values: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/choose.py), line 303)
+- `_code(value: Any) -> str | None` ([source](../../../../../../src/learnloop/router_objective/choose.py), line 297)
+- `_number(value: Any) -> float | int | None` ([source](../../../../../../src/learnloop/router_objective/choose.py), line 301)
+- `_compact(values: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/choose.py), line 307)
 
 ## Who imports or calls it
 
@@ -115,6 +115,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ### LearnLoop dependencies
 
+- [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `probe_router_fixes_on`; calls `probe_router_fixes_on`
 - [[Reference/Modules/learnloop/provenance|learnloop.provenance]] — imports `DecisionRecord`, `module`; calls `DecisionRecord`, `is_code`, `ref`
 - [[Reference/Modules/learnloop/router/mixture|learnloop.router.mixture]] — imports `module`
 - [[Reference/Modules/learnloop/router/why|learnloop.router.why]] — imports `module`; calls `objective_why`, `rationale_guard`, `sentence`

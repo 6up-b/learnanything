@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/DiagnosticReviewScreen.tsx](../../../../../../apps/learnloop-tauri/src/screens/DiagnosticReviewScreen.tsx) |
-| Source lines | 251 |
+| Source lines | 253 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/_area|TypeScript/screens]] |
 | Refactor status | `ACTIVE` |
@@ -65,14 +65,14 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `const handleContinue = useCallback(async ()` — const, line 80
 - `const anchorItemId = blockEnd.releasedFeedback[0]?.practiceItemId ?? undefined` — const, line 85
 - `const askTutor = ()` — const, line 86
-- `const next = await api.getNextProbeItem(learningObjectId)` — const, line 103
-- `const tutoringLabel = handoffOpensLesson(onTeachFromCheck) ? TEACH_AFTER_CHECK_LABEL : TUTOR_AFTER_CHECK_LABEL` — const, line 116
-- `const routeLabel = (labels: Record<string, string>)` — const, line 117
-- `const runNextStep = useCallback(()` — const, line 120
-- `const onKey = (event: KeyboardEvent)` — const, line 129
-- `const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase()` — const, line 132
-- `const stepLabel = sharedFix ? FIX_MIX_UP_LABEL : routeLabel(PLAIN_CONTINUE_LABEL)` — const, line 158
-- `const verdict = verdictOf(` — const, line 168
+- `const next = await nextDiagnosticItem(learningObjectId, blockEnd.episodeId)` — const, line 105
+- `const tutoringLabel = handoffOpensLesson(onTeachFromCheck) ? TEACH_AFTER_CHECK_LABEL : TUTOR_AFTER_CHECK_LABEL` — const, line 118
+- `const routeLabel = (labels: Record<string, string>)` — const, line 119
+- `const runNextStep = useCallback(()` — const, line 122
+- `const onKey = (event: KeyboardEvent)` — const, line 131
+- `const tag = (event.target as HTMLElement | null)?.tagName?.toLowerCase()` — const, line 134
+- `const stepLabel = sharedFix ? FIX_MIX_UP_LABEL : routeLabel(PLAIN_CONTINUE_LABEL)` — const, line 160
+- `const verdict = verdictOf(` — const, line 170
 
 ## Who imports or calls it
 
@@ -85,11 +85,11 @@ The system-level behavior stays authoritative in the linked architecture, concep
 
 ### Desktop source modules
 
-- [[Reference/Desktop/TypeScript/api/client|src/api/client.ts]] — import-or-re-export; imports `api`
 - [[Reference/Desktop/TypeScript/api/dto|src/api/dto.ts]] — import-or-re-export; imports `CommandError`, `GuidedRedoDto`, `ProbeBlockEndDto`
 - [[Reference/Desktop/TypeScript/app/checkHandoff|src/app/checkHandoff.ts]] — import-or-re-export; imports `CheckHandoff`, `TEACH_AFTER_CHECK_LABEL`, `TUTOR_AFTER_CHECK_LABEL`, `handoffOpensLesson`
 - [[Reference/Desktop/TypeScript/app/keymap|src/app/keymap.ts]] — import-or-re-export; imports `screenLeavesKey`
 - [[Reference/Desktop/TypeScript/app/practiceFeedback|src/app/practiceFeedback.ts]] — import-or-re-export; imports `FIX_MIX_UP_LABEL`, `VERDICT_TEXT`, `simplePracticeFeedback`, `verdictOf`
+- [[Reference/Desktop/TypeScript/app/routerDecisionPoll|src/app/routerDecisionPoll.ts]] — import-or-re-export; imports `nextDiagnosticItem`
 - [[Reference/Desktop/TypeScript/components/PlainParts|src/components/PlainParts.tsx]] — import-or-re-export; imports `DetailsToggle`, `PrimaryAction`, `quietLine`
 - [[Reference/Desktop/TypeScript/components/ProbeBlockResult|src/components/ProbeBlockResult.tsx]] — import-or-re-export; imports `ProbeBlockResult`
 - [[Reference/Desktop/TypeScript/components/term|src/components/term.tsx]] — import-or-re-export; imports `COLOR`, `KeyBar`
@@ -112,6 +112,7 @@ The workflow note owns end-to-end sequencing; this module note describes only it
 ## Tests that define behavior
 
 - [apps/learnloop-tauri/src/screens/RepairOverFeedback.phase4.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/RepairOverFeedback.phase4.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
+- [apps/learnloop-tauri/src/screens/DiagnosticReviewScreen.routerContinue.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/DiagnosticReviewScreen.routerContinue.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/screens/DiagnosticReviewScreen.phase4.test.tsx](../../../../../../apps/learnloop-tauri/src/screens/DiagnosticReviewScreen.phase4.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/copy/denyList.phase4.test.tsx](../../../../../../apps/learnloop-tauri/src/copy/denyList.phase4.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).
 - [apps/learnloop-tauri/src/app/checkHandoff.test.tsx](../../../../../../apps/learnloop-tauri/src/app/checkHandoff.test.tsx) — vitest test: imports and executes this module under jsdom (`npm test`).

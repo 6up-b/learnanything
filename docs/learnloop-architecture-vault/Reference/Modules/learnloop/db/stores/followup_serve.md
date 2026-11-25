@@ -182,6 +182,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_an_unwritten_workflow_waits_on_the_offer_that_replaced_the_one_it_lost_to`
 - [tests/test_probe_router_episode_owner.py](../../../../../../../tests/test_probe_router_episode_owner.py) — direct import
   - `test_the_automatic_lane_refuses_a_draw_on_a_factor_the_learner_lane_decided`
+- [tests/test_probe_router_replay.py](../../../../../../../tests/test_probe_router_replay.py) — direct import
 
 ## Modification guidance
 

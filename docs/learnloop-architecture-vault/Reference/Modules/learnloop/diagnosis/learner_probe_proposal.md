@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/learner_probe_proposal.py](../../../../../../src/learnloop/diagnosis/learner_probe_proposal.py) |
-| Source lines | 53 |
+| Source lines | 71 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -57,6 +57,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `class Proposal` ([source](../../../../../../src/learnloop/diagnosis/learner_probe_proposal.py), line 25) — One factor's possible quick check as the status read it (``causal_orchestrator._routed``).
   - `practice_item_id(self) -> str | None` (line 42; public)
   - `facts(self) -> dict[str, Any]` (line 46; public) — The repair lane's facts, as plain values: for the record and the card, never priced.
+- `instrument_items(vault: Any, repository: Any, learning_object_id: str | None, factor_id: str | None=None) -> set[str]` ([source](../../../../../../src/learnloop/diagnosis/learner_probe_proposal.py), line 56) — The items on the learning object a probe may administer (bound to an instrument card, a diagnostic surface, or a probe candidate of the factor): the measurement a router decision arranges never takes one of them as its check, which would hold the probe's own instrument back as a…
 
 ### Module constants
 
@@ -70,6 +71,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `CHANNEL_SOURCE`
 - `PROBE_ACTION_REF`
 - `Proposal`
+- `instrument_items`
 
 ## Internal implementation anchors
 
@@ -80,7 +82,8 @@ No private top-level function or class definition is declared in this file.
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/daily_plan/learner_probe|learnloop.daily_plan.learner_probe]] — imports `CHANNEL_SOURCE`, `PROBE_ACTION_REF`
+- [[Reference/Modules/learnloop/daily_plan/learner_probe|learnloop.daily_plan.learner_probe]] — imports `CHANNEL_SOURCE`, `PROBE_ACTION_REF`, `instrument_items`; statically calls `instrument_items`
+- [[Reference/Modules/learnloop/daily_plan/measurement|learnloop.daily_plan.measurement]] — imports `instrument_items`; statically calls `instrument_items`
 - [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]] — imports `Proposal`; statically calls `Proposal`
 
 ## Dependencies
@@ -101,26 +104,14 @@ Use this module in context through:
 - [[Import Canonical Sources]]
 - [[Build a Study Map]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/learner_probe|learnloop.daily_plan.learner_probe]], [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]].
+Static participation evidence comes from [[Reference/Modules/learnloop/daily_plan/learner_probe|learnloop.daily_plan.learner_probe]], [[Reference/Modules/learnloop/daily_plan/measurement|learnloop.daily_plan.measurement]], [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]].
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
 ## Tests that define behavior
 
-No test imports this module directly. These tests exercise a direct production consumer:
-
-- [tests/diagnosis_journey_helpers.py](../../../../../../tests/diagnosis_journey_helpers.py) — imports consumer [[Reference/Modules/learnloop/daily_plan/learner_probe|learnloop.daily_plan.learner_probe]]
-- [tests/test_probe_router_continuation.py](../../../../../../tests/test_probe_router_continuation.py) — imports consumer [[Reference/Modules/learnloop/daily_plan/learner_probe|learnloop.daily_plan.learner_probe]]
-- [tests/test_probe_router_decision_integrity.py](../../../../../../tests/test_probe_router_decision_integrity.py) — imports consumer [[Reference/Modules/learnloop/daily_plan/learner_probe|learnloop.daily_plan.learner_probe]]
-- [tests/test_probe_router_episode_owner.py](../../../../../../tests/test_probe_router_episode_owner.py) — imports consumer [[Reference/Modules/learnloop/daily_plan/learner_probe|learnloop.daily_plan.learner_probe]]
-- [tests/test_probe_router_learner_lane.py](../../../../../../tests/test_probe_router_learner_lane.py) — imports consumer [[Reference/Modules/learnloop/daily_plan/learner_probe|learnloop.daily_plan.learner_probe]]
-- [tests/causal_p2_acceptance_helpers.py](../../../../../../tests/causal_p2_acceptance_helpers.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]]
-- [tests/probe_router_owned_helpers.py](../../../../../../tests/probe_router_owned_helpers.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]]
-- [tests/test_causal_orchestrator.py](../../../../../../tests/test_causal_orchestrator.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]]
-- [tests/test_causal_p2_acceptance.py](../../../../../../tests/test_causal_p2_acceptance.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]]
-- [tests/test_causal_shadow_selection.py](../../../../../../tests/test_causal_shadow_selection.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]]
-- [tests/test_common_repair_delivery.py](../../../../../../tests/test_common_repair_delivery.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]]
-- [tests/test_pfc_unassessed_readers.py](../../../../../../tests/test_pfc_unassessed_readers.py) — imports consumer [[Reference/Modules/learnloop/diagnosis/causal_orchestrator|learnloop.diagnosis.causal_orchestrator]]
+- [tests/test_probe_router_fixes_mvp077.py](../../../../../../tests/test_probe_router_fixes_mvp077.py) — direct import
+  - `test_r34_a_learned_draw_with_a_tiny_floor_logs_the_exact_share_through_the_persisted_row`
 
 ## Modification guidance
 

@@ -115,6 +115,8 @@ Indexes and uniqueness:
 - `tests/test_activity_substrate.py`
 - `tests/test_goal_contracts.py`
 - `tests/test_item_fingerprints.py`
+- `tests/test_probe_router_continuation.py`
+- `tests/test_probe_router_replay.py`
 - `tests/test_reader_authoring.py`
 - `tests/test_replay_writes_no_ledger.py`
 - `tests/protection_matrix_helpers.py`

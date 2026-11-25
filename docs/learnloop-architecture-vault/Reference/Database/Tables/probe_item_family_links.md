@@ -18,10 +18,10 @@ source_paths:
   - "migrations/028_probe_episodes.sql"
   - "src/learnloop/adaptive_difficulty/column_classes.py"
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
-  - "src/learnloop/daily_plan/learner_probe.py"
   - "src/learnloop/db/stores/probes.py"
   - "src/learnloop/diagnosis/causal_probe_coherence.py"
   - "src/learnloop/diagnosis/causal_reads.py"
+  - "src/learnloop/diagnosis/learner_probe_proposal.py"
   - "src/learnloop/diagnosis/probe_episodes.py"
   - "src/learnloop/diagnosis/probe_coverage.py"
   - "src/learnloop/diagnosis/probe_dialogue.py"
@@ -94,9 +94,9 @@ Indexes and uniqueness:
 
 ### Upstream callers of the repository access surface
 
-- `src/learnloop/daily_plan/learner_probe.py`
 - `src/learnloop/diagnosis/causal_probe_coherence.py`
 - `src/learnloop/diagnosis/causal_reads.py`
+- `src/learnloop/diagnosis/learner_probe_proposal.py`
 - `src/learnloop/diagnosis/probe_coverage.py`
 - `src/learnloop/diagnosis/probe_dialogue.py`
 - `src/learnloop/diagnosis/probe_episodes.py`

@@ -128,9 +128,9 @@ Indexes and uniqueness:
 - `tests/test_e2e_codex_mock.py`
 - `tests/test_exam_protection.py`
 - `tests/test_probe_entry.py`
+- `tests/test_probe_router_fixes_mvp077.py`
 - `tests/test_rebuild_history_appends.py`
 - `tests/test_self_attributed_misconceptions.py`
-- `tests/test_show.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

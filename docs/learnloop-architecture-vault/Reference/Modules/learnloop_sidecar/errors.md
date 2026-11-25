@@ -339,6 +339,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_followups_batch5_lesson.py](../../../../../tests/test_followups_batch5_lesson.py) — direct import
   - `test_c_a_step_of_a_saved_lesson_whose_route_is_down_says_it_is_saved`
   - `test_c_an_opening_whose_route_is_down_says_nothing_was_saved`
+- [tests/test_forced_withdrawal_records.py](../../../../../tests/test_forced_withdrawal_records.py) — direct import
+  - `test_a_head_mismatch_records_both_heads_and_from_mvp_077_refuses_the_offer`
 - [tests/test_goal_scope_material.py](../../../../../tests/test_goal_scope_material.py) — direct import
   - `test_a_facet_only_scope_that_resolves_to_nothing_is_refused`
   - `test_create_goal_refuses_a_concept_with_no_learning_objects`

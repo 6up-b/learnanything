@@ -46,79 +46,79 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/reader/reader_quick_check.py](../../../../../../src/learnloop/reader/reader_quick_check.py) |
-| Source lines | 1269 |
+| Source lines | 1272 |
 | Owning package | [[Reference/Modules/learnloop/reader/_package|learnloop.reader]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class ReaderQuickCheckError(ValueError)` ([source](../../../../../../src/learnloop/reader/reader_quick_check.py), line 120) — Domain error for the reader quick-check producer.
-- `class PassageCheckRefused(ReaderQuickCheckError)` ([source](../../../../../../src/learnloop/reader/reader_quick_check.py), line 124) — The spend framework refused the passage check before anything was sent.
-  - `__init__(self, reason: str, message: str, *, refusal: str | None=None) -> None` (line 132; internal)
-- `class InquiryCheckHeld(ReaderQuickCheckError)` ([source](../../../../../../src/learnloop/reader/reader_quick_check.py), line 138) — Another worker holds this inquiry's claim: no call was made.
-- `class PassageCheckSpend` ([source](../../../../../../src/learnloop/reader/reader_quick_check.py), line 143) — Admission settings of one passage check (``[reader_inquiry]``, W10).
-  - `caps(self) -> SpendCaps` (line 166; public)
-- `passage_check_spend(config: Any, *, provider: str | None=None, cancelled: Callable[[], bool] | None=None) -> PassageCheckSpend` ([source](../../../../../../src/learnloop/reader/reader_quick_check.py), line 175) — The vault's passage-check admission settings (``[reader_inquiry]``, and the shared output-budget policy for the check's route: its budget and its reasoning effort).
-- `inquiry_claim_key(inquiry_root_event_id: str, prompt_version: str | None=None) -> str` ([source](../../../../../../src/learnloop/reader/reader_quick_check.py), line 193)
-- `request_reading_quick_check(client: StructuredTransport, context: ReadingQuickCheckContext) -> ReadingQuickCheck` ([source](../../../../../../src/learnloop/reader/reader_quick_check.py), line 201) — Author one section quick check through the shared transport.
-- `request_passage_check(client: StructuredTransport, context: ReadingQuickCheckContext) -> ReadingQuickCheck` ([source](../../../../../../src/learnloop/reader/reader_quick_check.py), line 214) — Author one passage-scoped quick check (RW1a) through the shared transport.
-- `section_view(repository: Repository, *, extraction_id: str, section_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_quick_check.py), line 408) — The bounded, readable view of ONE guide section: {section_id, label, blocks:[{span_id, kind, text}]}.
-- `author_quick_check(repository: Repository, client: Any, *, extraction_id: str, section_id: str, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_quick_check.py), line 437) — Author + persist one quick check for a section (idempotent).
-- `passage_view(repository: Repository, *, extraction_id: str, anchor_span_ids: list[str] | tuple[str, ...]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_quick_check.py), line 500) — The bounded view of one inquiry's root passage (RW1a): its anchor spans and up to ``PASSAGE_BLOCKS_BEFORE``/``AFTER`` neighbours, inside the anchor's guide section (the same section derivation as the guide plan).
-- `author_inquiry_quick_check(repository: Repository, client: Any, *, extraction_id: str, inquiry_root_event_id: str, anchor_span_ids: list[str] | tuple[str, ...], clock: Clock | None=None, spend: PassageCheckSpend | None=None, owner: str | None=None, owner_ended: Callable[[str], bool] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_quick_check.py), line 544) — Author + persist the reconnect line's quick check for one inquiry (RW1a).
-- `record_inquiry_action(repository: Repository, *, question_id: str, action: str, response_md: str | None=None, self_check: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_quick_check.py), line 700) — Record the learner's act on an inquiry-scoped quick check (RW1a).
-- `record_action(repository: Repository, *, question_id: str, action: str, response_md: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_quick_check.py), line 803) — Record the learner's self-check outcome on the row (salience-only): ``answered`` stamps their response; ``dismissed`` is the durable "don't bring this back".
-- `escalate(root: Path, repository: Repository, *, question_id: str, learning_object_id: str, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_quick_check.py), line 833) — Escalate an authored quick check into a real PracticeItem.
-- `selection_item_id(question_id: str) -> str` ([source](../../../../../../src/learnloop/reader/reader_quick_check.py), line 950) — The practice item an active-reading question escalates into, named by the question (RW1b review F5): the item file is written before the question is linked to it, so a retry after a crash between the two rewrites the same item instead of leaving a second one outside the question…
-- `selection_claim_key(extraction_id: str, anchor_span_ids: list[str] | tuple[str, ...], style: str) -> str` ([source](../../../../../../src/learnloop/reader/reader_quick_check.py), line 964)
-- `selection_view(repository: Repository, *, extraction_id: str, anchor_span_ids: list[str] | tuple[str, ...], style: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_quick_check.py), line 969) — The bounded view of one selection (RW1b): the selected blocks in reading order inside the first one's guide section, one block of context before them and the book's next ``FOLD_BLOCKS`` blocks after them (the ones the Reader folds for the next step).
-- `folded_span_ids(repository: Repository, *, extraction_id: str, anchor_span_ids: list[str]) -> list[str]` ([source](../../../../../../src/learnloop/reader/reader_quick_check.py), line 1030) — The book's next blocks after a selection, the ones that fold (G4's fold).
-- `request_active_question(client: StructuredTransport, context: ReadingActiveContext) -> ReadingActiveCheck` ([source](../../../../../../src/learnloop/reader/reader_quick_check.py), line 1041) — Author one selection-scoped question (RW1b) as an isolated turn (the passage is untrusted source text, as for RW1a's passage check).
-- `selection_question(repository: Repository, *, extraction_id: str, anchor_span_ids: list[str] | tuple[str, ...], style: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/reader/reader_quick_check.py), line 1093) — The selection's question in ``style`` under its reuse key, any status.
-- `author_selection_question(repository: Repository, client: Any, *, extraction_id: str, anchor_span_ids: list[str] | tuple[str, ...], style: str, clock: Clock | None=None, spend: PassageCheckSpend | None=None, owner: str | None=None, owner_ended: Callable[[str], bool] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_quick_check.py), line 1104) — Author + persist one active-reading question on a selection (RW1b).
-- `is_missed(row: dict[str, Any]) -> bool` ([source](../../../../../../src/learnloop/reader/reader_quick_check.py), line 1213) — A missed formative answer: partly or no on a next step, why step or assumption.
-- `record_selection_action(repository: Repository, *, question_id: str, action: str, response_md: str | None=None, self_check: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_quick_check.py), line 1220) — The learner's act on an active-reading question (RW1b).
+- `class ReaderQuickCheckError(ValueError)` ([source](../../../../../../src/learnloop/reader/reader_quick_check.py), line 121) — Domain error for the reader quick-check producer.
+- `class PassageCheckRefused(ReaderQuickCheckError)` ([source](../../../../../../src/learnloop/reader/reader_quick_check.py), line 125) — The spend framework refused the passage check before anything was sent.
+  - `__init__(self, reason: str, message: str, *, refusal: str | None=None) -> None` (line 133; internal)
+- `class InquiryCheckHeld(ReaderQuickCheckError)` ([source](../../../../../../src/learnloop/reader/reader_quick_check.py), line 139) — Another worker holds this inquiry's claim: no call was made.
+- `class PassageCheckSpend` ([source](../../../../../../src/learnloop/reader/reader_quick_check.py), line 144) — Admission settings of one passage check (``[reader_inquiry]``, W10).
+  - `caps(self) -> SpendCaps` (line 167; public)
+- `passage_check_spend(config: Any, *, provider: str | None=None, cancelled: Callable[[], bool] | None=None) -> PassageCheckSpend` ([source](../../../../../../src/learnloop/reader/reader_quick_check.py), line 176) — The vault's passage-check admission settings (``[reader_inquiry]``, and the shared output-budget policy for the check's route: its budget and its reasoning effort).
+- `inquiry_claim_key(inquiry_root_event_id: str, prompt_version: str | None=None) -> str` ([source](../../../../../../src/learnloop/reader/reader_quick_check.py), line 194)
+- `request_reading_quick_check(client: StructuredTransport, context: ReadingQuickCheckContext) -> ReadingQuickCheck` ([source](../../../../../../src/learnloop/reader/reader_quick_check.py), line 202) — Author one section quick check through the shared transport.
+- `request_passage_check(client: StructuredTransport, context: ReadingQuickCheckContext) -> ReadingQuickCheck` ([source](../../../../../../src/learnloop/reader/reader_quick_check.py), line 215) — Author one passage-scoped quick check (RW1a) through the shared transport.
+- `section_view(repository: Repository, *, extraction_id: str, section_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_quick_check.py), line 409) — The bounded, readable view of ONE guide section: {section_id, label, blocks:[{span_id, kind, text}]}.
+- `author_quick_check(repository: Repository, client: Any, *, extraction_id: str, section_id: str, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_quick_check.py), line 438) — Author + persist one quick check for a section (idempotent).
+- `passage_view(repository: Repository, *, extraction_id: str, anchor_span_ids: list[str] | tuple[str, ...]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_quick_check.py), line 501) — The bounded view of one inquiry's root passage (RW1a): its anchor spans and up to ``PASSAGE_BLOCKS_BEFORE``/``AFTER`` neighbours, inside the anchor's guide section (the same section derivation as the guide plan).
+- `author_inquiry_quick_check(repository: Repository, client: Any, *, extraction_id: str, inquiry_root_event_id: str, anchor_span_ids: list[str] | tuple[str, ...], clock: Clock | None=None, spend: PassageCheckSpend | None=None, owner: str | None=None, owner_ended: Callable[[str], bool] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_quick_check.py), line 545) — Author + persist the reconnect line's quick check for one inquiry (RW1a).
+- `record_inquiry_action(repository: Repository, *, question_id: str, action: str, response_md: str | None=None, self_check: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_quick_check.py), line 701) — Record the learner's act on an inquiry-scoped quick check (RW1a).
+- `record_action(repository: Repository, *, question_id: str, action: str, response_md: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_quick_check.py), line 804) — Record the learner's self-check outcome on the row (salience-only): ``answered`` stamps their response; ``dismissed`` is the durable "don't bring this back".
+- `escalate(root: Path, repository: Repository, *, question_id: str, learning_object_id: str, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_quick_check.py), line 834) — Escalate an authored quick check into a real PracticeItem.
+- `selection_item_id(question_id: str) -> str` ([source](../../../../../../src/learnloop/reader/reader_quick_check.py), line 953) — The practice item an active-reading question escalates into, named by the question (RW1b review F5): the item file is written before the question is linked to it, so a retry after a crash between the two rewrites the same item instead of leaving a second one outside the question…
+- `selection_claim_key(extraction_id: str, anchor_span_ids: list[str] | tuple[str, ...], style: str) -> str` ([source](../../../../../../src/learnloop/reader/reader_quick_check.py), line 967)
+- `selection_view(repository: Repository, *, extraction_id: str, anchor_span_ids: list[str] | tuple[str, ...], style: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_quick_check.py), line 972) — The bounded view of one selection (RW1b): the selected blocks in reading order inside the first one's guide section, one block of context before them and the book's next ``FOLD_BLOCKS`` blocks after them (the ones the Reader folds for the next step).
+- `folded_span_ids(repository: Repository, *, extraction_id: str, anchor_span_ids: list[str]) -> list[str]` ([source](../../../../../../src/learnloop/reader/reader_quick_check.py), line 1033) — The book's next blocks after a selection, the ones that fold (G4's fold).
+- `request_active_question(client: StructuredTransport, context: ReadingActiveContext) -> ReadingActiveCheck` ([source](../../../../../../src/learnloop/reader/reader_quick_check.py), line 1044) — Author one selection-scoped question (RW1b) as an isolated turn (the passage is untrusted source text, as for RW1a's passage check).
+- `selection_question(repository: Repository, *, extraction_id: str, anchor_span_ids: list[str] | tuple[str, ...], style: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/reader/reader_quick_check.py), line 1096) — The selection's question in ``style`` under its reuse key, any status.
+- `author_selection_question(repository: Repository, client: Any, *, extraction_id: str, anchor_span_ids: list[str] | tuple[str, ...], style: str, clock: Clock | None=None, spend: PassageCheckSpend | None=None, owner: str | None=None, owner_ended: Callable[[str], bool] | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_quick_check.py), line 1107) — Author + persist one active-reading question on a selection (RW1b).
+- `is_missed(row: dict[str, Any]) -> bool` ([source](../../../../../../src/learnloop/reader/reader_quick_check.py), line 1216) — A missed formative answer: partly or no on a next step, why step or assumption.
+- `record_selection_action(repository: Repository, *, question_id: str, action: str, response_md: str | None=None, self_check: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/reader/reader_quick_check.py), line 1223) — The learner's act on an active-reading question (RW1b).
 
 ### Module constants
 
-- `MAX_SECTION_BLOCKS` ([src/learnloop/reader/reader_quick_check.py](../../../../../../src/learnloop/reader/reader_quick_check.py), line 80)
-- `MAX_SECTION_CHARS` ([src/learnloop/reader/reader_quick_check.py](../../../../../../src/learnloop/reader/reader_quick_check.py), line 81)
-- `QUESTION_ACTIONS` ([src/learnloop/reader/reader_quick_check.py](../../../../../../src/learnloop/reader/reader_quick_check.py), line 83)
-- `INQUIRY_PROMPT_VERSION` ([src/learnloop/reader/reader_quick_check.py](../../../../../../src/learnloop/reader/reader_quick_check.py), line 88)
-- `PASSAGE_BLOCKS_BEFORE` ([src/learnloop/reader/reader_quick_check.py](../../../../../../src/learnloop/reader/reader_quick_check.py), line 89)
-- `PASSAGE_BLOCKS_AFTER` ([src/learnloop/reader/reader_quick_check.py](../../../../../../src/learnloop/reader/reader_quick_check.py), line 90)
-- `MAX_PASSAGE_CHARS` ([src/learnloop/reader/reader_quick_check.py](../../../../../../src/learnloop/reader/reader_quick_check.py), line 91)
-- `INQUIRY_ACTIONS` ([src/learnloop/reader/reader_quick_check.py](../../../../../../src/learnloop/reader/reader_quick_check.py), line 92)
-- `SELF_CHECKS` ([src/learnloop/reader/reader_quick_check.py](../../../../../../src/learnloop/reader/reader_quick_check.py), line 93)
-- `PASSAGE_CHECK_RECEIPT_OWNER` ([src/learnloop/reader/reader_quick_check.py](../../../../../../src/learnloop/reader/reader_quick_check.py), line 99)
-- `INQUIRY_CLAIM_TASK` ([src/learnloop/reader/reader_quick_check.py](../../../../../../src/learnloop/reader/reader_quick_check.py), line 100)
-- `INQUIRY_CLAIM_PRODUCER` ([src/learnloop/reader/reader_quick_check.py](../../../../../../src/learnloop/reader/reader_quick_check.py), line 101)
-- `INQUIRY_CLAIM_LEASE_SECONDS` ([src/learnloop/reader/reader_quick_check.py](../../../../../../src/learnloop/reader/reader_quick_check.py), line 105)
-- `PASSAGE_CHECK_PROMPT_TOKENS` ([src/learnloop/reader/reader_quick_check.py](../../../../../../src/learnloop/reader/reader_quick_check.py), line 108)
-- `PASSAGE_CHECK_ROUTE` ([src/learnloop/reader/reader_quick_check.py](../../../../../../src/learnloop/reader/reader_quick_check.py), line 111)
-- `PASSAGE_CHECK_PRICE_SETTING` ([src/learnloop/reader/reader_quick_check.py](../../../../../../src/learnloop/reader/reader_quick_check.py), line 113)
-- `PASSAGE_CHECK_PURPOSE` ([src/learnloop/reader/reader_quick_check.py](../../../../../../src/learnloop/reader/reader_quick_check.py), line 114)
-- `SELF_CHECK_TASK` ([src/learnloop/reader/reader_quick_check.py](../../../../../../src/learnloop/reader/reader_quick_check.py), line 117)
-- `SELECTION_PROMPT_VERSION` ([src/learnloop/reader/reader_quick_check.py](../../../../../../src/learnloop/reader/reader_quick_check.py), line 934)
-- `SELECTION_STYLES` ([src/learnloop/reader/reader_quick_check.py](../../../../../../src/learnloop/reader/reader_quick_check.py), line 935)
-- `FORMATIVE_STYLES` ([src/learnloop/reader/reader_quick_check.py](../../../../../../src/learnloop/reader/reader_quick_check.py), line 938)
-- `MISSED_SELF_CHECKS` ([src/learnloop/reader/reader_quick_check.py](../../../../../../src/learnloop/reader/reader_quick_check.py), line 939)
-- `SELECTION_ACTIONS` ([src/learnloop/reader/reader_quick_check.py](../../../../../../src/learnloop/reader/reader_quick_check.py), line 940)
-- `SELECTION_CLAIM_TASK` ([src/learnloop/reader/reader_quick_check.py](../../../../../../src/learnloop/reader/reader_quick_check.py), line 941)
-- `FOLD_BLOCKS` ([src/learnloop/reader/reader_quick_check.py](../../../../../../src/learnloop/reader/reader_quick_check.py), line 945)
-- `MAX_SELECTED_BLOCKS` ([src/learnloop/reader/reader_quick_check.py](../../../../../../src/learnloop/reader/reader_quick_check.py), line 946)
-- `MAX_SELECTION_CHARS` ([src/learnloop/reader/reader_quick_check.py](../../../../../../src/learnloop/reader/reader_quick_check.py), line 947)
+- `MAX_SECTION_BLOCKS` ([src/learnloop/reader/reader_quick_check.py](../../../../../../src/learnloop/reader/reader_quick_check.py), line 81)
+- `MAX_SECTION_CHARS` ([src/learnloop/reader/reader_quick_check.py](../../../../../../src/learnloop/reader/reader_quick_check.py), line 82)
+- `QUESTION_ACTIONS` ([src/learnloop/reader/reader_quick_check.py](../../../../../../src/learnloop/reader/reader_quick_check.py), line 84)
+- `INQUIRY_PROMPT_VERSION` ([src/learnloop/reader/reader_quick_check.py](../../../../../../src/learnloop/reader/reader_quick_check.py), line 89)
+- `PASSAGE_BLOCKS_BEFORE` ([src/learnloop/reader/reader_quick_check.py](../../../../../../src/learnloop/reader/reader_quick_check.py), line 90)
+- `PASSAGE_BLOCKS_AFTER` ([src/learnloop/reader/reader_quick_check.py](../../../../../../src/learnloop/reader/reader_quick_check.py), line 91)
+- `MAX_PASSAGE_CHARS` ([src/learnloop/reader/reader_quick_check.py](../../../../../../src/learnloop/reader/reader_quick_check.py), line 92)
+- `INQUIRY_ACTIONS` ([src/learnloop/reader/reader_quick_check.py](../../../../../../src/learnloop/reader/reader_quick_check.py), line 93)
+- `SELF_CHECKS` ([src/learnloop/reader/reader_quick_check.py](../../../../../../src/learnloop/reader/reader_quick_check.py), line 94)
+- `PASSAGE_CHECK_RECEIPT_OWNER` ([src/learnloop/reader/reader_quick_check.py](../../../../../../src/learnloop/reader/reader_quick_check.py), line 100)
+- `INQUIRY_CLAIM_TASK` ([src/learnloop/reader/reader_quick_check.py](../../../../../../src/learnloop/reader/reader_quick_check.py), line 101)
+- `INQUIRY_CLAIM_PRODUCER` ([src/learnloop/reader/reader_quick_check.py](../../../../../../src/learnloop/reader/reader_quick_check.py), line 102)
+- `INQUIRY_CLAIM_LEASE_SECONDS` ([src/learnloop/reader/reader_quick_check.py](../../../../../../src/learnloop/reader/reader_quick_check.py), line 106)
+- `PASSAGE_CHECK_PROMPT_TOKENS` ([src/learnloop/reader/reader_quick_check.py](../../../../../../src/learnloop/reader/reader_quick_check.py), line 109)
+- `PASSAGE_CHECK_ROUTE` ([src/learnloop/reader/reader_quick_check.py](../../../../../../src/learnloop/reader/reader_quick_check.py), line 112)
+- `PASSAGE_CHECK_PRICE_SETTING` ([src/learnloop/reader/reader_quick_check.py](../../../../../../src/learnloop/reader/reader_quick_check.py), line 114)
+- `PASSAGE_CHECK_PURPOSE` ([src/learnloop/reader/reader_quick_check.py](../../../../../../src/learnloop/reader/reader_quick_check.py), line 115)
+- `SELF_CHECK_TASK` ([src/learnloop/reader/reader_quick_check.py](../../../../../../src/learnloop/reader/reader_quick_check.py), line 118)
+- `SELECTION_PROMPT_VERSION` ([src/learnloop/reader/reader_quick_check.py](../../../../../../src/learnloop/reader/reader_quick_check.py), line 937)
+- `SELECTION_STYLES` ([src/learnloop/reader/reader_quick_check.py](../../../../../../src/learnloop/reader/reader_quick_check.py), line 938)
+- `FORMATIVE_STYLES` ([src/learnloop/reader/reader_quick_check.py](../../../../../../src/learnloop/reader/reader_quick_check.py), line 941)
+- `MISSED_SELF_CHECKS` ([src/learnloop/reader/reader_quick_check.py](../../../../../../src/learnloop/reader/reader_quick_check.py), line 942)
+- `SELECTION_ACTIONS` ([src/learnloop/reader/reader_quick_check.py](../../../../../../src/learnloop/reader/reader_quick_check.py), line 943)
+- `SELECTION_CLAIM_TASK` ([src/learnloop/reader/reader_quick_check.py](../../../../../../src/learnloop/reader/reader_quick_check.py), line 944)
+- `FOLD_BLOCKS` ([src/learnloop/reader/reader_quick_check.py](../../../../../../src/learnloop/reader/reader_quick_check.py), line 948)
+- `MAX_SELECTED_BLOCKS` ([src/learnloop/reader/reader_quick_check.py](../../../../../../src/learnloop/reader/reader_quick_check.py), line 949)
+- `MAX_SELECTION_CHARS` ([src/learnloop/reader/reader_quick_check.py](../../../../../../src/learnloop/reader/reader_quick_check.py), line 950)
 
 ## Internal implementation anchors
 
-- `_estimate_tokens(text: str) -> int` ([source](../../../../../../src/learnloop/reader/reader_quick_check.py), line 197)
-- `_admitted_passage_check(repository: Repository, client: Any, context: Any, *, spend: PassageCheckSpend, owner_id: str, clock: Clock | None, prompt: Callable[[Any], str]=reading_passage_check_prompt, request: Callable[[Any, Any], Any]=request_passage_check) -> Any` ([source](../../../../../../src/learnloop/reader/reader_quick_check.py), line 235) — Admit one passage check through the spend framework, then send it.
-- `_send_passage_check(repository: Repository, client: Any, context: ReadingQuickCheckContext, *, budget: SpendBudget, estimate: SpendEstimate, planned: int, price: float | None, subscription: bool, limit: int | None, day: str, capped: Callable[[], PassageCheckRefused], owner_id: str, output_tokens: int, truncation: TruncationRetry, effort: str | None, request: Callable[[Any, Any], Any]=request_passage_check) -> Any` ([source](../../../../../../src/learnloop/reader/reader_quick_check.py), line 321) — One admitted attempt of the passage check: its receipts, its request.
-- `_insert_inquiry_row(repository: Repository, client: Any, *, extraction_id: str, view: dict[str, Any], revision: dict[str, Any], question_md: str, expected_answer_md: str, span_ids: list[str], inquiry_root_event_id: str, clock: Clock | None) -> str` ([source](../../../../../../src/learnloop/reader/reader_quick_check.py), line 665)
-- `_append_self_check_verdict(repository: Repository, row: dict[str, Any], verdict: str, *, clock: Clock | None) -> str | None` ([source](../../../../../../src/learnloop/reader/reader_quick_check.py), line 756) — Append the learner's self-check to ``judgment_ledger`` (inside the caller's transaction).
-- `_clean(text: str | None) -> str` ([source](../../../../../../src/learnloop/reader/reader_quick_check.py), line 960)
-- `_expected_answer(view: dict[str, Any], result: ReadingActiveCheck) -> tuple[str, str, list[str]]` ([source](../../../../../../src/learnloop/reader/reader_quick_check.py), line 1054) — ``(expected answer, answer basis, cited spans)``.
+- `_estimate_tokens(text: str) -> int` ([source](../../../../../../src/learnloop/reader/reader_quick_check.py), line 198)
+- `_admitted_passage_check(repository: Repository, client: Any, context: Any, *, spend: PassageCheckSpend, owner_id: str, clock: Clock | None, prompt: Callable[[Any], str]=reading_passage_check_prompt, request: Callable[[Any, Any], Any]=request_passage_check) -> Any` ([source](../../../../../../src/learnloop/reader/reader_quick_check.py), line 236) — Admit one passage check through the spend framework, then send it.
+- `_send_passage_check(repository: Repository, client: Any, context: ReadingQuickCheckContext, *, budget: SpendBudget, estimate: SpendEstimate, planned: int, price: float | None, subscription: bool, limit: int | None, day: str, capped: Callable[[], PassageCheckRefused], owner_id: str, output_tokens: int, truncation: TruncationRetry, effort: str | None, request: Callable[[Any, Any], Any]=request_passage_check) -> Any` ([source](../../../../../../src/learnloop/reader/reader_quick_check.py), line 322) — One admitted attempt of the passage check: its receipts, its request.
+- `_insert_inquiry_row(repository: Repository, client: Any, *, extraction_id: str, view: dict[str, Any], revision: dict[str, Any], question_md: str, expected_answer_md: str, span_ids: list[str], inquiry_root_event_id: str, clock: Clock | None) -> str` ([source](../../../../../../src/learnloop/reader/reader_quick_check.py), line 666)
+- `_append_self_check_verdict(repository: Repository, row: dict[str, Any], verdict: str, *, clock: Clock | None) -> str | None` ([source](../../../../../../src/learnloop/reader/reader_quick_check.py), line 757) — Append the learner's self-check to ``judgment_ledger`` (inside the caller's transaction).
+- `_clean(text: str | None) -> str` ([source](../../../../../../src/learnloop/reader/reader_quick_check.py), line 963)
+- `_expected_answer(view: dict[str, Any], result: ReadingActiveCheck) -> tuple[str, str, list[str]]` ([source](../../../../../../src/learnloop/reader/reader_quick_check.py), line 1057) — ``(expected answer, answer basis, cited spans)``.
 
 ## Who imports or calls it
 
@@ -154,7 +154,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `contextlib`, `dataclasses`, `json`, `pathlib`, `typing`
+- Standard library: `__future__`, `contextlib`, `dataclasses`, `json`, `pathlib`, `sqlite3`, `typing`
 - Third party: none imported directly
 
 ## Larger workflow participation

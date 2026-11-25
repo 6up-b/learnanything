@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router/mixture.py](../../../../../../src/learnloop/router/mixture.py) |
-| Source lines | 257 |
+| Source lines | 273 |
 | Owning package | [[Reference/Modules/learnloop/router/_package|learnloop.router]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -64,9 +64,11 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `uniform(seed: str, stage: str) -> float` ([source](../../../../../../src/learnloop/router/mixture.py), line 148) — A uniform in [0, 1) from the seed (53 bits of a SHA-256).
 - `class Draw` ([source](../../../../../../src/learnloop/router/mixture.py), line 156)
   - `deterministic(self) -> bool` (line 166; public)
-- `draw(support: Sequence[str], components: Mapping[str, Mapping[str, float]], weights: Mapping[str, float], epsilon: float, seed: str) -> Draw` ([source](../../../../../../src/learnloop/router/mixture.py), line 186) — The two-stage draw; its marginal is :func:`mixture`.
-- `draw_with_uniforms(support: Sequence[str], components: Mapping[str, Mapping[str, float]], weights: Mapping[str, float], epsilon: float, u1: float, u2: float) -> Draw` ([source](../../../../../../src/learnloop/router/mixture.py), line 199) — :func:`draw` with its two uniforms given (a caller that derives its own from its seed, such as teacher TE1b's day draw, which needs a third for its show coin).
-- `recompute(record: Mapping[str, Any]) -> float` ([source](../../../../../../src/learnloop/router/mixture.py), line 224) — G3: ``pi(chosen)`` from a logged decision's own components.
+  - `sole_option(self) -> bool` (line 170; public) — No other option of the support has mass: the draw could not have served anything else.
+  - `logged_propensity(self, exact: bool) -> float` (line 175; public) — The served option's logged probability.
+- `draw(support: Sequence[str], components: Mapping[str, Mapping[str, float]], weights: Mapping[str, float], epsilon: float, seed: str) -> Draw` ([source](../../../../../../src/learnloop/router/mixture.py), line 202) — The two-stage draw; its marginal is :func:`mixture`.
+- `draw_with_uniforms(support: Sequence[str], components: Mapping[str, Mapping[str, float]], weights: Mapping[str, float], epsilon: float, u1: float, u2: float) -> Draw` ([source](../../../../../../src/learnloop/router/mixture.py), line 215) — :func:`draw` with its two uniforms given (a caller that derives its own from its seed, such as teacher TE1b's day draw, which needs a third for its show coin).
+- `recompute(record: Mapping[str, Any]) -> float` ([source](../../../../../../src/learnloop/router/mixture.py), line 240) — G3: ``pi(chosen)`` from a logged decision's own components.
 
 ### Module constants
 
@@ -104,7 +106,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_pick(order: Sequence[str], distribution: Mapping[str, float], u: float) -> str` ([source](../../../../../../src/learnloop/router/mixture.py), line 170)
+- `_pick(order: Sequence[str], distribution: Mapping[str, float], u: float) -> str` ([source](../../../../../../src/learnloop/router/mixture.py), line 186)
 
 ## Who imports or calls it
 
@@ -170,6 +172,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_mixture_draws_over_the_same_candidates_in_every_session`
 - [tests/test_probe_router.py](../../../../../../tests/test_probe_router.py) — direct import
   - `test_the_probe_coin_has_its_own_seed_and_experiment_independent_of_the_stop_coin`
+- [tests/test_probe_router_fixes_mvp077.py](../../../../../../tests/test_probe_router_fixes_mvp077.py) — direct import
+  - `test_r34_a_draw_logs_1_only_when_no_other_option_has_mass`
 - [tests/test_ro5_landing.py](../../../../../../tests/test_ro5_landing.py) — direct import
 - [tests/test_ro5_stop_coin.py](../../../../../../tests/test_ro5_stop_coin.py) — direct import
   - `test_the_arms_have_exact_probabilities_and_the_served_distribution_is_exact`

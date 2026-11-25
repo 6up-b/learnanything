@@ -27,7 +27,7 @@ source_paths:
   - "src/learnloop/attempts/post_attempt.py"
   - "src/learnloop/cli/app.py"
   - "src/learnloop/curriculum/depth_rungs.py"
-  - "src/learnloop/daily_plan/probe_continuation.py"
+  - "src/learnloop/daily_plan/measurement.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -136,6 +136,7 @@ Indexes and uniqueness:
 - `src/learnloop/cli/app.py`
 - `src/learnloop/curriculum/confusable_concepts.py`
 - `src/learnloop/curriculum/depth_rungs.py`
+- `src/learnloop/daily_plan/measurement.py`
 - `src/learnloop/daily_plan/probe_continuation.py`
 - `src/learnloop/daily_plan/router_reader.py`
 - `src/learnloop/daily_plan/staged_frame.py`
@@ -151,7 +152,6 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/probe_evidence.py`
 - `src/learnloop/diagnosis/probe_hard_stops.py`
 - `src/learnloop/diagnosis/probe_instance_generation.py`
-- `src/learnloop/diagnosis/probe_offer.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

@@ -21,10 +21,10 @@ source_paths:
   - "src/learnloop/diagnosis/causal_probe_coherence.py"
   - "src/learnloop/diagnosis/causal_probe_commissioning.py"
   - "src/learnloop_sidecar/handlers/app.py"
-  - "src/learnloop/daily_plan/learner_probe.py"
   - "src/learnloop/diagnosis/causal_cold_verification.py"
   - "src/learnloop/diagnosis/causal_discrimination.py"
   - "src/learnloop/diagnosis/causal_health.py"
+  - "src/learnloop/diagnosis/causal_orchestrator.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -107,7 +107,6 @@ Indexes and uniqueness:
 
 ### Upstream callers of the repository access surface
 
-- `src/learnloop/daily_plan/learner_probe.py`
 - `src/learnloop/db/stores/causal.py`
 - `src/learnloop/diagnosis/causal_cold_verification.py`
 - `src/learnloop/diagnosis/causal_discrimination.py`
@@ -115,6 +114,7 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/causal_orchestrator.py`
 - `src/learnloop/diagnosis/causal_probe_coherence.py`
 - `src/learnloop/diagnosis/causal_probe_commissioning.py`
+- `src/learnloop/diagnosis/learner_probe_proposal.py`
 - `src/learnloop/diagnosis/machine_checks.py`
 - `src/learnloop/diagnosis/probe_offer.py`
 - `src/learnloop/followup_serve/identity.py`
@@ -129,6 +129,7 @@ Indexes and uniqueness:
 - `tests/test_causal_probe_commissioning.py`
 - `tests/test_followup_authoring_retry.py`
 - `tests/test_followup_reserved_only.py`
+- `tests/test_probe_router_fixes_mvp077.py`
 - `tests/test_causal_shadow_selection.py`
 - `tests/test_followup_codex_review.py`
 - `tests/test_followup_generate_e2e.py`

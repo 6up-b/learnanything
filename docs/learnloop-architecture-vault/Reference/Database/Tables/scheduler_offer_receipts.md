@@ -111,6 +111,7 @@ Database triggers:
 - `tests/test_data_capture_phone.py`
 - `tests/test_device_eligibility.py`
 - `tests/test_facet_outcome_view.py`
+- `tests/test_forced_withdrawal_records.py`
 - `tests/test_mcp_tools.py`
 - `tests/test_mobile_handoff.py`
 - `tests/test_mobile_rpc.py`

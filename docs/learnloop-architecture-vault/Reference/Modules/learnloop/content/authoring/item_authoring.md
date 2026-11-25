@@ -48,33 +48,33 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/content/authoring/item_authoring.py](../../../../../../../src/learnloop/content/authoring/item_authoring.py) |
-| Source lines | 453 |
+| Source lines | 456 |
 | Owning package | [[Reference/Modules/learnloop/content/authoring/_package|learnloop.content.authoring]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class ItemAuthoringError(ValueError)` ([source](../../../../../../../src/learnloop/content/authoring/item_authoring.py), line 38) — Invalid learner authoring operation.
-- `validate_author_item(vault, *, learning_object_id: str, prompt: str, expected_answer: str) -> None` ([source](../../../../../../../src/learnloop/content/authoring/item_authoring.py), line 90) — Pure validation shared by preflight and the authoritative file write.
-- `author_item(root: Path, repository: Repository, *, learning_object_id: str, prompt: str, expected_answer: str, practice_mode: str='short_answer', hints: Sequence[str] | None=None, evidence_facets: Sequence[str] | None=None, source_refs: Sequence[Mapping[str, Any]] | None=None, event_detail: Mapping[str, Any] | None=None, item_id: str | None=None, provenance_detail: Mapping[str, Any] | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/authoring/item_authoring.py), line 100) — Create a learner-authored card under an existing Learning Object.
-- `edit_item(root: Path, repository: Repository, *, practice_item_id: str, prompt: str | None=None, expected_answer: str | None=None, hints: Sequence[str] | None=None, reason: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/authoring/item_authoring.py), line 174) — Reword a card in place.
-- `retire_item(root: Path, repository: Repository, *, practice_item_id: str, reason: str, note: str | None=None, clock: Clock | None=None, loaded_vault: LoadedVault | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/authoring/item_authoring.py), line 223) — Retire a card: never served again, all history kept.
-- `split_item(root: Path, repository: Repository, *, practice_item_id: str, parts: Sequence[Mapping[str, str]], reason: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/authoring/item_authoring.py), line 361) — "This feels like it actually wants to be two questions": retire the original and author one card per part, provenance-linked to it.
+- `class ItemAuthoringError(ValueError)` ([source](../../../../../../../src/learnloop/content/authoring/item_authoring.py), line 39) — Invalid learner authoring operation.
+- `validate_author_item(vault, *, learning_object_id: str, prompt: str, expected_answer: str) -> None` ([source](../../../../../../../src/learnloop/content/authoring/item_authoring.py), line 93) — Pure validation shared by preflight and the authoritative file write.
+- `author_item(root: Path, repository: Repository, *, learning_object_id: str, prompt: str, expected_answer: str, practice_mode: str='short_answer', hints: Sequence[str] | None=None, evidence_facets: Sequence[str] | None=None, source_refs: Sequence[Mapping[str, Any]] | None=None, event_detail: Mapping[str, Any] | None=None, item_id: str | None=None, provenance_detail: Mapping[str, Any] | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/authoring/item_authoring.py), line 103) — Create a learner-authored card under an existing Learning Object.
+- `edit_item(root: Path, repository: Repository, *, practice_item_id: str, prompt: str | None=None, expected_answer: str | None=None, hints: Sequence[str] | None=None, reason: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/authoring/item_authoring.py), line 177) — Reword a card in place.
+- `retire_item(root: Path, repository: Repository, *, practice_item_id: str, reason: str, note: str | None=None, clock: Clock | None=None, loaded_vault: LoadedVault | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/authoring/item_authoring.py), line 226) — Retire a card: never served again, all history kept.
+- `split_item(root: Path, repository: Repository, *, practice_item_id: str, parts: Sequence[Mapping[str, str]], reason: str | None=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../../src/learnloop/content/authoring/item_authoring.py), line 364) — "This feels like it actually wants to be two questions": retire the original and author one card per part, provenance-linked to it.
 
 ### Module constants
 
-- `_LOGGER` ([src/learnloop/content/authoring/item_authoring.py](../../../../../../../src/learnloop/content/authoring/item_authoring.py), line 33)
-- `EDITABLE_FIELDS` ([src/learnloop/content/authoring/item_authoring.py](../../../../../../../src/learnloop/content/authoring/item_authoring.py), line 35)
-- `RETIREMENT_REASONS` ([src/learnloop/content/authoring/item_authoring.py](../../../../../../../src/learnloop/content/authoring/item_authoring.py), line 45)
+- `_LOGGER` ([src/learnloop/content/authoring/item_authoring.py](../../../../../../../src/learnloop/content/authoring/item_authoring.py), line 34)
+- `EDITABLE_FIELDS` ([src/learnloop/content/authoring/item_authoring.py](../../../../../../../src/learnloop/content/authoring/item_authoring.py), line 36)
+- `RETIREMENT_REASONS` ([src/learnloop/content/authoring/item_authoring.py](../../../../../../../src/learnloop/content/authoring/item_authoring.py), line 46)
 
 ## Internal implementation anchors
 
-- `_require_item(vault: LoadedVault, practice_item_id: str) -> PracticeItem` ([source](../../../../../../../src/learnloop/content/authoring/item_authoring.py), line 60)
-- `_record(repository: Repository, *, kind: str, practice_item_id: str, detail: Mapping[str, Any], clock: Clock | None) -> None` ([source](../../../../../../../src/learnloop/content/authoring/item_authoring.py), line 67) — Provenance trail; failure never blocks the learner's edit.
-- `_apply_placement_self_report(vault, repository: Repository, item, *, reason: str, clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/content/authoring/item_authoring.py), line 285) — Learner field F2 (mvp-0.11): "too easy" also marks the item's LO assumed known (not tested), checked in its first review (spec §5.2, D5).
-- `_apply_difficulty_report(vault, repository: Repository, item, *, reason: str, clock: Clock | None=None) -> None` ([source](../../../../../../../src/learnloop/content/authoring/item_authoring.py), line 317) — A too_easy/too_hard retirement is a learner report about THEMSELVES, not only about the card.
-- `_mirror_surface_retirement(repository: Repository, item: PracticeItem, *, reason: str, clock: Clock | None) -> None` ([source](../../../../../../../src/learnloop/content/authoring/item_authoring.py), line 414) — Retire existing substrate cards without minting anything on retirement.
+- `_require_item(vault: LoadedVault, practice_item_id: str) -> PracticeItem` ([source](../../../../../../../src/learnloop/content/authoring/item_authoring.py), line 61)
+- `_record(repository: Repository, *, kind: str, practice_item_id: str, detail: Mapping[str, Any], clock: Clock | None) -> None` ([source](../../../../../../../src/learnloop/content/authoring/item_authoring.py), line 68) — Provenance trail; failure never blocks the learner's edit.
+- `_apply_placement_self_report(vault, repository: Repository, item, *, reason: str, clock: Clock | None=None) -> dict[str, Any] | None` ([source](../../../../../../../src/learnloop/content/authoring/item_authoring.py), line 288) — Learner field F2 (mvp-0.11): "too easy" also marks the item's LO assumed known (not tested), checked in its first review (spec §5.2, D5).
+- `_apply_difficulty_report(vault, repository: Repository, item, *, reason: str, clock: Clock | None=None) -> None` ([source](../../../../../../../src/learnloop/content/authoring/item_authoring.py), line 320) — A too_easy/too_hard retirement is a learner report about THEMSELVES, not only about the card.
+- `_mirror_surface_retirement(repository: Repository, item: PracticeItem, *, reason: str, clock: Clock | None) -> None` ([source](../../../../../../../src/learnloop/content/authoring/item_authoring.py), line 417) — Retire existing substrate cards without minting anything on retirement.
 
 ## Who imports or calls it
 
@@ -106,7 +106,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `json`, `logging`, `pathlib`, `typing`
+- Standard library: `__future__`, `json`, `logging`, `pathlib`, `sqlite3`, `typing`
 - Third party: none imported directly
 
 ## Larger workflow participation
@@ -129,6 +129,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_assumed_known.py](../../../../../../../tests/test_assumed_known.py) — direct import
   - `test_learner_placement_verdicts_append_to_the_judgment_ledger`
   - `test_too_easy_retirement_marks_the_lo_assumed_without_extra_writes`
+- [tests/test_interaction_event_kinds.py](../../../../../../../tests/test_interaction_event_kinds.py) — direct import
+  - `test_a_best_effort_provenance_write_still_raises_a_refused_kind`
 - [tests/test_item_authoring.py](../../../../../../../tests/test_item_authoring.py) — direct import
   - `test_author_item_creates_learner_card`
   - `test_author_item_validates`

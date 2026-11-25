@@ -150,6 +150,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_r18_a_retry_draws_the_same_coin_and_a_receipt_never_stands_for_another_status`
 - [tests/test_probe_router_episode_owner.py](../../../../../../tests/test_probe_router_episode_owner.py) — direct import
   - `test_a_stale_first_acceptance_writes_no_episode_lock_or_segment`
+- [tests/test_probe_router_fixes_mvp077.py](../../../../../../tests/test_probe_router_fixes_mvp077.py) — direct import
+  - `test_r31_the_episode_administers_the_support_weighted_lock_its_offer_was_valued_on`
 - [tests/test_probe_router_learner_lane.py](../../../../../../tests/test_probe_router_learner_lane.py) — direct import
   - `test_an_unlearned_probe_is_offered_only_by_the_coin_with_its_exact_propensity`
 

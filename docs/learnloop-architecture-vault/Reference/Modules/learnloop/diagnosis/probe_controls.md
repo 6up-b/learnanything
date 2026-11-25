@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/diagnosis/probe_controls.py](../../../../../../src/learnloop/diagnosis/probe_controls.py) |
-| Source lines | 192 |
+| Source lines | 246 |
 | Owning package | [[Reference/Modules/learnloop/diagnosis/_package|learnloop.diagnosis]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -57,11 +57,16 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `class StoppedCheck` ([source](../../../../../../src/learnloop/diagnosis/probe_controls.py), line 47) — What `Stop diagnosing and teach me` did: the typed transition decision it persisted, and the block's committed answers' feedback it released.
 - `stop_diagnosing_and_teach(vault: LoadedVault, repository: Repository, learning_object_id: str, *, clock: Clock | None=None) -> StoppedCheck | None` ([source](../../../../../../src/learnloop/diagnosis/probe_controls.py), line 55) — `Stop diagnosing and teach me`: settle the block's committed answers, end measurement, open a post-intervention state segment, and persist a typed transition decision (§12.1).
 - `episode_contract(vault: LoadedVault, repository: Repository, learning_object_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/diagnosis/probe_controls.py), line 113) — The probe UX contract for one LO, or None when no episode is active.
-- `next_probe_item(vault: LoadedVault, repository: Repository, learning_object_id: str) -> EligibleInstrument | None` ([source](../../../../../../src/learnloop/diagnosis/probe_controls.py), line 148) — The item that would be served next for this LO's open episode, or None.
+- `class RouterNext` ([source](../../../../../../src/learnloop/diagnosis/probe_controls.py), line 156) — Where a router-owned episode's next question stands, for every client's "Continue".
+- `router_next(vault: Any, repository: Any, learning_object_id: str, *, episode_id: str | None=None, clock: Clock | None=None) -> RouterNext | None` ([source](../../../../../../src/learnloop/diagnosis/probe_controls.py), line 167) — The one resolver of a router-owned episode's next question, which the desktop's and the terminal's Continue both read: ``pending`` (the router's decision job has not decided yet: no door commits another instrument), ``standing`` (the exact presentation the router's decision pinn…
+- `next_probe_item(vault: LoadedVault, repository: Repository, learning_object_id: str) -> EligibleInstrument | None` ([source](../../../../../../src/learnloop/diagnosis/probe_controls.py), line 202) — The item that would be served next for this LO's open episode, or None.
 
 ### Module constants
 
 - `PROBE_ASSISTANCE_RESTRICTIONS` ([src/learnloop/diagnosis/probe_controls.py](../../../../../../src/learnloop/diagnosis/probe_controls.py), line 37)
+- `PENDING` ([src/learnloop/diagnosis/probe_controls.py](../../../../../../src/learnloop/diagnosis/probe_controls.py), line 150)
+- `STANDING` ([src/learnloop/diagnosis/probe_controls.py](../../../../../../src/learnloop/diagnosis/probe_controls.py), line 151)
+- `COMPLETED` ([src/learnloop/diagnosis/probe_controls.py](../../../../../../src/learnloop/diagnosis/probe_controls.py), line 152)
 
 ## Internal implementation anchors
 
@@ -72,18 +77,19 @@ No private top-level function or class definition is declared in this file.
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/tui/screens/practice|learnloop.tui.screens.practice]] — imports `episode_contract`, `stop_diagnosing_and_teach`; statically calls `episode_contract`, `stop_diagnosing_and_teach`
-- [[Reference/Modules/learnloop_sidecar/handlers/practice|learnloop_sidecar.handlers.practice]] — imports `episode_contract`, `next_probe_item`, `stop_diagnosing_and_teach`; statically calls `episode_contract`, `next_probe_item`, `stop_diagnosing_and_teach`
+- [[Reference/Modules/learnloop/tui/screens/practice|learnloop.tui.screens.practice]] — imports `STANDING`, `episode_contract`, `router_next`, `stop_diagnosing_and_teach`; statically calls `episode_contract`, `router_next`, `stop_diagnosing_and_teach`
+- [[Reference/Modules/learnloop_sidecar/handlers/practice|learnloop_sidecar.handlers.practice]] — imports `PENDING`, `STANDING`, `episode_contract`, `next_probe_item`, `router_next`, `stop_diagnosing_and_teach`; statically calls `episode_contract`, `next_probe_item`, `router_next`, `stop_diagnosing_and_teach`
 
 ## Dependencies
 
 ### LearnLoop dependencies
 
+- [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `probe_router_on`; calls `probe_router_on`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`, `utc_now_iso`; calls `utc_now_iso`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
 - [[Reference/Modules/learnloop/diagnosis/probe_blocks|learnloop.diagnosis.probe_blocks]] — imports `block_observation_rows`, `build_typed_transition_decision`, `first_error_from_block`, `settle_block_answers`; calls `block_observation_rows`, `build_typed_transition_decision`, `first_error_from_block`, `settle_block_answers`
 - [[Reference/Modules/learnloop/diagnosis/probe_completion|learnloop.diagnosis.probe_completion]] — imports `set_target_decision`, `voi_probe_site_active`; calls `set_target_decision`, `voi_probe_site_active`
-- [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `EligibleInstrument`, `eligible_instruments`, `episode_hypothesis_set`, `episode_posterior`; calls `eligible_instruments`, `episode_hypothesis_set`, `episode_posterior`
+- [[Reference/Modules/learnloop/diagnosis/probe_episodes|learnloop.diagnosis.probe_episodes]] — imports `EligibleInstrument`, `eligible_instruments`, `episode_hypothesis_set`, `episode_posterior`, `item_refusals`, `router_pinned_item`, `router_selected_episode`; calls `eligible_instruments`, `episode_hypothesis_set`, `episode_posterior`, `item_refusals`, `router_pinned_item`, `router_selected_episode`
 - [[Reference/Modules/learnloop/diagnosis/probe_targeting|learnloop.diagnosis.probe_targeting]] — imports `open_cause_sets_for_learning_object`, `select_discriminating_instrument`; calls `open_cause_sets_for_learning_object`, `select_discriminating_instrument`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LoadedVault`
 

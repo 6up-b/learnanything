@@ -328,6 +328,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_plan_first_transport_paid_roles.py](../../../../../../tests/test_plan_first_transport_paid_roles.py) — direct import
   - `test_a_grant_routes_a_paid_role_to_openrouter_priced_as_metered_and_a_ready_plan_comes_first`
   - `test_every_paid_role_resolves_to_the_plan_and_asks_before_openrouter`
+- [tests/test_probe_router_continuation.py](../../../../../../tests/test_probe_router_continuation.py) — direct import
+  - `test_the_terminal_client_serves_the_routers_standing_question`
 - [tests/test_project_cli.py](../../../../../../tests/test_project_cli.py) — direct import
   - `test_project_route_defaults_to_grading_then_active`
 - [tests/test_provider_resolution_parity.py](../../../../../../tests/test_provider_resolution_parity.py) — direct import
