@@ -66,7 +66,7 @@ def test_a_check_is_stamped_under_the_writer_lock(tmp_path, monkeypatch):
 
     paths, repository = build_teacher_vault(tmp_path / "vault")
     committed: list[str] = []
-    real = S._latest_forecast
+    graded: list[bool] = []
 
     class Ticking:
         """The check's clock: the instant moves on once the other process's answer has committed."""
@@ -74,10 +74,19 @@ def test_a_check_is_stamped_under_the_writer_lock(tmp_path, monkeypatch):
         def now(self):
             return T + timedelta(minutes=3, seconds=2 if committed else 0)
 
-    def another_process_grades_first(state, kind, ref):
-        if not committed:
-            committed.append(_cold(paths, repository, "pi_eig_2", T + timedelta(minutes=3, seconds=1)).attempt_id)
-        return real(state, kind, ref)
+    real_grade, real_atomic = S.CK.grade_answer, repository.atomic
+
+    def grade_then_wait_for_the_lock(*args, **kwargs):
+        result = real_grade(*args, **kwargs)
+        graded.append(True)
+        return result
+
+    def atomic(*args, **kwargs):
+        # The check's next transaction waits for the writer lock while another process applies an answer.
+        if graded and not committed:
+            committed.append("pending")
+            committed[0] = _cold(paths, repository, "pi_eig_2", T + timedelta(minutes=3, seconds=1)).attempt_id
+        return real_atomic(*args, **kwargs)
 
     from tests.teacher_fakes import TeacherFake, check_turn, clients, plan_turn
 
@@ -86,7 +95,8 @@ def test_a_check_is_stamped_under_the_writer_lock(tmp_path, monkeypatch):
                          clients=clients(fake), clock=FrozenClock(T))
     S.take_turn(load_vault(paths.root), repository, lesson_id=view["lesson_id"], action="reply",
                 payload={"text": "and?"}, clients=clients(fake), clock=FrozenClock(T + timedelta(minutes=2)))
-    monkeypatch.setattr(S, "_latest_forecast", another_process_grades_first)
+    monkeypatch.setattr(S.CK, "grade_answer", grade_then_wait_for_the_lock)
+    monkeypatch.setattr(repository, "atomic", atomic)
     S.take_turn(load_vault(paths.root), repository, lesson_id=view["lesson_id"], action="answer_check",
                 payload={"answer": "det(A - tI) = 0", "tap": 5}, clients=clients(fake), clock=Ticking())
     with repository.connection() as connection:

@@ -570,4 +570,6 @@ def test_s5_an_attempt_records_the_fixes_only_when_derived_with_them(tmp_path):
 
     assert on[DERIVED_WITH_BELIEF_FIXES_KEY] is True
     assert DERIVED_WITH_BELIEF_FIXES_KEY not in off
-    assert sorted(off) == sorted(old)  # off, the payload is the predecessor's but for its tag
+    # Off, the payload is the predecessor's but for its tag and the later facts' tag's mastery record (mvp-0.75).
+    assert "mastery_application" in off and "mastery_application" not in old
+    assert sorted(set(off) - {"mastery_application"}) == sorted(old)
