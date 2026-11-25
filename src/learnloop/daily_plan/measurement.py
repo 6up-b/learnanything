@@ -259,9 +259,12 @@ def _arrange(vault: Any, repository: Any, frozen: FrozenObjective, *, decision_i
     lo_items = [item for item in vault.practice_items.values() if item.learning_object_id == lo]
     lo_item_ids = {item.id for item in lo_items}
     pending = _pending_checks(serving, lo_item_ids)
+    excluded = set(exclude)
     for check in pending:
-        # Its answer comes no earlier than its date, and is on this LO, so this one can measure this decision.
-        if check.date >= _window_opens(now) and _measures_objective(check, lo_item_ids):
+        # Its answer comes no earlier than its date, and is on this LO, so this one can measure this decision; never one
+        # on an item the decision excludes (a probe's instrument, G2-R29), which sharing would make its measurement.
+        if check.date >= _window_opens(now) and _measures_objective(check, lo_item_ids) \
+                and not excluded & set(check.candidates):
             return _Arrangement(SHARED, commitment_id=check.commitment_id,
                                 practice_item_id=check.candidates[0] if check.candidates else None)
     # A check due sooner or broader keeps its own decision: a new commitment on its item would replace it.
@@ -366,35 +369,70 @@ def plan_slots(intent: Any, checks: Sequence[Any], maintain_load: float) -> tupl
 
 
 def _replacement_check(vault: Any, repository: Any, decision_id: str, learning_object_id: str | None, *, answered_item: Any,
-                       serving: Any, now: datetime, clock: Clock | None, fresh: dict[str, _Arrangement]) -> _Arrangement:
+                       serving: Any, now: datetime, clock: Clock | None, fresh: dict[str, _Arrangement],
+                       exclude: Iterable[str] = ()) -> _Arrangement:
     """The duty an unread answer left: one check on the objective that opens past the window from now. One already pending
     whose every answer is on the objective is shared, whether ``serving`` shows it or this settlement made it (``fresh``, by LO: ``serving`` predates them),
-    as a new decision shares one (:func:`_arrange`). Otherwise a new one, dated from now. Never raises."""
+    as a new decision shares one (:func:`_arrange`). Otherwise a new one, dated from now. ``exclude``: the items the
+    decision's own measurement excludes (a probe decision's instruments, :func:`decision_exclusions`), carried through
+    sharing and the new check as at the decision (G2-R29). Never raises."""
 
     try:
         lo = str(learning_object_id)
         if learning_object_id not in vault.learning_objects:
             return _Arrangement(UNAVAILABLE, reason=NO_LEARNING_OBJECT)
-        if lo in fresh:
+        excluded = set(exclude)
+        if lo in fresh and fresh[lo].practice_item_id not in excluded:
             return replace(fresh[lo], measurement=SHARED, pick=None)
         lo_items = [item for item in vault.practice_items.values() if item.learning_object_id == lo]
         lo_item_ids = {item.id for item in lo_items}
         pending = _pending_checks(serving, lo_item_ids) if serving is not None else []
         for check in pending:
-            if check.date >= _window_opens(now) and _measures_objective(check, lo_item_ids):
+            if check.date >= _window_opens(now) and _measures_objective(check, lo_item_ids) \
+                    and not excluded & set(check.candidates):
                 return _Arrangement(SHARED, commitment_id=check.commitment_id,
                                     practice_item_id=check.candidates[0] if check.candidates else None)
         held = {item_id for check in pending for item_id in check.candidates}
         with repository.atomic():
             arranged = _new_check(vault, repository, lo, lo_items,
-                                  exclude={*held, *([str(answered_item)] if answered_item else [])}, decision_id=decision_id,
-                                  idempotency_key=f"measurement:{decision_id}:{REPLACEMENT}", now=now, clock=clock)
-        if arranged.commitment_id:
+                                  exclude={*held, *excluded, *([str(answered_item)] if answered_item else [])},
+                                  decision_id=decision_id, idempotency_key=f"measurement:{decision_id}:{REPLACEMENT}",
+                                  now=now, clock=clock)
+        if arranged.commitment_id and lo not in fresh:
             fresh[lo] = arranged
         return arranged
     except Exception:  # noqa: BLE001 - its savepoint rolled back; the state says so
         logger.warning("data capture: the replacement measurement of %s was not arranged", decision_id, exc_info=True)
         return _Arrangement(UNAVAILABLE, reason=ARRANGE_FAILED)
+
+
+def decision_exclusions(vault: Any, repository: Any, row: Mapping[str, Any]) -> set[str]:
+    """The items a decision's measurement excludes, read again where its replacement is arranged: a probe router
+    decision (the learner lane's or a continuation's) never measures on an item a probe administers on its learning
+    object (``learner_probe.instrument_items``, as at the decision), so its check never holds the router's next
+    instrument back. Other decisions exclude nothing here."""
+
+    from learnloop.router.plan_log import LEARNER_PROBE_SURFACE, PROBE_CONTINUATION_SURFACE
+
+    if row.get("decision_surface") not in (LEARNER_PROBE_SURFACE, PROBE_CONTINUATION_SURFACE):
+        return set()
+    from learnloop.daily_plan.learner_probe import instrument_items
+
+    return instrument_items(vault, repository, row.get("learning_object_id"), _decision_factor(repository, row))
+
+
+def _decision_factor(repository: Any, row: Mapping[str, Any]) -> str | None:
+    """The factor a probe router decision was about, from its receipt key (the learner lane's names the factor, a
+    continuation's its episode, whose target decision names the factor)."""
+
+    parts = str(row.get("decision_receipt_key") or "").split(":")
+    if len(parts) >= 3 and parts[1] == "learner_probe":
+        return ":".join(parts[2:]) or None
+    if len(parts) >= 3 and parts[1] == "probe_continuation":
+        episode = repository.probe_episode(parts[2])
+        target = dict(getattr(episode, "target_decision", None) or {}) if episode is not None else {}
+        return str(target.get("causal_factor_id") or "") or None
+    return None
 
 
 def _answer_missed_window(connection: Any, attempt_id: str, decided_at: str | None,
@@ -452,7 +490,8 @@ def settle(vault: Any, repository: Any, *, clock: Clock | None = None) -> int:
         if not store.objectives_present(connection):
             return 0
         open_rows = [dict(row) for row in connection.execute(
-            "SELECT o.decision_id, o.commitment_id, o.practice_item_id, o.learning_object_id, d.created_at AS decided_at "
+            "SELECT o.decision_id, o.commitment_id, o.practice_item_id, o.learning_object_id, d.created_at AS decided_at, "
+            "d.surface AS decision_surface, d.receipt_key AS decision_receipt_key "
             "FROM decision_objectives o LEFT JOIN router_decisions d ON d.id = o.decision_id "
             "WHERE o.commitment_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM decision_measurement_events e "
             "WHERE e.decision_id = o.decision_id AND (e.state = 'answered' OR (e.state = 'unavailable' "
@@ -533,7 +572,8 @@ def settle(vault: Any, repository: Any, *, clock: Clock | None = None) -> int:
             else:
                 arranged = _replacement_check(vault, repository, decision_id, row.get("learning_object_id"),
                                               answered_item=attempt[1] if attempt is not None else None, serving=serving,
-                                              now=now, clock=clock, fresh=fresh)
+                                              now=now, clock=clock, fresh=fresh,
+                                              exclude=decision_exclusions(vault, repository, row))
                 written += _event(connection, decision_id, "unavailable", reason=unread, attempt_id=answered_by,
                                   at=at, detail={"replacement_commitment_id": arranged.commitment_id,
                                                  "practice_item_id": arranged.practice_item_id,

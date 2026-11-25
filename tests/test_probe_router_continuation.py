@@ -238,3 +238,62 @@ def test_no_router_decisions_measurement_takes_a_probe_instrument_as_its_check(t
     # The learner lane's decision and the continuation each arranged a "Check once" on the learning object; neither
     # took an item a probe administers, so neither holds the router's next instrument back.
     assert not checks & {PROBE_ITEM, SECOND}
+
+
+def _pending_check_on(case, item_id: str) -> str:
+    """A "Check once" already pending on ``item_id`` (an ordinary-mode, card-bound item), dated past the window."""
+
+    from datetime import timedelta
+
+    from learnloop.clock import SystemClock
+    from learnloop.curriculum import commitments as C
+    from learnloop.daily_plan import measurement as M
+
+    now = SystemClock().now()
+    commitment = C.create_commitment(
+        case.repository, action="test_me_later", intent_text="one question on your own, later, to see what stuck",
+        targets=[{"target_kind": "legacy_practice_item", "target_ref": item_id, "role": "required"}],
+        depth_preset=M.CHECK_DEPTH_PRESET, client_idempotency_key=f"test:check:{item_id}",
+        due_hint=(now + timedelta(days=30)).strftime("%Y-%m-%dT%H:%M:%SZ"), reason="decision_measurement",
+        provenance={"via": M.VIA, "decision_id": "dec_other", "learning_object_id": case.offer.get("learningObjectId")})
+    return commitment.id
+
+
+def test_a_probe_decisions_measurement_never_shares_a_check_on_its_instrument(tmp_path, monkeypatch):
+    """G2-R29: a pending "Check once" on the last fresh instrument is not shared as the continuation's measurement
+    (sharing made that instrument the decision's check)."""
+
+    from learnloop.daily_plan import measurement as M
+
+    case = _answered(tmp_path, monkeypatch, u=0.0)
+    held = _pending_check_on(case, SECOND)
+    real = M._pending_checks
+    # The check on the instrument is the first one pending (the learner lane's own check, on another item, after it).
+    monkeypatch.setattr(M, "_pending_checks", lambda serving, item_ids: sorted(
+        real(serving, item_ids), key=lambda check: check.commitment_id != held))
+    _job(case)
+    (decision,) = _continuations(case)
+    with case.repository.connection() as connection:
+        objective = dict(connection.execute("SELECT * FROM decision_objectives WHERE decision_id = ?",
+                                            (decision["id"],)).fetchone())
+    assert objective["commitment_id"] != held and objective["practice_item_id"] != SECOND
+
+
+def test_a_replacement_check_keeps_the_decisions_instrument_exclusions(tmp_path, monkeypatch):
+    """G2-R29: the replacement an unread answer leaves carries the probe decision's exclusions through a check this
+    settlement made for another decision (``fresh``) and through a new pick."""
+
+    from learnloop.clock import SystemClock
+    from learnloop.daily_plan import measurement as M
+    from learnloop.router.plan_log import LEARNER_PROBE_SURFACE
+
+    case = _answered(tmp_path, monkeypatch, u=0.0)
+    lo = case.vault.practice_items[SECOND].learning_object_id
+    row = {"decision_surface": LEARNER_PROBE_SURFACE, "learning_object_id": lo,
+           "decision_receipt_key": f"plan_interrupt:learner_probe:{case.factor}"}
+    exclude = M.decision_exclusions(case.vault, case.repository, row)
+    assert SECOND in exclude
+    fresh = {lo: M._Arrangement(M.ARRANGED, commitment_id="cm_other", practice_item_id=SECOND)}
+    arranged = M._replacement_check(case.vault, case.repository, "dec_probe", lo, answered_item=None, serving=None,
+                                    now=SystemClock().now(), clock=None, fresh=fresh, exclude=exclude)
+    assert arranged.commitment_id != "cm_other" and arranged.practice_item_id not in exclude

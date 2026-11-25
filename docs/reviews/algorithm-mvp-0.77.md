@@ -55,6 +55,14 @@ mvp-0.76's. Owner rule: a logged propensity is exactly the served distribution.
   existing episode keeps its lock and replay reads it as before. Test:
   `tests/test_probe_router_fixes_mvp077.py::test_r31_*` (entry and retarget, both sides of the tag).
 
+## Fixed without the tag (same round)
+
+- G2-R29 (finding 9): a probe router decision's "Check once" never takes a probe instrument. `measurement._arrange`
+  shares no pending check touching the decision's exclusions, and the replacement an unread answer leaves reads them
+  again (`measurement.decision_exclusions`) and carries them through sharing, this settlement's fresh checks and the
+  new pick. Tests: `tests/test_probe_router_continuation.py::test_a_probe_decisions_measurement_never_shares_a_check_on_its_instrument`,
+  `::test_a_replacement_check_keeps_the_decisions_instrument_exclusions`.
+
 ## Pins and goldens
 
 `tests/cli_surface.json`: only the `upgrade --to` default moves to mvp-0.77. Chain-pinned tests shift mechanically.
