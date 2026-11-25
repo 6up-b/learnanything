@@ -25,16 +25,7 @@ from learnloop.vault.loader import load_vault
 from tests.deliverable_fixtures import DeliverableFake
 from tests.teacher_fakes import TeacherFake, build_teacher_vault, clients, close_turn
 from tests.teacher_te2_probes_helpers import _Lesson, _probe, as_opened_before_te2, probe_turn
-from tests.teacher_te2_review_fixes_helpers import _cells, _identity_model
-
-
-def _served(tmp_path, **kwargs):
-    lesson = _Lesson(tmp_path, [probe_turn], **kwargs)
-    lesson.generate()
-    lesson.look()
-    probe = _probe(lesson)
-    assert probe.status == "served"
-    return lesson, probe
+from tests.teacher_te2_review_fixes_helpers import _cells, _identity_model, _served
 
 
 def _probe_cells(lesson, item_id):

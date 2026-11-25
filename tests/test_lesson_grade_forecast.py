@@ -4,8 +4,8 @@ from learnloop.adaptive_difficulty import surprise_forecast
 from learnloop.teacher import service
 from learnloop.vault.loader import load_vault
 from tests.teacher_fakes import check_turn, clients, close_turn, plan_turn
-from tests.test_teacher_te1_lesson import _open
-from tests.test_teacher_te2_review_fixes import _served
+from tests.teacher_te1_lesson_helpers import _open
+from tests.teacher_te2_review_fixes_helpers import _served
 
 
 @pytest.mark.parametrize("kind", ["check", "probe"])

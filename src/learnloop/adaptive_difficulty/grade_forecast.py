@@ -27,6 +27,7 @@ from learnloop.adaptive_difficulty.operation import entry
 from learnloop.adaptive_difficulty.successor import successor_active
 from learnloop.ids import keyed_ulid
 from learnloop.scheduling.forecast_receipts import ITEM_UNASSISTED_SUCCESS_AT_GRADE, ForecastReceipt
+from learnloop.vault.hashes import item_revision
 
 LOG = logging.getLogger(__name__)
 
@@ -82,8 +83,11 @@ def grade_receipt(vault: Any, repository: Any, *, practice_item_id: str, attempt
         connection.execute("BEGIN")
         try:
             item = view.revision(connection, answered_revision) if answered_revision else answered_item
-            if item is None and not answered_revision:
+            if item is None:
+                # A contract a grade froze first saved no revision: the item unchanged since is that revision.
                 item = view.item(practice_item_id)
+                if item is not None and answered_revision and item_revision(item)[0] != answered_revision:
+                    item = None
             if item is None or item.id != practice_item_id or view.covers(item):
                 return None
             snapshot = RP.snapshot(vault, repository, connection=connection, view=view)

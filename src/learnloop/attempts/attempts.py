@@ -143,7 +143,7 @@ from learnloop.learner.recall_coverage import (
 )
 from learnloop.attempts.surprise import SurpriseResult, compute_surprise
 from learnloop.adaptive_difficulty.surprise_forecast import (
-    read_surprise_forecast, record_grade_forecast, validate_live_binding, with_grade_forecast,
+    live_answered_revision, read_surprise_forecast, record_grade_forecast, validate_live_binding, with_grade_forecast,
 )
 from learnloop.algorithm_versions import forecast_scoring_fixed, label_retired, mastery_facts_recorded
 from learnloop.vault.hashes import practice_item_hash
@@ -1548,7 +1548,7 @@ def snapshot_graded_contract(
 
     from learnloop.learner.assessment_contracts import snapshot_for_presentation
 
-    return snapshot_for_presentation(repository, vault, item, rubric=rubric, clock=clock)
+    return snapshot_for_presentation(repository, vault, item, rubric=rubric, clock=clock, save_revision=False)
 
 
 def unrecorded_epoch_attempts(vault: LoadedVault, repository: Repository) -> list[dict[str, Any]]:
@@ -3461,7 +3461,7 @@ def _stamp_observation_lineage(
                 "assessment contract is missing or does not belong to the presented item"
             )
     else:
-        version_id = snapshot_for_presentation(repository, vault, item, clock=clock)
+        version_id = snapshot_for_presentation(repository, vault, item, clock=clock, save_revision=False)
     stored = repository.fetch_assessment_contract_version(version_id)
     contract = stored.get("contract") if stored is not None else {}
     criteria = {
@@ -4238,11 +4238,11 @@ def _compute_resolved_grade_application(
             curve = current_curve(connection, attempt_id)
         if curve.item_a is not None and curve.item_b is not None:
             recorded_curve = (curve.item_a, curve.item_b)
-    answered_revision = None
-    if replay and vault.config.algorithms.algorithm_version in SELECTED_FORECAST_VERSIONS:
-        presented = attempt_graded_contract(repository, attempt_id)
-        if presented:
-            answered_revision = presented.contract.get("forecast_item_revision")
+    selected = vault.config.algorithms.algorithm_version in SELECTED_FORECAST_VERSIONS
+    # Replay reads the presented contract's revision; live, the one the contract frozen at this answer will cite.
+    presented = attempt_graded_contract(repository, attempt_id) if selected and replay else None
+    answered_revision = presented.contract.get("forecast_item_revision") if presented else (
+        live_answered_revision(vault, repository, draft) if selected and not replay else None)
     reads = GradeReads(
         recorded_curve=recorded_curve,
         prior_state=prior_state,

@@ -1510,7 +1510,7 @@ def _question_contract(vault: LoadedVault, repository: Repository, item: Any, at
     if item is None or attempt_id:
         return None
     try:
-        return snapshot_for_presentation(repository, vault, item)
+        return snapshot_for_presentation(repository, vault, item, save_revision=False)
     except Exception:  # noqa: BLE001 - recorded as unknown; the question still lands
         logger.warning("question contract not recorded for %s", getattr(item, "id", None), exc_info=True)
         return None

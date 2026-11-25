@@ -248,11 +248,19 @@ def snapshot_for_presentation(
     *,
     rubric: Rubric | None = None,
     clock: Clock | None = None,
+    save_revision: bool = True,
 ) -> str:
     """Ensure an assessment-contract snapshot exists for a presented item (§5.2).
 
     Idempotent (content-addressed): identical item versions reuse one snapshot.
     Returns the snapshot version id.
+
+    From mvp-0.74 the contract cites the item's full revision (``forecast_item_revision``) and, first frozen when the
+    item is presented (``save_revision``), saves that revision in ``practice_item_snapshots``, so the grade's forecast
+    reads the revision the learner answered even after an edit (or the item itself while it is unchanged). A contract
+    frozen at or after a grade (``save_revision`` False) cites it only: the grade's forecast read the vault's item
+    itself, and a snapshot written as a side effect of grading would record, in a table adaptive difficulty reads,
+    that an answer (a protected one included) was graded (H3-R25).
     """
 
     contract = compile_assessment_contract(vault, item, rubric=rubric)
@@ -264,7 +272,7 @@ def snapshot_for_presentation(
     return repository.ensure_assessment_contract_version(
         practice_item_id=item.id,
         contract_hash=digest,
-        forecast_item_snapshot=snapshot,
+        forecast_item_snapshot=snapshot if save_revision else None,
         contract_json=json.dumps(contract, sort_keys=True, ensure_ascii=False, separators=(",", ":")),
         schema_version=CONTRACT_SCHEMA_VERSION,
         clock=clock,

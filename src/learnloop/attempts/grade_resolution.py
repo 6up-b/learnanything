@@ -1290,7 +1290,8 @@ def _append_adjudication_evidence_revision(
         if snapshot_of is not None:
             from learnloop.learner.assessment_contracts import snapshot_for_presentation
 
-            cited = snapshot_for_presentation(repository, vault, snapshot_of[0], rubric=snapshot_of[1], clock=clock)
+            cited = snapshot_for_presentation(repository, vault, snapshot_of[0], rubric=snapshot_of[1], clock=clock,
+                                             save_revision=False)
             new_rows = [{**row, "assessment_contract_version_id": cited} for row in new_rows]
         repository.insert_regrade_evidence(
             attempt_id=attempt_id,

@@ -3,6 +3,8 @@ imports another (``tests/test_test_layout.py``; refactor step T1)."""
 
 from __future__ import annotations
 
+from tests.teacher_te2_probes_helpers import _Lesson, _probe, probe_turn
+
 
 def _cells(lesson):
     keep = ("facet_id", "capability_key", "practice_item_id", "recall_alpha", "recall_beta", "raw_coverage_mass",
@@ -30,3 +32,12 @@ def _identity_model(repository, *, prompt, schema, tag):
         alphas={"success": {"success|high": 9.0}, "other": {"other|high": 1.0}},
     )
     return gih, model_id
+
+
+def _served(tmp_path, **kwargs):
+    lesson = _Lesson(tmp_path, [probe_turn], **kwargs)
+    lesson.generate()
+    lesson.look()
+    probe = _probe(lesson)
+    assert probe.status == "served"
+    return lesson, probe

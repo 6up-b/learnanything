@@ -17,20 +17,12 @@ from tests.teacher_fakes import (
     landed_and_close_turn,
     plan_turn,
 )
+from tests.teacher_te1_lesson_helpers import _open
 
 
 def _rows(repository, sql, params=()):
     with repository.connection() as connection:
         return [tuple(row) for row in connection.execute(sql, params).fetchall()]
-
-
-def _open(tmp_path, turns, **kwargs):
-    paths, repository = build_teacher_vault(tmp_path / "vault", **kwargs)
-    fake = TeacherFake(turns)
-    vault = load_vault(paths.root)
-    view = S.open_lesson(vault, repository, entry="learning_object", learning_object_ids=["lo_eigen"],
-                         clients=clients(fake))
-    return paths, repository, fake, view
 
 
 def test_a_whole_lesson_opens_teaches_checks_and_closes_with_delayed_checks(tmp_path):

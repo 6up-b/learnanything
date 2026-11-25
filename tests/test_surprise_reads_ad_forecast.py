@@ -22,15 +22,7 @@ from learnloop.vault.loader import load_vault
 
 from tests.difficulty_replay_helpers import HISTORY, RETRY, UNBOUND, build_vault
 from tests.helpers import NOW, set_algorithm_version
-
-
-def _surprise(repository) -> dict[str, dict]:
-    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-        rows = connection.execute(
-            "SELECT attempt_id, predicted_score_dist_json, predictive_surprise, bayesian_surprise, surprise_direction,"
-            " fsrs_interval_factor FROM attempt_surprise").fetchall()
-    return {str(r[0]): {"dist": json.loads(r[1]), "predictive": r[2], "bayesian": r[3], "direction": r[4],
-                        "factor": r[5]} for r in rows}
+from tests.surprise_reads_ad_forecast_helpers import _surprise
 
 
 def _grade_receipts(repository) -> dict[str, dict]:

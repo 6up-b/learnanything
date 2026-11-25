@@ -11,7 +11,7 @@ from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 from tests.difficulty_replay_helpers import _iso, _serve
 from tests.helpers import NOW, create_placement_vault
-from tests.test_surprise_reads_ad_forecast import _surprise
+from tests.surprise_reads_ad_forecast_helpers import _surprise
 
 
 @pytest.mark.parametrize("version", ["mvp-0.73", "mvp-0.74"])
@@ -148,3 +148,72 @@ def test_surprise_uses_the_probability_from_the_actual_plan_draw(tmp_path, promo
     assert round(dist["p_ad"], 12) == chosen["p_bar"]
     rebuild_all_derived_state(env.vault, env.repository)
     assert _surprise(env.repository) == live
+
+
+def test_an_answer_to_its_own_presentation_after_an_edit_keeps_the_link_and_reads_mastery(tmp_path):
+    """H3-R24: the item is edited between the serve and the answer. The answer stays bound to the presentation that
+    records what the learner was shown (protection, the plan and the router read the link; failed before: the link
+    was dropped), and its surprise reads mastery live and after a rebuild alike (no serve receipt forecast the
+    answered revision)."""
+
+    paths = create_placement_vault(tmp_path / "vault", version="mvp-0.74")
+    vault, repo = load_vault(paths.root), Repository(paths.sqlite_path)
+    sync_vault_state(vault, repo, clock=FrozenClock(NOW))
+    item = vault.practice_items["pi_eig_mid"]
+    with repo.connection() as conn:
+        insert_selection(conn, dict(kind="serve", block_id="blk_h3_0", slot_position=1,
+            decision_key="serve:blk_h3_0:1", view="subject", chosen_item_id=item.id,
+            learning_object_id=item.learning_object_id, mode="band", support=[], excluded=[], constants={},
+            versions={}, seed="seed", state_hash="state", algorithm_version="mvp-0.74", created_at=_iso(NOW)))
+        conn.commit()
+    presentation = _serve(vault, repo, item.id, 0, NOW)
+    vault.practice_items[item.id] = item.model_copy(update={"prompt": "Edited after the serve."})
+    result = complete_self_graded_attempt(vault, repo, AttemptDraft(item.id, "answer", plan_presentation_id=presentation),
+        SelfGradeInput({"correctness": 2}, 3), clock=FrozenClock(NOW + timedelta(seconds=1)))
+    assert repo.fetch_practice_attempt(result.attempt_id)["plan_presentation_id"] == presentation
+    live = _surprise(repo)
+    assert live[result.attempt_id]["dist"]["prediction_source"] == "mastery"
+    rebuild_all_derived_state(vault, repo)
+    assert _surprise(repo) == live
+
+
+def test_a_grade_saves_no_item_revision_and_an_answer_on_its_contract_is_still_forecast(tmp_path):
+    """H3-R25: a contract frozen at a grade cites the answered revision without saving it in
+    ``practice_item_snapshots`` (failed before: every grade saved one, a row adaptive difficulty reads even when the
+    answer was protected). Presented again unchanged, the item shows that same contract, and an answer on it is
+    forecast at its revision, read from the unchanged item."""
+
+    import json
+    from contextlib import closing
+
+    from learnloop.db.connection import connect
+    from learnloop.learner.assessment_contracts import snapshot_for_presentation
+    from learnloop.vault.hashes import item_revision
+
+    paths = create_placement_vault(tmp_path / "vault", version="mvp-0.74")
+    vault, repo = load_vault(paths.root), Repository(paths.sqlite_path)
+    sync_vault_state(vault, repo, clock=FrozenClock(NOW))
+    item = vault.practice_items["pi_eig_mid"]
+    revision = item_revision(item)[0]
+
+    def saved() -> list[str]:
+        with closing(connect(paths.sqlite_path, read_only=True)) as conn:
+            return [row[0] for row in conn.execute(
+                "SELECT content_hash FROM practice_item_snapshots WHERE practice_item_id = ?", (item.id,))]
+
+    first = complete_self_graded_attempt(vault, repo, AttemptDraft(item.id, "answer"),
+        SelfGradeInput({"correctness": 3}, 3), clock=FrozenClock(NOW))
+    graded = next(row.assessment_contract_version_id for row in repo.fetch_grading_evidence(first.attempt_id)
+                  if row.assessment_contract_version_id)
+    assert repo.fetch_assessment_contract_version(graded)["contract"]["forecast_item_revision"] == revision
+    assert saved() == []
+    assert snapshot_for_presentation(repo, vault, item) == graded
+    second = complete_self_graded_attempt(vault, repo, AttemptDraft(item.id, "answer",
+        assessment_contract_version_id=graded), SelfGradeInput({"correctness": 3}, 3),
+        clock=FrozenClock(NOW + timedelta(minutes=1)))
+    with repo.connection() as conn:
+        row = conn.execute("SELECT versions_json FROM forecast_receipts WHERE source_attempt_id = ?",
+                           (second.attempt_id,)).fetchone()
+    assert row is not None
+    members = json.loads(row[0])["snapshot"]["target"]["target"]["members"]
+    assert next(m["revision"] for m in members if m["kind"] == "item") == revision

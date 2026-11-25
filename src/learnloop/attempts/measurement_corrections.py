@@ -192,7 +192,7 @@ def create_measurement_correction(
     )
     if not source_versions:
         source_version_id = snapshot_for_presentation(
-            repository, vault, source, clock=clock
+            repository, vault, source, clock=clock, save_revision=False
         )
         stored = repository.fetch_assessment_contract_version(source_version_id)
         source_versions = [stored] if stored is not None else []
@@ -214,7 +214,7 @@ def create_measurement_correction(
     corrected_vault = load_vault(root)
     corrected_item = corrected_vault.practice_items[corrected_id]
     corrected_version_id = snapshot_for_presentation(
-        repository, corrected_vault, corrected_item, clock=clock
+        repository, corrected_vault, corrected_item, clock=clock, save_revision=False
     )
 
     correction_set_id = new_ulid()

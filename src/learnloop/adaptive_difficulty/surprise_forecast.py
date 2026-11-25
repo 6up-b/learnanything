@@ -163,8 +163,29 @@ def _matches_administration(presentation: dict[str, Any], draft: Any) -> bool:
             and not (draft.submission_id or "").startswith("inline:"))
 
 
+def live_answered_revision(vault: Any, repository: Any, draft: Any) -> str | None:
+    """The revision a live answer answers: the one its contract froze when it was opened, else the item's current
+    revision (which the contract frozen at this grade will cite). A replay reads the recorded contract instead."""
+
+    if draft.assessment_contract_version_id:
+        return _contract_revision(repository, draft.assessment_contract_version_id)
+    item = vault.practice_items.get(draft.practice_item_id)
+    if item is None:
+        return None
+    from learnloop.vault.hashes import item_revision
+
+    return item_revision(item)[0]
+
+
 def validate_live_binding(vault: Any, repository: Any, attempt: Any) -> Any:
-    """Drop a refused link and its prepared forecast together so replay also finds the marked fallback."""
+    """Drop a refused link and its prepared forecast together so replay also finds the marked fallback.
+
+    A link is refused when the presentation is not bindable or was administered to another session, probe or an inline
+    check. An answer to its own presentation keeps the link even when the served revision is not the answered one (an
+    edit between the serve and the answer): the presentation records what the learner was shown, and protection, the
+    plan and the router read it (H3-R24). Its surprise then reads mastery, live and on replay alike, because no serve
+    receipt forecast the answered revision (``read_surprise_forecast``)."""
+
     draft = attempt.draft
     if (attempt.replace_existing or not draft.plan_presentation_id
             or vault.config.algorithms.algorithm_version not in SELECTED_FORECAST_VERSIONS):
@@ -174,21 +195,7 @@ def validate_live_binding(vault: Any, repository: Any, attempt: Any) -> Any:
                                          attempt_id=attempt.attempt_id)
         presentation = presentation_by_id(connection, bound) if bound else None
         if presentation and _matches_administration(presentation, draft):
-            rows = receipts.presentation_forecasts(connection, bound, kind=ITEM_UNASSISTED_SUCCESS,
-                                                    forecasters=(*SERVE_FORECASTERS, "ad_threshold@lo",
-                                                                 "ad_threshold_repeat@lo"))
-            revisions = {_receipt_revision(row) for row in rows} - {None}
-            if input_revision := _serve_input_revision(connection, bound):
-                revisions.add(input_revision)
-            if not rows and not revisions:
-                return attempt
-            if draft.assessment_contract_version_id:
-                revision = _contract_revision(repository, draft.assessment_contract_version_id)
-            else:
-                from learnloop.vault.hashes import item_revision
-                revision = item_revision(vault.practice_items[draft.practice_item_id])[0]
-            if revisions == {revision}:
-                return attempt
+            return attempt
     return replace(attempt, draft=replace(draft, plan_presentation_id=None), grade_forecast=None)
 
 
@@ -221,7 +228,7 @@ def read_surprise_forecast(vault: Any, repository: Any, draft: Any, *, attempt_i
                 if selected:
                     revision = _receipt_revision(row) or input_revision
                     if (not revision or (input_revision and revision != input_revision)
-                            or (replay and revision != answered_revision)):
+                            or revision != answered_revision):
                         continue
                 if _usable(row, practice_item_id) and valid_for_serve(row, served_at):
                     return SurpriseForecast(float(row["p"]), SERVE_RECEIPT, str(row["receipt_key"]),
@@ -238,4 +245,5 @@ def read_surprise_forecast(vault: Any, repository: Any, draft: Any, *, attempt_i
 
 
 __all__ = ["GRADE_RECEIPT", "MASTERY", "SERVE_FORECASTERS", "SERVE_RECEIPT", "SurpriseForecast",
-           "read_surprise_forecast", "record_grade_forecast", "validate_live_binding", "with_grade_forecast"]
+           "live_answered_revision", "read_surprise_forecast", "record_grade_forecast", "validate_live_binding",
+           "with_grade_forecast"]
