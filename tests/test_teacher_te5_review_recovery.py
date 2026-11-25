@@ -264,3 +264,41 @@ def test_a_recovered_forecast_names_the_model_that_produced_its_turn(tmp_path, m
     S.view_lesson(load_vault(paths.root), repository, lesson)  # the recovery: no model call
     forecast, = [row["payload"] for row in S.load_state(repository, lesson).turns if row["action"] == "forecast"]
     assert str(forecast["family"]).endswith(":second-teacher-model")
+
+
+# --- TE5-R11: consent recovery checks the catalog before it publishes ----------------------------------------------
+
+
+def test_consent_interrupted_before_publication_rechecks_the_catalog(tmp_path, monkeypatch):
+    from learnloop.goals import goal_lo
+    from learnloop.source_retrieval.deliverables import create_lesson_topic
+    from tests.deliverable_fixtures import DeliverableFake
+
+    paths, repository = build_teacher_vault(tmp_path / "vault")
+    resolver = DeliverableFake(unmatched=(PHRASE,))
+    fake = TeacherFake([_proposal])
+    providers = clients(fake)
+    providers.resolver = lambda: resolver
+    lesson = S.open_lesson(load_vault(paths.root), repository, entry="learning_object",
+                           learning_object_ids=["lo_eigen"], clients=providers)["lesson_id"]
+    offer, = [row for row in S.load_state(repository, lesson).turns if row["action"] == "topic_offer"]
+    with monkeypatch.context() as patch:
+        patch.setattr(goal_lo, "_write_goal_lo", lambda *_a, **_k: (_ for _ in ()).throw(RuntimeError("stopped")))
+        with pytest.raises(RuntimeError):
+            S.take_turn(load_vault(paths.root), repository, lesson_id=lesson, action="reply",
+                        payload={"text": f"Add t{offer['seq']}"}, clients=providers)
+    assert [row["action"] for row in S.load_state(repository, lesson).turns if row["refs"].get("offer")] == [
+        "topic_requested"]
+    # The equivalent topic is added elsewhere in the vault before the lesson resumes.
+    existing = create_lesson_topic(load_vault(paths.root), repository, lesson_id="elsewhere", phrase=PHRASE,
+                                   title="Defective matrices", statement="Recognize a missing eigenvector.",
+                                   subject_id=offer["payload"]["subject_id"])
+    resolver.unmatched = ()
+    resolver.needs = (existing["learning_object_id"],)
+    fake.turns = [{"message": "Go on."}]
+    S.take_turn(load_vault(paths.root), repository, lesson_id=lesson, action="reply", payload={"text": "ok"},
+                clients=providers)
+    assert [row["action"] for row in S.load_state(repository, lesson).turns if row["refs"].get("offer")] == [
+        "topic_requested", "topic_refused"]
+    assert [lo for lo in load_vault(paths.root).learning_objects if lo.startswith("lo_goal_")] == [
+        existing["learning_object_id"]]

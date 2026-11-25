@@ -1163,7 +1163,7 @@ def take_turn(vault: Any, repository: Any, *, lesson_id: str, action: str, paylo
                 outcome = _Outcome()
                 _end_for_protection(vault, repository, state, clock=clock, outcome=outcome)
                 return view(vault, repository, lesson_id, outcome=outcome)
-            finished_topic = _finish_topic_requests(vault, repository, state, clock=clock)
+            finished_topic = _finish_topic_requests(vault, repository, state, clock=clock, resolver=clients.resolver)
             if finished_topic:
                 from learnloop.vault.loader import load_vault
 
@@ -1310,12 +1310,30 @@ def _topic_decision(vault: Any, repository: Any, state: LessonState, verb: str, 
                 refs=refs, payload={"phrase": data["phrase"]}, clock=clock)
     outcome = _Outcome()
     if verb == "add":
-        outcome.vault_changed = _finish_topic_requests(vault, repository, current, clock=clock)
+        outcome.vault_changed = _finish_topic_requests(vault, repository, current, clock=clock, recheck=False)
     return view(load_vault(vault.root) if outcome.vault_changed else vault, repository, state.lesson_id, outcome=outcome)
 
 
-def _finish_topic_requests(vault: Any, repository: Any, state: LessonState, *, clock: Clock | None) -> bool:
-    """Finish durable learner decisions. Retrying the same C0b request names the same vault object."""
+def _published(vault: Any, state: LessonState, offer: Mapping[str, Any]) -> bool:
+    """Whether this request already wrote its topic (the writer's request identity names one LO per lesson and
+    phrase): finishing it only synchronizes; a request that wrote nothing must check the catalog again first."""
+
+    from learnloop.goals import goal_lo as GL
+
+    data = offer["payload"]
+    _concept, lo = GL.creation_ids(GL.GoalLoRequest(
+        goal_id=state.lesson_id, phrase=data["phrase"], title=data["title"], statement=data["statement"],
+        subject_id=data["subject_id"], mechanism=GL.TEACHER_MECHANISM))
+    existing = vault.learning_objects.get(lo)
+    return existing is not None and existing.status == "active"
+
+
+def _finish_topic_requests(vault: Any, repository: Any, state: LessonState, *, clock: Clock | None,
+                           resolver: Callable[[], Any] | None = None, recheck: bool = True) -> bool:
+    """Finish durable learner decisions. Retrying the same C0b request names the same vault object. TE5-R11: a
+    request interrupted before it published anything is checked against the catalog as it is now (``recheck``; the
+    Add that recorded it a moment ago has just checked): a topic added meanwhile elsewhere refuses it, so recovery
+    never creates a duplicate."""
     completed = {row["refs"]["offer"] for row in state.turns if row["action"] in ("topic_accepted", "topic_refused")}
     wanted = {row["refs"]["offer"] for row in state.turns if row["action"] == "topic_requested"} - completed
     if not wanted:
@@ -1325,6 +1343,21 @@ def _finish_topic_requests(vault: Any, repository: Any, state: LessonState, *, c
         if offer["id"] not in wanted:
             continue
         refs = {"offer": offer["id"]}
+        if recheck and not _published(vault, state, offer):
+            from learnloop.teacher.actions import resolve_offer
+
+            data = offer["payload"]
+            checked = resolve_offer(vault, repository, state, CreateGoalLo(
+                action="create_goal_lo", **{k: data[k] for k in ("phrase", "title", "statement", "anchors")}),
+                client=resolver() if resolver else None, clock=clock)
+            if checked["status"] == "unavailable" and checked.get("reason") != "too_large":
+                continue  # an outage: the decision stands and is finished by a later action
+            if checked != data:
+                _append(repository, state, actor="code", action="topic_refused", refs=refs,
+                        payload={"reason": checked.get("reason") or checked["status"],
+                                 "message": "Your library changed before this topic was added, so it wasn't added. "
+                                            "Ask the teacher to check the topic again."}, clock=clock)
+                continue
         try:
             topic = TP.create_offered_topic(vault, repository, state, offer, clock=clock)
         except TP.TopicsRefused as exc:
