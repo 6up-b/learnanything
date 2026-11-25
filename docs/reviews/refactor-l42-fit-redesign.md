@@ -89,7 +89,7 @@ every option are listed under it.
 **Cost of (a).**
 - Schema: no migration. Migration 276 is not taken.
 - Upgrade: one tag, `mvp-0.75`, with a `whole_vault_rebuild` row. The rebuild rewrites every payload with its block, so all history gets the facts. No "unknown at upgrade" marker is needed for mastery facts. The curve's `missing_at_upgrade` and `missing_capture` markers stay as they are.
-- Code: about 30 lines in `attempts.py`, a file other workers also touch (the payload block and the whole-second instant at the tag). The trajectory reader in `lesson_weight.py` is rewritten under the tag. Below the tag it is unchanged.
+- Code: a few lines in `attempts.py`, a file other workers also touch (the whole-second instant and the call that adds the payload block, at the tag; as built, +2 net lines, the builder living in `learner/mastery.py`). The trajectory reader in `lesson_weight.py` is rewritten under the tag. Below the tag it is unchanged.
 - Goldens: payload goldens at the latest tag gain the block. Identity pins that hash the tag move.
 
 **Owner data.** None of the three owner copies holds a lesson check or a trace row, so there is no fitted history
