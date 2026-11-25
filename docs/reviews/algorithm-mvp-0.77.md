@@ -65,6 +65,12 @@ mvp-0.76's. Owner rule: a logged propensity is exactly the served distribution.
 - G2-R18's residue: a facts receipt's lookup and insertion are one write transaction
   (`insert_causal_probe_decision_receipt(once=True)`), so two identical status reads at once append one receipt.
   Test: `tests/test_probe_router_decision_integrity.py::test_r18_two_identical_reads_at_once_append_one_pending_receipt`.
+- G2-R36 (finding 16): the live-to-rebuild proof snapshots every table's complete rows live, before the first
+  rebuild, and compares each rebuild with them row by row (only the rebuild's receipt, a derived projection live had
+  not built and the activity catalog's documented first-rebuild backfill may be added; the second rebuild reproduces
+  the first). The upgrade history pins a real predecessor decision and answers it after the activation. Tests:
+  `tests/test_probe_router_continuation.py::test_a_rebuild_after_a_router_stop_reproduces_the_live_rows_and_writes_no_ledger`,
+  `tests/test_probe_router_replay.py::test_a_predecessor_decisions_pin_answered_after_activation_rebuilds_to_the_live_rows`.
 
 ## Pins and goldens
 

@@ -180,39 +180,54 @@ def test_below_the_tag_no_episode_waits_on_the_router(tmp_path):
     assert PCN.requested(case.vault, case.repository) == []
 
 
+#: The activity substrate's catalog a vault's first rebuild backfills for rows it never recorded
+#: (``tests/test_replay_writes_no_ledger.py``, ``FIRST_REBUILD_BACKFILL``).
+_CATALOG_BACKFILL = frozenset({"activity_cards", "activity_card_versions", "activity_families",
+                               "activity_family_versions", "activity_surfaces"})
+
+
 def test_a_rebuild_after_a_router_stop_reproduces_the_live_rows_and_writes_no_ledger(tmp_path, monkeypatch):
+    """G2-R36: the live rows (every table: decisions, assignments, presentations, episodes, receipts, ledgers and
+    derived rows) are snapshotted before the first rebuild, and each rebuild is compared with them row by row, so a
+    rebuild that changed a row and then stabilized fails. A rebuild adds its own receipt; the first may also
+    materialize a derived projection the live path had not built yet (a derived table empty live) and add the
+    activity catalog's backfill beside the rows live wrote (``tests/test_replay_writes_no_ledger.py``'s first-rebuild
+    rule); the second must reproduce the first exactly. Every row live wrote stays as it was."""
+
     from learnloop.db.table_roles import TABLE_ROLES, TableRole
     from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
     from learnloop.vault.loader import load_vault
 
     case = _answered(tmp_path, monkeypatch, u=0.9)
     _job(case)
-    ledgers = sorted(name for name, role in TABLE_ROLES.items() if role in (TableRole.RAW_LEDGER, TableRole.RECEIPT))
-    derived = sorted(name for name, role in TABLE_ROLES.items() if role == TableRole.DERIVED)
 
-    def snapshot() -> tuple[dict[str, int], dict[str, list[str]]]:
+    def snapshot() -> dict[str, list[str]]:
         with case.repository.connection() as connection:
             present = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
-            counts = {name: connection.execute(f'SELECT COUNT(*) FROM "{name}"').fetchone()[0]
-                      for name in ledgers if name in present}
-            rows = {name: sorted(json.dumps(dict(row), sort_keys=True, default=str)
+            return {name: sorted(json.dumps(dict(row), sort_keys=True, default=str)
                                  for row in connection.execute(f'SELECT * FROM "{name}"'))
-                    for name in derived if name in present}
-            episode = dict(connection.execute("SELECT status, completion_reason FROM probe_episodes WHERE id = ?",
-                                              (case.episode_id,)).fetchone())
-        return counts, {**rows, "episode": [json.dumps(episode, sort_keys=True)]}
+                    for name in sorted(TABLE_ROLES) if name in present}
 
+    live = snapshot()
+    for table in ("router_decisions", "policy_experiment_assignments", "probe_presentations", "probe_episodes",
+                  "causal_probe_decision_receipts", "decision_objectives"):
+        assert live.get(table), f"the live history has {table} rows"
     vault = load_vault(case.root)
     rebuild_all_derived_state(vault, case.repository)
-    counts_first, rows_first = snapshot()
+    first = snapshot()
     rebuild_all_derived_state(vault, case.repository)
-    counts_second, rows_second = snapshot()
-    added = {name: counts_second[name] - counts_first[name] for name in counts_second
-             if counts_second[name] != counts_first[name]}
-    # A whole-vault rebuild appends its own receipt and nothing else.
-    assert added == {"derived_state_rebuilds": 1}
-    assert rows_second == rows_first
-    assert json.loads(rows_second["episode"][0]) == {"status": "complete", "completion_reason": ROUTER_STOP}
+    second = snapshot()
+    for rebuilt, receipts in ((first, 1), (second, 2)):
+        added = set(rebuilt.pop("derived_state_rebuilds")) - set(live.get("derived_state_rebuilds", []))
+        assert len(added) == receipts  # its own receipt
+        changed = sorted(name for name in rebuilt if rebuilt[name] != live.get(name, []))
+        materialized = sorted(name for name in changed
+                              if (not live.get(name) and TABLE_ROLES[name] == TableRole.DERIVED)
+                              or (name in _CATALOG_BACKFILL and set(live.get(name, [])) <= set(rebuilt[name])))
+        assert [name for name in changed if name not in materialized] == []
+    assert second == first
+    episode = case.repository.probe_episode(case.episode_id)
+    assert (episode.status, episode.completion_reason) == ("complete", ROUTER_STOP)
 
 
 @pytest.mark.parametrize("u", [0.0, 0.9])
