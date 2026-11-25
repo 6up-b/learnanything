@@ -244,6 +244,7 @@ def record_receipts(
     clock: Clock | None = None,
     created_at: str | None = None,
     new_id: Callable[[], str] | None = None,
+    algorithm_version: str | None = None,
 ) -> list[str]:
     """Append ``receipts`` in the caller's transaction; never raises.
 
@@ -254,7 +255,10 @@ def record_receipts(
     read-only repository, or on a database without the table, it writes
     nothing. ``created_at`` (default: now) is the issue time every receipt
     records. Returns the ids written (an existing receipt key writes nothing). ``new_id``: the id stream of
-    receipts whose writing must not shift ``ids.new_ulid``'s (default: that stream, as before).
+    receipts whose writing must not shift ``ids.new_ulid``'s (default: that stream, as before). ``algorithm_version``:
+    the tag every receipt records when ``vault`` (which also carries ``diagnosis.forecast_receipts``, the diagnosis
+    receipts' switch) is not passed; a writer outside diagnosis passes its tag this way and no switch of another's
+    (FR3-10).
     """
 
     if repository is None or getattr(repository, "_read_only", False) or not receipts:
@@ -264,7 +268,6 @@ def record_receipts(
     written: list[str] = []
     try:
         issued = created_at or utc_now_iso(clock)
-        algorithm_version = None
         if vault is not None:
             algorithm_version = getattr(getattr(getattr(vault, "config", None), "algorithms", None),
                                         "algorithm_version", None)

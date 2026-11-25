@@ -19,6 +19,7 @@ from learnloop.db.repositories import Repository
 from learnloop.scheduling.forecast_receipts import ITEM_UNASSISTED_SUCCESS_AT_GRADE
 from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
 from learnloop.vault.loader import load_vault
+from learnloop.vault.paths import VaultPaths
 
 from tests.difficulty_replay_helpers import HISTORY, RETRY, UNBOUND, build_vault
 from tests.helpers import NOW, set_algorithm_version
@@ -300,3 +301,33 @@ def test_grade_snapshot_names_the_answer_and_its_cutoff(served):
     assert "item_serve_inputs" not in parts.source
     assert parts.cutoff.time("as_of") == at
     assert parts.provenance["training_cutoff"]["as_of"] == at
+
+
+@pytest.mark.parametrize("tag", ["mvp-0.72", "mvp-0.74", "mvp-0.76"])
+def test_the_diagnosis_receipt_switch_does_not_discard_the_grade_time_forecast(served, tmp_path, tag):
+    """FR3-10: with adaptive difficulty and its receipts on but ``diagnosis.forecast_receipts = false``, the grade-time
+    receipt is still stored (as at the label retirement, whose writer passed no vault) and stamped with the vault's
+    tag, and surprise reads it: stamping the tag activates no unrelated switch."""
+
+    from learnloop.db.copies import copy_tree_with_databases
+
+    paths, _vault, _repository = served
+    root = tmp_path / "switch"
+    copy_tree_with_databases(paths.root, root)
+    set_algorithm_version(VaultPaths(root=root, config=paths.config), tag)
+    vault = load_vault(root)
+    assert vault.config.algorithms.algorithm_version == tag
+    vault.config.diagnosis.forecast_receipts = False
+    repository = Repository(vault.root / paths.sqlite_path.relative_to(paths.root))
+    result = complete_self_graded_attempt(vault, repository, AttemptDraft(
+        practice_item_id="pi_eig_mid", learner_answer_md="Again.", attempt_type="independent_attempt"),
+        SelfGradeInput(criterion_points={"correctness": 3}, confidence=3), clock=FrozenClock(NOW + timedelta(days=90)))
+    stored = _grade_receipts(repository)
+    assert result.attempt_id in stored
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        stamped = connection.execute("SELECT algorithm_version FROM forecast_receipts WHERE source_attempt_id = ? AND "
+                                     "kind = ?", (result.attempt_id, ITEM_UNASSISTED_SUCCESS_AT_GRADE)).fetchone()[0]
+    assert stamped == tag
+    dist = _surprise(repository)[result.attempt_id]["dist"]
+    assert dist["prediction_source"] == "grade_receipt"
+    assert dist["p_ad"] == pytest.approx(stored[result.attempt_id]["p"])

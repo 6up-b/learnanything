@@ -105,13 +105,14 @@ def record_grade_forecast(vault: Any, repository: Any, receipt: Any) -> None:
     """Append the live forecast in the grade's transaction, before the grade is computed, so the grade scores against
     the stored row exactly as a replay will (a savepoint: a failed receipt rolls back alone, and the grade then reads
     none and records mastery's prediction as its source). Its id is a function of its attempt, so the grade's other ids
-    are unchanged; it carries the vault's tag as every receipt writer does."""
+    are unchanged; it carries the vault's tag as every receipt writer does. Only the tag is passed, never the vault:
+    the diagnosis receipts' switch (``diagnosis.forecast_receipts``) is not adaptive difficulty's (FR3-10)."""
 
     if receipt is None:
         return
     attempt_id = str(receipt.columns["source_attempt_id"])
-    record_receipts(repository, [receipt], vault=vault, created_at=receipt.inputs_as_of,
-                    new_id=lambda: receipt_id(attempt_id))
+    record_receipts(repository, [receipt], created_at=receipt.inputs_as_of, new_id=lambda: receipt_id(attempt_id),
+                    algorithm_version=vault.config.algorithms.algorithm_version)
 
 
 def _serve_forecasts(connection: Any, presentation: dict[str, Any], selected: bool) -> list[dict[str, Any]]:

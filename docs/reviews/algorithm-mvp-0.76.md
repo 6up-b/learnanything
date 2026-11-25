@@ -31,6 +31,11 @@ The successor of mvp-0.75 for the review-round-3 fixes that change what is deriv
   first-order form (`outcome_record_missing`), never an exception (a null instant had become the string `"None"`) and
   never a silently accepted chain (a missing clock key had read as a recorded null clock). Well-formed records read
   exactly as before. Test: `tests/test_lesson_outcome_assessed.py::test_a_malformed_application_record_is_a_labelled_gap`.
+- FR3-10: the grade-time receipt passes the vault's tag to the receipt writer on its own, not the vault, so the
+  diagnosis receipts' switch (`diagnosis.forecast_receipts`) no longer discards adaptive difficulty's grade-time
+  forecast (it was stored at the label retirement, whose writer passed no vault). A live write; a rebuild computes no
+  grade receipt, it reads the stored one. Test:
+  `tests/test_surprise_reads_ad_forecast.py::test_the_diagnosis_receipt_switch_does_not_discard_the_grade_time_forecast`.
 
 ## Pins and goldens
 
