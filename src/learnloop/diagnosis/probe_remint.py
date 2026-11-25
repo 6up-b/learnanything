@@ -137,6 +137,69 @@ def existing_remint(vault: LoadedVault, source_practice_item_id: str) -> Practic
     return None
 
 
+def source_locators(source: PracticeItem) -> dict[str, Any]:
+    """The source item's own locators a copy keeps: its canonical exercise (``canonical_exercise``) and its provenance
+    source refs (``source_refs``), the two fields ``exam_material.item_source_keys`` reads to tell whether an item was
+    made from exam or held-out material. A copy that kept the content but not these would read as unprotected."""
+
+    canonical = getattr(source, "canonical_exercise", None)
+    refs = getattr(getattr(source, "provenance", None), "source_refs", None) or ()
+    return {
+        **({"canonical_exercise": canonical.model_dump(mode="json", exclude_none=True)} if canonical is not None else {}),
+        "source_refs": [ref.model_dump(mode="json", exclude_none=True) for ref in refs],
+    }
+
+
+def remint_missing_locators(vault: LoadedVault) -> list[tuple[PracticeItem, PracticeItem]]:
+    """``(remint, its source)`` for each remint made before copies kept their source's locators
+    (:func:`source_locators`): the source names a canonical exercise or source refs the remint lacks, so the exam
+    classifier cannot see that the copy was made from the same passage. ``learnloop doctor`` names them, and
+    ``doctor --fix-state`` copies the locators in (:func:`repair_remint_locators`)."""
+
+    found = []
+    for item in vault.practice_items.values():
+        if item.provenance.origin != REMINT_ORIGIN:
+            continue
+        source_id = next((ref.ref_id for ref in item.provenance.source_refs if ref.ref_type == "existing_entity"),
+                         None)
+        source = vault.practice_items.get(str(source_id)) if source_id else None
+        if source is None:
+            continue
+        wanted = source_locators(source)
+        held = [ref.model_dump(mode="json", exclude_none=True) for ref in item.provenance.source_refs]
+        lacks_exercise = "canonical_exercise" in wanted and item.canonical_exercise is None
+        if lacks_exercise or any(ref not in held for ref in wanted["source_refs"]):
+            found.append((item, source))
+    return found
+
+
+def repair_remint_locators(root: Path, vault: LoadedVault, *, clock: Clock | None = None) -> list[str]:
+    """Copy each older remint's missing source locators in (:func:`remint_missing_locators`); returns the repaired
+    remint ids. Nothing else of the remint changes."""
+
+    from learnloop.vault.paths import VaultPaths
+    from learnloop.vault.yaml_io import read_yaml
+
+    repaired = []
+    for item, source in remint_missing_locators(vault):
+        path = next(VaultPaths(vault.root, vault.config).root.rglob(f"{item.id}.yaml"), None)
+        if path is None:
+            continue
+        payload = read_yaml(path)
+        wanted = source_locators(source)
+        if item.canonical_exercise is None and "canonical_exercise" in wanted:
+            payload["canonical_exercise"] = wanted["canonical_exercise"]
+        provenance = dict(payload.get("provenance") or {})
+        held = [ref.model_dump(mode="json", exclude_none=True) for ref in item.provenance.source_refs]
+        refs = list(provenance.get("source_refs") or [])
+        refs.extend(ref for ref in wanted["source_refs"] if ref not in held)
+        provenance["source_refs"] = refs
+        payload["provenance"] = provenance
+        upsert_practice_item(root, payload, clock=clock, loaded_vault=vault)
+        repaired.append(item.id)
+    return repaired
+
+
 def _remint_payload(
     source: PracticeItem,
     *,
@@ -207,6 +270,9 @@ def _remint_payload(
         "repair_targets": list(source.repair_targets),
         "grading_rubric": _dump(source.grading_rubric),
         "status": "active",
+        # The source's own locators travel with the copy (the canonical exercise and every source ref the exam
+        # classifier reads, ``exam_material.item_source_keys``), so protecting the passage later protects the copy.
+        **source_locators(source),
         "provenance": {
             "origin": REMINT_ORIGIN,
             "source_refs": [
@@ -214,7 +280,8 @@ def _remint_payload(
                     "ref_type": "existing_entity",
                     "ref_id": source.id,
                     "locator": f"administering_attempt:{attempt_id}",
-                }
+                },
+                *source_locators(source)["source_refs"],
             ],
         },
         "created_at": now_iso,
@@ -261,6 +328,18 @@ def remint_probe_as_practice_item(
         raise ProbeRemintError(
             "generated_probe_single_use",
             f"{source.id} is a generated single-use probe and is never served again.",
+        )
+
+    from learnloop.content.sources.exam_material import serve_refusals
+
+    protected = serve_refusals(vault, repository, [source], surface="session_serve").get(source.id)
+    if protected is not None:
+        # Exam material the session serve refuses: a copy kept as practice would be refused too (it keeps the
+        # source's locators), so none is made.
+        raise ProbeRemintError(
+            "protected_exam_material",
+            f"{source.id} was made from exam material held out for evaluation, so it can't be kept as practice.",
+            details={"reason": protected},
         )
 
     existing = existing_remint(vault, source.id)

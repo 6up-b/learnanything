@@ -235,6 +235,7 @@ def run_doctor(root: Path, *, fix_state: bool = False, ai: bool = False, ai_prov
             "until it is fixed, so what depends on that is stopped.",
             VaultPaths(vault.root, vault.config).source_sets_path))
     _check_references(vault, issues)
+    _check_remint_locators(vault, repository, issues, fix_state=fix_state)
 
     _check_source_sets(vault, repository, database_tables, issues)
     state_sync_result = (
@@ -275,6 +276,33 @@ def run_doctor(root: Path, *, fix_state: bool = False, ai: bool = False, ai_prov
         storage=storage,
         model_routes=model_routes,
     )
+
+
+def _check_remint_locators(vault: Any, repository: Repository | None, issues: list[HealthIssue], *,
+                           fix_state: bool) -> None:
+    """A "Keep as practice" copy made before copies kept their source's locators (``probe_remint``): the exam
+    classifier cannot see the passage it was made from, so protecting that passage would not protect the copy. An
+    error when the source is protected now (the copy is unprotected practice of it), a warning otherwise;
+    ``--fix-state`` copies the locators in."""
+
+    from learnloop.content.sources.exam_material import serve_refusals
+    from learnloop.diagnosis.probe_remint import remint_missing_locators, repair_remint_locators
+
+    missing = remint_missing_locators(vault)
+    if not missing:
+        return
+    if fix_state:
+        repair_remint_locators(vault.root, vault)
+        return
+    for remint, source in missing:
+        protected = (serve_refusals(vault, repository, [source], surface="session_serve").get(source.id)
+                     if repository is not None else None)
+        issues.append(_issue(
+            "error" if protected else "warning", "remint:missing_source_locators",
+            f"{remint.id} was kept as practice from {source.id} without the passage it was made from"
+            + (", which is now protected exam material" if protected else "")
+            + "; run `learnloop doctor --fix-state` to copy it in.",
+            entity_id=remint.id, details={"source_practice_item_id": source.id, "protected": protected}))
 
 
 def _check_model_routes(
