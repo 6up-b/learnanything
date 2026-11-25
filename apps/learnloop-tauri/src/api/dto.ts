@@ -10539,6 +10539,8 @@ export interface LessonViewDto {
   shownNow?: unknown[];
   notices?: string[];
   vaultChanged?: boolean;
+  /** TE5-R8: a recorded step (a reply saved before a restart) still waits for the teacher; Continue resumes it. */
+  awaitingTeacher?: boolean;
   /** Teacher TE2-log: set while the episode log is on; the screen then reports its activity intervals. */
   activityLog?: boolean;
   /** Teacher TE2: set on a TE2 lesson. */

@@ -237,6 +237,37 @@ it("a reply that hit an outage resumes the saved lesson", async () => {
   expect(api.lessonTurn).toHaveBeenLastCalledWith({ action: "resume", lessonId: "les1" });
 });
 
+it("Try again after an Add that recorded nothing sends the Add again (TE5-R8)", async () => {
+  await open(lesson());
+  api.lessonTurn.mockRejectedValueOnce({ code: "plan_unavailable", message: "LearnLoop could not check the current topics. Try again.",
+                                         details: { lesson_id: "les1", retry: "repeat" } });
+  api.lessonView.mockResolvedValueOnce(lesson());
+  fireEvent.change(screen.getByLabelText("Reply to the teacher"), { target: { value: "Add t6" } });
+  await act(async () => { fireEvent.click(screen.getByText("Send")); });
+  api.lessonTurn.mockResolvedValueOnce(lesson());
+  await act(async () => { fireEvent.click(screen.getByTestId("lesson-retry")); });
+  expect(api.lessonTurn).toHaveBeenLastCalledWith(expect.objectContaining({ action: "reply", lessonId: "les1", text: "Add t6" }));
+  expect(api.lessonTurn).not.toHaveBeenCalledWith({ action: "resume", lessonId: "les1" });
+});
+
+it("Continue on a lesson whose saved reply waits for the teacher answers it (TE5-R8)", async () => {
+  api.lessonView.mockResolvedValueOnce(lesson({ awaitingTeacher: true }));
+  api.lessonTurn.mockResolvedValueOnce(lesson({ feed: [{ kind: "message", text: "Next step.", choices: [] }] }));
+  await act(async () => {
+    render(<LessonScreen entry={{ kind: "resume", lessonId: "les1" }} onClose={vi.fn()} onError={vi.fn()} />);
+  });
+  expect(api.lessonTurn).toHaveBeenCalledWith({ action: "resume", lessonId: "les1" });
+  expect(screen.getByText("Next step.")).toBeTruthy();
+});
+
+it("Continue on a lesson with nothing waiting only reads it (TE5-R8)", async () => {
+  api.lessonView.mockResolvedValueOnce(lesson({ awaitingTeacher: false }));
+  await act(async () => {
+    render(<LessonScreen entry={{ kind: "resume", lessonId: "les1" }} onClose={vi.fn()} onError={vi.fn()} />);
+  });
+  expect(api.lessonTurn).not.toHaveBeenCalled();
+});
+
 // --- Reader RW5d P4b: the teacher's visual ------------------------------------------------------
 
 const FLAGSHIP = corpus.figures.find((item) => item.id === "two_sided_exponential")!.spec as unknown as { demonstrates: string };

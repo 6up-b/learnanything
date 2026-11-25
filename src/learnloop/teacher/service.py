@@ -1164,7 +1164,30 @@ def take_turn(vault: Any, repository: Any, *, lesson_id: str, action: str, paylo
             return result
     except LessonError as exc:
         exc.details.setdefault("lesson_id", lesson_id)
+        exc.details.setdefault("retry", retry_kind(repository, lesson_id))
         raise
+
+
+def awaiting_teacher(state: LessonState) -> bool:
+    """A recorded step waits for the teacher (a reply, an answer's result, a read's follow-up): the lesson's
+    ``resume`` answers it (TE5-R8: Continue after a restart sends it, nothing is retyped)."""
+
+    if state.closed or (T2.lesson_te2(state) and PR.open_probe(state.turns) is not None):
+        return False
+    return _pending_call(state) is not None
+
+
+def retry_kind(repository: Any, lesson_id: str) -> str:
+    """What *Try again* does after a failed action (TE5-R8): ``resume`` when the lesson recorded a step that waits for
+    the teacher (or an accepted turn whose effects did not all run), else ``repeat``: nothing of the failed action was
+    recorded (an Add whose topic check failed before the learner's decision was written), so the same action is sent
+    again."""
+
+    try:
+        state = load_state(repository, lesson_id)
+    except LessonError:
+        return "repeat"
+    return "resume" if (state.unexecuted is not None or awaiting_teacher(state)) else "repeat"
 
 
 def _learner_action(vault: Any, repository: Any, state: LessonState, action: str, payload: Mapping[str, Any], *,
@@ -3135,6 +3158,9 @@ def view(vault: Any, repository: Any, lesson_id: str, *, outcome: _Outcome | Non
         out["shown_now"] = [screen.entry(entry) for entry in outcome.shown]
         out["notices"] = outcome.notices
         out["vault_changed"] = outcome.vault_changed
+    # TE5-R8: a reopened lesson whose recorded step still waits for the teacher (a restart after the reply was saved)
+    # says so, and the screen's Continue answers it with ``resume``.
+    out["awaiting_teacher"] = awaiting_teacher(state)
     if "episodes" in state.capabilities:
         # TE2-log: the screen reports its activity intervals (lesson.activity) only while this is set (after the
         # close its last interval still arrives; the minutes clip every interval to the lesson's own span).

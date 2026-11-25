@@ -134,3 +134,70 @@ def test_an_edited_answer_refused_by_the_budget_is_saved_as_typed(tmp_path, monk
     answers = [payload for _refs, payload in _payloads(repository, lesson, "check_answer")]
     assert [row["answer"] for row in answers] == ["2", "3"]
     assert answers[-1]["assessed"] is False
+
+
+# --- TE5-R8: Try again and Continue target the step that waits ------------------------------------------------------
+
+PHRASE = "when diagonalization fails"
+
+
+def _proposal(_context):
+    return {"message": "Here is another topic you could study.", "requests": [
+        {"action": "create_goal_lo", "phrase": PHRASE, "title": "Defective matrices",
+         "statement": "Recognize a missing eigenvector.", "anchors": []}]}
+
+
+def test_try_again_after_an_interrupted_add_repeats_the_add(tmp_path):
+    from tests.deliverable_fixtures import DeliverableFake
+
+    paths, repository = build_teacher_vault(tmp_path / "vault")
+    resolver = DeliverableFake(unmatched=(PHRASE,))
+    fake = TeacherFake([_proposal])
+    providers = clients(fake)
+    providers.resolver = lambda: resolver
+    lesson = S.open_lesson(load_vault(paths.root), repository, entry="learning_object",
+                           learning_object_ids=["lo_eigen"], clients=providers)["lesson_id"]
+    offer, = [row for row in S.load_state(repository, lesson).turns if row["action"] == "topic_offer"]
+    add = {"text": f"Add t{offer['seq']}"}
+    # The catalog changed, so Add needs a fresh resolution, and the resolver is down.
+    from learnloop.ai.errors import AIProviderUnavailable
+
+    from learnloop.vault.yaml_io import read_yaml, write_yaml
+
+    path = paths.learning_object_path("linear-algebra", "lo_det")
+    record = read_yaml(path)
+    record["summary"] = "Determinants, revised."
+    write_yaml(path, record)
+    resolver.fail = AIProviderUnavailable("the plan is down")
+    with pytest.raises(S.LessonError) as failed:
+        S.take_turn(load_vault(paths.root), repository, lesson_id=lesson, action="reply", payload=add,
+                    clients=providers)
+    assert failed.value.details["retry"] == "repeat"  # nothing was recorded: resume would answer nothing
+    assert S.retry_kind(repository, lesson) == "repeat"
+    resolver.fail = None
+    S.take_turn(load_vault(paths.root), repository, lesson_id=lesson, action="reply", payload=add, clients=providers)
+    assert [row["action"] for row in S.load_state(repository, lesson).turns if row["refs"].get("offer")] == [
+        "topic_requested", "topic_accepted"]
+
+
+def test_continue_after_a_restart_answers_a_saved_reply(tmp_path):
+    from learnloop.ai.errors import AIProviderUnavailable
+
+    def down(_context):
+        raise AIProviderUnavailable("the plan is down")
+
+    paths, repository = build_teacher_vault(tmp_path / "vault")
+    fake = TeacherFake([{"message": "Hello."}, down])
+    lesson = S.open_lesson(load_vault(paths.root), repository, entry="learning_object",
+                           learning_object_ids=["lo_eigen"], clients=clients(fake))["lesson_id"]
+    with pytest.raises(S.LessonError) as failed:
+        S.take_turn(load_vault(paths.root), repository, lesson_id=lesson, action="reply",
+                    payload={"text": "what next?"}, clients=clients(fake))
+    assert failed.value.details["retry"] == "resume"
+    reopened = S.view_lesson(load_vault(paths.root), repository, lesson)  # the restart: the window reads the lesson
+    assert reopened["awaiting_teacher"] is True
+    fake.turns = [{"message": "Next: the characteristic polynomial."}]
+    answered = S.take_turn(load_vault(paths.root), repository, lesson_id=lesson, action="resume", payload={},
+                           clients=clients(fake))
+    assert answered["awaiting_teacher"] is False
+    assert answered["feed"][-1]["text"] == "Next: the characteristic polynomial."

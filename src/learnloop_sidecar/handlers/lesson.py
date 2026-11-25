@@ -286,8 +286,12 @@ def lesson_turn(ctx: SidecarContext, params: LessonTurnInput) -> dict[str, Any]:
         # Saved: a step of an existing lesson, or an opening that failed after its lesson was written (its
         # error carries the id). An opening resolves its route before writing anything.
         saved = params.action != "open" or bool(exc.details.get("lesson_id"))
+        details = dict(exc.details)
+        if params.action != "open" and params.lesson_id:
+            # TE5-R8: Try again resumes a recorded step, or repeats an action that recorded nothing.
+            details.setdefault("retry", S.retry_kind(repository, params.lesson_id))
         raise SidecarError(exc.code, route_unavailable_message(exc.label, saved=saved), retryable=True,
-                           details=dict(exc.details)) from exc
+                           details=details) from exc
     if result.get("vault_changed") or (params.action == "open" and params.entry == "typed_goal"):
         ctx.reload(maintenance=False)
     if result.get("te2"):
