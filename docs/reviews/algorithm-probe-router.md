@@ -695,3 +695,54 @@ first, with the isolation above. Counts only; the copies were deleted afterwards
   row to a ledger, its own rebuild receipt.
 - `doctor` exits non-zero on these copies before and after alike, on content findings this step does not touch
   (rubric criteria whose `depends_on` names a facet, and study-map warnings).
+
+## Fix round 3 (the re-review of 2026-11-26)
+
+Branch `refactor/g2-fix-round-3`, cut from main `a534c9e529` (head tag `mvp-0.76`, migration head 276). Each fix names
+the class of defect it removes (its generator), not only the instance. Every finding was checked against the code
+first; each fixed one has a fail-first test (shown failing against the base's `src` before its fix) and a ledger row
+G2-R21 to G2-R36 in the review's table order. **No tag and no migration in this round:** every fix below is
+protection or an integrity rule over rows that already exist (no stored decision's meaning, propensity or replay
+changes); the findings that need `mvp-0.77` are listed under "Not done in this round".
+
+| Finding | Class (generator) | Disposition |
+|---|---|---|
+| 1 (R21) | A door that shows an item in the session without the session serve's verdict | Fixed. `exam_material.serve_refusals` is the one verdict (the `session_serve` row); `probe_episodes.item_refusals` reads it in selection, the learner lane's offer, reread and acceptance; `serve_presentation` ends a protected pin unshown before anything is marked served. A past exam that is not held out stays servable, as in the session serve (matrix 6.1/6.2, SS = S). |
+| 2 (R22) | A derived copy that drops its source's locators | Fixed. A kept copy carries the canonical exercise and source refs (`vault.copy_locators`); a protected probe is not kept; older copies: `learnloop doctor` names them (`remint:missing_source_locators`, an error when the source is protected now) and `--fix-state` repairs them. |
+| 3 (R23) | A unit of work whose only fenced write comes last | Fixed. `writer_fence.require_current` (the triggers' rule as a statement) opens the continuation's transaction (both arms) and the offer's (entry and pin now one transaction). No table joins the fence; no migration. |
+| 4 (R24) | A decision validated against a snapshot read before its valuation | Fixed. The continuation rereads the episode inside its transaction; "Stop diagnosing and teach me" is one transaction. |
+| 7 (R27) | A door that supersedes or relocks without asking who owns the episode | Fixed. `probe_presentations.ownership_refusal` in the payload builder every presentation passes; `episode_conflict_reason` refuses a relock under a standing owned pin. |
+| 8 (R28) | A liveness rule gated on answer quality | Fixed. A router-owned episode reads its supply after any observation and parks (`park_without_supply`, one transaction with its generation need); the continuation parks through it too. The continuation test's parking assertion is exact. |
+| 10 (R30) | Two eligibility reads for one instrument | Fixed with R21's `item_refusals` (offer, reread, acceptance and selection share it). |
+| 12 (R32) | A cross-lane check made before the write instead of in it | Fixed. Each lane claims the factor's initial decision inside its own transaction; the automatic lane logs `factor_decided_on_learner_lane`. IH2's redraw keeps its boundary. |
+| 15 (R35) | A learner action written before its request is validated | Fixed. `validate_shown_factor` and the consent in one transaction. |
+| 5, 6, 9, 11, 13, 14, 16 | | Not done in this round (below). |
+
+**Assertions changed:**
+
+- `test_probe_router_continuation.py::test_the_continuation_answer_closes_its_block_by_its_pin_and_no_legacy_worth_gate_is_asked`:
+  the episode's status after its last instrument is exactly `pending_items` and nothing waits (it accepted
+  `in_progress`). Tightened, not loosened.
+- `test_k1_serve_door_reservation.py`: the switch patch moved to where the switch is now read
+  (`exam_material.held_out_selection_active`); the assertion is unchanged.
+- 18 test files pass the vault to `serve_presentation` (a required argument now); no assertion changed.
+- `test_probe_router_decision_integrity.py`'s two lane setups moved, unchanged, to `tests/probe_router_lanes_helpers.py`.
+
+**Observed, not fixed (outside this step):** `remint_probe_as_practice_item`'s `probe_reminted` interaction event
+fails the table's `kind` CHECK and is logged and skipped (best-effort), so a remint leaves no interaction event.
+
+### Not done in this round
+
+- **5 (propensity of a forced head) and 14 (the learned chooser's rounding):** both change a logged propensity, so both
+  belong under `mvp-0.77`. 14's generator is `router.mixture.Draw.deterministic` (a 1e-12 tolerance) read as
+  `1.0 if drawn.deterministic else drawn.propensity` at five sites; the fix is a `Draw` property that logs 1 only when
+  no other option has mass, gated by the tag where the sites have the config. 5 needs router-pin promotion moved into
+  the composition the probability calculation shares, and a failing `OfferHeadMismatch` path made to refuse the offer.
+- **6 (Continue opens the router's question):** one resolver (pending, the exact standing presentation, or the
+  completed transition) for the desktop and the terminal client, plus the frontend.
+- **9 ("Check once" takes the next probe instrument):** carry the instrument exclusions through sharing and
+  replacement in `daily_plan.measurement`.
+- **11 (the same prior for offer and episode):** bind the episode to the valued lock (its hypothesis versions and
+  prior) at entry and retarget.
+- **13 (the 0.6 family-repeat multiplier):** a design choice; options in the round's report.
+- **16 (the live-to-rebuild proof):** a live snapshot before the first rebuild, compared row by row.
