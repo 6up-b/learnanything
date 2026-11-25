@@ -1349,13 +1349,20 @@ def replay_existing_attempt(
     error_attributions: list[GradeAttribution] | None = None,
     grader_identity: Any = _REPLAY_IDENTITY_FROM_LEDGER,
     may_record_missing_grade: bool = False,
+    recovered_grade_channel: RecoveredGradeChannel | None = None,
 ) -> AttemptResult:
     """Recompute derived state for a persisted attempt without re-grading it.
 
     ``grader_identity`` overrides the calibration identity replay otherwise
     reads from the ledgers (:func:`replay_grader_identity`); a regrade passes
-    the identity its new grade was produced under.
+    the identity its new grade was produced under. ``recovered_grade_channel``:
+    an explicit repair's recovered live inputs (:func:`recover_grade_channel`),
+    applied as the live grade was (its run, fatal errors and identity).
     """
+
+    recovered = recovered_grade_channel
+    if recovered is not None:
+        grader_identity = recovered.grader_identity
 
     # Regrade contracts (mvp-0.26): the CURRENT grading epoch's rows and its
     # own contract, never the first live row's. Rows graded before contracts
@@ -1442,8 +1449,11 @@ def replay_existing_attempt(
                 grader_confidence=replayed_grader_confidence(vault, attempt.get("grader_confidence")),
                 confidence=attempt.get("confidence"),
                 manual_review_reason=manual_review_reason,
+                fatal_errors=list(recovered.fatal_errors) if recovered is not None else [],
+                discrimination_profile_match=recovered.discrimination_profile_match if recovered is not None else None,
             ),
             replace_existing=True,
+            grading_agent_run_id=recovered.agent_run_id if recovered is not None else None,
             record_probe_update=False,
             error_event_ids_override=error_event_ids,
             # Replay must re-enter the same observation lane the live write
@@ -1600,6 +1610,70 @@ def replay_grader_identity(
     if stamped is not None and stamped[1] == BLIND_GRADER_OUTPUT_SCHEMA_VERSION and stamped[0]:
         return (str(stamped[0]), str(stamped[1]))
     return None
+
+
+class GradeChannelUnrecoverable(ValueError):
+    """An answer's live grade-channel inputs cannot be read back from its durable facts (``reason`` names which)."""
+
+    def __init__(self, reason: str) -> None:
+        super().__init__(reason)
+        self.reason = reason
+
+
+@dataclass(frozen=True)
+class RecoveredGradeChannel:
+    """What an answer's live grade channel read, recovered for an explicit repair of its missing grade record
+    (``doctor --fix-state``): replay re-applies a grade without them (no run, no fatal errors, the ledgers' identity,
+    which a failed write left joint), so a repair through replay alone would record another grade than the live one."""
+
+    agent_run_id: str | None
+    fatal_errors: tuple[str, ...]
+    grader_identity: tuple[str, str] | None
+    discrimination_profile_match: dict[str, Any] | None = None
+
+
+def recover_grade_channel(repository: Repository, attempt: Mapping[str, Any]) -> RecoveredGradeChannel:
+    """The live grade channel's inputs of a persisted answer, from its durable grading facts; raises
+    :class:`GradeChannelUnrecoverable` when they cannot be read back (the answer then stays reported, never repaired
+    with guessed inputs).
+
+    - the feedback row the grade wrote (its source, its run unless a self-grade stood in for a failed model grade,
+      its fatal errors); the current grading epoch's one run when it names one;
+    - the identity: a blind record's (with its profile match), else the grading run's: a blind grading proposal is
+      the vault grader's blind identity (``vault_grading_calibration_identity``, teach-back, the teacher's checks),
+      any other run the joint grader's; a model grade whose run is gone is unrecoverable;
+    - a grade no model made (self, deterministic) has no run and the joint identity, as it was written."""
+
+    from learnloop.attempts.grading import vault_grading_calibration_identity
+    from learnloop.attempts.replay_reading import MODEL_GRADING_SOURCES
+    from learnloop.grading_epochs import current_epoch
+
+    attempt_id = str(attempt["id"])
+    feedback = repository.raw_attempt_feedback_metadata(attempt_id)
+    if feedback is None:
+        raise GradeChannelUnrecoverable("feedback_record_missing")
+    epoch = current_epoch(repository.fetch_grading_evidence(attempt_id))
+    epoch_runs = sorted({str(run) for run in (epoch.agent_run_ids if epoch is not None else ()) if run})
+    if len(epoch_runs) > 1:
+        raise GradeChannelUnrecoverable("grading_runs_ambiguous")
+    run_id = epoch_runs[0] if epoch_runs else (None if feedback.get("fallback_reason") else feedback.get("agent_run_id"))
+    fatal = tuple(str(value) for value in feedback.get("fatal_errors") or [])
+    blind_record = repository.latest_blind_grade_record(attempt_id)
+    if blind_record is not None:
+        match = (blind_record.get("record") or {}).get("discrimination_profile_match")
+        return RecoveredGradeChannel(agent_run_id=run_id, fatal_errors=fatal,
+                                     grader_identity=_blind_record_identity(blind_record),
+                                     discrimination_profile_match=match if isinstance(match, dict) else None)
+    if run_id is None:
+        if str(feedback.get("grading_source")) in MODEL_GRADING_SOURCES:
+            raise GradeChannelUnrecoverable("grading_run_missing")
+        return RecoveredGradeChannel(agent_run_id=None, fatal_errors=fatal, grader_identity=None)
+    run = repository.agent_run(str(run_id))
+    if run is None:
+        raise GradeChannelUnrecoverable("grading_run_missing")
+    blind = str(run.get("output_schema") or "") == "BlindGradingProposal"
+    return RecoveredGradeChannel(agent_run_id=str(run_id), fatal_errors=fatal,
+                                 grader_identity=vault_grading_calibration_identity() if blind else None)
 
 
 def _blind_record_identity(blind_record: Mapping[str, Any] | None) -> tuple[str, str] | None:

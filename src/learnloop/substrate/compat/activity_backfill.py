@@ -104,6 +104,10 @@ def substrate_began_at(repository: Repository) -> datetime | None:
     return parse_utc(repository.first_live_administration_at())
 
 
+#: An exam sitting's answers (``goals.exam_session.finish_exam``): the sitting writes each one's grade record.
+SITTING_ATTEMPT_TYPE = "exam_attempt"
+
+
 def answer_writer(attempt_type: str) -> str:
     """The door that records an answer's grade record live: ordinary practice (``apply_attempt``'s grade channel, every
     type it applies), a probe's (``diagnostic``), or an exam's, where a sitting and an import are separate doors (their
@@ -184,10 +188,11 @@ def answers_without_grade_record(vault: LoadedVault, repository: Repository) -> 
     identity). A rebuild never writes these (it derives); ``learnloop doctor`` reports them and
     ``doctor --fix-state`` records them, through that same channel.
 
-    Answers that channel never records are left out: a diagnostic probe (its own paths record a grade when a
-    presentation or a lesson asked the question; a presentationless probe records none by design) and an exam answer
-    graded once (the sitting records it; an import records none). An exam answer regraded is the channel's from the
-    evidence reading fixes (K5-11, the rule of ``attempts.replay_reading.replaced_exam_purpose``)."""
+    Answers no grade channel records are left out: a diagnostic probe (its own paths record a grade when a
+    presentation or a lesson asked the question; a presentationless probe records none by design) and an imported
+    exam answer graded once (an import records none). A sitting's answer is recorded by the sitting's own write, so
+    one without its record is reported too; an exam answer regraded is the channel's from the evidence reading fixes
+    (K5-11, the rule of ``attempts.replay_reading.replaced_exam_purpose``)."""
 
     from learnloop.algorithm_versions import evidence_reading_fixes_on
     from learnloop.grading_epochs import graded_more_than_once
@@ -199,8 +204,9 @@ def answers_without_grade_record(vault: LoadedVault, repository: Repository) -> 
         attempt_type = str(row["attempt_type"])
         if attempt_type == "diagnostic_probe" or cutovers.answer_predates(attempt_type, row["created_at"]):
             continue
-        if "exam" in attempt_type and not (regraded_exams_recorded and graded_more_than_once(
-                repository.fetch_grading_evidence(row["id"], include_superseded=True))):
+        if "exam" in attempt_type and attempt_type != SITTING_ATTEMPT_TYPE and not (
+                regraded_exams_recorded and graded_more_than_once(
+                    repository.fetch_grading_evidence(row["id"], include_superseded=True))):
             continue
         entry = {"attempt_id": row["id"], "learning_object_id": row["learning_object_id"]}
         if row["observation_id"] is None:

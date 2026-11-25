@@ -341,6 +341,7 @@ def replay_learning_object(
             gate_records=gate_records,
             recording_grades_of=repairing_grade_records | (
                 {applying_grade_to} if applying_grade_to is not None else set()),
+            repairing_grade_records=repairing_grade_records,
         )
         if applying_grade_to is not None:
             # Only the replacement grade was applied here. Its neighbours were replayed. Recorded whatever tag this
@@ -370,7 +371,9 @@ def _replay_learning_object(
     clock: Clock | None,
     gate_records: Mapping[str, Sequence[Any]] | None = None,
     recording_grades_of: frozenset[str] = frozenset(),
+    repairing_grade_records: frozenset[str] = frozenset(),
 ) -> ReplayResult:
+    from learnloop.attempts.attempts import recover_grade_channel
     from learnloop.substrate.compat.activity_backfill import substrate_cutovers
 
     cutovers = substrate_cutovers(repository)
@@ -437,6 +440,10 @@ def _replay_learning_object(
                 str(attempt["id"]) in recording_grades_of
                 or cutovers.answer_predates(str(attempt["attempt_type"]), attempt.get("created_at"))
             ),
+            # An explicit repair records the grade the live write would have: its inputs read back from the
+            # answer's durable grading facts (raises when they cannot be; the caller names only recoverable ones).
+            recovered_grade_channel=(recover_grade_channel(repository, attempt)
+                                     if str(attempt["id"]) in repairing_grade_records else None),
             **(
                 {"grader_identity": grader_identity_overrides[attempt["id"]]}
                 if grader_identity_overrides and attempt["id"] in grader_identity_overrides

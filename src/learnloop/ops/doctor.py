@@ -60,7 +60,9 @@ from learnloop.substrate.projection_switches import (
     INTERVAL_FACTOR_SNAPSHOT_KEY,
     projection_switches,
 )
-from learnloop.substrate.compat.activity_backfill import answers_without_grade_record
+from learnloop.attempts.attempts import GradeChannelUnrecoverable, recover_grade_channel
+from learnloop.grading_epochs import graded_more_than_once
+from learnloop.substrate.compat.activity_backfill import SITTING_ATTEMPT_TYPE, answers_without_grade_record
 from learnloop.substrate.replay import replay_learning_object
 from learnloop.substrate.state_sync import StateSyncResult, sync_vault_state
 from learnloop.vault.loader import load_vault
@@ -474,18 +476,21 @@ def _check_answers_without_grade_record(
     were saved). A rebuild derives and leaves them so; ``--fix-state`` is the explicit repair that records them,
     replaying their topics with those answers named."""
 
-    missing = answers_without_grade_record(vault, repository)
+    missing = _with_recoverability(repository, answers_without_grade_record(vault, repository))
     if missing and fix_state:
         by_topic: dict[str, set[str]] = {}
         for entry in missing:
+            if entry.get("unrecoverable"):
+                continue  # the live grade's inputs are not on record: reported, never repaired with guessed ones
             by_topic.setdefault(str(entry["learning_object_id"]), set()).add(str(entry["attempt_id"]))
         for learning_object_id, attempt_ids in sorted(by_topic.items()):
             replay_learning_object(vault, repository, learning_object_id,
                                    repairing_grade_records=frozenset(attempt_ids))
-        missing = answers_without_grade_record(vault, repository)
+        missing = _with_recoverability(repository, answers_without_grade_record(vault, repository))
     if not missing:
         return
     unknown = sum(1 for entry in missing if entry.get("provenance") == "unknown")
+    unrecoverable = sum(1 for entry in missing if entry.get("unrecoverable"))
     issues.append(_issue(
         "warning",
         "answers:grade_record_missing",
@@ -494,10 +499,35 @@ def _check_answers_without_grade_record(
         "record it."
         + (f" For {unknown} of them LearnLoop can't tell whether saving failed or the answer is from before this "
            "kind of answer kept a grade record (none of its kind has one); they are marked `provenance: unknown`."
-           if unknown else ""),
+           if unknown else "")
+        + (f" {unrecoverable} can't be recorded: what their grade was given with is no longer on record (marked "
+           "`unrecoverable`), so they are left as they are." if unrecoverable else ""),
         repository.sqlite_path,
         details={"answers": missing},
     ))
+
+
+def _with_recoverability(repository: Repository, missing: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Each missing grade record with, where the repair cannot read back what its live grade was given with
+    (``attempts.recover_grade_channel``), why (``unrecoverable``); an exam sitting's answer is written by the sitting
+    alone, so the repair (which records through the practice channel) never records it."""
+
+    out = []
+    for entry in missing:
+        attempt = repository.fetch_practice_attempt(str(entry["attempt_id"]))
+        reason = None
+        if attempt is None:
+            reason = "answer_missing"
+        elif str(attempt.get("attempt_type")) == SITTING_ATTEMPT_TYPE and not graded_more_than_once(
+                repository.fetch_grading_evidence(str(entry["attempt_id"]), include_superseded=True)):
+            reason = "exam_sitting_channel"
+        else:
+            try:
+                recover_grade_channel(repository, attempt)
+            except GradeChannelUnrecoverable as exc:
+                reason = exc.reason
+        out.append({**entry, "unrecoverable": reason} if reason else entry)
+    return out
 
 
 def _book_title(repository: Repository, source_id: str) -> str:

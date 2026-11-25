@@ -97,6 +97,11 @@ The successor of mvp-0.75 for the review-round-3 fixes that change what is deriv
   began recording is history again (backfilled with its duration event; replay may record its grade). Where a writer
   never recorded live the vault-wide boundary stays, and the backfill report and doctor say the provenance is unknown.
   FR3-6's decision (no tag). Tests: `tests/test_activity_backfill.py` (two cases).
+- R4-S3: `doctor --fix-state` records a missing grade record with the live grade's inputs read back from durable
+  facts (`attempts.recover_grade_channel`: run, fatal errors, blind or joint identity), applied to the repaired answer
+  only; an answer whose inputs are not on record, and a once-graded exam sitting answer (now reported), stay listed
+  with `unrecoverable`. Tests: `tests/test_rebuild_writes_no_grade_record.py` (three cases). Stopped for a call:
+  R4-S3b (replay drops fatal errors, a rule from mvp-0.60).
 
 ## Pins and goldens
 
