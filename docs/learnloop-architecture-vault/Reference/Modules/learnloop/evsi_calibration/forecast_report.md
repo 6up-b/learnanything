@@ -46,7 +46,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/evsi_calibration/forecast_report.py](../../../../../../src/learnloop/evsi_calibration/forecast_report.py) |
-| Source lines | 903 |
+| Source lines | 904 |
 | Owning package | [[Reference/Modules/learnloop/evsi_calibration/_package|learnloop.evsi_calibration]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -59,10 +59,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `resolve_lesson_check(ledgers: _Ledgers, receipt: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/evsi_calibration/forecast_report.py), line 581) — ``lesson_check_correct``: resolved on the check's own attempt (``lesson_checks`` by lesson and check ref) under its current grade; a withdrawn check is censored, a held grade waits, an ungraded one is pending, and a check never answered in a closed lesson is censored.
 - `resolve_lesson_probe(ledgers: _Ledgers, receipt: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/evsi_calibration/forecast_report.py), line 612) — ``lesson_probe_correct`` (teacher TE2): resolved on the probe's own attempt (the id minted with the request, in the receipt's inputs) under its current grade; a probe never served (refused, retired unused, or its lesson closed first) is censored; a held grade waits; an unanswere…
 - `resolve_lesson_step(ledgers: _Ledgers, receipt: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/evsi_calibration/forecast_report.py), line 642) — ``lesson_step_retained``: resolved on the first qualifying cold outcome on the node's LO after the forecast (``learner.lesson_weight.qualifying_outcomes``: the outcome the pool weight learns from, held grades left out until released); pending until one exists.
-- `check_outcome_rows(connection: sqlite3.Connection, vault: LoadedVault, *, since: str | None) -> list[tuple[dict[str, Any], dict[str, Any]]]` ([source](../../../../../../src/learnloop/evsi_calibration/forecast_report.py), line 665) — ``voi_forecasts`` as receipts of the family, each with its resolution.
-- `summarize(rows: Sequence[tuple[Mapping[str, Any], Mapping[str, Any]]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/evsi_calibration/forecast_report.py), line 789) — Per kind, per forecaster: the honest n and the reliability tables.
-- `resolved_receipts(vault: LoadedVault, *, since: str | None=None, include_checks: bool=False) -> list[tuple[dict[str, Any], dict[str, Any]]]` ([source](../../../../../../src/learnloop/evsi_calibration/forecast_report.py), line 838) — Every receipt with its read-time resolution (read-only, one snapshot).
-- `forecast_calibration_report(vault: LoadedVault, *, since: str | None=None, include_checks: bool=True) -> dict[str, Any]` ([source](../../../../../../src/learnloop/evsi_calibration/forecast_report.py), line 850) — The report (read-only, one snapshot).
+- `check_outcome_rows(connection: sqlite3.Connection, vault: LoadedVault, *, since: str | None) -> list[tuple[dict[str, Any], dict[str, Any]]]` ([source](../../../../../../src/learnloop/evsi_calibration/forecast_report.py), line 666) — ``voi_forecasts`` as receipts of the family, each with its resolution.
+- `summarize(rows: Sequence[tuple[Mapping[str, Any], Mapping[str, Any]]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/evsi_calibration/forecast_report.py), line 790) — Per kind, per forecaster: the honest n and the reliability tables.
+- `resolved_receipts(vault: LoadedVault, *, since: str | None=None, include_checks: bool=False) -> list[tuple[dict[str, Any], dict[str, Any]]]` ([source](../../../../../../src/learnloop/evsi_calibration/forecast_report.py), line 839) — Every receipt with its read-time resolution (read-only, one snapshot).
+- `forecast_calibration_report(vault: LoadedVault, *, since: str | None=None, include_checks: bool=True) -> dict[str, Any]` ([source](../../../../../../src/learnloop/evsi_calibration/forecast_report.py), line 851) — The report (read-only, one snapshot).
 
 ### Module constants
 
@@ -76,7 +76,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_BINDINGS` ([src/learnloop/evsi_calibration/forecast_report.py](../../../../../../src/learnloop/evsi_calibration/forecast_report.py), line 423)
 - `_MEASURED` ([src/learnloop/evsi_calibration/forecast_report.py](../../../../../../src/learnloop/evsi_calibration/forecast_report.py), line 518)
 - `_LESSON_RIGHT` ([src/learnloop/evsi_calibration/forecast_report.py](../../../../../../src/learnloop/evsi_calibration/forecast_report.py), line 574)
-- `_BINARY_EVENT` ([src/learnloop/evsi_calibration/forecast_report.py](../../../../../../src/learnloop/evsi_calibration/forecast_report.py), line 709)
+- `_BINARY_EVENT` ([src/learnloop/evsi_calibration/forecast_report.py](../../../../../../src/learnloop/evsi_calibration/forecast_report.py), line 710)
 
 ### Explicit exports
 
@@ -105,10 +105,10 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_scheduler_binding(ledgers: _Ledgers, attempt: Mapping[str, Any]) -> str | None` ([source](../../../../../../src/learnloop/evsi_calibration/forecast_report.py), line 390) — Why the attempt's scheduler offer does not bind it: the exact offer link the attempt store writes (``_link_attempt_to_scheduler_candidate``) and the data-quality report checks: a returned candidate of the item, in the attempt's slate and session, generated no later than the answ…
 - `_binding(ledgers: _Ledgers, attempt: Mapping[str, Any]) -> tuple[str | None, dict[str, str]]` ([source](../../../../../../src/learnloop/evsi_calibration/forecast_report.py), line 430) — The exact receipt the attempt answered (Codex review F4): the first of its references whose record verifies, ``(label, {})``; else ``(None, {label: why})`` for every reference it carries that establishes nothing.
 - `_lesson_emission(correctness: Any) -> str` ([source](../../../../../../src/learnloop/evsi_calibration/forecast_report.py), line 577)
-- `_round(value: float | None, digits: int=4) -> float | None` ([source](../../../../../../src/learnloop/evsi_calibration/forecast_report.py), line 704)
-- `_score(kind: str, rows: Sequence[tuple[Mapping[str, Any], Mapping[str, Any]]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/evsi_calibration/forecast_report.py), line 714)
-- `_splits(rows: Sequence[tuple[Mapping[str, Any], Mapping[str, Any]]], key: Callable[[Mapping[str, Any]], Any], event: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/evsi_calibration/forecast_report.py), line 771)
-- `_resolve_all(connection: sqlite3.Connection, vault: LoadedVault, *, since: str | None, include_checks: bool) -> tuple[list[tuple[dict[str, Any], dict[str, Any]]], _Ledgers]` ([source](../../../../../../src/learnloop/evsi_calibration/forecast_report.py), line 813)
+- `_round(value: float | None, digits: int=4) -> float | None` ([source](../../../../../../src/learnloop/evsi_calibration/forecast_report.py), line 705)
+- `_score(kind: str, rows: Sequence[tuple[Mapping[str, Any], Mapping[str, Any]]]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/evsi_calibration/forecast_report.py), line 715)
+- `_splits(rows: Sequence[tuple[Mapping[str, Any], Mapping[str, Any]]], key: Callable[[Mapping[str, Any]], Any], event: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop/evsi_calibration/forecast_report.py), line 772)
+- `_resolve_all(connection: sqlite3.Connection, vault: LoadedVault, *, since: str | None, include_checks: bool) -> tuple[list[tuple[dict[str, Any], dict[str, Any]]], _Ledgers]` ([source](../../../../../../src/learnloop/evsi_calibration/forecast_report.py), line 814)
 
 ## Who imports or calls it
 
@@ -165,6 +165,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_calibration_report_on_a_seeded_vault`
   - `test_the_kill_switch_writes_no_receipt`
   - `test_the_report_reads_a_vault_without_receipts_as_empty`
+- [tests/test_lesson_outcome_assessed.py](../../../../../../tests/test_lesson_outcome_assessed.py) — direct import
+  - `test_an_unapplied_answer_resolves_no_lesson_check_from_the_tag`
 - [tests/test_lesson_weight_facts.py](../../../../../../tests/test_lesson_weight_facts.py) — direct import
   - `test_every_reader_of_a_lesson_outcome_takes_the_fits_order`
 - [tests/test_regrade_contract_successor.py](../../../../../../tests/test_regrade_contract_successor.py) — direct import

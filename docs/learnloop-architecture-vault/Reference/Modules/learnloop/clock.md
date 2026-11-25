@@ -1528,6 +1528,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f4_without_a_grounded_subject_only_the_anchors_are_judged_and_nothing_is_created`
 - [tests/test_lesson_answer_turns.py](../../../../../tests/test_lesson_answer_turns.py) — direct import
   - `test_a_lesson_check_answer_turn_commits_with_its_grade`
+- [tests/test_lesson_outcome_assessed.py](../../../../../tests/test_lesson_outcome_assessed.py) — direct import
 - [tests/test_lesson_weight_facts.py](../../../../../tests/test_lesson_weight_facts.py) — direct import
   - `test_a_check_is_stamped_under_the_writer_lock`
 - [tests/test_lesson_weight_facts_integration.py](../../../../../tests/test_lesson_weight_facts_integration.py) — direct import

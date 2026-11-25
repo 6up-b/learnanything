@@ -303,6 +303,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_bounded_replay_corrects_the_copy_in_one_rebuild_and_then_changes_nothing`
 - [tests/test_one_instant_per_grade.py](../../../../../../tests/test_one_instant_per_grade.py) — direct import
   - `test_a_grade_reads_the_clock_once_for_its_instant_and_a_rebuild_reproduces_it`
+  - `test_exam_finish_dates_no_answer_ahead_of_now_and_replay_orders_them_as_applied`
 - [tests/test_pfc_unassessed_readers.py](../../../../../../tests/test_pfc_unassessed_readers.py) — direct import
   - `test_a_record_written_before_the_rule_keeps_its_interpretation_until_regraded`
   - `test_an_ordinary_item_gives_the_unverified_criterion_s_facet_nothing`

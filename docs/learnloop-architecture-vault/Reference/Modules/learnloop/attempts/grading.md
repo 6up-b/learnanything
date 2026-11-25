@@ -262,6 +262,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_grader_taxonomy_emits_mechanism_vocabulary`
 - [tests/test_learner_blindness_relax.py](../../../../../../tests/test_learner_blindness_relax.py) — direct import
   - `test_the_blind_graders_context_is_byte_identical_in_every_arm_and_switch_setting`
+- [tests/test_lesson_outcome_assessed.py](../../../../../../tests/test_lesson_outcome_assessed.py) — direct import
 - [tests/test_openai_chat_client.py](../../../../../../tests/test_openai_chat_client.py) — direct import
   - `test_chat_does_not_retry_non_retryable_errors`
   - `test_chat_gives_up_when_retry_after_outlasts_the_deadline`

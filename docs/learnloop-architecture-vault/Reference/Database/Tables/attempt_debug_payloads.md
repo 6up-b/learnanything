@@ -131,6 +131,7 @@ Indexes and uniqueness:
 - `tests/test_common_repair_delivery.py`
 - `tests/test_diagnosis_replay.py`
 - `tests/test_facet_outcome_view.py`
+- `tests/test_lesson_outcome_assessed.py`
 - `tests/test_lesson_weight_facts.py`
 - `tests/test_lesson_weight_facts_integration.py`
 - `tests/test_replay_keeps_diagnosis_ids.py`
@@ -145,7 +146,6 @@ Indexes and uniqueness:
 - `tests/test_causal_shadow_selection.py`
 - `tests/test_deferred_regrade.py`
 - `tests/test_diagnose_review.py`
-- `tests/test_error_hunt_items.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

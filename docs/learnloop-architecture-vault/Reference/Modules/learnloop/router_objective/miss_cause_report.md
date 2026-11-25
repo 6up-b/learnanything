@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/router_objective/miss_cause_report.py](../../../../../../src/learnloop/router_objective/miss_cause_report.py) |
-| Source lines | 133 |
+| Source lines | 134 |
 | Owning package | [[Reference/Modules/learnloop/router_objective/_package|learnloop.router_objective]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -55,7 +55,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 ## Public API
 
 - `section(connection: Any, config: Any=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/router_objective/miss_cause_report.py), line 58) — ``config``: the vault's, whose tag picks the order a later cold result is found in (``outcome_order``).
-- `lines(report: Mapping[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/router_objective/miss_cause_report.py), line 110)
+- `lines(report: Mapping[str, Any]) -> list[str]` ([source](../../../../../../src/learnloop/router_objective/miss_cause_report.py), line 111)
 
 ### Module constants
 

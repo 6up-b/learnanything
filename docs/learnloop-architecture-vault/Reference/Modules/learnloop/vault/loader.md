@@ -2127,6 +2127,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_lesson_grade_forecast.py](../../../../../../tests/test_lesson_grade_forecast.py) — direct import
   - `test_lesson_forecast_is_prepared_once_outside_the_writer`
   - `test_withdrawal_during_preparation_discards_the_losing_grade`
+- [tests/test_lesson_outcome_assessed.py](../../../../../../tests/test_lesson_outcome_assessed.py) — direct import
+  - `test_a_malformed_application_record_is_a_labelled_gap`
+  - `test_an_unapplied_answer_resolves_no_lesson_check_from_the_tag`
 - [tests/test_lesson_weight_facts.py](../../../../../../tests/test_lesson_weight_facts.py) — direct import
   - `test_a_check_is_stamped_under_the_writer_lock`
   - `test_a_floor_bound_update_at_the_cap_with_equal_numbers_is_applied`
