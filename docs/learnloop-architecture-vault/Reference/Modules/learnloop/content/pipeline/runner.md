@@ -48,7 +48,7 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/content/pipeline/runner.py](../../../../../../../src/learnloop/content/pipeline/runner.py) |
-| Source lines | 1444 |
+| Source lines | 1467 |
 | Owning package | [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -85,37 +85,39 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
   - `_cancel_requested(self) -> bool` (line 450; internal)
 - `class IngestRunner` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 506)
   - `__init__(self, repo: Repository, *, vault_root: Path, worker_id: str, clock: Clock | None=None, handlers: Mapping[str, Handler] | None=None, services: RunnerServices | None=None, lease_ttl_seconds: int=120, heartbeat_interval_seconds: float=15) -> None` (line 507; internal)
-  - `halt(self) -> None` (line 543; public) — Stop writing to this vault, from any thread and without waiting: the host stopped serving it (below the floor, or another process's upgrade journal beside it).
-  - `active_interruptible_jobs(self) -> list[dict[str, Any]]` (line 559; public) — Return running jobs that currently own an interruptible AI client.
-  - `interrupt_job(self, job_id: str, *, alongside: Callable[[], object] | None=None) -> bool` (line 575; public) — Cancel a batch and interrupt the selected job's active provider call.
-  - `_bind_job_interruptible(self, job_id: str, attempt_count: int, client: Any) -> None` (line 595; internal)
-  - `_clear_job_interruptible(self, job_id: str, attempt_count: int) -> None` (line 602; internal)
-  - `enqueue_batch(self, workflow_type: str, jobs: Sequence[JobSpec], *, subject_id: str | None=None, source_set_id: str | None=None, priority: int=0, batch_id: str | None=None, grant: 'plan_fallback.GrantToken | None'=None, origin: str | None=None) -> str` (line 608; public) — ``grant`` / ``origin``: a job's own child build (:meth:`JobContext.enqueue_batch` with ``inherit_grant``); otherwise the batch belongs to the request around this call (``plan_fallback.unit_origin``) and carries its token when that action is granted (``unit_token``).
-  - `_enqueue_batch(self, workflow_type: str, jobs: Sequence[JobSpec], *, subject_id: str | None, source_set_id: str | None, priority: int, batch_id: str | None, grant: 'plan_fallback.GrantToken | None'=None, origin: str | None=None) -> str` (line 636; internal)
-  - `batch_origin_method(self, batch_id: str) -> str | None` (line 688; public) — The batch's durable action (migration 218), for a batch from before a sidecar restart.
-  - `recover_stale_leases(self, *, sweep_abandoned_synthesis: bool=True) -> list[str]` (line 698; public) — Startup recovery (§6.2), run when a host opens the vault.
-  - `_expire_stale_leases(self, *, lock_timeout_s: float) -> list[str] | None` (line 727; internal) — Expire running leases older than the TTL, or return None if the vault lock stayed busy for ``lock_timeout_s``.
-  - `_expire_stale_leases_locked(self) -> list[str]` (line 739; internal)
-  - `_finalize_abandoned_synthesis_runs_locked(self) -> None` (line 772; internal) — Finalize non-terminal synthesis runs older than the lease cutoff.
-  - `_lease_expiry_due(self) -> bool` (line 791; internal)
-  - `run_next(self, *, eligible_job_types: Sequence[str] | None=None, compatible_running_job_types: Sequence[str]=(), allow_parallel: bool=False, max_parallel: int | None=None) -> bool` (line 797; public) — Claim and run one eligible job.
-  - `drain(self, *, max_jobs: int | None=None, eligible_job_types: Sequence[str] | None=None, compatible_running_job_types: Sequence[str]=(), allow_parallel: bool=False, max_parallel: int | None=None) -> int` (line 838; public) — Drain matching jobs until none remain (or ``max_jobs``).
-  - `cancel_batch(self, batch_id: str, *, alongside: Callable[[], object] | None=None) -> None` (line 863; public) — Request cancellation.
-  - `resume_batch(self, batch_id: str) -> None` (line 891; public) — Resume a partially-complete or cancelled batch: only unfinished jobs (failed/blocked/cancelled) are re-queued; completed jobs are preserved, so a resume creates new attempts only for what did not finish (§6.2).
-  - `resume_waiting_for_ok(self) -> list[str]` (line 927; public) — Once the learner said OK: every job that waited for it is queued again, once (a job already queued again, or one that waits for something else, is left as it is).
-  - `requeue_failed_unless_cancelled(self, batch_id: str, *, error_code: str) -> bool` (line 943; public) — Requeue the batch's jobs that failed with ``error_code``, only while the batch is not cancelled.
-  - `_run_claimed(self, job: dict[str, Any]) -> None` (line 970; internal)
-  - `_heartbeat_while_running(self, job_id: str, stop: threading.Event, owner: JobOwner) -> None` (line 1167; internal) — Keep a blocking extractor/LLM stage's lease alive until it returns.
-  - `_propagate_blocks(self, batch_id: str) -> None` (line 1196; internal) — Mark every downstream queued job blocked when a dependency failed, blocked, or was cancelled — to a fixpoint (§6.2).
-  - `_refresh_batch(self, batch_id: str) -> None` (line 1226; internal)
-  - `_lease_cutoff_iso(self) -> str` (line 1251; internal)
-- `derive_batch_status(jobs: Sequence[Mapping[str, Any]], batch: Mapping[str, Any] | None) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 1264) — Batch status is derived from its member jobs and can represent partial completion (§6.2).
-- `retries_on_its_own(job: Mapping[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 1321) — Whether a failed try of ``job`` is followed by one more in the same attempt: a finished section's writing or the model steps of an automatic build (not the zero-model repair of a kept candidate, and not a build the learner started elsewhere).
-- `waiting_for_ok(exc: BaseException) -> bool` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 1336) — Whether ``exc`` is, or was raised from, the refusal to send anything before the learner's OK.
-- `is_waiting_for_ok(job: Mapping[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 1349) — A job row that waits for the learner's OK to use AI.
-- `a_retry_may_cure(exc: BaseException) -> bool` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 1357) — A failure a fresh try may cure: a model answer that was cut off, over its ceiling, invalid, late or not given.
-- `job_output_recorder(repo: Repository, job_id: str, attempt_count: int, clock: Clock) -> Callable[[str | None, int], None]` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 1376) — What a job's streamed model output is recorded through (``observe_model_output``): the request and its count of output pieces, with the time on the runner's clock, at most every :data:`OUTPUT_RECORD_SECONDS` for one request (a new request is written at once).
-- `retried_on_its_own(job: Mapping[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 1400) — Whether a failed job was already tried once more on its own before it stopped: the rule above, read back from the stored row.
+  - `halt(self) -> None` (line 546; public) — Stop writing to this vault, from any thread and without waiting: the host stopped serving it (below the floor, or another process's upgrade journal beside it).
+  - `retire(self) -> None` (line 562; public) — Claim nothing more: the host bound a successor runner to the same vault under another writer-fence binding (a reload after an upgrade).
+  - `busy(self) -> bool` (line 570; public) — Whether a claim of this runner is still running.
+  - `active_interruptible_jobs(self) -> list[dict[str, Any]]` (line 576; public) — Return running jobs that currently own an interruptible AI client.
+  - `interrupt_job(self, job_id: str, *, alongside: Callable[[], object] | None=None) -> bool` (line 592; public) — Cancel a batch and interrupt the selected job's active provider call.
+  - `_bind_job_interruptible(self, job_id: str, attempt_count: int, client: Any) -> None` (line 612; internal)
+  - `_clear_job_interruptible(self, job_id: str, attempt_count: int) -> None` (line 619; internal)
+  - `enqueue_batch(self, workflow_type: str, jobs: Sequence[JobSpec], *, subject_id: str | None=None, source_set_id: str | None=None, priority: int=0, batch_id: str | None=None, grant: 'plan_fallback.GrantToken | None'=None, origin: str | None=None) -> str` (line 625; public) — ``grant`` / ``origin``: a job's own child build (:meth:`JobContext.enqueue_batch` with ``inherit_grant``); otherwise the batch belongs to the request around this call (``plan_fallback.unit_origin``) and carries its token when that action is granted (``unit_token``).
+  - `_enqueue_batch(self, workflow_type: str, jobs: Sequence[JobSpec], *, subject_id: str | None, source_set_id: str | None, priority: int, batch_id: str | None, grant: 'plan_fallback.GrantToken | None'=None, origin: str | None=None) -> str` (line 653; internal)
+  - `batch_origin_method(self, batch_id: str) -> str | None` (line 705; public) — The batch's durable action (migration 218), for a batch from before a sidecar restart.
+  - `recover_stale_leases(self, *, sweep_abandoned_synthesis: bool=True) -> list[str]` (line 715; public) — Startup recovery (§6.2), run when a host opens the vault.
+  - `_expire_stale_leases(self, *, lock_timeout_s: float) -> list[str] | None` (line 744; internal) — Expire running leases older than the TTL, or return None if the vault lock stayed busy for ``lock_timeout_s``.
+  - `_expire_stale_leases_locked(self) -> list[str]` (line 756; internal)
+  - `_finalize_abandoned_synthesis_runs_locked(self) -> None` (line 789; internal) — Finalize non-terminal synthesis runs older than the lease cutoff.
+  - `_lease_expiry_due(self) -> bool` (line 808; internal)
+  - `run_next(self, *, eligible_job_types: Sequence[str] | None=None, compatible_running_job_types: Sequence[str]=(), allow_parallel: bool=False, max_parallel: int | None=None) -> bool` (line 814; public) — Claim and run one eligible job.
+  - `drain(self, *, max_jobs: int | None=None, eligible_job_types: Sequence[str] | None=None, compatible_running_job_types: Sequence[str]=(), allow_parallel: bool=False, max_parallel: int | None=None) -> int` (line 861; public) — Drain matching jobs until none remain (or ``max_jobs``).
+  - `cancel_batch(self, batch_id: str, *, alongside: Callable[[], object] | None=None) -> None` (line 886; public) — Request cancellation.
+  - `resume_batch(self, batch_id: str) -> None` (line 914; public) — Resume a partially-complete or cancelled batch: only unfinished jobs (failed/blocked/cancelled) are re-queued; completed jobs are preserved, so a resume creates new attempts only for what did not finish (§6.2).
+  - `resume_waiting_for_ok(self) -> list[str]` (line 950; public) — Once the learner said OK: every job that waited for it is queued again, once (a job already queued again, or one that waits for something else, is left as it is).
+  - `requeue_failed_unless_cancelled(self, batch_id: str, *, error_code: str) -> bool` (line 966; public) — Requeue the batch's jobs that failed with ``error_code``, only while the batch is not cancelled.
+  - `_run_claimed(self, job: dict[str, Any]) -> None` (line 993; internal)
+  - `_heartbeat_while_running(self, job_id: str, stop: threading.Event, owner: JobOwner) -> None` (line 1190; internal) — Keep a blocking extractor/LLM stage's lease alive until it returns.
+  - `_propagate_blocks(self, batch_id: str) -> None` (line 1219; internal) — Mark every downstream queued job blocked when a dependency failed, blocked, or was cancelled — to a fixpoint (§6.2).
+  - `_refresh_batch(self, batch_id: str) -> None` (line 1249; internal)
+  - `_lease_cutoff_iso(self) -> str` (line 1274; internal)
+- `derive_batch_status(jobs: Sequence[Mapping[str, Any]], batch: Mapping[str, Any] | None) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 1287) — Batch status is derived from its member jobs and can represent partial completion (§6.2).
+- `retries_on_its_own(job: Mapping[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 1344) — Whether a failed try of ``job`` is followed by one more in the same attempt: a finished section's writing or the model steps of an automatic build (not the zero-model repair of a kept candidate, and not a build the learner started elsewhere).
+- `waiting_for_ok(exc: BaseException) -> bool` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 1359) — Whether ``exc`` is, or was raised from, the refusal to send anything before the learner's OK.
+- `is_waiting_for_ok(job: Mapping[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 1372) — A job row that waits for the learner's OK to use AI.
+- `a_retry_may_cure(exc: BaseException) -> bool` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 1380) — A failure a fresh try may cure: a model answer that was cut off, over its ceiling, invalid, late or not given.
+- `job_output_recorder(repo: Repository, job_id: str, attempt_count: int, clock: Clock) -> Callable[[str | None, int], None]` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 1399) — What a job's streamed model output is recorded through (``observe_model_output``): the request and its count of output pieces, with the time on the runner's clock, at most every :data:`OUTPUT_RECORD_SECONDS` for one request (a new request is written at once).
+- `retried_on_its_own(job: Mapping[str, Any]) -> bool` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 1423) — Whether a failed job was already tried once more on its own before it stopped: the rule above, read back from the stored row.
 
 ### Module constants
 
@@ -131,9 +133,9 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - `WAITING_FOR_OK_PAYLOAD` ([src/learnloop/content/pipeline/runner.py](../../../../../../../src/learnloop/content/pipeline/runner.py), line 120)
 - `_BUILD_WORKFLOWS` ([src/learnloop/content/pipeline/runner.py](../../../../../../../src/learnloop/content/pipeline/runner.py), line 125)
 - `_LIVE_ATTEMPTS` ([src/learnloop/content/pipeline/runner.py](../../../../../../../src/learnloop/content/pipeline/runner.py), line 498)
-- `_PHASE_MESSAGES` ([src/learnloop/content/pipeline/runner.py](../../../../../../../src/learnloop/content/pipeline/runner.py), line 1289)
-- `_RETRIED_ON_ITS_OWN` ([src/learnloop/content/pipeline/runner.py](../../../../../../../src/learnloop/content/pipeline/runner.py), line 1315)
-- `_CURABLE_CODES` ([src/learnloop/content/pipeline/runner.py](../../../../../../../src/learnloop/content/pipeline/runner.py), line 1318)
+- `_PHASE_MESSAGES` ([src/learnloop/content/pipeline/runner.py](../../../../../../../src/learnloop/content/pipeline/runner.py), line 1312)
+- `_RETRIED_ON_ITS_OWN` ([src/learnloop/content/pipeline/runner.py](../../../../../../../src/learnloop/content/pipeline/runner.py), line 1338)
+- `_CURABLE_CODES` ([src/learnloop/content/pipeline/runner.py](../../../../../../../src/learnloop/content/pipeline/runner.py), line 1341)
 
 ## Internal implementation anchors
 
@@ -144,11 +146,11 @@ The authoritative system-level explanation remains in [[Learning System]], [[AI 
 - `_authoring_jobs() -> Any` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 308)
 - `_batch_unit(runner: 'IngestRunner', batch_id: str) -> Iterator[None]` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 313) — Run one job of ``batch_id`` as its unit: its token, its action; it may ask only when it has an action (the offer is kept with the batch and relayed by a read that shows the batch).
 - `class _LiveAttempts` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 461) — Job attempts whose handler is executing in this process.
-- `class _FixedClock` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 1257)
-- `_phase_message(phase: str) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 1300)
-- `_as_number(value: Any) -> float | int` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 1304)
-- `_curable_error_codes() -> frozenset[str]` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 1417) — The stored codes (``_error_code``) of the failures :func:`a_retry_may_cure` cures.
-- `_error_code(exc: Exception) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 1435)
+- `class _FixedClock` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 1280)
+- `_phase_message(phase: str) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 1323)
+- `_as_number(value: Any) -> float | int` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 1327)
+- `_curable_error_codes() -> frozenset[str]` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 1440) — The stored codes (``_error_code``) of the failures :func:`a_retry_may_cure` cures.
+- `_error_code(exc: Exception) -> str` ([source](../../../../../../../src/learnloop/content/pipeline/runner.py), line 1458)
 
 ## Who imports or calls it
 

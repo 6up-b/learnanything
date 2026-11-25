@@ -165,9 +165,9 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/test_route_rules_in_grader.py](../../../../../../tests/test_route_rules_in_grader.py) — imports consumer [[Reference/Modules/learnloop/cli/__init__|learnloop.cli]]
 - [tests/test_stuck_prompt.py](../../../../../../tests/test_stuck_prompt.py) — imports consumer [[Reference/Modules/learnloop/cli/__init__|learnloop.cli]]
 - [tests/test_teach_back_generation.py](../../../../../../tests/test_teach_back_generation.py) — imports consumer [[Reference/Modules/learnloop/cli/__init__|learnloop.cli]]
+- [tests/test_writer_fence_recovery.py](../../../../../../tests/test_writer_fence_recovery.py) — imports consumer [[Reference/Modules/learnloop/cli/__init__|learnloop.cli]]
 - [tests/test_family_memory_projection.py](../../../../../../tests/test_family_memory_projection.py) — imports consumer [[Reference/Modules/learnloop/cli/field|learnloop.cli.field]]
 - [tests/test_field_signal_production_paths.py](../../../../../../tests/test_field_signal_production_paths.py) — imports consumer [[Reference/Modules/learnloop/cli/field|learnloop.cli.field]]
-- [tests/test_probability_prep.py](../../../../../../tests/test_probability_prep.py) — imports consumer [[Reference/Modules/learnloop/cli/field|learnloop.cli.field]]
 
 ## Modification guidance
 

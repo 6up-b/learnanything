@@ -135,11 +135,13 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]] — imports `module`
 - [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]] — imports `module`
 - [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] — imports `module`; statically calls `binding`, `register`
-- [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `module`; statically calls `binding`, `bound`, `writing_under`
+- [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `module`; statically calls `binding`, `bound`
 - [[Reference/Modules/learnloop/ops/upgrades|learnloop.ops.upgrades]] — imports `module`; statically calls `advance`, `observe`, `recorded_tag`, `writing_under`
 - [[Reference/Modules/learnloop/remote/errors|learnloop.remote.errors]] — imports `module`; statically calls `is_refusal`
+- [[Reference/Modules/learnloop/remote/runtime|learnloop.remote.runtime]] — imports `module`
 - [[Reference/Modules/learnloop/vault/loader|learnloop.vault.loader]] — imports `module`; statically calls `observe`
 - [[Reference/Modules/learnloop/vault/repository|learnloop.vault.repository]] — imports `module`; statically calls `bind_scope`, `recorded_tag`, `scoped`, `writing_under`
 - [[Reference/Modules/learnloop_sidecar/background_jobs|learnloop_sidecar.background_jobs]] — imports `module`; statically calls `current_scope`, `restored_scope`
@@ -168,7 +170,7 @@ Use this module in context through:
 
 - [[Initialize a Vault]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]], [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]], [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]], [[Reference/Modules/learnloop/ops/upgrades|learnloop.ops.upgrades]], [[Reference/Modules/learnloop/remote/errors|learnloop.remote.errors]] and 10 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/cli/app|learnloop.cli.app]], [[Reference/Modules/learnloop/content/pipeline/jobs|learnloop.content.pipeline.jobs]], [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]], [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]], [[Reference/Modules/learnloop/ops/upgrades|learnloop.ops.upgrades]] and 12 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -192,6 +194,12 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_wal_reader_from_before_the_activation_cannot_commit_after_it`
   - `test_every_fenced_write_has_its_trigger_at_the_head`
   - `test_every_fenced_write_refuses_a_writer_bound_to_another_tag`
+- [tests/test_writer_fence_recovery.py](../../../../../../tests/test_writer_fence_recovery.py) — direct import
+  - `test_a_cli_command_stops_on_a_refusal_with_its_words`
+  - `test_a_refusal_raised_while_answering_another_failure_is_still_answered`
+  - `test_a_same_vault_reload_after_an_upgrade_gives_new_ingest_claims_the_successors_repository`
+  - `test_a_stale_carry_over_repeating_a_stored_completion_records_its_progress`
+  - `test_a_stale_report_repeating_a_stored_completion_records_its_progress`
 - [tests/test_writer_fence_scopes.py](../../../../../../tests/test_writer_fence_scopes.py) — direct import
   - `test_a_pool_checkout_reads_its_binding_once`
   - `test_a_refusal_is_not_an_exception_a_broad_except_could_take`

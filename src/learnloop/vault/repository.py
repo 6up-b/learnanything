@@ -152,6 +152,21 @@ def config_behind_database(vault: LoadedVault) -> str | None:
     )
 
 
+class ConfigBehindDatabase(RuntimeError):
+    """A vault whose ``learnloop.toml`` names another tag than its database (restored from an older copy, or edited
+    by hand): nothing computed from it may be written, so a host refuses to serve it before it writes anything, and
+    the message names the command that repairs it."""
+
+
+def refuse_config_behind_database(vault: LoadedVault) -> None:
+    """Raise :class:`ConfigBehindDatabase` for a vault whose config disagrees with its database's tag: a load calls
+    this before its first write, so a recovery from a refusal never meets a second one."""
+
+    behind = config_behind_database(vault)
+    if behind is not None:
+        raise ConfigBehindDatabase(behind)
+
+
 def bind_vault_writes(vault: LoadedVault) -> None:
     """Rebind the current scope to a vault a host just published in the middle of a request (a reload): the rest of
     the request writes under its tag."""
@@ -162,5 +177,6 @@ def bind_vault_writes(vault: LoadedVault) -> None:
 
 
 __all__ = [
-    "bind_vault_writes", "complete_interrupted_activation", "config_behind_database", "open_vault_repository", "vault_repository", "vault_writes",
+    "ConfigBehindDatabase", "bind_vault_writes", "complete_interrupted_activation", "config_behind_database",
+    "open_vault_repository", "refuse_config_behind_database", "vault_repository", "vault_writes",
 ]

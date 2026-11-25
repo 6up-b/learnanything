@@ -4,7 +4,10 @@ refusal predicate (the fence's own exception, or the trigger's text on a connect
 
 from __future__ import annotations
 
+import os
 import sqlite3
+import subprocess
+import sys
 from contextlib import closing, contextmanager
 from datetime import timedelta
 
@@ -17,7 +20,7 @@ from learnloop.clock import FrozenClock
 from learnloop.db import writer_fence
 from learnloop.db.repositories import Repository
 from learnloop.ops import upgrades
-from learnloop.ops.upgrades import UPGRADES
+from learnloop.ops.upgrades import UPGRADES, upgrade
 from learnloop.substrate.state_sync import sync_vault_state
 from learnloop.vault.loader import load_vault
 
@@ -60,6 +63,35 @@ def vault_at(tmp_path, tag, name="vault"):
     grade(vault, repository, minutes=0, answer="I do not know")
     grade(vault, repository, minutes=1)
     return paths
+
+
+def fenced_at_predecessor(tmp_path, name="vault"):
+    """A vault whose database is fenced at the predecessor: one fence-aware activation behind it."""
+
+    paths = vault_at(tmp_path, BEFORE.predecessor, name)
+    assert upgrade(paths.root, to=PREDECESSOR).upgraded
+    assert recorded(paths) == PREDECESSOR
+    return paths
+
+
+def upgrade_elsewhere(paths, to=TARGET) -> None:
+    """``learnloop upgrade`` in another process, as beside an open desktop or phone host."""
+
+    done = subprocess.run(
+        [sys.executable, "-c",
+         "import sys; from learnloop.ops.upgrades import upgrade; "
+         "sys.exit(0 if upgrade(sys.argv[1], to=sys.argv[2]).upgraded else 3)", str(paths.root), to],
+        env=dict(os.environ), capture_output=True, text=True, timeout=300,
+    )
+    assert done.returncode == 0, done.stderr
+    assert recorded(paths) == to
+
+
+def restore_config(paths, tag) -> None:
+    """Only ``learnloop.toml`` restored from an older copy: the database stays where it is."""
+
+    named = upgrades.published_algorithm_version(paths.root / "learnloop.toml")
+    upgrades.rewrite_algorithm_version(paths.root / "learnloop.toml", named, tag, durable=True)
 
 
 def count(paths, table: str) -> int:

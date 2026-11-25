@@ -46,32 +46,34 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/remote/runtime.py](../../../../../../src/learnloop/remote/runtime.py) |
-| Source lines | 243 |
+| Source lines | 257 |
 | Owning package | [[Reference/Modules/learnloop/remote/_package|learnloop.remote]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `class SchemaMismatch(RuntimeError)` ([source](../../../../../../src/learnloop/remote/runtime.py), line 66) — The vault's schema is not this code's: the desktop (primary) must migrate it.
-- `vault_sqlite_path(vault_root: Path) -> Path` ([source](../../../../../../src/learnloop/remote/runtime.py), line 72) — The vault's database, from its configuration only (no dotenv, no load).
-- `refuse_below_floor_as_mismatch(vault_root: Path) -> None` ([source](../../../../../../src/learnloop/remote/runtime.py), line 80) — Refuse a vault below the oldest supported tag as this process's own :class:`SchemaMismatch` (exit 78): only ``learnloop upgrade`` brings it there, so a supervisor restarting the process would loop.
-- `check_schema(sqlite_path: Path, *, vault_root: Path | None=None) -> None` ([source](../../../../../../src/learnloop/remote/runtime.py), line 90) — Refuse a database whose applied migrations differ from this code's.
-- `refuse_interrupted_activation(sqlite_path: Path) -> None` ([source](../../../../../../src/learnloop/remote/runtime.py), line 101) — Refuse a vault whose activation did not commit (LP-min (a), re-review F2).
-- `class RemoteRuntime` ([source](../../../../../../src/learnloop/remote/runtime.py), line 112) — One vault, attached as a secondary process.
-  - `attach(cls, vault_root: Path | str, *, load_environment: bool=True) -> 'RemoteRuntime'` (line 127; public) — Attach without migrating; :class:`SchemaMismatch` unless the schema matches.
-  - `vault(self) -> LoadedVault` (line 142; public) — The loaded vault, reloaded when its files changed (at most every 2 s).
-  - `forget_vault(self) -> None` (line 173; public) — Drop the cached vault (the writer fence refused a write computed from it, WF-R12): the next request loads the vault again at once, not after the fingerprint's window.
-  - `writes(self)` (line 180; public) — The writer fence's scope for one request: its writes are bound to the vault it loads now.
-  - `_settled_load(self, files: dict[str, tuple[int, int]], fingerprint: str) -> tuple[LoadedVault, str | None]` (line 185; internal) — A load whose files did not change while it ran, with its fingerprint; else the last load, marked unsettled, and no fingerprint.
-  - `read_repository(self) -> Repository` (line 204; public) — A read-only attach: reads through it can never write.
-  - `alias_key(self) -> bytes | None` (line 209; public) — The key chat's opaque aliases are made with: the vault's (``.learnloop/mcp/alias-key``, made by ``learnloop mcp serve``), or None, which keys them for this process (``learner_context``).
-  - `schema_ok(self) -> bool` (line 220; public)
-  - `describe(self) -> dict[str, Any]` (line 227; public)
+- `class SchemaMismatch(RuntimeError)` ([source](../../../../../../src/learnloop/remote/runtime.py), line 70) — The vault's schema is not this code's: the desktop (primary) must migrate it.
+- `vault_sqlite_path(vault_root: Path) -> Path` ([source](../../../../../../src/learnloop/remote/runtime.py), line 76) — The vault's database, from its configuration only (no dotenv, no load).
+- `refuse_below_floor_as_mismatch(vault_root: Path) -> None` ([source](../../../../../../src/learnloop/remote/runtime.py), line 84) — Refuse a vault below the oldest supported tag as this process's own :class:`SchemaMismatch` (exit 78): only ``learnloop upgrade`` brings it there, so a supervisor restarting the process would loop.
+- `check_schema(sqlite_path: Path, *, vault_root: Path | None=None) -> None` ([source](../../../../../../src/learnloop/remote/runtime.py), line 94) — Refuse a database whose applied migrations differ from this code's.
+- `refuse_interrupted_activation(sqlite_path: Path) -> None` ([source](../../../../../../src/learnloop/remote/runtime.py), line 105) — Refuse a vault whose activation did not commit (LP-min (a), re-review F2).
+- `class RemoteRuntime` ([source](../../../../../../src/learnloop/remote/runtime.py), line 116) — One vault, attached as a secondary process.
+  - `attach(cls, vault_root: Path | str, *, load_environment: bool=True) -> 'RemoteRuntime'` (line 131; public) — Attach without migrating; :class:`SchemaMismatch` unless the schema matches.
+  - `vault(self) -> LoadedVault` (line 146; public) — The loaded vault, reloaded when its files changed (at most every 2 s).
+  - `forget_vault(self) -> None` (line 177; public) — Drop the cached vault (the writer fence refused a write computed from it, WF-R12): the next request loads the vault again at once, not after the fingerprint's window.
+  - `config_behind(self) -> str | None` (line 184; public) — Plain words for a config that names another tag than the database (``learnloop upgrade`` repairs it), or None: what a refused request says instead of "try again", which would only be refused again.
+  - `writes(self)` (line 194; public) — The writer fence's scope for one request: its writes are bound to the vault it loads now.
+  - `_settled_load(self, files: dict[str, tuple[int, int]], fingerprint: str) -> tuple[LoadedVault, str | None]` (line 199; internal) — A load whose files did not change while it ran, with its fingerprint; else the last load, marked unsettled, and no fingerprint.
+  - `read_repository(self) -> Repository` (line 218; public) — A read-only attach: reads through it can never write.
+  - `alias_key(self) -> bytes | None` (line 223; public) — The key chat's opaque aliases are made with: the vault's (``.learnloop/mcp/alias-key``, made by ``learnloop mcp serve``), or None, which keys them for this process (``learner_context``).
+  - `schema_ok(self) -> bool` (line 234; public)
+  - `describe(self) -> dict[str, Any]` (line 241; public)
 
 ### Module constants
 
-- `FINGERPRINT_TTL_SECONDS` ([src/learnloop/remote/runtime.py](../../../../../../src/learnloop/remote/runtime.py), line 60)
+- `_LOG` ([src/learnloop/remote/runtime.py](../../../../../../src/learnloop/remote/runtime.py), line 60)
+- `FINGERPRINT_TTL_SECONDS` ([src/learnloop/remote/runtime.py](../../../../../../src/learnloop/remote/runtime.py), line 64)
 
 ### Explicit exports
 
@@ -107,17 +109,18 @@ No private top-level function or class definition is declared in this file.
 - [[Reference/Modules/learnloop/config/loader|learnloop.config.loader]] — imports `load_config`; calls `load_config`
 - [[Reference/Modules/learnloop/db/migrate|learnloop.db.migrate]] — imports `schema_is_current`; calls `schema_is_current`
 - [[Reference/Modules/learnloop/db/repositories|learnloop.db.repositories]] — imports `Repository`
+- [[Reference/Modules/learnloop/db/writer_fence|learnloop.db.writer_fence]] — imports `module`
 - [[Reference/Modules/learnloop/learner_context|learnloop.learner_context]] — imports `SNAPSHOT_UNSETTLED`
 - [[Reference/Modules/learnloop/remote/endpoint_token|learnloop.remote.endpoint_token]] — imports `read_alias_key`; calls `read_alias_key`
 - [[Reference/Modules/learnloop/vault/loader|learnloop.vault.loader]] — imports `CONTENT_FINGERPRINT_TTL_SECONDS`, `SETTLE_ATTEMPTS`, `SETTLE_PAUSE_SECONDS`, `content_digest`, `content_files`, `load_vault`, `refuse_vault_below_floor`, `settled_load_vault`, `vault_content_fingerprint`; calls `content_digest`, `content_files`, `load_vault`, `refuse_vault_below_floor`, `settled_load_vault`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `DoctorIssue`, `LoadedVault`; calls `DoctorIssue`
 - [[Reference/Modules/learnloop/vault/paths|learnloop.vault.paths]] — imports `VaultPaths`; calls `VaultPaths`
-- [[Reference/Modules/learnloop/vault/repository|learnloop.vault.repository]] — imports `vault_writes`; calls `vault_writes`
+- [[Reference/Modules/learnloop/vault/repository|learnloop.vault.repository]] — imports `config_behind_database`, `vault_writes`; calls `config_behind_database`, `vault_writes`
 - [[Reference/Modules/learnloop/version_floor|learnloop.version_floor]] — imports `BelowOldestSupported`
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `dataclasses`, `pathlib`, `threading`, `time`, `typing`
+- Standard library: `__future__`, `dataclasses`, `logging`, `pathlib`, `threading`, `time`, `typing`
 - Third party: none imported directly
 
 ## Larger workflow participation

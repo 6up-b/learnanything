@@ -91,6 +91,7 @@ Database triggers:
 
 ### Repository access surface
 
+- `Repository._completed_sections()`
 - `Repository.carry_reader_section_progress()`
 - `Repository.deferred_section_generations()`
 - `Repository.delete_source_artifact()`

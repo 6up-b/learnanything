@@ -114,7 +114,6 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/substrate/shadow_rebuild|learnloop.substrate.shadow_rebuild]] — imports `is_below_floor`, `is_unknown`, `may_open_below_floor`; statically calls `is_below_floor`, `is_unknown`, `may_open_below_floor`
 - [[Reference/Modules/learnloop/vault/loader|learnloop.vault.loader]] — imports `refuse_below_floor`; statically calls `refuse_below_floor`
 - [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `BelowOldestSupported`
-- [[Reference/Modules/learnloop_sidecar/server|learnloop_sidecar.server]] — imports `BelowOldestSupported`
 
 ## Dependencies
 
@@ -134,7 +133,7 @@ Use this module in context through:
 - [[Initialize a Vault]]
 - [[Start a Learning Cycle]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/activation_journal|learnloop.activation_journal]], [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]], [[Reference/Modules/learnloop/ops/upgrades|learnloop.ops.upgrades]], [[Reference/Modules/learnloop/remote/runtime|learnloop.remote.runtime]], [[Reference/Modules/learnloop/substrate/shadow_rebuild|learnloop.substrate.shadow_rebuild]] and 3 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/activation_journal|learnloop.activation_journal]], [[Reference/Modules/learnloop/ops/doctor|learnloop.ops.doctor]], [[Reference/Modules/learnloop/ops/upgrades|learnloop.ops.upgrades]], [[Reference/Modules/learnloop/remote/runtime|learnloop.remote.runtime]], [[Reference/Modules/learnloop/substrate/shadow_rebuild|learnloop.substrate.shadow_rebuild]] and 2 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 

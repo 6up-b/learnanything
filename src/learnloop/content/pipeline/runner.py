@@ -539,6 +539,9 @@ class IngestRunner:
         self._active_interrupts: dict[tuple[str, int], Callable[[], Any]] = {}
         #: Set by :meth:`halt`; never cleared (a host serving the vault again binds a new runner).
         self.halted = threading.Event()
+        #: Set by :meth:`retire`; never cleared: a successor runner takes every new claim.
+        self.retired = threading.Event()
+        self._claims_in_flight = 0
 
     def halt(self) -> None:
         """Stop writing to this vault, from any thread and without waiting: the host stopped serving it (below the
@@ -555,6 +558,20 @@ class IngestRunner:
                 interrupt()
             except Exception:  # noqa: BLE001 - the fence holds whether or not the transport stops
                 _LOG.warning("could not interrupt an ingest provider call at a halt", exc_info=True)
+
+    def retire(self) -> None:
+        """Claim nothing more: the host bound a successor runner to the same vault under another writer-fence binding
+        (a reload after an upgrade). A claim in flight finishes here as it began, its interrupt handle with it;
+        unlike :meth:`halt`, nothing is interrupted or fenced."""
+
+        self.retired.set()
+
+    @property
+    def busy(self) -> bool:
+        """Whether a claim of this runner is still running."""
+
+        with self._interrupt_lock:
+            return self._claims_in_flight > 0
 
     def active_interruptible_jobs(self) -> list[dict[str, Any]]:
         """Return running jobs that currently own an interruptible AI client."""
@@ -806,7 +823,7 @@ class IngestRunner:
         (no eligible job, another worker holds the drain lease, or another
         writer held the vault lock past the claim timeout)."""
 
-        if self.halted.is_set():
+        if self.halted.is_set() or self.retired.is_set():
             return False
         if self._lease_expiry_due():
             # Skipped when the vault lock is busy; retried on the next tick.
@@ -829,10 +846,16 @@ class IngestRunner:
             return False
         if job is None:
             return False
-        with _LIVE_ATTEMPTS.running(
-            self._database, job["id"], self.worker_id, job["attempt_count"]
-        ):
-            self._run_claimed(job)
+        with self._interrupt_lock:
+            self._claims_in_flight += 1
+        try:
+            with _LIVE_ATTEMPTS.running(
+                self._database, job["id"], self.worker_id, job["attempt_count"]
+            ):
+                self._run_claimed(job)
+        finally:
+            with self._interrupt_lock:
+                self._claims_in_flight -= 1
         return True
 
     def drain(

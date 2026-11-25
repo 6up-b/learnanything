@@ -27,14 +27,16 @@ spend). SQLite (WAL, ``busy_timeout``) serializes them with the desktop's.
 
 from __future__ import annotations
 
+import logging
 import threading
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from learnloop.vault.repository import vault_writes
+from learnloop.vault.repository import config_behind_database, vault_writes
 from learnloop import activation_journal
+from learnloop.db import writer_fence
 from learnloop.config.loader import load_config
 from learnloop.db.migrate import schema_is_current
 from learnloop.db.repositories import Repository
@@ -54,6 +56,8 @@ from learnloop.vault.loader import (
 from learnloop.vault.models import DoctorIssue, LoadedVault
 from learnloop.vault.paths import VaultPaths
 from learnloop.version_floor import BelowOldestSupported
+
+_LOG = logging.getLogger(__name__)
 
 #: Seconds a content fingerprint is reused before the vault's files are stat'ed again
 #: (the vault loader's, shared with ``SidecarContext.load_secondary``).
@@ -176,6 +180,16 @@ class RemoteRuntime:
 
         with self._lock:
             self._vault, self._fingerprint, self._checked_at = None, None, float("-inf")
+
+    def config_behind(self) -> str | None:
+        """Plain words for a config that names another tag than the database (``learnloop upgrade`` repairs it), or
+        None: what a refused request says instead of "try again", which would only be refused again."""
+
+        try:
+            return config_behind_database(self.vault())
+        except (Exception, writer_fence.WriterFenceRefusal):  # noqa: BLE001 - a diagnosis only; the refusal stands
+            _LOG.warning("could not compare the config with the database's tag", exc_info=True)
+            return None
 
     def writes(self):
         """The writer fence's scope for one request: its writes are bound to the vault it loads now."""

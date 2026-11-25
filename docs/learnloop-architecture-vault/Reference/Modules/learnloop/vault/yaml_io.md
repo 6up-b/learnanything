@@ -543,6 +543,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_writer_preserves_unknown_keys_and_timestamps`
 - [tests/test_voi_forecasts.py](../../../../../../tests/test_voi_forecasts.py) — direct import
 - [tests/test_voi_v2.py](../../../../../../tests/test_voi_v2.py) — direct import
+- [tests/test_writer_fence_recovery.py](../../../../../../tests/test_writer_fence_recovery.py) — direct import
 - [tests/test_yaml_fast_read.py](../../../../../../tests/test_yaml_fast_read.py) — direct import
   - `test_fast_frontmatter_read_matches_round_trip_read`
   - `test_fast_read_matches_round_trip_read_for_edge_cases`

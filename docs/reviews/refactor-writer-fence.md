@@ -270,3 +270,75 @@ records.
 `a45e3c1b1c`. The outbox test's retryable case failed on the old outbox. The round-one fence tests now expect the
 fence's own exception on this code's connections.
 
+
+## Round 4 (2026-11-25, ledger R4-F1 to R4-F5)
+
+The verification review of round 3 (`a45e3c1b1c..6cea38cad2`) found WF-R1, WF-R2 and WF-R4 only partly closed, and
+two new fence defects. No migration and no tag: nothing stored changes meaning. Tests:
+`tests/test_writer_fence_recovery.py`, and the guards in `tests/test_writer_fence_scopes.py`.
+
+**R4-F1 (blocker): a second refusal during recovery ended the desktop host.**
+
+- **The failure.** A predecessor `learnloop.toml` restored over a successor database, plus a learning object without
+  a mastery row. The first refused write entered recovery. `reload(maintenance=False)` synced the new object, a
+  second fenced write. The recovery's `except Exception` let that refusal through, and `serve()` closed. Restarting
+  against the same files repeated it.
+- **Compare before writing.** A load compares the config's tag with the database's right after the repository opens,
+  before state sync or any recovery writes. `SidecarContext.load` and `load_secondary` both do.
+  - A disagreement raises `ConfigBehindDatabase`, one more unservable state beside below-the-floor and an unfinished
+    upgrade.
+  - It is answered as the existing non-retryable `vault_upgraded_while_open`, with the `learnloop upgrade` command.
+  - Once `learnloop upgrade` sets the config back, the watcher's reload (or a new initialize) serves the vault again.
+- **No host loop ends on a refusal.** Each host's last boundary answers one, including a refusal raised while
+  another failure was being answered.
+  - The sidecar's `_handle`, through which the desktop's stdio loop and the phone host's workers dispatch.
+  - The phone host's jobs and redrives. A reload refused there also gets its unservable words.
+  - The MCP tool call's record. A refused tool call names `learnloop upgrade` when the config is behind.
+  - The CLI's entry point, which prints the refusal's words and exits with status 1.
+- **The guards.** Every handler that takes a refusal without re-raising it calls only what writes nothing: logging,
+  building the answer, handing the refusal on. The AST test follows calls into functions of the handler's own module
+  and a short list of answer builders elsewhere. Anything else must run inside a `try` that itself takes the refusal.
+  A second test requires the hosts' last boundaries.
+
+**R4-F2: a same-vault reload left new ingest work fenced out (WF-R1's residue).**
+
+- **The failure.** The host's reload binds the ingest jobs again with the successor's repository. The manager kept
+  its runner, so that a live call's interrupt handle survives a reload, and the runner kept the predecessor's
+  repository. After an upgrade every new claim wrote under the old tag and was refused until the host restarted. A
+  reread's carried-over completion meets migration 276 this way.
+- **The fix.** A same-vault rebind whose repository writes under another binding (`Repository.writer_tags`) binds a
+  new runner for new claims. The new runner takes the old one's clock, services and handlers.
+  - The old runner is retired (`IngestRunner.retire`). It claims nothing more and finishes only the claim it holds.
+  - It is kept while busy, so `interrupt_codex` still reaches its live call and a halt still stops it.
+  - A reload at the same tag keeps the runner, as before.
+- **A narrow race.** A claim the old runner takes just as it is retired meets the fence at its first fenced write.
+  The drain loop takes the refusal; the job's lease expires and the successor's runner requeues it.
+
+**R4-F3: a vault with no database could not take the upgrade path (WF-R4's residue).**
+
+- **The failure.** The walk's fence-tag probe opened `state.sqlite` read-only before the repository opener could
+  create it. A content-only vault (an intact `learnloop.toml`, no database) failed at once.
+- **The fix.** An absent database file has no recorded tag, so the walk goes on and the existing opener creates the
+  database. An existing database that cannot be read still stops the walk.
+- **The owner's walk.** The owner's live vaults are at mvp-0.61. `test_the_owners_tag_walks_to_the_head_with_its_history`
+  walks a vault with a database and graded history from mvp-0.61 to the head end to end. Every link activates, both
+  tags reach the head, and the history stays. The floor tests already walked from mvp-0.58; this one starts where
+  the owner's vaults are.
+
+**R4-F4: repeating a stored completion was refused (WF-R8's residue).**
+
+- **The failure.** An upsert's `BEFORE INSERT` trigger fires before the conflict turns the insert into an update.
+  So migration 276's insert trigger refused a stale report that only repeated a section's stored completion. The
+  store would have kept the original completion anyway. The report's progress was lost, and the host answered
+  `vault_upgraded_while_open`. The reread carry-over had the same shape.
+- **The fix is in the store.** The landed migration is not amended. Both writers read which sections already hold a
+  completion and send no completion for them. A completion never clears, so a completion committed between the read
+  and the write is kept either way. A first completion by a stale writer is still refused.
+
+**R4-F5: nothing else.** WF-R1, WF-R2 and WF-R4's "Partly" verdicts name exactly the residues above: the ingest
+runner (R4-F2), a second refusal in a host's refusal handler and the restored-config recovery (R4-F1), and the
+content-only vault (R4-F3).
+
+**Still not enforced.** A one-shot background thread (an exam answer's grader, a key-check recovery) that meets a
+refusal still ends with its traceback in the log, as before: its writes rolled back, and the host reloads at its next
+request.

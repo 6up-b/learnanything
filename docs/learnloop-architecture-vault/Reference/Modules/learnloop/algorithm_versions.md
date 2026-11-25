@@ -997,6 +997,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_lookahead_on_a_predictive_objective_episode_serves_the_incumbents_pick`
   - `test_the_predictive_information_matches_the_probe_episodes_own_objective`
 - [tests/test_writer_fence.py](../../../../../tests/test_writer_fence.py) — direct import
+- [tests/test_writer_fence_recovery.py](../../../../../tests/test_writer_fence_recovery.py) — direct import
+  - `test_a_content_only_vault_with_no_database_takes_the_upgrade_path`
+  - `test_the_owners_tag_walks_to_the_head_with_its_history`
+  - `test_the_upgrade_command_takes_a_content_only_vault_to_the_head`
 - [tests/why_cases_helpers.py](../../../../../tests/why_cases_helpers.py) — direct import
 - [tests/writer_fence_helpers.py](../../../../../tests/writer_fence_helpers.py) — direct import
 

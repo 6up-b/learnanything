@@ -157,6 +157,9 @@ class DurableIngestJobs:
 
     def __init__(self) -> None:
         self._runner: IngestRunner | None = None
+        #: Runners a same-vault rebind under another writer-fence binding replaced, kept while a claim of
+        #: theirs runs: its interrupt handle stays reachable (``interrupt_codex``) and a halt reaches it.
+        self._retired_runners: list[IngestRunner] = []
         self._lock = threading.RLock()
         self._reloaded: set[str] = set()
         self._reload_observed: dict[str, set[str]] = {}
@@ -237,6 +240,7 @@ class DurableIngestJobs:
         """
 
         previous: IngestRunner | None = None
+        retired: IngestRunner | None = None
         with self._lock:
             if self._halted:
                 # The vault is served again (``halt``): this host's loops may run once more.
@@ -248,7 +252,26 @@ class DurableIngestJobs:
             same_vault = self._runner is not None and self._runner.vault_root.resolve() == Path(
                 vault_root
             ).resolve()
-            if same_vault:
+            self._retired_runners = [old for old in self._retired_runners if old.busy]
+            if same_vault and self._runner is not None and self._runner.repo.writer_tags != repository.writer_tags:
+                # The writer fence: the reload follows an upgrade, so the kept runner's repository writes
+                # under the predecessor's tag and every new claim would be refused until a restart. New claims go to
+                # a runner bound to the successor's repository; the old one finishes only the claim it holds, with
+                # its interrupt handle (kept reachable through ``_retired_runners``).
+                retired = self._runner
+                runner = IngestRunner(
+                    repository,
+                    vault_root=retired.vault_root,
+                    worker_id=retired.worker_id,
+                    clock=clock if clock is not None else retired.clock,
+                    handlers=retired.handlers,
+                    services=services if services is not None else retired.services,
+                    lease_ttl_seconds=lease_ttl_seconds,
+                    heartbeat_interval_seconds=heartbeat_interval_seconds,
+                )
+                self._runner = runner
+                self._retired_runners.append(retired)
+            elif same_vault:
                 # SidecarContext.reload() refreshes the loaded vault after an
                 # applying job completes. The drain thread may already be inside
                 # the next Codex call, so replacing its runner here would orphan
@@ -280,6 +303,8 @@ class DurableIngestJobs:
             if not same_vault or background is not None:
                 self._background = True if background is None else background
             self._poll_interval = poll_interval_seconds
+        if retired is not None:
+            retired.retire()
         if previous is not None:
             # A vault switch. The running loops move to the new runner at their next turn, and the previous vault's
             # runner stops as at a refusal: it claims nothing more and fences its job in flight (whose lease then
@@ -849,10 +874,12 @@ class DurableIngestJobs:
 
         with self._lock:
             runner, self._runner = self._runner, None
+            retired, self._retired_runners = self._retired_runners, []
             self._halted = True
             self._stop.set()
-        if runner is not None:
-            runner.halt()
+        for stopped in [runner, *retired]:
+            if stopped is not None:
+                stopped.halt()
         self._work_available.set()
         self._quick_check_work_available.set()
         self._reading_sweep_wake.set()
@@ -1622,8 +1649,16 @@ class DurableIngestJobs:
     def interrupt_codex(self, job_id: str | None = None) -> dict[str, Any]:
         """Interrupt one live Codex call while keeping the sidecar process alive."""
 
-        runner = self._require_runner()
-        active = runner.active_interruptible_jobs()
+        current = self._require_runner()
+        with self._lock:
+            runners = [current, *self._retired_runners]
+        # A claim a retired runner still holds is interrupted through the runner that holds its handle.
+        active: list[dict[str, Any]] = []
+        owners: dict[str, IngestRunner] = {}
+        for owner in runners:
+            for job in owner.active_interruptible_jobs():
+                active.append(job)
+                owners[job["id"]] = owner
         if job_id is None:
             if not active:
                 raise ValueError("No interruptible Codex ingest call is running.")
@@ -1634,7 +1669,7 @@ class DurableIngestJobs:
         else:
             selected = next((job for job in active if job["id"] == job_id), None)
             if selected is None:
-                job = runner.repo.get_ingest_job(job_id)
+                job = current.repo.get_ingest_job(job_id)
                 if job is None:
                     raise ValueError(f"Ingest job '{job_id}' was not found.")
                 if job.get("status") != "running":
@@ -1644,7 +1679,8 @@ class DurableIngestJobs:
             # Interrupting cancels the job's batch: as any cancel, it answers
             # the book's reading request, in the cancel's transaction; the
             # call is interrupted only once both committed.
-            settle = self._settle_reading_with_cancel(runner, str(selected["batch_id"]))
+            runner = owners.get(selected["id"], current)
+            settle = self._settle_reading_with_cancel(current, str(selected["batch_id"]))
             if not runner.interrupt_job(selected["id"], alongside=settle):
                 raise ValueError(f"Codex call for ingest job '{selected['id']}' already finished.")
         return {

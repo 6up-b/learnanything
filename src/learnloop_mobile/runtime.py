@@ -22,6 +22,7 @@ import time
 from typing import Any, Callable, Mapping
 
 from learnloop import capture, provenance
+from learnloop.db import writer_fence
 from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
 
@@ -257,6 +258,7 @@ class HostRuntime:
 
     @staticmethod
     def _dispatch(worker: _Worker, method: str, params: Mapping[str, Any], origin: Any) -> dict[str, Any]:
+        from learnloop_sidecar.context import UNSERVABLE, unservable_error
         from learnloop_sidecar.errors import SidecarError, sidecar_error
         from learnloop_sidecar.server import _handle
 
@@ -270,6 +272,10 @@ class HostRuntime:
                 context.refresh_if_content_changed()
             except SidecarError as error:
                 return {"jsonrpc": "2.0", "id": request_id, "error": sidecar_error(error)}
+            except UNSERVABLE as refused:
+                # A reload refused (a config that names another tag than the database; below the floor; an
+                # unfinished upgrade): the phone gets the words that name the command to run.
+                return {"jsonrpc": "2.0", "id": request_id, "error": sidecar_error(unservable_error(refused))}
             with context.acting_as(origin):
                 response = _handle(context, {"jsonrpc": "2.0", "id": request_id, "method": method,
                                              "params": dict(params)}, trace_id=trace_id)
@@ -405,7 +411,7 @@ class HostRuntime:
                 job_id=job_id,
             )
             response = self._dispatch(worker, job["method"], job["params"], origin)
-        except Exception:
+        except (Exception, writer_fence.WriterFenceRefusal):  # the job is answered and finished either way
             LOG.exception("job %s failed", job_id)
             response = {"error": {"message": "This request stopped unexpectedly.", "data": {"code": "internal"}}}
         error = flat_error(response)
@@ -638,7 +644,7 @@ class HostRuntime:
                      params: Mapping[str, Any], origin: Any) -> None:
         try:
             response = self._dispatch(worker, "recover_practice_submission", params, origin)
-        except Exception:
+        except (Exception, writer_fence.WriterFenceRefusal):  # answered either way
             LOG.exception("recovery of submission %s stopped", submission_id)
             response = {"error": {"message": "This request stopped unexpectedly.", "data": {"code": "internal"}}}
         error = flat_error(response)
