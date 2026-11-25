@@ -154,8 +154,6 @@ def _unclassified(named: dict[str, set[str]]) -> dict[str, list[str]]:
 UNRULED_REVIEWED: dict[str, str] = {
     "learnloop.db.stores.practice_state:PracticeStateStoreMixin.mastery_states":
         "the named carve-out (CARVE_OUTS: AD1's mastery_ekf comparator, learnloop.adaptive_difficulty.forecasters)",
-    "learnloop.db.stores.practice_state:PracticeStateStoreMixin.item_parameter_states":
-        "the named carve-out (CARVE_OUTS: AD1's mastery_ekf comparator, learnloop.adaptive_difficulty.forecasters)",
     "learnloop.daily_plan.estimates:load_duration_evidence":
         "the incumbent's branch: AD passes its material view's attempt rows, so the raw SELECT never runs in AD",
     "learnloop.daily_plan.estimates:_feedback_dwell":
