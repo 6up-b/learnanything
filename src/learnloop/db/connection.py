@@ -105,9 +105,12 @@ def connect(sqlite_path: Path, *, read_only: bool = False) -> sqlite3.Connection
 
     require_supported_sqlite()
     sqlite_path = Path(sqlite_path)
+    # The writer fence's binding, read once for this checkout: the pool's key and the registration are the same read
+    # (a reload between two reads filed a successor's connection under a predecessor's key).
+    writer_tags = frozenset() if read_only else writer_fence.binding(sqlite_path)
     pool = _REUSED.get()
     if pool is not None and pool.thread == threading.get_ident():
-        reused = pool.connect(sqlite_path, read_only=read_only)
+        reused = pool.connect(sqlite_path, read_only=read_only, writer_tags=writer_tags)
         if reused is not None:
             return reused  # type: ignore[return-value]
     if read_only:
@@ -115,27 +118,27 @@ def connect(sqlite_path: Path, *, read_only: bool = False) -> sqlite3.Connection
 
         return apply_connection_hook(_open_read_only(sqlite_path), sqlite_path)
     sqlite_path.parent.mkdir(parents=True, exist_ok=True)
-    connection = _open_writable(sqlite_path)
+    connection = _open_writable(sqlite_path, writer_tags=writer_tags)
     from learnloop.db.scopes import guarded_connection
 
     return guarded_connection(connection, sqlite_path)
 
 
-def _open_writable(sqlite_path: Path, *, factory: type[sqlite3.Connection] = sqlite3.Connection) -> sqlite3.Connection:
+def _open_writable(
+    sqlite_path: Path,
+    *,
+    factory: type[sqlite3.Connection] = writer_fence.FencedConnection,
+    writer_tags: frozenset[str] | None = None,
+) -> sqlite3.Connection:
     connection = sqlite3.connect(sqlite_path, factory=factory)
     _configure(connection)
     connection.execute("PRAGMA synchronous = FULL")
-    # The writer fence (migration 275): the tags this connection writes under, as of its open. A pool keeps
-    # connections of one binding apart from another's (``writer_fence_key``), so a reused one never carries a binding
-    # it was not opened with.
-    writer_fence.register(connection, sqlite_path)
+    # The writer fence (migrations 275, 276): the tags this connection writes under, the checkout's one read of its
+    # binding. A pool keys connections by the same tags, so a reused one never carries a binding it was not opened
+    # with; a refused write on it raises the fence's own exception (``writer_fence.FencedConnection``).
+    writer_fence.register(
+        connection, sqlite_path, writer_fence.binding(sqlite_path) if writer_tags is None else writer_tags)
     return connection
-
-
-def writer_fence_key(sqlite_path: Path) -> tuple[str, ...]:
-    """The binding a writable connection opened now would carry: part of a pool's key (``reused_connections``)."""
-
-    return tuple(sorted(writer_fence.binding(sqlite_path)))
 
 
 # -- Router speed stage 2, item 4: connections reused within one objective job -------------------------------------
@@ -182,12 +185,13 @@ class _ConnectionPool:
         self.handed = 0
         self.closed = False
 
-    def connect(self, sqlite_path: Path, *, read_only: bool) -> "_ReusedConnection | None":
+    def connect(self, sqlite_path: Path, *, read_only: bool,
+                writer_tags: frozenset[str] = frozenset()) -> "_ReusedConnection | None":
         from learnloop.db.scopes import apply_connection_hook, current_ingest_job_id
 
         if self.closed or (not read_only and current_ingest_job_id(sqlite_path) is not None):
             return None  # an ingest job's writes are fenced by its own guarded connection
-        key = (str(sqlite_path.resolve()), bool(read_only), () if read_only else writer_fence_key(sqlite_path))
+        key = (str(sqlite_path.resolve()), bool(read_only), () if read_only else tuple(sorted(writer_tags)))
         idle = self.idle.get(key)
         if idle:
             raw = idle.pop()
@@ -196,7 +200,7 @@ class _ConnectionPool:
                 raw = _open_read_only(sqlite_path, factory=_PooledSqlite)
             else:
                 sqlite_path.parent.mkdir(parents=True, exist_ok=True)
-                raw = _open_writable(sqlite_path, factory=_PooledSqlite)
+                raw = _open_writable(sqlite_path, factory=_PooledSqlite, writer_tags=writer_tags)
             self.opened += 1
         self.handed += 1
         # As at an open: no authorizer but the current operation's (installed by the hook, which expires every
@@ -317,7 +321,7 @@ _CONNECTION_STATE_CALLS = frozenset({
     "enable_load_extension", "load_extension", "setlimit", "setconfig", "deserialize"})
 
 
-class _PooledSqlite(sqlite3.Connection):
+class _PooledSqlite(writer_fence.FencedConnection):
     """A pooled connection's SQLite connection (router speed stage 2, landing ruling R4: Codex's verify N1). Whatever
     authorizer a checkout installs (the AD guard's, through the connection hook, or none) is wrapped, so every
     statement the checkout prepares is seen by its authorizer action: a PRAGMA with an argument (``SQLITE_PRAGMA``

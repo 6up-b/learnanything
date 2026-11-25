@@ -26,7 +26,7 @@ from __future__ import annotations
 import json
 import os
 from collections.abc import Callable, Sequence
-from contextlib import contextmanager
+from contextlib import closing, contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -61,6 +61,7 @@ from learnloop.db.stores.attempts import rank_legacy_attempts
 from learnloop.db.stores.grade_curves import snapshot_grade_curves
 from learnloop.db.stores.practice_state import record_legacy_mastery_seeds
 from learnloop.db import writer_fence
+from learnloop.db.connection import connect
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.attempts import record_legacy_lifecycle_inputs
 from learnloop.ops.settings_store import updated_config_text
@@ -348,6 +349,36 @@ def _upgrade(root: Path, *, to: str, clock: Clock | None, links: Sequence[Link])
     if activation_journal.pending(sqlite_path):
         return UpgradeResult(upgraded=False, from_version=original, to_version=to,
                              problems=[_unknown_journal(sqlite_path)])
+    # The walk starts from the database's tag (the writer fence's row) when it has one.
+    original, repaired, refused = _start_from_the_database(root, sqlite_path, original)
+    if refused is not None:
+        return UpgradeResult(upgraded=False, from_version=original, to_version=to, problems=[refused])
+    result = _walk_to(root, to=to, original=original, completed=completed, clock=clock, links=links, by_tag=by_tag)
+    result.notes[:0] = repaired
+    return result
+
+
+def _start_from_the_database(root: Path, sqlite_path: Path, named: str) -> tuple[str, list[str], str | None]:
+    """The tag the walk starts from, the notes of a repair, and a refusal. A config that disagrees with the database's
+    tag (restored from an older copy, or edited by hand; no journal stands) is set back to it first: walking from the
+    file would move the database's tag back or sideways, and answering "already" would leave the file behind it."""
+
+    with closing(connect(sqlite_path, read_only=True)) as connection:
+        recorded = writer_fence.recorded_tag(connection)
+    if recorded is None or recorded == named:
+        return named, [], None
+    if recorded not in SUCCESSOR_CHAIN:
+        return named, [], (
+            f"this vault's database is at {recorded}, a tag this LearnLoop does not know (a newer LearnLoop "
+            f"upgraded it), while learnloop.toml names {named}: open it with that LearnLoop"
+        )
+    publish_algorithm_version(root / "learnloop.toml", named, recorded)
+    return recorded, [f"learnloop.toml named {named} but the vault's database is at {recorded}: the config names "
+                      f"{recorded} again"], None
+
+
+def _walk_to(root: Path, *, to: str, original: str, completed: str | None, clock: Clock | None,
+             links: Sequence[Link], by_tag: dict[str, Link]) -> UpgradeResult:
     if original == to:
         if completed == to:
             return UpgradeResult(upgraded=True, from_version=to, to_version=to,
@@ -490,7 +521,9 @@ def _activate_as_writer(root: Path, link: Link, *, publish: bool, clock: Clock |
             # The database's tag moves here, inside the transaction: it commits with the successor's state and
             # never before it, so a writer still at the predecessor is refused from the commit on.
             with repository.connection() as connection:
-                writer_fence.activate(connection, target=target, recorded_at=utc_now_iso(clock))
+                # From the predecessor only, under this transaction's lock: never back or sideways.
+                writer_fence.advance(connection, predecessor=predecessor, target=target,
+                                     recorded_at=utc_now_iso(clock))
             vault.config.algorithms.algorithm_version = target
             link.activate.run(vault, repository, predecessor, clock)
             registry_service.refresh(vault, repository, clock=clock)

@@ -51,7 +51,9 @@ source_text_assertions = 23
 # records mastery's application facts (the gate and the call; the builder lives in learner/mastery.py), within what
 # mvp-0.74 freed.
 "src/learnloop/attempts/attempts.py" = 5871
-"src/learnloop/db/repositories.py" = 3025
+# 3034: the writer fence's review fix round (WF-R1): a repository keeps the binding it was made with (the field, the
+# connection helper and its three call sites, the import).
+"src/learnloop/db/repositories.py" = 3034
 # 4468: the probe router's continuation (G2 R8): a router-owned episode's one candidate is the item its standing pin
 # names, admitted by that decision whatever its EIG and placed first (the episode reads, the probe gate's admission, the
 # lazy reads' field, the front placement).

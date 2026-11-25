@@ -1,4 +1,4 @@
-"""Exact schema additions made by the writer fence's migration (275) for cross-migration diff tests."""
+"""Exact schema additions made by the writer fence's migrations (275 and 276) for cross-migration diff tests."""
 
 from learnloop.db.writer_fence import GUARDED
 

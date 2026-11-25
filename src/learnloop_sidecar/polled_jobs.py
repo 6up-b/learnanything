@@ -43,6 +43,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from learnloop.db import writer_fence
+from learnloop_sidecar.errors import upgraded_while_open_error
 from learnloop.ai.spend import SpendCancelled
 from learnloop_sidecar.background_jobs import background_jobs
 from learnloop_sidecar.errors import SidecarError, waiting_for_ok_error
@@ -198,6 +200,8 @@ def as_job_error(exc: BaseException, *, cancelled: bool) -> SidecarError:
         exc = exc.__cause__
     if isinstance(exc, SidecarError):
         return exc
+    if writer_fence.is_refusal(exc):
+        return upgraded_while_open_error()
     if isinstance(exc, ModelUseNotAccepted):
         return waiting_for_ok_error()
     if isinstance(exc, SpendCancelled):

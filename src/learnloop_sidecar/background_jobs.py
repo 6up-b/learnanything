@@ -32,6 +32,7 @@ import threading
 import time
 from typing import Any, Callable
 
+from learnloop.db import writer_fence
 from learnloop import provenance
 from learnloop.ai.execution import active_request_gate, gate_model_requests
 from learnloop.ai.spend import SpendCancelled
@@ -100,9 +101,12 @@ class BackgroundJobs:
 
         start_epoch = self.epoch() if epoch is None else epoch
         trace = provenance.current_trace()
+        # The writer fence: the job writes under the vault of the request that started it, not under what the
+        # process loads while it runs.
+        scope = writer_fence.current_scope()
 
         def run() -> None:
-            with provenance.trace_scope(trace), \
+            with provenance.trace_scope(trace), writer_fence.restored_scope(scope), \
                     gate_model_requests(_ClosingGate(self, start_epoch, active_request_gate())):
                 target()
 

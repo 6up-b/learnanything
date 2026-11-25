@@ -28,6 +28,10 @@ class InvalidRequest(RemoteRequestError):
     code = "invalid_request"
 
 
+#: The writer fence's refusal, for an adapter that may not import the database layer (a ``BaseException``).
+FenceRefusal = writer_fence.WriterFenceRefusal
+
+
 def upgraded_while_open(error: BaseException) -> RemoteRequestError | None:
     """The refusal to show for a write the writer fence refused (``learnloop.db.writer_fence``): the vault was
     upgraded after this request loaded it, nothing was saved, and the next request loads it again. None for any other
@@ -41,4 +45,4 @@ def upgraded_while_open(error: BaseException) -> RemoteRequestError | None:
     )
 
 
-__all__ = ["InvalidRequest", "NotFound", "RemoteRequestError", "upgraded_while_open"]
+__all__ = ["FenceRefusal", "InvalidRequest", "NotFound", "RemoteRequestError", "upgraded_while_open"]

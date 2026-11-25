@@ -38,7 +38,7 @@ from learnloop.ids import new_ulid
 from learnloop.learner_context import ContextLimits, learning_context
 from learnloop.remote import views
 from learnloop.content.sources.exam_material import SourceSetsUnreadable
-from learnloop.remote.errors import RemoteRequestError, upgraded_while_open
+from learnloop.remote.errors import FenceRefusal, RemoteRequestError, upgraded_while_open
 from learnloop.remote.runtime import RemoteRuntime, SchemaMismatch
 from learnloop.remote.sources import DEFAULT_CHAR_BUDGET, MAX_CHAR_BUDGET, find_passages, plan_passages
 from learnloop.remote.telemetry import CallOrigin, record_tool_call
@@ -402,7 +402,12 @@ class ToolCalls:
         error_code: str | None = None
         message = ""
         try:
-            outcome = body(call_id)
+            # The writer fence: this request's writes are bound to the vault it loads.
+            with self.runtime.writes():
+                outcome = body(call_id)
+        except FenceRefusal as exc:
+            # A BaseException (no `except Exception` takes it): the vault was upgraded after it was loaded.
+            error_code, message = self._fenced(exc)
         except RemoteRequestError as exc:
             error_code, message = exc.code, str(exc)
         except SchemaMismatch as exc:
@@ -411,11 +416,8 @@ class ToolCalls:
             _LOG.warning("tool %s: source sets unreadable (%s)", tool, "; ".join(exc.reasons))
             error_code, message = exc.code, str(exc)
         except Exception as exc:  # noqa: BLE001 - no internal text reaches the host
-            refused = upgraded_while_open(exc)
-            if refused is not None:
-                # The vault was upgraded after this request loaded it: nothing was saved, and the next request loads
-                # the vault again (each one does), so a retry runs under the new tag.
-                error_code, message = refused.code, str(refused)
+            if upgraded_while_open(exc) is not None:
+                error_code, message = self._fenced(exc)
             else:
                 _LOG.exception("tool %s failed", tool)
                 error_code, message = "failed", "LearnLoop could not answer this request; nothing was changed."
@@ -428,6 +430,15 @@ class ToolCalls:
         if outcome is None:
             raise ToolError(message or "LearnLoop could not answer this request.")
         return outcome.result
+
+    def _fenced(self, exc: BaseException) -> tuple[str, str]:
+        """The vault was upgraded after this request loaded it: nothing was saved. The cached vault is dropped, so the
+        next request loads the vault again at once and a retry runs under the new tag (WF-R12)."""
+
+        self.runtime.forget_vault()
+        refused = upgraded_while_open(exc)
+        assert refused is not None
+        return refused.code, str(refused)
 
     def record_rejected(self, name: str, arguments: Any, ctx: Context | None, error: BaseException,
                         tools: frozenset[str]) -> None:

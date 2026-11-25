@@ -22,6 +22,7 @@ from learnloop.activation_journal import refuse_if_interrupted
 from learnloop.recurrence import key_for_statement, recurrence_key
 from learnloop.outcome_contract import COLLECTION_VERSION
 from learnloop.clock import Clock, utc_now_iso
+from learnloop.db import writer_fence
 from learnloop.db.connection import connect
 from learnloop.db.migrate import create_or_attach_current
 from learnloop.db.row_serialization import _json, _loads
@@ -353,6 +354,14 @@ class Repository(
         self.sqlite_path = Path(sqlite_path)
         self._read_only = bool(read_only)
         self._pin = threading.local()
+        # The writer fence: it writes under the binding in force when it was made (the vault it was opened for).
+        self._writer_tags = None if self._read_only else (writer_fence.binding(self.sqlite_path) or None)
+
+    def _connect(self) -> sqlite3.Connection:
+        with writer_fence.bound(self.sqlite_path, self._writer_tags):
+            return connect(self.sqlite_path, read_only=self._read_only)
+        with writer_fence.writing_under(self.sqlite_path, *self._writer_tags):
+            return connect(self.sqlite_path, read_only=self._read_only)
 
     def connection(self) -> sqlite3.Connection:
         pinned = getattr(self._pin, "connection", None)
@@ -360,7 +369,7 @@ class Repository(
             return pinned
         from learnloop.db.scopes import OwnedConnection
 
-        return OwnedConnection(connect(self.sqlite_path, read_only=self._read_only))
+        return OwnedConnection(self._connect())
 
     def in_atomic(self) -> bool:
         """This thread is inside an ``atomic()`` block (a new one would be a savepoint of it)."""
@@ -391,7 +400,7 @@ class Repository(
             return
         owns_connection = current is None
         raw = (
-            connect(self.sqlite_path, read_only=self._read_only)
+            self._connect()
             if owns_connection
             else current._connection
         )
@@ -428,7 +437,7 @@ class Repository(
         if getattr(self._pin, "connection", None) is not None:
             yield
             return
-        raw = connect(self.sqlite_path, read_only=self._read_only)
+        raw = self._connect()
         pin = _PinnedConnection(raw)
         self._pin.connection = pin
         try:

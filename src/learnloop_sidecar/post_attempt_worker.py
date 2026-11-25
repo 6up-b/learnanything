@@ -28,6 +28,8 @@ import time
 from typing import Any, Callable
 
 from learnloop import provenance
+from learnloop.db import writer_fence
+from learnloop.vault.repository import vault_writes
 from learnloop.ids import new_ulid
 
 LOG = logging.getLogger(__name__)
@@ -162,12 +164,17 @@ class PostAttemptWorker:
     def run_pending(self, kind: str = "diagnose", *, max_jobs: int = 100, clock: Any = None) -> list[Any]:
         """Synchronously run runnable jobs of ``kind`` (tests and drains)."""
 
-        from learnloop.diagnosis.split.jobs import process_next_job
-
         supplied = self._supplier() if self._supplier is not None else None
         if supplied is None:
             return []
         vault, sqlite_path = supplied
+        # The writer fence: this pass writes under the vault it was handed, the context's current one.
+        with vault_writes(vault):
+            return self._run_supplied(kind, vault, sqlite_path, max_jobs=max_jobs, clock=clock)
+
+    def _run_supplied(self, kind: str, vault: Any, sqlite_path: Any, *, max_jobs: int, clock: Any) -> list[Any]:
+        from learnloop.diagnosis.split.jobs import process_next_job
+
         repository = self._repository(sqlite_path)
         if kind == "gaps":
             return self._run_gaps(vault, repository, max_jobs=max_jobs, clock=clock)
@@ -296,7 +303,9 @@ class PostAttemptWorker:
             try:
                 if kind != "probe_router" or self._take_probe_router_due():
                     self.run_pending(kind)
-            except Exception as exc:  # noqa: BLE001 - a worker never dies on one job
+            except (Exception, writer_fence.WriterFenceRefusal) as exc:  # noqa: BLE001 - a worker never dies on one job
+                # A refusal rolled the job's writes back; its lease lapses and the next pass, with the context's
+                # reloaded vault, takes it again.
                 LOG.exception("post-attempt %s worker iteration failed", kind)
                 with self._lock:
                     self.last_errors = [*self.last_errors[-9:], f"{kind}:{type(exc).__name__}"]

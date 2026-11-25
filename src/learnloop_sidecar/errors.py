@@ -66,6 +66,17 @@ def waiting_for_ok_error() -> SidecarError:
     return SidecarError(model_use.WAITING_CODE, model_use.WAITING_MESSAGE, details={"waiting_for_ok": True})
 
 
+def upgraded_while_open_error() -> SidecarError:
+    """A job's or a request's write was refused by the writer fence (``learnloop.db.writer_fence``): the vault was
+    upgraded after the work's vault was loaded. Nothing was saved; the context reloads at its next request."""
+
+    return SidecarError(
+        "vault_upgraded_while_open",
+        "LearnLoop was upgraded while this vault was open, so that change was not saved. Try again.",
+        retryable=True,
+    )
+
+
 def require_ai_ok(vault_root: Path | str | None, client: Any | None = None) -> None:
     """Before an RPC starts model work: refuse it, and store nothing, while the OK is missing."""
 

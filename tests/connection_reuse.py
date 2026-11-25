@@ -38,6 +38,7 @@ from pathlib import Path
 import weakref
 
 from learnloop.db import connection as _db_connection
+from learnloop.db import writer_fence
 from learnloop.db.scopes import apply_connection_hook, current_ingest_job_id
 
 _DML_ACTIONS = frozenset({sqlite3.SQLITE_INSERT, sqlite3.SQLITE_UPDATE, sqlite3.SQLITE_DELETE})
@@ -47,7 +48,7 @@ _DML_ACTIONS = frozenset({sqlite3.SQLITE_INSERT, sqlite3.SQLITE_UPDATE, sqlite3.
 _STATE_CALLS = _db_connection._CONNECTION_STATE_CALLS | {"blobopen"}
 
 
-class _ProxiedCursor(sqlite3.Cursor):
+class _ProxiedCursor(writer_fence.FencedCursor):
     """``cursor.connection`` is the checkout's proxy, so user code can't reach the raw connection through a cursor."""
 
     @property
@@ -167,7 +168,7 @@ class TestLanePool(_db_connection._ConnectionPool):
         super().__init__()
         self._file_at_release: dict[str, tuple[int, int, int, int] | None] = {}
 
-    def connect(self, sqlite_path: Path, *, read_only: bool):
+    def connect(self, sqlite_path: Path, *, read_only: bool, writer_tags: frozenset[str] = frozenset()):
         if self.closed or (not read_only and current_ingest_job_id(sqlite_path) is not None):
             return None
         if _open_path_patched():
@@ -176,7 +177,7 @@ class TestLanePool(_db_connection._ConnectionPool):
         resolved = str(sqlite_path.resolve())
         # The writer fence's binding is part of the key, as in production's pool: a kept connection never writes under
         # a binding it was not opened with.
-        key = (resolved, bool(read_only), () if read_only else _db_connection.writer_fence_key(sqlite_path))
+        key = (resolved, bool(read_only), () if read_only else tuple(sorted(writer_tags)))
         if resolved in self._file_at_release and _signature(resolved) != self._file_at_release[resolved]:
             self._forget(resolved)
         idle = self.idle.get(key)
@@ -189,7 +190,7 @@ class TestLanePool(_db_connection._ConnectionPool):
                 raw = _db_connection._open_read_only(sqlite_path, factory=_KeptAfterDml)
             else:
                 sqlite_path.parent.mkdir(parents=True, exist_ok=True)
-                raw = _db_connection._open_writable(sqlite_path, factory=_KeptAfterDml)
+                raw = _db_connection._open_writable(sqlite_path, factory=_KeptAfterDml, writer_tags=writer_tags)
             self.opened += 1
         self.handed += 1
         raw.set_authorizer(None)
