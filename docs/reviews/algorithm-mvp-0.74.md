@@ -4,7 +4,7 @@ The predecessor is mvp-0.73. H3-R6 and H3-R7 change the interpretation of an ans
 
 ## Replay boundary
 
-At mvp-0.74, a bound plan answer reads the selection for its block, slot and chosen item. Surprise uses the threshold receipt for the selected subject or learning-object view, including the repeat forecaster. When the draw records the chosen probability, the receipt must match it at the draw’s stored precision. A missing selection or selected receipt yields the recorded `mastery` source. An unbound answer can use its own grade receipt. Under mvp-0.73, bound answers prefer the subject receipt and can fall through to the grade receipt.
+At mvp-0.74, a bound plan answer reads the selection for its block, slot and chosen item. Surprise uses the threshold receipt for the selected subject or learning-object view, including the repeat forecaster. When the draw records the chosen probability, the receipt must match it at the draw’s stored precision. A slot with no draw recorded at all (every repeat) uses the subject view's receipt; a recorded draw that does not verify, or a missing selected receipt, yields the recorded `mastery` source (FR3-19). An unbound answer can use its own grade receipt. Under mvp-0.73, bound answers prefer the subject receipt and can fall through to the grade receipt.
 
 New assessment contracts cite the full practice item's revision. A contract first frozen when the item is presented (the item view, a workbench check) also saves that revision in `practice_item_snapshots`, so opening a check freezes the revision used for its grade-time forecast; a contract frozen at a grade cites it only (H3-R25). The writer checks the recorded session and probe administration before consuming a plan presentation: a presentation still open in another session is left for that session's answer; one from the answer's own session, from an answer naming no session, or from a session that had ended by the answer's time binds (H3-R29). A rejected binding leaves the presentation available and records a mastery fallback. An answer to its own presentation at another revision keeps the link and records the mastery fallback, live and on replay (H3-R24). The answered revision is the one the answer's grade receipt names, on both sides; an answer without a grade receipt reads mastery (H3-R28). A slot with no serve draw recorded at all (every repeat) reads the subject view's receipt, as at mvp-0.73 (H3-R27). For inline answers whose contract froze no revision, the grade receipt can describe a later edit, so they read mastery.
 
@@ -30,6 +30,37 @@ The landing gate on the round's commit failed 18 tests. Two were defects of this
 - H3-R27, by decision: adaptive difficulty draws only at planned new-material slots, so a repeat never has a serve selection, and no repeat answer read its `ad_threshold_repeat@*` receipt. A slot with no serve draw recorded at all now reads the subject view's receipt, as at mvp-0.73; a recorded draw that does not verify still reads mastery. `test_selected_forecast.py`'s no-selection case expects the subject repeat receipt.
 - H3-R28: live took the answered revision from today's item (or the contract frozen at open) and replay from the contract the grade froze (else the grade receipt). Both now read the revision the answer's grade receipt names, a row stored before the grade, and an answer without one reads mastery on both sides.
 - H3-R29: the session rule refused the desktop after a restart, the workbench after its admission session ended and a draft naming no session. A presentation now binds once its session had ended by the answer's time, or for an answer naming no session; one still open in another session stays refused. `tests/test_answer_door_sessions.py` has one test per door that names a presentation and an inventory of the doors.
+
+## Review round 3
+
+The Astra review of tags 0.73-0.75 and three rows of the writer-fence review (ledger FR3-1 to FR3-22). Fixed in this
+round, by class:
+
+- Protection (FR3-1, FR3-2, FR3-14): `db.stores.answered_revision` is the one reader of the stored facts naming what an
+  attempt answered (the presented contract, the plan presentation's frozen revision, the selection's, the grade
+  receipt's). The material view withholds an attempt when any of them is withheld; the grade-time forecaster asks the
+  view about every revision the answer names, so a held-out one yields no forecast, receipt, snapshot or hash; a
+  presentation saves the revision it shows even after a grade froze the same contract. The A8 contract fixture gains
+  the contract door (opened outside the plan, the item replaced, the source protected).
+- One instant per grade (FR3-7, FR3-8): a live grade reads the clock once under the write lock; exam finish dates
+  each answer by one read as it is applied, never ahead of now.
+- The opening replay rule states both no-draw cases (FR3-19).
+
+None of these needed a tag: they are protection fixes and live writes; replay of stored rows is unchanged.
+
+Stopped (FR3-6, a rebuild writing raw evidence for a degraded live grade). The missing observation is not created by
+replay's dual-write branch but, before replay, by the activity backfill (`substrate/compat/activity_backfill.py`, step
+4), which `tests/test_replay_writes_no_ledger.py` admits once as the first rebuild's backfill (`FIRST_REBUILD_BACKFILL`
+includes the grade chain). Options: (a) keep the documented backfill and record the degraded grade's reconstruction as
+such (a labelled `backfill` basis on the observation); (b) restrict the backfill to answers recorded before the activity
+substrate existed and, for a later answer with no observation, report and label it and create nothing, leaving
+creation to an explicit repair command (`learnloop doctor`); (c) as (b), with the repair run by the upgrade only after
+the owner confirms. Recommendation: (b), the stated rule (a rebuild never creates evidence), with the repair command.
+
+Remaining (not started in this round): FR3-3, FR3-9, FR3-13, FR3-20 to FR3-22 (atomic doors), FR3-4 (outcomes that are
+not outcomes), FR3-5 (cutoff guard), FR3-10 (no accidental switch), FR3-11, FR3-12, FR3-15 to FR3-18. Found while
+testing FR3-8 and not yet investigated: a rebuild does not reproduce the live mastery of a finished two-answer
+sitting (`lo_svd_definition`'s evidence count 3 live, 4 rebuilt), with the spaced or the new instants alike.
 
 ## Owner-copy verification
 
