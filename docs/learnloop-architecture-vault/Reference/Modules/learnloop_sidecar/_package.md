@@ -103,9 +103,9 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 5 static module edges
 - [[Reference/Modules/learnloop/content/pipeline/_package|learnloop.content.pipeline]] — 4 static module edges
 - [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 4 static module edges
+- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 4 static module edges
 - [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 3 static module edges
 - [[Reference/Modules/learnloop/config/_package|learnloop.config]] — 3 static module edges
-- [[Reference/Modules/learnloop/db/_package|learnloop.db]] — 3 static module edges
 - [[Reference/Modules/learnloop/pads/_package|learnloop.pads]] — 3 static module edges
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 3 static module edges
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 2 static module edges

@@ -40,6 +40,7 @@ from learnloop.vault.models import (
 from learnloop.vault.facet_fingerprint import semantic_fingerprint
 from learnloop.vault.lifecycle import learner_text_gap_creations, learner_text_gap_edge_in_effect
 from learnloop.vault.paths import VaultPaths, find_vault_root
+from learnloop.db import writer_fence
 from learnloop.vault.yaml_io import (
     read_markdown_frontmatter_data,
     read_markdown_with_frontmatter,
@@ -332,6 +333,8 @@ def load_vault(
     # Every door loads the vault here, so one check refuses a vault below the oldest supported tag everywhere.
     refuse_below_floor(vault_root, config)
     paths = VaultPaths(vault_root, config)
+    # The writer fence: this process's connections to the vault's database write under the tag it loaded last.
+    writer_fence.observe(paths.sqlite_path, config.algorithms.algorithm_version)
     issues: list[DoctorIssue] = []
     loaded = LoadedVault(root=vault_root, config=config, issues=issues)
 

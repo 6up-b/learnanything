@@ -38,7 +38,7 @@ from learnloop.ids import new_ulid
 from learnloop.learner_context import ContextLimits, learning_context
 from learnloop.remote import views
 from learnloop.content.sources.exam_material import SourceSetsUnreadable
-from learnloop.remote.errors import RemoteRequestError
+from learnloop.remote.errors import RemoteRequestError, upgraded_while_open
 from learnloop.remote.runtime import RemoteRuntime, SchemaMismatch
 from learnloop.remote.sources import DEFAULT_CHAR_BUDGET, MAX_CHAR_BUDGET, find_passages, plan_passages
 from learnloop.remote.telemetry import CallOrigin, record_tool_call
@@ -410,9 +410,15 @@ class ToolCalls:
         except SourceSetsUnreadable as exc:
             _LOG.warning("tool %s: source sets unreadable (%s)", tool, "; ".join(exc.reasons))
             error_code, message = exc.code, str(exc)
-        except Exception:  # noqa: BLE001 - no internal text reaches the host
-            _LOG.exception("tool %s failed", tool)
-            error_code, message = "failed", "LearnLoop could not answer this request; nothing was changed."
+        except Exception as exc:  # noqa: BLE001 - no internal text reaches the host
+            refused = upgraded_while_open(exc)
+            if refused is not None:
+                # The vault was upgraded after this request loaded it: nothing was saved, and the next request loads
+                # the vault again (each one does), so a retry runs under the new tag.
+                error_code, message = refused.code, str(refused)
+            else:
+                _LOG.exception("tool %s failed", tool)
+                error_code, message = "failed", "LearnLoop could not answer this request; nothing was changed."
         try:
             self._record(call_id=call_id, tool=tool, origin=origin, arguments=arguments, outcome=outcome,
                          error_code=error_code, started=started, started_at=started_at)

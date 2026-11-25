@@ -20,12 +20,13 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/protected_tables.py"
   - "src/learnloop/db/stores/attempts.py"
   - "src/learnloop/db/stores/facet_projection.py"
+  - "src/learnloop/db/writer_fence.py"
   - "src/learnloop/diagnosis/recurrence/report.py"
   - "src/learnloop/ops/doctor.py"
-  - "src/learnloop/ops/upgrades.py"
   - "src/learnloop/attempts/measurement_corrections.py"
   - "src/learnloop/curriculum/integration_backfill.py"
   - "src/learnloop/learner/learner_review_feed.py"
+  - "src/learnloop/ops/upgrades.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/receipt"
@@ -49,7 +50,7 @@ It belongs to the **schema and change** navigation family. The family context li
 - **Role:** `receipt` — Historical audit/decision receipt. It is preserved and never rebuilt.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/009_derived_state_rebuilds.sql`.
-- **Schema touched by:** `009_derived_state_rebuilds.sql`, `122_causal_activity_events.sql`, `138_coverage_denominator_version.sql`, `244_availability_time.sql`.
+- **Schema touched by:** `009_derived_state_rebuilds.sql`, `122_causal_activity_events.sql`, `138_coverage_denominator_version.sql`, `244_availability_time.sql`, `275_writer_fence.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -77,6 +78,10 @@ Indexes and uniqueness:
 
 - `idx_derived_state_rebuilds_latest` on `created_at`, `id`.
 - `sqlite_autoindex_derived_state_rebuilds_1` on `id` (unique).
+
+Database triggers:
+
+- `writer_fence_derived_state_rebuilds_insert` — schema-enforced lifecycle or immutability constraint.
 
 ## Who calls it
 
@@ -134,9 +139,9 @@ Indexes and uniqueness:
 - `tests/test_shadow_rebuild.py`
 - `tests/test_table_roles.py`
 - `tests/test_upgrades.py`
+- `tests/test_writer_fence.py`
 - `tests/test_canonical_projection_fold_skip.py`
 - `tests/test_contract_frontier_coverage.py`
-- `tests/test_coverage_denominator_boundary.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 

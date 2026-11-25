@@ -17,7 +17,11 @@ it; existing vault history must remain interpretable and reproducible.
    The table supplies what every link must do: it refuses jumps, prepares the
    candidate projection before the atomic config rename (the journal first,
    the publication last, then the commit), and leaves the prior version
-   readable if preparation fails. Add the row to `EXPECTED_ACTIVATIONS` in
+   readable if preparation fails. It also sets the database's tag (the writer
+   fence's one row, `learnloop.db.writer_fence`, migration 275) inside the
+   activation's transaction, so a process still holding the predecessor's
+   config cannot commit a tag-dependent write after the commit
+   (`docs/reviews/refactor-writer-fence.md`). Add the row to `EXPECTED_ACTIVATIONS` in
    `tests/test_upgrades.py`; the table's tests then run over it. A new tag is
    one constant, one row and one test row.
 4. Regenerate the effective defaults (`uv run python

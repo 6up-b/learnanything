@@ -10,6 +10,8 @@ from pathlib import Path
 from typing import Any
 import weakref
 
+from learnloop.db import writer_fence
+
 # WAL itself needs SQLite 3.7.0.  A read-only connection can open a WAL
 # database whose ``-shm`` it cannot write, or that has no ``-shm`` yet in a
 # directory it can write, only from 3.22.0; the read-only doctor,
@@ -123,7 +125,17 @@ def _open_writable(sqlite_path: Path, *, factory: type[sqlite3.Connection] = sql
     connection = sqlite3.connect(sqlite_path, factory=factory)
     _configure(connection)
     connection.execute("PRAGMA synchronous = FULL")
+    # The writer fence (migration 275): the tags this connection writes under, as of its open. A pool keeps
+    # connections of one binding apart from another's (``writer_fence_key``), so a reused one never carries a binding
+    # it was not opened with.
+    writer_fence.register(connection, sqlite_path)
     return connection
+
+
+def writer_fence_key(sqlite_path: Path) -> tuple[str, ...]:
+    """The binding a writable connection opened now would carry: part of a pool's key (``reused_connections``)."""
+
+    return tuple(sorted(writer_fence.binding(sqlite_path)))
 
 
 # -- Router speed stage 2, item 4: connections reused within one objective job -------------------------------------
@@ -165,7 +177,7 @@ class _ConnectionPool:
 
     def __init__(self) -> None:
         self.thread = threading.get_ident()
-        self.idle: dict[tuple[str, bool], list[sqlite3.Connection]] = {}
+        self.idle: dict[tuple[str, bool, tuple[str, ...]], list[sqlite3.Connection]] = {}
         self.opened = 0
         self.handed = 0
         self.closed = False
@@ -175,7 +187,7 @@ class _ConnectionPool:
 
         if self.closed or (not read_only and current_ingest_job_id(sqlite_path) is not None):
             return None  # an ingest job's writes are fenced by its own guarded connection
-        key = (str(sqlite_path.resolve()), bool(read_only))
+        key = (str(sqlite_path.resolve()), bool(read_only), () if read_only else writer_fence_key(sqlite_path))
         idle = self.idle.get(key)
         if idle:
             raw = idle.pop()
@@ -196,7 +208,7 @@ class _ConnectionPool:
         raw.watch()
         return _ReusedConnection(raw, self, key)
 
-    def give(self, key: tuple[str, bool], raw: sqlite3.Connection) -> None:
+    def give(self, key: tuple[str, bool, tuple[str, ...]], raw: sqlite3.Connection) -> None:
         if self.closed or self.thread != threading.get_ident():
             raw.close()
             return
@@ -220,7 +232,7 @@ class _ReusedConnection:
 
     __slots__ = ("_connection", "_pool", "_key", "_cursors", "_released", "_changed")
 
-    def __init__(self, connection: "_PooledSqlite", pool: _ConnectionPool, key: tuple[str, bool]) -> None:
+    def __init__(self, connection: "_PooledSqlite", pool: _ConnectionPool, key: tuple[str, bool, tuple[str, ...]]) -> None:
         object.__setattr__(self, "_connection", connection)
         object.__setattr__(self, "_pool", pool)
         object.__setattr__(self, "_key", key)

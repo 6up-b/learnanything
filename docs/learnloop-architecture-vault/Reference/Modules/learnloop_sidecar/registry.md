@@ -407,6 +407,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_session_ownership.py](../../../../../tests/test_session_ownership.py) — direct import
 - [tests/test_sidecar_adjudication.py](../../../../../tests/test_sidecar_adjudication.py) — direct import
 - [tests/test_sidecar_contract.py](../../../../../tests/test_sidecar_contract.py) — direct import
+  - `test_a_write_the_writer_fence_refused_reloads_the_vault_and_is_a_retryable_error`
   - `test_database_lock_contention_is_a_retryable_error`
   - `test_model_call_receipts_are_owned_by_the_normalized_submission_key`
 - [tests/test_sidecar_exams.py](../../../../../tests/test_sidecar_exams.py) — direct import

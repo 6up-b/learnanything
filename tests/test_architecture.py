@@ -42,6 +42,8 @@ REGISTERED_SQL_OWNERS = frozenset(
     {
         "src/learnloop/db/migrate.py",
         "src/learnloop/db/repositories.py",
+        # The writer fence's one row, set by an activation inside its transaction.
+        "src/learnloop/db/writer_fence.py",
         "src/learnloop/db/stores/reading_requests.py",
         "src/learnloop/db/stores/activity.py",
         "src/learnloop/db/stores/source_documents.py",

@@ -50,7 +50,7 @@ It belongs to the **attempts and measurement** navigation family. The family con
 - **Role:** `raw_ledger` — Authoritative replay input or mixed authoritative state. The rebuild umbrella preserves it.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/001_initial.sql`.
-- **Schema touched by:** `001_initial.sql`, `012_facet_diagnostic_state.sql`, `034_assessment_contract_snapshots.sql`, `141_conjunctive_instruments.sql`, `142_grading_clarifications.sql`, `144_diagnostic_augmentation.sql`, `156_projection_ledger_indexes.sql`.
+- **Schema touched by:** `001_initial.sql`, `012_facet_diagnostic_state.sql`, `034_assessment_contract_snapshots.sql`, `141_conjunctive_instruments.sql`, `142_grading_clarifications.sql`, `144_diagnostic_augmentation.sql`, `156_projection_ledger_indexes.sql`, `275_writer_fence.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -91,6 +91,10 @@ Indexes and uniqueness:
 - `idx_grading_evidence_observation_id` on `observation_id` (unique).
 - `idx_grading_evidence_attempt` on `attempt_id`.
 - `sqlite_autoindex_grading_evidence_1` on `id` (unique).
+
+Database triggers:
+
+- `writer_fence_grading_evidence_insert` — schema-enforced lifecycle or immutability constraint.
 
 ## Who calls it
 

@@ -50,37 +50,38 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/server.py](../../../../../src/learnloop_sidecar/server.py) |
-| Source lines | 362 |
+| Source lines | 387 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `serve(stdin: TextIO, stdout: TextIO) -> None` ([source](../../../../../src/learnloop_sidecar/server.py), line 37)
+- `serve(stdin: TextIO, stdout: TextIO) -> None` ([source](../../../../../src/learnloop_sidecar/server.py), line 38)
 
 ### Module constants
 
-- `LOG` ([src/learnloop_sidecar/server.py](../../../../../src/learnloop_sidecar/server.py), line 29)
-- `_INTERNAL_ERROR_MESSAGE` ([src/learnloop_sidecar/server.py](../../../../../src/learnloop_sidecar/server.py), line 31)
-- `_BATCH_KEYS` ([src/learnloop_sidecar/server.py](../../../../../src/learnloop_sidecar/server.py), line 201)
+- `LOG` ([src/learnloop_sidecar/server.py](../../../../../src/learnloop_sidecar/server.py), line 30)
+- `_INTERNAL_ERROR_MESSAGE` ([src/learnloop_sidecar/server.py](../../../../../src/learnloop_sidecar/server.py), line 32)
+- `_BATCH_KEYS` ([src/learnloop_sidecar/server.py](../../../../../src/learnloop_sidecar/server.py), line 209)
 
 ## Internal implementation anchors
 
-- `_handle(ctx: SidecarContext, request: Any, *, trace_id: str | None=None) -> dict[str, Any] | None` ([source](../../../../../src/learnloop_sidecar/server.py), line 60) — One RPC under its trace (ADR-017): a new one per request, or the phone host's, which it births first.
-- `_handle_request(ctx: SidecarContext, request: Any) -> dict[str, Any] | None` ([source](../../../../../src/learnloop_sidecar/server.py), line 72)
-- `_offered(ctx: SidecarContext, offers: plan_fallback.OfferCollector, method_name: str) -> dict[str, Any] | None` ([source](../../../../../src/learnloop_sidecar/server.py), line 179) — Mint this response's offer (redesign D): the action that asked, its units, the vault's epoch.
-- `_reported_batches(value: Any, depth: int=0) -> list[str]` ([source](../../../../../src/learnloop_sidecar/server.py), line 205) — The ingest batch ids a response reports, in order (bounded walk).
-- `_attach_fallback_offer(exc: SidecarError, hint: dict[str, Any] | None) -> None` ([source](../../../../../src/learnloop_sidecar/server.py), line 226) — Plan-first transport T1: an unavailable ChatGPT-plan route offers OpenRouter.
-- `_with_fallback_offer(result: Any, hint: dict[str, Any] | None) -> Any` ([source](../../../../../src/learnloop_sidecar/server.py), line 238) — The same hint on a result that degraded instead of failing (a dict result only).
-- `_foreground(method_name: str)` ([source](../../../../../src/learnloop_sidecar/server.py), line 250) — RW5d P5 (spec §10b.4): a learner-facing method in flight is foreground work, which background figure prebuilds yield to (no prebuild starts while it runs).
-- `_observed_model_calls(ctx: SidecarContext, method_name: str, params: Any)` ([source](../../../../../src/learnloop_sidecar/server.py), line 260) — Record every model call the handler makes, owned by its submission or RPC.
-- `_busy_error(exc: Exception) -> SidecarError | None` ([source](../../../../../src/learnloop_sidecar/server.py), line 272) — Map lock contention to a retryable error; None for any other failure.
-- `_internal_error(request_id: Any, method_name: str, started: float, *, offer: dict[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../src/learnloop_sidecar/server.py), line 296)
-- `_elapsed_ms(started: float) -> float` ([source](../../../../../src/learnloop_sidecar/server.py), line 314)
-- `_write(stdout: TextIO, response: dict[str, Any]) -> None` ([source](../../../../../src/learnloop_sidecar/server.py), line 318)
-- `_request_id(request: Any) -> Any` ([source](../../../../../src/learnloop_sidecar/server.py), line 342)
-- `_safe_validation_errors(exc: ValidationError) -> list[dict[str, Any]]` ([source](../../../../../src/learnloop_sidecar/server.py), line 346) — Return actionable Pydantic diagnostics without echoing request values.
+- `_handle(ctx: SidecarContext, request: Any, *, trace_id: str | None=None) -> dict[str, Any] | None` ([source](../../../../../src/learnloop_sidecar/server.py), line 61) — One RPC under its trace (ADR-017): a new one per request, or the phone host's, which it births first.
+- `_handle_request(ctx: SidecarContext, request: Any) -> dict[str, Any] | None` ([source](../../../../../src/learnloop_sidecar/server.py), line 73)
+- `_offered(ctx: SidecarContext, offers: plan_fallback.OfferCollector, method_name: str) -> dict[str, Any] | None` ([source](../../../../../src/learnloop_sidecar/server.py), line 187) — Mint this response's offer (redesign D): the action that asked, its units, the vault's epoch.
+- `_reported_batches(value: Any, depth: int=0) -> list[str]` ([source](../../../../../src/learnloop_sidecar/server.py), line 213) — The ingest batch ids a response reports, in order (bounded walk).
+- `_attach_fallback_offer(exc: SidecarError, hint: dict[str, Any] | None) -> None` ([source](../../../../../src/learnloop_sidecar/server.py), line 234) — Plan-first transport T1: an unavailable ChatGPT-plan route offers OpenRouter.
+- `_with_fallback_offer(result: Any, hint: dict[str, Any] | None) -> Any` ([source](../../../../../src/learnloop_sidecar/server.py), line 246) — The same hint on a result that degraded instead of failing (a dict result only).
+- `_foreground(method_name: str)` ([source](../../../../../src/learnloop_sidecar/server.py), line 258) — RW5d P5 (spec §10b.4): a learner-facing method in flight is foreground work, which background figure prebuilds yield to (no prebuild starts while it runs).
+- `_observed_model_calls(ctx: SidecarContext, method_name: str, params: Any)` ([source](../../../../../src/learnloop_sidecar/server.py), line 268) — Record every model call the handler makes, owned by its submission or RPC.
+- `_fenced_write_error(ctx: SidecarContext) -> SidecarError` ([source](../../../../../src/learnloop_sidecar/server.py), line 280) — The writer fence refused a write (``learnloop.db.writer_fence``): the vault was upgraded after this process loaded it.
+- `_busy_error(exc: Exception) -> SidecarError | None` ([source](../../../../../src/learnloop_sidecar/server.py), line 297) — Map lock contention to a retryable error; None for any other failure.
+- `_internal_error(request_id: Any, method_name: str, started: float, *, offer: dict[str, Any] | None=None) -> dict[str, Any]` ([source](../../../../../src/learnloop_sidecar/server.py), line 321)
+- `_elapsed_ms(started: float) -> float` ([source](../../../../../src/learnloop_sidecar/server.py), line 339)
+- `_write(stdout: TextIO, response: dict[str, Any]) -> None` ([source](../../../../../src/learnloop_sidecar/server.py), line 343)
+- `_request_id(request: Any) -> Any` ([source](../../../../../src/learnloop_sidecar/server.py), line 367)
+- `_safe_validation_errors(exc: ValidationError) -> list[dict[str, Any]]` ([source](../../../../../src/learnloop_sidecar/server.py), line 371) — Return actionable Pydantic diagnostics without echoing request values.
 
 ## Who imports or calls it
 
@@ -99,6 +100,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/ai/plan_fallback|learnloop.ai.plan_fallback]] — imports `module`; calls `collecting`, `mint_offer`, `relay_batch_offers`, `request`, `take_offer`
 - [[Reference/Modules/learnloop/attempts/completion_lock|learnloop.attempts.completion_lock]] — imports `AttemptCompletionBusy`
 - [[Reference/Modules/learnloop/content/sources/exam_material|learnloop.content.sources.exam_material]] — imports `SourceSetsUnreadable`
+- [[Reference/Modules/learnloop/db/writer_fence|learnloop.db.writer_fence]] — imports `module`; calls `is_refusal`
 - [[Reference/Modules/learnloop/figures/foreground|learnloop.figures.foreground]] — imports `FOREGROUND_METHODS`, `foreground`; calls `foreground`
 - [[Reference/Modules/learnloop/figures/records|learnloop.figures.records]] — imports `module`; calls `request_record`, `write_records`
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`

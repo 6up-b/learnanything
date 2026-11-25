@@ -21,8 +21,8 @@ source_paths:
   - "src/learnloop/daily_plan/objective_inputs.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/stores/practice_state.py"
+  - "src/learnloop/db/writer_fence.py"
   - "src/learnloop/ops/debug_time.py"
-  - "src/learnloop/ops/doctor.py"
   - "src/learnloop/adaptive_difficulty/forecasters.py"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/cli/app.py"
@@ -52,7 +52,7 @@ It belongs to the **learner state** navigation family. The family context lives 
 - **Role:** `derived` — Clearable projection reconstructed by exactly one registered replayer.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/001_initial.sql`.
-- **Schema touched by:** `001_initial.sql`.
+- **Schema touched by:** `001_initial.sql`, `275_writer_fence.sql`.
 - **Rebuild owner:** `learning_state`
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -76,6 +76,11 @@ No SQLite foreign key is declared. Identifier-looking columns are application-va
 Indexes and uniqueness:
 
 - `sqlite_autoindex_learning_object_mastery_1` on `learning_object_id` (unique).
+
+Database triggers:
+
+- `writer_fence_learning_object_mastery_insert` — schema-enforced lifecycle or immutability constraint.
+- `writer_fence_learning_object_mastery_update` — schema-enforced lifecycle or immutability constraint.
 
 ## Who calls it
 

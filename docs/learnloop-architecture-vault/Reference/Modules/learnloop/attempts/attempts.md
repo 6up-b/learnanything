@@ -884,6 +884,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_valuation_calibration_fields.py](../../../../../../tests/test_valuation_calibration_fields.py) — direct import
   - `test_a_valued_pick_followed_by_an_attempt_records_hypothesis_movement`
 - [tests/test_voi_merge_composition.py](../../../../../../tests/test_voi_merge_composition.py) — direct import
+- [tests/test_writer_fence.py](../../../../../../tests/test_writer_fence.py) — direct import
 - [tests/ux_phase4_feedback_helpers.py](../../../../../../tests/ux_phase4_feedback_helpers.py) — direct import
 - [tests/voi_stopping_helpers.py](../../../../../../tests/voi_stopping_helpers.py) — direct import
 - [tests/why_cases_helpers.py](../../../../../../tests/why_cases_helpers.py) — direct import

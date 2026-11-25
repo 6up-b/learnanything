@@ -47,7 +47,7 @@ It belongs to the **goals and exams** navigation family. The family context live
 - **Role:** `receipt` — Historical audit/decision receipt. It is preserved and never rebuilt.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/206_forecast_receipts.sql`.
-- **Schema touched by:** `206_forecast_receipts.sql`, `213_adaptive_difficulty_receipts.sql`, `214_adaptive_difficulty_serving.sql`, `240_data_capture.sql`, `245_history_forecaster.sql`.
+- **Schema touched by:** `206_forecast_receipts.sql`, `213_adaptive_difficulty_receipts.sql`, `214_adaptive_difficulty_serving.sql`, `240_data_capture.sql`, `245_history_forecaster.sql`, `275_writer_fence.sql`.
 - **Rebuild owner:** none; this table is preserved by the rebuild umbrella.
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -108,6 +108,7 @@ Database triggers:
 
 - `forecast_receipts_no_delete` — schema-enforced lifecycle or immutability constraint.
 - `forecast_receipts_no_update` — schema-enforced lifecycle or immutability constraint.
+- `writer_fence_forecast_receipts_insert` — schema-enforced lifecycle or immutability constraint.
 
 ## Who calls it
 

@@ -2363,6 +2363,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_voi_merge_composition.py](../../../../../tests/test_voi_merge_composition.py) — direct import
 - [tests/test_workbench_assistance.py](../../../../../tests/test_workbench_assistance.py) — direct import
   - `test_an_abandoned_problem_writes_no_attempt_and_a_rebuild_leaves_the_evidence`
+- [tests/test_writer_fence.py](../../../../../tests/test_writer_fence.py) — direct import
 - [tests/tutor_citations_helpers.py](../../../../../tests/tutor_citations_helpers.py) — direct import
 - [tests/ux_phase1_round2_review_helpers.py](../../../../../tests/ux_phase1_round2_review_helpers.py) — direct import
 - [tests/ux_phase1_support.py](../../../../../tests/ux_phase1_support.py) — direct import

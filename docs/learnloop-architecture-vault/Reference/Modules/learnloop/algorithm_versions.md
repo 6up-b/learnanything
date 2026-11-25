@@ -979,6 +979,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_batch_value_equals_the_product_tables_evsi_on_the_real_credible_sets`
   - `test_the_lookahead_on_a_predictive_objective_episode_serves_the_incumbents_pick`
   - `test_the_predictive_information_matches_the_probe_episodes_own_objective`
+- [tests/test_writer_fence.py](../../../../../tests/test_writer_fence.py) — direct import
 - [tests/why_cases_helpers.py](../../../../../tests/why_cases_helpers.py) — direct import
 
 ## Modification guidance

@@ -1,11 +1,24 @@
 # Migration-head fixture
 
-**Holds migration 273 (`273_probe_episode_router_stop.sql`), the head.** The directory's name carries no number (since
+**Holds migration 275 (`275_writer_fence.sql`), the head.** The directory's name carries no number (since
 refactor A2): a new migration upgrades `state.sqlite` here in place, in rollback mode, and adds a section below naming
 the new head; no test or script changes for the number (`CLAUDE.md`, "Adding a migration"). Tests reach it
 through `MIGRATION_HEAD_FIXTURE` in `tests/helpers.py`; `tests/test_migrations.py` checks that it holds the newest
 file in `migrations/` and stays in rollback mode. Older sections below name the numbered directories it was renamed
 from, as they were then.
+
+## The writer fence (migration 275), `refactor/writer-fence` (ledger L42-R2), 2026-11-25
+
+Upgraded in place (no rename; base: the lesson-weight replay inputs' head 274) by the B1 procedure below:
+`275_writer_fence.sql` (the one-row `writer_fence` table, its delete guard `writer_fence_no_delete`, and eleven
+`writer_fence_<table>_<event>` triggers fencing the tag-dependent writes) applied through
+`learnloop.db.migrate.apply_migrations` on a backup-API copy of the tracked 274 file, outside the checkout, under
+`upgrade_allowance(UPGRADE_SCRATCH_COPY)`, which applied `[275]` only; `wal_checkpoint(TRUNCATE)` (0, 0, 0),
+`journal_mode=DELETE` (header bytes 1/1), `integrity_check` ok, `foreign_key_check` empty; the tracked file removed and
+the copy written into its place with `backup_database`, no companion files. Compared with the 274 file: thirteen
+objects added (the table, its delete guard and the eleven fence triggers), nothing removed or redefined, and the only
+table whose rows changed is `schema_migrations` (gains 275). `writer_fence` is empty: its row is written by a vault's
+first fence-aware activation, never by the migration. The file is 7,925,760 bytes.
 
 ## Lesson-weight replay inputs (migration 274), `teacher/te5-consolidation` (L4-2, built as mvp-0.71, now mvp-0.72), 2026-11-24
 

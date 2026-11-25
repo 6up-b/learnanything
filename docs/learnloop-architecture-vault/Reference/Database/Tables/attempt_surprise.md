@@ -51,7 +51,7 @@ It belongs to the **attempts and measurement** navigation family. The family con
 - **Role:** `derived` — Clearable projection reconstructed by exactly one registered replayer.
 - **Functionality status:** `active`.
 - **Introduced by:** `migrations/001_initial.sql`.
-- **Schema touched by:** `001_initial.sql`, `015_followup_gate_trace.sql`, `017_followup_ratings.sql`, `201_followup_value_decisions.sql`.
+- **Schema touched by:** `001_initial.sql`, `015_followup_gate_trace.sql`, `017_followup_ratings.sql`, `201_followup_value_decisions.sql`, `275_writer_fence.sql`.
 - **Rebuild owner:** `learning_state`
 
 For the distinction between SQLite state and human-authored vault files, see [[State and Persistence]]. For whole-vault creation and opening behavior, see [[Vault Lifecycle]]. ^table-lifecycle
@@ -84,6 +84,11 @@ Declared SQLite foreign keys:
 Indexes and uniqueness:
 
 - `sqlite_autoindex_attempt_surprise_1` on `attempt_id` (unique).
+
+Database triggers:
+
+- `writer_fence_attempt_surprise_insert` — schema-enforced lifecycle or immutability constraint.
+- `writer_fence_attempt_surprise_update` — schema-enforced lifecycle or immutability constraint.
 
 ## Who calls it
 
@@ -156,25 +161,25 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/ad23_contract_helpers.py`
-- `tests/surprise_reads_ad_forecast_helpers.py`
 - `tests/test_epp_repeat_receipts.py`
 - `tests/test_gate_fit.py`
 - `tests/test_gate_records_survive_replay.py`
 - `tests/test_intent_recall_targets.py`
-- `tests/test_lesson_weight_facts.py`
-- `tests/test_lesson_weight_facts_integration.py`
 - `tests/test_mvp017_route_check_replay.py`
 - `tests/test_rebuild_equivalence_review.py`
 - `tests/test_rebuild_orchestrator.py`
 - `tests/test_ro1_interval_factor.py`
 - `tests/test_ro1_projection.py`
 - `tests/test_sg_slip_vs_gap.py`
-- `tests/test_shadow_rebuild.py`
 - `tests/test_signal_quantiles.py`
+- `tests/test_surprise_reads_ad_forecast.py`
 - `tests/test_teacher_te5_grade_curves.py`
 - `tests/test_voi_forecasts.py`
 - `tests/test_voi_merge_composition.py`
+- `tests/test_writer_fence.py`
 - `tests/ro1_interval_factor_helpers.py`
+- `tests/test_agent_runs.py`
+- `tests/test_attempt_ai_flow.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.
 
