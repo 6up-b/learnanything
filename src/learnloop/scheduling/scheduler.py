@@ -33,8 +33,7 @@ from learnloop.diagnosis.probe_episodes import (
     session_qualifying_total,
 )
 from learnloop.diagnosis.probe_presentations import (
-    EpisodeOwned,
-    RoutineDisplayCovered,
+    EpisodeOwned, RoutineDisplayCovered,
     presentation_commit_payload,
     probe_serving_block_reason,
     record_presentation_forecast,
