@@ -93,6 +93,10 @@ class FollowupDecision:
                 "timing": "at the start of the next block" if self.wait else "as the next question"}
 
 
+#: The automatic lane's refusal when the learner lane already decided the factor's probe (one decision per factor).
+FACTOR_DECIDED_ON_LEARNER_LANE = "factor_decided_on_learner_lane"
+
+
 def hard_refusal(vault: Any, repository: Repository, row: Mapping[str, Any], *, factor_id: str) -> str | None:
     """§5: what still refuses, in the orchestrator's own terms, before anything is spent."""
 
@@ -374,6 +378,20 @@ def record_decision(vault: Any, repository: Repository, row: Mapping[str, Any], 
                 store.update_workflow(connection, str(row["id"]), at=now, chosen_ref=decision.chosen_ref,
                                       decision_id=str(logged["id"]))
                 return replace(decision, decision_id=str(logged["id"]))
+            if probe_router and redraw_of is None and decision.chosen_ref != DECLINE:
+                # One initial probe decision per factor across the two lanes, claimed in this transaction: the learner
+                # lane decided this factor first (its feedback was released, "Show anyway"), so this lane's draw is
+                # refused and the learner lane's decision stands. IH2's later redraw after a lesson is a boundary of
+                # its own and keeps it.
+                from learnloop.router.plan_log import learner_probe_decision
+
+                factor_id = str(row.get("factor_id") or "")
+                if factor_id and learner_probe_decision(connection, factor_id) is not None:
+                    refusal = FACTOR_DECIDED_ON_LEARNER_LANE
+                    decision = FollowupDecision(DECLINE, refusal, "refused",
+                                                refusals=({"reason": refusal, "constraint_key": refusal},),
+                                                observational=decision.observational,
+                                                value_check_error=decision.value_check_error)
             decision_id = log_followup_decision(connection, {
                 "plan_id": decision.plan_id, "plan_kind": decision.plan_kind, "local_date": decision.local_date,
                 "block_id": decision.block_id, "session_id": row.get("session_id"),

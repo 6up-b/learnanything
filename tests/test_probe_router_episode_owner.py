@@ -235,3 +235,56 @@ def test_an_exposed_answer_on_the_last_instrument_parks_the_episode_with_one_sup
     assert PCN.requested(case.vault, case.repository) == []
     case.ctx.post_attempt_worker.run_pending("probe_router")
     assert _continuations(case) == [] and case.repository.probe_episode(episode_id).status == "pending_items"
+
+
+# --- one initial probe decision per factor across the lanes (G2-R32) --------------------------------------------------
+
+
+def test_an_automatic_decision_committed_while_the_learner_lane_values_is_the_factors_one_decision(
+        tmp_path, monkeypatch):
+    from learnloop.router.plan_log import INSERT_REF
+
+    from tests.probe_router_lanes_helpers import automatic_decision_on, learner_case
+
+    case = learner_case(tmp_path, monkeypatch)
+    real = LP.value
+    decided: list[str] = []
+
+    def valued_while_the_automatic_lane_commits(*args, **kwargs):
+        out = real(*args, **kwargs)
+        decided.append(automatic_decision_on(case, INSERT_REF))
+        return out
+
+    monkeypatch.setattr(LP, "value", valued_while_the_automatic_lane_commits)
+    status = read_status(case.ctx, {"misconceptionId": case.first})
+    assert (status["routerState"], status["routerDecisionId"]) == ("not_selected", decided[0])
+    assert table_rows(case.repository, "router_decisions", "WHERE receipt_key = ?",
+                      (f"plan_interrupt:learner_probe:{case.factor}",)) == []
+    assert table_rows(case.repository, "policy_experiment_assignments", "WHERE unit_id != ?", (decided[0],)) == []
+
+
+def test_the_automatic_lane_refuses_a_draw_on_a_factor_the_learner_lane_decided(tmp_path, monkeypatch):
+    from learnloop.db.stores import followup_serve as store
+    from learnloop.followup_run.router import (
+        ASK_NOW, DECLINE, FACTOR_DECIDED_ON_LEARNER_LANE, FollowupDecision, record_decision)
+
+    from tests.causal_orchestrator_helpers import LO_ID, NOW_ISO
+    from tests.probe_router_lanes_helpers import learner_case
+
+    case = learner_case(tmp_path, monkeypatch)
+    assert read_status(case.ctx, {"misconceptionId": case.first})["routerState"] == "selected"
+    with case.repository.atomic(), case.repository.connection() as connection:
+        connection.execute(
+            "INSERT INTO practice_attempts(id, practice_item_id, learning_object_id, practice_mode, attempt_type, "
+            "hints_used, correctness, latency_seconds, manual_review, created_at, session_id, primed, evidence_origin)"
+            " VALUES ('att_auto', 'pi_svd_define_001', ?, 'short_answer', 'independent_attempt', 0, 0.0, 60, "
+            "0, ?, NULL, 0, 'human')", (LO_ID, NOW_ISO))
+        store.insert_workflow(connection, {"id": "wf_late", "source_attempt_id": "att_auto", "revision_key": "r1",
+                                           "learning_object_id": LO_ID, "session_id": None, "surface": "desktop",
+                                           "origin": "practice", "lane": "probe", "feedback_held": 0,
+                                           "created_at": NOW_ISO})
+        store.update_workflow(connection, "wf_late", at=NOW_ISO, factor_id=case.factor)
+    row = table_rows(case.repository, "followup_workflows", "WHERE id = 'wf_late'")[0]
+    asked = FollowupDecision(ASK_NOW, "probe_coin", "mixture", propensity=0.2)
+    recorded = record_decision(case.vault, case.repository, row, asked, clock=None)
+    assert (recorded.chosen_ref, recorded.reason) == (DECLINE, FACTOR_DECIDED_ON_LEARNER_LANE)

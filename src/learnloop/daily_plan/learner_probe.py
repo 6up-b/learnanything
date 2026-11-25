@@ -434,6 +434,11 @@ def decide_proposal(vault: Any, repository: Any, proposal: Any, *, clock: Clock 
     detail["served_pi"] = served_pi
     try:
         with repository.atomic(), repository.connection() as connection:
+            # One initial probe decision per factor across the two lanes, claimed in this transaction: the automatic
+            # lane may have committed its decision while this one valued; then it is the factor's decision.
+            automatic = automatic_probe_decision(connection, proposal.factor_id)
+            if automatic is not None:
+                raise _DecidedElsewhere(str(automatic["id"]))
             recorded = log_learner_probe_decision(connection, {
                 "decision_id": decision_id, "factor_id": proposal.factor_id, "chosen_ref": served,
                 "propensity": propensity, "served_pi": served_pi, "practice_item_id": proposal.practice_item_id,
@@ -462,11 +467,21 @@ def decide_proposal(vault: Any, repository: Any, proposal: Any, *, clock: Clock 
                                   clock=clock, exclude=instrument_items(vault, repository,
                                                                         proposal.learning_object_id,
                                                                         proposal.factor_id))
+    except _DecidedElsewhere as elsewhere:
+        return elsewhere.decision_id
     except Exception:  # noqa: BLE001 - an unrecorded decision offers nothing: the status stays pending
         LOG.warning("probe router: the learner lane's decision was not recorded for factor %s", proposal.factor_id,
                     exc_info=True)
         return None
     return recorded
+
+
+class _DecidedElsewhere(Exception):
+    """The automatic lane committed the factor's probe decision first: this lane's draw rolls back and reads it."""
+
+    def __init__(self, decision_id: str) -> None:
+        super().__init__(decision_id)
+        self.decision_id = decision_id
 
 
 __all__ = ["LLM_NOT_ASKED", "OWNER_DECISIONS", "POLICY", "decide", "decide_proposal", "diagnostic_payload", "draw",

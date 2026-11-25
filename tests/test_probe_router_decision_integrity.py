@@ -19,6 +19,7 @@ from learnloop.vault.loader import load_vault
 from tests.helpers import _set_algorithm_version_at
 from tests.ih2_lessons_compete_helpers import draw  # noqa: F401 - a fixture
 from tests.probe_router_authority_helpers import CLOCK, TAG, divergent_factor
+from tests.probe_router_lanes_helpers import automatic_decision_on, learner_case
 
 HEAD = LATEST_ALGORITHM_VERSION
 
@@ -116,20 +117,6 @@ def test_r2_on_the_policy_arm_the_trace_logs_the_served_probability_not_mu(tmp_p
 # -- the selection is its own candidate's, read again at acceptance ------------------------------
 
 
-def _learner(tmp_path, monkeypatch, *, u: float = 0.05):
-    from learnloop.router_objective import probe_coin as PC
-
-    from tests.helpers import append_config_toml
-    from tests.probe_router_authority_helpers import sidecar
-
-    case = divergent_factor(tmp_path, version=HEAD)
-    append_config_toml(case.root, "\n[router_objective]\nstop_coin = 0.2\n")
-    case.vault = load_vault(case.root)
-    monkeypatch.setattr(PC, "draw_uniform", lambda _seed: u)
-    case.ctx = sidecar(case.root)
-    return case
-
-
 def _answered_elsewhere(monkeypatch) -> None:
     """The probe's item already answered in another administration (the never-seen rule's exclusion)."""
 
@@ -157,7 +144,7 @@ def _offer(case) -> dict:
 def test_r3_a_selection_whose_candidate_was_rejected_is_refused_and_never_substituted(tmp_path, monkeypatch):
     from learnloop.diagnosis.causal_probe_coherence import transition_probe_candidate
 
-    case = _learner(tmp_path, monkeypatch)
+    case = learner_case(tmp_path, monkeypatch)
     selected = _read(case)
     assert selected["routerState"] == "selected"
     transition_probe_candidate(case.repository, selected["candidateId"], to_status="rejected", reviewer="owner",
@@ -170,7 +157,7 @@ def test_r3_a_selection_whose_candidate_was_rejected_is_refused_and_never_substi
 
 
 def test_r3_a_selection_that_can_no_longer_be_administered_is_void_and_the_repair_goes_on(tmp_path, monkeypatch):
-    case = _learner(tmp_path, monkeypatch)
+    case = learner_case(tmp_path, monkeypatch)
     assert _read(case)["routerState"] == "selected"
     _answered_elsewhere(monkeypatch)
     void = _read(case)
@@ -183,7 +170,7 @@ def test_r3_a_selection_that_can_no_longer_be_administered_is_void_and_the_repai
 def test_r6_a_machine_check_queued_after_the_selection_refuses_the_stale_click(tmp_path, monkeypatch):
     from learnloop.diagnosis import causal_orchestrator
 
-    case = _learner(tmp_path, monkeypatch)
+    case = learner_case(tmp_path, monkeypatch)
     assert _read(case)["routerState"] == "selected"
     monkeypatch.setattr(causal_orchestrator, "pending_machine_checks_for_factor",
                         lambda *_a, **_k: [{"id": "check_after_selection"}])
@@ -192,7 +179,7 @@ def test_r6_a_machine_check_queued_after_the_selection_refuses_the_stale_click(t
 
 
 def test_r13_a_probe_already_answered_is_no_option_and_nothing_is_drawn(tmp_path, monkeypatch):
-    case = _learner(tmp_path, monkeypatch)
+    case = learner_case(tmp_path, monkeypatch)
     _answered_elsewhere(monkeypatch)
     status = _read(case)
     assert (status["status"], status["routerState"], status["reason"]) == ("started", "unavailable",
@@ -261,7 +248,7 @@ def test_r4_a_failed_write_never_turns_a_drawn_lesson_into_the_probe(tmp_path, m
 def test_r4_the_learner_lanes_decision_and_assignment_commit_together(tmp_path, monkeypatch):
     from learnloop.router_objective import assignments
 
-    case = _learner(tmp_path, monkeypatch)
+    case = learner_case(tmp_path, monkeypatch)
     monkeypatch.setattr(assignments, "insert", lambda *_a, **_k: None)
     status = _read(case)
     assert status["routerState"] == "pending" and status["probeOffered"] is False
@@ -292,7 +279,7 @@ def _decision(case) -> dict:
 def test_r15_the_valuation_runs_under_the_choosers_options_and_freezes_what_it_valued(tmp_path, monkeypatch):
     from learnloop.daily_plan import objective_chooser as OC
 
-    case = _learner(tmp_path, monkeypatch)
+    case = learner_case(tmp_path, monkeypatch)
     _read(case)
     frozen = _decision(case)["detail"]["valuation"]["frozen"]
     assert frozen["rollout_options"] == OC.rollout_options(case.vault.config)
@@ -305,7 +292,7 @@ def test_r16_each_repair_is_priced_at_its_own_minutes(tmp_path, monkeypatch):
 
     monkeypatch.setattr(CDS, "duration_estimates_for_repair_classes", lambda _repository, classes: {
         cls: {"minutes": 2.0 if cls == "repair:recall" else 20.0, "source": "authored_prior"} for cls in classes})
-    case = _learner(tmp_path, monkeypatch)
+    case = learner_case(tmp_path, monkeypatch)
     _read(case)
     repairs = {r["ref"]: r for r in _decision(case)["detail"]["valuation"]["frozen"]["payload"]["repairs"]}
     assert repairs["repair:recall"]["minutes"] == 2.0 and repairs["repair:method"]["minutes"] == 20.0
@@ -313,7 +300,7 @@ def test_r16_each_repair_is_priced_at_its_own_minutes(tmp_path, monkeypatch):
 
 
 def test_r17_a_selected_row_binds_no_item_before_an_acceptance(tmp_path, monkeypatch):
-    case = _learner(tmp_path, monkeypatch)
+    case = learner_case(tmp_path, monkeypatch)
     _read(case)
     assert _decision(case)["chosen_practice_item_id"] is None
 
@@ -321,7 +308,7 @@ def test_r17_a_selected_row_binds_no_item_before_an_acceptance(tmp_path, monkeyp
 def test_r18_a_retry_draws_the_same_coin_and_a_receipt_never_stands_for_another_status(tmp_path, monkeypatch):
     from learnloop.router_objective import probe_coin as PC
 
-    case = _learner(tmp_path, monkeypatch)
+    case = learner_case(tmp_path, monkeypatch)
     seeds = []
     real = PC.seed_for
     monkeypatch.setattr(PC, "seed_for", lambda key, unit: seeds.append(real(key, unit)) or seeds[-1])
@@ -344,35 +331,6 @@ def test_r20_a_tiny_share_is_still_an_exact_propensity():
 # -- one decision per factor, across lanes, for the factor the screen shows -----------------------------------------
 
 
-def _automatic_decision_on(case, chosen_ref: str) -> str:
-    """The automatic lane (FG1) decided this factor's probe after its miss: a probe-lane workflow on the factor that
-    names its committed decision."""
-
-    from learnloop.db.stores import followup_serve as store
-    from learnloop.router.plan_log import log_followup_decision
-
-    from tests.causal_orchestrator_helpers import LO_ID, NOW_ISO
-
-    with case.repository.atomic(), case.repository.connection() as connection:
-        connection.execute(
-            "INSERT INTO practice_attempts(id, practice_item_id, learning_object_id, practice_mode, attempt_type, "
-            "hints_used, correctness, latency_seconds, manual_review, created_at, session_id, primed, evidence_origin)"
-            " VALUES ('att_orchestrator', 'pi_svd_define_001', ?, 'short_answer', 'independent_attempt', 0, 0.0, 60, "
-            "0, ?, NULL, 0, 'human')", (LO_ID, NOW_ISO))
-        store.insert_workflow(connection, {"id": "wf_automatic", "source_attempt_id": "att_orchestrator",
-                                           "revision_key": "r1", "learning_object_id": LO_ID, "session_id": None,
-                                           "surface": "desktop", "origin": "practice", "lane": "probe",
-                                           "feedback_held": 0, "created_at": NOW_ISO})
-        decision_id = log_followup_decision(connection, {
-            "workflow": {"id": "wf_automatic", "learning_object_id": LO_ID, "source_attempt_id": "att_orchestrator",
-                         "factor_id": case.factor},
-            "chosen_ref": chosen_ref, "propensity": 0.8, "router_record": {}, "config": case.vault.config,
-            "decided_at": NOW_ISO})
-        store.update_workflow(connection, "wf_automatic", at=NOW_ISO, factor_id=case.factor, decision_id=decision_id,
-                              chosen_ref=chosen_ref)
-    return str(decision_id)
-
-
 def _learner_decisions(case) -> int:
     with case.repository.connection() as connection:
         return connection.execute("SELECT COUNT(*) FROM router_decisions WHERE surface = 'causal_repair'").fetchone()[0]
@@ -382,11 +340,11 @@ def test_r11_the_learner_lane_reads_the_automatic_lanes_decision_and_flips_no_co
     from learnloop.router.plan_log import NO_INTERVENTION_REF
     from learnloop.router_objective import probe_coin as PC
 
-    case = _learner(tmp_path, monkeypatch)  # a fresh coin here would offer the probe
+    case = learner_case(tmp_path, monkeypatch)  # a fresh coin here would offer the probe
     flipped: list[str] = []
     real = PC.flip
     monkeypatch.setattr(PC, "flip", lambda *a, **k: flipped.append("flip") or real(*a, **k))
-    decided = _automatic_decision_on(case, NO_INTERVENTION_REF)
+    decided = automatic_decision_on(case, NO_INTERVENTION_REF)
     status = _read(case)
     assert (status["routerState"], status["routerDecisionId"], status["probeOffered"]) == ("not_selected", decided,
                                                                                             False)
@@ -399,8 +357,8 @@ def test_r11_the_learner_lane_reads_the_automatic_lanes_decision_and_flips_no_co
 def test_r11_a_probe_the_automatic_lane_asked_is_the_factors_one_probe(tmp_path, monkeypatch):
     from learnloop.router.plan_log import INSERT_REF
 
-    case = _learner(tmp_path, monkeypatch)
-    decided = _automatic_decision_on(case, INSERT_REF)
+    case = learner_case(tmp_path, monkeypatch)
+    decided = automatic_decision_on(case, INSERT_REF)
     status = _read(case)
     assert (status["routerState"], status["routerDecisionId"], status["reason"]) == (
         "not_selected", decided, "router_asked_on_automatic_lane")
@@ -424,7 +382,7 @@ def test_r12_the_status_and_its_decision_are_the_shown_factors_never_the_oldest(
 
     from tests.probe_router_authority_helpers import read_status
 
-    case = _learner(tmp_path, monkeypatch)
+    case = learner_case(tmp_path, monkeypatch)
     second = _second_factor(case)
     named = read_status(case.ctx, {"misconceptionId": case.first, "factorId": second})
     by_attempt = read_status(case.ctx, {"misconceptionId": case.first, "attemptId": "att_second"})
@@ -437,7 +395,7 @@ def test_r12_the_status_and_its_decision_are_the_shown_factors_never_the_oldest(
 def test_r12_teach_me_now_reads_the_factor_it_recorded_consent_on(tmp_path, monkeypatch):
     from tests.probe_router_authority_helpers import call
 
-    case = _learner(tmp_path, monkeypatch)
+    case = learner_case(tmp_path, monkeypatch)
     second = _second_factor(case)
     taught = call(case.ctx, "causal_teach_me_now", {"factorId": second, "misconceptionId": case.first})["repairStatus"]
     assert (taught["factorId"], taught["reason"]) == (second, "learner_requested_teaching_without_probe")
@@ -450,7 +408,7 @@ def test_r12_a_factor_that_is_not_the_causes_is_refused(tmp_path, monkeypatch):
 
     from tests.probe_router_authority_helpers import call
 
-    case = _learner(tmp_path, monkeypatch)
+    case = learner_case(tmp_path, monkeypatch)
     with pytest.raises(SidecarError):
         call(case.ctx, "causal_repair_status", {"misconceptionId": case.first, "factorId": "not_a_factor_of_it"})
 
@@ -463,7 +421,7 @@ def test_r14_a_reveal_on_the_learning_object_prices_the_probe_exposed(tmp_path, 
 
     from tests.causal_orchestrator_helpers import LO_ID
 
-    case = _learner(tmp_path, monkeypatch)
+    case = learner_case(tmp_path, monkeypatch)
     # A solution shown on a sibling item of the learning object: the answer admission refuses any later answer on
     # the object as not independent, so the probe can separate no cause.
     assert record_reveal(case.repository, practice_item_id="pi_svd_define_001", learning_object_id=LO_ID,
@@ -476,7 +434,7 @@ def test_r14_a_reveal_on_the_learning_object_prices_the_probe_exposed(tmp_path, 
 
 
 def test_r14_with_nothing_revealed_the_probe_is_priced_unexposed_and_says_so(tmp_path, monkeypatch):
-    case = _learner(tmp_path, monkeypatch)
+    case = learner_case(tmp_path, monkeypatch)
     _read(case)
     valuation = _decision(case)["detail"]["valuation"]
     assert valuation["frozen"]["payload"]["exposed"] is False
@@ -504,9 +462,9 @@ def test_r17_both_arms_freeze_one_outcome_target_the_factors_learning_object(tmp
 
     from tests.causal_orchestrator_helpers import LO_ID
 
-    offered = _learner(tmp_path / "offered", monkeypatch, u=0.05)
+    offered = learner_case(tmp_path / "offered", monkeypatch, u=0.05)
     assert _read(offered)["routerState"] == "selected"
-    declined = _learner(tmp_path / "declined", monkeypatch, u=0.9)
+    declined = learner_case(tmp_path / "declined", monkeypatch, u=0.9)
     assert _read(declined)["routerState"] == "not_selected"
     probe, repair = _objective(offered), _objective(declined)
     assert probe["learning_object_id"] == repair["learning_object_id"] == LO_ID
@@ -524,7 +482,7 @@ def test_r17_a_declined_offer_and_no_offer_are_measured_on_the_same_target(tmp_p
 
     measured = {}
     for name, u in (("offered", 0.05), ("declined", 0.9)):
-        case = _learner(tmp_path / name, monkeypatch, u=u)
+        case = learner_case(tmp_path / name, monkeypatch, u=u)
         _read(case)
         version = RO.outcome_version_for(case.vault.config)
         with case.repository.connection() as connection:
@@ -540,7 +498,7 @@ def test_r17_a_declined_offer_and_no_offer_are_measured_on_the_same_target(tmp_p
 def test_r15_the_decision_replays_numerically_from_its_frozen_record_alone(tmp_path, monkeypatch):
     from learnloop.daily_plan import learner_probe
 
-    case = _learner(tmp_path, monkeypatch)
+    case = learner_case(tmp_path, monkeypatch)
     _read(case)
     detail = _decision(case)["detail"]
     # Nothing but the stored row: no vault, no repository, no config.
@@ -556,7 +514,7 @@ def test_r3_a_candidate_ranking_ahead_at_acceptance_is_never_served_under_the_de
 
     from tests.probe_router_authority_helpers import PROBE_ITEM
 
-    case = _learner(tmp_path, monkeypatch)
+    case = learner_case(tmp_path, monkeypatch)
     selected = _read(case)
     assert selected["routerState"] == "selected"
     drawn_over = selected["candidateId"]
@@ -597,7 +555,7 @@ def _pinned_then(case, monkeypatch, action: str) -> tuple[dict, dict]:
 
 
 def test_r6_not_now_after_the_pin_retires_it_at_its_first_display(tmp_path, monkeypatch):
-    case = _learner(tmp_path, monkeypatch)
+    case = learner_case(tmp_path, monkeypatch)
     offer, contract = _pinned_then(case, monkeypatch, "causal_probe_defer")
     assert (contract["active"], contract["reason"]) == (False, "learner_refused_probe")
     presentation = case.repository.probe_presentation(offer["presentationId"])
@@ -605,13 +563,13 @@ def test_r6_not_now_after_the_pin_retires_it_at_its_first_display(tmp_path, monk
 
 
 def test_r6_teach_me_now_after_the_pin_retires_it_too(tmp_path, monkeypatch):
-    case = _learner(tmp_path, monkeypatch)
+    case = learner_case(tmp_path, monkeypatch)
     _offer_, contract = _pinned_then(case, monkeypatch, "causal_teach_me_now")
     assert (contract["active"], contract["reason"]) == (False, "learner_refused_probe")
 
 
 def test_r6_with_no_refusal_the_pin_is_served(tmp_path, monkeypatch):
-    case = _learner(tmp_path, monkeypatch)
+    case = learner_case(tmp_path, monkeypatch)
     offer, contract = _pinned_then(case, monkeypatch, "")
     assert contract["active"] is True and contract["presentationId"] == offer["presentationId"]
 
@@ -624,7 +582,7 @@ def test_r7_an_accepted_learner_pin_holds_its_episode_against_a_routine_selectio
 
     from tests.probe_router_authority_helpers import PROBE_ITEM
 
-    case = _learner(tmp_path, monkeypatch)
+    case = learner_case(tmp_path, monkeypatch)
     assert _read(case)["routerState"] == "selected"
     offer = _offer(case)
     episode = case.repository.probe_episode(offer["episodeId"])
@@ -656,7 +614,7 @@ def _counting_valuations(monkeypatch) -> list[str]:
 
 
 def test_r19_the_status_read_values_nothing_and_the_job_decides_once(tmp_path, monkeypatch):
-    case = _learner(tmp_path, monkeypatch)
+    case = learner_case(tmp_path, monkeypatch)
     valued = _counting_valuations(monkeypatch)
     first = _status_call(case.ctx, case)
     assert (first["routerState"], first["probeOffered"]) == ("pending", False)
@@ -672,7 +630,7 @@ def test_r19_the_status_read_values_nothing_and_the_job_decides_once(tmp_path, m
 def test_r19_a_process_that_ended_before_its_job_resumes_it_on_the_next_start(tmp_path, monkeypatch):
     from tests.probe_router_authority_helpers import sidecar
 
-    case = _learner(tmp_path, monkeypatch)
+    case = learner_case(tmp_path, monkeypatch)
     assert _status_call(case.ctx, case)["routerState"] == "pending"
     restarted = sidecar(case.root)
     woken: list[str] = []
@@ -686,7 +644,7 @@ def test_r19_a_process_that_ended_before_its_job_resumes_it_on_the_next_start(tm
 def test_r19_a_refusal_before_the_job_runs_is_read_by_the_job(tmp_path, monkeypatch):
     from tests.probe_router_authority_helpers import call
 
-    case = _learner(tmp_path, monkeypatch)
+    case = learner_case(tmp_path, monkeypatch)
     valued = _counting_valuations(monkeypatch)
     assert _status_call(case.ctx, case)["routerState"] == "pending"
     call(case.ctx, "causal_probe_defer", {"factorId": case.factor})
@@ -699,7 +657,7 @@ def test_r19_a_refusal_before_the_job_runs_is_read_by_the_job(tmp_path, monkeypa
 def test_r19_the_repair_entry_holds_while_the_router_decides(tmp_path, monkeypatch):
     from tests.probe_router_authority_helpers import call
 
-    case = _learner(tmp_path, monkeypatch)
+    case = learner_case(tmp_path, monkeypatch)
     valued = _counting_valuations(monkeypatch)
     held = call(case.ctx, "start_remediation", {"misconceptionId": case.first})
     assert held["episode"] is None and held["repairStatus"]["routerState"] == "pending" and valued == []
