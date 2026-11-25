@@ -595,14 +595,26 @@ def _spend_gate_class() -> type:
         that replaces its reservation. The next action, and the next process, starts from the durable
         total, in which a reservation no settlement replaced stands at its whole estimate."""
 
-        def __init__(self, repository: Any, state: LessonState, clock: Clock | None, **kwargs: Any) -> None:
+        def __init__(self, repository: Any, state: LessonState, clock: Clock | None, *,
+                     metered_ready: Callable[[Any], bool], **kwargs: Any) -> None:
             super().__init__(**kwargs)
             self._repository = repository
             self._state = state
             self._clock = clock
+            self._metered_ready = metered_ready
             self._reservations: dict[int, tuple[str, str]] = {}
 
         def admit(self, client: Any, *, purpose: str, prompt: Any, budget: int | None) -> Any:
+            from learnloop.ai.spend import SpendLimitExceeded
+
+            # TE5-R3: every physical request of the lesson, on the route it actually takes (the grader's own, a
+            # resolver's), meets the lesson's settings: a metered one with no price or no per-lesson cap is never
+            # sent (the base gate would admit an unpriced request with no limit unmetered). A subscription route is
+            # free here and still receipted by the transport's observer.
+            if not self._is_subscription(client) and not self._metered_ready(client):
+                self.refusal = {"reason": "metered_settings_missing", "purpose": purpose,
+                                "provider": getattr(client, "provider_name", None)}
+                raise SpendLimitExceeded(METERED_SETTINGS_LINE, rule="metered_settings_missing", scope="request_gate")
             admission = super().admit(client, purpose=purpose, prompt=prompt, budget=budget)
             if admission is None:
                 return None
@@ -644,7 +656,7 @@ def _lesson_spend(vault: Any, repository: Any, state: LessonState, *, clock: Clo
     config = vault.config.teacher
     price = config.metered_price_per_million
     gate = _spend_gate_class()(
-        repository, state, clock,
+        repository, state, clock, metered_ready=lambda client: _metered_ready(vault, client),
         limit_usd=None if config.max_lesson_cost_usd is None else float(config.max_lesson_cost_usd),
         price_per_token=lambda _provider: None if price is None else float(price) / 1_000_000.0,
         is_subscription=lambda client: _subscription(vault.config, client),
@@ -667,6 +679,14 @@ def _refused_by_budget(state: LessonState, exc: BaseException) -> bool:
             return True
         seen = seen.__cause__ or seen.__context__
     return state.gate is not None and state.gate.refusal is not None
+
+
+def _budget_notice(state: LessonState, outcome: "_Outcome") -> None:
+    """A lesson closed because a metered request had no spending limit to be held to says so in plain words."""
+
+    refusal = getattr(state.gate, "refusal", None) if state.gate is not None else None
+    if (refusal or {}).get("reason") == "metered_settings_missing" and METERED_SETTINGS_LINE not in outcome.notices:
+        outcome.notices.append(METERED_SETTINGS_LINE)
 
 
 def _record_budget_close(repository: Any, state: LessonState, exc: BaseException) -> None:
@@ -705,17 +725,31 @@ def _close_for_budget_keeping_answer(vault: Any, repository: Any, state: LessonS
             _append(repository, state, actor="learner", action=action, refs=refs,
                     payload={key: ref, **answer, "assessed": False, "unassessed_because": "budget"}, clock=clock)
         _close(vault, repository, state, reason="budget", recap=None, clock=clock, outcome=outcome)
+    _budget_notice(state, outcome)
     return view(vault, repository, state.lesson_id, outcome=outcome)
 
 
-def _require_metered_settings(vault: Any, client: Any) -> None:
-    """A metered (OpenRouter) lesson needs its price and its per-lesson cap first (T1 redesign D; Q7)."""
+#: Why a metered request of a lesson was not sent (T1 redesign D; Q7), as the learner reads it.
+METERED_SETTINGS_LINE = ("Lessons through OpenRouter need a spending limit set first. You can keep studying in "
+                         "Practice.")
+
+
+def _metered_ready(vault: Any, client: Any) -> bool:
+    """A metered client may be sent a lesson's request: the lesson's price and per-lesson cap are both set (a
+    subscription client needs neither; the tests' doubles, provider type ``fake``, are exempt as before)."""
 
     if _subscription(vault.config, client) or getattr(client, "provider_type", None) == "fake":
-        return
+        return True
     config = vault.config.teacher
-    if config.metered_price_per_million is None or config.max_lesson_cost_usd is None:
-        raise LessonError("plan_unavailable", "Lessons through OpenRouter need a spending limit set first. You can keep studying in Practice.")
+    return config.metered_price_per_million is not None and config.max_lesson_cost_usd is not None
+
+
+def _require_metered_settings(vault: Any, client: Any) -> None:
+    """A metered (OpenRouter) lesson needs its price and its per-lesson cap first (T1 redesign D; Q7): the teacher's
+    route is checked before its first call; every other request (the grader's) meets the same rule at the gate."""
+
+    if not _metered_ready(vault, client):
+        raise LessonError("plan_unavailable", METERED_SETTINGS_LINE)
 
 
 # =============================================================================
@@ -1060,6 +1094,7 @@ def take_turn(vault: Any, repository: Any, *, lesson_id: str, action: str, paylo
                 outcome = _Outcome()
                 _record_budget_close(repository, state, exc)
                 _close(vault, repository, state, reason="budget", recap=None, clock=clock, outcome=outcome)
+                _budget_notice(state, outcome)
                 return view(vault, repository, lesson_id, outcome=outcome)
             if state.closed:
                 return view(vault, repository, lesson_id)
@@ -1431,6 +1466,7 @@ def _teach(vault: Any, repository: Any, state: LessonState, *, clients: Clients,
         # The lesson's envelope refused the next request (§17): the lesson closes with ``budget``.
         _record_budget_close(repository, state, exc)
         _close(vault, repository, state, reason="budget", recap=None, clock=clock, outcome=outcome)
+        _budget_notice(state, outcome)
     finally:
         if outcome.usage["calls"]:
             _append(repository, state, actor="code", action="usage", payload={"usage": dict(outcome.usage)},
