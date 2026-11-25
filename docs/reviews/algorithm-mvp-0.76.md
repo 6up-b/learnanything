@@ -82,7 +82,10 @@ Make a backup-API copy of an mvp-0.75 vault for `COPY` (`COPY_DB` its `state.sql
 payload, mastery and trace digests on it, then `learnloop upgrade --vault "$COPY" --to mvp-0.76`, the same digests
 again and the queries below. Expected:
 
-- payloads, `learning_object_mastery`, `facet_recall_state` and `attempt_surprise` differ only in `algorithm_version`;
+- payloads, `learning_object_mastery`, `facet_recall_state` and `attempt_surprise` differ only in `algorithm_version`,
+  except `attempt_surprise` rows of the second query's two counts: a regraded inline answer whose original contract
+  froze no revision (FR3-11) reads mastery, and with `mastery.irt.enabled = false` a forecast beyond the clip (FR3-16)
+  is scored at the clip (the default clip is 1e-4, so on most vaults both counts are 0 and nothing moves);
 - on a copy with lesson checks, the weight and pool updates differ only where an unapplied answer had resolved a
   check (the first query's count); on a copy with none, the trace is unchanged.
 
@@ -94,8 +97,20 @@ WHERE a.attempt_type IN ('independent_attempt', 'open_text', 'diagnostic_probe',
   AND json_extract(p.payload_json, '$.mastery_application.applied') = 0;
 SELECT kind, count(*) AS updates FROM lesson_weight_trace WHERE kind IN ('weight_update', 'pool_update')
 GROUP BY 1 ORDER BY 1;
+SELECT count(DISTINCT a.id) AS regraded_inline
+FROM practice_attempts a JOIN grading_evidence e ON e.attempt_id = a.id
+WHERE a.submission_id LIKE 'inline:%' AND COALESCE(e.grading_revision, 0) > 0;
+SELECT count(*) AS beyond_clip_irt_off
+FROM attempt_surprise
+WHERE json_extract(predicted_score_dist_json, '$.p_ad') IS NOT NULL
+  AND (json_extract(predicted_score_dist_json, '$.p_ad') < 0.0001
+       OR json_extract(predicted_score_dist_json, '$.p_ad') > 0.9999);
 SQL
 ```
+
+The second count is an upper bound: it applies only where the vault's config has `mastery.irt.enabled = false`
+(and the default clip; with another clip compare against it). FR3-5, FR3-10, FR3-12, FR3-15 and FR3-18 change live
+decisions and live receipts only, so the rebuild digests do not move for them.
 
 Run `learnloop rebuild-derived-state --vault "$COPY" --json` twice; the payload, mastery and trace digests must match
 after each run.

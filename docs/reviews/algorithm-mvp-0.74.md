@@ -75,7 +75,8 @@ Continued (the second worker of the round):
 Third worker: FR3-23 by decision (b) (above); FR3-4 under mvp-0.76 and FR3-17 without a tag
 ([algorithm-mvp-0.76.md](algorithm-mvp-0.76.md)).
 
-Remaining: FR3-5 (cutoff guard), FR3-10 (no accidental switch), FR3-11, FR3-12, FR3-15, FR3-16, FR3-18.
+Fourth worker: FR3-5, FR3-11, FR3-15 and FR3-16 under mvp-0.76; FR3-10, FR3-12 and FR3-18 without a tag
+([algorithm-mvp-0.76.md](algorithm-mvp-0.76.md)).
 
 ## Owner-copy verification
 
