@@ -1459,7 +1459,8 @@ def _answer_probe(vault: Any, repository: Any, state: LessonState, payload: Mapp
         # The learner's answer turn commits with the grade, inside ``record_answer``'s one transaction: a grade that
         # fails leaves no turn, and the retry records one.
         PR.record_answer(vault, repository, state.lesson, probe, answer=answer, tap=tap,
-                         grading_client=clients.grading(), grading_source=clients.grading_source, clock=clock)
+                         grading_client=clients.grading(), grading_source=clients.grading_source, clock=clock,
+                         taught=_taught(state))
     except PR.StaleProbe as exc:
         raise LessonError("stale_probe", str(exc)) from exc
     except LessonError:
@@ -2750,6 +2751,16 @@ def _lesson_shown(vault: Any, state: LessonState) -> list[str]:
     from learnloop.teacher import delayed as D
 
     return [*state.minted.values(), *D.shown_vault_items(vault, displayed_texts(state))]
+
+
+def _taught(state: LessonState) -> list[str]:
+    """What the lesson showed so far, its words and the passages they cited (TE5-R6: a later question's answer is
+    measured against them)."""
+
+    shown = displayed_texts(state)
+    cited = {alias for text in shown for alias in G.cited_aliases(text)}
+    return [*shown, *(str(state.book.passages[alias]["text"]) for alias in sorted(cited)
+                      if alias in state.book.passages)]
 
 
 def displayed_texts(state: LessonState, *, extra: Sequence[str] = ()) -> list[str]:

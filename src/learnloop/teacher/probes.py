@@ -392,7 +392,7 @@ def _stored_feedback(repository: Any, attempt_id: str) -> str | None:
 
 def record_answer(vault: Any, repository: Any, lesson: Mapping[str, Any], probe: Probe, *, answer: str | None,
                   tap: int | None, grading_client: Any, grading_source: str,
-                  clock: Clock | None = None) -> dict[str, Any]:
+                  clock: Clock | None = None, taught: Sequence[str] = ()) -> dict[str, Any]:
     """The learner's answer to the open probe: blind-graded (the answer only), one ``diagnostic_probe`` attempt at
     full evidence through the attempts path, its independence from the reveal ledger's topic-wide check (carried
     into the attempt's activity class), the item retired (never served again), the ``probe_result`` entry and the
@@ -445,6 +445,17 @@ def record_answer(vault: Any, repository: Any, lesson: Mapping[str, Any], probe:
             raise StaleProbe("That question is no longer open.")
         stored = repository.fetch_practice_attempt(probe.attempt_id)
         now = utc_now_iso(clock)
+        if stored is None and taught:
+            # TE5-R6: the lesson's reveal rows are measured against the items that existed when its words were shown,
+            # so a question generated afterwards (on a topic with no item yet, or on one whose items the words did
+            # not touch) had none. Its own answer is measured against everything the lesson showed, before the
+            # topic-wide check reads the ledger: teaching that gave this answer away is exposure.
+            from learnloop.attempts.reveal_ledger import record_reveal_strict
+            from learnloop.tutor.tutor_qa import answer_leak_overlap
+
+            amount = max(answer_leak_overlap(text, item.expected_answer) for text in taught)
+            record_reveal_strict(repository, practice_item_id=item.id, source_kind="tutor_answer", amount=amount,
+                                 learning_object_id=item.learning_object_id, basis=f"lesson:{lesson_id}", clock=clock)
         # The reveal ledger's topic-wide check, as of this answer (FG1 records an exposed probe answer the same
         # way; a stored attempt as of its own instant), read inside the write lock so no reveal lands between it
         # and the attempt.

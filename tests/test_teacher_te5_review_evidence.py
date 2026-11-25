@@ -62,3 +62,43 @@ def test_a_check_on_a_newly_added_topic_credits_that_topic(tmp_path):
     assert load_vault(paths.root).practice_items[posed["item_id"]].learning_object_id == added
     forecast, = [row["payload"] for row in state.turns if row["action"] == "forecast"]
     assert added in str(forecast) and "lo_eigen" not in str(forecast)
+
+
+def test_teaching_on_an_itemless_topic_makes_a_generated_probe_on_it_dependent(tmp_path):
+    from types import SimpleNamespace
+
+    from learnloop.followup_run.jobs import process_next_job
+    from tests.teacher_te2_probes_helpers import ProbeAuthor
+
+    paths, repo = build_teacher_vault(tmp_path / "vault")
+    for path in paths.root.rglob("*.yaml"):  # lo_inner as a topic with no practice item yet
+        if "learning_object_id: lo_inner" in path.read_text(encoding="utf-8") and "practice" in str(path):
+            path.unlink()
+    vault = load_vault(paths.root)
+    assert not [item for item in vault.practice_items.values() if item.learning_object_id == "lo_inner"]
+    # The explanation states the rule the generated question will test (its expected answer, word for word) on a
+    # topic with no practice item, so no item existed that the words could be measured against when shown.
+    teaching = {"message": "Remember: ibis heron: (1, 0) by three. Now one quick question.", "requests": [
+        {"action": "write_plan", "plan": [{"id": "n1", "statement": "Inner products measure alignment.",
+                                           "lo_id": "lo_inner", "anchors": [], "premises": []}]},
+        {"action": "serve_probe", "node": "n1", "readings": ["treats the inner product as a vector"], "p": 0.4}]}
+    teacher = TeacherFake([teaching, {"message": "Good."}])
+    lesson = S.open_lesson(vault, repo, entry="learning_object", learning_object_ids=["lo_inner"],
+                           clients=clients(teacher))["lesson_id"]
+    author = ProbeAuthor()
+    while process_next_job(load_vault(paths.root), repo, owner="test", clients=SimpleNamespace(author=author)):
+        pass
+    S.view_lesson(load_vault(paths.root), repo, lesson)
+    with repo.connection() as connection:
+        from learnloop.db.stores import lessons as store
+        from learnloop.teacher import probes as PR
+
+        probe = PR.probes(store.turns(connection, lesson))[0]
+    assert probe.status == "served"
+    S.take_turn(load_vault(paths.root), repo, lesson_id=lesson, action="answer_probe",
+                payload={"answer": "(1, 0), stretched by three", "tap": 4}, clients=clients(teacher))
+    result, = [row["payload"] for row in S.load_state(repo, lesson).turns if row["action"] == "probe_result"]
+    assert result["independent"] is False
+    with repo.connection() as connection:
+        assert connection.execute("SELECT COUNT(*) FROM reveal_events WHERE practice_item_id = ? AND basis = ?",
+                                  (probe.item_id, f"lesson:{lesson}")).fetchone()[0] == 1
