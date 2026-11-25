@@ -1107,9 +1107,9 @@ def _owes_followup(state: LessonState, accepted: Mapping[str, Any]) -> bool:
 
 def view_lesson(vault: Any, repository: Any, lesson_id: str, *, clock: Clock | None = None) -> dict[str, Any]:
     """``lesson.view``: the lesson as the screen shows it, after recovering an interrupted action's
-    remaining effects (no model call)."""
+    remaining effects (no model call). Read whatever ``teacher.enabled`` says now (TE5-R15): the switch decides
+    whether a lesson may open, never whether saved work can be read."""
 
-    require_active(vault)
     state = load_state(repository, lesson_id)
     outcome = recover(vault, repository, state, clock=clock, reads=False)
     return view(vault, repository, lesson_id, outcome=outcome, clock=clock)
@@ -1118,9 +1118,11 @@ def view_lesson(vault: Any, repository: Any, lesson_id: str, *, clock: Clock | N
 def take_turn(vault: Any, repository: Any, *, lesson_id: str, action: str, payload: Mapping[str, Any],
               clients: Clients, clock: Clock | None = None) -> dict[str, Any]:
     """One learner action on an open lesson (``reply``, ``answer_prediction``, ``answer_check``, ``stop``),
-    or ``resume``: run the teacher's turn an outage interrupted (nothing new from the learner)."""
+    or ``resume``: run the teacher's turn an outage interrupted (nothing new from the learner). ``close`` (no model
+    call) works whatever ``teacher.enabled`` says (TE5-R15: switching lessons off never strands an open lesson)."""
 
-    require_active(vault)
+    if action != "close":
+        require_active(vault)
     if action not in LEARNER_ACTIONS and action not in TE2_LEARNER_ACTIONS:
         raise LessonError("validation_error", f"Unknown lesson action {action!r}.")
     state = load_state(repository, lesson_id)
@@ -1128,7 +1130,7 @@ def take_turn(vault: Any, repository: Any, *, lesson_id: str, action: str, paylo
         return view(vault, repository, lesson_id)
     # Today's "Close it" (§11.8) lists every open lesson once TE2 serves, a TE1 lesson left open before the upgrade
     # too, so it closes any of them (Codex review, §11.8 row); the probe actions are a TE2 lesson's only.
-    te2_ok = T2.on(vault) if action == "close" else _te2_now(vault, state)
+    te2_ok = True if action == "close" else _te2_now(vault, state)
     if action in TE2_LEARNER_ACTIONS and not te2_ok:
         raise LessonError("validation_error", f"Unknown lesson action {action!r}.")
     if (T2.lesson_te2(state) and action in ("reply", "answer_prediction", "answer_check")
@@ -3270,10 +3272,9 @@ def _view_te2(vault: Any, repository: Any, state: LessonState, out: dict[str, An
 
 def open_lessons(vault: Any, repository: Any) -> list[dict[str, Any]]:
     """Teacher TE2 (§11.8): Today's *Continue your lesson on X*, newest first: every open lesson with its topic in
-    plain words. Nothing closes a lesson on a timer. [] with lessons off (display only, no model call)."""
+    plain words. Nothing closes a lesson on a timer. Listed with lessons off too (TE5-R15): an open lesson can still be
+    read and closed (display only, no model call)."""
 
-    if not lessons_active(vault):
-        return []
     out = []
     with repository.connection() as connection:
         rows = connection.execute("SELECT id FROM lessons WHERE closed_at IS NULL ORDER BY opened_at DESC, id DESC"

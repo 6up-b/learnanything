@@ -302,3 +302,32 @@ def test_consent_interrupted_before_publication_rechecks_the_catalog(tmp_path, m
         "topic_requested", "topic_refused"]
     assert [lo for lo in load_vault(paths.root).learning_objects if lo.startswith("lo_goal_")] == [
         existing["learning_object_id"]]
+
+
+# --- TE5-R15: switching lessons off never strands an open lesson ----------------------------------------------------
+
+
+def test_an_open_lesson_is_read_listed_and_closed_with_lessons_off(tmp_path):
+    from learnloop_sidecar.handlers import lesson as H
+    from tests.ux_phase1_support import set_config
+
+    paths, repository = build_teacher_vault(tmp_path / "vault")
+    fake = TeacherFake([plan_turn])
+    lesson = S.open_lesson(load_vault(paths.root), repository, entry="learning_object",
+                           learning_object_ids=["lo_eigen"], clients=clients(fake))["lesson_id"]
+    set_config(paths.root, {("teacher", "enabled"): False})
+    vault = load_vault(paths.root)
+    assert S.view_lesson(vault, repository, lesson)["feed"]
+    assert [card["lesson_id"] for card in S.open_lessons(vault, repository)] == [lesson]
+    with pytest.raises(S.LessonError) as refused:  # no new teaching while lessons are off
+        S.take_turn(vault, repository, lesson_id=lesson, action="reply", payload={"text": "go"}, clients=clients(fake))
+    assert refused.value.code == "teacher_disabled"
+
+    class _Ctx:
+        def require_vault(self):
+            return load_vault(paths.root), repository
+
+    viewed = H.lesson_view(_Ctx(), H.LessonViewInput(lesson_id=lesson))
+    assert lesson in (viewed.get("lesson_id"), viewed.get("lessonId"))
+    closed = H.lesson_turn(_Ctx(), H.LessonTurnInput(action="close", lesson_id=lesson))
+    assert closed["closed"] and "learner_stop" in (closed.get("close_reason"), closed.get("closeReason"))
