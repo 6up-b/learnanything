@@ -95,7 +95,7 @@ class EligibleInstrument:
     # lookahead batch holds at most one check per group (voi_stopping, Codex
     # review of voi-v2 F13). Not logged.
     surface_group: str | None = field(default=None, compare=False, repr=False)
-    # mvp-0.77 (G2-R33): what the ranking read, recorded with the selected instrument
+    # mvp-0.77: what the ranking read, recorded with the selected instrument
     # (:data:`OBSERVED_POSTERIOR_RANKING`); None below the tag, whose ranking multiplied the family penalty in.
     ranking_basis: str | None = None
 
@@ -234,7 +234,7 @@ def enter_episode(
     ``reserved_for`` (FG1): the generated probe this episode is opened to serve, which
     no other selector may read.
 
-    ``valued_lock_id`` (mvp-0.77, G2-R31): the causal lock the accepted offer was valued on; the episode is bound
+    ``valued_lock_id`` (mvp-0.77): the causal lock the accepted offer was valued on; the episode is bound
     to it (its hypotheses, their versions and its support-weighted prior) instead of a fresh lock, so the offer and
     the episode use one prior (:func:`valued_causal_lock`).
 
@@ -411,7 +411,7 @@ _CONTRACT_COLUMNS = (
 
 
 def valued_causal_lock(repository: Repository, lock_id: str) -> HypothesisSet:
-    """The causal lock an accepted offer was valued on, as the episode administers it (mvp-0.77, G2-R31): the same row,
+    """The causal lock an accepted offer was valued on, as the episode administers it (mvp-0.77): the same row,
     so its hypotheses, their pinned versions and its prior (support-weighted where the diagnosis receipt scored the
     arms) are the ones the offer priced. Below the tag entry and retarget locked afresh without the scores, which could
     fall back to verbalized or uniform weights."""
@@ -848,6 +848,16 @@ def router_selected_episode(vault: LoadedVault, repository: Repository, episode:
     return False
 
 
+def router_pin_first(queue: list[Any]) -> list[Any]:
+    """A queue with the probe router's standing pin first (a scheduled item marked ``router_pinned_probe``): a
+    durable assignment, as a session's presentation is. From mvp-0.77 the scheduler runs this inside the composition
+    every probability calculation recomposes, so a head the pin forces is logged with probability 1; below the tag it
+    ran after the composition, which the counterfactual outcomes never saw."""
+
+    pinned = [item for item in queue if item.components.get("router_pinned_probe")]
+    return pinned + [item for item in queue if item not in pinned] if pinned else queue
+
+
 def router_pinned_item(repository: Repository, episode: Any) -> str | None:
     """The item of the router's standing, unanswered pin in this episode, or None: a presentation committed for a
     decision the probe router made at its tag that asked the probe (the learner lane's accepted offer, a continuation),
@@ -1090,7 +1100,7 @@ def eligible_instruments(
         )
         # Below mvp-0.77 (Checkpoint 5.2): a family that already produced an observation this episode multiplied
         # the ranking score by a hand-set penalty per prior observation, logged as its own component. From the tag
-        # (G2-R33) the ranking is the expected information over the observed posterior alone, which already
+        # the ranking is the expected information over the observed posterior alone, which already
         # conditions on what that observation showed; the basis is recorded with the selected instrument.
         family_id = instrument.family_template_id
         prior_observations = observed_family_counts.get(str(family_id), 0) if family_id else 0

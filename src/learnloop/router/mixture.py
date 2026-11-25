@@ -175,7 +175,7 @@ class Draw:
     def logged_propensity(self, exact: bool) -> float:
         """The served option's logged probability. ``exact`` (mvp-0.77, ``probe_router_fixes_on``): 1 only when no
         other option has mass, else its exact ``pi``, however close to 1 (an exploration floor of 5e-13 leaves the
-        other options mass the 1e-12 tolerance would round away, G2-R34). Below it mvp-0.76's: 1 within
+        other options mass the 1e-12 tolerance would hide). Below it mvp-0.76's: 1 within
         :data:`DETERMINISTIC_TOLERANCE` of 1."""
 
         if exact:

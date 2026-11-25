@@ -50,4 +50,22 @@ class Proposal:
                 for key, value in asdict(self.reads.facts()).items()}
 
 
-__all__ = ["CHANNEL_SOURCE", "PROBE_ACTION_REF", "Proposal"]
+__all__ = ["CHANNEL_SOURCE", "PROBE_ACTION_REF", "Proposal", "instrument_items"]
+
+
+def instrument_items(vault: Any, repository: Any, learning_object_id: str | None,
+                     factor_id: str | None = None) -> set[str]:
+    """The items on the learning object a probe may administer (bound to an instrument card, a diagnostic surface, or a
+    probe candidate of the factor): the measurement a router decision arranges never takes one of them as its check,
+    which would hold the probe's own instrument back as an ordinary question."""
+
+    items: set[str] = set()
+    if factor_id:
+        items |= {str(row.get("practice_item_id")) for row in repository.causal_probe_candidates_for_factor(factor_id)
+                  if row.get("practice_item_id")}
+    for item in getattr(vault, "practice_items", {}).values():
+        if learning_object_id is None or getattr(item, "learning_object_id", None) != learning_object_id:
+            continue
+        if getattr(item, "practice_mode", None) == "diagnostic_probe" or repository.probe_item_family_links(item.id):
+            items.add(str(item.id))
+    return items

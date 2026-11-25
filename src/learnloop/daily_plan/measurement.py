@@ -262,7 +262,7 @@ def _arrange(vault: Any, repository: Any, frozen: FrozenObjective, *, decision_i
     excluded = set(exclude)
     for check in pending:
         # Its answer comes no earlier than its date, and is on this LO, so this one can measure this decision; never one
-        # on an item the decision excludes (a probe's instrument, G2-R29), which sharing would make its measurement.
+        # on an item the decision excludes (a probe's instrument), which sharing would make its measurement.
         if check.date >= _window_opens(now) and _measures_objective(check, lo_item_ids) \
                 and not excluded & set(check.candidates):
             return _Arrangement(SHARED, commitment_id=check.commitment_id,
@@ -375,7 +375,7 @@ def _replacement_check(vault: Any, repository: Any, decision_id: str, learning_o
     whose every answer is on the objective is shared, whether ``serving`` shows it or this settlement made it (``fresh``, by LO: ``serving`` predates them),
     as a new decision shares one (:func:`_arrange`). Otherwise a new one, dated from now. ``exclude``: the items the
     decision's own measurement excludes (a probe decision's instruments, :func:`decision_exclusions`), carried through
-    sharing and the new check as at the decision (G2-R29). Never raises."""
+    sharing and the new check as at the decision. Never raises."""
 
     try:
         lo = str(learning_object_id)
@@ -409,14 +409,14 @@ def _replacement_check(vault: Any, repository: Any, decision_id: str, learning_o
 def decision_exclusions(vault: Any, repository: Any, row: Mapping[str, Any]) -> set[str]:
     """The items a decision's measurement excludes, read again where its replacement is arranged: a probe router
     decision (the learner lane's or a continuation's) never measures on an item a probe administers on its learning
-    object (``learner_probe.instrument_items``, as at the decision), so its check never holds the router's next
+    object (``learner_probe_proposal.instrument_items``, as at the decision), so its check never holds the router's next
     instrument back. Other decisions exclude nothing here."""
 
     from learnloop.router.plan_log import LEARNER_PROBE_SURFACE, PROBE_CONTINUATION_SURFACE
 
     if row.get("decision_surface") not in (LEARNER_PROBE_SURFACE, PROBE_CONTINUATION_SURFACE):
         return set()
-    from learnloop.daily_plan.learner_probe import instrument_items
+    from learnloop.diagnosis.learner_probe_proposal import instrument_items
 
     return instrument_items(vault, repository, row.get("learning_object_id"), _decision_factor(repository, row))
 

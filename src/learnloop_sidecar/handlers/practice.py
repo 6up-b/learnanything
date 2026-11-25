@@ -733,7 +733,7 @@ def get_next_probe_item(ctx: SidecarContext, params: NextProbeItemInput) -> dict
     from learnloop.diagnosis.probe_controls import PENDING, STANDING, router_next
     from learnloop.placement.state import servable_open_episode
 
-    # A router-owned episode's next question is the router's decision, never an independently ranked one (G2-R26):
+    # A router-owned episode's next question is the router's decision, never an independently ranked one:
     # the one resolver the terminal client reads too.
     routed = router_next(vault, repository, params.learning_object_id, episode_id=params.episode_id)
     if routed is not None:

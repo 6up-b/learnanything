@@ -686,7 +686,7 @@ def publish_offer(
             decision = None
             unlogged = exc
     if isinstance(unlogged, OfferHeadMismatch) and probe_router_fixes_on(vault.config.algorithms.algorithm_version):
-        # mvp-0.77 (G2-R25): a logged propensity is exactly the served distribution, so an offer whose recomposition
+        # mvp-0.77: a logged propensity is exactly the served distribution, so an offer whose recomposition
         # does not reproduce the head it would show is refused, never published without its decision; the record
         # names both heads. Below the tag it was published unlogged (mvp-0.76's).
         _record_unlogged_offer(repository, unlogged, slate_id=trace.slate_id if trace else None,

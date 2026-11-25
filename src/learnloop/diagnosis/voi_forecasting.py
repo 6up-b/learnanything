@@ -147,7 +147,7 @@ def record_probe_presentation_forecast(
             body["channel_pin"] = components["channel_pin"]
         body["presentation_eig_nats"] = presentation.expected_information_gain
         probe = vault.config.probe
-        # The family multiplier is a parameter of the ranking below mvp-0.77 only (G2-R33).
+        # The family multiplier is a parameter of the ranking below mvp-0.77 only.
         family_penalty = ([] if probe_router_fixes_on(vault.config.algorithms.algorithm_version) else [
             VF.parameter("probe.block.family_redundancy_penalty",
                          retired_value(probe.block, "family_redundancy_penalty"), "heuristic", source="config")])

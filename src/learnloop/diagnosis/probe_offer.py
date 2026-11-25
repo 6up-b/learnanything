@@ -387,7 +387,7 @@ def _accept_probe_offer(
         )
 
     origin = _causal_origin(factor_id)
-    # mvp-0.77 (G2-R31): the episode administers the lock the offer was valued on (its versions and its prior).
+    # mvp-0.77: the episode administers the lock the offer was valued on (its versions and its prior).
     valued_lock_id = (str(candidate["hypothesis_set_id"])
                       if probe_router_fixes_on(vault.config.algorithms.algorithm_version) else None)
     existing = repository.open_probe_episode(learning_object_id)

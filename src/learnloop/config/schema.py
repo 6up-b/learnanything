@@ -367,7 +367,7 @@ class ProbeBlockConfig(KeepsRetiredFields):
     Joint greedy conditional EIG applies only to blocks committed before answers
     are observed; sequential selection keeps conditioning on the live posterior.
     ``family_redundancy_penalty`` (a hand-set 0.6 multiplier on a family that
-    already produced an observation) is retired at mvp-0.77 (G2-R33): the
+    already produced an observation) is retired at mvp-0.77: the
     ranking is the expected information over the observed posterior, which
     already conditions on what the family's observation showed. Below the tag
     its remembered value still ranks (``config.retired.retired_value``).

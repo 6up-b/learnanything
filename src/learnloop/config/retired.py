@@ -98,7 +98,7 @@ RETIRED_FIELDS: tuple[RetiredField, ...] = (
     # The vision-model route for reading ink, replaced by GLM-OCR (owner decision 2026-11-23); it was left out of a
     # dump while unset.
     RetiredField("AIRoutingConfig", ("ink_transcription",), str | None, None, "ink-glm-ocr", omit_at_default=True),
-    # The probe ranking's hand-set family multiplier (G2-R33, owner decision 2026-11-26: rank on expected information
+    # The probe ranking's hand-set family multiplier (owner decision 2026-11-26: rank on expected information
     # over the observed posterior). Read below mvp-0.77 only, through :func:`retired_value`.
     RetiredField("ProbeBlockConfig", ("family_redundancy_penalty",), float, 0.6, "G2-R33"),
 )

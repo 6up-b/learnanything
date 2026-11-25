@@ -2055,7 +2055,7 @@ class CausalStoreMixin:
             ).encode("utf-8")
         ).hexdigest()[:32]
         if once:
-            # The lookup and the insertion are one write transaction (G2-R18's residue): two identical reads at once
+            # The lookup and the insertion are one write transaction: two identical reads at once
             # cannot both miss the latest receipt and append two pending receipts.
             with self.atomic():
                 with self.connection() as connection:

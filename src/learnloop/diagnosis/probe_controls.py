@@ -154,7 +154,7 @@ COMPLETED = "completed"
 
 @dataclass(frozen=True)
 class RouterNext:
-    """Where a router-owned episode's next question stands, for every client's "Continue" (G2-R26)."""
+    """Where a router-owned episode's next question stands, for every client's "Continue"."""
 
     state: str
     episode_id: str

@@ -278,14 +278,17 @@ def test_a_probe_decisions_measurement_never_shares_a_check_on_its_instrument(tm
     """G2-R29: a pending "Check once" on the last fresh instrument is not shared as the continuation's measurement
     (sharing made that instrument the decision's check)."""
 
-    from learnloop.daily_plan import measurement as M
+    from learnloop.curriculum import commitments as C
 
     case = _answered(tmp_path, monkeypatch, u=0.0)
+    # The learner lane's own check (on another item) is retired: the one pending check on the learning object is on
+    # the last fresh instrument.
+    with case.repository.connection() as connection:
+        earlier = [row[0] for row in connection.execute(
+            "SELECT commitment_id FROM decision_objectives WHERE commitment_id IS NOT NULL")]
+    for commitment_id in earlier:
+        C.retire(case.repository, commitment_id=commitment_id)
     held = _pending_check_on(case, SECOND)
-    real = M._pending_checks
-    # The check on the instrument is the first one pending (the learner lane's own check, on another item, after it).
-    monkeypatch.setattr(M, "_pending_checks", lambda serving, item_ids: sorted(
-        real(serving, item_ids), key=lambda check: check.commitment_id != held))
     _job(case)
     (decision,) = _continuations(case)
     with case.repository.connection() as connection:

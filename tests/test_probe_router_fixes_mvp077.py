@@ -94,22 +94,21 @@ def _pinned_continuation(tmp_path, monkeypatch, tag: str):
     return case
 
 
-def _near_ties(monkeypatch, *, explored: bool) -> None:
-    """Every other candidate is a near-tie of the greedy head at rate 0.5; the seeded roll explores or not. Today
-    serves the list's head (as with the plan off, or on a phone)."""
+def _near_ties(case, monkeypatch, *, explored: bool):
+    """Every other candidate is a near-tie of the greedy head (a reward window no gap exceeds). Exploring, the rate is
+    1 (every outcome explores); not, it is 1e-9 (the seeded roll stays greedy, while the explored outcomes keep their
+    tiny share). Today serves the list's head (as with the plan off, or on a phone). Returns the reloaded sidecar."""
 
-    from learnloop.scheduling import scheduler
     from learnloop_sidecar.handlers import queue as queue_handler
 
+    from tests.helpers import append_config_toml
+    from tests.probe_router_authority_helpers import sidecar
+
+    rate = 1.0 if explored else 1e-9
+    append_config_toml(case.root, f"\n[scheduler]\nselection_exploration_rate = {rate}\n"
+                                  "selection_exploration_reward_window = 1000000000.0\n")
     monkeypatch.setattr(queue_handler, "today_head_served", lambda _vault: True)
-
-    def support(queue, session, config):
-        if session.session_id is None or len(queue) < 2:
-            return None
-        return 0.5, list(queue[1:])
-
-    monkeypatch.setattr(scheduler, "_exploration_support", support)
-    monkeypatch.setattr(scheduler, "_exploration_draws", lambda *_args: (0.1 if explored else 0.9, 0.0))
+    return sidecar(case.root)
 
 
 def _today_offer(repository) -> dict | None:
@@ -126,8 +125,8 @@ def test_r25_a_forced_head_is_published_with_its_decision_and_probability_1_from
     from tests.probe_router_owned_helpers import SECOND
 
     case = _pinned_continuation(tmp_path, monkeypatch, AT)
-    _near_ties(monkeypatch, explored=explored)
-    queue = call(case.ctx, "get_today_queue", {"sessionId": case.session_id})
+    ctx = _near_ties(case, monkeypatch, explored=explored)
+    queue = call(ctx, "get_today_queue", {"sessionId": case.session_id})
     served = [item["practiceItemId"] for section in queue["sections"] for item in section["items"]]
     assert served[0] == SECOND
     decision = _today_offer(case.repository)
@@ -145,15 +144,15 @@ def test_r25_below_the_tag_the_forced_head_was_recomposed_without_its_pin(tmp_pa
     from tests.probe_router_owned_helpers import SECOND
 
     case = _pinned_continuation(tmp_path, monkeypatch, BEFORE)
-    _near_ties(monkeypatch, explored=explored)
-    queue = call(case.ctx, "get_today_queue", {"sessionId": case.session_id})
+    ctx = _near_ties(case, monkeypatch, explored=explored)
+    queue = call(ctx, "get_today_queue", {"sessionId": case.session_id})
     served = [item["practiceItemId"] for section in queue["sections"] for item in section["items"]]
     assert served[0] == SECOND
     decision = _today_offer(case.repository)
     if explored:
         assert decision is None  # the recomposed head was the explored one: published without a decision
     else:
-        assert decision["chosen_practice_item_id"] == SECOND and decision["propensity"] == 0.5
+        assert decision["chosen_practice_item_id"] == SECOND and decision["propensity"] < 1.0
 
 
 # -- G2-R33 (finding 13, decided: option (a)): the probe ranking reads expected information over the observed posterior

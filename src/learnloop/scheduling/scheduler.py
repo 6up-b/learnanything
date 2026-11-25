@@ -29,6 +29,7 @@ from learnloop.diagnosis.probe_episodes import (
     episode_hypothesis_set,
     episode_posterior,
     qualifying_observation_count,
+    router_pin_first,
     router_pinned_item,
     router_selected_episode,
     session_qualifying_total,
@@ -791,10 +792,7 @@ def rank_due(vault: LoadedVault, admission: "_BuildAdmission", inputs: RankInput
 
     # The contrast pairs' drawn order of the live composition, recorded by the persist step.
     live_contrast_decisions: list[Any] = []
-    # mvp-0.77 (G2-R25): the probe router's standing pin heads the queue inside the composition every probability
-    # calculation recomposes, so a head the pin forces is logged with probability 1; below the tag it was promoted
-    # after the composition, which the counterfactual outcomes never saw (mvp-0.76's).
-    pin_in_composition = probe_router_fixes_on(config.algorithms.algorithm_version)
+    pin_in_composition = probe_router_fixes_on(config.algorithms.algorithm_version)  # see router_pin_first
 
     def compose(composed: list[ScheduledItem], *, record: bool) -> list[ScheduledItem]:
         # The deterministic composition after the exploration draw. One function
@@ -830,13 +828,9 @@ def rank_due(vault: LoadedVault, admission: "_BuildAdmission", inputs: RankInput
         composed, decisions = _apply_contrast_pair_order(vault, composed, session)
         if record:
             live_contrast_decisions[:] = decisions
-        if pin_in_composition:
-            composed = _router_pin_first(composed)
-        return composed
+        return router_pin_first(composed) if pin_in_composition else composed
 
-    queue = compose(queue, record=True)
-    if not pin_in_composition:
-        queue = _router_pin_first(queue)
+    queue = compose(queue, record=True) if pin_in_composition else router_pin_first(compose(queue, record=True))
     active_session_presentation = inputs.active_session_presentation
     # The session's committed presentation this build ends ("invalidated"), by the persist step.
     invalidated_presentation_id: str | None = None
@@ -1489,15 +1483,6 @@ def _explore_to_front(
         for item in queue
         if item.practice_item_id != selected.practice_item_id
     ]
-
-
-def _router_pin_first(queue: list[ScheduledItem]) -> list[ScheduledItem]:
-    """The probe router's standing pin is a durable assignment as a session's presentation is: first."""
-
-    pinned = [item for item in queue if item.components.get("router_pinned_probe")]
-    if not pinned:
-        return queue
-    return pinned + [item for item in queue if item not in pinned]
 
 
 def _pin_presentation(

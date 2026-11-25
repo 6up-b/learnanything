@@ -38,7 +38,7 @@ import logging
 from typing import Any
 
 from learnloop.clock import Clock, utc_now_iso
-from learnloop.diagnosis.learner_probe_proposal import CHANNEL_SOURCE
+from learnloop.diagnosis.learner_probe_proposal import CHANNEL_SOURCE, instrument_items
 from learnloop.ids import new_ulid
 from learnloop.router.plan_log import NO_PROBE_REF, PROBE_REF, log_learner_probe_decision
 from learnloop.router_objective import diagnostic_payload as DP
@@ -314,24 +314,6 @@ def information(valuation: Any) -> float:
     if valuation is None:
         return 0.0
     return float((valuation.record.get("values") or {}).get("information") or 0.0)
-
-
-def instrument_items(vault: Any, repository: Any, learning_object_id: str | None,
-                     factor_id: str | None = None) -> set[str]:
-    """The items on the learning object a probe may administer (bound to an instrument card, a diagnostic surface, or a
-    probe candidate of the factor): the measurement a router decision arranges never takes one of them as its check,
-    which would hold the probe's own instrument back as an ordinary question."""
-
-    items: set[str] = set()
-    if factor_id:
-        items |= {str(row.get("practice_item_id")) for row in repository.causal_probe_candidates_for_factor(factor_id)
-                  if row.get("practice_item_id")}
-    for item in getattr(vault, "practice_items", {}).values():
-        if learning_object_id is None or getattr(item, "learning_object_id", None) != learning_object_id:
-            continue
-        if getattr(item, "practice_mode", None) == "diagnostic_probe" or repository.probe_item_family_links(item.id):
-            items.add(str(item.id))
-    return items
 
 
 def draw(vault: Any, repository: Any, *, key: str, unit: str, valuation: Any, now_iso: str, probe_ref: str,

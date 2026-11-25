@@ -133,7 +133,7 @@ class PracticeScreen(Screen):
         if not runtime.ready or client is None:
             repository.update_probe_episode_status(episode.id, status="pending_items")
             return
-        # A router-owned episode's question is the router's decision (G2-R26; the resolver the desktop's Continue reads
+        # A router-owned episode's question is the router's decision (the resolver the desktop's Continue reads
         # too): its standing presentation is served as it stands when this is its item; nothing else is committed.
         from learnloop.diagnosis.probe_controls import STANDING, router_next
 
