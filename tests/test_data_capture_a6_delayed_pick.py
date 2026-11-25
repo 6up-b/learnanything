@@ -18,6 +18,8 @@ from learnloop.algorithm_versions import (
     LESSON_WEIGHT_CURVES_ALGORITHM_VERSION,
     DATA_CAPTURE_ALGORITHM_VERSION,
     LABEL_RETIRED_ALGORITHM_VERSION,
+    LESSON_WEIGHT_FACTS_ALGORITHM_VERSION,
+    OUTCOME_FIXES_ALGORITHM_VERSION,
     PROBE_ROUTER_ALGORITHM_VERSION,
 )
 from learnloop import delayed_checks as DC
@@ -159,3 +161,47 @@ def test_two_landed_nodes_on_one_lo_draw_their_checks_from_their_own_seeds(tmp_p
     seeds = [check["pick"]["seed"] for check in out if check["purpose"] == "retention"]
     assert len(seeds) == 2 and all(seeds)
     assert (seeds[0] != seeds[1]) is (version == FORECAST_SCORING_ALGORITHM_VERSION)
+
+
+@pytest.mark.parametrize("version", [LESSON_WEIGHT_FACTS_ALGORITHM_VERSION, OUTCOME_FIXES_ALGORITHM_VERSION])
+def test_each_landed_nodes_retention_forecast_targets_the_item_it_is_committed(tmp_path, version):
+    """FR3-15: two landed nodes on one LO with tied cold items. At commitment the first node reserves its pick and the
+    second draws from those left. From the outcome fixes' tag each node's retention forecast (``cold_reference``, given
+    the nodes landed before it) names the item its check is committed and the pick's logged propensity; below the tag
+    the second node's forecast drew from every candidate, the first node's item included."""
+
+    from learnloop.teacher import checks as CK
+
+    _paths, repository, vault = _vault(tmp_path, version=version, pi_a=0.5, pi_b=0.5, pi_mid=0.5)
+    nodes = [{"id": "n1", "lo_id": "lo_eigen"}, {"id": "n2", "lo_id": "lo_eigen"}]
+    references = [CK.cold_reference(vault, repository, "lo_eigen", lesson_id="les_two", exclude=[], lesson_item_ids=[],
+                                    node_id=node["id"], prior_nodes=nodes[:index])
+                  for index, node in enumerate(nodes)]
+    out, _warnings = D.commit_checks(
+        vault, repository, lesson_id="les_two", landed=nodes, goal_learning_object_ids=["lo_eigen"],
+        lesson_items_by_lo={}, shown_items=[], clock=FrozenClock(parse_utc(NOW)))
+    committed = [check for check in out if check["purpose"] == "retention"]
+    tied = committed[0]["pick"]["n"]
+    assert tied > 2 and committed[1]["pick"]["n"] == tied - 1
+    assert committed[0]["item_id"] != committed[1]["item_id"]
+    assert references[0]["item_id"] == committed[0]["item_id"]
+    if version == OUTCOME_FIXES_ALGORITHM_VERSION:
+        assert [reference["item_id"] for reference in references] == [check["item_id"] for check in committed]
+        assert [reference["pick"] for reference in references] == [check["pick"] for check in committed]
+        assert references[1]["pick"]["propensity"] == pytest.approx(1.0 / (tied - 1))
+    else:
+        assert "pick" not in references[1]
+
+
+def test_a_nodes_forecast_is_allocated_after_the_nodes_landed_before_it():
+    """FR3-15: the lesson passes each node's forecast the nodes the commitment allocates first: the landed nodes in
+    landing order up to the node, or all of them when it has not landed yet."""
+
+    from types import SimpleNamespace
+
+    from learnloop.teacher.service import _landed_before
+
+    state = SimpleNamespace(landed=["n1", "n2", "n1"], node_lo=lambda node: f"lo_{node}")
+    assert _landed_before(state, "n1") == []
+    assert _landed_before(state, "n2") == [{"id": "n1", "lo_id": "lo_n1"}]
+    assert _landed_before(state, "n3") == [{"id": "n1", "lo_id": "lo_n1"}, {"id": "n2", "lo_id": "lo_n2"}]

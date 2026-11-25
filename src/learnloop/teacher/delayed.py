@@ -151,6 +151,30 @@ def node_seed(vault: Any, node_id: Any) -> str | None:
     return str(node_id) if forecast_scoring_fixed(vault.config.algorithms.algorithm_version) else None
 
 
+def retention_picks(vault: Any, repository: Any, *, lesson_id: str, nodes: Sequence[Mapping[str, Any]],
+                    exclude: Iterable[str], withheld: Any, attempted: set[str], revealed: set[str],
+                    excluded_lineage: set[str]) -> list[tuple[Mapping[str, Any], str, Any | None, dict[str, Any]]]:
+    """Each landed node's retention pick, in landing order: ``(node, lo, item or None, pick receipt)``. A pick is
+    excluded from every later node's candidates, so two nodes on one LO never receive one item. The one allocation
+    the commitment (:func:`commit_checks`) and each node's retention forecast (``teacher.checks.cold_reference``, from
+    the outcome fixes' tag, FR3-15) read, so a forecast names the item and the propensity its check is committed."""
+
+    used = set(exclude)
+    out: list[tuple[Mapping[str, Any], str, Any | None, dict[str, Any]]] = []
+    for node in nodes:
+        lo = node.get("lo_id")
+        if not lo or lo not in vault.learning_objects:
+            continue
+        item, receipt = pick_with_receipt(vault, repository, candidates(
+            vault, repository, str(lo), exclude=used, withheld=withheld, attempted=attempted, revealed=revealed,
+            excluded_lineage=excluded_lineage), seed_key=retention_seed_key(lesson_id, str(lo),
+                                                                           node_seed(vault, node.get("id"))))
+        if item is not None:
+            used.add(item.id)
+        out.append((node, str(lo), item, receipt))
+    return out
+
+
 def commit_checks(vault: Any, repository: Any, *, lesson_id: str, landed: Sequence[Mapping[str, Any]],
                   goal_learning_object_ids: Sequence[str], lesson_items_by_lo: Mapping[str, Sequence[str]],
                   shown_items: Iterable[str], taught_learning_objects: Sequence[str] = (),
@@ -184,20 +208,17 @@ def commit_checks(vault: Any, repository: Any, *, lesson_id: str, landed: Sequen
             item_picks[item.id] = receipt
         return item
 
-    for node in landed:
-        lo = node.get("lo_id")
-        if not lo or lo not in vault.learning_objects:
-            continue
-        landed_los.append(str(lo))
-        item = picked_for(candidates(vault, repository, str(lo), exclude=used, withheld=withheld,
-                                     attempted=attempted, revealed=revealed, excluded_lineage=shown_lineage),
-                          retention_seed_key(lesson_id, str(lo), node_seed(vault, node.get("id"))))
+    for node, lo, item, receipt in retention_picks(vault, repository, lesson_id=lesson_id, nodes=landed, exclude=used,
+                                                   withheld=withheld, attempted=attempted, revealed=revealed,
+                                                   excluded_lineage=shown_lineage):
+        landed_los.append(lo)
         if item is None:
             warnings.append(f"no unseen question for a cold check on {lo}")
-            plan.append(("retention", str(node.get("id")), str(lo), None))
+            plan.append(("retention", str(node.get("id")), lo, None))
             continue
+        item_picks[item.id] = receipt
         used.add(item.id)
-        plan.append(("retention", str(node.get("id")), str(lo), item))
+        plan.append(("retention", str(node.get("id")), lo, item))
     if landed_los:
         transfer = None
         facets = taught_facets(vault, [*landed_los, *taught_learning_objects])
@@ -255,4 +276,5 @@ def commit_checks(vault: Any, repository: Any, *, lesson_id: str, landed: Sequen
 
 
 __all__ = ["PICK_VERSION", "PURPOSES", "candidates", "commit_checks", "due_days", "lineage", "measures_facet", "pick",
-           "node_seed", "pick_with_receipt", "presentation", "retention_seed_key", "shown_vault_items", "taught_facets"]
+           "node_seed", "pick_with_receipt", "presentation", "retention_picks", "retention_seed_key", "shown_vault_items",
+           "taught_facets"]

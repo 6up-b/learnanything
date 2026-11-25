@@ -30,6 +30,15 @@ The successor of mvp-0.75 for the review-round-3 fixes that change what is deriv
   stored surprise only for a regraded inline answer whose original contract froze no revision: it reads mastery.
   Test: `tests/test_selected_forecast.py::test_a_regrade_does_not_make_an_old_inline_forecast_eligible` (both sides
   of the tag).
+- FR3-15 (class 8): a landed node's retention forecast (and the lesson check mass weighed against it) names the item
+  the commitment will give that node: one allocation (`teacher.delayed.retention_picks`, landing order, each pick
+  excluded from later nodes) is read by the commitment and by `teacher.checks.cold_reference`, which is given the
+  nodes landed before the node and records the pick's receipt (its logged propensity) on the reference
+  (`retention_forecast_shares_allocation`). Up to mvp-0.75 the second of two nodes on one learning object forecast
+  against a pick from every candidate, the first node's reserved item included. A live forecast input; replay reads
+  the recorded mass. Test:
+  `tests/test_data_capture_a6_delayed_pick.py::test_each_landed_nodes_retention_forecast_targets_the_item_it_is_committed`
+  (both sides of the tag).
 
 ## Fixed without the tag
 

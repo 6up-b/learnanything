@@ -1281,7 +1281,8 @@ def _answer_check(vault: Any, repository: Any, state: LessonState, payload: Mapp
             reference = CK.cold_reference(vault, repository, lo, lesson_id=state.lesson_id, node_id=node_id,
                                           exclude=_lesson_shown(vault, state),
                                           lesson_item_ids=[c["minted_item_id"] for c in state.checks
-                                                           if c.get("minted_item_id")])
+                                                           if c.get("minted_item_id")],
+                                          prior_nodes=_landed_before(state, node_id))
         mass = CK.check_mass(vault, repository, learning_object_id=lo, tap=tap, hedge=hedge, correctness=correctness,
                              item=item, as_of=as_of, p_teacher_retained=(retained or {}).get("p"), family=family,
                              reference=reference)
@@ -2389,7 +2390,8 @@ def _forecast(vault: Any, repository: Any, state: LessonState, request: ActionRe
             reference = CK.cold_reference(vault, repository, lo, lesson_id=state.lesson_id, node_id=node,
                                           exclude=_lesson_shown(vault, state),
                                           lesson_item_ids=[c["minted_item_id"] for c in state.checks
-                                                           if c.get("minted_item_id")])
+                                                           if c.get("minted_item_id")],
+                                          prior_nodes=_landed_before(state, node))
             row = repository.mastery_state(lo)
             if row is not None:
                 recorded = {"mu": float(row.logit_mean), "variance": float(row.logit_variance),
@@ -2556,6 +2558,16 @@ def _receipt_te2_fields(repository: Any, state: LessonState) -> dict[str, Any]:
     created = [str((entry.get("payload") or {}).get("learning_object_id")) for entry in turns
                if entry["action"] == "goal_lo"]
     return {"probes": probes, "gaps": gaps, "created_los": created}
+
+
+def _landed_before(state: Any, node_id: Any) -> list[dict[str, Any]]:
+    """The nodes whose retention checks the commitment allocates before ``node_id``'s, as of now (FR3-15): the landed
+    nodes in landing order (``_close``'s), up to this node, or all of them when it has not landed yet (it is then
+    committed after them)."""
+
+    landed = list(dict.fromkeys(str(node) for node in state.landed))
+    before = landed[:landed.index(str(node_id))] if str(node_id) in landed else landed
+    return [{"id": node, "lo_id": state.node_lo(node)} for node in before]
 
 
 def _lesson_shown(vault: Any, state: LessonState) -> list[str]:

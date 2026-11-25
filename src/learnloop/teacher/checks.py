@@ -111,27 +111,44 @@ def lesson_item(item: Any) -> bool:
 
 
 def cold_reference(vault: Any, repository: Any, learning_object_id: str, *, lesson_id: str,
-                   exclude: Sequence[str], lesson_item_ids: Sequence[str], node_id: str | None = None) -> dict[str, Any]:
+                   exclude: Sequence[str], lesson_item_ids: Sequence[str], node_id: str | None = None,
+                   prior_nodes: Sequence[Mapping[str, Any]] = ()) -> dict[str, Any]:
     """The committed cold item a node's retention forecast is about, as of now (§12.2; review F5): the
     item the delayed retention check would commit (``teacher.delayed``'s candidate rule and picker,
     excluding the lesson's own and shown items and their lineage), its IRT parameters (the LO's when no
-    item fits), and the horizon the check would be dated at (``delayed.due_days``)."""
+    item fits), and the horizon the check would be dated at (``delayed.due_days``).
 
+    ``prior_nodes``: the nodes landed before this one, in landing order (``{"id", "lo_id"}``). From the outcome fixes'
+    tag (FR3-15) the item is the one the commitment's allocation (``delayed.retention_picks``) gives this node after
+    them, and the reference carries its pick receipt (the logged propensity); below it the node's pick alone."""
+
+    from learnloop.algorithm_versions import retention_forecast_shares_allocation
     from learnloop.learner.mastery import resolve_item_irt_params
     from learnloop.learner_protection import withheld_items
     from learnloop.teacher import delayed as D
 
     shown = [vault.practice_items[i] for i in exclude if i in vault.practice_items]
     lineage: set[str] = set().union(*(D.lineage(i) for i in shown)) if shown else set()
-    found = D.pick(vault, repository, D.candidates(
-        vault, repository, learning_object_id, exclude=exclude, withheld=withheld_items(vault, repository),
-        attempted=D._attempted(repository), revealed=D._revealed(repository, lesson_id), excluded_lineage=lineage),
-        seed_key=D.retention_seed_key(lesson_id, learning_object_id, D.node_seed(vault, node_id)))
+    withheld = withheld_items(vault, repository)
+    attempted, revealed = D._attempted(repository), D._revealed(repository, lesson_id)
+    pick: dict[str, Any] | None = None
+    if retention_forecast_shares_allocation(vault.config.algorithms.algorithm_version):
+        nodes = [*(node for node in prior_nodes if node.get("lo_id") == learning_object_id and node.get("id") != node_id),
+                 {"id": node_id, "lo_id": learning_object_id}]
+        picks = D.retention_picks(vault, repository, lesson_id=lesson_id, nodes=nodes, exclude=exclude,
+                                  withheld=withheld, attempted=attempted, revealed=revealed, excluded_lineage=lineage)
+        # Every node here is on this LO, so the last pick is this node's (none when the LO is not in the vault).
+        found, pick = (picks[-1][2], picks[-1][3]) if picks else (None, None)
+    else:
+        found = D.pick(vault, repository, D.candidates(
+            vault, repository, learning_object_id, exclude=exclude, withheld=withheld, attempted=attempted,
+            revealed=revealed, excluded_lineage=lineage),
+            seed_key=D.retention_seed_key(lesson_id, learning_object_id, D.node_seed(vault, node_id)))
     a, b = resolve_item_irt_params(found, vault.learning_objects.get(learning_object_id), vault.config.mastery,
                                    algorithm_version=vault.config.algorithms.algorithm_version)
     days, basis = D.due_days(vault, repository, purpose="retention", lesson_item_ids=list(lesson_item_ids))
     return {"item_id": found.id if found is not None else None, "a": float(a), "b": float(b),
-            "days": float(days), "dated_by": basis}
+            "days": float(days), "dated_by": basis, **({"pick": pick} if pick is not None and found is not None else {})}
 
 
 def check_mass(vault: Any, repository: Any, *, learning_object_id: str, tap: int | None, hedge: str | None,

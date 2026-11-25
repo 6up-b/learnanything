@@ -1402,6 +1402,14 @@ def inline_guard_reads_first_grade(algorithm_version: str | None) -> bool:
     return algorithm_version in OUTCOME_FIXES_VERSIONS
 
 
+def retention_forecast_shares_allocation(algorithm_version: str | None) -> bool:
+    """A landed node's retention forecast names the item the commitment's allocation gives it after the nodes landed
+    before it, with that pick's propensity (mvp-0.76, FR3-15); below it each node's pick alone, mvp-0.73's exactly.
+    Takes the vault's tag."""
+
+    return algorithm_version in OUTCOME_FIXES_VERSIONS
+
+
 def mastery_facts_recorded(algorithm_version: str | None) -> bool:
     """Mastery records each application's facts, observed at whole seconds, and the lesson-weight fit and every
     reader of a lesson outcome read them in one order (the facts' tag); below it mvp-0.73's exactly. Takes the
