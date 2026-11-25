@@ -31,7 +31,7 @@ from learnloop.content.pipeline.reread import (
     restore_readable_revision,
     unread_current_revisions,
 )
-from learnloop.content.sources.exam_material import protection_issues
+from learnloop.content.sources.exam_material import protection_issues, serve_refusals
 from learnloop.content.sources.span_aliases import CITATION_MADE_AT_SQL, CitationResolver, CurrentKeys, reading_source
 from learnloop.db.checkpoint import checkpoint_wal
 from learnloop.db.connection import (
@@ -79,6 +79,7 @@ from learnloop.vault.models import (
     PracticeItem,
     RelationsFile,
 )
+from learnloop.vault.copy_locators import copies_missing_locators, repair_copy_locators
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.yaml_io import read_yaml_data
 from learnloop.version_floor import refuse_below_floor
@@ -285,14 +286,11 @@ def _check_remint_locators(vault: Any, repository: Repository | None, issues: li
     error when the source is protected now (the copy is unprotected practice of it), a warning otherwise;
     ``--fix-state`` copies the locators in."""
 
-    from learnloop.content.sources.exam_material import serve_refusals
-    from learnloop.diagnosis.probe_remint import remint_missing_locators, repair_remint_locators
-
-    missing = remint_missing_locators(vault)
+    missing = copies_missing_locators(vault)
     if not missing:
         return
     if fix_state:
-        repair_remint_locators(vault.root, vault)
+        repair_copy_locators(vault.root, vault)
         return
     for remint, source in missing:
         protected = (serve_refusals(vault, repository, [source], surface="session_serve").get(source.id)

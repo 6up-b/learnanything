@@ -19,6 +19,7 @@ from learnloop.followup_serve.gates import generate_and_serve_on
 from learnloop.followup_serve.queue import enqueue_entry
 from learnloop.attempts.reveal_ledger import ProductionAdmissibility, production_admissibility
 from learnloop.clock import Clock, parse_utc, utc_now_iso
+from learnloop.content.sources.exam_material import serve_refusals
 from learnloop.db.repositories import Repository
 from learnloop.db.stores.probes import ProbeEpisodeRecord
 from learnloop.ids import new_ulid
@@ -880,8 +881,6 @@ def item_refusals(vault: LoadedVault, repository: Repository, items: Iterable[Pr
     * exam material the session serve refuses (``exam_material.serve_refusals`` on the ``session_serve`` row: reserved
       for a goal's held-out exam, or made from held-out material). The probe door shows its item in the session, so it
       asks the session serve's verdict before anything is priced, reserved or marked served."""
-
-    from learnloop.content.sources.exam_material import serve_refusals
 
     items = list(items)
     if not items:
