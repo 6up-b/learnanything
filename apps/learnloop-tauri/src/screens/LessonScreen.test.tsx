@@ -268,6 +268,13 @@ it("Continue on a lesson with nothing waiting only reads it (TE5-R8)", async () 
   expect(api.lessonTurn).not.toHaveBeenCalled();
 });
 
+it("an answer the spending limit left ungraded says so beside it (TE5-R18)", async () => {
+  await open(lesson({ closed: true, closeReason: "budget",
+                      feed: [{ kind: "learner", text: "det(A - tI) = 0", checkRef: "c1",
+                               note: "Saved. This answer wasn't graded." }] }));
+  expect(screen.getByTestId("lesson-learner-note").textContent).toBe("Saved. This answer wasn't graded.");
+});
+
 // --- Reader RW5d P4b: the teacher's visual ------------------------------------------------------
 
 const FLAGSHIP = corpus.figures.find((item) => item.id === "two_sided_exponential")!.spec as unknown as { demonstrates: string };

@@ -10507,7 +10507,8 @@ export type LessonFeedEntryDto =
   | { kind: "prediction"; node: string; prompt: string; choices: string[] }
   | { kind: "check"; checkRef: string; node: string; question: string; form: "choices" | "free"; choices: string[];
       unanchored: boolean }
-  | { kind: "learner"; text: string; checkRef?: string | null }
+  /** `note` (TE5-R18): "Saved. This answer wasn't graded." beside an answer the spending limit left ungraded. */
+  | { kind: "learner"; text: string; checkRef?: string | null; note?: string | null }
   | { kind: "check_result"; checkRef: string; result: string; graderFeedback?: string | null; unanchored?: boolean;
       answerLabel?: string | null }
   /** Teacher TE2: a quick question as it was served, where it was (shown once answered, or in a review). */

@@ -3163,7 +3163,7 @@ def view(vault: Any, repository: Any, lesson_id: str, *, outcome: _Outcome | Non
                          "choices": check.get("choices") or [], "unanchored": not check.get("anchors")})
         elif action in ("learner_reply", "prediction_answer", "check_answer"):
             feed.append({"kind": "learner", "text": data.get("text") or data.get("answer"),
-                         "check_ref": data.get("check_ref")})
+                         "check_ref": data.get("check_ref"), **_unassessed_note(data)})
         elif action == LIBRARY_LOOKUP:
             feed.append({"kind": "learner", "text": data.get("command"), "check_ref": None})
         elif action == "check_result":
@@ -3234,6 +3234,14 @@ def view(vault: Any, repository: Any, lesson_id: str, *, outcome: _Outcome | Non
 _TE2_FEED = frozenset({PR.SERVED, PR.ANSWER, PR.RESULT, PR.REFUSED, "goal_lo"})
 
 
+#: TE5-R18: beside an answer kept unassessed (the lesson's spending limit refused its grader).
+UNASSESSED_NOTE = "Saved. This answer wasn't graded."
+
+
+def _unassessed_note(data: Mapping[str, Any]) -> dict[str, str]:
+    return {"note": UNASSESSED_NOTE} if data.get("assessed") is False else {}
+
+
 def _te2_feed_entry(vault: Any, action: str, data: Mapping[str, Any], *, answered: set[str],
                     closed: bool) -> dict[str, Any] | None:
     """A TE2 turn as the feed shows it, in place (the question as the item states it: nothing is generated again)."""
@@ -3245,7 +3253,7 @@ def _te2_feed_entry(vault: Any, action: str, data: Mapping[str, Any], *, answere
             return None
         return {"kind": "probe_question", "probe_ref": ref, "question": item.prompt}
     if action == PR.ANSWER:
-        return {"kind": "learner", "text": data.get("answer"), "check_ref": None}
+        return {"kind": "learner", "text": data.get("answer"), "check_ref": None, **_unassessed_note(data)}
     if action == PR.RESULT:
         return {"kind": "probe_result", "probe_ref": data.get("probe_ref"), "result": data.get("result"),
                 "grader_feedback": data.get("grader_feedback")}

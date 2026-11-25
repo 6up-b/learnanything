@@ -799,6 +799,8 @@ function FeedEntry({ item, openCheckRef, checkOpen, onOpenCheck, windowed }: {
         <div data-testid="lesson-learner" style={{ margin: "10px 0 10px 40px", padding: "8px 12px", border: `1px solid ${COLOR.border}`,
                                                   fontFamily: FONT_MONO, fontSize: 12 }}>
           {item.text}
+          {/* TE5-R18: an answer kept when the lesson's spending limit stopped its grading says it didn't count. */}
+          {item.note ? <div data-testid="lesson-learner-note" style={{ color: COLOR.textDim, marginTop: 4 }}>{item.note}</div> : null}
         </div>
       );
     case "check_result":

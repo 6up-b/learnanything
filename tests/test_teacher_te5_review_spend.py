@@ -74,3 +74,21 @@ def test_a_metered_grader_with_the_settings_is_reserved_and_settled_into_the_clo
     assert spend and {row["purpose"] for row in spend} <= {"grading", "blind_grading"}  # the double's seam and the real one
     receipt, = _rows(repository, "SELECT json_extract(receipt_json, '$.cost.metered_usd') FROM lesson_receipts")
     assert receipt[0] == pytest.approx(sum(row["usd"] for row in spend)) and receipt[0] > 0
+
+
+def test_a_budget_refused_answer_says_it_was_saved_and_not_graded(tmp_path):
+    """TE5-R18: the feed shows the saved status beside the answer the budget kept unassessed."""
+    paths, repository = build_teacher_vault(tmp_path / "vault")
+    teacher, grader = SubscriptionTeacher([plan_turn, check_turn()]), MeteredGrader()
+    providers = S.Clients(teacher=lambda: teacher, grading=lambda: grader, grading_source="ai")
+    lesson = S.open_lesson(load_vault(paths.root), repository, entry="learning_object", learning_object_ids=["lo_eigen"],
+                           clients=providers)["lesson_id"]
+    S.take_turn(load_vault(paths.root), repository, lesson_id=lesson, action="reply", payload={"text": "go"},
+                clients=providers)
+    closed = S.take_turn(load_vault(paths.root), repository, lesson_id=lesson, action="answer_check",
+                         payload={"answer": "det(A - tI) = 0", "tap": 4}, clients=providers)
+    answer, = [entry for entry in closed["feed"] if entry["kind"] == "learner" and entry["text"] == "det(A - tI) = 0"]
+    assert answer["note"] == "Saved. This answer wasn't graded."
+    reopened = S.view_lesson(load_vault(paths.root), repository, lesson)
+    assert [entry.get("note") for entry in reopened["feed"] if entry["kind"] == "learner"] == [
+        None, "Saved. This answer wasn't graded."]  # the reply "go", then the kept answer
