@@ -130,6 +130,12 @@ The successor of mvp-0.75 for the review-round-3 fixes that change what is deriv
   no protected material on record (`MaterialView.unknown_revision_withheld`); a presentation that froze no revision
   follows the same rule. Tests: `tests/test_answered_revision_protection.py` (two cases) and both shapes in the
   absent-copy contract (`tests/ad23_contract_helpers._protect_r4`).
+- R4-S8 (FR3-17's residue): an integer beyond a float in a mastery application record is malformed (the labelled
+  gap), never an `OverflowError`. Test: a fifth case of
+  `tests/test_lesson_outcome_assessed.py::test_a_malformed_application_record_is_a_labelled_gap`.
+- R4-S9 (FR3-23's residue): the given-points rows' ids escape their parts, so `(A:B, C)` and `(A, B:C)` differ; an id
+  without `:` or `%` is unchanged. Test:
+  `tests/test_one_instant_per_grade.py::test_given_points_row_ids_never_collide_across_attempt_and_criterion_ids`.
 
 ## Pins and goldens
 

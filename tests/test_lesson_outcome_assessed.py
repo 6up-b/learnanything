@@ -97,6 +97,8 @@ def test_an_unapplied_answer_resolves_no_lesson_check_from_the_tag(tmp_path, ver
     "json_remove(payload_json, '$.mastery_application.prior.last_evidence_at')",
     "json_set(payload_json, '$.mastery_application.applied', 'yes')",
     "json_set(payload_json, '$.mastery_application.observation_weight', 'NaN')",
+    # R4-S8: a valid JSON integer beyond a float (failed before: OverflowError aborted the fit).
+    "json_set(payload_json, '$.mastery_application.item_a', json('1" + "0" * 400 + "'))",
 ])
 def test_a_malformed_application_record_is_a_labelled_gap(tmp_path, malformation):
     """FR3-17 (failed before: a null instant became the string "None" and the trajectory raised; a missing evidence

@@ -434,11 +434,18 @@ class MasteryApplication:
 
 
 def _finite(value: Any) -> float:
-    """A recorded number: a real, finite JSON number (a bool, a string or a non-finite value is malformed)."""
+    """A recorded number: a real, finite JSON number (a bool, a string, a non-finite value or an integer beyond a
+    float is malformed)."""
 
-    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(float(value)):
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise ValueError("not a finite number")
-    return float(value)
+    try:
+        number = float(value)
+    except OverflowError as exc:
+        raise ValueError("not a finite number") from exc
+    if not math.isfinite(number):
+        raise ValueError("not a finite number")
+    return number
 
 
 def _instant(value: Any) -> str:
