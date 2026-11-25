@@ -240,3 +240,27 @@ def test_an_oversized_catalog_is_noted_and_close_always_works(tmp_path, monkeypa
     closed = S.take_turn(load_vault(paths.root), repository, lesson_id=lesson, action="close", payload={},
                          clients=providers)
     assert closed["closed"]
+
+
+# --- TE5-R10: recovery uses the model that produced the accepted turn -----------------------------------------------
+
+
+def test_a_recovered_forecast_names_the_model_that_produced_its_turn(tmp_path, monkeypatch):
+    from tests.teacher_fakes import landed_turn
+
+    class Second(TeacherFake):
+        model = "second-teacher-model"
+
+    paths, repository = build_teacher_vault(tmp_path / "vault")
+    first = TeacherFake([plan_turn])
+    lesson = S.open_lesson(load_vault(paths.root), repository, entry="learning_object",
+                           learning_object_ids=["lo_eigen"], clients=clients(first))["lesson_id"]
+    second = Second([landed_turn()])
+    with monkeypatch.context() as patch:
+        patch.setattr(S, "_forecast", lambda *_a, **_k: (_ for _ in ()).throw(RuntimeError("stopped")))
+        with pytest.raises(RuntimeError):
+            S.take_turn(load_vault(paths.root), repository, lesson_id=lesson, action="reply",
+                        payload={"text": "go"}, clients=clients(second))
+    S.view_lesson(load_vault(paths.root), repository, lesson)  # the recovery: no model call
+    forecast, = [row["payload"] for row in S.load_state(repository, lesson).turns if row["action"] == "forecast"]
+    assert str(forecast["family"]).endswith(":second-teacher-model")

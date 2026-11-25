@@ -1002,12 +1002,20 @@ def recover(vault: Any, repository: Any, state: LessonState, *, clock: Clock | N
     done = state.effects_done.setdefault(str(entry["id"]), set())
     # A turn's visual builds a figure (a model call): like its reads, only on an action's own recovery,
     # never on ``lesson.view`` (Reader RW5d P4b).
-    _execute(vault, repository, state, turn_obj, turn_entry=entry, model=state.lesson.get("model"), deferred=True,
+    _execute(vault, repository, state, turn_obj, turn_entry=entry, model=_turn_model(state, entry), deferred=True,
              outcome=outcome, clock=clock, help_reply=bool(data.get("help_reply")), done=done, reads=reads,
              builder=builder if reads else None, resolver=resolver)
     if str(entry["id"]) in state.executed:
         state.unexecuted = None
     return outcome
+
+
+def _turn_model(state: LessonState, entry: Mapping[str, Any]) -> str | None:
+    """The model that produced an accepted turn (TE5-R10): recorded on the turn since this round; a turn accepted
+    before it names none, and its lesson's opening model stands in (the only identity it kept)."""
+
+    recorded = (entry.get("payload") or {}).get("model")
+    return str(recorded) if recorded else state.lesson.get("model")
 
 
 #: The steps that wait for a teacher call (the learner's, or code's after a check). A step written as an
@@ -1133,9 +1141,9 @@ def take_turn(vault: Any, repository: Any, *, lesson_id: str, action: str, paylo
             # reads and visual: Reader RW5d P4b, Codex review F1): ruling R1. Changed, recovery runs only
             # what makes no model call, and the lesson ends.
             changed = protection_changed(vault, repository, state)
-            # TE5-R9: Close (and Stop) settle an interrupted turn's optional reads, offers and figure without running
-            # them: nothing a retrieval or a resolver can fail on stands between the learner and closing.
-            ending = action in ("close", "stop")
+            # TE5-R9: Close (no teacher call) settles an interrupted turn's optional reads, offers and figure without
+            # running them: nothing a retrieval or a resolver can fail on stands between the learner and closing.
+            ending = action == "close"
             try:
                 recovered = recover(vault, repository, state, clock=clock, reads=not (changed or ending),
                                     builder=None if (changed or ending) else clients.figures, resolver=clients.resolver)
@@ -2023,7 +2031,9 @@ def _call_teacher(vault: Any, repository: Any, state: LessonState, client: Any, 
         if deliver:
             _append(repository, state, actor="code", action="results_delivered", payload={"turn_ids": list(deliver)},
                     clock=clock)
-        payload = {"turn": wire_data, "turn_version": TURN_VERSION, "help_reply": bool(help_reply)}
+        payload = {"turn": wire_data, "turn_version": TURN_VERSION, "help_reply": bool(help_reply),
+                   # TE5-R10: the model that produced this turn; its recovered effects (a forecast's family) use it.
+                   "model": _model_name(client)}
         if visuals:
             payload["visuals"] = V.VISUALS_VERSION
         if episodes:
