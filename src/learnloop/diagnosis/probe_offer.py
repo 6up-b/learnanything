@@ -12,6 +12,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from learnloop.algorithm_versions import probe_router_fixes_on
 from learnloop.clock import Clock
 from learnloop.db.repositories import Repository
 from learnloop.diagnosis.causal_attribution import CAUSAL_DECISION_POLICY_VERSION
@@ -386,6 +387,9 @@ def _accept_probe_offer(
         )
 
     origin = _causal_origin(factor_id)
+    # mvp-0.77 (G2-R31): the episode administers the lock the offer was valued on (its versions and its prior).
+    valued_lock_id = (str(candidate["hypothesis_set_id"])
+                      if probe_router_fixes_on(vault.config.algorithms.algorithm_version) else None)
     existing = repository.open_probe_episode(learning_object_id)
     if existing is not None and str(existing.origin or "") != origin:
         if episode_conflict_reason(repository, existing) is not None:
@@ -411,7 +415,7 @@ def _accept_probe_offer(
                 require_current(connection)
                 episode = retarget_episode_to_causal_factor(
                     vault, repository, existing, factor_id, origin=origin, clock=clock,
-                    reserved_for=practice_item_id,
+                    reserved_for=practice_item_id, valued_lock_id=valued_lock_id,
                 )
                 return finish(episode)
         except _OfferRefusedAtCommit as refused:
@@ -435,6 +439,7 @@ def _accept_probe_offer(
                 clock=clock,
                 ai_client=ai_client,
                 reserved_for=practice_item_id,
+                valued_lock_id=valued_lock_id,
             )
             return finish(episode)
     except _OfferRefusedAtCommit as refused:

@@ -227,11 +227,16 @@ def enter_episode(
     clock: Clock | None = None,
     ai_client: object | None = None,
     reserved_for: str | None = None,
+    valued_lock_id: str | None = None,
 ) -> ProbeEpisodeRecord:
     """Open a diagnostic episode with a fresh ULID and locked hypothesis set.
 
     ``reserved_for`` (FG1): the generated probe this episode is opened to serve, which
     no other selector may read.
+
+    ``valued_lock_id`` (mvp-0.77, G2-R31): the causal lock the accepted offer was valued on; the episode is bound
+    to it (its hypotheses, their versions and its support-weighted prior) instead of a fresh lock, so the offer and
+    the episode use one prior (:func:`valued_causal_lock`).
 
     Idempotent per LO: an already-open episode is returned unchanged. The
     episode enters ``in_progress`` when an eligible instrument exists locally,
@@ -283,12 +288,15 @@ def enter_episode(
             lock_causal_hypothesis_set,
         )
 
-        hypothesis_set = lock_causal_hypothesis_set(
-            repository,
-            causal_factor_id,
-            probe_phase_id=episode_id,
-            algorithm_version=algorithm_version,
-            clock=clock,
+        hypothesis_set = (
+            valued_causal_lock(repository, valued_lock_id) if valued_lock_id is not None
+            else lock_causal_hypothesis_set(
+                repository,
+                causal_factor_id,
+                probe_phase_id=episode_id,
+                algorithm_version=algorithm_version,
+                clock=clock,
+            )
         )
         if hypothesis_set.learning_object_id != learning_object_id:
             raise ValueError(
@@ -402,6 +410,18 @@ _CONTRACT_COLUMNS = (
 )
 
 
+def valued_causal_lock(repository: Repository, lock_id: str) -> HypothesisSet:
+    """The causal lock an accepted offer was valued on, as the episode administers it (mvp-0.77, G2-R31): the same row,
+    so its hypotheses, their pinned versions and its prior (support-weighted where the diagnosis receipt scored the
+    arms) are the ones the offer priced. Below the tag entry and retarget locked afresh without the scores, which could
+    fall back to verbalized or uniform weights."""
+
+    record = repository.fetch_hypothesis_set(lock_id)
+    if record is None:
+        raise ValueError(f"the valued hypothesis set {lock_id} is missing")
+    return HypothesisSet.from_record(record)
+
+
 def _relock_episode_row(
     repository: Repository,
     episode_id: str,
@@ -462,8 +482,10 @@ def retarget_episode_to_causal_factor(
     origin: str,
     clock: Clock | None = None,
     reserved_for: str | None = None,
+    valued_lock_id: str | None = None,
 ) -> ProbeEpisodeRecord:
-    """Point an OBSERVATION-FREE open episode at a causal cause set.
+    """Point an OBSERVATION-FREE open episode at a causal cause set (``valued_lock_id``: the lock the accepted offer
+    was valued on, bound as at :func:`enter_episode`).
 
     At most one episode may be open per Learning Object (unique index
     ``idx_probe_episodes_open``), and vault state sync cold-starts a plain
@@ -497,12 +519,15 @@ def retarget_episode_to_causal_factor(
 
     from learnloop.diagnosis.causal_probe_coherence import lock_causal_hypothesis_set
 
-    hypothesis_set = lock_causal_hypothesis_set(
-        repository,
-        causal_factor_id,
-        probe_phase_id=episode.id,
-        algorithm_version=vault.config.algorithms.algorithm_version,
-        clock=clock,
+    hypothesis_set = (
+        valued_causal_lock(repository, valued_lock_id) if valued_lock_id is not None
+        else lock_causal_hypothesis_set(
+            repository,
+            causal_factor_id,
+            probe_phase_id=episode.id,
+            algorithm_version=vault.config.algorithms.algorithm_version,
+            clock=clock,
+        )
     )
     if hypothesis_set.learning_object_id != episode.learning_object_id:
         raise ValueError("causal factor belongs to a different learning object")

@@ -44,6 +44,17 @@ mvp-0.76's. Owner rule: a logged propensity is exactly the served distribution.
   episodes (the continuation still values the first-ranked one), and a family discount learned from outcomes with a
   seeded prior.
 
+- G2-R31 (finding 11): the episode administers the lock its offer was valued on. Up to mvp-0.76 a diagnosis receipt
+  with unequal support scores gave the probe candidate a support-weighted lock and the learner lane valued the offer
+  on it, while entry and retarget (`enter_episode`, `retarget_episode_to_causal_factor`) locked a fresh set without the
+  scores, which fell back to the verbalized or uniform prior: the pin named the candidate lock while the presentation
+  froze the episode's other posterior, and revaluing the offer reproduced the original numbers. From the tag the
+  learner lane's acceptance passes the candidate's lock (`valued_lock_id`) and both doors bind the episode to that row
+  (`probe_episodes.valued_causal_lock`: its hypotheses, pinned versions and prior); the presentation's frozen
+  posterior is the valued prior. It changes the prior (so the posteriors) of episodes opened after the upgrade; an
+  existing episode keeps its lock and replay reads it as before. Test:
+  `tests/test_probe_router_fixes_mvp077.py::test_r31_*` (entry and retarget, both sides of the tag).
+
 ## Pins and goldens
 
 `tests/cli_surface.json`: only the `upgrade --to` default moves to mvp-0.77. Chain-pinned tests shift mechanically.

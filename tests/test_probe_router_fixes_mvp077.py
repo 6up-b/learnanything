@@ -215,3 +215,67 @@ def test_r33_an_observed_family_is_ranked_on_its_information_not_a_hand_set_mult
     else:
         assert ranked == [ITEM_3, ITEM_2]
         assert "ranking_basis" not in after[0].selection_components()
+
+
+# -- G2-R31 (finding 11): the offer and the episode use the same prior -----------------------------------------------
+
+
+@pytest.mark.parametrize("door", ["entry", "retarget"])
+@pytest.mark.parametrize("tag", [BEFORE, AT])
+def test_r31_the_episode_administers_the_support_weighted_lock_its_offer_was_valued_on(tmp_path, monkeypatch, tag,
+                                                                                      door):
+    """A diagnosis receipt with unequal support scores gives the candidate a support-weighted lock, and the offer is
+    valued on it. From the tag entry binds the episode to that lock (its versions and prior); below it entry locked
+    afresh without the scores (the verbalized or uniform fallback)."""
+
+    from learnloop.diagnosis.causal_probe_coherence import lock_causal_hypothesis_set
+    from learnloop.router_objective import probe_coin as PC
+    from learnloop.vault.loader import load_vault
+
+    from tests.causal_orchestrator_helpers import (
+        CLOCK as ORCHESTRATOR_CLOCK,
+        PROBE_ITEM,
+        _activate_probe_candidate,
+        _seed_factor,
+        _vault,
+    )
+    from tests.helpers import admit_probe_instrument_card, append_config_toml
+    from tests.probe_router_authority_helpers import call, read_status, sidecar
+
+    _vault_, repository, root = _vault(tmp_path, with_probe_item=True, version=tag)
+    append_config_toml(root, "\n[router_objective]\nstop_coin = 0.2\n")
+    factor, first, second = _seed_factor(repository)
+    admit_probe_instrument_card(repository, items=(PROBE_ITEM,))
+    candidate = _activate_probe_candidate(repository, factor, first, second)["candidate"]
+    weighted = lock_causal_hypothesis_set(repository, factor, probe_phase_id=None, algorithm_version=tag,
+                                          support_scores={first: 0.9, second: 0.1}, clock=ORCHESTRATOR_CLOCK)
+    with repository.connection() as connection:
+        connection.execute("UPDATE causal_probe_candidates SET hypothesis_set_id = ? WHERE id = ?",
+                           (str(weighted.id), str(candidate["id"])))
+        connection.commit()
+    valued = repository.fetch_hypothesis_set(str(weighted.id))
+    assert valued["prior_basis"] == "support_weighted" and valued["prior"][first] > valued["prior"][second]
+    monkeypatch.setattr(PC, "draw_uniform", lambda _seed: 0.0)
+    vault = load_vault(root)
+    plain = None
+    if door == "retarget":
+        from learnloop.diagnosis.probe_episodes import enter_episode
+
+        # An observation-free episode already open on the learning object: acceptance relocks it.
+        plain = enter_episode(vault, repository, vault.practice_items[PROBE_ITEM].learning_object_id,
+                              clock=ORCHESTRATOR_CLOCK).id
+    ctx = sidecar(root)
+    status = read_status(ctx, {"misconceptionId": first})
+    assert status["routerState"] == "selected"
+    offer = call(ctx, "causal_probe_offer_action", {"factorId": factor})["offer"]
+    assert offer["accepted"] is True and offer["hypothesisSetId"] == str(weighted.id)
+    episode = repository.probe_episode(offer["episodeId"])
+    assert plain is None or episode.id == plain
+    administered = repository.fetch_hypothesis_set(episode.hypothesis_set_id)
+    if tag == AT:
+        assert episode.hypothesis_set_id == str(weighted.id)
+        assert administered["prior"] == valued["prior"] and administered["hypotheses"] == valued["hypotheses"]
+        pinned = repository.active_probe_presentation(episode.id)
+        assert pinned.posterior_at_selection == pytest.approx(valued["prior"])
+    else:
+        assert administered["prior"] != valued["prior"] and administered["prior_basis"] != "support_weighted"
