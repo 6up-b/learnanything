@@ -682,6 +682,32 @@ def _record_budget_close(repository: Any, state: LessonState, exc: BaseException
                                                                        refusal=refusal))
 
 
+def _answer_turn(turns: Sequence[Mapping[str, Any]], action: str, key: str, ref: str) -> Mapping[str, Any] | None:
+    """The learner's answer turn already recorded for one check (``check_ref``) or probe (``probe_ref``), or None."""
+
+    return next((turn for turn in turns
+                 if turn["action"] == action and str((turn.get("payload") or {}).get(key)) == str(ref)), None)
+
+
+def _close_for_budget_keeping_answer(vault: Any, repository: Any, state: LessonState, exc: BaseException, *,
+                                     action: str, key: str, ref: str, refs: Mapping[str, Any],
+                                     answer: Mapping[str, Any], clock: Clock | None) -> dict[str, Any]:
+    """The lesson's envelope refused the grader's request for an answer (§17): the lesson closes with ``budget`` and
+    the learner's submitted text is kept, once per check or probe, as its answer turn marked unassessed, in the
+    close's own transaction (the closed question cannot be answered again, so the text is kept nowhere else)."""
+
+    outcome = _Outcome()
+    _record_budget_close(repository, state, exc)
+    with repository.atomic():
+        with repository.connection() as connection:
+            stored = store.turns(connection, state.lesson_id)
+        if _answer_turn(stored, action, key, ref) is None:
+            _append(repository, state, actor="learner", action=action, refs=refs,
+                    payload={key: ref, **answer, "assessed": False, "unassessed_because": "budget"}, clock=clock)
+        _close(vault, repository, state, reason="budget", recap=None, clock=clock, outcome=outcome)
+    return view(vault, repository, state.lesson_id, outcome=outcome)
+
+
 def _require_metered_settings(vault: Any, client: Any) -> None:
     """A metered (OpenRouter) lesson needs its price and its per-lesson cap first (T1 redesign D; Q7)."""
 
@@ -1229,9 +1255,14 @@ def _answer_check(vault: Any, repository: Any, state: LessonState, payload: Mapp
     item = vault.practice_items.get(open_check["item_id"])
     if item is None:
         raise LessonError("not_found", "Couldn’t open the question. Reopen the lesson to try again.")
-    attempt_id = new_ulid()
     # The learner's answer turn commits with its grade, below: a grade that fails leaves no
-    # turn, so *Submit answer* again records one answer, not a second beside a stranded first.
+    # turn, so *Submit answer* again records one answer, not a second beside a stranded first. A turn an earlier
+    # build wrote before grading (and left behind when the grade failed) is that one answer: the retry grades under
+    # its attempt reference and appends none.
+    stranded = _answer_turn(state.turns, "check_answer", "check_ref", open_check["check_ref"])
+    stranded_attempt = str(((stranded or {}).get("refs") or {}).get("attempt") or "")
+    attempt_id = (stranded_attempt if stranded_attempt and repository.fetch_practice_attempt(stranded_attempt) is None
+                  else new_ulid())
     # The blind grader sees the answer only: never the thinking note, the lesson or the learner's history.
     grading_client = clients.grading()
     try:
@@ -1239,11 +1270,9 @@ def _answer_check(vault: Any, repository: Any, state: LessonState, payload: Mapp
                                         answer=answer, clock=clock)
     except Exception as exc:  # noqa: BLE001 - the check stays open; the learner can submit again
         if _refused_by_budget(state, exc):
-            # The lesson's envelope refused the grader's request (§17): the lesson closes with ``budget``.
-            outcome = _Outcome()
-            _record_budget_close(repository, state, exc)
-            _close(vault, repository, state, reason="budget", recap=None, clock=clock, outcome=outcome)
-            return view(vault, repository, state.lesson_id, outcome=outcome)
+            return _close_for_budget_keeping_answer(
+                vault, repository, state, exc, action="check_answer", key="check_ref", ref=open_check["check_ref"],
+                refs={"item": item.id}, answer={"answer": answer, "thinking": thinking, "tap": tap}, clock=clock)
         raise LessonError("grading_unavailable", "Couldn’t check your answer. Select Submit answer again.") from exc
     max_points = max(int(getattr(vault.rubric_for_item(item), "max_points", 1) or 1), 1)
     correctness = max(0.0, min(1.0, float(grade.rubric_score) / max_points))
@@ -1272,10 +1301,12 @@ def _answer_check(vault: Any, repository: Any, state: LessonState, payload: Mapp
                 or repository.fetch_practice_attempt(attempt_id) is not None):
             raise LessonError("stale_check", "This question closed. Reopen the lesson to see what’s next.")
         as_of = utc_now_iso(clock)
-        _append(repository, state, actor="learner", action="check_answer",
-                refs={"item": item.id, "attempt": attempt_id},
-                payload={"check_ref": open_check["check_ref"], "answer": answer, "thinking": thinking, "tap": tap},
-                clock=clock)
+        recorded = _answer_turn(current.turns, "check_answer", "check_ref", open_check["check_ref"])
+        if recorded is None or str((recorded.get("refs") or {}).get("attempt") or "") != attempt_id:
+            _append(repository, state, actor="learner", action="check_answer",
+                    refs={"item": item.id, "attempt": attempt_id},
+                    payload={"check_ref": open_check["check_ref"], "answer": answer, "thinking": thinking, "tap": tap},
+                    clock=clock)
         reference = None
         if retained is not None:
             reference = CK.cold_reference(vault, repository, lo, lesson_id=state.lesson_id, node_id=node_id,
@@ -1335,10 +1366,9 @@ def _answer_probe(vault: Any, repository: Any, state: LessonState, payload: Mapp
         raise
     except Exception as exc:  # noqa: BLE001 - the probe stays open; the learner can submit again
         if _refused_by_budget(state, exc):
-            outcome = _Outcome()
-            _record_budget_close(repository, state, exc)
-            _close(vault, repository, state, reason="budget", recap=None, clock=clock, outcome=outcome)
-            return view(vault, repository, state.lesson_id, outcome=outcome)
+            return _close_for_budget_keeping_answer(
+                vault, repository, state, exc, action=PR.ANSWER, key="probe_ref", ref=probe.ref,
+                refs={"item": probe.item_id}, answer={"answer": answer, "tap": tap}, clock=clock)
         raise LessonError("grading_unavailable", "Couldn’t check your answer. Select Submit answer again.") from exc
     # No weight-state refresh: the DERIVED weight tables describe the ledgers through the latest answered lesson
     # check (TE1 as built), and a probe is no check; the next check's refresh and every rebuild read it as of then.

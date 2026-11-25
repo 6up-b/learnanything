@@ -79,6 +79,19 @@ The successor of mvp-0.75 for the review-round-3 fixes that change what is deriv
   searching the dump for digits a hash can spell; a post-attempt slot's busy backoff waits on the stop, so shutdown
   ends it, and the phone journeys close the desktops they open and wait for their slots.
 
+## Round 4 (Astra verification of review round 3; ledger "Review round 4", R4-S1..)
+
+### Same-day corrections
+
+(Fixes to rules introduced at this tag, made inside it: no vault was at mvp-0.76 when they landed.)
+
+### Fixed without the tag
+
+- R4-S1: a lesson check's or probe's answer refused by the lesson's budget is kept: the budget close writes the
+  learner's answer turn (once per check or probe, `assessed: false`, `unassessed_because: budget`) in the close's
+  transaction; a retried check whose answer turn an earlier build left behind grades under that turn's attempt
+  reference and appends no second turn. A live write. Tests: `tests/test_lesson_answer_turns.py` (three cases).
+
 ## Pins and goldens
 
 `tests/cli_surface.json`: only the `upgrade --to` default moves to mvp-0.76. Chain-pinned tests shift mechanically.
