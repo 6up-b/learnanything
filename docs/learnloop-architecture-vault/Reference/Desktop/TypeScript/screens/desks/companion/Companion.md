@@ -39,7 +39,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 | Fact | Value |
 |---|---|
 | Source | [apps/learnloop-tauri/src/screens/desks/companion/Companion.tsx](../../../../../../../../apps/learnloop-tauri/src/screens/desks/companion/Companion.tsx) |
-| Source lines | 729 |
+| Source lines | 732 |
 | Language | `TypeScript` |
 | Area | [[Reference/Desktop/TypeScript/screens/desks/companion/_area|TypeScript/screens/desks/companion]] |
 | Refactor status | `ACTIVE` |
@@ -61,7 +61,7 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `export interface CompanionProps` — interface, line 42
 - `export interface CompanionTutor` — interface, line 81
 - `export const Companion = forwardRef<CompanionHandle, CompanionProps>(function Companion(props, ref)` — const, line 106
-- `export function appendHistory(now: CompanionHistoryDto, page: CompanionHistoryDto): CompanionHistoryDto` — function, line 661
+- `export function appendHistory(now: CompanionHistoryDto, page: CompanionHistoryDto): CompanionHistoryDto` — function, line 664
 
 ## Internal implementation anchors
 
@@ -101,41 +101,41 @@ The system-level behavior stays authoritative in the linked architecture, concep
 - `let live = true` — let, line 236
 - `const generation = ++historyGeneration.current` — const, line 237
 - `const handle = timers.set(()` — const, line 239
-- `const lastStatus = props.thread.length ? `$` — const, line 260
-- `const body = bodyRef.current` — const, line 262
-- `let live = true` — let, line 270
-- `const drag = useRef<` — const, line 281
-- `const onGrabDown = (event: React.PointerEvent<HTMLDivElement>)` — const, line 282
-- `const onGrabMove = (event: React.PointerEvent<HTMLDivElement>)` — const, line 287
-- `const d = drag.current` — const, line 288
-- `const panel = panelRef.current` — const, line 289
-- `const onGrabUp = (event: React.PointerEvent<HTMLDivElement>)` — const, line 294
-- `const d = drag.current` — const, line 295
-- `const panel = panelRef.current` — const, line 297
-- `const dx = event.clientX - d.x` — const, line 299
-- `const dy = event.clientY - d.y` — const, line 300
-- `const dropped =` — const, line 301
-- `const returnFocus = useRef<HTMLElement | null>(null)` — const, line 312
-- `const panel = panelRef.current` — const, line 314
-- `const active = document.activeElement` — const, line 326
-- `const back = returnFocus.current` — const, line 333
-- `const motionClass = reducedMotion ? " still" : ""` — const, line 339
-- `const enter = state.last === "summon" ? " summon" : state.last === "show" ? " show" : ""` — const, line 340
-- `const anchorOrigin = state.mode === "anchored" && state.anchored ? `$` — const, line 341
-- `const tabRect = dockRect(dock, stage)` — const, line 343
-- `const tabLabel = `◇ companion · $` — const, line 344
-- `const question = draft.trim()` — const, line 455
-- `function LookedUp(` — function, line 503
-- `const view = exchange.answer?.tutor ?? null` — const, line 504
-- `const excerpt = view.excerpt` — const, line 511
-- `const send = ()` — const, line 512
-- `function ExchangeView(` — function, line 564
-- `let answer: ReactNode` — let, line 573
-- `const days = now.days.map((day)` — const, line 662
-- `const seen = new Set(days.flatMap((day)` — const, line 663
-- `let into = days.find((each)` — let, line 665
-- `let deskInto = into.desks.find((each)` — let, line 671
-- `function HistoryView(` — function, line 686
+- `const lastStatus = props.thread.length ? `$` — const, line 263
+- `const body = bodyRef.current` — const, line 265
+- `let live = true` — let, line 273
+- `const drag = useRef<` — const, line 284
+- `const onGrabDown = (event: React.PointerEvent<HTMLDivElement>)` — const, line 285
+- `const onGrabMove = (event: React.PointerEvent<HTMLDivElement>)` — const, line 290
+- `const d = drag.current` — const, line 291
+- `const panel = panelRef.current` — const, line 292
+- `const onGrabUp = (event: React.PointerEvent<HTMLDivElement>)` — const, line 297
+- `const d = drag.current` — const, line 298
+- `const panel = panelRef.current` — const, line 300
+- `const dx = event.clientX - d.x` — const, line 302
+- `const dy = event.clientY - d.y` — const, line 303
+- `const dropped =` — const, line 304
+- `const returnFocus = useRef<HTMLElement | null>(null)` — const, line 315
+- `const panel = panelRef.current` — const, line 317
+- `const active = document.activeElement` — const, line 329
+- `const back = returnFocus.current` — const, line 336
+- `const motionClass = reducedMotion ? " still" : ""` — const, line 342
+- `const enter = state.last === "summon" ? " summon" : state.last === "show" ? " show" : ""` — const, line 343
+- `const anchorOrigin = state.mode === "anchored" && state.anchored ? `$` — const, line 344
+- `const tabRect = dockRect(dock, stage)` — const, line 346
+- `const tabLabel = `◇ companion · $` — const, line 347
+- `const question = draft.trim()` — const, line 458
+- `function LookedUp(` — function, line 506
+- `const view = exchange.answer?.tutor ?? null` — const, line 507
+- `const excerpt = view.excerpt` — const, line 514
+- `const send = ()` — const, line 515
+- `function ExchangeView(` — function, line 567
+- `let answer: ReactNode` — let, line 576
+- `const days = now.days.map((day)` — const, line 665
+- `const seen = new Set(days.flatMap((day)` — const, line 666
+- `let into = days.find((each)` — let, line 668
+- `let deskInto = into.desks.find((each)` — let, line 674
+- `function HistoryView(` — function, line 689
 
 ## Who imports or calls it
 
