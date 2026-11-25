@@ -178,6 +178,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_instrument_servability_journeys.py](../../../../../../tests/test_instrument_servability_journeys.py) — direct import
   - `test_exam_reservation_may_reserve_an_instrument`
 - [tests/test_intent_fix_round6.py](../../../../../../tests/test_intent_fix_round6.py) — direct import
+- [tests/test_lesson_weight_facts_integration.py](../../../../../../tests/test_lesson_weight_facts_integration.py) — direct import
 - [tests/test_post_attempt_pipeline.py](../../../../../../tests/test_post_attempt_pipeline.py) — direct import
 - [tests/test_sidecar_exams.py](../../../../../../tests/test_sidecar_exams.py) — direct import
   - `test_exam_submit_advances_before_background_grade_finishes`

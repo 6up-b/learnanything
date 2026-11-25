@@ -284,6 +284,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_lesson_weight_facts.py](../../../../../../tests/test_lesson_weight_facts.py) — direct import
   - `test_a_grade_at_a_fractional_second_reads_the_same_live_and_after_a_rebuild`
   - `test_a_regraded_check_is_scored_with_its_current_grade_in_the_first_order_form`
+- [tests/test_lesson_weight_facts_integration.py](../../../../../../tests/test_lesson_weight_facts_integration.py) — direct import
+  - `test_an_exam_finish_retried_under_its_one_attempt_id_observes_at_the_attempts_second`
+  - `test_the_mastery_record_is_what_mastery_applied_whichever_forecast_scored_surprise`
 - [tests/test_lesson_weight_fit_reads.py](../../../../../../tests/test_lesson_weight_fit_reads.py) — direct import
   - `test_a_regrade_leaves_the_lesson_weight_tables_as_a_rebuild_would`
 - [tests/test_lp_claim_fixes.py](../../../../../../tests/test_lp_claim_fixes.py) — direct import
@@ -422,6 +425,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_two_connections_with_reversed_allocation_and_completion_rebuild_to_live`
 - [tests/test_section_end.py](../../../../../../tests/test_section_end.py) — direct import
   - `test_the_upgrade_finishes_nothing_recorded_before_it_and_a_new_end_finishes_once`
+- [tests/test_selected_forecast.py](../../../../../../tests/test_selected_forecast.py) — direct import
+  - `test_another_sessions_presentation_is_left_for_its_answer`
+  - `test_selection_view_and_missing_selection_live_and_rebuilt`
+  - `test_surprise_uses_the_probability_from_the_actual_plan_draw`
+  - `test_upgrade_rejects_a_historical_serve_at_a_different_revision`
 - [tests/test_source_block_fts.py](../../../../../../tests/test_source_block_fts.py) — direct import
   - `test_the_index_is_derived_with_one_owner_and_its_shadow_tables_are_not_tables`
   - `test_the_umbrella_rebuild_restores_the_index_without_any_model_or_embedding_call`

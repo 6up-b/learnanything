@@ -24,10 +24,10 @@ source_paths:
   - "src/learnloop/db/stores/observation_ledger.py"
   - "src/learnloop/db/stores/source_service.py"
   - "src/learnloop/db/stores/write_provenance.py"
+  - "src/learnloop/adaptive_difficulty/surprise_forecast.py"
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/attempts/measurement_corrections.py"
   - "src/learnloop/learner/assessment_contracts.py"
-  - "src/learnloop/substrate/compat/activity_backfill.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/raw-ledger"
@@ -85,6 +85,7 @@ Indexes and uniqueness:
 ### Repository access surface
 
 - `Repository.assessment_contract_versions_for_practice_item()`
+- `Repository.attempt_innovation_samples()`
 - `Repository.ensure_assessment_contract_version()`
 - `Repository.fetch_assessment_contract_version()`
 - `Repository.fetch_assessment_contract_versions()`
@@ -114,10 +115,12 @@ Indexes and uniqueness:
 
 ### Upstream callers of the repository access surface
 
+- `src/learnloop/adaptive_difficulty/surprise_forecast.py`
 - `src/learnloop/attempts/attempts.py`
 - `src/learnloop/attempts/measurement_corrections.py`
 - `src/learnloop/db/stores/attempts.py`
 - `src/learnloop/learner/assessment_contracts.py`
+- `src/learnloop/learner/calibration.py`
 - `src/learnloop/substrate/compat/activity_backfill.py`
 - `src/learnloop_sidecar/handlers/serializers.py`
 - `src/learnloop_sidecar/handlers/workbench.py`

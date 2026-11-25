@@ -314,6 +314,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f10_the_cycle_is_rechecked_on_the_file_inside_the_lock`
   - `test_f16_a_removed_edge_reloads_once_and_bumps_nothing`
   - `test_f4_without_a_grounded_subject_only_the_anchors_are_judged_and_nothing_is_created`
+- [tests/test_lesson_weight_facts_integration.py](../../../../../../tests/test_lesson_weight_facts_integration.py) — direct import
 - [tests/test_method_explicit_landing.py](../../../../../../tests/test_method_explicit_landing.py) — direct import
   - `test_a_check_recorded_on_main_still_verifies_and_the_fresh_check_label_needs_a_change`
   - `test_check_me_keeps_the_sentence_whole_when_it_clips`

@@ -81,7 +81,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/cli/runtime|learnloop.cli.runtime]] — imports `run_post_attempt_pipeline`
-- [[Reference/Modules/learnloop/goals/exam_session|learnloop.goals.exam_session]] — imports `run_exam_sitting_pipeline`; statically calls `run_exam_sitting_pipeline`
+- [[Reference/Modules/learnloop/goals/exam_session|learnloop.goals.exam_session]] — imports `attempt_completion_lock`, `run_exam_sitting_pipeline`; statically calls `attempt_completion_lock`, `run_exam_sitting_pipeline`
 - [[Reference/Modules/learnloop/tui/screens/feedback|learnloop.tui.screens.feedback]] — imports `committed_submission_result`, `run_post_attempt_pipeline`; statically calls `committed_submission_result`, `run_post_attempt_pipeline`
 - [[Reference/Modules/learnloop/tui/screens/practice|learnloop.tui.screens.practice]] — imports `committed_submission_result`, `run_post_attempt_pipeline`; statically calls `committed_submission_result`, `run_post_attempt_pipeline`
 - [[Reference/Modules/learnloop_sidecar/handlers/practice|learnloop_sidecar.handlers.practice]] — imports `CompletionRouteUnknown`, `probe_route`, `run_post_attempt_pipeline`; statically calls `probe_route`, `run_post_attempt_pipeline`
@@ -150,6 +150,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_diagnosis_pipeline.py](../../../../../../tests/test_diagnosis_pipeline.py) — direct import
   - `test_completion_resume_enqueues_the_diagnosis_once`
 - [tests/test_evidence_reading_successor.py](../../../../../../tests/test_evidence_reading_successor.py) — direct import
+- [tests/test_exam_session.py](../../../../../../tests/test_exam_session.py) — direct import
+  - `test_retry_finishes_the_pipeline_for_an_already_linked_answer`
 - [tests/test_followup_codex_review.py](../../../../../../tests/test_followup_codex_review.py) — direct import
   - `test_f6_a_crash_after_the_diagnosis_ended_is_recovered_by_next`
   - `test_f6_a_crash_right_after_a_probe_answer_has_settled_its_workflow`

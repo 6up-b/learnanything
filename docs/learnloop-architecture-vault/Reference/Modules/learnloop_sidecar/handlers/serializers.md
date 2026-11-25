@@ -50,7 +50,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/handlers/serializers.py](../../../../../../src/learnloop_sidecar/handlers/serializers.py) |
-| Source lines | 1613 |
+| Source lines | 1611 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
@@ -77,8 +77,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `mastery_before_dto(surprise: dict[str, Any], mastery_after: dict[str, Any] | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1403) — Reconstruct the pre-attempt mastery posterior for the Belief-update panel.
 - `mastery_step_dto(repository: Repository, attempt_id: str, observed_correctness: float | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1435) — Why the posterior moved this far: the observation-weight factor chain.
 - `surprise_dto(row: dict[str, Any], followup_threshold_nats: float | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1472)
-- `practice_item_state_dto(repository: Repository, practice_item_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1492)
-- `rubric_dto(rubric: Rubric | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1508) — The resolved rubric, criteria dumped WHOLE.
+- `practice_item_state_dto(repository: Repository, practice_item_id: str) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1490)
+- `rubric_dto(rubric: Rubric | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1506) — The resolved rubric, criteria dumped WHOLE.
 
 ### Module constants
 
@@ -108,13 +108,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `_answered_max_points(contract: Mapping[str, Any] | None) -> int | None` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1286) — The grading contract's maximum score (re-review F9), or None without one.
 - `_regrade_replaced_held(repository: Repository, attempt_id: str) -> bool` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1299) — Was the grade the latest regrade replaced held for review (Codex review F6)?
 - `_latest_evidence_per_criterion(rows: list[GradingEvidenceRecord]) -> list[GradingEvidenceRecord]` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1335) — One live row per criterion for display: the latest grading epoch's.
-- `_candidate_error_types(vault: LoadedVault, concept: str | None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1529) — Error taxonomy the self-grade form offers per under-credited criterion.
-- `_require_item(vault: LoadedVault, practice_item_id: str) -> PracticeItem` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1557)
-- `_rubric_for_item(vault: LoadedVault, item: PracticeItem) -> Rubric | None` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1564)
-- `_primary_subject(vault: LoadedVault, item: PracticeItem) -> str | None` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1571)
-- `_due_status(scheduled: ScheduledItem, due_at: str | None, *, now: datetime | None=None) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1576)
-- `_legacy_feedback_metadata(repository: Repository, attempt_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1592)
-- `_rating_from_score(score: int, rubric: Rubric | None) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1604)
+- `_candidate_error_types(vault: LoadedVault, concept: str | None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1527) — Error taxonomy the self-grade form offers per under-credited criterion.
+- `_require_item(vault: LoadedVault, practice_item_id: str) -> PracticeItem` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1555)
+- `_rubric_for_item(vault: LoadedVault, item: PracticeItem) -> Rubric | None` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1562)
+- `_primary_subject(vault: LoadedVault, item: PracticeItem) -> str | None` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1569)
+- `_due_status(scheduled: ScheduledItem, due_at: str | None, *, now: datetime | None=None) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1574)
+- `_legacy_feedback_metadata(repository: Repository, attempt_id: str) -> dict[str, Any]` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1590)
+- `_rating_from_score(score: int, rubric: Rubric | None) -> str` ([source](../../../../../../src/learnloop_sidecar/handlers/serializers.py), line 1602)
 
 ## Who imports or calls it
 
@@ -190,6 +190,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 ## Tests that define behavior
 
+- [tests/test_calibration.py](../../../../../../tests/test_calibration.py) — direct import
+  - `test_feedback_uses_the_values_that_decided_the_gate`
 - [tests/test_causal_attribution_p0.py](../../../../../../tests/test_causal_attribution_p0.py) — direct import
   - `test_learner_confirmation_resolves_factor_to_provisional_belief`
   - `test_nonconfirming_self_report_is_recorded_once_without_reprompt`

@@ -209,6 +209,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 ## Tests that define behavior
 
 - [tests/test_evidence_reading_successor.py](../../../../../../tests/test_evidence_reading_successor.py) — direct import
+- [tests/test_lesson_weight_facts_integration.py](../../../../../../tests/test_lesson_weight_facts_integration.py) — direct import
+  - `test_the_routers_miss_cause_learning_reads_the_outcome_the_fit_reads`
 - [tests/test_sg_slip_vs_gap.py](../../../../../../tests/test_sg_slip_vs_gap.py) — direct import
   - `test_a_diagnosis_written_after_the_decision_is_not_read`
   - `test_a_my_gap_mark_is_recorded_beside_the_probabilities_never_folded_in`

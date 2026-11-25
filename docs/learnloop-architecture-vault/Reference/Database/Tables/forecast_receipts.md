@@ -119,6 +119,7 @@ None found by exact static reference scan.
 
 - `src/learnloop/adaptive_difficulty/data_check.py`
 - `src/learnloop/learner/lesson_weight.py`
+- `src/learnloop/substrate/shadow_rebuild.py`
 - `src/learnloop/teacher/service.py`
 
 ### Direct SQL writers

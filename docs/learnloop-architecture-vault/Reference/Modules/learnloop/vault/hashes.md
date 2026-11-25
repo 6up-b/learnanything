@@ -35,7 +35,7 @@ Up: [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] · Root: [[Mo
 
 ## Why this module exists
 
-This module keeps hashes behavior inside its owning package, [[Reference/Modules/learnloop/vault/_package|learnloop.vault]]. Its public surface centers on `content_hash`, `practice_item_hash`, `reference_content_hash`, `skeleton_content_hash`, `activity_family_hash`.
+This module keeps hashes behavior inside its owning package, [[Reference/Modules/learnloop/vault/_package|learnloop.vault]]. Its public surface centers on `content_hash`, `practice_item_hash`, `reference_content_hash`, `skeleton_content_hash`, `activity_family_hash`, `item_revision`.
 
 The authoritative system-level explanation remains in [[State and Persistence]]; this note records where this source module participates rather than restating those concepts.
 
@@ -46,7 +46,7 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/vault/hashes.py](../../../../../../src/learnloop/vault/hashes.py) |
-| Source lines | 72 |
+| Source lines | 83 |
 | Owning package | [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
@@ -58,6 +58,7 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 - `reference_content_hash(practice_item: PracticeItem) -> str` ([source](../../../../../../src/learnloop/vault/hashes.py), line 50) — What an answer-key check verified (canonical sources S1, §7.3a): the prompt, the expected answer, the grading rubric and, when set, the required method (method-explicit-3 review F1).
 - `skeleton_content_hash(prompt: str, expected_answer: str | dict[str, Any]) -> str` ([source](../../../../../../src/learnloop/vault/hashes.py), line 59) — The item text a PF solution skeleton describes (``item_skeletons.content_hash``).
 - `activity_family_hash(family: ActivityFamily) -> str` ([source](../../../../../../src/learnloop/vault/hashes.py), line 70) — Authored family content has its own revision hash, never the item hash.
+- `item_revision(item: PracticeItem) -> tuple[str, str]` ([source](../../../../../../src/learnloop/vault/hashes.py), line 75) — ``(content_hash, item_json)``: the revision's ``practice_item_snapshots`` serialization.
 
 ## Internal implementation anchors
 
@@ -68,6 +69,8 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
+- [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]] — imports `item_revision`; statically calls `item_revision`
+- [[Reference/Modules/learnloop/adaptive_difficulty/surprise_forecast|learnloop.adaptive_difficulty.surprise_forecast]] — imports `item_revision`; statically calls `item_revision`
 - [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `practice_item_hash`; statically calls `practice_item_hash`
 - [[Reference/Modules/learnloop/content/authoring/source_exercise_import|learnloop.content.authoring.source_exercise_import]] — imports `reference_content_hash`; statically calls `reference_content_hash`
 - [[Reference/Modules/learnloop/diagnosis/offline_review/runner|learnloop.diagnosis.offline_review.runner]] — imports `content_hash`; statically calls `content_hash`
@@ -78,7 +81,7 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 - [[Reference/Modules/learnloop/hints/report|learnloop.hints.report]] — imports `practice_item_hash`; statically calls `practice_item_hash`
 - [[Reference/Modules/learnloop/hints/service|learnloop.hints.service]] — imports `practice_item_hash`; statically calls `practice_item_hash`
 - [[Reference/Modules/learnloop/hints/telemetry|learnloop.hints.telemetry]] — imports `practice_item_hash`; statically calls `practice_item_hash`
-- [[Reference/Modules/learnloop/learner/assessment_contracts|learnloop.learner.assessment_contracts]] — imports `reference_content_hash`; statically calls `reference_content_hash`
+- [[Reference/Modules/learnloop/learner/assessment_contracts|learnloop.learner.assessment_contracts]] — imports `item_revision`, `reference_content_hash`; statically calls `item_revision`, `reference_content_hash`
 - [[Reference/Modules/learnloop/ops/pf_publish|learnloop.ops.pf_publish]] — imports `practice_item_hash`; statically calls `practice_item_hash`
 - [[Reference/Modules/learnloop/substrate/families|learnloop.substrate.families]] — imports `activity_family_hash`; statically calls `activity_family_hash`
 - [[Reference/Modules/learnloop/substrate/item_fingerprints|learnloop.substrate.item_fingerprints]] — imports `practice_item_hash`, `skeleton_content_hash`; statically calls `practice_item_hash`, `skeleton_content_hash`
@@ -109,7 +112,7 @@ Use this module in context through:
 
 - [[Initialize a Vault]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/content/authoring/source_exercise_import|learnloop.content.authoring.source_exercise_import]], [[Reference/Modules/learnloop/diagnosis/offline_review/runner|learnloop.diagnosis.offline_review.runner]], [[Reference/Modules/learnloop/diagnosis/probe_remint|learnloop.diagnosis.probe_remint]], [[Reference/Modules/learnloop/followup_run/admission|learnloop.followup_run.admission]] and 17 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/surprise_forecast|learnloop.adaptive_difficulty.surprise_forecast]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/content/authoring/source_exercise_import|learnloop.content.authoring.source_exercise_import]], [[Reference/Modules/learnloop/diagnosis/offline_review/runner|learnloop.diagnosis.offline_review.runner]] and 19 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -139,6 +142,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_pr4_superseded_claims_landing.py](../../../../../../tests/test_pr4_superseded_claims_landing.py) — direct import
   - `test_landing_i_a_too_easy_retirement_during_a_session`
 - [tests/test_practice_index_find.py](../../../../../../tests/test_practice_index_find.py) — direct import
+- [tests/test_reader_rd7a_inline_checks.py](../../../../../../tests/test_reader_rd7a_inline_checks.py) — direct import
+  - `test_inline_forecast_uses_the_item_opened_before_an_edit`
 - [tests/test_required_method_items.py](../../../../../../tests/test_required_method_items.py) — direct import
   - `test_an_item_without_a_required_method_serializes_and_hashes_as_before`
 - [tests/test_required_method_rereview.py](../../../../../../tests/test_required_method_rereview.py) — direct import

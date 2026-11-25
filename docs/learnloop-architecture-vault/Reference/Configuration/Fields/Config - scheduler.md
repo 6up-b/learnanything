@@ -27,6 +27,7 @@ source_paths:
   - "src/learnloop_sidecar/context.py"
   - "src/learnloop/instructional/needs.py"
   - "tests/successor_switches.py"
+  - "tests/test_calibration.py"
   - "tests/test_device_eligibility.py"
   - "tests/test_gate_fit.py"
   - "tests/test_gate_score.py"
@@ -37,7 +38,6 @@ source_paths:
   - "tests/test_kill_switches.py"
   - "tests/test_misconception_routing.py"
   - "tests/test_plan_determinism.py"
-  - "tests/test_predictive_eig.py"
 tags:
   - "learnloop/configuration/fields"
   - "learnloop/configuration/section/scheduler"
@@ -107,6 +107,7 @@ The main configuration contract, precedence rules, and safe-edit workflow live i
 Every row cites the exact Pydantic field declaration (or typed dynamic-key container). Additional anchors appear only when static analysis resolves the complete dotted path, a typed submodel parameter, or an alias derived from one of those paths; a declaration-only row means no direct runtime read was resolved, not that a same-named token was accepted as evidence. The broad tests most directly mentioning this section include:
 
 - `tests/successor_switches.py`
+- `tests/test_calibration.py`
 - `tests/test_device_eligibility.py`
 - `tests/test_gate_fit.py`
 - `tests/test_gate_score.py`
@@ -117,7 +118,6 @@ Every row cites the exact Pydantic field declaration (or typed dynamic-key conta
 - `tests/test_kill_switches.py`
 - `tests/test_misconception_routing.py`
 - `tests/test_plan_determinism.py`
-- `tests/test_predictive_eig.py`
 
 ## Extension and modification guidance
 

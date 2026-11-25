@@ -177,7 +177,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_difficulty_four_way.py](../../../../../../tests/test_difficulty_four_way.py) — direct import
 - [tests/test_difficulty_receipt_arms.py](../../../../../../tests/test_difficulty_receipt_arms.py) — direct import
   - `test_stdout_reports_the_receipt_counts_and_no_id`
-  - `test_without_any_receipt_the_arms_are_the_mastery_paths_own`
 - [tests/test_difficulty_receipt_coverage.py](../../../../../../tests/test_difficulty_receipt_coverage.py) — direct import
   - `test_stdout_is_counts_only_and_a_live_vault_or_an_out_inside_is_refused`
 - [tests/test_embedding_store.py](../../../../../../tests/test_embedding_store.py) — direct import

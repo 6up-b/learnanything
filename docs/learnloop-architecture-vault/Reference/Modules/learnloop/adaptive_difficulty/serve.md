@@ -147,6 +147,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_dry_run_estimates_the_runs_own_output_budget_and_retry`
   - `test_the_permuted_run_sends_another_presentations_history`
   - `test_the_serve_transactions_added_cost_is_measured`
+- [tests/test_selected_forecast.py](../../../../../../tests/test_selected_forecast.py) — direct import
+  - `test_selection_view_and_missing_selection_live_and_rebuilt`
 
 ## Modification guidance
 

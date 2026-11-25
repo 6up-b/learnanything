@@ -21,6 +21,7 @@ source_paths:
   - "src/learnloop/adaptive_difficulty/replay.py"
   - "src/learnloop/db/stores/ad_serving.py"
   - "src/learnloop/substrate/rebuild_orchestrator.py"
+  - "src/learnloop/substrate/shadow_rebuild.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/derived"
@@ -85,7 +86,7 @@ None found by exact static reference scan.
 
 ### Direct SQL readers
 
-None found by exact static reference scan.
+- `src/learnloop/substrate/shadow_rebuild.py`
 
 ### Direct SQL writers
 
@@ -111,6 +112,7 @@ None found by exact static reference scan.
 - `tests/test_epp_prediction_snapshots.py`
 - `tests/test_epp_repeat_receipts.py`
 - `tests/test_rebuild_orchestrator.py`
+- `tests/test_shadow_rebuild.py`
 - `tests/test_surprise_reads_ad_forecast.py`
 
 Always include `tests/test_migrations.py` and `tests/test_table_roles.py` when changing its schema or role. DERIVED-table changes also require `tests/test_rebuild_orchestrator.py` and `tests/test_shadow_rebuild.py`.

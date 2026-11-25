@@ -47,22 +47,21 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/adaptive_difficulty/feature_audit.py](../../../../../../src/learnloop/adaptive_difficulty/feature_audit.py) |
-| Source lines | 550 |
+| Source lines | 539 |
 | Owning package | [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `item_revision(item: Any) -> tuple[str, str]` ([source](../../../../../../src/learnloop/adaptive_difficulty/feature_audit.py), line 128) — ``(content_hash, item_json)``: the revision's ``practice_item_snapshots`` serialization.
-- `audit_state(item: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/feature_audit.py), line 144) — What the audit reads: the stem and the reference answer, nothing else.
-- `question_for(dimension: str) -> ChoiceQuestion` ([source](../../../../../../src/learnloop/adaptive_difficulty/feature_audit.py), line 150)
-- `class FeatureAuditV1(WireModel)` ([source](../../../../../../src/learnloop/adaptive_difficulty/feature_audit.py), line 157) — The LLM judge's answer: one value per asked dimension (null: cannot tell).
-- `llm_prompt(item: Any, dimensions: Sequence[str]) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/feature_audit.py), line 168)
-- `class AuditOutcome` ([source](../../../../../../src/learnloop/adaptive_difficulty/feature_audit.py), line 181) — One revision's audit run.
-  - `as_dict(self) -> dict[str, Any]` (line 195; public)
-- `canonical_audits(connection: Any, content_hash: str, *, as_of: str | None=None, version: str=VERSION) -> dict[str, dict[str, Any]]` ([source](../../../../../../src/learnloop/adaptive_difficulty/feature_audit.py), line 199) — Per dimension, the revision's canonical audit: the earliest answered judgment.
-- `audit_revision(vault: Any, repository: Any, item: Any, *, decider_factory: Callable[[], Any] | None=None, llm_client: Any | None=None, clock: Clock | None=None, protected: Any=None, fence: Any=None, live_vault: Callable[[], Any] | None=None) -> AuditOutcome` ([source](../../../../../../src/learnloop/adaptive_difficulty/feature_audit.py), line 268) — Audit one item revision: the dimensions it has no canonical audit for.
+- `audit_state(item: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/adaptive_difficulty/feature_audit.py), line 133) — What the audit reads: the stem and the reference answer, nothing else.
+- `question_for(dimension: str) -> ChoiceQuestion` ([source](../../../../../../src/learnloop/adaptive_difficulty/feature_audit.py), line 139)
+- `class FeatureAuditV1(WireModel)` ([source](../../../../../../src/learnloop/adaptive_difficulty/feature_audit.py), line 146) — The LLM judge's answer: one value per asked dimension (null: cannot tell).
+- `llm_prompt(item: Any, dimensions: Sequence[str]) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/feature_audit.py), line 157)
+- `class AuditOutcome` ([source](../../../../../../src/learnloop/adaptive_difficulty/feature_audit.py), line 170) — One revision's audit run.
+  - `as_dict(self) -> dict[str, Any]` (line 184; public)
+- `canonical_audits(connection: Any, content_hash: str, *, as_of: str | None=None, version: str=VERSION) -> dict[str, dict[str, Any]]` ([source](../../../../../../src/learnloop/adaptive_difficulty/feature_audit.py), line 188) — Per dimension, the revision's canonical audit: the earliest answered judgment.
+- `audit_revision(vault: Any, repository: Any, item: Any, *, decider_factory: Callable[[], Any] | None=None, llm_client: Any | None=None, clock: Clock | None=None, protected: Any=None, fence: Any=None, live_vault: Callable[[], Any] | None=None) -> AuditOutcome` ([source](../../../../../../src/learnloop/adaptive_difficulty/feature_audit.py), line 257) — Audit one item revision: the dimensions it has no canonical audit for.
 
 ### Module constants
 
@@ -102,13 +101,13 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_answer_text(item: Any) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/feature_audit.py), line 139)
-- `_append(repository: Any, *, content_hash: str, item_id: str, dimension: str, judge: str, verdict: str, model: str, input_hash: str, score: float | None, rationale: Mapping[str, Any], now: str, admit: Callable[[], None] | None=None) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/feature_audit.py), line 226)
-- `_decider_client(vault: Any, factory: Callable[[], Any] | None) -> Any` ([source](../../../../../../src/learnloop/adaptive_difficulty/feature_audit.py), line 241)
-- `_llm_client(vault: Any, client: Any | None) -> tuple[Any | None, str | None]` ([source](../../../../../../src/learnloop/adaptive_difficulty/feature_audit.py), line 251)
-- `_remaining(repository: Any, content_hash: str) -> list[str]` ([source](../../../../../../src/learnloop/adaptive_difficulty/feature_audit.py), line 261)
-- `_audit(vault: Any, worker: Any, item: Any, item_json: str, content_hash: str, remaining: list[str], outcome: AuditOutcome, *, decider_factory: Callable[[], Any] | None, llm_client: Any | None, clock: Clock | None, send: SendGuard) -> None` ([source](../../../../../../src/learnloop/adaptive_difficulty/feature_audit.py), line 339)
-- `_llm_fallback(vault: Any, repository: Any, item: Any, dimensions: list[str], decider_rows: Mapping[str, tuple[str, str]], outcome: AuditOutcome, *, envelope: Any, client: Any | None, content_hash: str, clock: Clock | None, send: SendGuard) -> None` ([source](../../../../../../src/learnloop/adaptive_difficulty/feature_audit.py), line 443)
+- `_answer_text(item: Any) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/feature_audit.py), line 128)
+- `_append(repository: Any, *, content_hash: str, item_id: str, dimension: str, judge: str, verdict: str, model: str, input_hash: str, score: float | None, rationale: Mapping[str, Any], now: str, admit: Callable[[], None] | None=None) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/feature_audit.py), line 215)
+- `_decider_client(vault: Any, factory: Callable[[], Any] | None) -> Any` ([source](../../../../../../src/learnloop/adaptive_difficulty/feature_audit.py), line 230)
+- `_llm_client(vault: Any, client: Any | None) -> tuple[Any | None, str | None]` ([source](../../../../../../src/learnloop/adaptive_difficulty/feature_audit.py), line 240)
+- `_remaining(repository: Any, content_hash: str) -> list[str]` ([source](../../../../../../src/learnloop/adaptive_difficulty/feature_audit.py), line 250)
+- `_audit(vault: Any, worker: Any, item: Any, item_json: str, content_hash: str, remaining: list[str], outcome: AuditOutcome, *, decider_factory: Callable[[], Any] | None, llm_client: Any | None, clock: Clock | None, send: SendGuard) -> None` ([source](../../../../../../src/learnloop/adaptive_difficulty/feature_audit.py), line 328)
+- `_llm_fallback(vault: Any, repository: Any, item: Any, dimensions: list[str], decider_rows: Mapping[str, tuple[str, str]], outcome: AuditOutcome, *, envelope: Any, client: Any | None, content_hash: str, clock: Clock | None, send: SendGuard) -> None` ([source](../../../../../../src/learnloop/adaptive_difficulty/feature_audit.py), line 432)
 
 ## Who imports or calls it
 
@@ -152,10 +151,11 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/db/stores/judgments|learnloop.db.stores.judgments]] — imports `append_judgment`; calls `append_judgment`
 - [[Reference/Modules/learnloop/decider_judgments|learnloop.decider_judgments]] — imports `client_for`, `module`; calls `argmax`, `client_for`, `enabled`
 - [[Reference/Modules/learnloop/practice_index/paid|learnloop.practice_index.paid]] — imports `plan_route`, `resolve_client`; calls `plan_route`, `resolve_client`
+- [[Reference/Modules/learnloop/vault/hashes|learnloop.vault.hashes]] — imports `item_revision`; calls `item_revision`
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `collections`, `contextlib`, `dataclasses`, `hashlib`, `json`, `logging`, `typing`
+- Standard library: `__future__`, `collections`, `contextlib`, `dataclasses`, `json`, `logging`, `typing`
 - Third party: none imported directly
 
 ## Larger workflow participation
@@ -212,6 +212,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_epp_prediction_snapshots.py](../../../../../../tests/test_epp_prediction_snapshots.py) — direct import
   - `test_a_protected_revision_withholds_the_receipts_whose_snapshot_names_it`
   - `test_threshold_and_in_process_receipts_state_their_cutoff_target_and_provenance`
+- [tests/test_selected_forecast.py](../../../../../../tests/test_selected_forecast.py) — direct import
+  - `test_grade_uses_the_revision_frozen_on_open`
+- [tests/test_surprise_reads_ad_forecast.py](../../../../../../tests/test_surprise_reads_ad_forecast.py) — direct import
+  - `test_grade_snapshot_names_the_answer_and_its_cutoff`
 
 ## Modification guidance
 

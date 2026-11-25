@@ -2114,6 +2114,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f5_a_match_on_the_items_own_lo_is_no_prerequisite_target`
   - `test_f6_a_question_retargeted_by_a_later_reading_is_observed_at_the_reading`
   - `test_f8_a_diagnosis_no_longer_scans_stuck_answers`
+- [tests/test_lesson_grade_forecast.py](../../../../../../tests/test_lesson_grade_forecast.py) — direct import
+  - `test_lesson_forecast_is_prepared_once_outside_the_writer`
+  - `test_withdrawal_during_preparation_discards_the_losing_grade`
 - [tests/test_lesson_weight_facts.py](../../../../../../tests/test_lesson_weight_facts.py) — direct import
   - `test_a_check_is_stamped_under_the_writer_lock`
   - `test_a_floor_bound_update_at_the_cap_with_equal_numbers_is_applied`
@@ -2126,6 +2129,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_every_reader_of_a_lesson_outcome_takes_the_fits_order`
   - `test_the_label_report_counts_a_window_sent_to_first_order_by_a_missing_curve`
   - `test_the_window_query_counts_what_the_freeze_will_not_reconstruct`
+- [tests/test_lesson_weight_facts_integration.py](../../../../../../tests/test_lesson_weight_facts_integration.py) — direct import
+  - `test_the_shadow_reports_forecast_digests_hold_across_two_rebuilds_at_the_facts_tag`
 - [tests/test_lesson_weight_fit_reads.py](../../../../../../tests/test_lesson_weight_fit_reads.py) — direct import
   - `test_a_regrade_committing_while_the_fit_reads_does_not_reach_it`
   - `test_a_regrade_leaves_the_lesson_weight_tables_as_a_rebuild_would`
@@ -3212,6 +3217,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_first_of_eight_topics_is_served_while_the_second_is_being_written`
   - `test_invalid_fifth_topic_does_not_stop_the_rest_and_try_again_only_asks_it`
   - `test_queue_revision_reload_sees_each_part_before_the_job_finishes`
+- [tests/test_selected_forecast.py](../../../../../../tests/test_selected_forecast.py) — direct import
+  - `test_another_sessions_presentation_is_left_for_its_answer`
+  - `test_grade_uses_the_revision_frozen_on_open`
+  - `test_selection_view_and_missing_selection_live_and_rebuilt`
+  - `test_upgrade_rejects_a_historical_serve_at_a_different_revision`
 - [tests/test_self_attributed_misconceptions.py](../../../../../../tests/test_self_attributed_misconceptions.py) — direct import
   - `test_brand_new_self_tag_does_not_touch_current_posterior_but_seeds_next_set`
   - `test_candidate_ranking_fuzzy_query_surfaces_match`
@@ -3251,6 +3261,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_state_sync_retires_expired_telemetry_horizon`
 - [tests/test_shadow_rebuild.py](../../../../../../tests/test_shadow_rebuild.py) — direct import
   - `test_a_live_database_that_changes_during_the_run_is_refused`
+  - `test_shadow_compares_canonical_surprise_receipt_and_subject_kl`
   - `test_shadow_rebuild_rejects_unknown_override_without_touching_live_db`
   - `test_shadow_rebuild_reports_semantic_diff_and_proves_live_db_isolation`
 - [tests/test_show.py](../../../../../../tests/test_show.py) — direct import

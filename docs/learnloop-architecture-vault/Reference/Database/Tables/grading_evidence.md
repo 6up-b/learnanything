@@ -98,6 +98,7 @@ Indexes and uniqueness:
 
 - `Repository._grading_epoch_transitions()`
 - `Repository._insert_grading_evidence()`
+- `Repository.attempt_innovation_samples()`
 - `Repository.attempt_regrade_marker()`
 - `Repository.clarification_rate_counts()`
 - `Repository.fetch_grading_evidence()`
@@ -163,9 +164,9 @@ Indexes and uniqueness:
 - `src/learnloop/diagnosis/misconceptions.py`
 - `src/learnloop/diagnosis/probe_evidence.py`
 - `src/learnloop/diagnosis/split/live.py`
+- `src/learnloop/learner/assessment_contracts.py`
+- `src/learnloop/learner/calibration.py`
 - `src/learnloop/learner/facet_evidence_timeline.py`
-- `src/learnloop/learner/learner_review_feed.py`
-- `src/learnloop/pads/blocks.py`
 
 > [!note] Static-reference boundary
 > These lists are evidence from exact table-name SQL and repository-method calls. Dynamic dispatch and higher-level tests may exercise the table without spelling its name.

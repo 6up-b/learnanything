@@ -1130,6 +1130,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_seeded_exam_interleaves_before_later_live_attempt`
 - [tests/test_exam_session.py](../../../../../tests/test_exam_session.py) — direct import
   - `test_a_background_grading_records_no_grade_once_its_vault_is_no_longer_served`
+  - `test_a_failed_exam_link_rolls_back_the_grade_and_retries_the_same_identity`
   - `test_a_staged_grade_with_no_reliability_keeps_it_at_the_finish`
   - `test_an_exam_answer_is_stamped_with_its_graders_calibration_identity`
   - `test_availability_in_window_near_due_date`
@@ -1138,7 +1139,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_finish_is_idempotent_by_session_id`
   - `test_finish_lands_exam_attempt_evidence_with_full_mass`
   - `test_finish_releases_the_exam_pool`
+  - `test_finisher_rechecks_the_link_after_forecast_preparation`
   - `test_report_has_per_facet_predicted_vs_actual`
+  - `test_retry_finishes_the_pipeline_for_an_already_linked_answer`
   - `test_start_is_idempotent`
   - `test_ungraded_answer_is_durable_and_blocks_finish`
 - [tests/test_facet_belief_successor.py](../../../../../tests/test_facet_belief_successor.py) — direct import
@@ -1514,6 +1517,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f4_without_a_grounded_subject_only_the_anchors_are_judged_and_nothing_is_created`
 - [tests/test_lesson_weight_facts.py](../../../../../tests/test_lesson_weight_facts.py) — direct import
   - `test_a_check_is_stamped_under_the_writer_lock`
+- [tests/test_lesson_weight_facts_integration.py](../../../../../tests/test_lesson_weight_facts_integration.py) — direct import
+  - `test_an_exam_finish_retried_under_its_one_attempt_id_observes_at_the_attempts_second`
 - [tests/test_library_ask_review.py](../../../../../tests/test_library_ask_review.py) — direct import
   - `test_the_pinned_tutor_burns_a_reserve_it_reproduces_and_joins_history_and_gaps`
 - [tests/test_lp_claim_fixes.py](../../../../../tests/test_lp_claim_fixes.py) — direct import
@@ -2018,6 +2023,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_failed_topic_resumes_its_own_batch_and_frozen_request_and_no_other_section_takes_it`
   - `test_first_of_eight_topics_is_served_while_the_second_is_being_written`
   - `test_invalid_fifth_topic_does_not_stop_the_rest_and_try_again_only_asks_it`
+- [tests/test_selected_forecast.py](../../../../../tests/test_selected_forecast.py) — direct import
+  - `test_another_sessions_presentation_is_left_for_its_answer`
+  - `test_grade_uses_the_revision_frozen_on_open`
+  - `test_selection_view_and_missing_selection_live_and_rebuilt`
+  - `test_upgrade_rejects_a_historical_serve_at_a_different_revision`
 - [tests/test_self_attributed_misconceptions.py](../../../../../tests/test_self_attributed_misconceptions.py) — direct import
   - `test_brand_new_self_tag_does_not_touch_current_posterior_but_seeds_next_set`
   - `test_no_promotion_when_label_already_rubric_fatal`

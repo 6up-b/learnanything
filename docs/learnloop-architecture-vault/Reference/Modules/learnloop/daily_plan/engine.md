@@ -1107,6 +1107,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_rw7b_fix_round2.py](../../../../../../tests/test_rw7b_fix_round2.py) — direct import
   - `test_a_withdrawn_path_reading_leaves_the_predecessors_reading_in_the_projection`
 - [tests/test_section_end.py](../../../../../../tests/test_section_end.py) — direct import
+- [tests/test_selected_forecast.py](../../../../../../tests/test_selected_forecast.py) — direct import
+  - `test_surprise_uses_the_probability_from_the_actual_plan_draw`
 - [tests/test_serve_eligibility.py](../../../../../../tests/test_serve_eligibility.py) — direct import
   - `test_the_12_9_reproduction_is_served_as_practice_and_its_check_withdrawn`
 - [tests/test_te3b_codex_review.py](../../../../../../tests/test_te3b_codex_review.py) — direct import

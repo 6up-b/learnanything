@@ -47,34 +47,35 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/learner/assessment_contracts.py](../../../../../../src/learnloop/learner/assessment_contracts.py) |
-| Source lines | 249 |
+| Source lines | 271 |
 | Owning package | [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `compile_assessment_contract(vault: LoadedVault, item: PracticeItem, *, rubric: Rubric | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/learner/assessment_contracts.py), line 73) — Deterministic assessment-contract content for an item (§5.2).
-- `contract_required_method(contract: dict[str, Any] | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/learner/assessment_contracts.py), line 176) — The required method a stored contract froze, or None.
-- `rubric_from_contract(contract: dict[str, Any]) -> Rubric` ([source](../../../../../../src/learnloop/learner/assessment_contracts.py), line 190) — Rehydrate the immutable grading rubric used at presentation time.
-- `contract_hash(contract: dict[str, Any]) -> str` ([source](../../../../../../src/learnloop/learner/assessment_contracts.py), line 221) — Content-addressed hash of a compiled contract (attribution-affecting only).
-- `snapshot_for_presentation(repository, vault: LoadedVault, item: PracticeItem, *, rubric: Rubric | None=None, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/learner/assessment_contracts.py), line 227) — Ensure an assessment-contract snapshot exists for a presented item (§5.2).
+- `compile_assessment_contract(vault: LoadedVault, item: PracticeItem, *, rubric: Rubric | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/learner/assessment_contracts.py), line 74) — Deterministic assessment-contract content for an item (§5.2).
+- `contract_required_method(contract: dict[str, Any] | None) -> dict[str, Any] | None` ([source](../../../../../../src/learnloop/learner/assessment_contracts.py), line 177) — The required method a stored contract froze, or None.
+- `rubric_from_contract(contract: dict[str, Any]) -> Rubric` ([source](../../../../../../src/learnloop/learner/assessment_contracts.py), line 191) — Rehydrate the immutable grading rubric used at presentation time.
+- `contract_hash(contract: dict[str, Any]) -> str` ([source](../../../../../../src/learnloop/learner/assessment_contracts.py), line 222) — Content-addressed hash of a compiled contract (attribution-affecting only).
+- `presented_contract_id(repository, attempt_id: str) -> str | None` ([source](../../../../../../src/learnloop/learner/assessment_contracts.py), line 228)
+- `snapshot_for_presentation(repository, vault: LoadedVault, item: PracticeItem, *, rubric: Rubric | None=None, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/learner/assessment_contracts.py), line 244) — Ensure an assessment-contract snapshot exists for a presented item (§5.2).
 
 ### Module constants
 
-- `CONTRACT_SCHEMA_VERSION` ([src/learnloop/learner/assessment_contracts.py](../../../../../../src/learnloop/learner/assessment_contracts.py), line 41)
+- `CONTRACT_SCHEMA_VERSION` ([src/learnloop/learner/assessment_contracts.py](../../../../../../src/learnloop/learner/assessment_contracts.py), line 42)
 
 ## Internal implementation anchors
 
-- `_content_hash(value: Any) -> str` ([source](../../../../../../src/learnloop/learner/assessment_contracts.py), line 44)
-- `_blueprint_recipes(lo: LearningObject | None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/learner/assessment_contracts.py), line 49)
+- `_content_hash(value: Any) -> str` ([source](../../../../../../src/learnloop/learner/assessment_contracts.py), line 45)
+- `_blueprint_recipes(lo: LearningObject | None) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/learner/assessment_contracts.py), line 50)
 
 ## Who imports or calls it
 
 > [!note] Static evidence boundary
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
-- [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `compile_assessment_contract`, `contract_required_method`, `rubric_from_contract`, `snapshot_for_presentation`; statically calls `compile_assessment_contract`, `contract_required_method`, `rubric_from_contract`, `snapshot_for_presentation`
+- [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `compile_assessment_contract`, `contract_required_method`, `presented_contract_id`, `rubric_from_contract`, `snapshot_for_presentation`; statically calls `compile_assessment_contract`, `contract_required_method`, `presented_contract_id`, `rubric_from_contract`, `snapshot_for_presentation`
 - [[Reference/Modules/learnloop/attempts/grade_resolution|learnloop.attempts.grade_resolution]] — imports `P0_ALGORITHM_VERSION`, `snapshot_for_presentation`; statically calls `snapshot_for_presentation`
 - [[Reference/Modules/learnloop/attempts/measurement_corrections|learnloop.attempts.measurement_corrections]] — imports `compile_assessment_contract`, `snapshot_for_presentation`; statically calls `compile_assessment_contract`, `snapshot_for_presentation`
 - [[Reference/Modules/learnloop/diagnosis/probe_robust|learnloop.diagnosis.probe_robust]] — imports `P0_ALGORITHM_VERSION`
@@ -97,11 +98,11 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `KM_ALGORITHM_VERSION`, `P0_ALGORITHM_VERSION`, `REVEAL_LEDGER_ALGORITHM_VERSION`
+- [[Reference/Modules/learnloop/algorithm_versions|learnloop.algorithm_versions]] — imports `KM_ALGORITHM_VERSION`, `P0_ALGORITHM_VERSION`, `REVEAL_LEDGER_ALGORITHM_VERSION`, `SELECTED_FORECAST_VERSIONS`
 - [[Reference/Modules/learnloop/clock|learnloop.clock]] — imports `Clock`
 - [[Reference/Modules/learnloop/db/stores/source_service|learnloop.db.stores.source_service]] — imports `KEY_IDENTITY`, `KEY_IDENTITY_FIELD`
 - [[Reference/Modules/learnloop/learner/capability_mapping|learnloop.learner.capability_mapping]] — imports `compile_criterion_targets`; calls `compile_criterion_targets`
-- [[Reference/Modules/learnloop/vault/hashes|learnloop.vault.hashes]] — imports `reference_content_hash`; calls `reference_content_hash`
+- [[Reference/Modules/learnloop/vault/hashes|learnloop.vault.hashes]] — imports `item_revision`, `reference_content_hash`; calls `item_revision`, `reference_content_hash`
 - [[Reference/Modules/learnloop/vault/models|learnloop.vault.models]] — imports `LearningObject`, `LoadedVault`, `PracticeItem`, `Rubric`, `RubricCriterion`, `RubricFatalError`, `recipe_components`, `resolved_rubric`; calls `Rubric`, `RubricCriterion`, `RubricFatalError`, `recipe_components`, `resolved_rubric`
 
 ### Platform and third-party dependencies
@@ -151,6 +152,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_required_method_round3.py](../../../../../../tests/test_required_method_round3.py) — direct import
   - `test_f14_the_grader_renders_the_instruction_the_frozen_contract_presented`
 - [tests/test_router_card.py](../../../../../../tests/test_router_card.py) — direct import
+- [tests/test_selected_forecast.py](../../../../../../tests/test_selected_forecast.py) — direct import
+  - `test_grade_uses_the_revision_frozen_on_open`
 - [tests/test_ux_phase4_feedback.py](../../../../../../tests/test_ux_phase4_feedback.py) — direct import
 - [tests/test_voi_forecasts.py](../../../../../../tests/test_voi_forecasts.py) — direct import
 

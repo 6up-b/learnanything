@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/learner/calibration.py](../../../../../../src/learnloop/learner/calibration.py) |
-| Source lines | 124 |
+| Source lines | 126 |
 | Owning package | [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -65,7 +65,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ## Internal implementation anchors
 
-- `_expected_correctness(predicted_score_dist_json: str | None) -> float | None` ([source](../../../../../../src/learnloop/learner/calibration.py), line 116)
+- `_expected_correctness(predicted_score_dist_json: str | None) -> float | None` ([source](../../../../../../src/learnloop/learner/calibration.py), line 118)
 
 ## Who imports or calls it
 
@@ -103,6 +103,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_calibration.py](../../../../../../tests/test_calibration.py) — direct import
   - `test_balanced_innovation_is_not_flagged`
   - `test_below_min_attempts_is_not_flagged`
+  - `test_doctor_keeps_the_grade_denominator_after_a_rubric_edit`
   - `test_from_the_label_retirement_the_flag_names_how_the_item_plays_against_its_lo_and_no_label`
   - `test_persistent_overperformance_flags_too_hard`
   - `test_persistent_underperformance_flags_too_easy`

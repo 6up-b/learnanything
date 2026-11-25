@@ -307,6 +307,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_learner_text_gaps_composition.py](../../../../../../tests/test_learner_text_gaps_composition.py) — direct import
 - [tests/test_learner_text_gaps_review.py](../../../../../../tests/test_learner_text_gaps_review.py) — direct import
   - `test_f13_the_pipeline_switched_off_queues_exactly_as_the_predecessor_version`
+- [tests/test_lesson_weight_facts_integration.py](../../../../../../tests/test_lesson_weight_facts_integration.py) — direct import
 - [tests/test_lp_claim_fixes.py](../../../../../../tests/test_lp_claim_fixes.py) — direct import
 - [tests/test_mastery_seed_replay.py](../../../../../../tests/test_mastery_seed_replay.py) — direct import
   - `test_a_starting_level_changed_after_materialization_leaves_live_mastery_as_it_was`
@@ -414,6 +415,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_teach_back_items_are_probe_near_ties`
 - [tests/test_same_second_order.py](../../../../../../tests/test_same_second_order.py) — direct import
 - [tests/test_scoreboard.py](../../../../../../tests/test_scoreboard.py) — direct import
+- [tests/test_selected_forecast.py](../../../../../../tests/test_selected_forecast.py) — direct import
+  - `test_another_sessions_presentation_is_left_for_its_answer`
+  - `test_grade_uses_the_revision_frozen_on_open`
+  - `test_selection_view_and_missing_selection_live_and_rebuilt`
+  - `test_upgrade_rejects_a_historical_serve_at_a_different_revision`
 - [tests/test_shadow_components.py](../../../../../../tests/test_shadow_components.py) — direct import
   - `test_state_sync_retires_expired_telemetry_horizon`
 - [tests/test_sidecar_close_cancels_jobs.py](../../../../../../tests/test_sidecar_close_cancels_jobs.py) — direct import

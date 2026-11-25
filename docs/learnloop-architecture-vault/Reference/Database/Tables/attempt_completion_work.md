@@ -22,8 +22,8 @@ source_paths:
   - "src/learnloop/attempts/attempts.py"
   - "src/learnloop/attempts/post_attempt.py"
   - "src/learnloop/followup_run/lanes.py"
+  - "src/learnloop/goals/exam_session.py"
   - "src/learnloop/teacher/probes.py"
-  - "src/learnloop_sidecar/handlers/practice.py"
 tags:
   - "learnloop/database/table"
   - "learnloop/database/role/workflow"
@@ -103,6 +103,7 @@ Indexes and uniqueness:
 - `src/learnloop/attempts/attempts.py`
 - `src/learnloop/attempts/post_attempt.py`
 - `src/learnloop/followup_run/lanes.py`
+- `src/learnloop/goals/exam_session.py`
 - `src/learnloop/teacher/probes.py`
 - `src/learnloop_sidecar/handlers/practice.py`
 
@@ -116,6 +117,7 @@ Indexes and uniqueness:
 - `tests/test_epp_repeat_receipts.py`
 - `tests/test_mobile_jobs.py`
 - `tests/test_sidecar_contract.py`
+- `tests/test_exam_session.py`
 - `tests/test_followup_codex_review.py`
 - `tests/test_placement_opening_probes.py`
 - `tests/test_probe_records.py`

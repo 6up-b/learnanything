@@ -46,24 +46,24 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/adaptive_difficulty/grade_forecast.py](../../../../../../src/learnloop/adaptive_difficulty/grade_forecast.py) |
-| Source lines | 136 |
+| Source lines | 150 |
 | Owning package | [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `receipt_id(attempt_id: str) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/grade_forecast.py), line 37) — A grade-time receipt's id, a function of its attempt (:func:`learnloop.ids.keyed_ulid`): drawn from ``ids.new_ulid`` it would shift every id the grade mints after it, and drawn from a stream of its own it would differ between two runs of the same history.
-- `receipt_key(attempt_id: str) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/grade_forecast.py), line 45)
-- `grade_receipt(vault: Any, repository: Any, *, practice_item_id: str, attempt_id: str, at: str, view: Any=None) -> ForecastReceipt | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/grade_forecast.py), line 61) — AD's subject-view forecast for the answer ``attempt_id`` to ``practice_item_id`` at ``at``, from AD's state over everything recorded before it; None when AD is off, the item is protected or unknown to AD's view.
-- `safe_grade_receipt(vault: Any, repository: Any, **kwargs: Any) -> ForecastReceipt | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/grade_forecast.py), line 125) — :func:`grade_receipt`, never raising: a forecast never costs the grade.
+- `receipt_id(attempt_id: str) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/grade_forecast.py), line 38) — A grade-time receipt's id, a function of its attempt (:func:`learnloop.ids.keyed_ulid`): drawn from ``ids.new_ulid`` it would shift every id the grade mints after it, and drawn from a stream of its own it would differ between two runs of the same history.
+- `receipt_key(attempt_id: str) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/grade_forecast.py), line 46)
+- `grade_receipt(vault: Any, repository: Any, *, practice_item_id: str, attempt_id: str, at: str, answered_item: Any=None, answered_revision: str | None=None, view: Any=None) -> ForecastReceipt | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/grade_forecast.py), line 62) — AD's subject-view forecast for the answer ``attempt_id`` to ``practice_item_id`` at ``at``, from AD's state over everything recorded before it; None when AD is off, the item is protected or unknown to AD's view.
+- `safe_grade_receipt(vault: Any, repository: Any, **kwargs: Any) -> ForecastReceipt | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/grade_forecast.py), line 139) — :func:`grade_receipt`, never raising: a forecast never costs the grade.
 
 ### Module constants
 
-- `LOG` ([src/learnloop/adaptive_difficulty/grade_forecast.py](../../../../../../src/learnloop/adaptive_difficulty/grade_forecast.py), line 30)
-- `GRADE_FORECASTER` ([src/learnloop/adaptive_difficulty/grade_forecast.py](../../../../../../src/learnloop/adaptive_difficulty/grade_forecast.py), line 32)
-- `GRADE_FORECAST_VERSION` ([src/learnloop/adaptive_difficulty/grade_forecast.py](../../../../../../src/learnloop/adaptive_difficulty/grade_forecast.py), line 33)
-- `GRADED_ATTEMPT` ([src/learnloop/adaptive_difficulty/grade_forecast.py](../../../../../../src/learnloop/adaptive_difficulty/grade_forecast.py), line 35)
+- `LOG` ([src/learnloop/adaptive_difficulty/grade_forecast.py](../../../../../../src/learnloop/adaptive_difficulty/grade_forecast.py), line 31)
+- `GRADE_FORECASTER` ([src/learnloop/adaptive_difficulty/grade_forecast.py](../../../../../../src/learnloop/adaptive_difficulty/grade_forecast.py), line 33)
+- `GRADE_FORECAST_VERSION` ([src/learnloop/adaptive_difficulty/grade_forecast.py](../../../../../../src/learnloop/adaptive_difficulty/grade_forecast.py), line 34)
+- `GRADED_ATTEMPT` ([src/learnloop/adaptive_difficulty/grade_forecast.py](../../../../../../src/learnloop/adaptive_difficulty/grade_forecast.py), line 36)
 
 ### Explicit exports
 
@@ -79,7 +79,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_evidence_after(events: Any, at: str) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/grade_forecast.py), line 49) — Whether AD's evidence holds anything dated after the answer's cutoff ``at`` (an attempt, a claim or a reading opportunity).
+- `_evidence_after(events: Any, at: str) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/grade_forecast.py), line 50) — Whether AD's evidence holds anything dated after the answer's cutoff ``at`` (an attempt, a claim or a reading opportunity).
 
 ## Who imports or calls it
 
@@ -105,13 +105,14 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/adaptive_difficulty/successor|learnloop.adaptive_difficulty.successor]] — imports `successor_active`; calls `successor_active`
 - [[Reference/Modules/learnloop/adaptive_difficulty/switches|learnloop.adaptive_difficulty.switches]] — imports `receipts_enabled`; calls `receipts_enabled`
 - [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] — imports `connect`; calls `connect`
+- [[Reference/Modules/learnloop/db/evidence_cutoff|learnloop.db.evidence_cutoff]] — imports `Cutoff`
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `keyed_ulid`; calls `keyed_ulid`
 - [[Reference/Modules/learnloop/scheduling/forecast_receipts|learnloop.scheduling.forecast_receipts]] — imports `ForecastReceipt`, `ITEM_UNASSISTED_SUCCESS_AT_GRADE`; calls `ForecastReceipt`
 - [[Reference/Modules/learnloop/scheduling/voi_forecasts|learnloop.scheduling.voi_forecasts]] — imports `parameter`; calls `parameter`
 
 ### Platform and third-party dependencies
 
-- Standard library: `__future__`, `contextlib`, `logging`, `typing`
+- Standard library: `__future__`, `contextlib`, `dataclasses`, `logging`, `typing`
 - Third party: none imported directly
 
 ## Larger workflow participation
@@ -128,6 +129,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_surprise_reads_ad_forecast.py](../../../../../../tests/test_surprise_reads_ad_forecast.py) — direct import
   - `test_a_writer_committing_between_the_read_and_the_write_leaves_the_recorded_forecast_standing`
+  - `test_grade_snapshot_names_the_answer_and_its_cutoff`
 
 ## Modification guidance
 

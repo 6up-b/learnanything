@@ -196,7 +196,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/followup_run/router|learnloop.followup_run.router]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/goals/exam_pool|learnloop.goals.exam_pool]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/goals/exam_seeding|learnloop.goals.exam_seeding]] — imports `new_ulid`; statically calls `new_ulid`
-- [[Reference/Modules/learnloop/goals/exam_session|learnloop.goals.exam_session]] — imports `new_ulid`; statically calls `new_ulid`
+- [[Reference/Modules/learnloop/goals/exam_session|learnloop.goals.exam_session]] — imports `keyed_ulid`, `new_ulid`; statically calls `keyed_ulid`, `new_ulid`
 - [[Reference/Modules/learnloop/goals/forecast_ledger|learnloop.goals.forecast_ledger]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/hints/map_builder|learnloop.hints.map_builder]] — imports `new_ulid`; statically calls `new_ulid`
 - [[Reference/Modules/learnloop/hints/service|learnloop.hints.service]] — imports `new_ulid`; statically calls `new_ulid`

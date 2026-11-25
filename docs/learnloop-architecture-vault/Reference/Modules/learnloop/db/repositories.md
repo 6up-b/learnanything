@@ -1403,6 +1403,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_background_grading_records_no_grade_once_its_vault_is_no_longer_served`
   - `test_an_exam_answer_is_stamped_with_its_graders_calibration_identity`
   - `test_exam_answers_certify_facet_evidence_on_canonical_vault`
+  - `test_finisher_rechecks_the_link_after_forecast_preparation`
 - [tests/test_facet_belief_successor.py](../../../../../../tests/test_facet_belief_successor.py) — direct import
   - `test_the_upgrade_derives_the_successors_state_from_the_history`
 - [tests/test_facet_belief_successor_derivation.py](../../../../../../tests/test_facet_belief_successor_derivation.py) — direct import
@@ -1711,6 +1712,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_learner_text_gaps_composition.py](../../../../../../tests/test_learner_text_gaps_composition.py) — direct import
 - [tests/test_learner_text_gaps_review.py](../../../../../../tests/test_learner_text_gaps_review.py) — direct import
   - `test_f13_the_pipeline_switched_off_queues_exactly_as_the_predecessor_version`
+- [tests/test_lesson_grade_forecast.py](../../../../../../tests/test_lesson_grade_forecast.py) — direct import
+  - `test_withdrawal_during_preparation_discards_the_losing_grade`
+- [tests/test_lesson_weight_facts_integration.py](../../../../../../tests/test_lesson_weight_facts_integration.py) — direct import
 - [tests/test_library_exercises.py](../../../../../../tests/test_library_exercises.py) — direct import
 - [tests/test_local_index.py](../../../../../../tests/test_local_index.py) — direct import
   - `test_a_deferred_index_job_is_woken_at_its_retry_time`
@@ -2333,6 +2337,11 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_upgrade_finishes_nothing_recorded_before_it_and_a_new_end_finishes_once`
 - [tests/test_section_question_parts.py](../../../../../../tests/test_section_question_parts.py) — direct import
   - `test_two_claims_at_once_give_each_topic_one_owner`
+- [tests/test_selected_forecast.py](../../../../../../tests/test_selected_forecast.py) — direct import
+  - `test_another_sessions_presentation_is_left_for_its_answer`
+  - `test_grade_uses_the_revision_frozen_on_open`
+  - `test_selection_view_and_missing_selection_live_and_rebuilt`
+  - `test_upgrade_rejects_a_historical_serve_at_a_different_revision`
 - [tests/test_self_attributed_misconceptions.py](../../../../../../tests/test_self_attributed_misconceptions.py) — direct import
   - `test_brand_new_self_tag_does_not_touch_current_posterior_but_seeds_next_set`
   - `test_no_promotion_below_threshold`
@@ -2368,6 +2377,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_shadow_components.py](../../../../../../tests/test_shadow_components.py) — direct import
   - `test_state_sync_retires_expired_telemetry_horizon`
 - [tests/test_shadow_rebuild.py](../../../../../../tests/test_shadow_rebuild.py) — direct import
+  - `test_grade_receipt_digest_ignores_json_layout_and_detects_same_count_value_changes`
   - `test_shadow_rebuild_reports_semantic_diff_and_proves_live_db_isolation`
 - [tests/test_show.py](../../../../../../tests/test_show.py) — direct import
   - `test_show_adds_imported_source_name_without_replacing_ref_id`

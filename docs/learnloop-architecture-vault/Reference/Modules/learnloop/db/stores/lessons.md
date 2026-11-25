@@ -160,6 +160,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/teacher_te2_probes_helpers.py](../../../../../../../tests/teacher_te2_probes_helpers.py) — direct import
 - [tests/teacher_te2log_receipt_helpers.py](../../../../../../../tests/teacher_te2log_receipt_helpers.py) — direct import
 - [tests/test_ih7_lesson_sources_follow_diagnosis.py](../../../../../../../tests/test_ih7_lesson_sources_follow_diagnosis.py) — direct import
+- [tests/test_lesson_grade_forecast.py](../../../../../../../tests/test_lesson_grade_forecast.py) — direct import
+  - `test_withdrawal_during_preparation_discards_the_losing_grade`
 - [tests/test_te3a_lesson_opportunity.py](../../../../../../../tests/test_te3a_lesson_opportunity.py) — direct import
   - `test_landing_r1_a_probe_lesson_freezes_every_display_and_its_receipt_is_judged_not_failed_closed`
 - [tests/test_te3b_population.py](../../../../../../../tests/test_te3b_population.py) — direct import
