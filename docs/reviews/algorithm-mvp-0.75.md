@@ -175,3 +175,28 @@ There are two options:
 **Recommendation: the second option.** The calibration channel exists to reinterpret past grades, so the defect is
 the silent, delayed move, not the move itself. A rebuild at import with a change report makes the move explicit
 without changing the channel's design. This is not changed here.
+
+## The owner-copy run for mvp-0.74 and mvp-0.75 (Nov 25 2026, orchestrator; counts and digests only)
+
+Backup-API copies of the three floor-set vaults walked to `mvp-0.73` with this tip, then to `mvp-0.74`, then a
+second copy to `mvp-0.75`. The copies were deleted afterwards.
+
+| | vault 1 | vault 2 | vault 3 |
+|---|---|---|---|
+| 0.73 to 0.74: mastery changed; surprise changed; direction changed; due items moved | 0 of 34; 0 of 3; 0; 0 | 0 of 21; 0 of 70; 0; 0 | 0 of 18; 0 of 3; 0; 0 |
+| at 0.74: surprise by source | mastery 3 | mastery 70 | mastery 3 |
+| at 0.74: two shadow rebuilds | same | same | same |
+| 0.74 to 0.75: mastery changed; surprise changed; direction changed; due items moved | 0 of 34; 0 of 3; 0; 0 | 0 of 21; 0 of 70; 0; 0 | 0 of 18; 0 of 3; 0; 0 |
+| 0.74 to 0.75: curves digest; forecast receipts digest | same; same | same; same | same; same |
+| at 0.75: payloads, with the facts block, applied | 3, 3, 2 | 70, 70, 69 | 3, 3, 3 |
+| payload, mastery and surprise digests after rebuild 1 and 2 | same as after the upgrade | same | same |
+| integrity; foreign-key violations; schema head; fence rows | ok; 0; 275; 1 | ok; 0; 275; 1 | ok; 0; 275; 1 |
+
+- Between the 0.74 copy and its 0.75 upgrade only `algorithm_version` (and `updated_at` on facet recall rows) differs
+  in `learning_object_mastery`, `facet_recall_state`, `facet_uncertainty` and `attempt_surprise`; `practice_item_state`
+  is identical. The payload digest moves because every payload gains its block.
+- **Not exercised here:** no copy holds a lesson check or a selection-scored surprise row, so the lesson and trace
+  digests are those of empty tables, the likelihood and label queries return no rows, and neither tag's changed
+  scoring is reached. The run shows both upgrades are inert on such a vault and that every payload gets its block; a
+  vault with lesson checks or served-and-scored answers gets this procedure again before its live upgrade.
+- The doctor exits 1 on each copy on the content errors that predate these tags.
