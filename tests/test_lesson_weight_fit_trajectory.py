@@ -81,19 +81,20 @@ def test_an_update_whose_variance_the_floor_set_is_labelled_not_recomputed(tmp_p
     # The record's owner-copy label query counts it.
     with repository.atomic():
         LW.write_state(repository, LW.replay_state(vault, repository))
-    likelihoods, labels = _owner_copy_label_queries()
+    likelihoods, labels, fallbacks = _owner_copy_label_queries()
     with repository.connection() as connection:
         assert [tuple(row) for row in connection.execute(likelihoods)] == [("first_order", 1)]
         assert [tuple(row) for row in connection.execute(labels)] == [("variance_floor_bound", 1)]
+        assert [tuple(row) for row in connection.execute(fallbacks)] == []
 
 
 def _owner_copy_label_queries() -> list[str]:
-    """The record's owner-copy label query (two statements)."""
+    """The record's owner-copy label query (three statements)."""
 
     from pathlib import Path
 
     record = (Path(__file__).resolve().parents[1] / "docs/reviews/algorithm-mvp-0.72.md").read_text()
-    start = record.index("The successor's likelihoods and first-order labels")
+    start = record.index("The successor's likelihoods, first-order labels")
     body = record[record.index("<<'SQL'\n", start) + len("<<'SQL'\n"):]
     return [statement.strip() for statement in body[:body.index("\nSQL\n")].split(";") if statement.strip()]
 

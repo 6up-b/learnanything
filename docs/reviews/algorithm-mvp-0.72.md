@@ -10,7 +10,7 @@ Migration 274 creates `attempt_grade_curves`, an append-only RAW_LEDGER table. E
 - **Activation.** Before clearing any projection, freeze all practice attempts, including unresolved checks and pool-only outcomes. Use the canonical grading-epoch rules. A revisioned grade has key `revision:N`, an older unstamped grade has `legacy:<write stamp>`, and an attempt without criterion rows has `no_evidence`. The one predecessor surprise row can supply a finite JSON-number pair for the current epoch. Its provenance is `reconstructed_at_upgrade` even when it coincides with the original grade. Superseded epochs and absent or unusable pairs get `missing_at_upgrade` with both values NULL. A numeric row names the surprise row's algorithm version. A missing marker names the predecessor at the freeze.
 - **Retry and publication.** The snapshot transaction commits before replay. The activation rechecks coverage under the SQLite writer lock, committing any newly uncovered epochs before it clears anything. A retry leaves all prior snapshots and missing markers intact. A vault born at the successor has its grade captures. The whole-vault rebuild, its receipt and config publication use the existing journal and commit protocol.
 - **Fit.** Select the current epoch for each check, intervening answer and resolving answer. Join its frozen curve to the recorded observation weight and posterior delta. Mastery replay uses an available frozen pair when it regenerates those deltas, including the priming adjustment exactly once. Where a curve is unavailable, mastery can still rebuild its ordinary projection. The lesson fit records that gap independently of any regenerated surprise pair.
-- **Missing data.** A missing trajectory input selects the existing first-order calculation. An unavailable resolving curve selects the check's stored sensitivity for the weight and forecast-time `p_a` for the pool. Each update trace records the resolving input, and a weight update also records its trajectory inputs. They name the attempt, epoch, version, provenance and values. An absent row is labelled `missing_capture`. The trace names the fallback. Below the tag the fit still uses the predecessor's authored-parameter lookup and trace format.
+- **Missing data.** A missing trajectory input selects the existing first-order calculation. An unavailable resolving curve selects the check's stored sensitivity for the weight and forecast-time `p_a` for the pool. Each update trace records the resolving input, and a weight update also records its trajectory inputs. They name the attempt, epoch, version, provenance and values. An absent row is labelled `missing_capture`. The trace names the fallback. Below the tag the fit still uses the predecessor's lookup (the seam for the vault's tag, label-free at `mvp-0.71`) and trace format.
 
 The historical refit can change weight and pool posteriors and hence future check masses. The check ledger retains every `mass_applied`. Option 1, starting capture only at the upgrade, was considered and declined because fitting old windows would continue to depend on content edits.
 
@@ -51,6 +51,32 @@ is a merge of origin/main into `teacher/te5-consolidation`:
 - **The head fixture.** `fixtures/migration_head` is at 274, redone from the tracked 273 file after the fix round's
   change to 274's replacement guard (its README section names it).
 
+## Integration on the label's retirement (H3, `mvp-0.71`)
+
+H3 landed first as `mvp-0.71`; L4-2 merged on top of it (`a17cba6132`) and became `mvp-0.72`, migration 274
+unchanged. The resolution follows H3's record ("For L4-2's integrator").
+
+**Which read takes which pair:**
+
+| Reader | Pair it uses | Why |
+|---|---|---|
+| Live grade, any tag | the seam's pair for the vault's tag; recorded as the epoch's `graded` curve | one capture point, right after `record_attempt_outcome`; it reads the surprise row's `predicted_score_dist`, which H3 keeps as mastery's pair (never AD's `b_scored`) |
+| Mastery's replay (`_grade_evidence`) | the label-free seam whenever `reads.recorded_curve is None or label_retired(tag)` | from `mvp-0.71` the seam has no item term, so it re-derives every epoch's pair. Curves are read only at `mvp-0.72` and later, all retired, so mastery's replay never applies a recorded curve now; the branch stays for the order the integration fixed |
+| The upgrade's freeze (`mvp-0.71` → `mvp-0.72`) | the predecessor's surprise row | at `mvp-0.71` those rows are label-free: the retirement's whole-vault rebuild re-derived them, and an older copy walks through that rebuild before the freeze. Tested: `test_a_copy_graded_with_the_label_freezes_the_label_free_curve_after_the_walk` |
+| The lesson-weight fit (trajectory, resolving input) | the frozen pair | the owner's option 2. It agrees with mastery's replay wherever the frozen pair is label-free (every epoch graded or reconstructed at `mvp-0.71` or later) |
+| The predecessor fit (below `mvp-0.72`) | the seam for the vault's tag | `item_irt_params(..., algorithm_version=)`: at `mvp-0.71` no authored difficulty reaches it |
+
+**Where they can disagree, and what happens:**
+- A `graded` curve written by this branch's code below `mvp-0.71` (every grade records one) holds the label's pair, while mastery's replay at `mvp-0.72` uses the label-free pair. The fit's reproduction check (L42-R8) then fails, and the window is labelled and takes the first-order form.
+  - Owner vaults were graded by main's code, which records no curve, so they hold none of these.
+- A later change to `mastery.irt.discrimination_default` or `priming_b_offset` moves mastery's replay but not the frozen pairs. The same check labels the affected windows.
+- The four-way replay (`scripts/difficulty_four_way.py`) and `scripts/label_retirement_counts.py` replay mastery. With `or retired`, arm (f) at `mvp-0.71` and the recorded curve at `mvp-0.72` name the same pair for an attempt: the label-free one, minus the priming offset when primed. `tests/test_difficulty_four_way.py` and `tests/test_label_retirement_counts.py` pass (L42-R16 fixed).
+
+**What the merge changed in behaviour:**
+- The predecessor fit no longer depends on authored difficulty edits. The TE5 upgrade test, the regrade test and F6 now assert this instead of the opposite.
+- Measured difficulty does not run from `mvp-0.71`. L42-R13's seed change is unreachable and gave way to main's form.
+- The surprise rows the freeze reads are label-free, so for owner copies the reconstructed pairs are `(discrimination_default, 0)`, or `(discrimination_default, −priming_b_offset)` when primed.
+
 ## Review fix round (the adversarial review of 2026-11-24)
 
 The review of `7e5c3dcb2e` found 1 blocker, 10 majors and 2 minors, plus a second "blocker" (273 missing, the fixture
@@ -76,7 +102,7 @@ code. Ledger rows are L42-R1 to L42-R14.
 | Minor: a flat response (a = 0) records almost no mass | **Fixed (L42-R14)** at `mvp-0.72`: when every mass predicts the same success the pool identifies no mass; the check keeps its learned mass and its pool record says `implied: flat_response`. Fail-first: `test_a_flat_response_keeps_the_learned_mass`. |
 | Minor: the window query counted an overflowed pair as available | **Fixed:** the query above uses the finite-pair predicate. |
 | Found by the fix round's affected-set run: the scoreboard's certification replay pruned a scratch copy without dropping its append-only delete guards, so a captured curve failed every prefix | **Fixed (L42-R15):** the copy drops them with goal history's function first. Test: `test_certification_replay_prunes_past_an_adjudicated_attempt` (failed on the branch before). Also found there, tag-only: `tests/goldens/placement_stored_misses.json` still said `mvp-0.70` (an integration miss); regenerated, the tag its only change. |
-| Found by the same run, pre-existing on the branch: the H2 four-way replay's label-off arm is inert where mastery's replay reads a recorded curve (`tests/test_difficulty_four_way.py`, two tests, fail with or without this round) | **Open (L42-R16), for the H3 merge:** H3 retires the label from the mastery path and lands first; mastery's replay then takes the recorded curve only below H3's tag, while the fit's read of the frozen pair stays as it is. |
+| Found by the same run, pre-existing on the branch: the H2 four-way replay's label-off arm is inert where mastery's replay reads a recorded curve (`tests/test_difficulty_four_way.py`, two tests) | **Fixed in the H3 merge (L42-R16):** mastery's replay takes the label-free seam whenever the label is retired; see "Integration on the label's retirement". The four-way and label-retirement-count tests pass, and the walk test checks the frozen pair is the label-free one. |
 
 Each fail-first test was run on the source before its fix and failed there (the R7/R8 tests on the commit before theirs). All fit changes except R5's snapshot and R11's refresh are gated on the curves' tag (now `mvp-0.72`); those two change no predecessor output (one snapshot reads the same rows; the refreshed tables are what a rebuild writes).
 
@@ -85,7 +111,7 @@ meanwhile. The expected-snapshot digest below assumes no such rows, so run it on
 
 ## Owner-copy procedure
 
-Use consistent SQLite backup-API copies. The following inspection is for the orchestrator. Supply the path of a **copy database** in `COPY_DB`. Both commands open their input read-only. The first reports coverage among the attempts between each recorded lesson check and its resolving outcome, including both endpoints. Resolving attempts for pool-only updates are included. Each attempt counts once across overlapping windows. These counts describe fitted windows through the last answered lesson check. Activation also covers every attempt outside these windows, including unresolved histories. Run this window inspection before the upgrade. A successor surprise row has already been replayed.
+Start from an `mvp-0.71` copy (H3's tag, after its whole-vault rebuild). Use consistent SQLite backup-API copies. Everything below prints counts or digests only. The rest goes to files that are not printed. The following inspection is for the orchestrator. Supply the path of a **copy database** in `COPY_DB`. Both commands open their input read-only. The first reports coverage among the attempts between each recorded lesson check and its resolving outcome, including both endpoints. Resolving attempts for pool-only updates are included. Each attempt counts once across overlapping windows. These counts describe fitted windows through the last answered lesson check. Activation also covers every attempt outside these windows, including unresolved histories. Run this window inspection before the upgrade. A successor surprise row has already been replayed.
 
 ```sh
 sqlite3 -readonly -header "$COPY_DB" <<'SQL'
@@ -140,7 +166,7 @@ sqlite3 -readonly -json "$COPY_DB" 'SELECT * FROM lesson_weight_state ORDER BY f
 sqlite3 -readonly -json "$COPY_DB" 'SELECT seq,kind,lesson_check_id,resolving_attempt_id,learning_object_id,at,detail_json FROM lesson_weight_trace ORDER BY seq' | sha256sum
 ```
 
-On disposable copies of the same quiescent predecessor backup, with identical authored content and effective settings, use the following sequence. Keep the original and its WAL hash for the final comparison.
+On disposable copies of the same quiescent `mvp-0.71` backup, with identical authored content and effective settings, use the following sequence. Keep the original and its WAL hash for the final comparison.
 
 1. With the predecessor binary, record the checks, raw receipts, semantic state and trace digests above. Record the total expected epoch count using the query below. Save `learnloop rebuild --vault "$COPY" --shadow --json` to a file (do not print it). Use a second untouched backup for the upgrade. A shadow run with a version override alone does not run the activation snapshot.
 2. On the second copy use the rebased binary and run `learnloop upgrade --vault "$COPY" --to mvp-0.72` from an `mvp-0.71` copy (an older copy walks through `mvp-0.71`'s whole-vault rebuild first, which re-derives every surprise row without the label before the freeze reads them), then `learnloop doctor --vault "$COPY"`. Record the version, schema head, integrity, foreign keys and the same digests. Run the successor-only queries below. The number of reconstructed rows plus missing markers must equal the predecessor epoch count. Every pre-upgrade epoch must have a row. At this point the graded count must be zero.
@@ -193,7 +219,7 @@ sqlite3 -readonly -header "$COPY_DB" 'SELECT provenance,algorithm_version,count(
 sqlite3 -readonly "$COPY_DB" 'PRAGMA integrity_check; PRAGMA foreign_key_check;'
 ```
 
-The successor's likelihoods and first-order labels (counts only; run on the upgraded copy after each rebuild):
+The successor's likelihoods, first-order labels and resolving fallbacks (counts only; run on the upgraded copy after each rebuild):
 
 ```sh
 sqlite3 -readonly -header "$COPY_DB" <<'SQL'
@@ -204,6 +230,9 @@ FROM lesson_weight_trace t, json_each(t.detail_json, '$.trajectory_inputs') i, j
 WHERE t.kind = 'weight_update' AND j.key IN ('missing_observation_or_delta', 'variance_floor_bound',
   'prior_not_reproduced', 'update_not_reproduced', 'outcome_prior_not_reproduced')
 GROUP BY 1 ORDER BY 1;
+SELECT kind, json_extract(detail_json, '$.resolving_fallback') AS fallback, count(*) AS updates
+FROM lesson_weight_trace WHERE json_extract(detail_json, '$.resolving_fallback') IS NOT NULL
+GROUP BY 1, 2 ORDER BY 1, 2;
 SQL
 ```
 
