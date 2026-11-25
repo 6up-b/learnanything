@@ -23,7 +23,7 @@ exact, and one test drives the vault's own map end to end.
 
 from __future__ import annotations
 
-import re
+import json
 
 import pytest
 
@@ -57,6 +57,41 @@ def _tutor(repo, minutes, *, facets=None, answered=True, answer_mode="help_me_re
          "answer_status": "answered" if answered else "pending", "facets": list(facets or []),
          "answer_mode": answer_mode},
         clock=at(minutes))
+
+
+def _leaves(value):
+    """Every scalar inside ``value``, a JSON-encoded string opened as JSON (``*_json`` columns)."""
+
+    if isinstance(value, dict):
+        return [leaf for item in value.values() for leaf in _leaves(item)]
+    if isinstance(value, (list, tuple)):
+        return [leaf for item in value for leaf in _leaves(item)]
+    if isinstance(value, str) and value[:1] in ("[", "{"):
+        try:
+            return _leaves(json.loads(value))
+        except ValueError:
+            return [value]
+    return [value]
+
+
+def _holds_nothing_read(rows) -> bool:
+    """No magnitude the salience events carried (99999, 777) is a value of any row, and no answer text is in one."""
+
+    values = _leaves(rows)
+    return not ({99999, 777, "99999", "777"} & {value for value in values if isinstance(value, (int, float, str))}
+                or [value for value in values if isinstance(value, str)
+                    and ("ANSWER-TEXT" in value or "my words" in value)])
+
+
+def test_the_magnitude_check_reads_values_not_digits_a_hash_can_spell():
+    """FR3-24: the check failed whenever a random id or hash in a receipt contained "777" (a substring search of the
+    dump). It reads values: a hash with those digits passes, a stored magnitude or answer text still fails."""
+
+    row = {"id": "UL7770000", "protection_epoch": "ff928ce95e7775fd6", "facet_doses_json": '{"fa1": 0.5}'}
+    assert "777" in json.dumps([row]) and _holds_nothing_read([row])
+    assert not _holds_nothing_read([{**row, "facet_doses_json": '{"active_seconds": 777}'}])
+    assert not _holds_nothing_read([{**row, "dwell": 99999}])
+    assert not _holds_nothing_read([{**row, "note": "said ANSWER-TEXT here"}])
 
 
 def _by(opportunities, kind, subkind=None):
@@ -131,9 +166,9 @@ def test_reading_opportunities_frozen_and_ordered_by_source_time(tmp_path):
     columns = set(opportunities[0])
     assert not columns & {"dwell_ms", "active_seconds", "payload_json", "response_md", "answer_md", "scroll",
                           "visibility"}
-    # Row ids are random ULIDs, whose digits can spell a magnitude by chance: they are blanked before the search.
-    text = re.sub(r"[0-9A-HJKMNP-TV-Z]{26}", "ULID", json.dumps(opportunities))
-    assert "99999" not in text and "777" not in text and "ANSWER-TEXT" not in text and "my words" not in text
+    # Every value of every receipt, JSON columns opened: no magnitude is a value and no answer text is in one. Values,
+    # not a substring of the dump: random ids and hashes can spell a magnitude's digits by chance (FR3-24).
+    assert _holds_nothing_read(opportunities)
 
     # A changed verdict writes nothing; a second sweep writes nothing new.
     RQC.record_inquiry_action(repo, question_id=styles["recall"], action="self_checked", self_check="matches",
