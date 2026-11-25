@@ -238,6 +238,30 @@ SQL
 
 The first two digests must agree immediately after activation. For the independent count in steps 1 and 2, run the predecessor query with `SELECT count(*) AS epochs FROM epochs` in place of its final SELECT. Group `checked` by `available IS 1` to reconcile the numeric and missing counts.
 
-Owner-copy results are pending. A numeric historical row describes the predecessor projection at the freeze. Only a successor grade transaction establishes grade-time provenance.
+A numeric historical row describes the predecessor projection at the freeze. Only a successor grade transaction establishes grade-time provenance.
 
 The pre-rebase identity gate found nine tag-dependent differences and 362 passes. The predecessor-label control reproduced all nine existing digests. The worker stopped at that gate and left the identity goldens for review on the merged tree. The exact sites and test results are in [the TE5 verification record](teacher-te5.md#part-d-verification).
+
+## The owner-copy run (Nov 24 2026, orchestrator; counts and digest prefixes only)
+
+The procedure above on backup-API copies of the three floor-set vaults, walked to `mvp-0.71` with this tip, then one
+copy each upgraded to `mvp-0.72`. The copies were deleted afterwards; every original's `sha256sum -c` read OK.
+
+| | vault 1 | vault 2 | vault 3 |
+|---|---|---|---|
+| attempts; lesson checks; weight trace rows | 3; 0; 0 | 70; 0; 0 | 3; 0; 0 |
+| predecessor epochs: with a pair, without | 3, 1 | 70, 7 | 3, 0 |
+| curves after the upgrade: reconstructed, missing, graded | 3, 1, 0 | 70, 7, 0 | 3, 0, 0 |
+| expected snapshot digest = curves digest | yes (`d1b1c739`) | yes (`08431c96`) | yes (`16f0b678`) |
+| curves digest after rebuild 1 and rebuild 2 | same | same | same |
+| mastery, facet, surprise and item-state rows whose values changed | 0 | 0 | 0 |
+| integrity; foreign-key violations; schema head | ok; 0; 274 | ok; 0; 274 | ok; 0; 274 |
+
+- Between the `mvp-0.71` copy and its upgrade, only `algorithm_version` (and `updated_at` on facet recall rows) differs
+  in `learning_object_mastery`, `facet_recall_state`, `facet_uncertainty` and `attempt_surprise`; `practice_item_state`
+  is identical.
+- **Not exercised here:** none of the three copies holds a lesson check, so the check, receipt, weight-state and trace
+  digests are those of empty tables on both sides, and the label queries return no rows. The refit from frozen pairs
+  ran on no owner data in this run; its evidence is the test suite. A vault with lesson checks should get this
+  procedure again before its live upgrade.
+- The doctor exits 1 on each copy on the content errors that predate this tag (see H3's record).
