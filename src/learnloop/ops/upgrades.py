@@ -365,8 +365,13 @@ def _upgrade(root: Path, *, to: str, clock: Clock | None, links: Sequence[Link])
 def _start_from_the_database(root: Path, sqlite_path: Path, named: str) -> tuple[str, list[str], str | None]:
     """The tag the walk starts from, the notes of a repair, and a refusal. A config that disagrees with the database's
     tag (restored from an older copy, or edited by hand; no journal stands) is set back to it first: walking from the
-    file would move the database's tag back or sideways, and answering "already" would leave the file behind it."""
+    file would move the database's tag back or sideways, and answering "already" would leave the file behind it.
 
+    A vault with no database yet (its content only) has no recorded tag: the walk goes on, and the repository opener
+    creates the database as it always did (R4-F3). An existing database that cannot be read still stops the walk."""
+
+    if not sqlite_path.exists():
+        return named, [], None
     with closing(connect(sqlite_path, read_only=True)) as connection:
         recorded = writer_fence.recorded_tag(connection)
     if recorded is None or recorded == named:

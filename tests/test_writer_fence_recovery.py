@@ -17,6 +17,7 @@ import pytest
 
 from learnloop.db import writer_fence
 from learnloop.db.connection import connect
+from learnloop.db.repositories import Repository
 from learnloop.vault.paths import VaultPaths
 from learnloop.vault.yaml_io import write_yaml
 from learnloop.vault import repository as vault_repository
@@ -253,3 +254,84 @@ def test_a_same_tag_reload_keeps_the_ingest_runner(tmp_path):
     first = jobs._require_runner()
     jobs.bind(_bound_repository(paths), paths.root, background=False)
     assert jobs._require_runner() is first
+
+
+# -- R4-F3: a vault with no database takes the upgrade path; the owner's tag walks to the head ------------------------
+
+#: The tag the owner's live vaults are at (2026-11-25): their upgrade must walk cleanly to the head.
+OWNER_TAG = "mvp-0.61"
+
+
+def _remove_database(paths: VaultPaths) -> None:
+    for suffix in ("", "-wal", "-shm", "-journal"):
+        Path(f"{paths.sqlite_path}{suffix}").unlink(missing_ok=True)
+
+
+def test_a_content_only_vault_with_no_database_takes_the_upgrade_path(tmp_path):
+    """Intact vault files and no ``state.sqlite``: the walk's fence-tag probe opened the absent file read-only and
+    failed before the repository opener could create it. An absent database has no recorded tag; the walk goes on
+    through the existing creation path and ends with the database at the head."""
+
+    from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION, SUCCESSOR_CHAIN
+    from learnloop.ops.upgrades import upgrade
+    from tests.helpers import create_basic_vault, set_algorithm_version
+
+    assert OWNER_TAG in SUCCESSOR_CHAIN
+    paths = create_basic_vault(tmp_path / "vault")
+    set_algorithm_version(paths, OWNER_TAG)
+    _remove_database(paths)
+    result = upgrade(paths.root)
+    assert result.upgraded and (result.from_version, result.to_version) == (OWNER_TAG, LATEST_ALGORITHM_VERSION)
+    assert paths.sqlite_path.exists() and recorded(paths) == LATEST_ALGORITHM_VERSION
+
+
+def test_an_existing_database_that_cannot_be_read_still_stops_the_upgrade(tmp_path):
+    from learnloop.ops.upgrades import upgrade
+    from tests.helpers import create_basic_vault, set_algorithm_version
+
+    paths = create_basic_vault(tmp_path / "vault")
+    set_algorithm_version(paths, OWNER_TAG)
+    _remove_database(paths)
+    paths.sqlite_path.write_bytes(b"this is not a database" * 64)
+    with pytest.raises(sqlite3.DatabaseError):
+        upgrade(paths.root)
+    assert paths.sqlite_path.read_bytes() == b"this is not a database" * 64
+
+
+def test_the_owners_tag_walks_to_the_head_with_its_history(tmp_path):
+    """The walk the owner's vaults take, end to end on a vault with a database and graded history written at their
+    tag: every link from it activates, the database's tag and the config reach the head, and the history stays."""
+
+    from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
+    from learnloop.ops import upgrades
+    from learnloop.ops.upgrades import UPGRADES, upgrade
+    from tests.writer_fence_helpers import vault_at
+
+    paths = vault_at(tmp_path, OWNER_TAG)
+    attempts = count(paths, "practice_attempts")
+    result = upgrade(paths.root)
+    assert result.upgraded and not result.problems
+    assert (result.from_version, result.to_version) == (OWNER_TAG, LATEST_ALGORITHM_VERSION)
+    walked = UPGRADES[next(i for i, link in enumerate(UPGRADES) if link.predecessor == OWNER_TAG):]
+    assert walked[-1].tag == LATEST_ALGORITHM_VERSION
+    repository = Repository(paths.sqlite_path)
+    assert all(link.activate.committed(repository, link.tag) for link in walked)
+    assert recorded(paths) == LATEST_ALGORITHM_VERSION
+    assert upgrades.published_algorithm_version(paths.root / "learnloop.toml") == LATEST_ALGORITHM_VERSION
+    assert count(paths, "practice_attempts") == attempts
+
+
+def test_the_upgrade_command_takes_a_content_only_vault_to_the_head(tmp_path):
+    from typer.testing import CliRunner
+
+    from learnloop.algorithm_versions import LATEST_ALGORITHM_VERSION
+    from learnloop.cli import app
+    from tests.helpers import create_basic_vault, set_algorithm_version
+
+    paths = create_basic_vault(tmp_path / "vault")
+    set_algorithm_version(paths, OWNER_TAG)
+    _remove_database(paths)
+    done = CliRunner().invoke(app, ["upgrade", "--vault", str(paths.root)])
+    assert done.exit_code == 0, done.output
+    assert f"{OWNER_TAG} -> {LATEST_ALGORITHM_VERSION}" in done.output
+    assert recorded(paths) == LATEST_ALGORITHM_VERSION

@@ -313,3 +313,14 @@ two new fence defects. No migration and no tag: nothing stored changes meaning. 
   - A reload at the same tag keeps the runner, as before.
 - **A narrow race.** A claim the old runner takes just as it is retired meets the fence at its first fenced write.
   The drain loop takes the refusal; the job's lease expires and the successor's runner requeues it.
+
+**R4-F3: a vault with no database could not take the upgrade path (WF-R4's residue).**
+
+- **The failure.** The walk's fence-tag probe opened `state.sqlite` read-only before the repository opener could
+  create it. A content-only vault (an intact `learnloop.toml`, no database) failed at once.
+- **The fix.** An absent database file has no recorded tag, so the walk goes on and the existing opener creates the
+  database. An existing database that cannot be read still stops the walk.
+- **The owner's walk.** The owner's live vaults are at mvp-0.61. `test_the_owners_tag_walks_to_the_head_with_its_history`
+  walks a vault with a database and graded history from mvp-0.61 to the head end to end. Every link activates, both
+  tags reach the head, and the history stays. The floor tests already walked from mvp-0.58; this one starts where
+  the owner's vaults are.
