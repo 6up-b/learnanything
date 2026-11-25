@@ -46,7 +46,6 @@ schedules it normally.
 
 from __future__ import annotations
 
-import json
 import logging
 from pathlib import Path
 from typing import Any
@@ -304,27 +303,6 @@ def remint_probe_as_practice_item(
         content_hash=practice_item_hash(minted),
         clock=clock,
     )
-
-    try:
-        repository.append_interaction_event(
-            kind="probe_reminted",
-            origin="learner",
-            subject_type="practice_item",
-            subject_id=source.id,
-            attempt_id=attempt_id,
-            payload_json=json.dumps(
-                {
-                    "created_practice_item_id": new_id,
-                    "practice_mode": minted.practice_mode,
-                    "surface_group_id": surface_group_id(minted),
-                },
-                sort_keys=True,
-            ),
-            occurred_at=now_iso,
-            clock=clock,
-        )
-    except Exception:  # noqa: BLE001 - provenance trail is best-effort
-        _LOGGER.warning("failed to record probe_reminted for %s", source.id, exc_info=True)
 
     try:
         repository.bump_queue_revision(clock=clock)

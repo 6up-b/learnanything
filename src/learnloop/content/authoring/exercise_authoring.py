@@ -29,6 +29,7 @@ from contextlib import AbstractContextManager
 from dataclasses import dataclass, field
 import json
 import re
+import sqlite3
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -932,6 +933,8 @@ def write_draft(root: Path, repository: Repository, draft: AuthoredDraft, *, ext
             ),
             clock=clock,
         )
+    except sqlite3.IntegrityError:
+        raise  # a refused row (a kind outside the table's CHECK) is a defect, not a lost trail
     except Exception:  # noqa: BLE001 - provenance trail is best-effort
         pass
     return str(payload["id"])

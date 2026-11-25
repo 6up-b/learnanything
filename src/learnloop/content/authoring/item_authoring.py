@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import json
 import logging
+import sqlite3
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
@@ -83,6 +84,8 @@ def _record(
             payload_json=json.dumps(detail, sort_keys=True),
             clock=clock,
         )
+    except sqlite3.IntegrityError:
+        raise  # a refused row (a kind outside the table's CHECK) is a defect, not a lost trail
     except Exception:  # noqa: BLE001 - provenance trail is best-effort
         _LOGGER.warning("failed to record %s for %s", kind, practice_item_id, exc_info=True)
 

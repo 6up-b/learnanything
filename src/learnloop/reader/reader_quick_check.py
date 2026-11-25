@@ -19,6 +19,7 @@ mints a learner-authority card with ``codex_proposal`` provenance and
 from __future__ import annotations
 
 import json
+import sqlite3
 from contextlib import ExitStack
 from dataclasses import dataclass
 from pathlib import Path
@@ -920,6 +921,8 @@ def escalate(
             ),
             clock=clock,
         )
+    except sqlite3.IntegrityError:
+        raise  # a refused row (a kind outside the table's CHECK) is a defect, not a lost trail
     except Exception:  # noqa: BLE001 - provenance trail is best-effort
         pass
     refreshed = repository.get_reader_authored_question(question_id)

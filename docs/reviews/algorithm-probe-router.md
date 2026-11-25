@@ -767,3 +767,9 @@ constant, one upgrade row: an idempotent projection; both sides of the tag teste
 **Stopped:** the remint's `probe_reminted` interaction event (and, same class, `rung_variant_requested` from the rung
 variants) fails `interaction_events.kind`'s CHECK (migration 203's vocabulary) and is swallowed by a best-effort
 `except Exception`. Making it recordable needs a migration widening the CHECK; the orchestrator decides (277).
+
+**Decided (R37):** the two writes are removed with their wrappers, no migration: nothing reads either event, and the
+copy's source refs (the remint) and the request row (the variant) carry the provenance. The class (a write the table
+refuses, hidden by a best-effort wrapper) is closed in two places: the wrappers left around
+`append_interaction_event` re-raise `sqlite3.IntegrityError`, and `tests/test_interaction_event_kinds.py` checks every
+kind the source can pass to it against the vocabulary of the newest migration defining the CHECK.

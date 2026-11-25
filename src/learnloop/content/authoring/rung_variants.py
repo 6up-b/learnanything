@@ -36,7 +36,7 @@ import dataclasses
 import json
 from typing import Any
 
-from learnloop.clock import Clock, utc_now_iso
+from learnloop.clock import Clock
 from learnloop.db.repositories import Repository
 from learnloop.ids import new_ulid
 from learnloop.vault.repository import vault_repository
@@ -481,27 +481,6 @@ def request_rung_variant(
     attempt_id = new_ulid()
     repository.update_rung_variant_request(request_id, attempt_id=attempt_id, clock=clock)
     attempt = complete_self_graded_attempt(vault, repository, draft, grade, attempt_id=attempt_id, clock=clock)
-
-    try:
-        repository.append_interaction_event(
-            kind="rung_variant_requested",
-            origin="learner",
-            subject_type="practice_item",
-            subject_id=item.id,
-            attempt_id=attempt.attempt_id,
-            payload_json=json.dumps(
-                {
-                    "request_id": request_id,
-                    "direction": direction,
-                    "source_waypoint": source_slug,
-                    "target_waypoint": target_rung.waypoint_slug,
-                }
-            ),
-            occurred_at=utc_now_iso(clock),
-            session_id=session_id,
-        )
-    except Exception:
-        pass  # telemetry is best-effort, never blocks the request
 
     repository.update_rung_variant_request(request_id, learner_claim_id=claim_id, clock=clock)
     return {
