@@ -445,6 +445,11 @@ def _record_exam_answer(vault: LoadedVault, repository: Repository, session_id: 
         raise ExamSessionError(
             f"Exam answer {practice_item_id} was already submitted and cannot be replaced"
         )
+    if existing is not None and (existing.get("grade") is not None or existing.get("attempt_id")):
+        # A second grade of the same answer (two graders started on one pending answer): the first stands, read in
+        # this write transaction, so it never replaces the score finish applied nor clears the answer's link.
+        return {"session_id": session_id, "practice_item_id": practice_item_id,
+                "rubric_score": existing.get("rubric_score"), "correctness": existing.get("correctness")}
     if existing is None:
         # Codex re-review F5: a new answer (the CLI's) to an item shown since
         # it was held out is refused; the grade of an answer accepted before
@@ -638,8 +643,11 @@ def _apply_and_complete(vault: LoadedVault, repository: Repository, session: dic
         prepared = with_grade_forecast(vault, repository, ApplyAttemptInput(
             draft=draft, attempt_id=attempt_id, grade=grade, reveal_window_bounded=True), clock=attempt_clock)
         with repository.atomic():
-            if repository.exam_answer(session_id, item_id)["attempt_id"]:
+            current = repository.exam_answer(session_id, item_id)
+            if current["attempt_id"]:
                 continue
+            if current.get("grade") != answer.get("grade"):
+                continue  # its grade changed after this pass read it: the next pass applies the grade it reads then
             attempt_clock = FrozenClock(max(clock.now().astimezone(UTC).replace(microsecond=0), attempt_clock.now()))
             # Dual-write BEFORE applying: ``apply_attempt`` ends by running the
             # canonical projection, which joins the grade interpretation to the

@@ -716,7 +716,8 @@ class GoalStoreMixin:
                   rubric_score = excluded.rubric_score,
                   correctness = excluded.correctness,
                   grade_json = excluded.grade_json,
-                  attempt_id = excluded.attempt_id,
+                  -- an answer's link is written once, by finish (``set_exam_answer_attempt_id``): never cleared here
+                  attempt_id = COALESCE(exam_answers.attempt_id, excluded.attempt_id),
                   updated_at = excluded.updated_at
                 """,
                 (

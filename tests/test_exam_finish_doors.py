@@ -72,3 +72,29 @@ def test_an_answers_failed_completion_work_is_resumed_by_the_next_finish(tmp_pat
     assert finish_exam(vault, repository, session_id, clock=FrozenClock(NOW)) == report
     # Failed before: the stored report came back and the work stayed pending.
     assert repository.attempt_completion(answer["attempt_id"])["status"] == "completed"
+
+
+def test_a_second_grade_of_the_same_answer_neither_replaces_the_first_nor_clears_its_link(tmp_path, monkeypatch):
+    """Review round 4, R4-S11 (FR3-3's residue): two graders start on the same pending answer. The first grade stands:
+    the second, of the same text, changes neither the stored grade nor, while finish applies the answer, its link
+    (failed before: the upsert replaced the score and wrote the link back to none)."""
+
+    vault, repository, session = _reserved_and_started(tmp_path)
+    session_id = session["session_id"]
+    queue_exam_answer(vault, repository, session_id, "pi_exam_a", answer_md="A")
+    record_exam_answer(vault, repository, session_id, "pi_exam_a", answer_md="A", resolved_grade=_grade(4))
+    record_exam_answer(vault, repository, session_id, "pi_exam_a", answer_md="A", resolved_grade=_grade(1))
+    assert repository.exam_answer(session_id, "pi_exam_a")["rubric_score"] == 4  # failed before: 1
+
+    real = exam_session.apply_attempt
+
+    def late_grade_then_apply(*args, **kwargs):
+        result = real(*args, **kwargs)
+        record_exam_answer(vault, repository, session_id, "pi_exam_a", answer_md="A", resolved_grade=_grade(1))
+        return result
+
+    monkeypatch.setattr(exam_session, "apply_attempt", late_grade_then_apply)
+    finish_exam(vault, repository, session_id, clock=FrozenClock(NOW))
+    [answer] = repository.exam_answers(session_id)
+    assert answer["attempt_id"] and answer["rubric_score"] == 4  # failed before: the link was cleared
+    assert repository.exam_session(session_id)["status"] == "completed"

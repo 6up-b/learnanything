@@ -139,6 +139,9 @@ The successor of mvp-0.75 for the review-round-3 fixes that change what is deriv
 - R4-S10 (FR3-9 / FR3-21's residue): a retried exam import finds its imported answer by its import identity (item,
   type, exam date) and replays the object that answer was written under. Test:
   `tests/test_exam_seeding.py::test_a_retried_import_finds_its_answers_by_their_import_identity_and_replays_their_own_object`.
+- R4-S11 (FR3-3's residue): a sitting answer's first grade stands against a second grader, the stored link is never
+  cleared, and finish applies an answer only with the grade it read. Test:
+  `tests/test_exam_finish_doors.py::test_a_second_grade_of_the_same_answer_neither_replaces_the_first_nor_clears_its_link`.
 
 ## Pins and goldens
 
