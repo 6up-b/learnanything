@@ -1684,6 +1684,14 @@ def _outline_at(state: LessonState, turn_obj: TeacherTurnV1, index: int) -> list
     return list(outline)
 
 
+def _check_outline(state: LessonState, turn_obj: TeacherTurnV1) -> list[dict[str, Any]]:
+    """The plan a check this turn poses is read against (TE5-R5): the turn's own last plan when it writes one (the
+    plan the lesson holds once the turn has run, the one the close's delayed checks read), else the stored plan. The
+    check is minted, forecast, graded and followed up on the one LO this names."""
+
+    return _outline_at(state, turn_obj, len(turn_obj.requests))
+
+
 def _copies_node(state: LessonState, turn_obj: TeacherTurnV1, request: ActionRequestV1) -> bool:
     """Whether :func:`_forecast` copies the request's node into its receipt's key and inputs: every forecast but a
     check forecast with a check open or posed in the turn (its receipt names the check's ref, code-made)."""
@@ -1701,7 +1709,7 @@ def _forecast_lo(state: LessonState, turn_obj: TeacherTurnV1, index: int, reques
         if state.open_check is not None:
             lo = state.open_check.get("learning_object_id")
         elif turn_obj.check is not None:
-            lo = state.node_lo(turn_obj.check.node, outline=_outline_at(state, turn_obj, 0))
+            lo = state.node_lo(turn_obj.check.node, outline=_check_outline(state, turn_obj))
         else:
             lo = None
         if lo:
@@ -2185,7 +2193,8 @@ def _execute(vault: Any, repository: Any, state: LessonState, turn_obj: TeacherT
         state.open_prediction = data
         outcome.shown.append({"kind": "prediction", **data})
     if turn_obj.check is not None and "check" not in done:
-        _pose_check(vault, repository, state, turn_obj.check, outcome=outcome, clock=clock, turn_entry=turn_entry)
+        _pose_check(vault, repository, state, turn_obj.check, outcome=outcome, clock=clock, turn_entry=turn_entry,
+                    outline=_check_outline(state, turn_obj))
     if turn_obj.visual is not None and "visual" not in done:
         # Reader RW5d P4b: the step's figure, built by the host's figure service (a model call, outside
         # any ledger transaction). With no builder now (``lesson.view``), it waits for the next action.
@@ -2487,8 +2496,9 @@ def _figure_entry(vault: Any, repository: Any, record: Mapping[str, Any]) -> dic
 
 
 def _pose_check(vault: Any, repository: Any, state: LessonState, check: CheckV1, *, outcome: _Outcome,
-                clock: Clock | None, turn_entry: Mapping[str, Any] | None = None) -> None:
-    lo = state.node_lo(check.node)
+                clock: Clock | None, turn_entry: Mapping[str, Any] | None = None,
+                outline: Sequence[Mapping[str, Any]] | None = None) -> None:
+    lo = state.node_lo(check.node, outline=outline)
     if lo is None or lo not in vault.learning_objects:
         lo = (state.brief.get("goal") or {}).get("learning_object_ids", [None])[0]
     check_ref = f"c{len(state.minted) + 1}"
