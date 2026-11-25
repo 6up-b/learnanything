@@ -20,6 +20,7 @@ reads only receipts.
 
 from __future__ import annotations
 
+from contextlib import closing
 from dataclasses import dataclass, replace
 from typing import Any
 
@@ -27,6 +28,7 @@ from learnloop.adaptive_difficulty.grade_forecast import receipt_id, safe_grade_
 from learnloop.adaptive_difficulty.grade_forecast import receipt_key as grade_receipt_key
 from learnloop.algorithm_versions import label_retired
 from learnloop.clock import utc_now_iso
+from learnloop.db.connection import connect
 from learnloop.db.stores import forecast_receipts as receipts
 from learnloop.db.stores.plan_presentations import bindable_presentation, presentation_by_id
 from learnloop.scheduling.forecast_receipts import (
@@ -67,9 +69,22 @@ def with_grade_forecast(vault: Any, repository: Any, attempt: Any, *, clock: Any
 
     if attempt.replace_existing or not label_retired(vault.config.algorithms.algorithm_version):
         return attempt
+    at = utc_now_iso(clock)
+    if _revised_after(repository, at):
+        return attempt
     return replace(attempt, grade_forecast=safe_grade_receipt(
-        vault, repository, practice_item_id=attempt.draft.practice_item_id, attempt_id=attempt.attempt_id,
-        at=utc_now_iso(clock)))
+        vault, repository, practice_item_id=attempt.draft.practice_item_id, attempt_id=attempt.attempt_id, at=at))
+
+
+def _revised_after(repository: Any, at: str) -> bool:
+    """Whether a grade was recorded or revised after the answer's cutoff ``at``: AD's evidence then holds a grade the
+    learner's answer could not have been forecast with (a retrospective import), so the answer gets no forecast."""
+
+    with closing(connect(repository.sqlite_path, read_only=True)) as connection:
+        if connection.execute("SELECT 1 FROM sqlite_master WHERE name = 'raw_grade_events'").fetchone() is None:
+            return False
+        latest = connection.execute("SELECT MAX(created_at) FROM raw_grade_events").fetchone()[0]
+    return latest is not None and str(latest) > at
 
 
 def record_grade_forecast(vault: Any, repository: Any, receipt: Any) -> None:

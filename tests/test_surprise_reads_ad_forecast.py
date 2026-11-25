@@ -258,3 +258,21 @@ def test_a_grade_receipt_that_fails_to_write_leaves_the_mastery_fallback_and_its
     assert live[result.attempt_id]["dist"]["prediction_source"] == "mastery"
     rebuild_all_derived_state(vault, repository)
     assert _surprise(repository) == live
+
+
+def test_an_answer_dated_before_recorded_evidence_gets_no_grade_time_forecast(served, tmp_path):
+    """A forecast is AD before the answer: an answer dated before evidence already recorded (a retrospective import)
+    cannot have one reconstructed, so it records none and its surprise reads mastery, marked."""
+
+    from learnloop.db.copies import copy_tree_with_databases
+
+    paths, _vault, _repository = served
+    root = tmp_path / "retro"
+    copy_tree_with_databases(paths.root, root)
+    vault = load_vault(root)
+    repository = Repository(vault.root / paths.sqlite_path.relative_to(paths.root))
+    result = complete_self_graded_attempt(vault, repository, AttemptDraft(
+        practice_item_id="pi_eig_mid", learner_answer_md="Earlier.", attempt_type="independent_attempt"),
+        SelfGradeInput(criterion_points={"correctness": 3}, confidence=3), clock=FrozenClock(NOW - timedelta(days=1)))
+    assert result.attempt_id not in _grade_receipts(repository)
+    assert _surprise(repository)[result.attempt_id]["dist"]["prediction_source"] == "mastery"

@@ -46,6 +46,17 @@ def receipt_key(attempt_id: str) -> str:
     return f"{ITEM_UNASSISTED_SUCCESS_AT_GRADE}:{GRADED_ATTEMPT}:{attempt_id}:{GRADE_FORECASTER}"
 
 
+def _evidence_after(events: Any, at: str) -> bool:
+    """Whether AD's evidence holds anything dated after the answer's cutoff ``at`` (an attempt, a claim or a reading
+    opportunity). Such a forecast would read evidence the learner gave after answering (a retrospective import dated
+    before practice already recorded), and AD's state as it stood then cannot be rebuilt here, so the answer gets
+    none and its surprise reads mastery, marked. Grade revisions written after the cutoff are checked by the caller,
+    outside AD's operation (its guard refuses the grade ledger)."""
+
+    limit = RP.days(at)
+    return any(event.at > limit for group in (events.attempts, events.claims, events.opportunities) for event in group)
+
+
 @entry(read_only=True)
 def grade_receipt(vault: Any, repository: Any, *, practice_item_id: str, attempt_id: str, at: str,
                   view: Any = None) -> ForecastReceipt | None:
@@ -68,9 +79,17 @@ def grade_receipt(vault: Any, repository: Any, *, practice_item_id: str, attempt
     if item is None or view.covers(item):
         return None
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
-        snapshot = RP.snapshot(vault, repository, connection=connection, view=view)
-        spec = _spec(vault, connection, snapshot, item, at, view)
-        warmth = _warmth(connection, view, str(item.learning_object_id), at)
+        # One read snapshot for the events, the item's inputs and the warmth: a writer committing meanwhile is seen by
+        # none of them or, after the read, by none.
+        connection.execute("BEGIN")
+        try:
+            snapshot = RP.snapshot(vault, repository, connection=connection, view=view)
+            if _evidence_after(snapshot.events, at):
+                return None
+            spec = _spec(vault, connection, snapshot, item, at, view)
+            warmth = _warmth(connection, view, str(item.learning_object_id), at)
+        finally:
+            connection.rollback()
     constants = S.constants_from_config(vault.config)
     state = snapshot.subject
     prediction = PR.predict(state, spec, warmth=warmth, band=constants.band)
