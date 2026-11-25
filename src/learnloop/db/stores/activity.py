@@ -1281,15 +1281,34 @@ class ActivityStoreMixin:
             ).fetchone()
         return dict(row) if row is not None else None
 
-    def first_live_administration_at(self) -> str | None:
-        """When the vault first wrote an activity administration itself (not one the §7.1 backfill reconstructed):
-        the stored fact that the activity substrate existed from then on. None when it never wrote one."""
+    def first_live_administration_at(self, purpose: str | None = None) -> str | None:
+        """When the vault first wrote an activity administration itself (not one the §7.1 backfill reconstructed),
+        of ``purpose`` when given: the stored fact that the activity substrate (or that purpose's writer) existed from
+        then on. None when it never wrote one."""
+
+        sql = "SELECT MIN(created_at) FROM activity_administrations WHERE legacy_backfilled = 0"
+        with self.connection() as connection:
+            row = (connection.execute(sql).fetchone() if purpose is None
+                   else connection.execute(sql + " AND purpose = ?", (purpose,)).fetchone())
+        return str(row[0]) if row is not None and row[0] is not None else None
+
+    def first_live_observation_by_attempt_type(self) -> dict[str, str]:
+        """For each attempt type, the recorded time of its earliest answer holding an observation the vault wrote
+        itself (its administration not reconstructed by the backfill): the stored fact that the writer of that kind
+        of answer recorded it from then on. A type none of whose answers was recorded live is absent."""
 
         with self.connection() as connection:
-            row = connection.execute(
-                "SELECT MIN(created_at) FROM activity_administrations WHERE legacy_backfilled = 0"
-            ).fetchone()
-        return str(row[0]) if row is not None and row[0] is not None else None
+            rows = connection.execute(
+                """
+                SELECT a.attempt_type, MIN(a.created_at)
+                  FROM practice_attempts a
+                  JOIN activity_observations o ON o.attempt_id = a.id
+                  JOIN activity_administrations ad ON ad.id = o.administration_id
+                 WHERE ad.legacy_backfilled = 0
+                 GROUP BY a.attempt_type
+                """
+            ).fetchall()
+        return {str(row[0]): str(row[1]) for row in rows if row[1] is not None}
 
     def answer_grade_records(self) -> list[dict[str, Any]]:
         """Every answer with its newest observation (``observation_id``, None without one) and whether that

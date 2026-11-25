@@ -371,9 +371,9 @@ def _replay_learning_object(
     gate_records: Mapping[str, Sequence[Any]] | None = None,
     recording_grades_of: frozenset[str] = frozenset(),
 ) -> ReplayResult:
-    from learnloop.substrate.compat.activity_backfill import predates_substrate, substrate_began_at
+    from learnloop.substrate.compat.activity_backfill import substrate_cutovers
 
-    substrate_began = substrate_began_at(repository)
+    cutovers = substrate_cutovers(repository)
     # The order the attempts were applied in (mvp-0.65: a tie inside one second by its application sequence).
     attempts = repository.list_attempts_by_learning_object(learning_object_id, order=attempt_order_for(vault.config))
     existing_error_events = {
@@ -435,7 +435,7 @@ def _replay_learning_object(
             error_attributions=override_attributions,
             may_record_missing_grade=(
                 str(attempt["id"]) in recording_grades_of
-                or predates_substrate(attempt.get("created_at"), substrate_began)
+                or cutovers.answer_predates(str(attempt["attempt_type"]), attempt.get("created_at"))
             ),
             **(
                 {"grader_identity": grader_identity_overrides[attempt["id"]]}

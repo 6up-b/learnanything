@@ -91,6 +91,12 @@ The successor of mvp-0.75 for the review-round-3 fixes that change what is deriv
   learner's answer turn (once per check or probe, `assessed: false`, `unassessed_because: budget`) in the close's
   transaction; a retried check whose answer turn an earlier build left behind grades under that turn's attempt
   reference and appends no second turn. A live write. Tests: `tests/test_lesson_answer_turns.py` (three cases).
+- R4-S2: the activity backfill's history boundary is each writer's own first live record (ordinary practice, probes,
+  an exam sitting, an exam import; probe presentations by the first live diagnostic administration), not the vault's
+  first live administration of any purpose, so a practice answer recorded after a live probe but before practice
+  began recording is history again (backfilled with its duration event; replay may record its grade). Where a writer
+  never recorded live the vault-wide boundary stays, and the backfill report and doctor say the provenance is unknown.
+  FR3-6's decision (no tag). Tests: `tests/test_activity_backfill.py` (two cases).
 
 ## Pins and goldens
 

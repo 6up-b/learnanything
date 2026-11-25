@@ -21,7 +21,7 @@ import pytest
 
 from learnloop.attempts.grade_resolution import grade_channel_fixes_on
 from learnloop.db.table_roles import TABLE_ROLES, TableRole
-from learnloop.substrate.compat.activity_backfill import predates_substrate, substrate_began_at
+from learnloop.substrate.compat.activity_backfill import substrate_cutovers
 from learnloop.substrate.rebuild_orchestrator import rebuild_all_derived_state
 from learnloop.substrate.replay import replay_learning_object
 from learnloop.vault.loader import load_vault
@@ -73,12 +73,11 @@ def _journey(case: str, root: Path):
 
 
 def _holds_pre_substrate_history(repository) -> bool:
-    began = substrate_began_at(repository)
-    recorded = [attempt.get("created_at") for attempt in repository.list_all_attempts()] + [
-        presentation.get("served_at") or presentation.get("created_at")
-        for presentation in repository.list_all_probe_presentations()
-    ]
-    return any(predates_substrate(at, began) for at in recorded)
+    cutovers = substrate_cutovers(repository)
+    return any(cutovers.answer_predates(str(attempt["attempt_type"]), attempt.get("created_at"))
+               for attempt in repository.list_all_attempts()) or any(
+        cutovers.presentation_predates(presentation.get("served_at") or presentation.get("created_at"))
+        for presentation in repository.list_all_probe_presentations())
 
 
 def _assert_replays_add_no_ledger_row(vault, repository, *, pre_substrate: bool = False,
@@ -161,6 +160,6 @@ def test_history_from_before_the_substrate_is_backfilled_once(tmp_path):
         connection.execute(f"DELETE FROM activity_administrations WHERE id IN ({marks})", administrations)
         connection.commit()
     assert administrations and repository.observation_by_attempt(earliest["id"]) is None
-    assert predates_substrate(earliest["created_at"], substrate_began_at(repository))
+    assert substrate_cutovers(repository).answer_predates(str(earliest["attempt_type"]), earliest["created_at"])
     _assert_replays_add_no_ledger_row(vault, repository, pre_substrate=True)
     assert repository.observation_by_attempt(earliest["id"]) is not None

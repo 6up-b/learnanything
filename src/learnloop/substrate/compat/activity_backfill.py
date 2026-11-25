@@ -19,8 +19,12 @@ Substrate slice of §7.1 (steps 1-4):
    at its recorded time; surfaces reconstructed from a missing item are marked
    ``legacy_surface_unverifiable`` (replay preserved, no new pristine credit).
 
-Historical means recorded before the substrate existed: before the vault's first
-administration written live (:func:`substrate_began_at`, a stored fact). A rebuild derives, so it never writes
+Historical means recorded before the substrate existed for that row's own writer (:func:`substrate_cutovers`, stored
+facts): an answer before the first answer of its kind (practice, a probe, an exam sitting, an exam import) that the
+vault recorded live, a probe presentation before the first live diagnostic administration; where a writer never
+recorded live, before the vault's first administration written live (:func:`substrate_began_at`). The writers did not
+begin together: a vault could record diagnostics live before its ordinary practice did, and a practice answer in
+between is history. A rebuild derives, so it never writes
 evidence the live write should have recorded: a later answer with no observation (a grade whose grade-channel write
 failed) is left as it is and reported (:func:`answers_without_grade_record`); ``learnloop doctor`` names it and only
 its explicit repair (``doctor --fix-state``) records it. A later probe presentation keeps the rows its live write
@@ -66,6 +70,11 @@ class BackfillReport:
     #: presentations their live write already accounts for, and answers missing their observation (reported).
     presentations_after_substrate: int = 0
     attempts_after_substrate_without_observation: int = 0
+    #: Provenance read from the writers' records, where no stored fact settles it: answers backfilled as history
+    #: because their writer had not yet recorded any answer live (a failed first write would look the same), and
+    #: answers left (counted above) whose writer never recorded one live at all (history, or failed live writes).
+    attempts_before_their_writer_recorded: int = 0
+    attempts_writer_never_recorded: int = 0
     surfaces_unverifiable: int = 0
     families: set[str] = field(default_factory=set)
     surfaces: set[str] = field(default_factory=set)
@@ -93,6 +102,65 @@ def substrate_began_at(repository: Repository) -> datetime | None:
     vault never wrote one."""
 
     return parse_utc(repository.first_live_administration_at())
+
+
+def answer_writer(attempt_type: str) -> str:
+    """The door that records an answer's grade record live: ordinary practice (``apply_attempt``'s grade channel, every
+    type it applies), a probe's (``diagnostic``), or an exam's, where a sitting and an import are separate doors (their
+    attempt types)."""
+
+    if attempt_type == "diagnostic_probe":
+        return "diagnostic"
+    if "exam" in attempt_type:
+        return str(attempt_type)
+    return "practice"
+
+
+@dataclass(frozen=True)
+class SubstrateCutovers:
+    """When each writer of the substrate began recording, by the vault's stored facts (see the module docstring)."""
+
+    #: The vault's first administration written live (any purpose); None when it never wrote one.
+    began: datetime | None
+    #: Per writer (:func:`answer_writer`): the recorded time of its first answer that holds a live observation.
+    writers: dict[str, datetime]
+    #: The first diagnostic administration written live: where probe presentations began recording.
+    presentations: datetime | None
+
+    def answer_predates(self, attempt_type: str, recorded_at: str | None) -> bool:
+        """Whether an answer is history from before its writer recorded (backfilled; replay may record its grade)."""
+
+        if self.began is None:
+            return False
+        return predates_substrate(recorded_at, self.writers.get(answer_writer(attempt_type)) or self.began)
+
+    def answer_before_its_writer(self, attempt_type: str, recorded_at: str | None) -> bool:
+        """History only by its writer's record: recorded after the vault's first live administration, before its
+        writer's first live answer."""
+
+        return self.answer_predates(attempt_type, recorded_at) and not predates_substrate(recorded_at, self.began)
+
+    def writer_never_recorded(self, attempt_type: str) -> bool:
+        """The vault wrote the substrate live, but never an answer of this writer's."""
+
+        return self.began is not None and answer_writer(attempt_type) not in self.writers
+
+    def presentation_predates(self, recorded_at: str | None) -> bool:
+        if self.began is None:
+            return False
+        return predates_substrate(recorded_at, self.presentations or self.began)
+
+
+def substrate_cutovers(repository: Repository) -> SubstrateCutovers:
+    """The writers' cutovers, read from the stored rows (before a backfill writes: its own rows never move them)."""
+
+    writers: dict[str, datetime] = {}
+    for attempt_type, recorded_at in repository.first_live_observation_by_attempt_type().items():
+        writer, instant = answer_writer(attempt_type), parse_utc(recorded_at)
+        if instant is not None and (writer not in writers or instant < writers[writer]):
+            writers[writer] = instant
+    return SubstrateCutovers(began=substrate_began_at(repository), writers=writers,
+                             presentations=parse_utc(repository.first_live_administration_at("diagnostic")))
 
 
 def predates_substrate(recorded_at: str | None, began: datetime | None) -> bool:
@@ -125,20 +193,27 @@ def answers_without_grade_record(vault: LoadedVault, repository: Repository) -> 
     from learnloop.grading_epochs import graded_more_than_once
 
     regraded_exams_recorded = evidence_reading_fixes_on(vault.config)
-    began = substrate_began_at(repository)
+    cutovers = substrate_cutovers(repository)
     missing: list[dict[str, Any]] = []
     for row in repository.answer_grade_records():
-        if row["attempt_type"] == "diagnostic_probe" or predates_substrate(row["created_at"], began):
+        attempt_type = str(row["attempt_type"])
+        if attempt_type == "diagnostic_probe" or cutovers.answer_predates(attempt_type, row["created_at"]):
             continue
-        if "exam" in str(row["attempt_type"]) and not (regraded_exams_recorded and graded_more_than_once(
+        if "exam" in attempt_type and not (regraded_exams_recorded and graded_more_than_once(
                 repository.fetch_grading_evidence(row["id"], include_superseded=True))):
             continue
+        entry = {"attempt_id": row["id"], "learning_object_id": row["learning_object_id"]}
         if row["observation_id"] is None:
-            missing.append({"attempt_id": row["id"], "learning_object_id": row["learning_object_id"],
-                            "missing": "observation"})
+            entry["missing"] = "observation"
         elif not row["graded"]:
-            missing.append({"attempt_id": row["id"], "learning_object_id": row["learning_object_id"],
-                            "missing": "grade"})
+            entry["missing"] = "grade"
+        else:
+            continue
+        if cutovers.writer_never_recorded(attempt_type):
+            # No answer of its kind was ever recorded live: history its writer never reached, or failed live writes;
+            # no stored fact tells which, so the entry says so.
+            entry["provenance"] = "unknown"
+        missing.append(entry)
     return missing
 
 
@@ -160,8 +235,8 @@ def backfill_activity_substrate(
     report = BackfillReport()
     items: dict[str, PracticeItem] = dict(vault.practice_items)
     attempts = repository.list_all_attempts()
-    # Read before this run writes anything (its own rows are marked backfilled and never move it).
-    began = substrate_began_at(repository)
+    # Read before this run writes anything (its own rows are marked backfilled and never move them).
+    cutovers = substrate_cutovers(repository)
 
     # Which items were used for a probe / exam (adapter minting, step 1 tail).
     diagnostic_items: set[str] = set()
@@ -287,7 +362,7 @@ def backfill_activity_substrate(
         if item is None:
             continue
         created_at = presentation.get("served_at") or presentation["created_at"]
-        if not predates_substrate(created_at, began):
+        if not cutovers.presentation_predates(created_at):
             report.presentations_after_substrate += 1
             continue
         pres_clock = _clock_at(created_at)
@@ -333,10 +408,14 @@ def backfill_activity_substrate(
         if repository.observation_by_attempt(attempt["id"]) is not None:
             report.attempts_skipped_existing += 1
             continue
-        if not predates_substrate(attempt.get("created_at"), began):
+        if not cutovers.answer_predates(attempt["attempt_type"], attempt.get("created_at")):
             # Its live write should have recorded the observation; a rebuild does not invent it.
             report.attempts_after_substrate_without_observation += 1
+            if cutovers.writer_never_recorded(attempt["attempt_type"]):
+                report.attempts_writer_never_recorded += 1
             continue
+        if cutovers.answer_before_its_writer(attempt["attempt_type"], attempt.get("created_at")):
+            report.attempts_before_their_writer_recorded += 1
         purpose = _purpose_for_attempt_type(attempt["attempt_type"])
         item = items.get(attempt["practice_item_id"])
         attempt_clock = _clock_at(attempt.get("created_at"))

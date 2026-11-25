@@ -485,12 +485,16 @@ def _check_answers_without_grade_record(
         missing = answers_without_grade_record(vault, repository)
     if not missing:
         return
+    unknown = sum(1 for entry in missing if entry.get("provenance") == "unknown")
     issues.append(_issue(
         "warning",
         "answers:grade_record_missing",
         f"{len(missing)} answer{'s were' if len(missing) != 1 else ' was'} saved without a grade record (saving "
         "that record failed at the time); a rebuild leaves it as it is. Run `learnloop doctor --fix-state` to "
-        "record it.",
+        "record it."
+        + (f" For {unknown} of them LearnLoop can't tell whether saving failed or the answer is from before this "
+           "kind of answer kept a grade record (none of its kind has one); they are marked `provenance: unknown`."
+           if unknown else ""),
         repository.sqlite_path,
         details={"answers": missing},
     ))

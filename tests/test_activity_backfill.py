@@ -263,3 +263,95 @@ def _assert_backfill_logs_the_duration(vault, repo) -> None:
     assert len(events) == 1
     assert events[0]["kind"] == "attempt_duration"
     assert events[0]["attempt_duration_ms"] == 37000
+
+
+def _history_with_diagnostics_first(tmp_path):
+    """Three practice answers to three items (t0, t10, t20), all written live, then reshaped by the stored facts into
+    an older vault's: the first two answers lost their observation and duration event (the practice writer had not
+    begun recording them; their administrations are marked as the backfill marks its own), and a diagnostic
+    administration was written live at t5, before the practice writer's first live observation (the t20 answer's).
+    The t10 answer carries a recorded latency."""
+
+    from datetime import timedelta
+
+    from learnloop.attempts.attempts import AttemptDraft, SelfGradeInput, complete_self_graded_attempt
+    from learnloop.substrate.state_sync import sync_vault_state
+    from tests.helpers import create_placement_vault
+
+    paths = create_placement_vault(tmp_path / "vault")
+    vault, repo = load_vault(paths.root), Repository(paths.sqlite_path)
+    sync_vault_state(vault, repo, clock=CLOCK)
+    for minutes, item in zip((0, 10, 20), sorted(vault.practice_items)[:3], strict=True):
+        complete_self_graded_attempt(vault, repo, AttemptDraft(item, "An answer."),
+                                     SelfGradeInput({"correctness": 3}, 3),
+                                     clock=FrozenClock(NOW + timedelta(minutes=minutes)))
+    with connect(repo.sqlite_path) as connection:
+        attempts = connection.execute("SELECT id, created_at FROM practice_attempts ORDER BY created_at, id").fetchall()
+        legacy = [row[0] for row in attempts[:2]]
+        marks = ", ".join("?" for _ in legacy)
+        administrations = [row[0] for row in connection.execute(
+            f"SELECT administration_id FROM activity_observations WHERE attempt_id IN ({marks})", legacy)]
+        connection.execute("PRAGMA foreign_keys = OFF")  # this copy only: later rows name the observations
+        connection.execute(f"DELETE FROM activity_observations WHERE attempt_id IN ({marks})", legacy)
+        connection.execute(f"DELETE FROM interaction_events WHERE attempt_id IN ({marks})", legacy)
+        connection.execute(f"UPDATE activity_administrations SET legacy_backfilled = 1 WHERE id IN "
+                           f"({', '.join('?' for _ in administrations)})", administrations)
+        connection.execute("UPDATE practice_attempts SET latency_seconds = 37 WHERE id = ?", (legacy[1],))
+        # The diagnostic writer's live administration at t5 (a copy of the first answer's, renamed and re-dated).
+        columns = [row[1] for row in connection.execute("PRAGMA table_info(activity_administrations)")]
+        chosen = ", ".join("'adm_live_diagnostic'" if c == "id" else "'diagnostic'" if c == "purpose"
+                           else "0" if c == "legacy_backfilled"
+                           else f"'{(NOW + timedelta(minutes=5)).isoformat()}'" if c == "created_at" else c
+                           for c in columns)
+        connection.execute(f"INSERT INTO activity_administrations ({', '.join(columns)}) "
+                           f"SELECT {chosen} FROM activity_administrations WHERE id = ?", (administrations[0],))
+        connection.commit()
+    return paths, vault, repo, legacy
+
+
+def test_a_practice_answer_between_a_live_diagnostic_and_the_practice_writers_first_record_is_history(tmp_path):
+    """Review round 4, R4-S2: the backfill's boundary is the answer's own writer's first live record, not the vault's
+    first live administration of any purpose. Before, the t10 practice answer fell after the diagnostic administration
+    (t5): it was read as a failed live grade, its legacy observation, exposures and duration event were skipped and
+    doctor reported it."""
+
+    from learnloop.substrate.compat.activity_backfill import answers_without_grade_record
+
+    paths, vault, repo, legacy = _history_with_diagnostics_first(tmp_path)
+    assert answers_without_grade_record(vault, repo) == []  # failed before: the t10 answer was reported missing
+
+    report = backfill_activity_substrate(vault, repo, clock=CLOCK)
+
+    assert report.attempts_after_substrate_without_observation == 0
+    assert report.attempts_replayed == 2 and report.attempts_before_their_writer_recorded == 1
+    for attempt_id in legacy:
+        assert repo.observation_by_attempt(attempt_id) is not None
+    events = repo.interaction_events_for_attempt(legacy[1])
+    assert [(e["kind"], e["attempt_duration_ms"]) for e in events] == [("attempt_duration", 37000)]
+    assert answers_without_grade_record(vault, repo) == []
+
+
+def test_an_answer_whose_writer_never_recorded_live_is_reported_with_unknown_provenance(tmp_path):
+    """R4-S2's ambiguous side: when no practice answer was ever recorded live but a diagnostic administration was, a
+    later practice answer without an observation is either history the practice writer never reached or a failed live
+    write. No stored fact tells which: the backfill leaves it and counts it, and doctor's issue names it as unknown."""
+
+    from learnloop.ops.doctor import run_doctor
+    from learnloop.substrate.compat.activity_backfill import answers_without_grade_record
+
+    paths, vault, repo, legacy = _history_with_diagnostics_first(tmp_path)
+    with connect(repo.sqlite_path) as connection:
+        last = connection.execute("SELECT id FROM practice_attempts ORDER BY created_at DESC, id DESC").fetchone()[0]
+        administration = connection.execute("SELECT administration_id FROM activity_observations WHERE attempt_id = ?",
+                                            (last,)).fetchone()[0]
+        connection.execute("PRAGMA foreign_keys = OFF")
+        connection.execute("DELETE FROM activity_observations WHERE attempt_id = ?", (last,))
+        connection.execute("UPDATE activity_administrations SET legacy_backfilled = 1 WHERE id = ?", (administration,))
+        connection.commit()
+    unknown = [entry for entry in answers_without_grade_record(vault, repo) if entry.get("provenance") == "unknown"]
+    assert {entry["attempt_id"] for entry in unknown} == {legacy[1], last}
+    issue = next(issue for issue in run_doctor(paths.root).issues if issue.code == "answers:grade_record_missing")
+    assert "can't tell" in issue.message
+
+    report = backfill_activity_substrate(vault, repo, clock=CLOCK)
+    assert report.attempts_writer_never_recorded == 2 and report.attempts_replayed == 1
