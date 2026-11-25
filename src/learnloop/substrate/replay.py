@@ -9,7 +9,7 @@ from learnloop.learner.lesson_weight import rebuild_lesson_weight_state
 from learnloop.clock import Clock, FrozenClock, parse_utc, utc_now_iso
 from learnloop.db.attempt_order import attempt_order_for
 from learnloop.db.repositories import CANONICAL_STAMPED_TABLES, Repository
-from learnloop.attempts.attempts import AttemptResult, GradeAttribution, replay_existing_attempt
+from learnloop.attempts.attempts import AttemptResult, GradeAttribution, recover_grade_channel, replay_existing_attempt
 from learnloop.learner import mastery as learner_mastery
 from learnloop.learner.mastery_seed import note_rebuilt_seed, recorded_seed_for_replay
 from learnloop.vault.models import LoadedVault
@@ -373,7 +373,6 @@ def _replay_learning_object(
     recording_grades_of: frozenset[str] = frozenset(),
     repairing_grade_records: frozenset[str] = frozenset(),
 ) -> ReplayResult:
-    from learnloop.attempts.attempts import recover_grade_channel
     from learnloop.substrate.compat.activity_backfill import substrate_cutovers
 
     cutovers = substrate_cutovers(repository)
