@@ -13,7 +13,9 @@ from learnloop.db.stores import lessons as store
 from learnloop.db.stores.model_calls import annotate_started_receipt
 from learnloop.teacher import probes
 
-VERSION = "lesson_context_summary_v1"
+#: v2 (TE5-R13): the topics the learner added and the offers they declined join the summary; a v1 summary frozen on a
+#: receipt is read back as it was written.
+VERSION = "lesson_context_summary_v2"
 
 
 @dataclass(frozen=True)
@@ -195,7 +197,25 @@ def summarize(repository: Any, state: Any) -> dict[str, Any]:
                     **selected(p.result, ("attempt_id", "correctness", "independent"))} for p in probes.probes(state.turns)],
         "forecasts": [selected(f, ("key", "node", "p", "kind")) for f in state.forecasts.values()],
         "open_topic_offers": offers,
+        # TE5-R13: a topic the learner added stays known to the teacher once its turns leave the verbatim suffix (its
+        # id, its title as the offer guarded it, the learner's phrase, and that the learner chose it), and so does an
+        # offer they declined.
+        "accepted_topics": _accepted_topics(state.turns),
+        "declined_topics": [t["payload"].get("phrase") for t in state.turns if t["action"] == "topic_declined"],
     }
+
+
+def _accepted_topics(turns: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    added = {str(t["payload"].get("learning_object_id")): t["payload"] for t in turns if t["action"] == "goal_lo"}
+    out = []
+    for turn in turns:
+        if turn["action"] != "topic_accepted":
+            continue
+        lo = str(turn["payload"].get("learning_object_id"))
+        record = added.get(lo, {})
+        out.append({"learning_object_id": lo, "title": record.get("title"), "phrase": record.get("phrase"),
+                    "added_by": "learner", "label": record.get("label")})
+    return out
 
 
 def decision(state: Any, prefix: int, summary: Mapping[str, Any], facts: Mapping[str, Any],
