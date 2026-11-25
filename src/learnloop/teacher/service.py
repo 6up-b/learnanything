@@ -2652,13 +2652,16 @@ def _forecast(vault: Any, repository: Any, state: LessonState, request: ActionRe
                   "p_a": p_a, "state": recorded, "reference": reference}
         scope, binding, event = "lesson_node", LESSON_COLD_OUTCOME, "cold_success"
     key = f"{kind}:{state.lesson_id}:{node}:{len(state.forecasts) + 1}"
+    # TE5-R16: one probability per forecast: the served distribution is built once from the teacher's p, and the
+    # receipt's outcomes, its ``p``, its parameter and the journal all carry those exact values (no rounded copy).
+    p = float(request.p)
+    served = {"success": p, "failure": 1.0 - p}
     receipt = ForecastReceipt(
         receipt_key=key, kind=kind, forecaster="teacher", forecaster_version=family, scope=scope,
         decision_kind="lesson", binding_kind=binding, event=event,
         forecast={"emission_alphabet": ["success", "failure"],
-                  "predicted_outcomes": {"success": round(float(request.p), 8),
-                                         "failure": round(1.0 - float(request.p), 8)}},
-        inputs=inputs, parameters=[{"name": "p", "value": float(request.p), "provenance": "model"}],
+                  "predicted_outcomes": dict(served)},
+        inputs=inputs, parameters=[{"name": "p", "value": p, "provenance": "model"}],
         versions={"doctrine": DOCTRINE_VERSION,
                   # The prompt the forecasting turn was written under (Reader RW5d P4b: with the visuals paragraph;
                   # TE2-log: with the episode paragraph).
@@ -2666,9 +2669,9 @@ def _forecast(vault: Any, repository: Any, state: LessonState, request: ActionRe
                   **({"episodes": E.EPISODES_VERSION} if flags["episodes"] else {}),
                   **({"goal_topics": T2.GOAL_VERSION} if flags["goal_topics"] else {}),
                   **({"te2": T2.TE2_VERSION} if flags["te2"] else {})},
-        inputs_as_of=now, p=float(request.p),
+        inputs_as_of=now, p=served["success"],
         columns={"decision_ref": state.lesson_id, "learning_object_id": lo})
-    data = {"key": key, "kind": kind, "node": node, "p": float(request.p), "learning_object_id": lo,
+    data = {"key": key, "kind": kind, "node": node, "p": served["success"], "learning_object_id": lo,
             "family": family}
     with repository.atomic():
         written = record_receipts(repository, [receipt], vault=vault, clock=clock, created_at=now)

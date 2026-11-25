@@ -165,3 +165,24 @@ def test_the_live_weight_refresh_commits_with_the_answer(tmp_path, monkeypatch):
                 payload={"answer": "det(A - tI) = 0", "tap": 4}, clients=clients(teacher))
     live = _weight_rows(repo)
     assert live["lesson_weight_state"] and live == _rebuilt(paths, repo)
+
+
+def test_a_forecast_carries_one_probability_everywhere(tmp_path):
+    """TE5-R16: the receipt's outcomes, its p and the journal hold the teacher's exact p (no rounded second copy)."""
+    import json
+
+    from tests.teacher_fakes import landed_turn, plan_turn
+
+    paths, repo = build_teacher_vault(tmp_path / "vault")
+    teacher = TeacherFake([plan_turn, landed_turn(p=0.123456789)])
+    lesson = S.open_lesson(load_vault(paths.root), repo, entry="learning_object", learning_object_ids=["lo_eigen"],
+                           clients=clients(teacher))["lesson_id"]
+    S.take_turn(load_vault(paths.root), repo, lesson_id=lesson, action="reply", payload={"text": "go"},
+                clients=clients(teacher))
+    journal, = [row["payload"] for row in S.load_state(repo, lesson).turns if row["action"] == "forecast"]
+    with repo.connection() as connection:
+        p, forecast = connection.execute("SELECT p, forecast_json FROM forecast_receipts WHERE receipt_key = ?",
+                                         (journal["key"],)).fetchone()
+    outcomes = json.loads(forecast)["predicted_outcomes"]
+    assert journal["p"] == p == outcomes["success"] == 0.123456789
+    assert outcomes["failure"] == 1.0 - 0.123456789
