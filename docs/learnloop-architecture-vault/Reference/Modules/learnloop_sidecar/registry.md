@@ -433,6 +433,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_with_the_switches_off_the_offer_logs_no_value_decisions`
 - [tests/test_why_reader.py](../../../../../tests/test_why_reader.py) — direct import
   - `test_why_get_is_registered_desktop_only_and_never_phone_allowed`
+- [tests/test_writer_fence_recovery.py](../../../../../tests/test_writer_fence_recovery.py) — direct import
+  - `test_a_refusal_raised_while_answering_another_failure_is_still_answered`
+  - `test_the_desktop_survives_a_restored_older_config_and_says_to_run_upgrade`
 - [tests/test_writer_fence_scopes.py](../../../../../tests/test_writer_fence_scopes.py) — direct import
   - `test_a_sidecar_request_writes_under_its_own_contexts_vault`
 - [tests/ux_phase1_add_source_helpers.py](../../../../../tests/ux_phase1_add_source_helpers.py) — direct import

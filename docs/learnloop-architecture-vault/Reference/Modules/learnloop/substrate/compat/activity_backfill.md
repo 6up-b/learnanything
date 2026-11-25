@@ -111,7 +111,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_activity_backfill.py](../../../../../../../tests/test_activity_backfill.py) — direct import
   - `test_backfill_is_idempotent_on_fixture_copy`
-  - `test_backfill_logs_attempt_duration_interaction_events`
   - `test_backfill_marks_unverifiable_for_missing_item`
   - `test_backfill_populates_substrate_from_fixture`
   - `test_backfill_render_once_per_shared_surface`

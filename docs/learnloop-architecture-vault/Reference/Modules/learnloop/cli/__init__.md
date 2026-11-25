@@ -158,6 +158,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_teach_back_generation.py](../../../../../../tests/test_teach_back_generation.py) — direct import
   - `test_parse_mode_mix_rejects_malformed`
   - `test_parse_mode_mix_valid`
+- [tests/test_writer_fence_recovery.py](../../../../../../tests/test_writer_fence_recovery.py) — direct import
+  - `test_a_cli_command_stops_on_a_refusal_with_its_words`
 
 ## Modification guidance
 

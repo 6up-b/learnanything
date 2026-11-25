@@ -390,6 +390,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/teacher_te2log_receipt_helpers.py](../../../../../../tests/teacher_te2log_receipt_helpers.py) — direct import
 - [tests/test_activity_backfill.py](../../../../../../tests/test_activity_backfill.py) — direct import
   - `test_backfill_is_idempotent_on_fixture_copy`
+  - `test_backfill_logs_attempt_duration_for_a_pre_substrate_attempt_of_a_live_vault`
   - `test_backfill_logs_attempt_duration_interaction_events`
   - `test_backfill_marks_unverifiable_for_missing_item`
   - `test_backfill_populates_substrate_from_fixture`
@@ -3777,6 +3778,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_stale_writer_of_this_code_is_refused_and_proceeds_after_a_reload`
   - `test_a_vault_no_fence_aware_activation_touched_is_not_fenced`
   - `test_every_link_from_the_curves_moves_the_fence_and_a_reloaded_grade_writes_under_it`
+- [tests/test_writer_fence_recovery.py](../../../../../../tests/test_writer_fence_recovery.py) — direct import
 - [tests/test_writer_fence_scopes.py](../../../../../../tests/test_writer_fence_scopes.py) — direct import
   - `test_a_cli_command_writes_under_the_vault_it_loaded_first`
   - `test_a_repository_opened_for_a_stale_vault_is_refused_after_another_thread_reloaded`

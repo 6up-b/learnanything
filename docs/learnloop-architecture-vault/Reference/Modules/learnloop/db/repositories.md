@@ -63,7 +63,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
   - `__init__(self, sqlite_path: Path)` (line 316; internal) — Create the database, or attach to one at this code's migrations.
   - `attach(cls, sqlite_path: Path, *, read_only: bool=False) -> Repository` (line 331; public) — Attach to an existing database without applying migrations.
   - `_initialize(self, sqlite_path: Path, *, read_only: bool) -> None` (line 349; internal)
-  - `_connect(self) -> sqlite3.Connection` (line 360; internal)
+  - `_connect(self) -> sqlite3.Connection` (line 362; internal)
   - `connection(self) -> sqlite3.Connection` (line 366; public)
   - `in_atomic(self) -> bool` (line 374; public) — This thread is inside an ``atomic()`` block (a new one would be a savepoint of it).
   - `atomic(self) -> Iterator[None]` (line 382; public) — Commit a local operation once, including its nested store writes.
@@ -601,7 +601,7 @@ The authoritative system-level explanation remains in [[State and Persistence]],
 - [[Reference/Modules/learnloop/db/stores/source_documents|learnloop.db.stores.source_documents]] — imports `SourceDocumentStoreMixin`
 - [[Reference/Modules/learnloop/db/stores/task_blueprints|learnloop.db.stores.task_blueprints]] — imports `TaskBlueprintStoreMixin`
 - [[Reference/Modules/learnloop/db/table_roles|learnloop.db.table_roles]] — imports `TableRole`, `tables_for_role`; calls `tables_for_role`
-- [[Reference/Modules/learnloop/db/writer_fence|learnloop.db.writer_fence]] — imports `module`; calls `binding`, `bound`, `writing_under`
+- [[Reference/Modules/learnloop/db/writer_fence|learnloop.db.writer_fence]] — imports `module`; calls `binding`, `bound`
 - [[Reference/Modules/learnloop/held_grades|learnloop.held_grades]] — imports `effective_probe_observation_rows`, `held_for_review_attempts`; calls `effective_probe_observation_rows`, `held_for_review_attempts`
 - [[Reference/Modules/learnloop/hint_window|learnloop.hint_window]] — imports `module`
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `new_ulid`; calls `new_ulid`
@@ -754,6 +754,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_action_loss.py](../../../../../../tests/test_action_loss.py) — direct import
   - `test_durations_fall_back_to_logged_pooled_then_heuristic`
 - [tests/test_activity_backfill.py](../../../../../../tests/test_activity_backfill.py) — direct import
+  - `test_backfill_logs_attempt_duration_for_a_pre_substrate_attempt_of_a_live_vault`
 - [tests/test_activity_contract_extensions.py](../../../../../../tests/test_activity_contract_extensions.py) — direct import
 - [tests/test_activity_families.py](../../../../../../tests/test_activity_families.py) — direct import
   - `test_learner_edit_during_family_publication_is_not_lost`
@@ -2725,6 +2726,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_stale_writer_of_this_code_is_refused_and_proceeds_after_a_reload`
   - `test_a_vault_no_fence_aware_activation_touched_is_not_fenced`
   - `test_every_link_from_the_curves_moves_the_fence_and_a_reloaded_grade_writes_under_it`
+- [tests/test_writer_fence_recovery.py](../../../../../../tests/test_writer_fence_recovery.py) — direct import
+  - `test_the_owners_tag_walks_to_the_head_with_its_history`
 - [tests/test_writer_fence_scopes.py](../../../../../../tests/test_writer_fence_scopes.py) — direct import
   - `test_the_forecast_receipt_writer_does_not_swallow_a_refusal`
 - [tests/tutor_delivery_fixes_helpers.py](../../../../../../tests/tutor_delivery_fixes_helpers.py) — direct import

@@ -16,13 +16,13 @@ generated: true
 source_paths:
   - "src/learnloop/db/table_roles.py"
   - "migrations/275_writer_fence.sql"
+  - "src/learnloop/cli/app.py"
   - "src/learnloop/content/pipeline/jobs.py"
   - "src/learnloop/db/connection.py"
   - "src/learnloop/db/repositories.py"
   - "src/learnloop/db/writer_fence.py"
   - "src/learnloop/ops/upgrades.py"
   - "src/learnloop/remote/errors.py"
-  - "src/learnloop/vault/loader.py"
   - "src/learnloop/projects/experiment_store.py"
 tags:
   - "learnloop/database/table"
@@ -104,6 +104,7 @@ None found by exact static reference scan.
 - `tests/test_mcp_tools.py`
 - `tests/test_sidecar_contract.py`
 - `tests/test_writer_fence.py`
+- `tests/test_writer_fence_recovery.py`
 - `tests/test_writer_fence_scopes.py`
 - `tests/writer_fence_helpers.py`
 - `tests/writer_fence_migration_helpers.py`

@@ -674,6 +674,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/teacher_te2log_receipt_helpers.py](../../../../../tests/teacher_te2log_receipt_helpers.py) — direct import
 - [tests/test_action_loss.py](../../../../../tests/test_action_loss.py) — direct import
 - [tests/test_activity_backfill.py](../../../../../tests/test_activity_backfill.py) — direct import
+  - `test_backfill_logs_attempt_duration_for_a_pre_substrate_attempt_of_a_live_vault`
 - [tests/test_activity_contract_extensions.py](../../../../../tests/test_activity_contract_extensions.py) — direct import
 - [tests/test_activity_patterns.py](../../../../../tests/test_activity_patterns.py) — direct import
 - [tests/test_activity_substrate.py](../../../../../tests/test_activity_substrate.py) — direct import

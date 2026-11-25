@@ -106,6 +106,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 
 - [tests/test_job_types.py](../../../../../../../tests/test_job_types.py) — direct import
   - `test_the_job_contracts_are_one_set_of_objects_through_every_path`
+- [tests/test_writer_fence_recovery.py](../../../../../../../tests/test_writer_fence_recovery.py) — direct import
+  - `test_a_same_vault_reload_after_an_upgrade_gives_new_ingest_claims_the_successors_repository`
 
 ## Modification guidance
 

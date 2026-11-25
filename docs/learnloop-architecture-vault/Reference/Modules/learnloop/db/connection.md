@@ -347,7 +347,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/surprise_reads_ad_forecast_helpers.py](../../../../../../tests/surprise_reads_ad_forecast_helpers.py) — direct import
 - [tests/teacher_te0_confidence_events_helpers.py](../../../../../../tests/teacher_te0_confidence_events_helpers.py) — direct import
 - [tests/test_activity_backfill.py](../../../../../../tests/test_activity_backfill.py) — direct import
-  - `test_backfill_logs_attempt_duration_interaction_events`
   - `test_backfill_marks_unverifiable_for_missing_item`
   - `test_backfill_populates_substrate_from_fixture`
   - `test_backfill_render_once_per_shared_surface`
@@ -1071,6 +1070,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_pool_never_hands_a_connection_to_another_binding`
   - `test_a_wal_reader_from_before_the_activation_cannot_commit_after_it`
   - `test_every_fenced_write_refuses_a_writer_bound_to_another_tag`
+- [tests/test_writer_fence_recovery.py](../../../../../../tests/test_writer_fence_recovery.py) — direct import
 - [tests/test_writer_fence_scopes.py](../../../../../../tests/test_writer_fence_scopes.py) — direct import
   - `test_a_pool_checkout_reads_its_binding_once`
   - `test_a_refusal_on_a_connection_this_code_opened_is_the_fences_own_exception`

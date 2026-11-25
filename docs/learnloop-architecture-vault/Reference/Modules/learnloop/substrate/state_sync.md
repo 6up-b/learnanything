@@ -151,6 +151,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/rebuild_equivalence_review_helpers.py](../../../../../../tests/rebuild_equivalence_review_helpers.py) — direct import
 - [tests/ro1_self_report_helpers.py](../../../../../../tests/ro1_self_report_helpers.py) — direct import
 - [tests/router_probe_ties_helpers.py](../../../../../../tests/router_probe_ties_helpers.py) — direct import
+- [tests/test_activity_backfill.py](../../../../../../tests/test_activity_backfill.py) — direct import
+  - `test_backfill_logs_attempt_duration_for_a_pre_substrate_attempt_of_a_live_vault`
 - [tests/test_ad_guard.py](../../../../../../tests/test_ad_guard.py) — direct import
   - `test_incumbent_maintenance_and_vault_loads_never_run_inside_an_operation`
 - [tests/test_agent_run_tokens.py](../../../../../../tests/test_agent_run_tokens.py) — direct import

@@ -392,6 +392,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/state_sync_scheduling_race_helpers.py](../../../../../../tests/state_sync_scheduling_race_helpers.py) — direct import
 - [tests/stuck_prompt_helpers.py](../../../../../../tests/stuck_prompt_helpers.py) — direct import
 - [tests/teacher_te1_review_fixes_helpers.py](../../../../../../tests/teacher_te1_review_fixes_helpers.py) — direct import
+- [tests/test_activity_backfill.py](../../../../../../tests/test_activity_backfill.py) — direct import
+  - `test_backfill_logs_attempt_duration_for_a_pre_substrate_attempt_of_a_live_vault`
 - [tests/test_ad1_attempt_columns.py](../../../../../../tests/test_ad1_attempt_columns.py) — direct import
   - `test_the_attempt_layer_validates_the_tap_and_the_marker`
 - [tests/test_ad23_fix_r8.py](../../../../../../tests/test_ad23_fix_r8.py) — direct import

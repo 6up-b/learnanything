@@ -46,7 +46,7 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/vault/repository.py](../../../../../../src/learnloop/vault/repository.py) |
-| Source lines | 166 |
+| Source lines | 182 |
 | Owning package | [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] |
 | Architecture layer | `infrastructure` |
 | Refactor status | `ACTIVE` |
@@ -58,16 +58,20 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 - `vault_repository(paths: VaultPaths) -> Repository` ([source](../../../../../../src/learnloop/vault/repository.py), line 87) — The vault's repository for code below an entry point.
 - `vault_writes(vault: LoadedVault | None)` ([source](../../../../../../src/learnloop/vault/repository.py), line 122) — The writer fence's scope for work computed from ``vault``: every connection to its database opened inside (and every repository made inside) writes under ``vault``'s tag, whatever the process loaded since.
 - `config_behind_database(vault: LoadedVault) -> str | None` ([source](../../../../../../src/learnloop/vault/repository.py), line 132) — Plain words for a config that disagrees with the database's tag (restored from an older copy, or edited by hand), or None.
-- `bind_vault_writes(vault: LoadedVault) -> None` ([source](../../../../../../src/learnloop/vault/repository.py), line 155) — Rebind the current scope to a vault a host just published in the middle of a request (a reload): the rest of the request writes under its tag.
+- `class ConfigBehindDatabase(RuntimeError)` ([source](../../../../../../src/learnloop/vault/repository.py), line 155) — A vault whose ``learnloop.toml`` names another tag than its database (restored from an older copy, or edited by hand): nothing computed from it may be written, so a host refuses to serve it before it writes anything, and the message names the command that repairs it.
+- `refuse_config_behind_database(vault: LoadedVault) -> None` ([source](../../../../../../src/learnloop/vault/repository.py), line 161) — Raise :class:`ConfigBehindDatabase` for a vault whose config disagrees with its database's tag: a load calls this before its first write, so a recovery from a refusal never meets a second one.
+- `bind_vault_writes(vault: LoadedVault) -> None` ([source](../../../../../../src/learnloop/vault/repository.py), line 170) — Rebind the current scope to a vault a host just published in the middle of a request (a reload): the rest of the request writes under its tag.
 
 ### Explicit exports
 
 `__all__` declares:
 
+- `ConfigBehindDatabase`
 - `bind_vault_writes`
 - `complete_interrupted_activation`
 - `config_behind_database`
 - `open_vault_repository`
+- `refuse_config_behind_database`
 - `vault_repository`
 - `vault_writes`
 
@@ -123,15 +127,15 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 - [[Reference/Modules/learnloop/ops/pf_reports|learnloop.ops.pf_reports]] — imports `vault_repository`; statically calls `vault_repository`
 - [[Reference/Modules/learnloop/ops/upgrades|learnloop.ops.upgrades]] — imports `open_vault_repository`; statically calls `open_vault_repository`
 - [[Reference/Modules/learnloop/practice_index/paid|learnloop.practice_index.paid]] — imports `vault_repository`; statically calls `vault_repository`
-- [[Reference/Modules/learnloop/remote/runtime|learnloop.remote.runtime]] — imports `vault_writes`; statically calls `vault_writes`
+- [[Reference/Modules/learnloop/remote/runtime|learnloop.remote.runtime]] — imports `config_behind_database`, `vault_writes`; statically calls `config_behind_database`, `vault_writes`
 - [[Reference/Modules/learnloop/sim/diagnostic_validation|learnloop.sim.diagnostic_validation]] — imports `vault_repository`; statically calls `vault_repository`
 - [[Reference/Modules/learnloop/sim/runner|learnloop.sim.runner]] — imports `vault_repository`; statically calls `vault_repository`
 - [[Reference/Modules/learnloop/source_retrieval/source_vectors|learnloop.source_retrieval.source_vectors]] — imports `vault_repository`; statically calls `vault_repository`
 - [[Reference/Modules/learnloop/tui/state|learnloop.tui.state]] — imports `open_vault_repository`; statically calls `open_vault_repository`
 - [[Reference/Modules/learnloop/tutor/promotions|learnloop.tutor.promotions]] — imports `vault_repository`; statically calls `vault_repository`
-- [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `bind_vault_writes`, `open_vault_repository`, `vault_writes`; statically calls `bind_vault_writes`, `open_vault_repository`, `vault_writes`
+- [[Reference/Modules/learnloop_sidecar/context|learnloop_sidecar.context]] — imports `ConfigBehindDatabase`, `bind_vault_writes`, `open_vault_repository`, `refuse_config_behind_database`, `vault_writes`; statically calls `bind_vault_writes`, `open_vault_repository`, `refuse_config_behind_database`, `vault_writes`
 - [[Reference/Modules/learnloop_sidecar/post_attempt_worker|learnloop_sidecar.post_attempt_worker]] — imports `vault_writes`; statically calls `vault_writes`
-- [[Reference/Modules/learnloop_sidecar/server|learnloop_sidecar.server]] — imports `config_behind_database`, `vault_writes`; statically calls `config_behind_database`, `vault_writes`
+- [[Reference/Modules/learnloop_sidecar/server|learnloop_sidecar.server]] — imports `ConfigBehindDatabase`, `config_behind_database`, `vault_writes`; statically calls `config_behind_database`, `vault_writes`
 
 ### Repository tooling consumers
 
@@ -236,6 +240,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_writer_fence.py](../../../../../../tests/test_writer_fence.py) — direct import
   - `test_a_death_after_the_publication_keeps_the_database_tag_until_the_completion`
   - `test_a_death_between_the_activation_and_the_publication_leaves_the_predecessor_in_force`
+- [tests/test_writer_fence_recovery.py](../../../../../../tests/test_writer_fence_recovery.py) — direct import
+  - `test_a_load_refuses_a_config_behind_its_database_before_it_writes`
 - [tests/test_writer_fence_scopes.py](../../../../../../tests/test_writer_fence_scopes.py) — direct import
   - `test_a_repository_opened_for_a_stale_vault_is_refused_after_another_thread_reloaded`
 
