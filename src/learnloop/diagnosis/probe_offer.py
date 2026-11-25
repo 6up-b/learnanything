@@ -464,17 +464,22 @@ def request_teaching_now(
     session_id: str | None = None,
     clock: Clock | None = None,
 ) -> RepairStatus:
-    """"Teach me now": an explicit learner authorisation to skip the check."""
+    """"Teach me now": an explicit learner authorisation to skip the check. The pair is validated before the consent
+    is written, in the same transaction (a rejected pair records nothing on any factor)."""
 
-    record_learner_preference(
-        repository,
-        preference="teach_now",
-        factor_id=factor_id,
-        session_id=session_id,
-        source="teach_me_now",
-        detail={"misconception_id": misconception_id},
-        clock=clock,
-    )
+    from learnloop.diagnosis.causal_orchestrator import validate_shown_factor
+
+    with repository.atomic():
+        validate_shown_factor(repository, misconception_id=misconception_id, factor_id=factor_id)
+        record_learner_preference(
+            repository,
+            preference="teach_now",
+            factor_id=factor_id,
+            session_id=session_id,
+            source="teach_me_now",
+            detail={"misconception_id": misconception_id},
+            clock=clock,
+        )
     # The status of the factor the consent was recorded on, never another factor of the same cause.
     return causal_repair_status(
         vault,

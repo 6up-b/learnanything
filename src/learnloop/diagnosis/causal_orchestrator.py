@@ -648,6 +648,23 @@ def causal_repair_status(
     )
 
 
+def validate_shown_factor(repository: Repository, *, misconception_id: str, factor_id: str) -> None:
+    """Raise :class:`CausalRepairError` unless ``factor_id`` is the factor the status of ``misconception_id`` can show:
+    the durable misconception's case factor, or one of the provisional cause's open factors (``_requested_factor``).
+    What a learner action recorded on a factor (Teach me now's consent) asks first, so a stale pair changes nothing."""
+
+    misconception = repository.misconception(misconception_id)
+    if misconception is not None and misconception.status in {"active", "resolving"}:
+        factor = _durable_case_factor(repository, misconception)
+        if factor is None or str(factor["id"]) != factor_id:
+            raise CausalRepairError("the named factor is not this misconception's open factor")
+        return
+    candidate_case = repository.misconception_candidate_by_id(misconception_id)
+    if candidate_case is None or candidate_case.get("status") != "candidate":
+        raise CausalRepairError("repair requires an active durable misconception or provisional belief")
+    _requested_factor(open_factors_for_hypothesis(repository, misconception_id), factor_id=factor_id, attempt_id=None)
+
+
 def _requested_factor(
     factors: Sequence[Mapping[str, Any]], *, factor_id: str | None, attempt_id: str | None
 ) -> Mapping[str, Any]:

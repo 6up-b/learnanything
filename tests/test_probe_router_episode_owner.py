@@ -115,3 +115,24 @@ def test_a_stale_first_acceptance_writes_no_episode_lock_or_segment(tmp_path, mo
         call(ctx, "causal_probe_offer_action", {"factorId": factor})
     assert _snapshot(repository) == before
 
+
+
+def test_a_rejected_teach_me_now_records_no_consent_on_any_factor(tmp_path):
+    """A stale pair (cause A, an open factor of cause B): refused before anything is written, so B's quick check is
+    not suppressed (G2-R35)."""
+
+    from learnloop_sidecar.errors import SidecarError
+
+    from tests.causal_orchestrator_helpers import _seed_factor, _vault
+    from tests.probe_router_authority_helpers import count, sidecar
+
+    _vault_, repository, root = _vault(tmp_path, with_probe_item=True, version=LATEST_ALGORITHM_VERSION)
+    _factor_a, cause_a, _ = _seed_factor(repository, attempt_id="att_a")
+    factor_b, _cause_b, _ = _seed_factor(repository, attempt_id="att_b")
+    ctx = sidecar(root)
+    before = (count(repository, "router_learner_preferences"), count(repository, "causal_probe_preference_events"))
+    with pytest.raises(SidecarError) as refused:
+        call(ctx, "causal_teach_me_now", {"misconceptionId": cause_a, "factorId": factor_b})
+    assert refused.value.code == "invalid_request"
+    assert (count(repository, "router_learner_preferences"),
+            count(repository, "causal_probe_preference_events")) == before
