@@ -538,6 +538,10 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_teacher_te1b_suggestions.py](../../../../../../tests/test_teacher_te1b_suggestions.py) — direct import
   - `test_the_outcome_is_r_cold_on_the_drawn_lo_shown_or_not`
 - [tests/test_teacher_te2log_episodes.py](../../../../../../tests/test_teacher_te2log_episodes.py) — direct import
+- [tests/test_teacher_te5_review_protection.py](../../../../../../tests/test_teacher_te5_review_protection.py) — direct import
+  - `test_a_question_reserved_after_the_turn_is_withheld_in_the_closing_response`
+- [tests/test_teacher_te5_review_recovery.py](../../../../../../tests/test_teacher_te5_review_recovery.py) — direct import
+  - `test_try_again_after_an_interrupted_add_repeats_the_add`
 - [tests/test_ux_phase1_usability_round1.py](../../../../../../tests/test_ux_phase1_usability_round1.py) — direct import
 - [tests/test_ux_phase4_feedback.py](../../../../../../tests/test_ux_phase4_feedback.py) — direct import
 - [tests/test_vault_writer.py](../../../../../../tests/test_vault_writer.py) — direct import

@@ -289,11 +289,21 @@ def test_unreadable_protection_fails_closed(tmp_path, monkeypatch):
     def unreadable(*_args, **_kwargs):
         raise RuntimeError("protection store unreadable")
 
+    # Unreadable when the lesson opens: the brief is never sent (TE5-R1: its words pass the same predicate), so the
+    # lesson refuses to open and no model is called.
+    fake = TeacherFake()
+    with monkeypatch.context() as patch:
+        patch.setattr(practice_leakage, "reserved_questions", unreadable)
+        with pytest.raises(S.LessonError) as refused:
+            _Lesson(tmp_path / "at_open", [plan_turn], fake=fake)
+    assert refused.value.code == "protected" and not fake.prompts
+    # Unreadable once the lesson is open: every turn is withheld, nothing is shown, and the lesson closes.
+    lesson = _Lesson(tmp_path, [{"message": "Hello."}])
     monkeypatch.setattr(practice_leakage, "reserved_questions", unreadable)
-    lesson = _Lesson(tmp_path, [plan_turn, plan_turn, plan_turn])
-    turns = lesson.teacher_turns()
+    lesson.act("reply", {"text": "go on"}, turns=[plan_turn, plan_turn, plan_turn])
+    turns = lesson.teacher_turns()[1:]
     assert turns and all(v == "withheld" and p["reason"] == "protection_unreadable" for v, p in turns)
-    assert not any(entry.get("kind") == "message" for entry in lesson.view["feed"])
+    assert not any(entry.get("kind") == "message" for entry in lesson.view["feed"][1:])
     assert lesson.view["closed"] and lesson.view["close_reason"] == "teacher_contract_failure"
 
 

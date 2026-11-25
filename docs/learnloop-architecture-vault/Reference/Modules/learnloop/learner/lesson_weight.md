@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/learner/lesson_weight.py](../../../../../../src/learnloop/learner/lesson_weight.py) |
-| Source lines | 1546 |
+| Source lines | 1549 |
 | Owning package | [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -88,8 +88,8 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `any_lessons(repository: Any) -> bool` ([source](../../../../../../src/learnloop/learner/lesson_weight.py), line 1422)
 - `tables_through(repository: Any) -> str | None` ([source](../../../../../../src/learnloop/learner/lesson_weight.py), line 1429) — The instant the DERIVED tables describe: the latest answered lesson check (the live path writes them right after each check, so the replayer bounds its replay at the same instant and the two agree row for row whatever happened since; review claim on rebuild equivalence).
 - `rebuild_lesson_weight_state(vault: Any, repository: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/learner/lesson_weight.py), line 1441) — The replayer (``substrate.rebuild_orchestrator``): clear the three DERIVED tables and recompute them through the latest answered lesson check (:func:`tables_through`), exactly as the live path wrote them then.
-- `mass_mismatches(state: WeightState) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/learner/lesson_weight.py), line 1459) — Checks whose recorded mass a replay would not reproduce (the equivalence guard): the mass applied under its rule must equal the learned mass recomputed as of the check.
-- `pool_trajectory(trace: Iterable[Mapping[str, Any]]) -> dict[str, list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/learner/lesson_weight.py), line 1482) — The pool weight's trajectory per forecaster (teacher TE2-log, spec_teacher_v1 §11.10): λ̂ and its posterior sd from the seeded prior (``at`` None), then after each ``pool_update`` of the trace (what ``lesson_weight_trace`` holds), re-applied in order exactly as :func:`_resolve_f…
+- `mass_mismatches(state: WeightState) -> list[dict[str, Any]]` ([source](../../../../../../src/learnloop/learner/lesson_weight.py), line 1462) — Checks whose recorded mass a replay would not reproduce (the equivalence guard): the mass applied under its rule must equal the learned mass recomputed as of the check.
+- `pool_trajectory(trace: Iterable[Mapping[str, Any]]) -> dict[str, list[dict[str, Any]]]` ([source](../../../../../../src/learnloop/learner/lesson_weight.py), line 1485) — The pool weight's trajectory per forecaster (teacher TE2-log, spec_teacher_v1 §11.10): λ̂ and its posterior sd from the seeded prior (``at`` None), then after each ``pool_update`` of the trace (what ``lesson_weight_trace`` holds), re-applied in order exactly as :func:`_resolve_f…
 
 ### Module constants
 
@@ -194,7 +194,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `_replay_in_snapshot(state: WeightState, vault: Any, connection: Any, mastery_config: Any, frozen: bool, *, as_of: str | None, through: str | None) -> None` ([source](../../../../../../src/learnloop/learner/lesson_weight.py), line 1220)
 - `_mass_detail(state: WeightState, check: Mapping[str, Any]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/learner/lesson_weight.py), line 1327) — The check's recorded mass beside what the posterior as of the check gives (the equivalence guard: :func:`mass_mismatches`), with the recalibrated confidence term recomputed too.
 - `_state_rows(state: WeightState) -> tuple[list[tuple[Any, ...]], list[tuple[Any, ...]], list[tuple[Any, ...]]]` ([source](../../../../../../src/learnloop/learner/lesson_weight.py), line 1364)
-- `_pool_moments(log_w: np.ndarray) -> tuple[float, float]` ([source](../../../../../../src/learnloop/learner/lesson_weight.py), line 1475)
+- `_pool_moments(log_w: np.ndarray) -> tuple[float, float]` ([source](../../../../../../src/learnloop/learner/lesson_weight.py), line 1478)
 
 ## Who imports or calls it
 
@@ -304,6 +304,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_teacher_te5_grade_curves.py](../../../../../../tests/test_teacher_te5_grade_curves.py) — direct import
   - `test_pool_only_endpoint_uses_its_snapshot_and_reports_an_unapplied_replacement`
   - `test_upgrade_freezes_once_then_refits_and_rebuilds_twice`
+- [tests/test_teacher_te5_review_evidence.py](../../../../../../tests/test_teacher_te5_review_evidence.py) — direct import
+  - `test_the_live_weight_refresh_commits_with_the_answer`
 
 ## Modification guidance
 

@@ -244,7 +244,9 @@ def lesson_turn(ctx: SidecarContext, params: LessonTurnInput) -> dict[str, Any]:
 
         refuse_while_check_open(repository)
     try:
-        S.require_active(vault)
+        if params.action != "close":
+            # Close (no model call) works with lessons switched off, so no open lesson is stranded.
+            S.require_active(vault)
         if params.action == "open" and params.selection:
             selection = params.selection
             places = reading_places(selection.extraction_id, selection.span_ids)
@@ -286,8 +288,12 @@ def lesson_turn(ctx: SidecarContext, params: LessonTurnInput) -> dict[str, Any]:
         # Saved: a step of an existing lesson, or an opening that failed after its lesson was written (its
         # error carries the id). An opening resolves its route before writing anything.
         saved = params.action != "open" or bool(exc.details.get("lesson_id"))
+        details = dict(exc.details)
+        if params.action != "open" and params.lesson_id:
+            # Try again resumes a recorded step, or repeats an action that recorded nothing.
+            details.setdefault("retry", S.retry_kind(repository, params.lesson_id))
         raise SidecarError(exc.code, route_unavailable_message(exc.label, saved=saved), retryable=True,
-                           details=dict(exc.details)) from exc
+                           details=details) from exc
     if result.get("vault_changed") or (params.action == "open" and params.entry == "typed_goal"):
         ctx.reload(maintenance=False)
     if result.get("te2"):
@@ -315,7 +321,7 @@ def lesson_view(ctx: SidecarContext, params: LessonViewInput) -> dict[str, Any]:
 
     vault, repository = ctx.require_vault()
     try:
-        S.require_active(vault)
+        # A saved lesson is read whatever teacher.enabled says now.
         with PR.held_serving(params.frame == "window"):
             view = S.view_lesson(vault, repository, params.lesson_id)
     except S.LessonError as exc:

@@ -359,3 +359,39 @@ def test_a_long_current_reply_after_short_nested_sends_is_forecast(tmp_path):
     older = C.forecast(repo, lesson, fake, prefix=0, estimated_input=5000, output_budget=250, estimate=lambda text: 0)
     assert (older["current_input"], older["current_input_basis"]) == (5000, "measured_or_current_estimate")
     assert older["predicted_tokens"] == 5000 + 50
+
+
+def test_an_accepted_topic_survives_compaction(tmp_path):
+    """TE5-R13: once the turns where the learner added a topic leave the verbatim suffix, the summary still names it
+    (its id, title and phrase, and that the learner added it), so the next prompt keeps it."""
+    from tests.deliverable_fixtures import DeliverableFake
+
+    phrase = "when diagonalization fails"
+
+    def offering(context):
+        turn = opening(context)
+        turn["requests"].append({"action": "create_goal_lo", "phrase": phrase, "title": "Defective matrices",
+                                 "statement": "Recognize a missing eigenvector.", "anchors": []})
+        return turn
+
+    fake = CountedTeacher([offering, {"message": "One."}, {"message": "Two."}, {"message": "Three."}],
+                          [(900, 50), (1000, 60), (1200, 100), (900, 30)])
+    config = '[teacher]\nepisode_log = true\n[ingest.providers.fake_teacher]\ncontext_tokens = 1500\n'
+    paths, repo = build_teacher_vault(tmp_path / "vault", config=config)
+    providers = clients(fake)
+    providers.resolver = lambda: DeliverableFake(unmatched=(phrase,))
+    with record_model_calls(repo, owner_kind="sidecar_rpc", owner_id="opening"):
+        lesson = S.open_lesson(load_vault(paths.root), repo, entry="learning_object", learning_object_ids=["lo_eigen"],
+                               clients=providers)["lesson_id"]
+    offer, = [t for t in S.load_state(repo, lesson).turns if t["action"] == "topic_offer"]
+    for text in (f"Add t{offer['seq']}", "First.", "Second.", "Third."):
+        with record_model_calls(repo, owner_kind="sidecar_rpc", owner_id=text):
+            S.take_turn(load_vault(paths.root), repo, lesson_id=lesson, action="reply", payload={"text": text},
+                        clients=providers)
+    added, = [t["payload"]["learning_object_id"] for t in S.load_state(repo, lesson).turns
+              if t["action"] == "topic_accepted"]
+    assert decisions(repo), "the last call was compacted"
+    sent = fake.contexts[-1]
+    assert not any("topic_added" in part for part in sent["transcript"])  # its turn left the verbatim suffix
+    summary = json.dumps(sent["transcript"])
+    assert added in summary and '"added_by": "learner"' in summary and "Defective matrices" in summary

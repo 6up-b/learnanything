@@ -428,6 +428,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_measured_difficulty_stays_off_at_the_curves_tag_and_an_edit_moves_no_curve`
   - `test_regrade_adds_a_curve_for_only_the_new_epoch`
   - `test_upgrade_freezes_once_then_refits_and_rebuilds_twice`
+- [tests/test_teacher_te5_review_recovery.py](../../../../../../tests/test_teacher_te5_review_recovery.py) — direct import
+  - `test_consent_interrupted_before_publication_rechecks_the_catalog`
 - [tests/test_tui_practice.py](../../../../../../tests/test_tui_practice.py) — direct import
   - `test_practice_screen_uses_item_allowed_attempt_type`
 - [tests/test_tutor_delivery_fixes.py](../../../../../../tests/test_tutor_delivery_fixes.py) — direct import

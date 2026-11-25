@@ -462,6 +462,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f12_three_provider_invalid_outputs_close_the_lesson_as_a_contract_failure`
 - [tests/test_teacher_te2log_episodes.py](../../../../../../tests/test_teacher_te2log_episodes.py) — direct import
   - `test_a_schema_refusal_names_fields_by_location_never_by_their_input`
+- [tests/test_teacher_te5_review_recovery.py](../../../../../../tests/test_teacher_te5_review_recovery.py) — direct import
+  - `test_continue_after_a_restart_answers_a_saved_reply`
+  - `test_try_again_after_an_interrupted_add_repeats_the_add`
 - [tests/test_tier1_decider.py](../../../../../../tests/test_tier1_decider.py) — direct import
   - `test_a_cancellation_is_never_a_fallback`
   - `test_a_decider_cancellation_in_misconception_matching_never_reaches_the_llm`

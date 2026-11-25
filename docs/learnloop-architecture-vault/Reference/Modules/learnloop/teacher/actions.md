@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/teacher/actions.py](../../../../../../src/learnloop/teacher/actions.py) |
-| Source lines | 266 |
+| Source lines | 276 |
 | Owning package | [[Reference/Modules/learnloop/teacher/_package|learnloop.teacher]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -57,11 +57,11 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `class ActionRefused(ValueError)` ([source](../../../../../../src/learnloop/teacher/actions.py), line 36)
   - `__init__(self, code: str, message: str) -> None` (line 37; internal)
 - `resolve_offer(vault: Any, repository: Any, state: Any, request: CreateGoalLo, *, client: Any, clock: Any) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/actions.py), line 42) — Resolve before offering.
-- `caller_for(state: Any) -> Any` ([source](../../../../../../src/learnloop/teacher/actions.py), line 65)
-- `run_read(vault: Any, repository: Any, state: Any, request: ActionRequestV1, *, model: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/actions.py), line 76)
-- `read_source(vault: Any, repository: Any, state: Any, refs: list[str]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/actions.py), line 96)
-- `find(vault: Any, repository: Any, state: Any, request: ActionRequestV1, *, model: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/actions.py), line 152)
-- `read_history(vault: Any, repository: Any, state: Any, refs: list[str]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/actions.py), line 196)
+- `caller_for(state: Any) -> Any` ([source](../../../../../../src/learnloop/teacher/actions.py), line 67)
+- `run_read(vault: Any, repository: Any, state: Any, request: ActionRequestV1, *, model: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/actions.py), line 78)
+- `read_source(vault: Any, repository: Any, state: Any, refs: list[str]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/actions.py), line 106)
+- `find(vault: Any, repository: Any, state: Any, request: ActionRequestV1, *, model: str | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/actions.py), line 162)
+- `read_history(vault: Any, repository: Any, state: Any, refs: list[str]) -> dict[str, Any]` ([source](../../../../../../src/learnloop/teacher/actions.py), line 206)
 
 ### Module constants
 
@@ -80,7 +80,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_open_solution(state: Any) -> str | None` ([source](../../../../../../src/learnloop/teacher/actions.py), line 90)
+- `_open_solution(state: Any) -> str | None` ([source](../../../../../../src/learnloop/teacher/actions.py), line 100)
 
 ## Who imports or calls it
 
@@ -101,6 +101,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/source_retrieval/section_coverage|learnloop.source_retrieval.section_coverage]] — imports `Library`; calls `Library`
 - [[Reference/Modules/learnloop/teacher/brief|learnloop.teacher.brief]] — imports `admitted_recap`, `passage_teachable`, `protection_state`; calls `admitted_recap`, `passage_teachable`, `protection_state`
 - [[Reference/Modules/learnloop/teacher/contracts|learnloop.teacher.contracts]] — imports `ActionRequestV1`, `CreateGoalLo`
+- [[Reference/Modules/learnloop/teacher/guards|learnloop.teacher.guards]] — imports `reserved_book`, `screen_context`; calls `reserved_book`, `screen_context`
 - [[Reference/Modules/learnloop/teacher/notes|learnloop.teacher.notes]] — imports `notes_still_deliverable`, `read_note`; calls `read_note`
 - [[Reference/Modules/learnloop/teacher/topics|learnloop.teacher.topics]] — imports `TopicsRefused`, `resolve`; calls `resolve`
 - [[Reference/Modules/learnloop/tutor/tutor_qa|learnloop.tutor.tutor_qa]] — imports `span_leaks_expected`; calls `span_leaks_expected`
@@ -127,6 +128,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_over_budget_the_added_section_falls_to_the_outline_and_the_linked_one_stays_whole`
 - [tests/test_reader_rw5d_p4b_teacher_visuals.py](../../../../../../tests/test_reader_rw5d_p4b_teacher_visuals.py) — direct import
   - `test_switching_visuals_off_hides_a_lessons_figures_and_stops_a_pending_one`
+- [tests/test_teacher_te5_review_recovery.py](../../../../../../tests/test_teacher_te5_review_recovery.py) — direct import
+  - `test_an_oversized_catalog_is_noted_and_close_always_works`
 
 ## Modification guidance
 

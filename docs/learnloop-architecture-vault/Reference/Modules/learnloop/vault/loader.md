@@ -3622,6 +3622,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_the_pool_weights_trajectory_per_forecaster`
   - `test_the_report_on_a_synthetic_lesson`
 - [tests/test_teacher_te5_compaction.py](../../../../../../tests/test_teacher_te5_compaction.py) — direct import
+  - `test_an_accepted_topic_survives_compaction`
 - [tests/test_teacher_te5_contracts.py](../../../../../../tests/test_teacher_te5_contracts.py) — direct import
   - `test_a_lesson_uses_the_capabilities_recorded_at_open`
 - [tests/test_teacher_te5_goal_topics.py](../../../../../../tests/test_teacher_te5_goal_topics.py) — direct import
@@ -3638,6 +3639,33 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_regrade_adds_a_curve_for_only_the_new_epoch`
   - `test_upgrade_freezes_once_then_refits_and_rebuilds_twice`
   - `test_upgrade_labels_superseded_epochs_and_keeps_a_legacy_stamp`
+- [tests/test_teacher_te5_review_evidence.py](../../../../../../tests/test_teacher_te5_review_evidence.py) — direct import
+  - `test_a_check_on_a_newly_added_topic_credits_that_topic`
+  - `test_a_forecast_carries_one_probability_everywhere`
+  - `test_a_withdrawn_only_check_writes_no_weight_rows_live_or_rebuilt`
+  - `test_teaching_on_an_itemless_topic_makes_a_generated_probe_on_it_dependent`
+  - `test_the_live_weight_refresh_commits_with_the_answer`
+- [tests/test_teacher_te5_review_protection.py](../../../../../../tests/test_teacher_te5_review_protection.py) — direct import
+  - `test_a_passage_protected_after_the_turn_is_withheld_from_every_view`
+  - `test_a_question_reserved_after_the_turn_is_withheld_in_the_closing_response`
+  - `test_catalog_never_sends_another_topics_protected_summary`
+  - `test_typed_goal_catalog_is_screened_and_fails_closed`
+- [tests/test_teacher_te5_review_recovery.py](../../../../../../tests/test_teacher_te5_review_recovery.py) — direct import
+  - `test_a_graded_answer_survives_a_crash_and_is_graded_once`
+  - `test_a_library_lookup_is_journaled_as_an_action_and_cannot_be_cited_as_learner_text`
+  - `test_a_recovered_forecast_names_the_model_that_produced_its_turn`
+  - `test_a_teacher_turn_returned_before_a_crash_is_not_bought_again`
+  - `test_an_answer_edited_after_a_stranded_one_is_graded_as_its_own_revision`
+  - `test_an_edited_answer_refused_by_the_budget_is_saved_as_typed`
+  - `test_an_open_lesson_is_read_listed_and_closed_with_lessons_off`
+  - `test_an_oversized_catalog_is_noted_and_close_always_works`
+  - `test_consent_interrupted_before_publication_rechecks_the_catalog`
+  - `test_continue_after_a_restart_answers_a_saved_reply`
+  - `test_try_again_after_an_interrupted_add_repeats_the_add`
+- [tests/test_teacher_te5_review_spend.py](../../../../../../tests/test_teacher_te5_review_spend.py) — direct import
+  - `test_a_budget_refused_answer_says_it_was_saved_and_not_graded`
+  - `test_a_metered_grader_with_the_settings_is_reserved_and_settled_into_the_close`
+  - `test_a_metered_grader_without_the_lessons_settings_is_never_sent`
 - [tests/test_tier1_decider.py](../../../../../../tests/test_tier1_decider.py) — direct import
   - `test_a_decider_cancellation_in_misconception_matching_never_reaches_the_llm`
   - `test_a_review_resume_refuses_a_changed_decider_profile`

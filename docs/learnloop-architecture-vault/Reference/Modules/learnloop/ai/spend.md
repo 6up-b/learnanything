@@ -240,7 +240,7 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - [[Reference/Modules/learnloop/source_retrieval/student_data|learnloop.source_retrieval.student_data]] — imports `SpendBudget`, `SpendCaps`, `SpendLimitExceeded`; statically calls `SpendBudget`, `SpendCaps`
 - [[Reference/Modules/learnloop/source_retrieval/verify|learnloop.source_retrieval.verify]] — imports `SpendBudget`, `SpendCaps`, `SpendEstimate`
 - [[Reference/Modules/learnloop/source_retrieval/video_chapters|learnloop.source_retrieval.video_chapters]] — imports `SpendBudget`, `spend_envelopes`; statically calls `spend_envelopes`
-- [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] — imports `MeteredRequestGate`, `SpendLimitExceeded`, `is_subscription_transport`; statically calls `is_subscription_transport`
+- [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] — imports `MeteredRequestGate`, `SpendLimitExceeded`, `is_subscription_transport`; statically calls `SpendLimitExceeded`, `is_subscription_transport`
 - [[Reference/Modules/learnloop/tutor/tutor_qa|learnloop.tutor.tutor_qa]] — imports `is_subscription_transport`; statically calls `is_subscription_transport`
 - [[Reference/Modules/learnloop/workbench/bridge|learnloop.workbench.bridge]] — imports `SpendLimitExceeded`, `spend_envelopes`; statically calls `spend_envelopes`
 - [[Reference/Modules/learnloop/workbench/check|learnloop.workbench.check]] — imports `SpendBudget`, `SpendCaps`, `SpendLimitExceeded`, `spend_envelopes`; statically calls `SpendBudget`, `SpendCaps`, `spend_envelopes`
@@ -548,6 +548,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_teacher_te5_compaction.py](../../../../../../tests/test_teacher_te5_compaction.py) — direct import
   - `test_a_correction_receipt_records_its_own_prompt_estimate`
   - `test_live_boundary_and_predecessor_bytes`
+- [tests/test_teacher_te5_review_recovery.py](../../../../../../tests/test_teacher_te5_review_recovery.py) — direct import
+  - `test_an_edited_answer_refused_by_the_budget_is_saved_as_typed`
 - [tests/test_tier1_decider.py](../../../../../../tests/test_tier1_decider.py) — direct import
   - `test_a_review_resume_refuses_a_changed_decider_profile`
   - `test_contamination`

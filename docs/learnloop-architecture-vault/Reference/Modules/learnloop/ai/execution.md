@@ -243,7 +243,7 @@ The authoritative system-level explanation remains in [[AI Architecture]], [[Arc
 - [[Reference/Modules/learnloop/substrate/families|learnloop.substrate.families]] — imports `content_key`; statically calls `content_key`
 - [[Reference/Modules/learnloop/teacher/checks|learnloop.teacher.checks]] — imports `content_key`; statically calls `content_key`
 - [[Reference/Modules/learnloop/teacher/compaction|learnloop.teacher.compaction]] — imports `tee_model_calls`; statically calls `tee_model_calls`
-- [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] — imports `active_request_gate`, `gate_model_requests`, `generation_ceiling`; statically calls `active_request_gate`, `gate_model_requests`, `generation_ceiling`
+- [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]] — imports `ModelCheckpoint`, `active_request_gate`, `content_key`, `gate_model_requests`, `generation_ceiling`; statically calls `ModelCheckpoint`, `active_request_gate`, `content_key`, `gate_model_requests`, `generation_ceiling`
 - [[Reference/Modules/learnloop/tui/state|learnloop.tui.state]] — imports `record_model_calls`; statically calls `record_model_calls`
 - [[Reference/Modules/learnloop/tutor/tutor_qa|learnloop.tutor.tutor_qa]] — imports `content_key`; statically calls `content_key`
 - [[Reference/Modules/learnloop/why/reconstructed|learnloop.why.reconstructed]] — imports `content_key`; statically calls `content_key`
@@ -538,6 +538,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_teacher_te5_compaction.py](../../../../../../tests/test_teacher_te5_compaction.py) — direct import
   - `test_a_correction_receipt_records_its_own_prompt_estimate`
   - `test_a_long_current_reply_after_short_nested_sends_is_forecast`
+  - `test_an_accepted_topic_survives_compaction`
   - `test_compacted_correction_records_one_boundary`
 - [tests/test_tier1_decider.py](../../../../../../tests/test_tier1_decider.py) — direct import
   - `test_contamination_one_routes_switch_restores_its_old_checkpoints_budget_check_and_ledger`

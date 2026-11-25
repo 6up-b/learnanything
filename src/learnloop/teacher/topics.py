@@ -22,6 +22,9 @@ from typing import Any
 #: The one plain line for a goal that names protected material (§7 step 1).
 PROTECTED_LINE = "That's kept for your exam, so I won't teach it. Try another way of putting what you want to learn."
 FROM_MODEL = "from LearnLoop's model"
+#: The catalog cannot be read in one call (the resolver's prompt bound), so no topic is offered.
+TOO_LARGE_LINE = ("Your library has more topics than LearnLoop can read at once, so it couldn't check this topic. "
+                  "The lesson goes on without it.")
 
 
 class TopicsRefused(ValueError):
@@ -58,7 +61,8 @@ def resolve(vault: Any, repository: Any, text: str, *, client: Any | None = None
     if protected(vault, repository, words):
         raise TopicsRefused("protected", PROTECTED_LINE)
     result = DL.resolve_typed_goal(vault, repository, words, client=client, clock=clock)
-    out: dict[str, Any] = {"status": result.status, "goal_key": DL.typed_goal_key(words), "message": result.message,
+    out: dict[str, Any] = {"status": result.status, "reason": result.reason, "goal_key": DL.typed_goal_key(words),
+                           "message": result.message,
                            "topics": [], "unmatched": [], "subject_id": None, "subjects": []}
     if result.resolution is None:
         return out
@@ -84,6 +88,8 @@ def offer_text(entry: Mapping[str, Any], *, active: bool = True) -> str:
     data = entry["payload"]
     if data["status"] == "matched":
         return "Your library already has a matching topic."
+    if data["status"] == "unavailable" and data.get("reason") == "too_large":
+        return TOO_LARGE_LINE
     if data["status"] != "pending":
         return "LearnLoop could not offer that topic."
     if not active:

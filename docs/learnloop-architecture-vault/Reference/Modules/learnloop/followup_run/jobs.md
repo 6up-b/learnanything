@@ -197,6 +197,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_at_the_tag_the_lane_logs_the_coin_with_its_decision`
 - [tests/test_probe_router_authority.py](../../../../../../tests/test_probe_router_authority.py) — direct import
 - [tests/test_probe_router_decision_integrity.py](../../../../../../tests/test_probe_router_decision_integrity.py) — direct import
+- [tests/test_teacher_te5_review_evidence.py](../../../../../../tests/test_teacher_te5_review_evidence.py) — direct import
+  - `test_teaching_on_an_itemless_topic_makes_a_generated_probe_on_it_dependent`
 
 ## Modification guidance
 

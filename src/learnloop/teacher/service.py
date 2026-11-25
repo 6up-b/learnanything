@@ -104,6 +104,8 @@ LEARNER_ACTIONS = ("reply", "answer_prediction", "answer_check", "stop", "resume
 TE2_LEARNER_ACTIONS = ("answer_probe", "teach_anyway", "close")
 #: The learner's steps whose words a ``propose_gap`` may name (``ref: t<seq>`` in a TE2 lesson's transcript).
 LEARNER_TEXT_ACTIONS = ("learner_reply", "prediction_answer", "check_answer", PR.ANSWER)
+#: "Library tN" pressed on a topic offer: a learner's action, not their words (never a gap's evidence).
+LIBRARY_LOOKUP = "library_lookup"
 
 
 class LessonError(ValueError):
@@ -352,6 +354,8 @@ def _te2_transcript_entry(entry: Mapping[str, Any]) -> dict[str, Any] | None:
         return {"by": "code", "topic_refused": data["reason"]}
     if action == "topic_declined":
         return {"by": "learner", "declined_topic": data["phrase"]}
+    if action == LIBRARY_LOOKUP:
+        return {"by": "learner", "asked_library_lookup": {"command": data.get("command"), "query": data.get("query")}}
     if action == "goal_lo":
         return {"by": "code", "topic_added": {k: data.get(k) for k in ("learning_object_id", "title", "phrase",
                                                                      "label")}}
@@ -595,14 +599,26 @@ def _spend_gate_class() -> type:
         that replaces its reservation. The next action, and the next process, starts from the durable
         total, in which a reservation no settlement replaced stands at its whole estimate."""
 
-        def __init__(self, repository: Any, state: LessonState, clock: Clock | None, **kwargs: Any) -> None:
+        def __init__(self, repository: Any, state: LessonState, clock: Clock | None, *,
+                     metered_ready: Callable[[Any], bool], **kwargs: Any) -> None:
             super().__init__(**kwargs)
             self._repository = repository
             self._state = state
             self._clock = clock
+            self._metered_ready = metered_ready
             self._reservations: dict[int, tuple[str, str]] = {}
 
         def admit(self, client: Any, *, purpose: str, prompt: Any, budget: int | None) -> Any:
+            from learnloop.ai.spend import SpendLimitExceeded
+
+            # Every physical request of the lesson, on the route it actually takes (the grader's own, a
+            # resolver's), meets the lesson's settings: a metered one with no price or no per-lesson cap is never
+            # sent (the base gate would admit an unpriced request with no limit unmetered). A subscription route is
+            # free here and still receipted by the transport's observer.
+            if not self._is_subscription(client) and not self._metered_ready(client):
+                self.refusal = {"reason": "metered_settings_missing", "purpose": purpose,
+                                "provider": getattr(client, "provider_name", None)}
+                raise SpendLimitExceeded(METERED_SETTINGS_LINE, rule="metered_settings_missing", scope="request_gate")
             admission = super().admit(client, purpose=purpose, prompt=prompt, budget=budget)
             if admission is None:
                 return None
@@ -644,7 +660,7 @@ def _lesson_spend(vault: Any, repository: Any, state: LessonState, *, clock: Clo
     config = vault.config.teacher
     price = config.metered_price_per_million
     gate = _spend_gate_class()(
-        repository, state, clock,
+        repository, state, clock, metered_ready=lambda client: _metered_ready(vault, client),
         limit_usd=None if config.max_lesson_cost_usd is None else float(config.max_lesson_cost_usd),
         price_per_token=lambda _provider: None if price is None else float(price) / 1_000_000.0,
         is_subscription=lambda client: _subscription(vault.config, client),
@@ -669,6 +685,14 @@ def _refused_by_budget(state: LessonState, exc: BaseException) -> bool:
     return state.gate is not None and state.gate.refusal is not None
 
 
+def _budget_notice(state: LessonState, outcome: "_Outcome") -> None:
+    """A lesson closed because a metered request had no spending limit to be held to says so in plain words."""
+
+    refusal = getattr(state.gate, "refusal", None) if state.gate is not None else None
+    if (refusal or {}).get("reason") == "metered_settings_missing" and METERED_SETTINGS_LINE not in outcome.notices:
+        outcome.notices.append(METERED_SETTINGS_LINE)
+
+
 def _record_budget_close(repository: Any, state: LessonState, exc: BaseException) -> None:
     """The refusal that closes the lesson with ``budget``, as a ``spend_admission`` record (refactor B8): the close
     receipt says only ``budget``, and the gate's refusal (which request, its estimate, the limit) was kept nowhere.
@@ -682,11 +706,60 @@ def _record_budget_close(repository: Any, state: LessonState, exc: BaseException
                                                                        refusal=refusal))
 
 
-def _answer_turn(turns: Sequence[Mapping[str, Any]], action: str, key: str, ref: str) -> Mapping[str, Any] | None:
-    """The learner's answer turn already recorded for one check (``check_ref``) or probe (``probe_ref``), or None."""
+def _answer_turn(turns: Sequence[Mapping[str, Any]], action: str, key: str, ref: str,
+                 answer: str | None = None) -> Mapping[str, Any] | None:
+    """The learner's answer turn already recorded for one check (``check_ref``) or probe (``probe_ref``), or None;
+    with ``answer``, only one recording that exact text (an edited answer is its own revision)."""
 
     return next((turn for turn in turns
-                 if turn["action"] == action and str((turn.get("payload") or {}).get(key)) == str(ref)), None)
+                 if turn["action"] == action and str((turn.get("payload") or {}).get(key)) == str(ref)
+                 and (answer is None or str((turn.get("payload") or {}).get("answer")) == answer)), None)
+
+
+#: The checkpoint purpose of a submitted lesson answer awaiting its grade.
+SUBMISSION_PURPOSE = "lesson_answer_submission"
+
+
+def _submission_key(state: LessonState, ref: str) -> str:
+    return f"{SUBMISSION_PURPOSE}:{state.lesson_id}:{ref}"
+
+
+def submission(repository: Any, state: LessonState, ref: str) -> dict[str, Any] | None:
+    """The answer submitted to a check or probe that no grade has recorded yet (saved before its grader is called)."""
+
+    saved = repository.model_checkpoint(_submission_key(state, ref))
+    return dict(saved["result"]) if saved is not None else None
+
+
+def _save_submission(repository: Any, state: LessonState, ref: str, record: Mapping[str, Any]) -> None:
+    current = submission(repository, state, ref)
+    if current == dict(record):
+        return
+    if current is not None:
+        repository.discard_model_checkpoint(_submission_key(state, ref))
+    repository.save_model_checkpoint(_submission_key(state, ref), purpose=SUBMISSION_PURPOSE, result=dict(record))
+
+
+def _shown_submission(repository: Any, state: LessonState, ref: str) -> dict[str, Any] | None:
+    saved = submission(repository, state, ref)
+    return None if saved is None else {k: saved.get(k) for k in ("answer", "thinking", "tap") if k in saved}
+
+
+def _drop_submission(repository: Any, state: LessonState, ref: str) -> None:
+    repository.discard_model_checkpoint(_submission_key(state, ref))
+
+
+def _bound_attempt(repository: Any, state: LessonState, action: str, key: str, ref: str, answer: str) -> str:
+    """The attempt id ``answer`` is graded under: a saved submission's or a stranded answer turn's of the same text
+    whose attempt is not recorded yet, else a new one."""
+
+    saved = submission(repository, state, ref)
+    if saved is not None and saved.get("answer") == answer and saved.get("attempt_id") \
+            and repository.fetch_practice_attempt(str(saved["attempt_id"])) is None:
+        return str(saved["attempt_id"])
+    stranded = _answer_turn(state.turns, action, key, ref, answer)
+    attempt = str(((stranded or {}).get("refs") or {}).get("attempt") or "")
+    return attempt if attempt and repository.fetch_practice_attempt(attempt) is None else new_ulid()
 
 
 def _close_for_budget_keeping_answer(vault: Any, repository: Any, state: LessonState, exc: BaseException, *,
@@ -701,21 +774,36 @@ def _close_for_budget_keeping_answer(vault: Any, repository: Any, state: LessonS
     with repository.atomic():
         with repository.connection() as connection:
             stored = store.turns(connection, state.lesson_id)
-        if _answer_turn(stored, action, key, ref) is None:
+        if _answer_turn(stored, action, key, ref, str(answer.get("answer"))) is None:
             _append(repository, state, actor="learner", action=action, refs=refs,
                     payload={key: ref, **answer, "assessed": False, "unassessed_because": "budget"}, clock=clock)
         _close(vault, repository, state, reason="budget", recap=None, clock=clock, outcome=outcome)
+    _drop_submission(repository, state, ref)
+    _budget_notice(state, outcome)
     return view(vault, repository, state.lesson_id, outcome=outcome)
 
 
-def _require_metered_settings(vault: Any, client: Any) -> None:
-    """A metered (OpenRouter) lesson needs its price and its per-lesson cap first (T1 redesign D; Q7)."""
+#: Why a metered request of a lesson was not sent (T1 redesign D; Q7), as the learner reads it.
+METERED_SETTINGS_LINE = ("Lessons through OpenRouter need a spending limit set first. You can keep studying in "
+                         "Practice.")
+
+
+def _metered_ready(vault: Any, client: Any) -> bool:
+    """A metered client may be sent a lesson's request: the lesson's price and per-lesson cap are both set (a
+    subscription client needs neither; the tests' doubles, provider type ``fake``, are exempt as before)."""
 
     if _subscription(vault.config, client) or getattr(client, "provider_type", None) == "fake":
-        return
+        return True
     config = vault.config.teacher
-    if config.metered_price_per_million is None or config.max_lesson_cost_usd is None:
-        raise LessonError("plan_unavailable", "Lessons through OpenRouter need a spending limit set first. You can keep studying in Practice.")
+    return config.metered_price_per_million is not None and config.max_lesson_cost_usd is not None
+
+
+def _require_metered_settings(vault: Any, client: Any) -> None:
+    """A metered (OpenRouter) lesson needs its price and its per-lesson cap first (T1 redesign D; Q7): the teacher's
+    route is checked before its first call; every other request (the grader's) meets the same rule at the gate."""
+
+    if not _metered_ready(vault, client):
+        raise LessonError("plan_unavailable", METERED_SETTINGS_LINE)
 
 
 # =============================================================================
@@ -835,6 +923,12 @@ def open_lesson(vault: Any, repository: Any, *, entry: str, learning_object_ids:
                               opens_at=utc_now_iso(clock) if preference_id else None, from_check=check_entry)
     if typed is not None:
         brief["goal"]["typed"] = typed.goal
+    # No word of the brief (a topic's statement, a misconception, a recap, the goal) quotes a question kept
+    # for an exam, whatever topic it is about; the delivered passages keep exam material's own (span) protection.
+    reserved = G.reserved_book(vault, repository)
+    if reserved.unreadable:
+        raise LessonError("protected", "The lesson couldn't start. Try again in a moment.")
+    brief = G.screen_context(brief, reserved, skip=frozenset({"sources", "doctrine"}))
     protection = protection_state(vault, repository, brief)
     if before is None or protection is None:
         raise LessonError("protected", "The lesson couldn't start. Try again in a moment.")
@@ -912,7 +1006,7 @@ def recover(vault: Any, repository: Any, state: LessonState, *, clock: Clock | N
     done = state.effects_done.setdefault(str(entry["id"]), set())
     # A turn's visual builds a figure (a model call): like its reads, only on an action's own recovery,
     # never on ``lesson.view`` (Reader RW5d P4b).
-    _execute(vault, repository, state, turn_obj, turn_entry=entry, model=state.lesson.get("model"), deferred=True,
+    _execute(vault, repository, state, turn_obj, turn_entry=entry, model=_turn_model(state, entry), deferred=True,
              outcome=outcome, clock=clock, help_reply=bool(data.get("help_reply")), done=done, reads=reads,
              builder=builder if reads else None, resolver=resolver)
     if str(entry["id"]) in state.executed:
@@ -920,10 +1014,18 @@ def recover(vault: Any, repository: Any, state: LessonState, *, clock: Clock | N
     return outcome
 
 
+def _turn_model(state: LessonState, entry: Mapping[str, Any]) -> str | None:
+    """The model that produced an accepted turn: recorded on the turn; a turn accepted
+    before it names none, and its lesson's opening model stands in (the only identity it kept)."""
+
+    recorded = (entry.get("payload") or {}).get("model")
+    return str(recorded) if recorded else state.lesson.get("model")
+
+
 #: The steps that wait for a teacher call (the learner's, or code's after a check). A step written as an
 #: accepted turn's effect (``refs.turn``: a withdrawn check is one) is part of that turn's action, never a
 #: boundary (TE1 F16, followups batch 5 D: resume after a completed help action made one more call).
-_CALLS_TEACHER = ("open", "learner_reply", "prediction_answer", "check_result", "check_withdrawn")
+_CALLS_TEACHER = ("open", "learner_reply", "prediction_answer", "check_result", "check_withdrawn", LIBRARY_LOOKUP)
 #: Teacher TE2 (Codex review F4): a probe's result and the learner's "Teach it anyway" wait for the teacher too. A
 #: probe retired otherwise (the lesson's close, an unservable item) owes no call: the lesson goes on at the
 #: learner's next step.
@@ -976,7 +1078,7 @@ def _pending_call(state: LessonState) -> _PendingCall | None:
             return _PendingCall(closing="learner_stop")
         else:
             data = entry.get("payload") or {}
-            return _PendingCall(help_reply=action == "learner_reply" and bool(data.get("help")))
+            return _PendingCall(help_reply=action in ("learner_reply", LIBRARY_LOOKUP) and bool(data.get("help")))
     if accepted is None:
         return _PendingCall() if refused else None
     if _owes_followup(state, accepted):
@@ -1009,9 +1111,9 @@ def _owes_followup(state: LessonState, accepted: Mapping[str, Any]) -> bool:
 
 def view_lesson(vault: Any, repository: Any, lesson_id: str, *, clock: Clock | None = None) -> dict[str, Any]:
     """``lesson.view``: the lesson as the screen shows it, after recovering an interrupted action's
-    remaining effects (no model call)."""
+    remaining effects (no model call). Read whatever ``teacher.enabled`` says now: the switch decides
+    whether a lesson may open, never whether saved work can be read."""
 
-    require_active(vault)
     state = load_state(repository, lesson_id)
     outcome = recover(vault, repository, state, clock=clock, reads=False)
     return view(vault, repository, lesson_id, outcome=outcome, clock=clock)
@@ -1020,9 +1122,11 @@ def view_lesson(vault: Any, repository: Any, lesson_id: str, *, clock: Clock | N
 def take_turn(vault: Any, repository: Any, *, lesson_id: str, action: str, payload: Mapping[str, Any],
               clients: Clients, clock: Clock | None = None) -> dict[str, Any]:
     """One learner action on an open lesson (``reply``, ``answer_prediction``, ``answer_check``, ``stop``),
-    or ``resume``: run the teacher's turn an outage interrupted (nothing new from the learner)."""
+    or ``resume``: run the teacher's turn an outage interrupted (nothing new from the learner). ``close`` (no model
+    call) works whatever ``teacher.enabled`` says (switching lessons off never strands an open lesson)."""
 
-    require_active(vault)
+    if action != "close":
+        require_active(vault)
     if action not in LEARNER_ACTIONS and action not in TE2_LEARNER_ACTIONS:
         raise LessonError("validation_error", f"Unknown lesson action {action!r}.")
     state = load_state(repository, lesson_id)
@@ -1030,7 +1134,7 @@ def take_turn(vault: Any, repository: Any, *, lesson_id: str, action: str, paylo
         return view(vault, repository, lesson_id)
     # Today's "Close it" (§11.8) lists every open lesson once TE2 serves, a TE1 lesson left open before the upgrade
     # too, so it closes any of them (Codex review, §11.8 row); the probe actions are a TE2 lesson's only.
-    te2_ok = T2.on(vault) if action == "close" else _te2_now(vault, state)
+    te2_ok = True if action == "close" else _te2_now(vault, state)
     if action in TE2_LEARNER_ACTIONS and not te2_ok:
         raise LessonError("validation_error", f"Unknown lesson action {action!r}.")
     if (T2.lesson_te2(state) and action in ("reply", "answer_prediction", "answer_check")
@@ -1043,9 +1147,12 @@ def take_turn(vault: Any, repository: Any, *, lesson_id: str, action: str, paylo
             # reads and visual: Reader RW5d P4b, Codex review F1): ruling R1. Changed, recovery runs only
             # what makes no model call, and the lesson ends.
             changed = protection_changed(vault, repository, state)
+            # Close (no teacher call) settles an interrupted turn's optional reads, offers and figure without
+            # running them: nothing a retrieval or a resolver can fail on stands between the learner and closing.
+            ending = action == "close"
             try:
-                recovered = recover(vault, repository, state, clock=clock, reads=not changed,
-                                    builder=None if changed else clients.figures, resolver=clients.resolver)
+                recovered = recover(vault, repository, state, clock=clock, reads=not (changed or ending),
+                                    builder=None if (changed or ending) else clients.figures, resolver=clients.resolver)
             except Exception as exc:
                 if not _refused_by_budget(state, exc):
                     raise
@@ -1054,6 +1161,7 @@ def take_turn(vault: Any, repository: Any, *, lesson_id: str, action: str, paylo
                 outcome = _Outcome()
                 _record_budget_close(repository, state, exc)
                 _close(vault, repository, state, reason="budget", recap=None, clock=clock, outcome=outcome)
+                _budget_notice(state, outcome)
                 return view(vault, repository, lesson_id, outcome=outcome)
             if state.closed:
                 return view(vault, repository, lesson_id)
@@ -1061,7 +1169,7 @@ def take_turn(vault: Any, repository: Any, *, lesson_id: str, action: str, paylo
                 outcome = _Outcome()
                 _end_for_protection(vault, repository, state, clock=clock, outcome=outcome)
                 return view(vault, repository, lesson_id, outcome=outcome)
-            finished_topic = _finish_topic_requests(vault, repository, state, clock=clock)
+            finished_topic = _finish_topic_requests(vault, repository, state, clock=clock, resolver=clients.resolver)
             if finished_topic:
                 from learnloop.vault.loader import load_vault
 
@@ -1073,7 +1181,30 @@ def take_turn(vault: Any, repository: Any, *, lesson_id: str, action: str, paylo
             return result
     except LessonError as exc:
         exc.details.setdefault("lesson_id", lesson_id)
+        exc.details.setdefault("retry", retry_kind(repository, lesson_id))
         raise
+
+
+def awaiting_teacher(state: LessonState) -> bool:
+    """A recorded step waits for the teacher (a reply, an answer's result, a read's follow-up): the lesson's
+    ``resume`` answers it (Continue after a restart sends it, nothing is retyped)."""
+
+    if state.closed or (T2.lesson_te2(state) and PR.open_probe(state.turns) is not None):
+        return False
+    return _pending_call(state) is not None
+
+
+def retry_kind(repository: Any, lesson_id: str) -> str:
+    """What *Try again* does after a failed action: ``resume`` when the lesson recorded a step that waits for
+    the teacher (or an accepted turn whose effects did not all run), else ``repeat``: nothing of the failed action was
+    recorded (an Add whose topic check failed before the learner's decision was written), so the same action is sent
+    again."""
+
+    try:
+        state = load_state(repository, lesson_id)
+    except LessonError:
+        return "repeat"
+    return "resume" if (state.unexecuted is not None or awaiting_teacher(state)) else "repeat"
 
 
 def _learner_action(vault: Any, repository: Any, state: LessonState, action: str, payload: Mapping[str, Any], *,
@@ -1115,7 +1246,7 @@ def _learner_action(vault: Any, repository: Any, state: LessonState, action: str
         decision = TP.offer_decision(state.turns, text)
         if decision is not None:
             verb, offer = decision
-            return _topic_decision(vault, repository, state, verb, offer, clients=clients, clock=clock)
+            return _topic_decision(vault, repository, state, verb, offer, clients=clients, clock=clock, command=text)
         help_request = state.open_check is not None
         _append(repository, state, actor="learner", action="learner_reply", payload={"text": text, "help": help_request},
                 clock=clock)
@@ -1137,7 +1268,7 @@ def _learner_action(vault: Any, repository: Any, state: LessonState, action: str
 
 
 def _topic_decision(vault: Any, repository: Any, state: LessonState, verb: str, offer: Mapping[str, Any], *,
-                    clients: Clients, clock: Clock | None) -> dict[str, Any]:
+                    clients: Clients, clock: Clock | None, command: str = "") -> dict[str, Any]:
     from learnloop.vault.loader import load_vault
 
     refs = {"offer": offer["id"]}
@@ -1152,11 +1283,14 @@ def _topic_decision(vault: Any, repository: Any, state: LessonState, verb: str, 
         lookup = ActionRequestV1(action="find_sources", query=data["phrase"], intent="explain")
         result = _read_action(vault, repository, state, lookup, model=state.lesson.get("model"))
         with repository.atomic():
-            _append(repository, state, actor="learner", action="learner_reply", refs=refs,
-                    payload={"text": f"Look in my library for {data['phrase']}", "help": bool(state.open_check)},
+            # The learner pressed a command, not words of their own: the exact command and the offer it names
+            # are journaled as an action. The query is the teacher's offered phrase (code data), never cited as the
+            # learner's text (``LEARNER_TEXT_ACTIONS`` leaves this action out).
+            _append(repository, state, actor="learner", action=LIBRARY_LOOKUP, refs=refs,
+                    payload={"command": command, "query": data["phrase"], "help": bool(state.open_check)},
                     clock=clock)
             if state.open_check:
-                _record_help(repository, state, f"Look in my library for {data['phrase']}", clock=clock)
+                _record_help(repository, state, command, clock=clock)
             entry = _append(repository, state, actor="code", action="find_sources", refs=refs,
                             payload={"request": lookup.model_dump(), "result": result, "deferred": True}, clock=clock)
         state.pending_results.append({"turn_id": entry["id"], "action": "find_sources", "result": _model_result(result)})
@@ -1169,7 +1303,7 @@ def _topic_decision(vault: Any, repository: Any, state: LessonState, verb: str, 
         request = CreateGoalLo(action="create_goal_lo", **{k: data[k] for k in ("phrase", "title", "statement", "anchors")})
         checked = resolve_offer(vault, repository, state, request, client=clients.resolver() if clients.resolver else None,
                                 clock=clock)
-        if checked["status"] == "unavailable":
+        if checked["status"] == "unavailable" and checked.get("reason") != "too_large":
             raise LessonError("plan_unavailable", "LearnLoop could not check the current topics. Try again.")
     with repository.atomic():
         current = load_state(repository, state.lesson_id)
@@ -1177,19 +1311,40 @@ def _topic_decision(vault: Any, repository: Any, state: LessonState, verb: str, 
             return view(vault, repository, state.lesson_id)
         if verb == "add" and checked != data:
             _append(repository, current, actor="code", action="topic_refused", refs=refs,
-                    payload={"reason": checked["status"], "message": "The topic resolution changed. Ask the teacher "
-                                                                     "to check the topic again."}, clock=clock)
+                    payload={"reason": checked.get("reason") or checked["status"],
+                             "message": TP.TOO_LARGE_LINE if checked.get("reason") == "too_large" else
+                             "The topic resolution changed. Ask the teacher to check the topic again."}, clock=clock)
             return view(vault, repository, state.lesson_id)
         _append(repository, current, actor="learner", action="topic_declined" if verb == "skip" else "topic_requested",
                 refs=refs, payload={"phrase": data["phrase"]}, clock=clock)
     outcome = _Outcome()
     if verb == "add":
-        outcome.vault_changed = _finish_topic_requests(vault, repository, current, clock=clock)
+        outcome.vault_changed = _finish_topic_requests(vault, repository, current, clock=clock, recheck=False)
     return view(load_vault(vault.root) if outcome.vault_changed else vault, repository, state.lesson_id, outcome=outcome)
 
 
-def _finish_topic_requests(vault: Any, repository: Any, state: LessonState, *, clock: Clock | None) -> bool:
-    """Finish durable learner decisions. Retrying the same C0b request names the same vault object."""
+def _published(vault: Any, state: LessonState, offer: Mapping[str, Any]) -> bool:
+    """Whether this request already wrote its topic (the writer records the lesson as its goal and the learner's
+    phrase in the LO's provenance): finishing it only synchronizes; a request that wrote nothing must check the
+    catalog again first."""
+
+    phrase = " ".join(str(offer["payload"]["phrase"]).casefold().split())
+    for learning_object in vault.learning_objects.values():
+        provenance = getattr(learning_object, "provenance", None)
+        fields = (provenance if isinstance(provenance, dict) else provenance.model_dump()
+                  if hasattr(provenance, "model_dump") else {})
+        if (learning_object.status == "active" and fields.get("goal_id") == state.lesson_id
+                and " ".join(str(fields.get("learner_text") or "").casefold().split()) == phrase):
+            return True
+    return False
+
+
+def _finish_topic_requests(vault: Any, repository: Any, state: LessonState, *, clock: Clock | None,
+                           resolver: Callable[[], Any] | None = None, recheck: bool = True) -> bool:
+    """Finish durable learner decisions. Retrying the same C0b request names the same vault object. A
+    request interrupted before it published anything is checked against the catalog as it is now (``recheck``; the
+    Add that recorded it a moment ago has just checked): a topic added meanwhile elsewhere refuses it, so recovery
+    never creates a duplicate."""
     completed = {row["refs"]["offer"] for row in state.turns if row["action"] in ("topic_accepted", "topic_refused")}
     wanted = {row["refs"]["offer"] for row in state.turns if row["action"] == "topic_requested"} - completed
     if not wanted:
@@ -1199,6 +1354,21 @@ def _finish_topic_requests(vault: Any, repository: Any, state: LessonState, *, c
         if offer["id"] not in wanted:
             continue
         refs = {"offer": offer["id"]}
+        if recheck and not _published(vault, state, offer):
+            from learnloop.teacher.actions import resolve_offer
+
+            data = offer["payload"]
+            checked = resolve_offer(vault, repository, state, CreateGoalLo(
+                action="create_goal_lo", **{k: data[k] for k in ("phrase", "title", "statement", "anchors")}),
+                client=resolver() if resolver else None, clock=clock)
+            if checked["status"] == "unavailable" and checked.get("reason") != "too_large":
+                continue  # an outage: the decision stands and is finished by a later action
+            if checked != data:
+                _append(repository, state, actor="code", action="topic_refused", refs=refs,
+                        payload={"reason": checked.get("reason") or checked["status"],
+                                 "message": "Your library changed before this topic was added, so it wasn't added. "
+                                            "Ask the teacher to check the topic again."}, clock=clock)
+                continue
         try:
             topic = TP.create_offered_topic(vault, repository, state, offer, clock=clock)
         except TP.TopicsRefused as exc:
@@ -1259,10 +1429,15 @@ def _answer_check(vault: Any, repository: Any, state: LessonState, payload: Mapp
     # turn, so *Submit answer* again records one answer, not a second beside a stranded first. A turn an earlier
     # build wrote before grading (and left behind when the grade failed) is that one answer: the retry grades under
     # its attempt reference and appends none.
-    stranded = _answer_turn(state.turns, "check_answer", "check_ref", open_check["check_ref"])
-    stranded_attempt = str(((stranded or {}).get("refs") or {}).get("attempt") or "")
-    attempt_id = (stranded_attempt if stranded_attempt and repository.fetch_practice_attempt(stranded_attempt) is None
-                  else new_ulid())
+    # An answer is graded under one attempt id bound to its exact text. The submission is saved under the
+    # check's identity before the grader is called (the reopened lesson shows it), and the grade under the answer's
+    # (``CK.grade_answer``), so a crash before the answer's write costs no second grade of the same text. The same text
+    # again reuses its attempt id (a saved submission's, or a stranded turn's that an earlier build wrote); edited text
+    # is a new revision with its own attempt id, journaled beside the stranded one, so the transcript shows what was
+    # graded.
+    attempt_id = _bound_attempt(repository, state, "check_answer", "check_ref", open_check["check_ref"], answer)
+    _save_submission(repository, state, open_check["check_ref"],
+                     {"attempt_id": attempt_id, "answer": answer, "thinking": thinking, "tap": tap})
     # The blind grader sees the answer only: never the thinking note, the lesson or the learner's history.
     grading_client = clients.grading()
     try:
@@ -1301,7 +1476,7 @@ def _answer_check(vault: Any, repository: Any, state: LessonState, payload: Mapp
                 or repository.fetch_practice_attempt(attempt_id) is not None):
             raise LessonError("stale_check", "This question closed. Reopen the lesson to see what’s next.")
         as_of = utc_now_iso(clock)
-        recorded = _answer_turn(current.turns, "check_answer", "check_ref", open_check["check_ref"])
+        recorded = _answer_turn(current.turns, "check_answer", "check_ref", open_check["check_ref"], answer)
         if recorded is None or str((recorded.get("refs") or {}).get("attempt") or "") != attempt_id:
             _append(repository, state, actor="learner", action="check_answer",
                     refs={"item": item.id, "attempt": attempt_id},
@@ -1330,11 +1505,14 @@ def _answer_check(vault: Any, repository: Any, state: LessonState, payload: Mapp
                   "attempt_id": attempt_id, "unanchored": not bool(open_check["check"].get("anchors"))}
         _append(repository, state, actor="code", action="check_result", refs={"attempt": attempt_id, "item": item.id},
                 payload=result, clock=clock)
+        # The DERIVED weight tables are refreshed in the answer's own transaction, so no crash leaves an
+        # answered check the tables do not describe (the rebuild's bound, the latest answered check, is this one).
+        _update_weight_state(vault, repository)
+    _drop_submission(repository, state, open_check["check_ref"])
     if "episodes" in state.capabilities:
         # TE2-log: a detour on this node closes at its re-check (its own savepoint; never blocks the answer).
         E.close_episodes(repository, state.lesson_id, closed_at=as_of, reason="rechecked", node_id=node_id,
                          kind="detour", outcome={"recheck_attempt_id": attempt_id, "outcome_correctness": correctness})
-    _update_weight_state(vault, repository)
     state.open_check = None
     state.checks.append({"check_ref": result["check_ref"], "status": "answered", "minted_item_id": item.id})
     return _teach(vault, repository, state, clients=clients, client=clients.teacher(), help_reply=False, clock=clock)
@@ -1355,11 +1533,15 @@ def _answer_probe(vault: Any, repository: Any, state: LessonState, payload: Mapp
         raise LessonError("validation_error", "Write an answer first (what you can is fine).")
     tap = payload.get("tap")
     tap = int(tap) if tap is not None and int(tap) in (1, 2, 3, 4, 5) else None
+    # Saved before the grader is called (the reopened lesson shows it); the grade is saved under the
+    # answer's identity (``CK.grade_answer``), so a crash before the write costs no second grade of the same text.
+    _save_submission(repository, state, probe.ref, {"attempt_id": probe.attempt_id, "answer": answer, "tap": tap})
     try:
         # The learner's answer turn commits with the grade, inside ``record_answer``'s one transaction: a grade that
         # fails leaves no turn, and the retry records one.
         PR.record_answer(vault, repository, state.lesson, probe, answer=answer, tap=tap,
-                         grading_client=clients.grading(), grading_source=clients.grading_source, clock=clock)
+                         grading_client=clients.grading(), grading_source=clients.grading_source, clock=clock,
+                         taught=_taught(state))
     except PR.StaleProbe as exc:
         raise LessonError("stale_probe", str(exc)) from exc
     except LessonError:
@@ -1370,6 +1552,7 @@ def _answer_probe(vault: Any, repository: Any, state: LessonState, payload: Mapp
                 vault, repository, state, exc, action=PR.ANSWER, key="probe_ref", ref=probe.ref,
                 refs={"item": probe.item_id}, answer={"answer": answer, "tap": tap}, clock=clock)
         raise LessonError("grading_unavailable", "Couldn’t check your answer. Select Submit answer again.") from exc
+    _drop_submission(repository, state, probe.ref)
     # No weight-state refresh: the DERIVED weight tables describe the ledgers through the latest answered lesson
     # check (TE1 as built), and a probe is no check; the next check's refresh and every rebuild read it as of then.
     state = load_state(repository, state.lesson_id)
@@ -1425,6 +1608,7 @@ def _teach(vault: Any, repository: Any, state: LessonState, *, clients: Clients,
         # The lesson's envelope refused the next request (§17): the lesson closes with ``budget``.
         _record_budget_close(repository, state, exc)
         _close(vault, repository, state, reason="budget", recap=None, clock=clock, outcome=outcome)
+        _budget_notice(state, outcome)
     finally:
         if outcome.usage["calls"]:
             _append(repository, state, actor="code", action="usage", payload={"usage": dict(outcome.usage)},
@@ -1582,6 +1766,14 @@ def _outline_at(state: LessonState, turn_obj: TeacherTurnV1, index: int) -> list
     return list(outline)
 
 
+def _check_outline(state: LessonState, turn_obj: TeacherTurnV1) -> list[dict[str, Any]]:
+    """The plan a check this turn poses is read against: the turn's own last plan when it writes one (the
+    plan the lesson holds once the turn has run, the one the close's delayed checks read), else the stored plan. The
+    check is minted, forecast, graded and followed up on the one LO this names."""
+
+    return _outline_at(state, turn_obj, len(turn_obj.requests))
+
+
 def _copies_node(state: LessonState, turn_obj: TeacherTurnV1, request: ActionRequestV1) -> bool:
     """Whether :func:`_forecast` copies the request's node into its receipt's key and inputs: every forecast but a
     check forecast with a check open or posed in the turn (its receipt names the check's ref, code-made)."""
@@ -1599,7 +1791,7 @@ def _forecast_lo(state: LessonState, turn_obj: TeacherTurnV1, index: int, reques
         if state.open_check is not None:
             lo = state.open_check.get("learning_object_id")
         elif turn_obj.check is not None:
-            lo = state.node_lo(turn_obj.check.node, outline=_outline_at(state, turn_obj, 0))
+            lo = state.node_lo(turn_obj.check.node, outline=_check_outline(state, turn_obj))
         else:
             lo = None
         if lo:
@@ -1689,11 +1881,28 @@ def _teacher_contract_failure(info: ContractFailure) -> Exception:
     return _BlankTeacherTurn()
 
 
+#: The checkpoint purpose of a teacher's validated turn not yet recorded.
+TURN_CHECKPOINT_PURPOSE = "lesson_teacher_turn"
+
+
+def _turn_checkpoint(repository: Any, state: LessonState, client: Any, model: type, prompt: str) -> Any:
+    """The slot a teacher's answer is saved in the moment it passes its contract, under the request's identity (the
+    lesson, the producing model and the exact first prompt, whose prompt version names the schema), before the turn
+    is guarded and recorded: a crash in between reuses it on resume, so one turn is bought once. A different prompt or
+    model is another request; a saved answer the schema no longer reads is discarded on fetch."""
+
+    from learnloop.ai.execution import ModelCheckpoint, content_key
+
+    key = f"{TURN_CHECKPOINT_PURPOSE}:{state.lesson_id}:" + content_key({"model": _model_name(client),
+                                                                          "prompt": prompt})
+    return ModelCheckpoint(repository, key, TURN_CHECKPOINT_PURPOSE, model.model_validate)
+
+
 def _request_teacher_turn(vault: Any, repository: Any, state: LessonState, client: Any, *, prompt: str,
                           model: type, outcome: _Outcome, clock: Clock | None,
-                          sending: Callable[[str], None] | None = None) -> Any:
+                          sending: Callable[[str], None] | None = None, checkpoint: Any = None) -> Any:
     """``sending``: told each prompt actually sent (the first, then a correction's) at its request start, before its
-    receipt opens."""
+    receipt opens. ``checkpoint``: the request's saved answer (:func:`_turn_checkpoint`), served with no send."""
 
     from learnloop.ai.errors import AIInvalidOutput
     from learnloop.ai.execution import active_request_gate
@@ -1737,7 +1946,7 @@ def _request_teacher_turn(vault: Any, repository: Any, state: LessonState, clien
                            and state.failures < MAX_CONTRACT_FAILURES),
             remaining_seconds=lambda: deadline - time.monotonic(), cancelled=lambda: state.closed,
         ),
-        checkpoint=None, failure=_teacher_contract_failure,
+        checkpoint=checkpoint, failure=_teacher_contract_failure,
     )
 
 
@@ -1772,8 +1981,9 @@ def _call_teacher(vault: Any, repository: Any, state: LessonState, client: Any, 
                         estimates["sent"] = gate.estimate_tokens(client, prompt=text, budget=0)
                 stack.enter_context(C.record_requests(repository, state.lesson_id, projection,
                                                       lambda: estimates["sent"]))
+            checkpoint = _turn_checkpoint(repository, state, client, model, prompt)
             raw = _request_teacher_turn(vault, repository, state, client, prompt=prompt, model=model,
-                                        outcome=outcome, clock=clock, sending=sending)
+                                        outcome=outcome, clock=clock, sending=sending, checkpoint=checkpoint)
     except _BlankTeacherTurn:
         # Both blanks were already counted; the loop may use any remaining slot.
         return None
@@ -1791,11 +2001,13 @@ def _call_teacher(vault: Any, repository: Any, state: LessonState, client: Any, 
     except ValidationError as exc:
         _append(repository, state, actor="teacher", action="teacher_turn", validation="invalid",
                 payload={"reason": "schema", "detail": _schema_detail(exc, model)}, clock=clock)
+        repository.discard_model_checkpoint(checkpoint.key)
         return None
     problem = _contract_problem(state, turn_obj, vault=vault if te2 else None)
     if problem is not None:
         _append(repository, state, actor="teacher", action="teacher_turn", validation="invalid",
                 payload={"reason": "contract", "detail": problem, "turn": wire_data}, clock=clock)
+        repository.discard_model_checkpoint(checkpoint.key)
         return None
     exempt = list(state.minted.values())
     if te2:
@@ -1818,6 +2030,7 @@ def _call_teacher(vault: Any, repository: Any, state: LessonState, client: Any, 
             _append(repository, state, actor="teacher", action="teacher_turn", validation="withheld",
                     payload={"reason": verdict.reason, "detail": f"{name}: {verdict.detail}",
                              "turn": wire_data}, clock=clock)
+            repository.discard_model_checkpoint(checkpoint.key)
             return None
     # The turn as the learner reads it (Codex review F2): a reserved question split across fields (its setup in the
     # message, its ask in the check), each half shorter than the matcher's span, is screened whole. The per-field
@@ -1828,6 +2041,7 @@ def _call_teacher(vault: Any, repository: Any, state: LessonState, client: Any, 
         _append(repository, state, actor="teacher", action="teacher_turn", validation="withheld",
                 payload={"reason": verdict.reason, "detail": f"turn: {verdict.detail}",
                          "turn": wire_data}, clock=clock)
+        repository.discard_model_checkpoint(checkpoint.key)
         return None
     # The ids a row or a receipt copies (and, TE2-log, a detour's hypothesis) are never shown, but they pass the same
     # guards before they are stored (spec §11.9: exam or held-out material is never in a hypothesis), and the
@@ -1841,6 +2055,7 @@ def _call_teacher(vault: Any, repository: Any, state: LessonState, client: Any, 
             _append(repository, state, actor="teacher", action="teacher_turn", validation="withheld",
                     payload={"reason": verdict.reason, "detail": f"{name}: {verdict.detail}",
                              "turn": wire_data}, clock=clock)
+            repository.discard_model_checkpoint(checkpoint.key)
             return None
     # The posed check's solution and rubric are shown by no field, but they become its vault item: the grader's
     # feedback after the answer reads them (and "LearnLoop's answer" quotes the solution), and an ordinary item's
@@ -1852,6 +2067,7 @@ def _call_teacher(vault: Any, repository: Any, state: LessonState, client: Any, 
             _append(repository, state, actor="teacher", action="teacher_turn", validation="withheld",
                     payload={"reason": verdict.reason, "detail": f"{name}: {verdict.detail}",
                              "turn": wire_data}, clock=clock)
+            repository.discard_model_checkpoint(checkpoint.key)
             return None
     # One transaction: the delivered results, the accepted turn and its exposure (reveal rows from every
     # displayed field), so an interruption leaves all of it or none.
@@ -1859,7 +2075,9 @@ def _call_teacher(vault: Any, repository: Any, state: LessonState, client: Any, 
         if deliver:
             _append(repository, state, actor="code", action="results_delivered", payload={"turn_ids": list(deliver)},
                     clock=clock)
-        payload = {"turn": wire_data, "turn_version": TURN_VERSION, "help_reply": bool(help_reply)}
+        payload = {"turn": wire_data, "turn_version": TURN_VERSION, "help_reply": bool(help_reply),
+                   # The model that produced this turn; its recovered effects (a forecast's family) use it.
+                   "model": _model_name(client)}
         if visuals:
             payload["visuals"] = V.VISUALS_VERSION
         if episodes:
@@ -1873,13 +2091,14 @@ def _call_teacher(vault: Any, repository: Any, state: LessonState, client: Any, 
                                                 "\n".join(text for _name, text in displayed), clock=clock)
         entry = _append(repository, state, actor="teacher", action="teacher_turn", validation="ok",
                         payload=payload, clock=clock)
+    repository.discard_model_checkpoint(checkpoint.key)
     if deliver:
         delivered = set(deliver)
         state.pending_results = [r for r in state.pending_results if str(r.get("turn_id")) not in delivered]
     if turn_obj.message:
         outcome.shown.append({"kind": "message", "text": turn_obj.message, "choices": list(turn_obj.choices)})
-    outcome.shown.extend({"kind": "notice", "text": TP.proposal_text(request)} for request in turn_obj.requests
-                         if isinstance(request, CreateGoalLo))
+    outcome.shown.extend({"kind": "notice", "text": TP.proposal_text(request), "_anchors": list(request.anchors)}
+                         for request in turn_obj.requests if isinstance(request, CreateGoalLo))
     return turn_obj, entry
 
 
@@ -2058,7 +2277,8 @@ def _execute(vault: Any, repository: Any, state: LessonState, turn_obj: TeacherT
         state.open_prediction = data
         outcome.shown.append({"kind": "prediction", **data})
     if turn_obj.check is not None and "check" not in done:
-        _pose_check(vault, repository, state, turn_obj.check, outcome=outcome, clock=clock, turn_entry=turn_entry)
+        _pose_check(vault, repository, state, turn_obj.check, outcome=outcome, clock=clock, turn_entry=turn_entry,
+                    outline=_check_outline(state, turn_obj))
     if turn_obj.visual is not None and "visual" not in done:
         # Reader RW5d P4b: the step's figure, built by the host's figure service (a model call, outside
         # any ledger transaction). With no builder now (``lesson.view``), it waits for the next action.
@@ -2099,7 +2319,8 @@ def _execute(vault: Any, repository: Any, state: LessonState, turn_obj: TeacherT
                                          clock=clock)
                 entry = _append(repository, state, actor="code", action="topic_offer", refs=_effect_refs(turn_entry, effect),
                                 payload=offer, clock=clock)
-                outcome.shown.append({"kind": "notice", "text": TP.offer_text(entry)})
+                outcome.shown.append({"kind": "notice", "text": TP.offer_text(entry),
+                                      "_anchors": list(offer.get("anchors") or [])})
             case PR.REQUEST:
                 _serve_probe(vault, repository, state, turn_obj, request, turn_entry=turn_entry, effect=effect,
                              model=model, outcome=outcome, clock=clock)
@@ -2359,8 +2580,9 @@ def _figure_entry(vault: Any, repository: Any, record: Mapping[str, Any]) -> dic
 
 
 def _pose_check(vault: Any, repository: Any, state: LessonState, check: CheckV1, *, outcome: _Outcome,
-                clock: Clock | None, turn_entry: Mapping[str, Any] | None = None) -> None:
-    lo = state.node_lo(check.node)
+                clock: Clock | None, turn_entry: Mapping[str, Any] | None = None,
+                outline: Sequence[Mapping[str, Any]] | None = None) -> None:
+    lo = state.node_lo(check.node, outline=outline)
     if lo is None or lo not in vault.learning_objects:
         lo = (state.brief.get("goal") or {}).get("learning_object_ids", [None])[0]
     check_ref = f"c{len(state.minted) + 1}"
@@ -2432,13 +2654,16 @@ def _forecast(vault: Any, repository: Any, state: LessonState, request: ActionRe
                   "p_a": p_a, "state": recorded, "reference": reference}
         scope, binding, event = "lesson_node", LESSON_COLD_OUTCOME, "cold_success"
     key = f"{kind}:{state.lesson_id}:{node}:{len(state.forecasts) + 1}"
+    # One probability per forecast: the served distribution is built once from the teacher's p, and the
+    # receipt's outcomes, its ``p``, its parameter and the journal all carry those exact values (no rounded copy).
+    p = float(request.p)
+    served = {"success": p, "failure": 1.0 - p}
     receipt = ForecastReceipt(
         receipt_key=key, kind=kind, forecaster="teacher", forecaster_version=family, scope=scope,
         decision_kind="lesson", binding_kind=binding, event=event,
         forecast={"emission_alphabet": ["success", "failure"],
-                  "predicted_outcomes": {"success": round(float(request.p), 8),
-                                         "failure": round(1.0 - float(request.p), 8)}},
-        inputs=inputs, parameters=[{"name": "p", "value": float(request.p), "provenance": "model"}],
+                  "predicted_outcomes": dict(served)},
+        inputs=inputs, parameters=[{"name": "p", "value": p, "provenance": "model"}],
         versions={"doctrine": DOCTRINE_VERSION,
                   # The prompt the forecasting turn was written under (Reader RW5d P4b: with the visuals paragraph;
                   # TE2-log: with the episode paragraph).
@@ -2446,9 +2671,9 @@ def _forecast(vault: Any, repository: Any, state: LessonState, request: ActionRe
                   **({"episodes": E.EPISODES_VERSION} if flags["episodes"] else {}),
                   **({"goal_topics": T2.GOAL_VERSION} if flags["goal_topics"] else {}),
                   **({"te2": T2.TE2_VERSION} if flags["te2"] else {})},
-        inputs_as_of=now, p=float(request.p),
+        inputs_as_of=now, p=served["success"],
         columns={"decision_ref": state.lesson_id, "learning_object_id": lo})
-    data = {"key": key, "kind": kind, "node": node, "p": float(request.p), "learning_object_id": lo,
+    data = {"key": key, "kind": kind, "node": node, "p": served["success"], "learning_object_id": lo,
             "family": family}
     with repository.atomic():
         written = record_receipts(repository, [receipt], vault=vault, clock=clock, created_at=now)
@@ -2612,6 +2837,16 @@ def _lesson_shown(vault: Any, state: LessonState) -> list[str]:
     from learnloop.teacher import delayed as D
 
     return [*state.minted.values(), *D.shown_vault_items(vault, displayed_texts(state))]
+
+
+def _taught(state: LessonState) -> list[str]:
+    """What the lesson showed so far, its words and the passages they cited (a later question's answer is
+    measured against them)."""
+
+    shown = displayed_texts(state)
+    cited = {alias for text in shown for alias in G.cited_aliases(text)}
+    return [*shown, *(str(state.book.passages[alias]["text"]) for alias in sorted(cited)
+                      if alias in state.book.passages)]
 
 
 def displayed_texts(state: LessonState, *, extra: Sequence[str] = ()) -> list[str]:
@@ -2805,6 +3040,79 @@ def _stability_inputs(repository: Any, landed: Sequence[Mapping[str, Any]], rows
 # =============================================================================
 
 
+#: What the screen shows in place of saved words that quote material protected since they were written.
+SHOWN_WITHHELD = "This part is now reserved for an exam."
+#: ... and when what is protected cannot be read (fail closed).
+SHOWN_UNCHECKED = "This part is hidden because LearnLoop couldn't check what's kept for your exams."
+#: The feed entry fields that carry saved words (``choices`` is their list).
+_SHOWN_FIELDS = ("text", "question", "prompt", "recap", "grader_feedback", "statement")
+
+
+class _DisplayScreen:
+    """Today's protection over a lesson's saved words as the screen shows them: a string that quotes a
+    question kept for an exam or held out (``quotes_reserved``, the one predicate) or cites a delivered passage that
+    is no longer teachable is replaced in plain words. The ledger keeps what was written (replay reads it); only the
+    display changes. The learner's own words are shown back as typed."""
+
+    def __init__(self, vault: Any, repository: Any, state: LessonState) -> None:
+        self._vault, self._repository, self._state = vault, repository, state
+        self._reserved = G.reserved_book(vault, repository)
+        self.notice = SHOWN_UNCHECKED if self._reserved.unreadable else SHOWN_WITHHELD
+        self._seen: dict[str, bool] = {}
+        self._library: Any = None
+        self._aliases: dict[str, bool] = {}
+
+    def _alias_ok(self, alias: str) -> bool:
+        from learnloop.source_retrieval.section_coverage import CoverageError, Library
+        from learnloop.teacher.brief import passage_teachable
+
+        if alias not in self._aliases:
+            passage = self._state.book.passages.get(alias)
+            try:
+                if self._library is None:
+                    self._library = Library(self._vault, self._repository)
+                self._aliases[alias] = passage is not None and passage_teachable(
+                    self._library, str(passage["extraction_id"]), str(passage["span_id"]))
+            except CoverageError:
+                self._aliases[alias] = False
+        return self._aliases[alias]
+
+    def withheld(self, text: Any) -> bool:
+        if not isinstance(text, str) or not text:
+            return False
+        if text not in self._seen:
+            self._seen[text] = (G.quotes_reserved(text, self._reserved)
+                                or not all(self._alias_ok(alias) for alias in G.cited_aliases(text)))
+        return self._seen[text]
+
+    def text(self, text: Any) -> Any:
+        return self.notice if self.withheld(text) else text
+
+    def entry(self, entry: Mapping[str, Any]) -> dict[str, Any]:
+        """A feed entry with its saved words screened: a withheld question, prompt or message shows the notice and
+        no choices; a withheld recap or feedback alone is replaced, the rest of its card stays."""
+
+        out = dict(entry)
+        # A topic proposal's passages (its anchors) are shown by no field, but the proposal is about them.
+        anchors = [str(alias) for alias in out.pop("_anchors", None) or []]
+        if out.get("kind") == "learner":
+            return out
+        choices = [str(choice) for choice in out.get("choices") or []]
+        hit = (any(self.withheld(out.get(key)) for key in _SHOWN_FIELDS) or any(map(self.withheld, choices))
+               or not all(self._alias_ok(alias) for alias in anchors))
+        if not hit:
+            return out
+        for key in _SHOWN_FIELDS:
+            if key in ("text", "question", "prompt") and key in out:
+                out[key] = self.notice
+            elif self.withheld(out.get(key)):
+                out[key] = self.notice
+        if "choices" in out:
+            out["choices"] = []
+        out["withheld"] = True
+        return out
+
+
 def view(vault: Any, repository: Any, lesson_id: str, *, outcome: _Outcome | None = None,
          clock: Clock | None = None) -> dict[str, Any]:
     """The lesson as the screen shows it: what was shown, in order, the plan map, the open check
@@ -2835,7 +3143,8 @@ def view(vault: Any, repository: Any, lesson_id: str, *, outcome: _Outcome | Non
                 feed.append(shown)
         elif action == "topic_offer":
             feed.append({"kind": "notice", "text": TP.offer_text(entry, active=not state.closed and
-                                                              entry["id"] not in decided_offers)})
+                                                              entry["id"] not in decided_offers),
+                         "_anchors": list(data.get("anchors") or [])})
         elif action == "topic_refused":
             feed.append({"kind": "notice", "text": data["message"]})
         elif action == "topic_declined":
@@ -2845,8 +3154,8 @@ def view(vault: Any, repository: Any, lesson_id: str, *, outcome: _Outcome | Non
             if turn_data.get("message"):
                 feed.append({"kind": "message", "text": turn_data["message"], "choices": turn_data.get("choices") or []})
             if data.get("goal_topics"):
-                feed.extend({"kind": "notice", "text": TP.proposal_text(request)} for request in _stored_turn(entry).requests
-                            if isinstance(request, CreateGoalLo))
+                feed.extend({"kind": "notice", "text": TP.proposal_text(request), "_anchors": list(request.anchors)}
+                            for request in _stored_turn(entry).requests if isinstance(request, CreateGoalLo))
         elif action == "pose_prediction":
             feed.append({"kind": "prediction", **{k: data.get(k) for k in ("node", "prompt", "choices")}})
         elif action == "pose_check":
@@ -2856,7 +3165,9 @@ def view(vault: Any, repository: Any, lesson_id: str, *, outcome: _Outcome | Non
                          "choices": check.get("choices") or [], "unanchored": not check.get("anchors")})
         elif action in ("learner_reply", "prediction_answer", "check_answer"):
             feed.append({"kind": "learner", "text": data.get("text") or data.get("answer"),
-                         "check_ref": data.get("check_ref")})
+                         "check_ref": data.get("check_ref"), **_unassessed_note(data)})
+        elif action == LIBRARY_LOOKUP:
+            feed.append({"kind": "learner", "text": data.get("command"), "check_ref": None})
         elif action == "check_result":
             feed.append({"kind": "check_result", **{k: data.get(k) for k in (
                 "check_ref", "result", "grader_feedback", "unanchored")},
@@ -2875,33 +3186,44 @@ def view(vault: Any, repository: Any, lesson_id: str, *, outcome: _Outcome | Non
                                                            c.get("learning_object_id") or "") else None),
                                              "purpose": c.get("purpose"), "due": c.get("due")}
                                             for c in data.get("delayed_checks") or [] if c.get("commitment_id")]})
+    screen = _DisplayScreen(vault, repository, state)
+    feed = [screen.entry(entry) for entry in feed]
+    for entry in feed:
+        for check in entry.get("delayed_checks") or []:
+            check["title"] = screen.text(check.get("title"))
     plan = state.plans[-1]["outline"] if state.plans else []
     visited = {str(c.get("node_id")) for c in state.checks if c.get("node_id")}
     current = (state.open_check or {}).get("check", {}).get("node") if state.open_check else None
-    plan_map = [{"id": node["id"], "statement": node.get("statement"),
+    plan_map = [{"id": node["id"], "statement": screen.text(node.get("statement")),
                  "position": "current" if node["id"] == current else (
                      "visited" if node["id"] in visited or node["id"] in state.landed else "upcoming")}
                 for node in plan]
     out = {
         "lesson_id": lesson_id,
-        "goal": (state.brief.get("goal") or {}).get("text"),
+        "goal": screen.text((state.brief.get("goal") or {}).get("text")),
         "learning_object_ids": state.lesson.get("learning_object_ids"),
         "closed": state.closed,
         "close_reason": state.lesson.get("close_reason"),
         "feed": feed,
         "plan": plan_map,
-        "open_check": None if state.open_check is None else {
+        "open_check": None if state.open_check is None else screen.entry({
             "check_ref": state.open_check["check_ref"], "question": state.open_check["check"]["question"],
-            "form": state.open_check["check"]["form"], "choices": state.open_check["check"].get("choices") or []},
-        "open_prediction": state.open_prediction and {k: state.open_prediction.get(k) for k in ("node", "prompt", "choices")},
+            "form": state.open_check["check"]["form"], "choices": state.open_check["check"].get("choices") or [],
+            # An answer submitted before an interruption, shown back so Submit grades the same text.
+            "submitted": _shown_submission(repository, state, str(state.open_check["check_ref"]))}),
+        "open_prediction": state.open_prediction and screen.entry(
+            {k: state.open_prediction.get(k) for k in ("node", "prompt", "choices")}),
         "quick_check": {"learning_object_ids": (state.brief.get("goal") or {}).get("learning_object_ids") or []},
         "inspector": {"doctrine": state.lesson.get("doctrine_version"), "route": state.lesson.get("route"),
                       "model": state.lesson.get("model"), "forecasts": sorted(state.forecasts)},
     }
     if outcome is not None:
-        out["shown_now"] = outcome.shown
+        out["shown_now"] = [screen.entry(entry) for entry in outcome.shown]
         out["notices"] = outcome.notices
         out["vault_changed"] = outcome.vault_changed
+    # A reopened lesson whose recorded step still waits for the teacher (a restart after the reply was saved)
+    # says so, and the screen's Continue answers it with ``resume``.
+    out["awaiting_teacher"] = awaiting_teacher(state)
     if "episodes" in state.capabilities:
         # TE2-log: the screen reports its activity intervals (lesson.activity) only while this is set (after the
         # close its last interval still arrives; the minutes clip every interval to the lesson's own span).
@@ -2912,6 +3234,14 @@ def view(vault: Any, repository: Any, lesson_id: str, *, outcome: _Outcome | Non
 
 
 _TE2_FEED = frozenset({PR.SERVED, PR.ANSWER, PR.RESULT, PR.REFUSED, "goal_lo"})
+
+
+#: Beside an answer kept unassessed (the lesson's spending limit refused its grader).
+UNASSESSED_NOTE = "Saved. This answer wasn't graded."
+
+
+def _unassessed_note(data: Mapping[str, Any]) -> dict[str, str]:
+    return {"note": UNASSESSED_NOTE} if data.get("assessed") is False else {}
 
 
 def _te2_feed_entry(vault: Any, action: str, data: Mapping[str, Any], *, answered: set[str],
@@ -2925,7 +3255,7 @@ def _te2_feed_entry(vault: Any, action: str, data: Mapping[str, Any], *, answere
             return None
         return {"kind": "probe_question", "probe_ref": ref, "question": item.prompt}
     if action == PR.ANSWER:
-        return {"kind": "learner", "text": data.get("answer"), "check_ref": None}
+        return {"kind": "learner", "text": data.get("answer"), "check_ref": None, **_unassessed_note(data)}
     if action == PR.RESULT:
         return {"kind": "probe_result", "probe_ref": data.get("probe_ref"), "result": data.get("result"),
                 "grader_feedback": data.get("grader_feedback")}
@@ -2958,27 +3288,32 @@ def _view_te2(vault: Any, repository: Any, state: LessonState, out: dict[str, An
     served = PR.serve(vault, repository, state.lesson, state.turns, clock=clock)
     if served is not None:
         out["probe"] = {"probe_ref": served["probe_ref"], "status": "open", "label": "A quick question first",
-                        "question": served["question"], "teach_anyway": False}
+                        "question": served["question"], "teach_anyway": False,
+                        "submitted": _shown_submission(repository, state, str(served["probe_ref"]))}
 
 
 def open_lessons(vault: Any, repository: Any) -> list[dict[str, Any]]:
     """Teacher TE2 (§11.8): Today's *Continue your lesson on X*, newest first: every open lesson with its topic in
-    plain words. Nothing closes a lesson on a timer. [] with lessons off (display only, no model call)."""
+    plain words. Nothing closes a lesson on a timer. Listed with lessons off too: an open lesson can still be
+    read and closed (display only, no model call)."""
 
-    if not lessons_active(vault):
-        return []
     out = []
     with repository.connection() as connection:
         rows = connection.execute("SELECT id FROM lessons WHERE closed_at IS NULL ORDER BY opened_at DESC, id DESC"
                                   ).fetchall()
         lessons = [store.lesson(connection, str(row[0])) for row in rows]
+    reserved = G.reserved_book(vault, repository) if lessons else None
     for lesson in lessons:
         if lesson is None:
             continue
         titles = [vault.learning_objects[lo].title for lo in lesson.get("learning_object_ids") or []
                   if lo in vault.learning_objects]
-        out.append({"lesson_id": str(lesson["id"]), "title": ", ".join(titles) or str(lesson.get("goal_text") or ""),
-                    "goal": lesson.get("goal_text"), "opened_at": lesson.get("opened_at"),
+        # The saved goal words pass today's protection, as the lesson's own view shows them.
+        goal = lesson.get("goal_text")
+        if goal and G.quotes_reserved(str(goal), reserved):
+            goal = SHOWN_UNCHECKED if reserved.unreadable else SHOWN_WITHHELD
+        out.append({"lesson_id": str(lesson["id"]), "title": ", ".join(titles) or str(goal or ""),
+                    "goal": goal, "opened_at": lesson.get("opened_at"),
                     "learning_object_ids": list(lesson.get("learning_object_ids") or [])})
     return out
 

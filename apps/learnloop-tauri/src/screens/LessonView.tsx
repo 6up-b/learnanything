@@ -234,8 +234,9 @@ export function LessonView({
         // succeeds (codex review F2): its retry repeats the (idempotent) open.
         const lessonId = typeof saved === "string" && saved ? saved : input.action === "open" ? undefined : input.lessonId;
         if (lessonId) {
-          // The step was saved: resume it, and show what the lesson holds so far.
-          setRetry({ action: "resume", lessonId });
+          // The sidecar says what Try again does: `repeat` when nothing of the failed step was recorded (an
+          // Add whose topic check failed), so the same step is sent again; otherwise the recorded step is resumed.
+          setRetry(details.retry === "repeat" && input.action !== "open" ? input : { action: "resume", lessonId });
           readWhenLive(lessonId);
         } else {
           // Nothing was saved (the opening never reached the teacher): repeat it.
@@ -272,8 +273,12 @@ export function LessonView({
     if (entry.kind === "typed") {
       // TE2: nothing opens until the learner says what they want to learn.
     } else if (entry.kind === "resume") {
-      void api.lessonView({ lessonId: entry.lessonId, ...framed }).then((next) => { if (!cancelled) setView(next); })
-        .catch((error: unknown) => onError(getCommandError(error)?.message ?? String(error)));
+      void api.lessonView({ lessonId: entry.lessonId, ...framed }).then((next) => {
+        if (cancelled) return;
+        setView(next);
+        // A reply saved before a restart still waits for the teacher: Continue answers it.
+        if (next.awaitingTeacher && !next.closed) void run({ action: "resume", lessonId: entry.lessonId });
+      }).catch((error: unknown) => onError(getCommandError(error)?.message ?? String(error)));
     } else {
       void run({ action: "open", entry: entry.entry, learningObjectIds: entry.learningObjectIds ?? [],
                  ...(entry.selection ? { selection: entry.selection } : {}),
@@ -794,6 +799,8 @@ function FeedEntry({ item, openCheckRef, checkOpen, onOpenCheck, windowed }: {
         <div data-testid="lesson-learner" style={{ margin: "10px 0 10px 40px", padding: "8px 12px", border: `1px solid ${COLOR.border}`,
                                                   fontFamily: FONT_MONO, fontSize: 12 }}>
           {item.text}
+          {/* An answer kept when the lesson's spending limit stopped its grading says it didn't count. */}
+          {item.note ? <div data-testid="lesson-learner-note" style={{ color: COLOR.textDim, marginTop: 4 }}>{item.note}</div> : null}
         </div>
       );
     case "check_result":
