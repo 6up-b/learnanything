@@ -198,3 +198,21 @@ def test_an_ordinary_grade_interleaved_with_a_legacy_finish_replays_where_it_was
     finish_exam(vault, repository, session_id, clock=clock)
     assert len(applied) == 3
     assert applied == _replay_order(vault, repository)
+
+
+def test_given_points_row_ids_never_collide_across_attempt_and_criterion_ids():
+    """Review round 4, R4-S8 (FR3-23's residue): the rows recorded for points given without evidence rows are keyed by
+    their attempt and criterion. ``(A:B, C)`` and ``(A, B:C)`` built the same id by concatenation (failed before); an
+    id pair without a colon keeps its id."""
+
+    from learnloop.attempts.attempts import ApplyAttemptInput, AttemptDraft, ResolvedGrade
+    from learnloop.attempts.given_points import given_points_as_evidence
+
+    def ids(attempt_id, criterion_id):
+        grade = ResolvedGrade(rubric_score=1, criterion_points={criterion_id: 1.0}, evidence_rows=[],
+                              error_attributions=[], grader_confidence=1.0, confidence=None, manual_review_reason=None)
+        attempt = ApplyAttemptInput(draft=AttemptDraft("pi", "a"), attempt_id=attempt_id, grade=grade)
+        return [row["id"] for row in given_points_as_evidence(attempt, "2026-10-12T08:00:00Z").grade.evidence_rows]
+
+    assert ids("A:B", "C") != ids("A", "B:C")
+    assert ids("att_1", "correctness") == ["att_1:correctness:given_points"]

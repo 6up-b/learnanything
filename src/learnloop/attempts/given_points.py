@@ -12,6 +12,13 @@ GIVEN_POINTS_LOCAL_GRADER_ID = "given_points"
 GIVEN_POINTS_GRADER_TIER = 0
 
 
+def _part(value: Any) -> str:
+    """One part of a derived row id, escaped so the parts never run together (``%`` and ``:`` percent-encoded): an id
+    with neither keeps its form, and ``(A:B, C)`` and ``(A, B:C)`` name different rows."""
+
+    return str(value).replace("%", "%25").replace(":", "%3A")
+
+
 def given_points_as_evidence(attempt: Any, now_iso: str) -> Any:
     """A live grade that reaches the door with criterion points and no evidence rows gets the given points recorded as
     its rows. Replay reads a grade from ``grading_evidence``; without rows it saw no
@@ -26,7 +33,7 @@ def given_points_as_evidence(attempt: Any, now_iso: str) -> Any:
     rows: list[dict[str, object]] = [
         {
             # Derived from the attempt, never minted: two runs of one journey record the same rows.
-            "id": f"{attempt.attempt_id}:{criterion_id}:{GIVEN_POINTS_LOCAL_GRADER_ID}",
+            "id": f"{_part(attempt.attempt_id)}:{_part(criterion_id)}:{GIVEN_POINTS_LOCAL_GRADER_ID}",
             "criterion_id": criterion_id,
             "points_awarded": float(points),
             "evidence": "Points given with the grade; no grader wrote evidence.",
