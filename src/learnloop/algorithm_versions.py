@@ -1071,6 +1071,8 @@ LESSON_WEIGHT_CURVES_ALGORITHM_VERSION = "mvp-0.72"
 # and every surprise row names its source; a delayed check's draw among tied items is seeded per decision node. One
 # constant: renumbering the tag is this line.
 FORECAST_SCORING_ALGORITHM_VERSION = "mvp-0.73"
+# A bound answer scores the receipt of its recorded selection view and answered revision.
+SELECTED_FORECAST_ALGORITHM_VERSION = "mvp-0.74"
 
 # The linear successor chain on the mvp-0.8 projection namespace, oldest
 # first. Each successor means its predecessor's semantics PLUS its own, so
@@ -1143,6 +1145,7 @@ SUCCESSOR_CHAIN: tuple[str, ...] = (
     LABEL_RETIRED_ALGORITHM_VERSION,
     LESSON_WEIGHT_CURVES_ALGORITHM_VERSION,
     FORECAST_SCORING_ALGORITHM_VERSION,
+    SELECTED_FORECAST_ALGORITHM_VERSION,
 )
 
 
@@ -1338,6 +1341,7 @@ def label_retired(algorithm_version: str | None) -> bool:
 # Versions where surprise is scored from AD's forecast probability directly and a delayed check's tie draw is seeded
 # per decision node. Gates read it through :func:`forecast_scoring_fixed`.
 FORECAST_SCORING_VERSIONS: frozenset[str] = successors_from(FORECAST_SCORING_ALGORITHM_VERSION)
+SELECTED_FORECAST_VERSIONS = successors_from(SELECTED_FORECAST_ALGORITHM_VERSION)
 
 
 def forecast_scoring_fixed(algorithm_version: str | None) -> bool:

@@ -82,9 +82,11 @@ def difficulty_miscalibration_flags(
         expected = _expected_correctness(sample.get("predicted_score_dist_json"))
         if expected is None:
             continue
-        rubric = vault.rubric_for_item(item)
-        max_points = rubric.max_points if rubric is not None else 4
-        observed_y = (sample.get("rubric_score") or 0) / max(max_points, 1)
+        observed_y = sample.get("correctness")
+        if (maximum := sample.get("max_points")) and maximum > 0 and sample.get("rubric_score") is not None:
+            observed_y = sample["rubric_score"] / maximum
+        if observed_y is None:
+            continue
         samples.setdefault(item_id, []).append(observed_y - expected)
         learning_objects[item_id] = sample.get("learning_object_id")
 

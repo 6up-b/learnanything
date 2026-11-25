@@ -359,3 +359,66 @@ def test_a_staged_grade_with_no_reliability_keeps_it_at_the_finish(tmp_path):
         for answer in repository.exam_answers(session_id)
     }
     assert confidences == {"pi_exam_a": 0.0, "pi_exam_b": 1.0}
+
+
+def test_a_failed_exam_link_rolls_back_the_grade_and_retries_the_same_identity(tmp_path, monkeypatch):
+    vault, repo, session = _reserved_and_started(tmp_path)
+    sitting = session["session_id"]
+    record_exam_answer(vault, repo, sitting, "pi_exam_a", answer_md="A", resolved_grade=_grade(4))
+    link = repo.set_exam_answer_attempt_id
+    ids = []
+
+    def interrupted(session_id, item_id, attempt_id):
+        ids.append(attempt_id)
+        raise RuntimeError("interrupted link")
+
+    monkeypatch.setattr(repo, "set_exam_answer_attempt_id", interrupted)
+    with pytest.raises(RuntimeError, match="interrupted link"):
+        finish_exam(vault, repo, sitting, clock=FrozenClock(NOW))
+    assert repo.fetch_practice_attempt(ids[0]) is None
+    monkeypatch.setattr(repo, "set_exam_answer_attempt_id", link)
+    report = finish_exam(vault, repo, sitting, clock=FrozenClock(NOW))
+    assert report["items"][0]["attempt_id"] == ids[0]
+    assert len(repo.list_attempts_by_learning_object(LO_ID)) == 1
+
+
+def test_finisher_rechecks_the_link_after_forecast_preparation(tmp_path, monkeypatch):
+    from learnloop.db.repositories import Repository
+    from learnloop.goals import exam_session
+
+    vault, repo, session = _reserved_and_started(tmp_path)
+    sitting = session["session_id"]
+    record_exam_answer(vault, repo, sitting, "pi_exam_a", answer_md="A", resolved_grade=_grade(4))
+    prepare = exam_session.with_grade_forecast
+    winner = []
+
+    def competing(*args, **kwargs):
+        prepared = prepare(*args, **kwargs)
+        monkeypatch.setattr(exam_session, "with_grade_forecast", prepare)
+        winner.append(finish_exam(vault, Repository(repo.sqlite_path), sitting, clock=FrozenClock(NOW)))
+        return prepared
+
+    monkeypatch.setattr(exam_session, "with_grade_forecast", competing)
+    assert finish_exam(vault, repo, sitting, clock=FrozenClock(NOW)) == winner[0]
+    assert len(repo.list_attempts_by_learning_object(LO_ID)) == 1
+
+
+def test_retry_finishes_the_pipeline_for_an_already_linked_answer(tmp_path, monkeypatch):
+    from learnloop.attempts import post_attempt
+
+    vault, repo, session = _reserved_and_started(tmp_path)
+    sitting = session["session_id"]
+    record_exam_answer(vault, repo, sitting, "pi_exam_a", answer_md="A", resolved_grade=_grade(4))
+
+    def interrupted(*args, **kwargs):
+        raise RuntimeError("interrupted pipeline")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(post_attempt, "run_exam_sitting_pipeline", interrupted)
+        with pytest.raises(RuntimeError, match="interrupted pipeline"):
+            finish_exam(vault, repo, sitting, clock=FrozenClock(NOW))
+    linked = repo.exam_answer(sitting, "pi_exam_a")["attempt_id"]
+    assert repo.attempt_completion(linked)["status"] != "completed"
+    report = finish_exam(vault, repo, sitting, clock=FrozenClock(NOW))
+    assert report["items"][0]["attempt_id"] == linked
+    assert repo.attempt_completion(linked)["status"] == "completed"

@@ -1091,3 +1091,22 @@ def test_rd7_74_a_check_not_due_yet_is_refused_before_a_session_starts(tmp_path)
         IA.preflight(ctx.require_vault()[0], repository, request_id="r1", commitment_id=commitment)
     assert refused.value.code == "not_due"
     assert _rows(paths, "SELECT COUNT(*) FROM sessions") == [(0,)]
+
+
+def test_inline_forecast_uses_the_item_opened_before_an_edit(tmp_path):
+    import json
+    from tests.helpers import set_algorithm_version
+    from learnloop.vault.hashes import item_revision
+
+    paths, ctx, session, repo = _sidecar(tmp_path)
+    set_algorithm_version(paths, "mvp-0.74")
+    ctx.load(paths.root)
+    token = _begin(ctx, session, _due_check(repo))["administrationToken"]
+    vault = ctx.require_vault()[0]
+    opened = vault.practice_items[ITEM]
+    vault.practice_items[ITEM] = opened.model_copy(update={"prompt": "Edited after the check opened."})
+    result = _submit(ctx, token)
+    [(versions,)] = _rows(paths, "SELECT versions_json FROM forecast_receipts WHERE source_attempt_id = ?",
+                          (result["attemptId"],))
+    members = json.loads(versions)["snapshot"]["target"]["target"]["members"]
+    assert [m["revision"] for m in members if m["kind"] == "item"] == [item_revision(opened)[0]]

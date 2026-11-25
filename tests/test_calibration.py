@@ -34,6 +34,7 @@ def _sample(item_id: str, score: int, expected: float | None, lo: str = "lo_svd_
         "practice_item_id": item_id,
         "learning_object_id": lo,
         "rubric_score": score,
+        "max_points": 4,
         "predicted_score_dist_json": json.dumps(dist),
     }
 
@@ -187,3 +188,19 @@ def test_doctor_does_not_flag_a_well_calibrated_item(tmp_path):
     report = run_doctor(root)
     codes = {issue.code for issue in report.issues}
     assert "difficulty:miscalibrated" not in codes
+
+
+def test_doctor_keeps_the_grade_denominator_after_a_rubric_edit(tmp_path):
+    _, vault, repo = _ace_repeatedly(tmp_path, 0.95, 5)
+    before = difficulty_miscalibration_flags(vault, repo)
+    assert before
+    vault.practice_items["pi_mislabeled"].grading_rubric.max_points = 8
+    assert difficulty_miscalibration_flags(vault, repo) == before
+
+
+def test_feedback_uses_the_values_that_decided_the_gate():
+    from learnloop_sidecar.handlers.serializers import surprise_dto
+    row = {"bayesian_surprise": 2, "surprise_direction": "negative",
+           "gate_diagnostics": {"bayesian_surprise": 0, "surprise_direction": "none", "tau_followup_nats": 0.7}}
+    dto = surprise_dto(row, 3)
+    assert (dto["bayesianSurprise"], dto["surpriseDirection"], dto["followupThresholdNats"]) == (0, "none", 0.7)

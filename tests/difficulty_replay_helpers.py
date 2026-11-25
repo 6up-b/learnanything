@@ -76,8 +76,8 @@ def _serve(vault, repository: Repository, item_id: str, index: int, served) -> s
     with repository.connection() as connection:
         connection.execute("INSERT INTO attention_blocks(id, action, budget_minutes, content_hash, created_at) "
                            "VALUES (?, 'practice', 10, 'hash', ?)", (block, _iso(served)))
-        connection.execute("INSERT INTO plan_presentations(id, block_id, practice_item_id, origin, served_at) "
-                           "VALUES (?, ?, ?, 'chooser', ?)", (presentation, block, item_id, _iso(served)))
+        connection.execute("INSERT INTO plan_presentations(id, block_id, practice_item_id, position, origin, served_at) "
+                           "VALUES (?, ?, ?, 1, 'chooser', ?)", (presentation, block, item_id, _iso(served)))
         connection.commit()
     record_plan_serve(vault, repository, presentation_id=presentation, practice_item_id=item_id,
                       served_at=_iso(served))

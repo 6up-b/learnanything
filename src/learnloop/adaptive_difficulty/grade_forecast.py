@@ -13,6 +13,7 @@ Protected material gets none (A8), as at a serve: the view withholds it. Nothing
 from __future__ import annotations
 
 import logging
+from dataclasses import replace
 from typing import Any
 
 from learnloop.adaptive_difficulty import predict as PR
@@ -59,7 +60,7 @@ def _evidence_after(events: Any, at: str) -> bool:
 
 @entry(read_only=True)
 def grade_receipt(vault: Any, repository: Any, *, practice_item_id: str, attempt_id: str, at: str,
-                  view: Any = None) -> ForecastReceipt | None:
+                  answered_item: Any = None, answered_revision: str | None = None, view: Any = None) -> ForecastReceipt | None:
     """AD's subject-view forecast for the answer ``attempt_id`` to ``practice_item_id`` at ``at``, from AD's state
     over everything recorded before it; None when AD is off, the item is protected or unknown to AD's view."""
 
@@ -75,14 +76,16 @@ def grade_receipt(vault: Any, repository: Any, *, practice_item_id: str, attempt
     view = material_view(vault, repository, view)
     if view.withheld(practice_item_id):
         return None
-    item = view.item(practice_item_id)
-    if item is None or view.covers(item):
-        return None
     with closing(connect(repository.sqlite_path, read_only=True)) as connection:
         # One read snapshot for the events, the item's inputs and the warmth: a writer committing meanwhile is seen by
         # none of them or, after the read, by none.
         connection.execute("BEGIN")
         try:
+            item = view.revision(connection, answered_revision) if answered_revision else answered_item
+            if item is None and not answered_revision:
+                item = view.item(practice_item_id)
+            if item is None or item.id != practice_item_id or view.covers(item):
+                return None
             snapshot = RP.snapshot(vault, repository, connection=connection, view=view)
             if _evidence_after(snapshot.events, at):
                 return None
@@ -93,11 +96,22 @@ def grade_receipt(vault: Any, repository: Any, *, practice_item_id: str, attempt
     constants = S.constants_from_config(vault.config)
     state = snapshot.subject
     prediction = PR.predict(state, spec, warmth=warmth, band=constants.band)
+    revision = served_item(vault, item)
     categories, parts = threshold_snapshot(
-        served_item(vault, item), name=GRADE_FORECASTER, mixture="bank", state_hash=snapshot.state_hash(),
+        revision, name=GRADE_FORECASTER, mixture="bank", state_hash=snapshot.state_hash(),
         categories_of=lambda: PR.category_mixture(state, spec, warmth=warmth),
         presentation_kind=GRADED_ATTEMPT, presentation_id=attempt_id, served_at=at, epoch=view.epoch,
         threshold_version=GRADE_FORECAST_VERSION, replay_version=RP.REPLAY_VERSION)
+    if parts is not None:
+        from learnloop.db.evidence_cutoff import Cutoff
+
+        parts = replace(parts, cutoff=Cutoff.ad_replay(at),
+                        source={"attempt_id": attempt_id, "item_revision": revision.content_hash,
+                                "ad_state_hash": snapshot.state_hash(), "replay_version": RP.REPLAY_VERSION,
+                                "spec_and_warmth_read_at": at, "protection_epoch": view.epoch},
+                        target=replace(parts.target, kind=ITEM_UNASSISTED_SUCCESS_AT_GRADE,
+                                       action_kind="grade", action_id=attempt_id, horizon_kind="grade"),
+                        provenance={**parts.provenance, "training_cutoff": {"preset": "ad_replay", "as_of": at}})
     from learnloop.scheduling.voi_forecasts import parameter
 
     return ForecastReceipt(

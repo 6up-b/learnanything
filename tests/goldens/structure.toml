@@ -77,7 +77,7 @@ source_text_assertions = 23
 # joint grading builder's (ids renumbered around those receipts).
 # 305132: the lesson-weight curves (mvp-0.72): the diagnosis journey golden records each graded attempt's
 # attempt_grade_curves row (23 rows) and the tag; no other value moved.
-golden_json_lines = 305132
+golden_json_lines = 305586
 
 [members]
 import_component = [

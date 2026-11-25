@@ -18,6 +18,7 @@ from types import SimpleNamespace
 import pytest
 
 from learnloop.algorithm_versions import (
+    INLINE_CHECK_ALGORITHM_VERSION,
     LATEST_ALGORITHM_VERSION,
     PROBE_ROUTER_ALGORITHM_VERSION,
     SUCCESSOR_CHAIN,
@@ -86,7 +87,7 @@ def _router_rows(repository) -> list[dict]:
 
 def test_the_tag_is_in_the_chain_the_head_keeps_it_and_its_predicate_reads_the_vault_tag_alone():
     # Later tags (the label's retirement, the lesson-weight curves) followed it; the head keeps it.
-    assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(PROBE_ROUTER_ALGORITHM_VERSION) - 1] == BEFORE
+    assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(PROBE_ROUTER_ALGORITHM_VERSION) - 1] == INLINE_CHECK_ALGORITHM_VERSION
     assert LATEST_ALGORITHM_VERSION == SUCCESSOR_CHAIN[-1]
     assert probe_router_on(SimpleNamespace(algorithms=SimpleNamespace(algorithm_version=LATEST_ALGORITHM_VERSION)))
     assert probe_router_on(SimpleNamespace(algorithms=SimpleNamespace(algorithm_version=PROBE_ROUTER_ALGORITHM_VERSION)))

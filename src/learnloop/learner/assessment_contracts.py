@@ -19,6 +19,7 @@ import json
 from typing import Any
 
 from learnloop.algorithm_versions import (
+    SELECTED_FORECAST_VERSIONS,
     KM_ALGORITHM_VERSION,  # noqa: F401  re-exported: other modules import it from here
     P0_ALGORITHM_VERSION,  # noqa: F401  re-exported: other modules import it from here
     REVEAL_LEDGER_ALGORITHM_VERSION,  # noqa: F401  re-exported: other modules import it from here
@@ -26,7 +27,7 @@ from learnloop.algorithm_versions import (
 from learnloop.clock import Clock
 from learnloop.learner.capability_mapping import compile_criterion_targets
 from learnloop.db.stores.source_service import KEY_IDENTITY, KEY_IDENTITY_FIELD
-from learnloop.vault.hashes import reference_content_hash as _reference_content_hash
+from learnloop.vault.hashes import item_revision, reference_content_hash as _reference_content_hash
 from learnloop.vault.models import (
     LearningObject,
     LoadedVault,
@@ -224,6 +225,22 @@ def contract_hash(contract: dict[str, Any]) -> str:
     return _content_hash(contract)
 
 
+def presented_contract_id(repository, attempt_id: str) -> str | None:
+    evidence = repository.fetch_grading_evidence(attempt_id, include_superseded=True)
+    # The presentation's contract: a first grade's rows (revision 0, or a
+    # pre-revision row). From mvp-0.26 a regrade or an adjudication cites the
+    # contract IT graded against under a later revision; that is never the
+    # contract the answer was presented under.
+    return next(
+        (
+            row.assessment_contract_version_id
+            for row in evidence
+            if row.assessment_contract_version_id is not None and (row.grading_revision or 0) == 0
+        ),
+        None,
+    )
+
+
 def snapshot_for_presentation(
     repository,
     vault: LoadedVault,
@@ -239,10 +256,15 @@ def snapshot_for_presentation(
     """
 
     contract = compile_assessment_contract(vault, item, rubric=rubric)
+    snapshot = None
+    if vault.config.algorithms.algorithm_version in SELECTED_FORECAST_VERSIONS:
+        snapshot = item_revision(item)
+        contract["forecast_item_revision"] = snapshot[0]
     digest = contract_hash(contract)
     return repository.ensure_assessment_contract_version(
         practice_item_id=item.id,
         contract_hash=digest,
+        forecast_item_snapshot=snapshot,
         contract_json=json.dumps(contract, sort_keys=True, ensure_ascii=False, separators=(",", ":")),
         schema_version=CONTRACT_SCHEMA_VERSION,
         clock=clock,

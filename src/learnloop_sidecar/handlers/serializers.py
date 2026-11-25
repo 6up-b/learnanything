@@ -1470,16 +1470,14 @@ def mastery_step_dto(
 
 
 def surprise_dto(row: dict[str, Any], followup_threshold_nats: float | None = None) -> dict[str, Any]:
-    # ``followup_threshold_nats`` is one trigger in the broader intervention
-    # gate. It travels with the bundle so the feedback UI can render against
-    # the live config value instead of a hard-coded constant.
+    gate = row.get("gate_diagnostics") or {}
     return to_camel(
         {
             "predictive_surprise": row.get("predictive_surprise"),
-            "bayesian_surprise": row.get("bayesian_surprise"),
-            "surprise_direction": row.get("surprise_direction"),
+            "bayesian_surprise": gate.get("bayesian_surprise", row.get("bayesian_surprise")),
+            "surprise_direction": gate.get("surprise_direction", row.get("surprise_direction")),
             "fsrs_interval_factor": row.get("fsrs_interval_factor"),
-            "followup_threshold_nats": followup_threshold_nats,
+            "followup_threshold_nats": gate.get("tau_followup_nats", followup_threshold_nats),
             "triggered_actions": row.get("triggered_actions") or [],
             "suppressed_actions": row.get("suppressed_actions") or [],
             # Per-attempt record of which trigger/threshold/gate decided the
