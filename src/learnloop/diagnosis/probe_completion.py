@@ -157,14 +157,17 @@ def evaluate_completion(
         # generation need — never blocking ordinary practice on the LO.
         # `no_suitable_candidate` completion is reserved for generation being
         # declined or failing.
+        # A router-owned episode reads its actual supply whatever its answers' quality: an answer that consumed the
+        # last fresh instrument and qualified for no evidence (exposed, held) leaves nothing to ask, so it parks too
+        # (nothing else would ever decide it: the router's continuation finds no instrument).
+        observed = bool(qualifying) or (routed and bool(rows))
         remaining = (
             eligible_instruments(vault, repository, episode, posterior=posterior.posterior)
-            if qualifying
+            if observed
             else []
         )
-        if qualifying and not remaining:
-            repository.update_probe_episode_status(episode.id, status="pending_items", clock=clock)
-            _record_generation_need(vault, repository, episode, posterior.hypothesis_set, clock=clock)
+        if observed and not remaining:
+            park_without_supply(vault, repository, episode, posterior.hypothesis_set, clock=clock)
             return None
         if routed:
             return None
@@ -252,6 +255,17 @@ def evaluate_completion(
         return _complete_on_value_stop(vault, repository, episode, posterior, value_stop,
                                        rules_passed=passed, clock=clock)
     return None
+
+
+def park_without_supply(vault: LoadedVault, repository: Repository, episode: ProbeEpisodeRecord, hypothesis_set: Any,
+                        *, clock: Clock | None = None) -> None:
+    """§10: an unstable episode with no unconsumed instrument left parks in ``pending_items`` with one deduplicated
+    generation need, in one transaction (never one without the other). Completion and the probe router's continuation
+    (when it finds no instrument for a waiting episode) both park through here."""
+
+    with repository.atomic():
+        repository.update_probe_episode_status(episode.id, status="pending_items", clock=clock)
+        _record_generation_need(vault, repository, episode, hypothesis_set, clock=clock)
 
 
 def voi_probe_site_active(vault: LoadedVault) -> bool:

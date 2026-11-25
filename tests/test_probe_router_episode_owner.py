@@ -199,3 +199,39 @@ def test_a_second_factors_acceptance_never_relocks_the_episode_under_the_first_f
     assert case.repository.probe_episode(episode_before.id) == episode_before
     standing = case.repository.active_probe_presentation(episode_before.id)
     assert standing is not None and standing.id == case.offer["presentationId"]
+
+
+# --- an exposed last answer parks the episode (G2-R28) ----------------------------------------------------------------
+
+
+def test_an_exposed_answer_on_the_last_instrument_parks_the_episode_with_one_supply_request(tmp_path, monkeypatch):
+    """The pin is the only fresh instrument left, and feedback on a sibling item exposed the learning object: its
+    answer consumes the surface and qualifies for no evidence. The episode parks (``pending_items``) with one
+    generation need, and the next job leaves it alone."""
+
+    from datetime import timedelta
+
+    from learnloop.attempts.reveal_ledger import record_reveal
+    from learnloop.clock import FrozenClock
+    from learnloop.diagnosis.probe_episodes import effective_episode_observations
+
+    from tests.helpers import NOW as SUBMIT_NOW
+
+    from tests.causal_orchestrator_helpers import LO_ID
+    from tests.probe_router_owned_helpers import SECOND
+
+    case = selected(tmp_path, monkeypatch)
+    case.repository.upsert_practice_item_state(SECOND, active=False)
+    # Shown before the answer (the answer is stamped at the submit helper's clock).
+    assert record_reveal(case.repository, practice_item_id="pi_svd_define_001", learning_object_id=LO_ID,
+                         source_kind="repair_display", amount=1.0, clock=FrozenClock(SUBMIT_NOW - timedelta(minutes=5)))
+    answer_the_pin(case, monkeypatch)
+    rows = effective_episode_observations(case.vault, case.repository, case.offer["episodeId"])
+    assert [row["observation"].eligible_for_completion for row in rows] == [False]
+    episode_id = case.offer["episodeId"]
+    assert case.repository.probe_episode(episode_id).status == "pending_items"
+    assert len(table_rows(case.repository, "probe_generation_needs", "WHERE probe_episode_id = ?",
+                          (episode_id,))) == 1
+    assert PCN.requested(case.vault, case.repository) == []
+    case.ctx.post_attempt_worker.run_pending("probe_router")
+    assert _continuations(case) == [] and case.repository.probe_episode(episode_id).status == "pending_items"

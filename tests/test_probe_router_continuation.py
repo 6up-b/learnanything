@@ -110,8 +110,10 @@ def test_the_continuation_answer_closes_its_block_by_its_pin_and_no_legacy_worth
     assert served["active"] is True
     result = _submit(case.vault, case.repository, item_id=SECOND, presentation_id=served["presentationId"], score=0)
     assert result.probe_block_end is not None
-    # No instrument is left: the episode parks on its evidence rule, as any episode with an empty pool.
-    assert case.repository.probe_episode(case.episode_id).status in ("pending_items", "in_progress", "complete")
+    # No instrument is left: the episode parks with one generation need (it is never left waiting on a decision no
+    # run can make), and the next job leaves it alone.
+    assert case.repository.probe_episode(case.episode_id).status == "pending_items"
+    assert PCN.requested(case.vault, case.repository) == []
 
 
 def test_a_router_stop_completes_the_episode_with_its_own_reason(tmp_path, monkeypatch):

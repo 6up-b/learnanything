@@ -182,6 +182,13 @@ def decide(vault: Any, repository: Any, request: Mapping[str, Any], *, clock: Cl
     built, instrument, why_not = proposal(vault, repository, episode)
     if built is None:
         LOG.info("probe router: no continuation for episode %s (%s)", episode.id, why_not)
+        if why_not == "no_instrument_left":
+            # Nothing left to ask (the supply ran out after the answer, or was protected since): the episode parks
+            # with one generation need instead of waiting for a decision no run can make.
+            from learnloop.diagnosis.probe_completion import park_without_supply
+            from learnloop.diagnosis.probe_episodes import episode_hypothesis_set
+
+            park_without_supply(vault, repository, episode, episode_hypothesis_set(repository, episode), clock=clock)
         return None
     config = vault.config
     now_iso = utc_now_iso(clock)
