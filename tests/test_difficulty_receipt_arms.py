@@ -66,7 +66,7 @@ def test_the_receipt_rule_picks_the_first_bound_attempt_with_a_valid_subject_vie
 def test_the_arms_run_on_scratch_copies_and_the_input_is_never_written(run):
     report = run["report"]
     assert report["arms"][E]["surprise_source"] == "receipt" and report["arms"][F]["surprise_source"] == "receipt"
-    assert report["arms"][F]["applied_overrides"] == {"mastery.irt.difficulty_from_prior": False}
+    assert report["arms"][F]["applied_overrides"] == {"algorithms.algorithm_version": "mvp-0.71"}
     assert report["arms"][E]["applied_overrides"] == {}
     assert report["input_databases_unchanged"] is True
     assert run["after"] == run["before"]
@@ -82,16 +82,23 @@ def test_surprise_reads_the_receipt_and_mastery_never_does(run):
     assert report["comparisons"][E]["queue"]["same_order"] is True
     for arm, mastery_arm in ((E, "a_today"), (F, "b_label_off_mastery")):
         patch = report["arms"][arm]["surprise_patch"]
-        assert patch["tiers"] == {"fallback": len(UNBOUND) + 1, "receipt": len(HISTORY) - len(UNBOUND) - 1}
+        fallback, receipt = ("mastery", "serve_receipt") if arm == F else ("fallback", "receipt")
+        assert patch["tiers"] == {fallback: len(UNBOUND) + 1, receipt: len(HISTORY) - len(UNBOUND) - 1}
         assert patch["outside_grade"] == 0
         for attempt_id, row in values[arm]["surprise"].items():
             entry = receipts[attempt_id]
             if entry["tier"] == "receipt":
                 # The stored prediction is the receipt's p (no receipt-covered attempt here is primed).
-                assert math.isclose(_logit(row["expected_correctness"]), _logit(entry["p"]), abs_tol=1e-9)
+                if arm == F:
+                    assert row["expected_correctness"] == values[mastery_arm]["surprise"][attempt_id]["expected_correctness"]
+                scored = row["p_scored"] if arm == F else row["expected_correctness"]
+                assert math.isclose(_logit(scored), _logit(entry["p"]), abs_tol=1e-9)
             else:
                 # Where no receipt applies the row is the mastery path's own, exactly.
-                assert row == values[mastery_arm]["surprise"][attempt_id]
+                baseline = values[mastery_arm]["surprise"][attempt_id]
+                if arm == F:
+                    baseline = {**baseline, "prediction_source": "mastery", "p_scored": baseline["expected_correctness"]}
+                assert row == baseline
     assert report["comparisons"][E]["surprise"]["changed"] > 0
 
 
@@ -101,18 +108,19 @@ def test_the_receipt_is_compared_with_ads_prediction_replayed_to_the_attempt(run
     assert against["abs_p_difference"]["n"] == against["both"]
 
 
-def test_without_any_receipt_the_arms_are_the_mastery_paths_own(script, run, tmp_path, monkeypatch):
+def test_without_any_receipt_the_arms_are_the_mastery_paths_own(script, tmp_path, monkeypatch):
     forbid_model_clients(monkeypatch)
-    monkeypatch.setattr(script, "receipt_predictions", lambda _connection: {})
-    copy = tmp_path / "none"
-    copy_tree_with_databases(run["paths"].root, copy)
+    copy = build_vault(tmp_path / "none", served=False).root
     arms = {arm.name: arm for arm in script.ARMS}
     report = script.run_four_way(copy, as_of=AS_OF, arms=(arms["a_today"], arms["b_label_off_mastery"], arms[E],
                                                           arms[F]))
     values = report["values"]
-    assert report["arms"][F]["surprise_patch"]["tiers"] == {"fallback": len(HISTORY)}
+    assert report["arms"][F]["surprise_patch"]["tiers"] == {"mastery": len(HISTORY)}
     assert values[E]["surprise"] == values["a_today"]["surprise"]
-    assert values[F]["surprise"] == values["b_label_off_mastery"]["surprise"]
+    assert values[F]["surprise"] == {
+        attempt: {**row, "prediction_source": "mastery", "p_scored": row["expected_correctness"]}
+        for attempt, row in values["b_label_off_mastery"]["surprise"].items()
+    }
 
 
 def test_stdout_reports_the_receipt_counts_and_no_id(script, run, tmp_path, capsys, monkeypatch):
@@ -129,3 +137,26 @@ def test_stdout_reports_the_receipt_counts_and_no_id(script, run, tmp_path, caps
     forbidden |= {item.prompt for item in vault.practice_items.values()} | {"pp_h3_", "blk_h3_"}
     assert not [token for token in forbidden if token in printed]
     assert "receipts: tiers" in printed and "above the follow-up threshold" in printed
+
+
+@pytest.mark.parametrize("version", ["mvp-0.71", "mvp-0.72"])
+def test_arm_f_matches_production_with_all_three_receipt_sources(tmp_path, script, monkeypatch, version):
+    from learnloop.adaptive_difficulty import surprise_forecast
+    from tests.ux_phase1_support import set_config
+
+    forbid_model_clients(monkeypatch)
+    real = surprise_forecast.safe_grade_receipt
+
+    def sometimes_missing(*args, **kwargs):
+        return None if kwargs["practice_item_id"] == HISTORY[UNBOUND[0]][0] else real(*args, **kwargs)
+
+    monkeypatch.setattr(surprise_forecast, "safe_grade_receipt", sometimes_missing)
+    paths = build_vault(tmp_path / "vault", served=True, version=version)
+    set_config(paths.root, {("mastery", "irt", "difficulty_default"): 1.5})
+    report = script.run_four_way(paths.root, as_of=AS_OF, arms=(script.ARMS[0], script.ARMS[-1]))
+    expected = report["values"]["a_today"]
+    actual = report["values"][F]
+    assert actual["surprise"] == expected["surprise"]
+    assert actual["mastery"] == expected["mastery"]
+    assert {r["prediction_source"] for r in actual["surprise"].values()} == {"serve_receipt", "grade_receipt", "mastery"}
+    assert set(report["arms"][F]["surprise_patch"]["tiers"]) == {"serve_receipt", "grade_receipt", "mastery"}

@@ -59,3 +59,24 @@ Follow `algorithm-mvp-0.71.md`'s procedure with `--to mvp-0.73` and a predecesso
 - every row's source is named, so `none (below the tag)` is 0 after the upgrade.
 
 `label_retirement_counts.py compare` prints the counts.
+
+## The owner-copy run (Nov 25 2026, orchestrator; counts only)
+
+The procedure on backup-API copies of the three floor-set vaults walked to `mvp-0.72` with this tip, one copy each
+upgraded to `mvp-0.73`. The copies were deleted afterwards; every original's `sha256sum -c` read OK.
+
+| | vault 1 | vault 2 | vault 3 |
+|---|---|---|---|
+| surprise rows, all with source `mastery` before and after | 3 | 70 | 3 |
+| surprise changed; direction changed | 0 of 3; 0 | 0 of 70; 0 | 0 of 3; 0 |
+| mastery changed; due items moved | 0 of 34; 0 of 32 | 0 of 21; 0 of 99 | 0 of 18; 0 of 77 |
+| queue Spearman, top-10 overlap | 1.0, 10 | 1.0, 10 | 1.0, 10 |
+| grade-time receipts; AD rows with KL / trained subject rows | 0; 0 / 0 | 0; 28 / 28 | 0; 1 / 1 |
+| integrity; foreign-key violations | ok; 0 | ok; 0 | ok; 0 |
+
+- Nothing moves, as expected: no copy holds a serve or grade receipt that scores a surprise row, and all three run
+  with the IRT link on, so none of the tag's three changes is reached by this history. The run shows the upgrade is
+  inert on such a vault; the changed scoring is covered by the tests only.
+- The two shadow rebuilds after the upgrade differ only in the marker id and the as-of time; against the predecessor's
+  shadow report only the version fields and the database hashes differ.
+- The doctor exits 1 on each copy on the content errors that predate these tags.

@@ -290,3 +290,21 @@ def test_a_joint_update_reports_its_kl_as_unmeasured_not_zero():
     record = M.UpdateRecord(np.zeros(1), np.ones(1), np.ones(1), np.full(1, 0.5), np.ones((1, 3)) / 3, np.zeros(1),
                             np.zeros(1), rank_one=False)
     assert observation_kl(None, record) == {"unsupported": "joint_update"}
+
+
+def test_grade_snapshot_names_the_answer_and_its_cutoff(served):
+    from learnloop.adaptive_difficulty.grade_forecast import grade_receipt
+    from learnloop.adaptive_difficulty.feature_audit import item_revision
+
+    _, vault, repo = served
+    at = "2027-01-15T00:00:00Z"
+    item = vault.practice_items["pi_eig_mid"]
+    receipt = grade_receipt(vault, repo, practice_item_id=item.id, attempt_id="answer", at=at)
+    parts = receipt.snapshot
+    assert (parts.target.action_kind, parts.target.action_id, parts.target.horizon_kind) == ("grade", "answer", "grade")
+    assert parts.source["attempt_id"] == "answer"
+    assert parts.source["item_revision"] == item_revision(item)[0]
+    assert parts.source["protection_epoch"]
+    assert "item_serve_inputs" not in parts.source
+    assert parts.cutoff.time("as_of") == at
+    assert parts.provenance["training_cutoff"]["as_of"] == at

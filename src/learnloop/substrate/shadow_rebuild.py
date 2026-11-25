@@ -82,6 +82,8 @@ class ShadowRebuildResult:
     #: append history; the rebuild's own receipt (``derived_state_rebuilds``) and first-run backfills show here.
     ledger_rows_added: Mapping[str, int] = field(default_factory=dict)
 
+    forecast_digests: Mapping[str, Any] = field(default_factory=dict)
+
     @property
     def live_database_unchanged(self) -> bool:
         return self.live_database_sha256_before == self.live_database_sha256_after
@@ -101,6 +103,7 @@ class ShadowRebuildResult:
             "learner_state_diff": dict(self.learner_state_diff),
             "followup_gate_records": dict(self.followup_gate_records),
             "ledger_rows_added": dict(self.ledger_rows_added),
+            "forecast_digests": dict(self.forecast_digests),
         }
 
 
@@ -319,6 +322,7 @@ def shadow_rebuild(
     try:
         live_repository = Repository.attach(live_path, read_only=True)
         baseline_snapshot = _learner_state_snapshot(live_repository)
+        forecasts_before = _forecast_digests(live_repository)
         gate_before = _gate_records(live_repository)
         ledgers_before = _ledger_counts(live_repository)
         if observe is not None:
@@ -335,6 +339,7 @@ def shadow_rebuild(
                     scratch_repository,
                 )
                 candidate_snapshot = _learner_state_snapshot(scratch_repository)
+                forecasts_after = _forecast_digests(scratch_repository)
                 gate_after = _gate_records(scratch_repository)
                 ledgers_after = _ledger_counts(scratch_repository)
                 if observe is not None:
@@ -366,6 +371,7 @@ def shadow_rebuild(
         schedule_after=candidate_snapshot["schedule"],
         observed_before=observed_before,
         observed_after=observed_after,
+        forecast_digests={"before": forecasts_before, "after": forecasts_after},
         followup_gate_records=_gate_records_diff(gate_before, gate_after),
         ledger_rows_added={name: ledgers_after.get(name, 0) - count for name, count in ledgers_before.items()
                            if ledgers_after.get(name, 0) != count},
@@ -458,6 +464,31 @@ def _gate_records(repository: Repository) -> dict[str, tuple[Any, ...]]:
             return {}
         return {str(row[0]): tuple(row[1:]) for row in connection.execute(
             f"SELECT attempt_id, {', '.join(GATE_RECORD_COLUMNS)} FROM attempt_surprise")}
+
+
+def _forecast_digests(repository: Repository) -> dict[str, str]:
+    """One digest per family, in stable identity order with JSON values decoded before hashing."""
+
+    queries = (
+        ("surprise", "attempt_surprise", "SELECT * FROM attempt_surprise ORDER BY attempt_id", ()),
+        ("grade_receipts", "forecast_receipts", "SELECT * FROM forecast_receipts WHERE kind = ? ORDER BY receipt_key",
+         ("item_unassisted_success_at_grade",)),
+        ("subject_kl", "ad_attempt_trace", "SELECT attempt_id, json_extract(detail_json, '$.kl_observation') "
+         "AS observation_json FROM ad_attempt_trace WHERE view = 'subject' ORDER BY attempt_id", ()),
+    )
+    digests = {}
+    with closing(repository.connection()) as connection:
+        present = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
+        for family, table, sql, args in queries:
+            digest = hashlib.sha256()
+            if table in present:
+                for row in connection.execute(sql, args):
+                    record = {key: json.loads(row[key]) if key.endswith("_json") and row[key] is not None else row[key]
+                              for key in row.keys()}
+                    digest.update(json.dumps(record, sort_keys=True, separators=(",", ":")).encode())
+                    digest.update(b"\n")
+            digests[family] = digest.hexdigest()
+    return digests
 
 
 def _ledger_counts(repository: Repository) -> dict[str, int]:

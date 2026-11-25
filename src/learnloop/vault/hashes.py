@@ -70,3 +70,14 @@ def skeleton_content_hash(prompt: str, expected_answer: str | dict[str, Any]) ->
 def activity_family_hash(family: ActivityFamily) -> str:
     """Authored family content has its own revision hash, never the item hash."""
     return content_hash(family.model_dump(mode="json"))
+
+
+def item_revision(item: PracticeItem) -> tuple[str, str]:
+    """``(content_hash, item_json)``: the revision's ``practice_item_snapshots`` serialization.
+
+    The same full-item serialization the scheduler's decision features write
+    (``scheduling.scheduler``'s snapshot of a scored revision; a test pins the
+    two equal), so one revision has one hash whichever path stored it."""
+
+    item_json = json.dumps(item.model_dump(mode="json"), sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return hashlib.sha256(item_json.encode("utf-8")).hexdigest(), item_json

@@ -1264,9 +1264,18 @@ class AttemptStoreMixin:
                        a.practice_item_id AS practice_item_id,
                        a.learning_object_id AS learning_object_id,
                        a.rubric_score AS rubric_score,
+                       a.correctness AS correctness,
+                       json_extract(c.contract_json, '$.rubric_max_points') AS max_points,
                        s.predicted_score_dist_json AS predicted_score_dist_json
                 FROM practice_attempts a
                 JOIN attempt_surprise s ON s.attempt_id = a.id
+                LEFT JOIN (
+                    SELECT attempt_id, MIN(assessment_contract_version_id) AS contract_id
+                    FROM grading_evidence WHERE superseded_at IS NULL GROUP BY attempt_id
+                    HAVING COUNT(assessment_contract_version_id) = COUNT(*)
+                       AND COUNT(DISTINCT assessment_contract_version_id) = 1
+                ) g ON g.attempt_id = a.id
+                LEFT JOIN assessment_contract_versions c ON c.id = g.contract_id
                 ORDER BY a.created_at
                 """
             ).fetchall()
@@ -1629,6 +1638,7 @@ class AttemptStoreMixin:
         contract_json: str,
         schema_version: int,
         clock: Clock | None = None,
+        forecast_item_snapshot: tuple[str, str] | None = None,
     ) -> str:
         """Content-addressed assessment-contract snapshot (§5.2), idempotent.
 
@@ -1647,6 +1657,12 @@ class AttemptStoreMixin:
             ).fetchone()
             if existing is not None:
                 return existing["id"]
+            if forecast_item_snapshot is not None:
+                from learnloop.db.stores.ad_receipts import insert_item_snapshot
+
+                revision, item_json = forecast_item_snapshot
+                insert_item_snapshot(connection, content_hash_value=revision, practice_item_id=practice_item_id,
+                                     item_json=item_json, created_at=utc_now_iso(clock))
             version_id = new_ulid()
             connection.execute(
                 """

@@ -203,3 +203,50 @@ def test_a_live_database_that_changes_during_the_run_is_refused(tmp_path):
         shadow_rebuild(vault, observe=write_to_live)
     # The control: the same hook that only reads passes.
     assert shadow_rebuild(vault, observe=lambda _vault, _repository: None).live_database_unchanged
+
+
+def test_shadow_compares_canonical_surprise_receipt_and_subject_kl(tmp_path, monkeypatch):
+    from learnloop.substrate import shadow_rebuild as module
+    from tests.difficulty_replay_helpers import build_vault
+
+    paths = build_vault(tmp_path / "shadow", version="mvp-0.71")
+    vault = load_vault(paths.root)
+    real = module.rebuild_all_derived_state
+    first = shadow_rebuild(vault).as_dict()["forecast_digests"]
+
+    def altered(loaded, repo):
+        result = real(loaded, repo)
+        with repo.connection() as conn:
+            conn.execute("UPDATE attempt_surprise SET predicted_score_dist_json = "
+                         "json_set(predicted_score_dist_json, '$.prediction_source', 'mastery')")
+            conn.execute("UPDATE ad_attempt_trace SET detail_json = json_set(detail_json, '$.kl_observation.total', 17)"
+                         " WHERE view = 'subject'")
+            conn.commit()
+        return result
+
+    monkeypatch.setattr(module, "rebuild_all_derived_state", altered)
+    second = shadow_rebuild(vault).as_dict()["forecast_digests"]
+    assert first["before"] == second["before"]
+    assert first["after"]["grade_receipts"] == second["after"]["grade_receipts"] == first["before"]["grade_receipts"]
+    for family in ("surprise", "subject_kl"):
+        assert first["after"][family] != second["after"][family]
+
+
+def test_grade_receipt_digest_ignores_json_layout_and_detects_same_count_value_changes(tmp_path):
+    from learnloop.substrate.shadow_rebuild import _forecast_digests
+
+    repo = Repository.attach(tmp_path / "digest.sqlite")
+    with repo.connection() as connection:
+        connection.execute("CREATE TABLE forecast_receipts(receipt_key, kind, forecast_json, p)")
+        connection.execute("INSERT INTO forecast_receipts VALUES "
+                           "('a', 'item_unassisted_success_at_grade', ?, 0.2)", ('{"p":0.2,"status":"ok"}',))
+        connection.commit()
+    first = _forecast_digests(repo)
+    with repo.connection() as connection:
+        connection.execute("UPDATE forecast_receipts SET forecast_json = ?", ('{ "status": "ok", "p": 0.2 }',))
+        connection.commit()
+    assert _forecast_digests(repo) == first
+    with repo.connection() as connection:
+        connection.execute("UPDATE forecast_receipts SET p = 0.3")
+        connection.commit()
+    assert _forecast_digests(repo)["grade_receipts"] != first["grade_receipts"]

@@ -25,10 +25,12 @@ from typing import Any
 
 from learnloop.clock import Clock, FrozenClock, SystemClock, parse_utc, utc_now_iso
 from learnloop.db.repositories import Repository
-from learnloop.ids import new_ulid
+from learnloop.ids import keyed_ulid, new_ulid
 from learnloop.attempts.attempts import (
+    with_grade_forecast,
     ApplyAttemptInput,
     AttemptDraft,
+    AttemptResult,
     GradeAttribution,
     ResolvedGrade,
     apply_attempt,
@@ -568,7 +570,6 @@ def finish_exam(
     # staged answer writes no item state, so a sitting left unfinished moves no
     # clock, and anchoring at submission instead would change review timing.
     base_instant = clock.now().astimezone(UTC).replace(microsecond=0)
-    applied_results = []
     for index, answer in enumerate(answers):
         if answer.get("attempt_id"):
             continue
@@ -584,55 +585,54 @@ def finish_exam(
             attempt_type="exam_attempt",
             hints_used=0,
         )
-        attempt_id = new_ulid()
-        # Dual-write BEFORE applying: ``apply_attempt`` ends by running the
-        # canonical projection, which joins the grade interpretation to the
-        # attempt by attempt id. An interpretation written afterwards — or under
-        # a different id — is invisible to that fold and certifies nothing.
-        item = vault.practice_items.get(item_id)
-        if item is not None:
-            rubric = vault.rubric_for_item(item)
-            _dual_write_exam_grade(
-                vault,
-                repository,
-                item=item,
-                rubric=rubric,
-                max_points=rubric.max_points if rubric is not None else 4,
-                answer_md=answer_md,
-                resolved_grade=grade,
-                attempt_id=attempt_id,
-                grader_identity=_stored_grader_identity(answer["grade"]),
-                clock=attempt_clock,
-            )
-        applied = apply_attempt(
-            vault,
-            repository,
-            # Q33: applied at the sitting's own instants (``serve_eligibility``).
-            ApplyAttemptInput(draft=draft, attempt_id=attempt_id, grade=grade, reveal_window_bounded=True),
-            clock=attempt_clock,
-        )
-        applied_results.append(applied)
-        repository.set_exam_answer_attempt_id(session_id, item_id, attempt_id)
+        attempt_id = keyed_ulid(answer["id"], f"exam_answer:{answer['id']}")
+        prepared = with_grade_forecast(vault, repository, ApplyAttemptInput(
+            draft=draft, attempt_id=attempt_id, grade=grade, reveal_window_bounded=True), clock=attempt_clock)
+        with repository.atomic():
+            if repository.exam_answer(session_id, item_id)["attempt_id"]:
+                continue
+            # Dual-write BEFORE applying: ``apply_attempt`` ends by running the
+            # canonical projection, which joins the grade interpretation to the
+            # attempt by attempt id. An interpretation written afterwards — or under
+            # a different id — is invisible to that fold and certifies nothing.
+            item = vault.practice_items.get(item_id)
+            if item is not None:
+                rubric = vault.rubric_for_item(item)
+                _dual_write_exam_grade(
+                    vault,
+                    repository,
+                    item=item,
+                    rubric=rubric,
+                    max_points=rubric.max_points if rubric is not None else 4,
+                    answer_md=answer_md,
+                    resolved_grade=grade,
+                    attempt_id=attempt_id,
+                    grader_identity=_stored_grader_identity(answer["grade"]),
+                    clock=attempt_clock,
+                )
+            apply_attempt(vault, repository, prepared, forecast_prepared=True, clock=attempt_clock)
+            repository.set_exam_answer_attempt_id(session_id, item_id, attempt_id)
 
-    if applied_results:
-        # The one post-attempt pipeline every recording door runs. Exam-purpose
-        # gating: same evidence-side steps as practice (needs, causal hooks,
-        # certification cold probes), insertion capped per sitting, and
-        # learner-facing feedback deferred to the report below — the pipeline
-        # writes the metadata the report reads.
-        from learnloop.attempts.post_attempt import run_exam_sitting_pipeline
+    from learnloop.attempts.post_attempt import attempt_completion_lock, run_exam_sitting_pipeline
 
-        run_exam_sitting_pipeline(
-            vault, repository, results=applied_results, followup_surface=followup_surface, clock=clock
-        )
-
-    report = _compute_report(vault, repository, session, goal, withdrawn=withdrawn)
-    completed_at = utc_now_iso(clock)
-    repository.update_exam_session(
-        session_id, status="completed", report=report, completed_at=completed_at, clock=clock
-    )
-    release_exam_pool(repository, session["goal_id"], clock=clock)
-    return report
+    with attempt_completion_lock(repository.sqlite_path):
+        standing = repository.exam_session(session_id)
+        if standing["status"] == "completed":
+            return standing["report"]
+        # A retry after the link commit still owes the sitting its post-attempt work.
+        results = []
+        for answer in repository.exam_answers(session_id):
+            work = repository.attempt_completion(answer["attempt_id"])
+            if work and work.get("result"):
+                results.append(AttemptResult.from_dict(work["result"]))
+        if results:
+            run_exam_sitting_pipeline(vault, repository, results=results, followup_surface=followup_surface, clock=clock)
+        with repository.atomic():
+            report = _compute_report(vault, repository, session, goal, withdrawn=withdrawn)
+            repository.update_exam_session(session_id, status="completed", report=report,
+                                           completed_at=utc_now_iso(clock), clock=clock)
+            release_exam_pool(repository, session["goal_id"], clock=clock)
+        return report
 
 
 def _compute_report(vault: LoadedVault, repository: Repository, session, goal, *,

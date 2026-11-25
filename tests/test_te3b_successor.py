@@ -27,7 +27,7 @@ OLD = LESSON_OPPORTUNITY_ALGORITHM_VERSION
 def test_the_successor_is_one_constant_after_te3a_and_the_latest():
     assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1] == OLD == "mvp-0.52"
     # Phone V3's successor (mvp-0.54) follows it and keeps it.
-    assert TAG == "mvp-0.53" == SUCCESSOR_CHAIN[-22] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.75"
+    assert TAG == "mvp-0.53" == SUCCESSOR_CHAIN[-23] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.75"
 
 
 def test_the_gate_reads_on_and_off_with_the_objective_or_lessons_off(tmp_path):

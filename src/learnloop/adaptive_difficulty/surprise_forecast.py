@@ -1,15 +1,10 @@
 """What an answer's surprise is scored against, from the difficulty label's retirement on
 (``docs/reviews/algorithm-mvp-0.71.md``).
 
-Adaptive difficulty's forecast made before the answer, in this order:
-
-1. **the serve-time receipt** of the answer's plan presentation (the subject view's ``ad_threshold@subject``, or
-   ``ad_threshold_repeat@subject`` for a repeat), when the answer binds that presentation (the attempt door's own
-   rule: the presentation exists, is the item's and no other answer took it), the receipt is ``ok``, has a
-   probability and read nothing after the serve;
-2. else **the grade-time receipt** (``adaptive_difficulty.grade_forecast``), which the grade records for every
-   answer: live, the one computed just before this grade's write; on replay and on a regrade, the one recorded then;
-3. else none: surprise reads mastery's own prediction, as it did, and its row says so.
+From the selected-forecast tag a bound answer uses the recorded AD slot view's first-serve or repeat receipt.
+An unverifiable presentation or missing selected forecast leaves surprise on mastery. An unbound answer uses its
+own grade-time receipt where one exists. Earlier label-retirement tags prefer the subject view and then the grade
+receipt. The surprise row records the source.
 
 Replay reads receipts and never AD's state, so a rebuild reproduces the live row whatever AD has become; an answer
 graded before the tag has no grade-time receipt and falls back to mastery, marked. AD's own module, called by the
@@ -20,13 +15,14 @@ reads only receipts.
 
 from __future__ import annotations
 
+import json
 from contextlib import closing
 from dataclasses import dataclass, replace
 from typing import Any
 
 from learnloop.adaptive_difficulty.grade_forecast import receipt_id, safe_grade_receipt
 from learnloop.adaptive_difficulty.grade_forecast import receipt_key as grade_receipt_key
-from learnloop.algorithm_versions import label_retired
+from learnloop.algorithm_versions import SELECTED_FORECAST_VERSIONS, label_retired
 from learnloop.clock import utc_now_iso
 from learnloop.db.connection import connect
 from learnloop.db.stores import forecast_receipts as receipts
@@ -41,7 +37,7 @@ from learnloop.scheduling.forecast_receipts import (
 SERVE_RECEIPT = "serve_receipt"
 GRADE_RECEIPT = "grade_receipt"
 MASTERY = "mastery"
-#: The serve-time forecasters surprise reads: the subject view, the view serving reads.
+#: Earlier label-retirement tags always read the subject forecaster.
 SERVE_FORECASTERS = ("ad_threshold@subject", "ad_threshold_repeat@subject")
 
 
@@ -72,8 +68,23 @@ def with_grade_forecast(vault: Any, repository: Any, attempt: Any, *, clock: Any
     at = utc_now_iso(clock)
     if _revised_after(repository, at):
         return attempt
+    kwargs = {}
+    if vault.config.algorithms.algorithm_version in SELECTED_FORECAST_VERSIONS:
+        draft = attempt.draft
+        if draft.assessment_contract_version_id:
+            revision = _contract_revision(repository, draft.assessment_contract_version_id)
+            if not revision:
+                return attempt
+            kwargs["answered_revision"] = revision
+        else:
+            kwargs["answered_item"] = vault.practice_items.get(draft.practice_item_id)
     return replace(attempt, grade_forecast=safe_grade_receipt(
-        vault, repository, practice_item_id=attempt.draft.practice_item_id, attempt_id=attempt.attempt_id, at=at))
+        vault, repository, practice_item_id=attempt.draft.practice_item_id, attempt_id=attempt.attempt_id, at=at, **kwargs))
+
+
+def _contract_revision(repository: Any, version_id: str) -> str | None:
+    stored = repository.fetch_assessment_contract_version(version_id)
+    return ((stored or {}).get("contract") or {}).get("forecast_item_revision")
 
 
 def _revised_after(repository: Any, at: str) -> bool:
@@ -100,7 +111,89 @@ def record_grade_forecast(vault: Any, repository: Any, receipt: Any) -> None:
                     new_id=lambda: receipt_id(attempt_id))
 
 
-def read_surprise_forecast(vault: Any, repository: Any, draft: Any, *, attempt_id: str) -> SurpriseForecast | None:
+def _serve_forecasts(connection: Any, presentation: dict[str, Any], selected: bool) -> list[dict[str, Any]]:
+    presentation_id = presentation["id"]
+    names = SERVE_FORECASTERS
+    selected_lo = expected = None
+    if selected:
+        from learnloop.db.stores.ad_serving import selection_by_key
+
+        block, position = presentation["block_id"], presentation["position"]
+        item = presentation["practice_item_id"]
+        draw = selection_by_key(connection, f"serve:{block}:{position}")
+        if (not draw or draw["kind"] != "serve" or draw["block_id"] != block or draw["slot_position"] != position
+                or draw["chosen_item_id"] != item or draw["created_at"] > presentation["served_at"] or draw["empty_support"]):
+            return []
+        if draw["view"] != "subject":
+            selected_lo = draw["learning_object_id"]
+            if not selected_lo or draw["view"] != f"lo:{selected_lo}":
+                return []
+            names = ("ad_threshold@lo", "ad_threshold_repeat@lo")
+        if draw["support"]:
+            expected = next((entry.get("p_bar") for entry in draw["support"] if isinstance(entry, dict) and entry.get("ref") == item), None)
+            if expected is None:
+                return []
+    rows = receipts.presentation_forecasts(connection, presentation_id, kind=ITEM_UNASSISTED_SUCCESS, forecasters=names)
+    # Scored.as_dict freezes the probability to twelve decimal places in the draw's support.
+    return [row for row in rows if (selected_lo is None or row["learning_object_id"] == selected_lo)
+            and (expected is None or (row["p"] is not None and round(row["p"], 12) == expected))]
+
+
+def _receipt_revision(row: dict[str, Any] | None) -> str | None:
+    if not row:
+        return None
+    try:
+        target = json.loads(row["versions_json"]).get("snapshot", {}).get("target", {}).get("target") or {}
+        revision = next((m["revision"] for m in target.get("members", ())
+                         if m["kind"] == "item" and m["id"] == row["practice_item_id"]), None)
+        return revision or json.loads(row.get("inputs_json") or "{}").get("item_revision")
+    except (ValueError, KeyError, TypeError, AttributeError):
+        return None
+
+
+def _serve_input_revision(connection: Any, presentation_id: str) -> str | None:
+    row = connection.execute("SELECT content_hash FROM item_serve_inputs WHERE receipt_key = ?",
+                             (f"plan_presentation:{presentation_id}",)).fetchone()
+    return row[0] if row else None
+
+
+def _matches_administration(presentation: dict[str, Any], draft: Any) -> bool:
+    return ((presentation["session_id"] is None or presentation["session_id"] == draft.session_id)
+            and presentation["probe_presentation_id"] == draft.probe_presentation_id
+            and not (draft.submission_id or "").startswith("inline:"))
+
+
+def validate_live_binding(vault: Any, repository: Any, attempt: Any) -> Any:
+    """Drop a refused link and its prepared forecast together so replay also finds the marked fallback."""
+    draft = attempt.draft
+    if (attempt.replace_existing or not draft.plan_presentation_id
+            or vault.config.algorithms.algorithm_version not in SELECTED_FORECAST_VERSIONS):
+        return attempt
+    with repository.connection() as connection:
+        bound, _ = bindable_presentation(connection, draft.plan_presentation_id, practice_item_id=draft.practice_item_id,
+                                         attempt_id=attempt.attempt_id)
+        presentation = presentation_by_id(connection, bound) if bound else None
+        if presentation and _matches_administration(presentation, draft):
+            rows = receipts.presentation_forecasts(connection, bound, kind=ITEM_UNASSISTED_SUCCESS,
+                                                    forecasters=(*SERVE_FORECASTERS, "ad_threshold@lo",
+                                                                 "ad_threshold_repeat@lo"))
+            revisions = {_receipt_revision(row) for row in rows} - {None}
+            if input_revision := _serve_input_revision(connection, bound):
+                revisions.add(input_revision)
+            if not rows and not revisions:
+                return attempt
+            if draft.assessment_contract_version_id:
+                revision = _contract_revision(repository, draft.assessment_contract_version_id)
+            else:
+                from learnloop.vault.hashes import item_revision
+                revision = item_revision(vault.practice_items[draft.practice_item_id])[0]
+            if revisions == {revision}:
+                return attempt
+    return replace(attempt, draft=replace(draft, plan_presentation_id=None), grade_forecast=None)
+
+
+def read_surprise_forecast(vault: Any, repository: Any, draft: Any, *, attempt_id: str,
+                           replay: bool = False, answered_revision: str | None = None) -> SurpriseForecast | None:
     """The forecast this answer's surprise is scored against, or None (mastery's own prediction). Below the label's
     retirement always None: the predecessor's surprise exactly. It reads only stored receipts, live, on a regrade and on
     replay alike."""
@@ -109,21 +202,40 @@ def read_surprise_forecast(vault: Any, repository: Any, draft: Any, *, attempt_i
         return None
     practice_item_id, plan_presentation_id = draft.practice_item_id, draft.plan_presentation_id
     with repository.connection() as connection:
+        selected = vault.config.algorithms.algorithm_version in SELECTED_FORECAST_VERSIONS
+        grade = receipts.attempt_forecast(connection, attempt_id, kind=ITEM_UNASSISTED_SUCCESS_AT_GRADE,
+                                          receipt_key=grade_receipt_key(attempt_id))
+        if selected and replay and answered_revision is None:
+            if (draft.submission_id or "").startswith("inline:"):
+                return None
+            answered_revision = _receipt_revision(grade)
         bound, _why = bindable_presentation(connection, plan_presentation_id, practice_item_id=practice_item_id,
                                             attempt_id=attempt_id)
         if bound is not None:
-            served_at = str((presentation_by_id(connection, bound) or {}).get("served_at") or "")
-            for row in receipts.presentation_forecasts(connection, bound, kind=ITEM_UNASSISTED_SUCCESS,
-                                                       forecasters=SERVE_FORECASTERS):
+            presentation = presentation_by_id(connection, bound)
+            served_at = presentation["served_at"]
+            if selected and not _matches_administration(presentation, draft):
+                return None
+            input_revision = _serve_input_revision(connection, bound) if selected else None
+            for row in _serve_forecasts(connection, presentation, selected):
+                if selected:
+                    revision = _receipt_revision(row) or input_revision
+                    if (not revision or (input_revision and revision != input_revision)
+                            or (replay and revision != answered_revision)):
+                        continue
                 if _usable(row, practice_item_id) and valid_for_serve(row, served_at):
                     return SurpriseForecast(float(row["p"]), SERVE_RECEIPT, str(row["receipt_key"]),
                                             str(row["forecaster"]))
-        row = receipts.attempt_forecast(connection, attempt_id, kind=ITEM_UNASSISTED_SUCCESS_AT_GRADE,
-                                        receipt_key=grade_receipt_key(attempt_id))
+            if selected:
+                return None
+        if selected and (plan_presentation_id or not _receipt_revision(grade)
+                         or (answered_revision and _receipt_revision(grade) != answered_revision)):
+            return None
+        row = grade
     if _usable(row, practice_item_id):
         return SurpriseForecast(float(row["p"]), GRADE_RECEIPT, str(row["receipt_key"]), str(row["forecaster"]))
     return None
 
 
 __all__ = ["GRADE_RECEIPT", "MASTERY", "SERVE_FORECASTERS", "SERVE_RECEIPT", "SurpriseForecast",
-           "read_surprise_forecast", "record_grade_forecast", "with_grade_forecast"]
+           "read_surprise_forecast", "record_grade_forecast", "validate_live_binding", "with_grade_forecast"]

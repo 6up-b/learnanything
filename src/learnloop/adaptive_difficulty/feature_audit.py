@@ -33,7 +33,6 @@ from __future__ import annotations
 from learnloop.adaptive_difficulty.logs import warn_failure
 from learnloop.adaptive_difficulty.operation import entry
 
-import hashlib
 import json
 import logging
 from collections.abc import Callable, Mapping, Sequence
@@ -47,6 +46,7 @@ from learnloop.ai.execution import content_key
 from learnloop.ai.schemas import WireModel
 from learnloop.ai.spend import SpendLimitExceeded
 from learnloop.ai.transport import render_structured_prompt
+from learnloop.vault.hashes import item_revision as item_revision
 from learnloop.clock import Clock, parse_utc, utc_now_iso
 from learnloop.db.connection import connect
 from learnloop.db.stores import ad_receipts as store
@@ -123,17 +123,6 @@ _PREAMBLE = ("Judge only from the question and its reference answer below, as wr
              "built, not how hard it is for anyone.")
 #: One audit's paid-call bounds (the ask, a retry): runaway-loop bounds, not money.
 _CAPS = dict(max_candidates=0, max_pairs=0, max_retries=1, max_calls=2, max_total_tokens=60_000)
-
-
-def item_revision(item: Any) -> tuple[str, str]:
-    """``(content_hash, item_json)``: the revision's ``practice_item_snapshots`` serialization.
-
-    The same full-item serialization the scheduler's decision features write
-    (``scheduling.scheduler``'s snapshot of a scored revision; a test pins the
-    two equal), so one revision has one hash whichever path stored it."""
-
-    item_json = json.dumps(item.model_dump(mode="json"), sort_keys=True, separators=(",", ":"), ensure_ascii=False)
-    return hashlib.sha256(item_json.encode("utf-8")).hexdigest(), item_json
 
 
 def _answer_text(item: Any) -> str:

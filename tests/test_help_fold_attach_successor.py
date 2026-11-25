@@ -39,7 +39,7 @@ PREDECESSOR = TEACHER_ALGORITHM_VERSION
 
 def test_mvp042_is_one_constant_after_mvp041_and_the_latest():
     # Teacher TE1b's mvp-0.43 follows it as the latest (and keeps it).
-    assert SUCCESSOR_CHAIN[-34:-32] == (PREDECESSOR, TAG) == ("mvp-0.41", "mvp-0.42")
+    assert SUCCESSOR_CHAIN[-35:-33] == (PREDECESSOR, TAG) == ("mvp-0.41", "mvp-0.42")
     assert LATEST_ALGORITHM_VERSION == SUCCESSOR_CHAIN[-1] == "mvp-0.75"
 
 

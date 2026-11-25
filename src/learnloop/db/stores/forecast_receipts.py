@@ -134,7 +134,7 @@ def presentation_forecasts(connection: sqlite3.Connection, presentation_id: str,
         return []
     marks = ", ".join("?" for _ in forecasters)
     rows = connection.execute(
-        f"SELECT receipt_key, forecaster, status, p, practice_item_id, inputs_as_of FROM {TABLE} "
+        f"SELECT receipt_key, forecaster, status, p, practice_item_id, learning_object_id, inputs_as_of, versions_json, inputs_json FROM {TABLE} "
         f"WHERE plan_presentation_id = ? AND kind = ? AND forecaster IN ({marks}) ORDER BY created_at, id",
         (presentation_id, kind, *forecasters)).fetchall()
     order = {name: index for index, name in enumerate(forecasters)}
@@ -149,7 +149,7 @@ def attempt_forecast(connection: sqlite3.Connection, attempt_id: str, *, kind: s
     if not has_table(connection):
         return None
     row = connection.execute(
-        f"SELECT receipt_key, forecaster, status, p, practice_item_id, inputs_as_of, kind, source_attempt_id "
+        f"SELECT receipt_key, forecaster, status, p, practice_item_id, inputs_as_of, versions_json, kind, source_attempt_id "
         f"FROM {TABLE} WHERE receipt_key = ?", (receipt_key,)).fetchone()
     if row is None or row["kind"] != kind or str(row["source_attempt_id"]) != str(attempt_id):
         return None

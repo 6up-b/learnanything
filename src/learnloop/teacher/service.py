@@ -1258,11 +1258,18 @@ def _answer_check(vault: Any, repository: Any, state: LessonState, payload: Mapp
     # The pool's forecaster is the one that made the forecast being mixed in (its doctrine and model).
     family = str((retained or {}).get("family") or _family_of(state.lesson.get("model")))
     correct_forecast = _latest_forecast(state, "lesson_check_correct", open_check["check_ref"])
+    prepared = CK.prepare_check_attempt(vault, repository, item=item, attempt_id=attempt_id, answer=answer,
+                                        grade=grade, grading_source=clients.grading_source, grading_run_id=run_id,
+                                        tap=tap, clock=clock)
     # The weighing, its recorded prior and the check's own application read one state: another
     # process's grade on this learning object commits wholly before the weighing or after the check is recorded.
     # The check's instant is read under the writer lock and is its attempt's too: an answer another process applied
     # while this one waited for the lock is before the check, by its stamp as by the state the check read.
     with repository.atomic():
+        current = load_state(repository, state.lesson_id)
+        if (current.closed or current.open_check != open_check
+                or repository.fetch_practice_attempt(attempt_id) is not None):
+            raise LessonError("stale_check", "This question closed. Reopen the lesson to see what’s next.")
         as_of = utc_now_iso(clock)
         reference = None
         if retained is not None:
@@ -1275,8 +1282,7 @@ def _answer_check(vault: Any, repository: Any, state: LessonState, payload: Mapp
                              reference=reference)
         CK.record_answered_check(
             vault, repository, lesson_id=state.lesson_id, node_id=node_id, check_ref=open_check["check_ref"],
-            item=item, attempt_id=attempt_id, answer=answer, grade=grade, grading_run_id=run_id,
-            grading_source=clients.grading_source, tap=tap, mass=mass, created_at=as_of,
+            item=item, prepared=prepared, tap=tap, mass=mass, created_at=as_of,
             forecast_correct_key=(correct_forecast or {}).get("key"),
             forecast_retained_key=(retained or {}).get("key"), clock=FrozenClock(_parse_utc(as_of)))
     if "episodes" in state.capabilities:
@@ -1318,6 +1324,8 @@ def _answer_probe(vault: Any, repository: Any, state: LessonState, payload: Mapp
     try:
         PR.record_answer(vault, repository, state.lesson, probe, answer=answer, tap=tap,
                          grading_client=clients.grading(), grading_source=clients.grading_source, clock=clock)
+    except PR.StaleProbe as exc:
+        raise LessonError("stale_probe", str(exc)) from exc
     except LessonError:
         raise
     except Exception as exc:  # noqa: BLE001 - the probe stays open; the learner can submit again

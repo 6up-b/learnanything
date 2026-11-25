@@ -450,3 +450,17 @@ mvp-0.73 ([algorithm-mvp-0.73.md](algorithm-mvp-0.73.md)): H3-R9, H3-R10 and H3-
 - H3-R18: with H-6.
 - H3-R20: historical displays.
 - The rest of H3-R21: shadow digests of the H3 outputs.
+
+### Second review fix round
+
+- H3-R6. The owner chose option (a). At mvp-0.74 the selected view determines surprise on first serves and repeats. A missing selection or selected receipt gives the marked mastery fallback.
+- H3-R7. At mvp-0.74 presentation binding checks the session, probe administration and answered revision. New assessment contracts identify the full item snapshot used by the grade forecaster.
+- H3-R8. Exam finish derives the attempt ID from the sitting answer and commits the grade with the link after a locked recheck.
+- H3-R16. Lesson checks and probes prepare once before the outer writer and verify that the question is still unanswered under the lock.
+- H3-R17. New grade snapshots identify the attempt, item revision, cutoff and protection epoch.
+- H3-R13 and the L4-2 four-way re-review. Arm (f) uses production replay. Both score pairs and the actual source are available in the private report.
+- H3-R21. Shadow reports carry canonical digests for surprise rows, grade receipts and subject KL details.
+- H3-R20. The doctor uses the frozen rubric or recorded correctness. Historical feedback uses the recorded gate inputs.
+- L4-2 router predecessor. The chain assertion names the inline-check tag explicitly.
+
+The owner-copy procedure and replay boundary are in [the mvp-0.74 record](algorithm-mvp-0.74.md).

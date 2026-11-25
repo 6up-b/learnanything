@@ -52580,7 +52580,7 @@
 "assessment_contract_versions": {
 "added": [
 {
-"contract_hash": "0d92a3e1d5b0a849b3c0c6cd99bd3c52",
+"contract_hash": "0284efa3e73a496ffcafbc1f4d5fe143",
 "contract_json": {
 "assistance": {
 "max_useful_hints": 1
@@ -52614,6 +52614,7 @@
 "misconception_id": null
 }
 ],
+"forecast_item_revision": "45a66c0609ac37c22fd4a156dd53c5bc88967ae2dcd072944c29856e6846ae5c",
 "item_content_hash": "59ccb2ec540b9d8be7f82fc3367b255b",
 "learning_object_id": "lo_svd_definition",
 "practice_item_id": "pi_svd_define_001",
@@ -53386,8 +53387,8 @@
 "cutoff": {
 "admission": "occurred_by",
 "anchor": {
-"id": null,
-"kind": "none"
+"id": "2026-05-19T12:00:00Z",
+"kind": "moment"
 },
 "approximate": [],
 "availability": "created_at",
@@ -53425,7 +53426,9 @@
 "preset": "ad_replay",
 "schema": "evidence_cutoff/1",
 "tie_order": "(created_at, id)",
-"times": {}
+"times": {
+"as_of": "2026-05-19T12:00:00Z"
+}
 },
 "inputs_as_of": {
 "original": "2026-05-19T12:00:00Z",
@@ -53434,7 +53437,8 @@
 },
 "source": {
 "ad_state_hash": "4c60e4e155f9f0f0ea08c1d2d59c0bfd82c7bfde040b97c94ab2b79954186080",
-"item_serve_inputs": "graded_attempt:att_held_probe",
+"attempt_id": "att_held_probe",
+"item_revision": "45a66c0609ac37c22fd4a156dd53c5bc88967ae2dcd072944c29856e6846ae5c",
 "protection_epoch": "8bc3a9ecfe5b0b45c6b12e36336eb35e4e9b9e4d343a585b969aa388fb874d56",
 "replay_version": "ad_replay_v1",
 "spec_and_warmth_read_at": "2026-05-19T12:00:00Z"
@@ -53467,8 +53471,7 @@
 "version": "ad_priors_v1"
 },
 "training_cutoff": {
-"as_of": null,
-"note": "the state replays every readable event at the serve",
+"as_of": "2026-05-19T12:00:00Z",
 "preset": "ad_replay"
 }
 },
@@ -53478,8 +53481,8 @@
 "stated_by": "producer",
 "target": {
 "action": {
-"id": "pi_svd_define_001",
-"kind": "serve"
+"id": "att_held_probe",
+"kind": "grade"
 },
 "anchor": {
 "id": "att_held_probe",
@@ -53487,10 +53490,10 @@
 },
 "event_version": "ad_category:ad_priors_v1",
 "horizon": {
-"kind": "presentation",
+"kind": "grade",
 "value": null
 },
-"kind": "item_unassisted_success",
+"kind": "item_unassisted_success_at_grade",
 "members": [
 {
 "id": "recall",
@@ -53521,7 +53524,7 @@
 "schema": "prediction_target/1",
 "unit": "ad_category3"
 },
-"target_hash": "sha256:f72646efca68874d131e93001e3827d5ba914b60b7112e4dc99239e6f1cd0755",
+"target_hash": "sha256:cad617ebb0b5be4e11f04ba97437f2e40bd962ba199d1a3da02580b510bea0e6",
 "unversioned": []
 }
 }
@@ -53631,6 +53634,108 @@
 "subject": "linear-algebra",
 "submission_id": null,
 "updated_at": "2026-05-19T12:00:00Z"
+}
+]
+},
+"practice_item_snapshots": {
+"added": [
+{
+"content_hash": "45a66c0609ac37c22fd4a156dd53c5bc88967ae2dcd072944c29856e6846ae5c",
+"created_at": "2026-05-19T12:00:00Z",
+"item_json": {
+"attempt_types_allowed": [
+"independent_attempt",
+"hinted_attempt",
+"dont_know"
+],
+"capability": null,
+"contrast_of": null,
+"created_at": "2026-05-19T12:00:00Z",
+"criterion_facet_weights": {},
+"differing_component": null,
+"difficulty": 0.55,
+"difficulty_source": null,
+"discrimination_profiles": [],
+"error_hunt": null,
+"evidence_facets": [
+"recall"
+],
+"evidence_fingerprint": {
+"answer_structure": null,
+"representation": null,
+"shared_stimulus_id": null,
+"solution_recipe_family": null,
+"source_family": null
+},
+"evidence_weights": {
+"recall": 1.0
+},
+"expected_answer": "A matrix factorization into U, Sigma, and V transpose.",
+"grading_rubric": {
+"criteria": [
+{
+"correlation_group": null,
+"depends_on": [],
+"description": "Correct definition.",
+"id": "correctness",
+"measurement_status": null,
+"points": 4.0,
+"recipe_ids": [],
+"targets": [],
+"tier": "core"
+}
+],
+"fatal_errors": [
+{
+"description": "Confuses SVD with a different decomposition.",
+"id": "conceptual_slip",
+"max_grade": 1,
+"misconception_id": null
+}
+],
+"max_points": 4
+},
+"hint_policy": {
+"coverage_surface_dampening_by_hint": {},
+"fsrs_rating_cap_by_hint": {
+"1": "good"
+},
+"mastery_alpha_dampening_by_hint": {
+"1": 0.5
+},
+"max_useful_hints": 1
+},
+"hints": [
+"Name the three factors."
+],
+"id": "pi_svd_define_001",
+"laddered_stem": null,
+"learning_object_id": "lo_svd_definition",
+"misconception_consistent_answer": null,
+"practice_mode": "short_answer",
+"prompt": "Define SVD.",
+"provenance": {
+"origin": "human",
+"source_refs": []
+},
+"repair_targets": [],
+"retrieval_demand": null,
+"scaffold_level": null,
+"schema_version": 1,
+"status": "active",
+"status_reason": null,
+"subjects": null,
+"surface_family": null,
+"tags": [],
+"task_feature_schema": null,
+"task_features": null,
+"teach_back_source": null,
+"trace_contract": null,
+"transfer_distance": null,
+"updated_at": "2026-05-19T12:00:00Z",
+"variant_contract": null
+},
+"practice_item_id": "pi_svd_define_001"
 }
 ]
 },
@@ -55996,8 +56101,8 @@
 "cutoff": {
 "admission": "occurred_by",
 "anchor": {
-"id": null,
-"kind": "none"
+"id": "2026-05-19T12:00:00Z",
+"kind": "moment"
 },
 "approximate": [],
 "availability": "created_at",
@@ -56035,7 +56140,9 @@
 "preset": "ad_replay",
 "schema": "evidence_cutoff/1",
 "tie_order": "(created_at, id)",
-"times": {}
+"times": {
+"as_of": "2026-05-19T12:00:00Z"
+}
 },
 "inputs_as_of": {
 "original": "2026-05-19T12:00:00Z",
@@ -56044,7 +56151,8 @@
 },
 "source": {
 "ad_state_hash": "4c60e4e155f9f0f0ea08c1d2d59c0bfd82c7bfde040b97c94ab2b79954186080",
-"item_serve_inputs": "graded_attempt:<id:1>",
+"attempt_id": "<id:1>",
+"item_revision": "45a66c0609ac37c22fd4a156dd53c5bc88967ae2dcd072944c29856e6846ae5c",
 "protection_epoch": "8bc3a9ecfe5b0b45c6b12e36336eb35e4e9b9e4d343a585b969aa388fb874d56",
 "replay_version": "ad_replay_v1",
 "spec_and_warmth_read_at": "2026-05-19T12:00:00Z"
@@ -56077,8 +56185,7 @@
 "version": "ad_priors_v1"
 },
 "training_cutoff": {
-"as_of": null,
-"note": "the state replays every readable event at the serve",
+"as_of": "2026-05-19T12:00:00Z",
 "preset": "ad_replay"
 }
 },
@@ -56088,8 +56195,8 @@
 "stated_by": "producer",
 "target": {
 "action": {
-"id": "pi_svd_define_001",
-"kind": "serve"
+"id": "<id:1>",
+"kind": "grade"
 },
 "anchor": {
 "id": "<id:1>",
@@ -56097,10 +56204,10 @@
 },
 "event_version": "ad_category:ad_priors_v1",
 "horizon": {
-"kind": "presentation",
+"kind": "grade",
 "value": null
 },
-"kind": "item_unassisted_success",
+"kind": "item_unassisted_success_at_grade",
 "members": [
 {
 "id": "recall",
@@ -60010,8 +60117,8 @@ null
 "cutoff": {
 "admission": "occurred_by",
 "anchor": {
-"id": null,
-"kind": "none"
+"id": "2026-05-19T12:00:00Z",
+"kind": "moment"
 },
 "approximate": [],
 "availability": "created_at",
@@ -60049,7 +60156,9 @@ null
 "preset": "ad_replay",
 "schema": "evidence_cutoff/1",
 "tie_order": "(created_at, id)",
-"times": {}
+"times": {
+"as_of": "2026-05-19T12:00:00Z"
+}
 },
 "inputs_as_of": {
 "original": "2026-05-19T12:00:00Z",
@@ -60058,7 +60167,8 @@ null
 },
 "source": {
 "ad_state_hash": "4c60e4e155f9f0f0ea08c1d2d59c0bfd82c7bfde040b97c94ab2b79954186080",
-"item_serve_inputs": "graded_attempt:<id:76>",
+"attempt_id": "<id:76>",
+"item_revision": "235a97202a0d142836cab385c82b3e8c701c98abb0e59a2f575425c63f23d736",
 "protection_epoch": "8bc3a9ecfe5b0b45c6b12e36336eb35e4e9b9e4d343a585b969aa388fb874d56",
 "replay_version": "ad_replay_v1",
 "spec_and_warmth_read_at": "2026-05-19T12:00:00Z"
@@ -60091,8 +60201,7 @@ null
 "version": "ad_priors_v1"
 },
 "training_cutoff": {
-"as_of": null,
-"note": "the state replays every readable event at the serve",
+"as_of": "2026-05-19T12:00:00Z",
 "preset": "ad_replay"
 }
 },
@@ -60102,8 +60211,8 @@ null
 "stated_by": "producer",
 "target": {
 "action": {
-"id": "pi_svd_define_002",
-"kind": "serve"
+"id": "<id:76>",
+"kind": "grade"
 },
 "anchor": {
 "id": "<id:76>",
@@ -60111,10 +60220,10 @@ null
 },
 "event_version": "ad_category:ad_priors_v1",
 "horizon": {
-"kind": "presentation",
+"kind": "grade",
 "value": null
 },
-"kind": "item_unassisted_success",
+"kind": "item_unassisted_success_at_grade",
 "members": [
 {
 "id": "recall",
@@ -63084,7 +63193,7 @@ null
 "assessment_contract_versions": {
 "added": [
 {
-"contract_hash": "df04030e503923b7715f2d08f345c1d1",
+"contract_hash": "d08768a9e2ef8eca586ab40869799194",
 "contract_json": {
 "assistance": {
 "max_useful_hints": 0
@@ -63128,6 +63237,7 @@ null
 "evidence_fingerprint": {},
 "expected_answer": "U Sigma V^T",
 "fatal_errors": [],
+"forecast_item_revision": "e342b7a4b92871663435171259a0785539383775c59ecdf7ac83d23205d9be3d",
 "item_content_hash": "3b55a5f1fe0a5ca97a34997e5c841528",
 "learning_object_id": "lo_svd_compute",
 "practice_item_id": "pi_svd_compute_001",
@@ -66276,8 +66386,8 @@ null
 "cutoff": {
 "admission": "occurred_by",
 "anchor": {
-"id": null,
-"kind": "none"
+"id": "2026-05-01T19:00:00Z",
+"kind": "moment"
 },
 "approximate": [],
 "availability": "created_at",
@@ -66315,7 +66425,9 @@ null
 "preset": "ad_replay",
 "schema": "evidence_cutoff/1",
 "tie_order": "(created_at, id)",
-"times": {}
+"times": {
+"as_of": "2026-05-01T19:00:00Z"
+}
 },
 "inputs_as_of": {
 "original": "2026-05-01T19:00:00Z",
@@ -66324,7 +66436,8 @@ null
 },
 "source": {
 "ad_state_hash": "4c60e4e155f9f0f0ea08c1d2d59c0bfd82c7bfde040b97c94ab2b79954186080",
-"item_serve_inputs": "graded_attempt:<id:1>",
+"attempt_id": "<id:1>",
+"item_revision": "e342b7a4b92871663435171259a0785539383775c59ecdf7ac83d23205d9be3d",
 "protection_epoch": "8bc3a9ecfe5b0b45c6b12e36336eb35e4e9b9e4d343a585b969aa388fb874d56",
 "replay_version": "ad_replay_v1",
 "spec_and_warmth_read_at": "2026-05-01T19:00:00Z"
@@ -66357,8 +66470,7 @@ null
 "version": "ad_priors_v1"
 },
 "training_cutoff": {
-"as_of": null,
-"note": "the state replays every readable event at the serve",
+"as_of": "2026-05-01T19:00:00Z",
 "preset": "ad_replay"
 }
 },
@@ -66368,8 +66480,8 @@ null
 "stated_by": "producer",
 "target": {
 "action": {
-"id": "pi_svd_compute_001",
-"kind": "serve"
+"id": "<id:1>",
+"kind": "grade"
 },
 "anchor": {
 "id": "<id:1>",
@@ -66377,10 +66489,10 @@ null
 },
 "event_version": "ad_category:ad_priors_v1",
 "horizon": {
-"kind": "presentation",
+"kind": "grade",
 "value": null
 },
-"kind": "item_unassisted_success",
+"kind": "item_unassisted_success_at_grade",
 "members": [
 {
 "id": "compute",
@@ -69111,6 +69223,122 @@ null
 }
 ]
 },
+"practice_item_snapshots": {
+"added": [
+{
+"content_hash": "e342b7a4b92871663435171259a0785539383775c59ecdf7ac83d23205d9be3d",
+"created_at": "2026-05-01T19:00:00Z",
+"item_json": {
+"attempt_types_allowed": [
+"independent_attempt",
+"hinted_attempt",
+"dont_know"
+],
+"capability": null,
+"contrast_of": null,
+"created_at": "2026-05-19T12:00:00Z",
+"criterion_facet_weights": {},
+"differing_component": null,
+"difficulty": 0.5,
+"difficulty_source": null,
+"discrimination_profiles": [],
+"error_hunt": null,
+"evidence_facets": [
+"recall",
+"compute"
+],
+"evidence_fingerprint": {
+"answer_structure": null,
+"representation": null,
+"shared_stimulus_id": null,
+"solution_recipe_family": null,
+"source_family": null
+},
+"evidence_weights": {
+"compute": 1.0,
+"recall": 1.0
+},
+"expected_answer": "U Sigma V^T",
+"grading_rubric": {
+"criteria": [
+{
+"correlation_group": null,
+"depends_on": [],
+"description": "setup is right.",
+"id": "setup",
+"measurement_status": null,
+"points": 2.0,
+"recipe_ids": [],
+"targets": [
+{
+"capability": "procedure_execution",
+"facet": "compute",
+"role": "primary"
+}
+],
+"tier": "core"
+},
+{
+"correlation_group": null,
+"depends_on": [],
+"description": "result is right.",
+"id": "result",
+"measurement_status": null,
+"points": 2.0,
+"recipe_ids": [],
+"targets": [
+{
+"capability": "retrieval",
+"facet": "recall",
+"role": "primary"
+}
+],
+"tier": "core"
+}
+],
+"fatal_errors": [],
+"max_points": 4
+},
+"hint_policy": {
+"coverage_surface_dampening_by_hint": {},
+"fsrs_rating_cap_by_hint": {},
+"mastery_alpha_dampening_by_hint": {},
+"max_useful_hints": 0
+},
+"hints": [
+"Think about it."
+],
+"id": "pi_svd_compute_001",
+"laddered_stem": null,
+"learning_object_id": "lo_svd_compute",
+"misconception_consistent_answer": null,
+"practice_mode": "short_answer",
+"prompt": "Write the SVD of A.",
+"provenance": {
+"origin": "human",
+"source_refs": []
+},
+"repair_targets": [],
+"retrieval_demand": null,
+"scaffold_level": null,
+"schema_version": 1,
+"status": "active",
+"status_reason": null,
+"subjects": null,
+"surface_family": "svd_compute",
+"tags": [],
+"task_feature_schema": null,
+"task_features": null,
+"teach_back_source": null,
+"trace_contract": null,
+"transfer_distance": null,
+"updated_at": "2026-05-19T12:00:00Z",
+"variant_contract": null
+},
+"practice_item_id": "pi_svd_compute_001"
+}
+]
+},
 "practice_item_state": {
 "added": [
 {
@@ -70090,7 +70318,7 @@ null
 "assessment_contract_versions": {
 "added": [
 {
-"contract_hash": "bc360c90b72abe7f422914f8515512b7",
+"contract_hash": "d3b10876cabed9d575881525e64d5e50",
 "contract_json": {
 "assistance": {
 "max_useful_hints": 0
@@ -70134,6 +70362,7 @@ null
 "evidence_fingerprint": {},
 "expected_answer": "U Sigma V^T",
 "fatal_errors": [],
+"forecast_item_revision": "2ae346d21b093df22804544b93ff82fcfd2ec0a42f89c9918fe37b89208070dc",
 "item_content_hash": "34d8a4eeeef837039eb398394298b3cd",
 "learning_object_id": "lo_svd_compute",
 "practice_item_id": "pi_svd_compute_002",
@@ -73641,8 +73870,8 @@ null
 "cutoff": {
 "admission": "occurred_by",
 "anchor": {
-"id": null,
-"kind": "none"
+"id": "2026-05-01T21:00:00Z",
+"kind": "moment"
 },
 "approximate": [],
 "availability": "created_at",
@@ -73680,7 +73909,9 @@ null
 "preset": "ad_replay",
 "schema": "evidence_cutoff/1",
 "tie_order": "(created_at, id)",
-"times": {}
+"times": {
+"as_of": "2026-05-01T21:00:00Z"
+}
 },
 "inputs_as_of": {
 "original": "2026-05-01T21:00:00Z",
@@ -73689,7 +73920,8 @@ null
 },
 "source": {
 "ad_state_hash": "2fb29b108ba322028873424ddb8f49493bf94d36ea9d22741ccebedf95b1911d",
-"item_serve_inputs": "graded_attempt:<id:106>",
+"attempt_id": "<id:106>",
+"item_revision": "2ae346d21b093df22804544b93ff82fcfd2ec0a42f89c9918fe37b89208070dc",
 "protection_epoch": "8bc3a9ecfe5b0b45c6b12e36336eb35e4e9b9e4d343a585b969aa388fb874d56",
 "replay_version": "ad_replay_v1",
 "spec_and_warmth_read_at": "2026-05-01T21:00:00Z"
@@ -73722,8 +73954,7 @@ null
 "version": "ad_priors_v1"
 },
 "training_cutoff": {
-"as_of": null,
-"note": "the state replays every readable event at the serve",
+"as_of": "2026-05-01T21:00:00Z",
 "preset": "ad_replay"
 }
 },
@@ -73733,8 +73964,8 @@ null
 "stated_by": "producer",
 "target": {
 "action": {
-"id": "pi_svd_compute_002",
-"kind": "serve"
+"id": "<id:106>",
+"kind": "grade"
 },
 "anchor": {
 "id": "<id:106>",
@@ -73742,10 +73973,10 @@ null
 },
 "event_version": "ad_category:ad_priors_v1",
 "horizon": {
-"kind": "presentation",
+"kind": "grade",
 "value": null
 },
-"kind": "item_unassisted_success",
+"kind": "item_unassisted_success_at_grade",
 "members": [
 {
 "id": "compute",
@@ -75839,6 +76070,122 @@ null
 "practice_item_id": "pi_svd_compute_002",
 "suspicion_reasons_json": [],
 "updated_at": "2026-05-01T21:00:00Z"
+}
+]
+},
+"practice_item_snapshots": {
+"added": [
+{
+"content_hash": "2ae346d21b093df22804544b93ff82fcfd2ec0a42f89c9918fe37b89208070dc",
+"created_at": "2026-05-01T21:00:00Z",
+"item_json": {
+"attempt_types_allowed": [
+"independent_attempt",
+"hinted_attempt",
+"dont_know"
+],
+"capability": null,
+"contrast_of": null,
+"created_at": "2026-05-19T12:00:00Z",
+"criterion_facet_weights": {},
+"differing_component": null,
+"difficulty": 0.5,
+"difficulty_source": null,
+"discrimination_profiles": [],
+"error_hunt": null,
+"evidence_facets": [
+"recall",
+"compute"
+],
+"evidence_fingerprint": {
+"answer_structure": null,
+"representation": null,
+"shared_stimulus_id": null,
+"solution_recipe_family": null,
+"source_family": null
+},
+"evidence_weights": {
+"compute": 1.0,
+"recall": 1.0
+},
+"expected_answer": "U Sigma V^T",
+"grading_rubric": {
+"criteria": [
+{
+"correlation_group": null,
+"depends_on": [],
+"description": "setup is right.",
+"id": "setup",
+"measurement_status": null,
+"points": 2.0,
+"recipe_ids": [],
+"targets": [
+{
+"capability": "procedure_execution",
+"facet": "compute",
+"role": "primary"
+}
+],
+"tier": "core"
+},
+{
+"correlation_group": null,
+"depends_on": [],
+"description": "result is right.",
+"id": "result",
+"measurement_status": null,
+"points": 2.0,
+"recipe_ids": [],
+"targets": [
+{
+"capability": "retrieval",
+"facet": "recall",
+"role": "primary"
+}
+],
+"tier": "core"
+}
+],
+"fatal_errors": [],
+"max_points": 4
+},
+"hint_policy": {
+"coverage_surface_dampening_by_hint": {},
+"fsrs_rating_cap_by_hint": {},
+"mastery_alpha_dampening_by_hint": {},
+"max_useful_hints": 0
+},
+"hints": [
+"Think about it."
+],
+"id": "pi_svd_compute_002",
+"laddered_stem": null,
+"learning_object_id": "lo_svd_compute",
+"misconception_consistent_answer": null,
+"practice_mode": "short_answer",
+"prompt": "Factor B with an SVD.",
+"provenance": {
+"origin": "human",
+"source_refs": []
+},
+"repair_targets": [],
+"retrieval_demand": null,
+"scaffold_level": null,
+"schema_version": 1,
+"status": "active",
+"status_reason": null,
+"subjects": null,
+"surface_family": "svd_compute_b",
+"tags": [],
+"task_feature_schema": null,
+"task_features": null,
+"teach_back_source": null,
+"trace_contract": null,
+"transfer_distance": null,
+"updated_at": "2026-05-19T12:00:00Z",
+"variant_contract": null
+},
+"practice_item_id": "pi_svd_compute_002"
 }
 ]
 },
@@ -80876,8 +81223,8 @@ null
 "cutoff": {
 "admission": "occurred_by",
 "anchor": {
-"id": null,
-"kind": "none"
+"id": "2026-05-01T23:00:00Z",
+"kind": "moment"
 },
 "approximate": [],
 "availability": "created_at",
@@ -80915,7 +81262,9 @@ null
 "preset": "ad_replay",
 "schema": "evidence_cutoff/1",
 "tie_order": "(created_at, id)",
-"times": {}
+"times": {
+"as_of": "2026-05-01T23:00:00Z"
+}
 },
 "inputs_as_of": {
 "original": "2026-05-01T23:00:00Z",
@@ -80924,7 +81273,8 @@ null
 },
 "source": {
 "ad_state_hash": "685549c62376c434c0377878655718dfcb2460829747bdba3cadc325af2a46be",
-"item_serve_inputs": "graded_attempt:<id:204>",
+"attempt_id": "<id:204>",
+"item_revision": "e342b7a4b92871663435171259a0785539383775c59ecdf7ac83d23205d9be3d",
 "protection_epoch": "8bc3a9ecfe5b0b45c6b12e36336eb35e4e9b9e4d343a585b969aa388fb874d56",
 "replay_version": "ad_replay_v1",
 "spec_and_warmth_read_at": "2026-05-01T23:00:00Z"
@@ -80957,8 +81307,7 @@ null
 "version": "ad_priors_v1"
 },
 "training_cutoff": {
-"as_of": null,
-"note": "the state replays every readable event at the serve",
+"as_of": "2026-05-01T23:00:00Z",
 "preset": "ad_replay"
 }
 },
@@ -80968,8 +81317,8 @@ null
 "stated_by": "producer",
 "target": {
 "action": {
-"id": "pi_svd_compute_001",
-"kind": "serve"
+"id": "<id:204>",
+"kind": "grade"
 },
 "anchor": {
 "id": "<id:204>",
@@ -80977,10 +81326,10 @@ null
 },
 "event_version": "ad_category:ad_priors_v1",
 "horizon": {
-"kind": "presentation",
+"kind": "grade",
 "value": null
 },
-"kind": "item_unassisted_success",
+"kind": "item_unassisted_success_at_grade",
 "members": [
 {
 "id": "compute",
@@ -87161,8 +87510,8 @@ null
 "cutoff": {
 "admission": "occurred_by",
 "anchor": {
-"id": null,
-"kind": "none"
+"id": "2026-05-19T12:00:00Z",
+"kind": "moment"
 },
 "approximate": [],
 "availability": "created_at",
@@ -87200,7 +87549,9 @@ null
 "preset": "ad_replay",
 "schema": "evidence_cutoff/1",
 "tie_order": "(created_at, id)",
-"times": {}
+"times": {
+"as_of": "2026-05-19T12:00:00Z"
+}
 },
 "inputs_as_of": {
 "original": "2026-05-19T12:00:00Z",
@@ -87209,7 +87560,8 @@ null
 },
 "source": {
 "ad_state_hash": "4c60e4e155f9f0f0ea08c1d2d59c0bfd82c7bfde040b97c94ab2b79954186080",
-"item_serve_inputs": "graded_attempt:<id:45>",
+"attempt_id": "<id:45>",
+"item_revision": "45a66c0609ac37c22fd4a156dd53c5bc88967ae2dcd072944c29856e6846ae5c",
 "protection_epoch": "8bc3a9ecfe5b0b45c6b12e36336eb35e4e9b9e4d343a585b969aa388fb874d56",
 "replay_version": "ad_replay_v1",
 "spec_and_warmth_read_at": "2026-05-19T12:00:00Z"
@@ -87242,8 +87594,7 @@ null
 "version": "ad_priors_v1"
 },
 "training_cutoff": {
-"as_of": null,
-"note": "the state replays every readable event at the serve",
+"as_of": "2026-05-19T12:00:00Z",
 "preset": "ad_replay"
 }
 },
@@ -87253,8 +87604,8 @@ null
 "stated_by": "producer",
 "target": {
 "action": {
-"id": "pi_svd_define_001",
-"kind": "serve"
+"id": "<id:45>",
+"kind": "grade"
 },
 "anchor": {
 "id": "<id:45>",
@@ -87262,10 +87613,10 @@ null
 },
 "event_version": "ad_category:ad_priors_v1",
 "horizon": {
-"kind": "presentation",
+"kind": "grade",
 "value": null
 },
-"kind": "item_unassisted_success",
+"kind": "item_unassisted_success_at_grade",
 "members": [
 {
 "id": "recall",
@@ -89145,7 +89496,7 @@ null
 "assessment_contract_versions": {
 "added": [
 {
-"contract_hash": "0d92a3e1d5b0a849b3c0c6cd99bd3c52",
+"contract_hash": "0284efa3e73a496ffcafbc1f4d5fe143",
 "contract_json": {
 "assistance": {
 "max_useful_hints": 1
@@ -89179,6 +89530,7 @@ null
 "misconception_id": null
 }
 ],
+"forecast_item_revision": "45a66c0609ac37c22fd4a156dd53c5bc88967ae2dcd072944c29856e6846ae5c",
 "item_content_hash": "59ccb2ec540b9d8be7f82fc3367b255b",
 "learning_object_id": "lo_svd_definition",
 "practice_item_id": "pi_svd_define_001",
@@ -90666,6 +91018,108 @@ null
 "suspicion_reasons_json": [],
 "updated_at": "2026-05-19T12:00:00Z"
 }
+}
+]
+},
+"practice_item_snapshots": {
+"added": [
+{
+"content_hash": "45a66c0609ac37c22fd4a156dd53c5bc88967ae2dcd072944c29856e6846ae5c",
+"created_at": "2026-05-19T13:00:00Z",
+"item_json": {
+"attempt_types_allowed": [
+"independent_attempt",
+"hinted_attempt",
+"dont_know"
+],
+"capability": null,
+"contrast_of": null,
+"created_at": "2026-05-19T12:00:00Z",
+"criterion_facet_weights": {},
+"differing_component": null,
+"difficulty": 0.55,
+"difficulty_source": null,
+"discrimination_profiles": [],
+"error_hunt": null,
+"evidence_facets": [
+"recall"
+],
+"evidence_fingerprint": {
+"answer_structure": null,
+"representation": null,
+"shared_stimulus_id": null,
+"solution_recipe_family": null,
+"source_family": null
+},
+"evidence_weights": {
+"recall": 1.0
+},
+"expected_answer": "A matrix factorization into U, Sigma, and V transpose.",
+"grading_rubric": {
+"criteria": [
+{
+"correlation_group": null,
+"depends_on": [],
+"description": "Correct definition.",
+"id": "correctness",
+"measurement_status": null,
+"points": 4.0,
+"recipe_ids": [],
+"targets": [],
+"tier": "core"
+}
+],
+"fatal_errors": [
+{
+"description": "Confuses SVD with a different decomposition.",
+"id": "conceptual_slip",
+"max_grade": 1,
+"misconception_id": null
+}
+],
+"max_points": 4
+},
+"hint_policy": {
+"coverage_surface_dampening_by_hint": {},
+"fsrs_rating_cap_by_hint": {
+"1": "good"
+},
+"mastery_alpha_dampening_by_hint": {
+"1": 0.5
+},
+"max_useful_hints": 1
+},
+"hints": [
+"Name the three factors."
+],
+"id": "pi_svd_define_001",
+"laddered_stem": null,
+"learning_object_id": "lo_svd_definition",
+"misconception_consistent_answer": null,
+"practice_mode": "short_answer",
+"prompt": "Define SVD.",
+"provenance": {
+"origin": "human",
+"source_refs": []
+},
+"repair_targets": [],
+"retrieval_demand": null,
+"scaffold_level": null,
+"schema_version": 1,
+"status": "active",
+"status_reason": null,
+"subjects": null,
+"surface_family": null,
+"tags": [],
+"task_feature_schema": null,
+"task_features": null,
+"teach_back_source": null,
+"trace_contract": null,
+"transfer_distance": null,
+"updated_at": "2026-05-19T12:00:00Z",
+"variant_contract": null
+},
+"practice_item_id": "pi_svd_define_001"
 }
 ]
 },

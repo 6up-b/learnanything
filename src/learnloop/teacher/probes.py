@@ -30,7 +30,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from contextvars import ContextVar
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 from learnloop.clock import Clock, utc_now_iso
@@ -371,6 +371,10 @@ def retire(vault: Any, repository: Any, lesson: Mapping[str, Any], turns: Sequen
     _close_episode(repository, lesson_id, probe, closed_at=now, reason="retired", outcome={})
 
 
+class StaleProbe(ValueError):
+    """The prepared answer lost its probe before it could commit."""
+
+
 def _current(connection: Any, lesson_id: str, ref: str) -> Probe | None:
     return next((p for p in probes(store.turns(connection, lesson_id)) if p.ref == ref), None)
 
@@ -399,7 +403,7 @@ def record_answer(vault: Any, repository: Any, lesson: Mapping[str, Any], probe:
     attempt id (an interrupted earlier write) is finished from the stored row, with no second grade and no second
     insert. ``answer`` None (the view's recovery) never grades: only such a stored attempt is finished."""
 
-    from learnloop.attempts.attempts import ApplyAttemptInput, AttemptDraft, apply_attempt
+    from learnloop.attempts.attempts import with_grade_forecast, ApplyAttemptInput, AttemptDraft, apply_attempt
     from learnloop.attempts.grading import vault_grading_calibration_identity
     from learnloop.attempts.reveal_ledger import production_admissibility
     from learnloop.followup_serve import identity
@@ -414,6 +418,7 @@ def record_answer(vault: Any, repository: Any, lesson: Mapping[str, Any], probe:
         return dict(current.result)
     loaded = vault if probe.item_id in vault.practice_items else load_vault(vault.root)
     item = loaded.practice_items[str(probe.item_id)]
+    prepared = None
     grade = run_id = None
     if repository.fetch_practice_attempt(probe.attempt_id) is None:
         if answer is None:
@@ -421,6 +426,13 @@ def record_answer(vault: Any, repository: Any, lesson: Mapping[str, Any], probe:
         # The model call, outside any write transaction.
         grade, run_id = CK.grade_answer(loaded, repository, grading_client, item=item, attempt_id=probe.attempt_id,
                                         answer=answer, clock=clock)
+        prepared = with_grade_forecast(loaded, repository, ApplyAttemptInput(
+                draft=AttemptDraft(practice_item_id=item.id, learner_answer_md=str(answer), attempt_type=ATTEMPT_TYPE,
+                                   hints_used=0, answer_confidence=tap, entry_surface=ENTRY_SURFACE,
+                                   evidence_origin=EVIDENCE_ORIGIN, awaits_completion=False),
+                attempt_id=probe.attempt_id, grade=grade, grading_source=grading_source, grading_agent_run_id=run_id,
+                grader_identity=vault_grading_calibration_identity(),
+            ), clock=clock)
     max_points = max(int(getattr(loaded.rubric_for_item(item), "max_points", 1) or 1), 1)
     reserved = G.reserved_book(loaded, repository)  # read before the write lock
     with repository.atomic():
@@ -428,6 +440,9 @@ def record_answer(vault: Any, repository: Any, lesson: Mapping[str, Any], probe:
         current = _current(connection, lesson_id, probe.ref)
         if current is not None and current.status == "answered":
             return dict(current.result)  # a concurrent submit finished it first
+        if (current is None or current.status != "served" or current.attempt_id != probe.attempt_id
+                or current.item_id != probe.item_id):
+            raise StaleProbe("That question is no longer open.")
         stored = repository.fetch_practice_attempt(probe.attempt_id)
         now = utc_now_iso(clock)
         # The reveal ledger's topic-wide check, as of this answer (FG1 records an exposed probe answer the same
@@ -441,14 +456,9 @@ def record_answer(vault: Any, repository: Any, lesson: Mapping[str, Any], probe:
             assert grade is not None
             correctness = max(0.0, min(1.0, float(grade.rubric_score) / max_points))
             feedback = grade.feedback_md
-            apply_attempt(loaded, repository, ApplyAttemptInput(
-                draft=AttemptDraft(practice_item_id=item.id, learner_answer_md=str(answer), attempt_type=ATTEMPT_TYPE,
-                                   hints_used=0, answer_confidence=tap, entry_surface=ENTRY_SURFACE,
-                                   evidence_origin=EVIDENCE_ORIGIN, awaits_completion=False),
-                attempt_id=probe.attempt_id, grade=grade, grading_source=grading_source, grading_agent_run_id=run_id,
-                grader_identity=vault_grading_calibration_identity(),
-                diagnostic_exposure=None if independence.admissible else (independence.reason or "exposed"),
-            ), clock=clock)
+            apply_attempt(loaded, repository, replace(prepared, diagnostic_exposure=(
+                None if independence.admissible else (independence.reason or "exposed"))),
+                forecast_prepared=True, clock=clock)
         else:
             correctness = max(0.0, min(1.0, float(stored.get("correctness") or 0.0)))
             feedback = _stored_feedback(repository, probe.attempt_id)

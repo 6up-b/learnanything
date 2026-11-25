@@ -1495,7 +1495,7 @@ IDENTITY_SITES: tuple[IdentitySite, ...] = (
         {"pair": _contamination_keys}),
     IdentitySite(
         "A9", "item revision (whole PracticeItem dump)",
-        ("src/learnloop/adaptive_difficulty/feature_audit.py::item_revision",
+        ("src/learnloop/vault/hashes.py::item_revision",
          "src/learnloop/scheduling/scheduler.py::_practice_item_snapshot"),
         "the llm_v1 forecast receipt key item_unassisted_success:item:{hash} and practice_item_snapshots",
         "every item's llm_v1 forecast is paid again and stored revisions read as stale",

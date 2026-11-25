@@ -39,7 +39,7 @@ def test_the_successor_is_one_constant_after_ro1_and_the_latest():
     assert SUCCESSOR_CHAIN[SUCCESSOR_CHAIN.index(TAG) - 1] == OLD == "mvp-0.46"
     # Router objective RO5 (mvp-0.48), RO6 (mvp-0.49), the follow-up batch (mvp-0.50) and teacher TE2 (mvp-0.51)
     # landed after it and keep it.
-    assert TAG == "mvp-0.47" == SUCCESSOR_CHAIN[-28] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.75"
+    assert TAG == "mvp-0.47" == SUCCESSOR_CHAIN[-29] and SUCCESSOR_CHAIN[-1] == LATEST_ALGORITHM_VERSION == "mvp-0.75"
 
 
 def test_the_seeds_are_the_specs_and_validated():

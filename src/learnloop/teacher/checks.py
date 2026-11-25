@@ -261,37 +261,44 @@ def grade_answer(vault: Any, repository: Any, client: Any, *, item: Any, attempt
     return grade, run_id
 
 
-def record_answered_check(vault: Any, repository: Any, *, lesson_id: str, node_id: str, check_ref: str,
-                          item: Any, attempt_id: str, answer: str, grade: Any, grading_run_id: str,
-                          grading_source: str, tap: int | None, mass: Mapping[str, Any], created_at: str,
-                          forecast_correct_key: str | None, forecast_retained_key: str | None,
-                          clock: Clock | None = None) -> Any:
-    """One transaction: the ``lesson_checks`` row (the mass the attempt step reads), then the attempt."""
-
-    from learnloop.attempts.attempts import ApplyAttemptInput, AttemptDraft, apply_attempt
+def prepare_check_attempt(vault: Any, repository: Any, *, item: Any, attempt_id: str, answer: str,
+                          grade: Any, grading_source: str, grading_run_id: str, tap: int | None,
+                          clock: Clock | None) -> Any:
+    from learnloop.attempts.attempts import with_grade_forecast, ApplyAttemptInput, AttemptDraft
     from learnloop.attempts.grading import vault_grading_calibration_identity
-    from learnloop.db.stores import lessons as store
 
-    max_points = max(int(getattr(vault.rubric_for_item(item), "max_points", 1) or 1), 1)
-    correctness = max(0.0, min(1.0, float(grade.rubric_score) / max_points))
-    with repository.atomic():
-        connection = repository.connection()
-        store.insert_check(connection, {
-            "lesson_id": lesson_id, "node_id": node_id, "check_ref": check_ref,
-            "learning_object_id": item.learning_object_id, "minted_item_id": item.id, "status": "answered",
-            "attempt_id": attempt_id, "correctness": correctness, "tap": tap, "hedge": mass.get("hedge"),
-            "predicted_success": mass.get("predicted_success"), "predicted_source": mass.get("predicted_source"),
-            "mass_learned": mass["mass_learned"], "mass_applied": mass["mass_applied"],
-            "forecast_correct_key": forecast_correct_key, "forecast_retained_key": forecast_retained_key,
-            "weight_inputs": dict(mass), "created_at": created_at,
-        })
-        result = apply_attempt(vault, repository, ApplyAttemptInput(
+    return with_grade_forecast(vault, repository, ApplyAttemptInput(
             draft=AttemptDraft(practice_item_id=item.id, learner_answer_md=answer, attempt_type=CHECK_ATTEMPT_TYPE,
                                hints_used=0, answer_confidence=tap, entry_surface=ENTRY_SURFACE,
                                evidence_origin=EVIDENCE_ORIGIN, awaits_completion=False),
             attempt_id=attempt_id, grade=grade, grading_source=grading_source,
             grading_agent_run_id=grading_run_id, grader_identity=vault_grading_calibration_identity(),
         ), clock=clock)
+
+
+def record_answered_check(vault: Any, repository: Any, *, lesson_id: str, node_id: str, check_ref: str,
+                          item: Any, prepared: Any, tap: int | None, mass: Mapping[str, Any], created_at: str,
+                          forecast_correct_key: str | None, forecast_retained_key: str | None,
+                          clock: Clock | None = None) -> Any:
+    """One transaction: the ``lesson_checks`` row (the mass the attempt step reads), then the attempt."""
+
+    from learnloop.attempts.attempts import apply_attempt
+    from learnloop.db.stores import lessons as store
+
+    max_points = max(int(getattr(vault.rubric_for_item(item), "max_points", 1) or 1), 1)
+    correctness = max(0.0, min(1.0, float(prepared.grade.rubric_score) / max_points))
+    with repository.atomic():
+        connection = repository.connection()
+        store.insert_check(connection, {
+            "lesson_id": lesson_id, "node_id": node_id, "check_ref": check_ref,
+            "learning_object_id": item.learning_object_id, "minted_item_id": item.id, "status": "answered",
+            "attempt_id": prepared.attempt_id, "correctness": correctness, "tap": tap, "hedge": mass.get("hedge"),
+            "predicted_success": mass.get("predicted_success"), "predicted_source": mass.get("predicted_source"),
+            "mass_learned": mass["mass_learned"], "mass_applied": mass["mass_applied"],
+            "forecast_correct_key": forecast_correct_key, "forecast_retained_key": forecast_retained_key,
+            "weight_inputs": dict(mass), "created_at": created_at,
+        })
+        result = apply_attempt(vault, repository, prepared, forecast_prepared=True, clock=clock)
     return result
 
 

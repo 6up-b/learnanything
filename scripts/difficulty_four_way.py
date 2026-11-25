@@ -19,7 +19,7 @@ The arms (``docs/specs/spec_router_objective_v1.md`` §11, ``docs/specs/refactor
   it served the item (the attempt's plan presentation's ``ad_threshold@subject`` or ``ad_threshold_repeat@subject``
   receipt), and mastery's own prediction where no receipt applies (H3's design,
   ``docs/reviews/refactor-h3-h6-design.md`` §2.2).
-* ``f_label_off_and_receipt``: (b)'s config and (e)'s surprise: H3 as designed.
+* ``f_label_off_and_receipt``: the production H3 replay at the history's tag, or at retirement for older input.
 
 Each arm is reported against (a): mastery, surprise, stored due dates, the due queue at ``--as-of``, and once
 (it does not depend on the arm) adaptive difficulty's prequential scoring with and without ``z_llm``. The JSON
@@ -73,7 +73,7 @@ ARMS: tuple[Arm, ...] = (
     Arm("d_both", (LABEL_OFF,), AD_PREFIX, "both: (b)'s config and (c)'s surprise"),
     Arm("e_surprise_from_receipt", (), RECEIPT,
         "surprise from AD's serve-time receipt, mastery's own prediction where none applies"),
-    Arm("f_label_off_and_receipt", (LABEL_OFF,), RECEIPT, "H3 as designed: (b)'s config and (e)'s surprise"),
+    Arm("f_label_off_and_receipt", (), RECEIPT, "production H3 replay and recorded forecast selection"),
 )
 BASELINE = ARMS[0].name
 
@@ -229,9 +229,9 @@ def _scores(rows: Sequence[tuple[float, float, bool]]) -> dict[str, Any]:
             "base_rate": round(sum(y for _, y, _ in rows) / len(rows), 6)}
 
 
-# -- AD's serve-time forecast receipts, per attempt (arms e and f) ------------------------------------------------
+# -- AD's serve-time forecast receipts, per attempt (historical comparator, arm e) ------------------------------------------------
 
-#: The receipts H3's surprise reads: the subject view's forecast, as AD served the item.
+#: The legacy comparator reads the subject view's forecast as AD served the item.
 RECEIPT_FORECASTERS = ("ad_threshold@subject", "ad_threshold_repeat@subject")
 
 
@@ -317,7 +317,7 @@ def receipt_against_prefix(receipts: Mapping[str, Predictive], prefix: Mapping[s
             "p_difference": _summary([a - b for a, b in pairs])}
 
 
-# -- the surprise patch (arms c to f), inside the scratch replay only ------------------------------------------------
+# -- the surprise patch (arms c to e), inside the scratch replay only ------------------------------------------------
 
 _GRADE_INPUTS: ContextVar[Any] = ContextVar("difficulty_four_way_grade_inputs", default=None)
 
@@ -339,7 +339,7 @@ def surprise_from_ad(predictive: Mapping[str, Predictive], *, fallback: str = "d
     the 2PL link at the prior mean equals ``p̄``, so its innovation, variance and interval factor are the usual
     formulae around AD's prediction. Mastery keeps its own ``b``. A primed attempt takes the same priming offset
     the label's ``b`` takes. Where AD has no prediction for the attempt: ``fallback="default"`` (arms c, d) reads
-    ``b' = difficulty_default``; ``fallback="mastery"`` (arms e, f, H3's design) leaves the surprise on the mastery
+    ``b' = difficulty_default``; ``fallback="mastery"`` (arm e) leaves the surprise on the mastery
     path's own ``b`` (priming already applied by the grade)."""
 
     from learnloop.attempts import attempts as grade_module
@@ -409,7 +409,9 @@ def read_replayed(vault: Any, repository: Any, *, as_of: datetime) -> dict[str, 
             surprise[str(r[0])] = {"predictive_surprise": r[1], "bayesian_surprise": r[2], "surprise_direction": r[3],
                                    "fsrs_interval_factor": r[4],
                                    "expected_correctness": predicted.get("expected_correctness"),
-                                   "b": predicted.get("b")}
+                                   "a": predicted.get("a"), "b": predicted.get("b"),
+                                   **{k: predicted[k] for k in ("prediction_source", "p_scored", "b_scored", "p_ad")
+                                      if k in predicted}}
         items = {str(r[0]): r[1] for r in connection.execute("SELECT practice_item_id, due_at FROM practice_item_state")}
         cards = {"|".join(str(v) for v in r[:3]): r[3] for r in connection.execute(
             "SELECT learner_id, card_lineage_id, scheduler_algorithm_version, due_at FROM activity_card_state")}
@@ -636,6 +638,7 @@ def run_four_way(
     """Every arm on its own scratch replay; the comparisons against (a); AD's scoring. ``on_arm(name, result)``
     sees each arm's shadow result (the tests' hook)."""
 
+    from learnloop.algorithm_versions import LABEL_RETIRED_ALGORITHM_VERSION, label_retired
     from learnloop.db.copies import copy_tree_with_databases
     from learnloop.substrate.shadow_rebuild import shadow_rebuild
     from learnloop.vault.loader import load_vault
@@ -677,7 +680,17 @@ def run_four_way(
                     shared["ad_summary"] = dict(events.summary)
                 return {"state": read_replayed(loaded, repository, as_of=as_of), "ad_events": fingerprint}
 
-            if arm.surprise_source is not None:
+            if arm.name == "f_label_off_and_receipt":
+                version = vault.config.algorithms.algorithm_version
+                assignments = () if label_retired(version) else (
+                    f"algorithms.algorithm_version={LABEL_RETIRED_ALGORITHM_VERSION}",)
+                result = shadow_rebuild(vault, assignments=assignments, observe=observe)
+                rows = result.observed_after["state"]["surprise"].values()
+                sources = (row.get("prediction_source", "unrecorded") for row in rows)
+                known = {"mastery", "grade_receipt", "serve_receipt", "unrecorded"}
+                patch = {"tiers": dict(Counter(source if source in known else "other" for source in sources)),
+                         "outside_grade": 0}
+            elif arm.surprise_source is not None:
                 source, fallback = ((receipts, "mastery") if arm.surprise_source == RECEIPT
                                     else (shared["predictive"], "default"))
                 with surprise_from_ad(source, fallback=fallback) as log:
