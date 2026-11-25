@@ -115,8 +115,8 @@ No test imports this module directly. These tests exercise a direct production c
 - [tests/live_dialogue_contract_helpers.py](../../../../../../tests/live_dialogue_contract_helpers.py) — imports consumer [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]]
 - [tests/reader_rw5d_p4b_teacher_visuals_helpers.py](../../../../../../tests/reader_rw5d_p4b_teacher_visuals_helpers.py) — imports consumer [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]]
 - [tests/teacher_fakes.py](../../../../../../tests/teacher_fakes.py) — imports consumer [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]]
+- [tests/teacher_te1_lesson_helpers.py](../../../../../../tests/teacher_te1_lesson_helpers.py) — imports consumer [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]]
 - [tests/teacher_te1_review_fixes_helpers.py](../../../../../../tests/teacher_te1_review_fixes_helpers.py) — imports consumer [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]]
-- [tests/teacher_te2log_receipt_helpers.py](../../../../../../tests/teacher_te2log_receipt_helpers.py) — imports consumer [[Reference/Modules/learnloop/teacher/service|learnloop.teacher.service]]
 
 ## Modification guidance
 

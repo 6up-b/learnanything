@@ -156,6 +156,7 @@ Indexes and uniqueness:
 ## Tests that define behavior
 
 - `tests/ad23_contract_helpers.py`
+- `tests/surprise_reads_ad_forecast_helpers.py`
 - `tests/test_epp_repeat_receipts.py`
 - `tests/test_gate_fit.py`
 - `tests/test_gate_records_survive_replay.py`
@@ -170,7 +171,6 @@ Indexes and uniqueness:
 - `tests/test_sg_slip_vs_gap.py`
 - `tests/test_shadow_rebuild.py`
 - `tests/test_signal_quantiles.py`
-- `tests/test_surprise_reads_ad_forecast.py`
 - `tests/test_teacher_te5_grade_curves.py`
 - `tests/test_voi_forecasts.py`
 - `tests/test_voi_merge_composition.py`

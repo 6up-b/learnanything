@@ -426,6 +426,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_section_end.py](../../../../../../tests/test_section_end.py) — direct import
   - `test_the_upgrade_finishes_nothing_recorded_before_it_and_a_new_end_finishes_once`
 - [tests/test_selected_forecast.py](../../../../../../tests/test_selected_forecast.py) — direct import
+  - `test_an_answer_to_its_own_presentation_after_an_edit_keeps_the_link_and_reads_mastery`
   - `test_another_sessions_presentation_is_left_for_its_answer`
   - `test_selection_view_and_missing_selection_live_and_rebuilt`
   - `test_surprise_uses_the_probability_from_the_actual_plan_draw`

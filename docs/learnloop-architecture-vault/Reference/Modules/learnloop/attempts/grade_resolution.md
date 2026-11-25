@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/attempts/grade_resolution.py](../../../../../../src/learnloop/attempts/grade_resolution.py) |
-| Source lines | 1563 |
+| Source lines | 1564 |
 | Owning package | [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -67,7 +67,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `quarantine_observation(repository: Repository, *, observation_id: str, surface_id: str | None, reason: str, clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/attempts/grade_resolution.py), line 964) — Immediately quarantine the observation's active interpretation (§4.4).
 - `flag_observation_for_review(repository: Repository, *, observation_id: str, reason: str, detail: Mapping[str, Any] | None=None, clock: Clock | None=None) -> str | None` ([source](../../../../../../src/learnloop/attempts/grade_resolution.py), line 1024) — Queue the observation's active grade for review (§4.4), keeping its authority.
 - `append_adjudication_evidence_revision(repository: Repository, *, attempt_id: str, resolved_fraction: float, adjudication_id: str, adjudicator_source: str, rationale: str | None, vault: 'LoadedVault | None'=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/attempts/grade_resolution.py), line 1115) — Ruling A (2026-07-27): write the adjudicated DIRECTION into the ledger.
-- `append_adjudication(repository: Repository, *, observation_id: str, administration_id: str, reviewed_raw_event_ids: Sequence[str], adjudicator_source: str, resolved_class: str | None=None, resolved_distribution: Mapping[str, float] | None=None, rationale: str | None=None, bounded_trust_weight: float | None=None, superseded_adjudication_id: str | None=None, vault: 'LoadedVault | None'=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/attempts/grade_resolution.py), line 1364) — Append an adjudication + a NEW interpretation and repoint the head (§3.3/§4.4).
+- `append_adjudication(repository: Repository, *, observation_id: str, administration_id: str, reviewed_raw_event_ids: Sequence[str], adjudicator_source: str, resolved_class: str | None=None, resolved_distribution: Mapping[str, float] | None=None, rationale: str | None=None, bounded_trust_weight: float | None=None, superseded_adjudication_id: str | None=None, vault: 'LoadedVault | None'=None, clock: Clock | None=None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/attempts/grade_resolution.py), line 1365) — Append an adjudication + a NEW interpretation and repoint the head (§3.3/§4.4).
 
 ### Module constants
 
@@ -81,7 +81,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `_INTERPRETATION_COLUMNS` ([src/learnloop/attempts/grade_resolution.py](../../../../../../src/learnloop/attempts/grade_resolution.py), line 521)
 - `_FLAG_COLUMNS` ([src/learnloop/attempts/grade_resolution.py](../../../../../../src/learnloop/attempts/grade_resolution.py), line 527)
 - `ADJUDICATION_GRADER_TIER` ([src/learnloop/attempts/grade_resolution.py](../../../../../../src/learnloop/attempts/grade_resolution.py), line 1112)
-- `KEY_BASED_ADJUDICATOR_SOURCES` ([src/learnloop/attempts/grade_resolution.py](../../../../../../src/learnloop/attempts/grade_resolution.py), line 1341)
+- `KEY_BASED_ADJUDICATOR_SOURCES` ([src/learnloop/attempts/grade_resolution.py](../../../../../../src/learnloop/attempts/grade_resolution.py), line 1342)
 
 ## Internal implementation anchors
 
@@ -96,7 +96,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `_record_dual_write_degradation(repository: Repository, kwargs: Mapping[str, Any], exc: Exception) -> None` ([source](../../../../../../src/learnloop/attempts/grade_resolution.py), line 930)
 - `_leading_class(posterior: Mapping[str, float]) -> str | None` ([source](../../../../../../src/learnloop/attempts/grade_resolution.py), line 1093) — The unique argmax of a class posterior; ``None`` on empty or tied.
 - `_append_adjudication_evidence_revision(repository: Repository, *, attempt_id: str, resolved_fraction: float, adjudication_id: str, adjudicator_source: str, rationale: str | None, vault: 'LoadedVault | None', clock: Clock | None) -> dict[str, Any]` ([source](../../../../../../src/learnloop/attempts/grade_resolution.py), line 1160) — :func:`append_adjudication_evidence_revision` inside its transaction.
-- `_bind_key_adjudication(repository: Repository, vault: 'LoadedVault | None', attempt: Mapping[str, Any], *, adjudicator_source: str, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/attempts/grade_resolution.py), line 1344) — C3 (canonical sources §7.3a, "Replacement grades"): a verdict against the key binds like a regrade.
+- `_bind_key_adjudication(repository: Repository, vault: 'LoadedVault | None', attempt: Mapping[str, Any], *, adjudicator_source: str, clock: Clock | None) -> None` ([source](../../../../../../src/learnloop/attempts/grade_resolution.py), line 1345) — C3 (canonical sources §7.3a, "Replacement grades"): a verdict against the key binds like a regrade.
 
 ## Who imports or calls it
 

@@ -46,24 +46,24 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/adaptive_difficulty/grade_forecast.py](../../../../../../src/learnloop/adaptive_difficulty/grade_forecast.py) |
-| Source lines | 150 |
+| Source lines | 154 |
 | Owning package | [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
 
 ## Public API
 
-- `receipt_id(attempt_id: str) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/grade_forecast.py), line 38) — A grade-time receipt's id, a function of its attempt (:func:`learnloop.ids.keyed_ulid`): drawn from ``ids.new_ulid`` it would shift every id the grade mints after it, and drawn from a stream of its own it would differ between two runs of the same history.
-- `receipt_key(attempt_id: str) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/grade_forecast.py), line 46)
-- `grade_receipt(vault: Any, repository: Any, *, practice_item_id: str, attempt_id: str, at: str, answered_item: Any=None, answered_revision: str | None=None, view: Any=None) -> ForecastReceipt | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/grade_forecast.py), line 62) — AD's subject-view forecast for the answer ``attempt_id`` to ``practice_item_id`` at ``at``, from AD's state over everything recorded before it; None when AD is off, the item is protected or unknown to AD's view.
-- `safe_grade_receipt(vault: Any, repository: Any, **kwargs: Any) -> ForecastReceipt | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/grade_forecast.py), line 139) — :func:`grade_receipt`, never raising: a forecast never costs the grade.
+- `receipt_id(attempt_id: str) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/grade_forecast.py), line 39) — A grade-time receipt's id, a function of its attempt (:func:`learnloop.ids.keyed_ulid`): drawn from ``ids.new_ulid`` it would shift every id the grade mints after it, and drawn from a stream of its own it would differ between two runs of the same history.
+- `receipt_key(attempt_id: str) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/grade_forecast.py), line 47)
+- `grade_receipt(vault: Any, repository: Any, *, practice_item_id: str, attempt_id: str, at: str, answered_item: Any=None, answered_revision: str | None=None, view: Any=None) -> ForecastReceipt | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/grade_forecast.py), line 63) — AD's subject-view forecast for the answer ``attempt_id`` to ``practice_item_id`` at ``at``, from AD's state over everything recorded before it; None when AD is off, the item is protected or unknown to AD's view.
+- `safe_grade_receipt(vault: Any, repository: Any, **kwargs: Any) -> ForecastReceipt | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/grade_forecast.py), line 143) — :func:`grade_receipt`, never raising: a forecast never costs the grade.
 
 ### Module constants
 
-- `LOG` ([src/learnloop/adaptive_difficulty/grade_forecast.py](../../../../../../src/learnloop/adaptive_difficulty/grade_forecast.py), line 31)
-- `GRADE_FORECASTER` ([src/learnloop/adaptive_difficulty/grade_forecast.py](../../../../../../src/learnloop/adaptive_difficulty/grade_forecast.py), line 33)
-- `GRADE_FORECAST_VERSION` ([src/learnloop/adaptive_difficulty/grade_forecast.py](../../../../../../src/learnloop/adaptive_difficulty/grade_forecast.py), line 34)
-- `GRADED_ATTEMPT` ([src/learnloop/adaptive_difficulty/grade_forecast.py](../../../../../../src/learnloop/adaptive_difficulty/grade_forecast.py), line 36)
+- `LOG` ([src/learnloop/adaptive_difficulty/grade_forecast.py](../../../../../../src/learnloop/adaptive_difficulty/grade_forecast.py), line 32)
+- `GRADE_FORECASTER` ([src/learnloop/adaptive_difficulty/grade_forecast.py](../../../../../../src/learnloop/adaptive_difficulty/grade_forecast.py), line 34)
+- `GRADE_FORECAST_VERSION` ([src/learnloop/adaptive_difficulty/grade_forecast.py](../../../../../../src/learnloop/adaptive_difficulty/grade_forecast.py), line 35)
+- `GRADED_ATTEMPT` ([src/learnloop/adaptive_difficulty/grade_forecast.py](../../../../../../src/learnloop/adaptive_difficulty/grade_forecast.py), line 37)
 
 ### Explicit exports
 
@@ -79,7 +79,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 
 ## Internal implementation anchors
 
-- `_evidence_after(events: Any, at: str) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/grade_forecast.py), line 50) — Whether AD's evidence holds anything dated after the answer's cutoff ``at`` (an attempt, a claim or a reading opportunity).
+- `_evidence_after(events: Any, at: str) -> bool` ([source](../../../../../../src/learnloop/adaptive_difficulty/grade_forecast.py), line 51) — Whether AD's evidence holds anything dated after the answer's cutoff ``at`` (an attempt, a claim or a reading opportunity).
 
 ## Who imports or calls it
 
@@ -109,6 +109,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - [[Reference/Modules/learnloop/ids|learnloop.ids]] — imports `keyed_ulid`; calls `keyed_ulid`
 - [[Reference/Modules/learnloop/scheduling/forecast_receipts|learnloop.scheduling.forecast_receipts]] — imports `ForecastReceipt`, `ITEM_UNASSISTED_SUCCESS_AT_GRADE`; calls `ForecastReceipt`
 - [[Reference/Modules/learnloop/scheduling/voi_forecasts|learnloop.scheduling.voi_forecasts]] — imports `parameter`; calls `parameter`
+- [[Reference/Modules/learnloop/vault/hashes|learnloop.vault.hashes]] — imports `item_revision`; calls `item_revision`
 
 ### Platform and third-party dependencies
 

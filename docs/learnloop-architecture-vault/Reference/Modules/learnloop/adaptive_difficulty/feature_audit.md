@@ -213,7 +213,6 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_a_protected_revision_withholds_the_receipts_whose_snapshot_names_it`
   - `test_threshold_and_in_process_receipts_state_their_cutoff_target_and_provenance`
 - [tests/test_selected_forecast.py](../../../../../../tests/test_selected_forecast.py) — direct import
-  - `test_grade_uses_the_revision_frozen_on_open`
 - [tests/test_surprise_reads_ad_forecast.py](../../../../../../tests/test_surprise_reads_ad_forecast.py) — direct import
   - `test_grade_snapshot_names_the_answer_and_its_cutoff`
 

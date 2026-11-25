@@ -155,9 +155,9 @@ For system intent, use [[Architecture Overview]].
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 18 static module edges
 - [[Reference/Modules/learnloop/field/_package|learnloop.field]] — 7 static module edges
 - [[Reference/Modules/learnloop/practice_index/_package|learnloop.practice_index]] — 7 static module edges
+- [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 6 static module edges
 - [[Reference/Modules/learnloop/content/sources/_package|learnloop.content.sources]] — 5 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 5 static module edges
-- [[Reference/Modules/learnloop/vault/_package|learnloop.vault]] — 5 static module edges
 - [[Reference/Modules/learnloop/ingest/_package|learnloop.ingest]] — 3 static module edges
 - [[Reference/Modules/learnloop/attempts/_package|learnloop.attempts]] — 2 static module edges
 - [[Reference/Modules/learnloop/hints/_package|learnloop.hints]] — 2 static module edges

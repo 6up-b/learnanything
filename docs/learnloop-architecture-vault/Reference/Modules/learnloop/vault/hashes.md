@@ -70,6 +70,7 @@ The authoritative system-level explanation remains in [[State and Persistence]];
 > “Calls” below means a direct call through a statically imported name that the AST can resolve. Registry, entry-point, reflection, and string-based dispatch can add runtime consumers.
 
 - [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]] — imports `item_revision`; statically calls `item_revision`
+- [[Reference/Modules/learnloop/adaptive_difficulty/grade_forecast|learnloop.adaptive_difficulty.grade_forecast]] — imports `item_revision`; statically calls `item_revision`
 - [[Reference/Modules/learnloop/adaptive_difficulty/surprise_forecast|learnloop.adaptive_difficulty.surprise_forecast]] — imports `item_revision`; statically calls `item_revision`
 - [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]] — imports `practice_item_hash`; statically calls `practice_item_hash`
 - [[Reference/Modules/learnloop/content/authoring/source_exercise_import|learnloop.content.authoring.source_exercise_import]] — imports `reference_content_hash`; statically calls `reference_content_hash`
@@ -112,7 +113,7 @@ Use this module in context through:
 
 - [[Initialize a Vault]]
 
-Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/surprise_forecast|learnloop.adaptive_difficulty.surprise_forecast]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/content/authoring/source_exercise_import|learnloop.content.authoring.source_exercise_import]], [[Reference/Modules/learnloop/diagnosis/offline_review/runner|learnloop.diagnosis.offline_review.runner]] and 19 more.
+Static participation evidence comes from [[Reference/Modules/learnloop/adaptive_difficulty/feature_audit|learnloop.adaptive_difficulty.feature_audit]], [[Reference/Modules/learnloop/adaptive_difficulty/grade_forecast|learnloop.adaptive_difficulty.grade_forecast]], [[Reference/Modules/learnloop/adaptive_difficulty/surprise_forecast|learnloop.adaptive_difficulty.surprise_forecast]], [[Reference/Modules/learnloop/attempts/attempts|learnloop.attempts.attempts]], [[Reference/Modules/learnloop/content/authoring/source_exercise_import|learnloop.content.authoring.source_exercise_import]] and 20 more.
 
 The workflow notes own end-to-end sequencing; this reference owns only the module-level source map, contracts, and change surface.
 
@@ -148,6 +149,9 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_an_item_without_a_required_method_serializes_and_hashes_as_before`
 - [tests/test_required_method_rereview.py](../../../../../../tests/test_required_method_rereview.py) — direct import
 - [tests/test_required_method_round3.py](../../../../../../tests/test_required_method_round3.py) — direct import
+- [tests/test_selected_forecast.py](../../../../../../tests/test_selected_forecast.py) — direct import
+  - `test_a_grade_saves_no_item_revision_and_an_answer_on_its_contract_is_still_forecast`
+  - `test_grade_uses_the_revision_frozen_on_open`
 - [tests/test_source_exercise_import.py](../../../../../../tests/test_source_exercise_import.py) — direct import
   - `test_a_lapsed_unclaimed_check_cannot_complete_or_clear_pending`
   - `test_a_retried_written_import_restores_a_missing_check`

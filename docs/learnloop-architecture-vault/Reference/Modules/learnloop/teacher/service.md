@@ -272,6 +272,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/live_dialogue_contract_helpers.py](../../../../../../tests/live_dialogue_contract_helpers.py) — direct import
 - [tests/reader_rw5d_p4b_teacher_visuals_helpers.py](../../../../../../tests/reader_rw5d_p4b_teacher_visuals_helpers.py) — direct import
 - [tests/teacher_fakes.py](../../../../../../tests/teacher_fakes.py) — direct import
+- [tests/teacher_te1_lesson_helpers.py](../../../../../../tests/teacher_te1_lesson_helpers.py) — direct import
 - [tests/teacher_te1_review_fixes_helpers.py](../../../../../../tests/teacher_te1_review_fixes_helpers.py) — direct import
 - [tests/teacher_te2_probes_helpers.py](../../../../../../tests/teacher_te2_probes_helpers.py) — direct import
 - [tests/teacher_te2log_receipt_helpers.py](../../../../../../tests/teacher_te2log_receipt_helpers.py) — direct import

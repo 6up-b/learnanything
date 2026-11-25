@@ -341,6 +341,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/required_method_round3_review_helpers.py](../../../../../../tests/required_method_round3_review_helpers.py) — direct import
 - [tests/reread_safety_helpers.py](../../../../../../tests/reread_safety_helpers.py) — direct import
 - [tests/sources_merge_composition_helpers.py](../../../../../../tests/sources_merge_composition_helpers.py) — direct import
+- [tests/surprise_reads_ad_forecast_helpers.py](../../../../../../tests/surprise_reads_ad_forecast_helpers.py) — direct import
 - [tests/teacher_te0_confidence_events_helpers.py](../../../../../../tests/teacher_te0_confidence_events_helpers.py) — direct import
 - [tests/test_activity_backfill.py](../../../../../../tests/test_activity_backfill.py) — direct import
   - `test_backfill_logs_attempt_duration_interaction_events`
@@ -918,6 +919,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_secondary_refuses_a_schema_it_would_have_to_migrate`
 - [tests/test_section_coverage_migration.py](../../../../../../tests/test_section_coverage_migration.py) — direct import
   - `test_222_on_the_durability_lane`
+- [tests/test_selected_forecast.py](../../../../../../tests/test_selected_forecast.py) — direct import
+  - `test_a_grade_saves_no_item_revision_and_an_answer_on_its_contract_is_still_forecast`
 - [tests/test_shadow_rebuild.py](../../../../../../tests/test_shadow_rebuild.py) — direct import
 - [tests/test_sidecar_close_cancels_jobs.py](../../../../../../tests/test_sidecar_close_cancels_jobs.py) — direct import
   - `test_shutting_down_the_gaps_slot_inside_a_request_sends_no_further_request`

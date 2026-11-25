@@ -378,6 +378,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/teach_back_helpers.py](../../../../../../tests/teach_back_helpers.py) — direct import
 - [tests/teacher_fakes.py](../../../../../../tests/teacher_fakes.py) — direct import
 - [tests/teacher_te0_confidence_events_helpers.py](../../../../../../tests/teacher_te0_confidence_events_helpers.py) — direct import
+- [tests/teacher_te1_lesson_helpers.py](../../../../../../tests/teacher_te1_lesson_helpers.py) — direct import
 - [tests/teacher_te1_review_fixes_helpers.py](../../../../../../tests/teacher_te1_review_fixes_helpers.py) — direct import
 - [tests/teacher_te1_successor_helpers.py](../../../../../../tests/teacher_te1_successor_helpers.py) — direct import
 - [tests/teacher_te1b_landing_r2_helpers.py](../../../../../../tests/teacher_te1b_landing_r2_helpers.py) — direct import
@@ -3218,6 +3219,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_invalid_fifth_topic_does_not_stop_the_rest_and_try_again_only_asks_it`
   - `test_queue_revision_reload_sees_each_part_before_the_job_finishes`
 - [tests/test_selected_forecast.py](../../../../../../tests/test_selected_forecast.py) — direct import
+  - `test_a_grade_saves_no_item_revision_and_an_answer_on_its_contract_is_still_forecast`
+  - `test_an_answer_to_its_own_presentation_after_an_edit_keeps_the_link_and_reads_mastery`
   - `test_another_sessions_presentation_is_left_for_its_answer`
   - `test_grade_uses_the_revision_frozen_on_open`
   - `test_selection_view_and_missing_selection_live_and_rebuilt`

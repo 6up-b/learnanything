@@ -249,7 +249,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 
 ### LearnLoop dependencies
 
-- [[Reference/Modules/learnloop/adaptive_difficulty/surprise_forecast|learnloop.adaptive_difficulty.surprise_forecast]] — imports `read_surprise_forecast`, `record_grade_forecast`, `validate_live_binding`, `with_grade_forecast`; calls `read_surprise_forecast`, `record_grade_forecast`, `validate_live_binding`, `with_grade_forecast`
+- [[Reference/Modules/learnloop/adaptive_difficulty/surprise_forecast|learnloop.adaptive_difficulty.surprise_forecast]] — imports `live_answered_revision`, `read_surprise_forecast`, `record_grade_forecast`, `validate_live_binding`, `with_grade_forecast`; calls `live_answered_revision`, `read_surprise_forecast`, `record_grade_forecast`, `validate_live_binding`, `with_grade_forecast`
 - [[Reference/Modules/learnloop/ai/client|learnloop.ai.client]] — imports `AIProviderClient`
 - [[Reference/Modules/learnloop/ai/errors|learnloop.ai.errors]] — imports `CodexUnavailable`; calls `CodexUnavailable`
 - [[Reference/Modules/learnloop/ai/runs|learnloop.ai.runs]] — imports `finish_agent_run`; calls `finish_agent_run`
@@ -780,6 +780,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_censored_learning_objects_are_reported_and_excluded_from_the_mean`
   - `test_certification_replay_prunes_past_an_adjudicated_attempt`
 - [tests/test_selected_forecast.py](../../../../../../tests/test_selected_forecast.py) — direct import
+  - `test_a_grade_saves_no_item_revision_and_an_answer_on_its_contract_is_still_forecast`
+  - `test_an_answer_to_its_own_presentation_after_an_edit_keeps_the_link_and_reads_mastery`
   - `test_another_sessions_presentation_is_left_for_its_answer`
   - `test_grade_uses_the_revision_frozen_on_open`
   - `test_selection_view_and_missing_selection_live_and_rebuilt`

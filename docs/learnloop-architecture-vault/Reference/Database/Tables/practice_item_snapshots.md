@@ -121,6 +121,7 @@ None found by exact static reference scan.
 - `tests/test_required_method_round3.py`
 - `tests/test_required_method_round3_final_verify.py`
 - `tests/test_required_method_round3_review.py`
+- `tests/test_selected_forecast.py`
 - `tests/test_success_head_cli.py`
 - `tests/test_probe_episodes.py`
 - `tests/test_voi_forecasts.py`

@@ -2024,6 +2024,8 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_first_of_eight_topics_is_served_while_the_second_is_being_written`
   - `test_invalid_fifth_topic_does_not_stop_the_rest_and_try_again_only_asks_it`
 - [tests/test_selected_forecast.py](../../../../../tests/test_selected_forecast.py) — direct import
+  - `test_a_grade_saves_no_item_revision_and_an_answer_on_its_contract_is_still_forecast`
+  - `test_an_answer_to_its_own_presentation_after_an_edit_keeps_the_link_and_reads_mastery`
   - `test_another_sessions_presentation_is_left_for_its_answer`
   - `test_grade_uses_the_revision_frozen_on_open`
   - `test_selection_view_and_missing_selection_live_and_rebuilt`

@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/learner/assessment_contracts.py](../../../../../../src/learnloop/learner/assessment_contracts.py) |
-| Source lines | 271 |
+| Source lines | 279 |
 | Owning package | [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -59,7 +59,7 @@ The authoritative system-level explanation remains in [[Learning System]]; this 
 - `rubric_from_contract(contract: dict[str, Any]) -> Rubric` ([source](../../../../../../src/learnloop/learner/assessment_contracts.py), line 191) — Rehydrate the immutable grading rubric used at presentation time.
 - `contract_hash(contract: dict[str, Any]) -> str` ([source](../../../../../../src/learnloop/learner/assessment_contracts.py), line 222) — Content-addressed hash of a compiled contract (attribution-affecting only).
 - `presented_contract_id(repository, attempt_id: str) -> str | None` ([source](../../../../../../src/learnloop/learner/assessment_contracts.py), line 228)
-- `snapshot_for_presentation(repository, vault: LoadedVault, item: PracticeItem, *, rubric: Rubric | None=None, clock: Clock | None=None) -> str` ([source](../../../../../../src/learnloop/learner/assessment_contracts.py), line 244) — Ensure an assessment-contract snapshot exists for a presented item (§5.2).
+- `snapshot_for_presentation(repository, vault: LoadedVault, item: PracticeItem, *, rubric: Rubric | None=None, clock: Clock | None=None, save_revision: bool=True) -> str` ([source](../../../../../../src/learnloop/learner/assessment_contracts.py), line 244) — Ensure an assessment-contract snapshot exists for a presented item (§5.2).
 
 ### Module constants
 
@@ -153,6 +153,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
   - `test_f14_the_grader_renders_the_instruction_the_frozen_contract_presented`
 - [tests/test_router_card.py](../../../../../../tests/test_router_card.py) — direct import
 - [tests/test_selected_forecast.py](../../../../../../tests/test_selected_forecast.py) — direct import
+  - `test_a_grade_saves_no_item_revision_and_an_answer_on_its_contract_is_still_forecast`
   - `test_grade_uses_the_revision_frozen_on_open`
 - [tests/test_ux_phase4_feedback.py](../../../../../../tests/test_ux_phase4_feedback.py) — direct import
 - [tests/test_voi_forecasts.py](../../../../../../tests/test_voi_forecasts.py) — direct import
