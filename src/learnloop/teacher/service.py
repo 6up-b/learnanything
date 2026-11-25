@@ -1884,8 +1884,8 @@ def _call_teacher(vault: Any, repository: Any, state: LessonState, client: Any, 
         state.pending_results = [r for r in state.pending_results if str(r.get("turn_id")) not in delivered]
     if turn_obj.message:
         outcome.shown.append({"kind": "message", "text": turn_obj.message, "choices": list(turn_obj.choices)})
-    outcome.shown.extend({"kind": "notice", "text": TP.proposal_text(request)} for request in turn_obj.requests
-                         if isinstance(request, CreateGoalLo))
+    outcome.shown.extend({"kind": "notice", "text": TP.proposal_text(request), "_anchors": list(request.anchors)}
+                         for request in turn_obj.requests if isinstance(request, CreateGoalLo))
     return turn_obj, entry
 
 
@@ -2105,7 +2105,8 @@ def _execute(vault: Any, repository: Any, state: LessonState, turn_obj: TeacherT
                                          clock=clock)
                 entry = _append(repository, state, actor="code", action="topic_offer", refs=_effect_refs(turn_entry, effect),
                                 payload=offer, clock=clock)
-                outcome.shown.append({"kind": "notice", "text": TP.offer_text(entry)})
+                outcome.shown.append({"kind": "notice", "text": TP.offer_text(entry),
+                                      "_anchors": list(offer.get("anchors") or [])})
             case PR.REQUEST:
                 _serve_probe(vault, repository, state, turn_obj, request, turn_entry=turn_entry, effect=effect,
                              model=model, outcome=outcome, clock=clock)
@@ -2811,6 +2812,79 @@ def _stability_inputs(repository: Any, landed: Sequence[Mapping[str, Any]], rows
 # =============================================================================
 
 
+#: What the screen shows in place of saved words that quote material protected since they were written (TE5-R2).
+SHOWN_WITHHELD = "This part is now reserved for an exam."
+#: ... and when what is protected cannot be read (fail closed).
+SHOWN_UNCHECKED = "This part is hidden because LearnLoop couldn't check what's kept for your exams."
+#: The feed entry fields that carry saved words (``choices`` is their list).
+_SHOWN_FIELDS = ("text", "question", "prompt", "recap", "grader_feedback", "statement")
+
+
+class _DisplayScreen:
+    """Today's protection over a lesson's saved words as the screen shows them (TE5-R2): a string that quotes a
+    question kept for an exam or held out (``quotes_reserved``, the one predicate) or cites a delivered passage that
+    is no longer teachable is replaced in plain words. The ledger keeps what was written (replay reads it); only the
+    display changes. The learner's own words are shown back as typed."""
+
+    def __init__(self, vault: Any, repository: Any, state: LessonState) -> None:
+        self._vault, self._repository, self._state = vault, repository, state
+        self._reserved = G.reserved_book(vault, repository)
+        self.notice = SHOWN_UNCHECKED if self._reserved.unreadable else SHOWN_WITHHELD
+        self._seen: dict[str, bool] = {}
+        self._library: Any = None
+        self._aliases: dict[str, bool] = {}
+
+    def _alias_ok(self, alias: str) -> bool:
+        from learnloop.source_retrieval.section_coverage import CoverageError, Library
+        from learnloop.teacher.brief import passage_teachable
+
+        if alias not in self._aliases:
+            passage = self._state.book.passages.get(alias)
+            try:
+                if self._library is None:
+                    self._library = Library(self._vault, self._repository)
+                self._aliases[alias] = passage is not None and passage_teachable(
+                    self._library, str(passage["extraction_id"]), str(passage["span_id"]))
+            except CoverageError:
+                self._aliases[alias] = False
+        return self._aliases[alias]
+
+    def withheld(self, text: Any) -> bool:
+        if not isinstance(text, str) or not text:
+            return False
+        if text not in self._seen:
+            self._seen[text] = (G.quotes_reserved(text, self._reserved)
+                                or not all(self._alias_ok(alias) for alias in G.cited_aliases(text)))
+        return self._seen[text]
+
+    def text(self, text: Any) -> Any:
+        return self.notice if self.withheld(text) else text
+
+    def entry(self, entry: Mapping[str, Any]) -> dict[str, Any]:
+        """A feed entry with its saved words screened: a withheld question, prompt or message shows the notice and
+        no choices; a withheld recap or feedback alone is replaced, the rest of its card stays."""
+
+        out = dict(entry)
+        # A topic proposal's passages (its anchors) are shown by no field, but the proposal is about them.
+        anchors = [str(alias) for alias in out.pop("_anchors", None) or []]
+        if out.get("kind") == "learner":
+            return out
+        choices = [str(choice) for choice in out.get("choices") or []]
+        hit = (any(self.withheld(out.get(key)) for key in _SHOWN_FIELDS) or any(map(self.withheld, choices))
+               or not all(self._alias_ok(alias) for alias in anchors))
+        if not hit:
+            return out
+        for key in _SHOWN_FIELDS:
+            if key in ("text", "question", "prompt") and key in out:
+                out[key] = self.notice
+            elif self.withheld(out.get(key)):
+                out[key] = self.notice
+        if "choices" in out:
+            out["choices"] = []
+        out["withheld"] = True
+        return out
+
+
 def view(vault: Any, repository: Any, lesson_id: str, *, outcome: _Outcome | None = None,
          clock: Clock | None = None) -> dict[str, Any]:
     """The lesson as the screen shows it: what was shown, in order, the plan map, the open check
@@ -2841,7 +2915,8 @@ def view(vault: Any, repository: Any, lesson_id: str, *, outcome: _Outcome | Non
                 feed.append(shown)
         elif action == "topic_offer":
             feed.append({"kind": "notice", "text": TP.offer_text(entry, active=not state.closed and
-                                                              entry["id"] not in decided_offers)})
+                                                              entry["id"] not in decided_offers),
+                         "_anchors": list(data.get("anchors") or [])})
         elif action == "topic_refused":
             feed.append({"kind": "notice", "text": data["message"]})
         elif action == "topic_declined":
@@ -2851,8 +2926,8 @@ def view(vault: Any, repository: Any, lesson_id: str, *, outcome: _Outcome | Non
             if turn_data.get("message"):
                 feed.append({"kind": "message", "text": turn_data["message"], "choices": turn_data.get("choices") or []})
             if data.get("goal_topics"):
-                feed.extend({"kind": "notice", "text": TP.proposal_text(request)} for request in _stored_turn(entry).requests
-                            if isinstance(request, CreateGoalLo))
+                feed.extend({"kind": "notice", "text": TP.proposal_text(request), "_anchors": list(request.anchors)}
+                            for request in _stored_turn(entry).requests if isinstance(request, CreateGoalLo))
         elif action == "pose_prediction":
             feed.append({"kind": "prediction", **{k: data.get(k) for k in ("node", "prompt", "choices")}})
         elif action == "pose_check":
@@ -2881,31 +2956,37 @@ def view(vault: Any, repository: Any, lesson_id: str, *, outcome: _Outcome | Non
                                                            c.get("learning_object_id") or "") else None),
                                              "purpose": c.get("purpose"), "due": c.get("due")}
                                             for c in data.get("delayed_checks") or [] if c.get("commitment_id")]})
+    screen = _DisplayScreen(vault, repository, state)
+    feed = [screen.entry(entry) for entry in feed]
+    for entry in feed:
+        for check in entry.get("delayed_checks") or []:
+            check["title"] = screen.text(check.get("title"))
     plan = state.plans[-1]["outline"] if state.plans else []
     visited = {str(c.get("node_id")) for c in state.checks if c.get("node_id")}
     current = (state.open_check or {}).get("check", {}).get("node") if state.open_check else None
-    plan_map = [{"id": node["id"], "statement": node.get("statement"),
+    plan_map = [{"id": node["id"], "statement": screen.text(node.get("statement")),
                  "position": "current" if node["id"] == current else (
                      "visited" if node["id"] in visited or node["id"] in state.landed else "upcoming")}
                 for node in plan]
     out = {
         "lesson_id": lesson_id,
-        "goal": (state.brief.get("goal") or {}).get("text"),
+        "goal": screen.text((state.brief.get("goal") or {}).get("text")),
         "learning_object_ids": state.lesson.get("learning_object_ids"),
         "closed": state.closed,
         "close_reason": state.lesson.get("close_reason"),
         "feed": feed,
         "plan": plan_map,
-        "open_check": None if state.open_check is None else {
+        "open_check": None if state.open_check is None else screen.entry({
             "check_ref": state.open_check["check_ref"], "question": state.open_check["check"]["question"],
-            "form": state.open_check["check"]["form"], "choices": state.open_check["check"].get("choices") or []},
-        "open_prediction": state.open_prediction and {k: state.open_prediction.get(k) for k in ("node", "prompt", "choices")},
+            "form": state.open_check["check"]["form"], "choices": state.open_check["check"].get("choices") or []}),
+        "open_prediction": state.open_prediction and screen.entry(
+            {k: state.open_prediction.get(k) for k in ("node", "prompt", "choices")}),
         "quick_check": {"learning_object_ids": (state.brief.get("goal") or {}).get("learning_object_ids") or []},
         "inspector": {"doctrine": state.lesson.get("doctrine_version"), "route": state.lesson.get("route"),
                       "model": state.lesson.get("model"), "forecasts": sorted(state.forecasts)},
     }
     if outcome is not None:
-        out["shown_now"] = outcome.shown
+        out["shown_now"] = [screen.entry(entry) for entry in outcome.shown]
         out["notices"] = outcome.notices
         out["vault_changed"] = outcome.vault_changed
     if "episodes" in state.capabilities:
@@ -2978,13 +3059,18 @@ def open_lessons(vault: Any, repository: Any) -> list[dict[str, Any]]:
         rows = connection.execute("SELECT id FROM lessons WHERE closed_at IS NULL ORDER BY opened_at DESC, id DESC"
                                   ).fetchall()
         lessons = [store.lesson(connection, str(row[0])) for row in rows]
+    reserved = G.reserved_book(vault, repository) if lessons else None
     for lesson in lessons:
         if lesson is None:
             continue
         titles = [vault.learning_objects[lo].title for lo in lesson.get("learning_object_ids") or []
                   if lo in vault.learning_objects]
-        out.append({"lesson_id": str(lesson["id"]), "title": ", ".join(titles) or str(lesson.get("goal_text") or ""),
-                    "goal": lesson.get("goal_text"), "opened_at": lesson.get("opened_at"),
+        # TE5-R2: the saved goal words pass today's protection, as the lesson's own view shows them.
+        goal = lesson.get("goal_text")
+        if goal and G.quotes_reserved(str(goal), reserved):
+            goal = SHOWN_UNCHECKED if reserved.unreadable else SHOWN_WITHHELD
+        out.append({"lesson_id": str(lesson["id"]), "title": ", ".join(titles) or str(goal or ""),
+                    "goal": goal, "opened_at": lesson.get("opened_at"),
                     "learning_object_ids": list(lesson.get("learning_object_ids") or [])})
     return out
 
