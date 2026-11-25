@@ -46,7 +46,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop/adaptive_difficulty/grade_forecast.py](../../../../../../src/learnloop/adaptive_difficulty/grade_forecast.py) |
-| Source lines | 169 |
+| Source lines | 172 |
 | Owning package | [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] |
 | Architecture layer | `domain` |
 | Refactor status | `ACTIVE` |
@@ -56,7 +56,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 - `receipt_id(attempt_id: str) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/grade_forecast.py), line 40) — A grade-time receipt's id, a function of its attempt (:func:`learnloop.ids.keyed_ulid`): drawn from ``ids.new_ulid`` it would shift every id the grade mints after it, and drawn from a stream of its own it would differ between two runs of the same history.
 - `receipt_key(attempt_id: str) -> str` ([source](../../../../../../src/learnloop/adaptive_difficulty/grade_forecast.py), line 48)
 - `grade_receipt(vault: Any, repository: Any, *, practice_item_id: str, attempt_id: str, at: str, answered_item: Any=None, answered_revision: str | None=None, view: Any=None, answered: Any=None) -> ForecastReceipt | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/grade_forecast.py), line 65) — AD's subject-view forecast for the answer ``attempt_id`` to ``practice_item_id`` at ``at``, from AD's state over everything recorded before it; None when AD is off, the item is protected or unknown to AD's view.
-- `safe_grade_receipt(vault: Any, repository: Any, **kwargs: Any) -> ForecastReceipt | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/grade_forecast.py), line 158) — :func:`grade_receipt`, never raising: a forecast never costs the grade.
+- `safe_grade_receipt(vault: Any, repository: Any, **kwargs: Any) -> ForecastReceipt | None` ([source](../../../../../../src/learnloop/adaptive_difficulty/grade_forecast.py), line 161) — :func:`grade_receipt`, never raising: a forecast never costs the grade.
 
 ### Module constants
 

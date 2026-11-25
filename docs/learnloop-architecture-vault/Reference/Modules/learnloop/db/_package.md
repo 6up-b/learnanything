@@ -65,7 +65,7 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 | [[Reference/Modules/learnloop/db/attempt_lifecycle_inputs|learnloop.db.attempt_lifecycle_inputs]] | [[Reference/Modules/learnloop/db/attempt_lifecycle_inputs#^module-purpose|purpose]] | `ACTIVE` | 3 | 0 |
 | [[Reference/Modules/learnloop/db/attempt_order|learnloop.db.attempt_order]] | [[Reference/Modules/learnloop/db/attempt_order#^module-purpose|purpose]] | `ACTIVE` | 11 | 4 |
 | [[Reference/Modules/learnloop/db/checkpoint|learnloop.db.checkpoint]] | [[Reference/Modules/learnloop/db/checkpoint#^module-purpose|purpose]] | `ACTIVE` | 3 | 2 |
-| [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] | [[Reference/Modules/learnloop/db/connection#^module-purpose|purpose]] | `ACTIVE` | 197 | 260 |
+| [[Reference/Modules/learnloop/db/connection|learnloop.db.connection]] | [[Reference/Modules/learnloop/db/connection#^module-purpose|purpose]] | `ACTIVE` | 196 | 260 |
 | [[Reference/Modules/learnloop/db/copies|learnloop.db.copies]] | [[Reference/Modules/learnloop/db/copies#^module-purpose|purpose]] | `ACTIVE` | 10 | 58 |
 | [[Reference/Modules/learnloop/db/evidence_cutoff|learnloop.db.evidence_cutoff]] | [[Reference/Modules/learnloop/db/evidence_cutoff#^module-purpose|purpose]] | `ACTIVE` | 9 | 6 |
 | [[Reference/Modules/learnloop/db/mastery_seed_inputs|learnloop.db.mastery_seed_inputs]] | [[Reference/Modules/learnloop/db/mastery_seed_inputs#^module-purpose|purpose]] | `ACTIVE` | 5 | 0 |
@@ -97,8 +97,8 @@ For system intent, use [[State and Persistence]], [[Architecture Overview]].
 - [[Reference/Modules/learnloop/db/stores/_package|learnloop.db.stores]] — 38 static module edges
 - [[Reference/Modules/learnloop_sidecar/handlers/_package|learnloop_sidecar.handlers]] — 30 static module edges
 - [[Reference/Modules/learnloop/substrate/_package|learnloop.substrate]] — 29 static module edges
-- [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 28 static module edges
 - [[Reference/Modules/learnloop/learner/_package|learnloop.learner]] — 28 static module edges
+- [[Reference/Modules/learnloop/adaptive_difficulty/_package|learnloop.adaptive_difficulty]] — 27 static module edges
 - [[Reference/Modules/learnloop/cli/_package|learnloop.cli]] — 27 static module edges
 - [[Reference/Modules/learnloop/instructional/_package|learnloop.instructional]] — 25 static module edges
 - [[Reference/Modules/learnloop/scheduling/_package|learnloop.scheduling]] — 24 static module edges
@@ -163,8 +163,8 @@ flowchart LR
     n_learnloop_diagnosis["learnloop.diagnosis"]
     n_learnloop_sidecar_handlers["learnloop_sidecar.handlers"]
     n_learnloop_substrate["learnloop.substrate"]
-    n_learnloop_adaptive_difficulty["learnloop.adaptive_difficulty"]
     n_learnloop_learner["learnloop.learner"]
+    n_learnloop_adaptive_difficulty["learnloop.adaptive_difficulty"]
     n_learnloop_cli["learnloop.cli"]
     n_learnloop_instructional["learnloop.instructional"]
     n_learnloop_scheduling["learnloop.scheduling"]
@@ -174,8 +174,8 @@ flowchart LR
     n_learnloop_diagnosis -->|57| center
     n_learnloop_sidecar_handlers -->|30| center
     n_learnloop_substrate -->|29| center
-    n_learnloop_adaptive_difficulty -->|28| center
     n_learnloop_learner -->|28| center
+    n_learnloop_adaptive_difficulty -->|27| center
     n_learnloop_cli -->|27| center
     n_learnloop_instructional -->|25| center
     n_learnloop_scheduling -->|24| center

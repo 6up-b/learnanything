@@ -47,7 +47,7 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
 | Fact | Value |
 |---|---|
 | Source | [src/learnloop_sidecar/post_attempt_worker.py](../../../../../src/learnloop_sidecar/post_attempt_worker.py) |
-| Source lines | 339 |
+| Source lines | 343 |
 | Owning package | [[Reference/Modules/learnloop_sidecar/_package|learnloop_sidecar]] |
 | Architecture layer | `adapter` |
 | Refactor status | `ACTIVE` |
@@ -71,8 +71,8 @@ The authoritative system-level explanation remains in [[Architecture Overview]];
   - `_run_followup(self, vault: Any, repository: Any, *, max_jobs: int, clock: Any) -> list[Any]` (line 249; internal) — FG1: the generation slot, apart from the strictly ordered diagnosis slot, so a later diagnosis is never delayed by a question being written (spec §5 item 1).
   - `_run_probe_router(self, vault: Any, repository: Any, *, max_jobs: int, clock: Any) -> list[Any]` (line 270; internal) — The probe router's decisions, off the request loop: the learner lane's a status read left waiting, then the continuations router-owned episodes wait on.
   - `_with_busy_retry(self, work: Callable[[], Any]) -> Any` (line 285; internal)
-  - `_loop(self, kind: str) -> None` (line 300; internal)
-  - `wait_for(self, pending: Callable[[], list[str]], timeout: float) -> tuple[list[str], float]` (line 317; public) — Wait until ``pending()`` is empty or ``timeout`` passes.
+  - `_loop(self, kind: str) -> None` (line 304; internal)
+  - `wait_for(self, pending: Callable[[], list[str]], timeout: float) -> tuple[list[str], float]` (line 321; public) — Wait until ``pending()`` is empty or ``timeout`` passes.
 
 ### Module constants
 
@@ -146,6 +146,7 @@ The workflow notes own end-to-end sequencing; this reference owns only the modul
 - [tests/test_library_ask_review.py](../../../../../tests/test_library_ask_review.py) — direct import
   - `test_the_pinned_tutor_burns_a_reserve_it_reproduces_and_joins_history_and_gaps`
 - [tests/test_post_attempt_worker.py](../../../../../tests/test_post_attempt_worker.py) — direct import
+  - `test_a_slot_backing_off_a_busy_database_stops_at_shutdown`
   - `test_busy_database_is_retried_with_backoff`
 - [tests/test_protection_surface_matrix.py](../../../../../tests/test_protection_surface_matrix.py) — direct import
 - [tests/test_provenance.py](../../../../../tests/test_provenance.py) — direct import
